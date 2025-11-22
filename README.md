@@ -1,4 +1,4 @@
-# smart-wheel-engine
+# Smart-Wheel-Engine
 1. Executive Summary
    
 This project develops a systematic, data-driven framework for managing short-put and covered-call strategies. Instead of relying on fixed rules or intuition, the system evaluates each potential trade using probability estimates and expected-value calculations derived from historical data.

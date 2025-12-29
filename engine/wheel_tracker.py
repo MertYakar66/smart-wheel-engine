@@ -9,6 +9,12 @@ from enum import Enum
 from typing import Optional, List, Dict
 import pandas as pd
 
+from .transaction_costs import (
+    calculate_total_entry_cost,
+    calculate_total_exit_cost,
+    calculate_assignment_costs
+)
+
 
 class PositionState(Enum):
     """State machine for Wheel positions"""
@@ -104,11 +110,19 @@ class WheelTracker:
             print(f"[SKIP] Insufficient buying power for {ticker} put")
             return False
         
-        # Collect premium (credit to cash)
-        premium_collected = premium * 100  # 1 contract = 100 shares
-        commission = 0.65
-        
-        self.cash += premium_collected - commission
+        # Calculate entry costs (commission + slippage) and net premium collected
+        cost_details = calculate_total_entry_cost(
+            premium_per_share=premium,
+            bid_ask_spread=premium * 0.10,  # temporary approx: 10% of option price
+            trade_type="option"
+        )
+
+        premium_collected = cost_details["net_premium_collected"]
+        commission = cost_details["commission"]
+        slippage = cost_details["slippage"]
+
+        # Credit net premium to cash (per-contract)
+        self.cash += premium_collected
         
         # Create position (store explicit expiration date and derived DTE)
         derived_dte = (expiration_date - entry_date).days
@@ -122,8 +136,8 @@ class WheelTracker:
             put_dte_at_entry=derived_dte,  # Derived from dates
             put_entry_iv=iv,
             put_expiration_date=expiration_date,  # NEW: store explicit date
-            realized_pnl=premium_collected,
-            transaction_costs=commission
+            realized_pnl=cost_details["gross_premium"],
+            transaction_costs=cost_details["total_cost"]
         )
 
         self.positions[ticker].notes.append(
@@ -158,16 +172,19 @@ class WheelTracker:
         if pos.state != PositionState.SHORT_PUT:
             return None
         
-        # Calculate P&L
-        premium_collected = pos.put_premium * 100
-        buyback_cost = buyback_price * 100
-        commission = 0.65
-        
-        gross_pnl = premium_collected - buyback_cost
+        # Calculate exit costs (buyback + slippage + commission)
+        cost_details = calculate_total_exit_cost(
+            buyback_price_per_share=buyback_price,
+            bid_ask_spread=buyback_price * 0.10,
+            trade_type="option"
+        )
+
+        gross_pnl = pos.put_premium * 100 - cost_details["gross_buyback_cost"]
         pos.realized_pnl = gross_pnl  # Store GROSS P&L
-        pos.transaction_costs += commission  # Track costs separately   
-        
-        self.cash -= buyback_cost + commission
+        pos.transaction_costs += cost_details["total_cost"]
+
+        # Deduct total buyback cash (includes slippage and commission)
+        self.cash -= cost_details["total_buyback_cost"]
         
         # Record closed position
         closed = self._finalize_position(pos, exit_date, reason)
@@ -199,16 +216,21 @@ class WheelTracker:
         if pos.state != PositionState.SHORT_PUT:
             return False
         
-        # Acquire stock at strike price
-        stock_cost = pos.put_strike * 100
-        assignment_fee = 5.0
+        # Acquire stock at strike price (include assignment fee)
+        assignment_details = calculate_assignment_costs(
+            strike_price=pos.put_strike,
+            shares=100
+        )
+
+        stock_cost = assignment_details["stock_cost"]
+        assignment_fee = assignment_details["assignment_fee"]
         
-        if self.cash < stock_cost + assignment_fee:
+        if self.cash < assignment_details["total_cash_required"]:
             # In reality, broker would margin call or auto-liquidate
             # For simulation, we'll allow it but flag
             pos.notes.append(f"WARNING: Assignment required ${stock_cost:.2f}, only ${self.cash:.2f} available")
         
-        self.cash -= stock_cost + assignment_fee
+        self.cash -= assignment_details["total_cash_required"]
         
         # Update position state
         pos.state = PositionState.STOCK_OWNED
@@ -288,11 +310,15 @@ class WheelTracker:
         if pos.state != PositionState.STOCK_OWNED:
             return False
         
-        # Collect call premium
-        premium_collected = premium * 100
-        commission = 0.65
+        # Calculate entry costs for covered call (commission + slippage)
+        cost_details = calculate_total_entry_cost(
+            premium_per_share=premium,
+            bid_ask_spread=premium * 0.10,
+            trade_type="option"
+        )
 
-        self.cash += premium_collected - commission
+        # Credit net premium to cash
+        self.cash += cost_details["net_premium_collected"]
 
         # Update position state and store explicit expiration date
         derived_dte = (expiration_date - entry_date).days
@@ -303,14 +329,69 @@ class WheelTracker:
         pos.call_dte_at_entry = derived_dte  # Derived
         pos.call_entry_iv = iv
         pos.call_expiration_date = expiration_date  # NEW: explicit date
-        pos.realized_pnl += premium_collected
-        pos.transaction_costs += commission
+        pos.realized_pnl += cost_details["gross_premium"]
+        pos.transaction_costs += cost_details["total_cost"]
 
         pos.notes.append(
             f"Sold {derived_dte}d {strike}C for ${premium:.2f} premium"
         )
         
         return True
+
+    def close_covered_call(
+        self,
+        ticker: str,
+        buyback_price: float,
+        exit_date: date,
+        reason: str = "early_exit"
+    ) -> Optional[Dict]:
+        """
+        Buy back an outstanding covered call early (before expiration).
+
+        Returns a dict summarizing the buyback including the call-leg P&L.
+        """
+        if ticker not in self.positions:
+            return None
+
+        pos = self.positions[ticker]
+        if pos.state != PositionState.COVERED_CALL:
+            return None
+
+        # Compute entry premium collected (per-contract)
+        premium_collected = (pos.call_premium or 0.0) * 100
+
+        # Compute exit costs including slippage and commission
+        cost_details = calculate_total_exit_cost(
+            buyback_price_per_share=buyback_price,
+            bid_ask_spread=buyback_price * 0.10,
+            trade_type="option"
+        )
+
+        gross_pnl = premium_collected - cost_details["gross_buyback_cost"]
+        pos.realized_pnl += gross_pnl
+        pos.transaction_costs += cost_details["total_cost"]
+
+        # Deduct total cash paid to buy back the call
+        self.cash -= cost_details["total_buyback_cost"]
+
+        # Revert to stock-owned state (we keep the shares)
+        pos.state = PositionState.STOCK_OWNED
+        pos.call_strike = None
+        pos.call_premium = None
+        pos.call_entry_date = None
+        pos.call_dte_at_entry = None
+        pos.call_entry_iv = None
+        pos.call_expiration_date = None
+
+        pos.notes.append(f"Bought back call for ${buyback_price:.2f} due to {reason}")
+
+        return {
+            'ticker': ticker,
+            'call_leg_pnl': gross_pnl,
+            'transaction_costs': cost_details["total_cost"],
+            'cash_after': self.cash,
+            'reason': reason
+        }
     
     def handle_call_assignment(
         self,
@@ -334,10 +415,14 @@ class WheelTracker:
         if pos.state != PositionState.COVERED_CALL:
             return None
         
-        # Sell stock at call strike
+        # Sell stock at call strike (account for assignment fee)
         stock_proceeds = pos.call_strike * 100
-        assignment_fee = 5.0
-        
+        assignment_details = calculate_assignment_costs(
+            strike_price=pos.call_strike,
+            shares=100
+        )
+        assignment_fee = assignment_details["assignment_fee"]
+
         self.cash += stock_proceeds - assignment_fee
         
         # Calculate stock P&L

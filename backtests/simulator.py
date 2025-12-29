@@ -157,7 +157,6 @@ class WheelBacktester:
             
             # Handle COVERED CALL positions
             elif pos.state.value == 'covered_call':
-                # Check expiration (use explicit expiration date)
                 if pos.call_expiration_date and current_date >= pos.call_expiration_date:
                     if current_stock_price > pos.call_strike:
                         self.tracker.handle_call_assignment(ticker, current_date)
@@ -165,7 +164,6 @@ class WheelBacktester:
                         self.tracker.handle_call_expiration(ticker, current_date, current_stock_price)
                     continue
 
-                # Early exit logic for covered calls (similar to puts)
                 days_remaining = (pos.call_expiration_date - current_date).days if pos.call_expiration_date else pos.call_dte_at_entry
                 
                 estimated_call_value = estimate_option_price_from_iv(
@@ -177,11 +175,32 @@ class WheelBacktester:
                     option_type='call'
                 )
                 
+                max_profit = pos.call_premium
                 current_profit = pos.call_premium - estimated_call_value
-                if current_profit >= self.profit_target_pct * pos.call_premium:
-                    # Buy back call (simplified: assume we can close, stay in stock)
-                    # In reality, you'd then sell another call or exit stock
-                    pass  # TODO: Implement call buyback logic
+
+                if current_profit >= self.profit_target_pct * max_profit:
+                    result = self.tracker.close_covered_call(ticker, estimated_call_value, current_date, "profit_target")
+                    if result:
+                        self.trade_log.append({
+                            'date': current_date,
+                            'ticker': ticker,
+                            'action': 'close_covered_call',
+                            'buyback_price': estimated_call_value,
+                            'reason': 'profit_target'
+                        })
+                    continue
+
+                if estimated_call_value >= self.stop_loss_multiple * pos.call_premium:
+                    result = self.tracker.close_covered_call(ticker, estimated_call_value, current_date, "stop_loss")
+                    if result:
+                        self.trade_log.append({
+                            'date': current_date,
+                            'ticker': ticker,
+                            'action': 'close_covered_call',
+                            'buyback_price': estimated_call_value,
+                            'reason': 'stop_loss'
+                        })
+                    continue
             
             # Handle STOCK OWNED (no call sold yet)
             elif pos.state.value == 'stock_owned':

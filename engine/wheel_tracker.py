@@ -12,7 +12,9 @@ import pandas as pd
 from .transaction_costs import (
     calculate_total_entry_cost,
     calculate_total_exit_cost,
-    calculate_assignment_costs
+    calculate_assignment_costs,
+    calculate_reg_t_margin_short_put,
+    calculate_actual_spread
 )
 
 
@@ -101,19 +103,24 @@ class WheelTracker:
         """
         # Check if already have position in this ticker
         if ticker in self.positions:
-            print(f"[SKIP] Already have position in {ticker}")
             return False
-        
-        # Check buying power (simplified: 20% of strike value as margin)
-        margin_required = strike * 100 * 0.20
+
+        # Check buying power using proper Reg-T margin calculation
+        underlying_price = strike  # Approximate if not provided
+        margin_required = calculate_reg_t_margin_short_put(
+            strike=strike,
+            underlying_price=underlying_price,
+            premium=premium
+        )
         if self.cash < margin_required:
-            print(f"[SKIP] Insufficient buying power for {ticker} put")
             return False
         
         # Calculate entry costs (commission + slippage) and net premium collected
         cost_details = calculate_total_entry_cost(
             premium_per_share=premium,
-            bid_ask_spread=premium * 0.10,  # temporary approx: 10% of option price
+            bid_ask_spread=None,  # Will use fallback
+            bid=None,
+            ask=None,
             trade_type="option"
         )
 

@@ -623,3 +623,448 @@ def calculate_optimal_contracts(
     contracts_by_margin = int(capital / margin_per_contract)
 
     return max(1, min(contracts_by_risk, contracts_by_margin))
+
+
+# =============================================================================
+# Sector Exposure Management
+# =============================================================================
+
+# GICS Sector mappings (simplified)
+DEFAULT_SECTOR_MAP: Dict[str, str] = {
+    # Technology
+    'AAPL': 'Technology', 'MSFT': 'Technology', 'GOOGL': 'Technology',
+    'AMZN': 'Consumer Discretionary', 'META': 'Technology', 'NVDA': 'Technology',
+    'AMD': 'Technology', 'INTC': 'Technology', 'CRM': 'Technology',
+    'ADBE': 'Technology', 'NFLX': 'Communication Services', 'TSLA': 'Consumer Discretionary',
+
+    # Financials
+    'JPM': 'Financials', 'BAC': 'Financials', 'WFC': 'Financials',
+    'GS': 'Financials', 'MS': 'Financials', 'C': 'Financials',
+    'AXP': 'Financials', 'BLK': 'Financials',
+
+    # Healthcare
+    'JNJ': 'Healthcare', 'UNH': 'Healthcare', 'PFE': 'Healthcare',
+    'MRK': 'Healthcare', 'ABBV': 'Healthcare', 'LLY': 'Healthcare',
+
+    # Consumer
+    'PG': 'Consumer Staples', 'KO': 'Consumer Staples', 'PEP': 'Consumer Staples',
+    'WMT': 'Consumer Staples', 'COST': 'Consumer Staples',
+    'HD': 'Consumer Discretionary', 'MCD': 'Consumer Discretionary',
+    'NKE': 'Consumer Discretionary', 'SBUX': 'Consumer Discretionary',
+    'DIS': 'Communication Services',
+
+    # Energy
+    'XOM': 'Energy', 'CVX': 'Energy', 'COP': 'Energy',
+    'SLB': 'Energy', 'EOG': 'Energy',
+
+    # Industrials
+    'CAT': 'Industrials', 'BA': 'Industrials', 'HON': 'Industrials',
+    'UPS': 'Industrials', 'MMM': 'Industrials', 'GE': 'Industrials',
+
+    # ETFs
+    'SPY': 'ETF-Broad', 'QQQ': 'ETF-Tech', 'IWM': 'ETF-SmallCap',
+    'DIA': 'ETF-Broad', 'XLF': 'ETF-Sector', 'XLE': 'ETF-Sector',
+    'XLK': 'ETF-Sector', 'XLV': 'ETF-Sector',
+}
+
+
+@dataclass
+class SectorExposure:
+    """Sector-level exposure metrics."""
+    sector: str
+    position_count: int
+    notional_exposure: float
+    exposure_pct: float  # As % of portfolio
+    symbols: List[str]
+
+    @property
+    def is_concentrated(self) -> bool:
+        """Check if sector is over-concentrated (>25%)."""
+        return self.exposure_pct > 0.25
+
+
+class SectorExposureManager:
+    """
+    Manage sector-level portfolio exposure.
+
+    Prevents over-concentration in correlated sectors.
+    """
+
+    def __init__(
+        self,
+        sector_map: Optional[Dict[str, str]] = None,
+        max_sector_pct: float = 0.25
+    ):
+        """
+        Args:
+            sector_map: Dict of symbol -> sector
+            max_sector_pct: Maximum allocation per sector
+        """
+        self.sector_map = sector_map or DEFAULT_SECTOR_MAP
+        self.max_sector_pct = max_sector_pct
+
+    def get_sector(self, symbol: str) -> str:
+        """Get sector for symbol."""
+        return self.sector_map.get(symbol, 'Unknown')
+
+    def calculate_sector_exposures(
+        self,
+        positions: List[Dict],
+        portfolio_value: float
+    ) -> Dict[str, SectorExposure]:
+        """
+        Calculate exposure by sector.
+
+        Args:
+            positions: List of position dicts with 'symbol', 'strike', 'contracts'
+            portfolio_value: Total portfolio value
+
+        Returns:
+            Dict of sector -> SectorExposure
+        """
+        sector_data: Dict[str, Dict] = {}
+
+        for pos in positions:
+            symbol = pos['symbol']
+            sector = self.get_sector(symbol)
+            notional = pos['strike'] * 100 * pos['contracts']
+
+            if sector not in sector_data:
+                sector_data[sector] = {
+                    'notional': 0,
+                    'count': 0,
+                    'symbols': []
+                }
+
+            sector_data[sector]['notional'] += notional
+            sector_data[sector]['count'] += 1
+            if symbol not in sector_data[sector]['symbols']:
+                sector_data[sector]['symbols'].append(symbol)
+
+        # Convert to SectorExposure objects
+        exposures = {}
+        for sector, data in sector_data.items():
+            exposure_pct = data['notional'] / portfolio_value if portfolio_value > 0 else 0
+
+            exposures[sector] = SectorExposure(
+                sector=sector,
+                position_count=data['count'],
+                notional_exposure=data['notional'],
+                exposure_pct=exposure_pct,
+                symbols=data['symbols']
+            )
+
+        return exposures
+
+    def check_sector_limit(
+        self,
+        symbol: str,
+        proposed_notional: float,
+        positions: List[Dict],
+        portfolio_value: float
+    ) -> Tuple[bool, str]:
+        """
+        Check if adding position would breach sector limit.
+
+        Returns:
+            (is_allowed, reason)
+        """
+        sector = self.get_sector(symbol)
+        exposures = self.calculate_sector_exposures(positions, portfolio_value)
+
+        current_exposure = exposures.get(sector, SectorExposure(
+            sector=sector, position_count=0, notional_exposure=0,
+            exposure_pct=0, symbols=[]
+        ))
+
+        new_exposure_pct = (
+            (current_exposure.notional_exposure + proposed_notional) / portfolio_value
+            if portfolio_value > 0 else 0
+        )
+
+        if new_exposure_pct > self.max_sector_pct:
+            return False, (
+                f"Sector '{sector}' would be {new_exposure_pct:.1%} "
+                f"(limit: {self.max_sector_pct:.1%}). "
+                f"Current positions: {current_exposure.symbols}"
+            )
+
+        return True, f"Sector '{sector}' at {new_exposure_pct:.1%} (limit: {self.max_sector_pct:.1%})"
+
+    def get_sector_violations(
+        self,
+        positions: List[Dict],
+        portfolio_value: float
+    ) -> List[str]:
+        """Get list of sector limit violations."""
+        violations = []
+        exposures = self.calculate_sector_exposures(positions, portfolio_value)
+
+        for sector, exposure in exposures.items():
+            if exposure.exposure_pct > self.max_sector_pct:
+                violations.append(
+                    f"Sector '{sector}' at {exposure.exposure_pct:.1%} > "
+                    f"limit {self.max_sector_pct:.1%} "
+                    f"(symbols: {', '.join(exposure.symbols)})"
+                )
+
+        return violations
+
+    def suggest_diversification(
+        self,
+        positions: List[Dict],
+        portfolio_value: float,
+        available_symbols: List[str]
+    ) -> List[str]:
+        """
+        Suggest symbols from under-represented sectors.
+
+        Returns list of symbols to consider for diversification.
+        """
+        exposures = self.calculate_sector_exposures(positions, portfolio_value)
+
+        # Find sectors with room
+        sectors_with_room = {}
+        for symbol in available_symbols:
+            sector = self.get_sector(symbol)
+            current = exposures.get(sector, SectorExposure(
+                sector=sector, position_count=0, notional_exposure=0,
+                exposure_pct=0, symbols=[]
+            ))
+
+            if current.exposure_pct < self.max_sector_pct * 0.5:  # Less than 50% of limit
+                if sector not in sectors_with_room:
+                    sectors_with_room[sector] = []
+                sectors_with_room[sector].append(symbol)
+
+        # Flatten and return
+        suggestions = []
+        for sector in sorted(sectors_with_room.keys()):
+            suggestions.extend(sectors_with_room[sector][:3])  # Max 3 per sector
+
+        return suggestions
+
+
+# =============================================================================
+# Hierarchical Risk Parity (HRP) Portfolio Optimization
+# =============================================================================
+
+class HierarchicalRiskParity:
+    """
+    Hierarchical Risk Parity portfolio optimization.
+
+    Advantages over Mean-Variance Optimization:
+    - Doesn't require expected return estimates
+    - More stable out-of-sample
+    - Handles correlated assets better
+
+    Based on López de Prado (2016).
+    """
+
+    def __init__(self, linkage_method: str = 'ward'):
+        """
+        Args:
+            linkage_method: Hierarchical clustering method
+                ('ward', 'single', 'complete', 'average')
+        """
+        self.linkage_method = linkage_method
+
+    def fit(
+        self,
+        returns: pd.DataFrame,
+        covariance: Optional[pd.DataFrame] = None
+    ) -> Dict[str, float]:
+        """
+        Calculate HRP weights.
+
+        Args:
+            returns: DataFrame of asset returns (T x N)
+            covariance: Optional pre-computed covariance matrix
+
+        Returns:
+            Dict of symbol -> weight
+        """
+        if covariance is None:
+            covariance = returns.cov()
+
+        # Step 1: Tree clustering
+        corr = returns.corr()
+        dist = self._correlation_distance(corr)
+        link = self._hierarchical_cluster(dist)
+
+        # Step 2: Quasi-diagonalization
+        sorted_idx = self._quasi_diagonalize(link)
+        sorted_symbols = [returns.columns[i] for i in sorted_idx]
+
+        # Step 3: Recursive bisection
+        weights = self._recursive_bisection(covariance, sorted_symbols)
+
+        return weights
+
+    def _correlation_distance(self, corr: pd.DataFrame) -> np.ndarray:
+        """Convert correlation matrix to distance matrix."""
+        # Distance = sqrt(0.5 * (1 - correlation))
+        dist = np.sqrt(0.5 * (1 - corr.values))
+        return dist
+
+    def _hierarchical_cluster(self, dist: np.ndarray) -> np.ndarray:
+        """Perform hierarchical clustering."""
+        from scipy.cluster.hierarchy import linkage
+        from scipy.spatial.distance import squareform
+
+        # Convert to condensed form for linkage
+        condensed = squareform(dist, checks=False)
+        link = linkage(condensed, method=self.linkage_method)
+        return link
+
+    def _quasi_diagonalize(self, link: np.ndarray) -> List[int]:
+        """
+        Reorganize items to quasi-diagonal form.
+
+        Returns sorted indices.
+        """
+        from scipy.cluster.hierarchy import leaves_list
+        return list(leaves_list(link))
+
+    def _recursive_bisection(
+        self,
+        cov: pd.DataFrame,
+        sorted_symbols: List[str]
+    ) -> Dict[str, float]:
+        """
+        Recursive bisection for weight allocation.
+
+        Allocates weights inversely proportional to cluster variance.
+        """
+        weights = {s: 1.0 for s in sorted_symbols}
+        clusters = [sorted_symbols]
+
+        while len(clusters) > 0:
+            # Split each cluster
+            new_clusters = []
+            for cluster in clusters:
+                if len(cluster) <= 1:
+                    continue
+
+                # Split in half
+                mid = len(cluster) // 2
+                left = cluster[:mid]
+                right = cluster[mid:]
+
+                # Calculate cluster variances
+                left_var = self._cluster_variance(cov, left)
+                right_var = self._cluster_variance(cov, right)
+
+                # Allocate inversely to variance
+                total_var = left_var + right_var
+                if total_var > 0:
+                    left_weight = 1 - left_var / total_var
+                    right_weight = 1 - right_var / total_var
+                else:
+                    left_weight = right_weight = 0.5
+
+                # Update weights
+                for s in left:
+                    weights[s] *= left_weight
+                for s in right:
+                    weights[s] *= right_weight
+
+                # Add sub-clusters for next iteration
+                if len(left) > 1:
+                    new_clusters.append(left)
+                if len(right) > 1:
+                    new_clusters.append(right)
+
+            clusters = new_clusters
+
+        # Normalize
+        total = sum(weights.values())
+        if total > 0:
+            weights = {s: w / total for s, w in weights.items()}
+
+        return weights
+
+    def _cluster_variance(
+        self,
+        cov: pd.DataFrame,
+        symbols: List[str]
+    ) -> float:
+        """Calculate variance of equal-weighted cluster."""
+        if len(symbols) == 0:
+            return 0.0
+
+        sub_cov = cov.loc[symbols, symbols]
+        n = len(symbols)
+        w = np.ones(n) / n
+
+        var = float(np.dot(w, np.dot(sub_cov.values, w)))
+        return var
+
+
+def calculate_hrp_weights(
+    returns_df: pd.DataFrame,
+    target_symbols: Optional[List[str]] = None
+) -> Dict[str, float]:
+    """
+    Convenience function to calculate HRP weights.
+
+    Args:
+        returns_df: DataFrame with daily returns (columns = symbols)
+        target_symbols: Optional subset of symbols to include
+
+    Returns:
+        Dict of symbol -> weight
+    """
+    if target_symbols:
+        returns_df = returns_df[target_symbols]
+
+    hrp = HierarchicalRiskParity()
+    return hrp.fit(returns_df)
+
+
+def optimize_position_weights(
+    symbols: List[str],
+    returns_data: pd.DataFrame,
+    max_weight: float = 0.20,
+    min_weight: float = 0.02
+) -> Dict[str, float]:
+    """
+    Optimize position weights for Wheel strategy.
+
+    Combines HRP with practical constraints.
+
+    Args:
+        symbols: Symbols to include
+        returns_data: Historical returns DataFrame
+        max_weight: Maximum weight per symbol
+        min_weight: Minimum weight per symbol
+
+    Returns:
+        Dict of symbol -> constrained weight
+    """
+    # Filter to available symbols
+    available = [s for s in symbols if s in returns_data.columns]
+
+    if len(available) < 2:
+        # Not enough for optimization
+        return {s: 1.0 / len(symbols) for s in symbols}
+
+    # Get HRP weights
+    hrp_weights = calculate_hrp_weights(returns_data, available)
+
+    # Apply constraints
+    constrained = {}
+    for symbol in symbols:
+        if symbol in hrp_weights:
+            w = hrp_weights[symbol]
+            w = max(min_weight, min(max_weight, w))
+            constrained[symbol] = w
+        else:
+            constrained[symbol] = min_weight
+
+    # Normalize
+    total = sum(constrained.values())
+    if total > 0:
+        constrained = {s: w / total for s, w in constrained.items()}
+
+    return constrained

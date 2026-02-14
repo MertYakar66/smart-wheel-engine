@@ -58,7 +58,23 @@ from .risk_manager import (
     PortfolioGreeks,
     PositionSizingMethod,
     calculate_kelly_fraction,
-    calculate_optimal_contracts
+    calculate_optimal_contracts,
+    SectorExposureManager,
+    SectorExposure,
+    HierarchicalRiskParity,
+    calculate_hrp_weights,
+    optimize_position_weights,
+    DEFAULT_SECTOR_MAP
+)
+from .volatility_surface import (
+    VolatilitySurface,
+    VolatilitySurfaceBuilder,
+    SVIParams,
+    SVICalibrator,
+    SplineVolSurface,
+    create_constant_surface,
+    estimate_iv_for_delta,
+    surface_to_dataframe
 )
 from .regime_detector import (
     RegimeDetector,
@@ -129,6 +145,13 @@ __all__ = [
     # Risk
     'RiskManager', 'RiskLimits', 'RiskMetrics', 'PortfolioGreeks',
     'PositionSizingMethod', 'calculate_kelly_fraction', 'calculate_optimal_contracts',
+    'SectorExposureManager', 'SectorExposure', 'HierarchicalRiskParity',
+    'calculate_hrp_weights', 'optimize_position_weights', 'DEFAULT_SECTOR_MAP',
+
+    # Volatility Surface
+    'VolatilitySurface', 'VolatilitySurfaceBuilder', 'SVIParams', 'SVICalibrator',
+    'SplineVolSurface', 'create_constant_surface', 'estimate_iv_for_delta',
+    'surface_to_dataframe',
 
     # Regime
     'RegimeDetector', 'RegimeState', 'VolatilityRegime', 'TrendRegime',

@@ -12,6 +12,7 @@ This module provides the core trading engine components:
 - Event calendar for earnings/dividends/FOMC
 - Stress testing and scenario analysis
 - Signal generation framework
+- Monte Carlo simulation (bootstrap, jump diffusion, LSM)
 """
 
 from .wheel_tracker import WheelTracker, WheelPosition, PositionState
@@ -118,6 +119,18 @@ from .signals import (
     EventFilterSignal,
     create_default_aggregator
 )
+from .monte_carlo import (
+    BlockBootstrap,
+    BootstrapResult,
+    JumpDiffusionSimulator,
+    JumpDiffusionParams,
+    JumpDiffusionResult,
+    LSMPricer,
+    LSMResult,
+    run_bootstrap_analysis,
+    run_bagholder_analysis,
+    price_american_option
+)
 
 __all__ = [
     # Core
@@ -169,5 +182,11 @@ __all__ = [
     # Signals
     'SignalAggregator', 'Signal', 'CompositeSignal', 'SignalType',
     'SignalStrength', 'IVRankSignal', 'TrendSignal', 'ProfitTargetSignal',
-    'StopLossSignal', 'DTESignal', 'EventFilterSignal', 'create_default_aggregator'
+    'StopLossSignal', 'DTESignal', 'EventFilterSignal', 'create_default_aggregator',
+
+    # Monte Carlo
+    'BlockBootstrap', 'BootstrapResult',
+    'JumpDiffusionSimulator', 'JumpDiffusionParams', 'JumpDiffusionResult',
+    'LSMPricer', 'LSMResult',
+    'run_bootstrap_analysis', 'run_bagholder_analysis', 'price_american_option'
 ]

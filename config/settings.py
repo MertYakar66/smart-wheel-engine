@@ -158,12 +158,21 @@ class DataConfig:
     max_missing_days: int = 5           # Max consecutive missing days
     min_history_days: int = 252         # Minimum 1 year history
 
-    # Symbols
+    # Symbols - SP500 universe only
     universe_file: str = "data/universe.csv"
     default_symbols: List[str] = field(default_factory=lambda: [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "META",
-        "JPM", "BAC", "WFC", "GS", "MS",
-        "XOM", "CVX", "COP", "SLB", "EOG"
+        # MAG7
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA",
+        # Financials (SP500)
+        "JPM", "BAC", "WFC", "GS",
+        # Healthcare (SP500)
+        "UNH", "JNJ", "LLY", "ABBV",
+        # Energy (SP500)
+        "XOM", "CVX",
+        # Consumer (SP500)
+        "PG", "KO", "HD", "MCD",
+        # Industrials (SP500)
+        "CAT", "HON", "GE",
     ])
 
     def validate(self) -> List[str]:

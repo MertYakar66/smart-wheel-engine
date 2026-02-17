@@ -25,6 +25,7 @@ from utils.dates import normalize_date
 logger = logging.getLogger(__name__)
 
 RAW_OHLCV_DIR = Path("data_raw/ohlcv")
+BLOOMBERG_OHLCV_DIR = Path("data/bloomberg/ohlcv")
 TRADE_UNIVERSE_DIR = Path("data_processed/trade_universe")
 LABELS_DIR = Path("data_processed/labels")
 
@@ -37,13 +38,18 @@ def load_ohlcv_for_ticker(ticker: str) -> pd.DataFrame | None:
     """
     Load OHLCV for a ticker with data cleaning.
 
+    Checks Bloomberg data first, then falls back to yfinance data.
+
     Args:
         ticker: Stock ticker
 
     Returns:
         Clean OHLCV DataFrame or None
     """
-    path = RAW_OHLCV_DIR / f"{ticker}.csv"
+    # Try Bloomberg first, then yfinance
+    path = BLOOMBERG_OHLCV_DIR / f"{ticker}.csv"
+    if not path.exists():
+        path = RAW_OHLCV_DIR / f"{ticker}.csv"
     if not path.exists():
         return None
 
@@ -55,6 +61,10 @@ def load_ohlcv_for_ticker(ticker: str) -> pd.DataFrame | None:
 
     if df.empty:
         return None
+
+    # Handle Bloomberg column names (PX_LAST → Close)
+    col_map = {"PX_LAST": "Close", "PX_OPEN": "Open", "PX_HIGH": "High", "PX_LOW": "Low"}
+    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
     # Clean data
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")

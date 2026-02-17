@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 RAW_OHLCV_DIR = Path("data_raw/ohlcv")
 RAW_YF_OPTIONS_DIR = Path("data_raw/yfinance/options")
+BLOOMBERG_OHLCV_DIR = Path("data/bloomberg/ohlcv")
+BLOOMBERG_OPTIONS_DIR = Path("data/bloomberg/options")
 OUTPUT_DIR = Path("data_processed/trade_universe")
 
 
@@ -35,6 +37,7 @@ def load_spot_price(ticker: str, trade_date: str) -> float | None:
     """
     Load underlying close price for a given ticker and trade_date.
 
+    Checks Bloomberg data first, then falls back to yfinance data.
     Uses "on or before" logic to handle weekends/holidays.
 
     Args:
@@ -44,7 +47,10 @@ def load_spot_price(ticker: str, trade_date: str) -> float | None:
     Returns:
         Close price or None if not found
     """
-    ohlcv_path = RAW_OHLCV_DIR / f"{ticker}.csv"
+    # Try Bloomberg first, then yfinance
+    ohlcv_path = BLOOMBERG_OHLCV_DIR / f"{ticker}.csv"
+    if not ohlcv_path.exists():
+        ohlcv_path = RAW_OHLCV_DIR / f"{ticker}.csv"
     if not ohlcv_path.exists():
         return None
 
@@ -56,6 +62,10 @@ def load_spot_price(ticker: str, trade_date: str) -> float | None:
 
     if df.empty:
         return None
+
+    # Handle Bloomberg column names (PX_LAST → Close)
+    col_map = {"PX_LAST": "Close", "PX_OPEN": "Open", "PX_HIGH": "High", "PX_LOW": "Low"}
+    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
     # Ensure numeric Close column
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
@@ -77,7 +87,9 @@ def load_spot_price(ticker: str, trade_date: str) -> float | None:
 
 def load_option_snapshot_for_date(trade_date: str) -> pd.DataFrame:
     """
-    Load all yfinance option snapshot files for a given trade_date.
+    Load option snapshot files for a given trade_date.
+
+    Checks Bloomberg data first, then falls back to yfinance data.
 
     Args:
         trade_date: Date string (YYYY-MM-DD)
@@ -87,25 +99,56 @@ def load_option_snapshot_for_date(trade_date: str) -> pd.DataFrame:
     """
     frames = []
 
-    if not RAW_YF_OPTIONS_DIR.exists():
-        logger.warning(f"Options directory not found: {RAW_YF_OPTIONS_DIR}")
-        return pd.DataFrame()
+    # Bloomberg column mapping
+    bbg_col_map = {
+        "OPT_STRIKE_PX": "strike",
+        "OPT_PUT_CALL": "option_type",
+        "OPT_EXPIRE_DT": "expiration",
+        "BID": "bid",
+        "ASK": "ask",
+        "IVOL_MID": "implied_vol",
+        "OPT_IMPLIED_VOLATILITY_MID": "implied_vol",
+        "OPEN_INT": "open_interest",
+        "VOLUME": "volume",
+        "OPT_UNDL_PX": "underlying_price",
+        "PX_LAST": "last",
+    }
 
-    for fname in os.listdir(RAW_YF_OPTIONS_DIR):
-        if not fname.endswith(".csv"):
-            continue
-        if not fname.startswith(trade_date):
+    # Try Bloomberg options directory first
+    for opts_dir in [BLOOMBERG_OPTIONS_DIR, RAW_YF_OPTIONS_DIR]:
+        if not opts_dir.exists():
             continue
 
-        path = RAW_YF_OPTIONS_DIR / fname
+        for fname in os.listdir(opts_dir):
+            if not fname.endswith(".csv"):
+                continue
+            # Accept both dated (2025-01-15_AAPL.csv) and undated (AAPL.csv)
+            if trade_date and not fname.startswith(trade_date):
+                # For undated Bloomberg files, load them regardless
+                if "_" in fname or opts_dir == RAW_YF_OPTIONS_DIR:
+                    continue
 
-        try:
-            df = pd.read_csv(path)
-            df["date"] = trade_date
-            frames.append(df)
-        except Exception as e:
-            logger.warning(f"Error loading {fname}: {e}")
-            continue
+            path = opts_dir / fname
+
+            try:
+                df = pd.read_csv(path)
+                # Rename Bloomberg columns to engine format
+                df = df.rename(columns={
+                    k: v for k, v in bbg_col_map.items() if k in df.columns
+                })
+                df["date"] = trade_date
+                # Extract ticker from filename
+                if "ticker" not in df.columns:
+                    stem = fname.replace(".csv", "")
+                    ticker = stem.split("_")[-1] if "_" in stem else stem
+                    df["ticker"] = ticker
+                frames.append(df)
+            except Exception as e:
+                logger.warning(f"Error loading {fname}: {e}")
+                continue
+
+        if frames:
+            break  # Use first source that has data
 
     if not frames:
         return pd.DataFrame()

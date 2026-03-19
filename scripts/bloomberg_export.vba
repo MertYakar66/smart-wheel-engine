@@ -1,49 +1,37 @@
 ' ============================================================================
-' Bloomberg Historical Data Export Macro
+' Bloomberg Historical Data Export Macro - SIMPLIFIED VERSION
 ' ============================================================================
 '
+' This version uses Windows Sleep API to truly yield control to Bloomberg
+'
 ' USAGE:
-'   1. Open this file in VBA Editor (Alt+F11)
-'   2. Import this module into your workbook
-'   3. Run: ExportBloombergData
+'   1. Open VBA Editor (Alt+F11)
+'   2. Import this module
+'   3. Run: ExportSingleTicker (for testing) or ExportBloombergData (all tickers)
 '
-' REQUIREMENTS:
-'   - Bloomberg Terminal must be running and logged in
-'   - Bloomberg Excel Add-in must be enabled
-'   - Connection verified: =BDP("AAPL US Equity","PX_LAST") should return a value
-'
-' OUTPUT:
-'   CSVs saved to: C:\BloombergExport\ (configurable below)
-'
-' DATA CATEGORIES EXPORTED:
-'   - OHLCV: PX_OPEN, PX_HIGH, PX_LOW, PX_LAST, PX_VOLUME
-'   - IV History: 30DAY_IMPVOL_100.0%MNY_DF
-'   - Earnings: IS_EPS, BEST_EPS (quarterly)
-'   - Dividend Yield Proxy: EQY_DVD_YLD_IND
-'
-' NOTE: DVD_EX_DT does not work via BDH() - using yield proxy instead
 ' ============================================================================
 
 Option Explicit
+
+' Windows API for true sleep (yields control unlike Application.Wait)
+#If VBA7 Then
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+#Else
+    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#End If
 
 ' ============================================================================
 ' CONFIGURATION
 ' ============================================================================
 
-' Output directory (create this folder before running)
 Const OUTPUT_DIR As String = "C:\BloombergExport\"
-
-' Date range for historical data
 Const START_DATE As String = "20240101"
 Const END_DATE As String = "20260317"
 
-' Maximum wait time for Bloomberg data (seconds)
-Const MAX_WAIT_SECONDS As Long = 120
+' How long to wait for Bloomberg data (milliseconds)
+' BDH with 2+ years of data needs ~30-60 seconds
+Const BLOOMBERG_WAIT_MS As Long = 45000  ' 45 seconds
 
-' Check interval (seconds)
-Const CHECK_INTERVAL As Double = 0.5
-
-' Tickers to export (modify as needed)
 Function GetTickers() As Variant
     GetTickers = Array( _
         "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "JPM", _
@@ -54,298 +42,189 @@ End Function
 
 
 ' ============================================================================
-' MAIN ENTRY POINT
+' MAIN: Export Single Ticker (for testing)
 ' ============================================================================
 
-Sub ExportBloombergData()
-    Dim tickers As Variant
-    Dim ticker As Variant
-    Dim successCount As Long
-    Dim failCount As Long
-
-    Application.ScreenUpdating = False
-    Application.DisplayAlerts = False
-
-    tickers = GetTickers()
-    successCount = 0
-    failCount = 0
+Sub ExportSingleTicker()
+    Dim ticker As String
+    ticker = InputBox("Enter ticker symbol:", "Export Single Ticker", "AAPL")
+    If Len(ticker) = 0 Then Exit Sub
 
     Debug.Print "=========================================="
-    Debug.Print "Bloomberg Export Started: " & Now()
-    Debug.Print "Output Directory: " & OUTPUT_DIR
-    Debug.Print "Tickers: " & UBound(tickers) + 1
+    Debug.Print "Exporting: " & ticker & " at " & Now()
     Debug.Print "=========================================="
 
-    ' Verify output directory exists
+    ' Verify output directory
     If Dir(OUTPUT_DIR, vbDirectory) = "" Then
-        MsgBox "Output directory does not exist: " & OUTPUT_DIR & vbCrLf & _
-               "Please create it before running.", vbCritical
+        MsgBox "Create folder first: " & OUTPUT_DIR, vbCritical
         Exit Sub
     End If
 
-    ' Export each ticker
-    For Each ticker In tickers
-        Debug.Print vbCrLf & "Processing: " & ticker
+    ExportTickerData ticker
 
-        ' Export OHLCV
-        If ExportSingleRequest(CStr(ticker), "ohlcv", _
-            "PX_OPEN,PX_HIGH,PX_LOW,PX_LAST,PX_VOLUME", START_DATE, END_DATE, "") Then
-            successCount = successCount + 1
-        Else
-            failCount = failCount + 1
-        End If
-
-        ' Export IV History
-        If ExportSingleRequest(CStr(ticker), "iv", _
-            "30DAY_IMPVOL_100.0%MNY_DF", START_DATE, END_DATE, "") Then
-            successCount = successCount + 1
-        Else
-            failCount = failCount + 1
-        End If
-
-        ' Export Earnings (quarterly)
-        If ExportSingleRequest(CStr(ticker), "earnings", _
-            "IS_EPS,BEST_EPS", START_DATE, END_DATE, "Period=Q") Then
-            successCount = successCount + 1
-        Else
-            failCount = failCount + 1
-        End If
-
-        ' Export Dividend Yield Proxy
-        If ExportSingleRequest(CStr(ticker), "dividends", _
-            "EQY_DVD_YLD_IND", START_DATE, END_DATE, "") Then
-            successCount = successCount + 1
-        Else
-            failCount = failCount + 1
-        End If
-
-        DoEvents
-    Next ticker
-
-    Application.ScreenUpdating = True
-    Application.DisplayAlerts = True
-
-    Debug.Print vbCrLf & "=========================================="
-    Debug.Print "Export Complete: " & Now()
-    Debug.Print "Success: " & successCount & ", Failed: " & failCount
-    Debug.Print "=========================================="
-
-    MsgBox "Export Complete!" & vbCrLf & _
-           "Success: " & successCount & vbCrLf & _
-           "Failed: " & failCount, vbInformation
+    MsgBox "Export complete for " & ticker & "!" & vbCrLf & _
+           "Check: " & OUTPUT_DIR, vbInformation
 End Sub
 
 
 ' ============================================================================
-' CORE EXPORT FUNCTION - One Request at a Time with Async Wait
+' MAIN: Export All Tickers
 ' ============================================================================
 
-Function ExportSingleRequest(ticker As String, dataType As String, _
-    fields As String, startDate As String, endDate As String, _
-    Optional extraParams As String = "") As Boolean
+Sub ExportBloombergData()
+    Dim tickers As Variant
+    Dim i As Long
+
+    tickers = GetTickers()
+
+    Debug.Print "=========================================="
+    Debug.Print "Bloomberg Export Started: " & Now()
+    Debug.Print "Tickers: " & UBound(tickers) + 1
+    Debug.Print "=========================================="
+
+    ' Verify output directory
+    If Dir(OUTPUT_DIR, vbDirectory) = "" Then
+        MsgBox "Create folder first: " & OUTPUT_DIR, vbCritical
+        Exit Sub
+    End If
+
+    For i = LBound(tickers) To UBound(tickers)
+        Debug.Print vbCrLf & "--- " & (i + 1) & "/" & (UBound(tickers) + 1) & ": " & tickers(i) & " ---"
+        ExportTickerData CStr(tickers(i))
+    Next i
+
+    Debug.Print vbCrLf & "=========================================="
+    Debug.Print "ALL EXPORTS COMPLETE: " & Now()
+    Debug.Print "=========================================="
+
+    MsgBox "All exports complete!", vbInformation
+End Sub
+
+
+' ============================================================================
+' CORE: Export all data types for one ticker
+' ============================================================================
+
+Sub ExportTickerData(ticker As String)
+    ' OHLCV
+    ExportBDH ticker, "ohlcv", _
+        "PX_OPEN,PX_HIGH,PX_LOW,PX_LAST,PX_VOLUME", _
+        Array("Date", "Open", "High", "Low", "Close", "Volume")
+
+    ' IV History
+    ExportBDH ticker, "iv", _
+        "30DAY_IMPVOL_100.0%MNY_DF", _
+        Array("Date", "IV_30D")
+
+    ' Earnings
+    ExportBDH ticker, "earnings", _
+        "IS_EPS,BEST_EPS", _
+        Array("Date", "EPS_Actual", "EPS_Estimate"), "Period=Q"
+
+    ' Dividends
+    ExportBDH ticker, "dividends", _
+        "EQY_DVD_YLD_IND", _
+        Array("Date", "Dividend_Yield")
+End Sub
+
+
+' ============================================================================
+' CORE: Export a single BDH request
+' ============================================================================
+
+Sub ExportBDH(ticker As String, dataType As String, fields As String, _
+              headers As Variant, Optional extraParams As String = "")
 
     Dim ws As Worksheet
     Dim formula As String
     Dim outputPath As String
-    Dim waitResult As Boolean
     Dim dataRange As Range
+    Dim lastRow As Long, lastCol As Long
 
-    On Error GoTo ErrorHandler
+    On Error GoTo ErrHandler
 
-    ' Create fresh temporary worksheet
+    ' Create temp worksheet
     Set ws = ThisWorkbook.Worksheets.Add
-    ws.Name = "TempExport_" & Format(Now(), "hhmmss")
+    ws.Name = Left(ticker & "_" & dataType & "_" & Format(Now(), "hhmmss"), 31)
 
-    ' Build BDH formula
-    formula = BuildBDHFormula(ticker, fields, startDate, endDate, extraParams)
-    Debug.Print "  Formula: " & Left(formula, 80) & "..."
+    ' Build and insert formula
+    formula = "=BDH(""" & ticker & " US Equity"",""" & fields & _
+              """,""" & START_DATE & """,""" & END_DATE & """,""Dir=V"""
+    If Len(extraParams) > 0 Then formula = formula & ",""" & extraParams & """"
+    formula = formula & ")"
 
-    ' Insert formula in A1 - use .Formula instead of .Formula2
+    Debug.Print "  " & dataType & ": inserting formula..."
     ws.Range("A1").Formula = formula
 
-    ' CRITICAL: Force Bloomberg to trigger calculation
-    ' Method 1: Toggle calculation mode
-    Application.Calculation = xlCalculationManual
-    Application.Calculation = xlCalculationAutomatic
-
-    ' Method 2: Force full recalculation
-    Application.CalculateFullRebuild
+    ' THE KEY: Use Windows Sleep to truly yield control to Bloomberg
+    Debug.Print "  " & dataType & ": waiting " & (BLOOMBERG_WAIT_MS / 1000) & "s for Bloomberg..."
+    DoEvents
+    Sleep BLOOMBERG_WAIT_MS
     DoEvents
 
-    ' Method 3: Select cell and enter/exit edit mode
-    ws.Activate
-    ws.Range("A1").Select
-    DoEvents
-    Application.SendKeys "{F2}{ENTER}", True
-    DoEvents
-    Application.Wait Now + TimeSerial(0, 0, 2)  ' Wait for Bloomberg to start
-
-    ' Method 4: Dirty the cell to force recalc
-    ws.Range("A1").Dirty
-    Application.Calculate
-    DoEvents
-
-    ' Wait for Bloomberg to resolve
-    waitResult = WaitForBloombergData(ws.Range("A1"))
-
-    If Not waitResult Then
-        Debug.Print "  [FAIL] " & ticker & "_" & dataType & " - Timeout or error"
-        CleanupWorksheet ws
-        ExportSingleRequest = False
-        Exit Function
+    ' Check if data arrived
+    If InStr(CStr(ws.Range("A1").Value), "Requesting") > 0 Or _
+       InStr(CStr(ws.Range("A1").Value), "#N/A") > 0 Then
+        Debug.Print "  [FAIL] " & dataType & " - still requesting or error: " & ws.Range("A1").Value
+        CleanupSheet ws
+        Exit Sub
     End If
 
-    ' Determine data range (spilled array)
-    Set dataRange = GetSpilledRange(ws.Range("A1"))
+    ' Find data range
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
 
-    If dataRange Is Nothing Or dataRange.Rows.Count < 2 Then
-        Debug.Print "  [FAIL] " & ticker & "_" & dataType & " - No data returned"
-        CleanupWorksheet ws
-        ExportSingleRequest = False
-        Exit Function
+    If lastRow < 2 Then
+        Debug.Print "  [FAIL] " & dataType & " - no data rows"
+        CleanupSheet ws
+        Exit Sub
     End If
 
-    ' Copy values (breaks link to Bloomberg)
+    Set dataRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol))
+
+    ' Convert to values (break Bloomberg link)
     dataRange.Copy
     dataRange.PasteSpecial xlPasteValues
     Application.CutCopyMode = False
 
-    ' Export to CSV
+    ' Add headers
+    ws.Rows(1).Insert
+    Dim h As Long
+    For h = LBound(headers) To UBound(headers)
+        ws.Cells(1, h + 1).Value = headers(h)
+    Next h
+
+    ' Recalculate range with header
+    Set dataRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow + 1, lastCol))
+
+    ' Save as CSV
     outputPath = OUTPUT_DIR & ticker & "_" & dataType & ".csv"
-    ExportRangeToCSV dataRange, outputPath
+    SaveRangeAsCSV dataRange, outputPath
 
-    Debug.Print "  [OK] " & outputPath & " (" & dataRange.Rows.Count & " rows)"
+    Debug.Print "  [OK] " & outputPath & " (" & lastRow & " rows)"
 
-    ' Cleanup
-    CleanupWorksheet ws
-    ExportSingleRequest = True
-    Exit Function
+    CleanupSheet ws
+    Exit Sub
 
-ErrorHandler:
-    Debug.Print "  [ERROR] " & ticker & "_" & dataType & ": " & Err.Description
+ErrHandler:
+    Debug.Print "  [ERROR] " & dataType & ": " & Err.Description
     On Error Resume Next
-    CleanupWorksheet ws
-    ExportSingleRequest = False
-End Function
+    CleanupSheet ws
+End Sub
 
 
 ' ============================================================================
-' BLOOMBERG ASYNC WAIT - The Critical Fix
+' HELPER: Save range to CSV
 ' ============================================================================
 
-Function WaitForBloombergData(cell As Range) As Boolean
-    Dim startTime As Double
-    Dim cellValue As String
-    Dim elapsed As Double
-    Dim lastPrint As Double
-
-    startTime = Timer
-    lastPrint = 0
-
-    Do
-        DoEvents
-        Application.Calculate
-
-        cellValue = CStr(cell.Value)
-
-        ' Print status every 10 seconds
-        elapsed = Timer - startTime
-        If elapsed < 0 Then elapsed = elapsed + 86400
-        If elapsed - lastPrint >= 10 Then
-            Debug.Print "    Waiting... " & Int(elapsed) & "s - Cell value: " & Left(cellValue, 50)
-            lastPrint = elapsed
-        End If
-
-        ' Check for success (not requesting, not error)
-        If InStr(cellValue, "Requesting") = 0 And _
-           InStr(cellValue, "#N/A") = 0 And _
-           Len(Trim(cellValue)) > 0 Then
-            WaitForBloombergData = True
-            Exit Function
-        End If
-
-        ' Check for permanent error
-        If InStr(cellValue, "#N/A Field Not Applicable") > 0 Or _
-           InStr(cellValue, "#N/A Invalid") > 0 Or _
-           InStr(cellValue, "#N/A N/A") > 0 Then
-            ' Some #N/A are permanent errors
-            If InStr(cellValue, "Requesting") = 0 Then
-                WaitForBloombergData = False
-                Exit Function
-            End If
-        End If
-
-        ' Check timeout
-        elapsed = Timer - startTime
-        If elapsed < 0 Then elapsed = elapsed + 86400  ' Handle midnight
-
-        If elapsed > MAX_WAIT_SECONDS Then
-            Debug.Print "  Timeout after " & MAX_WAIT_SECONDS & "s"
-            WaitForBloombergData = False
-            Exit Function
-        End If
-
-        ' Wait before next check
-        Application.Wait Now + TimeSerial(0, 0, CHECK_INTERVAL)
-
-    Loop
-End Function
-
-
-' ============================================================================
-' HELPER FUNCTIONS
-' ============================================================================
-
-Function BuildBDHFormula(ticker As String, fields As String, _
-    startDate As String, endDate As String, _
-    Optional extraParams As String = "") As String
-
-    Dim formula As String
-
-    formula = "=BDH(""" & ticker & " US Equity"",""" & fields & _
-              """,""" & startDate & """,""" & endDate & """,""Dir=V"""
-
-    If Len(extraParams) > 0 Then
-        formula = formula & ",""" & extraParams & """"
-    End If
-
-    formula = formula & ")"
-
-    BuildBDHFormula = formula
-End Function
-
-
-Function GetSpilledRange(startCell As Range) As Range
-    ' Get the full spilled range from a dynamic array formula
-    On Error Resume Next
-    Set GetSpilledRange = startCell.SpillingToRange
-
-    ' Fallback: detect used range manually
-    If GetSpilledRange Is Nothing Then
-        Dim lastRow As Long, lastCol As Long
-        With startCell.Worksheet
-            lastRow = .Cells(.Rows.Count, startCell.Column).End(xlUp).Row
-            lastCol = .Cells(startCell.Row, .Columns.Count).End(xlToLeft).Column
-            If lastRow >= startCell.Row And lastCol >= startCell.Column Then
-                Set GetSpilledRange = .Range(startCell, .Cells(lastRow, lastCol))
-            End If
-        End With
-    End If
-    On Error GoTo 0
-End Function
-
-
-Sub ExportRangeToCSV(rng As Range, filePath As String)
-    Dim ws As Worksheet
+Sub SaveRangeAsCSV(rng As Range, filePath As String)
     Dim tempWb As Workbook
 
-    ' Copy to new workbook for clean CSV export
     rng.Copy
     Set tempWb = Workbooks.Add
     tempWb.Sheets(1).Range("A1").PasteSpecial xlPasteValues
     Application.CutCopyMode = False
 
-    ' Save as CSV
     Application.DisplayAlerts = False
     tempWb.SaveAs Filename:=filePath, FileFormat:=xlCSV
     tempWb.Close SaveChanges:=False
@@ -353,7 +232,11 @@ Sub ExportRangeToCSV(rng As Range, filePath As String)
 End Sub
 
 
-Sub CleanupWorksheet(ws As Worksheet)
+' ============================================================================
+' HELPER: Delete worksheet
+' ============================================================================
+
+Sub CleanupSheet(ws As Worksheet)
     On Error Resume Next
     Application.DisplayAlerts = False
     ws.Delete
@@ -363,66 +246,25 @@ End Sub
 
 
 ' ============================================================================
-' UTILITY: Test Bloomberg Connection
+' TEST: Quick Bloomberg connection test
 ' ============================================================================
 
-Sub TestBloombergConnection()
+Sub TestBloomberg()
     Dim ws As Worksheet
-    Dim testResult As String
 
     Set ws = ThisWorkbook.Worksheets.Add
-    ws.Name = "BBG_Test_" & Format(Now(), "hhmmss")
-
-    ' Simple BDP test
     ws.Range("A1").Formula = "=BDP(""AAPL US Equity"",""PX_LAST"")"
 
-    ' Force Bloomberg to trigger
-    ws.Range("A1").Select
-    Application.SendKeys "{F2}", True
-    Application.SendKeys "{ENTER}", True
+    Debug.Print "Testing Bloomberg connection..."
     DoEvents
-    Application.Wait Now + TimeSerial(0, 0, 1)
-    Application.Calculate
+    Sleep 5000  ' 5 seconds should be enough for BDP
+    DoEvents
 
-    ' Wait for result
-    If WaitForBloombergData(ws.Range("A1")) Then
-        testResult = "Bloomberg Connection OK: AAPL = " & ws.Range("A1").Value
-        MsgBox testResult, vbInformation
+    If IsNumeric(ws.Range("A1").Value) Then
+        MsgBox "Bloomberg OK! AAPL = " & ws.Range("A1").Value, vbInformation
     Else
-        testResult = "Bloomberg Connection FAILED: " & ws.Range("A1").Value
-        MsgBox testResult, vbCritical
+        MsgBox "Bloomberg FAILED: " & ws.Range("A1").Value, vbCritical
     End If
 
-    Debug.Print testResult
-    CleanupWorksheet ws
-End Sub
-
-
-' ============================================================================
-' UTILITY: Export Single Ticker (for testing)
-' ============================================================================
-
-Sub ExportSingleTicker()
-    Dim ticker As String
-    ticker = InputBox("Enter ticker symbol:", "Export Single Ticker", "AAPL")
-
-    If Len(ticker) = 0 Then Exit Sub
-
-    Application.ScreenUpdating = False
-
-    ExportSingleRequest ticker, "ohlcv", _
-        "PX_OPEN,PX_HIGH,PX_LOW,PX_LAST,PX_VOLUME", START_DATE, END_DATE, ""
-
-    ExportSingleRequest ticker, "iv", _
-        "30DAY_IMPVOL_100.0%MNY_DF", START_DATE, END_DATE, ""
-
-    ExportSingleRequest ticker, "earnings", _
-        "IS_EPS,BEST_EPS", START_DATE, END_DATE, "Period=Q"
-
-    ExportSingleRequest ticker, "dividends", _
-        "EQY_DVD_YLD_IND", START_DATE, END_DATE, ""
-
-    Application.ScreenUpdating = True
-
-    MsgBox "Export complete for " & ticker, vbInformation
+    CleanupSheet ws
 End Sub

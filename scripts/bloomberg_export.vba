@@ -38,7 +38,7 @@ Const START_DATE As String = "20240101"
 Const END_DATE As String = "20260317"
 
 ' Maximum wait time for Bloomberg data (seconds)
-Const MAX_WAIT_SECONDS As Long = 60
+Const MAX_WAIT_SECONDS As Long = 120
 
 ' Check interval (seconds)
 Const CHECK_INTERVAL As Double = 0.5
@@ -160,19 +160,30 @@ Function ExportSingleRequest(ticker As String, dataType As String, _
     formula = BuildBDHFormula(ticker, fields, startDate, endDate, extraParams)
     Debug.Print "  Formula: " & Left(formula, 80) & "..."
 
-    ' Insert formula in A1
-    ws.Range("A1").Formula2 = formula
+    ' Insert formula in A1 - use .Formula instead of .Formula2
+    ws.Range("A1").Formula = formula
 
-    ' CRITICAL: Force Bloomberg to trigger by simulating Enter key
-    ' Application.Calculate doesn't work for Bloomberg formulas
-    ws.Range("A1").Select
-    Application.SendKeys "{F2}", True  ' Enter edit mode
-    Application.SendKeys "{ENTER}", True  ' Confirm formula
+    ' CRITICAL: Force Bloomberg to trigger calculation
+    ' Method 1: Toggle calculation mode
+    Application.Calculation = xlCalculationManual
+    Application.Calculation = xlCalculationAutomatic
+
+    ' Method 2: Force full recalculation
+    Application.CalculateFullRebuild
     DoEvents
-    Application.Wait Now + TimeSerial(0, 0, 1)  ' Brief pause for Bloomberg to start
 
-    ' Force calculation as backup
+    ' Method 3: Select cell and enter/exit edit mode
+    ws.Activate
+    ws.Range("A1").Select
+    DoEvents
+    Application.SendKeys "{F2}{ENTER}", True
+    DoEvents
+    Application.Wait Now + TimeSerial(0, 0, 2)  ' Wait for Bloomberg to start
+
+    ' Method 4: Dirty the cell to force recalc
+    ws.Range("A1").Dirty
     Application.Calculate
+    DoEvents
 
     ' Wait for Bloomberg to resolve
     waitResult = WaitForBloombergData(ws.Range("A1"))
@@ -226,14 +237,24 @@ Function WaitForBloombergData(cell As Range) As Boolean
     Dim startTime As Double
     Dim cellValue As String
     Dim elapsed As Double
+    Dim lastPrint As Double
 
     startTime = Timer
+    lastPrint = 0
 
     Do
         DoEvents
         Application.Calculate
 
         cellValue = CStr(cell.Value)
+
+        ' Print status every 10 seconds
+        elapsed = Timer - startTime
+        If elapsed < 0 Then elapsed = elapsed + 86400
+        If elapsed - lastPrint >= 10 Then
+            Debug.Print "    Waiting... " & Int(elapsed) & "s - Cell value: " & Left(cellValue, 50)
+            lastPrint = elapsed
+        End If
 
         ' Check for success (not requesting, not error)
         If InStr(cellValue, "Requesting") = 0 And _

@@ -163,7 +163,15 @@ Function ExportSingleRequest(ticker As String, dataType As String, _
     ' Insert formula in A1
     ws.Range("A1").Formula2 = formula
 
-    ' Force calculation
+    ' CRITICAL: Force Bloomberg to trigger by simulating Enter key
+    ' Application.Calculate doesn't work for Bloomberg formulas
+    ws.Range("A1").Select
+    Application.SendKeys "{F2}", True  ' Enter edit mode
+    Application.SendKeys "{ENTER}", True  ' Confirm formula
+    DoEvents
+    Application.Wait Now + TimeSerial(0, 0, 1)  ' Brief pause for Bloomberg to start
+
+    ' Force calculation as backup
     Application.Calculate
 
     ' Wait for Bloomberg to resolve
@@ -346,6 +354,13 @@ Sub TestBloombergConnection()
 
     ' Simple BDP test
     ws.Range("A1").Formula = "=BDP(""AAPL US Equity"",""PX_LAST"")"
+
+    ' Force Bloomberg to trigger
+    ws.Range("A1").Select
+    Application.SendKeys "{F2}", True
+    Application.SendKeys "{ENTER}", True
+    DoEvents
+    Application.Wait Now + TimeSerial(0, 0, 1)
     Application.Calculate
 
     ' Wait for result

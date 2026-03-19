@@ -119,6 +119,12 @@ from .signals import (
     EventFilterSignal,
     create_default_aggregator
 )
+from .signal_context import (
+    build_entry_context,
+    build_exit_context,
+    build_batch_entry_contexts,
+    evaluate_wheel_opportunities
+)
 from .monte_carlo import (
     BlockBootstrap,
     BootstrapResult,
@@ -183,6 +189,10 @@ __all__ = [
     'SignalAggregator', 'Signal', 'CompositeSignal', 'SignalType',
     'SignalStrength', 'IVRankSignal', 'TrendSignal', 'ProfitTargetSignal',
     'StopLossSignal', 'DTESignal', 'EventFilterSignal', 'create_default_aggregator',
+
+    # Signal Context (Bloomberg integration)
+    'build_entry_context', 'build_exit_context',
+    'build_batch_entry_contexts', 'evaluate_wheel_opportunities',
 
     # Monte Carlo
     'BlockBootstrap', 'BootstrapResult',

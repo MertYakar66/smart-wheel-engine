@@ -13,13 +13,6 @@
 
 Option Explicit
 
-' Windows API for true sleep (yields control unlike Application.Wait)
-#If VBA7 Then
-    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
-#Else
-    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-#End If
-
 ' ============================================================================
 ' CONFIGURATION
 ' ============================================================================
@@ -27,10 +20,6 @@ Option Explicit
 Const OUTPUT_DIR As String = "C:\BloombergExport\"
 Const START_DATE As String = "20240101"
 Const END_DATE As String = "20260317"
-
-' How long to wait for Bloomberg data (milliseconds)
-' BDH with 2+ years of data needs ~30-60 seconds
-Const BLOOMBERG_WAIT_MS As Long = 45000  ' 45 seconds
 
 Function GetTickers() As Variant
     GetTickers = Array( _
@@ -103,69 +92,62 @@ End Sub
 
 ' ============================================================================
 ' CORE: Export all data types for one ticker
+' Uses batch approach: insert all formulas, wait once, then export all
 ' ============================================================================
 
 Sub ExportTickerData(ticker As String)
-    ' OHLCV
-    ExportBDH ticker, "ohlcv", _
-        "PX_OPEN,PX_HIGH,PX_LOW,PX_LAST,PX_VOLUME", _
-        Array("Date", "Open", "High", "Low", "Close", "Volume")
+    Dim wsOHLCV As Worksheet, wsIV As Worksheet
+    Dim wsEarnings As Worksheet, wsDividends As Worksheet
+    Dim ts As String
 
-    ' IV History
-    ExportBDH ticker, "iv", _
-        "30DAY_IMPVOL_100.0%MNY_DF", _
-        Array("Date", "IV_30D")
+    ts = Format(Now(), "hhmmss")
 
-    ' Earnings
-    ExportBDH ticker, "earnings", _
-        "IS_EPS,BEST_EPS", _
-        Array("Date", "EPS_Actual", "EPS_Estimate"), "Period=Q"
+    ' Create all sheets and insert formulas at once
+    Set wsOHLCV = ThisWorkbook.Worksheets.Add
+    wsOHLCV.Name = Left(ticker & "_ohlcv_" & ts, 31)
+    wsOHLCV.Range("A1").Formula = "=BDH(""" & ticker & " US Equity"",""PX_OPEN,PX_HIGH,PX_LOW,PX_LAST,PX_VOLUME"",""" & START_DATE & """,""" & END_DATE & """,""Dir=V"")"
 
-    ' Dividends
-    ExportBDH ticker, "dividends", _
-        "EQY_DVD_YLD_IND", _
-        Array("Date", "Dividend_Yield")
+    Set wsIV = ThisWorkbook.Worksheets.Add
+    wsIV.Name = Left(ticker & "_iv_" & ts, 31)
+    wsIV.Range("A1").Formula = "=BDH(""" & ticker & " US Equity"",""30DAY_IMPVOL_100.0%MNY_DF"",""" & START_DATE & """,""" & END_DATE & """,""Dir=V"")"
+
+    Set wsEarnings = ThisWorkbook.Worksheets.Add
+    wsEarnings.Name = Left(ticker & "_earn_" & ts, 31)
+    wsEarnings.Range("A1").Formula = "=BDH(""" & ticker & " US Equity"",""IS_EPS,BEST_EPS"",""" & START_DATE & """,""" & END_DATE & """,""Dir=V"",""Period=Q"")"
+
+    Set wsDividends = ThisWorkbook.Worksheets.Add
+    wsDividends.Name = Left(ticker & "_div_" & ts, 31)
+    wsDividends.Range("A1").Formula = "=BDH(""" & ticker & " US Equity"",""EQY_DVD_YLD_IND"",""" & START_DATE & """,""" & END_DATE & """,""Dir=V"")"
+
+    ' Single wait for all 4 to load
+    MsgBox "Wait for ALL 4 sheets to show data (check each tab), then click OK." & vbCrLf & vbCrLf & _
+           "Sheets: " & wsOHLCV.Name & ", " & wsIV.Name & ", " & wsEarnings.Name & ", " & wsDividends.Name, _
+           vbInformation, ticker & " - Wait for Bloomberg"
+
+    ' Now export each
+    ExportSheetToCSV wsOHLCV, ticker, "ohlcv", Array("Date", "Open", "High", "Low", "Close", "Volume")
+    ExportSheetToCSV wsIV, ticker, "iv", Array("Date", "IV_30D")
+    ExportSheetToCSV wsEarnings, ticker, "earnings", Array("Date", "EPS_Actual", "EPS_Estimate")
+    ExportSheetToCSV wsDividends, ticker, "dividends", Array("Date", "Dividend_Yield")
 End Sub
 
 
 ' ============================================================================
-' CORE: Export a single BDH request
+' HELPER: Export a sheet that already has data to CSV
 ' ============================================================================
 
-Sub ExportBDH(ticker As String, dataType As String, fields As String, _
-              headers As Variant, Optional extraParams As String = "")
-
-    Dim ws As Worksheet
-    Dim formula As String
-    Dim outputPath As String
-    Dim dataRange As Range
+Sub ExportSheetToCSV(ws As Worksheet, ticker As String, dataType As String, headers As Variant)
     Dim lastRow As Long, lastCol As Long
+    Dim dataRange As Range
+    Dim outputPath As String
+    Dim h As Long
 
     On Error GoTo ErrHandler
 
-    ' Create temp worksheet
-    Set ws = ThisWorkbook.Worksheets.Add
-    ws.Name = Left(ticker & "_" & dataType & "_" & Format(Now(), "hhmmss"), 31)
-
-    ' Build and insert formula
-    formula = "=BDH(""" & ticker & " US Equity"",""" & fields & _
-              """,""" & START_DATE & """,""" & END_DATE & """,""Dir=V"""
-    If Len(extraParams) > 0 Then formula = formula & ",""" & extraParams & """"
-    formula = formula & ")"
-
-    Debug.Print "  " & dataType & ": inserting formula..."
-    ws.Range("A1").Formula = formula
-
-    ' THE KEY: Use Windows Sleep to truly yield control to Bloomberg
-    Debug.Print "  " & dataType & ": waiting " & (BLOOMBERG_WAIT_MS / 1000) & "s for Bloomberg..."
-    DoEvents
-    Sleep BLOOMBERG_WAIT_MS
-    DoEvents
-
-    ' Check if data arrived
+    ' Check if data loaded
     If InStr(CStr(ws.Range("A1").Value), "Requesting") > 0 Or _
        InStr(CStr(ws.Range("A1").Value), "#N/A") > 0 Then
-        Debug.Print "  [FAIL] " & dataType & " - still requesting or error: " & ws.Range("A1").Value
+        Debug.Print "  [SKIP] " & dataType & " - no data: " & ws.Range("A1").Value
         CleanupSheet ws
         Exit Sub
     End If
@@ -175,32 +157,30 @@ Sub ExportBDH(ticker As String, dataType As String, fields As String, _
     lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
 
     If lastRow < 2 Then
-        Debug.Print "  [FAIL] " & dataType & " - no data rows"
+        Debug.Print "  [SKIP] " & dataType & " - no data rows"
         CleanupSheet ws
         Exit Sub
     End If
 
     Set dataRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol))
 
-    ' Convert to values (break Bloomberg link)
+    ' Convert to values
     dataRange.Copy
     dataRange.PasteSpecial xlPasteValues
     Application.CutCopyMode = False
 
     ' Add headers
     ws.Rows(1).Insert
-    Dim h As Long
     For h = LBound(headers) To UBound(headers)
         ws.Cells(1, h + 1).Value = headers(h)
     Next h
 
-    ' Recalculate range with header
+    ' Recalculate range
     Set dataRange = ws.Range(ws.Cells(1, 1), ws.Cells(lastRow + 1, lastCol))
 
-    ' Save as CSV
+    ' Save
     outputPath = OUTPUT_DIR & ticker & "_" & dataType & ".csv"
     SaveRangeAsCSV dataRange, outputPath
-
     Debug.Print "  [OK] " & outputPath & " (" & lastRow & " rows)"
 
     CleanupSheet ws
@@ -208,7 +188,6 @@ Sub ExportBDH(ticker As String, dataType As String, fields As String, _
 
 ErrHandler:
     Debug.Print "  [ERROR] " & dataType & ": " & Err.Description
-    On Error Resume Next
     CleanupSheet ws
 End Sub
 
@@ -255,10 +234,8 @@ Sub TestBloomberg()
     Set ws = ThisWorkbook.Worksheets.Add
     ws.Range("A1").Formula = "=BDP(""AAPL US Equity"",""PX_LAST"")"
 
-    Debug.Print "Testing Bloomberg connection..."
-    DoEvents
-    Sleep 5000  ' 5 seconds should be enough for BDP
-    DoEvents
+    ' MsgBox truly yields control - click OK when you see data in A1
+    MsgBox "Look at the sheet - wait until A1 shows a price, then click OK", vbInformation
 
     If IsNumeric(ws.Range("A1").Value) Then
         MsgBox "Bloomberg OK! AAPL = " & ws.Range("A1").Value, vbInformation

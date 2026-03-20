@@ -75,3 +75,10 @@ from .bloomberg import (
     check_bloomberg_available,
     test_connection,
 )
+
+# Bloomberg CSV import and feature processing
+from .bloomberg_import import (
+    load_bloomberg_csv,
+    compute_features_per_ticker,
+    process_bloomberg_data,
+)

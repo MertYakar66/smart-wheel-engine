@@ -16,6 +16,15 @@ from .earnings_model import (
     get_earnings_recommendation,
     create_earnings_training_data
 )
+from .wheel_model import (
+    WheelEntryModel,
+    WheelModelConfig,
+    train_wheel_model,
+    prepare_training_data,
+    create_target,
+    create_put_outcome_target,
+    FEATURE_COLUMNS
+)
 
 __all__ = [
     'EarningsPredictor',
@@ -24,5 +33,12 @@ __all__ = [
     'EarningsAction',
     'EarningsFeatureBuilder',
     'get_earnings_recommendation',
-    'create_earnings_training_data'
+    'create_earnings_training_data',
+    'WheelEntryModel',
+    'WheelModelConfig',
+    'train_wheel_model',
+    'prepare_training_data',
+    'create_target',
+    'create_put_outcome_target',
+    'FEATURE_COLUMNS'
 ]

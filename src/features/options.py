@@ -45,11 +45,12 @@ class OptionsFeatures:
             threshold: Standard deviations for "unusual"
 
         Returns:
-            Z-score of current volume
+            Z-score of current volume (NaN when std == 0)
         """
         avg = volume.rolling(window).mean()
         std = volume.rolling(window).std()
-        return (volume - avg) / std
+        # Guard against division by zero
+        return (volume - avg) / std.replace(0, np.nan)
 
     @staticmethod
     def iv_skew(iv_put: pd.Series, iv_call: pd.Series) -> pd.Series:
@@ -195,8 +196,10 @@ class OptionsFeatures:
             days_to_expiry: Days to expiration
 
         Returns:
-            Annualized yield
+            Annualized yield (NaN if strike or days_to_expiry is zero)
         """
+        if strike <= 0 or days_to_expiry <= 0:
+            return np.nan
         return (premium / strike) * (365 / days_to_expiry)
 
     @staticmethod

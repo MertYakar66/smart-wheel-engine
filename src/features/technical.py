@@ -47,10 +47,30 @@ class TechnicalFeatures:
         avg_gain = gain.ewm(span=wilder_span, adjust=False).mean()
         avg_loss = loss.ewm(span=wilder_span, adjust=False).mean()
 
-        # Avoid division by zero
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        rsi = 100 - (100 / (1 + rs))
-        return rsi.fillna(50)  # Neutral RSI when no data
+        # Handle edge cases correctly:
+        # - avg_loss == 0 (all gains): RSI should be 100
+        # - avg_gain == 0 (all losses): RSI should be 0
+        # - both == 0 (no movement): RSI is undefined, use 50
+        rsi = pd.Series(np.nan, index=close.index)
+
+        # Normal case: both avg_gain and avg_loss > 0
+        both_positive = (avg_gain > 0) & (avg_loss > 0)
+        rs = avg_gain / avg_loss
+        rsi[both_positive] = 100 - (100 / (1 + rs[both_positive]))
+
+        # All gains, no losses: RSI = 100
+        all_gains = (avg_gain > 0) & (avg_loss == 0)
+        rsi[all_gains] = 100.0
+
+        # All losses, no gains: RSI = 0
+        all_losses = (avg_gain == 0) & (avg_loss > 0)
+        rsi[all_losses] = 0.0
+
+        # No movement (both zero): neutral RSI
+        no_movement = (avg_gain == 0) & (avg_loss == 0)
+        rsi[no_movement] = 50.0
+
+        return rsi
 
     @staticmethod
     def macd(

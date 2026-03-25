@@ -65,7 +65,8 @@ class VolatilityEdge:
         spread = iv - rv
         mean = spread.rolling(window).mean()
         std = spread.rolling(window).std()
-        return (spread - mean) / std
+        # Guard against division by zero (std == 0 when no variance)
+        return (spread - mean) / std.replace(0, np.nan)
 
     @staticmethod
     def forward_rv_vs_iv(

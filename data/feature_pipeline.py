@@ -563,14 +563,9 @@ class FeaturePipeline:
             df["vol_regime_transition"] = self.vol_edge.vol_regime_transition(df["rv_21d"])
             df["iv_mean_reversion"] = self.vol_edge.mean_reversion_signal(df["atm_iv"])
 
-            # Compute IV rank from history
-            if len(df) >= 252:
-                df["iv_rank"] = df["atm_iv"].rolling(252).apply(
-                    lambda x: (x < x.iloc[-1]).sum() / (len(x) - 1) * 100 if len(x) > 1 else 50,
-                    raw=False
-                )
-            else:
-                df["iv_rank"] = 50.0  # Default
+            # Compute IV rank from history using proper formula: (IV - Min) / (Max - Min)
+            # Note: This is different from IV Percentile which counts observations below current
+            df["iv_rank"] = self.volatility.iv_rank(df["atm_iv"], lookback=252)
 
             # Composite edge score
             df["edge_score"] = self.vol_edge.edge_score(

@@ -141,6 +141,7 @@ class RegimeDetector:
         Classify volatility regime.
 
         Uses realized volatility and optionally VIX.
+        Auto-detects whether input is in decimal (e.g., 0.20) or point (e.g., 20) format.
 
         Returns:
             0 = Extremely low (< 10%)
@@ -151,6 +152,13 @@ class RegimeDetector:
         """
         # Use VIX if available, otherwise RV
         vol = vix if vix is not None else rv
+
+        # Auto-detect scale: if median > 1, assume point format (e.g., VIX = 20)
+        # and convert to decimal (0.20) for consistent thresholding
+        vol_clean = vol.dropna()
+        if len(vol_clean) > 0 and vol_clean.median() > 1.0:
+            # Input is in point format (e.g., VIX = 20), convert to decimal
+            vol = vol / 100.0
 
         regime = pd.Series(VolRegime.NORMAL, index=vol.index)
 

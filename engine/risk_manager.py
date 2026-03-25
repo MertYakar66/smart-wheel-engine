@@ -382,10 +382,14 @@ class RiskManager:
             # Assume first column is price, compute returns
             hist_returns = returns_data.iloc[:, 0].pct_change().dropna()
 
-        # Scale returns to horizon
+        # Scale returns to horizon using proper compounding
         if horizon_days > 1:
-            # Rolling sum for multi-day returns
-            hist_returns = hist_returns.rolling(horizon_days).sum().dropna()
+            # Compound returns: (1+r1)*(1+r2)*...-1
+            # Rolling product of (1+return), then subtract 1
+            compound_factor = (1 + hist_returns).rolling(horizon_days).apply(
+                lambda x: x.prod(), raw=True
+            ).dropna() - 1
+            hist_returns = compound_factor
 
         # Portfolio P&L scenarios
         pnl_scenarios = greeks.delta_dollars * hist_returns

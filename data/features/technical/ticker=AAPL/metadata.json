@@ -2,7 +2,7 @@
   "category": "technical",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:31:49.610682",
-  "updated_at": "2026-03-25T16:33:08.609913",
+  "updated_at": "2026-03-25T16:55:01.127306",
   "row_count": 2065,
   "date_range": [
     "2018-01-02",
@@ -41,7 +41,7 @@
   ],
   "source_hash": "4964f387bff8761c",
   "source_files": [],
-  "computation_time_ms": 16,
-  "version": 2,
+  "computation_time_ms": 13,
+  "version": 4,
   "schema_version": "1.0"
 }

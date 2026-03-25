@@ -1,0 +1,34 @@
+{
+  "category": "volatility",
+  "ticker": "AAPL",
+  "created_at": "2026-03-25T16:33:08.672758",
+  "updated_at": "2026-03-25T16:33:08.672769",
+  "row_count": 2065,
+  "date_range": [
+    "2018-01-02",
+    "2026-03-20"
+  ],
+  "columns": [
+    "date",
+    "ticker",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "ticker_normalized",
+    "returns",
+    "rv_5d",
+    "rv_10d",
+    "rv_21d",
+    "rv_63d",
+    "rv_parkinson_21d",
+    "rv_garman_klass_21d",
+    "rv_yang_zhang_21d"
+  ],
+  "source_hash": "77a088898bddf268",
+  "source_files": [],
+  "computation_time_ms": 10,
+  "version": 1,
+  "schema_version": "1.0"
+}

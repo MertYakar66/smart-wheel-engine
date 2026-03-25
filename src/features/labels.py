@@ -195,19 +195,25 @@ class LabelGenerator:
         periods: int,
     ) -> pd.Series:
         """
-        Maximum drawdown over next N periods.
+        Maximum drawdown over next N periods (vectorized).
 
         Important for CSP: max drop determines if you get assigned.
+
+        Returns negative values (drawdowns are negative by convention).
+        E.g., -0.10 means price dropped 10% from entry within the period.
         """
-        result = pd.Series(index=price.index, dtype=float)
+        # Vectorized: rolling min shifted back to align with entry point
+        # For each point, find the minimum over the next N periods
+        forward_min = price[::-1].rolling(periods + 1, min_periods=1).min()[::-1]
 
-        for i in range(len(price) - periods):
-            window = price.iloc[i:i + periods + 1]
-            peak = window.iloc[0]  # Entry price
-            trough = window.min()
-            result.iloc[i] = (trough - peak) / peak
+        # Shift to align: forward_min[i] should be min of price[i:i+periods+1]
+        # The reversal + rolling already handles this
+        drawdown = (forward_min - price) / price
 
-        return result
+        # Set last 'periods' values to NaN (insufficient forward data)
+        drawdown.iloc[-periods:] = np.nan
+
+        return drawdown
 
     @staticmethod
     def touch_strike_label(
@@ -216,19 +222,23 @@ class LabelGenerator:
         periods: int,
     ) -> pd.Series:
         """
-        Did price touch strike within N periods?
+        Did price touch strike within N periods? (vectorized)
+
+        For puts: did price drop to or below strike?
+        For calls: would need to check if price rose above strike.
 
         1 = Yes (would have been ITM at some point)
         0 = No (stayed OTM)
+
+        This is critical for probability of touch (PoT) validation.
+        PoT >> delta, so this matters for assignment risk.
         """
-        result = pd.Series(index=price.index, dtype=int)
-
-        for i in range(len(price) - periods):
-            window = price.iloc[i:i + periods + 1]
-            touched = window.min() <= strike
-            result.iloc[i] = int(touched)
-
-        return result
+        # Forward-looking minimum (vectorized)
+        forward_min = price[::-1].rolling(periods + 1, min_periods=1).min()[::-1]
+        touched = (forward_min <= strike).astype(int)
+        # Set last 'periods' values to NaN
+        touched.iloc[-periods:] = np.nan
+        return touched
 
     # === VOLATILITY LABELS ===
 
@@ -238,20 +248,27 @@ class LabelGenerator:
         periods: int = 21,
     ) -> pd.Series:
         """
-        Realized volatility over next N periods.
+        Realized volatility over next N periods (vectorized).
 
         Compare to IV at entry to see if options were mispriced.
+
+        This is the TRUE label for whether selling vol was profitable:
+        - If IV at entry > forward RV: seller won (options were expensive)
+        - If IV at entry < forward RV: seller lost (options were cheap)
         """
         log_returns = np.log(price / price.shift(1))
 
-        # Forward-looking vol
-        result = pd.Series(index=price.index, dtype=float)
+        # Vectorized forward-looking std using reversed rolling
+        # Reverse, compute rolling std, reverse back
+        forward_std = log_returns[::-1].rolling(periods, min_periods=periods).std()[::-1]
 
-        for i in range(len(price) - periods):
-            window = log_returns.iloc[i + 1:i + periods + 1]
-            result.iloc[i] = window.std() * np.sqrt(252)
+        # Shift by 1 because we want returns AFTER entry, not including entry day
+        forward_rv = forward_std.shift(-1) * np.sqrt(252)
 
-        return result
+        # Last 'periods' values have insufficient data
+        forward_rv.iloc[-periods:] = np.nan
+
+        return forward_rv
 
     @staticmethod
     def iv_overpriced_label(

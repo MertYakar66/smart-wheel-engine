@@ -14,12 +14,10 @@ import type {
   StoryCard,
   CalendarEvent,
   MarketIndex,
-  WheelTrade,
-  MarketRegime,
-  OptionsPortfolio,
   AgentStatus,
   AgentTask,
 } from "@/types";
+import { useEngineData } from "@/hooks/useEngineData";
 
 // ─── Placeholder data for systems not yet connected ────────────────────
 
@@ -44,87 +42,7 @@ const PLACEHOLDER_COMMODITIES: MarketIndex[] = [
   { symbol: "NG", name: "Nat Gas", price: 2.87, changePct: -2.41, change: -0.07 },
 ];
 
-const PLACEHOLDER_TRADES: WheelTrade[] = [
-  {
-    ticker: "AAPL",
-    strategy: "short_put",
-    strike: 170,
-    expiration: "2026-03-20",
-    premium: 245,
-    probability: 82,
-    expectedPnL: 142,
-    maxLoss: 16755,
-    iv: 0.228,
-    delta: -0.18,
-    score: 87,
-  },
-  {
-    ticker: "MSFT",
-    strategy: "short_put",
-    strike: 400,
-    expiration: "2026-03-20",
-    premium: 380,
-    probability: 78,
-    expectedPnL: 198,
-    maxLoss: 39620,
-    iv: 0.195,
-    delta: -0.22,
-    score: 81,
-  },
-  {
-    ticker: "NVDA",
-    strategy: "covered_call",
-    strike: 850,
-    expiration: "2026-03-20",
-    premium: 1520,
-    probability: 71,
-    expectedPnL: 680,
-    maxLoss: 0,
-    iv: 0.412,
-    delta: 0.29,
-    score: 74,
-  },
-  {
-    ticker: "AMZN",
-    strategy: "short_put",
-    strike: 175,
-    expiration: "2026-04-17",
-    premium: 310,
-    probability: 85,
-    expectedPnL: 185,
-    maxLoss: 17190,
-    iv: 0.263,
-    delta: -0.15,
-    score: 89,
-  },
-  {
-    ticker: "GOOGL",
-    strategy: "covered_call",
-    strike: 165,
-    expiration: "2026-03-20",
-    premium: 195,
-    probability: 76,
-    expectedPnL: 108,
-    maxLoss: 0,
-    iv: 0.241,
-    delta: 0.24,
-    score: 72,
-  },
-];
-
-const PLACEHOLDER_REGIME: MarketRegime = {
-  regime: "BULL",
-  vix: 14.32,
-  trendScore: 0.72,
-  confidence: 0.84,
-};
-
-const PLACEHOLDER_PORTFOLIO: OptionsPortfolio = {
-  openPositions: 4,
-  totalPremiumCollected: 12840,
-  winRate: 78.5,
-  avgDaysHeld: 18,
-};
+// Options engine data is now fetched via useEngineData hook
 
 const PLACEHOLDER_AGENT_STATUS: AgentStatus = {
   online: true,
@@ -149,6 +67,9 @@ const PLACEHOLDER_AGENT_TASKS: AgentTask[] = [
 // ─── Main Terminal Dashboard ───────────────────────────────────────────
 
 export default function TerminalPage() {
+  // Options engine data (connected to smart-wheel-engine)
+  const engineData = useEngineData();
+
   // Stories state (connected to real API)
   const [stories, setStories] = useState<StoryCard[]>([]);
   const [storiesLoading, setStoriesLoading] = useState(true);
@@ -346,6 +267,10 @@ export default function TerminalPage() {
           setChatQuery(`Explain the market impact of: "${selectedStory.canonicalTitle}". Who is exposed? What mechanism drives the impact? Over what time horizon?`);
         }
         break;
+      case "ENGINE":
+        // Refresh engine data
+        engineData.refresh();
+        break;
       case "HELP":
         // Help is shown via the command line component
         break;
@@ -390,10 +315,10 @@ export default function TerminalPage() {
           loading={false}
         />
         <OptionsPanel
-          trades={PLACEHOLDER_TRADES}
-          regime={PLACEHOLDER_REGIME}
-          portfolio={PLACEHOLDER_PORTFOLIO}
-          connected={false}
+          trades={engineData.trades}
+          regime={engineData.regime}
+          portfolio={engineData.portfolio}
+          connected={engineData.connected}
         />
         <AgentPanel
           status={PLACEHOLDER_AGENT_STATUS}

@@ -15,6 +15,7 @@ const COMMANDS = [
   { cmd: "UNWATCH <SYM>", desc: "Remove from watchlist" },
   { cmd: "QUOTE <SYM>", desc: "Get stock quote" },
   { cmd: "REFRESH", desc: "Ingest RSS feeds" },
+  { cmd: "ENGINE", desc: "Refresh options engine data" },
   { cmd: "CALENDAR", desc: "Show macro calendar" },
   { cmd: "RESEARCH <Q>", desc: "Ask AI a question" },
   { cmd: "CLEAR", desc: "Clear command history" },

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 import path from "path";
-
-const execAsync = promisify(exec);
 
 /**
  * API bridge to the smart-wheel-engine Python backend.
@@ -53,16 +50,21 @@ else:
     case "regime":
       return `
 import json, sys
+import numpy as np
 sys.path.insert(0, '${ENGINE_ROOT}')
 from data.feature_store import FeatureStore
 store = FeatureStore('${ENGINE_ROOT}/data/features')
 df = store.read_features('regime', '${ticker}')
 if df is not None and not df.empty:
     last = df.iloc[-1]
-    cols = [c for c in df.columns if c != 'date']
-    result = {c: float(last[c]) if str(last[c]) != 'nan' else None for c in cols}
+    # Only include numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    result = {}
+    for c in numeric_cols:
+        val = last[c]
+        result[c] = float(val) if not np.isnan(val) else None
     result['ticker'] = '${ticker}'
-    result['date'] = str(last.get('date', ''))
+    result['date'] = str(last.get('date', '')) if 'date' in last.index else None
     print(json.dumps(result))
 else:
     print(json.dumps({'error': 'No data', 'ticker': '${ticker}'}))
@@ -115,6 +117,44 @@ print(json.dumps({
   }
 }
 
+function runPython(script: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("python3", ["-c", script], {
+      cwd: ENGINE_ROOT,
+      env: { ...process.env, PYTHONPATH: ENGINE_ROOT },
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(stderr || `Process exited with code ${code}`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      reject(err);
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      proc.kill();
+      reject(new Error("Process timed out"));
+    }, 30000);
+  });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "status";
@@ -126,15 +166,7 @@ export async function GET(request: Request) {
 
   try {
     const script = buildPythonScript(action, params);
-    const { stdout, stderr } = await execAsync(`python3 -c ${JSON.stringify(script)}`, {
-      cwd: ENGINE_ROOT,
-      timeout: 30000,
-      env: { ...process.env, PYTHONPATH: ENGINE_ROOT },
-    });
-
-    if (stderr && !stderr.includes("WARNING") && !stderr.includes("RuntimeWarning")) {
-      console.error("Python stderr:", stderr);
-    }
+    const stdout = await runPython(script);
 
     const data = JSON.parse(stdout.trim());
     return NextResponse.json(data);

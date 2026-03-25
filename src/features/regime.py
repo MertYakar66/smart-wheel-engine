@@ -202,8 +202,10 @@ class RegimeDetector:
             1 = Steep contango (> 5% below)
             0 = Flat
            -1 = Backwardation (> 5% above)
+            NaN = Invalid data (vix_spot <= 0)
         """
-        spread = (vix_futures - vix_spot) / vix_spot
+        # Guard against division by zero or invalid VIX values
+        spread = (vix_futures - vix_spot) / vix_spot.replace(0, np.nan)
 
         regime = pd.Series(0, index=spread.index)
         regime[spread > 0.05] = 1   # Contango

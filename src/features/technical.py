@@ -25,33 +25,56 @@ class TechnicalFeatures:
     @staticmethod
     def rsi(close: pd.Series, window: int = 14) -> pd.Series:
         """
-        Relative Strength Index (Wilder's smoothing).
+        Relative Strength Index with canonical Wilder bootstrap.
 
-        Uses Wilder's smoothing (not standard EMA) as per the original
-        RSI specification. Wilder's smoothing has alpha = 1/n, which is
-        equivalent to EMA with span = 2n - 1.
+        Implements RSI exactly as specified by Wilder (1978):
+        1. First `window` periods are NaN (warm-up)
+        2. First valid RSI uses simple average of first `window` gains/losses
+        3. Subsequent values use Wilder's recursive smoothing:
+           avg = (prev_avg * (n-1) + current) / n
 
         Args:
             close: Close prices
             window: RSI lookback period (typically 14)
 
         Returns:
-            RSI values (0-100)
+            RSI values (0-100), with first `window` values as NaN
         """
         delta = close.diff()
         gain = delta.where(delta > 0, 0.0)
         loss = (-delta).where(delta < 0, 0.0)
 
-        # Wilder's smoothing: alpha = 1/n, equivalent to EMA span = 2*n - 1
-        wilder_span = 2 * window - 1
-        avg_gain = gain.ewm(span=wilder_span, adjust=False).mean()
-        avg_loss = loss.ewm(span=wilder_span, adjust=False).mean()
+        # Initialize output
+        rsi = pd.Series(np.nan, index=close.index)
+
+        # Need at least window+1 data points for first valid RSI
+        if len(close) <= window:
+            return rsi
+
+        # Canonical Wilder bootstrap: first avg uses simple mean
+        first_avg_gain = gain.iloc[1:window + 1].mean()
+        first_avg_loss = loss.iloc[1:window + 1].mean()
+
+        # Build smoothed averages using Wilder's recursive formula
+        avg_gains = np.zeros(len(close))
+        avg_losses = np.zeros(len(close))
+        avg_gains[:window + 1] = np.nan
+        avg_losses[:window + 1] = np.nan
+        avg_gains[window] = first_avg_gain
+        avg_losses[window] = first_avg_loss
+
+        # Wilder smoothing: avg = (prev_avg * (n-1) + current) / n
+        for i in range(window + 1, len(close)):
+            avg_gains[i] = (avg_gains[i - 1] * (window - 1) + gain.iloc[i]) / window
+            avg_losses[i] = (avg_losses[i - 1] * (window - 1) + loss.iloc[i]) / window
+
+        avg_gain = pd.Series(avg_gains, index=close.index)
+        avg_loss = pd.Series(avg_losses, index=close.index)
 
         # Handle edge cases correctly:
         # - avg_loss == 0 (all gains): RSI should be 100
         # - avg_gain == 0 (all losses): RSI should be 0
         # - both == 0 (no movement): RSI is undefined, use 50
-        rsi = pd.Series(np.nan, index=close.index)
 
         # Normal case: both avg_gain and avg_loss > 0
         both_positive = (avg_gain > 0) & (avg_loss > 0)
@@ -149,7 +172,12 @@ class TechnicalFeatures:
         window: int = 14,
     ) -> pd.Series:
         """
-        Average True Range.
+        Average True Range with canonical Wilder smoothing.
+
+        Implements ATR exactly as specified by Wilder (1978):
+        1. First ATR uses simple average of first `window` true ranges
+        2. Subsequent values use Wilder's recursive smoothing:
+           ATR = (prev_ATR * (n-1) + current_TR) / n
 
         Args:
             high: High prices
@@ -158,7 +186,7 @@ class TechnicalFeatures:
             window: ATR lookback period
 
         Returns:
-            ATR values
+            ATR values, with first `window-1` values as NaN
         """
         prev_close = close.shift(1)
 
@@ -167,7 +195,22 @@ class TechnicalFeatures:
         tr3 = (low - prev_close).abs()
 
         true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        return true_range.rolling(window).mean()
+
+        # Canonical Wilder smoothing (not SMA)
+        atr = pd.Series(np.nan, index=close.index)
+
+        if len(close) < window:
+            return atr
+
+        # First ATR: simple average of first `window` true ranges
+        first_atr = true_range.iloc[:window].mean()
+        atr.iloc[window - 1] = first_atr
+
+        # Wilder smoothing: ATR = (prev_ATR * (n-1) + TR) / n
+        for i in range(window, len(close)):
+            atr.iloc[i] = (atr.iloc[i - 1] * (window - 1) + true_range.iloc[i]) / window
+
+        return atr
 
     @staticmethod
     def atr_percent(

@@ -290,7 +290,8 @@ class RiskManager:
 
             greeks.delta += pos_greeks['delta'] * multiplier
             greeks.gamma += pos_greeks['gamma'] * multiplier
-            greeks.theta += pos_greeks['theta'] * multiplier
+            # Convert annual theta to daily theta (pricer returns per-year)
+            greeks.theta += (pos_greeks['theta'] / 365) * multiplier
             greeks.vega += pos_greeks['vega'] * multiplier
             greeks.rho += pos_greeks['rho'] * multiplier
 
@@ -614,8 +615,11 @@ def calculate_optimal_contracts(
         margin_requirement: Margin requirement as fraction of notional
 
     Returns:
-        Number of contracts
+        Number of contracts (0 if constraints cannot be satisfied)
     """
+    if capital <= 0 or strike <= 0:
+        return 0
+
     notional_per_contract = strike * 100
     margin_per_contract = notional_per_contract * margin_requirement
 
@@ -626,7 +630,8 @@ def calculate_optimal_contracts(
     # Margin-based limit
     contracts_by_margin = int(capital / margin_per_contract)
 
-    return max(1, min(contracts_by_risk, contracts_by_margin))
+    # Return 0 if constraints cannot be satisfied (do NOT force minimum of 1)
+    return max(0, min(contracts_by_risk, contracts_by_margin))
 
 
 # =============================================================================

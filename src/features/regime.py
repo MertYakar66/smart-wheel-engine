@@ -207,9 +207,14 @@ class RegimeDetector:
         # Guard against division by zero or invalid VIX values
         spread = (vix_futures - vix_spot) / vix_spot.replace(0, np.nan)
 
-        regime = pd.Series(0, index=spread.index)
-        regime[spread > 0.05] = 1   # Contango
-        regime[spread < -0.05] = -1  # Backwardation
+        # Initialize with NaN to preserve invalid entries
+        regime = pd.Series(np.nan, index=spread.index)
+
+        # Only classify where spread is valid (not NaN)
+        valid = spread.notna()
+        regime[valid & (spread > 0.05)] = 1   # Contango
+        regime[valid & (spread < -0.05)] = -1  # Backwardation
+        regime[valid & (spread >= -0.05) & (spread <= 0.05)] = 0  # Flat
 
         return regime
 

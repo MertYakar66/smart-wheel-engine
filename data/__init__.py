@@ -86,6 +86,13 @@ from .bloomberg_import import (
 # Master data pipeline
 from .pipeline import DataPipeline, DataStatus
 
+# Consolidated Bloomberg loader
+from .consolidated_loader import (
+    ConsolidatedBloombergLoader,
+    normalize_ticker,
+    get_bloomberg_loader,
+)
+
 # Feature engineering pipeline
 from .feature_pipeline import (
     FeaturePipeline,

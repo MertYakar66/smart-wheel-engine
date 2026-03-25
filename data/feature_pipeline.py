@@ -126,11 +126,14 @@ class FeaturePipeline:
         data_pipeline: Optional["DataPipeline"] = None,
         feature_store: Optional[FeatureStore] = None,
         cache_results: bool = True,
+        auto_load: bool = True,
     ):
         # Lazy import to avoid circular dependency
         if data_pipeline is None:
             from data.pipeline import DataPipeline
             data_pipeline = DataPipeline()
+            if auto_load:
+                data_pipeline.load_all()
         self.data = data_pipeline
 
         self.store = feature_store or get_feature_store()
@@ -322,21 +325,21 @@ class FeaturePipeline:
             df["returns"] = np.log(df["close"] / df["close"].shift(1))
 
             # Compute realized volatility (multiple estimators)
-            df["rv_5d"] = self.volatility.close_to_close(df["returns"], window=5)
-            df["rv_10d"] = self.volatility.close_to_close(df["returns"], window=10)
-            df["rv_21d"] = self.volatility.close_to_close(df["returns"], window=21)
-            df["rv_63d"] = self.volatility.close_to_close(df["returns"], window=63)
+            df["rv_5d"] = self.volatility.realized_volatility_close(df["returns"], window=5)
+            df["rv_10d"] = self.volatility.realized_volatility_close(df["returns"], window=10)
+            df["rv_21d"] = self.volatility.realized_volatility_close(df["returns"], window=21)
+            df["rv_63d"] = self.volatility.realized_volatility_close(df["returns"], window=63)
 
             # Parkinson (uses high-low)
-            df["rv_parkinson_21d"] = self.volatility.parkinson(df["high"], df["low"], window=21)
+            df["rv_parkinson_21d"] = self.volatility.realized_volatility_parkinson(df["high"], df["low"], window=21)
 
             # Garman-Klass (uses OHLC)
-            df["rv_garman_klass_21d"] = self.volatility.garman_klass(
+            df["rv_garman_klass_21d"] = self.volatility.realized_volatility_garman_klass(
                 df["open"], df["high"], df["low"], df["close"], window=21
             )
 
             # Yang-Zhang (most robust)
-            df["rv_yang_zhang_21d"] = self.volatility.yang_zhang(
+            df["rv_yang_zhang_21d"] = self.volatility.realized_volatility_yang_zhang(
                 df["open"], df["high"], df["low"], df["close"], window=21
             )
 
@@ -388,8 +391,10 @@ class FeaturePipeline:
 
             df = iv_history.copy()
 
-            # Compute options features
-            df = self.options_features.compute_all(df)
+            # Compute options flow features (if we have volume/OI data)
+            if any(col in df.columns for col in ["call_volume", "put_volume", "call_oi", "put_oi"]):
+                df = self.options_features.compute_flow_features(df)
+            # Otherwise just pass through the IV data
 
             self.store.write_features(
                 category=category,
@@ -683,8 +688,11 @@ class FeaturePipeline:
             # Get IV history for event vol computation
             iv_history = self.data.iv_history.get(ticker) if hasattr(self.data, 'iv_history') else None
 
-            # Compute event features
-            df = self.events.compute_all(df, iv_history=iv_history)
+            # Get OHLCV for price data
+            ohlcv = self.data.get_ohlcv(ticker)
+
+            # Compute event features using the correct method
+            df = self.events.compute_earnings_features(df, ohlcv_df=ohlcv, iv_df=iv_history)
 
             self.store.write_features(
                 category=category,

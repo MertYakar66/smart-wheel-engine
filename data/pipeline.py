@@ -4,6 +4,12 @@ Master Data Pipeline
 Orchestrates loading all Bloomberg data, validates it, and provides
 a unified interface for the rest of the engine.
 
+Supports TWO data formats:
+1. Consolidated CSVs (sp500_ohlcv.csv, sp500_earnings.csv, etc.)
+2. Per-ticker CSVs in subdirectories (ohlcv/AAPL.csv, earnings/AAPL.csv, etc.)
+
+The pipeline auto-detects which format is available.
+
 Usage:
     from data.pipeline import DataPipeline
 
@@ -45,6 +51,13 @@ from .bloomberg_loader import (
     get_current_risk_free_rate,
     build_sector_map,
 )
+
+# Try to import consolidated loader
+try:
+    from .consolidated_loader import ConsolidatedBloombergLoader, normalize_ticker
+    CONSOLIDATED_AVAILABLE = True
+except ImportError:
+    CONSOLIDATED_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -108,16 +121,23 @@ class DataPipeline:
     def __init__(
         self,
         data_dir: Optional[str] = None,
-        tickers: Optional[List[str]] = None
+        tickers: Optional[List[str]] = None,
+        use_consolidated: Optional[bool] = None,
     ):
         """
         Args:
             data_dir: Root Bloomberg data directory.
                       Default: data/bloomberg/
             tickers: Specific tickers to load (None = all available).
+            use_consolidated: Force consolidated loader (True), per-ticker loader (False),
+                            or auto-detect (None, default).
         """
         self.data_dir = Path(data_dir) if data_dir else BLOOMBERG_DIR
         self.tickers = tickers
+
+        # Auto-detect data format
+        self._use_consolidated = self._detect_data_format() if use_consolidated is None else use_consolidated
+        self._consolidated_loader: Optional["ConsolidatedBloombergLoader"] = None
 
         # Data stores
         self._ohlcv: Dict[str, pd.DataFrame] = {}
@@ -134,19 +154,41 @@ class DataPipeline:
         self._sector_map: Dict[str, str] = {}
         self._risk_free_rate: Optional[float] = None
 
+    def _detect_data_format(self) -> bool:
+        """Detect if we have consolidated CSVs or per-ticker files."""
+        # Check for consolidated files
+        consolidated_files = [
+            "sp500_ohlcv.csv",
+            "sp500_earnings.csv",
+            "sp500_vol_iv_full.csv",
+        ]
+
+        for f in consolidated_files:
+            if (self.data_dir / f).exists():
+                logger.info(f"Detected consolidated data format (found {f})")
+                return True
+
+        # Check for per-ticker directories
+        per_ticker_dirs = ["ohlcv", "earnings", "options"]
+        for d in per_ticker_dirs:
+            dir_path = self.data_dir / d
+            if dir_path.exists() and list(dir_path.glob("*.csv")):
+                logger.info(f"Detected per-ticker data format (found {d}/ directory)")
+                return False
+
+        # Default to consolidated if available
+        return CONSOLIDATED_AVAILABLE
+
     # ─── Loading ──────────────────────────────────────────────────
 
     def load_all(self) -> 'DataPipeline':
         """Load all available Bloomberg data. Returns self for chaining."""
         logger.info(f"Loading all Bloomberg data from {self.data_dir}")
 
-        self.load_ohlcv()
-        self.load_options()
-        self.load_earnings()
-        self.load_dividends()
-        self.load_iv_history()
-        self.load_rates()
-        self.load_fundamentals()
+        if self._use_consolidated and CONSOLIDATED_AVAILABLE:
+            self._load_consolidated()
+        else:
+            self._load_per_ticker()
 
         # Pre-compute derived values
         self._compute_iv_ranks()
@@ -156,6 +198,68 @@ class DataPipeline:
         status = self.status()
         logger.info(f"\n{status.summary()}")
         return self
+
+    def _load_consolidated(self) -> None:
+        """Load data from consolidated CSV files."""
+        logger.info("Using consolidated data loader")
+
+        from .consolidated_loader import ConsolidatedBloombergLoader
+
+        self._consolidated_loader = ConsolidatedBloombergLoader(
+            data_dir=self.data_dir,
+            auto_load=True,
+        )
+
+        # Copy data to internal stores
+        for ticker in self._consolidated_loader.get_tickers():
+            # OHLCV
+            ohlcv = self._consolidated_loader.get_ohlcv(ticker)
+            if ohlcv is not None and not ohlcv.empty:
+                # Standardize column names (capitalize for compatibility)
+                ohlcv = ohlcv.copy()
+                ohlcv.columns = [c.title() if c != "ticker_normalized" else c for c in ohlcv.columns]
+                self._ohlcv[ticker] = ohlcv
+
+            # IV History
+            iv_hist = self._consolidated_loader.get_iv_history(ticker)
+            if iv_hist is not None and not iv_hist.empty:
+                self._iv_history[ticker] = iv_hist
+
+            # Earnings
+            earnings = self._consolidated_loader.get_earnings(ticker)
+            if earnings is not None and not earnings.empty:
+                self._earnings[ticker] = earnings
+
+            # Dividends
+            dividends = self._consolidated_loader.get_dividends(ticker)
+            if dividends is not None and not dividends.empty:
+                self._dividends[ticker] = dividends
+
+        # Treasury rates
+        treasury = self._consolidated_loader.get_treasury()
+        if treasury is not None:
+            self._rates = treasury
+            self._risk_free_rate = self._consolidated_loader.get_risk_free_rate()
+
+        # Fundamentals - store as dict mapping ticker -> fundamentals dict
+        for ticker in self._consolidated_loader.get_tickers():
+            fund = self._consolidated_loader.get_fundamentals(ticker)
+            if fund:
+                self._sector_map[ticker] = fund.get("sector", "Unknown")
+
+        logger.info(f"Loaded {len(self._ohlcv)} tickers from consolidated data")
+
+    def _load_per_ticker(self) -> None:
+        """Load data from per-ticker CSV files (legacy format)."""
+        logger.info("Using per-ticker data loader")
+
+        self.load_ohlcv()
+        self.load_options()
+        self.load_earnings()
+        self.load_dividends()
+        self.load_iv_history()
+        self.load_rates()
+        self.load_fundamentals()
 
     def load_ohlcv(self) -> None:
         """Load OHLCV price data."""
@@ -231,24 +335,74 @@ class DataPipeline:
     def _compute_iv_ranks(self) -> None:
         """Compute IV rank for all tickers with IV history."""
         for ticker, iv_df in self._iv_history.items():
-            rank = compute_iv_rank(iv_df)
-            if rank is not None:
-                self._iv_ranks[ticker] = rank
+            # Try consolidated format first (atm_iv column)
+            if "atm_iv" in iv_df.columns:
+                iv = iv_df["atm_iv"].dropna()
+                if len(iv) >= 252:
+                    current = iv.iloc[-1]
+                    rank = (iv.iloc[-252:] < current).sum() / 252 * 100
+                    self._iv_ranks[ticker] = float(rank)
+            else:
+                # Fall back to legacy format
+                rank = compute_iv_rank(iv_df)
+                if rank is not None:
+                    self._iv_ranks[ticker] = rank
 
     def _compute_div_yields(self) -> None:
         """Compute dividend yields for all tickers."""
-        for ticker, div_df in self._dividends.items():
-            ohlcv = self._ohlcv.get(ticker)
-            if ohlcv is not None and not ohlcv.empty:
-                spot = float(ohlcv.iloc[-1]["Close"])
-                self._div_yields[ticker] = get_annual_dividend_yield(
-                    ticker, div_df, spot
-                )
+        # Use consolidated loader if available
+        if self._consolidated_loader:
+            for ticker in self._consolidated_loader.get_tickers():
+                div_yield = self._consolidated_loader.get_dividend_yield(ticker)
+                if div_yield and div_yield > 0:
+                    self._div_yields[ticker] = div_yield
+        else:
+            # Fall back to legacy computation
+            for ticker, div_df in self._dividends.items():
+                ohlcv = self._ohlcv.get(ticker)
+                if ohlcv is not None and not ohlcv.empty:
+                    close_col = "Close" if "Close" in ohlcv.columns else "close"
+                    spot = float(ohlcv.iloc[-1][close_col])
+                    self._div_yields[ticker] = get_annual_dividend_yield(
+                        ticker, div_df, spot
+                    )
 
     def _compute_sector_map(self) -> None:
         """Build sector map from fundamentals."""
+        # If using consolidated loader, sectors are already populated
+        if self._consolidated_loader:
+            return
+
+        # Fall back to legacy
         if self._fundamentals is not None:
             self._sector_map = build_sector_map(self._fundamentals)
+
+    # ─── Properties for direct access ────────────────────────────
+
+    @property
+    def ohlcv(self) -> Dict[str, pd.DataFrame]:
+        """Direct access to OHLCV data."""
+        return self._ohlcv
+
+    @property
+    def iv_history(self) -> Dict[str, pd.DataFrame]:
+        """Direct access to IV history data."""
+        return self._iv_history
+
+    @property
+    def earnings(self) -> Dict[str, pd.DataFrame]:
+        """Direct access to earnings data."""
+        return self._earnings
+
+    @property
+    def dividends(self) -> Dict[str, pd.DataFrame]:
+        """Direct access to dividend data."""
+        return self._dividends
+
+    @property
+    def options(self) -> Dict[str, pd.DataFrame]:
+        """Direct access to options data."""
+        return self._options
 
     # ─── Access Methods ──────────────────────────────────────────
 

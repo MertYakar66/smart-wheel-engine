@@ -800,13 +800,14 @@ class FeaturePipeline:
                 )
 
             regime_df = self.regime.compute_all(
-                price=df["close"],
-                rv=df["rv_21d"],
-                volume=df["volume"],
+                price=df["close"].copy(),
+                rv=df["rv_21d"].copy(),
+                volume=df["volume"].copy(),
             )
 
-            # Merge regime features back
-            for col in regime_df.columns:
+            # Merge regime features back (use list() to avoid iteration issues)
+            regime_cols = list(regime_df.columns)
+            for col in regime_cols:
                 df[col] = regime_df[col].values
 
             self.store.write_features(

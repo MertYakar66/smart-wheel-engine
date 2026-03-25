@@ -629,42 +629,82 @@ def calculate_optimal_contracts(
 # Sector Exposure Management
 # =============================================================================
 
-# GICS Sector mappings (simplified)
+# GICS Sector mappings - SP500 constituents only
 DEFAULT_SECTOR_MAP: Dict[str, str] = {
-    # Technology
-    'AAPL': 'Technology', 'MSFT': 'Technology', 'GOOGL': 'Technology',
-    'AMZN': 'Consumer Discretionary', 'META': 'Technology', 'NVDA': 'Technology',
-    'AMD': 'Technology', 'INTC': 'Technology', 'CRM': 'Technology',
-    'ADBE': 'Technology', 'NFLX': 'Communication Services', 'TSLA': 'Consumer Discretionary',
+    # Information Technology
+    'AAPL': 'Information Technology', 'MSFT': 'Information Technology',
+    'NVDA': 'Information Technology', 'AMD': 'Information Technology',
+    'INTC': 'Information Technology', 'CRM': 'Information Technology',
+    'ADBE': 'Information Technology', 'AVGO': 'Information Technology',
+    'ORCL': 'Information Technology', 'CSCO': 'Information Technology',
+    'ACN': 'Information Technology', 'TXN': 'Information Technology',
+    'QCOM': 'Information Technology', 'INTU': 'Information Technology',
+    'AMAT': 'Information Technology', 'MU': 'Information Technology',
+    'LRCX': 'Information Technology', 'KLAC': 'Information Technology',
+    'NOW': 'Information Technology', 'PANW': 'Information Technology',
+
+    # Communication Services
+    'GOOGL': 'Communication Services', 'GOOG': 'Communication Services',
+    'META': 'Communication Services', 'NFLX': 'Communication Services',
+    'DIS': 'Communication Services', 'CMCSA': 'Communication Services',
+    'TMUS': 'Communication Services', 'VZ': 'Communication Services',
+    'T': 'Communication Services', 'EA': 'Communication Services',
+
+    # Consumer Discretionary
+    'AMZN': 'Consumer Discretionary', 'TSLA': 'Consumer Discretionary',
+    'HD': 'Consumer Discretionary', 'MCD': 'Consumer Discretionary',
+    'NKE': 'Consumer Discretionary', 'SBUX': 'Consumer Discretionary',
+    'LOW': 'Consumer Discretionary', 'TJX': 'Consumer Discretionary',
+    'BKNG': 'Consumer Discretionary', 'CMG': 'Consumer Discretionary',
+    'GM': 'Consumer Discretionary', 'F': 'Consumer Discretionary',
+
+    # Consumer Staples
+    'PG': 'Consumer Staples', 'KO': 'Consumer Staples',
+    'PEP': 'Consumer Staples', 'WMT': 'Consumer Staples',
+    'COST': 'Consumer Staples', 'PM': 'Consumer Staples',
+    'CL': 'Consumer Staples', 'MDLZ': 'Consumer Staples',
 
     # Financials
     'JPM': 'Financials', 'BAC': 'Financials', 'WFC': 'Financials',
     'GS': 'Financials', 'MS': 'Financials', 'C': 'Financials',
-    'AXP': 'Financials', 'BLK': 'Financials',
+    'AXP': 'Financials', 'BLK': 'Financials', 'SCHW': 'Financials',
+    'PGR': 'Financials', 'CB': 'Financials', 'CME': 'Financials',
+    'ICE': 'Financials', 'COF': 'Financials', 'USB': 'Financials',
 
     # Healthcare
     'JNJ': 'Healthcare', 'UNH': 'Healthcare', 'PFE': 'Healthcare',
     'MRK': 'Healthcare', 'ABBV': 'Healthcare', 'LLY': 'Healthcare',
-
-    # Consumer
-    'PG': 'Consumer Staples', 'KO': 'Consumer Staples', 'PEP': 'Consumer Staples',
-    'WMT': 'Consumer Staples', 'COST': 'Consumer Staples',
-    'HD': 'Consumer Discretionary', 'MCD': 'Consumer Discretionary',
-    'NKE': 'Consumer Discretionary', 'SBUX': 'Consumer Discretionary',
-    'DIS': 'Communication Services',
+    'TMO': 'Healthcare', 'ABT': 'Healthcare', 'DHR': 'Healthcare',
+    'BMY': 'Healthcare', 'AMGN': 'Healthcare', 'GILD': 'Healthcare',
+    'ISRG': 'Healthcare', 'CVS': 'Healthcare', 'CI': 'Healthcare',
+    'ELV': 'Healthcare', 'VRTX': 'Healthcare', 'REGN': 'Healthcare',
 
     # Energy
     'XOM': 'Energy', 'CVX': 'Energy', 'COP': 'Energy',
-    'SLB': 'Energy', 'EOG': 'Energy',
+    'SLB': 'Energy', 'EOG': 'Energy', 'MPC': 'Energy',
+    'PSX': 'Energy', 'VLO': 'Energy', 'OXY': 'Energy',
+    'WMB': 'Energy', 'HAL': 'Energy', 'DVN': 'Energy',
 
     # Industrials
     'CAT': 'Industrials', 'BA': 'Industrials', 'HON': 'Industrials',
-    'UPS': 'Industrials', 'MMM': 'Industrials', 'GE': 'Industrials',
+    'UPS': 'Industrials', 'GE': 'Industrials', 'RTX': 'Industrials',
+    'DE': 'Industrials', 'LMT': 'Industrials', 'UNP': 'Industrials',
+    'MMM': 'Industrials', 'WM': 'Industrials', 'FDX': 'Industrials',
+    'NOC': 'Industrials', 'GD': 'Industrials', 'CSX': 'Industrials',
 
-    # ETFs
-    'SPY': 'ETF-Broad', 'QQQ': 'ETF-Tech', 'IWM': 'ETF-SmallCap',
-    'DIA': 'ETF-Broad', 'XLF': 'ETF-Sector', 'XLE': 'ETF-Sector',
-    'XLK': 'ETF-Sector', 'XLV': 'ETF-Sector',
+    # Utilities
+    'NEE': 'Utilities', 'DUK': 'Utilities', 'SO': 'Utilities',
+    'D': 'Utilities', 'AEP': 'Utilities', 'SRE': 'Utilities',
+    'EXC': 'Utilities', 'XEL': 'Utilities',
+
+    # Real Estate
+    'PLD': 'Real Estate', 'AMT': 'Real Estate', 'CCI': 'Real Estate',
+    'EQIX': 'Real Estate', 'PSA': 'Real Estate', 'O': 'Real Estate',
+
+    # Materials
+    'LIN': 'Materials', 'APD': 'Materials', 'SHW': 'Materials',
+    'FCX': 'Materials', 'NEM': 'Materials', 'ECL': 'Materials',
+    'DOW': 'Materials', 'NUE': 'Materials',
 }
 
 

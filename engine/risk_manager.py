@@ -345,17 +345,22 @@ class RiskManager:
         confidence: float,
         horizon_days: int,
         volatilities: Optional[Dict[str, float]] = None,
-        correlations: Optional[pd.DataFrame] = None,
+        correlations: Optional[pd.DataFrame] = None,  # Reserved for future use
         vol_of_vol: float = 0.05,
     ) -> Tuple[float, float]:
         """
-        Delta-gamma-vega parametric VaR with covariance.
+        Delta-gamma-vega parametric VaR.
 
-        Upgrades from simple delta-normal:
-        1. Uses actual volatilities per asset (not hardcoded 20%)
-        2. Incorporates correlation matrix for multi-asset portfolios
-        3. Includes gamma P&L: 0.5 * gamma * (dS)^2
-        4. Includes vega P&L from vol-of-vol shock
+        Current implementation:
+        1. Uses aggregate portfolio delta (single-factor approximation)
+        2. Average volatility across assets
+        3. Gamma P&L adjustment: 0.5 * gamma_dollars * (dS)^2
+        4. Vega P&L from vol-of-vol shock
+
+        Limitations:
+        - Does NOT use per-asset delta decomposition
+        - Correlation matrix parameter is reserved but not yet implemented
+        - For concentrated/correlated books, use historical VaR instead
 
         Args:
             portfolio_value: Total portfolio value
@@ -364,7 +369,7 @@ class RiskManager:
             confidence: VaR confidence level (e.g., 0.95)
             horizon_days: VaR horizon
             volatilities: Dict of symbol -> annualized volatility
-            correlations: Correlation matrix DataFrame
+            correlations: Reserved for future multi-asset covariance
             vol_of_vol: Volatility of volatility for vega shock (default 5%)
 
         Returns:

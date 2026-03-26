@@ -154,15 +154,23 @@ class TestForwardLabelsAlignment:
     def test_forward_binary_label_alignment(self):
         """Binary label (up/down) should predict future direction."""
         # Prices: down then up
+        # Index:  0    1    2    3    4    5    6    7    8    9   10
         prices = pd.Series([100, 99, 98, 97, 96, 95, 96, 97, 98, 99, 100])
 
         lg = LabelGenerator()
         label = lg.forward_return_binary(prices, periods=2, threshold=0.0)
 
-        # At index 4 (price=96), next 2 days go to 95 then 96
-        # Forward return = (96 - 96) / 96 = 0, so label = 0 (not up)
-        # Actually at index 4: price[4]=96, price[6]=96 -> return = 0
-        # At index 5 (price=95), price[7]=97 -> return = 2/95 > 0 -> label = 1
+        # At index 4 (price=96), price[6]=96 -> return = 0, label = 0
+        assert label.iloc[4] == 0, f"Expected 0 at index 4, got {label.iloc[4]}"
+
+        # At index 5 (price=95), price[7]=97 -> return = 2/95 > 0, label = 1
+        assert label.iloc[5] == 1, f"Expected 1 at index 5, got {label.iloc[5]}"
+
+        # At index 0 (price=100), price[2]=98 -> return = -2/100 < 0, label = 0
+        assert label.iloc[0] == 0, f"Expected 0 at index 0, got {label.iloc[0]}"
+
+        # Last 2 values should be NaN (no future data)
+        assert label.iloc[-2:].isna().all(), "Last 2 values should be NaN"
 
     def test_no_lookahead_in_label_shift(self):
         """Ensure shift direction is correct for forward labels."""

@@ -21,14 +21,39 @@ import pandas as pd
 # Input Validation
 # =============================================================================
 
-def _validate_inputs(S: float, K: float, T: float, sigma: float) -> None:
-    """Validate option pricing inputs."""
+_VALID_OPTION_TYPES = ('call', 'put')
+
+
+def _validate_inputs(
+    S: float,
+    K: float,
+    sigma: float,
+    option_type: Optional[str] = None,
+    validate_positive_only: bool = False
+) -> None:
+    """
+    Validate option pricing inputs.
+
+    Args:
+        S: Spot price (must be > 0)
+        K: Strike price (must be > 0)
+        sigma: Volatility (must be >= 0)
+        option_type: If provided, must be 'call' or 'put'
+        validate_positive_only: If True, only check positivity (for vectorized)
+
+    Raises:
+        ValueError: If any input is invalid
+    """
     if S <= 0:
         raise ValueError(f"Spot price S must be positive, got {S}")
     if K <= 0:
         raise ValueError(f"Strike price K must be positive, got {K}")
-    if sigma < 0:
+    if not validate_positive_only and sigma < 0:
         raise ValueError(f"Volatility sigma must be non-negative, got {sigma}")
+    if option_type is not None and option_type not in _VALID_OPTION_TYPES:
+        raise ValueError(
+            f"option_type must be 'call' or 'put', got '{option_type}'"
+        )
 
 
 def _handle_deterministic_case(
@@ -95,17 +120,22 @@ def black_scholes_price(
     Black-Scholes closed-form solution for European options.
 
     Args:
-        S: Current stock price
-        K: Strike price
+        S: Current stock price (must be > 0)
+        K: Strike price (must be > 0)
         T: Time to expiration (years)
         r: Risk-free rate (annualized)
-        sigma: Implied volatility (annualized)
+        sigma: Implied volatility (annualized, must be >= 0)
         option_type: 'call' or 'put'
         q: Continuous dividend yield (annualized, default 0.0)
 
     Returns:
         Option price
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    _validate_inputs(S, K, sigma, option_type)
+
     if T <= 0:
         # At expiration, return intrinsic value
         if option_type == 'call':
@@ -150,7 +180,8 @@ def black_scholes_delta(
     Returns:
         Delta value: [0, 1] for calls, [-1, 0] for puts
     """
-    # Handle deterministic cases consistently
+    _validate_inputs(S, K, sigma, option_type)
+
     if T <= 0 or sigma <= 0:
         result = _handle_deterministic_case(S, K, T, r, q, option_type)
         return result['delta']
@@ -181,6 +212,8 @@ def black_scholes_gamma(
     Returns:
         Gamma value (always positive)
     """
+    _validate_inputs(S, K, sigma)
+
     if T <= 0 or sigma <= 0:
         return 0.0
 
@@ -207,6 +240,8 @@ def black_scholes_theta(
     Returns:
         Theta value (typically negative for long options)
     """
+    _validate_inputs(S, K, sigma, option_type)
+
     if T <= 0 or sigma <= 0:
         return 0.0
 
@@ -243,6 +278,8 @@ def black_scholes_vega(
     Returns:
         Vega value (always positive)
     """
+    _validate_inputs(S, K, sigma)
+
     if T <= 0 or sigma <= 0:
         return 0.0
 
@@ -269,6 +306,8 @@ def black_scholes_rho(
     Returns:
         Rho value
     """
+    _validate_inputs(S, K, sigma, option_type)
+
     if T <= 0 or sigma <= 0:
         return 0.0
 
@@ -302,7 +341,8 @@ def black_scholes_all_greeks(
         Dictionary with price, delta, gamma, theta, vega, rho
         If include_second_order: also vanna, charm, volga
     """
-    # Handle deterministic cases consistently
+    _validate_inputs(S, K, sigma, option_type)
+
     if T <= 0 or sigma <= 0:
         result = _handle_deterministic_case(S, K, T, r, q, option_type)
         if not include_second_order:
@@ -511,7 +551,22 @@ def estimate_option_price_from_iv(
     return black_scholes_price(underlying_price, strike, T, risk_free_rate, iv, option_type, q=dividend_yield)
 
 
-# Vectorized operations for batch processing
+# =============================================================================
+# Vectorized Operations (Batch Processing)
+# =============================================================================
+
+def _vectorized_intrinsic(
+    S: np.ndarray, K: np.ndarray, is_call: np.ndarray,
+    exp_qT: np.ndarray, exp_rT: np.ndarray
+) -> np.ndarray:
+    """Compute intrinsic/deterministic value for edge cases."""
+    forward = S * exp_qT
+    discounted_K = K * exp_rT
+    call_intrinsic = np.maximum(0.0, forward - discounted_K)
+    put_intrinsic = np.maximum(0.0, discounted_K - forward)
+    return np.where(is_call, call_intrinsic, put_intrinsic)
+
+
 def vectorized_bs_price(
     S: Union[np.ndarray, pd.Series],
     K: Union[np.ndarray, pd.Series],
@@ -522,52 +577,50 @@ def vectorized_bs_price(
     q: Union[float, np.ndarray, pd.Series] = 0.0
 ) -> np.ndarray:
     """
-    Fully vectorized Black-Scholes pricing for numpy arrays.
+    Fully vectorized Black-Scholes pricing.
 
-    Args:
-        S: Underlying prices (array)
-        K: Strike prices (array)
-        T: Time to expiration in years (array)
-        r: Risk-free rate (scalar or array)
-        sigma: Implied volatility (array)
-        is_call: Boolean array (True for calls, False for puts)
-        q: Dividend yield (scalar or array)
-
-    Returns:
-        Array of option prices
+    Handles edge cases (T<=0, sigma<=0) consistently with scalar API
+    by returning intrinsic/deterministic values.
     """
-    # Convert to numpy arrays
     S = np.asarray(S, dtype=float)
     K = np.asarray(K, dtype=float)
-    T = np.asarray(T, dtype=float)
-    sigma = np.asarray(sigma, dtype=float)
+    T_raw = np.asarray(T, dtype=float)
+    sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)
+    else:
+        r = np.asarray(r, dtype=float)
     if isinstance(q, (int, float)):
         q = np.full_like(S, q)
+    else:
+        q = np.asarray(q, dtype=float)
 
-    # Handle edge cases
-    T = np.maximum(T, 1e-10)
-    sigma = np.maximum(sigma, 1e-10)
+    # Identify edge cases
+    is_deterministic = (T_raw <= 0) | (sigma_raw <= 0)
 
-    # Calculate d1, d2
+    # Safe values for BS calculation (will be masked out for edge cases)
+    T = np.where(is_deterministic, 1.0, T_raw)
+    sigma = np.where(is_deterministic, 0.2, sigma_raw)
+
+    # Standard BS calculation
     sqrt_T = np.sqrt(T)
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * sqrt_T)
     d2 = d1 - sigma * sqrt_T
 
-    # Calculate CDF values ONCE (optimization: avoid redundant norm.cdf calls)
-    exp_qT = np.exp(-q * T)
-    exp_rT = np.exp(-r * T)
+    exp_qT = np.exp(-q * T_raw)  # Use raw T for discounting
+    exp_rT = np.exp(-r * T_raw)
     Nd1 = norm.cdf(d1)
     Nd2 = norm.cdf(d2)
 
-    # Use N(-x) = 1 - N(x) for puts (avoids second CDF call)
     call_price = S * exp_qT * Nd1 - K * exp_rT * Nd2
     put_price = K * exp_rT * (1.0 - Nd2) - S * exp_qT * (1.0 - Nd1)
+    bs_price = np.where(is_call, call_price, put_price)
 
-    return np.where(is_call, call_price, put_price)
+    # Replace edge cases with intrinsic value
+    intrinsic = _vectorized_intrinsic(S, K, is_call, exp_qT, exp_rT)
+    return np.where(is_deterministic, intrinsic, bs_price)
 
 
 def vectorized_bs_delta(
@@ -579,25 +632,43 @@ def vectorized_bs_delta(
     is_call: Union[np.ndarray, pd.Series],
     q: Union[float, np.ndarray, pd.Series] = 0.0
 ) -> np.ndarray:
-    """Vectorized delta calculation."""
+    """Vectorized delta with proper edge case handling."""
     S = np.asarray(S, dtype=float)
     K = np.asarray(K, dtype=float)
-    T = np.maximum(np.asarray(T, dtype=float), 1e-10)
-    sigma = np.maximum(np.asarray(sigma, dtype=float), 1e-10)
+    T_raw = np.asarray(T, dtype=float)
+    sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)
+    else:
+        r = np.asarray(r, dtype=float)
     if isinstance(q, (int, float)):
         q = np.full_like(S, q)
+    else:
+        q = np.asarray(q, dtype=float)
+
+    is_deterministic = (T_raw <= 0) | (sigma_raw <= 0)
+    T = np.where(is_deterministic, 1.0, T_raw)
+    sigma = np.where(is_deterministic, 0.2, sigma_raw)
 
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    exp_qT = np.exp(-q * T)
+    exp_qT = np.exp(-q * T_raw)
 
     call_delta = exp_qT * norm.cdf(d1)
     put_delta = exp_qT * (norm.cdf(d1) - 1.0)
+    bs_delta = np.where(is_call, call_delta, put_delta)
 
-    return np.where(is_call, call_delta, put_delta)
+    # Edge case: delta is e^(-qT) for ITM, 0 for OTM, 0.5*e^(-qT) for ATM
+    forward = S * exp_qT
+    discounted_K = K * np.exp(-r * T_raw)
+    call_edge = np.where(forward > discounted_K, exp_qT,
+                         np.where(forward < discounted_K, 0.0, 0.5 * exp_qT))
+    put_edge = np.where(forward < discounted_K, -exp_qT,
+                        np.where(forward > discounted_K, 0.0, -0.5 * exp_qT))
+    edge_delta = np.where(is_call, call_edge, put_edge)
+
+    return np.where(is_deterministic, edge_delta, bs_delta)
 
 
 def vectorized_bs_all_greeks(
@@ -610,23 +681,82 @@ def vectorized_bs_all_greeks(
     q: Union[float, np.ndarray, pd.Series] = 0.0
 ) -> pd.DataFrame:
     """
-    Vectorized calculation of all Greeks.
+    Vectorized calculation of all Greeks with proper edge case handling.
 
     Returns:
         DataFrame with columns: price, delta, gamma, theta, vega, rho
     """
     S = np.asarray(S, dtype=float)
     K = np.asarray(K, dtype=float)
-    T = np.maximum(np.asarray(T, dtype=float), 1e-10)
-    sigma = np.maximum(np.asarray(sigma, dtype=float), 1e-10)
+    T_raw = np.asarray(T, dtype=float)
+    sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)
+    else:
+        r = np.asarray(r, dtype=float)
     if isinstance(q, (int, float)):
         q = np.full_like(S, q)
+    else:
+        q = np.asarray(q, dtype=float)
+
+    is_deterministic = (T_raw <= 0) | (sigma_raw <= 0)
+    T = np.where(is_deterministic, 1.0, T_raw)
+    sigma = np.where(is_deterministic, 0.2, sigma_raw)
 
     sqrt_T = np.sqrt(T)
+    d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * sqrt_T)
+    d2 = d1 - sigma * sqrt_T
+
+    exp_qT = np.exp(-q * T_raw)
+    exp_rT = np.exp(-r * T_raw)
+    Nd1 = norm.cdf(d1)
+    Nd2 = norm.cdf(d2)
+    nd1 = norm.pdf(d1)
+    Nm_d1 = 1.0 - Nd1
+    Nm_d2 = 1.0 - Nd2
+
+    # Standard BS Greeks
+    call_price = S * exp_qT * Nd1 - K * exp_rT * Nd2
+    put_price = K * exp_rT * Nm_d2 - S * exp_qT * Nm_d1
+    price = np.where(is_call, call_price, put_price)
+
+    call_delta = exp_qT * Nd1
+    put_delta = exp_qT * (Nd1 - 1.0)
+    delta = np.where(is_call, call_delta, put_delta)
+
+    gamma = exp_qT * nd1 / (S * sigma * sqrt_T)
+
+    common_theta = -S * exp_qT * nd1 * sigma / (2 * sqrt_T)
+    call_theta = common_theta + q * S * exp_qT * Nd1 - r * K * exp_rT * Nd2
+    put_theta = common_theta - q * S * exp_qT * Nm_d1 + r * K * exp_rT * Nm_d2
+    theta = np.where(is_call, call_theta, put_theta)
+
+    vega = S * exp_qT * nd1 * sqrt_T / 100
+
+    call_rho = K * T * exp_rT * Nd2 / 100
+    put_rho = -K * T * exp_rT * Nm_d2 / 100
+    rho = np.where(is_call, call_rho, put_rho)
+
+    # Edge case values
+    intrinsic = _vectorized_intrinsic(S, K, is_call, exp_qT, exp_rT)
+    forward = S * exp_qT
+    discounted_K = K * exp_rT
+    call_edge_delta = np.where(forward > discounted_K, exp_qT,
+                               np.where(forward < discounted_K, 0.0, 0.5 * exp_qT))
+    put_edge_delta = np.where(forward < discounted_K, -exp_qT,
+                              np.where(forward > discounted_K, 0.0, -0.5 * exp_qT))
+    edge_delta = np.where(is_call, call_edge_delta, put_edge_delta)
+
+    return pd.DataFrame({
+        'price': np.where(is_deterministic, intrinsic, price),
+        'delta': np.where(is_deterministic, edge_delta, delta),
+        'gamma': np.where(is_deterministic, 0.0, gamma),
+        'theta': np.where(is_deterministic, 0.0, theta),
+        'vega': np.where(is_deterministic, 0.0, vega),
+        'rho': np.where(is_deterministic, 0.0, rho),
+    })
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * sqrt_T)
     d2 = d1 - sigma * sqrt_T
 

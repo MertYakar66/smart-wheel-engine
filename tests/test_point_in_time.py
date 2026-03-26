@@ -210,16 +210,15 @@ class TestFeatureIndexAlignment:
     def test_asof_merge_uses_past_only(self):
         """as_of merge should use most recent past value, not future."""
         # Daily data
-        daily_dates = pd.date_range('2024-01-01', periods=10, freq='D')
+        daily_dates = pd.date_range('2024-01-01', periods=15, freq='D')
         daily = pd.DataFrame({
             'date': daily_dates,
-            'daily_val': range(10)
+            'daily_val': range(15)
         })
 
-        # Weekly data (only some dates have values)
-        weekly_dates = pd.date_range('2024-01-01', periods=3, freq='W')
+        # Weekly data (specific dates, not using 'W' frequency which starts on Sundays)
         weekly = pd.DataFrame({
-            'date': weekly_dates,
+            'date': pd.to_datetime(['2024-01-01', '2024-01-08', '2024-01-15']),
             'weekly_val': [100, 200, 300]
         })
 
@@ -237,7 +236,10 @@ class TestFeatureIndexAlignment:
         # Check that we're using past weekly values, not future
         # On 2024-01-01, weekly_val should be 100 (same day)
         # On 2024-01-05, weekly_val should still be 100 (most recent past)
+        # On 2024-01-09, weekly_val should be 200 (2024-01-08 is most recent)
+        assert merged[merged['date'] == '2024-01-01']['weekly_val'].iloc[0] == 100
         assert merged[merged['date'] == '2024-01-05']['weekly_val'].iloc[0] == 100
+        assert merged[merged['date'] == '2024-01-09']['weekly_val'].iloc[0] == 200
 
 
 class TestTrainTestSplitPIT:

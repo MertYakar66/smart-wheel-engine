@@ -53,6 +53,19 @@ d2 = d1 - σ√T
 | Theta | typically < 0 | typically < 0 |
 | Vega | ≥ 0 | ≥ 0 |
 
+**Second-Order Greeks (v1.1):**
+| Greek | Formula | Use Case |
+|-------|---------|----------|
+| Vanna | -e^(-qT)·d2·n(d1)/σ | Vol-delta hedging |
+| Charm | ∂Delta/∂T | Delta decay management |
+| Volga | Vega·d1·d2/σ | Vega convexity hedging |
+
+**Implied Volatility Solver (v1.1):**
+- Newton-Raphson with Brenner-Subrahmanyam initial guess
+- Brent's method fallback for robustness
+- Arbitrage bounds checking (returns None for invalid prices)
+- Precision: 1e-6 (configurable)
+
 ### Validation
 
 **Textbook Verification (Hull Example 15.6):**

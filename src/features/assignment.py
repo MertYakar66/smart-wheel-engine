@@ -362,6 +362,119 @@ class AssignmentFeatures:
 
         return result
 
+    @staticmethod
+    def _vectorized_prob_touch(
+        spot: float,
+        strikes: np.ndarray,
+        ttes: np.ndarray,
+        ivs: np.ndarray,
+        is_puts: np.ndarray,
+    ) -> np.ndarray:
+        """Vectorized probability of touch calculation."""
+        n = len(strikes)
+        result = np.zeros(n)
+
+        sigma_sqrt_t = ivs * np.sqrt(ttes)
+
+        # Handle puts
+        put_mask = is_puts
+        already_touched_put = put_mask & (spot <= strikes)
+        otm_put = put_mask & ~already_touched_put
+
+        if otm_put.any():
+            log_ratio = np.log(spot / strikes[otm_put])
+            d2 = (log_ratio - 0.5 * ivs[otm_put] ** 2 * ttes[otm_put]) / sigma_sqrt_t[otm_put]
+            result[otm_put] = np.minimum(2 * norm.cdf(-d2), 1.0)
+
+        result[already_touched_put] = 1.0
+
+        # Handle calls
+        call_mask = ~is_puts
+        already_touched_call = call_mask & (spot >= strikes)
+        otm_call = call_mask & ~already_touched_call
+
+        if otm_call.any():
+            log_ratio = np.log(strikes[otm_call] / spot)
+            d2 = (log_ratio - 0.5 * ivs[otm_call] ** 2 * ttes[otm_call]) / sigma_sqrt_t[otm_call]
+            result[otm_call] = np.minimum(2 * norm.cdf(-d2), 1.0)
+
+        result[already_touched_call] = 1.0
+
+        return result
+
+    @staticmethod
+    def _vectorized_early_assignment_prob(
+        spot: float,
+        strikes: np.ndarray,
+        ttes: np.ndarray,
+        dividend_yield: float,
+        risk_free_rate: float,
+        is_puts: np.ndarray,
+    ) -> np.ndarray:
+        """Vectorized early assignment probability calculation."""
+        n = len(strikes)
+        result = np.zeros(n)
+
+        # Calculate moneyness (positive = ITM)
+        moneyness = np.where(
+            is_puts,
+            (strikes - spot) / strikes,  # Put: ITM when strike > spot
+            (spot - strikes) / strikes   # Call: ITM when spot > strike
+        )
+
+        # Only ITM options can be early exercised
+        itm_mask = moneyness > 0
+
+        if not itm_mask.any():
+            return result
+
+        # Base probability from moneyness (capped at 0.8)
+        base_prob = np.minimum(moneyness * 2, 0.8)
+
+        # Adjustment factors
+        rate_factor = np.where(is_puts, 1 + risk_free_rate * 2, 1 - risk_free_rate)
+        div_factor = np.where(is_puts, 1 - dividend_yield, 1 + dividend_yield * 3)
+
+        # Time factor: more likely as expiration approaches
+        time_factor = 1 + (1 - ttes) * 0.5
+
+        # Compute final probability
+        prob = base_prob * rate_factor * div_factor * time_factor
+        result = np.where(itm_mask, np.minimum(prob, 0.95), 0.0)
+
+        return result
+
+    @staticmethod
+    def _vectorized_days_to_danger(
+        spot: float,
+        strikes: np.ndarray,
+        ivs: np.ndarray,
+        threshold_pct: float = 0.02,
+    ) -> np.ndarray:
+        """Vectorized days until danger zone calculation."""
+        # Danger zone boundary
+        danger_zone = np.where(
+            spot > strikes,
+            strikes * (1 - threshold_pct),
+            strikes * (1 + threshold_pct)
+        )
+
+        distance_to_danger = np.abs(danger_zone - spot) / spot
+
+        # Daily volatility
+        daily_vol = ivs / np.sqrt(252)
+
+        # Days for 1 std move to reach danger zone
+        # Avoid division by zero
+        with np.errstate(divide='ignore', invalid='ignore'):
+            days = np.where(
+                distance_to_danger <= 0,
+                0.0,
+                np.minimum((distance_to_danger / daily_vol) ** 2, 365)
+            )
+
+        return days
+
     def compute_for_chain(
         self,
         options_df: pd.DataFrame,
@@ -427,28 +540,22 @@ class AssignmentFeatures:
 
         result['distance_to_strike_pct'] = (strikes - spot_price) / spot_price * 100
 
-        # Point-in-time calculations (per contract)
-        prob_touch = np.zeros(len(result))
-        early_assign_prob = np.zeros(len(result))
-        days_to_danger = np.zeros(len(result))
+        # Vectorized point-in-time calculations
+        ttes = np.maximum(dtes / 365.0, 1e-6)  # Time to expiry in years
 
-        for i in range(len(result)):
-            tte = dtes[i] / 365.0
-            if tte <= 0:
-                tte = 1e-6
+        # Vectorized probability of touch
+        result['prob_touch'] = self._vectorized_prob_touch(
+            spot_price, strikes, ttes, ivs, is_puts
+        )
 
-            prob_touch[i] = self.probability_of_touch(
-                spot_price, strikes[i], tte, ivs[i], is_puts[i]
-            )
-            early_assign_prob[i] = self.early_assignment_probability(
-                spot_price, strikes[i], tte, dividend_yield, risk_free_rate, is_puts[i]
-            )
-            days_to_danger[i] = self.days_until_danger_zone(
-                spot_price, strikes[i], ivs[i]
-            )
+        # Vectorized early assignment probability
+        result['early_assignment_prob'] = self._vectorized_early_assignment_prob(
+            spot_price, strikes, ttes, dividend_yield, risk_free_rate, is_puts
+        )
 
-        result['prob_touch'] = prob_touch
-        result['early_assignment_prob'] = early_assign_prob
-        result['days_to_danger'] = days_to_danger
+        # Vectorized days to danger zone
+        result['days_to_danger'] = self._vectorized_days_to_danger(
+            spot_price, strikes, ivs
+        )
 
         return result

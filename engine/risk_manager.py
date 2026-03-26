@@ -576,14 +576,18 @@ def calculate_kelly_fraction(
     Calculate Kelly criterion bet size.
 
     Args:
-        win_rate: Probability of winning (0-1)
+        win_rate: Probability of winning (must be in range [0, 1])
         avg_win: Average profit on winning trade
         avg_loss: Average loss on losing trade (positive number)
         kelly_fraction: Fraction of full Kelly to use (0.5 = half-Kelly)
 
     Returns:
-        Optimal fraction of capital to risk
+        Optimal fraction of capital to risk (0 if inputs invalid)
     """
+    # Validate win_rate is a probability in [0, 1]
+    if not (0.0 <= win_rate <= 1.0):
+        return 0.0
+
     if avg_loss <= 0 or avg_win <= 0:
         return 0.0
 

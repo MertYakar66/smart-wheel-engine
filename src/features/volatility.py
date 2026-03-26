@@ -177,10 +177,14 @@ class VolatilityFeatures:
         return ((iv - rolling_min) / range_iv * 100).clip(0, 100)
 
     @staticmethod
-    def iv_percentile(iv: pd.Series, lookback: int = 252) -> pd.Series:
+    def iv_percentile(
+        iv: pd.Series,
+        lookback: int = 252,
+        include_ties: bool = True,
+    ) -> pd.Series:
         """
         IV Percentile: What percentage of observations over lookback
-        period are BELOW the current IV value.
+        period are BELOW (or equal to, if include_ties=True) the current IV value.
 
         Different from IV Rank:
         - IV Rank = position relative to min/max range
@@ -189,6 +193,9 @@ class VolatilityFeatures:
         Args:
             iv: Implied volatility series
             lookback: Lookback period in days
+            include_ties: If True, use <= (count ties as below).
+                         If False, use < (strict inequality, ties not counted).
+                         Default True avoids downward bias in tied/flat series.
 
         Returns:
             IV percentile (0-100)
@@ -197,8 +204,11 @@ class VolatilityFeatures:
             if len(x) < 2:
                 return np.nan
             current = x.iloc[-1]
-            # Count values strictly less than current, divide by total count
-            below = (x.iloc[:-1] < current).sum()
+            # Count values below current (with configurable tie handling)
+            if include_ties:
+                below = (x.iloc[:-1] <= current).sum()
+            else:
+                below = (x.iloc[:-1] < current).sum()
             return below / (len(x) - 1) * 100
 
         return iv.rolling(lookback).apply(percentile_rank, raw=False)

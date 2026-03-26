@@ -105,6 +105,12 @@ jobs:
         env:
           HYPOTHESIS_PROFILE: ci
 
+      - name: Run advanced quant tests (3rd-order Greeks, American options)
+        run: pytest tests/test_advanced_quant.py -v --tb=long
+
+      - name: Run dashboard tests
+        run: pytest tests/test_dashboard.py -v --tb=long
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

@@ -144,6 +144,9 @@ class AssignmentFeatures:
         """
         Moneyness: how far ITM/OTM the option is.
 
+        Uses strike as denominator for consistency across the codebase
+        and alignment with industry standard (S/K based measures).
+
         For puts:
         - Positive = ITM (strike > spot)
         - Negative = OTM (strike < spot)
@@ -153,9 +156,9 @@ class AssignmentFeatures:
         - Negative = OTM (spot < strike)
         """
         if is_put:
-            return (strike - spot) / spot
+            return (strike - spot) / strike
         else:
-            return (spot - strike) / spot
+            return (spot - strike) / strike
 
     @staticmethod
     def moneyness_path(
@@ -422,7 +425,7 @@ class AssignmentFeatures:
             (spot_price - strikes) / strikes   # Call: positive when ITM
         )
 
-        result['distance_to_strike_pct'] = (spot_price - strikes) / spot_price * 100
+        result['distance_to_strike_pct'] = (strikes - spot_price) / spot_price * 100
 
         # Point-in-time calculations (per contract)
         prob_touch = np.zeros(len(result))

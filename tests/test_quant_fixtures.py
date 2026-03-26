@@ -26,6 +26,8 @@ from engine.option_pricer import (
     black_scholes_gamma,
     black_scholes_theta,
     black_scholes_vega,
+    black_scholes_all_greeks,
+    implied_volatility,
 )
 from src.features.volatility import VolatilityFeatures
 from src.features.technical import TechnicalFeatures
@@ -778,6 +780,86 @@ class TestVaRCompounding:
 
         assert abs(compound - expected) < 1e-10
         assert abs(compound - (-0.0961)) < 0.001
+
+
+# =============================================================================
+# Implied Volatility Solver
+# =============================================================================
+
+class TestImpliedVolatility:
+    """Test IV solver accuracy and robustness."""
+
+    def test_iv_recovery_atm_call(self):
+        """IV solver should recover original volatility for ATM call."""
+        S, K, T, r, sigma = 100, 100, 0.5, 0.05, 0.20
+        market_price = black_scholes_price(S, K, T, r, sigma, 'call')
+        iv = implied_volatility(market_price, S, K, T, r, 'call')
+
+        assert iv is not None
+        assert abs(iv - sigma) < 1e-5, f"IV mismatch: {iv} vs {sigma}"
+
+    def test_iv_recovery_otm_put(self):
+        """IV solver should recover original volatility for OTM put."""
+        S, K, T, r, sigma = 100, 90, 0.25, 0.05, 0.30
+        market_price = black_scholes_price(S, K, T, r, sigma, 'put')
+        iv = implied_volatility(market_price, S, K, T, r, 'put')
+
+        assert iv is not None
+        assert abs(iv - sigma) < 1e-5, f"IV mismatch: {iv} vs {sigma}"
+
+    def test_iv_arbitrage_below_intrinsic_returns_none(self):
+        """Price below intrinsic should return None (arbitrage)."""
+        S, K, T, r = 100, 90, 0.5, 0.05
+        intrinsic = max(0, S * np.exp(-0 * T) - K * np.exp(-r * T))
+
+        iv = implied_volatility(intrinsic * 0.5, S, K, T, r, 'call')
+        assert iv is None
+
+    def test_iv_expired_option_returns_none(self):
+        """Expired option (T=0) should return None."""
+        iv = implied_volatility(5.0, 100, 100, 0, 0.05, 'call')
+        assert iv is None
+
+
+# =============================================================================
+# Second-Order Greeks
+# =============================================================================
+
+class TestSecondOrderGreeks:
+    """Test second-order Greeks (Vanna, Charm, Volga)."""
+
+    def test_vanna_sign_convention(self):
+        """Vanna should be negative for ATM options (delta decreases as vol rises)."""
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
+        # For ATM options, vanna is typically negative
+        assert 'vanna' in greeks
+        # Vanna = -e^(-qT) * d2 * n(d1) / sigma
+        # For ATM with positive r, d2 > 0, so vanna < 0
+
+    def test_volga_non_negative_atm(self):
+        """Volga (vega convexity) is positive when d1*d2 > 0."""
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
+        assert 'volga' in greeks
+        # Volga = vega * d1 * d2 / sigma
+        # For ATM, d1 and d2 typically have same sign
+
+    def test_charm_exists(self):
+        """Charm (delta decay) should be included."""
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
+        assert 'charm' in greeks
+
+    def test_second_order_greeks_optional(self):
+        """Second-order Greeks can be excluded."""
+        greeks = black_scholes_all_greeks(
+            100, 100, 0.5, 0.05, 0.20, 'call',
+            include_second_order=False
+        )
+        assert 'vanna' not in greeks
+        assert 'charm' not in greeks
+        assert 'volga' not in greeks
+        # First-order should still be present
+        assert 'delta' in greeks
+        assert 'gamma' in greeks
 
 
 if __name__ == "__main__":

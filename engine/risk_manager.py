@@ -603,16 +603,24 @@ def calculate_optimal_contracts(
     capital: float,
     strike: float,
     max_risk_pct: float = 0.05,
-    margin_requirement: float = 0.20
+    margin_requirement: float = 0.20,
+    stress_loss_pct: float = 0.25,
+    premium_per_share: float = 0.0
 ) -> int:
     """
     Calculate maximum contracts given capital and risk constraints.
 
+    Uses stress-loss model rather than full notional for risk calculation.
+    For a cash-secured put, the stress loss is the expected drawdown from
+    strike to stress level, minus premium received.
+
     Args:
         capital: Available capital
         strike: Option strike price
-        max_risk_pct: Maximum percentage of capital to risk
+        max_risk_pct: Maximum percentage of capital to risk (per position)
         margin_requirement: Margin requirement as fraction of notional
+        stress_loss_pct: Expected max drawdown in stress scenario (default 25%)
+        premium_per_share: Premium received per share (reduces risk)
 
     Returns:
         Number of contracts (0 if constraints cannot be satisfied)
@@ -623,9 +631,17 @@ def calculate_optimal_contracts(
     notional_per_contract = strike * 100
     margin_per_contract = notional_per_contract * margin_requirement
 
-    # Risk-based limit
+    # Risk-based limit using stress loss model
+    # Loss per contract = (strike * stress_loss_pct - premium) * 100
+    # This is more realistic than assuming stock goes to $0
+    stress_loss_per_contract = max(0, (strike * stress_loss_pct - premium_per_share) * 100)
+
+    # If stress loss is very small (high premium relative to stress), use a floor
+    min_loss_per_contract = strike * 0.10 * 100  # Floor at 10% loss
+    loss_per_contract = max(stress_loss_per_contract, min_loss_per_contract)
+
     max_risk_capital = capital * max_risk_pct
-    contracts_by_risk = int(max_risk_capital / notional_per_contract)
+    contracts_by_risk = int(max_risk_capital / loss_per_contract) if loss_per_contract > 0 else 0
 
     # Margin-based limit
     contracts_by_margin = int(capital / margin_per_contract)

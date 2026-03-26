@@ -631,8 +631,8 @@ class FeaturePipeline:
                     warnings=["No spot price available"],
                 )
 
-            # Compute assignment features
-            df = self.assignment.compute_all(df, spot_price=spot_price)
+            # Compute assignment features for the options chain
+            df = self.assignment.compute_for_chain(df, spot_price=spot_price)
 
             self.store.write_features(
                 category=category,

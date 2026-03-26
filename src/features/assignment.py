@@ -358,3 +358,94 @@ class AssignmentFeatures:
             result[f"moneyness_{key}"] = value
 
         return result
+
+    def compute_for_chain(
+        self,
+        options_df: pd.DataFrame,
+        spot_price: float,
+        dividend_yield: float = 0.02,
+        risk_free_rate: float = 0.05,
+    ) -> pd.DataFrame:
+        """
+        Compute assignment features for an options chain DataFrame.
+
+        This method processes each row of an options chain and computes
+        assignment risk metrics for each contract.
+
+        Args:
+            options_df: DataFrame with options chain data
+                Required columns: strike, dte (or days_to_expiry), iv (or implied_volatility)
+                Optional columns: option_type (defaults to 'put')
+            spot_price: Current underlying price
+            dividend_yield: Annual dividend yield
+            risk_free_rate: Risk-free rate
+
+        Returns:
+            DataFrame with original data plus assignment features
+        """
+        result = options_df.copy()
+
+        # Normalize column names
+        strike_col = 'strike' if 'strike' in result.columns else 'strike_price'
+        dte_col = 'dte' if 'dte' in result.columns else 'days_to_expiry'
+        iv_col = 'iv' if 'iv' in result.columns else 'implied_volatility'
+
+        if strike_col not in result.columns:
+            raise ValueError(f"Options DataFrame must have 'strike' column")
+
+        # Default DTE to 30 if not available
+        if dte_col not in result.columns:
+            result[dte_col] = 30
+
+        # Default IV to 0.25 if not available
+        if iv_col not in result.columns:
+            result[iv_col] = 0.25
+
+        # Determine option type
+        if 'option_type' in result.columns:
+            is_put = result['option_type'].str.lower() == 'put'
+        elif 'type' in result.columns:
+            is_put = result['type'].str.lower() == 'put'
+        else:
+            is_put = pd.Series(True, index=result.index)  # Default to put
+
+        # Compute assignment features for each row
+        strikes = result[strike_col].values
+        dtes = result[dte_col].values
+        ivs = result[iv_col].values
+        is_puts = is_put.values
+
+        # Vectorized calculations where possible
+        result['moneyness'] = np.where(
+            is_puts,
+            (strikes - spot_price) / strikes,  # Put: positive when ITM
+            (spot_price - strikes) / strikes   # Call: positive when ITM
+        )
+
+        result['distance_to_strike_pct'] = (spot_price - strikes) / spot_price * 100
+
+        # Point-in-time calculations (per contract)
+        prob_touch = np.zeros(len(result))
+        early_assign_prob = np.zeros(len(result))
+        days_to_danger = np.zeros(len(result))
+
+        for i in range(len(result)):
+            tte = dtes[i] / 365.0
+            if tte <= 0:
+                tte = 1e-6
+
+            prob_touch[i] = self.probability_of_touch(
+                spot_price, strikes[i], tte, ivs[i], is_puts[i]
+            )
+            early_assign_prob[i] = self.early_assignment_probability(
+                spot_price, strikes[i], tte, dividend_yield, risk_free_rate, is_puts[i]
+            )
+            days_to_danger[i] = self.days_until_danger_zone(
+                spot_price, strikes[i], ivs[i]
+            )
+
+        result['prob_touch'] = prob_touch
+        result['early_assignment_prob'] = early_assign_prob
+        result['days_to_danger'] = days_to_danger
+
+        return result

@@ -184,6 +184,133 @@ class DataConfig:
 
 
 @dataclass
+class RegimeConfig:
+    """
+    Regime detection calibration parameters.
+
+    These thresholds control how market regimes are classified.
+    Adjust based on historical analysis or walk-forward calibration.
+    """
+    # === Trend Regime Thresholds ===
+    short_ma_window: int = 21           # Short-term MA for trend
+    long_ma_window: int = 200           # Long-term MA for trend
+    momentum_window: int = 63           # Momentum lookback (quarters)
+    euphoria_momentum_threshold: float = 0.20   # >20% gain = euphoria
+    crisis_momentum_threshold: float = -0.15    # <-15% loss = crisis
+
+    # === Volatility Regime Thresholds (decimal format) ===
+    vol_extremely_low: float = 0.10     # Below 10% = extremely low vol
+    vol_low: float = 0.15               # 10-15% = low vol
+    vol_normal_upper: float = 0.25      # 15-25% = normal vol
+    vol_elevated_upper: float = 0.35    # 25-35% = elevated vol
+    # Above 35% = crisis vol
+
+    # === VIX Term Structure Thresholds ===
+    term_contango_threshold: float = 0.05   # >5% below spot = contango
+    term_backwardation_threshold: float = -0.05  # >5% above spot = backwardation
+
+    # === Liquidity Regime Thresholds ===
+    liquidity_frozen_ratio: float = 0.25    # <25% avg volume = frozen
+    liquidity_tight_ratio: float = 0.50     # <50% avg volume = tight
+    liquidity_abundant_ratio: float = 1.50  # >150% avg volume = abundant
+    spread_tight_ratio: float = 2.0         # >2x avg spread = tight
+    spread_frozen_ratio: float = 3.0        # >3x avg spread = frozen
+
+    # === Composite Score Weights ===
+    trend_score_crisis: int = -40
+    trend_score_bear: int = -20
+    trend_score_sideways: int = 10      # Sideways is good for wheel!
+    trend_score_bull: int = 20
+    trend_score_euphoria: int = 0       # Euphoria is risky
+
+    vol_score_extremely_low: int = -10
+    vol_score_low: int = 0
+    vol_score_normal: int = 20
+    vol_score_elevated: int = 30        # Best for selling premium
+    vol_score_crisis: int = -20         # Too risky
+
+    liq_score_frozen: int = -30
+    liq_score_tight: int = -10
+    liq_score_normal: int = 10
+    liq_score_abundant: int = 20
+
+    # === Position Sizing Thresholds ===
+    position_scalar_no_trade: int = -50     # Below this = no new positions
+    position_scalar_half_size: int = -20    # Below this = half size
+    position_scalar_reduced: int = 20       # Below this = 0.75x
+    position_scalar_full: int = 50          # Below this = full size, above = 1.25x
+
+    # === Delta Adjustments by Vol Regime ===
+    delta_adj_extremely_low: float = 0.05   # Go more ITM
+    delta_adj_low: float = 0.03
+    delta_adj_normal: float = 0.00
+    delta_adj_elevated: float = -0.05
+    delta_adj_crisis: float = -0.10         # Go more OTM for safety
+
+    # === DTE Adjustments by Vol Regime ===
+    dte_adj_extremely_low: int = 15         # Longer DTE
+    dte_adj_low: int = 10
+    dte_adj_normal: int = 0
+    dte_adj_elevated: int = -7
+    dte_adj_crisis: int = -14               # Shorter DTE
+
+    def validate(self) -> List[str]:
+        """Validate configuration."""
+        errors = []
+        # Vol thresholds should be increasing
+        if not (self.vol_extremely_low < self.vol_low < self.vol_normal_upper < self.vol_elevated_upper):
+            errors.append("Volatility thresholds must be in increasing order")
+        # Position scalar thresholds should be increasing
+        if not (self.position_scalar_no_trade < self.position_scalar_half_size <
+                self.position_scalar_reduced < self.position_scalar_full):
+            errors.append("Position scalar thresholds must be in increasing order")
+        return errors
+
+
+@dataclass
+class EdgeConfig:
+    """
+    Edge detection and scoring calibration.
+
+    Parameters for identifying and scoring trading opportunities.
+    """
+    # === IV Premium Thresholds ===
+    min_iv_premium: float = 0.02        # Minimum IV - RV spread to consider
+    target_iv_premium: float = 0.05     # Target IV premium for full edge
+    max_iv_premium: float = 0.20        # Above this, something may be wrong
+
+    # === IV Rank/Percentile Thresholds ===
+    iv_rank_low: float = 25.0           # Below = IV is cheap
+    iv_rank_high: float = 75.0          # Above = IV is expensive (good for selling)
+
+    # === Assignment Risk Thresholds ===
+    max_prob_touch: float = 0.40        # Reject if prob of touching strike > 40%
+    danger_zone_days: float = 7.0       # Reject if days to danger zone < 7
+
+    # === Edge Score Weights ===
+    iv_premium_weight: float = 0.30     # Weight for IV premium in edge score
+    iv_rank_weight: float = 0.25        # Weight for IV rank
+    regime_weight: float = 0.25         # Weight for regime score
+    technical_weight: float = 0.20      # Weight for technical factors
+
+    # === Minimum Edge Threshold ===
+    min_edge_score: float = 0.3         # Minimum composite edge to trade
+
+    def validate(self) -> List[str]:
+        """Validate configuration."""
+        errors = []
+        if not (0 <= self.min_iv_premium < self.target_iv_premium < self.max_iv_premium):
+            errors.append("IV premium thresholds must be in increasing order")
+        if not (0 <= self.iv_rank_low < self.iv_rank_high <= 100):
+            errors.append("IV rank thresholds must be in valid range")
+        total_weight = (self.iv_premium_weight + self.iv_rank_weight +
+                       self.regime_weight + self.technical_weight)
+        if abs(total_weight - 1.0) > 0.01:
+            errors.append(f"Edge score weights must sum to 1.0, got {total_weight}")
+        return errors
+
+
+@dataclass
 class BacktestConfig:
     """Backtesting parameters."""
     # Capital
@@ -220,6 +347,8 @@ class Config:
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     data: DataConfig = field(default_factory=DataConfig)
     backtest: BacktestConfig = field(default_factory=BacktestConfig)
+    regime: RegimeConfig = field(default_factory=RegimeConfig)
+    edge: EdgeConfig = field(default_factory=EdgeConfig)
 
     # Market assumptions
     risk_free_rate: float = 0.05        # 5% risk-free rate
@@ -233,6 +362,15 @@ class Config:
         errors.extend(self.execution.validate())
         errors.extend(self.data.validate())
         errors.extend(self.backtest.validate())
+        errors.extend(self.regime.validate())
+        errors.extend(self.edge.validate())
+
+        # Cross-field validation
+        if not (self.strategy.min_delta <= self.strategy.target_delta <= self.strategy.max_delta):
+            errors.append("target_delta must be between min_delta and max_delta")
+        if not (self.strategy.target_dte_min <= self.strategy.target_dte_ideal <= self.strategy.target_dte_max):
+            errors.append("target_dte_ideal must be between target_dte_min and target_dte_max")
+
         return errors
 
     def to_dict(self) -> Dict:
@@ -244,6 +382,8 @@ class Config:
             'execution': asdict(self.execution),
             'data': asdict(self.data),
             'backtest': asdict(self.backtest),
+            'regime': asdict(self.regime),
+            'edge': asdict(self.edge),
             'risk_free_rate': self.risk_free_rate,
             'default_dividend_yield': self.default_dividend_yield
         }
@@ -309,6 +449,16 @@ class Config:
             for key, value in data['backtest'].items():
                 if hasattr(config.backtest, key):
                     setattr(config.backtest, key, value)
+
+        if 'regime' in data:
+            for key, value in data['regime'].items():
+                if hasattr(config.regime, key):
+                    setattr(config.regime, key, value)
+
+        if 'edge' in data:
+            for key, value in data['edge'].items():
+                if hasattr(config.edge, key):
+                    setattr(config.edge, key, value)
 
         if 'risk_free_rate' in data:
             config.risk_free_rate = data['risk_free_rate']

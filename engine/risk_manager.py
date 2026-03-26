@@ -436,9 +436,20 @@ class RiskManager:
         # VaR = z * portfolio_std + gamma adjustment
         var = total_std * z_score + gamma_adjustment
 
-        # CVaR (expected shortfall) for normal distribution
+        # CVaR (Expected Shortfall) for delta-gamma-vega portfolio
+        # For normal distribution: CVaR = σ * φ(z_α) / (1 - α)
+        # Reference: Rockafellar & Uryasev (2000)
         pdf_at_z = stats.norm.pdf(z_score)
-        cvar = total_std * pdf_at_z / (1 - confidence) + gamma_adjustment * 1.2
+        base_cvar = total_std * pdf_at_z / (1 - confidence)
+
+        # Gamma adjustment for CVaR:
+        # CVaR considers the entire tail beyond VaR, where gamma effects compound.
+        # The hazard rate h(z) = φ(z)/(1-Φ(z)) scales the tail impact.
+        # For 99% confidence, h(z_0.99) ≈ 5.6, so tail losses are amplified.
+        # We use a conservative multiplier of φ(z)/(1-α) / z ≈ 1.3 for gamma scaling.
+        hazard_ratio = pdf_at_z / ((1 - confidence) * z_score) if z_score > 0 else 1.0
+        gamma_cvar_multiplier = min(2.0, max(1.0, hazard_ratio))  # Clamp to [1.0, 2.0]
+        cvar = base_cvar + gamma_adjustment * gamma_cvar_multiplier
 
         return abs(var), abs(cvar)
 

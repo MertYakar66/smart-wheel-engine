@@ -445,7 +445,7 @@ def black_scholes_all_greeks(
 
     Second-order Greeks:
         vanna: ∂Delta/∂σ - Vol-delta cross sensitivity
-        charm: ∂Delta/∂T - Delta decay over time
+        charm: ∂Delta/∂t (calendar time) - Delta decay as time passes
         volga: ∂Vega/∂σ - Vega convexity
 
     Third-order Greeks:
@@ -511,8 +511,10 @@ def black_scholes_all_greeks(
         # Measures how delta changes with volatility
         vanna = -exp_qT * nd1 * d2 / sigma
 
-        # Charm (Delta Decay): ∂Delta/∂T
-        # Measures how delta changes over time
+        # Charm (Delta Decay): ∂Delta/∂t (calendar time convention)
+        # NOTE: This is -∂Delta/∂τ where τ = time-to-expiry.
+        # Positive charm means delta increases as time passes.
+        # Industry standard: charm measures delta sensitivity to passage of time.
         charm_common = exp_qT * nd1 * (2 * (r - q) * T - d2 * sigma * sqrt_T) / (2 * T * sigma * sqrt_T)
         if option_type == 'call':
             charm = q * exp_qT * Nd1 - charm_common
@@ -800,10 +802,11 @@ def _baw_critical_price_put(
         if abs(f) < tolerance:
             break
 
-        # Derivative
+        # Derivative: df/dS* = -1 - delta_euro + (1/q1) * [d((1-exp_qT*N(-d1))*S*)/dS*]
+        # d((1-exp_qT*N(-d1))*S*)/dS* = (1-exp_qT*N(-d1)) + exp_qT*n(d1)/(sigma*sqrt_T)
         delta_euro = -exp_qT * Nm_d1_star
         f_prime = -1 - delta_euro + (1 / q1) * (
-            1 - exp_qT * Nm_d1_star - S_star * exp_qT * nm_d1_star / (S_star * sigma * sqrt_T)
+            1 - exp_qT * Nm_d1_star + exp_qT * nm_d1_star / (sigma * sqrt_T)
         )
 
         if abs(f_prime) > 1e-10:

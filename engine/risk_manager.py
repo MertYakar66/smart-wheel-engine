@@ -709,9 +709,22 @@ class RiskManager:
             # Extract correlation submatrix for our symbols
             corr_subset = correlation_matrix.loc[symbols, symbols].values
 
-            # Ensure it's symmetric and positive semi-definite
+            # Ensure it's symmetric
             corr_subset = (corr_subset + corr_subset.T) / 2
             np.fill_diagonal(corr_subset, 1.0)
+
+            # PSD repair: eigenvalue flooring to ensure positive semi-definiteness
+            # This handles noisy estimated correlations that may not be valid
+            eigenvalues, eigenvectors = np.linalg.eigh(corr_subset)
+            min_eigenvalue = np.min(eigenvalues)
+            if min_eigenvalue < 0:
+                # Floor negative eigenvalues to small positive value
+                eigenvalues = np.maximum(eigenvalues, 1e-8)
+                # Reconstruct correlation matrix
+                corr_subset = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+                # Re-normalize to ensure diagonal = 1
+                d = np.sqrt(np.diag(corr_subset))
+                corr_subset = corr_subset / np.outer(d, d)
 
             # Build covariance: Σ_ij = σ_i × σ_j × ρ_ij
             covariance = np.outer(horizon_vol_vec, horizon_vol_vec) * corr_subset

@@ -178,26 +178,26 @@ class InputValidator:
         return value
 
     @staticmethod
-    def validate_option_type(value: str) -> str:
+    def validate_option_type(value: str, name: str = "option_type") -> str:
         """Validate option type."""
         if not isinstance(value, str):
-            raise ValueError(f"option_type must be string, got {type(value).__name__}")
+            raise ValueError(f"{name} must be string, got {type(value).__name__}")
         value = value.lower().strip()
         if value not in ('call', 'put'):
-            raise ValueError(f"option_type must be 'call' or 'put', got '{value}'")
+            raise ValueError(f"{name} must be 'call' or 'put', got '{value}'")
         return value
 
     @staticmethod
-    def validate_symbol(value: str) -> str:
+    def validate_symbol(value: str, name: str = "symbol") -> str:
         """Validate and sanitize stock symbol."""
         if not isinstance(value, str):
-            raise ValueError(f"symbol must be string, got {type(value).__name__}")
+            raise ValueError(f"{name} must be string, got {type(value).__name__}")
         # Remove any non-alphanumeric characters
         sanitized = re.sub(r'[^A-Za-z0-9.]', '', value)
         if len(sanitized) == 0:
-            raise ValueError("symbol cannot be empty after sanitization")
+            raise ValueError(f"{name} cannot be empty after sanitization")
         if len(sanitized) > 10:
-            raise ValueError(f"symbol too long: {len(sanitized)} chars")
+            raise ValueError(f"{name} too long: {len(sanitized)} chars")
         return sanitized.upper()
 
     @staticmethod

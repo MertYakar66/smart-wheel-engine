@@ -4,7 +4,7 @@ Brief Generator - AI-powered news summaries
 Generates:
 - Story summaries ("What happened")
 - Impact analysis ("Why it matters")
-- Morning/Evening briefs
+- Morning/Evening briefs with macro sections
 - Executive summaries
 
 Uses:
@@ -18,9 +18,15 @@ from typing import Any, Dict, List, Optional
 import logging
 import json
 
-from financial_news.models import (
-    Article, Brief, Story, Category, UserProfile, TopicCategory
+from financial_news.schema import (
+    Article, Brief, Story, Category, CategoryType, BriefType,
 )
+# Legacy import for compatibility
+try:
+    from financial_news.models import TopicCategory, UserProfile
+except ImportError:
+    TopicCategory = CategoryType  # Fallback
+    UserProfile = None
 
 logger = logging.getLogger(__name__)
 
@@ -350,20 +356,39 @@ class BriefGenerator:
         }
 
     def _generate_default_impact(self, story: Story) -> str:
-        """Generate default impact statement based on topics"""
-        impacts = {
-            TopicCategory.MACRO_RATES: "May affect interest rate expectations and bond yields.",
-            TopicCategory.EARNINGS: "Could impact stock price and sector sentiment.",
-            TopicCategory.M_AND_A: "May signal consolidation in the sector.",
-            TopicCategory.GEOPOLITICS: "Could affect global markets and trade flows.",
-            TopicCategory.TECH_AI: "Reflects ongoing AI transformation of the economy.",
-            TopicCategory.COMMODITIES_OIL: "May impact energy costs and inflation.",
-            TopicCategory.CENTRAL_BANKS: "Could shift monetary policy expectations.",
+        """Generate default impact statement based on categories and factors"""
+        # Map factors to impact statements
+        factor_impacts = {
+            "rates": "May affect interest rate expectations and bond yields.",
+            "inflation": "Could impact inflation outlook and Fed policy.",
+            "growth": "May signal shifts in economic growth trajectory.",
+            "oil": "Could affect energy costs and inflation.",
+            "risk": "May shift risk sentiment across markets.",
+            "earnings": "Could impact stock price and sector sentiment.",
+            "consumer": "May reflect consumer spending trends.",
+            "defense": "Could affect defense sector and risk premia.",
         }
 
-        for topic in story.topics:
-            if topic in impacts:
-                return impacts[topic]
+        # Check affected factors
+        for factor in story.affected_factors:
+            factor_lower = factor.lower()
+            if factor_lower in factor_impacts:
+                return factor_impacts[factor_lower]
+
+        # Check categories
+        category_impacts = {
+            CategoryType.FED_RATES.value: "May affect interest rate expectations and bond yields.",
+            CategoryType.INFLATION.value: "Could impact inflation outlook and Fed policy.",
+            CategoryType.LABOR.value: "May signal labor market strength or weakness.",
+            CategoryType.GROWTH_CONSUMER.value: "Could affect growth and consumer outlook.",
+            CategoryType.OIL_ENERGY.value: "May impact energy costs and inflation.",
+            CategoryType.GEOPOLITICS.value: "Could affect global markets and risk sentiment.",
+            CategoryType.SP500_CORPORATE.value: "Could impact stock price and sector sentiment.",
+        }
+
+        for cat_id in story.category_scores:
+            if cat_id in category_impacts:
+                return category_impacts[cat_id]
 
         if story.tickers:
             return f"May affect {', '.join(story.tickers[:3])} and related securities."

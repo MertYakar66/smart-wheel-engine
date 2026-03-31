@@ -563,14 +563,9 @@ class FeaturePipeline:
             df["vol_regime_transition"] = self.vol_edge.vol_regime_transition(df["rv_21d"])
             df["iv_mean_reversion"] = self.vol_edge.mean_reversion_signal(df["atm_iv"])
 
-            # Compute IV rank from history
-            if len(df) >= 252:
-                df["iv_rank"] = df["atm_iv"].rolling(252).apply(
-                    lambda x: (x < x.iloc[-1]).sum() / (len(x) - 1) * 100 if len(x) > 1 else 50,
-                    raw=False
-                )
-            else:
-                df["iv_rank"] = 50.0  # Default
+            # Compute IV rank from history using proper formula: (IV - Min) / (Max - Min)
+            # Note: This is different from IV Percentile which counts observations below current
+            df["iv_rank"] = self.volatility.iv_rank(df["atm_iv"], lookback=252)
 
             # Composite edge score
             df["edge_score"] = self.vol_edge.edge_score(
@@ -636,8 +631,8 @@ class FeaturePipeline:
                     warnings=["No spot price available"],
                 )
 
-            # Compute assignment features
-            df = self.assignment.compute_all(df, spot_price=spot_price)
+            # Compute assignment features for the options chain
+            df = self.assignment.compute_for_chain(df, spot_price=spot_price)
 
             self.store.write_features(
                 category=category,
@@ -691,13 +686,62 @@ class FeaturePipeline:
             # Get OHLCV for price data
             ohlcv = self.data.get_ohlcv(ticker)
 
-            # Compute event features using the correct method
-            df = self.events.compute_earnings_features(df, ohlcv_df=ohlcv, iv_df=iv_history)
+            # EventVolatility.compute_earnings_features expects:
+            #   df: DataFrame with price and IV data (indexed by date)
+            #   earnings_dates: Series of earnings dates
+            if ohlcv is None or ohlcv.empty:
+                return ComputeResult(
+                    category=category,
+                    ticker=ticker,
+                    status=ComputeStatus.SKIPPED,
+                    warnings=["No OHLCV data for event features"],
+                )
+
+            # Build a price+IV DataFrame
+            price_df = ohlcv.copy()
+            price_df.columns = [c.lower() for c in price_df.columns]
+            if "date" in price_df.columns:
+                price_df = price_df.set_index(pd.to_datetime(price_df["date"]))
+
+            # Merge IV if available
+            if iv_history is not None and not iv_history.empty:
+                iv_df = iv_history.copy()
+                if "atm_iv" in iv_df.columns and "date" in iv_df.columns:
+                    iv_df = iv_df.set_index(pd.to_datetime(iv_df["date"]))
+                    price_df["atm_iv"] = iv_df["atm_iv"].reindex(price_df.index, method="ffill")
+
+            # Extract earnings dates
+            date_col = "earnings_date" if "earnings_date" in df.columns else "announcement_date"
+            if date_col not in df.columns:
+                return ComputeResult(
+                    category=category,
+                    ticker=ticker,
+                    status=ComputeStatus.SKIPPED,
+                    warnings=[f"No {date_col} column in earnings data"],
+                )
+
+            earnings_dates = pd.to_datetime(df[date_col].dropna())
+
+            # Compute event features
+            result_df = self.events.compute_earnings_features(
+                price_df,
+                earnings_dates,
+                iv_col="atm_iv" if "atm_iv" in price_df.columns else "close",
+                close_col="close",
+                open_col="open",
+            )
+
+            # Reset index for storage (handle duplicate 'date' column)
+            if result_df.index.name == "date" or (hasattr(result_df.index, 'names') and 'date' in (result_df.index.names or [])):
+                if "date" in result_df.columns:
+                    result_df = result_df.drop(columns=["date"]).reset_index()
+                else:
+                    result_df = result_df.reset_index()
 
             self.store.write_features(
                 category=category,
                 ticker=ticker,
-                df=df,
+                df=result_df,
                 source_category=FeatureCategory.EARNINGS.value,
                 transformation="event_volatility",
                 force=force,
@@ -740,8 +784,26 @@ class FeaturePipeline:
 
             df = vol_features.copy()
 
-            # Compute regime features
-            df = self.regime.compute_all(df)
+            # RegimeDetector.compute_all expects individual Series:
+            #   price, rv, volume, vix (optional)
+            if "close" not in df.columns or "rv_21d" not in df.columns or "volume" not in df.columns:
+                return ComputeResult(
+                    category=category,
+                    ticker=ticker,
+                    status=ComputeStatus.SKIPPED,
+                    warnings=["Missing close/rv_21d/volume for regime detection"],
+                )
+
+            regime_df = self.regime.compute_all(
+                price=df["close"].copy(),
+                rv=df["rv_21d"].copy(),
+                volume=df["volume"].copy(),
+            )
+
+            # Merge regime features back (use list() to avoid iteration issues)
+            regime_cols = list(regime_df.columns)
+            for col in regime_cols:
+                df[col] = regime_df[col].values
 
             self.store.write_features(
                 category=category,
@@ -789,8 +851,24 @@ class FeaturePipeline:
 
             df = vol_edge.copy()
 
-            # Compute labels
-            df = self.labels.compute_all(df)
+            # LabelGenerator.generate_training_labels expects:
+            #   df with price_col and iv_col
+            price_col = "close" if "close" in df.columns else None
+            iv_col = "atm_iv" if "atm_iv" in df.columns else None
+
+            if price_col is None:
+                return ComputeResult(
+                    category=category,
+                    ticker=ticker,
+                    status=ComputeStatus.SKIPPED,
+                    warnings=["No close price for label generation"],
+                )
+
+            kwargs = {"price_col": price_col}
+            if iv_col:
+                kwargs["iv_col"] = iv_col
+
+            df = self.labels.generate_training_labels(df, **kwargs)
 
             self.store.write_features(
                 category=category,

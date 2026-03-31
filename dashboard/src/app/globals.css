@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #09090b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Terminal color palette */
+  --color-terminal-bg: #0a0e17;
+  --color-terminal-panel: #0d1321;
+  --color-terminal-header: #111827;
+  --color-terminal-border: #1e293b;
+  --color-terminal-amber: #ff8c00;
+  --color-terminal-amber-dim: #b45309;
+  --color-terminal-green: #22c55e;
+  --color-terminal-red: #ef4444;
+  --color-terminal-blue: #3b82f6;
+  --color-terminal-text: #e2e8f0;
+  --color-terminal-dim: #64748b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --foreground: #fafafa;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Terminal body override */
+.terminal-body {
+  background: var(--color-terminal-bg) !important;
+  color: var(--color-terminal-text) !important;
+  font-family: var(--font-mono), monospace !important;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 3px;
+}
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+  }
+}
+
+/* Terminal scrollbar */
+.terminal-body ::-webkit-scrollbar {
+  width: 4px;
+}
+.terminal-body ::-webkit-scrollbar-track {
+  background: var(--color-terminal-bg);
+}
+.terminal-body ::-webkit-scrollbar-thumb {
+  background: var(--color-terminal-border);
+  border-radius: 0;
+}
+.terminal-body ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-terminal-dim);
+}
+
+/* Terminal flash animation */
+@keyframes terminal-flash {
+  0%, 100% { border-color: var(--color-terminal-border); }
+  50% { border-color: var(--color-terminal-amber); }
+}
+
+.animate-terminal-flash {
+  animation: terminal-flash 0.5s ease-in-out;
+}
+
+/* Terminal selection */
+.terminal-body ::selection {
+  background: rgba(255, 140, 0, 0.3);
+  color: #ffffff;
+}

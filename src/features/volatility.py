@@ -105,10 +105,15 @@ class VolatilityFeatures:
         annualize: bool = True,
     ) -> pd.Series:
         """
-        Yang-Zhang volatility estimator.
+        Yang-Zhang volatility estimator (2000).
 
         Handles overnight jumps and opening gaps.
-        Minimum variance unbiased estimator.
+        Minimum variance unbiased estimator combining:
+        - Overnight variance (close-to-open)
+        - Open-to-close variance
+        - Rogers-Satchell intraday variance
+
+        Reference: Yang & Zhang (2000) "Drift Independent Volatility Estimation"
 
         Args:
             open_: Open prices
@@ -121,6 +126,8 @@ class VolatilityFeatures:
         Returns:
             Yang-Zhang volatility estimate
         """
+        # Yang-Zhang optimal k: minimizes variance of estimator
+        # k = 0.34 / (1.34 + (n+1)/(n-1)) where n = window
         k = 0.34 / (1.34 + (window + 1) / (window - 1))
 
         # Overnight volatility (close-to-open)
@@ -150,36 +157,61 @@ class VolatilityFeatures:
         """
         IV Rank: Current IV percentile vs lookback period.
 
+        IV Rank = (Current IV - Min IV) / (Max IV - Min IV) * 100
+
+        This is NOT the same as IV Percentile, which counts what % of
+        observations are below the current value.
+
         Args:
             iv: Implied volatility series
             lookback: Lookback period in days
 
         Returns:
-            IV rank (0-100)
+            IV rank (0-100), where 0 = at historical low, 100 = at historical high
         """
-        def rank_pct(x):
-            if len(x) < 2:
-                return np.nan
-            current = x.iloc[-1]
-            return (x < current).sum() / (len(x) - 1) * 100
-
-        return iv.rolling(lookback).apply(rank_pct, raw=False)
+        rolling_min = iv.rolling(lookback).min()
+        rolling_max = iv.rolling(lookback).max()
+        # Avoid division by zero when min == max
+        range_iv = rolling_max - rolling_min
+        range_iv = range_iv.replace(0, np.nan)
+        return ((iv - rolling_min) / range_iv * 100).clip(0, 100)
 
     @staticmethod
-    def iv_percentile(iv: pd.Series, lookback: int = 252) -> pd.Series:
+    def iv_percentile(
+        iv: pd.Series,
+        lookback: int = 252,
+        include_ties: bool = True,
+    ) -> pd.Series:
         """
-        IV Percentile: Where current IV falls in the historical distribution.
+        IV Percentile: What percentage of observations over lookback
+        period are BELOW (or equal to, if include_ties=True) the current IV value.
+
+        Different from IV Rank:
+        - IV Rank = position relative to min/max range
+        - IV Percentile = % of observations below current value
 
         Args:
             iv: Implied volatility series
             lookback: Lookback period in days
+            include_ties: If True, use <= (count ties as below).
+                         If False, use < (strict inequality, ties not counted).
+                         Default True avoids downward bias in tied/flat series.
 
         Returns:
             IV percentile (0-100)
         """
-        rolling_min = iv.rolling(lookback).min()
-        rolling_max = iv.rolling(lookback).max()
-        return (iv - rolling_min) / (rolling_max - rolling_min) * 100
+        def percentile_rank(x):
+            if len(x) < 2:
+                return np.nan
+            current = x.iloc[-1]
+            # Count values below current (with configurable tie handling)
+            if include_ties:
+                below = (x.iloc[:-1] <= current).sum()
+            else:
+                below = (x.iloc[:-1] < current).sum()
+            return below / (len(x) - 1) * 100
+
+        return iv.rolling(lookback).apply(percentile_rank, raw=False)
 
     @staticmethod
     def iv_rv_spread(iv: pd.Series, rv: pd.Series) -> pd.Series:

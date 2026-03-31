@@ -141,6 +141,7 @@ class RegimeDetector:
         Classify volatility regime.
 
         Uses realized volatility and optionally VIX.
+        Auto-detects whether input is in decimal (e.g., 0.20) or point (e.g., 20) format.
 
         Returns:
             0 = Extremely low (< 10%)
@@ -151,6 +152,13 @@ class RegimeDetector:
         """
         # Use VIX if available, otherwise RV
         vol = vix if vix is not None else rv
+
+        # Auto-detect scale: if median > 1, assume point format (e.g., VIX = 20)
+        # and convert to decimal (0.20) for consistent thresholding
+        vol_clean = vol.dropna()
+        if len(vol_clean) > 0 and vol_clean.median() > 1.0:
+            # Input is in point format (e.g., VIX = 20), convert to decimal
+            vol = vol / 100.0
 
         regime = pd.Series(VolRegime.NORMAL, index=vol.index)
 
@@ -194,12 +202,19 @@ class RegimeDetector:
             1 = Steep contango (> 5% below)
             0 = Flat
            -1 = Backwardation (> 5% above)
+            NaN = Invalid data (vix_spot <= 0)
         """
-        spread = (vix_futures - vix_spot) / vix_spot
+        # Guard against division by zero or invalid VIX values
+        spread = (vix_futures - vix_spot) / vix_spot.replace(0, np.nan)
 
-        regime = pd.Series(0, index=spread.index)
-        regime[spread > 0.05] = 1   # Contango
-        regime[spread < -0.05] = -1  # Backwardation
+        # Initialize with NaN to preserve invalid entries
+        regime = pd.Series(np.nan, index=spread.index)
+
+        # Only classify where spread is valid (not NaN)
+        valid = spread.notna()
+        regime[valid & (spread > 0.05)] = 1   # Contango
+        regime[valid & (spread < -0.05)] = -1  # Backwardation
+        regime[valid & (spread >= -0.05) & (spread <= 0.05)] = 0  # Flat
 
         return regime
 

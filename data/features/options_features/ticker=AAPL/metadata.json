@@ -2,7 +2,7 @@
   "category": "options_features",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:33:08.704401",
-  "updated_at": "2026-03-25T16:33:08.704410",
+  "updated_at": "2026-03-25T16:55:01.220956",
   "row_count": 2820,
   "date_range": [
     "2015-01-02",
@@ -22,7 +22,7 @@
   ],
   "source_hash": "80e6a8be14e08c33",
   "source_files": [],
-  "computation_time_ms": 8,
-  "version": 1,
+  "computation_time_ms": 9,
+  "version": 3,
   "schema_version": "1.0"
 }

@@ -1,30 +1,45 @@
 {
   "features": {
     "technical/AAPL": {
-      "version": 2,
-      "updated_at": "2026-03-25T16:33:08.609913",
+      "version": 4,
+      "updated_at": "2026-03-25T16:55:01.127306",
       "row_count": 2065
     },
     "dynamics/AAPL": {
-      "version": 2,
-      "updated_at": "2026-03-25T16:33:08.729503",
+      "version": 4,
+      "updated_at": "2026-03-25T16:55:01.247073",
       "row_count": 2820
     },
     "volatility/AAPL": {
-      "version": 1,
-      "updated_at": "2026-03-25T16:33:08.672769",
+      "version": 3,
+      "updated_at": "2026-03-25T16:55:01.188670",
       "row_count": 2065
     },
     "options_features/AAPL": {
-      "version": 1,
-      "updated_at": "2026-03-25T16:33:08.704410",
+      "version": 3,
+      "updated_at": "2026-03-25T16:55:01.220956",
       "row_count": 2820
     },
     "vol_edge/AAPL": {
+      "version": 3,
+      "updated_at": "2026-03-25T16:55:01.533334",
+      "row_count": 2065
+    },
+    "regime/AAPL": {
+      "version": 2,
+      "updated_at": "2026-03-25T16:55:02.713361",
+      "row_count": 2065
+    },
+    "labels/AAPL": {
+      "version": 2,
+      "updated_at": "2026-03-25T16:55:03.164981",
+      "row_count": 2065
+    },
+    "events/AAPL": {
       "version": 1,
-      "updated_at": "2026-03-25T16:33:09.028642",
+      "updated_at": "2026-03-25T16:55:02.374699",
       "row_count": 2065
     }
   },
-  "last_updated": "2026-03-25T16:33:09.067917"
+  "last_updated": "2026-03-25T16:55:03.223599"
 }

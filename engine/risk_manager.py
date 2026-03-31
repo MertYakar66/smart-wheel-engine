@@ -290,7 +290,8 @@ class RiskManager:
 
             greeks.delta += pos_greeks['delta'] * multiplier
             greeks.gamma += pos_greeks['gamma'] * multiplier
-            greeks.theta += pos_greeks['theta'] * multiplier
+            # Convert annual theta to daily theta (pricer returns per-year)
+            greeks.theta += (pos_greeks['theta'] / 365) * multiplier
             greeks.vega += pos_greeks['vega'] * multiplier
             greeks.rho += pos_greeks['rho'] * multiplier
 
@@ -306,14 +307,28 @@ class RiskManager:
         positions: List[Dict],
         spot_prices: Dict[str, float],
         returns_data: Optional[pd.DataFrame] = None,
+        volatilities: Optional[Dict[str, float]] = None,
+        correlation_matrix: Optional[pd.DataFrame] = None,
         confidence: float = 0.95,
         horizon_days: int = 1
     ) -> Tuple[float, float]:
         """
         Calculate Value at Risk and Conditional VaR.
 
-        Uses delta-normal approximation when no returns data available,
-        historical simulation when returns data provided.
+        Method selection (in order of preference):
+        1. Multi-asset covariance VaR if correlation_matrix provided
+        2. Historical simulation if returns_data provided (>30 days)
+        3. Delta-normal approximation (single-factor) as fallback
+
+        Args:
+            portfolio_value: Total portfolio value
+            positions: List of position dictionaries
+            spot_prices: Current spot prices per symbol
+            returns_data: Historical returns for historical VaR
+            volatilities: Per-asset volatilities for covariance VaR
+            correlation_matrix: Asset correlation matrix for covariance VaR
+            confidence: VaR confidence level (default 0.95)
+            horizon_days: VaR horizon in days
 
         Returns:
             Tuple of (VaR, CVaR) as positive dollar amounts
@@ -323,16 +338,26 @@ class RiskManager:
 
         greeks = self.calculate_portfolio_greeks(positions, spot_prices)
 
+        # Priority 1: Multi-asset covariance VaR (most accurate for multi-asset)
+        if correlation_matrix is not None and volatilities is not None:
+            var, cvar, _ = self.calculate_covariance_var(
+                portfolio_value, positions, spot_prices,
+                volatilities, correlation_matrix,
+                confidence, horizon_days
+            )
+            return var, cvar
+
+        # Priority 2: Historical simulation
         if returns_data is not None and len(returns_data) > 30:
-            # Historical simulation
             var, cvar = self._historical_var(
                 portfolio_value, greeks, returns_data, confidence, horizon_days
             )
-        else:
-            # Delta-normal approximation
-            var, cvar = self._parametric_var(
-                portfolio_value, greeks, spot_prices, confidence, horizon_days
-            )
+            return var, cvar
+
+        # Priority 3: Simple delta-normal approximation
+        var, cvar = self._parametric_var(
+            portfolio_value, greeks, spot_prices, confidence, horizon_days
+        )
 
         return var, cvar
 
@@ -342,27 +367,118 @@ class RiskManager:
         greeks: PortfolioGreeks,
         spot_prices: Dict[str, float],
         confidence: float,
-        horizon_days: int
+        horizon_days: int,
+        volatilities: Optional[Dict[str, float]] = None,
+        correlations: Optional[pd.DataFrame] = None,  # Reserved for future use
+        vol_of_vol: float = 0.05,
     ) -> Tuple[float, float]:
-        """Delta-normal VaR approximation."""
-        # Assume 20% annualized vol if no data
-        avg_vol = 0.20
+        """
+        Delta-gamma-vega parametric VaR.
+
+        Current implementation:
+        1. Uses aggregate portfolio delta (single-factor approximation)
+        2. Average volatility across assets
+        3. Gamma P&L adjustment: 0.5 * gamma_dollars * (dS)^2
+        4. Vega P&L from vol-of-vol shock
+
+        Limitations:
+        - Does NOT use per-asset delta decomposition
+        - Correlation matrix parameter is reserved but not yet implemented
+        - For concentrated/correlated books, use historical VaR instead
+
+        Args:
+            portfolio_value: Total portfolio value
+            greeks: Aggregated portfolio Greeks
+            spot_prices: Current spot prices per symbol
+            confidence: VaR confidence level (e.g., 0.95)
+            horizon_days: VaR horizon
+            volatilities: Dict of symbol -> annualized volatility
+            correlations: Reserved for future multi-asset covariance
+            vol_of_vol: Volatility of volatility for vega shock (default 5%)
+
+        Returns:
+            Tuple of (VaR, CVaR) as positive dollar amounts
+        """
+        if portfolio_value <= 0:
+            return 0.0, 0.0
+
+        # Use provided volatilities or estimate from spot prices
+        if volatilities is None:
+            # Default to 25% annualized vol (market average)
+            avg_vol = 0.25
+            volatilities = {sym: avg_vol for sym in spot_prices}
+
+        # Calculate portfolio variance using delta exposures
+        symbols = list(spot_prices.keys())
+        n_assets = len(symbols)
+
+        if n_assets == 0:
+            return 0.0, 0.0
+
+        # Build delta vector (per asset)
+        # Note: For full multi-asset, we'd need per-position Greeks
+        # Here we use aggregate delta_dollars as proxy
+        delta_dollars = greeks.delta_dollars
+
+        # Average volatility weighted by exposure
+        avg_vol = np.mean([volatilities.get(s, 0.25) for s in symbols])
         daily_vol = avg_vol / np.sqrt(252)
 
-        # Portfolio volatility from delta exposure
-        # Simplified: assume all underlyings move together
-        portfolio_daily_vol = abs(greeks.delta_dollars) * daily_vol / portfolio_value
-
         # Scale to horizon
-        horizon_vol = portfolio_daily_vol * np.sqrt(horizon_days)
-
-        # VaR
+        horizon_vol = daily_vol * np.sqrt(horizon_days)
         z_score = stats.norm.ppf(confidence)
-        var = portfolio_value * horizon_vol * z_score
 
-        # CVaR (expected shortfall) for normal distribution
+        # === Delta P&L Component ===
+        # Portfolio P&L from delta: delta_dollars * return
+        # Variance: (delta_dollars)^2 * vol^2
+        delta_var_component = (delta_dollars * horizon_vol) ** 2
+
+        # === Gamma P&L Component ===
+        # Second-order: 0.5 * gamma_dollars * (dS)^2
+        # Expected value of dS^2 under normal: vol^2
+        # This adds convexity (positive gamma = good for long options)
+        gamma_dollars = greeks.gamma_dollars
+        # For short options (negative gamma), this is a risk
+        # Variance contribution from gamma: (0.5 * gamma * vol^2)^2
+        # Simplified: gamma impact on expected shortfall
+        gamma_expected_loss = 0.5 * abs(gamma_dollars) * (horizon_vol ** 2)
+        if gamma_dollars < 0:
+            # Short gamma: losses accelerate as market moves
+            gamma_adjustment = gamma_expected_loss * z_score
+        else:
+            # Long gamma: gains accelerate (reduces VaR)
+            gamma_adjustment = -gamma_expected_loss * 0.5  # Partial credit
+
+        # === Vega P&L Component ===
+        # P&L from vol change: vega * dVol
+        # dVol ~ Normal(0, vol_of_vol * sqrt(horizon))
+        vega = greeks.vega
+        horizon_vol_of_vol = vol_of_vol * np.sqrt(horizon_days)
+        vega_var_component = (vega * horizon_vol_of_vol) ** 2
+
+        # === Combined VaR ===
+        # Total variance (assuming independence between price and vol shocks)
+        # In reality they're negatively correlated (leverage effect), but this is conservative
+        total_variance = delta_var_component + vega_var_component
+        total_std = np.sqrt(total_variance)
+
+        # VaR = z * portfolio_std + gamma adjustment
+        var = total_std * z_score + gamma_adjustment
+
+        # CVaR (Expected Shortfall) for delta-gamma-vega portfolio
+        # For normal distribution: CVaR = σ * φ(z_α) / (1 - α)
+        # Reference: Rockafellar & Uryasev (2000)
         pdf_at_z = stats.norm.pdf(z_score)
-        cvar = portfolio_value * horizon_vol * pdf_at_z / (1 - confidence)
+        base_cvar = total_std * pdf_at_z / (1 - confidence)
+
+        # Gamma adjustment for CVaR:
+        # CVaR considers the entire tail beyond VaR, where gamma effects compound.
+        # The hazard rate h(z) = φ(z)/(1-Φ(z)) scales the tail impact.
+        # For 99% confidence, h(z_0.99) ≈ 5.6, so tail losses are amplified.
+        # We use a conservative multiplier of φ(z)/(1-α) / z ≈ 1.3 for gamma scaling.
+        hazard_ratio = pdf_at_z / ((1 - confidence) * z_score) if z_score > 0 else 1.0
+        gamma_cvar_multiplier = min(2.0, max(1.0, hazard_ratio))  # Clamp to [1.0, 2.0]
+        cvar = base_cvar + gamma_adjustment * gamma_cvar_multiplier
 
         return abs(var), abs(cvar)
 
@@ -372,36 +488,312 @@ class RiskManager:
         greeks: PortfolioGreeks,
         returns_data: pd.DataFrame,
         confidence: float,
-        horizon_days: int
+        horizon_days: int,
+        vol_returns: Optional[pd.Series] = None,
     ) -> Tuple[float, float]:
-        """Historical simulation VaR."""
-        # Get portfolio returns using delta approximation
-        if 'returns' in returns_data.columns:
-            hist_returns = returns_data['returns'].dropna()
+        """
+        Historical simulation VaR with delta-gamma-vega.
+
+        Upgrades from simple delta-only:
+        1. Multi-asset P&L using weighted returns (if multi-column)
+        2. Gamma P&L: 0.5 * gamma * (dS)^2 for each scenario
+        3. Vega P&L: vega * dVol for each scenario (if vol_returns provided)
+        4. Proper compounding for multi-day horizons
+
+        Args:
+            portfolio_value: Total portfolio value
+            greeks: Aggregated portfolio Greeks
+            returns_data: DataFrame with returns (single or multi-column)
+            confidence: VaR confidence level
+            horizon_days: VaR horizon
+            vol_returns: Optional series of IV changes for vega P&L
+
+        Returns:
+            Tuple of (VaR, CVaR) as positive dollar amounts
+        """
+        # Handle multi-column returns (multiple assets)
+        if isinstance(returns_data, pd.DataFrame):
+            if 'returns' in returns_data.columns:
+                hist_returns = returns_data['returns'].dropna()
+            elif returns_data.shape[1] == 1:
+                hist_returns = returns_data.iloc[:, 0].dropna()
+            else:
+                # Multi-asset: use equal-weighted portfolio return
+                # In production, would use actual position weights
+                hist_returns = returns_data.mean(axis=1).dropna()
         else:
-            # Assume first column is price, compute returns
-            hist_returns = returns_data.iloc[:, 0].pct_change().dropna()
+            hist_returns = returns_data.dropna()
 
-        # Scale returns to horizon
+        # Compute returns if we have prices instead of returns
+        if hist_returns.max() > 1:  # Likely prices, not returns
+            hist_returns = hist_returns.pct_change().dropna()
+
+        # Scale returns to horizon using proper compounding
         if horizon_days > 1:
-            # Rolling sum for multi-day returns
-            hist_returns = hist_returns.rolling(horizon_days).sum().dropna()
+            compound_factor = (1 + hist_returns).rolling(horizon_days).apply(
+                lambda x: x.prod(), raw=True
+            ).dropna() - 1
+            hist_returns = compound_factor
 
-        # Portfolio P&L scenarios
-        pnl_scenarios = greeks.delta_dollars * hist_returns
+        n_scenarios = len(hist_returns)
+        if n_scenarios == 0:
+            return 0.0, 0.0
 
-        # Sort for percentile calculation
-        sorted_pnl = np.sort(pnl_scenarios)
+        # === Delta P&L ===
+        # P&L = delta_dollars * return
+        delta_pnl = greeks.delta_dollars * hist_returns.values
 
-        # VaR
-        var_idx = int(len(sorted_pnl) * (1 - confidence))
-        var = -sorted_pnl[var_idx] if var_idx < len(sorted_pnl) else 0
+        # === Gamma P&L ===
+        # P&L = 0.5 * gamma_dollars * return^2 * spot^2 / spot^2
+        # Simplified: 0.5 * gamma_dollars * return^2 (since gamma_dollars already scaled)
+        # Note: For negative gamma (short options), this adds to losses
+        gamma_pnl = 0.5 * greeks.gamma_dollars * (hist_returns.values ** 2)
 
-        # CVaR (mean of losses beyond VaR)
-        tail_losses = sorted_pnl[:var_idx + 1]
-        cvar = -np.mean(tail_losses) if len(tail_losses) > 0 else var
+        # === Vega P&L ===
+        vega_pnl = np.zeros(n_scenarios)
+        if vol_returns is not None and len(vol_returns) >= n_scenarios:
+            # P&L = vega * dVol
+            vol_changes = vol_returns.values[-n_scenarios:]
+            vega_pnl = greeks.vega * vol_changes
+        else:
+            # Estimate vol shocks from return magnitude (leverage effect)
+            # When returns are negative, vol typically increases
+            # Approximate: dVol ~ -0.5 * return (simplified leverage effect)
+            implied_vol_change = -0.5 * hist_returns.values
+            vega_pnl = greeks.vega * implied_vol_change * 0.01  # Scale to 1% vol change
 
-        return max(0, var), max(0, cvar)
+        # === Total P&L Scenarios ===
+        total_pnl = delta_pnl + gamma_pnl + vega_pnl
+
+        # Sort for percentile calculation (ascending, so losses are first)
+        sorted_pnl = np.sort(total_pnl)
+
+        # === VaR with Linear Interpolation ===
+        # Use proper quantile interpolation for accuracy with small samples
+        # Reference: Hyndman & Fan (1996), Type 7 (R/Python default)
+        alpha = 1 - confidence  # e.g., 0.05 for 95% VaR
+        var = -np.percentile(sorted_pnl, alpha * 100, method='linear')
+
+        # === CVaR (Expected Shortfall) with proper weighting ===
+        # CVaR is the conditional expectation E[X | X <= VaR]
+        # For finite samples, use weighted average including fractional observation
+        tail_threshold = -var
+        tail_observations = sorted_pnl[sorted_pnl <= tail_threshold]
+
+        if len(tail_observations) > 0:
+            # Include partial weight for the observation at the quantile boundary
+            # This gives a more accurate CVaR estimate for small samples
+            exact_idx = alpha * (n_scenarios - 1)
+            floor_idx = int(np.floor(exact_idx))
+            frac = exact_idx - floor_idx
+
+            if floor_idx > 0:
+                # Full weight for observations strictly below VaR
+                strict_tail = sorted_pnl[:floor_idx]
+                # Fractional weight for boundary observation
+                boundary_contrib = sorted_pnl[floor_idx] * frac if frac > 0 else 0
+
+                total_weight = floor_idx + frac
+                if total_weight > 0:
+                    weighted_sum = np.sum(strict_tail) + boundary_contrib
+                    cvar = -weighted_sum / total_weight
+                else:
+                    cvar = var
+            else:
+                # Very high confidence or small sample: use first observation
+                cvar = -sorted_pnl[0]
+        else:
+            cvar = var
+
+        return max(0.0, var), max(0.0, cvar)
+
+    def calculate_covariance_var(
+        self,
+        portfolio_value: float,
+        positions: List[Dict],
+        spot_prices: Dict[str, float],
+        volatilities: Dict[str, float],
+        correlation_matrix: pd.DataFrame,
+        confidence: float = 0.95,
+        horizon_days: int = 1,
+        vol_of_vol: float = 0.05,
+    ) -> Tuple[float, float, Dict]:
+        """
+        Multi-asset covariance VaR using full correlation structure.
+
+        This is the proper institutional approach for portfolios with
+        multiple correlated assets. Uses the delta-normal method with
+        full covariance matrix.
+
+        Formula: VaR = z_α × √(δ' Σ δ)
+
+        where:
+        - δ = vector of dollar deltas per asset
+        - Σ = covariance matrix (correlation × outer(vol, vol))
+        - z_α = confidence z-score
+
+        Args:
+            portfolio_value: Total portfolio value
+            positions: List of position dicts with 'symbol', 'delta_dollars'
+            spot_prices: Current spot prices per symbol
+            volatilities: Dict of symbol -> annualized volatility
+            correlation_matrix: DataFrame with symbols as index/columns
+            confidence: VaR confidence level (default 0.95)
+            horizon_days: VaR horizon in days
+            vol_of_vol: Volatility of volatility for vega component
+
+        Returns:
+            Tuple of (VaR, CVaR, component_breakdown)
+
+        Reference:
+            Jorion, P. "Value at Risk", Chapter 7: Portfolio Risk
+        """
+        if portfolio_value <= 0:
+            return 0.0, 0.0, {}
+
+        # Build per-asset delta exposures from positions
+        symbol_deltas: Dict[str, float] = {}
+        symbol_gammas: Dict[str, float] = {}
+        symbol_vegas: Dict[str, float] = {}
+
+        for pos in positions:
+            symbol = pos['symbol']
+            spot = spot_prices.get(symbol, pos.get('underlying_price', 100))
+
+            # Calculate or use provided Greeks
+            if 'delta_dollars' in pos:
+                delta_d = pos['delta_dollars']
+            else:
+                # Calculate from position
+                pos_greeks = black_scholes_all_greeks(
+                    S=spot,
+                    K=pos['strike'],
+                    T=pos['dte'] / 365,
+                    r=self.risk_free_rate,
+                    sigma=pos['iv'],
+                    option_type=pos['option_type'],
+                    q=pos.get('dividend_yield', 0.0)
+                )
+                direction = -1 if pos.get('is_short', True) else 1
+                multiplier = direction * pos['contracts'] * 100
+                delta_d = pos_greeks['delta'] * multiplier * spot
+                gamma_d = pos_greeks['gamma'] * multiplier * spot * spot / 100
+                vega_d = pos_greeks['vega'] * multiplier
+
+                symbol_gammas[symbol] = symbol_gammas.get(symbol, 0.0) + gamma_d
+                symbol_vegas[symbol] = symbol_vegas.get(symbol, 0.0) + vega_d
+
+            symbol_deltas[symbol] = symbol_deltas.get(symbol, 0.0) + delta_d
+
+        # Get list of symbols with exposure
+        symbols = list(symbol_deltas.keys())
+        n_assets = len(symbols)
+
+        if n_assets == 0:
+            return 0.0, 0.0, {}
+
+        # Build delta vector and volatility vector
+        delta_vec = np.array([symbol_deltas[s] for s in symbols])
+        vol_vec = np.array([volatilities.get(s, 0.25) for s in symbols])
+
+        # Convert to daily volatility and scale to horizon
+        daily_vol_vec = vol_vec / np.sqrt(252)
+        horizon_vol_vec = daily_vol_vec * np.sqrt(horizon_days)
+
+        # Build covariance matrix
+        # Σ = diag(vol) × corr × diag(vol)
+        if n_assets == 1:
+            # Single asset case
+            covariance = np.array([[horizon_vol_vec[0] ** 2]])
+        else:
+            # Extract correlation submatrix for our symbols
+            corr_subset = correlation_matrix.loc[symbols, symbols].values
+
+            # Ensure it's symmetric
+            corr_subset = (corr_subset + corr_subset.T) / 2
+            np.fill_diagonal(corr_subset, 1.0)
+
+            # PSD repair: eigenvalue flooring to ensure positive semi-definiteness
+            # This handles noisy estimated correlations that may not be valid
+            eigenvalues, eigenvectors = np.linalg.eigh(corr_subset)
+            min_eigenvalue = np.min(eigenvalues)
+            if min_eigenvalue < 0:
+                # Floor negative eigenvalues to small positive value
+                eigenvalues = np.maximum(eigenvalues, 1e-8)
+                # Reconstruct correlation matrix
+                corr_subset = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+                # Re-normalize to ensure diagonal = 1
+                d = np.sqrt(np.diag(corr_subset))
+                corr_subset = corr_subset / np.outer(d, d)
+
+            # Build covariance: Σ_ij = σ_i × σ_j × ρ_ij
+            covariance = np.outer(horizon_vol_vec, horizon_vol_vec) * corr_subset
+
+        # === Delta VaR Component ===
+        # Portfolio variance: δ' Σ δ
+        delta_variance = delta_vec @ covariance @ delta_vec
+        delta_std = np.sqrt(max(0, delta_variance))
+
+        z_score = stats.norm.ppf(confidence)
+        delta_var = delta_std * z_score
+
+        # === Gamma Component ===
+        # For each asset: gamma_loss = 0.5 * gamma * (horizon_vol * S)^2
+        # This is a simplification - full treatment would use non-central chi-square
+        gamma_var = 0.0
+        if symbol_gammas:
+            for s in symbols:
+                gamma_d = symbol_gammas.get(s, 0.0)
+                spot = spot_prices.get(s, 100)
+                vol_h = horizon_vol_vec[symbols.index(s)]
+                # Expected loss from gamma (for short gamma positions)
+                gamma_expected = 0.5 * abs(gamma_d) * (vol_h ** 2)
+                if gamma_d < 0:  # Short gamma
+                    gamma_var += gamma_expected * z_score
+                else:  # Long gamma (benefit)
+                    gamma_var -= gamma_expected * 0.5
+
+        # === Vega Component ===
+        # Vol-of-vol impact on vega positions
+        vega_var = 0.0
+        if symbol_vegas:
+            total_vega = sum(symbol_vegas.values())
+            horizon_vol_of_vol = vol_of_vol * np.sqrt(horizon_days)
+            vega_var = abs(total_vega * horizon_vol_of_vol * z_score)
+
+        # === Combined VaR ===
+        # Assuming independence between spot and vol shocks (conservative)
+        total_var = np.sqrt(delta_var**2 + vega_var**2) + gamma_var
+
+        # === CVaR (Expected Shortfall) ===
+        pdf_at_z = stats.norm.pdf(z_score)
+        base_cvar = delta_std * pdf_at_z / (1 - confidence)
+
+        # Gamma scaling for CVaR tail
+        hazard_ratio = pdf_at_z / ((1 - confidence) * z_score) if z_score > 0 else 1.0
+        gamma_cvar_multiplier = min(2.0, max(1.0, hazard_ratio))
+        total_cvar = np.sqrt(base_cvar**2 + vega_var**2) + gamma_var * gamma_cvar_multiplier
+
+        # Component breakdown for risk attribution
+        components = {
+            'delta_var': abs(delta_var),
+            'gamma_var': abs(gamma_var),
+            'vega_var': abs(vega_var),
+            'delta_std': delta_std,
+            'per_asset_contribution': {},
+        }
+
+        # Marginal VaR per asset (∂VaR/∂w_i)
+        if delta_variance > 0:
+            marginal_var = (covariance @ delta_vec) / delta_std * z_score
+            for i, s in enumerate(symbols):
+                components['per_asset_contribution'][s] = {
+                    'delta_dollars': delta_vec[i],
+                    'marginal_var': marginal_var[i],
+                    'component_var': delta_vec[i] * marginal_var[i] / delta_var if delta_var > 0 else 0,
+                }
+
+        return abs(total_var), abs(total_cvar), components
 
     def update_portfolio_value(self, value: float) -> None:
         """Update portfolio value history for drawdown tracking."""
@@ -460,6 +852,185 @@ class RiskManager:
         )
 
         return metrics
+
+    def run_stress_tests(
+        self,
+        portfolio_value: float,
+        positions: List[Dict],
+        spot_prices: Dict[str, float],
+        custom_scenarios: Optional[List[Dict]] = None,
+    ) -> Dict[str, Dict]:
+        """
+        Run comprehensive stress scenarios on the portfolio.
+
+        Standard scenarios:
+        1. Market crash: -10%, -20%, -30% spot moves with vol spike
+        2. Vol explosion: +50%, +100% IV increase
+        3. Gap down: Overnight -5%, -10% gap
+        4. Correlation breakdown: All correlations go to 1
+        5. Rate shock: +100bps, +200bps rate increase
+
+        Args:
+            portfolio_value: Current portfolio value
+            positions: List of position dictionaries
+            spot_prices: Current spot prices
+            custom_scenarios: Optional list of custom scenario dicts
+
+        Returns:
+            Dict of scenario_name -> {pnl, pct_loss, description}
+        """
+        greeks = self.calculate_portfolio_greeks(positions, spot_prices)
+        results = {}
+
+        # === Standard Scenarios ===
+
+        # 1. Market Crash Scenarios
+        crash_scenarios = [
+            (-0.10, 0.30, "Moderate crash: -10% spot, +30% vol"),
+            (-0.20, 0.50, "Severe crash: -20% spot, +50% vol"),
+            (-0.30, 1.00, "Extreme crash: -30% spot, +100% vol"),
+        ]
+
+        for spot_move, vol_move, desc in crash_scenarios:
+            # Delta P&L
+            delta_pnl = greeks.delta_dollars * spot_move
+            # Gamma P&L (second order): 0.5 * gamma * (dS)^2
+            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+            # Vega P&L from vol increase
+            vega_pnl = greeks.vega * vol_move * 100  # vega is per 1%, vol_move is decimal
+
+            total_pnl = delta_pnl + gamma_pnl + vega_pnl
+
+            scenario_name = f"crash_{int(abs(spot_move)*100)}pct"
+            results[scenario_name] = {
+                "pnl": total_pnl,
+                "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "description": desc,
+                "components": {
+                    "delta_pnl": delta_pnl,
+                    "gamma_pnl": gamma_pnl,
+                    "vega_pnl": vega_pnl,
+                }
+            }
+
+        # 2. Vol Explosion Scenarios (market rallies or crashes)
+        vol_scenarios = [
+            (0.50, "Vol spike: +50% IV"),
+            (1.00, "Vol explosion: +100% IV"),
+            (-0.30, "Vol crush: -30% IV"),
+        ]
+
+        for vol_move, desc in vol_scenarios:
+            vega_pnl = greeks.vega * vol_move * 100
+
+            scenario_name = f"vol_{'+' if vol_move > 0 else ''}{int(vol_move*100)}pct"
+            results[scenario_name] = {
+                "pnl": vega_pnl,
+                "pct_loss": vega_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "description": desc,
+                "components": {"vega_pnl": vega_pnl}
+            }
+
+        # 3. Gap Down Scenarios (overnight moves)
+        gap_scenarios = [
+            (-0.05, 0.20, "Gap down: -5% overnight, +20% vol"),
+            (-0.10, 0.40, "Large gap: -10% overnight, +40% vol"),
+        ]
+
+        for spot_move, vol_move, desc in gap_scenarios:
+            delta_pnl = greeks.delta_dollars * spot_move
+            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+            vega_pnl = greeks.vega * vol_move * 100
+            # Theta benefit from passage of time (1 day)
+            theta_pnl = greeks.theta  # Daily theta
+
+            total_pnl = delta_pnl + gamma_pnl + vega_pnl + theta_pnl
+
+            scenario_name = f"gap_{int(abs(spot_move)*100)}pct"
+            results[scenario_name] = {
+                "pnl": total_pnl,
+                "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "description": desc,
+                "components": {
+                    "delta_pnl": delta_pnl,
+                    "gamma_pnl": gamma_pnl,
+                    "vega_pnl": vega_pnl,
+                    "theta_pnl": theta_pnl,
+                }
+            }
+
+        # 4. Rate Shock Scenarios
+        rate_scenarios = [
+            (0.01, "Rate hike: +100bps"),
+            (0.02, "Large rate hike: +200bps"),
+        ]
+
+        for rate_move, desc in rate_scenarios:
+            # Rho is sensitivity to 1% rate change
+            rho_pnl = greeks.rho * rate_move * 100
+
+            scenario_name = f"rate_{int(rate_move*10000)}bps"
+            results[scenario_name] = {
+                "pnl": rho_pnl,
+                "pct_loss": rho_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "description": desc,
+                "components": {"rho_pnl": rho_pnl}
+            }
+
+        # 5. Combined worst case: crash + vol + correlation spike
+        worst_case = {
+            "spot_move": -0.25,
+            "vol_move": 0.80,
+            "theta_days": 5,  # 5 days of theta decay
+        }
+
+        delta_pnl = greeks.delta_dollars * worst_case["spot_move"]
+        gamma_pnl = 0.5 * greeks.gamma_dollars * (worst_case["spot_move"] ** 2)
+        vega_pnl = greeks.vega * worst_case["vol_move"] * 100
+        theta_pnl = greeks.theta * worst_case["theta_days"]
+
+        total_worst = delta_pnl + gamma_pnl + vega_pnl + theta_pnl
+
+        results["worst_case"] = {
+            "pnl": total_worst,
+            "pct_loss": total_worst / portfolio_value if portfolio_value > 0 else 0,
+            "description": "Worst case: -25% spot, +80% vol, 5d theta",
+            "components": {
+                "delta_pnl": delta_pnl,
+                "gamma_pnl": gamma_pnl,
+                "vega_pnl": vega_pnl,
+                "theta_pnl": theta_pnl,
+            }
+        }
+
+        # 6. Custom scenarios
+        if custom_scenarios:
+            for i, scenario in enumerate(custom_scenarios):
+                spot_move = scenario.get("spot_move", 0)
+                vol_move = scenario.get("vol_move", 0)
+                rate_move = scenario.get("rate_move", 0)
+                desc = scenario.get("description", f"Custom scenario {i+1}")
+
+                delta_pnl = greeks.delta_dollars * spot_move
+                gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+                vega_pnl = greeks.vega * vol_move * 100
+                rho_pnl = greeks.rho * rate_move * 100
+
+                total_pnl = delta_pnl + gamma_pnl + vega_pnl + rho_pnl
+
+                results[f"custom_{i+1}"] = {
+                    "pnl": total_pnl,
+                    "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                    "description": desc,
+                    "components": {
+                        "delta_pnl": delta_pnl,
+                        "gamma_pnl": gamma_pnl,
+                        "vega_pnl": vega_pnl,
+                        "rho_pnl": rho_pnl,
+                    }
+                }
+
+        return results
 
     def _calculate_max_drawdown(self) -> float:
         """Calculate maximum drawdown from history."""
@@ -571,14 +1142,18 @@ def calculate_kelly_fraction(
     Calculate Kelly criterion bet size.
 
     Args:
-        win_rate: Probability of winning (0-1)
+        win_rate: Probability of winning (must be in range [0, 1])
         avg_win: Average profit on winning trade
         avg_loss: Average loss on losing trade (positive number)
         kelly_fraction: Fraction of full Kelly to use (0.5 = half-Kelly)
 
     Returns:
-        Optimal fraction of capital to risk
+        Optimal fraction of capital to risk (0 if inputs invalid)
     """
+    # Validate win_rate is a probability in [0, 1]
+    if not (0.0 <= win_rate <= 1.0):
+        return 0.0
+
     if avg_loss <= 0 or avg_win <= 0:
         return 0.0
 
@@ -598,31 +1173,51 @@ def calculate_optimal_contracts(
     capital: float,
     strike: float,
     max_risk_pct: float = 0.05,
-    margin_requirement: float = 0.20
+    margin_requirement: float = 0.20,
+    stress_loss_pct: float = 0.25,
+    premium_per_share: float = 0.0
 ) -> int:
     """
     Calculate maximum contracts given capital and risk constraints.
 
+    Uses stress-loss model rather than full notional for risk calculation.
+    For a cash-secured put, the stress loss is the expected drawdown from
+    strike to stress level, minus premium received.
+
     Args:
         capital: Available capital
         strike: Option strike price
-        max_risk_pct: Maximum percentage of capital to risk
+        max_risk_pct: Maximum percentage of capital to risk (per position)
         margin_requirement: Margin requirement as fraction of notional
+        stress_loss_pct: Expected max drawdown in stress scenario (default 25%)
+        premium_per_share: Premium received per share (reduces risk)
 
     Returns:
-        Number of contracts
+        Number of contracts (0 if constraints cannot be satisfied)
     """
+    if capital <= 0 or strike <= 0:
+        return 0
+
     notional_per_contract = strike * 100
     margin_per_contract = notional_per_contract * margin_requirement
 
-    # Risk-based limit
+    # Risk-based limit using stress loss model
+    # Loss per contract = (strike * stress_loss_pct - premium) * 100
+    # This is more realistic than assuming stock goes to $0
+    stress_loss_per_contract = max(0, (strike * stress_loss_pct - premium_per_share) * 100)
+
+    # If stress loss is very small (high premium relative to stress), use a floor
+    min_loss_per_contract = strike * 0.10 * 100  # Floor at 10% loss
+    loss_per_contract = max(stress_loss_per_contract, min_loss_per_contract)
+
     max_risk_capital = capital * max_risk_pct
-    contracts_by_risk = int(max_risk_capital / notional_per_contract)
+    contracts_by_risk = int(max_risk_capital / loss_per_contract) if loss_per_contract > 0 else 0
 
     # Margin-based limit
     contracts_by_margin = int(capital / margin_per_contract)
 
-    return max(1, min(contracts_by_risk, contracts_by_margin))
+    # Return 0 if constraints cannot be satisfied (do NOT force minimum of 1)
+    return max(0, min(contracts_by_risk, contracts_by_margin))
 
 
 # =============================================================================

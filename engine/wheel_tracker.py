@@ -242,12 +242,17 @@ class WheelTracker:
         # Update position state
         pos.state = PositionState.STOCK_OWNED
         pos.stock_shares = 100
-        pos.stock_basis = pos.put_strike  # Basis is strike, not current price
+        # Net basis = strike - premium collected + assignment fee per share
+        # Premium reduces basis (we were paid to take on the obligation)
+        # Assignment fee increases basis (additional cost)
+        premium_received = pos.put_premium if pos.put_premium else 0.0
+        pos.stock_basis = pos.put_strike - premium_received + (assignment_fee / 100)
         pos.stock_acquisition_date = assignment_date
         pos.transaction_costs += assignment_fee
-        
+
         pos.notes.append(
-            f"Assigned: Bought 100 shares at ${pos.put_strike:.2f} (market: ${stock_price:.2f})"
+            f"Assigned: Bought 100 shares at ${pos.put_strike:.2f} "
+            f"(net basis: ${pos.stock_basis:.2f} after ${premium_received:.2f}/sh premium, market: ${stock_price:.2f})"
         )
         
         return True

@@ -1,0 +1,499 @@
+"""Multi-tab browser management for the autonomous browser agent
+
+Enhanced with security hardening:
+- URL validation and sanitization
+- SSRF prevention (blocks private IPs)
+- Emergency stop integration
+- Security audit logging
+"""
+
+import asyncio
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from playwright.async_api import (
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+    async_playwright,
+)
+from loguru import logger
+
+from local_agent.utils.config import config
+from local_agent.utils.security import (
+    validate_url,
+    sanitize_url,
+    get_emergency_stop,
+    get_security_log,
+    ThreatType,
+)
+
+
+class TabStatus(Enum):
+    """Status of a browser tab"""
+    LOADING = "loading"
+    READY = "ready"
+    ERROR = "error"
+    CLOSED = "closed"
+
+
+@dataclass
+class TabState:
+    """State information for a browser tab"""
+    tab_id: int
+    page: Page
+    current_url: str = ""
+    title: str = ""
+    status: TabStatus = TabStatus.LOADING
+    last_action: Optional[str] = None
+    last_action_time: Optional[datetime] = None
+    error_message: Optional[str] = None
+    extracted_data: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert state to dictionary for logging"""
+        return {
+            "tab_id": self.tab_id,
+            "current_url": self.current_url,
+            "title": self.title,
+            "status": self.status.value,
+            "last_action": self.last_action,
+            "last_action_time": self.last_action_time.isoformat() if self.last_action_time else None,
+            "error_message": self.error_message,
+        }
+
+
+class TabManager:
+    """
+    Manages multiple Playwright tabs with state tracking.
+
+    Designed for parallel browsing on AMD Ryzen 9800X3D:
+    - Run up to 10 Playwright tabs simultaneously
+    - Handle async I/O for screenshot processing and tab switching
+    - Each tab uses ~600MB RAM → 10 tabs = 6GB
+    """
+
+    def __init__(
+        self,
+        viewport_width: int = config.viewport_width,
+        viewport_height: int = config.viewport_height,
+        headless: bool = config.headless,
+        max_tabs: int = config.max_tabs,
+    ):
+        self.viewport_width = viewport_width
+        self.viewport_height = viewport_height
+        self.headless = headless
+        self.max_tabs = max_tabs
+
+        self._playwright: Optional[Playwright] = None
+        self._browser: Optional[Browser] = None
+        self._context: Optional[BrowserContext] = None
+
+        self.tabs: Dict[int, TabState] = {}
+        self._active_tab_id: Optional[int] = None
+
+    async def initialize(self) -> None:
+        """Initialize Playwright and browser with stealth mode"""
+        logger.info("Initializing browser with stealth mode...")
+
+        self._playwright = await async_playwright().start()
+
+        # Launch Chromium with stealth settings to avoid bot detection
+        self._browser = await self._playwright.chromium.launch(
+            headless=self.headless,
+            args=[
+                "--disable-dev-shm-usage",  # Prevent memory exploits
+                "--disable-blink-features=AutomationControlled",  # Hide automation
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-infobars",
+                "--disable-extensions",
+                "--disable-plugins-discovery",
+                "--disable-default-apps",
+                # Stealth flags
+                "--disable-web-security",
+                "--allow-running-insecure-content",
+                "--disable-features=IsolateOrigins,site-per-process",
+                "--flag-switches-begin",
+                "--flag-switches-end",
+            ],
+        )
+
+        # Create browser context with stealth settings
+        self._context = await self._browser.new_context(
+            viewport={"width": self.viewport_width, "height": self.viewport_height},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            java_script_enabled=True,
+            bypass_csp=False,  # Keep CSP for security
+            locale="en-US",
+            timezone_id="America/New_York",
+            permissions=["geolocation"],
+            geolocation={"latitude": 40.7128, "longitude": -74.0060},  # NYC
+            color_scheme="light",
+        )
+
+        # Apply stealth scripts to hide automation indicators
+        await self._context.add_init_script("""
+            // Override navigator.webdriver
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+
+            // Override chrome.runtime
+            window.chrome = {
+                runtime: {}
+            };
+
+            // Override permissions query
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
+
+            // Override plugins
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5]
+            });
+
+            // Override languages
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+
+            // Hide automation console message
+            console.log = (function(old_console) {
+                return function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    if (args[0] && args[0].toString().includes('cdc_')) return;
+                    old_console.apply(console, arguments);
+                };
+            })(console.log);
+        """)
+
+        logger.info(
+            f"Browser initialized with stealth mode: {self.viewport_width}x{self.viewport_height}, "
+            f"headless={self.headless}"
+        )
+
+    async def close(self) -> None:
+        """Close browser and cleanup"""
+        logger.info("Closing browser...")
+
+        # Close all tabs
+        for tab_id in list(self.tabs.keys()):
+            await self.close_tab(tab_id)
+
+        if self._context:
+            await self._context.close()
+        if self._browser:
+            await self._browser.close()
+        if self._playwright:
+            await self._playwright.stop()
+
+        logger.info("Browser closed")
+
+    async def create_tab(self, tab_id: int, initial_url: Optional[str] = None) -> TabState:
+        """
+        Create new tab and optionally navigate to URL.
+
+        Args:
+            tab_id: Unique identifier for this tab (0-9)
+            initial_url: Optional URL to navigate to
+
+        Returns:
+            TabState for the new tab
+        """
+        if not self._context:
+            raise RuntimeError("Browser not initialized. Call initialize() first.")
+
+        if len(self.tabs) >= self.max_tabs:
+            raise RuntimeError(f"Maximum tabs ({self.max_tabs}) reached")
+
+        if tab_id in self.tabs:
+            logger.warning(f"Tab {tab_id} already exists, returning existing tab")
+            return self.tabs[tab_id]
+
+        logger.info(f"Creating tab {tab_id}")
+
+        page = await self._context.new_page()
+
+        # Set up event handlers
+        page.on("load", lambda: self._on_page_load(tab_id))
+        page.on("crash", lambda: self._on_page_crash(tab_id))
+
+        tab_state = TabState(
+            tab_id=tab_id,
+            page=page,
+            status=TabStatus.READY,
+        )
+        self.tabs[tab_id] = tab_state
+
+        if self._active_tab_id is None:
+            self._active_tab_id = tab_id
+
+        # Navigate if URL provided
+        if initial_url:
+            await self.navigate(tab_id, initial_url)
+
+        return tab_state
+
+    def _on_page_load(self, tab_id: int) -> None:
+        """Handle page load event"""
+        if tab_id in self.tabs:
+            self.tabs[tab_id].status = TabStatus.READY
+            logger.debug(f"Tab {tab_id} loaded")
+
+    def _on_page_crash(self, tab_id: int) -> None:
+        """Handle page crash event"""
+        if tab_id in self.tabs:
+            self.tabs[tab_id].status = TabStatus.ERROR
+            self.tabs[tab_id].error_message = "Page crashed"
+            logger.error(f"Tab {tab_id} crashed")
+
+    async def close_tab(self, tab_id: int) -> None:
+        """Close a specific tab"""
+        if tab_id not in self.tabs:
+            logger.warning(f"Tab {tab_id} not found")
+            return
+
+        tab_state = self.tabs[tab_id]
+        try:
+            await tab_state.page.close()
+        except Exception as e:
+            logger.warning(f"Error closing tab {tab_id}: {e}")
+
+        tab_state.status = TabStatus.CLOSED
+        del self.tabs[tab_id]
+
+        if self._active_tab_id == tab_id:
+            self._active_tab_id = next(iter(self.tabs.keys()), None)
+
+        logger.info(f"Closed tab {tab_id}")
+
+    async def switch_to_tab(self, tab_id: int) -> TabState:
+        """
+        Bring tab to foreground for action execution.
+
+        Important: Some sites detect inactive tabs and pause scripts.
+        """
+        if tab_id not in self.tabs:
+            raise ValueError(f"Tab {tab_id} not found")
+
+        self._active_tab_id = tab_id
+        tab_state = self.tabs[tab_id]
+
+        # Bring page to front (important for some sites)
+        await tab_state.page.bring_to_front()
+
+        logger.debug(f"Switched to tab {tab_id}: {tab_state.current_url}")
+        return tab_state
+
+    async def navigate(
+        self,
+        tab_id: int,
+        url: str,
+        wait_until: str = "networkidle"
+    ) -> TabState:
+        """
+        Navigate a tab to a URL with security validation.
+
+        Args:
+            tab_id: Tab to navigate
+            url: URL to navigate to
+            wait_until: Playwright wait condition
+
+        Returns:
+            Updated TabState
+
+        Security:
+            - Validates URL against SSRF attacks
+            - Blocks private/internal IPs
+            - Enforces HTTPS where possible
+            - Respects emergency stop
+        """
+        if tab_id not in self.tabs:
+            raise ValueError(f"Tab {tab_id} not found")
+
+        tab_state = self.tabs[tab_id]
+        security_log = get_security_log()
+        emergency_stop = get_emergency_stop()
+
+        # Security Check 1: Emergency stop
+        if emergency_stop.is_stopped():
+            error_msg = f"Emergency stop active: {emergency_stop.get_status()['reason']}"
+            logger.error(error_msg)
+            tab_state.status = TabStatus.ERROR
+            tab_state.error_message = error_msg
+            raise RuntimeError(error_msg)
+
+        # Security Check 2: URL blocked
+        if emergency_stop.is_url_blocked(url):
+            error_msg = f"URL is blocked: {url}"
+            logger.error(error_msg)
+            security_log.log_blocked_action("navigate", "URL blocked", url)
+            tab_state.status = TabStatus.ERROR
+            tab_state.error_message = error_msg
+            raise ValueError(error_msg)
+
+        # Sanitize URL (adds https:// if needed, removes control chars)
+        url = sanitize_url(url)
+
+        # Security Check 3: Validate URL for SSRF and malicious patterns
+        is_valid, validation_error = validate_url(url)
+        if not is_valid:
+            error_msg = f"URL validation failed: {validation_error}"
+            logger.error(f"[SECURITY] {error_msg}")
+            security_log.log_threat_detected(
+                ThreatType.SSRF if "SSRF" in validation_error else ThreatType.MALICIOUS_URL,
+                error_msg,
+                url,
+            )
+            tab_state.status = TabStatus.ERROR
+            tab_state.error_message = error_msg
+            raise ValueError(error_msg)
+
+        tab_state.status = TabStatus.LOADING
+        logger.info(f"Tab {tab_id}: Navigating to {url}")
+
+        try:
+            await tab_state.page.goto(
+                url,
+                wait_until=wait_until,
+                timeout=config.page_timeout_ms,
+            )
+
+            # Update state
+            tab_state.current_url = tab_state.page.url
+            tab_state.title = await tab_state.page.title()
+            tab_state.status = TabStatus.READY
+            tab_state.last_action = f"navigate to {url}"
+            tab_state.last_action_time = datetime.now()
+
+            logger.info(f"Tab {tab_id}: Loaded '{tab_state.title}'")
+
+        except Exception as e:
+            tab_state.status = TabStatus.ERROR
+            tab_state.error_message = str(e)
+            logger.error(f"Tab {tab_id}: Navigation failed - {e}")
+            raise
+
+        return tab_state
+
+    async def get_tab_state(self, tab_id: int) -> TabState:
+        """Get current state of a tab"""
+        if tab_id not in self.tabs:
+            raise ValueError(f"Tab {tab_id} not found")
+
+        tab_state = self.tabs[tab_id]
+
+        # Refresh URL and title
+        tab_state.current_url = tab_state.page.url
+        try:
+            tab_state.title = await tab_state.page.title()
+        except Exception:
+            pass
+
+        return tab_state
+
+    async def get_all_tab_states(self) -> Dict[int, Dict[str, Any]]:
+        """Get state of all tabs as dictionaries"""
+        states = {}
+        for tab_id in self.tabs:
+            await self.get_tab_state(tab_id)
+            states[tab_id] = self.tabs[tab_id].to_dict()
+        return states
+
+    async def merge_tab_results(self, tab_ids: List[int]) -> Dict[str, Any]:
+        """
+        Merge extracted data from multiple tabs.
+
+        Called by Planner at synthesis step.
+        Aggregates extracted data from specified tabs.
+
+        Args:
+            tab_ids: List of tab IDs to merge data from
+
+        Returns:
+            Merged data dictionary
+        """
+        merged = {
+            "sources": [],
+            "data": [],
+        }
+
+        for tab_id in tab_ids:
+            if tab_id not in self.tabs:
+                logger.warning(f"Tab {tab_id} not found for merge")
+                continue
+
+            tab_state = self.tabs[tab_id]
+            merged["sources"].append({
+                "tab_id": tab_id,
+                "url": tab_state.current_url,
+                "title": tab_state.title,
+            })
+
+            if tab_state.extracted_data:
+                merged["data"].append({
+                    "tab_id": tab_id,
+                    **tab_state.extracted_data,
+                })
+
+        logger.info(f"Merged results from {len(tab_ids)} tabs")
+        return merged
+
+    async def wait_for_tab_load(
+        self,
+        tab_id: int,
+        timeout_ms: int = 30000
+    ) -> bool:
+        """
+        Wait for a tab to finish loading.
+
+        Args:
+            tab_id: Tab to wait for
+            timeout_ms: Maximum wait time
+
+        Returns:
+            True if loaded, False if timeout
+        """
+        if tab_id not in self.tabs:
+            raise ValueError(f"Tab {tab_id} not found")
+
+        tab_state = self.tabs[tab_id]
+
+        try:
+            await tab_state.page.wait_for_load_state(
+                "networkidle",
+                timeout=timeout_ms,
+            )
+            tab_state.status = TabStatus.READY
+            return True
+        except Exception as e:
+            logger.warning(f"Tab {tab_id}: Wait timeout - {e}")
+            return False
+
+    @property
+    def active_tab_id(self) -> Optional[int]:
+        """Get currently active tab ID"""
+        return self._active_tab_id
+
+    @property
+    def tab_count(self) -> int:
+        """Get number of open tabs"""
+        return len(self.tabs)
+
+    def get_page(self, tab_id: int) -> Page:
+        """Get Playwright Page object for a tab"""
+        if tab_id not in self.tabs:
+            raise ValueError(f"Tab {tab_id} not found")
+        return self.tabs[tab_id].page

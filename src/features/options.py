@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
+# Import canonical pricing functions to avoid duplication
+from engine.option_pricer import black_scholes_delta as _bs_delta
+
 
 class OptionsFeatures:
     """Compute options-specific features for wheel strategy."""
@@ -45,11 +48,12 @@ class OptionsFeatures:
             threshold: Standard deviations for "unusual"
 
         Returns:
-            Z-score of current volume
+            Z-score of current volume (NaN when std == 0)
         """
         avg = volume.rolling(window).mean()
         std = volume.rolling(window).std()
-        return (volume - avg) / std
+        # Guard against division by zero
+        return (volume - avg) / std.replace(0, np.nan)
 
     @staticmethod
     def iv_skew(iv_put: pd.Series, iv_call: pd.Series) -> pd.Series:
@@ -85,9 +89,13 @@ class OptionsFeatures:
         volatility: float,
         risk_free_rate: float = 0.05,
         is_call: bool = True,
+        dividend_yield: float = 0.0,
     ) -> float:
         """
-        Black-Scholes delta.
+        Black-Scholes delta with continuous dividend yield.
+
+        Delegates to the canonical implementation in engine.option_pricer
+        to ensure consistency across the codebase.
 
         Args:
             spot: Current stock price
@@ -96,24 +104,21 @@ class OptionsFeatures:
             volatility: Implied volatility (annualized)
             risk_free_rate: Risk-free interest rate
             is_call: True for call, False for put
+            dividend_yield: Continuous dividend yield
 
         Returns:
             Option delta
         """
-        if time_to_expiry <= 0:
-            if is_call:
-                return 1.0 if spot > strike else 0.0
-            else:
-                return -1.0 if spot < strike else 0.0
-
-        d1 = (np.log(spot / strike) + (risk_free_rate + 0.5 * volatility ** 2) * time_to_expiry) / (
-            volatility * np.sqrt(time_to_expiry)
+        option_type = 'call' if is_call else 'put'
+        return _bs_delta(
+            S=spot,
+            K=strike,
+            T=time_to_expiry,
+            r=risk_free_rate,
+            sigma=volatility,
+            option_type=option_type,
+            q=dividend_yield
         )
-
-        if is_call:
-            return norm.cdf(d1)
-        else:
-            return norm.cdf(d1) - 1
 
     @staticmethod
     def probability_of_profit(
@@ -195,8 +200,10 @@ class OptionsFeatures:
             days_to_expiry: Days to expiration
 
         Returns:
-            Annualized yield
+            Annualized yield (NaN if strike or days_to_expiry is zero)
         """
+        if strike <= 0 or days_to_expiry <= 0:
+            return np.nan
         return (premium / strike) * (365 / days_to_expiry)
 
     @staticmethod

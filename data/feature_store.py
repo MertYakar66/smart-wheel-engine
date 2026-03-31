@@ -22,11 +22,14 @@ Usage:
     lineage = store.get_lineage("volatility", ticker="AAPL")
 """
 
+import fcntl
 import hashlib
 import json
 import logging
 import os
 import shutil
+import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, date, timedelta
 from enum import Enum
@@ -187,6 +190,119 @@ class FeatureStore:
         (self.base_path / "_lineage").mkdir(exist_ok=True)
         (self.base_path / "_stats").mkdir(exist_ok=True)
         (self.base_path / "_registry").mkdir(exist_ok=True)
+        (self.base_path / "_locks").mkdir(exist_ok=True)
+
+    @contextmanager
+    def _file_lock(self, lock_name: str):
+        """
+        Acquire an exclusive file lock for atomic operations.
+
+        Uses fcntl.flock for cross-process locking on Unix systems.
+        Lock is automatically released when context exits.
+        """
+        lock_path = self.base_path / "_locks" / f"{lock_name}.lock"
+        lock_file = None
+        try:
+            lock_file = open(lock_path, 'w')
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            yield
+        finally:
+            if lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+
+    def _atomic_write_parquet(
+        self,
+        df: pd.DataFrame,
+        target_path: Path,
+        compression: str | None = "snappy",
+    ) -> None:
+        """
+        Write DataFrame to Parquet atomically using temp file + fsync + rename.
+
+        Ensures:
+        1. Partial writes never corrupt the target file
+        2. fsync guarantees data is on disk before rename
+        3. Atomic rename makes the new file visible in one operation
+        """
+        # Create temp file in same directory for atomic rename on same filesystem
+        target_dir = target_path.parent
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        fd, temp_path = tempfile.mkstemp(
+            suffix=".parquet.tmp",
+            dir=target_dir,
+        )
+        temp_path = Path(temp_path)
+
+        try:
+            # Close the fd opened by mkstemp, we'll write via pandas/pyarrow
+            os.close(fd)
+
+            # Write to temp file
+            if PYARROW_AVAILABLE:
+                table = pa.Table.from_pandas(df)
+                pq.write_table(table, str(temp_path), compression=compression)
+            else:
+                df.to_parquet(str(temp_path), compression=compression, index=False)
+
+            # fsync to ensure data is on disk
+            with open(temp_path, 'rb') as f:
+                os.fsync(f.fileno())
+
+            # Atomic rename (guaranteed atomic on POSIX for same filesystem)
+            os.replace(str(temp_path), str(target_path))
+
+            # fsync parent directory to ensure rename is persisted
+            dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+
+        except Exception:
+            # Clean up temp file on error
+            if temp_path.exists():
+                temp_path.unlink()
+            raise
+
+    def _atomic_write_json(
+        self,
+        data: dict,
+        target_path: Path,
+    ) -> None:
+        """
+        Write JSON file atomically using temp file + fsync + rename.
+        """
+        target_dir = target_path.parent
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        fd, temp_path = tempfile.mkstemp(
+            suffix=".json.tmp",
+            dir=target_dir,
+        )
+        temp_path = Path(temp_path)
+
+        try:
+            os.close(fd)
+
+            with open(temp_path, 'w') as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+
+            os.replace(str(temp_path), str(target_path))
+
+            dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+
+        except Exception:
+            if temp_path.exists():
+                temp_path.unlink()
+            raise
 
     def _load_registry(self) -> dict:
         """Load feature registry."""
@@ -197,11 +313,11 @@ class FeatureStore:
         return {"features": {}, "last_updated": None}
 
     def _save_registry(self) -> None:
-        """Save feature registry."""
+        """Save feature registry atomically with file lock."""
         self._registry["last_updated"] = datetime.now().isoformat()
         registry_path = self.base_path / "_registry" / "registry.json"
-        with open(registry_path, "w") as f:
-            json.dump(self._registry, f, indent=2)
+        with self._file_lock("registry"):
+            self._atomic_write_json(self._registry, registry_path)
 
     def _get_feature_path(self, category: str, ticker: str) -> Path:
         """Get path for a feature set."""
@@ -301,44 +417,40 @@ class FeatureStore:
         else:
             date_range = ("unknown", "unknown")
 
-        # Write Parquet
-        parquet_path = feature_path / "data.parquet"
-        compression = "snappy" if self.enable_compression else None
+        # Use file lock for concurrent write safety
+        lock_name = f"{category}_{ticker}".replace("/", "_")
+        with self._file_lock(lock_name):
+            # Write Parquet atomically
+            parquet_path = feature_path / "data.parquet"
+            compression = "snappy" if self.enable_compression else None
+            self._atomic_write_parquet(df, parquet_path, compression)
 
-        if PYARROW_AVAILABLE:
-            table = pa.Table.from_pandas(df)
-            pq.write_table(table, parquet_path, compression=compression)
-        else:
-            df.to_parquet(parquet_path, compression=compression, index=False)
+            # Create metadata
+            computation_time = int((time.time() - start_time) * 1000)
+            version = (existing_meta.version + 1) if existing_meta else 1
 
-        # Create metadata
-        computation_time = int((time.time() - start_time) * 1000)
-        version = (existing_meta.version + 1) if existing_meta else 1
+            metadata = FeatureMetadata(
+                category=category,
+                ticker=ticker,
+                created_at=existing_meta.created_at if existing_meta else datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                row_count=len(df),
+                date_range=date_range,
+                columns=list(df.columns),
+                source_hash=data_hash,
+                source_files=source_files or [],
+                computation_time_ms=computation_time,
+                version=version,
+            )
 
-        metadata = FeatureMetadata(
-            category=category,
-            ticker=ticker,
-            created_at=existing_meta.created_at if existing_meta else datetime.now().isoformat(),
-            updated_at=datetime.now().isoformat(),
-            row_count=len(df),
-            date_range=date_range,
-            columns=list(df.columns),
-            source_hash=data_hash,
-            source_files=source_files or [],
-            computation_time_ms=computation_time,
-            version=version,
-        )
+            # Save metadata atomically
+            meta_path = feature_path / "metadata.json"
+            self._atomic_write_json(metadata.to_dict(), meta_path)
 
-        # Save metadata
-        meta_path = feature_path / "metadata.json"
-        with open(meta_path, "w") as f:
-            json.dump(metadata.to_dict(), f, indent=2)
-
-        # Compute and save stats
-        stats = self._compute_stats(df)
-        stats_path = feature_path / "stats.json"
-        with open(stats_path, "w") as f:
-            json.dump([asdict(s) for s in stats], f, indent=2)
+            # Compute and save stats atomically
+            stats = self._compute_stats(df)
+            stats_path = feature_path / "stats.json"
+            self._atomic_write_json([asdict(s) for s in stats], stats_path)
 
         # Record lineage
         if source_category:
@@ -552,13 +664,14 @@ class FeatureStore:
         ]
 
     def save_lineage(self) -> None:
-        """Persist lineage records to disk."""
+        """Persist lineage records to disk atomically."""
         if not self._lineage_records:
             return
 
         lineage_path = self.base_path / "_lineage" / "lineage.parquet"
         df = pd.DataFrame([r.to_dict() for r in self._lineage_records])
-        df.to_parquet(lineage_path, index=False)
+        with self._file_lock("lineage"):
+            self._atomic_write_parquet(df, lineage_path, compression=None)
         logger.info(f"Saved {len(self._lineage_records)} lineage records")
 
     def load_lineage(self) -> List[LineageRecord]:

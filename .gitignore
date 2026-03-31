@@ -1,3 +1,50 @@
+# =============================================================================
+# SECURITY - Never commit these files
+# =============================================================================
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+*.credentials
+*_credentials.json
+service_account*.json
+
+# SSH keys
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# AWS credentials
+.aws/
+aws_credentials
+
+# Google Cloud
+.gcloud/
+gcloud_credentials.json
+
+# Database files with potential sensitive data
+*.sqlite
+*.sqlite3
+
+# Backup files that may contain secrets
+*.bak
+*.backup
+*.old
+
+# Audit logs (may contain sensitive info)
+logs/
+*.audit.log
+
+# =============================================================================
+# Python - Byte-compiled / optimized / DLL files
+# =============================================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -14,7 +61,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -205,3 +252,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Dashboard (Next.js)
+dashboard/node_modules/
+dashboard/.next/
+dashboard/data/*.db
+dashboard/data/*.db-journal
+dashboard/data/*.db-wal
+.DS_Store

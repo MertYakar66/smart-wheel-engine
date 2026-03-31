@@ -37,20 +37,34 @@ class EventVolatility:
         """
         Calculate days until next event for each date.
 
+        Vectorized implementation using searchsorted for O(N log M) complexity
+        instead of O(N * M) loop-based approach.
+
         Returns:
-            Series with days to next event (0 on event day, negative after)
+            Series with days to next event (0 on event day, NaN after last event)
         """
-        result = pd.Series(index=dates, dtype=float)
+        if len(event_dates) == 0:
+            return pd.Series(np.nan, index=dates)
 
-        for date in dates:
-            future_events = event_dates[event_dates >= date]
-            if len(future_events) > 0:
-                next_event = future_events.min()
-                result[date] = (next_event - date).days
-            else:
-                result[date] = np.nan
+        # Convert to numpy arrays for vectorized operations
+        dates_arr = pd.to_datetime(dates).values.astype('datetime64[D]')
+        events_arr = pd.to_datetime(event_dates).sort_values().values.astype('datetime64[D]')
 
-        return result
+        # Find index of next event for each date using searchsorted
+        # searchsorted returns index where element would be inserted to maintain order
+        # 'left' means: index where date would go, so events_arr[idx] >= date
+        next_event_idx = np.searchsorted(events_arr, dates_arr, side='left')
+
+        # Initialize result with NaN
+        result = np.full(len(dates), np.nan)
+
+        # For valid indices (not past last event), compute days difference
+        valid_mask = next_event_idx < len(events_arr)
+        result[valid_mask] = (
+            events_arr[next_event_idx[valid_mask]] - dates_arr[valid_mask]
+        ).astype('timedelta64[D]').astype(float)
+
+        return pd.Series(result, index=dates)
 
     @staticmethod
     def days_since_event(
@@ -60,20 +74,37 @@ class EventVolatility:
         """
         Calculate days since last event for each date.
 
+        Vectorized implementation using searchsorted for O(N log M) complexity
+        instead of O(N * M) loop-based approach.
+
         Returns:
-            Series with days since last event (0 on event day)
+            Series with days since last event (0 on event day, NaN before first event)
         """
-        result = pd.Series(index=dates, dtype=float)
+        if len(event_dates) == 0:
+            return pd.Series(np.nan, index=dates)
 
-        for date in dates:
-            past_events = event_dates[event_dates <= date]
-            if len(past_events) > 0:
-                last_event = past_events.max()
-                result[date] = (date - last_event).days
-            else:
-                result[date] = np.nan
+        # Convert to numpy arrays for vectorized operations
+        dates_arr = pd.to_datetime(dates).values.astype('datetime64[D]')
+        events_arr = pd.to_datetime(event_dates).sort_values().values.astype('datetime64[D]')
 
-        return result
+        # Find index where date would be inserted (right side)
+        # This gives us: events_arr[idx-1] <= date < events_arr[idx]
+        # So the last event on or before date is at index (idx - 1)
+        next_event_idx = np.searchsorted(events_arr, dates_arr, side='right')
+
+        # The previous event is at index (next_event_idx - 1)
+        prev_event_idx = next_event_idx - 1
+
+        # Initialize result with NaN
+        result = np.full(len(dates), np.nan)
+
+        # For valid indices (not before first event), compute days difference
+        valid_mask = prev_event_idx >= 0
+        result[valid_mask] = (
+            dates_arr[valid_mask] - events_arr[prev_event_idx[valid_mask]]
+        ).astype('timedelta64[D]').astype(float)
+
+        return pd.Series(result, index=dates)
 
     @staticmethod
     def iv_ramp(

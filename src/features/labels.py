@@ -157,7 +157,10 @@ class LabelGenerator:
         0.5 = Closed at 50% profit
         0.0 = Breakeven
         -1.0 = Lost equal to premium
+        NaN = premium_collected is zero (invalid)
         """
+        if premium_collected == 0:
+            return np.nan
         return (premium_collected - premium_at_exit) / premium_collected
 
     # === FORWARD RETURN LABELS ===
@@ -183,11 +186,16 @@ class LabelGenerator:
         """
         Binary label: will price be above threshold in N periods?
 
-        1 = Price went up (or stayed above threshold)
-        0 = Price went down
+        1.0 = Price went up (or stayed above threshold)
+        0.0 = Price went down
+        NaN = Insufficient forward data (preserved from forward_return)
         """
         fwd_return = LabelGenerator.forward_return(price, periods)
-        return (fwd_return > threshold).astype(int)
+        # Use float to preserve NaN values from forward_return
+        result = (fwd_return > threshold).astype(float)
+        # Explicitly preserve NaN (comparison with NaN yields False, not NaN)
+        result[fwd_return.isna()] = np.nan
+        return result
 
     @staticmethod
     def forward_max_drawdown(
@@ -195,19 +203,25 @@ class LabelGenerator:
         periods: int,
     ) -> pd.Series:
         """
-        Maximum drawdown over next N periods.
+        Maximum drawdown over next N periods (vectorized).
 
         Important for CSP: max drop determines if you get assigned.
+
+        Returns negative values (drawdowns are negative by convention).
+        E.g., -0.10 means price dropped 10% from entry within the period.
         """
-        result = pd.Series(index=price.index, dtype=float)
+        # Vectorized: rolling min shifted back to align with entry point
+        # For each point, find the minimum over the next N periods
+        forward_min = price[::-1].rolling(periods + 1, min_periods=1).min()[::-1]
 
-        for i in range(len(price) - periods):
-            window = price.iloc[i:i + periods + 1]
-            peak = window.iloc[0]  # Entry price
-            trough = window.min()
-            result.iloc[i] = (trough - peak) / peak
+        # Shift to align: forward_min[i] should be min of price[i:i+periods+1]
+        # The reversal + rolling already handles this
+        drawdown = (forward_min - price) / price
 
-        return result
+        # Set last 'periods' values to NaN (insufficient forward data)
+        drawdown.iloc[-periods:] = np.nan
+
+        return drawdown
 
     @staticmethod
     def touch_strike_label(
@@ -216,19 +230,25 @@ class LabelGenerator:
         periods: int,
     ) -> pd.Series:
         """
-        Did price touch strike within N periods?
+        Did price touch strike within N periods? (vectorized)
 
-        1 = Yes (would have been ITM at some point)
-        0 = No (stayed OTM)
+        For puts: did price drop to or below strike?
+        For calls: would need to check if price rose above strike.
+
+        1.0 = Yes (would have been ITM at some point)
+        0.0 = No (stayed OTM)
+        NaN = Insufficient forward data
+
+        This is critical for probability of touch (PoT) validation.
+        PoT >> delta, so this matters for assignment risk.
         """
-        result = pd.Series(index=price.index, dtype=int)
-
-        for i in range(len(price) - periods):
-            window = price.iloc[i:i + periods + 1]
-            touched = window.min() <= strike
-            result.iloc[i] = int(touched)
-
-        return result
+        # Forward-looking minimum (vectorized)
+        forward_min = price[::-1].rolling(periods + 1, min_periods=1).min()[::-1]
+        # Use float to preserve NaN values (int cannot hold NaN)
+        touched = (forward_min <= strike).astype(float)
+        # Set last 'periods' values to NaN (insufficient forward data)
+        touched.iloc[-periods:] = np.nan
+        return touched
 
     # === VOLATILITY LABELS ===
 
@@ -238,20 +258,27 @@ class LabelGenerator:
         periods: int = 21,
     ) -> pd.Series:
         """
-        Realized volatility over next N periods.
+        Realized volatility over next N periods (vectorized).
 
         Compare to IV at entry to see if options were mispriced.
+
+        This is the TRUE label for whether selling vol was profitable:
+        - If IV at entry > forward RV: seller won (options were expensive)
+        - If IV at entry < forward RV: seller lost (options were cheap)
         """
         log_returns = np.log(price / price.shift(1))
 
-        # Forward-looking vol
-        result = pd.Series(index=price.index, dtype=float)
+        # Vectorized forward-looking std using reversed rolling
+        # Reverse, compute rolling std, reverse back
+        forward_std = log_returns[::-1].rolling(periods, min_periods=periods).std()[::-1]
 
-        for i in range(len(price) - periods):
-            window = log_returns.iloc[i + 1:i + periods + 1]
-            result.iloc[i] = window.std() * np.sqrt(252)
+        # Shift by 1 because we want returns AFTER entry, not including entry day
+        forward_rv = forward_std.shift(-1) * np.sqrt(252)
 
-        return result
+        # Last 'periods' values have insufficient data
+        forward_rv.iloc[-periods:] = np.nan
+
+        return forward_rv
 
     @staticmethod
     def iv_overpriced_label(
@@ -262,11 +289,15 @@ class LabelGenerator:
         """
         Was IV overpriced (good for selling)?
 
-        1 = IV > RV (options were expensive, seller won)
-        0 = IV <= RV (options were cheap, seller lost)
+        1.0 = IV > RV (options were expensive, seller won)
+        0.0 = IV <= RV (options were cheap, seller lost)
+        NaN = Insufficient forward data (preserved from forward_rv)
         """
         spread = iv - forward_rv
-        return (spread > threshold).astype(int)
+        result = (spread > threshold).astype(float)
+        # Preserve NaN from forward_rv
+        result[forward_rv.isna()] = np.nan
+        return result
 
     # === OPTIMAL ACTION LABELS ===
 
@@ -412,12 +443,15 @@ class LabelGenerator:
             )
 
         # Touch strike label (at various OTM levels)
+        # Use forward-looking minimum, preserve NaN for insufficient future data
         for otm in [0.95, 0.90, 0.85]:
-            strike = price * otm
             col_name = f"touched_{int((1-otm)*100)}pct_otm"
-            # This needs to be vectorized differently
-            result[col_name] = (
-                price.rolling(dte).min().shift(-dte) <= price * otm
-            ).astype(int)
+            # Vectorized forward-looking min using reversed rolling
+            forward_min = price[::-1].rolling(dte + 1, min_periods=1).min()[::-1]
+            touched = (forward_min <= price * otm)
+            # Convert to float to preserve NaN (bool would lose it)
+            result[col_name] = touched.astype(float)
+            # Set last 'dte' values to NaN (insufficient forward data)
+            result[col_name].iloc[-dte:] = np.nan
 
         return result

@@ -265,8 +265,8 @@ export default function StoryDetailPage() {
       <div className="flex flex-wrap gap-1.5">
         {story.entities
           .filter((e) => e.entityType === "ticker")
-          .map((e) => (
-            <Link key={e.entityValue} href={`/ticker/${e.entityValue}`}>
+          .map((e, idx) => (
+            <Link key={`ticker-${e.entityValue}-${idx}`} href={`/ticker/${e.entityValue}`}>
               <Badge variant="ticker" className="cursor-pointer">
                 ${e.entityValue}
               </Badge>
@@ -274,8 +274,8 @@ export default function StoryDetailPage() {
           ))}
         {story.entities
           .filter((e) => e.entityType === "topic")
-          .map((e) => (
-            <Badge key={e.entityValue} variant="secondary">
+          .map((e, idx) => (
+            <Badge key={`topic-${e.entityValue}-${idx}`} variant="secondary">
               {e.entityValue}
             </Badge>
           ))}

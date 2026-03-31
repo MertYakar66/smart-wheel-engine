@@ -7,6 +7,7 @@ A scheduled macro and SP500 event intelligence platform:
 - Event calendar with 2026 macro release schedules
 - AM/PM briefs with event-aware mini-runs
 - Story clustering and ranking by macro/SP500 relevance
+- Verification engine using Claude Code's WebSearch
 
 Architecture:
 1. schema.py - Canonical data models
@@ -15,9 +16,10 @@ Architecture:
 4. connectors/ - Official source connectors (Fed, BLS, BEA, SEC, EIA)
 5. processing/ - Classification, clustering, ranking
 6. scheduler.py - AM/PM runs + event triggers
+7. verification_engine.py - Claude Code verification layer
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # Core schema
 from .schema import (
@@ -53,6 +55,20 @@ from .storage import NewsDatabase
 # Calendar
 from .calendar import MacroCalendar
 
+# Verification Engine
+from .verification_engine import (
+    VerificationEngine,
+    VerificationCandidate,
+    VerificationResult,
+    VerificationStatus,
+    PushPayload,
+    run_verification_cycle,
+    process_verification_response,
+    push_verified_stories,
+    print_verification_queries,
+    print_stats,
+)
+
 __all__ = [
     # Enums
     "SourceType",
@@ -81,4 +97,15 @@ __all__ = [
     # Components
     "NewsDatabase",
     "MacroCalendar",
+    # Verification
+    "VerificationEngine",
+    "VerificationCandidate",
+    "VerificationResult",
+    "VerificationStatus",
+    "PushPayload",
+    "run_verification_cycle",
+    "process_verification_response",
+    "push_verified_stories",
+    "print_verification_queries",
+    "print_stats",
 ]

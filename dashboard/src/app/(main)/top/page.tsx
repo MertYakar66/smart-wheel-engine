@@ -89,8 +89,8 @@ function MiniStoryCard({ story }: { story: StoryCard }) {
           {story.entities
             .filter((e) => e.entityType === "ticker")
             .slice(0, 3)
-            .map((e) => (
-              <Badge key={e.entityValue} variant="ticker" className="text-[10px] px-1.5 py-0">
+            .map((e, idx) => (
+              <Badge key={`${e.entityValue}-${idx}`} variant="ticker" className="text-[10px] px-1.5 py-0">
                 ${e.entityValue}
               </Badge>
             ))}

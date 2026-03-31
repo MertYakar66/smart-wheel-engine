@@ -1,19 +1,17 @@
 """Tests for stress testing module."""
 
-import pytest
-import numpy as np
 import pandas as pd
 
 from engine.stress_testing import (
-    StressTester,
+    HISTORICAL_SCENARIOS,
+    HYPOTHETICAL_SCENARIOS,
     Scenario,
     ScenarioResult,
-    StressTestReport,
     ScenarioType,
-    quick_stress_test,
+    StressTester,
+    StressTestReport,
     calculate_max_loss,
-    HISTORICAL_SCENARIOS,
-    HYPOTHETICAL_SCENARIOS
+    quick_stress_test,
 )
 
 

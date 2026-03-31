@@ -16,11 +16,12 @@ Usage:
     signal = aggregator.evaluate_exit(context)
 """
 
-from datetime import date, datetime, timedelta
-from typing import Dict, Optional, List, Any
 import logging
-import pandas as pd
+from datetime import date, timedelta
+from typing import Any
+
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ def build_entry_context(
     option_expiry: date,
     option_type: str = "put",
     use_live_data: bool = True,
-    data_cache: Optional[Dict] = None
-) -> Dict[str, Any]:
+    data_cache: dict | None = None
+) -> dict[str, Any]:
     """
     Build context dict for entry signal evaluation.
 
@@ -83,8 +84,8 @@ def build_exit_context(
     entry_date: date,
     expiry_date: date,
     use_live_data: bool = True,
-    data_cache: Optional[Dict] = None
-) -> Dict[str, Any]:
+    data_cache: dict | None = None
+) -> dict[str, Any]:
     """
     Build context dict for exit signal evaluation.
 
@@ -133,7 +134,7 @@ def build_exit_context(
     return context
 
 
-def _get_live_context(ticker: str, cache: Optional[Dict] = None) -> Dict[str, Any]:
+def _get_live_context(ticker: str, cache: dict | None = None) -> dict[str, Any]:
     """
     Get live context data from Bloomberg.
 
@@ -179,7 +180,7 @@ def _get_live_context(ticker: str, cache: Optional[Dict] = None) -> Dict[str, An
     return context
 
 
-def _get_historical_context(ticker: str, cache: Optional[Dict] = None) -> Dict[str, Any]:
+def _get_historical_context(ticker: str, cache: dict | None = None) -> dict[str, Any]:
     """
     Get context data from historical CSV files.
 
@@ -189,10 +190,10 @@ def _get_historical_context(ticker: str, cache: Optional[Dict] = None) -> Dict[s
 
     try:
         from data.bloomberg_loader import (
-            load_bloomberg_ohlcv,
-            load_bloomberg_iv_history,
+            compute_iv_rank,
             load_bloomberg_earnings,
-            compute_iv_rank
+            load_bloomberg_iv_history,
+            load_bloomberg_ohlcv,
         )
 
         # Load OHLCV for trend
@@ -254,7 +255,7 @@ def _get_historical_context(ticker: str, cache: Optional[Dict] = None) -> Dict[s
     return context
 
 
-def _calculate_trend(ticker: str, cache: Optional[Dict] = None) -> float:
+def _calculate_trend(ticker: str, cache: dict | None = None) -> float:
     """Calculate trend direction from recent prices."""
     try:
         from data.bloomberg_loader import load_bloomberg_ohlcv
@@ -303,9 +304,9 @@ def _calculate_trend_from_prices(prices: pd.Series) -> float:
 
 
 def build_batch_entry_contexts(
-    candidates: List[Dict],
+    candidates: list[dict],
     use_live_data: bool = True
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Build contexts for multiple entry candidates efficiently.
 
@@ -317,7 +318,7 @@ def build_batch_entry_contexts(
         List of context dicts for each candidate
     """
     # Pre-load data for all tickers to avoid repeated I/O
-    tickers = list(set(c["ticker"] for c in candidates))
+    tickers = list({c["ticker"] for c in candidates})
 
     cache = {
         "ohlcv": {},
@@ -327,9 +328,9 @@ def build_batch_entry_contexts(
 
     try:
         from data.bloomberg_loader import (
-            load_bloomberg_ohlcv,
+            load_bloomberg_earnings,
             load_bloomberg_iv_history,
-            load_bloomberg_earnings
+            load_bloomberg_ohlcv,
         )
 
         for ticker in tickers:
@@ -357,7 +358,7 @@ def build_batch_entry_contexts(
 
 
 def evaluate_wheel_opportunities(
-    tickers: List[str],
+    tickers: list[str],
     target_dte: int = 45,
     target_delta: float = -0.30,
     use_live_data: bool = True
@@ -377,7 +378,7 @@ def evaluate_wheel_opportunities(
         DataFrame with columns: ticker, strike, expiry, signal_strength,
         iv_rank, trend, days_to_earnings, recommendation
     """
-    from .signals import SignalAggregator, create_default_aggregator
+    from .signals import create_default_aggregator
 
     aggregator = create_default_aggregator()
     results = []

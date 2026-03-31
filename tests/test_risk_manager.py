@@ -1,18 +1,12 @@
 """Tests for risk management module."""
 
-import pytest
-import numpy as np
-import pandas as pd
-from datetime import date
 
 from engine.risk_manager import (
-    RiskManager,
-    RiskLimits,
-    RiskMetrics,
-    PortfolioGreeks,
     PositionSizingMethod,
+    RiskLimits,
+    RiskManager,
     calculate_kelly_fraction,
-    calculate_optimal_contracts
+    calculate_optimal_contracts,
 )
 
 

@@ -2,20 +2,19 @@
 Tests for data validation module.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-
 import sys
 from pathlib import Path
+
+import pandas as pd
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.data_validation import (
-    validate_and_normalize_iv,
-    validate_option_data,
-    validate_ohlcv_data,
     apply_liquidity_filter,
-    ValidationSeverity
+    validate_and_normalize_iv,
+    validate_ohlcv_data,
+    validate_option_data,
 )
 
 

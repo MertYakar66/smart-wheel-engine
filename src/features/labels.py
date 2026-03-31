@@ -10,11 +10,12 @@ This module generates labels for:
 4. Optimal actions (hindsight labels)
 """
 
-import numpy as np
-import pandas as pd
-from typing import Literal
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Literal
+
+import numpy as np
+import pandas as pd
 
 
 class OptionOutcome(IntEnum):
@@ -358,14 +359,18 @@ class LabelGenerator:
     @staticmethod
     def multi_class_outcome(
         pnl_pct: pd.Series,
-        bins: list[float] = [-np.inf, -0.05, 0, 0.02, 0.05, np.inf],
-        labels: list[str] = ["big_loss", "small_loss", "small_win", "good_win", "great_win"],
+        bins: list[float] = None,
+        labels: list[str] = None,
     ) -> pd.Series:
         """
         Multi-class outcome labels.
 
         Bins PnL into categories for classification.
         """
+        if labels is None:
+            labels = ["big_loss", "small_loss", "small_win", "good_win", "great_win"]
+        if bins is None:
+            bins = [-np.inf, -0.05, 0, 0.02, 0.05, np.inf]
         return pd.cut(pnl_pct, bins=bins, labels=labels)
 
     @staticmethod

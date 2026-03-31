@@ -1,22 +1,19 @@
 """Tests for signal generation module."""
 
-import pytest
-import numpy as np
 import pandas as pd
 
 from engine.signals import (
-    SignalAggregator,
-    Signal,
     CompositeSignal,
-    SignalType,
-    SignalStrength,
-    IVRankSignal,
-    TrendSignal,
-    ProfitTargetSignal,
-    StopLossSignal,
     DTESignal,
     EventFilterSignal,
-    create_default_aggregator
+    IVRankSignal,
+    ProfitTargetSignal,
+    SignalAggregator,
+    SignalStrength,
+    SignalType,
+    StopLossSignal,
+    TrendSignal,
+    create_default_aggregator,
 )
 
 

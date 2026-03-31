@@ -13,11 +13,10 @@ intentionally trading the event.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from enum import Enum
+
 import pandas as pd
-import numpy as np
 
 
 class EventType(Enum):
@@ -47,18 +46,18 @@ class MarketEvent:
     """Single market event."""
     event_date: date
     event_type: EventType
-    symbol: Optional[str]  # None for macro events
+    symbol: str | None  # None for macro events
     description: str
     impact: EventImpact = EventImpact.MEDIUM
 
     # Event-specific data
-    expected_move: Optional[float] = None  # Expected % move
-    historical_move: Optional[float] = None  # Avg historical move
-    time_of_day: Optional[str] = None  # "pre", "post", "during"
+    expected_move: float | None = None  # Expected % move
+    historical_move: float | None = None  # Avg historical move
+    time_of_day: str | None = None  # "pre", "post", "during"
 
     # For dividends
-    dividend_amount: Optional[float] = None
-    dividend_yield: Optional[float] = None
+    dividend_amount: float | None = None
+    dividend_yield: float | None = None
 
     def __str__(self) -> str:
         symbol_str = f"[{self.symbol}]" if self.symbol else "[MACRO]"
@@ -79,9 +78,9 @@ class EventCalendar:
     Tracks all events that could impact option positions
     and provides filtering/query capabilities.
     """
-    events: List[MarketEvent] = field(default_factory=list)
-    _events_by_date: Dict[date, List[MarketEvent]] = field(default_factory=dict)
-    _events_by_symbol: Dict[str, List[MarketEvent]] = field(default_factory=dict)
+    events: list[MarketEvent] = field(default_factory=list)
+    _events_by_date: dict[date, list[MarketEvent]] = field(default_factory=dict)
+    _events_by_symbol: dict[str, list[MarketEvent]] = field(default_factory=dict)
 
     def add_event(self, event: MarketEvent) -> None:
         """Add event to calendar."""
@@ -98,7 +97,7 @@ class EventCalendar:
                 self._events_by_symbol[event.symbol] = []
             self._events_by_symbol[event.symbol].append(event)
 
-    def add_events(self, events: List[MarketEvent]) -> None:
+    def add_events(self, events: list[MarketEvent]) -> None:
         """Add multiple events."""
         for event in events:
             self.add_event(event)
@@ -107,9 +106,9 @@ class EventCalendar:
         self,
         start_date: date,
         end_date: date,
-        symbol: Optional[str] = None,
-        event_types: Optional[List[EventType]] = None
-    ) -> List[MarketEvent]:
+        symbol: str | None = None,
+        event_types: list[EventType] | None = None
+    ) -> list[MarketEvent]:
         """Get events within date range, optionally filtered."""
         results = []
 
@@ -129,9 +128,9 @@ class EventCalendar:
     def get_events_for_symbol(
         self,
         symbol: str,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None
-    ) -> List[MarketEvent]:
+        start_date: date | None = None,
+        end_date: date | None = None
+    ) -> list[MarketEvent]:
         """Get all events for a specific symbol."""
         events = self._events_by_symbol.get(symbol, [])
 
@@ -146,8 +145,8 @@ class EventCalendar:
         self,
         symbol: str,
         from_date: date,
-        event_types: Optional[List[EventType]] = None
-    ) -> Optional[MarketEvent]:
+        event_types: list[EventType] | None = None
+    ) -> MarketEvent | None:
         """Get next upcoming event for symbol."""
         events = self.get_events_for_symbol(symbol, start_date=from_date)
 
@@ -160,7 +159,7 @@ class EventCalendar:
         self,
         symbol: str,
         from_date: date
-    ) -> Optional[int]:
+    ) -> int | None:
         """Get days until next earnings for symbol."""
         event = self.get_next_event(
             symbol, from_date,
@@ -172,7 +171,7 @@ class EventCalendar:
         self,
         symbol: str,
         from_date: date
-    ) -> Optional[int]:
+    ) -> int | None:
         """Get days until next ex-dividend for symbol."""
         event = self.get_next_event(
             symbol, from_date,
@@ -185,8 +184,8 @@ class EventCalendar:
         symbol: str,
         trade_date: date,
         expiry_date: date,
-        event_types: Optional[List[EventType]] = None
-    ) -> Tuple[bool, List[MarketEvent]]:
+        event_types: list[EventType] | None = None
+    ) -> tuple[bool, list[MarketEvent]]:
         """
         Check if there are events between trade date and expiry.
 
@@ -221,7 +220,7 @@ class EventCalendarBuilder:
     """
 
     @staticmethod
-    def from_earnings_csv(filepath: str) -> List[MarketEvent]:
+    def from_earnings_csv(filepath: str) -> list[MarketEvent]:
         """
         Load earnings events from CSV.
 
@@ -248,7 +247,7 @@ class EventCalendarBuilder:
         return events
 
     @staticmethod
-    def from_dividends_csv(filepath: str) -> List[MarketEvent]:
+    def from_dividends_csv(filepath: str) -> list[MarketEvent]:
         """
         Load dividend events from CSV.
 
@@ -288,7 +287,7 @@ class EventCalendarBuilder:
         return events
 
     @staticmethod
-    def generate_fomc_dates(year: int) -> List[MarketEvent]:
+    def generate_fomc_dates(year: int) -> list[MarketEvent]:
         """
         Generate FOMC meeting dates for a year.
 
@@ -327,7 +326,7 @@ class EventCalendarBuilder:
                 event_date=fomc_date,
                 event_type=EventType.FOMC,
                 symbol=None,
-                description=f"FOMC Rate Decision",
+                description="FOMC Rate Decision",
                 impact=EventImpact.HIGH,
                 time_of_day="during"
             )
@@ -338,8 +337,8 @@ class EventCalendarBuilder:
     @staticmethod
     def generate_monthly_expiries(
         year: int,
-        symbols: Optional[List[str]] = None
-    ) -> List[MarketEvent]:
+        symbols: list[str] | None = None
+    ) -> list[MarketEvent]:
         """
         Generate monthly options expiration dates.
 
@@ -359,7 +358,7 @@ class EventCalendarBuilder:
                 event_date=third_friday,
                 event_type=EventType.OPTIONS_EXPIRY,
                 symbol=None,  # Applies to all
-                description=f"Monthly Options Expiration",
+                description="Monthly Options Expiration",
                 impact=EventImpact.MEDIUM
             )
             events.append(event)
@@ -373,7 +372,7 @@ class EventCalendarBuilder:
         symbol_col: str = 'symbol',
         type_col: str = 'event_type',
         description_col: str = 'description'
-    ) -> List[MarketEvent]:
+    ) -> list[MarketEvent]:
         """Load events from generic DataFrame."""
         events = []
 
@@ -427,7 +426,7 @@ class EventRiskFilter:
         symbol: str,
         trade_date: date,
         expiry_date: date
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Check if trade should be avoided due to events.
 
@@ -460,7 +459,7 @@ class EventRiskFilter:
         trade_date: date,
         expiry_date: date,
         base_size: float
-    ) -> Tuple[float, str]:
+    ) -> tuple[float, str]:
         """
         Adjust position size based on event risk.
 
@@ -530,9 +529,9 @@ class EventRiskFilter:
 
 
 def build_default_calendar(
-    years: List[int],
-    earnings_file: Optional[str] = None,
-    dividends_file: Optional[str] = None
+    years: list[int],
+    earnings_file: str | None = None,
+    dividends_file: str | None = None
 ) -> EventCalendar:
     """
     Build a default event calendar with common events.

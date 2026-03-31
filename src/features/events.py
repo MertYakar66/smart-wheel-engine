@@ -8,9 +8,9 @@ Events are where wheel strategy can win or lose big:
 This module models event behavior for optimal positioning.
 """
 
+
 import numpy as np
 import pandas as pd
-from typing import Literal
 
 
 class EventVolatility:

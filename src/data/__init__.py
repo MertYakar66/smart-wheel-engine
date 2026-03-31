@@ -1,6 +1,6 @@
 """Data ingestion and management module."""
 
-from src.data.schemas import OHLCVSchema, OptionsFlowSchema, FundamentalsSchema
+from src.data.schemas import FundamentalsSchema, OHLCVSchema, OptionsFlowSchema
 from src.data.validators import DataValidator
 
 __all__ = [

@@ -9,8 +9,8 @@ Professional regime classification for adaptive strategy behavior:
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from enum import Enum
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -142,17 +142,17 @@ class RegimeDetector:
         self.rv_window = rv_window
 
         # Historical data storage
-        self.iv_history: List[float] = []
-        self.price_history: List[float] = []
-        self.regime_history: List[RegimeState] = []
+        self.iv_history: list[float] = []
+        self.price_history: list[float] = []
+        self.regime_history: list[RegimeState] = []
 
     def detect_regime(
         self,
         current_iv: float,
         prices: pd.Series,
-        iv_history: Optional[pd.Series] = None,
-        front_iv: Optional[float] = None,
-        back_iv: Optional[float] = None
+        iv_history: pd.Series | None = None,
+        front_iv: float | None = None,
+        back_iv: float | None = None
     ) -> RegimeState:
         """
         Detect current market regime.
@@ -210,8 +210,8 @@ class RegimeDetector:
     def _classify_volatility(
         self,
         current_iv: float,
-        iv_history: Optional[pd.Series] = None
-    ) -> Tuple[VolatilityRegime, float]:
+        iv_history: pd.Series | None = None
+    ) -> tuple[VolatilityRegime, float]:
         """Classify volatility regime based on percentile."""
         if iv_history is not None and len(iv_history) > 30:
             percentile = stats.percentileofscore(iv_history, current_iv)
@@ -269,7 +269,7 @@ class RegimeDetector:
     def _classify_trend(
         self,
         prices: pd.Series
-    ) -> Tuple[TrendRegime, float, float]:
+    ) -> tuple[TrendRegime, float, float]:
         """
         Classify trend regime using ADX-like logic.
 
@@ -320,8 +320,8 @@ class RegimeDetector:
 
     def _classify_term_structure(
         self,
-        front_iv: Optional[float],
-        back_iv: Optional[float]
+        front_iv: float | None,
+        back_iv: float | None
     ) -> VolTermStructure:
         """Classify volatility term structure."""
         if front_iv is None or back_iv is None:
@@ -412,7 +412,7 @@ class RegimeDetector:
     def get_strategy_adjustments(
         self,
         regime: RegimeState
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Get recommended strategy adjustments based on regime.
 

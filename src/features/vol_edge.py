@@ -7,9 +7,9 @@ Key insight: You profit when IV > RV (volatility risk premium)
 This module quantifies that edge.
 """
 
+
 import numpy as np
 import pandas as pd
-from typing import Literal
 
 
 class VolatilityEdge:

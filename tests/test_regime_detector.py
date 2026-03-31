@@ -1,17 +1,14 @@
 """Tests for regime detection module."""
 
-import pytest
 import numpy as np
 import pandas as pd
-from datetime import date, timedelta
 
 from engine.regime_detector import (
     RegimeDetector,
-    RegimeState,
-    VolatilityRegime,
     TrendRegime,
+    VolatilityRegime,
     VolTermStructure,
-    calculate_regime_signals
+    calculate_regime_signals,
 )
 
 

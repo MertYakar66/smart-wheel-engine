@@ -2,22 +2,21 @@
 Edge case tests for the Smart Wheel Engine.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-from datetime import date, timedelta
-
 import sys
+from datetime import date
 from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from engine.wheel_tracker import WheelTracker, PositionState
 from engine.option_pricer import black_scholes_price, estimate_option_price_from_iv
 from engine.transaction_costs import (
     calculate_reg_t_margin_short_put,
-    calculate_total_entry_cost,
-    calculate_slippage
+    calculate_slippage,
 )
+from engine.wheel_tracker import PositionState, WheelTracker
 
 
 class TestATMExpiration:
@@ -170,7 +169,7 @@ class TestMarginCalculation:
             premium=3.00
         )
         # Should be ~20% of underlying + premium
-        expected_min = 0.20 * 100 * 100 + 3.00 * 100
+        0.20 * 100 * 100 + 3.00 * 100
         assert margin >= 100  # Minimum
         assert margin > 0
 

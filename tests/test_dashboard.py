@@ -12,24 +12,22 @@ Tests all dashboard functionality:
 - Report generation
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-from typing import Dict
-
 import sys
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dashboard import (
-    QuantDashboard,
     OptionInput,
     Position,
-    PortfolioInput,
-    quick_price,
+    QuantDashboard,
     quick_greeks,
+    quick_price,
 )
-
 
 # =============================================================================
 # Test Fixtures
@@ -327,7 +325,7 @@ class TestImpliedVolatility:
     def test_iv_solver_invalid_price_returns_none(self, dashboard, atm_put):
         """IV solver returns None for invalid prices."""
         # Price below intrinsic
-        iv = dashboard.solve_iv(0.001, atm_put)
+        dashboard.solve_iv(0.001, atm_put)
         # May or may not be None depending on bounds
         # Just verify it doesn't crash
 

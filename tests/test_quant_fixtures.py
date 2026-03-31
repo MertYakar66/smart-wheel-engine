@@ -11,27 +11,25 @@ These tests serve as regression guards for quant-critical code.
 Tolerance: 1e-4 for prices/Greeks, 1e-6 for estimators.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-from typing import List, Tuple
-
 import sys
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from engine.option_pricer import (
-    black_scholes_price,
+    black_scholes_all_greeks,
     black_scholes_delta,
     black_scholes_gamma,
-    black_scholes_theta,
+    black_scholes_price,
     black_scholes_vega,
-    black_scholes_all_greeks,
     implied_volatility,
 )
-from src.features.volatility import VolatilityFeatures
 from src.features.technical import TechnicalFeatures
-
+from src.features.volatility import VolatilityFeatures
 
 # =============================================================================
 # Black-Scholes Known Values (Hull 10th Edition, Chapter 15)
@@ -329,7 +327,7 @@ class TestRealizedVolatilityEstimators:
         annual_vol = 0.0119 * sqrt(252) = 0.189...
         """
         n = 30
-        close = pd.Series([100.0] * n)
+        pd.Series([100.0] * n)
         high = pd.Series([102.0] * n)  # 2% above
         low = pd.Series([100.0] * n)   # at close
 

@@ -10,10 +10,10 @@ Same strategy behaves VERY differently across regimes:
 This module classifies regimes for strategy adaptation.
 """
 
+from enum import IntEnum
+
 import numpy as np
 import pandas as pd
-from typing import Literal
-from enum import IntEnum
 
 
 class MarketRegime(IntEnum):

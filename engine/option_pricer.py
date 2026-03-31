@@ -10,12 +10,12 @@ Implementation follows Hull (11th Edition) with extensions for:
 - Consistent edge case handling across all functions
 """
 
-import numpy as np
-from scipy.stats import norm
-from scipy.optimize import brentq
-from typing import Literal, Union, Tuple, Optional
-import pandas as pd
+from typing import Literal
 
+import numpy as np
+import pandas as pd
+from scipy.optimize import brentq
+from scipy.stats import norm
 
 # =============================================================================
 # Input Validation
@@ -28,7 +28,7 @@ def _validate_inputs(
     S: float,
     K: float,
     sigma: float,
-    option_type: Optional[str] = None,
+    option_type: str | None = None,
     validate_positive_only: bool = False
 ) -> None:
     """
@@ -564,7 +564,7 @@ def implied_volatility(
     q: float = 0.0,
     precision: float = 1e-6,
     max_iterations: int = 100,
-) -> Optional[float]:
+) -> float | None:
     """
     Calculate implied volatility from market price using Newton-Raphson.
 
@@ -690,7 +690,7 @@ def estimate_option_price_from_iv(
 def _baw_critical_price_call(
     S: float, K: float, T: float, r: float, sigma: float, q: float,
     tolerance: float = 1e-6, max_iter: int = 100
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Find critical stock price S* for American call using Newton-Raphson.
 
@@ -762,7 +762,7 @@ def _baw_critical_price_call(
 def _baw_critical_price_put(
     S: float, K: float, T: float, r: float, sigma: float, q: float,
     tolerance: float = 1e-6, max_iter: int = 100
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Find critical stock price S* for American put using Newton-Raphson.
 
@@ -987,13 +987,13 @@ def _vectorized_intrinsic(
 
 
 def vectorized_bs_price(
-    S: Union[np.ndarray, pd.Series],
-    K: Union[np.ndarray, pd.Series],
-    T: Union[np.ndarray, pd.Series],
-    r: Union[float, np.ndarray, pd.Series],
-    sigma: Union[np.ndarray, pd.Series],
-    is_call: Union[np.ndarray, pd.Series],
-    q: Union[float, np.ndarray, pd.Series] = 0.0
+    S: np.ndarray | pd.Series,
+    K: np.ndarray | pd.Series,
+    T: np.ndarray | pd.Series,
+    r: float | np.ndarray | pd.Series,
+    sigma: np.ndarray | pd.Series,
+    is_call: np.ndarray | pd.Series,
+    q: float | np.ndarray | pd.Series = 0.0
 ) -> np.ndarray:
     """
     Fully vectorized Black-Scholes pricing.
@@ -1043,13 +1043,13 @@ def vectorized_bs_price(
 
 
 def vectorized_bs_delta(
-    S: Union[np.ndarray, pd.Series],
-    K: Union[np.ndarray, pd.Series],
-    T: Union[np.ndarray, pd.Series],
-    r: Union[float, np.ndarray, pd.Series],
-    sigma: Union[np.ndarray, pd.Series],
-    is_call: Union[np.ndarray, pd.Series],
-    q: Union[float, np.ndarray, pd.Series] = 0.0
+    S: np.ndarray | pd.Series,
+    K: np.ndarray | pd.Series,
+    T: np.ndarray | pd.Series,
+    r: float | np.ndarray | pd.Series,
+    sigma: np.ndarray | pd.Series,
+    is_call: np.ndarray | pd.Series,
+    q: float | np.ndarray | pd.Series = 0.0
 ) -> np.ndarray:
     """Vectorized delta with proper edge case handling."""
     S = np.asarray(S, dtype=float)
@@ -1091,13 +1091,13 @@ def vectorized_bs_delta(
 
 
 def vectorized_bs_all_greeks(
-    S: Union[np.ndarray, pd.Series],
-    K: Union[np.ndarray, pd.Series],
-    T: Union[np.ndarray, pd.Series],
-    r: Union[float, np.ndarray, pd.Series],
-    sigma: Union[np.ndarray, pd.Series],
-    is_call: Union[np.ndarray, pd.Series],
-    q: Union[float, np.ndarray, pd.Series] = 0.0
+    S: np.ndarray | pd.Series,
+    K: np.ndarray | pd.Series,
+    T: np.ndarray | pd.Series,
+    r: float | np.ndarray | pd.Series,
+    sigma: np.ndarray | pd.Series,
+    is_call: np.ndarray | pd.Series,
+    q: float | np.ndarray | pd.Series = 0.0
 ) -> pd.DataFrame:
     """
     Vectorized calculation of all Greeks with proper edge case handling.

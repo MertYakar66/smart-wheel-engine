@@ -5,12 +5,8 @@ Tests the full flow:
     Raw Data → Validation → Features → Store → Quality Checks
 """
 
-import os
 import sys
-import tempfile
-from datetime import datetime, date
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -19,9 +15,9 @@ import pytest
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from data.feature_store import FeatureStore, FeatureCategory, FeatureMetadata
-from data.quality import DataQualityFramework, ValidationResult, Severity
-from data.observability import metrics, trace, MetricsCollector, Tracer
+from data.feature_store import FeatureStore
+from data.observability import MetricsCollector, Tracer, metrics, trace
+from data.quality import DataQualityFramework
 
 
 class TestFeatureStore:
@@ -155,6 +151,7 @@ class TestDataQualityFramework:
 
         return pd.DataFrame({
             "date": dates,
+            "ticker": ["AAPL"] * n,
             "open": opens,
             "high": highs,
             "low": lows,
@@ -168,6 +165,7 @@ class TestDataQualityFramework:
         dates = pd.date_range("2024-01-01", periods=100, freq="B")
         return pd.DataFrame({
             "date": dates,
+            "ticker": ["MSFT"] * 100,
             "open": np.random.uniform(100, 110, 100),
             "high": np.random.uniform(90, 95, 100),  # High < Open (violation)
             "low": np.random.uniform(95, 100, 100),
@@ -391,13 +389,12 @@ class TestIntegration:
 
         # Step 5: Health checks
         store_health = store.health_check()
-        dq_health = dq.health_check()
+        dq.health_check()
 
         assert store_health["healthy"] is True
 
     def test_observability_integration(self):
         """Test observability integration."""
-        from data.observability import metrics, trace
 
         # Record some metrics
         metrics.increment("pipeline.tasks", tags={"stage": "load"})

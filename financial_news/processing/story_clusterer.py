@@ -58,6 +58,7 @@ class StoryClusterer:
         self._stories: Dict[str, Story] = {}
         self._url_to_story: Dict[str, str] = {}
         self._article_hashes: Dict[str, str] = {}
+        self._article_story_map: Dict[str, str] = {}
 
     def cluster_articles(
         self,
@@ -79,7 +80,8 @@ class StoryClusterer:
             for story in existing_stories:
                 self._stories[story.story_id] = story
                 for article_id in story.article_ids:
-                    # We'd need to track URLs too, but we have IDs
+                    # Track article IDs for deduplication
+                    self._article_story_map[article_id] = story.story_id
 
         # Deduplicate by URL first
         unique_articles = self._dedupe_by_url(articles)

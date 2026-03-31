@@ -8,42 +8,40 @@ Tests all advisor components:
 - Integration with options engine
 """
 
+
 import pytest
-from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 # Import all advisor components
 from advisors import (
-    # Enums
-    ConfidenceLevel,
-    Judgment,
-    TradeType,
-    RegimeType,
-    # Input models
-    Position,
-    CandidateTrade,
-    PortfolioContext,
-    MarketContext,
     AdvisorInput,
     # Output models
     AdvisorResponse,
-    CommitteeOutput,
-    # Helpers
-    create_sample_input,
     # Base
     BaseAdvisor,
     # Advisors
     BuffettAdvisor,
-    MungerAdvisor,
-    SimonsAdvisor,
+    CandidateTrade,
     # Committee
     CommitteeEngine,
-    format_committee_report,
+    CommitteeOutput,
+    # Enums
+    ConfidenceLevel,
     # Integration
     EngineIntegration,
+    Judgment,
+    MarketContext,
+    MungerAdvisor,
+    PortfolioContext,
+    # Input models
+    Position,
+    RegimeType,
+    SimonsAdvisor,
+    TradeType,
+    # Helpers
+    create_sample_input,
+    format_committee_report,
     quick_evaluate,
 )
-
 
 # =============================================================================
 # SCHEMA TESTS

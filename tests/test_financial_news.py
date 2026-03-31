@@ -7,47 +7,43 @@ Tests all financial news components:
 - Calendar events
 """
 
-import pytest
-import sqlite3
-import tempfile
 import os
-from datetime import datetime, timedelta
-from pathlib import Path
+import tempfile
+from datetime import datetime
+
+import pytest
 
 # Import financial news components
 from financial_news import (
-    # Enums
-    SourceType,
-    SourceProvider,
-    CategoryType,
-    EventType,
-    EntityType,
-    ImportanceLevel,
-    BriefType,
-    RunStatus,
-    # Models
-    Source,
-    Category,
-    ScheduledEvent,
-    Entity,
-    Article,
-    Story,
+    DEFAULT_CATEGORIES,
     # Defaults
     DEFAULT_SOURCES,
-    DEFAULT_CATEGORIES,
+    Article,
+    Category,
+    CategoryType,
+    Entity,
+    EntityType,
+    EventType,
+    ImportanceLevel,
     # Components
     MacroCalendar,
+    PushPayload,
+    ScheduledEvent,
+    # Models
+    Source,
+    SourceProvider,
+    # Enums
+    SourceType,
+    Story,
+    VerificationCandidate,
     # Verification
     VerificationEngine,
-    VerificationCandidate,
     VerificationResult,
     VerificationStatus,
-    PushPayload,
-    run_verification_cycle,
     process_verification_response,
     push_verified_stories,
+    run_verification_cycle,
 )
-
 
 # =============================================================================
 # SCHEMA ENUM TESTS
@@ -89,7 +85,7 @@ class TestSchemaEnums:
 
     def test_importance_level_values(self):
         """Test ImportanceLevel enum."""
-        levels = [l.value for l in ImportanceLevel]
+        levels = [level.value for level in ImportanceLevel]
         assert "critical" in levels
         assert "high" in levels
         assert "medium" in levels
@@ -748,7 +744,7 @@ class TestSystemIntegration:
         assert len(pending) == 3
 
         # 3. Verify each
-        for cid, confidence in zip(candidate_ids, [9, 8, 7]):
+        for cid, confidence in zip(candidate_ids, [9, 8, 7], strict=False):
             process_verification_response(
                 engine=engine,
                 candidate_id=cid,

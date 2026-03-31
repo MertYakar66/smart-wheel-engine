@@ -3,7 +3,7 @@ Tests for the wheel backtest module.
 """
 
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +17,6 @@ from src.backtest.wheel_backtest import (
     BacktestResult,
     WheelBacktest,
 )
-
 
 # =============================================================================
 # FIXTURES
@@ -37,7 +36,7 @@ def sample_price_data():
         base_price = {"AAPL": 180, "MSFT": 350, "GOOGL": 140}[ticker]
         price = base_price
 
-        for i, d in enumerate(dates):
+        for _i, d in enumerate(dates):
             # Random walk with slight upward drift
             ret = np.random.normal(0.0003, 0.015)
             price = price * (1 + ret)
@@ -361,7 +360,7 @@ class TestExitLogic:
 
     def test_should_exit_no_expiration(self):
         """Test exit logic with no expiration date."""
-        from engine.wheel_tracker import WheelPosition, PositionState
+        from engine.wheel_tracker import PositionState, WheelPosition
 
         backtest = WheelBacktest()
 

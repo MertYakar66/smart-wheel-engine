@@ -3,7 +3,6 @@ Tests for src/features modules.
 """
 
 import sys
-from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -12,11 +11,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.features.technical import TechnicalFeatures
-from src.features.volatility import VolatilityFeatures
 from src.features.dynamics import OptionsDynamics
 from src.features.options import OptionsFeatures
-
+from src.features.technical import TechnicalFeatures
+from src.features.volatility import VolatilityFeatures
 
 # =============================================================================
 # FIXTURES

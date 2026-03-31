@@ -3,13 +3,14 @@ Tests for financial_news processing modules.
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from financial_news.processing.classifier import ArticleClassifier, ClassificationResult
 from financial_news.schema import (
     Article,
     CategoryRule,
@@ -17,8 +18,6 @@ from financial_news.schema import (
     Entity,
     EntityType,
 )
-from financial_news.processing.classifier import ArticleClassifier, ClassificationResult
-
 
 # =============================================================================
 # FIXTURES
@@ -332,7 +331,7 @@ class TestArticleClassifier:
             ingested_at=datetime.utcnow(),
         )
 
-        primary = classifier.get_primary_category(random_article)
+        classifier.get_primary_category(random_article)
         # May or may not have a match - just check it doesn't crash
 
     def test_update_article_categories(self, classifier, fed_article):
@@ -487,7 +486,7 @@ class TestEdgeCases:
         )
 
         # Should not crash
-        results = classifier.classify(article)
+        classifier.classify(article)
         # May or may not have results
 
     def test_inactive_rules(self):

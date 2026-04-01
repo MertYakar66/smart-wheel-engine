@@ -19,10 +19,10 @@ Usage:
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ class HealthChecker:
                         loop.close()
                 else:
                     status, message, details = check_fn()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 status = HealthStatus.UNHEALTHY
                 message = f"Check timed out after {self.default_timeout}s"
                 details = {}
@@ -256,7 +256,7 @@ class HealthChecker:
                     )
                 else:
                     status, message, details = check_fn()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 status = HealthStatus.UNHEALTHY
                 message = f"Check timed out after {self.default_timeout}s"
                 details = {}
@@ -440,7 +440,7 @@ async def check_url(
                     f"Unexpected status: {resp.status}",
                     details
                 )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return (
             HealthStatus.UNHEALTHY,
             f"URL timeout after {timeout_seconds}s",

@@ -17,7 +17,6 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 
 class CheckSeverity(Enum):
@@ -80,18 +79,20 @@ class EnvironmentValidator:
     REQUIRED_PYTHON_MINOR = 11
 
     # Core dependencies (always required)
+    # Format: (import_name, min_version, pip_package_name)
+    # pip_package_name is optional, defaults to import_name
     CORE_DEPENDENCIES = [
         ("numpy", "1.24.0"),
         ("pandas", "2.0.0"),
         ("scipy", "1.10.0"),
-        ("scikit-learn", "1.3.0"),
+        ("sklearn", "1.3.0"),  # pip: scikit-learn, import: sklearn
         ("pydantic", "2.0.0"),
     ]
 
     # Development dependencies
     DEV_DEPENDENCIES = [
         ("pytest", "7.0.0"),
-        ("pytest-cov", "4.0.0"),
+        ("pytest_cov", "4.0.0"),  # pip: pytest-cov, import: pytest_cov
         ("hypothesis", "6.0.0"),
         ("ruff", "0.1.0"),
     ]

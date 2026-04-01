@@ -11,7 +11,6 @@ Based on professional news trading systems requirements.
 """
 
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum

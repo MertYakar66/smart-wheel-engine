@@ -3,17 +3,15 @@ Centralized logging configuration for Smart Wheel Engine.
 """
 import logging
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
-
+from pathlib import Path
 
 _LOGGERS = {}
 
 
 def setup_logging(
     level: int = logging.INFO,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     log_dir: str = "logs"
 ) -> None:
     """

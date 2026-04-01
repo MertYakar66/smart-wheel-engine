@@ -11,14 +11,13 @@ Tests the news pipeline's resilience against:
 These tests ensure the verification system is robust.
 """
 
-import pytest
-from datetime import datetime, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+import pytest
 
 from news_pipeline.models import (
     CandidateStory,
-    VerificationResult,
-    VerificationStatus,
 )
 
 
@@ -185,6 +184,8 @@ class TestStaleNarratives:
 
         # If BTC is currently at $50,000, this $30,000 reference is stale
         # Verification should cross-reference current prices
+        assert "$30,000" in story.headline
+        assert story.category == "crypto"
 
     def test_superseded_guidance(self):
         """Company guidance that has been superseded."""
@@ -212,6 +213,8 @@ class TestStaleNarratives:
 
         # Old guidance is superseded by new guidance
         # Only the newer guidance should be used
+        assert old_guidance.discovered_at < new_guidance.discovered_at
+        assert old_guidance.tickers == new_guidance.tickers
 
 
 # =============================================================================
@@ -321,6 +324,8 @@ class TestNearDuplicates:
 
         # All three are speculation, not facts
         # Should not be treated as corroboration
+        assert original.discovered_at < derived.discovered_at < further.discovered_at
+        assert all(s.category == "fed" for s in [original, derived, further])
 
 
 # =============================================================================
@@ -364,6 +369,8 @@ class TestMisinformation:
 
         # 500% gain is unrealistic for a large-cap stock
         # Should be flagged as potentially false
+        assert "500%" in story.headline
+        assert story.tickers == ["AAPL"]
 
     def test_future_dated_event(self):
         """News claiming something happened that hasn't yet."""
@@ -382,6 +389,8 @@ class TestMisinformation:
 
         # Claims Fed action at a future date
         # Logically impossible
+        assert future_date.strftime("%B %d") in story.headline
+        assert story.category == "fed"
 
 
 # =============================================================================
@@ -498,6 +507,8 @@ class TestVerificationResilience:
 
         # Verification should still work if 1/3 providers fail
         # Should not require unanimous agreement
+        assert story.source_name == "Reuters"  # High credibility source
+        assert story.category == "macro"
 
     def test_slow_provider_timeout(self):
         """Verification with slow provider timing out."""

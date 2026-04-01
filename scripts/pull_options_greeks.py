@@ -3,9 +3,10 @@
 BQL: get(opt_iv_30d_atmf, opt_iv_60d_atmf, opt_iv_90d_atmf, opt_skew_30d)
      for(members('SPX Index')) with(dates=range(2015-01-01, 2026-03-17), fill=prev)
 """
-from xbbg import blp
-import pandas as pd
 import os
+
+import pandas as pd
+from xbbg import blp
 
 print("Getting S&P 500 members...")
 members = blp.bds("SPX Index", "INDX_MWEIGHT")
@@ -60,7 +61,7 @@ if working_fields is None:
                 row = data.iloc[0].to_dict()
                 row['ticker'] = t.replace(' Equity', '')
                 records.append(row)
-        except:
+        except Exception:
             pass
         if (i+1) % 50 == 0:
             print(f"  {i+1}/{len(tickers)}")

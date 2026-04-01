@@ -2,9 +2,8 @@
 Date handling utilities with consistent normalization.
 """
 from datetime import date, datetime
-from typing import Union, Optional, List
-import pandas as pd
 
+import pandas as pd
 
 # US Market holidays (simplified - for production use pandas_market_calendars)
 US_MARKET_HOLIDAYS_2024 = {
@@ -36,7 +35,7 @@ US_MARKET_HOLIDAYS_2025 = {
 ALL_HOLIDAYS = US_MARKET_HOLIDAYS_2024 | US_MARKET_HOLIDAYS_2025
 
 
-def normalize_date(d: Union[str, date, datetime, pd.Timestamp, None]) -> Optional[date]:
+def normalize_date(d: str | date | datetime | pd.Timestamp | None) -> date | None:
     """
     Convert any date-like object to datetime.date.
 

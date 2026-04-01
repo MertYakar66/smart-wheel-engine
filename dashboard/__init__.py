@@ -29,12 +29,12 @@ For quick calculations without dashboard:
 """
 
 from .quant_dashboard import (
-    QuantDashboard,
     OptionInput,
-    Position,
     PortfolioInput,
-    quick_price,
+    Position,
+    QuantDashboard,
     quick_greeks,
+    quick_price,
 )
 
 __all__ = [

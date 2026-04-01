@@ -15,31 +15,28 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Literal
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Literal
-from dataclasses import dataclass, field
-from datetime import datetime
 
 from engine.option_pricer import (
-    black_scholes_price,
-    black_scholes_all_greeks,
-    black_scholes_speed,
-    black_scholes_color,
-    black_scholes_ultima,
-    american_option_price,
     american_option_greeks,
+    american_option_price,
+    black_scholes_all_greeks,
+    black_scholes_price,
     implied_volatility,
 )
 from engine.risk_manager import (
-    RiskManager,
-    RiskLimits,
     PortfolioGreeks,
+    RiskManager,
     calculate_kelly_fraction,
 )
-
 
 # =============================================================================
 # Data Classes
@@ -71,17 +68,17 @@ class Position:
     iv: float
     contracts: int
     is_short: bool = True
-    underlying_price: Optional[float] = None
+    underlying_price: float | None = None
     dividend_yield: float = 0.0
 
 
 @dataclass
 class PortfolioInput:
     """Portfolio configuration."""
-    positions: List[Position] = field(default_factory=list)
-    spot_prices: Dict[str, float] = field(default_factory=dict)
-    volatilities: Dict[str, float] = field(default_factory=dict)
-    correlation_matrix: Optional[pd.DataFrame] = None
+    positions: list[Position] = field(default_factory=list)
+    spot_prices: dict[str, float] = field(default_factory=dict)
+    volatilities: dict[str, float] = field(default_factory=dict)
+    correlation_matrix: pd.DataFrame | None = None
     portfolio_value: float = 100_000
 
 
@@ -110,7 +107,7 @@ class QuantDashboard:
     # Option Pricing
     # =========================================================================
 
-    def price_european(self, opt: OptionInput) -> Dict:
+    def price_european(self, opt: OptionInput) -> dict:
         """
         Price European option with full Greeks.
 
@@ -131,7 +128,7 @@ class QuantDashboard:
         result['style'] = 'European'
         return result
 
-    def price_american(self, opt: OptionInput) -> Dict:
+    def price_american(self, opt: OptionInput) -> dict:
         """
         Price American option using Barone-Adesi-Whaley approximation.
 
@@ -183,7 +180,7 @@ class QuantDashboard:
     # Greeks Analysis
     # =========================================================================
 
-    def analyze_greeks(self, opt: OptionInput) -> Dict:
+    def analyze_greeks(self, opt: OptionInput) -> dict:
         """
         Comprehensive Greeks analysis including all orders.
 
@@ -220,8 +217,8 @@ class QuantDashboard:
     def greeks_surface(
         self,
         base_opt: OptionInput,
-        spot_range: Tuple[float, float] = (0.8, 1.2),
-        vol_range: Tuple[float, float] = (0.1, 0.5),
+        spot_range: tuple[float, float] = (0.8, 1.2),
+        vol_range: tuple[float, float] = (0.1, 0.5),
         greek: str = 'delta',
         grid_size: int = 20
     ) -> pd.DataFrame:
@@ -273,7 +270,7 @@ class QuantDashboard:
         self,
         market_price: float,
         opt: OptionInput
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Solve for implied volatility from market price.
 
@@ -361,7 +358,7 @@ class QuantDashboard:
             positions, self._portfolio.spot_prices
         )
 
-    def _positions_to_dicts(self) -> List[Dict]:
+    def _positions_to_dicts(self) -> list[dict]:
         """Convert Position objects to dicts for risk manager."""
         return [
             {
@@ -385,7 +382,7 @@ class QuantDashboard:
         self,
         confidence: float = 0.95,
         horizon_days: int = 1
-    ) -> Dict:
+    ) -> dict:
         """
         Calculate VaR and CVaR for portfolio.
 
@@ -434,7 +431,7 @@ class QuantDashboard:
 
     def run_stress_tests(
         self,
-        custom_scenarios: Optional[List[Dict]] = None
+        custom_scenarios: list[dict] | None = None
     ) -> pd.DataFrame:
         """
         Run comprehensive stress tests on portfolio.
@@ -471,7 +468,7 @@ class QuantDashboard:
         avg_win: float,
         avg_loss: float,
         fraction: float = 0.5
-    ) -> Dict:
+    ) -> dict:
         """
         Calculate Kelly criterion position size.
 
@@ -504,7 +501,7 @@ class QuantDashboard:
         win_probability: float = 0.70,
         avg_win: float = 1.0,
         avg_loss: float = 1.0,
-    ) -> Dict:
+    ) -> dict:
         """
         Calculate optimal position size for new trade.
         """
@@ -531,7 +528,7 @@ class QuantDashboard:
     # Reports
     # =========================================================================
 
-    def portfolio_summary(self) -> Dict:
+    def portfolio_summary(self) -> dict:
         """Generate comprehensive portfolio summary."""
         greeks = self.get_portfolio_greeks()
         var_metrics = self.calculate_var()
@@ -908,7 +905,7 @@ def quick_greeks(
     dte: int,
     volatility: float = 0.25,
     option_type: str = 'put'
-) -> Dict:
+) -> dict:
     """Quick Greeks calculation."""
     return black_scholes_all_greeks(
         spot, strike, dte/365, 0.05, volatility, option_type

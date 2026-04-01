@@ -1,6 +1,7 @@
-from xbbg import blp
-import pandas as pd
 import os
+
+import pandas as pd
+from xbbg import blp
 
 print("Getting S&P 500 members...")
 members = blp.bds("SPX Index", "INDX_MWEIGHT")
@@ -43,5 +44,5 @@ result.to_csv(out_path, index=False)
 print(f"\nDone! Saved {len(result):,} rows x {len(result.columns)} columns")
 print(f"Tickers: {result['ticker'].nunique()}")
 print(f"Date range: {result['date'].min()} to {result['date'].max()}")
-print(f"\nSample:")
+print("\nSample:")
 print(result.head(10))

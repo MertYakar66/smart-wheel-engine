@@ -3,9 +3,10 @@
 BQL: get(pe_ratio, eps, revenue, ebitda, book_value_per_share) for(members('SPX Index'))
      with(dates=range(2015-01-01, 2026-03-17), frq=Q, fill=prev)
 """
-from xbbg import blp
-import pandas as pd
 import os
+
+import pandas as pd
+from xbbg import blp
 
 print("Getting S&P 500 members...")
 members = blp.bds("SPX Index", "INDX_MWEIGHT")

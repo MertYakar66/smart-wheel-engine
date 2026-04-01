@@ -11,11 +11,9 @@ Tests for:
 - Web vitals
 """
 
-import pytest
 from datetime import datetime, timedelta
-from pathlib import Path
-import tempfile
 
+import pytest
 
 # =============================================================================
 # ENVIRONMENT VALIDATION TESTS
@@ -35,8 +33,7 @@ class TestEnvironmentValidation:
 
     def test_python_version_check(self):
         """Python version check should pass for 3.11+."""
-        from scripts.validate_environment import EnvironmentValidator, CheckStatus
-        import sys
+        from scripts.validate_environment import CheckStatus, EnvironmentValidator
 
         validator = EnvironmentValidator()
         report = validator.validate_all()
@@ -48,10 +45,8 @@ class TestEnvironmentValidation:
         )
 
         assert python_check is not None
-        if sys.version_info >= (3, 11):
-            assert python_check.status == CheckStatus.PASSED
-        else:
-            assert python_check.status == CheckStatus.FAILED
+        # Project requires Python 3.11+, so this should always pass
+        assert python_check.status == CheckStatus.PASSED
 
     def test_validation_report_structure(self):
         """Validation report should have correct structure."""
@@ -81,11 +76,11 @@ class TestQuantBenchmarks:
     def test_benchmark_registry_exists(self):
         """All benchmark categories should be defined."""
         from tests.quant_benchmarks import (
+            ALL_BENCHMARKS,
+            AMERICAN_BENCHMARKS,
             BLACKSCHOLES_BENCHMARKS,
             GREEKS_BENCHMARKS,
-            AMERICAN_BENCHMARKS,
             MONTE_CARLO_BENCHMARKS,
-            ALL_BENCHMARKS,
         )
 
         assert len(BLACKSCHOLES_BENCHMARKS) > 0
@@ -96,7 +91,7 @@ class TestQuantBenchmarks:
 
     def test_tolerance_check_absolute(self):
         """Absolute tolerance checks should work correctly."""
-        from tests.quant_benchmarks import check_tolerance, BenchmarkTolerance, ToleranceType
+        from tests.quant_benchmarks import BenchmarkTolerance, ToleranceType, check_tolerance
 
         benchmark = BenchmarkTolerance(
             name="Test",
@@ -116,7 +111,7 @@ class TestQuantBenchmarks:
 
     def test_tolerance_check_bounds(self):
         """Bounds tolerance checks should work correctly."""
-        from tests.quant_benchmarks import check_tolerance, BenchmarkTolerance, ToleranceType
+        from tests.quant_benchmarks import BenchmarkTolerance, ToleranceType, check_tolerance
 
         benchmark = BenchmarkTolerance(
             name="Test",
@@ -136,7 +131,7 @@ class TestQuantBenchmarks:
 
     def test_release_gate_benchmarks(self):
         """Release gate benchmarks should be properly flagged."""
-        from tests.quant_benchmarks import RELEASE_GATE_BENCHMARKS, ALL_BENCHMARKS
+        from tests.quant_benchmarks import ALL_BENCHMARKS, RELEASE_GATE_BENCHMARKS
 
         # All release gates should be in ALL_BENCHMARKS
         for name in RELEASE_GATE_BENCHMARKS:
@@ -162,7 +157,7 @@ class TestHealthChecks:
 
     def test_register_check(self):
         """Should be able to register health checks."""
-        from utils.health import HealthChecker, HealthStatus, CheckType
+        from utils.health import CheckType, HealthChecker, HealthStatus
 
         checker = HealthChecker()
 
@@ -192,7 +187,7 @@ class TestHealthChecks:
 
     def test_aggregate_status_degraded(self):
         """Aggregate status should be degraded when dependency fails."""
-        from utils.health import HealthChecker, HealthStatus, CheckType
+        from utils.health import CheckType, HealthChecker, HealthStatus
 
         checker = HealthChecker()
 
@@ -210,7 +205,7 @@ class TestHealthChecks:
 
     def test_disk_space_check(self):
         """Disk space check should return valid result."""
-        from utils.health import check_disk_space, HealthStatus
+        from utils.health import HealthStatus, check_disk_space
 
         status, message, details = check_disk_space("/")
 
@@ -234,7 +229,7 @@ class TestSLOTracking:
 
     def test_record_request(self):
         """Should be able to record requests."""
-        from news_pipeline.slo import SLOTracker, PipelineStage
+        from news_pipeline.slo import PipelineStage, SLOTracker
 
         tracker = SLOTracker()
         tracker.record_request(PipelineStage.DISCOVERY, 500.0, True)
@@ -265,7 +260,7 @@ class TestSLOTracking:
 
     def test_error_budget_status(self):
         """Error budget tracking should work correctly."""
-        from news_pipeline.slo import SLOTracker, PipelineStage
+        from news_pipeline.slo import PipelineStage, SLOTracker
 
         tracker = SLOTracker()
 
@@ -299,10 +294,10 @@ class TestAdvisorScorecard:
     def test_record_prediction(self):
         """Should be able to record predictions."""
         from advisors.scorecard import (
-            AdvisorScorecard,
             AdvisorPrediction,
-            JudgmentType,
+            AdvisorScorecard,
             ConfidenceLevel,
+            JudgmentType,
         )
 
         scorecard = AdvisorScorecard()
@@ -327,12 +322,12 @@ class TestAdvisorScorecard:
     def test_record_outcome(self):
         """Should be able to record outcomes."""
         from advisors.scorecard import (
-            AdvisorScorecard,
             AdvisorPrediction,
-            TradeOutcome,
-            JudgmentType,
+            AdvisorScorecard,
             ConfidenceLevel,
+            JudgmentType,
             OutcomeType,
+            TradeOutcome,
         )
 
         scorecard = AdvisorScorecard()
@@ -501,8 +496,9 @@ class TestWebVitals:
 
     def test_vital_rating(self):
         """Vital ratings should be calculated correctly."""
-        from dashboard.web_vitals import VitalMeasurement, VitalRating
         from datetime import datetime
+
+        from dashboard.web_vitals import VitalMeasurement, VitalRating
 
         # Good LCP
         good_lcp = VitalMeasurement(

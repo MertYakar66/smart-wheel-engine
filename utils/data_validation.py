@@ -1,12 +1,12 @@
 """
 Data validation framework for option and OHLCV data.
 """
-import pandas as pd
-import numpy as np
-from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
-from enum import Enum
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class ValidationIssue:
     severity: ValidationSeverity
     message: str
     row_count: int = 0
-    sample_values: List = field(default_factory=list)
+    sample_values: list = field(default_factory=list)
 
 
 @dataclass
@@ -33,7 +33,7 @@ class ValidationResult:
     """Result of data validation."""
     valid_df: pd.DataFrame
     invalid_df: pd.DataFrame
-    issues: List[ValidationIssue] = field(default_factory=list)
+    issues: list[ValidationIssue] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -61,7 +61,7 @@ class ValidationResult:
                 logger.info(f"{issue.field}: {issue.message}")
 
 
-def validate_and_normalize_iv(iv: float) -> Tuple[Optional[float], Optional[str]]:
+def validate_and_normalize_iv(iv: float) -> tuple[float | None, str | None]:
     """
     Validate and normalize implied volatility to decimal form.
 

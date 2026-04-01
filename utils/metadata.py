@@ -1,11 +1,12 @@
 """
 Metadata fingerprinting for reproducibility and audit trails.
 """
-import subprocess
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 import pandas as pd
 
 
@@ -42,10 +43,10 @@ def get_git_branch() -> str:
 
 
 def get_run_metadata(
-    config: Optional[Dict[str, Any]] = None,
-    data_start: Optional[str] = None,
-    data_end: Optional[str] = None
-) -> Dict[str, Any]:
+    config: dict[str, Any] | None = None,
+    data_start: str | None = None,
+    data_end: str | None = None
+) -> dict[str, Any]:
     """
     Generate metadata for reproducibility.
 
@@ -68,7 +69,7 @@ def get_run_metadata(
     }
 
 
-def embed_metadata_in_df(df: pd.DataFrame, metadata: Dict[str, Any]) -> pd.DataFrame:
+def embed_metadata_in_df(df: pd.DataFrame, metadata: dict[str, Any]) -> pd.DataFrame:
     """
     Embed metadata in DataFrame attrs (preserved in parquet format).
 
@@ -87,9 +88,9 @@ def embed_metadata_in_df(df: pd.DataFrame, metadata: Dict[str, Any]) -> pd.DataF
 def save_with_metadata(
     df: pd.DataFrame,
     filepath: str,
-    config: Optional[Dict[str, Any]] = None,
-    data_start: Optional[str] = None,
-    data_end: Optional[str] = None,
+    config: dict[str, Any] | None = None,
+    data_start: str | None = None,
+    data_end: str | None = None,
     format: str = 'csv'
 ) -> None:
     """
@@ -123,7 +124,7 @@ def save_with_metadata(
             json.dump(metadata, f, indent=2)
 
 
-def load_metadata(filepath: str) -> Optional[Dict[str, Any]]:
+def load_metadata(filepath: str) -> dict[str, Any] | None:
     """
     Load metadata from sidecar file or parquet attrs.
 
@@ -141,6 +142,6 @@ def load_metadata(filepath: str) -> Optional[Dict[str, Any]]:
     else:
         meta_path = filepath.with_suffix(filepath.suffix + '.meta.json')
         if meta_path.exists():
-            with open(meta_path, 'r') as f:
+            with open(meta_path) as f:
                 return json.load(f)
     return None

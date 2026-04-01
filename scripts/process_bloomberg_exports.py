@@ -18,15 +18,13 @@ The input directory should contain files named:
 """
 
 import argparse
-import os
-import sys
-from pathlib import Path
-from datetime import datetime
 import logging
 import re
+import sys
+from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 logging.basicConfig(
     level=logging.INFO,

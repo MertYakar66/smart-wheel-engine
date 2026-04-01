@@ -16,7 +16,6 @@ Additional Metrics:
 """
 
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -397,7 +396,7 @@ class WebVitalsTracker:
         window: timedelta = timedelta(hours=24),
     ) -> dict[str, PageMetrics]:
         """Get metrics for all pages."""
-        pages = set(m.page for m in self._measurements)
+        pages = {m.page for m in self._measurements}
         return {
             page: self.get_page_metrics(page, window)
             for page in pages

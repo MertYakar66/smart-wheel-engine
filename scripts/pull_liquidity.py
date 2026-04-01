@@ -3,9 +3,10 @@
 BQL: get(avg_volume_30d, bid_ask_spread, turnover) for(members('SPX Index'))
      with(dates=range(2015-01-01, 2026-03-17), fill=prev)
 """
-from xbbg import blp
-import pandas as pd
 import os
+
+import pandas as pd
+from xbbg import blp
 
 print("Getting S&P 500 members...")
 members = blp.bds("SPX Index", "INDX_MWEIGHT")

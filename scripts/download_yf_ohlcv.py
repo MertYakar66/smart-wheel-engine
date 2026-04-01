@@ -1,10 +1,11 @@
 """
 Download OHLCV data from yfinance with proper header cleanup.
 """
+import logging
+from pathlib import Path
+
 import pandas as pd
 import yfinance as yf
-from pathlib import Path
-import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

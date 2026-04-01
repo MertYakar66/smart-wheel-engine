@@ -9,18 +9,18 @@ Provides:
 - Rate limiting utilities
 """
 
+import hashlib
+import json
+import logging
 import os
 import re
-import hashlib
-import logging
 import secrets
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
-from dataclasses import dataclass, field
-import json
-
+from typing import Any
 
 # =============================================================================
 # Secure Logging
@@ -43,7 +43,7 @@ class AuditLogger:
         r'auth',
     ]
 
-    def __init__(self, log_file: Optional[str] = None, level: int = logging.INFO):
+    def __init__(self, log_file: str | None = None, level: int = logging.INFO):
         self.logger = logging.getLogger('smart_wheel_audit')
         self.logger.setLevel(level)
 
@@ -78,12 +78,12 @@ class AuditLogger:
             )
         return redacted
 
-    def log_trade(self, action: str, details: Dict[str, Any]) -> None:
+    def log_trade(self, action: str, details: dict[str, Any]) -> None:
         """Log trading operation."""
         safe_details = self._redact_sensitive(json.dumps(details))
         self.logger.info(f"TRADE | {action} | {safe_details}")
 
-    def log_risk_event(self, event_type: str, details: Dict[str, Any]) -> None:
+    def log_risk_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Log risk management event."""
         safe_details = self._redact_sensitive(json.dumps(details))
         self.logger.warning(f"RISK | {event_type} | {safe_details}")
@@ -224,7 +224,7 @@ class SecureConfig:
     Never logs or exposes sensitive values.
     """
 
-    _secrets: Dict[str, str] = field(default_factory=dict, repr=False)
+    _secrets: dict[str, str] = field(default_factory=dict, repr=False)
     _loaded: bool = False
 
     def load_env_file(self, path: str = ".env") -> None:
@@ -233,7 +233,7 @@ class SecureConfig:
         if not env_path.exists():
             return
 
-        with open(env_path, 'r') as f:
+        with open(env_path) as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:
@@ -246,7 +246,7 @@ class SecureConfig:
 
         self._loaded = True
 
-    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, default: str | None = None) -> str | None:
         """Get a configuration value."""
         # Check loaded secrets first, then environment
         return self._secrets.get(key, os.environ.get(key, default))
@@ -258,7 +258,7 @@ class SecureConfig:
             raise ValueError(f"Required configuration '{key}' not found")
         return value
 
-    def get_api_key(self, service: str) -> Optional[str]:
+    def get_api_key(self, service: str) -> str | None:
         """Get API key for a service."""
         key_names = [
             f"{service.upper()}_API_KEY",
@@ -275,7 +275,7 @@ class SecureConfig:
         """Check if configuration has been loaded."""
         return self._loaded
 
-    def list_keys(self) -> List[str]:
+    def list_keys(self) -> list[str]:
         """List available configuration keys (not values)."""
         return list(self._secrets.keys())
 
@@ -294,7 +294,7 @@ class RateLimiter:
     def __init__(self, max_requests: int, window_seconds: int):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self._requests: List[datetime] = []
+        self._requests: list[datetime] = []
 
     def is_allowed(self) -> bool:
         """Check if a request is allowed."""
@@ -350,11 +350,11 @@ def generate_session_token(length: int = 32) -> str:
     return secrets.token_urlsafe(length)
 
 
-def hash_sensitive_data(data: str, salt: Optional[str] = None) -> str:
+def hash_sensitive_data(data: str, salt: str | None = None) -> str:
     """Hash sensitive data for storage or comparison."""
     if salt is None:
         salt = secrets.token_hex(16)
-    combined = f"{salt}{data}".encode('utf-8')
+    combined = f"{salt}{data}".encode()
     hashed = hashlib.sha256(combined).hexdigest()
     return f"{salt}:{hashed}"
 
@@ -363,7 +363,7 @@ def verify_hash(data: str, hashed: str) -> bool:
     """Verify data against a hash."""
     try:
         salt, expected_hash = hashed.split(':')
-        combined = f"{salt}{data}".encode('utf-8')
+        combined = f"{salt}{data}".encode()
         actual_hash = hashlib.sha256(combined).hexdigest()
         return secrets.compare_digest(actual_hash, expected_hash)
     except (ValueError, AttributeError):

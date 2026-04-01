@@ -32,8 +32,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from data.observability import metrics, setup_logging
 from data.orchestrator import PipelineOrchestrator, StageType
-from data.observability import setup_logging, metrics
 
 
 def setup_parser() -> argparse.ArgumentParser:

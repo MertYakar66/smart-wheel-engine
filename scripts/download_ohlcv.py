@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
 import time
+from datetime import datetime
 
 import pandas as pd
 import yfinance as yf
@@ -52,7 +52,7 @@ def main():
     tickers = load_tickers()
     print(f"Loaded {len(tickers)} tickers.")
 
-    for i, ticker in enumerate(tickers, start=1):
+    for ticker in tickers:
         download_single_ticker(ticker)
         time.sleep(0.2)
 

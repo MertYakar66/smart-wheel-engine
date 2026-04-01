@@ -123,6 +123,16 @@ class CandidateStory:
             data["published_at"] = self.published_at.isoformat()
         return data
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "CandidateStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("discovered_at"), str):
+            data["discovered_at"] = datetime.fromisoformat(data["discovered_at"])
+        if isinstance(data.get("published_at"), str):
+            data["published_at"] = datetime.fromisoformat(data["published_at"])
+        return cls(**data)
+
 
 @dataclass
 class Evidence:
@@ -174,6 +184,7 @@ class VerificationResult:
         """Convert to dictionary for serialization."""
         return {
             "story_id": self.story_id,
+            "candidate": self.candidate.to_dict(),
             "status": self.status.value,
             "confidence": self.confidence,
             "verified_facts": self.verified_facts,
@@ -183,6 +194,20 @@ class VerificationResult:
             "verification_notes": self.verification_notes,
             "verified_at": self.verified_at.isoformat(),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "VerificationResult":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("candidate"), dict):
+            data["candidate"] = CandidateStory.from_dict(data["candidate"])
+        if isinstance(data.get("status"), str):
+            data["status"] = VerificationStatus(data["status"])
+        if isinstance(data.get("verified_at"), str):
+            data["verified_at"] = datetime.fromisoformat(data["verified_at"])
+        # Remove evidence field if present (not reconstructed)
+        data.pop("evidence", None)
+        return cls(**data)
 
 
 @dataclass
@@ -224,6 +249,14 @@ class FormattedStory:
             "sector_impact": self.sector_impact,
             "time_sensitivity": self.time_sensitivity,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FormattedStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("formatted_at"), str):
+            data["formatted_at"] = datetime.fromisoformat(data["formatted_at"])
+        return cls(**data)
 
 
 @dataclass
@@ -274,6 +307,16 @@ class FinalizedStory:
             "priority": self.priority,
             "tags": self.tags,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FinalizedStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("finalized_at"), str):
+            data["finalized_at"] = datetime.fromisoformat(data["finalized_at"])
+        # Handle related_stories if present
+        data.pop("related_stories", None)
+        return cls(**data)
 
     def to_json(self) -> str:
         """Serialize to JSON."""

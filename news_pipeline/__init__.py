@@ -27,20 +27,35 @@ Pipeline Flow:
 Cost: $0 marginal (uses existing subscriptions)
 """
 
-from news_pipeline.browser_agents import (
-    BrowserModelSession,
-    ChatGPTBrowserAgent,
-    ClaudeBrowserAgent,
-    GeminiBrowserAgent,
-)
+# Lazy imports for browser agents (require Playwright)
+# Import these directly when needed: from news_pipeline.browser_agents import ...
+
 from news_pipeline.models import (
     DiscoveryRequest,
     FinalizedStory,
     PipelineResult,
 )
-from news_pipeline.orchestrator import NewsPipelineOrchestrator
 
 __version__ = "2.0.0"
+
+
+def __getattr__(name: str):
+    """Lazy import browser agents to avoid Playwright dependency at import time."""
+    browser_exports = {
+        "BrowserModelSession",
+        "ClaudeBrowserAgent",
+        "ChatGPTBrowserAgent",
+        "GeminiBrowserAgent",
+    }
+    if name in browser_exports:
+        from news_pipeline import browser_agents
+        return getattr(browser_agents, name)
+    if name == "NewsPipelineOrchestrator":
+        from news_pipeline.orchestrator import NewsPipelineOrchestrator
+        return NewsPipelineOrchestrator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "NewsPipelineOrchestrator",
     "BrowserModelSession",

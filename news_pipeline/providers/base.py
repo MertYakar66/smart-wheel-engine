@@ -1,76 +1,72 @@
 """
-Base Provider Interface
+Base Provider Interfaces
 
-Defines the abstract interface for AI model providers used in the pipeline.
+Abstract base classes defining the contract for each pipeline stage.
+All providers must implement these interfaces for consistency.
 """
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from news_pipeline.config import ProviderConfig
 
 
 class BaseProvider(ABC):
     """
-    Abstract base class for AI model providers.
+    Base class for all AI providers.
 
-    Each provider (Grok, Gemini, ChatGPT, Claude) implements this interface.
+    Provides common functionality for initialization, health checks,
+    and error handling.
     """
 
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, config: ProviderConfig):
         """
-        Initialize the provider.
+        Initialize provider with configuration.
 
         Args:
-            api_key: API key for the provider. If None, will try to load from environment.
+            config: Provider-specific configuration
         """
-        self.api_key = api_key
+        self.config = config
+        self._client: Any = None
         self._initialized = False
 
     @property
-    @abstractmethod
     def name(self) -> str:
         """Provider name for logging."""
-        ...
+        return self.__class__.__name__
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if provider is initialized."""
+        return self._initialized
 
     @abstractmethod
     async def initialize(self) -> None:
-        """
-        Initialize the provider connection.
-
-        Should validate API key and set up any required clients.
-        """
-        ...
+        """Initialize the provider and its API client."""
+        pass
 
     @abstractmethod
     async def health_check(self) -> bool:
         """
-        Check if the provider is available and responding.
+        Check if the provider is healthy and accessible.
 
         Returns:
-            True if healthy, False otherwise.
+            True if healthy, False otherwise
         """
-        ...
+        pass
 
-    def _log_request(self, operation: str, params: dict[str, Any]) -> None:
-        """Log an outgoing request."""
-        logger.info(f"[{self.name}] {operation}: {params}")
-
-    def _log_response(self, operation: str, result: Any) -> None:
-        """Log an incoming response."""
-        logger.debug(f"[{self.name}] {operation} response: {result}")
-
-    def _log_error(self, operation: str, error: Exception) -> None:
-        """Log an error."""
-        logger.error(f"[{self.name}] {operation} error: {error}")
+    async def shutdown(self) -> None:
+        """Clean up provider resources."""
+        self._client = None
+        self._initialized = False
 
 
 class DiscoveryProvider(BaseProvider):
     """
-    Provider interface for news discovery.
+    Interface for news discovery providers.
 
-    Used by Grok for web search and news gathering.
+    Discovery providers search for breaking financial news and return
+    candidate stories for verification.
     """
 
     @abstractmethod
@@ -80,27 +76,28 @@ class DiscoveryProvider(BaseProvider):
         categories: list[str],
         time_window: str,
         max_results: int = 50,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict]:
         """
-        Discover news stories matching the criteria.
+        Discover news stories matching criteria.
 
         Args:
-            tickers: Stock tickers to search for
+            tickers: Stock symbols to search for
             categories: News categories to include
-            time_window: Time window (e.g., "overnight", "last_6h")
-            max_results: Maximum number of results
+            time_window: Time range (e.g., "overnight", "last_6h")
+            max_results: Maximum stories to return
 
         Returns:
-            List of raw story dictionaries
+            List of candidate story dictionaries
         """
-        ...
+        pass
 
 
 class VerificationProvider(BaseProvider):
     """
-    Provider interface for story verification.
+    Interface for story verification providers.
 
-    Used by Gemini for cross-source verification.
+    Verification providers check stories against multiple sources
+    and assign confidence scores.
     """
 
     @abstractmethod
@@ -110,27 +107,28 @@ class VerificationProvider(BaseProvider):
         source_url: str,
         tickers: list[str],
         category: str,
-    ) -> dict[str, Any]:
+    ) -> dict:
         """
-        Verify a story across multiple sources.
+        Verify a story using cross-source fact-checking.
 
         Args:
             headline: Story headline to verify
             source_url: Original source URL
-            tickers: Related tickers
+            tickers: Related stock symbols
             category: Story category
 
         Returns:
-            Verification result with confidence score and evidence
+            Verification result with confidence score
         """
-        ...
+        pass
 
 
 class FormattingProvider(BaseProvider):
     """
-    Provider interface for story formatting.
+    Interface for story formatting providers.
 
-    Used by ChatGPT for structuring verified stories.
+    Formatting providers transform verified facts into clear,
+    structured content.
     """
 
     @abstractmethod
@@ -138,31 +136,32 @@ class FormattingProvider(BaseProvider):
         self,
         story_id: str,
         verified_facts: list[str],
-        verification_confidence: int,
+        what_happened: str,
         affected_assets: list[str],
         category: str,
-    ) -> dict[str, Any]:
+    ) -> dict:
         """
-        Format verified facts into a structured story.
+        Format verified story into structured content.
 
         Args:
-            story_id: Story identifier
+            story_id: Unique story identifier
             verified_facts: List of verified facts
-            verification_confidence: Confidence score (0-10)
-            affected_assets: List of affected assets
+            what_happened: Summary of what occurred
+            affected_assets: Related tickers/assets
             category: Story category
 
         Returns:
             Formatted story dictionary
         """
-        ...
+        pass
 
 
 class EditorialProvider(BaseProvider):
     """
-    Provider interface for editorial refinement.
+    Interface for editorial polish providers.
 
-    Used by Claude for final polish and "why it matters" generation.
+    Editorial providers add "why it matters" analysis and
+    ensure professional quality.
     """
 
     @abstractmethod
@@ -175,20 +174,20 @@ class EditorialProvider(BaseProvider):
         affected_assets: list[str],
         category: str,
         confidence: int,
-    ) -> dict[str, Any]:
+    ) -> dict:
         """
-        Finalize a story with editorial polish.
+        Finalize story with editorial polish.
 
         Args:
-            story_id: Story identifier
-            title: Draft title
-            what_happened: Draft summary
-            bullet_points: Draft bullet points
-            affected_assets: List of affected assets
+            story_id: Unique story identifier
+            title: Story title
+            what_happened: Summary of what occurred
+            bullet_points: Key points
+            affected_assets: Related tickers/assets
             category: Story category
-            confidence: Verification confidence
+            confidence: Verification confidence (0-10)
 
         Returns:
-            Finalized story with "why it matters" section
+            Finalized story with "why it matters"
         """
-        ...
+        pass

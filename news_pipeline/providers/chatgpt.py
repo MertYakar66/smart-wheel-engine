@@ -1,84 +1,92 @@
 """
-ChatGPT Provider - Formatting Layer
+ChatGPT Formatting Provider
 
-Uses OpenAI's GPT models for structuring verified stories into feed format.
-ChatGPT excels at transforming raw facts into clean, structured content.
+Uses OpenAI's GPT-4 for clear, structured story formatting.
+ChatGPT excels at transforming raw facts into readable content.
+
+Features:
+- Clean, professional formatting
+- Bullet point extraction
+- Asset impact analysis
+- Time sensitivity classification
 """
 
 import json
 import logging
-import os
-from typing import Any
 
-from .base import FormattingProvider
+from news_pipeline.config import ProviderConfig
+from news_pipeline.providers.base import FormattingProvider
 
 logger = logging.getLogger(__name__)
 
 
 class ChatGPTProvider(FormattingProvider):
     """
-    ChatGPT-powered formatting provider.
+    ChatGPT-powered story formatting.
 
-    Uses OpenAI's GPT model to transform verified facts
-    into a structured, feed-ready format.
+    Uses OpenAI's GPT-4 to transform verified facts into
+    clear, structured, professionally formatted content.
     """
 
-    def __init__(self, api_key: str | None = None):
-        super().__init__(api_key)
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self.client = None
-        self.model = "gpt-4o"  # Latest GPT-4 model
+    def __init__(self, config: ProviderConfig | None = None):
+        """Initialize ChatGPT provider."""
+        if config is None:
+            from news_pipeline.config import PipelineConfig
 
-    @property
-    def name(self) -> str:
-        return "ChatGPT"
+            config = PipelineConfig().chatgpt
+        super().__init__(config)
 
     async def initialize(self) -> None:
         """Initialize the OpenAI client."""
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment")
+        if self._initialized:
+            return
 
         try:
             from openai import AsyncOpenAI
 
-            self.client = AsyncOpenAI(api_key=self.api_key)
+            self._client = AsyncOpenAI(api_key=self.config.api_key)
             self._initialized = True
-            logger.info(f"[{self.name}] Initialized with model {self.model}")
+            logger.info(f"[{self.name}] Initialized successfully")
+
         except ImportError:
-            raise ImportError("openai package required for ChatGPT provider")
+            logger.error(f"[{self.name}] openai package required")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Initialization failed: {e}")
+            raise
 
     async def health_check(self) -> bool:
-        """Check if OpenAI API is available."""
-        if not self.client:
+        """Check if OpenAI API is accessible."""
+        if not self._initialized:
             return False
 
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
+            response = await self._client.chat.completions.create(
+                model=self.config.model,
                 messages=[{"role": "user", "content": "ping"}],
                 max_tokens=5,
             )
             return response.choices[0].message.content is not None
         except Exception as e:
-            self._log_error("health_check", e)
+            logger.warning(f"[{self.name}] Health check failed: {e}")
             return False
 
     async def format_story(
         self,
         story_id: str,
         verified_facts: list[str],
-        verification_confidence: int,
+        what_happened: str,
         affected_assets: list[str],
         category: str,
-    ) -> dict[str, Any]:
+    ) -> dict:
         """
-        Format verified facts into a structured story.
+        Format verified story into structured content.
 
         Args:
-            story_id: Story identifier
+            story_id: Unique story identifier
             verified_facts: List of verified facts
-            verification_confidence: Confidence score (0-10)
-            affected_assets: List of affected assets
+            what_happened: Summary of what occurred
+            affected_assets: Related tickers/assets
             category: Story category
 
         Returns:
@@ -87,22 +95,15 @@ class ChatGPTProvider(FormattingProvider):
         if not self._initialized:
             await self.initialize()
 
-        self._log_request(
-            "format_story",
-            {
-                "story_id": story_id,
-                "facts_count": len(verified_facts),
-                "confidence": verification_confidence,
-            },
-        )
+        logger.info(f"[{self.name}] Formatting story {story_id}")
 
         prompt = self._build_formatting_prompt(
-            verified_facts, verification_confidence, affected_assets, category
+            verified_facts, what_happened, affected_assets, category
         )
 
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
+            response = await self._client.chat.completions.create(
+                model=self.config.model,
                 messages=[
                     {
                         "role": "system",
@@ -113,111 +114,142 @@ class ChatGPTProvider(FormattingProvider):
                         "content": prompt,
                     },
                 ],
-                temperature=0.4,  # Slightly creative but still structured
+                temperature=0.4,
                 max_tokens=1500,
             )
 
             content = response.choices[0].message.content
-            result = self._parse_formatting_response(content, story_id, verification_confidence)
-            self._log_response("format_story", f"Title: {result.get('title', '')[:50]}")
+            result = self._parse_formatting_response(content)
+
+            logger.info(f"[{self.name}] Formatted: {result.get('title', 'unknown')[:50]}")
             return result
 
         except Exception as e:
-            self._log_error("format_story", e)
-            raise
+            logger.error(f"[{self.name}] Formatting failed: {e}")
+            return self._fallback_format(verified_facts, what_happened, affected_assets, category)
 
     def _get_system_prompt(self) -> str:
-        """System prompt for formatting."""
-        return """You are a financial news editor. Your task is to transform verified facts into a clean, structured news item for a professional trading feed.
+        """Get system prompt for ChatGPT."""
+        return """You are a financial news editor. Your task is to transform
+verified facts into clear, professional news content.
 
-Your output should be:
-- Concise and factual
-- Free of speculation or opinion
-- Written for traders who need quick, actionable information
-- Professional in tone
+STYLE GUIDELINES:
+- Write in active voice, present tense for recent events
+- Be concise and factual - no speculation
+- Use financial terminology appropriately
+- Headlines should be informative, not clickbait
+- Bullet points should be scannable and actionable
 
-Output your formatted story as a JSON object with these fields:
-- title: A clear, descriptive headline (max 80 characters)
-- what_happened: A 2-3 sentence summary of the key facts
-- bullet_points: An array of 3-5 key takeaways
-- affected_assets: Array of tickers/assets most directly impacted
+OUTPUT QUALITY:
+- Title: Clear, informative (under 80 characters)
+- What happened: 1-2 sentences, factual summary
+- Bullet points: 3-5 key points, each under 100 characters
+- Affected assets: Normalized ticker symbols
 
-Focus on:
-1. What specific event or announcement occurred
-2. Who/what is involved
-3. When it happened or was announced
-4. What the immediate market implications might be
-
-Do NOT include:
-- Speculative price targets
-- Your own trading recommendations
-- Excessive hedging language
-- Information not in the verified facts
-
-Return ONLY the JSON object."""
+Maintain professional financial journalism standards."""
 
     def _build_formatting_prompt(
         self,
         verified_facts: list[str],
-        verification_confidence: int,
+        what_happened: str,
         affected_assets: list[str],
         category: str,
     ) -> str:
         """Build the formatting prompt."""
-        facts_str = "\n".join(f"- {fact}" for fact in verified_facts)
-        assets_str = ", ".join(affected_assets) if affected_assets else "general market"
+        facts_text = "\n".join(f"- {fact}" for fact in verified_facts)
 
-        return f"""Format the following verified facts into a structured news item.
+        return f"""Format this verified financial news into structured content:
 
 VERIFIED FACTS:
-{facts_str}
+{facts_text}
 
-CONTEXT:
-- Verification Confidence: {verification_confidence}/10
-- Category: {category}
-- Affected Assets: {assets_str}
+SUMMARY: {what_happened}
 
-Transform these facts into a clean, professional news item for our trading feed.
-Return the result as a JSON object."""
+AFFECTED ASSETS: {", ".join(affected_assets)}
 
-    def _parse_formatting_response(
-        self,
-        content: str,
-        story_id: str,
-        confidence: int,
-    ) -> dict[str, Any]:
+CATEGORY: {category}
+
+RETURN JSON FORMAT:
+{{
+    "title": "Clear, informative headline",
+    "what_happened": "1-2 sentence factual summary",
+    "bullet_points": [
+        "Key point 1",
+        "Key point 2",
+        "Key point 3"
+    ],
+    "affected_assets": ["TICKER1", "TICKER2"],
+    "related_tickers": ["other related tickers"],
+    "sector_impact": "brief sector analysis or null",
+    "time_sensitivity": "urgent" | "normal" | "background"
+}}
+
+TIME SENSITIVITY:
+- urgent: Breaking news, immediate market impact
+- normal: Important but not time-critical
+- background: Context/analysis, no immediate action needed"""
+
+    def _parse_formatting_response(self, content: str) -> dict:
         """Parse ChatGPT's formatting response."""
+        if not content:
+            return self._empty_result()
+
         try:
             content = content.strip()
 
             # Handle markdown code blocks
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            if "```json" in content:
+                start = content.find("```json") + 7
+                end = content.find("```", start)
+                content = content[start:end].strip()
+            elif "```" in content:
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                content = content[start:end].strip()
 
-            result = json.loads(content.strip())
+            result = json.loads(content)
 
-            # Normalize the result
-            return {
-                "story_id": story_id,
-                "title": result.get("title", "Untitled Story"),
-                "what_happened": result.get("what_happened", ""),
-                "bullet_points": result.get("bullet_points", []),
-                "affected_assets": result.get("affected_assets", []),
-                "confidence": confidence,
-            }
+            # Validate required fields
+            result.setdefault("title", "Untitled Story")
+            result.setdefault("what_happened", "")
+            result.setdefault("bullet_points", [])
+            result.setdefault("affected_assets", [])
+            result.setdefault("related_tickers", [])
+            result.setdefault("sector_impact", None)
+            result.setdefault("time_sensitivity", "normal")
+
+            return result
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse ChatGPT response as JSON: {e}")
-            logger.debug(f"Raw response: {content[:500]}")
-            return {
-                "story_id": story_id,
-                "title": "Parse Error",
-                "what_happened": content[:200] if content else "",
-                "bullet_points": [],
-                "affected_assets": [],
-                "confidence": confidence,
-            }
+            logger.warning(f"[{self.name}] JSON parse failed: {e}")
+            return self._empty_result()
+
+    def _fallback_format(
+        self,
+        verified_facts: list[str],
+        what_happened: str,
+        affected_assets: list[str],
+        category: str,
+    ) -> dict:
+        """Fallback formatting when API fails."""
+        return {
+            "title": what_happened[:80] if what_happened else "Breaking News",
+            "what_happened": what_happened,
+            "bullet_points": verified_facts[:5],
+            "affected_assets": affected_assets,
+            "related_tickers": [],
+            "sector_impact": None,
+            "time_sensitivity": "normal",
+        }
+
+    def _empty_result(self) -> dict:
+        """Return empty result structure."""
+        return {
+            "title": "",
+            "what_happened": "",
+            "bullet_points": [],
+            "affected_assets": [],
+            "related_tickers": [],
+            "sector_impact": None,
+            "time_sensitivity": "normal",
+        }

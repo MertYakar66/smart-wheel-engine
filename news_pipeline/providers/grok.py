@@ -1,75 +1,78 @@
 """
-Grok Provider - Discovery Layer
+Grok Discovery Provider
 
-Uses xAI's Grok API for web search and news discovery.
-Grok excels at real-time web search which makes it ideal for news discovery.
+Uses xAI's Grok model for real-time financial news discovery.
+Grok excels at breaking news detection through live web search.
+
+Features:
+- Real-time web search for financial news
+- Breaking news detection
+- Source credibility assessment
+- Ticker and category filtering
 """
 
 import json
 import logging
-import os
-from datetime import datetime
-from typing import Any
 
-from .base import DiscoveryProvider
+from news_pipeline.config import ProviderConfig
+from news_pipeline.providers.base import DiscoveryProvider
 
 logger = logging.getLogger(__name__)
-
-# xAI API endpoint
-XAI_API_BASE = "https://api.x.ai/v1"
 
 
 class GrokProvider(DiscoveryProvider):
     """
-    Grok-powered news discovery provider.
+    Grok-powered news discovery.
 
     Uses xAI's Grok model with web search capabilities to find
-    relevant financial news for specified tickers and categories.
+    breaking financial news in real-time.
     """
 
-    def __init__(self, api_key: str | None = None):
-        super().__init__(api_key)
-        self.api_key = api_key or os.environ.get("XAI_API_KEY")
-        self.client = None
-        self.model = "grok-2"  # Latest Grok model
+    def __init__(self, config: ProviderConfig | None = None):
+        """Initialize Grok provider."""
+        if config is None:
+            from news_pipeline.config import PipelineConfig
 
-    @property
-    def name(self) -> str:
-        return "Grok"
+            config = PipelineConfig().grok
+        super().__init__(config)
 
     async def initialize(self) -> None:
         """Initialize the xAI client."""
-        if not self.api_key:
-            raise ValueError("XAI_API_KEY not found in environment")
+        if self._initialized:
+            return
 
         try:
-            # Use OpenAI-compatible client for xAI
             from openai import AsyncOpenAI
 
-            self.client = AsyncOpenAI(
-                api_key=self.api_key,
-                base_url=XAI_API_BASE,
+            self._client = AsyncOpenAI(
+                api_key=self.config.api_key,
+                base_url=self.config.base_url,
             )
             self._initialized = True
-            logger.info(f"[{self.name}] Initialized with model {self.model}")
+            logger.info(f"[{self.name}] Initialized successfully")
+
         except ImportError:
-            raise ImportError("openai package required for Grok provider")
+            logger.error(f"[{self.name}] openai package required")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Initialization failed: {e}")
+            raise
 
     async def health_check(self) -> bool:
-        """Check if Grok API is available."""
-        if not self.client:
+        """Check if Grok API is accessible."""
+        if not self._initialized:
             return False
 
         try:
-            # Simple test call
-            response = await self.client.chat.completions.create(
-                model=self.model,
+            # Simple completion to verify connectivity
+            response = await self._client.chat.completions.create(
+                model=self.config.model,
                 messages=[{"role": "user", "content": "ping"}],
                 max_tokens=5,
             )
             return response.choices[0].message.content is not None
         except Exception as e:
-            self._log_error("health_check", e)
+            logger.warning(f"[{self.name}] Health check failed: {e}")
             return False
 
     async def discover_news(
@@ -78,14 +81,14 @@ class GrokProvider(DiscoveryProvider):
         categories: list[str],
         time_window: str,
         max_results: int = 50,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict]:
         """
-        Discover financial news using Grok's web search.
+        Discover financial news via Grok web search.
 
         Args:
-            tickers: Stock tickers to monitor
-            categories: News categories (sp500_events, oil, geopolitics, etc.)
-            time_window: Time window for search
+            tickers: Stock symbols to monitor
+            categories: News categories to include
+            time_window: Time range for news
             max_results: Maximum stories to return
 
         Returns:
@@ -94,21 +97,17 @@ class GrokProvider(DiscoveryProvider):
         if not self._initialized:
             await self.initialize()
 
-        self._log_request(
-            "discover_news",
-            {
-                "tickers": tickers,
-                "categories": categories,
-                "time_window": time_window,
-            },
+        logger.info(
+            f"[{self.name}] Discovering news: "
+            f"tickers={tickers}, categories={categories}, window={time_window}"
         )
 
-        # Build the discovery prompt
+        # Build search prompt
         prompt = self._build_discovery_prompt(tickers, categories, time_window, max_results)
 
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
+            response = await self._client.chat.completions.create(
+                model=self.config.model,
                 messages=[
                     {
                         "role": "system",
@@ -119,51 +118,47 @@ class GrokProvider(DiscoveryProvider):
                         "content": prompt,
                     },
                 ],
-                temperature=0.3,  # Lower for more factual responses
+                temperature=0.3,
                 max_tokens=4000,
             )
 
             content = response.choices[0].message.content
             stories = self._parse_discovery_response(content)
-            self._log_response("discover_news", f"Found {len(stories)} candidates")
-            return stories
+
+            logger.info(f"[{self.name}] Discovered {len(stories)} candidates")
+            return stories[:max_results]
 
         except Exception as e:
-            self._log_error("discover_news", e)
-            raise
+            logger.error(f"[{self.name}] Discovery failed: {e}")
+            return []
 
     def _get_system_prompt(self) -> str:
-        """System prompt for Grok discovery."""
-        return """You are a financial news discovery agent. Your task is to search the web for recent financial news stories that are relevant to specific stocks and market themes.
+        """Get system prompt for Grok."""
+        return """You are a financial news discovery agent. Your task is to search the web
+for breaking financial news and market-moving events.
 
-For each story you find, extract:
-1. The exact headline
-2. The source publication name
-3. The source URL
-4. The publication timestamp (if available)
-5. Related stock tickers (if any)
-6. The primary category it belongs to
-7. A brief snippet or summary
+SEARCH PRIORITIES:
+1. Official sources (Fed, SEC, company press releases)
+2. Major financial news outlets (Bloomberg, Reuters, WSJ, CNBC)
+3. Verified social media from official accounts
 
-Output your findings as a JSON array. Each story should be an object with these fields:
-- headline: string
-- source_name: string
-- source_url: string
-- published_at: ISO timestamp string or null
-- tickers: array of ticker symbols
-- category: string (one of: sp500_events, oil, geopolitics, fed, inflation, labor, earnings, macro, crypto, tech)
-- snippet: string (2-3 sentences)
+OUTPUT FORMAT:
+Return a JSON array of news stories. Each story must have:
+- headline: The main headline
+- source_name: Name of the source
+- source_url: URL to the article
+- published_at: ISO timestamp if available
+- tickers: Array of related stock symbols
+- category: Category (fed, earnings, oil, geopolitics, etc.)
+- snippet: 1-2 sentence summary
+- source_type: "official", "mainstream", "social", or "unknown"
+- relevance_score: 0.0-1.0 based on market impact potential
 
-Focus on breaking news and material developments that would affect trading decisions. Prioritize:
-- Earnings announcements and guidance changes
-- Fed/central bank policy signals
-- Macro data releases (CPI, NFP, GDP)
-- Oil/energy supply disruptions
-- Geopolitical events with market transmission
-- Major M&A announcements
-- Regulatory actions affecting specific stocks
-
-Return ONLY the JSON array, no other text."""
+Only include stories that are:
+- Recent and relevant to the time window
+- From credible sources
+- Related to financial markets or specified tickers
+- Factual (not opinion pieces)"""
 
     def _build_discovery_prompt(
         self,
@@ -172,78 +167,91 @@ Return ONLY the JSON array, no other text."""
         time_window: str,
         max_results: int,
     ) -> str:
-        """Build the user prompt for news discovery."""
-        time_desc = self._time_window_to_description(time_window)
-
-        ticker_str = ", ".join(tickers) if tickers else "major S&P 500 stocks"
-        category_str = ", ".join(categories) if categories else "all market-relevant categories"
-
-        return f"""Search for the most important financial news from {time_desc}.
-
-Focus on:
-- Tickers: {ticker_str}
-- Categories: {category_str}
-
-Find up to {max_results} relevant stories. Prioritize stories that:
-1. Have clear market implications
-2. Are from reputable financial sources
-3. Contain specific facts (numbers, dates, names)
-4. Are breaking or recently updated
-
-Return the results as a JSON array."""
-
-    def _time_window_to_description(self, time_window: str) -> str:
-        """Convert time window to natural language."""
-        mapping = {
-            "overnight": "the past 12 hours (overnight through this morning)",
-            "last_6h": "the past 6 hours",
-            "last_3h": "the past 3 hours",
-            "last_1h": "the past hour",
-            "today": "today",
+        """Build the discovery prompt."""
+        # Map time windows to descriptions
+        window_map = {
+            "overnight": "the last 12 hours (overnight session)",
+            "last_1h": "the last hour",
+            "last_3h": "the last 3 hours",
+            "last_6h": "the last 6 hours",
+            "today": "today's trading session",
             "yesterday": "yesterday",
         }
-        return mapping.get(time_window, f"the {time_window}")
+        time_desc = window_map.get(time_window, time_window)
 
-    def _parse_discovery_response(self, content: str) -> list[dict[str, Any]]:
+        # Build category descriptions
+        category_map = {
+            "fed": "Federal Reserve policy, FOMC, interest rates",
+            "earnings": "Corporate earnings, guidance, quarterly reports",
+            "sp500_events": "S&P 500 companies major announcements",
+            "oil": "Oil prices, OPEC, energy markets",
+            "geopolitics": "Geopolitical events affecting markets",
+            "crypto": "Cryptocurrency, Bitcoin, digital assets",
+            "macro": "Macroeconomic data, GDP, employment",
+        }
+        category_descs = [category_map.get(c, c) for c in categories]
+
+        prompt = f"""Search for breaking financial news from {time_desc}.
+
+CATEGORIES TO MONITOR:
+{chr(10).join(f"- {c}" for c in category_descs)}
+"""
+
+        if tickers:
+            prompt += f"""
+PRIORITY TICKERS:
+{", ".join(tickers)}
+"""
+
+        prompt += f"""
+Return up to {max_results} stories as a JSON array.
+Focus on market-moving news that traders need to know.
+Prioritize official sources and breaking developments."""
+
+        return prompt
+
+    def _parse_discovery_response(self, content: str) -> list[dict]:
         """Parse Grok's response into story dictionaries."""
+        if not content:
+            return []
+
         try:
-            # Try to extract JSON from the response
+            # Try to extract JSON from response
             content = content.strip()
 
             # Handle markdown code blocks
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            if "```json" in content:
+                start = content.find("```json") + 7
+                end = content.find("```", start)
+                content = content[start:end].strip()
+            elif "```" in content:
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                content = content[start:end].strip()
 
-            stories = json.loads(content.strip())
+            stories = json.loads(content)
 
             if not isinstance(stories, list):
-                logger.warning("Grok response was not a list, wrapping")
                 stories = [stories]
 
-            # Normalize each story
-            normalized = []
+            # Validate and clean stories
+            valid_stories = []
             for story in stories:
-                if isinstance(story, dict) and "headline" in story:
-                    normalized.append(
-                        {
-                            "headline": story.get("headline", ""),
-                            "source_name": story.get("source_name", "Unknown"),
-                            "source_url": story.get("source_url", ""),
-                            "published_at": story.get("published_at"),
-                            "tickers": story.get("tickers", []),
-                            "category": story.get("category", ""),
-                            "snippet": story.get("snippet", ""),
-                            "discovered_at": datetime.utcnow().isoformat(),
-                        }
-                    )
+                if self._validate_story(story):
+                    # Ensure required fields
+                    story.setdefault("tickers", [])
+                    story.setdefault("category", "other")
+                    story.setdefault("source_type", "unknown")
+                    story.setdefault("relevance_score", 0.5)
+                    valid_stories.append(story)
 
-            return normalized
+            return valid_stories
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Grok response as JSON: {e}")
-            logger.debug(f"Raw response: {content[:500]}")
+            logger.warning(f"[{self.name}] JSON parse failed: {e}")
             return []
+
+    def _validate_story(self, story: dict) -> bool:
+        """Validate a story dictionary has required fields."""
+        required = ["headline", "source_name", "source_url"]
+        return all(story.get(field) for field in required)

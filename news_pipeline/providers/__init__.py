@@ -1,24 +1,27 @@
 """
-AI Model Providers for News Pipeline
+AI Model Providers
 
-Each provider handles a specific stage of the pipeline:
-- Grok: News discovery via web search
-- Gemini: Cross-source verification with grounding
-- ChatGPT: Story formatting and structuring
-- Claude: Editorial polish and "why it matters"
+Each provider wraps a specific AI model and implements a stage of the pipeline:
+
+- GrokProvider: News discovery via real-time web search (xAI)
+- GeminiProvider: Cross-source verification with grounding (Google)
+- ChatGPTProvider: Clear, structured formatting (OpenAI)
+- ClaudeProvider: Editorial polish and analysis (Anthropic)
+
+Providers share a common interface for consistency and testability.
 """
 
-from .base import (
+from news_pipeline.providers.base import (
     BaseProvider,
     DiscoveryProvider,
     EditorialProvider,
     FormattingProvider,
     VerificationProvider,
 )
-from .chatgpt import ChatGPTProvider
-from .claude import ClaudeProvider
-from .gemini import GeminiProvider
-from .grok import GrokProvider
+from news_pipeline.providers.chatgpt import ChatGPTProvider
+from news_pipeline.providers.claude import ClaudeProvider
+from news_pipeline.providers.gemini import GeminiProvider
+from news_pipeline.providers.grok import GrokProvider
 
 __all__ = [
     # Base classes

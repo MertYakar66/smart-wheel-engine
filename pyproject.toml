@@ -104,7 +104,7 @@ addopts = "-v"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src", "engine", "advisors", "financial_news"]
+source = ["src", "engine", "advisors", "financial_news", "news_pipeline"]
 branch = true
 omit = [
     # External API connectors require live API calls or complex mocking

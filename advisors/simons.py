@@ -126,9 +126,7 @@ YOUR TONE:
                     f"Expected value of {ev:.2f}% is within noise range (t-stat: {ev_t_stat:.2f})"
                 )
         else:
-            key_reasons.append(
-                f"NEGATIVE expected value of {ev:.2f}% - no statistical edge exists"
-            )
+            key_reasons.append(f"NEGATIVE expected value of {ev:.2f}% - no statistical edge exists")
 
         # Probability model validation
         critical_questions.append(
@@ -152,9 +150,9 @@ YOUR TONE:
         # Define regime-strategy fit
         put_selling_regimes = {
             RegimeType.LOW_VOL: 0.7,  # OK but low premium
-            RegimeType.NORMAL: 1.0,   # Ideal
-            RegimeType.HIGH_VOL: 0.8, # Good premium but risk
-            RegimeType.CRISIS: 0.4,   # Dangerous
+            RegimeType.NORMAL: 1.0,  # Ideal
+            RegimeType.HIGH_VOL: 0.8,  # Good premium but risk
+            RegimeType.CRISIS: 0.4,  # Dangerous
             RegimeType.TRENDING_UP: 0.9,  # Good for puts
             RegimeType.TRENDING_DOWN: 0.3,  # Bad for puts
         }
@@ -213,11 +211,11 @@ YOUR TONE:
                 )
             elif actual_fraction > kelly_fraction * 2:
                 hidden_risks.append(
-                    f"OVERSIZED: Position is {actual_fraction/kelly_fraction:.1f}x optimal Kelly fraction"
+                    f"OVERSIZED: Position is {actual_fraction / kelly_fraction:.1f}x optimal Kelly fraction"
                 )
             elif actual_fraction < kelly_fraction * 0.5:
                 key_reasons.append(
-                    f"Conservative sizing at {actual_fraction/kelly_fraction:.0%} of Kelly - reduces variance"
+                    f"Conservative sizing at {actual_fraction / kelly_fraction:.0%} of Kelly - reduces variance"
                 )
 
         # =====================================================================
@@ -308,9 +306,7 @@ YOUR TONE:
             )
         elif score >= 1.5:
             judgment = Judgment.APPROVE
-            judgment_summary = (
-                f"Positive expected value with acceptable statistical validity (score: {score:.1f})."
-            )
+            judgment_summary = f"Positive expected value with acceptable statistical validity (score: {score:.1f})."
         elif score >= 0:
             judgment = Judgment.NEUTRAL
             judgment_summary = (
@@ -342,14 +338,10 @@ YOUR TONE:
         # Confidence
         if abs(score) > 2.5:
             confidence = ConfidenceLevel.HIGH
-            confidence_explanation = (
-                "Strong signal in multiple quantitative dimensions"
-            )
+            confidence_explanation = "Strong signal in multiple quantitative dimensions"
         elif abs(score) > 1.0:
             confidence = ConfidenceLevel.MEDIUM
-            confidence_explanation = (
-                "Signal present but not overwhelming - proceed with discipline"
-            )
+            confidence_explanation = "Signal present but not overwhelming - proceed with discipline"
         else:
             confidence = ConfidenceLevel.LOW
             confidence_explanation = (
@@ -362,9 +354,7 @@ YOUR TONE:
                 f"Probability profile: {prob['quality']} (EV: {ev:.2f}%, P(OTM): {prob['p_otm']:.0%})"
             )
         if len(key_reasons) < 2:
-            key_reasons.append(
-                f"Position sizing assessment: {position_size}"
-            )
+            key_reasons.append(f"Position sizing assessment: {position_size}")
 
         return {
             "judgment": judgment,

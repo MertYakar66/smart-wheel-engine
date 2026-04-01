@@ -270,9 +270,7 @@ class SECEdgarConnector(BaseConnector):
                         accession_number=accession,
                         categories=[CategoryType.SP500_CORPORATE],
                         tickers=[ticker] if ticker else [],
-                        entities=self._build_filing_entities(
-                            ticker, company_name, filing_type
-                        ),
+                        entities=self._build_filing_entities(ticker, company_name, filing_type),
                     )
                     articles.append(article)
 
@@ -308,22 +306,22 @@ class SECEdgarConnector(BaseConnector):
         # URL format: /cgi-bin/browse-edgar?action=getcompany&CIK=0000320193&...
         # Or: /Archives/edgar/data/320193/000032019324000123/...
 
-        cik_match = re.search(r'CIK[=]?(\d+)', url, re.IGNORECASE)
+        cik_match = re.search(r"CIK[=]?(\d+)", url, re.IGNORECASE)
         if cik_match:
             cik = cik_match.group(1).zfill(10)
         else:
-            cik_match = re.search(r'/data/(\d+)/', url)
+            cik_match = re.search(r"/data/(\d+)/", url)
             cik = cik_match.group(1).zfill(10) if cik_match else ""
 
-        acc_match = re.search(r'(\d{10}-\d{2}-\d{6})', url)
+        acc_match = re.search(r"(\d{10}-\d{2}-\d{6})", url)
         accession = acc_match.group(1) if acc_match else ""
 
         return cik, accession
 
     def _clean_text(self, text: str) -> str:
         """Clean HTML and whitespace from text."""
-        clean = re.sub(r'<[^>]+>', '', text)
-        clean = re.sub(r'\s+', ' ', clean)
+        clean = re.sub(r"<[^>]+>", "", text)
+        clean = re.sub(r"\s+", " ", clean)
         return clean.strip()
 
     def _build_filing_entities(
@@ -336,22 +334,26 @@ class SECEdgarConnector(BaseConnector):
         entities = []
 
         if ticker:
-            entities.append(Entity(
-                entity_id=f"ticker_{ticker}",
-                entity_type=EntityType.TICKER,
-                value=ticker,
-                ticker=ticker,
-                confidence=1.0,
-            ))
+            entities.append(
+                Entity(
+                    entity_id=f"ticker_{ticker}",
+                    entity_type=EntityType.TICKER,
+                    value=ticker,
+                    ticker=ticker,
+                    confidence=1.0,
+                )
+            )
 
         if company_name:
-            entities.append(Entity(
-                entity_id=f"company_{ticker or 'unknown'}",
-                entity_type=EntityType.COMPANY,
-                value=company_name,
-                ticker=ticker,
-                confidence=1.0,
-            ))
+            entities.append(
+                Entity(
+                    entity_id=f"company_{ticker or 'unknown'}",
+                    entity_type=EntityType.COMPANY,
+                    value=company_name,
+                    ticker=ticker,
+                    confidence=1.0,
+                )
+            )
 
         return entities
 

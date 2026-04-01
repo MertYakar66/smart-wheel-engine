@@ -49,6 +49,7 @@ from financial_news import (
 # SCHEMA ENUM TESTS
 # =============================================================================
 
+
 class TestSchemaEnums:
     """Test enum definitions."""
 
@@ -70,8 +71,16 @@ class TestSchemaEnums:
         categories = list(CategoryType)
         assert len(categories) == 8
 
-        expected = ["fed_rates", "inflation", "labor", "growth_consumer",
-                   "oil_energy", "geopolitics", "sp500_corporate", "market_regime"]
+        expected = [
+            "fed_rates",
+            "inflation",
+            "labor",
+            "growth_consumer",
+            "oil_energy",
+            "geopolitics",
+            "sp500_corporate",
+            "market_regime",
+        ]
         for cat in expected:
             assert cat in [c.value for c in categories]
 
@@ -102,6 +111,7 @@ class TestSchemaEnums:
 # DATA MODEL TESTS
 # =============================================================================
 
+
 class TestSource:
     """Test Source dataclass."""
 
@@ -113,7 +123,7 @@ class TestSource:
             provider=SourceProvider.FEDERAL_RESERVE,
             source_type=SourceType.OFFICIAL,
             base_url="https://example.com",
-            rate_limit_per_second=1.0
+            rate_limit_per_second=1.0,
         )
 
         assert source.source_id == "test_source"
@@ -135,7 +145,7 @@ class TestCategory:
             category_id="test_cat",
             category_type=CategoryType.FED_RATES,
             name="Test Category",
-            description="Test description"
+            description="Test description",
         )
 
         assert category.category_id == "test_cat"
@@ -160,7 +170,7 @@ class TestScheduledEvent:
             scheduled_at=datetime(2026, 1, 29, 14, 0),
             importance=ImportanceLevel.CRITICAL,
             title="FOMC Meeting",
-            description="Federal Reserve policy decision"
+            description="Federal Reserve policy decision",
         )
 
         assert event.event_type == EventType.FOMC_DECISION
@@ -173,10 +183,7 @@ class TestEntity:
     def test_entity_creation(self):
         """Test Entity creation."""
         entity = Entity(
-            entity_id="ent_001",
-            entity_type=EntityType.TICKER,
-            value="AAPL",
-            confidence=0.95
+            entity_id="ent_001", entity_type=EntityType.TICKER, value="AAPL", confidence=0.95
         )
 
         assert entity.entity_type == EntityType.TICKER
@@ -195,7 +202,7 @@ class TestArticle:
             title="Fed Holds Rates Steady",
             canonical_url="https://fed.gov/release",
             published_at=datetime.utcnow(),
-            ingested_at=datetime.utcnow()
+            ingested_at=datetime.utcnow(),
         )
 
         assert article.article_id == "art_001"
@@ -215,7 +222,7 @@ class TestStory:
             summary="The Federal Reserve announced policy changes.",
             why_it_matters="This affects interest rates and market sentiment.",
             first_seen_at=now,
-            last_updated_at=now
+            last_updated_at=now,
         )
 
         assert story.story_id == "story_001"
@@ -227,6 +234,7 @@ class TestStory:
 # =============================================================================
 # MACRO CALENDAR TESTS
 # =============================================================================
+
 
 class TestMacroCalendar:
     """Test MacroCalendar functionality."""
@@ -248,26 +256,25 @@ class TestMacroCalendar:
         """Test calendar events have proper dates."""
         events = calendar.get_all_events()
         for event in events[:5]:  # Check first 5
-            assert hasattr(event, 'scheduled_at')
+            assert hasattr(event, "scheduled_at")
 
     def test_calendar_has_fomc_events(self, calendar):
         """Test calendar has FOMC events."""
         events = calendar.get_all_events()
-        fomc_events = [e for e in events
-                       if e.event_type == EventType.FOMC_DECISION]
+        fomc_events = [e for e in events if e.event_type == EventType.FOMC_DECISION]
         assert len(fomc_events) >= 8  # At least 8 FOMC meetings per year
 
     def test_calendar_has_cpi_events(self, calendar):
         """Test calendar has CPI events."""
         events = calendar.get_all_events()
-        cpi_events = [e for e in events
-                      if e.event_type == EventType.CPI]
+        cpi_events = [e for e in events if e.event_type == EventType.CPI]
         assert len(cpi_events) >= 12  # Monthly CPI
 
 
 # =============================================================================
 # VERIFICATION ENGINE TESTS
 # =============================================================================
+
 
 class TestVerificationEngine:
     """Test VerificationEngine functionality."""
@@ -295,7 +302,7 @@ class TestVerificationEngine:
             source_type="premium",
             url="https://cnbc.com/article",
             tickers=["NVDA"],
-            categories=["SP500_EVENTS"]
+            categories=["SP500_EVENTS"],
         )
 
         assert candidate_id is not None
@@ -335,7 +342,7 @@ class TestVerificationEngine:
             source="Reuters",
             source_type="public",
             tickers=["SPY", "TLT"],
-            categories=["FED_RATES"]
+            categories=["FED_RATES"],
         )
 
         candidates = engine.get_pending_candidates()
@@ -349,9 +356,7 @@ class TestVerificationEngine:
     def test_store_verification_result(self, engine):
         """Test storing verification result."""
         candidate_id = engine.add_candidate(
-            headline="Test headline",
-            source="Test",
-            source_type="public"
+            headline="Test headline", source="Test", source_type="public"
         )
 
         result = VerificationResult(
@@ -361,8 +366,10 @@ class TestVerificationEngine:
             what_happened="Test event occurred",
             why_it_matters="Market impact expected",
             affected_assets=["AAPL", "MSFT"],
-            corroborating_sources=[{"name": "Source", "url": "http://example.com", "type": "public"}],
-            conflicts_found=[]
+            corroborating_sources=[
+                {"name": "Source", "url": "http://example.com", "type": "public"}
+            ],
+            conflicts_found=[],
         )
 
         engine.store_result(result)
@@ -393,7 +400,7 @@ class TestVerificationCandidate:
             url="https://example.com",
             published_at=datetime.utcnow(),
             tickers=["AAPL"],
-            categories=["SP500_EVENTS"]
+            categories=["SP500_EVENTS"],
         )
 
         assert candidate.candidate_id == "test_123"
@@ -409,7 +416,7 @@ class TestVerificationCandidate:
             url="https://bloomberg.com/article",
             published_at=datetime.utcnow(),
             tickers=["NVDA"],
-            categories=["SP500_EVENTS"]
+            categories=["SP500_EVENTS"],
         )
 
         query = candidate.to_verification_query()
@@ -431,7 +438,7 @@ class TestVerificationResult:
             why_it_matters="Market significance",
             affected_assets=["AAPL", "MSFT"],
             corroborating_sources=[],
-            conflicts_found=[]
+            conflicts_found=[],
         )
 
         assert result.verification_confidence == 8
@@ -447,7 +454,7 @@ class TestVerificationResult:
             why_it_matters="",
             affected_assets=[],
             corroborating_sources=[],
-            conflicts_found=[]
+            conflicts_found=[],
         )
 
         assert result.should_push() is True
@@ -462,7 +469,7 @@ class TestVerificationResult:
             why_it_matters="",
             affected_assets=[],
             corroborating_sources=[],
-            conflicts_found=[]
+            conflicts_found=[],
         )
 
         assert result.should_push() is False
@@ -485,7 +492,7 @@ class TestPushPayload:
             original_headline="Original headline",
             original_source="Original Source",
             original_url="http://original.com",
-            verified_at=datetime.utcnow().isoformat()
+            verified_at=datetime.utcnow().isoformat(),
         )
 
         assert payload.story_id == "story_123"
@@ -505,7 +512,7 @@ class TestPushPayload:
             original_headline="",
             original_source="",
             original_url="",
-            verified_at=""
+            verified_at="",
         )
 
         json_str = payload.to_json()
@@ -517,6 +524,7 @@ class TestPushPayload:
 # =============================================================================
 # WORKFLOW FUNCTION TESTS
 # =============================================================================
+
 
 class TestWorkflowFunctions:
     """Test workflow helper functions."""
@@ -545,9 +553,7 @@ class TestWorkflowFunctions:
     def test_process_verification_response(self, engine):
         """Test processing verification response."""
         candidate_id = engine.add_candidate(
-            headline="Test headline",
-            source="Test",
-            source_type="public"
+            headline="Test headline", source="Test", source_type="public"
         )
 
         result = process_verification_response(
@@ -558,7 +564,7 @@ class TestWorkflowFunctions:
             why_it_matters="Market impact",
             affected_assets=["SPY"],
             sources=[{"name": "Source", "url": "http://example.com", "type": "public"}],
-            conflicts=[]
+            conflicts=[],
         )
 
         assert isinstance(result, VerificationResult)
@@ -568,9 +574,7 @@ class TestWorkflowFunctions:
     def test_process_low_confidence_response(self, engine):
         """Test processing low confidence response."""
         candidate_id = engine.add_candidate(
-            headline="Uncertain headline",
-            source="Test",
-            source_type="public"
+            headline="Uncertain headline", source="Test", source_type="public"
         )
 
         result = process_verification_response(
@@ -581,7 +585,7 @@ class TestWorkflowFunctions:
             why_it_matters="Unclear",
             affected_assets=[],
             sources=[],
-            conflicts=["Conflicting report"]
+            conflicts=["Conflicting report"],
         )
 
         assert result.status == VerificationStatus.REJECTED
@@ -591,9 +595,7 @@ class TestWorkflowFunctions:
         """Test pushing verified stories in dry run mode."""
         # Add and verify candidate
         candidate_id = engine.add_candidate(
-            headline="Verified story",
-            source="Official",
-            source_type="official"
+            headline="Verified story", source="Official", source_type="official"
         )
 
         process_verification_response(
@@ -604,7 +606,7 @@ class TestWorkflowFunctions:
             why_it_matters="Big impact",
             affected_assets=["AAPL"],
             sources=[],
-            conflicts=[]
+            conflicts=[],
         )
 
         results = push_verified_stories(engine, dry_run=True)
@@ -615,6 +617,7 @@ class TestWorkflowFunctions:
 # =============================================================================
 # EDGE CASES
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
@@ -636,9 +639,7 @@ class TestEdgeCases:
     def test_candidate_with_no_tickers(self, engine):
         """Test candidate without tickers."""
         candidate_id = engine.add_candidate(
-            headline="General market news",
-            source="News",
-            source_type="public"
+            headline="General market news", source="News", source_type="public"
         )
 
         assert candidate_id is not None
@@ -653,18 +654,14 @@ class TestEdgeCases:
             headline="Stock up 50%! $AAPL 'amazing' results",
             source="News",
             source_type="public",
-            tickers=["AAPL"]
+            tickers=["AAPL"],
         )
 
         assert candidate_id is not None
 
     def test_verification_with_max_confidence(self, engine):
         """Test verification with maximum confidence."""
-        candidate_id = engine.add_candidate(
-            headline="Test",
-            source="Test",
-            source_type="official"
-        )
+        candidate_id = engine.add_candidate(headline="Test", source="Test", source_type="official")
 
         result = process_verification_response(
             engine=engine,
@@ -674,7 +671,7 @@ class TestEdgeCases:
             why_it_matters="Test",
             affected_assets=[],
             sources=[],
-            conflicts=[]
+            conflicts=[],
         )
 
         assert result.verification_confidence == 10
@@ -683,9 +680,7 @@ class TestEdgeCases:
     def test_verification_with_zero_confidence(self, engine):
         """Test verification with zero confidence."""
         candidate_id = engine.add_candidate(
-            headline="Fake news",
-            source="Unreliable",
-            source_type="public"
+            headline="Fake news", source="Unreliable", source_type="public"
         )
 
         result = process_verification_response(
@@ -696,7 +691,7 @@ class TestEdgeCases:
             why_it_matters="",
             affected_assets=[],
             sources=[],
-            conflicts=["Completely false"]
+            conflicts=["Completely false"],
         )
 
         assert result.verification_confidence == 0
@@ -706,6 +701,7 @@ class TestEdgeCases:
 # =============================================================================
 # INTEGRATION TESTS
 # =============================================================================
+
 
 class TestSystemIntegration:
     """Test system integration scenarios."""
@@ -733,7 +729,7 @@ class TestSystemIntegration:
                 source=source,
                 source_type=source_type,
                 tickers=tickers,
-                categories=["SP500_EVENTS"]
+                categories=["SP500_EVENTS"],
             )
             candidate_ids.append(cid)
 
@@ -753,7 +749,7 @@ class TestSystemIntegration:
                 why_it_matters="Market impact",
                 affected_assets=["SPY"],
                 sources=[],
-                conflicts=[]
+                conflicts=[],
             )
 
         # 4. Check stats

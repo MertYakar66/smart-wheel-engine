@@ -32,7 +32,7 @@ def build_entry_context(
     option_expiry: date,
     option_type: str = "put",
     use_live_data: bool = True,
-    data_cache: dict | None = None
+    data_cache: dict | None = None,
 ) -> dict[str, Any]:
     """
     Build context dict for entry signal evaluation.
@@ -61,7 +61,7 @@ def build_entry_context(
         "strike": option_strike,
         "expiry": option_expiry,
         "option_type": option_type,
-        "is_entry": True
+        "is_entry": True,
     }
 
     # Calculate DTE
@@ -84,7 +84,7 @@ def build_exit_context(
     entry_date: date,
     expiry_date: date,
     use_live_data: bool = True,
-    data_cache: dict | None = None
+    data_cache: dict | None = None,
 ) -> dict[str, Any]:
     """
     Build context dict for exit signal evaluation.
@@ -112,7 +112,7 @@ def build_exit_context(
         "ticker": ticker,
         "entry_credit": entry_credit,
         "current_value": current_value,
-        "is_entry": False
+        "is_entry": False,
     }
 
     today = date.today()
@@ -304,8 +304,7 @@ def _calculate_trend_from_prices(prices: pd.Series) -> float:
 
 
 def build_batch_entry_contexts(
-    candidates: list[dict],
-    use_live_data: bool = True
+    candidates: list[dict], use_live_data: bool = True
 ) -> list[dict[str, Any]]:
     """
     Build contexts for multiple entry candidates efficiently.
@@ -320,11 +319,7 @@ def build_batch_entry_contexts(
     # Pre-load data for all tickers to avoid repeated I/O
     tickers = list({c["ticker"] for c in candidates})
 
-    cache = {
-        "ohlcv": {},
-        "iv_history": {},
-        "earnings": {}
-    }
+    cache = {"ohlcv": {}, "iv_history": {}, "earnings": {}}
 
     try:
         from data.bloomberg_loader import (
@@ -350,7 +345,7 @@ def build_batch_entry_contexts(
             option_expiry=candidate["expiry"],
             option_type=candidate.get("option_type", "put"),
             use_live_data=use_live_data,
-            data_cache=cache
+            data_cache=cache,
         )
         contexts.append(ctx)
 
@@ -361,7 +356,7 @@ def evaluate_wheel_opportunities(
     tickers: list[str],
     target_dte: int = 45,
     target_delta: float = -0.30,
-    use_live_data: bool = True
+    use_live_data: bool = True,
 ) -> pd.DataFrame:
     """
     Evaluate wheel strategy opportunities for a list of tickers.
@@ -393,6 +388,7 @@ def evaluate_wheel_opportunities(
             if use_live_data:
                 try:
                     from data.bloomberg import BloombergConnector
+
                     with BloombergConnector() as bbg:
                         quote = bbg.get_quote(f"{ticker} US Equity")
                         current_price = quote.last
@@ -401,6 +397,7 @@ def evaluate_wheel_opportunities(
 
             if current_price is None:
                 from data.bloomberg_loader import load_bloomberg_ohlcv
+
                 ohlcv = load_bloomberg_ohlcv(ticker)
                 if ohlcv is not None and not ohlcv.empty:
                     current_price = float(ohlcv.iloc[-1]["Close"])
@@ -418,26 +415,28 @@ def evaluate_wheel_opportunities(
                 option_strike=strike,
                 option_expiry=target_expiry,
                 option_type="put",
-                use_live_data=use_live_data
+                use_live_data=use_live_data,
             )
 
             # Evaluate signal
             signal = aggregator.evaluate_entry(context)
 
-            results.append({
-                "ticker": ticker,
-                "price": current_price,
-                "strike": strike,
-                "expiry": target_expiry,
-                "dte": context.get("dte", target_dte),
-                "iv_rank": context.get("iv_rank", 0.5),
-                "trend": context.get("trend_direction", 0),
-                "days_to_earnings": context.get("days_to_earnings"),
-                "signal_value": signal.final_value,
-                "signal_strength": signal.final_signal.name,
-                "recommended": signal.action_recommended,
-                "explanation": signal.explanation[:100] if signal.explanation else ""
-            })
+            results.append(
+                {
+                    "ticker": ticker,
+                    "price": current_price,
+                    "strike": strike,
+                    "expiry": target_expiry,
+                    "dte": context.get("dte", target_dte),
+                    "iv_rank": context.get("iv_rank", 0.5),
+                    "trend": context.get("trend_direction", 0),
+                    "days_to_earnings": context.get("days_to_earnings"),
+                    "signal_value": signal.final_value,
+                    "signal_strength": signal.final_signal.name,
+                    "recommended": signal.action_recommended,
+                    "explanation": signal.explanation[:100] if signal.explanation else "",
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error evaluating {ticker}: {e}")

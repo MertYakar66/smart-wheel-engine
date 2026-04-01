@@ -18,34 +18,38 @@ from scipy import stats
 
 class VolatilityRegime(Enum):
     """Volatility environment classification."""
-    LOW = "low"           # IV < 15th percentile historically
-    NORMAL = "normal"     # 15th-70th percentile
-    ELEVATED = "elevated" # 70th-90th percentile
-    HIGH = "high"         # 90th-97th percentile
-    CRISIS = "crisis"     # > 97th percentile (VIX > 35 equivalent)
+
+    LOW = "low"  # IV < 15th percentile historically
+    NORMAL = "normal"  # 15th-70th percentile
+    ELEVATED = "elevated"  # 70th-90th percentile
+    HIGH = "high"  # 90th-97th percentile
+    CRISIS = "crisis"  # > 97th percentile (VIX > 35 equivalent)
 
 
 class TrendRegime(Enum):
     """Price trend classification."""
-    STRONG_UP = "strong_up"       # Consistent uptrend, high ADX
-    WEAK_UP = "weak_up"           # Uptrend but weakening
-    NEUTRAL = "neutral"           # Range-bound, no clear direction
-    WEAK_DOWN = "weak_down"       # Downtrend but weakening
-    STRONG_DOWN = "strong_down"   # Consistent downtrend, high ADX
+
+    STRONG_UP = "strong_up"  # Consistent uptrend, high ADX
+    WEAK_UP = "weak_up"  # Uptrend but weakening
+    NEUTRAL = "neutral"  # Range-bound, no clear direction
+    WEAK_DOWN = "weak_down"  # Downtrend but weakening
+    STRONG_DOWN = "strong_down"  # Consistent downtrend, high ADX
 
 
 class VolTermStructure(Enum):
     """Volatility term structure state."""
+
     STEEP_CONTANGO = "steep_contango"  # Front IV << back IV (normal, bullish)
-    CONTANGO = "contango"              # Front IV < back IV
-    FLAT = "flat"                      # Front IV ~ back IV
-    BACKWARDATION = "backwardation"    # Front IV > back IV (bearish signal)
+    CONTANGO = "contango"  # Front IV < back IV
+    FLAT = "flat"  # Front IV ~ back IV
+    BACKWARDATION = "backwardation"  # Front IV > back IV (bearish signal)
     STEEP_BACKWARDATION = "steep_backwardation"  # Front IV >> back IV (crisis)
 
 
 @dataclass
 class RegimeState:
     """Complete market regime classification."""
+
     volatility_regime: VolatilityRegime
     trend_regime: TrendRegime
     term_structure: VolTermStructure
@@ -82,14 +86,11 @@ class RegimeState:
     def is_favorable_for_selling(self) -> bool:
         """Is current regime favorable for selling options?"""
         # Good to sell: elevated vol + contango + not strong downtrend
-        vol_ok = self.volatility_regime in [
-            VolatilityRegime.ELEVATED,
-            VolatilityRegime.NORMAL
-        ]
+        vol_ok = self.volatility_regime in [VolatilityRegime.ELEVATED, VolatilityRegime.NORMAL]
         term_ok = self.term_structure in [
             VolTermStructure.CONTANGO,
             VolTermStructure.STEEP_CONTANGO,
-            VolTermStructure.FLAT
+            VolTermStructure.FLAT,
         ]
         trend_ok = self.trend_regime not in [TrendRegime.STRONG_DOWN]
 
@@ -104,11 +105,11 @@ class RegimeState:
         """
         # Base on volatility regime
         vol_mult = {
-            VolatilityRegime.LOW: 0.7,      # Reduce size (less premium)
+            VolatilityRegime.LOW: 0.7,  # Reduce size (less premium)
             VolatilityRegime.NORMAL: 1.0,
             VolatilityRegime.ELEVATED: 1.2,  # Increase size (more premium)
-            VolatilityRegime.HIGH: 0.8,      # Reduce size (more risk)
-            VolatilityRegime.CRISIS: 0.3     # Minimal size
+            VolatilityRegime.HIGH: 0.8,  # Reduce size (more risk)
+            VolatilityRegime.CRISIS: 0.3,  # Minimal size
         }.get(self.volatility_regime, 1.0)
 
         # Adjust for trend
@@ -117,7 +118,7 @@ class RegimeState:
             TrendRegime.WEAK_UP: 1.1,
             TrendRegime.NEUTRAL: 1.0,
             TrendRegime.WEAK_DOWN: 0.9,
-            TrendRegime.STRONG_DOWN: 0.5
+            TrendRegime.STRONG_DOWN: 0.5,
         }.get(self.trend_regime, 1.0)
 
         return vol_mult * trend_adj
@@ -152,7 +153,7 @@ class RegimeDetector:
         prices: pd.Series,
         iv_history: pd.Series | None = None,
         front_iv: float | None = None,
-        back_iv: float | None = None
+        back_iv: float | None = None,
     ) -> RegimeState:
         """
         Detect current market regime.
@@ -185,9 +186,7 @@ class RegimeDetector:
         trend_score = self._trend_to_score(trend_regime, trend_direction)
 
         # Confidence based on consistency
-        confidence = self._calculate_confidence(
-            prices, vol_regime, trend_regime
-        )
+        confidence = self._calculate_confidence(prices, vol_regime, trend_regime)
 
         regime = RegimeState(
             volatility_regime=vol_regime,
@@ -201,16 +200,14 @@ class RegimeDetector:
             trend_direction=trend_direction,
             vol_regime_score=vol_score,
             trend_regime_score=trend_score,
-            regime_confidence=confidence
+            regime_confidence=confidence,
         )
 
         self.regime_history.append(regime)
         return regime
 
     def _classify_volatility(
-        self,
-        current_iv: float,
-        iv_history: pd.Series | None = None
+        self, current_iv: float, iv_history: pd.Series | None = None
     ) -> tuple[VolatilityRegime, float]:
         """Classify volatility regime based on percentile."""
         if iv_history is not None and len(iv_history) > 30:
@@ -233,7 +230,7 @@ class RegimeDetector:
         # Store for future reference
         self.iv_history.append(current_iv)
         if len(self.iv_history) > self.vol_lookback:
-            self.iv_history = self.iv_history[-self.vol_lookback:]
+            self.iv_history = self.iv_history[-self.vol_lookback :]
 
         # Classify
         if percentile < 15:
@@ -266,10 +263,7 @@ class RegimeDetector:
         # Annualize
         return daily_vol * np.sqrt(252)
 
-    def _classify_trend(
-        self,
-        prices: pd.Series
-    ) -> tuple[TrendRegime, float, float]:
+    def _classify_trend(self, prices: pd.Series) -> tuple[TrendRegime, float, float]:
         """
         Classify trend regime using ADX-like logic.
 
@@ -319,9 +313,7 @@ class RegimeDetector:
         return regime, strength, direction
 
     def _classify_term_structure(
-        self,
-        front_iv: float | None,
-        back_iv: float | None
+        self, front_iv: float | None, back_iv: float | None
     ) -> VolTermStructure:
         """Classify volatility term structure."""
         if front_iv is None or back_iv is None:
@@ -343,11 +335,7 @@ class RegimeDetector:
         else:
             return VolTermStructure.STEEP_BACKWARDATION
 
-    def _vol_to_score(
-        self,
-        regime: VolatilityRegime,
-        percentile: float
-    ) -> float:
+    def _vol_to_score(self, regime: VolatilityRegime, percentile: float) -> float:
         """Convert volatility regime to -1 to +1 score."""
         # Map percentile to score
         # 0 percentile = -1 (very low vol)
@@ -355,28 +343,21 @@ class RegimeDetector:
         # 100 percentile = +1 (very high vol)
         return (percentile - 50) / 50
 
-    def _trend_to_score(
-        self,
-        regime: TrendRegime,
-        direction: float
-    ) -> float:
+    def _trend_to_score(self, regime: TrendRegime, direction: float) -> float:
         """Convert trend regime to -1 to +1 score."""
         base_score = {
             TrendRegime.STRONG_UP: 0.8,
             TrendRegime.WEAK_UP: 0.4,
             TrendRegime.NEUTRAL: 0.0,
             TrendRegime.WEAK_DOWN: -0.4,
-            TrendRegime.STRONG_DOWN: -0.8
+            TrendRegime.STRONG_DOWN: -0.8,
         }.get(regime, 0)
 
         # Blend with actual direction
         return (base_score + direction) / 2
 
     def _calculate_confidence(
-        self,
-        prices: pd.Series,
-        vol_regime: VolatilityRegime,
-        trend_regime: TrendRegime
+        self, prices: pd.Series, vol_regime: VolatilityRegime, trend_regime: TrendRegime
     ) -> float:
         """Calculate confidence in regime classification."""
         confidence = 0.5  # Base
@@ -409,68 +390,65 @@ class RegimeDetector:
 
         return min(confidence, 1.0)
 
-    def get_strategy_adjustments(
-        self,
-        regime: RegimeState
-    ) -> dict[str, any]:
+    def get_strategy_adjustments(self, regime: RegimeState) -> dict[str, any]:
         """
         Get recommended strategy adjustments based on regime.
 
         Returns dict with adjustment parameters.
         """
         adjustments = {
-            'position_size_mult': regime.position_size_multiplier,
-            'delta_target': 0.30,  # Base target
-            'dte_preference': 'normal',
-            'profit_target_mult': 1.0,
-            'stop_loss_mult': 1.0,
-            'new_positions_allowed': True,
-            'reason': []
+            "position_size_mult": regime.position_size_multiplier,
+            "delta_target": 0.30,  # Base target
+            "dte_preference": "normal",
+            "profit_target_mult": 1.0,
+            "stop_loss_mult": 1.0,
+            "new_positions_allowed": True,
+            "reason": [],
         }
 
         # Volatility adjustments
         if regime.volatility_regime == VolatilityRegime.LOW:
-            adjustments['delta_target'] = 0.35  # Closer to ATM for more premium
-            adjustments['dte_preference'] = 'longer'
-            adjustments['reason'].append("Low vol: targeting closer strikes, longer DTE")
+            adjustments["delta_target"] = 0.35  # Closer to ATM for more premium
+            adjustments["dte_preference"] = "longer"
+            adjustments["reason"].append("Low vol: targeting closer strikes, longer DTE")
 
         elif regime.volatility_regime == VolatilityRegime.ELEVATED:
-            adjustments['delta_target'] = 0.25  # Farther OTM
-            adjustments['profit_target_mult'] = 0.8  # Take profits earlier
-            adjustments['reason'].append("Elevated vol: wider strikes, earlier profit-taking")
+            adjustments["delta_target"] = 0.25  # Farther OTM
+            adjustments["profit_target_mult"] = 0.8  # Take profits earlier
+            adjustments["reason"].append("Elevated vol: wider strikes, earlier profit-taking")
 
         elif regime.volatility_regime == VolatilityRegime.HIGH:
-            adjustments['delta_target'] = 0.20
-            adjustments['stop_loss_mult'] = 1.5  # Wider stops
-            adjustments['reason'].append("High vol: far OTM, wider stops")
+            adjustments["delta_target"] = 0.20
+            adjustments["stop_loss_mult"] = 1.5  # Wider stops
+            adjustments["reason"].append("High vol: far OTM, wider stops")
 
         elif regime.volatility_regime == VolatilityRegime.CRISIS:
-            adjustments['new_positions_allowed'] = False
-            adjustments['reason'].append("Crisis: no new positions")
+            adjustments["new_positions_allowed"] = False
+            adjustments["reason"].append("Crisis: no new positions")
 
         # Trend adjustments
         if regime.trend_regime == TrendRegime.STRONG_DOWN:
-            adjustments['delta_target'] *= 0.7  # Even farther OTM
-            adjustments['new_positions_allowed'] = False
-            adjustments['reason'].append("Strong downtrend: defensive mode")
+            adjustments["delta_target"] *= 0.7  # Even farther OTM
+            adjustments["new_positions_allowed"] = False
+            adjustments["reason"].append("Strong downtrend: defensive mode")
 
         elif regime.trend_regime == TrendRegime.STRONG_UP:
-            adjustments['profit_target_mult'] = 0.7  # Quick profits
-            adjustments['reason'].append("Strong uptrend: quick profit-taking")
+            adjustments["profit_target_mult"] = 0.7  # Quick profits
+            adjustments["reason"].append("Strong uptrend: quick profit-taking")
 
         # Term structure adjustments
-        if regime.term_structure in [VolTermStructure.BACKWARDATION,
-                                      VolTermStructure.STEEP_BACKWARDATION]:
-            adjustments['dte_preference'] = 'shorter'
-            adjustments['reason'].append("Backwardation: prefer shorter DTE")
+        if regime.term_structure in [
+            VolTermStructure.BACKWARDATION,
+            VolTermStructure.STEEP_BACKWARDATION,
+        ]:
+            adjustments["dte_preference"] = "shorter"
+            adjustments["reason"].append("Backwardation: prefer shorter DTE")
 
         return adjustments
 
 
 def calculate_regime_signals(
-    prices: pd.DataFrame,
-    iv_column: str = 'iv',
-    close_column: str = 'close'
+    prices: pd.DataFrame, iv_column: str = "iv", close_column: str = "close"
 ) -> pd.DataFrame:
     """
     Calculate regime signals for entire price DataFrame.
@@ -484,26 +462,26 @@ def calculate_regime_signals(
         row = prices.iloc[i]
 
         # Get historical data up to this point
-        hist_prices = prices[close_column].iloc[:i + 1]
-        hist_iv = prices[iv_column].iloc[:i + 1] if iv_column in prices.columns else None
+        hist_prices = prices[close_column].iloc[: i + 1]
+        hist_iv = prices[iv_column].iloc[: i + 1] if iv_column in prices.columns else None
 
         current_iv = row[iv_column] if iv_column in prices.columns else 0.20
 
         regime = detector.detect_regime(
-            current_iv=current_iv,
-            prices=hist_prices,
-            iv_history=hist_iv
+            current_iv=current_iv, prices=hist_prices, iv_history=hist_iv
         )
 
-        results.append({
-            'date': prices.index[i],
-            'vol_regime': regime.volatility_regime.value,
-            'trend_regime': regime.trend_regime.value,
-            'iv_percentile': regime.iv_percentile,
-            'trend_strength': regime.trend_strength,
-            'trend_direction': regime.trend_direction,
-            'position_mult': regime.position_size_multiplier,
-            'favorable_for_selling': regime.is_favorable_for_selling
-        })
+        results.append(
+            {
+                "date": prices.index[i],
+                "vol_regime": regime.volatility_regime.value,
+                "trend_regime": regime.trend_regime.value,
+                "iv_percentile": regime.iv_percentile,
+                "trend_strength": regime.trend_strength,
+                "trend_direction": regime.trend_direction,
+                "position_mult": regime.position_size_multiplier,
+                "favorable_for_selling": regime.is_favorable_for_selling,
+            }
+        )
 
-    return pd.DataFrame(results).set_index('date')
+    return pd.DataFrame(results).set_index("date")

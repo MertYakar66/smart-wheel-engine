@@ -59,7 +59,8 @@ class NewsDashboard:
         )
 
         # Custom CSS
-        st.markdown("""
+        st.markdown(
+            """
         <style>
         .story-card {
             background-color: #1E1E1E;
@@ -99,7 +100,9 @@ class NewsDashboard:
             font-size: 12px;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         # Sidebar
         self._render_sidebar()
@@ -108,9 +111,7 @@ class NewsDashboard:
         st.title("Financial News Dashboard")
 
         # Navigation tabs
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "News Feed", "Categories", "Brief", "Settings"
-        ])
+        tab1, tab2, tab3, tab4 = st.tabs(["News Feed", "Categories", "Brief", "Settings"])
 
         with tab1:
             self._render_news_feed()
@@ -184,9 +185,7 @@ class NewsDashboard:
             cat = next((c for c in categories if c.name == selected_cat), None)
             if cat:
                 topic_values = [t.value for t in cat.topics]
-                stories = [s for s in stories if any(
-                    t.value in topic_values for t in s.topics
-                )]
+                stories = [s for s in stories if any(t.value in topic_values for t in s.topics)]
 
         # Render story cards
         for story in stories:
@@ -215,10 +214,7 @@ class NewsDashboard:
             time_ago = f"{int(time_diff.total_seconds() / 86400)}d ago"
 
         # Ticker badges
-        ticker_html = " ".join(
-            f'<span class="ticker-badge">${t}</span>'
-            for t in story.tickers[:5]
-        )
+        ticker_html = " ".join(f'<span class="ticker-badge">${t}</span>' for t in story.tickers[:5])
 
         # Card HTML
         card_html = f"""
@@ -228,7 +224,7 @@ class NewsDashboard:
                 {impact_badge}
             </div>
             <p style="margin: 8px 0; color: #D1D5DB; font-size: 14px;">
-                {story.summary or 'No summary available.'}
+                {story.summary or "No summary available."}
             </p>
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>{ticker_html}</div>
@@ -237,7 +233,7 @@ class NewsDashboard:
                     <span class="time-ago" style="margin-left: 12px;">{time_ago}</span>
                 </div>
             </div>
-            {f'<p style="margin-top: 8px; color: #9CA3AF; font-size: 13px; font-style: italic;">{story.why_it_matters}</p>' if story.why_it_matters else ''}
+            {f'<p style="margin-top: 8px; color: #9CA3AF; font-size: 13px; font-style: italic;">{story.why_it_matters}</p>' if story.why_it_matters else ""}
         </div>
         """
 
@@ -338,13 +334,15 @@ class NewsDashboard:
         ]
 
         for i, story in enumerate(stories, 1):
-            lines.extend([
-                f"{i}. {story.headline}",
-                f"   {story.summary or ''}",
-                f"   Tickers: {', '.join(story.tickers[:5]) or 'N/A'}",
-                f"   Impact: {'HIGH' if story.impact_score > 0.7 else 'MEDIUM' if story.impact_score > 0.4 else 'LOW'}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"{i}. {story.headline}",
+                    f"   {story.summary or ''}",
+                    f"   Tickers: {', '.join(story.tickers[:5]) or 'N/A'}",
+                    f"   Impact: {'HIGH' if story.impact_score > 0.7 else 'MEDIUM' if story.impact_score > 0.4 else 'LOW'}",
+                    "",
+                ]
+            )
 
         return "\n".join(lines)
 
@@ -357,7 +355,13 @@ class NewsDashboard:
 
         st.selectbox(
             "Timezone",
-            ["America/Toronto", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Tokyo"],
+            [
+                "America/Toronto",
+                "America/New_York",
+                "America/Los_Angeles",
+                "Europe/London",
+                "Asia/Tokyo",
+            ],
         )
 
         st.time_input("Morning Brief Time", datetime.strptime("07:00", "%H:%M"))

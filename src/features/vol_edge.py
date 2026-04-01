@@ -7,7 +7,6 @@ Key insight: You profit when IV > RV (volatility risk premium)
 This module quantifies that edge.
 """
 
-
 import numpy as np
 import pandas as pd
 
@@ -135,7 +134,7 @@ class VolatilityEdge:
         """
         low, high = thresholds
         regime = pd.Series(1, index=rv.index)  # Default normal
-        regime[rv < low] = 0   # Low vol
+        regime[rv < low] = 0  # Low vol
         regime[rv > high] = 2  # High vol
         return regime
 
@@ -207,7 +206,7 @@ class VolatilityEdge:
         """
         # IV is sqrt of expected variance
         # Compare IV^2 to RV^2
-        return iv_30d ** 2 - rv_21d ** 2
+        return iv_30d**2 - rv_21d**2
 
     @staticmethod
     def edge_score(
@@ -261,11 +260,7 @@ class VolatilityEdge:
         # VRP percentile most important (historical context)
         # IV rank second (own-history context)
         # Ratio provides cross-sectional signal
-        score = (
-            0.40 * vrp_component +
-            0.35 * iv_rank_component +
-            0.25 * ratio_component
-        )
+        score = 0.40 * vrp_component + 0.35 * iv_rank_component + 0.25 * ratio_component
 
         return score
 

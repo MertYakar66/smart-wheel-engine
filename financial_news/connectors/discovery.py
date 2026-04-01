@@ -103,15 +103,12 @@ class DiscoveryConnector(BaseConnector):
         # Google News - topic-specific
         "google_business": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB",
         "google_markets": "https://news.google.com/rss/topics/CAAqIggKIhxDQkFTRHdvSkwyMHZNR2RtY0hNekVnSmxiaWdBUAE",
-
         # CNBC
         "cnbc_top": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
         "cnbc_markets": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
         "cnbc_economy": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
-
         # Yahoo Finance
         "yahoo_top": "https://finance.yahoo.com/news/rssindex",
-
         # Reuters (if available)
         "reuters_business": "https://www.reutersagency.com/feed/?best-topics=business-finance",
     }
@@ -119,30 +116,63 @@ class DiscoveryConnector(BaseConnector):
     # Keywords that indicate market-relevant stories
     MARKET_KEYWORDS = {
         # Fed/Rates
-        "fed", "federal reserve", "fomc", "powell", "rate hike", "rate cut",
-        "interest rate", "treasury yield", "bond",
-
+        "fed",
+        "federal reserve",
+        "fomc",
+        "powell",
+        "rate hike",
+        "rate cut",
+        "interest rate",
+        "treasury yield",
+        "bond",
         # Inflation
-        "inflation", "cpi", "pce", "prices",
-
+        "inflation",
+        "cpi",
+        "pce",
+        "prices",
         # Labor
-        "jobs", "employment", "unemployment", "payroll", "labor",
-
+        "jobs",
+        "employment",
+        "unemployment",
+        "payroll",
+        "labor",
         # Growth
-        "gdp", "recession", "growth", "retail sales", "housing",
-
+        "gdp",
+        "recession",
+        "growth",
+        "retail sales",
+        "housing",
         # Oil/Energy
-        "oil", "crude", "opec", "energy", "gas prices", "petroleum",
-
+        "oil",
+        "crude",
+        "opec",
+        "energy",
+        "gas prices",
+        "petroleum",
         # Geopolitics
-        "sanctions", "tariff", "trade war", "china", "russia",
-
+        "sanctions",
+        "tariff",
+        "trade war",
+        "china",
+        "russia",
         # Corporate
-        "earnings", "revenue", "guidance", "merger", "acquisition",
-        "ceo", "layoffs", "buyback", "dividend",
-
+        "earnings",
+        "revenue",
+        "guidance",
+        "merger",
+        "acquisition",
+        "ceo",
+        "layoffs",
+        "buyback",
+        "dividend",
         # Market
-        "stock", "market", "s&p", "nasdaq", "dow", "rally", "selloff",
+        "stock",
+        "market",
+        "s&p",
+        "nasdaq",
+        "dow",
+        "rally",
+        "selloff",
     }
 
     def __init__(self, source_id: str = "google_news"):
@@ -316,8 +346,8 @@ class DiscoveryConnector(BaseConnector):
 
     def _clean_html(self, text: str) -> str:
         """Remove HTML tags."""
-        clean = re.sub(r'<[^>]+>', '', text)
-        clean = re.sub(r'\s+', ' ', clean)
+        clean = re.sub(r"<[^>]+>", "", text)
+        clean = re.sub(r"\s+", " ", clean)
         return clean.strip()
 
     def _extract_publisher(self, url: str, feed_name: str) -> str:
@@ -348,9 +378,9 @@ class DiscoveryConnector(BaseConnector):
         """Extract stock tickers from title."""
         # Match patterns like $AAPL, (AAPL), AAPL:
         patterns = [
-            r'\$([A-Z]{1,5})\b',
-            r'\(([A-Z]{1,5})\)',
-            r'\b([A-Z]{2,5}):\s',
+            r"\$([A-Z]{1,5})\b",
+            r"\(([A-Z]{1,5})\)",
+            r"\b([A-Z]{2,5}):\s",
         ]
         tickers = []
         for pattern in patterns:
@@ -359,9 +389,15 @@ class DiscoveryConnector(BaseConnector):
 
         # Also check for known company names
         company_tickers = {
-            "apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL",
-            "amazon": "AMZN", "meta": "META", "nvidia": "NVDA",
-            "tesla": "TSLA", "netflix": "NFLX", "jpmorgan": "JPM",
+            "apple": "AAPL",
+            "microsoft": "MSFT",
+            "google": "GOOGL",
+            "amazon": "AMZN",
+            "meta": "META",
+            "nvidia": "NVDA",
+            "tesla": "TSLA",
+            "netflix": "NFLX",
+            "jpmorgan": "JPM",
         }
         title_lower = title.lower()
         for company, ticker in company_tickers.items():
@@ -376,19 +412,23 @@ class DiscoveryConnector(BaseConnector):
 
         # Fed-related
         if any(kw in title.lower() for kw in ["fed", "fomc", "powell"]):
-            entities.append(Entity(
-                entity_id="fed",
-                entity_type=EntityType.CENTRAL_BANK,
-                value="Federal Reserve",
-            ))
+            entities.append(
+                Entity(
+                    entity_id="fed",
+                    entity_type=EntityType.CENTRAL_BANK,
+                    value="Federal Reserve",
+                )
+            )
 
         # OPEC
         if "opec" in title.lower():
-            entities.append(Entity(
-                entity_id="opec",
-                entity_type=EntityType.COMPANY,
-                value="OPEC",
-            ))
+            entities.append(
+                Entity(
+                    entity_id="opec",
+                    entity_type=EntityType.COMPANY,
+                    value="OPEC",
+                )
+            )
 
         return entities
 
@@ -404,7 +444,9 @@ class DiscoveryConnector(BaseConnector):
         """
         # Google News search RSS
         encoded_topic = quote_plus(topic)
-        search_url = f"https://news.google.com/rss/search?q={encoded_topic}&hl=en-US&gl=US&ceid=US:en"
+        search_url = (
+            f"https://news.google.com/rss/search?q={encoded_topic}&hl=en-US&gl=US&ceid=US:en"
+        )
 
         result = await self.fetch(search_url)
         if not result.success:

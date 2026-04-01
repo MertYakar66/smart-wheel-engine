@@ -22,7 +22,7 @@ class TestVolatilityRegime:
 
         regime = detector.detect_regime(
             current_iv=0.10,  # Very low IV
-            prices=prices
+            prices=prices,
         )
 
         assert regime.volatility_regime == VolatilityRegime.LOW
@@ -35,13 +35,10 @@ class TestVolatilityRegime:
 
         regime = detector.detect_regime(
             current_iv=0.45,  # High IV
-            prices=prices
+            prices=prices,
         )
 
-        assert regime.volatility_regime in [
-            VolatilityRegime.HIGH,
-            VolatilityRegime.CRISIS
-        ]
+        assert regime.volatility_regime in [VolatilityRegime.HIGH, VolatilityRegime.CRISIS]
 
     def test_normal_volatility_regime(self):
         """Normal IV should be classified as NORMAL."""
@@ -50,13 +47,10 @@ class TestVolatilityRegime:
 
         regime = detector.detect_regime(
             current_iv=0.18,  # Normal IV
-            prices=prices
+            prices=prices,
         )
 
-        assert regime.volatility_regime in [
-            VolatilityRegime.NORMAL,
-            VolatilityRegime.ELEVATED
-        ]
+        assert regime.volatility_regime in [VolatilityRegime.NORMAL, VolatilityRegime.ELEVATED]
 
 
 class TestTrendRegime:
@@ -68,15 +62,9 @@ class TestTrendRegime:
         # Clear uptrend
         prices = pd.Series([100 + i * 0.5 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.20,
-            prices=prices
-        )
+        regime = detector.detect_regime(current_iv=0.20, prices=prices)
 
-        assert regime.trend_regime in [
-            TrendRegime.STRONG_UP,
-            TrendRegime.WEAK_UP
-        ]
+        assert regime.trend_regime in [TrendRegime.STRONG_UP, TrendRegime.WEAK_UP]
         assert regime.trend_direction > 0
 
     def test_downtrend_detection(self):
@@ -85,15 +73,9 @@ class TestTrendRegime:
         # Clear downtrend
         prices = pd.Series([100 - i * 0.5 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.20,
-            prices=prices
-        )
+        regime = detector.detect_regime(current_iv=0.20, prices=prices)
 
-        assert regime.trend_regime in [
-            TrendRegime.STRONG_DOWN,
-            TrendRegime.WEAK_DOWN
-        ]
+        assert regime.trend_regime in [TrendRegime.STRONG_DOWN, TrendRegime.WEAK_DOWN]
         assert regime.trend_direction < 0
 
     def test_neutral_regime(self):
@@ -103,16 +85,13 @@ class TestTrendRegime:
         np.random.seed(42)
         prices = pd.Series([100 + np.random.randn() * 0.5 for _ in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.20,
-            prices=prices
-        )
+        regime = detector.detect_regime(current_iv=0.20, prices=prices)
 
         # Should be neutral or weak trend
         assert regime.trend_regime in [
             TrendRegime.NEUTRAL,
             TrendRegime.WEAK_UP,
-            TrendRegime.WEAK_DOWN
+            TrendRegime.WEAK_DOWN,
         ]
 
 
@@ -124,33 +103,20 @@ class TestTermStructure:
         detector = RegimeDetector()
         prices = pd.Series([100 + i * 0.1 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.20,
-            prices=prices,
-            front_iv=0.18,
-            back_iv=0.22
-        )
+        regime = detector.detect_regime(current_iv=0.20, prices=prices, front_iv=0.18, back_iv=0.22)
 
-        assert regime.term_structure in [
-            VolTermStructure.CONTANGO,
-            VolTermStructure.STEEP_CONTANGO
-        ]
+        assert regime.term_structure in [VolTermStructure.CONTANGO, VolTermStructure.STEEP_CONTANGO]
 
     def test_backwardation(self):
         """Front IV > back IV = backwardation."""
         detector = RegimeDetector()
         prices = pd.Series([100 + i * 0.1 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.30,
-            prices=prices,
-            front_iv=0.35,
-            back_iv=0.25
-        )
+        regime = detector.detect_regime(current_iv=0.30, prices=prices, front_iv=0.35, back_iv=0.25)
 
         assert regime.term_structure in [
             VolTermStructure.BACKWARDATION,
-            VolTermStructure.STEEP_BACKWARDATION
+            VolTermStructure.STEEP_BACKWARDATION,
         ]
 
 
@@ -162,12 +128,7 @@ class TestStrategyAdjustments:
         detector = RegimeDetector()
         prices = pd.Series([100 + i * 0.3 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.28,
-            prices=prices,
-            front_iv=0.26,
-            back_iv=0.30
-        )
+        regime = detector.detect_regime(current_iv=0.28, prices=prices, front_iv=0.26, back_iv=0.30)
 
         # Should be favorable or at least not unfavorable
         assert regime.position_size_multiplier >= 0.5
@@ -179,7 +140,7 @@ class TestStrategyAdjustments:
 
         regime = detector.detect_regime(
             current_iv=0.55,  # Crisis-level IV
-            prices=prices
+            prices=prices,
         )
 
         # Position size should be reduced
@@ -190,16 +151,13 @@ class TestStrategyAdjustments:
         detector = RegimeDetector()
         prices = pd.Series([100 + i * 0.1 for i in range(50)])
 
-        regime = detector.detect_regime(
-            current_iv=0.20,
-            prices=prices
-        )
+        regime = detector.detect_regime(current_iv=0.20, prices=prices)
 
         adjustments = detector.get_strategy_adjustments(regime)
 
-        assert 'position_size_mult' in adjustments
-        assert 'delta_target' in adjustments
-        assert 'reason' in adjustments
+        assert "position_size_mult" in adjustments
+        assert "delta_target" in adjustments
+        assert "reason" in adjustments
 
 
 class TestRegimeSignals:
@@ -208,15 +166,18 @@ class TestRegimeSignals:
     def test_calculate_regime_signals(self):
         """Should calculate signals for DataFrame."""
         # Create sample data
-        dates = pd.date_range(start='2023-01-01', periods=100, freq='D')
-        prices = pd.DataFrame({
-            'close': [100 + i * 0.1 for i in range(100)],
-            'iv': [0.20 + 0.001 * i for i in range(100)]
-        }, index=dates)
+        dates = pd.date_range(start="2023-01-01", periods=100, freq="D")
+        prices = pd.DataFrame(
+            {
+                "close": [100 + i * 0.1 for i in range(100)],
+                "iv": [0.20 + 0.001 * i for i in range(100)],
+            },
+            index=dates,
+        )
 
         signals = calculate_regime_signals(prices)
 
         assert len(signals) == len(prices)
-        assert 'vol_regime' in signals.columns
-        assert 'trend_regime' in signals.columns
-        assert 'position_mult' in signals.columns
+        assert "vol_regime" in signals.columns
+        assert "trend_regime" in signals.columns
+        assert "position_mult" in signals.columns

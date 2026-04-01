@@ -170,8 +170,8 @@ class FedConnector(BaseConnector):
 
     def _clean_html(self, text: str) -> str:
         """Remove HTML tags from text."""
-        clean = re.sub(r'<[^>]+>', '', text)
-        clean = re.sub(r'\s+', ' ', clean)
+        clean = re.sub(r"<[^>]+>", "", text)
+        clean = re.sub(r"\s+", " ", clean)
         return clean.strip()
 
     def _extract_fed_entities(self, title: str, description: str) -> list[Entity]:
@@ -180,12 +180,14 @@ class FedConnector(BaseConnector):
         text = f"{title} {description}".lower()
 
         # Central bank
-        entities.append(Entity(
-            entity_id="fed_central_bank",
-            entity_type=EntityType.CENTRAL_BANK,
-            value="Federal Reserve",
-            confidence=1.0,
-        ))
+        entities.append(
+            Entity(
+                entity_id="fed_central_bank",
+                entity_type=EntityType.CENTRAL_BANK,
+                value="Federal Reserve",
+                confidence=1.0,
+            )
+        )
 
         # Fed officials
         fed_officials = {
@@ -199,12 +201,14 @@ class FedConnector(BaseConnector):
         }
         for key, name in fed_officials.items():
             if key in text:
-                entities.append(Entity(
-                    entity_id=f"fed_official_{key}",
-                    entity_type=EntityType.PERSON,
-                    value=name,
-                    confidence=0.9,
-                ))
+                entities.append(
+                    Entity(
+                        entity_id=f"fed_official_{key}",
+                        entity_type=EntityType.PERSON,
+                        value=name,
+                        confidence=0.9,
+                    )
+                )
 
         # Macro indicators mentioned
         indicators = {
@@ -217,12 +221,14 @@ class FedConnector(BaseConnector):
         }
         for key, name in indicators.items():
             if key in text:
-                entities.append(Entity(
-                    entity_id=f"macro_{key.replace(' ', '_')}",
-                    entity_type=EntityType.MACRO_INDICATOR,
-                    value=name,
-                    confidence=0.8,
-                ))
+                entities.append(
+                    Entity(
+                        entity_id=f"macro_{key.replace(' ', '_')}",
+                        entity_type=EntityType.MACRO_INDICATOR,
+                        value=name,
+                        confidence=0.8,
+                    )
+                )
 
         return entities
 
@@ -241,14 +247,14 @@ class FedConnector(BaseConnector):
         articles = []
         # Look for statement links in the HTML
         # Pattern: /newsevents/pressreleases/monetary20260318a.htm
-        pattern = rf'/newsevents/pressreleases/monetary{year}\d{{4}}[a-z]?\.htm'
+        pattern = rf"/newsevents/pressreleases/monetary{year}\d{{4}}[a-z]?\.htm"
         matches = re.findall(pattern, result.content)
 
         for match in set(matches):
             url = f"https://www.federalreserve.gov{match}"
 
             # Extract date from URL
-            date_match = re.search(r'monetary(\d{8})', match)
+            date_match = re.search(r"monetary(\d{8})", match)
             if date_match:
                 date_str = date_match.group(1)
                 try:

@@ -23,28 +23,30 @@ from .option_pricer import black_scholes_price
 
 class ScenarioType(Enum):
     """Types of stress scenarios."""
-    HISTORICAL = "historical"       # Based on actual historical events
-    HYPOTHETICAL = "hypothetical"   # User-defined scenarios
-    SENSITIVITY = "sensitivity"     # Greeks-based sensitivities
-    MONTE_CARLO = "monte_carlo"     # Simulated scenarios
+
+    HISTORICAL = "historical"  # Based on actual historical events
+    HYPOTHETICAL = "hypothetical"  # User-defined scenarios
+    SENSITIVITY = "sensitivity"  # Greeks-based sensitivities
+    MONTE_CARLO = "monte_carlo"  # Simulated scenarios
 
 
 @dataclass
 class Scenario:
     """Single stress scenario definition."""
+
     name: str
     scenario_type: ScenarioType
     description: str
 
     # Market shocks
-    spot_change_pct: float = 0.0      # % change in underlying
-    iv_change_pct: float = 0.0        # % change in IV (relative)
-    iv_change_abs: float = 0.0        # Absolute change in IV
-    rate_change_bps: float = 0.0      # Change in rates (basis points)
-    time_decay_days: int = 0          # Days of time decay
+    spot_change_pct: float = 0.0  # % change in underlying
+    iv_change_pct: float = 0.0  # % change in IV (relative)
+    iv_change_abs: float = 0.0  # Absolute change in IV
+    rate_change_bps: float = 0.0  # Change in rates (basis points)
+    time_decay_days: int = 0  # Days of time decay
 
     # Correlation assumptions
-    correlation_shock: float = 1.0    # 1.0 = all assets move together
+    correlation_shock: float = 1.0  # 1.0 = all assets move together
 
     def __str__(self) -> str:
         parts = [f"{self.name}:"]
@@ -62,10 +64,11 @@ class Scenario:
 @dataclass
 class ScenarioResult:
     """Result of applying a scenario."""
+
     scenario: Scenario
-    portfolio_pnl: float              # Total P&L
-    portfolio_pnl_pct: float          # P&L as % of portfolio
-    position_pnls: dict[str, float]   # P&L by position
+    portfolio_pnl: float  # Total P&L
+    portfolio_pnl_pct: float  # P&L as % of portfolio
+    position_pnls: dict[str, float]  # P&L by position
     new_portfolio_value: float
     new_greeks: dict | None = None
 
@@ -76,19 +79,19 @@ class ScenarioResult:
 
     def __str__(self) -> str:
         return (
-            f"{self.scenario.name}: P&L ${self.portfolio_pnl:+,.0f} "
-            f"({self.portfolio_pnl_pct:+.1%})"
+            f"{self.scenario.name}: P&L ${self.portfolio_pnl:+,.0f} ({self.portfolio_pnl_pct:+.1%})"
         )
 
 
 @dataclass
 class StressTestReport:
     """Complete stress test report."""
+
     results: list[ScenarioResult]
     worst_case: ScenarioResult
     best_case: ScenarioResult
-    expected_shortfall: float         # Average of worst 5%
-    var_95: float                     # 95% VaR from scenarios
+    expected_shortfall: float  # Average of worst 5%
+    var_95: float  # 95% VaR from scenarios
 
     def summary(self) -> str:
         """Generate summary report."""
@@ -102,15 +105,17 @@ class StressTestReport:
         for result in sorted(self.results, key=lambda r: r.portfolio_pnl):
             lines.append(f"  {result}")
 
-        lines.extend([
-            "",
-            f"Worst Case: {self.worst_case.scenario.name} "
-            f"(${self.worst_case.portfolio_pnl:+,.0f})",
-            f"Best Case:  {self.best_case.scenario.name} "
-            f"(${self.best_case.portfolio_pnl:+,.0f})",
-            f"95% VaR:    ${self.var_95:,.0f}",
-            f"Exp. Shortfall: ${self.expected_shortfall:,.0f}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"Worst Case: {self.worst_case.scenario.name} "
+                f"(${self.worst_case.portfolio_pnl:+,.0f})",
+                f"Best Case:  {self.best_case.scenario.name} "
+                f"(${self.best_case.portfolio_pnl:+,.0f})",
+                f"95% VaR:    ${self.var_95:,.0f}",
+                f"Exp. Shortfall: ${self.expected_shortfall:,.0f}",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -123,7 +128,7 @@ HISTORICAL_SCENARIOS = [
         description="Lehman collapse, Oct 2008",
         spot_change_pct=-0.20,
         iv_change_abs=0.40,  # VIX went to 80+
-        correlation_shock=1.0
+        correlation_shock=1.0,
     ),
     Scenario(
         name="2020 COVID Crash",
@@ -131,7 +136,7 @@ HISTORICAL_SCENARIOS = [
         description="March 2020 COVID panic",
         spot_change_pct=-0.12,
         iv_change_abs=0.50,  # VIX hit 82
-        correlation_shock=1.0
+        correlation_shock=1.0,
     ),
     Scenario(
         name="2022 Rate Shock",
@@ -139,7 +144,7 @@ HISTORICAL_SCENARIOS = [
         description="Fed aggressive rate hikes",
         spot_change_pct=-0.08,
         iv_change_abs=0.10,
-        rate_change_bps=100
+        rate_change_bps=100,
     ),
     Scenario(
         name="Flash Crash",
@@ -147,21 +152,21 @@ HISTORICAL_SCENARIOS = [
         description="May 2010 flash crash",
         spot_change_pct=-0.10,
         iv_change_abs=0.15,
-        time_decay_days=0  # Intraday
+        time_decay_days=0,  # Intraday
     ),
     Scenario(
         name="2011 Debt Ceiling",
         scenario_type=ScenarioType.HISTORICAL,
         description="US credit downgrade",
         spot_change_pct=-0.07,
-        iv_change_abs=0.20
+        iv_change_abs=0.20,
     ),
     Scenario(
         name="2018 Volmageddon",
         scenario_type=ScenarioType.HISTORICAL,
         description="XIV collapse, Feb 2018",
         spot_change_pct=-0.04,
-        iv_change_abs=0.25  # VIX doubled
+        iv_change_abs=0.25,  # VIX doubled
     ),
 ]
 
@@ -172,28 +177,28 @@ HYPOTHETICAL_SCENARIOS = [
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="5% pullback with IV spike",
         spot_change_pct=-0.05,
-        iv_change_pct=0.30
+        iv_change_pct=0.30,
     ),
     Scenario(
         name="Sharp Selloff",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="10% drop, elevated IV",
         spot_change_pct=-0.10,
-        iv_change_abs=0.25
+        iv_change_abs=0.25,
     ),
     Scenario(
         name="Crash Scenario",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="20% crash with extreme IV",
         spot_change_pct=-0.20,
-        iv_change_abs=0.50
+        iv_change_abs=0.50,
     ),
     Scenario(
         name="Gap Down Assignment",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="15% overnight gap (earnings/event)",
         spot_change_pct=-0.15,
-        iv_change_abs=0.20
+        iv_change_abs=0.20,
     ),
     Scenario(
         name="Slow Grind Down",
@@ -201,28 +206,28 @@ HYPOTHETICAL_SCENARIOS = [
         description="8% decline over weeks, IV muted",
         spot_change_pct=-0.08,
         iv_change_pct=-0.10,
-        time_decay_days=21
+        time_decay_days=21,
     ),
     Scenario(
         name="IV Crush",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="IV collapses post-event",
         spot_change_pct=0.02,
-        iv_change_pct=-0.40
+        iv_change_pct=-0.40,
     ),
     Scenario(
         name="Rally",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="5% rally, IV declines",
         spot_change_pct=0.05,
-        iv_change_pct=-0.20
+        iv_change_pct=-0.20,
     ),
     Scenario(
         name="Strong Rally",
         scenario_type=ScenarioType.HYPOTHETICAL,
         description="10% rally",
         spot_change_pct=0.10,
-        iv_change_pct=-0.30
+        iv_change_pct=-0.30,
     ),
 ]
 
@@ -234,11 +239,7 @@ class StressTester:
     Calculates P&L impact under various market scenarios.
     """
 
-    def __init__(
-        self,
-        risk_free_rate: float = 0.05,
-        scenarios: list[Scenario] | None = None
-    ):
+    def __init__(self, risk_free_rate: float = 0.05, scenarios: list[Scenario] | None = None):
         self.risk_free_rate = risk_free_rate
         self.scenarios = scenarios or (HISTORICAL_SCENARIOS + HYPOTHETICAL_SCENARIOS)
 
@@ -247,7 +248,7 @@ class StressTester:
         scenario: Scenario,
         positions: list[dict],
         spot_prices: dict[str, float],
-        portfolio_value: float
+        portfolio_value: float,
     ) -> ScenarioResult:
         """
         Run single scenario on portfolio.
@@ -266,13 +267,13 @@ class StressTester:
         position_pnls = {}
 
         for pos in positions:
-            symbol = pos['symbol']
-            current_spot = spot_prices.get(symbol, pos.get('underlying_price', 100))
+            symbol = pos["symbol"]
+            current_spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
 
             # Apply scenario shocks
             new_spot = current_spot * (1 + scenario.spot_change_pct)
 
-            current_iv = pos['iv']
+            current_iv = pos["iv"]
             if scenario.iv_change_abs != 0:
                 new_iv = current_iv + scenario.iv_change_abs
             else:
@@ -282,41 +283,41 @@ class StressTester:
             new_rate = self.risk_free_rate + (scenario.rate_change_bps / 10000)
 
             # Adjust DTE for time decay
-            new_dte = max(0, pos['dte'] - scenario.time_decay_days)
+            new_dte = max(0, pos["dte"] - scenario.time_decay_days)
 
             # Calculate current value
             current_price = black_scholes_price(
                 S=current_spot,
-                K=pos['strike'],
-                T=pos['dte'] / 365,
+                K=pos["strike"],
+                T=pos["dte"] / 365,
                 r=self.risk_free_rate,
                 sigma=current_iv,
-                option_type=pos['option_type'],
-                q=pos.get('dividend_yield', 0.0)
+                option_type=pos["option_type"],
+                q=pos.get("dividend_yield", 0.0),
             )
 
             # Calculate new value under scenario
             if new_dte <= 0:
                 # Expired - intrinsic value
-                if pos['option_type'] == 'put':
-                    new_price = max(0, pos['strike'] - new_spot)
+                if pos["option_type"] == "put":
+                    new_price = max(0, pos["strike"] - new_spot)
                 else:
-                    new_price = max(0, new_spot - pos['strike'])
+                    new_price = max(0, new_spot - pos["strike"])
             else:
                 new_price = black_scholes_price(
                     S=new_spot,
-                    K=pos['strike'],
+                    K=pos["strike"],
                     T=new_dte / 365,
                     r=new_rate,
                     sigma=new_iv,
-                    option_type=pos['option_type'],
-                    q=pos.get('dividend_yield', 0.0)
+                    option_type=pos["option_type"],
+                    q=pos.get("dividend_yield", 0.0),
                 )
 
             # P&L calculation
-            direction = -1 if pos.get('is_short', True) else 1
+            direction = -1 if pos.get("is_short", True) else 1
             price_change = new_price - current_price
-            position_pnl = direction * price_change * pos['contracts'] * 100
+            position_pnl = direction * price_change * pos["contracts"] * 100
 
             position_pnls[f"{symbol}_{pos['option_type']}_{pos['strike']}"] = position_pnl
             total_pnl += position_pnl
@@ -342,7 +343,7 @@ class StressTester:
             new_portfolio_value=new_value,
             margin_call=margin_call,
             max_loss_position=max_loss_position,
-            max_loss_amount=max_loss_amount
+            max_loss_amount=max_loss_amount,
         )
 
     def run_all_scenarios(
@@ -350,16 +351,14 @@ class StressTester:
         positions: list[dict],
         spot_prices: dict[str, float],
         portfolio_value: float,
-        scenarios: list[Scenario] | None = None
+        scenarios: list[Scenario] | None = None,
     ) -> StressTestReport:
         """Run all scenarios and generate report."""
         scenarios = scenarios or self.scenarios
         results = []
 
         for scenario in scenarios:
-            result = self.run_scenario(
-                scenario, positions, spot_prices, portfolio_value
-            )
+            result = self.run_scenario(scenario, positions, spot_prices, portfolio_value)
             results.append(result)
 
         # Sort by P&L
@@ -376,7 +375,7 @@ class StressTester:
             worst_case=sorted_results[0],
             best_case=sorted_results[-1],
             expected_shortfall=abs(expected_shortfall),
-            var_95=abs(var_95)
+            var_95=abs(var_95),
         )
 
     def sensitivity_analysis(
@@ -386,7 +385,7 @@ class StressTester:
         portfolio_value: float,
         spot_range: tuple[float, float] = (-0.15, 0.15),
         iv_range: tuple[float, float] = (-0.30, 0.30),
-        n_points: int = 11
+        n_points: int = 11,
     ) -> pd.DataFrame:
         """
         Generate sensitivity grid for spot and IV changes.
@@ -404,17 +403,17 @@ class StressTester:
                     scenario_type=ScenarioType.SENSITIVITY,
                     description="Sensitivity grid",
                     spot_change_pct=spot_chg,
-                    iv_change_pct=iv_chg
+                    iv_change_pct=iv_chg,
                 )
-                result = self.run_scenario(
-                    scenario, positions, spot_prices, portfolio_value
+                result = self.run_scenario(scenario, positions, spot_prices, portfolio_value)
+                results.append(
+                    {
+                        "spot_change": spot_chg,
+                        "iv_change": iv_chg,
+                        "pnl": result.portfolio_pnl,
+                        "pnl_pct": result.portfolio_pnl_pct,
+                    }
                 )
-                results.append({
-                    'spot_change': spot_chg,
-                    'iv_change': iv_chg,
-                    'pnl': result.portfolio_pnl,
-                    'pnl_pct': result.portfolio_pnl_pct
-                })
 
         return pd.DataFrame(results)
 
@@ -425,7 +424,7 @@ class StressTester:
         portfolio_value: float,
         n_simulations: int = 10000,
         horizon_days: int = 30,
-        vol_of_vol: float = 0.50
+        vol_of_vol: float = 0.50,
     ) -> dict[str, float]:
         """
         Monte Carlo stress testing.
@@ -439,7 +438,7 @@ class StressTester:
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
             z = stats.t.rvs(df)
-            avg_iv = np.mean([p['iv'] for p in positions]) if positions else 0.20
+            avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
 
@@ -453,33 +452,29 @@ class StressTester:
                 description="Monte Carlo simulation",
                 spot_change_pct=spot_change,
                 iv_change_pct=iv_shock / avg_iv if avg_iv > 0 else 0,
-                time_decay_days=horizon_days
+                time_decay_days=horizon_days,
             )
 
-            result = self.run_scenario(
-                scenario, positions, spot_prices, portfolio_value
-            )
+            result = self.run_scenario(scenario, positions, spot_prices, portfolio_value)
             pnls.append(result.portfolio_pnl)
 
         pnls = np.array(pnls)
 
         return {
-            'mean': np.mean(pnls),
-            'std': np.std(pnls),
-            'var_95': np.percentile(pnls, 5),
-            'var_99': np.percentile(pnls, 1),
-            'cvar_95': np.mean(pnls[pnls <= np.percentile(pnls, 5)]),
-            'max_loss': np.min(pnls),
-            'max_gain': np.max(pnls),
-            'prob_loss': np.mean(pnls < 0),
-            'prob_10pct_loss': np.mean(pnls < -portfolio_value * 0.10)
+            "mean": np.mean(pnls),
+            "std": np.std(pnls),
+            "var_95": np.percentile(pnls, 5),
+            "var_99": np.percentile(pnls, 1),
+            "cvar_95": np.mean(pnls[pnls <= np.percentile(pnls, 5)]),
+            "max_loss": np.min(pnls),
+            "max_gain": np.max(pnls),
+            "prob_loss": np.mean(pnls < 0),
+            "prob_10pct_loss": np.mean(pnls < -portfolio_value * 0.10),
         }
 
 
 def quick_stress_test(
-    positions: list[dict],
-    spot_prices: dict[str, float],
-    portfolio_value: float
+    positions: list[dict], spot_prices: dict[str, float], portfolio_value: float
 ) -> str:
     """
     Quick stress test with standard scenarios.
@@ -487,16 +482,11 @@ def quick_stress_test(
     Returns formatted summary string.
     """
     tester = StressTester()
-    report = tester.run_all_scenarios(
-        positions, spot_prices, portfolio_value
-    )
+    report = tester.run_all_scenarios(positions, spot_prices, portfolio_value)
     return report.summary()
 
 
-def calculate_max_loss(
-    positions: list[dict],
-    spot_prices: dict[str, float]
-) -> float:
+def calculate_max_loss(positions: list[dict], spot_prices: dict[str, float]) -> float:
     """
     Calculate theoretical maximum loss for portfolio.
 
@@ -506,17 +496,17 @@ def calculate_max_loss(
     max_loss = 0.0
 
     for pos in positions:
-        if pos.get('is_short', True):
-            if pos['option_type'] == 'put':
+        if pos.get("is_short", True):
+            if pos["option_type"] == "put":
                 # Max loss: stock goes to 0
-                pos_max_loss = pos['strike'] * 100 * pos['contracts']
+                pos_max_loss = pos["strike"] * 100 * pos["contracts"]
             else:
                 # Short call: cap at 5x current price
-                current_price = spot_prices.get(pos['symbol'], pos['strike'])
-                pos_max_loss = current_price * 5 * 100 * pos['contracts']
+                current_price = spot_prices.get(pos["symbol"], pos["strike"])
+                pos_max_loss = current_price * 5 * 100 * pos["contracts"]
         else:
             # Long positions: max loss = premium paid (need entry price)
-            pos_max_loss = pos.get('entry_price', 0) * 100 * pos['contracts']
+            pos_max_loss = pos.get("entry_price", 0) * 100 * pos["contracts"]
 
         max_loss += pos_max_loss
 

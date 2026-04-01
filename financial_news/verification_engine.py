@@ -28,6 +28,7 @@ from pathlib import Path
 
 class VerificationStatus(Enum):
     """Status of verification for a candidate."""
+
     PENDING = "pending"
     VERIFIED = "verified"
     REJECTED = "rejected"
@@ -38,6 +39,7 @@ class VerificationStatus(Enum):
 @dataclass
 class VerificationCandidate:
     """A headline candidate awaiting verification."""
+
     candidate_id: str
     headline: str
     source: str
@@ -59,7 +61,7 @@ HEADLINE: "{self.headline}"
 SOURCE: {self.source} ({self.source_type})
 TICKERS: {tickers_str}
 CATEGORIES: {categories_str}
-PUBLISHED: {self.published_at.isoformat() if self.published_at else 'unknown'}
+PUBLISHED: {self.published_at.isoformat() if self.published_at else "unknown"}
 
 VERIFICATION TASKS:
 1. Search for corroborating sources (official sources preferred)
@@ -80,6 +82,7 @@ RETURN FORMAT:
 @dataclass
 class VerificationResult:
     """Result of verifying a candidate headline."""
+
     candidate_id: str
     verification_confidence: int  # 0-10
     status: VerificationStatus
@@ -105,6 +108,7 @@ class VerificationResult:
 @dataclass
 class PushPayload:
     """Payload to push to server for verified stories."""
+
     story_id: str
     title: str
     what_happened: str
@@ -220,23 +224,26 @@ class VerificationEngine:
 
         conn = self._get_conn()
         try:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR IGNORE INTO verification_candidates
                 (candidate_id, headline, source, source_type, url,
                  published_at, tickers, categories, created_at, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                candidate_id,
-                headline,
-                source,
-                source_type,
-                url,
-                published_at.isoformat() if published_at else None,
-                json.dumps(tickers or []),
-                json.dumps(categories or []),
-                datetime.utcnow().isoformat(),
-                "pending",
-            ))
+            """,
+                (
+                    candidate_id,
+                    headline,
+                    source,
+                    source_type,
+                    url,
+                    published_at.isoformat() if published_at else None,
+                    json.dumps(tickers or []),
+                    json.dumps(categories or []),
+                    datetime.utcnow().isoformat(),
+                    "pending",
+                ),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -262,27 +269,34 @@ class VerificationEngine:
 
         conn = self._get_conn()
         try:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT * FROM verification_candidates
                 WHERE status = 'pending'
                 AND created_at > ?
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (cutoff, limit)).fetchall()
+            """,
+                (cutoff, limit),
+            ).fetchall()
 
             candidates = []
             for row in rows:
-                candidates.append(VerificationCandidate(
-                    candidate_id=row["candidate_id"],
-                    headline=row["headline"],
-                    source=row["source"],
-                    source_type=row["source_type"],
-                    url=row["url"] or "",
-                    published_at=datetime.fromisoformat(row["published_at"]) if row["published_at"] else None,
-                    tickers=json.loads(row["tickers"]) if row["tickers"] else [],
-                    categories=json.loads(row["categories"]) if row["categories"] else [],
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                ))
+                candidates.append(
+                    VerificationCandidate(
+                        candidate_id=row["candidate_id"],
+                        headline=row["headline"],
+                        source=row["source"],
+                        source_type=row["source_type"],
+                        url=row["url"] or "",
+                        published_at=datetime.fromisoformat(row["published_at"])
+                        if row["published_at"]
+                        else None,
+                        tickers=json.loads(row["tickers"]) if row["tickers"] else [],
+                        categories=json.loads(row["categories"]) if row["categories"] else [],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                    )
+                )
 
             return candidates
         finally:
@@ -295,32 +309,38 @@ class VerificationEngine:
         conn = self._get_conn()
         try:
             # Store result
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO verification_results
                 (result_id, candidate_id, verification_confidence, status,
                  what_happened, why_it_matters, affected_assets,
                  corroborating_sources, conflicts_found, verified_at, verified_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                result_id,
-                result.candidate_id,
-                result.verification_confidence,
-                result.status.value,
-                result.what_happened,
-                result.why_it_matters,
-                json.dumps(result.affected_assets),
-                json.dumps(result.corroborating_sources),
-                json.dumps(result.conflicts_found),
-                result.verified_at.isoformat(),
-                result.verified_by,
-            ))
+            """,
+                (
+                    result_id,
+                    result.candidate_id,
+                    result.verification_confidence,
+                    result.status.value,
+                    result.what_happened,
+                    result.why_it_matters,
+                    json.dumps(result.affected_assets),
+                    json.dumps(result.corroborating_sources),
+                    json.dumps(result.conflicts_found),
+                    result.verified_at.isoformat(),
+                    result.verified_by,
+                ),
+            )
 
             # Update candidate status
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE verification_candidates
                 SET status = ?
                 WHERE candidate_id = ?
-            """, (result.status.value, result.candidate_id))
+            """,
+                (result.status.value, result.candidate_id),
+            )
 
             conn.commit()
         finally:
@@ -347,7 +367,9 @@ class VerificationEngine:
                     source=row["source"],
                     source_type=row["source_type"],
                     url=row["url"] or "",
-                    published_at=datetime.fromisoformat(row["published_at"]) if row["published_at"] else None,
+                    published_at=datetime.fromisoformat(row["published_at"])
+                    if row["published_at"]
+                    else None,
                     tickers=json.loads(row["tickers"]) if row["tickers"] else [],
                     categories=json.loads(row["categories"]) if row["categories"] else [],
                     created_at=datetime.fromisoformat(row["created_at"]),
@@ -359,9 +381,15 @@ class VerificationEngine:
                     status=VerificationStatus(row["status"]),
                     what_happened=row["what_happened"],
                     why_it_matters=row["why_it_matters"],
-                    affected_assets=json.loads(row["affected_assets"]) if row["affected_assets"] else [],
-                    corroborating_sources=json.loads(row["corroborating_sources"]) if row["corroborating_sources"] else [],
-                    conflicts_found=json.loads(row["conflicts_found"]) if row["conflicts_found"] else [],
+                    affected_assets=json.loads(row["affected_assets"])
+                    if row["affected_assets"]
+                    else [],
+                    corroborating_sources=json.loads(row["corroborating_sources"])
+                    if row["corroborating_sources"]
+                    else [],
+                    conflicts_found=json.loads(row["conflicts_found"])
+                    if row["conflicts_found"]
+                    else [],
                     verified_at=datetime.fromisoformat(row["verified_at"]),
                     verified_by=row["verified_by"],
                 )
@@ -406,25 +434,31 @@ class VerificationEngine:
 
         conn = self._get_conn()
         try:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO push_log
                 (push_id, story_id, payload, pushed_at, push_status, response)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                push_id,
-                payload.story_id,
-                payload.to_json(),
-                datetime.utcnow().isoformat(),
-                status,
-                response,
-            ))
+            """,
+                (
+                    push_id,
+                    payload.story_id,
+                    payload.to_json(),
+                    datetime.utcnow().isoformat(),
+                    status,
+                    response,
+                ),
+            )
 
             # Mark candidate as pushed
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE verification_candidates
                 SET status = 'pushed'
                 WHERE candidate_id = ?
-            """, (payload.story_id.split("_")[1],))  # Extract candidate_id from story_id
+            """,
+                (payload.story_id.split("_")[1],),
+            )  # Extract candidate_id from story_id
 
             conn.commit()
         finally:
@@ -471,7 +505,9 @@ class VerificationEngine:
             """).fetchall()
             stats["recent_verified"] = [
                 {
-                    "summary": row["what_happened"][:80] + "..." if len(row["what_happened"] or "") > 80 else row["what_happened"],
+                    "summary": row["what_happened"][:80] + "..."
+                    if len(row["what_happened"] or "") > 80
+                    else row["what_happened"],
                     "confidence": row["verification_confidence"],
                     "verified_at": row["verified_at"],
                 }
@@ -487,6 +523,7 @@ class VerificationEngine:
 # VERIFICATION WORKFLOW HELPERS
 # =============================================================================
 
+
 def run_verification_cycle(engine: VerificationEngine, limit: int = 5) -> list[dict]:
     """
     Get pending candidates and format verification queries.
@@ -498,14 +535,16 @@ def run_verification_cycle(engine: VerificationEngine, limit: int = 5) -> list[d
 
     queries = []
     for candidate in candidates:
-        queries.append({
-            "candidate_id": candidate.candidate_id,
-            "headline": candidate.headline,
-            "source": candidate.source,
-            "tickers": candidate.tickers,
-            "categories": candidate.categories,
-            "verification_query": candidate.to_verification_query(),
-        })
+        queries.append(
+            {
+                "candidate_id": candidate.candidate_id,
+                "headline": candidate.headline,
+                "source": candidate.source,
+                "tickers": candidate.tickers,
+                "categories": candidate.categories,
+                "verification_query": candidate.to_verification_query(),
+            }
+        )
 
     return queries
 
@@ -583,11 +622,13 @@ def push_verified_stories(
         payload = engine.create_push_payload(candidate, verification)
 
         if dry_run:
-            results.append({
-                "action": "dry_run",
-                "story_id": payload.story_id,
-                "payload": asdict(payload),
-            })
+            results.append(
+                {
+                    "action": "dry_run",
+                    "story_id": payload.story_id,
+                    "payload": asdict(payload),
+                }
+            )
         else:
             # Actual HTTP push would go here
             # For now, just log it
@@ -597,18 +638,22 @@ def push_verified_stories(
                 # status = "success" if response.ok else "failed"
                 status = "simulated_success"
                 engine.log_push(payload, status)
-                results.append({
-                    "action": "pushed",
-                    "story_id": payload.story_id,
-                    "status": status,
-                })
+                results.append(
+                    {
+                        "action": "pushed",
+                        "story_id": payload.story_id,
+                        "status": status,
+                    }
+                )
             except Exception as e:
                 engine.log_push(payload, "error", str(e))
-                results.append({
-                    "action": "error",
-                    "story_id": payload.story_id,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "action": "error",
+                        "story_id": payload.story_id,
+                        "error": str(e),
+                    }
+                )
 
     return results
 
@@ -616,6 +661,7 @@ def push_verified_stories(
 # =============================================================================
 # CLI INTERFACE FOR CLAUDE CODE
 # =============================================================================
+
 
 def print_verification_queries(limit: int = 5) -> None:
     """Print verification queries for Claude Code to execute."""
@@ -635,7 +681,7 @@ def print_verification_queries(limit: int = 5) -> None:
         print(f"Source: {q['source']}")
         print(f"Tickers: {q['tickers']}")
         print()
-        print(q['verification_query'])
+        print(q["verification_query"])
         print("\n" + "=" * 60 + "\n")
 
 
@@ -650,7 +696,7 @@ def print_stats() -> None:
     print(f"Average confidence: {stats['avg_confidence']}/10")
     print(f"Pushes by status: {stats['pushes_by_status']}")
 
-    if stats['recent_verified']:
+    if stats["recent_verified"]:
         print("\nRecent high-confidence stories:")
-        for story in stats['recent_verified']:
+        for story in stats["recent_verified"]:
             print(f"  [{story['confidence']}/10] {story['summary']}")

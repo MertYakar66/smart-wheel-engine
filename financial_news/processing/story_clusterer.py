@@ -190,12 +190,7 @@ class StoryClusterer:
         topic_sim = self._jaccard(topics1, topics2) if topics1 and topics2 else 0
 
         # Weighted combination
-        similarity = (
-            0.5 * title_sim +
-            0.2 * entity_sim +
-            0.2 * ticker_sim +
-            0.1 * topic_sim
-        )
+        similarity = 0.5 * title_sim + 0.2 * entity_sim + 0.2 * ticker_sim + 0.1 * topic_sim
 
         return similarity
 
@@ -210,11 +205,27 @@ class StoryClusterer:
         # Lowercase
         title = title.lower()
         # Remove punctuation
-        title = re.sub(r'[^\w\s]', '', title)
+        title = re.sub(r"[^\w\s]", "", title)
         # Remove common words
-        stopwords = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'is', 'are', 'was', 'were'}
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "and",
+            "or",
+            "is",
+            "are",
+            "was",
+            "were",
+        }
         words = [w for w in title.split() if w not in stopwords]
-        return ' '.join(words)
+        return " ".join(words)
 
     def _jaccard(self, set1: set, set2: set) -> float:
         """Compute Jaccard similarity"""
@@ -258,10 +269,7 @@ class StoryClusterer:
                 unique_entities.append(entity)
 
         # Create story
-        story_id = Story.generate_id(
-            lead_article.article_id,
-            sorted_cluster[0].published_at_utc
-        )
+        story_id = Story.generate_id(lead_article.article_id, sorted_cluster[0].published_at_utc)
 
         story = Story(
             story_id=story_id,
@@ -323,8 +331,7 @@ class StoryClusterer:
 
         # Recalculate confidence
         existing.confidence_score = min(
-            1.0,
-            existing.source_count / self.min_sources_for_confidence
+            1.0, existing.source_count / self.min_sources_for_confidence
         )
 
         return existing
@@ -340,9 +347,7 @@ class StoryClusterer:
 
         for story in self._stories.values():
             # Check temporal proximity
-            time_diff = abs(
-                (article.published_at_utc - story.last_updated_at).total_seconds()
-            )
+            time_diff = abs((article.published_at_utc - story.last_updated_at).total_seconds())
             if time_diff > self.time_window_hours * 3600:
                 continue
 
@@ -373,10 +378,7 @@ class StoryClusterer:
     def clear_old_stories(self, max_age_hours: int = 72) -> int:
         """Remove stories older than max_age_hours"""
         cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
-        old_ids = [
-            sid for sid, story in self._stories.items()
-            if story.last_updated_at < cutoff
-        ]
+        old_ids = [sid for sid, story in self._stories.items() if story.last_updated_at < cutoff]
 
         for sid in old_ids:
             del self._stories[sid]

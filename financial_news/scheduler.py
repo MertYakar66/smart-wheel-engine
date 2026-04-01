@@ -38,16 +38,18 @@ logger = logging.getLogger(__name__)
 
 class JobType(Enum):
     """Types of scheduled jobs"""
-    MORNING_BATCH = "morning_batch"     # 05:30 ET
-    EVENING_BATCH = "evening_batch"     # 17:30 ET
-    PRE_EVENT = "pre_event"             # Before major release
-    POST_EVENT = "post_event"           # After major release
-    MANUAL = "manual"                   # Manual trigger
+
+    MORNING_BATCH = "morning_batch"  # 05:30 ET
+    EVENING_BATCH = "evening_batch"  # 17:30 ET
+    PRE_EVENT = "pre_event"  # Before major release
+    POST_EVENT = "post_event"  # After major release
+    MANUAL = "manual"  # Manual trigger
 
 
 @dataclass
 class SchedulerConfig:
     """Scheduler configuration"""
+
     timezone: str = "America/New_York"
 
     # Core batch times (ET)
@@ -56,16 +58,16 @@ class SchedulerConfig:
 
     # Event-aware triggers
     enable_event_triggers: bool = True
-    pre_event_minutes: int = 10         # Run this many minutes before release
-    post_event_minutes: int = 5         # Run this many minutes after release
+    pre_event_minutes: int = 10  # Run this many minutes before release
+    post_event_minutes: int = 5  # Run this many minutes after release
 
     # Retry configuration
     max_retries: int = 3
     retry_delay_seconds: int = 60
 
     # Source limits
-    hours_lookback_morning: int = 14    # Look back to previous evening
-    hours_lookback_evening: int = 12    # Look back to morning
+    hours_lookback_morning: int = 14  # Look back to previous evening
+    hours_lookback_evening: int = 12  # Look back to morning
     max_articles_per_source: int = 100
 
 
@@ -210,7 +212,9 @@ class Scheduler:
             self.db.update_run_log(run_log)
             self._last_run[job_name] = datetime.utcnow()
 
-            logger.info(f"Completed {job_name}: {len(all_articles)} articles from {len(sources_to_fetch)} sources")
+            logger.info(
+                f"Completed {job_name}: {len(all_articles)} articles from {len(sources_to_fetch)} sources"
+            )
 
         except Exception as e:
             logger.error(f"Batch run failed: {e}")
@@ -275,20 +279,24 @@ class Scheduler:
         # Check for morning batch today
         morning_time = datetime.combine(now_local.date(), self.config.morning_batch_time)
         if morning_time > now_local:
-            runs.append({
-                "type": "morning_batch",
-                "scheduled_at": morning_time,
-                "description": "Morning batch - overnight + premarket",
-            })
+            runs.append(
+                {
+                    "type": "morning_batch",
+                    "scheduled_at": morning_time,
+                    "description": "Morning batch - overnight + premarket",
+                }
+            )
 
         # Check for evening batch today
         evening_time = datetime.combine(now_local.date(), self.config.evening_batch_time)
         if evening_time > now_local:
-            runs.append({
-                "type": "evening_batch",
-                "scheduled_at": evening_time,
-                "description": "Evening batch - post-close",
-            })
+            runs.append(
+                {
+                    "type": "evening_batch",
+                    "scheduled_at": evening_time,
+                    "description": "Evening batch - post-close",
+                }
+            )
 
         # Get event-triggered runs
         if self.config.enable_event_triggers:
@@ -298,22 +306,28 @@ class Scheduler:
                     # Pre-event run
                     pre_time = event.scheduled_at - timedelta(minutes=event.pre_run_offset_minutes)
                     if pre_time > now:
-                        runs.append({
-                            "type": "pre_event",
-                            "scheduled_at": pre_time,
-                            "event": event.title,
-                            "description": f"Pre-{event.event_type.value} run",
-                        })
+                        runs.append(
+                            {
+                                "type": "pre_event",
+                                "scheduled_at": pre_time,
+                                "event": event.title,
+                                "description": f"Pre-{event.event_type.value} run",
+                            }
+                        )
 
                     # Post-event run
-                    post_time = event.scheduled_at + timedelta(minutes=event.post_run_offset_minutes)
+                    post_time = event.scheduled_at + timedelta(
+                        minutes=event.post_run_offset_minutes
+                    )
                     if post_time > now:
-                        runs.append({
-                            "type": "post_event",
-                            "scheduled_at": post_time,
-                            "event": event.title,
-                            "description": f"Post-{event.event_type.value} run",
-                        })
+                        runs.append(
+                            {
+                                "type": "post_event",
+                                "scheduled_at": post_time,
+                                "event": event.title,
+                                "description": f"Post-{event.event_type.value} run",
+                            }
+                        )
 
         # Sort by time
         runs.sort(key=lambda r: r["scheduled_at"])
@@ -344,14 +358,18 @@ class Scheduler:
                 current_time = now_local.time()
 
                 # Check for morning batch
-                if (current_time.hour == self.config.morning_batch_time.hour and
-                    current_time.minute == self.config.morning_batch_time.minute):
+                if (
+                    current_time.hour == self.config.morning_batch_time.hour
+                    and current_time.minute == self.config.morning_batch_time.minute
+                ):
                     if self._should_run("morning_batch"):
                         await self.run_morning_batch()
 
                 # Check for evening batch
-                if (current_time.hour == self.config.evening_batch_time.hour and
-                    current_time.minute == self.config.evening_batch_time.minute):
+                if (
+                    current_time.hour == self.config.evening_batch_time.hour
+                    and current_time.minute == self.config.evening_batch_time.minute
+                ):
                     if self._should_run("evening_batch"):
                         await self.run_evening_batch()
 
@@ -418,6 +436,7 @@ class Scheduler:
 # =============================================================================
 # CLI Interface
 # =============================================================================
+
 
 async def main():
     """CLI entry point for scheduler."""

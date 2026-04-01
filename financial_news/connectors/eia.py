@@ -120,6 +120,7 @@ class EIAConnector(BaseConnector):
         articles = []
         try:
             from xml.etree import ElementTree as ET
+
             root = ET.fromstring(result.content)
 
             for item in root.findall(".//item"):
@@ -189,6 +190,7 @@ class EIAConnector(BaseConnector):
         articles = []
         try:
             from xml.etree import ElementTree as ET
+
             root = ET.fromstring(result.content)
 
             for item in root.findall(".//item"):
@@ -257,8 +259,8 @@ class EIAConnector(BaseConnector):
 
     def _clean_text(self, text: str) -> str:
         """Clean HTML tags from text."""
-        clean = re.sub(r'<[^>]+>', '', text)
-        clean = re.sub(r'\s+', ' ', clean)
+        clean = re.sub(r"<[^>]+>", "", text)
+        clean = re.sub(r"\s+", " ", clean)
         return clean.strip()
 
     def _classify_petroleum_release(self, title: str) -> str:
@@ -297,12 +299,14 @@ class EIAConnector(BaseConnector):
         }
         for key, name in commodities.items():
             if key in text:
-                entities.append(Entity(
-                    entity_id=f"commodity_{key.replace(' ', '_')}",
-                    entity_type=EntityType.COMMODITY,
-                    value=name,
-                    confidence=0.9,
-                ))
+                entities.append(
+                    Entity(
+                        entity_id=f"commodity_{key.replace(' ', '_')}",
+                        entity_type=EntityType.COMMODITY,
+                        value=name,
+                        confidence=0.9,
+                    )
+                )
 
         # Organizations
         orgs = {
@@ -312,12 +316,14 @@ class EIAConnector(BaseConnector):
         }
         for key, name in orgs.items():
             if key in text:
-                entities.append(Entity(
-                    entity_id=f"org_{key}",
-                    entity_type=EntityType.COMPANY,
-                    value=name,
-                    confidence=0.9,
-                ))
+                entities.append(
+                    Entity(
+                        entity_id=f"org_{key}",
+                        entity_type=EntityType.COMPANY,
+                        value=name,
+                        confidence=0.9,
+                    )
+                )
 
         # Countries (major oil producers)
         countries = {
@@ -331,12 +337,14 @@ class EIAConnector(BaseConnector):
         }
         for key, name in countries.items():
             if key in text:
-                entities.append(Entity(
-                    entity_id=f"country_{key}",
-                    entity_type=EntityType.COUNTRY,
-                    value=name,
-                    confidence=0.8,
-                ))
+                entities.append(
+                    Entity(
+                        entity_id=f"country_{key}",
+                        entity_type=EntityType.COUNTRY,
+                        value=name,
+                        confidence=0.8,
+                    )
+                )
 
         return entities
 
@@ -349,9 +357,22 @@ class EIAConnector(BaseConnector):
         text = f"{title} {description}".lower()
 
         market_keywords = [
-            "price", "inventory", "production", "refinery", "export", "import",
-            "supply", "demand", "opec", "crude", "gasoline", "barrel",
-            "shortage", "surplus", "sanctions", "disruption",
+            "price",
+            "inventory",
+            "production",
+            "refinery",
+            "export",
+            "import",
+            "supply",
+            "demand",
+            "opec",
+            "crude",
+            "gasoline",
+            "barrel",
+            "shortage",
+            "surplus",
+            "sanctions",
+            "disruption",
         ]
 
         return any(kw in text for kw in market_keywords)

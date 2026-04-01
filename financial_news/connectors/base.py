@@ -30,6 +30,7 @@ class RateLimiter:
 
     Enforces rate limits like SEC EDGAR's 10 requests/second.
     """
+
     requests_per_second: float = 10.0
     requests_per_minute: float = 100.0
 
@@ -48,8 +49,7 @@ class RateLimiter:
             # Refill tokens based on time elapsed
             elapsed = now - self._last_refill
             self._tokens = min(
-                self.requests_per_second,
-                self._tokens + elapsed * self.requests_per_second
+                self.requests_per_second, self._tokens + elapsed * self.requests_per_second
             )
             self._last_refill = now
 
@@ -82,6 +82,7 @@ class RateLimiter:
 @dataclass
 class FetchResult:
     """Result of a fetch operation."""
+
     success: bool
     url: str
     status_code: int = 0
@@ -206,8 +207,10 @@ class BaseConnector(ABC):
 
                     # Server error - retry with backoff
                     if response.status >= 500:
-                        wait_time = (2 ** retry_count) * 1.0
-                        logger.warning(f"Server error {response.status} from {url}, retrying in {wait_time}s")
+                        wait_time = (2**retry_count) * 1.0
+                        logger.warning(
+                            f"Server error {response.status} from {url}, retrying in {wait_time}s"
+                        )
                         await asyncio.sleep(wait_time)
                         retry_count += 1
                         continue
@@ -225,13 +228,13 @@ class BaseConnector(ABC):
                     )
 
             except TimeoutError:
-                wait_time = (2 ** retry_count) * 1.0
+                wait_time = (2**retry_count) * 1.0
                 logger.warning(f"Timeout fetching {url}, retrying in {wait_time}s")
                 await asyncio.sleep(wait_time)
                 retry_count += 1
 
             except aiohttp.ClientError as e:
-                wait_time = (2 ** retry_count) * 1.0
+                wait_time = (2**retry_count) * 1.0
                 logger.warning(f"Client error fetching {url}: {e}, retrying in {wait_time}s")
                 await asyncio.sleep(wait_time)
                 retry_count += 1
@@ -324,7 +327,8 @@ class BaseConnector(ABC):
             "last_request_at": self.last_request_at.isoformat() if self.last_request_at else None,
             "success_rate": (
                 (self.requests_made - self.requests_failed) / self.requests_made
-                if self.requests_made > 0 else 1.0
+                if self.requests_made > 0
+                else 1.0
             ),
         }
 

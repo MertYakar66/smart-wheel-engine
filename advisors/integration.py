@@ -181,14 +181,16 @@ class EngineIntegration:
         # Build positions
         positions = []
         for pos in portfolio.get("positions", []):
-            positions.append(Position(
-                ticker=pos.get("ticker", ""),
-                shares=int(pos.get("shares", 0)),
-                avg_cost=float(pos.get("avg_cost", 0)),
-                current_price=float(pos.get("current_price", 0)),
-                sector=pos.get("sector", "Unknown"),
-                market_cap=pos.get("market_cap", "large"),
-            ))
+            positions.append(
+                Position(
+                    ticker=pos.get("ticker", ""),
+                    shares=int(pos.get("shares", 0)),
+                    avg_cost=float(pos.get("avg_cost", 0)),
+                    current_price=float(pos.get("current_price", 0)),
+                    sector=pos.get("sector", "Unknown"),
+                    market_cap=pos.get("market_cap", "large"),
+                )
+            )
 
         # Build PortfolioContext
         portfolio_context = PortfolioContext(

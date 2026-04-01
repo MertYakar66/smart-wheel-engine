@@ -169,10 +169,13 @@ class NewsStore:
 
             # Insert default categories if not exist
             for cat in DEFAULT_CATEGORIES:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO categories (category_id, name, description, config_json)
                     VALUES (?, ?, ?, ?)
-                """, (cat.category_id, cat.name, cat.description, json.dumps(cat.to_dict())))
+                """,
+                    (cat.category_id, cat.name, cat.description, json.dumps(cat.to_dict())),
+                )
 
             logger.info(f"Database initialized at {self.db_path}")
 
@@ -182,29 +185,32 @@ class NewsStore:
         """Save article to database"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO articles
                 (article_id, canonical_url, source, source_name, published_at_utc,
                  title, snippet, language, country, entities_json, tickers_json,
                  topics_json, impact_score, retrieval_provider, fetched_at_utc)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                article.article_id,
-                article.canonical_url,
-                article.source.value,
-                article.source_name,
-                article.published_at_utc.isoformat(),
-                article.title,
-                article.snippet,
-                article.language,
-                article.country,
-                json.dumps([e.to_dict() for e in article.entities]),
-                json.dumps(article.tickers),
-                json.dumps([t.value for t in article.topics]),
-                article.impact_score,
-                article.retrieval_provider,
-                article.fetched_at_utc.isoformat(),
-            ))
+            """,
+                (
+                    article.article_id,
+                    article.canonical_url,
+                    article.source.value,
+                    article.source_name,
+                    article.published_at_utc.isoformat(),
+                    article.title,
+                    article.snippet,
+                    article.language,
+                    article.country,
+                    json.dumps([e.to_dict() for e in article.entities]),
+                    json.dumps(article.tickers),
+                    json.dumps([t.value for t in article.topics]),
+                    article.impact_score,
+                    article.retrieval_provider,
+                    article.fetched_at_utc.isoformat(),
+                ),
+            )
 
     def save_articles(self, articles: list[Article]) -> int:
         """Save multiple articles"""
@@ -236,8 +242,7 @@ class NewsStore:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT * FROM articles WHERE article_id IN ({placeholders})",
-                article_ids
+                f"SELECT * FROM articles WHERE article_id IN ({placeholders})", article_ids
             )
             return [self._row_to_article(row) for row in cursor.fetchall()]
 
@@ -250,12 +255,15 @@ class NewsStore:
         """Get articles within time range"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM articles
                 WHERE published_at_utc BETWEEN ? AND ?
                 ORDER BY published_at_utc DESC
                 LIMIT ?
-            """, (start_time.isoformat(), end_time.isoformat(), limit))
+            """,
+                (start_time.isoformat(), end_time.isoformat(), limit),
+            )
             return [self._row_to_article(row) for row in cursor.fetchall()]
 
     def _row_to_article(self, row: sqlite3.Row) -> Article:
@@ -287,32 +295,35 @@ class NewsStore:
         """Save story to database"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO stories
                 (story_id, lead_article_id, headline, summary, why_it_matters,
                  first_seen_at, last_updated_at, entities_json, tickers_json,
                  topics_json, regions_json, article_ids_json, source_count,
                  impact_score, confidence_score, previous_summary, change_description)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                story.story_id,
-                story.lead_article_id,
-                story.headline,
-                story.summary,
-                story.why_it_matters,
-                story.first_seen_at.isoformat(),
-                story.last_updated_at.isoformat(),
-                json.dumps([e.to_dict() for e in story.entities]),
-                json.dumps(story.tickers),
-                json.dumps([t.value for t in story.topics]),
-                json.dumps(story.regions),
-                json.dumps(story.article_ids),
-                story.source_count,
-                story.impact_score,
-                story.confidence_score,
-                story.previous_summary,
-                story.change_description,
-            ))
+            """,
+                (
+                    story.story_id,
+                    story.lead_article_id,
+                    story.headline,
+                    story.summary,
+                    story.why_it_matters,
+                    story.first_seen_at.isoformat(),
+                    story.last_updated_at.isoformat(),
+                    json.dumps([e.to_dict() for e in story.entities]),
+                    json.dumps(story.tickers),
+                    json.dumps([t.value for t in story.topics]),
+                    json.dumps(story.regions),
+                    json.dumps(story.article_ids),
+                    story.source_count,
+                    story.impact_score,
+                    story.confidence_score,
+                    story.previous_summary,
+                    story.change_description,
+                ),
+            )
 
     def save_stories(self, stories: list[Story]) -> int:
         """Save multiple stories"""
@@ -344,12 +355,15 @@ class NewsStore:
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM stories
                 WHERE last_updated_at > ?
                 ORDER BY impact_score DESC, last_updated_at DESC
                 LIMIT ?
-            """, (cutoff, limit))
+            """,
+                (cutoff, limit),
+            )
             return [self._row_to_story(row) for row in cursor.fetchall()]
 
     def get_stories_by_topic(
@@ -363,13 +377,16 @@ class NewsStore:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             # SQLite JSON search
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM stories
                 WHERE last_updated_at > ?
                 AND topics_json LIKE ?
                 ORDER BY impact_score DESC
                 LIMIT ?
-            """, (cutoff, f'%"{topic.value}"%', limit))
+            """,
+                (cutoff, f'%"{topic.value}"%', limit),
+            )
             return [self._row_to_story(row) for row in cursor.fetchall()]
 
     def _row_to_story(self, row: sqlite3.Row) -> Story:
@@ -423,18 +440,23 @@ class NewsStore:
         """Save category"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO categories
                 (category_id, name, description, config_json, is_active, last_successful_fetch)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                category.category_id,
-                category.name,
-                category.description,
-                json.dumps(category.to_dict()),
-                1 if category.is_active else 0,
-                category.last_successful_fetch.isoformat() if category.last_successful_fetch else None,
-            ))
+            """,
+                (
+                    category.category_id,
+                    category.name,
+                    category.description,
+                    json.dumps(category.to_dict()),
+                    1 if category.is_active else 0,
+                    category.last_successful_fetch.isoformat()
+                    if category.last_successful_fetch
+                    else None,
+                ),
+            )
 
     def _row_to_category(self, row: sqlite3.Row) -> Category:
         """Convert database row to Category object"""
@@ -459,7 +481,9 @@ class NewsStore:
             max_stories_per_brief=config.get("max_stories_per_brief", 10),
             digest_tone=config.get("digest_tone", "professional"),
             is_active=bool(row["is_active"]),
-            last_successful_fetch=datetime.fromisoformat(row["last_successful_fetch"]) if row["last_successful_fetch"] else None,
+            last_successful_fetch=datetime.fromisoformat(row["last_successful_fetch"])
+            if row["last_successful_fetch"]
+            else None,
         )
 
     # ==================== Users ====================
@@ -490,14 +514,17 @@ class NewsStore:
         """Save user profile"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO users (user_id, email, config_json)
                 VALUES (?, ?, ?)
-            """, (
-                user.user_id,
-                user.email,
-                json.dumps(user.to_dict()),
-            ))
+            """,
+                (
+                    user.user_id,
+                    user.email,
+                    json.dumps(user.to_dict()),
+                ),
+            )
 
     # ==================== Briefs ====================
 
@@ -505,17 +532,20 @@ class NewsStore:
         """Save generated brief"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO briefs
                 (brief_id, user_id, brief_type, generated_at, content_json)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                brief.brief_id,
-                brief.user_id,
-                brief.brief_type,
-                brief.generated_at.isoformat(),
-                json.dumps(brief.to_dict()),
-            ))
+            """,
+                (
+                    brief.brief_id,
+                    brief.user_id,
+                    brief.brief_type,
+                    brief.generated_at.isoformat(),
+                    json.dumps(brief.to_dict()),
+                ),
+            )
 
     def get_user_briefs(
         self,
@@ -525,28 +555,33 @@ class NewsStore:
         """Get recent briefs for a user"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT content_json FROM briefs
                 WHERE user_id = ?
                 ORDER BY generated_at DESC
                 LIMIT ?
-            """, (user_id, limit))
+            """,
+                (user_id, limit),
+            )
 
             briefs = []
             for row in cursor.fetchall():
                 data = json.loads(row["content_json"])
                 # Reconstruct Brief (simplified)
-                briefs.append(Brief(
-                    brief_id=data["brief_id"],
-                    user_id=data["user_id"],
-                    brief_type=data["brief_type"],
-                    generated_at=datetime.fromisoformat(data["generated_at"]),
-                    stories=[],  # Would need to reconstruct from data
-                    new_stories_count=data["new_stories_count"],
-                    updated_stories_count=data["updated_stories_count"],
-                    executive_summary=data.get("executive_summary"),
-                    market_outlook=data.get("market_outlook"),
-                ))
+                briefs.append(
+                    Brief(
+                        brief_id=data["brief_id"],
+                        user_id=data["user_id"],
+                        brief_type=data["brief_type"],
+                        generated_at=datetime.fromisoformat(data["generated_at"]),
+                        stories=[],  # Would need to reconstruct from data
+                        new_stories_count=data["new_stories_count"],
+                        updated_stories_count=data["updated_stories_count"],
+                        executive_summary=data.get("executive_summary"),
+                        market_outlook=data.get("market_outlook"),
+                    )
+                )
             return briefs
 
     # ==================== Cleanup ====================

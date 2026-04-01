@@ -41,38 +41,38 @@ print("\n4. Testing full Wheel cycle with cost tracking:")
 tracker = WheelTracker(100000.0)
 
 tracker.open_short_put(
-    ticker='COST_TEST',
+    ticker="COST_TEST",
     strike=150.0,
     premium=2.50,
     entry_date=date(2024, 1, 1),
     expiration_date=date(2024, 2, 1),
-    iv=0.25
+    iv=0.25,
 )
-pos = tracker.positions['COST_TEST']
+pos = tracker.positions["COST_TEST"]
 print("   After put entry:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
-tracker.handle_put_assignment('COST_TEST', date(2024, 1, 15), 145.0)
+tracker.handle_put_assignment("COST_TEST", date(2024, 1, 15), 145.0)
 print("   After assignment:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
 tracker.open_covered_call(
-    ticker='COST_TEST',
+    ticker="COST_TEST",
     strike=155.0,
     premium=1.50,
     entry_date=date(2024, 1, 16),
     expiration_date=date(2024, 2, 16),
-    iv=0.23
+    iv=0.23,
 )
 print("   After call entry:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
-result = tracker.close_covered_call('COST_TEST', 0.75, date(2024, 1, 25), "profit_target")
+result = tracker.close_covered_call("COST_TEST", 0.75, date(2024, 1, 25), "profit_target")
 print("   After call buyback:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")

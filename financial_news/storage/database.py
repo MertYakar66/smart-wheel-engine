@@ -289,11 +289,21 @@ class NewsDatabase:
 
             # Create indexes for performance
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_articles_content_hash ON articles(content_hash)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_calendar_scheduled ON event_calendar(scheduled_at)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_stories_updated ON stories(last_updated_at)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_logs_started ON run_logs(started_at)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_content_hash ON articles(content_hash)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_event_calendar_scheduled ON event_calendar(scheduled_at)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_stories_updated ON stories(last_updated_at)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_run_logs_started ON run_logs(started_at)"
+            )
 
             conn.commit()
 
@@ -309,73 +319,84 @@ class NewsDatabase:
 
         # Insert default sources
         for source in DEFAULT_SOURCES:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO sources
                 (source_id, name, provider, source_type, priority_weight,
                  rate_limit_per_second, rate_limit_per_minute, base_url,
                  default_categories, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                source.source_id,
-                source.name,
-                source.provider.value,
-                source.source_type.value,
-                source.priority_weight,
-                source.rate_limit_per_second,
-                source.rate_limit_per_minute,
-                source.base_url,
-                json.dumps([c.value for c in source.default_categories]),
-                1 if source.is_active else 0,
-            ))
+            """,
+                (
+                    source.source_id,
+                    source.name,
+                    source.provider.value,
+                    source.source_type.value,
+                    source.priority_weight,
+                    source.rate_limit_per_second,
+                    source.rate_limit_per_minute,
+                    source.base_url,
+                    json.dumps([c.value for c in source.default_categories]),
+                    1 if source.is_active else 0,
+                ),
+            )
 
         # Insert default categories
         for category in DEFAULT_CATEGORIES:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO categories
                 (category_id, category_type, name, description,
                  macro_weight, sp500_weight, source_quality_weight,
                  recency_weight, corroboration_weight, max_stories_per_brief, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                category.category_id,
-                category.category_type.value,
-                category.name,
-                category.description,
-                category.macro_weight,
-                category.sp500_weight,
-                category.source_quality_weight,
-                category.recency_weight,
-                category.corroboration_weight,
-                category.max_stories_per_brief,
-                1 if category.is_active else 0,
-            ))
+            """,
+                (
+                    category.category_id,
+                    category.category_type.value,
+                    category.name,
+                    category.description,
+                    category.macro_weight,
+                    category.sp500_weight,
+                    category.source_quality_weight,
+                    category.recency_weight,
+                    category.corroboration_weight,
+                    category.max_stories_per_brief,
+                    1 if category.is_active else 0,
+                ),
+            )
 
         # Insert default category rules
         for rule in DEFAULT_CATEGORY_RULES:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO category_rules
                 (rule_id, category_id, source_whitelist, include_keywords,
                  exclude_keywords, required_keywords, required_entity_types,
                  ticker_whitelist, min_confidence, keyword_match_boost, priority, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                rule.rule_id,
-                rule.category_id,
-                json.dumps(rule.source_whitelist),
-                json.dumps(rule.include_keywords),
-                json.dumps(rule.exclude_keywords),
-                json.dumps(rule.required_keywords),
-                json.dumps([e.value for e in rule.required_entity_types]),
-                json.dumps(rule.ticker_whitelist),
-                rule.min_confidence,
-                rule.keyword_match_boost,
-                rule.priority,
-                1 if rule.is_active else 0,
-            ))
+            """,
+                (
+                    rule.rule_id,
+                    rule.category_id,
+                    json.dumps(rule.source_whitelist),
+                    json.dumps(rule.include_keywords),
+                    json.dumps(rule.exclude_keywords),
+                    json.dumps(rule.required_keywords),
+                    json.dumps([e.value for e in rule.required_entity_types]),
+                    json.dumps(rule.ticker_whitelist),
+                    rule.min_confidence,
+                    rule.keyword_match_boost,
+                    rule.priority,
+                    1 if rule.is_active else 0,
+                ),
+            )
 
         conn.commit()
-        logger.info(f"Initialized database with {len(DEFAULT_SOURCES)} sources, "
-                   f"{len(DEFAULT_CATEGORIES)} categories, {len(DEFAULT_CATEGORY_RULES)} rules")
+        logger.info(
+            f"Initialized database with {len(DEFAULT_SOURCES)} sources, "
+            f"{len(DEFAULT_CATEGORIES)} categories, {len(DEFAULT_CATEGORY_RULES)} rules"
+        )
 
     # =========================================================================
     # SOURCE OPERATIONS
@@ -396,7 +417,9 @@ class NewsDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if active_only:
-                cursor.execute("SELECT * FROM sources WHERE is_active = 1 ORDER BY priority_weight DESC")
+                cursor.execute(
+                    "SELECT * FROM sources WHERE is_active = 1 ORDER BY priority_weight DESC"
+                )
             else:
                 cursor.execute("SELECT * FROM sources ORDER BY priority_weight DESC")
             return [self._row_to_source(row) for row in cursor.fetchall()]
@@ -406,17 +429,23 @@ class NewsDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if success:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE sources
                     SET last_successful_fetch = ?, consecutive_failures = 0
                     WHERE source_id = ?
-                """, (datetime.utcnow().isoformat(), source_id))
+                """,
+                    (datetime.utcnow().isoformat(), source_id),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE sources
                     SET consecutive_failures = consecutive_failures + 1
                     WHERE source_id = ?
-                """, (source_id,))
+                """,
+                    (source_id,),
+                )
             conn.commit()
 
     def _row_to_source(self, row: sqlite3.Row) -> Source:
@@ -430,9 +459,13 @@ class NewsDatabase:
             rate_limit_per_second=row["rate_limit_per_second"],
             rate_limit_per_minute=row["rate_limit_per_minute"],
             base_url=row["base_url"],
-            default_categories=[CategoryType(c) for c in json.loads(row["default_categories"] or "[]")],
+            default_categories=[
+                CategoryType(c) for c in json.loads(row["default_categories"] or "[]")
+            ],
             is_active=bool(row["is_active"]),
-            last_successful_fetch=datetime.fromisoformat(row["last_successful_fetch"]) if row["last_successful_fetch"] else None,
+            last_successful_fetch=datetime.fromisoformat(row["last_successful_fetch"])
+            if row["last_successful_fetch"]
+            else None,
             consecutive_failures=row["consecutive_failures"],
         )
 
@@ -464,11 +497,14 @@ class NewsDatabase:
         """Get classification rules for a category"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM category_rules
                 WHERE category_id = ? AND is_active = 1
                 ORDER BY priority ASC
-            """, (category_id,))
+            """,
+                (category_id,),
+            )
             return [self._row_to_category_rule(row) for row in cursor.fetchall()]
 
     def get_all_category_rules(self) -> list[CategoryRule]:
@@ -503,7 +539,9 @@ class NewsDatabase:
             include_keywords=json.loads(row["include_keywords"] or "[]"),
             exclude_keywords=json.loads(row["exclude_keywords"] or "[]"),
             required_keywords=json.loads(row["required_keywords"] or "[]"),
-            required_entity_types=[EntityType(e) for e in json.loads(row["required_entity_types"] or "[]")],
+            required_entity_types=[
+                EntityType(e) for e in json.loads(row["required_entity_types"] or "[]")
+            ],
             ticker_whitelist=json.loads(row["ticker_whitelist"] or "[]"),
             min_confidence=row["min_confidence"],
             keyword_match_boost=row["keyword_match_boost"],
@@ -519,28 +557,31 @@ class NewsDatabase:
         """Add a scheduled event to the calendar"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO event_calendar
                 (event_id, source_id, event_type, category_id, scheduled_at,
                  timezone, importance, pre_run_offset_minutes, post_run_offset_minutes,
                  title, description, is_recurring, recurrence_rule, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                event.event_id,
-                event.source_id,
-                event.event_type.value,
-                event.category_id,
-                event.scheduled_at.isoformat(),
-                event.timezone,
-                event.importance.value,
-                event.pre_run_offset_minutes,
-                event.post_run_offset_minutes,
-                event.title,
-                event.description,
-                1 if event.is_recurring else 0,
-                event.recurrence_rule,
-                1 if event.is_active else 0,
-            ))
+            """,
+                (
+                    event.event_id,
+                    event.source_id,
+                    event.event_type.value,
+                    event.category_id,
+                    event.scheduled_at.isoformat(),
+                    event.timezone,
+                    event.importance.value,
+                    event.pre_run_offset_minutes,
+                    event.post_run_offset_minutes,
+                    event.title,
+                    event.description,
+                    1 if event.is_recurring else 0,
+                    event.recurrence_rule,
+                    1 if event.is_active else 0,
+                ),
+            )
             conn.commit()
 
     def get_upcoming_events(self, hours: int = 24) -> list[ScheduledEvent]:
@@ -550,13 +591,16 @@ class NewsDatabase:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM event_calendar
                 WHERE is_active = 1
                   AND scheduled_at >= ?
                   AND scheduled_at <= ?
                 ORDER BY scheduled_at ASC
-            """, (now.isoformat(), end.isoformat()))
+            """,
+                (now.isoformat(), end.isoformat()),
+            )
             return [self._row_to_event(row) for row in cursor.fetchall()]
 
     def get_events_needing_prerun(self, minutes_ahead: int = 15) -> list[ScheduledEvent]:
@@ -566,13 +610,16 @@ class NewsDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             # Get events where we're within the pre-run window
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM event_calendar
                 WHERE is_active = 1
                   AND datetime(scheduled_at, '-' || pre_run_offset_minutes || ' minutes') <= ?
                   AND scheduled_at > ?
                 ORDER BY scheduled_at ASC
-            """, (now.isoformat(), now.isoformat()))
+            """,
+                (now.isoformat(), now.isoformat()),
+            )
             return [self._row_to_event(row) for row in cursor.fetchall()]
 
     def get_events_needing_postrun(self, minutes_since: int = 30) -> list[ScheduledEvent]:
@@ -582,13 +629,16 @@ class NewsDatabase:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM event_calendar
                 WHERE is_active = 1
                   AND scheduled_at >= ?
                   AND scheduled_at <= ?
                 ORDER BY scheduled_at ASC
-            """, (window_start.isoformat(), now.isoformat()))
+            """,
+                (window_start.isoformat(), now.isoformat()),
+            )
             return [self._row_to_event(row) for row in cursor.fetchall()]
 
     def _row_to_event(self, row: sqlite3.Row) -> ScheduledEvent:
@@ -618,49 +668,55 @@ class NewsDatabase:
         """Save an article to the database"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO articles
                 (article_id, source_id, canonical_url, title, snippet, content_hash,
                  published_at, ingested_at, language, country, filing_type, cik,
                  accession_number, release_type, release_period, categories, tickers,
                  impact_score, metadata_json)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                article.article_id,
-                article.source_id,
-                article.canonical_url,
-                article.title,
-                article.snippet,
-                article.content_hash,
-                article.published_at.isoformat(),
-                article.ingested_at.isoformat(),
-                article.language,
-                article.country,
-                article.filing_type,
-                article.cik,
-                article.accession_number,
-                article.release_type,
-                article.release_period,
-                json.dumps([c.value for c in article.categories]),
-                json.dumps(article.tickers),
-                article.impact_score,
-                json.dumps(article.metadata_json),
-            ))
+            """,
+                (
+                    article.article_id,
+                    article.source_id,
+                    article.canonical_url,
+                    article.title,
+                    article.snippet,
+                    article.content_hash,
+                    article.published_at.isoformat(),
+                    article.ingested_at.isoformat(),
+                    article.language,
+                    article.country,
+                    article.filing_type,
+                    article.cik,
+                    article.accession_number,
+                    article.release_type,
+                    article.release_period,
+                    json.dumps([c.value for c in article.categories]),
+                    json.dumps(article.tickers),
+                    article.impact_score,
+                    json.dumps(article.metadata_json),
+                ),
+            )
 
             # Save entities
             for entity in article.entities:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO article_entities
                     (article_id, entity_type, value, ticker, figi, confidence)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    article.article_id,
-                    entity.entity_type.value,
-                    entity.value,
-                    entity.ticker,
-                    entity.figi,
-                    entity.confidence,
-                ))
+                """,
+                    (
+                        article.article_id,
+                        entity.entity_type.value,
+                        entity.value,
+                        entity.ticker,
+                        entity.figi,
+                        entity.confidence,
+                    ),
+                )
 
             conn.commit()
 
@@ -692,17 +748,23 @@ class NewsDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if source_id:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM articles
                     WHERE published_at >= ? AND source_id = ?
                     ORDER BY published_at DESC
-                """, (cutoff, source_id))
+                """,
+                    (cutoff, source_id),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM articles
                     WHERE published_at >= ?
                     ORDER BY published_at DESC
-                """, (cutoff,))
+                """,
+                    (cutoff,),
+                )
             return [self._row_to_article(row, cursor) for row in cursor.fetchall()]
 
     def article_exists(self, canonical_url: str) -> bool:
@@ -715,9 +777,12 @@ class NewsDatabase:
     def _row_to_article(self, row: sqlite3.Row, cursor: sqlite3.Cursor) -> Article:
         """Convert database row to Article object"""
         # Get entities
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM article_entities WHERE article_id = ?
-        """, (row["article_id"],))
+        """,
+            (row["article_id"],),
+        )
         entities = [
             Entity(
                 entity_id=f"{row['article_id']}_{e['entity_type']}_{e['value']}",
@@ -761,46 +826,55 @@ class NewsDatabase:
         """Save a story to the database"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO stories
                 (story_id, lead_article_id, headline, summary, why_it_matters,
                  first_seen_at, last_updated_at, tickers, affected_sectors,
                  affected_factors, source_count, impact_score, confidence_score,
                  category_scores, previous_summary, change_description, is_developing)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                story.story_id,
-                story.lead_article_id,
-                story.headline,
-                story.summary,
-                story.why_it_matters,
-                story.first_seen_at.isoformat(),
-                story.last_updated_at.isoformat(),
-                json.dumps(story.tickers),
-                json.dumps(story.affected_sectors),
-                json.dumps(story.affected_factors),
-                story.source_count,
-                story.impact_score,
-                story.confidence_score,
-                json.dumps(story.category_scores),
-                story.previous_summary,
-                story.change_description,
-                1 if story.is_developing else 0,
-            ))
+            """,
+                (
+                    story.story_id,
+                    story.lead_article_id,
+                    story.headline,
+                    story.summary,
+                    story.why_it_matters,
+                    story.first_seen_at.isoformat(),
+                    story.last_updated_at.isoformat(),
+                    json.dumps(story.tickers),
+                    json.dumps(story.affected_sectors),
+                    json.dumps(story.affected_factors),
+                    story.source_count,
+                    story.impact_score,
+                    story.confidence_score,
+                    json.dumps(story.category_scores),
+                    story.previous_summary,
+                    story.change_description,
+                    1 if story.is_developing else 0,
+                ),
+            )
 
             # Save story-article mappings
             for article_id in story.article_ids:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO story_articles (story_id, article_id)
                     VALUES (?, ?)
-                """, (story.story_id, article_id))
+                """,
+                    (story.story_id, article_id),
+                )
 
             # Save story-category scores
             for category_id, score in story.category_scores.items():
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO story_categories (story_id, category_id, score)
                     VALUES (?, ?, ?)
-                """, (story.story_id, category_id, score))
+                """,
+                    (story.story_id, category_id, score),
+                )
 
             conn.commit()
 
@@ -811,24 +885,32 @@ class NewsDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if category_id:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT s.* FROM stories s
                     JOIN story_categories sc ON s.story_id = sc.story_id
                     WHERE s.last_updated_at >= ? AND sc.category_id = ?
                     ORDER BY s.impact_score DESC, s.last_updated_at DESC
-                """, (cutoff, category_id))
+                """,
+                    (cutoff, category_id),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM stories
                     WHERE last_updated_at >= ?
                     ORDER BY impact_score DESC, last_updated_at DESC
-                """, (cutoff,))
+                """,
+                    (cutoff,),
+                )
             return [self._row_to_story(row, cursor) for row in cursor.fetchall()]
 
     def _row_to_story(self, row: sqlite3.Row, cursor: sqlite3.Cursor) -> Story:
         """Convert database row to Story object"""
         # Get article IDs
-        cursor.execute("SELECT article_id FROM story_articles WHERE story_id = ?", (row["story_id"],))
+        cursor.execute(
+            "SELECT article_id FROM story_articles WHERE story_id = ?", (row["story_id"],)
+        )
         article_ids = [r["article_id"] for r in cursor.fetchall()]
 
         return Story(
@@ -856,8 +938,13 @@ class NewsDatabase:
     # RUN LOG OPERATIONS
     # =========================================================================
 
-    def create_run_log(self, run_id: str, job_name: str, triggered_by: str = "scheduler",
-                       event_id: str | None = None) -> RunLog:
+    def create_run_log(
+        self,
+        run_id: str,
+        job_name: str,
+        triggered_by: str = "scheduler",
+        event_id: str | None = None,
+    ) -> RunLog:
         """Create a new run log entry"""
         run_log = RunLog(
             run_id=run_id,
@@ -870,18 +957,21 @@ class NewsDatabase:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO run_logs
                 (run_id, job_name, started_at, status, triggered_by, event_id)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                run_log.run_id,
-                run_log.job_name,
-                run_log.started_at.isoformat(),
-                run_log.status.value,
-                run_log.triggered_by,
-                run_log.event_id,
-            ))
+            """,
+                (
+                    run_log.run_id,
+                    run_log.job_name,
+                    run_log.started_at.isoformat(),
+                    run_log.status.value,
+                    run_log.triggered_by,
+                    run_log.event_id,
+                ),
+            )
             conn.commit()
 
         return run_log
@@ -890,22 +980,25 @@ class NewsDatabase:
         """Update a run log entry"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE run_logs
                 SET ended_at = ?, status = ?, items_fetched = ?, items_processed = ?,
                     stories_created = ?, stories_updated = ?, source_stats = ?, errors = ?
                 WHERE run_id = ?
-            """, (
-                run_log.ended_at.isoformat() if run_log.ended_at else None,
-                run_log.status.value,
-                run_log.items_fetched,
-                run_log.items_processed,
-                run_log.stories_created,
-                run_log.stories_updated,
-                json.dumps(run_log.source_stats),
-                json.dumps(run_log.errors),
-                run_log.run_id,
-            ))
+            """,
+                (
+                    run_log.ended_at.isoformat() if run_log.ended_at else None,
+                    run_log.status.value,
+                    run_log.items_fetched,
+                    run_log.items_processed,
+                    run_log.stories_created,
+                    run_log.stories_updated,
+                    json.dumps(run_log.source_stats),
+                    json.dumps(run_log.errors),
+                    run_log.run_id,
+                ),
+            )
             conn.commit()
 
     def get_recent_runs(self, hours: int = 24) -> list[RunLog]:
@@ -914,11 +1007,14 @@ class NewsDatabase:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM run_logs
                 WHERE started_at >= ?
                 ORDER BY started_at DESC
-            """, (cutoff,))
+            """,
+                (cutoff,),
+            )
             return [self._row_to_run_log(row) for row in cursor.fetchall()]
 
     def _row_to_run_log(self, row: sqlite3.Row) -> RunLog:

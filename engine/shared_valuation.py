@@ -30,9 +30,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TradeOutcome:
     """Result of simulating a trade to completion."""
+
     # Exit details
     exit_date: date
-    exit_reason: str  # 'profit_target', 'stop_loss', 'expiration_otm', 'expiration_itm', 'assignment'
+    exit_reason: (
+        str  # 'profit_target', 'stop_loss', 'expiration_otm', 'expiration_itm', 'assignment'
+    )
     exit_price: float  # Option price at exit (0 if expired/assigned)
     days_held: int
 
@@ -76,7 +79,7 @@ def calculate_actual_spread(bid: float, ask: float, fallback_pct: float = 0.10) 
 
 
 def simulate_option_trade(
-    option_type: Literal['put', 'call'],
+    option_type: Literal["put", "call"],
     strike: float,
     entry_premium: float,
     entry_date: date,
@@ -88,7 +91,7 @@ def simulate_option_trade(
     stop_loss_multiple: float = 2.0,
     entry_bid: float | None = None,
     entry_ask: float | None = None,
-    dividend_yield: float = 0.0
+    dividend_yield: float = 0.0,
 ) -> TradeOutcome | None:
     """
     Simulate a short option trade from entry to exit.
@@ -120,14 +123,12 @@ def simulate_option_trade(
 
     # Normalize dates in OHLCV
     ohlcv = ohlcv_df.copy()
-    ohlcv['Date'] = pd.to_datetime(ohlcv['Date']).dt.date
+    ohlcv["Date"] = pd.to_datetime(ohlcv["Date"]).dt.date
 
     # Calculate entry costs
     entry_spread = calculate_actual_spread(entry_bid, entry_ask)
     entry_cost_details = calculate_total_entry_cost(
-        premium_per_share=entry_premium,
-        bid_ask_spread=entry_spread,
-        trade_type="option"
+        premium_per_share=entry_premium, bid_ask_spread=entry_spread, trade_type="option"
     )
 
     entry_cost_details["net_premium_collected"]
@@ -139,9 +140,8 @@ def simulate_option_trade(
 
     # Get daily prices from entry to expiration
     date_range = ohlcv[
-        (ohlcv['Date'] > entry_date) &
-        (ohlcv['Date'] <= expiration_date)
-    ].sort_values('Date')
+        (ohlcv["Date"] > entry_date) & (ohlcv["Date"] <= expiration_date)
+    ].sort_values("Date")
 
     if date_range.empty:
         logger.warning(f"No price data between {entry_date} and {expiration_date}")
@@ -149,8 +149,8 @@ def simulate_option_trade(
 
     # Simulate each day
     for _, row in date_range.iterrows():
-        current_date = row['Date']
-        current_stock_price = row['Close']
+        current_date = row["Date"]
+        current_stock_price = row["Close"]
 
         # Calculate days remaining
         days_remaining = (expiration_date - current_date).days
@@ -158,7 +158,7 @@ def simulate_option_trade(
         # Handle expiration
         if current_date >= expiration_date or days_remaining <= 0:
             # At expiration - check ITM/OTM
-            if option_type == 'put':
+            if option_type == "put":
                 is_itm = current_stock_price < strike
                 intrinsic = max(0, strike - current_stock_price)
             else:  # call
@@ -171,7 +171,7 @@ def simulate_option_trade(
                 gross_pnl = entry_premium * 100 - intrinsic * 100
                 return TradeOutcome(
                     exit_date=current_date,
-                    exit_reason='assignment',
+                    exit_reason="assignment",
                     exit_price=intrinsic,
                     days_held=(current_date - entry_date).days,
                     gross_pnl=gross_pnl,
@@ -185,14 +185,14 @@ def simulate_option_trade(
                     max_loss_reached=max_loss,
                     iv_at_entry=entry_iv,
                     strike=strike,
-                    premium_collected=entry_premium * 100
+                    premium_collected=entry_premium * 100,
                 )
             else:
                 # Expired worthless - keep full premium
                 gross_pnl = entry_premium * 100
                 return TradeOutcome(
                     exit_date=current_date,
-                    exit_reason='expiration_otm',
+                    exit_reason="expiration_otm",
                     exit_price=0,
                     days_held=(current_date - entry_date).days,
                     gross_pnl=gross_pnl,
@@ -206,7 +206,7 @@ def simulate_option_trade(
                     max_loss_reached=max_loss,
                     iv_at_entry=entry_iv,
                     strike=strike,
-                    premium_collected=entry_premium * 100
+                    premium_collected=entry_premium * 100,
                 )
 
         # Estimate current option value using Black-Scholes
@@ -218,7 +218,7 @@ def simulate_option_trade(
             iv=entry_iv,
             risk_free_rate=risk_free_rate,
             option_type=option_type,
-            dividend_yield=dividend_yield
+            dividend_yield=dividend_yield,
         )
 
         # Current P&L (before exit costs)
@@ -236,13 +236,13 @@ def simulate_option_trade(
             exit_cost_details = calculate_total_exit_cost(
                 buyback_price_per_share=estimated_value,
                 bid_ask_spread=exit_spread,
-                trade_type="option"
+                trade_type="option",
             )
 
             gross_pnl = entry_premium * 100 - exit_cost_details["gross_buyback_cost"]
             return TradeOutcome(
                 exit_date=current_date,
-                exit_reason='profit_target',
+                exit_reason="profit_target",
                 exit_price=estimated_value,
                 days_held=(current_date - entry_date).days,
                 gross_pnl=gross_pnl,
@@ -256,7 +256,7 @@ def simulate_option_trade(
                 max_loss_reached=max_loss,
                 iv_at_entry=entry_iv,
                 strike=strike,
-                premium_collected=entry_premium * 100
+                premium_collected=entry_premium * 100,
             )
 
         # Check stop loss
@@ -266,13 +266,13 @@ def simulate_option_trade(
             exit_cost_details = calculate_total_exit_cost(
                 buyback_price_per_share=estimated_value,
                 bid_ask_spread=exit_spread,
-                trade_type="option"
+                trade_type="option",
             )
 
             gross_pnl = entry_premium * 100 - exit_cost_details["gross_buyback_cost"]
             return TradeOutcome(
                 exit_date=current_date,
-                exit_reason='stop_loss',
+                exit_reason="stop_loss",
                 exit_price=estimated_value,
                 days_held=(current_date - entry_date).days,
                 gross_pnl=gross_pnl,
@@ -286,7 +286,7 @@ def simulate_option_trade(
                 max_loss_reached=max_loss,
                 iv_at_entry=entry_iv,
                 strike=strike,
-                premium_collected=entry_premium * 100
+                premium_collected=entry_premium * 100,
             )
 
     # Should not reach here, but handle edge case
@@ -304,7 +304,7 @@ def simulate_wheel_cycle(
     call_selector: Callable | None = None,
     risk_free_rate: float = 0.04,
     profit_target_pct: float = 0.60,
-    stop_loss_multiple: float = 2.0
+    stop_loss_multiple: float = 2.0,
 ) -> dict[str, Any]:
     """
     Simulate a complete Wheel cycle (put -> potential assignment -> covered calls).
@@ -327,18 +327,18 @@ def simulate_wheel_cycle(
         Dictionary with cycle results
     """
     results = {
-        'put_outcome': None,
-        'call_outcomes': [],
-        'total_gross_pnl': 0,
-        'total_costs': 0,
-        'total_net_pnl': 0,
-        'cycle_complete': False,
-        'final_state': 'put_open'
+        "put_outcome": None,
+        "call_outcomes": [],
+        "total_gross_pnl": 0,
+        "total_costs": 0,
+        "total_net_pnl": 0,
+        "cycle_complete": False,
+        "final_state": "put_open",
     }
 
     # Simulate put leg
     put_outcome = simulate_option_trade(
-        option_type='put',
+        option_type="put",
         strike=put_strike,
         entry_premium=put_premium,
         entry_date=put_entry_date,
@@ -347,25 +347,27 @@ def simulate_wheel_cycle(
         ohlcv_df=ohlcv_df,
         risk_free_rate=risk_free_rate,
         profit_target_pct=profit_target_pct,
-        stop_loss_multiple=stop_loss_multiple
+        stop_loss_multiple=stop_loss_multiple,
     )
 
     if put_outcome is None:
         return results
 
-    results['put_outcome'] = put_outcome
-    results['total_gross_pnl'] += put_outcome.gross_pnl
-    results['total_costs'] += put_outcome.entry_costs + put_outcome.exit_costs + put_outcome.assignment_costs
-    results['total_net_pnl'] += put_outcome.net_pnl
+    results["put_outcome"] = put_outcome
+    results["total_gross_pnl"] += put_outcome.gross_pnl
+    results["total_costs"] += (
+        put_outcome.entry_costs + put_outcome.exit_costs + put_outcome.assignment_costs
+    )
+    results["total_net_pnl"] += put_outcome.net_pnl
 
     if not put_outcome.was_assigned:
         # Put expired OTM or closed early - cycle complete
-        results['cycle_complete'] = True
-        results['final_state'] = 'put_closed'
+        results["cycle_complete"] = True
+        results["final_state"] = "put_closed"
         return results
 
     # Put was assigned - now own stock at strike price
-    results['final_state'] = 'stock_owned'
+    results["final_state"] = "stock_owned"
     stock_basis = put_strike
 
     # If call_selector provided, simulate covered calls
@@ -375,30 +377,30 @@ def simulate_wheel_cycle(
         call_params = call_selector(put_outcome.underlying_price_at_exit, put_outcome.exit_date)
         if call_params:
             call_outcome = simulate_option_trade(
-                option_type='call',
-                strike=call_params['strike'],
-                entry_premium=call_params['premium'],
-                entry_date=call_params['entry_date'],
-                expiration_date=call_params['expiration_date'],
-                entry_iv=call_params['iv'],
+                option_type="call",
+                strike=call_params["strike"],
+                entry_premium=call_params["premium"],
+                entry_date=call_params["entry_date"],
+                expiration_date=call_params["expiration_date"],
+                entry_iv=call_params["iv"],
                 ohlcv_df=ohlcv_df,
                 risk_free_rate=risk_free_rate,
                 profit_target_pct=profit_target_pct,
-                stop_loss_multiple=stop_loss_multiple
+                stop_loss_multiple=stop_loss_multiple,
             )
 
             if call_outcome:
-                results['call_outcomes'].append(call_outcome)
-                results['total_gross_pnl'] += call_outcome.gross_pnl
-                results['total_costs'] += call_outcome.entry_costs + call_outcome.exit_costs
-                results['total_net_pnl'] += call_outcome.net_pnl
+                results["call_outcomes"].append(call_outcome)
+                results["total_gross_pnl"] += call_outcome.gross_pnl
+                results["total_costs"] += call_outcome.entry_costs + call_outcome.exit_costs
+                results["total_net_pnl"] += call_outcome.net_pnl
 
                 if call_outcome.was_assigned:
                     # Stock called away - add stock P&L
-                    stock_pnl = (call_params['strike'] - stock_basis) * 100
-                    results['total_gross_pnl'] += stock_pnl
-                    results['total_net_pnl'] += stock_pnl
-                    results['cycle_complete'] = True
-                    results['final_state'] = 'called_away'
+                    stock_pnl = (call_params["strike"] - stock_basis) * 100
+                    results["total_gross_pnl"] += stock_pnl
+                    results["total_net_pnl"] += stock_pnl
+                    results["cycle_complete"] = True
+                    results["final_state"] = "called_away"
 
     return results

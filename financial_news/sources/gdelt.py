@@ -171,11 +171,7 @@ class GDELTFetcher(BaseSourceFetcher):
                     continue
 
                 # Generate article ID
-                article_id = Article.generate_id(
-                    url=url,
-                    published_at=pub_date,
-                    source="gdelt"
-                )
+                article_id = Article.generate_id(url=url, published_at=pub_date, source="gdelt")
 
                 # Extract source name from domain
                 domain = item.get("domain", "unknown")
@@ -189,7 +185,9 @@ class GDELTFetcher(BaseSourceFetcher):
                     source_name=source_name,
                     published_at_utc=pub_date,
                     title=item.get("title", ""),
-                    snippet=item.get("title", "")[:300],  # GDELT doesn't provide snippets, use title
+                    snippet=item.get("title", "")[
+                        :300
+                    ],  # GDELT doesn't provide snippets, use title
                     language=item.get("language", "en"),
                     country=item.get("sourcecountry", "US"),
                     retrieval_provider="gdelt",
@@ -264,9 +262,7 @@ class GDELTFetcher(BaseSourceFetcher):
             data = response.json()
             # Create a dummy category for parsing
             dummy_category = Category(
-                category_id="geo",
-                name="Geographic",
-                description="Location-based search"
+                category_id="geo", name="Geographic", description="Location-based search"
             )
             return self._parse_response(data, dummy_category)
 

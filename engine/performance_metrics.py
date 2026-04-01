@@ -14,6 +14,7 @@ import pandas as pd
 @dataclass
 class PerformanceReport:
     """Comprehensive performance report."""
+
     # Return metrics
     total_return: float
     annualized_return: float
@@ -56,31 +57,31 @@ class PerformanceReport:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'total_return': self.total_return,
-            'annualized_return': self.annualized_return,
-            'total_pnl': self.total_pnl,
-            'volatility': self.volatility,
-            'sharpe_ratio': self.sharpe_ratio,
-            'sortino_ratio': self.sortino_ratio,
-            'max_drawdown': self.max_drawdown,
-            'max_drawdown_duration': self.max_drawdown_duration,
-            'total_trades': self.total_trades,
-            'winning_trades': self.winning_trades,
-            'losing_trades': self.losing_trades,
-            'win_rate': self.win_rate,
-            'profit_factor': self.profit_factor,
-            'avg_win': self.avg_win,
-            'avg_loss': self.avg_loss,
-            'largest_win': self.largest_win,
-            'largest_loss': self.largest_loss,
-            'avg_pnl_per_trade': self.avg_pnl_per_trade,
-            'avg_hold_days': self.avg_hold_days,
-            'avg_win_hold_days': self.avg_win_hold_days,
-            'avg_loss_hold_days': self.avg_loss_hold_days,
-            'total_transaction_costs': self.total_transaction_costs,
-            'cost_as_pct_of_pnl': self.cost_as_pct_of_pnl,
-            'calmar_ratio': self.calmar_ratio,
-            'ulcer_index': self.ulcer_index,
+            "total_return": self.total_return,
+            "annualized_return": self.annualized_return,
+            "total_pnl": self.total_pnl,
+            "volatility": self.volatility,
+            "sharpe_ratio": self.sharpe_ratio,
+            "sortino_ratio": self.sortino_ratio,
+            "max_drawdown": self.max_drawdown,
+            "max_drawdown_duration": self.max_drawdown_duration,
+            "total_trades": self.total_trades,
+            "winning_trades": self.winning_trades,
+            "losing_trades": self.losing_trades,
+            "win_rate": self.win_rate,
+            "profit_factor": self.profit_factor,
+            "avg_win": self.avg_win,
+            "avg_loss": self.avg_loss,
+            "largest_win": self.largest_win,
+            "largest_loss": self.largest_loss,
+            "avg_pnl_per_trade": self.avg_pnl_per_trade,
+            "avg_hold_days": self.avg_hold_days,
+            "avg_win_hold_days": self.avg_win_hold_days,
+            "avg_loss_hold_days": self.avg_loss_hold_days,
+            "total_transaction_costs": self.total_transaction_costs,
+            "cost_as_pct_of_pnl": self.cost_as_pct_of_pnl,
+            "calmar_ratio": self.calmar_ratio,
+            "ulcer_index": self.ulcer_index,
         }
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -99,10 +100,10 @@ def calculate_returns(equity_curve: pd.DataFrame, initial_capital: float) -> pd.
     Returns:
         Series of daily returns
     """
-    if equity_curve.empty or 'portfolio_value' not in equity_curve.columns:
+    if equity_curve.empty or "portfolio_value" not in equity_curve.columns:
         return pd.Series(dtype=float)
 
-    values = equity_curve['portfolio_value'].values
+    values = equity_curve["portfolio_value"].values
     returns = np.diff(values) / values[:-1]
     return pd.Series(returns)
 
@@ -117,10 +118,10 @@ def calculate_max_drawdown(equity_curve: pd.DataFrame) -> tuple:
     Returns:
         Tuple of (max_drawdown, duration_in_days)
     """
-    if equity_curve.empty or 'portfolio_value' not in equity_curve.columns:
+    if equity_curve.empty or "portfolio_value" not in equity_curve.columns:
         return 0.0, 0
 
-    values = equity_curve['portfolio_value'].values
+    values = equity_curve["portfolio_value"].values
     peak = np.maximum.accumulate(values)
     drawdown = (values - peak) / peak
 
@@ -155,20 +156,18 @@ def calculate_ulcer_index(equity_curve: pd.DataFrame) -> float:
     Returns:
         Ulcer Index value
     """
-    if equity_curve.empty or 'portfolio_value' not in equity_curve.columns:
+    if equity_curve.empty or "portfolio_value" not in equity_curve.columns:
         return 0.0
 
-    values = equity_curve['portfolio_value'].values
+    values = equity_curve["portfolio_value"].values
     peak = np.maximum.accumulate(values)
     drawdown_pct = ((values - peak) / peak) * 100  # In percentage
 
-    return np.sqrt(np.mean(drawdown_pct ** 2))
+    return np.sqrt(np.mean(drawdown_pct**2))
 
 
 def calculate_sharpe_ratio(
-    returns: pd.Series,
-    risk_free_rate: float = 0.04,
-    periods_per_year: int = 252
+    returns: pd.Series, risk_free_rate: float = 0.04, periods_per_year: int = 252
 ) -> float:
     """
     Calculate annualized Sharpe ratio.
@@ -190,9 +189,7 @@ def calculate_sharpe_ratio(
 
 
 def calculate_sortino_ratio(
-    returns: pd.Series,
-    risk_free_rate: float = 0.04,
-    periods_per_year: int = 252
+    returns: pd.Series, risk_free_rate: float = 0.04, periods_per_year: int = 252
 ) -> float:
     """
     Calculate annualized Sortino ratio (downside deviation only).
@@ -213,7 +210,7 @@ def calculate_sortino_ratio(
     downside_returns = returns[returns < 0]
 
     if downside_returns.empty or downside_returns.std() == 0:
-        return 0.0 if excess_returns.mean() <= 0 else float('inf')
+        return 0.0 if excess_returns.mean() <= 0 else float("inf")
 
     downside_std = downside_returns.std()
     return excess_returns.mean() / downside_std * np.sqrt(periods_per_year)
@@ -229,14 +226,14 @@ def calculate_profit_factor(trades: pd.DataFrame) -> float:
     Returns:
         Profit factor (>1 is profitable)
     """
-    if trades.empty or 'net_pnl' not in trades.columns:
+    if trades.empty or "net_pnl" not in trades.columns:
         return 0.0
 
-    gross_profit = trades[trades['net_pnl'] > 0]['net_pnl'].sum()
-    gross_loss = abs(trades[trades['net_pnl'] < 0]['net_pnl'].sum())
+    gross_profit = trades[trades["net_pnl"] > 0]["net_pnl"].sum()
+    gross_loss = abs(trades[trades["net_pnl"] < 0]["net_pnl"].sum())
 
     if gross_loss == 0:
-        return float('inf') if gross_profit > 0 else 0.0
+        return float("inf") if gross_profit > 0 else 0.0
 
     return gross_profit / gross_loss
 
@@ -245,7 +242,7 @@ def calculate_performance_report(
     closed_trades: list[dict],
     equity_curve: list[dict],
     initial_capital: float,
-    risk_free_rate: float = 0.04
+    risk_free_rate: float = 0.04,
 ) -> PerformanceReport:
     """
     Calculate comprehensive performance report.
@@ -265,23 +262,38 @@ def calculate_performance_report(
     # Handle empty data
     if trades_df.empty:
         return PerformanceReport(
-            total_return=0.0, annualized_return=0.0, total_pnl=0.0,
-            volatility=0.0, sharpe_ratio=0.0, sortino_ratio=0.0,
-            max_drawdown=0.0, max_drawdown_duration=0,
-            total_trades=0, winning_trades=0, losing_trades=0,
-            win_rate=0.0, profit_factor=0.0,
-            avg_win=0.0, avg_loss=0.0, largest_win=0.0, largest_loss=0.0,
+            total_return=0.0,
+            annualized_return=0.0,
+            total_pnl=0.0,
+            volatility=0.0,
+            sharpe_ratio=0.0,
+            sortino_ratio=0.0,
+            max_drawdown=0.0,
+            max_drawdown_duration=0,
+            total_trades=0,
+            winning_trades=0,
+            losing_trades=0,
+            win_rate=0.0,
+            profit_factor=0.0,
+            avg_win=0.0,
+            avg_loss=0.0,
+            largest_win=0.0,
+            largest_loss=0.0,
             avg_pnl_per_trade=0.0,
-            avg_hold_days=0.0, avg_win_hold_days=0.0, avg_loss_hold_days=0.0,
-            total_transaction_costs=0.0, cost_as_pct_of_pnl=0.0,
-            calmar_ratio=0.0, ulcer_index=0.0
+            avg_hold_days=0.0,
+            avg_win_hold_days=0.0,
+            avg_loss_hold_days=0.0,
+            total_transaction_costs=0.0,
+            cost_as_pct_of_pnl=0.0,
+            calmar_ratio=0.0,
+            ulcer_index=0.0,
         )
 
     # Calculate returns
     returns = calculate_returns(equity_df, initial_capital)
 
     # Return metrics
-    final_value = equity_df['portfolio_value'].iloc[-1] if not equity_df.empty else initial_capital
+    final_value = equity_df["portfolio_value"].iloc[-1] if not equity_df.empty else initial_capital
     total_return = (final_value - initial_capital) / initial_capital
     num_days = len(equity_df) if not equity_df.empty else 1
     annualized_return = ((1 + total_return) ** (252 / max(num_days, 1))) - 1
@@ -295,29 +307,39 @@ def calculate_performance_report(
 
     # Trade statistics
     total_trades = len(trades_df)
-    winners = trades_df[trades_df['net_pnl'] > 0]
-    losers = trades_df[trades_df['net_pnl'] < 0]
+    winners = trades_df[trades_df["net_pnl"] > 0]
+    losers = trades_df[trades_df["net_pnl"] < 0]
     winning_trades = len(winners)
     losing_trades = len(losers)
     win_rate = winning_trades / total_trades if total_trades > 0 else 0.0
     profit_factor = calculate_profit_factor(trades_df)
 
     # P&L statistics
-    total_pnl = trades_df['net_pnl'].sum()
-    avg_win = winners['net_pnl'].mean() if not winners.empty else 0.0
-    avg_loss = losers['net_pnl'].mean() if not losers.empty else 0.0
-    largest_win = trades_df['net_pnl'].max() if not trades_df.empty else 0.0
-    largest_loss = trades_df['net_pnl'].min() if not trades_df.empty else 0.0
-    avg_pnl = trades_df['net_pnl'].mean() if not trades_df.empty else 0.0
+    total_pnl = trades_df["net_pnl"].sum()
+    avg_win = winners["net_pnl"].mean() if not winners.empty else 0.0
+    avg_loss = losers["net_pnl"].mean() if not losers.empty else 0.0
+    largest_win = trades_df["net_pnl"].max() if not trades_df.empty else 0.0
+    largest_loss = trades_df["net_pnl"].min() if not trades_df.empty else 0.0
+    avg_pnl = trades_df["net_pnl"].mean() if not trades_df.empty else 0.0
 
     # Time statistics
-    avg_hold = trades_df['hold_days'].mean() if 'hold_days' in trades_df.columns else 0.0
-    avg_win_hold = winners['hold_days'].mean() if 'hold_days' in winners.columns and not winners.empty else 0.0
-    avg_loss_hold = losers['hold_days'].mean() if 'hold_days' in losers.columns and not losers.empty else 0.0
+    avg_hold = trades_df["hold_days"].mean() if "hold_days" in trades_df.columns else 0.0
+    avg_win_hold = (
+        winners["hold_days"].mean() if "hold_days" in winners.columns and not winners.empty else 0.0
+    )
+    avg_loss_hold = (
+        losers["hold_days"].mean() if "hold_days" in losers.columns and not losers.empty else 0.0
+    )
 
     # Cost analysis
-    total_costs = trades_df['transaction_costs'].sum() if 'transaction_costs' in trades_df.columns else 0.0
-    gross_pnl = trades_df['realized_pnl'].sum() if 'realized_pnl' in trades_df.columns else total_pnl + total_costs
+    total_costs = (
+        trades_df["transaction_costs"].sum() if "transaction_costs" in trades_df.columns else 0.0
+    )
+    gross_pnl = (
+        trades_df["realized_pnl"].sum()
+        if "realized_pnl" in trades_df.columns
+        else total_pnl + total_costs
+    )
     cost_pct = total_costs / gross_pnl if gross_pnl != 0 else 0.0
 
     # Risk-adjusted
@@ -348,7 +370,7 @@ def calculate_performance_report(
         total_transaction_costs=total_costs,
         cost_as_pct_of_pnl=cost_pct,
         calmar_ratio=calmar,
-        ulcer_index=ulcer
+        ulcer_index=ulcer,
     )
 
 
@@ -368,12 +390,12 @@ def generate_trade_analysis(closed_trades: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(closed_trades)
 
     # Add analysis columns
-    if 'net_pnl' in df.columns:
-        df['cumulative_pnl'] = df['net_pnl'].cumsum()
-        df['is_winner'] = df['net_pnl'] > 0
+    if "net_pnl" in df.columns:
+        df["cumulative_pnl"] = df["net_pnl"].cumsum()
+        df["is_winner"] = df["net_pnl"] > 0
 
-    if 'realized_pnl' in df.columns and 'transaction_costs' in df.columns:
-        df['cost_ratio'] = df['transaction_costs'] / df['realized_pnl'].abs()
+    if "realized_pnl" in df.columns and "transaction_costs" in df.columns:
+        df["cost_ratio"] = df["transaction_costs"] / df["realized_pnl"].abs()
 
     return df
 
@@ -392,20 +414,32 @@ def generate_monthly_returns(equity_curve: list[dict]) -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.DataFrame(equity_curve)
-    df['date'] = pd.to_datetime(df['date'])
-    df = df.set_index('date')
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.set_index("date")
 
     # Resample to month-end
-    monthly = df['portfolio_value'].resample('M').last()
+    monthly = df["portfolio_value"].resample("M").last()
     monthly_returns = monthly.pct_change()
 
     # Pivot to year x month format
-    monthly_returns = monthly_returns.to_frame('return')
-    monthly_returns['year'] = monthly_returns.index.year
-    monthly_returns['month'] = monthly_returns.index.month
+    monthly_returns = monthly_returns.to_frame("return")
+    monthly_returns["year"] = monthly_returns.index.year
+    monthly_returns["month"] = monthly_returns.index.month
 
-    pivot = monthly_returns.pivot(index='year', columns='month', values='return')
-    pivot.columns = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][:len(pivot.columns)]
+    pivot = monthly_returns.pivot(index="year", columns="month", values="return")
+    pivot.columns = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ][: len(pivot.columns)]
 
     return pivot

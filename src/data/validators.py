@@ -240,6 +240,7 @@ class DataValidator:
             outliers = df[df["_zscore"].abs() > threshold].copy()
             outliers.drop(columns=["_zscore"], inplace=True)
         elif method == "iqr":
+
             def iqr_outlier(x):
                 q1 = x.quantile(0.25)
                 q3 = x.quantile(0.75)

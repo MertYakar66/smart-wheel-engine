@@ -136,11 +136,14 @@ YOUR TONE:
         # Scenario 2: What if volatility is wrong?
         if iv_env["level"] in ["VERY_HIGH", "HIGH"]:
             hidden_risks.append(
-                "Elevated IV suggests market expects movement - "
-                "what do they know that you don't?"
+                "Elevated IV suggests market expects movement - what do they know that you don't?"
             )
-            detected_biases.append(("overconfidence",
-                "You may be overconfident that IV will stay elevated or revert favorably"))
+            detected_biases.append(
+                (
+                    "overconfidence",
+                    "You may be overconfident that IV will stay elevated or revert favorably",
+                )
+            )
 
         # Scenario 3: Concentration death spiral
         if concentration["high_concentration"]:
@@ -155,25 +158,38 @@ YOUR TONE:
 
         # Check for recency bias
         if market.regime.value in ["trending_up", "low_volatility"]:
-            detected_biases.append(("recency",
-                "Recent calm market may be creating false confidence"))
+            detected_biases.append(
+                ("recency", "Recent calm market may be creating false confidence")
+            )
 
         # Check for premium chasing (availability bias)
         if trade.premium > 10 and trade.delta < -0.25:
-            detected_biases.append(("availability",
-                "High premium is salient - are you properly weighing the assignment risk?"))
+            detected_biases.append(
+                (
+                    "availability",
+                    "High premium is salient - are you properly weighing the assignment risk?",
+                )
+            )
 
         # Check for social proof
         popular_tickers = {"NVDA", "TSLA", "AMD", "AAPL", "SPY", "QQQ"}
         if trade.ticker in popular_tickers:
-            detected_biases.append(("social_proof",
-                f"{trade.ticker} is heavily discussed - ensure this is YOUR analysis, not the crowd's"))
+            detected_biases.append(
+                (
+                    "social_proof",
+                    f"{trade.ticker} is heavily discussed - ensure this is YOUR analysis, not the crowd's",
+                )
+            )
 
         # Check for overconfidence in probability
         if prob["p_otm"] > 0.70:
-            detected_biases.append(("overconfidence",
-                f"P(OTM) of {prob['p_otm']:.0%} sounds comfortable - "
-                "but models are wrong most when they're most confident"))
+            detected_biases.append(
+                (
+                    "overconfidence",
+                    f"P(OTM) of {prob['p_otm']:.0%} sounds comfortable - "
+                    "but models are wrong most when they're most confident",
+                )
+            )
 
         # Add bias warnings to key_reasons
         for bias_name, description in detected_biases[:3]:
@@ -273,9 +289,7 @@ YOUR TONE:
             )
         elif mitigating_factors >= 4 and red_flags == 0:
             judgment = Judgment.STRONG_APPROVE
-            judgment_summary = (
-                "Rare trade that passes all filters. Proceed with discipline."
-            )
+            judgment_summary = "Rare trade that passes all filters. Proceed with discipline."
         else:
             judgment = Judgment.NEUTRAL
             judgment_summary = (

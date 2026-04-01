@@ -35,30 +35,33 @@ from typing import Any
 # ENUMS
 # =============================================================================
 
+
 class SourceType(Enum):
     """Source trust tiers - determines processing priority"""
-    OFFICIAL = "official"           # Fed, BLS, BEA, Census, EIA, SEC, Treasury, OPEC
-    COMPANY_IR = "company_ir"       # Company investor relations, press releases
-    LICENSED = "licensed"           # Licensed news providers
-    AGGREGATOR = "aggregator"       # News aggregators, broad discovery
+
+    OFFICIAL = "official"  # Fed, BLS, BEA, Census, EIA, SEC, Treasury, OPEC
+    COMPANY_IR = "company_ir"  # Company investor relations, press releases
+    LICENSED = "licensed"  # Licensed news providers
+    AGGREGATOR = "aggregator"  # News aggregators, broad discovery
 
 
 class SourceProvider(Enum):
     """Specific source providers"""
+
     # Tier 1 - Official
     FEDERAL_RESERVE = "federal_reserve"
-    BLS = "bls"                     # Bureau of Labor Statistics
-    BEA = "bea"                     # Bureau of Economic Analysis
-    CENSUS = "census"               # Census Bureau
-    EIA = "eia"                     # Energy Information Administration
-    SEC_EDGAR = "sec_edgar"         # SEC EDGAR filings
-    TREASURY = "treasury"           # Treasury / OFAC
-    STATE_DEPT = "state_dept"       # State Department
-    OPEC = "opec"                   # OPEC official
+    BLS = "bls"  # Bureau of Labor Statistics
+    BEA = "bea"  # Bureau of Economic Analysis
+    CENSUS = "census"  # Census Bureau
+    EIA = "eia"  # Energy Information Administration
+    SEC_EDGAR = "sec_edgar"  # SEC EDGAR filings
+    TREASURY = "treasury"  # Treasury / OFAC
+    STATE_DEPT = "state_dept"  # State Department
+    OPEC = "opec"  # OPEC official
 
     # Tier 2 - Company Official
-    COMPANY_IR = "company_ir"       # Company investor relations
-    COMPANY_PR = "company_pr"       # Company press releases
+    COMPANY_IR = "company_ir"  # Company investor relations
+    COMPANY_PR = "company_pr"  # Company press releases
 
     # Tier 3 - Licensed/Aggregator
     RSS_FEED = "rss_feed"
@@ -67,18 +70,20 @@ class SourceProvider(Enum):
 
 class CategoryType(Enum):
     """8 Core Categories - focused on trading-relevant events"""
-    FED_RATES = "fed_rates"                 # FOMC, Fed, Powell, rates, policy
-    INFLATION = "inflation"                  # CPI, PCE, shelter, services
-    LABOR = "labor"                          # NFP, unemployment, JOLTS, wages
-    GROWTH_CONSUMER = "growth_consumer"      # GDP, retail, housing, durable goods
-    OIL_ENERGY = "oil_energy"               # EIA, OPEC, oil, gas, refinery
-    GEOPOLITICS = "geopolitics"             # Sanctions, conflicts with market impact
-    SP500_CORPORATE = "sp500_corporate"     # Earnings, 8-K, M&A, guidance
-    MARKET_REGIME = "market_regime"         # Derived: risk-on/off, sector rotation
+
+    FED_RATES = "fed_rates"  # FOMC, Fed, Powell, rates, policy
+    INFLATION = "inflation"  # CPI, PCE, shelter, services
+    LABOR = "labor"  # NFP, unemployment, JOLTS, wages
+    GROWTH_CONSUMER = "growth_consumer"  # GDP, retail, housing, durable goods
+    OIL_ENERGY = "oil_energy"  # EIA, OPEC, oil, gas, refinery
+    GEOPOLITICS = "geopolitics"  # Sanctions, conflicts with market impact
+    SP500_CORPORATE = "sp500_corporate"  # Earnings, 8-K, M&A, guidance
+    MARKET_REGIME = "market_regime"  # Derived: risk-on/off, sector rotation
 
 
 class EventType(Enum):
     """Types of scheduled events"""
+
     # Fed events
     FOMC_DECISION = "fomc_decision"
     FOMC_MINUTES = "fomc_minutes"
@@ -93,7 +98,7 @@ class EventType(Enum):
     PPI = "ppi"
 
     # Labor releases
-    NFP = "nfp"                     # Nonfarm Payrolls / Employment Situation
+    NFP = "nfp"  # Nonfarm Payrolls / Employment Situation
     UNEMPLOYMENT = "unemployment"
     JOLTS = "jolts"
     JOBLESS_CLAIMS = "jobless_claims"
@@ -112,7 +117,7 @@ class EventType(Enum):
     ISM_SERVICES = "ism_services"
 
     # Energy releases
-    EIA_PETROLEUM = "eia_petroleum"     # Weekly Petroleum Status Report
+    EIA_PETROLEUM = "eia_petroleum"  # Weekly Petroleum Status Report
     EIA_NATURAL_GAS = "eia_natural_gas"
     OPEC_MEETING = "opec_meeting"
 
@@ -123,6 +128,7 @@ class EventType(Enum):
 
 class EntityType(Enum):
     """Types of extracted entities"""
+
     COMPANY = "company"
     TICKER = "ticker"
     PERSON = "person"
@@ -136,31 +142,35 @@ class EntityType(Enum):
 
 class ImportanceLevel(Enum):
     """Event importance for scheduling"""
-    CRITICAL = "critical"   # FOMC, NFP, CPI - triggers mini-runs
-    HIGH = "high"           # GDP, PCE, JOLTS
-    MEDIUM = "medium"       # Housing, durable goods
-    LOW = "low"             # Secondary indicators
+
+    CRITICAL = "critical"  # FOMC, NFP, CPI - triggers mini-runs
+    HIGH = "high"  # GDP, PCE, JOLTS
+    MEDIUM = "medium"  # Housing, durable goods
+    LOW = "low"  # Secondary indicators
 
 
 class BriefType(Enum):
     """Types of generated briefs"""
-    MORNING = "morning"     # 06:30 ET
-    EVENING = "evening"     # 18:30 ET
-    EVENT = "event"         # Post-release mini-brief
+
+    MORNING = "morning"  # 06:30 ET
+    EVENING = "evening"  # 18:30 ET
+    EVENT = "event"  # Post-release mini-brief
 
 
 class RunStatus(Enum):
     """Pipeline run status"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
-    PARTIAL = "partial"     # Some sources failed
+    PARTIAL = "partial"  # Some sources failed
     FAILED = "failed"
 
 
 # =============================================================================
 # DATA MODELS
 # =============================================================================
+
 
 @dataclass
 class Source:
@@ -172,13 +182,14 @@ class Source:
     - Rate limiting requirements
     - Category routing
     """
+
     source_id: str
     name: str
     provider: SourceProvider
     source_type: SourceType
 
     # Trust and priority
-    priority_weight: float = 1.0        # Higher = more trusted
+    priority_weight: float = 1.0  # Higher = more trusted
 
     # Rate limiting (SEC EDGAR: 10 req/sec)
     rate_limit_per_second: float = 10.0
@@ -208,7 +219,9 @@ class Source:
             "base_url": self.base_url,
             "default_categories": [c.value for c in self.default_categories],
             "is_active": self.is_active,
-            "last_successful_fetch": self.last_successful_fetch.isoformat() if self.last_successful_fetch else None,
+            "last_successful_fetch": self.last_successful_fetch.isoformat()
+            if self.last_successful_fetch
+            else None,
             "consecutive_failures": self.consecutive_failures,
         }
 
@@ -221,16 +234,17 @@ class Category:
     Categories are not generic buckets - they are query configurations
     with deterministic routing rules.
     """
+
     category_id: str
     category_type: CategoryType
     name: str
     description: str
 
     # Ranking profile
-    macro_weight: float = 0.35          # Weight for macro relevance
-    sp500_weight: float = 0.25          # Weight for SP500 relevance
-    source_quality_weight: float = 0.20 # Weight for source tier
-    recency_weight: float = 0.10        # Weight for time decay
+    macro_weight: float = 0.35  # Weight for macro relevance
+    sp500_weight: float = 0.25  # Weight for SP500 relevance
+    source_quality_weight: float = 0.20  # Weight for source tier
+    recency_weight: float = 0.10  # Weight for time decay
     corroboration_weight: float = 0.10  # Weight for multi-source confirmation
 
     # Brief configuration
@@ -265,6 +279,7 @@ class CategoryRule:
     2. Keyword matching with required/exclude lists
     3. Entity-based boosts
     """
+
     rule_id: str
     category_id: str
 
@@ -312,6 +327,7 @@ class ScheduledEvent:
     This is critical - the system runs around known release schedules,
     not generic polling.
     """
+
     event_id: str
     source_id: str
     event_type: EventType
@@ -325,8 +341,8 @@ class ScheduledEvent:
     importance: ImportanceLevel = ImportanceLevel.MEDIUM
 
     # Pre/post run offsets for event-aware ingestion
-    pre_run_offset_minutes: int = 10    # Run ingestion X minutes before
-    post_run_offset_minutes: int = 5    # Run ingestion X minutes after
+    pre_run_offset_minutes: int = 10  # Run ingestion X minutes before
+    post_run_offset_minutes: int = 5  # Run ingestion X minutes after
 
     # Event metadata
     title: str = ""
@@ -360,13 +376,14 @@ class ScheduledEvent:
 @dataclass
 class Entity:
     """Extracted entity from article/filing"""
+
     entity_id: str
     entity_type: EntityType
-    value: str                          # The entity value (e.g., "AAPL", "Federal Reserve")
+    value: str  # The entity value (e.g., "AAPL", "Federal Reserve")
 
     # Normalized identifiers
-    ticker: str | None = None        # Stock ticker if applicable
-    figi: str | None = None          # Financial Instrument Global Identifier
+    ticker: str | None = None  # Stock ticker if applicable
+    figi: str | None = None  # Financial Instrument Global Identifier
 
     confidence: float = 1.0
 
@@ -393,13 +410,14 @@ class Article:
     - Company press releases
     - News articles
     """
+
     article_id: str
     source_id: str
     canonical_url: str
 
     # Content
     title: str
-    snippet: str | None = None       # Short excerpt if permitted
+    snippet: str | None = None  # Short excerpt if permitted
     content_hash: str | None = None  # For deduplication
 
     # Timestamps
@@ -411,8 +429,8 @@ class Article:
     country: str = "US"
 
     # For SEC filings
-    filing_type: str | None = None   # 8-K, 10-Q, 10-K, etc.
-    cik: str | None = None           # SEC Central Index Key
+    filing_type: str | None = None  # 8-K, 10-Q, 10-K, etc.
+    cik: str | None = None  # SEC Central Index Key
     accession_number: str | None = None
 
     # For macro releases
@@ -477,13 +495,14 @@ class Story:
     - Affected assets
     - Confidence based on source diversity
     """
+
     story_id: str
     lead_article_id: str
 
     # Generated content
     headline: str
-    summary: str                        # "What happened" - 1-2 sentences
-    why_it_matters: str                 # "Why it matters" - mechanism explanation
+    summary: str  # "What happened" - 1-2 sentences
+    why_it_matters: str  # "Why it matters" - mechanism explanation
 
     # Timestamps
     first_seen_at: datetime
@@ -496,11 +515,11 @@ class Story:
 
     # Coverage
     article_ids: list[str] = field(default_factory=list)
-    source_count: int = 0               # Number of independent sources
+    source_count: int = 0  # Number of independent sources
 
     # Scoring
     impact_score: float = 0.0
-    confidence_score: float = 0.0       # Based on source diversity
+    confidence_score: float = 0.0  # Based on source diversity
 
     # Category scores (story can belong to multiple categories)
     category_scores: dict[str, float] = field(default_factory=dict)
@@ -510,7 +529,7 @@ class Story:
     change_description: str | None = None
 
     # Status
-    is_developing: bool = False         # Story is still evolving
+    is_developing: bool = False  # Story is still evolving
 
     @staticmethod
     def generate_id(lead_article_id: str, first_seen: datetime) -> str:
@@ -553,6 +572,7 @@ class Brief:
     - Post-close changes
     - Tomorrow's scheduled events
     """
+
     brief_id: str
     user_id: str
     brief_type: BriefType
@@ -563,9 +583,9 @@ class Brief:
 
     # Generated sections
     executive_summary: str | None = None
-    macro_watch: str | None = None       # Key macro events today/tomorrow
-    oil_geo_watch: str | None = None     # Oil/geopolitics watch
-    sp500_watch: str | None = None       # SP500 event watch
+    macro_watch: str | None = None  # Key macro events today/tomorrow
+    oil_geo_watch: str | None = None  # Oil/geopolitics watch
+    sp500_watch: str | None = None  # SP500 event watch
     calendar_summary: str | None = None  # Upcoming releases
 
     # Stats
@@ -603,8 +623,9 @@ class RunLog:
     - Debugging failures
     - Performance monitoring
     """
+
     run_id: str
-    job_name: str                       # "morning_ingest", "cpi_release", etc.
+    job_name: str  # "morning_ingest", "cpi_release", etc.
 
     started_at: datetime
     ended_at: datetime | None = None
@@ -624,8 +645,8 @@ class RunLog:
     errors: list[dict[str, Any]] = field(default_factory=list)
 
     # Trigger info
-    triggered_by: str = "scheduler"     # "scheduler", "event", "manual"
-    event_id: str | None = None      # If triggered by scheduled event
+    triggered_by: str = "scheduler"  # "scheduler", "event", "manual"
+    event_id: str | None = None  # If triggered by scheduled event
 
     def duration_seconds(self) -> float | None:
         if self.ended_at:
@@ -654,9 +675,10 @@ class RunLog:
 @dataclass
 class UserWatchlist:
     """User ticker watchlist with weights"""
+
     user_id: str
     ticker: str
-    weight: float = 1.0                 # Higher = more important
+    weight: float = 1.0  # Higher = more important
     added_at: datetime = field(default_factory=datetime.utcnow)
 
     def to_dict(self) -> dict[str, Any]:
@@ -839,24 +861,44 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="fed_keywords",
         category_id="fed_rates",
-        include_keywords=["fomc", "federal reserve", "powell", "fed chair", "dot plot",
-                         "policy statement", "fed minutes", "balance sheet", "treasury yield",
-                         "rate hike", "rate cut", "monetary policy", "quantitative tightening"],
+        include_keywords=[
+            "fomc",
+            "federal reserve",
+            "powell",
+            "fed chair",
+            "dot plot",
+            "policy statement",
+            "fed minutes",
+            "balance sheet",
+            "treasury yield",
+            "rate hike",
+            "rate cut",
+            "monetary policy",
+            "quantitative tightening",
+        ],
         exclude_keywords=["fedex"],
         priority=20,
     ),
-
     # Inflation
     CategoryRule(
         rule_id="inflation_keywords",
         category_id="inflation",
-        include_keywords=["cpi", "consumer price index", "pce", "personal consumption expenditure",
-                         "inflation", "core inflation", "shelter inflation", "services inflation",
-                         "disinflation", "deflation", "price index"],
+        include_keywords=[
+            "cpi",
+            "consumer price index",
+            "pce",
+            "personal consumption expenditure",
+            "inflation",
+            "core inflation",
+            "shelter inflation",
+            "services inflation",
+            "disinflation",
+            "deflation",
+            "price index",
+        ],
         required_keywords=["inflation", "cpi", "pce", "price index"],
         priority=20,
     ),
-
     # Labor
     CategoryRule(
         rule_id="labor_source",
@@ -868,12 +910,20 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="labor_keywords",
         category_id="labor",
-        include_keywords=["nonfarm payrolls", "unemployment rate", "jobless claims", "jolts",
-                         "average hourly earnings", "labor market", "job openings", "hiring",
-                         "layoffs", "wage growth"],
+        include_keywords=[
+            "nonfarm payrolls",
+            "unemployment rate",
+            "jobless claims",
+            "jolts",
+            "average hourly earnings",
+            "labor market",
+            "job openings",
+            "hiring",
+            "layoffs",
+            "wage growth",
+        ],
         priority=20,
     ),
-
     # Growth & Consumer
     CategoryRule(
         rule_id="growth_source_bea",
@@ -890,13 +940,24 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="growth_keywords",
         category_id="growth_consumer",
-        include_keywords=["gdp", "gross domestic product", "retail sales", "consumer spending",
-                         "durable goods", "housing starts", "building permits", "new home sales",
-                         "existing home sales", "consumer confidence", "personal income",
-                         "trade deficit", "trade balance", "inventories"],
+        include_keywords=[
+            "gdp",
+            "gross domestic product",
+            "retail sales",
+            "consumer spending",
+            "durable goods",
+            "housing starts",
+            "building permits",
+            "new home sales",
+            "existing home sales",
+            "consumer confidence",
+            "personal income",
+            "trade deficit",
+            "trade balance",
+            "inventories",
+        ],
         priority=20,
     ),
-
     # Oil & Energy
     CategoryRule(
         rule_id="oil_source_eia",
@@ -913,13 +974,27 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="oil_keywords",
         category_id="oil_energy",
-        include_keywords=["crude oil", "brent", "wti", "opec", "petroleum", "refinery",
-                         "gasoline", "distillates", "oil inventory", "oil production",
-                         "natural gas", "lng", "energy sanctions", "oil supply",
-                         "production cut", "strait of hormuz", "oil tanker"],
+        include_keywords=[
+            "crude oil",
+            "brent",
+            "wti",
+            "opec",
+            "petroleum",
+            "refinery",
+            "gasoline",
+            "distillates",
+            "oil inventory",
+            "oil production",
+            "natural gas",
+            "lng",
+            "energy sanctions",
+            "oil supply",
+            "production cut",
+            "strait of hormuz",
+            "oil tanker",
+        ],
         priority=20,
     ),
-
     # Geopolitics (must have market transmission)
     CategoryRule(
         rule_id="geopolitics_source",
@@ -931,15 +1006,36 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="geopolitics_keywords",
         category_id="geopolitics",
-        include_keywords=["sanctions", "tariff", "trade war", "export controls", "embargo",
-                         "military", "conflict", "invasion", "shipping disruption",
-                         "strait", "pipeline", "defense", "risk-off"],
+        include_keywords=[
+            "sanctions",
+            "tariff",
+            "trade war",
+            "export controls",
+            "embargo",
+            "military",
+            "conflict",
+            "invasion",
+            "shipping disruption",
+            "strait",
+            "pipeline",
+            "defense",
+            "risk-off",
+        ],
         # Must be linked to market-relevant factors
-        required_keywords=["oil", "shipping", "semiconductor", "defense", "sanction",
-                          "tariff", "treasury", "dollar", "yield", "risk"],
+        required_keywords=[
+            "oil",
+            "shipping",
+            "semiconductor",
+            "defense",
+            "sanction",
+            "tariff",
+            "treasury",
+            "dollar",
+            "yield",
+            "risk",
+        ],
         priority=20,
     ),
-
     # SP500 Corporate Events
     CategoryRule(
         rule_id="sp500_source_sec",
@@ -950,10 +1046,27 @@ DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     CategoryRule(
         rule_id="sp500_keywords",
         category_id="sp500_corporate",
-        include_keywords=["earnings", "eps", "revenue", "guidance", "8-k", "10-q", "10-k",
-                         "quarterly results", "beat estimates", "miss estimates",
-                         "acquisition", "merger", "ceo", "management change", "buyback",
-                         "dividend", "spinoff", "investigation", "sec filing"],
+        include_keywords=[
+            "earnings",
+            "eps",
+            "revenue",
+            "guidance",
+            "8-k",
+            "10-q",
+            "10-k",
+            "quarterly results",
+            "beat estimates",
+            "miss estimates",
+            "acquisition",
+            "merger",
+            "ceo",
+            "management change",
+            "buyback",
+            "dividend",
+            "spinoff",
+            "investigation",
+            "sec filing",
+        ],
         priority=20,
     ),
 ]

@@ -23,6 +23,7 @@ from financial_news.schema import (
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def fed_article():
     """Create a Fed-related article."""
@@ -118,6 +119,7 @@ def classifier():
 # CLASSIFIER TESTS
 # =============================================================================
 
+
 class TestClassificationResult:
     """Test ClassificationResult dataclass."""
 
@@ -128,7 +130,7 @@ class TestClassificationResult:
             category_type=CategoryType.FED_RATES,
             confidence=0.85,
             matched_rule="fed_source",
-            matched_keywords=["fomc", "federal reserve"]
+            matched_keywords=["fomc", "federal reserve"],
         )
 
         assert result.category_id == "fed_rates"
@@ -151,7 +153,7 @@ class TestArticleClassifier:
                 rule_id="test_rule",
                 category_id="fed_rates",
                 include_keywords=["test"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=custom_rules)
@@ -240,7 +242,7 @@ class TestArticleClassifier:
                 category_id="fed_rates",
                 include_keywords=["fed"],
                 exclude_keywords=["fedex"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -269,7 +271,7 @@ class TestArticleClassifier:
                 category_id="inflation",
                 include_keywords=["price", "cost"],
                 required_keywords=["inflation", "cpi", "pce"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -360,7 +362,7 @@ class TestKeywordMatching:
                 rule_id="test",
                 category_id="fed_rates",
                 include_keywords=["FOMC", "Federal Reserve"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -385,7 +387,7 @@ class TestKeywordMatching:
                 rule_id="test",
                 category_id="fed_rates",
                 include_keywords=["rate"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -415,7 +417,7 @@ class TestEntityMatching:
                 category_id="fed_rates",
                 include_keywords=["policy"],
                 required_entity_types=[EntityType.CENTRAL_BANK],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -427,11 +429,7 @@ class TestEntityMatching:
             title="Monetary Policy Update",
             snippet="Central bank announces new policy measures.",
             entities=[
-                Entity(
-                    entity_id="e1",
-                    entity_type=EntityType.CENTRAL_BANK,
-                    value="Federal Reserve"
-                )
+                Entity(entity_id="e1", entity_type=EntityType.CENTRAL_BANK, value="Federal Reserve")
             ],
             published_at=datetime.utcnow(),
             ingested_at=datetime.utcnow(),
@@ -449,7 +447,7 @@ class TestEntityMatching:
                 category_id="sp500_corporate",
                 include_keywords=["earnings"],
                 ticker_whitelist=["AAPL", "MSFT", "GOOGL"],
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -497,7 +495,7 @@ class TestEdgeCases:
                 category_id="fed_rates",
                 include_keywords=["test"],
                 min_confidence=0.5,
-                is_active=False  # Inactive
+                is_active=False,  # Inactive
             )
         ]
         classifier = ArticleClassifier(rules=rules)
@@ -526,7 +524,7 @@ class TestEdgeCases:
                 include_keywords=["fomc", "fed", "rate", "policy", "monetary"],
                 required_entity_types=[EntityType.CENTRAL_BANK],
                 keyword_match_boost=0.5,  # High boost
-                min_confidence=0.5
+                min_confidence=0.5,
             )
         ]
         classifier = ArticleClassifier(rules=rules)

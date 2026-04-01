@@ -22,6 +22,7 @@ from src.backtest.wheel_backtest import (
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def sample_price_data():
     """Create sample price data for backtesting."""
@@ -45,21 +46,23 @@ def sample_price_data():
             low = price * (1 - abs(np.random.normal(0, 0.005)))
             open_price = price * (1 + np.random.normal(0, 0.002))
 
-            rows.append({
-                "date": d,
-                "ticker": ticker,
-                "open": open_price,
-                "high": high,
-                "low": low,
-                "close": price,
-                "volume": int(np.random.uniform(10_000_000, 50_000_000)),
-                "realized_vol_20": np.random.uniform(0.15, 0.35),
-                "rv_rank_252": np.random.uniform(0.2, 0.8),
-                "trend_20d": np.random.uniform(-0.05, 0.05),
-                "rsi_14": np.random.uniform(30, 70),
-                "above_sma_200": np.random.choice([0, 1]),
-                "drawdown_52w": np.random.uniform(-0.20, 0)
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "ticker": ticker,
+                    "open": open_price,
+                    "high": high,
+                    "low": low,
+                    "close": price,
+                    "volume": int(np.random.uniform(10_000_000, 50_000_000)),
+                    "realized_vol_20": np.random.uniform(0.15, 0.35),
+                    "rv_rank_252": np.random.uniform(0.2, 0.8),
+                    "trend_20d": np.random.uniform(-0.05, 0.05),
+                    "rsi_14": np.random.uniform(30, 70),
+                    "above_sma_200": np.random.choice([0, 1]),
+                    "drawdown_52w": np.random.uniform(-0.20, 0),
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -78,13 +81,14 @@ def aggressive_config():
         max_positions=5,
         min_entry_score=0.4,  # Lower threshold
         profit_target=0.40,
-        stop_loss=1.5
+        stop_loss=1.5,
     )
 
 
 # =============================================================================
 # CONFIG TESTS
 # =============================================================================
+
 
 class TestBacktestConfig:
     """Test BacktestConfig dataclass."""
@@ -104,11 +108,7 @@ class TestBacktestConfig:
 
     def test_custom_values(self):
         """Test custom configuration values."""
-        config = BacktestConfig(
-            initial_capital=200_000,
-            max_positions=15,
-            min_entry_score=0.7
-        )
+        config = BacktestConfig(initial_capital=200_000, max_positions=15, min_entry_score=0.7)
 
         assert config.initial_capital == 200_000
         assert config.max_positions == 15
@@ -116,10 +116,7 @@ class TestBacktestConfig:
 
     def test_risk_parameters(self):
         """Test risk-related parameters."""
-        config = BacktestConfig(
-            avoid_earnings=True,
-            earnings_buffer_days=10
-        )
+        config = BacktestConfig(avoid_earnings=True, earnings_buffer_days=10)
 
         assert config.avoid_earnings is True
         assert config.earnings_buffer_days == 10
@@ -136,6 +133,7 @@ class TestBacktestConfig:
 # BACKTEST RESULT TESTS
 # =============================================================================
 
+
 class TestBacktestResult:
     """Test BacktestResult dataclass."""
 
@@ -146,12 +144,7 @@ class TestBacktestResult:
         trades = pd.DataFrame()
         metrics = {"total_return": 0.10}
 
-        result = BacktestResult(
-            equity_curve=equity,
-            trades=trades,
-            metrics=metrics,
-            config=config
-        )
+        result = BacktestResult(equity_curve=equity, trades=trades, metrics=metrics, config=config)
 
         assert len(result.equity_curve) == 1
         assert result.metrics["total_return"] == 0.10
@@ -171,6 +164,7 @@ class TestBacktestResult:
 # =============================================================================
 # WHEEL BACKTEST TESTS
 # =============================================================================
+
 
 class TestWheelBacktest:
     """Test WheelBacktest class."""
@@ -244,7 +238,7 @@ class TestWheelBacktest:
             "max_drawdown",
             "n_trades",
             "win_rate",
-            "final_value"
+            "final_value",
         ]
 
         for metric in expected_metrics:
@@ -312,12 +306,7 @@ class TestOptionPricing:
         """Test put price estimation."""
         backtest = WheelBacktest()
 
-        price = backtest._estimate_put_price(
-            strike=95,
-            spot=100,
-            dte=30,
-            iv=0.25
-        )
+        price = backtest._estimate_put_price(strike=95, spot=100, dte=30, iv=0.25)
 
         assert price > 0
         assert price < 100  # Should be reasonable
@@ -326,12 +315,7 @@ class TestOptionPricing:
         """Test call price estimation."""
         backtest = WheelBacktest()
 
-        price = backtest._estimate_call_price(
-            strike=105,
-            spot=100,
-            dte=30,
-            iv=0.25
-        )
+        price = backtest._estimate_call_price(strike=105, spot=100, dte=30, iv=0.25)
 
         assert price > 0
         assert price < 100
@@ -369,7 +353,7 @@ class TestExitLogic:
             state=PositionState.SHORT_PUT,
             entry_date=date.today(),
             put_strike=95,
-            put_premium=2.0
+            put_premium=2.0,
         )
         # No expiration date set
 
@@ -425,21 +409,23 @@ class TestEdgeCases:
         np.random.seed(42)
         dates = pd.date_range("2024-01-02", periods=50, freq="B")
 
-        data = pd.DataFrame({
-            "date": dates,
-            "ticker": ["AAPL"] * 50,
-            "open": np.random.uniform(175, 185, 50),
-            "high": np.random.uniform(180, 190, 50),
-            "low": np.random.uniform(170, 180, 50),
-            "close": np.random.uniform(175, 185, 50),
-            "volume": [10_000_000] * 50,
-            "realized_vol_20": [0.25] * 50,
-            "rv_rank_252": [0.5] * 50,
-            "trend_20d": [0.02] * 50,
-            "rsi_14": [50] * 50,
-            "above_sma_200": [1] * 50,
-            "drawdown_52w": [-0.05] * 50
-        })
+        data = pd.DataFrame(
+            {
+                "date": dates,
+                "ticker": ["AAPL"] * 50,
+                "open": np.random.uniform(175, 185, 50),
+                "high": np.random.uniform(180, 190, 50),
+                "low": np.random.uniform(170, 180, 50),
+                "close": np.random.uniform(175, 185, 50),
+                "volume": [10_000_000] * 50,
+                "realized_vol_20": [0.25] * 50,
+                "rv_rank_252": [0.5] * 50,
+                "trend_20d": [0.02] * 50,
+                "rsi_14": [50] * 50,
+                "above_sma_200": [1] * 50,
+                "drawdown_52w": [-0.05] * 50,
+            }
+        )
 
         backtest = WheelBacktest(config=default_config)
         result = backtest.run(data)
@@ -450,7 +436,7 @@ class TestEdgeCases:
         """Test that max positions is respected."""
         config = BacktestConfig(
             max_positions=2,
-            min_entry_score=0.3  # Low threshold to encourage entries
+            min_entry_score=0.3,  # Low threshold to encourage entries
         )
         backtest = WheelBacktest(config=config)
         result = backtest.run(sample_price_data)

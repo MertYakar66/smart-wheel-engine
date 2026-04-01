@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FeedConfig:
     """Configuration for an RSS/Atom feed"""
+
     name: str
     url: str
     source_type: str  # central_bank, government, corporate, etc.
@@ -67,7 +68,6 @@ DEFAULT_FEEDS: list[FeedConfig] = [
         topics=[TopicCategory.CENTRAL_BANKS, TopicCategory.MACRO_RATES],
         region="GB",
     ),
-
     # US Government / Economic Data
     FeedConfig(
         name="Bureau of Labor Statistics",
@@ -83,7 +83,6 @@ DEFAULT_FEEDS: list[FeedConfig] = [
         topics=[TopicCategory.MACRO_RATES, TopicCategory.FIXED_INCOME],
         region="US",
     ),
-
     # Regulatory
     FeedConfig(
         name="SEC Press Releases",
@@ -99,7 +98,6 @@ DEFAULT_FEEDS: list[FeedConfig] = [
         topics=[TopicCategory.REGULATION, TopicCategory.COMMODITIES_OIL],
         region="US",
     ),
-
     # Energy / Commodities
     FeedConfig(
         name="EIA (Energy Information)",
@@ -115,7 +113,6 @@ DEFAULT_FEEDS: list[FeedConfig] = [
         topics=[TopicCategory.COMMODITIES_OIL],
         region="INT",
     ),
-
     # International
     FeedConfig(
         name="IMF News",
@@ -205,10 +202,7 @@ class RSSFetcher(BaseSourceFetcher):
         relevant_feeds = self._get_relevant_feeds(category)
 
         # Fetch from each feed concurrently
-        tasks = [
-            self._fetch_feed(feed, start_time, end_time)
-            for feed in relevant_feeds
-        ]
+        tasks = [self._fetch_feed(feed, start_time, end_time) for feed in relevant_feeds]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -270,10 +264,7 @@ class RSSFetcher(BaseSourceFetcher):
                 articles = self._parse_rss(content, feed)
 
             # Filter by date
-            articles = [
-                a for a in articles
-                if start_time <= a.published_at_utc <= end_time
-            ]
+            articles = [a for a in articles if start_time <= a.published_at_utc <= end_time]
 
             return articles
 
@@ -420,8 +411,9 @@ class RSSFetcher(BaseSourceFetcher):
     def _clean_html(self, text: str) -> str:
         """Remove HTML tags from text"""
         import re
-        clean = re.sub(r'<[^>]+>', '', text)
-        clean = re.sub(r'\s+', ' ', clean)
+
+        clean = re.sub(r"<[^>]+>", "", text)
+        clean = re.sub(r"\s+", " ", clean)
         return clean.strip()
 
     def add_feed(self, feed: FeedConfig) -> None:

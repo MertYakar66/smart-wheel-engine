@@ -112,7 +112,7 @@ class OptionsDynamics:
         threshold = 0.02  # 2% threshold for "flat"
 
         regime = pd.Series(0, index=spread.index)
-        regime[spread > threshold] = 1   # Contango
+        regime[spread > threshold] = 1  # Contango
         regime[spread < -threshold] = -1  # Backwardation
         return regime
 
@@ -206,9 +206,7 @@ class OptionsDynamics:
             result["iv_acceleration"] = self.iv_acceleration(result[iv_col])
 
         # Volume/OI dynamics
-        result["vol_oi_ratio_change"] = self.volume_oi_ratio_change(
-            total_volume, total_oi
-        )
+        result["vol_oi_ratio_change"] = self.volume_oi_ratio_change(total_volume, total_oi)
 
         # Put/Call ratio dynamics
         result["pc_ratio_change"] = self.put_call_ratio_change(
@@ -218,8 +216,7 @@ class OptionsDynamics:
         # OI-Price divergence
         if price_col in result.columns:
             result["oi_price_divergence"] = self.oi_price_divergence(
-                result["oi_change_1d"],
-                result[price_col].diff()
+                result["oi_change_1d"], result[price_col].diff()
             )
 
         return result

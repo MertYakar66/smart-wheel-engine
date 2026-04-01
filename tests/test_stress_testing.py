@@ -37,7 +37,7 @@ class TestScenarios:
             scenario_type=ScenarioType.HYPOTHETICAL,
             description="Test scenario",
             spot_change_pct=-0.10,
-            iv_change_abs=0.20
+            iv_change_abs=0.20,
         )
 
         str_repr = str(scenario)
@@ -52,16 +52,16 @@ class TestStressTester:
         """Set up test positions."""
         self.positions = [
             {
-                'symbol': 'AAPL',
-                'option_type': 'put',
-                'strike': 150,
-                'dte': 30,
-                'iv': 0.25,
-                'contracts': 5,
-                'is_short': True
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
             }
         ]
-        self.spot_prices = {'AAPL': 155}
+        self.spot_prices = {"AAPL": 155}
         self.portfolio_value = 100000
 
     def test_run_single_scenario(self):
@@ -72,14 +72,14 @@ class TestStressTester:
             scenario_type=ScenarioType.HYPOTHETICAL,
             description="10% drop",
             spot_change_pct=-0.10,
-            iv_change_abs=0.15
+            iv_change_abs=0.15,
         )
 
         result = tester.run_scenario(
             scenario=scenario,
             positions=self.positions,
             spot_prices=self.spot_prices,
-            portfolio_value=self.portfolio_value
+            portfolio_value=self.portfolio_value,
         )
 
         assert isinstance(result, ScenarioResult)
@@ -94,14 +94,14 @@ class TestStressTester:
             scenario_type=ScenarioType.HYPOTHETICAL,
             description="20% crash",
             spot_change_pct=-0.20,
-            iv_change_abs=0.40
+            iv_change_abs=0.40,
         )
 
         result = tester.run_scenario(
             scenario=scenario,
             positions=self.positions,
             spot_prices=self.spot_prices,
-            portfolio_value=self.portfolio_value
+            portfolio_value=self.portfolio_value,
         )
 
         # Short puts lose big on crash
@@ -116,14 +116,14 @@ class TestStressTester:
             scenario_type=ScenarioType.HYPOTHETICAL,
             description="10% rally",
             spot_change_pct=0.10,
-            iv_change_pct=-0.30
+            iv_change_pct=-0.30,
         )
 
         result = tester.run_scenario(
             scenario=scenario,
             positions=self.positions,
             spot_prices=self.spot_prices,
-            portfolio_value=self.portfolio_value
+            portfolio_value=self.portfolio_value,
         )
 
         # Short puts profit on rally
@@ -136,7 +136,7 @@ class TestStressTester:
         report = tester.run_all_scenarios(
             positions=self.positions,
             spot_prices=self.spot_prices,
-            portfolio_value=self.portfolio_value
+            portfolio_value=self.portfolio_value,
         )
 
         assert isinstance(report, StressTestReport)
@@ -153,13 +153,13 @@ class TestStressTester:
             positions=self.positions,
             spot_prices=self.spot_prices,
             portfolio_value=self.portfolio_value,
-            n_points=5
+            n_points=5,
         )
 
         assert isinstance(grid, pd.DataFrame)
-        assert 'spot_change' in grid.columns
-        assert 'iv_change' in grid.columns
-        assert 'pnl' in grid.columns
+        assert "spot_change" in grid.columns
+        assert "iv_change" in grid.columns
+        assert "pnl" in grid.columns
         assert len(grid) == 25  # 5x5 grid
 
     def test_monte_carlo_stress(self):
@@ -171,13 +171,13 @@ class TestStressTester:
             spot_prices=self.spot_prices,
             portfolio_value=self.portfolio_value,
             n_simulations=1000,
-            horizon_days=30
+            horizon_days=30,
         )
 
-        assert 'mean' in results
-        assert 'var_95' in results
-        assert 'cvar_95' in results
-        assert results['var_95'] <= 0  # Should be a loss at 95% VaR
+        assert "mean" in results
+        assert "var_95" in results
+        assert "cvar_95" in results
+        assert results["var_95"] <= 0  # Should be a loss at 95% VaR
 
 
 class TestQuickStressTest:
@@ -187,21 +187,19 @@ class TestQuickStressTest:
         """Should return formatted summary."""
         positions = [
             {
-                'symbol': 'AAPL',
-                'option_type': 'put',
-                'strike': 150,
-                'dte': 30,
-                'iv': 0.25,
-                'contracts': 2,
-                'is_short': True
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 2,
+                "is_short": True,
             }
         ]
-        spot_prices = {'AAPL': 155}
+        spot_prices = {"AAPL": 155}
 
         summary = quick_stress_test(
-            positions=positions,
-            spot_prices=spot_prices,
-            portfolio_value=100000
+            positions=positions, spot_prices=spot_prices, portfolio_value=100000
         )
 
         assert isinstance(summary, str)
@@ -216,14 +214,14 @@ class TestMaxLoss:
         """Short put max loss = strike * 100 * contracts."""
         positions = [
             {
-                'symbol': 'AAPL',
-                'option_type': 'put',
-                'strike': 150,
-                'contracts': 5,
-                'is_short': True
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "contracts": 5,
+                "is_short": True,
             }
         ]
-        spot_prices = {'AAPL': 155}
+        spot_prices = {"AAPL": 155}
 
         max_loss = calculate_max_loss(positions, spot_prices)
 
@@ -234,21 +232,21 @@ class TestMaxLoss:
         """Multiple positions should sum max losses."""
         positions = [
             {
-                'symbol': 'AAPL',
-                'option_type': 'put',
-                'strike': 150,
-                'contracts': 2,
-                'is_short': True
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "contracts": 2,
+                "is_short": True,
             },
             {
-                'symbol': 'MSFT',
-                'option_type': 'put',
-                'strike': 300,
-                'contracts': 1,
-                'is_short': True
-            }
+                "symbol": "MSFT",
+                "option_type": "put",
+                "strike": 300,
+                "contracts": 1,
+                "is_short": True,
+            },
         ]
-        spot_prices = {'AAPL': 155, 'MSFT': 310}
+        spot_prices = {"AAPL": 155, "MSFT": 310}
 
         max_loss = calculate_max_loss(positions, spot_prices)
 

@@ -8,7 +8,6 @@ Tests all advisor components:
 - Integration with options engine
 """
 
-
 import pytest
 
 # Import all advisor components
@@ -46,6 +45,7 @@ from advisors import (
 # =============================================================================
 # SCHEMA TESTS
 # =============================================================================
+
 
 class TestSchemaEnums:
     """Test enum definitions."""
@@ -92,7 +92,7 @@ class TestPosition:
             avg_cost=450.0,
             current_price=520.0,
             sector="Technology",
-            market_cap="mega"
+            market_cap="mega",
         )
 
     def test_market_value(self, sample_position):
@@ -132,7 +132,7 @@ class TestCandidateTrade:
             gamma=0.02,
             vega=0.45,
             underlying_price=185.0,
-            earnings_before_expiry=False
+            earnings_before_expiry=False,
         )
 
     def test_trade_attributes(self, sample_trade):
@@ -177,7 +177,7 @@ class TestPortfolioContext:
             var_95=2.8,
             open_positions_count=5,
             total_premium_at_risk=8000.0,
-            total_margin_used=35000.0
+            total_margin_used=35000.0,
         )
 
     def test_portfolio_attributes(self, sample_portfolio):
@@ -207,7 +207,7 @@ class TestMarketContext:
             fed_funds_rate=4.5,
             treasury_10y=4.2,
             recent_fed_action="Held rates steady",
-            upcoming_events=["FOMC in 15 days", "CPI next week"]
+            upcoming_events=["FOMC in 15 days", "CPI next week"],
         )
 
     def test_market_attributes(self, sample_market):
@@ -247,6 +247,7 @@ class TestAdvisorInput:
 # =============================================================================
 # ADVISOR TESTS
 # =============================================================================
+
 
 class TestBaseAdvisor:
     """Test BaseAdvisor abstract class."""
@@ -324,7 +325,9 @@ class TestBuffettAdvisor:
         # Should identify speculative nature
         reasons_text = " ".join(response.key_reasons).lower()
         assert "speculative" in reasons_text or response.judgment in [
-            Judgment.REJECT, Judgment.STRONG_REJECT, Judgment.NEUTRAL
+            Judgment.REJECT,
+            Judgment.STRONG_REJECT,
+            Judgment.NEUTRAL,
         ]
 
 
@@ -369,7 +372,18 @@ class TestMungerAdvisor:
         # Should ask challenging questions
         questions_text = " ".join(response.critical_questions).lower()
         # Munger asks about what could go wrong, second-order effects, etc.
-        inversion_keywords = ["fail", "wrong", "lose", "kill", "drop", "second", "assigned", "happen", "edge", "capital"]
+        inversion_keywords = [
+            "fail",
+            "wrong",
+            "lose",
+            "kill",
+            "drop",
+            "second",
+            "assigned",
+            "happen",
+            "edge",
+            "capital",
+        ]
         assert any(word in questions_text for word in inversion_keywords)
 
 
@@ -430,9 +444,7 @@ class TestSimonsAdvisor:
         response = advisor.evaluate(high_ev_input)
 
         all_text = " ".join(
-            response.key_reasons +
-            response.hidden_risks +
-            response.critical_questions
+            response.key_reasons + response.hidden_risks + response.critical_questions
         ).lower()
 
         statistical_terms = ["probability", "statistical", "regime", "confidence", "ev", "expected"]
@@ -442,6 +454,7 @@ class TestSimonsAdvisor:
 # =============================================================================
 # COMMITTEE ENGINE TESTS
 # =============================================================================
+
 
 class TestCommitteeEngine:
     """Test CommitteeEngine aggregation."""
@@ -530,6 +543,7 @@ class TestCommitteeEngine:
 # INTEGRATION TESTS
 # =============================================================================
 
+
 class TestEngineIntegration:
     """Test integration with options engine."""
 
@@ -594,26 +608,51 @@ class TestEngineIntegration:
     def test_filter_approved(self, integration):
         """Test filtering approved trades."""
         trades = [
-            {"ticker": "AAPL", "trade_type": "short_put", "strike": 170,
-             "dte": 45, "delta": -0.20, "premium": 3.5, "contracts": 1,
-             "expected_value": 2.0, "p_otm": 0.75, "p_profit": 0.78,
-             "iv_rank": 50, "iv_percentile": 55, "theta": 0.3,
-             "gamma": 0.02, "vega": 0.4, "underlying_price": 185},
+            {
+                "ticker": "AAPL",
+                "trade_type": "short_put",
+                "strike": 170,
+                "dte": 45,
+                "delta": -0.20,
+                "premium": 3.5,
+                "contracts": 1,
+                "expected_value": 2.0,
+                "p_otm": 0.75,
+                "p_profit": 0.78,
+                "iv_rank": 50,
+                "iv_percentile": 55,
+                "theta": 0.3,
+                "gamma": 0.02,
+                "vega": 0.4,
+                "underlying_price": 185,
+            },
         ]
 
         portfolio = {
-            "positions": [], "total_equity": 100000, "cash_available": 50000,
-            "buying_power": 100000, "sector_allocation": {},
-            "top_5_concentration": 30, "portfolio_beta": 1.0,
-            "portfolio_delta": 0.5, "max_drawdown_30d": -3, "var_95": 2.0,
-            "open_positions_count": 0, "total_premium_at_risk": 0,
+            "positions": [],
+            "total_equity": 100000,
+            "cash_available": 50000,
+            "buying_power": 100000,
+            "sector_allocation": {},
+            "top_5_concentration": 30,
+            "portfolio_beta": 1.0,
+            "portfolio_delta": 0.5,
+            "max_drawdown_30d": -3,
+            "var_95": 2.0,
+            "open_positions_count": 0,
+            "total_premium_at_risk": 0,
             "total_margin_used": 0,
         }
 
         market = {
-            "regime": "normal", "vix": 18, "vix_percentile": 45,
-            "spy_price": 485, "spy_50ma": 480, "spy_200ma": 460,
-            "fed_funds_rate": 4.5, "treasury_10y": 4.2,
+            "regime": "normal",
+            "vix": 18,
+            "vix_percentile": 45,
+            "spy_price": 485,
+            "spy_50ma": 480,
+            "spy_200ma": 460,
+            "fed_funds_rate": 4.5,
+            "treasury_10y": 4.2,
         }
 
         approved = integration.filter_approved(trades, portfolio, market, min_approval_count=1)
@@ -627,12 +666,7 @@ class TestQuickEvaluate:
     def test_quick_evaluate_basic(self):
         """Test basic quick evaluation."""
         result = quick_evaluate(
-            ticker="AAPL",
-            strike=170,
-            dte=45,
-            delta=-0.25,
-            premium=4.0,
-            print_report=False
+            ticker="AAPL", strike=170, dte=45, delta=-0.25, premium=4.0, print_report=False
         )
 
         assert isinstance(result, CommitteeOutput)
@@ -650,7 +684,7 @@ class TestQuickEvaluate:
             expected_value=2.3,
             p_otm=0.68,
             iv_rank=65,
-            print_report=False
+            print_report=False,
         )
 
         assert isinstance(result, CommitteeOutput)
@@ -660,6 +694,7 @@ class TestQuickEvaluate:
 # =============================================================================
 # EDGE CASES AND ERROR HANDLING
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
@@ -721,10 +756,12 @@ class TestEdgeCases:
         output = committee.evaluate(sample)
 
         # Earnings should be noted as risk
-        all_text = " ".join([
-            " ".join(r.hidden_risks) + " ".join(r.critical_questions)
-            for r in output.advisor_responses
-        ]).lower()
+        all_text = " ".join(
+            [
+                " ".join(r.hidden_risks) + " ".join(r.critical_questions)
+                for r in output.advisor_responses
+            ]
+        ).lower()
         assert "earnings" in all_text
 
     def test_negative_expected_value(self, committee):
@@ -741,6 +778,7 @@ class TestEdgeCases:
 # =============================================================================
 # PERFORMANCE TESTS
 # =============================================================================
+
 
 class TestPerformance:
     """Test performance characteristics."""

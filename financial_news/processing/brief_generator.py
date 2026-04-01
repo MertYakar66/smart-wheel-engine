@@ -131,10 +131,12 @@ class BriefGenerator:
             return story
 
         # Build prompt context
-        article_texts = "\n".join([
-            f"- {a.title} ({a.source_name}): {a.snippet or ''}"
-            for a in articles[:5]  # Limit to 5 articles
-        ])
+        article_texts = "\n".join(
+            [
+                f"- {a.title} ({a.source_name}): {a.snippet or ''}"
+                for a in articles[:5]  # Limit to 5 articles
+            ]
+        )
 
         entities = ", ".join([e.name for e in story.entities[:10]])
         tickers = ", ".join(story.tickers[:10])
@@ -162,8 +164,7 @@ class BriefGenerator:
 
             story.summary = response.get("summary", story.headline)
             story.why_it_matters = response.get(
-                "why_it_matters",
-                self._generate_default_impact(story)
+                "why_it_matters", self._generate_default_impact(story)
             )
 
             # Cache result
@@ -199,7 +200,7 @@ class BriefGenerator:
         brief_id = f"{user.user_id}_{brief_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M')}"
 
         # Limit stories
-        brief_stories = stories[:user.category_ids.__len__() if user.category_ids else 10]
+        brief_stories = stories[: user.category_ids.__len__() if user.category_ids else 10]
 
         # Generate summaries for stories that don't have them
         tasks = []
@@ -213,12 +214,10 @@ class BriefGenerator:
             await asyncio.gather(*tasks)
 
         # Count new vs updated
-        new_count = sum(
-            1 for s in brief_stories
-            if s.story_id not in user.last_seen_story_ids
-        )
+        new_count = sum(1 for s in brief_stories if s.story_id not in user.last_seen_story_ids)
         updated_count = sum(
-            1 for s in brief_stories
+            1
+            for s in brief_stories
             if s.story_id in user.last_seen_story_ids and s.previous_summary
         )
 
@@ -254,10 +253,7 @@ class BriefGenerator:
             return "No significant news to report.", "Markets quiet."
 
         # Build story summaries
-        story_texts = "\n".join([
-            f"- {s.headline}: {s.summary}"
-            for s in stories[:10]
-        ])
+        story_texts = "\n".join([f"- {s.headline}: {s.summary}" for s in stories[:10]])
 
         interests = ", ".join(user.watchlist_tickers[:10])
 
@@ -323,8 +319,8 @@ class BriefGenerator:
         text = text.strip()
 
         # Remove markdown code blocks
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```\s*', '', text)
+        text = re.sub(r"```json\s*", "", text)
+        text = re.sub(r"```\s*", "", text)
 
         # Find JSON object
         try:
@@ -333,7 +329,7 @@ class BriefGenerator:
             pass
 
         # Try to extract JSON from text
-        json_match = re.search(r'\{[^{}]*\}', text, re.DOTALL)
+        json_match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
         if json_match:
             try:
                 return json.loads(json_match.group())

@@ -53,7 +53,7 @@ class VolatilityFeatures:
         """
         log_hl = np.log(high / low)
         factor = 1.0 / (4.0 * np.log(2))
-        rv = np.sqrt(factor * (log_hl ** 2).rolling(window).mean())
+        rv = np.sqrt(factor * (log_hl**2).rolling(window).mean())
         if annualize:
             rv = rv * np.sqrt(252)
         return rv
@@ -200,6 +200,7 @@ class VolatilityFeatures:
         Returns:
             IV percentile (0-100)
         """
+
         def percentile_rank(x):
             if len(x) < 2:
                 return np.nan

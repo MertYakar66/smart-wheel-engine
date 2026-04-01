@@ -82,13 +82,15 @@ class TestRollingFeaturesPIT:
         rv_low_period = rv.iloc[49]
         rv_high_period = rv.iloc[69]
 
-        assert rv_low_period < rv_high_period, \
+        assert rv_low_period < rv_high_period, (
             f"RV in low vol period ({rv_low_period}) should be < high vol period ({rv_high_period})"
+        )
 
         # Most importantly: RV at day 49 should NOT know about the upcoming high vol
         # If there was lookahead, it would be elevated
-        assert rv_low_period < 0.30, \
+        assert rv_low_period < 0.30, (
             f"RV in low vol period should be low (<30%), got {rv_low_period:.2%}"
+        )
 
     def test_iv_rank_no_future_extremes(self):
         """IV Rank uses only historical min/max, not future."""
@@ -101,8 +103,9 @@ class TestRollingFeaturesPIT:
         # Rank at index 55 (IV=0.25) should be relative to [0.20, 0.25]
         # Not relative to the future spike to 0.40
         # Rank = (0.25 - 0.20) / (0.25 - 0.20) * 100 = 100
-        assert rank.iloc[55] == pytest.approx(100.0, abs=1.0), \
+        assert rank.iloc[55] == pytest.approx(100.0, abs=1.0), (
             f"IV Rank at day 55 should be ~100 (highest so far), got {rank.iloc[55]}"
+        )
 
 
 class TestForwardLabelsAlignment:
@@ -122,8 +125,9 @@ class TestForwardLabelsAlignment:
 
         # Forward return at index 0 should be (102 - 100) / 100 = 2%
         expected = (102 - 100) / 100
-        assert fwd_ret.iloc[0] == pytest.approx(expected, rel=1e-10), \
+        assert fwd_ret.iloc[0] == pytest.approx(expected, rel=1e-10), (
             f"Forward return[0] should be {expected}, got {fwd_ret.iloc[0]}"
+        )
 
         # Forward return at index 3 should be (105 - 103) / 103
         expected = (105 - 103) / 103
@@ -144,12 +148,12 @@ class TestForwardLabelsAlignment:
 
             # Last `horizon` values must be NaN
             tail = fwd_ret.iloc[-horizon:]
-            assert tail.isna().all(), \
-                f"Last {horizon} values must be NaN for horizon={horizon}"
+            assert tail.isna().all(), f"Last {horizon} values must be NaN for horizon={horizon}"
 
             # Value at index len-horizon-1 should NOT be NaN
-            assert not np.isnan(fwd_ret.iloc[-horizon-1]), \
+            assert not np.isnan(fwd_ret.iloc[-horizon - 1]), (
                 f"Value at index -{horizon}-1 should not be NaN"
+            )
 
     def test_forward_binary_label_alignment(self):
         """Binary label (up/down) should predict future direction."""
@@ -196,58 +200,51 @@ class TestFeatureIndexAlignment:
     def test_date_index_merge_no_future(self):
         """Merging DataFrames by date should not leak future data."""
         # Price data
-        dates = pd.date_range('2024-01-01', periods=10, freq='D')
-        prices = pd.DataFrame({
-            'date': dates,
-            'close': range(100, 110)
-        })
+        dates = pd.date_range("2024-01-01", periods=10, freq="D")
+        prices = pd.DataFrame({"date": dates, "close": range(100, 110)})
 
         # Feature data (with same dates)
-        features = pd.DataFrame({
-            'date': dates,
-            'feature': range(10)
-        })
+        features = pd.DataFrame({"date": dates, "feature": range(10)})
 
         # Merge on date
-        merged = prices.merge(features, on='date')
+        merged = prices.merge(features, on="date")
 
         # Feature at row 5 should match the feature computed with data up to date 5
-        assert merged.iloc[5]['feature'] == 5
-        assert merged.iloc[5]['close'] == 105
+        assert merged.iloc[5]["feature"] == 5
+        assert merged.iloc[5]["close"] == 105
 
     def test_asof_merge_uses_past_only(self):
         """as_of merge should use most recent past value, not future."""
         # Daily data
-        daily_dates = pd.date_range('2024-01-01', periods=15, freq='D')
-        daily = pd.DataFrame({
-            'date': daily_dates,
-            'daily_val': range(15)
-        })
+        daily_dates = pd.date_range("2024-01-01", periods=15, freq="D")
+        daily = pd.DataFrame({"date": daily_dates, "daily_val": range(15)})
 
         # Weekly data (specific dates, not using 'W' frequency which starts on Sundays)
-        weekly = pd.DataFrame({
-            'date': pd.to_datetime(['2024-01-01', '2024-01-08', '2024-01-15']),
-            'weekly_val': [100, 200, 300]
-        })
+        weekly = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2024-01-01", "2024-01-08", "2024-01-15"]),
+                "weekly_val": [100, 200, 300],
+            }
+        )
 
         # as_of merge: for each daily date, get most recent weekly value
-        daily = daily.sort_values('date')
-        weekly = weekly.sort_values('date')
+        daily = daily.sort_values("date")
+        weekly = weekly.sort_values("date")
 
         merged = pd.merge_asof(
             daily,
             weekly,
-            on='date',
-            direction='backward'  # Only look at past
+            on="date",
+            direction="backward",  # Only look at past
         )
 
         # Check that we're using past weekly values, not future
         # On 2024-01-01, weekly_val should be 100 (same day)
         # On 2024-01-05, weekly_val should still be 100 (most recent past)
         # On 2024-01-09, weekly_val should be 200 (2024-01-08 is most recent)
-        assert merged[merged['date'] == '2024-01-01']['weekly_val'].iloc[0] == 100
-        assert merged[merged['date'] == '2024-01-05']['weekly_val'].iloc[0] == 100
-        assert merged[merged['date'] == '2024-01-09']['weekly_val'].iloc[0] == 200
+        assert merged[merged["date"] == "2024-01-01"]["weekly_val"].iloc[0] == 100
+        assert merged[merged["date"] == "2024-01-05"]["weekly_val"].iloc[0] == 100
+        assert merged[merged["date"] == "2024-01-09"]["weekly_val"].iloc[0] == 200
 
 
 class TestTrainTestSplitPIT:
@@ -257,23 +254,21 @@ class TestTrainTestSplitPIT:
 
     def test_no_future_in_training_set(self):
         """Training set should not contain dates after test set start."""
-        dates = pd.date_range('2024-01-01', periods=100, freq='D')
-        df = pd.DataFrame({
-            'date': dates,
-            'value': range(100)
-        })
+        dates = pd.date_range("2024-01-01", periods=100, freq="D")
+        df = pd.DataFrame({"date": dates, "value": range(100)})
 
         # Split at day 80
         split_date = dates[79]
-        train = df[df['date'] <= split_date]
-        test = df[df['date'] > split_date]
+        train = df[df["date"] <= split_date]
+        test = df[df["date"] > split_date]
 
         # Verify no overlap
-        train_max = train['date'].max()
-        test_min = test['date'].min()
+        train_max = train["date"].max()
+        test_min = test["date"].min()
 
-        assert train_max < test_min, \
+        assert train_max < test_min, (
             f"Train max date {train_max} should be < test min date {test_min}"
+        )
 
     def test_embargo_period(self):
         """
@@ -281,11 +276,8 @@ class TestTrainTestSplitPIT:
 
         This prevents leakage from labels that span across the boundary.
         """
-        dates = pd.date_range('2024-01-01', periods=100, freq='D')
-        df = pd.DataFrame({
-            'date': dates,
-            'value': range(100)
-        })
+        dates = pd.date_range("2024-01-01", periods=100, freq="D")
+        df = pd.DataFrame({"date": dates, "value": range(100)})
 
         # Split at day 80 with 5-day embargo
         split_idx = 79
@@ -294,16 +286,15 @@ class TestTrainTestSplitPIT:
         train_end_idx = split_idx - embargo_days
         test_start_idx = split_idx + 1
 
-        train = df.iloc[:train_end_idx + 1]
+        train = df.iloc[: train_end_idx + 1]
         test = df.iloc[test_start_idx:]
 
         # Gap should be at least embargo_days
-        train_max_date = train['date'].max()
-        test_min_date = test['date'].min()
+        train_max_date = train["date"].max()
+        test_min_date = test["date"].min()
         gap = (test_min_date - train_max_date).days
 
-        assert gap >= embargo_days, \
-            f"Gap ({gap} days) should be >= embargo ({embargo_days} days)"
+        assert gap >= embargo_days, f"Gap ({gap} days) should be >= embargo ({embargo_days} days)"
 
 
 class TestFeaturePipelinePIT:
@@ -322,7 +313,7 @@ class TestFeaturePipelinePIT:
 
         # Create base dataset
         n = 100
-        dates = pd.date_range('2024-01-01', periods=n, freq='D')
+        dates = pd.date_range("2024-01-01", periods=n, freq="D")
         prices = pd.Series(np.random.randn(n).cumsum() + 100, index=dates)
 
         tf = TechnicalFeatures()
@@ -344,14 +335,16 @@ class TestFeaturePipelinePIT:
         day_79_full_rsi = rsi_full.iloc[79]
         day_79_partial_rsi = rsi_partial.iloc[79]
 
-        assert day_79_full_rsi == pytest.approx(day_79_partial_rsi, rel=1e-10), \
+        assert day_79_full_rsi == pytest.approx(day_79_partial_rsi, rel=1e-10), (
             f"RSI at day 79 changed when future data added: {day_79_partial_rsi} -> {day_79_full_rsi}"
+        )
 
         day_79_full_rv = rv_full.iloc[79]
         day_79_partial_rv = rv_partial.iloc[79]
 
-        assert day_79_full_rv == pytest.approx(day_79_partial_rv, rel=1e-10), \
+        assert day_79_full_rv == pytest.approx(day_79_partial_rv, rel=1e-10), (
             f"RV at day 79 changed when future data added: {day_79_partial_rv} -> {day_79_full_rv}"
+        )
 
 
 class TestLoopParityForLabels:
@@ -377,12 +370,14 @@ class TestLoopParityForLabels:
 
         # Compare non-NaN values
         for i in range(len(prices) - horizon):
-            assert vec_result.iloc[i] == pytest.approx(loop_result.iloc[i], rel=1e-10), \
+            assert vec_result.iloc[i] == pytest.approx(loop_result.iloc[i], rel=1e-10), (
                 f"Mismatch at index {i}: vec={vec_result.iloc[i]}, loop={loop_result.iloc[i]}"
+            )
 
         # Both should have NaN in same places
-        assert vec_result.isna().equals(loop_result.isna()), \
+        assert vec_result.isna().equals(loop_result.isna()), (
             "NaN patterns don't match between vectorized and loop versions"
+        )
 
 
 if __name__ == "__main__":

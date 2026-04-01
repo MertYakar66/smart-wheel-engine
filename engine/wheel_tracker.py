@@ -19,6 +19,7 @@ from .transaction_costs import (
 
 class PositionState(Enum):
     """State machine for Wheel positions"""
+
     NO_POSITION = "no_position"
     SHORT_PUT = "short_put"
     STOCK_OWNED = "stock_owned"
@@ -31,6 +32,7 @@ class WheelPosition:
     Tracks a single Wheel position through its lifecycle.
     All prices in dollars, P&L in dollars (not per-share).
     """
+
     ticker: str
     state: PositionState
     entry_date: date
@@ -84,7 +86,7 @@ class WheelTracker:
         premium: float,
         entry_date: date,
         expiration_date: date,  # CHANGED: explicit date instead of dte
-        iv: float
+        iv: float,
     ) -> bool:
         """
         Enter short put position.
@@ -107,9 +109,7 @@ class WheelTracker:
         # Check buying power using proper Reg-T margin calculation
         underlying_price = strike  # Approximate if not provided
         margin_required = calculate_reg_t_margin_short_put(
-            strike=strike,
-            underlying_price=underlying_price,
-            premium=premium
+            strike=strike, underlying_price=underlying_price, premium=premium
         )
         if self.cash < margin_required:
             return False
@@ -120,7 +120,7 @@ class WheelTracker:
             bid_ask_spread=None,  # Will use fallback
             bid=None,
             ask=None,
-            trade_type="option"
+            trade_type="option",
         )
 
         premium_collected = cost_details["net_premium_collected"]
@@ -143,7 +143,7 @@ class WheelTracker:
             put_entry_iv=iv,
             put_expiration_date=expiration_date,  # NEW: store explicit date
             realized_pnl=cost_details["gross_premium"],
-            transaction_costs=cost_details["total_cost"]
+            transaction_costs=cost_details["total_cost"],
         )
 
         self.positions[ticker].notes.append(
@@ -153,11 +153,7 @@ class WheelTracker:
         return True
 
     def close_short_put(
-        self,
-        ticker: str,
-        buyback_price: float,
-        exit_date: date,
-        reason: str = "early_exit"
+        self, ticker: str, buyback_price: float, exit_date: date, reason: str = "early_exit"
     ) -> dict | None:
         """
         Buy back short put (early exit before expiration).
@@ -182,7 +178,7 @@ class WheelTracker:
         cost_details = calculate_total_exit_cost(
             buyback_price_per_share=buyback_price,
             bid_ask_spread=buyback_price * 0.10,
-            trade_type="option"
+            trade_type="option",
         )
 
         gross_pnl = pos.put_premium * 100 - cost_details["gross_buyback_cost"]
@@ -198,12 +194,7 @@ class WheelTracker:
 
         return closed
 
-    def handle_put_assignment(
-        self,
-        ticker: str,
-        assignment_date: date,
-        stock_price: float
-    ) -> bool:
+    def handle_put_assignment(self, ticker: str, assignment_date: date, stock_price: float) -> bool:
         """
         Handle put assignment: acquire 100 shares at strike price.
 
@@ -223,10 +214,7 @@ class WheelTracker:
             return False
 
         # Acquire stock at strike price (include assignment fee)
-        assignment_details = calculate_assignment_costs(
-            strike_price=pos.put_strike,
-            shares=100
-        )
+        assignment_details = calculate_assignment_costs(strike_price=pos.put_strike, shares=100)
 
         stock_cost = assignment_details["stock_cost"]
         assignment_fee = assignment_details["assignment_fee"]
@@ -234,7 +222,9 @@ class WheelTracker:
         if self.cash < assignment_details["total_cash_required"]:
             # In reality, broker would margin call or auto-liquidate
             # For simulation, we'll allow it but flag
-            pos.notes.append(f"WARNING: Assignment required ${stock_cost:.2f}, only ${self.cash:.2f} available")
+            pos.notes.append(
+                f"WARNING: Assignment required ${stock_cost:.2f}, only ${self.cash:.2f} available"
+            )
 
         self.cash -= assignment_details["total_cash_required"]
 
@@ -257,10 +247,7 @@ class WheelTracker:
         return True
 
     def handle_put_expiration(
-        self,
-        ticker: str,
-        expiry_date: date,
-        stock_price: float
+        self, ticker: str, expiry_date: date, stock_price: float
     ) -> dict | None:
         """
         Handle put expiration: either assign or expire worthless.
@@ -298,7 +285,7 @@ class WheelTracker:
         premium: float,
         entry_date: date,
         expiration_date: date,  # CHANGED: explicit date
-        iv: float
+        iv: float,
     ) -> bool:
         """
         Sell covered call on owned stock.
@@ -323,9 +310,7 @@ class WheelTracker:
 
         # Calculate entry costs for covered call (commission + slippage)
         cost_details = calculate_total_entry_cost(
-            premium_per_share=premium,
-            bid_ask_spread=premium * 0.10,
-            trade_type="option"
+            premium_per_share=premium, bid_ask_spread=premium * 0.10, trade_type="option"
         )
 
         # Credit net premium to cash
@@ -343,18 +328,12 @@ class WheelTracker:
         pos.realized_pnl += cost_details["gross_premium"]
         pos.transaction_costs += cost_details["total_cost"]
 
-        pos.notes.append(
-            f"Sold {derived_dte}d {strike}C for ${premium:.2f} premium"
-        )
+        pos.notes.append(f"Sold {derived_dte}d {strike}C for ${premium:.2f} premium")
 
         return True
 
     def close_covered_call(
-        self,
-        ticker: str,
-        buyback_price: float,
-        exit_date: date,
-        reason: str = "early_exit"
+        self, ticker: str, buyback_price: float, exit_date: date, reason: str = "early_exit"
     ) -> dict | None:
         """
         Buy back an outstanding covered call early (before expiration).
@@ -375,7 +354,7 @@ class WheelTracker:
         cost_details = calculate_total_exit_cost(
             buyback_price_per_share=buyback_price,
             bid_ask_spread=buyback_price * 0.10,
-            trade_type="option"
+            trade_type="option",
         )
 
         gross_pnl = premium_collected - cost_details["gross_buyback_cost"]
@@ -397,18 +376,14 @@ class WheelTracker:
         pos.notes.append(f"Bought back call for ${buyback_price:.2f} due to {reason}")
 
         return {
-            'ticker': ticker,
-            'call_leg_pnl': gross_pnl,
-            'transaction_costs': cost_details["total_cost"],
-            'cash_after': self.cash,
-            'reason': reason
+            "ticker": ticker,
+            "call_leg_pnl": gross_pnl,
+            "transaction_costs": cost_details["total_cost"],
+            "cash_after": self.cash,
+            "reason": reason,
         }
 
-    def handle_call_assignment(
-        self,
-        ticker: str,
-        assignment_date: date
-    ) -> dict | None:
+    def handle_call_assignment(self, ticker: str, assignment_date: date) -> dict | None:
         """
         Handle call assignment: sell stock at call strike, close Wheel cycle.
 
@@ -428,10 +403,7 @@ class WheelTracker:
 
         # Sell stock at call strike (account for assignment fee)
         stock_proceeds = pos.call_strike * 100
-        assignment_details = calculate_assignment_costs(
-            strike_price=pos.call_strike,
-            shares=100
-        )
+        assignment_details = calculate_assignment_costs(strike_price=pos.call_strike, shares=100)
         assignment_fee = assignment_details["assignment_fee"]
 
         self.cash += stock_proceeds - assignment_fee
@@ -444,9 +416,7 @@ class WheelTracker:
         pos.notes.append(
             f"Called away: Sold 100 shares at ${pos.call_strike:.2f} (basis: ${pos.stock_basis:.2f})"
         )
-        pos.notes.append(
-            f"Wheel cycle complete: Total P&L = ${pos.realized_pnl:.2f}"
-        )
+        pos.notes.append(f"Wheel cycle complete: Total P&L = ${pos.realized_pnl:.2f}")
 
         # Close position
         closed = self._finalize_position(pos, assignment_date, "call_assigned")
@@ -454,12 +424,7 @@ class WheelTracker:
 
         return closed
 
-    def handle_call_expiration(
-        self,
-        ticker: str,
-        expiry_date: date,
-        stock_price: float
-    ) -> bool:
+    def handle_call_expiration(self, ticker: str, expiry_date: date, stock_price: float) -> bool:
         """
         Handle call expiration: either assign or keep stock.
 
@@ -492,7 +457,9 @@ class WheelTracker:
 
         return True
 
-    def mark_to_market(self, current_date: date, prices: dict[str, float], risk_free_rate: float = 0.04) -> float:
+    def mark_to_market(
+        self, current_date: date, prices: dict[str, float], risk_free_rate: float = 0.04
+    ) -> float:
         """
         Calculate current portfolio value (cash + stock + option liabilities).
 
@@ -530,7 +497,7 @@ class WheelTracker:
                             dte=days_to_expiry,
                             iv=pos.put_entry_iv,  # Constant IV approximation
                             risk_free_rate=risk_free_rate,
-                            option_type='put'
+                            option_type="put",
                         )
                         total_value -= put_value * 100  # Short = liability
 
@@ -546,35 +513,37 @@ class WheelTracker:
                             dte=days_to_expiry,
                             iv=pos.call_entry_iv,  # Constant IV approximation
                             risk_free_rate=risk_free_rate,
-                            option_type='call'
+                            option_type="call",
                         )
                         total_value -= call_value * 100  # Short = liability
 
         # Record equity curve
-        self.equity_curve.append({
-            'date': current_date,
-            'portfolio_value': total_value,
-            'cash': self.cash,
-            'num_positions': len(self.positions)
-        })
+        self.equity_curve.append(
+            {
+                "date": current_date,
+                "portfolio_value": total_value,
+                "cash": self.cash,
+                "num_positions": len(self.positions),
+            }
+        )
 
         return total_value
 
     def _finalize_position(self, pos: WheelPosition, exit_date: date, exit_reason: str) -> dict:
         """Internal: Convert position to closed trade record"""
         closed = {
-            'ticker': pos.ticker,
-            'entry_date': pos.entry_date,
-            'exit_date': exit_date,
-            'exit_reason': exit_reason,
-            'hold_days': (exit_date - pos.entry_date).days,
-            'realized_pnl': pos.realized_pnl,
-            'transaction_costs': pos.transaction_costs,
+            "ticker": pos.ticker,
+            "entry_date": pos.entry_date,
+            "exit_date": exit_date,
+            "exit_reason": exit_reason,
+            "hold_days": (exit_date - pos.entry_date).days,
+            "realized_pnl": pos.realized_pnl,
+            "transaction_costs": pos.transaction_costs,
             # ADD COMMENT: Net P&L = Gross P&L - All Transaction Costs (computed once)
-            'net_pnl': pos.realized_pnl - pos.transaction_costs,
-            'put_premium': pos.put_premium * 100 if pos.put_premium else 0,
-            'call_premium': pos.call_premium * 100 if pos.call_premium else 0,
-            'notes': ' | '.join(pos.notes)
+            "net_pnl": pos.realized_pnl - pos.transaction_costs,
+            "put_premium": pos.put_premium * 100 if pos.put_premium else 0,
+            "call_premium": pos.call_premium * 100 if pos.call_premium else 0,
+            "notes": " | ".join(pos.notes),
         }
 
         self.closed_positions.append(closed)
@@ -588,15 +557,15 @@ class WheelTracker:
         df = pd.DataFrame(self.closed_positions)
 
         summary = {
-            'total_trades': len(df),
-            'winners': len(df[df['net_pnl'] > 0]),
-            'losers': len(df[df['net_pnl'] < 0]),
-            'win_rate': len(df[df['net_pnl'] > 0]) / len(df),
-            'total_pnl': df['net_pnl'].sum(),
-            'avg_pnl_per_trade': df['net_pnl'].mean(),
-            'total_commissions': df['transaction_costs'].sum(),
-            'largest_win': df['net_pnl'].max(),
-            'largest_loss': df['net_pnl'].min(),
+            "total_trades": len(df),
+            "winners": len(df[df["net_pnl"] > 0]),
+            "losers": len(df[df["net_pnl"] < 0]),
+            "win_rate": len(df[df["net_pnl"] > 0]) / len(df),
+            "total_pnl": df["net_pnl"].sum(),
+            "avg_pnl_per_trade": df["net_pnl"].mean(),
+            "total_commissions": df["transaction_costs"].sum(),
+            "largest_win": df["net_pnl"].max(),
+            "largest_loss": df["net_pnl"].min(),
         }
 
         return pd.DataFrame([summary])

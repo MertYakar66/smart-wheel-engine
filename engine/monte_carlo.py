@@ -28,9 +28,11 @@ from .option_pricer import black_scholes_price
 # 1. Block Bootstrap Monte Carlo
 # ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class BootstrapResult:
     """Result of block bootstrap simulation."""
+
     # Equity curves: (n_simulations, n_days) array
     equity_curves: np.ndarray
     # Terminal wealth distribution
@@ -38,12 +40,12 @@ class BootstrapResult:
     # Strategy statistics across simulations
     median_return: float
     mean_return: float
-    cvar_5: float                    # Expected shortfall at 5%
-    var_5: float                     # 5th percentile return
-    prob_loss: float                 # P(terminal < initial)
-    prob_severe_loss: float          # P(terminal < 0.8 * initial)
-    max_drawdown_dist: np.ndarray    # Max drawdown per simulation
-    sharpe_dist: np.ndarray          # Sharpe ratio per simulation
+    cvar_5: float  # Expected shortfall at 5%
+    var_5: float  # 5th percentile return
+    prob_loss: float  # P(terminal < initial)
+    prob_severe_loss: float  # P(terminal < 0.8 * initial)
+    max_drawdown_dist: np.ndarray  # Max drawdown per simulation
+    sharpe_dist: np.ndarray  # Sharpe ratio per simulation
     # Confidence intervals
     return_ci_95: tuple[float, float]
     return_ci_99: tuple[float, float]
@@ -82,19 +84,16 @@ class BlockBootstrap:
 
     def __init__(
         self,
-        block_size: int = 21,          # ~1 month of trading days
+        block_size: int = 21,  # ~1 month of trading days
         n_simulations: int = 10000,
-        seed: int | None = 42
+        seed: int | None = 42,
     ):
         self.block_size = block_size
         self.n_simulations = n_simulations
         self.rng = np.random.default_rng(seed)
 
     def simulate(
-        self,
-        daily_returns: np.ndarray,
-        n_days: int = 252,
-        initial_capital: float = 100000.0
+        self, daily_returns: np.ndarray, n_days: int = 252, initial_capital: float = 100000.0
     ) -> BootstrapResult:
         """
         Generate synthetic equity curves via block bootstrap.
@@ -110,10 +109,7 @@ class BlockBootstrap:
         """
         n_hist = len(daily_returns)
         if n_hist < self.block_size:
-            raise ValueError(
-                f"Need at least {self.block_size} historical returns, "
-                f"got {n_hist}"
-            )
+            raise ValueError(f"Need at least {self.block_size} historical returns, got {n_hist}")
 
         # Pre-compute blocks count needed per simulation
         n_blocks = int(np.ceil(n_days / self.block_size))
@@ -123,20 +119,16 @@ class BlockBootstrap:
 
         # Generate all random block starts at once for efficiency
         # Shape: (n_simulations, n_blocks)
-        block_starts = self.rng.integers(
-            0, max_start + 1,
-            size=(self.n_simulations, n_blocks)
-        )
+        block_starts = self.rng.integers(0, max_start + 1, size=(self.n_simulations, n_blocks))
 
         # Build synthetic return series
         equity_curves = np.zeros((self.n_simulations, n_days))
 
         for sim_idx in range(self.n_simulations):
             # Concatenate blocks
-            synth_returns = np.concatenate([
-                daily_returns[start:start + self.block_size]
-                for start in block_starts[sim_idx]
-            ])[:n_days]
+            synth_returns = np.concatenate(
+                [daily_returns[start : start + self.block_size] for start in block_starts[sim_idx]]
+            )[:n_days]
 
             # Build equity curve
             equity_curves[sim_idx] = initial_capital * np.cumprod(1 + synth_returns)
@@ -179,12 +171,12 @@ class BlockBootstrap:
             sharpe_dist=sharpe_dist,
             return_ci_95=(
                 float(np.percentile(total_returns, 2.5)),
-                float(np.percentile(total_returns, 97.5))
+                float(np.percentile(total_returns, 97.5)),
             ),
             return_ci_99=(
                 float(np.percentile(total_returns, 0.5)),
-                float(np.percentile(total_returns, 99.5))
-            )
+                float(np.percentile(total_returns, 99.5)),
+            ),
         )
 
     def simulate_stationary(
@@ -192,7 +184,7 @@ class BlockBootstrap:
         daily_returns: np.ndarray,
         n_days: int = 252,
         initial_capital: float = 100000.0,
-        mean_block_size: int | None = None
+        mean_block_size: int | None = None,
     ) -> BootstrapResult:
         """
         Stationary bootstrap with random block lengths.
@@ -264,12 +256,12 @@ class BlockBootstrap:
             sharpe_dist=sharpe_dist,
             return_ci_95=(
                 float(np.percentile(total_returns, 2.5)),
-                float(np.percentile(total_returns, 97.5))
+                float(np.percentile(total_returns, 97.5)),
             ),
             return_ci_99=(
                 float(np.percentile(total_returns, 0.5)),
-                float(np.percentile(total_returns, 99.5))
-            )
+                float(np.percentile(total_returns, 99.5)),
+            ),
         )
 
 
@@ -277,22 +269,22 @@ class BlockBootstrap:
 # 2. Jump Diffusion (Merton 1976) with Bagholder Probability
 # ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class JumpDiffusionParams:
     """Parameters for Merton jump-diffusion model."""
-    mu: float = 0.08              # Annualized drift (SP500 ~8%)
-    sigma: float = 0.20           # Annualized diffusion volatility
-    jump_intensity: float = 2.0   # Expected jumps per year (lambda)
-    jump_mean: float = -0.05      # Mean jump size (log, negative = crashes)
-    jump_std: float = 0.10        # Jump size standard deviation
+
+    mu: float = 0.08  # Annualized drift (SP500 ~8%)
+    sigma: float = 0.20  # Annualized diffusion volatility
+    jump_intensity: float = 2.0  # Expected jumps per year (lambda)
+    jump_mean: float = -0.05  # Mean jump size (log, negative = crashes)
+    jump_std: float = 0.10  # Jump size standard deviation
     dividend_yield: float = 0.02  # Continuous dividend yield
 
     @classmethod
     def from_historical(
-        cls,
-        daily_returns: np.ndarray,
-        threshold_sigma: float = 3.0
-    ) -> 'JumpDiffusionParams':
+        cls, daily_returns: np.ndarray, threshold_sigma: float = 3.0
+    ) -> "JumpDiffusionParams":
         """
         Calibrate jump-diffusion parameters from historical returns.
 
@@ -333,27 +325,28 @@ class JumpDiffusionParams:
             sigma=sigma,
             jump_intensity=max(0.1, jump_intensity),
             jump_mean=jump_mean,
-            jump_std=max(0.01, jump_std)
+            jump_std=max(0.01, jump_std),
         )
 
 
 @dataclass
 class JumpDiffusionResult:
     """Result of jump-diffusion simulation."""
+
     # Price paths: (n_simulations, n_steps + 1) starting with S0
     paths: np.ndarray
     # Terminal prices
     terminal_prices: np.ndarray
     # Bagholder analysis
-    bagholder_probability: float     # P(stuck holding > threshold months)
-    median_recovery_days: float      # Median days to recover from assignment
-    prob_never_recover: float        # P(never recovers above strike within horizon)
+    bagholder_probability: float  # P(stuck holding > threshold months)
+    median_recovery_days: float  # Median days to recover from assignment
+    prob_never_recover: float  # P(never recovers above strike within horizon)
     # Distribution stats
     mean_terminal: float
     median_terminal: float
-    var_5_terminal: float            # 5th percentile terminal price
-    prob_below_strike: float         # P(S_T < K)
-    expected_loss_if_below: float    # E[K - S_T | S_T < K]
+    var_5_terminal: float  # 5th percentile terminal price
+    prob_below_strike: float  # P(S_T < K)
+    expected_loss_if_below: float  # E[K - S_T | S_T < K]
     # Jump diagnostics
     avg_jumps_per_path: float
     max_single_day_drop: float
@@ -407,18 +400,13 @@ class JumpDiffusionSimulator:
         self,
         params: JumpDiffusionParams | None = None,
         n_simulations: int = 50000,
-        seed: int | None = 42
+        seed: int | None = 42,
     ):
         self.params = params or JumpDiffusionParams()
         self.n_simulations = n_simulations
         self.rng = np.random.default_rng(seed)
 
-    def simulate_paths(
-        self,
-        S0: float,
-        n_days: int = 252,
-        dt: float = 1.0 / 252
-    ) -> np.ndarray:
+    def simulate_paths(self, S0: float, n_days: int = 252, dt: float = 1.0 / 252) -> np.ndarray:
         """
         Simulate price paths under jump-diffusion.
 
@@ -437,8 +425,7 @@ class JumpDiffusionSimulator:
         k = np.exp(p.jump_mean + 0.5 * p.jump_std**2) - 1
 
         # Adjusted drift (remove jump compensation + dividend)
-        drift = (p.mu - p.dividend_yield - p.jump_intensity * k
-                 - 0.5 * p.sigma**2) * dt
+        drift = (p.mu - p.dividend_yield - p.jump_intensity * k - 0.5 * p.sigma**2) * dt
 
         # Pre-generate all random components
         # Diffusion (Brownian)
@@ -446,10 +433,7 @@ class JumpDiffusionSimulator:
         diffusion = p.sigma * np.sqrt(dt) * Z
 
         # Poisson jump counts
-        N_jumps = self.rng.poisson(
-            lam=p.jump_intensity * dt,
-            size=(n_sims, n_days)
-        )
+        N_jumps = self.rng.poisson(lam=p.jump_intensity * dt, size=(n_sims, n_days))
 
         # Jump sizes (compound Poisson: sum of N_jumps normal jumps)
         # For each time step, total jump = sum of N individual jumps
@@ -458,9 +442,7 @@ class JumpDiffusionSimulator:
         max_jumps = int(N_jumps.max()) if N_jumps.max() > 0 else 0
         for j in range(1, max_jumps + 1):
             mask = N_jumps >= j
-            jump_sizes[mask] += self.rng.normal(
-                p.jump_mean, p.jump_std, size=np.sum(mask)
-            )
+            jump_sizes[mask] += self.rng.normal(p.jump_mean, p.jump_std, size=np.sum(mask))
 
         # Log returns: drift + diffusion + jumps
         log_returns = drift + diffusion + jump_sizes
@@ -476,9 +458,9 @@ class JumpDiffusionSimulator:
         self,
         S0: float,
         strike: float,
-        n_days: int = 504,             # 2 years horizon
+        n_days: int = 504,  # 2 years horizon
         stuck_threshold_days: int = 252,  # 1 year = "stuck"
-        paths: np.ndarray | None = None
+        paths: np.ndarray | None = None,
     ) -> JumpDiffusionResult:
         """
         Simulate paths and compute "bagholder probability."
@@ -537,14 +519,16 @@ class JumpDiffusionSimulator:
 
         # Median recovery days (excluding never-recovered)
         finite_recovery = recovery_days[np.isfinite(recovery_days)]
-        median_recovery = float(np.median(finite_recovery)) if len(finite_recovery) > 0 else float('inf')
+        median_recovery = (
+            float(np.median(finite_recovery)) if len(finite_recovery) > 0 else float("inf")
+        )
 
         # --- Terminal price distribution ---
         below_mask = terminal_prices < strike
         prob_below = np.mean(below_mask)
-        expected_loss_below = float(
-            np.mean(strike - terminal_prices[below_mask])
-        ) if np.any(below_mask) else 0.0
+        expected_loss_below = (
+            float(np.mean(strike - terminal_prices[below_mask])) if np.any(below_mask) else 0.0
+        )
 
         # --- Jump diagnostics ---
         # Re-simulate to count jumps (use log returns)
@@ -574,7 +558,7 @@ class JumpDiffusionSimulator:
             prob_below_strike=float(prob_below),
             expected_loss_if_below=expected_loss_below,
             avg_jumps_per_path=avg_jumps,
-            max_single_day_drop=max_single_drop
+            max_single_day_drop=max_single_drop,
         )
 
 
@@ -582,20 +566,22 @@ class JumpDiffusionSimulator:
 # 3. Least-Squares Monte Carlo (Longstaff-Schwartz 2001)
 # ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class LSMResult:
     """Result from Least-Squares Monte Carlo pricing."""
+
     # Prices
-    american_price: float            # American option price
-    european_price: float            # European (BSM) benchmark
-    early_exercise_premium: float    # American - European
+    american_price: float  # American option price
+    european_price: float  # European (BSM) benchmark
+    early_exercise_premium: float  # American - European
     # Assignment probabilities
-    prob_early_exercise: float       # P(exercised before expiry)
-    prob_exercise_by_day: np.ndarray # Cumulative exercise probability
+    prob_early_exercise: float  # P(exercised before expiry)
+    prob_exercise_by_day: np.ndarray  # Cumulative exercise probability
     optimal_exercise_boundary: np.ndarray  # Strike-relative boundary
     # Ex-dividend analysis
-    prob_exercise_pre_dividend: float   # P(exercised before div date)
-    expected_exercise_day: float        # E[exercise day | exercised early]
+    prob_exercise_pre_dividend: float  # P(exercised before div date)
+    expected_exercise_day: float  # E[exercise day | exercised early]
     # Standard errors
     price_std_error: float
 
@@ -641,7 +627,7 @@ class LSMPricer:
         n_paths: int = 50000,
         n_steps_per_day: int = 1,
         polynomial_degree: int = 3,
-        seed: int | None = 42
+        seed: int | None = 42,
     ):
         self.n_paths = n_paths
         self.n_steps_per_day = n_steps_per_day
@@ -657,7 +643,7 @@ class LSMPricer:
         q: float,
         n_steps: int,
         dividend_dates: list[int] | None = None,
-        dividend_amounts: list[float] | None = None
+        dividend_amounts: list[float] | None = None,
     ) -> np.ndarray:
         """
         Generate GBM paths under risk-neutral measure.
@@ -695,10 +681,7 @@ class LSMPricer:
             for div_step, div_amount in zip(dividend_dates, dividend_amounts, strict=False):
                 if 0 < div_step <= n_steps:
                     # Stock drops by dividend amount on ex-date
-                    ratio = np.maximum(
-                        0.01,
-                        (paths[:, div_step] - div_amount) / paths[:, div_step]
-                    )
+                    ratio = np.maximum(0.01, (paths[:, div_step] - div_amount) / paths[:, div_step])
                     paths[:, div_step:] *= ratio[:, np.newaxis]
 
         return paths
@@ -710,10 +693,10 @@ class LSMPricer:
         T: float,
         r: float,
         sigma: float,
-        option_type: str = 'put',
+        option_type: str = "put",
         q: float = 0.0,
         dividend_dates: list[int] | None = None,
-        dividend_amounts: list[float] | None = None
+        dividend_amounts: list[float] | None = None,
     ) -> LSMResult:
         """
         Price an American option using LSM.
@@ -737,15 +720,16 @@ class LSMPricer:
 
         # Generate paths under risk-neutral measure
         paths = self._generate_gbm_paths(
-            S0, r, sigma, T, q, n_steps,
-            dividend_dates, dividend_amounts
+            S0, r, sigma, T, q, n_steps, dividend_dates, dividend_amounts
         )
 
         # Payoff function
-        if option_type == 'put':
+        if option_type == "put":
+
             def payoff_fn(S):
                 return np.maximum(K - S, 0)
         else:
+
             def payoff_fn(S):
                 return np.maximum(S - K, 0)
 
@@ -775,9 +759,7 @@ class LSMPricer:
                 continue
 
             # Discounted future cashflows for ITM paths
-            future_cf = cashflows[itm_mask] * np.exp(
-                -r * dt * (exercise_time[itm_mask] - t)
-            )
+            future_cf = cashflows[itm_mask] * np.exp(-r * dt * (exercise_time[itm_mask] - t))
 
             # Regression basis: Laguerre polynomials (standard in LSM)
             S_itm = S_t[itm_mask]
@@ -801,7 +783,7 @@ class LSMPricer:
             # Exercise boundary: stock price where exercise ~ continuation
             if n_itm > 0 and np.any(exercise_mask_itm):
                 exercised_prices = S_itm[exercise_mask_itm]
-                if option_type == 'put':
+                if option_type == "put":
                     exercise_boundary[t] = np.max(exercised_prices)
                 else:
                     exercise_boundary[t] = np.min(exercised_prices)
@@ -844,10 +826,7 @@ class LSMPricer:
             for div_step in dividend_dates:
                 # Count exercises in the step just before dividend
                 window_start = max(0, div_step - max(int(step_to_day), 1))
-                pre_div_mask = (
-                    (exercise_time >= window_start)
-                    & (exercise_time < div_step)
-                )
+                pre_div_mask = (exercise_time >= window_start) & (exercise_time < div_step)
                 prob_pre_div += float(np.mean(pre_div_mask))
 
         return LSMResult(
@@ -859,7 +838,7 @@ class LSMPricer:
             optimal_exercise_boundary=exercise_boundary,
             prob_exercise_pre_dividend=prob_pre_div,
             expected_exercise_day=expected_day,
-            price_std_error=price_std_error
+            price_std_error=price_std_error,
         )
 
     def assignment_risk(
@@ -869,10 +848,10 @@ class LSMPricer:
         T: float,
         r: float,
         sigma: float,
-        option_type: str = 'put',
+        option_type: str = "put",
         q: float = 0.0,
         dividend_dates: list[int] | None = None,
-        dividend_amounts: list[float] | None = None
+        dividend_amounts: list[float] | None = None,
     ) -> dict[str, float]:
         """
         Quick assignment risk assessment for Wheel strategy.
@@ -880,30 +859,26 @@ class LSMPricer:
         Returns probability of being assigned at various time horizons.
         Used to decide whether to sell a particular option.
         """
-        result = self.price(
-            S0, K, T, r, sigma, option_type, q,
-            dividend_dates, dividend_amounts
-        )
+        result = self.price(S0, K, T, r, sigma, option_type, q, dividend_dates, dividend_amounts)
 
         n_days = int(T * 252)
         risk = {
-            'prob_early_assignment': result.prob_early_exercise,
-            'prob_pre_dividend_assignment': result.prob_exercise_pre_dividend,
-            'expected_assignment_day': result.expected_exercise_day,
-            'early_exercise_premium_pct': (
+            "prob_early_assignment": result.prob_early_exercise,
+            "prob_pre_dividend_assignment": result.prob_exercise_pre_dividend,
+            "expected_assignment_day": result.expected_exercise_day,
+            "early_exercise_premium_pct": (
                 result.early_exercise_premium / result.american_price * 100
-                if result.american_price > 0 else 0
+                if result.american_price > 0
+                else 0
             ),
-            'american_price': result.american_price,
-            'european_price': result.european_price,
+            "american_price": result.american_price,
+            "european_price": result.european_price,
         }
 
         # Assignment probability at key horizons
         for days in [7, 14, 21, 30]:
             if days < n_days and days < len(result.prob_exercise_by_day):
-                risk[f'prob_assigned_within_{days}d'] = float(
-                    result.prob_exercise_by_day[days]
-                )
+                risk[f"prob_assigned_within_{days}d"] = float(result.prob_exercise_by_day[days])
 
         return risk
 
@@ -924,7 +899,7 @@ class LSMPricer:
         # Use simple polynomial basis (more numerically stable for
         # typical moneyness ranges)
         for d in range(1, degree + 1):
-            X[:, d] = x ** d
+            X[:, d] = x**d
 
         return X
 
@@ -933,13 +908,14 @@ class LSMPricer:
 # Convenience functions
 # ─────────────────────────────────────────────────────────────────────
 
+
 def run_bootstrap_analysis(
     daily_returns: np.ndarray,
     n_simulations: int = 10000,
     n_days: int = 252,
     initial_capital: float = 100000.0,
     block_size: int = 21,
-    seed: int | None = 42
+    seed: int | None = 42,
 ) -> BootstrapResult:
     """
     Quick block bootstrap analysis.
@@ -955,11 +931,7 @@ def run_bootstrap_analysis(
     Returns:
         BootstrapResult with full distribution analysis.
     """
-    bootstrap = BlockBootstrap(
-        block_size=block_size,
-        n_simulations=n_simulations,
-        seed=seed
-    )
+    bootstrap = BlockBootstrap(block_size=block_size, n_simulations=n_simulations, seed=seed)
     return bootstrap.simulate(daily_returns, n_days, initial_capital)
 
 
@@ -971,7 +943,7 @@ def run_bagholder_analysis(
     horizon_days: int = 504,
     stuck_threshold_days: int = 252,
     params: JumpDiffusionParams | None = None,
-    seed: int | None = 42
+    seed: int | None = 42,
 ) -> JumpDiffusionResult:
     """
     Quick bagholder probability analysis for a put sale.
@@ -995,14 +967,8 @@ def run_bagholder_analysis(
     if params is None:
         params = JumpDiffusionParams(sigma=sigma)
 
-    sim = JumpDiffusionSimulator(
-        params=params,
-        n_simulations=n_simulations,
-        seed=seed
-    )
-    return sim.bagholder_analysis(
-        S0, strike, horizon_days, stuck_threshold_days
-    )
+    sim = JumpDiffusionSimulator(params=params, n_simulations=n_simulations, seed=seed)
+    return sim.bagholder_analysis(S0, strike, horizon_days, stuck_threshold_days)
 
 
 def price_american_option(
@@ -1011,10 +977,10 @@ def price_american_option(
     T: float,
     r: float,
     sigma: float,
-    option_type: str = 'put',
+    option_type: str = "put",
     q: float = 0.0,
     n_paths: int = 50000,
-    seed: int | None = 42
+    seed: int | None = 42,
 ) -> LSMResult:
     """
     Quick American option pricing via LSM.

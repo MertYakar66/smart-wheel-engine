@@ -9,7 +9,6 @@ Your wheel strategy DEPENDS on understanding assignment risk:
 This module quantifies assignment risk.
 """
 
-
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -65,7 +64,7 @@ class AssignmentFeatures:
 
             log_ratio = np.log(spot / strike)
             # P(touch) ≈ 2 * N(-d2) for OTM put
-            d2 = (log_ratio - 0.5 * volatility ** 2 * time_to_expiry) / sigma_sqrt_t
+            d2 = (log_ratio - 0.5 * volatility**2 * time_to_expiry) / sigma_sqrt_t
             p_touch = 2 * norm.cdf(-d2)
         else:
             # For call: probability of touching upper strike
@@ -73,7 +72,7 @@ class AssignmentFeatures:
                 return 1.0  # Already touched
 
             log_ratio = np.log(strike / spot)
-            d2 = (log_ratio - 0.5 * volatility ** 2 * time_to_expiry) / sigma_sqrt_t
+            d2 = (log_ratio - 0.5 * volatility**2 * time_to_expiry) / sigma_sqrt_t
             p_touch = 2 * norm.cdf(-d2)
 
         return min(p_touch, 1.0)
@@ -217,7 +216,9 @@ class AssignmentFeatures:
             Estimated days (inf if very far OTM)
         """
         abs(strike - spot) / spot
-        danger_zone = strike * (1 - threshold_pct) if spot > strike else strike * (1 + threshold_pct)
+        danger_zone = (
+            strike * (1 - threshold_pct) if spot > strike else strike * (1 + threshold_pct)
+        )
         distance_to_danger = abs(danger_zone - spot) / spot
 
         if distance_to_danger <= 0:
@@ -348,9 +349,7 @@ class AssignmentFeatures:
         result["early_assignment_prob"] = self.early_assignment_probability(
             current_spot, strike, time_to_expiry, dividend_yield, risk_free_rate, is_put
         )
-        result["days_to_danger"] = self.days_until_danger_zone(
-            current_spot, strike, current_iv
-        )
+        result["days_to_danger"] = self.days_until_danger_zone(current_spot, strike, current_iv)
 
         # Support level analysis
         result["support_distance"] = self.support_level_distance(spot, strike)
@@ -419,7 +418,7 @@ class AssignmentFeatures:
         moneyness = np.where(
             is_puts,
             (strikes - spot) / strikes,  # Put: ITM when strike > spot
-            (spot - strikes) / strikes   # Call: ITM when spot > strike
+            (spot - strikes) / strikes,  # Call: ITM when spot > strike
         )
 
         # Only ITM options can be early exercised
@@ -454,9 +453,7 @@ class AssignmentFeatures:
         """Vectorized days until danger zone calculation."""
         # Danger zone boundary
         danger_zone = np.where(
-            spot > strikes,
-            strikes * (1 - threshold_pct),
-            strikes * (1 + threshold_pct)
+            spot > strikes, strikes * (1 - threshold_pct), strikes * (1 + threshold_pct)
         )
 
         distance_to_danger = np.abs(danger_zone - spot) / spot
@@ -466,11 +463,9 @@ class AssignmentFeatures:
 
         # Days for 1 std move to reach danger zone
         # Avoid division by zero
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             days = np.where(
-                distance_to_danger <= 0,
-                0.0,
-                np.minimum((distance_to_danger / daily_vol) ** 2, 365)
+                distance_to_danger <= 0, 0.0, np.minimum((distance_to_danger / daily_vol) ** 2, 365)
             )
 
         return days
@@ -502,9 +497,9 @@ class AssignmentFeatures:
         result = options_df.copy()
 
         # Normalize column names
-        strike_col = 'strike' if 'strike' in result.columns else 'strike_price'
-        dte_col = 'dte' if 'dte' in result.columns else 'days_to_expiry'
-        iv_col = 'iv' if 'iv' in result.columns else 'implied_volatility'
+        strike_col = "strike" if "strike" in result.columns else "strike_price"
+        dte_col = "dte" if "dte" in result.columns else "days_to_expiry"
+        iv_col = "iv" if "iv" in result.columns else "implied_volatility"
 
         if strike_col not in result.columns:
             raise ValueError("Options DataFrame must have 'strike' column")
@@ -518,10 +513,10 @@ class AssignmentFeatures:
             result[iv_col] = 0.25
 
         # Determine option type
-        if 'option_type' in result.columns:
-            is_put = result['option_type'].str.lower() == 'put'
-        elif 'type' in result.columns:
-            is_put = result['type'].str.lower() == 'put'
+        if "option_type" in result.columns:
+            is_put = result["option_type"].str.lower() == "put"
+        elif "type" in result.columns:
+            is_put = result["type"].str.lower() == "put"
         else:
             is_put = pd.Series(True, index=result.index)  # Default to put
 
@@ -532,30 +527,26 @@ class AssignmentFeatures:
         is_puts = is_put.values
 
         # Vectorized calculations where possible
-        result['moneyness'] = np.where(
+        result["moneyness"] = np.where(
             is_puts,
             (strikes - spot_price) / strikes,  # Put: positive when ITM
-            (spot_price - strikes) / strikes   # Call: positive when ITM
+            (spot_price - strikes) / strikes,  # Call: positive when ITM
         )
 
-        result['distance_to_strike_pct'] = (strikes - spot_price) / spot_price * 100
+        result["distance_to_strike_pct"] = (strikes - spot_price) / spot_price * 100
 
         # Vectorized point-in-time calculations
         ttes = np.maximum(dtes / 365.0, 1e-6)  # Time to expiry in years
 
         # Vectorized probability of touch
-        result['prob_touch'] = self._vectorized_prob_touch(
-            spot_price, strikes, ttes, ivs, is_puts
-        )
+        result["prob_touch"] = self._vectorized_prob_touch(spot_price, strikes, ttes, ivs, is_puts)
 
         # Vectorized early assignment probability
-        result['early_assignment_prob'] = self._vectorized_early_assignment_prob(
+        result["early_assignment_prob"] = self._vectorized_early_assignment_prob(
             spot_price, strikes, ttes, dividend_yield, risk_free_rate, is_puts
         )
 
         # Vectorized days to danger zone
-        result['days_to_danger'] = self._vectorized_days_to_danger(
-            spot_price, strikes, ivs
-        )
+        result["days_to_danger"] = self._vectorized_days_to_danger(spot_price, strikes, ivs)
 
         return result

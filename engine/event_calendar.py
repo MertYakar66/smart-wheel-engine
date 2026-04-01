@@ -21,6 +21,7 @@ import pandas as pd
 
 class EventType(Enum):
     """Types of market events."""
+
     EARNINGS = "earnings"
     DIVIDEND_EX = "dividend_ex"
     DIVIDEND_PAY = "dividend_pay"
@@ -35,6 +36,7 @@ class EventType(Enum):
 
 class EventImpact(Enum):
     """Expected impact level."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -44,6 +46,7 @@ class EventImpact(Enum):
 @dataclass
 class MarketEvent:
     """Single market event."""
+
     event_date: date
     event_type: EventType
     symbol: str | None  # None for macro events
@@ -78,6 +81,7 @@ class EventCalendar:
     Tracks all events that could impact option positions
     and provides filtering/query capabilities.
     """
+
     events: list[MarketEvent] = field(default_factory=list)
     _events_by_date: dict[date, list[MarketEvent]] = field(default_factory=dict)
     _events_by_symbol: dict[str, list[MarketEvent]] = field(default_factory=dict)
@@ -107,7 +111,7 @@ class EventCalendar:
         start_date: date,
         end_date: date,
         symbol: str | None = None,
-        event_types: list[EventType] | None = None
+        event_types: list[EventType] | None = None,
     ) -> list[MarketEvent]:
         """Get events within date range, optionally filtered."""
         results = []
@@ -126,10 +130,7 @@ class EventCalendar:
         return sorted(results, key=lambda e: e.event_date)
 
     def get_events_for_symbol(
-        self,
-        symbol: str,
-        start_date: date | None = None,
-        end_date: date | None = None
+        self, symbol: str, start_date: date | None = None, end_date: date | None = None
     ) -> list[MarketEvent]:
         """Get all events for a specific symbol."""
         events = self._events_by_symbol.get(symbol, [])
@@ -142,10 +143,7 @@ class EventCalendar:
         return sorted(events, key=lambda e: e.event_date)
 
     def get_next_event(
-        self,
-        symbol: str,
-        from_date: date,
-        event_types: list[EventType] | None = None
+        self, symbol: str, from_date: date, event_types: list[EventType] | None = None
     ) -> MarketEvent | None:
         """Get next upcoming event for symbol."""
         events = self.get_events_for_symbol(symbol, start_date=from_date)
@@ -155,28 +153,14 @@ class EventCalendar:
 
         return events[0] if events else None
 
-    def days_to_next_earnings(
-        self,
-        symbol: str,
-        from_date: date
-    ) -> int | None:
+    def days_to_next_earnings(self, symbol: str, from_date: date) -> int | None:
         """Get days until next earnings for symbol."""
-        event = self.get_next_event(
-            symbol, from_date,
-            event_types=[EventType.EARNINGS]
-        )
+        event = self.get_next_event(symbol, from_date, event_types=[EventType.EARNINGS])
         return (event.event_date - from_date).days if event else None
 
-    def days_to_next_dividend(
-        self,
-        symbol: str,
-        from_date: date
-    ) -> int | None:
+    def days_to_next_dividend(self, symbol: str, from_date: date) -> int | None:
         """Get days until next ex-dividend for symbol."""
-        event = self.get_next_event(
-            symbol, from_date,
-            event_types=[EventType.DIVIDEND_EX]
-        )
+        event = self.get_next_event(symbol, from_date, event_types=[EventType.DIVIDEND_EX])
         return (event.event_date - from_date).days if event else None
 
     def has_event_before_expiry(
@@ -184,7 +168,7 @@ class EventCalendar:
         symbol: str,
         trade_date: date,
         expiry_date: date,
-        event_types: list[EventType] | None = None
+        event_types: list[EventType] | None = None,
     ) -> tuple[bool, list[MarketEvent]]:
         """
         Check if there are events between trade date and expiry.
@@ -192,17 +176,14 @@ class EventCalendar:
         Returns (has_event, list of events)
         """
         events = self.get_events_in_range(
-            start_date=trade_date,
-            end_date=expiry_date,
-            symbol=symbol,
-            event_types=event_types
+            start_date=trade_date, end_date=expiry_date, symbol=symbol, event_types=event_types
         )
 
         # Also include macro events
         macro_events = self.get_events_in_range(
             start_date=trade_date,
             end_date=expiry_date,
-            event_types=[EventType.FOMC, EventType.CPI, EventType.NFP]
+            event_types=[EventType.FOMC, EventType.CPI, EventType.NFP],
         )
 
         all_events = events + [e for e in macro_events if e not in events]
@@ -227,20 +208,20 @@ class EventCalendarBuilder:
         Expected columns: symbol, date, time (pre/post), expected_move
         """
         try:
-            df = pd.read_csv(filepath, parse_dates=['date'])
+            df = pd.read_csv(filepath, parse_dates=["date"])
         except FileNotFoundError:
             return []
 
         events = []
         for _, row in df.iterrows():
             event = MarketEvent(
-                event_date=row['date'].date() if hasattr(row['date'], 'date') else row['date'],
+                event_date=row["date"].date() if hasattr(row["date"], "date") else row["date"],
                 event_type=EventType.EARNINGS,
-                symbol=row['symbol'],
+                symbol=row["symbol"],
                 description=f"{row['symbol']} Q{row.get('quarter', 'X')} Earnings",
                 impact=EventImpact.HIGH,
-                expected_move=row.get('expected_move'),
-                time_of_day=row.get('time', 'post')
+                expected_move=row.get("expected_move"),
+                time_of_day=row.get("time", "post"),
             )
             events.append(event)
 
@@ -254,7 +235,7 @@ class EventCalendarBuilder:
         Expected columns: symbol, ex_date, pay_date, amount
         """
         try:
-            df = pd.read_csv(filepath, parse_dates=['ex_date', 'pay_date'])
+            df = pd.read_csv(filepath, parse_dates=["ex_date", "pay_date"])
         except FileNotFoundError:
             return []
 
@@ -262,25 +243,29 @@ class EventCalendarBuilder:
         for _, row in df.iterrows():
             # Ex-dividend event
             ex_event = MarketEvent(
-                event_date=row['ex_date'].date() if hasattr(row['ex_date'], 'date') else row['ex_date'],
+                event_date=row["ex_date"].date()
+                if hasattr(row["ex_date"], "date")
+                else row["ex_date"],
                 event_type=EventType.DIVIDEND_EX,
-                symbol=row['symbol'],
+                symbol=row["symbol"],
                 description=f"{row['symbol']} Ex-Dividend ${row['amount']:.2f}",
                 impact=EventImpact.MEDIUM,
-                dividend_amount=row['amount'],
-                dividend_yield=row.get('yield')
+                dividend_amount=row["amount"],
+                dividend_yield=row.get("yield"),
             )
             events.append(ex_event)
 
             # Pay date event (lower impact)
-            if pd.notna(row.get('pay_date')):
+            if pd.notna(row.get("pay_date")):
                 pay_event = MarketEvent(
-                    event_date=row['pay_date'].date() if hasattr(row['pay_date'], 'date') else row['pay_date'],
+                    event_date=row["pay_date"].date()
+                    if hasattr(row["pay_date"], "date")
+                    else row["pay_date"],
                     event_type=EventType.DIVIDEND_PAY,
-                    symbol=row['symbol'],
+                    symbol=row["symbol"],
                     description=f"{row['symbol']} Dividend Payment ${row['amount']:.2f}",
                     impact=EventImpact.LOW,
-                    dividend_amount=row['amount']
+                    dividend_amount=row["amount"],
                 )
                 events.append(pay_event)
 
@@ -295,28 +280,39 @@ class EventCalendarBuilder:
         """
         # 2024 FOMC dates (example - should be updated annually)
         fomc_2024 = [
-            date(2024, 1, 31), date(2024, 3, 20), date(2024, 5, 1),
-            date(2024, 6, 12), date(2024, 7, 31), date(2024, 9, 18),
-            date(2024, 11, 7), date(2024, 12, 18)
+            date(2024, 1, 31),
+            date(2024, 3, 20),
+            date(2024, 5, 1),
+            date(2024, 6, 12),
+            date(2024, 7, 31),
+            date(2024, 9, 18),
+            date(2024, 11, 7),
+            date(2024, 12, 18),
         ]
 
         fomc_2025 = [
-            date(2025, 1, 29), date(2025, 3, 19), date(2025, 5, 7),
-            date(2025, 6, 18), date(2025, 7, 30), date(2025, 9, 17),
-            date(2025, 11, 5), date(2025, 12, 17)
+            date(2025, 1, 29),
+            date(2025, 3, 19),
+            date(2025, 5, 7),
+            date(2025, 6, 18),
+            date(2025, 7, 30),
+            date(2025, 9, 17),
+            date(2025, 11, 5),
+            date(2025, 12, 17),
         ]
 
         fomc_2026 = [
-            date(2026, 1, 28), date(2026, 3, 18), date(2026, 4, 29),
-            date(2026, 6, 17), date(2026, 7, 29), date(2026, 9, 16),
-            date(2026, 11, 4), date(2026, 12, 16)
+            date(2026, 1, 28),
+            date(2026, 3, 18),
+            date(2026, 4, 29),
+            date(2026, 6, 17),
+            date(2026, 7, 29),
+            date(2026, 9, 16),
+            date(2026, 11, 4),
+            date(2026, 12, 16),
         ]
 
-        dates_by_year = {
-            2024: fomc_2024,
-            2025: fomc_2025,
-            2026: fomc_2026
-        }
+        dates_by_year = {2024: fomc_2024, 2025: fomc_2025, 2026: fomc_2026}
 
         fomc_dates = dates_by_year.get(year, [])
 
@@ -328,17 +324,14 @@ class EventCalendarBuilder:
                 symbol=None,
                 description="FOMC Rate Decision",
                 impact=EventImpact.HIGH,
-                time_of_day="during"
+                time_of_day="during",
             )
             events.append(event)
 
         return events
 
     @staticmethod
-    def generate_monthly_expiries(
-        year: int,
-        symbols: list[str] | None = None
-    ) -> list[MarketEvent]:
+    def generate_monthly_expiries(year: int, symbols: list[str] | None = None) -> list[MarketEvent]:
         """
         Generate monthly options expiration dates.
 
@@ -359,7 +352,7 @@ class EventCalendarBuilder:
                 event_type=EventType.OPTIONS_EXPIRY,
                 symbol=None,  # Applies to all
                 description="Monthly Options Expiration",
-                impact=EventImpact.MEDIUM
+                impact=EventImpact.MEDIUM,
             )
             events.append(event)
 
@@ -368,20 +361,20 @@ class EventCalendarBuilder:
     @staticmethod
     def from_dataframe(
         df: pd.DataFrame,
-        date_col: str = 'date',
-        symbol_col: str = 'symbol',
-        type_col: str = 'event_type',
-        description_col: str = 'description'
+        date_col: str = "date",
+        symbol_col: str = "symbol",
+        type_col: str = "event_type",
+        description_col: str = "description",
     ) -> list[MarketEvent]:
         """Load events from generic DataFrame."""
         events = []
 
         for _, row in df.iterrows():
             event_date = row[date_col]
-            if hasattr(event_date, 'date'):
+            if hasattr(event_date, "date"):
                 event_date = event_date.date()
 
-            event_type_str = row.get(type_col, 'other')
+            event_type_str = row.get(type_col, "other")
             try:
                 event_type = EventType(event_type_str.lower())
             except ValueError:
@@ -391,8 +384,8 @@ class EventCalendarBuilder:
                 event_date=event_date,
                 event_type=event_type,
                 symbol=row.get(symbol_col),
-                description=row.get(description_col, ''),
-                impact=EventImpact(row.get('impact', 'medium').lower())
+                description=row.get(description_col, ""),
+                impact=EventImpact(row.get("impact", "medium").lower()),
             )
             events.append(event)
 
@@ -414,7 +407,7 @@ class EventRiskFilter:
         calendar: EventCalendar,
         earnings_buffer_days: int = 5,
         fomc_buffer_days: int = 2,
-        dividend_buffer_days: int = 1
+        dividend_buffer_days: int = 1,
     ):
         self.calendar = calendar
         self.earnings_buffer_days = earnings_buffer_days
@@ -422,10 +415,7 @@ class EventRiskFilter:
         self.dividend_buffer_days = dividend_buffer_days
 
     def should_avoid_trade(
-        self,
-        symbol: str,
-        trade_date: date,
-        expiry_date: date
+        self, symbol: str, trade_date: date, expiry_date: date
     ) -> tuple[bool, str]:
         """
         Check if trade should be avoided due to events.
@@ -442,9 +432,7 @@ class EventRiskFilter:
 
         # Check FOMC (for all symbols)
         fomc_events = self.calendar.get_events_in_range(
-            trade_date,
-            expiry_date,
-            event_types=[EventType.FOMC]
+            trade_date, expiry_date, event_types=[EventType.FOMC]
         )
         for event in fomc_events:
             days_to_fomc = (event.event_date - trade_date).days
@@ -454,20 +442,14 @@ class EventRiskFilter:
         return False, ""
 
     def get_event_adjusted_sizing(
-        self,
-        symbol: str,
-        trade_date: date,
-        expiry_date: date,
-        base_size: float
+        self, symbol: str, trade_date: date, expiry_date: date, base_size: float
     ) -> tuple[float, str]:
         """
         Adjust position size based on event risk.
 
         Returns (adjusted_size, reason)
         """
-        has_event, events = self.calendar.has_event_before_expiry(
-            symbol, trade_date, expiry_date
-        )
+        has_event, events = self.calendar.has_event_before_expiry(symbol, trade_date, expiry_date)
 
         if not has_event:
             return base_size, "No events in period"
@@ -496,10 +478,7 @@ class EventRiskFilter:
         return adjusted_size, reason
 
     def get_event_premium_adjustment(
-        self,
-        symbol: str,
-        trade_date: date,
-        expiry_date: date
+        self, symbol: str, trade_date: date, expiry_date: date
     ) -> float:
         """
         Get expected IV premium for events in period.
@@ -507,8 +486,7 @@ class EventRiskFilter:
         Returns multiplier for expected IV (1.0 = no adjustment).
         """
         has_event, events = self.calendar.has_event_before_expiry(
-            symbol, trade_date, expiry_date,
-            event_types=[EventType.EARNINGS, EventType.FOMC]
+            symbol, trade_date, expiry_date, event_types=[EventType.EARNINGS, EventType.FOMC]
         )
 
         if not has_event:
@@ -519,7 +497,7 @@ class EventRiskFilter:
             if event.event_type == EventType.EARNINGS:
                 # Earnings typically add 30-50% IV premium
                 if event.expected_move:
-                    premium *= (1 + event.expected_move)
+                    premium *= 1 + event.expected_move
                 else:
                     premium *= 1.35
             elif event.event_type == EventType.FOMC:
@@ -529,9 +507,7 @@ class EventRiskFilter:
 
 
 def build_default_calendar(
-    years: list[int],
-    earnings_file: str | None = None,
-    dividends_file: str | None = None
+    years: list[int], earnings_file: str | None = None, dividends_file: str | None = None
 ) -> EventCalendar:
     """
     Build a default event calendar with common events.

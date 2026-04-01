@@ -99,8 +99,7 @@ class CommitteeEngine:
 
         with ThreadPoolExecutor(max_workers=len(self.advisors)) as executor:
             future_to_advisor = {
-                executor.submit(advisor.evaluate, input_data): advisor
-                for advisor in self.advisors
+                executor.submit(advisor.evaluate, input_data): advisor for advisor in self.advisors
             }
 
             for future in as_completed(future_to_advisor):
@@ -130,9 +129,7 @@ class CommitteeEngine:
         )
 
     def _aggregate_responses(
-        self,
-        input_data: AdvisorInput,
-        responses: list[AdvisorResponse]
+        self, input_data: AdvisorInput, responses: list[AdvisorResponse]
     ) -> CommitteeOutput:
         """
         Aggregate individual advisor responses into committee decision.
@@ -148,17 +145,12 @@ class CommitteeEngine:
 
         # Count judgments
         approve_count = sum(
-            1 for r in responses
-            if r.judgment in [Judgment.APPROVE, Judgment.STRONG_APPROVE]
+            1 for r in responses if r.judgment in [Judgment.APPROVE, Judgment.STRONG_APPROVE]
         )
         reject_count = sum(
-            1 for r in responses
-            if r.judgment in [Judgment.REJECT, Judgment.STRONG_REJECT]
+            1 for r in responses if r.judgment in [Judgment.REJECT, Judgment.STRONG_REJECT]
         )
-        neutral_count = sum(
-            1 for r in responses
-            if r.judgment == Judgment.NEUTRAL
-        )
+        neutral_count = sum(1 for r in responses if r.judgment == Judgment.NEUTRAL)
 
         total = len(responses)
         unanimous_approve = approve_count == total
@@ -216,13 +208,9 @@ class CommitteeEngine:
 
         # Check if all agree on direction
         all_approve = all(
-            r.judgment in [Judgment.APPROVE, Judgment.STRONG_APPROVE]
-            for r in responses
+            r.judgment in [Judgment.APPROVE, Judgment.STRONG_APPROVE] for r in responses
         )
-        all_reject = all(
-            r.judgment in [Judgment.REJECT, Judgment.STRONG_REJECT]
-            for r in responses
-        )
+        all_reject = all(r.judgment in [Judgment.REJECT, Judgment.STRONG_REJECT] for r in responses)
 
         if all_approve:
             agreements.append("All advisors agree: APPROVE the trade")
@@ -240,10 +228,7 @@ class CommitteeEngine:
 
         # Risks mentioned by majority
         majority_threshold = len(responses) / 2
-        common_risks = [
-            term for term, count in risk_counts.items()
-            if count >= majority_threshold
-        ]
+        common_risks = [term for term, count in risk_counts.items() if count >= majority_threshold]
 
         if common_risks:
             agreements.append(f"Common risk themes: {', '.join(common_risks[:3])}")
@@ -257,8 +242,7 @@ class CommitteeEngine:
                     question_counts[term] = question_counts.get(term, 0) + 1
 
         common_questions = [
-            term for term, count in question_counts.items()
-            if count >= majority_threshold
+            term for term, count in question_counts.items() if count >= majority_threshold
         ]
 
         if common_questions:
@@ -311,7 +295,7 @@ class CommitteeEngine:
         responses: list[AdvisorResponse],
         approve_count: int,
         reject_count: int,
-        neutral_count: int
+        neutral_count: int,
     ) -> tuple[Judgment, str]:
         """Determine final committee judgment."""
         total = len(responses)
@@ -320,40 +304,37 @@ class CommitteeEngine:
         if approve_count == total:
             return (
                 Judgment.STRONG_APPROVE,
-                "Unanimous approval from all advisors. Proceed with confidence."
+                "Unanimous approval from all advisors. Proceed with confidence.",
             )
 
         if reject_count == total:
             return (
                 Judgment.STRONG_REJECT,
-                "Unanimous rejection from all advisors. Do not proceed."
+                "Unanimous rejection from all advisors. Do not proceed.",
             )
 
         # Majority decisions
         if approve_count > total / 2:
             return (
                 Judgment.APPROVE,
-                f"Majority approval ({approve_count}/{total}). Proceed with noted concerns."
+                f"Majority approval ({approve_count}/{total}). Proceed with noted concerns.",
             )
 
         if reject_count > total / 2:
             return (
                 Judgment.REJECT,
-                f"Majority rejection ({reject_count}/{total}). Significant concerns exist."
+                f"Majority rejection ({reject_count}/{total}). Significant concerns exist.",
             )
 
         # Split decision
         return (
             Judgment.NEUTRAL,
             f"Split decision ({approve_count} approve, {reject_count} reject, "
-            f"{neutral_count} neutral). Additional analysis recommended."
+            f"{neutral_count} neutral). Additional analysis recommended.",
         )
 
     def _determine_confidence(
-        self,
-        responses: list[AdvisorResponse],
-        approve_count: int,
-        reject_count: int
+        self, responses: list[AdvisorResponse], approve_count: int, reject_count: int
     ) -> ConfidenceLevel:
         """Determine committee confidence based on consensus."""
         total = len(responses)
@@ -361,9 +342,7 @@ class CommitteeEngine:
         # Strong consensus = high confidence
         if approve_count == total or reject_count == total:
             # Check individual confidence levels
-            avg_confidence = sum(
-                self._confidence_to_num(r.confidence) for r in responses
-            ) / total
+            avg_confidence = sum(self._confidence_to_num(r.confidence) for r in responses) / total
             if avg_confidence >= 4:
                 return ConfidenceLevel.VERY_HIGH
             return ConfidenceLevel.HIGH
@@ -387,9 +366,7 @@ class CommitteeEngine:
         return mapping.get(confidence, 3)
 
     def _build_required_actions(
-        self,
-        responses: list[AdvisorResponse],
-        judgment: Judgment
+        self, responses: list[AdvisorResponse], judgment: Judgment
     ) -> list[str]:
         """Build list of required actions before trading."""
         actions = []
@@ -411,9 +388,7 @@ class CommitteeEngine:
         return actions[:5]
 
     def _build_modifications(
-        self,
-        responses: list[AdvisorResponse],
-        judgment: Judgment
+        self, responses: list[AdvisorResponse], judgment: Judgment
     ) -> list[str]:
         """Build list of recommended modifications to the trade."""
         modifications = []
@@ -437,10 +412,28 @@ class CommitteeEngine:
         """Extract key terms from text for comparison."""
         # Simple keyword extraction
         keywords = {
-            "concentration", "earnings", "volatility", "iv", "regime",
-            "assignment", "bias", "risk", "premium", "delta", "gamma",
-            "theta", "vega", "sector", "position", "sizing", "kelly",
-            "statistical", "probability", "edge", "model", "validation"
+            "concentration",
+            "earnings",
+            "volatility",
+            "iv",
+            "regime",
+            "assignment",
+            "bias",
+            "risk",
+            "premium",
+            "delta",
+            "gamma",
+            "theta",
+            "vega",
+            "sector",
+            "position",
+            "sizing",
+            "kelly",
+            "statistical",
+            "probability",
+            "edge",
+            "model",
+            "validation",
         }
 
         text_lower = text.lower()
@@ -479,8 +472,10 @@ def format_committee_report(output: CommitteeOutput) -> str:
     lines.append("")
 
     # Vote breakdown
-    lines.append(f"Votes: {output.approval_count} approve, "
-                 f"{output.rejection_count} reject, {output.neutral_count} neutral")
+    lines.append(
+        f"Votes: {output.approval_count} approve, "
+        f"{output.rejection_count} reject, {output.neutral_count} neutral"
+    )
     lines.append("")
 
     # Individual advisor summaries

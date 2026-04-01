@@ -22,30 +22,61 @@ logger = logging.getLogger(__name__)
 # High-impact keywords (signals potential market moves)
 HIGH_IMPACT_KEYWORDS = {
     "critical": [
-        "guidance cut", "guidance lowered", "profit warning",
-        "sec investigation", "fbi investigation", "fraud",
-        "bankruptcy", "chapter 11", "default",
-        "emergency rate cut", "surprise rate hike",
-        "hostile takeover", "activist investor",
-        "ceo resign", "cfo resign", "ceo fired",
-        "data breach", "cyberattack",
-        "product recall", "fda warning",
+        "guidance cut",
+        "guidance lowered",
+        "profit warning",
+        "sec investigation",
+        "fbi investigation",
+        "fraud",
+        "bankruptcy",
+        "chapter 11",
+        "default",
+        "emergency rate cut",
+        "surprise rate hike",
+        "hostile takeover",
+        "activist investor",
+        "ceo resign",
+        "cfo resign",
+        "ceo fired",
+        "data breach",
+        "cyberattack",
+        "product recall",
+        "fda warning",
     ],
     "high": [
-        "earnings miss", "revenue miss", "guidance",
-        "downgrade", "upgrade", "price target",
-        "layoffs", "restructuring", "cost cutting",
-        "merger", "acquisition", "takeover",
-        "dividend cut", "buyback",
-        "fed decision", "rate decision", "fomc",
-        "sanctions", "tariffs", "trade war",
+        "earnings miss",
+        "revenue miss",
+        "guidance",
+        "downgrade",
+        "upgrade",
+        "price target",
+        "layoffs",
+        "restructuring",
+        "cost cutting",
+        "merger",
+        "acquisition",
+        "takeover",
+        "dividend cut",
+        "buyback",
+        "fed decision",
+        "rate decision",
+        "fomc",
+        "sanctions",
+        "tariffs",
+        "trade war",
     ],
     "medium": [
-        "beat estimates", "exceeded expectations",
-        "new product", "partnership", "contract",
-        "expansion", "investment",
-        "stock split", "secondary offering",
-        "analyst coverage", "initiated coverage",
+        "beat estimates",
+        "exceeded expectations",
+        "new product",
+        "partnership",
+        "contract",
+        "expansion",
+        "investment",
+        "stock split",
+        "secondary offering",
+        "analyst coverage",
+        "initiated coverage",
     ],
 }
 
@@ -66,15 +97,27 @@ TOPIC_WEIGHTS = {
 # Major entities (always newsworthy)
 MAJOR_ENTITIES = {
     # Central banks
-    "federal reserve", "fed", "ecb", "bank of japan", "bank of england",
+    "federal reserve",
+    "fed",
+    "ecb",
+    "bank of japan",
+    "bank of england",
     "people's bank of china",
-
     # Mega-cap companies
-    "apple", "microsoft", "google", "amazon", "nvidia", "meta",
-    "berkshire hathaway", "jpmorgan", "exxon",
-
+    "apple",
+    "microsoft",
+    "google",
+    "amazon",
+    "nvidia",
+    "meta",
+    "berkshire hathaway",
+    "jpmorgan",
+    "exxon",
     # Key indices
-    "s&p 500", "dow jones", "nasdaq", "russell 2000",
+    "s&p 500",
+    "dow jones",
+    "nasdaq",
+    "russell 2000",
 }
 
 
@@ -296,14 +339,10 @@ class ImpactScorer:
         cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
 
         for key in self._ticker_volume:
-            self._ticker_volume[key] = [
-                t for t in self._ticker_volume[key] if t > cutoff
-            ]
+            self._ticker_volume[key] = [t for t in self._ticker_volume[key] if t > cutoff]
 
         for key in self._topic_volume:
-            self._topic_volume[key] = [
-                t for t in self._topic_volume[key] if t > cutoff
-            ]
+            self._topic_volume[key] = [t for t in self._topic_volume[key] if t > cutoff]
 
     def score_articles(self, articles: list[Article]) -> list[Article]:
         """Score multiple articles and record for volume tracking"""

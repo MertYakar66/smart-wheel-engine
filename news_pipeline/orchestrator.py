@@ -1,23 +1,35 @@
 """
-News Pipeline Orchestrator
+News Pipeline Orchestrator (Browser-Based)
 
-Coordinates the multi-model pipeline flow:
-Grok (Discovery) → Gemini (Verification) → ChatGPT (Formatting) → Claude (Editorial)
+Zero API cost architecture using browser automation.
 
-Features:
-- Async parallel processing where possible
-- Stage-by-stage error handling
-- Progress tracking and logging
-- Configurable thresholds
+Pipeline:
+1. SCRAPE: RSS feeds + optional browser scraping
+2. PREPROCESS: Local LLM or rules (filter, categorize)
+3. VERIFY: Claude browser session (with web search)
+4. FORMAT: ChatGPT browser session (structure content)
+5. EDITORIAL: Claude browser session (why it matters)
+6. PUBLISH: Save to database, export to dashboard
+
+Fallback chain: Claude → ChatGPT → Gemini
 """
 
-import asyncio
+import json
 import logging
 import uuid
-from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
-from news_pipeline.config import PipelineConfig
+from news_pipeline.browser_agents import (
+    BrowserModelSession,
+    ChatGPTBrowserAgent,
+    ClaudeBrowserAgent,
+    GeminiBrowserAgent,
+    ModelType,
+)
+from news_pipeline.browser_agents.base import SessionManager
+from news_pipeline.local_llm import LocalPreprocessor
 from news_pipeline.models import (
     CandidateStory,
     DiscoveryRequest,
@@ -28,105 +40,69 @@ from news_pipeline.models import (
     VerificationResult,
     VerificationStatus,
 )
-from news_pipeline.providers import (
-    ChatGPTProvider,
-    ClaudeProvider,
-    GeminiProvider,
-    GrokProvider,
-)
+from news_pipeline.scrapers import NewsAggregator, NewsItem
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class OrchestratorConfig:
+    """Configuration for the pipeline orchestrator."""
+
+    # Verification
+    min_confidence: int = 6
+    max_stories_per_run: int = 20
+
+    # Model preferences
+    verification_models: list[ModelType] = field(
+        default_factory=lambda: [ModelType.CLAUDE, ModelType.GEMINI]
+    )
+    formatting_models: list[ModelType] = field(
+        default_factory=lambda: [ModelType.CHATGPT, ModelType.CLAUDE]
+    )
+    editorial_models: list[ModelType] = field(
+        default_factory=lambda: [ModelType.CLAUDE, ModelType.CHATGPT]
+    )
+
+    # Browser settings
+    headless: bool = True
+    browser_data_dir: str = str(Path.home() / ".news_pipeline" / "browser_data")
+
+    # Persistence
+    state_dir: str = str(Path.home() / ".news_pipeline" / "state")
+    output_dir: str = str(Path.home() / ".news_pipeline" / "output")
+
+    # Local LLM
+    use_local_llm: bool = True
+    ollama_model: str = "qwen2.5:7b"
+
+
 class NewsPipelineOrchestrator:
     """
-    Orchestrates the complete news pipeline.
+    Main orchestrator for the browser-based news pipeline.
 
-    Coordinates four AI models through discovery, verification,
-    formatting, and editorial stages to produce publication-ready
-    financial news.
+    Uses paid subscriptions via browser - zero API cost.
     """
 
-    def __init__(
-        self,
-        config: PipelineConfig | None = None,
-        publish_callback: Callable | None = None,
-    ):
-        """
-        Initialize the orchestrator.
+    def __init__(self, config: OrchestratorConfig | None = None):
+        """Initialize orchestrator."""
+        self.config = config or OrchestratorConfig()
 
-        Args:
-            config: Pipeline configuration (uses defaults if None)
-            publish_callback: Optional callback for publishing stories
-        """
-        self.config = config or PipelineConfig.from_env()
-        self.publish_callback = publish_callback
+        # Create directories
+        Path(self.config.state_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.config.output_dir).mkdir(parents=True, exist_ok=True)
 
-        # Initialize providers
-        self.grok = GrokProvider(self.config.grok)
-        self.gemini = GeminiProvider(self.config.gemini)
-        self.chatgpt = ChatGPTProvider(self.config.chatgpt)
-        self.claude = ClaudeProvider(self.config.claude)
+        # Components
+        self.aggregator = NewsAggregator(use_rss=True, use_browser=False)
+        self.preprocessor = LocalPreprocessor(
+            model=self.config.ollama_model,
+            use_llm=self.config.use_local_llm,
+        )
+        self.session_manager = SessionManager(self.config.state_dir)
 
-        self._initialized = False
+        # State
         self._current_stage = PipelineStage.DISCOVERY
-
-    async def initialize(self) -> None:
-        """Initialize all providers in parallel."""
-        if self._initialized:
-            return
-
-        logger.info("Initializing pipeline providers...")
-
-        # Validate configuration
-        errors = self.config.validate()
-        if errors:
-            for error in errors:
-                logger.warning(f"Config warning: {error}")
-
-        # Initialize enabled providers in parallel
-        init_tasks = []
-        if self.config.grok.enabled and self.config.grok.api_key:
-            init_tasks.append(self.grok.initialize())
-        if self.config.gemini.enabled and self.config.gemini.api_key:
-            init_tasks.append(self.gemini.initialize())
-        if self.config.chatgpt.enabled and self.config.chatgpt.api_key:
-            init_tasks.append(self.chatgpt.initialize())
-        if self.config.claude.enabled and self.config.claude.api_key:
-            init_tasks.append(self.claude.initialize())
-
-        if init_tasks:
-            await asyncio.gather(*init_tasks)
-
-        self._initialized = True
-        logger.info(f"Pipeline initialized with providers: {self.config.get_enabled_providers()}")
-
-    async def health_check(self) -> dict[str, bool]:
-        """Check health of all enabled providers."""
-        results = {}
-
-        checks = []
-        names = []
-
-        if self.config.grok.enabled:
-            checks.append(self.grok.health_check())
-            names.append("grok")
-        if self.config.gemini.enabled:
-            checks.append(self.gemini.health_check())
-            names.append("gemini")
-        if self.config.chatgpt.enabled:
-            checks.append(self.chatgpt.health_check())
-            names.append("chatgpt")
-        if self.config.claude.enabled:
-            checks.append(self.claude.health_check())
-            names.append("claude")
-
-        if checks:
-            statuses = await asyncio.gather(*checks, return_exceptions=True)
-            for name, status in zip(names, statuses, strict=True):
-                results[name] = status is True
-
-        return results
+        self._run_id: str = ""
 
     async def run(self, request: DiscoveryRequest) -> PipelineResult:
         """
@@ -138,282 +114,420 @@ class NewsPipelineOrchestrator:
         Returns:
             PipelineResult with all processed stories
         """
-        run_id = str(uuid.uuid4())[:8]
+        self._run_id = str(uuid.uuid4())[:8]
         started_at = datetime.utcnow()
 
         result = PipelineResult(
-            run_id=run_id,
+            run_id=self._run_id,
             started_at=started_at,
             request=request,
         )
 
-        logger.info(f"[Pipeline {run_id}] Starting pipeline run")
-        logger.info(f"[Pipeline {run_id}] Categories: {request.categories}")
-        logger.info(f"[Pipeline {run_id}] Time window: {request.time_window}")
-        if request.tickers:
-            logger.info(f"[Pipeline {run_id}] Tickers: {request.tickers}")
+        logger.info(f"[Pipeline {self._run_id}] Starting")
+        logger.info(f"[Pipeline {self._run_id}] Categories: {request.categories}")
+        logger.info(f"[Pipeline {self._run_id}] Time window: {request.time_window}")
 
         try:
-            if not self._initialized:
-                await self.initialize()
-
-            # Stage 1: Discovery
+            # Stage 1: Scrape news
             self._current_stage = PipelineStage.DISCOVERY
-            logger.info(f"[Pipeline {run_id}] Stage 1: Discovery (Grok)")
-            candidates = await self._discover(request)
-            result.discovered_count = len(candidates)
-            logger.info(f"[Pipeline {run_id}] Discovered {len(candidates)} candidates")
+            logger.info(f"[Pipeline {self._run_id}] Stage 1: Scraping news")
+            news_items = await self._scrape_news(request)
+            result.discovered_count = len(news_items)
+            logger.info(f"[Pipeline {self._run_id}] Scraped {len(news_items)} items")
+
+            if not news_items:
+                result.status = "completed"
+                result.completed_at = datetime.utcnow()
+                return result
+
+            # Stage 2: Preprocess (local LLM or rules)
+            logger.info(f"[Pipeline {self._run_id}] Stage 2: Preprocessing")
+            candidates = await self._preprocess(news_items)
+            logger.info(f"[Pipeline {self._run_id}] Kept {len(candidates)} candidates")
 
             if not candidates:
-                logger.warning(f"[Pipeline {run_id}] No candidates found")
                 result.status = "completed"
                 result.completed_at = datetime.utcnow()
                 return result
 
-            # Stage 2: Verification
+            # Stage 3: Verify with Claude (browser)
             self._current_stage = PipelineStage.VERIFICATION
-            logger.info(f"[Pipeline {run_id}] Stage 2: Verification (Gemini)")
+            logger.info(f"[Pipeline {self._run_id}] Stage 3: Verification (browser)")
             verified = await self._verify_batch(candidates)
-            publishable = [
-                v for v in verified if v.confidence >= self.config.min_verification_confidence
-            ]
-            result.verified_count = len(publishable)
+            passed = [v for v in verified if v.confidence >= self.config.min_confidence]
+            result.verified_count = len(passed)
             logger.info(
-                f"[Pipeline {run_id}] Verified {len(verified)}, "
-                f"{len(publishable)} passed threshold ({self.config.min_verification_confidence}+)"
+                f"[Pipeline {self._run_id}] Verified {len(verified)}, "
+                f"{len(passed)} passed threshold"
             )
 
-            if not publishable:
-                logger.warning(f"[Pipeline {run_id}] No stories passed verification")
+            if not passed:
                 result.status = "completed"
                 result.completed_at = datetime.utcnow()
                 return result
 
-            # Stage 3: Formatting
+            # Stage 4: Format with ChatGPT (browser)
             self._current_stage = PipelineStage.FORMATTING
-            logger.info(f"[Pipeline {run_id}] Stage 3: Formatting (ChatGPT)")
-            formatted = await self._format_batch(publishable)
+            logger.info(f"[Pipeline {self._run_id}] Stage 4: Formatting (browser)")
+            formatted = await self._format_batch(passed)
             result.formatted_count = len(formatted)
-            logger.info(f"[Pipeline {run_id}] Formatted {len(formatted)} stories")
+            logger.info(f"[Pipeline {self._run_id}] Formatted {len(formatted)} stories")
 
-            # Stage 4: Editorial
+            # Stage 5: Editorial with Claude (browser)
             self._current_stage = PipelineStage.EDITORIAL
-            logger.info(f"[Pipeline {run_id}] Stage 4: Editorial (Claude)")
+            logger.info(f"[Pipeline {self._run_id}] Stage 5: Editorial (browser)")
             finalized = await self._finalize_batch(formatted)
             result.finalized_count = len(finalized)
             result.stories = finalized
-            logger.info(f"[Pipeline {run_id}] Finalized {len(finalized)} stories")
+            logger.info(f"[Pipeline {self._run_id}] Finalized {len(finalized)} stories")
 
-            # Stage 5: Publishing
-            if self.publish_callback and finalized:
-                self._current_stage = PipelineStage.PUBLISHING
-                logger.info(f"[Pipeline {run_id}] Stage 5: Publishing")
-                published = await self._publish_batch(finalized)
-                result.published_count = len(published)
-                result.published_items = published
-                logger.info(f"[Pipeline {run_id}] Published {len(published)} stories")
+            # Stage 6: Publish
+            self._current_stage = PipelineStage.PUBLISHING
+            logger.info(f"[Pipeline {self._run_id}] Stage 6: Publishing")
+            published = await self._publish(finalized)
+            result.published_count = len(published)
+            logger.info(f"[Pipeline {self._run_id}] Published {len(published)} stories")
 
             result.status = "completed"
 
         except Exception as e:
-            logger.error(f"[Pipeline {run_id}] Pipeline failed at {self._current_stage.value}: {e}")
+            logger.error(f"[Pipeline {self._run_id}] Failed at {self._current_stage.value}: {e}")
             result.status = "failed"
             result.errors.append(str(e))
-            result.stage_errors[self._current_stage.value] = str(e)
 
-        result.completed_at = datetime.utcnow()
+        finally:
+            result.completed_at = datetime.utcnow()
+            self.session_manager.save_state()
+
         duration = result.duration_seconds
-
         logger.info(
-            f"[Pipeline {run_id}] Pipeline {result.status} in {duration:.1f}s | "
-            f"Discovered: {result.discovered_count} | "
+            f"[Pipeline {self._run_id}] {result.status.upper()} in {duration:.1f}s | "
+            f"Scraped: {result.discovered_count} | "
             f"Verified: {result.verified_count} | "
             f"Published: {result.published_count}"
         )
 
         return result
 
-    async def _discover(self, request: DiscoveryRequest) -> list[CandidateStory]:
-        """Stage 1: Discover news with Grok."""
-        raw_stories = await self.grok.discover_news(
-            tickers=list(request.tickers),
+    async def _scrape_news(self, request: DiscoveryRequest) -> list[NewsItem]:
+        """Stage 1: Scrape news from sources."""
+        hours_map = {
+            "overnight": 12,
+            "last_1h": 1,
+            "last_3h": 3,
+            "last_6h": 6,
+            "today": 24,
+            "yesterday": 48,
+        }
+
+        return await self.aggregator.fetch_news(
             categories=list(request.categories),
-            time_window=request.time_window,
-            max_results=request.max_results,
+            tickers=list(request.tickers) if request.tickers else None,
+            max_items=self.config.max_stories_per_run * 3,  # Extra for filtering
+            hours_back=hours_map.get(request.time_window, 12),
         )
 
+    async def _preprocess(self, items: list[NewsItem]) -> list[CandidateStory]:
+        """Stage 2: Preprocess with local LLM or rules."""
+        filtered = await self.preprocessor.preprocess_batch(
+            items,
+            filter_threshold=0.3,
+        )
+
+        # Convert to CandidateStory
         candidates = []
-        for story in raw_stories:
+        for item in filtered:
             candidates.append(
                 CandidateStory(
                     story_id=str(uuid.uuid4())[:8],
-                    headline=story.get("headline", ""),
-                    source_name=story.get("source_name", "Unknown"),
-                    source_url=story.get("source_url", ""),
-                    snippet=story.get("snippet", ""),
-                    published_at=story.get("published_at"),
-                    tickers=story.get("tickers", []),
-                    category=story.get("category", "other"),
-                    relevance_score=story.get("relevance_score", 0.5),
-                    source_type=story.get("source_type", "unknown"),
+                    headline=item.headline,
+                    source_name=item.source_name,
+                    source_url=item.source_url,
+                    snippet=item.snippet,
+                    tickers=item.tickers,
+                    category=item.category.value,
+                    source_type=item.source_type.value,
                     discovered_at=datetime.utcnow(),
                 )
             )
 
-        return candidates
+        return candidates[: self.config.max_stories_per_run]
 
-    async def _verify_batch(self, candidates: list[CandidateStory]) -> list[VerificationResult]:
-        """Stage 2: Verify stories with Gemini."""
-        semaphore = asyncio.Semaphore(self.config.max_concurrent_verifications)
+    async def _verify_batch(
+        self,
+        candidates: list[CandidateStory],
+    ) -> list[VerificationResult]:
+        """Stage 3: Verify stories with browser session."""
+        results = []
 
-        async def verify_one(candidate: CandidateStory) -> VerificationResult | None:
-            async with semaphore:
-                try:
-                    result = await self.gemini.verify_story(
+        # Get verification session (prefer Claude for search capability)
+        session = await self._get_session(self.config.verification_models)
+
+        if not session:
+            logger.error("[Pipeline] No verification session available")
+            return results
+
+        for candidate in candidates:
+            try:
+                # Use Claude's verify method
+                if isinstance(session, ClaudeBrowserAgent):
+                    result_data = await session.verify_news_story(
                         headline=candidate.headline,
-                        source_url=candidate.source_url,
+                        source=candidate.source_url,
                         tickers=candidate.tickers,
                         category=candidate.category,
                     )
+                elif isinstance(session, GeminiBrowserAgent):
+                    result_data = await session.verify_with_search(
+                        headline=candidate.headline,
+                        source=candidate.source_url,
+                        tickers=candidate.tickers,
+                        category=candidate.category,
+                    )
+                else:
+                    # Generic prompt
+                    result_data = await self._verify_generic(session, candidate)
 
-                    status_map = {
-                        "verified": VerificationStatus.VERIFIED,
-                        "partial": VerificationStatus.PARTIAL,
-                        "unverified": VerificationStatus.UNVERIFIED,
-                        "contradicted": VerificationStatus.CONTRADICTED,
-                        "error": VerificationStatus.ERROR,
-                    }
+                if "error" in result_data:
+                    logger.warning(f"[Pipeline] Verify failed for {candidate.story_id}")
+                    continue
 
-                    return VerificationResult(
+                # Map to VerificationResult
+                status_map = {
+                    "verified": VerificationStatus.VERIFIED,
+                    "partial": VerificationStatus.PARTIAL,
+                    "unverified": VerificationStatus.UNVERIFIED,
+                    "contradicted": VerificationStatus.CONTRADICTED,
+                }
+
+                results.append(
+                    VerificationResult(
                         story_id=candidate.story_id,
                         candidate=candidate,
                         status=status_map.get(
-                            result.get("status", "unverified"),
+                            result_data.get("status", "unverified"),
                             VerificationStatus.UNVERIFIED,
                         ),
-                        confidence=result.get("confidence", 0),
-                        verified_facts=result.get("verified_facts", []),
-                        what_happened=result.get("what_happened", ""),
-                        contradictions=result.get("contradictions", []),
-                        sources_checked=result.get("sources_checked", 0),
-                        verification_notes=result.get("verification_notes", ""),
-                        verified_at=datetime.utcnow(),
+                        confidence=result_data.get("confidence", 0),
+                        verified_facts=result_data.get("verified_facts", []),
+                        what_happened=result_data.get("what_happened", ""),
+                        contradictions=result_data.get("contradictions", []),
+                        verification_notes=result_data.get("verification_notes", ""),
                     )
-
-                except Exception as e:
-                    logger.error(f"Verification failed for {candidate.story_id}: {e}")
-                    return None
-
-        results = await asyncio.gather(
-            *[verify_one(c) for c in candidates],
-            return_exceptions=True,
-        )
-
-        return [r for r in results if isinstance(r, VerificationResult)]
-
-    async def _format_batch(self, verified: list[VerificationResult]) -> list[FormattedStory]:
-        """Stage 3: Format stories with ChatGPT."""
-
-        async def format_one(v: VerificationResult) -> FormattedStory | None:
-            try:
-                result = await self.chatgpt.format_story(
-                    story_id=v.story_id,
-                    verified_facts=v.verified_facts,
-                    what_happened=v.what_happened,
-                    affected_assets=v.candidate.tickers,
-                    category=v.candidate.category,
-                )
-
-                return FormattedStory(
-                    story_id=v.story_id,
-                    title=result.get("title", ""),
-                    what_happened=result.get("what_happened", v.what_happened),
-                    bullet_points=result.get("bullet_points", v.verified_facts),
-                    affected_assets=result.get("affected_assets", v.candidate.tickers),
-                    related_tickers=result.get("related_tickers", []),
-                    sector_impact=result.get("sector_impact"),
-                    time_sensitivity=result.get("time_sensitivity", "normal"),
-                    category=v.candidate.category,
-                    verification_confidence=v.confidence,
-                    formatted_at=datetime.utcnow(),
                 )
 
             except Exception as e:
-                logger.error(f"Formatting failed for {v.story_id}: {e}")
-                return None
+                logger.warning(f"[Pipeline] Verify error for {candidate.story_id}: {e}")
 
-        results = await asyncio.gather(*[format_one(v) for v in verified])
-        return [r for r in results if r is not None]
+        return results
 
-    async def _finalize_batch(self, formatted: list[FormattedStory]) -> list[FinalizedStory]:
-        """Stage 4: Finalize stories with Claude."""
+    async def _format_batch(
+        self,
+        verified: list[VerificationResult],
+    ) -> list[FormattedStory]:
+        """Stage 4: Format stories with browser session."""
+        results = []
 
-        async def finalize_one(f: FormattedStory) -> FinalizedStory | None:
+        session = await self._get_session(self.config.formatting_models)
+
+        if not session:
+            logger.error("[Pipeline] No formatting session available")
+            return results
+
+        for v in verified:
             try:
-                result = await self.claude.finalize_story(
-                    story_id=f.story_id,
-                    title=f.title,
-                    what_happened=f.what_happened,
-                    bullet_points=f.bullet_points,
-                    affected_assets=f.affected_assets,
-                    category=f.category,
-                    confidence=f.verification_confidence,
-                )
-
-                return FinalizedStory(
-                    story_id=f.story_id,
-                    title=result.get("title", f.title),
-                    what_happened=result.get("what_happened", f.what_happened),
-                    why_it_matters=result.get("why_it_matters", ""),
-                    bullet_points=result.get("bullet_points", f.bullet_points),
-                    affected_assets=result.get("affected_assets", f.affected_assets),
-                    category=f.category,
-                    verification_confidence=f.verification_confidence,
-                    market_implications=result.get("market_implications"),
-                    trading_considerations=result.get("trading_considerations"),
-                    is_breaking=result.get("is_breaking", False),
-                    priority=result.get("priority", 5),
-                    tags=result.get("tags", []),
-                    finalized_at=datetime.utcnow(),
-                )
-
-            except Exception as e:
-                logger.error(f"Finalization failed for {f.story_id}: {e}")
-                return None
-
-        results = await asyncio.gather(*[finalize_one(f) for f in formatted])
-        return [r for r in results if r is not None]
-
-    async def _publish_batch(self, finalized: list[FinalizedStory]) -> list:
-        """Stage 5: Publish stories via callback."""
-        from news_pipeline.models import PublishedFeedItem
-
-        published = []
-
-        for story in finalized:
-            try:
-                feed_item = PublishedFeedItem(
-                    story_id=story.story_id,
-                    title=story.title,
-                    what_happened=story.what_happened,
-                    why_it_matters=story.why_it_matters,
-                    bullet_points=story.bullet_points,
-                    affected_assets=story.affected_assets,
-                    category=story.category,
-                    verification_confidence=story.verification_confidence,
-                    published_at=datetime.utcnow(),
-                    feed_url="",
-                )
-
-                if asyncio.iscoroutinefunction(self.publish_callback):
-                    result = await self.publish_callback(feed_item)
+                if isinstance(session, ChatGPTBrowserAgent):
+                    result_data = await session.format_story(
+                        verified_facts=v.verified_facts,
+                        what_happened=v.what_happened,
+                        affected_assets=v.candidate.tickers,
+                        category=v.candidate.category,
+                    )
                 else:
-                    result = self.publish_callback(feed_item)
+                    result_data = await self._format_generic(session, v)
 
-                if result:
-                    published.append(feed_item)
+                if "error" in result_data:
+                    continue
+
+                results.append(
+                    FormattedStory(
+                        story_id=v.story_id,
+                        title=result_data.get("title", ""),
+                        what_happened=result_data.get("what_happened", v.what_happened),
+                        bullet_points=result_data.get("bullet_points", v.verified_facts),
+                        affected_assets=result_data.get("affected_assets", v.candidate.tickers),
+                        category=v.candidate.category,
+                        verification_confidence=v.confidence,
+                    )
+                )
 
             except Exception as e:
-                logger.error(f"Publishing failed for {story.story_id}: {e}")
+                logger.warning(f"[Pipeline] Format error for {v.story_id}: {e}")
 
-        return published
+        return results
+
+    async def _finalize_batch(
+        self,
+        formatted: list[FormattedStory],
+    ) -> list[FinalizedStory]:
+        """Stage 5: Add editorial polish with browser session."""
+        results = []
+
+        session = await self._get_session(self.config.editorial_models)
+
+        if not session:
+            logger.error("[Pipeline] No editorial session available")
+            return results
+
+        for f in formatted:
+            try:
+                if isinstance(session, ClaudeBrowserAgent):
+                    result_data = await session.add_editorial(
+                        title=f.title,
+                        what_happened=f.what_happened,
+                        bullet_points=f.bullet_points,
+                        affected_assets=f.affected_assets,
+                        category=f.category,
+                    )
+                else:
+                    result_data = await self._editorial_generic(session, f)
+
+                if "error" in result_data:
+                    continue
+
+                results.append(
+                    FinalizedStory(
+                        story_id=f.story_id,
+                        title=result_data.get("title", f.title),
+                        what_happened=result_data.get("what_happened", f.what_happened),
+                        why_it_matters=result_data.get("why_it_matters", ""),
+                        bullet_points=result_data.get("bullet_points", f.bullet_points),
+                        affected_assets=result_data.get("affected_assets", f.affected_assets),
+                        category=f.category,
+                        verification_confidence=f.verification_confidence,
+                        market_implications=result_data.get("market_implications"),
+                        trading_considerations=result_data.get("trading_considerations"),
+                        is_breaking=result_data.get("is_breaking", False),
+                        priority=result_data.get("priority", 5),
+                        tags=result_data.get("tags", []),
+                    )
+                )
+
+            except Exception as e:
+                logger.warning(f"[Pipeline] Editorial error for {f.story_id}: {e}")
+
+        return results
+
+    async def _publish(self, stories: list[FinalizedStory]) -> list[FinalizedStory]:
+        """Stage 6: Save stories to output."""
+        # Save to JSON file
+        output_file = Path(self.config.output_dir) / f"run_{self._run_id}.json"
+
+        output_data = {
+            "run_id": self._run_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "stories": [s.to_dict() for s in stories],
+        }
+
+        with open(output_file, "w") as f:
+            json.dump(output_data, f, indent=2)
+
+        logger.info(f"[Pipeline] Saved to {output_file}")
+
+        return stories
+
+    async def _get_session(
+        self,
+        preferred_models: list[ModelType],
+    ) -> BrowserModelSession | None:
+        """Get an available browser session with fallback."""
+        for model_type in preferred_models:
+            session = await self.session_manager.get_session(model_type)
+            if session and session.is_ready:
+                logger.info(f"[Pipeline] Using {model_type.value} session")
+                return session
+            elif session and not session.is_authenticated:
+                logger.warning(
+                    f"[Pipeline] {model_type.value} needs authentication. "
+                    f"Run: python morning_run.py --setup-auth"
+                )
+
+        return None
+
+    async def _verify_generic(
+        self,
+        session: BrowserModelSession,
+        candidate: CandidateStory,
+    ) -> dict:
+        """Generic verification prompt."""
+        prompt = f"""Verify this financial news:
+
+HEADLINE: "{candidate.headline}"
+SOURCE: {candidate.source_url}
+
+Return JSON:
+{{"status": "verified/partial/unverified", "confidence": 0-10, "verified_facts": [], "what_happened": ""}}"""
+
+        response = await session.send_prompt_with_retry(prompt)
+        if response.success:
+            return self._parse_json(response.content)
+        return {"error": response.error}
+
+    async def _format_generic(
+        self,
+        session: BrowserModelSession,
+        v: VerificationResult,
+    ) -> dict:
+        """Generic formatting prompt."""
+        prompt = f"""Format this news:
+
+FACTS: {v.verified_facts}
+SUMMARY: {v.what_happened}
+
+Return JSON:
+{{"title": "", "what_happened": "", "bullet_points": []}}"""
+
+        response = await session.send_prompt_with_retry(prompt)
+        if response.success:
+            return self._parse_json(response.content)
+        return {"error": response.error}
+
+    async def _editorial_generic(
+        self,
+        session: BrowserModelSession,
+        f: FormattedStory,
+    ) -> dict:
+        """Generic editorial prompt."""
+        prompt = f"""Add editorial analysis:
+
+TITLE: {f.title}
+WHAT HAPPENED: {f.what_happened}
+
+Return JSON:
+{{"why_it_matters": "", "priority": 1-10, "is_breaking": false}}"""
+
+        response = await session.send_prompt_with_retry(prompt)
+        if response.success:
+            return self._parse_json(response.content)
+        return {"error": response.error}
+
+    def _parse_json(self, content: str) -> dict:
+        """Parse JSON from response."""
+        try:
+            content = content.strip()
+            if "```json" in content:
+                start = content.find("```json") + 7
+                end = content.find("```", start)
+                content = content[start:end].strip()
+            elif "```" in content:
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                content = content[start:end].strip()
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return {"error": "JSON parse failed"}
+
+    async def close(self) -> None:
+        """Close all sessions."""
+        await self.session_manager.close_all()
+        await self.aggregator.close()

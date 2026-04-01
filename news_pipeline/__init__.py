@@ -1,72 +1,53 @@
 """
-Smart Wheel News Pipeline
+News Pipeline - Browser-Based Multi-Model System
 
-Enterprise-grade multi-model AI pipeline for financial news discovery,
-verification, formatting, and publishing.
+Zero API cost architecture using paid subscriptions via browser automation.
 
 Architecture:
-    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-    │    Grok     │───▶│   Gemini    │───▶│  ChatGPT    │───▶│   Claude    │
-    │  Discovery  │    │ Verification│    │  Formatting │    │  Editorial  │
-    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-           │                  │                  │                  │
-           ▼                  ▼                  ▼                  ▼
-      Candidates         Verified            Formatted          Finalized
-       Stories            Facts              Content            Stories
-                                                                    │
-                                                                    ▼
-                                                              ┌─────────────┐
-                                                              │  Publisher  │
-                                                              │   (Feed)    │
-                                                              └─────────────┘
+    ┌─────────────────────────────────────────────────────────────┐
+    │                    LOCAL ORCHESTRATOR                        │
+    │         (Playwright browser control + state management)      │
+    └─────────────────────────────────────────────────────────────┘
+                │              │              │
+       ┌────────┴────────┐    │    ┌─────────┴─────────┐
+       ▼                 ▼    ▼    ▼                   ▼
+    ┌──────┐         ┌──────────────────┐         ┌──────────┐
+    │Scrape│         │ Browser Sessions │         │ Local DB │
+    │ News │         │ Claude/GPT/Gemini│         │ + Publish│
+    └──────┘         └──────────────────┘         └──────────┘
 
-Each model contributes its unique strengths:
-- Grok (xAI): Real-time web search, breaking news detection
-- Gemini (Google): Grounded verification with search, fact-checking
-- ChatGPT (OpenAI): Clear, structured formatting
-- Claude (Anthropic): Editorial polish, "why it matters" analysis
+Pipeline Flow:
+    1. SCRAPE: Fetch headlines from Bloomberg, Reuters, Fed, SEC
+    2. PREPROCESS: Local LLM filters duplicates, categorizes
+    3. VERIFY: Claude (browser) verifies with web search
+    4. FORMAT: ChatGPT (browser) structures content
+    5. EDITORIAL: Claude (browser) adds "why it matters"
+    6. PUBLISH: Save to database, push to dashboard
 
-Usage:
-    from news_pipeline import NewsPipelineOrchestrator, DiscoveryRequest
-
-    orchestrator = NewsPipelineOrchestrator()
-    request = DiscoveryRequest(
-        categories=["fed", "earnings", "oil"],
-        time_window="overnight",
-    )
-    result = await orchestrator.run(request)
+Cost: $0 marginal (uses existing subscriptions)
 """
 
-from news_pipeline.config import PipelineConfig
+from news_pipeline.browser_agents import (
+    BrowserModelSession,
+    ChatGPTBrowserAgent,
+    ClaudeBrowserAgent,
+    GeminiBrowserAgent,
+)
 from news_pipeline.models import (
-    CandidateStory,
     DiscoveryRequest,
     FinalizedStory,
-    FormattedStory,
     PipelineResult,
-    PipelineStage,
-    PublishedFeedItem,
-    StoryCategory,
-    VerificationResult,
-    VerificationStatus,
 )
 from news_pipeline.orchestrator import NewsPipelineOrchestrator
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __all__ = [
-    # Core
     "NewsPipelineOrchestrator",
-    "PipelineConfig",
-    # Enums
-    "PipelineStage",
-    "StoryCategory",
-    "VerificationStatus",
-    # Models
+    "BrowserModelSession",
+    "ClaudeBrowserAgent",
+    "ChatGPTBrowserAgent",
+    "GeminiBrowserAgent",
     "DiscoveryRequest",
-    "CandidateStory",
-    "VerificationResult",
-    "FormattedStory",
-    "FinalizedStory",
-    "PublishedFeedItem",
     "PipelineResult",
+    "FinalizedStory",
 ]

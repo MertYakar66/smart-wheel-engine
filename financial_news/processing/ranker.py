@@ -37,10 +37,26 @@ logger = logging.getLogger(__name__)
 
 # Index heavyweights and their approximate weights
 SP500_HEAVYWEIGHTS = {
-    "AAPL": 0.07, "MSFT": 0.07, "NVDA": 0.05, "AMZN": 0.04, "GOOGL": 0.04,
-    "META": 0.03, "TSLA": 0.02, "BRK.B": 0.02, "UNH": 0.01, "JPM": 0.01,
-    "JNJ": 0.01, "V": 0.01, "XOM": 0.01, "PG": 0.01, "MA": 0.01,
-    "HD": 0.01, "CVX": 0.01, "MRK": 0.01, "ABBV": 0.01, "LLY": 0.01,
+    "AAPL": 0.07,
+    "MSFT": 0.07,
+    "NVDA": 0.05,
+    "AMZN": 0.04,
+    "GOOGL": 0.04,
+    "META": 0.03,
+    "TSLA": 0.02,
+    "BRK.B": 0.02,
+    "UNH": 0.01,
+    "JPM": 0.01,
+    "JNJ": 0.01,
+    "V": 0.01,
+    "XOM": 0.01,
+    "PG": 0.01,
+    "MA": 0.01,
+    "HD": 0.01,
+    "CVX": 0.01,
+    "MRK": 0.01,
+    "ABBV": 0.01,
+    "LLY": 0.01,
 }
 
 # Sectors and their tickers
@@ -62,6 +78,7 @@ SECTOR_ETFS = {
 @dataclass
 class RankingWeights:
     """Configurable ranking weights"""
+
     macro_weight: float = 0.35
     sp500_weight: float = 0.25
     source_quality_weight: float = 0.20
@@ -82,6 +99,7 @@ class RankingWeights:
 @dataclass
 class RankingResult:
     """Result of ranking a story"""
+
     story_id: str
     total_score: float
     macro_score: float
@@ -166,11 +184,11 @@ class StoryRanker:
 
         # Calculate base score
         base_score = (
-            self.weights.macro_weight * macro_score +
-            self.weights.sp500_weight * sp500_score +
-            self.weights.source_quality_weight * source_score +
-            self.weights.corroboration_weight * corr_score +
-            self.weights.recency_weight * recency_score
+            self.weights.macro_weight * macro_score
+            + self.weights.sp500_weight * sp500_score
+            + self.weights.source_quality_weight * source_score
+            + self.weights.corroboration_weight * corr_score
+            + self.weights.recency_weight * recency_score
         )
 
         # Apply boosts
@@ -352,10 +370,7 @@ class StoryRanker:
         """
         # Filter by category if specified
         if category:
-            stories = [
-                s for s in stories
-                if category.value in s.category_scores
-            ]
+            stories = [s for s in stories if category.value in s.category_scores]
 
         # Rank
         results = self.rank_stories(stories, is_macro_day)

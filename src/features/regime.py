@@ -18,6 +18,7 @@ import pandas as pd
 
 class MarketRegime(IntEnum):
     """Market regime classifications."""
+
     CRISIS = -2
     BEAR = -1
     SIDEWAYS = 0
@@ -27,6 +28,7 @@ class MarketRegime(IntEnum):
 
 class VolRegime(IntEnum):
     """Volatility regime classifications."""
+
     EXTREMELY_LOW = 0
     LOW = 1
     NORMAL = 2
@@ -36,6 +38,7 @@ class VolRegime(IntEnum):
 
 class LiquidityRegime(IntEnum):
     """Liquidity regime classifications."""
+
     FROZEN = 0
     TIGHT = 1
     NORMAL = 2
@@ -121,12 +124,13 @@ class RegimeDetector:
         High R² = strong trend
         Low R² = choppy/sideways
         """
+
         def r_squared(y):
             if len(y) < 2:
                 return np.nan
             x = np.arange(len(y))
             correlation = np.corrcoef(x, y)[0, 1]
-            return correlation ** 2 if not np.isnan(correlation) else 0
+            return correlation**2 if not np.isnan(correlation) else 0
 
         return price.rolling(window).apply(r_squared, raw=True)
 
@@ -180,6 +184,7 @@ class RegimeDetector:
 
         Where is current vol vs history?
         """
+
         def percentile_rank(x):
             if len(x) < 2:
                 return np.nan
@@ -212,7 +217,7 @@ class RegimeDetector:
 
         # Only classify where spread is valid (not NaN)
         valid = spread.notna()
-        regime[valid & (spread > 0.05)] = 1   # Contango
+        regime[valid & (spread > 0.05)] = 1  # Contango
         regime[valid & (spread < -0.05)] = -1  # Backwardation
         regime[valid & (spread >= -0.05) & (spread <= 0.05)] = 0  # Flat
 
@@ -272,30 +277,36 @@ class RegimeDetector:
             Score from -100 to +100
         """
         # Trend component: bull is good, bear is bad
-        trend_score = trend_regime.map({
-            MarketRegime.CRISIS: -40,
-            MarketRegime.BEAR: -20,
-            MarketRegime.SIDEWAYS: 10,  # Sideways is good for wheel!
-            MarketRegime.BULL: 20,
-            MarketRegime.EUPHORIA: 0,  # Euphoria is risky
-        })
+        trend_score = trend_regime.map(
+            {
+                MarketRegime.CRISIS: -40,
+                MarketRegime.BEAR: -20,
+                MarketRegime.SIDEWAYS: 10,  # Sideways is good for wheel!
+                MarketRegime.BULL: 20,
+                MarketRegime.EUPHORIA: 0,  # Euphoria is risky
+            }
+        )
 
         # Vol component: elevated vol is good (more premium), but crisis is bad
-        vol_score = vol_regime.map({
-            VolRegime.EXTREMELY_LOW: -10,
-            VolRegime.LOW: 0,
-            VolRegime.NORMAL: 20,
-            VolRegime.ELEVATED: 30,  # Best for selling premium
-            VolRegime.CRISIS: -20,  # Too risky
-        })
+        vol_score = vol_regime.map(
+            {
+                VolRegime.EXTREMELY_LOW: -10,
+                VolRegime.LOW: 0,
+                VolRegime.NORMAL: 20,
+                VolRegime.ELEVATED: 30,  # Best for selling premium
+                VolRegime.CRISIS: -20,  # Too risky
+            }
+        )
 
         # Liquidity component
-        liq_score = liquidity_regime.map({
-            LiquidityRegime.FROZEN: -30,
-            LiquidityRegime.TIGHT: -10,
-            LiquidityRegime.NORMAL: 10,
-            LiquidityRegime.ABUNDANT: 20,
-        })
+        liq_score = liquidity_regime.map(
+            {
+                LiquidityRegime.FROZEN: -30,
+                LiquidityRegime.TIGHT: -10,
+                LiquidityRegime.NORMAL: 10,
+                LiquidityRegime.ABUNDANT: 20,
+            }
+        )
 
         return trend_score + vol_score + liq_score
 
@@ -316,7 +327,7 @@ class RegimeDetector:
         """
         scalar = pd.Series(1.0, index=composite_score.index)
 
-        scalar[composite_score < -50] = 0.0   # Crisis - no new positions
+        scalar[composite_score < -50] = 0.0  # Crisis - no new positions
         scalar[(composite_score >= -50) & (composite_score < -20)] = 0.5
         scalar[(composite_score >= -20) & (composite_score < 20)] = 0.75
         scalar[(composite_score >= 20) & (composite_score < 50)] = 1.0
@@ -335,13 +346,15 @@ class RegimeDetector:
         High vol = use lower delta (more OTM, safer)
         Low vol = use higher delta (more ITM, more premium)
         """
-        adjustment = vol_regime.map({
-            VolRegime.EXTREMELY_LOW: 0.05,   # Go more ITM
-            VolRegime.LOW: 0.03,
-            VolRegime.NORMAL: 0.00,
-            VolRegime.ELEVATED: -0.05,
-            VolRegime.CRISIS: -0.10,  # Go more OTM for safety
-        })
+        adjustment = vol_regime.map(
+            {
+                VolRegime.EXTREMELY_LOW: 0.05,  # Go more ITM
+                VolRegime.LOW: 0.03,
+                VolRegime.NORMAL: 0.00,
+                VolRegime.ELEVATED: -0.05,
+                VolRegime.CRISIS: -0.10,  # Go more OTM for safety
+            }
+        )
 
         return base_delta + adjustment
 
@@ -356,13 +369,15 @@ class RegimeDetector:
         High vol = shorter DTE (capture theta faster)
         Low vol = longer DTE (more time for premium)
         """
-        adjustment = vol_regime.map({
-            VolRegime.EXTREMELY_LOW: 15,    # Longer DTE
-            VolRegime.LOW: 10,
-            VolRegime.NORMAL: 0,
-            VolRegime.ELEVATED: -7,
-            VolRegime.CRISIS: -14,  # Shorter DTE
-        })
+        adjustment = vol_regime.map(
+            {
+                VolRegime.EXTREMELY_LOW: 15,  # Longer DTE
+                VolRegime.LOW: 10,
+                VolRegime.NORMAL: 0,
+                VolRegime.ELEVATED: -7,
+                VolRegime.CRISIS: -14,  # Shorter DTE
+            }
+        )
 
         return base_dte + adjustment
 

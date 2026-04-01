@@ -20,17 +20,19 @@ import pandas as pd
 
 class OptionOutcome(IntEnum):
     """Outcome of a short option position."""
-    FULL_WIN = 2       # Expired worthless, kept 100% premium
-    PARTIAL_WIN = 1    # Closed early at profit
-    SCRATCH = 0        # Breakeven
+
+    FULL_WIN = 2  # Expired worthless, kept 100% premium
+    PARTIAL_WIN = 1  # Closed early at profit
+    SCRATCH = 0  # Breakeven
     PARTIAL_LOSS = -1  # Closed at loss but < premium
-    FULL_LOSS = -2     # Lost more than premium collected
-    ASSIGNED = -3      # Got assigned
+    FULL_LOSS = -2  # Lost more than premium collected
+    ASSIGNED = -3  # Got assigned
 
 
 @dataclass
 class CSPOutcome:
     """Outcome of a cash-secured put position."""
+
     entry_date: pd.Timestamp
     expiry_date: pd.Timestamp
     ticker: str
@@ -85,7 +87,7 @@ class LabelGenerator:
         # Get expiry price (or last available)
         expiry_idx = min(dte, len(prices_forward) - 1)
         expiry_price = prices_forward.iloc[expiry_idx]
-        min_price = prices_forward.iloc[:expiry_idx + 1].min()
+        min_price = prices_forward.iloc[: expiry_idx + 1].min()
 
         # Breakeven
         breakeven = strike - premium
@@ -319,9 +321,7 @@ class LabelGenerator:
         Use for training entry timing model.
         """
         fwd_drawdown = LabelGenerator.forward_max_drawdown(price, forward_periods)
-        iv_rank = iv.rolling(252).apply(
-            lambda x: (x < x.iloc[-1]).sum() / (len(x) - 1), raw=False
-        )
+        iv_rank = iv.rolling(252).apply(lambda x: (x < x.iloc[-1]).sum() / (len(x) - 1), raw=False)
 
         good_entry = (fwd_drawdown.abs() < price_threshold) & (iv_rank > iv_threshold)
         return good_entry.astype(int)
@@ -450,10 +450,10 @@ class LabelGenerator:
         # Touch strike label (at various OTM levels)
         # Use forward-looking minimum, preserve NaN for insufficient future data
         for otm in [0.95, 0.90, 0.85]:
-            col_name = f"touched_{int((1-otm)*100)}pct_otm"
+            col_name = f"touched_{int((1 - otm) * 100)}pct_otm"
             # Vectorized forward-looking min using reversed rolling
             forward_min = price[::-1].rolling(dte + 1, min_periods=1).min()[::-1]
-            touched = (forward_min <= price * otm)
+            touched = forward_min <= price * otm
             # Convert to float to preserve NaN (bool would lose it)
             result[col_name] = touched.astype(float)
             # Set last 'dte' values to NaN (insufficient forward data)

@@ -174,11 +174,20 @@ class BaseAdvisor(ABC):
 
         # Default sector mapping for common tickers
         sector_map = {
-            "NVDA": "Technology", "AAPL": "Technology", "MSFT": "Technology",
-            "GOOGL": "Technology", "META": "Technology", "AMZN": "Consumer",
-            "TSLA": "Consumer", "JPM": "Financials", "BAC": "Financials",
-            "XOM": "Energy", "CVX": "Energy", "JNJ": "Healthcare",
-            "UNH": "Healthcare", "PFE": "Healthcare",
+            "NVDA": "Technology",
+            "AAPL": "Technology",
+            "MSFT": "Technology",
+            "GOOGL": "Technology",
+            "META": "Technology",
+            "AMZN": "Consumer",
+            "TSLA": "Consumer",
+            "JPM": "Financials",
+            "BAC": "Financials",
+            "XOM": "Energy",
+            "CVX": "Energy",
+            "JNJ": "Healthcare",
+            "UNH": "Healthcare",
+            "PFE": "Healthcare",
         }
 
         if not sector:
@@ -201,7 +210,9 @@ class BaseAdvisor(ABC):
             "has_earnings": trade.earnings_before_expiry,
             "dte": trade.dte,
             "risk_level": "HIGH" if trade.earnings_before_expiry else "LOW",
-            "note": "Earnings event within expiration window" if trade.earnings_before_expiry else "No earnings event",
+            "note": "Earnings event within expiration window"
+            if trade.earnings_before_expiry
+            else "No earnings event",
         }
 
     def _assess_iv_environment(self, input_data: AdvisorInput) -> dict:

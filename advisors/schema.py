@@ -12,6 +12,7 @@ from enum import Enum
 
 class ConfidenceLevel(Enum):
     """Advisor confidence in their assessment."""
+
     VERY_LOW = "very_low"
     LOW = "low"
     MEDIUM = "medium"
@@ -21,6 +22,7 @@ class ConfidenceLevel(Enum):
 
 class Judgment(Enum):
     """Core trade judgment."""
+
     STRONG_APPROVE = "strong_approve"
     APPROVE = "approve"
     NEUTRAL = "neutral"
@@ -30,6 +32,7 @@ class Judgment(Enum):
 
 class TradeType(Enum):
     """Option trade types."""
+
     SHORT_PUT = "short_put"
     SHORT_CALL = "short_call"
     COVERED_CALL = "covered_call"
@@ -44,6 +47,7 @@ class TradeType(Enum):
 
 class RegimeType(Enum):
     """Market regime classification."""
+
     LOW_VOL = "low_volatility"
     NORMAL = "normal"
     HIGH_VOL = "high_volatility"
@@ -56,9 +60,11 @@ class RegimeType(Enum):
 # INPUT SCHEMAS
 # =============================================================================
 
+
 @dataclass
 class Position:
     """Current portfolio position."""
+
     ticker: str
     shares: int
     avg_cost: float
@@ -82,6 +88,7 @@ class Position:
 @dataclass
 class CandidateTrade:
     """Trade candidate to evaluate."""
+
     ticker: str
     trade_type: TradeType
     strike: float
@@ -112,6 +119,7 @@ class CandidateTrade:
 @dataclass
 class PortfolioContext:
     """Current portfolio state for context."""
+
     positions: list[Position]
     total_equity: float
     cash_available: float
@@ -136,6 +144,7 @@ class PortfolioContext:
 @dataclass
 class MarketContext:
     """Current market environment."""
+
     regime: RegimeType
     vix: float
     vix_percentile: float  # where current VIX sits vs history
@@ -165,6 +174,7 @@ class AdvisorInput:
     This standardized format ensures consistent analysis
     across all advisor agents.
     """
+
     candidate_trade: CandidateTrade
     portfolio: PortfolioContext
     market: MarketContext
@@ -179,6 +189,7 @@ class AdvisorInput:
 # OUTPUT SCHEMAS
 # =============================================================================
 
+
 @dataclass
 class AdvisorResponse:
     """
@@ -187,6 +198,7 @@ class AdvisorResponse:
     Every agent MUST produce this exact structure.
     No free-form rambling allowed.
     """
+
     # Identity
     advisor_name: str
     advisor_philosophy: str
@@ -220,6 +232,7 @@ class CommitteeOutput:
 
     Synthesizes individual opinions into actionable summary.
     """
+
     # Request info
     request_id: str
     trade_summary: str
@@ -259,6 +272,7 @@ class CommitteeOutput:
 # HELPER FUNCTIONS
 # =============================================================================
 
+
 def create_sample_input() -> AdvisorInput:
     """Create a sample input for testing."""
     position = Position(
@@ -267,7 +281,7 @@ def create_sample_input() -> AdvisorInput:
         avg_cost=450.0,
         current_price=520.0,
         sector="Technology",
-        market_cap="mega"
+        market_cap="mega",
     )
 
     trade = CandidateTrade(
@@ -288,7 +302,7 @@ def create_sample_input() -> AdvisorInput:
         gamma=0.02,
         vega=0.85,
         underlying_price=520.0,
-        earnings_before_expiry=True
+        earnings_before_expiry=True,
     )
 
     portfolio = PortfolioContext(
@@ -296,7 +310,12 @@ def create_sample_input() -> AdvisorInput:
         total_equity=150000.0,
         cash_available=50000.0,
         buying_power=100000.0,
-        sector_allocation={"Technology": 45.0, "Healthcare": 20.0, "Financials": 15.0, "Consumer": 20.0},
+        sector_allocation={
+            "Technology": 45.0,
+            "Healthcare": 20.0,
+            "Financials": 15.0,
+            "Consumer": 20.0,
+        },
         top_5_concentration=65.0,
         portfolio_beta=1.25,
         portfolio_delta=0.8,
@@ -304,7 +323,7 @@ def create_sample_input() -> AdvisorInput:
         var_95=3.2,
         open_positions_count=5,
         total_premium_at_risk=8500.0,
-        total_margin_used=25000.0
+        total_margin_used=25000.0,
     )
 
     market = MarketContext(
@@ -317,7 +336,7 @@ def create_sample_input() -> AdvisorInput:
         fed_funds_rate=4.5,
         treasury_10y=4.2,
         recent_fed_action="Held rates steady",
-        upcoming_events=["NVDA earnings in 15 days", "FOMC meeting in 20 days"]
+        upcoming_events=["NVDA earnings in 15 days", "FOMC meeting in 20 days"],
     )
 
     return AdvisorInput(
@@ -325,5 +344,5 @@ def create_sample_input() -> AdvisorInput:
         portfolio=portfolio,
         market=market,
         request_id="test_001",
-        specific_concerns=["Already heavy in semiconductors", "Earnings risk"]
+        specific_concerns=["Already heavy in semiconductors", "Earnings risk"],
     )

@@ -21,7 +21,7 @@ from scipy.stats import norm
 # Input Validation
 # =============================================================================
 
-_VALID_OPTION_TYPES = ('call', 'put')
+_VALID_OPTION_TYPES = ("call", "put")
 
 
 def _validate_inputs(
@@ -29,7 +29,7 @@ def _validate_inputs(
     K: float,
     sigma: float,
     option_type: str | None = None,
-    validate_positive_only: bool = False
+    validate_positive_only: bool = False,
 ) -> None:
     """
     Validate option pricing inputs.
@@ -51,14 +51,11 @@ def _validate_inputs(
     if not validate_positive_only and sigma < 0:
         raise ValueError(f"Volatility sigma must be non-negative, got {sigma}")
     if option_type is not None and option_type not in _VALID_OPTION_TYPES:
-        raise ValueError(
-            f"option_type must be 'call' or 'put', got '{option_type}'"
-        )
+        raise ValueError(f"option_type must be 'call' or 'put', got '{option_type}'")
 
 
 def _handle_deterministic_case(
-    S: float, K: float, T: float, r: float, q: float,
-    option_type: Literal['call', 'put']
+    S: float, K: float, T: float, r: float, q: float, option_type: Literal["call", "put"]
 ) -> dict:
     """
     Handle deterministic case (T=0 or sigma=0) consistently.
@@ -72,7 +69,7 @@ def _handle_deterministic_case(
     forward = S * exp_qT
     discounted_strike = K * exp_rT
 
-    if option_type == 'call':
+    if option_type == "call":
         price = max(0.0, forward - discounted_strike)
         # Delta is e^(-qT) for ITM, 0 for OTM, undefined at ATM (use 0.5)
         if forward > discounted_strike:
@@ -91,18 +88,18 @@ def _handle_deterministic_case(
             delta = -0.5 * exp_qT  # ATM boundary
 
     return {
-        'price': price,
-        'delta': delta,
-        'gamma': 0.0,
-        'theta': 0.0,
-        'vega': 0.0,
-        'rho': 0.0,
-        'vanna': 0.0,
-        'charm': 0.0,
-        'volga': 0.0,
-        'speed': 0.0,
-        'color': 0.0,
-        'ultima': 0.0,
+        "price": price,
+        "delta": delta,
+        "gamma": 0.0,
+        "theta": 0.0,
+        "vega": 0.0,
+        "rho": 0.0,
+        "vanna": 0.0,
+        "charm": 0.0,
+        "volga": 0.0,
+        "speed": 0.0,
+        "color": 0.0,
+        "ultima": 0.0,
     }
 
 
@@ -110,14 +107,15 @@ def _handle_deterministic_case(
 # Core Black-Scholes Functions
 # =============================================================================
 
+
 def black_scholes_price(
     S: float,
     K: float,
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
-    q: float = 0.0
+    option_type: Literal["call", "put"],
+    q: float = 0.0,
 ) -> float:
     """
     Black-Scholes closed-form solution for European options.
@@ -141,14 +139,14 @@ def black_scholes_price(
 
     if T <= 0:
         # At expiration, return intrinsic value
-        if option_type == 'call':
+        if option_type == "call":
             return max(0, S - K)
         else:
             return max(0, K - S)
 
     if sigma <= 0:
         # Zero volatility edge case
-        if option_type == 'call':
+        if option_type == "call":
             return max(0, S * np.exp(-q * T) - K * np.exp(-r * T))
         else:
             return max(0, K * np.exp(-r * T) - S * np.exp(-q * T))
@@ -157,7 +155,7 @@ def black_scholes_price(
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
 
-    if option_type == 'call':
+    if option_type == "call":
         price = S * np.exp(-q * T) * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
     else:
         price = K * np.exp(-r * T) * norm.cdf(-d2) - S * np.exp(-q * T) * norm.cdf(-d1)
@@ -171,8 +169,8 @@ def black_scholes_delta(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
-    q: float = 0.0
+    option_type: Literal["call", "put"],
+    q: float = 0.0,
 ) -> float:
     """
     Calculate option delta (sensitivity to underlying price).
@@ -187,23 +185,18 @@ def black_scholes_delta(
 
     if T <= 0 or sigma <= 0:
         result = _handle_deterministic_case(S, K, T, r, q, option_type)
-        return result['delta']
+        return result["delta"]
 
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
 
-    if option_type == 'call':
+    if option_type == "call":
         return np.exp(-q * T) * norm.cdf(d1)
     else:
         return np.exp(-q * T) * (norm.cdf(d1) - 1.0)
 
 
 def black_scholes_gamma(
-    S: float,
-    K: float,
-    T: float,
-    r: float,
-    sigma: float,
-    q: float = 0.0
+    S: float, K: float, T: float, r: float, sigma: float, q: float = 0.0
 ) -> float:
     """
     Calculate option gamma (sensitivity of delta to underlying price).
@@ -230,8 +223,8 @@ def black_scholes_theta(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
-    q: float = 0.0
+    option_type: Literal["call", "put"],
+    q: float = 0.0,
 ) -> float:
     """
     Calculate option theta (time decay per year).
@@ -254,21 +247,20 @@ def black_scholes_theta(
     # First term is always negative (time decay)
     term1 = -S * np.exp(-q * T) * norm.pdf(d1) * sigma / (2 * np.sqrt(T))
 
-    if option_type == 'call':
-        theta = term1 + q * S * np.exp(-q * T) * norm.cdf(d1) - r * K * np.exp(-r * T) * norm.cdf(d2)
+    if option_type == "call":
+        theta = (
+            term1 + q * S * np.exp(-q * T) * norm.cdf(d1) - r * K * np.exp(-r * T) * norm.cdf(d2)
+        )
     else:
-        theta = term1 - q * S * np.exp(-q * T) * norm.cdf(-d1) + r * K * np.exp(-r * T) * norm.cdf(-d2)
+        theta = (
+            term1 - q * S * np.exp(-q * T) * norm.cdf(-d1) + r * K * np.exp(-r * T) * norm.cdf(-d2)
+        )
 
     return theta
 
 
 def black_scholes_vega(
-    S: float,
-    K: float,
-    T: float,
-    r: float,
-    sigma: float,
-    q: float = 0.0
+    S: float, K: float, T: float, r: float, sigma: float, q: float = 0.0
 ) -> float:
     """
     Calculate option vega (sensitivity to volatility).
@@ -296,8 +288,8 @@ def black_scholes_rho(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
-    q: float = 0.0
+    option_type: Literal["call", "put"],
+    q: float = 0.0,
 ) -> float:
     """
     Calculate option rho (sensitivity to interest rate).
@@ -317,19 +309,14 @@ def black_scholes_rho(
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
 
-    if option_type == 'call':
+    if option_type == "call":
         return K * T * np.exp(-r * T) * norm.cdf(d2) / 100
     else:
         return -K * T * np.exp(-r * T) * norm.cdf(-d2) / 100
 
 
 def black_scholes_speed(
-    S: float,
-    K: float,
-    T: float,
-    r: float,
-    sigma: float,
-    q: float = 0.0
+    S: float, K: float, T: float, r: float, sigma: float, q: float = 0.0
 ) -> float:
     """
     Calculate option speed (∂Gamma/∂S = ∂³V/∂S³).
@@ -356,12 +343,7 @@ def black_scholes_speed(
 
 
 def black_scholes_color(
-    S: float,
-    K: float,
-    T: float,
-    r: float,
-    sigma: float,
-    q: float = 0.0
+    S: float, K: float, T: float, r: float, sigma: float, q: float = 0.0
 ) -> float:
     """
     Calculate option color (∂Gamma/∂T), also known as gamma decay or gamma bleed.
@@ -390,12 +372,7 @@ def black_scholes_color(
 
 
 def black_scholes_ultima(
-    S: float,
-    K: float,
-    T: float,
-    r: float,
-    sigma: float,
-    q: float = 0.0
+    S: float, K: float, T: float, r: float, sigma: float, q: float = 0.0
 ) -> float:
     """
     Calculate option ultima (∂Volga/∂σ = ∂³V/∂σ³).
@@ -428,9 +405,9 @@ def black_scholes_all_greeks(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
+    option_type: Literal["call", "put"],
     q: float = 0.0,
-    include_second_order: bool = True
+    include_second_order: bool = True,
 ) -> dict:
     """
     Calculate price and all Greeks in one call (most efficient).
@@ -459,7 +436,7 @@ def black_scholes_all_greeks(
         result = _handle_deterministic_case(S, K, T, r, q, option_type)
         if not include_second_order:
             # Remove second-order Greeks if not requested
-            for key in ['vanna', 'charm', 'volga']:
+            for key in ["vanna", "charm", "volga"]:
                 result.pop(key, None)
         return result
 
@@ -476,33 +453,35 @@ def black_scholes_all_greeks(
     nd1 = norm.pdf(d1)
 
     # First-order Greeks
-    if option_type == 'call':
+    if option_type == "call":
         price = S * exp_qT * Nd1 - K * exp_rT * Nd2
         delta = exp_qT * Nd1
-        theta = (-S * exp_qT * nd1 * sigma / (2 * sqrt_T)
-                 + q * S * exp_qT * Nd1
-                 - r * K * exp_rT * Nd2)
+        theta = (
+            -S * exp_qT * nd1 * sigma / (2 * sqrt_T) + q * S * exp_qT * Nd1 - r * K * exp_rT * Nd2
+        )
         rho = K * T * exp_rT * Nd2 / 100
     else:
         Nm_d1 = 1.0 - Nd1  # norm.cdf(-d1) = 1 - norm.cdf(d1)
         Nm_d2 = 1.0 - Nd2
         price = K * exp_rT * Nm_d2 - S * exp_qT * Nm_d1
         delta = exp_qT * (Nd1 - 1.0)
-        theta = (-S * exp_qT * nd1 * sigma / (2 * sqrt_T)
-                 - q * S * exp_qT * Nm_d1
-                 + r * K * exp_rT * Nm_d2)
+        theta = (
+            -S * exp_qT * nd1 * sigma / (2 * sqrt_T)
+            - q * S * exp_qT * Nm_d1
+            + r * K * exp_rT * Nm_d2
+        )
         rho = -K * T * exp_rT * Nm_d2 / 100
 
     gamma = exp_qT * nd1 / (S * sigma * sqrt_T)
     vega = S * exp_qT * nd1 * sqrt_T / 100
 
     result = {
-        'price': price,
-        'delta': delta,
-        'gamma': gamma,
-        'theta': theta,
-        'vega': vega,
-        'rho': rho
+        "price": price,
+        "delta": delta,
+        "gamma": gamma,
+        "theta": theta,
+        "vega": vega,
+        "rho": rho,
     }
 
     # Second-order Greeks (optional but recommended for risk management)
@@ -515,8 +494,10 @@ def black_scholes_all_greeks(
         # NOTE: This is -∂Delta/∂τ where τ = time-to-expiry.
         # Positive charm means delta increases as time passes.
         # Industry standard: charm measures delta sensitivity to passage of time.
-        charm_common = exp_qT * nd1 * (2 * (r - q) * T - d2 * sigma * sqrt_T) / (2 * T * sigma * sqrt_T)
-        if option_type == 'call':
+        charm_common = (
+            exp_qT * nd1 * (2 * (r - q) * T - d2 * sigma * sqrt_T) / (2 * T * sigma * sqrt_T)
+        )
+        if option_type == "call":
             charm = q * exp_qT * Nd1 - charm_common
         else:
             charm = -q * exp_qT * (1 - Nd1) - charm_common
@@ -540,12 +521,12 @@ def black_scholes_all_greeks(
         # Formula: -vega * (d1*d2*(1 - d1*d2) + d1² + d2²) / σ²
         ultima = -vega * (d1 * d2 * (1 - d1 * d2) + d1**2 + d2**2) / (sigma**2)
 
-        result['vanna'] = vanna
-        result['charm'] = charm
-        result['volga'] = volga
-        result['speed'] = speed
-        result['color'] = color
-        result['ultima'] = ultima
+        result["vanna"] = vanna
+        result["charm"] = charm
+        result["volga"] = volga
+        result["speed"] = speed
+        result["color"] = color
+        result["ultima"] = ultima
 
     return result
 
@@ -554,13 +535,14 @@ def black_scholes_all_greeks(
 # Implied Volatility Solver
 # =============================================================================
 
+
 def implied_volatility(
     market_price: float,
     S: float,
     K: float,
     T: float,
     r: float,
-    option_type: Literal['call', 'put'],
+    option_type: Literal["call", "put"],
     q: float = 0.0,
     precision: float = 1e-6,
     max_iterations: int = 100,
@@ -598,7 +580,7 @@ def implied_volatility(
     forward = S * np.exp(-q * T)
     discounted_strike = K * np.exp(-r * T)
 
-    if option_type == 'call':
+    if option_type == "call":
         intrinsic = max(0, forward - discounted_strike)
         upper_bound = forward  # Call can't be worth more than forward
     else:
@@ -643,6 +625,7 @@ def implied_volatility(
 
     # Fallback to Brent's method if Newton-Raphson fails
     try:
+
         def objective(vol):
             return black_scholes_price(S, K, T, r, vol, option_type, q) - market_price
 
@@ -658,8 +641,8 @@ def estimate_option_price_from_iv(
     dte: int,
     iv: float,
     risk_free_rate: float,
-    option_type: Literal['call', 'put'],
-    dividend_yield: float = 0.0
+    option_type: Literal["call", "put"],
+    dividend_yield: float = 0.0,
 ) -> float:
     """
     Convenience wrapper: estimate option price given IV.
@@ -680,16 +663,25 @@ def estimate_option_price_from_iv(
         Estimated option price per share
     """
     T = dte / 365.0
-    return black_scholes_price(underlying_price, strike, T, risk_free_rate, iv, option_type, q=dividend_yield)
+    return black_scholes_price(
+        underlying_price, strike, T, risk_free_rate, iv, option_type, q=dividend_yield
+    )
 
 
 # =============================================================================
 # American Option Pricing (Barone-Adesi-Whaley Approximation)
 # =============================================================================
 
+
 def _baw_critical_price_call(
-    S: float, K: float, T: float, r: float, sigma: float, q: float,
-    tolerance: float = 1e-6, max_iter: int = 100
+    S: float,
+    K: float,
+    T: float,
+    r: float,
+    sigma: float,
+    q: float,
+    tolerance: float = 1e-6,
+    max_iter: int = 100,
 ) -> tuple[float, float, float]:
     """
     Find critical stock price S* for American call using Newton-Raphson.
@@ -698,7 +690,7 @@ def _baw_critical_price_call(
         Tuple of (S_star, q2, A2)
     """
     sqrt_T = np.sqrt(T)
-    sigma_sq = sigma ** 2
+    sigma_sq = sigma**2
 
     # Calculate M, N, K coefficients for the quadratic equation
     M = 2 * r / sigma_sq
@@ -738,8 +730,11 @@ def _baw_critical_price_call(
         # Derivative for Newton-Raphson
         delta_euro = exp_qT * Nd1_star
         # df/dS* = 1 - delta_euro - (1/q2) * (1 - exp(-qT)*N(d1) - S* * exp(-qT) * n(d1) / (S*σ√T))
-        f_prime = 1 - delta_euro - (1 / q2) * (
-            1 - exp_qT * Nd1_star + S_star * exp_qT * nd1_star / (S_star * sigma * sqrt_T)
+        f_prime = (
+            1
+            - delta_euro
+            - (1 / q2)
+            * (1 - exp_qT * Nd1_star + S_star * exp_qT * nd1_star / (S_star * sigma * sqrt_T))
         )
 
         # Safeguarded Newton step
@@ -760,8 +755,14 @@ def _baw_critical_price_call(
 
 
 def _baw_critical_price_put(
-    S: float, K: float, T: float, r: float, sigma: float, q: float,
-    tolerance: float = 1e-6, max_iter: int = 100
+    S: float,
+    K: float,
+    T: float,
+    r: float,
+    sigma: float,
+    q: float,
+    tolerance: float = 1e-6,
+    max_iter: int = 100,
 ) -> tuple[float, float, float]:
     """
     Find critical stock price S* for American put using Newton-Raphson.
@@ -770,7 +771,7 @@ def _baw_critical_price_put(
         Tuple of (S_star, q1, A1)
     """
     sqrt_T = np.sqrt(T)
-    sigma_sq = sigma ** 2
+    sigma_sq = sigma**2
 
     M = 2 * r / sigma_sq
     N = 2 * (r - q) / sigma_sq
@@ -805,8 +806,10 @@ def _baw_critical_price_put(
         # Derivative: df/dS* = -1 - delta_euro + (1/q1) * [d((1-exp_qT*N(-d1))*S*)/dS*]
         # d((1-exp_qT*N(-d1))*S*)/dS* = (1-exp_qT*N(-d1)) + exp_qT*n(d1)/(sigma*sqrt_T)
         delta_euro = -exp_qT * Nm_d1_star
-        f_prime = -1 - delta_euro + (1 / q1) * (
-            1 - exp_qT * Nm_d1_star + exp_qT * nm_d1_star / (sigma * sqrt_T)
+        f_prime = (
+            -1
+            - delta_euro
+            + (1 / q1) * (1 - exp_qT * Nm_d1_star + exp_qT * nm_d1_star / (sigma * sqrt_T))
         )
 
         if abs(f_prime) > 1e-10:
@@ -830,8 +833,8 @@ def american_option_price(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
-    q: float = 0.0
+    option_type: Literal["call", "put"],
+    q: float = 0.0,
 ) -> float:
     """
     American option pricing using Barone-Adesi-Whaley (1987) approximation.
@@ -862,14 +865,14 @@ def american_option_price(
 
     # Edge cases
     if T <= 0:
-        if option_type == 'call':
+        if option_type == "call":
             return max(0, S - K)
         else:
             return max(0, K - S)
 
     if sigma <= 0:
         # Zero volatility: American = intrinsic value (exercise immediately if ITM)
-        if option_type == 'call':
+        if option_type == "call":
             return max(0, S - K)
         else:
             return max(0, K - S)
@@ -878,14 +881,14 @@ def american_option_price(
     european = black_scholes_price(S, K, T, r, sigma, option_type, q)
 
     # For American calls with no dividends, early exercise is never optimal
-    if option_type == 'call' and q <= 0:
+    if option_type == "call" and q <= 0:
         return european
 
     # For American puts with zero interest rate, early exercise is never optimal
-    if option_type == 'put' and r <= 0:
+    if option_type == "put" and r <= 0:
         return european
 
-    if option_type == 'call':
+    if option_type == "call":
         # American call with dividends
         S_star, q2, A2 = _baw_critical_price_call(S, K, T, r, sigma, q)
 
@@ -914,12 +917,12 @@ def american_option_greeks(
     T: float,
     r: float,
     sigma: float,
-    option_type: Literal['call', 'put'],
+    option_type: Literal["call", "put"],
     q: float = 0.0,
     dS: float = 0.01,
-    dT: float = 1/365,
+    dT: float = 1 / 365,
     d_sigma: float = 0.01,
-    dr: float = 0.01
+    dr: float = 0.01,
 ) -> dict:
     """
     Calculate American option Greeks using finite differences.
@@ -943,7 +946,7 @@ def american_option_greeks(
     price_up = american_option_price(S + bump, K, T, r, sigma, option_type, q)
     price_down = american_option_price(S - bump, K, T, r, sigma, option_type, q)
     delta = (price_up - price_down) / (2 * bump)
-    gamma = (price_up - 2 * price + price_down) / (bump ** 2)
+    gamma = (price_up - 2 * price + price_down) / (bump**2)
 
     # Theta (forward difference to avoid T < 0)
     if T > dT:
@@ -961,12 +964,12 @@ def american_option_greeks(
     rho = (price_r_up - price) / dr / 100  # Per 1% rate move
 
     return {
-        'price': price,
-        'delta': delta,
-        'gamma': gamma,
-        'theta': theta,
-        'vega': vega,
-        'rho': rho,
+        "price": price,
+        "delta": delta,
+        "gamma": gamma,
+        "theta": theta,
+        "vega": vega,
+        "rho": rho,
     }
 
 
@@ -974,9 +977,9 @@ def american_option_greeks(
 # Vectorized Operations (Batch Processing)
 # =============================================================================
 
+
 def _vectorized_intrinsic(
-    S: np.ndarray, K: np.ndarray, is_call: np.ndarray,
-    exp_qT: np.ndarray, exp_rT: np.ndarray
+    S: np.ndarray, K: np.ndarray, is_call: np.ndarray, exp_qT: np.ndarray, exp_rT: np.ndarray
 ) -> np.ndarray:
     """Compute intrinsic/deterministic value for edge cases."""
     forward = S * exp_qT
@@ -993,7 +996,7 @@ def vectorized_bs_price(
     r: float | np.ndarray | pd.Series,
     sigma: np.ndarray | pd.Series,
     is_call: np.ndarray | pd.Series,
-    q: float | np.ndarray | pd.Series = 0.0
+    q: float | np.ndarray | pd.Series = 0.0,
 ) -> np.ndarray:
     """
     Fully vectorized Black-Scholes pricing.
@@ -1049,7 +1052,7 @@ def vectorized_bs_delta(
     r: float | np.ndarray | pd.Series,
     sigma: np.ndarray | pd.Series,
     is_call: np.ndarray | pd.Series,
-    q: float | np.ndarray | pd.Series = 0.0
+    q: float | np.ndarray | pd.Series = 0.0,
 ) -> np.ndarray:
     """Vectorized delta with proper edge case handling."""
     S = np.asarray(S, dtype=float)
@@ -1081,10 +1084,12 @@ def vectorized_bs_delta(
     # Edge case: delta is e^(-qT) for ITM, 0 for OTM, 0.5*e^(-qT) for ATM
     forward = S * exp_qT
     discounted_K = K * np.exp(-r * T_raw)
-    call_edge = np.where(forward > discounted_K, exp_qT,
-                         np.where(forward < discounted_K, 0.0, 0.5 * exp_qT))
-    put_edge = np.where(forward < discounted_K, -exp_qT,
-                        np.where(forward > discounted_K, 0.0, -0.5 * exp_qT))
+    call_edge = np.where(
+        forward > discounted_K, exp_qT, np.where(forward < discounted_K, 0.0, 0.5 * exp_qT)
+    )
+    put_edge = np.where(
+        forward < discounted_K, -exp_qT, np.where(forward > discounted_K, 0.0, -0.5 * exp_qT)
+    )
     edge_delta = np.where(is_call, call_edge, put_edge)
 
     return np.where(is_deterministic, edge_delta, bs_delta)
@@ -1097,7 +1102,7 @@ def vectorized_bs_all_greeks(
     r: float | np.ndarray | pd.Series,
     sigma: np.ndarray | pd.Series,
     is_call: np.ndarray | pd.Series,
-    q: float | np.ndarray | pd.Series = 0.0
+    q: float | np.ndarray | pd.Series = 0.0,
 ) -> pd.DataFrame:
     """
     Vectorized calculation of all Greeks with proper edge case handling.
@@ -1162,17 +1167,21 @@ def vectorized_bs_all_greeks(
     intrinsic = _vectorized_intrinsic(S, K, is_call, exp_qT, exp_rT)
     forward = S * exp_qT
     discounted_K = K * exp_rT
-    call_edge_delta = np.where(forward > discounted_K, exp_qT,
-                               np.where(forward < discounted_K, 0.0, 0.5 * exp_qT))
-    put_edge_delta = np.where(forward < discounted_K, -exp_qT,
-                              np.where(forward > discounted_K, 0.0, -0.5 * exp_qT))
+    call_edge_delta = np.where(
+        forward > discounted_K, exp_qT, np.where(forward < discounted_K, 0.0, 0.5 * exp_qT)
+    )
+    put_edge_delta = np.where(
+        forward < discounted_K, -exp_qT, np.where(forward > discounted_K, 0.0, -0.5 * exp_qT)
+    )
     edge_delta = np.where(is_call, call_edge_delta, put_edge_delta)
 
-    return pd.DataFrame({
-        'price': np.where(is_deterministic, intrinsic, price),
-        'delta': np.where(is_deterministic, edge_delta, delta),
-        'gamma': np.where(is_deterministic, 0.0, gamma),
-        'theta': np.where(is_deterministic, 0.0, theta),
-        'vega': np.where(is_deterministic, 0.0, vega),
-        'rho': np.where(is_deterministic, 0.0, rho),
-    })
+    return pd.DataFrame(
+        {
+            "price": np.where(is_deterministic, intrinsic, price),
+            "delta": np.where(is_deterministic, edge_delta, delta),
+            "gamma": np.where(is_deterministic, 0.0, gamma),
+            "theta": np.where(is_deterministic, 0.0, theta),
+            "vega": np.where(is_deterministic, 0.0, vega),
+            "rho": np.where(is_deterministic, 0.0, rho),
+        }
+    )

@@ -35,6 +35,7 @@ from src.features.volatility import VolatilityFeatures
 # Black-Scholes Known Values (Hull 10th Edition, Chapter 15)
 # =============================================================================
 
+
 class TestBlackScholesTextbookValues:
     """
     Test BS pricing against known textbook values.
@@ -63,8 +64,7 @@ class TestBlackScholesTextbookValues:
     def test_hull_call_price(self):
         """Verify call price matches Hull Example 15.6."""
         price = black_scholes_price(
-            self.HULL_S, self.HULL_K, self.HULL_T,
-            self.HULL_R, self.HULL_SIGMA, 'call'
+            self.HULL_S, self.HULL_K, self.HULL_T, self.HULL_R, self.HULL_SIGMA, "call"
         )
         # Hull rounds to 4.76, actual is ~4.7594
         assert abs(price - 4.7594) < 0.01, f"Expected ~4.76, got {price}"
@@ -72,19 +72,21 @@ class TestBlackScholesTextbookValues:
     def test_hull_call_delta(self):
         """Verify delta matches Hull."""
         delta = black_scholes_delta(
-            self.HULL_S, self.HULL_K, self.HULL_T,
-            self.HULL_R, self.HULL_SIGMA, 'call'
+            self.HULL_S, self.HULL_K, self.HULL_T, self.HULL_R, self.HULL_SIGMA, "call"
         )
-        assert abs(delta - self.HULL_CALL_DELTA) < 0.001, f"Expected {self.HULL_CALL_DELTA}, got {delta}"
+        assert abs(delta - self.HULL_CALL_DELTA) < 0.001, (
+            f"Expected {self.HULL_CALL_DELTA}, got {delta}"
+        )
 
     def test_hull_gamma(self):
         """Verify gamma formula: Gamma = N'(d1) / (S * sigma * sqrt(T))."""
         gamma = black_scholes_gamma(
-            self.HULL_S, self.HULL_K, self.HULL_T,
-            self.HULL_R, self.HULL_SIGMA
+            self.HULL_S, self.HULL_K, self.HULL_T, self.HULL_R, self.HULL_SIGMA
         )
         # Exact calculation: 0.04996
-        assert abs(gamma - self.HULL_CALL_GAMMA) < 0.001, f"Expected {self.HULL_CALL_GAMMA}, got {gamma}"
+        assert abs(gamma - self.HULL_CALL_GAMMA) < 0.001, (
+            f"Expected {self.HULL_CALL_GAMMA}, got {gamma}"
+        )
 
     def test_hull_vega(self):
         """Verify vega formula: Vega = S * N'(d1) * sqrt(T) / 100.
@@ -94,8 +96,7 @@ class TestBlackScholesTextbookValues:
         use of rounded intermediate values. We verify formula correctness.
         """
         vega = black_scholes_vega(
-            self.HULL_S, self.HULL_K, self.HULL_T,
-            self.HULL_R, self.HULL_SIGMA
+            self.HULL_S, self.HULL_K, self.HULL_T, self.HULL_R, self.HULL_SIGMA
         )
         # Verify vega is in correct range and positive
         # Exact: S * N'(d1) * sqrt(T) / 100 ≈ 0.088
@@ -110,17 +111,20 @@ class TestBlackScholesPutCallParity:
     This is a fundamental no-arbitrage relationship.
     """
 
-    @pytest.mark.parametrize("S,K,T,r,sigma,q", [
-        (100, 100, 0.25, 0.05, 0.20, 0.0),   # ATM, no dividend
-        (100, 100, 0.25, 0.05, 0.20, 0.02),  # ATM, with dividend
-        (110, 100, 0.5, 0.05, 0.30, 0.0),    # ITM call
-        (90, 100, 0.5, 0.05, 0.30, 0.0),     # OTM call
-        (100, 100, 1.0, 0.08, 0.25, 0.03),   # 1-year, div yield
-    ])
+    @pytest.mark.parametrize(
+        "S,K,T,r,sigma,q",
+        [
+            (100, 100, 0.25, 0.05, 0.20, 0.0),  # ATM, no dividend
+            (100, 100, 0.25, 0.05, 0.20, 0.02),  # ATM, with dividend
+            (110, 100, 0.5, 0.05, 0.30, 0.0),  # ITM call
+            (90, 100, 0.5, 0.05, 0.30, 0.0),  # OTM call
+            (100, 100, 1.0, 0.08, 0.25, 0.03),  # 1-year, div yield
+        ],
+    )
     def test_put_call_parity(self, S, K, T, r, sigma, q):
         """Put-call parity must hold within tolerance."""
-        call = black_scholes_price(S, K, T, r, sigma, 'call', q)
-        put = black_scholes_price(S, K, T, r, sigma, 'put', q)
+        call = black_scholes_price(S, K, T, r, sigma, "call", q)
+        put = black_scholes_price(S, K, T, r, sigma, "put", q)
 
         # Parity: C - P = S*e^(-qT) - K*e^(-rT)
         lhs = call - put
@@ -136,44 +140,44 @@ class TestBlackScholesEdgeCases:
 
     def test_expired_itm_call(self):
         """Expired ITM call = intrinsic value."""
-        price = black_scholes_price(110, 100, 0, 0.05, 0.20, 'call')
+        price = black_scholes_price(110, 100, 0, 0.05, 0.20, "call")
         assert price == 10.0
 
     def test_expired_otm_call(self):
         """Expired OTM call = 0."""
-        price = black_scholes_price(90, 100, 0, 0.05, 0.20, 'call')
+        price = black_scholes_price(90, 100, 0, 0.05, 0.20, "call")
         assert price == 0.0
 
     def test_expired_itm_put(self):
         """Expired ITM put = intrinsic value."""
-        price = black_scholes_price(90, 100, 0, 0.05, 0.20, 'put')
+        price = black_scholes_price(90, 100, 0, 0.05, 0.20, "put")
         assert price == 10.0
 
     def test_expired_otm_put(self):
         """Expired OTM put = 0."""
-        price = black_scholes_price(110, 100, 0, 0.05, 0.20, 'put')
+        price = black_scholes_price(110, 100, 0, 0.05, 0.20, "put")
         assert price == 0.0
 
     def test_zero_vol_itm_call(self):
         """Zero vol ITM call = discounted intrinsic."""
         S, K, T, r = 110, 100, 1.0, 0.05
-        price = black_scholes_price(S, K, T, r, 0, 'call')
+        price = black_scholes_price(S, K, T, r, 0, "call")
         expected = S - K * np.exp(-r * T)
         assert abs(price - expected) < 1e-10
 
     def test_zero_vol_otm_call(self):
         """Zero vol OTM call = 0."""
-        price = black_scholes_price(90, 100, 1.0, 0.05, 0, 'call')
+        price = black_scholes_price(90, 100, 1.0, 0.05, 0, "call")
         assert price == 0.0
 
     def test_deep_itm_delta_near_one(self):
         """Deep ITM call delta approaches 1."""
-        delta = black_scholes_delta(200, 100, 0.25, 0.05, 0.20, 'call')
+        delta = black_scholes_delta(200, 100, 0.25, 0.05, 0.20, "call")
         assert delta > 0.99
 
     def test_deep_otm_delta_near_zero(self):
         """Deep OTM call delta approaches 0."""
-        delta = black_scholes_delta(50, 100, 0.25, 0.05, 0.20, 'call')
+        delta = black_scholes_delta(50, 100, 0.25, 0.05, 0.20, "call")
         assert delta < 0.01
 
     def test_gamma_symmetric_around_atm(self):
@@ -202,17 +206,17 @@ class TestBlackScholesDividendYield:
 
     def test_dividend_reduces_call(self):
         """Higher dividend yield reduces call price."""
-        no_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'call', q=0)
-        low_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'call', q=0.02)
-        high_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'call', q=0.05)
+        no_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "call", q=0)
+        low_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "call", q=0.02)
+        high_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "call", q=0.05)
 
         assert no_div > low_div > high_div
 
     def test_dividend_increases_put(self):
         """Higher dividend yield increases put price."""
-        no_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'put', q=0)
-        low_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'put', q=0.02)
-        high_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, 'put', q=0.05)
+        no_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "put", q=0)
+        low_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "put", q=0.02)
+        high_div = black_scholes_price(100, 100, 0.5, 0.05, 0.20, "put", q=0.05)
 
         assert no_div < low_div < high_div
 
@@ -229,8 +233,8 @@ class TestBlackScholesDividendYield:
         q = 0.03
         T = 0.5
 
-        delta_with_div = black_scholes_delta(100, 100, T, 0.05, 0.20, 'call', q=q)
-        delta_no_div = black_scholes_delta(100, 100, T, 0.05, 0.20, 'call', q=0)
+        delta_with_div = black_scholes_delta(100, 100, T, 0.05, 0.20, "call", q=q)
+        delta_no_div = black_scholes_delta(100, 100, T, 0.05, 0.20, "call", q=0)
 
         # Delta with dividend should be less than without
         assert delta_with_div < delta_no_div, "Dividend yield should reduce call delta"
@@ -245,6 +249,7 @@ class TestBlackScholesDividendYield:
 # Realized Volatility Estimators (Garman-Klass 1980, Yang-Zhang 2000)
 # =============================================================================
 
+
 class TestRealizedVolatilityEstimators:
     """
     Test RV estimators against hand-calculated values.
@@ -256,10 +261,7 @@ class TestRealizedVolatilityEstimators:
 
     @staticmethod
     def generate_constant_vol_ohlc(
-        n: int,
-        daily_vol: float = 0.01,
-        drift: float = 0.0,
-        seed: int = 42
+        n: int, daily_vol: float = 0.01, drift: float = 0.0, seed: int = 42
     ) -> pd.DataFrame:
         """Generate OHLC data with known volatility for testing."""
         np.random.seed(seed)
@@ -277,12 +279,14 @@ class TestRealizedVolatilityEstimators:
         open_ = np.roll(close, 1) * (1 + np.random.normal(0, daily_vol * 0.3, n))
         open_[0] = 100
 
-        return pd.DataFrame({
-            'open': open_,
-            'high': np.maximum(high, np.maximum(open_, close)),
-            'low': np.minimum(low, np.minimum(open_, close)),
-            'close': close
-        })
+        return pd.DataFrame(
+            {
+                "open": open_,
+                "high": np.maximum(high, np.maximum(open_, close)),
+                "low": np.minimum(low, np.minimum(open_, close)),
+                "close": close,
+            }
+        )
 
     def test_close_to_close_rv_formula(self):
         """
@@ -329,7 +333,7 @@ class TestRealizedVolatilityEstimators:
         n = 30
         pd.Series([100.0] * n)
         high = pd.Series([102.0] * n)  # 2% above
-        low = pd.Series([100.0] * n)   # at close
+        low = pd.Series([100.0] * n)  # at close
 
         vf = VolatilityFeatures()
         rv = vf.realized_volatility_parkinson(high, low, window=20, annualize=True)
@@ -337,7 +341,7 @@ class TestRealizedVolatilityEstimators:
         # Manual calculation
         log_hl = np.log(102 / 100)  # 0.01980...
         factor = 1 / (4 * np.log(2))
-        daily_var = factor * (log_hl ** 2)
+        daily_var = factor * (log_hl**2)
         daily_vol = np.sqrt(daily_var)
         annual_vol = daily_vol * np.sqrt(252)
 
@@ -387,12 +391,18 @@ class TestRealizedVolatilityEstimators:
 
         for seed in range(10):
             df = self.generate_constant_vol_ohlc(100, daily_vol=true_vol, seed=seed)
-            log_ret = np.log(df['close'] / df['close'].shift(1))
+            log_ret = np.log(df["close"] / df["close"].shift(1))
 
             cc = vf.realized_volatility_close(log_ret, window=21, annualize=True).iloc[-1]
-            pk = vf.realized_volatility_parkinson(df['high'], df['low'], window=21, annualize=True).iloc[-1]
-            gk = vf.realized_volatility_garman_klass(df['open'], df['high'], df['low'], df['close'], window=21, annualize=True).iloc[-1]
-            yz = vf.realized_volatility_yang_zhang(df['open'], df['high'], df['low'], df['close'], window=21, annualize=True).iloc[-1]
+            pk = vf.realized_volatility_parkinson(
+                df["high"], df["low"], window=21, annualize=True
+            ).iloc[-1]
+            gk = vf.realized_volatility_garman_klass(
+                df["open"], df["high"], df["low"], df["close"], window=21, annualize=True
+            ).iloc[-1]
+            yz = vf.realized_volatility_yang_zhang(
+                df["open"], df["high"], df["low"], df["close"], window=21, annualize=True
+            ).iloc[-1]
 
             cc_estimates.append(cc)
             pk_estimates.append(pk)
@@ -400,8 +410,12 @@ class TestRealizedVolatilityEstimators:
             yz_estimates.append(yz)
 
         # All should be centered near 20% (true value)
-        for estimates, name in [(cc_estimates, 'CC'), (pk_estimates, 'PK'),
-                                (gk_estimates, 'GK'), (yz_estimates, 'YZ')]:
+        for estimates, name in [
+            (cc_estimates, "CC"),
+            (pk_estimates, "PK"),
+            (gk_estimates, "GK"),
+            (yz_estimates, "YZ"),
+        ]:
             mean = np.mean(estimates)
             assert 0.10 < mean < 0.35, f"{name} mean {mean} too far from 0.20"
 
@@ -409,6 +423,7 @@ class TestRealizedVolatilityEstimators:
 # =============================================================================
 # IV Rank and IV Percentile
 # =============================================================================
+
 
 class TestIVRankFormula:
     """
@@ -501,6 +516,7 @@ class TestIVPercentile:
 # RSI and ATR with Wilder Smoothing
 # =============================================================================
 
+
 class TestRSIWilderSmoothing:
     """
     Test RSI implementation matches Wilder's original (1978) specification.
@@ -590,14 +606,16 @@ class TestATRWilderSmoothing:
 
     def test_atr_warmup_period(self):
         """First window-1 values should be NaN."""
-        df = pd.DataFrame({
-            'high': [102, 103, 101, 104, 105, 103, 106, 105, 107, 106],
-            'low': [98, 99, 97, 100, 101, 99, 102, 101, 103, 102],
-            'close': [100, 101, 99, 102, 103, 101, 104, 103, 105, 104]
-        })
+        df = pd.DataFrame(
+            {
+                "high": [102, 103, 101, 104, 105, 103, 106, 105, 107, 106],
+                "low": [98, 99, 97, 100, 101, 99, 102, 101, 103, 102],
+                "close": [100, 101, 99, 102, 103, 101, 104, 103, 105, 104],
+            }
+        )
 
         tf = TechnicalFeatures()
-        atr = tf.atr(df['high'], df['low'], df['close'], window=5)
+        atr = tf.atr(df["high"], df["low"], df["close"], window=5)
 
         # First 4 values should be NaN
         assert atr.iloc[:4].isna().all()
@@ -606,14 +624,10 @@ class TestATRWilderSmoothing:
     def test_atr_constant_range(self):
         """Constant daily range should give ATR equal to that range."""
         n = 20
-        df = pd.DataFrame({
-            'high': [102.0] * n,
-            'low': [98.0] * n,
-            'close': [100.0] * n
-        })
+        df = pd.DataFrame({"high": [102.0] * n, "low": [98.0] * n, "close": [100.0] * n})
 
         tf = TechnicalFeatures()
-        atr = tf.atr(df['high'], df['low'], df['close'], window=5)
+        atr = tf.atr(df["high"], df["low"], df["close"], window=5)
 
         # TR = H-L = 4 every day, so ATR = 4
         assert abs(atr.iloc[-1] - 4.0) < 1e-10
@@ -628,15 +642,17 @@ class TestATRWilderSmoothing:
                TR2 = max(115-108, |115-100|, |108-100|) = max(7, 15, 8) = 15
         """
         # Create enough data for ATR calculation with window=2
-        df = pd.DataFrame({
-            'high': [105.0, 115.0, 116.0, 117.0],
-            'low': [95.0, 108.0, 109.0, 110.0],
-            'close': [100.0, 112.0, 115.0, 116.0]
-        })
+        df = pd.DataFrame(
+            {
+                "high": [105.0, 115.0, 116.0, 117.0],
+                "low": [95.0, 108.0, 109.0, 110.0],
+                "close": [100.0, 112.0, 115.0, 116.0],
+            }
+        )
 
         tf = TechnicalFeatures()
         # Calculate ATR with window=2 to see effect of TR
-        atr = tf.atr(df['high'], df['low'], df['close'], window=2)
+        atr = tf.atr(df["high"], df["low"], df["close"], window=2)
 
         # First ATR at index 1 uses simple average of TR[0] and TR[1]
         # TR[0] = 10 (no gap), TR[1] = 15 (gap up)
@@ -649,6 +665,7 @@ class TestATRWilderSmoothing:
 # =============================================================================
 # Kelly Criterion
 # =============================================================================
+
 
 class TestKellyCriterion:
     """
@@ -674,10 +691,7 @@ class TestKellyCriterion:
         from engine.risk_manager import calculate_kelly_fraction
 
         result = calculate_kelly_fraction(
-            win_rate=0.6,
-            avg_win=100,
-            avg_loss=50,
-            kelly_fraction=0.5
+            win_rate=0.6, avg_win=100, avg_loss=50, kelly_fraction=0.5
         )
 
         # Full Kelly = 0.4, half Kelly = 0.2
@@ -695,7 +709,7 @@ class TestKellyCriterion:
             win_rate=0.5,
             avg_win=200,
             avg_loss=100,
-            kelly_fraction=1.0  # Full Kelly
+            kelly_fraction=1.0,  # Full Kelly
         )
 
         assert abs(result - 0.25) < 0.01
@@ -709,10 +723,7 @@ class TestKellyCriterion:
         from engine.risk_manager import calculate_kelly_fraction
 
         result = calculate_kelly_fraction(
-            win_rate=0.4,
-            avg_win=100,
-            avg_loss=100,
-            kelly_fraction=1.0
+            win_rate=0.4, avg_win=100, avg_loss=100, kelly_fraction=1.0
         )
 
         assert result == 0.0
@@ -730,10 +741,7 @@ class TestKellyCriterion:
 
         # Very favorable odds: p=0.9, b=10 -> f* = 8.1/10 = 0.81
         result = calculate_kelly_fraction(
-            win_rate=0.9,
-            avg_win=1000,
-            avg_loss=100,
-            kelly_fraction=1.0
+            win_rate=0.9, avg_win=1000, avg_loss=100, kelly_fraction=1.0
         )
 
         assert result == 0.25  # Capped
@@ -742,6 +750,7 @@ class TestKellyCriterion:
 # =============================================================================
 # VaR Compounding
 # =============================================================================
+
 
 class TestVaRCompounding:
     """
@@ -774,7 +783,7 @@ class TestVaRCompounding:
         returns = pd.Series([-0.02] * 5)
 
         compound = (1 + returns).prod() - 1
-        expected = (0.98 ** 5) - 1
+        expected = (0.98**5) - 1
 
         assert abs(compound - expected) < 1e-10
         assert abs(compound - (-0.0961)) < 0.001
@@ -784,14 +793,15 @@ class TestVaRCompounding:
 # Implied Volatility Solver
 # =============================================================================
 
+
 class TestImpliedVolatility:
     """Test IV solver accuracy and robustness."""
 
     def test_iv_recovery_atm_call(self):
         """IV solver should recover original volatility for ATM call."""
         S, K, T, r, sigma = 100, 100, 0.5, 0.05, 0.20
-        market_price = black_scholes_price(S, K, T, r, sigma, 'call')
-        iv = implied_volatility(market_price, S, K, T, r, 'call')
+        market_price = black_scholes_price(S, K, T, r, sigma, "call")
+        iv = implied_volatility(market_price, S, K, T, r, "call")
 
         assert iv is not None
         assert abs(iv - sigma) < 1e-5, f"IV mismatch: {iv} vs {sigma}"
@@ -799,8 +809,8 @@ class TestImpliedVolatility:
     def test_iv_recovery_otm_put(self):
         """IV solver should recover original volatility for OTM put."""
         S, K, T, r, sigma = 100, 90, 0.25, 0.05, 0.30
-        market_price = black_scholes_price(S, K, T, r, sigma, 'put')
-        iv = implied_volatility(market_price, S, K, T, r, 'put')
+        market_price = black_scholes_price(S, K, T, r, sigma, "put")
+        iv = implied_volatility(market_price, S, K, T, r, "put")
 
         assert iv is not None
         assert abs(iv - sigma) < 1e-5, f"IV mismatch: {iv} vs {sigma}"
@@ -810,12 +820,12 @@ class TestImpliedVolatility:
         S, K, T, r = 100, 90, 0.5, 0.05
         intrinsic = max(0, S * np.exp(-0 * T) - K * np.exp(-r * T))
 
-        iv = implied_volatility(intrinsic * 0.5, S, K, T, r, 'call')
+        iv = implied_volatility(intrinsic * 0.5, S, K, T, r, "call")
         assert iv is None
 
     def test_iv_expired_option_returns_none(self):
         """Expired option (T=0) should return None."""
-        iv = implied_volatility(5.0, 100, 100, 0, 0.05, 'call')
+        iv = implied_volatility(5.0, 100, 100, 0, 0.05, "call")
         assert iv is None
 
 
@@ -823,41 +833,41 @@ class TestImpliedVolatility:
 # Second-Order Greeks
 # =============================================================================
 
+
 class TestSecondOrderGreeks:
     """Test second-order Greeks (Vanna, Charm, Volga)."""
 
     def test_vanna_sign_convention(self):
         """Vanna should be negative for ATM options (delta decreases as vol rises)."""
-        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, "call")
         # For ATM options, vanna is typically negative
-        assert 'vanna' in greeks
+        assert "vanna" in greeks
         # Vanna = -e^(-qT) * d2 * n(d1) / sigma
         # For ATM with positive r, d2 > 0, so vanna < 0
 
     def test_volga_non_negative_atm(self):
         """Volga (vega convexity) is positive when d1*d2 > 0."""
-        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
-        assert 'volga' in greeks
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, "call")
+        assert "volga" in greeks
         # Volga = vega * d1 * d2 / sigma
         # For ATM, d1 and d2 typically have same sign
 
     def test_charm_exists(self):
         """Charm (delta decay) should be included."""
-        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, 'call')
-        assert 'charm' in greeks
+        greeks = black_scholes_all_greeks(100, 100, 0.5, 0.05, 0.20, "call")
+        assert "charm" in greeks
 
     def test_second_order_greeks_optional(self):
         """Second-order Greeks can be excluded."""
         greeks = black_scholes_all_greeks(
-            100, 100, 0.5, 0.05, 0.20, 'call',
-            include_second_order=False
+            100, 100, 0.5, 0.05, 0.20, "call", include_second_order=False
         )
-        assert 'vanna' not in greeks
-        assert 'charm' not in greeks
-        assert 'volga' not in greeks
+        assert "vanna" not in greeks
+        assert "charm" not in greeks
+        assert "volga" not in greeks
         # First-order should still be present
-        assert 'delta' in greeks
-        assert 'gamma' in greeks
+        assert "delta" in greeks
+        assert "gamma" in greeks
 
 
 if __name__ == "__main__":

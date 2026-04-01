@@ -19,15 +19,17 @@ import numpy as np
 
 class SignalType(Enum):
     """Types of trading signals."""
-    ENTRY = "entry"         # Open new position
-    EXIT = "exit"           # Close existing position
-    ROLL = "roll"           # Roll position to new expiry
-    ADJUST = "adjust"       # Adjust position size
-    FILTER = "filter"       # Pass/fail filter
+
+    ENTRY = "entry"  # Open new position
+    EXIT = "exit"  # Close existing position
+    ROLL = "roll"  # Roll position to new expiry
+    ADJUST = "adjust"  # Adjust position size
+    FILTER = "filter"  # Pass/fail filter
 
 
 class SignalStrength(Enum):
     """Signal strength levels."""
+
     STRONG_SELL = -2
     WEAK_SELL = -1
     NEUTRAL = 0
@@ -38,11 +40,12 @@ class SignalStrength(Enum):
 @dataclass
 class Signal:
     """Individual signal output."""
+
     name: str
     signal_type: SignalType
     strength: SignalStrength
-    value: float              # Numeric value (-1 to 1 typically)
-    confidence: float = 1.0   # 0 to 1
+    value: float  # Numeric value (-1 to 1 typically)
+    confidence: float = 1.0  # 0 to 1
     metadata: dict = field(default_factory=dict)
     reason: str = ""
 
@@ -63,6 +66,7 @@ class Signal:
 @dataclass
 class CompositeSignal:
     """Aggregated signal from multiple sources."""
+
     signals: list[Signal]
     final_signal: SignalStrength
     final_value: float
@@ -118,7 +122,7 @@ class IVRankSignal(SignalGenerator):
     def __init__(
         self,
         high_threshold: float = 0.50,  # Above 50th percentile = favorable
-        low_threshold: float = 0.20    # Below 20th = unfavorable
+        low_threshold: float = 0.20,  # Below 20th = unfavorable
     ):
         self.high_threshold = high_threshold
         self.low_threshold = low_threshold
@@ -130,7 +134,7 @@ class IVRankSignal(SignalGenerator):
         Context should contain:
         - iv_rank: Current IV percentile (0-1)
         """
-        iv_rank = context.get('iv_rank', 0.5)
+        iv_rank = context.get("iv_rank", 0.5)
 
         if iv_rank >= self.high_threshold:
             if iv_rank >= 0.70:
@@ -156,8 +160,8 @@ class IVRankSignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=0.8,
-            metadata={'iv_rank': iv_rank},
-            reason=reason
+            metadata={"iv_rank": iv_rank},
+            reason=reason,
         )
 
 
@@ -176,11 +180,7 @@ class TrendSignal(SignalGenerator):
     def signal_type(self) -> SignalType:
         return SignalType.FILTER
 
-    def __init__(
-        self,
-        lookback_days: int = 20,
-        strength_threshold: float = 0.3
-    ):
+    def __init__(self, lookback_days: int = 20, strength_threshold: float = 0.3):
         self.lookback_days = lookback_days
         self.strength_threshold = strength_threshold
 
@@ -192,10 +192,10 @@ class TrendSignal(SignalGenerator):
         - prices: Recent price series
         - trend_direction: -1 to 1 (pre-computed) OR computed from prices
         """
-        if 'trend_direction' in context:
-            direction = context['trend_direction']
-        elif 'prices' in context:
-            prices = context['prices']
+        if "trend_direction" in context:
+            direction = context["trend_direction"]
+        elif "prices" in context:
+            prices = context["prices"]
             if len(prices) >= 2:
                 returns = (prices.iloc[-1] - prices.iloc[0]) / prices.iloc[0]
                 direction = np.clip(returns * 10, -1, 1)
@@ -231,8 +231,8 @@ class TrendSignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=0.7,
-            metadata={'trend_direction': direction},
-            reason=reason
+            metadata={"trend_direction": direction},
+            reason=reason,
         )
 
 
@@ -251,7 +251,7 @@ class ProfitTargetSignal(SignalGenerator):
 
     def __init__(
         self,
-        target_pct: float = 0.50  # 50% of max profit
+        target_pct: float = 0.50,  # 50% of max profit
     ):
         self.target_pct = target_pct
 
@@ -264,13 +264,13 @@ class ProfitTargetSignal(SignalGenerator):
         - entry_credit: Premium collected at entry
         - current_value: Current option value
         """
-        entry_credit = context.get('entry_credit', 0)
-        current_value = context.get('current_value', 0)
+        entry_credit = context.get("entry_credit", 0)
+        current_value = context.get("current_value", 0)
 
         if entry_credit > 0:
             pnl_pct = (entry_credit - current_value) / entry_credit
         else:
-            pnl_pct = context.get('current_pnl_pct', 0)
+            pnl_pct = context.get("current_pnl_pct", 0)
 
         if pnl_pct >= self.target_pct:
             strength = SignalStrength.STRONG_BUY  # Strong signal to exit
@@ -291,8 +291,8 @@ class ProfitTargetSignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=1.0,  # Objective signal
-            metadata={'pnl_pct': pnl_pct, 'target_pct': self.target_pct},
-            reason=reason
+            metadata={"pnl_pct": pnl_pct, "target_pct": self.target_pct},
+            reason=reason,
         )
 
 
@@ -311,7 +311,7 @@ class StopLossSignal(SignalGenerator):
 
     def __init__(
         self,
-        stop_multiplier: float = 2.0  # Stop at 2x premium (100% loss)
+        stop_multiplier: float = 2.0,  # Stop at 2x premium (100% loss)
     ):
         self.stop_multiplier = stop_multiplier
 
@@ -323,8 +323,8 @@ class StopLossSignal(SignalGenerator):
         - entry_credit: Premium collected
         - current_value: Current option value
         """
-        entry_credit = context.get('entry_credit', 0)
-        current_value = context.get('current_value', 0)
+        entry_credit = context.get("entry_credit", 0)
+        current_value = context.get("current_value", 0)
 
         if entry_credit > 0:
             loss_multiple = current_value / entry_credit
@@ -350,8 +350,8 @@ class StopLossSignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=1.0,
-            metadata={'loss_multiple': loss_multiple},
-            reason=reason
+            metadata={"loss_multiple": loss_multiple},
+            reason=reason,
         )
 
 
@@ -370,9 +370,9 @@ class DTESignal(SignalGenerator):
 
     def __init__(
         self,
-        exit_dte: int = 5,      # Exit at 5 DTE
-        ideal_dte: int = 35,    # Ideal entry DTE
-        max_dte: int = 60       # Max DTE for entry
+        exit_dte: int = 5,  # Exit at 5 DTE
+        ideal_dte: int = 35,  # Ideal entry DTE
+        max_dte: int = 60,  # Max DTE for entry
     ):
         self.exit_dte = exit_dte
         self.ideal_dte = ideal_dte
@@ -386,8 +386,8 @@ class DTESignal(SignalGenerator):
         - dte: Days to expiration
         - is_entry: Whether evaluating for entry or exit
         """
-        dte = context.get('dte', 30)
-        is_entry = context.get('is_entry', False)
+        dte = context.get("dte", 30)
+        is_entry = context.get("is_entry", False)
 
         if is_entry:
             # Entry evaluation
@@ -424,8 +424,8 @@ class DTESignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=1.0,
-            metadata={'dte': dte, 'is_entry': is_entry},
-            reason=reason
+            metadata={"dte": dte, "is_entry": is_entry},
+            reason=reason,
         )
 
 
@@ -442,11 +442,7 @@ class EventFilterSignal(SignalGenerator):
     def signal_type(self) -> SignalType:
         return SignalType.FILTER
 
-    def __init__(
-        self,
-        earnings_buffer_days: int = 5,
-        fomc_buffer_days: int = 2
-    ):
+    def __init__(self, earnings_buffer_days: int = 5, fomc_buffer_days: int = 2):
         self.earnings_buffer_days = earnings_buffer_days
         self.fomc_buffer_days = fomc_buffer_days
 
@@ -459,8 +455,8 @@ class EventFilterSignal(SignalGenerator):
         - days_to_fomc: Days until FOMC (None if no upcoming)
         - expiry_date: Option expiration date
         """
-        days_to_earnings = context.get('days_to_earnings')
-        days_to_fomc = context.get('days_to_fomc')
+        days_to_earnings = context.get("days_to_earnings")
+        days_to_fomc = context.get("days_to_fomc")
 
         reasons = []
         block = False
@@ -494,11 +490,8 @@ class EventFilterSignal(SignalGenerator):
             strength=strength,
             value=value,
             confidence=1.0,
-            metadata={
-                'days_to_earnings': days_to_earnings,
-                'days_to_fomc': days_to_fomc
-            },
-            reason=reason
+            metadata={"days_to_earnings": days_to_earnings, "days_to_fomc": days_to_fomc},
+            reason=reason,
         )
 
 
@@ -513,27 +506,21 @@ class SignalAggregator:
         exit_generators: list[SignalGenerator] | None = None,
         filter_generators: list[SignalGenerator] | None = None,
         entry_threshold: float = 0.3,
-        exit_threshold: float = 0.5
+        exit_threshold: float = 0.5,
     ):
-        self.entry_generators = entry_generators or [
-            IVRankSignal(),
-            TrendSignal(),
-            DTESignal()
-        ]
+        self.entry_generators = entry_generators or [IVRankSignal(), TrendSignal(), DTESignal()]
         self.exit_generators = exit_generators or [
             ProfitTargetSignal(),
             StopLossSignal(),
-            DTESignal()
+            DTESignal(),
         ]
-        self.filter_generators = filter_generators or [
-            EventFilterSignal()
-        ]
+        self.filter_generators = filter_generators or [EventFilterSignal()]
         self.entry_threshold = entry_threshold
         self.exit_threshold = exit_threshold
 
     def evaluate_entry(self, context: dict) -> CompositeSignal:
         """Evaluate whether to enter a position."""
-        context['is_entry'] = True
+        context["is_entry"] = True
         signals = []
 
         # Check filters first
@@ -547,7 +534,7 @@ class SignalAggregator:
                     final_value=-1.0,
                     final_confidence=1.0,
                     action_recommended=False,
-                    explanation=f"Blocked by filter: {signal.reason}"
+                    explanation=f"Blocked by filter: {signal.reason}",
                 )
 
         # Generate entry signals
@@ -560,7 +547,7 @@ class SignalAggregator:
 
     def evaluate_exit(self, context: dict) -> CompositeSignal:
         """Evaluate whether to exit a position."""
-        context['is_entry'] = False
+        context["is_entry"] = False
         signals = []
 
         for gen in self.exit_generators:
@@ -570,10 +557,7 @@ class SignalAggregator:
         return self._aggregate_signals(signals, self.exit_threshold, "exit")
 
     def _aggregate_signals(
-        self,
-        signals: list[Signal],
-        threshold: float,
-        action_type: str
+        self, signals: list[Signal], threshold: float, action_type: str
     ) -> CompositeSignal:
         """Aggregate signals with weighted average."""
         if not signals:
@@ -583,7 +567,7 @@ class SignalAggregator:
                 final_value=0,
                 final_confidence=0,
                 action_recommended=False,
-                explanation="No signals to aggregate"
+                explanation="No signals to aggregate",
             )
 
         # Weight by confidence
@@ -623,7 +607,7 @@ class SignalAggregator:
             final_value=weighted_value,
             final_confidence=avg_confidence,
             action_recommended=action_recommended,
-            explanation=explanation
+            explanation=explanation,
         )
 
 
@@ -633,14 +617,12 @@ def create_default_aggregator() -> SignalAggregator:
         entry_generators=[
             IVRankSignal(high_threshold=0.50, low_threshold=0.20),
             TrendSignal(lookback_days=20),
-            DTESignal(exit_dte=5, ideal_dte=35)
+            DTESignal(exit_dte=5, ideal_dte=35),
         ],
         exit_generators=[
             ProfitTargetSignal(target_pct=0.50),
             StopLossSignal(stop_multiplier=2.0),
-            DTESignal(exit_dte=5)
+            DTESignal(exit_dte=5),
         ],
-        filter_generators=[
-            EventFilterSignal(earnings_buffer_days=5)
-        ]
+        filter_generators=[EventFilterSignal(earnings_buffer_days=5)],
     )

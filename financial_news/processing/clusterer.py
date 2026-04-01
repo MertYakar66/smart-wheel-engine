@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ClusterCandidate:
     """A potential story cluster"""
+
     articles: list[Article]
     representative_article: Article
     tickers: set[str]
@@ -176,27 +177,29 @@ class StoryClustering:
                 all_tickers.update(a.tickers)
                 all_categories.update(a.categories)
 
-            clusters.append(ClusterCandidate(
-                articles=similar,
-                representative_article=similar[0],
-                tickers=all_tickers,
-                categories=all_categories,
-                first_seen=min(a.published_at for a in similar),
-                last_updated=max(a.published_at for a in similar),
-            ))
+            clusters.append(
+                ClusterCandidate(
+                    articles=similar,
+                    representative_article=similar[0],
+                    tickers=all_tickers,
+                    categories=all_categories,
+                    first_seen=min(a.published_at for a in similar),
+                    last_updated=max(a.published_at for a in similar),
+                )
+            )
 
         return clusters
 
     def _get_ngrams(self, text: str) -> set[str]:
         """Extract n-grams from text."""
         # Normalize
-        text = re.sub(r'[^\w\s]', '', text.lower())
+        text = re.sub(r"[^\w\s]", "", text.lower())
         words = text.split()
 
         ngrams = set()
         for n in range(self.min_ngram_size, self.max_ngram_size + 1):
             for i in range(len(words) - n + 1):
-                ngrams.add(" ".join(words[i:i+n]))
+                ngrams.add(" ".join(words[i : i + n]))
 
         return ngrams
 
@@ -255,14 +258,16 @@ class StoryClustering:
                         unique_articles.append(a)
                         seen_ids.add(a.article_id)
 
-                merged.append(ClusterCandidate(
-                    articles=unique_articles,
-                    representative_article=unique_articles[0],
-                    tickers=merged_tickers,
-                    categories=merged_categories,
-                    first_seen=min(a.published_at for a in unique_articles),
-                    last_updated=max(a.published_at for a in unique_articles),
-                ))
+                merged.append(
+                    ClusterCandidate(
+                        articles=unique_articles,
+                        representative_article=unique_articles[0],
+                        tickers=merged_tickers,
+                        categories=merged_categories,
+                        first_seen=min(a.published_at for a in unique_articles),
+                        last_updated=max(a.published_at for a in unique_articles),
+                    )
+                )
             else:
                 merged.append(c1)
 
@@ -285,13 +290,12 @@ class StoryClustering:
             if existing:
                 # Update existing story
                 existing.article_ids.extend(
-                    a.article_id for a in candidate.articles
+                    a.article_id
+                    for a in candidate.articles
                     if a.article_id not in existing.article_ids
                 )
                 existing.last_updated_at = now
-                existing.source_count = len({
-                    a.source_id for a in candidate.articles
-                })
+                existing.source_count = len({a.source_id for a in candidate.articles})
                 existing.is_developing = True
                 stories.append(existing)
             else:
@@ -310,9 +314,10 @@ class StoryClustering:
                     article_ids=[a.article_id for a in candidate.articles],
                     source_count=candidate.source_count,
                     category_scores={
-                        cat.value: 1.0 / len(candidate.categories)
-                        for cat in candidate.categories
-                    } if candidate.categories else {},
+                        cat.value: 1.0 / len(candidate.categories) for cat in candidate.categories
+                    }
+                    if candidate.categories
+                    else {},
                     is_developing=candidate.source_count < 3,
                 )
                 stories.append(story)
@@ -337,8 +342,8 @@ class StoryClustering:
         # Use lead article title, cleaned up
         title = candidate.representative_article.title
         # Remove source prefixes like "Reuters: " or "[WSJ]"
-        title = re.sub(r'^\[[^\]]+\]\s*', '', title)
-        title = re.sub(r'^[A-Z]+:\s*', '', title)
+        title = re.sub(r"^\[[^\]]+\]\s*", "", title)
+        title = re.sub(r"^[A-Z]+:\s*", "", title)
         return title[:200]
 
     def _generate_summary(self, candidate: ClusterCandidate) -> str:
@@ -352,10 +357,17 @@ class StoryClustering:
         """Infer affected sectors from tickers."""
         # Simple sector inference based on common tickers
         sector_map = {
-            "XLE": "Energy", "XLF": "Financials", "XLK": "Technology",
-            "XLV": "Healthcare", "XLI": "Industrials", "XLP": "Consumer Staples",
-            "XLY": "Consumer Discretionary", "XLB": "Materials", "XLU": "Utilities",
-            "XLRE": "Real Estate", "XLC": "Communications",
+            "XLE": "Energy",
+            "XLF": "Financials",
+            "XLK": "Technology",
+            "XLV": "Healthcare",
+            "XLI": "Industrials",
+            "XLP": "Consumer Staples",
+            "XLY": "Consumer Discretionary",
+            "XLB": "Materials",
+            "XLU": "Utilities",
+            "XLRE": "Real Estate",
+            "XLC": "Communications",
         }
         sectors = []
         for ticker in tickers:

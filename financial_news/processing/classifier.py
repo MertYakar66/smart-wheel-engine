@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ClassificationResult:
     """Result of classifying an article"""
+
     category_id: str
     category_type: CategoryType
     confidence: float
@@ -75,19 +76,23 @@ class ArticleClassifier:
             confidence, matched_keywords = self._evaluate_rule(article, rule, text)
 
             if confidence >= rule.min_confidence:
-                results.append(ClassificationResult(
-                    category_id=rule.category_id,
-                    category_type=self._get_category_type(rule.category_id),
-                    confidence=confidence,
-                    matched_rule=rule.rule_id,
-                    matched_keywords=matched_keywords,
-                ))
+                results.append(
+                    ClassificationResult(
+                        category_id=rule.category_id,
+                        category_type=self._get_category_type(rule.category_id),
+                        confidence=confidence,
+                        matched_rule=rule.rule_id,
+                        matched_keywords=matched_keywords,
+                    )
+                )
 
         # Deduplicate by category (keep highest confidence)
         best_by_category: dict[str, ClassificationResult] = {}
         for result in results:
-            if (result.category_id not in best_by_category or
-                result.confidence > best_by_category[result.category_id].confidence):
+            if (
+                result.category_id not in best_by_category
+                or result.confidence > best_by_category[result.category_id].confidence
+            ):
                 best_by_category[result.category_id] = result
 
         # Sort by confidence

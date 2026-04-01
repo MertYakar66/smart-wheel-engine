@@ -47,10 +47,7 @@ def calculate_commission(trade_type: str = "option", num_contracts: int = 1) -> 
 
 
 def calculate_actual_spread(
-    bid: float | None,
-    ask: float | None,
-    mid_price: float | None = None,
-    fallback_pct: float = 0.10
+    bid: float | None, ask: float | None, mid_price: float | None = None, fallback_pct: float = 0.10
 ) -> float:
     """
     Calculate actual bid-ask spread from market data.
@@ -82,7 +79,7 @@ def calculate_slippage(
     bid_ask_spread: float,
     trade_direction: Literal["buy", "sell"],
     open_interest: int | None = None,
-    volume: int | None = None
+    volume: int | None = None,
 ) -> float:
     """
     Calculate slippage based on spread and liquidity indicators.
@@ -139,9 +136,7 @@ def calculate_assignment_fee() -> float:
 
 
 def calculate_reg_t_margin_short_put(
-    strike: float,
-    underlying_price: float,
-    premium: float
+    strike: float, underlying_price: float, premium: float
 ) -> float:
     """
     Calculate Reg-T margin requirement for short put.
@@ -182,7 +177,7 @@ def calculate_total_entry_cost(
     ask: float | None = None,
     trade_type: str = "option",
     open_interest: int | None = None,
-    volume: int | None = None
+    volume: int | None = None,
 ) -> dict:
     """
     Calculate all costs for opening a short option position.
@@ -211,7 +206,7 @@ def calculate_total_entry_cost(
         bid_ask_spread=bid_ask_spread,
         trade_direction="sell",
         open_interest=open_interest,
-        volume=volume
+        volume=volume,
     )
 
     # Convert per-share values to per-contract (100 shares)
@@ -225,7 +220,7 @@ def calculate_total_entry_cost(
         "total_cost": commission + slippage_per_contract,
         "gross_premium": gross_premium,
         "net_premium_collected": net_premium - commission,
-        "effective_fill_price": premium_per_share - slippage  # Per share
+        "effective_fill_price": premium_per_share - slippage,  # Per share
     }
 
 
@@ -236,7 +231,7 @@ def calculate_total_exit_cost(
     ask: float | None = None,
     trade_type: str = "option",
     open_interest: int | None = None,
-    volume: int | None = None
+    volume: int | None = None,
 ) -> dict:
     """
     Calculate all costs for closing a short option position via buyback.
@@ -265,7 +260,7 @@ def calculate_total_exit_cost(
         bid_ask_spread=bid_ask_spread,
         trade_direction="buy",
         open_interest=open_interest,
-        volume=volume
+        volume=volume,
     )
 
     # Convert per-share values to per-contract (100 shares)
@@ -279,7 +274,7 @@ def calculate_total_exit_cost(
         "total_cost": commission + slippage_per_contract,
         "gross_buyback_cost": gross_cost,
         "total_buyback_cost": total_cost_with_slippage + commission,
-        "effective_fill_price": buyback_price_per_share + slippage  # Per share
+        "effective_fill_price": buyback_price_per_share + slippage,  # Per share
     }
 
 
@@ -300,7 +295,7 @@ def calculate_assignment_costs(strike_price: float, shares: int = 100) -> dict:
     return {
         "assignment_fee": assignment_fee,
         "stock_cost": stock_cost,
-        "total_cash_required": stock_cost + assignment_fee
+        "total_cash_required": stock_cost + assignment_fee,
     }
 
 
@@ -309,7 +304,7 @@ def estimate_round_trip_cost(
     expected_exit_premium: float,
     entry_spread: float | None = None,
     exit_spread: float | None = None,
-    open_interest: int | None = None
+    open_interest: int | None = None,
 ) -> dict:
     """
     Estimate total round-trip costs for a trade.
@@ -333,15 +328,13 @@ def estimate_round_trip_cost(
         exit_spread = entry_spread
 
     entry = calculate_total_entry_cost(
-        premium_per_share=entry_premium,
-        bid_ask_spread=entry_spread,
-        open_interest=open_interest
+        premium_per_share=entry_premium, bid_ask_spread=entry_spread, open_interest=open_interest
     )
 
     exit_costs = calculate_total_exit_cost(
         buyback_price_per_share=expected_exit_premium,
         bid_ask_spread=exit_spread,
-        open_interest=open_interest
+        open_interest=open_interest,
     )
 
     total = entry["total_cost"] + exit_costs["total_cost"]
@@ -351,5 +344,5 @@ def estimate_round_trip_cost(
         "exit_costs": exit_costs["total_cost"],
         "total_costs": total,
         "cost_as_pct_of_premium": total / (entry_premium * 100) if entry_premium > 0 else 0,
-        "breakeven_decay_needed": total / 100  # Per share decay needed to break even
+        "breakeven_decay_needed": total / 100,  # Per share decay needed to break even
     }

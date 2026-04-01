@@ -14,6 +14,7 @@ from typing import Any
 
 class Severity(Enum):
     """News impact severity levels"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -22,6 +23,7 @@ class Severity(Enum):
 
 class ArticleSource(Enum):
     """Supported article sources"""
+
     GDELT = "gdelt"
     SEC_EDGAR = "sec_edgar"
     RSS = "rss"
@@ -30,6 +32,7 @@ class ArticleSource(Enum):
 
 class TopicCategory(Enum):
     """Primary topic categories (Bloomberg-style taxonomy)"""
+
     MACRO_RATES = "macro_rates"
     MACRO_INFLATION = "macro_inflation"
     MACRO_EMPLOYMENT = "macro_employment"
@@ -55,6 +58,7 @@ class TopicCategory(Enum):
 @dataclass
 class Entity:
     """Extracted entity from news article"""
+
     name: str
     entity_type: str  # company, person, country, product, etc.
     ticker: str | None = None  # Stock ticker if applicable
@@ -78,6 +82,7 @@ class Article:
 
     Stores metadata + links only (no full text for licensed content).
     """
+
     article_id: str
     canonical_url: str
     source: ArticleSource
@@ -147,7 +152,9 @@ class Article:
             relevance_scores=data.get("relevance_scores", {}),
             impact_score=data.get("impact_score", 0.0),
             retrieval_provider=data.get("retrieval_provider"),
-            fetched_at_utc=datetime.fromisoformat(data["fetched_at_utc"]) if data.get("fetched_at_utc") else datetime.utcnow(),
+            fetched_at_utc=datetime.fromisoformat(data["fetched_at_utc"])
+            if data.get("fetched_at_utc")
+            else datetime.utcnow(),
         )
 
 
@@ -158,6 +165,7 @@ class Story:
 
     This is the key abstraction - users see stories, not individual articles.
     """
+
     story_id: str
     lead_article_id: str  # Most representative article
     headline: str  # Generated summary headline
@@ -219,6 +227,7 @@ class Category:
 
     Bloomberg concept: categories are queries + rules, not static buckets.
     """
+
     category_id: str
     name: str  # e.g., "Macro: Rates & Inflation"
     description: str
@@ -268,7 +277,9 @@ class Category:
             "max_stories_per_brief": self.max_stories_per_brief,
             "digest_tone": self.digest_tone,
             "is_active": self.is_active,
-            "last_successful_fetch": self.last_successful_fetch.isoformat() if self.last_successful_fetch else None,
+            "last_successful_fetch": self.last_successful_fetch.isoformat()
+            if self.last_successful_fetch
+            else None,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -276,6 +287,7 @@ class Category:
 @dataclass
 class UserProfile:
     """User profile with watchlist and category subscriptions"""
+
     user_id: str
     email: str | None = None
 
@@ -313,6 +325,7 @@ class UserProfile:
 @dataclass
 class Brief:
     """Morning or Evening brief for a user"""
+
     brief_id: str
     user_id: str
     brief_type: str  # "morning" or "evening"
@@ -346,21 +359,54 @@ DEFAULT_CATEGORIES = [
         category_id="macro_rates",
         name="Macro: Rates & Inflation",
         description="Federal Reserve policy, interest rates, inflation data, bond markets",
-        keywords=["fed", "federal reserve", "interest rate", "inflation", "cpi", "pce", "fomc", "powell", "treasury yield"],
-        topics=[TopicCategory.MACRO_RATES, TopicCategory.MACRO_INFLATION, TopicCategory.CENTRAL_BANKS],
+        keywords=[
+            "fed",
+            "federal reserve",
+            "interest rate",
+            "inflation",
+            "cpi",
+            "pce",
+            "fomc",
+            "powell",
+            "treasury yield",
+        ],
+        topics=[
+            TopicCategory.MACRO_RATES,
+            TopicCategory.MACRO_INFLATION,
+            TopicCategory.CENTRAL_BANKS,
+        ],
     ),
     Category(
         category_id="earnings",
         name="Corporate Earnings",
         description="Quarterly earnings reports, guidance, revenue surprises",
-        keywords=["earnings", "eps", "revenue", "quarterly results", "guidance", "beat", "miss", "outlook"],
+        keywords=[
+            "earnings",
+            "eps",
+            "revenue",
+            "quarterly results",
+            "guidance",
+            "beat",
+            "miss",
+            "outlook",
+        ],
         topics=[TopicCategory.EARNINGS],
     ),
     Category(
         category_id="tech_ai",
         name="Technology: AI & Chips",
         description="Artificial intelligence developments, semiconductor industry, tech regulation",
-        keywords=["ai", "artificial intelligence", "nvidia", "openai", "semiconductor", "chip", "gpu", "llm", "machine learning"],
+        keywords=[
+            "ai",
+            "artificial intelligence",
+            "nvidia",
+            "openai",
+            "semiconductor",
+            "chip",
+            "gpu",
+            "llm",
+            "machine learning",
+        ],
         tickers=["NVDA", "AMD", "INTC", "GOOGL", "MSFT", "META", "TSMC"],
         topics=[TopicCategory.TECH_AI, TopicCategory.TECH_SEMIS],
     ),
@@ -368,14 +414,32 @@ DEFAULT_CATEGORIES = [
         category_id="commodities_energy",
         name="Commodities: Energy",
         description="Oil, natural gas, OPEC decisions, energy sector",
-        keywords=["oil", "crude", "brent", "wti", "opec", "natural gas", "lng", "energy", "petroleum"],
+        keywords=[
+            "oil",
+            "crude",
+            "brent",
+            "wti",
+            "opec",
+            "natural gas",
+            "lng",
+            "energy",
+            "petroleum",
+        ],
         topics=[TopicCategory.COMMODITIES_OIL],
     ),
     Category(
         category_id="geopolitics",
         name="Geopolitics & Trade",
         description="International relations, trade agreements, sanctions, conflicts",
-        keywords=["tariff", "sanction", "trade war", "geopolitical", "conflict", "diplomacy", "embargo"],
+        keywords=[
+            "tariff",
+            "sanction",
+            "trade war",
+            "geopolitical",
+            "conflict",
+            "diplomacy",
+            "embargo",
+        ],
         topics=[TopicCategory.GEOPOLITICS],
     ),
     Category(

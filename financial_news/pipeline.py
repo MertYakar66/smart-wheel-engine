@@ -109,9 +109,7 @@ class NewsPipeline:
             start_time_window = end_time - timedelta(hours=hours_lookback)
 
             # Step 1: Fetch articles from all sources
-            all_articles = await self._fetch_all_sources(
-                categories, start_time_window, end_time
-            )
+            all_articles = await self._fetch_all_sources(categories, start_time_window, end_time)
             stats["articles_fetched"] = len(all_articles)
 
             # Step 2: Process articles (entity extraction, classification)
@@ -175,23 +173,21 @@ class NewsPipeline:
         for category in categories:
             try:
                 # Fetch from GDELT
-                gdelt_articles = await self.gdelt.fetch_articles(
-                    category, start_time, end_time
-                )
+                gdelt_articles = await self.gdelt.fetch_articles(category, start_time, end_time)
                 all_articles.extend(gdelt_articles)
 
                 # Fetch from SEC EDGAR (for relevant categories)
-                if any(t in [TopicCategory.EARNINGS, TopicCategory.M_AND_A, TopicCategory.IPO]
-                       for t in category.topics):
+                if any(
+                    t in [TopicCategory.EARNINGS, TopicCategory.M_AND_A, TopicCategory.IPO]
+                    for t in category.topics
+                ):
                     sec_articles = await self.sec_edgar.fetch_articles(
                         category, start_time, end_time
                     )
                     all_articles.extend(sec_articles)
 
                 # Fetch from RSS
-                rss_articles = await self.rss.fetch_articles(
-                    category, start_time, end_time
-                )
+                rss_articles = await self.rss.fetch_articles(category, start_time, end_time)
                 all_articles.extend(rss_articles)
 
             except Exception as e:
@@ -222,9 +218,7 @@ class NewsPipeline:
         # Get existing stories for merging
         existing_stories = self.store.get_recent_stories(hours=48)
 
-        stories = self.story_clusterer.cluster_articles(
-            articles, existing_stories
-        )
+        stories = self.story_clusterer.cluster_articles(articles, existing_stories)
 
         return stories
 
@@ -274,9 +268,7 @@ class NewsPipeline:
         unique_stories.sort(key=lambda s: s.impact_score, reverse=True)
 
         # Generate brief
-        brief = await self.brief_generator.generate_brief(
-            user, unique_stories[:15], brief_type
-        )
+        brief = await self.brief_generator.generate_brief(user, unique_stories[:15], brief_type)
 
         # Update user's seen stories
         user.last_seen_story_ids.update(s.story_id for s in brief.stories)
@@ -325,9 +317,9 @@ class NewsPipeline:
             recency_score = max(0, 1 - recency_hours / 24)
 
             return (
-                category.recency_weight * recency_score +
-                category.impact_weight * story.impact_score +
-                category.relevance_weight * story.confidence_score
+                category.recency_weight * recency_score
+                + category.impact_weight * story.impact_score
+                + category.relevance_weight * story.confidence_score
             )
 
         unique_stories.sort(key=rank_story, reverse=True)
@@ -399,13 +391,17 @@ class PipelineScheduler:
             current_time = now.time()
 
             # Check if it's time to run
-            if (current_time.hour == morning_time.hour and
-                current_time.minute == morning_time.minute):
+            if (
+                current_time.hour == morning_time.hour
+                and current_time.minute == morning_time.minute
+            ):
                 logger.info("Running morning pipeline")
                 await self.pipeline.run_full_pipeline()
 
-            elif (current_time.hour == evening_time.hour and
-                  current_time.minute == evening_time.minute):
+            elif (
+                current_time.hour == evening_time.hour
+                and current_time.minute == evening_time.minute
+            ):
                 logger.info("Running evening pipeline")
                 await self.pipeline.run_full_pipeline()
 

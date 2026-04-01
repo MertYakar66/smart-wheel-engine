@@ -8,7 +8,6 @@ Events are where wheel strategy can win or lose big:
 This module models event behavior for optimal positioning.
 """
 
-
 import numpy as np
 import pandas as pd
 
@@ -47,13 +46,13 @@ class EventVolatility:
             return pd.Series(np.nan, index=dates)
 
         # Convert to numpy arrays for vectorized operations
-        dates_arr = pd.to_datetime(dates).values.astype('datetime64[D]')
-        events_arr = pd.to_datetime(event_dates).sort_values().values.astype('datetime64[D]')
+        dates_arr = pd.to_datetime(dates).values.astype("datetime64[D]")
+        events_arr = pd.to_datetime(event_dates).sort_values().values.astype("datetime64[D]")
 
         # Find index of next event for each date using searchsorted
         # searchsorted returns index where element would be inserted to maintain order
         # 'left' means: index where date would go, so events_arr[idx] >= date
-        next_event_idx = np.searchsorted(events_arr, dates_arr, side='left')
+        next_event_idx = np.searchsorted(events_arr, dates_arr, side="left")
 
         # Initialize result with NaN
         result = np.full(len(dates), np.nan)
@@ -61,8 +60,10 @@ class EventVolatility:
         # For valid indices (not past last event), compute days difference
         valid_mask = next_event_idx < len(events_arr)
         result[valid_mask] = (
-            events_arr[next_event_idx[valid_mask]] - dates_arr[valid_mask]
-        ).astype('timedelta64[D]').astype(float)
+            (events_arr[next_event_idx[valid_mask]] - dates_arr[valid_mask])
+            .astype("timedelta64[D]")
+            .astype(float)
+        )
 
         return pd.Series(result, index=dates)
 
@@ -84,13 +85,13 @@ class EventVolatility:
             return pd.Series(np.nan, index=dates)
 
         # Convert to numpy arrays for vectorized operations
-        dates_arr = pd.to_datetime(dates).values.astype('datetime64[D]')
-        events_arr = pd.to_datetime(event_dates).sort_values().values.astype('datetime64[D]')
+        dates_arr = pd.to_datetime(dates).values.astype("datetime64[D]")
+        events_arr = pd.to_datetime(event_dates).sort_values().values.astype("datetime64[D]")
 
         # Find index where date would be inserted (right side)
         # This gives us: events_arr[idx-1] <= date < events_arr[idx]
         # So the last event on or before date is at index (idx - 1)
-        next_event_idx = np.searchsorted(events_arr, dates_arr, side='right')
+        next_event_idx = np.searchsorted(events_arr, dates_arr, side="right")
 
         # The previous event is at index (next_event_idx - 1)
         prev_event_idx = next_event_idx - 1
@@ -101,8 +102,10 @@ class EventVolatility:
         # For valid indices (not before first event), compute days difference
         valid_mask = prev_event_idx >= 0
         result[valid_mask] = (
-            dates_arr[valid_mask] - events_arr[prev_event_idx[valid_mask]]
-        ).astype('timedelta64[D]').astype(float)
+            (dates_arr[valid_mask] - events_arr[prev_event_idx[valid_mask]])
+            .astype("timedelta64[D]")
+            .astype(float)
+        )
 
         return pd.Series(result, index=dates)
 
@@ -361,9 +364,7 @@ class EventVolatility:
         )
 
         # Gap analysis
-        result["overnight_gap"] = self.price_gap(
-            result[close_col], result[open_col].shift(-1)
-        )
+        result["overnight_gap"] = self.price_gap(result[close_col], result[open_col].shift(-1))
 
         # Event zone
         result["earnings_zone"] = self.event_zone_flag(

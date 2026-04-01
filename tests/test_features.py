@@ -20,6 +20,7 @@ from src.features.volatility import VolatilityFeatures
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def sample_prices():
     """Create sample price series."""
@@ -44,14 +45,16 @@ def sample_ohlcv():
     open_price = close * (1 + np.random.normal(0, 0.005, n))
     volume = np.random.randint(1_000_000, 10_000_000, n)
 
-    return pd.DataFrame({
-        "date": dates,
-        "open": open_price,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": volume,
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": open_price,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
+    )
 
 
 @pytest.fixture
@@ -73,6 +76,7 @@ def downtrend_prices():
 # =============================================================================
 # TECHNICAL FEATURES TESTS
 # =============================================================================
+
 
 class TestSMA:
     """Test Simple Moving Average."""
@@ -209,6 +213,7 @@ class TestMACD:
 # VOLATILITY FEATURES TESTS
 # =============================================================================
 
+
 class TestVolatilityFeatures:
     """Test volatility feature calculations."""
 
@@ -235,9 +240,7 @@ class TestVolatilityFeatures:
     def test_parkinson_vol(self, sample_ohlcv):
         """Test Parkinson volatility estimator."""
         vol = VolatilityFeatures.realized_volatility_parkinson(
-            sample_ohlcv["high"],
-            sample_ohlcv["low"],
-            21
+            sample_ohlcv["high"], sample_ohlcv["low"], 21
         )
 
         assert len(vol) == len(sample_ohlcv)
@@ -251,7 +254,7 @@ class TestVolatilityFeatures:
             sample_ohlcv["high"],
             sample_ohlcv["low"],
             sample_ohlcv["close"],
-            21
+            21,
         )
 
         assert len(vol) == len(sample_ohlcv)
@@ -286,6 +289,7 @@ class TestVolatilityFeatures:
 # =============================================================================
 # OPTIONS DYNAMICS TESTS
 # =============================================================================
+
 
 class TestOptionsDynamics:
     """Test options dynamics features."""
@@ -359,6 +363,7 @@ class TestOptionsDynamics:
 # =============================================================================
 # OPTIONS FEATURES TESTS
 # =============================================================================
+
 
 class TestOptionsFeatures:
     """Test options feature calculations."""
@@ -451,10 +456,10 @@ class TestOptionsFeatures:
         delta = OptionsFeatures.black_scholes_delta(
             spot=100,
             strike=100,
-            time_to_expiry=30/365,
+            time_to_expiry=30 / 365,
             volatility=0.25,
             risk_free_rate=0.05,
-            is_call=True
+            is_call=True,
         )
 
         # ATM call delta should be around 0.5
@@ -463,11 +468,7 @@ class TestOptionsFeatures:
     def test_black_scholes_delta_put(self):
         """Test BS delta for put."""
         delta = OptionsFeatures.black_scholes_delta(
-            spot=100,
-            strike=100,
-            time_to_expiry=30/365,
-            volatility=0.25,
-            is_call=False
+            spot=100, strike=100, time_to_expiry=30 / 365, volatility=0.25, is_call=False
         )
 
         # ATM put delta should be around -0.5
@@ -477,6 +478,7 @@ class TestOptionsFeatures:
 # =============================================================================
 # EDGE CASES
 # =============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases."""
@@ -520,6 +522,7 @@ class TestEdgeCases:
 # =============================================================================
 # INTEGRATION TESTS
 # =============================================================================
+
 
 class TestIntegration:
     """Integration tests for features."""

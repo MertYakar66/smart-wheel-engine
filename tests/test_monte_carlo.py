@@ -27,6 +27,7 @@ from engine.monte_carlo import (
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def daily_returns():
     """Synthetic daily returns resembling SP500."""
@@ -34,7 +35,7 @@ def daily_returns():
     # Mean ~0.04%/day, vol ~1%/day (roughly 16% annualized)
     returns = rng.normal(0.0004, 0.01, size=504)  # 2 years
     # Add a few large drawdowns
-    returns[50] = -0.05   # Flash crash day
+    returns[50] = -0.05  # Flash crash day
     returns[200] = -0.03  # Moderate selloff
     return returns
 
@@ -47,20 +48,13 @@ def bootstrap():
 @pytest.fixture
 def jd_params():
     return JumpDiffusionParams(
-        mu=0.08,
-        sigma=0.20,
-        jump_intensity=2.0,
-        jump_mean=-0.05,
-        jump_std=0.10,
-        dividend_yield=0.02
+        mu=0.08, sigma=0.20, jump_intensity=2.0, jump_mean=-0.05, jump_std=0.10, dividend_yield=0.02
     )
 
 
 @pytest.fixture
 def jd_simulator(jd_params):
-    return JumpDiffusionSimulator(
-        params=jd_params, n_simulations=1000, seed=42
-    )
+    return JumpDiffusionSimulator(params=jd_params, n_simulations=1000, seed=42)
 
 
 @pytest.fixture
@@ -71,6 +65,7 @@ def lsm_pricer():
 # ─────────────────────────────────────────────────────────────────────
 # 1. Block Bootstrap Tests
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestBlockBootstrap:
     """Tests for block bootstrap Monte Carlo."""
@@ -87,9 +82,7 @@ class TestBlockBootstrap:
 
     def test_terminal_values_reasonable(self, bootstrap, daily_returns):
         """Terminal values should be in a reasonable range."""
-        result = bootstrap.simulate(
-            daily_returns, n_days=252, initial_capital=100000
-        )
+        result = bootstrap.simulate(daily_returns, n_days=252, initial_capital=100000)
 
         # Terminal values should mostly be between 50k and 200k for 1 year
         assert np.median(result.terminal_values) > 50000
@@ -132,9 +125,7 @@ class TestBlockBootstrap:
 
     def test_stationary_bootstrap(self, bootstrap, daily_returns):
         """Stationary bootstrap should also produce valid results."""
-        result = bootstrap.simulate_stationary(
-            daily_returns, n_days=252, initial_capital=100000
-        )
+        result = bootstrap.simulate_stationary(daily_returns, n_days=252, initial_capital=100000)
 
         assert isinstance(result, BootstrapResult)
         assert result.equity_curves.shape == (500, 252)
@@ -163,6 +154,7 @@ class TestBlockBootstrap:
 # ─────────────────────────────────────────────────────────────────────
 # 2. Jump Diffusion Tests
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestJumpDiffusion:
     """Tests for Merton jump-diffusion simulator."""
@@ -194,12 +186,12 @@ class TestJumpDiffusion:
 
     def test_deep_otm_put_low_bagholder(self, jd_params):
         """Deep OTM put should have low bagholder probability."""
-        sim = JumpDiffusionSimulator(
-            params=jd_params, n_simulations=2000, seed=42
-        )
+        sim = JumpDiffusionSimulator(params=jd_params, n_simulations=2000, seed=42)
         result = sim.bagholder_analysis(
-            S0=100, strike=70,  # 30% OTM
-            n_days=504, stuck_threshold_days=252
+            S0=100,
+            strike=70,  # 30% OTM
+            n_days=504,
+            stuck_threshold_days=252,
         )
 
         # With strike at 70 and stock at 100, being stuck > 1 year
@@ -208,12 +200,12 @@ class TestJumpDiffusion:
 
     def test_atm_put_meaningful_bagholder(self, jd_params):
         """ATM put should have non-trivial bagholder probability."""
-        sim = JumpDiffusionSimulator(
-            params=jd_params, n_simulations=2000, seed=42
-        )
+        sim = JumpDiffusionSimulator(params=jd_params, n_simulations=2000, seed=42)
         result = sim.bagholder_analysis(
-            S0=100, strike=100,  # ATM
-            n_days=504, stuck_threshold_days=252
+            S0=100,
+            strike=100,  # ATM
+            n_days=504,
+            stuck_threshold_days=252,
         )
 
         # ATM put: meaningful chance of being stuck
@@ -237,9 +229,7 @@ class TestJumpDiffusion:
     def test_terminal_distribution_mean(self, jd_params):
         """Mean terminal price should be near risk-neutral expectation."""
         # Under real-world measure, E[S_T] ~ S0 * exp(mu*T)
-        sim = JumpDiffusionSimulator(
-            params=jd_params, n_simulations=10000, seed=42
-        )
+        sim = JumpDiffusionSimulator(params=jd_params, n_simulations=10000, seed=42)
         paths = sim.simulate_paths(S0=100, n_days=252)
         terminal = paths[:, -1]
 
@@ -276,23 +266,20 @@ class TestJumpDiffusion:
 # 3. LSM (Longstaff-Schwartz) Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestLSMPricer:
     """Tests for Least-Squares Monte Carlo pricing."""
 
     def test_put_price_positive(self, lsm_pricer):
         """American put price should be positive."""
-        result = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type='put'
-        )
+        result = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type="put")
 
         assert isinstance(result, LSMResult)
         assert result.american_price > 0
 
     def test_american_geq_european_put(self, lsm_pricer):
         """American put should be worth >= European put."""
-        result = lsm_pricer.price(
-            S0=100, K=100, T=0.5, r=0.05, sigma=0.30, option_type='put'
-        )
+        result = lsm_pricer.price(S0=100, K=100, T=0.5, r=0.05, sigma=0.30, option_type="put")
 
         # American >= European (early exercise premium >= 0)
         assert result.american_price >= result.european_price * 0.99  # 1% tolerance for MC noise
@@ -300,8 +287,7 @@ class TestLSMPricer:
     def test_american_call_no_dividend(self, lsm_pricer):
         """American call with no dividends should equal European."""
         result = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20,
-            option_type='call', q=0.0
+            S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type="call", q=0.0
         )
 
         # Without dividends, American call = European call
@@ -310,18 +296,14 @@ class TestLSMPricer:
 
     def test_deep_itm_put_high_exercise(self, lsm_pricer):
         """Deep ITM put should have high early exercise probability."""
-        result = lsm_pricer.price(
-            S0=70, K=100, T=0.5, r=0.05, sigma=0.20, option_type='put'
-        )
+        result = lsm_pricer.price(S0=70, K=100, T=0.5, r=0.05, sigma=0.20, option_type="put")
 
         # Deep ITM put: early exercise should be common
         assert result.prob_early_exercise > 0.10
 
     def test_deep_otm_put_low_exercise(self, lsm_pricer):
         """Deep OTM put should have low early exercise probability."""
-        result = lsm_pricer.price(
-            S0=130, K=100, T=0.25, r=0.05, sigma=0.20, option_type='put'
-        )
+        result = lsm_pricer.price(S0=130, K=100, T=0.25, r=0.05, sigma=0.20, option_type="put")
 
         # Deep OTM put: early exercise very rare
         assert result.prob_early_exercise < 0.30
@@ -329,8 +311,13 @@ class TestLSMPricer:
     def test_call_with_dividends(self, lsm_pricer):
         """Call with dividends should have meaningful early exercise premium."""
         result = lsm_pricer.price(
-            S0=100, K=95, T=0.5, r=0.05, sigma=0.20,
-            option_type='call', q=0.04  # 4% dividend yield
+            S0=100,
+            K=95,
+            T=0.5,
+            r=0.05,
+            sigma=0.20,
+            option_type="call",
+            q=0.04,  # 4% dividend yield
         )
 
         # With dividends, American call > European call
@@ -339,22 +326,18 @@ class TestLSMPricer:
     def test_assignment_risk(self, lsm_pricer):
         """Assignment risk method should return valid dict."""
         risk = lsm_pricer.assignment_risk(
-            S0=100, K=105, T=0.25, r=0.05, sigma=0.25, option_type='put'
+            S0=100, K=105, T=0.25, r=0.05, sigma=0.25, option_type="put"
         )
 
-        assert 'prob_early_assignment' in risk
-        assert 'american_price' in risk
-        assert 'european_price' in risk
-        assert 0 <= risk['prob_early_assignment'] <= 1
+        assert "prob_early_assignment" in risk
+        assert "american_price" in risk
+        assert "european_price" in risk
+        assert 0 <= risk["prob_early_assignment"] <= 1
 
     def test_put_call_parity_rough(self, lsm_pricer):
         """American prices should roughly satisfy put-call inequality."""
-        call = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type='call'
-        )
-        put = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type='put'
-        )
+        call = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type="call")
+        put = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type="put")
 
         # Both prices should be reasonable
         assert call.american_price > 0
@@ -362,20 +345,14 @@ class TestLSMPricer:
 
     def test_price_increases_with_vol(self, lsm_pricer):
         """Higher vol should give higher option price."""
-        low_vol = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.15, option_type='put'
-        )
-        high_vol = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.40, option_type='put'
-        )
+        low_vol = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.15, option_type="put")
+        high_vol = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.40, option_type="put")
 
         assert high_vol.american_price > low_vol.american_price
 
     def test_summary_format(self, lsm_pricer):
         """Summary should contain key fields."""
-        result = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20
-        )
+        result = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.20)
         summary = result.summary()
 
         assert "Least-Squares Monte Carlo" in summary
@@ -385,9 +362,7 @@ class TestLSMPricer:
 
     def test_std_error_reasonable(self, lsm_pricer):
         """Standard error should be small relative to price."""
-        result = lsm_pricer.price(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20
-        )
+        result = lsm_pricer.price(S0=100, K=100, T=0.25, r=0.05, sigma=0.20)
 
         # Std error should be < 10% of price
         if result.american_price > 0.1:
@@ -397,10 +372,15 @@ class TestLSMPricer:
         """LSM should handle discrete dividends."""
         pricer = LSMPricer(n_paths=5000, seed=42)
         result = pricer.price(
-            S0=100, K=95, T=0.5, r=0.05, sigma=0.20,
-            option_type='call', q=0.0,
-            dividend_dates=[60],       # Ex-div at ~60 steps
-            dividend_amounts=[1.50]    # $1.50 dividend
+            S0=100,
+            K=95,
+            T=0.5,
+            r=0.05,
+            sigma=0.20,
+            option_type="call",
+            q=0.0,
+            dividend_dates=[60],  # Ex-div at ~60 steps
+            dividend_amounts=[1.50],  # $1.50 dividend
         )
 
         assert result.american_price > 0
@@ -413,14 +393,14 @@ class TestLSMPricer:
 # 4. Convenience Function Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestConvenienceFunctions:
     """Tests for top-level convenience functions."""
 
     def test_run_bootstrap_analysis(self, daily_returns):
         """Convenience function should work end-to-end."""
         result = run_bootstrap_analysis(
-            daily_returns, n_simulations=200, n_days=126,
-            initial_capital=50000, seed=42
+            daily_returns, n_simulations=200, n_days=126, initial_capital=50000, seed=42
         )
 
         assert isinstance(result, BootstrapResult)
@@ -429,9 +409,7 @@ class TestConvenienceFunctions:
     def test_run_bagholder_analysis(self):
         """Convenience function for bagholder analysis."""
         result = run_bagholder_analysis(
-            S0=150, strike=140, sigma=0.30,
-            n_simulations=1000, horizon_days=252,
-            seed=42
+            S0=150, strike=140, sigma=0.30, n_simulations=1000, horizon_days=252, seed=42
         )
 
         assert isinstance(result, JumpDiffusionResult)
@@ -440,8 +418,7 @@ class TestConvenienceFunctions:
     def test_price_american_option(self):
         """Convenience function for American pricing."""
         result = price_american_option(
-            S0=100, K=100, T=0.25, r=0.05, sigma=0.20,
-            option_type='put', n_paths=2000, seed=42
+            S0=100, K=100, T=0.25, r=0.05, sigma=0.20, option_type="put", n_paths=2000, seed=42
         )
 
         assert isinstance(result, LSMResult)
@@ -451,6 +428,7 @@ class TestConvenienceFunctions:
 # ─────────────────────────────────────────────────────────────────────
 # 5. Laguerre Basis Test
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestLaguerreBasis:
     """Tests for the regression basis used in LSM."""

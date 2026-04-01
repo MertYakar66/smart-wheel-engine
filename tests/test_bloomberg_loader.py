@@ -4,7 +4,6 @@ Tests for Bloomberg Data Ingestion
 Tests use temporary CSV files that mimic Bloomberg Excel export formats.
 """
 
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -32,11 +31,19 @@ from data.pipeline import DataPipeline
 # Fixtures — temporary Bloomberg-formatted CSV files
 # ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def tmp_bloomberg_dir(tmp_path):
     """Create a temporary Bloomberg data directory structure."""
-    for subdir in ["ohlcv", "options", "earnings", "dividends",
-                   "iv_history", "rates", "fundamentals"]:
+    for subdir in [
+        "ohlcv",
+        "options",
+        "earnings",
+        "dividends",
+        "iv_history",
+        "rates",
+        "fundamentals",
+    ]:
         (tmp_path / subdir).mkdir()
     return tmp_path
 
@@ -45,14 +52,16 @@ def tmp_bloomberg_dir(tmp_path):
 def sample_ohlcv_csv(tmp_bloomberg_dir):
     """Create a sample Bloomberg OHLCV CSV."""
     dates = pd.bdate_range("2024-01-02", periods=100)
-    df = pd.DataFrame({
-        "Date": dates.strftime("%m/%d/%Y"),  # Bloomberg date format
-        "PX_OPEN": np.random.uniform(148, 152, 100),
-        "PX_HIGH": np.random.uniform(150, 155, 100),
-        "PX_LOW": np.random.uniform(145, 150, 100),
-        "PX_LAST": np.random.uniform(148, 153, 100),
-        "PX_VOLUME": np.random.randint(10000000, 50000000, 100),
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates.strftime("%m/%d/%Y"),  # Bloomberg date format
+            "PX_OPEN": np.random.uniform(148, 152, 100),
+            "PX_HIGH": np.random.uniform(150, 155, 100),
+            "PX_LOW": np.random.uniform(145, 150, 100),
+            "PX_LAST": np.random.uniform(148, 153, 100),
+            "PX_VOLUME": np.random.randint(10000000, 50000000, 100),
+        }
+    )
     filepath = tmp_bloomberg_dir / "ohlcv" / "AAPL.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -61,22 +70,42 @@ def sample_ohlcv_csv(tmp_bloomberg_dir):
 @pytest.fixture
 def sample_options_csv(tmp_bloomberg_dir):
     """Create a sample Bloomberg option chain CSV."""
-    df = pd.DataFrame({
-        "OPT_STRIKE_PX": [140, 145, 150, 155, 160, 140, 145, 150, 155, 160],
-        "OPT_PUT_CALL": ["Call", "Call", "Call", "Call", "Call",
-                          "Put", "Put", "Put", "Put", "Put"],
-        "OPT_EXPIRE_DT": ["03/21/2025"] * 10,
-        "BID": [12.5, 8.3, 4.8, 2.1, 0.7, 0.6, 1.5, 3.2, 6.1, 10.3],
-        "ASK": [12.8, 8.6, 5.1, 2.4, 0.9, 0.8, 1.7, 3.5, 6.4, 10.6],
-        "OPT_IMPLIED_VOLATILITY_MID": [28.5, 27.3, 26.1, 25.8, 25.2,
-                                       29.1, 27.8, 26.5, 26.0, 25.5],
-        "OPEN_INT": [5000, 12000, 25000, 8000, 3000,
-                     4000, 10000, 20000, 7000, 2500],
-        "VOLUME": [500, 1200, 3000, 800, 200, 400, 900, 2500, 600, 150],
-        "OPT_DELTA": [0.85, 0.72, 0.52, 0.28, 0.12,
-                      -0.15, -0.28, -0.48, -0.72, -0.88],
-        "OPT_UNDL_PX": [150.0] * 10,
-    })
+    df = pd.DataFrame(
+        {
+            "OPT_STRIKE_PX": [140, 145, 150, 155, 160, 140, 145, 150, 155, 160],
+            "OPT_PUT_CALL": [
+                "Call",
+                "Call",
+                "Call",
+                "Call",
+                "Call",
+                "Put",
+                "Put",
+                "Put",
+                "Put",
+                "Put",
+            ],
+            "OPT_EXPIRE_DT": ["03/21/2025"] * 10,
+            "BID": [12.5, 8.3, 4.8, 2.1, 0.7, 0.6, 1.5, 3.2, 6.1, 10.3],
+            "ASK": [12.8, 8.6, 5.1, 2.4, 0.9, 0.8, 1.7, 3.5, 6.4, 10.6],
+            "OPT_IMPLIED_VOLATILITY_MID": [
+                28.5,
+                27.3,
+                26.1,
+                25.8,
+                25.2,
+                29.1,
+                27.8,
+                26.5,
+                26.0,
+                25.5,
+            ],
+            "OPEN_INT": [5000, 12000, 25000, 8000, 3000, 4000, 10000, 20000, 7000, 2500],
+            "VOLUME": [500, 1200, 3000, 800, 200, 400, 900, 2500, 600, 150],
+            "OPT_DELTA": [0.85, 0.72, 0.52, 0.28, 0.12, -0.15, -0.28, -0.48, -0.72, -0.88],
+            "OPT_UNDL_PX": [150.0] * 10,
+        }
+    )
     filepath = tmp_bloomberg_dir / "options" / "AAPL.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -85,14 +114,22 @@ def sample_options_csv(tmp_bloomberg_dir):
 @pytest.fixture
 def sample_earnings_csv(tmp_bloomberg_dir):
     """Create a sample Bloomberg earnings CSV."""
-    df = pd.DataFrame({
-        "Date": ["01/25/2024", "04/25/2024", "07/25/2024", "10/31/2024",
-                 "01/30/2025", "04/24/2025"],
-        "IS_EPS": [2.18, 1.53, 1.40, 1.64, 2.40, None],
-        "BEST_EPS_MEDIAN": [2.10, 1.50, 1.35, 1.60, 2.35, 2.55],
-        "EARN_EST_EPS_SURPRISE_PCT": [3.81, 2.00, 3.70, 2.50, 2.13, None],
-        "EARNING_ANNOUNCEMENT_TIMING": ["AMC", "AMC", "AMC", "AMC", "AMC", "AMC"],
-    })
+    df = pd.DataFrame(
+        {
+            "Date": [
+                "01/25/2024",
+                "04/25/2024",
+                "07/25/2024",
+                "10/31/2024",
+                "01/30/2025",
+                "04/24/2025",
+            ],
+            "IS_EPS": [2.18, 1.53, 1.40, 1.64, 2.40, None],
+            "BEST_EPS_MEDIAN": [2.10, 1.50, 1.35, 1.60, 2.35, 2.55],
+            "EARN_EST_EPS_SURPRISE_PCT": [3.81, 2.00, 3.70, 2.50, 2.13, None],
+            "EARNING_ANNOUNCEMENT_TIMING": ["AMC", "AMC", "AMC", "AMC", "AMC", "AMC"],
+        }
+    )
     filepath = tmp_bloomberg_dir / "earnings" / "AAPL.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -101,16 +138,15 @@ def sample_earnings_csv(tmp_bloomberg_dir):
 @pytest.fixture
 def sample_dividends_csv(tmp_bloomberg_dir):
     """Create a sample Bloomberg dividend CSV."""
-    df = pd.DataFrame({
-        "DVD_EX_DT": ["02/09/2024", "05/10/2024", "08/12/2024",
-                       "11/01/2024", "02/07/2025"],
-        "DVD_RECORD_DT": ["02/12/2024", "05/13/2024", "08/12/2024",
-                           "11/01/2024", "02/10/2025"],
-        "DVD_PAY_DT": ["02/15/2024", "05/16/2024", "08/15/2024",
-                        "11/07/2024", "02/13/2025"],
-        "DVD_SH_LAST": [0.24, 0.25, 0.25, 0.25, 0.25],
-        "DVD_FREQ": ["Quarterly"] * 5,
-    })
+    df = pd.DataFrame(
+        {
+            "DVD_EX_DT": ["02/09/2024", "05/10/2024", "08/12/2024", "11/01/2024", "02/07/2025"],
+            "DVD_RECORD_DT": ["02/12/2024", "05/13/2024", "08/12/2024", "11/01/2024", "02/10/2025"],
+            "DVD_PAY_DT": ["02/15/2024", "05/16/2024", "08/15/2024", "11/07/2024", "02/13/2025"],
+            "DVD_SH_LAST": [0.24, 0.25, 0.25, 0.25, 0.25],
+            "DVD_FREQ": ["Quarterly"] * 5,
+        }
+    )
     filepath = tmp_bloomberg_dir / "dividends" / "AAPL.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -120,15 +156,17 @@ def sample_dividends_csv(tmp_bloomberg_dir):
 def sample_iv_history_csv(tmp_bloomberg_dir):
     """Create a sample Bloomberg IV history CSV."""
     dates = pd.bdate_range("2024-01-02", periods=300)
-    df = pd.DataFrame({
-        "Date": dates.strftime("%m/%d/%Y"),
-        "30DAY_IMPVOL_100.0%MNY_DF": np.random.uniform(20, 35, 300),
-        "60DAY_IMPVOL_100.0%MNY_DF": np.random.uniform(22, 33, 300),
-        "30DAY_IMPVOL_90.0%MNY_DF": np.random.uniform(25, 40, 300),
-        "30DAY_IMPVOL_110.0%MNY_DF": np.random.uniform(18, 30, 300),
-        "20DAY_HV": np.random.uniform(15, 40, 300),
-        "60DAY_HV": np.random.uniform(18, 35, 300),
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates.strftime("%m/%d/%Y"),
+            "30DAY_IMPVOL_100.0%MNY_DF": np.random.uniform(20, 35, 300),
+            "60DAY_IMPVOL_100.0%MNY_DF": np.random.uniform(22, 33, 300),
+            "30DAY_IMPVOL_90.0%MNY_DF": np.random.uniform(25, 40, 300),
+            "30DAY_IMPVOL_110.0%MNY_DF": np.random.uniform(18, 30, 300),
+            "20DAY_HV": np.random.uniform(15, 40, 300),
+            "60DAY_HV": np.random.uniform(18, 35, 300),
+        }
+    )
     filepath = tmp_bloomberg_dir / "iv_history" / "AAPL.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -138,10 +176,12 @@ def sample_iv_history_csv(tmp_bloomberg_dir):
 def sample_rates_csv(tmp_bloomberg_dir):
     """Create a sample Treasury yields CSV."""
     dates = pd.bdate_range("2024-01-02", periods=100)
-    df = pd.DataFrame({
-        "Date": dates.strftime("%m/%d/%Y"),
-        "PX_LAST": np.random.uniform(4.5, 5.5, 100),
-    })
+    df = pd.DataFrame(
+        {
+            "Date": dates.strftime("%m/%d/%Y"),
+            "PX_LAST": np.random.uniform(4.5, 5.5, 100),
+        }
+    )
     filepath = tmp_bloomberg_dir / "rates" / "treasury_yields.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -150,14 +190,16 @@ def sample_rates_csv(tmp_bloomberg_dir):
 @pytest.fixture
 def sample_fundamentals_csv(tmp_bloomberg_dir):
     """Create a sample fundamentals CSV."""
-    df = pd.DataFrame({
-        "Security": ["AAPL US Equity", "MSFT US Equity", "JPM US Equity"],
-        "CUR_MKT_CAP": [3500000, 3200000, 580000],
-        "GICS_SECTOR_NAME": ["Information Technology", "Information Technology", "Financials"],
-        "GICS_INDUSTRY_GROUP_NAME": ["Technology Hardware", "Software", "Banks"],
-        "EQY_DVD_YLD_IND": [0.44, 0.72, 2.10],
-        "PE_RATIO": [32.5, 35.2, 12.8],
-    })
+    df = pd.DataFrame(
+        {
+            "Security": ["AAPL US Equity", "MSFT US Equity", "JPM US Equity"],
+            "CUR_MKT_CAP": [3500000, 3200000, 580000],
+            "GICS_SECTOR_NAME": ["Information Technology", "Information Technology", "Financials"],
+            "GICS_INDUSTRY_GROUP_NAME": ["Technology Hardware", "Software", "Banks"],
+            "EQY_DVD_YLD_IND": [0.44, 0.72, 2.10],
+            "PE_RATIO": [32.5, 35.2, 12.8],
+        }
+    )
     filepath = tmp_bloomberg_dir / "fundamentals" / "sp500_fundamentals.csv"
     df.to_csv(filepath, index=False)
     return tmp_bloomberg_dir
@@ -166,6 +208,7 @@ def sample_fundamentals_csv(tmp_bloomberg_dir):
 # ─────────────────────────────────────────────────────────────────────
 # 1. OHLCV Tests
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestOHLCVLoader:
     """Tests for Bloomberg OHLCV loading."""
@@ -213,6 +256,7 @@ class TestOHLCVLoader:
 # ─────────────────────────────────────────────────────────────────────
 # 2. Options Tests
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestOptionsLoader:
     """Tests for Bloomberg option chain loading."""
@@ -262,6 +306,7 @@ class TestOptionsLoader:
 # 3. Earnings Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestEarningsLoader:
     """Tests for Bloomberg earnings loading."""
 
@@ -306,6 +351,7 @@ class TestEarningsLoader:
 # 4. Dividend Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestDividendLoader:
     """Tests for Bloomberg dividend loading."""
 
@@ -347,6 +393,7 @@ class TestDividendLoader:
 # 5. IV History Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestIVHistoryLoader:
     """Tests for Bloomberg IV history loading."""
 
@@ -387,6 +434,7 @@ class TestIVHistoryLoader:
 # 6. Rates Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestRatesLoader:
     """Tests for Treasury rates loading."""
 
@@ -424,6 +472,7 @@ class TestRatesLoader:
 # 7. Fundamentals Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestFundamentalsLoader:
     """Tests for company fundamentals loading."""
 
@@ -456,6 +505,7 @@ class TestFundamentalsLoader:
 # 8. Pipeline Tests
 # ─────────────────────────────────────────────────────────────────────
 
+
 class TestDataPipeline:
     """Tests for the master data pipeline."""
 
@@ -464,33 +514,41 @@ class TestDataPipeline:
         """Create directory with all data types."""
         # OHLCV
         dates = pd.bdate_range("2024-01-02", periods=100)
-        ohlcv = pd.DataFrame({
-            "Date": dates.strftime("%Y-%m-%d"),
-            "PX_OPEN": 150.0, "PX_HIGH": 155.0,
-            "PX_LOW": 148.0, "PX_LAST": 152.0,
-            "PX_VOLUME": 30000000,
-        })
+        ohlcv = pd.DataFrame(
+            {
+                "Date": dates.strftime("%Y-%m-%d"),
+                "PX_OPEN": 150.0,
+                "PX_HIGH": 155.0,
+                "PX_LOW": 148.0,
+                "PX_LAST": 152.0,
+                "PX_VOLUME": 30000000,
+            }
+        )
         ohlcv.to_csv(tmp_bloomberg_dir / "ohlcv" / "AAPL.csv", index=False)
 
         # Options
-        opts = pd.DataFrame({
-            "OPT_STRIKE_PX": [145, 150, 155],
-            "OPT_PUT_CALL": ["Put", "Put", "Put"],
-            "OPT_EXPIRE_DT": ["03/21/2025"] * 3,
-            "BID": [1.5, 3.2, 6.1],
-            "ASK": [1.7, 3.5, 6.4],
-            "OPT_IMPLIED_VOLATILITY_MID": [27.8, 26.5, 26.0],
-            "OPEN_INT": [10000, 20000, 7000],
-            "VOLUME": [900, 2500, 600],
-            "OPT_UNDL_PX": [152.0] * 3,
-        })
+        opts = pd.DataFrame(
+            {
+                "OPT_STRIKE_PX": [145, 150, 155],
+                "OPT_PUT_CALL": ["Put", "Put", "Put"],
+                "OPT_EXPIRE_DT": ["03/21/2025"] * 3,
+                "BID": [1.5, 3.2, 6.1],
+                "ASK": [1.7, 3.5, 6.4],
+                "OPT_IMPLIED_VOLATILITY_MID": [27.8, 26.5, 26.0],
+                "OPEN_INT": [10000, 20000, 7000],
+                "VOLUME": [900, 2500, 600],
+                "OPT_UNDL_PX": [152.0] * 3,
+            }
+        )
         opts.to_csv(tmp_bloomberg_dir / "options" / "AAPL.csv", index=False)
 
         # Rates
-        rates = pd.DataFrame({
-            "Date": dates[:50].strftime("%Y-%m-%d"),
-            "PX_LAST": [5.25] * 50,
-        })
+        rates = pd.DataFrame(
+            {
+                "Date": dates[:50].strftime("%Y-%m-%d"),
+                "PX_LAST": [5.25] * 50,
+            }
+        )
         rates.to_csv(tmp_bloomberg_dir / "rates" / "treasury_yields.csv", index=False)
 
         return tmp_bloomberg_dir
@@ -544,8 +602,15 @@ class TestDataPipeline:
     def test_pipeline_empty_dir(self, tmp_path):
         """Pipeline should handle empty directory gracefully."""
         empty_dir = tmp_path / "empty_bbg"
-        for subdir in ["ohlcv", "options", "earnings", "dividends",
-                       "iv_history", "rates", "fundamentals"]:
+        for subdir in [
+            "ohlcv",
+            "options",
+            "earnings",
+            "dividends",
+            "iv_history",
+            "rates",
+            "fundamentals",
+        ]:
             (empty_dir / subdir).mkdir(parents=True)
 
         pipeline = DataPipeline(data_dir=str(empty_dir))
@@ -597,6 +662,7 @@ class TestDataPipeline:
 # ─────────────────────────────────────────────────────────────────────
 # 9. Utility Tests
 # ─────────────────────────────────────────────────────────────────────
+
 
 class TestUtilities:
     """Tests for internal utility functions."""

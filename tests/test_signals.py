@@ -24,7 +24,7 @@ class TestIVRankSignal:
         """High IV rank should be bullish for selling."""
         signal_gen = IVRankSignal(high_threshold=0.50)
 
-        signal = signal_gen.generate({'iv_rank': 0.80})
+        signal = signal_gen.generate({"iv_rank": 0.80})
 
         assert signal.strength in [SignalStrength.STRONG_BUY, SignalStrength.WEAK_BUY]
         assert signal.value > 0
@@ -33,7 +33,7 @@ class TestIVRankSignal:
         """Low IV rank should be bearish for selling."""
         signal_gen = IVRankSignal(low_threshold=0.20)
 
-        signal = signal_gen.generate({'iv_rank': 0.10})
+        signal = signal_gen.generate({"iv_rank": 0.10})
 
         assert signal.strength == SignalStrength.WEAK_SELL
         assert signal.value < 0
@@ -42,7 +42,7 @@ class TestIVRankSignal:
         """Middle IV rank should be neutral."""
         signal_gen = IVRankSignal(high_threshold=0.50, low_threshold=0.20)
 
-        signal = signal_gen.generate({'iv_rank': 0.35})
+        signal = signal_gen.generate({"iv_rank": 0.35})
 
         assert signal.strength == SignalStrength.NEUTRAL
         assert signal.value == 0
@@ -55,7 +55,7 @@ class TestTrendSignal:
         """Uptrend should be bullish."""
         signal_gen = TrendSignal()
 
-        signal = signal_gen.generate({'trend_direction': 0.5})
+        signal = signal_gen.generate({"trend_direction": 0.5})
 
         assert signal.strength in [SignalStrength.STRONG_BUY, SignalStrength.WEAK_BUY]
         assert signal.value > 0
@@ -64,7 +64,7 @@ class TestTrendSignal:
         """Downtrend should be bearish."""
         signal_gen = TrendSignal()
 
-        signal = signal_gen.generate({'trend_direction': -0.5})
+        signal = signal_gen.generate({"trend_direction": -0.5})
 
         assert signal.strength in [SignalStrength.STRONG_SELL, SignalStrength.WEAK_SELL]
         assert signal.value < 0
@@ -75,7 +75,7 @@ class TestTrendSignal:
 
         # Uptrending prices
         prices = pd.Series([100, 101, 102, 103, 104, 105])
-        signal = signal_gen.generate({'prices': prices})
+        signal = signal_gen.generate({"prices": prices})
 
         assert signal.value > 0
 
@@ -87,10 +87,12 @@ class TestProfitTargetSignal:
         """Should signal exit when profit target reached."""
         signal_gen = ProfitTargetSignal(target_pct=0.50)
 
-        signal = signal_gen.generate({
-            'entry_credit': 2.00,
-            'current_value': 0.80  # 60% profit
-        })
+        signal = signal_gen.generate(
+            {
+                "entry_credit": 2.00,
+                "current_value": 0.80,  # 60% profit
+            }
+        )
 
         assert signal.strength in [SignalStrength.STRONG_BUY, SignalStrength.WEAK_BUY]
         assert "target reached" in signal.reason.lower() or "profit" in signal.reason.lower()
@@ -99,10 +101,12 @@ class TestProfitTargetSignal:
         """Should not signal exit when below target."""
         signal_gen = ProfitTargetSignal(target_pct=0.50)
 
-        signal = signal_gen.generate({
-            'entry_credit': 2.00,
-            'current_value': 1.50  # Only 25% profit
-        })
+        signal = signal_gen.generate(
+            {
+                "entry_credit": 2.00,
+                "current_value": 1.50,  # Only 25% profit
+            }
+        )
 
         assert signal.strength == SignalStrength.NEUTRAL
 
@@ -114,10 +118,12 @@ class TestStopLossSignal:
         """Should signal exit when stop triggered."""
         signal_gen = StopLossSignal(stop_multiplier=2.0)
 
-        signal = signal_gen.generate({
-            'entry_credit': 1.00,
-            'current_value': 2.50  # 2.5x credit = stop triggered
-        })
+        signal = signal_gen.generate(
+            {
+                "entry_credit": 1.00,
+                "current_value": 2.50,  # 2.5x credit = stop triggered
+            }
+        )
 
         assert signal.strength == SignalStrength.STRONG_BUY
         assert "stop" in signal.reason.lower()
@@ -126,10 +132,12 @@ class TestStopLossSignal:
         """Should not signal when within stop."""
         signal_gen = StopLossSignal(stop_multiplier=2.0)
 
-        signal = signal_gen.generate({
-            'entry_credit': 1.00,
-            'current_value': 1.20  # 1.2x credit = OK
-        })
+        signal = signal_gen.generate(
+            {
+                "entry_credit": 1.00,
+                "current_value": 1.20,  # 1.2x credit = OK
+            }
+        )
 
         assert signal.strength == SignalStrength.NEUTRAL
 
@@ -141,10 +149,7 @@ class TestDTESignal:
         """Should signal exit at low DTE."""
         signal_gen = DTESignal(exit_dte=5)
 
-        signal = signal_gen.generate({
-            'dte': 3,
-            'is_entry': False
-        })
+        signal = signal_gen.generate({"dte": 3, "is_entry": False})
 
         assert signal.strength == SignalStrength.STRONG_BUY
         assert signal.signal_type == SignalType.EXIT
@@ -153,10 +158,7 @@ class TestDTESignal:
         """Should signal entry at ideal DTE."""
         signal_gen = DTESignal(ideal_dte=35)
 
-        signal = signal_gen.generate({
-            'dte': 35,
-            'is_entry': True
-        })
+        signal = signal_gen.generate({"dte": 35, "is_entry": True})
 
         assert signal.strength in [SignalStrength.STRONG_BUY, SignalStrength.WEAK_BUY]
         assert signal.signal_type == SignalType.ENTRY
@@ -169,9 +171,7 @@ class TestEventFilterSignal:
         """Should block trade near earnings."""
         signal_gen = EventFilterSignal(earnings_buffer_days=5)
 
-        signal = signal_gen.generate({
-            'days_to_earnings': 3
-        })
+        signal = signal_gen.generate({"days_to_earnings": 3})
 
         assert signal.strength == SignalStrength.STRONG_SELL
         assert "block" in signal.reason.lower()
@@ -180,10 +180,7 @@ class TestEventFilterSignal:
         """Should not block when no events."""
         signal_gen = EventFilterSignal()
 
-        signal = signal_gen.generate({
-            'days_to_earnings': None,
-            'days_to_fomc': None
-        })
+        signal = signal_gen.generate({"days_to_earnings": None, "days_to_fomc": None})
 
         assert signal.strength == SignalStrength.NEUTRAL
 
@@ -195,11 +192,7 @@ class TestSignalAggregator:
         """Should evaluate entry signals."""
         aggregator = SignalAggregator()
 
-        context = {
-            'iv_rank': 0.70,
-            'trend_direction': 0.3,
-            'dte': 35
-        }
+        context = {"iv_rank": 0.70, "trend_direction": 0.3, "dte": 35}
 
         composite = aggregator.evaluate_entry(context)
 
@@ -213,9 +206,9 @@ class TestSignalAggregator:
         aggregator = SignalAggregator(exit_threshold=0.05)
 
         context = {
-            'entry_credit': 2.00,
-            'current_value': 0.80,  # 60% profit
-            'dte': 20
+            "entry_credit": 2.00,
+            "current_value": 0.80,  # 60% profit
+            "dte": 20,
         }
 
         composite = aggregator.evaluate_exit(context)
@@ -225,7 +218,7 @@ class TestSignalAggregator:
         actionable_signals = [s for s in composite.signals if s.is_actionable]
         assert len(actionable_signals) > 0
         # The profit target signal should be strong
-        profit_signal = [s for s in composite.signals if 'profit' in s.name.lower()]
+        profit_signal = [s for s in composite.signals if "profit" in s.name.lower()]
         assert len(profit_signal) > 0
         assert profit_signal[0].strength == SignalStrength.STRONG_BUY
 
@@ -234,10 +227,10 @@ class TestSignalAggregator:
         aggregator = SignalAggregator()
 
         context = {
-            'iv_rank': 0.90,  # Very favorable
-            'trend_direction': 0.5,  # Uptrend
-            'dte': 35,
-            'days_to_earnings': 2  # But earnings coming!
+            "iv_rank": 0.90,  # Very favorable
+            "trend_direction": 0.5,  # Uptrend
+            "dte": 35,
+            "days_to_earnings": 2,  # But earnings coming!
         }
 
         composite = aggregator.evaluate_entry(context)
@@ -262,11 +255,11 @@ class TestCreateDefaultAggregator:
         aggregator = create_default_aggregator()
 
         context = {
-            'iv_rank': 0.60,
-            'trend_direction': 0.2,
-            'dte': 30,
-            'entry_credit': 2.00,
-            'current_value': 1.80
+            "iv_rank": 0.60,
+            "trend_direction": 0.2,
+            "dte": 30,
+            "entry_credit": 2.00,
+            "current_value": 1.80,
         }
 
         entry_signal = aggregator.evaluate_entry(context)

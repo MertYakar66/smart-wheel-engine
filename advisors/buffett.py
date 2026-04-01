@@ -180,9 +180,7 @@ YOUR TONE:
         # EARNINGS RISK
         # =====================================================================
         if earnings["has_earnings"]:
-            hidden_risks.append(
-                "Earnings event before expiration introduces binary risk"
-            )
+            hidden_risks.append("Earnings event before expiration introduces binary risk")
             critical_questions.append(
                 "Are you comfortable holding through earnings? What's the worst-case scenario?"
             )
@@ -229,14 +227,10 @@ YOUR TONE:
             )
         elif negative_signals >= 2 and positive_signals < 2:
             judgment = Judgment.REJECT
-            judgment_summary = (
-                "The risk/reward profile does not justify the commitment of capital."
-            )
+            judgment_summary = "The risk/reward profile does not justify the commitment of capital."
         elif positive_signals >= 3 and negative_signals <= 1:
             judgment = Judgment.APPROVE
-            judgment_summary = (
-                f"Quality business at reasonable terms. Would be pleased to own {trade.ticker} if assigned."
-            )
+            judgment_summary = f"Quality business at reasonable terms. Would be pleased to own {trade.ticker} if assigned."
         elif positive_signals >= 4:
             judgment = Judgment.STRONG_APPROVE
             judgment_summary = (

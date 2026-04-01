@@ -52,14 +52,14 @@ class TechnicalFeatures:
             return rsi
 
         # Canonical Wilder bootstrap: first avg uses simple mean
-        first_avg_gain = gain.iloc[1:window + 1].mean()
-        first_avg_loss = loss.iloc[1:window + 1].mean()
+        first_avg_gain = gain.iloc[1 : window + 1].mean()
+        first_avg_loss = loss.iloc[1 : window + 1].mean()
 
         # Build smoothed averages using Wilder's recursive formula
         avg_gains = np.zeros(len(close))
         avg_losses = np.zeros(len(close))
-        avg_gains[:window + 1] = np.nan
-        avg_losses[:window + 1] = np.nan
+        avg_gains[: window + 1] = np.nan
+        avg_losses[: window + 1] = np.nan
         avg_gains[window] = first_avg_gain
         avg_losses[window] = first_avg_loss
 
@@ -342,7 +342,7 @@ class TechnicalFeatures:
                 sub_n = n // divisor
                 rs_sub = []
                 for i in range(divisor):
-                    sub_returns = returns.iloc[i * sub_n:(i + 1) * sub_n]
+                    sub_returns = returns.iloc[i * sub_n : (i + 1) * sub_n]
                     if len(sub_returns) < 2:
                         continue
                     # Cumulative deviation from mean
@@ -364,8 +364,9 @@ class TechnicalFeatures:
 
             # Simple linear regression slope
             n_pts = len(log_n)
-            slope = (n_pts * np.sum(log_n * log_rs) - np.sum(log_n) * np.sum(log_rs)) / \
-                    (n_pts * np.sum(log_n ** 2) - np.sum(log_n) ** 2)
+            slope = (n_pts * np.sum(log_n * log_rs) - np.sum(log_n) * np.sum(log_rs)) / (
+                n_pts * np.sum(log_n**2) - np.sum(log_n) ** 2
+            )
 
             return np.clip(slope, 0, 1)
 

@@ -41,7 +41,7 @@ class TestIVValidation:
 
     def test_nan_iv(self):
         """NaN IV should return None."""
-        iv, warning = validate_and_normalize_iv(float('nan'))
+        iv, warning = validate_and_normalize_iv(float("nan"))
         assert iv is None
         assert "NaN" in warning
 
@@ -69,15 +69,17 @@ class TestOptionDataValidation:
 
     def test_valid_data(self):
         """Valid data should pass validation."""
-        df = pd.DataFrame({
-            'strike': [100, 105],
-            'bid': [2.00, 1.50],
-            'ask': [2.10, 1.60],
-            'implied_vol': [0.25, 0.30],
-            'underlying_price': [100, 100],
-            'option_type': ['P', 'C'],
-            'mid_price': [2.05, 1.55]
-        })
+        df = pd.DataFrame(
+            {
+                "strike": [100, 105],
+                "bid": [2.00, 1.50],
+                "ask": [2.10, 1.60],
+                "implied_vol": [0.25, 0.30],
+                "underlying_price": [100, 100],
+                "option_type": ["P", "C"],
+                "mid_price": [2.05, 1.55],
+            }
+        )
 
         result = validate_option_data(df)
         assert len(result.valid_df) == 2
@@ -85,45 +87,51 @@ class TestOptionDataValidation:
 
     def test_bid_greater_than_ask(self):
         """Bid > Ask should be flagged as error."""
-        df = pd.DataFrame({
-            'strike': [100],
-            'bid': [2.50],  # Bid > Ask is invalid
-            'ask': [2.00],
-            'implied_vol': [0.25],
-            'underlying_price': [100],
-        })
+        df = pd.DataFrame(
+            {
+                "strike": [100],
+                "bid": [2.50],  # Bid > Ask is invalid
+                "ask": [2.00],
+                "implied_vol": [0.25],
+                "underlying_price": [100],
+            }
+        )
 
         result = validate_option_data(df)
         assert len(result.invalid_df) == 1
-        assert any(i.field == 'bid_ask' for i in result.issues)
+        assert any(i.field == "bid_ask" for i in result.issues)
 
     def test_negative_prices(self):
         """Negative prices should be flagged."""
-        df = pd.DataFrame({
-            'strike': [100],
-            'bid': [-1.00],
-            'ask': [2.00],
-            'implied_vol': [0.25],
-            'underlying_price': [100],
-        })
+        df = pd.DataFrame(
+            {
+                "strike": [100],
+                "bid": [-1.00],
+                "ask": [2.00],
+                "implied_vol": [0.25],
+                "underlying_price": [100],
+            }
+        )
 
         result = validate_option_data(df)
         assert len(result.invalid_df) == 1
 
     def test_invalid_iv_flagged(self):
         """Invalid IV should be flagged and removed."""
-        df = pd.DataFrame({
-            'strike': [100, 105],
-            'bid': [2.00, 1.50],
-            'ask': [2.10, 1.60],
-            'implied_vol': [0.25, -0.10],  # Second is invalid
-            'underlying_price': [100, 100],
-        })
+        df = pd.DataFrame(
+            {
+                "strike": [100, 105],
+                "bid": [2.00, 1.50],
+                "ask": [2.10, 1.60],
+                "implied_vol": [0.25, -0.10],  # Second is invalid
+                "underlying_price": [100, 100],
+            }
+        )
 
         result = validate_option_data(df)
         # Invalid IV row should be removed
         assert len(result.invalid_df) == 1
-        assert any(i.field == 'implied_vol' for i in result.issues)
+        assert any(i.field == "implied_vol" for i in result.issues)
 
 
 class TestOHLCVValidation:
@@ -131,13 +139,15 @@ class TestOHLCVValidation:
 
     def test_valid_ohlcv(self):
         """Valid OHLCV should pass."""
-        df = pd.DataFrame({
-            'Date': pd.to_datetime(['2024-01-01', '2024-01-02']),
-            'Open': [100, 101],
-            'High': [102, 103],
-            'Low': [99, 100],
-            'Close': [101, 102],
-        })
+        df = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+                "Open": [100, 101],
+                "High": [102, 103],
+                "Low": [99, 100],
+                "Close": [101, 102],
+            }
+        )
 
         result = validate_ohlcv_data(df)
         assert len(result.valid_df) == 2
@@ -145,26 +155,30 @@ class TestOHLCVValidation:
 
     def test_high_less_than_low(self):
         """High < Low should be flagged."""
-        df = pd.DataFrame({
-            'Date': pd.to_datetime(['2024-01-01']),
-            'Open': [100],
-            'High': [95],  # Less than Low
-            'Low': [99],
-            'Close': [97],
-        })
+        df = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2024-01-01"]),
+                "Open": [100],
+                "High": [95],  # Less than Low
+                "Low": [99],
+                "Close": [97],
+            }
+        )
 
         result = validate_ohlcv_data(df)
         assert len(result.invalid_df) == 1
 
     def test_negative_prices(self):
         """Negative OHLCV prices should be flagged."""
-        df = pd.DataFrame({
-            'Date': pd.to_datetime(['2024-01-01']),
-            'Open': [-100],  # Negative
-            'High': [102],
-            'Low': [99],
-            'Close': [101],
-        })
+        df = pd.DataFrame(
+            {
+                "Date": pd.to_datetime(["2024-01-01"]),
+                "Open": [-100],  # Negative
+                "High": [102],
+                "Low": [99],
+                "Close": [101],
+            }
+        )
 
         result = validate_ohlcv_data(df)
         assert len(result.invalid_df) == 1
@@ -175,39 +189,45 @@ class TestLiquidityFilter:
 
     def test_filters_low_oi(self):
         """Options with low OI should be filtered."""
-        df = pd.DataFrame({
-            'bid': [2.00, 2.00],
-            'ask': [2.10, 2.10],
-            'open_interest': [50, 200],  # First below threshold
-        })
+        df = pd.DataFrame(
+            {
+                "bid": [2.00, 2.00],
+                "ask": [2.10, 2.10],
+                "open_interest": [50, 200],  # First below threshold
+            }
+        )
 
         filtered = apply_liquidity_filter(df, min_open_interest=100)
         assert len(filtered) == 1
-        assert filtered.iloc[0]['open_interest'] == 200
+        assert filtered.iloc[0]["open_interest"] == 200
 
     def test_filters_zero_bid(self):
         """Options with zero bid should be filtered."""
-        df = pd.DataFrame({
-            'bid': [0.00, 2.00],
-            'ask': [2.10, 2.10],
-            'open_interest': [200, 200],
-        })
+        df = pd.DataFrame(
+            {
+                "bid": [0.00, 2.00],
+                "ask": [2.10, 2.10],
+                "open_interest": [200, 200],
+            }
+        )
 
         filtered = apply_liquidity_filter(df, min_bid=0.01)
         assert len(filtered) == 1
-        assert filtered.iloc[0]['bid'] == 2.00
+        assert filtered.iloc[0]["bid"] == 2.00
 
     def test_filters_wide_spread(self):
         """Options with wide spread should be filtered."""
-        df = pd.DataFrame({
-            'bid': [1.00, 2.00],
-            'ask': [2.00, 2.20],  # First has 67% spread, second has 9%
-            'open_interest': [200, 200],
-        })
+        df = pd.DataFrame(
+            {
+                "bid": [1.00, 2.00],
+                "ask": [2.00, 2.20],  # First has 67% spread, second has 9%
+                "open_interest": [200, 200],
+            }
+        )
 
         filtered = apply_liquidity_filter(df, max_spread_pct=0.50)
         assert len(filtered) == 1
-        assert filtered.iloc[0]['bid'] == 2.00
+        assert filtered.iloc[0]["bid"] == 2.00
 
 
 if __name__ == "__main__":

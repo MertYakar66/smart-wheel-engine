@@ -34,6 +34,7 @@ def _make_event_id(event_type: str, date: datetime) -> str:
 # FOMC 2026 SCHEDULE
 # =============================================================================
 
+
 def get_fomc_2026() -> list[ScheduledEvent]:
     """
     2026 FOMC meeting schedule.
@@ -73,20 +74,22 @@ def get_fomc_2026() -> list[ScheduledEvent]:
 
         importance = ImportanceLevel.CRITICAL if has_presser else ImportanceLevel.HIGH
 
-        events.append(ScheduledEvent(
-            event_id=_make_event_id("fomc", scheduled_at),
-            source_id="fed",
-            event_type=EventType.FOMC_DECISION,
-            category_id="fed_rates",
-            scheduled_at=scheduled_at,
-            timezone="America/New_York",
-            importance=importance,
-            pre_run_offset_minutes=15,
-            post_run_offset_minutes=5,
-            title=title,
-            description=f"FOMC {'with' if has_presser else 'without'} press conference",
-            is_recurring=False,
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id("fomc", scheduled_at),
+                source_id="fed",
+                event_type=EventType.FOMC_DECISION,
+                category_id="fed_rates",
+                scheduled_at=scheduled_at,
+                timezone="America/New_York",
+                importance=importance,
+                pre_run_offset_minutes=15,
+                post_run_offset_minutes=5,
+                title=title,
+                description=f"FOMC {'with' if has_presser else 'without'} press conference",
+                is_recurring=False,
+            )
+        )
 
     return events
 
@@ -94,6 +97,7 @@ def get_fomc_2026() -> list[ScheduledEvent]:
 # =============================================================================
 # CPI 2026 SCHEDULE
 # =============================================================================
+
 
 def get_cpi_2026() -> list[ScheduledEvent]:
     """
@@ -106,15 +110,15 @@ def get_cpi_2026() -> list[ScheduledEvent]:
     """
     # CPI release dates for 2026 (8:30 AM ET)
     cpi_dates = [
-        datetime(2026, 1, 14, 8, 30),   # December 2025 CPI
-        datetime(2026, 2, 12, 8, 30),   # January 2026 CPI
-        datetime(2026, 3, 11, 8, 30),   # February 2026 CPI
-        datetime(2026, 4, 14, 8, 30),   # March 2026 CPI
-        datetime(2026, 5, 13, 8, 30),   # April 2026 CPI
-        datetime(2026, 6, 11, 8, 30),   # May 2026 CPI
-        datetime(2026, 7, 14, 8, 30),   # June 2026 CPI
-        datetime(2026, 8, 12, 8, 30),   # July 2026 CPI
-        datetime(2026, 9, 16, 8, 30),   # August 2026 CPI
+        datetime(2026, 1, 14, 8, 30),  # December 2025 CPI
+        datetime(2026, 2, 12, 8, 30),  # January 2026 CPI
+        datetime(2026, 3, 11, 8, 30),  # February 2026 CPI
+        datetime(2026, 4, 14, 8, 30),  # March 2026 CPI
+        datetime(2026, 5, 13, 8, 30),  # April 2026 CPI
+        datetime(2026, 6, 11, 8, 30),  # May 2026 CPI
+        datetime(2026, 7, 14, 8, 30),  # June 2026 CPI
+        datetime(2026, 8, 12, 8, 30),  # July 2026 CPI
+        datetime(2026, 9, 16, 8, 30),  # August 2026 CPI
         datetime(2026, 10, 13, 8, 30),  # September 2026 CPI
         datetime(2026, 11, 12, 8, 30),  # October 2026 CPI
         datetime(2026, 12, 10, 8, 30),  # November 2026 CPI
@@ -126,20 +130,22 @@ def get_cpi_2026() -> list[ScheduledEvent]:
         ref_month = scheduled_at - timedelta(days=30)
         period = ref_month.strftime("%B %Y")
 
-        events.append(ScheduledEvent(
-            event_id=_make_event_id("cpi", scheduled_at),
-            source_id="bls",
-            event_type=EventType.CPI,
-            category_id="inflation",
-            scheduled_at=scheduled_at,
-            timezone="America/New_York",
-            importance=ImportanceLevel.CRITICAL,
-            pre_run_offset_minutes=10,
-            post_run_offset_minutes=3,
-            title=f"CPI - {period}",
-            description=f"Consumer Price Index for {period}",
-            is_recurring=False,
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id("cpi", scheduled_at),
+                source_id="bls",
+                event_type=EventType.CPI,
+                category_id="inflation",
+                scheduled_at=scheduled_at,
+                timezone="America/New_York",
+                importance=ImportanceLevel.CRITICAL,
+                pre_run_offset_minutes=10,
+                post_run_offset_minutes=3,
+                title=f"CPI - {period}",
+                description=f"Consumer Price Index for {period}",
+                is_recurring=False,
+            )
+        )
 
     return events
 
@@ -147,6 +153,7 @@ def get_cpi_2026() -> list[ScheduledEvent]:
 # =============================================================================
 # NFP 2026 SCHEDULE (Employment Situation)
 # =============================================================================
+
 
 def get_nfp_2026() -> list[ScheduledEvent]:
     """
@@ -159,18 +166,18 @@ def get_nfp_2026() -> list[ScheduledEvent]:
     """
     # NFP release dates for 2026 (first Friday, 8:30 AM ET)
     nfp_dates = [
-        datetime(2026, 1, 2, 8, 30),    # December 2025 jobs
-        datetime(2026, 2, 6, 8, 30),    # January 2026 jobs
-        datetime(2026, 3, 6, 8, 30),    # February 2026 jobs
-        datetime(2026, 4, 3, 8, 30),    # March 2026 jobs
-        datetime(2026, 5, 8, 8, 30),    # April 2026 jobs
-        datetime(2026, 6, 5, 8, 30),    # May 2026 jobs
-        datetime(2026, 7, 2, 8, 30),    # June 2026 jobs
-        datetime(2026, 8, 7, 8, 30),    # July 2026 jobs
-        datetime(2026, 9, 4, 8, 30),    # August 2026 jobs
-        datetime(2026, 10, 2, 8, 30),   # September 2026 jobs
-        datetime(2026, 11, 6, 8, 30),   # October 2026 jobs
-        datetime(2026, 12, 4, 8, 30),   # November 2026 jobs
+        datetime(2026, 1, 2, 8, 30),  # December 2025 jobs
+        datetime(2026, 2, 6, 8, 30),  # January 2026 jobs
+        datetime(2026, 3, 6, 8, 30),  # February 2026 jobs
+        datetime(2026, 4, 3, 8, 30),  # March 2026 jobs
+        datetime(2026, 5, 8, 8, 30),  # April 2026 jobs
+        datetime(2026, 6, 5, 8, 30),  # May 2026 jobs
+        datetime(2026, 7, 2, 8, 30),  # June 2026 jobs
+        datetime(2026, 8, 7, 8, 30),  # July 2026 jobs
+        datetime(2026, 9, 4, 8, 30),  # August 2026 jobs
+        datetime(2026, 10, 2, 8, 30),  # September 2026 jobs
+        datetime(2026, 11, 6, 8, 30),  # October 2026 jobs
+        datetime(2026, 12, 4, 8, 30),  # November 2026 jobs
     ]
 
     events = []
@@ -178,20 +185,22 @@ def get_nfp_2026() -> list[ScheduledEvent]:
         ref_month = scheduled_at - timedelta(days=30)
         period = ref_month.strftime("%B %Y")
 
-        events.append(ScheduledEvent(
-            event_id=_make_event_id("nfp", scheduled_at),
-            source_id="bls",
-            event_type=EventType.NFP,
-            category_id="labor",
-            scheduled_at=scheduled_at,
-            timezone="America/New_York",
-            importance=ImportanceLevel.CRITICAL,
-            pre_run_offset_minutes=10,
-            post_run_offset_minutes=3,
-            title=f"Employment Situation - {period}",
-            description=f"Nonfarm payrolls and unemployment rate for {period}",
-            is_recurring=False,
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id("nfp", scheduled_at),
+                source_id="bls",
+                event_type=EventType.NFP,
+                category_id="labor",
+                scheduled_at=scheduled_at,
+                timezone="America/New_York",
+                importance=ImportanceLevel.CRITICAL,
+                pre_run_offset_minutes=10,
+                post_run_offset_minutes=3,
+                title=f"Employment Situation - {period}",
+                description=f"Nonfarm payrolls and unemployment rate for {period}",
+                is_recurring=False,
+            )
+        )
 
     return events
 
@@ -199,6 +208,7 @@ def get_nfp_2026() -> list[ScheduledEvent]:
 # =============================================================================
 # GDP 2026 SCHEDULE
 # =============================================================================
+
 
 def get_gdp_2026() -> list[ScheduledEvent]:
     """
@@ -232,22 +242,26 @@ def get_gdp_2026() -> list[ScheduledEvent]:
 
     events = []
     for scheduled_at, estimate_type, quarter in gdp_releases:
-        importance = ImportanceLevel.CRITICAL if estimate_type == "advance" else ImportanceLevel.HIGH
+        importance = (
+            ImportanceLevel.CRITICAL if estimate_type == "advance" else ImportanceLevel.HIGH
+        )
 
-        events.append(ScheduledEvent(
-            event_id=_make_event_id(f"gdp_{estimate_type}", scheduled_at),
-            source_id="bea",
-            event_type=EventType.GDP if estimate_type == "advance" else EventType.GDP_REVISION,
-            category_id="growth_consumer",
-            scheduled_at=scheduled_at,
-            timezone="America/New_York",
-            importance=importance,
-            pre_run_offset_minutes=10,
-            post_run_offset_minutes=3,
-            title=f"GDP {estimate_type.title()} - {quarter}",
-            description=f"Gross Domestic Product {estimate_type} estimate for {quarter}",
-            is_recurring=False,
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id(f"gdp_{estimate_type}", scheduled_at),
+                source_id="bea",
+                event_type=EventType.GDP if estimate_type == "advance" else EventType.GDP_REVISION,
+                category_id="growth_consumer",
+                scheduled_at=scheduled_at,
+                timezone="America/New_York",
+                importance=importance,
+                pre_run_offset_minutes=10,
+                post_run_offset_minutes=3,
+                title=f"GDP {estimate_type.title()} - {quarter}",
+                description=f"Gross Domestic Product {estimate_type} estimate for {quarter}",
+                is_recurring=False,
+            )
+        )
 
     return events
 
@@ -255,6 +269,7 @@ def get_gdp_2026() -> list[ScheduledEvent]:
 # =============================================================================
 # PCE 2026 SCHEDULE (Personal Income and Outlays)
 # =============================================================================
+
 
 def get_pce_2026() -> list[ScheduledEvent]:
     """
@@ -268,15 +283,15 @@ def get_pce_2026() -> list[ScheduledEvent]:
     """
     # PCE release dates for 2026 (8:30 AM ET)
     pce_dates = [
-        datetime(2026, 1, 30, 8, 30),   # December 2025 PCE
-        datetime(2026, 2, 27, 8, 30),   # January 2026 PCE
-        datetime(2026, 3, 27, 8, 30),   # February 2026 PCE
-        datetime(2026, 4, 30, 8, 30),   # March 2026 PCE
-        datetime(2026, 5, 29, 8, 30),   # April 2026 PCE
-        datetime(2026, 6, 26, 8, 30),   # May 2026 PCE
-        datetime(2026, 7, 31, 8, 30),   # June 2026 PCE
-        datetime(2026, 8, 28, 8, 30),   # July 2026 PCE
-        datetime(2026, 9, 25, 8, 30),   # August 2026 PCE
+        datetime(2026, 1, 30, 8, 30),  # December 2025 PCE
+        datetime(2026, 2, 27, 8, 30),  # January 2026 PCE
+        datetime(2026, 3, 27, 8, 30),  # February 2026 PCE
+        datetime(2026, 4, 30, 8, 30),  # March 2026 PCE
+        datetime(2026, 5, 29, 8, 30),  # April 2026 PCE
+        datetime(2026, 6, 26, 8, 30),  # May 2026 PCE
+        datetime(2026, 7, 31, 8, 30),  # June 2026 PCE
+        datetime(2026, 8, 28, 8, 30),  # July 2026 PCE
+        datetime(2026, 9, 25, 8, 30),  # August 2026 PCE
         datetime(2026, 10, 30, 8, 30),  # September 2026 PCE
         datetime(2026, 11, 27, 8, 30),  # October 2026 PCE
         datetime(2026, 12, 23, 8, 30),  # November 2026 PCE
@@ -287,20 +302,22 @@ def get_pce_2026() -> list[ScheduledEvent]:
         ref_month = scheduled_at - timedelta(days=30)
         period = ref_month.strftime("%B %Y")
 
-        events.append(ScheduledEvent(
-            event_id=_make_event_id("pce", scheduled_at),
-            source_id="bea",
-            event_type=EventType.PCE,
-            category_id="inflation",
-            scheduled_at=scheduled_at,
-            timezone="America/New_York",
-            importance=ImportanceLevel.HIGH,
-            pre_run_offset_minutes=10,
-            post_run_offset_minutes=3,
-            title=f"PCE / Personal Income - {period}",
-            description=f"Personal Consumption Expenditures Price Index for {period}",
-            is_recurring=False,
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id("pce", scheduled_at),
+                source_id="bea",
+                event_type=EventType.PCE,
+                category_id="inflation",
+                scheduled_at=scheduled_at,
+                timezone="America/New_York",
+                importance=ImportanceLevel.HIGH,
+                pre_run_offset_minutes=10,
+                post_run_offset_minutes=3,
+                title=f"PCE / Personal Income - {period}",
+                description=f"Personal Consumption Expenditures Price Index for {period}",
+                is_recurring=False,
+            )
+        )
 
     return events
 
@@ -308,6 +325,7 @@ def get_pce_2026() -> list[ScheduledEvent]:
 # =============================================================================
 # EIA PETROLEUM SCHEDULE
 # =============================================================================
+
 
 def get_eia_petroleum_schedule(year: int = 2026) -> list[ScheduledEvent]:
     """
@@ -328,21 +346,23 @@ def get_eia_petroleum_schedule(year: int = 2026) -> list[ScheduledEvent]:
 
     week_num = 1
     while current.year == year:
-        events.append(ScheduledEvent(
-            event_id=_make_event_id(f"eia_wpsr_w{week_num}", current),
-            source_id="eia",
-            event_type=EventType.EIA_PETROLEUM,
-            category_id="oil_energy",
-            scheduled_at=current,
-            timezone="America/New_York",
-            importance=ImportanceLevel.MEDIUM,
-            pre_run_offset_minutes=5,
-            post_run_offset_minutes=5,
-            title=f"EIA Petroleum Report - Week {week_num}",
-            description="Weekly Petroleum Status Report including crude inventory",
-            is_recurring=True,
-            recurrence_rule="FREQ=WEEKLY;BYDAY=WE",
-        ))
+        events.append(
+            ScheduledEvent(
+                event_id=_make_event_id(f"eia_wpsr_w{week_num}", current),
+                source_id="eia",
+                event_type=EventType.EIA_PETROLEUM,
+                category_id="oil_energy",
+                scheduled_at=current,
+                timezone="America/New_York",
+                importance=ImportanceLevel.MEDIUM,
+                pre_run_offset_minutes=5,
+                post_run_offset_minutes=5,
+                title=f"EIA Petroleum Report - Week {week_num}",
+                description="Weekly Petroleum Status Report including crude inventory",
+                is_recurring=True,
+                recurrence_rule="FREQ=WEEKLY;BYDAY=WE",
+            )
+        )
         current += timedelta(days=7)
         week_num += 1
 
@@ -352,6 +372,7 @@ def get_eia_petroleum_schedule(year: int = 2026) -> list[ScheduledEvent]:
 # =============================================================================
 # MACRO CALENDAR CLASS
 # =============================================================================
+
 
 class MacroCalendar:
     """
@@ -405,9 +426,9 @@ class MacroCalendar:
         now = datetime.utcnow()
         end = now + timedelta(hours=hours)
         return [
-            e for e in self._events
-            if now <= e.scheduled_at <= end
-            and e.importance == ImportanceLevel.CRITICAL
+            e
+            for e in self._events
+            if now <= e.scheduled_at <= end and e.importance == ImportanceLevel.CRITICAL
         ]
 
     def get_today_calendar_summary(self) -> str:

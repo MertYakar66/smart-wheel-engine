@@ -22,6 +22,7 @@ from .option_pricer import black_scholes_all_greeks
 
 class PositionSizingMethod(Enum):
     """Position sizing methodologies."""
+
     FIXED_FRACTIONAL = "fixed_fractional"  # Fixed % of capital per trade
     KELLY = "kelly"  # Kelly criterion based
     VOLATILITY_SCALED = "volatility_scaled"  # Size inversely to volatility
@@ -32,11 +33,12 @@ class PositionSizingMethod(Enum):
 @dataclass
 class PortfolioGreeks:
     """Aggregated portfolio-level Greeks."""
+
     delta: float = 0.0  # Net delta exposure in shares
     gamma: float = 0.0  # Net gamma (delta sensitivity)
     theta: float = 0.0  # Daily time decay ($/day)
-    vega: float = 0.0   # Volatility sensitivity ($/1% IV move)
-    rho: float = 0.0    # Interest rate sensitivity
+    vega: float = 0.0  # Volatility sensitivity ($/1% IV move)
+    rho: float = 0.0  # Interest rate sensitivity
 
     # Normalized metrics
     delta_dollars: float = 0.0  # Delta * underlying price * 100
@@ -56,6 +58,7 @@ class PortfolioGreeks:
 @dataclass
 class RiskLimits:
     """Risk limit configuration."""
+
     # Position limits
     max_positions: int = 10
     max_single_position_pct: float = 0.20  # Max 20% in single underlying
@@ -82,6 +85,7 @@ class RiskLimits:
 @dataclass
 class RiskMetrics:
     """Computed risk metrics for portfolio."""
+
     # VaR metrics
     var_95_1d: float = 0.0  # 1-day 95% VaR
     var_99_1d: float = 0.0  # 1-day 99% VaR
@@ -119,7 +123,7 @@ class RiskManager:
         self,
         limits: RiskLimits | None = None,
         sizing_method: PositionSizingMethod = PositionSizingMethod.VOLATILITY_SCALED,
-        risk_free_rate: float = 0.05
+        risk_free_rate: float = 0.05,
     ):
         self.limits = limits or RiskLimits()
         self.sizing_method = sizing_method
@@ -141,7 +145,7 @@ class RiskManager:
         avg_win: float = 1.0,
         avg_loss: float = 1.0,
         existing_positions: int = 0,
-        underlying_correlation: float = 0.0
+        underlying_correlation: float = 0.0,
     ) -> tuple[int, str]:
         """
         Calculate optimal position size (number of contracts).
@@ -256,9 +260,7 @@ class RiskManager:
             return 1.0 - (0.75 * drawdown / self.limits.max_drawdown_pct)
 
     def calculate_portfolio_greeks(
-        self,
-        positions: list[dict],
-        spot_prices: dict[str, float]
+        self, positions: list[dict], spot_prices: dict[str, float]
     ) -> PortfolioGreeks:
         """
         Calculate aggregate portfolio Greeks.
@@ -271,33 +273,33 @@ class RiskManager:
         greeks = PortfolioGreeks()
 
         for pos in positions:
-            symbol = pos['symbol']
-            spot = spot_prices.get(symbol, pos.get('underlying_price', 100))
+            symbol = pos["symbol"]
+            spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
 
             pos_greeks = black_scholes_all_greeks(
                 S=spot,
-                K=pos['strike'],
-                T=pos['dte'] / 365,
+                K=pos["strike"],
+                T=pos["dte"] / 365,
                 r=self.risk_free_rate,
-                sigma=pos['iv'],
-                option_type=pos['option_type'],
-                q=pos.get('dividend_yield', 0.0)
+                sigma=pos["iv"],
+                option_type=pos["option_type"],
+                q=pos.get("dividend_yield", 0.0),
             )
 
             # Direction multiplier (short = negative Greeks exposure)
-            direction = -1 if pos.get('is_short', True) else 1
-            multiplier = direction * pos['contracts'] * 100
+            direction = -1 if pos.get("is_short", True) else 1
+            multiplier = direction * pos["contracts"] * 100
 
-            greeks.delta += pos_greeks['delta'] * multiplier
-            greeks.gamma += pos_greeks['gamma'] * multiplier
+            greeks.delta += pos_greeks["delta"] * multiplier
+            greeks.gamma += pos_greeks["gamma"] * multiplier
             # Convert annual theta to daily theta (pricer returns per-year)
-            greeks.theta += (pos_greeks['theta'] / 365) * multiplier
-            greeks.vega += pos_greeks['vega'] * multiplier
-            greeks.rho += pos_greeks['rho'] * multiplier
+            greeks.theta += (pos_greeks["theta"] / 365) * multiplier
+            greeks.vega += pos_greeks["vega"] * multiplier
+            greeks.rho += pos_greeks["rho"] * multiplier
 
             # Dollar-weighted metrics
-            greeks.delta_dollars += pos_greeks['delta'] * multiplier * spot
-            greeks.gamma_dollars += pos_greeks['gamma'] * multiplier * spot * spot / 100
+            greeks.delta_dollars += pos_greeks["delta"] * multiplier * spot
+            greeks.gamma_dollars += pos_greeks["gamma"] * multiplier * spot * spot / 100
 
         return greeks
 
@@ -310,7 +312,7 @@ class RiskManager:
         volatilities: dict[str, float] | None = None,
         correlation_matrix: pd.DataFrame | None = None,
         confidence: float = 0.95,
-        horizon_days: int = 1
+        horizon_days: int = 1,
     ) -> tuple[float, float]:
         """
         Calculate Value at Risk and Conditional VaR.
@@ -341,9 +343,13 @@ class RiskManager:
         # Priority 1: Multi-asset covariance VaR (most accurate for multi-asset)
         if correlation_matrix is not None and volatilities is not None:
             var, cvar, _ = self.calculate_covariance_var(
-                portfolio_value, positions, spot_prices,
-                volatilities, correlation_matrix,
-                confidence, horizon_days
+                portfolio_value,
+                positions,
+                spot_prices,
+                volatilities,
+                correlation_matrix,
+                confidence,
+                horizon_days,
             )
             return var, cvar
 
@@ -441,7 +447,7 @@ class RiskManager:
         # For short options (negative gamma), this is a risk
         # Variance contribution from gamma: (0.5 * gamma * vol^2)^2
         # Simplified: gamma impact on expected shortfall
-        gamma_expected_loss = 0.5 * abs(gamma_dollars) * (horizon_vol ** 2)
+        gamma_expected_loss = 0.5 * abs(gamma_dollars) * (horizon_vol**2)
         if gamma_dollars < 0:
             # Short gamma: losses accelerate as market moves
             gamma_adjustment = gamma_expected_loss * z_score
@@ -513,8 +519,8 @@ class RiskManager:
         """
         # Handle multi-column returns (multiple assets)
         if isinstance(returns_data, pd.DataFrame):
-            if 'returns' in returns_data.columns:
-                hist_returns = returns_data['returns'].dropna()
+            if "returns" in returns_data.columns:
+                hist_returns = returns_data["returns"].dropna()
             elif returns_data.shape[1] == 1:
                 hist_returns = returns_data.iloc[:, 0].dropna()
             else:
@@ -547,7 +553,7 @@ class RiskManager:
         # P&L = 0.5 * gamma_dollars * return^2 * spot^2 / spot^2
         # Simplified: 0.5 * gamma_dollars * return^2 (since gamma_dollars already scaled)
         # Note: For negative gamma (short options), this adds to losses
-        gamma_pnl = 0.5 * greeks.gamma_dollars * (hist_returns.values ** 2)
+        gamma_pnl = 0.5 * greeks.gamma_dollars * (hist_returns.values**2)
 
         # === Vega P&L ===
         vega_pnl = np.zeros(n_scenarios)
@@ -572,7 +578,7 @@ class RiskManager:
         # Use proper quantile interpolation for accuracy with small samples
         # Reference: Hyndman & Fan (1996), Type 7 (R/Python default)
         alpha = 1 - confidence  # e.g., 0.05 for 95% VaR
-        var = -np.percentile(sorted_pnl, alpha * 100, method='linear')
+        var = -np.percentile(sorted_pnl, alpha * 100, method="linear")
 
         # === CVaR (Expected Shortfall) with proper weighting ===
         # CVaR is the conditional expectation E[X | X <= VaR]
@@ -657,28 +663,28 @@ class RiskManager:
         symbol_vegas: dict[str, float] = {}
 
         for pos in positions:
-            symbol = pos['symbol']
-            spot = spot_prices.get(symbol, pos.get('underlying_price', 100))
+            symbol = pos["symbol"]
+            spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
 
             # Calculate or use provided Greeks
-            if 'delta_dollars' in pos:
-                delta_d = pos['delta_dollars']
+            if "delta_dollars" in pos:
+                delta_d = pos["delta_dollars"]
             else:
                 # Calculate from position
                 pos_greeks = black_scholes_all_greeks(
                     S=spot,
-                    K=pos['strike'],
-                    T=pos['dte'] / 365,
+                    K=pos["strike"],
+                    T=pos["dte"] / 365,
                     r=self.risk_free_rate,
-                    sigma=pos['iv'],
-                    option_type=pos['option_type'],
-                    q=pos.get('dividend_yield', 0.0)
+                    sigma=pos["iv"],
+                    option_type=pos["option_type"],
+                    q=pos.get("dividend_yield", 0.0),
                 )
-                direction = -1 if pos.get('is_short', True) else 1
-                multiplier = direction * pos['contracts'] * 100
-                delta_d = pos_greeks['delta'] * multiplier * spot
-                gamma_d = pos_greeks['gamma'] * multiplier * spot * spot / 100
-                vega_d = pos_greeks['vega'] * multiplier
+                direction = -1 if pos.get("is_short", True) else 1
+                multiplier = direction * pos["contracts"] * 100
+                delta_d = pos_greeks["delta"] * multiplier * spot
+                gamma_d = pos_greeks["gamma"] * multiplier * spot * spot / 100
+                vega_d = pos_greeks["vega"] * multiplier
 
                 symbol_gammas[symbol] = symbol_gammas.get(symbol, 0.0) + gamma_d
                 symbol_vegas[symbol] = symbol_vegas.get(symbol, 0.0) + vega_d
@@ -747,7 +753,7 @@ class RiskManager:
                 spot = spot_prices.get(s, 100)
                 vol_h = horizon_vol_vec[symbols.index(s)]
                 # Expected loss from gamma (for short gamma positions)
-                gamma_expected = 0.5 * abs(gamma_d) * (vol_h ** 2)
+                gamma_expected = 0.5 * abs(gamma_d) * (vol_h**2)
                 if gamma_d < 0:  # Short gamma
                     gamma_var += gamma_expected * z_score
                 else:  # Long gamma (benefit)
@@ -776,21 +782,23 @@ class RiskManager:
 
         # Component breakdown for risk attribution
         components = {
-            'delta_var': abs(delta_var),
-            'gamma_var': abs(gamma_var),
-            'vega_var': abs(vega_var),
-            'delta_std': delta_std,
-            'per_asset_contribution': {},
+            "delta_var": abs(delta_var),
+            "gamma_var": abs(gamma_var),
+            "vega_var": abs(vega_var),
+            "delta_std": delta_std,
+            "per_asset_contribution": {},
         }
 
         # Marginal VaR per asset (∂VaR/∂w_i)
         if delta_variance > 0:
             marginal_var = (covariance @ delta_vec) / delta_std * z_score
             for i, s in enumerate(symbols):
-                components['per_asset_contribution'][s] = {
-                    'delta_dollars': delta_vec[i],
-                    'marginal_var': marginal_var[i],
-                    'component_var': delta_vec[i] * marginal_var[i] / delta_var if delta_var > 0 else 0,
+                components["per_asset_contribution"][s] = {
+                    "delta_dollars": delta_vec[i],
+                    "marginal_var": marginal_var[i],
+                    "component_var": delta_vec[i] * marginal_var[i] / delta_var
+                    if delta_var > 0
+                    else 0,
                 }
 
         return abs(total_var), abs(total_cvar), components
@@ -807,10 +815,7 @@ class RiskManager:
             self.returns_history.append(ret)
 
     def get_risk_metrics(
-        self,
-        portfolio_value: float,
-        positions: list[dict],
-        spot_prices: dict[str, float]
+        self, portfolio_value: float, positions: list[dict], spot_prices: dict[str, float]
     ) -> RiskMetrics:
         """Calculate comprehensive risk metrics."""
         metrics = RiskMetrics()
@@ -829,27 +834,22 @@ class RiskManager:
         # Drawdown
         if self.peak_value > 0:
             metrics.current_drawdown = (self.peak_value - portfolio_value) / self.peak_value
-            metrics.max_drawdown = max(
-                metrics.current_drawdown,
-                self._calculate_max_drawdown()
-            )
+            metrics.max_drawdown = max(metrics.current_drawdown, self._calculate_max_drawdown())
 
         # Concentration (Herfindahl Index)
         if positions:
             position_values = []
             for pos in positions:
-                value = pos.get('market_value', pos['strike'] * 100 * pos['contracts'])
+                value = pos.get("market_value", pos["strike"] * 100 * pos["contracts"])
                 position_values.append(abs(value))
             total = sum(position_values)
             if total > 0:
                 weights = [v / total for v in position_values]
-                metrics.herfindahl_index = sum(w ** 2 for w in weights)
+                metrics.herfindahl_index = sum(w**2 for w in weights)
                 metrics.largest_position_pct = max(weights)
 
         # Risk budget
-        metrics.available_risk_budget = self._calculate_risk_budget(
-            portfolio_value, metrics
-        )
+        metrics.available_risk_budget = self._calculate_risk_budget(portfolio_value, metrics)
 
         return metrics
 
@@ -895,13 +895,13 @@ class RiskManager:
             # Delta P&L
             delta_pnl = greeks.delta_dollars * spot_move
             # Gamma P&L (second order): 0.5 * gamma * (dS)^2
-            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move**2)
             # Vega P&L from vol increase
             vega_pnl = greeks.vega * vol_move * 100  # vega is per 1%, vol_move is decimal
 
             total_pnl = delta_pnl + gamma_pnl + vega_pnl
 
-            scenario_name = f"crash_{int(abs(spot_move)*100)}pct"
+            scenario_name = f"crash_{int(abs(spot_move) * 100)}pct"
             results[scenario_name] = {
                 "pnl": total_pnl,
                 "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
@@ -910,7 +910,7 @@ class RiskManager:
                     "delta_pnl": delta_pnl,
                     "gamma_pnl": gamma_pnl,
                     "vega_pnl": vega_pnl,
-                }
+                },
             }
 
         # 2. Vol Explosion Scenarios (market rallies or crashes)
@@ -923,12 +923,12 @@ class RiskManager:
         for vol_move, desc in vol_scenarios:
             vega_pnl = greeks.vega * vol_move * 100
 
-            scenario_name = f"vol_{'+' if vol_move > 0 else ''}{int(vol_move*100)}pct"
+            scenario_name = f"vol_{'+' if vol_move > 0 else ''}{int(vol_move * 100)}pct"
             results[scenario_name] = {
                 "pnl": vega_pnl,
                 "pct_loss": vega_pnl / portfolio_value if portfolio_value > 0 else 0,
                 "description": desc,
-                "components": {"vega_pnl": vega_pnl}
+                "components": {"vega_pnl": vega_pnl},
             }
 
         # 3. Gap Down Scenarios (overnight moves)
@@ -939,14 +939,14 @@ class RiskManager:
 
         for spot_move, vol_move, desc in gap_scenarios:
             delta_pnl = greeks.delta_dollars * spot_move
-            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+            gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move**2)
             vega_pnl = greeks.vega * vol_move * 100
             # Theta benefit from passage of time (1 day)
             theta_pnl = greeks.theta  # Daily theta
 
             total_pnl = delta_pnl + gamma_pnl + vega_pnl + theta_pnl
 
-            scenario_name = f"gap_{int(abs(spot_move)*100)}pct"
+            scenario_name = f"gap_{int(abs(spot_move) * 100)}pct"
             results[scenario_name] = {
                 "pnl": total_pnl,
                 "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
@@ -956,7 +956,7 @@ class RiskManager:
                     "gamma_pnl": gamma_pnl,
                     "vega_pnl": vega_pnl,
                     "theta_pnl": theta_pnl,
-                }
+                },
             }
 
         # 4. Rate Shock Scenarios
@@ -969,12 +969,12 @@ class RiskManager:
             # Rho is sensitivity to 1% rate change
             rho_pnl = greeks.rho * rate_move * 100
 
-            scenario_name = f"rate_{int(rate_move*10000)}bps"
+            scenario_name = f"rate_{int(rate_move * 10000)}bps"
             results[scenario_name] = {
                 "pnl": rho_pnl,
                 "pct_loss": rho_pnl / portfolio_value if portfolio_value > 0 else 0,
                 "description": desc,
-                "components": {"rho_pnl": rho_pnl}
+                "components": {"rho_pnl": rho_pnl},
             }
 
         # 5. Combined worst case: crash + vol + correlation spike
@@ -1000,7 +1000,7 @@ class RiskManager:
                 "gamma_pnl": gamma_pnl,
                 "vega_pnl": vega_pnl,
                 "theta_pnl": theta_pnl,
-            }
+            },
         }
 
         # 6. Custom scenarios
@@ -1009,16 +1009,16 @@ class RiskManager:
                 spot_move = scenario.get("spot_move", 0)
                 vol_move = scenario.get("vol_move", 0)
                 rate_move = scenario.get("rate_move", 0)
-                desc = scenario.get("description", f"Custom scenario {i+1}")
+                desc = scenario.get("description", f"Custom scenario {i + 1}")
 
                 delta_pnl = greeks.delta_dollars * spot_move
-                gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move ** 2)
+                gamma_pnl = 0.5 * greeks.gamma_dollars * (spot_move**2)
                 vega_pnl = greeks.vega * vol_move * 100
                 rho_pnl = greeks.rho * rate_move * 100
 
                 total_pnl = delta_pnl + gamma_pnl + vega_pnl + rho_pnl
 
-                results[f"custom_{i+1}"] = {
+                results[f"custom_{i + 1}"] = {
                     "pnl": total_pnl,
                     "pct_loss": total_pnl / portfolio_value if portfolio_value > 0 else 0,
                     "description": desc,
@@ -1027,7 +1027,7 @@ class RiskManager:
                         "gamma_pnl": gamma_pnl,
                         "vega_pnl": vega_pnl,
                         "rho_pnl": rho_pnl,
-                    }
+                    },
                 }
 
         return results
@@ -1042,11 +1042,7 @@ class RiskManager:
         drawdowns = (peaks - values) / peaks
         return float(np.max(drawdowns))
 
-    def _calculate_risk_budget(
-        self,
-        portfolio_value: float,
-        metrics: RiskMetrics
-    ) -> float:
+    def _calculate_risk_budget(self, portfolio_value: float, metrics: RiskMetrics) -> float:
         """Calculate remaining risk budget (0-1)."""
         budget = 1.0
 
@@ -1063,7 +1059,9 @@ class RiskManager:
         # Greeks constraints
         greeks = metrics.portfolio_greeks
         if portfolio_value > 0:
-            delta_usage = abs(greeks.delta_dollars / portfolio_value) / self.limits.max_portfolio_delta
+            delta_usage = (
+                abs(greeks.delta_dollars / portfolio_value) / self.limits.max_portfolio_delta
+            )
             budget = min(budget, 1.0 - delta_usage)
 
         return max(0.0, budget)
@@ -1073,7 +1071,7 @@ class RiskManager:
         portfolio_value: float,
         positions: list[dict],
         spot_prices: dict[str, float],
-        proposed_trade: dict | None = None
+        proposed_trade: dict | None = None,
     ) -> tuple[bool, list[str]]:
         """
         Check if portfolio is within risk limits.
@@ -1106,9 +1104,7 @@ class RiskManager:
         if portfolio_value > 0:
             var_pct = metrics.var_95_1d / portfolio_value
             if var_pct > self.limits.max_var_95_pct:
-                violations.append(
-                    f"95% VaR {var_pct:.1%} > limit {self.limits.max_var_95_pct:.1%}"
-                )
+                violations.append(f"95% VaR {var_pct:.1%} > limit {self.limits.max_var_95_pct:.1%}")
 
         # Greeks
         greeks = metrics.portfolio_greeks
@@ -1133,10 +1129,7 @@ class RiskManager:
 
 
 def calculate_kelly_fraction(
-    win_rate: float,
-    avg_win: float,
-    avg_loss: float,
-    kelly_fraction: float = 0.5
+    win_rate: float, avg_win: float, avg_loss: float, kelly_fraction: float = 0.5
 ) -> float:
     """
     Calculate Kelly criterion bet size.
@@ -1175,7 +1168,7 @@ def calculate_optimal_contracts(
     max_risk_pct: float = 0.05,
     margin_requirement: float = 0.20,
     stress_loss_pct: float = 0.25,
-    premium_per_share: float = 0.0
+    premium_per_share: float = 0.0,
 ) -> int:
     """
     Calculate maximum contracts given capital and risk constraints.
@@ -1227,85 +1220,155 @@ def calculate_optimal_contracts(
 # GICS Sector mappings - SP500 constituents only
 DEFAULT_SECTOR_MAP: dict[str, str] = {
     # Information Technology
-    'AAPL': 'Information Technology', 'MSFT': 'Information Technology',
-    'NVDA': 'Information Technology', 'AMD': 'Information Technology',
-    'INTC': 'Information Technology', 'CRM': 'Information Technology',
-    'ADBE': 'Information Technology', 'AVGO': 'Information Technology',
-    'ORCL': 'Information Technology', 'CSCO': 'Information Technology',
-    'ACN': 'Information Technology', 'TXN': 'Information Technology',
-    'QCOM': 'Information Technology', 'INTU': 'Information Technology',
-    'AMAT': 'Information Technology', 'MU': 'Information Technology',
-    'LRCX': 'Information Technology', 'KLAC': 'Information Technology',
-    'NOW': 'Information Technology', 'PANW': 'Information Technology',
-
+    "AAPL": "Information Technology",
+    "MSFT": "Information Technology",
+    "NVDA": "Information Technology",
+    "AMD": "Information Technology",
+    "INTC": "Information Technology",
+    "CRM": "Information Technology",
+    "ADBE": "Information Technology",
+    "AVGO": "Information Technology",
+    "ORCL": "Information Technology",
+    "CSCO": "Information Technology",
+    "ACN": "Information Technology",
+    "TXN": "Information Technology",
+    "QCOM": "Information Technology",
+    "INTU": "Information Technology",
+    "AMAT": "Information Technology",
+    "MU": "Information Technology",
+    "LRCX": "Information Technology",
+    "KLAC": "Information Technology",
+    "NOW": "Information Technology",
+    "PANW": "Information Technology",
     # Communication Services
-    'GOOGL': 'Communication Services', 'GOOG': 'Communication Services',
-    'META': 'Communication Services', 'NFLX': 'Communication Services',
-    'DIS': 'Communication Services', 'CMCSA': 'Communication Services',
-    'TMUS': 'Communication Services', 'VZ': 'Communication Services',
-    'T': 'Communication Services', 'EA': 'Communication Services',
-
+    "GOOGL": "Communication Services",
+    "GOOG": "Communication Services",
+    "META": "Communication Services",
+    "NFLX": "Communication Services",
+    "DIS": "Communication Services",
+    "CMCSA": "Communication Services",
+    "TMUS": "Communication Services",
+    "VZ": "Communication Services",
+    "T": "Communication Services",
+    "EA": "Communication Services",
     # Consumer Discretionary
-    'AMZN': 'Consumer Discretionary', 'TSLA': 'Consumer Discretionary',
-    'HD': 'Consumer Discretionary', 'MCD': 'Consumer Discretionary',
-    'NKE': 'Consumer Discretionary', 'SBUX': 'Consumer Discretionary',
-    'LOW': 'Consumer Discretionary', 'TJX': 'Consumer Discretionary',
-    'BKNG': 'Consumer Discretionary', 'CMG': 'Consumer Discretionary',
-    'GM': 'Consumer Discretionary', 'F': 'Consumer Discretionary',
-
+    "AMZN": "Consumer Discretionary",
+    "TSLA": "Consumer Discretionary",
+    "HD": "Consumer Discretionary",
+    "MCD": "Consumer Discretionary",
+    "NKE": "Consumer Discretionary",
+    "SBUX": "Consumer Discretionary",
+    "LOW": "Consumer Discretionary",
+    "TJX": "Consumer Discretionary",
+    "BKNG": "Consumer Discretionary",
+    "CMG": "Consumer Discretionary",
+    "GM": "Consumer Discretionary",
+    "F": "Consumer Discretionary",
     # Consumer Staples
-    'PG': 'Consumer Staples', 'KO': 'Consumer Staples',
-    'PEP': 'Consumer Staples', 'WMT': 'Consumer Staples',
-    'COST': 'Consumer Staples', 'PM': 'Consumer Staples',
-    'CL': 'Consumer Staples', 'MDLZ': 'Consumer Staples',
-
+    "PG": "Consumer Staples",
+    "KO": "Consumer Staples",
+    "PEP": "Consumer Staples",
+    "WMT": "Consumer Staples",
+    "COST": "Consumer Staples",
+    "PM": "Consumer Staples",
+    "CL": "Consumer Staples",
+    "MDLZ": "Consumer Staples",
     # Financials
-    'JPM': 'Financials', 'BAC': 'Financials', 'WFC': 'Financials',
-    'GS': 'Financials', 'MS': 'Financials', 'C': 'Financials',
-    'AXP': 'Financials', 'BLK': 'Financials', 'SCHW': 'Financials',
-    'PGR': 'Financials', 'CB': 'Financials', 'CME': 'Financials',
-    'ICE': 'Financials', 'COF': 'Financials', 'USB': 'Financials',
-
+    "JPM": "Financials",
+    "BAC": "Financials",
+    "WFC": "Financials",
+    "GS": "Financials",
+    "MS": "Financials",
+    "C": "Financials",
+    "AXP": "Financials",
+    "BLK": "Financials",
+    "SCHW": "Financials",
+    "PGR": "Financials",
+    "CB": "Financials",
+    "CME": "Financials",
+    "ICE": "Financials",
+    "COF": "Financials",
+    "USB": "Financials",
     # Healthcare
-    'JNJ': 'Healthcare', 'UNH': 'Healthcare', 'PFE': 'Healthcare',
-    'MRK': 'Healthcare', 'ABBV': 'Healthcare', 'LLY': 'Healthcare',
-    'TMO': 'Healthcare', 'ABT': 'Healthcare', 'DHR': 'Healthcare',
-    'BMY': 'Healthcare', 'AMGN': 'Healthcare', 'GILD': 'Healthcare',
-    'ISRG': 'Healthcare', 'CVS': 'Healthcare', 'CI': 'Healthcare',
-    'ELV': 'Healthcare', 'VRTX': 'Healthcare', 'REGN': 'Healthcare',
-
+    "JNJ": "Healthcare",
+    "UNH": "Healthcare",
+    "PFE": "Healthcare",
+    "MRK": "Healthcare",
+    "ABBV": "Healthcare",
+    "LLY": "Healthcare",
+    "TMO": "Healthcare",
+    "ABT": "Healthcare",
+    "DHR": "Healthcare",
+    "BMY": "Healthcare",
+    "AMGN": "Healthcare",
+    "GILD": "Healthcare",
+    "ISRG": "Healthcare",
+    "CVS": "Healthcare",
+    "CI": "Healthcare",
+    "ELV": "Healthcare",
+    "VRTX": "Healthcare",
+    "REGN": "Healthcare",
     # Energy
-    'XOM': 'Energy', 'CVX': 'Energy', 'COP': 'Energy',
-    'SLB': 'Energy', 'EOG': 'Energy', 'MPC': 'Energy',
-    'PSX': 'Energy', 'VLO': 'Energy', 'OXY': 'Energy',
-    'WMB': 'Energy', 'HAL': 'Energy', 'DVN': 'Energy',
-
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "COP": "Energy",
+    "SLB": "Energy",
+    "EOG": "Energy",
+    "MPC": "Energy",
+    "PSX": "Energy",
+    "VLO": "Energy",
+    "OXY": "Energy",
+    "WMB": "Energy",
+    "HAL": "Energy",
+    "DVN": "Energy",
     # Industrials
-    'CAT': 'Industrials', 'BA': 'Industrials', 'HON': 'Industrials',
-    'UPS': 'Industrials', 'GE': 'Industrials', 'RTX': 'Industrials',
-    'DE': 'Industrials', 'LMT': 'Industrials', 'UNP': 'Industrials',
-    'MMM': 'Industrials', 'WM': 'Industrials', 'FDX': 'Industrials',
-    'NOC': 'Industrials', 'GD': 'Industrials', 'CSX': 'Industrials',
-
+    "CAT": "Industrials",
+    "BA": "Industrials",
+    "HON": "Industrials",
+    "UPS": "Industrials",
+    "GE": "Industrials",
+    "RTX": "Industrials",
+    "DE": "Industrials",
+    "LMT": "Industrials",
+    "UNP": "Industrials",
+    "MMM": "Industrials",
+    "WM": "Industrials",
+    "FDX": "Industrials",
+    "NOC": "Industrials",
+    "GD": "Industrials",
+    "CSX": "Industrials",
     # Utilities
-    'NEE': 'Utilities', 'DUK': 'Utilities', 'SO': 'Utilities',
-    'D': 'Utilities', 'AEP': 'Utilities', 'SRE': 'Utilities',
-    'EXC': 'Utilities', 'XEL': 'Utilities',
-
+    "NEE": "Utilities",
+    "DUK": "Utilities",
+    "SO": "Utilities",
+    "D": "Utilities",
+    "AEP": "Utilities",
+    "SRE": "Utilities",
+    "EXC": "Utilities",
+    "XEL": "Utilities",
     # Real Estate
-    'PLD': 'Real Estate', 'AMT': 'Real Estate', 'CCI': 'Real Estate',
-    'EQIX': 'Real Estate', 'PSA': 'Real Estate', 'O': 'Real Estate',
-
+    "PLD": "Real Estate",
+    "AMT": "Real Estate",
+    "CCI": "Real Estate",
+    "EQIX": "Real Estate",
+    "PSA": "Real Estate",
+    "O": "Real Estate",
     # Materials
-    'LIN': 'Materials', 'APD': 'Materials', 'SHW': 'Materials',
-    'FCX': 'Materials', 'NEM': 'Materials', 'ECL': 'Materials',
-    'DOW': 'Materials', 'NUE': 'Materials',
+    "LIN": "Materials",
+    "APD": "Materials",
+    "SHW": "Materials",
+    "FCX": "Materials",
+    "NEM": "Materials",
+    "ECL": "Materials",
+    "DOW": "Materials",
+    "NUE": "Materials",
 }
 
 
 @dataclass
 class SectorExposure:
     """Sector-level exposure metrics."""
+
     sector: str
     position_count: int
     notional_exposure: float
@@ -1325,11 +1388,7 @@ class SectorExposureManager:
     Prevents over-concentration in correlated sectors.
     """
 
-    def __init__(
-        self,
-        sector_map: dict[str, str] | None = None,
-        max_sector_pct: float = 0.25
-    ):
+    def __init__(self, sector_map: dict[str, str] | None = None, max_sector_pct: float = 0.25):
         """
         Args:
             sector_map: Dict of symbol -> sector
@@ -1340,12 +1399,10 @@ class SectorExposureManager:
 
     def get_sector(self, symbol: str) -> str:
         """Get sector for symbol."""
-        return self.sector_map.get(symbol, 'Unknown')
+        return self.sector_map.get(symbol, "Unknown")
 
     def calculate_sector_exposures(
-        self,
-        positions: list[dict],
-        portfolio_value: float
+        self, positions: list[dict], portfolio_value: float
     ) -> dict[str, SectorExposure]:
         """
         Calculate exposure by sector.
@@ -1360,43 +1417,35 @@ class SectorExposureManager:
         sector_data: dict[str, dict] = {}
 
         for pos in positions:
-            symbol = pos['symbol']
+            symbol = pos["symbol"]
             sector = self.get_sector(symbol)
-            notional = pos['strike'] * 100 * pos['contracts']
+            notional = pos["strike"] * 100 * pos["contracts"]
 
             if sector not in sector_data:
-                sector_data[sector] = {
-                    'notional': 0,
-                    'count': 0,
-                    'symbols': []
-                }
+                sector_data[sector] = {"notional": 0, "count": 0, "symbols": []}
 
-            sector_data[sector]['notional'] += notional
-            sector_data[sector]['count'] += 1
-            if symbol not in sector_data[sector]['symbols']:
-                sector_data[sector]['symbols'].append(symbol)
+            sector_data[sector]["notional"] += notional
+            sector_data[sector]["count"] += 1
+            if symbol not in sector_data[sector]["symbols"]:
+                sector_data[sector]["symbols"].append(symbol)
 
         # Convert to SectorExposure objects
         exposures = {}
         for sector, data in sector_data.items():
-            exposure_pct = data['notional'] / portfolio_value if portfolio_value > 0 else 0
+            exposure_pct = data["notional"] / portfolio_value if portfolio_value > 0 else 0
 
             exposures[sector] = SectorExposure(
                 sector=sector,
-                position_count=data['count'],
-                notional_exposure=data['notional'],
+                position_count=data["count"],
+                notional_exposure=data["notional"],
                 exposure_pct=exposure_pct,
-                symbols=data['symbols']
+                symbols=data["symbols"],
             )
 
         return exposures
 
     def check_sector_limit(
-        self,
-        symbol: str,
-        proposed_notional: float,
-        positions: list[dict],
-        portfolio_value: float
+        self, symbol: str, proposed_notional: float, positions: list[dict], portfolio_value: float
     ) -> tuple[bool, str]:
         """
         Check if adding position would breach sector limit.
@@ -1407,14 +1456,17 @@ class SectorExposureManager:
         sector = self.get_sector(symbol)
         exposures = self.calculate_sector_exposures(positions, portfolio_value)
 
-        current_exposure = exposures.get(sector, SectorExposure(
-            sector=sector, position_count=0, notional_exposure=0,
-            exposure_pct=0, symbols=[]
-        ))
+        current_exposure = exposures.get(
+            sector,
+            SectorExposure(
+                sector=sector, position_count=0, notional_exposure=0, exposure_pct=0, symbols=[]
+            ),
+        )
 
         new_exposure_pct = (
             (current_exposure.notional_exposure + proposed_notional) / portfolio_value
-            if portfolio_value > 0 else 0
+            if portfolio_value > 0
+            else 0
         )
 
         if new_exposure_pct > self.max_sector_pct:
@@ -1424,13 +1476,12 @@ class SectorExposureManager:
                 f"Current positions: {current_exposure.symbols}"
             )
 
-        return True, f"Sector '{sector}' at {new_exposure_pct:.1%} (limit: {self.max_sector_pct:.1%})"
+        return (
+            True,
+            f"Sector '{sector}' at {new_exposure_pct:.1%} (limit: {self.max_sector_pct:.1%})",
+        )
 
-    def get_sector_violations(
-        self,
-        positions: list[dict],
-        portfolio_value: float
-    ) -> list[str]:
+    def get_sector_violations(self, positions: list[dict], portfolio_value: float) -> list[str]:
         """Get list of sector limit violations."""
         violations = []
         exposures = self.calculate_sector_exposures(positions, portfolio_value)
@@ -1446,10 +1497,7 @@ class SectorExposureManager:
         return violations
 
     def suggest_diversification(
-        self,
-        positions: list[dict],
-        portfolio_value: float,
-        available_symbols: list[str]
+        self, positions: list[dict], portfolio_value: float, available_symbols: list[str]
     ) -> list[str]:
         """
         Suggest symbols from under-represented sectors.
@@ -1462,10 +1510,12 @@ class SectorExposureManager:
         sectors_with_room = {}
         for symbol in available_symbols:
             sector = self.get_sector(symbol)
-            current = exposures.get(sector, SectorExposure(
-                sector=sector, position_count=0, notional_exposure=0,
-                exposure_pct=0, symbols=[]
-            ))
+            current = exposures.get(
+                sector,
+                SectorExposure(
+                    sector=sector, position_count=0, notional_exposure=0, exposure_pct=0, symbols=[]
+                ),
+            )
 
             if current.exposure_pct < self.max_sector_pct * 0.5:  # Less than 50% of limit
                 if sector not in sectors_with_room:
@@ -1484,6 +1534,7 @@ class SectorExposureManager:
 # Hierarchical Risk Parity (HRP) Portfolio Optimization
 # =============================================================================
 
+
 class HierarchicalRiskParity:
     """
     Hierarchical Risk Parity portfolio optimization.
@@ -1496,7 +1547,7 @@ class HierarchicalRiskParity:
     Based on López de Prado (2016).
     """
 
-    def __init__(self, linkage_method: str = 'ward'):
+    def __init__(self, linkage_method: str = "ward"):
         """
         Args:
             linkage_method: Hierarchical clustering method
@@ -1505,9 +1556,7 @@ class HierarchicalRiskParity:
         self.linkage_method = linkage_method
 
     def fit(
-        self,
-        returns: pd.DataFrame,
-        covariance: pd.DataFrame | None = None
+        self, returns: pd.DataFrame, covariance: pd.DataFrame | None = None
     ) -> dict[str, float]:
         """
         Calculate HRP weights.
@@ -1559,12 +1608,11 @@ class HierarchicalRiskParity:
         Returns sorted indices.
         """
         from scipy.cluster.hierarchy import leaves_list
+
         return list(leaves_list(link))
 
     def _recursive_bisection(
-        self,
-        cov: pd.DataFrame,
-        sorted_symbols: list[str]
+        self, cov: pd.DataFrame, sorted_symbols: list[str]
     ) -> dict[str, float]:
         """
         Recursive bisection for weight allocation.
@@ -1619,11 +1667,7 @@ class HierarchicalRiskParity:
 
         return weights
 
-    def _cluster_variance(
-        self,
-        cov: pd.DataFrame,
-        symbols: list[str]
-    ) -> float:
+    def _cluster_variance(self, cov: pd.DataFrame, symbols: list[str]) -> float:
         """Calculate variance of equal-weighted cluster."""
         if len(symbols) == 0:
             return 0.0
@@ -1637,8 +1681,7 @@ class HierarchicalRiskParity:
 
 
 def calculate_hrp_weights(
-    returns_df: pd.DataFrame,
-    target_symbols: list[str] | None = None
+    returns_df: pd.DataFrame, target_symbols: list[str] | None = None
 ) -> dict[str, float]:
     """
     Convenience function to calculate HRP weights.
@@ -1661,7 +1704,7 @@ def optimize_position_weights(
     symbols: list[str],
     returns_data: pd.DataFrame,
     max_weight: float = 0.20,
-    min_weight: float = 0.02
+    min_weight: float = 0.02,
 ) -> dict[str, float]:
     """
     Optimize position weights for Wheel strategy.

@@ -23,33 +23,44 @@ try:
     from hypothesis import assume, given, settings
     from hypothesis import strategies as st
     from hypothesis.extra.pandas import column, data_frames, series  # noqa: F401
+
     HYPOTHESIS_AVAILABLE = True
 except ImportError:
     HYPOTHESIS_AVAILABLE = False
+
     # Create dummy decorators for when hypothesis is not installed
     def given(*args, **kwargs):
         def decorator(func):
             def wrapper(*a, **kw):
                 return None  # Skip test
+
             wrapper.__name__ = func.__name__
             return wrapper
+
         return decorator
+
     class st:
         @staticmethod
         def floats(*args, **kwargs):
             return None
+
         @staticmethod
         def integers(*args, **kwargs):
             return None
+
         @staticmethod
         def lists(*args, **kwargs):
             return None
+
     def assume(x):
         return x
+
     def settings(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
 
 import numpy as np
 import pandas as pd
@@ -66,10 +77,7 @@ from src.features.technical import TechnicalFeatures
 from src.features.volatility import VolatilityFeatures
 
 # Skip all tests in this module if hypothesis is not available
-pytestmark = pytest.mark.skipif(
-    not HYPOTHESIS_AVAILABLE,
-    reason="hypothesis not installed"
-)
+pytestmark = pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
 
 
 class TestBlackScholesProperties:
@@ -85,7 +93,7 @@ class TestBlackScholesProperties:
     @settings(max_examples=100)
     def test_call_price_non_negative(self, S, K, T, r, sigma):
         """Call price should always be non-negative."""
-        price = black_scholes_price(S, K, T, r, sigma, 'call')
+        price = black_scholes_price(S, K, T, r, sigma, "call")
         assert price >= 0, f"Call price should be >= 0, got {price}"
 
     @given(
@@ -98,7 +106,7 @@ class TestBlackScholesProperties:
     @settings(max_examples=100)
     def test_put_price_non_negative(self, S, K, T, r, sigma):
         """Put price should always be non-negative."""
-        price = black_scholes_price(S, K, T, r, sigma, 'put')
+        price = black_scholes_price(S, K, T, r, sigma, "put")
         assert price >= 0, f"Put price should be >= 0, got {price}"
 
     @given(
@@ -111,7 +119,7 @@ class TestBlackScholesProperties:
     @settings(max_examples=100)
     def test_call_delta_bounds(self, S, K, T, r, sigma):
         """Call delta should be in [0, 1]."""
-        delta = black_scholes_delta(S, K, T, r, sigma, 'call')
+        delta = black_scholes_delta(S, K, T, r, sigma, "call")
         assert 0 <= delta <= 1, f"Call delta should be in [0,1], got {delta}"
 
     @given(
@@ -124,7 +132,7 @@ class TestBlackScholesProperties:
     @settings(max_examples=100)
     def test_put_delta_bounds(self, S, K, T, r, sigma):
         """Put delta should be in [-1, 0]."""
-        delta = black_scholes_delta(S, K, T, r, sigma, 'put')
+        delta = black_scholes_delta(S, K, T, r, sigma, "put")
         assert -1 <= delta <= 0, f"Put delta should be in [-1,0], got {delta}"
 
     @given(
@@ -164,8 +172,8 @@ class TestBlackScholesProperties:
     @settings(max_examples=100)
     def test_put_call_parity(self, S, K, T, r, sigma, q):
         """Put-call parity should hold: C - P = S*e^(-qT) - K*e^(-rT)."""
-        call = black_scholes_price(S, K, T, r, sigma, 'call', q)
-        put = black_scholes_price(S, K, T, r, sigma, 'put', q)
+        call = black_scholes_price(S, K, T, r, sigma, "call", q)
+        put = black_scholes_price(S, K, T, r, sigma, "put", q)
 
         lhs = call - put
         rhs = S * np.exp(-q * T) - K * np.exp(-r * T)
@@ -181,7 +189,7 @@ class TestRSIProperties:
         prices=st.lists(
             st.floats(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False),
             min_size=20,
-            max_size=100
+            max_size=100,
         )
     )
     @settings(max_examples=50)
@@ -198,9 +206,7 @@ class TestRSIProperties:
             assert valid_rsi.min() >= 0, f"RSI min {valid_rsi.min()} < 0"
             assert valid_rsi.max() <= 100, f"RSI max {valid_rsi.max()} > 100"
 
-    @given(
-        window=st.integers(min_value=2, max_value=50)
-    )
+    @given(window=st.integers(min_value=2, max_value=50))
     @settings(max_examples=20)
     def test_rsi_warmup_nan(self, window):
         """First window values of RSI should be NaN."""
@@ -210,8 +216,7 @@ class TestRSIProperties:
         rsi = tf.rsi(prices, window=window)
 
         # First `window` values should be NaN
-        assert rsi.iloc[:window].isna().all(), \
-            f"First {window} values should be NaN"
+        assert rsi.iloc[:window].isna().all(), f"First {window} values should be NaN"
 
 
 class TestIVRankProperties:
@@ -219,9 +224,7 @@ class TestIVRankProperties:
 
     @given(
         iv_values=st.lists(
-            st.floats(min_value=0.05, max_value=1.0, allow_nan=False),
-            min_size=30,
-            max_size=100
+            st.floats(min_value=0.05, max_value=1.0, allow_nan=False), min_size=30, max_size=100
         )
     )
     @settings(max_examples=50)
@@ -271,9 +274,7 @@ class TestVolatilityProperties:
 
     @given(
         returns=st.lists(
-            st.floats(min_value=-0.1, max_value=0.1, allow_nan=False),
-            min_size=30,
-            max_size=200
+            st.floats(min_value=-0.1, max_value=0.1, allow_nan=False), min_size=30, max_size=200
         )
     )
     @settings(max_examples=50)

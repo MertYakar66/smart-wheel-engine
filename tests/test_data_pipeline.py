@@ -32,14 +32,16 @@ class TestFeatureStore:
     def sample_ohlcv(self):
         """Create sample OHLCV data."""
         dates = pd.date_range("2024-01-01", periods=100, freq="B")
-        return pd.DataFrame({
-            "date": dates,
-            "open": np.random.uniform(100, 110, 100),
-            "high": np.random.uniform(110, 120, 100),
-            "low": np.random.uniform(90, 100, 100),
-            "close": np.random.uniform(100, 110, 100),
-            "volume": np.random.randint(1000000, 10000000, 100),
-        })
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "open": np.random.uniform(100, 110, 100),
+                "high": np.random.uniform(110, 120, 100),
+                "low": np.random.uniform(90, 100, 100),
+                "close": np.random.uniform(100, 110, 100),
+                "volume": np.random.randint(1000000, 10000000, 100),
+            }
+        )
 
     def test_write_and_read_features(self, temp_store, sample_ohlcv):
         """Test basic write and read operations."""
@@ -71,8 +73,9 @@ class TestFeatureStore:
 
         # Filter to first 50 days
         df = temp_store.read_features(
-            "ohlcv", "AAPL",
-            as_of="2024-02-23"  # ~35 business days
+            "ohlcv",
+            "AAPL",
+            as_of="2024-02-23",  # ~35 business days
         )
 
         assert df is not None
@@ -149,29 +152,33 @@ class TestDataQualityFramework:
         lows = opens - np.random.uniform(0, 10, n)
         closes = np.random.uniform(lows, highs)
 
-        return pd.DataFrame({
-            "date": dates,
-            "ticker": ["AAPL"] * n,
-            "open": opens,
-            "high": highs,
-            "low": lows,
-            "close": closes,
-            "volume": np.random.randint(1000000, 10000000, n),
-        })
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "ticker": ["AAPL"] * n,
+                "open": opens,
+                "high": highs,
+                "low": lows,
+                "close": closes,
+                "volume": np.random.randint(1000000, 10000000, n),
+            }
+        )
 
     @pytest.fixture
     def invalid_ohlcv(self):
         """Create OHLCV data with violations."""
         dates = pd.date_range("2024-01-01", periods=100, freq="B")
-        return pd.DataFrame({
-            "date": dates,
-            "ticker": ["MSFT"] * 100,
-            "open": np.random.uniform(100, 110, 100),
-            "high": np.random.uniform(90, 95, 100),  # High < Open (violation)
-            "low": np.random.uniform(95, 100, 100),
-            "close": np.random.uniform(100, 110, 100),
-            "volume": np.random.randint(-1000, 10000000, 100),  # Negative volume
-        })
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "ticker": ["MSFT"] * 100,
+                "open": np.random.uniform(100, 110, 100),
+                "high": np.random.uniform(90, 95, 100),  # High < Open (violation)
+                "low": np.random.uniform(95, 100, 100),
+                "close": np.random.uniform(100, 110, 100),
+                "volume": np.random.randint(-1000, 10000000, 100),  # Negative volume
+            }
+        )
 
     def test_valid_data_passes(self, dq, valid_ohlcv):
         """Test that valid data passes validation."""
@@ -189,11 +196,13 @@ class TestDataQualityFramework:
 
     def test_missing_columns(self, dq):
         """Test detection of missing required columns."""
-        df = pd.DataFrame({
-            "date": pd.date_range("2024-01-01", periods=100),
-            "close": np.random.uniform(100, 110, 100),
-            # Missing open, high, low, volume
-        })
+        df = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=100),
+                "close": np.random.uniform(100, 110, 100),
+                # Missing open, high, low, volume
+            }
+        )
 
         result = dq.validate(df, "ohlcv", "AAPL")
 
@@ -203,14 +212,16 @@ class TestDataQualityFramework:
     def test_null_threshold_violations(self, dq):
         """Test null threshold violations."""
         dates = pd.date_range("2024-01-01", periods=100, freq="B")
-        df = pd.DataFrame({
-            "date": dates,
-            "open": [100.0] * 100,
-            "high": [110.0] * 100,
-            "low": [90.0] * 100,
-            "close": [None] * 50 + [100.0] * 50,  # 50% null
-            "volume": [1000000] * 100,
-        })
+        df = pd.DataFrame(
+            {
+                "date": dates,
+                "open": [100.0] * 100,
+                "high": [110.0] * 100,
+                "low": [90.0] * 100,
+                "close": [None] * 50 + [100.0] * 50,  # 50% null
+                "volume": [1000000] * 100,
+            }
+        )
 
         result = dq.validate(df, "ohlcv", "AAPL")
 
@@ -354,14 +365,16 @@ class TestIntegration:
         # Create sample data
         dates = pd.date_range("2024-01-01", periods=300, freq="B")
         n = len(dates)
-        ohlcv = pd.DataFrame({
-            "date": dates,
-            "open": np.random.uniform(100, 110, n),
-            "high": np.random.uniform(110, 120, n),
-            "low": np.random.uniform(90, 100, n),
-            "close": np.random.uniform(100, 110, n),
-            "volume": np.random.randint(1000000, 10000000, n),
-        })
+        ohlcv = pd.DataFrame(
+            {
+                "date": dates,
+                "open": np.random.uniform(100, 110, n),
+                "high": np.random.uniform(110, 120, n),
+                "low": np.random.uniform(90, 100, n),
+                "close": np.random.uniform(100, 110, n),
+                "volume": np.random.randint(1000000, 10000000, n),
+            }
+        )
 
         # Step 1: Validate
         validation = dq.validate(ohlcv, "ohlcv", "AAPL")

@@ -61,7 +61,9 @@ class SECEdgarFetcher(BaseSourceFetcher):
     # User agent required by SEC
     USER_AGENT = "SmartWheelEngine/1.0 (contact@example.com)"
 
-    def __init__(self, rate_limit_per_second: float = 10.0, user_email: str = "contact@example.com"):
+    def __init__(
+        self, rate_limit_per_second: float = 10.0, user_email: str = "contact@example.com"
+    ):
         """
         Initialize SEC EDGAR fetcher.
 
@@ -97,7 +99,9 @@ class SECEdgarFetcher(BaseSourceFetcher):
         """Check if SEC EDGAR is accessible"""
         try:
             client = await self._get_client()
-            response = await client.get(f"{self.BASE_URL}/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=1&output=atom")
+            response = await client.get(
+                f"{self.BASE_URL}/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=1&output=atom"
+            )
             return response.status_code == 200
         except Exception as e:
             logger.error(f"SEC EDGAR health check failed: {e}")
@@ -133,9 +137,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
 
             articles.extend(filings)
 
-        logger.info(
-            f"SEC EDGAR: Fetched {len(articles)} filings for '{category.name}'"
-        )
+        logger.info(f"SEC EDGAR: Fetched {len(articles)} filings for '{category.name}'")
 
         return articles[:max_results]
 
@@ -182,20 +184,14 @@ class SECEdgarFetcher(BaseSourceFetcher):
         try:
             client = await self._get_client()
             # Override host header for this request
-            response = await client.get(
-                rss_url,
-                headers={"Host": "www.sec.gov"}
-            )
+            response = await client.get(rss_url, headers={"Host": "www.sec.gov"})
             response.raise_for_status()
 
             # Parse Atom feed
             articles = self._parse_atom_feed(response.text, filing_type, tickers)
 
             # Filter by date
-            articles = [
-                a for a in articles
-                if start_date <= a.published_at_utc.date() <= end_date
-            ]
+            articles = [a for a in articles if start_date <= a.published_at_utc.date() <= end_date]
 
         except Exception as e:
             logger.error(f"SEC filing fetch error for {filing_type}: {e}")
@@ -230,7 +226,11 @@ class SECEdgarFetcher(BaseSourceFetcher):
                         continue
 
                     # Parse date
-                    pub_date = datetime.fromisoformat(updated.replace("Z", "+00:00")) if updated else datetime.utcnow()
+                    pub_date = (
+                        datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                        if updated
+                        else datetime.utcnow()
+                    )
 
                     # Extract company name and CIK from title
                     company_name, cik = self._parse_filing_title(title)
@@ -258,11 +258,13 @@ class SECEdgarFetcher(BaseSourceFetcher):
 
                     # Add company entity
                     if company_name:
-                        article.entities.append(Entity(
-                            name=company_name,
-                            entity_type="company",
-                            confidence=1.0,
-                        ))
+                        article.entities.append(
+                            Entity(
+                                name=company_name,
+                                entity_type="company",
+                                confidence=1.0,
+                            )
+                        )
 
                     # Add topics
                     article.topics = FILING_TOPICS.get(filing_type, []).copy()
@@ -285,15 +287,15 @@ class SECEdgarFetcher(BaseSourceFetcher):
         cik = None
 
         # Try to extract CIK
-        cik_match = re.search(r'\((\d+)\)', title)
+        cik_match = re.search(r"\((\d+)\)", title)
         if cik_match:
             cik = cik_match.group(1)
-            company_name = title[:cik_match.start()].strip()
+            company_name = title[: cik_match.start()].strip()
 
         # Remove form type prefix
         for prefix in ["8-K", "10-K", "10-Q", "S-1", "DEF 14A", "Form 4"]:
             if company_name.startswith(prefix):
-                company_name = company_name[len(prefix):].strip(" -")
+                company_name = company_name[len(prefix) :].strip(" -")
 
         return company_name, cik
 
@@ -362,9 +364,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
             primary_doc = primary_docs[i] if i < len(primary_docs) else ""
 
             # Build URL to filing
-            url = (
-                f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{primary_doc}"
-            )
+            url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{primary_doc}"
 
             pub_date = datetime.strptime(filing_date, "%Y-%m-%d")
             article_id = Article.generate_id(url, pub_date, "sec_edgar")
@@ -384,12 +384,14 @@ class SECEdgarFetcher(BaseSourceFetcher):
             )
 
             # Add company entity
-            article.entities.append(Entity(
-                name=company_name,
-                entity_type="company",
-                ticker=tickers[0] if tickers else None,
-                confidence=1.0,
-            ))
+            article.entities.append(
+                Entity(
+                    name=company_name,
+                    entity_type="company",
+                    ticker=tickers[0] if tickers else None,
+                    confidence=1.0,
+                )
+            )
 
             article.topics = FILING_TOPICS.get(form_type, []).copy()
             articles.append(article)
@@ -425,9 +427,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
         try:
             client = await self._get_client()
             response = await client.get(
-                self.FULL_TEXT_SEARCH_URL,
-                params=params,
-                headers={"Host": "efts.sec.gov"}
+                self.FULL_TEXT_SEARCH_URL, params=params, headers={"Host": "efts.sec.gov"}
             )
             response.raise_for_status()
 

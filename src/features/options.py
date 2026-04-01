@@ -109,7 +109,7 @@ class OptionsFeatures:
         Returns:
             Option delta
         """
-        option_type = 'call' if is_call else 'put'
+        option_type = "call" if is_call else "put"
         return _bs_delta(
             S=spot,
             K=strike,
@@ -117,7 +117,7 @@ class OptionsFeatures:
             r=risk_free_rate,
             sigma=volatility,
             option_type=option_type,
-            q=dividend_yield
+            q=dividend_yield,
         )
 
     @staticmethod
@@ -149,14 +149,14 @@ class OptionsFeatures:
         if is_short_put:
             # Short put profits if price stays above breakeven
             breakeven = strike - premium
-            d2 = (np.log(spot / breakeven) + (-0.5 * volatility ** 2) * time_to_expiry) / (
+            d2 = (np.log(spot / breakeven) + (-0.5 * volatility**2) * time_to_expiry) / (
                 volatility * np.sqrt(time_to_expiry)
             )
             return norm.cdf(d2)
         else:
             # Long call profits if price goes above breakeven
             breakeven = strike + premium
-            d2 = (np.log(spot / breakeven) + (-0.5 * volatility ** 2) * time_to_expiry) / (
+            d2 = (np.log(spot / breakeven) + (-0.5 * volatility**2) * time_to_expiry) / (
                 volatility * np.sqrt(time_to_expiry)
             )
             return norm.cdf(d2)

@@ -33,7 +33,6 @@ TICKER_MAPPINGS = {
     "nvidia": "NVDA",
     "tesla": "TSLA",
     "netflix": "NFLX",
-
     # Finance
     "jpmorgan": "JPM",
     "jp morgan": "JPM",
@@ -44,7 +43,6 @@ TICKER_MAPPINGS = {
     "citigroup": "C",
     "blackrock": "BLK",
     "berkshire hathaway": "BRK.B",
-
     # Other majors
     "walmart": "WMT",
     "exxon": "XOM",
@@ -56,7 +54,6 @@ TICKER_MAPPINGS = {
     "coca-cola": "KO",
     "disney": "DIS",
     "nike": "NKE",
-
     # Semiconductors
     "amd": "AMD",
     "intel": "INTC",
@@ -75,11 +72,9 @@ PERSON_PATTERNS = [
     (r"lagarde", "central_banker"),
     (r"kuroda", "central_banker"),
     (r"bailey", "central_banker"),
-
     # CEO patterns
     (r"ceo\s+([\w\s]+)", "executive"),
     (r"([\w\s]+),?\s+ceo\s+of", "executive"),
-
     # Analysts
     (r"analyst\s+([\w\s]+)\s+at", "analyst"),
 ]
@@ -87,43 +82,114 @@ PERSON_PATTERNS = [
 # Topic keywords for classification
 TOPIC_KEYWORDS = {
     TopicCategory.MACRO_RATES: [
-        "interest rate", "fed", "fomc", "rate hike", "rate cut", "monetary policy",
-        "treasury yield", "bond yield", "rate decision",
+        "interest rate",
+        "fed",
+        "fomc",
+        "rate hike",
+        "rate cut",
+        "monetary policy",
+        "treasury yield",
+        "bond yield",
+        "rate decision",
     ],
     TopicCategory.MACRO_INFLATION: [
-        "inflation", "cpi", "pce", "price pressure", "deflation", "stagflation",
+        "inflation",
+        "cpi",
+        "pce",
+        "price pressure",
+        "deflation",
+        "stagflation",
     ],
     TopicCategory.EARNINGS: [
-        "earnings", "eps", "revenue", "quarterly", "guidance", "profit",
-        "beat", "miss", "outlook", "results",
+        "earnings",
+        "eps",
+        "revenue",
+        "quarterly",
+        "guidance",
+        "profit",
+        "beat",
+        "miss",
+        "outlook",
+        "results",
     ],
     TopicCategory.M_AND_A: [
-        "merger", "acquisition", "acquire", "takeover", "buyout", "deal",
-        "combination", "spinoff", "divestiture",
+        "merger",
+        "acquisition",
+        "acquire",
+        "takeover",
+        "buyout",
+        "deal",
+        "combination",
+        "spinoff",
+        "divestiture",
     ],
     TopicCategory.TECH_AI: [
-        "ai", "artificial intelligence", "machine learning", "llm", "gpt",
-        "neural network", "deep learning", "chatgpt", "openai",
+        "ai",
+        "artificial intelligence",
+        "machine learning",
+        "llm",
+        "gpt",
+        "neural network",
+        "deep learning",
+        "chatgpt",
+        "openai",
     ],
     TopicCategory.TECH_SEMIS: [
-        "semiconductor", "chip", "gpu", "cpu", "wafer", "fab", "foundry",
-        "nvidia", "amd", "intel", "tsmc",
+        "semiconductor",
+        "chip",
+        "gpu",
+        "cpu",
+        "wafer",
+        "fab",
+        "foundry",
+        "nvidia",
+        "amd",
+        "intel",
+        "tsmc",
     ],
     TopicCategory.COMMODITIES_OIL: [
-        "oil", "crude", "brent", "wti", "opec", "petroleum", "energy",
-        "natural gas", "lng", "barrel",
+        "oil",
+        "crude",
+        "brent",
+        "wti",
+        "opec",
+        "petroleum",
+        "energy",
+        "natural gas",
+        "lng",
+        "barrel",
     ],
     TopicCategory.GEOPOLITICS: [
-        "tariff", "sanction", "trade war", "geopolitical", "conflict",
-        "diplomacy", "embargo", "tension",
+        "tariff",
+        "sanction",
+        "trade war",
+        "geopolitical",
+        "conflict",
+        "diplomacy",
+        "embargo",
+        "tension",
     ],
     TopicCategory.CHINA: [
-        "china", "chinese", "beijing", "shanghai", "ccp", "yuan",
-        "renminbi", "prc",
+        "china",
+        "chinese",
+        "beijing",
+        "shanghai",
+        "ccp",
+        "yuan",
+        "renminbi",
+        "prc",
     ],
     TopicCategory.CRYPTO: [
-        "bitcoin", "crypto", "ethereum", "blockchain", "defi", "nft",
-        "digital asset", "stablecoin", "binance", "coinbase",
+        "bitcoin",
+        "crypto",
+        "ethereum",
+        "blockchain",
+        "defi",
+        "nft",
+        "digital asset",
+        "stablecoin",
+        "binance",
+        "coinbase",
     ],
 }
 
@@ -191,12 +257,14 @@ class EntityExtractor:
         tickers = self._extract_explicit_tickers(text)
         for ticker in tickers:
             if ticker not in [e.ticker for e in entities if e.ticker]:
-                entities.append(Entity(
-                    name=ticker,
-                    entity_type="company",
-                    ticker=ticker,
-                    confidence=1.0,
-                ))
+                entities.append(
+                    Entity(
+                        name=ticker,
+                        entity_type="company",
+                        ticker=ticker,
+                        confidence=1.0,
+                    )
+                )
 
         # Deduplicate
         seen = set()
@@ -217,13 +285,19 @@ class EntityExtractor:
             matches = pattern.findall(text)
             if matches:
                 # Use the original text match as name
-                name = matches[0] if isinstance(matches[0], str) else pattern.pattern.replace(r"\b", "").replace("\\", "")
-                entities.append(Entity(
-                    name=name.title(),
-                    entity_type="company",
-                    ticker=ticker,
-                    confidence=0.9,
-                ))
+                name = (
+                    matches[0]
+                    if isinstance(matches[0], str)
+                    else pattern.pattern.replace(r"\b", "").replace("\\", "")
+                )
+                entities.append(
+                    Entity(
+                        name=name.title(),
+                        entity_type="company",
+                        ticker=ticker,
+                        confidence=0.9,
+                    )
+                )
 
         return entities
 
@@ -236,11 +310,13 @@ class EntityExtractor:
             matches = pattern.findall(text)
             for match in matches:
                 if isinstance(match, str) and len(match) > 2:
-                    entities.append(Entity(
-                        name=match.strip().title(),
-                        entity_type=person_type,
-                        confidence=0.7,
-                    ))
+                    entities.append(
+                        Entity(
+                            name=match.strip().title(),
+                            entity_type=person_type,
+                            confidence=0.7,
+                        )
+                    )
 
         return entities
 
@@ -270,11 +346,13 @@ class EntityExtractor:
 
         for region_name, _code in regions.items():
             if region_name in text_lower:
-                entities.append(Entity(
-                    name=region_name.title(),
-                    entity_type="country",
-                    confidence=0.95,
-                ))
+                entities.append(
+                    Entity(
+                        name=region_name.title(),
+                        entity_type="country",
+                        confidence=0.95,
+                    )
+                )
 
         return entities
 
@@ -288,8 +366,7 @@ class EntityExtractor:
 
         # (EXCHANGE: TICKER) pattern
         exchange_pattern = re.compile(
-            r"\((?:NYSE|NASDAQ|AMEX|TSX|LSE):\s*([A-Z]{1,5})\)",
-            re.IGNORECASE
+            r"\((?:NYSE|NASDAQ|AMEX|TSX|LSE):\s*([A-Z]{1,5})\)", re.IGNORECASE
         )
         tickers.extend(exchange_pattern.findall(text.upper()))
 

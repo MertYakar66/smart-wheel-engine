@@ -37,6 +37,7 @@ class SVIParams:
 
     This creates a realistic smile/skew shape.
     """
+
     a: float  # Vertical shift (overall variance level)
     b: float  # Tightness of smile (must be >= 0)
     rho: float  # Asymmetry/skew (-1 < ρ < 1)
@@ -54,13 +55,14 @@ class SVIParams:
         # Butterfly arbitrage condition: a + b*sigma*sqrt(1-rho^2) >= 0
         butterfly = self.a + self.b * self.sigma * np.sqrt(1 - self.rho**2)
         if butterfly < 0:
-            warnings.warn(f"SVI params may violate butterfly arbitrage: {butterfly:.4f}", stacklevel=2)
+            warnings.warn(
+                f"SVI params may violate butterfly arbitrage: {butterfly:.4f}", stacklevel=2
+            )
 
     def total_variance(self, k: float) -> float:
         """Calculate total variance w(k) for log-moneyness k."""
         return self.a + self.b * (
-            self.rho * (k - self.m) +
-            np.sqrt((k - self.m)**2 + self.sigma**2)
+            self.rho * (k - self.m) + np.sqrt((k - self.m) ** 2 + self.sigma**2)
         )
 
     def implied_vol(self, k: float, T: float) -> float:
@@ -80,6 +82,7 @@ class VolatilitySurface:
 
     Stores SVI parameters per expiry for full surface reconstruction.
     """
+
     as_of_date: date
     underlying: str
     forward_prices: dict[date, float]  # Forward price per expiry
@@ -89,12 +92,7 @@ class VolatilitySurface:
     raw_strikes: dict[date, np.ndarray] = field(default_factory=dict)
     raw_ivs: dict[date, np.ndarray] = field(default_factory=dict)
 
-    def get_iv(
-        self,
-        strike: float,
-        expiry: date,
-        spot: float | None = None
-    ) -> float:
+    def get_iv(self, strike: float, expiry: date, spot: float | None = None) -> float:
         """
         Get interpolated IV for strike and expiry.
 
@@ -122,12 +120,7 @@ class VolatilitySurface:
         params = self.svi_params[expiry]
         return params.implied_vol(k, T)
 
-    def _interpolate_expiry(
-        self,
-        strike: float,
-        expiry: date,
-        spot: float | None
-    ) -> float:
+    def _interpolate_expiry(self, strike: float, expiry: date, spot: float | None) -> float:
         """Interpolate IV for expiry not in surface."""
         if not self.svi_params:
             return 0.20  # Default
@@ -167,11 +160,7 @@ class VolatilitySurface:
 
         return 0.20  # Fallback
 
-    def get_term_structure(
-        self,
-        strike: float | None = None,
-        delta: float = 0.5
-    ) -> pd.DataFrame:
+    def get_term_structure(self, strike: float | None = None, delta: float = 0.5) -> pd.DataFrame:
         """
         Get IV term structure (IV vs expiry).
 
@@ -194,11 +183,7 @@ class VolatilitySurface:
                 params = self.svi_params[expiry]
                 iv = params.implied_vol(0, T / 365)
 
-            results.append({
-                'expiry': expiry,
-                'dte': T,
-                'iv': iv
-            })
+            results.append({"expiry": expiry, "dte": T, "iv": iv})
 
         return pd.DataFrame(results)
 
@@ -230,11 +215,8 @@ class VolatilitySurface:
         return iv_25d_put, atm_iv, iv_25d_call
 
     def stress(
-        self,
-        spot_change_pct: float,
-        parallel_iv_shift: float = 0.0,
-        skew_steepening: float = 0.0
-    ) -> 'VolatilitySurface':
+        self, spot_change_pct: float, parallel_iv_shift: float = 0.0, skew_steepening: float = 0.0
+    ) -> "VolatilitySurface":
         """
         Create stressed version of surface.
 
@@ -247,8 +229,7 @@ class VolatilitySurface:
             New stressed VolatilitySurface
         """
         new_forwards = {
-            exp: fwd * (1 + spot_change_pct)
-            for exp, fwd in self.forward_prices.items()
+            exp: fwd * (1 + spot_change_pct) for exp, fwd in self.forward_prices.items()
         }
 
         # Adjust SVI params for stress
@@ -259,18 +240,14 @@ class VolatilitySurface:
             new_rho = np.clip(params.rho + skew_steepening, -0.99, 0.99)
 
             new_params[exp] = SVIParams(
-                a=new_a,
-                b=params.b,
-                rho=new_rho,
-                m=params.m,
-                sigma=params.sigma
+                a=new_a, b=params.b, rho=new_rho, m=params.m, sigma=params.sigma
             )
 
         return VolatilitySurface(
             as_of_date=self.as_of_date,
             underlying=self.underlying,
             forward_prices=new_forwards,
-            svi_params=new_params
+            svi_params=new_params,
         )
 
 
@@ -281,20 +258,12 @@ class SVICalibrator:
     Uses least-squares optimization to fit SVI curve to market IVs.
     """
 
-    def __init__(
-        self,
-        min_points: int = 5,
-        max_iterations: int = 1000
-    ):
+    def __init__(self, min_points: int = 5, max_iterations: int = 1000):
         self.min_points = min_points
         self.max_iterations = max_iterations
 
     def calibrate(
-        self,
-        strikes: np.ndarray,
-        ivs: np.ndarray,
-        forward: float,
-        T: float
+        self, strikes: np.ndarray, ivs: np.ndarray, forward: float, T: float
     ) -> SVIParams:
         """
         Calibrate SVI parameters to market data.
@@ -318,27 +287,27 @@ class SVICalibrator:
         # Initial guess
         atm_var = np.interp(0, k, w)
         x0 = [
-            atm_var,      # a
-            0.1,          # b
-            -0.3,         # rho (typical equity skew)
-            0.0,          # m
-            0.1           # sigma
+            atm_var,  # a
+            0.1,  # b
+            -0.3,  # rho (typical equity skew)
+            0.0,  # m
+            0.1,  # sigma
         ]
 
         # Bounds
         bounds = [
-            (-0.5, 1.0),      # a
-            (0.001, 1.0),     # b
-            (-0.99, 0.99),    # rho
-            (-0.5, 0.5),      # m
-            (0.001, 1.0)      # sigma
+            (-0.5, 1.0),  # a
+            (0.001, 1.0),  # b
+            (-0.99, 0.99),  # rho
+            (-0.5, 0.5),  # m
+            (0.001, 1.0),  # sigma
         ]
 
         def objective(params):
             a, b, rho, m, sigma = params
             try:
-                w_model = a + b * (rho * (k - m) + np.sqrt((k - m)**2 + sigma**2))
-                return np.sum((w_model - w)**2)
+                w_model = a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma**2))
+                return np.sum((w_model - w) ** 2)
             except Exception:
                 return 1e10
 
@@ -346,9 +315,9 @@ class SVICalibrator:
         result = optimize.minimize(
             objective,
             x0,
-            method='L-BFGS-B',
+            method="L-BFGS-B",
             bounds=bounds,
-            options={'maxiter': self.max_iterations}
+            options={"maxiter": self.max_iterations},
         )
 
         if not result.success:
@@ -375,7 +344,7 @@ class VolatilitySurfaceBuilder:
         as_of_date: date,
         underlying: str,
         risk_free_rate: float = 0.05,
-        dividend_yield: float = 0.02
+        dividend_yield: float = 0.02,
     ) -> VolatilitySurface:
         """
         Build surface from option chain snapshot.
@@ -393,7 +362,7 @@ class VolatilitySurfaceBuilder:
             VolatilitySurface
         """
         # Group by expiration
-        expiries = option_data['expiration'].unique()
+        expiries = option_data["expiration"].unique()
 
         forward_prices = {}
         svi_params = {}
@@ -412,24 +381,18 @@ class VolatilitySurfaceBuilder:
             forward_prices[expiry_date] = F
 
             # Get OTM options only (cleaner for calibration)
-            exp_data = option_data[option_data['expiration'] == expiry].copy()
+            exp_data = option_data[option_data["expiration"] == expiry].copy()
 
             # Filter for OTM
-            otm_puts = exp_data[
-                (exp_data['option_type'] == 'put') &
-                (exp_data['strike'] < F)
-            ]
-            otm_calls = exp_data[
-                (exp_data['option_type'] == 'call') &
-                (exp_data['strike'] >= F)
-            ]
+            otm_puts = exp_data[(exp_data["option_type"] == "put") & (exp_data["strike"] < F)]
+            otm_calls = exp_data[(exp_data["option_type"] == "call") & (exp_data["strike"] >= F)]
             otm_data = pd.concat([otm_puts, otm_calls])
 
             if len(otm_data) < 5:
                 continue
 
-            strikes = otm_data['strike'].values
-            ivs = otm_data['iv_mid'].values
+            strikes = otm_data["strike"].values
+            ivs = otm_data["iv_mid"].values
 
             # Clean data
             valid = (ivs > 0.01) & (ivs < 3.0) & np.isfinite(ivs)
@@ -455,7 +418,7 @@ class VolatilitySurfaceBuilder:
             forward_prices=forward_prices,
             svi_params=svi_params,
             raw_strikes=raw_strikes,
-            raw_ivs=raw_ivs
+            raw_ivs=raw_ivs,
         )
 
 
@@ -467,23 +430,13 @@ class SplineVolSurface:
     Faster but less smooth extrapolation.
     """
 
-    def __init__(
-        self,
-        as_of_date: date,
-        underlying: str
-    ):
+    def __init__(self, as_of_date: date, underlying: str):
         self.as_of_date = as_of_date
         self.underlying = underlying
         self.splines: dict[date, Callable] = {}  # expiry -> interpolator
         self.forward_prices: dict[date, float] = {}
 
-    def fit(
-        self,
-        expiry: date,
-        strikes: np.ndarray,
-        ivs: np.ndarray,
-        forward: float
-    ):
+    def fit(self, expiry: date, strikes: np.ndarray, ivs: np.ndarray, forward: float):
         """Fit spline for single expiry."""
         if len(strikes) < 3:
             return
@@ -494,11 +447,7 @@ class SplineVolSurface:
         ivs = ivs[idx]
 
         # Create spline
-        spline = interpolate.CubicSpline(
-            strikes, ivs,
-            bc_type='natural',
-            extrapolate=True
-        )
+        spline = interpolate.CubicSpline(strikes, ivs, bc_type="natural", extrapolate=True)
 
         self.splines[expiry] = spline
         self.forward_prices[expiry] = forward
@@ -519,12 +468,9 @@ class SplineVolSurface:
 # Utility Functions
 # =============================================================================
 
+
 def create_constant_surface(
-    iv: float,
-    as_of_date: date,
-    underlying: str,
-    spot: float,
-    expiries: list[date]
+    iv: float, as_of_date: date, underlying: str, spot: float, expiries: list[date]
 ) -> VolatilitySurface:
     """
     Create flat (constant IV) surface.
@@ -544,23 +490,19 @@ def create_constant_surface(
                 b=0.001,  # Near-zero but valid
                 rho=0.0,
                 m=0.0,
-                sigma=0.1
+                sigma=0.1,
             )
 
     return VolatilitySurface(
         as_of_date=as_of_date,
         underlying=underlying,
         forward_prices=forward_prices,
-        svi_params=svi_params
+        svi_params=svi_params,
     )
 
 
 def estimate_iv_for_delta(
-    delta: float,
-    surface: VolatilitySurface,
-    expiry: date,
-    spot: float,
-    is_put: bool = True
+    delta: float, surface: VolatilitySurface, expiry: date, spot: float, is_put: bool = True
 ) -> tuple[float, float]:
     """
     Find strike and IV for target delta.
@@ -613,14 +555,16 @@ def surface_to_dataframe(surface: VolatilitySurface) -> pd.DataFrame:
             k = np.log(moneyness)
             iv = params.implied_vol(k, T)
 
-            rows.append({
-                'expiry': expiry,
-                'dte': (expiry - surface.as_of_date).days,
-                'strike': strike,
-                'moneyness': moneyness,
-                'log_moneyness': k,
-                'iv': iv,
-                'forward': F
-            })
+            rows.append(
+                {
+                    "expiry": expiry,
+                    "dte": (expiry - surface.as_of_date).days,
+                    "strike": strike,
+                    "moneyness": moneyness,
+                    "log_moneyness": k,
+                    "iv": iv,
+                    "forward": F,
+                }
+            )
 
     return pd.DataFrame(rows)

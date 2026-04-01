@@ -75,7 +75,11 @@ class BaseSourceFetcher(ABC):
             query_parts.append(f"({ticker_query})")
 
         # Combine with AND
-        query = " AND ".join(query_parts) if len(query_parts) > 1 else (query_parts[0] if query_parts else "*")
+        query = (
+            " AND ".join(query_parts)
+            if len(query_parts) > 1
+            else (query_parts[0] if query_parts else "*")
+        )
 
         # Add exclusions
         if category.exclusions:
@@ -91,8 +95,17 @@ class BaseSourceFetcher(ABC):
 
         # Common tracking parameters to remove
         tracking_params = {
-            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-            "fbclid", "gclid", "ref", "source", "mc_cid", "mc_eid",
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_term",
+            "utm_content",
+            "fbclid",
+            "gclid",
+            "ref",
+            "source",
+            "mc_cid",
+            "mc_eid",
         }
 
         parsed = urlparse(url)
@@ -100,19 +113,20 @@ class BaseSourceFetcher(ABC):
 
         # Remove tracking parameters
         filtered_params = {
-            k: v for k, v in query_params.items()
-            if k.lower() not in tracking_params
+            k: v for k, v in query_params.items() if k.lower() not in tracking_params
         }
 
         # Rebuild URL
         new_query = urlencode(filtered_params, doseq=True)
-        cleaned = urlunparse((
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            parsed.params,
-            new_query,
-            "",  # Remove fragment
-        ))
+        cleaned = urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                new_query,
+                "",  # Remove fragment
+            )
+        )
 
         return cleaned

@@ -17,7 +17,7 @@ from enum import Enum
 
 from news_pipeline.browser_agents.base import ModelType
 from news_pipeline.recovery.checkpoints import PipelineStage
-from news_pipeline.recovery.health import HealthStatus, ProviderHealthMonitor
+from news_pipeline.recovery.health import ProviderHealthMonitor
 
 logger = logging.getLogger(__name__)
 

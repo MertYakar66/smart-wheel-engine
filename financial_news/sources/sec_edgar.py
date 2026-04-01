@@ -15,11 +15,10 @@ Rate Limits (from SEC):
 Reference: https://www.sec.gov/developer
 """
 
-import asyncio
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 import logging
 import re
+from datetime import datetime
+from typing import Any
 
 import httpx
 
@@ -72,7 +71,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
         """
         super().__init__(rate_limit_per_second=rate_limit_per_second)
         self.user_email = user_email
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with SEC-required headers"""
@@ -110,7 +109,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
         start_time: datetime,
         end_time: datetime,
         max_results: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch SEC filings as articles.
 
@@ -140,7 +139,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
 
         return articles[:max_results]
 
-    def _get_filing_types_for_category(self, category: Category) -> List[str]:
+    def _get_filing_types_for_category(self, category: Category) -> list[str]:
         """Map category to relevant SEC filing types"""
         filing_types = []
 
@@ -165,8 +164,8 @@ class SECEdgarFetcher(BaseSourceFetcher):
         start_date: datetime.date,
         end_date: datetime.date,
         max_results: int = 50,
-        tickers: Optional[List[str]] = None,
-    ) -> List[Article]:
+        tickers: list[str] | None = None,
+    ) -> list[Article]:
         """
         Fetch recent filings of a specific type.
 
@@ -207,8 +206,8 @@ class SECEdgarFetcher(BaseSourceFetcher):
         self,
         xml_content: str,
         filing_type: str,
-        tickers: Optional[List[str]] = None,
-    ) -> List[Article]:
+        tickers: list[str] | None = None,
+    ) -> list[Article]:
         """Parse SEC Atom feed into Article objects"""
         import xml.etree.ElementTree as ET
 
@@ -301,9 +300,9 @@ class SECEdgarFetcher(BaseSourceFetcher):
     async def get_company_filings(
         self,
         cik: str,
-        filing_types: Optional[List[str]] = None,
+        filing_types: list[str] | None = None,
         max_results: int = 20,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Get all recent filings for a specific company by CIK.
 
@@ -333,9 +332,9 @@ class SECEdgarFetcher(BaseSourceFetcher):
 
     def _parse_company_submissions(
         self,
-        data: Dict[str, Any],
-        filing_types: Optional[List[str]] = None,
-    ) -> List[Article]:
+        data: dict[str, Any],
+        filing_types: list[str] | None = None,
+    ) -> list[Article]:
         """Parse company submissions JSON into Article objects"""
         articles = []
 
@@ -400,11 +399,11 @@ class SECEdgarFetcher(BaseSourceFetcher):
     async def search_filings(
         self,
         query: str,
-        filing_types: Optional[List[str]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        filing_types: list[str] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         max_results: int = 50,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Full-text search across SEC filings.
 
@@ -440,7 +439,7 @@ class SECEdgarFetcher(BaseSourceFetcher):
             logger.error(f"SEC search error: {e}")
             return []
 
-    def _parse_search_results(self, data: Dict[str, Any]) -> List[Article]:
+    def _parse_search_results(self, data: dict[str, Any]) -> list[Article]:
         """Parse EFTS search results"""
         # EFTS returns different structure than other endpoints
         # Implementation depends on actual response format

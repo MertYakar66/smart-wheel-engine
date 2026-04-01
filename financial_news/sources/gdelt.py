@@ -15,14 +15,13 @@ API Endpoints:
 Note: GDELT has rolling window constraints on some endpoints.
 """
 
-import asyncio
-from datetime import datetime
-from typing import Any, Dict, List, Optional
 import logging
+from datetime import datetime
+from typing import Any
 
 import httpx
 
-from financial_news.models import Article, ArticleSource, Category, Entity
+from financial_news.models import Article, ArticleSource, Category
 from financial_news.sources.base import BaseSourceFetcher
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,7 @@ class GDELTFetcher(BaseSourceFetcher):
         reasonable request rates for heavy users.
         """
         super().__init__(rate_limit_per_second=rate_limit_per_second)
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client"""
@@ -87,7 +86,7 @@ class GDELTFetcher(BaseSourceFetcher):
         start_time: datetime,
         end_time: datetime,
         max_results: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch articles from GDELT matching category within time window.
 
@@ -149,7 +148,7 @@ class GDELTFetcher(BaseSourceFetcher):
             logger.error(f"GDELT fetch error: {e}")
             return []
 
-    def _parse_response(self, data: Dict[str, Any], category: Category) -> List[Article]:
+    def _parse_response(self, data: dict[str, Any], category: Category) -> list[Article]:
         """Parse GDELT API response into Article objects"""
         articles = []
 
@@ -212,7 +211,7 @@ class GDELTFetcher(BaseSourceFetcher):
 
         return articles
 
-    async def fetch_trending_themes(self, max_themes: int = 20) -> List[Dict[str, Any]]:
+    async def fetch_trending_themes(self, max_themes: int = 20) -> list[dict[str, Any]]:
         """
         Fetch currently trending themes from GDELT.
 
@@ -241,7 +240,7 @@ class GDELTFetcher(BaseSourceFetcher):
         longitude: float,
         radius_km: float = 100,
         max_results: int = 50,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch articles related to a geographic location.
 

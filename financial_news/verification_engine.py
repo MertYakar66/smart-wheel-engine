@@ -17,14 +17,13 @@ This module provides:
 - Structured output formatting
 """
 
+import hashlib
 import json
 import sqlite3
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
-import hashlib
 
 
 class VerificationStatus(Enum):

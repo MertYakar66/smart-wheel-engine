@@ -11,10 +11,8 @@ Scores stories based on potential market impact using:
 Optional: price/volume anomaly detection if market data available.
 """
 
-import re
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set
 import logging
+from datetime import datetime, timedelta
 
 from financial_news.models import Article, Story, TopicCategory
 
@@ -94,7 +92,7 @@ class ImpactScorer:
     def __init__(
         self,
         enable_volume_scoring: bool = True,
-        market_data_provider: Optional[object] = None,
+        market_data_provider: object | None = None,
     ):
         """
         Initialize impact scorer.
@@ -107,10 +105,10 @@ class ImpactScorer:
         self.market_data_provider = market_data_provider
 
         # Track news volume for anomaly detection
-        self._ticker_volume: Dict[str, List[datetime]] = {}
-        self._topic_volume: Dict[str, List[datetime]] = {}
+        self._ticker_volume: dict[str, list[datetime]] = {}
+        self._topic_volume: dict[str, list[datetime]] = {}
 
-    def score_story(self, story: Story, articles: List[Article] = None) -> float:
+    def score_story(self, story: Story, articles: list[Article] = None) -> float:
         """
         Calculate impact score for a story.
 
@@ -190,7 +188,7 @@ class ImpactScorer:
 
         return 0.1
 
-    def _score_topics(self, topics: List[TopicCategory]) -> float:
+    def _score_topics(self, topics: list[TopicCategory]) -> float:
         """Score based on topic importance"""
         if not topics:
             return 0.3
@@ -199,7 +197,7 @@ class ImpactScorer:
         max_weight = max(TOPIC_WEIGHTS.get(t, 0.3) for t in topics)
         return max_weight
 
-    def _score_entities(self, entities: List) -> float:
+    def _score_entities(self, entities: list) -> float:
         """Score based on entity importance"""
         if not entities:
             return 0.2
@@ -248,7 +246,7 @@ class ImpactScorer:
     def _get_recent_count(
         self,
         key: str,
-        volume_dict: Dict[str, List[datetime]],
+        volume_dict: dict[str, list[datetime]],
         window_hours: int = 1,
     ) -> int:
         """Count articles in recent time window"""
@@ -307,7 +305,7 @@ class ImpactScorer:
                 t for t in self._topic_volume[key] if t > cutoff
             ]
 
-    def score_articles(self, articles: List[Article]) -> List[Article]:
+    def score_articles(self, articles: list[Article]) -> list[Article]:
         """Score multiple articles and record for volume tracking"""
         for article in articles:
             # Simple article-level impact

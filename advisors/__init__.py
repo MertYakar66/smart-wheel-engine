@@ -24,39 +24,37 @@ Usage:
 """
 
 # Schemas
-from .schema import (
-    # Enums
-    ConfidenceLevel,
-    Judgment,
-    TradeType,
-    RegimeType,
-    # Input models
-    Position,
-    CandidateTrade,
-    PortfolioContext,
-    MarketContext,
-    AdvisorInput,
-    # Output models
-    AdvisorResponse,
-    CommitteeOutput,
-    # Helpers
-    create_sample_input,
-)
-
 # Base
 from .base import BaseAdvisor
 
 # Advisors
 from .buffett import BuffettAdvisor
-from .munger import MungerAdvisor
-from .simons import SimonsAdvisor
 
 # Committee
 from .committee import CommitteeEngine, format_committee_report
 
 # Integration
 from .integration import EngineIntegration, quick_evaluate
-
+from .munger import MungerAdvisor
+from .schema import (
+    AdvisorInput,
+    # Output models
+    AdvisorResponse,
+    CandidateTrade,
+    CommitteeOutput,
+    # Enums
+    ConfidenceLevel,
+    Judgment,
+    MarketContext,
+    PortfolioContext,
+    # Input models
+    Position,
+    RegimeType,
+    TradeType,
+    # Helpers
+    create_sample_input,
+)
+from .simons import SimonsAdvisor
 
 __all__ = [
     # Enums

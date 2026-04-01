@@ -13,14 +13,18 @@ Uses:
 """
 
 import asyncio
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-import logging
 import json
+import logging
+from datetime import datetime
+from typing import Any
 
 from financial_news.schema import (
-    Article, Brief, Story, Category, CategoryType, BriefType,
+    Article,
+    Brief,
+    CategoryType,
+    Story,
 )
+
 # Legacy import for compatibility
 try:
     from financial_news.models import TopicCategory, UserProfile
@@ -83,8 +87,8 @@ class BriefGenerator:
 
     def __init__(
         self,
-        local_agent: Optional[Any] = None,
-        cloud_client: Optional[Any] = None,
+        local_agent: Any | None = None,
+        cloud_client: Any | None = None,
         use_cloud_for_top_n: int = 5,
     ):
         """
@@ -100,12 +104,12 @@ class BriefGenerator:
         self.use_cloud_for_top_n = use_cloud_for_top_n
 
         # Cache for generated summaries
-        self._summary_cache: Dict[str, Dict[str, str]] = {}
+        self._summary_cache: dict[str, dict[str, str]] = {}
 
     async def generate_story_summary(
         self,
         story: Story,
-        articles: List[Article],
+        articles: list[Article],
         use_cloud: bool = False,
     ) -> Story:
         """
@@ -178,7 +182,7 @@ class BriefGenerator:
     async def generate_brief(
         self,
         user: UserProfile,
-        stories: List[Story],
+        stories: list[Story],
         brief_type: str = "morning",
     ) -> Brief:
         """
@@ -241,7 +245,7 @@ class BriefGenerator:
 
     async def _generate_brief_summary(
         self,
-        stories: List[Story],
+        stories: list[Story],
         user: UserProfile,
         brief_type: str,
     ) -> tuple:
@@ -283,7 +287,7 @@ class BriefGenerator:
             logger.warning(f"Brief generation failed: {e}")
             return self._generate_fallback_brief(stories)
 
-    async def _generate_local(self, prompt: str) -> Dict[str, Any]:
+    async def _generate_local(self, prompt: str) -> dict[str, Any]:
         """Generate using local LLM"""
         if not self.local_agent:
             raise ValueError("No local agent configured")
@@ -296,7 +300,7 @@ class BriefGenerator:
 
         return self._parse_json_response(response)
 
-    async def _generate_cloud(self, prompt: str) -> Dict[str, Any]:
+    async def _generate_cloud(self, prompt: str) -> dict[str, Any]:
         """Generate using cloud LLM (Claude)"""
         if not self.cloud_client:
             raise ValueError("No cloud client configured")
@@ -311,7 +315,7 @@ class BriefGenerator:
         text = response.content[0].text
         return self._parse_json_response(text)
 
-    def _parse_json_response(self, text: str) -> Dict[str, Any]:
+    def _parse_json_response(self, text: str) -> dict[str, Any]:
         """Parse JSON from LLM response"""
         import re
 
@@ -341,8 +345,8 @@ class BriefGenerator:
     def _generate_fallback_summary(
         self,
         story: Story,
-        articles: List[Article],
-    ) -> Dict[str, str]:
+        articles: list[Article],
+    ) -> dict[str, str]:
         """Rule-based summary fallback"""
         summary = story.headline
 
@@ -395,7 +399,7 @@ class BriefGenerator:
 
         return "Monitor for further developments."
 
-    def _generate_fallback_brief(self, stories: List[Story]) -> tuple:
+    def _generate_fallback_brief(self, stories: list[Story]) -> tuple:
         """Generate fallback brief without LLM"""
         if not stories:
             return "No significant developments.", "Markets stable."

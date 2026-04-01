@@ -10,9 +10,10 @@ ensuring train-test consistency for ML models.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import pandas as pd
 

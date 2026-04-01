@@ -15,8 +15,8 @@ significant patterns that have predictive value."
 from .base import BaseAdvisor
 from .schema import (
     AdvisorInput,
-    Judgment,
     ConfidenceLevel,
+    Judgment,
     RegimeType,
 )
 
@@ -90,8 +90,8 @@ YOUR TONE:
 
         # Gather assessments
         position_size = self._assess_position_size(input_data)
-        concentration = self._assess_concentration_risk(input_data)
-        iv_env = self._assess_iv_environment(input_data)
+        self._assess_concentration_risk(input_data)
+        self._assess_iv_environment(input_data)
         prob = self._assess_probability_profile(input_data)
 
         key_reasons = []
@@ -106,7 +106,6 @@ YOUR TONE:
 
         # Expected value analysis
         ev = trade.expected_value
-        p_profit = trade.p_profit
 
         # Standard error approximation (assuming binomial-like distribution)
         # For a single trade, SE is high
@@ -210,7 +209,7 @@ YOUR TONE:
 
             if kelly_fraction <= 0:
                 hidden_risks.append(
-                    f"KELLY NEGATIVE: Mathematical expectation suggests no edge exists"
+                    "KELLY NEGATIVE: Mathematical expectation suggests no edge exists"
                 )
             elif actual_fraction > kelly_fraction * 2:
                 hidden_risks.append(

@@ -10,9 +10,8 @@ A professional, Bloomberg-style news interface with:
 """
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import List, Optional
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Add parent to path for imports
@@ -23,9 +22,9 @@ try:
 except ImportError:
     st = None
 
-from financial_news.models import Story, Category, UserProfile, Brief, TopicCategory
-from financial_news.storage import NewsStore
+from financial_news.models import Story
 from financial_news.pipeline import NewsPipeline
+from financial_news.storage import NewsStore
 
 
 class NewsDashboard:
@@ -327,7 +326,7 @@ class NewsDashboard:
                 f"brief_{datetime.now().strftime('%Y%m%d')}.txt",
             )
 
-    def _generate_brief_text(self, stories: List[Story], brief_type: str) -> str:
+    def _generate_brief_text(self, stories: list[Story], brief_type: str) -> str:
         """Generate text version of brief"""
         lines = [
             f"MARKET BRIEF - {brief_type.upper()}",
@@ -356,22 +355,22 @@ class NewsDashboard:
         # User preferences
         st.markdown("### Preferences")
 
-        timezone = st.selectbox(
+        st.selectbox(
             "Timezone",
             ["America/Toronto", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Tokyo"],
         )
 
-        morning_time = st.time_input("Morning Brief Time", datetime.strptime("07:00", "%H:%M"))
-        evening_time = st.time_input("Evening Brief Time", datetime.strptime("19:00", "%H:%M"))
+        st.time_input("Morning Brief Time", datetime.strptime("07:00", "%H:%M"))
+        st.time_input("Evening Brief Time", datetime.strptime("19:00", "%H:%M"))
 
         # Notifications
         st.markdown("### Notifications")
-        enable_email = st.checkbox("Email Digest", value=True)
-        enable_push = st.checkbox("Push Notifications", value=False)
+        st.checkbox("Email Digest", value=True)
+        st.checkbox("Push Notifications", value=False)
 
         # Pipeline settings
         st.markdown("### Pipeline")
-        hours_lookback = st.slider("Hours Lookback", 1, 48, 12)
+        st.slider("Hours Lookback", 1, 48, 12)
 
         if st.button("Save Settings"):
             st.success("Settings saved!")

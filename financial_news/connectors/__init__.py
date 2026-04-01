@@ -20,10 +20,10 @@ All connectors inherit from BaseConnector which provides:
 """
 
 from .base import BaseConnector, RateLimiter
+from .discovery import DISCOVERY_SOURCES, CorroborationEngine, DiscoveryConnector
+from .eia import EIAConnector
 from .fed import FedConnector
 from .sec_edgar import SECEdgarConnector
-from .eia import EIAConnector
-from .discovery import DiscoveryConnector, CorroborationEngine, DISCOVERY_SOURCES
 
 __all__ = [
     # Base

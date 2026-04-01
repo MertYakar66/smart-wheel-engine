@@ -12,8 +12,8 @@ from datetime import datetime
 from .schema import (
     AdvisorInput,
     AdvisorResponse,
-    Judgment,
     ConfidenceLevel,
+    Judgment,
 )
 
 

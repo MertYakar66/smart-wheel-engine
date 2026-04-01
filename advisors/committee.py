@@ -11,19 +11,19 @@ This replicates institutional investment committee processes:
 """
 
 import time
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 from .base import BaseAdvisor
+from .buffett import BuffettAdvisor
+from .munger import MungerAdvisor
 from .schema import (
     AdvisorInput,
     AdvisorResponse,
     CommitteeOutput,
-    Judgment,
     ConfidenceLevel,
+    Judgment,
 )
-from .buffett import BuffettAdvisor
-from .munger import MungerAdvisor
 from .simons import SimonsAdvisor
 
 
@@ -491,7 +491,7 @@ def format_committee_report(output: CommitteeOutput) -> str:
         lines.append(f"\n[{r.advisor_name}] - {r.judgment.value.upper()}")
         lines.append(f"  Philosophy: {r.advisor_philosophy}")
         lines.append(f"  Summary: {r.judgment_summary}")
-        lines.append(f"  Key reasons:")
+        lines.append("  Key reasons:")
         for reason in r.key_reasons[:3]:
             lines.append(f"    - {reason}")
     lines.append("")

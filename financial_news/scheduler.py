@@ -15,22 +15,23 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
-from typing import Any, Callable, Dict, List, Optional
 from enum import Enum
+from typing import Any
 
 try:
     import pytz
 except ImportError:
     pytz = None
 
+from financial_news.calendar import MacroCalendar
+from financial_news.connectors import EIAConnector, FedConnector, SECEdgarConnector
 from financial_news.schema import (
-    Article, Story, Brief, RunLog, ScheduledEvent,
-    CategoryType, BriefType, RunStatus, ImportanceLevel,
-    DEFAULT_SOURCES,
+    ImportanceLevel,
+    RunLog,
+    RunStatus,
+    ScheduledEvent,
 )
 from financial_news.storage import NewsDatabase
-from financial_news.calendar import MacroCalendar
-from financial_news.connectors import FedConnector, SECEdgarConnector, EIAConnector
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ class Scheduler:
     def __init__(
         self,
         db: NewsDatabase,
-        config: Optional[SchedulerConfig] = None,
+        config: SchedulerConfig | None = None,
     ):
         self.db = db
         self.config = config or SchedulerConfig()
@@ -96,11 +97,11 @@ class Scheduler:
 
         # Running state
         self._running = False
-        self._current_job: Optional[str] = None
-        self._last_run: Dict[str, datetime] = {}
+        self._current_job: str | None = None
+        self._last_run: dict[str, datetime] = {}
 
         # Connectors (created on demand)
-        self._connectors: Dict[str, Any] = {}
+        self._connectors: dict[str, Any] = {}
 
     async def _get_connector(self, source_id: str):
         """Get or create a connector for a source."""
@@ -119,7 +120,7 @@ class Scheduler:
         self,
         job_type: JobType,
         triggered_by: str = "scheduler",
-        event: Optional[ScheduledEvent] = None,
+        event: ScheduledEvent | None = None,
     ) -> RunLog:
         """
         Run a batch ingestion job.
@@ -223,8 +224,8 @@ class Scheduler:
     def _get_sources_for_job(
         self,
         job_type: JobType,
-        event: Optional[ScheduledEvent],
-    ) -> List[str]:
+        event: ScheduledEvent | None,
+    ) -> list[str]:
         """Determine which sources to fetch for a job."""
         # For event runs, focus on the relevant source
         if event:
@@ -253,7 +254,7 @@ class Scheduler:
         job_type = JobType.PRE_EVENT if pre_or_post == "pre" else JobType.POST_EVENT
         return await self.run_batch(job_type, triggered_by="event", event=event)
 
-    def get_upcoming_runs(self, hours: int = 24) -> List[Dict[str, Any]]:
+    def get_upcoming_runs(self, hours: int = 24) -> list[dict[str, Any]]:
         """
         Get upcoming scheduled runs for the next N hours.
 
@@ -403,7 +404,7 @@ class Scheduler:
             await connector.close()
         self._connectors.clear()
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get scheduler status."""
         return {
             "running": self._running,
@@ -456,7 +457,7 @@ async def main():
 
         elif args.status:
             status = scheduler.get_status()
-            print(f"Scheduler Status:")
+            print("Scheduler Status:")
             print(f"  Running: {status['running']}")
             print(f"  Timezone: {status['timezone']}")
             print(f"  Last runs: {status['last_runs']}")

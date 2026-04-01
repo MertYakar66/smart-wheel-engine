@@ -14,15 +14,19 @@ Source: https://www.sec.gov/cgi-bin/browse-edgar
 API: https://data.sec.gov/
 """
 
-import re
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
 import logging
+import re
+from datetime import datetime
 
 from financial_news.schema import (
-    Article, Entity, Source, CategoryType, EntityType,
     DEFAULT_SOURCES,
+    Article,
+    CategoryType,
+    Entity,
+    EntityType,
+    Source,
 )
+
 from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
@@ -83,7 +87,7 @@ class SECEdgarConnector(BaseConnector):
         "8.01": "Other Events",
     }
 
-    def __init__(self, source: Optional[Source] = None):
+    def __init__(self, source: Source | None = None):
         if source is None:
             source = next(s for s in DEFAULT_SOURCES if s.source_id == "sec_edgar")
 
@@ -94,9 +98,9 @@ class SECEdgarConnector(BaseConnector):
         )
 
         # Cache company CIK -> ticker mapping
-        self._cik_to_ticker: Dict[str, str] = {}
-        self._ticker_to_cik: Dict[str, str] = {}
-        self._company_names: Dict[str, str] = {}
+        self._cik_to_ticker: dict[str, str] = {}
+        self._ticker_to_cik: dict[str, str] = {}
+        self._company_names: dict[str, str] = {}
 
     async def _load_company_tickers(self) -> None:
         """Load SEC company tickers mapping."""
@@ -127,11 +131,11 @@ class SECEdgarConnector(BaseConnector):
 
     async def fetch_latest(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 100,
-        filing_types: Optional[List[str]] = None,
-        tickers: Optional[List[str]] = None,
-    ) -> List[Article]:
+        filing_types: list[str] | None = None,
+        tickers: list[str] | None = None,
+    ) -> list[Article]:
         """
         Fetch latest SEC filings.
 
@@ -168,10 +172,10 @@ class SECEdgarConnector(BaseConnector):
     async def _fetch_filings_by_type(
         self,
         filing_type: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 50,
-        tickers: Optional[List[str]] = None,
-    ) -> List[Article]:
+        tickers: list[str] | None = None,
+    ) -> list[Article]:
         """Fetch filings of a specific type."""
         # Use SEC RSS feed for recent filings
         params = {
@@ -209,9 +213,9 @@ class SECEdgarConnector(BaseConnector):
         self,
         content: str,
         filing_type: str,
-        since: Optional[datetime],
-        tickers: Optional[List[str]],
-    ) -> List[Article]:
+        since: datetime | None,
+        tickers: list[str] | None,
+    ) -> list[Article]:
         """Parse SEC Atom feed into articles."""
         from xml.etree import ElementTree as ET
 
@@ -281,7 +285,7 @@ class SECEdgarConnector(BaseConnector):
 
         return articles
 
-    def _parse_sec_date(self, date_str: str) -> Optional[datetime]:
+    def _parse_sec_date(self, date_str: str) -> datetime | None:
         """Parse SEC date formats."""
         formats = [
             "%Y-%m-%dT%H:%M:%S%z",
@@ -327,7 +331,7 @@ class SECEdgarConnector(BaseConnector):
         ticker: str,
         company_name: str,
         filing_type: str,
-    ) -> List[Entity]:
+    ) -> list[Entity]:
         """Build entities for a filing."""
         entities = []
 
@@ -354,9 +358,9 @@ class SECEdgarConnector(BaseConnector):
     async def fetch_company_filings(
         self,
         ticker: str,
-        filing_types: Optional[List[str]] = None,
+        filing_types: list[str] | None = None,
         limit: int = 20,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch recent filings for a specific company.
 

@@ -22,16 +22,22 @@ IMPORTANT: We only capture metadata. We do NOT:
 - Substitute for subscription journalism
 """
 
+import logging
 import re
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set
-from xml.etree import ElementTree as ET
 from urllib.parse import quote_plus
-import logging
+from xml.etree import ElementTree as ET
 
 from financial_news.schema import (
-    Article, Entity, Source, SourceType, SourceProvider, CategoryType, EntityType,
+    Article,
+    CategoryType,
+    Entity,
+    EntityType,
+    Source,
+    SourceProvider,
+    SourceType,
 )
+
 from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
@@ -143,14 +149,14 @@ class DiscoveryConnector(BaseConnector):
         source = DISCOVERY_SOURCES.get(source_id, DISCOVERY_SOURCES["google_news"])
         super().__init__(source)
 
-        self._seen_urls: Set[str] = set()
+        self._seen_urls: set[str] = set()
 
     async def fetch_latest(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 50,
-        feeds: Optional[List[str]] = None,
-    ) -> List[Article]:
+        feeds: list[str] | None = None,
+    ) -> list[Article]:
         """
         Fetch latest headlines from discovery feeds.
 
@@ -200,8 +206,8 @@ class DiscoveryConnector(BaseConnector):
         self,
         feed_url: str,
         feed_name: str,
-        since: Optional[datetime],
-    ) -> List[Article]:
+        since: datetime | None,
+    ) -> list[Article]:
         """Fetch and parse an RSS feed."""
         result = await self.fetch(feed_url)
 
@@ -233,8 +239,8 @@ class DiscoveryConnector(BaseConnector):
         self,
         item: ET.Element,
         feed_name: str,
-        since: Optional[datetime],
-    ) -> Optional[Article]:
+        since: datetime | None,
+    ) -> Article | None:
         """Parse a single RSS/Atom item."""
         # RSS format
         title = item.findtext("title", "").strip()
@@ -289,7 +295,7 @@ class DiscoveryConnector(BaseConnector):
             },
         )
 
-    def _parse_date(self, date_str: str) -> Optional[datetime]:
+    def _parse_date(self, date_str: str) -> datetime | None:
         """Parse various date formats."""
         formats = [
             "%a, %d %b %Y %H:%M:%S %z",
@@ -338,7 +344,7 @@ class DiscoveryConnector(BaseConnector):
         title_lower = title.lower()
         return any(kw in title_lower for kw in self.MARKET_KEYWORDS)
 
-    def _extract_tickers(self, title: str) -> List[str]:
+    def _extract_tickers(self, title: str) -> list[str]:
         """Extract stock tickers from title."""
         # Match patterns like $AAPL, (AAPL), AAPL:
         patterns = [
@@ -364,7 +370,7 @@ class DiscoveryConnector(BaseConnector):
 
         return list(set(tickers))[:5]
 
-    def _extract_entities(self, title: str) -> List[Entity]:
+    def _extract_entities(self, title: str) -> list[Entity]:
         """Extract entities from title."""
         entities = []
 
@@ -390,7 +396,7 @@ class DiscoveryConnector(BaseConnector):
         self,
         topic: str,
         limit: int = 20,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Search Google News for a specific topic.
 
@@ -434,7 +440,7 @@ class CorroborationEngine:
     - Company IR pages
     """
 
-    def __init__(self, connectors: Dict[str, BaseConnector]):
+    def __init__(self, connectors: dict[str, BaseConnector]):
         """
         Args:
             connectors: Dict of source_id -> connector for Tier 1/2 sources
@@ -445,7 +451,7 @@ class CorroborationEngine:
         self,
         discovery_article: Article,
         max_sources: int = 3,
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Find corroborating evidence for a discovery signal.
 

@@ -11,15 +11,15 @@ These are "clean" from a rights standpoint and high signal.
 """
 
 import asyncio
-from datetime import datetime
-from typing import Any, Dict, List, Optional
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 import httpx
 
-from financial_news.models import Article, ArticleSource, Category, Entity, TopicCategory
+from financial_news.models import Article, ArticleSource, Category, TopicCategory
 from financial_news.sources.base import BaseSourceFetcher
 
 logger = logging.getLogger(__name__)
@@ -31,13 +31,13 @@ class FeedConfig:
     name: str
     url: str
     source_type: str  # central_bank, government, corporate, etc.
-    topics: List[TopicCategory]
+    topics: list[TopicCategory]
     region: str = "US"
     language: str = "en"
 
 
 # Pre-configured feeds for financial news
-DEFAULT_FEEDS: List[FeedConfig] = [
+DEFAULT_FEEDS: list[FeedConfig] = [
     # Central Banks
     FeedConfig(
         name="Federal Reserve Press Releases",
@@ -143,7 +143,7 @@ class RSSFetcher(BaseSourceFetcher):
 
     def __init__(
         self,
-        feeds: Optional[List[FeedConfig]] = None,
+        feeds: list[FeedConfig] | None = None,
         rate_limit_per_second: float = 5.0,
     ):
         """
@@ -155,7 +155,7 @@ class RSSFetcher(BaseSourceFetcher):
         """
         super().__init__(rate_limit_per_second=rate_limit_per_second)
         self.feeds = feeds or DEFAULT_FEEDS
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client"""
@@ -193,7 +193,7 @@ class RSSFetcher(BaseSourceFetcher):
         start_time: datetime,
         end_time: datetime,
         max_results: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch articles from RSS feeds matching category.
 
@@ -228,7 +228,7 @@ class RSSFetcher(BaseSourceFetcher):
 
         return articles[:max_results]
 
-    def _get_relevant_feeds(self, category: Category) -> List[FeedConfig]:
+    def _get_relevant_feeds(self, category: Category) -> list[FeedConfig]:
         """Find feeds that match category configuration"""
         relevant = []
 
@@ -253,7 +253,7 @@ class RSSFetcher(BaseSourceFetcher):
         feed: FeedConfig,
         start_time: datetime,
         end_time: datetime,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Fetch and parse a single RSS/Atom feed"""
         await self._rate_limit()
 
@@ -281,7 +281,7 @@ class RSSFetcher(BaseSourceFetcher):
             logger.warning(f"Error fetching feed {feed.name}: {e}")
             return []
 
-    def _parse_rss(self, content: str, feed: FeedConfig) -> List[Article]:
+    def _parse_rss(self, content: str, feed: FeedConfig) -> list[Article]:
         """Parse RSS 2.0 feed"""
         articles = []
 
@@ -329,7 +329,7 @@ class RSSFetcher(BaseSourceFetcher):
 
         return articles
 
-    def _parse_atom(self, content: str, feed: FeedConfig) -> List[Article]:
+    def _parse_atom(self, content: str, feed: FeedConfig) -> list[Article]:
         """Parse Atom feed"""
         articles = []
         ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -436,7 +436,7 @@ class RSSFetcher(BaseSourceFetcher):
                 return True
         return False
 
-    def list_feeds(self) -> List[Dict[str, Any]]:
+    def list_feeds(self) -> list[dict[str, Any]]:
         """List all configured feeds"""
         return [
             {

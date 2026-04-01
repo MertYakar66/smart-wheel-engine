@@ -100,7 +100,7 @@ disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=src --cov=engine --cov=advisors --cov=financial_news --cov-report=term-missing"
+addopts = "-v"
 asyncio_mode = "auto"
 
 [tool.coverage.run]

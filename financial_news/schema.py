@@ -25,13 +25,11 @@ Tables:
 12. user_watchlists - User ticker watchlists
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, time
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set
 import hashlib
-import json
-
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 # =============================================================================
 # ENUMS
@@ -187,18 +185,18 @@ class Source:
     rate_limit_per_minute: float = 100.0
 
     # API configuration
-    base_url: Optional[str] = None
-    api_key_env_var: Optional[str] = None
+    base_url: str | None = None
+    api_key_env_var: str | None = None
 
     # Category routing - which categories this source feeds
-    default_categories: List[CategoryType] = field(default_factory=list)
+    default_categories: list[CategoryType] = field(default_factory=list)
 
     # State
     is_active: bool = True
-    last_successful_fetch: Optional[datetime] = None
+    last_successful_fetch: datetime | None = None
     consecutive_failures: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "source_id": self.source_id,
             "name": self.name,
@@ -241,7 +239,7 @@ class Category:
     is_active: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "category_id": self.category_id,
             "category_type": self.category_type.value,
@@ -271,16 +269,16 @@ class CategoryRule:
     category_id: str
 
     # Source-based routing (highest priority)
-    source_whitelist: List[str] = field(default_factory=list)  # source_ids
+    source_whitelist: list[str] = field(default_factory=list)  # source_ids
 
     # Keyword matching
-    include_keywords: List[str] = field(default_factory=list)
-    exclude_keywords: List[str] = field(default_factory=list)
-    required_keywords: List[str] = field(default_factory=list)  # Must have at least one
+    include_keywords: list[str] = field(default_factory=list)
+    exclude_keywords: list[str] = field(default_factory=list)
+    required_keywords: list[str] = field(default_factory=list)  # Must have at least one
 
     # Entity matching
-    required_entity_types: List[EntityType] = field(default_factory=list)
-    ticker_whitelist: List[str] = field(default_factory=list)
+    required_entity_types: list[EntityType] = field(default_factory=list)
+    ticker_whitelist: list[str] = field(default_factory=list)
 
     # Confidence thresholds
     min_confidence: float = 0.5
@@ -289,7 +287,7 @@ class CategoryRule:
     priority: int = 100  # Lower = higher priority
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "category_id": self.category_id,
@@ -336,11 +334,11 @@ class ScheduledEvent:
 
     # For recurring events
     is_recurring: bool = False
-    recurrence_rule: Optional[str] = None  # iCal RRULE format
+    recurrence_rule: str | None = None  # iCal RRULE format
 
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "event_id": self.event_id,
             "source_id": self.source_id,
@@ -367,12 +365,12 @@ class Entity:
     value: str                          # The entity value (e.g., "AAPL", "Federal Reserve")
 
     # Normalized identifiers
-    ticker: Optional[str] = None        # Stock ticker if applicable
-    figi: Optional[str] = None          # Financial Instrument Global Identifier
+    ticker: str | None = None        # Stock ticker if applicable
+    figi: str | None = None          # Financial Instrument Global Identifier
 
     confidence: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "entity_id": self.entity_id,
             "entity_type": self.entity_type.value,
@@ -401,8 +399,8 @@ class Article:
 
     # Content
     title: str
-    snippet: Optional[str] = None       # Short excerpt if permitted
-    content_hash: Optional[str] = None  # For deduplication
+    snippet: str | None = None       # Short excerpt if permitted
+    content_hash: str | None = None  # For deduplication
 
     # Timestamps
     published_at: datetime = field(default_factory=datetime.utcnow)
@@ -413,24 +411,24 @@ class Article:
     country: str = "US"
 
     # For SEC filings
-    filing_type: Optional[str] = None   # 8-K, 10-Q, 10-K, etc.
-    cik: Optional[str] = None           # SEC Central Index Key
-    accession_number: Optional[str] = None
+    filing_type: str | None = None   # 8-K, 10-Q, 10-K, etc.
+    cik: str | None = None           # SEC Central Index Key
+    accession_number: str | None = None
 
     # For macro releases
-    release_type: Optional[str] = None  # CPI, NFP, GDP, etc.
-    release_period: Optional[str] = None  # "2026-Q1", "2026-02", etc.
+    release_type: str | None = None  # CPI, NFP, GDP, etc.
+    release_period: str | None = None  # "2026-Q1", "2026-02", etc.
 
     # Extracted data (populated by processing)
-    entities: List[Entity] = field(default_factory=list)
-    tickers: List[str] = field(default_factory=list)
-    categories: List[CategoryType] = field(default_factory=list)
+    entities: list[Entity] = field(default_factory=list)
+    tickers: list[str] = field(default_factory=list)
+    categories: list[CategoryType] = field(default_factory=list)
 
     # Scoring
     impact_score: float = 0.0
 
     # Raw metadata from source
-    metadata_json: Dict[str, Any] = field(default_factory=dict)
+    metadata_json: dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
     def generate_id(url: str, source_id: str) -> str:
@@ -443,7 +441,7 @@ class Article:
         """Generate content hash for deduplication"""
         return hashlib.sha256(f"{title}|{content}".encode()).hexdigest()[:32]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "article_id": self.article_id,
             "source_id": self.source_id,
@@ -492,12 +490,12 @@ class Story:
     last_updated_at: datetime
 
     # Aggregated metadata
-    tickers: List[str] = field(default_factory=list)
-    affected_sectors: List[str] = field(default_factory=list)
-    affected_factors: List[str] = field(default_factory=list)  # rates, oil, growth, etc.
+    tickers: list[str] = field(default_factory=list)
+    affected_sectors: list[str] = field(default_factory=list)
+    affected_factors: list[str] = field(default_factory=list)  # rates, oil, growth, etc.
 
     # Coverage
-    article_ids: List[str] = field(default_factory=list)
+    article_ids: list[str] = field(default_factory=list)
     source_count: int = 0               # Number of independent sources
 
     # Scoring
@@ -505,11 +503,11 @@ class Story:
     confidence_score: float = 0.0       # Based on source diversity
 
     # Category scores (story can belong to multiple categories)
-    category_scores: Dict[str, float] = field(default_factory=dict)
+    category_scores: dict[str, float] = field(default_factory=dict)
 
     # For tracking changes between briefs
-    previous_summary: Optional[str] = None
-    change_description: Optional[str] = None
+    previous_summary: str | None = None
+    change_description: str | None = None
 
     # Status
     is_developing: bool = False         # Story is still evolving
@@ -519,7 +517,7 @@ class Story:
         content = f"{lead_article_id}|{first_seen.isoformat()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "story_id": self.story_id,
             "lead_article_id": self.lead_article_id,
@@ -561,23 +559,23 @@ class Brief:
     generated_at: datetime
 
     # Content
-    stories: List[Story] = field(default_factory=list)
+    stories: list[Story] = field(default_factory=list)
 
     # Generated sections
-    executive_summary: Optional[str] = None
-    macro_watch: Optional[str] = None       # Key macro events today/tomorrow
-    oil_geo_watch: Optional[str] = None     # Oil/geopolitics watch
-    sp500_watch: Optional[str] = None       # SP500 event watch
-    calendar_summary: Optional[str] = None  # Upcoming releases
+    executive_summary: str | None = None
+    macro_watch: str | None = None       # Key macro events today/tomorrow
+    oil_geo_watch: str | None = None     # Oil/geopolitics watch
+    sp500_watch: str | None = None       # SP500 event watch
+    calendar_summary: str | None = None  # Upcoming releases
 
     # Stats
     new_stories_count: int = 0
     updated_stories_count: int = 0
 
     # Model used for generation
-    model_used: Optional[str] = None
+    model_used: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "brief_id": self.brief_id,
             "user_id": self.user_id,
@@ -609,7 +607,7 @@ class RunLog:
     job_name: str                       # "morning_ingest", "cpi_release", etc.
 
     started_at: datetime
-    ended_at: Optional[datetime] = None
+    ended_at: datetime | None = None
 
     status: RunStatus = RunStatus.PENDING
 
@@ -620,21 +618,21 @@ class RunLog:
     stories_updated: int = 0
 
     # Source-level stats
-    source_stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    source_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     # Errors
-    errors: List[Dict[str, Any]] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
 
     # Trigger info
     triggered_by: str = "scheduler"     # "scheduler", "event", "manual"
-    event_id: Optional[str] = None      # If triggered by scheduled event
+    event_id: str | None = None      # If triggered by scheduled event
 
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         if self.ended_at:
             return (self.ended_at - self.started_at).total_seconds()
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "job_name": self.job_name,
@@ -661,7 +659,7 @@ class UserWatchlist:
     weight: float = 1.0                 # Higher = more important
     added_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "ticker": self.ticker,
@@ -675,7 +673,7 @@ class UserWatchlist:
 # =============================================================================
 
 # Default Sources - Official Tier 1
-DEFAULT_SOURCES: List[Source] = [
+DEFAULT_SOURCES: list[Source] = [
     Source(
         source_id="fed",
         name="Federal Reserve",
@@ -761,7 +759,7 @@ DEFAULT_SOURCES: List[Source] = [
 
 
 # Default Categories - 8 Core
-DEFAULT_CATEGORIES: List[Category] = [
+DEFAULT_CATEGORIES: list[Category] = [
     Category(
         category_id="fed_rates",
         category_type=CategoryType.FED_RATES,
@@ -830,7 +828,7 @@ DEFAULT_CATEGORIES: List[Category] = [
 
 
 # Default Category Rules
-DEFAULT_CATEGORY_RULES: List[CategoryRule] = [
+DEFAULT_CATEGORY_RULES: list[CategoryRule] = [
     # Fed & Rates - Source-based routing
     CategoryRule(
         rule_id="fed_source",

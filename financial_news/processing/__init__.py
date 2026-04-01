@@ -11,15 +11,15 @@ Legacy components (for compatibility):
 - EntityExtractor, ImpactScorer
 """
 
+from .brief_generator import BriefGenerator
 from .classifier import ArticleClassifier
 from .clusterer import StoryClustering
-from .ranker import StoryRanker
-from .brief_generator import BriefGenerator
 
 # Legacy imports for compatibility
 from .entity_extractor import EntityExtractor
-from .story_clusterer import StoryClusterer
 from .impact_scorer import ImpactScorer
+from .ranker import StoryRanker
+from .story_clusterer import StoryClusterer
 
 __all__ = [
     # New components

@@ -7,10 +7,10 @@ Supports:
 - RSS feeds (official sources)
 """
 
-from .gdelt import GDELTFetcher
-from .sec_edgar import SECEdgarFetcher
-from .rss_feeds import RSSFetcher
 from .base import BaseSourceFetcher
+from .gdelt import GDELTFetcher
+from .rss_feeds import RSSFetcher
+from .sec_edgar import SECEdgarFetcher
 
 __all__ = [
     "BaseSourceFetcher",

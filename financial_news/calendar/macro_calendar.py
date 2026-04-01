@@ -16,12 +16,12 @@ Sources:
 - EIA: Weekly Petroleum Status Report released Wednesdays at 10:30 AM ET
 """
 
-from datetime import datetime, time, timedelta
-from typing import List, Tuple
-import uuid
+from datetime import datetime, timedelta
 
 from financial_news.schema import (
-    ScheduledEvent, EventType, ImportanceLevel,
+    EventType,
+    ImportanceLevel,
+    ScheduledEvent,
 )
 
 
@@ -34,7 +34,7 @@ def _make_event_id(event_type: str, date: datetime) -> str:
 # FOMC 2026 SCHEDULE
 # =============================================================================
 
-def get_fomc_2026() -> List[ScheduledEvent]:
+def get_fomc_2026() -> list[ScheduledEvent]:
     """
     2026 FOMC meeting schedule.
 
@@ -95,7 +95,7 @@ def get_fomc_2026() -> List[ScheduledEvent]:
 # CPI 2026 SCHEDULE
 # =============================================================================
 
-def get_cpi_2026() -> List[ScheduledEvent]:
+def get_cpi_2026() -> list[ScheduledEvent]:
     """
     2026 CPI release schedule (Consumer Price Index).
 
@@ -121,7 +121,7 @@ def get_cpi_2026() -> List[ScheduledEvent]:
     ]
 
     events = []
-    for i, scheduled_at in enumerate(cpi_dates):
+    for _i, scheduled_at in enumerate(cpi_dates):
         # Reference month is previous month
         ref_month = scheduled_at - timedelta(days=30)
         period = ref_month.strftime("%B %Y")
@@ -148,7 +148,7 @@ def get_cpi_2026() -> List[ScheduledEvent]:
 # NFP 2026 SCHEDULE (Employment Situation)
 # =============================================================================
 
-def get_nfp_2026() -> List[ScheduledEvent]:
+def get_nfp_2026() -> list[ScheduledEvent]:
     """
     2026 Employment Situation (Nonfarm Payrolls) release schedule.
 
@@ -200,7 +200,7 @@ def get_nfp_2026() -> List[ScheduledEvent]:
 # GDP 2026 SCHEDULE
 # =============================================================================
 
-def get_gdp_2026() -> List[ScheduledEvent]:
+def get_gdp_2026() -> list[ScheduledEvent]:
     """
     2026 GDP release schedule.
 
@@ -256,7 +256,7 @@ def get_gdp_2026() -> List[ScheduledEvent]:
 # PCE 2026 SCHEDULE (Personal Income and Outlays)
 # =============================================================================
 
-def get_pce_2026() -> List[ScheduledEvent]:
+def get_pce_2026() -> list[ScheduledEvent]:
     """
     2026 Personal Income and Outlays (PCE) release schedule.
 
@@ -309,7 +309,7 @@ def get_pce_2026() -> List[ScheduledEvent]:
 # EIA PETROLEUM SCHEDULE
 # =============================================================================
 
-def get_eia_petroleum_schedule(year: int = 2026) -> List[ScheduledEvent]:
+def get_eia_petroleum_schedule(year: int = 2026) -> list[ScheduledEvent]:
     """
     Generate EIA Weekly Petroleum Status Report schedule.
 
@@ -364,7 +364,7 @@ class MacroCalendar:
     """
 
     def __init__(self):
-        self._events: List[ScheduledEvent] = []
+        self._events: list[ScheduledEvent] = []
         self._load_2026_calendar()
 
     def _load_2026_calendar(self) -> None:
@@ -379,7 +379,7 @@ class MacroCalendar:
         # Sort by date
         self._events.sort(key=lambda e: e.scheduled_at)
 
-    def get_all_events(self) -> List[ScheduledEvent]:
+    def get_all_events(self) -> list[ScheduledEvent]:
         """Get all events"""
         return self._events.copy()
 
@@ -388,19 +388,19 @@ class MacroCalendar:
         start: datetime,
         end: datetime,
         importance: ImportanceLevel = None,
-    ) -> List[ScheduledEvent]:
+    ) -> list[ScheduledEvent]:
         """Get events in a date range, optionally filtered by importance"""
         events = [e for e in self._events if start <= e.scheduled_at <= end]
         if importance:
             events = [e for e in events if e.importance == importance]
         return events
 
-    def get_events_for_date(self, date: datetime) -> List[ScheduledEvent]:
+    def get_events_for_date(self, date: datetime) -> list[ScheduledEvent]:
         """Get all events for a specific date"""
         target_date = date.date()
         return [e for e in self._events if e.scheduled_at.date() == target_date]
 
-    def get_upcoming_critical_events(self, hours: int = 24) -> List[ScheduledEvent]:
+    def get_upcoming_critical_events(self, hours: int = 24) -> list[ScheduledEvent]:
         """Get upcoming critical events (FOMC, CPI, NFP, GDP Advance)"""
         now = datetime.utcnow()
         end = now + timedelta(hours=hours)
@@ -448,6 +448,6 @@ class MacroCalendar:
             try:
                 db.add_scheduled_event(event)
                 count += 1
-            except Exception as e:
+            except Exception:
                 pass  # Already exists or other error
         return count

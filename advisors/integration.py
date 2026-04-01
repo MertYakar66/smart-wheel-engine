@@ -11,19 +11,18 @@ Provides:
 """
 
 from datetime import datetime
-from typing import Any
 
+from .committee import CommitteeEngine, format_committee_report
 from .schema import (
     AdvisorInput,
     CandidateTrade,
-    PortfolioContext,
-    MarketContext,
-    Position,
-    TradeType,
-    RegimeType,
     CommitteeOutput,
+    MarketContext,
+    PortfolioContext,
+    Position,
+    RegimeType,
+    TradeType,
 )
-from .committee import CommitteeEngine, format_committee_report
 
 
 class EngineIntegration:

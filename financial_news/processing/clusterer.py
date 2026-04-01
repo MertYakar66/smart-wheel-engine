@@ -11,16 +11,16 @@ No ML needed for v1 - simple similarity metrics work well
 for structured news.
 """
 
-import hashlib
+import logging
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
-import logging
+from dataclasses import dataclass
+from datetime import datetime
 
 from financial_news.schema import (
-    Article, Story, Entity, CategoryType,
+    Article,
+    CategoryType,
+    Story,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ClusterCandidate:
     """A potential story cluster"""
-    articles: List[Article]
+    articles: list[Article]
     representative_article: Article
-    tickers: Set[str]
-    categories: Set[CategoryType]
+    tickers: set[str]
+    categories: set[CategoryType]
     first_seen: datetime
     last_updated: datetime
 
@@ -42,7 +42,7 @@ class ClusterCandidate:
 
     @property
     def source_count(self) -> int:
-        return len(set(a.source_id for a in self.articles))
+        return len({a.source_id for a in self.articles})
 
 
 class StoryClustering:
@@ -71,13 +71,13 @@ class StoryClustering:
         self.max_ngram_size = max_ngram_size
 
         # Cache for existing stories
-        self._story_cache: Dict[str, Story] = {}
+        self._story_cache: dict[str, Story] = {}
 
     def cluster_articles(
         self,
-        articles: List[Article],
-        existing_stories: Optional[List[Story]] = None,
-    ) -> List[Story]:
+        articles: list[Article],
+        existing_stories: list[Story] | None = None,
+    ) -> list[Story]:
         """
         Cluster articles into stories.
 
@@ -100,8 +100,8 @@ class StoryClustering:
         ticker_groups = self._group_by_ticker(articles)
 
         # Step 2: Within each group, cluster by title similarity
-        candidates: List[ClusterCandidate] = []
-        for ticker, group_articles in ticker_groups.items():
+        candidates: list[ClusterCandidate] = []
+        for _ticker, group_articles in ticker_groups.items():
             group_clusters = self._cluster_by_title(group_articles)
             candidates.extend(group_clusters)
 
@@ -114,9 +114,9 @@ class StoryClustering:
         logger.info(f"Clustered {len(articles)} articles into {len(stories)} stories")
         return stories
 
-    def _group_by_ticker(self, articles: List[Article]) -> Dict[str, List[Article]]:
+    def _group_by_ticker(self, articles: list[Article]) -> dict[str, list[Article]]:
         """Group articles by primary ticker."""
-        groups: Dict[str, List[Article]] = defaultdict(list)
+        groups: dict[str, list[Article]] = defaultdict(list)
 
         for article in articles:
             if article.tickers:
@@ -131,7 +131,7 @@ class StoryClustering:
 
         return dict(groups)
 
-    def _cluster_by_title(self, articles: List[Article]) -> List[ClusterCandidate]:
+    def _cluster_by_title(self, articles: list[Article]) -> list[ClusterCandidate]:
         """Cluster articles by title similarity using n-gram overlap."""
         if not articles:
             return []
@@ -139,8 +139,8 @@ class StoryClustering:
         # Sort by time
         articles = sorted(articles, key=lambda a: a.published_at)
 
-        clusters: List[ClusterCandidate] = []
-        assigned: Set[str] = set()
+        clusters: list[ClusterCandidate] = []
+        assigned: set[str] = set()
 
         for article in articles:
             if article.article_id in assigned:
@@ -187,7 +187,7 @@ class StoryClustering:
 
         return clusters
 
-    def _get_ngrams(self, text: str) -> Set[str]:
+    def _get_ngrams(self, text: str) -> set[str]:
         """Extract n-grams from text."""
         # Normalize
         text = re.sub(r'[^\w\s]', '', text.lower())
@@ -200,7 +200,7 @@ class StoryClustering:
 
         return ngrams
 
-    def _jaccard_similarity(self, set1: Set[str], set2: Set[str]) -> float:
+    def _jaccard_similarity(self, set1: set[str], set2: set[str]) -> float:
         """Calculate Jaccard similarity between two sets."""
         if not set1 or not set2:
             return 0.0
@@ -210,14 +210,14 @@ class StoryClustering:
 
     def _merge_similar_clusters(
         self,
-        candidates: List[ClusterCandidate],
-    ) -> List[ClusterCandidate]:
+        candidates: list[ClusterCandidate],
+    ) -> list[ClusterCandidate]:
         """Merge clusters with high entity overlap."""
         if len(candidates) <= 1:
             return candidates
 
-        merged: List[ClusterCandidate] = []
-        used: Set[int] = set()
+        merged: list[ClusterCandidate] = []
+        used: set[int] = set()
 
         for i, c1 in enumerate(candidates):
             if i in used:
@@ -270,8 +270,8 @@ class StoryClustering:
 
     def _create_or_update_stories(
         self,
-        candidates: List[ClusterCandidate],
-    ) -> List[Story]:
+        candidates: list[ClusterCandidate],
+    ) -> list[Story]:
         """Create Story objects from cluster candidates."""
         stories = []
 
@@ -289,9 +289,9 @@ class StoryClustering:
                     if a.article_id not in existing.article_ids
                 )
                 existing.last_updated_at = now
-                existing.source_count = len(set(
+                existing.source_count = len({
                     a.source_id for a in candidate.articles
-                ))
+                })
                 existing.is_developing = True
                 stories.append(existing)
             else:
@@ -320,7 +320,7 @@ class StoryClustering:
 
         return stories
 
-    def _find_existing_story(self, candidate: ClusterCandidate) -> Optional[Story]:
+    def _find_existing_story(self, candidate: ClusterCandidate) -> Story | None:
         """Find an existing story that matches this cluster."""
         for story in self._story_cache.values():
             # Check ticker overlap
@@ -348,7 +348,7 @@ class StoryClustering:
             return lead.snippet[:500]
         return lead.title
 
-    def _infer_sectors(self, tickers: Set[str]) -> List[str]:
+    def _infer_sectors(self, tickers: set[str]) -> list[str]:
         """Infer affected sectors from tickers."""
         # Simple sector inference based on common tickers
         sector_map = {
@@ -363,7 +363,7 @@ class StoryClustering:
                 sectors.append(sector_map[ticker])
         return list(set(sectors))[:5]
 
-    def _infer_factors(self, categories: Set[CategoryType]) -> List[str]:
+    def _infer_factors(self, categories: set[CategoryType]) -> list[str]:
         """Infer affected factors from categories."""
         factor_map = {
             CategoryType.FED_RATES: ["rates", "duration"],

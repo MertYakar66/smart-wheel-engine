@@ -10,14 +10,14 @@ No ML needed for v1 - deterministic rules are sufficient
 for structured official sources.
 """
 
-import re
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
 import logging
+from dataclasses import dataclass
 
 from financial_news.schema import (
-    Article, CategoryRule, CategoryType, EntityType,
     DEFAULT_CATEGORY_RULES,
+    Article,
+    CategoryRule,
+    CategoryType,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class ClassificationResult:
     category_type: CategoryType
     confidence: float
     matched_rule: str
-    matched_keywords: List[str]
+    matched_keywords: list[str]
 
 
 class ArticleClassifier:
@@ -45,10 +45,10 @@ class ArticleClassifier:
     4. Entity matches
     """
 
-    def __init__(self, rules: Optional[List[CategoryRule]] = None):
+    def __init__(self, rules: list[CategoryRule] | None = None):
         self.rules = rules or DEFAULT_CATEGORY_RULES
         # Index rules by category for faster lookup
-        self._rules_by_category: Dict[str, List[CategoryRule]] = {}
+        self._rules_by_category: dict[str, list[CategoryRule]] = {}
         for rule in self.rules:
             if rule.category_id not in self._rules_by_category:
                 self._rules_by_category[rule.category_id] = []
@@ -58,7 +58,7 @@ class ArticleClassifier:
         for cat_rules in self._rules_by_category.values():
             cat_rules.sort(key=lambda r: r.priority)
 
-    def classify(self, article: Article) -> List[ClassificationResult]:
+    def classify(self, article: Article) -> list[ClassificationResult]:
         """
         Classify an article into categories.
 
@@ -84,7 +84,7 @@ class ArticleClassifier:
                 ))
 
         # Deduplicate by category (keep highest confidence)
-        best_by_category: Dict[str, ClassificationResult] = {}
+        best_by_category: dict[str, ClassificationResult] = {}
         for result in results:
             if (result.category_id not in best_by_category or
                 result.confidence > best_by_category[result.category_id].confidence):
@@ -96,7 +96,7 @@ class ArticleClassifier:
 
         return final
 
-    def classify_batch(self, articles: List[Article]) -> Dict[str, List[ClassificationResult]]:
+    def classify_batch(self, articles: list[Article]) -> dict[str, list[ClassificationResult]]:
         """Classify multiple articles."""
         return {article.article_id: self.classify(article) for article in articles}
 
@@ -112,7 +112,7 @@ class ArticleClassifier:
         article: Article,
         rule: CategoryRule,
         text: str,
-    ) -> Tuple[float, List[str]]:
+    ) -> tuple[float, list[str]]:
         """
         Evaluate a rule against an article.
 
@@ -192,7 +192,7 @@ class ArticleClassifier:
         }
         return mapping.get(category_id, CategoryType.MARKET_REGIME)
 
-    def get_primary_category(self, article: Article) -> Optional[CategoryType]:
+    def get_primary_category(self, article: Article) -> CategoryType | None:
         """Get the primary (highest confidence) category for an article."""
         results = self.classify(article)
         if results:

@@ -5,12 +5,11 @@ Following Bloomberg's approach: news is structured, "tickerized" events
 with rich metadata, so feeds can be built from queries + categories.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
-import hashlib
-import json
+from typing import Any
 
 
 class Severity(Enum):
@@ -58,11 +57,11 @@ class Entity:
     """Extracted entity from news article"""
     name: str
     entity_type: str  # company, person, country, product, etc.
-    ticker: Optional[str] = None  # Stock ticker if applicable
-    figi: Optional[str] = None  # Financial Instrument Global Identifier
+    ticker: str | None = None  # Stock ticker if applicable
+    figi: str | None = None  # Financial Instrument Global Identifier
     confidence: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "entity_type": self.entity_type,
@@ -85,21 +84,21 @@ class Article:
     source_name: str  # Publisher name
     published_at_utc: datetime
     title: str
-    snippet: Optional[str] = None  # Short excerpt if permitted
+    snippet: str | None = None  # Short excerpt if permitted
     language: str = "en"
     country: str = "US"
 
     # Extracted metadata
-    entities: List[Entity] = field(default_factory=list)
-    tickers: List[str] = field(default_factory=list)
-    topics: List[TopicCategory] = field(default_factory=list)
+    entities: list[Entity] = field(default_factory=list)
+    tickers: list[str] = field(default_factory=list)
+    topics: list[TopicCategory] = field(default_factory=list)
 
     # Scoring
-    relevance_scores: Dict[str, float] = field(default_factory=dict)
+    relevance_scores: dict[str, float] = field(default_factory=dict)
     impact_score: float = 0.0
 
     # Provenance
-    retrieval_provider: Optional[str] = None
+    retrieval_provider: str | None = None
     fetched_at_utc: datetime = field(default_factory=datetime.utcnow)
 
     @staticmethod
@@ -108,7 +107,7 @@ class Article:
         content = f"{url}|{published_at.isoformat()}|{source}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "article_id": self.article_id,
             "canonical_url": self.canonical_url,
@@ -129,7 +128,7 @@ class Article:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Article":
+    def from_dict(cls, data: dict[str, Any]) -> "Article":
         entities = [Entity(**e) for e in data.get("entities", [])]
         topics = [TopicCategory(t) for t in data.get("topics", [])]
         return cls(
@@ -169,13 +168,13 @@ class Story:
     last_updated_at: datetime
 
     # Aggregated metadata
-    entities: List[Entity] = field(default_factory=list)
-    tickers: List[str] = field(default_factory=list)
-    topics: List[TopicCategory] = field(default_factory=list)
-    regions: List[str] = field(default_factory=list)
+    entities: list[Entity] = field(default_factory=list)
+    tickers: list[str] = field(default_factory=list)
+    topics: list[TopicCategory] = field(default_factory=list)
+    regions: list[str] = field(default_factory=list)
 
     # Coverage
-    article_ids: List[str] = field(default_factory=list)
+    article_ids: list[str] = field(default_factory=list)
     source_count: int = 0  # Number of independent sources
 
     # Scoring
@@ -183,15 +182,15 @@ class Story:
     confidence_score: float = 0.0  # Based on source diversity
 
     # For tracking changes
-    previous_summary: Optional[str] = None
-    change_description: Optional[str] = None  # "What changed since last brief"
+    previous_summary: str | None = None
+    change_description: str | None = None  # "What changed since last brief"
 
     @staticmethod
     def generate_id(lead_article_id: str, first_seen: datetime) -> str:
         content = f"{lead_article_id}|{first_seen.isoformat()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "story_id": self.story_id,
             "lead_article_id": self.lead_article_id,
@@ -225,16 +224,16 @@ class Category:
     description: str
 
     # Query configuration
-    keywords: List[str] = field(default_factory=list)
-    entities: List[str] = field(default_factory=list)  # Company/person names
-    tickers: List[str] = field(default_factory=list)
-    exclusions: List[str] = field(default_factory=list)  # Keywords to exclude
+    keywords: list[str] = field(default_factory=list)
+    entities: list[str] = field(default_factory=list)  # Company/person names
+    tickers: list[str] = field(default_factory=list)
+    exclusions: list[str] = field(default_factory=list)  # Keywords to exclude
 
     # Filters
-    topics: List[TopicCategory] = field(default_factory=list)
-    regions: List[str] = field(default_factory=list)
-    languages: List[str] = field(default_factory=list)
-    sources: List[str] = field(default_factory=list)  # Specific sources only
+    topics: list[TopicCategory] = field(default_factory=list)
+    regions: list[str] = field(default_factory=list)
+    languages: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)  # Specific sources only
 
     # Ranking weights
     recency_weight: float = 0.4
@@ -247,10 +246,10 @@ class Category:
 
     # State
     is_active: bool = True
-    last_successful_fetch: Optional[datetime] = None
+    last_successful_fetch: datetime | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "category_id": self.category_id,
             "name": self.name,
@@ -278,11 +277,11 @@ class Category:
 class UserProfile:
     """User profile with watchlist and category subscriptions"""
     user_id: str
-    email: Optional[str] = None
+    email: str | None = None
 
     # Subscriptions
-    category_ids: List[str] = field(default_factory=list)
-    watchlist_tickers: List[str] = field(default_factory=list)
+    category_ids: list[str] = field(default_factory=list)
+    watchlist_tickers: list[str] = field(default_factory=list)
 
     # Preferences
     timezone: str = "America/Toronto"
@@ -292,10 +291,10 @@ class UserProfile:
     enable_email_digest: bool = True
 
     # State
-    last_seen_story_ids: Set[str] = field(default_factory=set)
+    last_seen_story_ids: set[str] = field(default_factory=set)
     created_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "email": self.email,
@@ -319,15 +318,15 @@ class Brief:
     brief_type: str  # "morning" or "evening"
     generated_at: datetime
 
-    stories: List[Story] = field(default_factory=list)
+    stories: list[Story] = field(default_factory=list)
     new_stories_count: int = 0
     updated_stories_count: int = 0
 
     # Generated content
-    executive_summary: Optional[str] = None
-    market_outlook: Optional[str] = None
+    executive_summary: str | None = None
+    market_outlook: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "brief_id": self.brief_id,
             "user_id": self.user_id,

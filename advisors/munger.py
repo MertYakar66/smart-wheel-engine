@@ -14,8 +14,8 @@ Evaluates trades through the lens of:
 from .base import BaseAdvisor
 from .schema import (
     AdvisorInput,
-    Judgment,
     ConfidenceLevel,
+    Judgment,
 )
 
 
@@ -105,7 +105,6 @@ YOUR TONE:
     def _analyze(self, input_data: AdvisorInput) -> dict:
         """Munger-style inversion analysis."""
         trade = input_data.candidate_trade
-        portfolio = input_data.portfolio
         market = input_data.market
 
         # Gather assessments

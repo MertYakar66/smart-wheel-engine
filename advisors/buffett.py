@@ -14,8 +14,8 @@ Evaluates trades through the lens of:
 from .base import BaseAdvisor
 from .schema import (
     AdvisorInput,
-    Judgment,
     ConfidenceLevel,
+    Judgment,
 )
 
 
@@ -82,14 +82,13 @@ YOUR TONE:
     def _analyze(self, input_data: AdvisorInput) -> dict:
         """Buffett-style analysis."""
         trade = input_data.candidate_trade
-        portfolio = input_data.portfolio
         market = input_data.market
 
         # Gather assessments
-        position_size = self._assess_position_size(input_data)
+        self._assess_position_size(input_data)
         concentration = self._assess_concentration_risk(input_data)
         earnings = self._assess_earnings_risk(input_data)
-        iv_env = self._assess_iv_environment(input_data)
+        self._assess_iv_environment(input_data)
         prob = self._assess_probability_profile(input_data)
 
         # Build analysis

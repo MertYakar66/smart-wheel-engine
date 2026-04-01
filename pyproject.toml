@@ -104,7 +104,7 @@ addopts = "-v --cov=src --cov-report=term-missing"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src", "engine", "advisors", "financial_news", "news_pipeline"]
 branch = true
 
 [tool.coverage.report]

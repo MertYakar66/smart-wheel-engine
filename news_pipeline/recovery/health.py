@@ -10,7 +10,7 @@ Pre-run health checks and continuous monitoring of:
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -203,7 +203,7 @@ class ProviderHealthMonitor:
                         health.status = HealthStatus.UNHEALTHY
                         health.error_message = f"HTTP {response.status}"
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             health.status = HealthStatus.UNHEALTHY
             health.error_message = "Connection timeout"
             health.consecutive_failures += 1

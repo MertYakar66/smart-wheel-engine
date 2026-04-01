@@ -15,7 +15,6 @@ from enum import Enum
 
 from news_pipeline.browser_agents.base import ModelType
 from news_pipeline.security.classifier import (
-    ClassificationResult,
     DataSensitivity,
     SensitivityClassifier,
 )
@@ -217,7 +216,7 @@ class RoutingPolicy:
             # Cannot or did not sanitize - check task requirements
             if task_info["min_tier"] in (DataSensitivity.TIER_B, DataSensitivity.TIER_C):
                 # Task accepts Tier B
-                allowed = [p for p in task_info["preferred"] + task_info["fallback"]]
+                allowed = list(task_info["preferred"] + task_info["fallback"])
                 return RoutingResult(
                     decision=RoutingDecision.SANITIZE_EXTERNAL,
                     allowed_providers=allowed,

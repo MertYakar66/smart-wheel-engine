@@ -52,17 +52,13 @@ from news_pipeline.models import (
     VerificationStatus,
 )
 from news_pipeline.recovery import (
-    Checkpoint,
     CheckpointManager,
-    DegradedModeConfig,
     FallbackHandler,
-    HealthStatus,
     ProviderHealthMonitor,
 )
 from news_pipeline.recovery.checkpoints import PipelineStage as CheckpointStage
 from news_pipeline.scrapers import NewsAggregator, NewsItem
 from news_pipeline.security import (
-    DataSensitivity,
     RoutingPolicy,
     Sanitizer,
     SensitivityClassifier,
@@ -596,7 +592,7 @@ class NewsPipelineOrchestrator:
             # Use fallback handler for external verification
             fallback_result = await self.fallback_handler.execute_with_fallback(
                 task="verification",
-                execute_fn=lambda provider: self._verify_with_provider(candidate, provider),
+                execute_fn=lambda provider, c=candidate: self._verify_with_provider(c, provider),
             )
 
             if fallback_result.success and fallback_result.result:
@@ -698,7 +694,7 @@ class NewsPipelineOrchestrator:
         for v in verified:
             fallback_result = await self.fallback_handler.execute_with_fallback(
                 task="formatting",
-                execute_fn=lambda provider: self._format_with_provider(v, provider),
+                execute_fn=lambda provider, item=v: self._format_with_provider(item, provider),
             )
 
             if fallback_result.success and fallback_result.result:
@@ -763,7 +759,7 @@ class NewsPipelineOrchestrator:
         for f in formatted:
             fallback_result = await self.fallback_handler.execute_with_fallback(
                 task="editorial",
-                execute_fn=lambda provider: self._finalize_with_provider(f, provider),
+                execute_fn=lambda provider, item=f: self._finalize_with_provider(item, provider),
             )
 
             if fallback_result.success and fallback_result.result:

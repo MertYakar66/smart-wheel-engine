@@ -9,7 +9,7 @@ import asyncio
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
 
@@ -127,7 +127,7 @@ class RSSNewsScraper(NewsScraper):
     ) -> list[NewsItem]:
         """Fetch news from all configured RSS feeds."""
         all_items = []
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+        cutoff_time = datetime.now(UTC) - timedelta(hours=hours_back)
 
         # Filter feeds by category if specified
         feeds_to_fetch = self.feeds

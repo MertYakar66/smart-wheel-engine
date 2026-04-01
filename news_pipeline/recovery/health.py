@@ -16,7 +16,7 @@ from enum import Enum
 
 import aiohttp
 
-from news_pipeline.browser_agents.base import ModelType, SessionStatus
+from news_pipeline.browser_agents.types import ModelType, SessionStatus
 
 logger = logging.getLogger(__name__)
 

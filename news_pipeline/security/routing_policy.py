@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
-from news_pipeline.browser_agents.base import ModelType
+from news_pipeline.browser_agents.types import ModelType
 from news_pipeline.security.classifier import (
     DataSensitivity,
     SensitivityClassifier,

@@ -1,12 +1,12 @@
 """
-Tests for the multi-model news pipeline.
+Tests for the browser-based news pipeline.
 
 Tests cover:
 - Data models and schema
-- Provider interfaces
+- Browser agent interfaces
 - Orchestrator logic
 - Publisher functionality
-- Integration layer
+- Security and recovery modules
 """
 
 import asyncio
@@ -16,7 +16,6 @@ from datetime import datetime
 
 import pytest
 
-from news_pipeline.config import PipelineConfig, ProviderConfig
 from news_pipeline.models import (
     CandidateStory,
     DiscoveryRequest,
@@ -76,6 +75,25 @@ class TestDataModels:
         assert data["headline"] == "Fed raises rates"
         assert data["tickers"] == ["SPY", "TLT"]
         assert "2024-01-15" in data["discovered_at"]
+
+    def test_candidate_story_from_dict(self):
+        """CandidateStory should deserialize from dict."""
+        data = {
+            "story_id": "abc123",
+            "headline": "Fed raises rates",
+            "source_name": "Reuters",
+            "source_url": "https://reuters.com/fed",
+            "snippet": "The Federal Reserve...",
+            "discovered_at": "2024-01-15T10:30:00",
+            "tickers": ["SPY", "TLT"],
+            "category": "fed",
+        }
+
+        story = CandidateStory.from_dict(data)
+
+        assert story.story_id == "abc123"
+        assert story.headline == "Fed raises rates"
+        assert isinstance(story.discovered_at, datetime)
 
     def test_verification_result_publishable(self):
         """VerificationResult should correctly determine publishability."""
@@ -138,6 +156,28 @@ class TestDataModels:
         assert data["priority"] == 9
         assert len(data["bullet_points"]) == 2
 
+    def test_finalized_story_from_dict(self):
+        """FinalizedStory should deserialize from dict."""
+        data = {
+            "story_id": "xyz789",
+            "title": "Major Fed Decision",
+            "what_happened": "The Fed announced a rate cut.",
+            "why_it_matters": "Policy pivot.",
+            "bullet_points": ["Point 1"],
+            "affected_assets": ["SPY"],
+            "category": "fed",
+            "verification_confidence": 9,
+            "finalized_at": "2024-01-15T10:30:00",
+            "is_breaking": True,
+            "priority": 9,
+        }
+
+        story = FinalizedStory.from_dict(data)
+
+        assert story.story_id == "xyz789"
+        assert story.is_breaking is True
+        assert isinstance(story.finalized_at, datetime)
+
     def test_pipeline_result_metrics(self):
         """PipelineResult should calculate metrics correctly."""
         result = PipelineResult(
@@ -153,169 +193,218 @@ class TestDataModels:
         assert result.success_rate == 0.5  # 25/50
 
 
-class TestPipelineConfig:
-    """Tests for pipeline configuration."""
-
-    def test_config_defaults(self):
-        """Config should have sensible defaults."""
-        config = PipelineConfig()
-
-        assert config.min_verification_confidence == 6
-        assert config.max_concurrent_verifications == 5
-        assert config.max_stories_per_run == 50
-
-    def test_config_validation_missing_keys(self):
-        """Config validation should catch missing API keys."""
-        config = PipelineConfig()
-        # Clear any env-loaded keys
-        config.grok.api_key = None
-        config.gemini.api_key = None
-        config.chatgpt.api_key = None
-        config.claude.api_key = None
-
-        errors = config.validate()
-
-        assert len(errors) == 4
-        assert any("XAI_API_KEY" in e for e in errors)
-        assert any("GOOGLE_API_KEY" in e for e in errors)
-
-    def test_config_enabled_providers(self):
-        """Config should list enabled providers."""
-        config = PipelineConfig()
-
-        providers = config.get_enabled_providers()
-
-        assert "grok" in providers
-        assert "gemini" in providers
-        assert "chatgpt" in providers
-        assert "claude" in providers
-
-
-class TestProviderInterfaces:
-    """Tests for provider implementations."""
-
-    def test_grok_provider_initialization(self):
-        """GrokProvider should initialize correctly."""
-        from news_pipeline.providers import GrokProvider
-
-        config = ProviderConfig(api_key="test_key", model="grok-beta")
-        provider = GrokProvider(config)
-
-        assert provider.name == "GrokProvider"
-        assert provider.is_initialized is False
-
-    def test_grok_provider_parse_response(self):
-        """GrokProvider should parse discovery responses."""
-        from news_pipeline.providers.grok import GrokProvider
-
-        config = ProviderConfig(api_key="test", model="grok-beta")
-        provider = GrokProvider(config)
-
-        # Test JSON parsing
-        response = """```json
-        [
-            {
-                "headline": "Fed cuts rates",
-                "source_name": "Reuters",
-                "source_url": "https://reuters.com/fed",
-                "tickers": ["SPY"],
-                "category": "fed"
-            }
-        ]
-        ```"""
-
-        stories = provider._parse_discovery_response(response)
-
-        assert len(stories) == 1
-        assert stories[0]["headline"] == "Fed cuts rates"
-        assert stories[0]["tickers"] == ["SPY"]
-
-    def test_gemini_provider_parse_verification(self):
-        """GeminiProvider should parse verification responses."""
-        from news_pipeline.providers.gemini import GeminiProvider
-
-        config = ProviderConfig(api_key="test", model="gemini-pro")
-        provider = GeminiProvider(config)
-
-        response = """```json
-        {
-            "status": "verified",
-            "confidence": 8,
-            "verified_facts": ["Fed cut rates by 25bps"],
-            "what_happened": "The Fed announced a rate cut.",
-            "contradictions": []
-        }
-        ```"""
-
-        result = provider._parse_verification_response(response)
-
-        assert result["status"] == "verified"
-        assert result["confidence"] == 8
-        assert len(result["verified_facts"]) == 1
-
-    def test_chatgpt_provider_fallback(self):
-        """ChatGPTProvider should have fallback formatting."""
-        from news_pipeline.providers.chatgpt import ChatGPTProvider
-
-        config = ProviderConfig(api_key="test", model="gpt-4")
-        provider = ChatGPTProvider(config)
-
-        result = provider._fallback_format(
-            verified_facts=["Fact 1", "Fact 2"],
-            what_happened="Something happened.",
-            affected_assets=["AAPL"],
-            category="earnings",
-        )
-
-        assert result["what_happened"] == "Something happened."
-        assert result["bullet_points"] == ["Fact 1", "Fact 2"]
-        assert result["affected_assets"] == ["AAPL"]
-
-    def test_claude_provider_fallback(self):
-        """ClaudeProvider should have fallback finalization."""
-        from news_pipeline.providers.claude import ClaudeProvider
-
-        config = ProviderConfig(api_key="test", model="claude-3-sonnet")
-        provider = ClaudeProvider(config)
-
-        result = provider._fallback_finalize(
-            title="Fed Rate Decision",
-            what_happened="Fed cut rates.",
-            bullet_points=["Point 1"],
-            affected_assets=["SPY"],
-            category="fed",
-        )
-
-        assert "why_it_matters" in result
-        assert "Federal Reserve" in result["why_it_matters"]
-        assert result["priority"] == 5
-
-
 # Check if playwright is available for browser-based tests
 HAS_PLAYWRIGHT = importlib.util.find_spec("playwright") is not None
 
 
 @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="playwright not installed")
-class TestOrchestrator:
-    """Tests for pipeline orchestrator (requires playwright)."""
+class TestOrchestratorConfig:
+    """Tests for orchestrator configuration (requires playwright)."""
 
-    def test_orchestrator_initialization(self):
-        """Orchestrator should initialize with config."""
-        from news_pipeline.orchestrator import NewsPipelineOrchestrator, OrchestratorConfig
+    def test_orchestrator_config_defaults(self):
+        """OrchestratorConfig should have sensible defaults."""
+        from news_pipeline.orchestrator import OrchestratorConfig
 
         config = OrchestratorConfig()
-        orchestrator = NewsPipelineOrchestrator(config=config)
 
-        assert orchestrator.config == config
+        assert config.min_confidence == 6
+        assert config.max_stories_per_run == 20
+        assert config.headless is True
+        assert config.use_local_llm is True
+        assert config.enable_checkpoints is True
+        assert config.enable_health_checks is True
 
-    def test_orchestrator_health_check(self):
-        """Orchestrator should have health monitoring."""
-        from news_pipeline.orchestrator import NewsPipelineOrchestrator
+    def test_orchestrator_config_security_settings(self):
+        """OrchestratorConfig should have security settings."""
+        from news_pipeline.orchestrator import OrchestratorConfig
 
-        orchestrator = NewsPipelineOrchestrator()
+        config = OrchestratorConfig()
 
-        # The browser-based orchestrator uses health_monitor
-        assert hasattr(orchestrator, "health_monitor")
+        assert config.enable_sensitivity_check is True
+        assert config.strict_security_mode is True
+        assert config.auto_sanitize is True
+
+    def test_orchestrator_config_recovery_settings(self):
+        """OrchestratorConfig should have recovery settings."""
+        from news_pipeline.orchestrator import OrchestratorConfig
+
+        config = OrchestratorConfig()
+
+        assert config.auto_resume is True
+        assert config.max_retries_per_stage == 3
+        assert config.allow_degraded_mode is True
+
+
+@pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="playwright not installed")
+class TestBrowserAgents:
+    """Tests for browser-based agents (requires playwright)."""
+
+    def test_model_type_enum(self):
+        """ModelType should have correct values."""
+        from news_pipeline.browser_agents import ModelType
+
+        assert ModelType.CLAUDE.value == "claude"
+        assert ModelType.CHATGPT.value == "chatgpt"
+        assert ModelType.GEMINI.value == "gemini"
+        assert ModelType.LOCAL.value == "local"
+
+    def test_session_status_enum(self):
+        """SessionStatus should have correct values."""
+        from news_pipeline.browser_agents.base import SessionStatus
+
+        assert SessionStatus.UNINITIALIZED.value == "uninitialized"
+        assert SessionStatus.AUTHENTICATED.value == "authenticated"
+        assert SessionStatus.READY.value == "ready"
+        assert SessionStatus.RATE_LIMITED.value == "rate_limited"
+        assert SessionStatus.ERROR.value == "error"
+
+    def test_model_response_dataclass(self):
+        """ModelResponse should store response data."""
+        from news_pipeline.browser_agents.base import ModelResponse
+
+        response = ModelResponse(
+            success=True,
+            content="Test response",
+            model="claude",
+            latency_ms=150,
+        )
+
+        assert response.success is True
+        assert response.content == "Test response"
+        assert response.latency_ms == 150
+
+
+class TestSecurityModule:
+    """Tests for security classification and sanitization."""
+
+    def test_data_sensitivity_tiers(self):
+        """DataSensitivity should have three tiers."""
+        from news_pipeline.security import DataSensitivity
+
+        assert DataSensitivity.TIER_A.value == "public"
+        assert DataSensitivity.TIER_B.value == "sanitizable"
+        assert DataSensitivity.TIER_C.value == "private"
+
+    def test_classifier_public_news(self):
+        """Classifier should identify public news as Tier A."""
+        from news_pipeline.security import SensitivityClassifier
+
+        classifier = SensitivityClassifier()
+
+        result = classifier.classify(
+            "Fed announces 25bps rate cut, Powell signals more easing ahead"
+        )
+
+        assert result.tier.value == "public"
+        assert result.is_safe_external is True
+
+    def test_classifier_sensitive_data(self):
+        """Classifier should identify sensitive data as Tier C."""
+        from news_pipeline.security import SensitivityClassifier
+
+        classifier = SensitivityClassifier()
+
+        result = classifier.classify("API key: sk-1234567890abcdef password: secret123")
+
+        assert result.tier.value == "private"
+        assert result.is_private is True
+
+    def test_sanitizer_removes_email(self):
+        """Sanitizer should redact email addresses."""
+        from news_pipeline.security import Sanitizer
+
+        sanitizer = Sanitizer()
+
+        result = sanitizer.sanitize("Contact john.doe@company.com for details")
+
+        assert "john.doe@company.com" not in result.sanitized
+        assert "[email]" in result.sanitized
+        assert result.was_modified is True
+
+    def test_sanitizer_removes_phone(self):
+        """Sanitizer should redact phone numbers."""
+        from news_pipeline.security import Sanitizer
+
+        sanitizer = Sanitizer()
+
+        result = sanitizer.sanitize("Call us at 555-123-4567 for support")
+
+        assert "555-123-4567" not in result.sanitized
+        assert "[phone]" in result.sanitized
+
+    def test_routing_policy_external_ok(self):
+        """RoutingPolicy should allow external routing for public data."""
+        from news_pipeline.security import RoutingDecision, RoutingPolicy
+
+        policy = RoutingPolicy()
+
+        result = policy.evaluate(
+            "Reuters: Fed raises rates by 25 basis points",
+            task="verification",
+        )
+
+        assert result.decision == RoutingDecision.EXTERNAL_OK
+        assert result.can_use_external is True
+
+
+class TestRecoveryModule:
+    """Tests for checkpointing and recovery."""
+
+    def test_pipeline_stage_order(self):
+        """PipelineStage should have correct ordering."""
+        from news_pipeline.recovery import PipelineStage
+
+        assert PipelineStage.INIT.order == 0
+        assert PipelineStage.SCRAPE.order == 1
+        assert PipelineStage.PREPROCESS.order == 2
+        assert PipelineStage.VERIFY.order == 3
+        assert PipelineStage.FORMAT.order == 4
+        assert PipelineStage.EDITORIAL.order == 5
+        assert PipelineStage.PUBLISH.order == 6
+        assert PipelineStage.COMPLETE.order == 7
+
+    def test_checkpoint_serialization(self):
+        """Checkpoint should serialize to dict."""
+        from news_pipeline.recovery import Checkpoint, PipelineStage
+
+        checkpoint = Checkpoint(
+            stage=PipelineStage.VERIFY,
+            timestamp=datetime(2024, 1, 15, 10, 30),
+            run_id="test123",
+            data={"items": ["a", "b"]},
+            items_processed=2,
+            items_total=5,
+        )
+
+        data = checkpoint.to_dict()
+
+        assert data["stage"] == "verify"
+        assert data["run_id"] == "test123"
+        assert data["items_processed"] == 2
+        assert checkpoint.progress == 0.4
+
+    def test_health_status_enum(self):
+        """HealthStatus should have correct values."""
+        from news_pipeline.recovery import HealthStatus
+
+        assert HealthStatus.HEALTHY.value == "healthy"
+        assert HealthStatus.DEGRADED.value == "degraded"
+        assert HealthStatus.UNHEALTHY.value == "unhealthy"
+
+    def test_provider_health_availability(self):
+        """ProviderHealth should track availability."""
+        from news_pipeline.browser_agents import ModelType
+        from news_pipeline.recovery import HealthStatus, ProviderHealth
+
+        health = ProviderHealth(
+            provider=ModelType.CLAUDE,
+            status=HealthStatus.HEALTHY,
+        )
+
+        assert health.is_available is True
+
+        health.status = HealthStatus.UNHEALTHY
+        assert health.is_available is False
 
 
 class TestPublisher:
@@ -419,26 +508,87 @@ class TestEnums:
         assert VerificationStatus.CONTRADICTED.value == "contradicted"
 
 
-class TestIntegration:
-    """Tests for financial_news integration."""
+class TestScrapers:
+    """Tests for news scrapers."""
 
-    def test_integration_category_mapping(self):
-        """Integration should map categories correctly."""
-        from news_pipeline.integration import FinancialNewsIntegration
+    def test_news_category_enum(self):
+        """NewsCategory should have correct values."""
+        from news_pipeline.scrapers.base import NewsCategory
 
-        integration = FinancialNewsIntegration()
+        assert NewsCategory.FED.value == "fed"
+        assert NewsCategory.EARNINGS.value == "earnings"
+        assert NewsCategory.BREAKING.value == "breaking"
 
-        assert integration._map_category("federal_reserve") == "fed"
-        assert integration._map_category("corporate_earnings") == "earnings"
-        assert integration._map_category("crude_oil") == "oil"
-        assert integration._map_category("unknown") == "unknown"
+    def test_source_type_enum(self):
+        """SourceType should have correct values."""
+        from news_pipeline.scrapers.base import SourceType
 
-    def test_integration_source_type(self):
-        """Integration should identify source types."""
-        from news_pipeline.integration import FinancialNewsIntegration
+        assert SourceType.OFFICIAL.value == "official"
+        assert SourceType.MAINSTREAM.value == "mainstream"
+        assert SourceType.RSS.value == "rss"
 
-        integration = FinancialNewsIntegration()
+    def test_news_item_dataclass(self):
+        """NewsItem should store news data."""
+        from news_pipeline.scrapers.base import NewsCategory, NewsItem, SourceType
 
-        assert integration._get_source_type("SEC") == "official"
-        assert integration._get_source_type("GDELT") == "mainstream"
-        assert integration._get_source_type("Random") == "unknown"
+        item = NewsItem(
+            headline="Fed raises rates",
+            source_name="Reuters",
+            source_url="https://reuters.com/fed",
+            source_type=SourceType.MAINSTREAM,
+            snippet="The Federal Reserve announced...",
+            category=NewsCategory.FED,
+            tickers=["SPY", "TLT"],
+        )
+
+        assert item.headline == "Fed raises rates"
+        assert item.category == NewsCategory.FED
+        assert len(item.tickers) == 2
+
+
+class TestLocalLLM:
+    """Tests for local LLM preprocessing."""
+
+    def test_preprocessor_initialization(self):
+        """LocalPreprocessor should initialize correctly."""
+        from news_pipeline.local_llm import LocalPreprocessor
+
+        preprocessor = LocalPreprocessor(
+            model="qwen2.5:7b",
+            use_llm=False,  # Don't require actual Ollama
+        )
+
+        assert preprocessor.model == "qwen2.5:7b"
+        assert preprocessor.use_llm is False
+
+    def test_preprocessor_rule_based_filter(self):
+        """LocalPreprocessor should filter with rules when LLM disabled."""
+        from news_pipeline.local_llm import LocalPreprocessor
+        from news_pipeline.scrapers.base import NewsCategory, NewsItem, SourceType
+
+        preprocessor = LocalPreprocessor(use_llm=False)
+
+        items = [
+            NewsItem(
+                headline="Fed raises rates by 25bps",
+                source_name="Reuters",
+                source_url="https://reuters.com",
+                source_type=SourceType.MAINSTREAM,
+                category=NewsCategory.FED,
+            ),
+            NewsItem(
+                headline="Celebrity gossip update",
+                source_name="Tabloid",
+                source_url="https://tabloid.com",
+                source_type=SourceType.UNKNOWN,
+                category=NewsCategory.OTHER,
+            ),
+        ]
+
+        async def run_test():
+            filtered = await preprocessor.preprocess_batch(items, filter_threshold=0.3)
+            # Fed news should pass, gossip should be filtered
+            assert len(filtered) >= 1
+            assert any("Fed" in item.headline for item in filtered)
+
+        asyncio.run(run_test())

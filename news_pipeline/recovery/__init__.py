@@ -10,18 +10,16 @@ Features:
 - Provider health monitoring
 - Graceful degradation
 - Idempotent reruns
+
+Note: FallbackHandler requires playwright for browser agents.
 """
 
+# Core recovery components (no playwright dependency)
 from news_pipeline.recovery.checkpoints import (
     Checkpoint,
     CheckpointManager,
     PipelineStage,
     get_checkpoint_manager,
-)
-from news_pipeline.recovery.fallbacks import (
-    DegradedModeConfig,
-    FallbackHandler,
-    get_fallback_handler,
 )
 from news_pipeline.recovery.health import (
     HealthStatus,
@@ -43,3 +41,12 @@ __all__ = [
     "FallbackHandler",
     "get_fallback_handler",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy import fallback components that require playwright."""
+    fallback_exports = {"DegradedModeConfig", "FallbackHandler", "get_fallback_handler"}
+    if name in fallback_exports:
+        from news_pipeline.recovery import fallbacks
+        return getattr(fallbacks, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,64 +1,79 @@
 """
-Gemini Provider - Verification Layer
+Gemini Verification Provider
 
-Uses Google's Gemini API with Grounding (Google Search) for cross-source verification.
-Gemini's grounding capability allows it to verify facts against live web search results.
+Uses Google's Gemini model with grounding for fact verification.
+Gemini's search grounding provides authoritative source verification.
+
+Features:
+- Cross-source verification with Google Search grounding
+- Confidence scoring (0-10)
+- Evidence collection
+- Contradiction detection
 """
 
 import json
 import logging
-import os
-from typing import Any
 
-from .base import VerificationProvider
+from news_pipeline.config import ProviderConfig
+from news_pipeline.providers.base import VerificationProvider
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiProvider(VerificationProvider):
     """
-    Gemini-powered verification provider.
+    Gemini-powered story verification.
 
-    Uses Google's Gemini model with grounding to verify news stories
-    by cross-checking them against multiple web sources.
+    Uses Google's Gemini model with search grounding to verify
+    stories against multiple authoritative sources.
     """
 
-    def __init__(self, api_key: str | None = None):
-        super().__init__(api_key)
-        self.api_key = api_key or os.environ.get("GOOGLE_API_KEY")
-        self.client = None
-        self.model = "gemini-2.0-flash"  # Fast model with grounding support
+    def __init__(self, config: ProviderConfig | None = None):
+        """Initialize Gemini provider."""
+        if config is None:
+            from news_pipeline.config import PipelineConfig
 
-    @property
-    def name(self) -> str:
-        return "Gemini"
+            config = PipelineConfig().gemini
+        super().__init__(config)
 
     async def initialize(self) -> None:
-        """Initialize the Google Generative AI client."""
-        if not self.api_key:
-            raise ValueError("GOOGLE_API_KEY not found in environment")
+        """Initialize the Gemini client."""
+        if self._initialized:
+            return
 
         try:
             import google.generativeai as genai
 
-            genai.configure(api_key=self.api_key)
-            self.client = genai
+            genai.configure(api_key=self.config.api_key)
+            self._client = genai.GenerativeModel(
+                model_name=self.config.model,
+                generation_config={
+                    "temperature": 0.2,
+                    "top_p": 0.95,
+                    "max_output_tokens": 2000,
+                },
+            )
+            self._genai = genai
             self._initialized = True
-            logger.info(f"[{self.name}] Initialized with model {self.model}")
+            logger.info(f"[{self.name}] Initialized successfully")
+
         except ImportError:
-            raise ImportError("google-generativeai package required for Gemini provider")
+            logger.error(f"[{self.name}] google-generativeai package required")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Initialization failed: {e}")
+            raise
 
     async def health_check(self) -> bool:
-        """Check if Gemini API is available."""
-        if not self.client:
+        """Check if Gemini API is accessible."""
+        if not self._initialized:
             return False
 
         try:
-            model = self.client.GenerativeModel(self.model)
-            response = model.generate_content("ping")
+            response = self._client.generate_content("ping")
             return response.text is not None
         except Exception as e:
-            self._log_error("health_check", e)
+            logger.warning(f"[{self.name}] Health check failed: {e}")
             return False
 
     async def verify_story(
@@ -67,61 +82,48 @@ class GeminiProvider(VerificationProvider):
         source_url: str,
         tickers: list[str],
         category: str,
-    ) -> dict[str, Any]:
+    ) -> dict:
         """
-        Verify a story using Gemini with Google Search grounding.
+        Verify a story using Gemini with search grounding.
 
         Args:
             headline: Story headline to verify
             source_url: Original source URL
-            tickers: Related tickers
+            tickers: Related stock symbols
             category: Story category
 
         Returns:
-            Verification result with confidence and evidence
+            Verification result dictionary
         """
         if not self._initialized:
             await self.initialize()
 
-        self._log_request(
-            "verify_story",
-            {
-                "headline": headline[:100],
-                "tickers": tickers,
-            },
-        )
+        logger.info(f"[{self.name}] Verifying: {headline[:60]}...")
 
         prompt = self._build_verification_prompt(headline, source_url, tickers, category)
 
         try:
-            # Configure grounding with Google Search
-            model = self.client.GenerativeModel(
-                self.model,
-                tools="google_search_retrieval",  # Enable web search grounding
-            )
-
-            response = model.generate_content(
+            # Use grounding with Google Search for verification
+            response = self._client.generate_content(
                 prompt,
-                generation_config={
-                    "temperature": 0.2,  # Low temperature for factual verification
-                    "max_output_tokens": 2000,
-                },
+                tools=[self._genai.Tool(google_search=self._genai.GoogleSearch())],
             )
 
             result = self._parse_verification_response(response.text)
-            self._log_response("verify_story", f"Confidence: {result.get('confidence', 0)}/10")
+
+            logger.info(
+                f"[{self.name}] Verification complete: confidence={result.get('confidence', 0)}/10"
+            )
             return result
 
         except Exception as e:
-            self._log_error("verify_story", e)
-            # Return unverified result on error
+            logger.error(f"[{self.name}] Verification failed: {e}")
             return {
                 "status": "error",
                 "confidence": 0,
                 "verified_facts": [],
                 "contradictions": [],
-                "evidence": [],
-                "error": str(e),
+                "verification_notes": f"Verification failed: {e}",
             }
 
     def _build_verification_prompt(
@@ -132,78 +134,86 @@ class GeminiProvider(VerificationProvider):
         category: str,
     ) -> str:
         """Build the verification prompt."""
-        ticker_str = ", ".join(tickers) if tickers else "general market"
+        return f"""You are a financial news fact-checker. Verify this headline using search:
 
-        return f"""You are a financial news verification agent. Your task is to verify the following news story by checking it against multiple web sources.
+HEADLINE: "{headline}"
+SOURCE: {source_url}
+TICKERS: {", ".join(tickers) if tickers else "None specified"}
+CATEGORY: {category}
 
-STORY TO VERIFY:
-Headline: {headline}
-Original Source: {source_url}
-Related Assets: {ticker_str}
-Category: {category}
+VERIFICATION TASKS:
+1. Search for corroborating reports from other credible sources
+2. Check official sources (company websites, SEC filings, Fed statements)
+3. Identify any contradicting information
+4. Assess the credibility of sources found
 
-VERIFICATION REQUIREMENTS:
-1. Search for corroborating reports from other sources
-2. Check if the facts are consistent across sources
-3. Look for official or primary source confirmation
-4. Identify any contradictions between sources
-5. Assess the credibility of the original claim
-
-Return your verification as a JSON object with these fields:
-- status: "verified" | "partial" | "unverified" | "contradicted"
-- confidence: integer 0-10 (0=no evidence, 10=multiple official confirmations)
-- verified_facts: array of specific facts that were confirmed
-- contradictions: array of contradicting information found
-- evidence: array of objects, each with:
-  - source_name: name of corroborating source
-  - source_url: URL of the source
-  - evidence_type: "corroboration" | "official" | "contradiction"
-  - summary: brief description of what this source says
-  - weight: float 0-1 indicating evidence strength
-- verification_notes: string explaining your confidence assessment
+RETURN JSON FORMAT:
+{{
+    "status": "verified" | "partial" | "unverified" | "contradicted",
+    "confidence": 0-10,
+    "verified_facts": ["fact 1", "fact 2"],
+    "what_happened": "1-2 sentence factual summary",
+    "corroborating_sources": ["source 1", "source 2"],
+    "contradictions": ["any conflicting info found"],
+    "sources_checked": number,
+    "verification_notes": "brief explanation of verification process"
+}}
 
 CONFIDENCE SCALE:
-0-2: No corroboration found, cannot verify
-3-4: Weak corroboration, single secondary source
-5-6: Moderate corroboration, multiple sources but no official confirmation
-7-8: Strong corroboration, multiple sources including reputable outlets
-9-10: Very strong, official/primary source confirmation available
+- 9-10: Multiple official sources confirm
+- 7-8: Major news outlets corroborate
+- 5-6: Single credible source, no contradictions
+- 3-4: Limited verification, some uncertainty
+- 0-2: Cannot verify or found contradictions
 
-Return ONLY the JSON object, no other text."""
+Be rigorous. Only mark as "verified" with 7+ confidence if multiple credible sources confirm."""
 
-    def _parse_verification_response(self, content: str) -> dict[str, Any]:
+    def _parse_verification_response(self, content: str) -> dict:
         """Parse Gemini's verification response."""
+        if not content:
+            return self._default_result()
+
         try:
             content = content.strip()
 
             # Handle markdown code blocks
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            if "```json" in content:
+                start = content.find("```json") + 7
+                end = content.find("```", start)
+                content = content[start:end].strip()
+            elif "```" in content:
+                start = content.find("```") + 3
+                end = content.find("```", start)
+                content = content[start:end].strip()
 
-            result = json.loads(content.strip())
+            result = json.loads(content)
 
-            # Normalize the result
-            return {
-                "status": result.get("status", "unverified"),
-                "confidence": min(10, max(0, int(result.get("confidence", 0)))),
-                "verified_facts": result.get("verified_facts", []),
-                "contradictions": result.get("contradictions", []),
-                "evidence": result.get("evidence", []),
-                "verification_notes": result.get("verification_notes", ""),
-            }
+            # Validate and normalize
+            result.setdefault("status", "unverified")
+            result.setdefault("confidence", 0)
+            result.setdefault("verified_facts", [])
+            result.setdefault("what_happened", "")
+            result.setdefault("contradictions", [])
+            result.setdefault("sources_checked", 0)
+            result.setdefault("verification_notes", "")
+
+            # Ensure confidence is integer 0-10
+            result["confidence"] = max(0, min(10, int(result["confidence"])))
+
+            return result
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Gemini response as JSON: {e}")
-            logger.debug(f"Raw response: {content[:500]}")
-            return {
-                "status": "error",
-                "confidence": 0,
-                "verified_facts": [],
-                "contradictions": [],
-                "evidence": [],
-                "verification_notes": f"Parse error: {e}",
-            }
+            logger.warning(f"[{self.name}] JSON parse failed: {e}")
+            return self._default_result()
+
+    def _default_result(self) -> dict:
+        """Return default verification result on error."""
+        return {
+            "status": "error",
+            "confidence": 0,
+            "verified_facts": [],
+            "what_happened": "",
+            "contradictions": [],
+            "sources_checked": 0,
+            "verification_notes": "Failed to parse verification response",
+        }

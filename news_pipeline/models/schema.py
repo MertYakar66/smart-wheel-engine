@@ -1,252 +1,297 @@
 """
-News Pipeline Data Models
+Pipeline Data Schema
 
-Defines the canonical data structures used throughout the multi-model pipeline:
-- Discovery (Grok) -> Verification (Gemini) -> Formatting (ChatGPT) -> Editorial (Claude) -> Publish
+Defines all data models used throughout the multi-model news pipeline.
+Models are immutable dataclasses optimized for serialization and validation.
 """
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
 
 class PipelineStage(Enum):
-    """Pipeline processing stages."""
+    """Stages in the news pipeline."""
 
-    DISCOVERED = "discovered"  # Found by Grok
-    VERIFIED = "verified"  # Verified by Gemini
-    FORMATTED = "formatted"  # Formatted by ChatGPT
-    FINALIZED = "finalized"  # Finalized by Claude
-    PUBLISHED = "published"  # Published to website
-    DISCARDED = "discarded"  # Failed verification
+    DISCOVERY = "discovery"
+    VERIFICATION = "verification"
+    FORMATTING = "formatting"
+    EDITORIAL = "editorial"
+    PUBLISHING = "publishing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class StoryCategory(Enum):
-    """News story categories for targeting."""
+    """Supported news categories aligned with financial_news taxonomy."""
 
+    # Market-moving categories
+    FED = "fed"
+    EARNINGS = "earnings"
     SP500_EVENTS = "sp500_events"
     OIL = "oil"
     GEOPOLITICS = "geopolitics"
-    FED = "fed"
-    INFLATION = "inflation"
-    LABOR = "labor"
-    EARNINGS = "earnings"
-    MACRO = "macro"
+
+    # Additional categories
     CRYPTO = "crypto"
+    COMMODITIES = "commodities"
+    FOREX = "forex"
+    MACRO = "macro"
     TECH = "tech"
+    ENERGY = "energy"
+    HEALTHCARE = "healthcare"
+    FINANCIALS = "financials"
+
+    # Meta
+    BREAKING = "breaking"
+    OTHER = "other"
 
 
 class VerificationStatus(Enum):
     """Verification outcome status."""
 
-    VERIFIED = "verified"
+    VERIFIED = "verified"  # Fully corroborated
     PARTIAL = "partial"  # Some facts verified
-    UNVERIFIED = "unverified"
-    CONTRADICTED = "contradicted"
+    UNVERIFIED = "unverified"  # Could not verify
+    CONTRADICTED = "contradicted"  # Found conflicting info
+    ERROR = "error"  # Verification failed
 
 
-@dataclass
+@dataclass(frozen=True)
 class DiscoveryRequest:
-    """Request to discover news stories."""
+    """
+    Request parameters for news discovery.
 
-    run_id: str
-    tickers: list[str]
-    categories: list[StoryCategory]
-    time_window: str  # e.g., "overnight", "last_6h", "today"
-    max_stories: int = 50
+    Immutable to ensure request integrity throughout the pipeline.
+    """
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "run_id": self.run_id,
-            "tickers": self.tickers,
-            "categories": [c.value for c in self.categories],
-            "time_window": self.time_window,
-            "max_stories": self.max_stories,
-        }
+    tickers: tuple[str, ...] = field(default_factory=tuple)
+    categories: tuple[str, ...] = field(
+        default_factory=lambda: ("fed", "earnings", "sp500_events", "oil", "geopolitics")
+    )
+    time_window: str = "overnight"
+    max_results: int = 50
+    priority_tickers: tuple[str, ...] = field(default_factory=tuple)
+    exclude_sources: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self):
+        # Convert lists to tuples for immutability
+        object.__setattr__(self, "tickers", tuple(self.tickers))
+        object.__setattr__(self, "categories", tuple(self.categories))
+        object.__setattr__(self, "priority_tickers", tuple(self.priority_tickers))
+        object.__setattr__(self, "exclude_sources", tuple(self.exclude_sources))
+
+    @property
+    def request_id(self) -> str:
+        """Generate unique request ID based on parameters."""
+        content = f"{self.tickers}{self.categories}{self.time_window}"
+        return hashlib.md5(content.encode()).hexdigest()[:12]
 
 
 @dataclass
 class CandidateStory:
     """
-    A raw story discovered by the discovery layer.
+    A news story candidate discovered by Grok.
 
-    This is the output from Grok's web search.
+    Raw story data before verification.
     """
 
-    candidate_id: str
-    run_id: str
+    story_id: str
     headline: str
     source_name: str
     source_url: str
-    published_at: datetime | None
+    snippet: str
     discovered_at: datetime
 
-    # Extracted metadata
+    # Metadata
     tickers: list[str] = field(default_factory=list)
-    category_guess: StoryCategory | None = None
-    snippet: str = ""
-    raw_metadata: dict[str, Any] = field(default_factory=dict)
+    category: str = "other"
+    published_at: datetime | None = None
+    relevance_score: float = 0.0
 
-    # Processing state
-    stage: PipelineStage = PipelineStage.DISCOVERED
+    # Source quality indicators
+    source_type: str = "unknown"  # official, mainstream, social, unknown
+    source_credibility: float = 0.5  # 0-1 scale
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "candidate_id": self.candidate_id,
-            "run_id": self.run_id,
-            "headline": self.headline,
-            "source_name": self.source_name,
-            "source_url": self.source_url,
-            "published_at": self.published_at.isoformat() if self.published_at else None,
-            "discovered_at": self.discovered_at.isoformat(),
-            "tickers": self.tickers,
-            "category_guess": self.category_guess.value if self.category_guess else None,
-            "snippet": self.snippet,
-            "stage": self.stage.value,
-        }
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
+        data = asdict(self)
+        data["discovered_at"] = self.discovered_at.isoformat()
+        if self.published_at:
+            data["published_at"] = self.published_at.isoformat()
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "CandidateStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("discovered_at"), str):
+            data["discovered_at"] = datetime.fromisoformat(data["discovered_at"])
+        if isinstance(data.get("published_at"), str):
+            data["published_at"] = datetime.fromisoformat(data["published_at"])
+        return cls(**data)
 
 
 @dataclass
-class VerificationEvidence:
-    """A piece of corroborating evidence for a story."""
+class Evidence:
+    """Evidence supporting or contradicting a story."""
 
-    source_name: str
     source_url: str
-    evidence_type: str  # "corroboration", "official", "contradiction"
-    summary: str
-    weight: float = 1.0  # How much this evidence contributes to confidence
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "source_name": self.source_name,
-            "source_url": self.source_url,
-            "evidence_type": self.evidence_type,
-            "summary": self.summary,
-            "weight": self.weight,
-        }
+    source_name: str
+    quote: str
+    supports_claim: bool
+    credibility: float = 0.5  # 0-1 scale
+    retrieved_at: datetime = field(default_factory=datetime.utcnow)
 
 
 @dataclass
 class VerificationResult:
     """
-    Result of verifying a candidate story.
+    Result of Gemini verification.
 
-    This is the output from Gemini's verification.
+    Contains confidence score and supporting evidence.
     """
 
-    candidate_id: str
+    story_id: str
+    candidate: CandidateStory
     status: VerificationStatus
     confidence: int  # 0-10 scale
+
+    # Verified content
     verified_facts: list[str] = field(default_factory=list)
+    what_happened: str = ""
+
+    # Evidence
+    evidence: list[Evidence] = field(default_factory=list)
     contradictions: list[str] = field(default_factory=list)
-    evidence: list[VerificationEvidence] = field(default_factory=list)
+
+    # Metadata
+    sources_checked: int = 0
     verification_notes: str = ""
     verified_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> dict[str, Any]:
+    @property
+    def is_publishable(self) -> bool:
+        """Check if verification confidence is high enough."""
+        return self.confidence >= 6 and self.status in (
+            VerificationStatus.VERIFIED,
+            VerificationStatus.PARTIAL,
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
         return {
-            "candidate_id": self.candidate_id,
+            "story_id": self.story_id,
+            "candidate": self.candidate.to_dict(),
             "status": self.status.value,
             "confidence": self.confidence,
             "verified_facts": self.verified_facts,
+            "what_happened": self.what_happened,
             "contradictions": self.contradictions,
-            "evidence": [e.to_dict() for e in self.evidence],
+            "sources_checked": self.sources_checked,
             "verification_notes": self.verification_notes,
             "verified_at": self.verified_at.isoformat(),
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "VerificationResult":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("candidate"), dict):
+            data["candidate"] = CandidateStory.from_dict(data["candidate"])
+        if isinstance(data.get("status"), str):
+            data["status"] = VerificationStatus(data["status"])
+        if isinstance(data.get("verified_at"), str):
+            data["verified_at"] = datetime.fromisoformat(data["verified_at"])
+        # Remove evidence field if present (not reconstructed)
+        data.pop("evidence", None)
+        return cls(**data)
 
 
 @dataclass
 class FormattedStory:
     """
-    A story formatted for the feed.
+    Story formatted by ChatGPT.
 
-    This is the output from ChatGPT's formatting.
+    Structured, clear content ready for editorial polish.
     """
 
     story_id: str
-    candidate_id: str
     title: str
     what_happened: str
-    bullet_points: list[str] = field(default_factory=list)
-    affected_assets: list[str] = field(default_factory=list)
-    category: StoryCategory | None = None
-    confidence: int = 0
+    bullet_points: list[str]
+    affected_assets: list[str]
+
+    # Metadata
+    category: str
+    verification_confidence: int
     formatted_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> dict[str, Any]:
+    # Optional enrichments
+    related_tickers: list[str] = field(default_factory=list)
+    sector_impact: str | None = None
+    time_sensitivity: str = "normal"  # urgent, normal, background
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
         return {
             "story_id": self.story_id,
-            "candidate_id": self.candidate_id,
             "title": self.title,
             "what_happened": self.what_happened,
             "bullet_points": self.bullet_points,
             "affected_assets": self.affected_assets,
-            "category": self.category.value if self.category else None,
-            "confidence": self.confidence,
+            "category": self.category,
+            "verification_confidence": self.verification_confidence,
             "formatted_at": self.formatted_at.isoformat(),
+            "related_tickers": self.related_tickers,
+            "sector_impact": self.sector_impact,
+            "time_sensitivity": self.time_sensitivity,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FormattedStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("formatted_at"), str):
+            data["formatted_at"] = datetime.fromisoformat(data["formatted_at"])
+        return cls(**data)
 
 
 @dataclass
 class FinalizedStory:
     """
-    A finalized story ready for publishing.
+    Story finalized by Claude.
 
-    This is the output from Claude's editorial pass.
+    Complete story with editorial polish and "why it matters" analysis.
     """
 
-    story_id: str
-    title: str
-    what_happened: str
-    why_it_matters: str
-    bullet_points: list[str] = field(default_factory=list)
-    affected_assets: list[str] = field(default_factory=list)
-    category: StoryCategory | None = None
-    verification_confidence: int = 0
-    finalized_at: datetime = field(default_factory=datetime.utcnow)
-
-    # Source tracking
-    source_urls: list[str] = field(default_factory=list)
-    original_candidate_id: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "story_id": self.story_id,
-            "title": self.title,
-            "what_happened": self.what_happened,
-            "why_it_matters": self.why_it_matters,
-            "bullet_points": self.bullet_points,
-            "affected_assets": self.affected_assets,
-            "category": self.category.value if self.category else None,
-            "verification_confidence": self.verification_confidence,
-            "finalized_at": self.finalized_at.isoformat(),
-            "source_urls": self.source_urls,
-        }
-
-
-@dataclass
-class PublishedFeedItem:
-    """
-    A published feed item on the website.
-    """
-
-    feed_item_id: str
     story_id: str
     title: str
     what_happened: str
     why_it_matters: str
     bullet_points: list[str]
     affected_assets: list[str]
-    category: str
-    confidence: int
-    published_at: datetime
-    source_urls: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, Any]:
+    # Metadata
+    category: str
+    verification_confidence: int
+    finalized_at: datetime = field(default_factory=datetime.utcnow)
+
+    # Editorial additions
+    market_implications: str | None = None
+    trading_considerations: str | None = None
+    related_stories: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+
+    # Quality flags
+    is_breaking: bool = False
+    priority: int = 5  # 1-10, higher = more important
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
         return {
-            "feed_item_id": self.feed_item_id,
             "story_id": self.story_id,
             "title": self.title,
             "what_happened": self.what_happened,
@@ -254,51 +299,136 @@ class PublishedFeedItem:
             "bullet_points": self.bullet_points,
             "affected_assets": self.affected_assets,
             "category": self.category,
-            "confidence": self.confidence,
+            "verification_confidence": self.verification_confidence,
+            "finalized_at": self.finalized_at.isoformat(),
+            "market_implications": self.market_implications,
+            "trading_considerations": self.trading_considerations,
+            "is_breaking": self.is_breaking,
+            "priority": self.priority,
+            "tags": self.tags,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FinalizedStory":
+        """Create from dictionary."""
+        data = data.copy()
+        if isinstance(data.get("finalized_at"), str):
+            data["finalized_at"] = datetime.fromisoformat(data["finalized_at"])
+        # Handle related_stories if present
+        data.pop("related_stories", None)
+        return cls(**data)
+
+    def to_json(self) -> str:
+        """Serialize to JSON."""
+        return json.dumps(self.to_dict(), indent=2)
+
+
+@dataclass
+class PublishedFeedItem:
+    """
+    Published story in the website feed.
+
+    Final format delivered to end users.
+    """
+
+    story_id: str
+    title: str
+    what_happened: str
+    why_it_matters: str
+    bullet_points: list[str]
+    affected_assets: list[str]
+
+    # Publishing metadata
+    category: str
+    verification_confidence: int
+    published_at: datetime
+    feed_url: str = ""
+
+    # Engagement tracking
+    view_count: int = 0
+    share_count: int = 0
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
+        return {
+            "story_id": self.story_id,
+            "title": self.title,
+            "what_happened": self.what_happened,
+            "why_it_matters": self.why_it_matters,
+            "bullet_points": self.bullet_points,
+            "affected_assets": self.affected_assets,
+            "category": self.category,
+            "verification_confidence": self.verification_confidence,
             "published_at": self.published_at.isoformat(),
-            "source_urls": self.source_urls,
+            "feed_url": self.feed_url,
         }
 
 
 @dataclass
-class PipelineRun:
+class PipelineResult:
     """
-    A complete pipeline run record.
+    Complete result of a pipeline run.
+
+    Contains statistics and all processed stories.
     """
 
     run_id: str
     started_at: datetime
-    ended_at: datetime | None = None
-    run_type: str = "morning"  # morning, evening, manual
+    completed_at: datetime | None = None
 
-    # Request parameters
-    tickers: list[str] = field(default_factory=list)
-    categories: list[str] = field(default_factory=list)
-    time_window: str = "overnight"
+    # Request
+    request: DiscoveryRequest | None = None
+
+    # Stage counts
+    discovered_count: int = 0
+    verified_count: int = 0
+    formatted_count: int = 0
+    finalized_count: int = 0
+    published_count: int = 0
 
     # Results
-    candidates_found: int = 0
-    stories_verified: int = 0
-    stories_published: int = 0
-    stories_discarded: int = 0
+    stories: list[FinalizedStory] = field(default_factory=list)
+    published_items: list[PublishedFeedItem] = field(default_factory=list)
 
     # Errors
-    errors: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    stage_errors: dict = field(default_factory=dict)
+
+    # Status
     status: str = "running"  # running, completed, failed
 
-    def to_dict(self) -> dict[str, Any]:
+    @property
+    def duration_seconds(self) -> float:
+        """Get pipeline run duration in seconds."""
+        if not self.completed_at:
+            return (datetime.utcnow() - self.started_at).total_seconds()
+        return (self.completed_at - self.started_at).total_seconds()
+
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate from discovery to publishing."""
+        if self.discovered_count == 0:
+            return 0.0
+        return self.published_count / self.discovered_count
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
         return {
             "run_id": self.run_id,
             "started_at": self.started_at.isoformat(),
-            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
-            "run_type": self.run_type,
-            "tickers": self.tickers,
-            "categories": self.categories,
-            "time_window": self.time_window,
-            "candidates_found": self.candidates_found,
-            "stories_verified": self.stories_verified,
-            "stories_published": self.stories_published,
-            "stories_discarded": self.stories_discarded,
-            "errors": self.errors,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "duration_seconds": self.duration_seconds,
+            "discovered_count": self.discovered_count,
+            "verified_count": self.verified_count,
+            "formatted_count": self.formatted_count,
+            "finalized_count": self.finalized_count,
+            "published_count": self.published_count,
+            "success_rate": self.success_rate,
             "status": self.status,
+            "errors": self.errors,
+            "stories": [s.to_dict() for s in self.stories],
         }
+
+    def to_json(self) -> str:
+        """Serialize to JSON."""
+        return json.dumps(self.to_dict(), indent=2)

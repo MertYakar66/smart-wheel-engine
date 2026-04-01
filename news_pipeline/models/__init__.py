@@ -1,17 +1,20 @@
 """
-Data models for the news pipeline.
+News Pipeline Data Models
+
+Defines the core data structures that flow through the pipeline.
+Each stage transforms data into the next format.
 """
 
-from .schema import (
+from news_pipeline.models.schema import (
     CandidateStory,
     DiscoveryRequest,
+    Evidence,
     FinalizedStory,
     FormattedStory,
-    PipelineRun,
+    PipelineResult,
     PipelineStage,
     PublishedFeedItem,
     StoryCategory,
-    VerificationEvidence,
     VerificationResult,
     VerificationStatus,
 )
@@ -22,10 +25,10 @@ __all__ = [
     "VerificationStatus",
     "DiscoveryRequest",
     "CandidateStory",
-    "VerificationEvidence",
+    "Evidence",
     "VerificationResult",
     "FormattedStory",
     "FinalizedStory",
     "PublishedFeedItem",
-    "PipelineRun",
+    "PipelineResult",
 ]

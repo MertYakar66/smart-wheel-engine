@@ -3,7 +3,11 @@ Base Browser Model Session
 
 Abstract base for interacting with AI models via browser.
 Handles common patterns: navigation, authentication, prompt/response cycles.
+
+Note: Requires playwright for browser automation.
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -11,33 +15,31 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+# Import enums that don't need playwright
+from news_pipeline.browser_agents.types import ModelType, SessionStatus
+
+# Re-export for backwards compatibility
+__all__ = ["ModelType", "SessionStatus", "BrowserModelSession", "SessionManager", "ModelResponse"]
+
+# Lazy import playwright to allow importing enums without playwright installed
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Page
 
 logger = logging.getLogger(__name__)
 
 
-class ModelType(Enum):
-    """Supported model types."""
-
-    CLAUDE = "claude"
-    CHATGPT = "chatgpt"
-    GEMINI = "gemini"
-    LOCAL = "local"
-
-
-class SessionStatus(Enum):
-    """Browser session status."""
-
-    DISCONNECTED = "disconnected"
-    CONNECTING = "connecting"
-    AUTHENTICATED = "authenticated"
-    READY = "ready"
-    BUSY = "busy"
-    ERROR = "error"
-    RATE_LIMITED = "rate_limited"
+def _get_playwright():
+    """Get playwright module, raising helpful error if not installed."""
+    try:
+        from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+        return Browser, BrowserContext, Page, async_playwright
+    except ImportError as e:
+        raise ImportError(
+            "Browser agents require playwright. Install with: pip install playwright && playwright install"
+        ) from e
 
 
 @dataclass
@@ -153,6 +155,7 @@ class BrowserModelSession(ABC):
             Path(self.user_data_dir).mkdir(parents=True, exist_ok=True)
 
             # Launch browser with persistent context
+            _, _, _, async_playwright = _get_playwright()
             self._playwright = await async_playwright().start()
             self._context = await self._playwright.chromium.launch_persistent_context(
                 self.user_data_dir,
@@ -345,7 +348,7 @@ class BrowserModelSession(ABC):
             logger.error(f"[{self.MODEL_TYPE.value}] Recovery failed: {e}")
 
 
-def get_session_manager() -> "SessionManager":
+def get_session_manager() -> SessionManager:
     """Get the global session manager instance."""
     global _session_manager
     if _session_manager is None:

@@ -13,17 +13,13 @@ Runs on schedule (AM/PM) per the Bloomberg-style approach.
 """
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 import logging
+from datetime import datetime, timedelta
+from typing import Any
 
-from financial_news.models import (
-    Article, Story, Category, UserProfile, Brief, TopicCategory
-)
-from financial_news.sources import GDELTFetcher, SECEdgarFetcher, RSSFetcher
-from financial_news.processing import (
-    EntityExtractor, StoryClusterer, ImpactScorer, BriefGenerator
-)
+from financial_news.models import Article, Brief, Category, Story, TopicCategory
+from financial_news.processing import BriefGenerator, EntityExtractor, ImpactScorer, StoryClusterer
+from financial_news.sources import GDELTFetcher, RSSFetcher, SECEdgarFetcher
 from financial_news.storage import NewsStore
 
 logger = logging.getLogger(__name__)
@@ -39,8 +35,8 @@ class NewsPipeline:
     def __init__(
         self,
         db_path: str = "data/news_store.db",
-        local_agent: Optional[Any] = None,
-        cloud_client: Optional[Any] = None,
+        local_agent: Any | None = None,
+        cloud_client: Any | None = None,
     ):
         """
         Initialize news pipeline.
@@ -69,13 +65,13 @@ class NewsPipeline:
 
         # State
         self._is_running = False
-        self._last_run: Dict[str, datetime] = {}
+        self._last_run: dict[str, datetime] = {}
 
     async def run_full_pipeline(
         self,
-        categories: Optional[List[Category]] = None,
+        categories: list[Category] | None = None,
         hours_lookback: int = 12,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run the complete news pipeline.
 
@@ -169,10 +165,10 @@ class NewsPipeline:
 
     async def _fetch_all_sources(
         self,
-        categories: List[Category],
+        categories: list[Category],
         start_time: datetime,
         end_time: datetime,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Fetch articles from all configured sources"""
         all_articles = []
 
@@ -212,7 +208,7 @@ class NewsPipeline:
         logger.info(f"Fetched {len(unique_articles)} unique articles")
         return unique_articles
 
-    async def _process_articles(self, articles: List[Article]) -> List[Article]:
+    async def _process_articles(self, articles: list[Article]) -> list[Article]:
         """Process articles: entity extraction and classification"""
         processed = await self.entity_extractor.process_batch(articles)
 
@@ -221,7 +217,7 @@ class NewsPipeline:
 
         return processed
 
-    def _cluster_articles(self, articles: List[Article]) -> List[Story]:
+    def _cluster_articles(self, articles: list[Article]) -> list[Story]:
         """Cluster articles into stories"""
         # Get existing stories for merging
         existing_stories = self.store.get_recent_stories(hours=48)
@@ -236,7 +232,7 @@ class NewsPipeline:
         self,
         user_id: str,
         brief_type: str = "morning",
-    ) -> Optional[Brief]:
+    ) -> Brief | None:
         """
         Generate a brief for a specific user.
 
@@ -295,7 +291,7 @@ class NewsPipeline:
         self,
         category_id: str,
         limit: int = 20,
-    ) -> List[Story]:
+    ) -> list[Story]:
         """
         Get ranked stories for a category.
 
@@ -338,7 +334,7 @@ class NewsPipeline:
 
         return unique_stories[:limit]
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Check health of all components"""
         health = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -387,8 +383,9 @@ class PipelineScheduler:
 
     async def start(self) -> None:
         """Start the scheduler"""
-        import pytz
         from datetime import time
+
+        import pytz
 
         tz = pytz.timezone(self.timezone)
         morning_time = time(6, 30)

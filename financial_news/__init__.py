@@ -22,51 +22,50 @@ Architecture:
 __version__ = "2.1.0"
 
 # Core schema
+# Calendar
+from .calendar import MacroCalendar
 from .schema import (
-    # Enums
-    SourceType,
-    SourceProvider,
-    CategoryType,
-    EventType,
-    EntityType,
-    ImportanceLevel,
-    BriefType,
-    RunStatus,
-    # Data models
-    Source,
-    Category,
-    CategoryRule,
-    ScheduledEvent,
-    Entity,
-    Article,
-    Story,
-    Brief,
-    RunLog,
-    UserWatchlist,
-    # Defaults
-    DEFAULT_SOURCES,
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_RULES,
+    # Defaults
+    DEFAULT_SOURCES,
+    Article,
+    Brief,
+    BriefType,
+    Category,
+    CategoryRule,
+    CategoryType,
+    Entity,
+    EntityType,
+    EventType,
+    ImportanceLevel,
+    RunLog,
+    RunStatus,
+    ScheduledEvent,
+    # Data models
+    Source,
+    SourceProvider,
+    # Enums
+    SourceType,
+    Story,
+    UserWatchlist,
 )
 
 # Storage
 from .storage import NewsDatabase
 
-# Calendar
-from .calendar import MacroCalendar
-
 # Verification Engine
 from .verification_engine import (
-    VerificationEngine,
+    PushPayload,
     VerificationCandidate,
+    VerificationEngine,
     VerificationResult,
     VerificationStatus,
-    PushPayload,
-    run_verification_cycle,
+    print_stats,
+    print_verification_queries,
     process_verification_response,
     push_verified_stories,
-    print_verification_queries,
-    print_stats,
+    run_verification_cycle,
 )
 
 __all__ = [

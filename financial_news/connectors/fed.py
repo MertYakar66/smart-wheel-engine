@@ -12,16 +12,20 @@ Source: https://www.federalreserve.gov
 Data is parsed from the Fed's public RSS feeds and HTML pages.
 """
 
-import re
-from datetime import datetime, timedelta
-from typing import List, Optional
-from xml.etree import ElementTree as ET
 import logging
+import re
+from datetime import datetime
+from xml.etree import ElementTree as ET
 
 from financial_news.schema import (
-    Article, Entity, Source, CategoryType, EntityType,
     DEFAULT_SOURCES,
+    Article,
+    CategoryType,
+    Entity,
+    EntityType,
+    Source,
 )
+
 from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
@@ -45,16 +49,16 @@ class FedConnector(BaseConnector):
     FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
     SPEECHES_URL = "https://www.federalreserve.gov/newsevents/speeches.htm"
 
-    def __init__(self, source: Optional[Source] = None):
+    def __init__(self, source: Source | None = None):
         if source is None:
             source = next(s for s in DEFAULT_SOURCES if s.source_id == "fed")
         super().__init__(source)
 
     async def fetch_latest(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 50,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch latest Fed releases.
 
@@ -84,9 +88,9 @@ class FedConnector(BaseConnector):
     async def _fetch_rss_feed(
         self,
         feed_url: str,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 50,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Parse Fed RSS feed."""
         result = await self.fetch(feed_url)
 
@@ -144,7 +148,7 @@ class FedConnector(BaseConnector):
 
         return articles
 
-    def _parse_rss_date(self, date_str: str) -> Optional[datetime]:
+    def _parse_rss_date(self, date_str: str) -> datetime | None:
         """Parse RFC 822 date from RSS."""
         # Example: "Mon, 15 Jan 2026 14:00:00 -0500"
         formats = [
@@ -170,7 +174,7 @@ class FedConnector(BaseConnector):
         clean = re.sub(r'\s+', ' ', clean)
         return clean.strip()
 
-    def _extract_fed_entities(self, title: str, description: str) -> List[Entity]:
+    def _extract_fed_entities(self, title: str, description: str) -> list[Entity]:
         """Extract Fed-related entities from text."""
         entities = []
         text = f"{title} {description}".lower()
@@ -222,7 +226,7 @@ class FedConnector(BaseConnector):
 
         return entities
 
-    async def fetch_fomc_statements(self, year: int = 2026) -> List[Article]:
+    async def fetch_fomc_statements(self, year: int = 2026) -> list[Article]:
         """
         Fetch FOMC statements for a specific year.
 

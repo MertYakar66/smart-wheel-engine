@@ -18,15 +18,11 @@ Three professional-grade simulation engines:
 All simulators target SP500 / MAG7 equities exclusively.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
-from enum import Enum
+from dataclasses import dataclass
+
 import numpy as np
-import pandas as pd
-from scipy import stats as sp_stats
 
 from .option_pricer import black_scholes_price
-
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. Block Bootstrap Monte Carlo
@@ -49,8 +45,8 @@ class BootstrapResult:
     max_drawdown_dist: np.ndarray    # Max drawdown per simulation
     sharpe_dist: np.ndarray          # Sharpe ratio per simulation
     # Confidence intervals
-    return_ci_95: Tuple[float, float]
-    return_ci_99: Tuple[float, float]
+    return_ci_95: tuple[float, float]
+    return_ci_99: tuple[float, float]
 
     def summary(self) -> str:
         """Formatted summary report."""
@@ -88,7 +84,7 @@ class BlockBootstrap:
         self,
         block_size: int = 21,          # ~1 month of trading days
         n_simulations: int = 10000,
-        seed: Optional[int] = 42
+        seed: int | None = 42
     ):
         self.block_size = block_size
         self.n_simulations = n_simulations
@@ -196,7 +192,7 @@ class BlockBootstrap:
         daily_returns: np.ndarray,
         n_days: int = 252,
         initial_capital: float = 100000.0,
-        mean_block_size: Optional[int] = None
+        mean_block_size: int | None = None
     ) -> BootstrapResult:
         """
         Stationary bootstrap with random block lengths.
@@ -409,9 +405,9 @@ class JumpDiffusionSimulator:
 
     def __init__(
         self,
-        params: Optional[JumpDiffusionParams] = None,
+        params: JumpDiffusionParams | None = None,
         n_simulations: int = 50000,
-        seed: Optional[int] = 42
+        seed: int | None = 42
     ):
         self.params = params or JumpDiffusionParams()
         self.n_simulations = n_simulations
@@ -482,7 +478,7 @@ class JumpDiffusionSimulator:
         strike: float,
         n_days: int = 504,             # 2 years horizon
         stuck_threshold_days: int = 252,  # 1 year = "stuck"
-        paths: Optional[np.ndarray] = None
+        paths: np.ndarray | None = None
     ) -> JumpDiffusionResult:
         """
         Simulate paths and compute "bagholder probability."
@@ -645,7 +641,7 @@ class LSMPricer:
         n_paths: int = 50000,
         n_steps_per_day: int = 1,
         polynomial_degree: int = 3,
-        seed: Optional[int] = 42
+        seed: int | None = 42
     ):
         self.n_paths = n_paths
         self.n_steps_per_day = n_steps_per_day
@@ -660,8 +656,8 @@ class LSMPricer:
         T: float,
         q: float,
         n_steps: int,
-        dividend_dates: Optional[List[int]] = None,
-        dividend_amounts: Optional[List[float]] = None
+        dividend_dates: list[int] | None = None,
+        dividend_amounts: list[float] | None = None
     ) -> np.ndarray:
         """
         Generate GBM paths under risk-neutral measure.
@@ -696,7 +692,7 @@ class LSMPricer:
 
         # Apply discrete dividends (subtract dollar amount on ex-dates)
         if dividend_dates and dividend_amounts:
-            for div_step, div_amount in zip(dividend_dates, dividend_amounts):
+            for div_step, div_amount in zip(dividend_dates, dividend_amounts, strict=False):
                 if 0 < div_step <= n_steps:
                     # Stock drops by dividend amount on ex-date
                     ratio = np.maximum(
@@ -716,8 +712,8 @@ class LSMPricer:
         sigma: float,
         option_type: str = 'put',
         q: float = 0.0,
-        dividend_dates: Optional[List[int]] = None,
-        dividend_amounts: Optional[List[float]] = None
+        dividend_dates: list[int] | None = None,
+        dividend_amounts: list[float] | None = None
     ) -> LSMResult:
         """
         Price an American option using LSM.
@@ -747,9 +743,11 @@ class LSMPricer:
 
         # Payoff function
         if option_type == 'put':
-            payoff_fn = lambda S: np.maximum(K - S, 0)
+            def payoff_fn(S):
+                return np.maximum(K - S, 0)
         else:
-            payoff_fn = lambda S: np.maximum(S - K, 0)
+            def payoff_fn(S):
+                return np.maximum(S - K, 0)
 
         # --- Backward induction (Longstaff-Schwartz) ---
         # Cash flows from exercise (initialized at expiration)
@@ -873,9 +871,9 @@ class LSMPricer:
         sigma: float,
         option_type: str = 'put',
         q: float = 0.0,
-        dividend_dates: Optional[List[int]] = None,
-        dividend_amounts: Optional[List[float]] = None
-    ) -> Dict[str, float]:
+        dividend_dates: list[int] | None = None,
+        dividend_amounts: list[float] | None = None
+    ) -> dict[str, float]:
         """
         Quick assignment risk assessment for Wheel strategy.
 
@@ -941,7 +939,7 @@ def run_bootstrap_analysis(
     n_days: int = 252,
     initial_capital: float = 100000.0,
     block_size: int = 21,
-    seed: Optional[int] = 42
+    seed: int | None = 42
 ) -> BootstrapResult:
     """
     Quick block bootstrap analysis.
@@ -972,8 +970,8 @@ def run_bagholder_analysis(
     n_simulations: int = 50000,
     horizon_days: int = 504,
     stuck_threshold_days: int = 252,
-    params: Optional[JumpDiffusionParams] = None,
-    seed: Optional[int] = 42
+    params: JumpDiffusionParams | None = None,
+    seed: int | None = 42
 ) -> JumpDiffusionResult:
     """
     Quick bagholder probability analysis for a put sale.
@@ -1016,7 +1014,7 @@ def price_american_option(
     option_type: str = 'put',
     q: float = 0.0,
     n_paths: int = 50000,
-    seed: Optional[int] = 42
+    seed: int | None = 42
 ) -> LSMResult:
     """
     Quick American option pricing via LSM.

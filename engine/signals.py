@@ -10,13 +10,11 @@ Professional signal framework for systematic options trading:
 Key principle: Signals should be systematic, testable, and explainable.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Callable, Any
-from datetime import date, datetime
-from enum import Enum
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+
 import numpy as np
-import pandas as pd
 
 
 class SignalType(Enum):
@@ -45,7 +43,7 @@ class Signal:
     strength: SignalStrength
     value: float              # Numeric value (-1 to 1 typically)
     confidence: float = 1.0   # 0 to 1
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
     reason: str = ""
 
     @property
@@ -65,7 +63,7 @@ class Signal:
 @dataclass
 class CompositeSignal:
     """Aggregated signal from multiple sources."""
-    signals: List[Signal]
+    signals: list[Signal]
     final_signal: SignalStrength
     final_value: float
     final_confidence: float
@@ -97,7 +95,7 @@ class SignalGenerator(ABC):
         pass
 
     @abstractmethod
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """Generate signal from context."""
         pass
 
@@ -125,7 +123,7 @@ class IVRankSignal(SignalGenerator):
         self.high_threshold = high_threshold
         self.low_threshold = low_threshold
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate signal from IV rank.
 
@@ -186,7 +184,7 @@ class TrendSignal(SignalGenerator):
         self.lookback_days = lookback_days
         self.strength_threshold = strength_threshold
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate trend signal.
 
@@ -257,7 +255,7 @@ class ProfitTargetSignal(SignalGenerator):
     ):
         self.target_pct = target_pct
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate profit target signal.
 
@@ -317,7 +315,7 @@ class StopLossSignal(SignalGenerator):
     ):
         self.stop_multiplier = stop_multiplier
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate stop loss signal.
 
@@ -380,7 +378,7 @@ class DTESignal(SignalGenerator):
         self.ideal_dte = ideal_dte
         self.max_dte = max_dte
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate DTE signal.
 
@@ -452,7 +450,7 @@ class EventFilterSignal(SignalGenerator):
         self.earnings_buffer_days = earnings_buffer_days
         self.fomc_buffer_days = fomc_buffer_days
 
-    def generate(self, context: Dict) -> Signal:
+    def generate(self, context: dict) -> Signal:
         """
         Generate event filter signal.
 
@@ -511,9 +509,9 @@ class SignalAggregator:
 
     def __init__(
         self,
-        entry_generators: Optional[List[SignalGenerator]] = None,
-        exit_generators: Optional[List[SignalGenerator]] = None,
-        filter_generators: Optional[List[SignalGenerator]] = None,
+        entry_generators: list[SignalGenerator] | None = None,
+        exit_generators: list[SignalGenerator] | None = None,
+        filter_generators: list[SignalGenerator] | None = None,
         entry_threshold: float = 0.3,
         exit_threshold: float = 0.5
     ):
@@ -533,7 +531,7 @@ class SignalAggregator:
         self.entry_threshold = entry_threshold
         self.exit_threshold = exit_threshold
 
-    def evaluate_entry(self, context: Dict) -> CompositeSignal:
+    def evaluate_entry(self, context: dict) -> CompositeSignal:
         """Evaluate whether to enter a position."""
         context['is_entry'] = True
         signals = []
@@ -560,7 +558,7 @@ class SignalAggregator:
         # Aggregate
         return self._aggregate_signals(signals, self.entry_threshold, "entry")
 
-    def evaluate_exit(self, context: Dict) -> CompositeSignal:
+    def evaluate_exit(self, context: dict) -> CompositeSignal:
         """Evaluate whether to exit a position."""
         context['is_entry'] = False
         signals = []
@@ -573,7 +571,7 @@ class SignalAggregator:
 
     def _aggregate_signals(
         self,
-        signals: List[Signal],
+        signals: list[Signal],
         threshold: float,
         action_type: str
     ) -> CompositeSignal:

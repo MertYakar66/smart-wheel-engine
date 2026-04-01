@@ -1,12 +1,13 @@
 from datetime import date
-from engine.wheel_tracker import WheelTracker
+
 from engine.transaction_costs import (
+    calculate_assignment_fee,
     calculate_commission,
     calculate_slippage,
     calculate_total_entry_cost,
     calculate_total_exit_cost,
-    calculate_assignment_fee
 )
+from engine.wheel_tracker import WheelTracker
 
 print("=== Testing Transaction Cost Module ===\n")
 
@@ -48,13 +49,13 @@ tracker.open_short_put(
     iv=0.25
 )
 pos = tracker.positions['COST_TEST']
-print(f"   After put entry:")
+print("   After put entry:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
 tracker.handle_put_assignment('COST_TEST', date(2024, 1, 15), 145.0)
-print(f"   After assignment:")
+print("   After assignment:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
@@ -66,27 +67,27 @@ tracker.open_covered_call(
     expiration_date=date(2024, 2, 16),
     iv=0.23
 )
-print(f"   After call entry:")
+print("   After call entry:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 
 result = tracker.close_covered_call('COST_TEST', 0.75, date(2024, 1, 25), "profit_target")
-print(f"   After call buyback:")
+print("   After call buyback:")
 print(f"     Cash: ${tracker.cash:.2f}")
 print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
 print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
 print(f"     Net P&L: ${pos.realized_pnl - pos.transaction_costs:.2f}")
 
 expected_min_costs = 4 * 0.65 + 5.0
-print(f"\n5. Cost validation:")
+print("\n5. Cost validation:")
 print(f"   Total transaction costs: ${pos.transaction_costs:.2f}")
 print(f"   Expected minimum (4 commissions + 1 assignment): ${expected_min_costs:.2f}")
 print(f"   Additional costs from slippage: ${pos.transaction_costs - expected_min_costs:.2f}")
 
 if pos.transaction_costs > expected_min_costs:
-    print(f"\n✓ Slippage is being modeled correctly (costs exceed commission-only baseline)")
+    print("\n✓ Slippage is being modeled correctly (costs exceed commission-only baseline)")
 else:
-    print(f"\n✗ Warning: Costs do not exceed baseline, slippage may not be applied")
+    print("\n✗ Warning: Costs do not exceed baseline, slippage may not be applied")
 
-print(f"\n✓ Transaction cost module validation complete")
+print("\n✓ Transaction cost module validation complete")

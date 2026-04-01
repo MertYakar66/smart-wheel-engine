@@ -9,16 +9,22 @@ Designed for compliance with content licensing restrictions:
 """
 
 import json
+import logging
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
-import logging
 
 from financial_news.models import (
-    Article, Story, Category, UserProfile, Brief,
-    ArticleSource, TopicCategory, Entity, DEFAULT_CATEGORIES
+    DEFAULT_CATEGORIES,
+    Article,
+    ArticleSource,
+    Brief,
+    Category,
+    Entity,
+    Story,
+    TopicCategory,
+    UserProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,7 +206,7 @@ class NewsStore:
                 article.fetched_at_utc.isoformat(),
             ))
 
-    def save_articles(self, articles: List[Article]) -> int:
+    def save_articles(self, articles: list[Article]) -> int:
         """Save multiple articles"""
         count = 0
         for article in articles:
@@ -211,7 +217,7 @@ class NewsStore:
                 logger.warning(f"Failed to save article {article.article_id}: {e}")
         return count
 
-    def get_article(self, article_id: str) -> Optional[Article]:
+    def get_article(self, article_id: str) -> Article | None:
         """Get article by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -221,7 +227,7 @@ class NewsStore:
                 return self._row_to_article(row)
         return None
 
-    def get_articles_by_ids(self, article_ids: List[str]) -> List[Article]:
+    def get_articles_by_ids(self, article_ids: list[str]) -> list[Article]:
         """Get multiple articles by IDs"""
         if not article_ids:
             return []
@@ -240,7 +246,7 @@ class NewsStore:
         start_time: datetime,
         end_time: datetime,
         limit: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Get articles within time range"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -308,7 +314,7 @@ class NewsStore:
                 story.change_description,
             ))
 
-    def save_stories(self, stories: List[Story]) -> int:
+    def save_stories(self, stories: list[Story]) -> int:
         """Save multiple stories"""
         count = 0
         for story in stories:
@@ -319,7 +325,7 @@ class NewsStore:
                 logger.warning(f"Failed to save story {story.story_id}: {e}")
         return count
 
-    def get_story(self, story_id: str) -> Optional[Story]:
+    def get_story(self, story_id: str) -> Story | None:
         """Get story by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -333,7 +339,7 @@ class NewsStore:
         self,
         hours: int = 24,
         limit: int = 50,
-    ) -> List[Story]:
+    ) -> list[Story]:
         """Get recent stories"""
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
         with self._get_connection() as conn:
@@ -351,7 +357,7 @@ class NewsStore:
         topic: TopicCategory,
         hours: int = 24,
         limit: int = 20,
-    ) -> List[Story]:
+    ) -> list[Story]:
         """Get stories by topic"""
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
         with self._get_connection() as conn:
@@ -393,7 +399,7 @@ class NewsStore:
 
     # ==================== Categories ====================
 
-    def get_category(self, category_id: str) -> Optional[Category]:
+    def get_category(self, category_id: str) -> Category | None:
         """Get category by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -403,7 +409,7 @@ class NewsStore:
                 return self._row_to_category(row)
         return None
 
-    def get_all_categories(self, active_only: bool = True) -> List[Category]:
+    def get_all_categories(self, active_only: bool = True) -> list[Category]:
         """Get all categories"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -458,7 +464,7 @@ class NewsStore:
 
     # ==================== Users ====================
 
-    def get_user(self, user_id: str) -> Optional[UserProfile]:
+    def get_user(self, user_id: str) -> UserProfile | None:
         """Get user by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -515,7 +521,7 @@ class NewsStore:
         self,
         user_id: str,
         limit: int = 10,
-    ) -> List[Brief]:
+    ) -> list[Brief]:
         """Get recent briefs for a user"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -545,7 +551,7 @@ class NewsStore:
 
     # ==================== Cleanup ====================
 
-    def cleanup_old_data(self, max_age_days: int = 30) -> Dict[str, int]:
+    def cleanup_old_data(self, max_age_days: int = 30) -> dict[str, int]:
         """Remove old data from database"""
         cutoff = (datetime.utcnow() - timedelta(days=max_age_days)).isoformat()
 
@@ -566,7 +572,7 @@ class NewsStore:
         logger.info(f"Cleaned up old data: {deleted}")
         return deleted
 
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get database statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()

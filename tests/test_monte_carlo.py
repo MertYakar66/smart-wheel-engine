@@ -13,16 +13,15 @@ import pytest
 from engine.monte_carlo import (
     BlockBootstrap,
     BootstrapResult,
-    JumpDiffusionSimulator,
     JumpDiffusionParams,
     JumpDiffusionResult,
+    JumpDiffusionSimulator,
     LSMPricer,
     LSMResult,
-    run_bootstrap_analysis,
-    run_bagholder_analysis,
     price_american_option,
+    run_bagholder_analysis,
+    run_bootstrap_analysis,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────
 # Fixtures

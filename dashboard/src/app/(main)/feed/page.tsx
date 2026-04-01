@@ -242,9 +242,9 @@ export default function FeedPage() {
                   <div className="flex flex-wrap gap-1.5">
                     {story.entities
                       .filter((e) => e.entityType === "ticker")
-                      .map((e) => (
+                      .map((e, idx) => (
                         <Link
-                          key={e.entityValue}
+                          key={`${e.entityValue}-${idx}`}
                           href={`/ticker/${e.entityValue}`}
                         >
                           <Badge variant="ticker" className="cursor-pointer">

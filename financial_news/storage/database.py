@@ -10,19 +10,33 @@ Implements the canonical schema with:
 """
 
 import json
+import logging
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Tuple
-import logging
+from typing import Any
 
 from financial_news.schema import (
-    Source, Category, CategoryRule, ScheduledEvent, Article, Entity,
-    Story, Brief, RunLog, UserWatchlist,
-    SourceType, SourceProvider, CategoryType, EventType, EntityType,
-    ImportanceLevel, BriefType, RunStatus,
-    DEFAULT_SOURCES, DEFAULT_CATEGORIES, DEFAULT_CATEGORY_RULES,
+    DEFAULT_CATEGORIES,
+    DEFAULT_CATEGORY_RULES,
+    DEFAULT_SOURCES,
+    Article,
+    Category,
+    CategoryRule,
+    CategoryType,
+    Entity,
+    EntityType,
+    EventType,
+    ImportanceLevel,
+    RunLog,
+    RunStatus,
+    ScheduledEvent,
+    Source,
+    SourceProvider,
+    SourceType,
+    Story,
 )
 
 logger = logging.getLogger(__name__)
@@ -367,7 +381,7 @@ class NewsDatabase:
     # SOURCE OPERATIONS
     # =========================================================================
 
-    def get_source(self, source_id: str) -> Optional[Source]:
+    def get_source(self, source_id: str) -> Source | None:
         """Get a source by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -377,7 +391,7 @@ class NewsDatabase:
                 return self._row_to_source(row)
         return None
 
-    def get_all_sources(self, active_only: bool = True) -> List[Source]:
+    def get_all_sources(self, active_only: bool = True) -> list[Source]:
         """Get all sources"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -426,7 +440,7 @@ class NewsDatabase:
     # CATEGORY OPERATIONS
     # =========================================================================
 
-    def get_category(self, category_id: str) -> Optional[Category]:
+    def get_category(self, category_id: str) -> Category | None:
         """Get a category by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -436,7 +450,7 @@ class NewsDatabase:
                 return self._row_to_category(row)
         return None
 
-    def get_all_categories(self, active_only: bool = True) -> List[Category]:
+    def get_all_categories(self, active_only: bool = True) -> list[Category]:
         """Get all categories"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -446,7 +460,7 @@ class NewsDatabase:
                 cursor.execute("SELECT * FROM categories")
             return [self._row_to_category(row) for row in cursor.fetchall()]
 
-    def get_category_rules(self, category_id: str) -> List[CategoryRule]:
+    def get_category_rules(self, category_id: str) -> list[CategoryRule]:
         """Get classification rules for a category"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -457,7 +471,7 @@ class NewsDatabase:
             """, (category_id,))
             return [self._row_to_category_rule(row) for row in cursor.fetchall()]
 
-    def get_all_category_rules(self) -> List[CategoryRule]:
+    def get_all_category_rules(self) -> list[CategoryRule]:
         """Get all active category rules"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -529,7 +543,7 @@ class NewsDatabase:
             ))
             conn.commit()
 
-    def get_upcoming_events(self, hours: int = 24) -> List[ScheduledEvent]:
+    def get_upcoming_events(self, hours: int = 24) -> list[ScheduledEvent]:
         """Get events scheduled in the next N hours"""
         now = datetime.utcnow()
         end = now + timedelta(hours=hours)
@@ -545,7 +559,7 @@ class NewsDatabase:
             """, (now.isoformat(), end.isoformat()))
             return [self._row_to_event(row) for row in cursor.fetchall()]
 
-    def get_events_needing_prerun(self, minutes_ahead: int = 15) -> List[ScheduledEvent]:
+    def get_events_needing_prerun(self, minutes_ahead: int = 15) -> list[ScheduledEvent]:
         """Get events that need pre-run ingestion"""
         now = datetime.utcnow()
 
@@ -561,7 +575,7 @@ class NewsDatabase:
             """, (now.isoformat(), now.isoformat()))
             return [self._row_to_event(row) for row in cursor.fetchall()]
 
-    def get_events_needing_postrun(self, minutes_since: int = 30) -> List[ScheduledEvent]:
+    def get_events_needing_postrun(self, minutes_since: int = 30) -> list[ScheduledEvent]:
         """Get events that need post-run ingestion"""
         now = datetime.utcnow()
         window_start = now - timedelta(minutes=minutes_since)
@@ -650,7 +664,7 @@ class NewsDatabase:
 
             conn.commit()
 
-    def save_articles(self, articles: List[Article]) -> int:
+    def save_articles(self, articles: list[Article]) -> int:
         """Save multiple articles, returns count saved"""
         count = 0
         for article in articles:
@@ -661,7 +675,7 @@ class NewsDatabase:
                 logger.warning(f"Failed to save article {article.article_id}: {e}")
         return count
 
-    def get_article(self, article_id: str) -> Optional[Article]:
+    def get_article(self, article_id: str) -> Article | None:
         """Get an article by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -671,7 +685,7 @@ class NewsDatabase:
                 return self._row_to_article(row, cursor)
         return None
 
-    def get_recent_articles(self, hours: int = 24, source_id: Optional[str] = None) -> List[Article]:
+    def get_recent_articles(self, hours: int = 24, source_id: str | None = None) -> list[Article]:
         """Get recent articles"""
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
 
@@ -790,7 +804,7 @@ class NewsDatabase:
 
             conn.commit()
 
-    def get_recent_stories(self, hours: int = 24, category_id: Optional[str] = None) -> List[Story]:
+    def get_recent_stories(self, hours: int = 24, category_id: str | None = None) -> list[Story]:
         """Get recent stories, optionally filtered by category"""
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
 
@@ -843,7 +857,7 @@ class NewsDatabase:
     # =========================================================================
 
     def create_run_log(self, run_id: str, job_name: str, triggered_by: str = "scheduler",
-                       event_id: Optional[str] = None) -> RunLog:
+                       event_id: str | None = None) -> RunLog:
         """Create a new run log entry"""
         run_log = RunLog(
             run_id=run_id,
@@ -894,7 +908,7 @@ class NewsDatabase:
             ))
             conn.commit()
 
-    def get_recent_runs(self, hours: int = 24) -> List[RunLog]:
+    def get_recent_runs(self, hours: int = 24) -> list[RunLog]:
         """Get recent run logs"""
         cutoff = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
 
@@ -929,7 +943,7 @@ class NewsDatabase:
     # UTILITY OPERATIONS
     # =========================================================================
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get database statistics"""
         with self._get_connection() as conn:
             cursor = conn.cursor()

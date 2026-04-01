@@ -1,9 +1,8 @@
 """Data schemas for validation and type safety."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
-import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
 

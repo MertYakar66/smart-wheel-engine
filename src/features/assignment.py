@@ -9,10 +9,10 @@ Your wheel strategy DEPENDS on understanding assignment risk:
 This module quantifies assignment risk.
 """
 
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from typing import Literal
 
 
 class AssignmentFeatures:
@@ -216,7 +216,7 @@ class AssignmentFeatures:
         Returns:
             Estimated days (inf if very far OTM)
         """
-        distance_pct = abs(strike - spot) / spot
+        abs(strike - spot) / spot
         danger_zone = strike * (1 - threshold_pct) if spot > strike else strike * (1 + threshold_pct)
         distance_to_danger = abs(danger_zone - spot) / spot
 
@@ -250,7 +250,7 @@ class AssignmentFeatures:
         - breakeven_improvement: Premium improvement from roll
         """
         # Current position value
-        current_value = max(0, strike - spot)  # Intrinsic for put
+        max(0, strike - spot)  # Intrinsic for put
 
         # Roll economics
         roll_credit = roll_premium - current_premium
@@ -507,7 +507,7 @@ class AssignmentFeatures:
         iv_col = 'iv' if 'iv' in result.columns else 'implied_volatility'
 
         if strike_col not in result.columns:
-            raise ValueError(f"Options DataFrame must have 'strike' column")
+            raise ValueError("Options DataFrame must have 'strike' column")
 
         # Default DTE to 30 if not available
         if dte_col not in result.columns:

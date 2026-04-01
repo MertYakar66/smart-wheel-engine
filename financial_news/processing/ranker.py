@@ -20,14 +20,16 @@ Penalties:
 - Commentary without new facts
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 
 from financial_news.schema import (
-    Story, Category, CategoryType, SourceType,
     DEFAULT_CATEGORIES,
+    Category,
+    CategoryType,
+    SourceType,
+    Story,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,8 +89,8 @@ class RankingResult:
     source_score: float
     corroboration_score: float
     recency_score: float
-    boosts_applied: List[str]
-    penalties_applied: List[str]
+    boosts_applied: list[str]
+    penalties_applied: list[str]
 
 
 class StoryRanker:
@@ -100,9 +102,9 @@ class StoryRanker:
 
     def __init__(
         self,
-        weights: Optional[RankingWeights] = None,
-        categories: Optional[List[Category]] = None,
-        watchlist: Optional[Set[str]] = None,
+        weights: RankingWeights | None = None,
+        categories: list[Category] | None = None,
+        watchlist: set[str] | None = None,
     ):
         self.weights = weights or RankingWeights()
         self.categories = {c.category_id: c for c in (categories or DEFAULT_CATEGORIES)}
@@ -118,9 +120,9 @@ class StoryRanker:
 
     def rank_stories(
         self,
-        stories: List[Story],
+        stories: list[Story],
         is_macro_day: bool = False,
-    ) -> List[RankingResult]:
+    ) -> list[RankingResult]:
         """
         Rank stories by relevance.
 
@@ -331,11 +333,11 @@ class StoryRanker:
 
     def get_top_stories(
         self,
-        stories: List[Story],
+        stories: list[Story],
         limit: int = 15,
-        category: Optional[CategoryType] = None,
+        category: CategoryType | None = None,
         is_macro_day: bool = False,
-    ) -> List[Story]:
+    ) -> list[Story]:
         """
         Get top ranked stories.
 

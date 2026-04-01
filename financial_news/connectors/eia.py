@@ -13,15 +13,20 @@ Source: https://www.eia.gov/
 The Weekly Petroleum Status Report is released every Wednesday at 10:30 AM ET.
 """
 
-import re
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 import logging
+import re
+from datetime import datetime
+from typing import Any
 
 from financial_news.schema import (
-    Article, Entity, Source, CategoryType, EntityType,
     DEFAULT_SOURCES,
+    Article,
+    CategoryType,
+    Entity,
+    EntityType,
+    Source,
 )
+
 from .base import BaseConnector
 
 logger = logging.getLogger(__name__)
@@ -61,8 +66,8 @@ class EIAConnector(BaseConnector):
 
     def __init__(
         self,
-        source: Optional[Source] = None,
-        api_key: Optional[str] = None,
+        source: Source | None = None,
+        api_key: str | None = None,
     ):
         if source is None:
             source = next(s for s in DEFAULT_SOURCES if s.source_id == "eia")
@@ -72,9 +77,9 @@ class EIAConnector(BaseConnector):
 
     async def fetch_latest(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 30,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch latest EIA releases.
 
@@ -102,9 +107,9 @@ class EIAConnector(BaseConnector):
 
     async def _fetch_petroleum_rss(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 20,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Fetch Weekly Petroleum Status Report RSS."""
         result = await self.fetch(self.PETROLEUM_RSS)
 
@@ -171,9 +176,9 @@ class EIAConnector(BaseConnector):
 
     async def _fetch_today_in_energy(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 10,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """Fetch Today in Energy articles."""
         result = await self.fetch(self.TODAY_IN_ENERGY_RSS)
 
@@ -232,7 +237,7 @@ class EIAConnector(BaseConnector):
 
         return articles
 
-    def _parse_rss_date(self, date_str: str) -> Optional[datetime]:
+    def _parse_rss_date(self, date_str: str) -> datetime | None:
         """Parse RSS date formats."""
         formats = [
             "%a, %d %b %Y %H:%M:%S %z",
@@ -275,7 +280,7 @@ class EIAConnector(BaseConnector):
         else:
             return "PETROLEUM_OTHER"
 
-    def _extract_energy_entities(self, title: str, description: str) -> List[Entity]:
+    def _extract_energy_entities(self, title: str, description: str) -> list[Entity]:
         """Extract energy-related entities."""
         entities = []
         text = f"{title} {description}".lower()
@@ -335,7 +340,7 @@ class EIAConnector(BaseConnector):
 
         return entities
 
-    def _get_energy_tickers(self) -> List[str]:
+    def _get_energy_tickers(self) -> list[str]:
         """Get relevant energy sector tickers."""
         return ["XLE", "USO", "XOP", "OIH", "CVX", "XOM", "COP", "SLB"]
 
@@ -351,7 +356,7 @@ class EIAConnector(BaseConnector):
 
         return any(kw in text for kw in market_keywords)
 
-    async def fetch_wpsr_data(self) -> Dict[str, Any]:
+    async def fetch_wpsr_data(self) -> dict[str, Any]:
         """
         Fetch latest Weekly Petroleum Status Report data.
 

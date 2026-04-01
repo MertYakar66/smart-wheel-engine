@@ -15,8 +15,8 @@ LIMITATIONS:
 - Commission structure is simplified (no tiered pricing)
 """
 
-from typing import Literal, Optional
 import logging
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,9 @@ def calculate_commission(trade_type: str = "option", num_contracts: int = 1) -> 
 
 
 def calculate_actual_spread(
-    bid: Optional[float],
-    ask: Optional[float],
-    mid_price: Optional[float] = None,
+    bid: float | None,
+    ask: float | None,
+    mid_price: float | None = None,
     fallback_pct: float = 0.10
 ) -> float:
     """
@@ -81,8 +81,8 @@ def calculate_slippage(
     mid_price: float,
     bid_ask_spread: float,
     trade_direction: Literal["buy", "sell"],
-    open_interest: Optional[int] = None,
-    volume: Optional[int] = None
+    open_interest: int | None = None,
+    volume: int | None = None
 ) -> float:
     """
     Calculate slippage based on spread and liquidity indicators.
@@ -177,12 +177,12 @@ def calculate_reg_t_margin_short_put(
 
 def calculate_total_entry_cost(
     premium_per_share: float,
-    bid_ask_spread: Optional[float] = None,
-    bid: Optional[float] = None,
-    ask: Optional[float] = None,
+    bid_ask_spread: float | None = None,
+    bid: float | None = None,
+    ask: float | None = None,
     trade_type: str = "option",
-    open_interest: Optional[int] = None,
-    volume: Optional[int] = None
+    open_interest: int | None = None,
+    volume: int | None = None
 ) -> dict:
     """
     Calculate all costs for opening a short option position.
@@ -231,12 +231,12 @@ def calculate_total_entry_cost(
 
 def calculate_total_exit_cost(
     buyback_price_per_share: float,
-    bid_ask_spread: Optional[float] = None,
-    bid: Optional[float] = None,
-    ask: Optional[float] = None,
+    bid_ask_spread: float | None = None,
+    bid: float | None = None,
+    ask: float | None = None,
     trade_type: str = "option",
-    open_interest: Optional[int] = None,
-    volume: Optional[int] = None
+    open_interest: int | None = None,
+    volume: int | None = None
 ) -> dict:
     """
     Calculate all costs for closing a short option position via buyback.
@@ -307,9 +307,9 @@ def calculate_assignment_costs(strike_price: float, shares: int = 100) -> dict:
 def estimate_round_trip_cost(
     entry_premium: float,
     expected_exit_premium: float,
-    entry_spread: Optional[float] = None,
-    exit_spread: Optional[float] = None,
-    open_interest: Optional[int] = None
+    entry_spread: float | None = None,
+    exit_spread: float | None = None,
+    open_interest: int | None = None
 ) -> dict:
     """
     Estimate total round-trip costs for a trade.

@@ -9,18 +9,19 @@ CRITICAL: Any change to exit logic here affects both systems,
 ensuring train-test consistency for ML models.
 """
 
-import pandas as pd
-import numpy as np
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional, Literal, Dict, Any
-import logging
+from typing import Any, Literal
+
+import pandas as pd
 
 from .option_pricer import estimate_option_price_from_iv
 from .transaction_costs import (
+    calculate_assignment_costs,
     calculate_total_entry_cost,
     calculate_total_exit_cost,
-    calculate_assignment_costs
 )
 
 logger = logging.getLogger(__name__)
@@ -85,10 +86,10 @@ def simulate_option_trade(
     risk_free_rate: float = 0.04,
     profit_target_pct: float = 0.60,
     stop_loss_multiple: float = 2.0,
-    entry_bid: Optional[float] = None,
-    entry_ask: Optional[float] = None,
+    entry_bid: float | None = None,
+    entry_ask: float | None = None,
     dividend_yield: float = 0.0
-) -> Optional[TradeOutcome]:
+) -> TradeOutcome | None:
     """
     Simulate a short option trade from entry to exit.
 
@@ -129,7 +130,7 @@ def simulate_option_trade(
         trade_type="option"
     )
 
-    premium_collected_per_contract = entry_cost_details["net_premium_collected"]
+    entry_cost_details["net_premium_collected"]
     entry_costs = entry_cost_details["total_cost"]
 
     # Track position through time
@@ -300,11 +301,11 @@ def simulate_wheel_cycle(
     put_expiration_date: date,
     put_iv: float,
     ohlcv_df: pd.DataFrame,
-    call_selector: Optional[callable] = None,
+    call_selector: Callable | None = None,
     risk_free_rate: float = 0.04,
     profit_target_pct: float = 0.60,
     stop_loss_multiple: float = 2.0
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Simulate a complete Wheel cycle (put -> potential assignment -> covered calls).
 

@@ -8,19 +8,19 @@ Simulates wheel strategy execution with:
 - Position management
 """
 
-import pandas as pd
-import numpy as np
+import sys
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
-import sys
+
+import numpy as np
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from engine.wheel_tracker import WheelTracker, PositionState
 from engine.option_pricer import estimate_option_price_from_iv
-from engine.signals import SignalAggregator, create_default_aggregator
+from engine.signals import create_default_aggregator
+from engine.wheel_tracker import PositionState, WheelTracker
 
 
 @dataclass
@@ -56,7 +56,7 @@ class BacktestResult:
     """Results from backtest run."""
     equity_curve: pd.DataFrame
     trades: pd.DataFrame
-    metrics: Dict
+    metrics: dict
     config: BacktestConfig
 
 
@@ -67,7 +67,7 @@ class WheelBacktest:
 
     def __init__(
         self,
-        config: Optional[BacktestConfig] = None,
+        config: BacktestConfig | None = None,
         model=None,
         signal_aggregator=None
     ):
@@ -78,8 +78,8 @@ class WheelBacktest:
     def run(
         self,
         price_data: pd.DataFrame,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        start_date: date | None = None,
+        end_date: date | None = None
     ) -> BacktestResult:
         """
         Run backtest simulation.
@@ -152,8 +152,8 @@ class WheelBacktest:
         self,
         tracker: WheelTracker,
         current_date: date,
-        prices: Dict[str, float],
-        ticker_data: Dict[str, pd.DataFrame]
+        prices: dict[str, float],
+        ticker_data: dict[str, pd.DataFrame]
     ):
         """Handle option expirations and early exits."""
         positions_to_check = list(tracker.positions.keys())
@@ -195,8 +195,8 @@ class WheelBacktest:
         self,
         tracker: WheelTracker,
         current_date: date,
-        prices: Dict[str, float],
-        ticker_data: Dict[str, pd.DataFrame]
+        prices: dict[str, float],
+        ticker_data: dict[str, pd.DataFrame]
     ):
         """Process new put entries."""
         # Check if we can take more positions
@@ -237,7 +237,7 @@ class WheelBacktest:
         # Sort by score and enter top candidates
         candidates.sort(key=lambda x: x[3], reverse=True)
 
-        for ticker, price, row, score in candidates:
+        for ticker, price, row, _score in candidates:
             if len(tracker.positions) >= self.config.max_positions:
                 break
 
@@ -265,7 +265,7 @@ class WheelBacktest:
         pos,
         current_date: date,
         price: float,
-        df: Optional[pd.DataFrame]
+        df: pd.DataFrame | None
     ) -> bool:
         """Check if we should exit put early."""
         if not pos.put_expiration_date:
@@ -300,7 +300,7 @@ class WheelBacktest:
         ticker: str,
         current_date: date,
         price: float,
-        df: Optional[pd.DataFrame]
+        df: pd.DataFrame | None
     ):
         """Try to sell covered call on owned stock."""
         pos = tracker.positions.get(ticker)
@@ -425,7 +425,7 @@ class WheelBacktest:
         self,
         equity: pd.DataFrame,
         trades: pd.DataFrame
-    ) -> Dict:
+    ) -> dict:
         """Compute backtest performance metrics."""
         if equity.empty:
             return {}
@@ -475,8 +475,8 @@ class WheelBacktest:
 
 def run_backtest(
     data_path: str,
-    config: Optional[BacktestConfig] = None,
-    model_path: Optional[str] = None
+    config: BacktestConfig | None = None,
+    model_path: str | None = None
 ) -> BacktestResult:
     """
     Convenience function to run backtest.
@@ -502,7 +502,7 @@ def run_backtest(
     config = config or BacktestConfig()
     backtest = WheelBacktest(config=config, model=model)
 
-    print(f"\nRunning backtest...")
+    print("\nRunning backtest...")
     print(f"  Initial capital: ${config.initial_capital:,.0f}")
     print(f"  Max positions: {config.max_positions}")
 

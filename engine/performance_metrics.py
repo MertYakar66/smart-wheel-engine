@@ -4,10 +4,11 @@ Performance Metrics Module
 Calculates comprehensive risk-adjusted performance metrics for backtests.
 """
 
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
 
 
 @dataclass
@@ -52,7 +53,7 @@ class PerformanceReport:
     calmar_ratio: float
     ulcer_index: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             'total_return': self.total_return,
@@ -241,8 +242,8 @@ def calculate_profit_factor(trades: pd.DataFrame) -> float:
 
 
 def calculate_performance_report(
-    closed_trades: List[Dict],
-    equity_curve: List[Dict],
+    closed_trades: list[dict],
+    equity_curve: list[dict],
     initial_capital: float,
     risk_free_rate: float = 0.04
 ) -> PerformanceReport:
@@ -351,7 +352,7 @@ def calculate_performance_report(
     )
 
 
-def generate_trade_analysis(closed_trades: List[Dict]) -> pd.DataFrame:
+def generate_trade_analysis(closed_trades: list[dict]) -> pd.DataFrame:
     """
     Generate detailed trade-by-trade analysis.
 
@@ -377,7 +378,7 @@ def generate_trade_analysis(closed_trades: List[Dict]) -> pd.DataFrame:
     return df
 
 
-def generate_monthly_returns(equity_curve: List[Dict]) -> pd.DataFrame:
+def generate_monthly_returns(equity_curve: list[dict]) -> pd.DataFrame:
     """
     Generate monthly returns table.
 

@@ -14,7 +14,8 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import aiohttp
 
 from financial_news.schema import Article, Source
@@ -84,10 +85,10 @@ class FetchResult:
     success: bool
     url: str
     status_code: int = 0
-    content: Optional[str] = None
-    content_type: Optional[str] = None
-    headers: Dict[str, str] = field(default_factory=dict)
-    error: Optional[str] = None
+    content: str | None = None
+    content_type: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    error: str | None = None
     fetch_time_ms: float = 0
     retry_count: int = 0
 
@@ -122,12 +123,12 @@ class BaseConnector(ABC):
         )
 
         # HTTP session (created on first use)
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
         # Stats
         self.requests_made = 0
         self.requests_failed = 0
-        self.last_request_at: Optional[datetime] = None
+        self.last_request_at: datetime | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session."""
@@ -148,8 +149,8 @@ class BaseConnector(ABC):
         self,
         url: str,
         method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> FetchResult:
         """
         Fetch a URL with rate limiting and retry.
@@ -223,7 +224,7 @@ class BaseConnector(ABC):
                         retry_count=retry_count,
                     )
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 wait_time = (2 ** retry_count) * 1.0
                 logger.warning(f"Timeout fetching {url}, retrying in {wait_time}s")
                 await asyncio.sleep(wait_time)
@@ -259,8 +260,8 @@ class BaseConnector(ABC):
     async def fetch_json(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, Any]:
+        params: dict[str, Any] | None = None,
+    ) -> tuple[bool, Any]:
         """
         Fetch and parse JSON.
 
@@ -283,9 +284,9 @@ class BaseConnector(ABC):
     @abstractmethod
     async def fetch_latest(
         self,
-        since: Optional[datetime] = None,
+        since: datetime | None = None,
         limit: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch latest articles from the source.
 
@@ -314,7 +315,7 @@ class BaseConnector(ABC):
             await self._session.close()
             self._session = None
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connector statistics."""
         return {
             "source_id": self.source.source_id,

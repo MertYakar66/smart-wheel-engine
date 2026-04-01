@@ -11,8 +11,8 @@ Institutional-grade risk controls:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 from enum import Enum
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -117,7 +117,7 @@ class RiskManager:
 
     def __init__(
         self,
-        limits: Optional[RiskLimits] = None,
+        limits: RiskLimits | None = None,
         sizing_method: PositionSizingMethod = PositionSizingMethod.VOLATILITY_SCALED,
         risk_free_rate: float = 0.05
     ):
@@ -126,9 +126,9 @@ class RiskManager:
         self.risk_free_rate = risk_free_rate
 
         # Track historical data for risk calcs
-        self.portfolio_values: List[float] = []
+        self.portfolio_values: list[float] = []
         self.peak_value: float = 0.0
-        self.returns_history: List[float] = []
+        self.returns_history: list[float] = []
 
     def calculate_position_size(
         self,
@@ -142,7 +142,7 @@ class RiskManager:
         avg_loss: float = 1.0,
         existing_positions: int = 0,
         underlying_correlation: float = 0.0
-    ) -> Tuple[int, str]:
+    ) -> tuple[int, str]:
         """
         Calculate optimal position size (number of contracts).
 
@@ -257,8 +257,8 @@ class RiskManager:
 
     def calculate_portfolio_greeks(
         self,
-        positions: List[Dict],
-        spot_prices: Dict[str, float]
+        positions: list[dict],
+        spot_prices: dict[str, float]
     ) -> PortfolioGreeks:
         """
         Calculate aggregate portfolio Greeks.
@@ -304,14 +304,14 @@ class RiskManager:
     def calculate_var(
         self,
         portfolio_value: float,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
-        returns_data: Optional[pd.DataFrame] = None,
-        volatilities: Optional[Dict[str, float]] = None,
-        correlation_matrix: Optional[pd.DataFrame] = None,
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        returns_data: pd.DataFrame | None = None,
+        volatilities: dict[str, float] | None = None,
+        correlation_matrix: pd.DataFrame | None = None,
         confidence: float = 0.95,
         horizon_days: int = 1
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Calculate Value at Risk and Conditional VaR.
 
@@ -365,13 +365,13 @@ class RiskManager:
         self,
         portfolio_value: float,
         greeks: PortfolioGreeks,
-        spot_prices: Dict[str, float],
+        spot_prices: dict[str, float],
         confidence: float,
         horizon_days: int,
-        volatilities: Optional[Dict[str, float]] = None,
-        correlations: Optional[pd.DataFrame] = None,  # Reserved for future use
+        volatilities: dict[str, float] | None = None,
+        correlations: pd.DataFrame | None = None,  # Reserved for future use
         vol_of_vol: float = 0.05,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Delta-gamma-vega parametric VaR.
 
@@ -406,7 +406,7 @@ class RiskManager:
         if volatilities is None:
             # Default to 25% annualized vol (market average)
             avg_vol = 0.25
-            volatilities = {sym: avg_vol for sym in spot_prices}
+            volatilities = dict.fromkeys(spot_prices, avg_vol)
 
         # Calculate portfolio variance using delta exposures
         symbols = list(spot_prices.keys())
@@ -489,8 +489,8 @@ class RiskManager:
         returns_data: pd.DataFrame,
         confidence: float,
         horizon_days: int,
-        vol_returns: Optional[pd.Series] = None,
-    ) -> Tuple[float, float]:
+        vol_returns: pd.Series | None = None,
+    ) -> tuple[float, float]:
         """
         Historical simulation VaR with delta-gamma-vega.
 
@@ -610,14 +610,14 @@ class RiskManager:
     def calculate_covariance_var(
         self,
         portfolio_value: float,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
-        volatilities: Dict[str, float],
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        volatilities: dict[str, float],
         correlation_matrix: pd.DataFrame,
         confidence: float = 0.95,
         horizon_days: int = 1,
         vol_of_vol: float = 0.05,
-    ) -> Tuple[float, float, Dict]:
+    ) -> tuple[float, float, dict]:
         """
         Multi-asset covariance VaR using full correlation structure.
 
@@ -652,9 +652,9 @@ class RiskManager:
             return 0.0, 0.0, {}
 
         # Build per-asset delta exposures from positions
-        symbol_deltas: Dict[str, float] = {}
-        symbol_gammas: Dict[str, float] = {}
-        symbol_vegas: Dict[str, float] = {}
+        symbol_deltas: dict[str, float] = {}
+        symbol_gammas: dict[str, float] = {}
+        symbol_vegas: dict[str, float] = {}
 
         for pos in positions:
             symbol = pos['symbol']
@@ -809,8 +809,8 @@ class RiskManager:
     def get_risk_metrics(
         self,
         portfolio_value: float,
-        positions: List[Dict],
-        spot_prices: Dict[str, float]
+        positions: list[dict],
+        spot_prices: dict[str, float]
     ) -> RiskMetrics:
         """Calculate comprehensive risk metrics."""
         metrics = RiskMetrics()
@@ -856,10 +856,10 @@ class RiskManager:
     def run_stress_tests(
         self,
         portfolio_value: float,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
-        custom_scenarios: Optional[List[Dict]] = None,
-    ) -> Dict[str, Dict]:
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        custom_scenarios: list[dict] | None = None,
+    ) -> dict[str, dict]:
         """
         Run comprehensive stress scenarios on the portfolio.
 
@@ -1071,10 +1071,10 @@ class RiskManager:
     def check_limits(
         self,
         portfolio_value: float,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
-        proposed_trade: Optional[Dict] = None
-    ) -> Tuple[bool, List[str]]:
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        proposed_trade: dict | None = None
+    ) -> tuple[bool, list[str]]:
         """
         Check if portfolio is within risk limits.
 
@@ -1225,7 +1225,7 @@ def calculate_optimal_contracts(
 # =============================================================================
 
 # GICS Sector mappings - SP500 constituents only
-DEFAULT_SECTOR_MAP: Dict[str, str] = {
+DEFAULT_SECTOR_MAP: dict[str, str] = {
     # Information Technology
     'AAPL': 'Information Technology', 'MSFT': 'Information Technology',
     'NVDA': 'Information Technology', 'AMD': 'Information Technology',
@@ -1310,7 +1310,7 @@ class SectorExposure:
     position_count: int
     notional_exposure: float
     exposure_pct: float  # As % of portfolio
-    symbols: List[str]
+    symbols: list[str]
 
     @property
     def is_concentrated(self) -> bool:
@@ -1327,7 +1327,7 @@ class SectorExposureManager:
 
     def __init__(
         self,
-        sector_map: Optional[Dict[str, str]] = None,
+        sector_map: dict[str, str] | None = None,
         max_sector_pct: float = 0.25
     ):
         """
@@ -1344,9 +1344,9 @@ class SectorExposureManager:
 
     def calculate_sector_exposures(
         self,
-        positions: List[Dict],
+        positions: list[dict],
         portfolio_value: float
-    ) -> Dict[str, SectorExposure]:
+    ) -> dict[str, SectorExposure]:
         """
         Calculate exposure by sector.
 
@@ -1357,7 +1357,7 @@ class SectorExposureManager:
         Returns:
             Dict of sector -> SectorExposure
         """
-        sector_data: Dict[str, Dict] = {}
+        sector_data: dict[str, dict] = {}
 
         for pos in positions:
             symbol = pos['symbol']
@@ -1395,9 +1395,9 @@ class SectorExposureManager:
         self,
         symbol: str,
         proposed_notional: float,
-        positions: List[Dict],
+        positions: list[dict],
         portfolio_value: float
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Check if adding position would breach sector limit.
 
@@ -1428,9 +1428,9 @@ class SectorExposureManager:
 
     def get_sector_violations(
         self,
-        positions: List[Dict],
+        positions: list[dict],
         portfolio_value: float
-    ) -> List[str]:
+    ) -> list[str]:
         """Get list of sector limit violations."""
         violations = []
         exposures = self.calculate_sector_exposures(positions, portfolio_value)
@@ -1447,10 +1447,10 @@ class SectorExposureManager:
 
     def suggest_diversification(
         self,
-        positions: List[Dict],
+        positions: list[dict],
         portfolio_value: float,
-        available_symbols: List[str]
-    ) -> List[str]:
+        available_symbols: list[str]
+    ) -> list[str]:
         """
         Suggest symbols from under-represented sectors.
 
@@ -1507,8 +1507,8 @@ class HierarchicalRiskParity:
     def fit(
         self,
         returns: pd.DataFrame,
-        covariance: Optional[pd.DataFrame] = None
-    ) -> Dict[str, float]:
+        covariance: pd.DataFrame | None = None
+    ) -> dict[str, float]:
         """
         Calculate HRP weights.
 
@@ -1552,7 +1552,7 @@ class HierarchicalRiskParity:
         link = linkage(condensed, method=self.linkage_method)
         return link
 
-    def _quasi_diagonalize(self, link: np.ndarray) -> List[int]:
+    def _quasi_diagonalize(self, link: np.ndarray) -> list[int]:
         """
         Reorganize items to quasi-diagonal form.
 
@@ -1564,14 +1564,14 @@ class HierarchicalRiskParity:
     def _recursive_bisection(
         self,
         cov: pd.DataFrame,
-        sorted_symbols: List[str]
-    ) -> Dict[str, float]:
+        sorted_symbols: list[str]
+    ) -> dict[str, float]:
         """
         Recursive bisection for weight allocation.
 
         Allocates weights inversely proportional to cluster variance.
         """
-        weights = {s: 1.0 for s in sorted_symbols}
+        weights = dict.fromkeys(sorted_symbols, 1.0)
         clusters = [sorted_symbols]
 
         while len(clusters) > 0:
@@ -1622,7 +1622,7 @@ class HierarchicalRiskParity:
     def _cluster_variance(
         self,
         cov: pd.DataFrame,
-        symbols: List[str]
+        symbols: list[str]
     ) -> float:
         """Calculate variance of equal-weighted cluster."""
         if len(symbols) == 0:
@@ -1638,8 +1638,8 @@ class HierarchicalRiskParity:
 
 def calculate_hrp_weights(
     returns_df: pd.DataFrame,
-    target_symbols: Optional[List[str]] = None
-) -> Dict[str, float]:
+    target_symbols: list[str] | None = None
+) -> dict[str, float]:
     """
     Convenience function to calculate HRP weights.
 
@@ -1658,11 +1658,11 @@ def calculate_hrp_weights(
 
 
 def optimize_position_weights(
-    symbols: List[str],
+    symbols: list[str],
     returns_data: pd.DataFrame,
     max_weight: float = 0.20,
     min_weight: float = 0.02
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Optimize position weights for Wheel strategy.
 

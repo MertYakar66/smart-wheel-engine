@@ -12,18 +12,18 @@ Critical checks:
 4. Train/test splits respect time boundaries
 """
 
-import pytest
-import numpy as np
-import pandas as pd
-from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.features.labels import LabelGenerator
 from src.features.technical import TechnicalFeatures
 from src.features.volatility import VolatilityFeatures
-from src.features.labels import LabelGenerator
 
 
 class TestRollingFeaturesPIT:
@@ -64,7 +64,7 @@ class TestRollingFeaturesPIT:
 
         # RSI at index 10-14 should show uptrend
         # (seeing the jump from 100 to 110)
-        assert rsi.iloc[-1] > 50.0, f"RSI after uptrend should be >50"
+        assert rsi.iloc[-1] > 50.0, "RSI after uptrend should be >50"
 
     def test_rv_no_future_returns(self):
         """Realized volatility uses only past returns."""

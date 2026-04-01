@@ -13,14 +13,11 @@ Uses:
 - Temporal proximity
 """
 
-import hashlib
-import re
-from collections import defaultdict
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
 import logging
+import re
+from datetime import datetime, timedelta
 
-from financial_news.models import Article, Entity, Story, TopicCategory
+from financial_news.models import Article, Story
 
 logger = logging.getLogger(__name__)
 
@@ -55,16 +52,16 @@ class StoryClusterer:
         self.min_sources_for_confidence = min_sources_for_confidence
 
         # Existing stories for incremental clustering
-        self._stories: Dict[str, Story] = {}
-        self._url_to_story: Dict[str, str] = {}
-        self._article_hashes: Dict[str, str] = {}
-        self._article_story_map: Dict[str, str] = {}
+        self._stories: dict[str, Story] = {}
+        self._url_to_story: dict[str, str] = {}
+        self._article_hashes: dict[str, str] = {}
+        self._article_story_map: dict[str, str] = {}
 
     def cluster_articles(
         self,
-        articles: List[Article],
-        existing_stories: Optional[List[Story]] = None,
-    ) -> List[Story]:
+        articles: list[Article],
+        existing_stories: list[Story] | None = None,
+    ) -> list[Story]:
         """
         Cluster articles into stories.
 
@@ -104,7 +101,7 @@ class StoryClusterer:
 
         return stories
 
-    def _dedupe_by_url(self, articles: List[Article]) -> List[Article]:
+    def _dedupe_by_url(self, articles: list[Article]) -> list[Article]:
         """Remove duplicate articles by canonical URL"""
         seen_urls = set()
         unique = []
@@ -119,8 +116,8 @@ class StoryClusterer:
 
     def _cluster_by_similarity(
         self,
-        articles: List[Article],
-    ) -> List[List[Article]]:
+        articles: list[Article],
+    ) -> list[list[Article]]:
         """
         Cluster articles by title similarity and entity overlap.
 
@@ -132,8 +129,8 @@ class StoryClusterer:
         # Sort by time for temporal locality
         sorted_articles = sorted(articles, key=lambda a: a.published_at_utc)
 
-        clusters: List[List[Article]] = []
-        clustered: Set[str] = set()
+        clusters: list[list[Article]] = []
+        clustered: set[str] = set()
 
         for article in sorted_articles:
             if article.article_id in clustered:
@@ -178,8 +175,8 @@ class StoryClusterer:
         title_sim = self._title_similarity(a1.title, a2.title)
 
         # Entity overlap
-        entities1 = set(e.name.lower() for e in a1.entities)
-        entities2 = set(e.name.lower() for e in a2.entities)
+        entities1 = {e.name.lower() for e in a1.entities}
+        entities2 = {e.name.lower() for e in a2.entities}
         entity_sim = self._jaccard(entities1, entities2) if entities1 and entities2 else 0
 
         # Ticker overlap
@@ -188,8 +185,8 @@ class StoryClusterer:
         ticker_sim = self._jaccard(tickers1, tickers2) if tickers1 and tickers2 else 0
 
         # Topic overlap
-        topics1 = set(t.value for t in a1.topics)
-        topics2 = set(t.value for t in a2.topics)
+        topics1 = {t.value for t in a1.topics}
+        topics2 = {t.value for t in a2.topics}
         topic_sim = self._jaccard(topics1, topics2) if topics1 and topics2 else 0
 
         # Weighted combination
@@ -219,7 +216,7 @@ class StoryClusterer:
         words = [w for w in title.split() if w not in stopwords]
         return ' '.join(words)
 
-    def _jaccard(self, set1: Set, set2: Set) -> float:
+    def _jaccard(self, set1: set, set2: set) -> float:
         """Compute Jaccard similarity"""
         if not set1 or not set2:
             return 0.0
@@ -227,7 +224,7 @@ class StoryClusterer:
         union = len(set1 | set2)
         return intersection / union if union > 0 else 0.0
 
-    def _cluster_to_story(self, cluster: List[Article]) -> Optional[Story]:
+    def _cluster_to_story(self, cluster: list[Article]) -> Story | None:
         """Convert article cluster to Story object"""
         if not cluster:
             return None
@@ -287,7 +284,7 @@ class StoryClusterer:
 
         return story
 
-    def merge_story(self, existing: Story, new_articles: List[Article]) -> Story:
+    def merge_story(self, existing: Story, new_articles: list[Article]) -> Story:
         """
         Merge new articles into an existing story.
 
@@ -306,7 +303,7 @@ class StoryClusterer:
             existing.last_updated_at = latest_time
 
         # Update source count
-        new_sources = set(a.source_name for a in new_articles)
+        new_sources = {a.source_name for a in new_articles}
         # This is approximate - would need to track source names in story
         existing.source_count += len(new_sources)
 
@@ -332,7 +329,7 @@ class StoryClusterer:
 
         return existing
 
-    def find_matching_story(self, article: Article) -> Optional[Story]:
+    def find_matching_story(self, article: Article) -> Story | None:
         """
         Find an existing story that this article belongs to.
 
@@ -365,11 +362,11 @@ class StoryClusterer:
 
         return best_match
 
-    def get_story(self, story_id: str) -> Optional[Story]:
+    def get_story(self, story_id: str) -> Story | None:
         """Get story by ID"""
         return self._stories.get(story_id)
 
-    def get_all_stories(self) -> List[Story]:
+    def get_all_stories(self) -> list[Story]:
         """Get all current stories"""
         return list(self._stories.values())
 

@@ -11,10 +11,9 @@ Extracts:
 Uses local AI for extraction, with optional cloud upgrade for accuracy.
 """
 
-import json
-import re
-from typing import Any, Dict, List, Optional, Tuple
 import logging
+import re
+from typing import Any
 
 from financial_news.models import Article, Entity, TopicCategory
 
@@ -139,7 +138,7 @@ class EntityExtractor:
     def __init__(
         self,
         use_llm: bool = False,
-        llm_client: Optional[Any] = None,
+        llm_client: Any | None = None,
     ):
         """
         Initialize entity extractor.
@@ -154,7 +153,7 @@ class EntityExtractor:
         # Build reverse lookup for tickers
         self._company_patterns = self._build_company_patterns()
 
-    def _build_company_patterns(self) -> List[Tuple[re.Pattern, str]]:
+    def _build_company_patterns(self) -> list[tuple[re.Pattern, str]]:
         """Build regex patterns for company name matching"""
         patterns = []
         for company, ticker in TICKER_MAPPINGS.items():
@@ -163,7 +162,7 @@ class EntityExtractor:
             patterns.append((pattern, ticker))
         return patterns
 
-    async def extract_entities(self, article: Article) -> List[Entity]:
+    async def extract_entities(self, article: Article) -> list[Entity]:
         """
         Extract all entities from an article.
 
@@ -210,7 +209,7 @@ class EntityExtractor:
 
         return unique_entities
 
-    def _extract_companies(self, text: str) -> List[Entity]:
+    def _extract_companies(self, text: str) -> list[Entity]:
         """Extract company mentions with ticker resolution"""
         entities = []
 
@@ -228,7 +227,7 @@ class EntityExtractor:
 
         return entities
 
-    def _extract_people(self, text: str) -> List[Entity]:
+    def _extract_people(self, text: str) -> list[Entity]:
         """Extract person mentions"""
         entities = []
 
@@ -245,7 +244,7 @@ class EntityExtractor:
 
         return entities
 
-    def _extract_regions(self, text: str) -> List[Entity]:
+    def _extract_regions(self, text: str) -> list[Entity]:
         """Extract country/region mentions"""
         regions = {
             "united states": "US",
@@ -269,7 +268,7 @@ class EntityExtractor:
         entities = []
         text_lower = text.lower()
 
-        for region_name, code in regions.items():
+        for region_name, _code in regions.items():
             if region_name in text_lower:
                 entities.append(Entity(
                     name=region_name.title(),
@@ -279,7 +278,7 @@ class EntityExtractor:
 
         return entities
 
-    def _extract_explicit_tickers(self, text: str) -> List[str]:
+    def _extract_explicit_tickers(self, text: str) -> list[str]:
         """Extract explicit ticker mentions like $AAPL or (NASDAQ: AAPL)"""
         tickers = []
 
@@ -296,7 +295,7 @@ class EntityExtractor:
 
         return list(set(tickers))
 
-    def classify_topics(self, article: Article) -> List[TopicCategory]:
+    def classify_topics(self, article: Article) -> list[TopicCategory]:
         """
         Classify article into topic categories.
 
@@ -320,7 +319,7 @@ class EntityExtractor:
 
         return topics
 
-    def get_tickers(self, entities: List[Entity]) -> List[str]:
+    def get_tickers(self, entities: list[Entity]) -> list[str]:
         """Extract unique tickers from entities"""
         tickers = []
         for entity in entities:
@@ -347,7 +346,7 @@ class EntityExtractor:
 
         return article
 
-    async def process_batch(self, articles: List[Article]) -> List[Article]:
+    async def process_batch(self, articles: list[Article]) -> list[Article]:
         """Process multiple articles"""
         processed = []
         for article in articles:

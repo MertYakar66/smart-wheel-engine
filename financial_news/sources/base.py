@@ -2,11 +2,10 @@
 Base class for news source fetchers
 """
 
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import List, Optional
 import asyncio
 import logging
+from abc import ABC, abstractmethod
+from datetime import datetime
 
 from financial_news.models import Article, Category
 
@@ -18,7 +17,7 @@ class BaseSourceFetcher(ABC):
 
     def __init__(self, rate_limit_per_second: float = 1.0):
         self.rate_limit_per_second = rate_limit_per_second
-        self._last_request_time: Optional[float] = None
+        self._last_request_time: float | None = None
 
     async def _rate_limit(self) -> None:
         """Enforce rate limiting between requests"""
@@ -36,7 +35,7 @@ class BaseSourceFetcher(ABC):
         start_time: datetime,
         end_time: datetime,
         max_results: int = 100,
-    ) -> List[Article]:
+    ) -> list[Article]:
         """
         Fetch articles matching a category within a time window.
 
@@ -88,7 +87,7 @@ class BaseSourceFetcher(ABC):
     @staticmethod
     def canonicalize_url(url: str) -> str:
         """Remove tracking parameters and normalize URL"""
-        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+        from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
         # Common tracking parameters to remove
         tracking_params = {

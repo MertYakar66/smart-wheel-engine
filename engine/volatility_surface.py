@@ -11,14 +11,15 @@ Critical upgrade: Replaces constant-IV assumption with dynamic surfaces.
 Requires historical option chain data (Bloomberg) to be fully functional.
 """
 
+import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Callable
-from datetime import date, datetime, timedelta
+from datetime import date
+
 import numpy as np
 import pandas as pd
-from scipy import optimize, interpolate
+from scipy import interpolate, optimize
 from scipy.stats import norm
-import warnings
 
 
 @dataclass
@@ -53,7 +54,7 @@ class SVIParams:
         # Butterfly arbitrage condition: a + b*sigma*sqrt(1-rho^2) >= 0
         butterfly = self.a + self.b * self.sigma * np.sqrt(1 - self.rho**2)
         if butterfly < 0:
-            warnings.warn(f"SVI params may violate butterfly arbitrage: {butterfly:.4f}")
+            warnings.warn(f"SVI params may violate butterfly arbitrage: {butterfly:.4f}", stacklevel=2)
 
     def total_variance(self, k: float) -> float:
         """Calculate total variance w(k) for log-moneyness k."""
@@ -81,18 +82,18 @@ class VolatilitySurface:
     """
     as_of_date: date
     underlying: str
-    forward_prices: Dict[date, float]  # Forward price per expiry
-    svi_params: Dict[date, SVIParams]  # SVI params per expiry
+    forward_prices: dict[date, float]  # Forward price per expiry
+    svi_params: dict[date, SVIParams]  # SVI params per expiry
 
     # Raw data (for diagnostics)
-    raw_strikes: Dict[date, np.ndarray] = field(default_factory=dict)
-    raw_ivs: Dict[date, np.ndarray] = field(default_factory=dict)
+    raw_strikes: dict[date, np.ndarray] = field(default_factory=dict)
+    raw_ivs: dict[date, np.ndarray] = field(default_factory=dict)
 
     def get_iv(
         self,
         strike: float,
         expiry: date,
-        spot: Optional[float] = None
+        spot: float | None = None
     ) -> float:
         """
         Get interpolated IV for strike and expiry.
@@ -125,7 +126,7 @@ class VolatilitySurface:
         self,
         strike: float,
         expiry: date,
-        spot: Optional[float]
+        spot: float | None
     ) -> float:
         """Interpolate IV for expiry not in surface."""
         if not self.svi_params:
@@ -168,7 +169,7 @@ class VolatilitySurface:
 
     def get_term_structure(
         self,
-        strike: Optional[float] = None,
+        strike: float | None = None,
         delta: float = 0.5
     ) -> pd.DataFrame:
         """
@@ -201,7 +202,7 @@ class VolatilitySurface:
 
         return pd.DataFrame(results)
 
-    def get_skew(self, expiry: date) -> Tuple[float, float, float]:
+    def get_skew(self, expiry: date) -> tuple[float, float, float]:
         """
         Get volatility skew metrics for an expiry.
 
@@ -351,7 +352,7 @@ class SVICalibrator:
         )
 
         if not result.success:
-            warnings.warn(f"SVI calibration did not converge: {result.message}")
+            warnings.warn(f"SVI calibration did not converge: {result.message}", stacklevel=2)
 
         a, b, rho, m, sigma = result.x
         return SVIParams(a=a, b=b, rho=rho, m=m, sigma=sigma)
@@ -445,7 +446,7 @@ class VolatilitySurfaceBuilder:
                 params = self.calibrator.calibrate(strikes, ivs, F, T)
                 svi_params[expiry_date] = params
             except Exception as e:
-                warnings.warn(f"Failed to calibrate {expiry_date}: {e}")
+                warnings.warn(f"Failed to calibrate {expiry_date}: {e}", stacklevel=2)
                 continue
 
         return VolatilitySurface(
@@ -473,8 +474,8 @@ class SplineVolSurface:
     ):
         self.as_of_date = as_of_date
         self.underlying = underlying
-        self.splines: Dict[date, Callable] = {}  # expiry -> interpolator
-        self.forward_prices: Dict[date, float] = {}
+        self.splines: dict[date, Callable] = {}  # expiry -> interpolator
+        self.forward_prices: dict[date, float] = {}
 
     def fit(
         self,
@@ -523,7 +524,7 @@ def create_constant_surface(
     as_of_date: date,
     underlying: str,
     spot: float,
-    expiries: List[date]
+    expiries: list[date]
 ) -> VolatilitySurface:
     """
     Create flat (constant IV) surface.
@@ -531,7 +532,7 @@ def create_constant_surface(
     Useful as fallback when no option data available.
     This is what the backtest currently uses.
     """
-    forward_prices = {exp: spot for exp in expiries}
+    forward_prices = dict.fromkeys(expiries, spot)
 
     # Flat SVI: a = iv^2 * T, b = 0
     svi_params = {}
@@ -560,7 +561,7 @@ def estimate_iv_for_delta(
     expiry: date,
     spot: float,
     is_put: bool = True
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Find strike and IV for target delta.
 

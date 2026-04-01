@@ -11,12 +11,12 @@ Provides:
 
 from .macro_calendar import (
     MacroCalendar,
-    get_fomc_2026,
     get_cpi_2026,
-    get_nfp_2026,
-    get_gdp_2026,
-    get_pce_2026,
     get_eia_petroleum_schedule,
+    get_fomc_2026,
+    get_gdp_2026,
+    get_nfp_2026,
+    get_pce_2026,
 )
 
 __all__ = [

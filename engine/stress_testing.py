@@ -11,14 +11,14 @@ Professional risk scenarios for options portfolios:
 Key principle: Understand worst-case outcomes before they happen.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Callable
+from dataclasses import dataclass
 from enum import Enum
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .option_pricer import black_scholes_price, black_scholes_all_greeks
+from .option_pricer import black_scholes_price
 
 
 class ScenarioType(Enum):
@@ -65,13 +65,13 @@ class ScenarioResult:
     scenario: Scenario
     portfolio_pnl: float              # Total P&L
     portfolio_pnl_pct: float          # P&L as % of portfolio
-    position_pnls: Dict[str, float]   # P&L by position
+    position_pnls: dict[str, float]   # P&L by position
     new_portfolio_value: float
-    new_greeks: Optional[Dict] = None
+    new_greeks: dict | None = None
 
     # Risk metrics after scenario
     margin_call: bool = False
-    max_loss_position: Optional[str] = None
+    max_loss_position: str | None = None
     max_loss_amount: float = 0.0
 
     def __str__(self) -> str:
@@ -84,7 +84,7 @@ class ScenarioResult:
 @dataclass
 class StressTestReport:
     """Complete stress test report."""
-    results: List[ScenarioResult]
+    results: list[ScenarioResult]
     worst_case: ScenarioResult
     best_case: ScenarioResult
     expected_shortfall: float         # Average of worst 5%
@@ -237,7 +237,7 @@ class StressTester:
     def __init__(
         self,
         risk_free_rate: float = 0.05,
-        scenarios: Optional[List[Scenario]] = None
+        scenarios: list[Scenario] | None = None
     ):
         self.risk_free_rate = risk_free_rate
         self.scenarios = scenarios or (HISTORICAL_SCENARIOS + HYPOTHETICAL_SCENARIOS)
@@ -245,8 +245,8 @@ class StressTester:
     def run_scenario(
         self,
         scenario: Scenario,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
+        positions: list[dict],
+        spot_prices: dict[str, float],
         portfolio_value: float
     ) -> ScenarioResult:
         """
@@ -347,10 +347,10 @@ class StressTester:
 
     def run_all_scenarios(
         self,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
+        positions: list[dict],
+        spot_prices: dict[str, float],
         portfolio_value: float,
-        scenarios: Optional[List[Scenario]] = None
+        scenarios: list[Scenario] | None = None
     ) -> StressTestReport:
         """Run all scenarios and generate report."""
         scenarios = scenarios or self.scenarios
@@ -381,11 +381,11 @@ class StressTester:
 
     def sensitivity_analysis(
         self,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
+        positions: list[dict],
+        spot_prices: dict[str, float],
         portfolio_value: float,
-        spot_range: Tuple[float, float] = (-0.15, 0.15),
-        iv_range: Tuple[float, float] = (-0.30, 0.30),
+        spot_range: tuple[float, float] = (-0.15, 0.15),
+        iv_range: tuple[float, float] = (-0.30, 0.30),
         n_points: int = 11
     ) -> pd.DataFrame:
         """
@@ -420,13 +420,13 @@ class StressTester:
 
     def monte_carlo_stress(
         self,
-        positions: List[Dict],
-        spot_prices: Dict[str, float],
+        positions: list[dict],
+        spot_prices: dict[str, float],
         portfolio_value: float,
         n_simulations: int = 10000,
         horizon_days: int = 30,
         vol_of_vol: float = 0.50
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Monte Carlo stress testing.
 
@@ -477,8 +477,8 @@ class StressTester:
 
 
 def quick_stress_test(
-    positions: List[Dict],
-    spot_prices: Dict[str, float],
+    positions: list[dict],
+    spot_prices: dict[str, float],
     portfolio_value: float
 ) -> str:
     """
@@ -494,8 +494,8 @@ def quick_stress_test(
 
 
 def calculate_max_loss(
-    positions: List[Dict],
-    spot_prices: Dict[str, float]
+    positions: list[dict],
+    spot_prices: dict[str, float]
 ) -> float:
     """
     Calculate theoretical maximum loss for portfolio.

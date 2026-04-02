@@ -45,7 +45,8 @@ def setup_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -71,7 +72,9 @@ def setup_parser() -> argparse.ArgumentParser:
     features_parser = subparsers.add_parser("features", help="Compute features")
     features_parser.add_argument("--tickers", nargs="+", required=True, help="Ticker symbols")
     features_parser.add_argument("--force", action="store_true", help="Force recomputation")
-    features_parser.add_argument("--layers", nargs="+", type=int, choices=[1, 2, 3], help="Feature layers to compute")
+    features_parser.add_argument(
+        "--layers", nargs="+", type=int, choices=[1, 2, 3], help="Feature layers to compute"
+    )
 
     # Full pipeline command
     full_parser = subparsers.add_parser("full", help="Run full pipeline")
@@ -105,6 +108,7 @@ def get_universe(name: str) -> list:
         constituents_path = Path("data_raw/sp500_constituents_current.csv")
         if constituents_path.exists():
             import pandas as pd
+
             df = pd.read_csv(constituents_path)
             return df["ticker"].tolist()
         else:
@@ -205,7 +209,7 @@ def cmd_status(args, orchestrator):
     print(f"Checkpoints: {status['checkpoints']}")
 
     print("\nMetrics:")
-    for key, value in status['metrics'].items():
+    for key, value in status["metrics"].items():
         print(f"  {key}: {value}")
 
     return 0

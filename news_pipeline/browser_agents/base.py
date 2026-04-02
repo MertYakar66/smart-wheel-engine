@@ -35,6 +35,7 @@ def _get_playwright():
     """Get playwright module, raising helpful error if not installed."""
     try:
         from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+
         return Browser, BrowserContext, Page, async_playwright
     except ImportError as e:
         raise ImportError(

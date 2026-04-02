@@ -65,7 +65,7 @@ def test_connection():
         print(f"\nBloomberg API available: {available['blpapi']}")
         print(f"Excel COM available: {available['excel_com']}")
 
-        if not available['any_available']:
+        if not available["any_available"]:
             print("\nNo Bloomberg interface available.")
             print("Make sure Bloomberg Terminal is running and Excel Add-in is loaded.")
             return False
@@ -161,8 +161,13 @@ def extract_sample_data():
 
         # Download historical data
         print("\nDownloading historical data (last 30 days)...")
-        start_date = (date.today().replace(day=1) -
-                      (date.today().replace(day=1) - date.today().replace(day=1).replace(month=date.today().month - 1))).strftime("%Y-%m-%d")
+        start_date = (
+            date.today().replace(day=1)
+            - (
+                date.today().replace(day=1)
+                - date.today().replace(day=1).replace(month=date.today().month - 1)
+            )
+        ).strftime("%Y-%m-%d")
 
         count = refresh_ohlcv(tickers, start_date=start_date)
         print(f"Successfully downloaded data for {count}/{len(tickers)} tickers")
@@ -189,7 +194,15 @@ def check_existing_data():
         print("Run data extraction first.")
         return
 
-    categories = ["ohlcv", "options", "iv_history", "earnings", "dividends", "rates", "fundamentals"]
+    categories = [
+        "ohlcv",
+        "options",
+        "iv_history",
+        "earnings",
+        "dividends",
+        "rates",
+        "fundamentals",
+    ]
 
     for cat in categories:
         cat_dir = bloomberg_dir / cat
@@ -209,7 +222,9 @@ def check_existing_data():
 def main():
     parser = argparse.ArgumentParser(description="Test Bloomberg connection and extract data")
     parser.add_argument("--ticker", type=str, default="AAPL", help="Ticker to test")
-    parser.add_argument("--extract-all", action="store_true", help="Extract sample data for multiple tickers")
+    parser.add_argument(
+        "--extract-all", action="store_true", help="Extract sample data for multiple tickers"
+    )
     parser.add_argument("--check-data", action="store_true", help="Check existing data files")
     args = parser.parse_args()
 

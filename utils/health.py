@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class HealthStatus(Enum):
     """Health status levels."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -37,15 +38,17 @@ class HealthStatus(Enum):
 
 class CheckType(Enum):
     """Type of health check."""
-    LIVENESS = "liveness"    # Is the service alive?
+
+    LIVENESS = "liveness"  # Is the service alive?
     READINESS = "readiness"  # Is the service ready to accept traffic?
-    STARTUP = "startup"      # Has the service finished starting?
+    STARTUP = "startup"  # Has the service finished starting?
     DEPENDENCY = "dependency"  # Is an external dependency healthy?
 
 
 @dataclass
 class CheckResult:
     """Result of a single health check."""
+
     name: str
     status: HealthStatus
     check_type: CheckType
@@ -69,6 +72,7 @@ class CheckResult:
 @dataclass
 class SystemHealth:
     """Overall system health status."""
+
     status: HealthStatus
     checks: list[CheckResult]
     uptime_seconds: float
@@ -295,8 +299,7 @@ class HealthChecker:
 
         # Critical checks (liveness, startup) must all pass
         critical_checks = [
-            r for r in results
-            if r.check_type in (CheckType.LIVENESS, CheckType.STARTUP)
+            r for r in results if r.check_type in (CheckType.LIVENESS, CheckType.STARTUP)
         ]
         if any(r.status == HealthStatus.UNHEALTHY for r in critical_checks):
             return HealthStatus.UNHEALTHY
@@ -320,94 +323,55 @@ class HealthChecker:
 # COMMON HEALTH CHECKS
 # =============================================================================
 
-def check_disk_space(
-    path: str = "/",
-    min_free_gb: float = 1.0
-) -> tuple[HealthStatus, str, dict]:
+
+def check_disk_space(path: str = "/", min_free_gb: float = 1.0) -> tuple[HealthStatus, str, dict]:
     """Check if disk has enough free space."""
     import shutil
 
     try:
         total, used, free = shutil.disk_usage(path)
-        free_gb = free / (1024 ** 3)
+        free_gb = free / (1024**3)
         used_percent = (used / total) * 100
 
         details = {
             "path": path,
-            "total_gb": round(total / (1024 ** 3), 2),
-            "used_gb": round(used / (1024 ** 3), 2),
+            "total_gb": round(total / (1024**3), 2),
+            "used_gb": round(used / (1024**3), 2),
             "free_gb": round(free_gb, 2),
             "used_percent": round(used_percent, 1),
         }
 
         if free_gb < min_free_gb:
-            return (
-                HealthStatus.UNHEALTHY,
-                f"Low disk space: {free_gb:.1f}GB free",
-                details
-            )
+            return (HealthStatus.UNHEALTHY, f"Low disk space: {free_gb:.1f}GB free", details)
         if free_gb < min_free_gb * 2:
-            return (
-                HealthStatus.DEGRADED,
-                f"Disk space warning: {free_gb:.1f}GB free",
-                details
-            )
-        return (
-            HealthStatus.HEALTHY,
-            f"Disk OK: {free_gb:.1f}GB free",
-            details
-        )
+            return (HealthStatus.DEGRADED, f"Disk space warning: {free_gb:.1f}GB free", details)
+        return (HealthStatus.HEALTHY, f"Disk OK: {free_gb:.1f}GB free", details)
     except Exception as e:
-        return (
-            HealthStatus.UNKNOWN,
-            f"Could not check disk: {e}",
-            {}
-        )
+        return (HealthStatus.UNKNOWN, f"Could not check disk: {e}", {})
 
 
-def check_memory(
-    max_percent: float = 90.0
-) -> tuple[HealthStatus, str, dict]:
+def check_memory(max_percent: float = 90.0) -> tuple[HealthStatus, str, dict]:
     """Check memory usage."""
     try:
         import psutil
+
         mem = psutil.virtual_memory()
 
         details = {
-            "total_gb": round(mem.total / (1024 ** 3), 2),
-            "available_gb": round(mem.available / (1024 ** 3), 2),
+            "total_gb": round(mem.total / (1024**3), 2),
+            "available_gb": round(mem.available / (1024**3), 2),
             "used_percent": round(mem.percent, 1),
         }
 
         if mem.percent > max_percent:
-            return (
-                HealthStatus.UNHEALTHY,
-                f"High memory usage: {mem.percent:.1f}%",
-                details
-            )
+            return (HealthStatus.UNHEALTHY, f"High memory usage: {mem.percent:.1f}%", details)
         if mem.percent > max_percent * 0.9:
-            return (
-                HealthStatus.DEGRADED,
-                f"Memory warning: {mem.percent:.1f}%",
-                details
-            )
-        return (
-            HealthStatus.HEALTHY,
-            f"Memory OK: {mem.percent:.1f}% used",
-            details
-        )
+            return (HealthStatus.DEGRADED, f"Memory warning: {mem.percent:.1f}%", details)
+        return (HealthStatus.HEALTHY, f"Memory OK: {mem.percent:.1f}% used", details)
     except ImportError:
-        return (
-            HealthStatus.UNKNOWN,
-            "psutil not installed",
-            {}
-        )
+        return (HealthStatus.UNKNOWN, "psutil not installed", {})
     except Exception as e:
-        return (
-            HealthStatus.UNKNOWN,
-            f"Could not check memory: {e}",
-            {}
-        )
+        return (HealthStatus.UNKNOWN, f"Could not check memory: {e}", {})
 
 
 async def check_url(
@@ -421,7 +385,9 @@ async def check_url(
 
         async with aiohttp.ClientSession() as session:
             start = time.time()
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_seconds)) as resp:
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=timeout_seconds)
+            ) as resp:
                 latency = (time.time() - start) * 1000
                 details = {
                     "url": url,
@@ -430,28 +396,12 @@ async def check_url(
                 }
 
                 if resp.status == expected_status:
-                    return (
-                        HealthStatus.HEALTHY,
-                        f"URL OK: {resp.status}",
-                        details
-                    )
-                return (
-                    HealthStatus.DEGRADED,
-                    f"Unexpected status: {resp.status}",
-                    details
-                )
+                    return (HealthStatus.HEALTHY, f"URL OK: {resp.status}", details)
+                return (HealthStatus.DEGRADED, f"Unexpected status: {resp.status}", details)
     except TimeoutError:
-        return (
-            HealthStatus.UNHEALTHY,
-            f"URL timeout after {timeout_seconds}s",
-            {"url": url}
-        )
+        return (HealthStatus.UNHEALTHY, f"URL timeout after {timeout_seconds}s", {"url": url})
     except Exception as e:
-        return (
-            HealthStatus.UNHEALTHY,
-            f"URL check failed: {e}",
-            {"url": url, "error": str(e)}
-        )
+        return (HealthStatus.UNHEALTHY, f"URL check failed: {e}", {"url": url, "error": str(e)})
 
 
 # =============================================================================

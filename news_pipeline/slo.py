@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class SLOStatus(Enum):
     """SLO compliance status."""
+
     MET = "met"
     AT_RISK = "at_risk"  # Within 10% of budget
     VIOLATED = "violated"
@@ -29,6 +30,7 @@ class SLOStatus(Enum):
 
 class PipelineStage(Enum):
     """News pipeline stages."""
+
     DISCOVERY = "discovery"
     VERIFICATION = "verification"
     FORMATTING = "formatting"
@@ -39,19 +41,21 @@ class PipelineStage(Enum):
 
 class NewsCategory(Enum):
     """News categories with different SLO tiers."""
-    FED = "fed"              # Tier 1: Most critical
-    EARNINGS = "earnings"    # Tier 1
-    MACRO = "macro"          # Tier 2
+
+    FED = "fed"  # Tier 1: Most critical
+    EARNINGS = "earnings"  # Tier 1
+    MACRO = "macro"  # Tier 2
     GEOPOLITICS = "geopolitics"  # Tier 2
-    OIL = "oil"              # Tier 3
-    CRYPTO = "crypto"        # Tier 3
-    TECH = "tech"            # Tier 3
-    OTHER = "other"          # Tier 3
+    OIL = "oil"  # Tier 3
+    CRYPTO = "crypto"  # Tier 3
+    TECH = "tech"  # Tier 3
+    OTHER = "other"  # Tier 3
 
 
 @dataclass
 class LatencySLO:
     """Latency SLO definition."""
+
     stage: PipelineStage
     p50_target_ms: float
     p95_target_ms: float
@@ -64,6 +68,7 @@ class LatencySLO:
             return SLOStatus.UNKNOWN
 
         import numpy as np
+
         arr = np.array(latencies_ms)
 
         p50 = np.percentile(arr, 50)
@@ -87,6 +92,7 @@ class LatencySLO:
 @dataclass
 class AvailabilitySLO:
     """Availability SLO definition."""
+
     target_percent: float  # e.g., 99.9
     measurement_window: timedelta
 
@@ -102,6 +108,7 @@ class AvailabilitySLO:
 @dataclass
 class ErrorBudget:
     """Error budget tracking."""
+
     name: str
     budget_percent: float  # Allowed error rate
     window: timedelta
@@ -123,6 +130,7 @@ class ErrorBudget:
 @dataclass
 class SLOMetrics:
     """Collected SLO metrics for a time period."""
+
     period_start: datetime
     period_end: datetime
     stage: PipelineStage
@@ -154,6 +162,7 @@ class SLOMetrics:
         if not self.latencies_ms:
             return None
         import numpy as np
+
         return float(np.percentile(self.latencies_ms, 50))
 
     @property
@@ -161,6 +170,7 @@ class SLOMetrics:
         if not self.latencies_ms:
             return None
         import numpy as np
+
         return float(np.percentile(self.latencies_ms, 95))
 
     @property
@@ -168,6 +178,7 @@ class SLOMetrics:
         if not self.latencies_ms:
             return None
         import numpy as np
+
         return float(np.percentile(self.latencies_ms, 99))
 
 
@@ -223,14 +234,14 @@ LATENCY_SLOS = {
 
 # Category-specific latency multipliers (Tier 1 = 1.0, faster required)
 CATEGORY_LATENCY_MULTIPLIERS = {
-    NewsCategory.FED: 0.5,        # 50% of standard (faster)
+    NewsCategory.FED: 0.5,  # 50% of standard (faster)
     NewsCategory.EARNINGS: 0.5,
     NewsCategory.MACRO: 0.75,
     NewsCategory.GEOPOLITICS: 0.75,
     NewsCategory.OIL: 1.0,
     NewsCategory.CRYPTO: 1.0,
     NewsCategory.TECH: 1.0,
-    NewsCategory.OTHER: 1.5,      # 150% of standard (can be slower)
+    NewsCategory.OTHER: 1.5,  # 150% of standard (can be slower)
 }
 
 # Availability SLOs
@@ -335,11 +346,7 @@ class SLOTracker:
         else:
             cutoff = datetime.min
 
-        records = [
-            (ts, lat, success)
-            for ts, lat, success in self._metrics[stage]
-            if ts >= cutoff
-        ]
+        records = [(ts, lat, success) for ts, lat, success in self._metrics[stage] if ts >= cutoff]
 
         metrics = SLOMetrics(
             period_start=cutoff if window else (records[0][0] if records else now),
@@ -487,9 +494,7 @@ class SLOTracker:
 
         for stage in PipelineStage:
             self._metrics[stage] = [
-                (ts, lat, success)
-                for ts, lat, success in self._metrics[stage]
-                if ts >= cutoff
+                (ts, lat, success) for ts, lat, success in self._metrics[stage] if ts >= cutoff
             ]
 
         for category in NewsCategory:

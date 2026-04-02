@@ -1,13 +1,14 @@
 """
 Download OHLCV data from yfinance with proper header cleanup.
 """
+
 import logging
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 RAW_DIR = Path("data_raw/ohlcv")
@@ -57,7 +58,7 @@ def download_ohlcv(ticker: str):
         for col in numeric_cols:
             if col in df.columns:
                 # Convert to numeric, coercing errors to NaN, then drop
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
         df = df.dropna(subset=["Open", "Close"])
 

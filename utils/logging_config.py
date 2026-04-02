@@ -1,6 +1,7 @@
 """
 Centralized logging configuration for Smart Wheel Engine.
 """
+
 import logging
 import sys
 from datetime import datetime
@@ -10,9 +11,7 @@ _LOGGERS = {}
 
 
 def setup_logging(
-    level: int = logging.INFO,
-    log_file: str | None = None,
-    log_dir: str = "logs"
+    level: int = logging.INFO, log_file: str | None = None, log_dir: str = "logs"
 ) -> None:
     """
     Configure logging for the application.
@@ -34,11 +33,10 @@ def setup_logging(
 
     # Create formatters
     detailed_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
     )
     console_formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S'
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
     )
 
     # Root logger configuration

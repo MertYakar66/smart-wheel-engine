@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class SelectorStatus(Enum):
     """Status of a selector."""
+
     ACTIVE = "active"
     DEGRADED = "degraded"
     FAILING = "failing"
@@ -33,15 +34,17 @@ class SelectorStatus(Enum):
 
 class DriftSeverity(Enum):
     """Severity of detected DOM drift."""
+
     NONE = "none"
-    MINOR = "minor"      # Selector still works but structure changed
+    MINOR = "minor"  # Selector still works but structure changed
     MODERATE = "moderate"  # Selector works intermittently
-    SEVERE = "severe"    # Selector no longer works
+    SEVERE = "severe"  # Selector no longer works
 
 
 @dataclass
 class SelectorMetrics:
     """Metrics for a single selector."""
+
     selector: str
     element_type: str  # e.g., "input", "button", "textarea"
     purpose: str  # e.g., "prompt_input", "send_button", "response_text"
@@ -110,9 +113,8 @@ class SelectorMetrics:
             self.avg_locate_ms = locate_ms
         else:
             self.avg_locate_ms = (
-                (self.avg_locate_ms * (self.total_attempts - 1) + locate_ms)
-                / self.total_attempts
-            )
+                self.avg_locate_ms * (self.total_attempts - 1) + locate_ms
+            ) / self.total_attempts
         self.max_locate_ms = max(self.max_locate_ms, locate_ms)
 
         # Check for DOM drift
@@ -145,6 +147,7 @@ class SelectorMetrics:
 @dataclass
 class FallbackSelector:
     """Alternative selector for fallback."""
+
     selector: str
     priority: int  # Lower = higher priority
     success_rate: float
@@ -154,6 +157,7 @@ class FallbackSelector:
 @dataclass
 class AgentMetrics:
     """Metrics for a browser agent (Claude, ChatGPT, Gemini)."""
+
     agent_name: str
     selectors: dict[str, SelectorMetrics] = field(default_factory=dict)
 
@@ -185,16 +189,14 @@ class AgentMetrics:
     def failing_selectors(self) -> list[str]:
         """List of selectors with FAILING status."""
         return [
-            name for name, sel in self.selectors.items()
-            if sel.status == SelectorStatus.FAILING
+            name for name, sel in self.selectors.items() if sel.status == SelectorStatus.FAILING
         ]
 
     @property
     def degraded_selectors(self) -> list[str]:
         """List of selectors with DEGRADED status."""
         return [
-            name for name, sel in self.selectors.items()
-            if sel.status == SelectorStatus.DEGRADED
+            name for name, sel in self.selectors.items() if sel.status == SelectorStatus.DEGRADED
         ]
 
     def to_dict(self) -> dict:
@@ -207,10 +209,7 @@ class AgentMetrics:
             "failing_selectors": self.failing_selectors,
             "degraded_selectors": self.degraded_selectors,
             "total_downtime_minutes": round(self.total_downtime_minutes, 2),
-            "selectors": {
-                name: sel.to_dict()
-                for name, sel in self.selectors.items()
-            },
+            "selectors": {name: sel.to_dict() for name, sel in self.selectors.items()},
         }
 
 
@@ -378,7 +377,9 @@ class RobustnessTracker:
         # Common fallback strategies
         fallbacks = []
 
-        original = self.agents.get(agent_name, AgentMetrics(agent_name=agent_name)).selectors.get(purpose)
+        original = self.agents.get(agent_name, AgentMetrics(agent_name=agent_name)).selectors.get(
+            purpose
+        )
         if not original:
             return fallbacks
 
@@ -386,27 +387,35 @@ class RobustnessTracker:
         if "data-testid" in original.selector:
             # Try without data-testid
             generic = original.selector.split("[data-testid")[0]
-            fallbacks.append(FallbackSelector(
-                selector=generic,
-                priority=1,
-                success_rate=0.0,
-                notes="Generic selector without data-testid",
-            ))
+            fallbacks.append(
+                FallbackSelector(
+                    selector=generic,
+                    priority=1,
+                    success_rate=0.0,
+                    notes="Generic selector without data-testid",
+                )
+            )
 
         # Strategy 2: Different attribute selectors
         elem_type = original.element_type
         if purpose == "prompt_input":
-            fallbacks.extend([
-                FallbackSelector(f"{elem_type}[contenteditable='true']", 2, 0.0, "Contenteditable"),
-                FallbackSelector(f"{elem_type}[role='textbox']", 3, 0.0, "Role-based"),
-                FallbackSelector(f"{elem_type}.input", 4, 0.0, "Class-based"),
-            ])
+            fallbacks.extend(
+                [
+                    FallbackSelector(
+                        f"{elem_type}[contenteditable='true']", 2, 0.0, "Contenteditable"
+                    ),
+                    FallbackSelector(f"{elem_type}[role='textbox']", 3, 0.0, "Role-based"),
+                    FallbackSelector(f"{elem_type}.input", 4, 0.0, "Class-based"),
+                ]
+            )
         elif purpose == "send_button":
-            fallbacks.extend([
-                FallbackSelector("button[type='submit']", 2, 0.0, "Submit button"),
-                FallbackSelector("button svg[data-icon='send']", 3, 0.0, "SVG icon"),
-                FallbackSelector("button:has-text('Send')", 4, 0.0, "Text-based"),
-            ])
+            fallbacks.extend(
+                [
+                    FallbackSelector("button[type='submit']", 2, 0.0, "Submit button"),
+                    FallbackSelector("button svg[data-icon='send']", 3, 0.0, "SVG icon"),
+                    FallbackSelector("button:has-text('Send')", 4, 0.0, "Text-based"),
+                ]
+            )
 
         return fallbacks
 
@@ -439,33 +448,38 @@ class RobustnessTracker:
 
             # Generate alerts
             for selector_name in agent.failing_selectors:
-                report["alerts"].append({
-                    "severity": "high",
-                    "agent": agent_name,
-                    "selector": selector_name,
-                    "message": f"Selector '{selector_name}' is failing",
-                })
+                report["alerts"].append(
+                    {
+                        "severity": "high",
+                        "agent": agent_name,
+                        "selector": selector_name,
+                        "message": f"Selector '{selector_name}' is failing",
+                    }
+                )
 
             for selector_name in agent.degraded_selectors:
-                report["alerts"].append({
-                    "severity": "medium",
-                    "agent": agent_name,
-                    "selector": selector_name,
-                    "message": f"Selector '{selector_name}' is degraded",
-                })
+                report["alerts"].append(
+                    {
+                        "severity": "medium",
+                        "agent": agent_name,
+                        "selector": selector_name,
+                        "message": f"Selector '{selector_name}' is degraded",
+                    }
+                )
 
             # Generate recommendations
             if agent.failing_selectors:
                 fallbacks = self.suggest_fallbacks(agent_name, agent.failing_selectors[0])
                 if fallbacks:
-                    report["recommendations"].append({
-                        "agent": agent_name,
-                        "selector": agent.failing_selectors[0],
-                        "fallbacks": [
-                            {"selector": f.selector, "notes": f.notes}
-                            for f in fallbacks[:3]
-                        ],
-                    })
+                    report["recommendations"].append(
+                        {
+                            "agent": agent_name,
+                            "selector": agent.failing_selectors[0],
+                            "fallbacks": [
+                                {"selector": f.selector, "notes": f.notes} for f in fallbacks[:3]
+                            ],
+                        }
+                    )
 
         return report
 
@@ -477,10 +491,7 @@ class RobustnessTracker:
         self.storage_path.mkdir(parents=True, exist_ok=True)
         metrics_file = self.storage_path / "robustness_metrics.json"
 
-        data = {
-            agent_name: agent.to_dict()
-            for agent_name, agent in self.agents.items()
-        }
+        data = {agent_name: agent.to_dict() for agent_name, agent in self.agents.items()}
 
         with open(metrics_file, "w") as f:
             json.dump(data, f, indent=2)

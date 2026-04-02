@@ -24,6 +24,7 @@ from news_pipeline.models import (
 @dataclass
 class AdversarialScenario:
     """Definition of an adversarial test scenario."""
+
     name: str
     description: str
     stories: list[CandidateStory]
@@ -33,6 +34,7 @@ class AdversarialScenario:
 # =============================================================================
 # CONTRADICTORY SOURCES TESTS
 # =============================================================================
+
 
 class TestContradictorySources:
     """Tests for handling contradictory information."""
@@ -135,6 +137,7 @@ class TestContradictorySources:
 # STALE NARRATIVE TESTS
 # =============================================================================
 
+
 class TestStaleNarratives:
     """Tests for detecting and handling stale/outdated news."""
 
@@ -220,6 +223,7 @@ class TestStaleNarratives:
 # =============================================================================
 # NEAR-DUPLICATE AND RUMOR TESTS
 # =============================================================================
+
 
 class TestNearDuplicates:
     """Tests for detecting near-duplicate stories and rumors."""
@@ -332,6 +336,7 @@ class TestNearDuplicates:
 # MISINFORMATION DETECTION TESTS
 # =============================================================================
 
+
 class TestMisinformation:
     """Tests for detecting potential misinformation."""
 
@@ -396,6 +401,7 @@ class TestMisinformation:
 # =============================================================================
 # EDGE CASES AND MALFORMED INPUT TESTS
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases and malformed inputs."""
@@ -489,6 +495,7 @@ class TestEdgeCases:
 # VERIFICATION RESILIENCE TESTS
 # =============================================================================
 
+
 class TestVerificationResilience:
     """Tests for verification system resilience."""
 
@@ -524,6 +531,7 @@ class TestVerificationResilience:
 # =============================================================================
 # FIXTURES
 # =============================================================================
+
 
 @pytest.fixture
 def sample_contradictory_stories():

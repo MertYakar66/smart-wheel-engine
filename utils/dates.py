@@ -1,35 +1,36 @@
 """
 Date handling utilities with consistent normalization.
 """
+
 from datetime import date, datetime
 
 import pandas as pd
 
 # US Market holidays (simplified - for production use pandas_market_calendars)
 US_MARKET_HOLIDAYS_2024 = {
-    date(2024, 1, 1),   # New Year's Day
+    date(2024, 1, 1),  # New Year's Day
     date(2024, 1, 15),  # MLK Day
     date(2024, 2, 19),  # Presidents Day
     date(2024, 3, 29),  # Good Friday
     date(2024, 5, 27),  # Memorial Day
     date(2024, 6, 19),  # Juneteenth
-    date(2024, 7, 4),   # Independence Day
-    date(2024, 9, 2),   # Labor Day
-    date(2024, 11, 28), # Thanksgiving
-    date(2024, 12, 25), # Christmas
+    date(2024, 7, 4),  # Independence Day
+    date(2024, 9, 2),  # Labor Day
+    date(2024, 11, 28),  # Thanksgiving
+    date(2024, 12, 25),  # Christmas
 }
 
 US_MARKET_HOLIDAYS_2025 = {
-    date(2025, 1, 1),   # New Year's Day
+    date(2025, 1, 1),  # New Year's Day
     date(2025, 1, 20),  # MLK Day
     date(2025, 2, 17),  # Presidents Day
     date(2025, 4, 18),  # Good Friday
     date(2025, 5, 26),  # Memorial Day
     date(2025, 6, 19),  # Juneteenth
-    date(2025, 7, 4),   # Independence Day
-    date(2025, 9, 1),   # Labor Day
-    date(2025, 11, 27), # Thanksgiving
-    date(2025, 12, 25), # Christmas
+    date(2025, 7, 4),  # Independence Day
+    date(2025, 9, 1),  # Labor Day
+    date(2025, 11, 27),  # Thanksgiving
+    date(2025, 12, 25),  # Christmas
 }
 
 ALL_HOLIDAYS = US_MARKET_HOLIDAYS_2024 | US_MARKET_HOLIDAYS_2025

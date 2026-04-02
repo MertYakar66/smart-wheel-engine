@@ -18,17 +18,19 @@ from typing import Any
 
 class ToleranceType(Enum):
     """Type of tolerance check."""
-    ABSOLUTE = "absolute"       # |actual - expected| < tolerance
-    RELATIVE = "relative"       # |actual - expected| / |expected| < tolerance
-    BOUNDS = "bounds"           # lower <= actual <= upper
-    RANGE = "range"             # actual in [min, max]
-    NON_NEGATIVE = "non_neg"    # actual >= 0
-    PROBABILITY = "probability" # actual in [0, 1]
+
+    ABSOLUTE = "absolute"  # |actual - expected| < tolerance
+    RELATIVE = "relative"  # |actual - expected| / |expected| < tolerance
+    BOUNDS = "bounds"  # lower <= actual <= upper
+    RANGE = "range"  # actual in [min, max]
+    NON_NEGATIVE = "non_neg"  # actual >= 0
+    PROBABILITY = "probability"  # actual in [0, 1]
 
 
 @dataclass
 class BenchmarkTolerance:
     """Tolerance specification for a benchmark."""
+
     name: str
     tolerance_type: ToleranceType
     value: float | tuple[float, float]
@@ -306,16 +308,12 @@ ALL_BENCHMARKS: dict[str, BenchmarkTolerance] = {
 
 # Release gates - benchmarks that MUST pass for deployment
 RELEASE_GATE_BENCHMARKS = {
-    name: benchmark
-    for name, benchmark in ALL_BENCHMARKS.items()
-    if benchmark.is_release_gate
+    name: benchmark for name, benchmark in ALL_BENCHMARKS.items() if benchmark.is_release_gate
 }
 
 
 def check_tolerance(
-    actual: float,
-    expected: float | None,
-    benchmark: BenchmarkTolerance
+    actual: float, expected: float | None, benchmark: BenchmarkTolerance
 ) -> tuple[bool, str]:
     """
     Check if actual value satisfies benchmark tolerance.
@@ -407,6 +405,6 @@ def generate_benchmark_report() -> dict[str, Any]:
                 "is_release_gate": b.is_release_gate,
             }
             for name, b in ALL_BENCHMARKS.items()
-        ]
+        ],
     }
     return report

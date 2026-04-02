@@ -36,8 +36,10 @@ def __getattr__(name: str):
     """Lazy import browser scrapers that require playwright."""
     if name == "BrowserNewsScraper":
         from news_pipeline.scrapers.browser_scraper import BrowserNewsScraper
+
         return BrowserNewsScraper
     if name == "NewsAggregator":
         from news_pipeline.scrapers.aggregator import NewsAggregator
+
         return NewsAggregator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

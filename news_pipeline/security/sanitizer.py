@@ -235,7 +235,9 @@ class Sanitizer:
                 if rule["style"] == RedactionStyle.HASH:
                     import hashlib
 
-                    placeholder = f"[{name}:{hashlib.sha256(matched_sensitive.encode()).hexdigest()[:8]}]"
+                    placeholder = (
+                        f"[{name}:{hashlib.sha256(matched_sensitive.encode()).hexdigest()[:8]}]"
+                    )
                 elif rule["style"] == RedactionStyle.REMOVE:
                     placeholder = ""
                 else:
@@ -329,6 +331,8 @@ def get_sanitizer() -> Sanitizer:
     return _default_sanitizer
 
 
-def sanitize_prompt(prompt: str, target_tier: DataSensitivity = DataSensitivity.TIER_A) -> SanitizationResult:
+def sanitize_prompt(
+    prompt: str, target_tier: DataSensitivity = DataSensitivity.TIER_A
+) -> SanitizationResult:
     """Sanitize a prompt using the default sanitizer."""
     return get_sanitizer().sanitize(prompt, target_tier)

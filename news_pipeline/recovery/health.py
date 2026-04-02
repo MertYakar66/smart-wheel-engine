@@ -121,8 +121,7 @@ class ProviderHealthMonitor:
         """
         self.ollama_url = ollama_url
         self._health: dict[ModelType, ProviderHealth] = {
-            model: ProviderHealth(provider=model)
-            for model in ModelType
+            model: ProviderHealth(provider=model) for model in ModelType
         }
         self._session_manager = None
 
@@ -136,10 +135,7 @@ class ProviderHealthMonitor:
 
     def get_available_providers(self) -> list[ModelType]:
         """Get list of currently available providers."""
-        return [
-            model for model, health in self._health.items()
-            if health.is_available
-        ]
+        return [model for model, health in self._health.items() if health.is_available]
 
     async def run_health_checks(self) -> dict[ModelType, ProviderHealth]:
         """
@@ -182,9 +178,7 @@ class ProviderHealthMonitor:
                     f"{self.ollama_url}/api/tags",
                     timeout=aiohttp.ClientTimeout(total=5),
                 ) as response:
-                    elapsed_ms = int(
-                        (datetime.utcnow() - start).total_seconds() * 1000
-                    )
+                    elapsed_ms = int((datetime.utcnow() - start).total_seconds() * 1000)
                     health.response_time_ms = elapsed_ms
 
                     if response.status == 200:
@@ -241,9 +235,7 @@ class ProviderHealthMonitor:
                         health.error_message = None
                     elif session.state.status == SessionStatus.RATE_LIMITED:
                         health.status = HealthStatus.DEGRADED
-                        health.rate_limited_until = (
-                            datetime.utcnow() + self.RATE_LIMIT_COOLDOWN
-                        )
+                        health.rate_limited_until = datetime.utcnow() + self.RATE_LIMIT_COOLDOWN
                         health.error_message = "Rate limited"
                     elif session.state.status == SessionStatus.AUTHENTICATED:
                         health.status = HealthStatus.HEALTHY
@@ -378,8 +370,7 @@ class ProviderHealthMonitor:
             "available_count": len(self.get_available_providers()),
             "total_providers": len(ModelType),
             "providers": {
-                provider.value: health.to_dict()
-                for provider, health in self._health.items()
+                provider.value: health.to_dict() for provider, health in self._health.items()
             },
         }
 

@@ -19,6 +19,7 @@ import pytest
 # ENVIRONMENT VALIDATION TESTS
 # =============================================================================
 
+
 class TestEnvironmentValidation:
     """Tests for environment validation script."""
 
@@ -39,10 +40,7 @@ class TestEnvironmentValidation:
         report = validator.validate_all()
 
         # Find python version result
-        python_check = next(
-            (r for r in report.results if r.name == "python_version"),
-            None
-        )
+        python_check = next((r for r in report.results if r.name == "python_version"), None)
 
         assert python_check is not None
         # Project requires Python 3.11+, so this should always pass
@@ -69,6 +67,7 @@ class TestEnvironmentValidation:
 # =============================================================================
 # QUANT BENCHMARKS TESTS
 # =============================================================================
+
 
 class TestQuantBenchmarks:
     """Tests for quant benchmark registry."""
@@ -145,6 +144,7 @@ class TestQuantBenchmarks:
 # HEALTH CHECK TESTS
 # =============================================================================
 
+
 class TestHealthChecks:
     """Tests for health check infrastructure."""
 
@@ -217,6 +217,7 @@ class TestHealthChecks:
 # SLO TRACKING TESTS
 # =============================================================================
 
+
 class TestSLOTracking:
     """Tests for SLO tracking."""
 
@@ -278,6 +279,7 @@ class TestSLOTracking:
 # =============================================================================
 # ADVISOR SCORECARD TESTS
 # =============================================================================
+
 
 class TestAdvisorScorecard:
     """Tests for advisor scorecard."""
@@ -391,6 +393,7 @@ class TestAdvisorScorecard:
 # BROWSER ROBUSTNESS TESTS
 # =============================================================================
 
+
 class TestBrowserRobustness:
     """Tests for browser agent robustness tracking."""
 
@@ -471,6 +474,7 @@ class TestBrowserRobustness:
 # =============================================================================
 # WEB VITALS TESTS
 # =============================================================================
+
 
 class TestWebVitals:
     """Tests for web vitals tracking."""
@@ -566,6 +570,7 @@ class TestWebVitals:
 # ADDITIONAL QUANT BENCHMARK TESTS
 # =============================================================================
 
+
 class TestQuantBenchmarksExtended:
     """Extended tests for quant benchmark tolerances."""
 
@@ -652,6 +657,7 @@ class TestQuantBenchmarksExtended:
 # ADDITIONAL HEALTH CHECK TESTS
 # =============================================================================
 
+
 class TestHealthChecksExtended:
     """Extended health check tests."""
 
@@ -737,6 +743,7 @@ class TestHealthChecksExtended:
 # ADDITIONAL SLO TESTS
 # =============================================================================
 
+
 class TestSLOExtended:
     """Extended SLO tests."""
 
@@ -792,6 +799,7 @@ class TestSLOExtended:
 # =============================================================================
 # ADDITIONAL ADVISOR SCORECARD TESTS
 # =============================================================================
+
 
 class TestAdvisorScorecardExtended:
     """Extended advisor scorecard tests."""
@@ -906,6 +914,7 @@ class TestAdvisorScorecardExtended:
 # ADDITIONAL BROWSER ROBUSTNESS TESTS
 # =============================================================================
 
+
 class TestBrowserRobustnessExtended:
     """Extended browser robustness tests."""
 
@@ -923,7 +932,7 @@ class TestBrowserRobustnessExtended:
         assert agent.total_sessions == 3
         assert agent.successful_sessions == 2
         assert agent.failed_sessions == 1
-        assert agent.session_success_rate == pytest.approx(2/3)
+        assert agent.session_success_rate == pytest.approx(2 / 3)
 
     def test_suggest_fallbacks(self):
         """Should suggest selector fallbacks."""
@@ -999,6 +1008,7 @@ class TestBrowserRobustnessExtended:
 # =============================================================================
 # ENVIRONMENT VALIDATION EXTENDED TESTS
 # =============================================================================
+
 
 class TestEnvironmentValidationExtended:
     """Extended environment validation tests."""

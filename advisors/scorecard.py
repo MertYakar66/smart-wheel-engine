@@ -26,14 +26,16 @@ logger = logging.getLogger(__name__)
 
 class OutcomeType(Enum):
     """Trade outcome classification."""
-    WIN = "win"           # Profitable trade
-    LOSS = "loss"         # Unprofitable trade
-    SCRATCH = "scratch"   # Break-even (within transaction costs)
-    PENDING = "pending"   # Not yet closed
+
+    WIN = "win"  # Profitable trade
+    LOSS = "loss"  # Unprofitable trade
+    SCRATCH = "scratch"  # Break-even (within transaction costs)
+    PENDING = "pending"  # Not yet closed
 
 
 class JudgmentType(Enum):
     """Advisor judgment classification."""
+
     STRONG_APPROVE = "strong_approve"
     APPROVE = "approve"
     NEUTRAL = "neutral"
@@ -43,6 +45,7 @@ class JudgmentType(Enum):
 
 class ConfidenceLevel(Enum):
     """Advisor confidence levels."""
+
     VERY_LOW = 1
     LOW = 2
     MEDIUM = 3
@@ -53,6 +56,7 @@ class ConfidenceLevel(Enum):
 @dataclass
 class AdvisorPrediction:
     """Record of an advisor's prediction."""
+
     prediction_id: str
     advisor_name: str
     judgment: JudgmentType
@@ -113,6 +117,7 @@ class AdvisorPrediction:
 @dataclass
 class TradeOutcome:
     """Record of actual trade outcome."""
+
     outcome_id: str
     prediction_id: str  # Links to AdvisorPrediction
     outcome: OutcomeType
@@ -156,6 +161,7 @@ class TradeOutcome:
 @dataclass
 class CalibrationBucket:
     """Calibration data for a confidence bucket."""
+
     confidence_level: ConfidenceLevel
     total_predictions: int
     correct_predictions: int
@@ -171,6 +177,7 @@ class CalibrationBucket:
 @dataclass
 class AdvisorMetrics:
     """Performance metrics for a single advisor."""
+
     advisor_name: str
     period_start: datetime
     period_end: datetime
@@ -309,13 +316,10 @@ class AdvisorScorecard:
     def record_outcome(self, outcome: TradeOutcome) -> None:
         """Record the outcome of a trade."""
         if outcome.prediction_id not in self.predictions:
-            logger.warning(
-                f"Recording outcome for unknown prediction: {outcome.prediction_id}"
-            )
+            logger.warning(f"Recording outcome for unknown prediction: {outcome.prediction_id}")
         self.outcomes[outcome.outcome_id] = outcome
         logger.info(
-            f"Recorded outcome {outcome.outcome_id}: "
-            f"{outcome.outcome.value} P&L={outcome.pnl:.2f}"
+            f"Recorded outcome {outcome.outcome_id}: {outcome.outcome.value} P&L={outcome.pnl:.2f}"
         )
         if self.storage_path:
             self._save_data()
@@ -340,9 +344,7 @@ class AdvisorScorecard:
             AdvisorMetrics for single advisor or dict of metrics for all
         """
         # Filter predictions
-        filtered_predictions = self._filter_predictions(
-            advisor_name, start_date, end_date, regime
-        )
+        filtered_predictions = self._filter_predictions(advisor_name, start_date, end_date, regime)
 
         # Group by advisor
         by_advisor: dict[str, list[AdvisorPrediction]] = {}
@@ -364,10 +366,7 @@ class AdvisorScorecard:
         advisor_name: str,
     ) -> list[CalibrationBucket]:
         """Get calibration data for an advisor."""
-        predictions = [
-            p for p in self.predictions.values()
-            if p.advisor_name == advisor_name
-        ]
+        predictions = [p for p in self.predictions.values() if p.advisor_name == advisor_name]
 
         buckets = []
         for level in ConfidenceLevel:
@@ -384,20 +383,23 @@ class AdvisorScorecard:
                     total += 1
                     # Correct if: approved and won, or rejected and would have lost
                     is_approval = pred.judgment in (
-                        JudgmentType.APPROVE, JudgmentType.STRONG_APPROVE
+                        JudgmentType.APPROVE,
+                        JudgmentType.STRONG_APPROVE,
                     )
                     is_win = outcome.outcome == OutcomeType.WIN
                     if (is_approval and is_win) or (not is_approval and not is_win):
                         correct += 1
 
             if total > 0:
-                buckets.append(CalibrationBucket(
-                    confidence_level=level,
-                    total_predictions=total,
-                    correct_predictions=correct,
-                    expected_accuracy=self.CONFIDENCE_TARGETS[level],
-                    actual_accuracy=correct / total,
-                ))
+                buckets.append(
+                    CalibrationBucket(
+                        confidence_level=level,
+                        total_predictions=total,
+                        correct_predictions=correct,
+                        expected_accuracy=self.CONFIDENCE_TARGETS[level],
+                        actual_accuracy=correct / total,
+                    )
+                )
 
         return buckets
 
@@ -420,16 +422,15 @@ class AdvisorScorecard:
                 "total_outcomes": len(self.outcomes),
                 "advisors_tracked": len(all_metrics),
             },
-            "advisor_metrics": {
-                name: metrics.to_dict()
-                for name, metrics in all_metrics.items()
-            } if isinstance(all_metrics, dict) else {},
+            "advisor_metrics": {name: metrics.to_dict() for name, metrics in all_metrics.items()}
+            if isinstance(all_metrics, dict)
+            else {},
             "calibration": {},
             "recommendations": [],
         }
 
         # Add calibration data
-        for advisor_name in (all_metrics.keys() if isinstance(all_metrics, dict) else []):
+        for advisor_name in all_metrics.keys() if isinstance(all_metrics, dict) else []:
             buckets = self.get_calibration_curve(advisor_name)
             report["calibration"][advisor_name] = [
                 {
@@ -494,9 +495,7 @@ class AdvisorScorecard:
 
         for pred in predictions:
             outcome = self._get_outcome_for_prediction(pred.prediction_id)
-            is_approval = pred.judgment in (
-                JudgmentType.APPROVE, JudgmentType.STRONG_APPROVE
-            )
+            is_approval = pred.judgment in (JudgmentType.APPROVE, JudgmentType.STRONG_APPROVE)
 
             if is_approval:
                 metrics.approvals += 1
@@ -547,16 +546,12 @@ class AdvisorScorecard:
             total_n = sum(b.total_predictions for b in buckets)
             if total_n > 0:
                 metrics.expected_calibration_error = sum(
-                    b.calibration_error * b.total_predictions / total_n
-                    for b in buckets
+                    b.calibration_error * b.total_predictions / total_n for b in buckets
                 )
 
         return metrics
 
-    def _generate_recommendations(
-        self,
-        metrics: dict[str, AdvisorMetrics]
-    ) -> list[str]:
+    def _generate_recommendations(self, metrics: dict[str, AdvisorMetrics]) -> list[str]:
         """Generate actionable recommendations based on metrics."""
         recommendations = []
 
@@ -604,18 +599,12 @@ class AdvisorScorecard:
         if predictions_file.exists():
             with open(predictions_file) as f:
                 data = json.load(f)
-                self.predictions = {
-                    k: AdvisorPrediction.from_dict(v)
-                    for k, v in data.items()
-                }
+                self.predictions = {k: AdvisorPrediction.from_dict(v) for k, v in data.items()}
 
         if outcomes_file.exists():
             with open(outcomes_file) as f:
                 data = json.load(f)
-                self.outcomes = {
-                    k: TradeOutcome.from_dict(v)
-                    for k, v in data.items()
-                }
+                self.outcomes = {k: TradeOutcome.from_dict(v) for k, v in data.items()}
 
     def _save_data(self) -> None:
         """Save data to storage."""
@@ -628,15 +617,7 @@ class AdvisorScorecard:
         outcomes_file = self.storage_path / "outcomes.json"
 
         with open(predictions_file, "w") as f:
-            json.dump(
-                {k: v.to_dict() for k, v in self.predictions.items()},
-                f,
-                indent=2
-            )
+            json.dump({k: v.to_dict() for k, v in self.predictions.items()}, f, indent=2)
 
         with open(outcomes_file, "w") as f:
-            json.dump(
-                {k: v.to_dict() for k, v in self.outcomes.items()},
-                f,
-                indent=2
-            )
+            json.dump({k: v.to_dict() for k, v in self.outcomes.items()}, f, indent=2)

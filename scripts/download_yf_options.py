@@ -100,7 +100,6 @@ def fetch_option_chain_for_ticker(ticker: str) -> pd.DataFrame:
                 inplace=True,
             )
 
-
             all_rows.append(df_side)
 
     if not all_rows:

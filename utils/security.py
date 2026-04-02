@@ -26,6 +26,7 @@ from typing import Any
 # Secure Logging
 # =============================================================================
 
+
 class AuditLogger:
     """
     Secure audit logging for trading operations.
@@ -35,23 +36,22 @@ class AuditLogger:
     """
 
     SENSITIVE_PATTERNS = [
-        r'api[_-]?key',
-        r'secret',
-        r'password',
-        r'token',
-        r'credential',
-        r'auth',
+        r"api[_-]?key",
+        r"secret",
+        r"password",
+        r"token",
+        r"credential",
+        r"auth",
     ]
 
     def __init__(self, log_file: str | None = None, level: int = logging.INFO):
-        self.logger = logging.getLogger('smart_wheel_audit')
+        self.logger = logging.getLogger("smart_wheel_audit")
         self.logger.setLevel(level)
 
         # Prevent duplicate handlers
         if not self.logger.handlers:
             formatter = logging.Formatter(
-                '%(asctime)s | %(levelname)s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                "%(asctime)s | %(levelname)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
             )
 
             # Console handler
@@ -72,9 +72,9 @@ class AuditLogger:
             # Redact values after sensitive keys
             redacted = re.sub(
                 rf'({pattern})\s*[=:]\s*["\']?([^"\'\s,}}]+)',
-                r'\1=***REDACTED***',
+                r"\1=***REDACTED***",
                 redacted,
-                flags=re.IGNORECASE
+                flags=re.IGNORECASE,
             )
         return redacted
 
@@ -102,6 +102,7 @@ class AuditLogger:
 # =============================================================================
 # Input Validation
 # =============================================================================
+
 
 class InputValidator:
     """
@@ -183,7 +184,7 @@ class InputValidator:
         if not isinstance(value, str):
             raise ValueError(f"{name} must be string, got {type(value).__name__}")
         value = value.lower().strip()
-        if value not in ('call', 'put'):
+        if value not in ("call", "put"):
             raise ValueError(f"{name} must be 'call' or 'put', got '{value}'")
         return value
 
@@ -193,7 +194,7 @@ class InputValidator:
         if not isinstance(value, str):
             raise ValueError(f"{name} must be string, got {type(value).__name__}")
         # Remove any non-alphanumeric characters
-        sanitized = re.sub(r'[^A-Za-z0-9.]', '', value)
+        sanitized = re.sub(r"[^A-Za-z0-9.]", "", value)
         if len(sanitized) == 0:
             raise ValueError(f"{name} cannot be empty after sanitization")
         if len(sanitized) > 10:
@@ -206,7 +207,7 @@ class InputValidator:
         if not isinstance(value, str):
             raise ValueError(f"Expected string, got {type(value).__name__}")
         # Remove control characters
-        sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', value)
+        sanitized = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", value)
         # Truncate if too long
         return sanitized[:max_length]
 
@@ -214,6 +215,7 @@ class InputValidator:
 # =============================================================================
 # Secrets Management
 # =============================================================================
+
 
 @dataclass
 class SecureConfig:
@@ -236,8 +238,8 @@ class SecureConfig:
         with open(env_path) as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, _, value = line.partition('=')
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, value = line.partition("=")
                     key = key.strip()
                     value = value.strip().strip('"').strip("'")
                     self._secrets[key] = value
@@ -284,6 +286,7 @@ class SecureConfig:
 # Rate Limiting
 # =============================================================================
 
+
 class RateLimiter:
     """
     Rate limiter for API calls and operations.
@@ -328,22 +331,24 @@ class RateLimiter:
 
 def rate_limited(limiter: RateLimiter):
     """Decorator to apply rate limiting to a function."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             if not limiter.is_allowed():
                 wait = limiter.wait_time()
-                raise RuntimeError(
-                    f"Rate limit exceeded. Wait {wait:.1f} seconds."
-                )
+                raise RuntimeError(f"Rate limit exceeded. Wait {wait:.1f} seconds.")
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # =============================================================================
 # Security Utilities
 # =============================================================================
+
 
 def generate_session_token(length: int = 32) -> str:
     """Generate a secure random session token."""
@@ -362,7 +367,7 @@ def hash_sensitive_data(data: str, salt: str | None = None) -> str:
 def verify_hash(data: str, hashed: str) -> bool:
     """Verify data against a hash."""
     try:
-        salt, expected_hash = hashed.split(':')
+        salt, expected_hash = hashed.split(":")
         combined = f"{salt}{data}".encode()
         actual_hash = hashlib.sha256(combined).hexdigest()
         return secrets.compare_digest(actual_hash, expected_hash)
@@ -373,13 +378,14 @@ def verify_hash(data: str, hashed: str) -> bool:
 def mask_sensitive(value: str, show_chars: int = 4) -> str:
     """Mask a sensitive string, showing only last few characters."""
     if len(value) <= show_chars:
-        return '*' * len(value)
-    return '*' * (len(value) - show_chars) + value[-show_chars:]
+        return "*" * len(value)
+    return "*" * (len(value) - show_chars) + value[-show_chars:]
 
 
 # =============================================================================
 # Secure Decorators
 # =============================================================================
+
 
 def validate_inputs(**validators):
     """
@@ -391,13 +397,13 @@ def validate_inputs(**validators):
             ...
     """
     validator_map = {
-        'price': InputValidator.validate_price,
-        'quantity': InputValidator.validate_quantity,
-        'volatility': InputValidator.validate_volatility,
-        'rate': InputValidator.validate_rate,
-        'dte': InputValidator.validate_dte,
-        'option_type': InputValidator.validate_option_type,
-        'symbol': InputValidator.validate_symbol,
+        "price": InputValidator.validate_price,
+        "quantity": InputValidator.validate_quantity,
+        "volatility": InputValidator.validate_volatility,
+        "rate": InputValidator.validate_rate,
+        "dte": InputValidator.validate_dte,
+        "option_type": InputValidator.validate_option_type,
+        "symbol": InputValidator.validate_symbol,
     }
 
     def decorator(func: Callable) -> Callable:
@@ -410,12 +416,15 @@ def validate_inputs(**validators):
                     if validator:
                         kwargs[param_name] = validator(kwargs[param_name], param_name)
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def audit_logged(audit_logger: AuditLogger, action_type: str = "OPERATION"):
     """Decorator to log function calls for audit purposes."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -424,16 +433,24 @@ def audit_logged(audit_logger: AuditLogger, action_type: str = "OPERATION"):
                 result = func(*args, **kwargs)
                 audit_logger.log_trade(
                     f"{action_type}:{func.__name__}",
-                    {"status": "success", "duration_ms": (datetime.now() - start_time).total_seconds() * 1000}
+                    {
+                        "status": "success",
+                        "duration_ms": (datetime.now() - start_time).total_seconds() * 1000,
+                    },
                 )
                 return result
             except Exception as e:
                 audit_logger.log_risk_event(
                     f"{action_type}:{func.__name__}:ERROR",
-                    {"error": str(e), "duration_ms": (datetime.now() - start_time).total_seconds() * 1000}
+                    {
+                        "error": str(e),
+                        "duration_ms": (datetime.now() - start_time).total_seconds() * 1000,
+                    },
                 )
                 raise
+
         return wrapper
+
     return decorator
 
 
@@ -451,19 +468,19 @@ trade_limiter = RateLimiter(max_requests=10, window_seconds=1)  # 10 trades/sec
 
 
 __all__ = [
-    'AuditLogger',
-    'InputValidator',
-    'SecureConfig',
-    'RateLimiter',
-    'rate_limited',
-    'generate_session_token',
-    'hash_sensitive_data',
-    'verify_hash',
-    'mask_sensitive',
-    'validate_inputs',
-    'audit_logged',
-    'config',
-    'audit_log',
-    'api_limiter',
-    'trade_limiter',
+    "AuditLogger",
+    "InputValidator",
+    "SecureConfig",
+    "RateLimiter",
+    "rate_limited",
+    "generate_session_token",
+    "hash_sensitive_data",
+    "verify_hash",
+    "mask_sensitive",
+    "validate_inputs",
+    "audit_logged",
+    "config",
+    "audit_log",
+    "api_limiter",
+    "trade_limiter",
 ]

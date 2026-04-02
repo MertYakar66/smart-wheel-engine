@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class VitalRating(Enum):
     """Performance rating based on Web Vitals thresholds."""
+
     GOOD = "good"
     NEEDS_IMPROVEMENT = "needs_improvement"
     POOR = "poor"
@@ -36,6 +37,7 @@ class VitalRating(Enum):
 @dataclass
 class VitalThreshold:
     """Threshold definitions for a vital metric."""
+
     name: str
     unit: str
     good_max: float
@@ -126,6 +128,7 @@ PAGE_BUDGETS = {
 @dataclass
 class VitalMeasurement:
     """Single measurement of a vital metric."""
+
     metric: str
     value: float
     timestamp: datetime
@@ -155,6 +158,7 @@ class VitalMeasurement:
 @dataclass
 class PageMetrics:
     """Aggregated metrics for a page."""
+
     page: str
     period_start: datetime
     period_end: datetime
@@ -218,30 +222,36 @@ class PageMetrics:
 
         if self.lcp_p75 and "LCP" in budget:
             if self.lcp_p75 > budget["LCP"]:
-                violations.append({
-                    "metric": "LCP",
-                    "budget": budget["LCP"],
-                    "actual": self.lcp_p75,
-                    "exceeded_by": self.lcp_p75 - budget["LCP"],
-                })
+                violations.append(
+                    {
+                        "metric": "LCP",
+                        "budget": budget["LCP"],
+                        "actual": self.lcp_p75,
+                        "exceeded_by": self.lcp_p75 - budget["LCP"],
+                    }
+                )
 
         if self.fid_p75 and "FID" in budget:
             if self.fid_p75 > budget["FID"]:
-                violations.append({
-                    "metric": "FID",
-                    "budget": budget["FID"],
-                    "actual": self.fid_p75,
-                    "exceeded_by": self.fid_p75 - budget["FID"],
-                })
+                violations.append(
+                    {
+                        "metric": "FID",
+                        "budget": budget["FID"],
+                        "actual": self.fid_p75,
+                        "exceeded_by": self.fid_p75 - budget["FID"],
+                    }
+                )
 
         if self.cls_p75 and "CLS" in budget:
             if self.cls_p75 > budget["CLS"]:
-                violations.append({
-                    "metric": "CLS",
-                    "budget": budget["CLS"],
-                    "actual": self.cls_p75,
-                    "exceeded_by": self.cls_p75 - budget["CLS"],
-                })
+                violations.append(
+                    {
+                        "metric": "CLS",
+                        "budget": budget["CLS"],
+                        "actual": self.cls_p75,
+                        "exceeded_by": self.cls_p75 - budget["CLS"],
+                    }
+                )
 
         return {
             "page": self.page,
@@ -356,8 +366,7 @@ class WebVitalsTracker:
 
         # Filter measurements
         page_measurements = [
-            m for m in self._measurements
-            if m.page == page and m.timestamp >= cutoff
+            m for m in self._measurements if m.page == page and m.timestamp >= cutoff
         ]
 
         metrics = PageMetrics(
@@ -369,10 +378,7 @@ class WebVitalsTracker:
 
         # Calculate p75 for each metric
         for metric_name in ["LCP", "FID", "CLS", "FCP", "TTFB"]:
-            values = [
-                m.value for m in page_measurements
-                if m.metric == metric_name
-            ]
+            values = [m.value for m in page_measurements if m.metric == metric_name]
             if values:
                 p75 = float(np.percentile(values, 75))
                 if metric_name == "LCP":
@@ -397,10 +403,7 @@ class WebVitalsTracker:
     ) -> dict[str, PageMetrics]:
         """Get metrics for all pages."""
         pages = {m.page for m in self._measurements}
-        return {
-            page: self.get_page_metrics(page, window)
-            for page in pages
-        }
+        return {page: self.get_page_metrics(page, window) for page in pages}
 
     def check_all_budgets(self) -> dict[str, Any]:
         """Check all pages against their budgets."""
@@ -444,17 +447,12 @@ class WebVitalsTracker:
             "window_hours": window.total_seconds() / 3600,
             "summary": {
                 "total_pages": len(all_metrics),
-                "total_measurements": sum(
-                    m.total_measurements for m in all_metrics.values()
-                ),
+                "total_measurements": sum(m.total_measurements for m in all_metrics.values()),
                 "rating_distribution": rating_counts,
                 "all_budgets_met": budget_check["all_budgets_met"],
                 "budget_violations": budget_check["violations_count"],
             },
-            "pages": {
-                page: metrics.to_dict()
-                for page, metrics in all_metrics.items()
-            },
+            "pages": {page: metrics.to_dict() for page, metrics in all_metrics.items()},
             "thresholds": {
                 name: {
                     "good_max": t.good_max,
@@ -504,10 +502,7 @@ class WebVitalsTracker:
     def _prune(self) -> None:
         """Remove measurements older than retention period."""
         cutoff = datetime.now() - self.retention
-        self._measurements = [
-            m for m in self._measurements
-            if m.timestamp >= cutoff
-        ]
+        self._measurements = [m for m in self._measurements if m.timestamp >= cutoff]
 
 
 # Global tracker instance

@@ -48,5 +48,6 @@ def __getattr__(name: str):
     fallback_exports = {"DegradedModeConfig", "FallbackHandler", "get_fallback_handler"}
     if name in fallback_exports:
         from news_pipeline.recovery import fallbacks
+
         return getattr(fallbacks, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

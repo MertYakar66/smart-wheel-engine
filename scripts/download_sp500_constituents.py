@@ -41,7 +41,9 @@ def fetch_sp500_constituents() -> pd.DataFrame:
             break
 
     if df is None or ticker_col_name is None:
-        raise RuntimeError("Could not find a table with a Symbol/Ticker column on the S&P 500 page.")
+        raise RuntimeError(
+            "Could not find a table with a Symbol/Ticker column on the S&P 500 page."
+        )
 
     # Rename that column to 'ticker'
     df = df.rename(columns={ticker_col_name: "ticker"})
@@ -61,5 +63,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -21,13 +21,15 @@ from pathlib import Path
 
 class CheckSeverity(Enum):
     """Severity levels for validation checks."""
+
     CRITICAL = "critical"  # Blocks execution
-    WARNING = "warning"    # Logs warning but continues
-    INFO = "info"          # Informational only
+    WARNING = "warning"  # Logs warning but continues
+    INFO = "info"  # Informational only
 
 
 class CheckStatus(Enum):
     """Status of a validation check."""
+
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -36,6 +38,7 @@ class CheckStatus(Enum):
 @dataclass
 class CheckResult:
     """Result of a single validation check."""
+
     name: str
     status: CheckStatus
     severity: CheckSeverity
@@ -46,6 +49,7 @@ class CheckResult:
 @dataclass
 class ValidationReport:
     """Complete validation report."""
+
     results: list[CheckResult] = field(default_factory=list)
 
     @property
@@ -137,27 +141,28 @@ class EnvironmentValidator:
         actual = f"{major}.{minor}.{micro}"
 
         if major == self.REQUIRED_PYTHON_MAJOR and minor >= self.REQUIRED_PYTHON_MINOR:
-            self.report.results.append(CheckResult(
-                name="python_version",
-                status=CheckStatus.PASSED,
-                severity=CheckSeverity.CRITICAL,
-                message=f"Python {actual} meets requirement >={required}",
-                details={"required": required, "actual": actual}
-            ))
+            self.report.results.append(
+                CheckResult(
+                    name="python_version",
+                    status=CheckStatus.PASSED,
+                    severity=CheckSeverity.CRITICAL,
+                    message=f"Python {actual} meets requirement >={required}",
+                    details={"required": required, "actual": actual},
+                )
+            )
         else:
-            self.report.results.append(CheckResult(
-                name="python_version",
-                status=CheckStatus.FAILED,
-                severity=CheckSeverity.CRITICAL,
-                message=f"Python {actual} does not meet requirement >={required}",
-                details={"required": required, "actual": actual}
-            ))
+            self.report.results.append(
+                CheckResult(
+                    name="python_version",
+                    status=CheckStatus.FAILED,
+                    severity=CheckSeverity.CRITICAL,
+                    message=f"Python {actual} does not meet requirement >={required}",
+                    details={"required": required, "actual": actual},
+                )
+            )
 
     def _check_dependency(
-        self,
-        name: str,
-        min_version: str | None,
-        severity: CheckSeverity
+        self, name: str, min_version: str | None, severity: CheckSeverity
     ) -> CheckResult:
         """Check if a dependency is installed with minimum version."""
         spec = importlib.util.find_spec(name)
@@ -168,7 +173,7 @@ class EnvironmentValidator:
                 status=CheckStatus.FAILED,
                 severity=severity,
                 message=f"Package '{name}' is not installed",
-                details={"package": name, "required_version": min_version}
+                details={"package": name, "required_version": min_version},
             )
 
         # Try to get version
@@ -188,8 +193,8 @@ class EnvironmentValidator:
                     details={
                         "package": name,
                         "required_version": min_version,
-                        "actual_version": actual_version
-                    }
+                        "actual_version": actual_version,
+                    },
                 )
 
         return CheckResult(
@@ -200,8 +205,8 @@ class EnvironmentValidator:
             details={
                 "package": name,
                 "required_version": min_version,
-                "actual_version": actual_version
-            }
+                "actual_version": actual_version,
+            },
         )
 
     def _version_satisfies(self, actual: str, required: str) -> bool:
@@ -252,21 +257,25 @@ class EnvironmentValidator:
         for var in optional_vars:
             value = os.environ.get(var)
             if value:
-                self.report.results.append(CheckResult(
-                    name=f"env_{var}",
-                    status=CheckStatus.PASSED,
-                    severity=CheckSeverity.INFO,
-                    message=f"Environment variable {var} is set",
-                    details={"variable": var, "set": True}
-                ))
+                self.report.results.append(
+                    CheckResult(
+                        name=f"env_{var}",
+                        status=CheckStatus.PASSED,
+                        severity=CheckSeverity.INFO,
+                        message=f"Environment variable {var} is set",
+                        details={"variable": var, "set": True},
+                    )
+                )
             else:
-                self.report.results.append(CheckResult(
-                    name=f"env_{var}",
-                    status=CheckStatus.SKIPPED,
-                    severity=CheckSeverity.INFO,
-                    message=f"Environment variable {var} is not set (optional)",
-                    details={"variable": var, "set": False}
-                ))
+                self.report.results.append(
+                    CheckResult(
+                        name=f"env_{var}",
+                        status=CheckStatus.SKIPPED,
+                        severity=CheckSeverity.INFO,
+                        message=f"Environment variable {var} is not set (optional)",
+                        details={"variable": var, "set": False},
+                    )
+                )
 
     def _check_directory_structure(self) -> None:
         """Check expected directory structure exists."""
@@ -281,21 +290,25 @@ class EnvironmentValidator:
         for dir_name in required_dirs:
             dir_path = project_root / dir_name
             if dir_path.is_dir():
-                self.report.results.append(CheckResult(
-                    name=f"directory_{dir_name}",
-                    status=CheckStatus.PASSED,
-                    severity=CheckSeverity.CRITICAL,
-                    message=f"Directory '{dir_name}' exists",
-                    details={"path": str(dir_path)}
-                ))
+                self.report.results.append(
+                    CheckResult(
+                        name=f"directory_{dir_name}",
+                        status=CheckStatus.PASSED,
+                        severity=CheckSeverity.CRITICAL,
+                        message=f"Directory '{dir_name}' exists",
+                        details={"path": str(dir_path)},
+                    )
+                )
             else:
-                self.report.results.append(CheckResult(
-                    name=f"directory_{dir_name}",
-                    status=CheckStatus.FAILED,
-                    severity=CheckSeverity.CRITICAL,
-                    message=f"Directory '{dir_name}' not found",
-                    details={"path": str(dir_path)}
-                ))
+                self.report.results.append(
+                    CheckResult(
+                        name=f"directory_{dir_name}",
+                        status=CheckStatus.FAILED,
+                        severity=CheckSeverity.CRITICAL,
+                        message=f"Directory '{dir_name}' not found",
+                        details={"path": str(dir_path)},
+                    )
+                )
 
 
 def print_report(report: ValidationReport, verbose: bool = False) -> None:
@@ -346,22 +359,24 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description="Validate Smart Wheel Engine environment")
     parser.add_argument("--dev", action="store_true", help="Check development dependencies")
-    parser.add_argument("--optional", nargs="*", default=[],
-                       help="Optional dependency groups to check (news, bloomberg)")
+    parser.add_argument(
+        "--optional",
+        nargs="*",
+        default=[],
+        help="Optional dependency groups to check (news, bloomberg)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
 
-    validator = EnvironmentValidator(
-        check_dev=args.dev,
-        check_optional=args.optional
-    )
+    validator = EnvironmentValidator(check_dev=args.dev, check_optional=args.optional)
 
     report = validator.validate_all()
 
     if args.json:
         import json
+
         output = {
             "summary": report.summary(),
             "has_critical_failures": report.has_critical_failures,
@@ -372,10 +387,10 @@ def main() -> int:
                     "status": r.status.value,
                     "severity": r.severity.value,
                     "message": r.message,
-                    "details": r.details
+                    "details": r.details,
                 }
                 for r in report.results
-            ]
+            ],
         }
         print(json.dumps(output, indent=2))
     else:

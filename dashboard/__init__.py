@@ -38,12 +38,12 @@ from .quant_dashboard import (
 )
 
 __all__ = [
-    'QuantDashboard',
-    'OptionInput',
-    'Position',
-    'PortfolioInput',
-    'quick_price',
-    'quick_greeks',
+    "QuantDashboard",
+    "OptionInput",
+    "Position",
+    "PortfolioInput",
+    "quick_price",
+    "quick_greeks",
 ]
 
-__version__ = '2.0.0'
+__version__ = "2.0.0"

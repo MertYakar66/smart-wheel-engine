@@ -44,17 +44,22 @@ def __getattr__(name: str):
     """Lazy import browser session classes that require playwright."""
     if name == "BrowserModelSession":
         from news_pipeline.browser_agents.base import BrowserModelSession
+
         return BrowserModelSession
     if name == "SessionManager":
         from news_pipeline.browser_agents.base import SessionManager
+
         return SessionManager
     if name == "ClaudeBrowserAgent":
         from news_pipeline.browser_agents.claude_agent import ClaudeBrowserAgent
+
         return ClaudeBrowserAgent
     if name == "ChatGPTBrowserAgent":
         from news_pipeline.browser_agents.chatgpt_agent import ChatGPTBrowserAgent
+
         return ChatGPTBrowserAgent
     if name == "GeminiBrowserAgent":
         from news_pipeline.browser_agents.gemini_agent import GeminiBrowserAgent
+
         return GeminiBrowserAgent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

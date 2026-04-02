@@ -135,10 +135,12 @@ class SensitivityClassifier:
     def _compile_patterns(self) -> None:
         """Compile regex patterns for efficiency."""
         self._tier_c_compiled = {
-            name: re.compile(pattern, re.IGNORECASE) for name, pattern in self.TIER_C_PATTERNS.items()
+            name: re.compile(pattern, re.IGNORECASE)
+            for name, pattern in self.TIER_C_PATTERNS.items()
         }
         self._tier_b_compiled = {
-            name: re.compile(pattern, re.IGNORECASE) for name, pattern in self.TIER_B_PATTERNS.items()
+            name: re.compile(pattern, re.IGNORECASE)
+            for name, pattern in self.TIER_B_PATTERNS.items()
         }
 
     def classify(self, content: str) -> ClassificationResult:
@@ -210,7 +212,9 @@ class SensitivityClassifier:
                 recommendations=["Low confidence classification"],
             )
 
-    def classify_news_item(self, headline: str, snippet: str = "", source: str = "") -> ClassificationResult:
+    def classify_news_item(
+        self, headline: str, snippet: str = "", source: str = ""
+    ) -> ClassificationResult:
         """
         Classify a news item for processing.
 

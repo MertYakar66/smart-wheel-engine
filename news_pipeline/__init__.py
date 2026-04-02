@@ -49,9 +49,11 @@ def __getattr__(name: str):
     }
     if name in browser_exports:
         from news_pipeline import browser_agents
+
         return getattr(browser_agents, name)
     if name == "NewsPipelineOrchestrator":
         from news_pipeline.orchestrator import NewsPipelineOrchestrator
+
         return NewsPipelineOrchestrator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

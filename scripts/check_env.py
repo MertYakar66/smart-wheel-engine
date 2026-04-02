@@ -1,16 +1,15 @@
-print(">>> Starting environment check...")
-
 import sys
-import pandas as pd
-import numpy as np
-import sklearn
-import yfinance as yf
-import statsmodels
-import arch
-import joblib
-import matplotlib
-import seaborn as sns
 
+import arch
+import matplotlib
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import sklearn
+import statsmodels
+import yfinance as yf
+
+print(">>> Starting environment check...")
 print("Python:", sys.version)
 print("pandas:", pd.__version__)
 print("numpy:", np.__version__)

@@ -470,10 +470,7 @@ class NewsPipelineOrchestrator:
         if not cp:
             return []
 
-        return [
-            CandidateStory.from_dict(c)
-            for c in cp.data.get("candidates", [])
-        ]
+        return [CandidateStory.from_dict(c) for c in cp.data.get("candidates", [])]
 
     def _load_verified_from_checkpoint(self) -> list[VerificationResult]:
         """Load verified results from checkpoint."""
@@ -481,10 +478,7 @@ class NewsPipelineOrchestrator:
         if not cp:
             return []
 
-        return [
-            VerificationResult.from_dict(v)
-            for v in cp.data.get("verified", [])
-        ]
+        return [VerificationResult.from_dict(v) for v in cp.data.get("verified", [])]
 
     def _load_formatted_from_checkpoint(self) -> list[FormattedStory]:
         """Load formatted stories from checkpoint."""
@@ -492,10 +486,7 @@ class NewsPipelineOrchestrator:
         if not cp:
             return []
 
-        return [
-            FormattedStory.from_dict(f)
-            for f in cp.data.get("formatted", [])
-        ]
+        return [FormattedStory.from_dict(f) for f in cp.data.get("formatted", [])]
 
     def _load_finalized_from_checkpoint(self) -> list[FinalizedStory]:
         """Load finalized stories from checkpoint."""
@@ -503,10 +494,7 @@ class NewsPipelineOrchestrator:
         if not cp:
             return []
 
-        return [
-            FinalizedStory.from_dict(f)
-            for f in cp.data.get("finalized", [])
-        ]
+        return [FinalizedStory.from_dict(f) for f in cp.data.get("finalized", [])]
 
     def _create_unverified_results(
         self,
@@ -598,7 +586,9 @@ class NewsPipelineOrchestrator:
             if fallback_result.success and fallback_result.result:
                 results.append(fallback_result.result)
             else:
-                logger.warning(f"[Pipeline] All verification providers failed for {candidate.story_id}")
+                logger.warning(
+                    f"[Pipeline] All verification providers failed for {candidate.story_id}"
+                )
                 # Create unverified result
                 results.append(
                     VerificationResult(

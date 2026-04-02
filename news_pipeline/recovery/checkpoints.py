@@ -141,9 +141,7 @@ class CheckpointManager:
             max_checkpoints: Maximum checkpoints to keep
             checkpoint_ttl_hours: Hours before checkpoint expires
         """
-        self.checkpoint_dir = Path(
-            checkpoint_dir or Path.home() / ".news_pipeline" / "checkpoints"
-        )
+        self.checkpoint_dir = Path(checkpoint_dir or Path.home() / ".news_pipeline" / "checkpoints")
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         self.max_checkpoints = max_checkpoints
@@ -215,9 +213,7 @@ class CheckpointManager:
         self._checkpoints[stage] = checkpoint
         self._persist_checkpoints()
 
-        logger.info(
-            f"[Checkpoint] Saved {stage.value}: {items_processed}/{items_total} items"
-        )
+        logger.info(f"[Checkpoint] Saved {stage.value}: {items_processed}/{items_total} items")
 
         return checkpoint
 
@@ -229,7 +225,8 @@ class CheckpointManager:
     def last_completed_stage(self) -> PipelineStage | None:
         """Get the last completed stage."""
         completed = [
-            cp for cp in self._checkpoints.values()
+            cp
+            for cp in self._checkpoints.values()
             if cp.is_complete or cp.stage == PipelineStage.COMPLETE
         ]
         if not completed:
@@ -329,9 +326,7 @@ class CheckpointManager:
     def _generate_run_id(self) -> str:
         """Generate a unique run ID."""
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        hash_suffix = hashlib.sha256(
-            f"{timestamp}_{id(self)}".encode()
-        ).hexdigest()[:8]
+        hash_suffix = hashlib.sha256(f"{timestamp}_{id(self)}".encode()).hexdigest()[:8]
         return f"{timestamp}_{hash_suffix}"
 
     def _get_run_file(self, run_id: str) -> Path:
@@ -348,10 +343,7 @@ class CheckpointManager:
 
         data = {
             "run_id": self._current_run_id,
-            "checkpoints": {
-                stage.value: cp.to_dict()
-                for stage, cp in self._checkpoints.items()
-            },
+            "checkpoints": {stage.value: cp.to_dict() for stage, cp in self._checkpoints.items()},
             "updated_at": datetime.utcnow().isoformat(),
         }
 
@@ -420,7 +412,7 @@ class CheckpointManager:
             except (json.JSONDecodeError, KeyError):
                 continue
 
-        return runs[:self.max_checkpoints]
+        return runs[: self.max_checkpoints]
 
 
 # Module-level instance

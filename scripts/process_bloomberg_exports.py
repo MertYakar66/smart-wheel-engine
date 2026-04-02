@@ -18,15 +18,13 @@ The input directory should contain files named:
 """
 
 import argparse
-import os
-import sys
-from pathlib import Path
-from datetime import datetime
 import logging
 import re
+import sys
+from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,8 +104,7 @@ def process_ohlcv(filepath: Path, ticker: str) -> pd.DataFrame | None:
     df = df.sort_values("Date").reset_index(drop=True)
 
     logger.info(
-        f"  OHLCV {ticker}: {len(df)} rows "
-        f"({df['Date'].min().date()} to {df['Date'].max().date()})"
+        f"  OHLCV {ticker}: {len(df)} rows ({df['Date'].min().date()} to {df['Date'].max().date()})"
     )
 
     return df
@@ -174,9 +171,7 @@ def process_earnings(filepath: Path, ticker: str) -> pd.DataFrame | None:
         return None
 
     # Rename columns
-    df = df.rename(
-        columns={k: v for k, v in EARNINGS_COLUMNS.items() if k in df.columns}
-    )
+    df = df.rename(columns={k: v for k, v in EARNINGS_COLUMNS.items() if k in df.columns})
 
     # Parse dates
     if "earnings_date" in df.columns:
@@ -208,9 +203,7 @@ def process_earnings(filepath: Path, ticker: str) -> pd.DataFrame | None:
         # Surprise percentage (handle zero estimate)
         with np.errstate(divide="ignore", invalid="ignore"):
             df.loc[mask, "surprise_pct"] = (
-                df.loc[mask, "eps_surprise"]
-                / df.loc[mask, "eps_estimate"].replace(0, np.nan)
-                * 100
+                df.loc[mask, "eps_surprise"] / df.loc[mask, "eps_estimate"].replace(0, np.nan) * 100
             )
 
     df = df.sort_values("earnings_date").reset_index(drop=True)
@@ -240,9 +233,7 @@ def process_dividends(filepath: Path, ticker: str) -> pd.DataFrame | None:
         return None
 
     # Rename columns
-    df = df.rename(
-        columns={k: v for k, v in DIVIDENDS_COLUMNS.items() if k in df.columns}
-    )
+    df = df.rename(columns={k: v for k, v in DIVIDENDS_COLUMNS.items() if k in df.columns})
 
     # Parse dates
     if "date" in df.columns:
@@ -280,9 +271,7 @@ def discover_tickers(input_dir: Path) -> list[str]:
     return sorted(tickers)
 
 
-def process_ticker(
-    ticker: str, input_dir: Path, output_dir: Path
-) -> dict[str, bool]:
+def process_ticker(ticker: str, input_dir: Path, output_dir: Path) -> dict[str, bool]:
     """Process all data types for a single ticker."""
     results = {}
 

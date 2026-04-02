@@ -13,10 +13,10 @@ Usage:
     python scripts/test_bloomberg.py --extract-all
 """
 
-import sys
 import argparse
+import sys
+from datetime import date
 from pathlib import Path
-from datetime import datetime, date
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -26,36 +26,14 @@ def check_dependencies():
     """Check if required packages are installed."""
     print("Checking dependencies...")
 
+    import importlib.util
+
     deps = {
-        "pandas": False,
-        "numpy": False,
-        "win32com (pywin32)": False,
-        "blpapi": False,
+        "pandas": importlib.util.find_spec("pandas") is not None,
+        "numpy": importlib.util.find_spec("numpy") is not None,
+        "win32com (pywin32)": importlib.util.find_spec("win32com") is not None,
+        "blpapi": importlib.util.find_spec("blpapi") is not None,
     }
-
-    try:
-        import pandas
-        deps["pandas"] = True
-    except ImportError:
-        pass
-
-    try:
-        import numpy
-        deps["numpy"] = True
-    except ImportError:
-        pass
-
-    try:
-        import win32com.client
-        deps["win32com (pywin32)"] = True
-    except ImportError:
-        pass
-
-    try:
-        import blpapi
-        deps["blpapi"] = True
-    except ImportError:
-        pass
 
     print("\nDependencies:")
     for dep, installed in deps.items():
@@ -81,13 +59,13 @@ def test_connection():
     print("=" * 50)
 
     try:
-        from data.bloomberg import test_connection, check_bloomberg_available
+        from data.bloomberg import check_bloomberg_available, test_connection
 
         available = check_bloomberg_available()
         print(f"\nBloomberg API available: {available['blpapi']}")
         print(f"Excel COM available: {available['excel_com']}")
 
-        if not available['any_available']:
+        if not available["any_available"]:
             print("\nNo Bloomberg interface available.")
             print("Make sure Bloomberg Terminal is running and Excel Add-in is loaded.")
             return False
@@ -107,7 +85,7 @@ def test_connection():
 
 def get_sample_quote(ticker: str = "AAPL"):
     """Get a sample quote from Bloomberg."""
-    print(f"\n" + "=" * 50)
+    print("\n" + "=" * 50)
     print(f"Fetching Quote for {ticker}")
     print("=" * 50)
 
@@ -138,7 +116,7 @@ def get_sample_quote(ticker: str = "AAPL"):
 
 def get_sample_historical(ticker: str = "AAPL"):
     """Get sample historical data."""
-    print(f"\n" + "=" * 50)
+    print("\n" + "=" * 50)
     print(f"Fetching Historical Data for {ticker}")
     print("=" * 50)
 
@@ -173,7 +151,7 @@ def extract_sample_data():
     tickers = ["AAPL", "MSFT", "GOOGL"]
 
     try:
-        from data.bloomberg import refresh_ohlcv, get_live_quotes
+        from data.bloomberg import get_live_quotes, refresh_ohlcv
 
         # Get live quotes
         print("\nFetching live quotes...")
@@ -183,8 +161,13 @@ def extract_sample_data():
 
         # Download historical data
         print("\nDownloading historical data (last 30 days)...")
-        start_date = (date.today().replace(day=1) -
-                      (date.today().replace(day=1) - date.today().replace(day=1).replace(month=date.today().month - 1))).strftime("%Y-%m-%d")
+        start_date = (
+            date.today().replace(day=1)
+            - (
+                date.today().replace(day=1)
+                - date.today().replace(day=1).replace(month=date.today().month - 1)
+            )
+        ).strftime("%Y-%m-%d")
 
         count = refresh_ohlcv(tickers, start_date=start_date)
         print(f"Successfully downloaded data for {count}/{len(tickers)} tickers")
@@ -211,7 +194,15 @@ def check_existing_data():
         print("Run data extraction first.")
         return
 
-    categories = ["ohlcv", "options", "iv_history", "earnings", "dividends", "rates", "fundamentals"]
+    categories = [
+        "ohlcv",
+        "options",
+        "iv_history",
+        "earnings",
+        "dividends",
+        "rates",
+        "fundamentals",
+    ]
 
     for cat in categories:
         cat_dir = bloomberg_dir / cat
@@ -231,7 +222,9 @@ def check_existing_data():
 def main():
     parser = argparse.ArgumentParser(description="Test Bloomberg connection and extract data")
     parser.add_argument("--ticker", type=str, default="AAPL", help="Ticker to test")
-    parser.add_argument("--extract-all", action="store_true", help="Extract sample data for multiple tickers")
+    parser.add_argument(
+        "--extract-all", action="store_true", help="Extract sample data for multiple tickers"
+    )
     parser.add_argument("--check-data", action="store_true", help="Check existing data files")
     args = parser.parse_args()
 

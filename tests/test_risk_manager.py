@@ -230,6 +230,228 @@ class TestVaR:
         assert cvar >= var  # CVaR should be >= VaR
 
 
+class TestMonteCarloVaR:
+    """Test Monte Carlo VaR calculations."""
+
+    def test_monte_carlo_var_basic(self):
+        """Monte Carlo VaR should return valid results."""
+        rm = RiskManager()
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
+            }
+        ]
+
+        spot_prices = {"AAPL": 155}
+        volatilities = {"AAPL": 0.25}
+
+        var, cvar, details = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=1000,
+            seed=42,
+        )
+
+        assert var > 0
+        assert cvar >= var  # CVaR should be >= VaR
+        assert "n_simulations" in details
+        assert details["n_simulations"] == 1000
+        assert "pnl_mean" in details
+        assert "pnl_std" in details
+        assert "percentiles" in details
+
+    def test_monte_carlo_var_with_correlation(self):
+        """Monte Carlo VaR with correlation matrix."""
+        import pandas as pd
+
+        rm = RiskManager()
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 3,
+                "is_short": True,
+            },
+            {
+                "symbol": "MSFT",
+                "option_type": "put",
+                "strike": 300,
+                "dte": 30,
+                "iv": 0.22,
+                "contracts": 2,
+                "is_short": True,
+            },
+        ]
+
+        spot_prices = {"AAPL": 155, "MSFT": 310}
+        volatilities = {"AAPL": 0.25, "MSFT": 0.22}
+
+        # Correlation matrix
+        corr_matrix = pd.DataFrame(
+            [[1.0, 0.7], [0.7, 1.0]],
+            index=["AAPL", "MSFT"],
+            columns=["AAPL", "MSFT"],
+        )
+
+        var, cvar, details = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            correlation_matrix=corr_matrix,
+            n_simulations=1000,
+            seed=42,
+        )
+
+        assert var > 0
+        assert cvar >= var
+        assert details["method"] == "monte_carlo_full_revaluation"
+
+    def test_monte_carlo_var_with_jump_diffusion(self):
+        """Monte Carlo VaR with Merton jump-diffusion."""
+        rm = RiskManager()
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
+            }
+        ]
+
+        spot_prices = {"AAPL": 155}
+        volatilities = {"AAPL": 0.25}
+
+        # Without jumps
+        var_no_jump, _, _ = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=5000,
+            include_jump_diffusion=False,
+            seed=42,
+        )
+
+        # With jumps (should generally have higher tail risk)
+        var_with_jump, _, details = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=5000,
+            include_jump_diffusion=True,
+            jump_intensity=2.0,
+            jump_mean=-0.02,
+            jump_std=0.03,
+            seed=42,
+        )
+
+        assert var_with_jump > 0
+        assert details["include_jump_diffusion"] is True
+
+    def test_monte_carlo_var_reproducibility(self):
+        """Monte Carlo VaR should be reproducible with same seed."""
+        rm = RiskManager()
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
+            }
+        ]
+
+        spot_prices = {"AAPL": 155}
+        volatilities = {"AAPL": 0.25}
+
+        var1, cvar1, _ = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=1000,
+            seed=123,
+        )
+
+        var2, cvar2, _ = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=1000,
+            seed=123,
+        )
+
+        assert var1 == var2
+        assert cvar1 == cvar2
+
+    def test_monte_carlo_var_details(self):
+        """Monte Carlo VaR should return comprehensive statistics."""
+        rm = RiskManager()
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
+            }
+        ]
+
+        spot_prices = {"AAPL": 155}
+        volatilities = {"AAPL": 0.25}
+
+        _, _, details = rm.calculate_monte_carlo_var(
+            portfolio_value=100000,
+            positions=positions,
+            spot_prices=spot_prices,
+            volatilities=volatilities,
+            n_simulations=2000,
+            seed=42,
+        )
+
+        # Check all expected detail fields
+        assert "pnl_skew" in details
+        assert "pnl_kurtosis" in details
+        assert "worst_case" in details
+        assert "best_case" in details
+        assert "percentiles" in details
+
+        percentiles = details["percentiles"]
+        assert "p1" in percentiles
+        assert "p5" in percentiles
+        assert "p95" in percentiles
+        assert "p99" in percentiles
+
+        # Worst case should be more extreme than p1
+        assert details["worst_case"] >= percentiles["p1"]
+
+
 class TestRiskLimits:
     """Test risk limit checks."""
 

@@ -472,6 +472,452 @@ class StressTester:
             "prob_10pct_loss": np.mean(pnls < -portfolio_value * 0.10),
         }
 
+    def greeks_stress_ladder(
+        self,
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        portfolio_value: float,
+        spot_range: tuple[float, float] = (-0.20, 0.20),
+        n_steps: int = 21,
+        iv_shock: float = 0.0,
+        dte_decay: int = 0,
+    ) -> pd.DataFrame:
+        """
+        Greeks stress ladder: P&L decomposition across spot prices.
+
+        Shows how each Greek contributes to P&L as the underlying moves.
+        Essential for understanding portfolio risk profile.
+
+        Args:
+            positions: List of position dictionaries
+            spot_prices: Current spot prices per symbol
+            portfolio_value: Total portfolio value
+            spot_range: Range of spot moves (default: -20% to +20%)
+            n_steps: Number of price points in ladder
+            iv_shock: Optional IV change to apply (default: 0)
+            dte_decay: Days of time decay to apply (default: 0)
+
+        Returns:
+            DataFrame with columns: spot_change, total_pnl, delta_pnl,
+            gamma_pnl, theta_pnl, vega_pnl, rho_pnl
+
+        Example usage:
+            ladder = tester.greeks_stress_ladder(positions, spots, 100000)
+            print(ladder[['spot_change', 'total_pnl', 'delta_pnl', 'gamma_pnl']])
+        """
+        from .option_pricer import black_scholes_all_greeks
+
+        spot_changes = np.linspace(spot_range[0], spot_range[1], n_steps)
+        results = []
+
+        for spot_chg in spot_changes:
+            total_delta_pnl = 0.0
+            total_gamma_pnl = 0.0
+            total_theta_pnl = 0.0
+            total_vega_pnl = 0.0
+            total_rho_pnl = 0.0
+            total_pnl = 0.0
+
+            for pos in positions:
+                symbol = pos["symbol"]
+                spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
+                new_spot = spot * (1 + spot_chg)
+
+                strike = pos["strike"]
+                dte = max(0.001, pos["dte"] - dte_decay)
+                T = dte / 365
+                iv = pos["iv"] * (1 + iv_shock) if iv_shock else pos["iv"]
+                option_type = pos["option_type"]
+                contracts = pos["contracts"]
+                is_short = pos.get("is_short", True)
+                r = pos.get("rate", 0.05)
+                q = pos.get("dividend_yield", 0.0)
+
+                direction = -1 if is_short else 1
+                multiplier = contracts * 100 * direction
+
+                # Calculate current Greeks
+                greeks = black_scholes_all_greeks(
+                    S=spot, K=strike, T=T, r=r, sigma=iv, option_type=option_type, q=q
+                )
+
+                # Calculate new Greeks at shocked spot
+                T_new = max(0.001, (dte - dte_decay) / 365) if dte_decay else T
+                new_greeks = black_scholes_all_greeks(
+                    S=new_spot, K=strike, T=T_new, r=r, sigma=iv, option_type=option_type, q=q
+                )
+
+                # P&L decomposition using Taylor expansion
+                dS = new_spot - spot
+                delta_pnl = greeks["delta"] * dS * multiplier
+                gamma_pnl = 0.5 * greeks["gamma"] * dS**2 * multiplier
+                theta_pnl = greeks["theta"] * dte_decay * multiplier if dte_decay else 0
+                vega_pnl = greeks["vega"] * iv_shock * multiplier if iv_shock else 0
+                rho_pnl = 0  # No rate shock in this scenario
+
+                # Full repricing P&L (most accurate)
+                old_price = greeks["price"]
+                new_price = new_greeks["price"]
+                actual_pnl = (new_price - old_price) * multiplier
+
+                # Higher-order residual
+                greeks_sum = delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl
+                residual = actual_pnl - greeks_sum
+
+                total_delta_pnl += delta_pnl
+                total_gamma_pnl += gamma_pnl
+                total_theta_pnl += theta_pnl
+                total_vega_pnl += vega_pnl
+                total_rho_pnl += rho_pnl
+                total_pnl += actual_pnl
+
+            results.append({
+                "spot_change": spot_chg,
+                "spot_change_pct": f"{spot_chg:+.1%}",
+                "total_pnl": total_pnl,
+                "delta_pnl": total_delta_pnl,
+                "gamma_pnl": total_gamma_pnl,
+                "theta_pnl": total_theta_pnl,
+                "vega_pnl": total_vega_pnl,
+                "rho_pnl": total_rho_pnl,
+                "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+            })
+
+        return pd.DataFrame(results)
+
+    def greeks_scenario_matrix(
+        self,
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        portfolio_value: float,
+        spot_shocks: list[float] | None = None,
+        iv_shocks: list[float] | None = None,
+        time_shocks: list[int] | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Comprehensive Greeks scenario matrix.
+
+        Tests portfolio across multiple dimensions simultaneously:
+        - Spot price shocks
+        - IV shocks
+        - Time decay scenarios
+
+        Returns matrices for:
+        - P&L surface (spot vs IV)
+        - Greeks evolution (how Greeks change with spot)
+        - Time decay profile
+
+        Args:
+            positions: List of position dictionaries
+            spot_prices: Current spot prices per symbol
+            portfolio_value: Total portfolio value
+            spot_shocks: List of spot changes (default: -20% to +20%)
+            iv_shocks: List of IV changes (default: -30% to +50%)
+            time_shocks: List of DTE values (default: current, 7d, 14d, 30d decay)
+
+        Returns:
+            Dict with 'pnl_surface', 'greeks_surface', 'time_decay' DataFrames
+        """
+        from .option_pricer import black_scholes_all_greeks
+
+        if spot_shocks is None:
+            spot_shocks = [-0.20, -0.15, -0.10, -0.05, 0, 0.05, 0.10, 0.15, 0.20]
+        if iv_shocks is None:
+            iv_shocks = [-0.30, -0.15, 0, 0.15, 0.30, 0.50]
+        if time_shocks is None:
+            time_shocks = [0, 7, 14, 30]
+
+        # === P&L Surface (Spot x IV) ===
+        pnl_rows = []
+        for spot_chg in spot_shocks:
+            row_data = {"spot_change": spot_chg}
+            for iv_chg in iv_shocks:
+                total_pnl = 0.0
+                for pos in positions:
+                    symbol = pos["symbol"]
+                    spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
+                    new_spot = spot * (1 + spot_chg)
+                    new_iv = pos["iv"] * (1 + iv_chg)
+
+                    T = max(0.001, pos["dte"] / 365)
+                    r = pos.get("rate", 0.05)
+                    q = pos.get("dividend_yield", 0.0)
+
+                    direction = -1 if pos.get("is_short", True) else 1
+                    multiplier = pos["contracts"] * 100 * direction
+
+                    old_greeks = black_scholes_all_greeks(
+                        S=spot, K=pos["strike"], T=T, r=r,
+                        sigma=pos["iv"], option_type=pos["option_type"], q=q
+                    )
+                    new_greeks = black_scholes_all_greeks(
+                        S=new_spot, K=pos["strike"], T=T, r=r,
+                        sigma=new_iv, option_type=pos["option_type"], q=q
+                    )
+                    total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
+
+                row_data[f"iv_{iv_chg:+.0%}"] = total_pnl
+            pnl_rows.append(row_data)
+
+        pnl_surface = pd.DataFrame(pnl_rows)
+
+        # === Greeks Surface (how Greeks change with spot) ===
+        greeks_rows = []
+        for spot_chg in spot_shocks:
+            total_delta = 0.0
+            total_gamma = 0.0
+            total_theta = 0.0
+            total_vega = 0.0
+
+            for pos in positions:
+                symbol = pos["symbol"]
+                spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
+                new_spot = spot * (1 + spot_chg)
+
+                T = max(0.001, pos["dte"] / 365)
+                r = pos.get("rate", 0.05)
+                q = pos.get("dividend_yield", 0.0)
+
+                direction = -1 if pos.get("is_short", True) else 1
+                multiplier = pos["contracts"] * 100 * direction
+
+                greeks = black_scholes_all_greeks(
+                    S=new_spot, K=pos["strike"], T=T, r=r,
+                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                )
+
+                total_delta += greeks["delta"] * multiplier
+                total_gamma += greeks["gamma"] * multiplier * new_spot
+                total_theta += greeks["theta"] * multiplier
+                total_vega += greeks["vega"] * multiplier
+
+            greeks_rows.append({
+                "spot_change": spot_chg,
+                "delta": total_delta,
+                "delta_dollars": total_delta * spot_prices.get(
+                    positions[0]["symbol"], 100) if positions else 0,
+                "gamma": total_gamma,
+                "theta": total_theta,
+                "vega": total_vega,
+            })
+
+        greeks_surface = pd.DataFrame(greeks_rows)
+
+        # === Time Decay Profile ===
+        time_rows = []
+        for days in time_shocks:
+            total_pnl = 0.0
+            total_theta = 0.0
+
+            for pos in positions:
+                symbol = pos["symbol"]
+                spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
+                dte_new = max(0.001, pos["dte"] - days)
+
+                T_old = max(0.001, pos["dte"] / 365)
+                T_new = dte_new / 365
+                r = pos.get("rate", 0.05)
+                q = pos.get("dividend_yield", 0.0)
+
+                direction = -1 if pos.get("is_short", True) else 1
+                multiplier = pos["contracts"] * 100 * direction
+
+                old_greeks = black_scholes_all_greeks(
+                    S=spot, K=pos["strike"], T=T_old, r=r,
+                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                )
+                new_greeks = black_scholes_all_greeks(
+                    S=spot, K=pos["strike"], T=T_new, r=r,
+                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                )
+
+                total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
+                total_theta += new_greeks["theta"] * multiplier
+
+            time_rows.append({
+                "days_elapsed": days,
+                "cumulative_pnl": total_pnl,
+                "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "remaining_theta": total_theta,
+            })
+
+        time_decay = pd.DataFrame(time_rows)
+
+        return {
+            "pnl_surface": pnl_surface,
+            "greeks_surface": greeks_surface,
+            "time_decay": time_decay,
+        }
+
+    def extreme_greeks_scenarios(
+        self,
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        portfolio_value: float,
+    ) -> dict[str, dict]:
+        """
+        Run extreme Greeks-focused stress scenarios.
+
+        Tests portfolio under severe but plausible market conditions
+        that stress specific Greek exposures.
+
+        Scenarios:
+        1. Black Monday (1987): -22% spot, +300% vol
+        2. COVID Crash (2020): -35% over 4 weeks, +400% vol
+        3. Flash Crash: -10% instant, +200% vol, immediate recovery
+        4. Vol Crush: -50% vol (earnings resolution)
+        5. Rate Shock: +200bps overnight
+        6. Gamma Squeeze: +30% spot, +50% vol (meme stock style)
+        7. Theta Burn: 30-day time decay, no spot/vol change
+        8. Weekend Gap: -8% gap, +80% vol
+
+        Returns:
+            Dict of scenario_name -> detailed results including
+            P&L breakdown by Greek
+        """
+        from .option_pricer import black_scholes_all_greeks
+
+        scenarios = {
+            "black_monday_1987": {
+                "spot_change": -0.22,
+                "iv_change": 3.0,  # 300% increase
+                "rate_change": 0.0,
+                "days_decay": 0,
+                "description": "Black Monday 1987: -22% spot, IV triples",
+            },
+            "covid_crash_2020": {
+                "spot_change": -0.35,
+                "iv_change": 4.0,  # 400% increase (VIX hit 82)
+                "rate_change": -0.01,  # Fed cut rates
+                "days_decay": 20,
+                "description": "COVID crash: -35%, IV quadruples over 20 days",
+            },
+            "flash_crash": {
+                "spot_change": -0.10,
+                "iv_change": 2.0,
+                "rate_change": 0.0,
+                "days_decay": 0,
+                "description": "Flash crash: -10% instant, IV doubles",
+            },
+            "vol_crush": {
+                "spot_change": 0.02,
+                "iv_change": -0.50,  # 50% vol decrease
+                "rate_change": 0.0,
+                "days_decay": 1,
+                "description": "Vol crush: earnings resolution, -50% IV",
+            },
+            "rate_shock_hawkish": {
+                "spot_change": -0.03,
+                "iv_change": 0.20,
+                "rate_change": 0.02,  # +200bps
+                "days_decay": 0,
+                "description": "Hawkish Fed: +200bps rates, -3% spot",
+            },
+            "gamma_squeeze": {
+                "spot_change": 0.30,
+                "iv_change": 0.50,
+                "rate_change": 0.0,
+                "days_decay": 0,
+                "description": "Gamma squeeze: +30% spot, +50% IV",
+            },
+            "theta_burn": {
+                "spot_change": 0.0,
+                "iv_change": 0.0,
+                "rate_change": 0.0,
+                "days_decay": 30,
+                "description": "Pure theta: 30 days decay, no spot/vol change",
+            },
+            "weekend_gap": {
+                "spot_change": -0.08,
+                "iv_change": 0.80,
+                "rate_change": 0.0,
+                "days_decay": 2,
+                "description": "Weekend gap: -8% gap, +80% IV",
+            },
+        }
+
+        results = {}
+
+        for scenario_name, params in scenarios.items():
+            total_pnl = 0.0
+            delta_pnl = 0.0
+            gamma_pnl = 0.0
+            theta_pnl = 0.0
+            vega_pnl = 0.0
+            rho_pnl = 0.0
+            position_details = []
+
+            for pos in positions:
+                symbol = pos["symbol"]
+                spot = spot_prices.get(symbol, pos.get("underlying_price", 100))
+                new_spot = spot * (1 + params["spot_change"])
+                new_iv = pos["iv"] * (1 + params["iv_change"])
+                new_rate = pos.get("rate", 0.05) + params["rate_change"]
+
+                T_old = max(0.001, pos["dte"] / 365)
+                T_new = max(0.001, (pos["dte"] - params["days_decay"]) / 365)
+                q = pos.get("dividend_yield", 0.0)
+
+                direction = -1 if pos.get("is_short", True) else 1
+                multiplier = pos["contracts"] * 100 * direction
+
+                # Current Greeks
+                old_greeks = black_scholes_all_greeks(
+                    S=spot, K=pos["strike"], T=T_old, r=pos.get("rate", 0.05),
+                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                )
+
+                # Stressed Greeks
+                new_greeks = black_scholes_all_greeks(
+                    S=new_spot, K=pos["strike"], T=T_new, r=new_rate,
+                    sigma=new_iv, option_type=pos["option_type"], q=q
+                )
+
+                # Full repricing P&L
+                pos_pnl = (new_greeks["price"] - old_greeks["price"]) * multiplier
+
+                # Greeks decomposition
+                dS = new_spot - spot
+                pos_delta_pnl = old_greeks["delta"] * dS * multiplier
+                pos_gamma_pnl = 0.5 * old_greeks["gamma"] * dS**2 * multiplier
+                pos_theta_pnl = old_greeks["theta"] * params["days_decay"] * multiplier
+                pos_vega_pnl = old_greeks["vega"] * (new_iv - pos["iv"]) * multiplier
+                pos_rho_pnl = old_greeks["rho"] * params["rate_change"] * multiplier
+
+                delta_pnl += pos_delta_pnl
+                gamma_pnl += pos_gamma_pnl
+                theta_pnl += pos_theta_pnl
+                vega_pnl += pos_vega_pnl
+                rho_pnl += pos_rho_pnl
+                total_pnl += pos_pnl
+
+                position_details.append({
+                    "symbol": symbol,
+                    "pnl": pos_pnl,
+                    "delta_contrib": pos_delta_pnl,
+                    "gamma_contrib": pos_gamma_pnl,
+                    "theta_contrib": pos_theta_pnl,
+                    "vega_contrib": pos_vega_pnl,
+                })
+
+            results[scenario_name] = {
+                "description": params["description"],
+                "total_pnl": total_pnl,
+                "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                "greek_attribution": {
+                    "delta_pnl": delta_pnl,
+                    "gamma_pnl": gamma_pnl,
+                    "theta_pnl": theta_pnl,
+                    "vega_pnl": vega_pnl,
+                    "rho_pnl": rho_pnl,
+                    "higher_order": total_pnl - (delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl),
+                },
+                "position_details": position_details,
+                "params": params,
+            }
+
+        return results
+
 
 def quick_stress_test(
     positions: list[dict], spot_prices: dict[str, float], portfolio_value: float

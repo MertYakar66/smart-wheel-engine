@@ -803,6 +803,266 @@ class RiskManager:
 
         return abs(total_var), abs(total_cvar), components
 
+    def calculate_monte_carlo_var(
+        self,
+        portfolio_value: float,
+        positions: list[dict],
+        spot_prices: dict[str, float],
+        volatilities: dict[str, float],
+        correlation_matrix: pd.DataFrame | None = None,
+        confidence: float = 0.95,
+        horizon_days: int = 1,
+        n_simulations: int = 10000,
+        vol_of_vol: float = 0.10,
+        include_jump_diffusion: bool = False,
+        jump_intensity: float = 2.0,
+        jump_mean: float = -0.02,
+        jump_std: float = 0.03,
+        seed: int | None = None,
+    ) -> tuple[float, float, dict]:
+        """
+        Monte Carlo VaR with full revaluation for complex portfolios.
+
+        This method simulates correlated asset price paths and revalues
+        the entire portfolio under each scenario. Superior to delta-normal
+        for portfolios with significant non-linear exposures (gamma, vega).
+
+        Features:
+        - Correlated GBM price paths using Cholesky decomposition
+        - Optional Merton jump-diffusion for tail risk
+        - Stochastic volatility (vol-of-vol) for vega impact
+        - Full option revaluation under each scenario
+        - Component VaR attribution
+
+        Mathematical basis:
+            dS_i = S_i × (μ dt + σ_i dW_i + J dN)
+
+            where:
+            - dW_i = correlated Brownian motions
+            - J dN = jump component (Poisson process)
+            - σ varies with vol-of-vol
+
+        Args:
+            portfolio_value: Total portfolio value
+            positions: List of position dictionaries
+            spot_prices: Current spot prices per symbol
+            volatilities: Dict of symbol -> annualized volatility
+            correlation_matrix: Optional correlation matrix (identity if None)
+            confidence: VaR confidence level (default 0.95)
+            horizon_days: VaR horizon in days
+            n_simulations: Number of Monte Carlo paths (default 10,000)
+            vol_of_vol: Annualized volatility of implied volatility (default 10%)
+            include_jump_diffusion: Enable Merton jump-diffusion (default False)
+            jump_intensity: Average jumps per year (λ) if jump diffusion enabled
+            jump_mean: Mean jump size (default -2%, negative for downside)
+            jump_std: Jump size standard deviation (default 3%)
+            seed: Random seed for reproducibility
+
+        Returns:
+            Tuple of (VaR, CVaR, simulation_details)
+
+        Reference:
+            Glasserman, P. (2003). "Monte Carlo Methods in Financial Engineering"
+            Merton, R. (1976). "Option pricing when underlying stock returns are
+                discontinuous"
+        """
+        if portfolio_value <= 0:
+            return 0.0, 0.0, {}
+
+        rng = np.random.default_rng(seed)
+
+        # Build per-asset exposures from positions
+        symbol_data: dict[str, dict] = {}
+        for pos in positions:
+            symbol = pos["symbol"]
+            if symbol not in symbol_data:
+                symbol_data[symbol] = {
+                    "spot": spot_prices.get(symbol, pos.get("underlying_price", 100)),
+                    "vol": volatilities.get(symbol, pos.get("iv", 0.25)),
+                    "positions": [],
+                }
+            symbol_data[symbol]["positions"].append(pos)
+
+        symbols = list(symbol_data.keys())
+        n_assets = len(symbols)
+
+        if n_assets == 0:
+            return 0.0, 0.0, {}
+
+        # Build correlation matrix
+        if correlation_matrix is not None and n_assets > 1:
+            corr = correlation_matrix.loc[symbols, symbols].values
+            corr = (corr + corr.T) / 2
+            np.fill_diagonal(corr, 1.0)
+
+            # PSD repair
+            eigenvalues, eigenvectors = np.linalg.eigh(corr)
+            if np.min(eigenvalues) < 0:
+                eigenvalues = np.maximum(eigenvalues, 1e-8)
+                corr = eigenvectors @ np.diag(eigenvalues) @ eigenvectors.T
+                d = np.sqrt(np.diag(corr))
+                corr = corr / np.outer(d, d)
+        else:
+            corr = np.eye(n_assets)
+
+        # Cholesky decomposition for correlated simulations
+        try:
+            chol = np.linalg.cholesky(corr)
+        except np.linalg.LinAlgError:
+            # Fallback to eigenvalue decomposition
+            eigenvalues, eigenvectors = np.linalg.eigh(corr)
+            eigenvalues = np.maximum(eigenvalues, 1e-8)
+            chol = eigenvectors @ np.diag(np.sqrt(eigenvalues))
+
+        # Time parameters
+        dt = horizon_days / 252
+        sqrt_dt = np.sqrt(dt)
+
+        # Build vectors
+        spots = np.array([symbol_data[s]["spot"] for s in symbols])
+        vols = np.array([symbol_data[s]["vol"] for s in symbols])
+
+        # === Generate Price Scenarios ===
+        # Correlated standard normals
+        z = rng.standard_normal((n_simulations, n_assets))
+        correlated_z = z @ chol.T
+
+        # GBM drift and diffusion
+        drift = -0.5 * vols**2 * dt
+        diffusion = vols * sqrt_dt * correlated_z
+
+        # Log returns
+        log_returns = drift + diffusion
+
+        # === Add Stochastic Volatility ===
+        # Vol shock affects option prices through vega
+        vol_shock = rng.standard_normal(n_simulations) * vol_of_vol * sqrt_dt
+
+        # === Add Jump-Diffusion (optional) ===
+        if include_jump_diffusion:
+            # Poisson number of jumps
+            n_jumps = rng.poisson(jump_intensity * dt, (n_simulations, n_assets))
+            # Jump sizes (log-normal)
+            jump_returns = np.zeros((n_simulations, n_assets))
+            for i in range(n_assets):
+                for j in range(n_simulations):
+                    if n_jumps[j, i] > 0:
+                        jumps = rng.normal(jump_mean, jump_std, n_jumps[j, i])
+                        jump_returns[j, i] = np.sum(jumps)
+            log_returns += jump_returns
+
+        # Simulated spot prices
+        sim_spots = spots * np.exp(log_returns)
+
+        # Simulated implied volatilities
+        sim_vols = np.maximum(0.01, vols + vol_shock[:, np.newaxis])
+
+        # === Full Portfolio Revaluation ===
+        scenario_pnl = np.zeros(n_simulations)
+
+        for sim_idx in range(n_simulations):
+            total_value_new = 0.0
+            total_value_old = 0.0
+
+            for i, symbol in enumerate(symbols):
+                new_spot = sim_spots[sim_idx, i]
+                new_vol = sim_vols[sim_idx, i]
+                old_spot = spots[i]
+                old_vol = vols[i]
+
+                for pos in symbol_data[symbol]["positions"]:
+                    strike = pos["strike"]
+                    dte = pos["dte"]
+                    option_type = pos["option_type"]
+                    contracts = pos["contracts"]
+                    is_short = pos.get("is_short", True)
+                    q = pos.get("dividend_yield", 0.0)
+
+                    # Time remaining after horizon
+                    dte_new = max(0.001, (dte - horizon_days) / 365)
+                    dte_old = max(0.001, dte / 365)
+
+                    direction = -1 if is_short else 1
+                    multiplier = contracts * 100
+
+                    # Current value
+                    greeks_old = black_scholes_all_greeks(
+                        S=old_spot,
+                        K=strike,
+                        T=dte_old,
+                        r=self.risk_free_rate,
+                        sigma=old_vol,
+                        option_type=option_type,
+                        q=q,
+                    )
+                    value_old = greeks_old["price"] * multiplier * direction
+
+                    # Simulated future value
+                    if dte - horizon_days <= 0:
+                        # Option expired - intrinsic value
+                        if option_type.lower() in ("call", "c"):
+                            intrinsic = max(0, new_spot - strike)
+                        else:
+                            intrinsic = max(0, strike - new_spot)
+                        value_new = intrinsic * multiplier * direction
+                    else:
+                        greeks_new = black_scholes_all_greeks(
+                            S=new_spot,
+                            K=strike,
+                            T=dte_new,
+                            r=self.risk_free_rate,
+                            sigma=new_vol,
+                            option_type=option_type,
+                            q=q,
+                        )
+                        value_new = greeks_new["price"] * multiplier * direction
+
+                    total_value_old += value_old
+                    total_value_new += value_new
+
+            scenario_pnl[sim_idx] = total_value_new - total_value_old
+
+        # === Calculate VaR and CVaR ===
+        sorted_pnl = np.sort(scenario_pnl)
+        alpha = 1 - confidence
+
+        # VaR: percentile of loss distribution
+        var = -np.percentile(sorted_pnl, alpha * 100, method="linear")
+
+        # CVaR: expected shortfall beyond VaR
+        tail_idx = int(n_simulations * alpha)
+        if tail_idx > 0:
+            tail_losses = sorted_pnl[:tail_idx]
+            cvar = -np.mean(tail_losses)
+        else:
+            cvar = var
+
+        # === Simulation Statistics ===
+        details = {
+            "n_simulations": n_simulations,
+            "confidence": confidence,
+            "horizon_days": horizon_days,
+            "method": "monte_carlo_full_revaluation",
+            "include_jump_diffusion": include_jump_diffusion,
+            "vol_of_vol": vol_of_vol,
+            "pnl_mean": float(np.mean(scenario_pnl)),
+            "pnl_std": float(np.std(scenario_pnl)),
+            "pnl_skew": float(stats.skew(scenario_pnl)),
+            "pnl_kurtosis": float(stats.kurtosis(scenario_pnl)),
+            "worst_case": float(-sorted_pnl[0]),
+            "best_case": float(-sorted_pnl[-1]),
+            "percentiles": {
+                "p1": float(-np.percentile(sorted_pnl, 1)),
+                "p5": float(-np.percentile(sorted_pnl, 5)),
+                "p10": float(-np.percentile(sorted_pnl, 10)),
+                "p90": float(-np.percentile(sorted_pnl, 90)),
+                "p95": float(-np.percentile(sorted_pnl, 95)),
+                "p99": float(-np.percentile(sorted_pnl, 99)),
+            },
+        }
+
+        return max(0.0, var), max(0.0, cvar), details
+
     def update_portfolio_value(self, value: float) -> None:
         """Update portfolio value history for drawdown tracking."""
         self.portfolio_values.append(value)

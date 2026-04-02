@@ -547,3 +547,479 @@ class TestWebVitals:
         result = tracker.check_all_budgets()
         assert "pages" in result
         assert "all_budgets_met" in result
+
+    def test_generate_report(self):
+        """Should generate performance reports."""
+        from dashboard.web_vitals import WebVitalsTracker
+
+        tracker = WebVitalsTracker()
+        tracker.record("LCP", 1500, "dashboard")
+        tracker.record("LCP", 5000, "news")  # Poor performance
+
+        report = tracker.generate_report()
+        assert "generated_at" in report
+        assert "summary" in report
+        assert "recommendations" in report
+
+
+# =============================================================================
+# ADDITIONAL QUANT BENCHMARK TESTS
+# =============================================================================
+
+class TestQuantBenchmarksExtended:
+    """Extended tests for quant benchmark tolerances."""
+
+    def test_tolerance_relative(self):
+        """Relative tolerance checks should work correctly."""
+        from tests.quant_benchmarks import BenchmarkTolerance, ToleranceType, check_tolerance
+
+        benchmark = BenchmarkTolerance(
+            name="Test",
+            tolerance_type=ToleranceType.RELATIVE,
+            value=0.05,  # 5% tolerance
+            reference="Test",
+            description="Test",
+        )
+
+        # Within 5% relative error
+        passed, _ = check_tolerance(1.02, 1.0, benchmark)
+        assert passed is True
+
+        # Outside 5% relative error
+        passed, _ = check_tolerance(1.10, 1.0, benchmark)
+        assert passed is False
+
+    def test_tolerance_non_negative(self):
+        """Non-negative tolerance checks should work correctly."""
+        from tests.quant_benchmarks import BenchmarkTolerance, ToleranceType, check_tolerance
+
+        benchmark = BenchmarkTolerance(
+            name="Test",
+            tolerance_type=ToleranceType.NON_NEGATIVE,
+            value=0.0,
+            reference="Test",
+            description="Test",
+        )
+
+        passed, _ = check_tolerance(0.5, None, benchmark)
+        assert passed is True
+
+        passed, _ = check_tolerance(-0.1, None, benchmark)
+        assert passed is False
+
+    def test_tolerance_probability(self):
+        """Probability tolerance checks should work correctly."""
+        from tests.quant_benchmarks import BenchmarkTolerance, ToleranceType, check_tolerance
+
+        benchmark = BenchmarkTolerance(
+            name="Test",
+            tolerance_type=ToleranceType.PROBABILITY,
+            value=(0.0, 1.0),
+            reference="Test",
+            description="Test",
+        )
+
+        passed, _ = check_tolerance(0.5, None, benchmark)
+        assert passed is True
+
+        passed, _ = check_tolerance(1.5, None, benchmark)
+        assert passed is False
+
+    def test_benchmark_helpers(self):
+        """Test benchmark helper functions."""
+        from tests.quant_benchmarks import (
+            generate_benchmark_report,
+            get_benchmark,
+            list_benchmarks,
+        )
+
+        # Get specific benchmark
+        benchmark = get_benchmark("put_call_parity")
+        assert benchmark is not None
+        assert benchmark.name == "Put-Call Parity"
+
+        # List benchmarks by category
+        bs_benchmarks = list_benchmarks("blackscholes")
+        assert len(bs_benchmarks) > 0
+
+        # Generate report
+        report = generate_benchmark_report()
+        assert "total_benchmarks" in report
+        assert "release_gates" in report
+
+
+# =============================================================================
+# ADDITIONAL HEALTH CHECK TESTS
+# =============================================================================
+
+class TestHealthChecksExtended:
+    """Extended health check tests."""
+
+    def test_unregister_check(self):
+        """Should be able to unregister health checks."""
+        from utils.health import HealthChecker, HealthStatus
+
+        checker = HealthChecker()
+
+        def dummy_check():
+            return (HealthStatus.HEALTHY, "OK", {})
+
+        checker.register_check("temp_check", dummy_check)
+        assert any(c.name == "temp_check" for c in checker.get_status().checks)
+
+        checker.unregister_check("temp_check")
+        assert not any(c.name == "temp_check" for c in checker.get_status().checks)
+
+    def test_cache_behavior(self):
+        """Cache should return cached results within TTL."""
+        from utils.health import HealthChecker, HealthStatus
+
+        call_count = [0]
+
+        def counting_check():
+            call_count[0] += 1
+            return (HealthStatus.HEALTHY, f"Call {call_count[0]}", {})
+
+        checker = HealthChecker(cache_ttl_seconds=60.0)
+        checker.register_check("counting", counting_check)
+
+        # First call
+        checker.get_status()
+        assert call_count[0] == 1
+
+        # Second call should use cache
+        checker.get_status()
+        assert call_count[0] == 1  # Still 1, cached
+
+        # Force refresh should bypass cache
+        checker.get_status(force_refresh=True)
+        assert call_count[0] == 2
+
+    def test_check_exception(self):
+        """Checks that raise exceptions should be caught."""
+        from utils.health import HealthChecker, HealthStatus
+
+        checker = HealthChecker()
+
+        def failing_check():
+            raise ValueError("Test error")
+
+        checker.register_check("failing", failing_check)
+        status = checker.get_status()
+
+        failing_result = next(c for c in status.checks if c.name == "failing")
+        assert failing_result.status == HealthStatus.UNHEALTHY
+
+    def test_system_health_properties(self):
+        """SystemHealth properties should work correctly."""
+        from utils.health import HealthChecker, HealthStatus
+
+        checker = HealthChecker(version="2.0.0")
+
+        def healthy_check():
+            return (HealthStatus.HEALTHY, "OK", {})
+
+        checker.register_check("check", healthy_check)
+        status = checker.get_status()
+
+        assert status.is_healthy is True
+        assert status.is_ready is True
+        assert status.version == "2.0.0"
+        assert status.uptime_seconds > 0
+
+        # Test to_dict
+        status_dict = status.to_dict()
+        assert "status" in status_dict
+        assert "checks" in status_dict
+
+
+# =============================================================================
+# ADDITIONAL SLO TESTS
+# =============================================================================
+
+class TestSLOExtended:
+    """Extended SLO tests."""
+
+    def test_slo_compliance_check(self):
+        """SLO compliance check should work correctly."""
+        from news_pipeline.slo import PipelineStage, SLOTracker
+
+        tracker = SLOTracker()
+
+        # Record requests with various latencies
+        for latency in [100, 200, 300, 400, 500]:
+            tracker.record_request(PipelineStage.DISCOVERY, latency, True)
+
+        report = tracker.check_slo_compliance(PipelineStage.DISCOVERY)
+        assert "stage" in report
+        assert "status" in report
+        assert "latency" in report
+
+    def test_generate_slo_report(self):
+        """Should generate comprehensive SLO report."""
+        from news_pipeline.slo import PipelineStage, SLOTracker
+
+        tracker = SLOTracker()
+        tracker.record_request(PipelineStage.DISCOVERY, 500.0, True)
+        tracker.record_request(PipelineStage.VERIFICATION, 3000.0, True)
+
+        report = tracker.generate_slo_report()
+        assert "generated_at" in report
+        assert "stages" in report
+        assert "error_budgets" in report
+        assert "overall_status" in report
+
+    def test_slo_metrics_properties(self):
+        """SLOMetrics properties should calculate correctly."""
+        from news_pipeline.slo import PipelineStage, SLOMetrics
+
+        metrics = SLOMetrics(
+            period_start=datetime.now() - timedelta(hours=1),
+            period_end=datetime.now(),
+            stage=PipelineStage.DISCOVERY,
+            total_requests=100,
+            successful_requests=95,
+            failed_requests=5,
+            latencies_ms=[100, 200, 300, 400, 500],
+        )
+
+        assert metrics.error_rate == 0.05
+        assert metrics.success_rate == 0.95
+        assert metrics.p50_latency_ms is not None
+        assert metrics.p95_latency_ms is not None
+
+
+# =============================================================================
+# ADDITIONAL ADVISOR SCORECARD TESTS
+# =============================================================================
+
+class TestAdvisorScorecardExtended:
+    """Extended advisor scorecard tests."""
+
+    def test_generate_report(self):
+        """Should generate comprehensive report."""
+        from advisors.scorecard import (
+            AdvisorPrediction,
+            AdvisorScorecard,
+            ConfidenceLevel,
+            JudgmentType,
+            OutcomeType,
+            TradeOutcome,
+        )
+
+        scorecard = AdvisorScorecard()
+
+        # Add prediction and outcome
+        prediction = AdvisorPrediction(
+            prediction_id="test_1",
+            advisor_name="buffett",
+            judgment=JudgmentType.APPROVE,
+            confidence=ConfidenceLevel.HIGH,
+            timestamp=datetime.now(),
+            ticker="AAPL",
+            strategy="cash_secured_put",
+            strike=150.0,
+            expiration_date="2024-12-20",
+            premium=3.50,
+        )
+        scorecard.record_prediction(prediction)
+
+        outcome = TradeOutcome(
+            outcome_id="outcome_1",
+            prediction_id="test_1",
+            outcome=OutcomeType.WIN,
+            pnl=350.0,
+            pnl_percent=2.5,
+            close_timestamp=datetime.now(),
+            hold_days=30,
+        )
+        scorecard.record_outcome(outcome)
+
+        report = scorecard.generate_report()
+        assert "generated_at" in report
+        assert "summary" in report
+        assert "advisor_metrics" in report
+
+    def test_calibration_curve(self):
+        """Should calculate calibration curve."""
+        from advisors.scorecard import (
+            AdvisorPrediction,
+            AdvisorScorecard,
+            ConfidenceLevel,
+            JudgmentType,
+            OutcomeType,
+            TradeOutcome,
+        )
+
+        scorecard = AdvisorScorecard()
+
+        # Add predictions with outcomes
+        for i in range(10):
+            pred = AdvisorPrediction(
+                prediction_id=f"pred_{i}",
+                advisor_name="test_advisor",
+                judgment=JudgmentType.APPROVE,
+                confidence=ConfidenceLevel.HIGH,
+                timestamp=datetime.now(),
+                ticker="AAPL",
+                strategy="csp",
+                strike=150.0,
+                expiration_date="2024-12-20",
+                premium=3.50,
+            )
+            scorecard.record_prediction(pred)
+
+            outcome = TradeOutcome(
+                outcome_id=f"out_{i}",
+                prediction_id=f"pred_{i}",
+                outcome=OutcomeType.WIN if i < 8 else OutcomeType.LOSS,
+                pnl=350.0 if i < 8 else -150.0,
+                pnl_percent=2.5 if i < 8 else -1.0,
+                close_timestamp=datetime.now(),
+                hold_days=30,
+            )
+            scorecard.record_outcome(outcome)
+
+        buckets = scorecard.get_calibration_curve("test_advisor")
+        assert len(buckets) > 0
+
+    def test_metrics_edge_cases(self):
+        """Test metrics edge cases."""
+        from advisors.scorecard import AdvisorMetrics
+
+        # Zero values
+        metrics = AdvisorMetrics(
+            advisor_name="test",
+            period_start=datetime.now(),
+            period_end=datetime.now(),
+            total_predictions=0,
+            total_outcomes=0,
+        )
+
+        assert metrics.accuracy == 0.0
+        assert metrics.precision == 0.0
+        assert metrics.recall == 0.0
+        assert metrics.f1_score == 0.0
+
+
+# =============================================================================
+# ADDITIONAL BROWSER ROBUSTNESS TESTS
+# =============================================================================
+
+class TestBrowserRobustnessExtended:
+    """Extended browser robustness tests."""
+
+    def test_record_session(self):
+        """Should track session success/failure."""
+        from news_pipeline.browser_agents.robustness import RobustnessTracker
+
+        tracker = RobustnessTracker()
+
+        tracker.record_session("claude", True)
+        tracker.record_session("claude", True)
+        tracker.record_session("claude", False)
+
+        agent = tracker.get_agent_metrics("claude")
+        assert agent.total_sessions == 3
+        assert agent.successful_sessions == 2
+        assert agent.failed_sessions == 1
+        assert agent.session_success_rate == pytest.approx(2/3)
+
+    def test_suggest_fallbacks(self):
+        """Should suggest selector fallbacks."""
+        from news_pipeline.browser_agents.robustness import RobustnessTracker
+
+        tracker = RobustnessTracker()
+
+        # Simulate failing selector
+        for _ in range(10):
+            tracker.record_selector_attempt("claude", "prompt_input", False, 100.0)
+
+        fallbacks = tracker.suggest_fallbacks("claude", "prompt_input")
+        assert len(fallbacks) > 0
+
+    def test_generate_robustness_report(self):
+        """Should generate robustness report."""
+        from news_pipeline.browser_agents.robustness import RobustnessTracker
+
+        tracker = RobustnessTracker()
+
+        # Record some activity
+        tracker.record_selector_attempt("claude", "prompt_input", True, 50.0)
+        tracker.record_session("claude", True)
+
+        report = tracker.generate_robustness_report()
+        assert "generated_at" in report
+        assert "summary" in report
+        assert "agents" in report
+
+    def test_selector_degraded_status(self):
+        """Selector should show degraded status."""
+        from news_pipeline.browser_agents.robustness import (
+            SelectorMetrics,
+            SelectorStatus,
+        )
+
+        selector = SelectorMetrics(
+            selector="div.test",
+            element_type="div",
+            purpose="test",
+        )
+
+        # 85% success rate = degraded
+        for _ in range(85):
+            selector.record_attempt(True, 50.0)
+        for _ in range(15):
+            selector.record_attempt(False, 100.0)
+
+        assert selector.status == SelectorStatus.DEGRADED
+
+    def test_selector_failing_status(self):
+        """Selector should show failing status."""
+        from news_pipeline.browser_agents.robustness import (
+            SelectorMetrics,
+            SelectorStatus,
+        )
+
+        selector = SelectorMetrics(
+            selector="div.test",
+            element_type="div",
+            purpose="test",
+        )
+
+        # 50% success rate = failing
+        for _ in range(50):
+            selector.record_attempt(True, 50.0)
+        for _ in range(50):
+            selector.record_attempt(False, 100.0)
+
+        assert selector.status == SelectorStatus.FAILING
+
+
+# =============================================================================
+# ENVIRONMENT VALIDATION EXTENDED TESTS
+# =============================================================================
+
+class TestEnvironmentValidationExtended:
+    """Extended environment validation tests."""
+
+    def test_dev_dependencies_check(self):
+        """Should check dev dependencies when requested."""
+        from scripts.validate_environment import EnvironmentValidator
+
+        validator = EnvironmentValidator(check_dev=True)
+        report = validator.validate_all()
+
+        # Should have more results with dev checks
+        assert report.summary()["total"] > 5
+
+    def test_version_satisfies(self):
+        """Version comparison should work correctly."""
+        from scripts.validate_environment import EnvironmentValidator
+
+        validator = EnvironmentValidator()
+
+        assert validator._version_satisfies("2.0.0", "1.0.0") is True
+        assert validator._version_satisfies("1.0.0", "2.0.0") is False
+        assert validator._version_satisfies("1.5.0", "1.5.0") is True
+        assert validator._version_satisfies("invalid", "1.0.0") is True  # Can't parse, assume OK

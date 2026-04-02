@@ -14,9 +14,19 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import aiohttp
+# Lazy import aiohttp - only required when actually using connectors
+try:
+    import aiohttp
+
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+    aiohttp = None  # type: ignore
+
+if TYPE_CHECKING:
+    import aiohttp
 
 from financial_news.schema import Article, Source
 
@@ -112,6 +122,11 @@ class BaseConnector(ABC):
         max_retries: int = 3,
         base_timeout: float = 30.0,
     ):
+        if not AIOHTTP_AVAILABLE:
+            raise ImportError(
+                "aiohttp is required for news connectors. "
+                "Install with: pip install aiohttp or pip install smart-wheel-engine[news]"
+            )
         self.source = source
         self.user_agent = user_agent
         self.max_retries = max_retries

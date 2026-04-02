@@ -19,8 +19,19 @@ NOT for:
 import json
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import aiohttp
+# Lazy import aiohttp - only required when using LLM mode
+try:
+    import aiohttp
+
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+    aiohttp = None  # type: ignore
+
+if TYPE_CHECKING:
+    import aiohttp
 
 from news_pipeline.scrapers.base import NewsCategory, NewsItem
 
@@ -67,6 +78,11 @@ class LocalPreprocessor:
 
     async def check_llm_available(self) -> bool:
         """Check if Ollama is running and model is available."""
+        if not AIOHTTP_AVAILABLE:
+            logger.debug("[LocalLLM] aiohttp not installed, LLM unavailable")
+            self._llm_available = False
+            return False
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(

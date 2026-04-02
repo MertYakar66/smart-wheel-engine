@@ -13,8 +13,19 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import TYPE_CHECKING
 
-import aiohttp
+# Lazy import aiohttp - only required when actually using health checks
+try:
+    import aiohttp
+
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+    aiohttp = None  # type: ignore
+
+if TYPE_CHECKING:
+    import aiohttp
 
 from news_pipeline.browser_agents.types import ModelType, SessionStatus
 

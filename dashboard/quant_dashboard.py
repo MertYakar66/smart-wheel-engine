@@ -37,6 +37,12 @@ from engine.risk_manager import (
     RiskManager,
     calculate_kelly_fraction,
 )
+from engine.portfolio_tracker import (
+    PortfolioTracker,
+    Transaction,
+    TransactionType,
+    Holding,
+)
 
 # =============================================================================
 # Data Classes
@@ -103,10 +109,12 @@ class QuantDashboard:
     - Position sizing (Kelly criterion)
     """
 
-    def __init__(self, risk_free_rate: float = 0.05):
+    def __init__(self, risk_free_rate: float = 0.05, initial_cash: float = 0.0):
         self.risk_free_rate = risk_free_rate
         self.risk_manager = RiskManager(risk_free_rate=risk_free_rate)
         self._portfolio = PortfolioInput()
+        # Portfolio Tracker for comprehensive portfolio management
+        self.portfolio_tracker = PortfolioTracker(initial_cash=initial_cash)
 
     # =========================================================================
     # Option Pricing
@@ -682,12 +690,13 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 │  7. Stress Testing                                         │
 │  8. Position Sizing (Kelly)                                │
 │  9. Generate Reports                                       │
+│ 10. Portfolio Tracker (Returns & Holdings)                 │
 │  0. Exit                                                   │
 └────────────────────────────────────────────────────────────┘
             """)
 
             try:
-                choice = input("Select option [0-9]: ").strip()
+                choice = input("Select option [0-10]: ").strip()
 
                 if choice == "0":
                     print("\nExiting dashboard. Goodbye!")
@@ -710,6 +719,8 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                     self._menu_kelly()
                 elif choice == "9":
                     self._menu_reports()
+                elif choice == "10":
+                    self._menu_portfolio_tracker()
                 else:
                     print("Invalid option. Please try again.")
 
@@ -876,6 +887,273 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             print(self.option_report(opt, style))
         elif choice == "2":
             print(self.risk_report())
+
+    def _menu_portfolio_tracker(self):
+        """Portfolio tracker menu - inspired by Wealthsimple/IBKR/Robinhood."""
+        while True:
+            tracker = self.portfolio_tracker
+            total_value = tracker.get_total_value()
+
+            print(f"""
+╔══════════════════════════════════════════════════════════════╗
+║                    PORTFOLIO TRACKER                          ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Total Value: ${total_value:,.2f}
+  Cash:        ${tracker.cash:,.2f}
+  Holdings:    {len(tracker.holdings)}
+
+┌────────────────────────────────────────────────────────────┐
+│  PORTFOLIO TRACKER MENU                                    │
+├────────────────────────────────────────────────────────────┤
+│  1. View Performance (Returns)                             │
+│  2. View Holdings                                          │
+│  3. View Allocation                                        │
+│  4. Add Transaction                                        │
+│  5. Deposit/Withdraw Cash                                  │
+│  6. Import Holdings                                        │
+│  7. Take Snapshot (Update Prices)                          │
+│  8. Export Portfolio (JSON)                                │
+│  9. Full Summary Report                                    │
+│  0. Back to Main Menu                                      │
+└────────────────────────────────────────────────────────────┘
+            """)
+
+            choice = input("Select [0-9]: ").strip()
+
+            if choice == "0":
+                break
+            elif choice == "1":
+                self._tracker_performance()
+            elif choice == "2":
+                self._tracker_holdings()
+            elif choice == "3":
+                self._tracker_allocation()
+            elif choice == "4":
+                self._tracker_add_transaction()
+            elif choice == "5":
+                self._tracker_cash_flow()
+            elif choice == "6":
+                self._tracker_import_holdings()
+            elif choice == "7":
+                self._tracker_snapshot()
+            elif choice == "8":
+                self._tracker_export()
+            elif choice == "9":
+                print(self.portfolio_tracker.summary_report())
+            else:
+                print("Invalid option.")
+
+    def _tracker_performance(self):
+        """Display portfolio performance metrics."""
+        metrics = self.portfolio_tracker.get_returns()
+
+        print(f"""
+{'='*60}
+PORTFOLIO PERFORMANCE
+{'='*60}
+
+RETURNS BY PERIOD
+{'-'*40}
+  Today (1D):     {metrics.return_1d:+.2%}
+  1 Week:         {metrics.return_1w:+.2%}
+  1 Month:        {metrics.return_1m:+.2%}
+  3 Months:       {metrics.return_3m:+.2%}
+  Year to Date:   {metrics.return_ytd:+.2%}
+  1 Year:         {metrics.return_1y:+.2%}
+  All Time:       {metrics.return_all_time:+.2%}
+
+RISK METRICS
+{'-'*40}
+  Volatility (Annualized): {metrics.volatility_annualized:.1%}
+  Sharpe Ratio:            {metrics.sharpe_ratio:.2f}
+  Sortino Ratio:           {metrics.sortino_ratio:.2f}
+  Max Drawdown:            {metrics.max_drawdown:.1%}
+
+TOTALS
+{'-'*40}
+  Total Gain/Loss:         ${metrics.total_gain:+,.2f}
+  Total Dividends:         ${metrics.total_dividends:,.2f}
+  Total Fees:              ${metrics.total_fees:,.2f}
+
+{'='*60}
+        """)
+
+    def _tracker_holdings(self):
+        """Display current holdings."""
+        print(self.portfolio_tracker.positions_report())
+
+    def _tracker_allocation(self):
+        """Display portfolio allocation."""
+        allocation = self.portfolio_tracker.get_allocation()
+
+        if not allocation:
+            print("\nNo holdings to analyze.")
+            return
+
+        print(f"""
+{'='*60}
+PORTFOLIO ALLOCATION
+{'='*60}
+
+OVERVIEW
+{'-'*40}
+  Total Value:  ${allocation.get('total_value', 0):,.2f}
+  Cash:         ${allocation.get('cash', 0):,.2f} ({allocation.get('cash_pct', 0):.1%})
+  Invested:     ${allocation.get('invested', 0):,.2f} ({allocation.get('invested_pct', 0):.1%})
+
+BY SECTOR
+{'-'*40}""")
+
+        for sector, pct in sorted(allocation.get("by_sector", {}).items(), key=lambda x: -x[1]):
+            print(f"  {sector:25s} {pct:6.1%}")
+
+        print(f"""
+BY ASSET CLASS
+{'-'*40}""")
+
+        for asset, pct in sorted(allocation.get("by_asset_class", {}).items(), key=lambda x: -x[1]):
+            print(f"  {asset:25s} {pct:6.1%}")
+
+        print(f"""
+TOP HOLDINGS
+{'-'*40}""")
+
+        for h in allocation.get("top_holdings", [])[:5]:
+            print(f"  {h['ticker']:12s} ${h['value']:>10,.2f} ({h['pct']:5.1%})  P&L: {h['pnl_pct']:+.1%}")
+
+        print(f"\n{'='*60}")
+
+    def _tracker_add_transaction(self):
+        """Add a new transaction."""
+        print("\n--- Add Transaction ---")
+        print("  1. Buy Stock")
+        print("  2. Sell Stock")
+        print("  3. Receive Dividend")
+
+        choice = input("Select [1-3]: ").strip()
+
+        ticker = input("Ticker symbol: ").upper()
+        shares = float(input("Shares: "))
+        price = float(input("Price per share: $"))
+        fees = float(input("Fees [0]: $") or "0")
+
+        if choice == "1":
+            action = TransactionType.BUY
+        elif choice == "2":
+            action = TransactionType.SELL
+        elif choice == "3":
+            action = TransactionType.DIVIDEND
+        else:
+            print("Invalid choice.")
+            return
+
+        from datetime import date as dt
+        txn = Transaction(
+            ticker=ticker,
+            action=action,
+            shares=shares,
+            price=price,
+            date=dt.today(),
+            fees=fees,
+        )
+
+        if self.portfolio_tracker.add_transaction(txn):
+            print(f"\n>>> Transaction recorded: {action.value.upper()} {shares} {ticker} @ ${price:.2f}")
+        else:
+            print("\n>>> Transaction failed (check funds/holdings)")
+
+    def _tracker_cash_flow(self):
+        """Handle deposits and withdrawals."""
+        print("\n--- Cash Flow ---")
+        print("  1. Deposit")
+        print("  2. Withdraw")
+
+        choice = input("Select [1-2]: ").strip()
+        amount = float(input("Amount: $"))
+
+        from datetime import date as dt
+        if choice == "1":
+            txn = Transaction(
+                ticker="CASH",
+                action=TransactionType.DEPOSIT,
+                shares=1,
+                price=amount,
+                date=dt.today(),
+            )
+            self.portfolio_tracker.add_transaction(txn)
+            print(f"\n>>> Deposited ${amount:,.2f}")
+        elif choice == "2":
+            txn = Transaction(
+                ticker="CASH",
+                action=TransactionType.WITHDRAWAL,
+                shares=1,
+                price=amount,
+                date=dt.today(),
+            )
+            if self.portfolio_tracker.add_transaction(txn):
+                print(f"\n>>> Withdrew ${amount:,.2f}")
+            else:
+                print("\n>>> Insufficient funds")
+
+    def _tracker_import_holdings(self):
+        """Import holdings from user input."""
+        print("\n--- Import Holdings ---")
+        print("Enter holdings in format: TICKER,SHARES,COST_BASIS,CURRENT_PRICE")
+        print("Type 'done' when finished.")
+
+        holdings = []
+        while True:
+            line = input("> ").strip()
+            if line.lower() == "done":
+                break
+
+            try:
+                parts = line.split(",")
+                holdings.append({
+                    "ticker": parts[0].strip().upper(),
+                    "shares": float(parts[1].strip()),
+                    "cost_basis": float(parts[2].strip()),
+                    "current_price": float(parts[3].strip()) if len(parts) > 3 else float(parts[2].strip()),
+                })
+            except (ValueError, IndexError):
+                print("Invalid format. Use: TICKER,SHARES,COST_BASIS,CURRENT_PRICE")
+
+        if holdings:
+            count = self.portfolio_tracker.import_holdings(holdings)
+            print(f"\n>>> Imported {count} holdings")
+
+    def _tracker_snapshot(self):
+        """Take a snapshot with updated prices."""
+        print("\n--- Update Prices ---")
+        print("Enter prices in format: TICKER,PRICE")
+        print("Type 'done' when finished, or 'auto' to use current prices.")
+
+        prices = {}
+        line = input("> ").strip()
+
+        if line.lower() == "auto":
+            # Use existing prices
+            for ticker, holding in self.portfolio_tracker.holdings.items():
+                prices[ticker] = holding.current_price
+        else:
+            while line.lower() != "done":
+                try:
+                    parts = line.split(",")
+                    prices[parts[0].strip().upper()] = float(parts[1].strip())
+                except (ValueError, IndexError):
+                    print("Invalid format. Use: TICKER,PRICE")
+                line = input("> ").strip()
+
+        if prices:
+            snapshot = self.portfolio_tracker.snapshot(prices)
+            print(f"\n>>> Snapshot recorded: ${snapshot.total_value:,.2f} total value")
+
+    def _tracker_export(self):
+        """Export portfolio to JSON."""
+        filename = input("Export filename [portfolio.json]: ").strip() or "portfolio.json"
+        self.portfolio_tracker.export_to_json(filename)
+        print(f"\n>>> Portfolio exported to {filename}")
 
 
 # =============================================================================

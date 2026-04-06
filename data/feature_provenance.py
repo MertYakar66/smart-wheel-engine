@@ -286,3 +286,35 @@ def build_default_provenance_registry() -> ProvenanceRegistry:
     ))
 
     return registry
+
+
+def validate_features_coverage(registry: ProvenanceRegistry, feature_names_used: set[str]) -> list[str]:
+    """
+    Check that all features in use are registered and approved.
+
+    Args:
+        registry: The provenance registry
+        feature_names_used: Set of feature names actually consumed by the system
+
+    Returns:
+        List of issue strings. Empty = all features covered.
+    """
+    issues = []
+
+    # 1. Every feature in feature_names_used must exist in the registry
+    for name in sorted(feature_names_used):
+        prov = registry.get_feature(name)
+        if prov is None:
+            issues.append(f"{name}: used by system but not registered in provenance registry")
+            continue
+
+        # 3. Used features that aren't approved_for_production get flagged
+        if not prov.approved_for_production:
+            issues.append(f"{name}: used in system but not approved for production")
+
+    # 2. Every registered-and-active feature NOT in feature_names_used is an orphan warning
+    for prov in registry.list_features(status=FeatureStatus.ACTIVE):
+        if prov.name not in feature_names_used:
+            issues.append(f"{prov.name}: registered and active but not used by system (orphan)")
+
+    return issues

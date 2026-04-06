@@ -173,17 +173,27 @@ def load_policy(path: Optional[str] = None) -> TradingPolicyConfig:
         json.JSONDecodeError: If the file is not valid JSON.
     """
     if path is None:
-        return TradingPolicyConfig()
+        config = TradingPolicyConfig()
+    else:
+        with open(path, "r") as fh:
+            raw: dict = json.load(fh)
 
-    with open(path, "r") as fh:
-        raw: dict = json.load(fh)
+        config = TradingPolicyConfig(
+            risk=RiskPolicyConfig(**raw.get("risk", {})),
+            signal=SignalPolicyConfig(**raw.get("signal", {})),
+            advisor=AdvisorPolicyConfig(**raw.get("advisor", {})),
+            greeks=GreeksPolicyConfig(**raw.get("greeks", {})),
+        )
 
-    return TradingPolicyConfig(
-        risk=RiskPolicyConfig(**raw.get("risk", {})),
-        signal=SignalPolicyConfig(**raw.get("signal", {})),
-        advisor=AdvisorPolicyConfig(**raw.get("advisor", {})),
-        greeks=GreeksPolicyConfig(**raw.get("greeks", {})),
-    )
+    # Fail fast on invalid policy — prevents silent misconfiguration
+    errors = validate_policy(config)
+    if errors:
+        raise ValueError(
+            f"Policy validation failed with {len(errors)} error(s):\n"
+            + "\n".join(f"  - {e}" for e in errors)
+        )
+
+    return config
 
 
 def save_policy(config: TradingPolicyConfig, path: str) -> None:

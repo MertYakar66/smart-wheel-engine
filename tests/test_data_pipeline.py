@@ -28,7 +28,7 @@ except ImportError:
 
 
 @pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
-class TestFeatureStore:
+class TestFeatureStore:  # pragma: no cover when pyarrow absent
     """Tests for the Feature Store."""
 
     @pytest.fixture

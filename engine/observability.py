@@ -112,19 +112,70 @@ class DecisionJournal:
         return [_to_row(e) for e in self._entries]
 
 
+# Module-level event log for trace lifecycle events
+_trace_events: list[dict] = []
+
+
+def get_trace_events() -> list[dict]:
+    """Return all trace lifecycle events (for testing/audit)."""
+    return list(_trace_events)
+
+
+def clear_trace_events() -> None:
+    """Clear accumulated trace events."""
+    _trace_events.clear()
+
+
 @contextmanager
 def trace_operation(
     operation: str,
     parent_id: Optional[str] = None,
     **metadata: Any,
 ) -> Generator[TraceContext, None, None]:
-    """Context manager that creates and yields a TraceContext."""
+    """Context manager that creates a TraceContext and emits lifecycle events.
+
+    Automatically records:
+    - ``operation_start`` on entry
+    - ``operation_end`` on successful exit (with duration_ms)
+    - ``operation_error`` on exception (with error message and duration_ms)
+    """
     ctx = TraceContext(
         operation=operation,
         parent_id=parent_id,
         metadata=metadata,
     )
-    yield ctx
+    _trace_events.append({
+        "event": "operation_start",
+        "trace_id": ctx.trace_id,
+        "operation": operation,
+        "timestamp": ctx.start_time.isoformat(),
+        "parent_id": parent_id,
+    })
+    try:
+        yield ctx
+    except Exception as exc:
+        end_time = datetime.now(timezone.utc)
+        duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
+        _trace_events.append({
+            "event": "operation_error",
+            "trace_id": ctx.trace_id,
+            "operation": operation,
+            "timestamp": end_time.isoformat(),
+            "duration_ms": duration_ms,
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+        })
+        raise
+    else:
+        end_time = datetime.now(timezone.utc)
+        duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
+        _trace_events.append({
+            "event": "operation_end",
+            "trace_id": ctx.trace_id,
+            "operation": operation,
+            "timestamp": end_time.isoformat(),
+            "duration_ms": duration_ms,
+        })
 
 
 class AuditLogger:

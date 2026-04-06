@@ -438,26 +438,38 @@ class StressTester:
         n_simulations: int = 10000,
         horizon_days: int = 30,
         vol_of_vol: float = 0.50,
+        seed: int | None = None,
     ) -> dict[str, float]:
         """
         Monte Carlo stress testing.
 
         Simulates random market moves to estimate tail risk.
+        Uses seeded RNG for reproducibility.
+
+        Args:
+            seed: Random seed for reproducibility. If None, uses random state.
         """
+        from datetime import datetime
+        import uuid
+
+        rng = np.random.default_rng(seed)
+        run_id = str(uuid.uuid4())[:8]
+        start_time = datetime.utcnow()
+
         pnls = []
 
         for _ in range(n_simulations):
             # Simulate spot change (fat-tailed)
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
-            z = stats.t.rvs(df)
+            z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
 
             # Simulate IV change (correlated with spot move)
             iv_shock = -spot_change * 2  # IV typically moves opposite to spot
-            iv_shock += np.random.normal(0, vol_of_vol * avg_iv)
+            iv_shock += rng.normal(0, vol_of_vol * avg_iv)
 
             scenario = Scenario(
                 name="MC",
@@ -472,6 +484,7 @@ class StressTester:
             pnls.append(result.portfolio_pnl)
 
         pnls = np.array(pnls)
+        end_time = datetime.utcnow()
 
         return {
             "mean": np.mean(pnls),
@@ -483,6 +496,13 @@ class StressTester:
             "max_gain": np.max(pnls),
             "prob_loss": np.mean(pnls < 0),
             "prob_10pct_loss": np.mean(pnls < -portfolio_value * 0.10),
+            # Reproducibility metadata
+            "_run_id": run_id,
+            "_seed": seed,
+            "_n_simulations": n_simulations,
+            "_horizon_days": horizon_days,
+            "_timestamp": start_time.isoformat(),
+            "_duration_ms": (end_time - start_time).total_seconds() * 1000,
         }
 
     def greeks_stress_ladder(

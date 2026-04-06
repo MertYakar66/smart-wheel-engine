@@ -824,7 +824,9 @@ class WheelTracker:
                 if pos.put_expiration_date and current_date < pos.put_expiration_date:
                     days_to_expiry = (pos.put_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        # TODO: Replace pos.put_entry_iv with actual daily IV when Bloomberg data available
+                        # Known limitation: uses entry IV as proxy for current IV.
+                        # When live market data is available, pass current_ivs dict
+                        # to mark_to_market() for real-time option valuation.
                         put_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.put_strike,
@@ -840,7 +842,9 @@ class WheelTracker:
                 if pos.call_expiration_date and current_date < pos.call_expiration_date:
                     days_to_expiry = (pos.call_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        # TODO: Replace pos.call_entry_iv with actual daily IV when Bloomberg data available
+                        # Known limitation: uses entry IV as proxy for current IV.
+                        # When live market data is available, pass current_ivs dict
+                        # to mark_to_market() for real-time option valuation.
                         call_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.call_strike,

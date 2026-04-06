@@ -838,6 +838,7 @@ class CalendarIngestionManager:
         event_type_str: str,
         year: int,
         fallback_generator,
+        strict: bool = False,
     ) -> list[MarketEvent]:
         """
         Load from authoritative JSON, falling back to hardcoded generator.
@@ -846,13 +847,28 @@ class CalendarIngestionManager:
             event_type_str: e.g. "fomc", "cpi"
             year: Calendar year
             fallback_generator: Callable(year) -> list[MarketEvent]
+            strict: If True, raise ValueError when authoritative file is missing
+                instead of falling back to hardcoded dates. Use for production.
 
         Returns:
             List of MarketEvent from authoritative source or fallback
+
+        Raises:
+            ValueError: In strict mode when authoritative file is missing
         """
         events = self.load_from_json(event_type_str, year)
         if events is not None:
             return events
+
+        if strict:
+            filepath = self._calendar_file(event_type_str, year)
+            raise ValueError(
+                f"STRICT CALENDAR MODE: No authoritative JSON file for "
+                f"{event_type_str.upper()} {year} at {filepath}. "
+                f"Production requires authoritative calendar data. "
+                f"Create the file or switch to non-strict mode."
+            )
+
         return fallback_generator(year)
 
 
@@ -919,6 +935,7 @@ def build_default_calendar(
     validate: bool = True,
     calendar_dir: str | None = None,
     check_staleness: bool = True,
+    strict: bool = False,
 ) -> EventCalendar:
     """
     Build a default event calendar with common events.
@@ -948,7 +965,7 @@ def build_default_calendar(
 
     for year in years:
         # FOMC: prefer authoritative JSON, fall back to hardcoded
-        fomc_events = ingestion.load_or_fallback("fomc", year, builder.generate_fomc_dates)
+        fomc_events = ingestion.load_or_fallback("fomc", year, builder.generate_fomc_dates, strict=strict)
         calendar.add_events(fomc_events)
 
         expiry_events = builder.generate_monthly_expiries(year)
@@ -956,13 +973,13 @@ def build_default_calendar(
 
         # Add macro economic events
         if include_macro_events:
-            cpi_events = ingestion.load_or_fallback("cpi", year, builder.generate_cpi_dates)
+            cpi_events = ingestion.load_or_fallback("cpi", year, builder.generate_cpi_dates, strict=strict)
             calendar.add_events(cpi_events)
 
-            nfp_events = ingestion.load_or_fallback("nfp", year, builder.generate_nfp_dates)
+            nfp_events = ingestion.load_or_fallback("nfp", year, builder.generate_nfp_dates, strict=strict)
             calendar.add_events(nfp_events)
 
-            gdp_events = ingestion.load_or_fallback("gdp", year, builder.generate_gdp_dates)
+            gdp_events = ingestion.load_or_fallback("gdp", year, builder.generate_gdp_dates, strict=strict)
             calendar.add_events(gdp_events)
 
         # Check staleness / rollover needs

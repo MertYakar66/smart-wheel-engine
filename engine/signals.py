@@ -611,18 +611,53 @@ class SignalAggregator:
         )
 
 
-def create_default_aggregator() -> SignalAggregator:
-    """Create aggregator with default signal generators."""
+def create_aggregator_from_policy(policy: "TradingPolicyConfig") -> SignalAggregator:
+    """Create a SignalAggregator driven by a ``TradingPolicyConfig``.
+
+    All thresholds are read from *policy.signal* so that no magic numbers
+    are duplicated outside ``policy_config.py``.
+
+    Args:
+        policy: A fully-populated trading policy configuration.
+
+    Returns:
+        A configured :class:`SignalAggregator`.
+    """
+    sig = policy.signal
+
     return SignalAggregator(
         entry_generators=[
-            IVRankSignal(high_threshold=0.50, low_threshold=0.20),
-            TrendSignal(lookback_days=20),
-            DTESignal(exit_dte=5, ideal_dte=35),
+            IVRankSignal(
+                high_threshold=sig.iv_rank_high,
+                low_threshold=sig.iv_rank_low,
+            ),
+            TrendSignal(lookback_days=sig.trend_lookback_days),
+            DTESignal(
+                exit_dte=sig.target_dte_min,
+                ideal_dte=sig.target_dte_ideal,
+                max_dte=sig.target_dte_max,
+            ),
         ],
         exit_generators=[
-            ProfitTargetSignal(target_pct=0.50),
-            StopLossSignal(stop_multiplier=2.0),
-            DTESignal(exit_dte=5),
+            ProfitTargetSignal(target_pct=sig.profit_target_pct),
+            StopLossSignal(stop_multiplier=sig.stop_loss_multiplier),
+            DTESignal(exit_dte=sig.target_dte_min),
         ],
-        filter_generators=[EventFilterSignal(earnings_buffer_days=5)],
+        filter_generators=[
+            EventFilterSignal(
+                earnings_buffer_days=sig.earnings_buffer_days,
+                fomc_buffer_days=sig.fomc_buffer_days,
+            ),
+        ],
     )
+
+
+def create_default_aggregator() -> SignalAggregator:
+    """Create aggregator with default signal generators.
+
+    Delegates to :func:`create_aggregator_from_policy` using the built-in
+    default :class:`~engine.policy_config.TradingPolicyConfig`.
+    """
+    from engine.policy_config import TradingPolicyConfig
+
+    return create_aggregator_from_policy(TradingPolicyConfig())

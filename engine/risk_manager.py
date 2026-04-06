@@ -126,6 +126,7 @@ class RiskManager:
         risk_free_rate: float = 0.05,
         allow_heuristic_var_fallback: bool = True,
         concentrated_book_threshold: int = 3,
+        environment: str = "dev",
     ):
         """
         Args:
@@ -134,21 +135,60 @@ class RiskManager:
             risk_free_rate: Annual risk-free rate
             allow_heuristic_var_fallback: If False, block parametric VaR for concentrated
                 books (fewer positions than concentrated_book_threshold) unless overridden.
-                Institutional policy: heuristic VaR can understate tail risk for concentrated
-                portfolios due to independence assumptions.
+                In production environment, this flag is IGNORED — heuristic fallback is
+                always blocked for concentrated books regardless of this setting.
             concentrated_book_threshold: Number of unique underlyings below which the
                 portfolio is considered "concentrated" for model governance purposes.
+            environment: Operating environment ('dev', 'staging', 'prod'). In 'prod',
+                heuristic VaR fallback is unconditionally blocked for concentrated books.
         """
         self.limits = limits or RiskLimits()
         self.sizing_method = sizing_method
         self.risk_free_rate = risk_free_rate
-        self.allow_heuristic_var_fallback = allow_heuristic_var_fallback
+        self.environment = environment
+
+        # In production, NEVER allow heuristic fallback for concentrated books
+        # This is a hard governance control — not overridable by caller
+        if environment == "prod":
+            self.allow_heuristic_var_fallback = False
+        else:
+            self.allow_heuristic_var_fallback = allow_heuristic_var_fallback
+
         self.concentrated_book_threshold = concentrated_book_threshold
+
+        # Audit trail for VaR governance events
+        self._var_governance_log: list[dict] = []
 
         # Track historical data for risk calcs
         self.portfolio_values: list[float] = []
         self.peak_value: float = 0.0
         self.returns_history: list[float] = []
+
+    @classmethod
+    def from_policy(cls, environment: str = "dev") -> "RiskManager":
+        """
+        Construct RiskManager from centralized policy configuration.
+
+        This is the preferred constructor for production use — it reads all
+        thresholds from TradingPolicyConfig instead of hardcoded defaults.
+
+        Args:
+            environment: 'dev', 'staging', or 'prod'
+        """
+        from .policy_config import load_policy
+        policy = load_policy()
+        rp = policy.risk
+        return cls(
+            limits=RiskLimits(
+                max_drawdown_pct=rp.max_drawdown_pct,
+                max_portfolio_delta=rp.max_portfolio_delta,
+                daily_loss_limit_pct=rp.max_daily_loss_pct,
+                max_var_95_pct=rp.max_var_pct,
+            ),
+            allow_heuristic_var_fallback=rp.heuristic_fallback_enabled,
+            concentrated_book_threshold=rp.concentrated_book_threshold,
+            environment=environment,
+        )
 
     def calculate_position_size(
         self,
@@ -383,11 +423,23 @@ class RiskManager:
 
         if is_concentrated and not self.allow_heuristic_var_fallback:
             import warnings
+            from datetime import datetime
+            event = {
+                "event": "var_fallback_blocked",
+                "timestamp": datetime.utcnow().isoformat(),
+                "environment": self.environment,
+                "unique_symbols": len(unique_symbols),
+                "threshold": self.concentrated_book_threshold,
+                "reason": "concentrated_book_heuristic_block",
+            }
+            self._var_governance_log.append(event)
             warnings.warn(
-                f"VaR fallback blocked: portfolio has {len(unique_symbols)} unique symbols "
+                f"VaR fallback blocked ({self.environment}): portfolio has "
+                f"{len(unique_symbols)} unique symbols "
                 f"(threshold={self.concentrated_book_threshold}). Parametric VaR may understate "
-                f"tail risk for concentrated books. Provide correlation_matrix or returns_data, "
-                f"or set allow_heuristic_var_fallback=True to override.",
+                f"tail risk for concentrated books. Provide correlation_matrix or returns_data."
+                + ("" if self.environment == "prod"
+                   else " Set allow_heuristic_var_fallback=True to override in non-prod."),
                 stacklevel=2,
             )
             return 0.0, 0.0

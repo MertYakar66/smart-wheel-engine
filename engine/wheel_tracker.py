@@ -246,6 +246,340 @@ class WheelTracker:
 
         return True
 
+    def handle_partial_put_assignment(
+        self, ticker: str, assignment_date: date, stock_price: float, shares_assigned: int
+    ) -> bool:
+        """
+        Handle partial put assignment: acquire fewer than 100 shares at strike price.
+
+        Args:
+            ticker: Stock ticker
+            assignment_date: Assignment date
+            stock_price: Current stock price (for unrealized P&L tracking)
+            shares_assigned: Number of shares assigned (1-100)
+
+        Returns:
+            True if assignment handled successfully
+        """
+        if ticker not in self.positions:
+            return False
+
+        pos = self.positions[ticker]
+        if pos.state != PositionState.SHORT_PUT:
+            return False
+
+        # Validate shares_assigned range
+        if shares_assigned < 1 or shares_assigned > 100:
+            return False
+
+        # Calculate assignment costs for the partial lot
+        assignment_details = calculate_assignment_costs(
+            strike_price=pos.put_strike, shares=shares_assigned
+        )
+
+        stock_cost = assignment_details["stock_cost"]
+        assignment_fee = assignment_details["assignment_fee"]
+
+        if self.cash < assignment_details["total_cash_required"]:
+            pos.notes.append(
+                f"WARNING: Partial assignment required ${stock_cost:.2f}, "
+                f"only ${self.cash:.2f} available"
+            )
+
+        self.cash -= assignment_details["total_cash_required"]
+
+        # Transition to STOCK_OWNED with partial share count
+        pos.state = PositionState.STOCK_OWNED
+        pos.stock_shares = shares_assigned
+        premium_received = pos.put_premium if pos.put_premium else 0.0
+        pos.stock_basis = pos.put_strike - premium_received + (assignment_fee / shares_assigned)
+        pos.stock_acquisition_date = assignment_date
+        pos.transaction_costs += assignment_fee
+
+        pos.notes.append(
+            f"Partial assignment: Bought {shares_assigned} shares at ${pos.put_strike:.2f} "
+            f"(net basis: ${pos.stock_basis:.2f} after ${premium_received:.2f}/sh premium, "
+            f"market: ${stock_price:.2f})"
+        )
+
+        return True
+
+    def roll_put(
+        self,
+        ticker: str,
+        roll_date: date,
+        new_strike: float,
+        new_premium: float,
+        new_expiration: date,
+        new_iv: float,
+        buyback_price: float,
+    ) -> dict | None:
+        """
+        Roll a short put: close current put and open a new one atomically.
+
+        Args:
+            ticker: Stock ticker
+            roll_date: Date of the roll
+            new_strike: New put strike price
+            new_premium: New premium collected per share
+            new_expiration: New expiration date
+            new_iv: Implied volatility of new put
+            buyback_price: Price paid to buy back current put (per share)
+
+        Returns:
+            Dict with roll details (net_credit_debit, old_strike, new_strike),
+            or None if roll fails
+        """
+        if ticker not in self.positions:
+            return None
+
+        pos = self.positions[ticker]
+        if pos.state != PositionState.SHORT_PUT:
+            return None
+
+        old_strike = pos.put_strike
+        old_premium = pos.put_premium
+
+        # Calculate exit costs for buying back the current put
+        exit_cost_details = calculate_total_exit_cost(
+            buyback_price_per_share=buyback_price,
+            bid_ask_spread=buyback_price * 0.10,
+            trade_type="option",
+        )
+
+        # Calculate entry costs for the new put
+        entry_cost_details = calculate_total_entry_cost(
+            premium_per_share=new_premium,
+            bid_ask_spread=new_premium * 0.10,
+            trade_type="option",
+        )
+
+        # Apply close: deduct buyback cost from cash
+        self.cash -= exit_cost_details["total_buyback_cost"]
+
+        # Update P&L from closing the old put
+        gross_close_pnl = (old_premium * 100) - exit_cost_details["gross_buyback_cost"]
+        pos.realized_pnl = gross_close_pnl
+        pos.transaction_costs += exit_cost_details["total_cost"]
+
+        # Apply open: credit new premium to cash
+        self.cash += entry_cost_details["net_premium_collected"]
+
+        # Update position fields to the new put
+        derived_dte = (new_expiration - roll_date).days
+        pos.put_strike = new_strike
+        pos.put_premium = new_premium
+        pos.put_entry_date = roll_date
+        pos.put_dte_at_entry = derived_dte
+        pos.put_entry_iv = new_iv
+        pos.put_expiration_date = new_expiration
+        pos.realized_pnl += entry_cost_details["gross_premium"]
+        pos.transaction_costs += entry_cost_details["total_cost"]
+
+        # Net credit/debit of the roll (positive = credit)
+        net_credit_debit = (
+            entry_cost_details["net_premium_collected"]
+            - exit_cost_details["total_buyback_cost"]
+        )
+
+        pos.notes.append(
+            f"Rolled put: closed ${old_strike:.2f}P at ${buyback_price:.2f}, "
+            f"opened ${new_strike:.2f}P for ${new_premium:.2f} premium "
+            f"(net {'credit' if net_credit_debit >= 0 else 'debit'}: "
+            f"${abs(net_credit_debit):.2f})"
+        )
+
+        return {
+            "old_strike": old_strike,
+            "new_strike": new_strike,
+            "old_premium": old_premium,
+            "new_premium": new_premium,
+            "buyback_price": buyback_price,
+            "net_credit_debit": net_credit_debit,
+            "roll_date": roll_date,
+            "new_expiration": new_expiration,
+        }
+
+    def roll_call(
+        self,
+        ticker: str,
+        roll_date: date,
+        new_strike: float,
+        new_premium: float,
+        new_expiration: date,
+        new_iv: float,
+        buyback_price: float,
+    ) -> dict | None:
+        """
+        Roll a covered call: close current call and open a new one atomically.
+
+        Args:
+            ticker: Stock ticker
+            roll_date: Date of the roll
+            new_strike: New call strike price
+            new_premium: New premium collected per share
+            new_expiration: New expiration date
+            new_iv: Implied volatility of new call
+            buyback_price: Price paid to buy back current call (per share)
+
+        Returns:
+            Dict with roll details (net_credit_debit, old_strike, new_strike),
+            or None if roll fails
+        """
+        if ticker not in self.positions:
+            return None
+
+        pos = self.positions[ticker]
+        if pos.state != PositionState.COVERED_CALL:
+            return None
+
+        old_strike = pos.call_strike
+        old_premium = pos.call_premium
+
+        # Calculate exit costs for buying back the current call
+        exit_cost_details = calculate_total_exit_cost(
+            buyback_price_per_share=buyback_price,
+            bid_ask_spread=buyback_price * 0.10,
+            trade_type="option",
+        )
+
+        # Calculate entry costs for the new call
+        entry_cost_details = calculate_total_entry_cost(
+            premium_per_share=new_premium,
+            bid_ask_spread=new_premium * 0.10,
+            trade_type="option",
+        )
+
+        # Apply close: deduct buyback cost from cash
+        self.cash -= exit_cost_details["total_buyback_cost"]
+
+        # Update P&L from closing the old call
+        gross_close_pnl = (old_premium * 100) - exit_cost_details["gross_buyback_cost"]
+        pos.realized_pnl += gross_close_pnl
+        pos.transaction_costs += exit_cost_details["total_cost"]
+
+        # Apply open: credit new premium to cash
+        self.cash += entry_cost_details["net_premium_collected"]
+
+        # Update position fields to the new call
+        derived_dte = (new_expiration - roll_date).days
+        pos.call_strike = new_strike
+        pos.call_premium = new_premium
+        pos.call_entry_date = roll_date
+        pos.call_dte_at_entry = derived_dte
+        pos.call_entry_iv = new_iv
+        pos.call_expiration_date = new_expiration
+        pos.realized_pnl += entry_cost_details["gross_premium"]
+        pos.transaction_costs += entry_cost_details["total_cost"]
+
+        # Net credit/debit of the roll (positive = credit)
+        net_credit_debit = (
+            entry_cost_details["net_premium_collected"]
+            - exit_cost_details["total_buyback_cost"]
+        )
+
+        pos.notes.append(
+            f"Rolled call: closed ${old_strike:.2f}C at ${buyback_price:.2f}, "
+            f"opened ${new_strike:.2f}C for ${new_premium:.2f} premium "
+            f"(net {'credit' if net_credit_debit >= 0 else 'debit'}: "
+            f"${abs(net_credit_debit):.2f})"
+        )
+
+        return {
+            "old_strike": old_strike,
+            "new_strike": new_strike,
+            "old_premium": old_premium,
+            "new_premium": new_premium,
+            "buyback_price": buyback_price,
+            "net_credit_debit": net_credit_debit,
+            "roll_date": roll_date,
+            "new_expiration": new_expiration,
+        }
+
+    def handle_partial_call_assignment(
+        self, ticker: str, assignment_date: date, shares_called: int
+    ) -> dict | None:
+        """
+        Handle partial call assignment: sell some shares at call strike.
+
+        Args:
+            ticker: Stock ticker
+            assignment_date: Assignment date
+            shares_called: Number of shares called away
+
+        Returns:
+            Dict with assignment details, or None if invalid
+        """
+        if ticker not in self.positions:
+            return None
+
+        pos = self.positions[ticker]
+        if pos.state != PositionState.COVERED_CALL:
+            return None
+
+        if shares_called < 1 or shares_called > pos.stock_shares:
+            return None
+
+        # Capture strike before any state changes
+        call_strike = pos.call_strike
+
+        # Sell shares at call strike (account for assignment fee)
+        stock_proceeds = call_strike * shares_called
+        assignment_details = calculate_assignment_costs(
+            strike_price=call_strike, shares=shares_called
+        )
+        assignment_fee = assignment_details["assignment_fee"]
+
+        self.cash += stock_proceeds - assignment_fee
+
+        # Calculate stock P&L for shares sold
+        stock_pnl = (call_strike - pos.stock_basis) * shares_called
+        pos.realized_pnl += stock_pnl
+        pos.transaction_costs += assignment_fee
+
+        remaining_shares = pos.stock_shares - shares_called
+
+        if remaining_shares > 0:
+            # Still have shares, revert to STOCK_OWNED
+            pos.state = PositionState.STOCK_OWNED
+            pos.stock_shares = remaining_shares
+            pos.call_strike = None
+            pos.call_premium = None
+            pos.call_entry_date = None
+            pos.call_dte_at_entry = None
+            pos.call_entry_iv = None
+            pos.call_expiration_date = None
+
+            pos.notes.append(
+                f"Partial call assignment: Sold {shares_called} shares at "
+                f"${call_strike:.2f}, "
+                f"{remaining_shares} shares remaining (basis: ${pos.stock_basis:.2f})"
+            )
+
+            return {
+                "ticker": ticker,
+                "shares_called": shares_called,
+                "remaining_shares": remaining_shares,
+                "stock_pnl": stock_pnl,
+                "assignment_fee": assignment_fee,
+                "cash_after": self.cash,
+                "state": PositionState.STOCK_OWNED.value,
+            }
+        else:
+            # All shares called away — close position
+            pos.notes.append(
+                f"Called away: Sold {shares_called} shares at "
+                f"${call_strike:.2f} (basis: ${pos.stock_basis:.2f})"
+            )
+            pos.notes.append(
+                f"Wheel cycle complete: Total P&L = ${pos.realized_pnl:.2f}"
+            )
+
+            closed = self._finalize_position(pos, assignment_date, "call_assigned")
+            del self.positions[ticker]
+
+            return closed
+
     def handle_put_expiration(
         self, ticker: str, expiry_date: date, stock_price: float
     ) -> dict | None:

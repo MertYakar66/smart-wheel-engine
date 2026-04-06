@@ -230,3 +230,64 @@ def validate_ladder_output(df: pd.DataFrame) -> list[str]:
             errors.append(f"Column '{col}' must be numeric, got {df[col].dtype}")
 
     return errors
+
+
+def validate_greeks_semantics(greeks: dict[str, float], option_type: str) -> list[str]:
+    """
+    Semantic validation of Greeks values (unit and sign constraints).
+
+    Goes beyond structural checks to verify financial correctness:
+    - Delta sign matches option type
+    - Gamma is non-negative
+    - Vega is non-negative
+    - Theta convention is annual (magnitude check)
+    - Price is non-negative
+
+    Args:
+        greeks: Dict from pricer with at least REQUIRED_GREEK_KEYS
+        option_type: 'call' or 'put'
+
+    Returns:
+        List of semantic violation strings. Empty = valid.
+    """
+    errors: list[str] = []
+
+    price = greeks.get("price", 0)
+    delta = greeks.get("delta", 0)
+    gamma = greeks.get("gamma", 0)
+    vega = greeks.get("vega", 0)
+    theta = greeks.get("theta", 0)
+
+    # Price must be non-negative
+    if price < -1e-10:
+        errors.append(f"price={price:.6f} is negative")
+
+    # Delta sign constraint
+    if option_type == "call" and delta < -0.01:
+        errors.append(f"call delta={delta:.6f} should be >= 0")
+    if option_type == "put" and delta > 0.01:
+        errors.append(f"put delta={delta:.6f} should be <= 0")
+
+    # Delta magnitude
+    if abs(delta) > 1.01:
+        errors.append(f"|delta|={abs(delta):.6f} exceeds 1.0 bound")
+
+    # Gamma non-negative (for vanilla options)
+    if gamma < -1e-10:
+        errors.append(f"gamma={gamma:.6f} is negative (should be >= 0 for vanilla)")
+
+    # Vega non-negative (for vanilla options, per vol-point convention)
+    if vega < -1e-10:
+        errors.append(f"vega={vega:.6f} is negative (should be >= 0 for vanilla)")
+
+    # Theta convention check: annual theta for ATM options is typically
+    # in the range [-50, 0] for long options. If |theta| > 100,
+    # it may indicate incorrect units (daily instead of annual).
+    # This is a soft heuristic, not a hard constraint.
+    if abs(theta) > 500 and abs(delta) > 0.1:
+        errors.append(
+            f"theta={theta:.2f} has unusually large magnitude — "
+            f"verify annual convention (not daily)"
+        )
+
+    return errors

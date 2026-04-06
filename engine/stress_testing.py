@@ -249,6 +249,13 @@ class StressTester:
         self.scenarios = scenarios or (HISTORICAL_SCENARIOS + HYPOTHETICAL_SCENARIOS)
         self.residual_tolerance = residual_tolerance
 
+    @classmethod
+    def from_policy(cls) -> "StressTester":
+        """Construct StressTester from centralized policy configuration."""
+        from .policy_config import load_policy
+        policy = load_policy()
+        return cls(residual_tolerance=policy.greeks.decomposition_residual_tolerance)
+
     def run_scenario(
         self,
         scenario: Scenario,

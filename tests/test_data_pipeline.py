@@ -20,6 +20,14 @@ from data.observability import MetricsCollector, Tracer, metrics, trace
 from data.quality import DataQualityFramework
 
 
+try:
+    import pyarrow  # noqa: F401
+    _HAS_PYARROW = True
+except ImportError:
+    _HAS_PYARROW = False
+
+
+@pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
 class TestFeatureStore:
     """Tests for the Feature Store."""
 
@@ -341,6 +349,7 @@ class TestTracer:
         assert span.error == "Test error"
 
 
+@pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
 class TestIntegration:
     """Integration tests for the full pipeline."""
 

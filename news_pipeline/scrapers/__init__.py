@@ -12,14 +12,13 @@ Sources:
 Note: BrowserNewsScraper and NewsAggregator require playwright.
 """
 
-# Core scrapers (no playwright dependency)
+# Core types (no optional dependency)
 from news_pipeline.scrapers.base import (
     NewsCategory,
     NewsItem,
     NewsScraper,
     SourceType,
 )
-from news_pipeline.scrapers.rss_scraper import RSSNewsScraper
 
 __all__ = [
     "NewsScraper",
@@ -33,7 +32,11 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Lazy import browser scrapers that require playwright."""
+    """Lazy import scrapers that require optional dependencies (aiohttp, playwright)."""
+    if name == "RSSNewsScraper":
+        from news_pipeline.scrapers.rss_scraper import RSSNewsScraper
+
+        return RSSNewsScraper
     if name == "BrowserNewsScraper":
         from news_pipeline.scrapers.browser_scraper import BrowserNewsScraper
 

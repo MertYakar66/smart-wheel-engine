@@ -897,26 +897,33 @@ class PortfolioTracker:
         # Calculate and link subperiod returns
         cumulative_return = 1.0
 
+        # Helper to safely extract scalar from potentially duplicated index
+        def _get_scalar(df: pd.DataFrame, idx: pd.Timestamp, col: str) -> float:
+            val = df.loc[idx, col]
+            if isinstance(val, pd.Series):
+                return float(val.iloc[0])
+            return float(val)
+
         for i in range(len(subperiod_dates) - 1):
             sub_start = subperiod_dates[i]
             sub_end = subperiod_dates[i + 1]
 
             # Get values at subperiod boundaries
-            start_value = period_df.loc[sub_start, "total_value"]
+            start_value = _get_scalar(period_df, sub_start, "total_value")
 
             # If there's a cash flow at sub_end, adjust starting value
             # Using beginning-of-period (BOP) valuation for GIPS compliance
             cash_flow_at_start = 0.0
             if i > 0:  # Not the first subperiod
-                prev_deposits = period_df.loc[subperiod_dates[i-1], "deposits_cumulative"]
-                curr_deposits = period_df.loc[sub_start, "deposits_cumulative"]
-                prev_withdrawals = period_df.loc[subperiod_dates[i-1], "withdrawals_cumulative"]
-                curr_withdrawals = period_df.loc[sub_start, "withdrawals_cumulative"]
+                prev_deposits = _get_scalar(period_df, subperiod_dates[i-1], "deposits_cumulative")
+                curr_deposits = _get_scalar(period_df, sub_start, "deposits_cumulative")
+                prev_withdrawals = _get_scalar(period_df, subperiod_dates[i-1], "withdrawals_cumulative")
+                curr_withdrawals = _get_scalar(period_df, sub_start, "withdrawals_cumulative")
                 cash_flow_at_start = (curr_deposits - prev_deposits) - (curr_withdrawals - prev_withdrawals)
 
             # Adjusted start value (value just after cash flow)
             adjusted_start = start_value
-            end_value = period_df.loc[sub_end, "total_value"]
+            end_value = _get_scalar(period_df, sub_end, "total_value")
 
             # Calculate subperiod return
             if adjusted_start > 0:

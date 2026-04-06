@@ -416,6 +416,7 @@ class PortfolioTracker:
         sector_map: dict[str, str] | None = None,
         benchmark_ticker: str = "SPY",
         cost_basis_method: CostBasisMethod = CostBasisMethod.FIFO,
+        risk_free_rate: float = 0.04,
     ):
         """
         Initialize portfolio tracker.
@@ -425,11 +426,13 @@ class PortfolioTracker:
             sector_map: Custom ticker to sector mapping
             benchmark_ticker: Benchmark for comparison (default SPY)
             cost_basis_method: Method for calculating realized gains (FIFO/LIFO/AVERAGE)
+            risk_free_rate: Annual risk-free rate for Sharpe/Sortino (default 4%)
         """
         self.cash = initial_cash
         self.sector_map = sector_map or DEFAULT_SECTOR_MAP
         self.benchmark_ticker = benchmark_ticker
         self.cost_basis_method = cost_basis_method
+        self.risk_free_rate = risk_free_rate
 
         # Holdings
         self.holdings: dict[str, Holding] = {}
@@ -459,10 +462,10 @@ class PortfolioTracker:
         if initial_cash > 0:
             self._record_initial_snapshot()
 
-    def _record_initial_snapshot(self):
+    def _record_initial_snapshot(self, snapshot_date: date | None = None):
         """Record initial portfolio snapshot."""
         snapshot = PortfolioSnapshot(
-            date=date.today(),
+            date=snapshot_date or date.today(),
             total_value=self.cash,
             cash=self.cash,
             invested_value=0.0,
@@ -814,8 +817,8 @@ class PortfolioTracker:
             if len(daily_returns) > 0:
                 metrics.volatility_annualized = daily_returns.std() * np.sqrt(252)
 
-                # Sharpe ratio (assuming 4% risk-free rate)
-                rf_daily = 0.04 / 252
+                # Sharpe ratio using configured risk-free rate
+                rf_daily = self.risk_free_rate / 252
                 excess_returns = daily_returns - rf_daily
                 if daily_returns.std() > 0:
                     metrics.sharpe_ratio = (excess_returns.mean() / daily_returns.std()) * np.sqrt(252)
@@ -871,6 +874,9 @@ class PortfolioTracker:
         mask = (df.index >= start_date) & (df.index <= end_date)
         period_df = df[mask]
 
+        # Deduplicate: keep last entry per date (most current state)
+        period_df = period_df[~period_df.index.duplicated(keep="last")]
+
         if len(period_df) < 2:
             return 0.0
 
@@ -911,23 +917,33 @@ class PortfolioTracker:
             # Get values at subperiod boundaries
             start_value = _get_scalar(period_df, sub_start, "total_value")
 
-            # If there's a cash flow at sub_end, adjust starting value
-            # Using beginning-of-period (BOP) valuation for GIPS compliance
-            cash_flow_at_start = 0.0
-            if i > 0:  # Not the first subperiod
-                prev_deposits = _get_scalar(period_df, subperiod_dates[i-1], "deposits_cumulative")
-                curr_deposits = _get_scalar(period_df, sub_start, "deposits_cumulative")
-                prev_withdrawals = _get_scalar(period_df, subperiod_dates[i-1], "withdrawals_cumulative")
-                curr_withdrawals = _get_scalar(period_df, sub_start, "withdrawals_cumulative")
-                cash_flow_at_start = (curr_deposits - prev_deposits) - (curr_withdrawals - prev_withdrawals)
+            # GIPS-compliant TWR: snapshots are taken AFTER cash flows, so
+            # start_value at a cash-flow boundary already includes the deposit/withdrawal.
+            # The subperiod return uses the post-cash-flow value as the denominator.
+            # This is correct because:
+            #   - Previous subperiod ended at the pre-CF value (handled via end adjustment)
+            #   - This subperiod starts at the post-CF value (the snapshot)
+            # Net effect: the cash flow is excluded from return calculation.
 
-            # Adjusted start value (value just after cash flow)
-            adjusted_start = start_value
+            # Compute cash flow at the END of this subperiod (i.e. at sub_end)
+            cash_flow_at_end = 0.0
+            if i < len(subperiod_dates) - 2:  # Not the last subperiod
+                curr_deposits = _get_scalar(period_df, sub_end, "deposits_cumulative")
+                curr_withdrawals = _get_scalar(period_df, sub_end, "withdrawals_cumulative")
+                start_deposits = _get_scalar(period_df, sub_start, "deposits_cumulative")
+                start_withdrawals = _get_scalar(period_df, sub_start, "withdrawals_cumulative")
+                cash_flow_at_end = ((curr_deposits - start_deposits)
+                                    - (curr_withdrawals - start_withdrawals))
+
             end_value = _get_scalar(period_df, sub_end, "total_value")
 
+            # Subtract cash flow from end value to get the pre-cash-flow portfolio value.
+            # This isolates investment return from external flows.
+            adjusted_end = end_value - cash_flow_at_end
+
             # Calculate subperiod return
-            if adjusted_start > 0:
-                subperiod_return = end_value / adjusted_start
+            if start_value > 0:
+                subperiod_return = adjusted_end / start_value
                 cumulative_return *= subperiod_return
 
         # Convert from growth factor to return

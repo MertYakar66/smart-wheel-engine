@@ -645,6 +645,217 @@ class CalendarSourceConfig:
     }
 
 
+class CalendarIngestionManager:
+    """
+    Automated calendar ingestion and rollover management.
+
+    Replaces manual hardcoded date maintenance with:
+    - JSON-based authoritative calendar files (versioned, auditable)
+    - Automatic staleness detection and rollover alerts
+    - Ingestion validation against expected event counts and date ranges
+    - Fallback to hardcoded dates when authoritative file is unavailable
+    """
+
+    # Expected event counts per year for validation
+    EXPECTED_COUNTS = {
+        EventType.FOMC: 8,
+        EventType.CPI: 12,
+        EventType.NFP: 12,
+        EventType.GDP: 4,
+        EventType.OPTIONS_EXPIRY: 12,
+    }
+
+    def __init__(self, calendar_dir: str | None = None):
+        """
+        Args:
+            calendar_dir: Directory containing authoritative JSON calendar files.
+                          Default: config/calendars/ relative to project root.
+        """
+        import pathlib
+        if calendar_dir:
+            self.calendar_dir = pathlib.Path(calendar_dir)
+        else:
+            self.calendar_dir = pathlib.Path(__file__).parent.parent / "config" / "calendars"
+
+    def _calendar_file(self, event_type: str, year: int) -> "pathlib.Path":
+        import pathlib
+        return self.calendar_dir / f"{event_type}_{year}.json"
+
+    def load_from_json(self, event_type_str: str, year: int) -> list[MarketEvent] | None:
+        """
+        Load events from authoritative JSON file.
+
+        JSON format:
+        {
+            "event_type": "fomc",
+            "year": 2026,
+            "source": "https://www.federalreserve.gov/...",
+            "verified_date": "2026-01-15",
+            "dates": ["2026-01-28", "2026-03-18", ...]
+        }
+
+        Returns None if file does not exist (fallback to hardcoded).
+        """
+        import json as _json
+        import pathlib
+
+        filepath = self._calendar_file(event_type_str, year)
+        if not filepath.exists():
+            return None
+
+        with open(filepath) as f:
+            data = _json.load(f)
+
+        event_type_map = {
+            "fomc": EventType.FOMC,
+            "cpi": EventType.CPI,
+            "nfp": EventType.NFP,
+            "gdp": EventType.GDP,
+        }
+        event_type = event_type_map.get(event_type_str)
+        if event_type is None:
+            return None
+
+        impact_map = {
+            EventType.FOMC: EventImpact.HIGH,
+            EventType.CPI: EventImpact.HIGH,
+            EventType.NFP: EventImpact.HIGH,
+            EventType.GDP: EventImpact.MEDIUM,
+        }
+
+        description_map = {
+            EventType.FOMC: "FOMC Rate Decision",
+            EventType.CPI: "CPI Release (8:30 AM ET)",
+            EventType.NFP: "Non-Farm Payrolls (8:30 AM ET)",
+            EventType.GDP: "GDP Release (Advance Estimate)",
+        }
+
+        events = []
+        for date_str in data.get("dates", []):
+            event_date = date.fromisoformat(date_str)
+            events.append(MarketEvent(
+                event_date=event_date,
+                event_type=event_type,
+                symbol=None,
+                description=description_map.get(event_type, event_type_str),
+                impact=impact_map.get(event_type, EventImpact.MEDIUM),
+                time_of_day="during" if event_type == EventType.FOMC else "pre",
+            ))
+
+        return events
+
+    def save_to_json(
+        self,
+        event_type_str: str,
+        year: int,
+        dates: list[date],
+        source: str = "",
+    ) -> None:
+        """Save authoritative calendar dates to JSON for version control."""
+        import json as _json
+
+        self.calendar_dir.mkdir(parents=True, exist_ok=True)
+        filepath = self._calendar_file(event_type_str, year)
+
+        data = {
+            "event_type": event_type_str,
+            "year": year,
+            "source": source,
+            "verified_date": date.today().isoformat(),
+            "dates": [d.isoformat() for d in sorted(dates)],
+        }
+
+        with open(filepath, "w") as f:
+            _json.dump(data, f, indent=2)
+
+    def check_staleness(self, year: int) -> list[str]:
+        """
+        Check if calendar data needs rollover/refresh.
+
+        Returns list of warnings for stale or missing data.
+        """
+        import json as _json
+
+        warnings = []
+        today = date.today()
+
+        for event_type_str in ["fomc", "cpi", "nfp", "gdp"]:
+            filepath = self._calendar_file(event_type_str, year)
+
+            if not filepath.exists():
+                if year <= today.year:
+                    warnings.append(
+                        f"{event_type_str.upper()} {year}: No authoritative JSON file found. "
+                        f"Using hardcoded fallback. Create {filepath} for production use."
+                    )
+                continue
+
+            with open(filepath) as f:
+                data = _json.load(f)
+
+            # Check verified_date freshness
+            verified = data.get("verified_date", "")
+            if verified:
+                verified_date = date.fromisoformat(verified)
+                age_days = (today - verified_date).days
+                if age_days > 180:
+                    warnings.append(
+                        f"{event_type_str.upper()} {year}: Verified {age_days} days ago. "
+                        f"Consider re-verifying against official source."
+                    )
+
+            # Check event count
+            event_dates = data.get("dates", [])
+            event_type_map = {
+                "fomc": EventType.FOMC,
+                "cpi": EventType.CPI,
+                "nfp": EventType.NFP,
+                "gdp": EventType.GDP,
+            }
+            et = event_type_map.get(event_type_str)
+            expected = self.EXPECTED_COUNTS.get(et, 0)
+            if len(event_dates) != expected:
+                warnings.append(
+                    f"{event_type_str.upper()} {year}: Expected {expected} events, "
+                    f"found {len(event_dates)} in JSON file."
+                )
+
+        # Check if next year's data is needed
+        if year == today.year and today.month >= 10:
+            next_year = year + 1
+            for event_type_str in ["fomc", "cpi", "nfp"]:
+                filepath = self._calendar_file(event_type_str, next_year)
+                if not filepath.exists():
+                    warnings.append(
+                        f"{event_type_str.upper()} {next_year}: Rollover needed. "
+                        f"No calendar file for next year (current month is {today.month})."
+                    )
+
+        return warnings
+
+    def load_or_fallback(
+        self,
+        event_type_str: str,
+        year: int,
+        fallback_generator,
+    ) -> list[MarketEvent]:
+        """
+        Load from authoritative JSON, falling back to hardcoded generator.
+
+        Args:
+            event_type_str: e.g. "fomc", "cpi"
+            year: Calendar year
+            fallback_generator: Callable(year) -> list[MarketEvent]
+
+        Returns:
+            List of MarketEvent from authoritative source or fallback
+        """
+        events = self.load_from_json(event_type_str, year)
+        if events is not None:
+            return events
+        return fallback_generator(year)
+
+
 def validate_calendar_dates(calendar: EventCalendar, year: int) -> dict[str, list[str]]:
     """
     Validate calendar dates for consistency and completeness.
@@ -706,12 +917,15 @@ def build_default_calendar(
     dividends_file: str | None = None,
     include_macro_events: bool = True,
     validate: bool = True,
+    calendar_dir: str | None = None,
+    check_staleness: bool = True,
 ) -> EventCalendar:
     """
     Build a default event calendar with common events.
 
     This is the centralized source-of-truth for all market events.
-    All event dates are sourced from official government/exchange schedules.
+    Prefers authoritative JSON calendar files when available, falling
+    back to hardcoded dates when they are not.
 
     Args:
         years: List of years to generate dates for
@@ -719,6 +933,8 @@ def build_default_calendar(
         dividends_file: Optional path to dividends CSV
         include_macro_events: Include CPI, NFP, GDP events (default True)
         validate: Validate calendar completeness (default True)
+        calendar_dir: Optional path to authoritative JSON calendar directory
+        check_staleness: If True, emit warnings for stale/missing calendar data
 
     Returns:
         Populated EventCalendar
@@ -728,10 +944,11 @@ def build_default_calendar(
     """
     calendar = EventCalendar()
     builder = EventCalendarBuilder()
+    ingestion = CalendarIngestionManager(calendar_dir)
 
-    # Add FOMC dates (always included - critical for options trading)
     for year in years:
-        fomc_events = builder.generate_fomc_dates(year)
+        # FOMC: prefer authoritative JSON, fall back to hardcoded
+        fomc_events = ingestion.load_or_fallback("fomc", year, builder.generate_fomc_dates)
         calendar.add_events(fomc_events)
 
         expiry_events = builder.generate_monthly_expiries(year)
@@ -739,14 +956,20 @@ def build_default_calendar(
 
         # Add macro economic events
         if include_macro_events:
-            cpi_events = builder.generate_cpi_dates(year)
+            cpi_events = ingestion.load_or_fallback("cpi", year, builder.generate_cpi_dates)
             calendar.add_events(cpi_events)
 
-            nfp_events = builder.generate_nfp_dates(year)
+            nfp_events = ingestion.load_or_fallback("nfp", year, builder.generate_nfp_dates)
             calendar.add_events(nfp_events)
 
-            gdp_events = builder.generate_gdp_dates(year)
+            gdp_events = ingestion.load_or_fallback("gdp", year, builder.generate_gdp_dates)
             calendar.add_events(gdp_events)
+
+        # Check staleness / rollover needs
+        if check_staleness:
+            stale_warnings = ingestion.check_staleness(year)
+            for w in stale_warnings:
+                print(f"Calendar staleness: {w}")
 
     # Load external data if provided
     if earnings_file:
@@ -765,7 +988,6 @@ def build_default_calendar(
                 raise ValueError(
                     f"Calendar validation failed for {year}: {issues['errors']}"
                 )
-            # Log warnings (in production, use proper logging)
             for warning in issues["warnings"]:
                 print(f"Calendar warning: {warning}")
 

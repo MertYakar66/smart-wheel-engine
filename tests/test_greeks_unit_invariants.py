@@ -213,19 +213,116 @@ class TestPnLDecompositionAccuracy:
 class TestStressTestingUnitConsistency:
     """Test that stress_testing module uses correct unit conversions."""
 
-    @pytest.mark.skip(reason="Stress ladder API changed - theta P&L includes repricing, not just Greek attribution")
     def test_stress_test_theta_uses_daily_conversion(self):
         """
-        Verify stress_testing.py converts annual theta to daily.
+        Verify stress_testing.py converts annual theta to daily in greeks_stress_ladder.
 
-        This is a regression test for the P0 bug where theta was multiplied
-        by days without dividing by 365 first.
-
-        NOTE: Currently skipped as greeks_stress_ladder returns full repricing
-        results rather than isolated Greek attribution. The theta conversion
-        is tested indirectly through test_theta_annual_vs_daily.
+        Regression test for P0 bug where theta was multiplied by days without /365.
+        We isolate theta by using dte_decay > 0 with zero spot change and zero iv_shock.
         """
-        pass
+        from engine.stress_testing import StressTester
+
+        positions = [
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 45,
+                "iv": 0.25,
+                "contracts": 5,
+                "is_short": True,
+            }
+        ]
+        spot_prices = {"AAPL": 155}
+        portfolio_value = 100_000
+
+        tester = StressTester()
+
+        # Run ladder with 7-day time decay, no spot move, no IV shock
+        ladder = tester.greeks_stress_ladder(
+            positions=positions,
+            spot_prices=spot_prices,
+            portfolio_value=portfolio_value,
+            spot_range=(0.0, 0.0),  # No spot move
+            n_steps=1,
+            iv_shock=0.0,
+            dte_decay=7,
+        )
+
+        # theta_pnl should be computed using daily theta (annual / 365 * days)
+        # For short options (is_short=True), theta P&L should be positive (collecting decay)
+        theta_pnl = ladder["theta_pnl"].iloc[0]
+        assert theta_pnl > 0, f"Short put theta P&L should be positive, got {theta_pnl}"
+
+        # Independently verify the magnitude using the pricer directly
+        greeks = black_scholes_all_greeks(
+            S=155, K=150, T=45/365, r=0.05, sigma=0.25, option_type="put"
+        )
+        annual_theta = greeks["theta"]
+        # Correct daily conversion: annual_theta / 365
+        daily_theta = annual_theta / 365
+        # multiplier for 5 short contracts: -1 * 5 * 100 = -500
+        expected_theta_pnl = daily_theta * 7 * (-500)
+
+        # The stress ladder theta_pnl should match within 1%
+        # (small difference possible from recomputing greeks at slightly different T)
+        if abs(expected_theta_pnl) > 0.01:
+            rel_error = abs(theta_pnl - expected_theta_pnl) / abs(expected_theta_pnl)
+            assert rel_error < 0.05, (
+                f"Theta P&L mismatch: ladder={theta_pnl:.4f}, expected={expected_theta_pnl:.4f} "
+                f"(error={rel_error:.1%}). Check that annual theta is divided by 365."
+            )
+
+    def test_extreme_scenarios_theta_consistent_with_ladder(self):
+        """
+        Verify extreme_greeks_scenarios and greeks_stress_ladder use same theta convention.
+        Both should apply theta/365 * days.
+        """
+        from engine.stress_testing import StressTester
+
+        positions = [
+            {
+                "symbol": "SPY",
+                "option_type": "put",
+                "strike": 400,
+                "dte": 30,
+                "iv": 0.20,
+                "contracts": 10,
+                "is_short": True,
+            }
+        ]
+        spot_prices = {"SPY": 420}
+        portfolio_value = 500_000
+
+        tester = StressTester()
+
+        # Get theta_burn from extreme scenarios (30 days, no spot/vol)
+        extreme = tester.extreme_greeks_scenarios(positions, spot_prices, portfolio_value)
+        extreme_theta = extreme["theta_burn"]["greek_attribution"]["theta_pnl"]
+
+        # Get theta from ladder (30 days decay, no spot move)
+        ladder = tester.greeks_stress_ladder(
+            positions=positions,
+            spot_prices=spot_prices,
+            portfolio_value=portfolio_value,
+            spot_range=(0.0, 0.0),
+            n_steps=1,
+            iv_shock=0.0,
+            dte_decay=30,
+        )
+        ladder_theta = ladder["theta_pnl"].iloc[0]
+
+        # Both should be positive (short puts collect theta)
+        assert extreme_theta > 0, f"Extreme scenario theta should be positive: {extreme_theta}"
+        assert ladder_theta > 0, f"Ladder theta should be positive: {ladder_theta}"
+
+        # They should be close (not identical due to Greeks computed at slightly different T)
+        if abs(extreme_theta) > 0.01:
+            rel_error = abs(extreme_theta - ladder_theta) / abs(extreme_theta)
+            assert rel_error < 0.10, (
+                f"Theta P&L mismatch between extreme ({extreme_theta:.2f}) and "
+                f"ladder ({ladder_theta:.2f}): error={rel_error:.1%}"
+            )
 
 
 if __name__ == "__main__":

@@ -124,10 +124,26 @@ class RiskManager:
         limits: RiskLimits | None = None,
         sizing_method: PositionSizingMethod = PositionSizingMethod.VOLATILITY_SCALED,
         risk_free_rate: float = 0.05,
+        allow_heuristic_var_fallback: bool = True,
+        concentrated_book_threshold: int = 3,
     ):
+        """
+        Args:
+            limits: Risk limit configuration
+            sizing_method: Position sizing method
+            risk_free_rate: Annual risk-free rate
+            allow_heuristic_var_fallback: If False, block parametric VaR for concentrated
+                books (fewer positions than concentrated_book_threshold) unless overridden.
+                Institutional policy: heuristic VaR can understate tail risk for concentrated
+                portfolios due to independence assumptions.
+            concentrated_book_threshold: Number of unique underlyings below which the
+                portfolio is considered "concentrated" for model governance purposes.
+        """
         self.limits = limits or RiskLimits()
         self.sizing_method = sizing_method
         self.risk_free_rate = risk_free_rate
+        self.allow_heuristic_var_fallback = allow_heuristic_var_fallback
+        self.concentrated_book_threshold = concentrated_book_threshold
 
         # Track historical data for risk calcs
         self.portfolio_values: list[float] = []
@@ -360,7 +376,22 @@ class RiskManager:
             )
             return var, cvar
 
-        # Priority 3: Simple delta-normal approximation
+        # Priority 3: Simple delta-normal approximation (heuristic fallback)
+        # Model governance: block heuristic fallback for concentrated portfolios
+        unique_symbols = {pos["symbol"] for pos in positions}
+        is_concentrated = len(unique_symbols) < self.concentrated_book_threshold
+
+        if is_concentrated and not self.allow_heuristic_var_fallback:
+            import warnings
+            warnings.warn(
+                f"VaR fallback blocked: portfolio has {len(unique_symbols)} unique symbols "
+                f"(threshold={self.concentrated_book_threshold}). Parametric VaR may understate "
+                f"tail risk for concentrated books. Provide correlation_matrix or returns_data, "
+                f"or set allow_heuristic_var_fallback=True to override.",
+                stacklevel=2,
+            )
+            return 0.0, 0.0
+
         var, cvar = self._parametric_var(
             portfolio_value, greeks, spot_prices, confidence, horizon_days
         )

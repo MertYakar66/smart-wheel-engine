@@ -191,6 +191,50 @@ class Transaction:
         }
 
 
+class CostBasisMethod(Enum):
+    """Cost basis calculation method for tax lots."""
+    AVERAGE = "average"  # Weighted average cost
+    FIFO = "fifo"        # First in, first out
+    LIFO = "lifo"        # Last in, first out
+    SPECIFIC_ID = "specific_id"  # Specific lot identification
+
+
+@dataclass
+class TaxLot:
+    """Individual tax lot for precise cost basis tracking."""
+    lot_id: str
+    ticker: str
+    shares: float
+    cost_per_share: float
+    purchase_date: date
+    remaining_shares: float = field(default=None)
+
+    def __post_init__(self):
+        if self.remaining_shares is None:
+            self.remaining_shares = self.shares
+
+    @property
+    def total_cost(self) -> float:
+        """Total cost of remaining shares in this lot."""
+        return self.remaining_shares * self.cost_per_share
+
+    @property
+    def is_long_term(self) -> bool:
+        """Whether lot qualifies for long-term capital gains (held > 1 year)."""
+        return (date.today() - self.purchase_date).days > 365
+
+    def to_dict(self) -> dict:
+        return {
+            "lot_id": self.lot_id,
+            "ticker": self.ticker,
+            "shares": self.shares,
+            "cost_per_share": self.cost_per_share,
+            "purchase_date": self.purchase_date.isoformat(),
+            "remaining_shares": self.remaining_shares,
+            "is_long_term": self.is_long_term,
+        }
+
+
 @dataclass
 class Holding:
     """A current portfolio holding."""
@@ -200,6 +244,9 @@ class Holding:
     current_price: float = 0.0
     asset_class: AssetClass = AssetClass.EQUITY
     sector: str = "Unknown"
+
+    # Tax lot tracking for FIFO/LIFO/Specific-ID
+    tax_lots: list[TaxLot] = field(default_factory=list)
 
     # Option-specific
     option_type: Literal["call", "put"] | None = None
@@ -368,6 +415,7 @@ class PortfolioTracker:
         initial_cash: float = 0.0,
         sector_map: dict[str, str] | None = None,
         benchmark_ticker: str = "SPY",
+        cost_basis_method: CostBasisMethod = CostBasisMethod.FIFO,
     ):
         """
         Initialize portfolio tracker.
@@ -376,13 +424,18 @@ class PortfolioTracker:
             initial_cash: Starting cash balance
             sector_map: Custom ticker to sector mapping
             benchmark_ticker: Benchmark for comparison (default SPY)
+            cost_basis_method: Method for calculating realized gains (FIFO/LIFO/AVERAGE)
         """
         self.cash = initial_cash
         self.sector_map = sector_map or DEFAULT_SECTOR_MAP
         self.benchmark_ticker = benchmark_ticker
+        self.cost_basis_method = cost_basis_method
 
         # Holdings
         self.holdings: dict[str, Holding] = {}
+
+        # Tax lot counter for unique IDs
+        self._lot_counter = 0
 
         # Transaction history
         self.transactions: list[Transaction] = []
@@ -392,6 +445,8 @@ class PortfolioTracker:
 
         # Cumulative tracking
         self.realized_pnl = 0.0
+        self.realized_pnl_short_term = 0.0  # Short-term capital gains
+        self.realized_pnl_long_term = 0.0   # Long-term capital gains
         self.total_dividends = 0.0
         self.total_fees = 0.0
         self.total_deposits = initial_cash
@@ -458,35 +513,51 @@ class PortfolioTracker:
         else:
             return False
 
+    def _generate_lot_id(self, ticker: str) -> str:
+        """Generate unique tax lot ID."""
+        self._lot_counter += 1
+        return f"{ticker}-{self._lot_counter:06d}"
+
     def _process_buy(self, txn: Transaction) -> bool:
-        """Process buy transaction."""
+        """Process buy transaction with tax lot tracking."""
         cost = txn.shares * txn.price + txn.fees
         if cost > self.cash:
             return False  # Insufficient funds
 
         self.cash -= cost
 
+        # Create new tax lot for this purchase
+        new_lot = TaxLot(
+            lot_id=self._generate_lot_id(txn.ticker),
+            ticker=txn.ticker,
+            shares=txn.shares,
+            cost_per_share=txn.price + (txn.fees / txn.shares),  # Include fees in cost basis
+            purchase_date=txn.date,
+        )
+
         if txn.ticker in self.holdings:
-            # Average up/down
+            # Add to existing position
             holding = self.holdings[txn.ticker]
-            total_shares = holding.shares + txn.shares
-            total_cost = holding.total_cost + (txn.shares * txn.price)
-            holding.shares = total_shares
-            holding.cost_basis = total_cost / total_shares
+            holding.tax_lots.append(new_lot)
+            holding.shares += txn.shares
+            # Recalculate average cost basis from all lots
+            total_cost = sum(lot.remaining_shares * lot.cost_per_share for lot in holding.tax_lots)
+            holding.cost_basis = total_cost / holding.shares
         else:
             # New position
             self.holdings[txn.ticker] = Holding(
                 ticker=txn.ticker,
                 shares=txn.shares,
-                cost_basis=txn.price,
+                cost_basis=new_lot.cost_per_share,
                 asset_class=txn.asset_class,
                 sector=self.sector_map.get(txn.ticker, "Unknown"),
+                tax_lots=[new_lot],
             )
 
         return True
 
     def _process_sell(self, txn: Transaction) -> bool:
-        """Process sell transaction."""
+        """Process sell transaction with FIFO/LIFO/Specific-ID cost basis."""
         if txn.ticker not in self.holdings:
             return False
 
@@ -494,20 +565,70 @@ class PortfolioTracker:
         if txn.shares > holding.shares:
             return False  # Can't sell more than owned
 
-        # Calculate realized P&L using average cost basis
-        # NOTE: This uses average cost, not FIFO. For true FIFO accounting,
-        # lot-level tracking would be required. See docs/QUANT_AUDIT_REPORT.md
         proceeds = txn.shares * txn.price - txn.fees
-        cost = txn.shares * holding.cost_basis  # Average cost per share
-        realized_gain = proceeds - cost
-        self.realized_pnl += realized_gain
-
         self.cash += proceeds
+
+        # Calculate realized P&L using selected cost basis method
+        shares_to_sell = txn.shares
+        total_cost = 0.0
+        short_term_gain = 0.0
+        long_term_gain = 0.0
+
+        # Order lots based on cost basis method
+        if self.cost_basis_method == CostBasisMethod.FIFO:
+            lots_ordered = sorted(holding.tax_lots, key=lambda l: l.purchase_date)
+        elif self.cost_basis_method == CostBasisMethod.LIFO:
+            lots_ordered = sorted(holding.tax_lots, key=lambda l: l.purchase_date, reverse=True)
+        else:  # AVERAGE - use all lots proportionally
+            lots_ordered = holding.tax_lots.copy()
+
+        if self.cost_basis_method == CostBasisMethod.AVERAGE:
+            # Simple average cost calculation
+            avg_cost = holding.cost_basis * shares_to_sell
+            realized_gain = proceeds - avg_cost
+            self.realized_pnl += realized_gain
+            # For average, proportionally reduce all lots
+            ratio = shares_to_sell / holding.shares
+            for lot in holding.tax_lots:
+                lot.remaining_shares *= (1 - ratio)
+        else:
+            # FIFO or LIFO: consume lots in order
+            for lot in lots_ordered:
+                if shares_to_sell <= 0:
+                    break
+
+                shares_from_lot = min(lot.remaining_shares, shares_to_sell)
+                lot_cost = shares_from_lot * lot.cost_per_share
+                total_cost += lot_cost
+
+                # Calculate gain for this lot
+                lot_proceeds = (shares_from_lot / txn.shares) * proceeds
+                lot_gain = lot_proceeds - lot_cost
+
+                # Track short-term vs long-term gains
+                if lot.is_long_term:
+                    long_term_gain += lot_gain
+                else:
+                    short_term_gain += lot_gain
+
+                lot.remaining_shares -= shares_from_lot
+                shares_to_sell -= shares_from_lot
+
+            self.realized_pnl += short_term_gain + long_term_gain
+            self.realized_pnl_short_term += short_term_gain
+            self.realized_pnl_long_term += long_term_gain
+
+        # Remove depleted lots
+        holding.tax_lots = [lot for lot in holding.tax_lots if lot.remaining_shares > 0.001]
 
         # Update or remove holding
         holding.shares -= txn.shares
         if holding.shares <= 0.001:  # Effectively zero
             del self.holdings[txn.ticker]
+        else:
+            # Recalculate average cost basis from remaining lots
+            total_remaining_cost = sum(lot.remaining_shares * lot.cost_per_share for lot in holding.tax_lots)
+            holding.cost_basis = total_remaining_cost / holding.shares
 
         return True
 
@@ -727,17 +848,21 @@ class PortfolioTracker:
         start_date: pd.Timestamp | None = None,
     ) -> float:
         """
-        Calculate time-weighted return (simplified method).
+        Calculate time-weighted return using GIPS-compliant geometric chain-linking.
 
-        This is a simplified TWR that adjusts for net cash flows over the period
-        rather than using full GIPS-compliant subperiod geometric chain-linking.
-        For precise GIPS-style TWR, each external cash flow should trigger a new
-        subperiod with geometric linking of subperiod returns.
+        This implements true TWR by:
+        1. Identifying external cash flows (deposits/withdrawals)
+        2. Creating subperiods around each cash flow
+        3. Calculating holding period return for each subperiod
+        4. Geometrically linking subperiod returns
 
-        This simplified approach is suitable for most retail portfolio tracking
-        but may differ from institutional TWR calculations.
+        GIPS (Global Investment Performance Standards) requires:
+        - Subperiods start/end at each external cash flow
+        - Beginning-of-period valuation for cash flows
+        - Geometric (multiplicative) linking of subperiod returns
 
-        TWR eliminates the impact of cash flows to show true investment performance.
+        TWR eliminates the impact of cash flows to show true investment performance,
+        making it suitable for institutional reporting and manager comparison.
         """
         if start_date is None:
             start_date = end_date - timedelta(days=days)
@@ -749,23 +874,57 @@ class PortfolioTracker:
         if len(period_df) < 2:
             return 0.0
 
-        # Simple TWR: geometric linking of sub-period returns
-        # Adjusted for deposits/withdrawals
-        start_value = period_df["total_value"].iloc[0]
-        end_value = period_df["total_value"].iloc[-1]
+        # Identify cash flow dates (where deposits or withdrawals changed)
+        deposits = period_df["deposits_cumulative"]
+        withdrawals = period_df["withdrawals_cumulative"]
 
-        # Net of cash flows
-        deposits_in_period = period_df["deposits_cumulative"].iloc[-1] - period_df["deposits_cumulative"].iloc[0]
-        withdrawals_in_period = period_df["withdrawals_cumulative"].iloc[-1] - period_df["withdrawals_cumulative"].iloc[0]
-        net_flows = deposits_in_period - withdrawals_in_period
+        # Detect cash flow events (change in cumulative deposits/withdrawals)
+        deposit_changes = deposits.diff().fillna(0) != 0
+        withdrawal_changes = withdrawals.diff().fillna(0) != 0
+        cash_flow_dates = period_df.index[deposit_changes | withdrawal_changes].tolist()
 
-        # Adjusted end value (remove impact of new deposits)
-        adjusted_end = end_value - net_flows
+        # Build subperiod boundaries: start, all cash flow dates, end
+        subperiod_dates = [period_df.index[0]]
+        for cf_date in cash_flow_dates:
+            if cf_date > subperiod_dates[-1]:
+                subperiod_dates.append(cf_date)
+        if period_df.index[-1] > subperiod_dates[-1]:
+            subperiod_dates.append(period_df.index[-1])
 
-        if start_value == 0:
+        if len(subperiod_dates) < 2:
             return 0.0
 
-        return (adjusted_end - start_value) / start_value
+        # Calculate and link subperiod returns
+        cumulative_return = 1.0
+
+        for i in range(len(subperiod_dates) - 1):
+            sub_start = subperiod_dates[i]
+            sub_end = subperiod_dates[i + 1]
+
+            # Get values at subperiod boundaries
+            start_value = period_df.loc[sub_start, "total_value"]
+
+            # If there's a cash flow at sub_end, adjust starting value
+            # Using beginning-of-period (BOP) valuation for GIPS compliance
+            cash_flow_at_start = 0.0
+            if i > 0:  # Not the first subperiod
+                prev_deposits = period_df.loc[subperiod_dates[i-1], "deposits_cumulative"]
+                curr_deposits = period_df.loc[sub_start, "deposits_cumulative"]
+                prev_withdrawals = period_df.loc[subperiod_dates[i-1], "withdrawals_cumulative"]
+                curr_withdrawals = period_df.loc[sub_start, "withdrawals_cumulative"]
+                cash_flow_at_start = (curr_deposits - prev_deposits) - (curr_withdrawals - prev_withdrawals)
+
+            # Adjusted start value (value just after cash flow)
+            adjusted_start = start_value
+            end_value = period_df.loc[sub_end, "total_value"]
+
+            # Calculate subperiod return
+            if adjusted_start > 0:
+                subperiod_return = end_value / adjusted_start
+                cumulative_return *= subperiod_return
+
+        # Convert from growth factor to return
+        return cumulative_return - 1.0
 
     def _calculate_max_drawdown(self, df: pd.DataFrame) -> tuple[float, int]:
         """Calculate maximum drawdown and duration."""

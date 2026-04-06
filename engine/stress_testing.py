@@ -881,12 +881,16 @@ class StressTester:
                 pos_pnl = (new_greeks["price"] - old_greeks["price"]) * multiplier
 
                 # Greeks decomposition
+                # Per GREEKS_UNIT_CONTRACT.md:
+                # - Theta: pricer returns annual theta, convert to daily with /365
+                # - Vega: pricer returns per 1% (vol point), IV change in decimal needs *100
+                # - Rho: pricer returns per 1%, rate change in decimal needs *100
                 dS = new_spot - spot
                 pos_delta_pnl = old_greeks["delta"] * dS * multiplier
                 pos_gamma_pnl = 0.5 * old_greeks["gamma"] * dS**2 * multiplier
-                pos_theta_pnl = old_greeks["theta"] * params["days_decay"] * multiplier
-                pos_vega_pnl = old_greeks["vega"] * (new_iv - pos["iv"]) * multiplier
-                pos_rho_pnl = old_greeks["rho"] * params["rate_change"] * multiplier
+                pos_theta_pnl = (old_greeks["theta"] / 365) * params["days_decay"] * multiplier
+                pos_vega_pnl = old_greeks["vega"] * (new_iv - pos["iv"]) * 100 * multiplier
+                pos_rho_pnl = old_greeks["rho"] * params["rate_change"] * 100 * multiplier
 
                 delta_pnl += pos_delta_pnl
                 gamma_pnl += pos_gamma_pnl

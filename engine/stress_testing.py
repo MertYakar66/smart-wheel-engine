@@ -552,7 +552,11 @@ class StressTester:
                 delta_pnl = greeks["delta"] * dS * multiplier
                 gamma_pnl = 0.5 * greeks["gamma"] * dS**2 * multiplier
                 theta_pnl = greeks["theta"] * dte_decay * multiplier if dte_decay else 0
-                vega_pnl = greeks["vega"] * iv_shock * multiplier if iv_shock else 0
+                # Vega P&L: iv_shock is relative change (e.g., 0.15 = 15% increase in IV level)
+                # Convert to vol points: base_iv * relative_change * 100
+                # See docs/GREEKS_UNIT_CONTRACT.md for unit conventions
+                iv_change_vol_points = pos["iv"] * iv_shock * 100 if iv_shock else 0
+                vega_pnl = greeks["vega"] * iv_change_vol_points * multiplier
                 rho_pnl = 0  # No rate shock in this scenario
 
                 # Full repricing P&L (most accurate)

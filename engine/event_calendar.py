@@ -301,15 +301,17 @@ class EventCalendarBuilder:
             date(2025, 12, 17),
         ]
 
+        # 2026 FOMC dates aligned with official Federal Reserve calendar
+        # Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
         fomc_2026 = [
-            date(2026, 1, 28),
-            date(2026, 3, 18),
-            date(2026, 4, 29),
-            date(2026, 6, 17),
-            date(2026, 7, 29),
-            date(2026, 9, 16),
-            date(2026, 11, 4),
-            date(2026, 12, 16),
+            date(2026, 1, 28),   # Jan 27-28, no press conf
+            date(2026, 3, 18),   # Mar 17-18, press conf + SEP
+            date(2026, 4, 29),   # Apr 28-29, no press conf
+            date(2026, 6, 17),   # Jun 16-17, press conf + SEP
+            date(2026, 7, 29),   # Jul 28-29, no press conf
+            date(2026, 9, 16),   # Sep 15-16, press conf + SEP
+            date(2026, 10, 28),  # Oct 27-28, no press conf
+            date(2026, 12, 9),   # Dec 8-9, press conf + SEP
         ]
 
         dates_by_year = {2024: fomc_2024, 2025: fomc_2025, 2026: fomc_2026}

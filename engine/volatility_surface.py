@@ -36,6 +36,10 @@ class SVIParams:
     - a, b, ρ, m, σ are the 5 SVI parameters
 
     This creates a realistic smile/skew shape.
+
+    Arbitrage Enforcement:
+    - Butterfly no-arbitrage condition is enforced by default (raises ValueError)
+    - Set strict_arbitrage=False only for calibration testing/debugging
     """
 
     a: float  # Vertical shift (overall variance level)
@@ -43,21 +47,34 @@ class SVIParams:
     rho: float  # Asymmetry/skew (-1 < ρ < 1)
     m: float  # Horizontal shift (ATM location)
     sigma: float  # Smoothness of vertex (must be > 0)
+    strict_arbitrage: bool = True  # If True, reject arbitrage violations
 
     def __post_init__(self):
-        """Validate parameters."""
+        """Validate parameters with arbitrage enforcement."""
         if self.b < 0:
             raise ValueError(f"b must be >= 0, got {self.b}")
         if not -1 < self.rho < 1:
             raise ValueError(f"rho must be in (-1, 1), got {self.rho}")
         if self.sigma <= 0:
             raise ValueError(f"sigma must be > 0, got {self.sigma}")
+
         # Butterfly arbitrage condition: a + b*sigma*sqrt(1-rho^2) >= 0
+        # This ensures the total variance w(k) >= 0 for all k
+        # Reference: Gatheral & Jacquier (2014), "Arbitrage-free SVI volatility surfaces"
         butterfly = self.a + self.b * self.sigma * np.sqrt(1 - self.rho**2)
         if butterfly < 0:
-            warnings.warn(
-                f"SVI params may violate butterfly arbitrage: {butterfly:.4f}", stacklevel=2
-            )
+            if self.strict_arbitrage:
+                raise ValueError(
+                    f"SVI params violate butterfly no-arbitrage condition: "
+                    f"a + b*sigma*sqrt(1-rho^2) = {butterfly:.6f} < 0. "
+                    f"Set strict_arbitrage=False to allow (for testing only)."
+                )
+            else:
+                warnings.warn(
+                    f"SVI params violate butterfly arbitrage: {butterfly:.4f}. "
+                    f"This surface may produce negative variances.",
+                    stacklevel=2
+                )
 
     def total_variance(self, k: float) -> float:
         """Calculate total variance w(k) for log-moneyness k."""
@@ -240,7 +257,8 @@ class VolatilitySurface:
             new_rho = np.clip(params.rho + skew_steepening, -0.99, 0.99)
 
             new_params[exp] = SVIParams(
-                a=new_a, b=params.b, rho=new_rho, m=params.m, sigma=params.sigma
+                a=new_a, b=params.b, rho=new_rho, m=params.m, sigma=params.sigma,
+                strict_arbitrage=params.strict_arbitrage
             )
 
         return VolatilitySurface(
@@ -255,18 +273,33 @@ class SVICalibrator:
     """
     Calibrate SVI parameters from market option data.
 
-    Uses least-squares optimization to fit SVI curve to market IVs.
+    Uses constrained least-squares optimization to fit SVI curve to market IVs.
+    Enforces butterfly no-arbitrage constraint during calibration.
     """
 
-    def __init__(self, min_points: int = 5, max_iterations: int = 1000):
+    def __init__(
+        self,
+        min_points: int = 5,
+        max_iterations: int = 1000,
+        enforce_arbitrage: bool = True,
+    ):
+        """
+        Initialize SVI calibrator.
+
+        Args:
+            min_points: Minimum data points required for calibration
+            max_iterations: Maximum optimizer iterations
+            enforce_arbitrage: If True, add butterfly constraint to optimization
+        """
         self.min_points = min_points
         self.max_iterations = max_iterations
+        self.enforce_arbitrage = enforce_arbitrage
 
     def calibrate(
         self, strikes: np.ndarray, ivs: np.ndarray, forward: float, T: float
     ) -> SVIParams:
         """
-        Calibrate SVI parameters to market data.
+        Calibrate SVI parameters to market data with arbitrage constraints.
 
         Args:
             strikes: Array of strike prices
@@ -275,7 +308,10 @@ class SVICalibrator:
             T: Time to expiry in years
 
         Returns:
-            Fitted SVIParams
+            Fitted SVIParams (guaranteed arbitrage-free if enforce_arbitrage=True)
+
+        Raises:
+            ValueError: If calibration fails or produces arbitrage violations
         """
         if len(strikes) < self.min_points:
             raise ValueError(f"Need at least {self.min_points} points, got {len(strikes)}")
@@ -294,7 +330,7 @@ class SVICalibrator:
             0.1,  # sigma
         ]
 
-        # Bounds
+        # Bounds ensuring basic parameter validity
         bounds = [
             (-0.5, 1.0),  # a
             (0.001, 1.0),  # b
@@ -311,20 +347,49 @@ class SVICalibrator:
             except Exception:
                 return 1e10
 
-        # Optimize
-        result = optimize.minimize(
-            objective,
-            x0,
-            method="L-BFGS-B",
-            bounds=bounds,
-            options={"maxiter": self.max_iterations},
-        )
+        # Butterfly arbitrage constraint: a + b*sigma*sqrt(1-rho^2) >= 0
+        def butterfly_constraint(params):
+            a, b, rho, _, sigma = params
+            return a + b * sigma * np.sqrt(1 - rho**2)
+
+        constraints = []
+        if self.enforce_arbitrage:
+            constraints.append({
+                "type": "ineq",
+                "fun": butterfly_constraint,
+            })
+
+        # Optimize with constraints
+        # Use SLSQP for constrained optimization (supports both bounds and constraints)
+        if constraints:
+            result = optimize.minimize(
+                objective,
+                x0,
+                method="SLSQP",
+                bounds=bounds,
+                constraints=constraints,
+                options={"maxiter": self.max_iterations},
+            )
+        else:
+            # Faster unconstrained optimization for testing
+            result = optimize.minimize(
+                objective,
+                x0,
+                method="L-BFGS-B",
+                bounds=bounds,
+                options={"maxiter": self.max_iterations},
+            )
 
         if not result.success:
             warnings.warn(f"SVI calibration did not converge: {result.message}", stacklevel=2)
 
         a, b, rho, m, sigma = result.x
-        return SVIParams(a=a, b=b, rho=rho, m=m, sigma=sigma)
+
+        # Return with strict_arbitrage matching our calibration setting
+        return SVIParams(
+            a=a, b=b, rho=rho, m=m, sigma=sigma,
+            strict_arbitrage=self.enforce_arbitrage
+        )
 
 
 class VolatilitySurfaceBuilder:

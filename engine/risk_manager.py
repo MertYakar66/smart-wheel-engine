@@ -565,8 +565,11 @@ class RiskManager:
             # Estimate vol shocks from return magnitude (leverage effect)
             # When returns are negative, vol typically increases
             # Approximate: dVol ~ -0.5 * return (simplified leverage effect)
+            # implied_vol_change is in decimal (e.g., -0.025 = 2.5 vol point increase)
+            # Convert to vol points by multiplying by 100 since vega is per 1 vol point
+            # See docs/GREEKS_UNIT_CONTRACT.md for unit conventions
             implied_vol_change = -0.5 * hist_returns.values
-            vega_pnl = greeks.vega * implied_vol_change * 0.01  # Scale to 1% vol change
+            vega_pnl = greeks.vega * implied_vol_change * 100  # Convert decimal to vol points
 
         # === Total P&L Scenarios ===
         total_pnl = delta_pnl + gamma_pnl + vega_pnl

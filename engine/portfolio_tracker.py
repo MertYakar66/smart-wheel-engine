@@ -494,9 +494,11 @@ class PortfolioTracker:
         if txn.shares > holding.shares:
             return False  # Can't sell more than owned
 
-        # Calculate realized P&L (FIFO cost basis)
+        # Calculate realized P&L using average cost basis
+        # NOTE: This uses average cost, not FIFO. For true FIFO accounting,
+        # lot-level tracking would be required. See docs/QUANT_AUDIT_REPORT.md
         proceeds = txn.shares * txn.price - txn.fees
-        cost = txn.shares * holding.cost_basis
+        cost = txn.shares * holding.cost_basis  # Average cost per share
         realized_gain = proceeds - cost
         self.realized_pnl += realized_gain
 
@@ -725,7 +727,15 @@ class PortfolioTracker:
         start_date: pd.Timestamp | None = None,
     ) -> float:
         """
-        Calculate time-weighted return.
+        Calculate time-weighted return (simplified method).
+
+        This is a simplified TWR that adjusts for net cash flows over the period
+        rather than using full GIPS-compliant subperiod geometric chain-linking.
+        For precise GIPS-style TWR, each external cash flow should trigger a new
+        subperiod with geometric linking of subperiod returns.
+
+        This simplified approach is suitable for most retail portfolio tracking
+        but may differ from institutional TWR calculations.
 
         TWR eliminates the impact of cash flows to show true investment performance.
         """

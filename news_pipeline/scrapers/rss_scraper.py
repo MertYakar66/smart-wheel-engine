@@ -10,8 +10,19 @@ import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
-import aiohttp
+# Lazy import aiohttp - only required when actually using the scraper
+try:
+    import aiohttp
+
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+    aiohttp = None  # type: ignore
+
+if TYPE_CHECKING:
+    import aiohttp
 
 from news_pipeline.scrapers.base import (
     NewsItem,
@@ -115,7 +126,15 @@ class RSSNewsScraper(NewsScraper):
 
         Args:
             feeds: Custom list of feeds (uses defaults if None)
+
+        Raises:
+            ImportError: If aiohttp is not installed
         """
+        if not AIOHTTP_AVAILABLE:
+            raise ImportError(
+                "aiohttp is required for RSS scraping. "
+                "Install with: pip install aiohttp or pip install smart-wheel-engine[news]"
+            )
         self.feeds = feeds or FINANCIAL_RSS_FEEDS
 
     async def fetch(

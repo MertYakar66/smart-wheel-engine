@@ -7,8 +7,20 @@ Uses Playwright for JavaScript-rendered content.
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from playwright.async_api import Browser, async_playwright
+# Lazy import playwright - only required when actually using the scraper
+try:
+    from playwright.async_api import Browser, async_playwright
+
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    Browser = None  # type: ignore
+    async_playwright = None  # type: ignore
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, async_playwright
 
 from news_pipeline.scrapers.base import (
     NewsItem,
@@ -91,7 +103,15 @@ class BrowserNewsScraper(NewsScraper):
         Args:
             targets: Custom scraping targets (uses defaults if None)
             headless: Run browser without GUI
+
+        Raises:
+            ImportError: If playwright is not installed
         """
+        if not PLAYWRIGHT_AVAILABLE:
+            raise ImportError(
+                "playwright is required for browser scraping. "
+                "Install with: pip install playwright && playwright install"
+            )
         self.targets = targets or SCRAPING_TARGETS
         self.headless = headless
         self._playwright = None

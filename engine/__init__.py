@@ -3,6 +3,7 @@ Smart Wheel Engine - Core Trading Components
 
 This module provides the core trading engine components:
 - WheelTracker: Position lifecycle management
+- PortfolioTracker: Comprehensive portfolio tracking with time-period returns
 - Option pricing with Black-Scholes and Greeks
 - Transaction cost modeling
 - Shared valuation for consistent labeling
@@ -132,12 +133,33 @@ from .volatility_surface import (
     surface_to_dataframe,
 )
 from .wheel_tracker import PositionState, WheelPosition, WheelTracker
+from .portfolio_tracker import (
+    AssetClass,
+    Holding,
+    PerformanceMetrics,
+    PortfolioSnapshot,
+    PortfolioTracker,
+    Transaction,
+    TransactionType,
+    create_portfolio_from_holdings,
+    quick_snapshot,
+)
 
 __all__ = [
     # Core
     "WheelTracker",
     "WheelPosition",
     "PositionState",
+    # Portfolio Tracking
+    "PortfolioTracker",
+    "Transaction",
+    "TransactionType",
+    "Holding",
+    "PortfolioSnapshot",
+    "PerformanceMetrics",
+    "AssetClass",
+    "create_portfolio_from_holdings",
+    "quick_snapshot",
     # Pricing
     "black_scholes_price",
     "black_scholes_delta",

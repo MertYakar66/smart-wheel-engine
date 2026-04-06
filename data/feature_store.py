@@ -352,7 +352,7 @@ class FeatureStore:
                 stat.p50 = float(series.quantile(0.50)) if not series.isna().all() else None
                 stat.p75 = float(series.quantile(0.75)) if not series.isna().all() else None
 
-            if pd.api.types.is_categorical_dtype(series) or series.dtype == object:
+            if isinstance(series.dtype, pd.CategoricalDtype) or series.dtype == object:
                 stat.unique_count = int(series.nunique())
 
             stats.append(stat)

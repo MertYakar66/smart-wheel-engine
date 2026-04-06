@@ -37,6 +37,15 @@ from .quant_dashboard import (
     quick_price,
 )
 
+# Re-export PortfolioTracker for convenience
+from engine.portfolio_tracker import (
+    PortfolioTracker,
+    Transaction,
+    TransactionType,
+    Holding,
+    PerformanceMetrics,
+)
+
 __all__ = [
     "QuantDashboard",
     "OptionInput",
@@ -44,6 +53,12 @@ __all__ = [
     "PortfolioInput",
     "quick_price",
     "quick_greeks",
+    # Portfolio Tracker
+    "PortfolioTracker",
+    "Transaction",
+    "TransactionType",
+    "Holding",
+    "PerformanceMetrics",
 ]
 
 __version__ = "2.0.0"

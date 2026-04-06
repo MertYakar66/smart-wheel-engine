@@ -200,12 +200,15 @@ All feature computations must:
 
 | Model ID | Name | Tier | Status | Last Review |
 |----------|------|------|--------|-------------|
-| BS-001 | Black-Scholes | 1 | Active | 2024-03-26 |
-| RV-001 | Realized Vol Suite | 2 | Active | 2024-03-26 |
-| VR-001 | VaR Models | 1 | Active | 2024-03-26 |
-| KC-001 | Kelly Criterion | 1 | Active | 2024-03-26 |
-| RD-001 | Regime Detector | 2 | Active | 2024-03-26 |
-| TI-001 | Technical Indicators | 3 | Active | 2024-03-26 |
+| BS-001 | Black-Scholes | 1 | Active | 2026-04-02 |
+| RV-001 | Realized Vol Suite | 2 | Active | 2026-04-02 |
+| VR-001 | VaR Models (Parametric, Historical, Covariance) | 1 | Active | 2026-04-02 |
+| MC-001 | Monte Carlo VaR | 1 | Active | 2026-04-02 |
+| JD-001 | Jump-Diffusion VaR (Merton) | 1 | Active | 2026-04-02 |
+| GS-001 | Greeks Stress Testing | 1 | Active | 2026-04-02 |
+| KC-001 | Kelly Criterion | 1 | Active | 2026-04-02 |
+| RD-001 | Regime Detector | 2 | Active | 2026-04-02 |
+| TI-001 | Technical Indicators | 3 | Active | 2026-04-02 |
 
 ### 7.2 Deprecated Models
 
@@ -270,10 +273,10 @@ Maintain ability to provide:
 
 | Activity | Frequency | Next Due |
 |----------|-----------|----------|
-| Model performance review | Monthly | 2024-04-01 |
-| Parameter recalibration | Quarterly | 2024-06-01 |
-| Full model validation | Annual | 2025-03-01 |
-| Governance policy review | Annual | 2025-03-01 |
+| Model performance review | Monthly | 2026-05-01 |
+| Parameter recalibration | Quarterly | 2026-07-01 |
+| Full model validation | Annual | 2027-04-01 |
+| Governance policy review | Annual | 2027-04-01 |
 
 ---
 
@@ -290,3 +293,4 @@ Maintain ability to provide:
 | Date | Version | Change | Author |
 |------|---------|--------|--------|
 | 2024-03-26 | 1.0.0 | Initial governance framework | Quant Team |
+| 2026-04-02 | 2.0.0 | Updated review dates, added Monte Carlo VaR | Quant Team |

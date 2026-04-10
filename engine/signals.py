@@ -10,6 +10,8 @@ Professional signal framework for systematic options trading:
 Key principle: Signals should be systematic, testable, and explainable.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -611,7 +613,7 @@ class SignalAggregator:
         )
 
 
-def create_aggregator_from_policy(policy: "TradingPolicyConfig") -> SignalAggregator:
+def create_aggregator_from_policy(policy) -> SignalAggregator:
     """Create a SignalAggregator driven by a ``TradingPolicyConfig``.
 
     All thresholds are read from *policy.signal* so that no magic numbers
@@ -700,7 +702,7 @@ class StrangleTimingSignal(SignalGenerator):
                 reason="Insufficient OHLCV data for strangle timing",
             )
 
-        from engine.strangle_timing import StrangleTimingEngine, VolatilityPhase
+        from engine.strangle_timing import StrangleTimingEngine
 
         engine = StrangleTimingEngine()
         score = engine.score_entry(ohlcv)
@@ -711,7 +713,9 @@ class StrangleTimingSignal(SignalGenerator):
             value = min(1.0, (score.total_score - self.strong_score) / 20 + 0.5)
         elif score.total_score >= self.min_score:
             strength = SignalStrength.WEAK_BUY
-            value = (score.total_score - self.min_score) / (self.strong_score - self.min_score) * 0.5
+            value = (
+                (score.total_score - self.min_score) / (self.strong_score - self.min_score) * 0.5
+            )
         elif score.compression_warning:
             strength = SignalStrength.STRONG_SELL
             value = -1.0

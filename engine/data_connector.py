@@ -115,8 +115,14 @@ class MarketDataConnector:
             df["ticker"] = df["ticker"].apply(normalize_ticker)
 
         # Parse common date columns
-        for col in ("date", "ex_date", "declared_date", "record_date",
-                     "payable_date", "announcement_date"):
+        for col in (
+            "date",
+            "ex_date",
+            "declared_date",
+            "record_date",
+            "payable_date",
+            "announcement_date",
+        ):
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce")
 
@@ -223,15 +229,11 @@ class MarketDataConnector:
         present = [c for c in value_cols if c in df.columns]
         return df[present].sort_values("date").set_index("date")
 
-    def _iv_series(
-        self, ticker: str, as_of: str | None, lookback_days: int
-    ) -> pd.Series:
+    def _iv_series(self, ticker: str, as_of: str | None, lookback_days: int) -> pd.Series:
         """Return the 30-day IV series for *ticker* up to *as_of*."""
         end = as_of
         if as_of is not None:
-            start = str(
-                (pd.Timestamp(as_of) - pd.Timedelta(days=int(lookback_days * 1.6)))
-            )[:10]
+            start = str(pd.Timestamp(as_of) - pd.Timedelta(days=int(lookback_days * 1.6)))[:10]
         else:
             start = None
         iv = self.get_iv_history(ticker, start_date=start, end_date=end)
@@ -283,9 +285,7 @@ class MarketDataConnector:
         current = series.iloc[-1]
         return float((series < current).sum() / len(series))
 
-    def get_vol_risk_premium(
-        self, ticker: str, as_of: str | None = None
-    ) -> float:
+    def get_vol_risk_premium(self, ticker: str, as_of: str | None = None) -> float:
         """Volatility risk premium: IV - RV (30-day windows).
 
         Positive values indicate that implied vol exceeds realized vol,
@@ -342,9 +342,7 @@ class MarketDataConnector:
         ]
         return out[cols].reset_index(drop=True)
 
-    def get_next_earnings(
-        self, ticker: str, as_of: str | None = None
-    ) -> dict | None:
+    def get_next_earnings(self, ticker: str, as_of: str | None = None) -> dict | None:
         """Return the next upcoming earnings event after *as_of*.
 
         Returns a dict with keys ``announcement_date``,
@@ -403,9 +401,7 @@ class MarketDataConnector:
         ]
         return df[cols].sort_values("ex_date").reset_index(drop=True)
 
-    def get_next_dividend(
-        self, ticker: str, as_of: str | None = None
-    ) -> dict | None:
+    def get_next_dividend(self, ticker: str, as_of: str | None = None) -> dict | None:
         """Return the next upcoming ex-dividend event after *as_of*.
 
         Returns a dict with ``ex_date``, ``dividend_amount``,
@@ -431,9 +427,7 @@ class MarketDataConnector:
     # Rates
     # ------------------------------------------------------------------
 
-    def get_risk_free_rate(
-        self, as_of: str | None = None, tenor: str = "rate_3m"
-    ) -> float:
+    def get_risk_free_rate(self, as_of: str | None = None, tenor: str = "rate_3m") -> float:
         """Get risk-free rate from treasury yields.
 
         *tenor* must be one of ``rate_3m``, ``rate_6m``, ``rate_2y``,
@@ -481,16 +475,24 @@ class MarketDataConnector:
         """
         df = self._load("vix")
         if df.empty or "vix" not in df.columns:
-            return {"vix": float("nan"), "vix_percentile": float("nan"),
-                    "term_structure": "unknown", "vix_3m": float("nan"),
-                    "vix_6m": float("nan")}
+            return {
+                "vix": float("nan"),
+                "vix_percentile": float("nan"),
+                "term_structure": "unknown",
+                "vix_3m": float("nan"),
+                "vix_6m": float("nan"),
+            }
 
         if as_of is not None:
             df = df[df["date"] <= pd.Timestamp(as_of)]
         if df.empty:
-            return {"vix": float("nan"), "vix_percentile": float("nan"),
-                    "term_structure": "unknown", "vix_3m": float("nan"),
-                    "vix_6m": float("nan")}
+            return {
+                "vix": float("nan"),
+                "vix_percentile": float("nan"),
+                "term_structure": "unknown",
+                "vix_3m": float("nan"),
+                "vix_6m": float("nan"),
+            }
 
         df = df.sort_values("date")
         last = df.iloc[-1]
@@ -616,19 +618,12 @@ class MarketDataConnector:
 
         # Beta filter
         if max_beta is not None and "beta_raw_overridable" in result.columns:
-            result = result[
-                result["beta_raw_overridable"].fillna(float("inf")) <= max_beta
-            ]
+            result = result[result["beta_raw_overridable"].fillna(float("inf")) <= max_beta]
 
         # Sector filter
         if sectors is not None and "gics_sector_name" in result.columns:
             sectors_lower = {s.lower() for s in sectors}
-            result = result[
-                result["gics_sector_name"]
-                .str.lower()
-                .fillna("")
-                .isin(sectors_lower)
-            ]
+            result = result[result["gics_sector_name"].str.lower().fillna("").isin(sectors_lower)]
 
         # Build output frame with friendly column names
         out_cols = {
@@ -640,9 +635,7 @@ class MarketDataConnector:
             "eqy_dvd_yld_12m": "dividend_yield",
             "volatility_30d": "volatility_30d",
         }
-        out = result.rename(
-            columns={k: v for k, v in out_cols.items() if k in result.columns}
-        )
+        out = result.rename(columns={k: v for k, v in out_cols.items() if k in result.columns})
         keep = [v for v in out_cols.values() if v in out.columns]
         out = out[keep].reset_index(drop=True)
 
@@ -679,9 +672,5 @@ class MarketDataConnector:
         df = self._filter_dates(df, "date", start_date, end_date)
         if df.empty:
             return df
-        cols = [
-            c
-            for c in ["date", "avg_vol_30d", "turnover", "shares_out"]
-            if c in df.columns
-        ]
+        cols = [c for c in ["date", "avg_vol_30d", "turnover", "shares_out"] if c in df.columns]
         return df[cols].sort_values("date").set_index("date")

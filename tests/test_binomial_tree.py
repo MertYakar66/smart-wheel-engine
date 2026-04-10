@@ -11,25 +11,22 @@ Tests cover:
 """
 
 import numpy as np
-import pytest
 
 from engine.binomial_tree import (
-    BinomialResult,
     DiscreteDividend,
     binomial_american_full,
     binomial_american_price,
     binomial_with_richardson,
     convergence_study,
 )
-from engine.option_pricer import (
-    american_option_price,
-    american_option_greeks,
-    black_scholes_price,
-)
 from engine.model_validation import (
     CrossModelValidator,
     ModelTolerances,
     run_benchmark_grid,
+)
+from engine.option_pricer import (
+    american_option_greeks,
+    black_scholes_price,
 )
 
 
@@ -171,19 +168,19 @@ class TestDiscreteDividends:
         p_no_div = binomial_american_price(S, K, T, r, sigma, "put", n_steps=300)
         # With $2 discrete dividend at T/2
         divs = [DiscreteDividend(ex_date=None, amount=2.0, time_frac=0.5)]
-        p_div = binomial_american_price(S, K, T, r, sigma, "put", q=0.0, n_steps=300,
-                                        discrete_dividends=divs)
-        assert p_div > p_no_div, (
-            f"Put with div ({p_div:.4f}) should exceed no-div ({p_no_div:.4f})"
+        p_div = binomial_american_price(
+            S, K, T, r, sigma, "put", q=0.0, n_steps=300, discrete_dividends=divs
         )
+        assert p_div > p_no_div, f"Put with div ({p_div:.4f}) should exceed no-div ({p_no_div:.4f})"
 
     def test_discrete_div_decreases_call_value(self):
         """Call value should decrease with discrete dividend."""
         S, K, T, r, sigma = 100.0, 100.0, 0.5, 0.05, 0.25
         c_no_div = binomial_american_price(S, K, T, r, sigma, "call", n_steps=300)
         divs = [DiscreteDividend(ex_date=None, amount=2.0, time_frac=0.5)]
-        c_div = binomial_american_price(S, K, T, r, sigma, "call", q=0.0, n_steps=300,
-                                        discrete_dividends=divs)
+        c_div = binomial_american_price(
+            S, K, T, r, sigma, "call", q=0.0, n_steps=300, discrete_dividends=divs
+        )
         assert c_div < c_no_div, (
             f"Call with div ({c_div:.4f}) should be less than no-div ({c_no_div:.4f})"
         )
@@ -192,8 +189,9 @@ class TestDiscreteDividends:
         """Very large dividend shouldn't cause negative stock prices or crashes."""
         S, K, T, r, sigma = 100.0, 100.0, 0.5, 0.05, 0.25
         divs = [DiscreteDividend(ex_date=None, amount=80.0, time_frac=0.3)]
-        p = binomial_american_price(S, K, T, r, sigma, "put", q=0.0, n_steps=200,
-                                    discrete_dividends=divs)
+        p = binomial_american_price(
+            S, K, T, r, sigma, "put", q=0.0, n_steps=200, discrete_dividends=divs
+        )
         assert np.isfinite(p) and p >= 0, f"Price should be finite and non-negative: {p}"
 
 
@@ -204,8 +202,14 @@ class TestCrossModelValidation:
         """BAW and CRR should agree within tolerance for ATM options."""
         validator = CrossModelValidator(crr_steps=500)
         report = validator.validate(
-            S=100, K=100, T=0.5, r=0.05, sigma=0.25,
-            option_type="put", q=0.02, symbol="TEST",
+            S=100,
+            K=100,
+            T=0.5,
+            r=0.05,
+            sigma=0.25,
+            option_type="put",
+            q=0.02,
+            symbol="TEST",
         )
         assert report.baw_vs_crr is not None
         assert report.baw_vs_crr.within_tolerance, (
@@ -216,8 +220,14 @@ class TestCrossModelValidation:
         """Near-expiry options should trigger escalation."""
         validator = CrossModelValidator(auto_escalate=False)
         report = validator.validate(
-            S=100, K=100, T=3/365, r=0.05, sigma=0.25,
-            option_type="put", q=0.0, symbol="TEST",
+            S=100,
+            K=100,
+            T=3 / 365,
+            r=0.05,
+            sigma=0.25,
+            option_type="put",
+            q=0.0,
+            symbol="TEST",
         )
         assert report.escalation_triggered
         assert any("expiry" in r.lower() for r in report.escalation_reasons)
@@ -226,8 +236,14 @@ class TestCrossModelValidation:
         """Deep OTM options should trigger escalation."""
         validator = CrossModelValidator(auto_escalate=False)
         report = validator.validate(
-            S=100, K=60, T=0.5, r=0.05, sigma=0.20,
-            option_type="put", q=0.0, symbol="TEST",
+            S=100,
+            K=60,
+            T=0.5,
+            r=0.05,
+            sigma=0.20,
+            option_type="put",
+            q=0.0,
+            symbol="TEST",
         )
         assert report.escalation_triggered
         assert any("OTM" in r for r in report.escalation_reasons)
@@ -240,8 +256,14 @@ class TestCrossModelValidation:
             tolerances=tight_tol, block_on_divergence=True, crr_steps=50
         )
         report = validator.validate(
-            S=100, K=100, T=0.5, r=0.05, sigma=0.25,
-            option_type="put", q=0.02, symbol="TEST",
+            S=100,
+            K=100,
+            T=0.5,
+            r=0.05,
+            sigma=0.25,
+            option_type="put",
+            q=0.02,
+            symbol="TEST",
         )
         # With extremely tight tolerances and only 50 steps, models should diverge
         if not report.baw_vs_crr.within_tolerance:
@@ -251,8 +273,14 @@ class TestCrossModelValidation:
         """Report summary should be a readable string."""
         validator = CrossModelValidator(crr_steps=100)
         report = validator.validate(
-            S=100, K=100, T=0.5, r=0.05, sigma=0.25,
-            option_type="put", q=0.0, symbol="AAPL",
+            S=100,
+            K=100,
+            T=0.5,
+            r=0.05,
+            sigma=0.25,
+            option_type="put",
+            q=0.0,
+            symbol="AAPL",
         )
         summary = report.summary()
         assert "AAPL" in summary
@@ -316,7 +344,7 @@ class TestBinomialEdgeCases:
 
     def test_very_short_expiry(self):
         """T = 1 day should work."""
-        p = binomial_american_price(100, 100, 1/365, 0.05, 0.25, "put", n_steps=100)
+        p = binomial_american_price(100, 100, 1 / 365, 0.05, 0.25, "put", n_steps=100)
         assert np.isfinite(p) and p >= 0
 
     def test_very_long_expiry(self):

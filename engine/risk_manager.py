@@ -176,6 +176,7 @@ class RiskManager:
             environment: 'dev', 'staging', or 'prod'
         """
         from .policy_config import load_policy
+
         policy = load_policy()
         rp = policy.risk
         return cls(
@@ -424,6 +425,7 @@ class RiskManager:
         if is_concentrated and not self.allow_heuristic_var_fallback:
             import warnings
             from datetime import datetime
+
             event = {
                 "event": "var_fallback_blocked",
                 "timestamp": datetime.utcnow().isoformat(),
@@ -438,8 +440,11 @@ class RiskManager:
                 f"{len(unique_symbols)} unique symbols "
                 f"(threshold={self.concentrated_book_threshold}). Parametric VaR may understate "
                 f"tail risk for concentrated books. Provide correlation_matrix or returns_data."
-                + ("" if self.environment == "prod"
-                   else " Set allow_heuristic_var_fallback=True to override in non-prod."),
+                + (
+                    ""
+                    if self.environment == "prod"
+                    else " Set allow_heuristic_var_fallback=True to override in non-prod."
+                ),
                 stacklevel=2,
             )
             return 0.0, 0.0

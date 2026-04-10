@@ -32,16 +32,15 @@ from engine.option_pricer import (
     black_scholes_price,
     implied_volatility,
 )
-from engine.risk_manager import (
-    PortfolioGreeks,
-    RiskManager,
-    calculate_kelly_fraction,
-)
 from engine.portfolio_tracker import (
     PortfolioTracker,
     Transaction,
     TransactionType,
-    Holding,
+)
+from engine.risk_manager import (
+    PortfolioGreeks,
+    RiskManager,
+    calculate_kelly_fraction,
 )
 
 # =============================================================================
@@ -949,12 +948,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         metrics = self.portfolio_tracker.get_returns()
 
         print(f"""
-{'='*60}
+{"=" * 60}
 PORTFOLIO PERFORMANCE
-{'='*60}
+{"=" * 60}
 
 RETURNS BY PERIOD
-{'-'*40}
+{"-" * 40}
   Today (1D):     {metrics.return_1d:+.2%}
   1 Week:         {metrics.return_1w:+.2%}
   1 Month:        {metrics.return_1m:+.2%}
@@ -964,19 +963,19 @@ RETURNS BY PERIOD
   All Time:       {metrics.return_all_time:+.2%}
 
 RISK METRICS
-{'-'*40}
+{"-" * 40}
   Volatility (Annualized): {metrics.volatility_annualized:.1%}
   Sharpe Ratio:            {metrics.sharpe_ratio:.2f}
   Sortino Ratio:           {metrics.sortino_ratio:.2f}
   Max Drawdown:            {metrics.max_drawdown:.1%}
 
 TOTALS
-{'-'*40}
+{"-" * 40}
   Total Gain/Loss:         ${metrics.total_gain:+,.2f}
   Total Dividends:         ${metrics.total_dividends:,.2f}
   Total Fees:              ${metrics.total_fees:,.2f}
 
-{'='*60}
+{"=" * 60}
         """)
 
     def _tracker_holdings(self):
@@ -992,37 +991,39 @@ TOTALS
             return
 
         print(f"""
-{'='*60}
+{"=" * 60}
 PORTFOLIO ALLOCATION
-{'='*60}
+{"=" * 60}
 
 OVERVIEW
-{'-'*40}
-  Total Value:  ${allocation.get('total_value', 0):,.2f}
-  Cash:         ${allocation.get('cash', 0):,.2f} ({allocation.get('cash_pct', 0):.1%})
-  Invested:     ${allocation.get('invested', 0):,.2f} ({allocation.get('invested_pct', 0):.1%})
+{"-" * 40}
+  Total Value:  ${allocation.get("total_value", 0):,.2f}
+  Cash:         ${allocation.get("cash", 0):,.2f} ({allocation.get("cash_pct", 0):.1%})
+  Invested:     ${allocation.get("invested", 0):,.2f} ({allocation.get("invested_pct", 0):.1%})
 
 BY SECTOR
-{'-'*40}""")
+{"-" * 40}""")
 
         for sector, pct in sorted(allocation.get("by_sector", {}).items(), key=lambda x: -x[1]):
             print(f"  {sector:25s} {pct:6.1%}")
 
         print(f"""
 BY ASSET CLASS
-{'-'*40}""")
+{"-" * 40}""")
 
         for asset, pct in sorted(allocation.get("by_asset_class", {}).items(), key=lambda x: -x[1]):
             print(f"  {asset:25s} {pct:6.1%}")
 
         print(f"""
 TOP HOLDINGS
-{'-'*40}""")
+{"-" * 40}""")
 
         for h in allocation.get("top_holdings", [])[:5]:
-            print(f"  {h['ticker']:12s} ${h['value']:>10,.2f} ({h['pct']:5.1%})  P&L: {h['pnl_pct']:+.1%}")
+            print(
+                f"  {h['ticker']:12s} ${h['value']:>10,.2f} ({h['pct']:5.1%})  P&L: {h['pnl_pct']:+.1%}"
+            )
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
 
     def _tracker_add_transaction(self):
         """Add a new transaction."""
@@ -1049,6 +1050,7 @@ TOP HOLDINGS
             return
 
         from datetime import date as dt
+
         txn = Transaction(
             ticker=ticker,
             action=action,
@@ -1059,7 +1061,9 @@ TOP HOLDINGS
         )
 
         if self.portfolio_tracker.add_transaction(txn):
-            print(f"\n>>> Transaction recorded: {action.value.upper()} {shares} {ticker} @ ${price:.2f}")
+            print(
+                f"\n>>> Transaction recorded: {action.value.upper()} {shares} {ticker} @ ${price:.2f}"
+            )
         else:
             print("\n>>> Transaction failed (check funds/holdings)")
 
@@ -1073,6 +1077,7 @@ TOP HOLDINGS
         amount = float(input("Amount: $"))
 
         from datetime import date as dt
+
         if choice == "1":
             txn = Transaction(
                 ticker="CASH",
@@ -1110,12 +1115,16 @@ TOP HOLDINGS
 
             try:
                 parts = line.split(",")
-                holdings.append({
-                    "ticker": parts[0].strip().upper(),
-                    "shares": float(parts[1].strip()),
-                    "cost_basis": float(parts[2].strip()),
-                    "current_price": float(parts[3].strip()) if len(parts) > 3 else float(parts[2].strip()),
-                })
+                holdings.append(
+                    {
+                        "ticker": parts[0].strip().upper(),
+                        "shares": float(parts[1].strip()),
+                        "cost_basis": float(parts[2].strip()),
+                        "current_price": float(parts[3].strip())
+                        if len(parts) > 3
+                        else float(parts[2].strip()),
+                    }
+                )
             except (ValueError, IndexError):
                 print("Invalid format. Use: TICKER,SHARES,COST_BASIS,CURRENT_PRICE")
 

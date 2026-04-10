@@ -5,18 +5,16 @@ Validates numerical stability for edge cases: near-expiry, near-zero vol,
 deep ITM/OTM, negative carry, and extreme stress scenarios.
 """
 
-import math
-
 import numpy as np
 import pytest
 
 from engine.option_pricer import black_scholes_all_greeks, black_scholes_price
 from engine.stress_testing import Scenario, ScenarioType, StressTester
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _all_greeks_finite(greeks: dict) -> None:
     """Assert every value in the greeks dict is finite (not NaN, not inf)."""
@@ -28,6 +26,7 @@ def _all_greeks_finite(greeks: dict) -> None:
 # ---------------------------------------------------------------------------
 # 1. Near-expiry numerics
 # ---------------------------------------------------------------------------
+
 
 class TestNearExpiryNumerics:
     """Edge cases around T -> 0."""
@@ -63,6 +62,7 @@ class TestNearExpiryNumerics:
 # 2. Near-zero volatility
 # ---------------------------------------------------------------------------
 
+
 class TestNearZeroVolNumerics:
     """Edge cases around sigma -> 0."""
 
@@ -96,6 +96,7 @@ class TestNearZeroVolNumerics:
 # ---------------------------------------------------------------------------
 # 3. Deep ITM / OTM
 # ---------------------------------------------------------------------------
+
 
 class TestDeepITMOTMNumerics:
     """Extreme moneyness edge cases."""
@@ -141,15 +142,14 @@ class TestDeepITMOTMNumerics:
             (500, 10, "put"),
         ]
         for S, K, opt in extreme_cases:
-            greeks = black_scholes_all_greeks(
-                S=S, K=K, T=0.25, r=0.05, sigma=0.30, option_type=opt
-            )
+            greeks = black_scholes_all_greeks(S=S, K=K, T=0.25, r=0.05, sigma=0.30, option_type=opt)
             _all_greeks_finite(greeks)
 
 
 # ---------------------------------------------------------------------------
 # 4. Negative carry edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestNegativeCarryEdgeCases:
     """High dividend yield and negative interest rates."""
@@ -171,9 +171,7 @@ class TestNegativeCarryEdgeCases:
     def test_negative_rate(self):
         """r=-0.01 should not error and produce valid results."""
         for opt in ("call", "put"):
-            price = black_scholes_price(
-                S=100, K=100, T=0.5, r=-0.01, sigma=0.25, option_type=opt
-            )
+            price = black_scholes_price(S=100, K=100, T=0.5, r=-0.01, sigma=0.25, option_type=opt)
             assert np.isfinite(price)
             assert price >= 0
 
@@ -186,6 +184,7 @@ class TestNegativeCarryEdgeCases:
 # ---------------------------------------------------------------------------
 # 5. Stress tester extremes
 # ---------------------------------------------------------------------------
+
 
 class TestStressTesterExtremes:
     """Stress tester under extreme position parameters."""

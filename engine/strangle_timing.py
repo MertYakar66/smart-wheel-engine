@@ -24,39 +24,40 @@ Reference:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 
 from src.features.technical import TechnicalFeatures
 
-
 # =============================================================================
 # Volatility Lifecycle Regime
 # =============================================================================
 
+
 class VolatilityPhase(Enum):
     """Phase in the volatility lifecycle."""
-    COMPRESSION = "compression"           # Low vol, narrow bands → AVOID
-    EXPANSION = "expansion"               # Active move, widening bands → WAIT
-    POST_EXPANSION = "post_expansion"     # Elevated but flattening → ENTER
-    TREND = "trend"                       # Persistent direction → AVOID symmetric
+
+    COMPRESSION = "compression"  # Low vol, narrow bands → AVOID
+    EXPANSION = "expansion"  # Active move, widening bands → WAIT
+    POST_EXPANSION = "post_expansion"  # Elevated but flattening → ENTER
+    TREND = "trend"  # Persistent direction → AVOID symmetric
     UNKNOWN = "unknown"
 
 
 @dataclass
 class StrangleRegime:
     """Complete volatility lifecycle state for strangle timing."""
+
     phase: VolatilityPhase
     confidence: float  # 0-1
 
     # Component states
-    bollinger_state: str   # "narrow", "expanding", "wide_flat", "wide_contracting"
-    atr_state: str         # "low", "rising", "elevated_flat", "declining"
-    rsi_state: str         # "neutral", "overbought", "oversold", "extreme_ob", "extreme_os"
-    trend_state: str       # "strong_up", "strong_down", "weak", "flat"
-    range_state: str       # "mid", "near_high", "near_low", "beyond_band"
+    bollinger_state: str  # "narrow", "expanding", "wide_flat", "wide_contracting"
+    atr_state: str  # "low", "rising", "elevated_flat", "declining"
+    rsi_state: str  # "neutral", "overbought", "oversold", "extreme_ob", "extreme_os"
+    trend_state: str  # "strong_up", "strong_down", "weak", "flat"
+    range_state: str  # "mid", "near_high", "near_low", "beyond_band"
 
     # Raw metrics
     bb_width: float = 0.0
@@ -85,6 +86,7 @@ class StrangleRegime:
 @dataclass
 class StrangleEntryScore:
     """Weighted scoring for strangle entry quality."""
+
     total_score: float  # 0-100
     recommendation: str  # "strong_entry", "conditional", "avoid"
 
@@ -124,6 +126,7 @@ class StrangleEntryScore:
 # =============================================================================
 # Strangle Entry Timing Engine
 # =============================================================================
+
 
 class StrangleTimingEngine:
     """
@@ -186,9 +189,13 @@ class StrangleTimingEngine:
         """
         if len(df) < self.bb_width_lookback:
             return StrangleRegime(
-                phase=VolatilityPhase.UNKNOWN, confidence=0.0,
-                bollinger_state="unknown", atr_state="unknown",
-                rsi_state="unknown", trend_state="unknown", range_state="unknown",
+                phase=VolatilityPhase.UNKNOWN,
+                confidence=0.0,
+                bollinger_state="unknown",
+                atr_state="unknown",
+                rsi_state="unknown",
+                trend_state="unknown",
+                range_state="unknown",
             )
 
         close = df["close"]
@@ -200,11 +207,21 @@ class StrangleTimingEngine:
         bb_width = (upper - lower) / middle
         bb_width_current = bb_width.iloc[-1]
         bb_width_hist = bb_width.dropna().tail(self.bb_width_lookback)
-        bb_width_pctl = (bb_width_hist < bb_width_current).mean() * 100 if len(bb_width_hist) > 0 else 50
-        bb_pct_b = (close.iloc[-1] - lower.iloc[-1]) / (upper.iloc[-1] - lower.iloc[-1]) if (upper.iloc[-1] - lower.iloc[-1]) > 0 else 0.5
+        bb_width_pctl = (
+            (bb_width_hist < bb_width_current).mean() * 100 if len(bb_width_hist) > 0 else 50
+        )
+        bb_pct_b = (
+            (close.iloc[-1] - lower.iloc[-1]) / (upper.iloc[-1] - lower.iloc[-1])
+            if (upper.iloc[-1] - lower.iloc[-1]) > 0
+            else 0.5
+        )
 
         # BB width slope (expanding vs contracting)
-        bb_width_slope = (bb_width.iloc[-1] - bb_width.iloc[-self.atr_slope_lookback]) / self.atr_slope_lookback if len(bb_width) >= self.atr_slope_lookback else 0
+        bb_width_slope = (
+            (bb_width.iloc[-1] - bb_width.iloc[-self.atr_slope_lookback]) / self.atr_slope_lookback
+            if len(bb_width) >= self.atr_slope_lookback
+            else 0
+        )
 
         if bb_width_pctl < 20:
             bollinger_state = "narrow"
@@ -222,7 +239,11 @@ class StrangleTimingEngine:
         atr_current = atr.iloc[-1]
         atr_hist = atr.dropna().tail(self.bb_width_lookback)
         atr_pctl = (atr_hist < atr_current).mean() * 100 if len(atr_hist) > 0 else 50
-        atr_slope = (atr.iloc[-1] - atr.iloc[-self.atr_slope_lookback]) / atr.iloc[-self.atr_slope_lookback] if atr.iloc[-self.atr_slope_lookback] > 0 and len(atr) >= self.atr_slope_lookback else 0
+        atr_slope = (
+            (atr.iloc[-1] - atr.iloc[-self.atr_slope_lookback]) / atr.iloc[-self.atr_slope_lookback]
+            if atr.iloc[-self.atr_slope_lookback] > 0 and len(atr) >= self.atr_slope_lookback
+            else 0
+        )
 
         if atr_pctl < 25:
             atr_state = "low"
@@ -252,8 +273,15 @@ class StrangleTimingEngine:
 
         # --- Trend State ---
         ma_20 = self.tech.sma(close, self.trend_ma_window)
-        ma_slope = (ma_20.iloc[-1] - ma_20.iloc[-self.atr_slope_lookback]) / ma_20.iloc[-self.atr_slope_lookback] if ma_20.iloc[-self.atr_slope_lookback] > 0 and len(ma_20) >= self.atr_slope_lookback else 0
-        price_vs_ma = (close.iloc[-1] - ma_20.iloc[-1]) / ma_20.iloc[-1] if ma_20.iloc[-1] > 0 else 0
+        ma_slope = (
+            (ma_20.iloc[-1] - ma_20.iloc[-self.atr_slope_lookback])
+            / ma_20.iloc[-self.atr_slope_lookback]
+            if ma_20.iloc[-self.atr_slope_lookback] > 0 and len(ma_20) >= self.atr_slope_lookback
+            else 0
+        )
+        price_vs_ma = (
+            (close.iloc[-1] - ma_20.iloc[-1]) / ma_20.iloc[-1] if ma_20.iloc[-1] > 0 else 0
+        )
 
         if abs(ma_slope) > 0.02 and abs(price_vs_ma) < 0.02:
             trend_state = "strong_up" if ma_slope > 0 else "strong_down"
@@ -279,8 +307,14 @@ class StrangleTimingEngine:
 
         # --- Phase Classification ---
         phase, confidence = self._classify_phase(
-            bollinger_state, atr_state, rsi_state, trend_state,
-            bb_width_pctl, atr_pctl, rsi_14, ma_slope,
+            bollinger_state,
+            atr_state,
+            rsi_state,
+            trend_state,
+            bb_width_pctl,
+            atr_pctl,
+            rsi_14,
+            ma_slope,
         )
 
         return StrangleRegime(
@@ -498,22 +532,24 @@ class StrangleTimingEngine:
             try:
                 score = self.score_entry(df)
                 if score.total_score >= min_score:
-                    results.append({
-                        "ticker": ticker,
-                        "score": score.total_score,
-                        "recommendation": score.recommendation,
-                        "phase": score.regime.phase.value if score.regime else "unknown",
-                        "bb_score": score.bollinger_score,
-                        "atr_score": score.atr_score,
-                        "rsi_score": score.rsi_score,
-                        "trend_score": score.trend_score,
-                        "range_score": score.range_score,
-                        "rsi_14": score.regime.rsi_14 if score.regime else 0,
-                        "bb_pct_b": score.regime.bb_pct_b if score.regime else 0.5,
-                        "atr_percentile": score.regime.atr_percentile if score.regime else 0,
-                        "compression_warning": score.compression_warning,
-                        "trend_warning": score.strong_trend_warning,
-                    })
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "score": score.total_score,
+                            "recommendation": score.recommendation,
+                            "phase": score.regime.phase.value if score.regime else "unknown",
+                            "bb_score": score.bollinger_score,
+                            "atr_score": score.atr_score,
+                            "rsi_score": score.rsi_score,
+                            "trend_score": score.trend_score,
+                            "range_score": score.range_score,
+                            "rsi_14": score.regime.rsi_14 if score.regime else 0,
+                            "bb_pct_b": score.regime.bb_pct_b if score.regime else 0.5,
+                            "atr_percentile": score.regime.atr_percentile if score.regime else 0,
+                            "compression_warning": score.compression_warning,
+                            "trend_warning": score.strong_trend_warning,
+                        }
+                    )
             except Exception:
                 continue
 
@@ -541,20 +577,22 @@ class StrangleTimingEngine:
         """
         scores = []
         for i in range(lookback_required, len(df)):
-            window = df.iloc[:i + 1]
+            window = df.iloc[: i + 1]
             try:
                 score = self.score_entry(window)
-                scores.append({
-                    "date": df.index[i] if hasattr(df.index[i], "date") else df.index[i],
-                    "score": score.total_score,
-                    "recommendation": score.recommendation,
-                    "phase": score.regime.phase.value if score.regime else "unknown",
-                    "bb_score": score.bollinger_score,
-                    "atr_score": score.atr_score,
-                    "rsi_score": score.rsi_score,
-                    "trend_score": score.trend_score,
-                    "range_score": score.range_score,
-                })
+                scores.append(
+                    {
+                        "date": df.index[i] if hasattr(df.index[i], "date") else df.index[i],
+                        "score": score.total_score,
+                        "recommendation": score.recommendation,
+                        "phase": score.regime.phase.value if score.regime else "unknown",
+                        "bb_score": score.bollinger_score,
+                        "atr_score": score.atr_score,
+                        "rsi_score": score.rsi_score,
+                        "trend_score": score.trend_score,
+                        "range_score": score.range_score,
+                    }
+                )
             except Exception:
                 continue
 
@@ -564,6 +602,7 @@ class StrangleTimingEngine:
 # =============================================================================
 # Layer 2: Options IV Overlay
 # =============================================================================
+
 
 class StrangleTimingWithIV(StrangleTimingEngine):
     """
@@ -593,6 +632,7 @@ class StrangleTimingWithIV(StrangleTimingEngine):
         """Lazy access to data connector; import deferred to avoid circular imports."""
         if self._data_connector is None:
             from engine.data_connector import MarketDataConnector
+
             self._data_connector = MarketDataConnector()
         return self._data_connector
 
@@ -679,7 +719,10 @@ class StrangleTimingWithIV(StrangleTimingEngine):
         vix_contango = iv_data.get("vix_contango", True)
 
         multiplier = self._compute_iv_multiplier(
-            iv_rank, vol_risk_premium, vix_level, vix_contango,
+            iv_rank,
+            vol_risk_premium,
+            vix_level,
+            vix_contango,
         )
         adjusted_total = float(np.clip(layer1_score.total_score * multiplier, 0, 100))
 
@@ -802,23 +845,25 @@ class StrangleTimingWithIV(StrangleTimingEngine):
                 vix_contango = getattr(entry.regime, "vix_contango", None)
 
                 if entry.total_score >= min_score:
-                    results.append({
-                        "ticker": ticker,
-                        "score": entry.total_score,
-                        "iv_rank": iv_rank,
-                        "vol_risk_premium": vol_premium,
-                        "vix_level": vix_level,
-                        "vix_contango": vix_contango,
-                        "phase": entry.regime.phase.value if entry.regime else "unknown",
-                        "recommendation": entry.recommendation,
-                        "bb_score": entry.bollinger_score,
-                        "atr_score": entry.atr_score,
-                        "rsi_score": entry.rsi_score,
-                        "trend_score": entry.trend_score,
-                        "range_score": entry.range_score,
-                        "compression_warning": entry.compression_warning,
-                        "trend_warning": entry.strong_trend_warning,
-                    })
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "score": entry.total_score,
+                            "iv_rank": iv_rank,
+                            "vol_risk_premium": vol_premium,
+                            "vix_level": vix_level,
+                            "vix_contango": vix_contango,
+                            "phase": entry.regime.phase.value if entry.regime else "unknown",
+                            "recommendation": entry.recommendation,
+                            "bb_score": entry.bollinger_score,
+                            "atr_score": entry.atr_score,
+                            "rsi_score": entry.rsi_score,
+                            "trend_score": entry.trend_score,
+                            "range_score": entry.range_score,
+                            "compression_warning": entry.compression_warning,
+                            "trend_warning": entry.strong_trend_warning,
+                        }
+                    )
             except Exception:
                 continue
 

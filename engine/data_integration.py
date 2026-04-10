@@ -7,15 +7,15 @@ Bloomberg data files into the EventCalendar system.
 Replaces hardcoded/projected dates with authoritative Bloomberg data.
 """
 
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
 from engine.event_calendar import (
     EventCalendar,
-    EventType,
     EventImpact,
+    EventType,
     MarketEvent,
 )
 
@@ -98,15 +98,17 @@ def load_earnings_from_bloomberg(
             surprise_pct = abs(eps_actual - eps_estimate) / abs(eps_estimate)
             expected_move = min(surprise_pct * 2, 0.15)  # Cap at 15%
 
-        events.append(MarketEvent(
-            event_date=event_date,
-            event_type=EventType.EARNINGS,
-            symbol=symbol,
-            description=f"{symbol} {period} Earnings",
-            impact=EventImpact.HIGH,
-            expected_move=expected_move,
-            time_of_day=time_of_day,
-        ))
+        events.append(
+            MarketEvent(
+                event_date=event_date,
+                event_type=EventType.EARNINGS,
+                symbol=symbol,
+                description=f"{symbol} {period} Earnings",
+                impact=EventImpact.HIGH,
+                expected_move=expected_move,
+                time_of_day=time_of_day,
+            )
+        )
 
     return events
 
@@ -155,27 +157,31 @@ def load_dividends_from_bloomberg(
 
         # Ex-dividend event
         ex_date = row["ex_date"].date()
-        events.append(MarketEvent(
-            event_date=ex_date,
-            event_type=EventType.DIVIDEND_EX,
-            symbol=symbol,
-            description=f"{symbol} Ex-Dividend ${amount:.3f} ({div_type})",
-            impact=EventImpact.MEDIUM,
-            dividend_amount=amount,
-            time_of_day="pre",
-        ))
+        events.append(
+            MarketEvent(
+                event_date=ex_date,
+                event_type=EventType.DIVIDEND_EX,
+                symbol=symbol,
+                description=f"{symbol} Ex-Dividend ${amount:.3f} ({div_type})",
+                impact=EventImpact.MEDIUM,
+                dividend_amount=amount,
+                time_of_day="pre",
+            )
+        )
 
         # Pay date event
         if pd.notna(row.get("payable_date")):
             pay_date = row["payable_date"].date()
-            events.append(MarketEvent(
-                event_date=pay_date,
-                event_type=EventType.DIVIDEND_PAY,
-                symbol=symbol,
-                description=f"{symbol} Dividend Payment ${amount:.3f}",
-                impact=EventImpact.LOW,
-                dividend_amount=amount,
-            ))
+            events.append(
+                MarketEvent(
+                    event_date=pay_date,
+                    event_type=EventType.DIVIDEND_PAY,
+                    symbol=symbol,
+                    description=f"{symbol} Dividend Payment ${amount:.3f}",
+                    impact=EventImpact.LOW,
+                    dividend_amount=amount,
+                )
+            )
 
     return events
 
@@ -204,7 +210,7 @@ def build_calendar_from_bloomberg(
     Returns:
         Populated EventCalendar
     """
-    from engine.event_calendar import EventCalendarBuilder, build_default_calendar
+    from engine.event_calendar import EventCalendarBuilder
 
     data_dir = Path(data_dir)
     calendar = EventCalendar()
@@ -280,11 +286,13 @@ def get_discrete_dividends_for_option(
     for _, row in filtered.iterrows():
         ex = row["ex_date"].date()
         days_to_ex = (ex - as_of).days
-        results.append({
-            "ex_date": ex,
-            "amount": row["dividend_amount"],
-            "time_frac": days_to_ex / total_days if total_days > 0 else 0.0,
-        })
+        results.append(
+            {
+                "ex_date": ex,
+                "amount": row["dividend_amount"],
+                "time_frac": days_to_ex / total_days if total_days > 0 else 0.0,
+            }
+        )
 
     return results
 

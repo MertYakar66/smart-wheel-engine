@@ -7,11 +7,12 @@ for full auditability of trading decisions and operations.
 import json
 import logging
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any
 
 
 @dataclass
@@ -20,8 +21,8 @@ class TraceContext:
 
     operation: str
     trace_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    parent_id: Optional[str] = None
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    parent_id: str | None = None
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict = field(default_factory=dict)
 
 
@@ -36,7 +37,7 @@ class DecisionEntry:
     reason: str
     signal_values: dict
     risk_metrics: dict
-    outcome: Optional[dict] = None
+    outcome: dict | None = None
 
 
 class DecisionJournal:
@@ -53,10 +54,10 @@ class DecisionJournal:
         reason: str,
         signal_values: dict,
         risk_metrics: dict,
-        outcome: Optional[dict] = None,
+        outcome: dict | None = None,
     ) -> DecisionEntry:
         entry = DecisionEntry(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trace_id=trace_id,
             decision_type=decision_type,
             symbol=symbol,
@@ -70,10 +71,10 @@ class DecisionJournal:
 
     def get_decisions(
         self,
-        symbol: Optional[str] = None,
-        decision_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        symbol: str | None = None,
+        decision_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[DecisionEntry]:
         results = self._entries
         if symbol is not None:
@@ -129,7 +130,7 @@ def clear_trace_events() -> None:
 @contextmanager
 def trace_operation(
     operation: str,
-    parent_id: Optional[str] = None,
+    parent_id: str | None = None,
     **metadata: Any,
 ) -> Generator[TraceContext, None, None]:
     """Context manager that creates a TraceContext and emits lifecycle events.
@@ -144,38 +145,44 @@ def trace_operation(
         parent_id=parent_id,
         metadata=metadata,
     )
-    _trace_events.append({
-        "event": "operation_start",
-        "trace_id": ctx.trace_id,
-        "operation": operation,
-        "timestamp": ctx.start_time.isoformat(),
-        "parent_id": parent_id,
-    })
+    _trace_events.append(
+        {
+            "event": "operation_start",
+            "trace_id": ctx.trace_id,
+            "operation": operation,
+            "timestamp": ctx.start_time.isoformat(),
+            "parent_id": parent_id,
+        }
+    )
     try:
         yield ctx
     except Exception as exc:
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
-        _trace_events.append({
-            "event": "operation_error",
-            "trace_id": ctx.trace_id,
-            "operation": operation,
-            "timestamp": end_time.isoformat(),
-            "duration_ms": duration_ms,
-            "error": str(exc),
-            "error_type": type(exc).__name__,
-        })
+        _trace_events.append(
+            {
+                "event": "operation_error",
+                "trace_id": ctx.trace_id,
+                "operation": operation,
+                "timestamp": end_time.isoformat(),
+                "duration_ms": duration_ms,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+        )
         raise
     else:
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
-        _trace_events.append({
-            "event": "operation_end",
-            "trace_id": ctx.trace_id,
-            "operation": operation,
-            "timestamp": end_time.isoformat(),
-            "duration_ms": duration_ms,
-        })
+        _trace_events.append(
+            {
+                "event": "operation_end",
+                "trace_id": ctx.trace_id,
+                "operation": operation,
+                "timestamp": end_time.isoformat(),
+                "duration_ms": duration_ms,
+            }
+        )
 
 
 class AuditLogger:
@@ -193,11 +200,11 @@ class AuditLogger:
         self,
         level: str,
         message: str,
-        trace_id: Optional[str] = None,
+        trace_id: str | None = None,
         **extra: Any,
     ) -> None:
         record: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": level,
             "message": message,
         }
@@ -210,14 +217,14 @@ class AuditLogger:
             json.dumps(record),
         )
 
-    def info(self, message: str, trace_id: Optional[str] = None, **kw: Any) -> None:
+    def info(self, message: str, trace_id: str | None = None, **kw: Any) -> None:
         self._emit("INFO", message, trace_id, **kw)
 
-    def warning(self, message: str, trace_id: Optional[str] = None, **kw: Any) -> None:
+    def warning(self, message: str, trace_id: str | None = None, **kw: Any) -> None:
         self._emit("WARNING", message, trace_id, **kw)
 
-    def error(self, message: str, trace_id: Optional[str] = None, **kw: Any) -> None:
+    def error(self, message: str, trace_id: str | None = None, **kw: Any) -> None:
         self._emit("ERROR", message, trace_id, **kw)
 
-    def debug(self, message: str, trace_id: Optional[str] = None, **kw: Any) -> None:
+    def debug(self, message: str, trace_id: str | None = None, **kw: Any) -> None:
         self._emit("DEBUG", message, trace_id, **kw)

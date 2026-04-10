@@ -10,15 +10,14 @@ Validates:
 
 import numpy as np
 import pandas as pd
-import pytest
 
+from engine.signals import SignalStrength, StrangleTimingSignal
 from engine.strangle_timing import (
-    StrangleTimingEngine,
     StrangleEntryScore,
     StrangleRegime,
+    StrangleTimingEngine,
     VolatilityPhase,
 )
-from engine.signals import StrangleTimingSignal, SignalStrength
 
 
 def _generate_ohlcv(n: int = 252, seed: int = 42, base_vol: float = 0.02) -> pd.DataFrame:
@@ -31,10 +30,16 @@ def _generate_ohlcv(n: int = 252, seed: int = 42, base_vol: float = 0.02) -> pd.
     open_[0] = 100.0
     volume = rng.lognormal(15, 0.5, n)
     dates = pd.date_range("2025-01-01", periods=n, freq="B")
-    return pd.DataFrame({
-        "open": open_, "high": high, "low": low,
-        "close": close, "volume": volume,
-    }, index=dates)
+    return pd.DataFrame(
+        {
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
 
 def _generate_post_expansion_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame:
@@ -54,10 +59,16 @@ def _generate_post_expansion_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame
     open_[0] = 100.0
     volume = rng.lognormal(15, 0.5, n)
     dates = pd.date_range("2025-01-01", periods=n, freq="B")
-    return pd.DataFrame({
-        "open": open_, "high": high, "low": low,
-        "close": close, "volume": volume,
-    }, index=dates)
+    return pd.DataFrame(
+        {
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
 
 def _generate_compression_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame:
@@ -70,10 +81,16 @@ def _generate_compression_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame:
     open_[0] = 100.0
     volume = rng.lognormal(15, 0.5, n)
     dates = pd.date_range("2025-01-01", periods=n, freq="B")
-    return pd.DataFrame({
-        "open": open_, "high": high, "low": low,
-        "close": close, "volume": volume,
-    }, index=dates)
+    return pd.DataFrame(
+        {
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
 
 def _generate_trending_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame:
@@ -86,10 +103,16 @@ def _generate_trending_ohlcv(n: int = 252, seed: int = 42) -> pd.DataFrame:
     open_[0] = 100.0
     volume = rng.lognormal(15, 0.5, n)
     dates = pd.date_range("2025-01-01", periods=n, freq="B")
-    return pd.DataFrame({
-        "open": open_, "high": high, "low": low,
-        "close": close, "volume": volume,
-    }, index=dates)
+    return pd.DataFrame(
+        {
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
 
 class TestRegimeClassification:

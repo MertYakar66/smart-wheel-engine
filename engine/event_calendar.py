@@ -304,14 +304,14 @@ class EventCalendarBuilder:
         # 2026 FOMC dates aligned with official Federal Reserve calendar
         # Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
         fomc_2026 = [
-            date(2026, 1, 28),   # Jan 27-28, no press conf
-            date(2026, 3, 18),   # Mar 17-18, press conf + SEP
-            date(2026, 4, 29),   # Apr 28-29, no press conf
-            date(2026, 6, 17),   # Jun 16-17, press conf + SEP
-            date(2026, 7, 29),   # Jul 28-29, no press conf
-            date(2026, 9, 16),   # Sep 15-16, press conf + SEP
+            date(2026, 1, 28),  # Jan 27-28, no press conf
+            date(2026, 3, 18),  # Mar 17-18, press conf + SEP
+            date(2026, 4, 29),  # Apr 28-29, no press conf
+            date(2026, 6, 17),  # Jun 16-17, press conf + SEP
+            date(2026, 7, 29),  # Jul 28-29, no press conf
+            date(2026, 9, 16),  # Sep 15-16, press conf + SEP
             date(2026, 10, 28),  # Oct 27-28, no press conf
-            date(2026, 12, 9),   # Dec 8-9, press conf + SEP
+            date(2026, 12, 9),  # Dec 8-9, press conf + SEP
         ]
 
         dates_by_year = {2024: fomc_2024, 2025: fomc_2025, 2026: fomc_2026}
@@ -343,26 +343,50 @@ class EventCalendarBuilder:
         """
         # 2024 CPI release dates (actual BLS schedule)
         cpi_2024 = [
-            date(2024, 1, 11), date(2024, 2, 13), date(2024, 3, 12),
-            date(2024, 4, 10), date(2024, 5, 15), date(2024, 6, 12),
-            date(2024, 7, 11), date(2024, 8, 14), date(2024, 9, 11),
-            date(2024, 10, 10), date(2024, 11, 13), date(2024, 12, 11),
+            date(2024, 1, 11),
+            date(2024, 2, 13),
+            date(2024, 3, 12),
+            date(2024, 4, 10),
+            date(2024, 5, 15),
+            date(2024, 6, 12),
+            date(2024, 7, 11),
+            date(2024, 8, 14),
+            date(2024, 9, 11),
+            date(2024, 10, 10),
+            date(2024, 11, 13),
+            date(2024, 12, 11),
         ]
 
         # 2025 CPI release dates
         cpi_2025 = [
-            date(2025, 1, 15), date(2025, 2, 12), date(2025, 3, 12),
-            date(2025, 4, 10), date(2025, 5, 13), date(2025, 6, 11),
-            date(2025, 7, 11), date(2025, 8, 13), date(2025, 9, 11),
-            date(2025, 10, 10), date(2025, 11, 13), date(2025, 12, 10),
+            date(2025, 1, 15),
+            date(2025, 2, 12),
+            date(2025, 3, 12),
+            date(2025, 4, 10),
+            date(2025, 5, 13),
+            date(2025, 6, 11),
+            date(2025, 7, 11),
+            date(2025, 8, 13),
+            date(2025, 9, 11),
+            date(2025, 10, 10),
+            date(2025, 11, 13),
+            date(2025, 12, 10),
         ]
 
         # 2026 CPI release dates (projected based on BLS patterns)
         cpi_2026 = [
-            date(2026, 1, 13), date(2026, 2, 11), date(2026, 3, 11),
-            date(2026, 4, 14), date(2026, 5, 12), date(2026, 6, 10),
-            date(2026, 7, 14), date(2026, 8, 12), date(2026, 9, 15),
-            date(2026, 10, 13), date(2026, 11, 12), date(2026, 12, 10),
+            date(2026, 1, 13),
+            date(2026, 2, 11),
+            date(2026, 3, 11),
+            date(2026, 4, 14),
+            date(2026, 5, 12),
+            date(2026, 6, 10),
+            date(2026, 7, 14),
+            date(2026, 8, 12),
+            date(2026, 9, 15),
+            date(2026, 10, 13),
+            date(2026, 11, 12),
+            date(2026, 12, 10),
         ]
 
         dates_by_year = {2024: cpi_2024, 2025: cpi_2025, 2026: cpi_2026}
@@ -421,9 +445,9 @@ class EventCalendarBuilder:
         """
         # Approximate GDP release schedule (advance estimates)
         gdp_quarters = [
-            (1, 25),   # Q4 advance in late January
-            (4, 25),   # Q1 advance in late April
-            (7, 25),   # Q2 advance in late July
+            (1, 25),  # Q4 advance in late January
+            (4, 25),  # Q1 advance in late April
+            (7, 25),  # Q2 advance in late July
             (10, 25),  # Q3 advance in late October
         ]
 
@@ -672,13 +696,13 @@ class CalendarIngestionManager:
                           Default: config/calendars/ relative to project root.
         """
         import pathlib
+
         if calendar_dir:
             self.calendar_dir = pathlib.Path(calendar_dir)
         else:
             self.calendar_dir = pathlib.Path(__file__).parent.parent / "config" / "calendars"
 
-    def _calendar_file(self, event_type: str, year: int) -> "pathlib.Path":
-        import pathlib
+    def _calendar_file(self, event_type: str, year: int):
         return self.calendar_dir / f"{event_type}_{year}.json"
 
     def load_from_json(self, event_type_str: str, year: int) -> list[MarketEvent] | None:
@@ -697,7 +721,6 @@ class CalendarIngestionManager:
         Returns None if file does not exist (fallback to hardcoded).
         """
         import json as _json
-        import pathlib
 
         filepath = self._calendar_file(event_type_str, year)
         if not filepath.exists():
@@ -733,14 +756,16 @@ class CalendarIngestionManager:
         events = []
         for date_str in data.get("dates", []):
             event_date = date.fromisoformat(date_str)
-            events.append(MarketEvent(
-                event_date=event_date,
-                event_type=event_type,
-                symbol=None,
-                description=description_map.get(event_type, event_type_str),
-                impact=impact_map.get(event_type, EventImpact.MEDIUM),
-                time_of_day="during" if event_type == EventType.FOMC else "pre",
-            ))
+            events.append(
+                MarketEvent(
+                    event_date=event_date,
+                    event_type=event_type,
+                    symbol=None,
+                    description=description_map.get(event_type, event_type_str),
+                    impact=impact_map.get(event_type, EventImpact.MEDIUM),
+                    time_of_day="during" if event_type == EventType.FOMC else "pre",
+                )
+            )
 
         return events
 
@@ -881,48 +906,40 @@ def validate_calendar_dates(calendar: EventCalendar, year: int) -> dict[str, lis
     issues: dict[str, list[str]] = {"warnings": [], "errors": []}
 
     # Check FOMC: should have 8 meetings per year
-    fomc_events = [e for e in calendar.events
-                   if e.event_type == EventType.FOMC
-                   and e.event_date.year == year]
+    fomc_events = [
+        e for e in calendar.events if e.event_type == EventType.FOMC and e.event_date.year == year
+    ]
     if len(fomc_events) != 8:
-        issues["warnings"].append(
-            f"FOMC: Expected 8 meetings for {year}, found {len(fomc_events)}"
-        )
+        issues["warnings"].append(f"FOMC: Expected 8 meetings for {year}, found {len(fomc_events)}")
 
     # Check CPI: should have 12 releases per year
-    cpi_events = [e for e in calendar.events
-                  if e.event_type == EventType.CPI
-                  and e.event_date.year == year]
+    cpi_events = [
+        e for e in calendar.events if e.event_type == EventType.CPI and e.event_date.year == year
+    ]
     if len(cpi_events) != 12:
-        issues["warnings"].append(
-            f"CPI: Expected 12 releases for {year}, found {len(cpi_events)}"
-        )
+        issues["warnings"].append(f"CPI: Expected 12 releases for {year}, found {len(cpi_events)}")
 
     # Check NFP: should have 12 releases per year
-    nfp_events = [e for e in calendar.events
-                  if e.event_type == EventType.NFP
-                  and e.event_date.year == year]
+    nfp_events = [
+        e for e in calendar.events if e.event_type == EventType.NFP and e.event_date.year == year
+    ]
     if len(nfp_events) != 12:
-        issues["warnings"].append(
-            f"NFP: Expected 12 releases for {year}, found {len(nfp_events)}"
-        )
+        issues["warnings"].append(f"NFP: Expected 12 releases for {year}, found {len(nfp_events)}")
 
     # Check monthly expiries: should have 12
-    expiry_events = [e for e in calendar.events
-                     if e.event_type == EventType.OPTIONS_EXPIRY
-                     and e.event_date.year == year]
+    expiry_events = [
+        e
+        for e in calendar.events
+        if e.event_type == EventType.OPTIONS_EXPIRY and e.event_date.year == year
+    ]
     if len(expiry_events) != 12:
-        issues["warnings"].append(
-            f"Expiries: Expected 12 for {year}, found {len(expiry_events)}"
-        )
+        issues["warnings"].append(f"Expiries: Expected 12 for {year}, found {len(expiry_events)}")
 
     # Check for stale data (dates in the past with no update)
     today = date.today()
     if year < today.year:
         if year not in CalendarSourceConfig.VERIFIED_YEARS.get("fomc", []):
-            issues["warnings"].append(
-                f"FOMC dates for {year} are from unverified source"
-            )
+            issues["warnings"].append(f"FOMC dates for {year} are from unverified source")
 
     return issues
 
@@ -965,7 +982,9 @@ def build_default_calendar(
 
     for year in years:
         # FOMC: prefer authoritative JSON, fall back to hardcoded
-        fomc_events = ingestion.load_or_fallback("fomc", year, builder.generate_fomc_dates, strict=strict)
+        fomc_events = ingestion.load_or_fallback(
+            "fomc", year, builder.generate_fomc_dates, strict=strict
+        )
         calendar.add_events(fomc_events)
 
         expiry_events = builder.generate_monthly_expiries(year)
@@ -973,13 +992,19 @@ def build_default_calendar(
 
         # Add macro economic events
         if include_macro_events:
-            cpi_events = ingestion.load_or_fallback("cpi", year, builder.generate_cpi_dates, strict=strict)
+            cpi_events = ingestion.load_or_fallback(
+                "cpi", year, builder.generate_cpi_dates, strict=strict
+            )
             calendar.add_events(cpi_events)
 
-            nfp_events = ingestion.load_or_fallback("nfp", year, builder.generate_nfp_dates, strict=strict)
+            nfp_events = ingestion.load_or_fallback(
+                "nfp", year, builder.generate_nfp_dates, strict=strict
+            )
             calendar.add_events(nfp_events)
 
-            gdp_events = ingestion.load_or_fallback("gdp", year, builder.generate_gdp_dates, strict=strict)
+            gdp_events = ingestion.load_or_fallback(
+                "gdp", year, builder.generate_gdp_dates, strict=strict
+            )
             calendar.add_events(gdp_events)
 
         # Check staleness / rollover needs
@@ -1002,9 +1027,7 @@ def build_default_calendar(
         for year in years:
             issues = validate_calendar_dates(calendar, year)
             if issues["errors"]:
-                raise ValueError(
-                    f"Calendar validation failed for {year}: {issues['errors']}"
-                )
+                raise ValueError(f"Calendar validation failed for {year}: {issues['errors']}")
             for warning in issues["warnings"]:
                 print(f"Calendar warning: {warning}")
 

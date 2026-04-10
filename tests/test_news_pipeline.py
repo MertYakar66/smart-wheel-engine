@@ -265,13 +265,12 @@ class TestBrowserAgents:
         response = ModelResponse(
             success=True,
             content="Test response",
-            model="claude",
-            latency_ms=150,
+            response_time_ms=150,
         )
 
         assert response.success is True
         assert response.content == "Test response"
-        assert response.latency_ms == 150
+        assert response.response_time_ms == 150
 
 
 class TestSecurityModule:

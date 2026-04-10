@@ -232,14 +232,11 @@ class FeatureStore:
         compression: str | None = "snappy",
     ) -> None:
         """
-        Write DataFrame to Parquet atomically using temp file + fsync + rename.
+        Write DataFrame to Parquet atomically using temp file + rename.
 
-        Ensures:
-        1. Partial writes never corrupt the target file
-        2. fsync guarantees data is on disk before rename
-        3. Atomic rename makes the new file visible in one operation
+        On POSIX: uses fsync + atomic rename for crash safety.
+        On Windows: uses simple write + rename (no fsync/O_DIRECTORY).
         """
-        # Create temp file in same directory for atomic rename on same filesystem
         target_dir = target_path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -250,24 +247,21 @@ class FeatureStore:
         temp_path = Path(temp_path)
 
         try:
-            # Close the fd opened by mkstemp, we'll write via pandas/pyarrow
             os.close(fd)
 
-            # Write to temp file
             if PYARROW_AVAILABLE:
                 table = pa.Table.from_pandas(df)
                 pq.write_table(table, str(temp_path), compression=compression)
             else:
                 df.to_parquet(str(temp_path), compression=compression, index=False)
 
-            # fsync to ensure data is on disk
-            with open(temp_path, "rb") as f:
-                os.fsync(f.fileno())
+            # fsync on POSIX for crash safety
+            if sys.platform != "win32":
+                with open(temp_path, "rb") as f:
+                    os.fsync(f.fileno())
 
-            # Atomic rename (guaranteed atomic on POSIX for same filesystem)
             os.replace(str(temp_path), str(target_path))
 
-            # fsync parent directory to ensure rename is persisted (POSIX only)
             if sys.platform != "win32":
                 dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
                 try:
@@ -276,7 +270,6 @@ class FeatureStore:
                     os.close(dir_fd)
 
         except Exception:
-            # Clean up temp file on error
             if temp_path.exists():
                 temp_path.unlink()
             raise
@@ -287,7 +280,7 @@ class FeatureStore:
         target_path: Path,
     ) -> None:
         """
-        Write JSON file atomically using temp file + fsync + rename.
+        Write JSON file atomically using temp file + rename.
         """
         target_dir = target_path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -304,15 +297,17 @@ class FeatureStore:
             with open(temp_path, "w") as f:
                 json.dump(data, f, indent=2)
                 f.flush()
-                os.fsync(f.fileno())
+                if sys.platform != "win32":
+                    os.fsync(f.fileno())
 
             os.replace(str(temp_path), str(target_path))
 
-            dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
+            if sys.platform != "win32":
+                dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
 
         except Exception:
             if temp_path.exists():

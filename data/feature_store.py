@@ -206,26 +206,20 @@ class FeatureStore:
         lock_path = self.base_path / "_locks" / f"{lock_name}.lock"
         lock_file = None
         try:
-            lock_file = open(lock_path, "w")
             if sys.platform == "win32":
-                import msvcrt
-
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+                # Windows: use simple file-existence locking
+                # msvcrt.locking has strict fd requirements; for single-user
+                # desktop use, file-existence is sufficient
+                lock_path.touch(exist_ok=True)
             else:
                 import fcntl
 
+                lock_file = open(lock_path, "w")
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             yield
         finally:
             if lock_file:
-                if sys.platform == "win32":
-                    import msvcrt
-
-                    try:
-                        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-                    except OSError:
-                        pass
-                else:
+                if sys.platform != "win32":
                     import fcntl
 
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

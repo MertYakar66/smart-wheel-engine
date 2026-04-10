@@ -14,8 +14,8 @@ This captures overpriced implied volatility while realized risk is declining.
 Architecture:
     Layer 1 (this module): Technical Regime Engine — entry timing using
     Bollinger, ATR, RSI, trend, and range metrics as volatility proxies.
-    Layer 2 (future): Options Overlay — IV rank, term structure, skew,
-    strike selection, and expected-value modeling with chain data.
+    Layer 2 (this module): Options IV Overlay — IV rank, vol risk premium,
+    VIX regime, and term structure via MarketDataConnector.
 
 Reference:
     This is NOT a "technical strategy." It is a volatility timing model
@@ -559,3 +559,270 @@ class StrangleTimingEngine:
                 continue
 
         return pd.DataFrame(scores)
+
+
+# =============================================================================
+# Layer 2: Options IV Overlay
+# =============================================================================
+
+class StrangleTimingWithIV(StrangleTimingEngine):
+    """
+    Layer 2: Strangle timing with real IV data overlay.
+
+    Enhances Layer 1 technical regime with:
+    - IV rank/percentile from historical data
+    - Vol risk premium (IV - RV spread)
+    - VIX regime context
+    - IV term structure (contango/backwardation)
+
+    Replaces proxy-based scoring with data-driven metrics when
+    Bloomberg data is available via MarketDataConnector.
+    """
+
+    def __init__(
+        self,
+        data_connector=None,
+        weights: dict[str, float] | None = None,
+        **kwargs,
+    ):
+        super().__init__(weights=weights, **kwargs)
+        self._data_connector = data_connector
+
+    @property
+    def data_connector(self):
+        """Lazy access to data connector; import deferred to avoid circular imports."""
+        if self._data_connector is None:
+            from engine.data_connector import MarketDataConnector
+            self._data_connector = MarketDataConnector()
+        return self._data_connector
+
+    # --------------------------------------------------------------------- #
+    #  IV quality multiplier
+    # --------------------------------------------------------------------- #
+
+    @staticmethod
+    def _compute_iv_multiplier(
+        iv_rank: float,
+        vol_risk_premium: float,
+        vix_level: float,
+        vix_contango: bool,
+    ) -> float:
+        """
+        Compute an IV quality multiplier for the Layer 1 score.
+
+        Args:
+            iv_rank: IV rank 0-100 (percentile of current IV vs 1-year range).
+            vol_risk_premium: IV minus RV as a percentage (e.g. 5.0 means 5%).
+            vix_level: Current VIX spot level.
+            vix_contango: True when VIX futures curve is in contango
+                          (front < back — normal, benign).
+
+        Returns:
+            Multiplier clamped to [0.7, 1.3].
+        """
+        multiplier = 1.0
+
+        # Elevated IV — premium is rich
+        if iv_rank > 70:
+            multiplier += 0.25  # 0.15 for >50 + 0.10 for >70
+        elif iv_rank > 50:
+            multiplier += 0.15
+
+        # Rich vol risk premium
+        if vol_risk_premium > 5.0:
+            multiplier += 0.10
+
+        # VIX term structure
+        if vix_contango:
+            multiplier += 0.05
+
+        # VIX crisis regime — too chaotic for short premium
+        if vix_level > 30:
+            multiplier -= 0.10
+
+        # Low IV — premium is underpriced
+        if iv_rank < 20:
+            multiplier -= 0.20
+
+        return float(np.clip(multiplier, 0.7, 1.3))
+
+    # --------------------------------------------------------------------- #
+    #  Overridden score_entry with IV overlay
+    # --------------------------------------------------------------------- #
+
+    def score_entry(self, df: pd.DataFrame, iv_data: dict | None = None) -> StrangleEntryScore:
+        """
+        Score entry quality, optionally enhanced with IV data.
+
+        When *iv_data* is supplied it must contain:
+            iv_rank (float 0-100), vol_risk_premium (float %),
+            vix_level (float), vix_contango (bool).
+
+        If *iv_data* is ``None``, behaviour is identical to Layer 1.
+
+        Args:
+            df: OHLCV DataFrame.
+            iv_data: Optional dict with IV metrics.
+
+        Returns:
+            StrangleEntryScore (total_score adjusted by IV multiplier when
+            iv_data is present).
+        """
+        layer1_score = super().score_entry(df)
+
+        if iv_data is None:
+            return layer1_score
+
+        iv_rank = iv_data.get("iv_rank", 50.0)
+        vol_risk_premium = iv_data.get("vol_risk_premium", 0.0)
+        vix_level = iv_data.get("vix_level", 20.0)
+        vix_contango = iv_data.get("vix_contango", True)
+
+        multiplier = self._compute_iv_multiplier(
+            iv_rank, vol_risk_premium, vix_level, vix_contango,
+        )
+        adjusted_total = float(np.clip(layer1_score.total_score * multiplier, 0, 100))
+
+        # Re-derive recommendation from adjusted score
+        if adjusted_total >= 80:
+            recommendation = "strong_entry"
+        elif adjusted_total >= 60:
+            recommendation = "conditional"
+        else:
+            recommendation = "avoid"
+
+        # Preserve critical-warning overrides from Layer 1
+        if layer1_score.compression_warning:
+            recommendation = "avoid"
+        if layer1_score.expansion_active:
+            recommendation = "avoid" if adjusted_total < 70 else "conditional"
+
+        return StrangleEntryScore(
+            total_score=adjusted_total,
+            recommendation=recommendation,
+            bollinger_score=layer1_score.bollinger_score,
+            atr_score=layer1_score.atr_score,
+            rsi_score=layer1_score.rsi_score,
+            trend_score=layer1_score.trend_score,
+            range_score=layer1_score.range_score,
+            weights=layer1_score.weights,
+            compression_warning=layer1_score.compression_warning,
+            expansion_active=layer1_score.expansion_active,
+            strong_trend_warning=layer1_score.strong_trend_warning,
+            regime=layer1_score.regime,
+        )
+
+    # --------------------------------------------------------------------- #
+    #  Convenience: score a single ticker with real data from connector
+    # --------------------------------------------------------------------- #
+
+    def score_entry_with_iv(
+        self,
+        ticker: str,
+        as_of: str | None = None,
+    ) -> StrangleEntryScore:
+        """
+        Load data from the connector and return an IV-enhanced entry score.
+
+        Args:
+            ticker: Equity ticker symbol (e.g. "AAPL").
+            as_of: Optional ISO-8601 date string to pin the scoring window.
+
+        Returns:
+            StrangleEntryScore with IV overlay applied.
+        """
+        connector = self.data_connector
+
+        # Fetch OHLCV (at least 200 bars for robust BB-width percentile)
+        ohlcv = connector.get_ohlcv(ticker, as_of=as_of, lookback=200)
+
+        # Fetch IV metrics
+        iv_rank = connector.get_iv_rank(ticker, as_of=as_of)
+        rv = connector.get_realized_vol(ticker, as_of=as_of)
+        iv_current = connector.get_current_iv(ticker, as_of=as_of)
+        vol_risk_premium = iv_current - rv if (iv_current is not None and rv is not None) else 0.0
+
+        vix_level = connector.get_vix_level(as_of=as_of)
+        vix_contango = connector.get_vix_contango(as_of=as_of)
+
+        iv_data = {
+            "iv_rank": iv_rank if iv_rank is not None else 50.0,
+            "vol_risk_premium": vol_risk_premium,
+            "vix_level": vix_level if vix_level is not None else 20.0,
+            "vix_contango": vix_contango if vix_contango is not None else True,
+        }
+
+        score = self.score_entry(ohlcv, iv_data=iv_data)
+
+        # Attach IV metadata onto the regime for downstream consumers
+        if score.regime is not None:
+            score.regime.iv_rank = iv_data["iv_rank"]
+            score.regime.vol_risk_premium = iv_data["vol_risk_premium"]
+            score.regime.vix_level = iv_data["vix_level"]
+            score.regime.vix_contango = iv_data["vix_contango"]
+
+        return score
+
+    # --------------------------------------------------------------------- #
+    #  Universe scan with real IV data
+    # --------------------------------------------------------------------- #
+
+    def scan_universe_with_iv(
+        self,
+        tickers: list[str] | None = None,
+        as_of: str | None = None,
+        min_score: float = 60.0,
+    ) -> pd.DataFrame:
+        """
+        Scan multiple tickers using real data from the connector.
+
+        Args:
+            tickers: List of ticker symbols. If ``None``, the connector's
+                     default universe is used.
+            as_of: Optional ISO-8601 date string.
+            min_score: Minimum adjusted score to include.
+
+        Returns:
+            DataFrame sorted descending by score with columns:
+            ticker, score, iv_rank, vol_risk_premium, vix_level,
+            vix_contango, phase, recommendation.
+        """
+        connector = self.data_connector
+
+        if tickers is None:
+            tickers = connector.get_universe()
+
+        results: list[dict] = []
+        for ticker in tickers:
+            try:
+                entry = self.score_entry_with_iv(ticker, as_of=as_of)
+                iv_rank = getattr(entry.regime, "iv_rank", None)
+                vol_premium = getattr(entry.regime, "vol_risk_premium", None)
+                vix_level = getattr(entry.regime, "vix_level", None)
+                vix_contango = getattr(entry.regime, "vix_contango", None)
+
+                if entry.total_score >= min_score:
+                    results.append({
+                        "ticker": ticker,
+                        "score": entry.total_score,
+                        "iv_rank": iv_rank,
+                        "vol_risk_premium": vol_premium,
+                        "vix_level": vix_level,
+                        "vix_contango": vix_contango,
+                        "phase": entry.regime.phase.value if entry.regime else "unknown",
+                        "recommendation": entry.recommendation,
+                        "bb_score": entry.bollinger_score,
+                        "atr_score": entry.atr_score,
+                        "rsi_score": entry.rsi_score,
+                        "trend_score": entry.trend_score,
+                        "range_score": entry.range_score,
+                        "compression_warning": entry.compression_warning,
+                        "trend_warning": entry.strong_trend_warning,
+                    })
+            except Exception:
+                continue
+
+        df_results = pd.DataFrame(results)
+        if not df_results.empty:
+            df_results = df_results.sort_values("score", ascending=False).reset_index(drop=True)
+        return df_results

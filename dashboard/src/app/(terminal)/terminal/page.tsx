@@ -17,6 +17,7 @@ import type {
   AgentStatus,
   AgentTask,
 } from "@/types";
+import { ChartPanel } from "@/components/terminal/chart-panel";
 import { useEngineData } from "@/hooks/useEngineData";
 
 // ─── Placeholder data for systems not yet connected ────────────────────
@@ -102,6 +103,9 @@ export default function TerminalPage() {
 
   // Selected story for detail
   const [selectedStory, setSelectedStory] = useState<StoryCard | null>(null);
+
+  // Selected ticker for chart panel
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
 
   // ─── Data fetching ─────────────────────────────────────────────────
 
@@ -271,13 +275,26 @@ export default function TerminalPage() {
         // Refresh engine data
         engineData.refresh();
         break;
+      case "CHART":
+        // Open chart for ticker: CHART AAPL
+        if (arg) setSelectedTicker(arg.toUpperCase());
+        break;
+      case "ANALYZE":
+        // Same as CHART
+        if (arg) setSelectedTicker(arg.toUpperCase());
+        break;
+      case "BACK":
+      case "CLOSE":
+        // Close chart and return to dashboard
+        setSelectedTicker(null);
+        break;
       case "HELP":
         // Help is shown via the command line component
         break;
       default:
-        // If it looks like a ticker symbol, add to watchlist
+        // If it looks like a ticker symbol, open chart
         if (/^[A-Z]{1,5}$/.test(action)) {
-          handleAddTicker(action);
+          setSelectedTicker(action);
         }
         break;
     }
@@ -306,45 +323,65 @@ export default function TerminalPage() {
       />
 
       {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
-        {/* Row 1 */}
-        <MarketOverview
-          indices={PLACEHOLDER_INDICES}
-          futures={PLACEHOLDER_FUTURES}
-          commodities={PLACEHOLDER_COMMODITIES}
-          loading={false}
-        />
-        <OptionsPanel
-          trades={engineData.trades}
-          regime={engineData.regime}
-          portfolio={engineData.portfolio}
-          connected={engineData.connected}
-        />
-        <AgentPanel
-          status={PLACEHOLDER_AGENT_STATUS}
-          tasks={PLACEHOLDER_AGENT_TASKS}
-          connected={false}
-        />
-
-        {/* Row 2 */}
-        <NewsPanel
-          stories={stories}
-          loading={storiesLoading}
-          onRefresh={handleIngest}
-          refreshing={ingesting}
-          onSelectStory={handleSelectStory}
-        />
-        <WatchlistPanel
-          items={watchlist}
-          loading={watchlistLoading}
-          onRefresh={fetchWatchlist}
-          onAddTicker={handleAddTicker}
-        />
-        <div className="grid grid-rows-2 gap-[1px]">
-          <MacroPanel events={events} loading={eventsLoading} />
-          <ChatPanel initialQuery={chatQuery} />
+      {selectedTicker ? (
+        /* Chart View: shows when a ticker is selected */
+        <div className="flex-1 grid grid-cols-[1fr_350px] gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
+          <ChartPanel
+            ticker={selectedTicker}
+            onClose={() => setSelectedTicker(null)}
+          />
+          <div className="grid grid-rows-2 gap-[1px]">
+            <OptionsPanel
+              trades={engineData.trades}
+              regime={engineData.regime}
+              portfolio={engineData.portfolio}
+              connected={engineData.connected}
+            />
+            <ChatPanel initialQuery={chatQuery} />
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Default View: full terminal dashboard */
+        <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
+          {/* Row 1 */}
+          <MarketOverview
+            indices={PLACEHOLDER_INDICES}
+            futures={PLACEHOLDER_FUTURES}
+            commodities={PLACEHOLDER_COMMODITIES}
+            loading={false}
+          />
+          <OptionsPanel
+            trades={engineData.trades}
+            regime={engineData.regime}
+            portfolio={engineData.portfolio}
+            connected={engineData.connected}
+          />
+          <AgentPanel
+            status={PLACEHOLDER_AGENT_STATUS}
+            tasks={PLACEHOLDER_AGENT_TASKS}
+            connected={false}
+          />
+
+          {/* Row 2 */}
+          <NewsPanel
+            stories={stories}
+            loading={storiesLoading}
+            onRefresh={handleIngest}
+            refreshing={ingesting}
+            onSelectStory={handleSelectStory}
+          />
+          <WatchlistPanel
+            items={watchlist}
+            loading={watchlistLoading}
+            onRefresh={fetchWatchlist}
+            onAddTicker={handleAddTicker}
+          />
+          <div className="grid grid-rows-2 gap-[1px]">
+            <MacroPanel events={events} loading={eventsLoading} />
+            <ChatPanel initialQuery={chatQuery} />
+          </div>
+        </div>
+      )}
 
       {/* Command Line */}
       <CommandLine onCommand={handleCommand} history={commandHistory} />

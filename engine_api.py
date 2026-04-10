@@ -125,6 +125,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_fundamentals(ticker)
             elif path == "/api/universe":
                 self._handle_universe()
+            elif path.startswith("/api/chart/"):
+                chart_type = path.split("/")[-1]
+                ticker = param("ticker", "AAPL")
+                days = param("days", "120")
+                self._handle_chart(chart_type, ticker, int(days))
+            elif path == "/api/strangle":
+                ticker = param("ticker", "AAPL")
+                self._handle_strangle(ticker)
+            elif path == "/api/iv_history":
+                ticker = param("ticker", "AAPL")
+                days = param("days", "252")
+                self._handle_iv_history(ticker, int(days))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -368,6 +380,244 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         universe = conn.get_universe()
         self._send_json({"tickers": universe, "count": len(universe)})
+
+    def _handle_chart(self, chart_type, ticker, days):
+        """Serve chart data: OHLCV + technical indicators as JSON arrays."""
+        from src.features.technical import TechnicalFeatures
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+
+        if ohlcv.empty:
+            self._send_json({"error": f"No OHLCV data for {ticker}", "data": []})
+            return
+
+        tech = TechnicalFeatures()
+        df = ohlcv.tail(days).copy()
+        df["date_str"] = df.index.strftime("%Y-%m-%d")
+
+        if chart_type == "bollinger":
+            upper, middle, lower = tech.bollinger_bands(ohlcv["close"], 20, 2.0)
+            data = []
+            for idx in df.index:
+                data.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "close": round(float(df.loc[idx, "close"]), 2),
+                        "open": round(float(df.loc[idx, "open"]), 2),
+                        "high": round(float(df.loc[idx, "high"]), 2),
+                        "low": round(float(df.loc[idx, "low"]), 2),
+                        "upper": round(float(upper.loc[idx]), 2)
+                        if idx in upper.index and not np.isnan(upper.loc[idx])
+                        else None,
+                        "middle": round(float(middle.loc[idx]), 2)
+                        if idx in middle.index and not np.isnan(middle.loc[idx])
+                        else None,
+                        "lower": round(float(lower.loc[idx]), 2)
+                        if idx in lower.index and not np.isnan(lower.loc[idx])
+                        else None,
+                        "volume": int(df.loc[idx, "volume"])
+                        if not np.isnan(df.loc[idx, "volume"])
+                        else 0,
+                    }
+                )
+            bb_pos = tech.bollinger_position(ohlcv["close"])
+            self._send_json(
+                {
+                    "ticker": ticker,
+                    "chart_type": "bollinger",
+                    "data": data,
+                    "current_pct_b": round(float(bb_pos.iloc[-1]), 3)
+                    if not np.isnan(bb_pos.iloc[-1])
+                    else 0.5,
+                }
+            )
+
+        elif chart_type == "rsi":
+            rsi_14 = tech.rsi(ohlcv["close"], 14)
+            rsi_2 = tech.rsi(ohlcv["close"], 2)
+            data = []
+            for idx in df.index:
+                data.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "close": round(float(df.loc[idx, "close"]), 2),
+                        "rsi_14": round(float(rsi_14.loc[idx]), 1)
+                        if idx in rsi_14.index and not np.isnan(rsi_14.loc[idx])
+                        else None,
+                        "rsi_2": round(float(rsi_2.loc[idx]), 1)
+                        if idx in rsi_2.index and not np.isnan(rsi_2.loc[idx])
+                        else None,
+                    }
+                )
+            self._send_json(
+                {
+                    "ticker": ticker,
+                    "chart_type": "rsi",
+                    "data": data,
+                    "current_rsi_14": round(float(rsi_14.iloc[-1]), 1)
+                    if not np.isnan(rsi_14.iloc[-1])
+                    else 50,
+                }
+            )
+
+        elif chart_type == "atr":
+            atr_14 = tech.atr(ohlcv["high"], ohlcv["low"], ohlcv["close"], 14)
+            atr_pct = tech.atr_percent(ohlcv["high"], ohlcv["low"], ohlcv["close"], 14)
+            data = []
+            for idx in df.index:
+                data.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "close": round(float(df.loc[idx, "close"]), 2),
+                        "atr": round(float(atr_14.loc[idx]), 2)
+                        if idx in atr_14.index and not np.isnan(atr_14.loc[idx])
+                        else None,
+                        "atr_pct": round(float(atr_pct.loc[idx]), 2)
+                        if idx in atr_pct.index and not np.isnan(atr_pct.loc[idx])
+                        else None,
+                    }
+                )
+            self._send_json({"ticker": ticker, "chart_type": "atr", "data": data})
+
+        elif chart_type == "ohlcv":
+            data = []
+            sma_20 = tech.sma(ohlcv["close"], 20)
+            sma_50 = tech.sma(ohlcv["close"], 50)
+            for idx in df.index:
+                data.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d"),
+                        "open": round(float(df.loc[idx, "open"]), 2),
+                        "high": round(float(df.loc[idx, "high"]), 2),
+                        "low": round(float(df.loc[idx, "low"]), 2),
+                        "close": round(float(df.loc[idx, "close"]), 2),
+                        "volume": int(df.loc[idx, "volume"])
+                        if not np.isnan(df.loc[idx, "volume"])
+                        else 0,
+                        "sma20": round(float(sma_20.loc[idx]), 2)
+                        if idx in sma_20.index and not np.isnan(sma_20.loc[idx])
+                        else None,
+                        "sma50": round(float(sma_50.loc[idx]), 2)
+                        if idx in sma_50.index and not np.isnan(sma_50.loc[idx])
+                        else None,
+                    }
+                )
+            self._send_json({"ticker": ticker, "chart_type": "ohlcv", "data": data})
+
+        elif chart_type == "strangle":
+            # Strangle timing score history
+            from engine.strangle_timing import StrangleTimingEngine
+
+            engine = StrangleTimingEngine()
+            hist = engine.compute_historical_scores(ohlcv, lookback_required=100)
+            data = []
+            if not hist.empty:
+                for _, row in hist.tail(days).iterrows():
+                    data.append(
+                        {
+                            "date": str(row.get("date", "")),
+                            "score": round(float(row["score"]), 1),
+                            "phase": row.get("phase", ""),
+                            "bb_score": round(float(row.get("bb_score", 0)), 1),
+                            "atr_score": round(float(row.get("atr_score", 0)), 1),
+                            "rsi_score": round(float(row.get("rsi_score", 0)), 1),
+                            "trend_score": round(float(row.get("trend_score", 0)), 1),
+                            "range_score": round(float(row.get("range_score", 0)), 1),
+                        }
+                    )
+            self._send_json({"ticker": ticker, "chart_type": "strangle", "data": data})
+
+        else:
+            self._send_error(f"Unknown chart type: {chart_type}", 400)
+
+    def _handle_strangle(self, ticker):
+        """Full strangle timing analysis for a ticker."""
+        from engine.strangle_timing import StrangleTimingEngine
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+        if ohlcv.empty or len(ohlcv) < 100:
+            self._send_json({"error": "Insufficient data", "ticker": ticker})
+            return
+
+        engine = StrangleTimingEngine()
+        score = engine.score_entry(ohlcv)
+        regime = engine.classify_regime(ohlcv)
+
+        self._send_json(
+            {
+                "ticker": ticker,
+                "score": round(float(score.total_score), 1),
+                "recommendation": score.recommendation,
+                "phase": regime.phase.value,
+                "confidence": round(float(regime.confidence), 2),
+                "components": {
+                    "bollinger": {
+                        "score": round(float(score.bollinger_score), 1),
+                        "state": regime.bollinger_state,
+                    },
+                    "atr": {"score": round(float(score.atr_score), 1), "state": regime.atr_state},
+                    "rsi": {
+                        "score": round(float(score.rsi_score), 1),
+                        "state": regime.rsi_state,
+                        "value": round(float(regime.rsi_14), 1),
+                    },
+                    "trend": {
+                        "score": round(float(score.trend_score), 1),
+                        "state": regime.trend_state,
+                    },
+                    "range": {
+                        "score": round(float(score.range_score), 1),
+                        "state": regime.range_state,
+                    },
+                },
+                "metrics": {
+                    "bb_width_pctl": round(float(regime.bb_width_percentile), 1),
+                    "bb_pct_b": round(float(regime.bb_pct_b), 3),
+                    "atr_pctl": round(float(regime.atr_percentile), 1),
+                    "atr_slope": round(float(regime.atr_slope), 4),
+                    "rsi_14": round(float(regime.rsi_14), 1),
+                    "rsi_2": round(float(regime.rsi_2), 1),
+                    "ma_slope": round(float(regime.ma_slope_20), 4),
+                },
+                "warnings": {
+                    "compression": score.compression_warning,
+                    "expansion": score.expansion_active,
+                    "strong_trend": score.strong_trend_warning,
+                },
+            }
+        )
+
+    def _handle_iv_history(self, ticker, days):
+        """IV vs RV history for a ticker."""
+        conn = get_connector()
+        iv_df = conn.get_iv_history(ticker)
+        if iv_df.empty:
+            self._send_json({"error": "No IV data", "ticker": ticker, "data": []})
+            return
+
+        data = []
+        for idx in iv_df.tail(days).index:
+            row = iv_df.loc[idx]
+            data.append(
+                {
+                    "date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx),
+                    "put_iv": round(float(row.get("hist_put_imp_vol", 0)), 2)
+                    if not np.isnan(row.get("hist_put_imp_vol", 0))
+                    else None,
+                    "call_iv": round(float(row.get("hist_call_imp_vol", 0)), 2)
+                    if not np.isnan(row.get("hist_call_imp_vol", 0))
+                    else None,
+                    "rv_30d": round(float(row.get("volatility_30d", 0)), 2)
+                    if not np.isnan(row.get("volatility_30d", 0))
+                    else None,
+                    "rv_60d": round(float(row.get("volatility_60d", 0)), 2)
+                    if not np.isnan(row.get("volatility_60d", 0))
+                    else None,
+                }
+            )
+        self._send_json({"ticker": ticker, "data": data})
 
     def log_message(self, format, *args):
         """Custom log format."""

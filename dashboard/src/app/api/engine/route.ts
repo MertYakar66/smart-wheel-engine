@@ -96,6 +96,31 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
       }
 
+      case "chart": {
+        const chartType = searchParams.get("chart_type") || "bollinger";
+        const chartTicker = searchParams.get("ticker") || "AAPL";
+        const chartDays = searchParams.get("days") || "120";
+        const data = await fetchEngine(
+          `/api/chart/${chartType}?ticker=${chartTicker}&days=${chartDays}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "strangle": {
+        const stTicker = searchParams.get("ticker") || "AAPL";
+        const data = await fetchEngine(`/api/strangle?ticker=${stTicker}`);
+        return NextResponse.json(data);
+      }
+
+      case "iv_history": {
+        const ivTicker = searchParams.get("ticker") || "AAPL";
+        const ivDays = searchParams.get("days") || "252";
+        const data = await fetchEngine(
+          `/api/iv_history?ticker=${ivTicker}&days=${ivDays}`
+        );
+        return NextResponse.json(data);
+      }
+
       case "universe": {
         const data = await fetchEngine("/api/universe");
         return NextResponse.json(data);

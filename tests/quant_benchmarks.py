@@ -164,6 +164,31 @@ AMERICAN_BENCHMARKS = {
         reference="Option theory",
         description="Early exercise premium must be >= 0",
     ),
+    # Cross-model validation gates (BAW vs CRR binomial tree)
+    "baw_crr_price_agreement": BenchmarkTolerance(
+        name="BAW-CRR Price Agreement",
+        tolerance_type=ToleranceType.RELATIVE,
+        value=0.01,  # 1% max divergence
+        reference="Cross-model validation (SR 11-7)",
+        description="BAW price must agree with CRR tree within 1%",
+        is_release_gate=True,
+    ),
+    "baw_crr_delta_agreement": BenchmarkTolerance(
+        name="BAW-CRR Delta Agreement",
+        tolerance_type=ToleranceType.ABSOLUTE,
+        value=0.02,  # Max delta difference
+        reference="Cross-model validation",
+        description="BAW and CRR delta must agree within 0.02",
+        is_release_gate=True,
+    ),
+    "crr_convergence": BenchmarkTolerance(
+        name="CRR Tree Convergence",
+        tolerance_type=ToleranceType.RELATIVE,
+        value=0.001,  # 0.1% between 500 and 1600 steps
+        reference="Cox-Ross-Rubinstein (1979)",
+        description="CRR price change from 500→1600 steps < 0.1%",
+        is_release_gate=True,
+    ),
 }
 
 # =============================================================================

@@ -584,6 +584,12 @@ class LSMResult:
     expected_exercise_day: float  # E[exercise day | exercised early]
     # Standard errors
     price_std_error: float
+    # Reproducibility metadata
+    seed_used: int | None = None
+    n_paths: int = 0
+    n_steps: int = 0
+    timestamp: str = ""  # ISO format
+    execution_ms: float = 0.0
 
     def summary(self) -> str:
         """Formatted summary."""
@@ -632,6 +638,7 @@ class LSMPricer:
         self.n_paths = n_paths
         self.n_steps_per_day = n_steps_per_day
         self.poly_degree = polynomial_degree
+        self.seed = seed
         self.rng = np.random.default_rng(seed)
 
     def _generate_gbm_paths(
@@ -829,6 +836,7 @@ class LSMPricer:
                 pre_div_mask = (exercise_time >= window_start) & (exercise_time < div_step)
                 prob_pre_div += float(np.mean(pre_div_mask))
 
+        from datetime import datetime
         return LSMResult(
             american_price=american_price,
             european_price=european_price,
@@ -839,6 +847,10 @@ class LSMPricer:
             prob_exercise_pre_dividend=prob_pre_div,
             expected_exercise_day=expected_day,
             price_std_error=price_std_error,
+            seed_used=self.seed,
+            n_paths=self.n_paths,
+            n_steps=n_steps,
+            timestamp=datetime.utcnow().isoformat(),
         )
 
     def assignment_risk(

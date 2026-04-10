@@ -37,17 +37,36 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ValidationError
 
-# Import schemas
-from src.data.schemas import (
-    OHLCVSchema,
-    OptionsFlowSchema,
-    RealizedVolSchema,
-    EarningsSchema,
-    FundamentalsSchema,
-    BorrowRateSchema,
-)
+# Lazy-import pydantic to avoid hard failure when it's not installed.
+# Modules that don't use schema validation can still import data.quality safely.
+try:
+    from pydantic import BaseModel, ValidationError
+    _HAS_PYDANTIC = True
+except ImportError:
+    _HAS_PYDANTIC = False
+    BaseModel = None  # type: ignore[assignment,misc]
+    ValidationError = None  # type: ignore[assignment,misc]
+
+# Lazy-import schemas (depend on pydantic)
+try:
+    from src.data.schemas import (
+        OHLCVSchema,
+        OptionsFlowSchema,
+        RealizedVolSchema,
+        EarningsSchema,
+        FundamentalsSchema,
+        BorrowRateSchema,
+    )
+    _HAS_SCHEMAS = True
+except (ImportError, Exception):
+    _HAS_SCHEMAS = False
+    OHLCVSchema = None  # type: ignore[assignment,misc]
+    OptionsFlowSchema = None  # type: ignore[assignment,misc]
+    RealizedVolSchema = None  # type: ignore[assignment,misc]
+    EarningsSchema = None  # type: ignore[assignment,misc]
+    FundamentalsSchema = None  # type: ignore[assignment,misc]
+    BorrowRateSchema = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -221,15 +240,19 @@ class DataQualityFramework:
     - Comprehensive health checks
     """
 
-    # Map schema names to Pydantic models
-    SCHEMA_MAP: Dict[str, Type[BaseModel]] = {
-        "ohlcv": OHLCVSchema,
-        "options_flow": OptionsFlowSchema,
-        "volatility": RealizedVolSchema,
-        "earnings": EarningsSchema,
-        "fundamentals": FundamentalsSchema,
-        "borrow_rates": BorrowRateSchema,
-    }
+    # Map schema names to Pydantic models (populated only when pydantic + schemas available)
+    SCHEMA_MAP: Dict[str, Any] = (
+        {
+            "ohlcv": OHLCVSchema,
+            "options_flow": OptionsFlowSchema,
+            "volatility": RealizedVolSchema,
+            "earnings": EarningsSchema,
+            "fundamentals": FundamentalsSchema,
+            "borrow_rates": BorrowRateSchema,
+        }
+        if _HAS_PYDANTIC and _HAS_SCHEMAS
+        else {}
+    )
 
     def __init__(
         self,
@@ -320,6 +343,11 @@ class DataQualityFramework:
     def _validate_schema(self, df: pd.DataFrame, schema: str) -> List[QualityIssue]:
         """Validate DataFrame against Pydantic schema."""
         issues = []
+
+        if not _HAS_PYDANTIC:
+            logger.warning("pydantic not installed; skipping schema validation")
+            return issues
+
         schema_class = self.SCHEMA_MAP.get(schema)
 
         if schema_class is None:

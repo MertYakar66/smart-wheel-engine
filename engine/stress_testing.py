@@ -239,9 +239,22 @@ class StressTester:
     Calculates P&L impact under various market scenarios.
     """
 
-    def __init__(self, risk_free_rate: float = 0.05, scenarios: list[Scenario] | None = None):
+    def __init__(
+        self,
+        risk_free_rate: float = 0.05,
+        scenarios: list[Scenario] | None = None,
+        residual_tolerance: float = 0.10,
+    ):
         self.risk_free_rate = risk_free_rate
         self.scenarios = scenarios or (HISTORICAL_SCENARIOS + HYPOTHETICAL_SCENARIOS)
+        self.residual_tolerance = residual_tolerance
+
+    @classmethod
+    def from_policy(cls) -> "StressTester":
+        """Construct StressTester from centralized policy configuration."""
+        from .policy_config import load_policy
+        policy = load_policy()
+        return cls(residual_tolerance=policy.greeks.decomposition_residual_tolerance)
 
     def run_scenario(
         self,
@@ -425,26 +438,38 @@ class StressTester:
         n_simulations: int = 10000,
         horizon_days: int = 30,
         vol_of_vol: float = 0.50,
+        seed: int | None = None,
     ) -> dict[str, float]:
         """
         Monte Carlo stress testing.
 
         Simulates random market moves to estimate tail risk.
+        Uses seeded RNG for reproducibility.
+
+        Args:
+            seed: Random seed for reproducibility. If None, uses random state.
         """
+        from datetime import datetime
+        import uuid
+
+        rng = np.random.default_rng(seed)
+        run_id = str(uuid.uuid4())[:8]
+        start_time = datetime.utcnow()
+
         pnls = []
 
         for _ in range(n_simulations):
             # Simulate spot change (fat-tailed)
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
-            z = stats.t.rvs(df)
+            z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
 
             # Simulate IV change (correlated with spot move)
             iv_shock = -spot_change * 2  # IV typically moves opposite to spot
-            iv_shock += np.random.normal(0, vol_of_vol * avg_iv)
+            iv_shock += rng.normal(0, vol_of_vol * avg_iv)
 
             scenario = Scenario(
                 name="MC",
@@ -459,6 +484,7 @@ class StressTester:
             pnls.append(result.portfolio_pnl)
 
         pnls = np.array(pnls)
+        end_time = datetime.utcnow()
 
         return {
             "mean": np.mean(pnls),
@@ -470,6 +496,13 @@ class StressTester:
             "max_gain": np.max(pnls),
             "prob_loss": np.mean(pnls < 0),
             "prob_10pct_loss": np.mean(pnls < -portfolio_value * 0.10),
+            # Reproducibility metadata
+            "_run_id": run_id,
+            "_seed": seed,
+            "_n_simulations": n_simulations,
+            "_horizon_days": horizon_days,
+            "_timestamp": start_time.isoformat(),
+            "_duration_ms": (end_time - start_time).total_seconds() * 1000,
         }
 
     def greeks_stress_ladder(
@@ -524,8 +557,8 @@ class StressTester:
                 new_spot = spot * (1 + spot_chg)
 
                 strike = pos["strike"]
-                dte = max(0.001, pos["dte"] - dte_decay)
-                T = dte / 365
+                original_dte = pos["dte"]
+                T = max(0.001, original_dte / 365)
                 iv = pos["iv"] * (1 + iv_shock) if iv_shock else pos["iv"]
                 option_type = pos["option_type"]
                 contracts = pos["contracts"]
@@ -536,13 +569,14 @@ class StressTester:
                 direction = -1 if is_short else 1
                 multiplier = contracts * 100 * direction
 
-                # Calculate current Greeks
+                # Calculate current Greeks at original T (before any decay)
                 greeks = black_scholes_all_greeks(
                     S=spot, K=strike, T=T, r=r, sigma=iv, option_type=option_type, q=q
                 )
 
-                # Calculate new Greeks at shocked spot
-                T_new = max(0.001, (dte - dte_decay) / 365) if dte_decay else T
+                # Calculate new price at shocked spot and decayed time
+                decayed_dte = max(0.001, original_dte - dte_decay) if dte_decay else original_dte
+                T_new = max(0.001, decayed_dte / 365)
                 new_greeks = black_scholes_all_greeks(
                     S=new_spot, K=strike, T=T_new, r=r, sigma=iv, option_type=option_type, q=q
                 )
@@ -551,7 +585,8 @@ class StressTester:
                 dS = new_spot - spot
                 delta_pnl = greeks["delta"] * dS * multiplier
                 gamma_pnl = 0.5 * greeks["gamma"] * dS**2 * multiplier
-                theta_pnl = greeks["theta"] * dte_decay * multiplier if dte_decay else 0
+                # Theta from pricer is annual; convert to daily before scaling by days
+                theta_pnl = (greeks["theta"] / 365) * dte_decay * multiplier if dte_decay else 0
                 # Vega P&L: iv_shock is relative change (e.g., 0.15 = 15% increase in IV level)
                 # Convert to vol points: base_iv * relative_change * 100
                 # See docs/GREEKS_UNIT_CONTRACT.md for unit conventions
@@ -575,6 +610,13 @@ class StressTester:
                 total_rho_pnl += rho_pnl
                 total_pnl += actual_pnl
 
+            # Decomposition residual: repricing P&L minus sum of Greek P&Ls
+            greeks_total = (total_delta_pnl + total_gamma_pnl + total_theta_pnl
+                           + total_vega_pnl + total_rho_pnl)
+            decomp_residual = total_pnl - greeks_total
+            residual_pct = (abs(decomp_residual) / abs(total_pnl)
+                           if abs(total_pnl) > 1e-6 else 0.0)
+
             results.append({
                 "spot_change": spot_chg,
                 "spot_change_pct": f"{spot_chg:+.1%}",
@@ -584,10 +626,27 @@ class StressTester:
                 "theta_pnl": total_theta_pnl,
                 "vega_pnl": total_vega_pnl,
                 "rho_pnl": total_rho_pnl,
+                "decomp_residual": decomp_residual,
+                "residual_pct": residual_pct,
                 "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
             })
 
-        return pd.DataFrame(results)
+        df = pd.DataFrame(results)
+
+        # Alert if residual exceeds tolerance (default 10%)
+        residual_tolerance = getattr(self, 'residual_tolerance', 0.10)
+        high_residual = df[df["residual_pct"] > residual_tolerance]
+        if not high_residual.empty:
+            import warnings
+            max_residual = high_residual["residual_pct"].max()
+            warnings.warn(
+                f"Greeks decomposition residual exceeds {residual_tolerance:.0%} tolerance "
+                f"at {len(high_residual)} spot points (max={max_residual:.1%}). "
+                f"Higher-order effects may be material.",
+                stacklevel=2,
+            )
+
+        return df
 
     def greeks_scenario_matrix(
         self,

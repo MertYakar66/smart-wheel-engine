@@ -611,18 +611,138 @@ class SignalAggregator:
         )
 
 
-def create_default_aggregator() -> SignalAggregator:
-    """Create aggregator with default signal generators."""
+def create_aggregator_from_policy(policy: "TradingPolicyConfig") -> SignalAggregator:
+    """Create a SignalAggregator driven by a ``TradingPolicyConfig``.
+
+    All thresholds are read from *policy.signal* so that no magic numbers
+    are duplicated outside ``policy_config.py``.
+
+    Args:
+        policy: A fully-populated trading policy configuration.
+
+    Returns:
+        A configured :class:`SignalAggregator`.
+    """
+    sig = policy.signal
+
     return SignalAggregator(
         entry_generators=[
-            IVRankSignal(high_threshold=0.50, low_threshold=0.20),
-            TrendSignal(lookback_days=20),
-            DTESignal(exit_dte=5, ideal_dte=35),
+            IVRankSignal(
+                high_threshold=sig.iv_rank_high,
+                low_threshold=sig.iv_rank_low,
+            ),
+            TrendSignal(lookback_days=sig.trend_lookback_days),
+            DTESignal(
+                exit_dte=sig.target_dte_min,
+                ideal_dte=sig.target_dte_ideal,
+                max_dte=sig.target_dte_max,
+            ),
         ],
         exit_generators=[
-            ProfitTargetSignal(target_pct=0.50),
-            StopLossSignal(stop_multiplier=2.0),
-            DTESignal(exit_dte=5),
+            ProfitTargetSignal(target_pct=sig.profit_target_pct),
+            StopLossSignal(stop_multiplier=sig.stop_loss_multiplier),
+            DTESignal(exit_dte=sig.target_dte_min),
         ],
-        filter_generators=[EventFilterSignal(earnings_buffer_days=5)],
+        filter_generators=[
+            EventFilterSignal(
+                earnings_buffer_days=sig.earnings_buffer_days,
+                fomc_buffer_days=sig.fomc_buffer_days,
+            ),
+        ],
     )
+
+
+def create_default_aggregator() -> SignalAggregator:
+    """Create aggregator with default signal generators.
+
+    Delegates to :func:`create_aggregator_from_policy` using the built-in
+    default :class:`~engine.policy_config.TradingPolicyConfig`.
+    """
+    from engine.policy_config import TradingPolicyConfig
+
+    return create_aggregator_from_policy(TradingPolicyConfig())
+
+
+class StrangleTimingSignal(SignalGenerator):
+    """
+    Entry signal for short strangles based on volatility lifecycle timing.
+
+    Uses the StrangleTimingEngine to detect post-expansion stabilization
+    phases where strangle entry is optimal. Wraps the entry score (0-100)
+    into the standard signal framework.
+
+    Context requires:
+        - ohlcv_data: pd.DataFrame with OHLCV columns
+    """
+
+    def __init__(self, min_score: float = 60.0, strong_score: float = 80.0):
+        self.min_score = min_score
+        self.strong_score = strong_score
+
+    @property
+    def name(self) -> str:
+        return "Strangle_Timing"
+
+    @property
+    def signal_type(self) -> SignalType:
+        return SignalType.ENTRY
+
+    def generate(self, context: dict) -> Signal:
+        """Generate strangle entry timing signal from OHLCV data."""
+        ohlcv = context.get("ohlcv_data")
+        if ohlcv is None or len(ohlcv) < 100:
+            return Signal(
+                name=self.name,
+                signal_type=self.signal_type,
+                strength=SignalStrength.NEUTRAL,
+                value=0.0,
+                confidence=0.3,
+                reason="Insufficient OHLCV data for strangle timing",
+            )
+
+        from engine.strangle_timing import StrangleTimingEngine, VolatilityPhase
+
+        engine = StrangleTimingEngine()
+        score = engine.score_entry(ohlcv)
+
+        # Map score to signal strength
+        if score.total_score >= self.strong_score:
+            strength = SignalStrength.STRONG_BUY
+            value = min(1.0, (score.total_score - self.strong_score) / 20 + 0.5)
+        elif score.total_score >= self.min_score:
+            strength = SignalStrength.WEAK_BUY
+            value = (score.total_score - self.min_score) / (self.strong_score - self.min_score) * 0.5
+        elif score.compression_warning:
+            strength = SignalStrength.STRONG_SELL
+            value = -1.0
+        elif score.expansion_active:
+            strength = SignalStrength.WEAK_SELL
+            value = -0.3
+        else:
+            strength = SignalStrength.NEUTRAL
+            value = 0.0
+
+        # Override: never recommend entry during compression
+        if score.compression_warning:
+            strength = SignalStrength.STRONG_SELL
+            value = -1.0
+
+        phase_name = score.regime.phase.value if score.regime else "unknown"
+        return Signal(
+            name=self.name,
+            signal_type=self.signal_type,
+            strength=strength,
+            value=value,
+            confidence=score.regime.confidence if score.regime else 0.3,
+            metadata={
+                "entry_score": score.total_score,
+                "phase": phase_name,
+                "bb_score": score.bollinger_score,
+                "atr_score": score.atr_score,
+                "rsi_score": score.rsi_score,
+                "trend_score": score.trend_score,
+                "range_score": score.range_score,
+                "recommendation": score.recommendation,
+            },
+            reason=f"Strangle timing: {score.total_score:.0f}/100 ({phase_name})",
+        )

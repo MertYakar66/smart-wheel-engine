@@ -17,6 +17,12 @@ import pandas as pd
 from scipy.optimize import brentq
 from scipy.stats import norm
 
+# Enable semantic contract validation on Greeks output.
+# Set to True for development/testing; False for production hot paths.
+# Can be toggled at runtime: option_pricer._VALIDATE_GREEKS = True
+import os
+_VALIDATE_GREEKS = os.environ.get("VALIDATE_GREEKS", "0") == "1"
+
 # =============================================================================
 # Input Validation
 # =============================================================================
@@ -527,6 +533,18 @@ def black_scholes_all_greeks(
         result["speed"] = speed
         result["color"] = color
         result["ultima"] = ultima
+
+    # Semantic contract validation (import-guarded for zero overhead when not enabled)
+    if _VALIDATE_GREEKS:
+        from .contracts import validate_greeks_semantics
+        violations = validate_greeks_semantics(result, option_type)
+        if violations:
+            import warnings
+            warnings.warn(
+                f"Greeks semantic violation for {option_type} S={S} K={K} T={T}: "
+                + "; ".join(violations),
+                stacklevel=2,
+            )
 
     return result
 

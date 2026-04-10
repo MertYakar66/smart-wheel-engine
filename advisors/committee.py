@@ -20,9 +20,16 @@ from .munger import MungerAdvisor
 from .schema import (
     AdvisorInput,
     AdvisorResponse,
+    ClosedTradeRecord,
     CommitteeOutput,
     ConfidenceLevel,
     Judgment,
+    PortfolioReviewInput,
+    PortfolioReviewOutput,
+    PortfolioReviewResponse,
+    PostMortemInput,
+    PostMortemOutput,
+    PostMortemResponse,
 )
 from .simons import SimonsAdvisor
 
@@ -50,6 +57,14 @@ class CommitteeEngine:
             MungerAdvisor(),
             SimonsAdvisor(),
         ]
+
+        # Add Taleb advisor if available
+        try:
+            from .taleb import TalebAdvisor
+
+            self.advisors.append(TalebAdvisor())
+        except ImportError:
+            pass  # Taleb advisor not yet installed
 
     def add_advisor(self, advisor: BaseAdvisor) -> None:
         """Add a custom advisor to the committee."""
@@ -440,6 +455,437 @@ class CommitteeEngine:
         found = [kw for kw in keywords if kw in text_lower]
 
         return found[:3]
+
+    # =========================================================================
+    # PORTFOLIO REVIEW MODE
+    # =========================================================================
+
+    def review_portfolio(self, review_input: PortfolioReviewInput) -> PortfolioReviewOutput:
+        """
+        Committee-level portfolio review.
+
+        Each advisor reviews the full portfolio and provides:
+        - Strengths and weaknesses
+        - Blind spots the owner might be missing
+        - Concentration and risk critiques
+        - Actionable suggestions
+
+        Args:
+            review_input: Portfolio state with market context
+
+        Returns:
+            PortfolioReviewOutput with consensus analysis
+        """
+        start_time = time.time()
+        reviews = []
+
+        for advisor in self.advisors:
+            try:
+                review = self._advisor_portfolio_review(advisor, review_input)
+                reviews.append(review)
+            except Exception as e:
+                reviews.append(
+                    PortfolioReviewResponse(
+                        advisor_name=advisor.name,
+                        overall_assessment="error",
+                        assessment_summary=f"Review failed: {e}",
+                        strengths=[],
+                        weaknesses=[],
+                        blind_spots=[],
+                        suggestions=[],
+                        concentration_critique="Unable to assess",
+                        risk_critique="Unable to assess",
+                        strategy_critique="Unable to assess",
+                        confidence=ConfidenceLevel.VERY_LOW,
+                    )
+                )
+
+        # Aggregate
+        consensus = self._aggregate_portfolio_reviews(reviews)
+        consensus.request_id = review_input.request_id
+        consensus.total_processing_time_ms = (time.time() - start_time) * 1000
+        return consensus
+
+    def _advisor_portfolio_review(
+        self, advisor: BaseAdvisor, review_input: PortfolioReviewInput
+    ) -> PortfolioReviewResponse:
+        """Generate a portfolio review from a single advisor."""
+        portfolio = review_input.portfolio
+        market = review_input.market
+        start = time.time()
+
+        strengths = []
+        weaknesses = []
+        blind_spots = []
+        suggestions = []
+
+        # Diversification
+        top5 = portfolio.top_5_concentration
+        n_positions = portfolio.open_positions_count
+        if top5 > 60:
+            weaknesses.append(f"Top 5 concentration at {top5:.0f}% — high single-name risk")
+            suggestions.append("Consider reducing position sizes in top holdings")
+        elif top5 < 40 and n_positions >= 5:
+            strengths.append(f"Good diversification: top 5 at {top5:.0f}%")
+
+        # Cash position
+        cash_pct = (
+            (portfolio.cash_available / portfolio.total_equity * 100)
+            if portfolio.total_equity > 0
+            else 0
+        )
+        if cash_pct < 10:
+            weaknesses.append(f"Cash at {cash_pct:.0f}% — limited flexibility for opportunities")
+        elif cash_pct > 40:
+            blind_spots.append(f"Cash at {cash_pct:.0f}% — potential cash drag on returns")
+        else:
+            strengths.append(f"Healthy cash position at {cash_pct:.0f}%")
+
+        # Beta exposure
+        if portfolio.portfolio_beta > 1.5:
+            weaknesses.append(
+                f"Portfolio beta {portfolio.portfolio_beta:.2f} — highly market-sensitive"
+            )
+        elif portfolio.portfolio_beta < 0.5:
+            blind_spots.append(
+                f"Low beta {portfolio.portfolio_beta:.2f} — may underperform in rallies"
+            )
+
+        # Drawdown
+        if portfolio.max_drawdown_30d < -15:
+            weaknesses.append(
+                f"Recent 30d drawdown {portfolio.max_drawdown_30d:.1f}% — check risk controls"
+            )
+        elif portfolio.max_drawdown_30d > -5:
+            strengths.append("Controlled recent drawdown")
+
+        # VaR
+        if portfolio.var_95 > 5:
+            weaknesses.append(f"95% VaR at {portfolio.var_95:.1f}% — elevated daily risk")
+
+        # Sector concentration
+        max_sector = max(portfolio.sector_allocation.values()) if portfolio.sector_allocation else 0
+        max_sector_name = (
+            max(portfolio.sector_allocation, key=portfolio.sector_allocation.get)
+            if portfolio.sector_allocation
+            else "Unknown"
+        )
+        if max_sector > 40:
+            weaknesses.append(f"Sector concentration: {max_sector_name} at {max_sector:.0f}%")
+            suggestions.append(f"Reduce {max_sector_name} exposure below 30%")
+
+        # Market regime awareness
+        if market.regime.value in ("crisis", "high_volatility"):
+            blind_spots.append(
+                "Operating in elevated volatility — position sizes should be reduced"
+            )
+
+        # Margin usage
+        margin_pct = (
+            (portfolio.total_margin_used / portfolio.total_equity * 100)
+            if portfolio.total_equity > 0
+            else 0
+        )
+        if margin_pct > 50:
+            weaknesses.append(f"Margin usage at {margin_pct:.0f}% — approaching dangerous levels")
+
+        # Advisor-specific flavor
+        if advisor.name == "Buffett":
+            blind_spots.append("Are all positions in businesses you would want to own outright?")
+        elif advisor.name == "Munger":
+            blind_spots.append("What is the most obvious way this portfolio gets destroyed?")
+        elif advisor.name == "Simons":
+            blind_spots.append("Is the edge statistically validated across multiple regimes?")
+        elif advisor.name == "Taleb":
+            blind_spots.append("Is this portfolio robust to a 3-sigma correlation spike?")
+
+        # Overall assessment
+        n_weak = len(weaknesses)
+        n_strong = len(strengths)
+        if n_weak >= 4:
+            overall = "fragile"
+        elif n_weak >= 2 and n_strong < 2:
+            overall = "concerning"
+        elif n_strong >= 3 and n_weak <= 1:
+            overall = "strong"
+        else:
+            overall = "healthy"
+
+        return PortfolioReviewResponse(
+            advisor_name=advisor.name,
+            overall_assessment=overall,
+            assessment_summary=f"{advisor.name} rates portfolio as {overall} with {n_strong} strengths and {n_weak} concerns.",
+            strengths=strengths,
+            weaknesses=weaknesses,
+            blind_spots=blind_spots,
+            suggestions=suggestions,
+            concentration_critique=f"Top 5 at {top5:.0f}%, max sector {max_sector_name} at {max_sector:.0f}%",
+            risk_critique=f"Beta {portfolio.portfolio_beta:.2f}, VaR {portfolio.var_95:.1f}%, DD {portfolio.max_drawdown_30d:.1f}%",
+            strategy_critique=review_input.strategy_description
+            or "No strategy description provided",
+            confidence=ConfidenceLevel.HIGH,
+            processing_time_ms=(time.time() - start) * 1000,
+        )
+
+    def _aggregate_portfolio_reviews(
+        self, reviews: list[PortfolioReviewResponse]
+    ) -> PortfolioReviewOutput:
+        """Aggregate portfolio reviews into consensus."""
+        # Consensus assessment
+        assessments = [r.overall_assessment for r in reviews]
+        if all(a in ("strong", "healthy") for a in assessments):
+            consensus = "strong"
+        elif any(a == "fragile" for a in assessments):
+            consensus = "fragile"
+        elif sum(1 for a in assessments if a in ("concerning", "fragile")) >= len(reviews) / 2:
+            consensus = "concerning"
+        else:
+            consensus = "healthy"
+
+        # Collect all items and find overlaps
+        all_strengths = [s for r in reviews for s in r.strengths]
+        all_weaknesses = [w for r in reviews for w in r.weaknesses]
+        all_blind_spots = [b for r in reviews for b in r.blind_spots]
+        all_suggestions = [s for r in reviews for s in r.suggestions]
+
+        # Deduplicate
+        def _dedup(items):
+            seen = set()
+            result = []
+            for item in items:
+                key = item[:40].lower()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(item)
+            return result
+
+        return PortfolioReviewOutput(
+            request_id="",
+            advisor_reviews=reviews,
+            consensus_assessment=consensus,
+            consensus_strengths=_dedup(all_strengths)[:5],
+            consensus_weaknesses=_dedup(all_weaknesses)[:5],
+            critical_blind_spots=_dedup(all_blind_spots)[:5],
+            priority_actions=_dedup(all_suggestions)[:5],
+        )
+
+    # =========================================================================
+    # POST-MORTEM MODE
+    # =========================================================================
+
+    def post_mortem(self, pm_input: PostMortemInput) -> PostMortemOutput:
+        """
+        Committee-level post-mortem analysis of closed trades.
+
+        Each advisor examines the trade history and identifies:
+        - What was good process vs bad luck vs bad process
+        - Lessons learned
+        - Rules to add or change
+        - Behavioral patterns
+
+        Args:
+            pm_input: Closed trades with portfolio/market context
+
+        Returns:
+            PostMortemOutput with consensus lessons
+        """
+        start_time = time.time()
+        trades = pm_input.closed_trades
+
+        # Compute aggregate stats
+        total = len(trades)
+        wins = sum(1 for t in trades if t.outcome == "win")
+        losses = sum(1 for t in trades if t.outcome == "loss")
+        total_pnl = sum(t.pnl for t in trades)
+        win_rate = wins / total if total > 0 else 0
+
+        reviews = []
+        for advisor in self.advisors:
+            try:
+                review = self._advisor_post_mortem(
+                    advisor, pm_input, wins, losses, total_pnl, win_rate
+                )
+                reviews.append(review)
+            except Exception as e:
+                reviews.append(
+                    PostMortemResponse(
+                        advisor_name=advisor.name,
+                        overall_grade="N/A",
+                        grade_explanation=f"Post-mortem failed: {e}",
+                        what_was_good=[],
+                        what_was_bad_luck=[],
+                        what_was_bad_process=[],
+                        lessons=[],
+                        rules_to_add=[],
+                        rules_to_change=[],
+                        patterns_observed=[],
+                        confidence=ConfidenceLevel.VERY_LOW,
+                    )
+                )
+
+        # Aggregate
+        output = self._aggregate_post_mortems(reviews, trades, pm_input.period)
+        output.total_processing_time_ms = (time.time() - start_time) * 1000
+        return output
+
+    def _advisor_post_mortem(
+        self,
+        advisor: BaseAdvisor,
+        pm_input: PostMortemInput,
+        wins: int,
+        losses: int,
+        total_pnl: float,
+        win_rate: float,
+    ) -> PostMortemResponse:
+        """Generate post-mortem from a single advisor."""
+        start = time.time()
+        trades = pm_input.closed_trades
+        total = len(trades)
+
+        good = []
+        bad_luck = []
+        bad_process = []
+        lessons = []
+        rules_add = []
+        rules_change = []
+        patterns = []
+
+        # Analyze win rate
+        if win_rate > 0.70:
+            good.append(f"Strong win rate: {win_rate:.0%} ({wins}/{total})")
+        elif win_rate < 0.50:
+            bad_process.append(f"Win rate below 50%: {win_rate:.0%} — review entry criteria")
+            rules_change.append("Tighten entry requirements (higher IV rank, better EV)")
+
+        # Analyze P&L distribution
+        if total_pnl > 0:
+            good.append(f"Positive total P&L: ${total_pnl:.2f}")
+        else:
+            lessons.append(f"Net loss of ${abs(total_pnl):.2f} — reassess strategy sizing")
+
+        # Analyze individual trades
+        big_losses = [t for t in trades if t.pnl < -500]
+
+        for t in big_losses:
+            if t.exit_reason == "stop_loss":
+                good.append(f"{t.ticker}: Stop loss discipline worked (${t.pnl:.0f})")
+            elif t.exit_reason == "assigned":
+                bad_luck.append(
+                    f"{t.ticker}: Assignment loss (${t.pnl:.0f}) — market moved against"
+                )
+            elif t.max_drawdown_during < t.pnl * 2:
+                bad_process.append(
+                    f"{t.ticker}: Held too long (DD: {t.max_drawdown_during:.0f}%, final: ${t.pnl:.0f})"
+                )
+
+        # Pattern detection
+        assigned_trades = [t for t in trades if t.exit_reason == "assigned"]
+        if len(assigned_trades) > total * 0.3:
+            patterns.append(
+                f"High assignment rate ({len(assigned_trades)}/{total}) — strikes may be too aggressive"
+            )
+            rules_change.append("Consider wider OTM strikes (lower delta)")
+
+        earnings_losses = [
+            t for t in trades if t.outcome == "loss" and "earnings" in t.notes.lower()
+        ]
+        if earnings_losses:
+            patterns.append(f"{len(earnings_losses)} losses related to earnings events")
+            rules_add.append("Never sell premium within 10 days of earnings")
+
+        # Check for sizing issues
+        avg_hold = sum(t.hold_days for t in trades) / total if total > 0 else 0
+        if avg_hold > 30:
+            patterns.append(f"Average hold time {avg_hold:.0f} days — consider shorter DTE")
+
+        # Grade
+        if win_rate > 0.70 and total_pnl > 0:
+            grade = "A" if win_rate > 0.80 else "B"
+        elif win_rate > 0.55 and total_pnl > 0:
+            grade = "B" if total_pnl > 1000 else "C"
+        elif total_pnl > 0:
+            grade = "C"
+        elif win_rate > 0.50:
+            grade = "C"
+        else:
+            grade = "D" if total_pnl > -5000 else "F"
+
+        # Advisor flavor
+        if advisor.name == "Munger":
+            lessons.append("Invert: which trades should you have NEVER taken?")
+        elif advisor.name == "Taleb":
+            lessons.append("Check if losses were correlated — a fragility signal")
+        elif advisor.name == "Simons":
+            lessons.append("Run these results through walk-forward validation before trusting")
+
+        return PostMortemResponse(
+            advisor_name=advisor.name,
+            overall_grade=grade,
+            grade_explanation=f"Win rate {win_rate:.0%}, total P&L ${total_pnl:.0f}, {total} trades",
+            what_was_good=good[:4],
+            what_was_bad_luck=bad_luck[:4],
+            what_was_bad_process=bad_process[:4],
+            lessons=lessons[:5],
+            rules_to_add=rules_add[:3],
+            rules_to_change=rules_change[:3],
+            patterns_observed=patterns[:4],
+            confidence=ConfidenceLevel.HIGH if total >= 20 else ConfidenceLevel.MEDIUM,
+            processing_time_ms=(time.time() - start) * 1000,
+        )
+
+    def _aggregate_post_mortems(
+        self,
+        reviews: list[PostMortemResponse],
+        trades: list[ClosedTradeRecord],
+        period: str,
+    ) -> PostMortemOutput:
+        """Aggregate post-mortem reviews."""
+        total = len(trades)
+        wins = sum(1 for t in trades if t.outcome == "win")
+        total_pnl = sum(t.pnl for t in trades)
+
+        # Consensus grade (mode)
+        grades = [r.overall_grade for r in reviews if r.overall_grade != "N/A"]
+        consensus_grade = max(set(grades), key=grades.count) if grades else "N/A"
+
+        # Collect and deduplicate lessons
+        all_lessons = [lesson for r in reviews for lesson in r.lessons]
+        all_improvements = [rule for r in reviews for rule in r.rules_to_add + r.rules_to_change]
+        all_patterns = [p for r in reviews for p in r.patterns_observed]
+
+        # Check for behavioral flags
+        behavioral = []
+        bad_process_items = [bp for r in reviews for bp in r.what_was_bad_process]
+        if len(bad_process_items) > 3:
+            behavioral.append("Multiple process errors detected — review trading discipline")
+        if any("held too long" in bp.lower() for bp in bad_process_items):
+            behavioral.append("Pattern: holding losing positions too long")
+        if any("aggressive" in p.lower() for p in all_patterns):
+            behavioral.append("Pattern: strike selection may be too aggressive")
+
+        def _dedup(items):
+            seen = set()
+            result = []
+            for item in items:
+                key = item[:40].lower()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(item)
+            return result
+
+        return PostMortemOutput(
+            request_id="",
+            period=period,
+            advisor_reviews=reviews,
+            consensus_grade=consensus_grade,
+            total_trades=total,
+            win_rate=wins / total if total > 0 else 0,
+            total_pnl=total_pnl,
+            avg_pnl_per_trade=total_pnl / total if total > 0 else 0,
+            consensus_lessons=_dedup(all_lessons)[:5],
+            process_improvements=_dedup(all_improvements)[:5],
+            behavioral_flags=behavioral[:3],
+        )
 
 
 def format_committee_report(output: CommitteeOutput) -> str:

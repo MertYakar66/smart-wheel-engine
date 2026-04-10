@@ -269,6 +269,141 @@ class CommitteeOutput:
 
 
 # =============================================================================
+# PORTFOLIO REVIEW & POST-MORTEM SCHEMAS
+# =============================================================================
+
+
+@dataclass
+class PortfolioReviewInput:
+    """Input for full portfolio review by committee."""
+
+    portfolio: PortfolioContext
+    market: MarketContext
+    strategy_description: str = ""  # Optional description of overall strategy
+    recent_trades: list[dict] = field(default_factory=list)  # Recent trade history
+    concerns: list[str] = field(default_factory=list)
+    request_id: str = ""
+
+
+@dataclass
+class PortfolioReviewResponse:
+    """Individual advisor response to portfolio review."""
+
+    advisor_name: str
+    overall_assessment: str  # "healthy", "concerning", "fragile", "strong"
+    assessment_summary: str  # 2-3 sentence overview
+
+    strengths: list[str]  # What's working
+    weaknesses: list[str]  # What's concerning
+    blind_spots: list[str]  # What the portfolio owner might be missing
+    suggestions: list[str]  # Actionable recommendations
+
+    concentration_critique: str  # Assessment of diversification
+    risk_critique: str  # Assessment of risk management
+    strategy_critique: str  # Assessment of overall strategy
+
+    confidence: ConfidenceLevel
+    processing_time_ms: float = 0.0
+
+
+@dataclass
+class PortfolioReviewOutput:
+    """Aggregated portfolio review from all advisors."""
+
+    request_id: str
+    advisor_reviews: list[PortfolioReviewResponse]
+
+    consensus_assessment: str  # Overall consensus
+    consensus_strengths: list[str]  # Agreed strengths
+    consensus_weaknesses: list[str]  # Agreed weaknesses
+    critical_blind_spots: list[str]  # Blind spots flagged by 2+ advisors
+    priority_actions: list[str]  # Top actions to take
+
+    analysis_timestamp: datetime = field(default_factory=datetime.utcnow)
+    total_processing_time_ms: float = 0.0
+
+
+@dataclass
+class ClosedTradeRecord:
+    """Record of a completed trade for post-mortem analysis."""
+
+    ticker: str
+    trade_type: str
+    strike: float
+    entry_date: str
+    exit_date: str
+    entry_premium: float
+    exit_premium: float  # 0 if expired worthless
+    pnl: float
+    pnl_pct: float
+    outcome: str  # "win", "loss", "scratch"
+    exit_reason: str  # "expired", "early_close", "assigned", "stop_loss"
+    hold_days: int
+    max_drawdown_during: float = 0.0  # Worst unrealized loss during trade
+
+    # Context at entry (for learning)
+    entry_iv_rank: float = 0.0
+    entry_regime: str = ""
+    entry_vix: float = 0.0
+    entry_delta: float = 0.0
+
+    notes: str = ""
+
+
+@dataclass
+class PostMortemInput:
+    """Input for trade post-mortem analysis."""
+
+    closed_trades: list[ClosedTradeRecord]
+    portfolio: PortfolioContext
+    market: MarketContext
+    period: str = ""  # "2025-Q4", "January 2026", etc.
+    request_id: str = ""
+
+
+@dataclass
+class PostMortemResponse:
+    """Individual advisor post-mortem response."""
+
+    advisor_name: str
+    overall_grade: str  # "A", "B", "C", "D", "F"
+    grade_explanation: str
+
+    what_was_good: list[str]  # Good process/decisions
+    what_was_bad_luck: list[str]  # Losses from randomness, not bad process
+    what_was_bad_process: list[str]  # Losses from poor decisions
+    lessons: list[str]  # Key takeaways
+    rules_to_add: list[str]  # New rules suggested
+    rules_to_change: list[str]  # Existing rules to modify
+    patterns_observed: list[str]  # Recurring patterns (good or bad)
+
+    confidence: ConfidenceLevel
+    processing_time_ms: float = 0.0
+
+
+@dataclass
+class PostMortemOutput:
+    """Aggregated post-mortem from all advisors."""
+
+    request_id: str
+    period: str
+    advisor_reviews: list[PostMortemResponse]
+
+    consensus_grade: str
+    total_trades: int
+    win_rate: float
+    total_pnl: float
+    avg_pnl_per_trade: float
+
+    consensus_lessons: list[str]  # Lessons agreed by 2+ advisors
+    process_improvements: list[str]  # Priority improvements
+    behavioral_flags: list[str]  # Behavioral issues detected
+
+    analysis_timestamp: datetime = field(default_factory=datetime.utcnow)
+    total_processing_time_ms: float = 0.0
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 

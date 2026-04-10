@@ -41,20 +41,31 @@ from .schema import (
     # Output models
     AdvisorResponse,
     CandidateTrade,
+    ClosedTradeRecord,
     CommitteeOutput,
     # Enums
     ConfidenceLevel,
     Judgment,
     MarketContext,
     PortfolioContext,
+    PortfolioReviewInput,
+    PortfolioReviewOutput,
     # Input models
     Position,
+    PostMortemInput,
+    PostMortemOutput,
     RegimeType,
     TradeType,
     # Helpers
     create_sample_input,
 )
 from .simons import SimonsAdvisor
+
+# Optional advisors (may not be installed yet)
+try:
+    from .taleb import TalebAdvisor
+except ImportError:
+    TalebAdvisor = None  # type: ignore[assignment,misc]
 
 __all__ = [
     # Enums
@@ -85,4 +96,12 @@ __all__ = [
     # Integration
     "EngineIntegration",
     "quick_evaluate",
+    # Taleb (optional)
+    "TalebAdvisor",
+    # Portfolio review & post-mortem
+    "PortfolioReviewInput",
+    "PortfolioReviewOutput",
+    "PostMortemInput",
+    "PostMortemOutput",
+    "ClosedTradeRecord",
 ]

@@ -16,9 +16,7 @@ import pandas as pd
 # Contract Constants
 # =============================================================================
 
-REQUIRED_GREEK_KEYS: frozenset[str] = frozenset(
-    {"price", "delta", "gamma", "theta", "vega", "rho"}
-)
+REQUIRED_GREEK_KEYS: frozenset[str] = frozenset({"price", "delta", "gamma", "theta", "vega", "rho"})
 
 REQUIRED_LADDER_COLUMNS: frozenset[str] = frozenset(
     {"spot_change", "total_pnl", "delta_pnl", "gamma_pnl", "theta_pnl", "vega_pnl"}

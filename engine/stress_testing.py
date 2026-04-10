@@ -253,6 +253,7 @@ class StressTester:
     def from_policy(cls) -> "StressTester":
         """Construct StressTester from centralized policy configuration."""
         from .policy_config import load_policy
+
         policy = load_policy()
         return cls(residual_tolerance=policy.greeks.decomposition_residual_tolerance)
 
@@ -610,33 +611,36 @@ class StressTester:
                 total_pnl += actual_pnl
 
             # Decomposition residual: repricing P&L minus sum of Greek P&Ls
-            greeks_total = (total_delta_pnl + total_gamma_pnl + total_theta_pnl
-                           + total_vega_pnl + total_rho_pnl)
+            greeks_total = (
+                total_delta_pnl + total_gamma_pnl + total_theta_pnl + total_vega_pnl + total_rho_pnl
+            )
             decomp_residual = total_pnl - greeks_total
-            residual_pct = (abs(decomp_residual) / abs(total_pnl)
-                           if abs(total_pnl) > 1e-6 else 0.0)
+            residual_pct = abs(decomp_residual) / abs(total_pnl) if abs(total_pnl) > 1e-6 else 0.0
 
-            results.append({
-                "spot_change": spot_chg,
-                "spot_change_pct": f"{spot_chg:+.1%}",
-                "total_pnl": total_pnl,
-                "delta_pnl": total_delta_pnl,
-                "gamma_pnl": total_gamma_pnl,
-                "theta_pnl": total_theta_pnl,
-                "vega_pnl": total_vega_pnl,
-                "rho_pnl": total_rho_pnl,
-                "decomp_residual": decomp_residual,
-                "residual_pct": residual_pct,
-                "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
-            })
+            results.append(
+                {
+                    "spot_change": spot_chg,
+                    "spot_change_pct": f"{spot_chg:+.1%}",
+                    "total_pnl": total_pnl,
+                    "delta_pnl": total_delta_pnl,
+                    "gamma_pnl": total_gamma_pnl,
+                    "theta_pnl": total_theta_pnl,
+                    "vega_pnl": total_vega_pnl,
+                    "rho_pnl": total_rho_pnl,
+                    "decomp_residual": decomp_residual,
+                    "residual_pct": residual_pct,
+                    "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                }
+            )
 
         df = pd.DataFrame(results)
 
         # Alert if residual exceeds tolerance (default 10%)
-        residual_tolerance = getattr(self, 'residual_tolerance', 0.10)
+        residual_tolerance = getattr(self, "residual_tolerance", 0.10)
         high_residual = df[df["residual_pct"] > residual_tolerance]
         if not high_residual.empty:
             import warnings
+
             max_residual = high_residual["residual_pct"].max()
             warnings.warn(
                 f"Greeks decomposition residual exceeds {residual_tolerance:.0%} tolerance "
@@ -709,12 +713,22 @@ class StressTester:
                     multiplier = pos["contracts"] * 100 * direction
 
                     old_greeks = black_scholes_all_greeks(
-                        S=spot, K=pos["strike"], T=T, r=r,
-                        sigma=pos["iv"], option_type=pos["option_type"], q=q
+                        S=spot,
+                        K=pos["strike"],
+                        T=T,
+                        r=r,
+                        sigma=pos["iv"],
+                        option_type=pos["option_type"],
+                        q=q,
                     )
                     new_greeks = black_scholes_all_greeks(
-                        S=new_spot, K=pos["strike"], T=T, r=r,
-                        sigma=new_iv, option_type=pos["option_type"], q=q
+                        S=new_spot,
+                        K=pos["strike"],
+                        T=T,
+                        r=r,
+                        sigma=new_iv,
+                        option_type=pos["option_type"],
+                        q=q,
                     )
                     total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
 
@@ -744,8 +758,13 @@ class StressTester:
                 multiplier = pos["contracts"] * 100 * direction
 
                 greeks = black_scholes_all_greeks(
-                    S=new_spot, K=pos["strike"], T=T, r=r,
-                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                    S=new_spot,
+                    K=pos["strike"],
+                    T=T,
+                    r=r,
+                    sigma=pos["iv"],
+                    option_type=pos["option_type"],
+                    q=q,
                 )
 
                 total_delta += greeks["delta"] * multiplier
@@ -753,15 +772,18 @@ class StressTester:
                 total_theta += greeks["theta"] * multiplier
                 total_vega += greeks["vega"] * multiplier
 
-            greeks_rows.append({
-                "spot_change": spot_chg,
-                "delta": total_delta,
-                "delta_dollars": total_delta * spot_prices.get(
-                    positions[0]["symbol"], 100) if positions else 0,
-                "gamma": total_gamma,
-                "theta": total_theta,
-                "vega": total_vega,
-            })
+            greeks_rows.append(
+                {
+                    "spot_change": spot_chg,
+                    "delta": total_delta,
+                    "delta_dollars": total_delta * spot_prices.get(positions[0]["symbol"], 100)
+                    if positions
+                    else 0,
+                    "gamma": total_gamma,
+                    "theta": total_theta,
+                    "vega": total_vega,
+                }
+            )
 
         greeks_surface = pd.DataFrame(greeks_rows)
 
@@ -785,23 +807,35 @@ class StressTester:
                 multiplier = pos["contracts"] * 100 * direction
 
                 old_greeks = black_scholes_all_greeks(
-                    S=spot, K=pos["strike"], T=T_old, r=r,
-                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                    S=spot,
+                    K=pos["strike"],
+                    T=T_old,
+                    r=r,
+                    sigma=pos["iv"],
+                    option_type=pos["option_type"],
+                    q=q,
                 )
                 new_greeks = black_scholes_all_greeks(
-                    S=spot, K=pos["strike"], T=T_new, r=r,
-                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                    S=spot,
+                    K=pos["strike"],
+                    T=T_new,
+                    r=r,
+                    sigma=pos["iv"],
+                    option_type=pos["option_type"],
+                    q=q,
                 )
 
                 total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
                 total_theta += new_greeks["theta"] * multiplier
 
-            time_rows.append({
-                "days_elapsed": days,
-                "cumulative_pnl": total_pnl,
-                "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
-                "remaining_theta": total_theta,
-            })
+            time_rows.append(
+                {
+                    "days_elapsed": days,
+                    "cumulative_pnl": total_pnl,
+                    "pnl_pct": total_pnl / portfolio_value if portfolio_value > 0 else 0,
+                    "remaining_theta": total_theta,
+                }
+            )
 
         time_decay = pd.DataFrame(time_rows)
 
@@ -925,14 +959,24 @@ class StressTester:
 
                 # Current Greeks
                 old_greeks = black_scholes_all_greeks(
-                    S=spot, K=pos["strike"], T=T_old, r=pos.get("rate", 0.05),
-                    sigma=pos["iv"], option_type=pos["option_type"], q=q
+                    S=spot,
+                    K=pos["strike"],
+                    T=T_old,
+                    r=pos.get("rate", 0.05),
+                    sigma=pos["iv"],
+                    option_type=pos["option_type"],
+                    q=q,
                 )
 
                 # Stressed Greeks
                 new_greeks = black_scholes_all_greeks(
-                    S=new_spot, K=pos["strike"], T=T_new, r=new_rate,
-                    sigma=new_iv, option_type=pos["option_type"], q=q
+                    S=new_spot,
+                    K=pos["strike"],
+                    T=T_new,
+                    r=new_rate,
+                    sigma=new_iv,
+                    option_type=pos["option_type"],
+                    q=q,
                 )
 
                 # Full repricing P&L
@@ -957,14 +1001,16 @@ class StressTester:
                 rho_pnl += pos_rho_pnl
                 total_pnl += pos_pnl
 
-                position_details.append({
-                    "symbol": symbol,
-                    "pnl": pos_pnl,
-                    "delta_contrib": pos_delta_pnl,
-                    "gamma_contrib": pos_gamma_pnl,
-                    "theta_contrib": pos_theta_pnl,
-                    "vega_contrib": pos_vega_pnl,
-                })
+                position_details.append(
+                    {
+                        "symbol": symbol,
+                        "pnl": pos_pnl,
+                        "delta_contrib": pos_delta_pnl,
+                        "gamma_contrib": pos_gamma_pnl,
+                        "theta_contrib": pos_theta_pnl,
+                        "vega_contrib": pos_vega_pnl,
+                    }
+                )
 
             results[scenario_name] = {
                 "description": params["description"],
@@ -976,7 +1022,8 @@ class StressTester:
                     "theta_pnl": theta_pnl,
                     "vega_pnl": vega_pnl,
                     "rho_pnl": rho_pnl,
-                    "higher_order": total_pnl - (delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl),
+                    "higher_order": total_pnl
+                    - (delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl),
                 },
                 "position_details": position_details,
                 "params": params,

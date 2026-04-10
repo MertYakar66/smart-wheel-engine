@@ -21,6 +21,7 @@ from data.quality import DataQualityFramework
 
 try:
     import pyarrow  # noqa: F401
+
     _HAS_PYARROW = True
 except ImportError:
     _HAS_PYARROW = False

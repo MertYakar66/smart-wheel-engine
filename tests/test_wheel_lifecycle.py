@@ -168,7 +168,8 @@ class TestRollMechanics:
     def test_roll_put_basic(self):
         """Roll a short put to a new strike and expiration."""
         tracker = _make_tracker_with_short_put(
-            strike=150.0, premium=2.50,
+            strike=150.0,
+            premium=2.50,
             entry_date=date(2024, 1, 1),
             expiration_date=date(2024, 2, 1),
         )
@@ -197,7 +198,8 @@ class TestRollMechanics:
     def test_roll_put_returns_net_credit(self):
         """Rolling a put should return a dict with net_credit_debit field."""
         tracker = _make_tracker_with_short_put(
-            strike=150.0, premium=2.50,
+            strike=150.0,
+            premium=2.50,
             entry_date=date(2024, 1, 1),
             expiration_date=date(2024, 2, 1),
         )
@@ -220,7 +222,8 @@ class TestRollMechanics:
     def test_roll_call_basic(self):
         """Roll a covered call to a new strike and expiration."""
         tracker = _make_tracker_with_covered_call(
-            call_strike=155.0, call_premium=1.50,
+            call_strike=155.0,
+            call_premium=1.50,
         )
 
         result = tracker.roll_call(

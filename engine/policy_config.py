@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 # Sub-configs
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RiskPolicyConfig:
     """Risk-management policy knobs.
@@ -96,12 +97,14 @@ class AdvisorPolicyConfig:
             weights are recalibrated, independent of drift.
     """
 
-    committee_weights: dict[str, float] = field(default_factory=lambda: {
-        "regime": 1.0,
-        "volatility": 1.0,
-        "event": 1.0,
-        "technical": 1.0,
-    })
+    committee_weights: dict[str, float] = field(
+        default_factory=lambda: {
+            "regime": 1.0,
+            "volatility": 1.0,
+            "event": 1.0,
+            "technical": 1.0,
+        }
+    )
     calibration_drift_threshold: float = 0.15
     rebalance_frequency_days: int = 30
 
@@ -132,6 +135,7 @@ class GreeksPolicyConfig:
 # Top-level config
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TradingPolicyConfig:
     """Root policy object aggregating all sub-policies.
@@ -154,6 +158,7 @@ class TradingPolicyConfig:
 # ---------------------------------------------------------------------------
 # IO helpers
 # ---------------------------------------------------------------------------
+
 
 def load_policy(path: str | None = None) -> TradingPolicyConfig:
     """Load a trading policy from a JSON file, or return built-in defaults.
@@ -210,6 +215,7 @@ def save_policy(config: TradingPolicyConfig, path: str) -> None:
 # Validation
 # ---------------------------------------------------------------------------
 
+
 def validate_policy(config: TradingPolicyConfig) -> list[str]:
     """Check a policy for invalid or contradictory values.
 
@@ -222,50 +228,30 @@ def validate_policy(config: TradingPolicyConfig) -> list[str]:
     # -- Risk --
     r = config.risk
     if not (0.90 <= r.var_confidence <= 0.999):
-        errors.append(
-            f"risk.var_confidence={r.var_confidence} outside [0.90, 0.999]"
-        )
+        errors.append(f"risk.var_confidence={r.var_confidence} outside [0.90, 0.999]")
     if not (0.0 < r.max_drawdown_pct < 1.0):
-        errors.append(
-            f"risk.max_drawdown_pct={r.max_drawdown_pct} must be in (0, 1)"
-        )
+        errors.append(f"risk.max_drawdown_pct={r.max_drawdown_pct} must be in (0, 1)")
     if not (0.0 < r.max_daily_loss_pct < r.max_drawdown_pct):
         errors.append(
-            "risk.max_daily_loss_pct must be positive and less than "
-            "risk.max_drawdown_pct"
+            "risk.max_daily_loss_pct must be positive and less than risk.max_drawdown_pct"
         )
     if r.concentrated_book_threshold < 1:
-        errors.append(
-            "risk.concentrated_book_threshold must be >= 1"
-        )
+        errors.append("risk.concentrated_book_threshold must be >= 1")
     if not (0.0 < r.max_var_pct < 1.0):
-        errors.append(
-            f"risk.max_var_pct={r.max_var_pct} must be in (0, 1)"
-        )
+        errors.append(f"risk.max_var_pct={r.max_var_pct} must be in (0, 1)")
 
     # -- Signal --
     s = config.signal
     if not (0.0 < s.iv_rank_low < s.iv_rank_high < 1.0):
-        errors.append(
-            "signal: need 0 < iv_rank_low < iv_rank_high < 1"
-        )
+        errors.append("signal: need 0 < iv_rank_low < iv_rank_high < 1")
     if s.trend_lookback_days < 5:
-        errors.append(
-            f"signal.trend_lookback_days={s.trend_lookback_days} too short "
-            "(min 5)"
-        )
+        errors.append(f"signal.trend_lookback_days={s.trend_lookback_days} too short (min 5)")
     if not (0.0 < s.profit_target_pct < 1.0):
-        errors.append(
-            f"signal.profit_target_pct={s.profit_target_pct} must be in (0, 1)"
-        )
+        errors.append(f"signal.profit_target_pct={s.profit_target_pct} must be in (0, 1)")
     if s.stop_loss_multiplier <= 1.0:
-        errors.append(
-            f"signal.stop_loss_multiplier={s.stop_loss_multiplier} must be > 1"
-        )
+        errors.append(f"signal.stop_loss_multiplier={s.stop_loss_multiplier} must be > 1")
     if not (s.target_dte_min < s.target_dte_ideal < s.target_dte_max):
-        errors.append(
-            "signal: need target_dte_min < target_dte_ideal < target_dte_max"
-        )
+        errors.append("signal: need target_dte_min < target_dte_ideal < target_dte_max")
     if s.earnings_buffer_days < 0:
         errors.append("signal.earnings_buffer_days must be >= 0")
 
@@ -277,8 +263,7 @@ def validate_policy(config: TradingPolicyConfig) -> list[str]:
         errors.append("advisor.committee_weights must all be positive")
     if not (0.0 < a.calibration_drift_threshold < 1.0):
         errors.append(
-            f"advisor.calibration_drift_threshold="
-            f"{a.calibration_drift_threshold} must be in (0, 1)"
+            f"advisor.calibration_drift_threshold={a.calibration_drift_threshold} must be in (0, 1)"
         )
     if a.rebalance_frequency_days < 1:
         errors.append("advisor.rebalance_frequency_days must be >= 1")

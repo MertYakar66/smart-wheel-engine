@@ -84,7 +84,7 @@ class TestThetaUnitConsistency:
         daily_theta = annual_theta / 365
 
         # Verify by computing price decay over 1 day
-        T_minus_1day = T - 1/365
+        T_minus_1day = T - 1 / 365
         price_base = black_scholes_price(S, K, T, r, sigma, "call")
         price_1day = black_scholes_price(S, K, T_minus_1day, r, sigma, "call")
         actual_daily_decay = price_1day - price_base  # Negative for long positions
@@ -109,7 +109,7 @@ class TestThetaUnitConsistency:
         theta_pnl = (annual_theta / 365) * days
 
         # Verify against actual price change
-        T_new = T - days/365
+        T_new = T - days / 365
         price_base = greeks["price"]
         price_new = black_scholes_price(S, K, T_new, r, sigma, "call")
         actual_pnl = price_new - price_base
@@ -141,9 +141,7 @@ class TestRhoUnitConsistency:
         # Should match within 2% (finite difference has inherent approximation error)
         if abs(analytic_rho) > 0.01:
             rel_error = abs(analytic_rho - fd_rho) / abs(analytic_rho)
-            assert rel_error < 0.02, (
-                f"Rho mismatch: analytic={analytic_rho:.6f}, fd={fd_rho:.6f}"
-            )
+            assert rel_error < 0.02, f"Rho mismatch: analytic={analytic_rho:.6f}, fd={fd_rho:.6f}"
 
 
 class TestCrossModuleConsistency:
@@ -174,10 +172,10 @@ class TestPnLDecompositionAccuracy:
         S, K, T, r, sigma = 100.0, 100.0, 0.5, 0.05, 0.25
 
         # Small shocks
-        dS = 2.0           # $2 spot move (2%)
-        d_sigma = 0.02     # 2 vol point IV increase
-        d_r = 0.005        # 50 bps rate increase
-        days = 5           # 5 days decay
+        dS = 2.0  # $2 spot move (2%)
+        d_sigma = 0.02  # 2 vol point IV increase
+        d_r = 0.005  # 50 bps rate increase
+        days = 5  # 5 days decay
 
         greeks = black_scholes_all_greeks(S, K, T, r, sigma, "put")
 
@@ -186,12 +184,12 @@ class TestPnLDecompositionAccuracy:
         gamma_pnl = 0.5 * greeks["gamma"] * dS**2
         theta_pnl = (greeks["theta"] / 365) * days
         vega_pnl = greeks["vega"] * d_sigma * 100  # Convert decimal to vol points
-        rho_pnl = greeks["rho"] * d_r * 100        # Convert decimal to percentage
+        rho_pnl = greeks["rho"] * d_r * 100  # Convert decimal to percentage
 
         greek_sum_pnl = delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl
 
         # Full repricing
-        T_new = T - days/365
+        T_new = T - days / 365
         S_new = S + dS
         sigma_new = sigma + d_sigma
         r_new = r + d_r
@@ -255,7 +253,7 @@ class TestStressTestingUnitConsistency:
 
         # Independently verify the magnitude using the pricer directly
         greeks = black_scholes_all_greeks(
-            S=155, K=150, T=45/365, r=0.05, sigma=0.25, option_type="put"
+            S=155, K=150, T=45 / 365, r=0.05, sigma=0.25, option_type="put"
         )
         annual_theta = greeks["theta"]
         # Correct daily conversion: annual_theta / 365

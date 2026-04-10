@@ -182,7 +182,6 @@ def run_risk_benchmarks() -> list[BenchmarkResult]:
     """Run VaR and risk management benchmarks."""
     from scipy import stats
 
-
     results = []
 
     # Parametric VaR: z * sigma * sqrt(t)

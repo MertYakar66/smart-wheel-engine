@@ -73,7 +73,7 @@ class SVIParams:
                 warnings.warn(
                     f"SVI params violate butterfly arbitrage: {butterfly:.4f}. "
                     f"This surface may produce negative variances.",
-                    stacklevel=2
+                    stacklevel=2,
                 )
 
     def total_variance(self, k: float) -> float:
@@ -257,8 +257,12 @@ class VolatilitySurface:
             new_rho = np.clip(params.rho + skew_steepening, -0.99, 0.99)
 
             new_params[exp] = SVIParams(
-                a=new_a, b=params.b, rho=new_rho, m=params.m, sigma=params.sigma,
-                strict_arbitrage=params.strict_arbitrage
+                a=new_a,
+                b=params.b,
+                rho=new_rho,
+                m=params.m,
+                sigma=params.sigma,
+                strict_arbitrage=params.strict_arbitrage,
             )
 
         return VolatilitySurface(
@@ -354,10 +358,12 @@ class SVICalibrator:
 
         constraints = []
         if self.enforce_arbitrage:
-            constraints.append({
-                "type": "ineq",
-                "fun": butterfly_constraint,
-            })
+            constraints.append(
+                {
+                    "type": "ineq",
+                    "fun": butterfly_constraint,
+                }
+            )
 
         # Optimize with constraints
         # Use SLSQP for constrained optimization (supports both bounds and constraints)
@@ -387,8 +393,7 @@ class SVICalibrator:
 
         # Return with strict_arbitrage matching our calibration setting
         return SVIParams(
-            a=a, b=b, rho=rho, m=m, sigma=sigma,
-            strict_arbitrage=self.enforce_arbitrage
+            a=a, b=b, rho=rho, m=m, sigma=sigma, strict_arbitrage=self.enforce_arbitrage
         )
 
 
@@ -589,7 +594,7 @@ def validate_no_calendar_arbitrage(
             if w2 - w1 < tolerance:
                 results["calendar_violations"].append(
                     f"k={k:.3f}: w({expiries[i]})={w1:.6f} > "
-                    f"w({expiries[i+1]})={w2:.6f} (diff={w2-w1:.6f})"
+                    f"w({expiries[i + 1]})={w2:.6f} (diff={w2 - w1:.6f})"
                 )
 
     # Check butterfly arbitrage per expiry: g(k) = (1 - k*w'/2w)^2 - w'^2/4*(1/w + 1/4) + w''/2

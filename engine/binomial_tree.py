@@ -36,8 +36,8 @@ class BinomialResult:
     delta: float
     gamma: float
     theta: float  # Annual theta (consistent with BSM pricer convention)
-    vega: float   # Per 1 vol point (per 0.01 sigma change)
-    rho: float    # Per 1% rate change
+    vega: float  # Per 1 vol point (per 0.01 sigma change)
+    rho: float  # Per 1% rate change
 
     # Diagnostics
     steps: int = 0
@@ -66,8 +66,8 @@ class BinomialResult:
 class DiscreteDividend:
     """A discrete dividend payment."""
 
-    ex_date: date       # Ex-dividend date
-    amount: float       # Dollar amount per share
+    ex_date: date  # Ex-dividend date
+    amount: float  # Dollar amount per share
     time_frac: float = 0.0  # Fraction of T (computed internally)
 
     def __post_init__(self):
@@ -305,7 +305,12 @@ def binomial_american_full(
     """
     if S <= 0 or K <= 0:
         return BinomialResult(
-            price=0.0, delta=0.0, gamma=0.0, theta=0.0, vega=0.0, rho=0.0,
+            price=0.0,
+            delta=0.0,
+            gamma=0.0,
+            theta=0.0,
+            vega=0.0,
+            rho=0.0,
             steps=n_steps,
         )
 
@@ -334,7 +339,7 @@ def binomial_american_full(
     )
 
     delta = (price_up - price_down) / (2 * bump)
-    gamma = (price_up - 2 * price + price_down) / (bump ** 2)
+    gamma = (price_up - 2 * price + price_down) / (bump**2)
 
     # --- Theta ---
     # Theta from 1-day time decay: reprice with T - 1/365
@@ -401,7 +406,7 @@ def binomial_with_richardson(
     """
     if discrete_dividends:
         for div in discrete_dividends:
-            if div.time_frac == 0.0 and hasattr(div, 'ex_date'):
+            if div.time_frac == 0.0 and hasattr(div, "ex_date"):
                 pass  # Assume already set
 
     price_n, _, _, _ = _crr_tree_american(
@@ -447,15 +452,17 @@ def convergence_study(
         change = price - prev_price if prev_price is not None else 0.0
         change_pct = abs(change / price) * 100 if price != 0 and prev_price is not None else 0.0
 
-        results.append({
-            "n_steps": n,
-            "price": price,
-            "european_price": euro,
-            "early_exercise_premium": max(0.0, price - euro),
-            "change": change,
-            "change_pct": change_pct,
-            "early_exercise_nodes": ee,
-        })
+        results.append(
+            {
+                "n_steps": n,
+                "price": price,
+                "european_price": euro,
+                "early_exercise_premium": max(0.0, price - euro),
+                "change": change,
+                "change_pct": change_pct,
+                "early_exercise_nodes": ee,
+            }
+        )
         prev_price = price
 
     return results

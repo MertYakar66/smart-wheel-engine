@@ -204,7 +204,13 @@ class CrossModelValidator:
 
         # --- Tier 2: CRR ---
         crr_result = binomial_american_full(
-            S, K, T, r, sigma, option_type, q,
+            S,
+            K,
+            T,
+            r,
+            sigma,
+            option_type,
+            q,
             n_steps=self.crr_steps,
             discrete_dividends=discrete_dividends,
         )
@@ -212,15 +218,24 @@ class CrossModelValidator:
 
         # --- Compare BAW vs CRR ---
         report.baw_vs_crr = self._compare_models(
-            "BAW", "CRR",
-            baw_greeks, crr_result.to_dict(),
+            "BAW",
+            "CRR",
+            baw_greeks,
+            crr_result.to_dict(),
             K,
         )
 
         # --- Check escalation triggers ---
         escalation_reasons = self._check_escalation(
-            S, K, T, sigma, option_type, q,
-            baw_greeks, crr_result, discrete_dividends,
+            S,
+            K,
+            T,
+            sigma,
+            option_type,
+            q,
+            baw_greeks,
+            crr_result,
+            discrete_dividends,
         )
         if escalation_reasons:
             report.escalation_triggered = True
@@ -231,9 +246,15 @@ class CrossModelValidator:
         if run_lsm:
             try:
                 from .monte_carlo import price_american_option
+
                 lsm_result = price_american_option(
-                    S=S, K=K, T=T, r=r, sigma=sigma,
-                    option_type=option_type, q=q,
+                    S=S,
+                    K=K,
+                    T=T,
+                    r=r,
+                    sigma=sigma,
+                    option_type=option_type,
+                    q=q,
                     n_simulations=self.lsm_simulations,
                 )
                 if isinstance(lsm_result, dict):
@@ -284,9 +305,7 @@ class CrossModelValidator:
 
         violations = []
         if abs(price_diff) > price_tol:
-            violations.append(
-                f"price: |{price_diff:.6f}| > tol {price_tol:.6f}"
-            )
+            violations.append(f"price: |{price_diff:.6f}| > tol {price_tol:.6f}")
 
         delta_diff = greeks_a.get("delta", 0) - greeks_b.get("delta", 0)
         if abs(delta_diff) > self.tolerances.delta_tol:
@@ -352,12 +371,10 @@ class CrossModelValidator:
             total_div = sum(d.amount for d in discrete_dividends)
             div_yield = total_div / S if S > 0 else 0
             if div_yield > tol.discrete_div_yield_threshold:
-                reasons.append(
-                    f"Large discrete div: {total_div:.2f} ({div_yield:.2%} of spot)"
-                )
+                reasons.append(f"Large discrete div: {total_div:.2f} ({div_yield:.2%} of spot)")
 
         # Model divergence
-        if hasattr(crr_result, 'price'):
+        if hasattr(crr_result, "price"):
             baw_price = baw_greeks["price"]
             crr_price = crr_result.price
             if baw_price > 0:
@@ -406,17 +423,19 @@ def run_benchmark_grid(
                         diff = abs(baw - crr)
                         rel_diff = diff / crr if crr > 0.001 else 0.0
 
-                        results.append({
-                            "S": S,
-                            "K": K,
-                            "T": T,
-                            "sigma": sigma,
-                            "option_type": option_type,
-                            "baw_price": baw,
-                            "crr_price": crr,
-                            "abs_diff": diff,
-                            "rel_diff": rel_diff,
-                            "moneyness": S / K,
-                        })
+                        results.append(
+                            {
+                                "S": S,
+                                "K": K,
+                                "T": T,
+                                "sigma": sigma,
+                                "option_type": option_type,
+                                "baw_price": baw,
+                                "crr_price": crr,
+                                "abs_diff": diff,
+                                "rel_diff": rel_diff,
+                                "moneyness": S / K,
+                            }
+                        )
 
     return results

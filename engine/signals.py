@@ -713,7 +713,9 @@ class StrangleTimingSignal(SignalGenerator):
             value = min(1.0, (score.total_score - self.strong_score) / 20 + 0.5)
         elif score.total_score >= self.min_score:
             strength = SignalStrength.WEAK_BUY
-            value = (score.total_score - self.min_score) / (self.strong_score - self.min_score) * 0.5
+            value = (
+                (score.total_score - self.min_score) / (self.strong_score - self.min_score) * 0.5
+            )
         elif score.compression_warning:
             strength = SignalStrength.STRONG_SELL
             value = -1.0

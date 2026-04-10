@@ -145,38 +145,44 @@ def trace_operation(
         parent_id=parent_id,
         metadata=metadata,
     )
-    _trace_events.append({
-        "event": "operation_start",
-        "trace_id": ctx.trace_id,
-        "operation": operation,
-        "timestamp": ctx.start_time.isoformat(),
-        "parent_id": parent_id,
-    })
+    _trace_events.append(
+        {
+            "event": "operation_start",
+            "trace_id": ctx.trace_id,
+            "operation": operation,
+            "timestamp": ctx.start_time.isoformat(),
+            "parent_id": parent_id,
+        }
+    )
     try:
         yield ctx
     except Exception as exc:
         end_time = datetime.now(UTC)
         duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
-        _trace_events.append({
-            "event": "operation_error",
-            "trace_id": ctx.trace_id,
-            "operation": operation,
-            "timestamp": end_time.isoformat(),
-            "duration_ms": duration_ms,
-            "error": str(exc),
-            "error_type": type(exc).__name__,
-        })
+        _trace_events.append(
+            {
+                "event": "operation_error",
+                "trace_id": ctx.trace_id,
+                "operation": operation,
+                "timestamp": end_time.isoformat(),
+                "duration_ms": duration_ms,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+        )
         raise
     else:
         end_time = datetime.now(UTC)
         duration_ms = (end_time - ctx.start_time).total_seconds() * 1000
-        _trace_events.append({
-            "event": "operation_end",
-            "trace_id": ctx.trace_id,
-            "operation": operation,
-            "timestamp": end_time.isoformat(),
-            "duration_ms": duration_ms,
-        })
+        _trace_events.append(
+            {
+                "event": "operation_end",
+                "trace_id": ctx.trace_id,
+                "operation": operation,
+                "timestamp": end_time.isoformat(),
+                "duration_ms": duration_ms,
+            }
+        )
 
 
 class AuditLogger:

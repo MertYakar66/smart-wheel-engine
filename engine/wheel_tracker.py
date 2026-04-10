@@ -378,8 +378,7 @@ class WheelTracker:
 
         # Net credit/debit of the roll (positive = credit)
         net_credit_debit = (
-            entry_cost_details["net_premium_collected"]
-            - exit_cost_details["total_buyback_cost"]
+            entry_cost_details["net_premium_collected"] - exit_cost_details["total_buyback_cost"]
         )
 
         pos.notes.append(
@@ -474,8 +473,7 @@ class WheelTracker:
 
         # Net credit/debit of the roll (positive = credit)
         net_credit_debit = (
-            entry_cost_details["net_premium_collected"]
-            - exit_cost_details["total_buyback_cost"]
+            entry_cost_details["net_premium_collected"] - exit_cost_details["total_buyback_cost"]
         )
 
         pos.notes.append(
@@ -571,9 +569,7 @@ class WheelTracker:
                 f"Called away: Sold {shares_called} shares at "
                 f"${call_strike:.2f} (basis: ${pos.stock_basis:.2f})"
             )
-            pos.notes.append(
-                f"Wheel cycle complete: Total P&L = ${pos.realized_pnl:.2f}"
-            )
+            pos.notes.append(f"Wheel cycle complete: Total P&L = ${pos.realized_pnl:.2f}")
 
             closed = self._finalize_position(pos, assignment_date, "call_assigned")
             del self.positions[ticker]

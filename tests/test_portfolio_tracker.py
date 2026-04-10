@@ -217,23 +217,27 @@ class TestPortfolioTracker:
         tracker = PortfolioTracker(initial_cash=100_000)
 
         # First buy
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         # Then sell
-        result = tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.SELL,
-            shares=50,
-            price=175.00,
-            date=date.today(),
-            fees=2.00,
-        ))
+        result = tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.SELL,
+                shares=50,
+                price=175.00,
+                date=date.today(),
+                fees=2.00,
+            )
+        )
 
         assert result is True
         assert tracker.holdings["AAPL"].shares == 50
@@ -244,21 +248,25 @@ class TestPortfolioTracker:
         """Test selling all shares removes holding."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.SELL,
-            shares=100,
-            price=175.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.SELL,
+                shares=100,
+                price=175.00,
+                date=date.today(),
+            )
+        )
 
         assert "AAPL" not in tracker.holdings
 
@@ -266,22 +274,26 @@ class TestPortfolioTracker:
         """Test dividend transaction."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         # Receive dividend
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.DIVIDEND,
-            shares=100,  # Number of shares
-            price=0.25,  # Dividend per share
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.DIVIDEND,
+                shares=100,  # Number of shares
+                price=0.25,  # Dividend per share
+                date=date.today(),
+            )
+        )
 
         assert tracker.total_dividends == 25.00
         assert tracker.holdings["AAPL"].dividends_received == 25.00
@@ -294,25 +306,29 @@ class TestPortfolioTracker:
         tracker = PortfolioTracker(initial_cash=50_000)
 
         # Deposit
-        tracker.add_transaction(Transaction(
-            ticker="CASH",
-            action=TransactionType.DEPOSIT,
-            shares=1,
-            price=25_000,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="CASH",
+                action=TransactionType.DEPOSIT,
+                shares=1,
+                price=25_000,
+                date=date.today(),
+            )
+        )
 
         assert tracker.cash == 75_000
         assert tracker.total_deposits == 75_000
 
         # Withdrawal
-        tracker.add_transaction(Transaction(
-            ticker="CASH",
-            action=TransactionType.WITHDRAWAL,
-            shares=1,
-            price=10_000,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="CASH",
+                action=TransactionType.WITHDRAWAL,
+                shares=1,
+                price=10_000,
+                date=date.today(),
+            )
+        )
 
         assert tracker.cash == 65_000
         assert tracker.total_withdrawals == 10_000
@@ -322,22 +338,26 @@ class TestPortfolioTracker:
         tracker = PortfolioTracker(initial_cash=100_000)
 
         # Buy 100 @ $100
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=100.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=100.00,
+                date=date.today(),
+            )
+        )
 
         # Buy 100 @ $120
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=120.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=120.00,
+                date=date.today(),
+            )
+        )
 
         # Average cost: (100*100 + 100*120) / 200 = 110
         assert tracker.holdings["AAPL"].shares == 200
@@ -351,13 +371,15 @@ class TestPortfolioSnapshot:
         """Test taking a portfolio snapshot."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         prices = {"AAPL": 175.00}
         snapshot = tracker.snapshot(prices)
@@ -371,13 +393,15 @@ class TestPortfolioSnapshot:
         """Test taking multiple snapshots over time."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today() - timedelta(days=7),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today() - timedelta(days=7),
+            )
+        )
 
         # First snapshot
         tracker.snapshot({"AAPL": 155.00}, snapshot_date=date.today() - timedelta(days=5))
@@ -406,21 +430,20 @@ class TestReturnCalculations:
         tracker = PortfolioTracker(initial_cash=100_000)
 
         # Buy stock
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=100.00,
-            date=date.today() - timedelta(days=35),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=100.00,
+                date=date.today() - timedelta(days=35),
+            )
+        )
 
         # Create snapshots showing growth over 35 days
         for i in range(35, -1, -1):
             price = 100.00 + (35 - i) * 1.0  # Price increases by $1/day
-            tracker.snapshot(
-                {"AAPL": price},
-                snapshot_date=date.today() - timedelta(days=i)
-            )
+            tracker.snapshot({"AAPL": price}, snapshot_date=date.today() - timedelta(days=i))
 
         metrics = tracker.get_returns()
 
@@ -438,13 +461,15 @@ class TestReturnCalculations:
         tracker.snapshot({}, snapshot_date=date.today() - timedelta(days=10))
 
         # Deposit midway
-        tracker.add_transaction(Transaction(
-            ticker="CASH",
-            action=TransactionType.DEPOSIT,
-            shares=1,
-            price=10_000,
-            date=date.today() - timedelta(days=5),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="CASH",
+                action=TransactionType.DEPOSIT,
+                shares=1,
+                price=10_000,
+                date=date.today() - timedelta(days=5),
+            )
+        )
         tracker.snapshot({}, snapshot_date=date.today() - timedelta(days=5))
 
         # Final snapshot
@@ -464,20 +489,24 @@ class TestAllocation:
         tracker = PortfolioTracker(initial_cash=100_000)
 
         # Buy tech stocks
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
-        tracker.add_transaction(Transaction(
-            ticker="MSFT",
-            action=TransactionType.BUY,
-            shares=50,
-            price=400.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
+        tracker.add_transaction(
+            Transaction(
+                ticker="MSFT",
+                action=TransactionType.BUY,
+                shares=50,
+                price=400.00,
+                date=date.today(),
+            )
+        )
 
         # Update prices
         tracker.snapshot({"AAPL": 150.00, "MSFT": 400.00})
@@ -493,13 +522,15 @@ class TestAllocation:
         """Test cash percentage in allocation."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         tracker.snapshot({"AAPL": 150.00})
 
@@ -513,20 +544,24 @@ class TestAllocation:
         """Test top holdings in allocation."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
-        tracker.add_transaction(Transaction(
-            ticker="MSFT",
-            action=TransactionType.BUY,
-            shares=25,
-            price=400.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
+        tracker.add_transaction(
+            Transaction(
+                ticker="MSFT",
+                action=TransactionType.BUY,
+                shares=25,
+                price=400.00,
+                date=date.today(),
+            )
+        )
 
         tracker.snapshot({"AAPL": 150.00, "MSFT": 400.00})
 
@@ -561,15 +596,17 @@ class TestImportExport:
         """Test exporting portfolio to JSON."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             filepath = f.name
 
         tracker.export_to_json(filepath)
@@ -589,17 +626,19 @@ class TestImportExport:
         """Test loading portfolio from JSON."""
         tracker1 = PortfolioTracker(initial_cash=100_000)
 
-        tracker1.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker1.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
         tracker1.realized_pnl = 500.00
         tracker1.total_dividends = 100.00
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             filepath = f.name
 
         tracker1.export_to_json(filepath)
@@ -624,7 +663,7 @@ class TestImportExport:
 2025-01-15,AAPL,buy,100,150.00,5.00
 2025-01-16,MSFT,buy,50,400.00,5.00
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
             filepath = f.name
 
@@ -674,13 +713,15 @@ class TestRiskMetrics:
         """Test max drawdown calculation."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=1000,
-            price=100.00,
-            date=date.today() - timedelta(days=10),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=1000,
+                price=100.00,
+                date=date.today() - timedelta(days=10),
+            )
+        )
 
         # Create snapshots with a drawdown
         # Day 0: $100,000
@@ -709,13 +750,15 @@ class TestReports:
         """Test summary report generation."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
         tracker.snapshot({"AAPL": 175.00})
 
         report = tracker.summary_report()
@@ -728,13 +771,15 @@ class TestReports:
         """Test positions report generation."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
         tracker.holdings["AAPL"].current_price = 175.00
 
         report = tracker.positions_report()
@@ -756,13 +801,15 @@ class TestEdgeCases:
         """Test selling stock not owned."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        result = tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.SELL,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        result = tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.SELL,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         assert result is False
 
@@ -770,21 +817,25 @@ class TestEdgeCases:
         """Test selling more shares than owned."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=50,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=50,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
-        result = tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.SELL,
-            shares=100,  # More than owned
-            price=175.00,
-            date=date.today(),
-        ))
+        result = tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.SELL,
+                shares=100,  # More than owned
+                price=175.00,
+                date=date.today(),
+            )
+        )
 
         assert result is False
         assert tracker.holdings["AAPL"].shares == 50  # Unchanged
@@ -793,13 +844,15 @@ class TestEdgeCases:
         """Test withdrawal exceeding cash balance."""
         tracker = PortfolioTracker(initial_cash=10_000)
 
-        result = tracker.add_transaction(Transaction(
-            ticker="CASH",
-            action=TransactionType.WITHDRAWAL,
-            shares=1,
-            price=50_000,  # More than available
-            date=date.today(),
-        ))
+        result = tracker.add_transaction(
+            Transaction(
+                ticker="CASH",
+                action=TransactionType.WITHDRAWAL,
+                shares=1,
+                price=50_000,  # More than available
+                date=date.today(),
+            )
+        )
 
         assert result is False
         assert tracker.cash == 10_000
@@ -819,13 +872,15 @@ class TestEdgeCases:
         """Test getting holdings as DataFrame."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
         tracker.holdings["AAPL"].current_price = 175.00
 
         df = tracker.get_holdings_df()
@@ -839,13 +894,15 @@ class TestEdgeCases:
         """Test getting transactions as DataFrame."""
         tracker = PortfolioTracker(initial_cash=100_000)
 
-        tracker.add_transaction(Transaction(
-            ticker="AAPL",
-            action=TransactionType.BUY,
-            shares=100,
-            price=150.00,
-            date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=100,
+                price=150.00,
+                date=date.today(),
+            )
+        )
 
         df = tracker.get_transactions_df()
 

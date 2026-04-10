@@ -49,8 +49,10 @@ import pandas as pd
 # Enums and Constants
 # =============================================================================
 
+
 class AssetClass(Enum):
     """Asset classification."""
+
     EQUITY = "equity"
     OPTION = "option"
     ETF = "etf"
@@ -62,6 +64,7 @@ class AssetClass(Enum):
 
 class TransactionType(Enum):
     """Transaction types."""
+
     BUY = "buy"
     SELL = "sell"
     DIVIDEND = "dividend"
@@ -80,63 +83,109 @@ class TransactionType(Enum):
 # Standard sector mappings (inspired by GICS)
 DEFAULT_SECTOR_MAP = {
     # Technology
-    "AAPL": "Technology", "MSFT": "Technology", "GOOGL": "Technology",
-    "GOOG": "Technology", "META": "Technology", "NVDA": "Technology",
-    "AMD": "Technology", "INTC": "Technology", "CRM": "Technology",
-    "ORCL": "Technology", "ADBE": "Technology", "CSCO": "Technology",
-    "AVGO": "Technology", "QCOM": "Technology", "TXN": "Technology",
-
+    "AAPL": "Technology",
+    "MSFT": "Technology",
+    "GOOGL": "Technology",
+    "GOOG": "Technology",
+    "META": "Technology",
+    "NVDA": "Technology",
+    "AMD": "Technology",
+    "INTC": "Technology",
+    "CRM": "Technology",
+    "ORCL": "Technology",
+    "ADBE": "Technology",
+    "CSCO": "Technology",
+    "AVGO": "Technology",
+    "QCOM": "Technology",
+    "TXN": "Technology",
     # Financial
-    "JPM": "Financial", "BAC": "Financial", "WFC": "Financial",
-    "GS": "Financial", "MS": "Financial", "C": "Financial",
-    "BLK": "Financial", "SCHW": "Financial", "AXP": "Financial",
-    "V": "Financial", "MA": "Financial", "PYPL": "Financial",
-
+    "JPM": "Financial",
+    "BAC": "Financial",
+    "WFC": "Financial",
+    "GS": "Financial",
+    "MS": "Financial",
+    "C": "Financial",
+    "BLK": "Financial",
+    "SCHW": "Financial",
+    "AXP": "Financial",
+    "V": "Financial",
+    "MA": "Financial",
+    "PYPL": "Financial",
     # Healthcare
-    "JNJ": "Healthcare", "UNH": "Healthcare", "PFE": "Healthcare",
-    "ABBV": "Healthcare", "MRK": "Healthcare", "LLY": "Healthcare",
-    "TMO": "Healthcare", "ABT": "Healthcare", "DHR": "Healthcare",
-
+    "JNJ": "Healthcare",
+    "UNH": "Healthcare",
+    "PFE": "Healthcare",
+    "ABBV": "Healthcare",
+    "MRK": "Healthcare",
+    "LLY": "Healthcare",
+    "TMO": "Healthcare",
+    "ABT": "Healthcare",
+    "DHR": "Healthcare",
     # Consumer Discretionary
-    "AMZN": "Consumer Discretionary", "TSLA": "Consumer Discretionary",
-    "HD": "Consumer Discretionary", "NKE": "Consumer Discretionary",
-    "MCD": "Consumer Discretionary", "SBUX": "Consumer Discretionary",
-    "LOW": "Consumer Discretionary", "TGT": "Consumer Discretionary",
-
+    "AMZN": "Consumer Discretionary",
+    "TSLA": "Consumer Discretionary",
+    "HD": "Consumer Discretionary",
+    "NKE": "Consumer Discretionary",
+    "MCD": "Consumer Discretionary",
+    "SBUX": "Consumer Discretionary",
+    "LOW": "Consumer Discretionary",
+    "TGT": "Consumer Discretionary",
     # Consumer Staples
-    "PG": "Consumer Staples", "KO": "Consumer Staples", "PEP": "Consumer Staples",
-    "WMT": "Consumer Staples", "COST": "Consumer Staples",
-
+    "PG": "Consumer Staples",
+    "KO": "Consumer Staples",
+    "PEP": "Consumer Staples",
+    "WMT": "Consumer Staples",
+    "COST": "Consumer Staples",
     # Energy
-    "XOM": "Energy", "CVX": "Energy", "COP": "Energy",
-    "SLB": "Energy", "EOG": "Energy", "OXY": "Energy",
-
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "COP": "Energy",
+    "SLB": "Energy",
+    "EOG": "Energy",
+    "OXY": "Energy",
     # Industrials
-    "CAT": "Industrials", "BA": "Industrials", "HON": "Industrials",
-    "UPS": "Industrials", "RTX": "Industrials", "DE": "Industrials",
-    "GE": "Industrials", "MMM": "Industrials", "LMT": "Industrials",
-
+    "CAT": "Industrials",
+    "BA": "Industrials",
+    "HON": "Industrials",
+    "UPS": "Industrials",
+    "RTX": "Industrials",
+    "DE": "Industrials",
+    "GE": "Industrials",
+    "MMM": "Industrials",
+    "LMT": "Industrials",
     # Utilities
-    "NEE": "Utilities", "DUK": "Utilities", "SO": "Utilities",
-    "D": "Utilities", "AEP": "Utilities",
-
+    "NEE": "Utilities",
+    "DUK": "Utilities",
+    "SO": "Utilities",
+    "D": "Utilities",
+    "AEP": "Utilities",
     # Real Estate
-    "AMT": "Real Estate", "PLD": "Real Estate", "CCI": "Real Estate",
-    "EQIX": "Real Estate", "SPG": "Real Estate",
-
+    "AMT": "Real Estate",
+    "PLD": "Real Estate",
+    "CCI": "Real Estate",
+    "EQIX": "Real Estate",
+    "SPG": "Real Estate",
     # Communication Services
-    "DIS": "Communication Services", "NFLX": "Communication Services",
-    "CMCSA": "Communication Services", "VZ": "Communication Services",
-    "T": "Communication Services", "TMUS": "Communication Services",
-
+    "DIS": "Communication Services",
+    "NFLX": "Communication Services",
+    "CMCSA": "Communication Services",
+    "VZ": "Communication Services",
+    "T": "Communication Services",
+    "TMUS": "Communication Services",
     # Materials
-    "LIN": "Materials", "APD": "Materials", "SHW": "Materials",
-    "FCX": "Materials", "NEM": "Materials",
-
+    "LIN": "Materials",
+    "APD": "Materials",
+    "SHW": "Materials",
+    "FCX": "Materials",
+    "NEM": "Materials",
     # ETFs
-    "SPY": "Broad Market ETF", "QQQ": "Tech ETF", "IWM": "Small Cap ETF",
-    "DIA": "Broad Market ETF", "VTI": "Broad Market ETF",
-    "VOO": "Broad Market ETF", "IVV": "Broad Market ETF",
+    "SPY": "Broad Market ETF",
+    "QQQ": "Tech ETF",
+    "IWM": "Small Cap ETF",
+    "DIA": "Broad Market ETF",
+    "VTI": "Broad Market ETF",
+    "VOO": "Broad Market ETF",
+    "IVV": "Broad Market ETF",
 }
 
 
@@ -144,9 +193,11 @@ DEFAULT_SECTOR_MAP = {
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class Transaction:
     """A single portfolio transaction."""
+
     ticker: str
     action: TransactionType | str
     shares: float
@@ -191,15 +242,17 @@ class Transaction:
 
 class CostBasisMethod(Enum):
     """Cost basis calculation method for tax lots."""
+
     AVERAGE = "average"  # Weighted average cost
-    FIFO = "fifo"        # First in, first out
-    LIFO = "lifo"        # Last in, first out
+    FIFO = "fifo"  # First in, first out
+    LIFO = "lifo"  # Last in, first out
     SPECIFIC_ID = "specific_id"  # Specific lot identification
 
 
 @dataclass
 class TaxLot:
     """Individual tax lot for precise cost basis tracking."""
+
     lot_id: str
     ticker: str
     shares: float
@@ -236,6 +289,7 @@ class TaxLot:
 @dataclass
 class Holding:
     """A current portfolio holding."""
+
     ticker: str
     shares: float
     cost_basis: float  # Average cost per share
@@ -309,6 +363,7 @@ class Holding:
 @dataclass
 class PortfolioSnapshot:
     """Point-in-time portfolio snapshot."""
+
     date: date
     total_value: float
     cash: float
@@ -346,6 +401,7 @@ class PortfolioSnapshot:
 @dataclass
 class PerformanceMetrics:
     """Comprehensive performance metrics."""
+
     # Returns by period
     return_1d: float = 0.0
     return_1w: float = 0.0
@@ -393,6 +449,7 @@ class PerformanceMetrics:
 # =============================================================================
 # Portfolio Tracker
 # =============================================================================
+
 
 class PortfolioTracker:
     """
@@ -447,7 +504,7 @@ class PortfolioTracker:
         # Cumulative tracking
         self.realized_pnl = 0.0
         self.realized_pnl_short_term = 0.0  # Short-term capital gains
-        self.realized_pnl_long_term = 0.0   # Long-term capital gains
+        self.realized_pnl_long_term = 0.0  # Long-term capital gains
         self.total_dividends = 0.0
         self.total_fees = 0.0
         self.total_deposits = initial_cash
@@ -591,7 +648,7 @@ class PortfolioTracker:
             # For average, proportionally reduce all lots
             ratio = shares_to_sell / holding.shares
             for lot in holding.tax_lots:
-                lot.remaining_shares *= (1 - ratio)
+                lot.remaining_shares *= 1 - ratio
         else:
             # FIFO or LIFO: consume lots in order
             for lot in lots_ordered:
@@ -628,7 +685,9 @@ class PortfolioTracker:
             del self.holdings[txn.ticker]
         else:
             # Recalculate average cost basis from remaining lots
-            total_remaining_cost = sum(lot.remaining_shares * lot.cost_per_share for lot in holding.tax_lots)
+            total_remaining_cost = sum(
+                lot.remaining_shares * lot.cost_per_share for lot in holding.tax_lots
+            )
             holding.cost_basis = total_remaining_cost / holding.shares
 
         return True
@@ -818,18 +877,26 @@ class PortfolioTracker:
                 rf_daily = self.risk_free_rate / 252
                 excess_returns = daily_returns - rf_daily
                 if daily_returns.std() > 0:
-                    metrics.sharpe_ratio = (excess_returns.mean() / daily_returns.std()) * np.sqrt(252)
+                    metrics.sharpe_ratio = (excess_returns.mean() / daily_returns.std()) * np.sqrt(
+                        252
+                    )
 
                 # Sortino ratio
                 downside_returns = daily_returns[daily_returns < 0]
                 if len(downside_returns) > 0 and downside_returns.std() > 0:
-                    metrics.sortino_ratio = (excess_returns.mean() / downside_returns.std()) * np.sqrt(252)
+                    metrics.sortino_ratio = (
+                        excess_returns.mean() / downside_returns.std()
+                    ) * np.sqrt(252)
 
                 # Max drawdown
-                metrics.max_drawdown, metrics.max_drawdown_duration_days = self._calculate_max_drawdown(df)
+                metrics.max_drawdown, metrics.max_drawdown_duration_days = (
+                    self._calculate_max_drawdown(df)
+                )
 
         # Totals
-        metrics.total_gain = self.realized_pnl + sum(h.unrealized_pnl for h in self.holdings.values())
+        metrics.total_gain = self.realized_pnl + sum(
+            h.unrealized_pnl for h in self.holdings.values()
+        )
         metrics.total_dividends = self.total_dividends
         metrics.total_fees = self.total_fees
 
@@ -929,8 +996,9 @@ class PortfolioTracker:
                 curr_withdrawals = _get_scalar(period_df, sub_end, "withdrawals_cumulative")
                 start_deposits = _get_scalar(period_df, sub_start, "deposits_cumulative")
                 start_withdrawals = _get_scalar(period_df, sub_start, "withdrawals_cumulative")
-                cash_flow_at_end = ((curr_deposits - start_deposits)
-                                    - (curr_withdrawals - start_withdrawals))
+                cash_flow_at_end = (curr_deposits - start_deposits) - (
+                    curr_withdrawals - start_withdrawals
+                )
 
             end_value = _get_scalar(period_df, sub_end, "total_value")
 
@@ -1029,9 +1097,7 @@ class PortfolioTracker:
 
         # Top holdings
         holdings_by_value = sorted(
-            self.holdings.values(),
-            key=lambda h: h.market_value,
-            reverse=True
+            self.holdings.values(), key=lambda h: h.market_value, reverse=True
         )
         top_holdings = [
             {
@@ -1079,10 +1145,7 @@ class PortfolioTracker:
         if not self.snapshots:
             return pd.DataFrame()
 
-        df = pd.DataFrame([
-            {"date": s.date, "value": s.total_value}
-            for s in self.snapshots
-        ])
+        df = pd.DataFrame([{"date": s.date, "value": s.total_value} for s in self.snapshots])
         return df.set_index("date")
 
     # =========================================================================
@@ -1192,16 +1255,18 @@ class PortfolioTracker:
         # Load transactions
         self.transactions = []
         for t in data.get("transactions", []):
-            self.transactions.append(Transaction(
-                ticker=t["ticker"],
-                action=t["action"],
-                shares=t["shares"],
-                price=t["price"],
-                date=date.fromisoformat(t["date"]),
-                fees=t.get("fees", 0),
-                notes=t.get("notes", ""),
-                asset_class=t.get("asset_class", "equity"),
-            ))
+            self.transactions.append(
+                Transaction(
+                    ticker=t["ticker"],
+                    action=t["action"],
+                    shares=t["shares"],
+                    price=t["price"],
+                    date=date.fromisoformat(t["date"]),
+                    fees=t.get("fees", 0),
+                    notes=t.get("notes", ""),
+                    asset_class=t.get("asset_class", "equity"),
+                )
+            )
 
     # =========================================================================
     # Reports
@@ -1213,16 +1278,16 @@ class PortfolioTracker:
         allocation = self.get_allocation()
 
         report = f"""
-{'='*60}
+{"=" * 60}
 PORTFOLIO SUMMARY
-{'='*60}
+{"=" * 60}
 
-TOTAL VALUE: ${allocation.get('total_value', 0):,.2f}
-  Cash:      ${allocation.get('cash', 0):,.2f} ({allocation.get('cash_pct', 0):.1%})
-  Invested:  ${allocation.get('invested', 0):,.2f} ({allocation.get('invested_pct', 0):.1%})
+TOTAL VALUE: ${allocation.get("total_value", 0):,.2f}
+  Cash:      ${allocation.get("cash", 0):,.2f} ({allocation.get("cash_pct", 0):.1%})
+  Invested:  ${allocation.get("invested", 0):,.2f} ({allocation.get("invested_pct", 0):.1%})
 
 PERFORMANCE
-{'-'*40}
+{"-" * 40}
   Today:      {metrics.return_1d:+.2%}
   1 Week:     {metrics.return_1w:+.2%}
   1 Month:    {metrics.return_1m:+.2%}
@@ -1232,20 +1297,20 @@ PERFORMANCE
   All Time:   {metrics.return_all_time:+.2%}
 
 RISK METRICS
-{'-'*40}
+{"-" * 40}
   Volatility (Ann.): {metrics.volatility_annualized:.1%}
   Sharpe Ratio:      {metrics.sharpe_ratio:.2f}
   Max Drawdown:      {metrics.max_drawdown:.1%}
 
 TOTALS
-{'-'*40}
+{"-" * 40}
   Total Gain/Loss:   ${metrics.total_gain:+,.2f}
   Dividends:         ${metrics.total_dividends:,.2f}
   Fees Paid:         ${metrics.total_fees:,.2f}
   Net Deposits:      ${self.total_deposits - self.total_withdrawals:,.2f}
 
 ALLOCATION BY SECTOR
-{'-'*40}"""
+{"-" * 40}"""
 
         for sector, pct in sorted(allocation.get("by_sector", {}).items(), key=lambda x: -x[1]):
             report += f"\n  {sector:25s} {pct:6.1%}"
@@ -1253,35 +1318,36 @@ ALLOCATION BY SECTOR
         report += f"""
 
 TOP HOLDINGS
-{'-'*40}"""
+{"-" * 40}"""
 
         for h in allocation.get("top_holdings", [])[:5]:
             report += f"\n  {h['ticker']:10s} ${h['value']:>10,.2f} ({h['pct']:5.1%})  P&L: {h['pnl_pct']:+.1%}"
 
-        report += f"\n\n{'='*60}\n"
+        report += f"\n\n{'=' * 60}\n"
 
         return report
 
     def positions_report(self) -> str:
         """Generate detailed positions report."""
         report = f"""
-{'='*70}
+{"=" * 70}
 POSITIONS DETAIL
-{'='*70}
-{'Ticker':<12} {'Shares':>10} {'Cost':>10} {'Price':>10} {'Value':>12} {'P&L':>10} {'P&L%':>8}
-{'-'*70}"""
+{"=" * 70}
+{"Ticker":<12} {"Shares":>10} {"Cost":>10} {"Price":>10} {"Value":>12} {"P&L":>10} {"P&L%":>8}
+{"-" * 70}"""
 
         for holding in sorted(self.holdings.values(), key=lambda h: -h.market_value):
             report += f"""
 {holding.ticker:<12} {holding.shares:>10.2f} ${holding.cost_basis:>9.2f} ${holding.current_price:>9.2f} ${holding.market_value:>11,.2f} ${holding.unrealized_pnl:>9,.2f} {holding.unrealized_pnl_pct:>7.1%}"""
 
-        report += f"\n{'-'*70}\n"
+        report += f"\n{'-' * 70}\n"
         return report
 
 
 # =============================================================================
 # Quick Helper Functions
 # =============================================================================
+
 
 def create_portfolio_from_holdings(
     holdings: list[dict],

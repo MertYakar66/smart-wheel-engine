@@ -33,6 +33,7 @@ import pandas as pd
 @dataclass
 class TickerAnalysis:
     """Complete analysis of a ticker for wheel suitability."""
+
     ticker: str
     spot_price: float = 0.0
 
@@ -75,7 +76,7 @@ class TickerAnalysis:
         lines = [
             f"=== {self.ticker} Wheel Analysis ===",
             f"Price: ${self.spot_price:.2f} | Sector: {self.sector}",
-            f"Mkt Cap: ${self.market_cap/1e9:.1f}B | P/E: {self.pe_ratio:.1f} | Beta: {self.beta:.2f}",
+            f"Mkt Cap: ${self.market_cap / 1e9:.1f}B | P/E: {self.pe_ratio:.1f} | Beta: {self.beta:.2f}",
             "",
             "Volatility:",
             f"  IV(30d): {self.iv_30d:.1f}% | RV(30d): {self.rv_30d:.1f}%",
@@ -83,8 +84,12 @@ class TickerAnalysis:
             f"  Vol Premium: {self.vol_risk_premium:+.1f}%",
             "",
             "Events:",
-            f"  Next Earnings: {self.next_earnings_date} ({self.days_to_earnings}d)" if self.days_to_earnings else "  Next Earnings: N/A",
-            f"  Next Ex-Div: {self.next_div_date} (${self.next_div_amount:.3f})" if self.next_div_date else "  Next Ex-Div: N/A",
+            f"  Next Earnings: {self.next_earnings_date} ({self.days_to_earnings}d)"
+            if self.days_to_earnings
+            else "  Next Earnings: N/A",
+            f"  Next Ex-Div: {self.next_div_date} (${self.next_div_amount:.3f})"
+            if self.next_div_date
+            else "  Next Ex-Div: N/A",
             "",
             f"Strangle Timing: {self.strangle_score:.0f}/100 ({self.strangle_phase}) → {self.strangle_recommendation}",
             f"Wheel Score: {self.wheel_score:.0f}/100 → {self.wheel_recommendation}",
@@ -112,6 +117,7 @@ class WheelRunner:
         """Lazy-load the data connector."""
         if self._connector is None:
             from engine.data_connector import MarketDataConnector
+
             self._connector = MarketDataConnector(str(self.data_dir))
         return self._connector
 
@@ -121,9 +127,11 @@ class WheelRunner:
         if self._strangle_engine is None:
             try:
                 from engine.strangle_timing import StrangleTimingWithIV
+
                 self._strangle_engine = StrangleTimingWithIV(data_connector=self.connector)
             except (ImportError, Exception):
                 from engine.strangle_timing import StrangleTimingEngine
+
                 self._strangle_engine = StrangleTimingEngine()
         return self._strangle_engine
 
@@ -135,6 +143,7 @@ class WheelRunner:
         """Get event calendar populated with Bloomberg data."""
         if self._calendar is None:
             from engine.data_integration import build_calendar_from_bloomberg
+
             if years is None:
                 years = [date.today().year - 1, date.today().year]
             self._calendar = build_calendar_from_bloomberg(
@@ -202,6 +211,7 @@ class WheelRunner:
         # --- Risk-free rate ---
         try:
             from engine.data_integration import get_current_risk_free_rate
+
             analysis.risk_free_rate = get_current_risk_free_rate(as_of, data_dir=str(self.data_dir))
         except Exception:
             analysis.risk_free_rate = 0.05
@@ -234,9 +244,12 @@ class WheelRunner:
         # --- Composite wheel score ---
         analysis.wheel_score = self._compute_wheel_score(analysis)
         analysis.wheel_recommendation = (
-            "strong_candidate" if analysis.wheel_score >= 75
-            else "moderate" if analysis.wheel_score >= 55
-            else "weak" if analysis.wheel_score >= 35
+            "strong_candidate"
+            if analysis.wheel_score >= 75
+            else "moderate"
+            if analysis.wheel_score >= 55
+            else "weak"
+            if analysis.wheel_score >= 35
             else "avoid"
         )
 
@@ -360,25 +373,27 @@ class WheelRunner:
                         continue
 
                 if analysis.wheel_score >= min_wheel_score:
-                    results.append({
-                        "ticker": ticker,
-                        "wheel_score": analysis.wheel_score,
-                        "recommendation": analysis.wheel_recommendation,
-                        "spot": analysis.spot_price,
-                        "iv_30d": analysis.iv_30d,
-                        "rv_30d": analysis.rv_30d,
-                        "iv_rank": analysis.iv_rank,
-                        "vol_premium": analysis.vol_risk_premium,
-                        "pe_ratio": analysis.pe_ratio,
-                        "beta": analysis.beta,
-                        "div_yield": analysis.dividend_yield,
-                        "sector": analysis.sector,
-                        "credit_rating": analysis.credit_rating,
-                        "days_to_earnings": analysis.days_to_earnings,
-                        "strangle_score": analysis.strangle_score,
-                        "strangle_phase": analysis.strangle_phase,
-                        "mkt_cap_B": analysis.market_cap / 1e9,
-                    })
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "wheel_score": analysis.wheel_score,
+                            "recommendation": analysis.wheel_recommendation,
+                            "spot": analysis.spot_price,
+                            "iv_30d": analysis.iv_30d,
+                            "rv_30d": analysis.rv_30d,
+                            "iv_rank": analysis.iv_rank,
+                            "vol_premium": analysis.vol_risk_premium,
+                            "pe_ratio": analysis.pe_ratio,
+                            "beta": analysis.beta,
+                            "div_yield": analysis.dividend_yield,
+                            "sector": analysis.sector,
+                            "credit_rating": analysis.credit_rating,
+                            "days_to_earnings": analysis.days_to_earnings,
+                            "strangle_score": analysis.strangle_score,
+                            "strangle_phase": analysis.strangle_phase,
+                            "mkt_cap_B": analysis.market_cap / 1e9,
+                        }
+                    )
             except Exception:
                 continue
 
@@ -430,20 +445,24 @@ class WheelRunner:
         upcoming_events = []
         for ticker, a in analyses.items():
             if a.days_to_earnings is not None and 0 < a.days_to_earnings <= 30:
-                upcoming_events.append({
-                    "ticker": ticker,
-                    "event": "earnings",
-                    "date": str(a.next_earnings_date),
-                    "days": a.days_to_earnings,
-                })
+                upcoming_events.append(
+                    {
+                        "ticker": ticker,
+                        "event": "earnings",
+                        "date": str(a.next_earnings_date),
+                        "days": a.days_to_earnings,
+                    }
+                )
             if a.days_to_ex_div is not None and 0 < a.days_to_ex_div <= 30:
-                upcoming_events.append({
-                    "ticker": ticker,
-                    "event": "ex_div",
-                    "date": str(a.next_div_date),
-                    "days": a.days_to_ex_div,
-                    "amount": a.next_div_amount,
-                })
+                upcoming_events.append(
+                    {
+                        "ticker": ticker,
+                        "event": "ex_div",
+                        "date": str(a.next_div_date),
+                        "days": a.days_to_ex_div,
+                        "amount": a.next_div_amount,
+                    }
+                )
 
         upcoming_events.sort(key=lambda x: x["days"])
 

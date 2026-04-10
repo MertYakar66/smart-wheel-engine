@@ -837,6 +837,7 @@ class LSMPricer:
                 prob_pre_div += float(np.mean(pre_div_mask))
 
         from datetime import datetime
+
         return LSMResult(
             american_price=american_price,
             european_price=european_price,

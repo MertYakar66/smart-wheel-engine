@@ -142,6 +142,7 @@ def require_dependencies(
         def fetch_news():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -158,7 +159,9 @@ def require_dependencies(
                     f"Install with: pip install {' '.join(missing)}"
                 )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -270,4 +273,5 @@ def pytest_environment_check():
         validate_environment(strict=True)
     except ImportError as e:
         import pytest
+
         pytest.exit(str(e), returncode=1)

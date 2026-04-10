@@ -537,9 +537,11 @@ def black_scholes_all_greeks(
     # Semantic contract validation (import-guarded for zero overhead when not enabled)
     if _VALIDATE_GREEKS:
         from .contracts import validate_greeks_semantics
+
         violations = validate_greeks_semantics(result, option_type)
         if violations:
             import warnings
+
             warnings.warn(
                 f"Greeks semantic violation for {option_type} S={S} K={K} T={T}: "
                 + "; ".join(violations),

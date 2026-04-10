@@ -378,7 +378,7 @@ class TestGreeksStressTesting:
         assert "theta_burn" in results
 
         # Each scenario should have Greeks attribution
-        for name, result in results.items():
+        for _name, result in results.items():
             assert "total_pnl" in result
             assert "greek_attribution" in result
             attribution = result["greek_attribution"]

@@ -677,8 +677,7 @@ class CalendarIngestionManager:
         else:
             self.calendar_dir = pathlib.Path(__file__).parent.parent / "config" / "calendars"
 
-    def _calendar_file(self, event_type: str, year: int) -> "pathlib.Path":
-        import pathlib
+    def _calendar_file(self, event_type: str, year: int):
         return self.calendar_dir / f"{event_type}_{year}.json"
 
     def load_from_json(self, event_type_str: str, year: int) -> list[MarketEvent] | None:
@@ -697,7 +696,6 @@ class CalendarIngestionManager:
         Returns None if file does not exist (fallback to hardcoded).
         """
         import json as _json
-        import pathlib
 
         filepath = self._calendar_file(event_type_str, year)
         if not filepath.exists():

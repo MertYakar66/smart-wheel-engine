@@ -5,14 +5,12 @@ Validates numerical stability for edge cases: near-expiry, near-zero vol,
 deep ITM/OTM, negative carry, and extreme stress scenarios.
 """
 
-import math
 
 import numpy as np
 import pytest
 
 from engine.option_pricer import black_scholes_all_greeks, black_scholes_price
 from engine.stress_testing import Scenario, ScenarioType, StressTester
-
 
 # ---------------------------------------------------------------------------
 # Helpers

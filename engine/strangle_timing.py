@@ -24,13 +24,11 @@ Reference:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 
 from src.features.technical import TechnicalFeatures
-
 
 # =============================================================================
 # Volatility Lifecycle Regime

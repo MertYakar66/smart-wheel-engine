@@ -19,7 +19,6 @@ from data.feature_store import FeatureStore
 from data.observability import MetricsCollector, Tracer, metrics, trace
 from data.quality import DataQualityFramework
 
-
 try:
     import pyarrow  # noqa: F401
     _HAS_PYARROW = True

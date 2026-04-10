@@ -12,7 +12,6 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 import pandas as pd
 
-
 # =============================================================================
 # Contract Constants
 # =============================================================================

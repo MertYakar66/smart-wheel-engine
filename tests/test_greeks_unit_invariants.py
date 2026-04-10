@@ -12,13 +12,12 @@ Key invariants tested:
 """
 
 import pytest
-import numpy as np
 
 from engine.option_pricer import (
-    black_scholes_price,
     black_scholes_all_greeks,
-    black_scholes_vega,
+    black_scholes_price,
     black_scholes_theta,
+    black_scholes_vega,
 )
 
 

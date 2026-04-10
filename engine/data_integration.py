@@ -7,15 +7,15 @@ Bloomberg data files into the EventCalendar system.
 Replaces hardcoded/projected dates with authoritative Bloomberg data.
 """
 
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
 from engine.event_calendar import (
     EventCalendar,
-    EventType,
     EventImpact,
+    EventType,
     MarketEvent,
 )
 
@@ -204,7 +204,7 @@ def build_calendar_from_bloomberg(
     Returns:
         Populated EventCalendar
     """
-    from engine.event_calendar import EventCalendarBuilder, build_default_calendar
+    from engine.event_calendar import EventCalendarBuilder
 
     data_dir = Path(data_dir)
     calendar = EventCalendar()

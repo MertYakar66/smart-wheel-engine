@@ -35,17 +35,15 @@ Usage:
     print(f"1W Return: {returns['1W']:.2%}")
 """
 
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
-from decimal import Decimal
-from enum import Enum
-from typing import Literal
 import json
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
-
 
 # =============================================================================
 # Enums and Constants
@@ -579,9 +577,9 @@ class PortfolioTracker:
 
         # Order lots based on cost basis method
         if self.cost_basis_method == CostBasisMethod.FIFO:
-            lots_ordered = sorted(holding.tax_lots, key=lambda l: l.purchase_date)
+            lots_ordered = sorted(holding.tax_lots, key=lambda lot: lot.purchase_date)
         elif self.cost_basis_method == CostBasisMethod.LIFO:
-            lots_ordered = sorted(holding.tax_lots, key=lambda l: l.purchase_date, reverse=True)
+            lots_ordered = sorted(holding.tax_lots, key=lambda lot: lot.purchase_date, reverse=True)
         else:  # AVERAGE - use all lots proportionally
             lots_ordered = holding.tax_lots.copy()
 
@@ -784,7 +782,6 @@ class PortfolioTracker:
             return PerformanceMetrics()
 
         as_of_date = pd.Timestamp(as_of) if as_of else df.index[-1]
-        current_value = df.loc[df.index <= as_of_date, "total_value"].iloc[-1]
 
         # Calculate time-weighted returns for each period
         metrics = PerformanceMetrics()

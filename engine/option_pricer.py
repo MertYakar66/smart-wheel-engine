@@ -10,6 +10,10 @@ Implementation follows Hull (11th Edition) with extensions for:
 - Consistent edge case handling across all functions
 """
 
+# Enable semantic contract validation on Greeks output.
+# Set to True for development/testing; False for production hot paths.
+# Can be toggled at runtime: option_pricer._VALIDATE_GREEKS = True
+import os
 from typing import Literal
 
 import numpy as np
@@ -17,10 +21,6 @@ import pandas as pd
 from scipy.optimize import brentq
 from scipy.stats import norm
 
-# Enable semantic contract validation on Greeks output.
-# Set to True for development/testing; False for production hot paths.
-# Can be toggled at runtime: option_pricer._VALIDATE_GREEKS = True
-import os
 _VALIDATE_GREEKS = os.environ.get("VALIDATE_GREEKS", "0") == "1"
 
 # =============================================================================

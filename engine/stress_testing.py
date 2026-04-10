@@ -449,8 +449,8 @@ class StressTester:
         Args:
             seed: Random seed for reproducibility. If None, uses random state.
         """
-        from datetime import datetime
         import uuid
+        from datetime import datetime
 
         rng = np.random.default_rng(seed)
         run_id = str(uuid.uuid4())[:8]
@@ -599,9 +599,8 @@ class StressTester:
                 new_price = new_greeks["price"]
                 actual_pnl = (new_price - old_price) * multiplier
 
-                # Higher-order residual
-                greeks_sum = delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl
-                residual = actual_pnl - greeks_sum
+                # Higher-order residual (used in aggregate below)
+                greeks_sum = delta_pnl + gamma_pnl + theta_pnl + vega_pnl + rho_pnl  # noqa: F841
 
                 total_delta_pnl += delta_pnl
                 total_gamma_pnl += gamma_pnl

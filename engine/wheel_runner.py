@@ -22,8 +22,8 @@ Usage:
     report = runner.portfolio_report(["AAPL", "MSFT", "JPM"])
 """
 
-from dataclasses import dataclass, field
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -76,16 +76,16 @@ class TickerAnalysis:
             f"=== {self.ticker} Wheel Analysis ===",
             f"Price: ${self.spot_price:.2f} | Sector: {self.sector}",
             f"Mkt Cap: ${self.market_cap/1e9:.1f}B | P/E: {self.pe_ratio:.1f} | Beta: {self.beta:.2f}",
-            f"",
-            f"Volatility:",
+            "",
+            "Volatility:",
             f"  IV(30d): {self.iv_30d:.1f}% | RV(30d): {self.rv_30d:.1f}%",
             f"  IV Rank: {self.iv_rank:.0f} | IV Pctl: {self.iv_percentile:.0f}",
             f"  Vol Premium: {self.vol_risk_premium:+.1f}%",
-            f"",
-            f"Events:",
+            "",
+            "Events:",
             f"  Next Earnings: {self.next_earnings_date} ({self.days_to_earnings}d)" if self.days_to_earnings else "  Next Earnings: N/A",
             f"  Next Ex-Div: {self.next_div_date} (${self.next_div_amount:.3f})" if self.next_div_date else "  Next Ex-Div: N/A",
-            f"",
+            "",
             f"Strangle Timing: {self.strangle_score:.0f}/100 ({self.strangle_phase}) → {self.strangle_recommendation}",
             f"Wheel Score: {self.wheel_score:.0f}/100 → {self.wheel_recommendation}",
             f"Risk-Free Rate: {self.risk_free_rate:.2%} | VIX: {self.vix_level:.1f}",

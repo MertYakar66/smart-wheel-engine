@@ -28,6 +28,15 @@ For quick calculations without dashboard:
     greeks = quick_greeks(150, 145, 30, volatility=0.28)
 """
 
+# Re-export PortfolioTracker for convenience
+from engine.portfolio_tracker import (
+    Holding,
+    PerformanceMetrics,
+    PortfolioTracker,
+    Transaction,
+    TransactionType,
+)
+
 from .quant_dashboard import (
     OptionInput,
     PortfolioInput,
@@ -35,15 +44,6 @@ from .quant_dashboard import (
     QuantDashboard,
     quick_greeks,
     quick_price,
-)
-
-# Re-export PortfolioTracker for convenience
-from engine.portfolio_tracker import (
-    PortfolioTracker,
-    Transaction,
-    TransactionType,
-    Holding,
-    PerformanceMetrics,
 )
 
 __all__ = [

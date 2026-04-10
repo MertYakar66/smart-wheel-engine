@@ -18,8 +18,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # Sub-configs
@@ -98,7 +96,7 @@ class AdvisorPolicyConfig:
             weights are recalibrated, independent of drift.
     """
 
-    committee_weights: Dict[str, float] = field(default_factory=lambda: {
+    committee_weights: dict[str, float] = field(default_factory=lambda: {
         "regime": 1.0,
         "volatility": 1.0,
         "event": 1.0,
@@ -157,7 +155,7 @@ class TradingPolicyConfig:
 # IO helpers
 # ---------------------------------------------------------------------------
 
-def load_policy(path: Optional[str] = None) -> TradingPolicyConfig:
+def load_policy(path: str | None = None) -> TradingPolicyConfig:
     """Load a trading policy from a JSON file, or return built-in defaults.
 
     Args:
@@ -175,7 +173,7 @@ def load_policy(path: Optional[str] = None) -> TradingPolicyConfig:
     if path is None:
         config = TradingPolicyConfig()
     else:
-        with open(path, "r") as fh:
+        with open(path) as fh:
             raw: dict = json.load(fh)
 
         config = TradingPolicyConfig(
@@ -212,14 +210,14 @@ def save_policy(config: TradingPolicyConfig, path: str) -> None:
 # Validation
 # ---------------------------------------------------------------------------
 
-def validate_policy(config: TradingPolicyConfig) -> List[str]:
+def validate_policy(config: TradingPolicyConfig) -> list[str]:
     """Check a policy for invalid or contradictory values.
 
     Returns:
         A list of human-readable error strings.  An empty list means the
         policy is valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # -- Risk --
     r = config.risk

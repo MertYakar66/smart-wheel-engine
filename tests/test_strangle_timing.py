@@ -10,15 +10,14 @@ Validates:
 
 import numpy as np
 import pandas as pd
-import pytest
 
+from engine.signals import SignalStrength, StrangleTimingSignal
 from engine.strangle_timing import (
-    StrangleTimingEngine,
     StrangleEntryScore,
     StrangleRegime,
+    StrangleTimingEngine,
     VolatilityPhase,
 )
-from engine.signals import StrangleTimingSignal, SignalStrength
 
 
 def _generate_ohlcv(n: int = 252, seed: int = 42, base_vol: float = 0.02) -> pd.DataFrame:

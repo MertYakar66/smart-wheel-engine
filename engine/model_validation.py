@@ -24,10 +24,9 @@ References:
     SR 11-7 (Fed/OCC): Supervisory Guidance on Model Risk Management
 """
 
-from dataclasses import dataclass, field
-from datetime import date
-from typing import Literal
 import warnings
+from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 
@@ -187,8 +186,8 @@ class CrossModelValidator:
         Compares BAW vs CRR (always), optionally adds LSM.
         Auto-escalates to LSM when escalation triggers fire.
         """
-        from .option_pricer import american_option_price, american_option_greeks
         from .binomial_tree import binomial_american_full
+        from .option_pricer import american_option_greeks
 
         report = ValidationReport(
             symbol=symbol,
@@ -384,8 +383,8 @@ def run_benchmark_grid(
     Returns list of dicts suitable for DataFrame creation.
     Designed for CI integration: gate on max divergence.
     """
-    from .option_pricer import american_option_price
     from .binomial_tree import binomial_american_price
+    from .option_pricer import american_option_price
 
     if strikes is None:
         strikes = [90.0, 95.0, 100.0, 105.0, 110.0]

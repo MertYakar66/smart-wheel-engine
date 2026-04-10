@@ -15,15 +15,10 @@ import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import pytest
 
 from engine.portfolio_tracker import (
-    AssetClass,
     Holding,
-    PerformanceMetrics,
-    PortfolioSnapshot,
     PortfolioTracker,
     Transaction,
     TransactionType,

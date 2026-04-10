@@ -25,7 +25,6 @@ import argparse
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,11 +50,9 @@ class BenchmarkResult:
 def run_option_pricing_benchmarks() -> list[BenchmarkResult]:
     """Run Black-Scholes pricing benchmarks against Hull textbook."""
     from engine.option_pricer import (
-        black_scholes_all_greeks,
         black_scholes_delta,
         black_scholes_gamma,
         black_scholes_price,
-        black_scholes_theta,
         black_scholes_vega,
         implied_volatility,
     )
@@ -185,10 +182,8 @@ def run_risk_benchmarks() -> list[BenchmarkResult]:
     """Run VaR and risk management benchmarks."""
     from scipy import stats
 
-    from engine.risk_manager import RiskManager
 
     results = []
-    rm = RiskManager()
 
     # Parametric VaR: z * sigma * sqrt(t)
     # For 95% confidence, z = 1.645

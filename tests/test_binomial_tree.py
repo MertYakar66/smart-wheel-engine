@@ -11,25 +11,22 @@ Tests cover:
 """
 
 import numpy as np
-import pytest
 
 from engine.binomial_tree import (
-    BinomialResult,
     DiscreteDividend,
     binomial_american_full,
     binomial_american_price,
     binomial_with_richardson,
     convergence_study,
 )
-from engine.option_pricer import (
-    american_option_price,
-    american_option_greeks,
-    black_scholes_price,
-)
 from engine.model_validation import (
     CrossModelValidator,
     ModelTolerances,
     run_benchmark_grid,
+)
+from engine.option_pricer import (
+    american_option_greeks,
+    black_scholes_price,
 )
 
 

@@ -8,18 +8,15 @@ and wheel_runner.py (the main orchestrator).
 from datetime import date
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import pytest
 
 from engine.data_integration import (
-    load_earnings_from_bloomberg,
-    load_dividends_from_bloomberg,
     build_calendar_from_bloomberg,
-    get_discrete_dividends_for_option,
     get_current_risk_free_rate,
+    get_discrete_dividends_for_option,
+    load_dividends_from_bloomberg,
+    load_earnings_from_bloomberg,
 )
-
 
 DATA_DIR = Path("data/bloomberg")
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_earnings.csv").exists()

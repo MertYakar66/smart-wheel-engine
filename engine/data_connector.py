@@ -230,7 +230,7 @@ class MarketDataConnector:
         end = as_of
         if as_of is not None:
             start = str(
-                (pd.Timestamp(as_of) - pd.Timedelta(days=int(lookback_days * 1.6)))
+                pd.Timestamp(as_of) - pd.Timedelta(days=int(lookback_days * 1.6))
             )[:10]
         else:
             start = None

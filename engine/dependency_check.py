@@ -25,9 +25,8 @@ Usage:
 
 import importlib.util
 import sys
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
-
 
 # Core dependencies required for all engine modules
 CORE_DEPENDENCIES = [
@@ -190,7 +189,7 @@ def validate_environment(
             all_missing.update(missing)
     else:
         # Check all module dependencies
-        for module, deps in MODULE_DEPENDENCIES.items():
+        for _module, deps in MODULE_DEPENDENCIES.items():
             for pkg in deps:
                 if not is_package_installed(pkg):
                     all_missing.add(pkg)

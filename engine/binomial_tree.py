@@ -21,7 +21,7 @@ References:
     on Assets with Fixed-Cash Dividends." Financial Analysts Journal, 44(6).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
@@ -323,10 +323,6 @@ def binomial_american_full(
 
     # --- Delta and Gamma via central finite differences ---
     # Use same bump convention as BAW (1% of spot) for apples-to-apples comparison
-    dt = T / n_steps if T > 0 and n_steps > 0 else 1.0
-    u = np.exp(sigma * np.sqrt(dt)) if sigma > 0 and T > 0 else 1.001
-    d = 1.0 / u
-
     bump_frac = 0.01  # 1% spot bump (matches BAW default dS=0.01)
     bump = S * bump_frac
 
@@ -404,7 +400,6 @@ def binomial_with_richardson(
         Extrapolated American option price
     """
     if discrete_dividends:
-        total_days = T * 365 if T > 0 else 1.0
         for div in discrete_dividends:
             if div.time_frac == 0.0 and hasattr(div, 'ex_date'):
                 pass  # Assume already set

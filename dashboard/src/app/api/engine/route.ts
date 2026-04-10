@@ -112,6 +112,37 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
       }
 
+      case "payoff": {
+        const payTicker = searchParams.get("ticker") || "AAPL";
+        const payStrategy = searchParams.get("strategy") || "csp";
+        const payStrike = searchParams.get("strike") || "";
+        const payPremium = searchParams.get("premium") || "";
+        const payDte = searchParams.get("dte") || "45";
+        const data = await fetchEngine(
+          `/api/payoff?ticker=${payTicker}&strategy=${payStrategy}&strike=${payStrike}&premium=${payPremium}&dte=${payDte}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "expected_move": {
+        const emTicker = searchParams.get("ticker") || "AAPL";
+        const emDte = searchParams.get("dte") || "45";
+        const data = await fetchEngine(
+          `/api/expected_move?ticker=${emTicker}&dte=${emDte}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "strikes": {
+        const stTicker = searchParams.get("ticker") || "AAPL";
+        const stStrategy = searchParams.get("strategy") || "csp";
+        const stDte = searchParams.get("dte") || "45";
+        const data = await fetchEngine(
+          `/api/strikes?ticker=${stTicker}&strategy=${stStrategy}&dte=${stDte}`
+        );
+        return NextResponse.json(data);
+      }
+
       case "iv_history": {
         const ivTicker = searchParams.get("ticker") || "AAPL";
         const ivDays = searchParams.get("days") || "252";

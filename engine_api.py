@@ -130,6 +130,21 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 ticker = param("ticker", "AAPL")
                 days = param("days", "120")
                 self._handle_chart(chart_type, ticker, int(days))
+            elif path == "/api/payoff":
+                ticker = param("ticker", "AAPL")
+                self._handle_payoff(
+                    ticker,
+                    param("strategy", "csp"),
+                    param("strike"),
+                    param("premium"),
+                    param("dte", "45"),
+                )
+            elif path == "/api/expected_move":
+                ticker = param("ticker", "AAPL")
+                self._handle_expected_move(ticker, param("dte", "45"))
+            elif path == "/api/strikes":
+                ticker = param("ticker", "AAPL")
+                self._handle_strikes(ticker, param("strategy", "csp"), param("dte", "45"))
             elif path == "/api/strangle":
                 ticker = param("ticker", "AAPL")
                 self._handle_strangle(ticker)
@@ -380,6 +395,95 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         universe = conn.get_universe()
         self._send_json({"tickers": universe, "count": len(universe)})
+
+    def _handle_payoff(self, ticker, strategy, strike_str, premium_str, dte_str):
+        """Generate payoff diagram data."""
+        from engine.payoff_engine import compute_payoff
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+
+        # Auto-estimate strike and premium if not provided
+        fund = conn.get_fundamentals(ticker)
+        iv = fund.get("implied_vol_atm", 25) if fund else 25
+
+        if strike_str and strike_str != "None":
+            strike = float(strike_str)
+        else:
+            strike = round(spot * 0.95 if strategy == "csp" else spot * 1.05, 0)
+
+        if premium_str and premium_str != "None":
+            premium = float(premium_str)
+        else:
+            # Rough BSM estimate
+            iv_dec = iv / 100 if iv > 1 else iv
+            T = int(dte_str) / 365
+            from scipy.stats import norm as _norm
+
+            d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
+            d2 = d1 - iv_dec * np.sqrt(T)
+            if strategy == "csp":
+                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
+            else:
+                premium = float(spot * _norm.cdf(d1) - strike * np.exp(-0.04 * T) * _norm.cdf(d2))
+            premium = max(0.01, premium)
+
+        data = compute_payoff(spot, strike, premium, strategy)
+
+        self._send_json(
+            {
+                "ticker": ticker,
+                "strategy": strategy,
+                "spot": spot,
+                "strike": strike,
+                "premium": round(premium, 2),
+                "breakeven": round(strike - premium if strategy == "csp" else spot - premium, 2),
+                "maxProfit": round(premium * 100, 2),
+                "maxLoss": round((strike - premium) * 100 if strategy == "csp" else 0, 2),
+                "data": data,
+            }
+        )
+
+    def _handle_expected_move(self, ticker, dte_str):
+        """Compute expected move bands."""
+        from engine.payoff_engine import compute_expected_move
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+
+        fund = conn.get_fundamentals(ticker)
+        iv = fund.get("implied_vol_atm", 25) if fund else 25
+
+        result = compute_expected_move(spot, iv, int(dte_str))
+        self._send_json(result)
+
+    def _handle_strikes(self, ticker, strategy, dte_str):
+        """Recommend optimal strikes."""
+        from engine.data_integration import get_current_risk_free_rate
+        from engine.payoff_engine import recommend_strikes
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+
+        fund = conn.get_fundamentals(ticker)
+        iv = fund.get("implied_vol_atm", 25) if fund else 25
+        rf = get_current_risk_free_rate()
+
+        candidates = recommend_strikes(ticker, spot, iv, int(dte_str), rf, strategy)
+        self._send_json(
+            {
+                "ticker": ticker,
+                "strategy": strategy,
+                "spot": round(spot, 2),
+                "iv": round(iv, 1),
+                "dte": int(dte_str),
+                "riskFreeRate": round(rf, 4),
+                "recommendations": candidates,
+            }
+        )
 
     def _handle_chart(self, chart_type, ticker, days):
         """Serve chart data: OHLCV + technical indicators as JSON arrays."""

@@ -25,7 +25,7 @@ interface ChartPanelProps {
   onClose?: () => void;
 }
 
-type ChartType = "bollinger" | "rsi" | "atr" | "ohlcv" | "strangle";
+type ChartType = "bollinger" | "rsi" | "atr" | "ohlcv" | "strangle" | "payoff";
 
 interface ChartData {
   date: string;
@@ -98,15 +98,72 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Payoff-specific state
+  const [payoffMeta, setPayoffMeta] = useState<{
+    strike: number;
+    premium: number;
+    breakeven: number;
+    maxProfit: number;
+    maxLoss: number;
+    strategy: string;
+  } | null>(null);
+
+  // Strike recommendations
+  const [strikes, setStrikes] = useState<Array<{
+    strike: number;
+    premium: number;
+    delta: number;
+    probabilityOtm: number;
+    annualizedReturn: number;
+    score: number;
+    breakeven: number;
+    distanceFromSpotPct: number;
+  }>>([]);
+
+  // Expected move
+  const [expectedMove, setExpectedMove] = useState<{
+    bands: Array<{ label: string; upper: number; lower: number; probability_within: number; move_pct: number }>;
+    period_vol: number;
+  } | null>(null);
+
   const fetchChart = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/engine?action=chart&chart_type=${chartType}&ticker=${ticker}&days=${days}`
-      );
-      if (res.ok) {
-        const json = await res.json();
-        setChartData(json.data || []);
+      if (chartType === "payoff") {
+        // Fetch payoff diagram + strikes + expected move in parallel
+        const [payRes, strikesRes, emRes] = await Promise.all([
+          fetch(`/api/engine?action=payoff&ticker=${ticker}&strategy=csp&dte=45`),
+          fetch(`/api/engine?action=strikes&ticker=${ticker}&strategy=csp&dte=45`),
+          fetch(`/api/engine?action=expected_move&ticker=${ticker}&dte=45`),
+        ]);
+        if (payRes.ok) {
+          const json = await payRes.json();
+          setChartData(json.data || []);
+          setPayoffMeta({
+            strike: json.strike,
+            premium: json.premium,
+            breakeven: json.breakeven,
+            maxProfit: json.maxProfit,
+            maxLoss: json.maxLoss,
+            strategy: json.strategy,
+          });
+        }
+        if (strikesRes.ok) {
+          const json = await strikesRes.json();
+          setStrikes(json.recommendations || []);
+        }
+        if (emRes.ok) {
+          const json = await emRes.json();
+          setExpectedMove({ bands: json.bands || [], period_vol: json.period_vol || 0 });
+        }
+      } else {
+        const res = await fetch(
+          `/api/engine?action=chart&chart_type=${chartType}&ticker=${ticker}&days=${days}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          setChartData(json.data || []);
+        }
       }
     } catch {
       // silent
@@ -135,7 +192,8 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
     { type: "ohlcv", label: "PRICE" },
     { type: "rsi", label: "RSI" },
     { type: "atr", label: "ATR" },
-    { type: "strangle", label: "STRANGLE" },
+    { type: "strangle", label: "TIMING" },
+    { type: "payoff", label: "PAYOFF" },
   ];
 
   const dayButtons = [
@@ -276,10 +334,89 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
           <ATRChart data={chartData} />
         ) : chartType === "strangle" ? (
           <StrangleChart data={chartData} />
+        ) : chartType === "payoff" ? (
+          <PayoffChart data={chartData} meta={payoffMeta} />
         ) : (
           <OHLCVChart data={chartData} />
         )}
       </div>
+
+      {/* Expected Move Bands (shown for payoff view) */}
+      {chartType === "payoff" && expectedMove && expectedMove.bands.length > 0 && (
+        <>
+          <TerminalDivider />
+          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+            ─ EXPECTED MOVE ({expectedMove.period_vol}% period vol)
+          </div>
+          {expectedMove.bands.map((band) => (
+            <div
+              key={band.label}
+              className="flex items-center justify-between py-[1px] text-[10px]"
+            >
+              <span className="text-terminal-dim w-8">{band.label}</span>
+              <span className="text-terminal-green">${band.lower}</span>
+              <span className="text-terminal-dim">─</span>
+              <span className="text-terminal-red">${band.upper}</span>
+              <span className="text-terminal-dim">
+                ±{band.move_pct}% ({band.probability_within}% prob)
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* Strike Recommendations (shown for payoff view) */}
+      {chartType === "payoff" && strikes.length > 0 && (
+        <>
+          <TerminalDivider />
+          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+            ─ CSP STRIKE RECOMMENDATIONS
+          </div>
+          <div className="flex items-center justify-between py-[1px] text-[9px] text-terminal-dim">
+            <span className="w-14">STRIKE</span>
+            <span className="w-12">PREM</span>
+            <span className="w-10">DELTA</span>
+            <span className="w-12">P(OTM)</span>
+            <span className="w-14">ANN.RET</span>
+            <span className="w-10">SCORE</span>
+          </div>
+          {strikes.map((s, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between py-[2px] hover:bg-terminal-border/30 text-[10px]"
+            >
+              <span className="w-14 text-terminal-amber">${s.strike}</span>
+              <span className="w-12 text-terminal-green">${s.premium}</span>
+              <span className="w-10 text-terminal-text">
+                {s.delta.toFixed(2)}
+              </span>
+              <span
+                className={`w-12 ${
+                  s.probabilityOtm >= 75
+                    ? "text-terminal-green"
+                    : "text-terminal-amber"
+                }`}
+              >
+                {s.probabilityOtm}%
+              </span>
+              <span className="w-14 text-terminal-text">
+                {s.annualizedReturn}%
+              </span>
+              <span
+                className={`w-10 font-bold ${
+                  s.score >= 70
+                    ? "text-terminal-green"
+                    : s.score >= 50
+                      ? "text-terminal-amber"
+                      : "text-terminal-text"
+                }`}
+              >
+                {s.score}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </TerminalPanel>
   );
 }
@@ -543,6 +680,70 @@ function StrangleChart({ data }: { data: ChartData[] }) {
           fillOpacity={0.15}
           strokeWidth={2}
           name="Entry Score"
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ─── Payoff Chart ──────────────────────────────────────────────────────
+
+function PayoffChart({
+  data,
+  meta,
+}: {
+  data: ChartData[];
+  meta: { strike: number; premium: number; breakeven: number; maxProfit: number; strategy: string } | null;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+        <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="price"
+          tick={{ fontSize: 8, fill: "#64748b" }}
+          tickFormatter={(v: number) => `$${v}`}
+          interval={Math.floor(data.length / 8)}
+        />
+        <YAxis
+          tick={{ fontSize: 8, fill: "#64748b" }}
+          width={50}
+          tickFormatter={(v: number) => `$${v}`}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "#0f172a",
+            border: "1px solid #1e293b",
+            fontSize: 10,
+            color: "#e2e8f0",
+          }}
+          formatter={(value: number) => [`$${value.toFixed(0)}`, "P&L"]}
+          labelFormatter={(label: number) => `Price: $${label}`}
+        />
+        <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
+        {meta && (
+          <>
+            <ReferenceLine
+              x={meta.strike}
+              stroke={CHART_COLORS.upper}
+              strokeDasharray="3 3"
+              label={{ value: `Strike $${meta.strike}`, fill: "#ef4444", fontSize: 9 }}
+            />
+            <ReferenceLine
+              x={meta.breakeven}
+              stroke={CHART_COLORS.middle}
+              strokeDasharray="3 3"
+              label={{ value: `BE $${meta.breakeven}`, fill: "#eab308", fontSize: 9 }}
+            />
+          </>
+        )}
+        <Area
+          dataKey="pnl"
+          stroke="#22c55e"
+          fill="#22c55e"
+          fillOpacity={0.1}
+          strokeWidth={2}
+          name="P&L"
         />
       </ComposedChart>
     </ResponsiveContainer>

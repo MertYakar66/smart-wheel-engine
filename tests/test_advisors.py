@@ -467,23 +467,23 @@ class TestCommitteeEngine:
     def sample_input(self):
         return create_sample_input()
 
-    def test_committee_has_three_advisors(self, committee):
-        """Test committee has default 3 advisors."""
-        assert len(committee.advisors) == 3
+    def test_committee_has_default_advisors(self, committee):
+        """Test committee has default advisors (3 core + optional Taleb)."""
+        assert len(committee.advisors) >= 3
 
     def test_committee_evaluate_returns_output(self, committee, sample_input):
         """Test evaluate returns CommitteeOutput."""
         output = committee.evaluate(sample_input)
 
         assert isinstance(output, CommitteeOutput)
-        assert len(output.advisor_responses) == 3
+        assert len(output.advisor_responses) >= 3
 
     def test_committee_output_has_votes(self, committee, sample_input):
         """Test output has vote counts."""
         output = committee.evaluate(sample_input)
 
         total = output.approval_count + output.rejection_count + output.neutral_count
-        assert total == 3
+        assert total >= 3
 
     def test_committee_output_has_judgment(self, committee, sample_input):
         """Test output has committee judgment."""

@@ -163,12 +163,12 @@ class WheelRunner:
         # --- Fundamentals ---
         fundamentals = conn.get_fundamentals(ticker)
         if fundamentals:
-            analysis.market_cap = fundamentals.get("cur_mkt_cap", 0) or 0
+            analysis.market_cap = fundamentals.get("market_cap", 0) or 0
             analysis.pe_ratio = fundamentals.get("pe_ratio", 0) or 0
-            analysis.beta = fundamentals.get("beta_raw_overridable", 0) or 0
-            analysis.dividend_yield = fundamentals.get("eqy_dvd_yld_12m", 0) or 0
-            analysis.sector = fundamentals.get("gics_sector_name", "")
-            analysis.iv_30d = fundamentals.get("30day_impvol_100.0%mny_df", 0) or 0
+            analysis.beta = fundamentals.get("beta", 0) or 0
+            analysis.dividend_yield = fundamentals.get("dividend_yield", 0) or 0
+            analysis.sector = fundamentals.get("sector", "")
+            analysis.iv_30d = fundamentals.get("implied_vol_atm", 0) or 0
             analysis.rv_30d = fundamentals.get("volatility_30d", 0) or 0
 
         # Credit risk
@@ -193,15 +193,21 @@ class WheelRunner:
         try:
             next_earn = conn.get_next_earnings(ticker, as_of)
             if next_earn:
-                analysis.next_earnings_date = next_earn.get("date")
+                earn_ts = next_earn.get("announcement_date")
+                if earn_ts is not None:
+                    analysis.next_earnings_date = (
+                        earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
+                    )
                 if analysis.next_earnings_date:
                     today = date.fromisoformat(as_of) if as_of else date.today()
                     analysis.days_to_earnings = (analysis.next_earnings_date - today).days
 
             next_div = conn.get_next_dividend(ticker, as_of)
             if next_div:
-                analysis.next_div_date = next_div.get("ex_date")
-                analysis.next_div_amount = next_div.get("amount", 0)
+                div_ts = next_div.get("ex_date")
+                if div_ts is not None:
+                    analysis.next_div_date = div_ts.date() if hasattr(div_ts, "date") else div_ts
+                analysis.next_div_amount = next_div.get("dividend_amount", 0) or 0
                 if analysis.next_div_date:
                     today = date.fromisoformat(as_of) if as_of else date.today()
                     analysis.days_to_ex_div = (analysis.next_div_date - today).days
@@ -226,13 +232,19 @@ class WheelRunner:
 
         # --- Strangle timing ---
         try:
+            score = None
+            # Try IV-enhanced scoring first, fall back to basic OHLCV scoring
             if hasattr(self.strangle_engine, "score_entry_with_iv"):
-                score = self.strangle_engine.score_entry_with_iv(ticker, as_of)
-            else:
-                if not ohlcv.empty and len(ohlcv) >= 100:
-                    score = self.strangle_engine.score_entry(ohlcv)
-                else:
-                    score = None
+                try:
+                    score = self.strangle_engine.score_entry_with_iv(ticker, as_of)
+                except Exception:
+                    pass  # Fall through to basic scoring
+
+            if score is None and not ohlcv.empty and len(ohlcv) >= 100:
+                from engine.strangle_timing import StrangleTimingEngine
+
+                basic_engine = StrangleTimingEngine()
+                score = basic_engine.score_entry(ohlcv)
 
             if score:
                 analysis.strangle_score = score.total_score

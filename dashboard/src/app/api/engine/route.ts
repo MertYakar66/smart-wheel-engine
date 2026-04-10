@@ -1,180 +1,118 @@
 import { NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
 
 /**
- * API bridge to the smart-wheel-engine Python backend.
+ * API bridge to the smart-wheel-engine Python API server.
  *
- * Reads from the Parquet feature store and returns JSON data
- * for the terminal UI (vol edge, regime, options candidates).
+ * The Python API runs on port 8787 (started via: python engine_api.py)
+ * and serves all engine data: candidates, analysis, regime, committee, etc.
  *
- * GET /api/engine?action=vol_edge&ticker=AAPL
- * GET /api/engine?action=regime&ticker=AAPL
- * GET /api/engine?action=candidates&limit=20
- * GET /api/engine?action=status
+ * GET /api/engine?action=STATUS|candidates|analyze|regime|committee|calendar
  */
 
-const ENGINE_ROOT = path.resolve(process.cwd(), "..");
+const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
 
-function buildPythonScript(action: string, params: Record<string, string>): string {
-  const ticker = params.ticker || "AAPL";
-  const limit = params.limit || "20";
-
-  switch (action) {
-    case "vol_edge":
-      return `
-import json, sys
-sys.path.insert(0, '${ENGINE_ROOT}')
-from data.feature_store import FeatureStore
-store = FeatureStore('${ENGINE_ROOT}/data/features')
-df = store.read_features('vol_edge', '${ticker}')
-if df is not None and not df.empty:
-    last = df.iloc[-1]
-    result = {
-        'ticker': '${ticker}',
-        'iv_rv_spread': float(last.get('iv_rv_spread', 0)) if 'iv_rv_spread' in last.index else None,
-        'iv_rv_ratio': float(last.get('iv_rv_ratio', 0)) if 'iv_rv_ratio' in last.index else None,
-        'edge_score': float(last.get('edge_score', 0)) if 'edge_score' in last.index else None,
-        'vrp_percentile': float(last.get('vrp_percentile', 0)) if 'vrp_percentile' in last.index else None,
-        'vol_regime': int(last.get('vol_regime', 1)) if 'vol_regime' in last.index else None,
-        'iv_rank': float(last.get('iv_rank', 50)) if 'iv_rank' in last.index else None,
-        'rv_21d': float(last.get('rv_21d', 0)) if 'rv_21d' in last.index else None,
-        'atm_iv': float(last.get('atm_iv', 0)) if 'atm_iv' in last.index else None,
-        'date': str(last.get('date', '')) if 'date' in last.index else None,
-    }
-    print(json.dumps(result))
-else:
-    print(json.dumps({'error': 'No data', 'ticker': '${ticker}'}))
-`;
-
-    case "regime":
-      return `
-import json, sys
-import numpy as np
-sys.path.insert(0, '${ENGINE_ROOT}')
-from data.feature_store import FeatureStore
-store = FeatureStore('${ENGINE_ROOT}/data/features')
-df = store.read_features('regime', '${ticker}')
-if df is not None and not df.empty:
-    last = df.iloc[-1]
-    # Only include numeric columns
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    result = {}
-    for c in numeric_cols:
-        val = last[c]
-        result[c] = float(val) if not np.isnan(val) else None
-    result['ticker'] = '${ticker}'
-    result['date'] = str(last.get('date', '')) if 'date' in last.index else None
-    print(json.dumps(result))
-else:
-    print(json.dumps({'error': 'No data', 'ticker': '${ticker}'}))
-`;
-
-    case "candidates":
-      return `
-import json, sys
-sys.path.insert(0, '${ENGINE_ROOT}')
-from data.feature_store import FeatureStore
-store = FeatureStore('${ENGINE_ROOT}/data/features')
-candidates = []
-features = store.list_features('vol_edge')
-for cat, ticker in features:
-    df = store.read_features('vol_edge', ticker)
-    if df is not None and not df.empty:
-        last = df.iloc[-1]
-        edge = float(last.get('edge_score', 0)) if 'edge_score' in last.index and str(last.get('edge_score', 0)) != 'nan' else 0
-        candidates.append({
-            'ticker': ticker,
-            'edge_score': edge,
-            'iv_rv_spread': float(last.get('iv_rv_spread', 0)) if 'iv_rv_spread' in last.index and str(last.get('iv_rv_spread', 0)) != 'nan' else 0,
-            'iv_rank': float(last.get('iv_rank', 50)) if 'iv_rank' in last.index and str(last.get('iv_rank', 50)) != 'nan' else 50,
-            'vol_regime': int(last.get('vol_regime', 1)) if 'vol_regime' in last.index and str(last.get('vol_regime', 1)) != 'nan' else 1,
-        })
-candidates.sort(key=lambda x: x['edge_score'], reverse=True)
-print(json.dumps(candidates[:${limit}]))
-`;
-
-    case "status":
-      return `
-import json, sys
-sys.path.insert(0, '${ENGINE_ROOT}')
-from data.feature_store import FeatureStore
-store = FeatureStore('${ENGINE_ROOT}/data/features')
-stats = store.get_storage_stats()
-features = store.list_features()
-categories = {}
-for cat, ticker in features:
-    categories[cat] = categories.get(cat, 0) + 1
-print(json.dumps({
-    'storage': stats,
-    'categories': categories,
-    'total_features': len(features),
-}))
-`;
-
-    default:
-      return `import json; print(json.dumps({'error': 'Unknown action: ${action}'}))`;
-  }
-}
-
-function runPython(script: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("python3", ["-c", script], {
-      cwd: ENGINE_ROOT,
-      env: { ...process.env, PYTHONPATH: ENGINE_ROOT },
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout);
-      } else {
-        reject(new Error(stderr || `Process exited with code ${code}`));
-      }
-    });
-
-    proc.on("error", (err) => {
-      reject(err);
-    });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      proc.kill();
-      reject(new Error("Process timed out"));
-    }, 30000);
+async function fetchEngine(path: string): Promise<unknown> {
+  const res = await fetch(`${ENGINE_API}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    // Don't cache engine data
+    cache: "no-store",
   });
+  if (!res.ok) {
+    throw new Error(`Engine API returned ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action") || "status";
-  const params: Record<string, string> = {};
-
-  searchParams.forEach((value, key) => {
-    if (key !== "action") params[key] = value;
-  });
 
   try {
-    const script = buildPythonScript(action, params);
-    const stdout = await runPython(script);
+    switch (action) {
+      case "status": {
+        const data = await fetchEngine("/api/status");
+        return NextResponse.json(data);
+      }
 
-    const data = JSON.parse(stdout.trim());
-    return NextResponse.json(data);
+      case "candidates": {
+        const limit = searchParams.get("limit") || "15";
+        const minScore = searchParams.get("min_score") || "50";
+        const data = await fetchEngine(
+          `/api/candidates?limit=${limit}&min_score=${minScore}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "analyze": {
+        const ticker = searchParams.get("ticker") || "AAPL";
+        const data = await fetchEngine(`/api/analyze/${ticker}`);
+        return NextResponse.json(data);
+      }
+
+      case "regime": {
+        const ticker = searchParams.get("ticker") || "SPY";
+        const data = await fetchEngine(`/api/regime?ticker=${ticker}`);
+        return NextResponse.json(data);
+      }
+
+      case "committee": {
+        const ticker = searchParams.get("ticker") || "AAPL";
+        const data = await fetchEngine(`/api/committee?ticker=${ticker}`);
+        return NextResponse.json(data);
+      }
+
+      case "calendar": {
+        const ticker = searchParams.get("ticker") || "";
+        const days = searchParams.get("days") || "30";
+        const data = await fetchEngine(
+          `/api/calendar?ticker=${ticker}&days=${days}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "portfolio": {
+        const tickers = searchParams.get("tickers") || "AAPL,MSFT,JPM";
+        const data = await fetchEngine(`/api/portfolio?tickers=${tickers}`);
+        return NextResponse.json(data);
+      }
+
+      case "vix": {
+        const data = await fetchEngine("/api/vix");
+        return NextResponse.json(data);
+      }
+
+      case "fundamentals": {
+        const ticker = searchParams.get("ticker") || "AAPL";
+        const data = await fetchEngine(`/api/fundamentals?ticker=${ticker}`);
+        return NextResponse.json(data);
+      }
+
+      case "screen": {
+        const limit = searchParams.get("limit") || "20";
+        const minScore = searchParams.get("min_score") || "50";
+        const data = await fetchEngine(
+          `/api/screen?min_score=${minScore}&limit=${limit}`
+        );
+        return NextResponse.json(data);
+      }
+
+      case "universe": {
+        const data = await fetchEngine("/api/universe");
+        return NextResponse.json(data);
+      }
+
+      default:
+        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+    }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Engine API error:", message);
     return NextResponse.json(
-      { error: "Engine unavailable", detail: message },
+      {
+        error: "Engine unavailable",
+        detail: message,
+        hint: "Start the Python API server: python engine_api.py",
+      },
       { status: 503 }
     );
   }

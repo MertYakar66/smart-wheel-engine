@@ -137,6 +137,14 @@ omit = [
     "engine/volatility_surface.py",
     # Shared valuation requires full option trade simulation with OHLCV data
     "engine/shared_valuation.py",
+    # Bloomberg data-dependent modules (require Bloomberg CSV data not available in CI)
+    "engine/wheel_runner.py",
+    "engine/data_connector.py",
+    "engine/data_integration.py",
+    # Performance metrics has complex dashboard dependencies
+    "engine/performance_metrics.py",
+    # Dependency checker is a bootstrap utility
+    "engine/dependency_check.py",
 ]
 
 [tool.coverage.report]

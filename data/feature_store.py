@@ -22,26 +22,25 @@ Usage:
     lineage = store.get_lineage("volatility", ticker="AAPL")
 """
 
-import fcntl
 import hashlib
 import json
 import logging
 import os
 import shutil
+import sys
 import tempfile
 from contextlib import contextmanager
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, date, timedelta
-from enum import Enum
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 try:
     import pyarrow as pa
     import pyarrow.parquet as pq
+
     PYARROW_AVAILABLE = True
 except ImportError:
     PYARROW_AVAILABLE = False
@@ -49,8 +48,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class FeatureCategory(str, Enum):
+class FeatureCategory(StrEnum):
     """Categories of features in the store."""
+
     # Raw data (Layer 0)
     OHLCV = "ohlcv"
     OPTIONS_CHAIN = "options_chain"
@@ -82,15 +82,16 @@ class FeatureCategory(str, Enum):
 @dataclass
 class FeatureMetadata:
     """Metadata for a feature set."""
+
     category: str
     ticker: str
     created_at: str
     updated_at: str
     row_count: int
-    date_range: Tuple[str, str]
-    columns: List[str]
+    date_range: tuple[str, str]
+    columns: list[str]
     source_hash: str  # Hash of source data for change detection
-    source_files: List[str]  # Lineage: which raw files produced this
+    source_files: list[str]  # Lineage: which raw files produced this
     computation_time_ms: int
     version: int = 1
     schema_version: str = "1.0"
@@ -107,29 +108,31 @@ class FeatureMetadata:
 @dataclass
 class FeatureStats:
     """Statistics for feature validation."""
+
     column: str
     dtype: str
     count: int
     null_count: int
     null_pct: float
-    mean: Optional[float] = None
-    std: Optional[float] = None
-    min: Optional[float] = None
-    max: Optional[float] = None
-    p25: Optional[float] = None
-    p50: Optional[float] = None
-    p75: Optional[float] = None
-    unique_count: Optional[int] = None
+    mean: float | None = None
+    std: float | None = None
+    min: float | None = None
+    max: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    unique_count: int | None = None
 
 
 @dataclass
 class LineageRecord:
     """Tracks data lineage (source → feature)."""
+
     feature_category: str
     feature_ticker: str
     source_category: str
     source_ticker: str
-    source_file: Optional[str]
+    source_file: str | None
     transformation: str
     timestamp: str
 
@@ -161,7 +164,7 @@ class FeatureStore:
 
     def __init__(
         self,
-        base_path: Union[str, Path] = "data/features",
+        base_path: str | Path = "data/features",
         cache_ttl_hours: int = 24,
         enable_compression: bool = True,
     ):
@@ -170,11 +173,11 @@ class FeatureStore:
         self.enable_compression = enable_compression
 
         # In-memory cache
-        self._cache: Dict[str, Tuple[pd.DataFrame, datetime]] = {}
-        self._metadata_cache: Dict[str, FeatureMetadata] = {}
+        self._cache: dict[str, tuple[pd.DataFrame, datetime]] = {}
+        self._metadata_cache: dict[str, FeatureMetadata] = {}
 
         # Lineage tracking
-        self._lineage_records: List[LineageRecord] = []
+        self._lineage_records: list[LineageRecord] = []
 
         # Initialize directory structure
         self._init_directories()
@@ -197,18 +200,35 @@ class FeatureStore:
         """
         Acquire an exclusive file lock for atomic operations.
 
-        Uses fcntl.flock for cross-process locking on Unix systems.
+        Uses fcntl.flock on Unix, msvcrt.locking on Windows.
         Lock is automatically released when context exits.
         """
         lock_path = self.base_path / "_locks" / f"{lock_name}.lock"
         lock_file = None
         try:
-            lock_file = open(lock_path, 'w')
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            lock_file = open(lock_path, "w")
+            if sys.platform == "win32":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             yield
         finally:
             if lock_file:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                if sys.platform == "win32":
+                    import msvcrt
+
+                    try:
+                        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    except OSError:
+                        pass
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                 lock_file.close()
 
     def _atomic_write_parquet(
@@ -247,18 +267,19 @@ class FeatureStore:
                 df.to_parquet(str(temp_path), compression=compression, index=False)
 
             # fsync to ensure data is on disk
-            with open(temp_path, 'rb') as f:
+            with open(temp_path, "rb") as f:
                 os.fsync(f.fileno())
 
             # Atomic rename (guaranteed atomic on POSIX for same filesystem)
             os.replace(str(temp_path), str(target_path))
 
-            # fsync parent directory to ensure rename is persisted
-            dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
+            # fsync parent directory to ensure rename is persisted (POSIX only)
+            if sys.platform != "win32":
+                dir_fd = os.open(str(target_dir), os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
 
         except Exception:
             # Clean up temp file on error
@@ -286,7 +307,7 @@ class FeatureStore:
         try:
             os.close(fd)
 
-            with open(temp_path, 'w') as f:
+            with open(temp_path, "w") as f:
                 json.dump(data, f, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
@@ -330,7 +351,7 @@ class FeatureStore:
         content = pd.util.hash_pandas_object(sample).values.tobytes()
         return hashlib.sha256(content).hexdigest()[:16]
 
-    def _compute_stats(self, df: pd.DataFrame) -> List[FeatureStats]:
+    def _compute_stats(self, df: pd.DataFrame) -> list[FeatureStats]:
         """Compute column statistics for validation."""
         stats = []
         for col in df.columns:
@@ -361,11 +382,11 @@ class FeatureStore:
 
     def write_features(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
         df: pd.DataFrame,
-        source_files: Optional[List[str]] = None,
-        source_category: Optional[str] = None,
+        source_files: list[str] | None = None,
+        source_category: str | None = None,
         transformation: str = "unknown",
         force: bool = False,
     ) -> FeatureMetadata:
@@ -385,6 +406,7 @@ class FeatureStore:
             FeatureMetadata for the written features
         """
         import time
+
         start_time = time.time()
 
         if isinstance(category, FeatureCategory):
@@ -432,7 +454,9 @@ class FeatureStore:
             metadata = FeatureMetadata(
                 category=category,
                 ticker=ticker,
-                created_at=existing_meta.created_at if existing_meta else datetime.now().isoformat(),
+                created_at=existing_meta.created_at
+                if existing_meta
+                else datetime.now().isoformat(),
                 updated_at=datetime.now().isoformat(),
                 row_count=len(df),
                 date_range=date_range,
@@ -479,17 +503,19 @@ class FeatureStore:
         self._cache[cache_key] = (df, datetime.now())
         self._metadata_cache[cache_key] = metadata
 
-        logger.info(f"Wrote {len(df)} rows to {category}/{ticker} (v{version}, {computation_time}ms)")
+        logger.info(
+            f"Wrote {len(df)} rows to {category}/{ticker} (v{version}, {computation_time}ms)"
+        )
         return metadata
 
     def read_features(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
-        as_of: Optional[Union[str, date, datetime]] = None,
-        columns: Optional[List[str]] = None,
+        as_of: str | date | datetime | None = None,
+        columns: list[str] | None = None,
         use_cache: bool = True,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """
         Read features from the store.
 
@@ -547,7 +573,7 @@ class FeatureStore:
     def _filter_as_of(
         self,
         df: pd.DataFrame,
-        as_of: Union[str, date, datetime],
+        as_of: str | date | datetime,
     ) -> pd.DataFrame:
         """Filter DataFrame to point-in-time."""
         if isinstance(as_of, str):
@@ -560,7 +586,7 @@ class FeatureStore:
 
         return df
 
-    def _load_metadata(self, category: str, ticker: str) -> Optional[FeatureMetadata]:
+    def _load_metadata(self, category: str, ticker: str) -> FeatureMetadata | None:
         """Load metadata for a feature set."""
         cache_key = f"{category}:{ticker}"
         if cache_key in self._metadata_cache:
@@ -579,9 +605,9 @@ class FeatureStore:
 
     def get_metadata(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
-    ) -> Optional[FeatureMetadata]:
+    ) -> FeatureMetadata | None:
         """Get metadata for a feature set."""
         if isinstance(category, FeatureCategory):
             category = category.value
@@ -589,9 +615,9 @@ class FeatureStore:
 
     def get_stats(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
-    ) -> Optional[List[FeatureStats]]:
+    ) -> list[FeatureStats] | None:
         """Get statistics for a feature set."""
         if isinstance(category, FeatureCategory):
             category = category.value
@@ -607,8 +633,8 @@ class FeatureStore:
 
     def list_features(
         self,
-        category: Optional[Union[str, FeatureCategory]] = None,
-    ) -> List[Tuple[str, str]]:
+        category: str | FeatureCategory | None = None,
+    ) -> list[tuple[str, str]]:
         """
         List all features in the store.
 
@@ -620,7 +646,11 @@ class FeatureStore:
         """
         features = []
 
-        categories = [category.value if isinstance(category, FeatureCategory) else category] if category else None
+        categories = (
+            [category.value if isinstance(category, FeatureCategory) else category]
+            if category
+            else None
+        )
 
         for key in self._registry.get("features", {}):
             cat, ticker = key.split("/")
@@ -641,25 +671,26 @@ class FeatureStore:
 
         return sorted(features)
 
-    def get_tickers(self, category: Union[str, FeatureCategory]) -> List[str]:
+    def get_tickers(self, category: str | FeatureCategory) -> list[str]:
         """Get all tickers for a category."""
         if isinstance(category, FeatureCategory):
             category = category.value
 
         features = self.list_features(category)
-        return sorted(set(ticker for cat, ticker in features if cat == category))
+        return sorted({ticker for cat, ticker in features if cat == category})
 
     def get_lineage(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
-    ) -> List[LineageRecord]:
+    ) -> list[LineageRecord]:
         """Get lineage records for a feature set."""
         if isinstance(category, FeatureCategory):
             category = category.value
 
         return [
-            r for r in self._lineage_records
+            r
+            for r in self._lineage_records
             if r.feature_category == category and r.feature_ticker == ticker
         ]
 
@@ -674,7 +705,7 @@ class FeatureStore:
             self._atomic_write_parquet(df, lineage_path, compression=None)
         logger.info(f"Saved {len(self._lineage_records)} lineage records")
 
-    def load_lineage(self) -> List[LineageRecord]:
+    def load_lineage(self) -> list[LineageRecord]:
         """Load lineage records from disk."""
         lineage_path = self.base_path / "_lineage" / "lineage.parquet"
         if not lineage_path.exists():
@@ -686,7 +717,7 @@ class FeatureStore:
 
     def delete_features(
         self,
-        category: Union[str, FeatureCategory],
+        category: str | FeatureCategory,
         ticker: str,
     ) -> bool:
         """Delete a feature set."""
@@ -766,7 +797,7 @@ class FeatureStore:
 
 
 # Singleton instance for convenience
-_default_store: Optional[FeatureStore] = None
+_default_store: FeatureStore | None = None
 
 
 def get_feature_store(base_path: str = "data/features") -> FeatureStore:

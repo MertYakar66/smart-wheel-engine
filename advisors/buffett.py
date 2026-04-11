@@ -267,9 +267,7 @@ YOUR TONE:
         if len(key_reasons) < 2:
             notional = trade.strike * 100 * trade.contracts
             pct = notional / input_data.portfolio.total_equity * 100
-            key_reasons.append(
-                f"Position sizing: {pct:.1f}% of portfolio"
-            )
+            key_reasons.append(f"Position sizing: {pct:.1f}% of portfolio")
 
         # Ensure minimum critical_questions (spec: ≥1)
         if len(critical_questions) < 1:

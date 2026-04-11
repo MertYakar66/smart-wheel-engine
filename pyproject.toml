@@ -141,6 +141,10 @@ omit = [
     "engine/wheel_runner.py",
     "engine/data_connector.py",
     "engine/data_integration.py",
+    # Ollama-dependent AI memo generator
+    "engine/trade_memo.py",
+    # SEC/13F data-dependent portfolio intelligence
+    "engine/portfolio_intelligence.py",
     # Performance metrics has complex dashboard dependencies
     "engine/performance_metrics.py",
     # Dependency checker is a bootstrap utility

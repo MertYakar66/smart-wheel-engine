@@ -162,6 +162,7 @@ class WheelRunner:
 
         # --- Fundamentals ---
         fundamentals = conn.get_fundamentals(ticker)
+        has_data = fundamentals is not None
         if fundamentals:
             analysis.market_cap = fundamentals.get("market_cap", 0) or 0
             analysis.pe_ratio = fundamentals.get("pe_ratio", 0) or 0
@@ -254,6 +255,12 @@ class WheelRunner:
             pass
 
         # --- Composite wheel score ---
+        # Return 0 for unknown tickers with no data
+        if not has_data and analysis.spot_price == 0:
+            analysis.wheel_score = 0.0
+            analysis.wheel_recommendation = "no_data"
+            return analysis
+
         analysis.wheel_score = self._compute_wheel_score(analysis)
         analysis.wheel_recommendation = (
             "strong_candidate"

@@ -32,15 +32,23 @@ from engine.wheel_runner import WheelRunner
 
 
 class NumpyEncoder(json.JSONEncoder):
-    """Handle numpy types in JSON serialization."""
+    """Handle numpy types and NaN in JSON serialization."""
 
     def default(self, obj):
         if isinstance(obj, (np.integer,)):
             return int(obj)
         if isinstance(obj, (np.floating,)):
-            return float(obj)
+            v = float(obj)
+            if np.isnan(v) or np.isinf(v):
+                return None
+            return v
         if isinstance(obj, np.ndarray):
-            return obj.tolist()
+            return [
+                None if (isinstance(x, float) and (np.isnan(x) or np.isinf(x))) else x
+                for x in obj.tolist()
+            ]
+        if isinstance(obj, np.bool_):
+            return bool(obj)
         if isinstance(obj, date):
             return obj.isoformat()
         if hasattr(obj, "isoformat"):
@@ -67,6 +75,17 @@ def get_connector():
     return _connector
 
 
+def _sanitize_nans(obj):
+    """Recursively replace NaN/Inf with None in nested dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_nans(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_nans(v) for v in obj]
+    if isinstance(obj, float) and (np.isnan(obj) or np.isinf(obj)):
+        return None
+    return obj
+
+
 class EngineAPIHandler(BaseHTTPRequestHandler):
     """Handle HTTP requests for the engine API."""
 
@@ -77,7 +96,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-        self.wfile.write(json.dumps(data, cls=NumpyEncoder).encode())
+        self.wfile.write(json.dumps(_sanitize_nans(data), cls=NumpyEncoder).encode())
 
     def _send_error(self, message, status=500):
         self._send_json({"error": message}, status)
@@ -345,13 +364,116 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json({"results": results, "count": len(results)})
 
     def _handle_committee(self, ticker):
-        from advisors import CommitteeEngine, create_sample_input, format_committee_report
+        from advisors import CommitteeEngine, format_committee_report
+        from advisors.schema import (
+            AdvisorInput,
+            CandidateTrade,
+            MarketContext,
+            PortfolioContext,
+            RegimeType,
+            TradeType,
+        )
+
+        ticker = ticker.upper()
+        conn = get_connector()
+        runner = get_runner()
+
+        # Get real data for this ticker
+        analysis = runner.analyze_ticker(ticker)
+        conn.get_fundamentals(ticker) or {}
+        vix_data = conn.get_vix_regime() or {}
+
+        spot = analysis.spot_price or 100
+        iv = analysis.iv_30d or 25
+        iv_decimal = iv / 100 if iv > 1 else iv
+
+        # Calculate realistic strike (30-delta put, ~8% OTM)
+        strike = round(spot * 0.92, 0)
+        dte = 45
+
+        # Estimate premium using BSM
+        from scipy.stats import norm as _norm
+
+        T = dte / 365
+        if iv_decimal > 0 and T > 0:
+            d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
+                iv_decimal * np.sqrt(T)
+            )
+            d2 = d1 - iv_decimal * np.sqrt(T)
+            premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
+            premium = max(0.01, premium)
+            delta = float(-_norm.cdf(-d1))
+            p_otm = float(_norm.cdf(d2))
+        else:
+            premium = 1.0
+            delta = -0.30
+            p_otm = 0.70
+
+        ev = p_otm * premium * 100 / (strike * 100) * (365 / dte) * 100
+
+        # Build realistic AdvisorInput
+        trade = CandidateTrade(
+            ticker=ticker,
+            trade_type=TradeType.SHORT_PUT,
+            strike=strike,
+            expiration_date="",
+            dte=dte,
+            delta=delta,
+            premium=round(premium, 2),
+            contracts=1,
+            expected_value=round(ev, 2),
+            p_otm=round(p_otm, 2),
+            p_profit=round(p_otm * 0.95, 2),
+            iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
+            iv_percentile=analysis.iv_percentile * 100
+            if analysis.iv_percentile < 1
+            else analysis.iv_percentile,
+            theta=round(premium / dte, 4),
+            gamma=0.02,
+            vega=round(premium * 0.1, 4),
+            underlying_price=spot,
+            earnings_before_expiry=analysis.days_to_earnings is not None
+            and 0 < (analysis.days_to_earnings or 999) < dte,
+        )
+
+        portfolio = PortfolioContext(
+            positions=[],
+            total_equity=150000.0,
+            cash_available=50000.0,
+            buying_power=100000.0,
+            sector_allocation={"Technology": 30, "Healthcare": 20, "Financials": 20, "Other": 30},
+            top_5_concentration=50.0,
+            portfolio_beta=1.0,
+            portfolio_delta=0.5,
+            max_drawdown_30d=-5.0,
+            var_95=3.0,
+            open_positions_count=3,
+            total_premium_at_risk=5000.0,
+            total_margin_used=20000.0,
+        )
+
+        vix_level = vix_data.get("vix", 20)
+        regime = RegimeType.HIGH_VOL if vix_level > 25 else RegimeType.NORMAL
+        market = MarketContext(
+            regime=regime,
+            vix=vix_level,
+            vix_percentile=vix_data.get("vix_percentile", 50),
+            spy_price=spot,
+            spy_50ma=spot * 0.98,
+            spy_200ma=spot * 0.95,
+            fed_funds_rate=0.045,
+            treasury_10y=0.042,
+        )
+
+        advisor_input = AdvisorInput(
+            candidate_trade=trade,
+            portfolio=portfolio,
+            market=market,
+            request_id=f"api_{ticker}",
+        )
 
         committee = CommitteeEngine(parallel=False)
-        sample = create_sample_input()
-        # Override ticker
-        sample.candidate_trade.ticker = ticker.upper()
-        result = committee.evaluate(sample)
+        result = committee.evaluate(advisor_input)
 
         advisor_summaries = []
         for r in result.advisor_responses:

@@ -20,6 +20,9 @@ const REGIME_COLORS: Record<string, "green" | "red" | "amber" | "blue"> = {
   BEAR: "red",
   NEUTRAL: "blue",
   HIGH_VOL: "amber",
+  ELEVATED: "amber",
+  LOW_VOL: "green",
+  "---": "blue",
 };
 
 const REGIME_ARROWS: Record<string, string> = {
@@ -27,6 +30,9 @@ const REGIME_ARROWS: Record<string, string> = {
   BEAR: "↓",
   NEUTRAL: "→",
   HIGH_VOL: "⚡",
+  ELEVATED: "⚡",
+  LOW_VOL: "─",
+  "---": "...",
 };
 
 export function OptionsPanel({
@@ -43,7 +49,7 @@ export function OptionsPanel({
         connected ? (
           <TerminalBadge variant="green">CONNECTED</TerminalBadge>
         ) : (
-          <TerminalBadge variant="amber">PLACEHOLDER</TerminalBadge>
+          <TerminalBadge variant="amber">OFFLINE</TerminalBadge>
         )
       }
     >
@@ -176,7 +182,7 @@ export function OptionsPanel({
       {trades.length > 0 ? (
         <div className="grid grid-cols-2 gap-x-4">
           <TerminalRow label="Delta" value={trades[0].delta.toFixed(3)} />
-          <TerminalRow label="IV" value={`${(trades[0].iv * 100).toFixed(1)}%`} />
+          <TerminalRow label="IV" value={`${trades[0].iv.toFixed(1)}%`} />
           <TerminalRow
             label="Premium"
             value={`$${trades[0].premium}`}

@@ -35,10 +35,15 @@ export function CommandLine({ onCommand, history }: CommandLineProps) {
 
   const handleSubmit = () => {
     if (!input.trim()) return;
-    onCommand(input.trim().toUpperCase());
+    const cmd = input.trim().toUpperCase();
+    onCommand(cmd);
     setInput("");
     setHistoryIdx(-1);
-    setShowHelp(false);
+    if (cmd === "HELP") {
+      setShowHelp(true);
+    } else {
+      setShowHelp(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

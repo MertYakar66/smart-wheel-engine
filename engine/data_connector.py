@@ -190,6 +190,16 @@ class MarketDataConnector:
         df = self._filter_dates(df, "date", start_date, end_date)
         if df.empty:
             return df
+        # Bloomberg CSV columns are mislabeled in source data:
+        #   CSV "open" actually contains HIGH prices
+        #   CSV "high" actually contains CLOSE prices
+        #   CSV "close" actually contains OPEN prices
+        #   CSV "low" is correct
+        df = df.rename(columns={
+            "open": "high",
+            "high": "close",
+            "close": "open",
+        })
         out = (
             df[["date", "open", "high", "low", "close", "volume"]]
             .sort_values("date")

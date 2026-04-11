@@ -217,6 +217,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_candidates(self, limit, min_score):
+        from scipy.stats import norm as _norm
+
         runner = get_runner()
         df = runner.screen_candidates(
             min_wheel_score=float(min_score),
@@ -227,19 +229,46 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             return
 
         trades = []
+        dte = 45
+        T = dte / 365
         for _, row in df.iterrows():
+            spot = row.get("spot_price", 0)
+            iv = row.get("iv_30d", 0)
+            iv_dec = iv / 100 if iv > 1 else iv
+
+            # Compute strike / premium / delta / probability via BSM
+            strike = round(spot * 0.92, 0) if spot > 0 else 0
+            premium = 0.0
+            delta = 0.0
+            p_otm = 0.0
+            if spot > 0 and iv_dec > 0 and strike > 0:
+                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (
+                    iv_dec * np.sqrt(T)
+                )
+                d2 = d1 - iv_dec * np.sqrt(T)
+                premium = float(
+                    strike * np.exp(-0.04 * T) * _norm.cdf(-d2)
+                    - spot * _norm.cdf(-d1)
+                )
+                premium = max(0.01, premium)
+                delta = float(-_norm.cdf(-d1))
+                p_otm = float(_norm.cdf(d2))
+
+            ev = p_otm * premium * 100 / (strike * 100) * (365 / dte) * 100 if strike > 0 else 0
+            max_loss = round((strike - premium) * 100, 2) if strike > 0 else 0
+
             trades.append(
                 {
                     "ticker": row["ticker"],
                     "strategy": "short_put",
-                    "strike": 0,  # Would need chain data
+                    "strike": strike,
                     "expiration": "",
-                    "premium": 0,
-                    "probability": 0,
-                    "expectedPnL": 0,
-                    "maxLoss": 0,
-                    "iv": row.get("iv_30d", 0),
-                    "delta": 0,
+                    "premium": round(premium, 2),
+                    "probability": round(p_otm * 100, 1),
+                    "expectedPnL": round(ev, 2),
+                    "maxLoss": max_loss,
+                    "iv": iv,
+                    "delta": round(delta, 3),
                     "score": row["wheel_score"],
                     "wheelScore": row["wheel_score"],
                     "recommendation": row["recommendation"],
@@ -260,7 +289,20 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json({"trades": trades, "count": len(trades)})
 
     def _handle_analyze(self, ticker, as_of):
+        if not ticker or not ticker.strip():
+            self._send_error("ticker parameter is required", 400)
+            return
+        ticker = ticker.strip().upper()
         runner = get_runner()
+        conn = get_connector()
+        # Validate ticker exists in universe
+        ohlcv = conn.get_ohlcv(ticker)
+        if ohlcv.empty:
+            self._send_json(
+                {"error": f"Ticker '{ticker}' not found in data universe"},
+                404,
+            )
+            return
         a = runner.analyze_ticker(ticker, as_of)
         self._send_json(
             {
@@ -398,7 +440,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             TradeType,
         )
 
-        ticker = ticker.upper()
+        if not ticker or not ticker.strip():
+            self._send_error("ticker parameter is required", 400)
+            return
+        ticker = ticker.strip().upper()
         conn = get_connector()
         runner = get_runner()
 
@@ -507,6 +552,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "judgment": r.judgment.value,
                     "summary": r.judgment_summary,
                     "keyReasons": r.key_reasons[:3],
+                    "criticalQuestions": r.critical_questions[:3],
+                    "hiddenRisks": r.hidden_risks[:3],
                     "confidence": r.confidence.value,
                 }
             )
@@ -766,7 +813,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 for _, row in hist.tail(days).iterrows():
                     data.append(
                         {
-                            "date": str(row.get("date", "")),
+                            "date": str(row.get("date", ""))[:10],
                             "score": round(float(row["score"]), 1),
                             "phase": row.get("phase", ""),
                             "bb_score": round(float(row.get("bb_score", 0)), 1),

@@ -4,6 +4,25 @@ import { watchlists } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { fetchQuoteFromFinnhub, getLatestSnapshot } from "@/services/market-data";
 
+const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
+
+async function getEnginePrice(ticker: string): Promise<{ price: number; changePct: number } | null> {
+  try {
+    const res = await fetch(`${ENGINE_API}/api/analyze/${ticker}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.spotPrice && data.spotPrice > 0) {
+      return { price: data.spotPrice, changePct: 0 };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const items = await db.query.watchlists.findMany();
 
@@ -11,7 +30,8 @@ export async function GET() {
     items.map(async (item) => {
       const quote =
         (await getLatestSnapshot(item.ticker)) ||
-        (await fetchQuoteFromFinnhub(item.ticker));
+        (await fetchQuoteFromFinnhub(item.ticker)) ||
+        (await getEnginePrice(item.ticker));
       return {
         ticker: item.ticker,
         addedAt: item.addedAt,

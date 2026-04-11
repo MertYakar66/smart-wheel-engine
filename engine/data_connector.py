@@ -195,11 +195,13 @@ class MarketDataConnector:
         #   CSV "high" actually contains CLOSE prices
         #   CSV "close" actually contains OPEN prices
         #   CSV "low" is correct
-        df = df.rename(columns={
-            "open": "high",
-            "high": "close",
-            "close": "open",
-        })
+        df = df.rename(
+            columns={
+                "open": "high",
+                "high": "close",
+                "close": "open",
+            }
+        )
         out = (
             df[["date", "open", "high", "low", "close", "volume"]]
             .sort_values("date")

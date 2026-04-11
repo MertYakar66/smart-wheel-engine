@@ -263,7 +263,8 @@ def recommend_strikes(
         deltas = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40]
         candidates = []
         for target_delta in deltas:
-            d1 = norm.ppf(1 - target_delta)
+            # For calls: delta = N(d1), so d1 = N_inv(delta)
+            d1 = norm.ppf(target_delta)
             k = np.log(spot) + (risk_free_rate + 0.5 * iv_decimal**2) * T - d1 * iv_decimal * sqrt_T
             strike = round(float(np.exp(k)), 0)
 

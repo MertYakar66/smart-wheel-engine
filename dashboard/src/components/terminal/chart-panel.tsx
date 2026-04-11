@@ -25,7 +25,7 @@ interface ChartPanelProps {
   onClose?: () => void;
 }
 
-type ChartType = "bollinger" | "rsi" | "atr" | "ohlcv" | "strangle" | "payoff";
+type ChartType = "bollinger" | "rsi" | "atr" | "ohlcv" | "strangle" | "payoff" | "memo";
 
 interface ChartData {
   date: string;
@@ -97,6 +97,7 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [memoText, setMemoText] = useState<string>("");
 
   // Payoff-specific state
   const [payoffMeta, setPayoffMeta] = useState<{
@@ -156,6 +157,12 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
           const json = await emRes.json();
           setExpectedMove({ bands: json.bands || [], period_vol: json.period_vol || 0 });
         }
+      } else if (chartType === "memo") {
+        const res = await fetch(`/api/engine?action=memo&ticker=${ticker}`);
+        if (res.ok) {
+          const json = await res.json();
+          setMemoText(json.memo || "No memo generated. Ensure Ollama is running.");
+        }
       } else {
         const res = await fetch(
           `/api/engine?action=chart&chart_type=${chartType}&ticker=${ticker}&days=${days}`
@@ -194,6 +201,7 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
     { type: "atr", label: "ATR" },
     { type: "strangle", label: "TIMING" },
     { type: "payoff", label: "PAYOFF" },
+    { type: "memo", label: "AI MEMO" },
   ];
 
   const dayButtons = [
@@ -336,6 +344,10 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
           <StrangleChart data={chartData} />
         ) : chartType === "payoff" ? (
           <PayoffChart data={chartData} meta={payoffMeta} />
+        ) : chartType === "memo" ? (
+          <div className="h-full overflow-y-auto px-2 py-1 text-[11px] text-terminal-text whitespace-pre-wrap font-mono leading-relaxed">
+            {memoText || "Generating trade memo... (requires Ollama with qwen2.5:72b)"}
+          </div>
         ) : (
           <OHLCVChart data={chartData} />
         )}

@@ -357,6 +357,7 @@ export default function TerminalPage() {
         /* Chart View: shows when a ticker is selected */
         <div className="flex-1 grid grid-cols-[1fr_350px] gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
           <ChartPanel
+            key={selectedTicker}
             ticker={selectedTicker}
             onClose={() => setSelectedTicker(null)}
           />

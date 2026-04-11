@@ -171,6 +171,14 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 ticker = param("ticker", "AAPL")
                 days = param("days", "252")
                 self._handle_iv_history(ticker, int(days))
+            elif path == "/api/memo":
+                ticker = param("ticker", "AAPL")
+                self._handle_memo(ticker, param("as_of"))
+            elif path == "/api/summary":
+                ticker = param("ticker", "AAPL")
+                self._handle_summary(ticker)
+            elif path == "/api/ollama_status":
+                self._handle_ollama_status()
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -844,6 +852,29 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 }
             )
         self._send_json({"ticker": ticker, "data": data})
+
+    def _handle_memo(self, ticker, as_of):
+        """Generate AI trade memo for a ticker."""
+        from engine.trade_memo import MemoGenerator
+
+        gen = MemoGenerator()
+        result = gen.generate_memo(ticker, as_of)
+        self._send_json(result)
+
+    def _handle_summary(self, ticker):
+        """Generate quick AI summary for a ticker."""
+        from engine.trade_memo import MemoGenerator
+
+        gen = MemoGenerator()
+        summary = gen.generate_quick_summary(ticker)
+        self._send_json({"ticker": ticker, "summary": summary})
+
+    def _handle_ollama_status(self):
+        """Check Ollama availability and models."""
+        from engine.trade_memo import _check_ollama
+
+        status = _check_ollama()
+        self._send_json(status)
 
     def log_message(self, format, *args):
         """Custom log format."""

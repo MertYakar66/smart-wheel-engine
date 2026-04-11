@@ -5,14 +5,30 @@ HTTP API that serves engine data to the Next.js dashboard.
 Run with: python engine_api.py
 
 Endpoints:
-  GET /api/status          - Engine health check
-  GET /api/candidates      - Top wheel trade candidates
-  GET /api/analyze/AAPL    - Full ticker analysis
-  GET /api/portfolio       - Portfolio report for given tickers
-  GET /api/regime          - Current market regime
-  GET /api/calendar        - Upcoming events
-  GET /api/committee       - Run investment committee on a trade
-  GET /api/screen          - Screen universe with filters
+  GET /api/status                          - Engine health check
+  GET /api/candidates?limit=15&min_score=50 - Top wheel trade candidates
+  GET /api/analyze/AAPL                   - Full ticker analysis
+  GET /api/portfolio?tickers=AAPL,MSFT    - Portfolio report
+  GET /api/regime?ticker=SPY              - Current market regime
+  GET /api/calendar?ticker=AAPL&days=30   - Upcoming events
+  GET /api/screen?min_score=60&limit=20   - Screen universe with filters
+  GET /api/committee?ticker=NVDA          - Run investment committee
+  GET /api/vix                            - VIX regime
+  GET /api/fundamentals?ticker=AAPL       - Fundamental data
+  GET /api/universe                       - Universe of tracked tickers
+  GET /api/chart/bollinger?ticker=AAPL    - Bollinger bands chart
+  GET /api/chart/rsi?ticker=AAPL          - RSI chart
+  GET /api/chart/atr?ticker=AAPL          - ATR chart
+  GET /api/chart/ohlcv?ticker=AAPL        - OHLCV + SMA chart
+  GET /api/chart/strangle?ticker=AAPL     - Strangle timing history
+  GET /api/strangle?ticker=AAPL           - Current strangle timing analysis
+  GET /api/iv_history?ticker=AAPL&days=252 - IV vs RV history
+  GET /api/payoff?ticker=AAPL&strategy=csp - Payoff diagram
+  GET /api/expected_move?ticker=AAPL&dte=45 - Expected move bands
+  GET /api/strikes?ticker=AAPL&strategy=csp - Strike recommendations
+  GET /api/memo?ticker=AAPL               - AI trade memo (72B model)
+  GET /api/summary?ticker=AAPL            - Quick AI summary (32B model)
+  GET /api/ollama_status                  - Check Ollama/model availability
 """
 
 import json
@@ -897,6 +913,19 @@ def main():
     print("  GET /api/vix")
     print("  GET /api/fundamentals?ticker=AAPL")
     print("  GET /api/universe")
+    print("  GET /api/chart/bollinger?ticker=AAPL&days=120")
+    print("  GET /api/chart/rsi?ticker=AAPL")
+    print("  GET /api/chart/atr?ticker=AAPL")
+    print("  GET /api/chart/ohlcv?ticker=AAPL")
+    print("  GET /api/chart/strangle?ticker=AAPL")
+    print("  GET /api/strangle?ticker=AAPL")
+    print("  GET /api/iv_history?ticker=AAPL&days=252")
+    print("  GET /api/payoff?ticker=AAPL&strategy=csp&dte=45")
+    print("  GET /api/expected_move?ticker=AAPL&dte=45")
+    print("  GET /api/strikes?ticker=AAPL&strategy=csp&dte=45")
+    print("  GET /api/memo?ticker=AAPL")
+    print("  GET /api/summary?ticker=AAPL")
+    print("  GET /api/ollama_status")
     print()
     try:
         server.serve_forever()

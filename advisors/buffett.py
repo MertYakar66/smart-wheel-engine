@@ -258,6 +258,26 @@ YOUR TONE:
             confidence = ConfidenceLevel.HIGH
             confidence_explanation = "Clear view on business quality informs judgment"
 
+        # Ensure minimum key_reasons (spec: ≥2)
+        if len(key_reasons) < 2:
+            key_reasons.append(
+                f"Probability profile: {prob['quality']} (EV: {trade.expected_value:.2f}%, "
+                f"P(OTM): {prob['p_otm']:.0%})"
+            )
+        if len(key_reasons) < 2:
+            notional = trade.strike * 100 * trade.contracts
+            pct = notional / input_data.portfolio.total_equity * 100
+            key_reasons.append(
+                f"Position sizing: {pct:.1f}% of portfolio"
+            )
+
+        # Ensure minimum critical_questions (spec: ≥1)
+        if len(critical_questions) < 1:
+            critical_questions.append(
+                f"Would you be comfortable owning {trade.ticker} at ${trade.strike} "
+                "for the long term if assigned?"
+            )
+
         return {
             "judgment": judgment,
             "judgment_summary": judgment_summary,

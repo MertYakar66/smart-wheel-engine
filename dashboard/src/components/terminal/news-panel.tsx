@@ -71,15 +71,17 @@ export function NewsPanel({
         </div>
       ) : (
         <div className="space-y-1">
-          {stories.map((story) => {
-            const tickers = story.entities
-              .filter((e) => e.entityType === "ticker")
-              .map((e) => e.entityValue);
-            const impactTags = story.impactTags || [];
+          {stories.map((story, i) => {
+            const tickers = [...new Set(
+              story.entities
+                .filter((e) => e.entityType === "ticker")
+                .map((e) => e.entityValue)
+            )];
+            const impactTags = [...new Set(story.impactTags || [])];
 
             return (
               <button
-                key={story.storyId}
+                key={`${story.storyId}-${i}`}
                 onClick={() => onSelectStory(story)}
                 className="block w-full text-left hover:bg-terminal-border/30 px-1 py-0.5 transition-colors"
               >

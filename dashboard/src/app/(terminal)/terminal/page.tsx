@@ -142,11 +142,41 @@ export default function TerminalPage() {
   const fetchEvents = useCallback(async () => {
     setEventsLoading(true);
     try {
-      const res = await fetch("/api/events");
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
+      // Fetch from both database and engine calendar
+      const [dbRes, engineRes] = await Promise.all([
+        fetch("/api/events").catch(() => null),
+        fetch("/api/engine?action=calendar&days=60").catch(() => null),
+      ]);
+
+      const allEvents: CalendarEvent[] = [];
+
+      if (dbRes?.ok) {
+        const data = await dbRes.json();
+        allEvents.push(...data);
       }
+
+      if (engineRes?.ok) {
+        const data = await engineRes.json();
+        const engineEvents = (data.events || []).map((e: { eventId: string; eventType: string; ticker: string | null; eventDate: string; description: string; daysUntil: number }) => ({
+          eventId: e.eventId,
+          eventType: e.eventType,
+          ticker: e.ticker,
+          eventDate: e.eventDate,
+          description: e.description,
+          daysUntil: e.daysUntil,
+        }));
+        allEvents.push(...engineEvents);
+      }
+
+      // Deduplicate by eventId
+      const seen = new Set<string>();
+      const unique = allEvents.filter((e) => {
+        if (seen.has(e.eventId)) return false;
+        seen.add(e.eventId);
+        return true;
+      });
+
+      setEvents(unique);
     } catch (err) {
       console.error("Failed to fetch events:", err);
     } finally {

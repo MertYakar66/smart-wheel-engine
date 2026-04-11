@@ -313,6 +313,15 @@ YOUR TONE:
             "The more red flags, the higher my confidence in rejection."
         )
 
+        # Ensure minimum key_reasons (spec: ≥2)
+        if len(key_reasons) < 2:
+            key_reasons.append(
+                f"Probability profile: {prob['quality']} (EV: {trade.expected_value:.2f}%, "
+                f"P(OTM): {prob['p_otm']:.0%})"
+            )
+        if len(key_reasons) < 2:
+            key_reasons.append(f"Position sizing: {position_size}")
+
         return {
             "judgment": judgment,
             "judgment_summary": judgment_summary,

@@ -45,8 +45,8 @@ interface EngineData {
 export function useEngineData(): EngineData {
   const [trades, setTrades] = useState<WheelTrade[]>([]);
   const [regime, setRegime] = useState<MarketRegime>({
-    regime: "NEUTRAL",
-    vix: 15,
+    regime: "---",
+    vix: 0,
     trendScore: 0,
     confidence: 0,
   });

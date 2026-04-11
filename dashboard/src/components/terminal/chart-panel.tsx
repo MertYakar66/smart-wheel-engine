@@ -131,31 +131,37 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
     setLoading(true);
     try {
       if (chartType === "payoff") {
-        // Fetch payoff diagram + strikes + expected move in parallel
-        const [payRes, strikesRes, emRes] = await Promise.all([
-          fetch(`/api/engine?action=payoff&ticker=${ticker}&strategy=csp&dte=45`),
-          fetch(`/api/engine?action=strikes&ticker=${ticker}&strategy=csp&dte=45`),
-          fetch(`/api/engine?action=expected_move&ticker=${ticker}&dte=45`),
-        ]);
-        if (payRes.ok) {
-          const json = await payRes.json();
-          setChartData(json.data || []);
-          setPayoffMeta({
-            strike: json.strike,
-            premium: json.premium,
-            breakeven: json.breakeven,
-            maxProfit: json.maxProfit,
-            maxLoss: json.maxLoss,
-            strategy: json.strategy,
-          });
-        }
-        if (strikesRes.ok) {
-          const json = await strikesRes.json();
-          setStrikes(json.recommendations || []);
-        }
-        if (emRes.ok) {
-          const json = await emRes.json();
-          setExpectedMove({ bands: json.bands || [], period_vol: json.period_vol || 0 });
+        // Fetch payoff diagram + strikes + expected move in parallel with timeout
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          const [payRes, strikesRes, emRes] = await Promise.all([
+            fetch(`/api/engine?action=payoff&ticker=${ticker}&strategy=csp&dte=45`, { signal: controller.signal }),
+            fetch(`/api/engine?action=strikes&ticker=${ticker}&strategy=csp&dte=45`, { signal: controller.signal }),
+            fetch(`/api/engine?action=expected_move&ticker=${ticker}&dte=45`, { signal: controller.signal }),
+          ]);
+          if (payRes.ok) {
+            const json = await payRes.json();
+            setChartData(json.data || []);
+            setPayoffMeta({
+              strike: json.strike,
+              premium: json.premium,
+              breakeven: json.breakeven,
+              maxProfit: json.maxProfit,
+              maxLoss: json.maxLoss,
+              strategy: json.strategy,
+            });
+          }
+          if (strikesRes.ok) {
+            const json = await strikesRes.json();
+            setStrikes(json.recommendations || []);
+          }
+          if (emRes.ok) {
+            const json = await emRes.json();
+            setExpectedMove({ bands: json.bands || [], period_vol: json.period_vol || 0 });
+          }
+        } finally {
+          clearTimeout(timeout);
         }
       } else if (chartType === "memo") {
         const res = await fetch(`/api/engine?action=memo&ticker=${ticker}`);
@@ -272,6 +278,29 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
               value={analysis.beta.toFixed(2)}
             />
           </div>
+          <div className="grid grid-cols-4 gap-1 mb-1 text-[9px]">
+            <TerminalRow
+              label="IV Rank"
+              value={`${(analysis.ivRank < 1 ? analysis.ivRank * 100 : analysis.ivRank).toFixed(1)}%`}
+              valueColor={
+                (analysis.ivRank < 1 ? analysis.ivRank : analysis.ivRank / 100) >= 0.5
+                  ? "text-terminal-green"
+                  : "text-terminal-dim"
+              }
+            />
+            <TerminalRow
+              label="VIX"
+              value={analysis.vixLevel.toFixed(1)}
+            />
+            <TerminalRow
+              label="Earn"
+              value={analysis.daysToEarnings != null ? `${analysis.daysToEarnings}d` : "N/A"}
+            />
+            <TerminalRow
+              label="Rating"
+              value={analysis.creditRating || "N/A"}
+            />
+          </div>
           {analysis.strangleScore > 0 && (
             <div className="flex items-center gap-2 mb-1 text-[9px]">
               <span className="text-terminal-dim">Strangle:</span>
@@ -325,31 +354,35 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
       </div>
 
       {/* Chart */}
-      <div className="h-[280px] w-full">
+      <div className="h-[280px] w-full" style={{ minWidth: 0, minHeight: 0 }}>
         {loading ? (
           <div className="flex items-center justify-center h-full text-terminal-dim">
             Loading chart data...
+          </div>
+        ) : chartType === "memo" ? (
+          <div className="h-full overflow-y-auto px-2 py-1 text-[11px] text-terminal-text whitespace-pre-wrap font-mono leading-relaxed">
+            {memoText || "Generating trade memo... (requires Ollama with qwen2.5:72b)"}
           </div>
         ) : chartData.length === 0 ? (
           <div className="flex items-center justify-center h-full text-terminal-dim">
             No data available
           </div>
-        ) : chartType === "bollinger" ? (
-          <BollingerChart data={chartData} />
-        ) : chartType === "rsi" ? (
-          <RSIChart data={chartData} />
-        ) : chartType === "atr" ? (
-          <ATRChart data={chartData} />
-        ) : chartType === "strangle" ? (
-          <StrangleChart data={chartData} />
-        ) : chartType === "payoff" ? (
-          <PayoffChart data={chartData} meta={payoffMeta} />
-        ) : chartType === "memo" ? (
-          <div className="h-full overflow-y-auto px-2 py-1 text-[11px] text-terminal-text whitespace-pre-wrap font-mono leading-relaxed">
-            {memoText || "Generating trade memo... (requires Ollama with qwen2.5:72b)"}
-          </div>
         ) : (
-          <OHLCVChart data={chartData} />
+          <div key={chartType} className="w-full h-full" style={{ minWidth: 0, minHeight: 0 }}>
+            {chartType === "bollinger" ? (
+              <BollingerChart data={chartData} />
+            ) : chartType === "rsi" ? (
+              <RSIChart data={chartData} />
+            ) : chartType === "atr" ? (
+              <ATRChart data={chartData} />
+            ) : chartType === "strangle" ? (
+              <StrangleChart data={chartData} />
+            ) : chartType === "payoff" ? (
+              <PayoffChart data={chartData} meta={payoffMeta} />
+            ) : (
+              <OHLCVChart data={chartData} />
+            )}
+          </div>
         )}
       </div>
 
@@ -443,7 +476,7 @@ function BollingerChart({ data }: { data: ChartData[] }) {
         <XAxis
           dataKey="date"
           tick={{ fontSize: 8, fill: "#64748b" }}
-          tickFormatter={(v) => v.slice(5)}
+          tickFormatter={(v: string) => v.slice(5, 10)}
           interval={Math.floor(data.length / 8)}
         />
         <YAxis
@@ -512,7 +545,7 @@ function RSIChart({ data }: { data: ChartData[] }) {
         <XAxis
           dataKey="date"
           tick={{ fontSize: 8, fill: "#64748b" }}
-          tickFormatter={(v) => v.slice(5)}
+          tickFormatter={(v: string) => v.slice(5, 10)}
           interval={Math.floor(data.length / 8)}
         />
         <YAxis
@@ -561,7 +594,7 @@ function ATRChart({ data }: { data: ChartData[] }) {
         <XAxis
           dataKey="date"
           tick={{ fontSize: 8, fill: "#64748b" }}
-          tickFormatter={(v) => v.slice(5)}
+          tickFormatter={(v: string) => v.slice(5, 10)}
           interval={Math.floor(data.length / 8)}
         />
         <YAxis
@@ -600,7 +633,7 @@ function OHLCVChart({ data }: { data: ChartData[] }) {
         <XAxis
           dataKey="date"
           tick={{ fontSize: 8, fill: "#64748b" }}
-          tickFormatter={(v) => v.slice(5)}
+          tickFormatter={(v: string) => v.slice(5, 10)}
           interval={Math.floor(data.length / 8)}
         />
         <YAxis
@@ -667,7 +700,7 @@ function StrangleChart({ data }: { data: ChartData[] }) {
         <XAxis
           dataKey="date"
           tick={{ fontSize: 8, fill: "#64748b" }}
-          tickFormatter={(v) => v.slice(5)}
+          tickFormatter={(v: string) => v.slice(5, 10)}
           interval={Math.floor(data.length / 8)}
         />
         <YAxis

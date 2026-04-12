@@ -84,11 +84,19 @@ export function CommandLine({ onCommand, history }: CommandLineProps) {
 
   return (
     <div className="relative shrink-0 border-t border-terminal-border bg-terminal-header">
-      {/* Help popup */}
+      {/* Help popup — high z so it sits above chart panels and grids */}
       {showHelp && (
-        <div className="absolute bottom-full left-0 right-0 border border-terminal-border bg-terminal-panel p-3 shadow-lg">
-          <div className="mb-2 text-[11px] font-bold text-terminal-amber">
-            AVAILABLE COMMANDS
+        <div className="absolute bottom-full left-0 right-0 z-50 border border-terminal-border bg-terminal-panel p-3 shadow-2xl">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-terminal-amber">
+              AVAILABLE COMMANDS
+            </span>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="text-terminal-dim hover:text-terminal-text text-[11px]"
+            >
+              [ESC to close]
+            </button>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-1">
             {COMMANDS.map((cmd) => (
@@ -99,6 +107,10 @@ export function CommandLine({ onCommand, history }: CommandLineProps) {
                 <span className="text-terminal-dim">{cmd.desc}</span>
               </div>
             ))}
+          </div>
+          <div className="mt-2 pt-2 border-t border-terminal-border text-[10px] text-terminal-dim">
+            Tip: type any ticker symbol (e.g. <span className="text-terminal-amber">AAPL</span>) to open its chart.
+            Type <span className="text-terminal-amber">BACK</span> to return.
           </div>
         </div>
       )}

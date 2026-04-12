@@ -350,6 +350,8 @@ export default function TerminalPage() {
         ollamaStatus={ollamaStatus}
         agentStatus={PLACEHOLDER_AGENT_STATUS.online ? "online" : "offline"}
         retrievalProviders={retrievalProviders}
+        vix={engineData.regime.vix}
+        regime={engineData.regime.regime}
       />
 
       {/* Main Grid */}

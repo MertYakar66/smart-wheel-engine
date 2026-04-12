@@ -91,7 +91,7 @@ export function WatchlistPanel({
                       {isPositive ? "▲" : "▼"}
                     </TerminalBadge>
                   ) : (
-                    <TerminalBadge variant="default">—</TerminalBadge>
+                    <TerminalBadge variant="default">LOADING</TerminalBadge>
                   )}
                 </span>
               </div>
@@ -102,15 +102,17 @@ export function WatchlistPanel({
 
       <TerminalDivider />
 
-      {/* Summary */}
+      {/* Summary — only render the up/down split once prices are actually populated */}
       <div className="flex justify-between text-[10px]">
         <span className="text-terminal-dim">
           {items.length} ticker{items.length !== 1 ? "s" : ""} tracked
         </span>
-        <span className="text-terminal-dim">
-          {items.filter((i) => (i.changePct ?? 0) >= 0).length}↑{" "}
-          {items.filter((i) => (i.changePct ?? 0) < 0).length}↓
-        </span>
+        {items.some((i) => i.price !== null) && (
+          <span className="text-terminal-dim">
+            {items.filter((i) => (i.changePct ?? 0) > 0).length}↑{" "}
+            {items.filter((i) => (i.changePct ?? 0) < 0).length}↓
+          </span>
+        )}
       </div>
     </TerminalPanel>
   );

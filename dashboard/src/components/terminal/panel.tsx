@@ -27,17 +27,17 @@ export function TerminalPanel({
         className
       )}
     >
-      <div className="flex h-7 shrink-0 items-center justify-between border-b border-terminal-border bg-terminal-header px-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-terminal-amber">
+      <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-b border-terminal-border bg-terminal-header px-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-terminal-amber">
             {title}
           </span>
           {tag && (
-            <span className="text-[10px] text-terminal-dim">[{tag}]</span>
+            <span className="shrink-0 text-[10px] text-terminal-dim">[{tag}]</span>
           )}
         </div>
         {headerRight && (
-          <div className="flex items-center gap-1">{headerRight}</div>
+          <div className="flex shrink-0 items-center gap-1">{headerRight}</div>
         )}
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 font-mono text-[12px] leading-[18px] text-terminal-text">

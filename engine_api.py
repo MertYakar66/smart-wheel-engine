@@ -35,7 +35,7 @@ import json
 import sys
 import traceback
 from datetime import date
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
@@ -852,7 +852,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             from engine.strangle_timing import StrangleTimingEngine
 
             engine = StrangleTimingEngine()
-            hist = engine.compute_historical_scores(ohlcv, lookback_required=100)
+            # Only compute scores for the requested window so long histories
+            # don't blow up into an O(N) loop across years of data.
+            hist = engine.compute_historical_scores(ohlcv, lookback_required=100, last_n=days)
             data = []
             if not hist.empty:
                 for _, row in hist.tail(days).iterrows():
@@ -991,7 +993,11 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 def main():
     port = 8787
-    server = HTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    # ThreadingHTTPServer spawns one thread per request so a slow committee
+    # or memo call can't block the 5+ parallel fetches the dashboard fires
+    # when a trader switches tickers.
+    server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    server.daemon_threads = True
     print(f"Smart Wheel Engine API running on http://localhost:{port}")
     print("Endpoints:")
     print("  GET /api/status")

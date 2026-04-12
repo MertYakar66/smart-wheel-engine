@@ -139,8 +139,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_status()
             elif path == "/api/candidates":
                 self._handle_candidates(param("limit", "15"), param("min_score", "50"))
-            elif path.startswith("/api/analyze/"):
-                ticker = path.split("/")[-1].upper()
+            elif path == "/api/analyze" or path.startswith("/api/analyze/"):
+                ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
+                if not ticker:
+                    ticker = param("ticker", "AAPL") or "AAPL"
                 self._handle_analyze(ticker, param("as_of"))
             elif path == "/api/portfolio":
                 tickers = param("tickers", "AAPL,MSFT,JPM")
@@ -152,7 +154,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/screen":
                 self._handle_screen(params)
             elif path == "/api/committee":
-                self._handle_committee(param("ticker", "AAPL"))
+                self._handle_committee(param("ticker"))
             elif path == "/api/vix":
                 self._handle_vix()
             elif path == "/api/fundamentals":
@@ -232,7 +234,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         dte = 45
         T = dte / 365
         for _, row in df.iterrows():
-            spot = row.get("spot_price", 0)
+            spot = row.get("spot", 0) or row.get("spot_price", 0)
             iv = row.get("iv_30d", 0)
             iv_dec = iv / 100 if iv > 1 else iv
 
@@ -242,14 +244,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             delta = 0.0
             p_otm = 0.0
             if spot > 0 and iv_dec > 0 and strike > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (
-                    iv_dec * np.sqrt(T)
-                )
+                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
                 d2 = d1 - iv_dec * np.sqrt(T)
-                premium = float(
-                    strike * np.exp(-0.04 * T) * _norm.cdf(-d2)
-                    - spot * _norm.cdf(-d1)
-                )
+                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
                 premium = max(0.01, premium)
                 delta = float(-_norm.cdf(-d1))
                 p_otm = float(_norm.cdf(d2))

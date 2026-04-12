@@ -36,7 +36,7 @@ class MungerAdvisor(BaseAdvisor):
 
     @property
     def name(self) -> str:
-        return "Munger"
+        return "Charlie Munger"
 
     @property
     def philosophy(self) -> str:

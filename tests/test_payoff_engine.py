@@ -13,7 +13,8 @@ class TestComputePayoff:
 
     def test_csp_above_strike(self):
         data = compute_payoff(spot=100, strike=95, premium=2.0, strategy="csp", n_points=10)
-        assert len(data) == 10
+        # Grid has n_points linspace samples plus up to 3 anchors (spot, strike, breakeven)
+        assert 10 <= len(data) <= 13
         # Above strike = max profit = premium * 100
         above = [d for d in data if d["price"] >= 95]
         for d in above:
@@ -27,7 +28,7 @@ class TestComputePayoff:
 
     def test_cc_payoff(self):
         data = compute_payoff(spot=100, strike=105, premium=3.0, strategy="cc", n_points=20)
-        assert len(data) == 20
+        assert 20 <= len(data) <= 23
         # Above strike = capped profit
         above = [d for d in data if d["price"] > 110]
         for d in above:
@@ -38,7 +39,7 @@ class TestComputePayoff:
         data = compute_payoff(
             spot=100, strike=95, premium=4.0, strategy="short_strangle", n_points=20
         )
-        assert len(data) == 20
+        assert 20 <= len(data) <= 22
         # Near the money = max profit
         near_money = [d for d in data if 95 <= d["price"] <= 100]
         for d in near_money:

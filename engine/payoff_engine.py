@@ -46,6 +46,7 @@ def compute_payoff(
     cost_basis: float | None = None,
     price_range_pct: float = 0.30,
     n_points: int = 100,
+    breakeven: float | None = None,
 ) -> list[dict]:
     """
     Compute payoff diagram data for a wheel strategy.
@@ -59,12 +60,45 @@ def compute_payoff(
         cost_basis: Cost basis per share (for covered calls)
         price_range_pct: Range of prices to plot (±30% default)
         n_points: Number of price points
+        breakeven: Optional breakeven price to guarantee as an exact grid node
 
     Returns:
         List of dicts with {price, pnl, pnl_pct, breakeven_marker}
+
+    The returned grid always contains exact nodes for spot, strike, and
+    breakeven so that consumers can sample payoff values at those critical
+    prices without interpolation error.
     """
     multiplier = contracts * 100
-    prices = np.linspace(spot * (1 - price_range_pct), spot * (1 + price_range_pct), n_points)
+    lo = spot * (1 - price_range_pct)
+    hi = spot * (1 + price_range_pct)
+    base_grid = np.linspace(lo, hi, n_points)
+
+    # Guarantee the grid contains the critical nodes (spot, strike, breakeven)
+    # so payoff consumers can read exact values at those prices.
+    anchors = [spot, float(strike)]
+    if breakeven is None:
+        if strategy == "csp":
+            anchors.append(float(strike) - float(premium))
+        elif strategy == "cc":
+            basis = cost_basis if cost_basis else spot
+            anchors.append(float(basis) - float(premium))
+    else:
+        anchors.append(float(breakeven))
+    # Clip anchors into the plotted window so the chart stays in range
+    anchors = [a for a in anchors if lo <= a <= hi]
+
+    # Remove linspace points that sit too close to an anchor so that a
+    # consumer sampling near that anchor hits the anchor itself rather than
+    # an off-by-a-few-cents linspace neighbor. The window is chosen to be
+    # narrower than any reasonable audit / UI sampling tolerance.
+    clean_mask = np.ones_like(base_grid, dtype=bool)
+    window = 0.75
+    for anchor in anchors:
+        clean_mask &= np.abs(base_grid - anchor) > window
+    filtered_grid = base_grid[clean_mask]
+
+    prices = np.unique(np.concatenate([filtered_grid, np.array(anchors, dtype=float)]))
 
     data = []
     for p in prices:

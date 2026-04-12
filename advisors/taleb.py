@@ -56,7 +56,7 @@ class TalebAdvisor(BaseAdvisor):
 
     @property
     def name(self) -> str:
-        return "Taleb"
+        return "Nassim Taleb"
 
     @property
     def philosophy(self) -> str:

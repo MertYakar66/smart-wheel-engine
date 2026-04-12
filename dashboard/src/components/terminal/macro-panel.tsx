@@ -132,26 +132,26 @@ export function MacroPanel({ events, loading }: MacroPanelProps) {
 
           <TerminalDivider />
 
-          {/* Key indicators placeholder */}
+          {/* Key indicators — compact labels so values don't clip at narrow widths */}
           <div className="mb-1 text-[10px] font-bold text-terminal-blue">
             ─ KEY INDICATORS
           </div>
-          <div className="space-y-0.5 text-[11px]">
-            <div className="flex justify-between">
-              <span className="text-terminal-dim">Fed Funds Rate</span>
-              <span className="text-terminal-amber">5.25-5.50%</span>
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+            <div className="flex justify-between gap-1 min-w-0">
+              <span className="text-terminal-dim shrink-0">FFR</span>
+              <span className="text-terminal-amber tabular-nums truncate">5.25-5.50%</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-terminal-dim">CPI YoY</span>
-              <span className="text-terminal-text">3.1%</span>
+            <div className="flex justify-between gap-1 min-w-0">
+              <span className="text-terminal-dim shrink-0">CPI</span>
+              <span className="text-terminal-text tabular-nums truncate">3.1%</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-terminal-dim">Unemployment</span>
-              <span className="text-terminal-green">3.7%</span>
+            <div className="flex justify-between gap-1 min-w-0">
+              <span className="text-terminal-dim shrink-0">UNEMP</span>
+              <span className="text-terminal-green tabular-nums truncate">3.7%</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-terminal-dim">GDP Growth</span>
-              <span className="text-terminal-green">+3.3%</span>
+            <div className="flex justify-between gap-1 min-w-0">
+              <span className="text-terminal-dim shrink-0">GDP</span>
+              <span className="text-terminal-green tabular-nums truncate">+3.3%</span>
             </div>
           </div>
         </>

@@ -35,7 +35,7 @@ import json
 import sys
 import traceback
 from datetime import date
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
@@ -258,6 +258,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 {
                     "ticker": row["ticker"],
                     "strategy": "short_put",
+                    "spot": round(float(spot), 2) if spot else 0,
+                    "spotPrice": round(float(spot), 2) if spot else 0,
                     "strike": strike,
                     "expiration": "",
                     "premium": round(premium, 2),
@@ -541,14 +543,38 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         committee = CommitteeEngine(parallel=False)
         result = committee.evaluate(advisor_input)
 
+        # Deduplicate keyReasons across advisors so that boilerplate
+        # templates (e.g. "Probability profile: …") shared between advisors
+        # don't appear twice in the committee output. We keep the first
+        # advisor's copy and drop the duplicate from later advisors.
+        seen_reasons: set[str] = set()
         advisor_summaries = []
         for r in result.advisor_responses:
+            unique_reasons = []
+            for reason in r.key_reasons:
+                key = reason.strip().lower()
+                if key and key not in seen_reasons:
+                    seen_reasons.add(key)
+                    unique_reasons.append(reason)
+            # Guarantee each advisor keeps at least 2 reasons — if dedup
+            # stripped too many, fall back to a name-tagged fallback so the
+            # reason is still unique across the committee.
+            while len(unique_reasons) < 2:
+                fallback = (
+                    f"[{r.advisor_name}] {r.judgment.value.replace('_', ' ').title()} "
+                    f"based on {r.judgment_summary[:80]}"
+                )
+                if fallback.strip().lower() not in seen_reasons:
+                    seen_reasons.add(fallback.strip().lower())
+                    unique_reasons.append(fallback)
+                else:
+                    break
             advisor_summaries.append(
                 {
                     "name": r.advisor_name,
                     "judgment": r.judgment.value,
                     "summary": r.judgment_summary,
-                    "keyReasons": r.key_reasons[:3],
+                    "keyReasons": unique_reasons[:3],
                     "criticalQuestions": r.critical_questions[:3],
                     "hiddenRisks": r.hidden_risks[:3],
                     "confidence": r.confidence.value,
@@ -568,6 +594,24 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "risksUnresolved": result.unresolved_risks[:4],
                 "requiredActions": result.required_before_trade[:4],
                 "report": format_committee_report(result),
+                "trade": {
+                    "ticker": trade.ticker,
+                    "strategy": "short_put",
+                    "strike": trade.strike,
+                    "spot": spot,
+                    "spotPrice": spot,
+                    "dte": trade.dte,
+                    "delta": trade.delta,
+                    "premium": trade.premium,
+                    "expectedValue": trade.expected_value,
+                    "pOtm": trade.p_otm,
+                    "ivRank": trade.iv_rank,
+                    "theta": trade.theta,
+                    "vega": trade.vega,
+                    "gamma": trade.gamma,
+                    "contracts": trade.contracts,
+                    "earningsBeforeExpiry": trade.earnings_before_expiry,
+                },
             }
         )
 
@@ -619,16 +663,20 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 premium = float(spot * _norm.cdf(d1) - strike * np.exp(-0.04 * T) * _norm.cdf(d2))
             premium = max(0.01, premium)
 
-        data = compute_payoff(spot, strike, premium, strategy)
+        # Round premium once so every downstream field stays consistent.
+        premium = round(premium, 2)
+        breakeven = round((strike - premium) if strategy == "csp" else (spot - premium), 2)
+        data = compute_payoff(spot, strike, premium, strategy, breakeven=breakeven)
 
         self._send_json(
             {
                 "ticker": ticker,
                 "strategy": strategy,
                 "spot": spot,
+                "spotPrice": spot,
                 "strike": strike,
-                "premium": round(premium, 2),
-                "breakeven": round(strike - premium if strategy == "csp" else spot - premium, 2),
+                "premium": premium,
+                "breakeven": breakeven,
                 "maxProfit": round(premium * 100, 2),
                 "maxLoss": round((strike - premium) * 100 if strategy == "csp" else 0, 2),
                 "data": data,
@@ -804,7 +852,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             from engine.strangle_timing import StrangleTimingEngine
 
             engine = StrangleTimingEngine()
-            hist = engine.compute_historical_scores(ohlcv, lookback_required=100)
+            # Only compute scores for the requested window so long histories
+            # don't blow up into an O(N) loop across years of data.
+            hist = engine.compute_historical_scores(ohlcv, lookback_required=100, last_n=days)
             data = []
             if not hist.empty:
                 for _, row in hist.tail(days).iterrows():
@@ -943,7 +993,11 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 def main():
     port = 8787
-    server = HTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    # ThreadingHTTPServer spawns one thread per request so a slow committee
+    # or memo call can't block the 5+ parallel fetches the dashboard fires
+    # when a trader switches tickers.
+    server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    server.daemon_threads = True
     print(f"Smart Wheel Engine API running on http://localhost:{port}")
     print("Endpoints:")
     print("  GET /api/status")

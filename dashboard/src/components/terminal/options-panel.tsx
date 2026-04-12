@@ -78,40 +78,56 @@ export function OptionsPanel({
 
       <TerminalDivider />
 
-      {/* Portfolio Stats */}
-      <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-        ─ PORTFOLIO
-      </div>
-      <TerminalRow label="Open Positions" value={portfolio.openPositions} />
-      <TerminalRow
-        label="Premium Collected"
-        value={`$${portfolio.totalPremiumCollected.toLocaleString()}`}
-        valueColor="text-terminal-green"
-      />
-      <TerminalRow
-        label="Win Rate"
-        value={`${portfolio.winRate.toFixed(1)}%`}
-        valueColor={
-          portfolio.winRate >= 70
-            ? "text-terminal-green"
-            : "text-terminal-amber"
-        }
-      />
-      <TerminalRow label="Avg Days Held" value={portfolio.avgDaysHeld} />
-
-      <TerminalDivider />
+      {/* Portfolio Stats — collapse when empty to stop wasting real estate */}
+      {portfolio.openPositions > 0 ? (
+        <>
+          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+            ─ PORTFOLIO
+          </div>
+          <TerminalRow label="Open Positions" value={portfolio.openPositions} />
+          <TerminalRow
+            label="Premium Collected"
+            value={`$${portfolio.totalPremiumCollected.toLocaleString()}`}
+            valueColor="text-terminal-green"
+          />
+          <TerminalRow
+            label="Win Rate"
+            value={`${portfolio.winRate.toFixed(1)}%`}
+            valueColor={
+              portfolio.winRate >= 70
+                ? "text-terminal-green"
+                : "text-terminal-amber"
+            }
+          />
+          <TerminalRow label="Avg Days Held" value={portfolio.avgDaysHeld} />
+          <TerminalDivider />
+        </>
+      ) : (
+        <>
+          <div className="py-1 text-[10px] text-terminal-dim italic">
+            No active positions — scan below to find entries
+          </div>
+          <TerminalDivider />
+        </>
+      )}
 
       {/* Wheel Scanner - Trade Candidates */}
       <div className="mb-1 text-[10px] font-bold text-terminal-blue">
         ─ WHEEL SCANNER
       </div>
-      <div className="flex items-center justify-between py-[1px] text-[10px] text-terminal-dim">
-        <span className="w-12">SYM</span>
-        <span className="w-14">TYPE</span>
-        <span className="w-12 text-right">STRIKE</span>
-        <span className="w-12 text-right">PROB</span>
-        <span className="w-14 text-right">EV</span>
-        <span className="w-10 text-right">SCR</span>
+      <div
+        className="grid gap-x-1 py-[1px] text-[10px] text-terminal-dim"
+        style={{
+          gridTemplateColumns:
+            "minmax(42px,1fr) 28px minmax(52px,1fr) minmax(42px,1fr) minmax(56px,1fr) minmax(36px,1fr)",
+        }}
+      >
+        <span>SYM</span>
+        <span>TYPE</span>
+        <span className="text-right">STRIKE</span>
+        <span className="text-right">PROB</span>
+        <span className="text-right">EV</span>
+        <span className="text-right">SCR</span>
       </div>
       <TerminalDivider />
 
@@ -123,51 +139,53 @@ export function OptionsPanel({
         trades.map((trade, i) => (
           <div
             key={i}
-            className="flex items-center justify-between py-[2px] hover:bg-terminal-border/30"
+            className="grid gap-x-1 py-[2px] items-center hover:bg-terminal-border/30"
+            style={{
+              gridTemplateColumns:
+                "minmax(42px,1fr) 28px minmax(52px,1fr) minmax(42px,1fr) minmax(56px,1fr) minmax(36px,1fr)",
+            }}
           >
-            <span className="w-12 text-terminal-amber">{trade.ticker}</span>
-            <span className="w-14">
+            <span className="text-terminal-amber truncate">{trade.ticker}</span>
+            <span>
               <TerminalBadge
-                variant={
-                  trade.strategy === "short_put" ? "blue" : "green"
-                }
+                variant={trade.strategy === "short_put" ? "blue" : "green"}
               >
                 {trade.strategy === "short_put" ? "SP" : "CC"}
               </TerminalBadge>
             </span>
-            <span className="w-12 text-right text-terminal-text">
+            <span className="text-right text-terminal-text tabular-nums">
               ${trade.strike}
             </span>
             <span
-              className={`w-12 text-right ${
+              className={`text-right tabular-nums ${
                 trade.probability >= 75
                   ? "text-terminal-green"
                   : trade.probability >= 60
-                  ? "text-terminal-amber"
-                  : "text-terminal-red"
+                    ? "text-terminal-amber"
+                    : "text-terminal-red"
               }`}
             >
-              {trade.probability}%
+              {trade.probability.toFixed(0)}%
             </span>
             <span
-              className={`w-14 text-right ${
+              className={`text-right tabular-nums ${
                 trade.expectedPnL >= 0
                   ? "text-terminal-green"
                   : "text-terminal-red"
               }`}
             >
-              ${trade.expectedPnL}
+              ${trade.expectedPnL.toFixed(2)}
             </span>
             <span
-              className={`w-10 text-right font-bold ${
+              className={`text-right font-bold tabular-nums ${
                 trade.score >= 80
                   ? "text-terminal-green"
                   : trade.score >= 60
-                  ? "text-terminal-amber"
-                  : "text-terminal-text"
+                    ? "text-terminal-amber"
+                    : "text-terminal-text"
               }`}
             >
-              {trade.score}
+              {trade.score.toFixed(1)}
             </span>
           </div>
         ))
@@ -185,12 +203,12 @@ export function OptionsPanel({
           <TerminalRow label="IV" value={`${trades[0].iv.toFixed(1)}%`} />
           <TerminalRow
             label="Premium"
-            value={`$${trades[0].premium}`}
+            value={`$${trades[0].premium.toFixed(2)}`}
             valueColor="text-terminal-green"
           />
           <TerminalRow
             label="Max Loss"
-            value={`$${trades[0].maxLoss}`}
+            value={`$${trades[0].maxLoss.toLocaleString()}`}
             valueColor="text-terminal-red"
           />
         </div>

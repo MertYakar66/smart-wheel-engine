@@ -24,7 +24,7 @@ class TestTalebAdvisor:
     def test_taleb_evaluates(self):
         advisor = TalebAdvisor()
         result = advisor.evaluate(_sample_input())
-        assert result.advisor_name == "Taleb"
+        assert result.advisor_name == "Nassim Taleb"
         assert result.judgment is not None
         assert len(result.key_reasons) >= 2
         assert len(result.critical_questions) >= 1

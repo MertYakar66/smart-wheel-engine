@@ -38,7 +38,7 @@ class SimonsAdvisor(BaseAdvisor):
 
     @property
     def name(self) -> str:
-        return "Simons"
+        return "Jim Simons"
 
     @property
     def philosophy(self) -> str:

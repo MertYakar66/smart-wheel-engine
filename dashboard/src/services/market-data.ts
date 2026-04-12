@@ -17,11 +17,14 @@ export async function fetchQuoteFromFinnhub(
 ): Promise<Quote | null> {
   try {
     const key = getApiKey();
-    const url = `${FINNHUB_BASE}/quote?symbol=${encodeURIComponent(ticker)}${key ? `&token=${key}` : ""}`;
+    // Finnhub's quote endpoint now requires a key. Skip entirely if none
+    // is configured so the watchlist doesn't wait 10s on a sure failure.
+    if (!key) return null;
+    const url = `${FINNHUB_BASE}/quote?symbol=${encodeURIComponent(ticker)}&token=${key}`;
 
     const res = await fetch(url, {
       headers: { "User-Agent": "FinanceNewsPlatform/1.0" },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) return null;
@@ -65,11 +68,18 @@ export async function getLatestSnapshot(
     orderBy: [desc(marketSnapshots.capturedAt)],
   });
 
-  if (!result) return null;
+  // Reject empty / zero-price rows so the caller falls through to a fresh
+  // engine/Finnhub fetch instead of rendering a meaningless "$0".
+  if (!result || !result.price || result.price <= 0) return null;
+  // Also reject snapshots older than 24h — wheel scanning needs fresh data.
+  const captured = new Date(result.capturedAt).getTime();
+  if (Number.isFinite(captured) && Date.now() - captured > 24 * 3600 * 1000) {
+    return null;
+  }
 
   return {
     ticker: result.ticker,
-    price: result.price || 0,
+    price: result.price,
     changePct: result.changePct || 0,
     volume: result.volume || 0,
     capturedAt: result.capturedAt,

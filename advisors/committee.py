@@ -590,13 +590,13 @@ class CommitteeEngine:
             weaknesses.append(f"Margin usage at {margin_pct:.0f}% — approaching dangerous levels")
 
         # Advisor-specific flavor
-        if advisor.name == "Buffett":
+        if "Buffett" in advisor.name:
             blind_spots.append("Are all positions in businesses you would want to own outright?")
-        elif advisor.name == "Munger":
+        elif "Munger" in advisor.name:
             blind_spots.append("What is the most obvious way this portfolio gets destroyed?")
-        elif advisor.name == "Simons":
+        elif "Simons" in advisor.name:
             blind_spots.append("Is the edge statistically validated across multiple regimes?")
-        elif advisor.name == "Taleb":
+        elif "Taleb" in advisor.name:
             blind_spots.append("Is this portfolio robust to a 3-sigma correlation spike?")
 
         # Overall assessment
@@ -811,11 +811,11 @@ class CommitteeEngine:
             grade = "D" if total_pnl > -5000 else "F"
 
         # Advisor flavor
-        if advisor.name == "Munger":
+        if "Munger" in advisor.name:
             lessons.append("Invert: which trades should you have NEVER taken?")
-        elif advisor.name == "Taleb":
+        elif "Taleb" in advisor.name:
             lessons.append("Check if losses were correlated — a fragility signal")
-        elif advisor.name == "Simons":
+        elif "Simons" in advisor.name:
             lessons.append("Run these results through walk-forward validation before trusting")
 
         return PostMortemResponse(

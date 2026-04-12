@@ -75,6 +75,20 @@ interface AnalysisData {
   creditRating: string;
 }
 
+function formatPhase(phase: string): string {
+  // Map internal regime phase codes to human-readable labels so the UI
+  // never surfaces raw enum strings like "POST_EXPANSION".
+  const map: Record<string, string> = {
+    compression: "Compression",
+    expansion: "Expansion",
+    post_expansion: "Post-Expansion",
+    trend: "Trending",
+    unknown: "Neutral",
+  };
+  const key = (phase || "").toLowerCase();
+  return map[key] ?? "Neutral";
+}
+
 const CHART_COLORS = {
   price: "#e2e8f0",
   upper: "#ef4444",
@@ -83,8 +97,8 @@ const CHART_COLORS = {
   area: "#06b6d4",
   volume: "#334155",
   rsi: "#8b5cf6",
-  rsi2: "#f97316",
-  atr: "#06b6d4",
+  rsi2: "#22d3ee",
+  atr: "#f97316",
   sma20: "#eab308",
   sma50: "#8b5cf6",
   score: "#22c55e",
@@ -127,61 +141,110 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
     period_vol: number;
   } | null>(null);
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const fetchChart = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
+    // Clear stale chart data so a prior chart type (e.g. bollinger) can't
+    // leak its rows into a new chart type (e.g. payoff) when the new fetch
+    // is slow or fails.
+    setChartData([]);
+    if (chartType === "payoff") {
+      setPayoffMeta(null);
+      setStrikes([]);
+      setExpectedMove(null);
+    }
+    if (chartType === "memo") {
+      setMemoText("");
+    }
+
+    // Every fetch is abortable, with a per-type timeout. Memo can take the
+    // longest (Ollama), payoff bundle is medium, everything else is fast.
+    const controller = new AbortController();
+    const timeoutMs =
+      chartType === "memo" ? 60000 : chartType === "payoff" ? 45000 : 30000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       if (chartType === "payoff") {
-        // Fetch payoff diagram + strikes + expected move in parallel with timeout
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        try {
-          const [payRes, strikesRes, emRes] = await Promise.all([
-            fetch(`/api/engine?action=payoff&ticker=${ticker}&strategy=csp&dte=45`, { signal: controller.signal }),
-            fetch(`/api/engine?action=strikes&ticker=${ticker}&strategy=csp&dte=45`, { signal: controller.signal }),
-            fetch(`/api/engine?action=expected_move&ticker=${ticker}&dte=45`, { signal: controller.signal }),
-          ]);
-          if (payRes.ok) {
-            const json = await payRes.json();
-            setChartData(json.data || []);
-            setPayoffMeta({
-              strike: json.strike,
-              premium: json.premium,
-              breakeven: json.breakeven,
-              maxProfit: json.maxProfit,
-              maxLoss: json.maxLoss,
-              strategy: json.strategy,
-            });
-          }
-          if (strikesRes.ok) {
-            const json = await strikesRes.json();
-            setStrikes(json.recommendations || []);
-          }
-          if (emRes.ok) {
-            const json = await emRes.json();
-            setExpectedMove({ bands: json.bands || [], period_vol: json.period_vol || 0 });
-          }
-        } finally {
-          clearTimeout(timeout);
+        const [payRes, strikesRes, emRes] = await Promise.all([
+          fetch(
+            `/api/engine?action=payoff&ticker=${ticker}&strategy=csp&dte=45`,
+            { signal: controller.signal },
+          ),
+          fetch(
+            `/api/engine?action=strikes&ticker=${ticker}&strategy=csp&dte=45`,
+            { signal: controller.signal },
+          ),
+          fetch(`/api/engine?action=expected_move&ticker=${ticker}&dte=45`, {
+            signal: controller.signal,
+          }),
+        ]);
+        if (payRes.ok) {
+          const json = await payRes.json();
+          setChartData(json.data || []);
+          setPayoffMeta({
+            strike: json.strike,
+            premium: json.premium,
+            breakeven: json.breakeven,
+            maxProfit: json.maxProfit,
+            maxLoss: json.maxLoss,
+            strategy: json.strategy,
+          });
+        } else {
+          setFetchError(`Payoff API returned ${payRes.status}`);
+        }
+        if (strikesRes.ok) {
+          const json = await strikesRes.json();
+          setStrikes(json.recommendations || []);
+        }
+        if (emRes.ok) {
+          const json = await emRes.json();
+          setExpectedMove({
+            bands: json.bands || [],
+            period_vol: json.period_vol || 0,
+          });
         }
       } else if (chartType === "memo") {
-        const res = await fetch(`/api/engine?action=memo&ticker=${ticker}`);
+        const res = await fetch(`/api/engine?action=memo&ticker=${ticker}`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const json = await res.json();
-          setMemoText(json.memo || "No memo generated. Ensure Ollama is running.");
+          setMemoText(
+            json.memo ||
+              "No memo generated. Ensure Ollama is running (qwen2.5:72b).",
+          );
+        } else {
+          setFetchError(`Memo API returned ${res.status}`);
+          setMemoText(`Memo unavailable (API ${res.status}).`);
         }
       } else {
         const res = await fetch(
-          `/api/engine?action=chart&chart_type=${chartType}&ticker=${ticker}&days=${days}`
+          `/api/engine?action=chart&chart_type=${chartType}&ticker=${ticker}&days=${days}`,
+          { signal: controller.signal },
         );
         if (res.ok) {
           const json = await res.json();
           setChartData(json.data || []);
+        } else {
+          setFetchError(`${chartType.toUpperCase()} API returned ${res.status}`);
         }
       }
-    } catch {
-      // silent
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("abort")) {
+        setFetchError(
+          `Request timed out after ${timeoutMs / 1000}s — engine may be busy`,
+        );
+      } else {
+        setFetchError(`Engine error: ${msg}`);
+      }
+    } finally {
+      clearTimeout(timeout);
+      setLoading(false);
     }
-    setLoading(false);
   }, [ticker, chartType, days]);
 
   const fetchAnalysis = useCallback(async () => {
@@ -313,8 +376,7 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
                       : "red"
                 }
               >
-                {analysis.strangleScore.toFixed(0)}/100{" "}
-                {analysis.stranglePhase}
+                {analysis.strangleScore.toFixed(0)}/100 {formatPhase(analysis.stranglePhase)}
               </TerminalBadge>
             </div>
           )}
@@ -322,13 +384,13 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
         </>
       )}
 
-      {/* Chart Type Selector */}
-      <div className="flex items-center gap-1 mb-1">
+      {/* Chart Type Selector — flex-wrap so no button is pushed off-screen */}
+      <div className="flex flex-wrap items-center gap-1 mb-1">
         {chartButtons.map((btn) => (
           <button
             key={btn.type}
             onClick={() => setChartType(btn.type)}
-            className={`px-2 py-[2px] text-[9px] font-mono border ${
+            className={`px-2 py-[2px] text-[9px] font-mono border flex-shrink-0 ${
               chartType === btn.type
                 ? "border-terminal-blue text-terminal-blue bg-terminal-blue/10"
                 : "border-terminal-border text-terminal-dim hover:text-terminal-text"
@@ -342,7 +404,7 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
           <button
             key={btn.d}
             onClick={() => setDays(btn.d)}
-            className={`px-1 py-[2px] text-[9px] font-mono ${
+            className={`px-1 py-[2px] text-[9px] font-mono flex-shrink-0 ${
               days === btn.d
                 ? "text-terminal-amber"
                 : "text-terminal-dim hover:text-terminal-text"
@@ -356,16 +418,33 @@ export function ChartPanel({ ticker, onClose }: ChartPanelProps) {
       {/* Chart */}
       <div className="h-[280px] w-full" style={{ minWidth: 0, minHeight: 0 }}>
         {loading ? (
-          <div className="flex items-center justify-center h-full text-terminal-dim">
-            Loading chart data...
+          <div className="flex flex-col items-center justify-center h-full text-terminal-dim gap-1">
+            <span>Loading {ticker} {chartType.toUpperCase()}...</span>
+            {chartType === "memo" && (
+              <span className="text-[9px]">
+                AI memos can take 30–60s on first request
+              </span>
+            )}
           </div>
         ) : chartType === "memo" ? (
           <div className="h-full overflow-y-auto px-2 py-1 text-[11px] text-terminal-text whitespace-pre-wrap font-mono leading-relaxed">
-            {memoText || "Generating trade memo... (requires Ollama with qwen2.5:72b)"}
+            {memoText ||
+              fetchError ||
+              "Generating trade memo... (requires Ollama with qwen2.5:72b)"}
+          </div>
+        ) : fetchError ? (
+          <div className="flex flex-col items-center justify-center h-full text-terminal-red gap-1">
+            <span>⚠ {fetchError}</span>
+            <button
+              onClick={fetchChart}
+              className="text-[10px] text-terminal-dim underline hover:text-terminal-text"
+            >
+              retry
+            </button>
           </div>
         ) : chartData.length === 0 ? (
           <div className="flex items-center justify-center h-full text-terminal-dim">
-            No data available
+            No data available for {ticker}
           </div>
         ) : (
           <div key={chartType} className="w-full h-full" style={{ minWidth: 0, minHeight: 0 }}>
@@ -483,6 +562,7 @@ function BollingerChart({ data }: { data: ChartData[] }) {
           tick={{ fontSize: 8, fill: "#64748b" }}
           domain={["auto", "auto"]}
           width={50}
+          tickFormatter={(v: number) => `$${v.toFixed(0)}`}
         />
         <Tooltip
           contentStyle={{
@@ -491,21 +571,35 @@ function BollingerChart({ data }: { data: ChartData[] }) {
             fontSize: 10,
             color: "#e2e8f0",
           }}
+          formatter={(value: number | undefined, name: string | undefined) => {
+            if (value == null || !name) return ["", name ?? ""];
+            return [`$${value.toFixed(2)}`, name];
+          }}
         />
+        {/* Translucent fill between upper/lower — stacked order matters */}
         <Area
           dataKey="upper"
           stroke="none"
           fill={CHART_COLORS.area}
           fillOpacity={0.05}
+          activeDot={false}
+          legendType="none"
+          isAnimationActive={false}
+          tooltipType="none"
         />
         <Area
           dataKey="lower"
           stroke="none"
           fill="#0f172a"
           fillOpacity={1}
+          activeDot={false}
+          legendType="none"
+          isAnimationActive={false}
+          tooltipType="none"
         />
         <Line
           dataKey="upper"
+          name="Upper BB"
           stroke={CHART_COLORS.upper}
           strokeWidth={1}
           dot={false}
@@ -513,12 +607,14 @@ function BollingerChart({ data }: { data: ChartData[] }) {
         />
         <Line
           dataKey="middle"
+          name="SMA(20)"
           stroke={CHART_COLORS.middle}
           strokeWidth={1}
           dot={false}
         />
         <Line
           dataKey="lower"
+          name="Lower BB"
           stroke={CHART_COLORS.lower}
           strokeWidth={1}
           dot={false}
@@ -526,6 +622,7 @@ function BollingerChart({ data }: { data: ChartData[] }) {
         />
         <Line
           dataKey="close"
+          name="Close"
           stroke={CHART_COLORS.price}
           strokeWidth={1.5}
           dot={false}
@@ -552,6 +649,7 @@ function RSIChart({ data }: { data: ChartData[] }) {
           tick={{ fontSize: 8, fill: "#64748b" }}
           domain={[0, 100]}
           width={30}
+          ticks={[0, 30, 50, 70, 100]}
         />
         <Tooltip
           contentStyle={{
@@ -560,10 +658,28 @@ function RSIChart({ data }: { data: ChartData[] }) {
             fontSize: 10,
             color: "#e2e8f0",
           }}
+          formatter={(value: number | undefined, name: string | undefined) =>
+            value == null ? ["", name ?? ""] : [value.toFixed(1), name ?? ""]
+          }
         />
-        <ReferenceLine y={70} stroke={CHART_COLORS.upper} strokeDasharray="3 3" />
-        <ReferenceLine y={30} stroke={CHART_COLORS.lower} strokeDasharray="3 3" />
-        <ReferenceLine y={50} stroke="#475569" strokeDasharray="2 4" />
+        <ReferenceLine
+          y={70}
+          stroke={CHART_COLORS.upper}
+          strokeDasharray="3 3"
+          label={{ value: "70", fill: "#ef4444", fontSize: 8, position: "left" }}
+        />
+        <ReferenceLine
+          y={30}
+          stroke={CHART_COLORS.lower}
+          strokeDasharray="3 3"
+          label={{ value: "30", fill: "#22c55e", fontSize: 8, position: "left" }}
+        />
+        <ReferenceLine
+          y={50}
+          stroke="#64748b"
+          strokeDasharray="2 4"
+          strokeOpacity={0.4}
+        />
         <Line
           dataKey="rsi_14"
           stroke={CHART_COLORS.rsi}
@@ -577,7 +693,7 @@ function RSIChart({ data }: { data: ChartData[] }) {
           strokeWidth={1}
           dot={false}
           name="RSI(2)"
-          opacity={0.6}
+          opacity={0.7}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -587,6 +703,15 @@ function RSIChart({ data }: { data: ChartData[] }) {
 // ─── ATR Chart ─────────────────────────────────────────────────────────
 
 function ATRChart({ data }: { data: ChartData[] }) {
+  // Compute the mean so we can render a reference line for context
+  const atrValues = data
+    .map((d) => d.atr)
+    .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+  const atrMean =
+    atrValues.length > 0
+      ? atrValues.reduce((a, b) => a + b, 0) / atrValues.length
+      : null;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
@@ -601,6 +726,7 @@ function ATRChart({ data }: { data: ChartData[] }) {
           tick={{ fontSize: 8, fill: "#64748b" }}
           domain={["auto", "auto"]}
           width={40}
+          tickFormatter={(v: number) => `$${v.toFixed(1)}`}
         />
         <Tooltip
           contentStyle={{
@@ -609,12 +735,29 @@ function ATRChart({ data }: { data: ChartData[] }) {
             fontSize: 10,
             color: "#e2e8f0",
           }}
+          formatter={(value: number | undefined, name: string | undefined) =>
+            value == null ? ["", name ?? ""] : [`$${value.toFixed(2)}`, name ?? ""]
+          }
         />
+        {atrMean !== null && (
+          <ReferenceLine
+            y={atrMean}
+            stroke="#94a3b8"
+            strokeDasharray="4 4"
+            strokeOpacity={0.5}
+            label={{
+              value: `avg $${atrMean.toFixed(2)}`,
+              fill: "#94a3b8",
+              fontSize: 8,
+              position: "right",
+            }}
+          />
+        )}
         <Area
           dataKey="atr"
           stroke={CHART_COLORS.atr}
           fill={CHART_COLORS.atr}
-          fillOpacity={0.15}
+          fillOpacity={0.3}
           strokeWidth={1.5}
           name="ATR(14)"
         />
@@ -624,6 +767,13 @@ function ATRChart({ data }: { data: ChartData[] }) {
 }
 
 // ─── OHLCV Chart ───────────────────────────────────────────────────────
+
+function formatVolume(v: number): string {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return String(v);
+}
 
 function OHLCVChart({ data }: { data: ChartData[] }) {
   return (
@@ -641,12 +791,14 @@ function OHLCVChart({ data }: { data: ChartData[] }) {
           tick={{ fontSize: 8, fill: "#64748b" }}
           domain={["auto", "auto"]}
           width={50}
+          tickFormatter={(v: number) => `$${v.toFixed(0)}`}
         />
         <YAxis
           yAxisId="vol"
           orientation="right"
           tick={{ fontSize: 8, fill: "#334155" }}
           width={40}
+          tickFormatter={formatVolume}
         />
         <Tooltip
           contentStyle={{
@@ -655,16 +807,23 @@ function OHLCVChart({ data }: { data: ChartData[] }) {
             fontSize: 10,
             color: "#e2e8f0",
           }}
+          formatter={(value: number | undefined, name: string | undefined) => {
+            if (value == null) return ["", name ?? ""];
+            if (name === "Volume") return [formatVolume(value), name];
+            return [`$${value.toFixed(2)}`, name ?? ""];
+          }}
         />
         <Bar
           yAxisId="vol"
           dataKey="volume"
+          name="Volume"
           fill={CHART_COLORS.volume}
           opacity={0.4}
         />
         <Line
           yAxisId="price"
           dataKey="close"
+          name="Close"
           stroke={CHART_COLORS.price}
           strokeWidth={1.5}
           dot={false}
@@ -672,6 +831,7 @@ function OHLCVChart({ data }: { data: ChartData[] }) {
         <Line
           yAxisId="price"
           dataKey="sma20"
+          name="SMA(20)"
           stroke={CHART_COLORS.sma20}
           strokeWidth={1}
           dot={false}
@@ -680,6 +840,7 @@ function OHLCVChart({ data }: { data: ChartData[] }) {
         <Line
           yAxisId="price"
           dataKey="sma50"
+          name="SMA(50)"
           stroke={CHART_COLORS.sma50}
           strokeWidth={1}
           dot={false}
@@ -762,8 +923,12 @@ function PayoffChart({
             fontSize: 10,
             color: "#e2e8f0",
           }}
-          formatter={(value: number) => [`$${value.toFixed(0)}`, "P&L"]}
-          labelFormatter={(label: number) => `Price: $${label}`}
+          formatter={(value: number | undefined) =>
+            value == null ? ["", "P&L"] : [`$${value.toFixed(0)}`, "P&L"]
+          }
+          labelFormatter={(label) =>
+            typeof label === "number" ? `Price: $${label}` : String(label ?? "")
+          }
         />
         <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
         {meta && (

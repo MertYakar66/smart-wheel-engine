@@ -562,6 +562,7 @@ class StrangleTimingEngine:
         self,
         df: pd.DataFrame,
         lookback_required: int = 100,
+        last_n: int | None = None,
     ) -> pd.DataFrame:
         """
         Compute entry scores for every date in the history.
@@ -571,13 +572,27 @@ class StrangleTimingEngine:
         Args:
             df: OHLCV DataFrame
             lookback_required: Minimum rows needed before scoring
+            last_n: If set, only compute scores for the last N rows
+                (still uses full history for indicator warm-up).
+                Without this the loop is O(N) in df length, which
+                can take >60 s for multi-year Bloomberg histories.
 
         Returns:
             DataFrame with date index and score columns
         """
         scores = []
-        for i in range(lookback_required, len(df)):
-            window = df.iloc[: i + 1]
+        start_idx = lookback_required
+        if last_n is not None and last_n > 0:
+            start_idx = max(start_idx, len(df) - int(last_n))
+
+        # Cap the scoring window so each iteration is O(1) in history size
+        # rather than O(i). 250 rows comfortably covers the longest rolling
+        # indicator (200-day BB) plus headroom.
+        window_cap = 260
+
+        for i in range(start_idx, len(df)):
+            window_start = max(0, i + 1 - window_cap)
+            window = df.iloc[window_start : i + 1]
             try:
                 score = self.score_entry(window)
                 scores.append(

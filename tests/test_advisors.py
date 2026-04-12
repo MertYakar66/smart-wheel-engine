@@ -260,7 +260,7 @@ class TestBaseAdvisor:
     def test_advisor_has_required_properties(self):
         """Test advisor has name and philosophy."""
         advisor = BuffettAdvisor()
-        assert advisor.name == "Buffett"
+        assert advisor.name == "Warren Buffett"
         assert len(advisor.philosophy) > 0
         assert len(advisor.system_prompt) > 0
 
@@ -288,7 +288,7 @@ class TestBuffettAdvisor:
 
     def test_advisor_name(self, advisor):
         """Test advisor name is correct."""
-        assert advisor.name == "Buffett"
+        assert advisor.name == "Warren Buffett"
 
     def test_advisor_philosophy(self, advisor):
         """Test advisor has philosophy."""
@@ -299,7 +299,7 @@ class TestBuffettAdvisor:
         response = advisor.evaluate(quality_stock_input)
 
         assert isinstance(response, AdvisorResponse)
-        assert response.advisor_name == "Buffett"
+        assert response.advisor_name == "Warren Buffett"
         assert response.judgment is not None
 
     def test_response_has_required_fields(self, advisor, quality_stock_input):
@@ -344,7 +344,7 @@ class TestMungerAdvisor:
 
     def test_advisor_name(self, advisor):
         """Test advisor name is correct."""
-        assert advisor.name == "Munger"
+        assert advisor.name == "Charlie Munger"
 
     def test_advisor_philosophy(self, advisor):
         """Test advisor has inversion philosophy."""
@@ -355,7 +355,7 @@ class TestMungerAdvisor:
         response = advisor.evaluate(sample_input)
 
         assert isinstance(response, AdvisorResponse)
-        assert response.advisor_name == "Munger"
+        assert response.advisor_name == "Charlie Munger"
 
     def test_identifies_biases(self, advisor, sample_input):
         """Test advisor identifies cognitive biases."""
@@ -412,7 +412,7 @@ class TestSimonsAdvisor:
 
     def test_advisor_name(self, advisor):
         """Test advisor name is correct."""
-        assert advisor.name == "Simons"
+        assert advisor.name == "Jim Simons"
 
     def test_advisor_philosophy(self, advisor):
         """Test advisor has statistical philosophy."""
@@ -423,7 +423,7 @@ class TestSimonsAdvisor:
         response = advisor.evaluate(high_ev_input)
 
         assert isinstance(response, AdvisorResponse)
-        assert response.advisor_name == "Simons"
+        assert response.advisor_name == "Jim Simons"
 
     def test_high_ev_favorable(self, advisor, high_ev_input):
         """Test high EV trades get favorable treatment."""

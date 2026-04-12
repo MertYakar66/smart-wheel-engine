@@ -260,7 +260,14 @@ export interface WheelTrade {
 }
 
 export interface MarketRegime {
-  regime: "BULL" | "BEAR" | "NEUTRAL" | "HIGH_VOL";
+  regime:
+    | "BULL"
+    | "BEAR"
+    | "NEUTRAL"
+    | "HIGH_VOL"
+    | "ELEVATED"
+    | "LOW_VOL"
+    | "---";
   vix: number;
   trendScore: number;
   confidence: number;

@@ -29,6 +29,13 @@ Endpoints:
   GET /api/memo?ticker=AAPL               - AI trade memo (72B model)
   GET /api/summary?ticker=AAPL            - Quick AI summary (32B model)
   GET /api/ollama_status                  - Check Ollama/model availability
+
+TradingView bridge:
+  GET  /api/tv/signal?ticker=AAPL         - Canonical TV-parity signal for ticker
+  GET  /api/tv/scan?limit=25&zone=wheel_put - Screen universe for TV zones
+  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
+  GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
+  POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
 import json
@@ -75,6 +82,13 @@ class NumpyEncoder(json.JSONEncoder):
 # Global engine instance (lazy-loaded)
 _runner = None
 _connector = None
+
+# In-memory ring buffer of ingested TradingView webhook alerts. The bridge is
+# designed for a single-user private deployment, so we intentionally avoid
+# adding a database dependency — the buffer is rebuilt on each server start
+# and served back through /api/tv/alerts for the dashboard to display.
+_TV_ALERT_LOG: list[dict] = []
+_TV_ALERT_LOG_MAX = 200
 
 
 def get_runner():
@@ -197,6 +211,45 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_summary(ticker)
             elif path == "/api/ollama_status":
                 self._handle_ollama_status()
+            elif path == "/api/tv/signal":
+                ticker = (param("ticker", "") or "").upper()
+                self._handle_tv_signal(ticker, param("as_of"))
+            elif path == "/api/tv/scan":
+                self._handle_tv_scan(
+                    param("limit", "25"),
+                    param("phase"),
+                    param("zone"),
+                )
+            elif path == "/api/tv/enrich":
+                ticker = (param("ticker", "") or "").upper()
+                self._handle_tv_enrich(
+                    ticker,
+                    param("signal", "wheel_put_zone"),
+                    param("as_of"),
+                )
+            elif path == "/api/tv/alerts":
+                self._handle_tv_alerts(int(param("limit", "50")))
+            else:
+                self._send_error(f"Unknown endpoint: {path}", 404)
+        except Exception as e:
+            traceback.print_exc()
+            self._send_error(str(e))
+
+    def do_POST(self):
+        """Handle POST requests — currently only TradingView webhook alerts."""
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/")
+        try:
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            raw = self.rfile.read(length) if length else b""
+            try:
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except json.JSONDecodeError as exc:
+                self._send_error(f"Invalid JSON: {exc}", 400)
+                return
+
+            if path == "/api/tv/webhook":
+                self._handle_tv_webhook(payload)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -963,6 +1016,307 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             )
         self._send_json({"ticker": ticker, "data": data})
 
+    # ------------------------------------------------------------------
+    # TradingView bridge handlers
+    # ------------------------------------------------------------------
+
+    def _handle_tv_signal(self, ticker: str, as_of):
+        """Return the canonical TV-parity signal for a single ticker.
+
+        This endpoint is the "pull" side of the bridge: TradingView can be
+        polled from an external poller, or a power user can paste the JSON
+        into their own Pine script overlay, and the engine always replies
+        with the same shape that ``tv_signals.compute_tv_signal`` produces.
+        """
+        from engine.tv_signals import compute_tv_signal
+
+        if not ticker:
+            self._send_error("ticker parameter is required", 400)
+            return
+
+        conn = get_connector()
+        ohlcv = conn.get_ohlcv(ticker)
+        if ohlcv is None or ohlcv.empty:
+            self._send_json({"error": f"Ticker '{ticker}' not found"}, 404)
+            return
+
+        # Optional IV overlay from fundamentals (not required)
+        iv_rank = None
+        vol_risk_premium = None
+        try:
+            iv_rank = conn.get_iv_rank(ticker, as_of)
+        except Exception:
+            iv_rank = None
+        try:
+            vol_risk_premium = conn.get_vol_risk_premium(ticker, as_of)
+        except Exception:
+            vol_risk_premium = None
+
+        signal = compute_tv_signal(
+            ohlcv,
+            ticker=ticker,
+            as_of=as_of,
+            iv_rank=iv_rank,
+            vol_risk_premium=vol_risk_premium,
+        )
+        self._send_json(signal.to_dict())
+
+    def _handle_tv_scan(self, limit, phase_filter, zone_filter):
+        """Scan the universe and return tickers matching a TV signal filter.
+
+        Query parameters
+        ----------------
+        limit : int
+            Maximum number of tickers to return (default 25).
+        phase : str, optional
+            Restrict results to the given phase (e.g. ``post_expansion``).
+        zone : str, optional
+            One of ``wheel_put``, ``covered_call``, ``strangle``.
+
+        Implementation notes
+        --------------------
+        This scan intentionally reuses ``WheelRunner.screen_candidates``
+        rather than walking the full universe cold — the wheel screener
+        already filters out unusable tickers on fundamentals and liquidity,
+        so piping only qualified names through ``compute_tv_signal`` keeps
+        the scan fast and removes spurious micro-cap matches.
+        """
+        from engine.tv_signals import compute_tv_signal
+
+        try:
+            limit_int = max(1, int(limit or 25))
+        except ValueError:
+            limit_int = 25
+
+        runner = get_runner()
+        conn = get_connector()
+
+        # Pull a larger candidate pool than the final limit so the filter
+        # below has room to work without starving the response.
+        df = runner.screen_candidates(min_wheel_score=45.0, top_n=max(limit_int * 4, 60))
+        if df is None or df.empty:
+            self._send_json({"signals": [], "count": 0})
+            return
+
+        results = []
+        for _, row in df.iterrows():
+            tkr = row.get("ticker")
+            if not tkr:
+                continue
+            ohlcv = conn.get_ohlcv(tkr)
+            if ohlcv is None or ohlcv.empty:
+                continue
+            signal = compute_tv_signal(
+                ohlcv,
+                ticker=tkr,
+                iv_rank=row.get("iv_rank"),
+            )
+            if not signal.ok:
+                continue
+
+            if phase_filter and signal.phase != phase_filter:
+                continue
+            if zone_filter:
+                zmap = {
+                    "wheel_put": signal.wheel_put_zone,
+                    "covered_call": signal.covered_call_zone,
+                    "strangle": signal.strangle_zone,
+                }
+                if not zmap.get(zone_filter, False):
+                    continue
+
+            results.append(
+                {
+                    "ticker": tkr,
+                    "phase": signal.phase,
+                    "signal_action": signal.signal_action,
+                    "wheel_put_zone": signal.wheel_put_zone,
+                    "covered_call_zone": signal.covered_call_zone,
+                    "strangle_zone": signal.strangle_zone,
+                    "avoid_zone": signal.avoid_zone,
+                    "bb_width_pctl": round(signal.bb_width_pctl, 1),
+                    "rsi_14": round(signal.rsi_14, 1),
+                    "close": signal.close,
+                    "wheel_score": float(row.get("wheel_score", 0) or 0),
+                    "strangle_score": float(row.get("strangle_score", 0) or 0),
+                }
+            )
+            if len(results) >= limit_int:
+                break
+
+        self._send_json({"signals": results, "count": len(results)})
+
+    def _handle_tv_webhook(self, payload: dict):
+        """Ingest a TradingView Pine Script webhook alert.
+
+        The webhook is the **push** side of the bridge. Pine fires an alert
+        with a JSON payload matching
+        ``tradingview/alert_payload_schema.json``; this handler validates
+        it, enriches it with options/fundamentals data, stores it in an
+        in-memory ring buffer (``_TV_ALERT_LOG``) that ``/api/tv/alerts``
+        serves back, and returns the enriched decision so Pine's alert
+        dialog can show a confirmation toast.
+
+        Security note
+        -------------
+        The webhook optionally validates a shared ``secret`` string in the
+        payload against the ``TV_WEBHOOK_SECRET`` environment variable.
+        When the env var is unset the handler accepts all alerts (the
+        intended behavior for local development). When it is set, the
+        handler rejects payloads with missing or wrong secrets with HTTP
+        401. This mirrors the TradingView-to-webhook pattern recommended
+        by production integrations while keeping the private/local use
+        case frictionless.
+        """
+        import os
+
+        from engine.tv_signals import TVAlert
+
+        alert = TVAlert.parse(payload if isinstance(payload, dict) else {})
+        if not alert.is_valid():
+            self._send_error("alert payload missing ticker or signal", 400)
+            return
+
+        expected_secret = os.environ.get("TV_WEBHOOK_SECRET", "")
+        if expected_secret and alert.secret != expected_secret:
+            self._send_error("unauthorized", 401)
+            return
+
+        enriched = self._enrich_alert(alert)
+
+        # Store in ring buffer
+        _TV_ALERT_LOG.append(enriched)
+        if len(_TV_ALERT_LOG) > _TV_ALERT_LOG_MAX:
+            del _TV_ALERT_LOG[0 : len(_TV_ALERT_LOG) - _TV_ALERT_LOG_MAX]
+
+        self._send_json({"accepted": True, "enriched": enriched})
+
+    def _handle_tv_enrich(self, ticker: str, signal_name: str, as_of):
+        """Pull-style enrichment: build the same decision object the
+        webhook would, but for an arbitrary ticker/signal combination.
+
+        Useful for UI callers that want the enriched view without wiring
+        up a Pine alert first.
+        """
+        from engine.tv_signals import TVAlert
+
+        if not ticker:
+            self._send_error("ticker parameter is required", 400)
+            return
+
+        alert = TVAlert(ticker=ticker, signal=signal_name, source="api")
+        enriched = self._enrich_alert(alert, as_of=as_of)
+        self._send_json(enriched)
+
+    def _handle_tv_alerts(self, limit: int):
+        """Return the most recent alerts held in the in-memory log."""
+        limit = max(1, min(limit or 50, _TV_ALERT_LOG_MAX))
+        items = list(reversed(_TV_ALERT_LOG[-limit:]))
+        self._send_json({"alerts": items, "count": len(items)})
+
+    # ------------------------------------------------------------------
+
+    def _enrich_alert(self, alert, as_of=None):
+        """Build the enriched decision object for a TV alert.
+
+        This is the decision layer of the integration: after Pine tells us
+        "post-expansion stabilization on MU," we want to attach IV rank,
+        expected move, preferred delta zone, event risk, and a ranked
+        verdict so the trader does not have to re-query five endpoints.
+        """
+        from engine.tv_signals import compute_tv_signal
+
+        conn = get_connector()
+        runner = get_runner()
+
+        ohlcv = conn.get_ohlcv(alert.ticker)
+        if ohlcv is None or ohlcv.empty:
+            return {
+                "ticker": alert.ticker,
+                "signal": alert.signal,
+                "accepted": False,
+                "reason": "ticker_not_in_universe",
+            }
+
+        iv_rank = None
+        vrp = None
+        try:
+            iv_rank = conn.get_iv_rank(alert.ticker, as_of)
+        except Exception:
+            pass
+        try:
+            vrp = conn.get_vol_risk_premium(alert.ticker, as_of)
+        except Exception:
+            pass
+
+        sig = compute_tv_signal(
+            ohlcv,
+            ticker=alert.ticker,
+            as_of=as_of,
+            iv_rank=iv_rank,
+            vol_risk_premium=vrp,
+        )
+
+        # Run the wheel analysis to get events + scoring
+        try:
+            analysis = runner.analyze_ticker(alert.ticker, as_of)
+            wheel_score = float(analysis.wheel_score)
+            wheel_reco = analysis.wheel_recommendation
+            days_to_earnings = analysis.days_to_earnings
+            sector = analysis.sector
+        except Exception:
+            wheel_score = 0.0
+            wheel_reco = "unknown"
+            days_to_earnings = None
+            sector = ""
+
+        # Simple verdict heuristic combining Pine agreement with engine scoring
+        agrees = sig.signal_action == alert.signal or getattr(
+            sig, alert.signal.replace(" ", "_"), False
+        )
+        verdict = "proceed" if agrees and wheel_score >= 60 else (
+            "review" if wheel_score >= 40 else "skip"
+        )
+        if days_to_earnings is not None and days_to_earnings < 5:
+            verdict = "skip"
+
+        # Preferred expiry / delta suggestion — deterministic heuristic
+        preferred_dte = 31 if sig.phase == "post_expansion" else 45
+        preferred_delta = {
+            "wheel_put_zone": (0.18, 0.22),
+            "covered_call_zone": (0.20, 0.25),
+            "strangle_zone": (0.15, 0.20),
+        }.get(alert.signal, (0.20, 0.25))
+
+        return {
+            "ticker": alert.ticker,
+            "signal": alert.signal,
+            "verdict": verdict,
+            "pine_agrees": agrees,
+            "phase": sig.phase,
+            "bollinger_state": sig.bollinger_state,
+            "atr_state": sig.atr_state,
+            "rsi_14": round(sig.rsi_14, 1),
+            "trend_state": sig.trend_state,
+            "range_state": sig.range_state,
+            "wheel_put_zone": sig.wheel_put_zone,
+            "covered_call_zone": sig.covered_call_zone,
+            "strangle_zone": sig.strangle_zone,
+            "wheel_score": round(wheel_score, 1),
+            "wheel_recommendation": wheel_reco,
+            "iv_rank": round(float(iv_rank), 1) if iv_rank is not None else None,
+            "vol_risk_premium": round(float(vrp), 1) if vrp is not None else None,
+            "days_to_earnings": days_to_earnings,
+            "sector": sector,
+            "close": sig.close,
+            "preferred_dte": preferred_dte,
+            "preferred_delta_range": list(preferred_delta),
+            "alert_source": alert.source or "webhook",
+            "alert_timestamp": alert.timestamp,
+        }
+
+    # ------------------------------------------------------------------
+
     def _handle_memo(self, ticker, as_of):
         """Generate AI trade memo for a ticker."""
         from engine.trade_memo import MemoGenerator
@@ -1024,6 +1378,11 @@ def main():
     print("  GET /api/memo?ticker=AAPL")
     print("  GET /api/summary?ticker=AAPL")
     print("  GET /api/ollama_status")
+    print("  GET  /api/tv/signal?ticker=AAPL")
+    print("  GET  /api/tv/scan?limit=25&zone=wheel_put")
+    print("  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone")
+    print("  GET  /api/tv/alerts?limit=50")
+    print("  POST /api/tv/webhook")
     print()
     try:
         server.serve_forever()

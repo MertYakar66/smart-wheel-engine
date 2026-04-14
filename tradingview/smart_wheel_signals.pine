@@ -1,0 +1,210 @@
+// @version=5
+// ============================================================================
+// Smart Wheel Signals — TradingView overlay for the Smart Wheel Engine
+// ============================================================================
+//
+// Purpose
+// -------
+// This Pine v5 indicator is the visual cockpit for the Smart Wheel Engine.
+// It mirrors the deterministic signal logic implemented in
+// `engine/tv_signals.py` so the chart and the Python backend agree bar-for-bar
+// on regime classification and zone flags.
+//
+// What it shows
+// -------------
+//   * Bollinger bands and a 20-SMA trend line.
+//   * Background tint keyed to the volatility-lifecycle phase:
+//       - compression      → dim red  (avoid — no premium)
+//       - expansion        → orange   (wait — active move)
+//       - post_expansion   → green    (enter zone)
+//       - trend            → blue     (directional — symmetric strangles risky)
+//       - normal           → none
+//   * Small labels on the most recent bar when a zone activates:
+//       "PUT ZONE"       short put / wheel entry
+//       "CALL ZONE"      covered call zone
+//       "STRANGLE ZONE"  symmetric short strangle
+//       "AVOID"          hard avoid
+//
+// Alerts (webhook JSON)
+// ---------------------
+// Three alert conditions are declared. When you attach an alert in TradingView
+// and point it at your engine's `/api/tv/webhook` endpoint with body =
+// {{strategy.order.alert_message}}, the engine receives a canonical payload
+// documented in `tradingview/alert_payload_schema.json`.
+//
+// Parity with engine/tv_signals.py
+// --------------------------------
+// The thresholds at the top of this file MUST match the constants at the top
+// of `engine/tv_signals.py`. The parity test
+// `tests/test_tv_signals.py::test_pine_parity_constants` loads this file and
+// asserts they are in sync — editing one side without the other will fail CI.
+// ============================================================================
+
+indicator("Smart Wheel Signals", shorttitle="SW-SIG", overlay=true, max_labels_count=50)
+
+// --- Inputs ----------------------------------------------------------------
+bbWindow      = input.int(20,  "Bollinger window", minval=5)
+bbStd         = input.float(2.0, "Bollinger stdev", step=0.1)
+atrWindow     = input.int(14,  "ATR window",      minval=3)
+rsiWindow     = input.int(14,  "RSI window",      minval=3)
+trendMaWindow = input.int(20,  "Trend SMA window", minval=5)
+rangeLookback = input.int(20,  "Range lookback",   minval=5)
+pctlLookback  = input.int(252, "Percentile lookback (bars)", minval=60)
+slopeLookback = input.int(5,   "Slope lookback",   minval=2)
+
+showBands   = input.bool(true, "Show Bollinger bands")
+showSMA     = input.bool(true, "Show trend SMA")
+shadePhase  = input.bool(true, "Shade phase backgrounds")
+
+// Parity constants — must match engine/tv_signals.py
+BB_NARROW_PCTL        = 20.0
+BB_WIDE_PCTL          = 60.0
+BB_EXPAND_SLOPE       = 0.001
+BB_CONTRACT_SLOPE     = -0.0005
+ATR_LOW_PCTL          = 25.0
+ATR_HIGH_PCTL         = 60.0
+ATR_RISING_SLOPE      = 0.05
+ATR_DECLINING_SLOPE   = -0.03
+ATR_FLAT_ABS          = 0.03
+RSI_EXTREME_OB        = 80.0
+RSI_OB                = 70.0
+RSI_OS                = 30.0
+RSI_EXTREME_OS        = 20.0
+TREND_STRONG_SLOPE    = 0.02
+TREND_WEAK_SLOPE      = 0.005
+TREND_FLAT_PRICE_GAP  = 0.02
+RANGE_NEAR_EDGE       = 0.01
+
+// --- Bollinger --------------------------------------------------------------
+basis = ta.sma(close, bbWindow)
+dev   = bbStd * ta.stdev(close, bbWindow)
+upper = basis + dev
+lower = basis - dev
+bbWidth = (upper - lower) / basis
+bbPctB  = (close - lower) / (upper - lower)
+
+// Percentile rank of current bbWidth in the trailing pctlLookback window
+f_pctRank(src, len) =>
+    cnt = 0.0
+    for i = 1 to len
+        if not na(src[i]) and src[i] < src
+            cnt := cnt + 1
+    100 * cnt / len
+
+bbWidthPctl = f_pctRank(bbWidth, pctlLookback)
+bbWidthSlope = (bbWidth - bbWidth[slopeLookback]) / slopeLookback
+
+bbState = bbWidthPctl < BB_NARROW_PCTL ? "narrow" :
+          bbWidthSlope > BB_EXPAND_SLOPE ? "expanding" :
+          (bbWidthPctl > BB_WIDE_PCTL and bbWidthSlope < BB_CONTRACT_SLOPE) ? "wide_contracting" :
+          bbWidthPctl > BB_WIDE_PCTL ? "wide_flat" : "normal"
+
+// --- ATR --------------------------------------------------------------------
+atrVal = ta.atr(atrWindow)
+atrPctl = f_pctRank(atrVal, pctlLookback)
+atrSlope = atrVal[slopeLookback] > 0 ? (atrVal - atrVal[slopeLookback]) / atrVal[slopeLookback] : 0.0
+
+atrState = atrPctl < ATR_LOW_PCTL ? "low" :
+           atrSlope > ATR_RISING_SLOPE ? "rising" :
+           (atrPctl > ATR_HIGH_PCTL and math.abs(atrSlope) < ATR_FLAT_ABS) ? "elevated_flat" :
+           atrSlope < ATR_DECLINING_SLOPE ? "declining" : "normal"
+
+// --- RSI --------------------------------------------------------------------
+rsi14 = ta.rsi(close, rsiWindow)
+rsiState = rsi14 >= RSI_EXTREME_OB ? "extreme_ob" :
+           rsi14 >= RSI_OB ? "overbought" :
+           rsi14 <= RSI_EXTREME_OS ? "extreme_os" :
+           rsi14 <= RSI_OS ? "oversold" : "neutral"
+
+// --- Trend (SMA slope + price vs MA) ----------------------------------------
+sma20 = ta.sma(close, trendMaWindow)
+maSlope = sma20[slopeLookback] > 0 ? (sma20 - sma20[slopeLookback]) / sma20[slopeLookback] : 0.0
+priceVsMa = sma20 > 0 ? (close - sma20) / sma20 : 0.0
+
+trendState = (math.abs(maSlope) > TREND_STRONG_SLOPE and math.abs(priceVsMa) < TREND_FLAT_PRICE_GAP) ?
+             (maSlope > 0 ? "strong_up" : "strong_down") :
+             math.abs(maSlope) > TREND_WEAK_SLOPE ? "weak" : "flat"
+
+// --- Range ------------------------------------------------------------------
+rollHigh = ta.highest(high, rangeLookback)
+rollLow  = ta.lowest(low,  rangeLookback)
+distHigh = (rollHigh - close) / close
+distLow  = (close - rollLow) / close
+
+rangeState = (bbPctB > 1.0 or bbPctB < 0.0) ? "beyond_band" :
+             distHigh < RANGE_NEAR_EDGE ? "near_high" :
+             distLow  < RANGE_NEAR_EDGE ? "near_low"  : "mid"
+
+// --- Phase ------------------------------------------------------------------
+phase = (bbState == "narrow" and (atrState == "low" or atrState == "declining")) ? "compression" :
+        (bbState == "expanding" or atrState == "rising") ? "expansion" :
+        ((bbState == "wide_flat" or bbState == "wide_contracting") and
+         (atrState == "elevated_flat" or atrState == "declining" or atrState == "normal")) ? "post_expansion" :
+        (trendState == "strong_up" or trendState == "strong_down") ? "trend" : "normal"
+
+// --- Zones ------------------------------------------------------------------
+wheelPutZone = phase == "post_expansion" and
+               (rsiState == "neutral" or rsiState == "oversold" or rsiState == "extreme_os") and
+               (rangeState == "mid" or rangeState == "near_low")
+
+coveredCallZone = phase == "post_expansion" and
+                  (rsiState == "neutral" or rsiState == "overbought" or rsiState == "extreme_ob") and
+                  (rangeState == "mid" or rangeState == "near_high")
+
+strangleZone = phase == "post_expansion" and rsiState == "neutral" and rangeState == "mid"
+
+avoidZone = phase == "compression" or phase == "expansion" or
+            (phase == "trend" and trendState == "strong_down")
+
+// --- Plotting ---------------------------------------------------------------
+plot(showBands ? upper : na, color=color.new(color.gray, 60), title="BB upper")
+plot(showBands ? basis : na, color=color.new(color.aqua, 60), title="BB basis")
+plot(showBands ? lower : na, color=color.new(color.gray, 60), title="BB lower")
+plot(showSMA ? sma20 : na, color=color.new(color.yellow, 40), linewidth=2, title="SMA20")
+
+bgCol = phase == "compression"    ? color.new(color.red,    92) :
+        phase == "expansion"      ? color.new(color.orange, 90) :
+        phase == "post_expansion" ? color.new(color.green,  90) :
+        phase == "trend"          ? color.new(color.blue,   93) : na
+bgcolor(shadePhase ? bgCol : na, title="Phase tint")
+
+// --- Labels on the last bar -------------------------------------------------
+if barstate.islast
+    if wheelPutZone
+        label.new(bar_index, low, "PUT ZONE", style=label.style_label_up,
+                  color=color.new(color.green, 20), textcolor=color.white, size=size.tiny)
+    if coveredCallZone
+        label.new(bar_index, high, "CALL ZONE", style=label.style_label_down,
+                  color=color.new(color.blue, 20), textcolor=color.white, size=size.tiny)
+    if strangleZone
+        label.new(bar_index, close, "STRANGLE ZONE", style=label.style_label_left,
+                  color=color.new(color.purple, 20), textcolor=color.white, size=size.tiny)
+    if avoidZone
+        label.new(bar_index, high, "AVOID", style=label.style_label_down,
+                  color=color.new(color.red, 20), textcolor=color.white, size=size.tiny)
+
+// --- Alert messages (JSON payloads) -----------------------------------------
+// TradingView substitutes {{ticker}}, {{close}}, {{time}} at alert-fire time.
+// Each alertcondition uses str.format to build the webhook body so the engine
+// sees a canonical, parseable payload.
+
+putMsg = '{"ticker":"{{ticker}}","signal":"wheel_put_zone","price":{{close}},' +
+         '"timeframe":"{{interval}}","timestamp":"{{time}}",' +
+         '"phase":"' + phase + '","source":"smart_wheel_signals_v1"}'
+
+callMsg = '{"ticker":"{{ticker}}","signal":"covered_call_zone","price":{{close}},' +
+          '"timeframe":"{{interval}}","timestamp":"{{time}}",' +
+          '"phase":"' + phase + '","source":"smart_wheel_signals_v1"}'
+
+strangleMsg = '{"ticker":"{{ticker}}","signal":"strangle_zone","price":{{close}},' +
+              '"timeframe":"{{interval}}","timestamp":"{{time}}",' +
+              '"phase":"' + phase + '","source":"smart_wheel_signals_v1"}'
+
+avoidMsg = '{"ticker":"{{ticker}}","signal":"avoid","price":{{close}},' +
+           '"timeframe":"{{interval}}","timestamp":"{{time}}",' +
+           '"phase":"' + phase + '","source":"smart_wheel_signals_v1"}'
+
+alertcondition(wheelPutZone,    title="Wheel Put Zone",    message=putMsg)
+alertcondition(coveredCallZone, title="Covered Call Zone", message=callMsg)
+alertcondition(strangleZone,    title="Short Strangle Zone", message=strangleMsg)
+alertcondition(avoidZone,       title="Avoid Zone",        message=avoidMsg)

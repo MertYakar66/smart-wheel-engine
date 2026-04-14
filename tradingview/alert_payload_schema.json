@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smart-wheel-engine.local/tradingview/alert_payload.schema.json",
+  "title": "SmartWheelTradingViewAlert",
+  "description": "Canonical webhook payload emitted by the Smart Wheel Signals Pine Script indicator and consumed by POST /api/tv/webhook. All fields are optional except ticker and signal, but the engine enriches richer payloads more usefully.",
+  "type": "object",
+  "required": ["ticker", "signal"],
+  "properties": {
+    "ticker": {
+      "type": "string",
+      "description": "Symbol being alerted (uppercased by the engine). Example: MU, AAPL, SPY.",
+      "minLength": 1,
+      "maxLength": 10
+    },
+    "signal": {
+      "type": "string",
+      "description": "One of the zone flags the Pine script can fire.",
+      "enum": [
+        "wheel_put_zone",
+        "covered_call_zone",
+        "strangle_zone",
+        "avoid"
+      ]
+    },
+    "price": {
+      "type": "number",
+      "description": "Close of the bar on which the alert fired."
+    },
+    "timeframe": {
+      "type": "string",
+      "description": "TradingView interval string at alert time. Example: 1D, 240, 60."
+    },
+    "source": {
+      "type": "string",
+      "description": "Indicator identifier so the engine can distinguish alerts from multiple Pine scripts.",
+      "const": "smart_wheel_signals_v1"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Alert time as rendered by {{time}}. The engine accepts any ISO-like string and stores it verbatim."
+    },
+    "phase": {
+      "type": "string",
+      "description": "Volatility-lifecycle phase as classified by the Pine indicator. The engine uses this as a cross-check.",
+      "enum": ["compression", "expansion", "post_expansion", "trend", "normal", "unknown"]
+    },
+    "bb_width_pctl": {
+      "type": "number",
+      "description": "Percentile rank of current Bollinger-band width in the lookback window (0-100).",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "rsi": {
+      "type": "number",
+      "description": "Current RSI(14).",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "secret": {
+      "type": "string",
+      "description": "Shared secret validated against TV_WEBHOOK_SECRET when the env var is set. Not required for local deployments."
+    }
+  },
+  "additionalProperties": true
+}

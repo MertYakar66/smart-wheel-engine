@@ -434,6 +434,9 @@ class WheelRunner:
         min_ev_dollars: float = 0.0,
         as_of: str | None = None,
         include_diagnostic_fields: bool = True,
+        use_event_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -475,15 +478,27 @@ class WheelRunner:
         Returns:
             DataFrame sorted by ``ev_per_day`` descending, or empty.
         """
+        from datetime import timedelta
+
         from scipy.optimize import brentq
         from scipy.stats import norm
 
+        from engine.event_gate import EventGate, ScheduledEvent
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.forward_distribution import best_available_forward_distribution
         from engine.option_pricer import black_scholes_price
 
         conn = self.connector
-        ev_eng = EVEngine()
+        # Build a per-run event gate from the connector's earnings +
+        # (optional) macro calendar. When use_event_gate=False the EV
+        # engine falls back to the soft days_to_earnings skip below.
+        event_gate: EventGate | None = None
+        if use_event_gate:
+            event_gate = EventGate(
+                earnings_buffer_days=earnings_buffer_days,
+                macro_buffer_days=macro_buffer_days,
+            )
+        ev_eng = EVEngine(event_gate=event_gate)
 
         if tickers is None:
             tickers = conn.get_universe()[:100]
@@ -531,16 +546,40 @@ class WheelRunner:
                 pass
 
             # Event exclusion
+            # Two layers:
+            #   (a) Soft skip on days_to_earnings < earnings_buffer_days
+            #       (kept for backwards compat with callers that opt out
+            #       of the hard event gate).
+            #   (b) Hard event lockout via EventGate, populated per-ticker
+            #       below. When event_gate is active the EV engine will
+            #       short-circuit the candidate and return an EVResult
+            #       with event_lockout_reason set.
+            today_date = date.fromisoformat(as_of) if as_of else date.today()
+            trade_start_d = today_date
+            trade_end_d = today_date + timedelta(days=dte_target)
             try:
                 next_earn = conn.get_next_earnings(ticker, as_of)
                 days_to_earn = None
                 if next_earn:
                     earn_ts = next_earn.get("announcement_date")
                     if earn_ts is not None:
-                        today = date.fromisoformat(as_of) if as_of else date.today()
                         earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                        days_to_earn = (earn_d - today).days
-                if days_to_earn is not None and 0 <= days_to_earn < 5:
+                        days_to_earn = (earn_d - today_date).days
+                        # Register on the per-run event gate so the EV
+                        # engine can pre-emptively block.
+                        if event_gate is not None and earn_d is not None:
+                            event_gate.add_event(
+                                ScheduledEvent(
+                                    ticker=ticker,
+                                    kind="earnings",
+                                    event_date=earn_d,
+                                )
+                            )
+                if (
+                    event_gate is None
+                    and days_to_earn is not None
+                    and 0 <= days_to_earn < earnings_buffer_days
+                ):
                     continue
             except Exception:
                 days_to_earn = None
@@ -606,7 +645,15 @@ class WheelRunner:
                 open_interest=1000,  # unknown; mid-liquid assumption
             )
 
-            res = ev_eng.evaluate(trade, forward_log_returns=fwd_rets)
+            res = ev_eng.evaluate(
+                trade,
+                forward_log_returns=fwd_rets,
+                trade_start=trade_start_d,
+                trade_end=trade_end_d,
+            )
+            # Event-gate short-circuit: drop blocked candidates entirely.
+            if res.event_lockout_reason:
+                continue
             if res.ev_dollars < min_ev_dollars:
                 continue
 
@@ -628,6 +675,17 @@ class WheelRunner:
                 row.update(
                     {
                         "cvar_5": round(res.cvar_5, 2),
+                        "cvar_99_evt": (
+                            round(res.cvar_99_evt, 2)
+                            if not np.isnan(res.cvar_99_evt)
+                            else None
+                        ),
+                        "tail_xi": (
+                            round(res.tail_xi, 4)
+                            if not np.isnan(res.tail_xi)
+                            else None
+                        ),
+                        "heavy_tail": bool(res.heavy_tail),
                         "omega_ratio": round(res.omega_ratio, 3),
                         "fair_value": round(res.fair_value, 3),
                         "edge_vs_fair": round(res.edge_vs_fair, 2),

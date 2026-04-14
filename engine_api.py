@@ -35,6 +35,7 @@ TradingView bridge:
   GET  /api/tv/scan?limit=25&zone=wheel_put - Screen universe for TV zones
   GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
+  GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
@@ -280,6 +281,15 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 )
             elif path == "/api/tv/alerts":
                 self._handle_tv_alerts(int(param("limit", "50")))
+            elif path == "/api/tv/ranked":
+                self._handle_tv_ranked(
+                    limit=int(param("limit", "20")),
+                    dte_target=int(param("dte", "35")),
+                    delta_target=float(param("delta", "0.25")),
+                    min_ev_dollars=float(param("min_ev", "0")),
+                    as_of=param("as_of"),
+                    tickers_csv=param("tickers"),
+                )
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -1357,6 +1367,68 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         limit = max(1, min(limit or 50, _TV_ALERT_LOG_MAX))
         items = list(reversed(_TV_ALERT_LOG[-limit:]))
         self._send_json({"alerts": items, "count": len(items)})
+
+    def _handle_tv_ranked(
+        self,
+        limit: int,
+        dte_target: int,
+        delta_target: float,
+        min_ev_dollars: float,
+        as_of,
+        tickers_csv,
+    ):
+        """EV-ranked candidates endpoint for the dashboard candidate table.
+
+        This is the audit-II upgrade: replaces the legacy /api/candidates
+        heuristic score with probabilistic expected value per day via
+        :meth:`WheelRunner.rank_candidates_by_ev`. The endpoint returns
+        JSON that the Next.js dashboard can render directly as a table,
+        one row per candidate, pre-filtered by the event lockout gate
+        and sorted by ``ev_per_day`` descending.
+
+        Query params:
+            limit        top N candidates to return (default 20)
+            dte          target days-to-expiry for the synthetic trade (default 35)
+            delta        target put delta (positive; default 0.25)
+            min_ev       hard threshold on ev_dollars (default 0)
+            as_of        optional PIT cutoff YYYY-MM-DD
+            tickers      optional comma-separated ticker subset
+        """
+        runner = get_runner()
+        tickers = None
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+
+        try:
+            df = runner.rank_candidates_by_ev(
+                tickers=tickers,
+                dte_target=dte_target,
+                delta_target=delta_target,
+                top_n=max(1, limit),
+                min_ev_dollars=min_ev_dollars,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            return
+
+        records = df.to_dict(orient="records") if hasattr(df, "to_dict") else []
+        payload = {
+            "candidates": records,
+            "count": len(records),
+            "params": {
+                "limit": limit,
+                "dte_target": dte_target,
+                "delta_target": delta_target,
+                "min_ev_dollars": min_ev_dollars,
+                "as_of": as_of,
+                "tickers": tickers,
+            },
+            "engine_version": "ev_engine_2026_04_14",
+        }
+        self._send_json(payload)
 
     # ------------------------------------------------------------------
 

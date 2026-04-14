@@ -85,6 +85,7 @@ from typing import Literal
 import numpy as np
 
 from .option_pricer import black_scholes_price
+from .tail_risk import fit_gpd_tail, gpd_var_cvar, tail_regime_flag
 from .transaction_costs import (
     calculate_commission,
     calculate_slippage,
@@ -146,6 +147,19 @@ class EVResult:
     mean_pnl: float
     std_pnl: float
     skew_pnl: float
+    # POT-GPD extreme-value tail diagnostics (quant upgrade 2026-04-14)
+    # Populated when the engine has >= 200 scenarios so EVT can fit
+    # reliably. ``cvar_99_evt`` is the 1% CVaR from a Generalised
+    # Pareto fit to losses beyond the 95th percentile; ``tail_xi`` is
+    # the fitted shape parameter (>0.3 ⇒ heavy tail); ``heavy_tail``
+    # is the convenience flag consumed by the runner/ranker.
+    cvar_99_evt: float = float("nan")
+    tail_xi: float = float("nan")
+    heavy_tail: bool = False
+    # Event lockout gate (quant upgrade 2026-04-14). When non-empty
+    # the candidate was blocked by a pre-EV event gate and the
+    # ``ev_dollars`` field was zeroed to prevent ranking.
+    event_lockout_reason: str = ""
     metadata: dict = field(default_factory=dict)
 
 
@@ -177,10 +191,28 @@ class EVEngine:
         profit_target_pct: float = 0.50,
         stop_loss_multiple: float = 2.0,
         slippage_pct_of_spread: float = 0.20,
+        event_gate: "EventGate | None" = None,
+        heavy_tail_penalty: float = 0.5,
     ) -> None:
+        """Args:
+        ...
+        event_gate: Optional :class:`engine.event_gate.EventGate` that
+            hard-blocks candidates whose holding period touches a
+            scheduled earnings / FOMC / macro event. Blocked candidates
+            return an :class:`EVResult` with ``ev_dollars=0`` and a
+            populated ``event_lockout_reason`` so the caller can log
+            *why* the candidate was skipped.
+        heavy_tail_penalty: Multiplicative penalty applied to
+            ``ev_dollars`` when the POT-GPD fit on the candidate's P&L
+            distribution reports a heavy-tail regime (shape xi > 0.3).
+            Default 0.5 = halve the EV, matching the prudent
+            institutional response to heavy-tail regimes.
+        """
         self.profit_target_pct = profit_target_pct
         self.stop_loss_multiple = stop_loss_multiple
         self.slippage_pct_of_spread = slippage_pct_of_spread
+        self.event_gate = event_gate
+        self.heavy_tail_penalty = heavy_tail_penalty
 
     # ------------------------------------------------------------------
     def evaluate(
@@ -188,8 +220,43 @@ class EVEngine:
         trade: ShortOptionTrade,
         forward_log_returns: np.ndarray | None = None,
         price_scenarios: np.ndarray | None = None,
+        trade_start: "date | None" = None,
+        trade_end: "date | None" = None,
     ) -> EVResult:
-        """Run EV evaluation for one candidate trade."""
+        """Run EV evaluation for one candidate trade.
+
+        ``trade_start`` and ``trade_end`` are only used by the optional
+        event lockout gate. When an event gate is attached and blocks
+        the candidate, the engine returns an :class:`EVResult` with
+        ``ev_dollars=0`` and ``event_lockout_reason`` populated.
+        """
+        # Event lockout short-circuit — runs BEFORE any expensive math.
+        if self.event_gate is not None and trade_start is not None and trade_end is not None:
+            blocked, reason = self.event_gate.is_blocked(
+                trade.underlying, trade_start, trade_end
+            )
+            if blocked:
+                return EVResult(
+                    ev_dollars=0.0,
+                    ev_per_day=0.0,
+                    prob_profit=0.0,
+                    prob_assignment=0.0,
+                    prob_touch=0.0,
+                    cvar_5=0.0,
+                    omega_ratio=0.0,
+                    edge_vs_fair=0.0,
+                    fair_value=0.0,
+                    expected_days_held=float(max(trade.dte, 1)),
+                    regime_multiplier=float(trade.regime_multiplier),
+                    total_transaction_cost=0.0,
+                    breakeven_move_pct=0.0,
+                    mean_pnl=0.0,
+                    std_pnl=0.0,
+                    skew_pnl=0.0,
+                    event_lockout_reason=reason,
+                    metadata={"blocked": True},
+                )
+
         multiplier = 100 * max(trade.contracts, 1)
         gross_premium = trade.premium * multiplier
 
@@ -311,14 +378,36 @@ class EVEngine:
             breakeven_price = trade.strike + (trade.premium - total_cost / multiplier)
             breakeven_move_pct = (breakeven_price - trade.spot) / trade.spot
 
+        # --------------------------------------------------------------
+        # POT-GPD extreme-value tail fit (quant upgrade 2026-04-14).
+        # We fit a Generalised Pareto to the losses (i.e. -pnls) to get
+        # a more reliable 1% CVaR than the pure historical-simulation
+        # tail. The fit requires at least 200 scenarios to be reliable.
+        # --------------------------------------------------------------
+        cvar_99_evt = float("nan")
+        tail_xi = float("nan")
+        heavy_tail = False
+        if len(pnls) >= 200:
+            losses_arr = -pnls  # positive losses
+            gpd_fit = fit_gpd_tail(losses_arr)
+            if gpd_fit.converged:
+                _, cvar99 = gpd_var_cvar(gpd_fit, confidence=0.99)
+                cvar_99_evt = -float(cvar99)  # report as signed P&L
+                tail_xi = float(gpd_fit.shape_xi)
+                heavy_tail = tail_regime_flag(gpd_fit)
+
         # Expected hold time — if profit target fires, exit ~ halfway to
         # expiration; otherwise hold to expiry.
         expected_days_held = prob_profit * (trade.dte / 2.0) + (1 - prob_profit) * trade.dte
         expected_days_held = max(1.0, expected_days_held)
 
         # Regime multiplier is applied *last* to dollar EV so other metrics
-        # remain pure and auditable.
+        # remain pure and auditable. Heavy-tail regimes additionally
+        # shrink EV by ``heavy_tail_penalty`` (default 0.5) to reflect
+        # the increased estimation uncertainty in fat-tailed samples.
         regime_mult = max(0.0, float(trade.regime_multiplier))
+        if heavy_tail:
+            regime_mult *= self.heavy_tail_penalty
         ev_dollars = ev_raw * regime_mult
 
         return EVResult(
@@ -338,6 +427,9 @@ class EVEngine:
             mean_pnl=mean_pnl,
             std_pnl=std_pnl,
             skew_pnl=skew_pnl,
+            cvar_99_evt=cvar_99_evt,
+            tail_xi=tail_xi,
+            heavy_tail=heavy_tail,
             metadata={
                 "n_scenarios": int(len(pnls)),
                 "net_premium_in": net_premium_in,

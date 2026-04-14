@@ -36,6 +36,7 @@ TradingView bridge:
   GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
   GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
+  GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
@@ -289,6 +290,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     min_ev_dollars=float(param("min_ev", "0")),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
+                )
+            elif path == "/api/tv/dossier":
+                self._handle_tv_dossier(
+                    top_n=int(param("top_n", "10")),
+                    dte_target=int(param("dte", "35")),
+                    delta_target=float(param("delta", "0.25")),
+                    min_ev_dollars=float(param("min_ev", "0")),
+                    as_of=param("as_of"),
+                    tickers_csv=param("tickers"),
+                    timeframe=param("timeframe", "1D") or "1D",
+                    screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
                 )
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
@@ -1367,6 +1379,91 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         limit = max(1, min(limit or 50, _TV_ALERT_LOG_MAX))
         items = list(reversed(_TV_ALERT_LOG[-limit:]))
         self._send_json({"alerts": items, "count": len(items)})
+
+    def _handle_tv_dossier(
+        self,
+        top_n: int,
+        dte_target: int,
+        delta_target: float,
+        min_ev_dollars: float,
+        as_of,
+        tickers_csv,
+        timeframe: str,
+        screenshots_dir: str,
+    ):
+        """Mode B dossier endpoint.
+
+        Runs the engine-first workflow end-to-end:
+          1. Rank candidates by EV.
+          2. For the top N, load a TradingView screenshot via a
+             filesystem-based :class:`FilesystemChartProvider` pointed
+             at ``screenshots_dir``. The terminal is expected to drop
+             screenshots at ``<screenshots_dir>/<TICKER>/<TIMEFRAME>.png``.
+          3. Run the :class:`EnginePhaseReviewer` to produce a verdict
+             per candidate.
+          4. Return the full dossier JSON for the dashboard candidate
+             table + detail drawer.
+
+        Query params:
+            top_n           top-N candidates to attach charts to (default 10)
+            dte             target DTE (default 35)
+            delta           target put delta (default 0.25)
+            min_ev          hard EV filter (default 0)
+            as_of           optional PIT cutoff YYYY-MM-DD
+            tickers         optional comma-separated subset
+            timeframe       TradingView timeframe for screenshots (default 1D)
+            screenshots_dir filesystem provider base directory
+        """
+        from engine.tradingview_bridge import FilesystemChartProvider
+
+        runner = get_runner()
+        tickers = None
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+
+        provider = FilesystemChartProvider(base_dir=screenshots_dir)
+
+        try:
+            dossiers = runner.build_candidate_dossiers(
+                tickers=tickers,
+                dte_target=dte_target,
+                delta_target=delta_target,
+                top_n=max(1, top_n),
+                min_ev_dollars=min_ev_dollars,
+                as_of=as_of,
+                chart_provider=provider,
+                chart_timeframe=timeframe,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"build_candidate_dossiers failed: {exc}", 500)
+            return
+
+        records = [d.to_dict() for d in dossiers]
+        counts = {
+            "proceed": sum(1 for d in dossiers if d.verdict == "proceed"),
+            "review": sum(1 for d in dossiers if d.verdict == "review"),
+            "skip": sum(1 for d in dossiers if d.verdict == "skip"),
+            "blocked": sum(1 for d in dossiers if d.verdict == "blocked"),
+        }
+        self._send_json(
+            {
+                "dossiers": records,
+                "count": len(records),
+                "verdict_counts": counts,
+                "params": {
+                    "top_n": top_n,
+                    "dte_target": dte_target,
+                    "delta_target": delta_target,
+                    "min_ev_dollars": min_ev_dollars,
+                    "as_of": as_of,
+                    "tickers": tickers,
+                    "timeframe": timeframe,
+                    "screenshots_dir": screenshots_dir,
+                },
+                "engine_version": "ev_engine_2026_04_14",
+            }
+        )
 
     def _handle_tv_ranked(
         self,

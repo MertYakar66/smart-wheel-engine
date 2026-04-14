@@ -701,6 +701,88 @@ class WheelRunner:
             df = df.sort_values("ev_per_day", ascending=False).head(top_n)
         return df
 
+    # ------------------------------------------------------------------
+    # Mode B: EV ranking + TradingView chart context dossier
+    # ------------------------------------------------------------------
+    def build_candidate_dossiers(
+        self,
+        tickers: list[str] | None = None,
+        dte_target: int = 35,
+        delta_target: float = 0.25,
+        contracts: int = 1,
+        top_n: int = 10,
+        min_ev_dollars: float = 0.0,
+        as_of: str | None = None,
+        chart_provider=None,
+        chart_timeframe: str = "1D",
+        reviewer=None,
+        use_event_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
+    ) -> list:
+        """Engine-first Mode B: rank by EV, then attach TradingView charts.
+
+        This is the canonical workflow for the Claude-terminal-driven
+        TradingView integration. The engine ranks candidates *first*
+        using :meth:`rank_candidates_by_ev`, then for the top N we
+        attach a chart context via a :class:`ChartContextProvider`
+        (typically a filesystem provider reading screenshots dropped by
+        the terminal's own browser tooling) and run a
+        :class:`ChartReviewer` that can DOWNGRADE a trade based on
+        visual context but cannot upgrade a negative-EV trade.
+
+        Args:
+            tickers: Optional explicit ticker list.
+            dte_target / delta_target / contracts / min_ev_dollars:
+                Forwarded to :meth:`rank_candidates_by_ev`.
+            top_n: Only the top N ranked candidates get chart contexts
+                attached — cheap optimisation since chart capture is
+                expensive.
+            as_of: PIT cutoff.
+            chart_provider: A :class:`ChartContextProvider` instance.
+                Defaults to the filesystem provider under
+                ``screenshots/``.
+            chart_timeframe: TradingView timeframe (``"1D"`` default).
+            reviewer: Optional :class:`ChartReviewer`; defaults to
+                :class:`EnginePhaseReviewer`.
+            use_event_gate / earnings_buffer_days / macro_buffer_days:
+                Forwarded to :meth:`rank_candidates_by_ev`.
+
+        Returns:
+            List of :class:`CandidateDossier` with full EV + chart +
+            verdict, sorted by the underlying EV ranking.
+        """
+        from engine.candidate_dossier import EnginePhaseReviewer, build_dossiers
+        from engine.tradingview_bridge import build_default_provider
+
+        ev_df = self.rank_candidates_by_ev(
+            tickers=tickers,
+            dte_target=dte_target,
+            delta_target=delta_target,
+            contracts=contracts,
+            top_n=max(top_n, 20),  # rank a wider pool, attach charts to top_n
+            min_ev_dollars=min_ev_dollars,
+            as_of=as_of,
+            include_diagnostic_fields=True,
+            use_event_gate=use_event_gate,
+            earnings_buffer_days=earnings_buffer_days,
+            macro_buffer_days=macro_buffer_days,
+        )
+
+        if ev_df is None or len(ev_df) == 0:
+            return []
+
+        provider = chart_provider or build_default_provider()
+        chart_reviewer = reviewer or EnginePhaseReviewer()
+
+        return build_dossiers(
+            ev_frame=ev_df,
+            provider=provider,
+            reviewer=chart_reviewer,
+            timeframe=chart_timeframe,  # type: ignore[arg-type]
+            top_n=top_n,
+        )
+
     def portfolio_report(
         self,
         tickers: list[str],

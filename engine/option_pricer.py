@@ -270,14 +270,27 @@ def black_scholes_vega(
 ) -> float:
     """
     Calculate option vega (sensitivity to volatility).
-    Returns vega per 1% change in volatility (divide by 100 for per 1 vol point).
+
+    UNIT CONVENTION (audited): Returns vega **per 1 vol point** (i.e. per 0.01
+    change in annualized sigma). This is the standard trader convention used
+    throughout the engine. To get P&L for a change of ``dsigma`` in decimal
+    form, use ``vega * dsigma * 100``. To get P&L for a change of ``dvolpts``
+    in vol points (e.g. VIX-style 25.0 -> 27.0 = +2.0), use ``vega * dvolpts``.
+
+    The raw Black-Scholes closed form is ``S * e^(-qT) * N'(d1) * sqrt(T)``,
+    which is per unit change in sigma (dsigma=1 means +100% vol). We divide
+    that by 100 so the returned value is per 1 vol point, matching the trader
+    convention. See docs/GREEKS_UNIT_CONTRACT.md.
+
     Same for calls and puts.
 
     Args:
         S, K, T, r, sigma, q: Same as black_scholes_price
 
     Returns:
-        Vega value (always positive)
+        Vega per 1 vol point (always non-negative). Example: vega=0.114 means
+        a +1 vol point move (e.g. 25% -> 26% IV) increases the option price
+        by ~$0.114 per share.
     """
     _validate_inputs(S, K, sigma)
 
@@ -299,13 +312,18 @@ def black_scholes_rho(
 ) -> float:
     """
     Calculate option rho (sensitivity to interest rate).
-    Returns rho per 1% change in rate.
+
+    UNIT CONVENTION (audited): Returns rho **per 1% change in rate** (i.e.
+    per 0.01 change in ``r`` expressed as a decimal). Example: rho=-0.041
+    means if the risk-free rate rises by 100 bps (0.05 -> 0.06), the put
+    price drops by ~$0.041 per share. For a change ``dr`` in decimal form
+    (e.g. +0.01 for +100 bps), P&L is ``rho * dr * 100`` per share.
 
     Args:
         S, K, T, r, sigma, option_type, q: Same as black_scholes_price
 
     Returns:
-        Rho value
+        Rho per 1% (100 bps) rate change. Positive for calls, negative for puts.
     """
     _validate_inputs(S, K, sigma, option_type)
 

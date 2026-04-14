@@ -38,9 +38,13 @@ TradingView bridge:
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
+import hashlib
+import hmac
 import json
 import sys
+import time
 import traceback
+from collections import OrderedDict
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -89,6 +93,53 @@ _connector = None
 # and served back through /api/tv/alerts for the dashboard to display.
 _TV_ALERT_LOG: list[dict] = []
 _TV_ALERT_LOG_MAX = 200
+
+# AUDIT: replay-protection nonce cache. We key by the SHA-256 of the raw body
+# AND the incoming signature header so identical payloads with different
+# HMACs — e.g. an attacker flipping fields — cannot collide. The cache is
+# bounded (LRU) so we don't accumulate memory on long runs. Any alert seen
+# within _TV_WEBHOOK_MAX_AGE_SEC that matches a cached digest is rejected.
+_TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
+_TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
+_TV_SEEN_NONCES_MAX = 1024
+
+
+def _tv_seen_register(digest: str, now: float) -> bool:
+    """Check-and-set whether ``digest`` has been seen in the last window.
+
+    Returns True if this is a *new* nonce (proceed). Returns False if we have
+    already processed a payload with this digest, which means we should reject
+    it as a replay attempt.
+    """
+    # Purge stale entries at the head of the LRU
+    cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
+    while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
+        _TV_SEEN_NONCES.popitem(last=False)
+
+    if digest in _TV_SEEN_NONCES:
+        return False
+
+    _TV_SEEN_NONCES[digest] = now
+    while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
+        _TV_SEEN_NONCES.popitem(last=False)
+    return True
+
+
+def _tv_verify_hmac(body_bytes: bytes, provided_sig: str, secret: str) -> bool:
+    """Constant-time HMAC-SHA256 verification.
+
+    ``provided_sig`` may be of the form ``sha256=<hex>`` or a bare hex digest
+    to stay compatible with arbitrary webhook intermediaries. We never raise
+    on decoding errors — any parse failure returns False.
+    """
+    if not secret or not provided_sig:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
+    # Accept either "sha256=<hex>" or bare hex
+    got = provided_sig.strip()
+    if got.lower().startswith("sha256="):
+        got = got.split("=", 1)[1]
+    return hmac.compare_digest(expected, got)
 
 
 def get_runner():
@@ -241,15 +292,32 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/")
         try:
             length = int(self.headers.get("Content-Length", "0") or 0)
+            # Hard cap body size to prevent memory-exhaustion DoS. TradingView
+            # alert bodies are <1 KB in practice; 16 KB is generous.
+            if length > 16 * 1024:
+                self._send_error("payload too large", 413)
+                return
             raw = self.rfile.read(length) if length else b""
             try:
                 payload = json.loads(raw.decode("utf-8")) if raw else {}
             except json.JSONDecodeError as exc:
                 self._send_error(f"Invalid JSON: {exc}", 400)
                 return
+            if not isinstance(payload, dict):
+                self._send_error("payload must be a JSON object", 400)
+                return
 
             if path == "/api/tv/webhook":
-                self._handle_tv_webhook(payload)
+                # Pass raw body + signature header through to the webhook so
+                # HMAC verification operates on the exact bytes TradingView
+                # signed (JSON re-serialization would change whitespace).
+                sig_header = (
+                    self.headers.get("X-Signature")
+                    or self.headers.get("X-Signature-256")
+                    or self.headers.get("X-Hub-Signature-256")
+                    or ""
+                )
+                self._handle_tv_webhook(payload, raw_body=raw, signature_header=sig_header)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -1146,7 +1214,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         self._send_json({"signals": results, "count": len(results)})
 
-    def _handle_tv_webhook(self, payload: dict):
+    def _handle_tv_webhook(
+        self,
+        payload: dict,
+        raw_body: bytes = b"",
+        signature_header: str = "",
+    ):
         """Ingest a TradingView Pine Script webhook alert.
 
         The webhook is the **push** side of the bridge. Pine fires an alert
@@ -1157,29 +1230,100 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         serves back, and returns the enriched decision so Pine's alert
         dialog can show a confirmation toast.
 
-        Security note
-        -------------
-        The webhook optionally validates a shared ``secret`` string in the
-        payload against the ``TV_WEBHOOK_SECRET`` environment variable.
-        When the env var is unset the handler accepts all alerts (the
-        intended behavior for local development). When it is set, the
-        handler rejects payloads with missing or wrong secrets with HTTP
-        401. This mirrors the TradingView-to-webhook pattern recommended
-        by production integrations while keeping the private/local use
-        case frictionless.
+        Security hardening (AUDIT)
+        --------------------------
+        Three layers of defence are applied, in order:
+
+        1. **HMAC-SHA256 body signature** (preferred). When
+           ``TV_WEBHOOK_HMAC_SECRET`` is set, the handler requires a
+           matching hex digest in the ``X-Signature`` /
+           ``X-Signature-256`` / ``X-Hub-Signature-256`` header, verified
+           in constant time via :func:`hmac.compare_digest`. This protects
+           against tampering with the body in transit.
+
+        2. **Plain shared secret** (legacy, lower strength). When
+           ``TV_WEBHOOK_SECRET`` is set, the handler requires
+           ``payload["secret"]`` to match using a constant-time compare.
+           TradingView cannot send arbitrary headers, so for pure Pine
+           alerts this is the only option. Callers who can send headers
+           should prefer HMAC.
+
+        3. **Timestamp freshness + nonce-replay guard**. Every accepted
+           payload is tagged with a SHA-256 digest of the raw body plus the
+           received signature header. If the same digest is seen again
+           within ``_TV_WEBHOOK_MAX_AGE_SEC`` the alert is rejected with
+           409. Additionally, if the payload contains a ``timestamp`` field
+           that parses as a POSIX seconds or ISO 8601 string, it must be
+           within the freshness window to be accepted.
+
+        When none of the env vars above are set the handler accepts all
+        alerts (the intended behaviour for local development on a
+        loopback-only socket).
         """
         import os
+        from datetime import datetime, timezone
 
         from engine.tv_signals import TVAlert
 
-        alert = TVAlert.parse(payload if isinstance(payload, dict) else {})
+        alert = TVAlert.parse(payload)
         if not alert.is_valid():
             self._send_error("alert payload missing ticker or signal", 400)
             return
 
-        expected_secret = os.environ.get("TV_WEBHOOK_SECRET", "")
-        if expected_secret and alert.secret != expected_secret:
-            self._send_error("unauthorized", 401)
+        hmac_secret = os.environ.get("TV_WEBHOOK_HMAC_SECRET", "")
+        plain_secret = os.environ.get("TV_WEBHOOK_SECRET", "")
+
+        # Layer 1: HMAC verification (preferred).
+        if hmac_secret:
+            if not _tv_verify_hmac(raw_body, signature_header, hmac_secret):
+                self._send_error("unauthorized (hmac)", 401)
+                return
+
+        # Layer 2: Plain shared secret (in-body). Constant-time compare.
+        if plain_secret:
+            if not hmac.compare_digest(
+                (alert.secret or "").encode("utf-8"), plain_secret.encode("utf-8")
+            ):
+                self._send_error("unauthorized", 401)
+                return
+
+        now = time.time()
+
+        # Layer 3a: Timestamp freshness (if the payload includes one).
+        ts_val = alert.timestamp
+        if ts_val:
+            ts_parsed: float | None = None
+            try:
+                if isinstance(ts_val, (int, float)):
+                    # TradingView {{time}} is epoch ms — accept either.
+                    ts_parsed = float(ts_val) / 1000.0 if ts_val > 1e12 else float(ts_val)
+                elif isinstance(ts_val, str):
+                    # Numeric string?
+                    try:
+                        num = float(ts_val)
+                        ts_parsed = num / 1000.0 if num > 1e12 else num
+                    except ValueError:
+                        # ISO 8601
+                        cleaned = ts_val.replace("Z", "+00:00")
+                        dt = datetime.fromisoformat(cleaned)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        ts_parsed = dt.timestamp()
+            except Exception:
+                ts_parsed = None
+
+            if ts_parsed is not None:
+                age = now - ts_parsed
+                if abs(age) > _TV_WEBHOOK_MAX_AGE_SEC:
+                    self._send_error(
+                        f"alert outside freshness window (age={int(age)}s)", 400
+                    )
+                    return
+
+        # Layer 3b: Nonce / replay guard.
+        digest = hashlib.sha256(raw_body + b"|" + signature_header.encode("utf-8")).hexdigest()
+        if not _tv_seen_register(digest, now):
+            self._send_error("duplicate alert (replay blocked)", 409)
             return
 
         enriched = self._enrich_alert(alert)

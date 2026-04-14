@@ -213,9 +213,11 @@ class AssignmentFeatures:
             threshold_pct: How close is "danger zone" (default 2%)
 
         Returns:
-            Estimated days (inf if very far OTM)
+            Estimated days (capped at 365 if very far OTM)
         """
-        abs(strike - spot) / spot
+        # AUDIT FIX: removed orphaned `abs(strike - spot) / spot` expression.
+        # It was computed but never assigned — dead code that mis-signalled a
+        # "distance_from_strike" variable that is not used by this function.
         danger_zone = (
             strike * (1 - threshold_pct) if spot > strike else strike * (1 + threshold_pct)
         )
@@ -250,8 +252,10 @@ class AssignmentFeatures:
         - score: Confidence score (-1 to 1, positive = roll)
         - breakeven_improvement: Premium improvement from roll
         """
-        # Current position value
-        max(0, strike - spot)  # Intrinsic for put
+        # AUDIT FIX: removed orphaned `max(0, strike - spot)` intrinsic-value
+        # expression — it was computed but never assigned and not referenced
+        # anywhere below. Intrinsic value is not actually needed for the roll
+        # scoring logic (which uses assignment_basis + spot compare).
 
         # Roll economics
         roll_credit = roll_premium - current_premium
@@ -319,45 +323,82 @@ class AssignmentFeatures:
         """
         Compute all assignment features for a position.
 
+        AUDIT FIX (look-ahead bias): Previous implementation used
+        ``spot.iloc[-1]`` and ``iv.iloc[-1]`` to compute ``prob_touch``,
+        ``early_assignment_prob`` and ``days_to_danger`` as **scalar** values
+        and broadcast them to every row of the historical feature frame.
+        That meant a feature at date T was computed using spot/IV from the
+        last row of the series — i.e. the future — a classic look-ahead
+        bias that silently contaminates ML training labels. This version
+        computes each feature per row using only that row's spot and IV.
+
         Args:
-            spot: Price series
+            spot: Price series (index is trade date)
             strike: Option strike
-            iv: Implied volatility series
-            dte: Days to expiration
+            iv: Implied volatility series (must be aligned with spot)
+            dte: Days to expiration as of each row (constant here; caller
+                 should pre-scale for decaying DTE if needed)
             dividend_yield: Annual dividend yield
             risk_free_rate: Risk-free rate
             is_put: True for put option
 
         Returns:
-            DataFrame with assignment features
+            DataFrame indexed by spot.index with per-row assignment features.
         """
+        # Align iv to spot's index to avoid ffill/bfill surprises.
+        iv_aligned = iv.reindex(spot.index)
+
         result = pd.DataFrame(index=spot.index)
 
-        time_to_expiry = dte / 365
+        time_to_expiry = max(dte, 0) / 365.0
 
-        # Current values (vectorized where possible)
+        # Row-wise vectorized features (no look-ahead).
         result["moneyness"] = self.moneyness(spot, strike, is_put)
         result["distance_to_strike_pct"] = self.distance_to_strike_pct(spot, strike)
 
-        # Point-in-time calculations (last values)
-        current_spot = spot.iloc[-1]
-        current_iv = iv.iloc[-1]
+        # Per-row prob_touch / early-assignment / days_to_danger using each
+        # row's own spot and IV. Uses the existing _vectorized_* helpers which
+        # accept arrays of strikes/ttes/ivs but take a scalar spot; we loop
+        # over spot values with numpy broadcasting.
+        spot_arr = spot.to_numpy(dtype=float)
+        iv_arr = iv_aligned.to_numpy(dtype=float)
+        n = len(spot_arr)
+        strikes_arr = np.full(n, float(strike))
+        ttes_arr = np.full(n, float(time_to_expiry))
+        is_puts_arr = np.full(n, bool(is_put))
 
-        result["prob_touch"] = self.probability_of_touch(
-            current_spot, strike, time_to_expiry, current_iv, is_put
-        )
-        result["early_assignment_prob"] = self.early_assignment_probability(
-            current_spot, strike, time_to_expiry, dividend_yield, risk_free_rate, is_put
-        )
-        result["days_to_danger"] = self.days_until_danger_zone(current_spot, strike, current_iv)
+        prob_touch = np.full(n, np.nan)
+        early_assign = np.full(n, np.nan)
+        days_to_danger = np.full(n, np.nan)
 
-        # Support level analysis
+        valid = ~(np.isnan(spot_arr) | np.isnan(iv_arr)) & (spot_arr > 0) & (iv_arr > 0)
+        for i in np.where(valid)[0]:
+            prob_touch[i] = self.probability_of_touch(
+                float(spot_arr[i]), strike, time_to_expiry, float(iv_arr[i]), is_put
+            )
+            early_assign[i] = self.early_assignment_probability(
+                float(spot_arr[i]),
+                strike,
+                time_to_expiry,
+                dividend_yield,
+                risk_free_rate,
+                is_put,
+            )
+            days_to_danger[i] = self.days_until_danger_zone(
+                float(spot_arr[i]), strike, float(iv_arr[i])
+            )
+
+        result["prob_touch"] = prob_touch
+        result["early_assignment_prob"] = early_assign
+        result["days_to_danger"] = days_to_danger
+
+        # Support level analysis (already vectorized, PIT-safe via rolling)
         result["support_distance"] = self.support_level_distance(spot, strike)
 
-        # Moneyness path
+        # Moneyness path — expanding window ending at each row (PIT-safe)
         path = self.moneyness_path(spot, strike, window=21, is_put=is_put)
         for key, value in path.items():
-            result[f"moneyness_{key}"] = value
+            result[f"moneyness_path_{key}"] = value
 
         return result
 

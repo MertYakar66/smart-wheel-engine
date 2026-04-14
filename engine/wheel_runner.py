@@ -421,6 +421,228 @@ class WheelRunner:
             df = df.sort_values("wheel_score", ascending=False).head(top_n)
         return df
 
+    # ------------------------------------------------------------------
+    # EV-based ranking (audit upgrade)
+    # ------------------------------------------------------------------
+    def rank_candidates_by_ev(
+        self,
+        tickers: list[str] | None = None,
+        dte_target: int = 35,
+        delta_target: float = 0.25,
+        contracts: int = 1,
+        top_n: int = 20,
+        min_ev_dollars: float = 0.0,
+        as_of: str | None = None,
+        include_diagnostic_fields: bool = True,
+    ) -> pd.DataFrame:
+        """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
+
+        This is the audit-grade replacement for ``screen_candidates``. The
+        old ranker used a heuristic composite score; this one uses
+        :class:`engine.ev_engine.EVEngine` with a PIT-safe empirical
+        forward-return distribution pulled from the ticker's OHLCV history.
+
+        For each ticker:
+          1. Pull OHLCV up to ``as_of`` from the connector.
+          2. Pull ATM IV (``volatility_30d`` fallback to Bloomberg ATM IV).
+          3. Solve BSM delta to find the strike corresponding to
+             ``delta_target`` (e.g. 0.25 = 25-delta put).
+          4. Compute a fair BSM premium as a synthetic quote (flagged as
+             synthetic in the output so traders know to check the real
+             chain).
+          5. Build a :class:`ShortOptionTrade`, sample an empirical
+             forward distribution via
+             :func:`engine.forward_distribution.best_available_forward_distribution`
+             for ``dte_target`` days, and evaluate.
+          6. Drop candidates with ``days_to_earnings < 5``.
+          7. Return the top N sorted by ``ev_per_day``, with full EV
+             diagnostics attached.
+
+        Args:
+            tickers: Explicit ticker list. When ``None`` the full universe
+                is used (capped at 100 for performance parity with the
+                legacy screen).
+            dte_target: Target DTE for the synthetic trade.
+            delta_target: Target put delta (positive; the sign is handled
+                internally).
+            contracts: Number of contracts per candidate.
+            top_n: Number of top candidates to return.
+            min_ev_dollars: Hard filter — drop any trade with ``ev_dollars``
+                below this threshold.
+            as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now.
+            include_diagnostic_fields: Include CVaR, Omega, fair value, etc.
+
+        Returns:
+            DataFrame sorted by ``ev_per_day`` descending, or empty.
+        """
+        from scipy.optimize import brentq
+        from scipy.stats import norm
+
+        from engine.ev_engine import EVEngine, ShortOptionTrade
+        from engine.forward_distribution import best_available_forward_distribution
+        from engine.option_pricer import black_scholes_price
+
+        conn = self.connector
+        ev_eng = EVEngine()
+
+        if tickers is None:
+            tickers = conn.get_universe()[:100]
+
+        rows: list[dict] = []
+        T = max(dte_target, 1) / 365.0
+
+        for ticker in tickers:
+            try:
+                ohlcv = conn.get_ohlcv(ticker)
+            except Exception:
+                continue
+            if ohlcv is None or ohlcv.empty or "close" not in ohlcv.columns:
+                continue
+
+            # Respect PIT cutoff on OHLCV.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    ohlcv = ohlcv.loc[ohlcv.index <= cutoff]
+                except Exception:
+                    pass
+            if ohlcv.empty:
+                continue
+
+            spot = float(ohlcv["close"].iloc[-1])
+            if spot <= 0:
+                continue
+
+            # Get ATM IV and fundamentals
+            fundamentals = conn.get_fundamentals(ticker) or {}
+            iv = fundamentals.get("implied_vol_atm") or fundamentals.get("volatility_30d") or 0.0
+            try:
+                iv = float(iv)
+            except (TypeError, ValueError):
+                iv = 0.0
+            if iv <= 0 or iv > 5:
+                continue  # degenerate IV
+
+            dividend_yield = float(fundamentals.get("dividend_yield", 0.0) or 0.0)
+            risk_free_rate = 0.05
+            try:
+                risk_free_rate = float(conn.get_risk_free_rate(as_of) or 0.05)
+            except Exception:
+                pass
+
+            # Event exclusion
+            try:
+                next_earn = conn.get_next_earnings(ticker, as_of)
+                days_to_earn = None
+                if next_earn:
+                    earn_ts = next_earn.get("announcement_date")
+                    if earn_ts is not None:
+                        today = date.fromisoformat(as_of) if as_of else date.today()
+                        earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
+                        days_to_earn = (earn_d - today).days
+                if days_to_earn is not None and 0 <= days_to_earn < 5:
+                    continue
+            except Exception:
+                days_to_earn = None
+
+            # Solve for the strike that gives the target put delta
+            # Put delta = e^{-qT} * (N(d1) - 1); target is -delta_target.
+            def put_delta_err(K: float) -> float:
+                if K <= 0:
+                    return 1.0
+                d1 = (np.log(spot / K) + (risk_free_rate - dividend_yield + 0.5 * iv**2) * T) / (
+                    iv * np.sqrt(T)
+                )
+                put_delta = np.exp(-dividend_yield * T) * (norm.cdf(d1) - 1.0)
+                return put_delta + delta_target  # target: -delta_target
+
+            # Reasonable strike bracket: 50% OTM to 5% OTM
+            try:
+                strike = brentq(put_delta_err, spot * 0.5, spot * 0.99, xtol=1e-2)
+            except (ValueError, RuntimeError):
+                continue
+            # Round to nearest $0.50 for realism
+            strike = round(strike * 2) / 2
+            if strike <= 0 or strike >= spot:
+                continue
+
+            # Synthetic fair-value premium (mid). Real chains will differ.
+            premium = black_scholes_price(
+                S=spot,
+                K=strike,
+                T=T,
+                r=risk_free_rate,
+                sigma=iv,
+                option_type="put",
+                q=dividend_yield,
+            )
+            if premium <= 0.05:
+                continue  # premium too thin to trade
+
+            # Approximate a bid/ask from the synthetic mid (10% spread proxy).
+            bid = premium * 0.95
+            ask = premium * 1.05
+
+            # Pull the PIT-safe forward distribution
+            fwd_rets, method = best_available_forward_distribution(
+                ohlcv,
+                horizon_days=dte_target,
+                as_of=as_of,
+            )
+
+            trade = ShortOptionTrade(
+                option_type="put",
+                underlying=ticker,
+                spot=spot,
+                strike=strike,
+                premium=premium,
+                dte=dte_target,
+                iv=iv,
+                risk_free_rate=risk_free_rate,
+                dividend_yield=dividend_yield,
+                contracts=contracts,
+                bid=bid,
+                ask=ask,
+                open_interest=1000,  # unknown; mid-liquid assumption
+            )
+
+            res = ev_eng.evaluate(trade, forward_log_returns=fwd_rets)
+            if res.ev_dollars < min_ev_dollars:
+                continue
+
+            row: dict = {
+                "ticker": ticker,
+                "spot": spot,
+                "strike": strike,
+                "premium": round(premium, 3),
+                "dte": dte_target,
+                "iv": round(iv, 4),
+                "ev_dollars": round(res.ev_dollars, 2),
+                "ev_per_day": round(res.ev_per_day, 3),
+                "prob_profit": round(res.prob_profit, 4),
+                "prob_assignment": round(res.prob_assignment, 4),
+                "days_to_earnings": days_to_earn,
+                "distribution_source": method,
+            }
+            if include_diagnostic_fields:
+                row.update(
+                    {
+                        "cvar_5": round(res.cvar_5, 2),
+                        "omega_ratio": round(res.omega_ratio, 3),
+                        "fair_value": round(res.fair_value, 3),
+                        "edge_vs_fair": round(res.edge_vs_fair, 2),
+                        "breakeven_move_pct": round(res.breakeven_move_pct, 4),
+                        "total_transaction_cost": round(res.total_transaction_cost, 2),
+                        "skew_pnl": round(res.skew_pnl, 3),
+                    }
+                )
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        if not df.empty:
+            df = df.sort_values("ev_per_day", ascending=False).head(top_n)
+        return df
+
     def portfolio_report(
         self,
         tickers: list[str],

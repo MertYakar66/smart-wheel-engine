@@ -543,7 +543,9 @@ class DataQualityFramework:
                         affected_rows=int(negative.sum()),
                     ))
 
-        # IV in valid range (0 to 500%)
+        # IV in valid range (0 to 500%) — upgraded to ERROR severity so the
+        # quality framework actually blocks broken data instead of just
+        # warning. IV > 5.0 is not "unusual", it's corrupted data.
         iv_cols = [c for c in df_check.columns if "iv" in c.lower() or "impvol" in c.lower()]
         for col in iv_cols:
             if df_check[col].dtype in (np.float64, np.float32):
@@ -551,12 +553,117 @@ class DataQualityFramework:
                 if invalid_iv.any():
                     issues.append(QualityIssue(
                         check_type=CheckType.CONSISTENCY,
-                        severity=Severity.WARNING,
+                        severity=Severity.ERROR,
                         column=col,
                         message=f"IV values outside valid range [0, 5.0]",
                         affected_rows=int(invalid_iv.sum()),
                     ))
 
+        # AUDIT FIX — bid > ask detection. Crossed markets are always bad
+        # data and must block the trade universe builder.
+        if "bid" in df_check.columns and "ask" in df_check.columns:
+            valid_mask = df_check["bid"].notna() & df_check["ask"].notna()
+            crossed = valid_mask & (df_check["bid"] > df_check["ask"])
+            if crossed.any():
+                issues.append(QualityIssue(
+                    check_type=CheckType.CONSISTENCY,
+                    severity=Severity.ERROR,
+                    column="bid/ask",
+                    message="Crossed markets detected (bid > ask)",
+                    affected_rows=int(crossed.sum()),
+                ))
+            # Zero bid AND zero ask — likely stale / delisted contracts.
+            zero_both = valid_mask & (df_check["bid"] == 0) & (df_check["ask"] == 0)
+            if zero_both.any():
+                issues.append(QualityIssue(
+                    check_type=CheckType.CONSISTENCY,
+                    severity=Severity.WARNING,
+                    column="bid/ask",
+                    message="Options with both bid=0 and ask=0 (likely stale / worthless)",
+                    affected_rows=int(zero_both.sum()),
+                ))
+            # Spread > 100% of mid — extreme illiquidity, not tradable.
+            mid = (df_check["bid"] + df_check["ask"]) / 2.0
+            wide = valid_mask & (mid > 0) & ((df_check["ask"] - df_check["bid"]) / mid > 1.0)
+            if wide.any():
+                issues.append(QualityIssue(
+                    check_type=CheckType.CONSISTENCY,
+                    severity=Severity.WARNING,
+                    column="bid/ask",
+                    message="Spread > 100% of mid price (untradable illiquidity)",
+                    affected_rows=int(wide.sum()),
+                ))
+
+        # AUDIT FIX — expired contracts still in the snapshot.
+        if "expiration" in df_check.columns and "date" in df_check.columns:
+            try:
+                exp = pd.to_datetime(df_check["expiration"])
+                asof = pd.to_datetime(df_check["date"])
+                expired = exp < asof
+                if expired.any():
+                    issues.append(QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.ERROR,
+                        column="expiration",
+                        message="Option rows with expiration BEFORE as-of date",
+                        affected_rows=int(expired.sum()),
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+        return issues
+
+    def check_stale_quotes(
+        self,
+        df: pd.DataFrame,
+        timestamp_col: str = "quote_timestamp",
+        as_of: pd.Timestamp | None = None,
+        max_age_minutes: int = 30,
+    ) -> List[QualityIssue]:
+        """Detect stale option quotes relative to an as-of timestamp.
+
+        Options market-data feeds frequently carry the latest *known*
+        quote even after trading halts, circuit breakers, or end-of-day
+        freezes. If the quote is older than ``max_age_minutes`` relative
+        to the snapshot's wall-clock time, it is no longer a reliable
+        input to EV / Greeks calculations. This method scans a DataFrame
+        with a timestamp column and flags all stale rows.
+
+        Args:
+            df: Option quotes DataFrame.
+            timestamp_col: Column holding the per-row quote timestamp.
+            as_of: Snapshot wall-clock time. When ``None`` defaults to
+                the max timestamp in the frame (assumes the frame is the
+                current snapshot).
+            max_age_minutes: Freshness threshold in minutes.
+
+        Returns:
+            List of ``QualityIssue`` (possibly empty).
+        """
+        issues: List[QualityIssue] = []
+        if timestamp_col not in df.columns or df.empty:
+            return issues
+
+        ts = pd.to_datetime(df[timestamp_col], errors="coerce")
+        if ts.isna().all():
+            return issues
+
+        snap = pd.Timestamp(as_of) if as_of is not None else ts.max()
+        age_minutes = (snap - ts).dt.total_seconds() / 60.0
+        stale = age_minutes > max_age_minutes
+
+        if stale.any():
+            issues.append(QualityIssue(
+                check_type=CheckType.FRESHNESS,
+                severity=Severity.ERROR,
+                column=timestamp_col,
+                message=(
+                    f"Stale option quotes: {int(stale.sum())} rows with "
+                    f"age > {max_age_minutes} minutes (max age "
+                    f"{float(age_minutes.max()):.0f}m)"
+                ),
+                affected_rows=int(stale.sum()),
+            ))
         return issues
 
     def _check_time_series_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:

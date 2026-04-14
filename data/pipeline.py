@@ -641,6 +641,96 @@ class DataPipeline:
             result[ticker] = bt_df
         return result
 
+    def audit_survivorship_bias(
+        self,
+        start_date: str,
+        end_date: str,
+        expected_constituents: list[str] | None = None,
+    ) -> dict:
+        """Detect survivorship bias in the loaded universe.
+
+        Survivorship bias in this pipeline takes two forms:
+
+        1. **Backfilled universe**: every ticker in ``self._ohlcv`` has
+           data that starts *later* than ``start_date`` because it was
+           only added to the live SP500 after the backtest start.
+           Running a backtest over these tickers only selects winners
+           that survived long enough to be in today's index.
+
+        2. **Missing-delisting**: tickers that were in the index during
+           the period but have since been delisted are absent from
+           ``self._ohlcv`` entirely, so the loss they generated in the
+           out-period is never booked.
+
+        This helper does not *fix* the bias (that requires historical
+        constituency data from a separate source such as
+        ``scripts/download_sp500_constituents.py``), but it tells you:
+
+        * which tickers have data that starts **after** ``start_date``
+          (backfilled / new entrants),
+        * which tickers in ``expected_constituents`` are missing from
+          the loaded universe (potential delistings),
+        * a rough "bias score" = missing + backfilled / total expected.
+
+        Callers can use this to gate a backtest: fail loudly when the
+        bias score is above a threshold rather than silently producing
+        an optimistic backtest.
+
+        Args:
+            start_date: Backtest period start (inclusive, YYYY-MM-DD).
+            end_date: Backtest period end (inclusive, YYYY-MM-DD).
+            expected_constituents: Ground-truth list of tickers that were
+                in the index during the period, e.g. loaded from a
+                historical-constituents CSV. If ``None`` the missing-
+                delisting check is skipped.
+
+        Returns:
+            dict with fields ``backfilled_tickers``, ``missing_tickers``,
+            ``complete_tickers``, ``bias_score``, ``verdict``.
+        """
+        start = pd.to_datetime(start_date)
+        end = pd.to_datetime(end_date)
+
+        backfilled: list[str] = []
+        complete: list[str] = []
+        for ticker, df in self._ohlcv.items():
+            if df is None or df.empty:
+                continue
+            first_date = pd.to_datetime(df.index.min() if isinstance(df.index, pd.DatetimeIndex) else df["Date"].min())
+            if first_date > start:
+                backfilled.append(ticker)
+            else:
+                complete.append(ticker)
+
+        missing: list[str] = []
+        if expected_constituents:
+            loaded = set(self._ohlcv.keys())
+            for t in expected_constituents:
+                if t not in loaded:
+                    missing.append(t)
+
+        total_expected = len(expected_constituents) if expected_constituents else max(len(self._ohlcv), 1)
+        bias_score = (len(missing) + len(backfilled)) / total_expected
+
+        if bias_score > 0.30:
+            verdict = "CRITICAL: heavy survivorship bias — backtest results should be treated as upper bound only"
+        elif bias_score > 0.10:
+            verdict = "WARNING: material survivorship bias detected"
+        elif bias_score > 0.02:
+            verdict = "MINOR: some bias present; verify against historical constituency"
+        else:
+            verdict = "OK: no significant survivorship bias detected"
+
+        return {
+            "period": f"{start_date} to {end_date}",
+            "loaded_tickers": len(self._ohlcv),
+            "complete_tickers": len(complete),
+            "backfilled_tickers": sorted(backfilled),
+            "missing_tickers": sorted(missing),
+            "bias_score": round(bias_score, 4),
+            "verdict": verdict,
+        }
+
     def build_trade_universe(
         self,
         trade_date: str,

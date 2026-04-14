@@ -145,6 +145,103 @@ class DriftDetector:
             total += (c - b) * math.log(c / b)
         return total
 
+    # -- calibration gate (audit upgrade) -----------------------------------
+
+    @staticmethod
+    def check_calibration(
+        predicted_probs: list[float],
+        observed_outcomes: list[int],
+        max_brier_score: float = 0.20,
+        n_bins: int = 10,
+    ) -> dict:
+        """Brier-score + reliability-diagram calibration gate.
+
+        The wheel strategy makes decisions based on the ``prob_profit`` and
+        ``prob_assignment`` outputs of the ML classifier. If those probs
+        are **uncalibrated** — e.g. the model says 70% but empirical hit
+        rate is 45% — the downstream EV calculation is worse than useless
+        because it has false confidence. This helper implements the
+        standard calibration gate used in institutional ML promotion:
+
+        * **Brier score** = mean((p - y)²) must be below ``max_brier_score``.
+          A perfectly calibrated and sharp model has Brier ≈ 0; a coin
+          flip has Brier = 0.25.
+        * **Expected Calibration Error (ECE)**: average absolute gap
+          between predicted probability and empirical frequency, bucketed
+          into ``n_bins`` equal-width probability bins. ECE < 0.05 is
+          institutional grade.
+        * **Reliability points**: returned so callers can plot a full
+          reliability diagram for audit trails.
+
+        Args:
+            predicted_probs: list of predicted probabilities in [0, 1].
+            observed_outcomes: list of binary outcomes (0/1), same length.
+            max_brier_score: Gate threshold for Brier. Default 0.20 is
+                permissive; tighten to 0.15 once the model is proven.
+            n_bins: Bins for reliability diagram + ECE.
+
+        Returns:
+            dict with fields ``brier_score``, ``ece``, ``passed``,
+            ``reliability``, and ``gate_reason``.
+        """
+        if len(predicted_probs) != len(observed_outcomes):
+            raise ValueError("predicted_probs and observed_outcomes must have the same length")
+        if len(predicted_probs) == 0:
+            return {
+                "brier_score": float("nan"),
+                "ece": float("nan"),
+                "passed": False,
+                "reliability": [],
+                "gate_reason": "no data",
+            }
+
+        n = len(predicted_probs)
+        brier = sum((float(p) - int(y)) ** 2 for p, y in zip(predicted_probs, observed_outcomes)) / n
+
+        # Reliability diagram + ECE
+        bin_edges = [i / n_bins for i in range(n_bins + 1)]
+        reliability: list[dict] = []
+        ece = 0.0
+        for b in range(n_bins):
+            lo, hi = bin_edges[b], bin_edges[b + 1]
+            in_bin = [
+                (p, y)
+                for p, y in zip(predicted_probs, observed_outcomes)
+                if (lo <= p < hi) or (b == n_bins - 1 and p == hi)
+            ]
+            if not in_bin:
+                continue
+            avg_p = sum(p for p, _ in in_bin) / len(in_bin)
+            frac_pos = sum(y for _, y in in_bin) / len(in_bin)
+            weight = len(in_bin) / n
+            ece += weight * abs(avg_p - frac_pos)
+            reliability.append(
+                {
+                    "bin": b,
+                    "bin_low": lo,
+                    "bin_high": hi,
+                    "count": len(in_bin),
+                    "avg_predicted": round(avg_p, 4),
+                    "empirical_frequency": round(frac_pos, 4),
+                }
+            )
+
+        passed = brier <= max_brier_score and ece <= 0.05
+        if not passed:
+            gate_reason = (
+                f"brier={brier:.4f} (max {max_brier_score}), ece={ece:.4f} (max 0.05)"
+            )
+        else:
+            gate_reason = "ok"
+
+        return {
+            "brier_score": round(brier, 6),
+            "ece": round(ece, 6),
+            "passed": passed,
+            "reliability": reliability,
+            "gate_reason": gate_reason,
+        }
+
     @staticmethod
     def _to_decile_proportions(values: list[float]) -> list[float]:
         """Bin *values* into 10 equal-width buckets and return proportions."""

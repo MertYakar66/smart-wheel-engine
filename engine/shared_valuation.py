@@ -111,6 +111,8 @@ def simulate_option_trade(
     dividend_yield: float = 0.0,
     iv_trajectory: pd.Series | None = None,
     early_assignment_on_div: bool = True,
+    ex_div_date: date | None = None,
+    expected_dividend: float = 0.0,
 ) -> TradeOutcome | None:
     """
     Simulate a short option trade from entry to exit.
@@ -137,9 +139,14 @@ def simulate_option_trade(
             it falls back to ``entry_iv`` (documented biased mode). Missing
             dates are forward-filled from the previous observation to simulate
             stale quotes.
-        early_assignment_on_div: If True, ITM short calls are treated as
-            assigned the day before ex-dividend when remaining time value is
-            below the expected dividend (American early exercise). Default True.
+        early_assignment_on_div: If True and the option is a short ITM call,
+            the simulator will force assignment on the day BEFORE ex-dividend
+            when the remaining time value (estimated from BSM) is less than
+            the ``expected_dividend``. This is the textbook American early
+            exercise rule for calls on dividend-paying underlyings — skipping
+            it biases short-call backtests upward.
+        ex_div_date: Ex-dividend date during the holding period, if any.
+        expected_dividend: Per-share dividend amount expected at ex_div_date.
 
     Returns:
         TradeOutcome dataclass or None if simulation failed
@@ -265,6 +272,56 @@ def simulate_option_trade(
             option_type=option_type,
             dividend_yield=dividend_yield,
         )
+
+        # --------------------------------------------------------------
+        # American early-assignment on dividend (short ITM call only).
+        #
+        # Textbook rule: a short call on a dividend-paying underlying can be
+        # optimally early-exercised the day before ex-dividend when the
+        # remaining time value is below the dividend. We implement the rule
+        # exactly by computing time_value = option_value - intrinsic on the
+        # day before ex-div and comparing to expected_dividend.
+        # --------------------------------------------------------------
+        if (
+            early_assignment_on_div
+            and option_type == "call"
+            and ex_div_date is not None
+            and expected_dividend > 0
+        ):
+            days_to_ex = (ex_div_date - current_date).days
+            if days_to_ex == 1:
+                intrinsic_now = max(0.0, current_stock_price - strike)
+                time_value = max(0.0, estimated_value - intrinsic_now)
+                if intrinsic_now > 0 and time_value < expected_dividend:
+                    # Forced assignment at strike the day before ex-div.
+                    assignment_details = calculate_assignment_costs(strike, 100)
+                    # P&L: kept entry premium, paid intrinsic buy-back (lost
+                    # intrinsic value), and skipped the dividend we would
+                    # have collected as a stockholder.
+                    gross_pnl = entry_premium * 100 - intrinsic_now * 100
+                    return TradeOutcome(
+                        exit_date=current_date,
+                        exit_reason="early_assignment_div",
+                        exit_price=intrinsic_now,
+                        days_held=(current_date - entry_date).days,
+                        gross_pnl=gross_pnl,
+                        entry_costs=entry_costs,
+                        exit_costs=0,
+                        assignment_costs=assignment_details["assignment_fee"],
+                        net_pnl=(
+                            gross_pnl
+                            - entry_costs
+                            - assignment_details["assignment_fee"]
+                            - expected_dividend * 100
+                        ),
+                        was_assigned=True,
+                        underlying_price_at_exit=current_stock_price,
+                        max_profit_reached=max_profit,
+                        max_loss_reached=max_loss,
+                        iv_at_entry=entry_iv,
+                        strike=strike,
+                        premium_collected=entry_premium * 100,
+                    )
 
         # Current P&L (before exit costs)
         current_profit = entry_premium - estimated_value  # Per share

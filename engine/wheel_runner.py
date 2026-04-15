@@ -439,6 +439,9 @@ class WheelRunner:
         macro_buffer_days: int = 1,
         use_dealer_positioning: bool = False,
         dealer_assumption: str = "long_calls_short_puts",
+        min_history_days: int = 504,
+        enforce_history_gate: bool = True,
+        enforce_chain_quality_gate: bool = True,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -541,6 +544,17 @@ class WheelRunner:
                 except Exception:
                     pass
             if ohlcv.empty:
+                continue
+
+            # AUDIT-V P0.2: Historical data integrity gate.
+            # Survivorship bias protection in the live path. We refuse
+            # to rank a ticker whose OHLCV history is shorter than
+            # ``min_history_days`` because the empirical forward-return
+            # distribution it produces is statistically unreliable and
+            # the ticker was likely backfilled into the universe (i.e.
+            # survived long enough to be in today's SP500). Callers can
+            # disable via enforce_history_gate=False for research paths.
+            if enforce_history_gate and len(ohlcv) < min_history_days:
                 continue
 
             spot = float(ohlcv["close"].iloc[-1])
@@ -668,7 +682,16 @@ class WheelRunner:
             # the target expiry and build a MarketStructure to feed
             # into the EV evaluation. Every failure mode degrades to
             # market_structure=None (candidate still ranks on pure EV).
+            #
+            # AUDIT-V P0.3: when a chain IS fetched (for dealer
+            # positioning or elsewhere), we run the
+            # DataQualityFramework options-consistency check first and
+            # HARD-SKIP the ticker if it reports any ERROR-severity
+            # issue (bid>ask, IV out of range, expired options). The
+            # check is cheap and the consequences of ignoring crossed
+            # markets in a live path are severe.
             market_structure = None
+            chain_quality_blocked_reason = ""
             if dealer_analyzer is not None:
                 try:
                     chain_df = None
@@ -704,6 +727,37 @@ class WheelRunner:
                             )
                         else:
                             expiry_date = trade_end_d
+
+                        if enforce_chain_quality_gate and len(cdf) > 0:
+                            try:
+                                from data.quality import (
+                                    DataQualityFramework,
+                                    Severity,
+                                )
+
+                                qf = DataQualityFramework()
+                                q_cdf = cdf.copy()
+                                if "date" not in q_cdf.columns:
+                                    q_cdf["date"] = pd.Timestamp(trade_start_d)
+                                issues = qf._check_options_consistency(q_cdf)
+                                critical = [
+                                    i for i in issues
+                                    if i.severity in (Severity.ERROR, Severity.CRITICAL)
+                                ]
+                                if critical:
+                                    chain_quality_blocked_reason = (
+                                        f"chain_quality:{critical[0].message[:80]}"
+                                    )
+                            except Exception:
+                                # Quality check failure must never crash
+                                # the ranker itself — degrade to "unknown
+                                # quality" and let the trade proceed.
+                                pass
+
+                        if chain_quality_blocked_reason:
+                            # Hard skip this ticker entirely
+                            continue
+
                         if len(cdf) > 0:
                             market_structure = dealer_analyzer.analyze(
                                 chain=cdf,

@@ -206,7 +206,14 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 self._handle_status()
             elif path == "/api/candidates":
-                self._handle_candidates(param("limit", "15"), param("min_score", "50"))
+                self._handle_candidates(
+                    limit=param("limit", "15"),
+                    min_score=param("min_score", "50"),
+                    dte=param("dte", "35"),
+                    delta=param("delta", "0.25"),
+                    min_ev=param("min_ev", "0"),
+                    as_of=param("as_of"),
+                )
             elif path == "/api/analyze" or path.startswith("/api/analyze/"):
                 ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
                 if not ticker:
@@ -368,74 +375,156 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_candidates(self, limit, min_score):
-        from scipy.stats import norm as _norm
+    def _handle_candidates(
+        self,
+        limit="15",
+        min_score="50",
+        dte="35",
+        delta="0.25",
+        min_ev="0",
+        as_of=None,
+    ):
+        """EV-authoritative candidates endpoint (audit-V P0.1).
+
+        Replaces the legacy heuristic path that called
+        ``runner.screen_candidates`` and rebuilt BSM math inside the
+        API layer. The new handler is the single authoritative entry
+        point for tradeable candidates — every row carries native EV
+        diagnostics (ev_dollars, ev_per_day, prob_profit,
+        prob_assignment, cvar_5, distribution_source, dealer_regime)
+        and the legacy dashboard field names (expectedPnL, wheelScore,
+        etc.) are mapped from those EV values so existing UI code
+        keeps working.
+
+        Query parameters:
+            limit      top-N to return (default 15)
+            min_score  backward-compat heuristic filter — post-applied
+                       if the underlying frame carries wheel_score; does
+                       not gate EV ranking (default 50)
+            dte        target days-to-expiry (default 35)
+            delta      target put delta (default 0.25)
+            min_ev     hard EV threshold in dollars (default 0)
+            as_of      optional PIT cutoff YYYY-MM-DD
+
+        Returns:
+            {trades: [...], count: N, authority: "ev_ranked",
+             engine_version: "ev_engine_2026_04_14"}
+        """
+        try:
+            limit_int = max(1, int(limit or 15))
+            dte_int = int(dte or 35)
+            delta_f = float(delta or 0.25)
+            min_ev_f = float(min_ev or 0)
+            min_score_f = float(min_score or 0)
+        except (TypeError, ValueError):
+            limit_int, dte_int, delta_f, min_ev_f, min_score_f = 15, 35, 0.25, 0.0, 0.0
 
         runner = get_runner()
-        df = runner.screen_candidates(
-            min_wheel_score=float(min_score),
-            top_n=int(limit),
-        )
-        if df.empty:
-            self._send_json({"trades": [], "count": 0})
+        try:
+            df = runner.rank_candidates_by_ev(
+                dte_target=dte_int,
+                delta_target=delta_f,
+                top_n=limit_int,
+                min_ev_dollars=min_ev_f,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            return
+
+        if df is None or df.empty:
+            self._send_json(
+                {
+                    "trades": [],
+                    "count": 0,
+                    "authority": "ev_ranked",
+                    "engine_version": "ev_engine_2026_04_14",
+                }
+            )
             return
 
         trades = []
-        dte = 45
-        T = dte / 365
         for _, row in df.iterrows():
-            spot = row.get("spot", 0) or row.get("spot_price", 0)
-            iv = row.get("iv_30d", 0)
-            iv_dec = iv / 100 if iv > 1 else iv
-
-            # Compute strike / premium / delta / probability via BSM
-            strike = round(spot * 0.92, 0) if spot > 0 else 0
-            premium = 0.0
-            delta = 0.0
-            p_otm = 0.0
-            if spot > 0 and iv_dec > 0 and strike > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
-                d2 = d1 - iv_dec * np.sqrt(T)
-                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
-                premium = max(0.01, premium)
-                delta = float(-_norm.cdf(-d1))
-                p_otm = float(_norm.cdf(d2))
-
-            ev = p_otm * premium * 100 / (strike * 100) * (365 / dte) * 100 if strike > 0 else 0
-            max_loss = round((strike - premium) * 100, 2) if strike > 0 else 0
+            spot = float(row.get("spot", 0) or 0)
+            strike = float(row.get("strike", 0) or 0)
+            premium = float(row.get("premium", 0) or 0)
+            ev_dollars = float(row.get("ev_dollars", 0) or 0)
+            prob_profit = float(row.get("prob_profit", 0) or 0)
+            # Backward-compat heuristic filter only if wheel_score present
+            wheel_score = row.get("wheel_score")
+            if wheel_score is not None:
+                try:
+                    if float(wheel_score) < min_score_f:
+                        continue
+                except (TypeError, ValueError):
+                    pass
 
             trades.append(
                 {
-                    "ticker": row["ticker"],
+                    # EV-native (authoritative) fields
+                    "ticker": row.get("ticker"),
                     "strategy": "short_put",
-                    "spot": round(float(spot), 2) if spot else 0,
-                    "spotPrice": round(float(spot), 2) if spot else 0,
-                    "strike": strike,
-                    "expiration": "",
-                    "premium": round(premium, 2),
-                    "probability": round(p_otm * 100, 1),
-                    "expectedPnL": round(ev, 2),
-                    "maxLoss": max_loss,
-                    "iv": iv,
-                    "delta": round(delta, 3),
-                    "score": row["wheel_score"],
-                    "wheelScore": row["wheel_score"],
-                    "recommendation": row["recommendation"],
-                    "strangleScore": row.get("strangle_score", 0),
-                    "stranglePhase": row.get("strangle_phase", ""),
-                    "sector": row.get("sector", ""),
-                    "peRatio": row.get("pe_ratio", 0),
-                    "beta": row.get("beta", 0),
-                    "divYield": row.get("div_yield", 0),
-                    "volPremium": row.get("vol_premium", 0),
-                    "ivRank": row.get("iv_rank", 0),
-                    "mktCapB": row.get("mkt_cap_B", 0),
+                    "spot": round(spot, 2),
+                    "strike": round(strike, 2),
+                    "premium": round(premium, 3),
+                    "dte": dte_int,
+                    "iv": float(row.get("iv", 0) or 0),
+                    "evDollars": round(ev_dollars, 2),
+                    "evPerDay": round(float(row.get("ev_per_day", 0) or 0), 3),
+                    "probProfit": round(prob_profit, 4),
+                    "probAssignment": round(float(row.get("prob_assignment", 0) or 0), 4),
+                    "cvar5": row.get("cvar_5"),
+                    "cvar99Evt": row.get("cvar_99_evt"),
+                    "tailXi": row.get("tail_xi"),
+                    "heavyTail": bool(row.get("heavy_tail", False)),
+                    "omegaRatio": row.get("omega_ratio"),
+                    "fairValue": row.get("fair_value"),
+                    "edgeVsFair": row.get("edge_vs_fair"),
+                    "breakevenMovePct": row.get("breakeven_move_pct"),
+                    "distributionSource": row.get("distribution_source"),
+                    "dealerRegime": row.get("dealer_regime"),
+                    "dealerMultiplier": row.get("dealer_multiplier"),
+                    "gexTotal": row.get("gex_total"),
+                    "gammaFlipDistancePct": row.get("gamma_flip_distance_pct"),
+                    "nearestPutWallStrike": row.get("nearest_put_wall_strike"),
+                    "nearestCallWallStrike": row.get("nearest_call_wall_strike"),
                     "daysToEarnings": row.get("days_to_earnings"),
-                    "creditRating": row.get("credit_rating", ""),
+                    # Backward-compat aliases (dashboard expects these)
+                    "spotPrice": round(spot, 2),
+                    "expectedPnL": round(ev_dollars, 2),  # was heuristic — now EV
+                    "probability": round(prob_profit * 100, 1),
+                    "maxLoss": round((strike - premium) * 100, 2) if strike > 0 else 0,
+                    "score": row.get("wheel_score", round(prob_profit * 100, 1)),
+                    "wheelScore": row.get("wheel_score"),
+                    "recommendation": (
+                        "proceed"
+                        if ev_dollars >= 10 and prob_profit >= 0.65
+                        else "review"
+                        if ev_dollars > 0
+                        else "skip"
+                    ),
+                    "expiration": "",
                 }
             )
 
-        self._send_json({"trades": trades, "count": len(trades)})
+        self._send_json(
+            {
+                "trades": trades,
+                "count": len(trades),
+                "authority": "ev_ranked",
+                "engine_version": "ev_engine_2026_04_14",
+                "params": {
+                    "limit": limit_int,
+                    "dte": dte_int,
+                    "delta": delta_f,
+                    "min_ev": min_ev_f,
+                    "min_score": min_score_f,
+                    "as_of": as_of,
+                },
+            }
+        )
 
     def _handle_analyze(self, ticker, as_of):
         if not ticker or not ticker.strip():
@@ -561,6 +650,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json({"events": events})
 
     def _handle_screen(self, params):
+        """Legacy heuristic screen (RESEARCH-ONLY — not trade authority).
+
+        AUDIT-V P0.1b: This endpoint still runs the legacy wheel_score
+        heuristic — fundamental/liquidity filters, not probabilistic
+        EV. It is kept for research introspection and for debugging
+        the difference between the heuristic and EV-authoritative
+        rankings, but every response is flagged ``authority:
+        heuristic_research_only`` so the dashboard NEVER routes a
+        trade through it.
+
+        Callers who want tradeable candidates MUST use
+        ``/api/candidates`` (EV-authoritative) or ``/api/tv/ranked``.
+        """
         def p(key, default=None):
             return params.get(key, [default])[0]
 
@@ -576,7 +678,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         if not df.empty:
             results = df.to_dict(orient="records")
 
-        self._send_json({"results": results, "count": len(results)})
+        self._send_json(
+            {
+                "results": results,
+                "count": len(results),
+                "authority": "heuristic_research_only",
+                "warning": (
+                    "This endpoint returns the legacy heuristic wheel_score "
+                    "ranking for research only. For tradeable candidates use "
+                    "/api/candidates (EV-authoritative)."
+                ),
+                "tradeable_endpoint": "/api/candidates",
+            }
+        )
 
     def _handle_committee(self, ticker):
         from advisors import CommitteeEngine, format_committee_report
@@ -1170,13 +1284,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         zone : str, optional
             One of ``wheel_put``, ``covered_call``, ``strangle``.
 
-        Implementation notes
-        --------------------
-        This scan intentionally reuses ``WheelRunner.screen_candidates``
-        rather than walking the full universe cold — the wheel screener
-        already filters out unusable tickers on fundamentals and liquidity,
-        so piping only qualified names through ``compute_tv_signal`` keeps
-        the scan fast and removes spurious micro-cap matches.
+        Implementation notes (audit-V P0.1b)
+        ------------------------------------
+        Candidate pool is now EV-ranked via
+        :meth:`WheelRunner.rank_candidates_by_ev`, NOT the legacy
+        heuristic ``screen_candidates``. This unifies decision
+        authority with ``/api/candidates`` so there is no path where
+        a heuristic wheel_score can surface names that EV would
+        reject.
+
+        The TV signal layer itself remains purely *visual / context* —
+        it attaches regime phase and zone flags to the EV-ranked pool
+        so traders can eyeball the chart state, but it never
+        upgrades or overrides the EV ranking.
         """
         from engine.tv_signals import compute_tv_signal
 
@@ -1188,11 +1308,30 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         runner = get_runner()
         conn = get_connector()
 
-        # Pull a larger candidate pool than the final limit so the filter
-        # below has room to work without starving the response.
-        df = runner.screen_candidates(min_wheel_score=45.0, top_n=max(limit_int * 4, 60))
+        # EV-authoritative pool — no heuristic wheel_score filter.
+        # We pull a deeper bench than the final limit so the phase/zone
+        # filter below has room to work.
+        try:
+            df = runner.rank_candidates_by_ev(
+                dte_target=35,
+                delta_target=0.25,
+                top_n=max(limit_int * 4, 60),
+                min_ev_dollars=0.0,  # strict: positive-EV only
+                include_diagnostic_fields=True,
+            )
+        except Exception:
+            traceback.print_exc()
+            df = None
+
         if df is None or df.empty:
-            self._send_json({"signals": [], "count": 0})
+            self._send_json(
+                {
+                    "signals": [],
+                    "count": 0,
+                    "authority": "ev_ranked",
+                    "layer": "visual_context_only",
+                }
+            )
             return
 
         results = []
@@ -1234,14 +1373,25 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "bb_width_pctl": round(signal.bb_width_pctl, 1),
                     "rsi_14": round(signal.rsi_14, 1),
                     "close": signal.close,
-                    "wheel_score": float(row.get("wheel_score", 0) or 0),
-                    "strangle_score": float(row.get("strangle_score", 0) or 0),
+                    # EV-native ranking signals from the authoritative path
+                    "ev_dollars": float(row.get("ev_dollars", 0) or 0),
+                    "ev_per_day": float(row.get("ev_per_day", 0) or 0),
+                    "prob_profit": float(row.get("prob_profit", 0) or 0),
+                    "distribution_source": row.get("distribution_source"),
                 }
             )
             if len(results) >= limit_int:
                 break
 
-        self._send_json({"signals": results, "count": len(results)})
+        self._send_json(
+            {
+                "signals": results,
+                "count": len(results),
+                "authority": "ev_ranked",
+                "layer": "visual_context_only",
+                "engine_version": "ev_engine_2026_04_14",
+            }
+        )
 
     def _handle_tv_webhook(
         self,

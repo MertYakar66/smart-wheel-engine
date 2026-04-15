@@ -37,6 +37,7 @@ TradingView bridge:
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
   GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
   GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
+  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
@@ -301,6 +302,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     tickers_csv=param("tickers"),
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
+                )
+            elif path == "/api/tv/dealer_positioning":
+                self._handle_tv_dealer_positioning(
+                    ticker=(param("ticker", "") or "").upper(),
+                    dte_target=int(param("dte", "35")),
+                    assumption=param("assumption", "long_calls_short_puts") or "long_calls_short_puts",
                 )
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
@@ -1379,6 +1386,100 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         limit = max(1, min(limit or 50, _TV_ALERT_LOG_MAX))
         items = list(reversed(_TV_ALERT_LOG[-limit:]))
         self._send_json({"alerts": items, "count": len(items)})
+
+    def _handle_tv_dealer_positioning(
+        self,
+        ticker: str,
+        dte_target: int,
+        assumption: str,
+    ):
+        """Return aggregated dealer positioning (GEX, walls, regime) for a ticker.
+
+        Query params:
+            ticker      required — underlying symbol
+            dte         target DTE (default 35); picks the option chain
+                        expiry closest to today+dte
+            assumption  dealer-direction convention
+                        (long_calls_short_puts | short_both)
+
+        Returns a :class:`MarketStructure.to_dict` payload including
+        aggregate GEX / DEX / vanna / charm, per-strike exposures,
+        top-3 call & put gamma walls, nearest walls above/below spot,
+        zero-gamma flip level, pinning zones, regime label, and
+        confidence. When the chain is unavailable the endpoint returns
+        HTTP 404 with a structured reason.
+        """
+        from datetime import date, timedelta
+
+        if not ticker:
+            self._send_error("ticker parameter is required", 400)
+            return
+
+        from engine.dealer_positioning import (
+            DealerAssumption,
+            DealerPositioningAnalyzer,
+        )
+
+        try:
+            assumption_enum = DealerAssumption(assumption)
+        except ValueError:
+            assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
+
+        conn = get_connector()
+        chain_df = None
+        try:
+            if hasattr(conn, "get_options"):
+                chain_df = conn.get_options(ticker)
+            elif hasattr(conn, "get_option_chain"):
+                chain_df = conn.get_option_chain(ticker)
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"chain fetch failed: {exc}", 500)
+            return
+
+        if chain_df is None or len(chain_df) == 0:
+            self._send_error("option chain unavailable for ticker", 404)
+            return
+
+        # Pick expiry closest to today + dte_target
+        cdf = chain_df.copy()
+        cdf.columns = [c.lower() for c in cdf.columns]
+        if "expiration" in cdf.columns:
+            import pandas as pd
+
+            cdf["expiration"] = pd.to_datetime(cdf["expiration"], errors="coerce")
+            target_ts = pd.Timestamp(date.today() + timedelta(days=dte_target))
+            cdf["_dte_gap"] = (cdf["expiration"] - target_ts).abs()
+            best = cdf.sort_values("_dte_gap")["expiration"].iloc[0]
+            cdf = cdf[cdf["expiration"] == best].drop(columns=["_dte_gap"])
+            expiry_d = best.date() if hasattr(best, "date") else best
+        else:
+            expiry_d = date.today() + timedelta(days=dte_target)
+
+        # Get spot
+        spot = 0.0
+        try:
+            ohlcv = conn.get_ohlcv(ticker)
+            if ohlcv is not None and len(ohlcv) > 0:
+                close_col = "close" if "close" in ohlcv.columns else "Close"
+                spot = float(ohlcv[close_col].iloc[-1])
+        except Exception:
+            pass
+        if spot <= 0 and "underlying_price" in cdf.columns:
+            spot = float(cdf["underlying_price"].dropna().iloc[0])
+
+        if spot <= 0:
+            self._send_error("spot price unavailable", 404)
+            return
+
+        analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
+        ms = analyzer.analyze(
+            chain=cdf,
+            spot=spot,
+            expiry=expiry_d,
+            ticker=ticker,
+        )
+        self._send_json(ms.to_dict())
 
     def _handle_tv_dossier(
         self,

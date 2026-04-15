@@ -92,6 +92,9 @@ from .transaction_costs import (
     calculate_assignment_fee,
 )
 
+if False:  # TYPE_CHECKING
+    from .dealer_positioning import MarketStructure  # noqa: F401
+
 
 OptionType = Literal["put", "call"]
 
@@ -160,6 +163,17 @@ class EVResult:
     # the candidate was blocked by a pre-EV event gate and the
     # ``ev_dollars`` field was zeroed to prevent ranking.
     event_lockout_reason: str = ""
+    # Dealer positioning fields (quant upgrade 2026-04-14 — audit V).
+    # Populated when a MarketStructure is passed into evaluate().
+    # NOT used as a decider — only as a multiplicative scalar on the
+    # regime_multiplier, clamped to [0.70, 1.05] by dealer_regime_multiplier.
+    dealer_regime: str = ""
+    dealer_multiplier: float = 1.0
+    gex_total: float = float("nan")
+    gamma_flip_distance_pct: float = float("nan")
+    nearest_put_wall_strike: float = float("nan")
+    nearest_call_wall_strike: float = float("nan")
+    pinning_zones: list = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
 
 
@@ -222,6 +236,7 @@ class EVEngine:
         price_scenarios: np.ndarray | None = None,
         trade_start: "date | None" = None,
         trade_end: "date | None" = None,
+        market_structure=None,
     ) -> EVResult:
         """Run EV evaluation for one candidate trade.
 
@@ -229,6 +244,15 @@ class EVEngine:
         event lockout gate. When an event gate is attached and blocks
         the candidate, the engine returns an :class:`EVResult` with
         ``ev_dollars=0`` and ``event_lockout_reason`` populated.
+
+        ``market_structure`` is an optional
+        :class:`engine.dealer_positioning.MarketStructure` carrying
+        aggregated dealer GEX / DEX / walls / regime. When supplied the
+        engine multiplies the final regime scaling by
+        :func:`dealer_regime_multiplier` (clamped to [0.70, 1.05]).
+        Dealer positioning NEVER upgrades a negative-EV trade: the raw
+        ev_raw path is untouched, and the dealer multiplier only scales
+        the final ``ev_dollars`` output.
         """
         # Event lockout short-circuit — runs BEFORE any expensive math.
         if self.event_gate is not None and trade_start is not None and trade_end is not None:
@@ -405,9 +429,37 @@ class EVEngine:
         # remain pure and auditable. Heavy-tail regimes additionally
         # shrink EV by ``heavy_tail_penalty`` (default 0.5) to reflect
         # the increased estimation uncertainty in fat-tailed samples.
+        # Dealer positioning (if provided) multiplies in last, clamped
+        # to [0.70, 1.05] — asymmetric by design.
         regime_mult = max(0.0, float(trade.regime_multiplier))
         if heavy_tail:
             regime_mult *= self.heavy_tail_penalty
+
+        dealer_mult = 1.0
+        dealer_regime_label = ""
+        gex_total = float("nan")
+        gamma_flip_distance_pct = float("nan")
+        nearest_put_wall_strike = float("nan")
+        nearest_call_wall_strike = float("nan")
+        pinning_zones_list: list = []
+        if market_structure is not None:
+            from .dealer_positioning import dealer_regime_multiplier
+
+            dealer_mult = float(dealer_regime_multiplier(market_structure))
+            regime_mult *= dealer_mult
+            dealer_regime_label = str(getattr(market_structure, "regime", ""))
+            gex_total = float(getattr(market_structure, "gex_total", float("nan")))
+            gamma_flip_distance_pct = float(
+                getattr(market_structure, "flip_distance_pct", float("nan")) or float("nan")
+            )
+            nearest_put = getattr(market_structure, "nearest_put_wall", None)
+            if nearest_put is not None:
+                nearest_put_wall_strike = float(nearest_put.strike)
+            nearest_call = getattr(market_structure, "nearest_call_wall", None)
+            if nearest_call is not None:
+                nearest_call_wall_strike = float(nearest_call.strike)
+            pinning_zones_list = list(getattr(market_structure, "pinning_zones", []) or [])
+
         ev_dollars = ev_raw * regime_mult
 
         return EVResult(
@@ -430,6 +482,13 @@ class EVEngine:
             cvar_99_evt=cvar_99_evt,
             tail_xi=tail_xi,
             heavy_tail=heavy_tail,
+            dealer_regime=dealer_regime_label,
+            dealer_multiplier=dealer_mult,
+            gex_total=gex_total,
+            gamma_flip_distance_pct=gamma_flip_distance_pct,
+            nearest_put_wall_strike=nearest_put_wall_strike,
+            nearest_call_wall_strike=nearest_call_wall_strike,
+            pinning_zones=pinning_zones_list,
             metadata={
                 "n_scenarios": int(len(pnls)),
                 "net_premium_in": net_premium_in,

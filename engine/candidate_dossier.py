@@ -54,6 +54,11 @@ class CandidateDossier:
     # pre-promote every field here.
     ev_row: dict[str, Any]
     chart_context: ChartContext | None = None
+    # Optional aggregated dealer positioning (engine/dealer_positioning.py).
+    # When present the EnginePhaseReviewer applies an extra rule (R6)
+    # that can downgrade — never upgrade — a candidate based on the
+    # market-structure regime relative to the trade strike.
+    market_structure: Any = None
     verdict: Verdict = "review"
     verdict_reason: str = ""
     review_notes: list[str] = field(default_factory=list)
@@ -202,13 +207,49 @@ class EnginePhaseReviewer:
 
         # Rule 5: EV threshold.
         if ev >= self.min_proceed_ev:
+            verdict: Verdict = "proceed"
+            reason = "ev_above_threshold"
             notes.append(f"ev_dollars={ev:.2f} >= {self.min_proceed_ev} — proceed")
-            return "proceed", "ev_above_threshold", notes
+        else:
+            verdict = "review"
+            reason = "ev_below_proceed_threshold"
+            notes.append(
+                f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} — human review"
+            )
 
-        notes.append(
-            f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} — human review"
-        )
-        return "review", "ev_below_proceed_threshold", notes
+        # Rule 6: Dealer-positioning downgrade (audit V).
+        # When an aggregated MarketStructure is attached AND the regime
+        # is short-gamma amplifying AND the candidate strike is at or
+        # above the nearest put wall, breach risk is materially higher
+        # than the raw EV suggests. Downgrade proceed → review.
+        # Hard guardrail: this rule NEVER upgrades. It can only shift
+        # "proceed" to "review" (never touches "blocked" or "skip").
+        ms = getattr(dossier, "market_structure", None)
+        if ms is not None and verdict == "proceed":
+            regime = getattr(ms, "regime", "")
+            if regime == "short_gamma_amplifying":
+                nearest_put = getattr(ms, "nearest_put_wall", None)
+                strike = dossier.ev_row.get("strike")
+                try:
+                    strike_f = float(strike) if strike is not None else None
+                except (TypeError, ValueError):
+                    strike_f = None
+                if (
+                    nearest_put is not None
+                    and strike_f is not None
+                    and strike_f >= float(nearest_put.strike)
+                ):
+                    notes.append(
+                        f"R6: short-gamma regime + strike {strike_f:.2f} "
+                        f"at/above put wall {float(nearest_put.strike):.2f} "
+                        "— breach risk amplified, downgrade to review"
+                    )
+                    return "review", "dealer_short_gamma_above_put_wall", notes
+            elif regime == "near_flip":
+                notes.append("R6: dealer regime near gamma flip — downgrade to review")
+                return "review", "dealer_near_flip", notes
+
+        return verdict, reason, notes
 
 
 # ----------------------------------------------------------------------

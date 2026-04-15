@@ -437,6 +437,8 @@ class WheelRunner:
         use_event_gate: bool = True,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
+        use_dealer_positioning: bool = False,
+        dealer_assumption: str = "long_calls_short_puts",
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -483,6 +485,10 @@ class WheelRunner:
         from scipy.optimize import brentq
         from scipy.stats import norm
 
+        from engine.dealer_positioning import (
+            DealerAssumption,
+            DealerPositioningAnalyzer,
+        )
         from engine.event_gate import EventGate, ScheduledEvent
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.forward_distribution import best_available_forward_distribution
@@ -499,6 +505,19 @@ class WheelRunner:
                 macro_buffer_days=macro_buffer_days,
             )
         ev_eng = EVEngine(event_gate=event_gate)
+
+        # Optional dealer positioning analyzer. Off by default; when
+        # enabled we pull the option chain per ticker and feed a
+        # MarketStructure into EVEngine.evaluate alongside the other
+        # regime multipliers. Chain fetch failures degrade gracefully
+        # to market_structure=None (candidate still ranks).
+        dealer_analyzer: DealerPositioningAnalyzer | None = None
+        if use_dealer_positioning:
+            try:
+                assumption_enum = DealerAssumption(dealer_assumption)
+            except ValueError:
+                assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
+            dealer_analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
 
         if tickers is None:
             tickers = conn.get_universe()[:100]
@@ -645,11 +664,64 @@ class WheelRunner:
                 open_interest=1000,  # unknown; mid-liquid assumption
             )
 
+            # Optional dealer positioning: pull the option chain for
+            # the target expiry and build a MarketStructure to feed
+            # into the EV evaluation. Every failure mode degrades to
+            # market_structure=None (candidate still ranks on pure EV).
+            market_structure = None
+            if dealer_analyzer is not None:
+                try:
+                    chain_df = None
+                    if hasattr(conn, "get_options"):
+                        chain_df = conn.get_options(ticker)
+                    elif hasattr(conn, "get_option_chain"):
+                        chain_df = conn.get_option_chain(ticker)
+                    if chain_df is not None and len(chain_df) > 0:
+                        # Coerce column names + filter to the nearest
+                        # expiry around the target DTE.
+                        cdf = chain_df.copy()
+                        cdf.columns = [c.lower() for c in cdf.columns]
+                        if "expiration" in cdf.columns:
+                            cdf["expiration"] = pd.to_datetime(
+                                cdf["expiration"], errors="coerce"
+                            )
+                            target_expiry_ts = pd.Timestamp(
+                                trade_start_d + timedelta(days=dte_target)
+                            )
+                            cdf["_dte_gap"] = (
+                                cdf["expiration"] - target_expiry_ts
+                            ).abs()
+                            # Pick the single closest expiry
+                            best_expiry = cdf.sort_values("_dte_gap")[
+                                "expiration"
+                            ].iloc[0]
+                            cdf = cdf[cdf["expiration"] == best_expiry].copy()
+                            cdf = cdf.drop(columns=["_dte_gap"])
+                            expiry_date = (
+                                best_expiry.date()
+                                if hasattr(best_expiry, "date")
+                                else best_expiry
+                            )
+                        else:
+                            expiry_date = trade_end_d
+                        if len(cdf) > 0:
+                            market_structure = dealer_analyzer.analyze(
+                                chain=cdf,
+                                spot=spot,
+                                expiry=expiry_date,
+                                ticker=ticker,
+                                dividend_yield=dividend_yield,
+                            )
+                except Exception:
+                    # Graceful degrade — dealer positioning is optional
+                    market_structure = None
+
             res = ev_eng.evaluate(
                 trade,
                 forward_log_returns=fwd_rets,
                 trade_start=trade_start_d,
                 trade_end=trade_end_d,
+                market_structure=market_structure,
             )
             # Event-gate short-circuit: drop blocked candidates entirely.
             if res.event_lockout_reason:
@@ -692,6 +764,31 @@ class WheelRunner:
                         "breakeven_move_pct": round(res.breakeven_move_pct, 4),
                         "total_transaction_cost": round(res.total_transaction_cost, 2),
                         "skew_pnl": round(res.skew_pnl, 3),
+                        # Dealer positioning diagnostics (all None when
+                        # use_dealer_positioning=False or the chain was
+                        # unavailable).
+                        "dealer_regime": res.dealer_regime or None,
+                        "dealer_multiplier": round(res.dealer_multiplier, 4),
+                        "gex_total": (
+                            round(res.gex_total, 0)
+                            if not np.isnan(res.gex_total)
+                            else None
+                        ),
+                        "gamma_flip_distance_pct": (
+                            round(res.gamma_flip_distance_pct, 4)
+                            if not np.isnan(res.gamma_flip_distance_pct)
+                            else None
+                        ),
+                        "nearest_put_wall_strike": (
+                            round(res.nearest_put_wall_strike, 2)
+                            if not np.isnan(res.nearest_put_wall_strike)
+                            else None
+                        ),
+                        "nearest_call_wall_strike": (
+                            round(res.nearest_call_wall_strike, 2)
+                            if not np.isnan(res.nearest_call_wall_strike)
+                            else None
+                        ),
                     }
                 )
             rows.append(row)

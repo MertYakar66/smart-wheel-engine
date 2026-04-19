@@ -1,6 +1,43 @@
 """
 Wheel Strategy Backtesting Engine.
 
+STATUS: RESEARCH / SIMULATION ONLY — NOT LAUNCH-GRADE.
+
+Audit (2026-04-14) known gaps (documented, not silently broken):
+
+1. Uses CONSTANT entry IV for intermediate mark-to-market, not a daily
+   IV trajectory. The fix in ``engine/shared_valuation.py::simulate_option_trade``
+   (iv_trajectory parameter) has NOT been ported here. Consequence:
+   post-earnings IV crush is not reflected; backtest over-estimates
+   profitability for puts sold into vol expansion.
+
+2. Does NOT use ``engine/event_gate.py``. Earnings / FOMC / CPI
+   lockouts are not enforced. The config has avoid_earnings=True but
+   no code path reads the flag and skips those candidates.
+
+3. Transaction cost model is incomplete:
+   * No commissions on entry.
+   * No bid-ask slippage (all options priced mid).
+   * No assignment fees.
+   * No Almgren-Chriss sqrt market impact.
+   Effect: ~2-5% optimistic bias on reported returns.
+
+4. Survivorship bias is not actively filtered. The backtest walks
+   whatever tickers exist in the input data. If the input universe is
+   scraped from today's SP500 (``scripts/download_sp500_constituents.py``)
+   the backtest is survivor-biased.
+
+5. No corporate actions handling. Stock splits invalidate strike
+   prices mid-backtest. Special dividends are ignored.
+
+6. Uses ``ml/wheel_model.py`` which itself is research-only and has
+   purging-gap issues documented in that module's header.
+
+For launch-grade performance claims, use
+``WheelRunner.rank_candidates_by_ev`` live with the existing audit V
+guardrails (event gate + chain quality gate + history gate). This
+backtest exists as an offline research tool.
+
 Simulates wheel strategy execution with:
 - ML-based entry signals
 - Realistic option pricing

@@ -542,9 +542,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             )
             return
         a = runner.analyze_ticker(ticker, as_of)
+        # AUDIT FIX: wheelScore and strangleScore come from heuristic
+        # modules (screen_candidates / StrangleTimingEngine), NOT from the
+        # EV engine. The response now carries an explicit authority
+        # contract so callers cannot mistake these scores for EV-backed
+        # rankings. For tradeable EV decisions use /api/candidates.
         self._send_json(
             {
                 "ticker": a.ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
                 "spotPrice": a.spot_price,
                 "marketCap": a.market_cap,
                 "peRatio": a.pe_ratio,
@@ -565,10 +572,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "strangleScore": a.strangle_score,
                 "stranglePhase": a.strangle_phase,
                 "strangleRecommendation": a.strangle_recommendation,
+                "strangleAuthority": "heuristic_diagnostic",
                 "riskFreeRate": a.risk_free_rate,
                 "vixLevel": a.vix_level,
                 "wheelScore": a.wheel_score,
                 "wheelRecommendation": a.wheel_recommendation,
+                "wheelScoreAuthority": "heuristic_diagnostic",
             }
         )
 
@@ -975,9 +984,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         rf = get_current_risk_free_rate()
 
         candidates = recommend_strikes(ticker, spot, iv, int(dte_str), rf, strategy)
+        # AUDIT FIX: recommend_strikes uses BSM payoff math (delta/OTM
+        # probability), NOT EV. These are diagnostic strike ranges — they
+        # do not represent a ranked tradeable recommendation.
         self._send_json(
             {
                 "ticker": ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
+                "note": (
+                    "Strike ranges come from BSM payoff math, not EV. "
+                    "For EV-ranked strikes use /api/candidates."
+                ),
                 "strategy": strategy,
                 "spot": round(spot, 2),
                 "iv": round(iv, 1),
@@ -1153,9 +1171,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         score = engine.score_entry(ohlcv)
         regime = engine.classify_regime(ohlcv)
 
+        # AUDIT FIX: StrangleTimingEngine is a heuristic scoring module
+        # (Bollinger/ATR/RSI/trend/range composite). It does NOT compute
+        # probabilistic EV. Response now carries an authority contract.
         self._send_json(
             {
                 "ticker": ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
+                "note": (
+                    "Strangle timing is a heuristic regime/phase signal. "
+                    "For EV-ranked strangle candidates use /api/candidates "
+                    "or /api/tv/ranked with a strangle delta pair."
+                ),
                 "score": round(float(score.total_score), 1),
                 "recommendation": score.recommendation,
                 "phase": regime.phase.value,
@@ -1834,15 +1862,72 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             days_to_earnings = None
             sector = ""
 
-        # Simple verdict heuristic combining Pine agreement with engine scoring
+        # Verdict is EV-AUTHORITATIVE (audit fix 2026-04-14).
+        # Previously used a heuristic `wheel_score >= 60` rule here, which
+        # produced "proceed" verdicts stored in the ring buffer that were
+        # never validated against EV. That's a silent authority leak: any
+        # user reading `/api/tv/alerts` would see verdicts indistinguishable
+        # from EV-backed ones.
+        # Now: run the EV ranker on this single ticker and use ev_dollars +
+        # prob_profit as the authority. wheel_score is kept only as a
+        # supplementary diagnostic, never as decision authority.
         agrees = sig.signal_action == alert.signal or getattr(
             sig, alert.signal.replace(" ", "_"), False
         )
-        verdict = "proceed" if agrees and wheel_score >= 60 else (
-            "review" if wheel_score >= 40 else "skip"
-        )
-        if days_to_earnings is not None and days_to_earnings < 5:
+        ev_dollars = 0.0
+        ev_per_day = 0.0
+        prob_profit = 0.0
+        prob_assignment = 0.0
+        verdict_authority = "ev_ranked"
+        verdict_reason = ""
+        try:
+            # Preferred DTE is deterministic based on phase; the ranker
+            # will use this as the target DTE for the synthetic trade.
+            preferred_dte_tmp = 31 if sig.phase == "post_expansion" else 45
+            preferred_delta_tmp = {
+                "wheel_put_zone": 0.20,
+                "covered_call_zone": 0.22,
+                "strangle_zone": 0.18,
+            }.get(alert.signal, 0.22)
+            ev_df = runner.rank_candidates_by_ev(
+                tickers=[alert.ticker],
+                dte_target=preferred_dte_tmp,
+                delta_target=preferred_delta_tmp,
+                top_n=1,
+                min_ev_dollars=-1e9,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+            if ev_df is not None and len(ev_df) > 0:
+                r0 = ev_df.iloc[0]
+                ev_dollars = float(r0.get("ev_dollars", 0) or 0)
+                ev_per_day = float(r0.get("ev_per_day", 0) or 0)
+                prob_profit = float(r0.get("prob_profit", 0) or 0)
+                prob_assignment = float(r0.get("prob_assignment", 0) or 0)
+        except Exception:
+            verdict_authority = "ev_unavailable"
+            verdict_reason = "ev_computation_failed"
+
+        # Hard event gate (second line of defense — EV should already have
+        # blocked). This remains as a belt-and-suspenders skip.
+        if days_to_earnings is not None and 0 <= days_to_earnings < 5:
             verdict = "skip"
+            verdict_reason = "earnings_within_5d"
+        elif verdict_authority != "ev_ranked":
+            verdict = "review"
+            verdict_reason = verdict_reason or "ev_engine_unreachable"
+        elif ev_dollars < 0:
+            verdict = "skip"
+            verdict_reason = "negative_ev"
+        elif ev_dollars >= 10 and prob_profit >= 0.65 and agrees:
+            verdict = "proceed"
+            verdict_reason = "ev_above_threshold_and_chart_agrees"
+        elif ev_dollars > 0:
+            verdict = "review"
+            verdict_reason = "positive_but_low_ev" if ev_dollars < 10 else "chart_disagrees"
+        else:
+            verdict = "skip"
+            verdict_reason = "ev_zero_or_below"
 
         # Preferred expiry / delta suggestion — deterministic heuristic
         preferred_dte = 31 if sig.phase == "post_expansion" else 45
@@ -1856,6 +1941,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             "ticker": alert.ticker,
             "signal": alert.signal,
             "verdict": verdict,
+            "verdict_reason": verdict_reason,
+            "authority": verdict_authority,
+            "ev_dollars": round(ev_dollars, 2),
+            "ev_per_day": round(ev_per_day, 3),
+            "prob_profit": round(prob_profit, 4),
+            "prob_assignment": round(prob_assignment, 4),
             "pine_agrees": agrees,
             "phase": sig.phase,
             "bollinger_state": sig.bollinger_state,

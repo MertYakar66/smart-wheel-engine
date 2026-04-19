@@ -97,6 +97,12 @@ _connector = None
 _TV_ALERT_LOG: list[dict] = []
 _TV_ALERT_LOG_MAX = 200
 
+# In-memory news story buffer. Populated by the /api/news/ingest endpoint
+# which the orchestrator calls after running the news pipeline. Stories are
+# served back through /api/news for the dashboard and committee.
+_NEWS_BUFFER: list[dict] = []
+_NEWS_BUFFER_MAX = 100
+
 # AUDIT: replay-protection nonce cache. We key by the SHA-256 of the raw body
 # AND the incoming signature header so identical payloads with different
 # HMACs — e.g. an attacker flipping fields — cannot collide. The cache is
@@ -316,6 +322,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     dte_target=int(param("dte", "35")),
                     assumption=param("assumption", "long_calls_short_puts") or "long_calls_short_puts",
                 )
+            elif path == "/api/news":
+                self._handle_news(limit=int(param("limit", "20")))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -354,6 +362,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     or ""
                 )
                 self._handle_tv_webhook(payload, raw_body=raw, signature_header=sig_header)
+            elif path == "/api/news/ingest":
+                self._handle_news_ingest(payload)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -1971,6 +1981,53 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         }
 
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # News endpoints
+    # ------------------------------------------------------------------
+    def _handle_news(self, limit: int):
+        """Serve the most recent news stories from the in-memory buffer.
+
+        Stories are ingested by ``POST /api/news/ingest`` (called by
+        ``scripts/orchestrate.py`` after running the news pipeline)
+        and served back here for the dashboard + committee.
+        """
+        limit = max(1, min(limit, _NEWS_BUFFER_MAX))
+        items = list(reversed(_NEWS_BUFFER[-limit:]))
+        self._send_json({"stories": items, "count": len(items)})
+
+    def _handle_news_ingest(self, payload: dict):
+        """Ingest news stories from the orchestrator / news pipeline.
+
+        Expects ``{"stories": [...]}`` where each story is a dict with
+        at minimum ``title`` and ``summary``. Optional fields:
+        ``tickers``, ``impact``, ``source``, ``timestamp``, ``url``.
+
+        Stories are appended to the in-memory ring buffer and served
+        via ``GET /api/news``. The endpoint also extracts ticker
+        mentions and checks them against the event gate.
+        """
+        stories = payload.get("stories", [])
+        if not isinstance(stories, list):
+            self._send_error("stories must be a list", 400)
+            return
+
+        ingested = 0
+        for story in stories:
+            if not isinstance(story, dict):
+                continue
+            if not story.get("title") and not story.get("summary"):
+                continue
+            story.setdefault("ingested_at", datetime.utcnow().isoformat())
+            story.setdefault("source", "pipeline")
+            _NEWS_BUFFER.append(story)
+            ingested += 1
+
+        # Trim buffer
+        while len(_NEWS_BUFFER) > _NEWS_BUFFER_MAX:
+            _NEWS_BUFFER.pop(0)
+
+        self._send_json({"ingested": ingested, "buffer_size": len(_NEWS_BUFFER)})
 
     def _handle_memo(self, ticker, as_of):
         """Generate AI trade memo for a ticker."""

@@ -250,9 +250,31 @@ def prepare_training_data(
 class WheelEntryModel:
     """
     ML model for wheel entry timing.
+
+    RESEARCH ONLY. Not wired into the production EV ranker.
     """
 
+    _PRODUCTION_GUARD_CHECKED = False
+
     def __init__(self, config: Optional[WheelModelConfig] = None):
+        import os
+
+        if not WheelEntryModel._PRODUCTION_GUARD_CHECKED:
+            WheelEntryModel._PRODUCTION_GUARD_CHECKED = True
+            env = os.environ.get("WHEEL_ENV", "development")
+            if env == "production" and os.environ.get("PRODUCTION_ML_APPROVED") != "1":
+                import warnings
+
+                warnings.warn(
+                    "WheelEntryModel instantiated in WHEEL_ENV=production "
+                    "WITHOUT PRODUCTION_ML_APPROVED=1. This module is "
+                    "research-only and has known CV leakage issues. Set "
+                    "PRODUCTION_ML_APPROVED=1 to acknowledge and proceed, "
+                    "or use engine/ev_engine.py for production ranking.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
         self.config = config or WheelModelConfig()
         self.model = None
         self.scaler = StandardScaler()

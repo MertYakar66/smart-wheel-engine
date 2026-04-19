@@ -662,6 +662,22 @@ class WheelRunner:
                 as_of=as_of,
             )
 
+            # HMM regime multiplier — compute from the ticker's own
+            # OHLCV log-returns. The HMM fit is cheap (~50 ms per ticker
+            # for 504 daily returns). Failure degrades to 1.0.
+            hmm_regime_mult = 1.0
+            try:
+                from engine.regime_hmm import GaussianHMM
+
+                log_rets = np.diff(np.log(ohlcv["close"].values))
+                if len(log_rets) >= 200:
+                    hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
+                    hmm.fit(log_rets[-504:])
+                    probs = hmm.predict_proba(log_rets[-504:])
+                    hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
+            except Exception:
+                hmm_regime_mult = 1.0
+
             trade = ShortOptionTrade(
                 option_type="put",
                 underlying=ticker,
@@ -676,6 +692,7 @@ class WheelRunner:
                 bid=bid,
                 ask=ask,
                 open_interest=1000,  # unknown; mid-liquid assumption
+                regime_multiplier=hmm_regime_mult,
             )
 
             # Optional dealer positioning: pull the option chain for

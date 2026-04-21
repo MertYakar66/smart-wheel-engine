@@ -421,6 +421,536 @@ class WheelRunner:
             df = df.sort_values("wheel_score", ascending=False).head(top_n)
         return df
 
+    # ------------------------------------------------------------------
+    # EV-based ranking (audit upgrade)
+    # ------------------------------------------------------------------
+    def rank_candidates_by_ev(
+        self,
+        tickers: list[str] | None = None,
+        dte_target: int = 35,
+        delta_target: float = 0.25,
+        contracts: int = 1,
+        top_n: int = 20,
+        min_ev_dollars: float = 0.0,
+        as_of: str | None = None,
+        include_diagnostic_fields: bool = True,
+        use_event_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
+        use_dealer_positioning: bool = False,
+        dealer_assumption: str = "long_calls_short_puts",
+        min_history_days: int = 504,
+        enforce_history_gate: bool = True,
+        enforce_chain_quality_gate: bool = True,
+    ) -> pd.DataFrame:
+        """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
+
+        This is the audit-grade replacement for ``screen_candidates``. The
+        old ranker used a heuristic composite score; this one uses
+        :class:`engine.ev_engine.EVEngine` with a PIT-safe empirical
+        forward-return distribution pulled from the ticker's OHLCV history.
+
+        For each ticker:
+          1. Pull OHLCV up to ``as_of`` from the connector.
+          2. Pull ATM IV (``volatility_30d`` fallback to Bloomberg ATM IV).
+          3. Solve BSM delta to find the strike corresponding to
+             ``delta_target`` (e.g. 0.25 = 25-delta put).
+          4. Compute a fair BSM premium as a synthetic quote (flagged as
+             synthetic in the output so traders know to check the real
+             chain).
+          5. Build a :class:`ShortOptionTrade`, sample an empirical
+             forward distribution via
+             :func:`engine.forward_distribution.best_available_forward_distribution`
+             for ``dte_target`` days, and evaluate.
+          6. Drop candidates with ``days_to_earnings < 5``.
+          7. Return the top N sorted by ``ev_per_day``, with full EV
+             diagnostics attached.
+
+        Args:
+            tickers: Explicit ticker list. When ``None`` the full universe
+                is used (capped at 100 for performance parity with the
+                legacy screen).
+            dte_target: Target DTE for the synthetic trade.
+            delta_target: Target put delta (positive; the sign is handled
+                internally).
+            contracts: Number of contracts per candidate.
+            top_n: Number of top candidates to return.
+            min_ev_dollars: Hard filter — drop any trade with ``ev_dollars``
+                below this threshold.
+            as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now.
+            include_diagnostic_fields: Include CVaR, Omega, fair value, etc.
+
+        Returns:
+            DataFrame sorted by ``ev_per_day`` descending, or empty.
+        """
+        from datetime import timedelta
+
+        from scipy.optimize import brentq
+        from scipy.stats import norm
+
+        from engine.dealer_positioning import (
+            DealerAssumption,
+            DealerPositioningAnalyzer,
+        )
+        from engine.event_gate import EventGate, ScheduledEvent
+        from engine.ev_engine import EVEngine, ShortOptionTrade
+        from engine.forward_distribution import best_available_forward_distribution
+        from engine.option_pricer import black_scholes_price
+
+        conn = self.connector
+        # Build a per-run event gate from the connector's earnings +
+        # (optional) macro calendar. When use_event_gate=False the EV
+        # engine falls back to the soft days_to_earnings skip below.
+        event_gate: EventGate | None = None
+        if use_event_gate:
+            event_gate = EventGate(
+                earnings_buffer_days=earnings_buffer_days,
+                macro_buffer_days=macro_buffer_days,
+            )
+        ev_eng = EVEngine(event_gate=event_gate)
+
+        # Optional dealer positioning analyzer. Off by default; when
+        # enabled we pull the option chain per ticker and feed a
+        # MarketStructure into EVEngine.evaluate alongside the other
+        # regime multipliers. Chain fetch failures degrade gracefully
+        # to market_structure=None (candidate still ranks).
+        dealer_analyzer: DealerPositioningAnalyzer | None = None
+        if use_dealer_positioning:
+            try:
+                assumption_enum = DealerAssumption(dealer_assumption)
+            except ValueError:
+                assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
+            dealer_analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
+
+        if tickers is None:
+            tickers = conn.get_universe()[:100]
+
+        rows: list[dict] = []
+        T = max(dte_target, 1) / 365.0
+
+        for ticker in tickers:
+            try:
+                ohlcv = conn.get_ohlcv(ticker)
+            except Exception:
+                continue
+            if ohlcv is None or ohlcv.empty or "close" not in ohlcv.columns:
+                continue
+
+            # Respect PIT cutoff on OHLCV.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    ohlcv = ohlcv.loc[ohlcv.index <= cutoff]
+                except Exception:
+                    pass
+            if ohlcv.empty:
+                continue
+
+            # AUDIT-V P0.2: Historical data integrity gate.
+            # Survivorship bias protection in the live path. We refuse
+            # to rank a ticker whose OHLCV history is shorter than
+            # ``min_history_days`` because the empirical forward-return
+            # distribution it produces is statistically unreliable and
+            # the ticker was likely backfilled into the universe (i.e.
+            # survived long enough to be in today's SP500). Callers can
+            # disable via enforce_history_gate=False for research paths.
+            if enforce_history_gate and len(ohlcv) < min_history_days:
+                continue
+
+            spot = float(ohlcv["close"].iloc[-1])
+            if spot <= 0:
+                continue
+
+            # Get ATM IV and fundamentals
+            fundamentals = conn.get_fundamentals(ticker) or {}
+            iv = fundamentals.get("implied_vol_atm") or fundamentals.get("volatility_30d") or 0.0
+            try:
+                iv = float(iv)
+            except (TypeError, ValueError):
+                iv = 0.0
+            if iv <= 0 or iv > 5:
+                continue  # degenerate IV
+
+            dividend_yield = float(fundamentals.get("dividend_yield", 0.0) or 0.0)
+            risk_free_rate = 0.05
+            try:
+                risk_free_rate = float(conn.get_risk_free_rate(as_of) or 0.05)
+            except Exception:
+                pass
+
+            # Event exclusion
+            # Two layers:
+            #   (a) Soft skip on days_to_earnings < earnings_buffer_days
+            #       (kept for backwards compat with callers that opt out
+            #       of the hard event gate).
+            #   (b) Hard event lockout via EventGate, populated per-ticker
+            #       below. When event_gate is active the EV engine will
+            #       short-circuit the candidate and return an EVResult
+            #       with event_lockout_reason set.
+            today_date = date.fromisoformat(as_of) if as_of else date.today()
+            trade_start_d = today_date
+            trade_end_d = today_date + timedelta(days=dte_target)
+            try:
+                next_earn = conn.get_next_earnings(ticker, as_of)
+                days_to_earn = None
+                if next_earn:
+                    earn_ts = next_earn.get("announcement_date")
+                    if earn_ts is not None:
+                        earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
+                        days_to_earn = (earn_d - today_date).days
+                        # Register on the per-run event gate so the EV
+                        # engine can pre-emptively block.
+                        if event_gate is not None and earn_d is not None:
+                            event_gate.add_event(
+                                ScheduledEvent(
+                                    ticker=ticker,
+                                    kind="earnings",
+                                    event_date=earn_d,
+                                )
+                            )
+                if (
+                    event_gate is None
+                    and days_to_earn is not None
+                    and 0 <= days_to_earn < earnings_buffer_days
+                ):
+                    continue
+            except Exception:
+                days_to_earn = None
+
+            # Solve for the strike that gives the target put delta
+            # Put delta = e^{-qT} * (N(d1) - 1); target is -delta_target.
+            def put_delta_err(K: float) -> float:
+                if K <= 0:
+                    return 1.0
+                d1 = (np.log(spot / K) + (risk_free_rate - dividend_yield + 0.5 * iv**2) * T) / (
+                    iv * np.sqrt(T)
+                )
+                put_delta = np.exp(-dividend_yield * T) * (norm.cdf(d1) - 1.0)
+                return put_delta + delta_target  # target: -delta_target
+
+            # Reasonable strike bracket: 50% OTM to 5% OTM
+            try:
+                strike = brentq(put_delta_err, spot * 0.5, spot * 0.99, xtol=1e-2)
+            except (ValueError, RuntimeError):
+                continue
+            # Round to nearest $0.50 for realism
+            strike = round(strike * 2) / 2
+            if strike <= 0 or strike >= spot:
+                continue
+
+            # Synthetic fair-value premium (mid). Real chains will differ.
+            premium = black_scholes_price(
+                S=spot,
+                K=strike,
+                T=T,
+                r=risk_free_rate,
+                sigma=iv,
+                option_type="put",
+                q=dividend_yield,
+            )
+            if premium <= 0.05:
+                continue  # premium too thin to trade
+
+            # Approximate a bid/ask from the synthetic mid (10% spread proxy).
+            bid = premium * 0.95
+            ask = premium * 1.05
+
+            # Pull the PIT-safe forward distribution
+            fwd_rets, method = best_available_forward_distribution(
+                ohlcv,
+                horizon_days=dte_target,
+                as_of=as_of,
+            )
+
+            # HMM regime multiplier — compute from the ticker's own
+            # OHLCV log-returns. The HMM fit is cheap (~50 ms per ticker
+            # for 504 daily returns). Failure degrades to 1.0.
+            hmm_regime_mult = 1.0
+            try:
+                from engine.regime_hmm import GaussianHMM
+
+                log_rets = np.diff(np.log(ohlcv["close"].values))
+                if len(log_rets) >= 200:
+                    hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
+                    hmm.fit(log_rets[-504:])
+                    probs = hmm.predict_proba(log_rets[-504:])
+                    hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
+            except Exception:
+                hmm_regime_mult = 1.0
+
+            trade = ShortOptionTrade(
+                option_type="put",
+                underlying=ticker,
+                spot=spot,
+                strike=strike,
+                premium=premium,
+                dte=dte_target,
+                iv=iv,
+                risk_free_rate=risk_free_rate,
+                dividend_yield=dividend_yield,
+                contracts=contracts,
+                bid=bid,
+                ask=ask,
+                open_interest=1000,  # unknown; mid-liquid assumption
+                regime_multiplier=hmm_regime_mult,
+            )
+
+            # Optional dealer positioning: pull the option chain for
+            # the target expiry and build a MarketStructure to feed
+            # into the EV evaluation. Every failure mode degrades to
+            # market_structure=None (candidate still ranks on pure EV).
+            #
+            # AUDIT-V P0.3: when a chain IS fetched (for dealer
+            # positioning or elsewhere), we run the
+            # DataQualityFramework options-consistency check first and
+            # HARD-SKIP the ticker if it reports any ERROR-severity
+            # issue (bid>ask, IV out of range, expired options). The
+            # check is cheap and the consequences of ignoring crossed
+            # markets in a live path are severe.
+            market_structure = None
+            chain_quality_blocked_reason = ""
+            if dealer_analyzer is not None:
+                try:
+                    chain_df = None
+                    if hasattr(conn, "get_options"):
+                        chain_df = conn.get_options(ticker)
+                    elif hasattr(conn, "get_option_chain"):
+                        chain_df = conn.get_option_chain(ticker)
+                    if chain_df is not None and len(chain_df) > 0:
+                        # Coerce column names + filter to the nearest
+                        # expiry around the target DTE.
+                        cdf = chain_df.copy()
+                        cdf.columns = [c.lower() for c in cdf.columns]
+                        if "expiration" in cdf.columns:
+                            cdf["expiration"] = pd.to_datetime(
+                                cdf["expiration"], errors="coerce"
+                            )
+                            target_expiry_ts = pd.Timestamp(
+                                trade_start_d + timedelta(days=dte_target)
+                            )
+                            cdf["_dte_gap"] = (
+                                cdf["expiration"] - target_expiry_ts
+                            ).abs()
+                            # Pick the single closest expiry
+                            best_expiry = cdf.sort_values("_dte_gap")[
+                                "expiration"
+                            ].iloc[0]
+                            cdf = cdf[cdf["expiration"] == best_expiry].copy()
+                            cdf = cdf.drop(columns=["_dte_gap"])
+                            expiry_date = (
+                                best_expiry.date()
+                                if hasattr(best_expiry, "date")
+                                else best_expiry
+                            )
+                        else:
+                            expiry_date = trade_end_d
+
+                        if enforce_chain_quality_gate and len(cdf) > 0:
+                            try:
+                                from data.quality import (
+                                    DataQualityFramework,
+                                    Severity,
+                                )
+
+                                qf = DataQualityFramework()
+                                q_cdf = cdf.copy()
+                                if "date" not in q_cdf.columns:
+                                    q_cdf["date"] = pd.Timestamp(trade_start_d)
+                                issues = qf._check_options_consistency(q_cdf)
+                                critical = [
+                                    i for i in issues
+                                    if i.severity in (Severity.ERROR, Severity.CRITICAL)
+                                ]
+                                if critical:
+                                    chain_quality_blocked_reason = (
+                                        f"chain_quality:{critical[0].message[:80]}"
+                                    )
+                            except Exception:
+                                # Quality check failure must never crash
+                                # the ranker itself — degrade to "unknown
+                                # quality" and let the trade proceed.
+                                pass
+
+                        if chain_quality_blocked_reason:
+                            # Hard skip this ticker entirely
+                            continue
+
+                        if len(cdf) > 0:
+                            market_structure = dealer_analyzer.analyze(
+                                chain=cdf,
+                                spot=spot,
+                                expiry=expiry_date,
+                                ticker=ticker,
+                                dividend_yield=dividend_yield,
+                            )
+                except Exception:
+                    # Graceful degrade — dealer positioning is optional
+                    market_structure = None
+
+            res = ev_eng.evaluate(
+                trade,
+                forward_log_returns=fwd_rets,
+                trade_start=trade_start_d,
+                trade_end=trade_end_d,
+                market_structure=market_structure,
+            )
+            # Event-gate short-circuit: drop blocked candidates entirely.
+            if res.event_lockout_reason:
+                continue
+            if res.ev_dollars < min_ev_dollars:
+                continue
+
+            row: dict = {
+                "ticker": ticker,
+                "spot": spot,
+                "strike": strike,
+                "premium": round(premium, 3),
+                "dte": dte_target,
+                "iv": round(iv, 4),
+                "ev_dollars": round(res.ev_dollars, 2),
+                "ev_per_day": round(res.ev_per_day, 3),
+                "prob_profit": round(res.prob_profit, 4),
+                "prob_assignment": round(res.prob_assignment, 4),
+                "days_to_earnings": days_to_earn,
+                "distribution_source": method,
+            }
+            if include_diagnostic_fields:
+                row.update(
+                    {
+                        "cvar_5": round(res.cvar_5, 2),
+                        "cvar_99_evt": (
+                            round(res.cvar_99_evt, 2)
+                            if not np.isnan(res.cvar_99_evt)
+                            else None
+                        ),
+                        "tail_xi": (
+                            round(res.tail_xi, 4)
+                            if not np.isnan(res.tail_xi)
+                            else None
+                        ),
+                        "heavy_tail": bool(res.heavy_tail),
+                        "omega_ratio": round(res.omega_ratio, 3),
+                        "fair_value": round(res.fair_value, 3),
+                        "edge_vs_fair": round(res.edge_vs_fair, 2),
+                        "breakeven_move_pct": round(res.breakeven_move_pct, 4),
+                        "total_transaction_cost": round(res.total_transaction_cost, 2),
+                        "skew_pnl": round(res.skew_pnl, 3),
+                        # Dealer positioning diagnostics (all None when
+                        # use_dealer_positioning=False or the chain was
+                        # unavailable).
+                        "dealer_regime": res.dealer_regime or None,
+                        "dealer_multiplier": round(res.dealer_multiplier, 4),
+                        "gex_total": (
+                            round(res.gex_total, 0)
+                            if not np.isnan(res.gex_total)
+                            else None
+                        ),
+                        "gamma_flip_distance_pct": (
+                            round(res.gamma_flip_distance_pct, 4)
+                            if not np.isnan(res.gamma_flip_distance_pct)
+                            else None
+                        ),
+                        "nearest_put_wall_strike": (
+                            round(res.nearest_put_wall_strike, 2)
+                            if not np.isnan(res.nearest_put_wall_strike)
+                            else None
+                        ),
+                        "nearest_call_wall_strike": (
+                            round(res.nearest_call_wall_strike, 2)
+                            if not np.isnan(res.nearest_call_wall_strike)
+                            else None
+                        ),
+                    }
+                )
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        if not df.empty:
+            df = df.sort_values("ev_per_day", ascending=False).head(top_n)
+        return df
+
+    # ------------------------------------------------------------------
+    # Mode B: EV ranking + TradingView chart context dossier
+    # ------------------------------------------------------------------
+    def build_candidate_dossiers(
+        self,
+        tickers: list[str] | None = None,
+        dte_target: int = 35,
+        delta_target: float = 0.25,
+        contracts: int = 1,
+        top_n: int = 10,
+        min_ev_dollars: float = 0.0,
+        as_of: str | None = None,
+        chart_provider=None,
+        chart_timeframe: str = "1D",
+        reviewer=None,
+        use_event_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
+    ) -> list:
+        """Engine-first Mode B: rank by EV, then attach TradingView charts.
+
+        This is the canonical workflow for the Claude-terminal-driven
+        TradingView integration. The engine ranks candidates *first*
+        using :meth:`rank_candidates_by_ev`, then for the top N we
+        attach a chart context via a :class:`ChartContextProvider`
+        (typically a filesystem provider reading screenshots dropped by
+        the terminal's own browser tooling) and run a
+        :class:`ChartReviewer` that can DOWNGRADE a trade based on
+        visual context but cannot upgrade a negative-EV trade.
+
+        Args:
+            tickers: Optional explicit ticker list.
+            dte_target / delta_target / contracts / min_ev_dollars:
+                Forwarded to :meth:`rank_candidates_by_ev`.
+            top_n: Only the top N ranked candidates get chart contexts
+                attached — cheap optimisation since chart capture is
+                expensive.
+            as_of: PIT cutoff.
+            chart_provider: A :class:`ChartContextProvider` instance.
+                Defaults to the filesystem provider under
+                ``screenshots/``.
+            chart_timeframe: TradingView timeframe (``"1D"`` default).
+            reviewer: Optional :class:`ChartReviewer`; defaults to
+                :class:`EnginePhaseReviewer`.
+            use_event_gate / earnings_buffer_days / macro_buffer_days:
+                Forwarded to :meth:`rank_candidates_by_ev`.
+
+        Returns:
+            List of :class:`CandidateDossier` with full EV + chart +
+            verdict, sorted by the underlying EV ranking.
+        """
+        from engine.candidate_dossier import EnginePhaseReviewer, build_dossiers
+        from engine.tradingview_bridge import build_default_provider
+
+        ev_df = self.rank_candidates_by_ev(
+            tickers=tickers,
+            dte_target=dte_target,
+            delta_target=delta_target,
+            contracts=contracts,
+            top_n=max(top_n, 20),  # rank a wider pool, attach charts to top_n
+            min_ev_dollars=min_ev_dollars,
+            as_of=as_of,
+            include_diagnostic_fields=True,
+            use_event_gate=use_event_gate,
+            earnings_buffer_days=earnings_buffer_days,
+            macro_buffer_days=macro_buffer_days,
+        )
+
+        if ev_df is None or len(ev_df) == 0:
+            return []
+
+        provider = chart_provider or build_default_provider()
+        chart_reviewer = reviewer or EnginePhaseReviewer()
+
+        return build_dossiers(
+            ev_frame=ev_df,
+            provider=provider,
+            reviewer=chart_reviewer,
+            timeframe=chart_timeframe,  # type: ignore[arg-type]
+            top_n=top_n,
+        )
+
     def portfolio_report(
         self,
         tickers: list[str],

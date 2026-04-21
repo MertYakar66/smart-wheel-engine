@@ -35,12 +35,19 @@ TradingView bridge:
   GET  /api/tv/scan?limit=25&zone=wheel_put - Screen universe for TV zones
   GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
+  GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
+  GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
+  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 """
 
+import hashlib
+import hmac
 import json
 import sys
+import time
 import traceback
+from collections import OrderedDict
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -89,6 +96,59 @@ _connector = None
 # and served back through /api/tv/alerts for the dashboard to display.
 _TV_ALERT_LOG: list[dict] = []
 _TV_ALERT_LOG_MAX = 200
+
+# In-memory news story buffer. Populated by the /api/news/ingest endpoint
+# which the orchestrator calls after running the news pipeline. Stories are
+# served back through /api/news for the dashboard and committee.
+_NEWS_BUFFER: list[dict] = []
+_NEWS_BUFFER_MAX = 100
+
+# AUDIT: replay-protection nonce cache. We key by the SHA-256 of the raw body
+# AND the incoming signature header so identical payloads with different
+# HMACs — e.g. an attacker flipping fields — cannot collide. The cache is
+# bounded (LRU) so we don't accumulate memory on long runs. Any alert seen
+# within _TV_WEBHOOK_MAX_AGE_SEC that matches a cached digest is rejected.
+_TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
+_TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
+_TV_SEEN_NONCES_MAX = 1024
+
+
+def _tv_seen_register(digest: str, now: float) -> bool:
+    """Check-and-set whether ``digest`` has been seen in the last window.
+
+    Returns True if this is a *new* nonce (proceed). Returns False if we have
+    already processed a payload with this digest, which means we should reject
+    it as a replay attempt.
+    """
+    # Purge stale entries at the head of the LRU
+    cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
+    while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
+        _TV_SEEN_NONCES.popitem(last=False)
+
+    if digest in _TV_SEEN_NONCES:
+        return False
+
+    _TV_SEEN_NONCES[digest] = now
+    while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
+        _TV_SEEN_NONCES.popitem(last=False)
+    return True
+
+
+def _tv_verify_hmac(body_bytes: bytes, provided_sig: str, secret: str) -> bool:
+    """Constant-time HMAC-SHA256 verification.
+
+    ``provided_sig`` may be of the form ``sha256=<hex>`` or a bare hex digest
+    to stay compatible with arbitrary webhook intermediaries. We never raise
+    on decoding errors — any parse failure returns False.
+    """
+    if not secret or not provided_sig:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
+    # Accept either "sha256=<hex>" or bare hex
+    got = provided_sig.strip()
+    if got.lower().startswith("sha256="):
+        got = got.split("=", 1)[1]
+    return hmac.compare_digest(expected, got)
 
 
 def get_runner():
@@ -152,7 +212,14 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 self._handle_status()
             elif path == "/api/candidates":
-                self._handle_candidates(param("limit", "15"), param("min_score", "50"))
+                self._handle_candidates(
+                    limit=param("limit", "15"),
+                    min_score=param("min_score", "50"),
+                    dte=param("dte", "35"),
+                    delta=param("delta", "0.25"),
+                    min_ev=param("min_ev", "0"),
+                    as_of=param("as_of"),
+                )
             elif path == "/api/analyze" or path.startswith("/api/analyze/"):
                 ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
                 if not ticker:
@@ -229,6 +296,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 )
             elif path == "/api/tv/alerts":
                 self._handle_tv_alerts(int(param("limit", "50")))
+            elif path == "/api/tv/ranked":
+                self._handle_tv_ranked(
+                    limit=int(param("limit", "20")),
+                    dte_target=int(param("dte", "35")),
+                    delta_target=float(param("delta", "0.25")),
+                    min_ev_dollars=float(param("min_ev", "0")),
+                    as_of=param("as_of"),
+                    tickers_csv=param("tickers"),
+                )
+            elif path == "/api/tv/dossier":
+                self._handle_tv_dossier(
+                    top_n=int(param("top_n", "10")),
+                    dte_target=int(param("dte", "35")),
+                    delta_target=float(param("delta", "0.25")),
+                    min_ev_dollars=float(param("min_ev", "0")),
+                    as_of=param("as_of"),
+                    tickers_csv=param("tickers"),
+                    timeframe=param("timeframe", "1D") or "1D",
+                    screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
+                )
+            elif path == "/api/tv/dealer_positioning":
+                self._handle_tv_dealer_positioning(
+                    ticker=(param("ticker", "") or "").upper(),
+                    dte_target=int(param("dte", "35")),
+                    assumption=param("assumption", "long_calls_short_puts") or "long_calls_short_puts",
+                )
+            elif path == "/api/news":
+                self._handle_news(limit=int(param("limit", "20")))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -241,15 +336,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/")
         try:
             length = int(self.headers.get("Content-Length", "0") or 0)
+            # Hard cap body size to prevent memory-exhaustion DoS. TradingView
+            # alert bodies are <1 KB in practice; 16 KB is generous.
+            if length > 16 * 1024:
+                self._send_error("payload too large", 413)
+                return
             raw = self.rfile.read(length) if length else b""
             try:
                 payload = json.loads(raw.decode("utf-8")) if raw else {}
             except json.JSONDecodeError as exc:
                 self._send_error(f"Invalid JSON: {exc}", 400)
                 return
+            if not isinstance(payload, dict):
+                self._send_error("payload must be a JSON object", 400)
+                return
 
             if path == "/api/tv/webhook":
-                self._handle_tv_webhook(payload)
+                # Pass raw body + signature header through to the webhook so
+                # HMAC verification operates on the exact bytes TradingView
+                # signed (JSON re-serialization would change whitespace).
+                sig_header = (
+                    self.headers.get("X-Signature")
+                    or self.headers.get("X-Signature-256")
+                    or self.headers.get("X-Hub-Signature-256")
+                    or ""
+                )
+                self._handle_tv_webhook(payload, raw_body=raw, signature_header=sig_header)
+            elif path == "/api/news/ingest":
+                self._handle_news_ingest(payload)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -271,74 +385,156 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_candidates(self, limit, min_score):
-        from scipy.stats import norm as _norm
+    def _handle_candidates(
+        self,
+        limit="15",
+        min_score="50",
+        dte="35",
+        delta="0.25",
+        min_ev="0",
+        as_of=None,
+    ):
+        """EV-authoritative candidates endpoint (audit-V P0.1).
+
+        Replaces the legacy heuristic path that called
+        ``runner.screen_candidates`` and rebuilt BSM math inside the
+        API layer. The new handler is the single authoritative entry
+        point for tradeable candidates — every row carries native EV
+        diagnostics (ev_dollars, ev_per_day, prob_profit,
+        prob_assignment, cvar_5, distribution_source, dealer_regime)
+        and the legacy dashboard field names (expectedPnL, wheelScore,
+        etc.) are mapped from those EV values so existing UI code
+        keeps working.
+
+        Query parameters:
+            limit      top-N to return (default 15)
+            min_score  backward-compat heuristic filter — post-applied
+                       if the underlying frame carries wheel_score; does
+                       not gate EV ranking (default 50)
+            dte        target days-to-expiry (default 35)
+            delta      target put delta (default 0.25)
+            min_ev     hard EV threshold in dollars (default 0)
+            as_of      optional PIT cutoff YYYY-MM-DD
+
+        Returns:
+            {trades: [...], count: N, authority: "ev_ranked",
+             engine_version: "ev_engine_2026_04_14"}
+        """
+        try:
+            limit_int = max(1, int(limit or 15))
+            dte_int = int(dte or 35)
+            delta_f = float(delta or 0.25)
+            min_ev_f = float(min_ev or 0)
+            min_score_f = float(min_score or 0)
+        except (TypeError, ValueError):
+            limit_int, dte_int, delta_f, min_ev_f, min_score_f = 15, 35, 0.25, 0.0, 0.0
 
         runner = get_runner()
-        df = runner.screen_candidates(
-            min_wheel_score=float(min_score),
-            top_n=int(limit),
-        )
-        if df.empty:
-            self._send_json({"trades": [], "count": 0})
+        try:
+            df = runner.rank_candidates_by_ev(
+                dte_target=dte_int,
+                delta_target=delta_f,
+                top_n=limit_int,
+                min_ev_dollars=min_ev_f,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            return
+
+        if df is None or df.empty:
+            self._send_json(
+                {
+                    "trades": [],
+                    "count": 0,
+                    "authority": "ev_ranked",
+                    "engine_version": "ev_engine_2026_04_14",
+                }
+            )
             return
 
         trades = []
-        dte = 45
-        T = dte / 365
         for _, row in df.iterrows():
-            spot = row.get("spot", 0) or row.get("spot_price", 0)
-            iv = row.get("iv_30d", 0)
-            iv_dec = iv / 100 if iv > 1 else iv
-
-            # Compute strike / premium / delta / probability via BSM
-            strike = round(spot * 0.92, 0) if spot > 0 else 0
-            premium = 0.0
-            delta = 0.0
-            p_otm = 0.0
-            if spot > 0 and iv_dec > 0 and strike > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
-                d2 = d1 - iv_dec * np.sqrt(T)
-                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
-                premium = max(0.01, premium)
-                delta = float(-_norm.cdf(-d1))
-                p_otm = float(_norm.cdf(d2))
-
-            ev = p_otm * premium * 100 / (strike * 100) * (365 / dte) * 100 if strike > 0 else 0
-            max_loss = round((strike - premium) * 100, 2) if strike > 0 else 0
+            spot = float(row.get("spot", 0) or 0)
+            strike = float(row.get("strike", 0) or 0)
+            premium = float(row.get("premium", 0) or 0)
+            ev_dollars = float(row.get("ev_dollars", 0) or 0)
+            prob_profit = float(row.get("prob_profit", 0) or 0)
+            # Backward-compat heuristic filter only if wheel_score present
+            wheel_score = row.get("wheel_score")
+            if wheel_score is not None:
+                try:
+                    if float(wheel_score) < min_score_f:
+                        continue
+                except (TypeError, ValueError):
+                    pass
 
             trades.append(
                 {
-                    "ticker": row["ticker"],
+                    # EV-native (authoritative) fields
+                    "ticker": row.get("ticker"),
                     "strategy": "short_put",
-                    "spot": round(float(spot), 2) if spot else 0,
-                    "spotPrice": round(float(spot), 2) if spot else 0,
-                    "strike": strike,
-                    "expiration": "",
-                    "premium": round(premium, 2),
-                    "probability": round(p_otm * 100, 1),
-                    "expectedPnL": round(ev, 2),
-                    "maxLoss": max_loss,
-                    "iv": iv,
-                    "delta": round(delta, 3),
-                    "score": row["wheel_score"],
-                    "wheelScore": row["wheel_score"],
-                    "recommendation": row["recommendation"],
-                    "strangleScore": row.get("strangle_score", 0),
-                    "stranglePhase": row.get("strangle_phase", ""),
-                    "sector": row.get("sector", ""),
-                    "peRatio": row.get("pe_ratio", 0),
-                    "beta": row.get("beta", 0),
-                    "divYield": row.get("div_yield", 0),
-                    "volPremium": row.get("vol_premium", 0),
-                    "ivRank": row.get("iv_rank", 0),
-                    "mktCapB": row.get("mkt_cap_B", 0),
+                    "spot": round(spot, 2),
+                    "strike": round(strike, 2),
+                    "premium": round(premium, 3),
+                    "dte": dte_int,
+                    "iv": float(row.get("iv", 0) or 0),
+                    "evDollars": round(ev_dollars, 2),
+                    "evPerDay": round(float(row.get("ev_per_day", 0) or 0), 3),
+                    "probProfit": round(prob_profit, 4),
+                    "probAssignment": round(float(row.get("prob_assignment", 0) or 0), 4),
+                    "cvar5": row.get("cvar_5"),
+                    "cvar99Evt": row.get("cvar_99_evt"),
+                    "tailXi": row.get("tail_xi"),
+                    "heavyTail": bool(row.get("heavy_tail", False)),
+                    "omegaRatio": row.get("omega_ratio"),
+                    "fairValue": row.get("fair_value"),
+                    "edgeVsFair": row.get("edge_vs_fair"),
+                    "breakevenMovePct": row.get("breakeven_move_pct"),
+                    "distributionSource": row.get("distribution_source"),
+                    "dealerRegime": row.get("dealer_regime"),
+                    "dealerMultiplier": row.get("dealer_multiplier"),
+                    "gexTotal": row.get("gex_total"),
+                    "gammaFlipDistancePct": row.get("gamma_flip_distance_pct"),
+                    "nearestPutWallStrike": row.get("nearest_put_wall_strike"),
+                    "nearestCallWallStrike": row.get("nearest_call_wall_strike"),
                     "daysToEarnings": row.get("days_to_earnings"),
-                    "creditRating": row.get("credit_rating", ""),
+                    # Backward-compat aliases (dashboard expects these)
+                    "spotPrice": round(spot, 2),
+                    "expectedPnL": round(ev_dollars, 2),  # was heuristic — now EV
+                    "probability": round(prob_profit * 100, 1),
+                    "maxLoss": round((strike - premium) * 100, 2) if strike > 0 else 0,
+                    "score": row.get("wheel_score", round(prob_profit * 100, 1)),
+                    "wheelScore": row.get("wheel_score"),
+                    "recommendation": (
+                        "proceed"
+                        if ev_dollars >= 10 and prob_profit >= 0.65
+                        else "review"
+                        if ev_dollars > 0
+                        else "skip"
+                    ),
+                    "expiration": "",
                 }
             )
 
-        self._send_json({"trades": trades, "count": len(trades)})
+        self._send_json(
+            {
+                "trades": trades,
+                "count": len(trades),
+                "authority": "ev_ranked",
+                "engine_version": "ev_engine_2026_04_14",
+                "params": {
+                    "limit": limit_int,
+                    "dte": dte_int,
+                    "delta": delta_f,
+                    "min_ev": min_ev_f,
+                    "min_score": min_score_f,
+                    "as_of": as_of,
+                },
+            }
+        )
 
     def _handle_analyze(self, ticker, as_of):
         if not ticker or not ticker.strip():
@@ -356,9 +552,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             )
             return
         a = runner.analyze_ticker(ticker, as_of)
+        # AUDIT FIX: wheelScore and strangleScore come from heuristic
+        # modules (screen_candidates / StrangleTimingEngine), NOT from the
+        # EV engine. The response now carries an explicit authority
+        # contract so callers cannot mistake these scores for EV-backed
+        # rankings. For tradeable EV decisions use /api/candidates.
         self._send_json(
             {
                 "ticker": a.ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
                 "spotPrice": a.spot_price,
                 "marketCap": a.market_cap,
                 "peRatio": a.pe_ratio,
@@ -379,10 +582,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "strangleScore": a.strangle_score,
                 "stranglePhase": a.strangle_phase,
                 "strangleRecommendation": a.strangle_recommendation,
+                "strangleAuthority": "heuristic_diagnostic",
                 "riskFreeRate": a.risk_free_rate,
                 "vixLevel": a.vix_level,
                 "wheelScore": a.wheel_score,
                 "wheelRecommendation": a.wheel_recommendation,
+                "wheelScoreAuthority": "heuristic_diagnostic",
             }
         )
 
@@ -464,6 +669,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json({"events": events})
 
     def _handle_screen(self, params):
+        """Legacy heuristic screen (RESEARCH-ONLY — not trade authority).
+
+        AUDIT-V P0.1b: This endpoint still runs the legacy wheel_score
+        heuristic — fundamental/liquidity filters, not probabilistic
+        EV. It is kept for research introspection and for debugging
+        the difference between the heuristic and EV-authoritative
+        rankings, but every response is flagged ``authority:
+        heuristic_research_only`` so the dashboard NEVER routes a
+        trade through it.
+
+        Callers who want tradeable candidates MUST use
+        ``/api/candidates`` (EV-authoritative) or ``/api/tv/ranked``.
+        """
         def p(key, default=None):
             return params.get(key, [default])[0]
 
@@ -479,7 +697,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         if not df.empty:
             results = df.to_dict(orient="records")
 
-        self._send_json({"results": results, "count": len(results)})
+        self._send_json(
+            {
+                "results": results,
+                "count": len(results),
+                "authority": "heuristic_research_only",
+                "warning": (
+                    "This endpoint returns the legacy heuristic wheel_score "
+                    "ranking for research only. For tradeable candidates use "
+                    "/api/candidates (EV-authoritative)."
+                ),
+                "tradeable_endpoint": "/api/candidates",
+            }
+        )
 
     def _handle_committee(self, ticker):
         from advisors import CommitteeEngine, format_committee_report
@@ -764,9 +994,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         rf = get_current_risk_free_rate()
 
         candidates = recommend_strikes(ticker, spot, iv, int(dte_str), rf, strategy)
+        # AUDIT FIX: recommend_strikes uses BSM payoff math (delta/OTM
+        # probability), NOT EV. These are diagnostic strike ranges — they
+        # do not represent a ranked tradeable recommendation.
         self._send_json(
             {
                 "ticker": ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
+                "note": (
+                    "Strike ranges come from BSM payoff math, not EV. "
+                    "For EV-ranked strikes use /api/candidates."
+                ),
                 "strategy": strategy,
                 "spot": round(spot, 2),
                 "iv": round(iv, 1),
@@ -942,9 +1181,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         score = engine.score_entry(ohlcv)
         regime = engine.classify_regime(ohlcv)
 
+        # AUDIT FIX: StrangleTimingEngine is a heuristic scoring module
+        # (Bollinger/ATR/RSI/trend/range composite). It does NOT compute
+        # probabilistic EV. Response now carries an authority contract.
         self._send_json(
             {
                 "ticker": ticker,
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
+                "note": (
+                    "Strangle timing is a heuristic regime/phase signal. "
+                    "For EV-ranked strangle candidates use /api/candidates "
+                    "or /api/tv/ranked with a strangle delta pair."
+                ),
                 "score": round(float(score.total_score), 1),
                 "recommendation": score.recommendation,
                 "phase": regime.phase.value,
@@ -1073,13 +1322,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         zone : str, optional
             One of ``wheel_put``, ``covered_call``, ``strangle``.
 
-        Implementation notes
-        --------------------
-        This scan intentionally reuses ``WheelRunner.screen_candidates``
-        rather than walking the full universe cold — the wheel screener
-        already filters out unusable tickers on fundamentals and liquidity,
-        so piping only qualified names through ``compute_tv_signal`` keeps
-        the scan fast and removes spurious micro-cap matches.
+        Implementation notes (audit-V P0.1b)
+        ------------------------------------
+        Candidate pool is now EV-ranked via
+        :meth:`WheelRunner.rank_candidates_by_ev`, NOT the legacy
+        heuristic ``screen_candidates``. This unifies decision
+        authority with ``/api/candidates`` so there is no path where
+        a heuristic wheel_score can surface names that EV would
+        reject.
+
+        The TV signal layer itself remains purely *visual / context* —
+        it attaches regime phase and zone flags to the EV-ranked pool
+        so traders can eyeball the chart state, but it never
+        upgrades or overrides the EV ranking.
         """
         from engine.tv_signals import compute_tv_signal
 
@@ -1091,11 +1346,30 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         runner = get_runner()
         conn = get_connector()
 
-        # Pull a larger candidate pool than the final limit so the filter
-        # below has room to work without starving the response.
-        df = runner.screen_candidates(min_wheel_score=45.0, top_n=max(limit_int * 4, 60))
+        # EV-authoritative pool — no heuristic wheel_score filter.
+        # We pull a deeper bench than the final limit so the phase/zone
+        # filter below has room to work.
+        try:
+            df = runner.rank_candidates_by_ev(
+                dte_target=35,
+                delta_target=0.25,
+                top_n=max(limit_int * 4, 60),
+                min_ev_dollars=0.0,  # strict: positive-EV only
+                include_diagnostic_fields=True,
+            )
+        except Exception:
+            traceback.print_exc()
+            df = None
+
         if df is None or df.empty:
-            self._send_json({"signals": [], "count": 0})
+            self._send_json(
+                {
+                    "signals": [],
+                    "count": 0,
+                    "authority": "ev_ranked",
+                    "layer": "visual_context_only",
+                }
+            )
             return
 
         results = []
@@ -1137,16 +1411,32 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "bb_width_pctl": round(signal.bb_width_pctl, 1),
                     "rsi_14": round(signal.rsi_14, 1),
                     "close": signal.close,
-                    "wheel_score": float(row.get("wheel_score", 0) or 0),
-                    "strangle_score": float(row.get("strangle_score", 0) or 0),
+                    # EV-native ranking signals from the authoritative path
+                    "ev_dollars": float(row.get("ev_dollars", 0) or 0),
+                    "ev_per_day": float(row.get("ev_per_day", 0) or 0),
+                    "prob_profit": float(row.get("prob_profit", 0) or 0),
+                    "distribution_source": row.get("distribution_source"),
                 }
             )
             if len(results) >= limit_int:
                 break
 
-        self._send_json({"signals": results, "count": len(results)})
+        self._send_json(
+            {
+                "signals": results,
+                "count": len(results),
+                "authority": "ev_ranked",
+                "layer": "visual_context_only",
+                "engine_version": "ev_engine_2026_04_14",
+            }
+        )
 
-    def _handle_tv_webhook(self, payload: dict):
+    def _handle_tv_webhook(
+        self,
+        payload: dict,
+        raw_body: bytes = b"",
+        signature_header: str = "",
+    ):
         """Ingest a TradingView Pine Script webhook alert.
 
         The webhook is the **push** side of the bridge. Pine fires an alert
@@ -1157,29 +1447,100 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         serves back, and returns the enriched decision so Pine's alert
         dialog can show a confirmation toast.
 
-        Security note
-        -------------
-        The webhook optionally validates a shared ``secret`` string in the
-        payload against the ``TV_WEBHOOK_SECRET`` environment variable.
-        When the env var is unset the handler accepts all alerts (the
-        intended behavior for local development). When it is set, the
-        handler rejects payloads with missing or wrong secrets with HTTP
-        401. This mirrors the TradingView-to-webhook pattern recommended
-        by production integrations while keeping the private/local use
-        case frictionless.
+        Security hardening (AUDIT)
+        --------------------------
+        Three layers of defence are applied, in order:
+
+        1. **HMAC-SHA256 body signature** (preferred). When
+           ``TV_WEBHOOK_HMAC_SECRET`` is set, the handler requires a
+           matching hex digest in the ``X-Signature`` /
+           ``X-Signature-256`` / ``X-Hub-Signature-256`` header, verified
+           in constant time via :func:`hmac.compare_digest`. This protects
+           against tampering with the body in transit.
+
+        2. **Plain shared secret** (legacy, lower strength). When
+           ``TV_WEBHOOK_SECRET`` is set, the handler requires
+           ``payload["secret"]`` to match using a constant-time compare.
+           TradingView cannot send arbitrary headers, so for pure Pine
+           alerts this is the only option. Callers who can send headers
+           should prefer HMAC.
+
+        3. **Timestamp freshness + nonce-replay guard**. Every accepted
+           payload is tagged with a SHA-256 digest of the raw body plus the
+           received signature header. If the same digest is seen again
+           within ``_TV_WEBHOOK_MAX_AGE_SEC`` the alert is rejected with
+           409. Additionally, if the payload contains a ``timestamp`` field
+           that parses as a POSIX seconds or ISO 8601 string, it must be
+           within the freshness window to be accepted.
+
+        When none of the env vars above are set the handler accepts all
+        alerts (the intended behaviour for local development on a
+        loopback-only socket).
         """
         import os
+        from datetime import datetime, timezone
 
         from engine.tv_signals import TVAlert
 
-        alert = TVAlert.parse(payload if isinstance(payload, dict) else {})
+        alert = TVAlert.parse(payload)
         if not alert.is_valid():
             self._send_error("alert payload missing ticker or signal", 400)
             return
 
-        expected_secret = os.environ.get("TV_WEBHOOK_SECRET", "")
-        if expected_secret and alert.secret != expected_secret:
-            self._send_error("unauthorized", 401)
+        hmac_secret = os.environ.get("TV_WEBHOOK_HMAC_SECRET", "")
+        plain_secret = os.environ.get("TV_WEBHOOK_SECRET", "")
+
+        # Layer 1: HMAC verification (preferred).
+        if hmac_secret:
+            if not _tv_verify_hmac(raw_body, signature_header, hmac_secret):
+                self._send_error("unauthorized (hmac)", 401)
+                return
+
+        # Layer 2: Plain shared secret (in-body). Constant-time compare.
+        if plain_secret:
+            if not hmac.compare_digest(
+                (alert.secret or "").encode("utf-8"), plain_secret.encode("utf-8")
+            ):
+                self._send_error("unauthorized", 401)
+                return
+
+        now = time.time()
+
+        # Layer 3a: Timestamp freshness (if the payload includes one).
+        ts_val = alert.timestamp
+        if ts_val:
+            ts_parsed: float | None = None
+            try:
+                if isinstance(ts_val, (int, float)):
+                    # TradingView {{time}} is epoch ms — accept either.
+                    ts_parsed = float(ts_val) / 1000.0 if ts_val > 1e12 else float(ts_val)
+                elif isinstance(ts_val, str):
+                    # Numeric string?
+                    try:
+                        num = float(ts_val)
+                        ts_parsed = num / 1000.0 if num > 1e12 else num
+                    except ValueError:
+                        # ISO 8601
+                        cleaned = ts_val.replace("Z", "+00:00")
+                        dt = datetime.fromisoformat(cleaned)
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        ts_parsed = dt.timestamp()
+            except Exception:
+                ts_parsed = None
+
+            if ts_parsed is not None:
+                age = now - ts_parsed
+                if abs(age) > _TV_WEBHOOK_MAX_AGE_SEC:
+                    self._send_error(
+                        f"alert outside freshness window (age={int(age)}s)", 400
+                    )
+                    return
+
+        # Layer 3b: Nonce / replay guard.
+        digest = hashlib.sha256(raw_body + b"|" + signature_header.encode("utf-8")).hexdigest()
+        if not _tv_seen_register(digest, now):
+            self._send_error("duplicate alert (replay blocked)", 409)
             return
 
         enriched = self._enrich_alert(alert)
@@ -1213,6 +1574,247 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         limit = max(1, min(limit or 50, _TV_ALERT_LOG_MAX))
         items = list(reversed(_TV_ALERT_LOG[-limit:]))
         self._send_json({"alerts": items, "count": len(items)})
+
+    def _handle_tv_dealer_positioning(
+        self,
+        ticker: str,
+        dte_target: int,
+        assumption: str,
+    ):
+        """Return aggregated dealer positioning (GEX, walls, regime) for a ticker.
+
+        Query params:
+            ticker      required — underlying symbol
+            dte         target DTE (default 35); picks the option chain
+                        expiry closest to today+dte
+            assumption  dealer-direction convention
+                        (long_calls_short_puts | short_both)
+
+        Returns a :class:`MarketStructure.to_dict` payload including
+        aggregate GEX / DEX / vanna / charm, per-strike exposures,
+        top-3 call & put gamma walls, nearest walls above/below spot,
+        zero-gamma flip level, pinning zones, regime label, and
+        confidence. When the chain is unavailable the endpoint returns
+        HTTP 404 with a structured reason.
+        """
+        from datetime import date, timedelta
+
+        if not ticker:
+            self._send_error("ticker parameter is required", 400)
+            return
+
+        from engine.dealer_positioning import (
+            DealerAssumption,
+            DealerPositioningAnalyzer,
+        )
+
+        try:
+            assumption_enum = DealerAssumption(assumption)
+        except ValueError:
+            assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
+
+        conn = get_connector()
+        chain_df = None
+        try:
+            if hasattr(conn, "get_options"):
+                chain_df = conn.get_options(ticker)
+            elif hasattr(conn, "get_option_chain"):
+                chain_df = conn.get_option_chain(ticker)
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"chain fetch failed: {exc}", 500)
+            return
+
+        if chain_df is None or len(chain_df) == 0:
+            self._send_error("option chain unavailable for ticker", 404)
+            return
+
+        # Pick expiry closest to today + dte_target
+        cdf = chain_df.copy()
+        cdf.columns = [c.lower() for c in cdf.columns]
+        if "expiration" in cdf.columns:
+            import pandas as pd
+
+            cdf["expiration"] = pd.to_datetime(cdf["expiration"], errors="coerce")
+            target_ts = pd.Timestamp(date.today() + timedelta(days=dte_target))
+            cdf["_dte_gap"] = (cdf["expiration"] - target_ts).abs()
+            best = cdf.sort_values("_dte_gap")["expiration"].iloc[0]
+            cdf = cdf[cdf["expiration"] == best].drop(columns=["_dte_gap"])
+            expiry_d = best.date() if hasattr(best, "date") else best
+        else:
+            expiry_d = date.today() + timedelta(days=dte_target)
+
+        # Get spot
+        spot = 0.0
+        try:
+            ohlcv = conn.get_ohlcv(ticker)
+            if ohlcv is not None and len(ohlcv) > 0:
+                close_col = "close" if "close" in ohlcv.columns else "Close"
+                spot = float(ohlcv[close_col].iloc[-1])
+        except Exception:
+            pass
+        if spot <= 0 and "underlying_price" in cdf.columns:
+            spot = float(cdf["underlying_price"].dropna().iloc[0])
+
+        if spot <= 0:
+            self._send_error("spot price unavailable", 404)
+            return
+
+        analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
+        ms = analyzer.analyze(
+            chain=cdf,
+            spot=spot,
+            expiry=expiry_d,
+            ticker=ticker,
+        )
+        self._send_json(ms.to_dict())
+
+    def _handle_tv_dossier(
+        self,
+        top_n: int,
+        dte_target: int,
+        delta_target: float,
+        min_ev_dollars: float,
+        as_of,
+        tickers_csv,
+        timeframe: str,
+        screenshots_dir: str,
+    ):
+        """Mode B dossier endpoint.
+
+        Runs the engine-first workflow end-to-end:
+          1. Rank candidates by EV.
+          2. For the top N, load a TradingView screenshot via a
+             filesystem-based :class:`FilesystemChartProvider` pointed
+             at ``screenshots_dir``. The terminal is expected to drop
+             screenshots at ``<screenshots_dir>/<TICKER>/<TIMEFRAME>.png``.
+          3. Run the :class:`EnginePhaseReviewer` to produce a verdict
+             per candidate.
+          4. Return the full dossier JSON for the dashboard candidate
+             table + detail drawer.
+
+        Query params:
+            top_n           top-N candidates to attach charts to (default 10)
+            dte             target DTE (default 35)
+            delta           target put delta (default 0.25)
+            min_ev          hard EV filter (default 0)
+            as_of           optional PIT cutoff YYYY-MM-DD
+            tickers         optional comma-separated subset
+            timeframe       TradingView timeframe for screenshots (default 1D)
+            screenshots_dir filesystem provider base directory
+        """
+        from engine.tradingview_bridge import FilesystemChartProvider
+
+        runner = get_runner()
+        tickers = None
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+
+        provider = FilesystemChartProvider(base_dir=screenshots_dir)
+
+        try:
+            dossiers = runner.build_candidate_dossiers(
+                tickers=tickers,
+                dte_target=dte_target,
+                delta_target=delta_target,
+                top_n=max(1, top_n),
+                min_ev_dollars=min_ev_dollars,
+                as_of=as_of,
+                chart_provider=provider,
+                chart_timeframe=timeframe,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"build_candidate_dossiers failed: {exc}", 500)
+            return
+
+        records = [d.to_dict() for d in dossiers]
+        counts = {
+            "proceed": sum(1 for d in dossiers if d.verdict == "proceed"),
+            "review": sum(1 for d in dossiers if d.verdict == "review"),
+            "skip": sum(1 for d in dossiers if d.verdict == "skip"),
+            "blocked": sum(1 for d in dossiers if d.verdict == "blocked"),
+        }
+        self._send_json(
+            {
+                "dossiers": records,
+                "count": len(records),
+                "verdict_counts": counts,
+                "params": {
+                    "top_n": top_n,
+                    "dte_target": dte_target,
+                    "delta_target": delta_target,
+                    "min_ev_dollars": min_ev_dollars,
+                    "as_of": as_of,
+                    "tickers": tickers,
+                    "timeframe": timeframe,
+                    "screenshots_dir": screenshots_dir,
+                },
+                "engine_version": "ev_engine_2026_04_14",
+            }
+        )
+
+    def _handle_tv_ranked(
+        self,
+        limit: int,
+        dte_target: int,
+        delta_target: float,
+        min_ev_dollars: float,
+        as_of,
+        tickers_csv,
+    ):
+        """EV-ranked candidates endpoint for the dashboard candidate table.
+
+        This is the audit-II upgrade: replaces the legacy /api/candidates
+        heuristic score with probabilistic expected value per day via
+        :meth:`WheelRunner.rank_candidates_by_ev`. The endpoint returns
+        JSON that the Next.js dashboard can render directly as a table,
+        one row per candidate, pre-filtered by the event lockout gate
+        and sorted by ``ev_per_day`` descending.
+
+        Query params:
+            limit        top N candidates to return (default 20)
+            dte          target days-to-expiry for the synthetic trade (default 35)
+            delta        target put delta (positive; default 0.25)
+            min_ev       hard threshold on ev_dollars (default 0)
+            as_of        optional PIT cutoff YYYY-MM-DD
+            tickers      optional comma-separated ticker subset
+        """
+        runner = get_runner()
+        tickers = None
+        if tickers_csv:
+            tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+
+        try:
+            df = runner.rank_candidates_by_ev(
+                tickers=tickers,
+                dte_target=dte_target,
+                delta_target=delta_target,
+                top_n=max(1, limit),
+                min_ev_dollars=min_ev_dollars,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            return
+
+        records = df.to_dict(orient="records") if hasattr(df, "to_dict") else []
+        payload = {
+            "candidates": records,
+            "count": len(records),
+            "params": {
+                "limit": limit,
+                "dte_target": dte_target,
+                "delta_target": delta_target,
+                "min_ev_dollars": min_ev_dollars,
+                "as_of": as_of,
+                "tickers": tickers,
+            },
+            "engine_version": "ev_engine_2026_04_14",
+        }
+        self._send_json(payload)
 
     # ------------------------------------------------------------------
 
@@ -1270,15 +1872,72 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             days_to_earnings = None
             sector = ""
 
-        # Simple verdict heuristic combining Pine agreement with engine scoring
+        # Verdict is EV-AUTHORITATIVE (audit fix 2026-04-14).
+        # Previously used a heuristic `wheel_score >= 60` rule here, which
+        # produced "proceed" verdicts stored in the ring buffer that were
+        # never validated against EV. That's a silent authority leak: any
+        # user reading `/api/tv/alerts` would see verdicts indistinguishable
+        # from EV-backed ones.
+        # Now: run the EV ranker on this single ticker and use ev_dollars +
+        # prob_profit as the authority. wheel_score is kept only as a
+        # supplementary diagnostic, never as decision authority.
         agrees = sig.signal_action == alert.signal or getattr(
             sig, alert.signal.replace(" ", "_"), False
         )
-        verdict = "proceed" if agrees and wheel_score >= 60 else (
-            "review" if wheel_score >= 40 else "skip"
-        )
-        if days_to_earnings is not None and days_to_earnings < 5:
+        ev_dollars = 0.0
+        ev_per_day = 0.0
+        prob_profit = 0.0
+        prob_assignment = 0.0
+        verdict_authority = "ev_ranked"
+        verdict_reason = ""
+        try:
+            # Preferred DTE is deterministic based on phase; the ranker
+            # will use this as the target DTE for the synthetic trade.
+            preferred_dte_tmp = 31 if sig.phase == "post_expansion" else 45
+            preferred_delta_tmp = {
+                "wheel_put_zone": 0.20,
+                "covered_call_zone": 0.22,
+                "strangle_zone": 0.18,
+            }.get(alert.signal, 0.22)
+            ev_df = runner.rank_candidates_by_ev(
+                tickers=[alert.ticker],
+                dte_target=preferred_dte_tmp,
+                delta_target=preferred_delta_tmp,
+                top_n=1,
+                min_ev_dollars=-1e9,
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+            if ev_df is not None and len(ev_df) > 0:
+                r0 = ev_df.iloc[0]
+                ev_dollars = float(r0.get("ev_dollars", 0) or 0)
+                ev_per_day = float(r0.get("ev_per_day", 0) or 0)
+                prob_profit = float(r0.get("prob_profit", 0) or 0)
+                prob_assignment = float(r0.get("prob_assignment", 0) or 0)
+        except Exception:
+            verdict_authority = "ev_unavailable"
+            verdict_reason = "ev_computation_failed"
+
+        # Hard event gate (second line of defense — EV should already have
+        # blocked). This remains as a belt-and-suspenders skip.
+        if days_to_earnings is not None and 0 <= days_to_earnings < 5:
             verdict = "skip"
+            verdict_reason = "earnings_within_5d"
+        elif verdict_authority != "ev_ranked":
+            verdict = "review"
+            verdict_reason = verdict_reason or "ev_engine_unreachable"
+        elif ev_dollars < 0:
+            verdict = "skip"
+            verdict_reason = "negative_ev"
+        elif ev_dollars >= 10 and prob_profit >= 0.65 and agrees:
+            verdict = "proceed"
+            verdict_reason = "ev_above_threshold_and_chart_agrees"
+        elif ev_dollars > 0:
+            verdict = "review"
+            verdict_reason = "positive_but_low_ev" if ev_dollars < 10 else "chart_disagrees"
+        else:
+            verdict = "skip"
+            verdict_reason = "ev_zero_or_below"
 
         # Preferred expiry / delta suggestion — deterministic heuristic
         preferred_dte = 31 if sig.phase == "post_expansion" else 45
@@ -1292,6 +1951,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             "ticker": alert.ticker,
             "signal": alert.signal,
             "verdict": verdict,
+            "verdict_reason": verdict_reason,
+            "authority": verdict_authority,
+            "ev_dollars": round(ev_dollars, 2),
+            "ev_per_day": round(ev_per_day, 3),
+            "prob_profit": round(prob_profit, 4),
+            "prob_assignment": round(prob_assignment, 4),
             "pine_agrees": agrees,
             "phase": sig.phase,
             "bollinger_state": sig.bollinger_state,
@@ -1316,6 +1981,53 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         }
 
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # News endpoints
+    # ------------------------------------------------------------------
+    def _handle_news(self, limit: int):
+        """Serve the most recent news stories from the in-memory buffer.
+
+        Stories are ingested by ``POST /api/news/ingest`` (called by
+        ``scripts/orchestrate.py`` after running the news pipeline)
+        and served back here for the dashboard + committee.
+        """
+        limit = max(1, min(limit, _NEWS_BUFFER_MAX))
+        items = list(reversed(_NEWS_BUFFER[-limit:]))
+        self._send_json({"stories": items, "count": len(items)})
+
+    def _handle_news_ingest(self, payload: dict):
+        """Ingest news stories from the orchestrator / news pipeline.
+
+        Expects ``{"stories": [...]}`` where each story is a dict with
+        at minimum ``title`` and ``summary``. Optional fields:
+        ``tickers``, ``impact``, ``source``, ``timestamp``, ``url``.
+
+        Stories are appended to the in-memory ring buffer and served
+        via ``GET /api/news``. The endpoint also extracts ticker
+        mentions and checks them against the event gate.
+        """
+        stories = payload.get("stories", [])
+        if not isinstance(stories, list):
+            self._send_error("stories must be a list", 400)
+            return
+
+        ingested = 0
+        for story in stories:
+            if not isinstance(story, dict):
+                continue
+            if not story.get("title") and not story.get("summary"):
+                continue
+            story.setdefault("ingested_at", datetime.utcnow().isoformat())
+            story.setdefault("source", "pipeline")
+            _NEWS_BUFFER.append(story)
+            ingested += 1
+
+        # Trim buffer
+        while len(_NEWS_BUFFER) > _NEWS_BUFFER_MAX:
+            _NEWS_BUFFER.pop(0)
+
+        self._send_json({"ingested": ingested, "buffer_size": len(_NEWS_BUFFER)})
 
     def _handle_memo(self, ticker, as_of):
         """Generate AI trade memo for a ticker."""

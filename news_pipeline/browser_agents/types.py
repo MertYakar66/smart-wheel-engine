@@ -16,6 +16,7 @@ class ModelType(Enum):
     CLAUDE = "claude"
     CHATGPT = "chatgpt"
     GEMINI = "gemini"
+    GROK = "grok"
     LOCAL = "local"
 
 

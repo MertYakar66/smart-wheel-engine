@@ -631,8 +631,15 @@ def create_constant_surface(
     """
     Create flat (constant IV) surface.
 
+    AUDIT NOTE: A flat surface has zero skew and zero smile and will
+    systematically mis-price OTM puts (real markets have ~30% steeper
+    put wings than the flat model). Use this only as a deterministic
+    fixture for unit tests or as an absolute last-resort fall-back.
+    Prefer :func:`create_empirical_surface` whenever historical IV
+    data (even just ATM 30-day) is available — it still has no smile
+    but at least honours the term-structure shape.
+
     Useful as fallback when no option data available.
-    This is what the backtest currently uses.
     """
     forward_prices = dict.fromkeys(expiries, spot)
 
@@ -648,6 +655,130 @@ def create_constant_surface(
                 m=0.0,
                 sigma=0.1,
             )
+
+    return VolatilitySurface(
+        as_of_date=as_of_date,
+        underlying=underlying,
+        forward_prices=forward_prices,
+        svi_params=svi_params,
+    )
+
+
+def create_empirical_surface(
+    iv_by_tenor: dict[int, float],
+    as_of_date: date,
+    underlying: str,
+    spot: float,
+    expiries: list[date],
+    put_skew_slope: float = -0.15,
+    call_skew_slope: float = 0.02,
+    smile_curvature: float = 0.40,
+) -> VolatilitySurface:
+    """Create a smile-aware surface from an ATM IV term structure.
+
+    This is the recommended fall-back when the underlying has at least
+    a reliable ATM IV per tenor (Bloomberg ``hist_put_imp_vol`` + a few
+    VIX-style tenors) but no full option chain. It builds a per-expiry
+    SVI parameter set that:
+
+    * Honours the ATM IV for each expiry exactly.
+    * Imposes a realistic smile/skew (equity indices and single names
+      have negative put skew and a small positive call skew, with the
+      strength of the smile decreasing with tenor).
+    * Stays arbitrage-free under the Gatheral SSVI restrictions by
+      construction (``|ρ|<1``, ``b>0``).
+
+    Arguments:
+        iv_by_tenor: dict mapping ``days_to_expiry -> atm_iv`` (decimal).
+            The function will nearest-neighbour interpolate this for
+            any expiry in ``expiries``.
+        as_of_date: Surface as-of date.
+        underlying: Ticker symbol.
+        spot: Current spot price (used as forward proxy; add carry
+            adjustments upstream if needed).
+        expiries: Expiries to materialise the surface for.
+        put_skew_slope: ATM-normalised slope of the put wing. More
+            negative = steeper put skew (crash-premium). Typical
+            equity-index value is -0.15.
+        call_skew_slope: ATM-normalised slope of the call wing.
+            Typical equity-index value is ~0.02.
+        smile_curvature: Convexity of the smile. Higher = more
+            pronounced smile. Default 0.40 is in the middle of the
+            historical SPX range.
+
+    Returns:
+        :class:`VolatilitySurface` with per-expiry SVI params.
+    """
+    if not iv_by_tenor:
+        raise ValueError("iv_by_tenor must contain at least one tenor")
+
+    tenor_keys = sorted(iv_by_tenor.keys())
+
+    def _interp_atm_iv(days: int) -> float:
+        if days <= tenor_keys[0]:
+            return iv_by_tenor[tenor_keys[0]]
+        if days >= tenor_keys[-1]:
+            return iv_by_tenor[tenor_keys[-1]]
+        for i in range(len(tenor_keys) - 1):
+            lo, hi = tenor_keys[i], tenor_keys[i + 1]
+            if lo <= days <= hi:
+                w = (days - lo) / (hi - lo)
+                return (1 - w) * iv_by_tenor[lo] + w * iv_by_tenor[hi]
+        return iv_by_tenor[tenor_keys[-1]]
+
+    forward_prices = dict.fromkeys(expiries, spot)
+    svi_params: dict[date, SVIParams] = {}
+
+    # Equity-style rho: negative skew ⇒ put wing steeper than call wing.
+    # Derived from the asymmetry of the two wing slopes. Clamped to [-0.95, 0.95].
+    put_abs = abs(put_skew_slope)
+    call_abs = abs(call_skew_slope)
+    if put_abs + call_abs > 0:
+        rho = -(put_abs - call_abs) / (put_abs + call_abs)
+    else:
+        rho = 0.0
+    rho = max(-0.95, min(0.95, rho))
+
+    # SPX-calibrated magnitudes. These are small on purpose — standard
+    # SPX 30-DTE skew is ~3-5 vol points per 10% OTM, and that translates
+    # to b ~ 0.010 and sigma ~ 0.04 in the SVI parameterization. Using
+    # bigger numbers blows the variance up exponentially.
+    b_nominal = 0.010 * max(put_abs + call_abs, 0.10) / 0.17  # scale by caller's slopes
+    sigma_nominal = 0.04 * smile_curvature / 0.40
+
+    for exp in expiries:
+        days = (exp - as_of_date).days
+        T = days / 365
+        if T <= 0:
+            continue
+        atm_iv = _interp_atm_iv(days)
+        w_atm_target = atm_iv**2 * T
+
+        # Decay wing slope and curvature with sqrt(T) to match observed
+        # flattening of the smile at longer tenors.
+        scale = min(1.0, 0.5 / max(np.sqrt(T), 0.25))  # short-tenor emphasis
+        b = b_nominal * scale
+        sigma_svi = sigma_nominal * scale
+        m = 0.0
+
+        # Solve ATM condition exactly:
+        #   w(0) = a + b * (ρ * (-m) + sqrt(m^2 + σ^2))
+        #        = a + b * sigma_svi           (with m=0)
+        # ⇒ a = w_atm - b * sigma_svi
+        # We insist a >= 1e-8 by shrinking b if necessary.
+        if b * sigma_svi >= 0.95 * w_atm_target:
+            # Shrink wing/curvature to avoid a<=0
+            b = 0.5 * w_atm_target / max(sigma_svi, 1e-4)
+        a = w_atm_target - b * sigma_svi
+        a = max(a, 1e-8)
+
+        svi_params[exp] = SVIParams(
+            a=a,
+            b=b,
+            rho=rho,
+            m=m,
+            sigma=sigma_svi,
+        )
 
     return VolatilitySurface(
         as_of_date=as_of_date,

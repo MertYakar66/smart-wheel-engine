@@ -1,6 +1,34 @@
 """
 ML Model for Wheel Strategy Entry/Exit Timing.
 
+STATUS: RESEARCH ONLY — NOT WIRED INTO PRODUCTION EV RANKING.
+
+Audit (2026-04-14):
+  * This module is NOT called by engine/ev_engine.py,
+    engine/wheel_runner.py::rank_candidates_by_ev, or any live HTTP
+    endpoint. It is imported only by src/backtest/wheel_backtest.py as
+    an optional offline backtest feature.
+  * Target labels at ``create_target`` / ``create_put_outcome_target``
+    are correctly forward-looking (that is how supervised labels
+    work), but the training code uses ``TimeSeriesSplit(n_splits=5)``
+    WITHOUT a gap equal to ``forward_days``. This causes
+    fold-boundary leakage: the validation fold's features overlap
+    with the preceding fold's label window. Reported AUC / accuracy
+    is consequently inflated.
+  * The ``gap`` parameter (added below) defaults to the
+    ``forward_days`` of the target so cross-validation now purges
+    the label horizon. Without this, model metrics are not
+    trustworthy.
+  * Predictions from this module are NOT calibrated (no isotonic /
+    Platt). Do not use raw predict_proba as EV inputs.
+  * If this module is ever promoted to production, it MUST:
+      1. Ship a calibration wrapper validated by
+         ``ml/model_governance.py::DriftDetector.check_calibration``.
+      2. Be gated by the same ``enforce_chain_quality_gate`` /
+         ``enforce_history_gate`` flags as the EV ranker.
+      3. Feed the ``EVEngine`` as an adjustment to the physical
+         forward distribution, NOT as a direct ranking score.
+
 Predicts optimal entry points for selling puts based on:
 - Technical indicators
 - Volatility regime
@@ -222,9 +250,31 @@ def prepare_training_data(
 class WheelEntryModel:
     """
     ML model for wheel entry timing.
+
+    RESEARCH ONLY. Not wired into the production EV ranker.
     """
 
+    _PRODUCTION_GUARD_CHECKED = False
+
     def __init__(self, config: Optional[WheelModelConfig] = None):
+        import os
+
+        if not WheelEntryModel._PRODUCTION_GUARD_CHECKED:
+            WheelEntryModel._PRODUCTION_GUARD_CHECKED = True
+            env = os.environ.get("WHEEL_ENV", "development")
+            if env == "production" and os.environ.get("PRODUCTION_ML_APPROVED") != "1":
+                import warnings
+
+                warnings.warn(
+                    "WheelEntryModel instantiated in WHEEL_ENV=production "
+                    "WITHOUT PRODUCTION_ML_APPROVED=1. This module is "
+                    "research-only and has known CV leakage issues. Set "
+                    "PRODUCTION_ML_APPROVED=1 to acknowledge and proceed, "
+                    "or use engine/ev_engine.py for production ranking.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+
         self.config = config or WheelModelConfig()
         self.model = None
         self.scaler = StandardScaler()
@@ -265,14 +315,20 @@ class WheelEntryModel:
         metrics = {}
 
         if validate:
-            # Time-series cross-validation
-            tscv = TimeSeriesSplit(n_splits=5)
+            # Time-series cross-validation WITH gap equal to the label
+            # horizon. Without this gap the validation fold's features
+            # overlap the preceding fold's label window, producing
+            # inflated AUC. This is the standard López de Prado
+            # "purged CV" requirement for overlapping labels.
+            forward_days = int(getattr(self.config, "forward_days", 30) or 30)
+            tscv = TimeSeriesSplit(n_splits=5, gap=max(forward_days, 1))
             cv_scores = cross_val_score(
                 self.model, X_scaled, y,
                 cv=tscv, scoring='roc_auc'
             )
             metrics['cv_auc_mean'] = cv_scores.mean()
             metrics['cv_auc_std'] = cv_scores.std()
+            metrics['cv_gap'] = forward_days
 
         # Fit on full data
         self.model.fit(X_scaled, y)

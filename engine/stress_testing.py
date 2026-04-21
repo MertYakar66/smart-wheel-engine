@@ -635,17 +635,30 @@ class StressTester:
 
         df = pd.DataFrame(results)
 
-        # Alert if residual exceeds tolerance (default 10%)
+        # AUDIT-V P1: Greeks-decomposition residual gate.
+        # Any row whose decomposition residual exceeds ``residual_tolerance``
+        # has higher-order effects that the Taylor expansion cannot
+        # explain, so the per-Greek attribution is unreliable. We tag
+        # each row with ``reliable`` and attach summary metadata so
+        # downstream code (risk reports, dashboards, LLM memos) can
+        # hide or flag unreliable rows instead of displaying them as
+        # authoritative explanations.
         residual_tolerance = getattr(self, "residual_tolerance", 0.10)
-        high_residual = df[df["residual_pct"] > residual_tolerance]
-        if not high_residual.empty:
+        df["reliable"] = df["residual_pct"] <= residual_tolerance
+        n_unreliable = int((~df["reliable"]).sum())
+        max_residual = float(df["residual_pct"].max()) if len(df) else 0.0
+        df.attrs["residual_tolerance"] = residual_tolerance
+        df.attrs["n_unreliable_rows"] = n_unreliable
+        df.attrs["max_residual_pct"] = max_residual
+        df.attrs["residual_gate_passed"] = n_unreliable == 0
+
+        if n_unreliable > 0:
             import warnings
 
-            max_residual = high_residual["residual_pct"].max()
             warnings.warn(
                 f"Greeks decomposition residual exceeds {residual_tolerance:.0%} tolerance "
-                f"at {len(high_residual)} spot points (max={max_residual:.1%}). "
-                f"Higher-order effects may be material.",
+                f"at {n_unreliable} spot points (max={max_residual:.1%}). "
+                f"Higher-order effects may be material; rows flagged reliable=False.",
                 stacklevel=2,
             )
 

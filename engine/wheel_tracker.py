@@ -72,12 +72,83 @@ class WheelTracker:
     Handles state transitions and P&L accounting.
     """
 
-    def __init__(self, initial_capital: float = 100000.0):
+    def __init__(
+        self,
+        initial_capital: float = 100000.0,
+        require_ev_authority: bool = False,
+    ):
+        """
+        Args:
+            initial_capital: Starting cash.
+            require_ev_authority: When True, ``open_short_put`` and
+                ``open_covered_call`` REQUIRE an ``ev_authority_token``
+                argument produced by :meth:`issue_ev_authority_token`
+                below, which itself should only be called from within
+                :meth:`WheelRunner.rank_candidates_by_ev` when the
+                candidate has passed the EV ranker. This is the hard
+                launch-gate that prevents heuristic / manual / webhook
+                paths from entering a position bypassing the EV engine.
+                Default False for backwards compatibility with tests
+                and research usage; production/live tracker instances
+                should set it True.
+        """
         self.initial_capital = initial_capital
         self.cash = initial_capital
         self.positions: dict[str, WheelPosition] = {}
         self.closed_positions: list[dict] = []
         self.equity_curve: list[dict] = []
+        self.require_ev_authority = require_ev_authority
+        self._ev_authority_tokens: set[str] = set()
+        self._ev_authority_log: list[dict] = []
+
+    # ------------------------------------------------------------------
+    # EV authority token issuance (audit launch-gate)
+    # ------------------------------------------------------------------
+    def issue_ev_authority_token(self, ev_row: dict) -> str:
+        """Issue a one-time token proving a candidate passed EV ranking.
+
+        The token is a SHA-256 hex digest of the canonicalised EV row
+        (ticker, strike, premium, dte, ev_dollars, prob_profit,
+        distribution_source). The same row always produces the same
+        token; downstream :meth:`open_short_put` verifies it against
+        the accepted-token set.
+
+        Single-use: once consumed, the token is removed. This prevents
+        a captured token being re-played to enter multiple positions.
+        """
+        import hashlib
+        import json as _json
+
+        canonical = {
+            "ticker": str(ev_row.get("ticker", "")),
+            "strike": float(ev_row.get("strike", 0) or 0),
+            "premium": float(ev_row.get("premium", 0) or 0),
+            "dte": int(ev_row.get("dte", 0) or 0),
+            "ev_dollars": float(ev_row.get("ev_dollars", 0) or 0),
+            "prob_profit": float(ev_row.get("prob_profit", 0) or 0),
+            "distribution_source": str(ev_row.get("distribution_source", "")),
+        }
+        token = hashlib.sha256(
+            _json.dumps(canonical, sort_keys=True).encode()
+        ).hexdigest()
+        self._ev_authority_tokens.add(token)
+        self._ev_authority_log.append({"action": "issue", "token": token, "row": canonical})
+        return token
+
+    def _consume_ev_authority_token(self, token: str | None, ticker: str) -> bool:
+        """Verify and consume an EV authority token. Single-use."""
+        if not token:
+            return False
+        if token not in self._ev_authority_tokens:
+            self._ev_authority_log.append(
+                {"action": "reject", "reason": "unknown_token", "ticker": ticker}
+            )
+            return False
+        self._ev_authority_tokens.discard(token)
+        self._ev_authority_log.append(
+            {"action": "consume", "token": token, "ticker": ticker}
+        )
+        return True
 
     def open_short_put(
         self,
@@ -87,6 +158,7 @@ class WheelTracker:
         entry_date: date,
         expiration_date: date,  # CHANGED: explicit date instead of dte
         iv: float,
+        ev_authority_token: str | None = None,
     ) -> bool:
         """
         Enter short put position.
@@ -98,10 +170,21 @@ class WheelTracker:
             entry_date: Trade entry date
             expiration_date: Explicit calendar expiration date
             iv: Implied volatility at entry
+            ev_authority_token: When the tracker was created with
+                ``require_ev_authority=True``, this must be a valid
+                single-use token from :meth:`issue_ev_authority_token`.
+                Trades without a valid token are rejected outright —
+                this is the launch-gate that prevents heuristic /
+                manual / webhook paths from bypassing the EV engine.
 
         Returns:
             True if position opened successfully
         """
+        # Launch-gate: reject trades without EV authority in strict mode.
+        if self.require_ev_authority:
+            if not self._consume_ev_authority_token(ev_authority_token, ticker):
+                return False
+
         # Check if already have position in this ticker
         if ticker in self.positions:
             return False

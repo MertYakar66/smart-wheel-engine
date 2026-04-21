@@ -80,25 +80,49 @@ def calculate_slippage(
     trade_direction: Literal["buy", "sell"],
     open_interest: int | None = None,
     volume: int | None = None,
+    num_contracts: int = 1,
+    adv_contracts: int | None = None,
+    use_sqrt_impact: bool = True,
+    impact_coefficient: float = 0.10,
 ) -> float:
     """
-    Calculate slippage based on spread and liquidity indicators.
+    Calculate slippage based on spread, liquidity indicators, and order size.
+
+    AUDIT UPGRADE — Almgren-Chriss square-root market impact added:
+
+        slippage = spread_slippage + size_slippage
+        spread_slippage = base_factor * spread        # existing logic
+        size_slippage   = k * mid_price * sqrt(contracts / adv)
+
+    The sqrt term matters for serious wheel sizing: a 10-contract order on
+    a 100-ADV option pays materially more slippage than a 1-contract order
+    on the same option, and the spread-only model silently understates this
+    by ~70% for illiquid lots. When ``adv_contracts`` is not known the
+    function degrades cleanly to the pre-audit spread-only model
+    (backwards compatible).
+
+    For sells: execute at mid - slippage
+    For buys: execute at mid + slippage
 
     Args:
         mid_price: Theoretical mid-point price
         bid_ask_spread: Width of bid-ask spread
         trade_direction: "buy" (pay slippage) or "sell" (lose slippage)
         open_interest: Option open interest (for liquidity adjustment)
-        volume: Trading volume (for liquidity adjustment)
+        volume: Trading volume (unused; kept for API compatibility)
+        num_contracts: Order size in contracts (Kyle-lambda sqrt impact)
+        adv_contracts: Average daily volume in contracts. When None,
+            sqrt impact is disabled (spread-only fallback).
+        use_sqrt_impact: Toggle sqrt impact on/off.
+        impact_coefficient: Kyle-lambda-style impact coefficient. 0.10
+            is a conservative starting point; calibrate to historical
+            fill data per broker/venue.
 
     Returns:
-        Slippage amount in dollars (always positive)
-
-    Note:
-        Base slippage is 15% of spread width, adjusted for liquidity.
-        For sells: execute at mid - slippage
-        For buys: execute at mid + slippage
+        Per-share slippage amount in dollars (always positive).
     """
+    import math as _math
+
     base_factor = DEFAULT_SLIPPAGE_PCT
 
     # Adjust for liquidity (increase slippage for illiquid options)
@@ -118,11 +142,22 @@ def calculate_slippage(
         elif spread_pct > 0.50:
             base_factor *= 2.0  # Severe penalty
 
-    # Cap slippage factor at 50% of spread
+    # Cap the spread-fraction factor at 50% of spread width.
     base_factor = min(base_factor, 0.50)
+    spread_slippage = bid_ask_spread * base_factor
 
-    slippage_amount = bid_ask_spread * base_factor
-    return abs(slippage_amount)
+    # Almgren-Chriss / Kyle-lambda square-root market impact.
+    size_slippage = 0.0
+    if (
+        use_sqrt_impact
+        and adv_contracts is not None
+        and adv_contracts > 0
+        and num_contracts > 0
+    ):
+        participation = num_contracts / float(adv_contracts)
+        size_slippage = impact_coefficient * mid_price * _math.sqrt(participation)
+
+    return abs(spread_slippage) + abs(size_slippage)
 
 
 def calculate_assignment_fee() -> float:

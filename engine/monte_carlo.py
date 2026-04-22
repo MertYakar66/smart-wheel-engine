@@ -836,7 +836,7 @@ class LSMPricer:
                 pre_div_mask = (exercise_time >= window_start) & (exercise_time < div_step)
                 prob_pre_div += float(np.mean(pre_div_mask))
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         return LSMResult(
             american_price=american_price,
@@ -851,7 +851,7 @@ class LSMPricer:
             seed_used=self.seed,
             n_paths=self.n_paths,
             n_steps=n_steps,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         )
 
     def assignment_risk(

@@ -48,7 +48,7 @@ import sys
 import time
 import traceback
 from collections import OrderedDict
-from datetime import date
+from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -738,29 +738,82 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         iv = analysis.iv_30d or 25
         iv_decimal = iv / 100 if iv > 1 else iv
 
-        # Calculate realistic strike (30-delta put, ~8% OTM)
-        strike = round(spot * 0.92, 0)
-        dte = 45
-
-        # Estimate premium using BSM
-        from scipy.stats import norm as _norm
-
-        T = dte / 365
-        if iv_decimal > 0 and T > 0:
-            d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
-                iv_decimal * np.sqrt(T)
+        # AUDIT-VIII P1.4: anchor the committee's candidate trade on the
+        # EV ranker when available. Previously the handler constructed
+        # a synthetic short put with a hardcoded strike (spot * 0.92),
+        # hardcoded 0.04 risk-free rate, and an "expected_value" field
+        # computed as a return-over-capital ratio — none of which
+        # matched the EV engine's definitions. That produced a committee
+        # verdict completely disconnected from the authoritative path,
+        # which the UI could easily mistake for an EV-backed decision.
+        # Now: when the EV ranker returns a row for this ticker, we
+        # use its strike, premium, delta target, EV dollars, and
+        # assignment probability. The synthetic BSM fallback is kept
+        # only for tickers the EV ranker cannot price.
+        ev_row = None
+        ev_path_available = False
+        try:
+            ev_df = runner.rank_candidates_by_ev(
+                tickers=[ticker],
+                dte_target=45,
+                delta_target=0.30,
+                top_n=1,
+                min_ev_dollars=-1e9,
+                include_diagnostic_fields=True,
+                enforce_history_gate=False,
             )
-            d2 = d1 - iv_decimal * np.sqrt(T)
-            premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
-            premium = max(0.01, premium)
-            delta = float(-_norm.cdf(-d1))
-            p_otm = float(_norm.cdf(d2))
-        else:
-            premium = 1.0
-            delta = -0.30
-            p_otm = 0.70
+            if ev_df is not None and len(ev_df) > 0:
+                ev_row = ev_df.iloc[0].to_dict()
+                ev_path_available = True
+        except Exception:
+            ev_row = None
 
-        ev = p_otm * premium * 100 / (strike * 100) * (365 / dte) * 100
+        dte = 45
+        if ev_row is not None:
+            strike = float(ev_row["strike"])
+            premium = float(ev_row["premium"])
+            dte = int(ev_row.get("dte", 45))
+            p_otm = float(ev_row.get("prob_profit", 0.70))
+            # Put delta at the actual EV strike (signed negative).
+            from scipy.stats import norm as _norm
+
+            T = dte / 365
+            if iv_decimal > 0 and T > 0:
+                d1 = (
+                    np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T
+                ) / (iv_decimal * np.sqrt(T))
+                delta = float(-_norm.cdf(-d1))
+            else:
+                delta = -0.30
+            ev_dollars = float(ev_row.get("ev_dollars", premium * 100 * p_otm))
+        else:
+            # Fallback synthetic BSM trade — only fires when the EV
+            # ranker cannot price the ticker (e.g. missing OHLCV /
+            # fundamentals). The response is still labelled
+            # authority="heuristic_diagnostic" to prevent the UI from
+            # treating it as EV-backed.
+            from scipy.stats import norm as _norm
+
+            strike = round(spot * 0.92, 0)
+            T = dte / 365
+            if iv_decimal > 0 and T > 0:
+                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
+                    iv_decimal * np.sqrt(T)
+                )
+                d2 = d1 - iv_decimal * np.sqrt(T)
+                premium = float(
+                    strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1)
+                )
+                premium = max(0.01, premium)
+                delta = float(-_norm.cdf(-d1))
+                p_otm = float(_norm.cdf(d2))
+            else:
+                premium = 1.0
+                delta = -0.30
+                p_otm = 0.70
+            ev_dollars = p_otm * premium * 100
+
+        ev = ev_dollars  # committee schema label, dollar-valued
 
         # Build realistic AdvisorInput
         trade = CandidateTrade(
@@ -867,6 +920,14 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json(
             {
                 "ticker": ticker,
+                # AUDIT-VIII P1.4: explicit authority contract. The
+                # committee is a narrative / risk-overlay layer, not
+                # the tradeable authority. Callers that want a
+                # tradeable decision must route through the EV ranker
+                # at ``tradeable_endpoint``.
+                "authority": "heuristic_diagnostic",
+                "tradeable_endpoint": "/api/candidates",
+                "ev_anchored": bool(ev_path_available),
                 "judgment": result.committee_judgment.value,
                 "reasoning": result.committee_reasoning,
                 "confidence": result.committee_confidence.value,
@@ -2018,7 +2079,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 continue
             if not story.get("title") and not story.get("summary"):
                 continue
-            story.setdefault("ingested_at", datetime.utcnow().isoformat())
+            story.setdefault(
+                "ingested_at", datetime.now(timezone.utc).isoformat()
+            )
             story.setdefault("source", "pipeline")
             _NEWS_BUFFER.append(story)
             ingested += 1

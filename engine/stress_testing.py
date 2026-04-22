@@ -451,11 +451,11 @@ class StressTester:
             seed: Random seed for reproducibility. If None, uses random state.
         """
         import uuid
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         rng = np.random.default_rng(seed)
         run_id = str(uuid.uuid4())[:8]
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
         pnls = []
 
@@ -485,7 +485,7 @@ class StressTester:
             pnls.append(result.portfolio_pnl)
 
         pnls = np.array(pnls)
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
         return {
             "mean": np.mean(pnls),

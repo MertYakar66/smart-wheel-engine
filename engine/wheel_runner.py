@@ -111,6 +111,13 @@ class WheelRunner:
         self._connector = None
         self._calendar = None
         self._strangle_engine = None
+        # AUDIT-VIII P2.1: per-ticker HMM-regime cache so we do not
+        # re-fit the 4-state Gaussian HMM on every /api/candidates hit.
+        # Keyed by ``(ticker, tail_hash)`` where ``tail_hash`` is a
+        # cheap fingerprint of the last 504 log-returns — this
+        # invalidates automatically when new bars arrive or when the
+        # PIT cutoff changes (different history → different hash).
+        self._hmm_regime_cache: dict[tuple[str, int], float] = {}
 
     @property
     def connector(self):
@@ -364,13 +371,16 @@ class WheelRunner:
         """
         conn = self.connector
 
-        # Start with fundamental screen
+        # Start with fundamental screen.
+        # AUDIT-VIII P1.3: pass ``as_of`` so the IV-rank sub-filter is
+        # PIT-safe in backtests.
         try:
             universe = conn.screen_universe(
                 min_market_cap=min_market_cap,
                 max_beta=max_beta,
                 sectors=sectors,
                 min_iv_rank=min_iv_rank,
+                as_of=as_of,
             )
         except Exception:
             universe = pd.DataFrame({"ticker": conn.get_universe()})
@@ -561,20 +571,63 @@ class WheelRunner:
             if spot <= 0:
                 continue
 
-            # Get ATM IV and fundamentals
+            # Get ATM IV and fundamentals.
+            # AUDIT-VIII P0.1: Bloomberg fundamentals CSV reports IV and
+            # volatility in PERCENT (e.g. ``26.15`` means 26.15% annualized).
+            # Earlier code treated the raw value as a decimal, then rejected
+            # it as ``iv > 5`` (degenerate), which caused every candidate
+            # to be dropped — the EV ranker silently returned zero rows.
+            # We normalize to a decimal by dividing by 100 when the raw
+            # value is clearly a percentage (>3) and guard NaN/None.
             fundamentals = conn.get_fundamentals(ticker) or {}
-            iv = fundamentals.get("implied_vol_atm") or fundamentals.get("volatility_30d") or 0.0
+            iv_raw = fundamentals.get("implied_vol_atm")
+            if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+                iv_raw = fundamentals.get("volatility_30d")
             try:
-                iv = float(iv)
+                iv = float(iv_raw) if iv_raw is not None else 0.0
             except (TypeError, ValueError):
                 iv = 0.0
+            if np.isnan(iv) or iv <= 0:
+                continue
+            # Normalise percent -> decimal. A sigma of 3.0 (= 300%) is an
+            # extreme upper bound for any real equity; anything above is
+            # virtually certainly a percent representation.
+            if iv > 3.0:
+                iv = iv / 100.0
             if iv <= 0 or iv > 5:
-                continue  # degenerate IV
+                continue  # still degenerate after normalisation
 
-            dividend_yield = float(fundamentals.get("dividend_yield", 0.0) or 0.0)
+            dividend_yield_raw = fundamentals.get("dividend_yield", 0.0) or 0.0
+            try:
+                dividend_yield = float(dividend_yield_raw)
+            except (TypeError, ValueError):
+                dividend_yield = 0.0
+            # Bloomberg reports dividend yield in percent too (e.g. ``0.5``
+            # means 0.5% if raw is already small, but Bloomberg sends ``1.5``
+            # for a 1.5% yield). Normalise.
+            if dividend_yield > 1.0:
+                dividend_yield = dividend_yield / 100.0
+            if np.isnan(dividend_yield) or dividend_yield < 0:
+                dividend_yield = 0.0
+
+            # AUDIT-VIII P0.2: ``MarketDataConnector.get_risk_free_rate``
+            # returns the raw treasury CSV value which is in PERCENT
+            # (e.g. ``4.333`` means 4.333%). Passing it straight into BSM
+            # as if it were a decimal breaks delta/premium math and
+            # produced zero tradeable candidates. Normalise defensively.
             risk_free_rate = 0.05
             try:
-                risk_free_rate = float(conn.get_risk_free_rate(as_of) or 0.05)
+                rf_raw = conn.get_risk_free_rate(as_of)
+                if rf_raw is None or (isinstance(rf_raw, float) and np.isnan(rf_raw)):
+                    risk_free_rate = 0.05
+                else:
+                    rf_val = float(rf_raw)
+                    if rf_val > 1.0:
+                        rf_val = rf_val / 100.0
+                    # Sanity clamp — reject absurd values (we'd rather
+                    # fall back to 5% than corrupt downstream math).
+                    if 0.0 <= rf_val <= 0.25:
+                        risk_free_rate = rf_val
             except Exception:
                 pass
 
@@ -663,18 +716,40 @@ class WheelRunner:
             )
 
             # HMM regime multiplier — compute from the ticker's own
-            # OHLCV log-returns. The HMM fit is cheap (~50 ms per ticker
-            # for 504 daily returns). Failure degrades to 1.0.
+            # OHLCV log-returns. The HMM fit is cheap (~50 ms per
+            # ticker for 504 daily returns) but adds up across a
+            # 100-ticker universe. AUDIT-VIII P2.1: cache the result
+            # keyed by a fingerprint of the tail — same tail, same
+            # regime multiplier. Hash is deliberately cheap (length +
+            # first / last / mid log-return rounded to 1e-6) so
+            # collisions are astronomical for real price histories
+            # but the key is trivially computable. Failure of any
+            # sub-step degrades cleanly to 1.0.
             hmm_regime_mult = 1.0
             try:
                 from engine.regime_hmm import GaussianHMM
 
                 log_rets = np.diff(np.log(ohlcv["close"].values))
                 if len(log_rets) >= 200:
-                    hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
-                    hmm.fit(log_rets[-504:])
-                    probs = hmm.predict_proba(log_rets[-504:])
-                    hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
+                    tail = log_rets[-504:]
+                    fp = (
+                        len(tail),
+                        round(float(tail[0]), 6),
+                        round(float(tail[len(tail) // 2]), 6),
+                        round(float(tail[-1]), 6),
+                    )
+                    cache_key = (ticker, hash(fp))
+                    cached = self._hmm_regime_cache.get(cache_key)
+                    if cached is not None:
+                        hmm_regime_mult = cached
+                    else:
+                        hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
+                        hmm.fit(tail)
+                        probs = hmm.predict_proba(tail)
+                        hmm_regime_mult = float(
+                            hmm.position_multiplier(probs[-1])
+                        )
+                        self._hmm_regime_cache[cache_key] = hmm_regime_mult
             except Exception:
                 hmm_regime_mult = 1.0
 

@@ -22,7 +22,7 @@ Architectural assertions locked in by these tests
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -102,7 +102,7 @@ class TestFilesystemProvider:
         # Force mtime into the past
         import os
 
-        old_time = datetime.utcnow() - timedelta(days=10)
+        old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=10)
         os.utime(img, (old_time.timestamp(), old_time.timestamp()))
 
         provider = FilesystemChartProvider(
@@ -218,7 +218,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             source="test",
@@ -242,7 +242,7 @@ class TestEnginePhaseReviewer:
         errored = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=None,
             error="screenshot_not_found",
         )
@@ -254,7 +254,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=150.0,  # huge mismatch
             source="test",
@@ -270,7 +270,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             visible_indicators={"phase": "compression"},
@@ -285,7 +285,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.05,  # within tolerance
             source="test",
@@ -299,7 +299,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.utcnow(),
+            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             source="test",
@@ -509,7 +509,11 @@ class TestChartContextSerialisation:
         json.dumps(d)  # must not raise
         assert d["ok"] is True
         assert d["visible_price"] == 187.4
-        assert d["screenshot_path"] == "/tmp/aapl.png"
+        # Accept either Unix or Windows path separator — pathlib.Path
+        # normalises to the host OS style. The invariant we care about
+        # is that the serialised path contains the source components,
+        # not the slash direction.
+        assert Path(d["screenshot_path"]) == Path("/tmp/aapl.png")
 
     def test_errored_context_serialisation(self):
         ctx = ChartContext(

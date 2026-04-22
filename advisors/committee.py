@@ -12,7 +12,7 @@ This replicates institutional investment committee processes:
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import BaseAdvisor
 from .buffett import BuffettAdvisor
@@ -214,7 +214,7 @@ class CommitteeEngine:
             required_before_trade=required_before_trade,
             recommended_modifications=recommended_modifications,
             committee_confidence=committee_confidence,
-            analysis_timestamp=datetime.utcnow(),
+            analysis_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
     def _find_agreement(self, responses: list[AdvisorResponse]) -> list[str]:

@@ -184,17 +184,21 @@ class MarketDataConnector:
 
         Returns a DataFrame with a ``DatetimeIndex`` named ``date`` and
         columns ``open, high, low, close, volume``.
+
+        AUDIT-VIII P1.5: the Bloomberg CSV ships with column labels
+        rotated one position (``open=HIGH, high=CLOSE, close=OPEN,
+        low=LOW``). We rename to the correct labels then verify the
+        rename is still load-bearing: if the CSV is ever regenerated
+        in the canonical order, the rename would silently invert the
+        entire engine's view of price history. The post-rename
+        invariant ``high >= max(open, close, low)`` MUST hold on a
+        sampled set of rows; otherwise we log a critical warning.
         """
         df = self._load("ohlcv")
         df = self._filter_ticker(df, ticker)
         df = self._filter_dates(df, "date", start_date, end_date)
         if df.empty:
             return df
-        # Bloomberg CSV columns are mislabeled in source data:
-        #   CSV "open" actually contains HIGH prices
-        #   CSV "high" actually contains CLOSE prices
-        #   CSV "close" actually contains OPEN prices
-        #   CSV "low" is correct
         df = df.rename(
             columns={
                 "open": "high",
@@ -207,7 +211,42 @@ class MarketDataConnector:
             .sort_values("date")
             .set_index("date")
         )
+        self._validate_ohlcv_invariants(ticker, out)
         return out
+
+    _ohlcv_invariant_warned: bool = False
+
+    def _validate_ohlcv_invariants(self, ticker: str, df: pd.DataFrame) -> None:
+        """Sample-check that ``high >= max(o,c,l)`` and ``low <= min(o,c,h)``.
+
+        Runs at most once per connector instance (first OHLCV fetch)
+        and emits a CRITICAL log line if the rename is no longer
+        load-bearing. We never raise — the engine must degrade rather
+        than hard-fail on a connector quirk — but the warning is
+        unmistakable in any downstream log scraper.
+        """
+        if MarketDataConnector._ohlcv_invariant_warned:
+            return
+        try:
+            sample = df.dropna(subset=["open", "high", "low", "close"]).tail(50)
+            if sample.empty:
+                return
+            bad_high = (sample["high"] < sample[["open", "close", "low"]].max(axis=1)).sum()
+            bad_low = (sample["low"] > sample[["open", "close", "high"]].min(axis=1)).sum()
+            if bad_high + bad_low > 5:
+                logger.critical(
+                    "OHLCV invariant violation for %s: high<max(o,c,l) in %d rows, "
+                    "low>min(o,c,h) in %d rows (of 50 sampled). The Bloomberg "
+                    "CSV column-rename assumption may have drifted. EV / "
+                    "feature math is at risk. Inspect data/bloomberg/sp500_ohlcv.csv.",
+                    ticker,
+                    bad_high,
+                    bad_low,
+                )
+                MarketDataConnector._ohlcv_invariant_warned = True
+        except Exception:
+            # Never crash the engine on a diagnostic check.
+            pass
 
     # ------------------------------------------------------------------
     # Volatility & IV
@@ -443,8 +482,18 @@ class MarketDataConnector:
         """Get risk-free rate from treasury yields.
 
         *tenor* must be one of ``rate_3m``, ``rate_6m``, ``rate_2y``,
-        ``rate_10y``.  Returns the rate as a percentage (e.g. 4.5 means
-        4.5%) or ``NaN`` if data is unavailable.
+        ``rate_10y``.  Returns the **decimal** rate (e.g. ``0.045``
+        meaning 4.5%), matching the convention used by the rest of the
+        engine (``EVEngine``, ``black_scholes_price``, HMM, etc.).
+
+        AUDIT-VIII: the raw treasury CSV is in percent form
+        (e.g. ``1.3757``). The pre-audit implementation returned that
+        raw percent value, which silently corrupted every BSM / EV
+        calculation that consumed it as a decimal. We now normalise
+        defensively: values greater than 1 are divided by 100 (treated
+        as percent), values already ≤ 1 are returned unchanged. Returns
+        ``NaN`` if data is unavailable so callers can detect missing
+        data explicitly rather than getting a default 0.
         """
         df = self._load("treasury")
         if df.empty or tenor not in df.columns:
@@ -454,7 +503,10 @@ class MarketDataConnector:
             df = df[df["date"] <= pd.Timestamp(as_of)]
         if df.empty:
             return float("nan")
-        return float(df.sort_values("date").iloc[-1][tenor])
+        rate = float(df.sort_values("date").iloc[-1][tenor])
+        if np.isnan(rate):
+            return float("nan")
+        return rate / 100.0 if rate > 1.0 else rate
 
     # ------------------------------------------------------------------
     # VIX
@@ -607,6 +659,7 @@ class MarketDataConnector:
         sectors: list[str] | None = None,
         min_iv_rank: float | None = None,
         max_beta: float | None = None,
+        as_of: str | None = None,
     ) -> pd.DataFrame:
         """Screen the universe by fundamental and volatility criteria.
 
@@ -651,11 +704,14 @@ class MarketDataConnector:
         keep = [v for v in out_cols.values() if v in out.columns]
         out = out[keep].reset_index(drop=True)
 
-        # IV rank filter (computed on-the-fly; potentially expensive)
+        # IV rank filter (computed on-the-fly; potentially expensive).
+        # AUDIT-VIII P1.3: ``as_of`` is threaded through so backtests do
+        # not leak future IV rank. Live callers pass ``as_of=None`` and
+        # get the current rank as before.
         if min_iv_rank is not None:
             iv_ranks = []
             for t in out["ticker"]:
-                iv_ranks.append(self.get_iv_rank(t))
+                iv_ranks.append(self.get_iv_rank(t, as_of=as_of))
             out["iv_rank"] = iv_ranks
             out = out[out["iv_rank"].fillna(-1) >= min_iv_rank]
         elif "iv_rank" not in out.columns:

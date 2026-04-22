@@ -7,7 +7,7 @@ Provides common functionality and enforces response schema.
 
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .schema import (
     AdvisorInput,
@@ -113,7 +113,7 @@ class BaseAdvisor(ABC):
             would_reject_if=analysis.get("would_reject_if", []),
             confidence=analysis.get("confidence", ConfidenceLevel.MEDIUM),
             confidence_explanation=analysis.get("confidence_explanation", ""),
-            analysis_timestamp=datetime.utcnow(),
+            analysis_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
             processing_time_ms=processing_time_ms,
         )
 

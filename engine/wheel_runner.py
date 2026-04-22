@@ -452,7 +452,10 @@ class WheelRunner:
         use_event_gate: bool = True,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
-        use_dealer_positioning: bool = False,
+        use_dealer_positioning: bool = True,
+        use_skew_dynamics: bool = True,
+        use_news_sentiment: bool = True,
+        use_credit_regime: bool = True,
         dealer_assumption: str = "long_calls_short_puts",
         min_history_days: int = 504,
         enforce_history_gate: bool = True,
@@ -536,6 +539,32 @@ class WheelRunner:
             except ValueError:
                 assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
             dealer_analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
+
+        # News sentiment reader — shared across tickers, cached for 5m.
+        news_reader = None
+        if use_news_sentiment:
+            try:
+                from engine.news_sentiment import NewsSentimentReader
+                news_reader = NewsSentimentReader()
+            except Exception:
+                news_reader = None
+
+        # Credit-regime multiplier (HY OAS stressed/crisis → soft de-rank).
+        # Fetched once per run, applied uniformly to every candidate.
+        credit_mult = 1.0
+        credit_regime = "unknown"
+        if use_credit_regime:
+            try:
+                from engine.external_data.fred_adapter import FREDAdapter
+                fa = FREDAdapter()
+                cr = fa.credit_regime()
+                credit_regime = cr.get("regime", "unknown")
+                if credit_regime == "crisis":
+                    credit_mult = 0.80
+                elif credit_regime == "stressed":
+                    credit_mult = 0.92
+            except Exception:
+                credit_mult = 1.0
 
         if tickers is None:
             tickers = conn.get_universe()[:100]
@@ -758,6 +787,91 @@ class WheelRunner:
             except Exception:
                 hmm_regime_mult = 1.0
 
+            # Fetch the chain once and use it for (a) open interest at our
+            # strike, (b) 25Δ put / ATM / 25Δ call for skew signals, and
+            # (c) dealer-positioning MarketStructure. A single fetch avoids
+            # hammering the Terminal and keeps the snapshot internally
+            # consistent across signals.
+            chain_df = None
+            try:
+                if hasattr(conn, "get_options"):
+                    chain_df = conn.get_options(ticker)
+                elif hasattr(conn, "get_option_chain"):
+                    chain_df = conn.get_option_chain(ticker)
+            except Exception:
+                chain_df = None
+
+            # Look up OI at our target strike from the chain when possible
+            strike_oi = 1000  # mid-liquid fallback
+            if chain_df is not None and len(chain_df) > 0:
+                try:
+                    cdf_lc = chain_df.copy()
+                    cdf_lc.columns = [c.lower() for c in cdf_lc.columns]
+                    if {"strike", "right", "open_interest"}.issubset(cdf_lc.columns):
+                        puts_only = cdf_lc[cdf_lc["right"].astype(str).str.lower() == "put"]
+                        if not puts_only.empty:
+                            puts_only = puts_only.copy()
+                            puts_only["_gap"] = (puts_only["strike"] - strike).abs()
+                            row_oi = puts_only.sort_values("_gap").iloc[0]["open_interest"]
+                            if pd.notna(row_oi) and float(row_oi) > 0:
+                                strike_oi = int(float(row_oi))
+                except Exception:
+                    pass
+
+            # Skew multiplier: steepening put skew is a risk-off signal.
+            # skew_slope(iv_25d_put, iv_atm, iv_25d_call) returns
+            # (iv_25d_put - iv_25d_call) / iv_atm. Larger = steeper put skew.
+            # Map slope -> multiplier in [0.85, 1.08]. Positive slope
+            # (normal risk-off) cuts multiplier; negative slope (call-skew
+            # risk-on, rare in equities) boosts it slightly.
+            skew_mult = 1.0
+            skew_diag: dict = {}
+            if use_skew_dynamics and chain_df is not None and len(chain_df) > 0:
+                try:
+                    from engine.skew_dynamics import skew_slope
+
+                    cdf_lc = chain_df.copy()
+                    cdf_lc.columns = [c.lower() for c in cdf_lc.columns]
+                    if {"delta", "iv", "right"}.issubset(cdf_lc.columns):
+                        cdf_lc = cdf_lc.dropna(subset=["delta", "iv"])
+                        puts_s = cdf_lc[cdf_lc["right"].astype(str).str.lower() == "put"].copy()
+                        calls_s = cdf_lc[cdf_lc["right"].astype(str).str.lower() == "call"].copy()
+                        if not puts_s.empty and not calls_s.empty:
+                            puts_s["_gp"] = (puts_s["delta"] - (-0.25)).abs()
+                            puts_a = puts_s.copy()
+                            puts_a["_ga"] = (puts_a["delta"] - (-0.50)).abs()
+                            calls_s["_gc"] = (calls_s["delta"] - 0.25).abs()
+                            iv_25p = float(puts_s.sort_values("_gp").iloc[0]["iv"])
+                            iv_atm_chain = float(puts_a.sort_values("_ga").iloc[0]["iv"])
+                            iv_25c = float(calls_s.sort_values("_gc").iloc[0]["iv"])
+                            if all(0 < v <= 3.0 for v in (iv_25p, iv_atm_chain, iv_25c)):
+                                skew_diag = skew_slope(iv_25p, iv_atm_chain, iv_25c)
+                                slope = skew_diag["skew_slope"]
+                                # Anchor: slope=0 -> 1.0, slope=+0.20 -> 0.90,
+                                # slope=-0.10 -> 1.05. Clamp to [0.85, 1.08].
+                                skew_mult = float(
+                                    np.clip(1.0 - 0.5 * slope, 0.85, 1.08)
+                                )
+                except Exception:
+                    skew_mult = 1.0
+
+            # News sentiment multiplier (per-ticker).
+            news_mult = 1.0
+            news_sentiment = 0.0
+            news_n_articles = 0
+            if news_reader is not None:
+                try:
+                    news_mult = float(news_reader.sentiment_multiplier(ticker))
+                    ns = news_reader.get_ticker_sentiment(ticker)
+                    news_sentiment = float(ns.get("sentiment", 0.0))
+                    news_n_articles = int(ns.get("n_articles", 0))
+                except Exception:
+                    news_mult = 1.0
+
+            combined_regime_mult = float(
+                hmm_regime_mult * skew_mult * news_mult * credit_mult
+            )
+
             trade = ShortOptionTrade(
                 option_type="put",
                 underlying=ticker,
@@ -771,31 +885,17 @@ class WheelRunner:
                 contracts=contracts,
                 bid=bid,
                 ask=ask,
-                open_interest=1000,  # unknown; mid-liquid assumption
-                regime_multiplier=hmm_regime_mult,
+                open_interest=strike_oi,
+                regime_multiplier=combined_regime_mult,
             )
 
-            # Optional dealer positioning: pull the option chain for
-            # the target expiry and build a MarketStructure to feed
-            # into the EV evaluation. Every failure mode degrades to
-            # market_structure=None (candidate still ranks on pure EV).
-            #
-            # AUDIT-V P0.3: when a chain IS fetched (for dealer
-            # positioning or elsewhere), we run the
-            # DataQualityFramework options-consistency check first and
-            # HARD-SKIP the ticker if it reports any ERROR-severity
-            # issue (bid>ask, IV out of range, expired options). The
-            # check is cheap and the consequences of ignoring crossed
-            # markets in a live path are severe.
+            # Dealer positioning uses the already-fetched chain_df.
+            # Every failure mode degrades to market_structure=None
+            # (candidate still ranks on pure EV).
             market_structure = None
             chain_quality_blocked_reason = ""
             if dealer_analyzer is not None:
                 try:
-                    chain_df = None
-                    if hasattr(conn, "get_options"):
-                        chain_df = conn.get_options(ticker)
-                    elif hasattr(conn, "get_option_chain"):
-                        chain_df = conn.get_option_chain(ticker)
                     if chain_df is not None and len(chain_df) > 0:
                         # Coerce column names + filter to the nearest
                         # expiry around the target DTE.
@@ -940,6 +1040,19 @@ class WheelRunner:
                             if not np.isnan(res.nearest_call_wall_strike)
                             else None
                         ),
+                        # Skew-dynamics diagnostics (populated when
+                        # use_skew_dynamics=True and chain has 25Δ points)
+                        "skew_slope": round(skew_diag["skew_slope"], 4) if skew_diag else None,
+                        "put_skew": round(skew_diag["put_skew"], 4) if skew_diag else None,
+                        "risk_reversal": round(skew_diag["risk_reversal"], 4) if skew_diag else None,
+                        "skew_multiplier": round(skew_mult, 4),
+                        "hmm_multiplier": round(hmm_regime_mult, 4),
+                        "news_multiplier": round(news_mult, 4),
+                        "news_sentiment": round(news_sentiment, 4),
+                        "news_n_articles": news_n_articles,
+                        "credit_multiplier": round(credit_mult, 4),
+                        "credit_regime": credit_regime,
+                        "strike_open_interest": strike_oi,
                     }
                 )
             rows.append(row)

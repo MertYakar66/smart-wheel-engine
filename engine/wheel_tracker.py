@@ -264,8 +264,14 @@ class WheelTracker:
             trade_type="option",
         )
 
-        gross_pnl = pos.put_premium * 100 - cost_details["gross_buyback_cost"]
-        pos.realized_pnl = gross_pnl  # Store GROSS P&L
+        # AUDIT-VIII P1: ``realized_pnl`` is a running gross-P&L accumulator
+        # that already holds the gross premium received on open (and any
+        # prior roll credit/debit). Subtract the buyback cost here rather
+        # than overwriting, so that positions which were rolled one or more
+        # times don't silently lose their earlier leg P&L when the final
+        # close wipes the accumulator. Covered calls already use ``+=``
+        # (see close_covered_call); this aligns the put path.
+        pos.realized_pnl -= cost_details["gross_buyback_cost"]
         pos.transaction_costs += cost_details["total_cost"]
 
         # Deduct total buyback cash (includes slippage and commission)
@@ -311,20 +317,31 @@ class WheelTracker:
 
         self.cash -= assignment_details["total_cash_required"]
 
-        # Update position state
+        # Update position state.
+        # AUDIT-VIII P1.2: ``stock_basis`` is now the **raw cash cost per
+        # share** (= put strike), not a "net basis after premium credit".
+        # Rationale: the premium received on the short put is already
+        # accumulated into ``realized_pnl`` by ``open_short_put``, and
+        # the assignment fee is already accumulated into
+        # ``transaction_costs``. The prior ``stock_basis = strike -
+        # premium + fee/100`` fed those same two corrections back into
+        # ``stock_pnl = (call_strike - basis) * 100`` on call assignment,
+        # causing a double-count that silently overstated wheel-cycle
+        # P&L by exactly ``(premium * 100 - fee)``. Keeping basis at
+        # raw cash cost makes ``stock_pnl`` a pure stock delta and
+        # keeps the three ledgers (realized_pnl, transaction_costs,
+        # stock_basis) orthogonal.
         pos.state = PositionState.STOCK_OWNED
         pos.stock_shares = 100
-        # Net basis = strike - premium collected + assignment fee per share
-        # Premium reduces basis (we were paid to take on the obligation)
-        # Assignment fee increases basis (additional cost)
         premium_received = pos.put_premium if pos.put_premium else 0.0
-        pos.stock_basis = pos.put_strike - premium_received + (assignment_fee / 100)
+        pos.stock_basis = pos.put_strike
         pos.stock_acquisition_date = assignment_date
         pos.transaction_costs += assignment_fee
 
         pos.notes.append(
             f"Assigned: Bought 100 shares at ${pos.put_strike:.2f} "
-            f"(net basis: ${pos.stock_basis:.2f} after ${premium_received:.2f}/sh premium, market: ${stock_price:.2f})"
+            f"(basis: ${pos.stock_basis:.2f}, premium ${premium_received:.2f}/sh "
+            f"already credited to realized_pnl, market: ${stock_price:.2f})"
         )
 
         return True
@@ -371,18 +388,21 @@ class WheelTracker:
 
         self.cash -= assignment_details["total_cash_required"]
 
-        # Transition to STOCK_OWNED with partial share count
+        # Transition to STOCK_OWNED with partial share count.
+        # AUDIT-VIII P1.2: see handle_put_assignment — basis is raw cash
+        # cost; premium and fee flow through realized_pnl /
+        # transaction_costs respectively.
         pos.state = PositionState.STOCK_OWNED
         pos.stock_shares = shares_assigned
         premium_received = pos.put_premium if pos.put_premium else 0.0
-        pos.stock_basis = pos.put_strike - premium_received + (assignment_fee / shares_assigned)
+        pos.stock_basis = pos.put_strike
         pos.stock_acquisition_date = assignment_date
         pos.transaction_costs += assignment_fee
 
         pos.notes.append(
             f"Partial assignment: Bought {shares_assigned} shares at ${pos.put_strike:.2f} "
-            f"(net basis: ${pos.stock_basis:.2f} after ${premium_received:.2f}/sh premium, "
-            f"market: ${stock_price:.2f})"
+            f"(basis: ${pos.stock_basis:.2f}, premium ${premium_received:.2f}/sh "
+            f"already credited to realized_pnl, market: ${stock_price:.2f})"
         )
 
         return True
@@ -440,9 +460,12 @@ class WheelTracker:
         # Apply close: deduct buyback cost from cash
         self.cash -= exit_cost_details["total_buyback_cost"]
 
-        # Update P&L from closing the old put
-        gross_close_pnl = (old_premium * 100) - exit_cost_details["gross_buyback_cost"]
-        pos.realized_pnl = gross_close_pnl
+        # AUDIT-VIII P1: accumulate running gross-P&L rather than overwrite.
+        # The prior ``realized_pnl = gross_close_pnl`` pattern silently
+        # dropped all leg P&L on the *second* roll (first roll's credit
+        # was lost). Subtracting only the new buyback leaves any prior
+        # credit intact; the new premium is credited below.
+        pos.realized_pnl -= exit_cost_details["gross_buyback_cost"]
         pos.transaction_costs += exit_cost_details["total_cost"]
 
         # Apply open: credit new premium to cash
@@ -535,9 +558,12 @@ class WheelTracker:
         # Apply close: deduct buyback cost from cash
         self.cash -= exit_cost_details["total_buyback_cost"]
 
-        # Update P&L from closing the old call
-        gross_close_pnl = (old_premium * 100) - exit_cost_details["gross_buyback_cost"]
-        pos.realized_pnl += gross_close_pnl
+        # AUDIT-VIII P1: the original ``open_covered_call`` already
+        # added ``old_premium * 100`` to ``realized_pnl``. Adding it
+        # again here as ``old_premium*100 - buyback`` double-counted
+        # the entry premium on every call roll. Only subtract the new
+        # buyback so the accumulator preserves prior leg P&L.
+        pos.realized_pnl -= exit_cost_details["gross_buyback_cost"]
         pos.transaction_costs += exit_cost_details["total_cost"]
 
         # Apply open: credit new premium to cash
@@ -760,9 +786,6 @@ class WheelTracker:
         if pos.state != PositionState.COVERED_CALL:
             return None
 
-        # Compute entry premium collected (per-contract)
-        premium_collected = (pos.call_premium or 0.0) * 100
-
         # Compute exit costs including slippage and commission
         cost_details = calculate_total_exit_cost(
             buyback_price_per_share=buyback_price,
@@ -770,8 +793,17 @@ class WheelTracker:
             trade_type="option",
         )
 
-        gross_pnl = premium_collected - cost_details["gross_buyback_cost"]
-        pos.realized_pnl += gross_pnl
+        # AUDIT-VIII P1: the prior call to ``open_covered_call`` already
+        # credited ``call_premium * 100`` to ``realized_pnl`` via ``+=``.
+        # Adding ``premium - buyback`` here would double-count the
+        # premium. Subtract only the gross buyback cost to keep the
+        # accumulator semantics consistent with close_short_put after
+        # the audit-VIII fix. ``call_leg_pnl`` in the return payload is
+        # the isolated P&L of this particular call leg
+        # (premium collected minus gross buyback cost), independent of
+        # the running accumulator.
+        gross_pnl = (pos.call_premium or 0.0) * 100 - cost_details["gross_buyback_cost"]
+        pos.realized_pnl -= cost_details["gross_buyback_cost"]
         pos.transaction_costs += cost_details["total_cost"]
 
         # Deduct total cash paid to buy back the call
@@ -871,21 +903,34 @@ class WheelTracker:
         return True
 
     def mark_to_market(
-        self, current_date: date, prices: dict[str, float], risk_free_rate: float = 0.04
+        self,
+        current_date: date,
+        prices: dict[str, float],
+        risk_free_rate: float = 0.04,
+        current_ivs: dict[str, float] | None = None,
     ) -> float:
         """
         Calculate current portfolio value (cash + stock + option liabilities).
 
         Args:
-            current_date: Current date for mark
-            prices: Dict of {ticker: current_stock_price}
-            risk_free_rate: Risk-free rate for option pricing (default 4%)
+            current_date: Current date for mark.
+            prices: Dict of ``{ticker: current_stock_price}``.
+            risk_free_rate: Risk-free rate for option pricing (default 4%).
+            current_ivs: Optional dict of ``{ticker: live_iv}`` (decimal,
+                e.g. ``0.28`` for 28%). When supplied the short-option
+                liability is marked at the current market IV; when
+                omitted we fall back to the leg's entry IV. The fallback
+                is a documented approximation — positions held through
+                a vol regime change will be mis-marked if ``current_ivs``
+                is not provided. Pass live IV from the broker / options
+                chain for production equity curves.
 
         Returns:
-            Total portfolio value including option liabilities
+            Total portfolio value including option liabilities.
         """
         from .option_pricer import estimate_option_price_from_iv
 
+        current_ivs = current_ivs or {}
         total_value = self.cash
 
         for ticker, pos in self.positions.items():
@@ -903,14 +948,13 @@ class WheelTracker:
                 if pos.put_expiration_date and current_date < pos.put_expiration_date:
                     days_to_expiry = (pos.put_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        # Known limitation: uses entry IV as proxy for current IV.
-                        # When live market data is available, pass current_ivs dict
-                        # to mark_to_market() for real-time option valuation.
+                        live_iv = current_ivs.get(ticker)
+                        iv_used = live_iv if (live_iv and live_iv > 0) else pos.put_entry_iv
                         put_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.put_strike,
                             dte=days_to_expiry,
-                            iv=pos.put_entry_iv,  # Constant IV approximation
+                            iv=iv_used,
                             risk_free_rate=risk_free_rate,
                             option_type="put",
                         )
@@ -921,14 +965,13 @@ class WheelTracker:
                 if pos.call_expiration_date and current_date < pos.call_expiration_date:
                     days_to_expiry = (pos.call_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        # Known limitation: uses entry IV as proxy for current IV.
-                        # When live market data is available, pass current_ivs dict
-                        # to mark_to_market() for real-time option valuation.
+                        live_iv = current_ivs.get(ticker)
+                        iv_used = live_iv if (live_iv and live_iv > 0) else pos.call_entry_iv
                         call_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.call_strike,
                             dte=days_to_expiry,
-                            iv=pos.call_entry_iv,  # Constant IV approximation
+                            iv=iv_used,
                             risk_free_rate=risk_free_rate,
                             option_type="call",
                         )

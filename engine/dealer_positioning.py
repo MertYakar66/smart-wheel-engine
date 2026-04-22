@@ -69,7 +69,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -301,7 +301,7 @@ class DealerPositioningAnalyzer:
         """
         ms = MarketStructure(
             ticker=ticker or str(chain.get("ticker", pd.Series(["?"])).iloc[0]) if len(chain) else ticker,
-            as_of=as_of or datetime.utcnow(),
+            as_of=as_of or datetime.now(timezone.utc).replace(tzinfo=None),
             spot=float(spot),
             expiry=expiry,
             assumption=self.assumption,
@@ -347,7 +347,7 @@ class DealerPositioningAnalyzer:
             return ms
 
         # Compute time to expiry in years
-        T = max((expiry - datetime.utcnow().date()).days, 1) / 365.0
+        T = max((expiry - datetime.now(timezone.utc).replace(tzinfo=None).date()).days, 1) / 365.0
 
         # Per-strike aggregation: group strikes and collect call + put rows.
         per_strike = self._per_strike_exposures(df, spot, T, dividend_yield)

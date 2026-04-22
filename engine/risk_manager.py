@@ -424,11 +424,11 @@ class RiskManager:
 
         if is_concentrated and not self.allow_heuristic_var_fallback:
             import warnings
-            from datetime import datetime
+            from datetime import datetime, timezone
 
             event = {
                 "event": "var_fallback_blocked",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "environment": self.environment,
                 "unique_symbols": len(unique_symbols),
                 "threshold": self.concentrated_book_threshold,

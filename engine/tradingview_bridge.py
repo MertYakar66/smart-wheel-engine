@@ -37,11 +37,23 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
 from .chart_context import ChartContext, ChartContextProvider, Timeframe
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC 'now' stripped to naive for downstream callers.
+
+    ``ChartContext.captured_at`` is consumed by code that predates
+    timezone-aware comparisons (``datetime - datetime``), so we strip
+    the tzinfo *after* taking the timezone-aware snapshot. This
+    replaces the deprecated ``datetime.utcnow()`` calls without
+    changing the wire format.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +168,7 @@ class FilesystemChartProvider:
         *,
         as_of: datetime | None = None,
     ) -> ChartContext:
-        now = as_of or datetime.utcnow()
+        now = as_of or _utcnow()
         url = build_tradingview_url(ticker, timeframe, self.exchange_map)
 
         path = self.base_dir / ticker.upper() / f"{timeframe}.png"
@@ -175,7 +187,7 @@ class FilesystemChartProvider:
         # Staleness check: if the file mtime is older than
         # ``staleness_seconds`` the provider flags it with an error so
         # the dossier layer can decide whether to reject or accept.
-        mtime = datetime.utcfromtimestamp(path.stat().st_mtime)
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).replace(tzinfo=None)
         age_seconds = (now - mtime).total_seconds()
         if age_seconds > self.staleness_seconds:
             return ChartContext(
@@ -255,7 +267,7 @@ class PlaywrightChartProvider:
         *,
         as_of: datetime | None = None,
     ) -> ChartContext:
-        now = as_of or datetime.utcnow()
+        now = as_of or _utcnow()
         url = build_tradingview_url(ticker, timeframe, self.exchange_map)
 
         if not self._check_playwright():
@@ -346,7 +358,7 @@ class ChainedChartProvider:
         return ChartContext(
             ticker=ticker.upper(),
             timeframe=timeframe,
-            captured_at=as_of or datetime.utcnow(),
+            captured_at=as_of or _utcnow(),
             screenshot_path=None,
             source="chained",
             error="no_providers_configured",

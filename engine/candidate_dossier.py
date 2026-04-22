@@ -32,7 +32,7 @@ a (possibly missing) screenshot path and a review verdict.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Protocol
 
 import pandas as pd
@@ -62,7 +62,7 @@ class CandidateDossier:
     verdict: Verdict = "review"
     verdict_reason: str = ""
     review_notes: list[str] = field(default_factory=list)
-    built_at: datetime = field(default_factory=datetime.utcnow)
+    built_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     @property
     def ev_dollars(self) -> float:

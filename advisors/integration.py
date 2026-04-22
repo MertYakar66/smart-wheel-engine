@@ -10,7 +10,7 @@ Provides:
 - Batch evaluation for multiple candidates
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .committee import CommitteeEngine, format_committee_report
 from .schema import (
@@ -221,14 +221,14 @@ class EngineIntegration:
             treasury_10y=float(market.get("treasury_10y", 4.5)),
             recent_fed_action=market.get("recent_fed_action", ""),
             upcoming_events=market.get("upcoming_events", []),
-            as_of=datetime.utcnow(),
+            as_of=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
         return AdvisorInput(
             candidate_trade=candidate_trade,
             portfolio=portfolio_context,
             market=market_context,
-            request_id=trade.get("request_id", f"trade_{datetime.utcnow().timestamp()}"),
+            request_id=trade.get("request_id", f"trade_{datetime.now(timezone.utc).replace(tzinfo=None).timestamp()}"),
             urgency=trade.get("urgency", "normal"),
             specific_concerns=concerns,
         )

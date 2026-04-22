@@ -121,11 +121,16 @@ class WheelRunner:
 
     @property
     def connector(self):
-        """Lazy-load the data connector."""
+        """Lazy-load the data connector — provider selected by SWE_DATA_PROVIDER."""
         if self._connector is None:
-            from engine.data_connector import MarketDataConnector
-
-            self._connector = MarketDataConnector(str(self.data_dir))
+            import os
+            provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
+            if provider == "theta":
+                from engine.theta_connector import ThetaConnector
+                self._connector = ThetaConnector(str(self.data_dir))
+            else:
+                from engine.data_connector import MarketDataConnector
+                self._connector = MarketDataConnector(str(self.data_dir))
         return self._connector
 
     @property

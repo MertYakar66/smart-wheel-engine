@@ -161,7 +161,15 @@ def get_runner():
 def get_connector():
     global _connector
     if _connector is None:
-        _connector = MarketDataConnector()
+        import os
+        provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
+        if provider == "theta":
+            from engine.theta_connector import ThetaConnector
+            _connector = ThetaConnector()
+            logger.info("Data provider: ThetaData v3 (live)")
+        else:
+            _connector = MarketDataConnector()
+            logger.info("Data provider: Bloomberg CSV")
     return _connector
 
 

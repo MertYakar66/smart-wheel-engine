@@ -1,7 +1,7 @@
 [
   {
     "column": "date",
-    "dtype": "datetime64[us]",
+    "dtype": "datetime64[ns]",
     "count": 2820,
     "null_count": 0,
     "null_pct": 0.0,
@@ -106,7 +106,7 @@
   },
   {
     "column": "ticker",
-    "dtype": "str",
+    "dtype": "object",
     "count": 2820,
     "null_count": 0,
     "null_pct": 0.0,
@@ -117,11 +117,11 @@
     "p25": null,
     "p50": null,
     "p75": null,
-    "unique_count": null
+    "unique_count": 1
   },
   {
     "column": "ticker_normalized",
-    "dtype": "str",
+    "dtype": "object",
     "count": 2820,
     "null_count": 0,
     "null_pct": 0.0,
@@ -132,7 +132,7 @@
     "p25": null,
     "p50": null,
     "p75": null,
-    "unique_count": null
+    "unique_count": 1
   },
   {
     "column": "atm_iv",

@@ -79,6 +79,7 @@ Typical caller
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -227,6 +228,7 @@ class EVEngine:
         self.slippage_pct_of_spread = slippage_pct_of_spread
         self.event_gate = event_gate
         self.heavy_tail_penalty = heavy_tail_penalty
+        self._last_distribution_source = "unset"
 
     # ------------------------------------------------------------------
     def evaluate(
@@ -383,10 +385,18 @@ class EVEngine:
         else:
             cvar_5 = float(np.min(pnls)) if len(pnls) > 0 else 0.0
 
-        # Omega ratio at 0 threshold: E[(X-0)+] / E[(0-X)+]
+        # Omega ratio at 0 threshold: E[(X-0)+] / E[(0-X)+]. Cap at 1000 so
+        # the field is safely aggregable downstream (np.mean / np.sort on a
+        # column containing float("inf") silently propagates inf across the
+        # portfolio and breaks ranking). A cap of 1000 preserves the ordering
+        # of "essentially no losses" candidates while keeping the field
+        # finite for any caller that takes summary statistics.
         gains = pnls[pnls > 0].sum() if np.any(pnls > 0) else 0.0
         losses = -pnls[pnls < 0].sum() if np.any(pnls < 0) else 0.0
-        omega = float(gains / losses) if losses > 1e-9 else float("inf")
+        if losses > 1e-9:
+            omega = float(gains / losses)
+        else:
+            omega = 1000.0 if gains > 0 else 0.0
 
         # Probability of touch (daily path would exceed strike at some point).
         # With terminal-only distribution this is only a lower bound, derived
@@ -420,9 +430,24 @@ class EVEngine:
                 tail_xi = float(gpd_fit.shape_xi)
                 heavy_tail = tail_regime_flag(gpd_fit)
 
-        # Expected hold time — if profit target fires, exit ~ halfway to
-        # expiration; otherwise hold to expiry.
-        expected_days_held = prob_profit * (trade.dte / 2.0) + (1 - prob_profit) * trade.dte
+        # Expected hold time — stop-loss-aware. Three exit paths:
+        #   (a) profit target fires at ~50% of max profit → exit at dte/2
+        #   (b) stop-loss triggers (terminal loss exceeds stop_loss_multiple
+        #       of premium received) → exit at ~dte/3 (stops typically hit
+        #       earlier than profit targets because gamma/theta accelerate
+        #       adverse moves near strike)
+        #   (c) neither fires → hold to expiry
+        # Previous formula lumped (b) into (c), understating hold-time
+        # variance and under-penalising the per-day EV of consistent losers.
+        stop_threshold = -self.stop_loss_multiple * max(net_premium_in, 1e-9)
+        prob_stop_terminal = float(np.mean(pnls <= stop_threshold))
+        # Losers who don't breach the stop are assumed to hold to expiry.
+        prob_hold = max(0.0, 1.0 - prob_profit - prob_stop_terminal)
+        expected_days_held = (
+            prob_profit * (trade.dte / 2.0)
+            + prob_stop_terminal * (trade.dte / 3.0)
+            + prob_hold * trade.dte
+        )
         expected_days_held = max(1.0, expected_days_held)
 
         # Regime multiplier is applied *last* to dollar EV so other metrics
@@ -431,7 +456,23 @@ class EVEngine:
         # the increased estimation uncertainty in fat-tailed samples.
         # Dealer positioning (if provided) multiplies in last, clamped
         # to [0.70, 1.05] — asymmetric by design.
-        regime_mult = max(0.0, float(trade.regime_multiplier))
+        # Raw regime_multiplier is validated & clamped to the documented
+        # [0.0, 1.25] envelope. NaN or out-of-range inputs are a signal
+        # that an upstream multiplier product (hmm × skew × news × credit)
+        # overflowed — silently clamping hides the bug, so we also log
+        # an anomaly tag into metadata for audit replay.
+        raw_regime = float(trade.regime_multiplier)
+        regime_anomaly = ""
+        if not np.isfinite(raw_regime):
+            regime_anomaly = f"regime_mult_nonfinite:{raw_regime}"
+            raw_regime = 1.0
+        elif raw_regime < 0.0:
+            regime_anomaly = f"regime_mult_negative:{raw_regime:.4f}"
+            raw_regime = 0.0
+        elif raw_regime > 1.25:
+            regime_anomaly = f"regime_mult_over_cap:{raw_regime:.4f}"
+            raw_regime = 1.25
+        regime_mult = raw_regime
         if heavy_tail:
             regime_mult *= self.heavy_tail_penalty
 
@@ -495,6 +536,9 @@ class EVEngine:
                 "assignment_fee_applied": assignment_fee_total if prob_itm > 0 else 0.0,
                 "fair_value_per_share": fair,
                 "edge_per_share": edge_vs_fair_per_share,
+                "distribution_source": self._last_distribution_source,
+                "regime_anomaly": regime_anomaly,
+                "prob_stop_terminal": prob_stop_terminal,
             },
         )
 
@@ -507,21 +551,39 @@ class EVEngine:
         forward_log_returns: np.ndarray | None,
         price_scenarios: np.ndarray | None,
     ) -> np.ndarray:
-        """Return a 1-D ndarray of terminal underlying prices."""
+        """Return a 1-D ndarray of terminal underlying prices.
+
+        The distribution-source tag is stashed on the instance so the caller
+        can tell from metadata whether the EV came from an empirical
+        forward distribution (reliable), pre-computed price scenarios
+        (reliable, caller's responsibility), or the risk-neutral lognormal
+        fallback (biased toward zero EV — see class docstring).
+        """
         if price_scenarios is not None and len(price_scenarios) > 0:
+            self._last_distribution_source = "price_scenarios"
             return np.asarray(price_scenarios, dtype=float)
 
         if forward_log_returns is not None and len(forward_log_returns) > 0:
             arr = np.asarray(forward_log_returns, dtype=float)
             arr = arr[np.isfinite(arr)]
             if len(arr) > 0:
+                self._last_distribution_source = "empirical"
                 return trade.spot * np.exp(arr)
+        self._last_distribution_source = "lognormal_fallback"
 
         # Fall-through: lognormal from trade IV. We deliberately sample a
         # large number of points for a stable empirical distribution.
+        # Seed is a deterministic hash of (ticker, strike, dte) — Python's
+        # builtin hash() is PYTHONHASHSEED-randomised per-process, which
+        # silently broke reproducibility across runs and CI. We use
+        # blake2b for a stable, fast 64-bit digest.
         T = max(trade.dte, 1) / 365.0
         sigma = max(trade.iv, 1e-4)
-        rng = np.random.default_rng(seed=hash(trade.underlying) % (2**32))
+        seed_key = f"{trade.underlying}|{trade.strike:.4f}|{trade.dte}|{trade.option_type}".encode()
+        seed_int = int.from_bytes(
+            hashlib.blake2b(seed_key, digest_size=8).digest(), "big"
+        ) & 0xFFFFFFFF
+        rng = np.random.default_rng(seed=seed_int)
         log_rets = (
             (trade.risk_free_rate - trade.dividend_yield - 0.5 * sigma**2) * T
             + sigma * np.sqrt(T) * rng.standard_normal(20_000)

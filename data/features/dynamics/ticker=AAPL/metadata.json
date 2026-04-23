@@ -2,7 +2,7 @@
   "category": "dynamics",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:31:49.665926",
-  "updated_at": "2026-03-25T16:55:01.247073",
+  "updated_at": "2026-04-23T02:45:40.526245",
   "row_count": 2820,
   "date_range": [
     "2015-01-02",
@@ -24,9 +24,9 @@
     "iv_velocity_5d",
     "iv_acceleration"
   ],
-  "source_hash": "e9f217132f6f1c91",
+  "source_hash": "a41fe9661be02091",
   "source_files": [],
-  "computation_time_ms": 11,
-  "version": 4,
+  "computation_time_ms": 12,
+  "version": 5,
   "schema_version": "1.0"
 }

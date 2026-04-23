@@ -2,7 +2,7 @@
   "category": "vol_edge",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:33:09.028633",
-  "updated_at": "2026-03-25T16:55:01.533334",
+  "updated_at": "2026-04-23T03:11:13.167431",
   "row_count": 2065,
   "date_range": [
     "2018-01-02",
@@ -36,9 +36,9 @@
     "iv_rank",
     "edge_score"
   ],
-  "source_hash": "bb905b97447fdedd",
+  "source_hash": "46294801875dcc09",
   "source_files": [],
-  "computation_time_ms": 10,
-  "version": 3,
+  "computation_time_ms": 14,
+  "version": 5,
   "schema_version": "1.0"
 }

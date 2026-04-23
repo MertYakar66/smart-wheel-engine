@@ -1,45 +1,3785 @@
 {
   "features": {
-    "technical/AAPL": {
-      "version": 4,
-      "updated_at": "2026-03-25T16:55:01.127306",
-      "row_count": 2065
+    "dynamics/A": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.479726",
+      "row_count": 2820
     },
     "dynamics/AAPL": {
-      "version": 4,
-      "updated_at": "2026-03-25T16:55:01.247073",
+      "version": 5,
+      "updated_at": "2026-04-23T02:45:40.526245",
       "row_count": 2820
     },
-    "volatility/AAPL": {
-      "version": 3,
-      "updated_at": "2026-03-25T16:55:01.188670",
-      "row_count": 2065
-    },
-    "options_features/AAPL": {
-      "version": 3,
-      "updated_at": "2026-03-25T16:55:01.220956",
+    "dynamics/ABBV": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.511704",
       "row_count": 2820
     },
-    "vol_edge/AAPL": {
-      "version": 3,
-      "updated_at": "2026-03-25T16:55:01.533334",
-      "row_count": 2065
+    "dynamics/ABNB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:07.600888",
+      "row_count": 1320
     },
-    "regime/AAPL": {
-      "version": 2,
-      "updated_at": "2026-03-25T16:55:02.713361",
-      "row_count": 2065
+    "dynamics/ABT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.510702",
+      "row_count": 2820
     },
-    "labels/AAPL": {
-      "version": 2,
-      "updated_at": "2026-03-25T16:55:03.164981",
+    "dynamics/ACN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.364590",
+      "row_count": 2820
+    },
+    "dynamics/ADBE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.448325",
+      "row_count": 2820
+    },
+    "dynamics/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.917796",
+      "row_count": 2820
+    },
+    "dynamics/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.471339",
+      "row_count": 2820
+    },
+    "dynamics/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.800756",
+      "row_count": 2820
+    },
+    "dynamics/AES": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.308137",
+      "row_count": 2820
+    },
+    "dynamics/AFL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.597496",
+      "row_count": 2820
+    },
+    "dynamics/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.437078",
+      "row_count": 2820
+    },
+    "dynamics/AKAM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:21.780721",
+      "row_count": 2820
+    },
+    "dynamics/ALB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.120375",
+      "row_count": 2820
+    },
+    "dynamics/ALGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.274622",
+      "row_count": 2820
+    },
+    "dynamics/ALL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:41.260078",
+      "row_count": 2820
+    },
+    "dynamics/ALLE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.561846",
+      "row_count": 2820
+    },
+    "dynamics/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.447907",
+      "row_count": 0
+    },
+    "dynamics/AMCR": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:42.654034",
+      "row_count": 1702
+    },
+    "dynamics/AMD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.253414",
+      "row_count": 2820
+    },
+    "dynamics/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.514956",
+      "row_count": 2820
+    },
+    "dynamics/AMGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.560781",
+      "row_count": 2820
+    },
+    "dynamics/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.229056",
+      "row_count": 2820
+    },
+    "dynamics/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.674353",
+      "row_count": 2820
+    },
+    "dynamics/AMZN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:28.610115",
+      "row_count": 2820
+    },
+    "dynamics/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.937819",
+      "row_count": 2820
+    },
+    "dynamics/AOS": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.577092",
+      "row_count": 2820
+    },
+    "dynamics/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.252129",
+      "row_count": 2820
+    },
+    "dynamics/APD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.646687",
+      "row_count": 2820
+    },
+    "dynamics/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.909764",
+      "row_count": 2820
+    },
+    "dynamics/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.520942",
+      "row_count": 2820
+    },
+    "dynamics/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.655123",
+      "row_count": 1235
+    },
+    "dynamics/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.569875",
+      "row_count": 0
+    },
+    "dynamics/ARE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.085825",
+      "row_count": 2820
+    },
+    "dynamics/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.568762",
+      "row_count": 2820
+    },
+    "dynamics/AXP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.570760",
+      "row_count": 2820
+    },
+    "dynamics/GOOG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.197661",
+      "row_count": 2820
+    },
+    "dynamics/GOOGL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.660592",
+      "row_count": 2820
+    },
+    "dynamics/LNT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.172960",
+      "row_count": 2820
+    },
+    "dynamics/MMM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.503682",
+      "row_count": 2820
+    },
+    "dynamics/MO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.201668",
+      "row_count": 2820
+    },
+    "dynamics/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.468450",
+      "row_count": 2820
+    },
+    "dynamics/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.652528",
+      "row_count": 2820
+    },
+    "events/A": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.601494",
       "row_count": 2065
     },
     "events/AAPL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:40.687450",
+      "row_count": 2065
+    },
+    "events/ABBV": {
       "version": 1,
-      "updated_at": "2026-03-25T16:55:02.374699",
+      "updated_at": "2026-04-23T02:43:54.641675",
+      "row_count": 2065
+    },
+    "events/ABNB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:07.683058",
+      "row_count": 1324
+    },
+    "events/ABT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.632645",
+      "row_count": 2065
+    },
+    "events/ACN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.486544",
+      "row_count": 2065
+    },
+    "events/ADBE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.576089",
+      "row_count": 2065
+    },
+    "events/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.086515",
+      "row_count": 2065
+    },
+    "events/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.681606",
+      "row_count": 2065
+    },
+    "events/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.991793",
+      "row_count": 1373
+    },
+    "events/AES": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.432772",
+      "row_count": 2065
+    },
+    "events/AFL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.742811",
+      "row_count": 2065
+    },
+    "events/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.629800",
+      "row_count": 2065
+    },
+    "events/AKAM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:21.935023",
+      "row_count": 2065
+    },
+    "events/ALB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.305174",
+      "row_count": 2065
+    },
+    "events/ALGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.470951",
+      "row_count": 2065
+    },
+    "events/ALL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:41.429457",
+      "row_count": 2065
+    },
+    "events/ALLE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.781321",
+      "row_count": 2065
+    },
+    "events/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.580389",
+      "row_count": 0
+    },
+    "events/AMCR": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:42.798300",
+      "row_count": 1704
+    },
+    "events/AMD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.364199",
+      "row_count": 2065
+    },
+    "events/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.683752",
+      "row_count": 2065
+    },
+    "events/AMGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.730501",
+      "row_count": 2065
+    },
+    "events/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.385236",
+      "row_count": 2065
+    },
+    "events/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.842210",
+      "row_count": 2065
+    },
+    "events/AMZN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:28.716210",
+      "row_count": 2065
+    },
+    "events/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.102028",
+      "row_count": 2065
+    },
+    "events/AOS": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.703736",
+      "row_count": 2065
+    },
+    "events/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.385820",
+      "row_count": 1453
+    },
+    "events/APD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.778556",
+      "row_count": 2065
+    },
+    "events/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.081997",
+      "row_count": 2065
+    },
+    "events/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.671634",
+      "row_count": 2065
+    },
+    "events/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.761236",
+      "row_count": 1239
+    },
+    "events/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.591907",
+      "row_count": 0
+    },
+    "events/ARE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.284136",
+      "row_count": 2065
+    },
+    "events/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.742084",
+      "row_count": 2065
+    },
+    "events/AXP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.745594",
+      "row_count": 2065
+    },
+    "events/GOOG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.404402",
+      "row_count": 2065
+    },
+    "events/GOOGL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.771987",
+      "row_count": 2065
+    },
+    "events/LNT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.359258",
+      "row_count": 1815
+    },
+    "events/MMM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.616129",
+      "row_count": 2065
+    },
+    "events/MO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.407412",
+      "row_count": 2065
+    },
+    "events/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.570532",
+      "row_count": 2065
+    },
+    "events/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.762474",
+      "row_count": 2065
+    },
+    "labels/A": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.633967",
+      "row_count": 2065
+    },
+    "labels/AAPL": {
+      "version": 3,
+      "updated_at": "2026-04-23T02:45:40.898188",
+      "row_count": 2065
+    },
+    "labels/ABBV": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.392973",
+      "row_count": 2065
+    },
+    "labels/ABNB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:58.316283",
+      "row_count": 1324
+    },
+    "labels/ABT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:39.998245",
+      "row_count": 2065
+    },
+    "labels/ACN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.208677",
+      "row_count": 2065
+    },
+    "labels/ADBE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.413840",
+      "row_count": 2065
+    },
+    "labels/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.281843",
+      "row_count": 2065
+    },
+    "labels/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.882678",
+      "row_count": 2065
+    },
+    "labels/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:01.139952",
+      "row_count": 1373
+    },
+    "labels/AES": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.441164",
+      "row_count": 2065
+    },
+    "labels/AFL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.703572",
+      "row_count": 2065
+    },
+    "labels/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.940335",
+      "row_count": 2065
+    },
+    "labels/AKAM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:16.919793",
+      "row_count": 2065
+    },
+    "labels/ALB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:17.926278",
+      "row_count": 2065
+    },
+    "labels/ALGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.611129",
+      "row_count": 2065
+    },
+    "labels/ALL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:35.801359",
+      "row_count": 2065
+    },
+    "labels/ALLE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.630151",
+      "row_count": 2065
+    },
+    "labels/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.602416",
+      "row_count": 0
+    },
+    "labels/AMCR": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.068796",
+      "row_count": 1704
+    },
+    "labels/AMD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.124188",
+      "row_count": 2065
+    },
+    "labels/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.893848",
+      "row_count": 2065
+    },
+    "labels/AMGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:54.209559",
+      "row_count": 2065
+    },
+    "labels/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.586548",
+      "row_count": 2065
+    },
+    "labels/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:03.143588",
+      "row_count": 2065
+    },
+    "labels/AMZN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.484774",
+      "row_count": 2065
+    },
+    "labels/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.299606",
+      "row_count": 2065
+    },
+    "labels/AOS": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.248279",
+      "row_count": 2065
+    },
+    "labels/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.542112",
+      "row_count": 1453
+    },
+    "labels/APD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.699571",
+      "row_count": 2065
+    },
+    "labels/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.280844",
+      "row_count": 2065
+    },
+    "labels/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.859343",
+      "row_count": 2065
+    },
+    "labels/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.921927",
+      "row_count": 1239
+    },
+    "labels/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.609923",
+      "row_count": 0
+    },
+    "labels/ARE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.178041",
+      "row_count": 2065
+    },
+    "labels/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:03.054975",
+      "row_count": 2065
+    },
+    "labels/AXP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:34.787236",
+      "row_count": 2065
+    },
+    "labels/GOOG": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.101340",
+      "row_count": 2065
+    },
+    "labels/GOOGL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.475751",
+      "row_count": 2065
+    },
+    "labels/LNT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.147503",
+      "row_count": 1815
+    },
+    "labels/MMM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.247281",
+      "row_count": 2065
+    },
+    "labels/MO": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.119370",
+      "row_count": 2065
+    },
+    "labels/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.699316",
+      "row_count": 2065
+    },
+    "labels/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.938661",
+      "row_count": 2065
+    },
+    "options_features/A": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.464305",
+      "row_count": 2820
+    },
+    "options_features/AAPL": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.620435",
+      "row_count": 2820
+    },
+    "options_features/ABBV": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.493551",
+      "row_count": 2820
+    },
+    "options_features/ABNB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:07.587376",
+      "row_count": 1320
+    },
+    "options_features/ABT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.493551",
+      "row_count": 2820
+    },
+    "options_features/ACN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.346075",
+      "row_count": 2820
+    },
+    "options_features/ADBE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.430308",
+      "row_count": 2820
+    },
+    "options_features/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.894251",
+      "row_count": 2820
+    },
+    "options_features/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.451324",
+      "row_count": 2820
+    },
+    "options_features/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.779229",
+      "row_count": 2820
+    },
+    "options_features/AES": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.293456",
+      "row_count": 2820
+    },
+    "options_features/AFL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.578491",
+      "row_count": 2820
+    },
+    "options_features/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.412544",
+      "row_count": 2820
+    },
+    "options_features/AKAM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:21.759697",
+      "row_count": 2820
+    },
+    "options_features/ALB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.098345",
+      "row_count": 2820
+    },
+    "options_features/ALGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.234546",
+      "row_count": 2820
+    },
+    "options_features/ALL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:41.239364",
+      "row_count": 2820
+    },
+    "options_features/ALLE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.538310",
+      "row_count": 2820
+    },
+    "options_features/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.628941",
+      "row_count": 2820
+    },
+    "options_features/AMCR": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:42.637020",
+      "row_count": 1702
+    },
+    "options_features/AMD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.236898",
+      "row_count": 2820
+    },
+    "options_features/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.491914",
+      "row_count": 2820
+    },
+    "options_features/AMGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.539760",
+      "row_count": 2820
+    },
+    "options_features/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.207525",
+      "row_count": 2820
+    },
+    "options_features/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.647820",
+      "row_count": 2820
+    },
+    "options_features/AMZN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:28.591523",
+      "row_count": 2820
+    },
+    "options_features/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.913785",
+      "row_count": 2820
+    },
+    "options_features/AOS": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.558072",
+      "row_count": 2820
+    },
+    "options_features/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.635947",
+      "row_count": 2820
+    },
+    "options_features/APD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.625664",
+      "row_count": 2820
+    },
+    "options_features/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.885744",
+      "row_count": 2820
+    },
+    "options_features/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.640454",
+      "row_count": 2820
+    },
+    "options_features/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.645459",
+      "row_count": 1235
+    },
+    "options_features/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.649967",
+      "row_count": 0
+    },
+    "options_features/ARE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.061292",
+      "row_count": 2820
+    },
+    "options_features/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.537215",
+      "row_count": 2820
+    },
+    "options_features/AXP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.538214",
+      "row_count": 2820
+    },
+    "options_features/GOOG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.166112",
+      "row_count": 2820
+    },
+    "options_features/GOOGL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.644505",
+      "row_count": 2820
+    },
+    "options_features/LNT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.149426",
+      "row_count": 2820
+    },
+    "options_features/MMM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.483034",
+      "row_count": 2820
+    },
+    "options_features/MO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.169117",
+      "row_count": 2820
+    },
+    "options_features/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.452159",
+      "row_count": 2820
+    },
+    "options_features/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.636998",
+      "row_count": 2820
+    },
+    "regime/A": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.578871",
+      "row_count": 2065
+    },
+    "regime/AAPL": {
+      "version": 3,
+      "updated_at": "2026-04-23T02:45:40.845622",
+      "row_count": 2065
+    },
+    "regime/ABBV": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.340410",
+      "row_count": 2065
+    },
+    "regime/ABNB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:58.263453",
+      "row_count": 1324
+    },
+    "regime/ABT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:39.950685",
+      "row_count": 2065
+    },
+    "regime/ACN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.159918",
+      "row_count": 2065
+    },
+    "regime/ADBE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.364939",
+      "row_count": 2065
+    },
+    "regime/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.241295",
+      "row_count": 2065
+    },
+    "regime/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.838788",
+      "row_count": 2065
+    },
+    "regime/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:01.100410",
+      "row_count": 1373
+    },
+    "regime/AES": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.396605",
+      "row_count": 2065
+    },
+    "regime/AFL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.648490",
+      "row_count": 2065
+    },
+    "regime/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.796155",
+      "row_count": 2065
+    },
+    "regime/AKAM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:16.870721",
+      "row_count": 2065
+    },
+    "regime/ALB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:17.877703",
+      "row_count": 2065
+    },
+    "regime/ALGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.561448",
+      "row_count": 2065
+    },
+    "regime/ALL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:35.749808",
+      "row_count": 2065
+    },
+    "regime/ALLE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.580078",
+      "row_count": 2065
+    },
+    "regime/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.662487",
+      "row_count": 0
+    },
+    "regime/AMCR": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.025220",
+      "row_count": 1704
+    },
+    "regime/AMD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.071618",
+      "row_count": 2065
+    },
+    "regime/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.849759",
+      "row_count": 2065
+    },
+    "regime/AMGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:54.162497",
+      "row_count": 2065
+    },
+    "regime/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.544497",
+      "row_count": 2065
+    },
+    "regime/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:03.094519",
+      "row_count": 2065
+    },
+    "regime/AMZN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.435273",
+      "row_count": 2065
+    },
+    "regime/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.255827",
+      "row_count": 2065
+    },
+    "regime/AOS": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.199170",
+      "row_count": 2065
+    },
+    "regime/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.500958",
+      "row_count": 1453
+    },
+    "regime/APD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.643481",
+      "row_count": 2065
+    },
+    "regime/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.239295",
+      "row_count": 2065
+    },
+    "regime/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.815789",
+      "row_count": 2065
+    },
+    "regime/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.869348",
+      "row_count": 1239
+    },
+    "regime/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.674998",
+      "row_count": 0
+    },
+    "regime/ARE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.126478",
+      "row_count": 2065
+    },
+    "regime/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:03.009426",
+      "row_count": 2065
+    },
+    "regime/AXP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:34.742170",
+      "row_count": 2065
+    },
+    "regime/GOOG": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.051767",
+      "row_count": 2065
+    },
+    "regime/GOOGL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.426439",
+      "row_count": 2065
+    },
+    "regime/LNT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.091898",
+      "row_count": 1815
+    },
+    "regime/MMM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.199170",
+      "row_count": 2065
+    },
+    "regime/MO": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:37.066796",
+      "row_count": 2065
+    },
+    "regime/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.671680",
+      "row_count": 2065
+    },
+    "regime/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.865068",
+      "row_count": 2065
+    },
+    "technical/A": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.414599",
+      "row_count": 2065
+    },
+    "technical/AAPL": {
+      "version": 5,
+      "updated_at": "2026-04-23T02:45:40.426624",
+      "row_count": 2065
+    },
+    "technical/ABBV": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.436814",
+      "row_count": 2065
+    },
+    "technical/ABNB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:07.540311",
+      "row_count": 1324
+    },
+    "technical/ABT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.436814",
+      "row_count": 2065
+    },
+    "technical/ACN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.296849",
+      "row_count": 2065
+    },
+    "technical/ADBE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.380614",
+      "row_count": 2065
+    },
+    "technical/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.825121",
+      "row_count": 2065
+    },
+    "technical/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.382236",
+      "row_count": 2065
+    },
+    "technical/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.718162",
+      "row_count": 1373
+    },
+    "technical/AES": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.246410",
+      "row_count": 2065
+    },
+    "technical/AFL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.516777",
+      "row_count": 2065
+    },
+    "technical/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.336468",
+      "row_count": 2065
+    },
+    "technical/AKAM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:21.697633",
+      "row_count": 2065
+    },
+    "technical/ALB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.016225",
+      "row_count": 2065
+    },
+    "technical/ALGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.147424",
+      "row_count": 2065
+    },
+    "technical/ALL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:41.159853",
+      "row_count": 2065
+    },
+    "technical/ALLE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.461925",
+      "row_count": 2065
+    },
+    "technical/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:40.956262",
+      "row_count": 2065
+    },
+    "technical/AMCR": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:42.575011",
+      "row_count": 1704
+    },
+    "technical/AMD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.187349",
+      "row_count": 2065
+    },
+    "technical/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.425846",
+      "row_count": 2065
+    },
+    "technical/AMGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.466278",
+      "row_count": 2065
+    },
+    "technical/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.138950",
+      "row_count": 2065
+    },
+    "technical/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.559245",
+      "row_count": 2065
+    },
+    "technical/AMZN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:28.545731",
+      "row_count": 2065
+    },
+    "technical/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.839639",
+      "row_count": 2065
+    },
+    "technical/AOS": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.506704",
+      "row_count": 2065
+    },
+    "technical/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.156938",
+      "row_count": 1453
+    },
+    "technical/APD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.565983",
+      "row_count": 2065
+    },
+    "technical/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.814612",
+      "row_count": 2065
+    },
+    "technical/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.434846",
+      "row_count": 2065
+    },
+    "technical/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.558954",
+      "row_count": 1239
+    },
+    "technical/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:41.030825",
+      "row_count": 2065
+    },
+    "technical/ARE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:22.968652",
+      "row_count": 2065
+    },
+    "technical/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.470621",
+      "row_count": 2065
+    },
+    "technical/AXP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.463610",
+      "row_count": 2065
+    },
+    "technical/GOOG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.094009",
+      "row_count": 2065
+    },
+    "technical/GOOGL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.598446",
+      "row_count": 2065
+    },
+    "technical/LNT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.083321",
+      "row_count": 1815
+    },
+    "technical/MMM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.428308",
+      "row_count": 2065
+    },
+    "technical/MO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.090010",
+      "row_count": 2065
+    },
+    "technical/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.398924",
+      "row_count": 2065
+    },
+    "technical/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.590945",
+      "row_count": 2065
+    },
+    "volatility/A": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.445794",
+      "row_count": 2065
+    },
+    "volatility/AAPL": {
+      "version": 4,
+      "updated_at": "2026-04-23T02:45:40.471173",
+      "row_count": 2065
+    },
+    "volatility/ABBV": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.472527",
+      "row_count": 2065
+    },
+    "volatility/ABNB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:07.570356",
+      "row_count": 1324
+    },
+    "volatility/ABT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.471524",
+      "row_count": 2065
+    },
+    "volatility/ACN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.328383",
+      "row_count": 2065
+    },
+    "volatility/ADBE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.411285",
+      "row_count": 2065
+    },
+    "volatility/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.867720",
+      "row_count": 2065
+    },
+    "volatility/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.427301",
+      "row_count": 2065
+    },
+    "volatility/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.755207",
+      "row_count": 1373
+    },
+    "volatility/AES": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.275943",
+      "row_count": 2065
+    },
+    "volatility/AFL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.554310",
+      "row_count": 2065
+    },
+    "volatility/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.381513",
+      "row_count": 2065
+    },
+    "volatility/AKAM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:21.738673",
+      "row_count": 2065
+    },
+    "volatility/ALB": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.071806",
+      "row_count": 2065
+    },
+    "volatility/ALGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.202500",
+      "row_count": 2065
+    },
+    "volatility/ALL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:41.213005",
+      "row_count": 2065
+    },
+    "volatility/ALLE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.508765",
+      "row_count": 2065
+    },
+    "volatility/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:41.001296",
+      "row_count": 2065
+    },
+    "volatility/AMCR": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:42.616116",
+      "row_count": 1704
+    },
+    "volatility/AMD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.217874",
+      "row_count": 2065
+    },
+    "volatility/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.468891",
+      "row_count": 2065
+    },
+    "volatility/AMGN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.513841",
+      "row_count": 2065
+    },
+    "volatility/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.181989",
+      "row_count": 2065
+    },
+    "volatility/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.620283",
+      "row_count": 2065
+    },
+    "volatility/AMZN": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:28.574254",
+      "row_count": 2065
+    },
+    "volatility/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.883734",
+      "row_count": 2065
+    },
+    "volatility/AOS": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.538763",
+      "row_count": 2065
+    },
+    "volatility/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.197042",
+      "row_count": 1453
+    },
+    "volatility/APD": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:08.603494",
+      "row_count": 2065
+    },
+    "volatility/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:21.859205",
+      "row_count": 2065
+    },
+    "volatility/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.475395",
+      "row_count": 2065
+    },
+    "volatility/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.611535",
+      "row_count": 1239
+    },
+    "volatility/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.693924",
+      "row_count": 0
+    },
+    "volatility/ARE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.030249",
+      "row_count": 2065
+    },
+    "volatility/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.513674",
+      "row_count": 2065
+    },
+    "volatility/AXP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.510675",
+      "row_count": 2065
+    },
+    "volatility/GOOG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.138576",
+      "row_count": 2065
+    },
+    "volatility/GOOGL": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.627489",
+      "row_count": 2065
+    },
+    "volatility/LNT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:23.124879",
+      "row_count": 1815
+    },
+    "volatility/MMM": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:54.466524",
+      "row_count": 2065
+    },
+    "volatility/MO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:44:43.138576",
+      "row_count": 2065
+    },
+    "volatility/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.436157",
+      "row_count": 2065
+    },
+    "volatility/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.618977",
+      "row_count": 2065
+    },
+    "vol_edge/A": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.354531",
+      "row_count": 2065
+    },
+    "vol_edge/AAPL": {
+      "version": 4,
+      "updated_at": "2026-04-23T02:45:40.645398",
+      "row_count": 2065
+    },
+    "vol_edge/ABBV": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.134293",
+      "row_count": 2065
+    },
+    "vol_edge/ABNB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:58.113604",
+      "row_count": 1324
+    },
+    "vol_edge/ABT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:39.741138",
+      "row_count": 2065
+    },
+    "vol_edge/ACN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:39.960194",
+      "row_count": 2065
+    },
+    "vol_edge/ADBE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.160919",
+      "row_count": 2065
+    },
+    "vol_edge/ADI": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.039944",
+      "row_count": 2065
+    },
+    "vol_edge/AEE": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.586496",
+      "row_count": 2065
+    },
+    "vol_edge/AEP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:00.882678",
+      "row_count": 1373
+    },
+    "vol_edge/AES": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.179760",
+      "row_count": 2065
+    },
+    "vol_edge/AFL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.417137",
+      "row_count": 2065
+    },
+    "vol_edge/AIG": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.577275",
+      "row_count": 2065
+    },
+    "vol_edge/AKAM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:16.680715",
+      "row_count": 2065
+    },
+    "vol_edge/ALB": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:17.670235",
+      "row_count": 2065
+    },
+    "vol_edge/ALGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.360828",
+      "row_count": 2065
+    },
+    "vol_edge/ALL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:35.558550",
+      "row_count": 2065
+    },
+    "vol_edge/ALLE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:18.383872",
+      "row_count": 2065
+    },
+    "vol_edge/AMAT": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.707433",
+      "row_count": 0
+    },
+    "vol_edge/AMCR": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:36.860978",
+      "row_count": 1704
+    },
+    "vol_edge/AMD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:58.870808",
+      "row_count": 2065
+    },
+    "vol_edge/AME": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.636193",
+      "row_count": 2065
+    },
+    "vol_edge/AMGN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:53.973774",
+      "row_count": 2065
+    },
+    "vol_edge/AMP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:19.343196",
+      "row_count": 2065
+    },
+    "vol_edge/AMT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.796155",
+      "row_count": 2065
+    },
+    "vol_edge/AMZN": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.214696",
+      "row_count": 2065
+    },
+    "vol_edge/AON": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.055976",
+      "row_count": 2065
+    },
+    "vol_edge/AOS": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:39.998245",
+      "row_count": 2065
+    },
+    "vol_edge/APA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:37.340250",
+      "row_count": 1453
+    },
+    "vol_edge/APD": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:59.425647",
+      "row_count": 2065
+    },
+    "vol_edge/APH": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:22.033935",
+      "row_count": 2065
+    },
+    "vol_edge/APO": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:38.633096",
+      "row_count": 2065
+    },
+    "vol_edge/APP": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:39.723692",
+      "row_count": 1239
+    },
+    "vol_edge/APTV": {
+      "version": 1,
+      "updated_at": "2026-04-23T07:08:31.718945",
+      "row_count": 0
+    },
+    "vol_edge/ARE": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:17.913255",
+      "row_count": 2065
+    },
+    "vol_edge/AWK": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:45:02.702027",
+      "row_count": 2065
+    },
+    "vol_edge/AXP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:10:34.563939",
+      "row_count": 2065
+    },
+    "vol_edge/GOOG": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:36.865489",
+      "row_count": 2065
+    },
+    "vol_edge/GOOGL": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:43.209184",
+      "row_count": 2065
+    },
+    "vol_edge/LNT": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:17.893720",
+      "row_count": 1815
+    },
+    "vol_edge/MMM": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:44:40.001245",
+      "row_count": 2065
+    },
+    "vol_edge/MO": {
+      "version": 2,
+      "updated_at": "2026-04-23T02:45:36.871493",
+      "row_count": 2065
+    },
+    "vol_edge/MSFT": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:42:16.543498",
+      "row_count": 2065
+    },
+    "vol_edge/NVDA": {
+      "version": 1,
+      "updated_at": "2026-04-23T02:43:16.734228",
+      "row_count": 2065
+    },
+    "technical/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.004996",
+      "row_count": 1351
+    },
+    "volatility/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.054914",
+      "row_count": 1351
+    },
+    "options_features/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.079703",
+      "row_count": 2820
+    },
+    "dynamics/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.104721",
+      "row_count": 2820
+    },
+    "vol_edge/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.194190",
+      "row_count": 1351
+    },
+    "events/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.235931",
+      "row_count": 1351
+    },
+    "regime/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.345271",
+      "row_count": 1351
+    },
+    "labels/HST": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:34.390428",
+      "row_count": 1351
+    },
+    "technical/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:52.600131",
+      "row_count": 2065
+    },
+    "volatility/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:52.648673",
+      "row_count": 2065
+    },
+    "options_features/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:52.677207",
+      "row_count": 2820
+    },
+    "dynamics/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:52.702736",
+      "row_count": 2820
+    },
+    "vol_edge/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:52.824850",
+      "row_count": 2065
+    },
+    "events/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:53.009081",
+      "row_count": 2065
+    },
+    "regime/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:53.173051",
+      "row_count": 2065
+    },
+    "labels/HII": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:08:53.217727",
+      "row_count": 2065
+    },
+    "technical/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:10.844181",
+      "row_count": 2065
+    },
+    "volatility/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:10.924307",
+      "row_count": 2065
+    },
+    "options_features/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:10.955845",
+      "row_count": 2211
+    },
+    "dynamics/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:10.983573",
+      "row_count": 2211
+    },
+    "vol_edge/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:11.109540",
+      "row_count": 2065
+    },
+    "events/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:11.156604",
+      "row_count": 2065
+    },
+    "regime/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:11.305877",
+      "row_count": 2065
+    },
+    "labels/IR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:09:11.352439",
+      "row_count": 2065
+    },
+    "technical/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.200583",
+      "row_count": 2065
+    },
+    "volatility/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.247135",
+      "row_count": 2065
+    },
+    "options_features/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.274666",
+      "row_count": 2820
+    },
+    "dynamics/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.302001",
+      "row_count": 2820
+    },
+    "vol_edge/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.426566",
+      "row_count": 2065
+    },
+    "events/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.473626",
+      "row_count": 2065
+    },
+    "regime/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.643258",
+      "row_count": 2065
+    },
+    "labels/AIZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:32.691313",
+      "row_count": 2065
+    },
+    "technical/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.531892",
+      "row_count": 2065
+    },
+    "volatility/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.577442",
+      "row_count": 2065
+    },
+    "options_features/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.604978",
+      "row_count": 2820
+    },
+    "dynamics/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.630506",
+      "row_count": 2820
+    },
+    "vol_edge/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.754795",
+      "row_count": 2065
+    },
+    "events/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.802906",
+      "row_count": 2065
+    },
+    "regime/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:51.967592",
+      "row_count": 2065
+    },
+    "labels/AVB": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:11:52.017142",
+      "row_count": 2065
+    },
+    "technical/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.057273",
+      "row_count": 2065
+    },
+    "volatility/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.101329",
+      "row_count": 2065
+    },
+    "options_features/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.129867",
+      "row_count": 2820
+    },
+    "dynamics/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.154885",
+      "row_count": 2820
+    },
+    "vol_edge/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.270034",
+      "row_count": 2065
+    },
+    "events/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.352645",
+      "row_count": 2065
+    },
+    "regime/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.534958",
+      "row_count": 2065
+    },
+    "labels/BDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:11.586021",
+      "row_count": 2065
+    },
+    "technical/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.253282",
+      "row_count": 2065
+    },
+    "volatility/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.297331",
+      "row_count": 2065
+    },
+    "options_features/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.329878",
+      "row_count": 2820
+    },
+    "dynamics/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.356898",
+      "row_count": 2820
+    },
+    "vol_edge/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.490947",
+      "row_count": 2065
+    },
+    "events/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.542015",
+      "row_count": 2065
+    },
+    "regime/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.696694",
+      "row_count": 2065
+    },
+    "labels/BX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:30.746771",
+      "row_count": 2065
+    },
+    "technical/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.133297",
+      "row_count": 2065
+    },
+    "volatility/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.173930",
+      "row_count": 2065
+    },
+    "options_features/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.203016",
+      "row_count": 2820
+    },
+    "dynamics/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.231051",
+      "row_count": 2820
+    },
+    "vol_edge/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.347571",
+      "row_count": 2065
+    },
+    "events/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.399258",
+      "row_count": 2065
+    },
+    "regime/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.576959",
+      "row_count": 2065
+    },
+    "labels/BSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:12:49.641550",
+      "row_count": 2065
+    },
+    "technical/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.567744",
+      "row_count": 2065
+    },
+    "volatility/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.619311",
+      "row_count": 2065
+    },
+    "options_features/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.650857",
+      "row_count": 2820
+    },
+    "dynamics/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.679393",
+      "row_count": 2820
+    },
+    "vol_edge/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.824084",
+      "row_count": 2065
+    },
+    "events/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:08.878158",
+      "row_count": 2065
+    },
+    "regime/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:09.045967",
+      "row_count": 2065
+    },
+    "labels/BG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:09.097523",
+      "row_count": 2065
+    },
+    "technical/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.584377",
+      "row_count": 2065
+    },
+    "volatility/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.629418",
+      "row_count": 2065
+    },
+    "options_features/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.662454",
+      "row_count": 2820
+    },
+    "dynamics/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.688477",
+      "row_count": 2820
+    },
+    "vol_edge/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.802631",
+      "row_count": 2065
+    },
+    "events/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:27.849681",
+      "row_count": 2065
+    },
+    "regime/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:28.005854",
+      "row_count": 2065
+    },
+    "labels/COF": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:28.054415",
+      "row_count": 2065
+    },
+    "technical/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.239637",
+      "row_count": 2065
+    },
+    "volatility/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.286193",
+      "row_count": 2065
+    },
+    "options_features/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.315727",
+      "row_count": 2820
+    },
+    "dynamics/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.346254",
+      "row_count": 2820
+    },
+    "vol_edge/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.471895",
+      "row_count": 2065
+    },
+    "events/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.519933",
+      "row_count": 2065
+    },
+    "regime/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.683318",
+      "row_count": 2065
+    },
+    "labels/CBRE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:13:46.728870",
+      "row_count": 2065
+    },
+    "technical/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:04.812024",
+      "row_count": 2065
+    },
+    "volatility/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:04.855075",
+      "row_count": 2065
+    },
+    "options_features/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:04.883595",
+      "row_count": 2820
+    },
+    "dynamics/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:04.909619",
+      "row_count": 2820
+    },
+    "vol_edge/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:05.030252",
+      "row_count": 2065
+    },
+    "events/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:05.080808",
+      "row_count": 2065
+    },
+    "regime/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:05.231146",
+      "row_count": 2065
+    },
+    "labels/CRL": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:05.279706",
+      "row_count": 2065
+    },
+    "technical/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:23.781874",
+      "row_count": 2065
+    },
+    "volatility/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:23.829438",
+      "row_count": 2065
+    },
+    "options_features/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:23.858978",
+      "row_count": 2820
+    },
+    "dynamics/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:23.881508",
+      "row_count": 2820
+    },
+    "vol_edge/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:24.007171",
+      "row_count": 2065
+    },
+    "events/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:24.067754",
+      "row_count": 2065
+    },
+    "regime/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:24.225489",
+      "row_count": 2065
+    },
+    "labels/CHD": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:24.272047",
+      "row_count": 2065
+    },
+    "technical/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:42.812666",
+      "row_count": 2065
+    },
+    "volatility/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:42.862738",
+      "row_count": 2065
+    },
+    "options_features/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:42.893275",
+      "row_count": 2820
+    },
+    "dynamics/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:42.919303",
+      "row_count": 2820
+    },
+    "vol_edge/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:43.045976",
+      "row_count": 2065
+    },
+    "events/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:43.095534",
+      "row_count": 2065
+    },
+    "regime/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:43.254217",
+      "row_count": 2065
+    },
+    "labels/CFG": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:14:43.306777",
+      "row_count": 2065
+    },
+    "technical/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.192226",
+      "row_count": 1240
+    },
+    "volatility/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.239280",
+      "row_count": 1240
+    },
+    "options_features/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.266892",
+      "row_count": 1236
+    },
+    "dynamics/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.287911",
+      "row_count": 1236
+    },
+    "vol_edge/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.371981",
+      "row_count": 1240
+    },
+    "events/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.414559",
+      "row_count": 1240
+    },
+    "regime/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.519676",
+      "row_count": 1240
+    },
+    "labels/COIN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:00.559310",
+      "row_count": 1240
+    },
+    "technical/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:18.652940",
+      "row_count": 2065
+    },
+    "volatility/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:18.700904",
+      "row_count": 2065
+    },
+    "options_features/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:18.729930",
+      "row_count": 2820
+    },
+    "dynamics/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:18.755467",
+      "row_count": 2820
+    },
+    "vol_edge/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:18.865603",
+      "row_count": 2065
+    },
+    "events/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:19.027768",
+      "row_count": 2065
+    },
+    "regime/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:19.194334",
+      "row_count": 2065
+    },
+    "labels/STZ": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:19.243670",
+      "row_count": 2065
+    },
+    "technical/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.305727",
+      "row_count": 1715
+    },
+    "volatility/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.357816",
+      "row_count": 1715
+    },
+    "options_features/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.392861",
+      "row_count": 1709
+    },
+    "dynamics/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.419394",
+      "row_count": 1709
+    },
+    "vol_edge/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.523516",
+      "row_count": 1715
+    },
+    "events/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.569048",
+      "row_count": 1715
+    },
+    "regime/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.716876",
+      "row_count": 1715
+    },
+    "labels/CTVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:37.759427",
+      "row_count": 1715
+    },
+    "technical/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:57.776704",
+      "row_count": 2065
+    },
+    "volatility/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:57.833301",
+      "row_count": 2065
+    },
+    "options_features/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:57.874288",
+      "row_count": 2820
+    },
+    "dynamics/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:57.908832",
+      "row_count": 2820
+    },
+    "vol_edge/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:58.057056",
+      "row_count": 2065
+    },
+    "events/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:58.107290",
+      "row_count": 2065
+    },
+    "regime/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:58.281472",
+      "row_count": 2065
+    },
+    "labels/CSX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:15:58.336511",
+      "row_count": 2065
+    },
+    "technical/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.114719",
+      "row_count": 2065
+    },
+    "volatility/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.155368",
+      "row_count": 2065
+    },
+    "options_features/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.183521",
+      "row_count": 2820
+    },
+    "dynamics/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.208547",
+      "row_count": 2820
+    },
+    "vol_edge/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.329000",
+      "row_count": 2065
+    },
+    "events/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.374703",
+      "row_count": 2065
+    },
+    "regime/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.525948",
+      "row_count": 2065
+    },
+    "labels/DVA": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:18.572072",
+      "row_count": 2065
+    },
+    "technical/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:36.874680",
+      "row_count": 2065
+    },
+    "volatility/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:36.927237",
+      "row_count": 2065
+    },
+    "options_features/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.119933",
+      "row_count": 2820
+    },
+    "dynamics/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.151515",
+      "row_count": 2820
+    },
+    "vol_edge/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.266659",
+      "row_count": 2065
+    },
+    "events/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.314215",
+      "row_count": 2065
+    },
+    "regime/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.468312",
+      "row_count": 2065
+    },
+    "labels/DVN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:37.513653",
+      "row_count": 2065
+    },
+    "technical/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.226432",
+      "row_count": 2065
+    },
+    "volatility/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.293028",
+      "row_count": 2065
+    },
+    "options_features/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.326571",
+      "row_count": 2820
+    },
+    "dynamics/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.356729",
+      "row_count": 2820
+    },
+    "vol_edge/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.478380",
+      "row_count": 2065
+    },
+    "events/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.528724",
+      "row_count": 2065
+    },
+    "regime/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.704700",
+      "row_count": 2065
+    },
+    "labels/D": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:16:56.752853",
+      "row_count": 2065
+    },
+    "technical/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.277813",
+      "row_count": 2065
+    },
+    "volatility/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.326024",
+      "row_count": 2065
+    },
+    "options_features/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.359560",
+      "row_count": 2820
+    },
+    "dynamics/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.392601",
+      "row_count": 2820
+    },
+    "vol_edge/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.518759",
+      "row_count": 2065
+    },
+    "events/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.574844",
+      "row_count": 2065
+    },
+    "regime/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.762065",
+      "row_count": 2065
+    },
+    "labels/DTE": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:15.819693",
+      "row_count": 2065
+    },
+    "technical/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:34.915980",
+      "row_count": 2065
+    },
+    "volatility/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:34.964538",
+      "row_count": 2065
+    },
+    "options_features/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:34.998083",
+      "row_count": 2820
+    },
+    "dynamics/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:35.027091",
+      "row_count": 2820
+    },
+    "vol_edge/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:35.149778",
+      "row_count": 2065
+    },
+    "events/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:35.203356",
+      "row_count": 2065
+    },
+    "regime/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:35.367231",
+      "row_count": 2065
+    },
+    "labels/EIX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:35.413784",
+      "row_count": 2065
+    },
+    "technical/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.320245",
+      "row_count": 2065
+    },
+    "volatility/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.375015",
+      "row_count": 2065
+    },
+    "options_features/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.409611",
+      "row_count": 2820
+    },
+    "dynamics/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.440145",
+      "row_count": 2820
+    },
+    "vol_edge/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.656973",
+      "row_count": 2065
+    },
+    "events/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.726957",
+      "row_count": 2065
+    },
+    "regime/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:54.983419",
+      "row_count": 2065
+    },
+    "labels/ETR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:17:55.075053",
+      "row_count": 2065
+    },
+    "technical/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.158199",
+      "row_count": 2065
+    },
+    "volatility/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.209255",
+      "row_count": 2065
+    },
+    "options_features/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.243306",
+      "row_count": 2820
+    },
+    "dynamics/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.272578",
+      "row_count": 2820
+    },
+    "vol_edge/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.403797",
+      "row_count": 2065
+    },
+    "events/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.456364",
+      "row_count": 2065
+    },
+    "regime/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.618719",
+      "row_count": 2065
+    },
+    "labels/EQR": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:15.666613",
+      "row_count": 2065
+    },
+    "technical/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:35.698840",
+      "row_count": 2065
+    },
+    "volatility/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:35.777956",
+      "row_count": 2065
+    },
+    "options_features/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:35.828028",
+      "row_count": 2820
+    },
+    "dynamics/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:35.864080",
+      "row_count": 2820
+    },
+    "vol_edge/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:36.013298",
+      "row_count": 2065
+    },
+    "events/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:36.076885",
+      "row_count": 2065
+    },
+    "regime/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:36.267636",
+      "row_count": 2065
+    },
+    "labels/ES": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:36.378982",
+      "row_count": 2065
+    },
+    "technical/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:56.766167",
+      "row_count": 2065
+    },
+    "volatility/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:56.815214",
+      "row_count": 2065
+    },
+    "options_features/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:56.846747",
+      "row_count": 2820
+    },
+    "dynamics/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:56.875282",
+      "row_count": 2820
+    },
+    "vol_edge/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:57.000926",
+      "row_count": 2065
+    },
+    "events/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:57.054992",
+      "row_count": 2065
+    },
+    "regime/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:57.227416",
+      "row_count": 2065
+    },
+    "labels/XOM": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:18:57.273479",
+      "row_count": 2065
+    },
+    "technical/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.337857",
+      "row_count": 2065
+    },
+    "volatility/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.392573",
+      "row_count": 2065
+    },
+    "options_features/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.424758",
+      "row_count": 2820
+    },
+    "dynamics/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.456937",
+      "row_count": 2820
+    },
+    "vol_edge/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.577415",
+      "row_count": 2065
+    },
+    "events/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.623971",
+      "row_count": 2065
+    },
+    "regime/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:17.945030",
+      "row_count": 2065
+    },
+    "labels/FDX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:18.014606",
+      "row_count": 2065
+    },
+    "technical/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.167969",
+      "row_count": 2065
+    },
+    "volatility/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.218066",
+      "row_count": 2065
+    },
+    "options_features/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.247341",
+      "row_count": 2820
+    },
+    "dynamics/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.273866",
+      "row_count": 2820
+    },
+    "vol_edge/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.401850",
+      "row_count": 2065
+    },
+    "events/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.453406",
+      "row_count": 2065
+    },
+    "regime/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.640710",
+      "row_count": 2065
+    },
+    "labels/F": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:38.691271",
+      "row_count": 2065
+    },
+    "technical/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.093341",
+      "row_count": 2065
+    },
+    "volatility/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.143439",
+      "row_count": 2065
+    },
+    "options_features/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.174476",
+      "row_count": 2820
+    },
+    "dynamics/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.202506",
+      "row_count": 2820
+    },
+    "vol_edge/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.339204",
+      "row_count": 2065
+    },
+    "events/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.391282",
+      "row_count": 2065
+    },
+    "regime/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.567499",
+      "row_count": 2065
+    },
+    "labels/FCX": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:19:59.619326",
+      "row_count": 2065
+    },
+    "technical/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:19.952782",
+      "row_count": 2065
+    },
+    "volatility/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.177145",
+      "row_count": 2065
+    },
+    "options_features/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.212189",
+      "row_count": 2820
+    },
+    "dynamics/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.245729",
+      "row_count": 2820
+    },
+    "vol_edge/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.366868",
+      "row_count": 2065
+    },
+    "events/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.416877",
+      "row_count": 2065
+    },
+    "regime/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.592869",
+      "row_count": 2065
+    },
+    "labels/GEN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:20.646438",
+      "row_count": 2065
+    },
+    "technical/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:40.780405",
+      "row_count": 2065
+    },
+    "volatility/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:40.828160",
+      "row_count": 2065
+    },
+    "options_features/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:40.859975",
+      "row_count": 2820
+    },
+    "dynamics/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:40.887109",
+      "row_count": 2820
+    },
+    "vol_edge/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:41.011278",
+      "row_count": 2065
+    },
+    "events/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:41.063131",
+      "row_count": 2065
+    },
+    "regime/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:41.236105",
+      "row_count": 2065
+    },
+    "labels/GPN": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:20:41.292354",
+      "row_count": 2065
+    },
+    "technical/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.333404",
+      "row_count": 2065
+    },
+    "volatility/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.381323",
+      "row_count": 2065
+    },
+    "options_features/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.415710",
+      "row_count": 2820
+    },
+    "dynamics/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.444253",
+      "row_count": 2820
+    },
+    "vol_edge/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.575563",
+      "row_count": 2065
+    },
+    "events/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.626339",
+      "row_count": 2065
+    },
+    "regime/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.796599",
+      "row_count": 2065
+    },
+    "labels/HAS": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:01.851611",
+      "row_count": 2065
+    },
+    "technical/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.141953",
+      "row_count": 2065
+    },
+    "volatility/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.207050",
+      "row_count": 2065
+    },
+    "options_features/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.251118",
+      "row_count": 2820
+    },
+    "dynamics/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.288678",
+      "row_count": 2820
+    },
+    "vol_edge/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.428031",
+      "row_count": 2065
+    },
+    "events/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.492136",
+      "row_count": 2065
+    },
+    "regime/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.718670",
+      "row_count": 2065
+    },
+    "labels/HLT": {
+      "version": 1,
+      "updated_at": "2026-04-23T03:21:22.964809",
+      "row_count": 2065
+    },
+    "vol_edge/HWM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:21:44.228751",
+      "row_count": 2065
+    },
+    "regime/HWM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:21:44.456822",
+      "row_count": 2065
+    },
+    "labels/HWM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:21:44.526179",
+      "row_count": 2065
+    },
+    "vol_edge/IBM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:04.828979",
+      "row_count": 2065
+    },
+    "regime/IBM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:05.047648",
+      "row_count": 2065
+    },
+    "labels/IBM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:05.101209",
+      "row_count": 2065
+    },
+    "vol_edge/PODD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:25.107380",
+      "row_count": 2065
+    },
+    "regime/PODD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:25.308614",
+      "row_count": 2065
+    },
+    "labels/PODD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:22:25.366251",
+      "row_count": 2065
+    },
+    "vol_edge/IQV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:01.818110",
+      "row_count": 2065
+    },
+    "regime/IQV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:02.019379",
+      "row_count": 2065
+    },
+    "labels/IQV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:02.075451",
+      "row_count": 2065
+    },
+    "vol_edge/JNJ": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:21.334304",
+      "row_count": 2065
+    },
+    "regime/JNJ": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:21.521119",
+      "row_count": 2065
+    },
+    "labels/JNJ": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:21.573417",
+      "row_count": 2065
+    },
+    "vol_edge/KEY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:41.036144",
+      "row_count": 2065
+    },
+    "regime/KEY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:41.311871",
+      "row_count": 2065
+    },
+    "labels/KEY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:23:41.362064",
+      "row_count": 2065
+    },
+    "vol_edge/KLAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:00.171259",
+      "row_count": 2065
+    },
+    "regime/KLAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:00.358784",
+      "row_count": 2065
+    },
+    "labels/KLAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:00.408293",
+      "row_count": 2065
+    },
+    "vol_edge/LW": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:19.224372",
+      "row_count": 2065
+    },
+    "regime/LW": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:19.418633",
+      "row_count": 2065
+    },
+    "labels/LW": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:19.469795",
+      "row_count": 2065
+    },
+    "vol_edge/LIN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:35.443680",
+      "row_count": 593
+    },
+    "regime/LIN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:35.526158",
+      "row_count": 593
+    },
+    "labels/LIN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:35.566995",
+      "row_count": 593
+    },
+    "vol_edge/LULU": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:54.118402",
+      "row_count": 2065
+    },
+    "regime/LULU": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:54.307575",
+      "row_count": 2065
+    },
+    "labels/LULU": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:24:54.357012",
+      "row_count": 2065
+    },
+    "vol_edge/MLM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:12.480607",
+      "row_count": 2065
+    },
+    "regime/MLM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:12.673290",
+      "row_count": 2065
+    },
+    "labels/MLM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:12.723476",
+      "row_count": 2065
+    },
+    "vol_edge/MCK": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:30.867040",
+      "row_count": 2065
+    },
+    "regime/MCK": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:31.049801",
+      "row_count": 2065
+    },
+    "labels/MCK": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:31.103818",
+      "row_count": 2065
+    },
+    "vol_edge/MGM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:49.205726",
+      "row_count": 2065
+    },
+    "regime/MGM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:49.393399",
+      "row_count": 2065
+    },
+    "labels/MGM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:25:49.447451",
+      "row_count": 2065
+    },
+    "vol_edge/MCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:22.572504",
+      "row_count": 2065
+    },
+    "regime/MCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:22.849156",
+      "row_count": 2065
+    },
+    "labels/MCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:22.899592",
+      "row_count": 2065
+    },
+    "vol_edge/NTAP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:41.980744",
+      "row_count": 2065
+    },
+    "regime/NTAP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:42.181984",
+      "row_count": 2065
+    },
+    "labels/NTAP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:26:42.243805",
+      "row_count": 2065
+    },
+    "vol_edge/NKE": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:00.637229",
+      "row_count": 2065
+    },
+    "regime/NKE": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:00.819602",
+      "row_count": 2065
+    },
+    "labels/NKE": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:00.868190",
+      "row_count": 2065
+    },
+    "vol_edge/NCLH": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:19.674348",
+      "row_count": 2065
+    },
+    "regime/NCLH": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:19.856081",
+      "row_count": 2065
+    },
+    "labels/NCLH": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:19.904164",
+      "row_count": 2065
+    },
+    "vol_edge/ORLY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:39.085348",
+      "row_count": 2065
+    },
+    "regime/ORLY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:39.281120",
+      "row_count": 2065
+    },
+    "labels/ORLY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:39.339436",
+      "row_count": 2065
+    },
+    "vol_edge/ORCL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:58.079804",
+      "row_count": 2065
+    },
+    "regime/ORCL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:58.264088",
+      "row_count": 2065
+    },
+    "labels/ORCL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:27:58.315155",
+      "row_count": 2065
+    },
+    "vol_edge/PSKY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:13.586907",
+      "row_count": 156
+    },
+    "regime/PSKY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:13.640854",
+      "row_count": 156
+    },
+    "labels/PSKY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:13.680870",
+      "row_count": 156
+    },
+    "vol_edge/PNR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:33.062988",
+      "row_count": 2065
+    },
+    "regime/PNR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:33.249321",
+      "row_count": 2065
+    },
+    "labels/PNR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:33.303264",
+      "row_count": 2065
+    },
+    "vol_edge/PNC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:51.817351",
+      "row_count": 2065
+    },
+    "regime/PNC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:52.119224",
+      "row_count": 2065
+    },
+    "labels/PNC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:28:52.175273",
+      "row_count": 2065
+    },
+    "vol_edge/PGR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:11.385243",
+      "row_count": 2065
+    },
+    "regime/PGR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:11.571629",
+      "row_count": 2065
+    },
+    "labels/PGR": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:11.622683",
+      "row_count": 2065
+    },
+    "vol_edge/PHM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:30.639972",
+      "row_count": 2065
+    },
+    "regime/PHM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:30.814332",
+      "row_count": 2065
+    },
+    "labels/PHM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:30.865592",
+      "row_count": 2065
+    },
+    "vol_edge/RJF": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:50.382408",
+      "row_count": 2065
+    },
+    "regime/RJF": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:50.565900",
+      "row_count": 2065
+    },
+    "labels/RJF": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:29:50.617557",
+      "row_count": 2065
+    },
+    "vol_edge/RSG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:09.717418",
+      "row_count": 2065
+    },
+    "regime/RSG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:09.899374",
+      "row_count": 2065
+    },
+    "labels/RSG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:09.949169",
+      "row_count": 2065
+    },
+    "vol_edge/ROP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:26.332858",
+      "row_count": 680
+    },
+    "regime/ROP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:26.426082",
+      "row_count": 680
+    },
+    "labels/ROP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:26.472449",
+      "row_count": 680
+    },
+    "vol_edge/SBAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:46.516057",
+      "row_count": 2065
+    },
+    "regime/SBAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:46.701063",
+      "row_count": 2065
+    },
+    "labels/SBAC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:30:46.755890",
+      "row_count": 2065
+    },
+    "vol_edge/SPG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:06.261756",
+      "row_count": 2065
+    },
+    "regime/SPG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:06.446198",
+      "row_count": 2065
+    },
+    "labels/SPG": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:06.497496",
+      "row_count": 2065
+    },
+    "vol_edge/SOLV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:23.316263",
+      "row_count": 498
+    },
+    "regime/SOLV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:23.392377",
+      "row_count": 498
+    },
+    "labels/SOLV": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:23.434190",
+      "row_count": 498
+    },
+    "vol_edge/STLD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:41.334956",
+      "row_count": 2065
+    },
+    "regime/STLD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:41.499052",
+      "row_count": 2065
+    },
+    "labels/STLD": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:41.541153",
+      "row_count": 2065
+    },
+    "vol_edge/SYY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:55.642401",
+      "row_count": 2065
+    },
+    "regime/SYY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:55.780180",
+      "row_count": 2065
+    },
+    "labels/SYY": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:31:55.821950",
+      "row_count": 2065
+    },
+    "vol_edge/TGT": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:10.287863",
+      "row_count": 2065
+    },
+    "regime/TGT": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:10.432562",
+      "row_count": 2065
+    },
+    "labels/TGT": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:10.475376",
+      "row_count": 2065
+    },
+    "vol_edge/TPL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:26.693047",
+      "row_count": 2065
+    },
+    "regime/TPL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:26.866294",
+      "row_count": 2065
+    },
+    "labels/TPL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:26.915829",
+      "row_count": 2065
+    },
+    "vol_edge/TSCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:46.285322",
+      "row_count": 2065
+    },
+    "regime/TSCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:46.479184",
+      "row_count": 2065
+    },
+    "labels/TSCO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:32:46.527757",
+      "row_count": 2065
+    },
+    "vol_edge/TYL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:07.054100",
+      "row_count": 2065
+    },
+    "regime/TYL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:07.237448",
+      "row_count": 2065
+    },
+    "labels/TYL": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:07.288185",
+      "row_count": 2065
+    },
+    "vol_edge/UNP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:26.154776",
+      "row_count": 2065
+    },
+    "regime/UNP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:26.341240",
+      "row_count": 2065
+    },
+    "labels/UNP": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:26.399354",
+      "row_count": 2065
+    },
+    "vol_edge/VLO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:45.074766",
+      "row_count": 2065
+    },
+    "regime/VLO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:45.258832",
+      "row_count": 2065
+    },
+    "labels/VLO": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:33:45.311897",
+      "row_count": 2065
+    },
+    "vol_edge/VRTX": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:03.835721",
+      "row_count": 2065
+    },
+    "regime/VRTX": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:04.029779",
+      "row_count": 2065
+    },
+    "labels/VRTX": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:04.083237",
+      "row_count": 2065
+    },
+    "vol_edge/WRB": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:23.644480",
+      "row_count": 2065
+    },
+    "regime/WRB": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:23.834045",
+      "row_count": 2065
+    },
+    "labels/WRB": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:23.885096",
+      "row_count": 2065
+    },
+    "vol_edge/WM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:42.482236",
+      "row_count": 2065
+    },
+    "regime/WM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:42.669377",
+      "row_count": 2065
+    },
+    "labels/WM": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:42.717303",
+      "row_count": 2065
+    },
+    "vol_edge/WDC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:58.024720",
+      "row_count": 2065
+    },
+    "regime/WDC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:58.161344",
+      "row_count": 2065
+    },
+    "labels/WDC": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:34:58.202920",
+      "row_count": 2065
+    },
+    "vol_edge/WYNN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:12.346652",
+      "row_count": 2065
+    },
+    "regime/WYNN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:12.497645",
+      "row_count": 2065
+    },
+    "labels/WYNN": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:12.533681",
+      "row_count": 2065
+    },
+    "vol_edge/ZTS": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:28.297463",
+      "row_count": 2065
+    },
+    "regime/ZTS": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:28.421063",
+      "row_count": 2065
+    },
+    "labels/ZTS": {
+      "version": 2,
+      "updated_at": "2026-04-23T03:35:28.455152",
       "row_count": 2065
     }
   },
-  "last_updated": "2026-03-25T16:55:03.223599"
+  "last_updated": "2026-04-23T03:35:28.481665"
 }

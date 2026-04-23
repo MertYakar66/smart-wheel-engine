@@ -260,3 +260,23 @@ dashboard/data/*.db
 dashboard/data/*.db-journal
 dashboard/data/*.db-wal
 .DS_Store
+
+# =============================================================================
+# Claude Code local state
+# =============================================================================
+.claude/
+
+# =============================================================================
+# Derived / runtime data — regenerate via scripts/backfill_features.py
+# =============================================================================
+
+# Feature-store ticker shards (1.2GB+ total). AAPL is kept as the sample.
+data/features/**/ticker=*/
+!data/features/**/ticker=AAPL/
+
+# Runtime locks & logs
+data/features/_locks/
+data/features/_backfill_log.csv
+
+# Theta / yfinance bulk pulls (regeneratable)
+data_processed/

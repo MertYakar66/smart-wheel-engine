@@ -22,12 +22,15 @@ Usage:
     report = runner.portfolio_report(["AAPL", "MSFT", "JPM"])
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -800,6 +803,42 @@ class WheelRunner:
                     chain_df = conn.get_option_chain(ticker)
             except Exception:
                 chain_df = None
+
+            # Raw-chain integrity gate (runs regardless of dealer positioning).
+            # Crossed markets (bid > ask), negative volume, invalid IV, or
+            # expired contracts in the snapshot are data-source bugs, not
+            # single-row noise — block the whole ticker when any CRITICAL or
+            # ERROR issue is present on the raw chain, before any per-row
+            # pre-clean can silently suppress the signal.
+            if (
+                enforce_chain_quality_gate
+                and chain_df is not None
+                and len(chain_df) > 0
+            ):
+                try:
+                    from data.quality import DataQualityFramework, Severity
+
+                    raw_cdf = chain_df.copy()
+                    raw_cdf.columns = [c.lower() for c in raw_cdf.columns]
+                    if "date" not in raw_cdf.columns:
+                        raw_cdf["date"] = pd.Timestamp(trade_start_d)
+                    raw_issues = DataQualityFramework()._check_options_consistency(raw_cdf)
+                    critical_raw = [
+                        i for i in raw_issues
+                        if i.severity in (Severity.ERROR, Severity.CRITICAL)
+                    ]
+                    if critical_raw:
+                        logger.warning(
+                            "%s: chain quality gate blocked ticker — %s",
+                            ticker,
+                            critical_raw[0].message[:100],
+                        )
+                        continue
+                except Exception:
+                    # Quality framework missing / import failure → fall back
+                    # to the downstream pre-clean path; do not block trades
+                    # on infrastructure bugs.
+                    pass
 
             # Look up OI at our target strike from the chain when possible
             strike_oi = 1000  # mid-liquid fallback

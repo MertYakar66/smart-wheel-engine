@@ -2,7 +2,7 @@
   "category": "volatility",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:33:08.672758",
-  "updated_at": "2026-03-25T16:55:01.188670",
+  "updated_at": "2026-04-23T02:45:40.471173",
   "row_count": 2065,
   "date_range": [
     "2018-01-02",
@@ -26,9 +26,9 @@
     "rv_garman_klass_21d",
     "rv_yang_zhang_21d"
   ],
-  "source_hash": "77a088898bddf268",
+  "source_hash": "9f0f523aabbba6cf",
   "source_files": [],
-  "computation_time_ms": 11,
-  "version": 3,
+  "computation_time_ms": 10,
+  "version": 4,
   "schema_version": "1.0"
 }

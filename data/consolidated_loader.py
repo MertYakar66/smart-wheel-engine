@@ -149,6 +149,7 @@ class ConsolidatedBloombergLoader:
         self.load_treasury()
         self.load_vix_term_structure()
         self.load_analyst()
+        self.load_index_membership()
 
         logger.info(f"Loaded {len(self._tickers)} unique tickers")
 
@@ -397,11 +398,104 @@ class ConsolidatedBloombergLoader:
             return len(self._analyst)
         return 0
 
+    def load_index_membership(self) -> int:
+        """Load point-in-time S&P 500 membership.
+
+        File: ``sp500_index_membership.csv`` with columns::
+
+            member_ticker_and_exchange_code  percentage_weight  as_of_date
+
+        We normalise the Bloomberg-style ticker into the simple symbol, parse
+        ``as_of_date`` to a timestamp, and stash the result on the loader so
+        callers can ask "who was in the index on 2021-06-30?".
+
+        Without this, every backtest silently uses the *current* membership
+        and inherits survivorship bias — winners stay, delisted names drop
+        out, historical returns are biased upward.
+        """
+        self._index_membership_df = self._load_csv("sp500_index_membership.csv")
+        if self._index_membership_df is None:
+            self._index_membership = pd.DataFrame()
+            return 0
+
+        df = self._index_membership_df.copy()
+        df.columns = [c.lower() for c in df.columns]
+
+        # Normalise ticker
+        ticker_col = next(
+            (c for c in df.columns if "member_ticker" in c or c == "ticker"),
+            None,
+        )
+        if ticker_col is None:
+            logger.warning("sp500_index_membership.csv: no member_ticker column")
+            self._index_membership = pd.DataFrame()
+            return 0
+        df["ticker_normalized"] = df[ticker_col].apply(normalize_ticker)
+
+        if "as_of_date" in df.columns:
+            df["as_of_date"] = pd.to_datetime(df["as_of_date"], errors="coerce")
+            df = df.dropna(subset=["as_of_date"])
+            df = df.sort_values(["as_of_date", "ticker_normalized"])
+
+        self._index_membership = df
+        logger.info(
+            "Index membership: %s rows, %s unique tickers, %s unique dates",
+            len(df),
+            df["ticker_normalized"].nunique(),
+            df["as_of_date"].nunique() if "as_of_date" in df.columns else "?",
+        )
+        return len(df)
+
     # ==================== Accessor Methods ====================
 
     def get_tickers(self) -> List[str]:
         """Get all available tickers."""
         return sorted(self._tickers)
+
+    def get_universe_as_of(
+        self,
+        as_of: Optional[str] = None,
+        min_weight: float = 0.0,
+    ) -> List[str]:
+        """Return the set of tickers that were in the index on ``as_of``.
+
+        Args:
+            as_of: ISO date (YYYY-MM-DD). ``None`` = latest available snapshot.
+            min_weight: Drop names below this percentage weight (0-100).
+                Default 0 keeps everything; use e.g. 0.02 to restrict to the
+                real active set and skip phased-out constituents that linger
+                at a residual weight.
+
+        Returns:
+            Sorted list of normalised tickers. Empty list if membership data
+            was not loaded.
+        """
+        df = getattr(self, "_index_membership", None)
+        if df is None or len(df) == 0:
+            return []
+
+        if "as_of_date" in df.columns and as_of is not None:
+            target = pd.to_datetime(as_of)
+            # PIT semantics: the snapshot *at or before* the request date.
+            available = df[df["as_of_date"] <= target]
+            if available.empty:
+                return []
+            latest_date = available["as_of_date"].max()
+            snap = available[available["as_of_date"] == latest_date]
+        else:
+            latest_date = df["as_of_date"].max() if "as_of_date" in df.columns else None
+            snap = df[df["as_of_date"] == latest_date] if latest_date is not None else df
+
+        if "percentage_weight" in snap.columns and min_weight > 0:
+            snap = snap[snap["percentage_weight"] >= min_weight]
+
+        out = sorted({t for t in snap["ticker_normalized"].dropna().tolist() if t})
+        return out
+
+    def was_index_member(self, ticker: str, as_of: str) -> bool:
+        """True if ``ticker`` was in the index on ``as_of``, per PIT snapshot."""
+        t = normalize_ticker(ticker) if " " in ticker else ticker.upper()
+        return t in set(self.get_universe_as_of(as_of))
 
     def get_ohlcv(self, ticker: str) -> Optional[pd.DataFrame]:
         """Get OHLCV data for a ticker."""

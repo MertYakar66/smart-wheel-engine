@@ -321,6 +321,7 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
             theta_failed.append(sym)
 
     # CBOE fallback for anything Theta didn't serve
+    cboe_failed: list[str] = []
     if theta_failed:
         logger.info(
             "vix-family: falling back to CBOE for %s (no Indices tier required)",
@@ -333,18 +334,53 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
             for sym in theta_failed:
                 df = cboe.get_series(sym)
                 if df.empty:
-                    logger.warning("vix-family CBOE fallback empty for %s", sym)
+                    cboe_failed.append(sym)
                     continue
                 # Clip to requested date range
                 df = df.loc[pd.Timestamp(start): pd.Timestamp(end)]
                 if df.empty:
+                    cboe_failed.append(sym)
                     continue
                 df = df.copy()
                 df["symbol"] = sym
                 df["source"] = "cboe"
                 frames.append(df)
         except Exception:
+            cboe_failed.extend(theta_failed)
             logger.exception("CBOE fallback failed")
+
+    # Yahoo fallback for anything CBOE didn't serve (VVIX, SKEW, MOVE)
+    if cboe_failed:
+        logger.info(
+            "vix-family: falling back to Yahoo for %s (CBOE doesn't publish these)",
+            cboe_failed,
+        )
+        try:
+            from engine.external_data.yfinance_adapter import YFinanceAdapter
+
+            yf = YFinanceAdapter()
+            yf_map = {
+                "VIX": "^VIX", "VIX9D": "^VIX9D", "VIX3M": "^VIX3M",
+                "VIX6M": "^VIX6M", "VVIX": "^VVIX", "SKEW": "^SKEW",
+                "MOVE": "^MOVE",
+            }
+            # Compute period_days from start/end
+            period_days = (pd.Timestamp(end) - pd.Timestamp(start)).days + 1
+            for sym in cboe_failed:
+                yf_sym = yf_map.get(sym, f"^{sym}")
+                df = yf.get_ohlcv(yf_sym, period_days=period_days)
+                if df.empty:
+                    logger.warning("vix-family: Yahoo fallback empty for %s", sym)
+                    continue
+                df = df.copy()
+                # Keep only OHLC columns
+                cols = [c for c in ("open", "high", "low", "close") if c in df.columns]
+                df = df[cols]
+                df["symbol"] = sym
+                df["source"] = "yahoo"
+                frames.append(df)
+        except Exception:
+            logger.debug("Yahoo fallback failed", exc_info=True)
 
     if not frames:
         return 0, 0, 1
@@ -624,6 +660,73 @@ def cmd_option_ohlc(conn: ThetaConnector, args) -> tuple[int, int, int]:
     return _parallel_run(tickers, worker, args.workers)
 
 
+def cmd_index_options(conn: ThetaConnector, args) -> tuple[int, int, int]:
+    """Pull option chains for the major cash-settled index options.
+
+    Options Standard includes SPX/SPXW/VIX/NDX/RUT/XSP index options —
+    the deepest-liquidity market in the world for SPX. Writes one
+    parquet per index per snapshot, plus a full IV surface.
+
+    SPX is the dealer-positioning gold standard: GEX on SPX is the
+    market's true gamma position. VIX options tell you the distribution
+    of future VIX (vol of vol).
+    """
+    # Index options supported in Options Standard (verify against tier docs)
+    INDEX_SYMBOLS = ["SPX", "SPXW", "VIX", "NDX", "RUT", "XSP", "DJX"]
+    tickers = _parse_tickers(args.tickers, INDEX_SYMBOLS)
+    if args.limit:
+        tickers = tickers[: args.limit]
+
+    chain_out = args.out_dir / "index_options_chains"
+    surf_out = args.out_dir / "index_options_surfaces"
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    ok = skip = fail = 0
+    for sym in tickers:
+        # Current chain snapshot
+        dst_chain = chain_out / f"{sym}_{today}"
+        if args.overwrite or not _write_exists(dst_chain):
+            try:
+                chain = conn.get_option_chain(sym, dte_target=35)
+                if chain is not None and not chain.empty:
+                    chain = chain.copy()
+                    chain["ticker"] = sym
+                    chain["snapshot_date"] = today
+                    _write_df(chain, dst_chain)
+                    ok += 1
+                else:
+                    logger.warning("index-options: chain empty for %s", sym)
+                    fail += 1
+                    continue
+            except Exception:
+                logger.exception("index-options chain fail: %s", sym)
+                fail += 1
+                continue
+        else:
+            skip += 1
+
+        # Full IV surface across expirations
+        dst_surf = surf_out / f"{sym}_{today}"
+        if args.overwrite or not _write_exists(dst_surf):
+            try:
+                surf = conn.get_iv_surface(sym, max_expirations=10)
+                if surf is not None and not surf.empty:
+                    surf = surf.copy()
+                    surf["ticker"] = sym
+                    surf["snapshot_date"] = today
+                    _write_df(surf, dst_surf)
+                else:
+                    logger.debug("index-options: surface empty for %s", sym)
+            except Exception:
+                logger.exception("index-options surface fail: %s", sym)
+
+    logger.info(
+        "index-options: wrote %d chains (%d skipped, %d failed)",
+        ok, skip, fail,
+    )
+    return ok, skip, fail
+
+
 def cmd_all(conn: ThetaConnector, args) -> tuple[int, int, int]:
     total_ok = total_skip = total_fail = 0
     manifest = Manifest(args.out_dir)
@@ -633,6 +736,7 @@ def cmd_all(conn: ThetaConnector, args) -> tuple[int, int, int]:
         ("stocks-eod", cmd_stocks_eod),
         ("chains", cmd_chains),
         ("iv-surface", cmd_iv_surface),
+        ("index-options", cmd_index_options),
         ("intraday", cmd_intraday),
         ("option-ohlc", cmd_option_ohlc),
     ]
@@ -656,6 +760,7 @@ _SUBCOMMANDS = {
     "chains": cmd_chains,
     "iv-surface": cmd_iv_surface,
     "iv-history": cmd_iv_history,
+    "index-options": cmd_index_options,
     "intraday": cmd_intraday,
     "option-ohlc": cmd_option_ohlc,
     "all": cmd_all,

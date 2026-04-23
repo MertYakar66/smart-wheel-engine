@@ -105,7 +105,7 @@ def main() -> int:
             },
         )
         from engine.data_connector import MarketDataConnector
-        bloomberg = MarketDataConnector(conn.data_dir).get_ohlcv("SPY", start_date="2024-01-01")
+        bloomberg = MarketDataConnector(str(conn._data_dir)).get_ohlcv("SPY", start_date="2024-01-01")
         theta_ok = not raw.empty
         bb_ok = bloomberg is not None and not bloomberg.empty
         ok = theta_ok or bb_ok  # engine works as long as ONE path works
@@ -138,7 +138,7 @@ def main() -> int:
         else:
             # Check Bloomberg CSV fallback
             from engine.data_connector import MarketDataConnector
-            bb_rank = MarketDataConnector(conn.data_dir).get_iv_rank("SPY")
+            bb_rank = MarketDataConnector(str(conn._data_dir)).get_iv_rank("SPY")
             bb_ok = 0.0 <= bb_rank <= 1.0 if bb_rank == bb_rank else False
             if bb_ok:
                 print(_fmt(True, "IV rank", f"source=bloomberg-fallback SPY={bb_rank:.3f}"))

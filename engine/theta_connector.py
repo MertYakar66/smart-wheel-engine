@@ -255,6 +255,14 @@ class ThetaConnector(MarketDataConnector):
             {"symbol": ticker, "expiration": exp_key},
         )
 
+        # Fetch open interest per strike — needed for dealer-positioning GEX
+        # and for liquidity / pin-risk detection. /v3/option/snapshot/open_interest
+        # returns one row per (strike, right) with `open_interest`.
+        df_oi = self._fetch(
+            "/v3/option/snapshot/open_interest",
+            {"symbol": ticker, "expiration": exp_key},
+        )
+
         if df_greeks.empty and df_quotes.empty:
             return pd.DataFrame()
 
@@ -263,12 +271,13 @@ class ThetaConnector(MarketDataConnector):
             df_greeks.columns = [c.lower() for c in df_greeks.columns]
         if not df_quotes.empty:
             df_quotes.columns = [c.lower() for c in df_quotes.columns]
+        if not df_oi.empty:
+            df_oi.columns = [c.lower() for c in df_oi.columns]
 
         # Merge on (symbol, expiration, strike, right)
         merge_keys = ["symbol", "expiration", "strike", "right"]
 
         if not df_greeks.empty and not df_quotes.empty:
-            # Keep only useful quote columns to avoid column conflicts
             quote_cols = [k for k in merge_keys if k in df_quotes.columns]
             extra_quote = [c for c in ("bid", "ask", "bid_size", "ask_size") if c in df_quotes.columns]
             df_quotes_slim = df_quotes[quote_cols + extra_quote].copy()
@@ -278,9 +287,15 @@ class ThetaConnector(MarketDataConnector):
         else:
             df = df_quotes.copy()
 
+        # Merge open interest if available
+        if not df_oi.empty and "open_interest" in df_oi.columns:
+            oi_keys = [k for k in merge_keys if k in df_oi.columns]
+            oi_cols = oi_keys + ["open_interest"]
+            df = pd.merge(df, df_oi[oi_cols], on=oi_keys, how="left")
+
         # Normalise types
         for col in ("strike", "delta", "gamma", "theta", "vega", "rho", "iv",
-                    "bid", "ask", "bid_size", "ask_size"):
+                    "bid", "ask", "bid_size", "ask_size", "open_interest"):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -484,6 +499,235 @@ class ThetaConnector(MarketDataConnector):
             return float(iv) - realised_vol
         except Exception:
             return super().get_vol_risk_premium(ticker, as_of)
+
+    # ------------------------------------------------------------------
+    # Full IV surface — every expiry × several deltas (Phase 2a)
+    # ------------------------------------------------------------------
+
+    def get_iv_surface(
+        self,
+        ticker: str,
+        max_expirations: int = 8,
+        min_dte: int = 7,
+        max_dte: int = 400,
+    ) -> pd.DataFrame:
+        """Return an IV surface across expirations.
+
+        For each expiration we keep the chain's (strike, right, delta, iv).
+        The caller can slice it by delta bucket (25Δ put, ATM, 25Δ call)
+        for skew metrics, or fit Nelson-Siegel to ATM IVs across tenors.
+
+        Columns: expiration, dte, strike, right, delta, iv, mid.
+        """
+        exps = self._fetch("/v3/option/list/expirations", {"symbol": ticker})
+        if exps.empty or "expiration" not in exps.columns:
+            return pd.DataFrame()
+        exps["expiration"] = pd.to_datetime(exps["expiration"], errors="coerce")
+        exps = exps.dropna(subset=["expiration"]).sort_values("expiration")
+
+        now = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+        exps["dte"] = (exps["expiration"] - now).dt.days
+        exps = exps[(exps["dte"] >= min_dte) & (exps["dte"] <= max_dte)]
+        if exps.empty:
+            return pd.DataFrame()
+
+        # Sample up to max_expirations across the range (front + back)
+        exps = exps.iloc[:: max(1, len(exps) // max_expirations)].head(max_expirations)
+
+        frames = []
+        for _, row in exps.iterrows():
+            exp_key = row["expiration"].strftime("%Y%m%d")
+            chain = self.get_option_chain(ticker, expiration=exp_key)
+            if chain.empty:
+                continue
+            c = chain[["strike", "right", "delta", "iv", "mid"]].copy()
+            c["expiration"] = row["expiration"]
+            c["dte"] = int(row["dte"])
+            frames.append(c)
+
+        if not frames:
+            return pd.DataFrame()
+        return pd.concat(frames, ignore_index=True)
+
+    def get_atm_term_structure(
+        self, ticker: str, max_expirations: int = 8
+    ) -> pd.DataFrame:
+        """Return ATM IV (put closest to -0.50Δ) across expirations.
+
+        Columns: expiration, dte, atm_iv. Feeds Nelson-Siegel fit.
+        """
+        surf = self.get_iv_surface(ticker, max_expirations=max_expirations)
+        if surf.empty:
+            return pd.DataFrame()
+
+        puts = surf[surf["right"] == "put"].dropna(subset=["delta", "iv"]).copy()
+        if puts.empty:
+            return pd.DataFrame()
+        puts["_gap"] = (puts["delta"].abs() - 0.50).abs()
+        atm = (
+            puts.sort_values("_gap")
+            .groupby(["expiration", "dte"], as_index=False)
+            .first()[["expiration", "dte", "iv"]]
+            .rename(columns={"iv": "atm_iv"})
+            .sort_values("dte")
+        )
+        return atm
+
+    def get_skew_snapshot(
+        self, ticker: str, dte_target: int = 35
+    ) -> dict:
+        """25Δ put / ATM / 25Δ call IV for one expiry — feeds skew_slope.
+
+        Returns {'iv_25d_put', 'iv_atm', 'iv_25d_call', 'expiration', 'dte'}
+        or empty dict if the chain is unusable.
+        """
+        exp = self._nearest_expiration(ticker, dte_target=dte_target)
+        if exp is None:
+            return {}
+        chain = self.get_option_chain(ticker, expiration=exp)
+        if chain.empty or "delta" not in chain.columns:
+            return {}
+
+        def _pick(df: pd.DataFrame, target_delta: float) -> float | None:
+            d = df.dropna(subset=["delta", "iv"]).copy()
+            if d.empty:
+                return None
+            d["_gap"] = (d["delta"] - target_delta).abs()
+            row = d.sort_values("_gap").iloc[0]
+            iv = float(row["iv"])
+            return iv if 0 < iv <= 3.0 else None
+
+        puts = chain[chain["right"] == "put"]
+        calls = chain[chain["right"] == "call"]
+        iv_25d_put = _pick(puts, -0.25)
+        iv_atm = _pick(puts, -0.50)
+        iv_25d_call = _pick(calls, 0.25)
+        if None in (iv_25d_put, iv_atm, iv_25d_call):
+            return {}
+
+        exp_ts = pd.to_datetime(exp)
+        return {
+            "iv_25d_put": iv_25d_put,
+            "iv_atm": iv_atm,
+            "iv_25d_call": iv_25d_call,
+            "expiration": exp_ts,
+            "dte": int((exp_ts - pd.Timestamp.now().normalize()).days),
+        }
+
+    # ------------------------------------------------------------------
+    # VIX family — VIX, VIX9D, VIX3M, VIX6M, VVIX, SKEW (Phase 2b)
+    # ------------------------------------------------------------------
+
+    _VIX_FAMILY = ("VIX", "VIX9D", "VIX3M", "VIX6M", "VVIX", "SKEW", "MOVE")
+
+    def get_vix_family(self) -> dict:
+        """Snapshot of volatility-regime indices.
+
+        Returns dict of symbol -> level (float). Any symbol that fails
+        is simply absent from the dict. All data from
+        /v3/index/snapshot/price.
+        """
+        out: dict[str, float] = {}
+        for sym in self._VIX_FAMILY:
+            try:
+                df = self._fetch("/v3/index/snapshot/price", {"symbol": sym})
+                if df.empty:
+                    continue
+                df.columns = [c.lower() for c in df.columns]
+                col = next(
+                    (c for c in ("price", "close", "last", "value") if c in df.columns),
+                    None,
+                )
+                if col is None:
+                    continue
+                val = pd.to_numeric(df[col], errors="coerce").dropna()
+                if val.empty:
+                    continue
+                out[sym] = float(val.iloc[-1])
+            except Exception:
+                continue
+        return out
+
+    # ------------------------------------------------------------------
+    # Historical option OHLC per strike (Phase 2c)
+    # ------------------------------------------------------------------
+
+    def get_option_ohlc_history(
+        self,
+        ticker: str,
+        expiration: str,
+        strike: float,
+        right: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> pd.DataFrame:
+        """Historical EOD OHLC for a single option contract.
+
+        Enables backtest of realised P&L paths, gamma decay, and rolling
+        transaction cost. Returns DataFrame indexed by date with columns
+        open, high, low, close, volume.
+        """
+        params: dict[str, Any] = {
+            "symbol": ticker,
+            "expiration": self._to_yyyymmdd(expiration),
+            "strike": float(strike),
+            "right": right.lower(),
+        }
+        if start_date:
+            params["start_date"] = self._to_yyyymmdd(start_date)
+        if end_date:
+            params["end_date"] = self._to_yyyymmdd(end_date)
+
+        df = self._fetch("/v3/option/history/ohlc", params)
+        if df.empty:
+            return pd.DataFrame()
+
+        df.columns = [c.lower() for c in df.columns]
+        date_col = next((c for c in ("date", "timestamp") if c in df.columns), None)
+        if date_col is None or "close" not in df.columns:
+            return pd.DataFrame()
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+        df = df.dropna(subset=[date_col]).sort_values(date_col).set_index(date_col)
+        cols = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
+        return df[cols]
+
+    # ------------------------------------------------------------------
+    # Intraday stock bars — for Garman-Klass / Yang-Zhang RV (Phase 2d)
+    # ------------------------------------------------------------------
+
+    def get_stock_intraday(
+        self,
+        ticker: str,
+        interval: str = "5m",
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> pd.DataFrame:
+        """Intraday OHLCV bars. Feeds Parkinson/GK/YZ realised-vol estimators.
+
+        interval: ThetaData supports '1m', '5m', '15m', '30m', '1h'.
+        Returns DataFrame indexed by timestamp with open/high/low/close/volume.
+        """
+        params: dict[str, Any] = {"symbol": ticker, "interval": interval}
+        if start_date:
+            params["start_date"] = self._to_yyyymmdd(start_date)
+        if end_date:
+            params["end_date"] = self._to_yyyymmdd(end_date)
+
+        df = self._fetch("/v3/stock/history/intraday", params)
+        if df.empty:
+            return pd.DataFrame()
+
+        df.columns = [c.lower() for c in df.columns]
+        ts_col = next(
+            (c for c in ("timestamp", "datetime", "date", "time") if c in df.columns),
+            None,
+        )
+        if ts_col is None or "close" not in df.columns:
+            return pd.DataFrame()
+        df[ts_col] = pd.to_datetime(df[ts_col], errors="coerce")
+        df = df.dropna(subset=[ts_col]).sort_values(ts_col).set_index(ts_col)
+        cols = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
+        return df[cols]
 
     # ------------------------------------------------------------------
     # Health check

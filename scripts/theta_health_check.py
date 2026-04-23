@@ -94,8 +94,10 @@ def main() -> int:
         failures += 1
 
     # Stock EOD — Theta first, fall back to Bloomberg CSV (engine parent class)
+    # Note: SPY is an ETF and not in the SP500 constituent CSV, so for the
+    # Bloomberg fallback probe we use AAPL (an actual constituent).
     try:
-        # Direct Theta call (avoid automatic fallback so we can distinguish)
+        # Direct Theta call for SPY (ThetaData canonical ticker)
         raw = conn._fetch(
             "/v3/stock/history/eod",
             {
@@ -105,13 +107,20 @@ def main() -> int:
             },
         )
         from engine.data_connector import MarketDataConnector
-        bloomberg = MarketDataConnector(str(conn._data_dir)).get_ohlcv("SPY", start_date="2024-01-01")
+        # Probe Bloomberg with AAPL (known constituent)
+        bloomberg = MarketDataConnector(str(conn._data_dir)).get_ohlcv("AAPL", start_date="2024-01-01")
         theta_ok = not raw.empty
         bb_ok = bloomberg is not None and not bloomberg.empty
         ok = theta_ok or bb_ok  # engine works as long as ONE path works
-        src = "theta" if theta_ok else ("bloomberg-fallback" if bb_ok else "none")
-        rows = len(raw) if theta_ok else (len(bloomberg) if bb_ok else 0)
-        print(_fmt(ok, "Stock EOD OHLCV", f"source={src} rows={rows}"))
+        if theta_ok and bb_ok:
+            src = f"theta(SPY, {len(raw)}) + bloomberg(AAPL, {len(bloomberg)})"
+        elif theta_ok:
+            src = f"theta(SPY, {len(raw)} rows)"
+        elif bb_ok:
+            src = f"bloomberg-fallback(AAPL, {len(bloomberg)} rows)"
+        else:
+            src = "none — no price source available"
+        print(_fmt(ok, "Stock EOD OHLCV", src))
         failures += 0 if ok else 1
     except Exception as e:
         print(_fmt(False, "Stock EOD OHLCV", repr(e)))
@@ -129,22 +138,24 @@ def main() -> int:
     except Exception as e:
         print(_fmt(False, "Stock intraday bars", repr(e)))
 
-    # IV rank — Theta live first, Bloomberg CSV fallback
+    # IV rank — Theta live first, Bloomberg CSV fallback (AAPL for Bloomberg)
     try:
-        rank = conn.get_iv_rank("SPY")
-        ok = 0.0 <= rank <= 1.0
-        if ok:
-            print(_fmt(True, "IV rank (live 1Y)", f"SPY={rank:.3f}"))
+        rank_spy = conn.get_iv_rank("SPY")
+        spy_ok = 0.0 <= rank_spy <= 1.0 if rank_spy == rank_spy else False
+        from engine.data_connector import MarketDataConnector
+        bb_rank = MarketDataConnector(str(conn._data_dir)).get_iv_rank("AAPL")
+        bb_ok = 0.0 <= bb_rank <= 1.0 if bb_rank == bb_rank else False
+        ok = spy_ok or bb_ok
+        if spy_ok and bb_ok:
+            detail = f"theta(SPY={rank_spy:.3f}) + bloomberg(AAPL={bb_rank:.3f})"
+        elif spy_ok:
+            detail = f"theta(SPY={rank_spy:.3f})"
+        elif bb_ok:
+            detail = f"bloomberg-fallback(AAPL={bb_rank:.3f})"
         else:
-            # Check Bloomberg CSV fallback
-            from engine.data_connector import MarketDataConnector
-            bb_rank = MarketDataConnector(str(conn._data_dir)).get_iv_rank("SPY")
-            bb_ok = 0.0 <= bb_rank <= 1.0 if bb_rank == bb_rank else False
-            if bb_ok:
-                print(_fmt(True, "IV rank", f"source=bloomberg-fallback SPY={bb_rank:.3f}"))
-            else:
-                print(_fmt(False, "IV rank", "SPY=nan in both theta & bloomberg"))
-                failures += 1
+            detail = "nan in both theta & bloomberg"
+        print(_fmt(ok, "IV rank", detail))
+        failures += 0 if ok else 1
     except Exception as e:
         print(_fmt(False, "IV rank", repr(e)))
         failures += 1

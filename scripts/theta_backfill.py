@@ -78,7 +78,7 @@ import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -173,7 +173,7 @@ class Manifest:
         self.data.setdefault("runs", []).append(
             {
                 "subcommand": subcommand,
-                "ran_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "ran_at": datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z",
                 "ok": n_ok,
                 "skipped": n_skipped,
                 "failed": n_failed,
@@ -219,21 +219,51 @@ def _parallel_run(tickers: list[str], worker, workers: int) -> tuple[int, int, i
 # Subcommands
 # ----------------------------------------------------------------------
 def cmd_stocks_eod(conn: ThetaConnector, args) -> tuple[int, int, int]:
+    """Per-ticker daily OHLCV.
+
+    Probes Theta with AAPL — if Theta returns empty (Stocks tier missing)
+    we route every ticker directly to the Bloomberg CSV in ``get_ohlcv``'s
+    parent class. This saves ~100s of 400s across the full universe.
+    """
     tickers = _parse_tickers(args.tickers, _load_universe())
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "stocks_eod"
-    start = args.start or (datetime.utcnow() - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
-    end = args.end or datetime.utcnow().strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(timezone.utc) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Probe Theta endpoint once — AAPL is guaranteed to be a constituent
+    probe = conn._fetch(
+        "/v3/stock/history/eod",
+        {
+            "symbol": "AAPL",
+            "start_date": conn._to_yyyymmdd(start),
+            "end_date": conn._to_yyyymmdd(end),
+        },
+    )
+    theta_enabled = not probe.empty
+    if not theta_enabled:
+        logger.info(
+            "stocks-eod: Theta probe empty — bypassing Theta and "
+            "routing every ticker straight to Bloomberg CSV"
+        )
+        from engine.data_connector import MarketDataConnector
+
+        bloomberg_conn = MarketDataConnector(str(conn._data_dir))
 
     def worker(t: str) -> str:
         dst = out_dir / t
         if not args.overwrite and _write_exists(dst):
             return "skip"
-        df = conn.get_ohlcv(t, start_date=start, end_date=end)
+        if theta_enabled:
+            df = conn.get_ohlcv(t, start_date=start, end_date=end)
+        else:
+            df = bloomberg_conn.get_ohlcv(t, start_date=start, end_date=end)
         if df is None or df.empty:
             return "fail"
+        df = df.copy()
         df["ticker"] = t
+        df["source"] = "theta" if theta_enabled else "bloomberg"
         _write_df(df, dst)
         return "ok"
 
@@ -243,13 +273,14 @@ def cmd_stocks_eod(conn: ThetaConnector, args) -> tuple[int, int, int]:
 def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
     """Daily OHLC history for each VIX-family index.
 
-    We use get_ohlcv with symbol type 'index' via the underlying fetch.
-    ThetaData v3 exposes historical EOD for indices at the same path as
-    stocks — the Terminal treats VIX/VIX9D/VIX3M as index symbols.
+    Tries ThetaData ``/v3/index/history/eod`` first (requires Indices tier),
+    then falls back to ``CBOEAdapter`` public CSVs for each symbol that
+    Theta didn't return. CBOE is free and has full EOD history for all
+    VIX-family indices.
     """
     symbols = ["VIX", "VIX9D", "VIX3M", "VIX6M", "VVIX", "SKEW", "MOVE"]
-    start = args.start or (datetime.utcnow() - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
-    end = args.end or datetime.utcnow().strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(timezone.utc) - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     out_dir = args.out_dir / "vix_family"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -260,36 +291,67 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
         return 0, 1, 0
 
     frames = []
+    theta_failed: list[str] = []
     for sym in symbols:
         try:
-            df = conn._fetch(  # index history uses v3/index/history/eod
+            df = conn._fetch(
                 "/v3/index/history/eod",
                 {
                     "symbol": sym,
-                    "start_date": sym and conn._to_yyyymmdd(start),
+                    "start_date": conn._to_yyyymmdd(start),
                     "end_date": conn._to_yyyymmdd(end),
                 },
             )
             if df.empty:
-                logger.warning("vix-family: %s returned empty", sym)
+                theta_failed.append(sym)
                 continue
             df.columns = [c.lower() for c in df.columns]
             date_col = next((c for c in ("date", "timestamp") if c in df.columns), None)
             if date_col is None or "close" not in df.columns:
+                theta_failed.append(sym)
                 continue
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
             df = df.dropna(subset=[date_col]).sort_values(date_col).set_index(date_col)
             keep = [c for c in ("open", "high", "low", "close") if c in df.columns]
             df = df[keep].copy()
             df["symbol"] = sym
+            df["source"] = "theta"
             frames.append(df)
         except Exception:
-            logger.exception("vix-family fetch failed for %s", sym)
+            theta_failed.append(sym)
+
+    # CBOE fallback for anything Theta didn't serve
+    if theta_failed:
+        logger.info(
+            "vix-family: falling back to CBOE for %s (no Indices tier required)",
+            theta_failed,
+        )
+        try:
+            from engine.external_data.cboe_adapter import CBOEAdapter
+
+            cboe = CBOEAdapter()
+            for sym in theta_failed:
+                df = cboe.get_series(sym)
+                if df.empty:
+                    logger.warning("vix-family CBOE fallback empty for %s", sym)
+                    continue
+                # Clip to requested date range
+                df = df.loc[pd.Timestamp(start): pd.Timestamp(end)]
+                if df.empty:
+                    continue
+                df = df.copy()
+                df["symbol"] = sym
+                df["source"] = "cboe"
+                frames.append(df)
+        except Exception:
+            logger.exception("CBOE fallback failed")
 
     if not frames:
         return 0, 0, 1
     out = pd.concat(frames)
     _write_df(out, merged_path)
+    got = sorted(out["symbol"].unique().tolist())
+    logger.info("vix-family: wrote %d symbols (%s), %d rows", len(got), got, len(out))
     return 1, 0, 0
 
 
@@ -298,7 +360,7 @@ def cmd_chains(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "chains"
-    today = datetime.utcnow().strftime("%Y%m%d")
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     def worker(t: str) -> str:
         dst = out_dir / f"{t}_{today}"
@@ -321,7 +383,7 @@ def cmd_iv_surface(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "iv_surface"
-    today = datetime.utcnow().strftime("%Y%m%d")
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
 
     def worker(t: str) -> str:
         dst = out_dir / f"{t}_{today}"
@@ -340,34 +402,122 @@ def cmd_iv_surface(conn: ThetaConnector, args) -> tuple[int, int, int]:
 
 
 def cmd_iv_history(conn: ThetaConnector, args) -> tuple[int, int, int]:
+    """Per-ticker daily IV history.
+
+    ThetaData ``/v3/option/history/greeks/first_order`` returns 500s on
+    Options Standard tier. Fall back to slicing the Bloomberg
+    ``sp500_vol_iv_full.csv`` per ticker — that file contains
+    volatility_30d / volatility_60d / volatility_90d / volatility_260d
+    daily for every S&P 500 constituent from 2015.
+
+    Strategy per ticker:
+      1. Try Theta once (5-ticker circuit breaker — stop after 5 fails).
+      2. On fail, write Bloomberg slice.
+      3. If neither source returns data, record fail.
+    """
     tickers = _parse_tickers(args.tickers, _load_universe())
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "iv_history"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pre-load the Bloomberg IV CSV once (1.36M rows, slice per ticker)
+    bb_iv = pd.DataFrame()
+    try:
+        from engine.data_connector import normalize_ticker
+
+        bb_path = Path(conn._data_dir) / "sp500_vol_iv_full.csv"
+        if bb_path.exists():
+            bb_iv = pd.read_csv(bb_path, low_memory=False)
+            bb_iv.columns = [c.lower() for c in bb_iv.columns]
+            if "ticker" in bb_iv.columns:
+                bb_iv["ticker"] = bb_iv["ticker"].apply(normalize_ticker).str.upper()
+            if "date" in bb_iv.columns:
+                bb_iv["date"] = pd.to_datetime(bb_iv["date"], errors="coerce")
+            # Group once for fast per-ticker access
+            bb_iv = bb_iv.set_index("ticker", drop=False).sort_index()
+            logger.info("iv-history: Bloomberg IV CSV loaded (%d rows)", len(bb_iv))
+    except Exception:
+        logger.exception("iv-history: Bloomberg CSV load failed")
+
+    # Circuit breaker for the Theta path — if the first 5 tickers all
+    # fail on Theta, skip the rest (saves 10+ minutes of futile 500s).
+    theta_failed_early = {"count": 0, "disabled": False}
+    theta_lock = __import__("threading").Lock()
 
     def worker(t: str) -> str:
         dst = out_dir / t
         if not args.overwrite and _write_exists(dst):
             return "skip"
-        iv = conn._fetch_iv_history(t)
-        if iv is None or iv.empty:
-            return "fail"
-        df = iv.to_frame("iv_atm")
-        df["ticker"] = t
-        _write_df(df, dst)
-        return "ok"
+
+        iv = None
+        if not theta_failed_early["disabled"]:
+            try:
+                iv = conn._fetch_iv_history(t)
+            except Exception:
+                iv = None
+            if iv is None or iv.empty:
+                with theta_lock:
+                    theta_failed_early["count"] += 1
+                    if theta_failed_early["count"] >= 5 and not theta_failed_early["disabled"]:
+                        theta_failed_early["disabled"] = True
+                        logger.warning(
+                            "iv-history: Theta endpoint disabled after 5 fails — "
+                            "using Bloomberg CSV only for remaining tickers"
+                        )
+
+        if iv is not None and not iv.empty:
+            df = iv.to_frame("iv_atm")
+            df["ticker"] = t
+            df["source"] = "theta"
+            _write_df(df, dst)
+            return "ok"
+
+        # Bloomberg fallback
+        if not bb_iv.empty and t in bb_iv.index:
+            try:
+                rows = bb_iv.loc[[t]]
+                if isinstance(rows, pd.Series):
+                    rows = rows.to_frame().T
+                cols = [c for c in ("date", "volatility_30d") if c in rows.columns]
+                if "date" in cols and "volatility_30d" in cols:
+                    df = rows[["date", "volatility_30d"]].dropna().copy()
+                    df = df.set_index("date").sort_index()
+                    df = df.rename(columns={"volatility_30d": "iv_atm"})
+                    # Normalise from percent (Bloomberg) to decimal
+                    df["iv_atm"] = df["iv_atm"].astype(float) / 100.0
+                    df["ticker"] = t
+                    df["source"] = "bloomberg"
+                    _write_df(df, dst)
+                    return "ok"
+            except Exception:
+                logger.debug("bloomberg iv slice failed for %s", t, exc_info=True)
+
+        return "fail"
 
     return _parallel_run(tickers, worker, args.workers)
 
 
 def cmd_intraday(conn: ThetaConnector, args) -> tuple[int, int, int]:
+    """Intraday bars. Requires Stocks tier — skip if probe fails."""
     tickers = _parse_tickers(args.tickers, DEFAULT_WATCHLIST)
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "intraday"
-    start = args.start or (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
-    end = args.end or datetime.utcnow().strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     interval = args.interval or "1m"
+
+    # Probe with the first ticker — if it fails, skip the whole step
+    # rather than loop through the watchlist hitting 400s.
+    probe = tickers[0] if tickers else "SPY"
+    probe_df = conn.get_stock_intraday(probe, interval=interval, start_date=start, end_date=end)
+    if probe_df is None or probe_df.empty:
+        logger.info(
+            "intraday: probe %s returned empty — likely needs Stocks tier. "
+            "Skipping intraday backfill.", probe,
+        )
+        return 0, len(tickers), 0
 
     def worker(t: str) -> str:
         dst = out_dir / f"{t}_{interval}"
@@ -388,13 +538,39 @@ def cmd_intraday(conn: ThetaConnector, args) -> tuple[int, int, int]:
 def cmd_option_ohlc(conn: ThetaConnector, args) -> tuple[int, int, int]:
     """Pull per-contract EOD OHLC for ATM put + 25Δ put + 25Δ call on
     each watchlist ticker's nearest 35-DTE expiry.
+
+    Probes SPY's nearest expiry first. If ``/v3/option/history/ohlc``
+    isn't in the subscription, the probe returns empty and we skip the
+    whole step.
     """
     tickers = _parse_tickers(args.tickers, DEFAULT_WATCHLIST)
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "option_ohlc"
-    start = args.start or (datetime.utcnow() - timedelta(days=90)).strftime("%Y-%m-%d")
-    end = args.end or datetime.utcnow().strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Probe the endpoint once using SPY's ATM put
+    try:
+        probe_exp = conn._nearest_expiration("SPY", dte_target=35)
+        probe_chain = conn.get_option_chain("SPY", expiration=probe_exp) if probe_exp else None
+        if probe_chain is not None and not probe_chain.empty and "delta" in probe_chain.columns:
+            puts = probe_chain[probe_chain["right"] == "put"].dropna(subset=["delta", "strike"]).copy()
+            if not puts.empty:
+                puts["_gap"] = (puts["delta"] - (-0.50)).abs()
+                atm = puts.sort_values("_gap").iloc[0]
+                probe_hist = conn.get_option_ohlc_history(
+                    "SPY", probe_exp, float(atm["strike"]), "put", start, end
+                )
+                if probe_hist is None or probe_hist.empty:
+                    logger.info(
+                        "option-ohlc: probe returned empty — endpoint likely needs Pro tier. "
+                        "Skipping option-ohlc backfill."
+                    )
+                    return 0, len(tickers), 0
+    except Exception:
+        logger.info("option-ohlc: probe raised — skipping the whole step")
+        return 0, len(tickers), 0
 
     def pick(df: pd.DataFrame, target_delta: float, right: str) -> dict | None:
         d = df[df["right"] == right].dropna(subset=["delta", "strike"]).copy()

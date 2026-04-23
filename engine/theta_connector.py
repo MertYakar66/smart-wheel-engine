@@ -58,6 +58,26 @@ _CHAIN_CACHE_TTL = 60
 # How many calendar days of IV history to use when computing IV rank
 _IV_RANK_LOOKBACK_DAYS = 365
 
+# Ticker translation: SP500 CSVs store class-B shares with hyphens
+# (BRK-B, BF-B) but ThetaData uses dots (BRK.B, BF.B). Extend this map
+# as we discover more cases.
+_TICKER_ALIASES: dict[str, str] = {
+    "BRK-B": "BRK.B",
+    "BF-B": "BF.B",
+    "BRK-A": "BRK.A",
+    "BF-A": "BF.A",
+    "HEI-A": "HEI.A",
+    "LEN-B": "LEN.B",
+    "MOG-A": "MOG.A",
+    "GOOG-L": "GOOGL",
+}
+
+
+def _normalise_theta_symbol(sym: str) -> str:
+    """Translate an SP500-format ticker to ThetaData's symbol."""
+    sym_u = sym.upper()
+    return _TICKER_ALIASES.get(sym_u, sym_u)
+
 
 class ThetaConnector(MarketDataConnector):
     """Live-data connector backed by ThetaData v3 via the local Terminal."""
@@ -100,6 +120,9 @@ class ThetaConnector(MarketDataConnector):
         checks. Other exceptions are logged at warning level with a
         concise message (no traceback).
         """
+        # Translate any SP500-format symbol (BRK-B) to ThetaData's (BRK.B)
+        if "symbol" in params and isinstance(params["symbol"], str):
+            params = {**params, "symbol": _normalise_theta_symbol(params["symbol"])}
         params = {**params, "format": "csv"}
         url = f"{self._base}{path}"
         try:
@@ -458,22 +481,41 @@ class ThetaConnector(MarketDataConnector):
         end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
         start_date = (datetime.now(timezone.utc) - timedelta(days=_IV_RANK_LOOKBACK_DAYS)).strftime("%Y%m%d")
 
-        df = self._fetch(
+        # Endpoint candidates in Options Standard tier. ``greeks/first_order``
+        # requires Pro tier (the user reports 500s). Fall back to:
+        #   /v3/option/history/implied_volatility — direct IV series
+        #   /v3/option/history/iv                  — alternate alias
+        # Each returns a CSV with date + iv columns.
+        base_params = {
+            "symbol": ticker,
+            "expiration": exp,
+            "right": "put",
+            "strike": atm_strike,
+            "start_date": start_date,
+            "end_date": end_date,
+            "interval": "1d",
+        }
+        endpoints = (
+            "/v3/option/history/implied_volatility",
+            "/v3/option/history/iv",
             "/v3/option/history/greeks/first_order",
-            {
-                "symbol": ticker,
-                "expiration": exp,
-                "right": "put",
-                "strike": atm_strike,
-                "start_date": start_date,
-                "end_date": end_date,
-                "interval": "1d",
-            },
         )
+        df = pd.DataFrame()
+        for ep in endpoints:
+            df = self._fetch(ep, base_params)
+            if not df.empty:
+                df.columns = [c.lower() for c in df.columns]
+                # Alias IV column name if the endpoint uses a different name
+                for alias in ("implied_vol", "implied_volatility", "mid_iv", "sigma"):
+                    if alias in df.columns and "iv" not in df.columns:
+                        df = df.rename(columns={alias: "iv"})
+                        break
+                if "iv" in df.columns:
+                    break
+                df = pd.DataFrame()
         if df.empty or "iv" not in df.columns:
             return None
 
-        df.columns = [c.lower() for c in df.columns]
         date_col = next((c for c in ("date", "timestamp") if c in df.columns), None)
         if date_col is None:
             return None
@@ -723,6 +765,31 @@ class ThetaConnector(MarketDataConnector):
                         out[sym] = val
             except Exception:
                 logger.debug("CBOE fallback failed", exc_info=True)
+
+        # Yahoo fallback for the remaining (VVIX, SKEW, MOVE which CBOE
+        # doesn't publish under the standard URL pattern).
+        still_missing = [s for s in self._VIX_FAMILY if s not in out]
+        if still_missing:
+            try:
+                from engine.external_data.yfinance_adapter import YFinanceAdapter
+
+                yf = YFinanceAdapter()
+                # Yahoo symbols for VIX-family indices
+                yf_map = {
+                    "VIX": "^VIX",
+                    "VIX9D": "^VIX9D",
+                    "VIX3M": "^VIX3M",
+                    "VIX6M": "^VIX6M",
+                    "VVIX": "^VVIX",
+                    "SKEW": "^SKEW",
+                    "MOVE": "^MOVE",
+                }
+                for sym in still_missing:
+                    val = yf.latest_close(yf_map.get(sym, f"^{sym}"))
+                    if val == val:
+                        out[sym] = val
+            except Exception:
+                logger.debug("Yahoo fallback failed", exc_info=True)
         return out
 
     # ------------------------------------------------------------------

@@ -969,16 +969,23 @@ class WheelRunner:
                                         f"chain_quality:{critical[0].message[:80]}"
                                     )
                             except Exception:
-                                # Quality check failure must never crash
-                                # the ranker itself — degrade to "unknown
-                                # quality" and let the trade proceed.
                                 pass
 
+                        # When the chain has quality issues we DROP the
+                        # dealer-positioning overlay for this ticker but
+                        # still let the EV ranker rank it on synthetic
+                        # premium + forward distribution. Dealer
+                        # positioning is a multiplier, not a gate — a
+                        # noisy chain should not invalidate an otherwise
+                        # good candidate. The blocked reason is exposed
+                        # in the output row so callers can audit.
                         if chain_quality_blocked_reason:
-                            # Hard skip this ticker entirely
-                            continue
-
-                        if len(cdf) > 0:
+                            logger.debug(
+                                "%s: %s — skipping dealer overlay, ranking continues",
+                                ticker, chain_quality_blocked_reason,
+                            )
+                            market_structure = None
+                        elif len(cdf) > 0:
                             market_structure = dealer_analyzer.analyze(
                                 chain=cdf,
                                 spot=spot,
@@ -1076,6 +1083,7 @@ class WheelRunner:
                         "credit_multiplier": round(credit_mult, 4),
                         "credit_regime": credit_regime,
                         "strike_open_interest": strike_oi,
+                        "chain_quality_warning": chain_quality_blocked_reason or None,
                     }
                 )
             rows.append(row)

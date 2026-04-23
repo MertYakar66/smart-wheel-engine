@@ -297,6 +297,17 @@ class ThetaConnector(MarketDataConnector):
         if not df_oi.empty:
             df_oi.columns = [c.lower() for c in df_oi.columns]
 
+        # ThetaData v3 reports the implied volatility under a variety of
+        # column names depending on endpoint version (``implied_vol``,
+        # ``implied_volatility``, ``mid_iv``, ``sigma``). Canonicalise to
+        # ``iv`` so every downstream consumer has a stable contract.
+        _IV_ALIASES = ("implied_vol", "implied_volatility", "mid_iv", "sigma")
+        if not df_greeks.empty and "iv" not in df_greeks.columns:
+            for alias in _IV_ALIASES:
+                if alias in df_greeks.columns:
+                    df_greeks = df_greeks.rename(columns={alias: "iv"})
+                    break
+
         # The greeks endpoint already returns bid/ask (computed via the
         # implied-vol calculation). To avoid pandas creating bid_x / ask_x
         # suffixed columns on merge, strip quote-side fields from greeks

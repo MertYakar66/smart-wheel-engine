@@ -74,9 +74,33 @@ _TICKER_ALIASES: dict[str, str] = {
 
 
 def _normalise_theta_symbol(sym: str) -> str:
-    """Translate an SP500-format ticker to ThetaData's symbol."""
-    sym_u = sym.upper()
-    return _TICKER_ALIASES.get(sym_u, sym_u)
+    """Translate an SP500-format ticker to ThetaData's symbol.
+
+    Handles three different ticker formats seen in the S&P 500 universe:
+      - ``BRK-B`` (hyphen, most common CSV format)      -> ``BRK.B``
+      - ``BRK/B`` (slash, Bloomberg composite format)   -> ``BRK.B``
+      - ``BRK B``  (space, some Bloomberg exports)      -> ``BRK.B``
+      - ``AAPL UW Equity`` (full Bloomberg ticker)      -> ``AAPL``
+
+    Also strips Bloomberg suffixes (``UW``, ``UN``, ``US``, ``Equity``).
+    """
+    s = sym.strip().upper()
+    # Strip Bloomberg suffixes
+    for suffix in (" UW EQUITY", " UN EQUITY", " US EQUITY",
+                   " UW", " UN", " US", " EQUITY"):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)].rstrip()
+    # Explicit alias first (handles any special cases)
+    if s in _TICKER_ALIASES:
+        return _TICKER_ALIASES[s]
+    # Generic: any non-dot separator between root and a single letter
+    # becomes a dot (BRK/B, BRK-B, BRK B  ->  BRK.B).
+    for sep in ("/", "-", " "):
+        if sep in s:
+            parts = s.split(sep)
+            if len(parts) == 2 and len(parts[1]) == 1:
+                return f"{parts[0]}.{parts[1]}"
+    return s
 
 
 class ThetaConnector(MarketDataConnector):
@@ -214,26 +238,34 @@ class ThetaConnector(MarketDataConnector):
     ) -> pd.DataFrame:
         """Get OHLCV from ThetaData stock history, fall back to Bloomberg CSV.
 
-        v3 requires BOTH ``start_date`` and ``end_date`` for history endpoints.
-        We default ``start_date`` to 2 years ago and ``end_date`` to today
-        when callers don't pass them.
+        v3 requires BOTH ``start_date`` and ``end_date`` for history endpoints
+        so we fill sensible defaults for the Theta call. The Bloomberg
+        fallback is called with the caller's ORIGINAL args (preserving
+        ``None``) so that when the caller passed no dates, Bloomberg
+        returns the full 2018-onwards history — critical for the EV
+        ranker's 504-trading-day history gate.
         """
-        # v3 requires both start and end dates. Fill in sensible defaults.
-        if start_date is None:
-            start_date = (datetime.now(timezone.utc) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
-        if end_date is None:
-            end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # Preserve caller's original args for the fallback path
+        orig_start = start_date
+        orig_end = end_date
+
+        # v3 requires both start and end dates. Fill in sensible defaults
+        # ONLY for the Theta call.
+        theta_start = start_date or (
+            datetime.now(timezone.utc) - timedelta(days=365 * 2)
+        ).strftime("%Y-%m-%d")
+        theta_end = end_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         params: dict[str, Any] = {
             "symbol": ticker,
-            "start_date": self._to_yyyymmdd(start_date),
-            "end_date": self._to_yyyymmdd(end_date),
+            "start_date": self._to_yyyymmdd(theta_start),
+            "end_date": self._to_yyyymmdd(theta_end),
         }
 
         df = self._fetch("/v3/stock/history/eod", params)
         if df.empty:
             logger.debug("ThetaData OHLCV empty for %s, using Bloomberg CSV", ticker)
-            return super().get_ohlcv(ticker, start_date, end_date)
+            return super().get_ohlcv(ticker, orig_start, orig_end)
 
         # Normalise column names (v3 returns lowercase)
         df.columns = [c.lower() for c in df.columns]

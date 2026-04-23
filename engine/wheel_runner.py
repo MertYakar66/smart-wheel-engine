@@ -925,6 +925,29 @@ class WheelRunner:
                         else:
                             expiry_date = trade_end_d
 
+                        # Pre-clean: after-hours snapshots have stale NBBO
+                        # quotes with crossed markets (bid > ask) and stale
+                        # contracts with bid = ask = 0. These are ROW-LEVEL
+                        # issues, not ticker-level ones. Drop the bad rows
+                        # so the quality gate has a clean surface to check
+                        # against — otherwise we hard-skip the whole ticker
+                        # when market is closed.
+                        if {"bid", "ask"}.issubset(cdf.columns):
+                            bid_n = pd.to_numeric(cdf["bid"], errors="coerce")
+                            ask_n = pd.to_numeric(cdf["ask"], errors="coerce")
+                            valid = bid_n.notna() & ask_n.notna()
+                            keep = (
+                                ~valid
+                                | (
+                                    (bid_n <= ask_n)
+                                    & ~((bid_n == 0) & (ask_n == 0))
+                                )
+                            )
+                            cdf = cdf[keep].copy()
+                        if {"iv"}.issubset(cdf.columns):
+                            iv_n = pd.to_numeric(cdf["iv"], errors="coerce")
+                            cdf = cdf[iv_n.isna() | ((iv_n >= 0) & (iv_n <= 5.0))].copy()
+
                         if enforce_chain_quality_gate and len(cdf) > 0:
                             try:
                                 from data.quality import (

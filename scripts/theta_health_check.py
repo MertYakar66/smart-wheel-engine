@@ -17,6 +17,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from engine.theta_connector import ThetaConnector  # noqa: E402
@@ -47,10 +49,16 @@ def main() -> int:
         failures += 1
 
     # Chain snapshot
+    chain = pd.DataFrame()
     try:
         chain = conn.get_option_chain("SPY", dte_target=35)
-        ok = not chain.empty and "iv" in chain.columns
-        detail = f"rows={len(chain)}  cols={list(chain.columns)[:8]}"
+        has_iv = "iv" in chain.columns
+        has_delta = "delta" in chain.columns
+        has_bid = "bid" in chain.columns
+        ok = not chain.empty and has_iv and has_delta
+        detail = (
+            f"rows={len(chain)} iv={has_iv} delta={has_delta} bid={has_bid}"
+        )
         print(_fmt(ok, "Option chain snapshot (greeks+quote+OI)", detail))
         failures += 0 if ok else 1
     except Exception as e:
@@ -59,7 +67,7 @@ def main() -> int:
 
     # OI present
     try:
-        has_oi = "open_interest" in chain.columns
+        has_oi = "open_interest" in chain.columns and not chain.empty
         print(_fmt(has_oi, "Open interest merged", f"present={has_oi}"))
         failures += 0 if has_oi else 1
     except Exception:

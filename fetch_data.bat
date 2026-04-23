@@ -8,21 +8,25 @@ REM ============================================================
 cd /d "%~dp0"
 
 echo.
-echo [1/3] Checking ThetaTerminal health...
+echo [1/3] Probing ThetaTerminal endpoints...
 python scripts\theta_health_check.py
-if errorlevel 1 (
+set HEALTH_CODE=%errorlevel%
+
+if %HEALTH_CODE% neq 0 (
     echo.
-    echo   Terminal not healthy. Start it with:
-    echo     java -jar ThetaTerminalv3.jar ^<email^> ^<password^>
-    echo   then run this script again.
-    pause
-    exit /b 1
+    echo   Some checks failed. This is usually a subscription-tier gap
+    echo   (e.g. VIX-family endpoints need the Indices subscription),
+    echo   not a Terminal problem. The engine falls back to CBOE public
+    echo   data and Bloomberg CSVs for anything missing.
+    echo.
+    set /p CONTINUE="Continue with the backfill anyway? (y/N): "
+    if /i not "%CONTINUE%"=="y" exit /b 1
 )
 
 echo.
-echo [2/3] Running full backfill (this can take 30-90 minutes)...
+echo [2/3] Running full backfill (can take 30-90 minutes)...
 echo   Output: data_processed\theta\
-echo   Progress will print every 25 tickers.
+echo   Progress prints every 25 tickers. Safe to stop and restart.
 python -m scripts.theta_backfill all
 if errorlevel 1 (
     echo.
@@ -33,6 +37,6 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/3] Done. Manifest written to data_processed\theta\_manifest.json
+echo [3/3] Done. Manifest: data_processed\theta\_manifest.json
 echo.
 pause

@@ -93,14 +93,23 @@ class ThetaConnector(MarketDataConnector):
         """GET a v3 endpoint, return the response parsed as CSV DataFrame.
 
         Returns an empty DataFrame on any error so callers can fall back
-        to Bloomberg CSV without crashing.
+        to Bloomberg CSV without crashing. Known-degraded responses
+        (403 Forbidden = subscription tier missing, 500 = server-side
+        unavailable, 400 Bad Request = malformed params) are logged at
+        debug-level only so they don't spam the console during health
+        checks. Other exceptions are logged at warning level with a
+        concise message (no traceback).
         """
         params = {**params, "format": "csv"}
         url = f"{self._base}{path}"
         try:
             with self._semaphore:
                 resp = self._session.get(url, params=params, timeout=30)
-            if resp.status_code == 404:
+            if resp.status_code in (400, 403, 404, 500, 502, 503):
+                logger.debug(
+                    "ThetaData %s on %s params=%s (subscription or server-side)",
+                    resp.status_code, path, params,
+                )
                 return pd.DataFrame()
             resp.raise_for_status()
             text = resp.text.strip()
@@ -111,8 +120,11 @@ class ThetaConnector(MarketDataConnector):
         except requests.exceptions.ConnectionError:
             logger.warning("ThetaTerminal not reachable at %s — falling back to CSV", self._base)
             return pd.DataFrame()
-        except Exception:
-            logger.exception("ThetaData fetch failed: %s params=%s", path, params)
+        except requests.exceptions.RetryError as e:
+            logger.debug("ThetaData retries exhausted on %s: %s", path, str(e)[:200])
+            return pd.DataFrame()
+        except Exception as e:
+            logger.warning("ThetaData fetch failed: %s — %s", path, str(e)[:200])
             return pd.DataFrame()
 
     def _chain_cache_key(self, ticker: str, expiration: str) -> str:
@@ -177,12 +189,23 @@ class ThetaConnector(MarketDataConnector):
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> pd.DataFrame:
-        """Get OHLCV from ThetaData stock history, fall back to Bloomberg CSV."""
-        params: dict[str, Any] = {"symbol": ticker}
-        if start_date:
-            params["start_date"] = self._to_yyyymmdd(start_date)
-        if end_date:
-            params["end_date"] = self._to_yyyymmdd(end_date)
+        """Get OHLCV from ThetaData stock history, fall back to Bloomberg CSV.
+
+        v3 requires BOTH ``start_date`` and ``end_date`` for history endpoints.
+        We default ``start_date`` to 2 years ago and ``end_date`` to today
+        when callers don't pass them.
+        """
+        # v3 requires both start and end dates. Fill in sensible defaults.
+        if start_date is None:
+            start_date = (datetime.now(timezone.utc) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
+        if end_date is None:
+            end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        params: dict[str, Any] = {
+            "symbol": ticker,
+            "start_date": self._to_yyyymmdd(start_date),
+            "end_date": self._to_yyyymmdd(end_date),
+        }
 
         df = self._fetch("/v3/stock/history/eod", params)
         if df.empty:
@@ -273,6 +296,15 @@ class ThetaConnector(MarketDataConnector):
             df_quotes.columns = [c.lower() for c in df_quotes.columns]
         if not df_oi.empty:
             df_oi.columns = [c.lower() for c in df_oi.columns]
+
+        # The greeks endpoint already returns bid/ask (computed via the
+        # implied-vol calculation). To avoid pandas creating bid_x / ask_x
+        # suffixed columns on merge, strip quote-side fields from greeks
+        # so the quote DataFrame is the sole source of truth for them.
+        if not df_greeks.empty:
+            for col in ("bid", "ask", "bid_size", "ask_size", "timestamp"):
+                if col in df_greeks.columns:
+                    df_greeks = df_greeks.drop(columns=[col])
 
         # Merge on (symbol, expiration, strike, right)
         merge_keys = ["symbol", "expiration", "strike", "right"]
@@ -540,10 +572,18 @@ class ThetaConnector(MarketDataConnector):
             chain = self.get_option_chain(ticker, expiration=exp_key)
             if chain.empty:
                 continue
-            c = chain[["strike", "right", "delta", "iv", "mid"]].copy()
+            want = ["strike", "right", "delta", "iv", "mid"]
+            have = [c for c in want if c in chain.columns]
+            if "strike" not in have or "right" not in have:
+                continue
+            c = chain[have].copy()
+            # Fill in any missing columns so downstream code can rely on them
+            for col in want:
+                if col not in c.columns:
+                    c[col] = np.nan
             c["expiration"] = row["expiration"]
             c["dte"] = int(row["dte"])
-            frames.append(c)
+            frames.append(c[want + ["expiration", "dte"]])
 
         if not frames:
             return pd.DataFrame()
@@ -624,28 +664,54 @@ class ThetaConnector(MarketDataConnector):
         """Snapshot of volatility-regime indices.
 
         Returns dict of symbol -> level (float). Any symbol that fails
-        is simply absent from the dict. All data from
-        /v3/index/snapshot/price.
+        is simply absent from the dict. Strategy:
+
+        1. Try ThetaData ``/v3/index/snapshot/price`` (requires Indices tier).
+        2. If the Theta call 403s / returns empty, fall back to the CBOE
+           public daily CSV via :class:`CBOEAdapter`. CBOE data is free
+           and end-of-day for all VIX-family indices.
         """
         out: dict[str, float] = {}
-        for sym in self._VIX_FAMILY:
+        # Suppress noisy 403s when the tier doesn't cover indices — we
+        # want to quietly fall back to CBOE.
+        theta_logger = logging.getLogger(__name__)
+        prev_level = theta_logger.level
+        theta_logger.setLevel(logging.CRITICAL)
+        try:
+            for sym in self._VIX_FAMILY:
+                try:
+                    df = self._fetch("/v3/index/snapshot/price", {"symbol": sym})
+                    if df.empty:
+                        continue
+                    df.columns = [c.lower() for c in df.columns]
+                    col = next(
+                        (c for c in ("price", "close", "last", "value") if c in df.columns),
+                        None,
+                    )
+                    if col is None:
+                        continue
+                    val = pd.to_numeric(df[col], errors="coerce").dropna()
+                    if val.empty:
+                        continue
+                    out[sym] = float(val.iloc[-1])
+                except Exception:
+                    continue
+        finally:
+            theta_logger.setLevel(prev_level)
+
+        # CBOE fallback for any symbols Theta didn't provide
+        missing = [s for s in self._VIX_FAMILY if s not in out]
+        if missing:
             try:
-                df = self._fetch("/v3/index/snapshot/price", {"symbol": sym})
-                if df.empty:
-                    continue
-                df.columns = [c.lower() for c in df.columns]
-                col = next(
-                    (c for c in ("price", "close", "last", "value") if c in df.columns),
-                    None,
-                )
-                if col is None:
-                    continue
-                val = pd.to_numeric(df[col], errors="coerce").dropna()
-                if val.empty:
-                    continue
-                out[sym] = float(val.iloc[-1])
+                from engine.external_data.cboe_adapter import CBOEAdapter
+
+                cboe = CBOEAdapter()
+                for sym in missing:
+                    val = cboe.latest(sym)
+                    if val == val:  # not NaN
+                        out[sym] = val
             except Exception:
-                continue
+                logger.debug("CBOE fallback failed", exc_info=True)
         return out
 
     # ------------------------------------------------------------------

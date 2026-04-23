@@ -21,6 +21,7 @@ arch
 joblib
 tqdm
 requests
+pyarrow  # parquet writes for ThetaData backfill (scripts/theta_backfill.py)
 
 # Web dashboard
 streamlit

@@ -100,8 +100,11 @@ The `EnginePhaseReviewer` rules, for reference:
   **28/503** — mega-caps + sector ETFs only (AAPL, MSFT, SPY, QQQ, the
   XL* sectors, plus 20 others — full list in the directory);
   `index_options_{chains,surfaces}/` cover SPX/SPXW/NDX/RUT/DJX/XSP;
-  `vix_family.parquet` ~12y. The manifest's 29 persistent failures are
-  the tier ceiling, not missing data.
+  `vix_family.parquet` ~12y. `iv_surface_history/` (historical
+  surfaces, distinct from the snapshot `iv_surface/`) is absent on
+  the current Drive snapshot — `feature_smoke_test.py:1329` raises a
+  clear `Skip` when it's missing, no silent pass. The manifest's 29
+  persistent failures are the tier ceiling, not missing data.
 - **`iv_surface/` coverage is 5.6% of the universe — and currently
   unused by any live decision path.** The SVI tools in
   `engine/volatility_surface.py` (`VolatilitySurfaceBuilder`,

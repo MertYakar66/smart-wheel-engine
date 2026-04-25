@@ -94,3 +94,80 @@ def test_custom_provider_pristine_chart_cannot_upgrade_negative_ev():
         f"pristine chart rescued negative-EV trade (verdict={d.verdict!r}) — R1 breached"
     )
     assert d.verdict_reason == "negative_ev"
+
+
+# ----------------------------------------------------------------------
+# MCP provider contract tests (pending implementation)
+# ----------------------------------------------------------------------
+# These tests are import-guarded — dormant until
+# engine.tradingview_bridge.MCPChartProvider exists, then auto-activate
+# and pin the contract structurally. See:
+#   docs/TRADINGVIEW_MCP_INTEGRATION.md §3 (hard invariants),
+#   §7 (missing-data contract), §8 q4 (PIT discipline).
+
+import pytest
+
+try:
+    from engine.tradingview_bridge import MCPChartProvider  # noqa: F401
+    _HAS_MCP_PROVIDER = True
+except ImportError:
+    _HAS_MCP_PROVIDER = False
+
+
+@pytest.mark.skipif(
+    not _HAS_MCP_PROVIDER,
+    reason="MCPChartProvider not yet implemented — see docs/TRADINGVIEW_MCP_INTEGRATION.md",
+)
+def test_mcp_provider_errored_context_routes_to_review():
+    """Contract: MCPChartProvider returning error='mcp_unavailable' flows
+    through the dossier layer, hits R2, resolves to review/chart_context_missing.
+
+    Pins 'no quiet substitution' (§3, §7).
+
+    Requires the test seam from §7: MCPChartProvider must expose a
+    deterministic way to force `fetch()` to return a ChartContext with
+    a specific `error` value — e.g. `MCPChartProvider.with_forced_error(...)`,
+    an injectable client, or a subclass.
+    """
+    from engine.tradingview_bridge import MCPChartProvider
+    provider = MCPChartProvider.with_forced_error("mcp_unavailable")
+
+    ev_df = pd.DataFrame([{
+        "ticker": "FAKE",
+        "spot": 100.0,
+        "strike": 95.0,
+        "premium": 2.0,
+        "ev_dollars": 50.0,
+        "phase": "post_expansion",
+    }])
+    dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5)
+    assert len(dossiers) == 1
+    d = dossiers[0]
+    assert d.verdict == "review", (
+        f"errored MCP context did not route to review (verdict={d.verdict!r}) — "
+        "no-quiet-substitution rule breached"
+    )
+    assert d.verdict_reason == "chart_context_missing"
+
+
+@pytest.mark.skipif(
+    not _HAS_MCP_PROVIDER,
+    reason="MCPChartProvider not yet implemented — see docs/TRADINGVIEW_MCP_INTEGRATION.md",
+)
+def test_mcp_provider_pit_violation_when_as_of_set():
+    """Contract: when as_of is set (PIT/backtest mode), MCPChartProvider
+    must return ChartContext(error='pit_violation') — a live screenshot
+    in a backtest is a look-ahead leak.
+
+    Pins §8 question 4 (PIT discipline).
+    """
+    from datetime import datetime
+    from engine.tradingview_bridge import MCPChartProvider
+    provider = MCPChartProvider()  # live, no forced error
+
+    ctx = provider.fetch("AAPL", "1D", as_of=datetime(2024, 6, 1))
+    assert ctx.error == "pit_violation", (
+        f"MCPChartProvider returned ctx.error={ctx.error!r} when as_of was set — "
+        "should have refused the live call to avoid look-ahead leak"
+    )
+    assert ctx.screenshot_path is None

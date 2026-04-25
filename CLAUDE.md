@@ -102,12 +102,17 @@ The `EnginePhaseReviewer` rules, for reference:
   `index_options_{chains,surfaces}/` cover SPX/SPXW/NDX/RUT/DJX/XSP;
   `vix_family.parquet` ~12y. The manifest's 29 persistent failures are
   the tier ceiling, not missing data.
-- **`iv_surface/` coverage is 5.6% of the universe.** Any code path
-  that assumes a per-ticker SVI surface must degrade loudly (explicit
-  error or clearly-named fallback), never silently — otherwise
-  features built on it will return garbage for 475 tickers without
-  flagging. If you add an SVI-dependent feature, check the file
-  exists and raise; do not fall through to flat-IV.
+- **`iv_surface/` coverage is 5.6% of the universe — and currently
+  unused by any live decision path.** The SVI tools in
+  `engine/volatility_surface.py` (`VolatilitySurfaceBuilder`,
+  `create_empirical_surface`, etc.) are exported but have zero
+  non-test callers as of 2026-04-25; `get_iv_surface()` on either
+  connector returns an empty DataFrame on missing data, not a
+  flat-IV stub. Before wiring SVI surfaces into a feature or the
+  decision path, decide on the missing-data contract: fail loudly
+  on the 475 uncovered tickers, or use a clearly-named fallback
+  (`flat_iv_fallback`, not silent). Audit pass: 2026-04-25, no
+  live silent-fallback paths found.
 - `data_processed/theta_capabilities.json` records the tier map; if
   absent, regenerate with `scripts/probe_theta_capabilities.py`.
 - **Drive mounts are eventually-consistent mirrors of the laptop's

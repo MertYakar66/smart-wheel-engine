@@ -40,7 +40,7 @@ fi
 
 # 4. Python deps — install missing packages in batches that fit a 45s budget.
 python3 - <<'PY' 2>&1 | sed 's/^/│  /'
-import importlib.util, subprocess, sys
+import importlib.util, os, subprocess, sys
 
 batches = [
     ["scipy"],
@@ -49,6 +49,24 @@ batches = [
 ]
 alias = {"scikit-learn": "sklearn"}
 
+# Compute the full missing set up front so we can early-exit before
+# attempting any install. Avoids noise when all deps are already
+# present (e.g. a developer with system pandas/scipy from another
+# project).
+all_pkgs = [p for batch in batches for p in batch]
+missing_all = [p for p in all_pkgs if importlib.util.find_spec(alias.get(p, p)) is None]
+
+if missing_all:
+    in_venv = sys.prefix != sys.base_prefix
+    allow_global = os.environ.get("SWE_ALLOW_GLOBAL_PIP") == "1"
+    if not in_venv and not allow_global:
+        print(f"⚠ Missing deps {missing_all} — no venv active, SWE_ALLOW_GLOBAL_PIP unset.")
+        print("  Activate your venv first, OR if this is an ephemeral sandbox:")
+        print("    export SWE_ALLOW_GLOBAL_PIP=1 && bash .claude/hooks/session_start.sh")
+        sys.exit(0)
+
+# Safe to install: either in a venv (--break-system-packages is a no-op
+# inside one) or explicit opt-in for global install.
 for batch in batches:
     missing = [p for p in batch if importlib.util.find_spec(alias.get(p, p)) is None]
     if not missing:

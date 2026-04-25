@@ -127,6 +127,13 @@ The `EnginePhaseReviewer` rules, for reference:
   `pip install pyarrow --break-system-packages`. The SessionStart
   hook (step 4) should assert `import pyarrow` alongside the provider
   log.
+- `pip install -r requirements.txt` exceeds the 45s bash timeout in a
+  fresh Cowork sandbox. Batch the installs: `scipy` alone, then
+  `statsmodels arch scikit-learn`, then `yfinance pydantic` — or let
+  the SessionStart hook (step 4) handle batching. Same rule applies
+  to any single bash call: if it can't finish in 45s, chunk it and
+  pass state through workspace files (bash calls don't share state
+  across invocations, so `nohup &` doesn't persist).
 
 **Always log which provider was actually selected** when starting a run.
 Silent provider selection is a recurring bug source.
@@ -179,10 +186,32 @@ they are out of scope by design:
 Before making non-trivial changes:
 
 1. Read this file and `LAPTOP_SETUP.md`.
-2. Confirm the provider: `echo $SWE_DATA_PROVIDER` (unset → defaults to
-   `bloomberg`).
-3. Run a sanity check: `python scripts/diagnose_candidates.py` against
-   a handful of tickers. If it returns rows, the data layer is healthy.
+2. Confirm the provider. Default is wired in
+   `engine/wheel_runner.py:130` as
+   `os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()` —
+   unset → `bloomberg`. Verify empirically:
+   `python -c "from engine.wheel_runner import WheelRunner;
+   r=WheelRunner(); print(type(r.connector).__name__)"` should
+   print `MarketDataConnector` in a Cowork sandbox.
+3. Sanity-check the data layer. **Do not** run
+   `scripts/diagnose_candidates.py` with the default full-universe
+   (tickers=None) in Cowork — it takes ~3 min and exceeds the 45s
+   bash timeout. Instead, pass an explicit 5-ticker list:
+
+   ```python
+   from engine.wheel_runner import WheelRunner
+   df = WheelRunner().rank_candidates_by_ev(
+       tickers=["AAPL", "MSFT", "JPM", "XOM", "UNH"],
+       top_n=10, min_ev_dollars=-1e9,
+       include_diagnostic_fields=True,
+   )
+   ```
+
+   Runs in ~2s. If it returns 5 rows with non-null `ev_dollars`,
+   `iv`, and `premium`, the Bloomberg CSVs + connector + EV engine
+   path is healthy. On a laptop with the Theta Terminal up, run the
+   full `scripts/diagnose_candidates.py` — that's the full-universe
+   smoke test.
 4. For any change touching the decision layer (`ev_engine.py`,
    `wheel_runner.py`, `candidate_dossier.py`): run the full test suite
    (`pytest tests/ -v`), not just the targeted file. The invariants are

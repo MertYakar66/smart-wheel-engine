@@ -97,6 +97,11 @@ The `EnginePhaseReviewer` rules, for reference:
   via `scripts/pull_all.py` on a machine with Terminal, then copied in.
 - `data_processed/theta_capabilities.json` records the tier map; if
   absent, regenerate with `scripts/probe_theta_capabilities.py`.
+- **Drive mounts are eventually-consistent mirrors of the laptop's
+  currently-checked-out branch, not a source of truth for the repo.**
+  Always resolve via `git fetch origin && git checkout <branch>`, not
+  `ls` on the Drive path — a branch the laptop hasn't checked out
+  won't appear.
 
 **Always log which provider was actually selected** when starting a run.
 Silent provider selection is a recurring bug source.

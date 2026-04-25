@@ -95,6 +95,19 @@ The `EnginePhaseReviewer` rules, for reference:
 - Backfilled Theta pulls under `data_processed/theta/**` can be read
   directly when present — they're gitignored and must be rehydrated
   via `scripts/pull_all.py` on a machine with Terminal, then copied in.
+  Current Drive snapshot (2026-04-23 manifest): `chains/` 495/503,
+  `stocks_eod/` + `iv_history/` 493/503 (full coverage); `iv_surface/`
+  **28/503** — mega-caps + sector ETFs only (AAPL, MSFT, SPY, QQQ, the
+  XL* sectors, plus 20 others — full list in the directory);
+  `index_options_{chains,surfaces}/` cover SPX/SPXW/NDX/RUT/DJX/XSP;
+  `vix_family.parquet` ~12y. The manifest's 29 persistent failures are
+  the tier ceiling, not missing data.
+- **`iv_surface/` coverage is 5.6% of the universe.** Any code path
+  that assumes a per-ticker SVI surface must degrade loudly (explicit
+  error or clearly-named fallback), never silently — otherwise
+  features built on it will return garbage for 475 tickers without
+  flagging. If you add an SVI-dependent feature, check the file
+  exists and raise; do not fall through to flat-IV.
 - `data_processed/theta_capabilities.json` records the tier map; if
   absent, regenerate with `scripts/probe_theta_capabilities.py`.
 - **Drive mounts are eventually-consistent mirrors of the laptop's
@@ -102,6 +115,18 @@ The `EnginePhaseReviewer` rules, for reference:
   Always resolve via `git fetch origin && git checkout <branch>`, not
   `ls` on the Drive path — a branch the laptop hasn't checked out
   won't appear.
+- Drive mounts also deny `unlink` on existing tracked files, so
+  `git pull` fetches refs but can't update the worktree
+  (`error: unable to unlink old '<file>': Operation not permitted`).
+  To read a newer revision without checking it out, use
+  `git show origin/<branch>:<path>`. That's the workaround for
+  cross-branch reads from Cowork.
+- `pyarrow` is listed in `requirements.txt` but is **not**
+  pre-installed in a fresh Cowork bash sandbox. Any parquet read
+  dies with `Unable to find a usable engine` until you run
+  `pip install pyarrow --break-system-packages`. The SessionStart
+  hook (step 4) should assert `import pyarrow` alongside the provider
+  log.
 
 **Always log which provider was actually selected** when starting a run.
 Silent provider selection is a recurring bug source.

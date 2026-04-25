@@ -264,7 +264,10 @@ dashboard/data/*.db-wal
 # =============================================================================
 # Claude Code local state
 # =============================================================================
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 
 # =============================================================================
 # Derived / runtime data — regenerate via scripts/backfill_features.py

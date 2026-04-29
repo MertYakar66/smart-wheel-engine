@@ -131,7 +131,11 @@ smart-wheel-engine/
 ├── utils/                  # Utilities
 │   └── security.py         # Security features
 ├── docs/                   # Documentation
-│   └── QUANT_AUDIT_REPORT.md
+│   ├── ARCHITECTURE.md
+│   ├── GOVERNANCE.md
+│   ├── GREEKS_UNIT_CONTRACT.md
+│   ├── MODEL_CARDS.md
+│   └── DATA_SPECIFICATION.md
 └── config/                 # Configuration
 ```
 
@@ -185,8 +189,11 @@ Required environment variables:
 
 | Document | Description |
 |----------|-------------|
-| [QUANT_AUDIT_REPORT.md](docs/QUANT_AUDIT_REPORT.md) | Quantitative audit and scoring |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and dataflow |
+| [GOVERNANCE.md](docs/GOVERNANCE.md) | Model governance framework |
+| [GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
 | [MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
+| [DATA_SPECIFICATION.md](docs/DATA_SPECIFICATION.md) | Data architecture and schemas |
 | [SECURITY.md](SECURITY.md) | Security policy |
 
 ## Contributing

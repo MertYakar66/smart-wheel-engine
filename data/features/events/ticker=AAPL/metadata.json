@@ -2,7 +2,7 @@
   "category": "events",
   "ticker": "AAPL",
   "created_at": "2026-03-25T16:55:02.374688",
-  "updated_at": "2026-03-25T16:55:02.374699",
+  "updated_at": "2026-04-23T02:45:40.687450",
   "row_count": 2065,
   "date_range": [
     "2018-01-02",
@@ -26,9 +26,9 @@
     "earnings_zone",
     "post_earnings_drift"
   ],
-  "source_hash": "0c183a830d367d74",
+  "source_hash": "502e323271a1d114",
   "source_files": [],
-  "computation_time_ms": 11,
-  "version": 1,
+  "computation_time_ms": 8,
+  "version": 2,
   "schema_version": "1.0"
 }

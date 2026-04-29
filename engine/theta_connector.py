@@ -74,9 +74,33 @@ _TICKER_ALIASES: dict[str, str] = {
 
 
 def _normalise_theta_symbol(sym: str) -> str:
-    """Translate an SP500-format ticker to ThetaData's symbol."""
-    sym_u = sym.upper()
-    return _TICKER_ALIASES.get(sym_u, sym_u)
+    """Translate an SP500-format ticker to ThetaData's symbol.
+
+    Handles three different ticker formats seen in the S&P 500 universe:
+      - ``BRK-B`` (hyphen, most common CSV format)      -> ``BRK.B``
+      - ``BRK/B`` (slash, Bloomberg composite format)   -> ``BRK.B``
+      - ``BRK B``  (space, some Bloomberg exports)      -> ``BRK.B``
+      - ``AAPL UW Equity`` (full Bloomberg ticker)      -> ``AAPL``
+
+    Also strips Bloomberg suffixes (``UW``, ``UN``, ``US``, ``Equity``).
+    """
+    s = sym.strip().upper()
+    # Strip Bloomberg suffixes
+    for suffix in (" UW EQUITY", " UN EQUITY", " US EQUITY",
+                   " UW", " UN", " US", " EQUITY"):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)].rstrip()
+    # Explicit alias first (handles any special cases)
+    if s in _TICKER_ALIASES:
+        return _TICKER_ALIASES[s]
+    # Generic: any non-dot separator between root and a single letter
+    # becomes a dot (BRK/B, BRK-B, BRK B  ->  BRK.B).
+    for sep in ("/", "-", " "):
+        if sep in s:
+            parts = s.split(sep)
+            if len(parts) == 2 and len(parts[1]) == 1:
+                return f"{parts[0]}.{parts[1]}"
+    return s
 
 
 class ThetaConnector(MarketDataConnector):
@@ -214,26 +238,34 @@ class ThetaConnector(MarketDataConnector):
     ) -> pd.DataFrame:
         """Get OHLCV from ThetaData stock history, fall back to Bloomberg CSV.
 
-        v3 requires BOTH ``start_date`` and ``end_date`` for history endpoints.
-        We default ``start_date`` to 2 years ago and ``end_date`` to today
-        when callers don't pass them.
+        v3 requires BOTH ``start_date`` and ``end_date`` for history endpoints
+        so we fill sensible defaults for the Theta call. The Bloomberg
+        fallback is called with the caller's ORIGINAL args (preserving
+        ``None``) so that when the caller passed no dates, Bloomberg
+        returns the full 2018-onwards history — critical for the EV
+        ranker's 504-trading-day history gate.
         """
-        # v3 requires both start and end dates. Fill in sensible defaults.
-        if start_date is None:
-            start_date = (datetime.now(timezone.utc) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
-        if end_date is None:
-            end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # Preserve caller's original args for the fallback path
+        orig_start = start_date
+        orig_end = end_date
+
+        # v3 requires both start and end dates. Fill in sensible defaults
+        # ONLY for the Theta call.
+        theta_start = start_date or (
+            datetime.now(timezone.utc) - timedelta(days=365 * 2)
+        ).strftime("%Y-%m-%d")
+        theta_end = end_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         params: dict[str, Any] = {
             "symbol": ticker,
-            "start_date": self._to_yyyymmdd(start_date),
-            "end_date": self._to_yyyymmdd(end_date),
+            "start_date": self._to_yyyymmdd(theta_start),
+            "end_date": self._to_yyyymmdd(theta_end),
         }
 
         df = self._fetch("/v3/stock/history/eod", params)
         if df.empty:
             logger.debug("ThetaData OHLCV empty for %s, using Bloomberg CSV", ticker)
-            return super().get_ohlcv(ticker, start_date, end_date)
+            return super().get_ohlcv(ticker, orig_start, orig_end)
 
         # Normalise column names (v3 returns lowercase)
         df.columns = [c.lower() for c in df.columns]
@@ -456,17 +488,25 @@ class ThetaConnector(MarketDataConnector):
         return self.get_iv_rank(ticker, as_of)
 
     def _fetch_iv_history(self, ticker: str) -> pd.Series | None:
-        """Fetch ~1 year of daily ATM IV from ThetaData greeks history.
+        """Fetch ~1 year of daily ATM IV from ThetaData.
 
         Uses the ~35-DTE expiry, put side, strike nearest to ATM.
         Returns a Series indexed by date, values are IV decimals.
+
+        ThetaData limitations we work around:
+          1. Greeks/IV history endpoints cap multi-day queries at 1 month
+             — we chunk the 365-day window into 12 monthly requests.
+          2. ``interval`` enum tops out at ``1h`` (no ``1d``). We fetch
+             hourly bars and keep one per session (last bar of each day).
+          3. We try the dedicated IV endpoint
+             (``/v3/option/history/greeks/implied_volatility``) first
+             because it returns the IV column directly; fall through to
+             ``/v3/option/history/greeks/first_order`` if that 404s.
         """
-        # Find a target expiry ~35 DTE out from today
         exp = self._nearest_expiration(ticker, dte_target=35)
         if exp is None:
             return None
 
-        # Get current chain to find ATM put strike
         chain = self.get_option_chain(ticker, expiration=exp)
         if chain.empty or "delta" not in chain.columns:
             return None
@@ -478,52 +518,54 @@ class ThetaConnector(MarketDataConnector):
         puts["_gap"] = (puts["delta"].abs() - 0.50).abs()
         atm_strike = float(puts.sort_values("_gap").iloc[0]["strike"])
 
-        end_date = datetime.now(timezone.utc).strftime("%Y%m%d")
-        start_date = (datetime.now(timezone.utc) - timedelta(days=_IV_RANK_LOOKBACK_DAYS)).strftime("%Y%m%d")
-
-        # Endpoint candidates in Options Standard tier. ``greeks/first_order``
-        # requires Pro tier (the user reports 500s). Fall back to:
-        #   /v3/option/history/implied_volatility — direct IV series
-        #   /v3/option/history/iv                  — alternate alias
-        # Each returns a CSV with date + iv columns.
-        base_params = {
-            "symbol": ticker,
-            "expiration": exp,
-            "right": "put",
-            "strike": atm_strike,
-            "start_date": start_date,
-            "end_date": end_date,
-            "interval": "1d",
-        }
+        # Chunk 365 days into monthly windows (ThetaData caps multi-day at ~1mo)
+        end = datetime.now(timezone.utc).date()
+        start = end - timedelta(days=_IV_RANK_LOOKBACK_DAYS)
+        window_days = 28
         endpoints = (
-            "/v3/option/history/implied_volatility",
-            "/v3/option/history/iv",
+            "/v3/option/history/greeks/implied_volatility",
             "/v3/option/history/greeks/first_order",
         )
-        df = pd.DataFrame()
-        for ep in endpoints:
-            df = self._fetch(ep, base_params)
-            if not df.empty:
-                df.columns = [c.lower() for c in df.columns]
-                # Alias IV column name if the endpoint uses a different name
-                for alias in ("implied_vol", "implied_volatility", "mid_iv", "sigma"):
-                    if alias in df.columns and "iv" not in df.columns:
-                        df = df.rename(columns={alias: "iv"})
-                        break
-                if "iv" in df.columns:
-                    break
-                df = pd.DataFrame()
-        if df.empty or "iv" not in df.columns:
+        frames: list[pd.DataFrame] = []
+        cur = start
+        while cur <= end:
+            nxt = min(cur + timedelta(days=window_days), end)
+            for ep in endpoints:
+                params = {
+                    "symbol": ticker,
+                    "expiration": exp,
+                    "right": "put",
+                    "strike": atm_strike,
+                    "start_date": cur.strftime("%Y%m%d"),
+                    "end_date": nxt.strftime("%Y%m%d"),
+                    "interval": "1h",
+                }
+                df = self._fetch(ep, params)
+                if not df.empty:
+                    df.columns = [c.lower() for c in df.columns]
+                    for alias in ("implied_vol", "implied_volatility", "mid_iv", "sigma"):
+                        if alias in df.columns and "iv" not in df.columns:
+                            df = df.rename(columns={alias: "iv"})
+                            break
+                    if "iv" in df.columns:
+                        frames.append(df)
+                        break  # don't try the next endpoint for this window
+            cur = nxt + timedelta(days=1)
+
+        if not frames:
+            return None
+        df = pd.concat(frames, ignore_index=True)
+        ts_col = next((c for c in ("timestamp", "date") if c in df.columns), None)
+        if ts_col is None:
             return None
 
-        date_col = next((c for c in ("date", "timestamp") if c in df.columns), None)
-        if date_col is None:
-            return None
-
-        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-        df = df.dropna(subset=[date_col, "iv"]).sort_values(date_col)
+        df[ts_col] = pd.to_datetime(df[ts_col], errors="coerce")
+        df = df.dropna(subset=[ts_col, "iv"]).sort_values(ts_col)
+        df["_d"] = df[ts_col].dt.date
+        # Keep the last bar of each trading day as the daily IV observation
+        df = df.groupby("_d").tail(1)
         iv = pd.to_numeric(df["iv"], errors="coerce").dropna()
-        # Guard: convert percent → decimal if needed
+        iv.index = pd.to_datetime(df["_d"]).values
         iv = iv.where(iv <= 3.0, iv / 100.0)
         return iv
 
@@ -807,9 +849,13 @@ class ThetaConnector(MarketDataConnector):
     ) -> pd.DataFrame:
         """Historical EOD OHLC for a single option contract.
 
-        Enables backtest of realised P&L paths, gamma decay, and rolling
-        transaction cost. Returns DataFrame indexed by date with columns
-        open, high, low, close, volume.
+        Uses ``/v3/option/history/eod`` which is Free tier, returns
+        multi-day OHLC + quote + volume in one call, and has no
+        1-month window cap (unlike the intraday history endpoints).
+
+        Enables backtest of realised P&L paths, gamma decay, and
+        rolling transaction cost. Returns DataFrame indexed by date
+        with columns open, high, low, close, volume, bid, ask.
         """
         params: dict[str, Any] = {
             "symbol": ticker,
@@ -817,22 +863,33 @@ class ThetaConnector(MarketDataConnector):
             "strike": float(strike),
             "right": right.lower(),
         }
-        if start_date:
-            params["start_date"] = self._to_yyyymmdd(start_date)
-        if end_date:
-            params["end_date"] = self._to_yyyymmdd(end_date)
+        # EOD endpoint requires both start and end. Default to 1Y window.
+        if start_date is None:
+            start_date = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%d")
+        if end_date is None:
+            end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        params["start_date"] = self._to_yyyymmdd(start_date)
+        params["end_date"] = self._to_yyyymmdd(end_date)
 
-        df = self._fetch("/v3/option/history/ohlc", params)
+        df = self._fetch("/v3/option/history/eod", params)
         if df.empty:
             return pd.DataFrame()
 
         df.columns = [c.lower() for c in df.columns]
-        date_col = next((c for c in ("date", "timestamp") if c in df.columns), None)
-        if date_col is None or "close" not in df.columns:
+        # EOD endpoint returns `created` (report time) and `last_trade`
+        # as datetime cols. Use `created` as the session anchor.
+        ts_col = next(
+            (c for c in ("created", "date", "timestamp", "last_trade") if c in df.columns),
+            None,
+        )
+        if ts_col is None or "close" not in df.columns:
             return pd.DataFrame()
-        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
-        df = df.dropna(subset=[date_col]).sort_values(date_col).set_index(date_col)
-        cols = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
+        df[ts_col] = pd.to_datetime(df[ts_col], errors="coerce")
+        df = df.dropna(subset=[ts_col]).sort_values(ts_col)
+        # Collapse to daily — one row per trading day
+        df["date"] = df[ts_col].dt.normalize()
+        df = df.groupby("date").tail(1).set_index("date")
+        cols = [c for c in ("open", "high", "low", "close", "volume", "bid", "ask") if c in df.columns]
         return df[cols]
 
     # ------------------------------------------------------------------

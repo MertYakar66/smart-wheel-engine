@@ -1,0 +1,19 @@
+# Pin LF as canonical line ending for all text files.
+# Resolves the CRLF/LF working-tree noise produced by the Google Drive
+# sync mount, which would otherwise show every text file as "modified"
+# on every git status from the Drive side. See CLAUDE.md §3.
+* text=auto eol=lf
+
+# Binary files — never normalize.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.pdf   binary
+*.parquet binary
+*.xlsx  binary
+*.xls   binary
+*.zip   binary
+*.gz    binary
+*.tar   binary
+*.ico   binary

@@ -54,10 +54,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterable
 
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
@@ -96,21 +92,33 @@ def load_universe(mode: str, pit_date: str | None = None) -> list[str]:
 # ----------------------------------------------------------------------
 # Fetching
 # ----------------------------------------------------------------------
+_HIST_GREEKS_ENDPOINTS = (
+    "/v3/option/history/greeks/implied_volatility",
+    "/v3/option/history/greeks/first_order",
+)
+
+
 def _surface_for_date(
     conn: ThetaConnector,
     ticker: str,
     as_of: date,
 ) -> pd.DataFrame:
-    """Pull the surface for one ticker on one date.
+    """Pull the historical IV surface for one ticker on one date.
 
     Strategy:
-      1. List available expirations.
-      2. Pick one expiration for each TARGET_DTES bucket.
-      3. For each (expiration), pull hist greeks on ATM strike ± 10 grid
-         points (Theta's snapshot already yields the full chain; for
-         history we pull ATM ± 5 strikes to keep it cheap).
+      1. List available expirations (snapshot — current state is fine for
+         the listing of which expirations exist).
+      2. Pick one expiration per TARGET_DTES bucket.
+      3. For each chosen expiration, pull the historical Greeks bars on
+         ``as_of`` via ``/v3/option/history/greeks/implied_volatility``
+         (with first_order as fallback), passing ``as_of`` as both
+         ``start_date`` and ``end_date`` so the response is point-in-time
+         for that date. ``interval='1h'`` is the finest the Greeks history
+         endpoint supports; we collapse to one row per (strike, right) by
+         keeping the latest hourly bar of the session.
 
-    Returns a long-format DataFrame, empty if Theta refused.
+    Returns a long-format DataFrame, empty if Theta refused or returned
+    no data for ``as_of`` (e.g. weekend, holiday, or pre-listing).
     """
     sym = _normalise_theta_symbol(ticker)
     # 1) expirations
@@ -138,34 +146,70 @@ def _surface_for_date(
         idx = (exps - target).abs().idxmin()
         chosen[dte] = exps.loc[idx]
 
-    # 3) pull the historical IV bar for each chosen (expiration, strike)
+    # 3) pull historical Greeks bars for each chosen expiration ON the
+    #    as_of date. Pattern copied from
+    #    ThetaConnector._fetch_iv_history (engine/theta_connector.py:525).
+    as_of_str = pd.Timestamp(as_of).strftime("%Y%m%d")
     frames: list[pd.DataFrame] = []
     for dte_bucket, exp_ts in chosen.items():
         exp_str = exp_ts.strftime("%Y%m%d")
-        # Snapshot grid for strikes — we ask Theta for IV on ATM ± N strikes
-        # by reusing the connector's chain snapshot on as_of.
-        try:
-            chain = conn._fetch(
-                "/v3/option/snapshot/greeks/first_order",
-                {"symbol": sym, "expiration": exp_str},
-            )
-        except Exception as e:
-            logger.debug("%s %s: chain fetch failed: %s", ticker, exp_str, e)
-            continue
+        chain = pd.DataFrame()
+        for ep in _HIST_GREEKS_ENDPOINTS:
+            params = {
+                "symbol": sym,
+                "expiration": exp_str,
+                "start_date": as_of_str,
+                "end_date": as_of_str,
+                "interval": "1h",
+            }
+            try:
+                chain = conn._fetch(ep, params)
+            except Exception as e:
+                logger.debug(
+                    "%s %s %s: history greeks fetch failed (%s): %s",
+                    ticker, as_of, exp_str, ep, e,
+                )
+                chain = pd.DataFrame()
+                continue
+            if chain is not None and not chain.empty:
+                break
         if chain is None or chain.empty:
             continue
         chain.columns = [c.lower() for c in chain.columns]
-        # Normalise column aliases
-        for alias, target in (("implied_vol", "iv"), ("impl_vol", "iv"),
-                              ("mid_price", "mid"), ("option_type", "right")):
-            if alias in chain.columns and target not in chain.columns:
-                chain[target] = chain[alias]
+        # Column aliases. The history/greeks/implied_volatility endpoint
+        # exposes ``implied_vol`` (mid-IV) plus ``bid_implied_vol`` and
+        # ``ask_implied_vol``; first_order also exposes ``implied_vol``.
+        rename_map = {
+            "implied_vol": "iv",
+            "implied_volatility": "iv",
+            "mid_iv": "iv",
+            "impl_vol": "iv",
+            "midpoint": "mid",
+            "mid_price": "mid",
+            "option_type": "right",
+        }
+        for src, dst in rename_map.items():
+            if src in chain.columns and dst not in chain.columns:
+                chain = chain.rename(columns={src: dst})
         need = {"strike", "right", "iv"}
         if not need.issubset(chain.columns):
             continue
         chain = chain[chain["iv"].between(0.0, 5.0, inclusive="neither")]
         if chain.empty:
             continue
+        # Hourly bars → one row per (strike, right) for ``as_of``. Keep the
+        # last bar of the session (closest to EOD); if there's only one bar
+        # the .tail(1) still keeps it.
+        ts_col = next((c for c in ("timestamp", "date") if c in chain.columns), None)
+        if ts_col is not None:
+            chain = chain.copy()
+            chain[ts_col] = pd.to_datetime(chain[ts_col], errors="coerce")
+            chain = (
+                chain.dropna(subset=[ts_col])
+                .sort_values(ts_col)
+                .groupby(["strike", "right"], as_index=False)
+                .tail(1)
+            )
         chain = chain.copy()
         chain["expiration"] = exp_ts
         chain["dte"] = (exp_ts - pd.Timestamp(as_of)).days
@@ -241,6 +285,13 @@ def _theta_up() -> bool:
 
 
 def main() -> int:
+    # CLI utf-8 fix (Windows console). Kept inside main() so that importing
+    # the module from a test runner doesn't replace stdout/stderr — that
+    # collides with pytest's capture machinery.
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--tickers", nargs="+")
     ap.add_argument("--universe", choices=["sp500"])
@@ -279,6 +330,19 @@ def main() -> int:
         start_d = end_d - timedelta(days=7)
 
     dates = list(_daterange(start_d, end_d))
+    # Theta's history endpoints reject same-day requests without explicit
+    # start_time / end_time bounds ("Current day requests must have a start
+    # time less than current time"). The historical puller deliberately
+    # does not pass time bounds, so we drop today (and any future date)
+    # here. Today's surface can be backfilled tomorrow.
+    today = date.today()
+    skipped_today = [d for d in dates if d >= today]
+    dates = [d for d in dates if d < today]
+    if skipped_today:
+        print(f"Skipping {len(skipped_today)} same-day/future date(s) "
+              f"({skipped_today[0]}..{skipped_today[-1]}) — "
+              f"Theta history endpoints require explicit time bounds for "
+              f"current-day requests")
     if args.days:
         dates = dates[-args.days:]
 

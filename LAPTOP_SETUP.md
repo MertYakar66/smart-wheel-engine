@@ -51,9 +51,14 @@ needed for live execution, not research / backfill.
 
 Your current tier (recorded in the last probe):
 - **Works:** stock EOD, option chain lists + snapshots, option history
-  (EOD / quote / trade / OI / greeks/IV), index EOD (VIX + SKEW only)
+  (EOD / quote / trade / OI / greeks/IV), index EOD covering 9 symbols
+  (VIX / VIX9D / VIX3M / VIX6M / VVIX / VXN / SKEW / OVX / GVZ) at
+  ≤365-day request windows, with up to ~1y of lookback before the
+  per-symbol tier gate kicks in (older windows return `403 Requesting
+  index history requiring a {VALUE,STANDARD,PROFESSIONAL} subscription`)
 - **Blocked:** futures (no UX1-UX8), index snapshots/OHLC, stock realtime
-- **Missing on v3:** corporate actions
+- **Missing on v3:** corporate actions; MOVE (ICE rates index, not in
+  Theta v3 coverage — yfinance fallback in `pull_vol_indices.py` handles it)
 
 ---
 

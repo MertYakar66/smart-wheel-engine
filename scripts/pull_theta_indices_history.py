@@ -47,10 +47,6 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
@@ -62,9 +58,11 @@ logger = logging.getLogger(__name__)
 OUT_LONG = _ROOT / "data_processed" / "vol_indices.parquet"
 OUT_WIDE = _ROOT / "data_processed" / "vol_indices_wide.parquet"
 
+# MOVE: ICE rates index, not in Theta v3 coverage. yfinance fallback only —
+# see pull_vol_indices.py.
 DEFAULT_SYMBOLS = (
     "VIX", "VIX9D", "VIX3M", "VIX6M",
-    "SKEW", "VVIX", "VXN", "MOVE", "OVX", "GVZ",
+    "SKEW", "VVIX", "VXN", "OVX", "GVZ",
 )
 
 ENDPOINTS = (
@@ -72,6 +70,20 @@ ENDPOINTS = (
     "/v3/index/history/ohlc",
     "/v3/index/history/price",
 )
+
+# Theta's /v3/index/history/eod caps single requests at 365 days. Use a
+# 10-day buffer so off-by-one in date math can't trip the cap.
+CHUNK_DAYS = 350
+
+# Theta returns diagnostic plain-text bodies on these status codes:
+#   400 — window-cap ("Too many days between start and end date")
+#   403 — tier-gate ("Requesting index history requiring a STANDARD …")
+#   472 — coverage miss ("No data found for your request")
+# The shared ThetaConnector swallows 400/403/4xx silently (engine/
+# theta_connector.py:155); we issue the requests directly through the
+# connector's pooled session so the body text reaches the operator.
+_DIAGNOSTIC_STATUSES = (400, 403, 472)
+_BASE_URL = "http://127.0.0.1:25503"
 
 
 def _theta_up(host: str = "127.0.0.1", port: int = 25503) -> bool:
@@ -87,21 +99,72 @@ def _theta_up(host: str = "127.0.0.1", port: int = 25503) -> bool:
 
 
 def _pull(conn: ThetaConnector, symbol: str, start: date, end: date) -> pd.DataFrame:
-    """Try each endpoint; return the first non-empty normalised frame."""
-    params = {
-        "symbol": symbol,
-        "start_date": start.strftime("%Y%m%d"),
-        "end_date": end.strftime("%Y%m%d"),
-    }
+    """Pull ``symbol`` history across [``start``, ``end``].
+
+    Splits the range into ``CHUNK_DAYS`` windows so the request never trips
+    Theta's 365-day-per-call cap on ``/v3/index/history/*``. Tries the
+    endpoints in ``ENDPOINTS`` order and returns the first endpoint that
+    yields any data; older windows that tier-gate are surfaced to stdout
+    but do not stop the puller from collecting newer windows that are
+    inside our subscription's lookback budget.
+
+    HTTP requests go through ``conn._session`` directly rather than
+    ``conn._fetch`` so 400/403/472 diagnostic bodies are visible — the
+    shared connector returns an empty DataFrame on those statuses without
+    surfacing the text.
+    """
+    session = conn._session
     for ep in ENDPOINTS:
-        try:
-            df = conn._fetch(ep, {**params, "interval": "1d"} if "ohlc" in ep else params)
-        except Exception as e:
-            logger.debug("%s %s: %s", symbol, ep, e)
-            continue
-        if df is None or df.empty:
+        ep_frames: list[pd.DataFrame] = []
+        gate_messages: list[str] = []
+        cur = start
+        while cur <= end:
+            nxt = min(cur + timedelta(days=CHUNK_DAYS), end)
+            params = {
+                "symbol": symbol,
+                "start_date": cur.strftime("%Y%m%d"),
+                "end_date": nxt.strftime("%Y%m%d"),
+                "format": "csv",
+            }
+            if "ohlc" in ep:
+                params["interval"] = "1d"
+
+            try:
+                resp = session.get(f"{_BASE_URL}{ep}", params=params, timeout=30)
+            except Exception as e:
+                logger.debug("%s %s [%s..%s]: %s", symbol, ep, cur, nxt, e)
+                cur = nxt + timedelta(days=1)
+                continue
+
+            body = (resp.text or "").strip()
+            if resp.status_code in _DIAGNOSTIC_STATUSES and body:
+                gate_messages.append(f"{cur}..{nxt}: {body}")
+                cur = nxt + timedelta(days=1)
+                continue
+            if resp.status_code != 200 or not body:
+                cur = nxt + timedelta(days=1)
+                continue
+
+            try:
+                df = pd.read_csv(io.StringIO(body))
+            except Exception as e:
+                logger.debug("%s %s [%s..%s] parse: %s", symbol, ep, cur, nxt, e)
+                cur = nxt + timedelta(days=1)
+                continue
+
+            if not df.empty:
+                ep_frames.append(df)
+            cur = nxt + timedelta(days=1)
+
+        # Surface gate / no-data messages exactly as Theta returned them so
+        # the operator can decide whether to upgrade their tier.
+        for msg in gate_messages:
+            print(f"  {symbol:<7} GATE  {msg[:140]}", flush=True)
+
+        if not ep_frames:
             continue
 
+        df = pd.concat(ep_frames, ignore_index=True)
         df.columns = [c.lower() for c in df.columns]
         ts_col = next((c for c in ("date", "timestamp", "created") if c in df.columns), None)
         if ts_col is None:
@@ -117,7 +180,13 @@ def _pull(conn: ThetaConnector, symbol: str, start: date, end: date) -> pd.DataF
         if "close" not in df.columns:
             continue
         keep = [c for c in ("date", "open", "high", "low", "close") if c in df.columns]
-        out = df[keep].copy()
+        out = (
+            df[keep]
+            .sort_values("date")
+            .drop_duplicates(subset=["date"], keep="last")
+            .reset_index(drop=True)
+            .copy()
+        )
         out["symbol"] = symbol
         out["source"] = "theta"
         return out
@@ -139,6 +208,13 @@ def _last_theta_date(symbol: str) -> date | None:
 
 
 def main() -> int:
+    # CLI utf-8 fix (Windows console). Kept inside main() so importing the
+    # module from a test runner does not replace stdout/stderr — that
+    # collides with pytest's capture machinery.
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", nargs="+", default=list(DEFAULT_SYMBOLS))
     ap.add_argument("--years", type=float, default=5.0)

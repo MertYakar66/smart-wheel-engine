@@ -194,6 +194,25 @@ def _pull(conn: ThetaConnector, symbol: str, start: date, end: date) -> pd.DataF
     return pd.DataFrame()
 
 
+def _cap_end_date(end_d: date, today: date) -> date:
+    """Cap ``end_d`` at the most recently settled trading day.
+
+    Theta's ``/v3/index/history`` endpoints don't publish today's EOD
+    until ~17:15 ET. A pre-close cron run that asks for today gets 472
+    NO_DATA on every symbol, which previously surfaced as FAIL in the
+    orchestrator even when there was nothing actually wrong — yesterday's
+    rows were already on disk and today's hadn't settled yet.
+
+    We cap ``end_d`` at ``today - 1 day`` so the existing
+    ``s_start > end_d`` skip in :func:`main` fires correctly and the
+    symbol is reported as "up-to-date" with rc=0. Same idempotent
+    same-day semantic the iv_surface_history puller adopted in PR #55.
+    """
+    if end_d >= today:
+        return today - timedelta(days=1)
+    return end_d
+
+
 def _last_theta_date(symbol: str) -> date | None:
     if not OUT_LONG.exists():
         return None
@@ -208,10 +227,12 @@ def _last_theta_date(symbol: str) -> date | None:
 
 
 def main() -> int:
-    # CLI utf-8 fix (Windows console). Kept inside main() so importing the
-    # module from a test runner does not replace stdout/stderr — that
-    # collides with pytest's capture machinery.
-    if hasattr(sys.stdout, "buffer"):
+    # CLI utf-8 fix for the Windows console. Inside main() so importing
+    # the module under pytest does not replace stdout/stderr globally,
+    # and gated to win32 so it never fires under tests that mock argv +
+    # invoke main() — capsys cannot follow a TextIOWrapper that the
+    # function under test installs after the test has set up capture.
+    if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
@@ -232,6 +253,10 @@ def main() -> int:
 
     conn = ThetaConnector()
     end_d = date.fromisoformat(args.end) if args.end else date.today()
+    capped = _cap_end_date(end_d, date.today())
+    if capped != end_d:
+        print(f"Capping end_d {end_d} → {capped} (today's EOD not yet published)")
+        end_d = capped
     default_start = end_d - timedelta(days=int(args.years * 365))
     if args.start:
         default_start = date.fromisoformat(args.start)
@@ -239,7 +264,7 @@ def main() -> int:
     print(f"Theta indices pull  symbols={len(args.symbols)}  end={end_d}")
     t0 = time.perf_counter()
     frames: list[pd.DataFrame] = []
-    n_ok = n_fail = 0
+    n_ok = n_fail = n_skipped = 0
     for sym in args.symbols:
         s_start = default_start
         if args.incremental:
@@ -248,6 +273,7 @@ def main() -> int:
                 s_start = max(default_start, last + timedelta(days=1))
                 if s_start > end_d:
                     print(f"  {sym:<7} up-to-date (last theta={last})")
+                    n_skipped += 1
                     continue
         df = _pull(conn, sym, s_start, end_d)
         if df.empty:
@@ -260,6 +286,12 @@ def main() -> int:
         frames.append(df)
 
     if not frames:
+        if n_skipped == len(args.symbols):
+            # Every symbol is up-to-date. Nothing to fetch, nothing failed.
+            elapsed = time.perf_counter() - t0
+            print()
+            print(f"Done in {elapsed:.1f}s  |  all {n_skipped} symbols up-to-date")
+            return 0
         print("Nothing fetched. Your tier may not include indices history — "
               "run probe_theta_capabilities.py to confirm.")
         return 1

@@ -14,16 +14,21 @@ These tests lock in:
      stdout exactly as Theta returned it, not silently dropped.
   4. Older chunks that tier-gate do not block newer chunks from
      being returned.
+  5. ``--incremental`` runs that only have today left to fetch report
+     "up-to-date" + rc=0 instead of FAIL — Theta doesn't publish
+     today's EOD until ~17:15 ET, so pre-close cron jobs would
+     otherwise always exit non-zero (PR #57).
 """
 
 from __future__ import annotations
 
+import sys
 from datetime import date, datetime, timedelta
 from typing import Callable
 
 import pandas as pd
 
-from scripts.pull_theta_indices_history import _pull
+from scripts.pull_theta_indices_history import _cap_end_date, _pull
 
 
 # ---------------------------------------------------------------------------
@@ -185,4 +190,89 @@ def test_pull_collects_newer_chunks_when_older_chunks_tier_gate(capsys) -> None:
     # Both older chunks must be surfaced, not just the first
     assert captured.out.count("GATE") >= 2, (
         f"expected ≥2 GATE lines (one per gated chunk), got: {captured.out!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR #57: --incremental + only-today-left should report up-to-date, not FAIL.
+# ---------------------------------------------------------------------------
+def test_cap_end_date_passes_through_past_dates() -> None:
+    """End dates strictly before today are returned unchanged."""
+    today = date(2026, 5, 1)
+    assert _cap_end_date(date(2026, 4, 25), today) == date(2026, 4, 25)
+    assert _cap_end_date(date(2026, 4, 30), today) == date(2026, 4, 30)
+
+
+def test_cap_end_date_caps_today_to_yesterday() -> None:
+    """End == today is capped at today - 1 (today's EOD not yet published)."""
+    today = date(2026, 5, 1)
+    assert _cap_end_date(today, today) == date(2026, 4, 30)
+
+
+def test_cap_end_date_caps_future_to_yesterday() -> None:
+    """End in the future is also capped at today - 1."""
+    today = date(2026, 5, 1)
+    assert _cap_end_date(date(2026, 6, 15), today) == date(2026, 4, 30)
+
+
+def test_main_incremental_skips_when_only_today_remains(capsys, monkeypatch) -> None:
+    """--incremental must report up-to-date + rc=0 when nothing new is left.
+
+    Setup: ``_last_theta_date`` returns yesterday for every symbol, so the
+    incremental computation produces ``s_start = today``. After the
+    end-cap fix, ``end_d = today - 1 < s_start``, the existing
+    ``s_start > end_d`` branch fires per symbol, and ``_pull`` is never
+    called.
+
+    Without the fix, the script would call _pull(symbol, today, today),
+    Theta would return 472 NO_DATA on every request, every symbol would
+    FAIL, and the script would exit rc=1 — pre-close cron jobs always
+    failing despite nothing being wrong.
+    """
+    import scripts.pull_theta_indices_history as M
+
+    fake_today = date(2026, 5, 1)
+
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return fake_today
+
+    # The puller resolves ``date.today()`` and ``date.fromisoformat`` from
+    # the module-level ``date`` symbol; replace it wholesale.
+    monkeypatch.setattr(M, "date", _FakeDate)
+
+    monkeypatch.setattr(M, "_last_theta_date", lambda sym: date(2026, 4, 30))
+    monkeypatch.setattr(M, "_theta_up", lambda *a, **k: True)
+
+    class _StubConn:
+        def __init__(self) -> None:
+            self._session = None
+
+    monkeypatch.setattr(M, "ThetaConnector", _StubConn)
+
+    pull_calls: list[tuple] = []
+    monkeypatch.setattr(
+        M, "_pull",
+        lambda *args, **kwargs: pull_calls.append(args) or pd.DataFrame(),
+    )
+
+    monkeypatch.setattr(
+        sys, "argv",
+        ["pull_theta_indices_history.py", "--symbols", "VIX", "VIX9D",
+         "--incremental"],
+    )
+
+    rc = M.main()
+    out = capsys.readouterr().out
+
+    assert rc == 0, f"expected rc=0 when only today is left; got {rc}\nstdout:\n{out}"
+    assert pull_calls == [], (
+        f"_pull must not be called when only today remains; got {pull_calls}"
+    )
+    assert "up-to-date" in out, (
+        f"expected per-symbol 'up-to-date' message; got:\n{out}"
+    )
+    assert "FAIL" not in out, (
+        f"no symbol should be marked FAIL when only today remains; got:\n{out}"
     )

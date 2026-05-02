@@ -143,6 +143,99 @@ _HIST_GREEKS_ENDPOINTS = (
 )
 
 
+_FALLBACK_K_DEFAULT = 10
+
+
+def _try_fetch_history_greeks(
+    conn: ThetaConnector,
+    sym: str,
+    expiration: pd.Timestamp,
+    as_of_str: str,
+) -> pd.DataFrame:
+    """Fetch the historical Greeks bars for one ``(symbol, expiration, day)``.
+
+    Tries ``implied_volatility`` first (exposes the IV column directly),
+    then falls back to ``first_order`` if the IV variant returns nothing.
+    Returns the first non-empty response, or an empty DataFrame if both
+    endpoints come back empty / 472 NO_DATA / raise.
+    """
+    exp_str = expiration.strftime("%Y%m%d")
+    for ep in _HIST_GREEKS_ENDPOINTS:
+        params = {
+            "symbol": sym,
+            "expiration": exp_str,
+            "start_date": as_of_str,
+            "end_date": as_of_str,
+            "interval": "1h",
+        }
+        try:
+            chain = conn._fetch(ep, params)
+        except Exception as e:
+            logger.debug(
+                "%s %s %s: history greeks fetch failed (%s): %s",
+                sym, as_of_str, exp_str, ep, e,
+            )
+            continue
+        if chain is not None and not chain.empty:
+            return chain
+    return pd.DataFrame()
+
+
+def _normalise_chain_to_surface(
+    chain: pd.DataFrame,
+    *,
+    ticker: str,
+    as_of: date,
+    expiration: pd.Timestamp,
+) -> pd.DataFrame:
+    """Convert a raw history-greeks response into the long-format columns
+    we write to disk. Returns empty if the response can't be normalised
+    (missing required columns, all IV out of bounds, no usable rows after
+    the hourly→latest collapse).
+    """
+    chain = chain.copy()
+    chain.columns = [c.lower() for c in chain.columns]
+    rename_map = {
+        "implied_vol": "iv",
+        "implied_volatility": "iv",
+        "mid_iv": "iv",
+        "impl_vol": "iv",
+        "midpoint": "mid",
+        "mid_price": "mid",
+        "option_type": "right",
+    }
+    for src, dst in rename_map.items():
+        if src in chain.columns and dst not in chain.columns:
+            chain = chain.rename(columns={src: dst})
+    need = {"strike", "right", "iv"}
+    if not need.issubset(chain.columns):
+        return pd.DataFrame()
+    chain = chain[chain["iv"].between(0.0, 5.0, inclusive="neither")]
+    if chain.empty:
+        return pd.DataFrame()
+    # Hourly bars → one row per (strike, right) for ``as_of``. Keep the
+    # last bar of the session; if there's only one bar the tail(1) keeps it.
+    ts_col = next((c for c in ("timestamp", "date") if c in chain.columns), None)
+    if ts_col is not None:
+        chain[ts_col] = pd.to_datetime(chain[ts_col], errors="coerce")
+        chain = (
+            chain.dropna(subset=[ts_col])
+            .sort_values(ts_col)
+            .groupby(["strike", "right"], as_index=False)
+            .tail(1)
+        )
+    if chain.empty:
+        return pd.DataFrame()
+    chain["expiration"] = expiration
+    chain["dte"] = (expiration - pd.Timestamp(as_of)).days
+    chain["date"] = pd.Timestamp(as_of)
+    chain["ticker"] = ticker
+    keep = [c for c in ("date", "ticker", "expiration", "dte", "strike",
+                        "right", "iv", "mid", "delta")
+            if c in chain.columns]
+    return chain[keep]
+
+
 def _surface_for_date(
     conn: ThetaConnector,
     ticker: str,
@@ -151,20 +244,30 @@ def _surface_for_date(
     expirations_cache: dict[str, pd.Series] | None = None,
     cache_lock: threading.Lock | None = None,
     strict: bool = True,
+    fallback_k: int = _FALLBACK_K_DEFAULT,
 ) -> tuple[pd.DataFrame, dict]:
     """Pull the historical IV surface for one ticker on one date.
 
     Strategy:
       1. List available expirations (cached per ticker — see
          :func:`_get_cached_expirations`).
-      2. Pick one expiration per :data:`TARGET_DTES` bucket.
-      3. For each chosen expiration, pull the historical Greeks bars on
-         ``as_of`` via ``/v3/option/history/greeks/implied_volatility``
-         (with ``first_order`` as fallback), passing ``as_of`` as both
-         ``start_date`` and ``end_date``. ``interval='1h'`` is the finest
-         the Greeks history endpoint supports; we collapse to one row per
-         ``(strike, right)`` by keeping the latest hourly bar of the
-         session.
+      2. For each :data:`TARGET_DTES` bucket, find the **nearest
+         expiration that Theta has IV history for**. Try up to
+         ``fallback_k`` nearest candidates per bucket; first non-empty
+         response wins. Used expirations are claimed and not offered
+         to subsequent buckets.
+
+         *Why this matters:* Theta's ``option/list/expirations`` returns
+         every listed weekly + monthly + LEAPS expiration, but its IV
+         history coverage is sparser — many weekly expirations on liquid
+         names like AAPL return ``"No data found"`` (HTTP 472). The old
+         "snap to nearest, take it or leave it" approach had ~13%
+         full-coverage rate on AAPL during Profile D. Iterating to the
+         next-nearest with data raises that to ~100%.
+
+      3. ``interval='1h'`` is the finest the Greeks history endpoint
+         supports; collapse to one row per ``(strike, right)`` keeping
+         the latest hourly bar of the session.
 
     Returns a tuple ``(df, status)``.
 
@@ -174,22 +277,20 @@ def _surface_for_date(
 
       ``status``: dict with these keys (always present):
 
-        ``target_dtes``      number of TARGET_DTES buckets attempted
-        ``unique_expirations`` distinct expirations chosen (≤ target_dtes
-                              when buckets collide on the same expiry)
-        ``succeeded``        chosen expirations that returned usable data
-        ``failed_expirations`` list[date] — expirations whose history
-                              greeks call returned empty / 472 / parse-fail
-        ``partial``          ``True`` iff ``0 < succeeded < unique_expirations``
-        ``rejected_partial`` ``True`` iff ``strict`` was set and the surface
-                              was discarded because ``partial`` was True.
-                              When ``rejected_partial`` is True, the
-                              caller should treat this as a hard failure
-                              (don't write a parquet).
+        ``target_dtes``      number of TARGET_DTES buckets attempted (6)
+        ``succeeded_buckets`` buckets that landed on an expiration with data
+        ``failed_buckets``   list[int] — DTE values whose ``fallback_k``
+                             candidates all returned empty
+        ``chosen_expirations`` list[date] — actual expirations picked,
+                              ordered by bucket
+        ``partial``          ``True`` iff ``0 < succeeded < target_dtes``
+        ``rejected_partial`` ``True`` iff ``strict`` was set and the
+                             surface was discarded because ``partial``
+                             was True. The partition is NOT written.
 
     The default ``strict=True`` is the safe choice: silently writing
     partial surfaces (3-of-6 expirations) was the bug that polluted
-    Profile D; a partial surface looks identical to a complete one
+    Profile D — a partial surface looks identical to a complete one
     downstream, so the SVI calibrator can't tell it's missing data.
     """
     sym = _normalise_theta_symbol(ticker)
@@ -198,9 +299,9 @@ def _surface_for_date(
     def _empty_status(extra: dict | None = None) -> dict:
         s = {
             "target_dtes": target_n,
-            "unique_expirations": 0,
-            "succeeded": 0,
-            "failed_expirations": [],
+            "succeeded_buckets": 0,
+            "failed_buckets": [],
+            "chosen_expirations": [],
             "partial": False,
             "rejected_partial": False,
         }
@@ -214,109 +315,60 @@ def _surface_for_date(
     else:
         exps_all = _get_cached_expirations(conn, sym, None, None)
     if exps_all is None or exps_all.empty:
-        return pd.DataFrame(), _empty_status()
+        return pd.DataFrame(), _empty_status({"failed_buckets": list(TARGET_DTES)})
 
     exps_future = exps_all[exps_all >= pd.Timestamp(as_of)]
     if exps_future.empty:
-        return pd.DataFrame(), _empty_status()
+        return pd.DataFrame(), _empty_status({"failed_buckets": list(TARGET_DTES)})
 
-    # 2) pick one expiration per target DTE bucket. Buckets can collide on
-    # the same listed expiration (e.g. when the chain has only weeklies +
-    # monthlies, the 60d and 90d buckets may pick the same expiry); count
-    # unique expirations so the partial-coverage check is honest.
-    chosen: dict[int, pd.Timestamp] = {}
+    # 2 + 3) For each TARGET_DTES bucket, iterate up to fallback_k nearest
+    # expirations; first one that returns data wins. Used expirations are
+    # excluded from later buckets so each bucket gets a distinct expiry.
+    as_of_str = pd.Timestamp(as_of).strftime("%Y%m%d")
+    used_exps: set[pd.Timestamp] = set()
+    frames: list[pd.DataFrame] = []
+    chosen: list[pd.Timestamp] = []
+    failed_buckets: list[int] = []
+
     for dte in TARGET_DTES:
         target = pd.Timestamp(as_of) + pd.Timedelta(days=dte)
-        idx = (exps_future - target).abs().idxmin()
-        chosen[dte] = exps_future.loc[idx]
-    unique_exps = sorted(set(chosen.values()))
-    unique_n = len(unique_exps)
+        # Filter out expirations that earlier buckets already claimed
+        available = exps_future[~exps_future.isin(used_exps)]
+        if available.empty:
+            failed_buckets.append(dte)
+            continue
+        # Order by distance to target, take top ``fallback_k`` nearest
+        distances = (available - target).abs()
+        candidates = available.loc[distances.sort_values().index].head(fallback_k)
 
-    # 3) pull historical Greeks bars for each chosen expiration ON the
-    #    as_of date. Pattern copied from
-    #    ThetaConnector._fetch_iv_history (engine/theta_connector.py:525).
-    as_of_str = pd.Timestamp(as_of).strftime("%Y%m%d")
-    frames: list[pd.DataFrame] = []
-    failed_exps: list[date] = []
-    for exp_ts in unique_exps:
-        exp_str = exp_ts.strftime("%Y%m%d")
-        chain = pd.DataFrame()
-        for ep in _HIST_GREEKS_ENDPOINTS:
-            params = {
-                "symbol": sym,
-                "expiration": exp_str,
-                "start_date": as_of_str,
-                "end_date": as_of_str,
-                "interval": "1h",
-            }
-            try:
-                chain = conn._fetch(ep, params)
-            except Exception as e:
-                logger.debug(
-                    "%s %s %s: history greeks fetch failed (%s): %s",
-                    ticker, as_of, exp_str, ep, e,
-                )
-                chain = pd.DataFrame()
+        bucket_done = False
+        for cand in candidates:
+            chain = _try_fetch_history_greeks(conn, sym, cand, as_of_str)
+            if chain.empty:
                 continue
-            if chain is not None and not chain.empty:
-                break
-        if chain is None or chain.empty:
-            failed_exps.append(exp_ts.date() if hasattr(exp_ts, "date") else exp_ts)
-            continue
-        chain.columns = [c.lower() for c in chain.columns]
-        # Column aliases. The history/greeks/implied_volatility endpoint
-        # exposes ``implied_vol`` (mid-IV) plus ``bid_implied_vol`` and
-        # ``ask_implied_vol``; first_order also exposes ``implied_vol``.
-        rename_map = {
-            "implied_vol": "iv",
-            "implied_volatility": "iv",
-            "mid_iv": "iv",
-            "impl_vol": "iv",
-            "midpoint": "mid",
-            "mid_price": "mid",
-            "option_type": "right",
-        }
-        for src, dst in rename_map.items():
-            if src in chain.columns and dst not in chain.columns:
-                chain = chain.rename(columns={src: dst})
-        need = {"strike", "right", "iv"}
-        if not need.issubset(chain.columns):
-            failed_exps.append(exp_ts.date() if hasattr(exp_ts, "date") else exp_ts)
-            continue
-        chain = chain[chain["iv"].between(0.0, 5.0, inclusive="neither")]
-        if chain.empty:
-            failed_exps.append(exp_ts.date() if hasattr(exp_ts, "date") else exp_ts)
-            continue
-        # Hourly bars → one row per (strike, right) for ``as_of``. Keep the
-        # last bar of the session (closest to EOD); if there's only one bar
-        # the .tail(1) still keeps it.
-        ts_col = next((c for c in ("timestamp", "date") if c in chain.columns), None)
-        if ts_col is not None:
-            chain = chain.copy()
-            chain[ts_col] = pd.to_datetime(chain[ts_col], errors="coerce")
-            chain = (
-                chain.dropna(subset=[ts_col])
-                .sort_values(ts_col)
-                .groupby(["strike", "right"], as_index=False)
-                .tail(1)
+            frame = _normalise_chain_to_surface(
+                chain, ticker=ticker, as_of=as_of, expiration=cand,
             )
-        chain = chain.copy()
-        chain["expiration"] = exp_ts
-        chain["dte"] = (exp_ts - pd.Timestamp(as_of)).days
-        chain["date"] = pd.Timestamp(as_of)
-        chain["ticker"] = ticker
-        keep = [c for c in ("date", "ticker", "expiration", "dte", "strike",
-                            "right", "iv", "mid", "delta")
-                if c in chain.columns]
-        frames.append(chain[keep])
+            if frame.empty:
+                continue
+            frames.append(frame)
+            chosen.append(cand)
+            used_exps.add(cand)
+            bucket_done = True
+            break
+
+        if not bucket_done:
+            failed_buckets.append(dte)
 
     succeeded = len(frames)
-    partial = 0 < succeeded < unique_n
+    partial = 0 < succeeded < target_n
     status = {
         "target_dtes": target_n,
-        "unique_expirations": unique_n,
-        "succeeded": succeeded,
-        "failed_expirations": failed_exps,
+        "succeeded_buckets": succeeded,
+        "failed_buckets": failed_buckets,
+        "chosen_expirations": [
+            (c.date() if hasattr(c, "date") else c) for c in chosen
+        ],
         "partial": partial,
         "rejected_partial": False,
     }
@@ -326,13 +378,14 @@ def _surface_for_date(
 
     if strict and partial:
         # Loudly drop the partial surface: we have data for some
-        # expirations but not all. Writing this would silently degrade
+        # buckets but not all. Writing this would silently degrade
         # downstream consumers (SVI calibrator, term-structure features).
         logger.warning(
             "%s %s: rejecting partial surface — succeeded=%d/%d, "
-            "failed=%s",
-            ticker, as_of, succeeded, unique_n,
-            [d.isoformat() for d in failed_exps],
+            "failed_buckets=%s, chosen=%s",
+            ticker, as_of, succeeded, target_n,
+            failed_buckets,
+            [c.isoformat() for c in status["chosen_expirations"]],
         )
         status["rejected_partial"] = True
         return pd.DataFrame(), status
@@ -392,28 +445,26 @@ def _process_one(
     except Exception as e:
         return ticker, d, False, f"{type(e).__name__}: {e}"
 
+    succeeded = status.get("succeeded_buckets", 0)
+    target_n = status.get("target_dtes", len(TARGET_DTES))
+
     if df.empty:
         if status.get("rejected_partial"):
-            failed = status.get("failed_expirations") or []
-            failed_str = ",".join(d.isoformat() for d in failed[:3])
-            if len(failed) > 3:
-                failed_str += f"+{len(failed)-3}"
+            failed_dtes = status.get("failed_buckets") or []
             return ticker, d, False, (
-                f"partial-strict {status['succeeded']}/{status['unique_expirations']} "
-                f"failed={failed_str}"
+                f"partial-strict {succeeded}/{target_n} "
+                f"failed_dtes={failed_dtes}"
             )
-        if status.get("unique_expirations", 0) > 0 and status.get("succeeded", 0) == 0:
-            return ticker, d, False, "all-expirations-empty"
+        if status.get("failed_buckets") == list(TARGET_DTES):
+            return ticker, d, False, "all-buckets-empty"
         return ticker, d, False, "empty"
 
     write_partition(df, ticker, d)
     if status.get("partial"):
         return ticker, d, True, (
-            f"rows={len(df)} PARTIAL {status['succeeded']}/{status['unique_expirations']}"
+            f"rows={len(df)} PARTIAL {succeeded}/{target_n}"
         )
-    return ticker, d, True, (
-        f"rows={len(df)} {status['succeeded']}/{status['unique_expirations']}"
-    )
+    return ticker, d, True, f"rows={len(df)} {succeeded}/{target_n}"
 
 
 def _theta_up() -> bool:

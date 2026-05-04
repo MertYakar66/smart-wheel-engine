@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-04-29 (against `origin/main` at `82b01fe`).
+**Last updated:** 2026-05-05 (against `origin/main` at `6c0543d`).
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
@@ -59,9 +59,12 @@ deprecation warnings (down from 1067+1 / 578).
 
 ### iv_surface integration decision
 
-- Theta `iv_surface/` coverage is 28/503 tickers (5.6% — mega-caps +
-  sector ETFs only). `iv_surface_history/` is absent on the current
-  Drive snapshot.
+- Theta `iv_surface/` (snapshot dir) coverage is **28/503 tickers**
+  (5.6% — mega-caps + sector ETFs only). Unchanged.
+- `iv_surface_history/` (history dir, distinct from the snapshot)
+  is now **381/503 tickers** on disk after the 2026-05-04 pull (see
+  §3.4). 122 tickers were rejected by strict mode (partial-coverage
+  per PR #58 design — prefer loud failure to silent partial data).
 - The SVI tools in `engine/volatility_surface.py`
   (`VolatilitySurfaceBuilder`, `create_empirical_surface`,
   `SVICalibrator`) are exported but **have zero non-test callers as of
@@ -70,8 +73,8 @@ deprecation warnings (down from 1067+1 / 578).
   flat-IV stub.
 - **Open decision:** before wiring SVI surfaces into a feature or the
   decision path, pick a missing-data contract — fail loudly on the
-  ~475 uncovered tickers, or use a clearly-named fallback
-  (`flat_iv_fallback`, never silent).
+  ~122 uncovered tickers (snapshot: ~475), or use a clearly-named
+  fallback (`flat_iv_fallback`, never silent).
 
 ### `.claude/` SessionStart hook
 
@@ -80,6 +83,69 @@ deprecation warnings (down from 1067+1 / 578).
 - The hook prints provider warning, dataset presence, theta manifest
   recency, missing-deps reminder, and connector class. Active and
   tested as of today.
+
+### Theta data refresh — 2026-05-04 / 2026-05-05
+
+**Pull session:** 8h 13min wall-clock via patched `pull_all.py`. Final
+result: 5 OK / 3 FAIL / 1 SKIP. The three FAILs are loud strict-mode
+rejections, not data loss — most data landed on disk before the FAIL
+was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
+/ 16 SKIP** (all expected per CLAUDE.md §3 tier matrix).
+
+**On-disk state of `data_processed/theta/` (new vs. prior session):**
+
+| Directory | Tickers / Files | Δ vs 2026-04-23 manifest |
+|---|---|---|
+| `chains/` | 495 | refreshed |
+| `stocks_eod/` | 493 | refreshed |
+| `iv_history/` | 493 | refreshed |
+| `iv_surface/` (snapshot) | 28 | unchanged (mega-caps + sector ETFs only) |
+| **`iv_surface_history/`** | **381** | **NEW** (was absent; first-time backfill) |
+| **`options_flow/`** | **499** | **NEW** (PCR/OI/unusual-volume per ticker) |
+| `index_options_chains/` | 6 | SPX/SPXW/NDX/RUT/DJX/XSP |
+| `index_options_surfaces/` | 6 | SPX/SPXW/NDX/RUT/DJX/XSP |
+| `vix_family.parquet` | ~12y | refreshed |
+
+**Persistent failed-symbol set** (don't reopen as bugs — root cause
+known):
+
+- `BF.B`, `BRK.B` — dotted-ticker symbols. Format is *already*
+  normalized in `engine/theta_connector.py:64-103` (`_normalise_theta_symbol`
+  maps `BRK-B` / `BRK/B` / `BRK B` → `BRK.B`). HTTP 472 on these
+  means Theta has no historical data for them at this tier, **not** a
+  format rejection. Confirmed by audit on 2026-05-05.
+- `DAY` (Dayforce) — fails on both yfinance (`Quote not found for
+  symbol: DAY`) and Theta v3 (HTTP 472 across all expirations).
+  Symbol changed upstream. Will resolve when constituents
+  list rotates.
+- `NVR` — Theta v3 has no options_flow data. Per-tier coverage gap.
+
+**Manifest staleness:** `_manifest.json` last entry is still
+`2026-04-23T04:53:50` because `pull_all.py` invokes individual pullers
+that don't always update the manifest. Disk state has clearly
+advanced past the manifest. Don't trust the manifest's `ran_at` as
+the freshness signal — compare directory mtimes instead.
+
+### `pull_all.py` streaming visibility — shipped 2026-05-04
+
+- **Problem:** `run_step()` previously used
+  `subprocess.run(capture_output=True)`, buffering all child output
+  until step exit. A 7-hour `theta_flow` step looked identical to a
+  hung process for 7 hours.
+- **Fix (PR #61, `6c0543d`):** switched to `subprocess.Popen` with
+  line-buffered `stdout=PIPE` / `stderr=STDOUT`, iterate `proc.stdout`,
+  re-print each line with `│` prefix to mark child output. Pass `-u`
+  to children to defeat their own re-wrapped `TextIOWrapper` buffer.
+  Also `write_through=True` on the parent's `TextIOWrapper` so headers
+  flush immediately.
+- **Behavioural impact:** every per-ticker progress line from each
+  puller is now visible in real time. Verified on the 2026-05-04 run
+  — saw `[ 250/503] INTC OK rows=20`-style lines stream live, caught
+  the `DAY` upstream miss within 2 minutes instead of 2 hours.
+- **No throughput change.**
+- See also `docs/THETA_PULL_SESSION_NOTES.md` (PR #60, `cf92578`) —
+  operational checklist for the laptop bring-up, captures HTTP 478
+  / dotted-ticker / probe-timeout gotchas surfaced during this work.
 
 ## 4. Deprecated / phantom — do not extend
 

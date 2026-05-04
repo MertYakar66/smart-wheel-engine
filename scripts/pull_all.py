@@ -41,8 +41,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace",
+                                  write_through=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace",
+                                  write_through=True)
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -128,26 +130,48 @@ def _match(step: Step, patterns: list[str]) -> bool:
 
 
 def run_step(step: Step, extra_args: list[str], dry_run: bool) -> tuple[str, str, float]:
-    """Return (status, detail, elapsed_seconds)."""
+    """Return (status, detail, elapsed_seconds).
+
+    Streams child stdout/stderr to the parent in real time so long-running
+    pullers (theta_iv_surface, theta_flow, features) emit per-ticker progress
+    lines as they happen. Captures the lines for the per-step summary while
+    still printing them live.
+    """
     skip, reason = step.should_skip()
     if skip:
         return "SKIP", reason, 0.0
-    cmd = [sys.executable, str(_ROOT / "scripts" / step.script), *extra_args]
+    cmd = [sys.executable, "-u", str(_ROOT / "scripts" / step.script), *extra_args]
     if dry_run:
         return "DRY", " ".join(cmd[2:]), 0.0
     t0 = time.perf_counter()
+    captured: list[str] = []
+    last_err: str = ""
     try:
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            print(f"       │ {line}", flush=True)
+            captured.append(line)
+            low = line.lower()
+            if "error" in low or "traceback" in low or "fail" in low:
+                last_err = line
+        proc.wait()
     except Exception as e:
         return "FAIL", f"{type(e).__name__}: {e}", time.perf_counter() - t0
     elapsed = time.perf_counter() - t0
-    tail = (proc.stdout or "").strip().splitlines()[-1:]
-    tail_line = tail[0] if tail else ""
+    tail_line = captured[-1] if captured else ""
     if proc.returncode == 0:
         return "OK", tail_line[:120], elapsed
-    err_line = (proc.stderr or "").strip().splitlines()[-1:]
-    return "FAIL", f"rc={proc.returncode} {err_line[0][:120] if err_line else tail_line[:120]}", elapsed
+    return "FAIL", f"rc={proc.returncode} {(last_err or tail_line)[:120]}", elapsed
 
 
 def main() -> int:

@@ -56,6 +56,7 @@ OUT_CSV = _ROOT / "data" / "bloomberg" / "sp500_earnings_yf.csv"
 
 def load_universe(pit_date: str | None = None) -> list[str]:
     from data.consolidated_loader import get_bloomberg_loader
+
     L = get_bloomberg_loader()
     u = L.get_universe_as_of(pit_date)
     return sorted({t for t in u if all(c.isalpha() or c == "." for c in t)})
@@ -102,8 +103,15 @@ def _pull_one(ticker: str) -> pd.DataFrame:
     df["year/period"] = cal.dt.year.astype(str) + ":Q" + ((cal.dt.month - 1) // 3 + 1).astype(str)
     df["comparable_eps"] = np.nan
     df["ticker"] = f"{ticker} US Equity"
-    keep = ["year/period", "announcement_date", "announcement_time",
-            "earnings_eps", "comparable_eps", "estimate_eps", "ticker"]
+    keep = [
+        "year/period",
+        "announcement_date",
+        "announcement_time",
+        "earnings_eps",
+        "comparable_eps",
+        "estimate_eps",
+        "ticker",
+    ]
     return df[keep]
 
 
@@ -117,11 +125,7 @@ def main() -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    tickers = (
-        [t.upper() for t in args.tickers]
-        if args.tickers else
-        load_universe(args.pit_date)
-    )
+    tickers = [t.upper() for t in args.tickers] if args.tickers else load_universe(args.pit_date)
     print(f"Earnings-calendar pull  tickers={len(tickers)}  workers={args.workers}")
 
     t0 = time.perf_counter()
@@ -139,7 +143,10 @@ def main() -> int:
             else:
                 frames.append(df)
             if n_done % 50 == 0:
-                print(f"  [{n_done:>4}/{len(tickers)}]  OK={len(frames)} empty={n_empty} err={n_err}", flush=True)
+                print(
+                    f"  [{n_done:>4}/{len(tickers)}]  OK={len(frames)} empty={n_empty} err={n_err}",
+                    flush=True,
+                )
 
     if not frames:
         print("No earnings data fetched. Yahoo may be throttling — retry in a minute.")
@@ -160,7 +167,9 @@ def main() -> int:
     elapsed = time.perf_counter() - t0
     print()
     print(f"Wrote {len(all_df)} rows → {out}")
-    print(f"Upcoming earnings (≥ today): {len(upcoming)} across {upcoming['ticker'].nunique()} tickers")
+    print(
+        f"Upcoming earnings (≥ today): {len(upcoming)} across {upcoming['ticker'].nunique()} tickers"
+    )
     print(f"Done in {elapsed:.1f}s  |  {n_err} errors  |  {n_empty} empties")
     # Partial success is still success — yfinance rate-limits aggressively
     # and a re-run later in the day will pick up the ones we missed. Only

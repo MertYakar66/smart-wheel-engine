@@ -19,6 +19,7 @@ All simulators target SP500 / MAG7 equities exclusively.
 """
 
 from dataclasses import dataclass
+from datetime import UTC
 
 import numpy as np
 
@@ -836,7 +837,7 @@ class LSMPricer:
                 pre_div_mask = (exercise_time >= window_start) & (exercise_time < div_step)
                 prob_pre_div += float(np.mean(pre_div_mask))
 
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         return LSMResult(
             american_price=american_price,
@@ -851,7 +852,7 @@ class LSMPricer:
             seed_used=self.seed,
             n_paths=self.n_paths,
             n_steps=n_steps,
-            timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            timestamp=datetime.now(UTC).replace(tzinfo=None).isoformat(),
         )
 
     def assignment_risk(

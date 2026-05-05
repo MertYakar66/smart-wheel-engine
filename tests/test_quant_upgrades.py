@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from engine.event_gate import EventGate, ScheduledEvent
 from engine.ev_engine import EVEngine, ShortOptionTrade
+from engine.event_gate import EventGate, ScheduledEvent
 from engine.portfolio_copula import (
     gaussian_copula_simulation,
     portfolio_cvar_copula,
@@ -230,9 +230,7 @@ class TestPortfolioCopula:
         marginals = [rng.normal(0, 0.01, 2000) for _ in range(3)]
         assets = np.column_stack(marginals)
         corr = self._corr(assets)
-        sim = gaussian_copula_simulation(
-            marginals, corr, n_samples=5000, seed=7
-        )
+        sim = gaussian_copula_simulation(marginals, corr, n_samples=5000, seed=7)
         # Each column's distribution should broadly match the marginal
         # (median within 10% of true median).
         for i in range(3):
@@ -253,9 +251,7 @@ class TestPortfolioCopula:
         q5 = np.percentile(np.column_stack(marginals), 5, axis=0)
         g_joint = np.mean((gauss[:, 0] < q5[0]) & (gauss[:, 1] < q5[1]))
         t_joint = np.mean((t_cop[:, 0] < q5[0]) & (t_cop[:, 1] < q5[1]))
-        assert t_joint > g_joint, (
-            f"t-copula joint tail {t_joint} should exceed gaussian {g_joint}"
-        )
+        assert t_joint > g_joint, f"t-copula joint tail {t_joint} should exceed gaussian {g_joint}"
 
     def test_portfolio_cvar_end_to_end(self):
         rng = np.random.default_rng(42)
@@ -291,9 +287,7 @@ class TestEventGate:
     def test_earnings_blocks_trade_inside_window(self):
         gate = EventGate(earnings_buffer_days=5)
         gate.add_event(ScheduledEvent("AAPL", "earnings", date(2026, 5, 1)))
-        blocked, reason = gate.is_blocked(
-            "AAPL", date(2026, 4, 20), date(2026, 5, 25)
-        )
+        blocked, reason = gate.is_blocked("AAPL", date(2026, 4, 20), date(2026, 5, 25))
         assert blocked is True
         assert "earnings" in reason
 

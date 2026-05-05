@@ -22,7 +22,7 @@ Every test locks in a specific leak that was closed in this audit:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
@@ -150,9 +150,7 @@ class TestWheelTrackerEVAuthorityGate:
             iv=0.25,
             ev_authority_token="bad",
         )
-        rejects = [
-            e for e in t._ev_authority_log if e.get("action") == "reject"
-        ]
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
         assert len(rejects) >= 1
         assert rejects[0]["reason"] == "unknown_token"
 
@@ -165,8 +163,8 @@ class TestEnrichAlertEVAuthority:
         """Mock the EV ranker to return a clear EV verdict, and verify
         the enriched response reflects ev_dollars + prob_profit rather
         than the heuristic wheel_score >= 60 rule."""
-        from engine_api import EngineAPIHandler
         from engine.tv_signals import TVAlert
+        from engine_api import EngineAPIHandler
 
         class _FakeRunner:
             def analyze_ticker(self, ticker, as_of=None):
@@ -206,9 +204,7 @@ class TestEnrichAlertEVAuthority:
                 import numpy as np
 
                 idx = pd.date_range("2020-01-01", periods=800, freq="B")
-                prices = 100 * np.exp(
-                    np.cumsum(np.random.default_rng(0).normal(0, 0.01, 800))
-                )
+                prices = 100 * np.exp(np.cumsum(np.random.default_rng(0).normal(0, 0.01, 800)))
                 return pd.DataFrame({"close": prices}, index=idx)
 
             def get_iv_rank(self, ticker, as_of=None):
@@ -234,10 +230,10 @@ class TestEnrichAlertEVAuthority:
             wheel_put_zone=True,
         )
 
-        with patch("engine_api.get_connector", return_value=_FakeConn()), patch(
-            "engine_api.get_runner", return_value=_FakeRunner()
-        ), patch(
-            "engine.tv_signals.compute_tv_signal", return_value=fake_sig
+        with (
+            patch("engine_api.get_connector", return_value=_FakeConn()),
+            patch("engine_api.get_runner", return_value=_FakeRunner()),
+            patch("engine.tv_signals.compute_tv_signal", return_value=fake_sig),
         ):
             enriched = handler._enrich_alert(alert)
 
@@ -254,8 +250,8 @@ class TestEnrichAlertEVAuthority:
         """Even with a strong heuristic wheel_score, negative EV must
         force a skip verdict — the guardrail that the prior audit
         added for /api/candidates must apply here too."""
-        from engine_api import EngineAPIHandler
         from engine.tv_signals import TVAlert
+        from engine_api import EngineAPIHandler
 
         class _FakeRunner:
             def analyze_ticker(self, ticker, as_of=None):
@@ -294,9 +290,7 @@ class TestEnrichAlertEVAuthority:
                 import numpy as np
 
                 idx = pd.date_range("2020-01-01", periods=800, freq="B")
-                prices = 100 * np.exp(
-                    np.cumsum(np.random.default_rng(0).normal(0, 0.01, 800))
-                )
+                prices = 100 * np.exp(np.cumsum(np.random.default_rng(0).normal(0, 0.01, 800)))
                 return pd.DataFrame({"close": prices}, index=idx)
 
             def get_iv_rank(self, ticker, as_of=None):
@@ -308,8 +302,9 @@ class TestEnrichAlertEVAuthority:
         alert = TVAlert(ticker="AAPL", signal="wheel_put_zone", source="test")
         handler = EngineAPIHandler.__new__(EngineAPIHandler)
 
-        with patch("engine_api.get_connector", return_value=_FakeConn()), patch(
-            "engine_api.get_runner", return_value=_FakeRunner()
+        with (
+            patch("engine_api.get_connector", return_value=_FakeConn()),
+            patch("engine_api.get_runner", return_value=_FakeRunner()),
         ):
             enriched = handler._enrich_alert(alert)
 
@@ -329,8 +324,8 @@ class TestDiagnosticEndpointAuthorityMarkers:
         which are both heuristic. The response must carry an explicit
         authority marker so the dashboard can never route a trade
         based on these values."""
-        from engine_api import EngineAPIHandler
         from engine.wheel_runner import TickerAnalysis
+        from engine_api import EngineAPIHandler
 
         class _FakeConn:
             def get_universe(self):
@@ -352,13 +347,12 @@ class TestDiagnosticEndpointAuthorityMarkers:
 
         captured = {}
         handler = EngineAPIHandler.__new__(EngineAPIHandler)
-        handler._send_json = lambda payload, status=200: captured.update(
-            payload=payload
-        )
+        handler._send_json = lambda payload, status=200: captured.update(payload=payload)
         handler._send_error = lambda *a, **kw: captured.update(error=a)
 
-        with patch("engine_api.get_connector", return_value=_FakeConn()), patch(
-            "engine_api.get_runner", return_value=_FakeRunner()
+        with (
+            patch("engine_api.get_connector", return_value=_FakeConn()),
+            patch("engine_api.get_runner", return_value=_FakeRunner()),
         ):
             handler._handle_analyze("AAPL", None)
 
@@ -377,9 +371,7 @@ class TestDiagnosticEndpointAuthorityMarkers:
                 import numpy as np
 
                 idx = pd.date_range("2020-01-01", periods=500, freq="B")
-                prices = 100 * np.exp(
-                    np.cumsum(np.random.default_rng(0).normal(0, 0.01, 500))
-                )
+                prices = 100 * np.exp(np.cumsum(np.random.default_rng(0).normal(0, 0.01, 500)))
                 return pd.DataFrame(
                     {
                         "open": prices,
@@ -393,9 +385,7 @@ class TestDiagnosticEndpointAuthorityMarkers:
 
         captured = {}
         handler = EngineAPIHandler.__new__(EngineAPIHandler)
-        handler._send_json = lambda payload, status=200: captured.update(
-            payload=payload
-        )
+        handler._send_json = lambda payload, status=200: captured.update(payload=payload)
 
         with patch("engine_api.get_connector", return_value=_FakeConn()):
             handler._handle_strangle("AAPL")
@@ -417,9 +407,7 @@ class TestDiagnosticEndpointAuthorityMarkers:
 
         captured = {}
         handler = EngineAPIHandler.__new__(EngineAPIHandler)
-        handler._send_json = lambda payload, status=200: captured.update(
-            payload=payload
-        )
+        handler._send_json = lambda payload, status=200: captured.update(payload=payload)
 
         with patch("engine_api.get_connector", return_value=_FakeConn()):
             handler._handle_strikes("AAPL", "csp", "45")

@@ -37,9 +37,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from .chart_context import ChartContext, ChartContextProvider, Timeframe
 
@@ -53,7 +52,8 @@ def _utcnow() -> datetime:
     replaces the deprecated ``datetime.utcnow()`` calls without
     changing the wire format.
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
+
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ class FilesystemChartProvider:
         # Staleness check: if the file mtime is older than
         # ``staleness_seconds`` the provider flags it with an error so
         # the dossier layer can decide whether to reject or accept.
-        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).replace(tzinfo=None)
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).replace(tzinfo=None)
         age_seconds = (now - mtime).total_seconds()
         if age_seconds > self.staleness_seconds:
             return ChartContext(

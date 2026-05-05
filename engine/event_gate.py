@@ -43,7 +43,6 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Literal
 
-
 EventKind = Literal[
     "earnings",
     "fomc",
@@ -142,10 +141,7 @@ class EventGate:
         hits.sort(key=lambda e: e.event_date)
         first = hits[0]
         buf = self._buffer_for(first.kind)
-        return True, (
-            f"event_lockout:{first.kind}@{first.event_date.isoformat()} "
-            f"(±{buf}d buffer)"
-        )
+        return True, (f"event_lockout:{first.kind}@{first.event_date.isoformat()} (±{buf}d buffer)")
 
     def filter_candidates(
         self,
@@ -189,7 +185,7 @@ class EventGate:
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
         dividend_buffer_days: int = 1,
-    ) -> "EventGate":
+    ) -> EventGate:
         """Build a gate from standard Bloomberg-shape DataFrames.
 
         ``earnings_df`` must have columns ``ticker`` and
@@ -234,9 +230,7 @@ class EventGate:
                     "custom",
                 ):
                     ev_kind = "custom"
-                gate.add_event(
-                    ScheduledEvent(ticker="*", kind=ev_kind, event_date=d)
-                )
+                gate.add_event(ScheduledEvent(ticker="*", kind=ev_kind, event_date=d))
 
         if dividends_df is not None and len(dividends_df) > 0:
             for _, row in dividends_df.iterrows():

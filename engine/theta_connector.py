@@ -34,7 +34,7 @@ import io
 import logging
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -86,8 +86,7 @@ def _normalise_theta_symbol(sym: str) -> str:
     """
     s = sym.strip().upper()
     # Strip Bloomberg suffixes
-    for suffix in (" UW EQUITY", " UN EQUITY", " US EQUITY",
-                   " UW", " UN", " US", " EQUITY"):
+    for suffix in (" UW EQUITY", " UN EQUITY", " US EQUITY", " UW", " UN", " US", " EQUITY"):
         if s.endswith(suffix):
             s = s[: -len(suffix)].rstrip()
     # Explicit alias first (handles any special cases)
@@ -155,7 +154,9 @@ class ThetaConnector(MarketDataConnector):
             if resp.status_code in (400, 403, 404, 500, 502, 503):
                 logger.debug(
                     "ThetaData %s on %s params=%s (subscription or server-side)",
-                    resp.status_code, path, params,
+                    resp.status_code,
+                    path,
+                    params,
                 )
                 return pd.DataFrame()
             resp.raise_for_status()
@@ -192,7 +193,9 @@ class ThetaConnector(MarketDataConnector):
             self._chain_cache[key] = (time.time(), df)
             # Evict stale entries to prevent unbounded growth
             now = time.time()
-            stale = [k for k, (ts, _) in self._chain_cache.items() if now - ts > _CHAIN_CACHE_TTL * 2]
+            stale = [
+                k for k, (ts, _) in self._chain_cache.items() if now - ts > _CHAIN_CACHE_TTL * 2
+            ]
             for k in stale:
                 self._chain_cache.pop(k, None)
 
@@ -222,7 +225,7 @@ class ThetaConnector(MarketDataConnector):
         if as_of is None:
             return True
         try:
-            return pd.Timestamp(as_of).date() >= datetime.now(timezone.utc).date()
+            return pd.Timestamp(as_of).date() >= datetime.now(UTC).date()
         except Exception:
             return False
 
@@ -251,10 +254,10 @@ class ThetaConnector(MarketDataConnector):
 
         # v3 requires both start and end dates. Fill in sensible defaults
         # ONLY for the Theta call.
-        theta_start = start_date or (
-            datetime.now(timezone.utc) - timedelta(days=365 * 2)
-        ).strftime("%Y-%m-%d")
-        theta_end = end_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        theta_start = start_date or (datetime.now(UTC) - timedelta(days=365 * 2)).strftime(
+            "%Y-%m-%d"
+        )
+        theta_end = end_date or datetime.now(UTC).strftime("%Y-%m-%d")
 
         params: dict[str, Any] = {
             "symbol": ticker,
@@ -278,7 +281,9 @@ class ThetaConnector(MarketDataConnector):
 
         needed = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]
         if "close" not in needed:
-            logger.warning("ThetaData OHLCV missing close column for %s, using Bloomberg CSV", ticker)
+            logger.warning(
+                "ThetaData OHLCV missing close column for %s, using Bloomberg CSV", ticker
+            )
             return super().get_ohlcv(ticker, start_date, end_date)
 
         out = df.sort_values("date").set_index("date")[needed]
@@ -377,7 +382,9 @@ class ThetaConnector(MarketDataConnector):
 
         if not df_greeks.empty and not df_quotes.empty:
             quote_cols = [k for k in merge_keys if k in df_quotes.columns]
-            extra_quote = [c for c in ("bid", "ask", "bid_size", "ask_size") if c in df_quotes.columns]
+            extra_quote = [
+                c for c in ("bid", "ask", "bid_size", "ask_size") if c in df_quotes.columns
+            ]
             df_quotes_slim = df_quotes[quote_cols + extra_quote].copy()
             df = pd.merge(df_greeks, df_quotes_slim, on=merge_keys, how="left")
         elif not df_greeks.empty:
@@ -392,8 +399,20 @@ class ThetaConnector(MarketDataConnector):
             df = pd.merge(df, df_oi[oi_cols], on=oi_keys, how="left")
 
         # Normalise types
-        for col in ("strike", "delta", "gamma", "theta", "vega", "rho", "iv",
-                    "bid", "ask", "bid_size", "ask_size", "open_interest"):
+        for col in (
+            "strike",
+            "delta",
+            "gamma",
+            "theta",
+            "vega",
+            "rho",
+            "iv",
+            "bid",
+            "ask",
+            "bid_size",
+            "ask_size",
+            "open_interest",
+        ):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -519,7 +538,7 @@ class ThetaConnector(MarketDataConnector):
         atm_strike = float(puts.sort_values("_gap").iloc[0]["strike"])
 
         # Chunk 365 days into monthly windows (ThetaData caps multi-day at ~1mo)
-        end = datetime.now(timezone.utc).date()
+        end = datetime.now(UTC).date()
         start = end - timedelta(days=_IV_RANK_LOOKBACK_DAYS)
         window_days = 28
         endpoints = (
@@ -684,9 +703,7 @@ class ThetaConnector(MarketDataConnector):
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
-    def get_atm_term_structure(
-        self, ticker: str, max_expirations: int = 8
-    ) -> pd.DataFrame:
+    def get_atm_term_structure(self, ticker: str, max_expirations: int = 8) -> pd.DataFrame:
         """Return ATM IV (put closest to -0.50Δ) across expirations.
 
         Columns: expiration, dte, atm_iv. Feeds Nelson-Siegel fit.
@@ -708,9 +725,7 @@ class ThetaConnector(MarketDataConnector):
         )
         return atm
 
-    def get_skew_snapshot(
-        self, ticker: str, dte_target: int = 35
-    ) -> dict:
+    def get_skew_snapshot(self, ticker: str, dte_target: int = 35) -> dict:
         """25Δ put / ATM / 25Δ call IV for one expiry — feeds skew_slope.
 
         Returns {'iv_25d_put', 'iv_atm', 'iv_25d_call', 'expiration', 'dte'}
@@ -865,9 +880,9 @@ class ThetaConnector(MarketDataConnector):
         }
         # EOD endpoint requires both start and end. Default to 1Y window.
         if start_date is None:
-            start_date = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%d")
+            start_date = (datetime.now(UTC) - timedelta(days=365)).strftime("%Y-%m-%d")
         if end_date is None:
-            end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            end_date = datetime.now(UTC).strftime("%Y-%m-%d")
         params["start_date"] = self._to_yyyymmdd(start_date)
         params["end_date"] = self._to_yyyymmdd(end_date)
 
@@ -889,7 +904,9 @@ class ThetaConnector(MarketDataConnector):
         # Collapse to daily — one row per trading day
         df["date"] = df[ts_col].dt.normalize()
         df = df.groupby("date").tail(1).set_index("date")
-        cols = [c for c in ("open", "high", "low", "close", "volume", "bid", "ask") if c in df.columns]
+        cols = [
+            c for c in ("open", "high", "low", "close", "volume", "bid", "ask") if c in df.columns
+        ]
         return df[cols]
 
     # ------------------------------------------------------------------

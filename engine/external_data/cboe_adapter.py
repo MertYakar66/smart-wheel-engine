@@ -64,9 +64,7 @@ class CBOEAdapter:
         if df.empty:
             return pd.DataFrame()
         df.columns = [c.strip().lower() for c in df.columns]
-        date_col = next(
-            (c for c in ("date", "datetime", "time") if c in df.columns), df.columns[0]
-        )
+        date_col = next((c for c in ("date", "datetime", "time") if c in df.columns), df.columns[0])
         df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
         df = df.dropna(subset=[date_col]).sort_values(date_col).set_index(date_col)
         cols = [c for c in ("open", "high", "low", "close") if c in df.columns]
@@ -96,12 +94,8 @@ class CBOEAdapter:
         vix9d = self.latest("VIX9D")
         vix3m = self.latest("VIX3M")
         vix6m = self.latest("VIX6M")
-        slope_9d_30d = (
-            vix - vix9d if (vix == vix and vix9d == vix9d) else float("nan")
-        )
-        slope_30d_3m = (
-            vix3m - vix if (vix == vix and vix3m == vix3m) else float("nan")
-        )
+        slope_9d_30d = vix - vix9d if (vix == vix and vix9d == vix9d) else float("nan")
+        slope_30d_3m = vix3m - vix if (vix == vix and vix3m == vix3m) else float("nan")
         return {
             "vix": vix,
             "vix9d": vix9d,

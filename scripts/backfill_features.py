@@ -49,10 +49,7 @@ def _compute_one(ticker: str, force: bool) -> tuple[str, bool, str, float]:
         pipe = FeaturePipeline()
         res = pipe.compute_all(ticker, force=force)
         ok = getattr(res, "success", True)
-        detail = (
-            getattr(res, "message", "")
-            or f"{getattr(res, 'n_categories', '?')} categories"
-        )
+        detail = getattr(res, "message", "") or f"{getattr(res, 'n_categories', '?')} categories"
         return ticker, ok, detail, (_t.perf_counter() - t0) * 1000.0
     except Exception as e:
         return ticker, False, f"{type(e).__name__}: {e}", (_t.perf_counter() - t0) * 1000.0
@@ -95,8 +92,10 @@ def main() -> int:
     if args.limit:
         tickers = tickers[: args.limit]
 
-    print(f"Backfilling features for {len(tickers)} tickers "
-          f"with {args.workers} workers  force={args.force}")
+    print(
+        f"Backfilling features for {len(tickers)} tickers "
+        f"with {args.workers} workers  force={args.force}"
+    )
 
     t0 = time.perf_counter()
     results: list[tuple[str, bool, str, float]] = []
@@ -113,8 +112,10 @@ def main() -> int:
                 n_ok += 1
             else:
                 n_fail += 1
-            print(f"  [{n_done:>3}/{len(tickers)}] {res[0]:<6} "
-                  f"{'OK' if res[1] else 'FAIL':<4} {res[3]:>7.0f}ms  {res[2][:70]}")
+            print(
+                f"  [{n_done:>3}/{len(tickers)}] {res[0]:<6} "
+                f"{'OK' if res[1] else 'FAIL':<4} {res[3]:>7.0f}ms  {res[2][:70]}"
+            )
     else:
         with ProcessPoolExecutor(max_workers=args.workers) as ex:
             futures = {ex.submit(_compute_one, t, args.force): t for t in tickers}
@@ -126,9 +127,11 @@ def main() -> int:
                     n_ok += 1
                 else:
                     n_fail += 1
-                print(f"  [{n_done:>3}/{len(tickers)}] {res[0]:<6} "
-                      f"{'OK' if res[1] else 'FAIL':<4} {res[3]:>7.0f}ms  {res[2][:70]}",
-                      flush=True)
+                print(
+                    f"  [{n_done:>3}/{len(tickers)}] {res[0]:<6} "
+                    f"{'OK' if res[1] else 'FAIL':<4} {res[3]:>7.0f}ms  {res[2][:70]}",
+                    flush=True,
+                )
 
     elapsed = time.perf_counter() - t0
 

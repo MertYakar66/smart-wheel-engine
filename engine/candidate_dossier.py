@@ -32,13 +32,12 @@ a (possibly missing) screenshot path and a review verdict.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
 import pandas as pd
 
 from .chart_context import ChartContext, ChartContextProvider, Timeframe
-
 
 Verdict = Literal["proceed", "review", "skip", "blocked"]
 
@@ -62,7 +61,7 @@ class CandidateDossier:
     verdict: Verdict = "review"
     verdict_reason: str = ""
     review_notes: list[str] = field(default_factory=list)
-    built_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    built_at: datetime = field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     @property
     def ev_dollars(self) -> float:
@@ -76,9 +75,7 @@ class CandidateDossier:
         return {
             "ticker": self.ticker,
             "ev_row": dict(self.ev_row),
-            "chart_context": (
-                self.chart_context.to_dict() if self.chart_context else None
-            ),
+            "chart_context": (self.chart_context.to_dict() if self.chart_context else None),
             "verdict": self.verdict,
             "verdict_reason": self.verdict_reason,
             "review_notes": list(self.review_notes),
@@ -103,8 +100,7 @@ class ChartReviewer(Protocol):
       you can drop a Claude-backed reviewer in later.
     """
 
-    def review(self, dossier: CandidateDossier) -> tuple[Verdict, str, list[str]]:
-        ...
+    def review(self, dossier: CandidateDossier) -> tuple[Verdict, str, list[str]]: ...
 
 
 # ----------------------------------------------------------------------
@@ -154,17 +150,13 @@ class EnginePhaseReviewer:
         self.min_proceed_ev = min_proceed_ev
         self.spot_tolerance_pct = spot_tolerance_pct
 
-    def review(
-        self, dossier: CandidateDossier
-    ) -> tuple[Verdict, str, list[str]]:
+    def review(self, dossier: CandidateDossier) -> tuple[Verdict, str, list[str]]:
         notes: list[str] = []
         ev = dossier.ev_dollars
 
         # Rule 1: negative EV is blocked. Chart cannot save it.
         if ev < 0:
-            notes.append(
-                f"engine ev_dollars={ev:.2f} < 0 — chart cannot upgrade negative EV"
-            )
+            notes.append(f"engine ev_dollars={ev:.2f} < 0 — chart cannot upgrade negative EV")
             return "blocked", "negative_ev", notes
 
         chart = dossier.chart_context
@@ -197,13 +189,9 @@ class EnginePhaseReviewer:
             # loves) and compression/expansion (bad).
             bad_phases = {"compression", "expansion"}
             if str(chart_phase) in bad_phases:
-                notes.append(
-                    f"chart phase={chart_phase} contradicts engine phase={engine_phase}"
-                )
+                notes.append(f"chart phase={chart_phase} contradicts engine phase={engine_phase}")
                 return "skip", "phase_contradiction", notes
-            notes.append(
-                f"phase disagreement logged: chart={chart_phase} engine={engine_phase}"
-            )
+            notes.append(f"phase disagreement logged: chart={chart_phase} engine={engine_phase}")
 
         # Rule 5: EV threshold.
         if ev >= self.min_proceed_ev:
@@ -213,9 +201,7 @@ class EnginePhaseReviewer:
         else:
             verdict = "review"
             reason = "ev_below_proceed_threshold"
-            notes.append(
-                f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} — human review"
-            )
+            notes.append(f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} — human review")
 
         # Rule 6: Dealer-positioning downgrade (audit V).
         # When an aggregated MarketStructure is attached AND the regime

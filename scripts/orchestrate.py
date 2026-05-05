@@ -31,7 +31,6 @@ Architecture:
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import time
@@ -80,9 +79,30 @@ def refresh_daily_data(tickers: list[str] | None = None) -> dict:
                 tickers = conn.get_universe()[:50]
             except Exception:
                 tickers = [
-                    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA",
-                    "JPM", "BAC", "WFC", "GS", "UNH", "JNJ", "LLY", "ABBV",
-                    "XOM", "CVX", "PG", "KO", "HD", "MCD", "CAT", "HON", "GE",
+                    "AAPL",
+                    "MSFT",
+                    "GOOGL",
+                    "AMZN",
+                    "META",
+                    "NVDA",
+                    "TSLA",
+                    "JPM",
+                    "BAC",
+                    "WFC",
+                    "GS",
+                    "UNH",
+                    "JNJ",
+                    "LLY",
+                    "ABBV",
+                    "XOM",
+                    "CVX",
+                    "PG",
+                    "KO",
+                    "HD",
+                    "MCD",
+                    "CAT",
+                    "HON",
+                    "GE",
                 ]
 
         # Pull OHLCV for each ticker (last 5 days to catch gaps)
@@ -171,7 +191,14 @@ def run_news_pipeline(
             except json.JSONDecodeError:
                 stories = []
             _log(f"  Got {len(stories) if isinstance(stories, list) else '?'} stories")
-            return _result("news", "ok", {"story_count": len(stories) if isinstance(stories, list) else 0, "stories": stories})
+            return _result(
+                "news",
+                "ok",
+                {
+                    "story_count": len(stories) if isinstance(stories, list) else 0,
+                    "stories": stories,
+                },
+            )
         else:
             _log(f"  News pipeline returned {proc.returncode}")
             return _result("news", "partial", error=proc.stderr[:500])
@@ -216,7 +243,7 @@ def run_ev_ranking(
         # Log top 5 to stderr for human readability
         for i, c in enumerate(candidates[:5]):
             _log(
-                f"  #{i+1} {c.get('ticker'):>5s}  "
+                f"  #{i + 1} {c.get('ticker'):>5s}  "
                 f"EV/day=${c.get('ev_per_day', 0):+.2f}  "
                 f"prob={c.get('prob_profit', 0):.0%}  "
                 f"strike={c.get('strike', 0):.0f}  "
@@ -253,6 +280,7 @@ def run_regime_check() -> dict:
         # HMM regime (if OHLCV for SPY available)
         try:
             import numpy as np
+
             from engine.regime_hmm import GaussianHMM
 
             spy = conn.get_ohlcv("SPY")
@@ -326,16 +354,20 @@ def run_morning(args: argparse.Namespace) -> list[dict]:
     """Pre-market workflow: data + news + EV ranking + regime."""
     results = []
     results.append(refresh_daily_data())
-    results.append(run_news_pipeline(
-        visible=args.visible,
-        scrape_only=args.scrape_only,
-    ))
-    results.append(run_ev_ranking(
-        top_n=args.top_n,
-        dte_target=args.dte,
-        delta_target=args.delta,
-        use_dealer=args.dealer,
-    ))
+    results.append(
+        run_news_pipeline(
+            visible=args.visible,
+            scrape_only=args.scrape_only,
+        )
+    )
+    results.append(
+        run_ev_ranking(
+            top_n=args.top_n,
+            dte_target=args.dte,
+            delta_target=args.delta,
+            use_dealer=args.dealer,
+        )
+    )
     results.append(run_regime_check())
     return results
 
@@ -344,12 +376,14 @@ def run_intraday(args: argparse.Namespace) -> list[dict]:
     """Market-hours: quick data refresh + re-rank."""
     results = []
     results.append(refresh_daily_data())
-    results.append(run_ev_ranking(
-        top_n=args.top_n,
-        dte_target=args.dte,
-        delta_target=args.delta,
-        use_dealer=args.dealer,
-    ))
+    results.append(
+        run_ev_ranking(
+            top_n=args.top_n,
+            dte_target=args.dte,
+            delta_target=args.delta,
+            use_dealer=args.dealer,
+        )
+    )
     return results
 
 
@@ -448,7 +482,7 @@ Examples:
             _log("Top candidates:")
             for i, c in enumerate(ev_stage["data"]["candidates"][:5]):
                 _log(
-                    f"  #{i+1} {c.get('ticker', '?'):>5s}  "
+                    f"  #{i + 1} {c.get('ticker', '?'):>5s}  "
                     f"EV/day=${c.get('ev_per_day', 0):+.2f}  "
                     f"prob={c.get('prob_profit', 0):.0%}  "
                     f"K={c.get('strike', 0):.0f}"

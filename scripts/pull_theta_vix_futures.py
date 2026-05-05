@@ -39,7 +39,7 @@ import logging
 import socket
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
@@ -140,8 +140,9 @@ def _last_date_in_store() -> date | None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=float, default=5.0)
-    ap.add_argument("--months", type=int, default=8,
-                    help="How many future expirations forward from each date")
+    ap.add_argument(
+        "--months", type=int, default=8, help="How many future expirations forward from each date"
+    )
     ap.add_argument("--start")
     ap.add_argument("--end")
     ap.add_argument("--incremental", action="store_true")
@@ -156,7 +157,8 @@ def main() -> int:
     conn = ThetaConnector()
     end_d = date.fromisoformat(args.end) if args.end else date.today()
     start_d = (
-        date.fromisoformat(args.start) if args.start
+        date.fromisoformat(args.start)
+        if args.start
         else end_d - timedelta(days=int(args.years * 365))
     )
     if args.incremental:
@@ -189,8 +191,10 @@ def main() -> int:
         if df.empty:
             continue
         frames.append(df)
-        print(f"  {exp.isoformat()}  rows={len(df):<5}  "
-              f"{df['date'].min().date()} to {df['date'].max().date()}")
+        print(
+            f"  {exp.isoformat()}  rows={len(df):<5}  "
+            f"{df['date'].min().date()} to {df['date'].max().date()}"
+        )
 
     if not frames:
         print("No futures data returned — subscription may not include futures history.")
@@ -217,9 +221,7 @@ def main() -> int:
     combined.to_parquet(OUT_LONG, index=False)
 
     # Wide view: UX1..UX{months} columns
-    wide = combined.pivot_table(
-        index="date", columns="month_index", values="close", aggfunc="last"
-    )
+    wide = combined.pivot_table(index="date", columns="month_index", values="close", aggfunc="last")
     wide.columns = [f"ux{int(c)}" for c in wide.columns]
     wide = wide.reset_index().sort_values("date")
     wide.to_parquet(OUT_WIDE, index=False)
@@ -227,7 +229,7 @@ def main() -> int:
     elapsed = time.perf_counter() - t0
     print()
     print(f"Wrote {len(combined)} long rows → {OUT_LONG}")
-    print(f"Wide curve ({len(wide)} dates, {wide.shape[1]-1} columns) → {OUT_WIDE}")
+    print(f"Wide curve ({len(wide)} dates, {wide.shape[1] - 1} columns) → {OUT_WIDE}")
     print(f"Done in {elapsed:.1f}s")
     return 0
 

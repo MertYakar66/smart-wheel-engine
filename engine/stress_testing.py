@@ -12,6 +12,7 @@ Key principle: Understand worst-case outcomes before they happen.
 """
 
 from dataclasses import dataclass
+from datetime import UTC
 from enum import Enum
 
 import numpy as np
@@ -451,11 +452,11 @@ class StressTester:
             seed: Random seed for reproducibility. If None, uses random state.
         """
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         rng = np.random.default_rng(seed)
         run_id = str(uuid.uuid4())[:8]
-        start_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        start_time = datetime.now(UTC).replace(tzinfo=None)
 
         pnls = []
 
@@ -485,7 +486,7 @@ class StressTester:
             pnls.append(result.portfolio_pnl)
 
         pnls = np.array(pnls)
-        end_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_time = datetime.now(UTC).replace(tzinfo=None)
 
         return {
             "mean": np.mean(pnls),

@@ -36,6 +36,7 @@ def conn():
 # Terminal health
 # -----------------------------------------------------------------------
 
+
 def test_terminal_alive(conn):
     assert conn.is_terminal_alive()
 
@@ -43,6 +44,7 @@ def test_terminal_alive(conn):
 # -----------------------------------------------------------------------
 # Option chain
 # -----------------------------------------------------------------------
+
 
 def test_option_chain_returns_dataframe(conn):
     df = conn.get_option_chain("SPY", dte_target=35)
@@ -90,20 +92,20 @@ def test_option_chain_cached(conn):
 # Fundamentals
 # -----------------------------------------------------------------------
 
+
 def test_fundamentals_has_live_iv(conn):
     """get_fundamentals should return an implied_vol_atm in decimal form."""
     f = conn.get_fundamentals("SPY")
     assert f is not None, "get_fundamentals returned None for SPY"
     iv = f.get("implied_vol_atm")
     assert iv is not None, "implied_vol_atm missing from fundamentals"
-    assert 0 < float(iv) <= 3.0, (
-        f"implied_vol_atm={iv} looks like percent not decimal"
-    )
+    assert 0 < float(iv) <= 3.0, f"implied_vol_atm={iv} looks like percent not decimal"
 
 
 # -----------------------------------------------------------------------
 # OHLCV
 # -----------------------------------------------------------------------
+
 
 def test_ohlcv_shape(conn):
     df = conn.get_ohlcv("SPY", start_date="2025-01-01")
@@ -124,6 +126,7 @@ def test_ohlcv_high_ge_low(conn):
 # IV rank
 # -----------------------------------------------------------------------
 
+
 def test_iv_rank_in_range(conn):
     rank = conn.get_iv_rank("SPY")
     assert isinstance(rank, float)
@@ -133,6 +136,7 @@ def test_iv_rank_in_range(conn):
 # -----------------------------------------------------------------------
 # VIX regime (live)
 # -----------------------------------------------------------------------
+
 
 def test_vix_regime_has_vix(conn):
     regime = conn.get_vix_regime()
@@ -146,6 +150,7 @@ def test_vix_regime_has_vix(conn):
 # -----------------------------------------------------------------------
 # Fallback: risk-free rate still comes from Bloomberg CSV (decimal)
 # -----------------------------------------------------------------------
+
 
 def test_risk_free_rate_is_decimal(conn):
     """get_risk_free_rate must return a decimal (e.g. 0.043), not percent (4.3)."""

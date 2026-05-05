@@ -38,9 +38,10 @@ import os
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 _ROOT = Path(__file__).resolve().parents[1]
 # Insert project root at front unconditionally — the "not in sys.path" guard
@@ -206,9 +207,13 @@ def _synth_chain(spot: float = 100.0, dte_days: int = 32) -> pd.DataFrame:
                     "open_interest": 500,
                     "volume": 100,
                     "delta": (
-                        -0.5 if opt == "put" and K > spot else
-                        0.5 if opt == "call" and K < spot else
-                        0.25 if opt == "put" else -0.25
+                        -0.5
+                        if opt == "put" and K > spot
+                        else 0.5
+                        if opt == "call" and K < spot
+                        else 0.25
+                        if opt == "put"
+                        else -0.25
                     ),
                 }
             )
@@ -257,20 +262,20 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("01 option_pricer")
     from engine.option_pricer import (
-        black_scholes_price,
+        american_option_greeks,
+        american_option_price,
+        black_scholes_all_greeks,
+        black_scholes_color,
         black_scholes_delta,
         black_scholes_gamma,
-        black_scholes_theta,
-        black_scholes_vega,
+        black_scholes_price,
         black_scholes_rho,
-        black_scholes_all_greeks,
-        vectorized_bs_all_greeks,
         black_scholes_speed,
-        black_scholes_color,
+        black_scholes_theta,
         black_scholes_ultima,
+        black_scholes_vega,
         implied_volatility,
-        american_option_price,
-        american_option_greeks,
+        vectorized_bs_all_greeks,
     )
 
     def bsm_call():
@@ -405,10 +410,10 @@ def register_checks(h: Harness) -> None:
     h.section("03 realized_vol")
     from engine.realized_vol import (
         close_to_close_vol,
-        parkinson_vol,
         garman_klass_vol,
-        rogers_satchell_vol,
+        parkinson_vol,
         realised_vol_bundle,
+        rogers_satchell_vol,
     )
 
     ohlcv = _synth_ohlcv()
@@ -449,8 +454,8 @@ def register_checks(h: Harness) -> None:
     # 4. Volatility surface & skew
     # ------------------------------------------------------------------
     h.section("04 vol_surface")
+    from engine.skew_dynamics import ivs_dislocation_score, skew_momentum, skew_slope
     from engine.volatility_surface import SVICalibrator, create_constant_surface
-    from engine.skew_dynamics import skew_slope, skew_momentum, ivs_dislocation_score
 
     def svi_calibration():
         # Synthetic SVI-shaped smile. The calibrator expects IVs (not total
@@ -463,7 +468,10 @@ def register_checks(h: Harness) -> None:
         ivs = 0.22 + 0.08 * k**2 - 0.03 * k
         try:
             params = SVICalibrator().calibrate(
-                strikes=strikes, ivs=ivs, forward=spot, T=T,
+                strikes=strikes,
+                ivs=ivs,
+                forward=spot,
+                T=T,
             )
         except Exception as e:
             raise Skip(f"SVI unavailable: {e}")
@@ -472,6 +480,7 @@ def register_checks(h: Harness) -> None:
 
     def constant_surface():
         from datetime import date, timedelta
+
         s = create_constant_surface(
             iv=0.25,
             as_of_date=date.today(),
@@ -495,7 +504,7 @@ def register_checks(h: Harness) -> None:
         return f"keys={list(mom.keys())[:3]}"
 
     def ivs_dislocation():
-        tenors = np.array([7/365, 30/365, 60/365, 90/365, 180/365, 365/365])
+        tenors = np.array([7 / 365, 30 / 365, 60 / 365, 90 / 365, 180 / 365, 365 / 365])
         ivs = np.array([0.28, 0.26, 0.25, 0.24, 0.23, 0.22])
         out = ivs_dislocation_score(tenors, ivs)
         assert isinstance(out, dict) and len(out) > 0
@@ -512,12 +521,12 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("05 forward_dist_regime")
     from engine.forward_distribution import (
-        empirical_forward_log_returns,
-        block_bootstrap_log_returns,
         best_available_forward_distribution,
+        block_bootstrap_log_returns,
+        empirical_forward_log_returns,
     )
-    from engine.regime_hmm import GaussianHMM
     from engine.regime_detector import RegimeDetector
+    from engine.regime_hmm import GaussianHMM
 
     def empirical_forward():
         arr = empirical_forward_log_returns(ohlcv, horizon_days=30)
@@ -527,7 +536,11 @@ def register_checks(h: Harness) -> None:
 
     def block_bootstrap():
         arr = block_bootstrap_log_returns(
-            ohlcv, horizon_days=30, n_scenarios=2000, block_size=5, seed=0,
+            ohlcv,
+            horizon_days=30,
+            n_scenarios=2000,
+            block_size=5,
+            seed=0,
         )
         assert len(arr) == 2000
         return "bootstrap n=2000"
@@ -568,8 +581,16 @@ def register_checks(h: Harness) -> None:
 
     def ev_fallback_path():
         trade = ShortOptionTrade(
-            option_type="put", underlying="TESTA", spot=100, strike=95,
-            premium=1.5, dte=30, iv=0.25, bid=1.45, ask=1.55, open_interest=1000,
+            option_type="put",
+            underlying="TESTA",
+            spot=100,
+            strike=95,
+            premium=1.5,
+            dte=30,
+            iv=0.25,
+            bid=1.45,
+            ask=1.55,
+            open_interest=1000,
         )
         res = EVEngine().evaluate(trade)
         assert 0.0 <= res.prob_profit <= 1.0
@@ -580,8 +601,16 @@ def register_checks(h: Harness) -> None:
         rng = np.random.default_rng(0)
         fwd = rng.normal(0.0, 0.02, 1500)
         trade = ShortOptionTrade(
-            option_type="put", underlying="TESTA", spot=100, strike=92,
-            premium=1.0, dte=30, iv=0.25, bid=0.95, ask=1.05, open_interest=500,
+            option_type="put",
+            underlying="TESTA",
+            spot=100,
+            strike=92,
+            premium=1.0,
+            dte=30,
+            iv=0.25,
+            bid=0.95,
+            ask=1.05,
+            open_interest=500,
         )
         res = EVEngine().evaluate(trade, forward_log_returns=fwd)
         assert res.metadata["distribution_source"] == "empirical"
@@ -590,8 +619,16 @@ def register_checks(h: Harness) -> None:
 
     def ev_regime_clamp_nan():
         t = ShortOptionTrade(
-            option_type="put", underlying="TESTA", spot=100, strike=95,
-            premium=1.5, dte=30, iv=0.25, bid=1.45, ask=1.55, open_interest=1000,
+            option_type="put",
+            underlying="TESTA",
+            spot=100,
+            strike=95,
+            premium=1.5,
+            dte=30,
+            iv=0.25,
+            bid=1.45,
+            ask=1.55,
+            open_interest=1000,
             regime_multiplier=float("nan"),
         )
         r = EVEngine().evaluate(t)
@@ -600,11 +637,24 @@ def register_checks(h: Harness) -> None:
 
     def ev_event_gate_blocks():
         from datetime import date, timedelta
+
         gate = EventGate(earnings_buffer_days=5, macro_buffer_days=1)
-        gate.add_event(ScheduledEvent(ticker="TESTA", kind="earnings", event_date=date.today() + timedelta(days=3)))
+        gate.add_event(
+            ScheduledEvent(
+                ticker="TESTA", kind="earnings", event_date=date.today() + timedelta(days=3)
+            )
+        )
         t = ShortOptionTrade(
-            option_type="put", underlying="TESTA", spot=100, strike=95,
-            premium=1.5, dte=30, iv=0.25, bid=1.45, ask=1.55, open_interest=1000,
+            option_type="put",
+            underlying="TESTA",
+            spot=100,
+            strike=95,
+            premium=1.5,
+            dte=30,
+            iv=0.25,
+            bid=1.45,
+            ask=1.55,
+            open_interest=1000,
         )
         eng = EVEngine(event_gate=gate)
         r = eng.evaluate(
@@ -619,8 +669,16 @@ def register_checks(h: Harness) -> None:
         rng = np.random.default_rng(1)
         bad = rng.normal(-0.15, 0.05, 5000)  # many stop breaches
         t = ShortOptionTrade(
-            option_type="put", underlying="TESTA", spot=100, strike=95,
-            premium=1.5, dte=30, iv=0.25, bid=1.45, ask=1.55, open_interest=1000,
+            option_type="put",
+            underlying="TESTA",
+            spot=100,
+            strike=95,
+            premium=1.5,
+            dte=30,
+            iv=0.25,
+            bid=1.45,
+            ask=1.55,
+            open_interest=1000,
         )
         r = EVEngine().evaluate(t, forward_log_returns=bad)
         assert 0.0 <= r.metadata["prob_stop_terminal"] <= 1.0
@@ -637,11 +695,11 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("07 risk_manager")
     from engine.risk_manager import (
-        RiskManager,
         RiskLimits,
+        RiskManager,
+        calculate_hrp_weights,
         calculate_kelly_fraction,
         calculate_optimal_contracts,
-        calculate_hrp_weights,
         optimize_position_weights,
     )
 
@@ -666,16 +724,19 @@ def register_checks(h: Harness) -> None:
 
     def optimal_contracts():
         n = calculate_optimal_contracts(
-            capital=100_000, strike=100.0, max_risk_pct=0.05,
-            margin_requirement=0.20, stress_loss_pct=0.25, premium_per_share=1.5,
+            capital=100_000,
+            strike=100.0,
+            max_risk_pct=0.05,
+            margin_requirement=0.20,
+            stress_loss_pct=0.25,
+            premium_per_share=1.5,
         )
         assert n >= 0
         return f"n={n}"
 
     def hrp_weights():
         rng = np.random.default_rng(0)
-        returns = pd.DataFrame(rng.normal(0, 0.01, (252, 5)),
-                               columns=[f"A{i}" for i in range(5)])
+        returns = pd.DataFrame(rng.normal(0, 0.01, (252, 5)), columns=[f"A{i}" for i in range(5)])
         w = calculate_hrp_weights(returns)
         assert abs(sum(w.values()) - 1.0) < 1e-6
         return f"Σw={sum(w.values()):.6f}"
@@ -700,9 +761,12 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("08 costs_and_gates")
     from engine.transaction_costs import (
-        calculate_commission, calculate_slippage,
-        calculate_assignment_fee, calculate_total_entry_cost,
-        calculate_total_exit_cost, calculate_reg_t_margin_short_put,
+        calculate_assignment_fee,
+        calculate_commission,
+        calculate_reg_t_margin_short_put,
+        calculate_slippage,
+        calculate_total_entry_cost,
+        calculate_total_exit_cost,
     )
 
     def commission_check():
@@ -711,8 +775,9 @@ def register_checks(h: Harness) -> None:
         return f"${c:.2f}"
 
     def slippage_check():
-        s = calculate_slippage(mid_price=1.50, bid_ask_spread=0.10,
-                               trade_direction="sell", open_interest=500)
+        s = calculate_slippage(
+            mid_price=1.50, bid_ask_spread=0.10, trade_direction="sell", open_interest=500
+        )
         assert s > 0
         return f"${s:.4f}/sh"
 
@@ -723,16 +788,20 @@ def register_checks(h: Harness) -> None:
 
     def total_entry_cost_check():
         out = calculate_total_entry_cost(
-            premium_per_share=1.5, bid_ask_spread=0.1,
-            trade_type="option", open_interest=500,
+            premium_per_share=1.5,
+            bid_ask_spread=0.1,
+            trade_type="option",
+            open_interest=500,
         )
         assert isinstance(out, dict)
         return f"keys={sorted(out.keys())[:3]}"
 
     def total_exit_cost_check():
         out = calculate_total_exit_cost(
-            buyback_price_per_share=1.0, bid_ask_spread=0.1,
-            trade_type="option", open_interest=500,
+            buyback_price_per_share=1.0,
+            bid_ask_spread=0.1,
+            trade_type="option",
+            open_interest=500,
         )
         assert isinstance(out, dict)
         return f"keys={sorted(out.keys())[:3]}"
@@ -744,23 +813,27 @@ def register_checks(h: Harness) -> None:
 
     def event_gate_not_blocked():
         from datetime import date, timedelta
+
         gate = EventGate(earnings_buffer_days=5)
-        gate.add_event(ScheduledEvent(ticker="TESTA", kind="earnings",
-                                event_date=date.today() + timedelta(days=90)))
-        blocked, reason = gate.is_blocked(
-            "TESTA", date.today(), date.today() + timedelta(days=30)
+        gate.add_event(
+            ScheduledEvent(
+                ticker="TESTA", kind="earnings", event_date=date.today() + timedelta(days=90)
+            )
         )
+        blocked, reason = gate.is_blocked("TESTA", date.today(), date.today() + timedelta(days=30))
         assert not blocked
         return "outside buffer: clear"
 
     def event_gate_blocked():
         from datetime import date, timedelta
+
         gate = EventGate(earnings_buffer_days=5)
-        gate.add_event(ScheduledEvent(ticker="TESTA", kind="earnings",
-                                event_date=date.today() + timedelta(days=3)))
-        blocked, reason = gate.is_blocked(
-            "TESTA", date.today(), date.today() + timedelta(days=30)
+        gate.add_event(
+            ScheduledEvent(
+                ticker="TESTA", kind="earnings", event_date=date.today() + timedelta(days=3)
+            )
         )
+        blocked, reason = gate.is_blocked("TESTA", date.today(), date.today() + timedelta(days=30))
         assert blocked
         return reason
 
@@ -777,11 +850,14 @@ def register_checks(h: Harness) -> None:
     # 9. Signals & payoff
     # ------------------------------------------------------------------
     h.section("09 signals_payoff")
+    from engine.payoff_engine import compute_expected_move, compute_payoff, recommend_strikes
     from engine.signals import (
-        IVRankSignal, DTESignal, ProfitTargetSignal, EventFilterSignal,
+        DTESignal,
+        EventFilterSignal,
+        IVRankSignal,
+        ProfitTargetSignal,
         create_default_aggregator,
     )
-    from engine.payoff_engine import compute_payoff, compute_expected_move, recommend_strikes
 
     def iv_rank_signal():
         s = IVRankSignal().generate({"iv_rank": 0.75})
@@ -812,7 +888,11 @@ def register_checks(h: Harness) -> None:
 
     def payoff_short_put():
         res = compute_payoff(
-            spot=100, strike=95, premium=1.5, strategy="csp", contracts=1,
+            spot=100,
+            strike=95,
+            premium=1.5,
+            strategy="csp",
+            contracts=1,
         )
         assert isinstance(res, list) and len(res) > 0
         return f"{len(res)} payoff points"
@@ -824,7 +904,12 @@ def register_checks(h: Harness) -> None:
 
     def strike_recommendation():
         recs = recommend_strikes(
-            ticker="TESTA", spot=100, iv=0.25, dte=30, strategy="csp", n_candidates=3,
+            ticker="TESTA",
+            spot=100,
+            iv=0.25,
+            dte=30,
+            strategy="csp",
+            n_candidates=3,
         )
         assert isinstance(recs, list) and len(recs) > 0
         return f"{len(recs)} strikes recommended"
@@ -843,7 +928,9 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("10 dealer_tailrisk")
     from engine.dealer_positioning import (
-        DealerAssumption, DealerPositioningAnalyzer, dealer_regime_multiplier,
+        DealerAssumption,
+        DealerPositioningAnalyzer,
+        dealer_regime_multiplier,
     )
     from engine.tail_risk import fit_gpd_tail, gpd_var_cvar
 
@@ -851,23 +938,29 @@ def register_checks(h: Harness) -> None:
 
     def dealer_analyze():
         from datetime import date, timedelta
+
         analyzer = DealerPositioningAnalyzer(
             assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS,
         )
         ms = analyzer.analyze(
-            chain=chain, spot=100.0, expiry=date.today() + timedelta(days=32),
-            ticker="TESTA", dividend_yield=0.0,
+            chain=chain,
+            spot=100.0,
+            expiry=date.today() + timedelta(days=32),
+            ticker="TESTA",
+            dividend_yield=0.0,
         )
         assert ms is not None
-        return f"regime={getattr(ms,'regime','?')}"
+        return f"regime={getattr(ms, 'regime', '?')}"
 
     def dealer_multiplier():
         from datetime import date, timedelta
-        ms = DealerPositioningAnalyzer(
-            assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS
-        ).analyze(
-            chain=chain, spot=100.0, expiry=date.today() + timedelta(days=32),
-            ticker="TESTA", dividend_yield=0.0,
+
+        ms = DealerPositioningAnalyzer(assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS).analyze(
+            chain=chain,
+            spot=100.0,
+            expiry=date.today() + timedelta(days=32),
+            ticker="TESTA",
+            dividend_yield=0.0,
         )
         m = dealer_regime_multiplier(ms)
         assert 0.70 <= m <= 1.05, m
@@ -892,7 +985,10 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     h.section("11 monte_carlo_stress")
     from engine.monte_carlo import (
-        BlockBootstrap, JumpDiffusionSimulator, JumpDiffusionParams, LSMPricer,
+        BlockBootstrap,
+        JumpDiffusionParams,
+        JumpDiffusionSimulator,
+        LSMPricer,
     )
     from engine.stress_testing import quick_stress_test
 
@@ -905,10 +1001,16 @@ def register_checks(h: Harness) -> None:
         return "BlockBootstrap simulated"
 
     def jump_diffusion_sim():
-        sim = JumpDiffusionSimulator(JumpDiffusionParams(
-            mu=0.05, sigma=0.2, jump_intensity=0.1,
-            jump_mean=-0.02, jump_std=0.05, dividend_yield=0.0,
-        ))
+        sim = JumpDiffusionSimulator(
+            JumpDiffusionParams(
+                mu=0.05,
+                sigma=0.2,
+                jump_intensity=0.1,
+                jump_mean=-0.02,
+                jump_std=0.05,
+                dividend_yield=0.0,
+            )
+        )
         paths = sim.simulate_paths(S0=100.0, n_days=63)
         assert paths.shape[-1] == 64 or paths.shape[0] >= 63
         return f"shape={paths.shape}"
@@ -916,7 +1018,13 @@ def register_checks(h: Harness) -> None:
     def lsm_american():
         pricer = LSMPricer(n_paths=2000, n_steps_per_day=1, polynomial_degree=3, seed=0)
         res = pricer.price(
-            S0=100, K=100, T=30/365, r=0.05, sigma=0.3, option_type="put", q=0.0,
+            S0=100,
+            K=100,
+            T=30 / 365,
+            r=0.05,
+            sigma=0.3,
+            option_type="put",
+            q=0.0,
         )
         assert res.american_price > 0
         return f"LSM am=${res.american_price:.3f} euro=${res.european_price:.3f}"
@@ -924,9 +1032,17 @@ def register_checks(h: Harness) -> None:
     def quick_stress():
         report = quick_stress_test(
             positions=[
-                {"symbol": "TESTA", "option_type": "put", "strike": 95, "dte": 30,
-                 "iv": 0.25, "contracts": 1, "is_short": True,
-                 "underlying_price": 100, "premium": 1.5},
+                {
+                    "symbol": "TESTA",
+                    "option_type": "put",
+                    "strike": 95,
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                    "underlying_price": 100,
+                    "premium": 1.5,
+                },
             ],
             spot_prices={"TESTA": 100.0},
             portfolio_value=100_000,
@@ -943,23 +1059,36 @@ def register_checks(h: Harness) -> None:
     # 12. Portfolio, copula, performance
     # ------------------------------------------------------------------
     h.section("12 portfolio_perf")
-    from engine.portfolio_tracker import quick_snapshot, Holding
-    from engine.portfolio_copula import (
-        gaussian_copula_simulation, student_t_copula_simulation, portfolio_cvar_copula,
-    )
     from engine.performance_metrics import (
-        calculate_sharpe_ratio, calculate_sortino_ratio, calculate_max_drawdown,
-        calculate_profit_factor, calculate_ulcer_index, calculate_performance_report,
+        calculate_max_drawdown,
+        calculate_performance_report,
+        calculate_profit_factor,
+        calculate_sharpe_ratio,
+        calculate_sortino_ratio,
+        calculate_ulcer_index,
     )
+    from engine.portfolio_copula import (
+        gaussian_copula_simulation,
+        portfolio_cvar_copula,
+        student_t_copula_simulation,
+    )
+    from engine.portfolio_tracker import quick_snapshot
 
     def portfolio_snapshot():
         from datetime import date
+
         from engine.portfolio_tracker import PortfolioTracker, Transaction, TransactionType
+
         tracker = PortfolioTracker(initial_cash=10_000)
-        tracker.add_transaction(Transaction(
-            ticker="AAPL", action=TransactionType.BUY, shares=10.0,
-            price=150.0, date=date.today(),
-        ))
+        tracker.add_transaction(
+            Transaction(
+                ticker="AAPL",
+                action=TransactionType.BUY,
+                shares=10.0,
+                price=150.0,
+                date=date.today(),
+            )
+        )
         snap = quick_snapshot(tracker, prices={"AAPL": 170.0})
         assert isinstance(snap, dict)
         return f"keys={sorted(list(snap.keys())[:4])}"
@@ -968,8 +1097,9 @@ def register_checks(h: Harness) -> None:
         rng = np.random.default_rng(0)
         marginals = [rng.normal(0, 0.01, 500), rng.normal(0, 0.01, 500)]
         corr = np.array([[1.0, 0.5], [0.5, 1.0]])
-        sims = gaussian_copula_simulation(marginals=marginals, correlation=corr,
-                                           n_samples=5000, seed=0)
+        sims = gaussian_copula_simulation(
+            marginals=marginals, correlation=corr, n_samples=5000, seed=0
+        )
         assert sims.shape[1] == 2
         return f"shape={sims.shape}"
 
@@ -977,8 +1107,9 @@ def register_checks(h: Harness) -> None:
         rng = np.random.default_rng(0)
         marginals = [rng.normal(0, 0.01, 500), rng.normal(0, 0.01, 500)]
         corr = np.array([[1.0, 0.5], [0.5, 1.0]])
-        sims = student_t_copula_simulation(marginals=marginals, correlation=corr,
-                                            df=4, n_samples=5000, seed=0)
+        sims = student_t_copula_simulation(
+            marginals=marginals, correlation=corr, df=4, n_samples=5000, seed=0
+        )
         assert sims.shape[1] == 2
         return f"df=4 shape={sims.shape}"
 
@@ -986,9 +1117,10 @@ def register_checks(h: Harness) -> None:
         rng = np.random.default_rng(0)
         marginals = [rng.normal(0, 0.01, 500) for _ in range(3)]
         corr = np.array([[1.0, 0.3, 0.2], [0.3, 1.0, 0.4], [0.2, 0.4, 1.0]])
-        weights = np.array([1/3, 1/3, 1/3])
-        out = portfolio_cvar_copula(marginals=marginals, correlation=corr,
-                                     weights=weights, confidence=0.95, seed=0)
+        weights = np.array([1 / 3, 1 / 3, 1 / 3])
+        out = portfolio_cvar_copula(
+            marginals=marginals, correlation=corr, weights=weights, confidence=0.95, seed=0
+        )
         assert isinstance(out, dict) and len(out) > 0
         return f"keys={list(out.keys())[:3]}"
 
@@ -1013,17 +1145,23 @@ def register_checks(h: Harness) -> None:
 
     def perf_full_report():
         from datetime import date, timedelta
+
         rng = np.random.default_rng(0)
         n = 60
         equity_curve = [
-            {"date": (date.today() - timedelta(days=n - i)),
-             "portfolio_value": 100_000 * (1 + 0.001 * i)}
+            {
+                "date": (date.today() - timedelta(days=n - i)),
+                "portfolio_value": 100_000 * (1 + 0.001 * i),
+            }
             for i in range(n)
         ]
         closed_trades = [
-            {"ticker": "TESTA", "net_pnl": float(rng.normal(50, 100)),
-             "opened": date.today() - timedelta(days=30),
-             "closed": date.today() - timedelta(days=10)}
+            {
+                "ticker": "TESTA",
+                "net_pnl": float(rng.normal(50, 100)),
+                "opened": date.today() - timedelta(days=30),
+                "closed": date.today() - timedelta(days=10),
+            }
             for _ in range(10)
         ]
         rep = calculate_performance_report(closed_trades, equity_curve, initial_capital=100_000)
@@ -1055,28 +1193,50 @@ def register_checks(h: Harness) -> None:
         runner = WheelRunner()
         runner._connector = _FakeConnector()
         df = runner.rank_candidates_by_ev(
-            tickers=["TESTA"], dte_target=30, top_n=5,
+            tickers=["TESTA"],
+            dte_target=30,
+            top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=False,  # dealer path exercised in own test
             use_news_sentiment=False,
             use_credit_regime=False,
         )
         assert not df.empty
-        return f"rows={len(df)} top_ev_per_day={df.iloc[0].get('ev_per_day','?')}"
+        return f"rows={len(df)} top_ev_per_day={df.iloc[0].get('ev_per_day', '?')}"
 
     def rank_candidates_crossed_chain_blocked():
         from datetime import date, timedelta
+
         expiry = date.today() + timedelta(days=32)
-        bad = pd.DataFrame([
-            {"strike": 95, "option_type": "P", "open_interest": 1000,
-             "implied_vol": 0.25, "bid": 2.5, "ask": 2.0, "expiration": expiry},
-            {"strike": 100, "option_type": "P", "open_interest": 1000,
-             "implied_vol": 0.22, "bid": 1.0, "ask": 1.1, "expiration": expiry},
-        ])
+        bad = pd.DataFrame(
+            [
+                {
+                    "strike": 95,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.25,
+                    "bid": 2.5,
+                    "ask": 2.0,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 100,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "bid": 1.0,
+                    "ask": 1.1,
+                    "expiration": expiry,
+                },
+            ]
+        )
         runner = WheelRunner()
         runner._connector = _FakeConnector(chain=bad)
         df = runner.rank_candidates_by_ev(
-            tickers=["TESTA"], dte_target=30, top_n=5, min_ev_dollars=-1e9,
+            tickers=["TESTA"],
+            dte_target=30,
+            top_n=5,
+            min_ev_dollars=-1e9,
             use_dealer_positioning=True,
         )
         assert df.empty, "crossed-market chain should have been blocked"
@@ -1086,7 +1246,9 @@ def register_checks(h: Harness) -> None:
         runner = WheelRunner()
         runner._connector = _FakeConnector()
         df = runner.rank_candidates_by_ev(
-            tickers=["TESTA"], dte_target=30, top_n=5,
+            tickers=["TESTA"],
+            dte_target=30,
+            top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=True,
             use_news_sentiment=False,
@@ -1104,7 +1266,7 @@ def register_checks(h: Harness) -> None:
     # 14. Configuration
     # ------------------------------------------------------------------
     h.section("14 policy_config")
-    from engine.policy_config import load_policy, validate_policy, TradingPolicyConfig
+    from engine.policy_config import TradingPolicyConfig, load_policy, validate_policy
 
     def policy_defaults():
         p = load_policy()
@@ -1126,8 +1288,8 @@ def register_checks(h: Harness) -> None:
     # 15. Data connectors (env-dependent — auto-skip on no connectivity)
     # ------------------------------------------------------------------
     h.section("15 data_connectors")
-    from engine.theta_connector import ThetaConnector
     from engine.data_connector import MarketDataConnector
+    from engine.theta_connector import ThetaConnector
 
     def market_data_connector_base():
         # Class should instantiate without API calls.
@@ -1181,6 +1343,7 @@ def register_checks(h: Harness) -> None:
             raise Skip("--fast flag set")
         try:
             import urllib.request
+
             req = urllib.request.Request("http://127.0.0.1:8787/health", method="GET")
             with urllib.request.urlopen(req, timeout=2) as r:
                 body = r.read().decode()
@@ -1193,6 +1356,7 @@ def register_checks(h: Harness) -> None:
             raise Skip("--fast flag set")
         try:
             import urllib.request
+
             with urllib.request.urlopen("http://127.0.0.1:8787/status", timeout=2) as r:
                 body = r.read().decode()
         except Exception as e:
@@ -1264,6 +1428,7 @@ def register_checks(h: Harness) -> None:
 
     def pit_membership_loaded():
         from data.consolidated_loader import get_bloomberg_loader
+
         L = get_bloomberg_loader()
         df = getattr(L, "_index_membership", None)
         if df is None or len(df) == 0:
@@ -1272,12 +1437,14 @@ def register_checks(h: Harness) -> None:
 
     def pit_universe_latest():
         from data.consolidated_loader import get_bloomberg_loader
+
         u = get_bloomberg_loader().get_universe_as_of(None)
         assert len(u) >= 400, f"latest universe too small: {len(u)}"
         return f"latest N={len(u)}"
 
     def pit_universe_historical_drift():
         from data.consolidated_loader import get_bloomberg_loader
+
         L = get_bloomberg_loader()
         a = set(L.get_universe_as_of("2015-06-30"))
         b = set(L.get_universe_as_of("2026-01-01"))
@@ -1314,11 +1481,20 @@ def register_checks(h: Harness) -> None:
                 f"run: python scripts/backfill_features.py --workers 6"
             )
             return f"{n} tickers"
+
         return fn
 
     # Any meaningful S&P signal needs ≥400 tickers in the feature store.
-    for group in ("technical", "volatility", "dynamics", "options_features",
-                  "regime", "events", "vol_edge", "labels"):
+    for group in (
+        "technical",
+        "volatility",
+        "dynamics",
+        "options_features",
+        "regime",
+        "events",
+        "vol_edge",
+        "labels",
+    ):
         h.run(f"coverage_{group}", coverage_check(group, min_tickers=400))
 
     # ------------------------------------------------------------------
@@ -1370,8 +1546,7 @@ def register_checks(h: Harness) -> None:
     h.section("23 news_sentiment_store")
 
     def news_parquet_present():
-        for rel in ("data_processed/news_sentiment.parquet",
-                    "data/news/sentiment.parquet"):
+        for rel in ("data_processed/news_sentiment.parquet", "data/news/sentiment.parquet"):
             p = _P(rel)
             if p.exists():
                 df = pd.read_parquet(p)
@@ -1384,6 +1559,7 @@ def register_checks(h: Harness) -> None:
     def news_multiplier_non_trivial():
         """Multiplier should vary across tickers once a real store is populated."""
         from engine.news_sentiment import NewsSentimentReader
+
         r = NewsSentimentReader()
         mults = [r.sentiment_multiplier(t) for t in ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN")]
         if all(m == 1.0 for m in mults):
@@ -1403,11 +1579,14 @@ def register_checks(h: Harness) -> None:
         def fn():
             p = _P("data/bloomberg") / filename
             if not p.exists():
-                raise Skip(f"{filename} not found — run the matching BQL from scripts/bloomberg_bql_pulls.md")
+                raise Skip(
+                    f"{filename} not found — run the matching BQL from scripts/bloomberg_bql_pulls.md"
+                )
             age = (_dt.now().timestamp() - p.stat().st_mtime) / 86400.0
             if age > max_age_days:
                 return f"stale: {age:.0f} days old"
-            return f"fresh: {age:.1f} days old ({p.stat().st_size/1024:.0f} KB)"
+            return f"fresh: {age:.1f} days old ({p.stat().st_size / 1024:.0f} KB)"
+
         return fn
 
     # Freshness of the canonical files consumed by the loader.
@@ -1460,15 +1639,14 @@ def register_checks(h: Harness) -> None:
         required = {"vix_close", "skew_close", "vvix_close"}
         missing = required - set(df.columns)
         assert not missing, f"missing columns {missing}"
-        return f"{len(df)} rows, {len(df.columns)-1} indices"
+        return f"{len(df)} rows, {len(df.columns) - 1} indices"
 
     def fundamentals_yf_present():
         p = _P("data/bloomberg/sp500_fundamentals_yf.csv")
         if not p.exists():
             raise Skip("run scripts/pull_fundamentals_yf.py")
         df = pd.read_csv(p)
-        required = {"ticker", "cur_mkt_cap", "pe_ratio", "beta_raw_overridable",
-                    "gics_sector_name"}
+        required = {"ticker", "cur_mkt_cap", "pe_ratio", "beta_raw_overridable", "gics_sector_name"}
         assert required.issubset(df.columns), f"schema: {set(df.columns)}"
         return f"{len(df)} tickers (P/E={df['pe_ratio'].notna().sum()} non-null)"
 
@@ -1498,9 +1676,12 @@ def register_checks(h: Harness) -> None:
     def pull_all_dry_run():
         """Meta-check: the orchestrator can enumerate its own plan."""
         import subprocess
+
         r = subprocess.run(
             [sys.executable, "scripts/pull_all.py", "--dry-run"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert r.returncode == 0, r.stderr[:200]
         assert "vol_indices" in r.stdout and "treasury" in r.stdout
@@ -1570,10 +1751,11 @@ def register_checks(h: Harness) -> None:
         if not p.exists():
             raise Skip("no capability report — run scripts/probe_theta_capabilities.py")
         import json as _json
+
         data = _json.loads(p.read_text())
         ok = sum(1 for r in data.get("results", []) if r.get("status") == "OK")
         blocked = sum(1 for r in data.get("results", []) if r.get("status") == "BLOCKED")
-        return f"{ok} endpoints OK, {blocked} blocked (probed {data.get('probed_at','?')[:19]})"
+        return f"{ok} endpoints OK, {blocked} blocked (probed {data.get('probed_at', '?')[:19]})"
 
     h.run("theta_indices_history_rows", theta_indices_rows)
     h.run("vix_futures_present", vix_futures_present)

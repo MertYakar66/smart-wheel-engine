@@ -204,9 +204,7 @@ def test_surface_for_date_collapses_hourly_to_one_row_per_strike_right() -> None
     assert status["partial"] is False
 
     # 6 distinct expirations × 4 collapsed (strike, right) rows = 24
-    assert len(df) == 24, (
-        f"expected 24 rows (6 expirations × 4 (strike,right)), got {len(df)}"
-    )
+    assert len(df) == 24, f"expected 24 rows (6 expirations × 4 (strike,right)), got {len(df)}"
 
     grouped = df.groupby(["strike", "right", "expiration"]).size()
     assert (grouped == 1).all(), (
@@ -231,8 +229,11 @@ def test_expirations_cache_avoids_redundant_fetches() -> None:
 
     for d in (date(2026, 4, 27), date(2026, 4, 28), date(2026, 4, 29)):
         df, _ = _surface_for_date(
-            conn, "AAPL", d,
-            expirations_cache=cache, cache_lock=lock,
+            conn,
+            "AAPL",
+            d,
+            expirations_cache=cache,
+            cache_lock=lock,
         )
         assert not df.empty
 
@@ -285,7 +286,11 @@ def test_strict_mode_rejects_when_a_bucket_has_no_data() -> None:
     )
 
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), strict=True, fallback_k=1,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        strict=True,
+        fallback_k=1,
     )
 
     assert df.empty, "strict mode must drop a partial surface"
@@ -306,7 +311,11 @@ def test_allow_partial_writes_partial_surface() -> None:
     )
 
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), strict=False, fallback_k=1,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        strict=False,
+        fallback_k=1,
     )
 
     assert not df.empty, "allow-partial must keep the partial surface"
@@ -323,6 +332,7 @@ def test_allow_partial_writes_partial_surface() -> None:
 def test_fallback_iterates_to_next_nearest_when_first_candidate_empty() -> None:
     """When the closest expiration to a bucket target returns empty,
     the puller must try the next-nearest, until one returns data."""
+
     # Skip the closest expiration to each TARGET_DTE bucket. For as_of
     # 2026-04-27 the listing's 6 expirations are each the closest match
     # for one bucket; if we skip e.g. ``20260504`` (DTE 7's match), the
@@ -344,41 +354,55 @@ def test_fallback_iterates_to_next_nearest_when_first_candidate_empty() -> None:
                 # empty) closer than 20260504 (0 off, has data). With
                 # fallback_k=2, the puller tries 20260505 first, gets
                 # empty, then tries 20260504, gets data.
-                return pd.DataFrame({
-                    "expiration": [
-                        "20260505",  # decoy (empty)
-                        "20260504",  # has data (target match)
-                        "20260512",  # decoy (empty)
-                        "20260511",  # has data
-                        "20260528",  # decoy
-                        "20260527",  # has data
-                        "20260627",  # decoy
-                        "20260626",  # has data
-                        "20260727",  # decoy
-                        "20260726",  # has data
-                        "20261025",  # decoy
-                        "20261024",  # has data
-                    ],
-                })
+                return pd.DataFrame(
+                    {
+                        "expiration": [
+                            "20260505",  # decoy (empty)
+                            "20260504",  # has data (target match)
+                            "20260512",  # decoy (empty)
+                            "20260511",  # has data
+                            "20260528",  # decoy
+                            "20260527",  # has data
+                            "20260627",  # decoy
+                            "20260626",  # has data
+                            "20260727",  # decoy
+                            "20260726",  # has data
+                            "20261025",  # decoy
+                            "20261024",  # has data
+                        ],
+                    }
+                )
             if path.startswith("/v3/option/history/greeks/"):
                 # Only the second-of-each-pair has data
-                if params["expiration"] in {"20260504", "20260511", "20260527",
-                                             "20260626", "20260726", "20261024"}:
-                    return pd.DataFrame({
-                        "symbol": ["AAPL"],
-                        "expiration": [params["expiration"]],
-                        "strike": [275.0],
-                        "right": ["CALL"],
-                        "timestamp": ["2026-04-27T15:30:00"],
-                        "implied_vol": [0.20],
-                        "midpoint": [10.0],
-                    })
+                if params["expiration"] in {
+                    "20260504",
+                    "20260511",
+                    "20260527",
+                    "20260626",
+                    "20260726",
+                    "20261024",
+                }:
+                    return pd.DataFrame(
+                        {
+                            "symbol": ["AAPL"],
+                            "expiration": [params["expiration"]],
+                            "strike": [275.0],
+                            "right": ["CALL"],
+                            "timestamp": ["2026-04-27T15:30:00"],
+                            "implied_vol": [0.20],
+                            "midpoint": [10.0],
+                        }
+                    )
                 return pd.DataFrame()
             return pd.DataFrame()
 
     conn = _DecoyConn()
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), strict=True, fallback_k=2,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        strict=True,
+        fallback_k=2,
     )
 
     assert not df.empty
@@ -387,44 +411,62 @@ def test_fallback_iterates_to_next_nearest_when_first_candidate_empty() -> None:
     assert status["rejected_partial"] is False
     # The chosen expirations should be the data-having ones
     chosen_iso = sorted(d.isoformat() for d in status["chosen_expirations"])
-    assert chosen_iso == ["2026-05-04", "2026-05-11", "2026-05-27",
-                          "2026-06-26", "2026-07-26", "2026-10-24"]
+    assert chosen_iso == [
+        "2026-05-04",
+        "2026-05-11",
+        "2026-05-27",
+        "2026-06-26",
+        "2026-07-26",
+        "2026-10-24",
+    ]
 
 
 def test_fallback_fails_bucket_only_when_all_k_candidates_empty() -> None:
     """When all ``fallback_k`` nearest candidates for a bucket return
     empty, only that bucket fails — other buckets should still find
     their own data."""
+
     class _OneBadBucketConn:
         def _fetch(self, path, params):
             if path == "/v3/option/list/expirations":
-                return pd.DataFrame({
-                    "expiration": [
-                        # 5 expirations have data; one DTE bucket (~30d
-                        # away) has none nearby.
-                        "20260504", "20260511", "20260626",
-                        "20260726", "20261024",
-                    ],
-                })
+                return pd.DataFrame(
+                    {
+                        "expiration": [
+                            # 5 expirations have data; one DTE bucket (~30d
+                            # away) has none nearby.
+                            "20260504",
+                            "20260511",
+                            "20260626",
+                            "20260726",
+                            "20261024",
+                        ],
+                    }
+                )
             if path.startswith("/v3/option/history/greeks/"):
                 # Always return data — but 30-DTE bucket has no
                 # near-30-DTE expiration in the listing, so it falls
                 # back to the nearest available (which is 20260504 at 7
                 # DTE, but that's already claimed by bucket 7).
-                return pd.DataFrame({
-                    "symbol": ["AAPL"],
-                    "expiration": [params["expiration"]],
-                    "strike": [275.0],
-                    "right": ["CALL"],
-                    "timestamp": ["2026-04-27T15:30:00"],
-                    "implied_vol": [0.20],
-                    "midpoint": [10.0],
-                })
+                return pd.DataFrame(
+                    {
+                        "symbol": ["AAPL"],
+                        "expiration": [params["expiration"]],
+                        "strike": [275.0],
+                        "right": ["CALL"],
+                        "timestamp": ["2026-04-27T15:30:00"],
+                        "implied_vol": [0.20],
+                        "midpoint": [10.0],
+                    }
+                )
             return pd.DataFrame()
 
     conn = _OneBadBucketConn()
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), strict=False, fallback_k=10,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        strict=False,
+        fallback_k=10,
     )
     # 5 listed expirations, 6 buckets — at least one bucket can't get
     # a unique expiration. Expect succeeded_buckets ≤ 5.
@@ -441,7 +483,10 @@ def test_fallback_does_not_reuse_expirations_across_buckets() -> None:
     bucket M already took."""
     conn = _FakeConn(iv_by_date={"20260427": 0.20})
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), fallback_k=10,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        fallback_k=10,
     )
 
     chosen = status["chosen_expirations"]
@@ -457,13 +502,21 @@ def test_status_zero_when_all_buckets_fail() -> None:
     conn = _FakeConn(
         iv_by_date={"20260427": 0.20},
         skip_expirations=(
-            "20260504", "20260511", "20260527",
-            "20260626", "20260726", "20261024",
+            "20260504",
+            "20260511",
+            "20260527",
+            "20260626",
+            "20260726",
+            "20261024",
         ),
     )
 
     df, status = _surface_for_date(
-        conn, "AAPL", date(2026, 4, 27), strict=True, fallback_k=10,
+        conn,
+        "AAPL",
+        date(2026, 4, 27),
+        strict=True,
+        fallback_k=10,
     )
 
     assert df.empty

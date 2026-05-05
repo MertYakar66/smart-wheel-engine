@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import io
 import json
-from http.server import BaseHTTPRequestHandler
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-import pytest
 
 
 # ======================================================================
@@ -395,10 +393,42 @@ class TestChainQualityGate:
         bad = pd.DataFrame(
             [
                 # Bid > ask on the 95 put → crossed market ERROR
-                {"strike": 95, "option_type": "P", "open_interest": 1000, "implied_vol": 0.25, "bid": 2.5, "ask": 2.0, "expiration": expiry},
-                {"strike": 100, "option_type": "C", "open_interest": 1000, "implied_vol": 0.22, "bid": 1.0, "ask": 1.1, "expiration": expiry},
-                {"strike": 100, "option_type": "P", "open_interest": 1000, "implied_vol": 0.22, "bid": 1.0, "ask": 1.1, "expiration": expiry},
-                {"strike": 105, "option_type": "C", "open_interest": 1000, "implied_vol": 0.22, "bid": 0.5, "ask": 0.6, "expiration": expiry},
+                {
+                    "strike": 95,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.25,
+                    "bid": 2.5,
+                    "ask": 2.0,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 100,
+                    "option_type": "C",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "bid": 1.0,
+                    "ask": 1.1,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 100,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "bid": 1.0,
+                    "ask": 1.1,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 105,
+                    "option_type": "C",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "bid": 0.5,
+                    "ask": 0.6,
+                    "expiration": expiry,
+                },
             ]
         )
         runner = WheelRunner()
@@ -419,7 +449,12 @@ class TestChainQualityGate:
 
         expiry = date.today() + timedelta(days=32)
         rows = []
-        for k, c_oi, p_oi in [(90, 500, 2000), (95, 1000, 3000), (100, 4000, 4000), (105, 3000, 1000)]:
+        for k, c_oi, p_oi in [
+            (90, 500, 2000),
+            (95, 1000, 3000),
+            (100, 4000, 4000),
+            (105, 3000, 1000),
+        ]:
             for opt_type, oi in [("C", c_oi), ("P", p_oi)]:
                 rows.append(
                     {
@@ -453,9 +488,29 @@ class TestChainQualityGate:
         # Mildly-bad chain with bid=ask=0 (stale but not crossed)
         chain = pd.DataFrame(
             [
-                {"strike": 95, "option_type": "P", "open_interest": 1000, "implied_vol": 0.25, "bid": 2.5, "ask": 2.0, "expiration": expiry},
-                {"strike": 100, "option_type": "C", "open_interest": 1000, "implied_vol": 0.22, "expiration": expiry},
-                {"strike": 100, "option_type": "P", "open_interest": 1000, "implied_vol": 0.22, "expiration": expiry},
+                {
+                    "strike": 95,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.25,
+                    "bid": 2.5,
+                    "ask": 2.0,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 100,
+                    "option_type": "C",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "expiration": expiry,
+                },
+                {
+                    "strike": 100,
+                    "option_type": "P",
+                    "open_interest": 1000,
+                    "implied_vol": 0.22,
+                    "expiration": expiry,
+                },
             ]
         )
         runner = WheelRunner()

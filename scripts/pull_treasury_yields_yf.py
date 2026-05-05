@@ -44,7 +44,6 @@ if hasattr(sys.stdout, "buffer"):
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import yfinance as yf  # noqa: E402
 
@@ -80,15 +79,17 @@ def main() -> int:
     ap.add_argument("--start")
     ap.add_argument("--end")
     ap.add_argument("--out", default=str(OUT_CSV))
-    ap.add_argument("--incremental", action="store_true",
-                    help="Append only rows newer than the last saved date")
+    ap.add_argument(
+        "--incremental", action="store_true", help="Append only rows newer than the last saved date"
+    )
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     end_d = date.fromisoformat(args.end) if args.end else date.today()
     start_d = (
-        date.fromisoformat(args.start) if args.start
+        date.fromisoformat(args.start)
+        if args.start
         else end_d - timedelta(days=int(args.years * 365))
     )
 
@@ -111,7 +112,9 @@ def main() -> int:
             print(f"  {col:<8} ({sym}) EMPTY")
             continue
         series[col] = s
-        print(f"  {col:<8} ({sym}) rows={len(s):<5}  {s.index.min().date()} to {s.index.max().date()}")
+        print(
+            f"  {col:<8} ({sym}) rows={len(s):<5}  {s.index.min().date()} to {s.index.max().date()}"
+        )
 
     if not series:
         print("No data fetched. Yahoo may be throttling — retry in a minute.")

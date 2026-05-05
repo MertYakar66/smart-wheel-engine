@@ -123,9 +123,7 @@ class GaussianHMM:
         K = self.n_states
 
         if T < K * 3:
-            raise ValueError(
-                f"Need at least {K*3} observations to fit a {K}-state HMM, got {T}"
-            )
+            raise ValueError(f"Need at least {K * 3} observations to fit a {K}-state HMM, got {T}")
 
         rng = np.random.default_rng(self.random_state)
 
@@ -159,9 +157,7 @@ class GaussianHMM:
             n_iter = it + 1
             # --- E step ---
             log_emit = self._log_emission(obs, means, stds)
-            log_alpha, log_beta, log_lik = self._forward_backward(
-                log_emit, start_prob, trans_mat
-            )
+            log_alpha, log_beta, log_lik = self._forward_backward(log_emit, start_prob, trans_mat)
 
             # Posterior state probabilities γ[t,k] = P(state_t=k|obs)
             log_gamma = log_alpha + log_beta
@@ -175,9 +171,9 @@ class GaussianHMM:
                 + log_emit[1:, None, :]
                 + log_beta[1:, None, :]
             )
-            log_xi -= np.logaddexp.reduce(
-                log_xi.reshape(T - 1, -1), axis=1, keepdims=True
-            ).reshape(T - 1, 1, 1)
+            log_xi -= np.logaddexp.reduce(log_xi.reshape(T - 1, -1), axis=1, keepdims=True).reshape(
+                T - 1, 1, 1
+            )
             xi = np.exp(log_xi)
 
             # --- M step ---

@@ -6,7 +6,7 @@ Ensures consistent, structured reasoning across all agents.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 
@@ -163,7 +163,7 @@ class MarketContext:
     upcoming_events: list[str] = field(default_factory=list)
 
     # Timestamp
-    as_of: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    as_of: datetime = field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 @dataclass
@@ -221,7 +221,9 @@ class AdvisorResponse:
     confidence_explanation: str
 
     # Metadata
-    analysis_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    analysis_timestamp: datetime = field(
+        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
     processing_time_ms: float = 0.0
 
 
@@ -264,7 +266,9 @@ class CommitteeOutput:
     committee_confidence: ConfidenceLevel
 
     # Timestamps
-    analysis_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    analysis_timestamp: datetime = field(
+        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
     total_processing_time_ms: float = 0.0
 
 
@@ -319,7 +323,9 @@ class PortfolioReviewOutput:
     critical_blind_spots: list[str]  # Blind spots flagged by 2+ advisors
     priority_actions: list[str]  # Top actions to take
 
-    analysis_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    analysis_timestamp: datetime = field(
+        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
     total_processing_time_ms: float = 0.0
 
 
@@ -399,7 +405,9 @@ class PostMortemOutput:
     process_improvements: list[str]  # Priority improvements
     behavioral_flags: list[str]  # Behavioral issues detected
 
-    analysis_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    analysis_timestamp: datetime = field(
+        default_factory=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
     total_processing_time_ms: float = 0.0
 
 

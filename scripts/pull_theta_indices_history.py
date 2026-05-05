@@ -44,7 +44,7 @@ import logging
 import socket
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -61,8 +61,15 @@ OUT_WIDE = _ROOT / "data_processed" / "vol_indices_wide.parquet"
 # MOVE: ICE rates index, not in Theta v3 coverage. yfinance fallback only —
 # see pull_vol_indices.py.
 DEFAULT_SYMBOLS = (
-    "VIX", "VIX9D", "VIX3M", "VIX6M",
-    "SKEW", "VVIX", "VXN", "OVX", "GVZ",
+    "VIX",
+    "VIX9D",
+    "VIX3M",
+    "VIX6M",
+    "SKEW",
+    "VVIX",
+    "VXN",
+    "OVX",
+    "GVZ",
 )
 
 ENDPOINTS = (
@@ -173,8 +180,12 @@ def _pull(conn: ThetaConnector, symbol: str, start: date, end: date) -> pd.DataF
         df = df.dropna(subset=[ts_col]).rename(columns={ts_col: "date"})
 
         # Harmonise any aliases
-        for alias, target in (("last", "close"), ("price", "close"), ("value", "close"),
-                              ("px_close", "close")):
+        for alias, target in (
+            ("last", "close"),
+            ("price", "close"),
+            ("value", "close"),
+            ("px_close", "close"),
+        ):
             if alias in df.columns and target not in df.columns:
                 df[target] = df[alias]
         if "close" not in df.columns:
@@ -241,8 +252,11 @@ def main() -> int:
     ap.add_argument("--years", type=float, default=5.0)
     ap.add_argument("--start")
     ap.add_argument("--end")
-    ap.add_argument("--incremental", action="store_true",
-                    help="Only fetch data newer than last Theta write per symbol")
+    ap.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Only fetch data newer than last Theta write per symbol",
+    )
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -281,8 +295,10 @@ def main() -> int:
             print(f"  {sym:<7} FAIL  no data from any endpoint  range={s_start}..{end_d}")
             continue
         n_ok += 1
-        print(f"  {sym:<7} OK    rows={len(df):<5}  "
-              f"{df['date'].min().date()} to {df['date'].max().date()}")
+        print(
+            f"  {sym:<7} OK    rows={len(df):<5}  "
+            f"{df['date'].min().date()} to {df['date'].max().date()}"
+        )
         frames.append(df)
 
     if not frames:
@@ -292,8 +308,10 @@ def main() -> int:
             print()
             print(f"Done in {elapsed:.1f}s  |  all {n_skipped} symbols up-to-date")
             return 0
-        print("Nothing fetched. Your tier may not include indices history — "
-              "run probe_theta_capabilities.py to confirm.")
+        print(
+            "Nothing fetched. Your tier may not include indices history — "
+            "run probe_theta_capabilities.py to confirm."
+        )
         return 1
 
     new = pd.concat(frames, ignore_index=True)
@@ -321,8 +339,7 @@ def main() -> int:
     combined.to_parquet(OUT_LONG, index=False)
 
     # Rebuild wide view
-    wide = combined.pivot_table(index="date", columns="symbol",
-                                values="close", aggfunc="last")
+    wide = combined.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
     wide.columns = [f"{c.lower()}_close" for c in wide.columns]
     wide = wide.reset_index().sort_values("date")
     wide.to_parquet(OUT_WIDE, index=False)

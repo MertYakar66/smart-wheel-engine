@@ -74,11 +74,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -92,11 +91,34 @@ logger = logging.getLogger("theta_backfill")
 
 # Tickers that are worth intraday + full-surface pulls (can override via --tickers)
 DEFAULT_WATCHLIST = [
-    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLK", "XLE", "XLV",
-    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "NFLX",
-    "JPM", "BAC", "GS", "MS", "WFC",
-    "XOM", "CVX", "COP",
-    "JNJ", "PFE", "UNH", "LLY",
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+    "XLF",
+    "XLK",
+    "XLE",
+    "XLV",
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "NVDA",
+    "TSLA",
+    "NFLX",
+    "JPM",
+    "BAC",
+    "GS",
+    "MS",
+    "WFC",
+    "XOM",
+    "CVX",
+    "COP",
+    "JNJ",
+    "PFE",
+    "UNH",
+    "LLY",
 ]
 
 _DEFAULT_OUT_DIR = Path("data_processed/theta")
@@ -169,11 +191,13 @@ class Manifest:
             except Exception:
                 pass
 
-    def record(self, subcommand: str, n_ok: int, n_skipped: int, n_failed: int, details: dict | None = None) -> None:
+    def record(
+        self, subcommand: str, n_ok: int, n_skipped: int, n_failed: int, details: dict | None = None
+    ) -> None:
         self.data.setdefault("runs", []).append(
             {
                 "subcommand": subcommand,
-                "ran_at": datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z",
+                "ran_at": datetime.now(UTC).isoformat(timespec="seconds") + "Z",
                 "ok": n_ok,
                 "skipped": n_skipped,
                 "failed": n_failed,
@@ -210,8 +234,9 @@ def _parallel_run(tickers: list[str], worker, workers: int) -> tuple[int, int, i
             else:
                 n_fail += 1
             if i % 25 == 0 or i == len(tickers):
-                logger.info("progress: %d/%d  ok=%d skip=%d fail=%d",
-                            i, len(tickers), n_ok, n_skip, n_fail)
+                logger.info(
+                    "progress: %d/%d  ok=%d skip=%d fail=%d", i, len(tickers), n_ok, n_skip, n_fail
+                )
     return n_ok, n_skip, n_fail
 
 
@@ -229,8 +254,8 @@ def cmd_stocks_eod(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "stocks_eod"
-    start = args.start or (datetime.now(timezone.utc) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
-    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(UTC) - timedelta(days=365 * 2)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Probe Theta endpoint once — AAPL is guaranteed to be a constituent
     probe = conn._fetch(
@@ -279,8 +304,8 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
     VIX-family indices.
     """
     symbols = ["VIX", "VIX9D", "VIX3M", "VIX6M", "VVIX", "SKEW", "MOVE"]
-    start = args.start or (datetime.now(timezone.utc) - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
-    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(UTC) - timedelta(days=365 * 3)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(UTC).strftime("%Y-%m-%d")
 
     out_dir = args.out_dir / "vix_family"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -337,7 +362,7 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
                     cboe_failed.append(sym)
                     continue
                 # Clip to requested date range
-                df = df.loc[pd.Timestamp(start): pd.Timestamp(end)]
+                df = df.loc[pd.Timestamp(start) : pd.Timestamp(end)]
                 if df.empty:
                     cboe_failed.append(sym)
                     continue
@@ -360,8 +385,12 @@ def cmd_vix_family(conn: ThetaConnector, args) -> tuple[int, int, int]:
 
             yf = YFinanceAdapter()
             yf_map = {
-                "VIX": "^VIX", "VIX9D": "^VIX9D", "VIX3M": "^VIX3M",
-                "VIX6M": "^VIX6M", "VVIX": "^VVIX", "SKEW": "^SKEW",
+                "VIX": "^VIX",
+                "VIX9D": "^VIX9D",
+                "VIX3M": "^VIX3M",
+                "VIX6M": "^VIX6M",
+                "VVIX": "^VVIX",
+                "SKEW": "^SKEW",
                 "MOVE": "^MOVE",
             }
             # Compute period_days from start/end
@@ -396,7 +425,7 @@ def cmd_chains(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "chains"
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today = datetime.now(UTC).strftime("%Y%m%d")
 
     def worker(t: str) -> str:
         dst = out_dir / f"{t}_{today}"
@@ -419,7 +448,7 @@ def cmd_iv_surface(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "iv_surface"
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today = datetime.now(UTC).strftime("%Y%m%d")
 
     def worker(t: str) -> str:
         dst = out_dir / f"{t}_{today}"
@@ -540,8 +569,8 @@ def cmd_intraday(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "intraday"
-    start = args.start or (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(UTC) - timedelta(days=30)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(UTC).strftime("%Y-%m-%d")
     interval = args.interval or "1m"
 
     # Probe with the first ticker — if it fails, skip the whole step
@@ -551,7 +580,8 @@ def cmd_intraday(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if probe_df is None or probe_df.empty:
         logger.info(
             "intraday: probe %s returned empty — likely needs Stocks tier. "
-            "Skipping intraday backfill.", probe,
+            "Skipping intraday backfill.",
+            probe,
         )
         return 0, len(tickers), 0
 
@@ -583,15 +613,17 @@ def cmd_option_ohlc(conn: ThetaConnector, args) -> tuple[int, int, int]:
     if args.limit:
         tickers = tickers[: args.limit]
     out_dir = args.out_dir / "option_ohlc"
-    start = args.start or (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
-    end = args.end or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    start = args.start or (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m-%d")
+    end = args.end or datetime.now(UTC).strftime("%Y-%m-%d")
 
     # Probe the endpoint once using SPY's ATM put
     try:
         probe_exp = conn._nearest_expiration("SPY", dte_target=35)
         probe_chain = conn.get_option_chain("SPY", expiration=probe_exp) if probe_exp else None
         if probe_chain is not None and not probe_chain.empty and "delta" in probe_chain.columns:
-            puts = probe_chain[probe_chain["right"] == "put"].dropna(subset=["delta", "strike"]).copy()
+            puts = (
+                probe_chain[probe_chain["right"] == "put"].dropna(subset=["delta", "strike"]).copy()
+            )
             if not puts.empty:
                 puts["_gap"] = (puts["delta"] - (-0.50)).abs()
                 atm = puts.sort_values("_gap").iloc[0]
@@ -641,9 +673,7 @@ def cmd_option_ohlc(conn: ThetaConnector, args) -> tuple[int, int, int]:
             if not args.overwrite and _write_exists(dst):
                 continue
             try:
-                hist = conn.get_option_ohlc_history(
-                    t, exp, tg["strike"], tg["right"], start, end
-                )
+                hist = conn.get_option_ohlc_history(t, exp, tg["strike"], tg["right"], start, end)
                 if hist is None or hist.empty:
                     continue
                 hist = hist.copy()
@@ -679,7 +709,7 @@ def cmd_index_options(conn: ThetaConnector, args) -> tuple[int, int, int]:
 
     chain_out = args.out_dir / "index_options_chains"
     surf_out = args.out_dir / "index_options_surfaces"
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    today = datetime.now(UTC).strftime("%Y%m%d")
 
     ok = skip = fail = 0
     for sym in tickers:
@@ -722,7 +752,9 @@ def cmd_index_options(conn: ThetaConnector, args) -> tuple[int, int, int]:
 
     logger.info(
         "index-options: wrote %d chains (%d skipped, %d failed)",
-        ok, skip, fail,
+        ok,
+        skip,
+        fail,
     )
     return ok, skip, fail
 
@@ -806,7 +838,11 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info(
         "done: ok=%d skipped=%d failed=%d  elapsed=%.1fs  out=%s",
-        ok, skip, fail, elapsed, args.out_dir,
+        ok,
+        skip,
+        fail,
+        elapsed,
+        args.out_dir,
     )
     return 0 if fail == 0 else 1
 

@@ -50,16 +50,15 @@ import logging
 import sys
 import threading
 import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from functools import partial
 from pathlib import Path
-from typing import Iterable
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
@@ -173,7 +172,11 @@ def _try_fetch_history_greeks(
         except Exception as e:
             logger.debug(
                 "%s %s %s: history greeks fetch failed (%s): %s",
-                sym, as_of_str, exp_str, ep, e,
+                sym,
+                as_of_str,
+                exp_str,
+                ep,
+                e,
             )
             continue
         if chain is not None and not chain.empty:
@@ -230,9 +233,11 @@ def _normalise_chain_to_surface(
     chain["dte"] = (expiration - pd.Timestamp(as_of)).days
     chain["date"] = pd.Timestamp(as_of)
     chain["ticker"] = ticker
-    keep = [c for c in ("date", "ticker", "expiration", "dte", "strike",
-                        "right", "iv", "mid", "delta")
-            if c in chain.columns]
+    keep = [
+        c
+        for c in ("date", "ticker", "expiration", "dte", "strike", "right", "iv", "mid", "delta")
+        if c in chain.columns
+    ]
     return chain[keep]
 
 
@@ -347,7 +352,10 @@ def _surface_for_date(
             if chain.empty:
                 continue
             frame = _normalise_chain_to_surface(
-                chain, ticker=ticker, as_of=as_of, expiration=cand,
+                chain,
+                ticker=ticker,
+                as_of=as_of,
+                expiration=cand,
             )
             if frame.empty:
                 continue
@@ -366,9 +374,7 @@ def _surface_for_date(
         "target_dtes": target_n,
         "succeeded_buckets": succeeded,
         "failed_buckets": failed_buckets,
-        "chosen_expirations": [
-            (c.date() if hasattr(c, "date") else c) for c in chosen
-        ],
+        "chosen_expirations": [(c.date() if hasattr(c, "date") else c) for c in chosen],
         "partial": partial,
         "rejected_partial": False,
     }
@@ -381,9 +387,11 @@ def _surface_for_date(
         # buckets but not all. Writing this would silently degrade
         # downstream consumers (SVI calibrator, term-structure features).
         logger.warning(
-            "%s %s: rejecting partial surface — succeeded=%d/%d, "
-            "failed_buckets=%s, chosen=%s",
-            ticker, as_of, succeeded, target_n,
+            "%s %s: rejecting partial surface — succeeded=%d/%d, failed_buckets=%s, chosen=%s",
+            ticker,
+            as_of,
+            succeeded,
+            target_n,
             failed_buckets,
             [c.isoformat() for c in status["chosen_expirations"]],
         )
@@ -437,7 +445,9 @@ def _process_one(
         return ticker, d, True, "cached"
     try:
         df, status = _surface_for_date(
-            conn, ticker, d,
+            conn,
+            ticker,
+            d,
             expirations_cache=expirations_cache,
             cache_lock=cache_lock,
             strict=strict,
@@ -451,9 +461,11 @@ def _process_one(
     if df.empty:
         if status.get("rejected_partial"):
             failed_dtes = status.get("failed_buckets") or []
-            return ticker, d, False, (
-                f"partial-strict {succeeded}/{target_n} "
-                f"failed_dtes={failed_dtes}"
+            return (
+                ticker,
+                d,
+                False,
+                (f"partial-strict {succeeded}/{target_n} failed_dtes={failed_dtes}"),
             )
         if status.get("failed_buckets") == list(TARGET_DTES):
             return ticker, d, False, "all-buckets-empty"
@@ -461,14 +473,13 @@ def _process_one(
 
     write_partition(df, ticker, d)
     if status.get("partial"):
-        return ticker, d, True, (
-            f"rows={len(df)} PARTIAL {succeeded}/{target_n}"
-        )
+        return ticker, d, True, (f"rows={len(df)} PARTIAL {succeeded}/{target_n}")
     return ticker, d, True, f"rows={len(df)} {succeeded}/{target_n}"
 
 
 def _theta_up() -> bool:
     import socket
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(0.5)
     try:
@@ -495,25 +506,34 @@ def main() -> int:
     ap.add_argument("--start", help="Start date YYYY-MM-DD")
     ap.add_argument("--end", help="End date YYYY-MM-DD (default: today)")
     ap.add_argument("--days", type=int, help="Last N business days (short form)")
-    ap.add_argument("--workers", type=int, default=4,
-                    help="Worker threads. All workers share a single "
-                         "ThetaConnector whose internal semaphore caps "
-                         "aggregate concurrency at the tier limit, so "
-                         "extra workers queue rather than oversubscribe.")
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Worker threads. All workers share a single "
+        "ThetaConnector whose internal semaphore caps "
+        "aggregate concurrency at the tier limit, so "
+        "extra workers queue rather than oversubscribe.",
+    )
     ap.add_argument("--resume", action="store_true", help="Skip partitions that already exist")
     ap.add_argument("--force", action="store_true", help="Overwrite existing partitions")
-    ap.add_argument("--allow-partial", action="store_true",
-                    help="Write surfaces with fewer than 6 chosen expirations "
-                         "(default: strict — partial surfaces are dropped). "
-                         "Only use when you've decided silently degraded "
-                         "coverage is acceptable for your downstream consumer.")
+    ap.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Write surfaces with fewer than 6 chosen expirations "
+        "(default: strict — partial surfaces are dropped). "
+        "Only use when you've decided silently degraded "
+        "coverage is acceptable for your downstream consumer.",
+    )
     ap.add_argument("--log-level", default="INFO")
     args = ap.parse_args()
 
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(message)s")
 
     if not _theta_up():
-        print("ERROR: Theta Terminal not reachable on 127.0.0.1:25503 — start the Terminal and retry")
+        print(
+            "ERROR: Theta Terminal not reachable on 127.0.0.1:25503 — start the Terminal and retry"
+        )
         return 2
 
     # Resolve tickers
@@ -544,12 +564,14 @@ def main() -> int:
     skipped_today = [d for d in dates if d >= today]
     dates = [d for d in dates if d < today]
     if skipped_today:
-        print(f"Skipping {len(skipped_today)} same-day/future date(s) "
-              f"({skipped_today[0]}..{skipped_today[-1]}) — "
-              f"Theta history endpoints require explicit time bounds for "
-              f"current-day requests")
+        print(
+            f"Skipping {len(skipped_today)} same-day/future date(s) "
+            f"({skipped_today[0]}..{skipped_today[-1]}) — "
+            f"Theta history endpoints require explicit time bounds for "
+            f"current-day requests"
+        )
     if args.days:
-        dates = dates[-args.days:]
+        dates = dates[-args.days :]
 
     force = args.force and not args.resume
     strict = not args.allow_partial
@@ -567,9 +589,11 @@ def main() -> int:
     cache_lock = threading.Lock()
     process = partial(_process_one, conn, expirations_cache, cache_lock, strict)
 
-    print(f"Pulling IV surface history  tickers={len(tickers)}  "
-          f"dates={len(dates)} ({start_d}..{end_d})  jobs={total}  "
-          f"workers={args.workers}  strict={strict}")
+    print(
+        f"Pulling IV surface history  tickers={len(tickers)}  "
+        f"dates={len(dates)} ({start_d}..{end_d})  jobs={total}  "
+        f"workers={args.workers}  strict={strict}"
+    )
 
     t0 = time.perf_counter()
     n_ok = 0
@@ -592,8 +616,11 @@ def main() -> int:
                 if "partial-strict" in detail:
                     n_partial_rejected += 1
             if n_done % 100 == 0 or not ok:
-                print(f"  [{n_done:>5}/{total}] {ticker:<6} {d} "
-                      f"{'OK' if ok else 'FAIL':<4}  {detail[:80]}", flush=True)
+                print(
+                    f"  [{n_done:>5}/{total}] {ticker:<6} {d} "
+                    f"{'OK' if ok else 'FAIL':<4}  {detail[:80]}",
+                    flush=True,
+                )
 
     elapsed = time.perf_counter() - t0
     print()
@@ -601,8 +628,10 @@ def main() -> int:
     if n_partial:
         print(f"  ↳ of OK: {n_partial} written with PARTIAL coverage (--allow-partial was set)")
     if n_partial_rejected:
-        print(f"  ↳ of FAIL: {n_partial_rejected} dropped by strict mode "
-              "(use --allow-partial to keep)")
+        print(
+            f"  ↳ of FAIL: {n_partial_rejected} dropped by strict mode "
+            "(use --allow-partial to keep)"
+        )
     print(f"Written under: {OUT_ROOT}")
     return 0 if n_fail == 0 else 1
 

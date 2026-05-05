@@ -24,8 +24,6 @@ import pandas as pd
 import pytest
 
 import engine_api
-from engine.tv_signals import TVSignal
-
 
 # ---------------------------------------------------------------------------
 # Minimal in-memory request driver

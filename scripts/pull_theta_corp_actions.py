@@ -44,7 +44,7 @@ import socket
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
@@ -79,6 +79,7 @@ def _theta_up() -> bool:
 
 def load_universe(pit_date: str | None = None) -> list[str]:
     from data.consolidated_loader import get_bloomberg_loader
+
     L = get_bloomberg_loader()
     u = L.get_universe_as_of(pit_date)
     return sorted({t for t in u if all(c.isalpha() or c == "." for c in t)})
@@ -90,8 +91,7 @@ def _fetch_splits(conn: ThetaConnector, ticker: str, start: date, end: date) -> 
         "start_date": start.strftime("%Y%m%d"),
         "end_date": end.strftime("%Y%m%d"),
     }
-    for ep in ("/v3/stock/history/split",
-               "/v3/stock/history/splits"):
+    for ep in ("/v3/stock/history/split", "/v3/stock/history/splits"):
         df = conn._fetch(ep, params)
         if df is None or df.empty:
             continue
@@ -102,8 +102,9 @@ def _fetch_splits(conn: ThetaConnector, ticker: str, start: date, end: date) -> 
         df[ex_col] = pd.to_datetime(df[ex_col], errors="coerce")
         df = df.dropna(subset=[ex_col]).rename(columns={ex_col: "ex_date"})
         df["ticker"] = ticker
-        keep = [c for c in ("ticker", "ex_date", "ratio", "numerator", "denominator")
-                if c in df.columns]
+        keep = [
+            c for c in ("ticker", "ex_date", "ratio", "numerator", "denominator") if c in df.columns
+        ]
         return df[keep]
     return pd.DataFrame()
 
@@ -114,8 +115,7 @@ def _fetch_dividends(conn: ThetaConnector, ticker: str, start: date, end: date) 
         "start_date": start.strftime("%Y%m%d"),
         "end_date": end.strftime("%Y%m%d"),
     }
-    for ep in ("/v3/stock/history/dividend",
-               "/v3/stock/history/dividends"):
+    for ep in ("/v3/stock/history/dividend", "/v3/stock/history/dividends"):
         df = conn._fetch(ep, params)
         if df is None or df.empty:
             continue
@@ -127,23 +127,37 @@ def _fetch_dividends(conn: ThetaConnector, ticker: str, start: date, end: date) 
         df = df.dropna(subset=[ex_col]).rename(columns={ex_col: "ex_date"})
         # Alias normalisation to the loader's Bloomberg schema
         aliases = {
-            "amount": "dividend_amount", "cash_amount": "dividend_amount",
-            "frequency": "dividend_frequency", "freq": "dividend_frequency",
-            "type": "dividend_type", "div_type": "dividend_type",
+            "amount": "dividend_amount",
+            "cash_amount": "dividend_amount",
+            "frequency": "dividend_frequency",
+            "freq": "dividend_frequency",
+            "type": "dividend_type",
+            "div_type": "dividend_type",
             "declaration_date": "declared_date",
         }
         df = df.rename(columns={k: v for k, v in aliases.items() if k in df.columns})
         df["ticker"] = ticker
-        keep = [c for c in (
-            "ticker", "declared_date", "ex_date", "record_date", "payable_date",
-            "dividend_amount", "dividend_frequency", "dividend_type"
-        ) if c in df.columns]
+        keep = [
+            c
+            for c in (
+                "ticker",
+                "declared_date",
+                "ex_date",
+                "record_date",
+                "payable_date",
+                "dividend_amount",
+                "dividend_frequency",
+                "dividend_type",
+            )
+            if c in df.columns
+        ]
         return df[keep]
     return pd.DataFrame()
 
 
-def _one_ticker(ticker: str, start: date, end: date,
-                do_splits: bool, do_divs: bool) -> tuple[str, pd.DataFrame, pd.DataFrame, str]:
+def _one_ticker(
+    ticker: str, start: date, end: date, do_splits: bool, do_divs: bool
+) -> tuple[str, pd.DataFrame, pd.DataFrame, str]:
     try:
         conn = ThetaConnector()
     except Exception as e:
@@ -183,8 +197,10 @@ def main() -> int:
     start_d = end_d - timedelta(days=int(args.years * 365))
     do_splits = not args.skip_splits
     do_divs = not args.skip_dividends
-    print(f"Corp actions pull  tickers={len(tickers)}  range={start_d}..{end_d}  "
-          f"splits={do_splits}  divs={do_divs}  workers={args.workers}")
+    print(
+        f"Corp actions pull  tickers={len(tickers)}  range={start_d}..{end_d}  "
+        f"splits={do_splits}  divs={do_divs}  workers={args.workers}"
+    )
 
     t0 = time.perf_counter()
     splits_frames: list[pd.DataFrame] = []
@@ -192,8 +208,7 @@ def main() -> int:
     n_done = 0
     n_err = 0
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(_one_ticker, t, start_d, end_d, do_splits, do_divs): t
-                for t in tickers}
+        futs = {ex.submit(_one_ticker, t, start_d, end_d, do_splits, do_divs): t for t in tickers}
         for fut in as_completed(futs):
             ticker, sp, dv, msg = fut.result()
             n_done += 1
@@ -234,8 +249,16 @@ def main() -> int:
         for col in ("declared_date", "record_date", "payable_date"):
             if col not in compat.columns:
                 compat[col] = pd.NaT
-        cols = ["declared_date", "ex_date", "record_date", "payable_date",
-                "dividend_amount", "dividend_frequency", "dividend_type", "ticker"]
+        cols = [
+            "declared_date",
+            "ex_date",
+            "record_date",
+            "payable_date",
+            "dividend_amount",
+            "dividend_frequency",
+            "dividend_type",
+            "ticker",
+        ]
         compat[cols].to_csv(COMPAT_DIV_CSV, index=False)
 
     elapsed = time.perf_counter() - t0

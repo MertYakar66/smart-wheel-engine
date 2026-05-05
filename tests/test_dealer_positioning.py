@@ -96,9 +96,7 @@ class TestAnalyzerCore:
 
     def test_zero_spot_returns_neutral(self):
         analyzer = DealerPositioningAnalyzer()
-        chain = make_chain(
-            100.0, [(95, 100, 100, 0.2), (100, 100, 100, 0.2), (105, 100, 100, 0.2)]
-        )
+        chain = make_chain(100.0, [(95, 100, 100, 0.2), (100, 100, 100, 0.2), (105, 100, 100, 0.2)])
         ms = analyzer.analyze(
             chain, spot=0.0, expiry=date.today() + timedelta(days=30), ticker="TEST"
         )
@@ -107,9 +105,7 @@ class TestAnalyzerCore:
     def test_missing_columns_returns_neutral(self):
         analyzer = DealerPositioningAnalyzer()
         bad = pd.DataFrame({"strike": [100], "option_type": ["C"]})  # no OI, no IV
-        ms = analyzer.analyze(
-            bad, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(bad, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert "missing_columns" in ms.notes
         assert ms.regime == "neutral"
 
@@ -157,9 +153,7 @@ class TestAnalyzerCore:
 class TestSignConvention:
     def test_long_calls_short_puts_call_sign_positive(self):
         """Under LONG_CALLS_SHORT_PUTS, a call-only chain produces positive GEX."""
-        analyzer = DealerPositioningAnalyzer(
-            assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS
-        )
+        analyzer = DealerPositioningAnalyzer(assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS)
         # Chain with ONLY calls
         chain = pd.DataFrame(
             [
@@ -167,25 +161,19 @@ class TestSignConvention:
                 {"strike": 105, "option_type": "C", "open_interest": 1000, "implied_vol": 0.2},
             ]
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.gex_total > 0
 
     def test_long_calls_short_puts_put_sign_negative(self):
         """Under LONG_CALLS_SHORT_PUTS, a put-only chain produces negative GEX."""
-        analyzer = DealerPositioningAnalyzer(
-            assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS
-        )
+        analyzer = DealerPositioningAnalyzer(assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS)
         chain = pd.DataFrame(
             [
                 {"strike": 100, "option_type": "P", "open_interest": 1000, "implied_vol": 0.2},
                 {"strike": 95, "option_type": "P", "open_interest": 1000, "implied_vol": 0.2},
             ]
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.gex_total < 0
 
     def test_short_both_assumption_flips_call_sign(self):
@@ -195,18 +183,10 @@ class TestSignConvention:
                 {"strike": 100, "option_type": "C", "open_interest": 1000, "implied_vol": 0.2},
             ]
         )
-        long_cs = DealerPositioningAnalyzer(
-            assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS
-        )
-        short_b = DealerPositioningAnalyzer(
-            assumption=DealerAssumption.SHORT_BOTH
-        )
-        ms_lcsp = long_cs.analyze(
-            call_only, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
-        ms_sb = short_b.analyze(
-            call_only, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        long_cs = DealerPositioningAnalyzer(assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS)
+        short_b = DealerPositioningAnalyzer(assumption=DealerAssumption.SHORT_BOTH)
+        ms_lcsp = long_cs.analyze(call_only, spot=100.0, expiry=date.today() + timedelta(days=30))
+        ms_sb = short_b.analyze(call_only, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert np.sign(ms_lcsp.gex_total) == -np.sign(ms_sb.gex_total)
 
     def test_put_heavy_chain_is_short_gamma_under_spotgamma(self):
@@ -244,9 +224,7 @@ class TestGreeksFallback:
         )
         # No 'delta' or 'gamma' columns present
         analyzer = DealerPositioningAnalyzer()
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.n_strikes == 1
         # Per-strike row must have non-zero call_gamma (recomputed from BSM)
         per = ms.per_strike[0]
@@ -270,9 +248,7 @@ class TestWalls:
                 (110, 100, 100, 0.20),
             ],
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         # Top call wall should be at 105 (the spike)
         assert len(ms.call_walls) > 0
         assert ms.call_walls[0].strike == 105.0
@@ -288,9 +264,7 @@ class TestWalls:
                 (105, 5000, 100, 0.20),  # call wall
             ],
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.nearest_call_wall is not None
         assert ms.nearest_call_wall.strike == 105.0
         assert ms.nearest_put_wall is not None
@@ -307,9 +281,7 @@ class TestWalls:
                 (105, 5000, 100, 0.20),
             ],
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.nearest_call_wall is None
         assert ms.nearest_put_wall is None
 
@@ -333,9 +305,7 @@ class TestFlipLevel:
                 (115, 20000, 100, 0.25),
             ],
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.flip_level is not None
         # Flip should be within ±10% of spot
         assert 85 <= ms.flip_level <= 115
@@ -349,9 +319,7 @@ class TestFlipLevel:
                 for k in [80, 90, 100, 110, 120]
             ]
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         # No sign change possible over the scan range
         assert ms.flip_level is None
 
@@ -369,9 +337,7 @@ class TestRegimeClassification:
                 for k in [100, 105, 110]
             ]
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.gex_total > 0
         assert ms.regime in ("long_gamma_dampening", "near_flip")
 
@@ -384,9 +350,7 @@ class TestRegimeClassification:
                 for k in [95, 100, 105]
             ]
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert ms.gex_total < 0
         assert ms.regime == "short_gamma_amplifying"
 
@@ -396,9 +360,7 @@ class TestRegimeClassification:
             100.0,
             [(95, 500, 500, 0.22), (100, 500, 500, 0.22), (105, 500, 500, 0.22)],
         )
-        ms = analyzer.analyze(
-            chain, spot=100.0, expiry=date.today() + timedelta(days=30)
-        )
+        ms = analyzer.analyze(chain, spot=100.0, expiry=date.today() + timedelta(days=30))
         assert 0.0 <= ms.confidence <= 1.0
 
 
@@ -438,12 +400,8 @@ class TestMultiplierBounds:
 
     def test_low_confidence_scales_toward_one(self):
         """Low-confidence regimes move less aggressively."""
-        low_conf = dealer_regime_multiplier(
-            self._ms("short_gamma_amplifying", confidence=0.2)
-        )
-        high_conf = dealer_regime_multiplier(
-            self._ms("short_gamma_amplifying", confidence=1.0)
-        )
+        low_conf = dealer_regime_multiplier(self._ms("short_gamma_amplifying", confidence=0.2))
+        high_conf = dealer_regime_multiplier(self._ms("short_gamma_amplifying", confidence=1.0))
         assert low_conf > high_conf  # less aggressive cut at low confidence
         assert 0.70 <= high_conf <= low_conf <= 1.0
 
@@ -554,12 +512,8 @@ class TestEVEngineIntegration:
             gex_total=2.5e9,
             flip_distance_pct=0.03,
             pinning_zones=[100.0],
-            nearest_put_wall=GammaWall(
-                strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"
-            ),
-            nearest_call_wall=GammaWall(
-                strike=105.0, distance_pct=0.05, net_gex=1e6, side="call"
-            ),
+            nearest_put_wall=GammaWall(strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"),
+            nearest_call_wall=GammaWall(strike=105.0, distance_pct=0.05, net_gex=1e6, side="call"),
         )
         r = EVEngine().evaluate(trade, market_structure=ms)
         assert r.dealer_regime == "long_gamma_dampening"
@@ -612,9 +566,7 @@ class TestReviewerR6:
             assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS,
             regime="short_gamma_amplifying",
             confidence=0.8,
-            nearest_put_wall=GammaWall(
-                strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"
-            ),
+            nearest_put_wall=GammaWall(strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"),
         )
         # Candidate strike at 97 is ABOVE the put wall at 95 → breach risk
         dossier = self._dossier(ev=50.0, strike=97.0, ms=ms)
@@ -633,9 +585,7 @@ class TestReviewerR6:
             assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS,
             regime="short_gamma_amplifying",
             confidence=0.8,
-            nearest_put_wall=GammaWall(
-                strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"
-            ),
+            nearest_put_wall=GammaWall(strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"),
         )
         # Candidate strike at 90 is BELOW the put wall → cushion exists
         dossier = self._dossier(ev=50.0, strike=90.0, ms=ms)
@@ -651,9 +601,7 @@ class TestReviewerR6:
             assumption=DealerAssumption.LONG_CALLS_SHORT_PUTS,
             regime="long_gamma_dampening",
             confidence=0.9,
-            nearest_put_wall=GammaWall(
-                strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"
-            ),
+            nearest_put_wall=GammaWall(strike=95.0, distance_pct=-0.05, net_gex=-1e6, side="put"),
         )
         dossier = self._dossier(ev=50.0, strike=97.0, ms=ms)
         verdict, reason, _ = EnginePhaseReviewer(min_proceed_ev=10.0).review(dossier)
@@ -875,12 +823,8 @@ class TestSerialisation:
             flip_level=98.5,
             flip_distance_pct=-0.015,
             pinning_zones=[100.0, 105.0],
-            nearest_call_wall=GammaWall(
-                strike=105.0, distance_pct=0.05, net_gex=5e8, side="call"
-            ),
-            nearest_put_wall=GammaWall(
-                strike=95.0, distance_pct=-0.05, net_gex=-3e8, side="put"
-            ),
+            nearest_call_wall=GammaWall(strike=105.0, distance_pct=0.05, net_gex=5e8, side="call"),
+            nearest_put_wall=GammaWall(strike=95.0, distance_pct=-0.05, net_gex=-3e8, side="put"),
             call_walls=[
                 GammaWall(strike=105.0, distance_pct=0.05, net_gex=5e8, side="call"),
                 GammaWall(strike=110.0, distance_pct=0.10, net_gex=3e8, side="call"),

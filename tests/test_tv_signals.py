@@ -33,7 +33,9 @@ from engine.tv_signals import (
 # ---------------------------------------------------------------------------
 
 
-def _make_ohlcv(n: int = 300, *, drift: float = 0.0003, vol: float = 0.01, seed: int = 7) -> pd.DataFrame:
+def _make_ohlcv(
+    n: int = 300, *, drift: float = 0.0003, vol: float = 0.01, seed: int = 7
+) -> pd.DataFrame:
     """Generate a synthetic OHLCV frame.
 
     Returned columns are the minimum set required by ``compute_tv_signal``.
@@ -46,9 +48,7 @@ def _make_ohlcv(n: int = 300, *, drift: float = 0.0003, vol: float = 0.01, seed:
     open_ = np.roll(close, 1)
     open_[0] = close[0]
     vols = rng.integers(1_000_000, 5_000_000, n)
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": vols}
-    )
+    return pd.DataFrame({"open": open_, "high": high, "low": low, "close": close, "volume": vols})
 
 
 def _make_compression_ohlcv(n: int = 300) -> pd.DataFrame:
@@ -271,11 +271,7 @@ def test_pine_parity_constants():
     """
     import re
 
-    pine_path = (
-        Path(__file__).resolve().parents[1]
-        / "tradingview"
-        / "smart_wheel_signals.pine"
-    )
+    pine_path = Path(__file__).resolve().parents[1] / "tradingview" / "smart_wheel_signals.pine"
     assert pine_path.exists(), f"Pine file missing: {pine_path}"
     source = pine_path.read_text()
 

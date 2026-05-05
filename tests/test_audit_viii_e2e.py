@@ -20,15 +20,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import io
 import json
-from datetime import date, datetime, timedelta, timezone
-from http.server import BaseHTTPRequestHandler
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-import pytest
 
 import engine_api
 from engine.wheel_runner import WheelRunner
@@ -43,8 +40,13 @@ def _synth_ohlcv(seed: int, n: int = 2000, mu: float = 3e-4) -> pd.DataFrame:
     idx = pd.date_range("2018-01-02", periods=n, freq="B")
     prices = 100 * np.exp(np.cumsum(rng.normal(mu, 0.012, n)))
     return pd.DataFrame(
-        {"open": prices, "high": prices, "low": prices, "close": prices,
-         "volume": np.full(n, 1_000_000.0)},
+        {
+            "open": prices,
+            "high": prices,
+            "low": prices,
+            "close": prices,
+            "volume": np.full(n, 1_000_000.0),
+        },
         index=idx,
     )
 
@@ -147,8 +149,10 @@ class TestWebhookHMACGate:
         payload = {"ticker": "AAPL", "signal": "wheel_put_zone"}
         raw = json.dumps(payload).encode()
         sig = hmac.new(b"test-secret-2", raw, hashlib.sha256).hexdigest()
-        with patch.object(engine_api, "get_connector", return_value=_E2EConn("AAPL")), \
-             patch.object(engine_api, "get_runner", return_value=WheelRunner()):
+        with (
+            patch.object(engine_api, "get_connector", return_value=_E2EConn("AAPL")),
+            patch.object(engine_api, "get_runner", return_value=WheelRunner()),
+        ):
             h._handle_tv_webhook(payload, raw_body=raw, signature_header=sig)
         assert h.responses[-1][0] == 200
         body = h.responses[-1][1]
@@ -162,8 +166,10 @@ class TestWebhookHMACGate:
         payload = {"ticker": "AAPL", "signal": "wheel_put_zone"}
         raw = json.dumps(payload).encode()
         sig = hmac.new(b"test-secret-3", raw, hashlib.sha256).hexdigest()
-        with patch.object(engine_api, "get_connector", return_value=_E2EConn("AAPL")), \
-             patch.object(engine_api, "get_runner", return_value=WheelRunner()):
+        with (
+            patch.object(engine_api, "get_connector", return_value=_E2EConn("AAPL")),
+            patch.object(engine_api, "get_runner", return_value=WheelRunner()),
+        ):
             h1 = _FakeHandler()
             h1._handle_tv_webhook(payload, raw_body=raw, signature_header=sig)
             h2 = _FakeHandler()
@@ -195,9 +201,12 @@ class TestEnrichmentEVAuthority:
         h = _FakeHandler()
         conn = _E2EConn("AAPL")
         runner = WheelRunner()
-        with patch.object(engine_api, "get_connector", return_value=conn), \
-             patch.object(engine_api, "get_runner", return_value=runner):
+        with (
+            patch.object(engine_api, "get_connector", return_value=conn),
+            patch.object(engine_api, "get_runner", return_value=runner),
+        ):
             from engine.tv_signals import TVAlert
+
             alert = TVAlert(ticker="AAPL", signal="wheel_put_zone", source="test")
             enriched = h._enrich_alert(alert)
         # Authority is EV-ranked or ev_unavailable — never heuristic.
@@ -211,9 +220,12 @@ class TestEnrichmentEVAuthority:
         h = _FakeHandler()
         conn = _E2EConn("AAPL")
         runner = WheelRunner()
-        with patch.object(engine_api, "get_connector", return_value=conn), \
-             patch.object(engine_api, "get_runner", return_value=runner):
+        with (
+            patch.object(engine_api, "get_connector", return_value=conn),
+            patch.object(engine_api, "get_runner", return_value=runner),
+        ):
             from engine.tv_signals import TVAlert
+
             alert = TVAlert(ticker="NONEXIST", signal="wheel_put_zone", source="test")
             enriched = h._enrich_alert(alert)
         assert enriched["accepted"] is False
@@ -240,16 +252,19 @@ class TestFullAuthorityChain:
         runner = WheelRunner()
 
         # Step 1: webhook through the handler
-        with patch.object(engine_api, "get_connector", return_value=conn), \
-             patch.object(engine_api, "get_runner", return_value=runner):
+        with (
+            patch.object(engine_api, "get_connector", return_value=conn),
+            patch.object(engine_api, "get_runner", return_value=runner),
+        ):
             h = _FakeHandler()
             h._handle_tv_webhook(payload, raw_body=raw, signature_header=sig)
         assert h.responses[-1][0] == 200
         enriched = h.responses[-1][1]["enriched"]
 
         # Step 2: directly call the EV ranker for the token payload
-        with patch.object(WheelRunner, "connector",
-                          new_callable=lambda: property(lambda self: conn)):
+        with patch.object(
+            WheelRunner, "connector", new_callable=lambda: property(lambda self: conn)
+        ):
             ev_df = runner.rank_candidates_by_ev(
                 tickers=["AAPL"],
                 dte_target=35,
@@ -313,10 +328,13 @@ class TestCommitteeAuthorityLabel:
         conn = _E2EConn("AAPL")
         runner = WheelRunner()
         h = _FakeHandler()
-        with patch.object(engine_api, "get_connector", return_value=conn), \
-             patch.object(engine_api, "get_runner", return_value=runner), \
-             patch.object(WheelRunner, "connector",
-                          new_callable=lambda: property(lambda self: conn)):
+        with (
+            patch.object(engine_api, "get_connector", return_value=conn),
+            patch.object(engine_api, "get_runner", return_value=runner),
+            patch.object(
+                WheelRunner, "connector", new_callable=lambda: property(lambda self: conn)
+            ),
+        ):
             h._handle_committee("AAPL")
         assert h.responses, "committee handler produced no response"
         body = h.responses[-1][1]
@@ -332,8 +350,9 @@ class TestHMMRegimeCache:
     def test_second_call_reuses_cached_regime_multiplier(self):
         conn = _E2EConn("AAPL")
         runner = WheelRunner()
-        with patch.object(WheelRunner, "connector",
-                          new_callable=lambda: property(lambda self: conn)):
+        with patch.object(
+            WheelRunner, "connector", new_callable=lambda: property(lambda self: conn)
+        ):
             df1 = runner.rank_candidates_by_ev(
                 tickers=["AAPL"],
                 dte_target=35,
@@ -374,12 +393,15 @@ class TestOHLCVInvariantGuard:
         conn = MarketDataConnector.__new__(MarketDataConnector)
         idx = pd.date_range("2024-01-01", periods=50, freq="B")
         # Valid OHLC: high = max, low = min.
-        df = pd.DataFrame({
-            "open": np.full(50, 100.0),
-            "high": np.full(50, 101.0),
-            "low": np.full(50, 99.0),
-            "close": np.full(50, 100.5),
-        }, index=idx)
+        df = pd.DataFrame(
+            {
+                "open": np.full(50, 100.0),
+                "high": np.full(50, 101.0),
+                "low": np.full(50, 99.0),
+                "close": np.full(50, 100.5),
+            },
+            index=idx,
+        )
         with caplog.at_level("CRITICAL"):
             conn._validate_ohlcv_invariants("TEST", df)
         assert "OHLCV invariant violation" not in caplog.text
@@ -391,12 +413,15 @@ class TestOHLCVInvariantGuard:
         conn = MarketDataConnector.__new__(MarketDataConnector)
         idx = pd.date_range("2024-01-01", periods=50, freq="B")
         # INVERTED OHLC — high is *lowest*, low is *highest*.
-        df = pd.DataFrame({
-            "open": np.full(50, 100.0),
-            "high": np.full(50, 99.0),   # WRONG
-            "low": np.full(50, 101.0),   # WRONG
-            "close": np.full(50, 100.5),
-        }, index=idx)
+        df = pd.DataFrame(
+            {
+                "open": np.full(50, 100.0),
+                "high": np.full(50, 99.0),  # WRONG
+                "low": np.full(50, 101.0),  # WRONG
+                "close": np.full(50, 100.5),
+            },
+            index=idx,
+        )
         with caplog.at_level("CRITICAL"):
             conn._validate_ohlcv_invariants("TEST", df)
         assert "OHLCV invariant violation" in caplog.text

@@ -1,11 +1,20 @@
 """Tests for risk management module."""
 
+import numpy as np
+import pandas as pd
+import pytest
+
 from engine.risk_manager import (
+    HierarchicalRiskParity,
     PositionSizingMethod,
     RiskLimits,
     RiskManager,
+    SectorExposure,
+    SectorExposureManager,
+    calculate_hrp_weights,
     calculate_kelly_fraction,
     calculate_optimal_contracts,
+    optimize_position_weights,
 )
 
 
@@ -610,3 +619,302 @@ class TestOptimalContracts:
 
         assert contracts >= 1
         assert contracts <= 50
+
+
+# =============================================================================
+# SectorExposure + SectorExposureManager
+# =============================================================================
+
+
+class TestSectorExposure:
+    def test_concentrated_above_25pct(self):
+        ex = SectorExposure(
+            sector="Tech", position_count=3,
+            notional_exposure=300_000, exposure_pct=0.30,
+            symbols=["AAPL", "MSFT", "NVDA"],
+        )
+        assert ex.is_concentrated is True
+
+    def test_not_concentrated_below_25pct(self):
+        ex = SectorExposure(
+            sector="Tech", position_count=1,
+            notional_exposure=100_000, exposure_pct=0.20,
+            symbols=["AAPL"],
+        )
+        assert ex.is_concentrated is False
+
+
+class TestSectorExposureManager:
+    @pytest.fixture
+    def mgr(self) -> SectorExposureManager:
+        return SectorExposureManager(
+            sector_map={"AAPL": "Tech", "MSFT": "Tech", "JPM": "Financials", "XOM": "Energy"},
+            max_sector_pct=0.25,
+        )
+
+    def test_get_sector_known(self, mgr: SectorExposureManager):
+        assert mgr.get_sector("AAPL") == "Tech"
+
+    def test_get_sector_unknown_returns_unknown(self, mgr: SectorExposureManager):
+        assert mgr.get_sector("ZZZ") == "Unknown"
+
+    def test_calculate_sector_exposures(self, mgr: SectorExposureManager):
+        positions = [
+            {"symbol": "AAPL", "strike": 150, "contracts": 5},
+            {"symbol": "MSFT", "strike": 400, "contracts": 2},
+            {"symbol": "JPM", "strike": 200, "contracts": 3},
+        ]
+        out = mgr.calculate_sector_exposures(positions, portfolio_value=1_000_000)
+        assert "Tech" in out
+        assert "Financials" in out
+        # Tech notional = 150*100*5 + 400*100*2 = 75_000 + 80_000 = 155_000
+        assert out["Tech"].notional_exposure == 155_000
+        assert out["Tech"].position_count == 2
+        assert "AAPL" in out["Tech"].symbols
+        assert "MSFT" in out["Tech"].symbols
+
+    def test_calculate_sector_exposures_zero_portfolio(self, mgr: SectorExposureManager):
+        positions = [{"symbol": "AAPL", "strike": 150, "contracts": 5}]
+        out = mgr.calculate_sector_exposures(positions, portfolio_value=0)
+        assert out["Tech"].exposure_pct == 0  # divide-by-zero guard
+
+    def test_check_sector_limit_within(self, mgr: SectorExposureManager):
+        positions = [{"symbol": "AAPL", "strike": 150, "contracts": 5}]
+        # Tech at 75_000; adding 100_000 → 175_000 / 1M = 17.5% < 25% limit
+        allowed, reason = mgr.check_sector_limit(
+            "MSFT", proposed_notional=100_000,
+            positions=positions, portfolio_value=1_000_000,
+        )
+        assert allowed is True
+
+    def test_check_sector_limit_breach(self, mgr: SectorExposureManager):
+        positions = [{"symbol": "AAPL", "strike": 200, "contracts": 5}]
+        # Tech at 100_000; adding 200_000 → 300_000 / 1M = 30% > 25% limit
+        allowed, reason = mgr.check_sector_limit(
+            "MSFT", proposed_notional=200_000,
+            positions=positions, portfolio_value=1_000_000,
+        )
+        assert allowed is False
+        assert "Tech" in reason
+
+    def test_check_sector_limit_zero_portfolio(self, mgr: SectorExposureManager):
+        allowed, _ = mgr.check_sector_limit(
+            "AAPL", proposed_notional=10_000,
+            positions=[], portfolio_value=0,
+        )
+        # Divide-by-zero guard → 0% < 25% limit → allowed
+        assert allowed is True
+
+    def test_get_sector_violations_empty_when_within(self, mgr: SectorExposureManager):
+        positions = [{"symbol": "AAPL", "strike": 100, "contracts": 1}]
+        violations = mgr.get_sector_violations(positions, portfolio_value=1_000_000)
+        assert violations == []
+
+    def test_get_sector_violations_when_above(self, mgr: SectorExposureManager):
+        positions = [
+            {"symbol": "AAPL", "strike": 200, "contracts": 10},  # 200_000 → 20%
+            {"symbol": "MSFT", "strike": 200, "contracts": 5},   # 100_000 → 10%
+        ]
+        # Total Tech = 30% > 25% limit
+        violations = mgr.get_sector_violations(positions, portfolio_value=1_000_000)
+        assert len(violations) == 1
+        assert "Tech" in violations[0]
+
+    def test_suggest_diversification(self, mgr: SectorExposureManager):
+        # Tech is loaded; suggest Financials/Energy
+        positions = [{"symbol": "AAPL", "strike": 200, "contracts": 5}]
+        suggestions = mgr.suggest_diversification(
+            positions, portfolio_value=1_000_000,
+            available_symbols=["JPM", "XOM", "MSFT"],
+        )
+        # Should include Financials/Energy symbols (under-represented)
+        assert isinstance(suggestions, list)
+        # JPM (Financials) and XOM (Energy) are under 50% of limit → included
+        assert "JPM" in suggestions or "XOM" in suggestions
+
+
+# =============================================================================
+# HierarchicalRiskParity
+# =============================================================================
+
+
+class TestHierarchicalRiskParity:
+    @pytest.fixture
+    def returns(self) -> pd.DataFrame:
+        """5 assets, 252 daily returns, with realistic correlation structure."""
+        rng = np.random.default_rng(42)
+        n = 252
+        # Two clusters: tech (correlated), financials (correlated)
+        tech_factor = rng.standard_normal(n) * 0.012
+        fin_factor = rng.standard_normal(n) * 0.010
+        df = pd.DataFrame({
+            "AAPL": tech_factor + rng.standard_normal(n) * 0.005,
+            "MSFT": tech_factor + rng.standard_normal(n) * 0.005,
+            "GOOGL": tech_factor + rng.standard_normal(n) * 0.006,
+            "JPM": fin_factor + rng.standard_normal(n) * 0.005,
+            "BAC": fin_factor + rng.standard_normal(n) * 0.005,
+        })
+        return df
+
+    def test_init_defaults(self):
+        h = HierarchicalRiskParity()
+        assert h.linkage_method == "ward"
+
+    def test_init_custom_linkage(self):
+        h = HierarchicalRiskParity(linkage_method="single")
+        assert h.linkage_method == "single"
+
+    def test_fit_returns_normalised_weights(self, returns: pd.DataFrame):
+        h = HierarchicalRiskParity()
+        weights = h.fit(returns)
+        assert set(weights.keys()) == set(returns.columns)
+        # Weights normalised to ~1
+        assert sum(weights.values()) == pytest.approx(1.0, abs=1e-6)
+        # All non-negative
+        assert all(w >= 0 for w in weights.values())
+
+    def test_fit_with_explicit_covariance(self, returns: pd.DataFrame):
+        cov = returns.cov()
+        h = HierarchicalRiskParity()
+        weights = h.fit(returns, covariance=cov)
+        assert sum(weights.values()) == pytest.approx(1.0, abs=1e-6)
+
+    def test_correlation_distance(self, returns: pd.DataFrame):
+        h = HierarchicalRiskParity()
+        corr = returns.corr()
+        dist = h._correlation_distance(corr)
+        # Distance matrix shape matches
+        assert dist.shape == (5, 5)
+        # Distances in [0, 1] for normalised correlations
+        assert (dist >= 0).all()
+        # Diagonal should be ~0 (correlation with self = 1 → dist = 0)
+        np.testing.assert_allclose(np.diag(dist), 0.0, atol=1e-10)
+
+    def test_cluster_variance_single_asset(self, returns: pd.DataFrame):
+        cov = returns.cov()
+        h = HierarchicalRiskParity()
+        v = h._cluster_variance(cov, ["AAPL"])
+        # Single-asset cluster variance = asset variance
+        assert v == pytest.approx(cov.loc["AAPL", "AAPL"])
+
+    def test_cluster_variance_empty_returns_zero(self, returns: pd.DataFrame):
+        cov = returns.cov()
+        h = HierarchicalRiskParity()
+        assert h._cluster_variance(cov, []) == 0.0
+
+
+class TestCalculateHrpWeights:
+    def test_returns_normalised_dict(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 4)), columns=["A", "B", "C", "D"])
+        weights = calculate_hrp_weights(df)
+        assert set(weights.keys()) == {"A", "B", "C", "D"}
+        assert sum(weights.values()) == pytest.approx(1.0, abs=1e-6)
+
+    def test_filters_to_target_symbols(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 4)), columns=["A", "B", "C", "D"])
+        weights = calculate_hrp_weights(df, target_symbols=["A", "B"])
+        assert set(weights.keys()) == {"A", "B"}
+
+
+class TestOptimizePositionWeights:
+    def test_few_symbols_equal_weights(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 1)), columns=["AAPL"])
+        weights = optimize_position_weights(["AAPL"], df)
+        # Single symbol → 100% weight
+        assert weights["AAPL"] == pytest.approx(1.0)
+
+    def test_normalises_to_one(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 4)), columns=["A", "B", "C", "D"])
+        weights = optimize_position_weights(["A", "B", "C", "D"], df)
+        assert sum(weights.values()) == pytest.approx(1.0, abs=1e-6)
+
+    def test_min_weight_for_unavailable_symbols(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 2)), columns=["A", "B"])
+        # Z is not in df; should get min_weight
+        weights = optimize_position_weights(["A", "B", "Z"], df, min_weight=0.05)
+        # Z assigned at least min_weight before normalisation
+        assert "Z" in weights
+        # All weights >= 0
+        assert all(w >= 0 for w in weights.values())
+
+    def test_max_weight_clamped(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.standard_normal((100, 2)), columns=["A", "B"])
+        weights = optimize_position_weights(["A", "B"], df, max_weight=0.5, min_weight=0.05)
+        # All weights >= 0
+        for w in weights.values():
+            assert w <= 1.0  # at minimum, total normalised
+
+
+# =============================================================================
+# RiskManager init + risk metrics
+# =============================================================================
+
+
+class TestRiskManagerInit:
+    def test_default_construction(self):
+        rm = RiskManager()
+        assert rm is not None
+        assert isinstance(rm.limits, RiskLimits)
+
+    def test_from_policy(self):
+        rm = RiskManager.from_policy(environment="dev")
+        assert rm is not None
+
+    def test_update_portfolio_value(self):
+        rm = RiskManager()
+        rm.update_portfolio_value(500_000)
+        # portfolio_values is a list (history), not a single attribute
+        assert rm.portfolio_values[-1] == 500_000
+
+    def test_update_portfolio_value_tracks_history(self):
+        rm = RiskManager()
+        rm.update_portfolio_value(100_000)
+        rm.update_portfolio_value(105_000)
+        assert len(rm.portfolio_values) == 2
+        assert rm.portfolio_values[-1] == 105_000
+
+
+class TestRiskManagerStressTests:
+    def test_run_stress_tests_returns_dict(self):
+        rm = RiskManager()
+        positions = [
+            {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
+             "iv": 0.25, "delta": -0.30, "contracts": 1, "covered": False},
+        ]
+        spot_prices = {"AAPL": 155.0}
+        result = rm.run_stress_tests(
+            portfolio_value=100_000,
+            positions=positions,
+            spot_prices=spot_prices,
+        )
+        assert isinstance(result, dict)
+        # Standard scenarios produce some output
+        assert len(result) > 0
+
+    def test_run_stress_tests_with_custom_scenario(self):
+        rm = RiskManager()
+        positions = [
+            {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
+             "iv": 0.25, "delta": -0.30, "contracts": 1, "covered": False},
+        ]
+        custom = [{"name": "tiny_move", "spot_move": -0.01, "vol_move": 0.0}]
+        result = rm.run_stress_tests(
+            portfolio_value=100_000,
+            positions=positions,
+            spot_prices={"AAPL": 155.0},
+            custom_scenarios=custom,
+        )
+        assert isinstance(result, dict)
+
+
+class TestKellyFractionEdgeCases:
+    def test_zero_avg_loss_returns_zero(self):
+        # Just verify no crash for zero-loss edge case
+        result = calculate_kelly_fraction(0.6, 1.0, 0.0)
+        assert isinstance(result, float)

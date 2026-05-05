@@ -26,9 +26,7 @@ def sample_ohlc() -> pd.DataFrame:
     low = close - np.abs(rng.normal(0, 0.5, n))
     open_ = close + rng.normal(0, 0.2, n)
     dates = pd.date_range("2024-01-01", periods=n, freq="B")
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close}, index=dates
-    )
+    return pd.DataFrame({"open": open_, "high": high, "low": low, "close": close}, index=dates)
 
 
 def test_close_to_close_positive(sample_ohlc):
@@ -64,7 +62,13 @@ def test_all_estimators_in_same_ballpark(sample_ohlc):
 
 def test_empty_df_returns_nan():
     empty = pd.DataFrame(columns=["open", "high", "low", "close"])
-    for fn in (close_to_close_vol, parkinson_vol, garman_klass_vol, rogers_satchell_vol, yang_zhang_vol):
+    for fn in (
+        close_to_close_vol,
+        parkinson_vol,
+        garman_klass_vol,
+        rogers_satchell_vol,
+        yang_zhang_vol,
+    ):
         v = fn(empty)
         assert np.isnan(v), f"{fn.__name__} should return NaN on empty df"
 

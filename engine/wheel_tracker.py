@@ -128,9 +128,7 @@ class WheelTracker:
             "prob_profit": float(ev_row.get("prob_profit", 0) or 0),
             "distribution_source": str(ev_row.get("distribution_source", "")),
         }
-        token = hashlib.sha256(
-            _json.dumps(canonical, sort_keys=True).encode()
-        ).hexdigest()
+        token = hashlib.sha256(_json.dumps(canonical, sort_keys=True).encode()).hexdigest()
         self._ev_authority_tokens.add(token)
         self._ev_authority_log.append({"action": "issue", "token": token, "row": canonical})
         return token
@@ -145,9 +143,7 @@ class WheelTracker:
             )
             return False
         self._ev_authority_tokens.discard(token)
-        self._ev_authority_log.append(
-            {"action": "consume", "token": token, "ticker": ticker}
-        )
+        self._ev_authority_log.append({"action": "consume", "token": token, "ticker": ticker})
         return True
 
     def open_short_put(

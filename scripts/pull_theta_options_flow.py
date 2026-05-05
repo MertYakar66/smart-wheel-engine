@@ -65,6 +65,7 @@ OUT_DIR = _ROOT / "data_processed" / "theta" / "options_flow"
 
 def _theta_up() -> bool:
     import socket
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(0.5)
     try:
@@ -144,14 +145,18 @@ def _fetch_flow(conn: ThetaConnector, ticker: str, start: date, end: date) -> pd
                     df_oi.columns = [c.lower() for c in df_oi.columns]
                     # Align on (date, strike, right). OI endpoint usually has
                     # a single row per contract per day; join on date keys.
-                    join_keys = [c for c in ("created", "last_trade", "date",
-                                             "strike", "right")
-                                 if c in df_eod.columns and c in df_oi.columns]
+                    join_keys = [
+                        c
+                        for c in ("created", "last_trade", "date", "strike", "right")
+                        if c in df_eod.columns and c in df_oi.columns
+                    ]
                     if join_keys:
                         df_eod = df_eod.merge(
-                            df_oi[join_keys + [c for c in ("open_interest",)
-                                               if c in df_oi.columns]],
-                            on=join_keys, how="left",
+                            df_oi[
+                                join_keys + [c for c in ("open_interest",) if c in df_oi.columns]
+                            ],
+                            on=join_keys,
+                            how="left",
                         )
                 frames.append(df_eod)
 
@@ -171,10 +176,16 @@ def _summarise(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
     # contracts written on the same ``created`` can still be from different
     # sessions if Theta backfills.
     date_col = next(
-        (c for c in ("last_trade", "date", "trade_date", "bar_date", "created")
-         if c in raw.columns), None
+        (
+            c
+            for c in ("last_trade", "date", "trade_date", "bar_date", "created")
+            if c in raw.columns
+        ),
+        None,
     )
-    vol_col = next((c for c in ("volume", "trade_volume", "daily_volume") if c in raw.columns), None)
+    vol_col = next(
+        (c for c in ("volume", "trade_volume", "daily_volume") if c in raw.columns), None
+    )
     oi_col = next((c for c in ("open_interest", "oi") if c in raw.columns), None)
     right_col = next((c for c in ("right", "option_type", "cp") if c in raw.columns), None)
     if date_col is None or right_col is None:
@@ -227,9 +238,22 @@ def _summarise(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
     out["ticker"] = ticker
     keep = [
-        c for c in ("date", "ticker", "call_volume", "put_volume", "total_volume",
-                    "call_oi", "put_oi", "total_oi", "call_oi_change", "put_oi_change",
-                    "put_call_volume_ratio", "put_call_oi_ratio", "unusual_volume_flag")
+        c
+        for c in (
+            "date",
+            "ticker",
+            "call_volume",
+            "put_volume",
+            "total_volume",
+            "call_oi",
+            "put_oi",
+            "total_oi",
+            "call_oi_change",
+            "put_oi_change",
+            "put_call_volume_ratio",
+            "put_call_oi_ratio",
+            "unusual_volume_flag",
+        )
         if c in out.columns
     ]
     return out[keep].sort_values("date").reset_index(drop=True)
@@ -298,7 +322,9 @@ def main() -> int:
     else:
         start_d = end_d - timedelta(days=365)
 
-    print(f"Options-flow pull  tickers={len(tickers)}  range={start_d}..{end_d}  workers={args.workers}")
+    print(
+        f"Options-flow pull  tickers={len(tickers)}  range={start_d}..{end_d}  workers={args.workers}"
+    )
 
     t0 = time.perf_counter()
     n_ok = n_fail = n_done = 0
@@ -313,8 +339,11 @@ def main() -> int:
             else:
                 n_fail += 1
             if n_done % 25 == 0 or not ok:
-                print(f"  [{n_done:>4}/{len(tickers)}] {ticker:<6} "
-                      f"{'OK' if ok else 'FAIL':<4}  {detail[:70]}", flush=True)
+                print(
+                    f"  [{n_done:>4}/{len(tickers)}] {ticker:<6} "
+                    f"{'OK' if ok else 'FAIL':<4}  {detail[:70]}",
+                    flush=True,
+                )
 
     elapsed = time.perf_counter() - t0
     print()

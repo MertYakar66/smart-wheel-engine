@@ -51,10 +51,10 @@ import logging
 import socket
 import sys
 import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Iterable
 
 if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -63,7 +63,6 @@ if hasattr(sys.stdout, "buffer"):
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
@@ -93,8 +92,7 @@ def _business_days(start: date, end: date) -> Iterable[date]:
 
 
 def _nearest_expiration(conn: ThetaConnector, ticker: str, dte: int = 35) -> str | None:
-    df = conn._fetch("/v3/option/list/expirations",
-                     {"symbol": _normalise_theta_symbol(ticker)})
+    df = conn._fetch("/v3/option/list/expirations", {"symbol": _normalise_theta_symbol(ticker)})
     if df is None or df.empty:
         return None
     df.columns = [c.lower() for c in df.columns]
@@ -109,9 +107,10 @@ def _nearest_expiration(conn: ThetaConnector, ticker: str, dte: int = 35) -> str
 
 def _atm_strike(conn: ThetaConnector, ticker: str, expiration: str) -> float | None:
     """Cheapest way to find the ATM strike: ask snapshot, find 50-delta."""
-    df = conn._fetch("/v3/option/snapshot/greeks/first_order",
-                     {"symbol": _normalise_theta_symbol(ticker),
-                      "expiration": expiration})
+    df = conn._fetch(
+        "/v3/option/snapshot/greeks/first_order",
+        {"symbol": _normalise_theta_symbol(ticker), "expiration": expiration},
+    )
     if df is None or df.empty:
         return None
     df.columns = [c.lower() for c in df.columns]
@@ -126,8 +125,13 @@ def _atm_strike(conn: ThetaConnector, ticker: str, expiration: str) -> float | N
 
 
 def _fetch_tape(
-    conn: ThetaConnector, endpoint: str, ticker: str, expiration: str,
-    day: date, strike: float | None, interval: str | None
+    conn: ThetaConnector,
+    endpoint: str,
+    ticker: str,
+    expiration: str,
+    day: date,
+    strike: float | None,
+    interval: str | None,
 ) -> pd.DataFrame:
     params = {
         "symbol": _normalise_theta_symbol(ticker),
@@ -178,21 +182,27 @@ def _one(ticker: str, expiration: str, day: date, strike: float | None) -> tuple
     except Exception as e:
         return ticker, day, f"conn: {e}"
 
-    trades = _fetch_tape(conn, "/v3/option/history/trade", ticker, expiration,
-                        day, strike, interval=None)
+    trades = _fetch_tape(
+        conn, "/v3/option/history/trade", ticker, expiration, day, strike, interval=None
+    )
     if not trades.empty:
         # Normalise / add side inference
-        ts_col = next((c for c in ("ts", "timestamp", "trade_time", "created") if c in trades.columns), None)
+        ts_col = next(
+            (c for c in ("ts", "timestamp", "trade_time", "created") if c in trades.columns), None
+        )
         if ts_col:
             trades[ts_col] = pd.to_datetime(trades[ts_col], errors="coerce")
             trades = trades.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
         if {"nbbo_bid", "nbbo_ask", "price"}.issubset(trades.columns):
             trades["side_inferred"] = trades.apply(_classify_side, axis=1)
 
-    quotes = _fetch_tape(conn, "/v3/option/history/quote", ticker, expiration,
-                        day, strike, interval="1m")
+    quotes = _fetch_tape(
+        conn, "/v3/option/history/quote", ticker, expiration, day, strike, interval="1m"
+    )
     if not quotes.empty:
-        ts_col = next((c for c in ("ts", "timestamp", "bar_start", "created") if c in quotes.columns), None)
+        ts_col = next(
+            (c for c in ("ts", "timestamp", "bar_start", "created") if c in quotes.columns), None
+        )
         if ts_col:
             quotes[ts_col] = pd.to_datetime(quotes[ts_col], errors="coerce")
             quotes = quotes.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
@@ -209,8 +219,11 @@ def main() -> int:
     ap.add_argument("--expiration", help="YYYYMMDD (default: nearest 35-DTE)")
     ap.add_argument("--dte", type=int, default=35, help="Target DTE when --expiration omitted")
     ap.add_argument("--days", type=int, default=5)
-    ap.add_argument("--atm-only", action="store_true",
-                    help="Restrict to the single ATM strike (cuts volume ~50x)")
+    ap.add_argument(
+        "--atm-only",
+        action="store_true",
+        help="Restrict to the single ATM strike (cuts volume ~50x)",
+    )
     ap.add_argument("--workers", type=int, default=2)
     args = ap.parse_args()
 
@@ -243,7 +256,7 @@ def main() -> int:
 
     end_d = date.today()
     start_d = end_d - timedelta(days=args.days * 2)
-    days = list(_business_days(start_d, end_d))[-args.days:]
+    days = list(_business_days(start_d, end_d))[-args.days :]
 
     print(f"\nPulling tape: {len(resolved)} contracts × {len(days)} days × {args.workers} workers")
     t0 = time.perf_counter()

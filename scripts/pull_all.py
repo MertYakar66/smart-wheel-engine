@@ -41,10 +41,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace",
-                                  write_through=True)
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace",
-                                  write_through=True)
+    sys.stdout = io.TextIOWrapper(
+        sys.stdout.buffer, encoding="utf-8", errors="replace", write_through=True
+    )
+    sys.stderr = io.TextIOWrapper(
+        sys.stderr.buffer, encoding="utf-8", errors="replace", write_through=True
+    )
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,54 +76,78 @@ class Step:
         if self.needs_theta and not _theta_up():
             return True, "Theta Terminal not reachable on 127.0.0.1:25503"
         if self.needs_news_key:
-            has = any(os.environ.get(k) for k in
-                      ("POLYGON_API_KEY", "FINNHUB_API_KEY", "BENZINGA_API_KEY"))
+            has = any(
+                os.environ.get(k)
+                for k in ("POLYGON_API_KEY", "FINNHUB_API_KEY", "BENZINGA_API_KEY")
+            )
             if not has:
                 return True, "no POLYGON/FINNHUB/BENZINGA API key in env"
         return False, ""
 
 
 STEPS: list[Step] = [
-    Step("vol_indices",
-         "pull_vol_indices.py",
-         "10 vol indices (VIX family + SKEW + VVIX + MOVE + OVX + GVZ)"),
-    Step("treasury",
-         "pull_treasury_yields_yf.py",
-         "Treasury yield curve (3m/6m/2y/10y) → data/bloomberg/treasury_yields.csv"),
-    Step("fundamentals",
-         "pull_fundamentals_yf.py",
-         "Per-ticker snapshot (P/E, beta, mkt cap, sector, RV30)"),
-    Step("earnings",
-         "pull_earnings_yf.py",
-         "Past + upcoming earnings calendar (activates event gate)"),
-    Step("theta_indices",
-         "pull_theta_indices_history.py",
-         "Authoritative VIX-family history from Theta (supersedes yfinance rows)",
-         needs_theta=True),
-    Step("theta_vix_futures",
-         "pull_theta_vix_futures.py",
-         "VIX futures UX1–UX8 curve history — needs Theta futures tier",
-         needs_theta=True),
-    Step("theta_corp_actions",
-         "pull_theta_corp_actions.py",
-         "Stock splits + dividends per ticker (fills empty corp actions file)",
-         needs_theta=True),
-    Step("theta_iv_surface",
-         "pull_theta_iv_surface_history.py",
-         "IV surface (strike × expiry × date) — requires Theta",
-         needs_theta=True),
-    Step("theta_flow",
-         "pull_theta_options_flow.py",
-         "Daily PCR/OI/unusual volume — requires Theta",
-         needs_theta=True),
-    Step("news",
-         "pull_news_sentiment.py",
-         "Per-ticker news sentiment — requires API key",
-         needs_news_key=True),
-    Step("features",
-         "backfill_features.py",
-         "Recompute feature store for all tickers (uses everything above)",
-         is_feature_backfill=True),
+    Step(
+        "vol_indices",
+        "pull_vol_indices.py",
+        "10 vol indices (VIX family + SKEW + VVIX + MOVE + OVX + GVZ)",
+    ),
+    Step(
+        "treasury",
+        "pull_treasury_yields_yf.py",
+        "Treasury yield curve (3m/6m/2y/10y) → data/bloomberg/treasury_yields.csv",
+    ),
+    Step(
+        "fundamentals",
+        "pull_fundamentals_yf.py",
+        "Per-ticker snapshot (P/E, beta, mkt cap, sector, RV30)",
+    ),
+    Step(
+        "earnings",
+        "pull_earnings_yf.py",
+        "Past + upcoming earnings calendar (activates event gate)",
+    ),
+    Step(
+        "theta_indices",
+        "pull_theta_indices_history.py",
+        "Authoritative VIX-family history from Theta (supersedes yfinance rows)",
+        needs_theta=True,
+    ),
+    Step(
+        "theta_vix_futures",
+        "pull_theta_vix_futures.py",
+        "VIX futures UX1–UX8 curve history — needs Theta futures tier",
+        needs_theta=True,
+    ),
+    Step(
+        "theta_corp_actions",
+        "pull_theta_corp_actions.py",
+        "Stock splits + dividends per ticker (fills empty corp actions file)",
+        needs_theta=True,
+    ),
+    Step(
+        "theta_iv_surface",
+        "pull_theta_iv_surface_history.py",
+        "IV surface (strike × expiry × date) — requires Theta",
+        needs_theta=True,
+    ),
+    Step(
+        "theta_flow",
+        "pull_theta_options_flow.py",
+        "Daily PCR/OI/unusual volume — requires Theta",
+        needs_theta=True,
+    ),
+    Step(
+        "news",
+        "pull_news_sentiment.py",
+        "Per-ticker news sentiment — requires API key",
+        needs_news_key=True,
+    ),
+    Step(
+        "features",
+        "backfill_features.py",
+        "Recompute feature store for all tickers (uses everything above)",
+        is_feature_backfill=True,
+    ),
 ]
 
 
@@ -177,16 +203,25 @@ def run_step(step: Step, extra_args: list[str], dry_run: bool) -> tuple[str, str
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run every smart-wheel-engine puller in order")
     ap.add_argument("--dry-run", action="store_true", help="Print the plan without executing")
-    ap.add_argument("--only", nargs="+", default=None,
-                    help="Only run steps whose name matches any of these substrings")
-    ap.add_argument("--skip", nargs="+", default=[],
-                    help="Skip steps whose name matches any of these substrings")
-    ap.add_argument("--years", type=float, default=5.0,
-                    help="History years for pullers that accept --years")
-    ap.add_argument("--workers", type=int, default=4,
-                    help="Worker count for parallel pullers")
-    ap.add_argument("--backfill-force", action="store_true",
-                    help="Pass --force to the feature backfill")
+    ap.add_argument(
+        "--only",
+        nargs="+",
+        default=None,
+        help="Only run steps whose name matches any of these substrings",
+    )
+    ap.add_argument(
+        "--skip",
+        nargs="+",
+        default=[],
+        help="Skip steps whose name matches any of these substrings",
+    )
+    ap.add_argument(
+        "--years", type=float, default=5.0, help="History years for pullers that accept --years"
+    )
+    ap.add_argument("--workers", type=int, default=4, help="Worker count for parallel pullers")
+    ap.add_argument(
+        "--backfill-force", action="store_true", help="Pass --force to the feature backfill"
+    )
     args = ap.parse_args()
 
     # Build the plan
@@ -199,15 +234,21 @@ def main() -> int:
         plan.append(step)
 
     theta_note = "UP" if _theta_up() else "DOWN"
-    news_note = "set" if any(
-        os.environ.get(k) for k in ("POLYGON_API_KEY", "FINNHUB_API_KEY", "BENZINGA_API_KEY")
-    ) else "unset"
+    news_note = (
+        "set"
+        if any(
+            os.environ.get(k) for k in ("POLYGON_API_KEY", "FINNHUB_API_KEY", "BENZINGA_API_KEY")
+        )
+        else "unset"
+    )
     mode = "DRY-RUN" if args.dry_run else "LIVE"
 
     print()
     print("=" * 80)
     print(f" Smart Wheel Engine data refresh  ({mode})")
-    print(f" Theta={theta_note}   news-key={news_note}   years={args.years}   workers={args.workers}")
+    print(
+        f" Theta={theta_note}   news-key={news_note}   years={args.years}   workers={args.workers}"
+    )
     print("=" * 80)
 
     results: list[tuple[Step, str, str, float]] = []
@@ -224,7 +265,14 @@ def main() -> int:
         elif step.name == "theta_vix_futures":
             extra = ["--years", str(args.years), "--months", "8", "--incremental"]
         elif step.name == "theta_corp_actions":
-            extra = ["--universe", "sp500", "--years", str(args.years), "--workers", str(args.workers)]
+            extra = [
+                "--universe",
+                "sp500",
+                "--years",
+                str(args.years),
+                "--workers",
+                str(args.workers),
+            ]
         elif step.name == "theta_iv_surface":
             extra = ["--universe", "sp500", "--days", "7", "--workers", str(args.workers)]
         elif step.name == "theta_flow":

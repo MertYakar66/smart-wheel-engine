@@ -22,12 +22,11 @@ Architectural assertions locked in by these tests
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from engine.candidate_dossier import (
     CandidateDossier,
@@ -102,11 +101,12 @@ class TestFilesystemProvider:
         # Force mtime into the past
         import os
 
-        old_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=10)
+        old_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=10)
         os.utime(img, (old_time.timestamp(), old_time.timestamp()))
 
         provider = FilesystemChartProvider(
-            base_dir=tmp_path, staleness_seconds=3600  # 1h freshness
+            base_dir=tmp_path,
+            staleness_seconds=3600,  # 1h freshness
         )
         ctx = provider.fetch("AAPL", "1D")
         assert ctx.error.startswith("stale_screenshot")
@@ -218,7 +218,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             source="test",
@@ -242,7 +242,7 @@ class TestEnginePhaseReviewer:
         errored = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=None,
             error="screenshot_not_found",
         )
@@ -254,7 +254,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=150.0,  # huge mismatch
             source="test",
@@ -270,7 +270,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             visible_indicators={"phase": "compression"},
@@ -285,7 +285,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.05,  # within tolerance
             source="test",
@@ -299,7 +299,7 @@ class TestEnginePhaseReviewer:
         chart = ChartContext(
             ticker="AAPL",
             timeframe="1D",
-            captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
             screenshot_path=Path("/tmp/fake.png"),
             visible_price=100.0,
             source="test",
@@ -369,10 +369,7 @@ class TestBuildDossiers:
 
     def test_top_n_limits_chart_attachment(self, tmp_path):
         ev_df = pd.DataFrame(
-            [
-                {"ticker": f"T{i}", "spot": 100.0, "ev_dollars": 20.0}
-                for i in range(10)
-            ]
+            [{"ticker": f"T{i}", "spot": 100.0, "ev_dollars": 20.0} for i in range(10)]
         )
         provider = FilesystemChartProvider(base_dir=tmp_path)
         dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=3)
@@ -537,8 +534,6 @@ class TestBuildDefaultProvider:
         assert isinstance(p, FilesystemChartProvider)
 
     def test_with_playwright_returns_chained(self, tmp_path):
-        p = build_default_provider(
-            screenshots_dir=tmp_path, enable_playwright_fallback=True
-        )
+        p = build_default_provider(screenshots_dir=tmp_path, enable_playwright_fallback=True)
         assert isinstance(p, ChainedChartProvider)
         assert len(p.providers) == 2

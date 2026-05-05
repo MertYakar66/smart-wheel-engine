@@ -88,9 +88,9 @@ import numpy as np
 from .option_pricer import black_scholes_price
 from .tail_risk import fit_gpd_tail, gpd_var_cvar, tail_regime_flag
 from .transaction_costs import (
+    calculate_assignment_fee,
     calculate_commission,
     calculate_slippage,
-    calculate_assignment_fee,
 )
 
 if False:  # TYPE_CHECKING
@@ -206,7 +206,7 @@ class EVEngine:
         profit_target_pct: float = 0.50,
         stop_loss_multiple: float = 2.0,
         slippage_pct_of_spread: float = 0.20,
-        event_gate: "EventGate | None" = None,
+        event_gate: EventGate | None = None,
         heavy_tail_penalty: float = 0.5,
     ) -> None:
         """Args:
@@ -236,8 +236,8 @@ class EVEngine:
         trade: ShortOptionTrade,
         forward_log_returns: np.ndarray | None = None,
         price_scenarios: np.ndarray | None = None,
-        trade_start: "date | None" = None,
-        trade_end: "date | None" = None,
+        trade_start: date | None = None,
+        trade_end: date | None = None,
         market_structure=None,
     ) -> EVResult:
         """Run EV evaluation for one candidate trade.
@@ -258,9 +258,7 @@ class EVEngine:
         """
         # Event lockout short-circuit — runs BEFORE any expensive math.
         if self.event_gate is not None and trade_start is not None and trade_end is not None:
-            blocked, reason = self.event_gate.is_blocked(
-                trade.underlying, trade_start, trade_end
-            )
+            blocked, reason = self.event_gate.is_blocked(trade.underlying, trade_start, trade_end)
             if blocked:
                 return EVResult(
                     ev_dollars=0.0,
@@ -327,9 +325,7 @@ class EVEngine:
         # --------------------------------------------------------------
         # Build the physical-measure terminal-price distribution
         # --------------------------------------------------------------
-        terminal_prices = self._build_terminal_prices(
-            trade, forward_log_returns, price_scenarios
-        )
+        terminal_prices = self._build_terminal_prices(trade, forward_log_returns, price_scenarios)
 
         # --------------------------------------------------------------
         # Compute path-outcome P&L
@@ -580,14 +576,13 @@ class EVEngine:
         T = max(trade.dte, 1) / 365.0
         sigma = max(trade.iv, 1e-4)
         seed_key = f"{trade.underlying}|{trade.strike:.4f}|{trade.dte}|{trade.option_type}".encode()
-        seed_int = int.from_bytes(
-            hashlib.blake2b(seed_key, digest_size=8).digest(), "big"
-        ) & 0xFFFFFFFF
+        seed_int = (
+            int.from_bytes(hashlib.blake2b(seed_key, digest_size=8).digest(), "big") & 0xFFFFFFFF
+        )
         rng = np.random.default_rng(seed=seed_int)
         log_rets = (
-            (trade.risk_free_rate - trade.dividend_yield - 0.5 * sigma**2) * T
-            + sigma * np.sqrt(T) * rng.standard_normal(20_000)
-        )
+            trade.risk_free_rate - trade.dividend_yield - 0.5 * sigma**2
+        ) * T + sigma * np.sqrt(T) * rng.standard_normal(20_000)
         return trade.spot * np.exp(log_rets)
 
     def _compute_pnls(
@@ -608,9 +603,7 @@ class EVEngine:
         pnl = net_premium_in - buyback_cost
         return pnl
 
-    def _is_itm_mask(
-        self, trade: ShortOptionTrade, terminal_prices: np.ndarray
-    ) -> np.ndarray:
+    def _is_itm_mask(self, trade: ShortOptionTrade, terminal_prices: np.ndarray) -> np.ndarray:
         if trade.option_type == "put":
             return terminal_prices < trade.strike
         return terminal_prices > trade.strike

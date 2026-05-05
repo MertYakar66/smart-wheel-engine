@@ -53,14 +53,18 @@ def test_custom_provider_phase_contradiction_routes_through_reviewer():
     Proves build_dossiers always routes through the reviewer regardless
     of which ChartContextProvider implementation is supplied.
     """
-    ev_df = pd.DataFrame([{
-        "ticker": "FAKE",
-        "spot": 100.0,
-        "strike": 95.0,
-        "premium": 2.0,
-        "ev_dollars": 50.0,
-        "phase": "post_expansion",
-    }])
+    ev_df = pd.DataFrame(
+        [
+            {
+                "ticker": "FAKE",
+                "spot": 100.0,
+                "strike": 95.0,
+                "premium": 2.0,
+                "ev_dollars": 50.0,
+                "phase": "post_expansion",
+            }
+        ]
+    )
     provider = _FakeMCPProvider(chart_context=_chart(phase="compression", spot=100.0))
     dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5)
     assert len(dossiers) == 1
@@ -78,14 +82,18 @@ def test_custom_provider_pristine_chart_cannot_upgrade_negative_ev():
     rescue a negative-EV trade. R1 short-circuits before the chart is
     even consulted.
     """
-    ev_df = pd.DataFrame([{
-        "ticker": "FAKE",
-        "spot": 100.0,
-        "strike": 95.0,
-        "premium": 2.0,
-        "ev_dollars": -25.0,
-        "phase": "post_expansion",
-    }])
+    ev_df = pd.DataFrame(
+        [
+            {
+                "ticker": "FAKE",
+                "spot": 100.0,
+                "strike": 95.0,
+                "premium": 2.0,
+                "ev_dollars": -25.0,
+                "phase": "post_expansion",
+            }
+        ]
+    )
     provider = _FakeMCPProvider(chart_context=_chart(phase="post_expansion", spot=100.0))
     dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5)
     assert len(dossiers) == 1
@@ -109,6 +117,7 @@ import pytest
 
 try:
     from engine.tradingview_bridge import MCPChartProvider  # noqa: F401
+
     _HAS_MCP_PROVIDER = True
 except ImportError:
     _HAS_MCP_PROVIDER = False
@@ -130,16 +139,21 @@ def test_mcp_provider_errored_context_routes_to_review():
     an injectable client, or a subclass.
     """
     from engine.tradingview_bridge import MCPChartProvider
+
     provider = MCPChartProvider.with_forced_error("mcp_unavailable")
 
-    ev_df = pd.DataFrame([{
-        "ticker": "FAKE",
-        "spot": 100.0,
-        "strike": 95.0,
-        "premium": 2.0,
-        "ev_dollars": 50.0,
-        "phase": "post_expansion",
-    }])
+    ev_df = pd.DataFrame(
+        [
+            {
+                "ticker": "FAKE",
+                "spot": 100.0,
+                "strike": 95.0,
+                "premium": 2.0,
+                "ev_dollars": 50.0,
+                "phase": "post_expansion",
+            }
+        ]
+    )
     dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5)
     assert len(dossiers) == 1
     d = dossiers[0]
@@ -162,7 +176,9 @@ def test_mcp_provider_pit_violation_when_as_of_set():
     Pins §8 question 4 (PIT discipline).
     """
     from datetime import datetime
+
     from engine.tradingview_bridge import MCPChartProvider
+
     provider = MCPChartProvider()  # live, no forced error
 
     ctx = provider.fetch("AAPL", "1D", as_of=datetime(2024, 6, 1))

@@ -177,7 +177,5 @@ class FREDAdapter:
         return {
             "spread_2y10y": last,
             "inverted": bool(last < 0),
-            "spread_1m_change": (
-                float(last - s.iloc[-22]) if len(s) >= 22 else float("nan")
-            ),
+            "spread_1m_change": (float(last - s.iloc[-22]) if len(s) >= 22 else float("nan")),
         }

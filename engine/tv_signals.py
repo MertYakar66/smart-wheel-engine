@@ -41,7 +41,6 @@ called inside HTTP handlers and Pine-side parity tests.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -103,7 +102,7 @@ class TVSignal:
     """
 
     ticker: str
-    as_of: Optional[str] = None
+    as_of: str | None = None
     bar_count: int = 0
     ok: bool = False
     reason: str = ""
@@ -221,9 +220,7 @@ def _range_state(dist_high: float, dist_low: float, pct_b: float) -> str:
     return "mid"
 
 
-def _classify_phase(
-    bb_state: str, atr_state: str, trend_state: str
-) -> tuple[str, float]:
+def _classify_phase(bb_state: str, atr_state: str, trend_state: str) -> tuple[str, float]:
     """Map component states to the volatility lifecycle phase.
 
     This mirrors ``StrangleTimingEngine._classify_phase`` semantics so that
@@ -259,8 +256,8 @@ def _resolve_zones(
     trend_state: str,
     rsi_state: str,
     range_state: str,
-    vol_risk_premium: Optional[float],
-    iv_rank: Optional[float],
+    vol_risk_premium: float | None,
+    iv_rank: float | None,
 ) -> tuple[bool, bool, bool, bool, str]:
     """Derive actionable zone flags from the classified state.
 
@@ -327,10 +324,10 @@ def compute_tv_signal(
     df: pd.DataFrame,
     *,
     ticker: str,
-    as_of: Optional[str] = None,
-    iv_rank: Optional[float] = None,
-    vol_risk_premium: Optional[float] = None,
-    params: Optional[dict] = None,
+    as_of: str | None = None,
+    iv_rank: float | None = None,
+    vol_risk_premium: float | None = None,
+    params: dict | None = None,
 ) -> TVSignal:
     """Compute the canonical TV-parity signal for the latest bar of ``df``.
 
@@ -393,8 +390,7 @@ def compute_tv_signal(
     bb_width_slope = 0.0
     if len(bb_width) >= p["slope_lookback"]:
         bb_width_slope = float(
-            (bb_width.iloc[-1] - bb_width.iloc[-p["slope_lookback"]])
-            / p["slope_lookback"]
+            (bb_width.iloc[-1] - bb_width.iloc[-p["slope_lookback"]]) / p["slope_lookback"]
         )
 
     upper_last = float(upper.iloc[-1])
@@ -414,8 +410,7 @@ def compute_tv_signal(
     atr_slope = 0.0
     if len(atr) >= p["slope_lookback"] and float(atr.iloc[-p["slope_lookback"]]) > 0:
         atr_slope = float(
-            (atr.iloc[-1] - atr.iloc[-p["slope_lookback"]])
-            / atr.iloc[-p["slope_lookback"]]
+            (atr.iloc[-1] - atr.iloc[-p["slope_lookback"]]) / atr.iloc[-p["slope_lookback"]]
         )
 
     atr_state = _atr_state(atr_pctl, atr_slope)
@@ -539,7 +534,7 @@ class TVAlert:
     extras: dict = field(default_factory=dict)
 
     @classmethod
-    def parse(cls, payload: dict) -> "TVAlert":
+    def parse(cls, payload: dict) -> TVAlert:
         """Build a TVAlert from a raw webhook JSON body.
 
         Unknown keys are captured into ``extras`` so downstream consumers

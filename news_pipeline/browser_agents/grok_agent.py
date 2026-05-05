@@ -28,10 +28,8 @@ Cost: $0. Grok is free for X users. No API key required.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from datetime import datetime
 from pathlib import Path
 
 from news_pipeline.browser_agents.types import ModelResponse, ModelType, SessionStatus
@@ -104,7 +102,9 @@ class GrokBrowserAgent:
             await self._page.goto(GROK_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
             await self._page.wait_for_timeout(2000)
             # Check for auth indicators — Grok shows a chat input when logged in
-            chat_input = await self._page.query_selector('textarea, [contenteditable="true"], input[type="text"]')
+            chat_input = await self._page.query_selector(
+                'textarea, [contenteditable="true"], input[type="text"]'
+            )
             return chat_input is not None
         except Exception as e:
             logger.debug("Grok auth check failed: %s", e)
@@ -175,7 +175,9 @@ class GrokBrowserAgent:
             chat_input = await self._page.wait_for_selector(input_sel, timeout=self.timeout_ms)
             if chat_input is None:
                 return ModelResponse(
-                    success=False, content="", model="grok",
+                    success=False,
+                    content="",
+                    model="grok",
                     error="chat_input_not_found",
                 )
 
@@ -209,7 +211,11 @@ class GrokBrowserAgent:
 
             if not response_text:
                 # Fallback: grab all visible text in main content area
-                body = await self._page.inner_text("main") if await self._page.query_selector("main") else ""
+                body = (
+                    await self._page.inner_text("main")
+                    if await self._page.query_selector("main")
+                    else ""
+                )
                 if body and len(body) > 100:
                     response_text = body[-3000:]  # Last 3000 chars
 

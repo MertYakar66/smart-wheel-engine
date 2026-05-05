@@ -56,9 +56,7 @@ def main() -> int:
         has_delta = "delta" in chain.columns
         has_bid = "bid" in chain.columns
         ok = not chain.empty and has_iv and has_delta
-        detail = (
-            f"rows={len(chain)} iv={has_iv} delta={has_delta} bid={has_bid}"
-        )
+        detail = f"rows={len(chain)} iv={has_iv} delta={has_delta} bid={has_bid}"
         print(_fmt(ok, "Option chain snapshot (greeks+quote+OI)", detail))
         failures += 0 if ok else 1
     except Exception as e:
@@ -107,8 +105,11 @@ def main() -> int:
             },
         )
         from engine.data_connector import MarketDataConnector
+
         # Probe Bloomberg with AAPL (known constituent)
-        bloomberg = MarketDataConnector(str(conn._data_dir)).get_ohlcv("AAPL", start_date="2024-01-01")
+        bloomberg = MarketDataConnector(str(conn._data_dir)).get_ohlcv(
+            "AAPL", start_date="2024-01-01"
+        )
         theta_ok = not raw.empty
         bb_ok = bloomberg is not None and not bloomberg.empty
         ok = theta_ok or bb_ok  # engine works as long as ONE path works
@@ -134,7 +135,9 @@ def main() -> int:
         print(_fmt(ok, "Stock intraday bars (5m)", tier_msg))
         # Intraday is optional — nice-to-have, not required
         if not ok:
-            print("       (optional — needed only for GK/YZ realised vol; engine uses daily RV otherwise)")
+            print(
+                "       (optional — needed only for GK/YZ realised vol; engine uses daily RV otherwise)"
+            )
     except Exception as e:
         print(_fmt(False, "Stock intraday bars", repr(e)))
 
@@ -143,6 +146,7 @@ def main() -> int:
         rank_spy = conn.get_iv_rank("SPY")
         spy_ok = 0.0 <= rank_spy <= 1.0 if rank_spy == rank_spy else False
         from engine.data_connector import MarketDataConnector
+
         bb_rank = MarketDataConnector(str(conn._data_dir)).get_iv_rank("AAPL")
         bb_ok = 0.0 <= bb_rank <= 1.0 if bb_rank == bb_rank else False
         ok = spy_ok or bb_ok

@@ -18,9 +18,8 @@ Organisation:
 
 from __future__ import annotations
 
-import hmac
 import hashlib
-import json
+import hmac
 import math
 from datetime import date, timedelta
 
@@ -49,7 +48,7 @@ class TestGreeksUnitContract:
         vega = op.black_scholes_vega(100, 100, 30 / 365, 0.05, 0.25, 0.02)
         # The analytic vega should match finite-difference to 3 decimal places.
         assert abs((p1 - p0) - vega) < 1e-3, (
-            f"Vega not per 1 vol point: FD={p1-p0:.6f} vs analytic={vega:.6f}"
+            f"Vega not per 1 vol point: FD={p1 - p0:.6f} vs analytic={vega:.6f}"
         )
 
     def test_rho_is_per_one_percent_rate(self):
@@ -58,7 +57,7 @@ class TestGreeksUnitContract:
         rho = op.black_scholes_rho(100, 100, 30 / 365, 0.05, 0.25, "put", 0.02)
         # Allow slightly looser tolerance since we're FD'ing over a full percent
         assert abs((p1 - p0) - rho) < 5e-3, (
-            f"Rho not per 1% rate: FD={p1-p0:.6f} vs analytic={rho:.6f}"
+            f"Rho not per 1% rate: FD={p1 - p0:.6f} vs analytic={rho:.6f}"
         )
 
     def test_vega_is_non_negative(self):
@@ -104,8 +103,7 @@ class TestAssignmentFeaturesPIT:
         early = df["prob_touch"].iloc[5]
         late = df["prob_touch"].iloc[-5]
         assert early > late, (
-            f"prob_touch should decrease as spot runs away from strike; "
-            f"early={early} late={late}"
+            f"prob_touch should decrease as spot runs away from strike; early={early} late={late}"
         )
 
     def test_no_future_leakage_across_timestamps(self):
@@ -119,9 +117,7 @@ class TestAssignmentFeaturesPIT:
         truncated = af.compute_all(
             spot=spot.iloc[:30], strike=95, iv=iv.iloc[:30], dte=20, is_put=True
         )
-        assert np.isclose(
-            full["prob_touch"].iloc[25], truncated["prob_touch"].iloc[25]
-        )
+        assert np.isclose(full["prob_touch"].iloc[25], truncated["prob_touch"].iloc[25])
         assert np.isclose(
             full["early_assignment_prob"].iloc[25],
             truncated["early_assignment_prob"].iloc[25],
@@ -238,7 +234,7 @@ class TestTVWebhookSecurity:
         assert not _tv_verify_hmac(tampered, sig, secret)
 
     def test_nonce_replay_blocked(self):
-        from engine_api import _tv_seen_register, _TV_SEEN_NONCES
+        from engine_api import _TV_SEEN_NONCES, _tv_seen_register
 
         _TV_SEEN_NONCES.clear()
         digest = "abc123" * 10
@@ -252,9 +248,9 @@ class TestTVWebhookSecurity:
 
     def test_nonce_expires_after_window(self):
         from engine_api import (
-            _tv_seen_register,
             _TV_SEEN_NONCES,
             _TV_WEBHOOK_MAX_AGE_SEC,
+            _tv_seen_register,
         )
 
         _TV_SEEN_NONCES.clear()

@@ -54,11 +54,16 @@ def test_fallback_distribution_seed_is_process_independent():
         "open_interest=1000);"
         "r = EVEngine().evaluate(t);"
         "print(f'{{r.ev_dollars:.6f}}')"
-    ).format(root=str(__import__("pathlib").Path(__file__).resolve().parents[1]).replace("\\", "\\\\"))
+    ).format(
+        root=str(__import__("pathlib").Path(__file__).resolve().parents[1]).replace("\\", "\\\\")
+    )
 
     def run_once() -> str:
         return subprocess.run(
-            [sys.executable, "-c", script], capture_output=True, text=True, check=True,
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
 
     a = run_once()

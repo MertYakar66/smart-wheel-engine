@@ -24,7 +24,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import pandas as pd  # noqa: E402
 
 from engine.wheel_runner import WheelRunner  # noqa: E402
 
@@ -50,7 +49,9 @@ def _run(runner: WheelRunner, label: str, **kwargs) -> int:
     n = 0 if df is None or df.empty else len(df)
     print(f"  candidates returned: {n}")
     if n > 0:
-        cols = [c for c in ("ticker", "ev_dollars", "ev_per_day", "iv", "premium") if c in df.columns]
+        cols = [
+            c for c in ("ticker", "ev_dollars", "ev_per_day", "iv", "premium") if c in df.columns
+        ]
         print(df[cols].head(10).to_string())
     return n
 
@@ -69,30 +70,31 @@ def main() -> int:
     n_baseline = _run(runner, "Baseline (all gates on, default API)")
 
     # 1. Event gate off
-    n_no_event = _run(runner, "Event gate OFF (earnings lockout disabled)",
-                      use_event_gate=False)
+    n_no_event = _run(runner, "Event gate OFF (earnings lockout disabled)", use_event_gate=False)
 
     # 2. Chain quality gate off
-    n_no_chain = _run(runner, "Chain quality gate OFF",
-                      enforce_chain_quality_gate=False)
+    n_no_chain = _run(runner, "Chain quality gate OFF", enforce_chain_quality_gate=False)
 
     # 3. History gate off
-    n_no_hist = _run(runner, "History gate OFF (< 504 trading days allowed)",
-                     enforce_history_gate=False)
+    n_no_hist = _run(
+        runner, "History gate OFF (< 504 trading days allowed)", enforce_history_gate=False
+    )
 
     # 4. Dealer positioning off
-    n_no_dealer = _run(runner, "Dealer positioning OFF",
-                       use_dealer_positioning=False)
+    n_no_dealer = _run(runner, "Dealer positioning OFF", use_dealer_positioning=False)
 
     # 5. All gates OFF (pure EV math)
-    n_raw = _run(runner, "ALL GATES OFF (pure EV math, no filters)",
-                 use_event_gate=False,
-                 enforce_chain_quality_gate=False,
-                 enforce_history_gate=False,
-                 use_dealer_positioning=False,
-                 use_skew_dynamics=False,
-                 use_news_sentiment=False,
-                 use_credit_regime=False)
+    n_raw = _run(
+        runner,
+        "ALL GATES OFF (pure EV math, no filters)",
+        use_event_gate=False,
+        enforce_chain_quality_gate=False,
+        enforce_history_gate=False,
+        use_dealer_positioning=False,
+        use_skew_dynamics=False,
+        use_news_sentiment=False,
+        use_credit_regime=False,
+    )
 
     # --- Report ---
     print("\n" + "=" * 60)

@@ -69,7 +69,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from enum import Enum
 from typing import Literal
 
@@ -192,14 +192,10 @@ class MarketStructure:
             "flip_distance_pct": self.flip_distance_pct,
             "pinning_zones": list(self.pinning_zones),
             "nearest_call_wall": (
-                _wall_to_dict(self.nearest_call_wall)
-                if self.nearest_call_wall
-                else None
+                _wall_to_dict(self.nearest_call_wall) if self.nearest_call_wall else None
             ),
             "nearest_put_wall": (
-                _wall_to_dict(self.nearest_put_wall)
-                if self.nearest_put_wall
-                else None
+                _wall_to_dict(self.nearest_put_wall) if self.nearest_put_wall else None
             ),
             "call_walls": [_wall_to_dict(w) for w in self.call_walls],
             "put_walls": [_wall_to_dict(w) for w in self.put_walls],
@@ -300,8 +296,10 @@ class DealerPositioningAnalyzer:
             ``expiry`` argument is missing
         """
         ms = MarketStructure(
-            ticker=ticker or str(chain.get("ticker", pd.Series(["?"])).iloc[0]) if len(chain) else ticker,
-            as_of=as_of or datetime.now(timezone.utc).replace(tzinfo=None),
+            ticker=ticker or str(chain.get("ticker", pd.Series(["?"])).iloc[0])
+            if len(chain)
+            else ticker,
+            as_of=as_of or datetime.now(UTC).replace(tzinfo=None),
             spot=float(spot),
             expiry=expiry,
             assumption=self.assumption,
@@ -337,9 +335,7 @@ class DealerPositioningAnalyzer:
             return ms
 
         # Normalise option_type to 'C' / 'P'
-        df["option_type"] = (
-            df["option_type"].astype(str).str.upper().str.strip().str[0]
-        )
+        df["option_type"] = df["option_type"].astype(str).str.upper().str.strip().str[0]
         df = df[df["option_type"].isin(["C", "P"])]
         if df.empty:
             ms.notes = "no_call_or_put_rows"
@@ -347,7 +343,7 @@ class DealerPositioningAnalyzer:
             return ms
 
         # Compute time to expiry in years
-        T = max((expiry - datetime.now(timezone.utc).replace(tzinfo=None).date()).days, 1) / 365.0
+        T = max((expiry - datetime.now(UTC).replace(tzinfo=None).date()).days, 1) / 365.0
 
         # Per-strike aggregation: group strikes and collect call + put rows.
         per_strike = self._per_strike_exposures(df, spot, T, dividend_yield)
@@ -385,9 +381,7 @@ class DealerPositioningAnalyzer:
         ms.pinning_zones = self._detect_pinning_zones(per_strike, spot)
 
         # Regime classification + confidence
-        ms.regime = self._classify_regime(
-            ms.gex_total, ms.flip_distance_pct
-        )
+        ms.regime = self._classify_regime(ms.gex_total, ms.flip_distance_pct)
         ms.confidence = self._regime_confidence(per_strike, ms.regime, ms.gex_total)
 
         return ms
@@ -436,14 +430,8 @@ class DealerPositioningAnalyzer:
                 call_sign * call_delta * call_oi * 100 * spot
                 + put_sign * put_delta * put_oi * 100 * spot
             )
-            net_vanna = (
-                call_sign * call_vanna * call_oi * 100
-                + put_sign * put_vanna * put_oi * 100
-            )
-            net_charm = (
-                call_sign * call_charm * call_oi * 100
-                + put_sign * put_charm * put_oi * 100
-            )
+            net_vanna = call_sign * call_vanna * call_oi * 100 + put_sign * put_vanna * put_oi * 100
+            net_charm = call_sign * call_charm * call_oi * 100 + put_sign * put_charm * put_oi * 100
 
             out.append(
                 PerStrikeExposure(
@@ -532,7 +520,11 @@ class DealerPositioningAnalyzer:
         # Prefer stored first-order Greeks when available and finite;
         # fall back to BSM. Second-order Greeks always from BSM.
         gamma = stored_gamma if stored_gamma and np.isfinite(stored_gamma) else greeks["gamma"]
-        delta = stored_delta if stored_delta is not None and np.isfinite(stored_delta) else greeks["delta"]
+        delta = (
+            stored_delta
+            if stored_delta is not None and np.isfinite(stored_delta)
+            else greeks["delta"]
+        )
         vanna = float(greeks.get("vanna", 0.0) or 0.0)
         charm = float(greeks.get("charm", 0.0) or 0.0)
         return float(gamma), float(delta), vanna, charm
@@ -615,8 +607,13 @@ class DealerPositioningAnalyzer:
                 opt_type = "call" if row["option_type"] == "C" else "put"
                 try:
                     g = black_scholes_all_greeks(
-                        S=s, K=K, T=max(T, 1e-6), r=self.risk_free_rate,
-                        sigma=iv, option_type=opt_type, q=q,
+                        S=s,
+                        K=K,
+                        T=max(T, 1e-6),
+                        r=self.risk_free_rate,
+                        sigma=iv,
+                        option_type=opt_type,
+                        q=q,
                     )
                 except Exception:
                     continue
@@ -637,9 +634,7 @@ class DealerPositioningAnalyzer:
             return None
 
         # Pick the sign change closest to the current spot
-        best_idx = sign_changes[
-            np.argmin(np.abs(xs[sign_changes] - spot))
-        ]
+        best_idx = sign_changes[np.argmin(np.abs(xs[sign_changes] - spot))]
         a, b = xs[best_idx], xs[best_idx + 1]
         fa, fb = ys[best_idx], ys[best_idx + 1]
 
@@ -686,10 +681,7 @@ class DealerPositioningAnalyzer:
         """Classify the regime from total GEX and flip proximity."""
         # Near-flip dominates: even a big GEX is uncertain if we're
         # within a 1% band of the flip level (regime can flip intraday).
-        if (
-            flip_distance_pct is not None
-            and abs(flip_distance_pct) < self.flip_neighborhood_pct
-        ):
+        if flip_distance_pct is not None and abs(flip_distance_pct) < self.flip_neighborhood_pct:
             return "near_flip"
 
         if gex_total > 0:

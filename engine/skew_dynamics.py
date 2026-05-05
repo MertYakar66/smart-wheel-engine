@@ -37,8 +37,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import minimize
-
 
 _DEFAULT_TAU_YEARS = 2.0
 

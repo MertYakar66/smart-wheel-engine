@@ -36,10 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, Protocol
 
-
-Timeframe = Literal[
-    "1m", "5m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"
-]
+Timeframe = Literal["1m", "5m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"]
 
 
 @dataclass
@@ -94,9 +91,7 @@ class ChartContext:
             "ticker": self.ticker,
             "timeframe": self.timeframe,
             "captured_at": self.captured_at.isoformat(),
-            "screenshot_path": (
-                str(self.screenshot_path) if self.screenshot_path else None
-            ),
+            "screenshot_path": (str(self.screenshot_path) if self.screenshot_path else None),
             "visible_price": self.visible_price,
             "visible_indicators": dict(self.visible_indicators),
             "source": self.source,
@@ -131,5 +126,4 @@ class ChartContextProvider(Protocol):
         timeframe: Timeframe = "1D",
         *,
         as_of: datetime | None = None,
-    ) -> ChartContext:
-        ...
+    ) -> ChartContext: ...

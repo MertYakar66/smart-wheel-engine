@@ -127,12 +127,15 @@ class WheelRunner:
         """Lazy-load the data connector — provider selected by SWE_DATA_PROVIDER."""
         if self._connector is None:
             import os
+
             provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
             if provider == "theta":
                 from engine.theta_connector import ThetaConnector
+
                 self._connector = ThetaConnector(str(self.data_dir))
             else:
                 from engine.data_connector import MarketDataConnector
+
                 self._connector = MarketDataConnector(str(self.data_dir))
         return self._connector
 
@@ -513,8 +516,8 @@ class WheelRunner:
             DealerAssumption,
             DealerPositioningAnalyzer,
         )
-        from engine.event_gate import EventGate, ScheduledEvent
         from engine.ev_engine import EVEngine, ShortOptionTrade
+        from engine.event_gate import EventGate, ScheduledEvent
         from engine.forward_distribution import best_available_forward_distribution
         from engine.option_pricer import black_scholes_price
 
@@ -548,6 +551,7 @@ class WheelRunner:
         if use_news_sentiment:
             try:
                 from engine.news_sentiment import NewsSentimentReader
+
                 news_reader = NewsSentimentReader()
             except Exception:
                 news_reader = None
@@ -559,6 +563,7 @@ class WheelRunner:
         if use_credit_regime:
             try:
                 from engine.external_data.fred_adapter import FREDAdapter
+
                 fa = FREDAdapter()
                 cr = fa.credit_regime()
                 credit_regime = cr.get("regime", "unknown")
@@ -783,9 +788,7 @@ class WheelRunner:
                         hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
                         hmm.fit(tail)
                         probs = hmm.predict_proba(tail)
-                        hmm_regime_mult = float(
-                            hmm.position_multiplier(probs[-1])
-                        )
+                        hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
                         self._hmm_regime_cache[cache_key] = hmm_regime_mult
             except Exception:
                 hmm_regime_mult = 1.0
@@ -810,11 +813,7 @@ class WheelRunner:
             # single-row noise — block the whole ticker when any CRITICAL or
             # ERROR issue is present on the raw chain, before any per-row
             # pre-clean can silently suppress the signal.
-            if (
-                enforce_chain_quality_gate
-                and chain_df is not None
-                and len(chain_df) > 0
-            ):
+            if enforce_chain_quality_gate and chain_df is not None and len(chain_df) > 0:
                 try:
                     from data.quality import DataQualityFramework, Severity
 
@@ -824,8 +823,7 @@ class WheelRunner:
                         raw_cdf["date"] = pd.Timestamp(trade_start_d)
                     raw_issues = DataQualityFramework()._check_options_consistency(raw_cdf)
                     critical_raw = [
-                        i for i in raw_issues
-                        if i.severity in (Severity.ERROR, Severity.CRITICAL)
+                        i for i in raw_issues if i.severity in (Severity.ERROR, Severity.CRITICAL)
                     ]
                     if critical_raw:
                         logger.warning(
@@ -888,9 +886,7 @@ class WheelRunner:
                                 slope = skew_diag["skew_slope"]
                                 # Anchor: slope=0 -> 1.0, slope=+0.20 -> 0.90,
                                 # slope=-0.10 -> 1.05. Clamp to [0.85, 1.08].
-                                skew_mult = float(
-                                    np.clip(1.0 - 0.5 * slope, 0.85, 1.08)
-                                )
+                                skew_mult = float(np.clip(1.0 - 0.5 * slope, 0.85, 1.08))
                 except Exception:
                     skew_mult = 1.0
 
@@ -907,9 +903,7 @@ class WheelRunner:
                 except Exception:
                     news_mult = 1.0
 
-            combined_regime_mult = float(
-                hmm_regime_mult * skew_mult * news_mult * credit_mult
-            )
+            combined_regime_mult = float(hmm_regime_mult * skew_mult * news_mult * credit_mult)
 
             trade = ShortOptionTrade(
                 option_type="put",
@@ -941,25 +935,17 @@ class WheelRunner:
                         cdf = chain_df.copy()
                         cdf.columns = [c.lower() for c in cdf.columns]
                         if "expiration" in cdf.columns:
-                            cdf["expiration"] = pd.to_datetime(
-                                cdf["expiration"], errors="coerce"
-                            )
+                            cdf["expiration"] = pd.to_datetime(cdf["expiration"], errors="coerce")
                             target_expiry_ts = pd.Timestamp(
                                 trade_start_d + timedelta(days=dte_target)
                             )
-                            cdf["_dte_gap"] = (
-                                cdf["expiration"] - target_expiry_ts
-                            ).abs()
+                            cdf["_dte_gap"] = (cdf["expiration"] - target_expiry_ts).abs()
                             # Pick the single closest expiry
-                            best_expiry = cdf.sort_values("_dte_gap")[
-                                "expiration"
-                            ].iloc[0]
+                            best_expiry = cdf.sort_values("_dte_gap")["expiration"].iloc[0]
                             cdf = cdf[cdf["expiration"] == best_expiry].copy()
                             cdf = cdf.drop(columns=["_dte_gap"])
                             expiry_date = (
-                                best_expiry.date()
-                                if hasattr(best_expiry, "date")
-                                else best_expiry
+                                best_expiry.date() if hasattr(best_expiry, "date") else best_expiry
                             )
                         else:
                             expiry_date = trade_end_d
@@ -975,13 +961,7 @@ class WheelRunner:
                             bid_n = pd.to_numeric(cdf["bid"], errors="coerce")
                             ask_n = pd.to_numeric(cdf["ask"], errors="coerce")
                             valid = bid_n.notna() & ask_n.notna()
-                            keep = (
-                                ~valid
-                                | (
-                                    (bid_n <= ask_n)
-                                    & ~((bid_n == 0) & (ask_n == 0))
-                                )
-                            )
+                            keep = ~valid | ((bid_n <= ask_n) & ~((bid_n == 0) & (ask_n == 0)))
                             cdf = cdf[keep].copy()
                         if {"iv"}.issubset(cdf.columns):
                             iv_n = pd.to_numeric(cdf["iv"], errors="coerce")
@@ -1000,7 +980,8 @@ class WheelRunner:
                                     q_cdf["date"] = pd.Timestamp(trade_start_d)
                                 issues = qf._check_options_consistency(q_cdf)
                                 critical = [
-                                    i for i in issues
+                                    i
+                                    for i in issues
                                     if i.severity in (Severity.ERROR, Severity.CRITICAL)
                                 ]
                                 if critical:
@@ -1021,7 +1002,8 @@ class WheelRunner:
                         if chain_quality_blocked_reason:
                             logger.debug(
                                 "%s: %s — skipping dealer overlay, ranking continues",
-                                ticker, chain_quality_blocked_reason,
+                                ticker,
+                                chain_quality_blocked_reason,
                             )
                             market_structure = None
                         elif len(cdf) > 0:
@@ -1068,15 +1050,9 @@ class WheelRunner:
                     {
                         "cvar_5": round(res.cvar_5, 2),
                         "cvar_99_evt": (
-                            round(res.cvar_99_evt, 2)
-                            if not np.isnan(res.cvar_99_evt)
-                            else None
+                            round(res.cvar_99_evt, 2) if not np.isnan(res.cvar_99_evt) else None
                         ),
-                        "tail_xi": (
-                            round(res.tail_xi, 4)
-                            if not np.isnan(res.tail_xi)
-                            else None
-                        ),
+                        "tail_xi": (round(res.tail_xi, 4) if not np.isnan(res.tail_xi) else None),
                         "heavy_tail": bool(res.heavy_tail),
                         "omega_ratio": round(res.omega_ratio, 3),
                         "fair_value": round(res.fair_value, 3),
@@ -1090,9 +1066,7 @@ class WheelRunner:
                         "dealer_regime": res.dealer_regime or None,
                         "dealer_multiplier": round(res.dealer_multiplier, 4),
                         "gex_total": (
-                            round(res.gex_total, 0)
-                            if not np.isnan(res.gex_total)
-                            else None
+                            round(res.gex_total, 0) if not np.isnan(res.gex_total) else None
                         ),
                         "gamma_flip_distance_pct": (
                             round(res.gamma_flip_distance_pct, 4)
@@ -1113,7 +1087,9 @@ class WheelRunner:
                         # use_skew_dynamics=True and chain has 25Δ points)
                         "skew_slope": round(skew_diag["skew_slope"], 4) if skew_diag else None,
                         "put_skew": round(skew_diag["put_skew"], 4) if skew_diag else None,
-                        "risk_reversal": round(skew_diag["risk_reversal"], 4) if skew_diag else None,
+                        "risk_reversal": round(skew_diag["risk_reversal"], 4)
+                        if skew_diag
+                        else None,
                         "skew_multiplier": round(skew_mult, 4),
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "news_multiplier": round(news_mult, 4),

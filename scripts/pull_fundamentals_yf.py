@@ -60,6 +60,7 @@ OUT_CSV = _ROOT / "data" / "bloomberg" / "sp500_fundamentals_yf.csv"
 
 def load_universe(pit_date: str | None = None) -> list[str]:
     from data.consolidated_loader import get_bloomberg_loader
+
     L = get_bloomberg_loader()
     u = L.get_universe_as_of(pit_date)
     return sorted({t for t in u if all(c.isalpha() or c == "." for c in t)})
@@ -136,11 +137,7 @@ def main() -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    tickers = (
-        [t.upper() for t in args.tickers]
-        if args.tickers else
-        load_universe(args.pit_date)
-    )
+    tickers = [t.upper() for t in args.tickers] if args.tickers else load_universe(args.pit_date)
     print(f"Fundamentals pull  tickers={len(tickers)}  workers={args.workers}")
 
     t0 = time.perf_counter()
@@ -168,9 +165,11 @@ def main() -> int:
     elapsed = time.perf_counter() - t0
     print()
     print(f"Wrote {len(df)} rows → {out}")
-    print(f"Done in {elapsed:.1f}s  |  {n_err} errors  |  "
-          f"non-null P/E: {df['pe_ratio'].notna().sum()}  |  "
-          f"non-null beta: {df['beta_raw_overridable'].notna().sum()}")
+    print(
+        f"Done in {elapsed:.1f}s  |  {n_err} errors  |  "
+        f"non-null P/E: {df['pe_ratio'].notna().sum()}  |  "
+        f"non-null beta: {df['beta_raw_overridable'].notna().sum()}"
+    )
     return 0 if n_err == 0 else 1
 
 

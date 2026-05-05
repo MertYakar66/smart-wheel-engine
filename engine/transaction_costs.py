@@ -148,12 +148,7 @@ def calculate_slippage(
 
     # Almgren-Chriss / Kyle-lambda square-root market impact.
     size_slippage = 0.0
-    if (
-        use_sqrt_impact
-        and adv_contracts is not None
-        and adv_contracts > 0
-        and num_contracts > 0
-    ):
+    if use_sqrt_impact and adv_contracts is not None and adv_contracts > 0 and num_contracts > 0:
         participation = num_contracts / float(adv_contracts)
         size_slippage = impact_coefficient * mid_price * _math.sqrt(participation)
 

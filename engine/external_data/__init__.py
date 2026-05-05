@@ -14,9 +14,9 @@ Adapters
 - edgar_adapter: SEC EDGAR Form 4 (insider trades), short-interest
 """
 
-from .fred_adapter import FREDAdapter
 from .cboe_adapter import CBOEAdapter
-from .yfinance_adapter import YFinanceAdapter
 from .edgar_adapter import EDGARAdapter
+from .fred_adapter import FREDAdapter
+from .yfinance_adapter import YFinanceAdapter
 
 __all__ = ["FREDAdapter", "CBOEAdapter", "YFinanceAdapter", "EDGARAdapter"]

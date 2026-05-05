@@ -40,7 +40,7 @@ import json
 import socket
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -76,7 +76,7 @@ class Probe:
 class ProbeResult:
     category: str
     name: str
-    status: str          # "OK", "EMPTY", "BLOCKED", "MISSING", "ERROR"
+    status: str  # "OK", "EMPTY", "BLOCKED", "MISSING", "ERROR"
     http: int = 0
     rows: int = 0
     cols: list = field(default_factory=list)
@@ -107,78 +107,190 @@ def _probes(symbol: str, exp: str) -> list[Probe]:
 
     return [
         # ---------------- Stock tier (free) ----------------
-        Probe("stock", "list_roots",                "/v3/stock/list/roots", {}),
-        Probe("stock", "history_eod",               "/v3/stock/history/eod",
-              {"symbol": symbol, "start_date": d28, "end_date": now_str}),
-        Probe("stock", "history_intraday_1h",       "/v3/stock/history/intraday",
-              {"symbol": symbol, "start_date": d7, "end_date": now_str, "interval": "1h"}),
-        Probe("stock", "snapshot_ohlc",             "/v3/stock/snapshot/ohlc", {"symbol": symbol}),
-        Probe("stock", "snapshot_quote",            "/v3/stock/snapshot/quote", {"symbol": symbol}),
-        Probe("stock", "history_dividend",          "/v3/stock/history/dividend",
-              {"symbol": symbol, "start_date": d365, "end_date": now_str}),
-        Probe("stock", "history_split",             "/v3/stock/history/split",
-              {"symbol": symbol, "start_date": d365, "end_date": now_str}),
-
+        Probe("stock", "list_roots", "/v3/stock/list/roots", {}),
+        Probe(
+            "stock",
+            "history_eod",
+            "/v3/stock/history/eod",
+            {"symbol": symbol, "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "stock",
+            "history_intraday_1h",
+            "/v3/stock/history/intraday",
+            {"symbol": symbol, "start_date": d7, "end_date": now_str, "interval": "1h"},
+        ),
+        Probe("stock", "snapshot_ohlc", "/v3/stock/snapshot/ohlc", {"symbol": symbol}),
+        Probe("stock", "snapshot_quote", "/v3/stock/snapshot/quote", {"symbol": symbol}),
+        Probe(
+            "stock",
+            "history_dividend",
+            "/v3/stock/history/dividend",
+            {"symbol": symbol, "start_date": d365, "end_date": now_str},
+        ),
+        Probe(
+            "stock",
+            "history_split",
+            "/v3/stock/history/split",
+            {"symbol": symbol, "start_date": d365, "end_date": now_str},
+        ),
         # ---------------- Options tier ----------------
-        Probe("option", "list_expirations",         "/v3/option/list/expirations", {"symbol": symbol}),
-        Probe("option", "list_strikes",             "/v3/option/list/strikes",
-              {"symbol": symbol, "expiration": exp}),
-        Probe("option", "snapshot_greeks_first",    "/v3/option/snapshot/greeks/first_order",
-              {"symbol": symbol, "expiration": exp}),
-        Probe("option", "snapshot_quote",           "/v3/option/snapshot/quote",
-              {"symbol": symbol, "expiration": exp}),
-        Probe("option", "snapshot_open_interest",   "/v3/option/snapshot/open_interest",
-              {"symbol": symbol, "expiration": exp}),
-        Probe("option", "history_eod",              "/v3/option/history/eod",
-              {"symbol": symbol, "expiration": exp,
-               "start_date": d28, "end_date": now_str}),
-        Probe("option", "history_quote",            "/v3/option/history/quote",
-              {"symbol": symbol, "expiration": exp, "start_date": d7,
-               "end_date": now_str, "interval": "1h"}),
-        Probe("option", "history_trade",            "/v3/option/history/trade",
-              {"symbol": symbol, "expiration": exp, "start_date": d7,
-               "end_date": now_str, "interval": "1h"},
-              "Intraday trade tape — enables dealer flow classification"),
-        Probe("option", "history_volume",           "/v3/option/history/volume",
-              {"symbol": symbol, "expiration": exp, "start_date": d28, "end_date": now_str}),
-        Probe("option", "history_open_interest",    "/v3/option/history/open_interest",
-              {"symbol": symbol, "expiration": exp, "start_date": d28, "end_date": now_str}),
-        Probe("option", "history_greeks_iv",        "/v3/option/history/greeks/implied_volatility",
-              {"symbol": symbol, "expiration": exp, "start_date": d28,
-               "end_date": now_str, "interval": "1h"}),
-        Probe("option", "history_greeks_first",     "/v3/option/history/greeks/first_order",
-              {"symbol": symbol, "expiration": exp, "start_date": d28,
-               "end_date": now_str, "interval": "1h"}),
-        Probe("option", "bulk_snapshot",            "/v3/option/bulk_snapshot/greeks/first_order",
-              {"symbol": symbol, "expiration": exp},
-              "Single call for all strikes — huge speedup if available"),
-
+        Probe("option", "list_expirations", "/v3/option/list/expirations", {"symbol": symbol}),
+        Probe(
+            "option",
+            "list_strikes",
+            "/v3/option/list/strikes",
+            {"symbol": symbol, "expiration": exp},
+        ),
+        Probe(
+            "option",
+            "snapshot_greeks_first",
+            "/v3/option/snapshot/greeks/first_order",
+            {"symbol": symbol, "expiration": exp},
+        ),
+        Probe(
+            "option",
+            "snapshot_quote",
+            "/v3/option/snapshot/quote",
+            {"symbol": symbol, "expiration": exp},
+        ),
+        Probe(
+            "option",
+            "snapshot_open_interest",
+            "/v3/option/snapshot/open_interest",
+            {"symbol": symbol, "expiration": exp},
+        ),
+        Probe(
+            "option",
+            "history_eod",
+            "/v3/option/history/eod",
+            {"symbol": symbol, "expiration": exp, "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "option",
+            "history_quote",
+            "/v3/option/history/quote",
+            {
+                "symbol": symbol,
+                "expiration": exp,
+                "start_date": d7,
+                "end_date": now_str,
+                "interval": "1h",
+            },
+        ),
+        Probe(
+            "option",
+            "history_trade",
+            "/v3/option/history/trade",
+            {
+                "symbol": symbol,
+                "expiration": exp,
+                "start_date": d7,
+                "end_date": now_str,
+                "interval": "1h",
+            },
+            "Intraday trade tape — enables dealer flow classification",
+        ),
+        Probe(
+            "option",
+            "history_volume",
+            "/v3/option/history/volume",
+            {"symbol": symbol, "expiration": exp, "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "option",
+            "history_open_interest",
+            "/v3/option/history/open_interest",
+            {"symbol": symbol, "expiration": exp, "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "option",
+            "history_greeks_iv",
+            "/v3/option/history/greeks/implied_volatility",
+            {
+                "symbol": symbol,
+                "expiration": exp,
+                "start_date": d28,
+                "end_date": now_str,
+                "interval": "1h",
+            },
+        ),
+        Probe(
+            "option",
+            "history_greeks_first",
+            "/v3/option/history/greeks/first_order",
+            {
+                "symbol": symbol,
+                "expiration": exp,
+                "start_date": d28,
+                "end_date": now_str,
+                "interval": "1h",
+            },
+        ),
+        Probe(
+            "option",
+            "bulk_snapshot",
+            "/v3/option/bulk_snapshot/greeks/first_order",
+            {"symbol": symbol, "expiration": exp},
+            "Single call for all strikes — huge speedup if available",
+        ),
         # ---------------- Index tier ----------------
-        Probe("index", "list_roots",                "/v3/index/list/roots", {}),
-        Probe("index", "snapshot_price_vix",        "/v3/index/snapshot/price", {"symbol": "VIX"}),
-        Probe("index", "snapshot_price_skew",       "/v3/index/snapshot/price", {"symbol": "SKEW"}),
-        Probe("index", "history_eod_vix",           "/v3/index/history/eod",
-              {"symbol": "VIX", "start_date": d28, "end_date": now_str}),
-        Probe("index", "history_eod_skew",          "/v3/index/history/eod",
-              {"symbol": "SKEW", "start_date": d28, "end_date": now_str}),
-        Probe("index", "history_ohlc_vix",          "/v3/index/history/ohlc",
-              {"symbol": "VIX", "start_date": d28, "end_date": now_str,
-               "interval": "1d"}),
-        Probe("index", "history_price_vix9d",       "/v3/index/history/price",
-              {"symbol": "VIX9D", "start_date": d28, "end_date": now_str}),
-        Probe("index", "history_price_vvix",        "/v3/index/history/price",
-              {"symbol": "VVIX", "start_date": d28, "end_date": now_str}),
-
+        Probe("index", "list_roots", "/v3/index/list/roots", {}),
+        Probe("index", "snapshot_price_vix", "/v3/index/snapshot/price", {"symbol": "VIX"}),
+        Probe("index", "snapshot_price_skew", "/v3/index/snapshot/price", {"symbol": "SKEW"}),
+        Probe(
+            "index",
+            "history_eod_vix",
+            "/v3/index/history/eod",
+            {"symbol": "VIX", "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "index",
+            "history_eod_skew",
+            "/v3/index/history/eod",
+            {"symbol": "SKEW", "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "index",
+            "history_ohlc_vix",
+            "/v3/index/history/ohlc",
+            {"symbol": "VIX", "start_date": d28, "end_date": now_str, "interval": "1d"},
+        ),
+        Probe(
+            "index",
+            "history_price_vix9d",
+            "/v3/index/history/price",
+            {"symbol": "VIX9D", "start_date": d28, "end_date": now_str},
+        ),
+        Probe(
+            "index",
+            "history_price_vvix",
+            "/v3/index/history/price",
+            {"symbol": "VVIX", "start_date": d28, "end_date": now_str},
+        ),
         # ---------------- Futures tier ----------------
-        Probe("future", "list_roots",               "/v3/future/list/roots", {}),
-        Probe("future", "list_expirations_vx",      "/v3/future/list/expirations", {"symbol": "VX"}),
-        Probe("future", "snapshot_ohlc_vx",         "/v3/future/snapshot/ohlc", {"symbol": "VX"},
-              "VIX futures front month — unlocks UX1"),
-        Probe("future", "history_eod_vx",           "/v3/future/history/eod",
-              {"symbol": "VX", "start_date": d28, "end_date": now_str},
-              "VIX futures EOD history"),
-        Probe("future", "history_ohlc_vx",          "/v3/future/history/ohlc",
-              {"symbol": "VX", "start_date": d28, "end_date": now_str, "interval": "1d"}),
+        Probe("future", "list_roots", "/v3/future/list/roots", {}),
+        Probe("future", "list_expirations_vx", "/v3/future/list/expirations", {"symbol": "VX"}),
+        Probe(
+            "future",
+            "snapshot_ohlc_vx",
+            "/v3/future/snapshot/ohlc",
+            {"symbol": "VX"},
+            "VIX futures front month — unlocks UX1",
+        ),
+        Probe(
+            "future",
+            "history_eod_vx",
+            "/v3/future/history/eod",
+            {"symbol": "VX", "start_date": d28, "end_date": now_str},
+            "VIX futures EOD history",
+        ),
+        Probe(
+            "future",
+            "history_ohlc_vx",
+            "/v3/future/history/ohlc",
+            {"symbol": "VX", "start_date": d28, "end_date": now_str, "interval": "1d"},
+        ),
     ]
 
 
@@ -191,15 +303,23 @@ def run_probe(p: Probe, timeout: float = 10.0) -> ProbeResult:
         return ProbeResult(p.category, p.name, "ERROR", 0, preview=str(e)[:120], notes=p.notes)
 
     if resp.status_code == 403:
-        return ProbeResult(p.category, p.name, "BLOCKED", 403,
-                           preview="not on subscription tier", notes=p.notes)
+        return ProbeResult(
+            p.category, p.name, "BLOCKED", 403, preview="not on subscription tier", notes=p.notes
+        )
     if resp.status_code == 404:
-        return ProbeResult(p.category, p.name, "MISSING", 404,
-                           preview="endpoint does not exist", notes=p.notes)
+        return ProbeResult(
+            p.category, p.name, "MISSING", 404, preview="endpoint does not exist", notes=p.notes
+        )
     if not (200 <= resp.status_code < 300):
         body = resp.text.strip().splitlines()[:1]
-        return ProbeResult(p.category, p.name, "ERROR", resp.status_code,
-                           preview=(body[0] if body else "")[:120], notes=p.notes)
+        return ProbeResult(
+            p.category,
+            p.name,
+            "ERROR",
+            resp.status_code,
+            preview=(body[0] if body else "")[:120],
+            notes=p.notes,
+        )
 
     text = resp.text.strip()
     if not text:
@@ -209,16 +329,23 @@ def run_probe(p: Probe, timeout: float = 10.0) -> ProbeResult:
 
     try:
         import pandas as pd
+
         df = pd.read_csv(io.StringIO(text))
     except Exception as e:
-        return ProbeResult(p.category, p.name, "ERROR", resp.status_code,
-                           preview=f"parse: {e}"[:120], notes=p.notes)
+        return ProbeResult(
+            p.category,
+            p.name,
+            "ERROR",
+            resp.status_code,
+            preview=f"parse: {e}"[:120],
+            notes=p.notes,
+        )
 
     if df.empty:
-        return ProbeResult(p.category, p.name, "EMPTY", 200,
-                           cols=list(df.columns), notes=p.notes)
-    return ProbeResult(p.category, p.name, "OK", 200,
-                       rows=len(df), cols=list(df.columns)[:10], notes=p.notes)
+        return ProbeResult(p.category, p.name, "EMPTY", 200, cols=list(df.columns), notes=p.notes)
+    return ProbeResult(
+        p.category, p.name, "OK", 200, rows=len(df), cols=list(df.columns)[:10], notes=p.notes
+    )
 
 
 def main() -> int:
@@ -235,10 +362,14 @@ def main() -> int:
 
     # Find a real expiration close to 35 DTE to make option probes realistic.
     import pandas as pd
+
     exp = None
     try:
-        r = requests.get(f"{BASE}/v3/option/list/expirations",
-                         params={"symbol": args.symbol, "format": "csv"}, timeout=10)
+        r = requests.get(
+            f"{BASE}/v3/option/list/expirations",
+            params={"symbol": args.symbol, "format": "csv"},
+            timeout=10,
+        )
         if r.ok:
             df = pd.read_csv(io.StringIO(r.text))
             col = next((c for c in ("expiration", "date") if c in df.columns), None)
@@ -319,12 +450,18 @@ def main() -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(
-        {"probed_at": datetime.utcnow().isoformat(),
-         "base": BASE, "symbol": args.symbol, "expiry": exp,
-         "results": [asdict(r) for r in results]},
-        indent=2,
-    ))
+    out.write_text(
+        json.dumps(
+            {
+                "probed_at": datetime.utcnow().isoformat(),
+                "base": BASE,
+                "symbol": args.symbol,
+                "expiry": exp,
+                "results": [asdict(r) for r in results],
+            },
+            indent=2,
+        )
+    )
     print(f"\nFull report: {out}")
     return 0
 

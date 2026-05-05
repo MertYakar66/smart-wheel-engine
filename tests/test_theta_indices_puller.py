@@ -23,8 +23,8 @@ These tests lock in:
 from __future__ import annotations
 
 import sys
-from datetime import date, datetime, timedelta
-from typing import Callable
+from collections.abc import Callable
+from datetime import date, datetime
 
 import pandas as pd
 
@@ -91,9 +91,7 @@ def test_pull_chunks_multi_year_request_under_365_days() -> None:
         sd = datetime.strptime(c["start_date"], "%Y%m%d").date()
         ed = datetime.strptime(c["end_date"], "%Y%m%d").date()
         days = (ed - sd).days
-        assert days <= 365, (
-            f"chunk {c['start_date']}..{c['end_date']} is {days} days — exceeds 365"
-        )
+        assert days <= 365, f"chunk {c['start_date']}..{c['end_date']} is {days} days — exceeds 365"
         assert c["symbol"] == "VIX"
         assert c["format"] == "csv"
 
@@ -173,18 +171,21 @@ def test_pull_collects_newer_chunks_when_older_chunks_tier_gate(capsys) -> None:
         if state["idx"] <= 2:
             return _FakeResp(403, gate_text)
         sd = params["start_date"]
-        rows = [{
-            "created": f"{sd[:4]}-{sd[4:6]}-{sd[6:8]}",
-            "open": 13.0, "high": 13.5, "low": 12.5, "close": 13.2,
-        }]
+        rows = [
+            {
+                "created": f"{sd[:4]}-{sd[4:6]}-{sd[6:8]}",
+                "open": 13.0,
+                "high": 13.5,
+                "low": 12.5,
+                "close": 13.2,
+            }
+        ]
         return _csv_response(rows)
 
     df = _pull(_FakeConn(handler), "VIX", date(2021, 1, 1), date(2026, 1, 1))
     captured = capsys.readouterr()
 
-    assert not df.empty, (
-        "puller must keep newer-chunk data when older chunks tier-gate"
-    )
+    assert not df.empty, "puller must keep newer-chunk data when older chunks tier-gate"
     assert (df["close"] == 13.2).all()
     assert df["symbol"].eq("VIX").all()
     # Both older chunks must be surfaced, not just the first
@@ -253,26 +254,23 @@ def test_main_incremental_skips_when_only_today_remains(capsys, monkeypatch) -> 
 
     pull_calls: list[tuple] = []
     monkeypatch.setattr(
-        M, "_pull",
+        M,
+        "_pull",
         lambda *args, **kwargs: pull_calls.append(args) or pd.DataFrame(),
     )
 
     monkeypatch.setattr(
-        sys, "argv",
-        ["pull_theta_indices_history.py", "--symbols", "VIX", "VIX9D",
-         "--incremental"],
+        sys,
+        "argv",
+        ["pull_theta_indices_history.py", "--symbols", "VIX", "VIX9D", "--incremental"],
     )
 
     rc = M.main()
     out = capsys.readouterr().out
 
     assert rc == 0, f"expected rc=0 when only today is left; got {rc}\nstdout:\n{out}"
-    assert pull_calls == [], (
-        f"_pull must not be called when only today remains; got {pull_calls}"
-    )
-    assert "up-to-date" in out, (
-        f"expected per-symbol 'up-to-date' message; got:\n{out}"
-    )
+    assert pull_calls == [], f"_pull must not be called when only today remains; got {pull_calls}"
+    assert "up-to-date" in out, f"expected per-symbol 'up-to-date' message; got:\n{out}"
     assert "FAIL" not in out, (
         f"no symbol should be marked FAIL when only today remains; got:\n{out}"
     )

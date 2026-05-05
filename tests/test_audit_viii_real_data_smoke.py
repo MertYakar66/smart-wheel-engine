@@ -21,7 +21,6 @@ import pytest
 from engine.data_connector import MarketDataConnector
 from engine.wheel_runner import WheelRunner
 
-
 DATA_DIR = Path("data/bloomberg")
 
 

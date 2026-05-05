@@ -30,10 +30,9 @@ Primary consumers
 
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -63,7 +62,7 @@ class NewsSentimentReader:
 
     def _load(self) -> pd.DataFrame:
         """Load sentiment store, caching the result for 5 minutes."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if (
             self._cache is not None
             and self._loaded_at is not None

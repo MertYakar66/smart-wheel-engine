@@ -165,8 +165,7 @@ class TestNewsIngestDatetimeImport:
         import engine_api
 
         assert hasattr(engine_api, "datetime"), (
-            "engine_api module must expose datetime (needed by "
-            "_handle_news_ingest)"
+            "engine_api module must expose datetime (needed by _handle_news_ingest)"
         )
         # Smoke-check: timezone.utc is also needed for the fix.
         assert hasattr(engine_api, "timezone")
@@ -216,9 +215,7 @@ class TestWheelTrackerPnLAccumulator:
         # Expected gross P&L = (2.00 - 0.50 + 2.50 - 1.00) * 100 = $300
         # Net = 300 - total transaction costs
         assert closed["realized_pnl"] == pytest.approx(300.0, rel=1e-6)
-        assert closed["net_pnl"] == pytest.approx(
-            300.0 - closed["transaction_costs"], rel=1e-6
-        )
+        assert closed["net_pnl"] == pytest.approx(300.0 - closed["transaction_costs"], rel=1e-6)
 
     def test_double_rolled_put_preserves_all_three_legs(self):
         """Two rolls → three legs. The pre-audit ``roll_put`` also

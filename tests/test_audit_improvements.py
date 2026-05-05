@@ -10,15 +10,12 @@ these fail, the audit has regressed.
 
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from engine import option_pricer as op
-from engine.ev_engine import EVEngine, ShortOptionTrade
 from engine.forward_distribution import (
     best_available_forward_distribution,
     block_bootstrap_log_returns,
@@ -49,9 +46,7 @@ class TestForwardDistribution:
 
     def test_empirical_is_point_in_time(self):
         df = self._synth()
-        full = empirical_forward_log_returns(
-            df, horizon_days=30, as_of="2023-01-01", min_samples=5
-        )
+        full = empirical_forward_log_returns(df, horizon_days=30, as_of="2023-01-01", min_samples=5)
         early = empirical_forward_log_returns(
             df, horizon_days=30, as_of="2020-01-01", min_samples=5
         )
@@ -78,9 +73,7 @@ class TestForwardDistribution:
 
     def test_block_bootstrap_matches_empirical_stats(self):
         df = self._synth(n=1500)
-        bb = block_bootstrap_log_returns(
-            df, horizon_days=20, n_scenarios=4000, as_of="2023-06-01"
-        )
+        bb = block_bootstrap_log_returns(df, horizon_days=20, n_scenarios=4000, as_of="2023-06-01")
         assert len(bb) == 4000
         # 20-day log-return std ≈ 0.012 * sqrt(20) ≈ 0.0537
         assert 0.02 < bb.std() < 0.10
@@ -97,9 +90,7 @@ class TestForwardDistribution:
 
     def test_cascading_fallback_picks_best(self):
         df = self._synth()
-        rets, method = best_available_forward_distribution(
-            df, horizon_days=20, as_of="2023-06-01"
-        )
+        rets, method = best_available_forward_distribution(df, horizon_days=20, as_of="2023-06-01")
         assert len(rets) > 0
         assert method in (
             "empirical_non_overlapping",
@@ -159,7 +150,7 @@ class TestEmpiricalVolatilitySurface:
             spot=450,
             expiries=expiries,
         )
-        for exp, target in zip(expiries, target_ivs.values()):
+        for exp, target in zip(expiries, target_ivs.values(), strict=False):
             atm_iv = surf.get_iv(450, exp, 450)
             # Allow 2 vol points of slack because the SVI curvature term
             # slightly shifts the ATM vol away from the input tenor IV.
@@ -283,9 +274,7 @@ class TestSurvivorshipBiasGuard:
         pipeline._ohlcv = {}
         idx = pd.date_range("2018-01-01", "2023-12-31", freq="B")
         for t in ("AAPL", "MSFT", "GOOGL"):
-            pipeline._ohlcv[t] = pd.DataFrame(
-                {"Close": np.linspace(100, 150, len(idx))}, index=idx
-            )
+            pipeline._ohlcv[t] = pd.DataFrame({"Close": np.linspace(100, 150, len(idx))}, index=idx)
         audit = pipeline.audit_survivorship_bias(
             start_date="2020-01-01",
             end_date="2023-12-31",
@@ -337,9 +326,7 @@ class TestSqrtMarketImpactSlippage:
     def test_backwards_compatible_without_adv(self):
         """Without ``adv_contracts`` the function must equal the old
         spread-only model."""
-        s = calculate_slippage(
-            mid_price=2.00, bid_ask_spread=0.10, trade_direction="sell"
-        )
+        s = calculate_slippage(mid_price=2.00, bid_ask_spread=0.10, trade_direction="sell")
         # Old model: 0.15 * 0.10 = 0.015
         assert s == pytest.approx(0.015, abs=1e-6)
 
@@ -422,9 +409,7 @@ class TestQualityChecks:
                 ],
             }
         )
-        issues = DataQualityFramework().check_stale_quotes(
-            df, as_of=now, max_age_minutes=30
-        )
+        issues = DataQualityFramework().check_stale_quotes(df, as_of=now, max_age_minutes=30)
         assert len(issues) == 1
         assert issues[0].affected_rows == 1
 

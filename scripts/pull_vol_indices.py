@@ -56,7 +56,7 @@ import logging
 import socket
 import sys
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
@@ -66,7 +66,6 @@ if hasattr(sys.stdout, "buffer"):
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -76,15 +75,31 @@ OUT_WIDE = _ROOT / "data_processed" / "vol_indices_wide.parquet"
 
 # Canonical symbols we track.
 DEFAULT_SYMBOLS = (
-    "VIX", "VIX9D", "VIX3M", "VIX6M",
-    "SKEW", "VVIX", "VXN", "MOVE", "OVX", "GVZ",
+    "VIX",
+    "VIX9D",
+    "VIX3M",
+    "VIX6M",
+    "SKEW",
+    "VVIX",
+    "VXN",
+    "MOVE",
+    "OVX",
+    "GVZ",
 )
 
 # Yahoo uses "^" prefix for indices.
 _YF_PREFIX = {
-    "VIX": "^VIX", "VIX9D": "^VIX9D", "VIX3M": "^VIX3M", "VIX6M": "^VIX6M",
-    "SKEW": "^SKEW", "VVIX": "^VVIX", "VXN": "^VXN", "MOVE": "^MOVE",
-    "OVX": "^OVX", "GVZ": "^GVZ", "RVX": "^RVX",
+    "VIX": "^VIX",
+    "VIX9D": "^VIX9D",
+    "VIX3M": "^VIX3M",
+    "VIX6M": "^VIX6M",
+    "SKEW": "^SKEW",
+    "VVIX": "^VVIX",
+    "VXN": "^VXN",
+    "MOVE": "^MOVE",
+    "OVX": "^OVX",
+    "GVZ": "^GVZ",
+    "RVX": "^RVX",
 }
 
 
@@ -106,6 +121,7 @@ def _theta_up(host: str = "127.0.0.1", port: int = 25503) -> bool:
 def _pull_theta(symbol: str, start: date, end: date) -> pd.DataFrame:
     """Attempt Theta historical EOD for a volatility index. Empty frame on failure."""
     from engine.theta_connector import ThetaConnector
+
     conn = ThetaConnector()
     for endpoint in (
         "/v3/index/history/eod",
@@ -206,8 +222,11 @@ def main() -> int:
     ap.add_argument("--years", type=float, default=5.0, help="Lookback")
     ap.add_argument("--start", help="YYYY-MM-DD (overrides --years)")
     ap.add_argument("--end", help="YYYY-MM-DD (default: today)")
-    ap.add_argument("--incremental", action="store_true",
-                    help="Only fetch data since last saved date per symbol")
+    ap.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Only fetch data since last saved date per symbol",
+    )
     ap.add_argument("--source", choices=["auto", "theta", "yahoo"], default="auto")
     ap.add_argument("--out", default=str(OUT_LONG))
     args = ap.parse_args()
@@ -222,8 +241,10 @@ def main() -> int:
     )
 
     theta_note = "UP" if _theta_up() else "DOWN"
-    print(f"Pulling vol indices  source={args.source}  (theta={theta_note})  "
-          f"symbols={len(args.symbols)}  range={start_d}..{end_d}")
+    print(
+        f"Pulling vol indices  source={args.source}  (theta={theta_note})  "
+        f"symbols={len(args.symbols)}  range={start_d}..{end_d}"
+    )
 
     t0 = time.perf_counter()
     frames: list[pd.DataFrame] = []
@@ -244,7 +265,9 @@ def main() -> int:
             continue
         n_ok += 1
         src = df["source"].iloc[0]
-        print(f"  {sym:<7} OK    rows={len(df):<5}  {df['date'].min().date()} to {df['date'].max().date()}  ({src})")
+        print(
+            f"  {sym:<7} OK    rows={len(df):<5}  {df['date'].min().date()} to {df['date'].max().date()}  ({src})"
+        )
         frames.append(df)
 
     if not frames:
@@ -272,9 +295,7 @@ def main() -> int:
     combined.to_parquet(out, index=False)
 
     # Wide view
-    wide = combined.pivot_table(
-        index="date", columns="symbol", values="close", aggfunc="last"
-    )
+    wide = combined.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
     wide.columns = [f"{c.lower()}_close" for c in wide.columns]
     wide = wide.reset_index().sort_values("date")
     wide.to_parquet(OUT_WIDE, index=False)

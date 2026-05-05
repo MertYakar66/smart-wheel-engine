@@ -44,15 +44,13 @@ from __future__ import annotations
 
 import argparse
 import io
-import json
 import logging
 import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlencode
 
 if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -77,17 +75,63 @@ OUT_PATH = _ROOT / "data_processed" / "news_sentiment.parquet"
 # Sentiment scorers
 # ----------------------------------------------------------------------
 _LEXICON_POS = {
-    "beat", "beats", "surpass", "surge", "strong", "upgrade", "upgraded",
-    "outperform", "record", "growth", "raised", "profit", "rally",
-    "bullish", "breakthrough", "milestone", "accelerate", "advance",
-    "top", "topped", "exceed", "boost", "positive",
+    "beat",
+    "beats",
+    "surpass",
+    "surge",
+    "strong",
+    "upgrade",
+    "upgraded",
+    "outperform",
+    "record",
+    "growth",
+    "raised",
+    "profit",
+    "rally",
+    "bullish",
+    "breakthrough",
+    "milestone",
+    "accelerate",
+    "advance",
+    "top",
+    "topped",
+    "exceed",
+    "boost",
+    "positive",
 }
 _LEXICON_NEG = {
-    "miss", "missed", "lawsuit", "sued", "plunge", "downgrade", "downgraded",
-    "underperform", "warning", "warn", "weak", "disappoint", "cut", "slash",
-    "bearish", "fraud", "investigation", "probe", "decline", "loss", "losses",
-    "restate", "restatement", "delist", "halt", "halted", "recall", "bankrupt",
-    "bankruptcy", "default", "breach", "negative",
+    "miss",
+    "missed",
+    "lawsuit",
+    "sued",
+    "plunge",
+    "downgrade",
+    "downgraded",
+    "underperform",
+    "warning",
+    "warn",
+    "weak",
+    "disappoint",
+    "cut",
+    "slash",
+    "bearish",
+    "fraud",
+    "investigation",
+    "probe",
+    "decline",
+    "loss",
+    "losses",
+    "restate",
+    "restatement",
+    "delist",
+    "halt",
+    "halted",
+    "recall",
+    "bankrupt",
+    "bankruptcy",
+    "default",
+    "breach",
+    "negative",
 }
 
 
@@ -111,6 +155,7 @@ def _vader_score(text: str) -> float:
     if _vader is None:
         try:
             from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
             _vader = SentimentIntensityAnalyzer()
         except ImportError:
             _vader = False
@@ -198,7 +243,7 @@ class FinnhubProvider(NewsProvider):
         params = {
             "symbol": ticker,
             "from": since.strftime("%Y-%m-%d"),
-            "to": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "to": datetime.now(UTC).strftime("%Y-%m-%d"),
             "token": self.api_key,
         }
         r = self.session.get(self.URL, params=params, timeout=15)
@@ -209,7 +254,7 @@ class FinnhubProvider(NewsProvider):
         for a in data:
             ts = a.get("datetime")
             iso = (
-                datetime.fromtimestamp(ts, timezone.utc).isoformat()
+                datetime.fromtimestamp(ts, UTC).isoformat()
                 if isinstance(ts, (int, float))
                 else None
             )
@@ -236,8 +281,9 @@ class BenzingaProvider(NewsProvider):
             "pageSize": 50,
             "token": self.api_key,
         }
-        r = self.session.get(self.URL, params=params, timeout=15,
-                             headers={"Accept": "application/json"})
+        r = self.session.get(
+            self.URL, params=params, timeout=15, headers={"Accept": "application/json"}
+        )
         if r.status_code != 200:
             raise RuntimeError(f"benzinga: HTTP {r.status_code}: {r.text[:200]}")
         data = r.json() or []
@@ -264,8 +310,9 @@ PROVIDERS = {
 # ----------------------------------------------------------------------
 # Aggregation
 # ----------------------------------------------------------------------
-def _aggregate(articles: list[dict], scorer: str, as_of: datetime,
-               lookback_hours: int) -> tuple[float, float, int]:
+def _aggregate(
+    articles: list[dict], scorer: str, as_of: datetime, lookback_hours: int
+) -> tuple[float, float, int]:
     """Weighted-mean sentiment with exponential recency decay."""
     if not articles:
         return 0.0, 0.0, 0
@@ -282,7 +329,7 @@ def _aggregate(articles: list[dict], scorer: str, as_of: datetime,
             continue
         if ts < cutoff:
             continue
-        text = f"{a.get('title','')}. {a.get('description','')}"
+        text = f"{a.get('title', '')}. {a.get('description', '')}"
         if scorer == "provider" and a.get("provider_sentiment") is not None:
             s = float(a["provider_sentiment"])
         else:
@@ -303,16 +350,15 @@ def _aggregate(articles: list[dict], scorer: str, as_of: datetime,
     return mean, float(confidence), n
 
 
-def _process_ticker(provider: NewsProvider, ticker: str, lookback_hours: int,
-                    scorer: str) -> tuple[str, float, float, int, str]:
-    since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours + 6)
+def _process_ticker(
+    provider: NewsProvider, ticker: str, lookback_hours: int, scorer: str
+) -> tuple[str, float, float, int, str]:
+    since = datetime.now(UTC) - timedelta(hours=lookback_hours + 6)
     try:
         articles = provider.fetch(ticker, since)
     except Exception as e:
         return ticker, 0.0, 0.0, 0, f"FAIL {type(e).__name__}: {e}"
-    sentiment, conf, n = _aggregate(
-        articles, scorer, datetime.now(timezone.utc), lookback_hours
-    )
+    sentiment, conf, n = _aggregate(articles, scorer, datetime.now(UTC), lookback_hours)
     detail = f"n={n} s={sentiment:+.3f} c={conf:.2f}"
     return ticker, sentiment, conf, n, detail
 
@@ -320,6 +366,7 @@ def _process_ticker(provider: NewsProvider, ticker: str, lookback_hours: int,
 def load_universe(mode: str, pit_date: str | None = None) -> list[str]:
     if mode == "sp500":
         from data.consolidated_loader import get_bloomberg_loader
+
         L = get_bloomberg_loader()
         tickers = L.get_universe_as_of(pit_date)
         return sorted({t for t in tickers if all(c.isalpha() or c == "." for c in t)})
@@ -355,25 +402,30 @@ def main() -> int:
         print("ERROR: --tickers or --universe required")
         return 2
 
-    print(f"News-sentiment pull  provider={args.provider}  scorer={args.scorer}  "
-          f"tickers={len(tickers)}  hours={args.hours}  workers={args.workers}")
+    print(
+        f"News-sentiment pull  provider={args.provider}  scorer={args.scorer}  "
+        f"tickers={len(tickers)}  hours={args.hours}  workers={args.workers}"
+    )
 
     t0 = time.perf_counter()
     rows: list[dict] = []
     n_done = n_err = 0
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(_process_ticker, provider, t, args.hours, args.scorer): t
-                for t in tickers}
+        futs = {
+            ex.submit(_process_ticker, provider, t, args.hours, args.scorer): t for t in tickers
+        }
         for fut in as_completed(futs):
             ticker, sent, conf, n, detail = fut.result()
             n_done += 1
-            rows.append({
-                "ticker": ticker,
-                "as_of": datetime.now(timezone.utc),
-                "sentiment": sent,
-                "confidence": conf,
-                "n_articles": n,
-            })
+            rows.append(
+                {
+                    "ticker": ticker,
+                    "as_of": datetime.now(UTC),
+                    "sentiment": sent,
+                    "confidence": conf,
+                    "n_articles": n,
+                }
+            )
             if detail.startswith("FAIL"):
                 n_err += 1
                 print(f"  [{n_done:>4}/{len(tickers)}] {ticker:<6}  {detail[:80]}", flush=True)

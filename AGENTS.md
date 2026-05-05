@@ -28,6 +28,23 @@ read order.
 5. **`LAPTOP_SETUP.md`** — only if rehydrating data (Theta Terminal,
    feature store) on a new machine. Not needed for code-only work.
 
+## Read on demand
+
+Once oriented, pick the doc that matches your task. Each one is
+purpose-built; they don't overlap.
+
+| You want to… | Read |
+|---|---|
+| See *why* a structural choice was made | `DECISIONS.md` |
+| Find what's intentionally next | `ROADMAP.md` |
+| See what shipped recently | `CHANGELOG.md` |
+| Understand the data layer (what's tracked, regen rules, secrets) | `DATA_POLICY.md` |
+| Know the launch-blocker invariants before merging | `LAUNCH_READINESS.md` |
+| Write a commit message or PR | `COMMIT_GUIDE.md` |
+| Wire anything to TradingView (engine bridge or analyst workspace) | `TRADINGVIEW_INTEGRATION.md`, then `docs/TRADINGVIEW_MCP_INTEGRATION.md` for MCP design |
+| Run a Theta data refresh | `docs/THETA_PULL_SESSION_NOTES.md`, then `docs/THETA_USAGE.md` |
+| Touch Greek calculations | `docs/GREEKS_UNIT_CONTRACT.md` (canonical) |
+
 ## The hard rule
 
 From `CLAUDE.md` §2:
@@ -53,6 +70,9 @@ and `tests/test_authority_hardening.py`.
 - Documentation (`docs/`, `*.md` at repo root) **except** `CLAUDE.md`,
   which the user maintains directly.
 - Files under your active feature branch (never `main`).
+- Updates to `CHANGELOG.md` / `PROJECT_STATE.md` / `ROADMAP.md` /
+  `DECISIONS.md` that reflect the work you just did. Keep these
+  in sync with the code as you ship.
 
 ## What requires explicit ask
 
@@ -65,3 +85,16 @@ and `tests/test_authority_hardening.py`.
 - Touching `pyproject.toml` `[project.scripts]` or
   `[tool.hatch] packages` (currently in a known-stale state — see
   `PROJECT_STATE.md`).
+- Committing to `main` directly (see `COMMIT_GUIDE.md` §5 — branch
+  + PR for everything, even one-line typos).
+- Refreshing the tracked Bloomberg CSVs in
+  `data/bloomberg/sp500_*.csv`, `treasury_yields.csv` — these are
+  data commits with audit value (see `ROADMAP.md` C1 — the
+  track-vs-gitignore decision is open).
+
+## Commit format
+
+The repo uses a structured commit format (`type(scope): summary`
+plus a body with `Changed:` / `Why:` / `Tested:` / `Tried but
+rejected:` / `Unresolved:` / `AI handoff:` sections). Read
+`COMMIT_GUIDE.md` before your first commit.

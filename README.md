@@ -1,13 +1,24 @@
 # Smart Wheel Engine
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-170%2B%20passing-green.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1087%2B%20passing-green.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 **Institutional-grade quantitative trading engine for options strategies.**
 
 A systematic, data-driven framework for managing short-put and covered-call strategies (the "Wheel Strategy"). The engine evaluates trades using probability estimates and expected-value calculations derived from historical data.
+
+> **🤖 AI agent / fresh contributor — start here:**
+>
+> 1. [`AGENTS.md`](AGENTS.md) — read order for any agent (Claude, Codex, Cursor, Copilot, Aider).
+> 2. [`CLAUDE.md`](CLAUDE.md) — structural contract; the four-layer mental model and the hard EV invariant.
+> 3. [`PROJECT_STATE.md`](PROJECT_STATE.md) — what's authoritative right now, what's deprecated.
+> 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
+> 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
+>
+> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`DATA_POLICY.md`](DATA_POLICY.md) (what's tracked vs ignored), [`LAUNCH_READINESS.md`](LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`TRADINGVIEW_INTEGRATION.md`](TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
+>
+> **The body of this README below is partially out of date** — see [`PROJECT_STATE.md` §5](PROJECT_STATE.md) and [`ROADMAP.md` B1](ROADMAP.md) for the repair plan. Trust the documents linked above.
 
 ## Features
 

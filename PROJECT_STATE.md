@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-05-05 (against `origin/main` at `6c0543d`).
+**Last updated:** 2026-05-05 (against `origin/main` at `433231f`,
+post-foundation-pass).
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
@@ -146,6 +147,71 @@ the freshness signal — compare directory mtimes instead.
 - See also `docs/THETA_PULL_SESSION_NOTES.md` (PR #60, `cf92578`) —
   operational checklist for the laptop bring-up, captures HTTP 478
   / dotted-ticker / probe-timeout gotchas surfaced during this work.
+
+### Foundation pass — 2026-05-05
+
+Repository organisation + AI-agent-onboarding pass. **Zero
+trading-logic changes.** Local was 3 commits behind `origin/main` at
+start; fast-forwarded cleanly to `433231f`.
+
+**Hygiene shipped:**
+
+- `.gitignore` extended with explicit `Theta/` (installed software +
+  creds.txt — see `DECISIONS.md` D6), `**/ThetaTerminal*.jar`,
+  `*/creds.txt`, `tradingview/tradingview-mcp-jackson/` (vendored
+  separate git repo + node_modules), and analyst-deliverable
+  patterns (`tradingview/research/*.docx`,
+  `tradingview/models/*.xlsx`, `tradingview/screenshots/`).
+- `data/bloomberg/.DS_Store` untracked — the only stray
+  Finder-metadata file in git.
+
+**Docs added at repo root (AI-agent handoff path):**
+
+| File | Purpose |
+|---|---|
+| `CHANGELOG.md` | Human-readable summary of meaningful changes; companion to `PROJECT_STATE.md` (current) and `ROADMAP.md` (next). |
+| `DECISIONS.md` | 10 architectural decisions (D1–D10) with **Why** + **Rejected alternatives** + **Pinned by**. |
+| `ROADMAP.md` | Tracks A (decision-layer correctness), B (documentation drift to repair), C (hygiene + governance follow-ups), D (out of scope). |
+| `DATA_POLICY.md` | Three data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures, drive-mount caveats. |
+| `TRADINGVIEW_INTEGRATION.md` | Parent guide covering both engine bridge (Pine indicator + webhook → EV) and analyst workspace (Claude-driven TradingView Desktop via MCP). |
+| `LAUNCH_READINESS.md` | Consolidated launch-blocker checklist: hard EV invariant, four authoritative routes, dossier R1–R6, pre-merge checklist. |
+| `COMMIT_GUIDE.md` | `type(scope):` + `Changed/Why/Tested/Tried-but-rejected/Unresolved/AI-handoff` body format with worked example. |
+
+**Existing docs touched (cross-refs / drift):**
+
+- `AGENTS.md` — extended with a **Read on demand** section pointing at
+  the new docs; updates to **What you can change** /
+  **What requires explicit ask** / **Commit format**.
+- `README.md` — top-of-file AI-agent banner pointing at AGENTS.md and
+  the new doc set, plus an explicit note that the body below is
+  partially out of date (the full repair is deferred to ROADMAP B1).
+- `CONTRIBUTING.md` — top-of-file AI-agent banner; commit-format
+  section now defers to `COMMIT_GUIDE.md`.
+- `tradingview/README.md` — fixed broken link to a non-existent
+  `TRADINGVIEW_INTEGRATION_REPORT.md`; now points at the new parent
+  doc and `docs/TRADINGVIEW_MCP_INTEGRATION.md`.
+
+**Untracked but ready to track on next branch** (ROADMAP C2):
+
+- `tradingview/CLAUDE.md`, `tradingview/OVERVIEW.md`,
+  `tradingview/launch-tradingview-cdp.sh`,
+  `tradingview/{research,models,pine}/.gitkeep`.
+
+**Not changed (deliberately):**
+
+- `engine/`, `engine_api.py`, `advisors/`, dashboard runtime,
+  `scripts/`, `tests/` — zero code edits this pass.
+- `CLAUDE.md` — user-maintained per AGENTS.md contract.
+- `pyproject.toml` — known-stale entries are tracked in ROADMAP B5.
+- `data/bloomberg/sp500_*.csv`, `treasury_yields.csv` — local
+  modifications from a yfinance refresh; the
+  track-vs-gitignore decision is open (ROADMAP C1).
+
+**Verification:** decision-layer modules
+(`engine.ev_engine`, `engine.wheel_runner`,
+`engine.candidate_dossier`, `engine.tradingview_bridge`,
+`engine.tv_signals`, `engine.dealer_positioning`) all import
+cleanly post-pass.
 
 ## 4. Deprecated / phantom — do not extend
 

@@ -2,6 +2,13 @@
 
 Thank you for your interest in contributing to Smart Wheel Engine! This document provides guidelines for contributing.
 
+> **For AI agents (Claude, Codex, Cursor, Copilot, Aider, …):** Start
+> with [`AGENTS.md`](AGENTS.md), then [`CLAUDE.md`](CLAUDE.md) for
+> the structural contract, [`PROJECT_STATE.md`](PROJECT_STATE.md) for
+> what's authoritative right now, and [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md)
+> before your first commit. The sections below are the human-side
+> open-source workflow; the AI-agent handoff path is more direct.
+
 ## Getting Started
 
 ### Prerequisites
@@ -125,18 +132,29 @@ class TestOptionPricing:
 
 ### Commits
 
-- Use clear, descriptive commit messages
-- Reference issues when applicable
+The repo uses a structured `type(scope): summary` format with a
+labelled body (`Changed:` / `Why:` / `Tested:` / `Tried but
+rejected:` / `Unresolved:` / `AI handoff:`). The full standard with
+worked examples lives in [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) —
+read it before your first commit.
+
+Quick template:
 
 ```
-feat: Add third-order Greeks (Speed, Color, Ultima)
+type(scope): one-line summary in imperative voice
 
-- Implement Speed (dGamma/dS) for gamma sensitivity
-- Implement Color (dGamma/dT) for gamma decay
-- Implement Ultima (dVolga/dSigma) for vega convexity
-- Add comprehensive tests
+Changed:
+- bullet
 
-Closes #123
+Why:
+- the motivation, the constraint, the past incident
+
+Tested:
+- the exact command(s) you ran
+
+AI handoff:
+- a hint for the next agent (what to look at next, what this
+  exposes, what test to add later)
 ```
 
 ## Project Structure

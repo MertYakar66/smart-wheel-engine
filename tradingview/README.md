@@ -8,8 +8,12 @@ Visual cockpit for the Smart Wheel Engine. Ships three things:
 | `alert_payload_schema.json` | JSON Schema for the webhook body emitted by the indicator |
 | `README.md` | This file — setup and operational notes |
 
-The underlying architecture is documented in `TRADINGVIEW_INTEGRATION_REPORT.md`
-at the repo root. This README is the hands-on checklist.
+The underlying architecture is documented in
+[`TRADINGVIEW_INTEGRATION.md`](../TRADINGVIEW_INTEGRATION.md) at the
+repo root (parent guide covering both this engine bridge and the
+analyst workspace), and [`docs/TRADINGVIEW_MCP_INTEGRATION.md`](../docs/TRADINGVIEW_MCP_INTEGRATION.md)
+(MCP chart provider design contract). This README is the hands-on
+checklist for the engine bridge.
 
 ---
 

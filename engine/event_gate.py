@@ -200,9 +200,10 @@ class EventGate:
         )
 
         if earnings_df is not None and len(earnings_df) > 0:
+            import pandas as _pd  # local import to avoid hardening the module's import surface
             for _, row in earnings_df.iterrows():
                 ts = row.get("announcement_date")
-                if ts is None:
+                if ts is None or _pd.isna(ts):
                     continue
                 d = ts.date() if hasattr(ts, "date") else ts
                 gate.add_event(
@@ -214,9 +215,10 @@ class EventGate:
                 )
 
         if macro_df is not None and len(macro_df) > 0:
+            import pandas as _pd
             for _, row in macro_df.iterrows():
                 ts = row.get("date")
-                if ts is None:
+                if ts is None or _pd.isna(ts):
                     continue
                 d = ts.date() if hasattr(ts, "date") else ts
                 ev_kind = str(row.get("event", "custom")).lower()
@@ -233,9 +235,10 @@ class EventGate:
                 gate.add_event(ScheduledEvent(ticker="*", kind=ev_kind, event_date=d))
 
         if dividends_df is not None and len(dividends_df) > 0:
+            import pandas as _pd
             for _, row in dividends_df.iterrows():
                 ts = row.get("ex_date")
-                if ts is None:
+                if ts is None or _pd.isna(ts):
                     continue
                 d = ts.date() if hasattr(ts, "date") else ts
                 gate.add_event(

@@ -153,6 +153,73 @@ bundle into a future cleanup.
 
 ---
 
+## Track E — Coverage to 90%+ (multi-PR)
+
+Goal: raise CI `--cov-fail-under` from 70 to 90+ on the
+`engine/ + advisors/ + financial_news/ + news_pipeline/` scope.
+Baseline measured 2026-05-05: **63%** (12,884 statements, 4,324
+missing). Target: **90%+**. See `DECISIONS.md` D10 for the
+"invariants first, then 90% as a forcing function" framing.
+
+Each phase is **one reviewable PR**, not one big-bang push.
+
+### E1. Phase 1 — easy wins (this branch)
+**Status:** `in flight` (`claude/coverage-phase-1`)
+**Modules:** `engine/observability` (0% → 90%+),
+`engine/earnings_drift` (0% → 90%+), `engine/contracts` (40% → 90%+),
+`engine/policy_config` (33% → 90%+), `engine/event_gate` (57% → 90%+),
+`engine/news_sentiment` (43% → 90%+), `engine/tail_risk` (71% → 90%+).
+**Side effect:** uncovered + fixed `NaT`-handling crash in
+`event_gate.from_bloomberg_calendar` (see PR description).
+**Expected gain:** 63% → ~70%.
+
+### E2. Phase 2 — external data adapters with `requests-mock`
+**Status:** `next`
+**Modules:** `engine/external_data/cboe_adapter` (24%),
+`engine/external_data/edgar_adapter` (24%),
+`engine/external_data/fred_adapter` (52%),
+`engine/external_data/yfinance_adapter` (24%).
+**Approach:** install `requests-mock` (or `responses`); stub each
+remote endpoint with realistic + adversarial fixtures; assert the
+adapter's contract (no silent failures, retries, schema parsing).
+**Expected gain:** ~70% → ~75%.
+
+### E3. Phase 3 — `theta_connector` with mocked v3 endpoints
+**Status:** `next`
+**Module:** `engine/theta_connector` (currently 11% — 470 stmts,
+404 missing).
+**Approach:** mock the Theta v3 HTTP API surface. Will require
+fixture data for OHLCV, IV history, chains, surfaces. Reuse the
+existing `data_processed/theta/**` parquets as fixture seeds where
+possible.
+**Expected gain:** ~75% → ~80%.
+
+### E4. Phase 4 — deep-coverage on big in-scope modules
+**Status:** `next`
+**Modules:** `engine/risk_manager` (63%, 702 stmts),
+`engine/event_calendar` (31%, 368 stmts),
+`engine/strangle_timing` (76%, 334 stmts).
+**Approach:** target the missing branches surfaced by
+`--cov-report=term-missing`. Heavy on edge cases and adversarial
+inputs.
+**Expected gain:** ~80% → ~85%.
+
+### E5. Phase 5 — `news_pipeline/orchestrator` + scrapers + browser agents
+**Status:** `next` (largest scope; may split into E5a / E5b)
+**Modules:** `news_pipeline/orchestrator` (0%, 358 stmts),
+`news_pipeline/scrapers/{aggregator,browser_scraper,rss_scraper}.py`
+(0%-51%), `news_pipeline/browser_agents/*` (0% on most).
+**Approach:** build a `pytest`-friendly Playwright + browser-session
+mocking harness. Largest infrastructure investment of the five
+phases. Likely worth its own design doc before starting.
+**Expected gain:** ~85% → 90%+.
+
+### E6. Raise `--cov-fail-under` to 90 in `pyproject.toml`
+**Status:** `blocked` on E5
+**Action:** flip the gate once Phase 5 lands. Can be a one-line PR.
+
+---
+
 ## Track D — Things explicitly out of scope (do not propose)
 
 Reproduced from `CLAUDE.md` §4 so a fresh agent doesn't have to find

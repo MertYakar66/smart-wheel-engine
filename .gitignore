@@ -283,3 +283,29 @@ data/features/_backfill_log.csv
 
 # Theta / yfinance bulk pulls (regeneratable)
 data_processed/
+
+# =============================================================================
+# Theta Terminal — installed software, NOT project code
+# =============================================================================
+# The Theta/ directory holds the ThetaTerminal v3 jar (~60MB), supporting
+# libs (~180MB), creds.txt, and config.toml. It is the locally-installed
+# market-data terminal — never check it in. See LAPTOP_SETUP.md for the
+# install path; docs/THETA_USAGE.md for the per-endpoint reference.
+Theta/
+**/ThetaTerminal*.jar
+
+# =============================================================================
+# TradingView analyst workspace
+# =============================================================================
+# Vendored MCP server (separate git repo + node_modules, ~26MB). Treated as
+# a clone-it-yourself dependency; see docs/TRADINGVIEW_INTEGRATION.md.
+tradingview/tradingview-mcp-jackson/
+
+# Analyst deliverables — dated outputs that accumulate. Folder structure
+# (research/, models/, pine/) is preserved via .gitkeep; the artefacts are
+# regenerable from the analyst workflow.
+tradingview/research/*.docx
+tradingview/research/*.pdf
+tradingview/models/*.xlsx
+tradingview/models/*.csv
+tradingview/screenshots/

@@ -1,5 +1,7 @@
 """Tests for engine/contracts.py interface validation helpers."""
 
+import pandas as pd
+
 from engine.contracts import (
     REQUIRED_GREEK_KEYS,
     REQUIRED_LADDER_COLUMNS,
@@ -7,6 +9,8 @@ from engine.contracts import (
     RiskContract,
     StressTesterContract,
     validate_greeks_output,
+    validate_greeks_semantics,
+    validate_ladder_output,
 )
 
 
@@ -101,3 +105,93 @@ class TestProtocols:
     def test_stress_tester_contract_is_protocol(self):
         assert hasattr(StressTesterContract, "run_scenario")
         assert hasattr(StressTesterContract, "greeks_stress_ladder")
+
+
+class TestValidateLadderOutput:
+    def _good_ladder(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "spot_change": [-0.10, 0.0, 0.10],
+            "total_pnl": [100.0, 0.0, -100.0],
+            "delta_pnl": [80.0, 0.0, -80.0],
+            "gamma_pnl": [10.0, 0.0, -10.0],
+            "theta_pnl": [5.0, 5.0, 5.0],
+            "vega_pnl": [5.0, -5.0, -15.0],
+        })
+
+    def test_valid_ladder(self):
+        assert validate_ladder_output(self._good_ladder()) == []
+
+    def test_not_a_dataframe(self):
+        errors = validate_ladder_output("not a dataframe")
+        assert len(errors) == 1
+        assert "Expected DataFrame" in errors[0]
+
+    def test_empty_dataframe(self):
+        errors = validate_ladder_output(pd.DataFrame())
+        assert any("empty" in e for e in errors)
+
+    def test_missing_columns(self):
+        df = pd.DataFrame({"spot_change": [0.0], "total_pnl": [0.0]})
+        errors = validate_ladder_output(df)
+        assert any("Missing required columns" in e for e in errors)
+
+    def test_non_numeric_column(self):
+        df = self._good_ladder()
+        df["delta_pnl"] = ["a", "b", "c"]
+        errors = validate_ladder_output(df)
+        assert any("delta_pnl" in e and "numeric" in e for e in errors)
+
+
+class TestValidateGreeksSemantics:
+    def _good(self, **overrides) -> dict:
+        base = {"price": 5.0, "delta": 0.5, "gamma": 0.02, "vega": 0.2, "theta": -10.0}
+        base.update(overrides)
+        return base
+
+    def test_valid_call(self):
+        assert validate_greeks_semantics(self._good(delta=0.5), "call") == []
+
+    def test_valid_put(self):
+        assert validate_greeks_semantics(self._good(delta=-0.5), "put") == []
+
+    def test_negative_price_flagged(self):
+        errors = validate_greeks_semantics(self._good(price=-1.0), "call")
+        assert any("price" in e and "negative" in e for e in errors)
+
+    def test_negative_call_delta_flagged(self):
+        errors = validate_greeks_semantics(self._good(delta=-0.5), "call")
+        assert any("delta" in e for e in errors)
+
+    def test_positive_put_delta_flagged(self):
+        errors = validate_greeks_semantics(self._good(delta=0.5), "put")
+        assert any("delta" in e for e in errors)
+
+    def test_delta_magnitude_above_one_flagged(self):
+        errors = validate_greeks_semantics(self._good(delta=1.5), "call")
+        assert any("|delta|" in e for e in errors)
+
+    def test_negative_gamma_flagged(self):
+        errors = validate_greeks_semantics(self._good(gamma=-0.01), "call")
+        assert any("gamma" in e for e in errors)
+
+    def test_negative_vega_flagged(self):
+        errors = validate_greeks_semantics(self._good(vega=-0.5), "call")
+        assert any("vega" in e for e in errors)
+
+    def test_huge_theta_with_meaningful_delta_flagged(self):
+        # Theta magnitude > 500 suggests daily, not annual, units
+        errors = validate_greeks_semantics(
+            self._good(theta=-1000.0, delta=0.5), "call",
+        )
+        assert any("theta" in e and "annual" in e for e in errors)
+
+    def test_huge_theta_with_tiny_delta_not_flagged(self):
+        # Sub-1% delta — theta sanity check is bypassed
+        errors = validate_greeks_semantics(
+            self._good(theta=-1000.0, delta=0.005), "call",
+        )
+        assert not any("annual" in e for e in errors)
+
+    def test_missing_keys_default_to_zero(self):
+        # Empty dict should not crash; values default to 0 → no violations
+        assert validate_greeks_semantics({}, "call") == []

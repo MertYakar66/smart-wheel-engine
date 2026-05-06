@@ -64,6 +64,26 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   Three loops fixed (earnings / macro / dividends). Found via the
   Phase 1 coverage tests in `#65` — exactly the kind of latent bug
   D10's "coverage as forcing function" framing predicts.
+- **`engine/theta_connector.py`** (issue #71, `7a1ac38`) — silent
+  Bloomberg CSV substitution on per-endpoint Theta failures. The
+  connector treated 30s read-timeouts on per-symbol
+  `/v3/option/history/eod` calls as "ThetaTerminal not reachable"
+  and fell back to CSV, contaminating downstream features with
+  mixed-provenance data while the Terminal itself was healthy
+  throughout. Fix: a per-instance probe + raise contract.
+  `_fetch` now catches `(ConnectionError, RetryError, Timeout)`
+  and routes to `_handle_network_failure`, which probes
+  `is_terminal_alive` (5s GET on
+  `/v3/option/list/expirations?symbol=SPY`). Probe healthy → raise
+  `PerEndpointFailure` (typed exception carrying a `FailureRecord`).
+  Probe also fails → set `self._terminal_down` (per-instance flag),
+  return empty DataFrame, and the existing empty-df → super
+  Bloomberg fallback handles the carve-out. Subsequent failures
+  within the same instance short-circuit on the flag without
+  re-probing. `get_failures()` returns + clears a per-instance
+  accumulator that pullers will write to a JSON sidecar at
+  end-of-run (C4). Per-puller wiring lands separately in this
+  PR. See `DECISIONS.md` D11.
 
 ### Infra
 - **`pyproject.toml [project.optional-dependencies] dev`** — declared

@@ -288,6 +288,110 @@ Track E for the per-PR breakdown that landed the 82% baseline.
 
 ---
 
+## D11. Fail loudly on per-endpoint Theta failures (no silent CSV substitution)
+
+**Decision:** A network-level failure (`ConnectionError` /
+`RetryError` / `Timeout`) on any per-endpoint ThetaData v3 call
+triggers a 5-second probe of
+`/v3/option/list/expirations?symbol=SPY` via
+`ThetaConnector.is_terminal_alive`. The outcome of that probe
+determines what happens next:
+
+  * **Probe healthy** → `ThetaConnector._fetch` records a
+    `FailureRecord` and raises `PerEndpointFailure`. Callers — the
+    per-ticker loops in pullers — MUST catch the exception, mark
+    the ticker as failed for this run, and continue. They MUST NOT
+    fall back to Bloomberg CSV; that's the contamination case.
+  * **Probe also fails** → the connector enters per-instance
+    "Terminal-down mode" (sets `self._terminal_down`), logs the
+    event once, and returns an empty DataFrame. The existing
+    empty-df → `super().get_X(...)` Bloomberg fallback at the
+    caller layer takes over for the remainder of that connector
+    instance's lifetime. Subsequent network failures within the
+    same instance short-circuit on the flag without re-probing.
+
+Carve-outs:
+
+  * Globally-down Terminal → CSV fallback is acceptable.
+    Backfilling with the historical store while the Terminal is
+    offline is by design, not the contamination case.
+  * HTTP-status responses (400 / 403 / 404 / 500 / 502 / 503) and
+    empty-body "no data here" responses are NOT failures. They
+    remain deliberate signals from the Terminal (tier blocks,
+    symbol not in Theta) and continue to return empty DataFrames
+    as before.
+
+State scope:
+
+  * `self._failures` and `self._terminal_down` are per-connector-
+    instance. A puller using multiple `ThetaConnector` instances
+    must aggregate failures manually (no puller does today; the
+    contract is pinned in the docstring).
+  * `self._terminal_down` does not auto-reset within an instance.
+    Callers that need to retry the probe should construct a fresh
+    connector.
+
+**Why:** The 2026-05-06 `pull_theta_options_flow` run logged 7
+"ThetaTerminal not reachable" warnings within a 3-minute window
+while the Terminal was healthy throughout — HTTP 200 on the probe
+URL in ~210ms before, during, and after the warnings. The actual
+failures were 30s read-timeouts on per-symbol
+`/v3/option/history/eod` calls. The connector misdiagnosed these
+as global Terminal-unreachable and silently substituted Bloomberg
+CSV. Downstream feature computation could not distinguish
+Theta-sourced rows from CSV-fallback rows; EV inputs ran on
+mixed-provenance data. Issue #71 made the choice explicit:
+per-endpoint failures with a healthy Terminal should kill the
+per-ticker path for that run, not silently substitute. Observable
+failures beat silent contamination.
+
+The typed exception (rather than a sentinel-DataFrame discipline)
+is deliberate. Empty-DataFrame was already the convention for "no
+data here" — tier blocks, symbols Theta has no history for, etc. A
+new contamination-bug fix needs a different signal so callers
+cannot accidentally treat the two cases identically.
+`PerEndpointFailure` is unmistakable; an empty DataFrame is not.
+
+The connector-side failure accumulator (`self._failures` +
+`get_failures()`) exists so each puller can add ONE end-of-run
+sidecar write rather than each per-ticker `try/except` carrying
+manifest-write boilerplate. Centralising the accumulator gives a
+single source of truth for what failed in a run; pullers consume
+it via `connector.get_failures()` (returns + clears) and write a
+JSON sidecar at
+`data_processed/theta/_manifest_failures_<step>_<utc_ts>.json`.
+
+**Rejected alternatives:**
+
+- *Sentinel-DataFrame discipline (return `None` on per-endpoint
+  failure instead of raise).* Fragile, because empty-DataFrame is
+  already the no-data convention. Two semantically-distinct return
+  values on the same call site are too easy to confuse.
+- *Per-puller probe (each puller checks `is_terminal_alive`
+  itself).* Duplicates the probe across every puller and
+  re-introduces the misdiagnosis bug if any puller forgets it.
+- *Also abort on tier-blocked 403s.* Wrong layer — 403s are
+  deliberate "your subscription doesn't cover this", not
+  contamination. Keeping them as empty-df preserves the existing
+  tier-aware fallback chain. `get_vix_family`'s CBOE / Yahoo
+  fallback (different data sources, not Bloomberg CSV) is
+  intentionally left alone for the same reason.
+- *Auto-reset `self._terminal_down` after N seconds of probe-
+  success.* Rejected for v1: pullers typically run end-to-end with
+  one connector per run; once the Terminal is down for a run,
+  retrying mid-run rarely helps. Revisit if a long-lived service
+  starts using the connector.
+
+**Pinned by:** `engine/theta_connector.py`
+(`PerEndpointFailure`, `FailureRecord`, `_handle_network_failure`,
+`get_failures`); `tests/test_theta_connector_v3.py::TestPerEndpointFailure`
+(probe-healthy raise, probe-fails empty + flag, Terminal-down
+re-probe skip, fresh-instance contract, `get_fundamentals`
+propagation, JSON-serialisable record, and a parametrized trio
+covering `ConnectionError` / `ReadTimeout` / `RetryError`).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

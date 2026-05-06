@@ -221,53 +221,70 @@ marked **dormant**).
 
 ---
 
-## D10. Invariants first, then 90% line coverage as a forcing function
+## D10. Invariants first, then 80% line coverage as a forcing function
 
 **Decision:** The test suite enumerates structural invariants
 (EV authority, dossier rules R1–R6, percent↔decimal normalisation,
 P&L accumulator orthogonality) **before** chasing line coverage.
-Once invariants are pinned, target **90% line coverage** on the CI
-scope (`engine/`, `advisors/`, `financial_news/`, `news_pipeline/`,
-modulo the documented omits in `pyproject.toml`) as a forcing
-function for edge-case discovery.
+Once invariants are pinned, target **80% line coverage** on the
+CI scope (`src + engine + advisors + financial_news`, per
+`.github/workflows/ci.yml`) as a forcing function for edge-case
+discovery.
 
-The launch-blocker subset in `TESTING.md` (and consolidated in
+The launch-blocker subset in `TESTING.md` (consolidated in
 `LAUNCH_READINESS.md`) is the floor for any decision-layer change;
 the full suite (`pytest tests/ -v`) is the floor for shipping
 anything that touches `engine/ev_engine.py`,
 `engine/wheel_runner.py`, or `engine/candidate_dossier.py`. The
-90% coverage gate is a check on the **next layer down**: it forces
+80% coverage gate is a check on the **next layer down**: it forces
 us to think about error paths, edge cases, and adversarial inputs
 on every module we ship, not just the EV authority itself.
 
-**Why:** Coverage tells you which lines ran; invariants tell you
-whether the system still does what it promises. Both matter. The
-audit history (see `PROJECT_STATE.md` §2) is mostly invariant-
-pinning work because that was the highest-leverage gap when those
-audits ran. With the invariants now pinned, covered-but-untested
-edge paths are the next-most-likely source of latent bugs — the
-2026-05-05 coverage Phase 1 PR found a real `NaT` crash in
-`event_gate.from_bloomberg_calendar` purely by exercising the path.
+**Why 80% (not 90%):** the 2026-05-05/06 coverage push (CHANGELOG,
+PRs `#63`–`#69`) landed at 82% on the CI scope. The remaining ~10pp
+to 90% lives in `news_pipeline/{browser_agents,scrapers,
+orchestrator}.py` — research-tier code (`MODULE_INDEX.md` "Other
+top-level dirs"), not on the EV decision path. Engine consumes
+those modules' output via files on disk; producers' browser
+plumbing would require ~hundreds of lines of Playwright + aiohttp
+mock fixture infrastructure to test. Pursuing it for the
+percentage would be coverage theater (Goodhart's law). 80% pins
+the EV-adjacent floor we earned, with 2pp buffer for normal PR-to-
+PR noise.
+
+**Why coverage at all:** Coverage tells you which lines ran;
+invariants tell you whether the system still does what it
+promises. Both matter. The audit history (`PROJECT_STATE.md` §2)
+is mostly invariant-pinning work because that was the highest-
+leverage gap when those audits ran. With the invariants now
+pinned, covered-but-untested edge paths are the next-most-likely
+source of latent bugs — the 2026-05 Phase 1 PR (`#65`) found a
+real `NaT` crash in `event_gate.from_bloomberg_calendar` purely by
+exercising the path. That single bug paid for the whole exercise.
 
 **Rejected alternatives:**
+- *90% as the gate, with research-tier modules excluded via
+  `[tool.coverage.run] omit`.* Hides the modules from the report
+  rather than admitting they're not value-bearing. 80% with full
+  visibility is more honest.
 - *100% coverage as the gate.* Pushes test authors toward trivial
   exercising tests for getters, dataclass fields, and `__init__`s
-  that add noise without catching bugs. 90% is the empirical knee
-  of the curve.
-- *Coverage threshold on the full repo.* `dashboard/` (Next.js),
-  `local_agent/` (Streamlit + Ollama), `ml/` (research), `src/`
-  (deprecated, see D2) are not the value-bearing decision surface.
-  Keeping the gate on the four core packages keeps it actionable.
+  that add noise without catching bugs.
 - *Skipping the gate entirely.* Leaves edge-case discovery to
   bug reports from production usage, which is too late for the
   trading-decision domain.
+- *82% (the current measured baseline).* Brittle — breaks on any
+  small refactor that touches an untested branch. Defeats the
+  forcing function: every change becomes about not regressing the
+  number rather than about real edge-case discovery.
 
 **Pinned by:** `TESTING.md`, `LAUNCH_READINESS.md`, every
 `test_audit_*.py`, `tests/test_dossier_invariant.py`,
 `tests/test_authority_hardening.py`, `tests/test_launch_blockers.py`.
-The 90% gate itself is enforced by `pyproject.toml`
-`[tool.coverage.report] fail_under` (currently being raised in
-phases — see `ROADMAP.md` for Phase 1-5 plan).
+The 80% gate itself is enforced by `pyproject.toml`
+`[tool.coverage.report] fail_under = 80` and the matching
+`.github/workflows/ci.yml --cov-fail-under=80`. See `ROADMAP.md`
+Track E for the per-PR breakdown that landed the 82% baseline.
 
 ---
 

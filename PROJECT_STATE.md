@@ -1,7 +1,7 @@
 # Project State
 
-**Last updated:** 2026-05-05 (against `origin/main` at `433231f`,
-post-foundation-pass).
+**Last updated:** 2026-05-06 (against `origin/main` at `3754779`,
+post-coverage-push merging PRs #63–#69).
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
@@ -212,6 +212,54 @@ start; fast-forwarded cleanly to `433231f`.
 `engine.candidate_dossier`, `engine.tradingview_bridge`,
 `engine.tv_signals`, `engine.dealer_positioning`) all import
 cleanly post-pass.
+
+### Coverage push — 2026-05-05/06 (PRs #63–#69)
+
+Six PRs landed cleanly into main, taking the test suite from
+**1,106 → 1,580 tests (+474)** and the CI-scope coverage
+(`src + engine + advisors + financial_news`) from baseline ~63%
+to **82%**. Test runtime stable at ~1m50s. Zero behaviour
+regressions. **CHANGELOG `2026-05` is the source of truth for
+per-PR detail.**
+
+**The `--cov-fail-under` gate moved 70 → 80** in this wave:
+- `pyproject.toml [tool.coverage.report] fail_under = 80`
+- `.github/workflows/ci.yml --cov-fail-under=80`
+- 80 pins the floor we earned (82% baseline) with 2pp buffer for
+  normal PR-to-PR noise. See `DECISIONS.md` D10 for the rejected
+  alternatives (75 = too loose, 82 = brittle).
+
+**Real bug surfaced and fixed:** `engine/event_gate.py`
+`from_bloomberg_calendar` was admitting `pd.NaT` rows (only
+filtered Python `None`), which then crashed `is_blocked()` on a
+NaT-vs-`date` comparison. Three loops fixed in `#65`. Exactly the
+class of latent bug D10's "coverage as forcing function" framing
+predicts.
+
+**ROADMAP Track E5b cancelled.** The remaining ~10pp to 90% lives
+in `news_pipeline/{browser_agents,scrapers,orchestrator}.py` —
+research-tier code (`MODULE_INDEX.md` "Other top-level dirs"), not
+on the EV decision path, and would require ~hundreds of lines of
+Playwright + aiohttp mock fixture infra. The engine consumes those
+modules' outputs via files on disk; the consumers are already
+covered. Pushing for higher % on the producers would be coverage
+theater.
+
+**Lint debt (44 errors)** still red on main as of `3754779`. PR
+#64 closed 187/229 mechanical errors but the residual judgement-
+required tail (UP038 unsafe-fixes, B904 raise-from, B023 closure
+trap, F841 unused locals, B019 mutable defaults, F821 undefined
+names, E741 ambiguous names) needs a follow-up PR. Tracked in
+`ROADMAP.md` Track F.
+
+**Open follow-ups (small, self-contained):**
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Lint debt cleanup (44 → 0 errors) | next |
+| 2 | yfinance CSV refresh stash decision | next — real revisions, not noise; ROADMAP C1 |
+| 3 | TRADINGVIEW_INTEGRATION.md MCP repo URL placeholder | needs user input |
+| 4 | Original Theta walkthrough — `probe_theta_capabilities.py` step 2 | needs laptop run |
 
 ## 4. Deprecated / phantom — do not extend
 

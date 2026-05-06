@@ -161,6 +161,6 @@ exclude_lines = [
     "raise NotImplementedError",
     "if args\\.",  # CLI argument handling
 ]
-fail_under = 70
+fail_under = 80
 show_missing = true
 skip_empty = true

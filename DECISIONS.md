@@ -331,6 +331,25 @@ State scope:
     Callers that need to retry the probe should construct a fresh
     connector.
 
+**Implementation note — per-ticker connector pullers.** Most pullers
+use a single main-scoped `ThetaConnector` and drain
+`conn.get_failures()` at end-of-main into the JSON sidecar
+(`data_processed/theta/_manifest_failures_<step>_<utc_ts>.json`,
+written from a `try/finally` so half-run pulls still emit it). The
+outliers are `scripts/pull_theta_options_flow.py`,
+`scripts/pull_theta_corp_actions.py`, and
+`scripts/pull_theta_option_tape.py`, which instantiate a fresh
+connector inside each worker (the first to bypass the per-instance
+`_MAX_CONCURRENT=4` semaphore for higher run-wide concurrency; the
+others' rationale is not pinned in the codebase). The contamination
+fix still operates correctly there — `PerEndpointFailure` propagates
+through the worker's `except Exception` catch as a FAIL stdout row,
+no parquet is written — but the connector's `_failures` list dies
+with the worker, so these pullers do not write a manifest sidecar.
+If structured failure observability becomes valuable for any of
+them, hoist to a single shared connector first (and accept the
+throughput change).
+
 **Why:** The 2026-05-06 `pull_theta_options_flow` run logged 7
 "ThetaTerminal not reachable" warnings within a 3-minute window
 while the Terminal was healthy throughout — HTTP 200 on the probe

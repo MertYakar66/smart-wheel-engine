@@ -35,11 +35,13 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import logging
 import socket
 import sys
 import time
-from datetime import date, timedelta
+from dataclasses import asdict
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 if hasattr(sys.stdout, "buffer"):
@@ -155,83 +157,107 @@ def main() -> int:
         return 2
 
     conn = ThetaConnector()
-    end_d = date.fromisoformat(args.end) if args.end else date.today()
-    start_d = (
-        date.fromisoformat(args.start)
-        if args.start
-        else end_d - timedelta(days=int(args.years * 365))
-    )
-    if args.incremental:
-        last = _last_date_in_store()
-        if last is not None:
-            start_d = max(start_d, last + timedelta(days=1))
-            if start_d > end_d:
-                print(f"Up-to-date (last={last}).")
-                return 0
-
-    print(f"Pulling VX futures  range={start_d}..{end_d}  months_forward={args.months}")
-    t0 = time.perf_counter()
-
-    # Enumerate all expirations whose settlement is after start_d — we need
-    # each contract that was trading during the window, not just current.
-    exps = _list_vx_expirations(conn, min_end=start_d)
-    if not exps:
-        print("No VX expirations returned — your subscription likely excludes futures.")
-        print("Run probe_theta_capabilities.py to confirm.")
-        return 1
-    print(f"Found {len(exps)} VX expirations from {exps[0]} to {exps[-1]}")
-
-    # Only pull contracts that expire within ~1y of window end (the "active"
-    # curve). Capping prevents pulling 20+ contracts per date.
-    active_exps = [e for e in exps if e <= end_d + timedelta(days=365)]
-
-    frames: list[pd.DataFrame] = []
-    for exp in active_exps:
-        df = _pull_future_history(conn, exp, start_d, min(end_d, exp))
-        if df.empty:
-            continue
-        frames.append(df)
-        print(
-            f"  {exp.isoformat()}  rows={len(df):<5}  "
-            f"{df['date'].min().date()} to {df['date'].max().date()}"
+    try:
+        end_d = date.fromisoformat(args.end) if args.end else date.today()
+        start_d = (
+            date.fromisoformat(args.start)
+            if args.start
+            else end_d - timedelta(days=int(args.years * 365))
         )
+        if args.incremental:
+            last = _last_date_in_store()
+            if last is not None:
+                start_d = max(start_d, last + timedelta(days=1))
+                if start_d > end_d:
+                    print(f"Up-to-date (last={last}).")
+                    return 0
 
-    if not frames:
-        print("No futures data returned — subscription may not include futures history.")
-        return 1
+        print(f"Pulling VX futures  range={start_d}..{end_d}  months_forward={args.months}")
+        t0 = time.perf_counter()
 
-    long = pd.concat(frames, ignore_index=True)
-    long["date"] = pd.to_datetime(long["date"]).dt.normalize()
-    long["expiration"] = pd.to_datetime(long["expiration"]).dt.normalize()
-    long = long.sort_values(["date", "expiration"]).reset_index(drop=True)
+        # Enumerate all expirations whose settlement is after start_d — we need
+        # each contract that was trading during the window, not just current.
+        exps = _list_vx_expirations(conn, min_end=start_d)
+        if not exps:
+            print("No VX expirations returned — your subscription likely excludes futures.")
+            print("Run probe_theta_capabilities.py to confirm.")
+            return 1
+        print(f"Found {len(exps)} VX expirations from {exps[0]} to {exps[-1]}")
 
-    # Derive month_index per (date): front month is rank 1 by dte.
-    long["month_index"] = long.groupby("date")["dte"].rank(method="first").astype(int)
-    long = long[long["month_index"] <= args.months]
+        # Only pull contracts that expire within ~1y of window end (the "active"
+        # curve). Capping prevents pulling 20+ contracts per date.
+        active_exps = [e for e in exps if e <= end_d + timedelta(days=365)]
 
-    # Merge with existing
-    if OUT_LONG.exists():
-        old = pd.read_parquet(OUT_LONG)
-        combined = pd.concat([old, long], ignore_index=True)
-        combined = combined.drop_duplicates(subset=["date", "expiration"], keep="last")
-    else:
-        combined = long
-    combined = combined.sort_values(["date", "expiration"]).reset_index(drop=True)
-    OUT_LONG.parent.mkdir(parents=True, exist_ok=True)
-    combined.to_parquet(OUT_LONG, index=False)
+        frames: list[pd.DataFrame] = []
+        for exp in active_exps:
+            df = _pull_future_history(conn, exp, start_d, min(end_d, exp))
+            if df.empty:
+                continue
+            frames.append(df)
+            print(
+                f"  {exp.isoformat()}  rows={len(df):<5}  "
+                f"{df['date'].min().date()} to {df['date'].max().date()}"
+            )
 
-    # Wide view: UX1..UX{months} columns
-    wide = combined.pivot_table(index="date", columns="month_index", values="close", aggfunc="last")
-    wide.columns = [f"ux{int(c)}" for c in wide.columns]
-    wide = wide.reset_index().sort_values("date")
-    wide.to_parquet(OUT_WIDE, index=False)
+        if not frames:
+            print("No futures data returned — subscription may not include futures history.")
+            return 1
 
-    elapsed = time.perf_counter() - t0
-    print()
-    print(f"Wrote {len(combined)} long rows → {OUT_LONG}")
-    print(f"Wide curve ({len(wide)} dates, {wide.shape[1] - 1} columns) → {OUT_WIDE}")
-    print(f"Done in {elapsed:.1f}s")
-    return 0
+        long = pd.concat(frames, ignore_index=True)
+        long["date"] = pd.to_datetime(long["date"]).dt.normalize()
+        long["expiration"] = pd.to_datetime(long["expiration"]).dt.normalize()
+        long = long.sort_values(["date", "expiration"]).reset_index(drop=True)
+
+        # Derive month_index per (date): front month is rank 1 by dte.
+        long["month_index"] = long.groupby("date")["dte"].rank(method="first").astype(int)
+        long = long[long["month_index"] <= args.months]
+
+        # Merge with existing
+        if OUT_LONG.exists():
+            old = pd.read_parquet(OUT_LONG)
+            combined = pd.concat([old, long], ignore_index=True)
+            combined = combined.drop_duplicates(subset=["date", "expiration"], keep="last")
+        else:
+            combined = long
+        combined = combined.sort_values(["date", "expiration"]).reset_index(drop=True)
+        OUT_LONG.parent.mkdir(parents=True, exist_ok=True)
+        combined.to_parquet(OUT_LONG, index=False)
+
+        # Wide view: UX1..UX{months} columns
+        wide = combined.pivot_table(
+            index="date", columns="month_index", values="close", aggfunc="last"
+        )
+        wide.columns = [f"ux{int(c)}" for c in wide.columns]
+        wide = wide.reset_index().sort_values("date")
+        wide.to_parquet(OUT_WIDE, index=False)
+
+        elapsed = time.perf_counter() - t0
+        print()
+        print(f"Wrote {len(combined)} long rows → {OUT_LONG}")
+        print(f"Wide curve ({len(wide)} dates, {wide.shape[1] - 1} columns) → {OUT_WIDE}")
+        print(f"Done in {elapsed:.1f}s")
+        return 0
+    finally:
+        # Per-endpoint failure manifest sidecar (issue #71, DECISIONS.md D11).
+        # Drains conn.get_failures() and writes a JSON sidecar so a downstream
+        # observer can distinguish "this ticker had no data" from "this ticker
+        # hit a per-endpoint timeout while the Terminal was healthy". Runs in
+        # finally so half-run pulls (KeyboardInterrupt etc.) still emit the
+        # manifest — half-run is exactly when this signal matters most.
+        failures = conn.get_failures()
+        if failures:
+            manifest_dir = Path("data_processed/theta")
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            step_name = Path(__file__).stem
+            manifest_path = manifest_dir / f"_manifest_failures_{step_name}_{ts}.json"
+            payload = [asdict(r) for r in failures]
+            manifest_path.write_text(json.dumps(payload, indent=2))
+            print(
+                f"[{step_name}] wrote {len(failures)} per-endpoint failure(s) → "
+                f"{manifest_path.relative_to(Path.cwd())}",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

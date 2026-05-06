@@ -12,10 +12,13 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import json
+
 import pandas as pd
 import pytest
 import requests
 import requests_mock as rm_module
+from dataclasses import asdict
 
 from engine.theta_connector import (
     FailureRecord,
@@ -907,9 +910,6 @@ class TestPerEndpointFailure:
     ):
         """FailureRecord must round-trip through dataclasses.asdict for the
         sidecar manifest writer (C4)."""
-        from dataclasses import asdict
-        import json
-
         mock.get(
             re.compile(r".*stock/history/eod.*"),
             exc=requests.exceptions.ConnectionError,

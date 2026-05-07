@@ -275,6 +275,17 @@ def _process_one(args: tuple[str, date, date, bool]) -> tuple[str, bool, str]:
     if not force and out_path.exists():
         return ticker, True, "cached"
     try:
+        # Per-ticker connector instance — _MAX_CONCURRENT=4 semaphore is per-
+        # instance, so this pattern bypasses it for higher run-wide concurrency.
+        # Side effect: connector._failures dies when the worker returns, so this
+        # puller doesn't write a _manifest_failures_*.json sidecar like the
+        # main-scoped pullers (indices_history / iv_surface_history /
+        # vix_futures) do. Contamination prevention still works
+        # (PerEndpointFailure raises → worker's except Exception → FAIL stdout
+        # row → no parquet write for that ticker), per DECISIONS.md D11. If
+        # structured failure observability becomes valuable for this puller,
+        # hoist to a single shared connector first (and accept the
+        # throughput change).
         conn = ThetaConnector()
         raw = _fetch_flow(conn, ticker, start, end)
         df = _summarise(raw, ticker)

@@ -40,11 +40,13 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import logging
 import socket
 import sys
 import time
-from datetime import date, timedelta
+from dataclasses import asdict
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -266,90 +268,112 @@ def main() -> int:
         return 2
 
     conn = ThetaConnector()
-    end_d = date.fromisoformat(args.end) if args.end else date.today()
-    capped = _cap_end_date(end_d, date.today())
-    if capped != end_d:
-        print(f"Capping end_d {end_d} → {capped} (today's EOD not yet published)")
-        end_d = capped
-    default_start = end_d - timedelta(days=int(args.years * 365))
-    if args.start:
-        default_start = date.fromisoformat(args.start)
+    try:
+        end_d = date.fromisoformat(args.end) if args.end else date.today()
+        capped = _cap_end_date(end_d, date.today())
+        if capped != end_d:
+            print(f"Capping end_d {end_d} → {capped} (today's EOD not yet published)")
+            end_d = capped
+        default_start = end_d - timedelta(days=int(args.years * 365))
+        if args.start:
+            default_start = date.fromisoformat(args.start)
 
-    print(f"Theta indices pull  symbols={len(args.symbols)}  end={end_d}")
-    t0 = time.perf_counter()
-    frames: list[pd.DataFrame] = []
-    n_ok = n_fail = n_skipped = 0
-    for sym in args.symbols:
-        s_start = default_start
-        if args.incremental:
-            last = _last_theta_date(sym)
-            if last is not None:
-                s_start = max(default_start, last + timedelta(days=1))
-                if s_start > end_d:
-                    print(f"  {sym:<7} up-to-date (last theta={last})")
-                    n_skipped += 1
-                    continue
-        df = _pull(conn, sym, s_start, end_d)
-        if df.empty:
-            n_fail += 1
-            print(f"  {sym:<7} FAIL  no data from any endpoint  range={s_start}..{end_d}")
-            continue
-        n_ok += 1
-        print(
-            f"  {sym:<7} OK    rows={len(df):<5}  "
-            f"{df['date'].min().date()} to {df['date'].max().date()}"
-        )
-        frames.append(df)
+        print(f"Theta indices pull  symbols={len(args.symbols)}  end={end_d}")
+        t0 = time.perf_counter()
+        frames: list[pd.DataFrame] = []
+        n_ok = n_fail = n_skipped = 0
+        for sym in args.symbols:
+            s_start = default_start
+            if args.incremental:
+                last = _last_theta_date(sym)
+                if last is not None:
+                    s_start = max(default_start, last + timedelta(days=1))
+                    if s_start > end_d:
+                        print(f"  {sym:<7} up-to-date (last theta={last})")
+                        n_skipped += 1
+                        continue
+            df = _pull(conn, sym, s_start, end_d)
+            if df.empty:
+                n_fail += 1
+                print(f"  {sym:<7} FAIL  no data from any endpoint  range={s_start}..{end_d}")
+                continue
+            n_ok += 1
+            print(
+                f"  {sym:<7} OK    rows={len(df):<5}  "
+                f"{df['date'].min().date()} to {df['date'].max().date()}"
+            )
+            frames.append(df)
 
-    if not frames:
-        if n_skipped == len(args.symbols):
-            # Every symbol is up-to-date. Nothing to fetch, nothing failed.
-            elapsed = time.perf_counter() - t0
-            print()
-            print(f"Done in {elapsed:.1f}s  |  all {n_skipped} symbols up-to-date")
-            return 0
-        print(
-            "Nothing fetched. Your tier may not include indices history — "
-            "run probe_theta_capabilities.py to confirm."
-        )
-        return 1
+        if not frames:
+            if n_skipped == len(args.symbols):
+                # Every symbol is up-to-date. Nothing to fetch, nothing failed.
+                elapsed = time.perf_counter() - t0
+                print()
+                print(f"Done in {elapsed:.1f}s  |  all {n_skipped} symbols up-to-date")
+                return 0
+            print(
+                "Nothing fetched. Your tier may not include indices history — "
+                "run probe_theta_capabilities.py to confirm."
+            )
+            return 1
 
-    new = pd.concat(frames, ignore_index=True)
-    new["date"] = pd.to_datetime(new["date"]).dt.normalize()
+        new = pd.concat(frames, ignore_index=True)
+        new["date"] = pd.to_datetime(new["date"]).dt.normalize()
 
-    # Merge with existing: Theta rows win over yahoo on the same (date, symbol).
-    if OUT_LONG.exists():
-        old = pd.read_parquet(OUT_LONG)
-        old["date"] = pd.to_datetime(old["date"]).dt.normalize()
-        # Rank sources so Theta beats Yahoo during dedup
-        src_rank = {"theta": 2, "yahoo": 1}
-        combined = pd.concat([old, new], ignore_index=True)
-        combined["_rank"] = combined["source"].map(src_rank).fillna(0)
-        combined = (
-            combined.sort_values(["symbol", "date", "_rank"])
-            .drop_duplicates(subset=["symbol", "date"], keep="last")
-            .drop(columns="_rank")
-            .sort_values(["symbol", "date"])
-            .reset_index(drop=True)
-        )
-    else:
-        combined = new
+        # Merge with existing: Theta rows win over yahoo on the same (date, symbol).
+        if OUT_LONG.exists():
+            old = pd.read_parquet(OUT_LONG)
+            old["date"] = pd.to_datetime(old["date"]).dt.normalize()
+            # Rank sources so Theta beats Yahoo during dedup
+            src_rank = {"theta": 2, "yahoo": 1}
+            combined = pd.concat([old, new], ignore_index=True)
+            combined["_rank"] = combined["source"].map(src_rank).fillna(0)
+            combined = (
+                combined.sort_values(["symbol", "date", "_rank"])
+                .drop_duplicates(subset=["symbol", "date"], keep="last")
+                .drop(columns="_rank")
+                .sort_values(["symbol", "date"])
+                .reset_index(drop=True)
+            )
+        else:
+            combined = new
 
-    OUT_LONG.parent.mkdir(parents=True, exist_ok=True)
-    combined.to_parquet(OUT_LONG, index=False)
+        OUT_LONG.parent.mkdir(parents=True, exist_ok=True)
+        combined.to_parquet(OUT_LONG, index=False)
 
-    # Rebuild wide view
-    wide = combined.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
-    wide.columns = [f"{c.lower()}_close" for c in wide.columns]
-    wide = wide.reset_index().sort_values("date")
-    wide.to_parquet(OUT_WIDE, index=False)
+        # Rebuild wide view
+        wide = combined.pivot_table(index="date", columns="symbol", values="close", aggfunc="last")
+        wide.columns = [f"{c.lower()}_close" for c in wide.columns]
+        wide = wide.reset_index().sort_values("date")
+        wide.to_parquet(OUT_WIDE, index=False)
 
-    elapsed = time.perf_counter() - t0
-    print()
-    print(f"Wrote {len(combined)} total rows → {OUT_LONG}")
-    print(f"Wide view → {OUT_WIDE}")
-    print(f"Done in {elapsed:.1f}s  |  {n_ok} OK  |  {n_fail} FAIL")
-    return 0 if n_fail == 0 else 1
+        elapsed = time.perf_counter() - t0
+        print()
+        print(f"Wrote {len(combined)} total rows → {OUT_LONG}")
+        print(f"Wide view → {OUT_WIDE}")
+        print(f"Done in {elapsed:.1f}s  |  {n_ok} OK  |  {n_fail} FAIL")
+        return 0 if n_fail == 0 else 1
+    finally:
+        # Per-endpoint failure manifest sidecar (issue #71, DECISIONS.md D11).
+        # Drains conn.get_failures() and writes a JSON sidecar so a downstream
+        # observer can distinguish "this ticker had no data" from "this ticker
+        # hit a per-endpoint timeout while the Terminal was healthy". Runs in
+        # finally so half-run pulls (KeyboardInterrupt etc.) still emit the
+        # manifest — half-run is exactly when this signal matters most.
+        failures = conn.get_failures()
+        if failures:
+            manifest_dir = Path("data_processed/theta")
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            step_name = Path(__file__).stem
+            manifest_path = manifest_dir / f"_manifest_failures_{step_name}_{ts}.json"
+            payload = [asdict(r) for r in failures]
+            manifest_path.write_text(json.dumps(payload, indent=2))
+            print(
+                f"[{step_name}] wrote {len(failures)} per-endpoint failure(s) → "
+                f"{manifest_path.relative_to(Path.cwd())}",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

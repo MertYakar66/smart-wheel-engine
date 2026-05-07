@@ -46,13 +46,15 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import logging
 import sys
 import threading
 import time
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
+from dataclasses import asdict
+from datetime import UTC, date, datetime, timedelta
 from functools import partial
 from pathlib import Path
 
@@ -585,55 +587,77 @@ def main() -> int:
     # 472 NO_DATA under contention and the puller silently dropped partial
     # surfaces. Sharing the connector caps aggregate concurrency.
     conn = ThetaConnector()
-    expirations_cache: dict[str, pd.Series] = {}
-    cache_lock = threading.Lock()
-    process = partial(_process_one, conn, expirations_cache, cache_lock, strict)
+    try:
+        expirations_cache: dict[str, pd.Series] = {}
+        cache_lock = threading.Lock()
+        process = partial(_process_one, conn, expirations_cache, cache_lock, strict)
 
-    print(
-        f"Pulling IV surface history  tickers={len(tickers)}  "
-        f"dates={len(dates)} ({start_d}..{end_d})  jobs={total}  "
-        f"workers={args.workers}  strict={strict}"
-    )
-
-    t0 = time.perf_counter()
-    n_ok = 0
-    n_partial = 0
-    n_fail = 0
-    n_partial_rejected = 0
-    n_done = 0
-
-    with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process, j): j for j in jobs}
-        for fut in as_completed(futs):
-            ticker, d, ok, detail = fut.result()
-            n_done += 1
-            if ok:
-                n_ok += 1
-                if "PARTIAL" in detail:
-                    n_partial += 1
-            else:
-                n_fail += 1
-                if "partial-strict" in detail:
-                    n_partial_rejected += 1
-            if n_done % 100 == 0 or not ok:
-                print(
-                    f"  [{n_done:>5}/{total}] {ticker:<6} {d} "
-                    f"{'OK' if ok else 'FAIL':<4}  {detail[:80]}",
-                    flush=True,
-                )
-
-    elapsed = time.perf_counter() - t0
-    print()
-    print(f"Done in {elapsed:.1f}s  |  {n_ok} OK  |  {n_fail} FAIL")
-    if n_partial:
-        print(f"  ↳ of OK: {n_partial} written with PARTIAL coverage (--allow-partial was set)")
-    if n_partial_rejected:
         print(
-            f"  ↳ of FAIL: {n_partial_rejected} dropped by strict mode "
-            "(use --allow-partial to keep)"
+            f"Pulling IV surface history  tickers={len(tickers)}  "
+            f"dates={len(dates)} ({start_d}..{end_d})  jobs={total}  "
+            f"workers={args.workers}  strict={strict}"
         )
-    print(f"Written under: {OUT_ROOT}")
-    return 0 if n_fail == 0 else 1
+
+        t0 = time.perf_counter()
+        n_ok = 0
+        n_partial = 0
+        n_fail = 0
+        n_partial_rejected = 0
+        n_done = 0
+
+        with ThreadPoolExecutor(max_workers=args.workers) as ex:
+            futs = {ex.submit(process, j): j for j in jobs}
+            for fut in as_completed(futs):
+                ticker, d, ok, detail = fut.result()
+                n_done += 1
+                if ok:
+                    n_ok += 1
+                    if "PARTIAL" in detail:
+                        n_partial += 1
+                else:
+                    n_fail += 1
+                    if "partial-strict" in detail:
+                        n_partial_rejected += 1
+                if n_done % 100 == 0 or not ok:
+                    print(
+                        f"  [{n_done:>5}/{total}] {ticker:<6} {d} "
+                        f"{'OK' if ok else 'FAIL':<4}  {detail[:80]}",
+                        flush=True,
+                    )
+
+        elapsed = time.perf_counter() - t0
+        print()
+        print(f"Done in {elapsed:.1f}s  |  {n_ok} OK  |  {n_fail} FAIL")
+        if n_partial:
+            print(f"  ↳ of OK: {n_partial} written with PARTIAL coverage (--allow-partial was set)")
+        if n_partial_rejected:
+            print(
+                f"  ↳ of FAIL: {n_partial_rejected} dropped by strict mode "
+                "(use --allow-partial to keep)"
+            )
+        print(f"Written under: {OUT_ROOT}")
+        return 0 if n_fail == 0 else 1
+    finally:
+        # Per-endpoint failure manifest sidecar (issue #71, DECISIONS.md D11).
+        # Drains conn.get_failures() and writes a JSON sidecar so a downstream
+        # observer can distinguish "this ticker had no data" from "this ticker
+        # hit a per-endpoint timeout while the Terminal was healthy". Runs in
+        # finally so half-run pulls (KeyboardInterrupt etc.) still emit the
+        # manifest — half-run is exactly when this signal matters most.
+        failures = conn.get_failures()
+        if failures:
+            manifest_dir = Path("data_processed/theta")
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+            step_name = Path(__file__).stem
+            manifest_path = manifest_dir / f"_manifest_failures_{step_name}_{ts}.json"
+            payload = [asdict(r) for r in failures]
+            manifest_path.write_text(json.dumps(payload, indent=2))
+            print(
+                f"[{step_name}] wrote {len(failures)} per-endpoint failure(s) → "
+                f"{manifest_path.relative_to(Path.cwd())}",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

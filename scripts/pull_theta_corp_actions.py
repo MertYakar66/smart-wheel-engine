@@ -159,6 +159,15 @@ def _one_ticker(
     ticker: str, start: date, end: date, do_splits: bool, do_divs: bool
 ) -> tuple[str, pd.DataFrame, pd.DataFrame, str]:
     try:
+        # Per-ticker connector instance. Side effect: connector._failures dies
+        # when the worker returns, so this puller doesn't write a
+        # _manifest_failures_*.json sidecar like the main-scoped pullers
+        # (indices_history / iv_surface_history / vix_futures) do.
+        # Contamination prevention still works (PerEndpointFailure raises →
+        # worker's except Exception → FAIL stdout row → no parquet write
+        # for that ticker), per DECISIONS.md D11. If structured failure
+        # observability becomes valuable for this puller, hoist to a single
+        # shared connector first.
         conn = ThetaConnector()
     except Exception as e:
         return ticker, pd.DataFrame(), pd.DataFrame(), f"conn: {e}"

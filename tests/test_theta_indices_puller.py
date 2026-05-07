@@ -250,6 +250,12 @@ def test_main_incremental_skips_when_only_today_remains(capsys, monkeypatch) -> 
         def __init__(self) -> None:
             self._session = None
 
+        def get_failures(self) -> list:
+            # main()'s try/finally drains failures into the manifest sidecar
+            # (issue #71, DECISIONS.md D11). The stub records no real
+            # failures, so an empty list is the right contract.
+            return []
+
     monkeypatch.setattr(M, "ThetaConnector", _StubConn)
 
     pull_calls: list[tuple] = []

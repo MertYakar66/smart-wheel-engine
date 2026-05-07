@@ -12,11 +12,17 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import json
+
 import pandas as pd
 import pytest
+import requests
 import requests_mock as rm_module
+from dataclasses import asdict
 
 from engine.theta_connector import (
+    FailureRecord,
+    PerEndpointFailure,
     ThetaConnector,
     _normalise_theta_symbol,
 )
@@ -224,7 +230,11 @@ class TestFetch:
         assert df.empty
 
     def test_connection_error_returns_empty(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        # Use a fresh connector with bad URL to bypass the requests-mock
+        # Bad URL outside requests_mock → requests-mock raises NoMockAddress,
+        # which lands in _fetch's generic ``except Exception:`` handler and
+        # returns empty. Note this test does NOT exercise _handle_network_failure;
+        # for the explicit ConnectionError path (and the probe branch), see
+        # TestPerEndpointFailure below.
         bad_conn = ThetaConnector(data_dir=str(Path("/tmp")), base_url="http://127.0.0.1:1")
         df = bad_conn._fetch("/v3/some/path", {"symbol": "AAPL"})
         assert df.empty
@@ -776,3 +786,179 @@ class TestCacheHelpers:
     def test_chain_cache_miss_returns_none(self, connector: ThetaConnector):
         out = connector._get_cached_chain("ZZZZ", "20260221")
         assert out is None
+
+
+# ---------------------------------------------------------------------------
+# PerEndpointFailure / probe behaviour / instance flag (issue #71, D11)
+#
+# These tests exercise the contract added in commit 7a1ac38: when the data
+# endpoint fails with ConnectionError / RetryError / Timeout, the connector
+# probes /v3/option/list/expirations?symbol=SPY (5s GET via
+# is_terminal_alive) to distinguish per-endpoint failures from a globally-
+# down Terminal.
+#   * Probe healthy → _fetch raises PerEndpointFailure (loud skip).
+#   * Probe fails   → _terminal_down flag flips, returns empty
+#                     (carve-out for backfill via Bloomberg CSV).
+# ---------------------------------------------------------------------------
+
+class TestPerEndpointFailure:
+    def test_raises_when_probe_healthy(self, mock: rm_module.Mocker, connector: ThetaConnector):
+        """T1: data endpoint times out, probe says Terminal alive → raises."""
+        # Order matters: more specific patterns added LAST so they win
+        # (requests-mock: "If multiple matchers match, the last added wins").
+        mock.get(
+            re.compile(r".*stock/history/eod.*"),
+            exc=requests.exceptions.ConnectionError,
+        )
+        mock.get(
+            re.compile(r".*list/expirations.*symbol=SPY.*"),
+            text="expiration\n2026-06-20\n",
+        )
+
+        with pytest.raises(PerEndpointFailure) as excinfo:
+            connector.get_ohlcv("AAPL")
+
+        # Exception carries the FailureRecord
+        record = excinfo.value.record
+        assert isinstance(record, FailureRecord)
+        assert record.endpoint == "/v3/stock/history/eod"
+        assert "AAPL" == record.params.get("symbol")
+        assert "ConnectionError" in record.reason
+
+        # Connector accumulator state: probe healthy, no down-mode
+        assert connector._terminal_down is False
+        assert len(connector._failures) == 1
+        assert connector._failures[0].endpoint == "/v3/stock/history/eod"
+
+        # get_failures returns + clears
+        first = connector.get_failures()
+        assert len(first) == 1
+        assert connector.get_failures() == []
+
+    def test_returns_empty_when_probe_also_fails(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
+        """T2: data + probe both fail → empty df, flag set, no record."""
+        mock.get(THETA_RE, exc=requests.exceptions.ConnectionError)
+
+        df = connector.get_ohlcv("AAPL")
+
+        # tmp_path data_dir → super().get_ohlcv() also returns empty
+        assert df.empty
+        assert connector._terminal_down is True
+        assert connector._failures == []
+
+    def test_terminal_down_skips_reprobe(
+        self, mock: rm_module.Mocker, connector: ThetaConnector, monkeypatch: pytest.MonkeyPatch
+    ):
+        """T3: once flag is set, subsequent failures do NOT re-probe."""
+        from unittest.mock import Mock as MockObj
+
+        mock.get(THETA_RE, exc=requests.exceptions.ConnectionError)
+
+        # Patch the probe to return False directly so we can count calls.
+        # (Real probe would also return False against the failing mock,
+        # but counting via Mock is the most explicit signal.)
+        probe = MockObj(return_value=False)
+        monkeypatch.setattr(connector, "is_terminal_alive", probe)
+
+        # First failing call: probes once, flag flips to True.
+        connector.get_ohlcv("AAPL")
+        assert connector._terminal_down is True
+        assert probe.call_count == 1
+
+        # Second failing call: short-circuits inside _handle_network_failure.
+        connector.get_ohlcv("MSFT")
+        assert probe.call_count == 1  # not re-probed
+
+    def test_fresh_instance_starts_clean(self, mock: rm_module.Mocker, tmp_path: Path):
+        """T4: the down-mode flag and failure list are per-instance."""
+        mock.get(THETA_RE, exc=requests.exceptions.ConnectionError)
+
+        a = ThetaConnector(data_dir=str(tmp_path), base_url=THETA_BASE)
+        a.get_ohlcv("AAPL")
+        assert a._terminal_down is True
+
+        b = ThetaConnector(data_dir=str(tmp_path), base_url=THETA_BASE)
+        assert b._terminal_down is False
+        assert b._failures == []
+        assert b.get_failures() == []
+
+    def test_get_fundamentals_propagates(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
+        """T6: get_fundamentals re-raises PerEndpointFailure (no silent CSV-only).
+
+        Pins the contract change: previously, an exception during the live
+        ATM IV overlay was caught silently and CSV-only fundamentals were
+        returned. That's the same mixed-provenance contamination the issue
+        body calls out, so we now propagate.
+        """
+        # Catch-all fail
+        mock.get(THETA_RE, exc=requests.exceptions.ConnectionError)
+        # Probe healthy (added LAST so it wins for the SPY URL)
+        mock.get(
+            re.compile(r".*list/expirations.*symbol=SPY.*"),
+            text="expiration\n2026-06-20\n",
+        )
+
+        with pytest.raises(PerEndpointFailure):
+            connector.get_fundamentals("AAPL")
+
+    def test_failure_record_is_json_serialisable(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
+        """FailureRecord must round-trip through dataclasses.asdict for the
+        sidecar manifest writer (C4)."""
+        mock.get(
+            re.compile(r".*stock/history/eod.*"),
+            exc=requests.exceptions.ConnectionError,
+        )
+        mock.get(
+            re.compile(r".*list/expirations.*symbol=SPY.*"),
+            text="expiration\n2026-06-20\n",
+        )
+
+        with pytest.raises(PerEndpointFailure):
+            connector.get_ohlcv("AAPL")
+
+        records = connector.get_failures()
+        # asdict + json.dumps must work end-to-end
+        payload = json.dumps([asdict(r) for r in records])
+        roundtrip = json.loads(payload)
+        assert roundtrip[0]["endpoint"] == "/v3/stock/history/eod"
+        assert roundtrip[0]["params"]["symbol"] == "AAPL"
+
+    @pytest.mark.parametrize(
+        "exc_cls",
+        [
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.RetryError,
+        ],
+    )
+    def test_all_network_failure_types_route_through_probe(
+        self, mock: rm_module.Mocker, connector: ThetaConnector, exc_cls
+    ):
+        """All three network-error classes that _fetch catches route through
+        _handle_network_failure and raise PerEndpointFailure when the probe
+        is healthy.
+
+        Issue #71's actual repro is a 30s ReadTimeout on
+        /v3/option/history/eod, not a ConnectionError. If any of these three
+        classes ever stopped routing through the probe (e.g. someone
+        narrowed the except tuple), the fix would be silently incomplete.
+        """
+        mock.get(
+            re.compile(r".*list/expirations.*symbol=SPY.*"),
+            text="expiration\n2026-06-20\n",
+        )
+        mock.get(
+            re.compile(r".*stock/history/eod.*"),
+            exc=exc_cls,
+        )
+
+        with pytest.raises(PerEndpointFailure) as excinfo:
+            connector.get_ohlcv("AAPL")
+
+        assert exc_cls.__name__ in excinfo.value.record.reason

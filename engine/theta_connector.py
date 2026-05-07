@@ -18,14 +18,41 @@ live ThetaData v3 data:
   get_iv_percentile  → same
   get_vix_regime     → /v3/index/snapshot/price?symbol=VIX    (Index FREE)
 
+Failure semantics (issue #71, DECISIONS.md D11)
+-----------------------------------------------
+A network-level failure (ConnectionError / RetryError / Timeout) on any
+endpoint triggers a 5-second probe of ``/v3/option/list/expirations?symbol=SPY``
+via :meth:`is_terminal_alive`.
+
+  * Probe healthy → Terminal is up but this endpoint failed.
+    :meth:`_fetch` records a :class:`FailureRecord` and raises
+    :class:`PerEndpointFailure`. Callers MUST NOT silently substitute
+    Bloomberg CSV — that's the contamination bug. Per-ticker callers in
+    pullers should catch the exception, mark the ticker as failed, and
+    move on.
+  * Probe fails → Terminal is globally unreachable. The connector enters
+    "Terminal-down mode" (instance flag, resets per :class:`ThetaConnector`
+    instance), logs the event once, and returns an empty DataFrame.
+    Subsequent network failures within the same instance lifetime do
+    NOT re-probe. In this mode the empty-df → ``super().get_X(...)``
+    Bloomberg fallback is acceptable (backfilling with the historical
+    store while the Terminal is globally down is by design).
+
+Status-code responses (400/403/404/500/502/503) and "no data here" responses
+are NOT treated as failures — they are deliberate "this query has nothing"
+signals from the Terminal and continue to return empty DataFrames as before.
+
+The per-instance failure list is consumed by callers via
+:meth:`get_failures` (returns + clears). Pullers write the records to a
+JSON sidecar at end-of-run for observability.
+
 Usage
 -----
 Set the environment variable before starting the engine:
 
     SWE_DATA_PROVIDER=theta python engine_api.py
 
-The Terminal must be running on 127.0.0.1:25503.  If the Terminal is
-unreachable the connector falls back to Bloomberg CSV data transparently.
+The Terminal must be running on 127.0.0.1:25503.
 """
 
 from __future__ import annotations
@@ -34,6 +61,7 @@ import io
 import logging
 import threading
 import time
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -57,6 +85,36 @@ _CHAIN_CACHE_TTL = 60
 
 # How many calendar days of IV history to use when computing IV rank
 _IV_RANK_LOOKBACK_DAYS = 365
+
+
+@dataclass(frozen=True)
+class FailureRecord:
+    """A single per-endpoint failure observed while the Terminal probe was healthy.
+
+    Records are JSON-serialisable via :func:`dataclasses.asdict`. Fields are
+    intentionally small — no response body, no traceback — so a long pull
+    accumulating thousands of failures stays cheap to write to a sidecar.
+    """
+
+    timestamp_utc: str
+    endpoint: str
+    params: dict[str, Any] = field(default_factory=dict)
+    reason: str = ""
+
+
+class PerEndpointFailure(Exception):
+    """Raised by :meth:`ThetaConnector._fetch` on a per-endpoint failure
+    while the Terminal probe says the Terminal itself is healthy.
+
+    Callers MUST catch this and abort the per-ticker / per-endpoint path
+    rather than falling back to Bloomberg CSV — silent CSV substitution
+    on per-endpoint failures contaminates downstream features (issue #71).
+    """
+
+    def __init__(self, record: FailureRecord) -> None:
+        super().__init__(f"{record.endpoint}: {record.reason}")
+        self.record = record
+
 
 # Ticker translation: SP500 CSVs store class-B shares with hyphens
 # (BRK-B, BF-B) but ThetaData uses dots (BRK.B, BF.B). Extend this map
@@ -128,6 +186,20 @@ class ThetaConnector(MarketDataConnector):
         self._chain_cache: dict[str, tuple[float, pd.DataFrame]] = {}
         self._cache_lock = threading.Lock()
 
+        # Per-endpoint failure accumulator (issue #71 / D11). Append-only
+        # within a run; drained + cleared by get_failures(). Per-instance —
+        # if a puller creates multiple ThetaConnector instances it must
+        # aggregate failures manually (no puller does this today).
+        self._failures: list[FailureRecord] = []
+        self._failures_lock = threading.Lock()
+
+        # "Terminal-down mode" flag. Set the first time a network-level
+        # failure happens AND the Terminal probe also fails. Once set,
+        # subsequent network failures short-circuit to empty-df without
+        # re-probing — pings have a real cost and we already know the
+        # answer for this connector instance's lifetime.
+        self._terminal_down: bool = False
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -135,13 +207,22 @@ class ThetaConnector(MarketDataConnector):
     def _fetch(self, path: str, params: dict[str, Any]) -> pd.DataFrame:
         """GET a v3 endpoint, return the response parsed as CSV DataFrame.
 
-        Returns an empty DataFrame on any error so callers can fall back
-        to Bloomberg CSV without crashing. Known-degraded responses
-        (403 Forbidden = subscription tier missing, 500 = server-side
-        unavailable, 400 Bad Request = malformed params) are logged at
-        debug-level only so they don't spam the console during health
-        checks. Other exceptions are logged at warning level with a
-        concise message (no traceback).
+        Status-code responses (400/403/404/500/502/503) and "no data here"
+        responses return an empty DataFrame — these are deliberate signals
+        from the Terminal, not failures.
+
+        Network-level failures (ConnectionError / RetryError / Timeout)
+        route through :meth:`_handle_network_failure`, which probes
+        :meth:`is_terminal_alive` to distinguish:
+
+          * Probe healthy → raise :class:`PerEndpointFailure` (issue #71 / D11).
+            Callers must abort the per-ticker / per-endpoint path; silent
+            CSV substitution would contaminate downstream features.
+          * Probe fails → flip the connector-instance "Terminal-down" flag
+            and return empty DataFrame. Subsequent failures short-circuit.
+
+        Other exceptions (CSV parse errors etc.) log at warning level and
+        return empty.
         """
         # Translate any SP500-format symbol (BRK-B) to ThetaData's (BRK.B)
         if "symbol" in params and isinstance(params["symbol"], str):
@@ -165,15 +246,66 @@ class ThetaConnector(MarketDataConnector):
                 logger.warning("ThetaData API version error: %s", text[:120])
                 return pd.DataFrame()
             return pd.read_csv(io.StringIO(text))
-        except requests.exceptions.ConnectionError:
-            logger.warning("ThetaTerminal not reachable at %s — falling back to CSV", self._base)
-            return pd.DataFrame()
-        except requests.exceptions.RetryError as e:
-            logger.debug("ThetaData retries exhausted on %s: %s", path, str(e)[:200])
-            return pd.DataFrame()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.RetryError,
+            requests.exceptions.Timeout,
+        ) as e:
+            return self._handle_network_failure(path, params, e)
         except Exception as e:
             logger.warning("ThetaData fetch failed: %s — %s", path, str(e)[:200])
             return pd.DataFrame()
+
+    def _handle_network_failure(
+        self,
+        path: str,
+        params: dict[str, Any],
+        exc: BaseException,
+    ) -> pd.DataFrame:
+        """Decide between per-endpoint failure and globally-down Terminal.
+
+        Called from :meth:`_fetch`'s network-error except clause. Probes
+        :meth:`is_terminal_alive` to distinguish:
+
+          * Probe healthy → record a :class:`FailureRecord` in
+            ``self._failures`` and raise :class:`PerEndpointFailure`.
+            The Terminal is up; this single endpoint failed. Falling back
+            to Bloomberg CSV here is the contamination bug from issue #71.
+          * Probe fails → set ``self._terminal_down`` and return empty
+            DataFrame. The Terminal is globally unreachable; the empty-df
+            → ``super().get_X(...)`` Bloomberg fallback at the caller
+            layer is the documented carve-out (DECISIONS.md D11).
+
+        Once ``self._terminal_down`` is set, subsequent network failures
+        within this connector instance's lifetime return empty without
+        re-probing.
+        """
+        if self._terminal_down:
+            logger.debug(
+                "ThetaTerminal already marked down; skipping probe for %s",
+                path,
+            )
+            return pd.DataFrame()
+
+        if self.is_terminal_alive():
+            record = FailureRecord(
+                timestamp_utc=datetime.now(UTC).isoformat(),
+                endpoint=path,
+                params=dict(params),
+                reason=f"{type(exc).__name__}: {str(exc)[:200]}",
+            )
+            with self._failures_lock:
+                self._failures.append(record)
+            raise PerEndpointFailure(record)
+
+        self._terminal_down = True
+        logger.warning(
+            "ThetaTerminal unreachable at %s — entering Terminal-down mode "
+            "for this connector instance. Subsequent failures will return "
+            "empty DataFrames without re-probing.",
+            self._base,
+        )
+        return pd.DataFrame()
 
     def _chain_cache_key(self, ticker: str, expiration: str) -> str:
         minute = int(time.time() // _CHAIN_CACHE_TTL)
@@ -472,6 +604,11 @@ class ThetaConnector(MarketDataConnector):
                         logger.debug(
                             "ThetaData ATM IV for %s: %.4f (%.1f%%)", ticker, live_iv, live_iv * 100
                         )
+        except PerEndpointFailure:
+            # Per-endpoint failure with healthy Terminal — propagate so
+            # the per-ticker caller (in a puller loop) sees it and records
+            # the ticker as failed for this run. No CSV substitution here.
+            raise
         except Exception:
             logger.debug("ThetaData IV fetch failed for %s, using CSV IV", ticker, exc_info=True)
 
@@ -498,6 +635,8 @@ class ThetaConnector(MarketDataConnector):
             current_iv = iv_series.iloc[-1]
             rank = float((iv_series < current_iv).mean())
             return round(rank, 4)
+        except PerEndpointFailure:
+            raise
         except Exception:
             logger.debug("ThetaData IV rank failed for %s", ticker, exc_info=True)
             return super().get_iv_rank(ticker, as_of)
@@ -616,6 +755,8 @@ class ThetaConnector(MarketDataConnector):
             # Recompute regime bucket from live VIX level
             base["term_structure"] = base.get("term_structure", "unknown")
             return base
+        except PerEndpointFailure:
+            raise
         except Exception:
             logger.debug("ThetaData VIX fetch failed", exc_info=True)
             return super().get_vix_regime(as_of)
@@ -643,6 +784,8 @@ class ThetaConnector(MarketDataConnector):
                 return super().get_vol_risk_premium(ticker, as_of)
 
             return float(iv) - realised_vol
+        except PerEndpointFailure:
+            raise
         except Exception:
             return super().get_vol_risk_premium(ticker, as_of)
 
@@ -962,3 +1105,21 @@ class ThetaConnector(MarketDataConnector):
             return resp.status_code == 200 and len(resp.text) > 10
         except Exception:
             return False
+
+    def get_failures(self) -> list[FailureRecord]:
+        """Return and clear the per-endpoint failure records.
+
+        Returns the :class:`FailureRecord` entries accumulated since the
+        last call (or since construction) and clears the internal list.
+        Callers — typically per-puller scripts — should write the result
+        to a JSON sidecar at end-of-run for data quality observability.
+        See issue #71 / DECISIONS.md D11.
+
+        Per-instance state. If a puller creates multiple
+        :class:`ThetaConnector` instances it must aggregate failures
+        manually (no puller does this today).
+        """
+        with self._failures_lock:
+            out = list(self._failures)
+            self._failures.clear()
+            return out

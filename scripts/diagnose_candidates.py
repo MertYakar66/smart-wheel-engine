@@ -1,15 +1,25 @@
 """
 Diagnose why the wheel EV ranker is returning zero candidates.
 
-Runs the ranker on the first 50 tickers with each gate turned off one
-at a time, then prints a funnel report showing where tickers get
-dropped. Use this whenever ``/api/candidates`` returns an empty
-``trades`` list.
+Runs the ranker with each gate turned off one at a time, then prints a
+funnel report showing where tickers get dropped. Use this whenever
+``/api/candidates`` returns an empty ``trades`` list.
+
+Default ticker set is a 5-name smoke list (matches CLAUDE.md §6.3) so
+the script finishes in ~2 s in a Cowork sandbox. Pass ``--full`` for the
+full S&P 500 universe (~3 min) or ``--tickers AAPL,MSFT,...`` for an
+explicit list.
 
 Usage
 -----
-    $env:SWE_DATA_PROVIDER = "theta"
+    # Default: 5-ticker smoke (AAPL, MSFT, JPM, XOM, UNH)
     python scripts/diagnose_candidates.py
+
+    # Explicit list
+    python scripts/diagnose_candidates.py --tickers AAPL,MSFT,SPY
+
+    # Full universe (laptop with Theta Terminal up; not Cowork)
+    SWE_DATA_PROVIDER=theta python scripts/diagnose_candidates.py --full
 
 The script is read-only — it doesn't write files or call any network
 endpoints beyond what the ranker would normally touch.
@@ -17,6 +27,7 @@ endpoints beyond what the ranker would normally touch.
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
@@ -30,12 +41,12 @@ from engine.wheel_runner import WheelRunner  # noqa: E402
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
 
 
-def _run(runner: WheelRunner, label: str, **kwargs) -> int:
+def _run(runner: WheelRunner, label: str, tickers: list[str] | None, **kwargs) -> int:
     """Run the ranker with the given kwargs and return row count."""
     print(f"\n=== {label} ===")
     try:
         df = runner.rank_candidates_by_ev(
-            tickers=None,
+            tickers=tickers,
             dte_target=35,
             delta_target=0.25,
             top_n=100,
@@ -56,9 +67,52 @@ def _run(runner: WheelRunner, label: str, **kwargs) -> int:
     return n
 
 
-def main() -> int:
+SMOKE_TICKERS = ["AAPL", "MSFT", "JPM", "XOM", "UNH"]
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Diagnose why the wheel EV ranker is returning zero candidates. "
+            "Defaults to a 5-ticker smoke list; pass --full for the S&P 500 "
+            "universe or --tickers for an explicit comma-separated list."
+        )
+    )
+    parser.add_argument(
+        "--tickers",
+        type=str,
+        default=None,
+        help="Comma-separated tickers, e.g. 'AAPL,MSFT,SPY'. Overrides the default smoke list.",
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run on the full S&P 500 universe (~3 min; exceeds Cowork 45 s bash timeout).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+
+    if args.full and args.tickers:
+        print("ERROR: --full and --tickers are mutually exclusive.", file=sys.stderr)
+        return 2
+
+    if args.full:
+        print("WARNING: full-universe run takes ~3 min — exceeds Cowork 45s bash timeout")
+        tickers: list[str] | None = None
+    elif args.tickers:
+        tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
+    else:
+        tickers = list(SMOKE_TICKERS)
+
     provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg")
     print(f"Data provider: {provider}")
+    if tickers is None:
+        print("Tickers: full S&P 500 universe")
+    else:
+        print(f"Tickers: {', '.join(tickers)} ({len(tickers)} names)")
     runner = WheelRunner()
 
     print(
@@ -67,26 +121,39 @@ def main() -> int:
     )
 
     # Baseline: all gates on (same as /api/candidates endpoint)
-    n_baseline = _run(runner, "Baseline (all gates on, default API)")
+    n_baseline = _run(runner, "Baseline (all gates on, default API)", tickers)
 
     # 1. Event gate off
-    n_no_event = _run(runner, "Event gate OFF (earnings lockout disabled)", use_event_gate=False)
+    n_no_event = _run(
+        runner,
+        "Event gate OFF (earnings lockout disabled)",
+        tickers,
+        use_event_gate=False,
+    )
 
     # 2. Chain quality gate off
-    n_no_chain = _run(runner, "Chain quality gate OFF", enforce_chain_quality_gate=False)
+    n_no_chain = _run(
+        runner, "Chain quality gate OFF", tickers, enforce_chain_quality_gate=False
+    )
 
     # 3. History gate off
     n_no_hist = _run(
-        runner, "History gate OFF (< 504 trading days allowed)", enforce_history_gate=False
+        runner,
+        "History gate OFF (< 504 trading days allowed)",
+        tickers,
+        enforce_history_gate=False,
     )
 
     # 4. Dealer positioning off
-    n_no_dealer = _run(runner, "Dealer positioning OFF", use_dealer_positioning=False)
+    n_no_dealer = _run(
+        runner, "Dealer positioning OFF", tickers, use_dealer_positioning=False
+    )
 
     # 5. All gates OFF (pure EV math)
     n_raw = _run(
         runner,
         "ALL GATES OFF (pure EV math, no filters)",
+        tickers,
         use_event_gate=False,
         enforce_chain_quality_gate=False,
         enforce_history_gate=False,

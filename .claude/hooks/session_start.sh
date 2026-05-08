@@ -87,10 +87,12 @@ PY
 # 5. Connector smoke — confirms wheel_runner.py:130 wiring picks the
 #    expected provider. Don't hang the session if this fails; just log.
 python3 - <<'PY' 2>&1 | sed 's/^/│  /'
+import os
+provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
+expected = "ThetaConnector" if provider == "theta" else "MarketDataConnector"
 try:
     from engine.wheel_runner import WheelRunner
     cls = type(WheelRunner().connector).__name__
-    expected = "MarketDataConnector"  # bloomberg provider
     mark = "✓" if cls == expected else "⚠"
     print(f"{mark} connector class = {cls} (expected {expected})")
 except Exception as e:

@@ -10,7 +10,7 @@ this repo or regeneratable on the laptop with your Theta subscription.
 ```bash
 git clone https://github.com/MertYakar66/smart-wheel-engine.git
 cd smart-wheel-engine
-git checkout claude/map-codebase-architecture-aBvbq   # or main, after merge
+git checkout main
 
 python -m venv .venv
 # Windows:

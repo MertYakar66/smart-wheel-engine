@@ -30,8 +30,8 @@ thinks**, not how to install it.
      event lockout → forward distribution → cost model → regime &
      dealer multipliers → returns `EVResult`.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev(...)`
-     at line 445. The one ranker every tradeable path routes through.
-   - `engine/candidate_dossier.py` — `EnginePhaseReviewer` (line 113)
+     at line 448. The one ranker every tradeable path routes through.
+   - `engine/candidate_dossier.py` — `EnginePhaseReviewer` (line 109)
      applies the 6 downgrade rules (R1–R6).
 
 4. **Interface layer**
@@ -74,8 +74,8 @@ The `EnginePhaseReviewer` rules, for reference:
 
 ## 3. Data-provider matrix
 
-`SWE_DATA_PROVIDER` env var, read in `engine/wheel_runner.py:130` and
-`scripts/diagnose_candidates.py:59`. Default: `bloomberg`.
+`SWE_DATA_PROVIDER` env var, read in `engine/wheel_runner.py:131` and
+`scripts/diagnose_candidates.py:60`. Default: `bloomberg`.
 
 | Capability | `bloomberg` (CSVs in git) | `theta` (live Terminal) |
 |---|---|---|
@@ -195,7 +195,7 @@ Before making non-trivial changes:
 
 1. Read this file and `LAPTOP_SETUP.md`.
 2. Confirm the provider. Default is wired in
-   `engine/wheel_runner.py:130` as
+   `engine/wheel_runner.py:131` as
    `os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()` —
    unset → `bloomberg`. Verify empirically:
    `python -c "from engine.wheel_runner import WheelRunner;

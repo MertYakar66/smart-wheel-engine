@@ -260,6 +260,7 @@ names, E741 ambiguous names) needs a follow-up PR. Tracked in
 | 2 | yfinance CSV refresh stash decision | next — real revisions, not noise; ROADMAP C1 |
 | 3 | TRADINGVIEW_INTEGRATION.md MCP repo URL placeholder | needs user input |
 | 4 | Original Theta walkthrough — `probe_theta_capabilities.py` step 2 | needs laptop run |
+| 5 | `StrangleTimingWithIV.score_entry_with_iv` connector signature gap | pinned by strict xfail in `tests/test_strangle_timing.py::test_score_entry_with_iv_real_connector_signature_mismatch`; calls `connector.get_realized_vol`, `get_current_iv`, `get_vix_level`, `get_vix_contango` (none exist) and passes `as_of=` to `get_ohlcv` (not in signature). Resolution: extend `MarketDataConnector` with the IV/VIX accessors **or** rewrite the overlay to use `get_iv_history` / `get_vix` / `get_vol_risk_premium`. Remove the xfail in the same commit |
 
 ## 4. Deprecated / phantom — do not extend
 

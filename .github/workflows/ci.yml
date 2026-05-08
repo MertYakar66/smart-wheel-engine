@@ -87,6 +87,7 @@ jobs:
             --cov=engine \
             --cov=advisors \
             --cov=financial_news \
+            --cov=news_pipeline \
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=80 \

@@ -1564,7 +1564,7 @@ def register_checks(h: Harness) -> None:
         mults = [r.sentiment_multiplier(t) for t in ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN")]
         if all(m == 1.0 for m in mults):
             raise Skip("news store empty or lookback stale — multiplier stuck at 1.0")
-        return f"sample multipliers={['%.2f' % m for m in mults]}"
+        return f"sample multipliers={[f'{m:.2f}' for m in mults]}"
 
     h.run("news_sentiment_parquet_present", news_parquet_present)
     h.run("news_multiplier_non_trivial", news_multiplier_non_trivial)

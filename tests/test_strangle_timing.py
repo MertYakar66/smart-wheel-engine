@@ -912,9 +912,7 @@ class TestScanUniverseWithIV:
 
     def test_scan_returns_dataframe_with_iv_columns(self):
         df = _generate_ohlcv()
-        stub = _StubConnector(
-            ohlcv=df, universe=["AAPL", "MSFT", "GOOGL"], iv_rank=85.0
-        )
+        stub = _StubConnector(ohlcv=df, universe=["AAPL", "MSFT", "GOOGL"], iv_rank=85.0)
         engine = StrangleTimingWithIV(data_connector=stub)
         out = engine.scan_universe_with_iv(min_score=0)
         assert isinstance(out, pd.DataFrame)

@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from engine.candidate_dossier import build_dossiers
 from engine.chart_context import ChartContext, Timeframe
@@ -112,8 +113,6 @@ def test_custom_provider_pristine_chart_cannot_upgrade_negative_ev():
 # and pin the contract structurally. See:
 #   docs/TRADINGVIEW_MCP_INTEGRATION.md §3 (hard invariants),
 #   §7 (missing-data contract), §8 q4 (PIT discipline).
-
-import pytest
 
 try:
     from engine.tradingview_bridge import MCPChartProvider  # noqa: F401

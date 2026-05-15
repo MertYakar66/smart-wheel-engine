@@ -138,7 +138,7 @@ class EarningsDriftAnalyzer:
             if not np.isfinite(prior_close) or prior_close <= 0:
                 continue
 
-            def ret(ix):
+            def ret(ix, prior_close=prior_close):
                 if ix is None:
                     return float("nan")
                 c = o.loc[ix, "close"]

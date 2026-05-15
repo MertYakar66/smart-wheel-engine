@@ -8,10 +8,10 @@ import pytest
 import requests_mock as rm_module
 
 from engine.external_data.fred_adapter import (
-    SERIES_PACK,
-    FREDAdapter,
     _FRED_API_URL,
     _FRED_CSV_URL,
+    SERIES_PACK,
+    FREDAdapter,
 )
 
 
@@ -183,7 +183,6 @@ class TestCreditRegime:
 
     def test_includes_ig_percentile_when_available(self, mock: rm_module.Mocker):
         # Provide BOTH HY and IG with same data
-        from requests_mock import ANY  # type: ignore
         mock.get(
             _FRED_CSV_URL,
             text=_csv([("2024-01-01", 2.0), ("2024-01-02", 3.0)], series_id="BAMLH0A0HYM2"),

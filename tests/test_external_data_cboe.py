@@ -7,7 +7,7 @@ import math
 import pytest
 import requests_mock as rm_module
 
-from engine.external_data.cboe_adapter import CBOEAdapter, _CBOE_URL
+from engine.external_data.cboe_adapter import _CBOE_URL, CBOEAdapter
 
 
 def _csv(symbol: str = "VIX", rows: list[tuple[str, float, float, float, float]] | None = None) -> str:

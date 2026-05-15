@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +32,7 @@ class TestNoStore:
 
 class TestCsvStore:
     def test_reads_latest_per_ticker(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "AAPL",
@@ -56,7 +56,7 @@ class TestCsvStore:
         assert result["n_articles"] == 9
 
     def test_lookback_horizon_filters_old_rows(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "AAPL",
@@ -72,7 +72,7 @@ class TestCsvStore:
         assert result["n_articles"] == 0
 
     def test_unknown_ticker_returns_neutral(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "AAPL",
@@ -88,7 +88,7 @@ class TestCsvStore:
         assert result["n_articles"] == 0
 
     def test_ticker_case_normalised(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "aapl",
@@ -118,7 +118,7 @@ class TestCsvStore:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             "ticker,as_of,sentiment,confidence,n_articles\n"
-            f"AAPL,{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()},bad,bad,bad\n"
+            f"AAPL,{datetime.now(UTC).replace(tzinfo=None).isoformat()},bad,bad,bad\n"
         )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL")
@@ -137,7 +137,7 @@ class TestSqliteFallback:
             "CREATE TABLE sentiment (ticker TEXT, as_of TEXT, sentiment REAL, "
             "confidence REAL, n_articles INTEGER)"
         )
-        now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        now = datetime.now(UTC).replace(tzinfo=None).isoformat()
         conn.execute(
             "INSERT INTO sentiment VALUES (?, ?, ?, ?, ?)",
             ("AAPL", now, 0.3, 0.7, 6),
@@ -153,7 +153,7 @@ class TestSqliteFallback:
 
 class TestSentimentMultiplier:
     def _setup(self, tmp_path: Path, sentiment: float, n_articles: int) -> NewsSentimentReader:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "AAPL",
@@ -195,7 +195,7 @@ class TestSentimentMultiplier:
 
 class TestCacheBehavior:
     def test_cache_serves_within_ttl(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(UTC).replace(tzinfo=None)
         path = _write_sentiment_csv(tmp_path, [
             {
                 "ticker": "AAPL",

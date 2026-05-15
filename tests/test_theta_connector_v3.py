@@ -8,17 +8,16 @@ results — proving the fallback was taken without needing real CSVs.
 
 from __future__ import annotations
 
-import re
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
 import json
+import re
+from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pytest
 import requests
 import requests_mock as rm_module
-from dataclasses import asdict
 
 from engine.theta_connector import (
     FailureRecord,
@@ -26,7 +25,6 @@ from engine.theta_connector import (
     ThetaConnector,
     _normalise_theta_symbol,
 )
-
 
 THETA_BASE = "http://127.0.0.1:25503"
 THETA_RE = re.compile(r"http://127\.0\.0\.1:25503/v3/.*")
@@ -298,9 +296,9 @@ class TestGetOhlcv:
 class TestNearestExpiration:
     def test_picks_closest_to_target(self, mock: rm_module.Mocker, connector: ThetaConnector):
         # ISO-format dates so pandas auto-parses (YYYYMMDD strings parse as nanoseconds → 1970)
-        d30 = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
-        d60 = (datetime.now(timezone.utc).date() + timedelta(days=60)).isoformat()
-        d90 = (datetime.now(timezone.utc).date() + timedelta(days=90)).isoformat()
+        d30 = (datetime.now(UTC).date() + timedelta(days=30)).isoformat()
+        d60 = (datetime.now(UTC).date() + timedelta(days=60)).isoformat()
+        d90 = (datetime.now(UTC).date() + timedelta(days=90)).isoformat()
         mock.get(THETA_RE, text=_expirations_csv([d30, d60, d90]))
         result = connector._nearest_expiration("AAPL", dte_target=35)
         # Returned in YYYYMMDD format
@@ -366,7 +364,7 @@ class TestGetOptionChain:
         assert df.empty
 
     def test_auto_picks_expiration_when_omitted(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -450,7 +448,7 @@ class TestGetIvRank:
     def test_live_with_full_iv_history(self, mock: rm_module.Mocker, connector: ThetaConnector):
         """End-to-end: chain → ATM strike → 12 monthly IV history chunks."""
         # 1. Expirations endpoint returns ~35-DTE
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         # 2. Greeks/quotes/OI for the chain (gives ATM strike from -0.50 delta)
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
@@ -471,7 +469,7 @@ class TestGetIvRank:
         self, mock: rm_module.Mocker, connector: ThetaConnector
     ):
         """When implied_volatility 404s, the connector falls through to first_order."""
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -530,7 +528,7 @@ class TestGetVolRiskPremium:
             rows.append(("AAPL", d, close - 1, close + 1, close - 2, close, 1_000_000))
         mock.get(re.compile(r".*stock/history/eod.*"), text=_stock_eod_csv(rows))
         # Chain provides ATM IV via the put closest to -0.50 delta
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -552,13 +550,13 @@ class TestGetIvSurface:
 
     def test_filters_by_dte_window(self, mock: rm_module.Mocker, connector: ThetaConnector):
         # All expirations are too far out (> max_dte=400)
-        far_future = (datetime.now(timezone.utc).date() + timedelta(days=500)).isoformat()
+        far_future = (datetime.now(UTC).date() + timedelta(days=500)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([far_future]))
         df = connector.get_iv_surface("AAPL")
         assert df.empty
 
     def test_returns_data_for_valid_expirations(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future_45 = (datetime.now(timezone.utc).date() + timedelta(days=45)).isoformat()
+        future_45 = (datetime.now(UTC).date() + timedelta(days=45)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future_45]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -575,7 +573,7 @@ class TestGetAtmTermStructure:
         assert df.empty
 
     def test_returns_atm_iv(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future_45 = (datetime.now(timezone.utc).date() + timedelta(days=45)).isoformat()
+        future_45 = (datetime.now(UTC).date() + timedelta(days=45)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future_45]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -592,7 +590,7 @@ class TestGetSkewSnapshot:
         assert result == {}
 
     def test_empty_when_chain_unusable(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*"), status_code=404)
         mock.get(re.compile(r".*snapshot/quote.*"), status_code=404)
@@ -602,7 +600,7 @@ class TestGetSkewSnapshot:
 
     def test_full_path_with_all_three_strikes(self, mock: rm_module.Mocker, connector: ThetaConnector):
         """End-to-end: chain has 25Δ put + ATM put + 25Δ call."""
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         # Custom greeks fixture with strikes spanning the OTM spectrum
         # Need delta=-0.25 put, -0.50 put, +0.25 call
@@ -767,7 +765,7 @@ class TestCacheHelpers:
         assert connector._is_live(None) is True
 
     def test_is_live_for_today(self, connector: ThetaConnector):
-        today = datetime.now(timezone.utc).date().isoformat()
+        today = datetime.now(UTC).date().isoformat()
         assert connector._is_live(today) is True
 
     def test_is_live_for_past(self, connector: ThetaConnector):

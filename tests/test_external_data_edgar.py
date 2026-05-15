@@ -6,8 +6,7 @@ import pandas as pd
 import pytest
 import requests_mock as rm_module
 
-from engine.external_data.edgar_adapter import EDGARAdapter, _EDGAR_BASE
-
+from engine.external_data.edgar_adapter import _EDGAR_BASE, EDGARAdapter
 
 COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 

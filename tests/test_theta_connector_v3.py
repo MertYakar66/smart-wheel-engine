@@ -36,14 +36,33 @@ THETA_RE = re.compile(r"http://127\.0\.0\.1:25503/v3/.*")
 
 
 def _stock_eod_csv(rows: list[tuple[str, float, float, float, float, int]] | None = None) -> str:
-    """Build a /v3/stock/history/eod CSV (symbol, date, open, high, low, close, volume)."""
+    """Build a /v3/stock/history/eod CSV matching the LIVE v3 wire shape.
+
+    Real columns: created,last_trade,open,high,low,close,volume,count,
+    bid_size,bid_exchange,bid,bid_condition,
+    ask_size,ask_exchange,ask,ask_condition.
+
+    Callers pass semantic rows as (symbol, date_yyyymmdd, o, h, l, c, v); the
+    helper synthesises the ISO timestamps for `created`/`last_trade` and
+    zero-fills the bid/ask columns. `symbol` is discarded because v3 does
+    not echo it. Reference fixture: tests/fixtures/theta_v3_stock_eod_spy.csv.
+    """
     rows = rows or [
         ("AAPL", "20260102", 150.0, 152.0, 149.0, 151.0, 50_000_000),
         ("AAPL", "20260103", 151.0, 153.5, 150.5, 153.0, 55_000_000),
     ]
-    header = "symbol,date,open,high,low,close,volume\n"
-    body = "\n".join(",".join(str(v) for v in r) for r in rows)
-    return header + body
+    header = (
+        "created,last_trade,open,high,low,close,volume,count,"
+        "bid_size,bid_exchange,bid,bid_condition,"
+        "ask_size,ask_exchange,ask,ask_condition\n"
+    )
+    body_lines = []
+    for _sym, d, o, h, lo, c, v in rows:
+        ts = f"{d[0:4]}-{d[4:6]}-{d[6:8]}T17:15:00.000"
+        body_lines.append(
+            f"{ts},{ts},{o},{h},{lo},{c},{v},0,0,0,0.0,0,0,0,0.0,0"
+        )
+    return header + "\n".join(body_lines)
 
 
 def _expirations_csv(dates: list[str] | None = None) -> str:
@@ -288,11 +307,39 @@ class TestGetOhlcv:
         assert df.empty
 
     def test_missing_close_falls_back(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        # Response has all columns except close → triggers warning + fallback
-        text = "symbol,date,open,high,low,volume\nAAPL,20260102,150.0,152.0,149.0,1000000\n"
+        # Response in real v3 shape but with `close` removed → triggers warning + fallback
+        text = (
+            "created,last_trade,open,high,low,volume\n"
+            "2026-01-02T17:15:00.000,2026-01-02T17:15:00.000,150.0,152.0,149.0,1000000\n"
+        )
         mock.get(THETA_RE, text=text)
         df = connector.get_ohlcv("AAPL")
         assert df.empty  # Bloomberg fallback also empty
+
+    def test_real_v3_fixture(self, mock: rm_module.Mocker, connector: ThetaConnector):
+        """Load the captured live-Terminal SPY EOD response and prove the
+        connector parses it correctly. Fixture was captured via:
+
+            curl 'http://127.0.0.1:25503/v3/stock/history/eod
+                  ?symbol=SPY&start_date=20250101&end_date=20250110'
+        """
+        fixture = Path(__file__).parent / "fixtures" / "theta_v3_stock_eod_spy.csv"
+        text = fixture.read_text(encoding="utf-8")
+        mock.get(THETA_RE, text=text)
+
+        df = connector.get_ohlcv("SPY")
+
+        assert not df.empty
+        assert list(df.columns) == ["open", "high", "low", "close", "volume"]
+        # 6 trading days between 2025-01-01 and 2025-01-10 inclusive
+        # (Jan 1 New Year's, Jan 9 Carter national day of mourning, weekend)
+        assert len(df) == 6
+        # Index is normalised to date-only timestamps
+        assert df.index[0] == pd.Timestamp("2025-01-02")
+        assert df.index[-1] == pd.Timestamp("2025-01-10")
+        # Sanity check the first row's close (SPY 2025-01-02)
+        assert df.iloc[0]["close"] == pytest.approx(584.64, abs=0.01)
+        assert df.iloc[0]["volume"] == 50_038_061
 
     def test_dates_passed_through(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(THETA_RE, text=_stock_eod_csv())

@@ -217,9 +217,7 @@ class TestEstimateRoundTripCost:
         )
         assert result["entry_costs"] > 0
         assert result["exit_costs"] > 0
-        assert result["total_costs"] == pytest.approx(
-            result["entry_costs"] + result["exit_costs"]
-        )
+        assert result["total_costs"] == pytest.approx(result["entry_costs"] + result["exit_costs"])
         # Premium is non-zero → cost-as-pct must be the ratio.
         assert result["cost_as_pct_of_premium"] == pytest.approx(
             result["total_costs"] / (2.50 * 100)

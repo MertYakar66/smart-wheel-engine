@@ -32,38 +32,55 @@ class TestPipelineStage:
 class TestCheckpoint:
     def test_progress_with_zero_total(self):
         cp = Checkpoint(
-            stage=PipelineStage.SCRAPE, timestamp=datetime.utcnow(),
-            run_id="r1", items_processed=0, items_total=0,
+            stage=PipelineStage.SCRAPE,
+            timestamp=datetime.utcnow(),
+            run_id="r1",
+            items_processed=0,
+            items_total=0,
         )
         assert cp.progress == 0.0
 
     def test_progress_partial(self):
         cp = Checkpoint(
-            stage=PipelineStage.SCRAPE, timestamp=datetime.utcnow(),
-            run_id="r1", items_processed=3, items_total=10,
+            stage=PipelineStage.SCRAPE,
+            timestamp=datetime.utcnow(),
+            run_id="r1",
+            items_processed=3,
+            items_total=10,
         )
         assert cp.progress == 0.3
 
     def test_is_complete_when_processed_geq_total(self):
         cp = Checkpoint(
-            stage=PipelineStage.SCRAPE, timestamp=datetime.utcnow(),
-            run_id="r1", items_processed=10, items_total=10,
+            stage=PipelineStage.SCRAPE,
+            timestamp=datetime.utcnow(),
+            run_id="r1",
+            items_processed=10,
+            items_total=10,
         )
         assert cp.is_complete is True
 
     def test_is_complete_false_when_total_zero(self):
         cp = Checkpoint(
-            stage=PipelineStage.SCRAPE, timestamp=datetime.utcnow(),
-            run_id="r1", items_processed=0, items_total=0,
+            stage=PipelineStage.SCRAPE,
+            timestamp=datetime.utcnow(),
+            run_id="r1",
+            items_processed=0,
+            items_total=0,
         )
         assert cp.is_complete is False
 
     def test_to_from_dict_roundtrip(self):
         ts = datetime.utcnow()
         cp = Checkpoint(
-            stage=PipelineStage.PREPROCESS, timestamp=ts,
-            run_id="r1", data={"foo": "bar"}, metadata={"m": 1},
-            items_processed=5, items_total=10, errors=["e1"],
+            stage=PipelineStage.PREPROCESS,
+            timestamp=ts,
+            run_id="r1",
+            data={"foo": "bar"},
+            metadata={"m": 1},
+            items_processed=5,
+            items_total=10,
+            errors=["e1"],
         )
         d = cp.to_dict()
         cp2 = Checkpoint.from_dict(d)
@@ -119,8 +136,11 @@ class TestCheckpointManager:
     def test_save_checkpoint_persists(self, mgr: CheckpointManager):
         mgr.start_run("test_save")
         cp = mgr.save_checkpoint(
-            PipelineStage.SCRAPE, {"foo": "bar"},
-            items_processed=3, items_total=10, metadata={"src": "rss"},
+            PipelineStage.SCRAPE,
+            {"foo": "bar"},
+            items_processed=3,
+            items_total=10,
+            metadata={"src": "rss"},
         )
         assert cp.stage == PipelineStage.SCRAPE
         assert cp.run_id == "test_save"
@@ -202,17 +222,25 @@ class TestCheckpointManager:
         # Create an old checkpoint by manually writing a file with old timestamp
         old_run = mgr._get_run_file("old_run")
         old_ts = (datetime.utcnow() - timedelta(days=30)).isoformat()
-        old_run.write_text(json.dumps({
-            "run_id": "old_run",
-            "checkpoints": {
-                "scrape": {
-                    "stage": "scrape", "timestamp": old_ts,
-                    "run_id": "old_run", "data": {},
-                    "items_processed": 0, "items_total": 0, "errors": [],
+        old_run.write_text(
+            json.dumps(
+                {
+                    "run_id": "old_run",
+                    "checkpoints": {
+                        "scrape": {
+                            "stage": "scrape",
+                            "timestamp": old_ts,
+                            "run_id": "old_run",
+                            "data": {},
+                            "items_processed": 0,
+                            "items_total": 0,
+                            "errors": [],
+                        }
+                    },
+                    "updated_at": old_ts,
                 }
-            },
-            "updated_at": old_ts,
-        }))
+            )
+        )
         removed = mgr.cleanup_old_checkpoints()
         assert removed >= 1
         assert not old_run.exists()

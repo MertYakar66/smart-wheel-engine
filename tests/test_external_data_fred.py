@@ -131,10 +131,13 @@ class TestSnapshotAndHistory:
         for sid in small_pack.values():
             mock.get(
                 _FRED_CSV_URL,
-                text=_csv([
-                    ("2026-01-01", 1.0),
-                    ("2026-01-02", 2.0),
-                ], series_id=sid),
+                text=_csv(
+                    [
+                        ("2026-01-01", 1.0),
+                        ("2026-01-02", 2.0),
+                    ],
+                    series_id=sid,
+                ),
             )
         adapter = FREDAdapter(api_key=None)
         df = adapter.history(pack=small_pack)
@@ -151,7 +154,7 @@ class TestCreditRegime:
     def test_benign_when_low_percentile(self, mock: rm_module.Mocker):
         # 5 years of monotonically-increasing HY OAS; current value at top
         # → percentile = 1.0 (~crisis). Flip: current low, history high.
-        rows = [(f"2024-01-{i+1:02d}", 5.0 + i * 0.1) for i in range(28)]
+        rows = [(f"2024-01-{i + 1:02d}", 5.0 + i * 0.1) for i in range(28)]
         rows = rows + [("2024-02-01", 1.0)]  # latest value lowest
         mock.get(
             _FRED_CSV_URL,
@@ -163,7 +166,7 @@ class TestCreditRegime:
 
     def test_crisis_when_above_95th_percentile(self, mock: rm_module.Mocker):
         # 100 days of low values + final spike → top of distribution
-        rows = [(f"2024-01-{(i % 28)+1:02d}", 1.0) for i in range(99)]
+        rows = [(f"2024-01-{(i % 28) + 1:02d}", 1.0) for i in range(99)]
         rows.append(("2024-12-31", 99.0))
         mock.get(
             _FRED_CSV_URL,
@@ -198,7 +201,7 @@ class TestYieldCurveSignal:
     def test_normal_curve_not_inverted(self, mock: rm_module.Mocker):
         mock.get(
             _FRED_CSV_URL,
-            text=_csv([(f"2026-01-{i+1:02d}", 0.5) for i in range(25)], series_id="T10Y2Y"),
+            text=_csv([(f"2026-01-{i + 1:02d}", 0.5) for i in range(25)], series_id="T10Y2Y"),
         )
         adapter = FREDAdapter(api_key=None)
         out = adapter.yield_curve_signal()

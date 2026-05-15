@@ -629,16 +629,20 @@ class TestOptimalContracts:
 class TestSectorExposure:
     def test_concentrated_above_25pct(self):
         ex = SectorExposure(
-            sector="Tech", position_count=3,
-            notional_exposure=300_000, exposure_pct=0.30,
+            sector="Tech",
+            position_count=3,
+            notional_exposure=300_000,
+            exposure_pct=0.30,
             symbols=["AAPL", "MSFT", "NVDA"],
         )
         assert ex.is_concentrated is True
 
     def test_not_concentrated_below_25pct(self):
         ex = SectorExposure(
-            sector="Tech", position_count=1,
-            notional_exposure=100_000, exposure_pct=0.20,
+            sector="Tech",
+            position_count=1,
+            notional_exposure=100_000,
+            exposure_pct=0.20,
             symbols=["AAPL"],
         )
         assert ex.is_concentrated is False
@@ -682,8 +686,10 @@ class TestSectorExposureManager:
         positions = [{"symbol": "AAPL", "strike": 150, "contracts": 5}]
         # Tech at 75_000; adding 100_000 → 175_000 / 1M = 17.5% < 25% limit
         allowed, reason = mgr.check_sector_limit(
-            "MSFT", proposed_notional=100_000,
-            positions=positions, portfolio_value=1_000_000,
+            "MSFT",
+            proposed_notional=100_000,
+            positions=positions,
+            portfolio_value=1_000_000,
         )
         assert allowed is True
 
@@ -691,16 +697,20 @@ class TestSectorExposureManager:
         positions = [{"symbol": "AAPL", "strike": 200, "contracts": 5}]
         # Tech at 100_000; adding 200_000 → 300_000 / 1M = 30% > 25% limit
         allowed, reason = mgr.check_sector_limit(
-            "MSFT", proposed_notional=200_000,
-            positions=positions, portfolio_value=1_000_000,
+            "MSFT",
+            proposed_notional=200_000,
+            positions=positions,
+            portfolio_value=1_000_000,
         )
         assert allowed is False
         assert "Tech" in reason
 
     def test_check_sector_limit_zero_portfolio(self, mgr: SectorExposureManager):
         allowed, _ = mgr.check_sector_limit(
-            "AAPL", proposed_notional=10_000,
-            positions=[], portfolio_value=0,
+            "AAPL",
+            proposed_notional=10_000,
+            positions=[],
+            portfolio_value=0,
         )
         # Divide-by-zero guard → 0% < 25% limit → allowed
         assert allowed is True
@@ -713,7 +723,7 @@ class TestSectorExposureManager:
     def test_get_sector_violations_when_above(self, mgr: SectorExposureManager):
         positions = [
             {"symbol": "AAPL", "strike": 200, "contracts": 10},  # 200_000 → 20%
-            {"symbol": "MSFT", "strike": 200, "contracts": 5},   # 100_000 → 10%
+            {"symbol": "MSFT", "strike": 200, "contracts": 5},  # 100_000 → 10%
         ]
         # Total Tech = 30% > 25% limit
         violations = mgr.get_sector_violations(positions, portfolio_value=1_000_000)
@@ -724,7 +734,8 @@ class TestSectorExposureManager:
         # Tech is loaded; suggest Financials/Energy
         positions = [{"symbol": "AAPL", "strike": 200, "contracts": 5}]
         suggestions = mgr.suggest_diversification(
-            positions, portfolio_value=1_000_000,
+            positions,
+            portfolio_value=1_000_000,
             available_symbols=["JPM", "XOM", "MSFT"],
         )
         # Should include Financials/Energy symbols (under-represented)
@@ -747,13 +758,15 @@ class TestHierarchicalRiskParity:
         # Two clusters: tech (correlated), financials (correlated)
         tech_factor = rng.standard_normal(n) * 0.012
         fin_factor = rng.standard_normal(n) * 0.010
-        df = pd.DataFrame({
-            "AAPL": tech_factor + rng.standard_normal(n) * 0.005,
-            "MSFT": tech_factor + rng.standard_normal(n) * 0.005,
-            "GOOGL": tech_factor + rng.standard_normal(n) * 0.006,
-            "JPM": fin_factor + rng.standard_normal(n) * 0.005,
-            "BAC": fin_factor + rng.standard_normal(n) * 0.005,
-        })
+        df = pd.DataFrame(
+            {
+                "AAPL": tech_factor + rng.standard_normal(n) * 0.005,
+                "MSFT": tech_factor + rng.standard_normal(n) * 0.005,
+                "GOOGL": tech_factor + rng.standard_normal(n) * 0.006,
+                "JPM": fin_factor + rng.standard_normal(n) * 0.005,
+                "BAC": fin_factor + rng.standard_normal(n) * 0.005,
+            }
+        )
         return df
 
     def test_init_defaults(self):
@@ -884,8 +897,16 @@ class TestRiskManagerStressTests:
     def test_run_stress_tests_returns_dict(self):
         rm = RiskManager()
         positions = [
-            {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
-             "iv": 0.25, "delta": -0.30, "contracts": 1, "covered": False},
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "delta": -0.30,
+                "contracts": 1,
+                "covered": False,
+            },
         ]
         spot_prices = {"AAPL": 155.0}
         result = rm.run_stress_tests(
@@ -900,8 +921,16 @@ class TestRiskManagerStressTests:
     def test_run_stress_tests_with_custom_scenario(self):
         rm = RiskManager()
         positions = [
-            {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
-             "iv": 0.25, "delta": -0.30, "contracts": 1, "covered": False},
+            {
+                "symbol": "AAPL",
+                "option_type": "put",
+                "strike": 150,
+                "dte": 30,
+                "iv": 0.25,
+                "delta": -0.30,
+                "contracts": 1,
+                "covered": False,
+            },
         ]
         custom = [{"name": "tiny_move", "spot_move": -0.01, "vol_move": 0.0}]
         result = rm.run_stress_tests(

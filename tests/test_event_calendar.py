@@ -26,6 +26,7 @@ from engine.event_calendar import (
 # MarketEvent
 # ---------------------------------------------------------------------------
 
+
 class TestMarketEvent:
     def test_basic_construction(self):
         ev = MarketEvent(
@@ -74,6 +75,7 @@ class TestMarketEvent:
 # EventCalendar
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def cal() -> EventCalendar:
     return EventCalendar()
@@ -107,13 +109,15 @@ class TestEventCalendarQuery:
     @pytest.fixture
     def populated(self) -> EventCalendar:
         c = EventCalendar()
-        c.add_events([
-            MarketEvent(date(2026, 5, 1), EventType.EARNINGS, "AAPL", "X"),
-            MarketEvent(date(2026, 5, 15), EventType.EARNINGS, "MSFT", "X"),
-            MarketEvent(date(2026, 5, 20), EventType.FOMC, None, "X"),
-            MarketEvent(date(2026, 6, 1), EventType.DIVIDEND_EX, "AAPL", "X"),
-            MarketEvent(date(2026, 7, 1), EventType.EARNINGS, "AAPL", "X"),
-        ])
+        c.add_events(
+            [
+                MarketEvent(date(2026, 5, 1), EventType.EARNINGS, "AAPL", "X"),
+                MarketEvent(date(2026, 5, 15), EventType.EARNINGS, "MSFT", "X"),
+                MarketEvent(date(2026, 5, 20), EventType.FOMC, None, "X"),
+                MarketEvent(date(2026, 6, 1), EventType.DIVIDEND_EX, "AAPL", "X"),
+                MarketEvent(date(2026, 7, 1), EventType.EARNINGS, "AAPL", "X"),
+            ]
+        )
         return c
 
     def test_get_events_in_range(self, populated: EventCalendar):
@@ -125,7 +129,9 @@ class TestEventCalendarQuery:
 
     def test_get_events_in_range_filtered_by_symbol(self, populated: EventCalendar):
         events = populated.get_events_in_range(
-            date(2026, 5, 1), date(2026, 7, 31), symbol="AAPL",
+            date(2026, 5, 1),
+            date(2026, 7, 31),
+            symbol="AAPL",
         )
         # Returns AAPL events plus macro events (which match any-symbol query)
         symbols = {e.symbol for e in events}
@@ -134,7 +140,8 @@ class TestEventCalendarQuery:
 
     def test_get_events_in_range_filtered_by_type(self, populated: EventCalendar):
         events = populated.get_events_in_range(
-            date(2026, 5, 1), date(2026, 7, 31),
+            date(2026, 5, 1),
+            date(2026, 7, 31),
             event_types=[EventType.EARNINGS],
         )
         assert all(e.event_type == EventType.EARNINGS for e in events)
@@ -146,7 +153,9 @@ class TestEventCalendarQuery:
 
     def test_get_events_for_symbol_with_date_filter(self, populated: EventCalendar):
         events = populated.get_events_for_symbol(
-            "AAPL", start_date=date(2026, 6, 1), end_date=date(2026, 7, 31),
+            "AAPL",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 7, 31),
         )
         assert len(events) == 2  # div on 6/1 + earnings on 7/1
 
@@ -157,7 +166,8 @@ class TestEventCalendarQuery:
 
     def test_get_next_event_filtered_type(self, populated: EventCalendar):
         ev = populated.get_next_event(
-            "AAPL", from_date=date(2026, 5, 10),
+            "AAPL",
+            from_date=date(2026, 5, 10),
             event_types=[EventType.EARNINGS],
         )
         assert ev is not None
@@ -179,7 +189,9 @@ class TestEventCalendarQuery:
 
     def test_has_event_before_expiry(self, populated: EventCalendar):
         has, events = populated.has_event_before_expiry(
-            "AAPL", trade_date=date(2026, 4, 25), expiry_date=date(2026, 5, 30),
+            "AAPL",
+            trade_date=date(2026, 4, 25),
+            expiry_date=date(2026, 5, 30),
         )
         assert has is True
         # AAPL earnings on 5/1 + macro FOMC on 5/20
@@ -189,7 +201,9 @@ class TestEventCalendarQuery:
 
     def test_has_event_before_expiry_none(self, populated: EventCalendar):
         has, events = populated.has_event_before_expiry(
-            "ZZZ", trade_date=date(2026, 8, 1), expiry_date=date(2026, 8, 30),
+            "ZZZ",
+            trade_date=date(2026, 8, 1),
+            expiry_date=date(2026, 8, 30),
         )
         assert has is False
         assert events == []
@@ -198,6 +212,7 @@ class TestEventCalendarQuery:
 # ---------------------------------------------------------------------------
 # EventCalendarBuilder
 # ---------------------------------------------------------------------------
+
 
 class TestEventCalendarBuilder:
     def test_from_earnings_csv_missing_file(self, tmp_path: Path):
@@ -223,8 +238,7 @@ class TestEventCalendarBuilder:
     def test_from_dividends_csv_happy(self, tmp_path: Path):
         path = tmp_path / "div.csv"
         path.write_text(
-            "symbol,ex_date,pay_date,amount,yield\n"
-            "AAPL,2026-05-10,2026-05-20,0.24,0.005\n"
+            "symbol,ex_date,pay_date,amount,yield\nAAPL,2026-05-10,2026-05-20,0.24,0.005\n"
         )
         events = EventCalendarBuilder.from_dividends_csv(str(path))
         # Both ex and pay events
@@ -273,12 +287,24 @@ class TestEventCalendarBuilder:
             assert ev.event_date.weekday() == 4  # Friday
 
     def test_from_dataframe(self):
-        df = pd.DataFrame([
-            {"date": pd.Timestamp("2026-05-01"), "symbol": "AAPL",
-             "event_type": "earnings", "description": "X", "impact": "high"},
-            {"date": pd.Timestamp("2026-05-15"), "symbol": None,
-             "event_type": "fomc", "description": "X", "impact": "critical"},
-        ])
+        df = pd.DataFrame(
+            [
+                {
+                    "date": pd.Timestamp("2026-05-01"),
+                    "symbol": "AAPL",
+                    "event_type": "earnings",
+                    "description": "X",
+                    "impact": "high",
+                },
+                {
+                    "date": pd.Timestamp("2026-05-15"),
+                    "symbol": None,
+                    "event_type": "fomc",
+                    "description": "X",
+                    "impact": "critical",
+                },
+            ]
+        )
         events = EventCalendarBuilder.from_dataframe(df)
         assert len(events) == 2
         assert events[0].event_type == EventType.EARNINGS
@@ -286,10 +312,16 @@ class TestEventCalendarBuilder:
         assert events[1].event_type == EventType.FOMC
 
     def test_from_dataframe_unknown_event_type_falls_to_other(self):
-        df = pd.DataFrame([
-            {"date": pd.Timestamp("2026-05-01"), "symbol": "AAPL",
-             "event_type": "unknown_thing", "description": "X"},
-        ])
+        df = pd.DataFrame(
+            [
+                {
+                    "date": pd.Timestamp("2026-05-01"),
+                    "symbol": "AAPL",
+                    "event_type": "unknown_thing",
+                    "description": "X",
+                },
+            ]
+        )
         events = EventCalendarBuilder.from_dataframe(df)
         assert events[0].event_type == EventType.OTHER
 
@@ -297,6 +329,7 @@ class TestEventCalendarBuilder:
 # ---------------------------------------------------------------------------
 # EventRiskFilter
 # ---------------------------------------------------------------------------
+
 
 class TestEventRiskFilter:
     @pytest.fixture
@@ -307,7 +340,9 @@ class TestEventRiskFilter:
 
     def test_avoid_when_earnings_within_buffer(self, filter_with_earnings: EventRiskFilter):
         avoid, reason = filter_with_earnings.should_avoid_trade(
-            "AAPL", trade_date=date(2026, 5, 1), expiry_date=date(2026, 6, 1),
+            "AAPL",
+            trade_date=date(2026, 5, 1),
+            expiry_date=date(2026, 6, 1),
         )
         assert avoid is True
         assert "Earnings" in reason
@@ -315,13 +350,17 @@ class TestEventRiskFilter:
     def test_no_avoid_when_earnings_outside_buffer(self, filter_with_earnings: EventRiskFilter):
         # Trade 10 days before earnings, buffer is 5 → outside
         avoid, _ = filter_with_earnings.should_avoid_trade(
-            "AAPL", trade_date=date(2026, 4, 25), expiry_date=date(2026, 6, 1),
+            "AAPL",
+            trade_date=date(2026, 4, 25),
+            expiry_date=date(2026, 6, 1),
         )
         assert avoid is False
 
     def test_no_avoid_when_no_earnings(self, filter_with_earnings: EventRiskFilter):
         avoid, _ = filter_with_earnings.should_avoid_trade(
-            "MSFT", trade_date=date(2026, 5, 1), expiry_date=date(2026, 6, 1),
+            "MSFT",
+            trade_date=date(2026, 5, 1),
+            expiry_date=date(2026, 6, 1),
         )
         assert avoid is False
 
@@ -330,7 +369,9 @@ class TestEventRiskFilter:
         cal.add_event(MarketEvent(date(2026, 5, 5), EventType.FOMC, None, "X"))
         f = EventRiskFilter(cal, fomc_buffer_days=2)
         avoid, reason = f.should_avoid_trade(
-            "AAPL", trade_date=date(2026, 5, 4), expiry_date=date(2026, 6, 1),
+            "AAPL",
+            trade_date=date(2026, 5, 4),
+            expiry_date=date(2026, 6, 1),
         )
         assert avoid is True
         assert "FOMC" in reason
@@ -339,7 +380,10 @@ class TestEventRiskFilter:
         cal = EventCalendar()
         f = EventRiskFilter(cal)
         size, reason = f.get_event_adjusted_sizing(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1), base_size=10.0,
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
+            base_size=10.0,
         )
         assert size == 10.0
         assert "No events" in reason
@@ -349,7 +393,10 @@ class TestEventRiskFilter:
         cal.add_event(MarketEvent(date(2026, 5, 10), EventType.EARNINGS, "AAPL", "X"))
         f = EventRiskFilter(cal)
         size, reason = f.get_event_adjusted_sizing(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1), base_size=10.0,
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
+            base_size=10.0,
         )
         assert size == pytest.approx(5.0)  # 0.5x adjustment for earnings
         assert "Earnings" in reason
@@ -359,7 +406,10 @@ class TestEventRiskFilter:
         cal.add_event(MarketEvent(date(2026, 5, 10), EventType.DIVIDEND_EX, "AAPL", "X"))
         f = EventRiskFilter(cal)
         size, _ = f.get_event_adjusted_sizing(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1), base_size=10.0,
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
+            base_size=10.0,
         )
         assert size == pytest.approx(9.5)  # 0.95x for dividend
 
@@ -367,7 +417,9 @@ class TestEventRiskFilter:
         cal = EventCalendar()
         f = EventRiskFilter(cal)
         m = f.get_event_premium_adjustment(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1),
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
         )
         assert m == 1.0
 
@@ -378,7 +430,9 @@ class TestEventRiskFilter:
         cal.add_event(ev)
         f = EventRiskFilter(cal)
         m = f.get_event_premium_adjustment(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1),
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
         )
         assert m == pytest.approx(1.05)
 
@@ -387,7 +441,9 @@ class TestEventRiskFilter:
         cal.add_event(MarketEvent(date(2026, 5, 10), EventType.EARNINGS, "AAPL", "X"))
         f = EventRiskFilter(cal)
         m = f.get_event_premium_adjustment(
-            "AAPL", date(2026, 5, 1), date(2026, 6, 1),
+            "AAPL",
+            date(2026, 5, 1),
+            date(2026, 6, 1),
         )
         assert m == pytest.approx(1.35)  # default 35% premium for earnings
 
@@ -395,6 +451,7 @@ class TestEventRiskFilter:
 # ---------------------------------------------------------------------------
 # CalendarSourceConfig
 # ---------------------------------------------------------------------------
+
 
 class TestCalendarSourceConfig:
     def test_sources_known(self):
@@ -410,6 +467,7 @@ class TestCalendarSourceConfig:
 # ---------------------------------------------------------------------------
 # CalendarIngestionManager
 # ---------------------------------------------------------------------------
+
 
 class TestCalendarIngestionManager:
     def test_load_missing_file_returns_none(self, tmp_path: Path):
@@ -464,7 +522,9 @@ class TestCalendarIngestionManager:
         m = CalendarIngestionManager(calendar_dir=str(tmp_path))
         m.save_to_json("fomc", 2026, [date(2026, 1, 28)], source="x")
         events = m.load_or_fallback(
-            "fomc", 2026, fallback_generator=EventCalendarBuilder.generate_fomc_dates,
+            "fomc",
+            2026,
+            fallback_generator=EventCalendarBuilder.generate_fomc_dates,
         )
         assert events is not None
         assert all(ev.event_type == EventType.FOMC for ev in events)
@@ -475,7 +535,9 @@ class TestCalendarIngestionManager:
         m = CalendarIngestionManager(calendar_dir=str(tmp_path))
         # No JSON for 2024 → falls back to generate_fomc_dates(2024)
         events = m.load_or_fallback(
-            "fomc", 2024, fallback_generator=EventCalendarBuilder.generate_fomc_dates,
+            "fomc",
+            2024,
+            fallback_generator=EventCalendarBuilder.generate_fomc_dates,
         )
         assert events is not None
         assert len(events) == 8  # FOMC meets 8 times/year
@@ -484,7 +546,9 @@ class TestCalendarIngestionManager:
         m = CalendarIngestionManager(calendar_dir=str(tmp_path))
         with pytest.raises(ValueError, match="STRICT CALENDAR MODE"):
             m.load_or_fallback(
-                "fomc", 2099, fallback_generator=EventCalendarBuilder.generate_fomc_dates,
+                "fomc",
+                2099,
+                fallback_generator=EventCalendarBuilder.generate_fomc_dates,
                 strict=True,
             )
 
@@ -492,6 +556,7 @@ class TestCalendarIngestionManager:
 # ---------------------------------------------------------------------------
 # Module-level functions
 # ---------------------------------------------------------------------------
+
 
 class TestValidateCalendarDates:
     def test_validate_with_full_calendar(self):

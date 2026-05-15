@@ -28,12 +28,14 @@ def populated_dir(tmp_path: Path) -> Path:
         # Two earnings events, 90 days apart
         for i, ann_offset in enumerate([60, 150]):
             ann = base + pd.Timedelta(days=ann_offset)
-            earnings.append({
-                "ticker": ticker,
-                "announcement_date": ann.isoformat(),
-                "earnings_eps": 1.0 + 0.1 * i,
-                "estimate_eps": 0.95 + 0.1 * i,
-            })
+            earnings.append(
+                {
+                    "ticker": ticker,
+                    "announcement_date": ann.isoformat(),
+                    "earnings_eps": 1.0 + 0.1 * i,
+                    "estimate_eps": 0.95 + 0.1 * i,
+                }
+            )
         fundamentals.append({"ticker": ticker, "sector": sector})
 
         # 200 days of OHLCV around the events
@@ -57,20 +59,34 @@ class TestLazyLoaders:
         assert a._load_fundamentals().empty
 
     def test_columns_lowercased_on_load(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"Ticker": "AAPL", "Announcement_Date": "2026-05-01",
-             "Earnings_EPS": 1.0, "Estimate_EPS": 0.95},
-        ])
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "Ticker": "AAPL",
+                    "Announcement_Date": "2026-05-01",
+                    "Earnings_EPS": 1.0,
+                    "Estimate_EPS": 0.95,
+                },
+            ],
+        )
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
         df = a._load_earnings()
         assert "ticker" in df.columns
         assert "announcement_date" in df.columns
 
     def test_load_caches(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"ticker": "AAPL", "announcement_date": "2026-05-01",
-             "earnings_eps": 1.0, "estimate_eps": 0.95},
-        ])
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-05-01",
+                    "earnings_eps": 1.0,
+                    "estimate_eps": 0.95,
+                },
+            ],
+        )
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
         df1 = a._load_earnings()
         df2 = a._load_earnings()
@@ -82,22 +98,39 @@ class TestTickerEarningsMoves:
         a = EarningsDriftAnalyzer(data_dir=populated_dir)
         df = a.ticker_earnings_moves("AAPL")
         assert len(df) == 2
-        assert {"announcement_date", "prior_close", "day1_ret", "day3_ret",
-                "day5_ret", "eps_surprise_pct", "surprise_sign"} <= set(df.columns)
+        assert {
+            "announcement_date",
+            "prior_close",
+            "day1_ret",
+            "day3_ret",
+            "day5_ret",
+            "eps_surprise_pct",
+            "surprise_sign",
+        } <= set(df.columns)
 
     def test_returns_empty_when_no_earnings_data(self, tmp_path: Path):
         # OHLCV exists but earnings does not
-        _write_csv(tmp_path / "sp500_ohlcv.csv", [
-            {"ticker": "AAPL", "date": "2026-01-01", "close": 100.0},
-        ])
+        _write_csv(
+            tmp_path / "sp500_ohlcv.csv",
+            [
+                {"ticker": "AAPL", "date": "2026-01-01", "close": 100.0},
+            ],
+        )
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
         assert a.ticker_earnings_moves("AAPL").empty
 
     def test_returns_empty_when_no_ohlcv_data(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"ticker": "AAPL", "announcement_date": "2026-05-01",
-             "earnings_eps": 1.0, "estimate_eps": 0.95},
-        ])
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-05-01",
+                    "earnings_eps": 1.0,
+                    "estimate_eps": 0.95,
+                },
+            ],
+        )
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
         assert a.ticker_earnings_moves("AAPL").empty
 
@@ -111,17 +144,36 @@ class TestTickerEarningsMoves:
         assert len(df) >= 1
 
     def test_surprise_sign_classification(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"ticker": "AAPL", "announcement_date": "2026-03-01",
-             "earnings_eps": 1.10, "estimate_eps": 1.00},  # +10% beat
-            {"ticker": "AAPL", "announcement_date": "2026-06-01",
-             "earnings_eps": 0.85, "estimate_eps": 1.00},  # -15% miss
-            {"ticker": "AAPL", "announcement_date": "2026-09-01",
-             "earnings_eps": 1.005, "estimate_eps": 1.00},  # inline (0.5%)
-        ])
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-03-01",
+                    "earnings_eps": 1.10,
+                    "estimate_eps": 1.00,
+                },  # +10% beat
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-06-01",
+                    "earnings_eps": 0.85,
+                    "estimate_eps": 1.00,
+                },  # -15% miss
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-09-01",
+                    "earnings_eps": 1.005,
+                    "estimate_eps": 1.00,
+                },  # inline (0.5%)
+            ],
+        )
         ohlcv = [
-            {"ticker": "AAPL", "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
-             "close": 100.0 + d * 0.1} for d in range(0, 270)
+            {
+                "ticker": "AAPL",
+                "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
+                "close": 100.0 + d * 0.1,
+            }
+            for d in range(0, 270)
         ]
         _write_csv(tmp_path / "sp500_ohlcv.csv", ohlcv)
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
@@ -132,15 +184,30 @@ class TestTickerEarningsMoves:
         assert "miss" in signs
 
     def test_skips_rows_without_announcement_date(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"ticker": "AAPL", "announcement_date": "2026-03-01",
-             "earnings_eps": 1.0, "estimate_eps": 0.95},
-            {"ticker": "AAPL", "announcement_date": None,
-             "earnings_eps": 1.0, "estimate_eps": 0.95},
-        ])
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-03-01",
+                    "earnings_eps": 1.0,
+                    "estimate_eps": 0.95,
+                },
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": None,
+                    "earnings_eps": 1.0,
+                    "estimate_eps": 0.95,
+                },
+            ],
+        )
         ohlcv = [
-            {"ticker": "AAPL", "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
-             "close": 100.0 + d * 0.1} for d in range(0, 100)
+            {
+                "ticker": "AAPL",
+                "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
+                "close": 100.0 + d * 0.1,
+            }
+            for d in range(0, 100)
         ]
         _write_csv(tmp_path / "sp500_ohlcv.csv", ohlcv)
         a = EarningsDriftAnalyzer(data_dir=tmp_path)
@@ -187,17 +254,31 @@ class TestSectorDriftStats:
         assert df["sector"].nunique() <= 2
 
     def test_skips_rows_with_missing_sector(self, tmp_path: Path):
-        _write_csv(tmp_path / "sp500_fundamentals.csv", [
-            {"ticker": "AAPL", "sector": "Tech"},
-            {"ticker": "MSFT", "sector": None},
-        ])
-        _write_csv(tmp_path / "sp500_earnings.csv", [
-            {"ticker": "AAPL", "announcement_date": "2026-05-01",
-             "earnings_eps": 1.0, "estimate_eps": 0.95}
-        ])
+        _write_csv(
+            tmp_path / "sp500_fundamentals.csv",
+            [
+                {"ticker": "AAPL", "sector": "Tech"},
+                {"ticker": "MSFT", "sector": None},
+            ],
+        )
+        _write_csv(
+            tmp_path / "sp500_earnings.csv",
+            [
+                {
+                    "ticker": "AAPL",
+                    "announcement_date": "2026-05-01",
+                    "earnings_eps": 1.0,
+                    "estimate_eps": 0.95,
+                }
+            ],
+        )
         ohlcv = [
-            {"ticker": "AAPL", "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
-             "close": 100.0 + d * 0.1} for d in range(0, 200)
+            {
+                "ticker": "AAPL",
+                "date": (pd.Timestamp("2026-01-01") + pd.Timedelta(days=d)).isoformat(),
+                "close": 100.0 + d * 0.1,
+            }
+            for d in range(0, 200)
         ]
         _write_csv(tmp_path / "sp500_ohlcv.csv", ohlcv)
         a = EarningsDriftAnalyzer(data_dir=tmp_path)

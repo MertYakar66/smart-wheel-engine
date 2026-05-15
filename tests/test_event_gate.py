@@ -115,10 +115,12 @@ class TestMultipleEvents:
 
     def test_add_events_batch(self):
         gate = EventGate(earnings_buffer_days=5)
-        gate.add_events([
-            ScheduledEvent("AAPL", "earnings", date(2026, 5, 10)),
-            ScheduledEvent("MSFT", "earnings", date(2026, 6, 10)),
-        ])
+        gate.add_events(
+            [
+                ScheduledEvent("AAPL", "earnings", date(2026, 5, 10)),
+                ScheduledEvent("MSFT", "earnings", date(2026, 6, 10)),
+            ]
+        )
         assert len(gate.events) == 2
 
     def test_clear_removes_all_events(self):
@@ -153,32 +155,38 @@ class TestFilterCandidates:
     def test_datetime_inputs_normalised_to_date(self):
         gate = EventGate(earnings_buffer_days=5)
         gate.add_event(ScheduledEvent("AAPL", "earnings", date(2026, 5, 10)))
-        cands = [{
-            "ticker": "AAPL",
-            "trade_date": datetime(2026, 5, 1, 9, 30),
-            "expiration": datetime(2026, 6, 1, 16, 0),
-        }]
+        cands = [
+            {
+                "ticker": "AAPL",
+                "trade_date": datetime(2026, 5, 1, 9, 30),
+                "expiration": datetime(2026, 6, 1, 16, 0),
+            }
+        ]
         kept, blocked = gate.filter_candidates(cands)
         assert len(blocked) == 1
 
 
 class TestFromBloombergCalendar:
     def test_earnings_only(self):
-        earnings = pd.DataFrame([
-            {"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")},
-            {"ticker": "MSFT", "announcement_date": pd.Timestamp("2026-06-15")},
-        ])
+        earnings = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")},
+                {"ticker": "MSFT", "announcement_date": pd.Timestamp("2026-06-15")},
+            ]
+        )
         gate = EventGate.from_bloomberg_calendar(earnings)
         assert len(gate.events) == 2
         assert all(e.kind == "earnings" for e in gate.events)
         assert gate.earnings_buffer_days == 5  # default
 
     def test_macro_events(self):
-        macro = pd.DataFrame([
-            {"event": "fomc", "date": pd.Timestamp("2026-05-10")},
-            {"event": "CPI", "date": pd.Timestamp("2026-05-15")},
-            {"event": "wibble", "date": pd.Timestamp("2026-05-20")},  # falls back to custom
-        ])
+        macro = pd.DataFrame(
+            [
+                {"event": "fomc", "date": pd.Timestamp("2026-05-10")},
+                {"event": "CPI", "date": pd.Timestamp("2026-05-15")},
+                {"event": "wibble", "date": pd.Timestamp("2026-05-20")},  # falls back to custom
+            ]
+        )
         gate = EventGate.from_bloomberg_calendar(earnings_df=None, macro_df=macro)
         kinds = [e.kind for e in gate.events]
         assert "fomc" in kinds
@@ -187,9 +195,11 @@ class TestFromBloombergCalendar:
         assert all(e.ticker == "*" for e in gate.events)
 
     def test_dividends(self):
-        divs = pd.DataFrame([
-            {"ticker": "AAPL", "ex_date": pd.Timestamp("2026-05-10")},
-        ])
+        divs = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "ex_date": pd.Timestamp("2026-05-10")},
+            ]
+        )
         gate = EventGate.from_bloomberg_calendar(earnings_df=None, dividends_df=divs)
         assert len(gate.events) == 1
         assert gate.events[0].kind == "dividend"
@@ -198,11 +208,13 @@ class TestFromBloombergCalendar:
         # Defensive: rows with None or pandas NaT in the date column are
         # filtered at ingest, not admitted to the gate (which would crash
         # is_blocked() on a NaT vs date comparison).
-        earnings = pd.DataFrame([
-            {"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")},
-            {"ticker": "MSFT", "announcement_date": None},
-            {"ticker": "GOOG", "announcement_date": pd.NaT},
-        ])
+        earnings = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")},
+                {"ticker": "MSFT", "announcement_date": None},
+                {"ticker": "GOOG", "announcement_date": pd.NaT},
+            ]
+        )
         gate = EventGate.from_bloomberg_calendar(earnings)
         assert len(gate.events) == 1
         assert gate.events[0].ticker == "AAPL"
@@ -215,9 +227,9 @@ class TestFromBloombergCalendar:
         assert gate.events == []
 
     def test_buffer_overrides_propagate(self):
-        earnings = pd.DataFrame([
-            {"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")}
-        ])
+        earnings = pd.DataFrame(
+            [{"ticker": "AAPL", "announcement_date": pd.Timestamp("2026-05-10")}]
+        )
         gate = EventGate.from_bloomberg_calendar(
             earnings,
             earnings_buffer_days=10,

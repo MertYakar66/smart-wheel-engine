@@ -169,9 +169,17 @@ class TestPotGpdCvarWrapper:
         losses = rng.exponential(scale=0.02, size=2000)
         result = pot_gpd_cvar(losses)
         for key in (
-            "var", "cvar", "xi", "beta", "threshold",
-            "n_exceedances", "n_total", "tail_fraction",
-            "heavy_tail", "fit_quality", "converged",
+            "var",
+            "cvar",
+            "xi",
+            "beta",
+            "threshold",
+            "n_exceedances",
+            "n_total",
+            "tail_fraction",
+            "heavy_tail",
+            "fit_quality",
+            "converged",
         ):
             assert key in result
 

@@ -28,9 +28,7 @@ def _ohlcv_csv(rows: list[tuple[str, float, float, float, float, int]] | None = 
         ("2026-01-03", 101.0, 102.5, 100.5, 102.0, 1_100_000),
     ]
     header = "Date,Open,High,Low,Close,Adj Close,Volume\n"
-    body = "\n".join(
-        f"{d},{o},{h},{lo},{c},{c},{v}" for d, o, h, lo, c, v in rows
-    )
+    body = "\n".join(f"{d},{o},{h},{lo},{c},{c},{v}" for d, o, h, lo, c, v in rows)
     return header + body
 
 
@@ -119,10 +117,15 @@ class TestLatestClose:
 
 class TestCrossAssetSnapshot:
     def test_full_pack_returns_price_and_ret_1d(self, mock: rm_module.Mocker):
-        mock.get(YF_RE, text=_ohlcv_csv([
-            ("2026-01-02", 100.0, 101.5, 99.5, 100.0, 1_000_000),
-            ("2026-01-03", 101.0, 102.5, 100.5, 102.0, 1_100_000),
-        ]))
+        mock.get(
+            YF_RE,
+            text=_ohlcv_csv(
+                [
+                    ("2026-01-02", 100.0, 101.5, 99.5, 100.0, 1_000_000),
+                    ("2026-01-03", 101.0, 102.5, 100.5, 102.0, 1_100_000),
+                ]
+            ),
+        )
         adapter = YFinanceAdapter()
         snap = adapter.cross_asset_snapshot()
         assert set(snap.keys()) == set(CROSS_ASSET_PACK.keys())
@@ -144,9 +147,14 @@ class TestCrossAssetSnapshot:
             assert math.isnan(entry["ret_1d"])
 
     def test_single_row_no_prev_close_yields_nan_ret(self, mock: rm_module.Mocker):
-        mock.get(YF_RE, text=_ohlcv_csv([
-            ("2026-01-02", 100.0, 101.5, 99.5, 100.0, 1_000_000),
-        ]))
+        mock.get(
+            YF_RE,
+            text=_ohlcv_csv(
+                [
+                    ("2026-01-02", 100.0, 101.5, 99.5, 100.0, 1_000_000),
+                ]
+            ),
+        )
         adapter = YFinanceAdapter()
         snap = adapter.cross_asset_snapshot()
         for entry in snap.values():
@@ -157,10 +165,15 @@ class TestCrossAssetSnapshot:
 
 class TestSectorReturns:
     def test_full_sector_pack_returns_returns(self, mock: rm_module.Mocker):
-        mock.get(YF_RE, text=_ohlcv_csv([
-            ("2026-01-02", 100.0, 101.0, 99.0, 100.0, 1_000_000),
-            ("2026-01-30", 105.0, 106.0, 104.0, 105.0, 1_100_000),
-        ]))
+        mock.get(
+            YF_RE,
+            text=_ohlcv_csv(
+                [
+                    ("2026-01-02", 100.0, 101.0, 99.0, 100.0, 1_000_000),
+                    ("2026-01-30", 105.0, 106.0, 104.0, 105.0, 1_100_000),
+                ]
+            ),
+        )
         adapter = YFinanceAdapter()
         rets = adapter.sector_returns(period_days=30)
         assert set(rets.keys()) == set(SECTOR_ETFS.keys())
@@ -178,10 +191,15 @@ class TestSectorReturns:
 
     def test_zero_first_close_yields_nan(self, mock: rm_module.Mocker):
         # Pathological zero-first-close → divide-by-zero guard returns NaN
-        mock.get(YF_RE, text=_ohlcv_csv([
-            ("2026-01-02", 0.0, 0.0, 0.0, 0.0, 0),
-            ("2026-01-30", 100.0, 101.0, 99.0, 100.0, 1_000_000),
-        ]))
+        mock.get(
+            YF_RE,
+            text=_ohlcv_csv(
+                [
+                    ("2026-01-02", 0.0, 0.0, 0.0, 0.0, 0),
+                    ("2026-01-30", 100.0, 101.0, 99.0, 100.0, 1_000_000),
+                ]
+            ),
+        )
         adapter = YFinanceAdapter()
         rets = adapter.sector_returns()
         for v in rets.values():

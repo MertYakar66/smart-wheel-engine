@@ -342,7 +342,6 @@ class EVEngine:
         # of a non-expiration exit, approximated as prob_profit + prob_stop.
         is_itm = self._is_itm_mask(trade, terminal_prices)
         prob_itm = float(np.mean(is_itm))
-        prob_otm = 1.0 - prob_itm
 
         # Assignment fee applies when ITM at expiry.
         assignment_fee_total = calculate_assignment_fee() * max(trade.contracts, 1)

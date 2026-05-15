@@ -363,9 +363,6 @@ class AssignmentFeatures:
         spot_arr = spot.to_numpy(dtype=float)
         iv_arr = iv_aligned.to_numpy(dtype=float)
         n = len(spot_arr)
-        strikes_arr = np.full(n, float(strike))
-        ttes_arr = np.full(n, float(time_to_expiry))
-        is_puts_arr = np.full(n, bool(is_put))
 
         prob_touch = np.full(n, np.nan)
         early_assign = np.full(n, np.nan)

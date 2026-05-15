@@ -259,7 +259,7 @@ class TestFullAuthorityChain:
             h = _FakeHandler()
             h._handle_tv_webhook(payload, raw_body=raw, signature_header=sig)
         assert h.responses[-1][0] == 200
-        enriched = h.responses[-1][1]["enriched"]
+        assert "enriched" in h.responses[-1][1]
 
         # Step 2: directly call the EV ranker for the token payload
         with patch.object(

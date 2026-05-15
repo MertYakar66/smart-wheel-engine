@@ -106,7 +106,7 @@ def _option_history_eod_csv(rows: list[tuple[str, float, float, float, float, in
         ("20260103", 1.50, 1.60, 1.40, 1.55, 150),
     ]
     header = "created,open,high,low,close,volume,bid,ask\n"
-    body = "\n".join(f"{d},{o},{h},{l},{c},{v},{c-0.05},{c+0.05}" for d, o, h, l, c, v in rows)
+    body = "\n".join(f"{d},{o},{h},{lo},{c},{v},{c-0.05},{c+0.05}" for d, o, h, lo, c, v in rows)
     return header + body
 
 

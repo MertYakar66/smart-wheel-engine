@@ -29,7 +29,7 @@ def _ohlcv_csv(rows: list[tuple[str, float, float, float, float, int]] | None = 
     ]
     header = "Date,Open,High,Low,Close,Adj Close,Volume\n"
     body = "\n".join(
-        f"{d},{o},{h},{l},{c},{c},{v}" for d, o, h, l, c, v in rows
+        f"{d},{o},{h},{lo},{c},{c},{v}" for d, o, h, lo, c, v in rows
     )
     return header + body
 

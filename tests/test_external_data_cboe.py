@@ -18,7 +18,7 @@ def _csv(symbol: str = "VIX", rows: list[tuple[str, float, float, float, float]]
         ("2026-01-04", 15.2, 16.0, 15.0, 15.7),
     ]
     header = "DATE,OPEN,HIGH,LOW,CLOSE\n"
-    body = "\n".join(f"{d},{o},{h},{l},{c}" for d, o, h, l, c in rows)
+    body = "\n".join(f"{d},{o},{h},{lo},{c}" for d, o, h, lo, c in rows)
     return header + body
 
 

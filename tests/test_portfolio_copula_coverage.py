@@ -188,9 +188,7 @@ class TestPortfolioCvarWeightValidation:
 # (g_cvar, t_cvar) pair on the nose. Each branch is covered exactly
 # once with an explicit verdict assertion.
 # =========================================================================
-def _arrays_with_target_cvar(
-    g_cvar_target: float, t_cvar_target: float, n_samples: int = 2000
-):
+def _arrays_with_target_cvar(g_cvar_target: float, t_cvar_target: float, n_samples: int = 2000):
     """Return (gauss_arr, t_arr) shaped (n_samples, 1) so that the
     weighted port-sum (with weight 1.0) at confidence=0.99 yields
     g_cvar = g_cvar_target and t_cvar = t_cvar_target.
@@ -214,10 +212,10 @@ class TestPortfolioCvarVerdictLadder:
     @pytest.mark.parametrize(
         "g_cvar,t_cvar,expected_verdict,expected_amp",
         [
-            (0.01, 0.01, "negligible_tail_dependence", 1.0),     # amp <= 1.1 → else (L214)
-            (0.01, 0.012, "mild_tail_dependence", 1.2),          # 1.1 < amp <= 1.3 → L212
-            (0.01, 0.014, "material_tail_dependence", 1.4),      # 1.3 < amp <= 1.5 → L210
-            (0.01, 0.017, "critical_tail_dependence", 1.7),      # amp > 1.5 → L208
+            (0.01, 0.01, "negligible_tail_dependence", 1.0),  # amp <= 1.1 → else (L214)
+            (0.01, 0.012, "mild_tail_dependence", 1.2),  # 1.1 < amp <= 1.3 → L212
+            (0.01, 0.014, "material_tail_dependence", 1.4),  # 1.3 < amp <= 1.5 → L210
+            (0.01, 0.017, "critical_tail_dependence", 1.7),  # amp > 1.5 → L208
         ],
         ids=["negligible", "mild", "material", "critical"],
     )
@@ -267,20 +265,14 @@ class TestPortfolioCvarZeroGaussianCvar:
     fallback amp=1.0 instead of dividing by zero.
     """
 
-    def test_zero_gaussian_cvar_yields_amp_one_negligible_verdict(
-        self, monkeypatch
-    ):
+    def test_zero_gaussian_cvar_yields_amp_one_negligible_verdict(self, monkeypatch):
         n_samples = 1000
         zeros = np.zeros((n_samples, 1))
 
         # Both copulas return all-zeros ⇒ g_cvar = t_cvar = 0.
         # The function should take the fallback amp=1.0 path.
-        monkeypatch.setattr(
-            pc, "gaussian_copula_simulation", lambda *a, **k: zeros
-        )
-        monkeypatch.setattr(
-            pc, "student_t_copula_simulation", lambda *a, **k: zeros
-        )
+        monkeypatch.setattr(pc, "gaussian_copula_simulation", lambda *a, **k: zeros)
+        monkeypatch.setattr(pc, "student_t_copula_simulation", lambda *a, **k: zeros)
 
         res = portfolio_cvar_copula(
             marginals=[np.array([0.0])],

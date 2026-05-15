@@ -71,11 +71,11 @@ class GrokBrowserAgent:
 
         try:
             from playwright.async_api import async_playwright
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "Grok agent requires playwright. "
                 "Install: pip install playwright && playwright install chromium"
-            )
+            ) from err
 
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(headless=self.headless)

@@ -546,7 +546,12 @@ class DataQualityFramework:
         # IV in valid range (0 to 500%) — upgraded to ERROR severity so the
         # quality framework actually blocks broken data instead of just
         # warning. IV > 5.0 is not "unusual", it's corrupted data.
-        iv_cols = [c for c in df_check.columns if "iv" in c.lower() or "impvol" in c.lower()]
+        # Match on an exact allowlist, not a substring: a `"iv" in col`
+        # match also caught `iv_error` (Theta's IV-solver diagnostic, where
+        # 100.0 is the "no solution" sentinel), which falsely blocked every
+        # Theta-sourced ticker.
+        _IV_COLUMNS = {"iv", "implied_vol", "implied_volatility", "impvol"}
+        iv_cols = [c for c in df_check.columns if c.lower() in _IV_COLUMNS]
         for col in iv_cols:
             if df_check[col].dtype in (np.float64, np.float32):
                 invalid_iv = (df_check[col] < 0) | (df_check[col] > 5.0)

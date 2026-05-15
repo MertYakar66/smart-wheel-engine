@@ -438,9 +438,16 @@ class ThetaConnector(MarketDataConnector):
         """Fetch a full option chain (all strikes, both rights) with greeks.
 
         Returns a DataFrame with columns:
-          symbol, expiration, strike, right, delta, gamma, theta, vega,
-          rho, iv, bid, ask, mid (= (bid+ask)/2 as premium proxy),
-          underlying_price.
+          symbol, expiration, strike, right (lower-cased),
+          delta, theta, vega, rho, epsilon, lambda, iv,
+          underlying_price,
+          bid, ask, bid_size, ask_size, mid (= (bid+ask)/2),
+          open_interest.
+
+        Note: no `gamma` — `/v3/option/snapshot/greeks/first_order` is a
+        first-order endpoint; gamma (second-order) is PRO-tier only.
+        The diagnostic columns `iv_error` and `underlying_timestamp` are
+        dropped before return.
 
         If expiration is omitted, picks the expiry closest to dte_target.
         Uses a 60-second TTL cache so the EV ranker can call this safely
@@ -504,8 +511,16 @@ class ThetaConnector(MarketDataConnector):
         # implied-vol calculation). To avoid pandas creating bid_x / ask_x
         # suffixed columns on merge, strip quote-side fields from greeks
         # so the quote DataFrame is the sole source of truth for them.
+        # Also drop diagnostic columns nothing downstream consumes:
+        #   iv_error           — Theta's IV-solver sentinel (100.0 = "no
+        #                        solution"); was tripping the quality
+        #                        gate's IV-range check via substring match
+        #   underlying_timestamp — metadata only; underlying_price stays
         if not df_greeks.empty:
-            for col in ("bid", "ask", "bid_size", "ask_size", "timestamp"):
+            for col in (
+                "bid", "ask", "bid_size", "ask_size", "timestamp",
+                "iv_error", "underlying_timestamp",
+            ):
                 if col in df_greeks.columns:
                     df_greeks = df_greeks.drop(columns=[col])
 
@@ -563,8 +578,10 @@ class ThetaConnector(MarketDataConnector):
         else:
             df["mid"] = np.nan
 
-        # ThetaData returns IV as a decimal (e.g. 0.2617 = 26.17%).
-        # Guard against any accidental percent-form values.
+        # Defensive — live Theta v3 returns IV as a decimal (e.g. 0.2617 =
+        # 26.17%), so this branch should never fire in production. Kept as
+        # cheap insurance against a future API shape change or a feed that
+        # accidentally sends percent form.
         if "iv" in df.columns:
             df["iv"] = df["iv"].where(df["iv"] <= 3.0, df["iv"] / 100.0)
 

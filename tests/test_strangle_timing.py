@@ -975,7 +975,7 @@ class TestScanUniverseWithIV:
         assert list(out.index) == list(range(len(out)))
         # If both pass, MSFT's score should be >= AAPL's.
         if {"AAPL", "MSFT"} <= set(out["ticker"].tolist()):
-            scores_by_ticker = dict(zip(out["ticker"], out["score"]))
+            scores_by_ticker = dict(zip(out["ticker"], out["score"], strict=False))
             assert scores_by_ticker["MSFT"] >= scores_by_ticker["AAPL"]
 
 

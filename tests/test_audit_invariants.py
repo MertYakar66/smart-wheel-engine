@@ -61,7 +61,7 @@ class TestGreeksUnitContract:
         )
 
     def test_vega_is_non_negative(self):
-        for opt in ("call", "put"):
+        for _opt in ("call", "put"):
             for k in (80, 100, 120):
                 v = op.black_scholes_vega(100, k, 30 / 365, 0.05, 0.25, 0.00)
                 assert v >= 0.0

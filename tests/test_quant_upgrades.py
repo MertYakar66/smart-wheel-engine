@@ -322,22 +322,22 @@ class TestEventGate:
 # =========================================================================
 class TestEVEngineIntegration:
     def _trade(self, **overrides):
-        defaults = dict(
-            option_type="put",
-            underlying="AAPL",
-            spot=100.0,
-            strike=95.0,
-            premium=1.20,
-            bid=1.15,
-            ask=1.25,
-            dte=30,
-            iv=0.25,
-            risk_free_rate=0.05,
-            dividend_yield=0.0,
-            contracts=1,
-            open_interest=1000,
-            regime_multiplier=1.0,
-        )
+        defaults = {
+            "option_type": "put",
+            "underlying": "AAPL",
+            "spot": 100.0,
+            "strike": 95.0,
+            "premium": 1.20,
+            "bid": 1.15,
+            "ask": 1.25,
+            "dte": 30,
+            "iv": 0.25,
+            "risk_free_rate": 0.05,
+            "dividend_yield": 0.0,
+            "contracts": 1,
+            "open_interest": 1000,
+            "regime_multiplier": 1.0,
+        }
         defaults.update(overrides)
         return ShortOptionTrade(**defaults)
 

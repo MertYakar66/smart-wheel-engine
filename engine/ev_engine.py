@@ -81,7 +81,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -93,8 +93,11 @@ from .transaction_costs import (
     calculate_slippage,
 )
 
-if False:  # TYPE_CHECKING
+if TYPE_CHECKING:
+    from datetime import date
+
     from .dealer_positioning import MarketStructure  # noqa: F401
+    from .event_gate import EventGate
 
 
 OptionType = Literal["put", "call"]

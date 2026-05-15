@@ -70,7 +70,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 import numpy as np
@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 # Enums + dataclasses
 # ----------------------------------------------------------------------
-class DealerAssumption(str, Enum):
+class DealerAssumption(StrEnum):
     """Assumed direction of dealers relative to retail.
 
     LONG_CALLS_SHORT_PUTS is the SpotGamma convention:

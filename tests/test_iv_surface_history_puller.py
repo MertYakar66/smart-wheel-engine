@@ -523,4 +523,4 @@ def test_status_zero_when_all_buckets_fail() -> None:
     assert status["succeeded_buckets"] == 0
     assert status["partial"] is False  # 0 < succeeded < target_n is the partial check
     assert status["rejected_partial"] is False
-    assert status["failed_buckets"] == list((7, 14, 30, 60, 90, 180))
+    assert status["failed_buckets"] == [7, 14, 30, 60, 90, 180]

@@ -714,7 +714,15 @@ class WheelRunner:
 
             # Solve for the strike that gives the target put delta
             # Put delta = e^{-qT} * (N(d1) - 1); target is -delta_target.
-            def put_delta_err(K: float) -> float:
+            def put_delta_err(
+                K: float,
+                spot=spot,
+                risk_free_rate=risk_free_rate,
+                dividend_yield=dividend_yield,
+                iv=iv,
+                T=T,
+                delta_target=delta_target,
+            ) -> float:
                 if K <= 0:
                     return 1.0
                 d1 = (np.log(spot / K) + (risk_free_rate - dividend_yield + 0.5 * iv**2) * T) / (

@@ -66,7 +66,7 @@ class YFinanceAdapter:
         self._session = requests.Session()
         self._session.headers.update(_YF_HEADERS)
 
-    @lru_cache(maxsize=256)
+    @lru_cache(maxsize=256)  # noqa: B019 — short-lived adapter; per-instance cache is intended
     def get_ohlcv(self, symbol: str, period_days: int | None = None) -> pd.DataFrame:
         """Daily OHLCV for any Yahoo-listed symbol.
 

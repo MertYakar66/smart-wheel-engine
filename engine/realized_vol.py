@@ -60,8 +60,8 @@ def garman_klass_vol(df: pd.DataFrame, window: int = 20) -> float:
     if df is None or df.empty or len(df) < window:
         return float("nan")
     tail = df.tail(window)
-    o, h, l, c = (tail[col].values for col in ("open", "high", "low", "close"))
-    hl = _log(h / l) ** 2
+    o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
+    hl = _log(h / lo) ** 2
     co = _log(c / o) ** 2
     var = np.mean(0.5 * hl - (2.0 * np.log(2.0) - 1.0) * co)
     return float(np.sqrt(max(var, 0.0) * _TRADING_DAYS))
@@ -75,8 +75,8 @@ def rogers_satchell_vol(df: pd.DataFrame, window: int = 20) -> float:
     if df is None or df.empty or len(df) < window:
         return float("nan")
     tail = df.tail(window)
-    o, h, l, c = (tail[col].values for col in ("open", "high", "low", "close"))
-    term = _log(h / c) * _log(h / o) + _log(l / c) * _log(l / o)
+    o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
+    term = _log(h / c) * _log(h / o) + _log(lo / c) * _log(lo / o)
     var = np.mean(term)
     return float(np.sqrt(max(var, 0.0) * _TRADING_DAYS))
 
@@ -91,14 +91,14 @@ def yang_zhang_vol(df: pd.DataFrame, window: int = 20, k: float | None = None) -
     if df is None or df.empty or len(df) < window + 1:
         return float("nan")
     tail = df.tail(window + 1)
-    o, h, l, c = (tail[col].values for col in ("open", "high", "low", "close"))
+    o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
 
     # Overnight returns: ln(O_t / C_{t-1})
     over = _log(o[1:] / c[:-1])
     # Open-to-close: ln(C_t / O_t)
     otc = _log(c[1:] / o[1:])
     # RS component on the same window
-    rs = _log(h[1:] / c[1:]) * _log(h[1:] / o[1:]) + _log(l[1:] / c[1:]) * _log(l[1:] / o[1:])
+    rs = _log(h[1:] / c[1:]) * _log(h[1:] / o[1:]) + _log(lo[1:] / c[1:]) * _log(lo[1:] / o[1:])
 
     var_over = np.var(over, ddof=1)
     var_otc = np.var(otc, ddof=1)

@@ -183,10 +183,14 @@ class TestLoadSave:
 
     def test_load_partial_overrides_take_effect(self, tmp_path: Path):
         path = tmp_path / "policy.json"
-        path.write_text(json.dumps({
-            "risk": {"max_drawdown_pct": 0.30, "max_daily_loss_pct": 0.05},
-            "signal": {"profit_target_pct": 0.40},
-        }))
+        path.write_text(
+            json.dumps(
+                {
+                    "risk": {"max_drawdown_pct": 0.30, "max_daily_loss_pct": 0.05},
+                    "signal": {"profit_target_pct": 0.40},
+                }
+            )
+        )
         cfg = load_policy(str(path))
         assert cfg.risk.max_drawdown_pct == 0.30
         assert cfg.signal.profit_target_pct == 0.40
@@ -195,9 +199,13 @@ class TestLoadSave:
 
     def test_load_invalid_policy_raises_value_error(self, tmp_path: Path):
         path = tmp_path / "bad_policy.json"
-        path.write_text(json.dumps({
-            "risk": {"var_confidence": 0.5},
-        }))
+        path.write_text(
+            json.dumps(
+                {
+                    "risk": {"var_confidence": 0.5},
+                }
+            )
+        )
         with pytest.raises(ValueError, match="Policy validation failed"):
             load_policy(str(path))
 

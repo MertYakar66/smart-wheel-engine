@@ -20,21 +20,21 @@ from engine.ev_engine import EVEngine, ShortOptionTrade
 
 
 def _trade(**overrides) -> ShortOptionTrade:
-    base = dict(
-        option_type="put",
-        underlying="AAPL",
-        spot=100.0,
-        strike=95.0,
-        premium=1.50,
-        dte=30,
-        iv=0.25,
-        risk_free_rate=0.05,
-        dividend_yield=0.01,
-        contracts=1,
-        bid=1.45,
-        ask=1.55,
-        open_interest=1000,
-    )
+    base = {
+        "option_type": "put",
+        "underlying": "AAPL",
+        "spot": 100.0,
+        "strike": 95.0,
+        "premium": 1.50,
+        "dte": 30,
+        "iv": 0.25,
+        "risk_free_rate": 0.05,
+        "dividend_yield": 0.01,
+        "contracts": 1,
+        "bid": 1.45,
+        "ask": 1.55,
+        "open_interest": 1000,
+    }
     base.update(overrides)
     return ShortOptionTrade(**base)
 

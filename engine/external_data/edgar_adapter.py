@@ -57,7 +57,7 @@ class EDGARAdapter:
             time.sleep(self.min_interval_s - delta)
         self._last_call_at = time.time()
 
-    @lru_cache(maxsize=512)
+    @lru_cache(maxsize=512)  # noqa: B019 — short-lived adapter; per-instance cache is intended
     def cik_for_ticker(self, ticker: str) -> str | None:
         """Resolve a ticker to a zero-padded CIK (10-digit string)."""
         self._sleep_if_needed()
@@ -76,7 +76,7 @@ class EDGARAdapter:
                 return str(entry["cik_str"]).zfill(10)
         return None
 
-    @lru_cache(maxsize=256)
+    @lru_cache(maxsize=256)  # noqa: B019 — short-lived adapter; per-instance cache is intended
     def recent_insider_trades(self, ticker: str, n_days: int = 90) -> pd.DataFrame:
         """Recent insider trades (Form 4) for a ticker.
 

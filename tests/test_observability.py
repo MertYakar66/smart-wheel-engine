@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 
 import pytest
@@ -122,8 +122,12 @@ class TestDecisionJournal:
     def test_export_json_roundtrip(self, tmp_path: Path):
         journal = DecisionJournal()
         journal.record_decision(
-            "t1", "entry", "AAPL", "iv_high",
-            {"iv_rank": 0.6}, {"size": 3},
+            "t1",
+            "entry",
+            "AAPL",
+            "iv_high",
+            {"iv_rank": 0.6},
+            {"size": 3},
         )
         out = tmp_path / "j.json"
         journal.export_json(out)
@@ -176,7 +180,9 @@ class TestTraceOperation:
         # 4 events: parent_start, child_start, child_end, parent_end
         assert len(events) == 4
         # Find the child's start event
-        child_starts = [e for e in events if e["operation"] == "child_op" and e["event"] == "operation_start"]
+        child_starts = [
+            e for e in events if e["operation"] == "child_op" and e["event"] == "operation_start"
+        ]
         assert len(child_starts) == 1
         assert child_starts[0]["parent_id"] == parent_ctx.trace_id
 

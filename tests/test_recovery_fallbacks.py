@@ -178,9 +178,7 @@ class TestFallbackHandler:
         assert "can_publish_raw" in plan
         assert "recommendations" in plan
 
-    def test_partial_completion_plan_includes_local_when_available(
-        self, handler: FallbackHandler
-    ):
+    def test_partial_completion_plan_includes_local_when_available(self, handler: FallbackHandler):
         handler.health_monitor.mark_healthy(ModelType.LOCAL)
         plan = handler.get_partial_completion_plan(PipelineStage.FORMAT)
         # Should include local-LLM recommendation
@@ -205,9 +203,13 @@ class TestFallbackHandler:
         async def fn(provider):
             raise RuntimeError("always fails")
 
-        result = asyncio.run(handler.execute_with_fallback(
-            "verification", fn, max_retries=1,
-        ))
+        result = asyncio.run(
+            handler.execute_with_fallback(
+                "verification",
+                fn,
+                max_retries=1,
+            )
+        )
         assert result.success is False
         assert result.error is not None
         # Should have tried multiple providers

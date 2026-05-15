@@ -61,7 +61,7 @@ class TestGreeksUnitContract:
         )
 
     def test_vega_is_non_negative(self):
-        for opt in ("call", "put"):
+        for _opt in ("call", "put"):
             for k in (80, 100, 120):
                 v = op.black_scholes_vega(100, k, 30 / 365, 0.05, 0.25, 0.00)
                 assert v >= 0.0
@@ -276,22 +276,22 @@ class TestEVEngineInvariants:
     """
 
     def _base_trade(self, **overrides):
-        defaults = dict(
-            option_type="put",
-            underlying="AAPL",
-            spot=100.0,
-            strike=95.0,
-            premium=1.20,
-            bid=1.15,
-            ask=1.25,
-            dte=30,
-            iv=0.25,
-            risk_free_rate=0.05,
-            dividend_yield=0.0,
-            contracts=1,
-            open_interest=1000,
-            regime_multiplier=1.0,
-        )
+        defaults = {
+            "option_type": "put",
+            "underlying": "AAPL",
+            "spot": 100.0,
+            "strike": 95.0,
+            "premium": 1.20,
+            "bid": 1.15,
+            "ask": 1.25,
+            "dte": 30,
+            "iv": 0.25,
+            "risk_free_rate": 0.05,
+            "dividend_yield": 0.0,
+            "contracts": 1,
+            "open_interest": 1000,
+            "regime_multiplier": 1.0,
+        }
         defaults.update(overrides)
         return ShortOptionTrade(**defaults)
 

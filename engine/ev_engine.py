@@ -81,7 +81,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -93,8 +93,11 @@ from .transaction_costs import (
     calculate_slippage,
 )
 
-if False:  # TYPE_CHECKING
+if TYPE_CHECKING:
+    from datetime import date
+
     from .dealer_positioning import MarketStructure  # noqa: F401
+    from .event_gate import EventGate
 
 
 OptionType = Literal["put", "call"]
@@ -342,7 +345,6 @@ class EVEngine:
         # of a non-expiration exit, approximated as prob_profit + prob_stop.
         is_itm = self._is_itm_mask(trade, terminal_prices)
         prob_itm = float(np.mean(is_itm))
-        prob_otm = 1.0 - prob_itm
 
         # Assignment fee applies when ITM at expiry.
         assignment_fee_total = calculate_assignment_fee() * max(trade.contracts, 1)

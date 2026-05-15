@@ -7,10 +7,12 @@ import math
 import pytest
 import requests_mock as rm_module
 
-from engine.external_data.cboe_adapter import CBOEAdapter, _CBOE_URL
+from engine.external_data.cboe_adapter import _CBOE_URL, CBOEAdapter
 
 
-def _csv(symbol: str = "VIX", rows: list[tuple[str, float, float, float, float]] | None = None) -> str:
+def _csv(
+    symbol: str = "VIX", rows: list[tuple[str, float, float, float, float]] | None = None
+) -> str:
     """Build a CBOE-style CSV (Date, OPEN, HIGH, LOW, CLOSE)."""
     rows = rows or [
         ("2026-01-02", 14.5, 15.1, 14.2, 14.8),
@@ -18,7 +20,7 @@ def _csv(symbol: str = "VIX", rows: list[tuple[str, float, float, float, float]]
         ("2026-01-04", 15.2, 16.0, 15.0, 15.7),
     ]
     header = "DATE,OPEN,HIGH,LOW,CLOSE\n"
-    body = "\n".join(f"{d},{o},{h},{l},{c}" for d, o, h, l, c in rows)
+    body = "\n".join(f"{d},{o},{h},{lo},{c}" for d, o, h, lo, c in rows)
     return header + body
 
 
@@ -117,9 +119,15 @@ class TestVixTermStructure:
     def test_full_pack_contango(self, mock: rm_module.Mocker):
         # VIX < VIX3M → contango (slope_30d_3m > 0)
         mock.get(_CBOE_URL.format(sym="VIX"), text=_csv("VIX", [("2026-01-02", 13, 14, 13, 14.0)]))
-        mock.get(_CBOE_URL.format(sym="VIX9D"), text=_csv("VIX9D", [("2026-01-02", 12, 13, 12, 12.5)]))
-        mock.get(_CBOE_URL.format(sym="VIX3M"), text=_csv("VIX3M", [("2026-01-02", 16, 17, 16, 16.5)]))
-        mock.get(_CBOE_URL.format(sym="VIX6M"), text=_csv("VIX6M", [("2026-01-02", 17, 18, 17, 17.8)]))
+        mock.get(
+            _CBOE_URL.format(sym="VIX9D"), text=_csv("VIX9D", [("2026-01-02", 12, 13, 12, 12.5)])
+        )
+        mock.get(
+            _CBOE_URL.format(sym="VIX3M"), text=_csv("VIX3M", [("2026-01-02", 16, 17, 16, 16.5)])
+        )
+        mock.get(
+            _CBOE_URL.format(sym="VIX6M"), text=_csv("VIX6M", [("2026-01-02", 17, 18, 17, 17.8)])
+        )
         adapter = CBOEAdapter()
         out = adapter.vix_term_structure()
         assert out["vix"] == pytest.approx(14.0)
@@ -131,9 +139,15 @@ class TestVixTermStructure:
     def test_backwardation_not_flagged(self, mock: rm_module.Mocker):
         # VIX > VIX3M → backwardation (slope_30d_3m < 0)
         mock.get(_CBOE_URL.format(sym="VIX"), text=_csv("VIX", [("2026-01-02", 30, 31, 29, 30.0)]))
-        mock.get(_CBOE_URL.format(sym="VIX9D"), text=_csv("VIX9D", [("2026-01-02", 28, 29, 28, 28.5)]))
-        mock.get(_CBOE_URL.format(sym="VIX3M"), text=_csv("VIX3M", [("2026-01-02", 25, 26, 25, 25.5)]))
-        mock.get(_CBOE_URL.format(sym="VIX6M"), text=_csv("VIX6M", [("2026-01-02", 23, 24, 23, 23.5)]))
+        mock.get(
+            _CBOE_URL.format(sym="VIX9D"), text=_csv("VIX9D", [("2026-01-02", 28, 29, 28, 28.5)])
+        )
+        mock.get(
+            _CBOE_URL.format(sym="VIX3M"), text=_csv("VIX3M", [("2026-01-02", 25, 26, 25, 25.5)])
+        )
+        mock.get(
+            _CBOE_URL.format(sym="VIX6M"), text=_csv("VIX6M", [("2026-01-02", 23, 24, 23, 23.5)])
+        )
         adapter = CBOEAdapter()
         out = adapter.vix_term_structure()
         assert out["contango"] is False
@@ -153,8 +167,16 @@ class TestVixTermStructure:
 class TestSkewIndex:
     def test_returns_level_and_percentile(self, mock: rm_module.Mocker):
         # Build 60 rows so the percentile branch (>= 50) runs
-        rows = [(f"2026-01-{i+1:02d}" if i < 31 else f"2026-02-{i-30:02d}",
-                 100.0, 105.0, 100.0, 130.0 + (i % 5)) for i in range(60)]
+        rows = [
+            (
+                f"2026-01-{i + 1:02d}" if i < 31 else f"2026-02-{i - 30:02d}",
+                100.0,
+                105.0,
+                100.0,
+                130.0 + (i % 5),
+            )
+            for i in range(60)
+        ]
         mock.get(_CBOE_URL.format(sym="SKEW"), text=_csv("SKEW", rows))
         adapter = CBOEAdapter()
         out = adapter.skew_index()
@@ -183,7 +205,9 @@ class TestSnapshot:
     def test_combines_all_signals(self, mock: rm_module.Mocker):
         for sym in ("VIX", "VIX9D", "VIX3M", "VIX6M", "VVIX"):
             mock.get(_CBOE_URL.format(sym=sym), text=_csv(sym, [("2026-01-02", 15, 16, 15, 15.5)]))
-        mock.get(_CBOE_URL.format(sym="SKEW"), text=_csv("SKEW", [("2026-01-02", 100, 105, 100, 130.0)]))
+        mock.get(
+            _CBOE_URL.format(sym="SKEW"), text=_csv("SKEW", [("2026-01-02", 100, 105, 100, 130.0)])
+        )
         adapter = CBOEAdapter()
         snap = adapter.snapshot()
         for key in ("vix", "vix9d", "vix3m", "vix6m", "vvix", "skew", "skew_pct_1y", "contango"):

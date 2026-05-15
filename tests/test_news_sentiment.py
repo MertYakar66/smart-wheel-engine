@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -32,23 +32,26 @@ class TestNoStore:
 
 class TestCsvStore:
     def test_reads_latest_per_ticker(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=24),
-                "sentiment": 0.1,
-                "confidence": 0.5,
-                "n_articles": 3,
-            },
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=1),
-                "sentiment": 0.4,
-                "confidence": 0.8,
-                "n_articles": 9,
-            },
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=24),
+                    "sentiment": 0.1,
+                    "confidence": 0.5,
+                    "n_articles": 3,
+                },
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": 0.4,
+                    "confidence": 0.8,
+                    "n_articles": 9,
+                },
+            ],
+        )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL")
         assert result["sentiment"] == pytest.approx(0.4)
@@ -56,48 +59,57 @@ class TestCsvStore:
         assert result["n_articles"] == 9
 
     def test_lookback_horizon_filters_old_rows(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=200),
-                "sentiment": 0.4,
-                "confidence": 0.8,
-                "n_articles": 9,
-            }
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=200),
+                    "sentiment": 0.4,
+                    "confidence": 0.8,
+                    "n_articles": 9,
+                }
+            ],
+        )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL", lookback_hours=72)
         assert result["sentiment"] == 0.0
         assert result["n_articles"] == 0
 
     def test_unknown_ticker_returns_neutral(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=1),
-                "sentiment": 0.5,
-                "confidence": 0.9,
-                "n_articles": 7,
-            }
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": 0.5,
+                    "confidence": 0.9,
+                    "n_articles": 7,
+                }
+            ],
+        )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("MSFT")
         assert result["sentiment"] == 0.0
         assert result["n_articles"] == 0
 
     def test_ticker_case_normalised(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "aapl",
-                "as_of": now - timedelta(hours=1),
-                "sentiment": 0.4,
-                "confidence": 0.8,
-                "n_articles": 9,
-            }
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "aapl",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": 0.4,
+                    "confidence": 0.8,
+                    "n_articles": 9,
+                }
+            ],
+        )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL")
         assert result["n_articles"] == 9
@@ -105,10 +117,12 @@ class TestCsvStore:
     def test_no_as_of_column_uses_last_row(self, tmp_path: Path):
         target = tmp_path / "data_processed" / "news_sentiment.csv"
         target.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame([
-            {"ticker": "AAPL", "sentiment": 0.2, "confidence": 0.5, "n_articles": 4},
-            {"ticker": "AAPL", "sentiment": 0.7, "confidence": 0.9, "n_articles": 8},
-        ]).to_csv(target, index=False)
+        pd.DataFrame(
+            [
+                {"ticker": "AAPL", "sentiment": 0.2, "confidence": 0.5, "n_articles": 4},
+                {"ticker": "AAPL", "sentiment": 0.7, "confidence": 0.9, "n_articles": 8},
+            ]
+        ).to_csv(target, index=False)
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL")
         assert result["sentiment"] == pytest.approx(0.7)
@@ -118,7 +132,7 @@ class TestCsvStore:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             "ticker,as_of,sentiment,confidence,n_articles\n"
-            f"AAPL,{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()},bad,bad,bad\n"
+            f"AAPL,{datetime.now(UTC).replace(tzinfo=None).isoformat()},bad,bad,bad\n"
         )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result = reader.get_ticker_sentiment("AAPL")
@@ -137,7 +151,7 @@ class TestSqliteFallback:
             "CREATE TABLE sentiment (ticker TEXT, as_of TEXT, sentiment REAL, "
             "confidence REAL, n_articles INTEGER)"
         )
-        now = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        now = datetime.now(UTC).replace(tzinfo=None).isoformat()
         conn.execute(
             "INSERT INTO sentiment VALUES (?, ?, ?, ?, ?)",
             ("AAPL", now, 0.3, 0.7, 6),
@@ -153,16 +167,19 @@ class TestSqliteFallback:
 
 class TestSentimentMultiplier:
     def _setup(self, tmp_path: Path, sentiment: float, n_articles: int) -> NewsSentimentReader:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=1),
-                "sentiment": sentiment,
-                "confidence": 0.8,
-                "n_articles": n_articles,
-            }
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": sentiment,
+                    "confidence": 0.8,
+                    "n_articles": n_articles,
+                }
+            ],
+        )
         return NewsSentimentReader(base_dir=tmp_path)
 
     def test_few_articles_means_neutral(self, tmp_path: Path):
@@ -195,16 +212,19 @@ class TestSentimentMultiplier:
 
 class TestCacheBehavior:
     def test_cache_serves_within_ttl(self, tmp_path: Path):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        path = _write_sentiment_csv(tmp_path, [
-            {
-                "ticker": "AAPL",
-                "as_of": now - timedelta(hours=1),
-                "sentiment": 0.3,
-                "confidence": 0.7,
-                "n_articles": 6,
-            }
-        ])
+        now = datetime.now(UTC).replace(tzinfo=None)
+        path = _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": 0.3,
+                    "confidence": 0.7,
+                    "n_articles": 6,
+                }
+            ],
+        )
         reader = NewsSentimentReader(base_dir=tmp_path)
         result1 = reader.get_ticker_sentiment("AAPL")
         # Mutate the file underneath

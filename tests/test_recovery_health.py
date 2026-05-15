@@ -32,7 +32,8 @@ class TestProviderHealth:
     def test_is_available_false_when_rate_limited(self):
         future = datetime.utcnow() + timedelta(minutes=10)
         h = ProviderHealth(
-            provider=ModelType.LOCAL, status=HealthStatus.HEALTHY,
+            provider=ModelType.LOCAL,
+            status=HealthStatus.HEALTHY,
             rate_limited_until=future,
         )
         assert h.is_available is False
@@ -41,7 +42,8 @@ class TestProviderHealth:
     def test_rate_limit_expired_is_available(self):
         past = datetime.utcnow() - timedelta(minutes=10)
         h = ProviderHealth(
-            provider=ModelType.LOCAL, status=HealthStatus.HEALTHY,
+            provider=ModelType.LOCAL,
+            status=HealthStatus.HEALTHY,
             rate_limited_until=past,
         )
         assert h.is_rate_limited is False
@@ -54,15 +56,19 @@ class TestProviderHealth:
     def test_success_rate_partial(self):
         h = ProviderHealth(
             provider=ModelType.LOCAL,
-            total_requests=10, successful_requests=7,
+            total_requests=10,
+            successful_requests=7,
         )
         assert h.success_rate == 0.7
 
     def test_to_dict_complete(self):
         ts = datetime.utcnow()
         h = ProviderHealth(
-            provider=ModelType.LOCAL, status=HealthStatus.HEALTHY,
-            last_check=ts, last_success=ts, response_time_ms=100,
+            provider=ModelType.LOCAL,
+            status=HealthStatus.HEALTHY,
+            last_check=ts,
+            last_success=ts,
+            response_time_ms=100,
         )
         d = h.to_dict()
         assert d["provider"] == "local"

@@ -114,7 +114,6 @@ def build_tradingview_url(
     em = {**_DEFAULT_EXCHANGE_MAP, **(exchange_map or {})}
     exchange = em.get(ticker.upper(), "NYSE")
     interval = _DEFAULT_TF_INTERVAL.get(timeframe, "D")
-    symbol = f"{exchange}:{ticker.upper()}"
     # url-encode the colon
     return (
         f"https://www.tradingview.com/chart/?symbol={exchange}%3A{ticker.upper()}"

@@ -90,7 +90,7 @@ class EarningsDriftAnalyzer:
     # Per-ticker analytics
     # ------------------------------------------------------------------
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=2048)  # noqa: B019 — short-lived analyzer instance; per-instance cache is intended
     def ticker_earnings_moves(self, ticker: str) -> pd.DataFrame:
         """Return one row per earnings event for the ticker with move fields.
 
@@ -138,7 +138,7 @@ class EarningsDriftAnalyzer:
             if not np.isfinite(prior_close) or prior_close <= 0:
                 continue
 
-            def ret(ix):
+            def ret(ix, prior_close=prior_close):
                 if ix is None:
                     return float("nan")
                 c = o.loc[ix, "close"]

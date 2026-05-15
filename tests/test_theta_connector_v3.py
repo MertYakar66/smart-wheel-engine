@@ -8,17 +8,16 @@ results — proving the fallback was taken without needing real CSVs.
 
 from __future__ import annotations
 
-import re
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
 import json
+import re
+from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pytest
 import requests
 import requests_mock as rm_module
-from dataclasses import asdict
 
 from engine.theta_connector import (
     FailureRecord,
@@ -27,7 +26,6 @@ from engine.theta_connector import (
     _normalise_theta_symbol,
 )
 
-
 THETA_BASE = "http://127.0.0.1:25503"
 THETA_RE = re.compile(r"http://127\.0\.0\.1:25503/v3/.*")
 
@@ -35,6 +33,7 @@ THETA_RE = re.compile(r"http://127\.0\.0\.1:25503/v3/.*")
 # ---------------------------------------------------------------------------
 # Fixture builders for Theta v3 CSV responses
 # ---------------------------------------------------------------------------
+
 
 def _stock_eod_csv(rows: list[tuple[str, float, float, float, float, int]] | None = None) -> str:
     """Build a /v3/stock/history/eod CSV (symbol, date, open, high, low, close, volume)."""
@@ -101,14 +100,18 @@ def _vix_snapshot_csv(price: float = 15.5) -> str:
     return f"symbol,price\nVIX,{price}"
 
 
-def _option_history_eod_csv(rows: list[tuple[str, float, float, float, float, int]] | None = None) -> str:
+def _option_history_eod_csv(
+    rows: list[tuple[str, float, float, float, float, int]] | None = None,
+) -> str:
     """Build /v3/option/history/eod CSV."""
     rows = rows or [
         ("20260102", 1.50, 1.55, 1.45, 1.50, 100),
         ("20260103", 1.50, 1.60, 1.40, 1.55, 150),
     ]
     header = "created,open,high,low,close,volume,bid,ask\n"
-    body = "\n".join(f"{d},{o},{h},{l},{c},{v},{c-0.05},{c+0.05}" for d, o, h, l, c, v in rows)
+    body = "\n".join(
+        f"{d},{o},{h},{lo},{c},{v},{c - 0.05},{c + 0.05}" for d, o, h, lo, c, v in rows
+    )
     return header + body
 
 
@@ -140,6 +143,7 @@ def _iv_history_csv(n_rows: int = 30) -> str:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock():
     with rm_module.Mocker() as m:
@@ -157,6 +161,7 @@ def connector(tmp_path: Path) -> ThetaConnector:
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
 
 class TestNormaliseSymbol:
     def test_already_normalised(self):
@@ -202,6 +207,7 @@ class TestNormaliseSymbol:
 # _fetch — internal HTTP helper (touches every method)
 # ---------------------------------------------------------------------------
 
+
 class TestFetch:
     def test_happy_csv(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(THETA_RE, text="a,b\n1,2\n")
@@ -229,7 +235,9 @@ class TestFetch:
         df = connector._fetch("/v3/some/path", {"symbol": "AAPL"})
         assert df.empty
 
-    def test_connection_error_returns_empty(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_connection_error_returns_empty(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # Bad URL outside requests_mock → requests-mock raises NoMockAddress,
         # which lands in _fetch's generic ``except Exception:`` handler and
         # returns empty. Note this test does NOT exercise _handle_network_failure;
@@ -239,7 +247,9 @@ class TestFetch:
         df = bad_conn._fetch("/v3/some/path", {"symbol": "AAPL"})
         assert df.empty
 
-    def test_v2_upgrade_message_returns_empty(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_v2_upgrade_message_returns_empty(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         mock.get(THETA_RE, text="We have upgraded the API to v3")
         df = connector._fetch("/v3/some/path", {"symbol": "AAPL"})
         assert df.empty
@@ -260,6 +270,7 @@ class TestFetch:
 # ---------------------------------------------------------------------------
 # get_ohlcv
 # ---------------------------------------------------------------------------
+
 
 class TestGetOhlcv:
     def test_happy_path(self, mock: rm_module.Mocker, connector: ThetaConnector):
@@ -295,12 +306,13 @@ class TestGetOhlcv:
 # _nearest_expiration
 # ---------------------------------------------------------------------------
 
+
 class TestNearestExpiration:
     def test_picks_closest_to_target(self, mock: rm_module.Mocker, connector: ThetaConnector):
         # ISO-format dates so pandas auto-parses (YYYYMMDD strings parse as nanoseconds → 1970)
-        d30 = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
-        d60 = (datetime.now(timezone.utc).date() + timedelta(days=60)).isoformat()
-        d90 = (datetime.now(timezone.utc).date() + timedelta(days=90)).isoformat()
+        d30 = (datetime.now(UTC).date() + timedelta(days=30)).isoformat()
+        d60 = (datetime.now(UTC).date() + timedelta(days=60)).isoformat()
+        d90 = (datetime.now(UTC).date() + timedelta(days=90)).isoformat()
         mock.get(THETA_RE, text=_expirations_csv([d30, d60, d90]))
         result = connector._nearest_expiration("AAPL", dte_target=35)
         # Returned in YYYYMMDD format
@@ -319,8 +331,11 @@ class TestNearestExpiration:
 # get_option_chain
 # ---------------------------------------------------------------------------
 
+
 class TestGetOptionChain:
-    def test_happy_path_with_explicit_expiration(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_happy_path_with_explicit_expiration(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # Stub all three endpoints used by get_option_chain
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -350,7 +365,9 @@ class TestGetOptionChain:
         assert "iv" in df.columns
         assert "implied_vol" not in df.columns
 
-    def test_iv_percent_form_normalised_to_decimal(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_iv_percent_form_normalised_to_decimal(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # IV reported as 25 (percent form) should be normalised to 0.25
         text = "symbol,expiration,strike,right,delta,gamma,theta,vega,rho,iv,bid,ask\n"
         text += "AAPL,20260221,150.0,call,0.5,0.02,-0.05,0.20,0.01,25.0,1.50,1.55\n"
@@ -360,13 +377,17 @@ class TestGetOptionChain:
         df = connector.get_option_chain("AAPL", expiration="20260221")
         assert df["iv"].iloc[0] == pytest.approx(0.25)
 
-    def test_both_endpoints_empty_returns_empty(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_both_endpoints_empty_returns_empty(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         mock.get(THETA_RE, status_code=404)
         df = connector.get_option_chain("AAPL", expiration="20260221")
         assert df.empty
 
-    def test_auto_picks_expiration_when_omitted(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+    def test_auto_picks_expiration_when_omitted(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -374,7 +395,9 @@ class TestGetOptionChain:
         df = connector.get_option_chain("AAPL")
         assert not df.empty
 
-    def test_auto_pick_returns_empty_when_no_expirations(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_auto_pick_returns_empty_when_no_expirations(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         mock.get(re.compile(r".*list/expirations.*"), text="expiration\n")
         df = connector.get_option_chain("AAPL")
         assert df.empty
@@ -402,8 +425,11 @@ class TestGetOptionChain:
 # get_fundamentals — Bloomberg + live IV
 # ---------------------------------------------------------------------------
 
+
 class TestGetFundamentals:
-    def test_no_csv_returns_none_or_dict_with_iv(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_no_csv_returns_none_or_dict_with_iv(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # No Bloomberg CSVs in tmp_path → super().get_fundamentals returns None
         # With Theta IV available, the connector should still return a dict
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
@@ -414,7 +440,9 @@ class TestGetFundamentals:
         if result is not None:
             assert "implied_vol_atm" in result
 
-    def test_chain_failure_returns_super_result(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_chain_failure_returns_super_result(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # Theta chain 404; super() returns None for empty data dir
         mock.get(THETA_RE, status_code=404)
         result = connector.get_fundamentals("AAPL")
@@ -425,6 +453,7 @@ class TestGetFundamentals:
 # get_iv_rank / get_iv_percentile
 # ---------------------------------------------------------------------------
 
+
 class TestGetIvRank:
     def test_historical_path_falls_back(self, mock: rm_module.Mocker, connector: ThetaConnector):
         # As-of in the past → live=False → super() called → CSV missing → returns 0.5
@@ -432,7 +461,9 @@ class TestGetIvRank:
         # Default fallback per MarketDataConnector returns 0.5 when no data
         assert isinstance(result, float)
 
-    def test_insufficient_history_falls_back(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_insufficient_history_falls_back(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # Live path; chain returns nothing → _fetch_iv_history returns None
         # → falls back to super() which has no CSV
         mock.get(THETA_RE, status_code=404)
@@ -445,12 +476,13 @@ class TestGetIvRank:
         pct = connector.get_iv_percentile("AAPL")
         # NaN != NaN by IEEE; use both-finite-and-equal OR both-nan
         import math
+
         assert (math.isnan(rank) and math.isnan(pct)) or rank == pct
 
     def test_live_with_full_iv_history(self, mock: rm_module.Mocker, connector: ThetaConnector):
         """End-to-end: chain → ATM strike → 12 monthly IV history chunks."""
         # 1. Expirations endpoint returns ~35-DTE
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         # 2. Greeks/quotes/OI for the chain (gives ATM strike from -0.50 delta)
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
@@ -471,7 +503,7 @@ class TestGetIvRank:
         self, mock: rm_module.Mocker, connector: ThetaConnector
     ):
         """When implied_volatility 404s, the connector falls through to first_order."""
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -486,6 +518,7 @@ class TestGetIvRank:
 # ---------------------------------------------------------------------------
 # get_vix_regime
 # ---------------------------------------------------------------------------
+
 
 class TestGetVixRegime:
     def test_historical_path_falls_back(self, mock: rm_module.Mocker, connector: ThetaConnector):
@@ -506,6 +539,7 @@ class TestGetVixRegime:
 # ---------------------------------------------------------------------------
 # get_vol_risk_premium
 # ---------------------------------------------------------------------------
+
 
 class TestGetVolRiskPremium:
     def test_historical_falls_back(self, connector: ThetaConnector):
@@ -530,7 +564,7 @@ class TestGetVolRiskPremium:
             rows.append(("AAPL", d, close - 1, close + 1, close - 2, close, 1_000_000))
         mock.get(re.compile(r".*stock/history/eod.*"), text=_stock_eod_csv(rows))
         # Chain provides ATM IV via the put closest to -0.50 delta
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*snapshot.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -544,6 +578,7 @@ class TestGetVolRiskPremium:
 # get_iv_surface / get_atm_term_structure / get_skew_snapshot
 # ---------------------------------------------------------------------------
 
+
 class TestGetIvSurface:
     def test_empty_when_no_expirations(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(re.compile(r".*list/expirations.*"), text="expiration\n")
@@ -552,13 +587,15 @@ class TestGetIvSurface:
 
     def test_filters_by_dte_window(self, mock: rm_module.Mocker, connector: ThetaConnector):
         # All expirations are too far out (> max_dte=400)
-        far_future = (datetime.now(timezone.utc).date() + timedelta(days=500)).isoformat()
+        far_future = (datetime.now(UTC).date() + timedelta(days=500)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([far_future]))
         df = connector.get_iv_surface("AAPL")
         assert df.empty
 
-    def test_returns_data_for_valid_expirations(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future_45 = (datetime.now(timezone.utc).date() + timedelta(days=45)).isoformat()
+    def test_returns_data_for_valid_expirations(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
+        future_45 = (datetime.now(UTC).date() + timedelta(days=45)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future_45]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -575,7 +612,7 @@ class TestGetAtmTermStructure:
         assert df.empty
 
     def test_returns_atm_iv(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future_45 = (datetime.now(timezone.utc).date() + timedelta(days=45)).isoformat()
+        future_45 = (datetime.now(UTC).date() + timedelta(days=45)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future_45]))
         mock.get(re.compile(r".*greeks/first_order.*"), text=_greeks_csv())
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv())
@@ -592,7 +629,7 @@ class TestGetSkewSnapshot:
         assert result == {}
 
     def test_empty_when_chain_unusable(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         mock.get(re.compile(r".*greeks/first_order.*"), status_code=404)
         mock.get(re.compile(r".*snapshot/quote.*"), status_code=404)
@@ -600,9 +637,11 @@ class TestGetSkewSnapshot:
         result = connector.get_skew_snapshot("AAPL")
         assert result == {}
 
-    def test_full_path_with_all_three_strikes(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_full_path_with_all_three_strikes(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         """End-to-end: chain has 25Δ put + ATM put + 25Δ call."""
-        future = (datetime.now(timezone.utc).date() + timedelta(days=35)).isoformat()
+        future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         # Custom greeks fixture with strikes spanning the OTM spectrum
         # Need delta=-0.25 put, -0.50 put, +0.25 call
@@ -629,6 +668,7 @@ class TestGetSkewSnapshot:
 # get_vix_family
 # ---------------------------------------------------------------------------
 
+
 class TestGetVixFamily:
     def test_theta_succeeds_for_all(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(re.compile(r".*index/snapshot/price.*"), text=_vix_snapshot_csv(15.5))
@@ -637,7 +677,9 @@ class TestGetVixFamily:
         assert "VIX" in result
         assert result["VIX"] == pytest.approx(15.5)
 
-    def test_falls_back_to_cboe_when_theta_empty(self, mock: rm_module.Mocker, connector: ThetaConnector):
+    def test_falls_back_to_cboe_when_theta_empty(
+        self, mock: rm_module.Mocker, connector: ThetaConnector
+    ):
         # Theta 403 → CBOE attempted; we mock CBOE 404 → Yahoo attempted
         mock.get(re.compile(r".*index/snapshot/price.*"), status_code=403)
         mock.get(re.compile(r".*cboe\.com.*"), status_code=404)
@@ -650,10 +692,7 @@ class TestGetVixFamily:
         """Theta 403 → CBOE adapter returns valid CSV → out has VIX."""
         mock.get(re.compile(r".*index/snapshot/price.*"), status_code=403)
         # CBOE endpoint pattern — returns a 1-row VIX CSV
-        cboe_csv = (
-            "DATE,OPEN,HIGH,LOW,CLOSE\n"
-            "2026-01-02,15.0,16.0,14.5,15.5\n"
-        )
+        cboe_csv = "DATE,OPEN,HIGH,LOW,CLOSE\n2026-01-02,15.0,16.0,14.5,15.5\n"
         mock.get(re.compile(r".*cboe\.com.*VIX_History\.csv"), text=cboe_csv)
         # Other CBOE symbols 404
         mock.get(re.compile(r".*cboe\.com.*"), status_code=404)
@@ -669,8 +708,7 @@ class TestGetVixFamily:
         mock.get(re.compile(r".*cboe\.com.*"), status_code=404)
         # Yahoo returns OHLCV CSV for ^VVIX
         yf_csv = (
-            "Date,Open,High,Low,Close,Adj Close,Volume\n"
-            "2026-01-02,90.0,92.0,89.0,91.0,91.0,0\n"
+            "Date,Open,High,Low,Close,Adj Close,Volume\n2026-01-02,90.0,92.0,89.0,91.0,91.0,0\n"
         )
         mock.get(re.compile(r".*yahoo\.com.*"), text=yf_csv)
         result = connector.get_vix_family()
@@ -682,12 +720,17 @@ class TestGetVixFamily:
 # get_option_ohlc_history
 # ---------------------------------------------------------------------------
 
+
 class TestGetOptionOhlcHistory:
     def test_happy_path(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(re.compile(r".*option/history/eod.*"), text=_option_history_eod_csv())
         df = connector.get_option_ohlc_history(
-            "AAPL", "20260221", 150.0, "put",
-            start_date="2026-01-01", end_date="2026-01-10",
+            "AAPL",
+            "20260221",
+            150.0,
+            "put",
+            start_date="2026-01-01",
+            end_date="2026-01-10",
         )
         assert not df.empty
         assert "close" in df.columns
@@ -695,7 +738,10 @@ class TestGetOptionOhlcHistory:
     def test_empty_when_404(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(THETA_RE, status_code=404)
         df = connector.get_option_ohlc_history(
-            "AAPL", "20260221", 150.0, "put",
+            "AAPL",
+            "20260221",
+            150.0,
+            "put",
         )
         assert df.empty
 
@@ -709,12 +755,15 @@ class TestGetOptionOhlcHistory:
 # get_stock_intraday
 # ---------------------------------------------------------------------------
 
+
 class TestGetStockIntraday:
     def test_happy_path(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(re.compile(r".*stock/history/intraday.*"), text=_stock_intraday_csv())
         df = connector.get_stock_intraday(
-            "AAPL", interval="5m",
-            start_date="2026-01-02", end_date="2026-01-02",
+            "AAPL",
+            interval="5m",
+            start_date="2026-01-02",
+            end_date="2026-01-02",
         )
         assert not df.empty
         assert "close" in df.columns
@@ -733,6 +782,7 @@ class TestGetStockIntraday:
 # ---------------------------------------------------------------------------
 # is_terminal_alive
 # ---------------------------------------------------------------------------
+
 
 class TestIsTerminalAlive:
     def test_alive_when_200_with_body(self, mock: rm_module.Mocker, connector: ThetaConnector):
@@ -756,6 +806,7 @@ class TestIsTerminalAlive:
 # Cache helpers
 # ---------------------------------------------------------------------------
 
+
 class TestCacheHelpers:
     def test_to_yyyymmdd(self):
         # Static method test
@@ -767,7 +818,7 @@ class TestCacheHelpers:
         assert connector._is_live(None) is True
 
     def test_is_live_for_today(self, connector: ThetaConnector):
-        today = datetime.now(timezone.utc).date().isoformat()
+        today = datetime.now(UTC).date().isoformat()
         assert connector._is_live(today) is True
 
     def test_is_live_for_past(self, connector: ThetaConnector):
@@ -800,6 +851,7 @@ class TestCacheHelpers:
 #   * Probe fails   → _terminal_down flag flips, returns empty
 #                     (carve-out for backfill via Bloomberg CSV).
 # ---------------------------------------------------------------------------
+
 
 class TestPerEndpointFailure:
     def test_raises_when_probe_healthy(self, mock: rm_module.Mocker, connector: ThetaConnector):
@@ -884,9 +936,7 @@ class TestPerEndpointFailure:
         assert b._failures == []
         assert b.get_failures() == []
 
-    def test_get_fundamentals_propagates(
-        self, mock: rm_module.Mocker, connector: ThetaConnector
-    ):
+    def test_get_fundamentals_propagates(self, mock: rm_module.Mocker, connector: ThetaConnector):
         """T6: get_fundamentals re-raises PerEndpointFailure (no silent CSV-only).
 
         Pins the contract change: previously, an exception during the live

@@ -474,7 +474,7 @@ def register_checks(h: Harness) -> None:
                 T=T,
             )
         except Exception as e:
-            raise Skip(f"SVI unavailable: {e}")
+            raise Skip(f"SVI unavailable: {e}") from e
         assert params is not None
         return "SVI fit converged"
 
@@ -1301,7 +1301,7 @@ def register_checks(h: Harness) -> None:
         try:
             ThetaConnector()
         except Exception as e:
-            raise Skip(f"Theta env not set: {e}")
+            raise Skip(f"Theta env not set: {e}") from e
         return "Theta instantiated"
 
     def theta_ohlcv_live():
@@ -1311,7 +1311,7 @@ def register_checks(h: Harness) -> None:
             conn = ThetaConnector()
             df = conn.get_ohlcv("SPY", start_date="2025-01-01")
         except Exception as e:
-            raise Skip(f"theta unreachable: {e}")
+            raise Skip(f"theta unreachable: {e}") from e
         if df is None or len(df) == 0:
             raise Skip("theta returned empty (terminal offline?)")
         return f"rows={len(df)}"
@@ -1323,7 +1323,7 @@ def register_checks(h: Harness) -> None:
             conn = ThetaConnector()
             df = conn.get_option_chain("SPY", dte_target=35)
         except Exception as e:
-            raise Skip(f"theta unreachable: {e}")
+            raise Skip(f"theta unreachable: {e}") from e
         if df is None or len(df) == 0:
             raise Skip("theta returned empty")
         return f"rows={len(df)}"
@@ -1348,7 +1348,7 @@ def register_checks(h: Harness) -> None:
             with urllib.request.urlopen(req, timeout=2) as r:
                 body = r.read().decode()
         except Exception as e:
-            raise Skip(f"API not running: {e}")
+            raise Skip(f"API not running: {e}") from e
         return f"200 ({len(body)}B body)"
 
     def engine_api_status():
@@ -1360,7 +1360,7 @@ def register_checks(h: Harness) -> None:
             with urllib.request.urlopen("http://127.0.0.1:8787/status", timeout=2) as r:
                 body = r.read().decode()
         except Exception as e:
-            raise Skip(f"API not running: {e}")
+            raise Skip(f"API not running: {e}") from e
         return f"{len(body)}B"
 
     h.run("api_health_endpoint", engine_api_health)
@@ -1376,7 +1376,7 @@ def register_checks(h: Harness) -> None:
         try:
             r = NewsSentimentReader()
         except Exception as e:
-            raise Skip(f"news reader unavailable: {e}")
+            raise Skip(f"news reader unavailable: {e}") from e
         assert r is not None
         return "reader constructed"
 
@@ -1385,7 +1385,7 @@ def register_checks(h: Harness) -> None:
             r = NewsSentimentReader()
             m = r.sentiment_multiplier("AAPL")
         except Exception as e:
-            raise Skip(f"news unavailable: {e}")
+            raise Skip(f"news unavailable: {e}") from e
         assert np.isfinite(m)
         return f"m={m:.3f}"
 
@@ -1414,7 +1414,7 @@ def register_checks(h: Harness) -> None:
         try:
             from engine.tv_signals import compute_tv_signal
         except ImportError as e:
-            raise Skip(f"tv_signals import chain broken: {e}")
+            raise Skip(f"tv_signals import chain broken: {e}") from e
         out = compute_tv_signal(df=ohlcv, ticker="TESTA")
         assert out is not None
         return "computed"
@@ -1564,7 +1564,7 @@ def register_checks(h: Harness) -> None:
         mults = [r.sentiment_multiplier(t) for t in ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN")]
         if all(m == 1.0 for m in mults):
             raise Skip("news store empty or lookback stale — multiplier stuck at 1.0")
-        return f"sample multipliers={['%.2f' % m for m in mults]}"
+        return f"sample multipliers={[f'{m:.2f}' for m in mults]}"
 
     h.run("news_sentiment_parquet_present", news_parquet_present)
     h.run("news_multiplier_non_trivial", news_multiplier_non_trivial)

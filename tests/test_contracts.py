@@ -109,14 +109,16 @@ class TestProtocols:
 
 class TestValidateLadderOutput:
     def _good_ladder(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "spot_change": [-0.10, 0.0, 0.10],
-            "total_pnl": [100.0, 0.0, -100.0],
-            "delta_pnl": [80.0, 0.0, -80.0],
-            "gamma_pnl": [10.0, 0.0, -10.0],
-            "theta_pnl": [5.0, 5.0, 5.0],
-            "vega_pnl": [5.0, -5.0, -15.0],
-        })
+        return pd.DataFrame(
+            {
+                "spot_change": [-0.10, 0.0, 0.10],
+                "total_pnl": [100.0, 0.0, -100.0],
+                "delta_pnl": [80.0, 0.0, -80.0],
+                "gamma_pnl": [10.0, 0.0, -10.0],
+                "theta_pnl": [5.0, 5.0, 5.0],
+                "vega_pnl": [5.0, -5.0, -15.0],
+            }
+        )
 
     def test_valid_ladder(self):
         assert validate_ladder_output(self._good_ladder()) == []
@@ -181,14 +183,16 @@ class TestValidateGreeksSemantics:
     def test_huge_theta_with_meaningful_delta_flagged(self):
         # Theta magnitude > 500 suggests daily, not annual, units
         errors = validate_greeks_semantics(
-            self._good(theta=-1000.0, delta=0.5), "call",
+            self._good(theta=-1000.0, delta=0.5),
+            "call",
         )
         assert any("theta" in e and "annual" in e for e in errors)
 
     def test_huge_theta_with_tiny_delta_not_flagged(self):
         # Sub-1% delta — theta sanity check is bypassed
         errors = validate_greeks_semantics(
-            self._good(theta=-1000.0, delta=0.005), "call",
+            self._good(theta=-1000.0, delta=0.005),
+            "call",
         )
         assert not any("annual" in e for e in errors)
 

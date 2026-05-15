@@ -457,9 +457,11 @@ class TestGetOptionChain:
         assert iv.between(0, 5).all(), (
             f"IV column has values outside [0, 5]: min={iv.min()}, max={iv.max()}"
         )
-        # ~484 rows expected (242 strikes × 2 sides); allow some loss to
-        # the merge (duplicate keys / NaN coercion) — exact count isn't
-        # the contract, presence + IV range + column shape are.
+        # SPY 2026-05-22 chain has 241 strikes × 2 sides = 482 rows.
+        # All three endpoints carry the same (sym, exp, strike, right)
+        # keys with zero duplicates, so the merge is row-preserving.
+        # Lower bound kept loose so a future fixture refresh with
+        # different strike density doesn't break the test.
         assert len(df) >= 400
         # right column lowercased
         assert set(df["right"].dropna().unique()) <= {"call", "put"}

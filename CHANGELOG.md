@@ -59,6 +59,15 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   normal PR-to-PR noise). See `DECISIONS.md` D10.
 
 ### Fixed
+- **Spread-penalty severe-tier never fired.** Inverted threshold ladder
+  in `engine.transaction_costs.calculate_slippage` (lines 138-143) silently
+  degraded the 2.0× "severe" multiplier to 1.5× for every option with
+  `spread_pct > 0.50`. Branch order swapped; the 2.0× tier now applies
+  correctly on the worst-spread tail. EV impact for wheel-sized orders
+  is ~$4.50/contract on the affected tickers; large-cap liquid names
+  (audit smoke list) are unaffected because their spread_pct stays
+  below 0.30. Bug surfaced via #75's xfail; resolved in this PR.
+  Refs: 2026-05-08 audit F7 follow-up, PR #75 chore commit.
 - **`engine/event_gate.py`** — `from_bloomberg_calendar` defensive
   guard against `pd.NaT` rows (was only filtering Python `None`).
   Three loops fixed (earnings / macro / dividends). Found via the

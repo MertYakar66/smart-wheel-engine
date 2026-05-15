@@ -137,10 +137,10 @@ def calculate_slippage(
     # Adjust for wide spreads (already captured in spread, but add penalty for very wide)
     if mid_price > 0:
         spread_pct = bid_ask_spread / mid_price
-        if spread_pct > 0.30:
-            base_factor *= 1.5  # Penalize very wide spreads
-        elif spread_pct > 0.50:
+        if spread_pct > 0.50:
             base_factor *= 2.0  # Severe penalty
+        elif spread_pct > 0.30:
+            base_factor *= 1.5  # Penalize very wide spreads
 
     # Cap the spread-fraction factor at 50% of spread width.
     base_factor = min(base_factor, 0.50)

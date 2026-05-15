@@ -272,22 +272,8 @@ class TestEstimateRoundTripCost:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "engine/transaction_costs.py:140-143 has an unreachable elif. "
-        "`if spread_pct > 0.30: base_factor *= 1.5` always catches inputs "
-        "where `> 0.50`, so the elif `*= 2.0` 'severe penalty' never fires. "
-        "Pinned per audit F7. Fix is to swap the order (test > 0.50 first) "
-        "in a separate behavior-change PR."
-    ),
-)
 def test_severe_spread_penalty_doubles_base_factor():
-    """Pins the intent that spread_pct > 0.50 triggers a 2.0× penalty.
-
-    Currently fires the 1.5× branch instead because of the elif ordering bug
-    documented in the chore commit on this branch.
-    """
+    """Pins the intent that spread_pct > 0.50 triggers a 2.0× penalty."""
     # mid_price=1.0, spread=0.60 → spread_pct = 0.60 (> 0.50, also > 0.30)
     # Intended: base_factor = 0.15 * 2.0 = 0.30; spread_slippage = 0.60 * 0.30 = 0.180
     # Actual: base_factor = 0.15 * 1.5 = 0.225; spread_slippage = 0.60 * 0.225 = 0.135

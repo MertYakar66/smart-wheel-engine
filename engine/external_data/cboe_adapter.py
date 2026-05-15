@@ -45,7 +45,7 @@ class CBOEAdapter:
         self.timeout = timeout
         self._session = requests.Session()
 
-    @lru_cache(maxsize=32)
+    @lru_cache(maxsize=32)  # noqa: B019 — short-lived adapter; per-instance cache is intended
     def get_series(self, symbol: str) -> pd.DataFrame:
         """Return daily OHLC DataFrame for a CBOE index.
 

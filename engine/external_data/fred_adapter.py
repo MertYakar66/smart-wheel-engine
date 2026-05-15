@@ -68,7 +68,7 @@ class FREDAdapter:
         self.timeout = timeout
         self._session = requests.Session()
 
-    @lru_cache(maxsize=64)
+    @lru_cache(maxsize=64)  # noqa: B019 — short-lived adapter; per-instance cache is intended
     def get_series(self, series_id: str) -> pd.Series:
         """Return a FRED series as pd.Series indexed by date.
 

@@ -90,7 +90,7 @@ class EarningsDriftAnalyzer:
     # Per-ticker analytics
     # ------------------------------------------------------------------
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=2048)  # noqa: B019 — short-lived analyzer instance; per-instance cache is intended
     def ticker_earnings_moves(self, ticker: str) -> pd.DataFrame:
         """Return one row per earnings event for the ticker with move fields.
 

@@ -99,21 +99,25 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: --full and --tickers are mutually exclusive.", file=sys.stderr)
         return 2
 
+    provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg")
+    print(f"Data provider: {provider}")
+    runner = WheelRunner()
+
     if args.full:
         print("WARNING: full-universe run takes ~3 min — exceeds Cowork 45s bash timeout")
-        tickers: list[str] | None = None
+        # rank_candidates_by_ev caps tickers=None at the first 100 names
+        # (wheel_runner.py:578). Fetch the full universe explicitly so --full
+        # actually scans every S&P 500 name.
+        tickers: list[str] = list(runner.connector.get_universe())
     elif args.tickers:
         tickers = [t.strip() for t in args.tickers.split(",") if t.strip()]
     else:
         tickers = list(SMOKE_TICKERS)
 
-    provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg")
-    print(f"Data provider: {provider}")
-    if tickers is None:
-        print("Tickers: full S&P 500 universe")
-    else:
+    if len(tickers) <= 10:
         print(f"Tickers: {', '.join(tickers)} ({len(tickers)} names)")
-    runner = WheelRunner()
+    else:
+        print(f"Tickers: {len(tickers)} names (--full)")
 
     print(
         "\nThis tool turns off one gate at a time and reports whether candidates\n"
@@ -132,9 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # 2. Chain quality gate off
-    n_no_chain = _run(
-        runner, "Chain quality gate OFF", tickers, enforce_chain_quality_gate=False
-    )
+    n_no_chain = _run(runner, "Chain quality gate OFF", tickers, enforce_chain_quality_gate=False)
 
     # 3. History gate off
     n_no_hist = _run(
@@ -145,9 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # 4. Dealer positioning off
-    n_no_dealer = _run(
-        runner, "Dealer positioning OFF", tickers, use_dealer_positioning=False
-    )
+    n_no_dealer = _run(runner, "Dealer positioning OFF", tickers, use_dealer_positioning=False)
 
     # 5. All gates OFF (pure EV math)
     n_raw = _run(

@@ -14,7 +14,6 @@ import pytest
 
 from engine import transaction_costs as tc
 
-
 # ---------------------------------------------------------------------------
 # calculate_actual_spread — covers lines 66 (normal bid/ask), 73-74 (basis fallback)
 # ---------------------------------------------------------------------------

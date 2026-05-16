@@ -17,15 +17,13 @@ Use Cases:
 For historical data (backtesting), use bloomberg_loader.py instead.
 """
 
-import os
-import time
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Optional, Union, Tuple
-from dataclasses import dataclass
-from pathlib import Path
-import pandas as pd
-import numpy as np
 import logging
+import time
+from dataclasses import dataclass
+from datetime import date, datetime
+from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +80,8 @@ class StockQuote:
     open: float
     prev_close: float
     change_pct: float
-    iv_30d: Optional[float] = None  # 30-day implied volatility
-    hv_30d: Optional[float] = None  # 30-day historical volatility
+    iv_30d: float | None = None  # 30-day implied volatility
+    hv_30d: float | None = None  # 30-day historical volatility
 
     @property
     def mid(self) -> float:
@@ -296,7 +294,7 @@ class BloombergConnector:
             time.sleep(0.5)
         raise BloombergError(f"Timeout waiting for Bloomberg data in {cell}")
 
-    def get_multiple_quotes(self, securities: List[str]) -> Dict[str, StockQuote]:
+    def get_multiple_quotes(self, securities: list[str]) -> dict[str, StockQuote]:
         """
         Get quotes for multiple securities efficiently.
 
@@ -317,9 +315,9 @@ class BloombergConnector:
     def get_historical(
         self,
         security: str,
-        start_date: Union[str, date],
-        end_date: Union[str, date],
-        fields: Optional[List[str]] = None
+        start_date: str | date,
+        end_date: str | date,
+        fields: list[str] | None = None
     ) -> pd.DataFrame:
         """
         Get historical data (OHLCV) for a security.
@@ -351,7 +349,7 @@ class BloombergConnector:
         security: str,
         start_date: date,
         end_date: date,
-        fields: List[str]
+        fields: list[str]
     ) -> pd.DataFrame:
         """Get historical data via direct API."""
         refDataService = self._session.getService("//blp/refdata")
@@ -403,7 +401,7 @@ class BloombergConnector:
         security: str,
         start_date: date,
         end_date: date,
-        fields: List[str]
+        fields: list[str]
     ) -> pd.DataFrame:
         """Get historical data via Excel BDH formula."""
         start_str = start_date.strftime("%Y-%m-%d")
@@ -447,9 +445,9 @@ class BloombergConnector:
     def get_option_chain(
         self,
         underlying: str,
-        expiry: Optional[date] = None,
-        strikes: Optional[List[float]] = None,
-        option_type: Optional[str] = None  # 'C', 'P', or None for both
+        expiry: date | None = None,
+        strikes: list[float] | None = None,
+        option_type: str | None = None  # 'C', 'P', or None for both
     ) -> pd.DataFrame:
         """
         Get option chain for an underlying.
@@ -474,9 +472,9 @@ class BloombergConnector:
     def _get_option_chain_api(
         self,
         ticker_root: str,
-        expiry: Optional[date],
-        strikes: Optional[List[float]],
-        option_type: Optional[str]
+        expiry: date | None,
+        strikes: list[float] | None,
+        option_type: str | None
     ) -> pd.DataFrame:
         """Get option chain via direct API using BDS."""
         refDataService = self._session.getService("//blp/refdata")
@@ -512,9 +510,9 @@ class BloombergConnector:
     def _get_option_chain_excel(
         self,
         ticker_root: str,
-        expiry: Optional[date],
-        strikes: Optional[List[float]],
-        option_type: Optional[str]
+        expiry: date | None,
+        strikes: list[float] | None,
+        option_type: str | None
     ) -> pd.DataFrame:
         """Get option chain via Excel BDS formula."""
         # Get option chain using BDS
@@ -547,10 +545,10 @@ class BloombergConnector:
 
     def _get_option_data_excel(
         self,
-        option_tickers: List[str],
-        expiry: Optional[date],
-        strikes: Optional[List[float]],
-        option_type: Optional[str]
+        option_tickers: list[str],
+        expiry: date | None,
+        strikes: list[float] | None,
+        option_type: str | None
     ) -> pd.DataFrame:
         """Get detailed option data for a list of options via Excel."""
         fields = [
@@ -630,8 +628,8 @@ class BloombergConnector:
     def get_iv_surface(
         self,
         underlying: str,
-        expiries: Optional[List[date]] = None,
-        deltas: Optional[List[float]] = None
+        expiries: list[date] | None = None,
+        deltas: list[float] | None = None
     ) -> pd.DataFrame:
         """
         Get implied volatility surface for an underlying.
@@ -668,7 +666,7 @@ class BloombergConnector:
 
         return pd.DataFrame(surface_data)
 
-    def get_earnings_date(self, security: str) -> Optional[date]:
+    def get_earnings_date(self, security: str) -> date | None:
         """Get next earnings date for a security."""
         if self.mode == "excel":
             self._sheet.Range("A1").Formula = f'=BDP("{security}","EXPECTED_REPORT_DT")'
@@ -679,7 +677,7 @@ class BloombergConnector:
                 return pd.to_datetime(val).date()
         return None
 
-    def get_dividend_info(self, security: str) -> Dict:
+    def get_dividend_info(self, security: str) -> dict:
         """Get dividend information for a security."""
         fields = ["DVD_SH_LAST", "DVD_FREQ", "EQY_DVD_YLD_IND", "DVD_EX_DT"]
 
@@ -739,7 +737,7 @@ def download_ohlcv(
     ticker: str,
     start_date: str,
     end_date: str,
-    output_path: Optional[str] = None
+    output_path: str | None = None
 ) -> pd.DataFrame:
     """
     Download OHLCV data from Bloomberg.
@@ -769,7 +767,7 @@ def download_ohlcv(
 BLOOMBERG_DIR = Path("data/bloomberg")
 
 
-def refresh_ohlcv(tickers: List[str], start_date: str = "2019-01-01") -> int:
+def refresh_ohlcv(tickers: list[str], start_date: str = "2019-01-01") -> int:
     """
     Download/refresh OHLCV data and save to data/bloomberg/ohlcv/.
 
@@ -804,7 +802,7 @@ def refresh_ohlcv(tickers: List[str], start_date: str = "2019-01-01") -> int:
     return success_count
 
 
-def refresh_option_chain(tickers: List[str]) -> int:
+def refresh_option_chain(tickers: list[str]) -> int:
     """
     Download option chains and save to data/bloomberg/options/.
 
@@ -836,7 +834,7 @@ def refresh_option_chain(tickers: List[str]) -> int:
     return success_count
 
 
-def get_live_quotes(tickers: List[str]) -> pd.DataFrame:
+def get_live_quotes(tickers: list[str]) -> pd.DataFrame:
     """
     Get live quotes for multiple tickers.
 
@@ -867,7 +865,7 @@ def get_live_quotes(tickers: List[str]) -> pd.DataFrame:
     return pd.DataFrame(data)
 
 
-def get_live_iv_rank(ticker: str, lookback_days: int = 252) -> Optional[float]:
+def get_live_iv_rank(ticker: str, lookback_days: int = 252) -> float | None:
     """
     Calculate live IV rank using current IV and historical data.
 
@@ -914,7 +912,7 @@ def get_live_iv_rank(ticker: str, lookback_days: int = 252) -> Optional[float]:
 
 
 def get_wheel_candidates(
-    tickers: List[str],
+    tickers: list[str],
     min_iv_rank: float = 0.30,
     min_price: float = 20.0,
     max_price: float = 500.0
@@ -977,7 +975,7 @@ def get_wheel_candidates(
 # Check Bloomberg availability
 # ─────────────────────────────────────────────────────────────────────
 
-def check_bloomberg_available() -> Dict[str, bool]:
+def check_bloomberg_available() -> dict[str, bool]:
     """
     Check which Bloomberg interfaces are available.
 

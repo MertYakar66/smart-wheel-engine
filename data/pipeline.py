@@ -26,30 +26,29 @@ Usage:
     rfr = pipeline.get_risk_free_rate()
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from datetime import date, datetime
 import logging
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from .bloomberg_loader import (
     BLOOMBERG_DIR,
-    load_all_ohlcv,
-    load_all_options,
-    load_all_earnings,
-    load_all_dividends,
-    load_all_iv_history,
-    load_bloomberg_rates,
-    load_bloomberg_fundamentals,
+    build_sector_map,
     compute_earnings_features,
     compute_iv_rank,
     get_annual_dividend_yield,
-    get_upcoming_dividends,
     get_current_risk_free_rate,
-    build_sector_map,
+    get_upcoming_dividends,
+    load_all_dividends,
+    load_all_earnings,
+    load_all_iv_history,
+    load_all_ohlcv,
+    load_all_options,
+    load_bloomberg_fundamentals,
+    load_bloomberg_rates,
 )
 
 # Try to import consolidated loader
@@ -120,9 +119,9 @@ class DataPipeline:
 
     def __init__(
         self,
-        data_dir: Optional[str] = None,
-        tickers: Optional[List[str]] = None,
-        use_consolidated: Optional[bool] = None,
+        data_dir: str | None = None,
+        tickers: list[str] | None = None,
+        use_consolidated: bool | None = None,
     ):
         """
         Args:
@@ -137,22 +136,22 @@ class DataPipeline:
 
         # Auto-detect data format
         self._use_consolidated = self._detect_data_format() if use_consolidated is None else use_consolidated
-        self._consolidated_loader: Optional["ConsolidatedBloombergLoader"] = None
+        self._consolidated_loader: ConsolidatedBloombergLoader | None = None
 
         # Data stores
-        self._ohlcv: Dict[str, pd.DataFrame] = {}
-        self._options: Dict[str, pd.DataFrame] = {}
-        self._earnings: Dict[str, pd.DataFrame] = {}
-        self._dividends: Dict[str, pd.DataFrame] = {}
-        self._iv_history: Dict[str, pd.DataFrame] = {}
-        self._rates: Optional[pd.DataFrame] = None
-        self._fundamentals: Optional[pd.DataFrame] = None
+        self._ohlcv: dict[str, pd.DataFrame] = {}
+        self._options: dict[str, pd.DataFrame] = {}
+        self._earnings: dict[str, pd.DataFrame] = {}
+        self._dividends: dict[str, pd.DataFrame] = {}
+        self._iv_history: dict[str, pd.DataFrame] = {}
+        self._rates: pd.DataFrame | None = None
+        self._fundamentals: pd.DataFrame | None = None
 
         # Cached computations
-        self._iv_ranks: Dict[str, float] = {}
-        self._div_yields: Dict[str, float] = {}
-        self._sector_map: Dict[str, str] = {}
-        self._risk_free_rate: Optional[float] = None
+        self._iv_ranks: dict[str, float] = {}
+        self._div_yields: dict[str, float] = {}
+        self._sector_map: dict[str, str] = {}
+        self._risk_free_rate: float | None = None
 
     def _detect_data_format(self) -> bool:
         """Detect if we have consolidated CSVs or per-ticker files."""
@@ -380,37 +379,37 @@ class DataPipeline:
     # ─── Properties for direct access ────────────────────────────
 
     @property
-    def ohlcv(self) -> Dict[str, pd.DataFrame]:
+    def ohlcv(self) -> dict[str, pd.DataFrame]:
         """Direct access to OHLCV data."""
         return self._ohlcv
 
     @property
-    def iv_history(self) -> Dict[str, pd.DataFrame]:
+    def iv_history(self) -> dict[str, pd.DataFrame]:
         """Direct access to IV history data."""
         return self._iv_history
 
     @property
-    def earnings(self) -> Dict[str, pd.DataFrame]:
+    def earnings(self) -> dict[str, pd.DataFrame]:
         """Direct access to earnings data."""
         return self._earnings
 
     @property
-    def dividends(self) -> Dict[str, pd.DataFrame]:
+    def dividends(self) -> dict[str, pd.DataFrame]:
         """Direct access to dividend data."""
         return self._dividends
 
     @property
-    def options(self) -> Dict[str, pd.DataFrame]:
+    def options(self) -> dict[str, pd.DataFrame]:
         """Direct access to options data."""
         return self._options
 
     # ─── Access Methods ──────────────────────────────────────────
 
-    def get_ohlcv(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_ohlcv(self, ticker: str) -> pd.DataFrame | None:
         """Get OHLCV DataFrame for a ticker."""
         return self._ohlcv.get(ticker)
 
-    def get_spot_price(self, ticker: str, as_of: Optional[str] = None) -> Optional[float]:
+    def get_spot_price(self, ticker: str, as_of: str | None = None) -> float | None:
         """
         Get spot price for a ticker.
 
@@ -434,7 +433,7 @@ class DataPipeline:
 
         return float(df.iloc[-1]["Close"])
 
-    def get_all_spot_prices(self, as_of: Optional[str] = None) -> Dict[str, float]:
+    def get_all_spot_prices(self, as_of: str | None = None) -> dict[str, float]:
         """Get spot prices for all loaded tickers."""
         prices = {}
         for ticker in self._ohlcv:
@@ -448,7 +447,7 @@ class DataPipeline:
         ticker: str,
         min_dte: int = 0,
         max_dte: int = 999
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """
         Get option chain for a ticker, optionally filtered by DTE.
 
@@ -475,11 +474,11 @@ class DataPipeline:
             return pd.DataFrame()
         return pd.concat(self._options.values(), ignore_index=True)
 
-    def get_earnings(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_earnings(self, ticker: str) -> pd.DataFrame | None:
         """Get earnings history for a ticker."""
         return self._earnings.get(ticker)
 
-    def get_next_earnings_date(self, ticker: str) -> Optional[date]:
+    def get_next_earnings_date(self, ticker: str) -> date | None:
         """Get the next upcoming earnings date for a ticker."""
         df = self._earnings.get(ticker)
         if df is None or df.empty:
@@ -492,7 +491,7 @@ class DataPipeline:
 
         return future.iloc[0]["earnings_date"].date()
 
-    def get_earnings_features(self, ticker: str) -> Optional[dict]:
+    def get_earnings_features(self, ticker: str) -> dict | None:
         """
         Get computed earnings features for ml/earnings_model.py.
 
@@ -507,7 +506,7 @@ class DataPipeline:
 
         return compute_earnings_features(ticker, earnings, ohlcv, iv)
 
-    def get_dividends(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_dividends(self, ticker: str) -> pd.DataFrame | None:
         """Get dividend history for a ticker."""
         return self._dividends.get(ticker)
 
@@ -534,11 +533,11 @@ class DataPipeline:
             return pd.DataFrame()
         return get_upcoming_dividends(div_df, horizon_days)
 
-    def get_iv_history(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_iv_history(self, ticker: str) -> pd.DataFrame | None:
         """Get IV history DataFrame for a ticker."""
         return self._iv_history.get(ticker)
 
-    def get_iv_rank(self, ticker: str) -> Optional[float]:
+    def get_iv_rank(self, ticker: str) -> float | None:
         """
         Get IV rank (52-week percentile) for a ticker.
 
@@ -556,11 +555,11 @@ class DataPipeline:
             return self._risk_free_rate
         return 0.05
 
-    def get_sector(self, ticker: str) -> Optional[str]:
+    def get_sector(self, ticker: str) -> str | None:
         """Get GICS sector for a ticker."""
         return self._sector_map.get(ticker)
 
-    def get_sector_map(self) -> Dict[str, str]:
+    def get_sector_map(self) -> dict[str, str]:
         """
         Get full ticker → sector mapping.
 
@@ -573,7 +572,7 @@ class DataPipeline:
         from engine.risk_manager import DEFAULT_SECTOR_MAP
         return DEFAULT_SECTOR_MAP
 
-    def get_daily_returns(self, ticker: str) -> Optional[np.ndarray]:
+    def get_daily_returns(self, ticker: str) -> np.ndarray | None:
         """
         Get daily returns array for Monte Carlo inputs.
 
@@ -588,9 +587,9 @@ class DataPipeline:
 
     def get_portfolio_returns(
         self,
-        tickers: Optional[List[str]] = None,
-        weights: Optional[Dict[str, float]] = None
-    ) -> Optional[np.ndarray]:
+        tickers: list[str] | None = None,
+        weights: dict[str, float] | None = None
+    ) -> np.ndarray | None:
         """
         Get equal-weighted or custom-weighted portfolio returns.
 
@@ -626,7 +625,7 @@ class DataPipeline:
 
     # ─── For trade_universe.py compatibility ─────────────────────
 
-    def get_ohlcv_for_backtester(self) -> Dict[str, pd.DataFrame]:
+    def get_ohlcv_for_backtester(self) -> dict[str, pd.DataFrame]:
         """
         Get OHLCV data formatted for backtests/simulator.py.
 
@@ -840,17 +839,17 @@ class DataPipeline:
 
         return s
 
-    def loaded_tickers(self) -> List[str]:
+    def loaded_tickers(self) -> list[str]:
         """Get list of all tickers with OHLCV data."""
         return sorted(self._ohlcv.keys())
 
-    def validate(self) -> Dict[str, List[str]]:
+    def validate(self) -> dict[str, list[str]]:
         """
         Validate all loaded data and return issues by category.
 
         Returns dict: category → list of issue strings.
         """
-        issues: Dict[str, List[str]] = {}
+        issues: dict[str, list[str]] = {}
 
         # OHLCV checks
         ohlcv_issues = []

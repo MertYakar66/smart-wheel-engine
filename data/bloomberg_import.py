@@ -2,11 +2,12 @@
 Import and process Bloomberg OHLCV data for wheel strategy.
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Optional
 import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.features.technical import TechnicalFeatures
@@ -78,7 +79,7 @@ def compute_features_per_ticker(df: pd.DataFrame) -> pd.DataFrame:
 
 def process_bloomberg_data(
     input_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     min_history_days: int = 252
 ) -> pd.DataFrame:
     """

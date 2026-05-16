@@ -21,12 +21,11 @@ Usage:
     issues = registry.validate_all()
 """
 
-from dataclasses import dataclass, field, asdict
-from datetime import date, datetime
-from enum import Enum
-from typing import Any
 import json
 import logging
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 

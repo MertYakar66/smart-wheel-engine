@@ -24,19 +24,21 @@ Usage:
         # ... do work
 """
 
+import functools
 import json
 import logging
 import sys
-import time
 import threading
+import time
 from collections import defaultdict
+from collections.abc import Callable
 from contextlib import contextmanager
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Union
-import functools
+from typing import Any
+
 
 # Configure structured logging
 class StructuredFormatter(logging.Formatter):
@@ -69,7 +71,7 @@ class ContextLogger:
 
     def __init__(self, name: str):
         self._logger = logging.getLogger(name)
-        self._context: Dict[str, Any] = {}
+        self._context: dict[str, Any] = {}
         self._local = threading.local()
 
     def _get_context(self) -> dict:
@@ -117,7 +119,7 @@ class ContextLogger:
 def setup_logging(
     level: int = logging.INFO,
     structured: bool = False,
-    log_file: Optional[Path] = None,
+    log_file: Path | None = None,
 ) -> None:
     """Configure logging for the application."""
     root = logging.getLogger()
@@ -160,7 +162,7 @@ class MetricValue:
     name: str
     type: MetricType
     value: float
-    tags: Dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
     def to_dict(self) -> dict:
@@ -178,15 +180,15 @@ class MetricsCollector:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._counters: Dict[str, float] = defaultdict(float)
-        self._gauges: Dict[str, float] = {}
-        self._histograms: Dict[str, List[float]] = defaultdict(list)
-        self._timings: Dict[str, List[float]] = defaultdict(list)
-        self._tags: Dict[str, Dict[str, str]] = {}
-        self._history: List[MetricValue] = []
+        self._counters: dict[str, float] = defaultdict(float)
+        self._gauges: dict[str, float] = {}
+        self._histograms: dict[str, list[float]] = defaultdict(list)
+        self._timings: dict[str, list[float]] = defaultdict(list)
+        self._tags: dict[str, dict[str, str]] = {}
+        self._history: list[MetricValue] = []
         self._max_history = 10000
 
-    def _make_key(self, name: str, tags: Optional[Dict[str, str]] = None) -> str:
+    def _make_key(self, name: str, tags: dict[str, str] | None = None) -> str:
         if tags:
             tag_str = ",".join(f"{k}={v}" for k, v in sorted(tags.items()))
             return f"{name}:{tag_str}"
@@ -196,7 +198,7 @@ class MetricsCollector:
         self,
         name: str,
         value: float = 1.0,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Increment a counter."""
         key = self._make_key(name, tags)
@@ -209,7 +211,7 @@ class MetricsCollector:
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Set a gauge value."""
         key = self._make_key(name, tags)
@@ -222,7 +224,7 @@ class MetricsCollector:
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Record a histogram value."""
         key = self._make_key(name, tags)
@@ -235,7 +237,7 @@ class MetricsCollector:
         self,
         name: str,
         duration_ms: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Record a timing value."""
         key = self._make_key(name, tags)
@@ -249,7 +251,7 @@ class MetricsCollector:
         name: str,
         type: MetricType,
         value: float,
-        tags: Optional[Dict[str, str]],
+        tags: dict[str, str] | None,
     ) -> None:
         """Record to history."""
         metric = MetricValue(name=name, type=type, value=value, tags=tags or {})
@@ -260,7 +262,7 @@ class MetricsCollector:
             self._history = self._history[-self._max_history:]
 
     @contextmanager
-    def timer(self, name: str, tags: Optional[Dict[str, str]] = None):
+    def timer(self, name: str, tags: dict[str, str] | None = None):
         """Context manager for timing."""
         start = time.time()
         try:
@@ -269,12 +271,12 @@ class MetricsCollector:
             duration_ms = (time.time() - start) * 1000
             self.timing(name, duration_ms, tags)
 
-    def get_counter(self, name: str, tags: Optional[Dict[str, str]] = None) -> float:
+    def get_counter(self, name: str, tags: dict[str, str] | None = None) -> float:
         """Get counter value."""
         key = self._make_key(name, tags)
         return self._counters.get(key, 0.0)
 
-    def get_gauge(self, name: str, tags: Optional[Dict[str, str]] = None) -> Optional[float]:
+    def get_gauge(self, name: str, tags: dict[str, str] | None = None) -> float | None:
         """Get gauge value."""
         key = self._make_key(name, tags)
         return self._gauges.get(key)
@@ -282,8 +284,8 @@ class MetricsCollector:
     def get_histogram_stats(
         self,
         name: str,
-        tags: Optional[Dict[str, str]] = None,
-    ) -> Optional[dict]:
+        tags: dict[str, str] | None = None,
+    ) -> dict | None:
         """Get histogram statistics."""
         key = self._make_key(name, tags)
         values = self._histograms.get(key, [])
@@ -308,8 +310,8 @@ class MetricsCollector:
     def get_timing_stats(
         self,
         name: str,
-        tags: Optional[Dict[str, str]] = None,
-    ) -> Optional[dict]:
+        tags: dict[str, str] | None = None,
+    ) -> dict | None:
         """Get timing statistics."""
         key = self._make_key(name, tags)
         values = self._timings.get(key, [])
@@ -373,10 +375,10 @@ class MetricsCollector:
 
     def get_history(
         self,
-        name: Optional[str] = None,
-        since: Optional[datetime] = None,
+        name: str | None = None,
+        since: datetime | None = None,
         limit: int = 100,
-    ) -> List[MetricValue]:
+    ) -> list[MetricValue]:
         """Get metric history."""
         history = self._history
 
@@ -422,17 +424,17 @@ class Span:
     """A trace span representing an operation."""
     trace_id: str
     span_id: str
-    parent_id: Optional[str]
+    parent_id: str | None
     name: str
     start_time: datetime
-    end_time: Optional[datetime] = None
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    events: List[Dict[str, Any]] = field(default_factory=list)
+    end_time: datetime | None = None
+    attributes: dict[str, Any] = field(default_factory=dict)
+    events: list[dict[str, Any]] = field(default_factory=list)
     status: str = "OK"
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
-    def duration_ms(self) -> Optional[float]:
+    def duration_ms(self) -> float | None:
         if self.end_time:
             return (self.end_time - self.start_time).total_seconds() * 1000
         return None
@@ -472,7 +474,7 @@ class Tracer:
 
     def __init__(self):
         self._local = threading.local()
-        self._spans: List[Span] = []
+        self._spans: list[Span] = []
         self._lock = threading.Lock()
         self._max_spans = 10000
 
@@ -480,7 +482,7 @@ class Tracer:
         import uuid
         return uuid.uuid4().hex[:16]
 
-    def _get_current_span(self) -> Optional[Span]:
+    def _get_current_span(self) -> Span | None:
         stack = getattr(self._local, "span_stack", [])
         return stack[-1] if stack else None
 
@@ -521,11 +523,11 @@ class Tracer:
                 if len(self._spans) > self._max_spans:
                     self._spans = self._spans[-self._max_spans:]
 
-    def get_trace(self, trace_id: str) -> List[Span]:
+    def get_trace(self, trace_id: str) -> list[Span]:
         """Get all spans for a trace."""
         return [s for s in self._spans if s.trace_id == trace_id]
 
-    def get_recent_spans(self, limit: int = 100) -> List[Span]:
+    def get_recent_spans(self, limit: int = 100) -> list[Span]:
         """Get recent spans."""
         return self._spans[-limit:]
 
@@ -533,7 +535,7 @@ class Tracer:
         self,
         threshold_ms: float = 1000,
         limit: int = 100,
-    ) -> List[Span]:
+    ) -> list[Span]:
         """Get spans slower than threshold."""
         slow = [
             s for s in self._spans
@@ -575,9 +577,9 @@ class AlertManager:
 
     def __init__(self, metrics: MetricsCollector):
         self.metrics = metrics
-        self._rules: List[dict] = []
-        self._alerts: List[Alert] = []
-        self._handlers: List[Callable[[Alert], None]] = []
+        self._rules: list[dict] = []
+        self._alerts: list[Alert] = []
+        self._handlers: list[Callable[[Alert], None]] = []
 
     def add_rule(
         self,
@@ -586,7 +588,7 @@ class AlertManager:
         threshold: float,
         comparison: str = "gt",  # gt, lt, gte, lte, eq
         severity: AlertSeverity = AlertSeverity.WARNING,
-        message: Optional[str] = None,
+        message: str | None = None,
     ) -> None:
         """Add an alert rule."""
         self._rules.append({
@@ -602,7 +604,7 @@ class AlertManager:
         """Add an alert handler."""
         self._handlers.append(handler)
 
-    def check_rules(self) -> List[Alert]:
+    def check_rules(self) -> list[Alert]:
         """Check all rules and fire alerts."""
         new_alerts = []
 
@@ -652,9 +654,9 @@ class AlertManager:
 
     def get_alerts(
         self,
-        severity: Optional[AlertSeverity] = None,
-        since: Optional[datetime] = None,
-    ) -> List[Alert]:
+        severity: AlertSeverity | None = None,
+        since: datetime | None = None,
+    ) -> list[Alert]:
         """Get alerts with optional filters."""
         alerts = self._alerts
 
@@ -674,7 +676,7 @@ trace = Tracer()
 logger = ContextLogger("smart_wheel")
 
 
-def timed(name: Optional[str] = None, tags: Optional[Dict[str, str]] = None):
+def timed(name: str | None = None, tags: dict[str, str] | None = None):
     """Decorator for timing function execution."""
     def decorator(func: Callable) -> Callable:
         metric_name = name or f"{func.__module__}.{func.__name__}"
@@ -688,7 +690,7 @@ def timed(name: Optional[str] = None, tags: Optional[Dict[str, str]] = None):
     return decorator
 
 
-def traced(name: Optional[str] = None):
+def traced(name: str | None = None):
     """Decorator for tracing function execution."""
     def decorator(func: Callable) -> Callable:
         span_name = name or f"{func.__module__}.{func.__name__}"

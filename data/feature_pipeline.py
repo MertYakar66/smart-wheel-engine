@@ -20,27 +20,26 @@ Usage:
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import date, datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
+# Feature store
+from data.feature_store import FeatureCategory, FeatureStore, get_feature_store
+from src.features.assignment import AssignmentFeatures
+from src.features.dynamics import OptionsDynamics
+from src.features.events import EventVolatility
+from src.features.labels import LabelGenerator
+from src.features.options import OptionsFeatures
+from src.features.regime import RegimeDetector
+from src.features.technical import TechnicalFeatures
+from src.features.vol_edge import VolatilityEdge
+
 # Feature modules
 from src.features.volatility import VolatilityFeatures
-from src.features.technical import TechnicalFeatures
-from src.features.options import OptionsFeatures
-from src.features.dynamics import OptionsDynamics
-from src.features.vol_edge import VolatilityEdge
-from src.features.assignment import AssignmentFeatures
-from src.features.events import EventVolatility
-from src.features.regime import RegimeDetector, MarketRegime, VolRegime
-from src.features.labels import LabelGenerator, OptionOutcome
-
-# Feature store
-from data.feature_store import FeatureStore, FeatureCategory, get_feature_store
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +61,8 @@ class ComputeResult:
     status: ComputeStatus
     row_count: int = 0
     computation_time_ms: int = 0
-    error: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
+    error: str | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -73,7 +72,7 @@ class PipelineResult:
     started_at: str
     completed_at: str
     total_time_ms: int
-    results: List[ComputeResult] = field(default_factory=list)
+    results: list[ComputeResult] = field(default_factory=list)
     success: bool = True
 
     def summary(self) -> str:
@@ -124,7 +123,7 @@ class FeaturePipeline:
     def __init__(
         self,
         data_pipeline: Optional["DataPipeline"] = None,
-        feature_store: Optional[FeatureStore] = None,
+        feature_store: FeatureStore | None = None,
         cache_results: bool = True,
         auto_load: bool = True,
     ):
@@ -156,7 +155,7 @@ class FeaturePipeline:
         self,
         ticker: str,
         force: bool = False,
-        layers: Optional[List[int]] = None,
+        layers: list[int] | None = None,
     ) -> PipelineResult:
         """
         Compute all features for a single ticker.
@@ -207,7 +206,7 @@ class FeaturePipeline:
         logger.info(f"Completed {ticker}: {len(results)} categories, {total_time}ms, success={success}")
         return result
 
-    def _compute_layer1(self, ticker: str, force: bool) -> List[ComputeResult]:
+    def _compute_layer1(self, ticker: str, force: bool) -> list[ComputeResult]:
         """Compute Layer 1: Derived features."""
         results = []
 
@@ -222,7 +221,7 @@ class FeaturePipeline:
 
         return results
 
-    def _compute_layer2(self, ticker: str, force: bool) -> List[ComputeResult]:
+    def _compute_layer2(self, ticker: str, force: bool) -> list[ComputeResult]:
         """Compute Layer 2: Edge features."""
         results = []
 
@@ -243,7 +242,7 @@ class FeaturePipeline:
 
         return results
 
-    def _compute_layer3(self, ticker: str, force: bool) -> List[ComputeResult]:
+    def _compute_layer3(self, ticker: str, force: bool) -> list[ComputeResult]:
         """Compute Layer 3: Labels."""
         results = []
 
@@ -899,11 +898,11 @@ class FeaturePipeline:
 
     def compute_universe(
         self,
-        tickers: List[str],
+        tickers: list[str],
         force: bool = False,
         parallel: bool = False,
         max_workers: int = 4,
-    ) -> Dict[str, PipelineResult]:
+    ) -> dict[str, PipelineResult]:
         """
         Compute features for multiple tickers.
 
@@ -954,8 +953,8 @@ class FeaturePipeline:
     def get_composite_features(
         self,
         ticker: str,
-        as_of: Optional[Union[str, date, datetime]] = None,
-    ) -> Optional[pd.DataFrame]:
+        as_of: str | date | datetime | None = None,
+    ) -> pd.DataFrame | None:
         """
         Get all features combined into a single DataFrame.
 
@@ -995,7 +994,7 @@ class FeaturePipeline:
 
         return composite
 
-    def get_latest_features(self, ticker: str) -> Optional[pd.Series]:
+    def get_latest_features(self, ticker: str) -> pd.Series | None:
         """Get the most recent feature values for a ticker."""
         composite = self.get_composite_features(ticker)
         if composite is None or composite.empty:

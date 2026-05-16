@@ -28,12 +28,11 @@ Usage:
 """
 
 import logging
-import json
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, date, timedelta
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -51,12 +50,12 @@ except ImportError:
 # Lazy-import schemas (depend on pydantic)
 try:
     from src.data.schemas import (
+        BorrowRateSchema,
+        EarningsSchema,
+        FundamentalsSchema,
         OHLCVSchema,
         OptionsFlowSchema,
         RealizedVolSchema,
-        EarningsSchema,
-        FundamentalsSchema,
-        BorrowRateSchema,
     )
     _HAS_SCHEMAS = True
 except (ImportError, Exception):
@@ -95,10 +94,10 @@ class QualityIssue:
     """A single quality issue."""
     check_type: CheckType
     severity: Severity
-    column: Optional[str]
+    column: str | None
     message: str
     affected_rows: int = 0
-    details: Optional[dict] = None
+    details: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -116,9 +115,9 @@ class ValidationResult:
     """Result of a validation run."""
     valid: bool
     schema_name: str
-    ticker: Optional[str]
+    ticker: str | None
     row_count: int
-    issues: List[QualityIssue] = field(default_factory=list)
+    issues: list[QualityIssue] = field(default_factory=list)
     validated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     validation_time_ms: int = 0
 
@@ -166,10 +165,10 @@ class DataContract:
     schema_name: str
     min_rows: int = 0
     max_staleness_hours: int = 24
-    required_columns: List[str] = field(default_factory=list)
-    null_thresholds: Dict[str, float] = field(default_factory=dict)  # column: max_null_pct
-    value_ranges: Dict[str, Tuple[float, float]] = field(default_factory=dict)  # column: (min, max)
-    custom_checks: List[Callable[[pd.DataFrame], List[QualityIssue]]] = field(default_factory=list)
+    required_columns: list[str] = field(default_factory=list)
+    null_thresholds: dict[str, float] = field(default_factory=dict)  # column: max_null_pct
+    value_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)  # column: (min, max)
+    custom_checks: list[Callable[[pd.DataFrame], list[QualityIssue]]] = field(default_factory=list)
 
 
 # Default data contracts
@@ -241,7 +240,7 @@ class DataQualityFramework:
     """
 
     # Map schema names to Pydantic models (populated only when pydantic + schemas available)
-    SCHEMA_MAP: Dict[str, Any] = (
+    SCHEMA_MAP: dict[str, Any] = (
         {
             "ohlcv": OHLCVSchema,
             "options_flow": OptionsFlowSchema,
@@ -256,7 +255,7 @@ class DataQualityFramework:
 
     def __init__(
         self,
-        contracts: Optional[Dict[str, DataContract]] = None,
+        contracts: dict[str, DataContract] | None = None,
         anomaly_zscore_threshold: float = 3.0,
         enable_strict_mode: bool = False,
     ):
@@ -265,7 +264,7 @@ class DataQualityFramework:
         self.strict_mode = enable_strict_mode
 
         # Validation history for tracking
-        self._validation_history: List[ValidationResult] = []
+        self._validation_history: list[ValidationResult] = []
 
         logger.info("DataQualityFramework initialized")
 
@@ -273,8 +272,8 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         schema: str,
-        ticker: Optional[str] = None,
-        contract: Optional[DataContract] = None,
+        ticker: str | None = None,
+        contract: DataContract | None = None,
     ) -> ValidationResult:
         """
         Validate a DataFrame against schema and contract.
@@ -291,7 +290,7 @@ class DataQualityFramework:
         import time
         start_time = time.time()
 
-        issues: List[QualityIssue] = []
+        issues: list[QualityIssue] = []
         contract = contract or self.contracts.get(schema)
 
         # 1. Schema validation
@@ -340,7 +339,7 @@ class DataQualityFramework:
 
         return result
 
-    def _validate_schema(self, df: pd.DataFrame, schema: str) -> List[QualityIssue]:
+    def _validate_schema(self, df: pd.DataFrame, schema: str) -> list[QualityIssue]:
         """Validate DataFrame against Pydantic schema."""
         issues = []
 
@@ -399,8 +398,8 @@ class DataQualityFramework:
     def _check_completeness(
         self,
         df: pd.DataFrame,
-        contract: Optional[DataContract],
-    ) -> List[QualityIssue]:
+        contract: DataContract | None,
+    ) -> list[QualityIssue]:
         """Check data completeness."""
         issues = []
 
@@ -446,7 +445,7 @@ class DataQualityFramework:
 
         return issues
 
-    def _check_consistency(self, df: pd.DataFrame, schema: str) -> List[QualityIssue]:
+    def _check_consistency(self, df: pd.DataFrame, schema: str) -> list[QualityIssue]:
         """Check data consistency rules."""
         issues = []
 
@@ -464,7 +463,7 @@ class DataQualityFramework:
 
         return issues
 
-    def _check_ohlcv_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_ohlcv_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check OHLCV-specific consistency rules."""
         issues = []
 
@@ -524,7 +523,7 @@ class DataQualityFramework:
 
         return issues
 
-    def _check_options_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_options_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check options-specific consistency rules."""
         issues = []
         df_check = df.copy()
@@ -555,7 +554,7 @@ class DataQualityFramework:
                         check_type=CheckType.CONSISTENCY,
                         severity=Severity.ERROR,
                         column=col,
-                        message=f"IV values outside valid range [0, 5.0]",
+                        message="IV values outside valid range [0, 5.0]",
                         affected_rows=int(invalid_iv.sum()),
                     ))
 
@@ -619,7 +618,7 @@ class DataQualityFramework:
         timestamp_col: str = "quote_timestamp",
         as_of: pd.Timestamp | None = None,
         max_age_minutes: int = 30,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Detect stale option quotes relative to an as-of timestamp.
 
         Options market-data feeds frequently carry the latest *known*
@@ -640,7 +639,7 @@ class DataQualityFramework:
         Returns:
             List of ``QualityIssue`` (possibly empty).
         """
-        issues: List[QualityIssue] = []
+        issues: list[QualityIssue] = []
         if timestamp_col not in df.columns or df.empty:
             return issues
 
@@ -666,7 +665,7 @@ class DataQualityFramework:
             ))
         return issues
 
-    def _check_time_series_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_time_series_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check time series consistency."""
         issues = []
 
@@ -719,7 +718,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         contract: DataContract,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Check value ranges from contract."""
         issues = []
 
@@ -761,7 +760,7 @@ class DataQualityFramework:
 
         return issues
 
-    def _detect_anomalies(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _detect_anomalies(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Detect statistical anomalies using z-score."""
         issues = []
 
@@ -802,7 +801,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         max_age_hours: int = 24,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Check data freshness."""
         issues = []
 
@@ -840,7 +839,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         contract_name: str,
-        ticker: Optional[str] = None,
+        ticker: str | None = None,
     ) -> ValidationResult:
         """Validate DataFrame against a named contract."""
         contract = self.contracts.get(contract_name)
@@ -856,10 +855,10 @@ class DataQualityFramework:
 
     def get_validation_history(
         self,
-        schema: Optional[str] = None,
-        ticker: Optional[str] = None,
-        since: Optional[datetime] = None,
-    ) -> List[ValidationResult]:
+        schema: str | None = None,
+        ticker: str | None = None,
+        since: datetime | None = None,
+    ) -> list[ValidationResult]:
         """Get validation history with optional filters."""
         history = self._validation_history
 

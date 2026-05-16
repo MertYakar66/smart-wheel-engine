@@ -25,16 +25,18 @@ def test_quality_gate_does_not_match_iv_error():
     After the fix, the gate only matches exact-name IV columns
     ({"iv", "implied_vol", "implied_volatility", "impvol"}).
     """
-    df = pd.DataFrame({
-        "strike": [100.0, 200.0],
-        "right": ["put", "call"],
-        "iv": [0.25, 0.30],           # clean decimal IV
-        "iv_error": [0.0, 100.0],     # Theta diagnostic — 100 is "no solution"
-        "bid": [1.00, 0.50],
-        "ask": [1.05, 0.55],
-        "expiration": pd.to_datetime(["2026-12-31", "2026-12-31"]),
-        "date": pd.to_datetime(["2026-05-15", "2026-05-15"]),
-    })
+    df = pd.DataFrame(
+        {
+            "strike": [100.0, 200.0],
+            "right": ["put", "call"],
+            "iv": [0.25, 0.30],  # clean decimal IV
+            "iv_error": [0.0, 100.0],  # Theta diagnostic — 100 is "no solution"
+            "bid": [1.00, 0.50],
+            "ask": [1.05, 0.55],
+            "expiration": pd.to_datetime(["2026-12-31", "2026-12-31"]),
+            "date": pd.to_datetime(["2026-05-15", "2026-05-15"]),
+        }
+    )
 
     issues = DataQualityFramework()._check_options_consistency(df)
     iv_range_issues = [i for i in issues if "IV values outside valid range" in i.message]
@@ -49,13 +51,15 @@ def test_quality_gate_still_catches_real_invalid_iv():
     """Counterpart to the above — the gate must still catch genuine
     invalid IV (true `iv` column with > 5.0 or negative values).
     """
-    df = pd.DataFrame({
-        "strike": [100.0, 200.0],
-        "right": ["put", "call"],
-        "iv": [0.25, 7.5],            # second row is corrupted
-        "bid": [1.00, 0.50],
-        "ask": [1.05, 0.55],
-    })
+    df = pd.DataFrame(
+        {
+            "strike": [100.0, 200.0],
+            "right": ["put", "call"],
+            "iv": [0.25, 7.5],  # second row is corrupted
+            "bid": [1.00, 0.50],
+            "ask": [1.05, 0.55],
+        }
+    )
 
     issues = DataQualityFramework()._check_options_consistency(df)
     iv_range_issues = [i for i in issues if "IV values outside valid range" in i.message]
@@ -70,13 +74,15 @@ def test_quality_gate_matches_implied_vol_alias():
     — common alternative IV column names. Otherwise a chain that uses
     those names directly would bypass the gate.
     """
-    df = pd.DataFrame({
-        "strike": [100.0],
-        "right": ["put"],
-        "implied_vol": [12.0],         # corrupted, should be flagged
-        "bid": [1.00],
-        "ask": [1.05],
-    })
+    df = pd.DataFrame(
+        {
+            "strike": [100.0],
+            "right": ["put"],
+            "implied_vol": [12.0],  # corrupted, should be flagged
+            "bid": [1.00],
+            "ask": [1.05],
+        }
+    )
 
     issues = DataQualityFramework()._check_options_consistency(df)
     iv_range_issues = [i for i in issues if "IV values outside valid range" in i.message]

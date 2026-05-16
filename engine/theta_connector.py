@@ -518,8 +518,13 @@ class ThetaConnector(MarketDataConnector):
         #   underlying_timestamp — metadata only; underlying_price stays
         if not df_greeks.empty:
             for col in (
-                "bid", "ask", "bid_size", "ask_size", "timestamp",
-                "iv_error", "underlying_timestamp",
+                "bid",
+                "ask",
+                "bid_size",
+                "ask_size",
+                "timestamp",
+                "iv_error",
+                "underlying_timestamp",
             ):
                 if col in df_greeks.columns:
                     df_greeks = df_greeks.drop(columns=[col])

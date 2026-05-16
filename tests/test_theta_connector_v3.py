@@ -430,7 +430,9 @@ class TestGetOptionChain:
           curl 'http://127.0.0.1:25503/v3/option/snapshot/open_interest?symbol=SPY&expiration=20260522'
         """
         fx = Path(__file__).parent / "fixtures"
-        greeks_text = (fx / "theta_v3_option_greeks_first_order_spy.csv").read_text(encoding="utf-8")
+        greeks_text = (fx / "theta_v3_option_greeks_first_order_spy.csv").read_text(
+            encoding="utf-8"
+        )
         quote_text = (fx / "theta_v3_option_quote_spy.csv").read_text(encoding="utf-8")
         oi_text = (fx / "theta_v3_option_open_interest_spy.csv").read_text(encoding="utf-8")
 
@@ -446,10 +448,20 @@ class TestGetOptionChain:
         assert "underlying_timestamp" not in df.columns
         # Mandatory consumer-facing columns
         for col in (
-            "symbol", "expiration", "strike", "right",
-            "delta", "theta", "vega", "rho",
-            "iv", "bid", "ask", "mid",
-            "open_interest", "underlying_price",
+            "symbol",
+            "expiration",
+            "strike",
+            "right",
+            "delta",
+            "theta",
+            "vega",
+            "rho",
+            "iv",
+            "bid",
+            "ask",
+            "mid",
+            "open_interest",
+            "underlying_price",
         ):
             assert col in df.columns, f"missing required column: {col}"
         # IV is decimal and in valid range — the original bug surfaces here

@@ -35,7 +35,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -132,10 +132,12 @@ def setup_logging(
     if structured:
         console.setFormatter(StructuredFormatter())
     else:
-        console.setFormatter(logging.Formatter(
-            "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
-        ))
+        console.setFormatter(
+            logging.Formatter(
+                "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
 
     root.addHandler(console)
 
@@ -149,7 +151,7 @@ def setup_logging(
 
 
 # Metrics collection
-class MetricType(str, Enum):
+class MetricType(StrEnum):
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
@@ -159,6 +161,7 @@ class MetricType(str, Enum):
 @dataclass
 class MetricValue:
     """A single metric value."""
+
     name: str
     type: MetricType
     value: float
@@ -259,7 +262,7 @@ class MetricsCollector:
 
         # Trim history
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+            self._history = self._history[-self._max_history :]
 
     @contextmanager
     def timer(self, name: str, tags: dict[str, str] | None = None):
@@ -294,6 +297,7 @@ class MetricsCollector:
             return None
 
         import numpy as np
+
         arr = np.array(values)
 
         return {
@@ -320,6 +324,7 @@ class MetricsCollector:
             return None
 
         import numpy as np
+
         arr = np.array(values)
 
         return {
@@ -352,6 +357,7 @@ class MetricsCollector:
             for key, values in self._histograms.items():
                 if values:
                     import numpy as np
+
                     arr = np.array(values)
                     result["histograms"][key] = {
                         "count": len(arr),
@@ -363,6 +369,7 @@ class MetricsCollector:
             for key, values in self._timings.items():
                 if values:
                     import numpy as np
+
                     arr = np.array(values)
                     result["timings"][key] = {
                         "count": len(arr),
@@ -422,6 +429,7 @@ class MetricsCollector:
 @dataclass
 class Span:
     """A trace span representing an operation."""
+
     trace_id: str
     span_id: str
     parent_id: str | None
@@ -443,11 +451,13 @@ class Span:
         self.attributes[key] = value
 
     def add_event(self, name: str, **attributes) -> None:
-        self.events.append({
-            "name": name,
-            "timestamp": datetime.utcnow().isoformat(),
-            "attributes": attributes,
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": datetime.utcnow().isoformat(),
+                "attributes": attributes,
+            }
+        )
 
     def set_error(self, error: str) -> None:
         self.status = "ERROR"
@@ -480,6 +490,7 @@ class Tracer:
 
     def _generate_id(self) -> str:
         import uuid
+
         return uuid.uuid4().hex[:16]
 
     def _get_current_span(self) -> Span | None:
@@ -521,7 +532,7 @@ class Tracer:
             with self._lock:
                 self._spans.append(span)
                 if len(self._spans) > self._max_spans:
-                    self._spans = self._spans[-self._max_spans:]
+                    self._spans = self._spans[-self._max_spans :]
 
     def get_trace(self, trace_id: str) -> list[Span]:
         """Get all spans for a trace."""
@@ -537,10 +548,7 @@ class Tracer:
         limit: int = 100,
     ) -> list[Span]:
         """Get spans slower than threshold."""
-        slow = [
-            s for s in self._spans
-            if s.duration_ms and s.duration_ms > threshold_ms
-        ]
+        slow = [s for s in self._spans if s.duration_ms and s.duration_ms > threshold_ms]
         return sorted(slow, key=lambda s: s.duration_ms or 0, reverse=True)[:limit]
 
     def clear(self) -> None:
@@ -550,7 +558,7 @@ class Tracer:
 
 
 # Alerting
-class AlertSeverity(str, Enum):
+class AlertSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -560,6 +568,7 @@ class AlertSeverity(str, Enum):
 @dataclass
 class Alert:
     """An alert triggered by a threshold."""
+
     name: str
     severity: AlertSeverity
     message: str
@@ -591,14 +600,16 @@ class AlertManager:
         message: str | None = None,
     ) -> None:
         """Add an alert rule."""
-        self._rules.append({
-            "name": name,
-            "metric_name": metric_name,
-            "threshold": threshold,
-            "comparison": comparison,
-            "severity": severity,
-            "message": message or f"{metric_name} {comparison} {threshold}",
-        })
+        self._rules.append(
+            {
+                "name": name,
+                "metric_name": metric_name,
+                "threshold": threshold,
+                "comparison": comparison,
+                "severity": severity,
+                "message": message or f"{metric_name} {comparison} {threshold}",
+            }
+        )
 
     def add_handler(self, handler: Callable[[Alert], None]) -> None:
         """Add an alert handler."""
@@ -678,6 +689,7 @@ logger = ContextLogger("smart_wheel")
 
 def timed(name: str | None = None, tags: dict[str, str] | None = None):
     """Decorator for timing function execution."""
+
     def decorator(func: Callable) -> Callable:
         metric_name = name or f"{func.__module__}.{func.__name__}"
 
@@ -687,18 +699,21 @@ def timed(name: str | None = None, tags: dict[str, str] | None = None):
                 return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
 def traced(name: str | None = None):
     """Decorator for tracing function execution."""
+
     def decorator(func: Callable) -> Callable:
         span_name = name or f"{func.__module__}.{func.__name__}"
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            with trace.span(span_name) as span:
+            with trace.span(span_name):
                 return func(*args, **kwargs)
 
         return wrapper
+
     return decorator

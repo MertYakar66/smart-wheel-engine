@@ -53,7 +53,8 @@ from .bloomberg_loader import (
 
 # Try to import consolidated loader
 try:
-    from .consolidated_loader import ConsolidatedBloombergLoader, normalize_ticker
+    from .consolidated_loader import ConsolidatedBloombergLoader
+
     CONSOLIDATED_AVAILABLE = True
 except ImportError:
     CONSOLIDATED_AVAILABLE = False
@@ -64,6 +65,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DataStatus:
     """Status of loaded data."""
+
     ohlcv_tickers: int = 0
     ohlcv_total_days: int = 0
     options_tickers: int = 0
@@ -135,7 +137,9 @@ class DataPipeline:
         self.tickers = tickers
 
         # Auto-detect data format
-        self._use_consolidated = self._detect_data_format() if use_consolidated is None else use_consolidated
+        self._use_consolidated = (
+            self._detect_data_format() if use_consolidated is None else use_consolidated
+        )
         self._consolidated_loader: ConsolidatedBloombergLoader | None = None
 
         # Data stores
@@ -180,7 +184,7 @@ class DataPipeline:
 
     # ─── Loading ──────────────────────────────────────────────────
 
-    def load_all(self) -> 'DataPipeline':
+    def load_all(self) -> "DataPipeline":
         """Load all available Bloomberg data. Returns self for chaining."""
         logger.info(f"Loading all Bloomberg data from {self.data_dir}")
 
@@ -216,7 +220,9 @@ class DataPipeline:
             if ohlcv is not None and not ohlcv.empty:
                 # Standardize column names (capitalize for compatibility)
                 ohlcv = ohlcv.copy()
-                ohlcv.columns = [c.title() if c != "ticker_normalized" else c for c in ohlcv.columns]
+                ohlcv.columns = [
+                    c.title() if c != "ticker_normalized" else c for c in ohlcv.columns
+                ]
                 self._ohlcv[ticker] = ohlcv
 
             # IV History
@@ -362,9 +368,7 @@ class DataPipeline:
                 if ohlcv is not None and not ohlcv.empty:
                     close_col = "Close" if "Close" in ohlcv.columns else "close"
                     spot = float(ohlcv.iloc[-1][close_col])
-                    self._div_yields[ticker] = get_annual_dividend_yield(
-                        ticker, div_df, spot
-                    )
+                    self._div_yields[ticker] = get_annual_dividend_yield(ticker, div_df, spot)
 
     def _compute_sector_map(self) -> None:
         """Build sector map from fundamentals."""
@@ -442,12 +446,7 @@ class DataPipeline:
                 prices[ticker] = price
         return prices
 
-    def get_options(
-        self,
-        ticker: str,
-        min_dte: int = 0,
-        max_dte: int = 999
-    ) -> pd.DataFrame | None:
+    def get_options(self, ticker: str, min_dte: int = 0, max_dte: int = 999) -> pd.DataFrame | None:
         """
         Get option chain for a ticker, optionally filtered by DTE.
 
@@ -460,10 +459,7 @@ class DataPipeline:
 
         if "expiration" in df.columns and "date" in df.columns:
             df = df.copy()
-            df["dte"] = (
-                pd.to_datetime(df["expiration"]) -
-                pd.to_datetime(df["date"])
-            ).dt.days
+            df["dte"] = (pd.to_datetime(df["expiration"]) - pd.to_datetime(df["date"])).dt.days
             df = df[(df["dte"] >= min_dte) & (df["dte"] <= max_dte)]
 
         return df
@@ -519,9 +515,7 @@ class DataPipeline:
         return self._div_yields.get(ticker, 0.0)
 
     def get_upcoming_dividends_for_ticker(
-        self,
-        ticker: str,
-        horizon_days: int = 60
+        self, ticker: str, horizon_days: int = 60
     ) -> pd.DataFrame:
         """
         Get upcoming ex-dividend dates for LSM early exercise analysis.
@@ -570,6 +564,7 @@ class DataPipeline:
 
         # Fallback to hardcoded map
         from engine.risk_manager import DEFAULT_SECTOR_MAP
+
         return DEFAULT_SECTOR_MAP
 
     def get_daily_returns(self, ticker: str) -> np.ndarray | None:
@@ -586,9 +581,7 @@ class DataPipeline:
         return returns
 
     def get_portfolio_returns(
-        self,
-        tickers: list[str] | None = None,
-        weights: dict[str, float] | None = None
+        self, tickers: list[str] | None = None, weights: dict[str, float] | None = None
     ) -> np.ndarray | None:
         """
         Get equal-weighted or custom-weighted portfolio returns.
@@ -614,8 +607,7 @@ class DataPipeline:
         aligned = np.column_stack([r[-min_len:] for r in returns_list])
 
         if weights:
-            w = np.array([weights.get(t, 1.0 / len(valid_tickers))
-                         for t in valid_tickers])
+            w = np.array([weights.get(t, 1.0 / len(valid_tickers)) for t in valid_tickers])
             w = w / w.sum()
         else:
             w = np.ones(len(valid_tickers)) / len(valid_tickers)
@@ -633,10 +625,7 @@ class DataPipeline:
         """
         result = {}
         for ticker, df in self._ohlcv.items():
-            bt_df = pd.DataFrame({
-                "date": df["Date"].dt.date,
-                "close": df["Close"]
-            })
+            bt_df = pd.DataFrame({"date": df["Date"].dt.date, "close": df["Close"]})
             result[ticker] = bt_df
         return result
 
@@ -688,14 +677,16 @@ class DataPipeline:
             ``complete_tickers``, ``bias_score``, ``verdict``.
         """
         start = pd.to_datetime(start_date)
-        end = pd.to_datetime(end_date)
+        pd.to_datetime(end_date)
 
         backfilled: list[str] = []
         complete: list[str] = []
         for ticker, df in self._ohlcv.items():
             if df is None or df.empty:
                 continue
-            first_date = pd.to_datetime(df.index.min() if isinstance(df.index, pd.DatetimeIndex) else df["Date"].min())
+            first_date = pd.to_datetime(
+                df.index.min() if isinstance(df.index, pd.DatetimeIndex) else df["Date"].min()
+            )
             if first_date > start:
                 backfilled.append(ticker)
             else:
@@ -708,7 +699,9 @@ class DataPipeline:
                 if t not in loaded:
                     missing.append(t)
 
-        total_expected = len(expected_constituents) if expected_constituents else max(len(self._ohlcv), 1)
+        total_expected = (
+            len(expected_constituents) if expected_constituents else max(len(self._ohlcv), 1)
+        )
         bias_score = (len(missing) + len(backfilled)) / total_expected
 
         if bias_score > 0.30:
@@ -736,7 +729,7 @@ class DataPipeline:
         min_dte: int = 21,
         max_dte: int = 60,
         min_open_interest: int = 100,
-        min_bid: float = 0.05
+        min_bid: float = 0.05,
     ) -> pd.DataFrame:
         """
         Build trade universe from Bloomberg option data.
@@ -757,15 +750,10 @@ class DataPipeline:
 
         # Compute DTE
         if "dte" not in df.columns:
-            df["dte"] = (
-                pd.to_datetime(df["expiration"]) -
-                pd.to_datetime(trade_date)
-            ).dt.days
+            df["dte"] = (pd.to_datetime(df["expiration"]) - pd.to_datetime(trade_date)).dt.days
 
         # Compute moneyness
-        df["moneyness_pct"] = (
-            (df["strike"] / df["underlying_price"] - 1.0) * 100.0
-        )
+        df["moneyness_pct"] = (df["strike"] / df["underlying_price"] - 1.0) * 100.0
 
         # Mid price
         if "mid_price" not in df.columns:
@@ -779,28 +767,28 @@ class DataPipeline:
 
         # Filter puts
         put_mask = (
-            (df["option_type"] == "P") &
-            df["underlying_price"].notna() &
-            df["implied_vol"].notna() &
-            (df["implied_vol"] > 0) &
-            (df["dte"].between(min_dte, max_dte)) &
-            (df["moneyness_pct"].between(-15, 5)) &
-            (df["open_interest"] >= min_open_interest) &
-            (df["bid"] >= min_bid)
+            (df["option_type"] == "P")
+            & df["underlying_price"].notna()
+            & df["implied_vol"].notna()
+            & (df["implied_vol"] > 0)
+            & (df["dte"].between(min_dte, max_dte))
+            & (df["moneyness_pct"].between(-15, 5))
+            & (df["open_interest"] >= min_open_interest)
+            & (df["bid"] >= min_bid)
         )
         puts = df[put_mask].copy()
         puts["strategy_leg"] = "short_put"
 
         # Filter calls
         call_mask = (
-            (df["option_type"] == "C") &
-            df["underlying_price"].notna() &
-            df["implied_vol"].notna() &
-            (df["implied_vol"] > 0) &
-            (df["dte"].between(min_dte, max_dte)) &
-            (df["moneyness_pct"].between(0, 10)) &
-            (df["open_interest"] >= min_open_interest) &
-            (df["bid"] >= min_bid)
+            (df["option_type"] == "C")
+            & df["underlying_price"].notna()
+            & df["implied_vol"].notna()
+            & (df["implied_vol"] > 0)
+            & (df["dte"].between(min_dte, max_dte))
+            & (df["moneyness_pct"].between(0, 10))
+            & (df["open_interest"] >= min_open_interest)
+            & (df["bid"] >= min_bid)
         )
         calls = df[call_mask].copy()
         calls["strategy_leg"] = "covered_call"
@@ -855,9 +843,7 @@ class DataPipeline:
         ohlcv_issues = []
         for ticker, df in self._ohlcv.items():
             if len(df) < 252:
-                ohlcv_issues.append(
-                    f"{ticker}: Only {len(df)} days (need 252 for 1 year)"
-                )
+                ohlcv_issues.append(f"{ticker}: Only {len(df)} days (need 252 for 1 year)")
             if df["Close"].isna().any():
                 n_na = df["Close"].isna().sum()
                 ohlcv_issues.append(f"{ticker}: {n_na} missing Close values")
@@ -870,15 +856,11 @@ class DataPipeline:
             if "implied_vol" in df.columns:
                 bad_iv = df["implied_vol"].isna().sum()
                 if bad_iv > len(df) * 0.2:
-                    opt_issues.append(
-                        f"{ticker}: {bad_iv}/{len(df)} contracts missing IV"
-                    )
+                    opt_issues.append(f"{ticker}: {bad_iv}/{len(df)} contracts missing IV")
             if "bid" in df.columns:
                 zero_bid = (df["bid"] <= 0).sum()
                 if zero_bid > len(df) * 0.5:
-                    opt_issues.append(
-                        f"{ticker}: {zero_bid}/{len(df)} contracts with zero bid"
-                    )
+                    opt_issues.append(f"{ticker}: {zero_bid}/{len(df)} contracts with zero bid")
         if opt_issues:
             issues["options"] = opt_issues
 
@@ -886,9 +868,7 @@ class DataPipeline:
         earn_issues = []
         for ticker, df in self._earnings.items():
             if len(df) < 4:
-                earn_issues.append(
-                    f"{ticker}: Only {len(df)} quarters (need 4 for features)"
-                )
+                earn_issues.append(f"{ticker}: Only {len(df)} quarters (need 4 for features)")
         if earn_issues:
             issues["earnings"] = earn_issues
 

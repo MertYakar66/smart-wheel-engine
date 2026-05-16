@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Try to import blpapi (direct Bloomberg API)
 try:
     import blpapi
+
     HAS_BLPAPI = True
 except ImportError:
     HAS_BLPAPI = False
@@ -37,6 +38,7 @@ except ImportError:
 # Try to import win32com for Excel COM automation
 try:
     import win32com.client
+
     HAS_WIN32COM = True
 except ImportError:
     HAS_WIN32COM = False
@@ -45,6 +47,7 @@ except ImportError:
 @dataclass
 class OptionQuote:
     """Single option quote from Bloomberg."""
+
     ticker: str
     underlying: str
     strike: float
@@ -70,6 +73,7 @@ class OptionQuote:
 @dataclass
 class StockQuote:
     """Stock quote from Bloomberg."""
+
     ticker: str
     last: float
     bid: float
@@ -91,6 +95,7 @@ class StockQuote:
 
 class BloombergError(Exception):
     """Bloomberg connection or data error."""
+
     pass
 
 
@@ -131,8 +136,7 @@ class BloombergConnector:
                 self.mode = "excel"
             else:
                 raise BloombergError(
-                    "No Bloomberg interface available. "
-                    "Install blpapi or win32com (pywin32)."
+                    "No Bloomberg interface available. Install blpapi or win32com (pywin32)."
                 )
 
         self._connect()
@@ -168,7 +172,7 @@ class BloombergConnector:
         try:
             # Try to connect to existing Excel instance
             self._excel = win32com.client.GetActiveObject("Excel.Application")
-        except:
+        except Exception:
             # Start new Excel instance
             self._excel = win32com.client.Dispatch("Excel.Application")
             self._excel.Visible = True
@@ -199,9 +203,17 @@ class BloombergConnector:
         request.append("securities", security)
 
         fields = [
-            "PX_LAST", "PX_BID", "PX_ASK", "VOLUME",
-            "PX_HIGH", "PX_LOW", "PX_OPEN", "PREV_CLOSE_VALUE_ADJ",
-            "CHG_PCT_1D", "IVOL_30D", "VOLATILITY_30D"
+            "PX_LAST",
+            "PX_BID",
+            "PX_ASK",
+            "VOLUME",
+            "PX_HIGH",
+            "PX_LOW",
+            "PX_OPEN",
+            "PREV_CLOSE_VALUE_ADJ",
+            "CHG_PCT_1D",
+            "IVOL_30D",
+            "VOLATILITY_30D",
         ]
         for field in fields:
             request.append("fields", field)
@@ -234,7 +246,7 @@ class BloombergConnector:
             prev_close=data.get("PREV_CLOSE_VALUE_ADJ", 0),
             change_pct=data.get("CHG_PCT_1D", 0),
             iv_30d=data.get("IVOL_30D"),
-            hv_30d=data.get("VOLATILITY_30D")
+            hv_30d=data.get("VOLATILITY_30D"),
         )
 
     def _get_quote_excel(self, security: str) -> StockQuote:
@@ -281,7 +293,7 @@ class BloombergConnector:
             prev_close=float(data["prev_close"]),
             change_pct=float(data["change_pct"]),
             iv_30d=data["iv_30d"],
-            hv_30d=data["hv_30d"]
+            hv_30d=data["hv_30d"],
         )
 
     def _wait_for_data(self, cell: str, timeout: float = 10.0):
@@ -317,7 +329,7 @@ class BloombergConnector:
         security: str,
         start_date: str | date,
         end_date: str | date,
-        fields: list[str] | None = None
+        fields: list[str] | None = None,
     ) -> pd.DataFrame:
         """
         Get historical data (OHLCV) for a security.
@@ -345,11 +357,7 @@ class BloombergConnector:
             return self._get_historical_excel(security, start_date, end_date, fields)
 
     def _get_historical_api(
-        self,
-        security: str,
-        start_date: date,
-        end_date: date,
-        fields: list[str]
+        self, security: str, start_date: date, end_date: date, fields: list[str]
     ) -> pd.DataFrame:
         """Get historical data via direct API."""
         refDataService = self._session.getService("//blp/refdata")
@@ -391,17 +399,13 @@ class BloombergConnector:
                 "PX_HIGH": "high",
                 "PX_LOW": "low",
                 "PX_LAST": "close",
-                "VOLUME": "volume"
+                "VOLUME": "volume",
             }
             df = df.rename(columns=rename_map)
         return df
 
     def _get_historical_excel(
-        self,
-        security: str,
-        start_date: date,
-        end_date: date,
-        fields: list[str]
+        self, security: str, start_date: date, end_date: date, fields: list[str]
     ) -> pd.DataFrame:
         """Get historical data via Excel BDH formula."""
         start_str = start_date.strftime("%Y-%m-%d")
@@ -433,7 +437,7 @@ class BloombergConnector:
             "PX_HIGH": "high",
             "PX_LOW": "low",
             "PX_LAST": "close",
-            "VOLUME": "volume"
+            "VOLUME": "volume",
         }
         df = df.rename(columns=rename_map)
 
@@ -447,7 +451,7 @@ class BloombergConnector:
         underlying: str,
         expiry: date | None = None,
         strikes: list[float] | None = None,
-        option_type: str | None = None  # 'C', 'P', or None for both
+        option_type: str | None = None,  # 'C', 'P', or None for both
     ) -> pd.DataFrame:
         """
         Get option chain for an underlying.
@@ -474,7 +478,7 @@ class BloombergConnector:
         ticker_root: str,
         expiry: date | None,
         strikes: list[float] | None,
-        option_type: str | None
+        option_type: str | None,
     ) -> pd.DataFrame:
         """Get option chain via direct API using BDS."""
         refDataService = self._session.getService("//blp/refdata")
@@ -512,7 +516,7 @@ class BloombergConnector:
         ticker_root: str,
         expiry: date | None,
         strikes: list[float] | None,
-        option_type: str | None
+        option_type: str | None,
     ) -> pd.DataFrame:
         """Get option chain via Excel BDS formula."""
         # Get option chain using BDS
@@ -523,7 +527,7 @@ class BloombergConnector:
         self._wait_for_data("A1", timeout=30.0)
 
         # Read option tickers
-        col = self._sheet.Range("A:A")
+        self._sheet.Range("A:A")
         option_tickers = []
         row = 1
         while True:
@@ -548,20 +552,30 @@ class BloombergConnector:
         option_tickers: list[str],
         expiry: date | None,
         strikes: list[float] | None,
-        option_type: str | None
+        option_type: str | None,
     ) -> pd.DataFrame:
         """Get detailed option data for a list of options via Excel."""
         fields = [
-            "OPT_STRIKE_PX", "OPT_EXPIRE_DT", "OPT_PUT_CALL",
-            "PX_BID", "PX_ASK", "PX_LAST", "VOLUME", "OPEN_INT",
-            "IVOL_MID", "OPT_DELTA", "OPT_GAMMA", "OPT_THETA", "OPT_VEGA"
+            "OPT_STRIKE_PX",
+            "OPT_EXPIRE_DT",
+            "OPT_PUT_CALL",
+            "PX_BID",
+            "PX_ASK",
+            "PX_LAST",
+            "VOLUME",
+            "OPEN_INT",
+            "IVOL_MID",
+            "OPT_DELTA",
+            "OPT_GAMMA",
+            "OPT_THETA",
+            "OPT_VEGA",
         ]
 
         data = []
         batch_size = 20  # Process in batches to avoid Excel limits
 
         for i in range(0, len(option_tickers), batch_size):
-            batch = option_tickers[i:i + batch_size]
+            batch = option_tickers[i : i + batch_size]
 
             for j, ticker in enumerate(batch):
                 row = j + 1
@@ -592,21 +606,23 @@ class BloombergConnector:
             return df
 
         # Clean and filter
-        df = df.rename(columns={
-            "OPT_STRIKE_PX": "strike",
-            "OPT_EXPIRE_DT": "expiry",
-            "OPT_PUT_CALL": "type",
-            "PX_BID": "bid",
-            "PX_ASK": "ask",
-            "PX_LAST": "last",
-            "VOLUME": "volume",
-            "OPEN_INT": "open_interest",
-            "IVOL_MID": "iv",
-            "OPT_DELTA": "delta",
-            "OPT_GAMMA": "gamma",
-            "OPT_THETA": "theta",
-            "OPT_VEGA": "vega"
-        })
+        df = df.rename(
+            columns={
+                "OPT_STRIKE_PX": "strike",
+                "OPT_EXPIRE_DT": "expiry",
+                "OPT_PUT_CALL": "type",
+                "PX_BID": "bid",
+                "PX_ASK": "ask",
+                "PX_LAST": "last",
+                "VOLUME": "volume",
+                "OPEN_INT": "open_interest",
+                "IVOL_MID": "iv",
+                "OPT_DELTA": "delta",
+                "OPT_GAMMA": "gamma",
+                "OPT_THETA": "theta",
+                "OPT_VEGA": "vega",
+            }
+        )
 
         # Convert expiry to date
         df["expiry"] = pd.to_datetime(df["expiry"]).dt.date
@@ -626,10 +642,7 @@ class BloombergConnector:
         return df.sort_values(["expiry", "type", "strike"])
 
     def get_iv_surface(
-        self,
-        underlying: str,
-        expiries: list[date] | None = None,
-        deltas: list[float] | None = None
+        self, underlying: str, expiries: list[date] | None = None, deltas: list[float] | None = None
     ) -> pd.DataFrame:
         """
         Get implied volatility surface for an underlying.
@@ -656,13 +669,15 @@ class BloombergConnector:
             exp_data = chain[chain["expiry"] == exp]
 
             for _, row in exp_data.iterrows():
-                surface_data.append({
-                    "expiry": exp,
-                    "strike": row["strike"],
-                    "type": row["type"],
-                    "iv": row["iv"],
-                    "delta": row["delta"]
-                })
+                surface_data.append(
+                    {
+                        "expiry": exp,
+                        "strike": row["strike"],
+                        "type": row["type"],
+                        "iv": row["iv"],
+                        "delta": row["delta"],
+                    }
+                )
 
         return pd.DataFrame(surface_data)
 
@@ -684,12 +699,12 @@ class BloombergConnector:
         if self.mode == "excel":
             data = {}
             for i, field in enumerate(fields):
-                self._sheet.Range(f"A{i+1}").Formula = f'=BDP("{security}","{field}")'
+                self._sheet.Range(f"A{i + 1}").Formula = f'=BDP("{security}","{field}")'
 
             self._wait_for_data("A1")
 
             for i, field in enumerate(fields):
-                data[field] = self._sheet.Range(f"A{i+1}").Value
+                data[field] = self._sheet.Range(f"A{i + 1}").Value
 
             self._sheet.Cells.Clear()
 
@@ -697,7 +712,9 @@ class BloombergConnector:
                 "dividend_amount": data.get("DVD_SH_LAST"),
                 "frequency": data.get("DVD_FREQ"),
                 "yield": data.get("EQY_DVD_YLD_IND"),
-                "ex_date": pd.to_datetime(data.get("DVD_EX_DT")).date() if data.get("DVD_EX_DT") else None
+                "ex_date": pd.to_datetime(data.get("DVD_EX_DT")).date()
+                if data.get("DVD_EX_DT")
+                else None,
             }
         return {}
 
@@ -708,7 +725,7 @@ class BloombergConnector:
         elif self.mode == "excel" and self._workbook:
             try:
                 self._workbook.Close(SaveChanges=False)
-            except:
+            except Exception:
                 pass
 
     def __enter__(self):
@@ -734,10 +751,7 @@ def get_iv(ticker: str) -> float:
 
 
 def download_ohlcv(
-    ticker: str,
-    start_date: str,
-    end_date: str,
-    output_path: str | None = None
+    ticker: str, start_date: str, end_date: str, output_path: str | None = None
 ) -> pd.DataFrame:
     """
     Download OHLCV data from Bloomberg.
@@ -849,16 +863,18 @@ def get_live_quotes(tickers: list[str]) -> pd.DataFrame:
         for ticker in tickers:
             try:
                 quote = bbg.get_quote(f"{ticker} US Equity")
-                data.append({
-                    "ticker": ticker,
-                    "last": quote.last,
-                    "bid": quote.bid,
-                    "ask": quote.ask,
-                    "volume": quote.volume,
-                    "change_pct": quote.change_pct,
-                    "iv_30d": quote.iv_30d,
-                    "hv_30d": quote.hv_30d
-                })
+                data.append(
+                    {
+                        "ticker": ticker,
+                        "last": quote.last,
+                        "bid": quote.bid,
+                        "ask": quote.ask,
+                        "volume": quote.volume,
+                        "change_pct": quote.change_pct,
+                        "iv_30d": quote.iv_30d,
+                        "hv_30d": quote.hv_30d,
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to get quote for {ticker}: {e}")
 
@@ -912,10 +928,7 @@ def get_live_iv_rank(ticker: str, lookback_days: int = 252) -> float | None:
 
 
 def get_wheel_candidates(
-    tickers: list[str],
-    min_iv_rank: float = 0.30,
-    min_price: float = 20.0,
-    max_price: float = 500.0
+    tickers: list[str], min_iv_rank: float = 0.30, min_price: float = 20.0, max_price: float = 500.0
 ) -> pd.DataFrame:
     """
     Screen stocks for wheel strategy candidates.
@@ -951,15 +964,17 @@ def get_wheel_candidates(
                 if earnings_date:
                     days_to_earnings = (earnings_date - date.today()).days
 
-                candidates.append({
-                    "ticker": ticker,
-                    "price": quote.last,
-                    "iv_30d": quote.iv_30d,
-                    "iv_rank": iv_rank,
-                    "hv_30d": quote.hv_30d,
-                    "days_to_earnings": days_to_earnings,
-                    "change_pct": quote.change_pct
-                })
+                candidates.append(
+                    {
+                        "ticker": ticker,
+                        "price": quote.last,
+                        "iv_30d": quote.iv_30d,
+                        "iv_rank": iv_rank,
+                        "hv_30d": quote.hv_30d,
+                        "days_to_earnings": days_to_earnings,
+                        "change_pct": quote.change_pct,
+                    }
+                )
 
             except Exception as e:
                 logger.warning(f"Error screening {ticker}: {e}")
@@ -975,6 +990,7 @@ def get_wheel_candidates(
 # Check Bloomberg availability
 # ─────────────────────────────────────────────────────────────────────
 
+
 def check_bloomberg_available() -> dict[str, bool]:
     """
     Check which Bloomberg interfaces are available.
@@ -985,7 +1001,7 @@ def check_bloomberg_available() -> dict[str, bool]:
     return {
         "blpapi": HAS_BLPAPI,
         "excel_com": HAS_WIN32COM,
-        "any_available": HAS_BLPAPI or HAS_WIN32COM
+        "any_available": HAS_BLPAPI or HAS_WIN32COM,
     }
 
 

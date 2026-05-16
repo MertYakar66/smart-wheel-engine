@@ -21,8 +21,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 import pandas as pd
@@ -41,11 +41,18 @@ from src.features.vol_edge import VolatilityEdge
 # Feature modules
 from src.features.volatility import VolatilityFeatures
 
+if TYPE_CHECKING:
+    # DataPipeline is imported lazily inside __init__ to avoid a circular
+    # import; declare it here so the "DataPipeline" forward-reference
+    # annotation resolves for ruff and type-checkers.
+    from data.pipeline import DataPipeline
+
 logger = logging.getLogger(__name__)
 
 
-class ComputeStatus(str, Enum):
+class ComputeStatus(StrEnum):
     """Status of feature computation."""
+
     PENDING = "pending"
     COMPUTING = "computing"
     SUCCESS = "success"
@@ -56,6 +63,7 @@ class ComputeStatus(str, Enum):
 @dataclass
 class ComputeResult:
     """Result of a single feature computation."""
+
     category: str
     ticker: str
     status: ComputeStatus
@@ -68,6 +76,7 @@ class ComputeResult:
 @dataclass
 class PipelineResult:
     """Result of a full pipeline run."""
+
     ticker: str
     started_at: str
     completed_at: str
@@ -83,7 +92,9 @@ class PipelineResult:
         ]
         for r in self.results:
             status_icon = "✓" if r.status == ComputeStatus.SUCCESS else "✗"
-            lines.append(f"  {status_icon} {r.category}: {r.row_count} rows ({r.computation_time_ms}ms)")
+            lines.append(
+                f"  {status_icon} {r.category}: {r.row_count} rows ({r.computation_time_ms}ms)"
+            )
             if r.error:
                 lines.append(f"      Error: {r.error}")
         return "\n".join(lines)
@@ -130,6 +141,7 @@ class FeaturePipeline:
         # Lazy import to avoid circular dependency
         if data_pipeline is None:
             from data.pipeline import DataPipeline
+
             data_pipeline = DataPipeline()
             if auto_load:
                 data_pipeline.load_all()
@@ -203,7 +215,9 @@ class FeaturePipeline:
             success=success,
         )
 
-        logger.info(f"Completed {ticker}: {len(results)} categories, {total_time}ms, success={success}")
+        logger.info(
+            f"Completed {ticker}: {len(results)} categories, {total_time}ms, success={success}"
+        )
         return result
 
     def _compute_layer1(self, ticker: str, force: bool) -> list[ComputeResult]:
@@ -330,7 +344,9 @@ class FeaturePipeline:
             df["rv_63d"] = self.volatility.realized_volatility_close(df["returns"], window=63)
 
             # Parkinson (uses high-low)
-            df["rv_parkinson_21d"] = self.volatility.realized_volatility_parkinson(df["high"], df["low"], window=21)
+            df["rv_parkinson_21d"] = self.volatility.realized_volatility_parkinson(
+                df["high"], df["low"], window=21
+            )
 
             # Garman-Klass (uses OHLC)
             df["rv_garman_klass_21d"] = self.volatility.realized_volatility_garman_klass(
@@ -378,7 +394,9 @@ class FeaturePipeline:
         try:
             # Try to get options flow data (aggregated daily)
             # This may come from bloomberg_loader's options flow or IV history
-            iv_history = self.data.iv_history.get(ticker) if hasattr(self.data, 'iv_history') else None
+            iv_history = (
+                self.data.iv_history.get(ticker) if hasattr(self.data, "iv_history") else None
+            )
 
             if iv_history is None or iv_history.empty:
                 return ComputeResult(
@@ -429,7 +447,9 @@ class FeaturePipeline:
 
         try:
             # Get IV history for dynamics computation
-            iv_history = self.data.iv_history.get(ticker) if hasattr(self.data, 'iv_history') else None
+            iv_history = (
+                self.data.iv_history.get(ticker) if hasattr(self.data, "iv_history") else None
+            )
 
             if iv_history is None or iv_history.empty:
                 # Try to get from options flow or feature store
@@ -510,7 +530,9 @@ class FeaturePipeline:
             vol_features = self.store.read_features(FeatureCategory.VOLATILITY, ticker)
 
             # Get IV history
-            iv_history = self.data.iv_history.get(ticker) if hasattr(self.data, 'iv_history') else None
+            iv_history = (
+                self.data.iv_history.get(ticker) if hasattr(self.data, "iv_history") else None
+            )
 
             if vol_features is None or vol_features.empty:
                 return ComputeResult(
@@ -568,10 +590,7 @@ class FeaturePipeline:
 
             # Composite edge score
             df["edge_score"] = self.vol_edge.edge_score(
-                df["atm_iv"],
-                df["rv_21d"],
-                df["iv_rank"],
-                df["vrp_percentile"]
+                df["atm_iv"], df["rv_21d"], df["iv_rank"], df["vrp_percentile"]
             )
 
             self.store.write_features(
@@ -667,7 +686,7 @@ class FeaturePipeline:
 
         try:
             # Get earnings data
-            earnings = self.data.earnings.get(ticker) if hasattr(self.data, 'earnings') else None
+            earnings = self.data.earnings.get(ticker) if hasattr(self.data, "earnings") else None
 
             if earnings is None or earnings.empty:
                 return ComputeResult(
@@ -680,7 +699,9 @@ class FeaturePipeline:
             df = earnings.copy()
 
             # Get IV history for event vol computation
-            iv_history = self.data.iv_history.get(ticker) if hasattr(self.data, 'iv_history') else None
+            iv_history = (
+                self.data.iv_history.get(ticker) if hasattr(self.data, "iv_history") else None
+            )
 
             # Get OHLCV for price data
             ohlcv = self.data.get_ohlcv(ticker)
@@ -731,7 +752,9 @@ class FeaturePipeline:
             )
 
             # Reset index for storage (handle duplicate 'date' column)
-            if result_df.index.name == "date" or (hasattr(result_df.index, 'names') and 'date' in (result_df.index.names or [])):
+            if result_df.index.name == "date" or (
+                hasattr(result_df.index, "names") and "date" in (result_df.index.names or [])
+            ):
                 if "date" in result_df.columns:
                     result_df = result_df.drop(columns=["date"]).reset_index()
                 else:
@@ -785,7 +808,11 @@ class FeaturePipeline:
 
             # RegimeDetector.compute_all expects individual Series:
             #   price, rv, volume, vix (optional)
-            if "close" not in df.columns or "rv_21d" not in df.columns or "volume" not in df.columns:
+            if (
+                "close" not in df.columns
+                or "rv_21d" not in df.columns
+                or "volume" not in df.columns
+            ):
                 return ComputeResult(
                     category=category,
                     ticker=ticker,
@@ -923,8 +950,7 @@ class FeaturePipeline:
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {
-                    executor.submit(self.compute_all, ticker, force): ticker
-                    for ticker in tickers
+                    executor.submit(self.compute_all, ticker, force): ticker for ticker in tickers
                 }
 
                 for future in as_completed(futures):
@@ -947,7 +973,9 @@ class FeaturePipeline:
         total_time = int((time.time() - total_start) * 1000)
         success_count = sum(1 for r in results.values() if r.success)
 
-        logger.info(f"Computed universe: {success_count}/{len(tickers)} succeeded, {total_time}ms total")
+        logger.info(
+            f"Computed universe: {success_count}/{len(tickers)} succeeded, {total_time}ms total"
+        )
         return results
 
     def get_composite_features(
@@ -984,12 +1012,12 @@ class FeaturePipeline:
             additional = self.store.read_features(category, ticker, as_of=as_of)
             if additional is not None and "date" in additional.columns:
                 # Only add new columns
-                new_cols = [c for c in additional.columns if c not in composite.columns and c != "date"]
+                new_cols = [
+                    c for c in additional.columns if c not in composite.columns and c != "date"
+                ]
                 if new_cols:
                     composite = composite.merge(
-                        additional[["date"] + new_cols],
-                        on="date",
-                        how="left"
+                        additional[["date"] + new_cols], on="date", how="left"
                     )
 
         return composite

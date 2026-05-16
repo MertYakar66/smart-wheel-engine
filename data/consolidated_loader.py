@@ -64,7 +64,12 @@ def normalize_ticker(ticker: str) -> str:
     ticker = re.sub(r"\s+Equity$", "", ticker, flags=re.IGNORECASE)
 
     # Remove exchange suffix (UW, UN, UP, etc.)
-    ticker = re.sub(r"\s+(UW|UN|UP|UA|UQ|US|UR|UV|UB|UD|UF|UH|UJ|UK|UL|UM|UY|UZ)$", "", ticker, flags=re.IGNORECASE)
+    ticker = re.sub(
+        r"\s+(UW|UN|UP|UA|UQ|US|UR|UV|UB|UD|UF|UH|UJ|UK|UL|UM|UY|UZ)$",
+        "",
+        ticker,
+        flags=re.IGNORECASE,
+    )
 
     # Handle special tickers like BRK/B -> BRK.B
     ticker = ticker.replace("/", ".")
@@ -75,6 +80,7 @@ def normalize_ticker(ticker: str) -> str:
 @dataclass
 class DataStats:
     """Statistics about loaded data."""
+
     file_name: str
     row_count: int
     ticker_count: int
@@ -154,6 +160,7 @@ class ConsolidatedBloombergLoader:
     def _load_csv(self, filename: str, **kwargs) -> pd.DataFrame | None:
         """Load a CSV file with error handling."""
         import time
+
         start = time.time()
 
         filepath = self.data_dir / filename
@@ -179,14 +186,18 @@ class ConsolidatedBloombergLoader:
                 if not dates.isna().all():
                     date_range = (str(dates.min().date()), str(dates.max().date()))
 
-            self._stats.append(DataStats(
-                file_name=filename,
-                row_count=len(df),
-                ticker_count=df["ticker_normalized"].nunique() if "ticker_normalized" in df.columns else 0,
-                date_range=date_range,
-                columns=list(df.columns),
-                load_time_ms=load_time,
-            ))
+            self._stats.append(
+                DataStats(
+                    file_name=filename,
+                    row_count=len(df),
+                    ticker_count=df["ticker_normalized"].nunique()
+                    if "ticker_normalized" in df.columns
+                    else 0,
+                    date_range=date_range,
+                    columns=list(df.columns),
+                    load_time_ms=load_time,
+                )
+            )
 
             logger.info(f"Loaded {filename}: {len(df):,} rows, {load_time}ms")
             return df
@@ -245,8 +256,8 @@ class ConsolidatedBloombergLoader:
             # Compute ATM IV as average of put and call
             if "iv_put" in self._iv_history_df.columns and "iv_call" in self._iv_history_df.columns:
                 self._iv_history_df["atm_iv"] = (
-                    self._iv_history_df["iv_put"] + self._iv_history_df["iv_call"]
-                ) / 2 / 100  # Convert to decimal
+                    (self._iv_history_df["iv_put"] + self._iv_history_df["iv_call"]) / 2 / 100
+                )  # Convert to decimal
 
             # Convert RV to decimal
             for col in ["rv_30d", "rv_60d", "rv_90d", "rv_260d"]:
@@ -274,7 +285,10 @@ class ConsolidatedBloombergLoader:
             self._earnings_df.columns = self._earnings_df.columns.str.lower()
 
             # Compute surprise
-            if "eps_actual" in self._earnings_df.columns and "eps_estimate" in self._earnings_df.columns:
+            if (
+                "eps_actual" in self._earnings_df.columns
+                and "eps_estimate" in self._earnings_df.columns
+            ):
                 self._earnings_df["eps_surprise"] = (
                     self._earnings_df["eps_actual"] - self._earnings_df["eps_estimate"]
                 )

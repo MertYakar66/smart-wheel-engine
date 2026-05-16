@@ -139,10 +139,6 @@ omit = [
     "engine/volatility_surface.py",
     # Shared valuation requires full option trade simulation with OHLCV data
     "engine/shared_valuation.py",
-    # Bloomberg data-dependent modules (require Bloomberg CSV data not available in CI)
-    "engine/wheel_runner.py",
-    "engine/data_connector.py",
-    "engine/data_integration.py",
     # Ollama-dependent AI memo generator
     "engine/trade_memo.py",
     # SEC/13F data-dependent portfolio intelligence

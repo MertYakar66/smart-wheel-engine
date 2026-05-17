@@ -173,6 +173,28 @@ def get_connector():
     return _connector
 
 
+def _resolve_universe_scope(conn, tickers, universe_limit_param):
+    """Resolve the ``?universe_limit`` query param into (limit, scanned, total).
+
+    ``universe_limit_param`` is the raw query string (or None). ``''``,
+    ``'all'`` or a non-positive value mean rank the entire universe. When an
+    explicit ``tickers`` list is supplied it overrides the universe scan, so
+    ``scanned`` is simply its length.
+    """
+    universe_total = len(conn.get_universe())
+    limit = None
+    if universe_limit_param not in (None, "", "all", "ALL"):
+        try:
+            parsed = int(universe_limit_param)
+            limit = parsed if parsed > 0 else None
+        except (TypeError, ValueError):
+            limit = None
+    if tickers:
+        return limit, len(tickers), universe_total
+    scanned = universe_total if limit is None else min(limit, universe_total)
+    return limit, scanned, universe_total
+
+
 def _sanitize_nans(obj):
     """Recursively replace NaN/Inf with None in nested dicts/lists."""
     if isinstance(obj, dict):
@@ -227,6 +249,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     delta=param("delta", "0.25"),
                     min_ev=param("min_ev", "0"),
                     as_of=param("as_of"),
+                    universe_limit=param("universe_limit"),
                 )
             elif path == "/api/analyze" or path.startswith("/api/analyze/"):
                 ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
@@ -312,6 +335,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     min_ev_dollars=float(param("min_ev", "0")),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
+                    universe_limit=param("universe_limit"),
                 )
             elif path == "/api/tv/dossier":
                 self._handle_tv_dossier(
@@ -323,6 +347,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     tickers_csv=param("tickers"),
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
+                    universe_limit=param("universe_limit"),
                 )
             elif path == "/api/tv/dealer_positioning":
                 self._handle_tv_dealer_positioning(
@@ -401,6 +426,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         delta="0.25",
         min_ev="0",
         as_of=None,
+        universe_limit=None,
     ):
         """EV-authoritative candidates endpoint (audit-V P0.1).
 
@@ -423,6 +449,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             delta      target put delta (default 0.25)
             min_ev     hard EV threshold in dollars (default 0)
             as_of      optional PIT cutoff YYYY-MM-DD
+            universe_limit  cap the universe scan to the first N names;
+                       omit or pass "all" to rank the full universe
 
         Returns:
             {trades: [...], count: N, authority: "ev_ranked",
@@ -438,6 +466,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             limit_int, dte_int, delta_f, min_ev_f, min_score_f = 15, 35, 0.25, 0.0, 0.0
 
         runner = get_runner()
+        conn = runner.connector
+        ulimit, universe_scanned, universe_total = _resolve_universe_scope(
+            conn, None, universe_limit
+        )
         try:
             df = runner.rank_candidates_by_ev(
                 dte_target=dte_int,
@@ -446,6 +478,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 min_ev_dollars=min_ev_f,
                 as_of=as_of,
                 include_diagnostic_fields=True,
+                universe_limit=ulimit,
             )
         except Exception as exc:
             traceback.print_exc()
@@ -459,6 +492,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "count": 0,
                     "authority": "ev_ranked",
                     "engine_version": "ev_engine_2026_04_14",
+                    "universe_scanned": universe_scanned,
+                    "universe_total": universe_total,
                 }
             )
             return
@@ -533,6 +568,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "count": len(trades),
                 "authority": "ev_ranked",
                 "engine_version": "ev_engine_2026_04_14",
+                "universe_scanned": universe_scanned,
+                "universe_total": universe_total,
                 "params": {
                     "limit": limit_int,
                     "dte": dte_int,
@@ -540,6 +577,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "min_ev": min_ev_f,
                     "min_score": min_score_f,
                     "as_of": as_of,
+                    "universe_limit": ulimit,
                 },
             }
         )
@@ -1748,6 +1786,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         tickers_csv,
         timeframe: str,
         screenshots_dir: str,
+        universe_limit=None,
     ):
         """Mode B dossier endpoint.
 
@@ -1771,13 +1810,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             tickers         optional comma-separated subset
             timeframe       TradingView timeframe for screenshots (default 1D)
             screenshots_dir filesystem provider base directory
+            universe_limit  cap the universe scan; omit/all = full universe
         """
         from engine.tradingview_bridge import FilesystemChartProvider
 
         runner = get_runner()
+        conn = runner.connector
         tickers = None
         if tickers_csv:
             tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+        ulimit, universe_scanned, universe_total = _resolve_universe_scope(
+            conn, tickers, universe_limit
+        )
 
         provider = FilesystemChartProvider(base_dir=screenshots_dir)
 
@@ -1791,6 +1835,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 as_of=as_of,
                 chart_provider=provider,
                 chart_timeframe=timeframe,
+                universe_limit=ulimit,
             )
         except Exception as exc:
             traceback.print_exc()
@@ -1809,6 +1854,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "dossiers": records,
                 "count": len(records),
                 "verdict_counts": counts,
+                "universe_scanned": universe_scanned,
+                "universe_total": universe_total,
                 "params": {
                     "top_n": top_n,
                     "dte_target": dte_target,
@@ -1818,6 +1865,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "tickers": tickers,
                     "timeframe": timeframe,
                     "screenshots_dir": screenshots_dir,
+                    "universe_limit": ulimit,
                 },
                 "engine_version": "ev_engine_2026_04_14",
             }
@@ -1831,6 +1879,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         min_ev_dollars: float,
         as_of,
         tickers_csv,
+        universe_limit=None,
     ):
         """EV-ranked candidates endpoint for the dashboard candidate table.
 
@@ -1848,11 +1897,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             min_ev       hard threshold on ev_dollars (default 0)
             as_of        optional PIT cutoff YYYY-MM-DD
             tickers      optional comma-separated ticker subset
+            universe_limit  cap the universe scan; omit/all = full universe
         """
         runner = get_runner()
+        conn = runner.connector
         tickers = None
         if tickers_csv:
             tickers = [t.strip().upper() for t in tickers_csv.split(",") if t.strip()]
+        ulimit, universe_scanned, universe_total = _resolve_universe_scope(
+            conn, tickers, universe_limit
+        )
 
         try:
             df = runner.rank_candidates_by_ev(
@@ -1863,6 +1917,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 min_ev_dollars=min_ev_dollars,
                 as_of=as_of,
                 include_diagnostic_fields=True,
+                universe_limit=ulimit,
             )
         except Exception as exc:
             traceback.print_exc()
@@ -1873,6 +1928,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         payload = {
             "candidates": records,
             "count": len(records),
+            "universe_scanned": universe_scanned,
+            "universe_total": universe_total,
             "params": {
                 "limit": limit,
                 "dte_target": dte_target,
@@ -1880,6 +1937,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "min_ev_dollars": min_ev_dollars,
                 "as_of": as_of,
                 "tickers": tickers,
+                "universe_limit": ulimit,
             },
             "engine_version": "ev_engine_2026_04_14",
         }

@@ -1,7 +1,7 @@
 # Testing — Smart Wheel Engine
 
-The full suite is `pytest tests/ -v` (51 `test_*.py` files,
-1087+ passing as of audit-VIII).
+The full suite is `pytest tests/ -v` (71 `test_*.py` files,
+~1,700 tests).
 
 Markers and hypothesis profiles are wired in `conftest.py`.
 
@@ -123,10 +123,9 @@ pytest tests/test_audit_invariants.py \
 # Skip integration + slow
 pytest tests/ -m "not integration and not slow" -v
 
-# Coverage (per pyproject.toml; coverage source = src, engine, advisors,
-# financial_news, news_pipeline; threshold 70%)
-pytest tests/ --cov=engine --cov=advisors --cov=financial_news \
-       --cov=news_pipeline --cov-fail-under=70
+# Coverage (CI scope per .github/workflows/ci.yml; threshold 80%)
+pytest tests/ --cov=src --cov=engine --cov=advisors --cov=financial_news \
+       --cov=data --cov-fail-under=80
 
 # Hypothesis profiles (configured in conftest.py)
 pytest tests/ --hypothesis-profile=ci      # 200 examples (CI)

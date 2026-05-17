@@ -112,7 +112,7 @@ addopts = "-v"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src", "engine", "advisors", "financial_news", "news_pipeline"]
+source = ["src", "engine", "advisors", "financial_news", "data"]
 branch = true
 omit = [
     # External API connectors require live API calls or complex mocking
@@ -139,10 +139,6 @@ omit = [
     "engine/volatility_surface.py",
     # Shared valuation requires full option trade simulation with OHLCV data
     "engine/shared_valuation.py",
-    # Bloomberg data-dependent modules (require Bloomberg CSV data not available in CI)
-    "engine/wheel_runner.py",
-    "engine/data_connector.py",
-    "engine/data_integration.py",
     # Ollama-dependent AI memo generator
     "engine/trade_memo.py",
     # SEC/13F data-dependent portfolio intelligence
@@ -151,6 +147,20 @@ omit = [
     "engine/performance_metrics.py",
     # Dependency checker is a bootstrap utility
     "engine/dependency_check.py",
+    # data/ - only data/quality.py is on the EV decision path (the chain-quality
+    # gate in WheelRunner.rank_candidates_by_ev); the rest is research-tier
+    # ETL / loaders, off the decision path (see DECISIONS.md D10).
+    "data/__init__.py",
+    "data/bloomberg.py",
+    "data/bloomberg_import.py",
+    "data/bloomberg_loader.py",
+    "data/consolidated_loader.py",
+    "data/feature_pipeline.py",
+    "data/feature_provenance.py",
+    "data/feature_store.py",
+    "data/observability.py",
+    "data/orchestrator.py",
+    "data/pipeline.py",
 ]
 
 [tool.coverage.report]

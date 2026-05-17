@@ -227,7 +227,7 @@ marked **dormant**).
 (EV authority, dossier rules R1–R6, percent↔decimal normalisation,
 P&L accumulator orthogonality) **before** chasing line coverage.
 Once invariants are pinned, target **80% line coverage** on the
-CI scope (`src + engine + advisors + financial_news`, per
+CI scope (`src + engine + advisors + financial_news` + `data/quality.py`, per
 `.github/workflows/ci.yml`) as a forcing function for edge-case
 discovery.
 

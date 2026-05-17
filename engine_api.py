@@ -854,20 +854,29 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             and 0 < (analysis.days_to_earnings or 999) < dte,
         )
 
+        # AUDIT: the API committee evaluates a single candidate trade in
+        # isolation — there is no connected brokerage account, so there is
+        # no real portfolio to measure concentration or correlation
+        # against. The previous hardcoded $150k book made every trade read
+        # as a fabricated XX% concentration (a $368k BKNG put showed as
+        # "245% of portfolio"). total_equity=0.0 is the standalone
+        # sentinel: advisors treat a non-positive total_equity as "no
+        # portfolio context" and report concentration / sizing as not
+        # assessed rather than dividing the notional by an invented book.
         portfolio = PortfolioContext(
             positions=[],
-            total_equity=150000.0,
-            cash_available=50000.0,
-            buying_power=100000.0,
-            sector_allocation={"Technology": 30, "Healthcare": 20, "Financials": 20, "Other": 30},
-            top_5_concentration=50.0,
-            portfolio_beta=1.0,
-            portfolio_delta=0.5,
-            max_drawdown_30d=-5.0,
-            var_95=3.0,
-            open_positions_count=3,
-            total_premium_at_risk=5000.0,
-            total_margin_used=20000.0,
+            total_equity=0.0,
+            cash_available=0.0,
+            buying_power=0.0,
+            sector_allocation={},
+            top_5_concentration=0.0,
+            portfolio_beta=0.0,
+            portfolio_delta=0.0,
+            max_drawdown_30d=0.0,
+            var_95=0.0,
+            open_positions_count=0,
+            total_premium_at_risk=0.0,
+            total_margin_used=0.0,
         )
 
         vix_level = vix_data.get("vix", 20)

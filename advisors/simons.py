@@ -202,13 +202,21 @@ YOUR TONE:
             b_ratio = win_amount / max_loss
             kelly_fraction = (p_win * b_ratio - p_loss) / b_ratio
 
-            # Actual fraction of portfolio
-            actual_fraction = (trade.strike * 100 * trade.contracts) / portfolio.total_equity
+            # Actual fraction of portfolio. total_equity <= 0 is the
+            # standalone sentinel — no real book to size the position
+            # against, so Kelly sizing is reported as not assessed.
+            actual_fraction = (
+                (trade.strike * 100 * trade.contracts) / portfolio.total_equity
+                if portfolio.total_equity > 0
+                else 0.0
+            )
 
             if kelly_fraction <= 0:
                 hidden_risks.append(
                     "KELLY NEGATIVE: Mathematical expectation suggests no edge exists"
                 )
+            elif portfolio.total_equity <= 0:
+                hidden_risks.append("Kelly position sizing not assessed (no portfolio context)")
             elif actual_fraction > kelly_fraction * 2:
                 hidden_risks.append(
                     f"OVERSIZED: Position is {actual_fraction / kelly_fraction:.1f}x optimal Kelly fraction"

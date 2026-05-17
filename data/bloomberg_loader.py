@@ -23,11 +23,9 @@ Expected file locations:
     data/bloomberg/fundamentals/   - Company fundamentals
 """
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from datetime import date, datetime
 import logging
+from datetime import date, datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -35,7 +33,6 @@ import pandas as pd
 from utils.data_validation import (
     validate_and_normalize_iv,
     validate_ohlcv_data,
-    validate_option_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,6 +190,7 @@ RATES_COLUMN_MAP = {
 # Core parsing utilities
 # ─────────────────────────────────────────────────────────────────────
 
+
 def _rename_columns(df: pd.DataFrame, column_map: dict) -> pd.DataFrame:
     """Rename columns using mapping, keeping unmapped columns as-is."""
     rename_dict = {}
@@ -221,7 +219,7 @@ def _detect_header_rows(filepath: str) -> int:
     Returns number of rows to skip.
     """
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             lines = [f.readline() for _ in range(5)]
     except Exception:
         return 0
@@ -237,10 +235,8 @@ def _detect_header_rows(filepath: str) -> int:
 # 1. OHLCV Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_ohlcv(
-    ticker: str,
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_ohlcv(ticker: str, data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load and normalize Bloomberg OHLCV data for a single ticker.
 
@@ -319,15 +315,16 @@ def load_bloomberg_ohlcv(
         for issue in result.issues:
             logger.info(f"OHLCV {ticker}: {issue.message}")
 
-    logger.info(f"Loaded OHLCV for {ticker}: {len(df)} days "
-                f"({df['Date'].min().date()} to {df['Date'].max().date()})")
+    logger.info(
+        f"Loaded OHLCV for {ticker}: {len(df)} days "
+        f"({df['Date'].min().date()} to {df['Date'].max().date()})"
+    )
     return result.valid_df if len(result.valid_df) > 0 else df
 
 
 def load_all_ohlcv(
-    tickers: Optional[List[str]] = None,
-    data_dir: Optional[Path] = None
-) -> Dict[str, pd.DataFrame]:
+    tickers: list[str] | None = None, data_dir: Path | None = None
+) -> dict[str, pd.DataFrame]:
     """
     Load OHLCV for all tickers (or specified list).
 
@@ -356,11 +353,10 @@ def load_all_ohlcv(
 # 2. Option Chain Loader
 # ─────────────────────────────────────────────────────────────────────
 
+
 def load_bloomberg_options(
-    ticker: str,
-    snapshot_date: Optional[str] = None,
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+    ticker: str, snapshot_date: str | None = None, data_dir: Path | None = None
+) -> pd.DataFrame | None:
     """
     Load and normalize Bloomberg option chain data.
 
@@ -426,19 +422,22 @@ def load_bloomberg_options(
 
     # Normalize option_type: Bloomberg uses "Call"/"Put" or "C"/"P"
     if "option_type" in df.columns:
-        df["option_type"] = (
-            df["option_type"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-            .str[0]
-        )
+        df["option_type"] = df["option_type"].astype(str).str.strip().str.upper().str[0]
 
     # Ensure numeric columns
     numeric_cols = [
-        "strike", "bid", "ask", "last", "implied_vol",
-        "open_interest", "volume", "delta", "gamma", "theta",
-        "vega", "underlying_price"
+        "strike",
+        "bid",
+        "ask",
+        "last",
+        "implied_vol",
+        "open_interest",
+        "volume",
+        "delta",
+        "gamma",
+        "theta",
+        "vega",
+        "underlying_price",
     ]
     for col in numeric_cols:
         if col in df.columns:
@@ -483,9 +482,7 @@ def load_bloomberg_options(
 
 
 def load_all_options(
-    tickers: Optional[List[str]] = None,
-    snapshot_date: Optional[str] = None,
-    data_dir: Optional[Path] = None
+    tickers: list[str] | None = None, snapshot_date: str | None = None, data_dir: Path | None = None
 ) -> pd.DataFrame:
     """
     Load option chains for all tickers and concatenate.
@@ -526,10 +523,8 @@ def load_all_options(
 # 3. Earnings Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_earnings(
-    ticker: str,
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_earnings(ticker: str, data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load earnings history for a single ticker.
 
@@ -580,30 +575,35 @@ def load_bloomberg_earnings(
         df = df.sort_values("earnings_date").reset_index(drop=True)
 
     # Numeric columns
-    for col in ["eps_actual", "eps_estimate", "eps_surprise",
-                "surprise_pct", "close_price", "iv_pre_earnings"]:
+    for col in [
+        "eps_actual",
+        "eps_estimate",
+        "eps_surprise",
+        "surprise_pct",
+        "close_price",
+        "iv_pre_earnings",
+    ]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # Compute surprise if missing
-    if ("eps_surprise" not in df.columns and
-            "eps_actual" in df.columns and "eps_estimate" in df.columns):
+    if (
+        "eps_surprise" not in df.columns
+        and "eps_actual" in df.columns
+        and "eps_estimate" in df.columns
+    ):
         df["eps_surprise"] = df["eps_actual"] - df["eps_estimate"]
 
-    if ("surprise_pct" not in df.columns and
-            "eps_surprise" in df.columns and "eps_estimate" in df.columns):
-        df["surprise_pct"] = (
-            df["eps_surprise"] / df["eps_estimate"].replace(0, np.nan) * 100
-        )
+    if (
+        "surprise_pct" not in df.columns
+        and "eps_surprise" in df.columns
+        and "eps_estimate" in df.columns
+    ):
+        df["surprise_pct"] = df["eps_surprise"] / df["eps_estimate"].replace(0, np.nan) * 100
 
     # Normalize timing (BMO = Before Market Open, AMC = After Market Close)
     if "timing" in df.columns:
-        df["timing"] = (
-            df["timing"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        df["timing"] = df["timing"].astype(str).str.strip().str.upper()
         df["is_pre_market"] = df["timing"].isin(["BMO", "BF-MKT", "BEFORE"])
     else:
         df["is_pre_market"] = True  # Default assumption
@@ -614,8 +614,7 @@ def load_bloomberg_earnings(
 
 
 def load_all_earnings(
-    tickers: Optional[List[str]] = None,
-    data_dir: Optional[Path] = None
+    tickers: list[str] | None = None, data_dir: Path | None = None
 ) -> pd.DataFrame:
     """Load earnings for all tickers."""
     base_dir = data_dir or (BLOOMBERG_DIR / "earnings")
@@ -641,9 +640,9 @@ def compute_earnings_features(
     ticker: str,
     earnings_df: pd.DataFrame,
     ohlcv_df: pd.DataFrame,
-    iv_df: Optional[pd.DataFrame] = None,
-    target_date: Optional[date] = None
-) -> Optional[dict]:
+    iv_df: pd.DataFrame | None = None,
+    target_date: date | None = None,
+) -> dict | None:
     """
     Compute EarningsFeatures dict from raw Bloomberg data.
 
@@ -745,10 +744,8 @@ def compute_earnings_features(
 # 4. Dividend Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_dividends(
-    ticker: str,
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_dividends(ticker: str, data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load dividend history for a single ticker.
 
@@ -816,8 +813,7 @@ def load_bloomberg_dividends(
 
 
 def load_all_dividends(
-    tickers: Optional[List[str]] = None,
-    data_dir: Optional[Path] = None
+    tickers: list[str] | None = None, data_dir: Path | None = None
 ) -> pd.DataFrame:
     """Load dividends for all tickers."""
     base_dir = data_dir or (BLOOMBERG_DIR / "dividends")
@@ -840,10 +836,7 @@ def load_all_dividends(
 
 
 def get_annual_dividend_yield(
-    ticker: str,
-    div_df: pd.DataFrame,
-    spot_price: float,
-    lookback_months: int = 12
+    ticker: str, div_df: pd.DataFrame, spot_price: float, lookback_months: int = 12
 ) -> float:
     """
     Compute annualized dividend yield from historical payments.
@@ -873,10 +866,7 @@ def get_annual_dividend_yield(
     return float(annualized / spot_price)
 
 
-def get_upcoming_dividends(
-    div_df: pd.DataFrame,
-    horizon_days: int = 60
-) -> pd.DataFrame:
+def get_upcoming_dividends(div_df: pd.DataFrame, horizon_days: int = 60) -> pd.DataFrame:
     """
     Get upcoming ex-dividend dates within horizon.
 
@@ -888,10 +878,7 @@ def get_upcoming_dividends(
     today = pd.Timestamp.now()
     cutoff = today + pd.Timedelta(days=horizon_days)
 
-    upcoming = div_df[
-        (div_df["ex_date"] >= today) &
-        (div_df["ex_date"] <= cutoff)
-    ].copy()
+    upcoming = div_df[(div_df["ex_date"] >= today) & (div_df["ex_date"] <= cutoff)].copy()
 
     return upcoming
 
@@ -900,10 +887,8 @@ def get_upcoming_dividends(
 # 5. IV History Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_iv_history(
-    ticker: str,
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_iv_history(ticker: str, data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load historical implied volatility data.
 
@@ -958,9 +943,8 @@ def load_bloomberg_iv_history(
 
 
 def load_all_iv_history(
-    tickers: Optional[List[str]] = None,
-    data_dir: Optional[Path] = None
-) -> Dict[str, pd.DataFrame]:
+    tickers: list[str] | None = None, data_dir: Path | None = None
+) -> dict[str, pd.DataFrame]:
     """Load IV history for all tickers. Returns dict: ticker → DataFrame."""
     base_dir = data_dir or (BLOOMBERG_DIR / "iv_history")
     if not base_dir.exists():
@@ -979,10 +963,7 @@ def load_all_iv_history(
     return result
 
 
-def compute_iv_rank(
-    iv_df: pd.DataFrame,
-    lookback_days: int = 252
-) -> Optional[float]:
+def compute_iv_rank(iv_df: pd.DataFrame, lookback_days: int = 252) -> float | None:
     """
     Compute IV rank (percentile) from IV history.
 
@@ -1026,9 +1007,8 @@ def compute_iv_rank(
 # 6. Risk-Free Rate Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_rates(
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_rates(data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load Treasury yield curve history.
 
@@ -1084,9 +1064,7 @@ def load_bloomberg_rates(
         "2Y": "rate_2y",
         "10Y": "rate_10y",
     }
-    df = df.rename(columns={
-        c: rate_renames[c] for c in df.columns if c in rate_renames
-    })
+    df = df.rename(columns={c: rate_renames[c] for c in df.columns if c in rate_renames})
 
     # If single yield column, name it
     if "yield" in df.columns and "rate_3m" not in df.columns:
@@ -1104,8 +1082,7 @@ def load_bloomberg_rates(
 
 
 def get_current_risk_free_rate(
-    rates_df: Optional[pd.DataFrame] = None,
-    tenor: str = "rate_3m"
+    rates_df: pd.DataFrame | None = None, tenor: str = "rate_3m"
 ) -> float:
     """
     Get the most recent risk-free rate.
@@ -1140,9 +1117,8 @@ def get_current_risk_free_rate(
 # 7. Fundamentals Loader
 # ─────────────────────────────────────────────────────────────────────
 
-def load_bloomberg_fundamentals(
-    data_dir: Optional[Path] = None
-) -> Optional[pd.DataFrame]:
+
+def load_bloomberg_fundamentals(data_dir: Path | None = None) -> pd.DataFrame | None:
     """
     Load company fundamentals (sector, market cap, etc.).
 
@@ -1200,10 +1176,7 @@ def load_bloomberg_fundamentals(
     # Clean ticker (remove " US Equity" suffix if present)
     if "ticker" in df.columns:
         df["ticker"] = (
-            df["ticker"]
-            .astype(str)
-            .str.replace(" US Equity", "", regex=False)
-            .str.strip()
+            df["ticker"].astype(str).str.replace(" US Equity", "", regex=False).str.strip()
         )
 
     # Numeric columns
@@ -1219,7 +1192,7 @@ def load_bloomberg_fundamentals(
     return df
 
 
-def build_sector_map(fundamentals_df: pd.DataFrame) -> Dict[str, str]:
+def build_sector_map(fundamentals_df: pd.DataFrame) -> dict[str, str]:
     """
     Build ticker → GICS sector mapping from Bloomberg fundamentals.
 

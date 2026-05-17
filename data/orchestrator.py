@@ -23,25 +23,25 @@ Usage:
     orchestrator.status()
 """
 
+import json
 import logging
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-import json
-
-import pandas as pd
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """Status of a pipeline task."""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -50,18 +50,20 @@ class TaskStatus(str, Enum):
     RETRYING = "retrying"
 
 
-class StageType(str, Enum):
+class StageType(StrEnum):
     """Pipeline stages."""
-    LOAD = "load"           # Load raw data
-    VALIDATE = "validate"   # Validate data quality
-    FEATURES = "features"   # Compute features
-    STORE = "store"         # Persist to feature store
-    EXPORT = "export"       # Export for downstream
+
+    LOAD = "load"  # Load raw data
+    VALIDATE = "validate"  # Validate data quality
+    FEATURES = "features"  # Compute features
+    STORE = "store"  # Persist to feature store
+    EXPORT = "export"  # Export for downstream
 
 
 @dataclass
 class TaskResult:
     """Result of a single task execution."""
+
     task_id: str
     stage: StageType
     ticker: str
@@ -70,8 +72,8 @@ class TaskResult:
     completed_at: str
     duration_ms: int
     retries: int = 0
-    error: Optional[str] = None
-    output: Optional[Any] = None
+    error: str | None = None
+    output: Any | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -90,14 +92,15 @@ class TaskResult:
 @dataclass
 class PipelineRun:
     """A complete pipeline run."""
+
     run_id: str
     started_at: str
-    completed_at: Optional[str] = None
+    completed_at: str | None = None
     status: TaskStatus = TaskStatus.PENDING
-    tickers: List[str] = field(default_factory=list)
-    stages: List[StageType] = field(default_factory=list)
-    tasks: List[TaskResult] = field(default_factory=list)
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    tickers: list[str] = field(default_factory=list)
+    stages: list[StageType] = field(default_factory=list)
+    tasks: list[TaskResult] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
     @property
     def success_count(self) -> int:
@@ -139,7 +142,9 @@ class PipelineRun:
                 by_stage[stage]["skipped"] += 1
 
         for stage, counts in by_stage.items():
-            lines.append(f"  {stage}: {counts['success']}✓ {counts['failed']}✗ {counts['skipped']}⊘")
+            lines.append(
+                f"  {stage}: {counts['success']}✓ {counts['failed']}✗ {counts['skipped']}⊘"
+            )
 
         return "\n".join(lines)
 
@@ -157,22 +162,24 @@ class PipelineRun:
                 "success_count": self.success_count,
                 "failed_count": self.failed_count,
                 "duration_ms": self.duration_ms,
-            }
+            },
         }
 
 
 @dataclass
 class RetryConfig:
     """Configuration for retry logic."""
+
     max_retries: int = 3
     initial_delay_ms: int = 1000
     max_delay_ms: int = 30000
     exponential_base: float = 2.0
-    retryable_exceptions: Tuple[type, ...] = (Exception,)
+    retryable_exceptions: tuple[type, ...] = (Exception,)
 
 
 def with_retry(config: RetryConfig):
     """Decorator for retry logic with exponential backoff."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -185,18 +192,18 @@ def with_retry(config: RetryConfig):
                 except config.retryable_exceptions as e:
                     last_exception = e
                     if attempt < config.max_retries:
-                        logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay_ms}ms...")
-                        time.sleep(delay_ms / 1000)
-                        delay_ms = min(
-                            delay_ms * config.exponential_base,
-                            config.max_delay_ms
+                        logger.warning(
+                            f"Attempt {attempt + 1} failed: {e}. Retrying in {delay_ms}ms..."
                         )
+                        time.sleep(delay_ms / 1000)
+                        delay_ms = min(delay_ms * config.exponential_base, config.max_delay_ms)
                     else:
                         logger.error(f"All {config.max_retries + 1} attempts failed")
 
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -226,8 +233,8 @@ class PipelineOrchestrator:
     def __init__(
         self,
         max_workers: int = 4,
-        retry_config: Optional[RetryConfig] = None,
-        checkpoint_dir: Optional[Path] = None,
+        retry_config: RetryConfig | None = None,
+        checkpoint_dir: Path | None = None,
         enable_metrics: bool = True,
     ):
         self.max_workers = max_workers
@@ -242,8 +249,8 @@ class PipelineOrchestrator:
         self._feature_store = None
 
         # Run history
-        self._runs: List[PipelineRun] = []
-        self._current_run: Optional[PipelineRun] = None
+        self._runs: list[PipelineRun] = []
+        self._current_run: PipelineRun | None = None
 
         # Metrics
         self._metrics = {
@@ -265,6 +272,7 @@ class PipelineOrchestrator:
     def data_pipeline(self):
         if self._data_pipeline is None:
             from data.pipeline import DataPipeline
+
             self._data_pipeline = DataPipeline()
         return self._data_pipeline
 
@@ -272,6 +280,7 @@ class PipelineOrchestrator:
     def feature_pipeline(self):
         if self._feature_pipeline is None:
             from data.feature_pipeline import FeaturePipeline
+
             self._feature_pipeline = FeaturePipeline(
                 data_pipeline=self.data_pipeline,
                 feature_store=self.feature_store,
@@ -282,6 +291,7 @@ class PipelineOrchestrator:
     def quality_framework(self):
         if self._quality_framework is None:
             from data.quality import DataQualityFramework
+
             self._quality_framework = DataQualityFramework()
         return self._quality_framework
 
@@ -289,15 +299,16 @@ class PipelineOrchestrator:
     def feature_store(self):
         if self._feature_store is None:
             from data.feature_store import FeatureStore
+
             self._feature_store = FeatureStore()
         return self._feature_store
 
     def run_full_pipeline(
         self,
-        tickers: List[str],
-        stages: Optional[List[StageType]] = None,
+        tickers: list[str],
+        stages: list[StageType] | None = None,
         parallel: bool = True,
-        resume_from: Optional[str] = None,
+        resume_from: str | None = None,
     ) -> PipelineRun:
         """
         Run the full pipeline for given tickers.
@@ -373,7 +384,7 @@ class PipelineOrchestrator:
         self,
         run: PipelineRun,
         stage: StageType,
-        tickers: List[str],
+        tickers: list[str],
         parallel: bool,
     ) -> None:
         """Run a single stage for all tickers."""
@@ -393,12 +404,12 @@ class PipelineOrchestrator:
         self,
         run: PipelineRun,
         stage: StageType,
-        tickers: List[str],
+        tickers: list[str],
         executor: Callable,
     ) -> None:
         """Run tasks in parallel using thread pool."""
         with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
-            futures: Dict[Future, str] = {}
+            futures: dict[Future, str] = {}
 
             for ticker in tickers:
                 future = pool.submit(self._execute_task, stage, ticker, executor)
@@ -411,16 +422,18 @@ class PipelineOrchestrator:
                     run.tasks.append(result)
                 except Exception as e:
                     logger.error(f"Task failed for {ticker}: {e}")
-                    run.tasks.append(TaskResult(
-                        task_id=f"{stage.value}_{ticker}",
-                        stage=stage,
-                        ticker=ticker,
-                        status=TaskStatus.FAILED,
-                        started_at=datetime.now().isoformat(),
-                        completed_at=datetime.now().isoformat(),
-                        duration_ms=0,
-                        error=str(e),
-                    ))
+                    run.tasks.append(
+                        TaskResult(
+                            task_id=f"{stage.value}_{ticker}",
+                            stage=stage,
+                            ticker=ticker,
+                            status=TaskStatus.FAILED,
+                            started_at=datetime.now().isoformat(),
+                            completed_at=datetime.now().isoformat(),
+                            duration_ms=0,
+                            error=str(e),
+                        )
+                    )
 
     def _execute_task(
         self,
@@ -453,10 +466,12 @@ class PipelineOrchestrator:
                 retries += 1
                 if attempt < self.retry_config.max_retries:
                     delay = self.retry_config.initial_delay_ms * (
-                        self.retry_config.exponential_base ** attempt
+                        self.retry_config.exponential_base**attempt
                     )
                     delay = min(delay, self.retry_config.max_delay_ms)
-                    logger.warning(f"Task {task_id} failed (attempt {attempt + 1}): {e}. Retrying in {delay}ms...")
+                    logger.warning(
+                        f"Task {task_id} failed (attempt {attempt + 1}): {e}. Retrying in {delay}ms..."
+                    )
                     time.sleep(delay / 1000)
                 else:
                     logger.error(f"Task {task_id} failed after {retries} retries: {e}")
@@ -539,7 +554,7 @@ class PipelineOrchestrator:
             json.dump(run.to_dict(), f, indent=2)
         logger.debug(f"Saved checkpoint: {checkpoint_path}")
 
-    def _load_checkpoint(self, run_id: str) -> Optional[PipelineRun]:
+    def _load_checkpoint(self, run_id: str) -> PipelineRun | None:
         """Load checkpoint for resume."""
         checkpoint_path = self.checkpoint_dir / f"{run_id}.json"
         if not checkpoint_path.exists():
@@ -558,17 +573,19 @@ class PipelineOrchestrator:
         )
 
         for task_data in data["tasks"]:
-            run.tasks.append(TaskResult(
-                task_id=task_data["task_id"],
-                stage=StageType(task_data["stage"]),
-                ticker=task_data["ticker"],
-                status=TaskStatus(task_data["status"]),
-                started_at=task_data["started_at"],
-                completed_at=task_data["completed_at"],
-                duration_ms=task_data["duration_ms"],
-                retries=task_data.get("retries", 0),
-                error=task_data.get("error"),
-            ))
+            run.tasks.append(
+                TaskResult(
+                    task_id=task_data["task_id"],
+                    stage=StageType(task_data["stage"]),
+                    ticker=task_data["ticker"],
+                    status=TaskStatus(task_data["status"]),
+                    started_at=task_data["started_at"],
+                    completed_at=task_data["completed_at"],
+                    duration_ms=task_data["duration_ms"],
+                    retries=task_data.get("retries", 0),
+                    error=task_data.get("error"),
+                )
+            )
 
         return run
 
@@ -587,8 +604,8 @@ class PipelineOrchestrator:
 
     def run_stage(
         self,
-        stage: Union[str, StageType],
-        tickers: List[str],
+        stage: str | StageType,
+        tickers: list[str],
         parallel: bool = True,
     ) -> PipelineRun:
         """Run a single stage for given tickers."""
@@ -600,8 +617,8 @@ class PipelineOrchestrator:
     def get_run_history(
         self,
         limit: int = 10,
-        status: Optional[TaskStatus] = None,
-    ) -> List[PipelineRun]:
+        status: TaskStatus | None = None,
+    ) -> list[PipelineRun]:
         """Get recent pipeline runs."""
         runs = self._runs
         if status:
@@ -647,7 +664,9 @@ class PipelineOrchestrator:
 
         # Check recent run failures
         recent_runs = self.get_run_history(limit=5)
-        failure_rate = sum(1 for r in recent_runs if r.status == TaskStatus.FAILED) / max(len(recent_runs), 1)
+        failure_rate = sum(1 for r in recent_runs if r.status == TaskStatus.FAILED) / max(
+            len(recent_runs), 1
+        )
         if failure_rate > 0.5:
             issues.append(f"High recent failure rate: {failure_rate:.1%}")
 
@@ -673,8 +692,8 @@ class PipelineOrchestrator:
 
 # Convenience function for quick pipeline runs
 def run_pipeline(
-    tickers: List[str],
-    stages: Optional[List[str]] = None,
+    tickers: list[str],
+    stages: list[str] | None = None,
     parallel: bool = True,
 ) -> PipelineRun:
     """Run the data pipeline for given tickers."""

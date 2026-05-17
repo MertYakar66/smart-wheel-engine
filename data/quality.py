@@ -28,12 +28,11 @@ Usage:
 """
 
 import logging
-import json
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, date, timedelta
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import StrEnum
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -42,6 +41,7 @@ import pandas as pd
 # Modules that don't use schema validation can still import data.quality safely.
 try:
     from pydantic import BaseModel, ValidationError
+
     _HAS_PYDANTIC = True
 except ImportError:
     _HAS_PYDANTIC = False
@@ -51,13 +51,14 @@ except ImportError:
 # Lazy-import schemas (depend on pydantic)
 try:
     from src.data.schemas import (
+        BorrowRateSchema,
+        EarningsSchema,
+        FundamentalsSchema,
         OHLCVSchema,
         OptionsFlowSchema,
         RealizedVolSchema,
-        EarningsSchema,
-        FundamentalsSchema,
-        BorrowRateSchema,
     )
+
     _HAS_SCHEMAS = True
 except (ImportError, Exception):
     _HAS_SCHEMAS = False
@@ -71,16 +72,18 @@ except (ImportError, Exception):
 logger = logging.getLogger(__name__)
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Severity levels for quality issues."""
-    CRITICAL = "critical"    # Data unusable
-    ERROR = "error"          # Significant issue
-    WARNING = "warning"      # Minor issue
-    INFO = "info"            # Informational
+
+    CRITICAL = "critical"  # Data unusable
+    ERROR = "error"  # Significant issue
+    WARNING = "warning"  # Minor issue
+    INFO = "info"  # Informational
 
 
-class CheckType(str, Enum):
+class CheckType(StrEnum):
     """Types of quality checks."""
+
     SCHEMA = "schema"
     COMPLETENESS = "completeness"
     FRESHNESS = "freshness"
@@ -93,12 +96,13 @@ class CheckType(str, Enum):
 @dataclass
 class QualityIssue:
     """A single quality issue."""
+
     check_type: CheckType
     severity: Severity
-    column: Optional[str]
+    column: str | None
     message: str
     affected_rows: int = 0
-    details: Optional[dict] = None
+    details: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -114,11 +118,12 @@ class QualityIssue:
 @dataclass
 class ValidationResult:
     """Result of a validation run."""
+
     valid: bool
     schema_name: str
-    ticker: Optional[str]
+    ticker: str | None
     row_count: int
-    issues: List[QualityIssue] = field(default_factory=list)
+    issues: list[QualityIssue] = field(default_factory=list)
     validated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     validation_time_ms: int = 0
 
@@ -147,7 +152,7 @@ class ValidationResult:
                 "critical": self.critical_count,
                 "error": self.error_count,
                 "warning": self.warning_count,
-            }
+            },
         }
 
     def summary(self) -> str:
@@ -162,14 +167,15 @@ class ValidationResult:
 @dataclass
 class DataContract:
     """Defines expectations for a data source."""
+
     name: str
     schema_name: str
     min_rows: int = 0
     max_staleness_hours: int = 24
-    required_columns: List[str] = field(default_factory=list)
-    null_thresholds: Dict[str, float] = field(default_factory=dict)  # column: max_null_pct
-    value_ranges: Dict[str, Tuple[float, float]] = field(default_factory=dict)  # column: (min, max)
-    custom_checks: List[Callable[[pd.DataFrame], List[QualityIssue]]] = field(default_factory=list)
+    required_columns: list[str] = field(default_factory=list)
+    null_thresholds: dict[str, float] = field(default_factory=dict)  # column: max_null_pct
+    value_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)  # column: (min, max)
+    custom_checks: list[Callable[[pd.DataFrame], list[QualityIssue]]] = field(default_factory=list)
 
 
 # Default data contracts
@@ -241,7 +247,7 @@ class DataQualityFramework:
     """
 
     # Map schema names to Pydantic models (populated only when pydantic + schemas available)
-    SCHEMA_MAP: Dict[str, Any] = (
+    SCHEMA_MAP: dict[str, Any] = (
         {
             "ohlcv": OHLCVSchema,
             "options_flow": OptionsFlowSchema,
@@ -256,7 +262,7 @@ class DataQualityFramework:
 
     def __init__(
         self,
-        contracts: Optional[Dict[str, DataContract]] = None,
+        contracts: dict[str, DataContract] | None = None,
         anomaly_zscore_threshold: float = 3.0,
         enable_strict_mode: bool = False,
     ):
@@ -265,7 +271,7 @@ class DataQualityFramework:
         self.strict_mode = enable_strict_mode
 
         # Validation history for tracking
-        self._validation_history: List[ValidationResult] = []
+        self._validation_history: list[ValidationResult] = []
 
         logger.info("DataQualityFramework initialized")
 
@@ -273,8 +279,8 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         schema: str,
-        ticker: Optional[str] = None,
-        contract: Optional[DataContract] = None,
+        ticker: str | None = None,
+        contract: DataContract | None = None,
     ) -> ValidationResult:
         """
         Validate a DataFrame against schema and contract.
@@ -289,9 +295,10 @@ class DataQualityFramework:
             ValidationResult with all issues found
         """
         import time
+
         start_time = time.time()
 
-        issues: List[QualityIssue] = []
+        issues: list[QualityIssue] = []
         contract = contract or self.contracts.get(schema)
 
         # 1. Schema validation
@@ -340,7 +347,7 @@ class DataQualityFramework:
 
         return result
 
-    def _validate_schema(self, df: pd.DataFrame, schema: str) -> List[QualityIssue]:
+    def _validate_schema(self, df: pd.DataFrame, schema: str) -> list[QualityIssue]:
         """Validate DataFrame against Pydantic schema."""
         issues = []
 
@@ -360,7 +367,7 @@ class DataQualityFramework:
         validation_errors = 0
         error_columns = set()
 
-        for idx, row in sample.iterrows():
+        for _idx, row in sample.iterrows():
             try:
                 # Convert row to dict, handling date columns
                 row_dict = {}
@@ -368,7 +375,7 @@ class DataQualityFramework:
                     if pd.isna(val):
                         row_dict[col.lower()] = None
                     elif isinstance(val, (pd.Timestamp, datetime)):
-                        row_dict[col.lower()] = val.date() if hasattr(val, 'date') else val
+                        row_dict[col.lower()] = val.date() if hasattr(val, "date") else val
                     else:
                         row_dict[col.lower()] = val
 
@@ -383,48 +390,60 @@ class DataQualityFramework:
 
         if validation_errors > 0:
             error_pct = validation_errors / sample_size * 100
-            severity = Severity.CRITICAL if error_pct > 50 else Severity.ERROR if error_pct > 10 else Severity.WARNING
+            severity = (
+                Severity.CRITICAL
+                if error_pct > 50
+                else Severity.ERROR
+                if error_pct > 10
+                else Severity.WARNING
+            )
 
-            issues.append(QualityIssue(
-                check_type=CheckType.SCHEMA,
-                severity=severity,
-                column=None,
-                message=f"Schema validation failed for {error_pct:.1f}% of sampled rows",
-                affected_rows=int(validation_errors * len(df) / sample_size),
-                details={"error_columns": list(error_columns)},
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.SCHEMA,
+                    severity=severity,
+                    column=None,
+                    message=f"Schema validation failed for {error_pct:.1f}% of sampled rows",
+                    affected_rows=int(validation_errors * len(df) / sample_size),
+                    details={"error_columns": list(error_columns)},
+                )
+            )
 
         return issues
 
     def _check_completeness(
         self,
         df: pd.DataFrame,
-        contract: Optional[DataContract],
-    ) -> List[QualityIssue]:
+        contract: DataContract | None,
+    ) -> list[QualityIssue]:
         """Check data completeness."""
         issues = []
 
         # Check row count
         if contract and len(df) < contract.min_rows:
-            issues.append(QualityIssue(
-                check_type=CheckType.COMPLETENESS,
-                severity=Severity.ERROR,
-                column=None,
-                message=f"Row count {len(df)} below minimum {contract.min_rows}",
-                details={"actual": len(df), "required": contract.min_rows},
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.COMPLETENESS,
+                    severity=Severity.ERROR,
+                    column=None,
+                    message=f"Row count {len(df)} below minimum {contract.min_rows}",
+                    details={"actual": len(df), "required": contract.min_rows},
+                )
+            )
 
         # Check required columns
         if contract:
             missing_cols = set(contract.required_columns) - set(df.columns.str.lower())
             if missing_cols:
-                issues.append(QualityIssue(
-                    check_type=CheckType.COMPLETENESS,
-                    severity=Severity.CRITICAL,
-                    column=None,
-                    message=f"Missing required columns: {missing_cols}",
-                    details={"missing": list(missing_cols)},
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.COMPLETENESS,
+                        severity=Severity.CRITICAL,
+                        column=None,
+                        message=f"Missing required columns: {missing_cols}",
+                        details={"missing": list(missing_cols)},
+                    )
+                )
 
         # Check null thresholds
         if contract and contract.null_thresholds:
@@ -435,18 +454,20 @@ class DataQualityFramework:
                     actual_col = matching_cols[0]
                     null_pct = df[actual_col].isna().mean()
                     if null_pct > max_null_pct:
-                        issues.append(QualityIssue(
-                            check_type=CheckType.COMPLETENESS,
-                            severity=Severity.WARNING if null_pct < 0.5 else Severity.ERROR,
-                            column=col,
-                            message=f"Null rate {null_pct:.1%} exceeds threshold {max_null_pct:.1%}",
-                            affected_rows=int(df[actual_col].isna().sum()),
-                            details={"null_pct": null_pct, "threshold": max_null_pct},
-                        ))
+                        issues.append(
+                            QualityIssue(
+                                check_type=CheckType.COMPLETENESS,
+                                severity=Severity.WARNING if null_pct < 0.5 else Severity.ERROR,
+                                column=col,
+                                message=f"Null rate {null_pct:.1%} exceeds threshold {max_null_pct:.1%}",
+                                affected_rows=int(df[actual_col].isna().sum()),
+                                details={"null_pct": null_pct, "threshold": max_null_pct},
+                            )
+                        )
 
         return issues
 
-    def _check_consistency(self, df: pd.DataFrame, schema: str) -> List[QualityIssue]:
+    def _check_consistency(self, df: pd.DataFrame, schema: str) -> list[QualityIssue]:
         """Check data consistency rules."""
         issues = []
 
@@ -464,7 +485,7 @@ class DataQualityFramework:
 
         return issues
 
-    def _check_ohlcv_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_ohlcv_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check OHLCV-specific consistency rules."""
         issues = []
 
@@ -476,55 +497,63 @@ class DataQualityFramework:
         if "high" in df_check.columns and "low" in df_check.columns:
             violations = df_check["high"] < df_check["low"]
             if violations.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.CRITICAL,
-                    column="high/low",
-                    message="High price less than Low price",
-                    affected_rows=int(violations.sum()),
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.CRITICAL,
+                        column="high/low",
+                        message="High price less than Low price",
+                        affected_rows=int(violations.sum()),
+                    )
+                )
 
         # High >= Open, Close
         for col in ["open", "close"]:
             if "high" in df_check.columns and col in df_check.columns:
                 violations = df_check["high"] < df_check[col]
                 if violations.any():
-                    issues.append(QualityIssue(
-                        check_type=CheckType.CONSISTENCY,
-                        severity=Severity.ERROR,
-                        column=f"high/{col}",
-                        message=f"High price less than {col.title()} price",
-                        affected_rows=int(violations.sum()),
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.CONSISTENCY,
+                            severity=Severity.ERROR,
+                            column=f"high/{col}",
+                            message=f"High price less than {col.title()} price",
+                            affected_rows=int(violations.sum()),
+                        )
+                    )
 
         # Low <= Open, Close
         for col in ["open", "close"]:
             if "low" in df_check.columns and col in df_check.columns:
                 violations = df_check["low"] > df_check[col]
                 if violations.any():
-                    issues.append(QualityIssue(
-                        check_type=CheckType.CONSISTENCY,
-                        severity=Severity.ERROR,
-                        column=f"low/{col}",
-                        message=f"Low price greater than {col.title()} price",
-                        affected_rows=int(violations.sum()),
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.CONSISTENCY,
+                            severity=Severity.ERROR,
+                            column=f"low/{col}",
+                            message=f"Low price greater than {col.title()} price",
+                            affected_rows=int(violations.sum()),
+                        )
+                    )
 
         # Volume >= 0
         if "volume" in df_check.columns:
             negative_vol = df_check["volume"] < 0
             if negative_vol.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.CRITICAL,
-                    column="volume",
-                    message="Negative volume values",
-                    affected_rows=int(negative_vol.sum()),
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.CRITICAL,
+                        column="volume",
+                        message="Negative volume values",
+                        affected_rows=int(negative_vol.sum()),
+                    )
+                )
 
         return issues
 
-    def _check_options_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_options_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check options-specific consistency rules."""
         issues = []
         df_check = df.copy()
@@ -535,13 +564,15 @@ class DataQualityFramework:
             if col in df_check.columns:
                 negative = df_check[col] < 0
                 if negative.any():
-                    issues.append(QualityIssue(
-                        check_type=CheckType.CONSISTENCY,
-                        severity=Severity.ERROR,
-                        column=col,
-                        message=f"Negative {col} values",
-                        affected_rows=int(negative.sum()),
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.CONSISTENCY,
+                            severity=Severity.ERROR,
+                            column=col,
+                            message=f"Negative {col} values",
+                            affected_rows=int(negative.sum()),
+                        )
+                    )
 
         # IV in valid range (0 to 500%) — upgraded to ERROR severity so the
         # quality framework actually blocks broken data instead of just
@@ -556,13 +587,15 @@ class DataQualityFramework:
             if df_check[col].dtype in (np.float64, np.float32):
                 invalid_iv = (df_check[col] < 0) | (df_check[col] > 5.0)
                 if invalid_iv.any():
-                    issues.append(QualityIssue(
-                        check_type=CheckType.CONSISTENCY,
-                        severity=Severity.ERROR,
-                        column=col,
-                        message=f"IV values outside valid range [0, 5.0]",
-                        affected_rows=int(invalid_iv.sum()),
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.CONSISTENCY,
+                            severity=Severity.ERROR,
+                            column=col,
+                            message="IV values outside valid range [0, 5.0]",
+                            affected_rows=int(invalid_iv.sum()),
+                        )
+                    )
 
         # AUDIT FIX — bid > ask detection. Crossed markets are always bad
         # data and must block the trade universe builder.
@@ -570,34 +603,40 @@ class DataQualityFramework:
             valid_mask = df_check["bid"].notna() & df_check["ask"].notna()
             crossed = valid_mask & (df_check["bid"] > df_check["ask"])
             if crossed.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.ERROR,
-                    column="bid/ask",
-                    message="Crossed markets detected (bid > ask)",
-                    affected_rows=int(crossed.sum()),
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.ERROR,
+                        column="bid/ask",
+                        message="Crossed markets detected (bid > ask)",
+                        affected_rows=int(crossed.sum()),
+                    )
+                )
             # Zero bid AND zero ask — likely stale / delisted contracts.
             zero_both = valid_mask & (df_check["bid"] == 0) & (df_check["ask"] == 0)
             if zero_both.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.WARNING,
-                    column="bid/ask",
-                    message="Options with both bid=0 and ask=0 (likely stale / worthless)",
-                    affected_rows=int(zero_both.sum()),
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.WARNING,
+                        column="bid/ask",
+                        message="Options with both bid=0 and ask=0 (likely stale / worthless)",
+                        affected_rows=int(zero_both.sum()),
+                    )
+                )
             # Spread > 100% of mid — extreme illiquidity, not tradable.
             mid = (df_check["bid"] + df_check["ask"]) / 2.0
             wide = valid_mask & (mid > 0) & ((df_check["ask"] - df_check["bid"]) / mid > 1.0)
             if wide.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.WARNING,
-                    column="bid/ask",
-                    message="Spread > 100% of mid price (untradable illiquidity)",
-                    affected_rows=int(wide.sum()),
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.WARNING,
+                        column="bid/ask",
+                        message="Spread > 100% of mid price (untradable illiquidity)",
+                        affected_rows=int(wide.sum()),
+                    )
+                )
 
         # AUDIT FIX — expired contracts still in the snapshot.
         if "expiration" in df_check.columns and "date" in df_check.columns:
@@ -606,13 +645,15 @@ class DataQualityFramework:
                 asof = pd.to_datetime(df_check["date"])
                 expired = exp < asof
                 if expired.any():
-                    issues.append(QualityIssue(
-                        check_type=CheckType.CONSISTENCY,
-                        severity=Severity.ERROR,
-                        column="expiration",
-                        message="Option rows with expiration BEFORE as-of date",
-                        affected_rows=int(expired.sum()),
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.CONSISTENCY,
+                            severity=Severity.ERROR,
+                            column="expiration",
+                            message="Option rows with expiration BEFORE as-of date",
+                            affected_rows=int(expired.sum()),
+                        )
+                    )
             except (ValueError, TypeError):
                 pass
 
@@ -624,7 +665,7 @@ class DataQualityFramework:
         timestamp_col: str = "quote_timestamp",
         as_of: pd.Timestamp | None = None,
         max_age_minutes: int = 30,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Detect stale option quotes relative to an as-of timestamp.
 
         Options market-data feeds frequently carry the latest *known*
@@ -645,7 +686,7 @@ class DataQualityFramework:
         Returns:
             List of ``QualityIssue`` (possibly empty).
         """
-        issues: List[QualityIssue] = []
+        issues: list[QualityIssue] = []
         if timestamp_col not in df.columns or df.empty:
             return issues
 
@@ -658,20 +699,22 @@ class DataQualityFramework:
         stale = age_minutes > max_age_minutes
 
         if stale.any():
-            issues.append(QualityIssue(
-                check_type=CheckType.FRESHNESS,
-                severity=Severity.ERROR,
-                column=timestamp_col,
-                message=(
-                    f"Stale option quotes: {int(stale.sum())} rows with "
-                    f"age > {max_age_minutes} minutes (max age "
-                    f"{float(age_minutes.max()):.0f}m)"
-                ),
-                affected_rows=int(stale.sum()),
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.FRESHNESS,
+                    severity=Severity.ERROR,
+                    column=timestamp_col,
+                    message=(
+                        f"Stale option quotes: {int(stale.sum())} rows with "
+                        f"age > {max_age_minutes} minutes (max age "
+                        f"{float(age_minutes.max()):.0f}m)"
+                    ),
+                    affected_rows=int(stale.sum()),
+                )
+            )
         return issues
 
-    def _check_time_series_consistency(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _check_time_series_consistency(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Check time series consistency."""
         issues = []
 
@@ -686,13 +729,15 @@ class DataQualityFramework:
         # Check for duplicates
         duplicates = dates.duplicated()
         if duplicates.any():
-            issues.append(QualityIssue(
-                check_type=CheckType.CONSISTENCY,
-                severity=Severity.WARNING,
-                column="date",
-                message="Duplicate dates found",
-                affected_rows=int(duplicates.sum()),
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.CONSISTENCY,
+                    severity=Severity.WARNING,
+                    column="date",
+                    message="Duplicate dates found",
+                    affected_rows=int(duplicates.sum()),
+                )
+            )
 
         # Check for gaps (more than 5 business days)
         if len(dates) > 1:
@@ -701,22 +746,26 @@ class DataQualityFramework:
             large_gaps = gaps > 7  # More than a week
             if large_gaps.any():
                 max_gap = int(gaps.max())
-                issues.append(QualityIssue(
-                    check_type=CheckType.CONSISTENCY,
-                    severity=Severity.INFO if max_gap < 30 else Severity.WARNING,
-                    column="date",
-                    message=f"Date gaps detected (max: {max_gap} days)",
-                    details={"max_gap_days": max_gap},
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.CONSISTENCY,
+                        severity=Severity.INFO if max_gap < 30 else Severity.WARNING,
+                        column="date",
+                        message=f"Date gaps detected (max: {max_gap} days)",
+                        details={"max_gap_days": max_gap},
+                    )
+                )
 
         # Check chronological order
         if not dates.is_monotonic_increasing and not dates.is_monotonic_decreasing:
-            issues.append(QualityIssue(
-                check_type=CheckType.CONSISTENCY,
-                severity=Severity.INFO,
-                column="date",
-                message="Dates not in chronological order",
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.CONSISTENCY,
+                    severity=Severity.INFO,
+                    column="date",
+                    message="Dates not in chronological order",
+                )
+            )
 
         return issues
 
@@ -724,7 +773,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         contract: DataContract,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Check value ranges from contract."""
         issues = []
 
@@ -745,28 +794,32 @@ class DataQualityFramework:
             above_max = series > max_val
 
             if below_min.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.ACCURACY,
-                    severity=Severity.WARNING,
-                    column=col,
-                    message=f"Values below minimum {min_val}",
-                    affected_rows=int(below_min.sum()),
-                    details={"min_found": float(series.min())},
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.ACCURACY,
+                        severity=Severity.WARNING,
+                        column=col,
+                        message=f"Values below minimum {min_val}",
+                        affected_rows=int(below_min.sum()),
+                        details={"min_found": float(series.min())},
+                    )
+                )
 
             if above_max.any():
-                issues.append(QualityIssue(
-                    check_type=CheckType.ACCURACY,
-                    severity=Severity.WARNING,
-                    column=col,
-                    message=f"Values above maximum {max_val}",
-                    affected_rows=int(above_max.sum()),
-                    details={"max_found": float(series.max())},
-                ))
+                issues.append(
+                    QualityIssue(
+                        check_type=CheckType.ACCURACY,
+                        severity=Severity.WARNING,
+                        column=col,
+                        message=f"Values above maximum {max_val}",
+                        affected_rows=int(above_max.sum()),
+                        details={"max_found": float(series.max())},
+                    )
+                )
 
         return issues
 
-    def _detect_anomalies(self, df: pd.DataFrame) -> List[QualityIssue]:
+    def _detect_anomalies(self, df: pd.DataFrame) -> list[QualityIssue]:
         """Detect statistical anomalies using z-score."""
         issues = []
 
@@ -789,17 +842,19 @@ class DataQualityFramework:
             if anomalies.any():
                 anomaly_count = int(anomalies.sum())
                 if anomaly_count > len(series) * 0.01:  # More than 1% anomalies
-                    issues.append(QualityIssue(
-                        check_type=CheckType.ANOMALY,
-                        severity=Severity.INFO,
-                        column=col,
-                        message=f"Statistical anomalies detected (z-score > {self.anomaly_zscore_threshold})",
-                        affected_rows=anomaly_count,
-                        details={
-                            "anomaly_pct": anomaly_count / len(series),
-                            "max_zscore": float(z_scores.max()),
-                        },
-                    ))
+                    issues.append(
+                        QualityIssue(
+                            check_type=CheckType.ANOMALY,
+                            severity=Severity.INFO,
+                            column=col,
+                            message=f"Statistical anomalies detected (z-score > {self.anomaly_zscore_threshold})",
+                            affected_rows=anomaly_count,
+                            details={
+                                "anomaly_pct": anomaly_count / len(series),
+                                "max_zscore": float(z_scores.max()),
+                            },
+                        )
+                    )
 
         return issues
 
@@ -807,7 +862,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         max_age_hours: int = 24,
-    ) -> List[QualityIssue]:
+    ) -> list[QualityIssue]:
         """Check data freshness."""
         issues = []
 
@@ -827,17 +882,19 @@ class DataQualityFramework:
 
         if age_hours > max_age_hours:
             severity = Severity.WARNING if age_hours < max_age_hours * 3 else Severity.ERROR
-            issues.append(QualityIssue(
-                check_type=CheckType.FRESHNESS,
-                severity=severity,
-                column=date_col,
-                message=f"Data is {age_hours:.1f} hours old (threshold: {max_age_hours}h)",
-                details={
-                    "max_date": str(max_date),
-                    "age_hours": age_hours,
-                    "threshold_hours": max_age_hours,
-                },
-            ))
+            issues.append(
+                QualityIssue(
+                    check_type=CheckType.FRESHNESS,
+                    severity=severity,
+                    column=date_col,
+                    message=f"Data is {age_hours:.1f} hours old (threshold: {max_age_hours}h)",
+                    details={
+                        "max_date": str(max_date),
+                        "age_hours": age_hours,
+                        "threshold_hours": max_age_hours,
+                    },
+                )
+            )
 
         return issues
 
@@ -845,7 +902,7 @@ class DataQualityFramework:
         self,
         df: pd.DataFrame,
         contract_name: str,
-        ticker: Optional[str] = None,
+        ticker: str | None = None,
     ) -> ValidationResult:
         """Validate DataFrame against a named contract."""
         contract = self.contracts.get(contract_name)
@@ -861,10 +918,10 @@ class DataQualityFramework:
 
     def get_validation_history(
         self,
-        schema: Optional[str] = None,
-        ticker: Optional[str] = None,
-        since: Optional[datetime] = None,
-    ) -> List[ValidationResult]:
+        schema: str | None = None,
+        ticker: str | None = None,
+        since: datetime | None = None,
+    ) -> list[ValidationResult]:
         """Get validation history with optional filters."""
         history = self._validation_history
 
@@ -916,8 +973,7 @@ class DataQualityFramework:
             "severity_breakdown": severity_counts,
             "check_type_breakdown": check_counts,
             "top_issues": [
-                {"check_type": k[0], "message": k[1], "count": v}
-                for k, v in top_issues
+                {"check_type": k[0], "message": k[1], "count": v} for k, v in top_issues
             ],
         }
 
@@ -929,9 +985,7 @@ class DataQualityFramework:
 
         # Check validation history health
         checks_total += 1
-        recent_validations = self.get_validation_history(
-            since=datetime.now() - timedelta(hours=24)
-        )
+        recent_validations = self.get_validation_history(since=datetime.now() - timedelta(hours=24))
         if not recent_validations:
             issues.append("No validations in last 24 hours")
         else:
@@ -940,7 +994,9 @@ class DataQualityFramework:
         # Check recent failure rate
         checks_total += 1
         if recent_validations:
-            failure_rate = 1 - (sum(1 for r in recent_validations if r.valid) / len(recent_validations))
+            failure_rate = 1 - (
+                sum(1 for r in recent_validations if r.valid) / len(recent_validations)
+            )
             if failure_rate > 0.5:
                 issues.append(f"High failure rate: {failure_rate:.1%}")
             else:
@@ -951,8 +1007,7 @@ class DataQualityFramework:
         # Check for critical issues
         checks_total += 1
         critical_issues = [
-            i for r in recent_validations for i in r.issues
-            if i.severity == Severity.CRITICAL
+            i for r in recent_validations for i in r.issues if i.severity == Severity.CRITICAL
         ]
         if critical_issues:
             issues.append(f"{len(critical_issues)} critical issues in last 24h")

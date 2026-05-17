@@ -21,18 +21,18 @@ Usage:
     issues = registry.validate_all()
 """
 
-from dataclasses import dataclass, field, asdict
-from datetime import date, datetime
-from enum import Enum
-from typing import Any
 import json
 import logging
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
 
 class LagUnit(Enum):
     """Time unit for feature lag specification."""
+
     TRADING_DAYS = "trading_days"
     CALENDAR_DAYS = "calendar_days"
     MINUTES = "minutes"
@@ -42,6 +42,7 @@ class LagUnit(Enum):
 
 class FeatureStatus(Enum):
     """Feature lifecycle status."""
+
     ACTIVE = "active"
     DEPRECATED = "deprecated"
     EXPERIMENTAL = "experimental"
@@ -111,11 +112,13 @@ class ProvenanceRegistry:
     def register_feature(self, provenance: FeatureProvenance) -> None:
         """Register a feature's provenance."""
         self._features[provenance.name] = provenance
-        self._audit_log.append({
-            "action": "register",
-            "feature": provenance.name,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._audit_log.append(
+            {
+                "action": "register",
+                "feature": provenance.name,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def get_feature(self, name: str) -> FeatureProvenance | None:
         return self._features.get(name)
@@ -183,12 +186,14 @@ class ProvenanceRegistry:
         prov.approver = approver
         prov.last_validated = date.today()
 
-        self._audit_log.append({
-            "action": "approve",
-            "feature": name,
-            "approver": approver,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._audit_log.append(
+            {
+                "action": "approve",
+                "feature": name,
+                "approver": approver,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
         return True
 
     def export_registry(self, path: str) -> None:
@@ -204,6 +209,7 @@ class ProvenanceRegistry:
     def export_dataframe(self):
         """Export registry as DataFrame for analysis."""
         import pandas as pd
+
         rows = [prov.to_dict() for prov in self._features.values()]
         return pd.DataFrame(rows) if rows else pd.DataFrame()
 
@@ -216,79 +222,96 @@ class ProvenanceRegistry:
 # Default feature provenance for Smart Wheel Engine
 # =============================================================================
 
+
 def build_default_provenance_registry() -> ProvenanceRegistry:
     """Build provenance registry with all standard wheel engine features."""
     registry = ProvenanceRegistry()
 
     # Technical features
     for lookback in [5, 10, 20, 50, 200]:
-        registry.register_feature(FeatureProvenance(
-            name=f"sma_{lookback}",
-            source="ohlcv",
-            lag_periods=lookback,
-            lag_unit=LagUnit.TRADING_DAYS,
-            description=f"Simple moving average over {lookback} trading days",
-            computation=f"close.rolling({lookback}).mean()",
-        ))
+        registry.register_feature(
+            FeatureProvenance(
+                name=f"sma_{lookback}",
+                source="ohlcv",
+                lag_periods=lookback,
+                lag_unit=LagUnit.TRADING_DAYS,
+                description=f"Simple moving average over {lookback} trading days",
+                computation=f"close.rolling({lookback}).mean()",
+            )
+        )
 
     # Volatility features
     for window in [10, 20, 60, 252]:
-        registry.register_feature(FeatureProvenance(
-            name=f"realized_vol_{window}d",
-            source="ohlcv",
-            lag_periods=window,
+        registry.register_feature(
+            FeatureProvenance(
+                name=f"realized_vol_{window}d",
+                source="ohlcv",
+                lag_periods=window,
+                lag_unit=LagUnit.TRADING_DAYS,
+                description=f"Realized volatility over {window} trading days",
+                computation=f"log_returns.rolling({window}).std() * sqrt(252)",
+            )
+        )
+
+    registry.register_feature(
+        FeatureProvenance(
+            name="iv_rank_252d",
+            source="options_chain",
+            lag_periods=252,
             lag_unit=LagUnit.TRADING_DAYS,
-            description=f"Realized volatility over {window} trading days",
-            computation=f"log_returns.rolling({window}).std() * sqrt(252)",
-        ))
+            description="IV rank: percentile of current IV vs trailing 252-day range",
+        )
+    )
 
-    registry.register_feature(FeatureProvenance(
-        name="iv_rank_252d",
-        source="options_chain",
-        lag_periods=252,
-        lag_unit=LagUnit.TRADING_DAYS,
-        description="IV rank: percentile of current IV vs trailing 252-day range",
-    ))
-
-    registry.register_feature(FeatureProvenance(
-        name="iv_percentile_252d",
-        source="options_chain",
-        lag_periods=252,
-        lag_unit=LagUnit.TRADING_DAYS,
-        description="IV percentile: % of days with IV below current level",
-    ))
+    registry.register_feature(
+        FeatureProvenance(
+            name="iv_percentile_252d",
+            source="options_chain",
+            lag_periods=252,
+            lag_unit=LagUnit.TRADING_DAYS,
+            description="IV percentile: % of days with IV below current level",
+        )
+    )
 
     # Event features
-    registry.register_feature(FeatureProvenance(
-        name="days_to_earnings",
-        source="earnings_calendar",
-        lag_periods=0,
-        lag_unit=LagUnit.NONE,
-        description="Days until next earnings announcement",
-    ))
+    registry.register_feature(
+        FeatureProvenance(
+            name="days_to_earnings",
+            source="earnings_calendar",
+            lag_periods=0,
+            lag_unit=LagUnit.NONE,
+            description="Days until next earnings announcement",
+        )
+    )
 
-    registry.register_feature(FeatureProvenance(
-        name="days_to_ex_div",
-        source="dividend_calendar",
-        lag_periods=0,
-        lag_unit=LagUnit.NONE,
-        description="Days until next ex-dividend date",
-    ))
+    registry.register_feature(
+        FeatureProvenance(
+            name="days_to_ex_div",
+            source="dividend_calendar",
+            lag_periods=0,
+            lag_unit=LagUnit.NONE,
+            description="Days until next ex-dividend date",
+        )
+    )
 
     # Regime features
-    registry.register_feature(FeatureProvenance(
-        name="regime_label",
-        source="ohlcv",
-        lag_periods=60,
-        lag_unit=LagUnit.TRADING_DAYS,
-        description="Market regime classification (bull/bear/sideways/volatile)",
-        depends_on=["realized_vol_20d", "sma_50"],
-    ))
+    registry.register_feature(
+        FeatureProvenance(
+            name="regime_label",
+            source="ohlcv",
+            lag_periods=60,
+            lag_unit=LagUnit.TRADING_DAYS,
+            description="Market regime classification (bull/bear/sideways/volatile)",
+            depends_on=["realized_vol_20d", "sma_50"],
+        )
+    )
 
     return registry
 
 
-def validate_features_coverage(registry: ProvenanceRegistry, feature_names_used: set[str]) -> list[str]:
+def validate_features_coverage(
+    registry: ProvenanceRegistry, feature_names_used: set[str]
+) -> list[str]:
     """
     Check that all features in use are registered and approved.
 

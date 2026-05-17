@@ -24,98 +24,95 @@ Data categories:
 """
 
 # CSV-based loaders for historical data
-from .bloomberg_loader import (
-    # OHLCV
-    load_bloomberg_ohlcv,
-    load_all_ohlcv,
-    # Options
-    load_bloomberg_options,
-    load_all_options,
-    # Earnings
-    load_bloomberg_earnings,
-    load_all_earnings,
-    compute_earnings_features,
-    # Dividends
-    load_bloomberg_dividends,
-    load_all_dividends,
-    get_annual_dividend_yield,
-    get_upcoming_dividends,
-    # IV History
-    load_bloomberg_iv_history,
-    load_all_iv_history,
-    compute_iv_rank,
-    # Rates
-    load_bloomberg_rates,
-    get_current_risk_free_rate,
-    # Fundamentals
-    load_bloomberg_fundamentals,
-    build_sector_map,
-    # Constants
-    BLOOMBERG_DIR,
-)
-
 # Live data connector
 from .bloomberg import (
     BloombergConnector,
     BloombergError,
-    StockQuote,
     OptionQuote,
+    StockQuote,
+    # Diagnostics
+    check_bloomberg_available,
+    download_ohlcv,
+    get_iv,
+    get_live_iv_rank,
+    get_live_quotes,
     # Quick access functions
     get_price,
-    get_iv,
-    download_ohlcv,
+    # Screening
+    get_wheel_candidates,
     # Batch operations
     refresh_ohlcv,
     refresh_option_chain,
-    get_live_quotes,
-    get_live_iv_rank,
-    # Screening
-    get_wheel_candidates,
-    # Diagnostics
-    check_bloomberg_available,
     test_connection,
 )
 
 # Bloomberg CSV import and feature processing
 from .bloomberg_import import (
-    load_bloomberg_csv,
     compute_features_per_ticker,
+    load_bloomberg_csv,
     process_bloomberg_data,
 )
-
-# Master data pipeline
-from .pipeline import DataPipeline, DataStatus
+from .bloomberg_loader import (
+    # Constants
+    BLOOMBERG_DIR,
+    build_sector_map,
+    compute_earnings_features,
+    compute_iv_rank,
+    get_annual_dividend_yield,
+    get_current_risk_free_rate,
+    get_upcoming_dividends,
+    load_all_dividends,
+    load_all_earnings,
+    load_all_iv_history,
+    load_all_ohlcv,
+    load_all_options,
+    # Dividends
+    load_bloomberg_dividends,
+    # Earnings
+    load_bloomberg_earnings,
+    # Fundamentals
+    load_bloomberg_fundamentals,
+    # IV History
+    load_bloomberg_iv_history,
+    # OHLCV
+    load_bloomberg_ohlcv,
+    # Options
+    load_bloomberg_options,
+    # Rates
+    load_bloomberg_rates,
+)
 
 # Consolidated Bloomberg loader
 from .consolidated_loader import (
     ConsolidatedBloombergLoader,
-    normalize_ticker,
     get_bloomberg_loader,
+    normalize_ticker,
 )
 
 # Feature engineering pipeline
 from .feature_pipeline import (
-    FeaturePipeline,
     ComputeResult,
+    FeaturePipeline,
     PipelineResult,
     compute_features,
 )
 
 # Feature store
 from .feature_store import (
-    FeatureStore,
     FeatureCategory,
     FeatureMetadata,
+    FeatureStore,
     get_feature_store,
 )
 
-# Data quality framework
-from .quality import (
-    DataQualityFramework,
-    ValidationResult,
-    DataContract,
-    validate_ohlcv,
-    validate_options,
+# Observability
+from .observability import (
+    logger,
+    metrics,
+    setup_logging,
+    timed,
+    trace,
+    traced,
 )
 
 # Pipeline orchestrator
@@ -127,12 +124,95 @@ from .orchestrator import (
     run_pipeline,
 )
 
-# Observability
-from .observability import (
-    metrics,
-    trace,
-    logger,
-    setup_logging,
-    timed,
-    traced,
+# Master data pipeline
+from .pipeline import DataPipeline, DataStatus
+
+# Data quality framework
+from .quality import (
+    DataContract,
+    DataQualityFramework,
+    ValidationResult,
+    validate_ohlcv,
+    validate_options,
 )
+
+# Public API. `data/__init__.py` is a re-export hub; these names are
+# imported above purely to be re-exported, so `__all__` both documents
+# the package surface and tells ruff the imports are intentional (F401).
+__all__ = [
+    # Live Bloomberg connector (bloomberg.py)
+    "BloombergConnector",
+    "BloombergError",
+    "OptionQuote",
+    "StockQuote",
+    "check_bloomberg_available",
+    "download_ohlcv",
+    "get_iv",
+    "get_live_iv_rank",
+    "get_live_quotes",
+    "get_price",
+    "get_wheel_candidates",
+    "refresh_ohlcv",
+    "refresh_option_chain",
+    "test_connection",
+    # Bloomberg CSV import (bloomberg_import.py)
+    "compute_features_per_ticker",
+    "load_bloomberg_csv",
+    "process_bloomberg_data",
+    # Bloomberg CSV loaders (bloomberg_loader.py)
+    "BLOOMBERG_DIR",
+    "build_sector_map",
+    "compute_earnings_features",
+    "compute_iv_rank",
+    "get_annual_dividend_yield",
+    "get_current_risk_free_rate",
+    "get_upcoming_dividends",
+    "load_all_dividends",
+    "load_all_earnings",
+    "load_all_iv_history",
+    "load_all_ohlcv",
+    "load_all_options",
+    "load_bloomberg_dividends",
+    "load_bloomberg_earnings",
+    "load_bloomberg_fundamentals",
+    "load_bloomberg_iv_history",
+    "load_bloomberg_ohlcv",
+    "load_bloomberg_options",
+    "load_bloomberg_rates",
+    # Consolidated loader (consolidated_loader.py)
+    "ConsolidatedBloombergLoader",
+    "get_bloomberg_loader",
+    "normalize_ticker",
+    # Feature engineering pipeline (feature_pipeline.py)
+    "ComputeResult",
+    "FeaturePipeline",
+    "PipelineResult",
+    "compute_features",
+    # Feature store (feature_store.py)
+    "FeatureCategory",
+    "FeatureMetadata",
+    "FeatureStore",
+    "get_feature_store",
+    # Observability (observability.py)
+    "logger",
+    "metrics",
+    "setup_logging",
+    "timed",
+    "trace",
+    "traced",
+    # Pipeline orchestrator (orchestrator.py)
+    "PipelineOrchestrator",
+    "PipelineRun",
+    "StageType",
+    "TaskStatus",
+    "run_pipeline",
+    # Master data pipeline (pipeline.py)
+    "DataPipeline",
+    "DataStatus",
+    # Data quality framework (quality.py)
+    "DataContract",
+    "DataQualityFramework",
+    "ValidationResult",
+    "validate_ohlcv",
+    "validate_options",
+]

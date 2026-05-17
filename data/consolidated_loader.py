@@ -33,9 +33,7 @@ Usage:
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, date
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -66,7 +64,12 @@ def normalize_ticker(ticker: str) -> str:
     ticker = re.sub(r"\s+Equity$", "", ticker, flags=re.IGNORECASE)
 
     # Remove exchange suffix (UW, UN, UP, etc.)
-    ticker = re.sub(r"\s+(UW|UN|UP|UA|UQ|US|UR|UV|UB|UD|UF|UH|UJ|UK|UL|UM|UY|UZ)$", "", ticker, flags=re.IGNORECASE)
+    ticker = re.sub(
+        r"\s+(UW|UN|UP|UA|UQ|US|UR|UV|UB|UD|UF|UH|UJ|UK|UL|UM|UY|UZ)$",
+        "",
+        ticker,
+        flags=re.IGNORECASE,
+    )
 
     # Handle special tickers like BRK/B -> BRK.B
     ticker = ticker.replace("/", ".")
@@ -77,11 +80,12 @@ def normalize_ticker(ticker: str) -> str:
 @dataclass
 class DataStats:
     """Statistics about loaded data."""
+
     file_name: str
     row_count: int
     ticker_count: int
-    date_range: Optional[Tuple[str, str]] = None
-    columns: List[str] = field(default_factory=list)
+    date_range: tuple[str, str] | None = None
+    columns: list[str] = field(default_factory=list)
     load_time_ms: int = 0
 
 
@@ -95,40 +99,40 @@ class ConsolidatedBloombergLoader:
 
     def __init__(
         self,
-        data_dir: Union[str, Path] = BLOOMBERG_DIR,
+        data_dir: str | Path = BLOOMBERG_DIR,
         auto_load: bool = False,
     ):
         self.data_dir = Path(data_dir)
 
         # Raw DataFrames (full files)
-        self._ohlcv_df: Optional[pd.DataFrame] = None
-        self._iv_history_df: Optional[pd.DataFrame] = None
-        self._earnings_df: Optional[pd.DataFrame] = None
-        self._dividends_df: Optional[pd.DataFrame] = None
-        self._fundamentals_df: Optional[pd.DataFrame] = None
-        self._liquidity_df: Optional[pd.DataFrame] = None
-        self._vol_dvd_df: Optional[pd.DataFrame] = None
-        self._vix_df: Optional[pd.DataFrame] = None
-        self._macro_df: Optional[pd.DataFrame] = None
-        self._treasury_df: Optional[pd.DataFrame] = None
-        self._vix_term_df: Optional[pd.DataFrame] = None
-        self._analyst_df: Optional[pd.DataFrame] = None
+        self._ohlcv_df: pd.DataFrame | None = None
+        self._iv_history_df: pd.DataFrame | None = None
+        self._earnings_df: pd.DataFrame | None = None
+        self._dividends_df: pd.DataFrame | None = None
+        self._fundamentals_df: pd.DataFrame | None = None
+        self._liquidity_df: pd.DataFrame | None = None
+        self._vol_dvd_df: pd.DataFrame | None = None
+        self._vix_df: pd.DataFrame | None = None
+        self._macro_df: pd.DataFrame | None = None
+        self._treasury_df: pd.DataFrame | None = None
+        self._vix_term_df: pd.DataFrame | None = None
+        self._analyst_df: pd.DataFrame | None = None
 
         # Indexed data (by ticker)
-        self._ohlcv: Dict[str, pd.DataFrame] = {}
-        self._iv_history: Dict[str, pd.DataFrame] = {}
-        self._earnings: Dict[str, pd.DataFrame] = {}
-        self._dividends: Dict[str, pd.DataFrame] = {}
-        self._liquidity: Dict[str, pd.DataFrame] = {}
-        self._vol_dvd: Dict[str, pd.DataFrame] = {}
+        self._ohlcv: dict[str, pd.DataFrame] = {}
+        self._iv_history: dict[str, pd.DataFrame] = {}
+        self._earnings: dict[str, pd.DataFrame] = {}
+        self._dividends: dict[str, pd.DataFrame] = {}
+        self._liquidity: dict[str, pd.DataFrame] = {}
+        self._vol_dvd: dict[str, pd.DataFrame] = {}
 
         # Single DataFrames (not per-ticker)
-        self._fundamentals: Dict[str, dict] = {}
-        self._analyst: Dict[str, dict] = {}
+        self._fundamentals: dict[str, dict] = {}
+        self._analyst: dict[str, dict] = {}
 
         # Metadata
-        self._stats: List[DataStats] = []
-        self._tickers: Set[str] = set()
+        self._stats: list[DataStats] = []
+        self._tickers: set[str] = set()
 
         if auto_load:
             self.load_all()
@@ -153,9 +157,10 @@ class ConsolidatedBloombergLoader:
 
         logger.info(f"Loaded {len(self._tickers)} unique tickers")
 
-    def _load_csv(self, filename: str, **kwargs) -> Optional[pd.DataFrame]:
+    def _load_csv(self, filename: str, **kwargs) -> pd.DataFrame | None:
         """Load a CSV file with error handling."""
         import time
+
         start = time.time()
 
         filepath = self.data_dir / filename
@@ -181,14 +186,18 @@ class ConsolidatedBloombergLoader:
                 if not dates.isna().all():
                     date_range = (str(dates.min().date()), str(dates.max().date()))
 
-            self._stats.append(DataStats(
-                file_name=filename,
-                row_count=len(df),
-                ticker_count=df["ticker_normalized"].nunique() if "ticker_normalized" in df.columns else 0,
-                date_range=date_range,
-                columns=list(df.columns),
-                load_time_ms=load_time,
-            ))
+            self._stats.append(
+                DataStats(
+                    file_name=filename,
+                    row_count=len(df),
+                    ticker_count=df["ticker_normalized"].nunique()
+                    if "ticker_normalized" in df.columns
+                    else 0,
+                    date_range=date_range,
+                    columns=list(df.columns),
+                    load_time_ms=load_time,
+                )
+            )
 
             logger.info(f"Loaded {filename}: {len(df):,} rows, {load_time}ms")
             return df
@@ -201,7 +210,7 @@ class ConsolidatedBloombergLoader:
         self,
         df: pd.DataFrame,
         date_col: str = "date",
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """Index DataFrame by normalized ticker."""
         if df is None or "ticker_normalized" not in df.columns:
             return {}
@@ -247,8 +256,8 @@ class ConsolidatedBloombergLoader:
             # Compute ATM IV as average of put and call
             if "iv_put" in self._iv_history_df.columns and "iv_call" in self._iv_history_df.columns:
                 self._iv_history_df["atm_iv"] = (
-                    self._iv_history_df["iv_put"] + self._iv_history_df["iv_call"]
-                ) / 2 / 100  # Convert to decimal
+                    (self._iv_history_df["iv_put"] + self._iv_history_df["iv_call"]) / 2 / 100
+                )  # Convert to decimal
 
             # Convert RV to decimal
             for col in ["rv_30d", "rv_60d", "rv_90d", "rv_260d"]:
@@ -276,7 +285,10 @@ class ConsolidatedBloombergLoader:
             self._earnings_df.columns = self._earnings_df.columns.str.lower()
 
             # Compute surprise
-            if "eps_actual" in self._earnings_df.columns and "eps_estimate" in self._earnings_df.columns:
+            if (
+                "eps_actual" in self._earnings_df.columns
+                and "eps_estimate" in self._earnings_df.columns
+            ):
                 self._earnings_df["eps_surprise"] = (
                     self._earnings_df["eps_actual"] - self._earnings_df["eps_estimate"]
                 )
@@ -448,15 +460,15 @@ class ConsolidatedBloombergLoader:
 
     # ==================== Accessor Methods ====================
 
-    def get_tickers(self) -> List[str]:
+    def get_tickers(self) -> list[str]:
         """Get all available tickers."""
         return sorted(self._tickers)
 
     def get_universe_as_of(
         self,
-        as_of: Optional[str] = None,
+        as_of: str | None = None,
         min_weight: float = 0.0,
-    ) -> List[str]:
+    ) -> list[str]:
         """Return the set of tickers that were in the index on ``as_of``.
 
         Args:
@@ -497,42 +509,42 @@ class ConsolidatedBloombergLoader:
         t = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return t in set(self.get_universe_as_of(as_of))
 
-    def get_ohlcv(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_ohlcv(self, ticker: str) -> pd.DataFrame | None:
         """Get OHLCV data for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._ohlcv.get(ticker)
 
-    def get_iv_history(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_iv_history(self, ticker: str) -> pd.DataFrame | None:
         """Get IV and RV history for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._iv_history.get(ticker)
 
-    def get_earnings(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_earnings(self, ticker: str) -> pd.DataFrame | None:
         """Get earnings history for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._earnings.get(ticker)
 
-    def get_dividends(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_dividends(self, ticker: str) -> pd.DataFrame | None:
         """Get dividend history for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._dividends.get(ticker)
 
-    def get_fundamentals(self, ticker: str) -> Optional[dict]:
+    def get_fundamentals(self, ticker: str) -> dict | None:
         """Get current fundamentals for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._fundamentals.get(ticker)
 
-    def get_liquidity(self, ticker: str) -> Optional[pd.DataFrame]:
+    def get_liquidity(self, ticker: str) -> pd.DataFrame | None:
         """Get liquidity data for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._liquidity.get(ticker)
 
-    def get_analyst(self, ticker: str) -> Optional[dict]:
+    def get_analyst(self, ticker: str) -> dict | None:
         """Get analyst data for a ticker."""
         ticker = normalize_ticker(ticker) if " " in ticker else ticker.upper()
         return self._analyst.get(ticker)
 
-    def get_vix(self, as_of: Optional[str] = None) -> Optional[pd.DataFrame]:
+    def get_vix(self, as_of: str | None = None) -> pd.DataFrame | None:
         """Get VIX history, optionally filtered to a date."""
         if self._vix_df is None:
             return None
@@ -541,7 +553,7 @@ class ConsolidatedBloombergLoader:
             df = df[df["date"] <= pd.to_datetime(as_of)]
         return df
 
-    def get_treasury(self, as_of: Optional[str] = None) -> Optional[pd.DataFrame]:
+    def get_treasury(self, as_of: str | None = None) -> pd.DataFrame | None:
         """Get treasury yields, optionally filtered to a date."""
         if self._treasury_df is None:
             return None
@@ -550,7 +562,7 @@ class ConsolidatedBloombergLoader:
             df = df[df["date"] <= pd.to_datetime(as_of)]
         return df
 
-    def get_risk_free_rate(self, tenor: str = "3m", as_of: Optional[str] = None) -> float:
+    def get_risk_free_rate(self, tenor: str = "3m", as_of: str | None = None) -> float:
         """Get risk-free rate for a tenor."""
         treasury = self.get_treasury(as_of)
         if treasury is None or treasury.empty:
@@ -563,7 +575,7 @@ class ConsolidatedBloombergLoader:
         rate = treasury[col].iloc[-1]
         return rate / 100 if rate > 1 else rate  # Handle percentage vs decimal
 
-    def get_vix_term_structure(self, as_of: Optional[str] = None) -> Optional[pd.DataFrame]:
+    def get_vix_term_structure(self, as_of: str | None = None) -> pd.DataFrame | None:
         """Get VIX term structure."""
         if self._vix_term_df is None:
             return None
@@ -572,7 +584,7 @@ class ConsolidatedBloombergLoader:
             df = df[df["date"] <= pd.to_datetime(as_of)]
         return df
 
-    def get_macro(self, instrument: str, as_of: Optional[str] = None) -> Optional[pd.DataFrame]:
+    def get_macro(self, instrument: str, as_of: str | None = None) -> pd.DataFrame | None:
         """Get macro instrument data (e.g., 'us_10y')."""
         if self._macro_df is None:
             return None
@@ -581,7 +593,7 @@ class ConsolidatedBloombergLoader:
             df = df[df["date"] <= pd.to_datetime(as_of)]
         return df
 
-    def get_spot_price(self, ticker: str, as_of: Optional[str] = None) -> Optional[float]:
+    def get_spot_price(self, ticker: str, as_of: str | None = None) -> float | None:
         """Get the spot price for a ticker."""
         ohlcv = self.get_ohlcv(ticker)
         if ohlcv is None or ohlcv.empty:
@@ -595,7 +607,7 @@ class ConsolidatedBloombergLoader:
 
         return float(ohlcv["close"].iloc[-1])
 
-    def get_iv_rank(self, ticker: str, window: int = 252) -> Optional[float]:
+    def get_iv_rank(self, ticker: str, window: int = 252) -> float | None:
         """Compute IV rank for a ticker."""
         iv_history = self.get_iv_history(ticker)
         if iv_history is None or len(iv_history) < window:
@@ -685,7 +697,7 @@ class ConsolidatedBloombergLoader:
 
 
 # Singleton instance
-_loader: Optional[ConsolidatedBloombergLoader] = None
+_loader: ConsolidatedBloombergLoader | None = None
 
 
 def get_bloomberg_loader(auto_load: bool = True) -> ConsolidatedBloombergLoader:

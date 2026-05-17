@@ -821,7 +821,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 p_otm = 0.70
             ev_dollars = p_otm * premium * 100
 
-        ev = ev_dollars  # committee schema label, dollar-valued
+        # AUDIT: CandidateTrade.expected_value is schema-documented as a
+        # percentage and every advisor renders it with a "%" — feeding the
+        # raw dollar EV produced nonsense like "EV 6199%". Convert the
+        # dollar EV to return on capital-at-risk for the cash-secured put.
+        contracts = 1
+        capital_at_risk = strike * 100 * contracts
+        ev_pct = (ev_dollars / capital_at_risk * 100) if capital_at_risk > 0 else 0.0
 
         # Build realistic AdvisorInput
         trade = CandidateTrade(
@@ -832,8 +838,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             dte=dte,
             delta=delta,
             premium=round(premium, 2),
-            contracts=1,
-            expected_value=round(ev, 2),
+            contracts=contracts,
+            expected_value=round(ev_pct, 2),
             p_otm=round(p_otm, 2),
             p_profit=round(p_otm * 0.95, 2),
             iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
@@ -865,11 +871,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         )
 
         vix_level = vix_data.get("vix", 20)
+        # AUDIT: the connector returns vix_percentile as a 0-1 fraction,
+        # but MarketContext.vix_percentile and every advisor expect 0-100
+        # (simons/taleb format it as "{:.0f}th percentile"). Without this,
+        # VIX 0.91 rendered as "1th percentile" and flipped Taleb's regime
+        # read from "stressed" to "complacency".
+        vix_pctile = vix_data.get("vix_percentile", 50.0)
+        if vix_pctile < 1:
+            vix_pctile *= 100
         regime = RegimeType.HIGH_VOL if vix_level > 25 else RegimeType.NORMAL
         market = MarketContext(
             regime=regime,
             vix=vix_level,
-            vix_percentile=vix_data.get("vix_percentile", 50),
+            vix_percentile=vix_pctile,
             spy_price=spot,
             spy_50ma=spot * 0.98,
             spy_200ma=spot * 0.95,

@@ -47,52 +47,91 @@ def _stock_eod_csv(rows: list[tuple[str, float, float, float, float, int]] | Non
 
 
 def _expirations_csv(dates: list[str] | None = None) -> str:
-    """Build a /v3/option/list/expirations CSV (one column 'expiration').
+    """Build a /v3/option/list/expirations CSV matching live wire shape.
 
-    Dates must be ISO ('YYYY-MM-DD') so pandas auto-parses them.
-    Pandas does NOT auto-parse 'YYYYMMDD' strings — they get treated
-    as integer nanoseconds and round to 1970.
+    Live shape:  symbol,expiration   with values like '"SPY","2012-06-01"'.
+    Connector reads only the `expiration` column, but emitting `symbol`
+    too keeps the mock honest. ISO dates so pandas auto-parses.
+    Reference fixture: tests/fixtures/theta_v3_option_expirations_spy.csv.
     """
     dates = dates or ["2026-01-17", "2026-02-21", "2026-03-20"]
-    return "expiration\n" + "\n".join(dates)
+    rows = [f'"AAPL","{d}"' for d in dates]
+    return "symbol,expiration\n" + "\n".join(rows)
 
 
 def _greeks_csv(strikes: list[float] | None = None) -> str:
-    """Build a /v3/option/snapshot/greeks/first_order CSV.
+    """Build a /v3/option/snapshot/greeks/first_order CSV matching the
+    LIVE v3 wire shape.
 
-    For each strike, returns one row per side (call + put) with greeks + iv.
+    Real columns: symbol,expiration,strike,right,timestamp,
+    bid,ask,delta,theta,vega,rho,epsilon,lambda,
+    implied_vol,iv_error,underlying_timestamp,underlying_price.
+
+    Note: no `gamma` (first-order endpoint, gamma is second-order/PRO).
+    IV column is `implied_vol`, not `iv` — the connector renames it.
+    `right` is uppercase quoted (`"CALL"`, `"PUT"`); connector lowercases.
+    Reference fixture: tests/fixtures/theta_v3_option_greeks_first_order_spy.csv.
     """
     strikes = strikes or [140.0, 150.0, 160.0]
-    header = "symbol,expiration,strike,right,delta,gamma,theta,vega,rho,iv,bid,ask\n"
+    header = (
+        "symbol,expiration,strike,right,timestamp,"
+        "bid,ask,delta,theta,vega,rho,epsilon,lambda,"
+        "implied_vol,iv_error,underlying_timestamp,underlying_price\n"
+    )
+    ts = "2026-01-01T17:15:00.000"
     rows = []
     for k in strikes:
-        # Call: positive delta, OTM puts have negative delta
         call_delta = 0.5 + (150.0 - k) * 0.01
         put_delta = -0.5 - (k - 150.0) * 0.01
-        rows.append(f"AAPL,20260221,{k},call,{call_delta},0.02,-0.05,0.20,0.01,0.25,1.50,1.55")
-        rows.append(f"AAPL,20260221,{k},put,{put_delta},0.02,-0.05,0.20,0.01,0.27,1.40,1.45")
+        rows.append(
+            f'"AAPL","2026-02-21",{k},"CALL",{ts},'
+            f"1.50,1.55,{call_delta},-0.05,0.20,0.01,0.0,0.0,"
+            f"0.25,0.0,{ts},150.0"
+        )
+        rows.append(
+            f'"AAPL","2026-02-21",{k},"PUT",{ts},'
+            f"1.40,1.45,{put_delta},-0.05,0.20,0.01,0.0,0.0,"
+            f"0.27,0.0,{ts},150.0"
+        )
     return header + "\n".join(rows)
 
 
 def _quotes_csv(strikes: list[float] | None = None) -> str:
-    """Build a /v3/option/snapshot/quote CSV with bid/ask only."""
+    """Build a /v3/option/snapshot/quote CSV matching the LIVE v3 wire shape.
+
+    Real columns: timestamp,symbol,expiration,strike,right,
+    bid_size,bid_exchange,bid,bid_condition,
+    ask_size,ask_exchange,ask,ask_condition.
+
+    Reference fixture: tests/fixtures/theta_v3_option_quote_spy.csv.
+    """
     strikes = strikes or [140.0, 150.0, 160.0]
-    header = "symbol,expiration,strike,right,bid,ask,bid_size,ask_size\n"
+    header = (
+        "timestamp,symbol,expiration,strike,right,"
+        "bid_size,bid_exchange,bid,bid_condition,"
+        "ask_size,ask_exchange,ask,ask_condition\n"
+    )
+    ts = "2026-01-01T17:15:00.000"
     rows = []
     for k in strikes:
-        rows.append(f"AAPL,20260221,{k},call,1.50,1.55,10,20")
-        rows.append(f"AAPL,20260221,{k},put,1.40,1.45,12,18")
+        rows.append(f'{ts},"AAPL","2026-02-21",{k},"CALL",10,7,1.50,0,20,7,1.55,0')
+        rows.append(f'{ts},"AAPL","2026-02-21",{k},"PUT",12,7,1.40,0,18,7,1.45,0')
     return header + "\n".join(rows)
 
 
 def _open_interest_csv(strikes: list[float] | None = None) -> str:
-    """Build a /v3/option/snapshot/open_interest CSV."""
+    """Build a /v3/option/snapshot/open_interest CSV matching live shape.
+
+    Real columns: timestamp,symbol,expiration,strike,right,open_interest.
+    Reference fixture: tests/fixtures/theta_v3_option_open_interest_spy.csv.
+    """
     strikes = strikes or [140.0, 150.0, 160.0]
-    header = "symbol,expiration,strike,right,open_interest\n"
+    header = "timestamp,symbol,expiration,strike,right,open_interest\n"
+    ts = "2026-01-01T06:30:00.000"
     rows = []
     for k in strikes:
-        rows.append(f"AAPL,20260221,{k},call,5000")
-        rows.append(f"AAPL,20260221,{k},put,3500")
+        rows.append(f'{ts},"AAPL","2026-02-21",{k},"CALL",5000')
+        rows.append(f'{ts},"AAPL","2026-02-21",{k},"PUT",3500')
     return header + "\n".join(rows)
 
 
@@ -354,10 +393,14 @@ class TestGetOptionChain:
         assert puts["mid"].iloc[0] == pytest.approx(1.425)
 
     def test_iv_alias_renamed(self, mock: rm_module.Mocker, connector: ThetaConnector):
-        # Greeks endpoint returns 'implied_vol' instead of 'iv'
-        text = "symbol,expiration,strike,right,delta,gamma,theta,vega,rho,implied_vol,bid,ask\n"
-        text += "AAPL,20260221,150.0,call,0.5,0.02,-0.05,0.20,0.01,0.25,1.50,1.55\n"
-        text += "AAPL,20260221,150.0,put,-0.5,0.02,-0.05,0.20,0.01,0.27,1.40,1.45\n"
+        # Direct test of the implied_vol → iv rename path. Inline CSV mirrors
+        # the live wire shape (ISO date, uppercase right) so the merge keys
+        # match the quote/oi helpers.
+        text = (
+            "symbol,expiration,strike,right,delta,theta,vega,rho,implied_vol,bid,ask\n"
+            '"AAPL","2026-02-21",150.0,"CALL",0.5,-0.05,0.20,0.01,0.25,1.50,1.55\n'
+            '"AAPL","2026-02-21",150.0,"PUT",-0.5,-0.05,0.20,0.01,0.27,1.40,1.45\n'
+        )
         mock.get(re.compile(r".*greeks/first_order.*"), text=text)
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv([150.0]))
         mock.get(re.compile(r".*open_interest.*"), text=_open_interest_csv([150.0]))
@@ -365,17 +408,80 @@ class TestGetOptionChain:
         assert "iv" in df.columns
         assert "implied_vol" not in df.columns
 
-    def test_iv_percent_form_normalised_to_decimal(
-        self, mock: rm_module.Mocker, connector: ThetaConnector
-    ):
-        # IV reported as 25 (percent form) should be normalised to 0.25
-        text = "symbol,expiration,strike,right,delta,gamma,theta,vega,rho,iv,bid,ask\n"
-        text += "AAPL,20260221,150.0,call,0.5,0.02,-0.05,0.20,0.01,25.0,1.50,1.55\n"
-        mock.get(re.compile(r".*greeks/first_order.*"), text=text)
-        mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv([150.0]))
-        mock.get(re.compile(r".*open_interest.*"), text=_open_interest_csv([150.0]))
-        df = connector.get_option_chain("AAPL", expiration="20260221")
-        assert df["iv"].iloc[0] == pytest.approx(0.25)
+    # NOTE: test_iv_percent_form_normalised_to_decimal removed — it
+    # exercised a defensive guard at engine/theta_connector.py:get_option_chain
+    # that has no live trigger (Theta v3 returns decimal IV). The mock
+    # fed an aspirational percent value the real API never sends; the
+    # passing test gave false confidence in a dead path.
+
+    def test_real_v3_chain_fixture(self, mock: rm_module.Mocker, connector: ThetaConnector):
+        """Load the three captured live-Terminal SPY chain responses and
+        prove the connector output matches the post-fix contract:
+
+          - `iv_error` and `underlying_timestamp` are stripped (they
+            previously leaked through to a substring-match quality gate
+            that treated `iv_error` as an IV column).
+          - `iv` values are decimal and within the quality-gate range.
+          - All consumer-facing columns are present.
+
+        Fixtures captured via:
+          curl 'http://127.0.0.1:25503/v3/option/snapshot/greeks/first_order?symbol=SPY&expiration=20260522'
+          curl 'http://127.0.0.1:25503/v3/option/snapshot/quote?symbol=SPY&expiration=20260522'
+          curl 'http://127.0.0.1:25503/v3/option/snapshot/open_interest?symbol=SPY&expiration=20260522'
+        """
+        fx = Path(__file__).parent / "fixtures"
+        greeks_text = (fx / "theta_v3_option_greeks_first_order_spy.csv").read_text(
+            encoding="utf-8"
+        )
+        quote_text = (fx / "theta_v3_option_quote_spy.csv").read_text(encoding="utf-8")
+        oi_text = (fx / "theta_v3_option_open_interest_spy.csv").read_text(encoding="utf-8")
+
+        mock.get(re.compile(r".*greeks/first_order.*"), text=greeks_text)
+        mock.get(re.compile(r".*snapshot/quote.*"), text=quote_text)
+        mock.get(re.compile(r".*open_interest.*"), text=oi_text)
+
+        df = connector.get_option_chain("SPY", expiration="20260522")
+
+        assert not df.empty
+        # Post-fix contract — leak columns removed
+        assert "iv_error" not in df.columns
+        assert "underlying_timestamp" not in df.columns
+        # Mandatory consumer-facing columns
+        for col in (
+            "symbol",
+            "expiration",
+            "strike",
+            "right",
+            "delta",
+            "theta",
+            "vega",
+            "rho",
+            "iv",
+            "bid",
+            "ask",
+            "mid",
+            "open_interest",
+            "underlying_price",
+        ):
+            assert col in df.columns, f"missing required column: {col}"
+        # IV is decimal and in valid range — the original bug surfaces here
+        iv = df["iv"].dropna()
+        assert iv.between(0, 5).all(), (
+            f"IV column has values outside [0, 5]: min={iv.min()}, max={iv.max()}"
+        )
+        # SPY 2026-05-22 chain has 241 strikes × 2 sides = 482 rows.
+        # All three endpoints carry the same (sym, exp, strike, right)
+        # keys with zero duplicates, so the merge is row-preserving.
+        # Lower bound kept loose so a future fixture refresh with
+        # different strike density doesn't break the test.
+        assert len(df) >= 400
+        # right column lowercased
+        assert set(df["right"].dropna().unique()) <= {"call", "put"}
+        # Spot-check: the deep-OTM put at strike 800 should be in the chain
+        # with iv ≈ 0.2314 per the captured fixture
+        spy_800_put = df[(df["strike"] == 800.0) & (df["right"] == "put")]
+        assert len(spy_800_put) == 1
+        assert spy_800_put.iloc[0]["iv"] == pytest.approx(0.2314, abs=0.001)
 
     def test_both_endpoints_empty_returns_empty(
         self, mock: rm_module.Mocker, connector: ThetaConnector
@@ -644,12 +750,13 @@ class TestGetSkewSnapshot:
         future = (datetime.now(UTC).date() + timedelta(days=35)).isoformat()
         mock.get(re.compile(r".*list/expirations.*"), text=_expirations_csv([future]))
         # Custom greeks fixture with strikes spanning the OTM spectrum
-        # Need delta=-0.25 put, -0.50 put, +0.25 call
+        # Need delta=-0.25 put, -0.50 put, +0.25 call. Inline shape
+        # matches live (ISO date, uppercase right) so the merge succeeds.
         text = (
-            "symbol,expiration,strike,right,delta,gamma,theta,vega,rho,iv,bid,ask\n"
-            "AAPL,20260221,140.0,put,-0.25,0.02,-0.05,0.20,0.01,0.30,1.40,1.45\n"
-            "AAPL,20260221,150.0,put,-0.50,0.02,-0.05,0.20,0.01,0.27,1.40,1.45\n"
-            "AAPL,20260221,160.0,call,0.25,0.02,-0.05,0.20,0.01,0.28,1.40,1.45\n"
+            "symbol,expiration,strike,right,delta,theta,vega,rho,iv,bid,ask\n"
+            '"AAPL","2026-02-21",140.0,"PUT",-0.25,-0.05,0.20,0.01,0.30,1.40,1.45\n'
+            '"AAPL","2026-02-21",150.0,"PUT",-0.50,-0.05,0.20,0.01,0.27,1.40,1.45\n'
+            '"AAPL","2026-02-21",160.0,"CALL",0.25,-0.05,0.20,0.01,0.28,1.40,1.45\n'
         )
         mock.get(re.compile(r".*greeks/first_order.*"), text=text)
         mock.get(re.compile(r".*snapshot/quote.*"), text=_quotes_csv([140.0, 150.0, 160.0]))

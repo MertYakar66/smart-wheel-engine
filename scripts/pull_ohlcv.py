@@ -32,9 +32,7 @@ result = pd.concat(all_chunks, ignore_index=True)
 result["date"] = pd.to_datetime(result["date"])
 result = result.sort_values(["ticker", "date"]).reset_index(drop=True)
 
-out_path = os.path.join(
-    os.path.dirname(__file__), "..", "data", "bloomberg", "sp500_ohlcv.csv"
-)
+out_path = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg", "sp500_ohlcv.csv")
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
 result.to_csv(out_path, index=False)
 

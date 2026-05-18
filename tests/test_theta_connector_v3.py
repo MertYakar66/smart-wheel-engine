@@ -59,9 +59,7 @@ def _stock_eod_csv(rows: list[tuple[str, float, float, float, float, int]] | Non
     body_lines = []
     for _sym, d, o, h, lo, c, v in rows:
         ts = f"{d[0:4]}-{d[4:6]}-{d[6:8]}T17:15:00.000"
-        body_lines.append(
-            f"{ts},{ts},{o},{h},{lo},{c},{v},0,0,0,0.0,0,0,0,0.0,0"
-        )
+        body_lines.append(f"{ts},{ts},{o},{h},{lo},{c},{v},0,0,0,0.0,0,0,0,0.0,0")
     return header + "\n".join(body_lines)
 
 

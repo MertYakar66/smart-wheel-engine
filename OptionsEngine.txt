@@ -1,0 +1,585 @@
+Smart Wheel Engine — How You Actually Use It
+A plain-language, end-to-end walkthrough with five real usage scenarios. Every step names the specific feature, module, or endpoint that does the work. Where the product cannot do something, I say so explicitly. This is how a trader spends a full day with the system.
+
+1. Mental model of the stack (30 seconds)
+Smart Wheel Engine is four layers stacked on top of each other, and everything you do touches them in this order:
+
+Layer	What it is	Key modules
+Data layer	SP500 OHLCV, option chains, earnings calendar, dividends, rates, VIX, fundamentals, IV history, macro/news feeds. All PIT-safe.	data/pipeline.py, engine/data_connector.py, financial_news/, news_pipeline/
+Quant brain	BSM + Greeks, empirical forward distributions, POT-GPD tail risk, Gaussian HMM regimes, Nelson-Siegel skew, t-copula portfolio CVaR, SVI volatility surface, dealer GEX / walls / flip level.	engine/option_pricer.py, engine/forward_distribution.py, engine/tail_risk.py, engine/regime_hmm.py, engine/skew_dynamics.py, engine/portfolio_copula.py, engine/volatility_surface.py, engine/dealer_positioning.py
+Decision engine	EVEngine with event lockout, dealer regime multiplier, heavy-tail penalty, chain quality gate, history gate, transaction costs (Almgren-Chriss sqrt impact). Authoritative ranker: WheelRunner.rank_candidates_by_ev.	engine/ev_engine.py, engine/wheel_runner.py, engine/event_gate.py, engine/candidate_dossier.py, engine/shared_valuation.py, engine/risk_manager.py, engine/stress_testing.py
+Interface layer	REST API (engine_api.py), Next.js dashboard, TradingView bridge (Pine indicator + webhook + screenshot dossier), CLI quant dashboard, local AI agent, committee review.	engine_api.py, dashboard/, tradingview/, local_agent/, advisors/, engine/trade_memo.py
+Hard rule (enforced by code, locked in by tests): no tradeable candidate ever reaches the trader without passing through EVEngine.evaluate(). Screenshots, news, committee verdicts can downgrade a trade but cannot upgrade a negative-EV one. Negative EV = blocked, period.
+
+2. Pre-market: the morning ritual (08:00–09:25 ET)
+Step 2.1 — Boot the engine
+python engine_api.py
+
+This starts the HTTP server on :8787. In parallel you launch the Next.js dashboard (dashboard/) and optionally the local agent (local_agent/main.py) for chart screenshot capture and AI memo generation.
+
+Step 2.2 — The news brief (what's moving today?)
+The news platform ingests continuously. At 08:00 you ask for the morning brief.
+
+Feature used: financial_news pipeline — zero-API-cost ingestion from SEC EDGAR, Fed, EIA, GDELT, and RSS feeds. Stories are classified, clustered, entity-extracted, impact-scored, ranked, and condensed into a brief by financial_news/processing/brief_generator.py.
+
+In parallel: news_pipeline/browser_agents/ uses a headless browser to query ChatGPT, Claude, and Gemini for their own market takes, then sanitizes and routes them through news_pipeline/security/classifier.py to avoid prompt-injection contamination. Everything is de-duplicated via story_clusterer.
+
+What the trader sees:
+
+5–10 ranked stories with impact scores
+Ticker tags (entity extraction already linked each story to affected names)
+Macro event calendar (today's FOMC, CPI, NFP, PCE releases)
+Earnings calendar for the trailing 30 days
+What we CAN do: ingest, cluster, score, rank, summarize, and route news into the decision engine as event flags (via engine/event_gate.py).
+
+What we CANNOT do: trade directly on sentiment — we never let raw news score upgrade an EV verdict. News only gates trades (hard lockout near earnings / FOMC) or flavors the committee review.
+
+Step 2.3 — The regime banner (what market are we in?)
+GET /api/regime
+GET /api/vix
+
+Behind these endpoints:
+
+engine/regime_detector.py — the rule-based phase classifier (compression / expansion / post-expansion / trend / normal) that also mirrors the Pine Script overlay.
+engine/regime_hmm.py — a 4-state Gaussian Hidden Markov Model (crisis / bear / normal / bull_quiet) fit on log-returns and realized vol. Produces a forward-filtered posterior and a position_multiplier() in [0, 1.25] that feeds the EV engine directly.
+engine/skew_dynamics.py::NelsonSiegelTermStructure — fits the IV term structure and reports level / slope / curvature. A steepening put skew over the last 5 days vs the 21-day mean flags risk-off.
+What the trader sees on the dashboard:
+
+VIX level + regime label ("normal" / "post_expansion" / "compression")
+HMM state posterior bar (e.g. 75% bull_quiet, 15% normal, 10% bear, 0% crisis)
+SVI skew slope arrow (steepening / flat / flattening)
+SP500 gamma flip level (computed via engine/dealer_positioning.py on an index proxy)
+What we CAN do: tell you what regime you're in with two independent models (rule-based + HMM) and a skew-momentum third opinion. All three feed the EV engine as scalar multipliers, not overrides.
+
+What we CANNOT do: predict the regime change. We're classifying the present, not forecasting the future — no 7-day regime forecast.
+
+Step 2.4 — The candidate table (what's worth trading?)
+This is the core of the product. One API call:
+
+GET /api/candidates?limit=15&dte=35&delta=0.25&min_ev=10
+
+Behind it, WheelRunner.rank_candidates_by_ev runs the full ranker:
+
+For each ticker in the universe (capped at 100 for performance):
+
+Pull PIT-safe OHLCV via data_connector.get_ohlcv with as_of filter
+History gate: reject if fewer than 504 trading days (survivorship-bias protection — audit V P0.2)
+Pull ATM IV from fundamentals
+Solve BSM delta for the strike at delta_target=0.25
+Compute a synthetic BSM-fair premium
+Build an empirical forward distribution via engine/forward_distribution.best_available_forward_distribution — cascading fallback: non-overlapping empirical → overlapping empirical → stationary block bootstrap → HAR-RV-conditioned Monte Carlo
+Event gate: reject if any earnings / FOMC / CPI / NFP / PCE within [trade_start − 5d, trade_end + 5d]
+Chain quality gate (audit V P0.3): reject if crossed markets, IV out of [0, 5], or expired contracts
+Call EVEngine.evaluate() with the forward distribution
+Inside the EV engine:
+
+Per-path P&L including assignment fee + dividend early-exercise penalty
+POT-GPD tail fit on losses → cvar_99_evt and tail_xi
+Heavy-tail penalty (multiplicative 0.5) if xi > 0.3
+Regime multiplier from HMM + dealer positioning (if enabled)
+Final ev_dollars, ev_per_day, prob_profit, prob_assignment, prob_touch, cvar_5, omega_ratio, edge_vs_fair, skew_pnl
+Sort by ev_per_day descending, return top N.
+
+What the trader sees:
+
+ticker  spot    strike  premium  ev/day  prob_profit  cvar_5    dealer_regime         distribution_source
+AAPL    187.40  180.00  1.85     +$1.20  0.76         -$280     long_gamma_dampening  empirical_non_overlapping
+MSFT    410.30  395.00  3.20     +$0.85  0.71         -$450     near_flip             empirical_non_overlapping
+JPM     205.10  197.50  2.10     +$0.65  0.73         -$220     long_gamma_dampening  empirical_non_overlapping
+...
+
+Every row carries authority="ev_ranked" and is reproducible from the stored inputs. There is no heuristic in the path.
+
+What we CAN do: rank the full SP500 tradeable universe in ~30 seconds, strictly PIT-safe, with event lockout, chain quality, survivorship guard, tail risk, dealer regime, and transaction costs already baked in.
+
+What we CANNOT do: rank the universe across option chains. We synthesize a mid-market premium at the target delta. Real bid/ask slippage can shift actual EV by 5–15% — we warn the trader but we don't auto-shop the chain. That's a phase-2 execution layer.
+
+Step 2.5 — The dealer positioning view (who's short gamma today?)
+For each of the top 5 candidates, fetch:
+
+GET /api/tv/dealer_positioning?ticker=AAPL&dte=35
+
+This calls DealerPositioningAnalyzer.analyze() on the full option chain for the expiry closest to 35 DTE. Output (audit V):
+
+{
+  "ticker": "AAPL",
+  "spot": 187.40,
+  "regime": "long_gamma_dampening",
+  "confidence": 0.78,
+  "gex_total": 2.4e9,
+  "dex_total": 1.8e9,
+  "vanna_total": -4.5e5,
+  "charm_total": -1.2e5,
+  "flip_level": 182.15,
+  "flip_distance_pct": -0.028,
+  "nearest_call_wall": { "strike": 195.0, "distance_pct": 0.041 },
+  "nearest_put_wall":  { "strike": 180.0, "distance_pct": -0.039 },
+  "pinning_zones": [187.5, 190.0],
+  "call_walls": [...top 3...],
+  "put_walls":  [...top 3...]
+}
+
+Interpretation in plain words (this is what the dashboard actually tells the trader):
+
+"Dealers are long gamma at AAPL (+$2.4 B per 1% move). They dampen realized vol, so short-premium trades benefit. Flip level is $182 — as long as spot stays above that, the dampening holds. Nearest put wall is at $180 (4% below spot) — selling the 180 strike is exactly where breach risk is concentrated. If you want to be safer, sell 175 or lower."
+
+What we CAN do: compute GEX/DEX/vanna/charm at the full-chain level, find the gamma walls and the zero-gamma flip, classify regime with confidence, and pipe the result directly into the EV multiplier (bounded [0.70, 1.05]).
+
+What we CANNOT do: know the true dealer book. We use the SpotGamma assumption (dealers long calls, short puts). That's the published convention, not market truth — it's an approximation. Real dealer data is a proprietary product we don't have access to. We expose the assumption as a configurable enum (DealerAssumption.LONG_CALLS_SHORT_PUTS vs SHORT_BOTH) so a trader can ablate.
+
+3. Example 1 — AAPL: the standard wheel entry (full trace)
+This is the bread-and-butter flow. The trader sees AAPL at the top of the morning candidate table and wants to enter.
+
+Action 1: Drill into AAPL
+GET /api/analyze/AAPL
+
+Returns a TickerAnalysis struct from WheelRunner.analyze_ticker:
+
+Fundamentals: mkt cap $3 T, P/E 32, beta 1.15, dividend yield 0.5%, credit rating AA+ (from data_connector.get_credit_risk)
+Vol: IV 30d = 23%, RV 30d = 18%, IV rank 42, VRP +5 points
+Events: next earnings 2026-05-01 (16 days away — inside the 35-DTE trade window), next ex-div 2026-05-10
+Regime: post-expansion, strangle-timing score 68/100
+Already a yellow flag: earnings are 16 days out, inside the trade expiry window.
+
+Action 2: Check the event gate explicitly
+The event gate already fired inside rank_candidates_by_ev but the trader confirms:
+
+GET /api/calendar?ticker=AAPL&days=45
+
+Returns from engine/event_calendar.py: earnings on May 1, macro FOMC on April 30, dividend ex-date May 10. With default earnings_buffer_days=5, a trade opened today expiring after May 1 is blocked outright. The trade doesn't make the list.
+
+Audit V P0.1/P0.3 in action: the event gate + chain quality gate run before EV is computed. The candidate is dropped from the ranking entirely, not merely down-weighted. The trader can override for research (use_event_gate=False kwarg on the runner) but the default tradeable path is safe.
+
+Action 3: The committee review (the character sanity check)
+GET /api/committee?ticker=AAPL
+
+This runs advisors/committee.py::CommitteeEngine with four personas:
+
+Buffett (advisors/buffett.py) — looks for "wonderful company at fair price": does the P/E / ROIC / moat story hold?
+Munger (advisors/munger.py) — quality filter, avoid stupidity: any red flags in the fundamentals?
+Simons (advisors/simons.py) — statistical: does the edge survive after costs and noise?
+Taleb (advisors/taleb.py) — tail risk: what's the worst case, and is this trade antifragile or fragile?
+Each persona returns a structured AdvisorScore with a confidence level. committee.py aggregates into a consensus verdict. For AAPL into earnings, you'd expect:
+
+Buffett: "quality business, fair price, pass until after earnings"
+Munger: "no stupidity, wait for dust to settle"
+Simons: "historical 3-day earnings-adjacent trades have edge, but variance dominates — skip"
+Taleb: "selling vol into a known event is the exact wrong convexity — strong skip"
+Committee consensus: skip, reason "earnings_imminent".
+
+What we CAN do: character-level sanity checks that complement the quant engine with explicit, named reasoning styles. Every committee decision is logged to an audit trail.
+
+What we CANNOT do: substitute committee verdicts for EV. The committee is a gate, not a decider. A Buffett "proceed" on a negative-EV trade stays blocked.
+
+Action 4: Decision — skip AAPL today, re-check after earnings
+The trader moves on. AAPL goes back on the watchlist with a reminder to re-evaluate May 2.
+
+4. Example 2 — MSFT: the news-driven setup (TradingView dossier flow)
+MSFT is ranked #2 in the morning table. IV rank 48, VRP +4 points, no earnings for 45 days, long-gamma regime. Looks clean — but the trader wants the visual sanity check before clicking.
+
+Action 1: Build the full dossier (Mode B)
+GET /api/tv/dossier?top_n=5&timeframe=1D
+
+This hits WheelRunner.build_candidate_dossiers — the engine-first TradingView workflow I designed in the strategic review:
+
+Rank candidates by EV (already done above)
+For each of the top N, load a TradingView screenshot from screenshots/MSFT/1D.png via FilesystemChartProvider. The screenshot was placed there earlier by the local agent (or by the Claude terminal session using Playwright).
+Run EnginePhaseReviewer with 6 rules:
+R1. Negative EV → blocked (hard guardrail, chart cannot rescue)
+R2. Missing/stale chart → review
+R3. Spot mismatch > 2% → skip (stale screenshot)
+R4. Phase contradiction (chart says compression, engine says sell) → skip
+R5. EV above threshold → proceed
+R6. Short-gamma + strike at/above put wall → downgrade proceed to review
+Returns:
+
+{
+  "ticker": "MSFT",
+  "ev_row": {
+    "strike": 395.0,
+    "premium": 3.20,
+    "ev_dollars": 28.5,
+    "prob_profit": 0.71,
+    "cvar_5": -450
+  },
+  "chart_context": {
+    "screenshot_path": "screenshots/MSFT/1D.png",
+    "captured_at": "2026-04-14T07:45:12",
+    "source": "filesystem",
+    "ok": true
+  },
+  "verdict": "proceed",
+  "verdict_reason": "ev_above_threshold",
+  "review_notes": [
+    "chart captured from filesystem at 2026-04-14T07:45:12",
+    "chart price 410.25 agrees with engine spot 410.30",
+    "ev_dollars=28.50 >= 10.0 — proceed"
+  ]
+}
+
+Action 2: The trader opens the screenshot
+The dashboard displays screenshots/MSFT/1D.png in a side panel. The trader sees:
+
+Bollinger bands widening after a compression phase — consistent with the engine's "post-expansion" label
+20-day SMA sloping up
+RSI at 54, neutral
+A visible support zone right around the 395 strike
+The visual layer confirms what the numbers said. No contradiction.
+
+What we CAN do: attach a real TradingView screenshot to every EV verdict and run a rule-based chart reviewer that enforces the "chart can downgrade, never upgrade" invariant. The screenshot source is pluggable — FilesystemChartProvider for terminal-captured images, PlaywrightChartProvider for engine-driven browser automation, ChainedChartProvider for automatic fallback.
+
+What we CANNOT do: auto-annotate the chart with LLM vision. We don't feed the image to Claude/GPT-4V to interpret it. The chart is a human sanity-check, not an AI decider. (This is a deliberate design choice from the audit: a chart-reading LLM would violate the "engine is the brain" principle.)
+
+Action 3: Generate the trade memo
+GET /api/memo?ticker=MSFT
+
+This runs engine/trade_memo.py::MemoGenerator which uses Ollama (local LLM — qwen2.5:32b or whatever's installed per _check_ollama) to produce a structured trade memo from:
+
+The full TickerAnalysis struct
+The EV result
+The dealer positioning view
+The committee verdict
+Recent relevant news stories (from financial_news/pipeline.py)
+Output (approximately):
+
+MSFT short put — 395 strike, 35 DTE
+
+EV per day: +$0.85. Probability of profit: 71%. Tail risk (CVaR-5): -$450. Dealer regime is long-gamma dampening with the flip level at 402 and nearest put wall at 390 — your 395 strike sits 5 points above the wall, which is acceptable but not ideal in a breach scenario. Next earnings are 45 days out, outside the trade window. The committee is unanimously positive. Proceed if position sizing keeps MSFT under 15% of total book exposure.
+
+The memo is stored in the audit log and displayed alongside the EV row.
+
+What we CAN do: generate audit-quality trade memos using a local LLM (no data leakage to cloud APIs) for every candidate, grounded in structured engine outputs.
+
+What we CANNOT do: produce memos without Ollama installed. The _check_ollama function returns available=false when it's not running and the dashboard shows a degraded state instead of crashing.
+
+Action 4: Enter the trade (manual)
+The dashboard shows a "Prepare Ticket" button that opens a modal with:
+
+Ticker: MSFT
+Strategy: short cash-secured put
+Strike: 395
+Expiry: 2026-05-19 (35 DTE)
+Quantity: 2 contracts (sized by Kelly / fractional from engine/risk_manager.py::position_size_kelly)
+Target credit: $3.20 per share = $640 total
+Margin requirement: $7,900 (from calculate_reg_t_margin_short_put)
+Breakeven: $391.80
+The trader hits confirm. At this point the engine hands off to the broker.
+
+What we CAN do: compose a trade ticket, compute margin, pre-stage the order, and log it in engine/wheel_tracker.py as NO_POSITION → SHORT_PUT state transition.
+
+What we CANNOT do: place the order at the broker automatically. ib_insync is a listed dependency but the actual execution layer is a stub — the trader copies the ticket into their IBKR TWS manually, or into any broker of their choice. This is by design: the audit explicitly drew the line at manual confirmation for wheel-scale decisions (30-45 DTE options, not high-frequency).
+
+5. Example 3 — SPX strangle: the macro-regime play
+The trader is running a second strategy alongside the wheel: short strangles on SPX when the regime is neutral and premium is rich. This is a different workflow that uses different modules.
+
+Action 1: Check the strangle timing
+GET /api/strangle?ticker=SPY
+GET /api/chart/strangle?ticker=SPY
+
+Backed by engine/strangle_timing.py::StrangleTimingEngine (and the IV-aware variant StrangleTimingWithIV). This scores:
+
+Layer 1: volatility lifecycle phase (compression / expansion / post-expansion) via Bollinger width + ATR
+Layer 2: IV rank / percentile via data_connector.get_iv_rank
+Layer 3: VIX regime + skew context
+Returns a 0-100 score + a phase label + a recommendation. Post-expansion + IV rank >60 + flat skew is ideal for symmetric strangles.
+
+Action 2: Compute the expected move
+GET /api/expected_move?ticker=SPY&dte=30
+
+Runs engine/payoff_engine.py with the current ATM IV to produce ±1σ / ±2σ cones. The dashboard overlays these on the chart.
+
+Action 3: Run the payoff diagram
+GET /api/payoff?ticker=SPY&strategy=strangle&dte=30
+
+Returns the full P&L curve from engine/payoff_engine.py. The trader can see breakevens, max profit, and the slope of losses outside the breakeven zone.
+
+Action 4: Portfolio-level risk check before sizing
+Before entering the strangle, the trader wants to know: if all my current positions move together in a crash, what's my joint tail risk?
+
+from engine.portfolio_copula import portfolio_cvar_copula
+res = portfolio_cvar_copula(
+    marginals=[historical_returns_per_position],
+    correlation=corr_matrix,
+    weights=position_weights,
+    confidence=0.99,
+    n_samples=10000,
+    t_copula_df=5.0,
+)
+
+This runs both a Gaussian copula simulation and a Student-t(5) copula simulation. The t-copula captures tail dependence — the conditional probability that asset B crashes given asset A crashed — which Gaussian understates by design. Output:
+
+gaussian_cvar: $12,400
+t_cvar:        $17,800
+tail_amplification: 1.44x
+verdict: material_tail_dependence
+
+The t-copula says your 1% CVaR is 44% worse than the Gaussian model thinks. That's a big difference for position sizing. The trader cuts the strangle size from 5 contracts to 3.
+
+What we CAN do: run proper copula-based joint simulations for portfolio CVaR instead of the standard Gaussian-correlation approach that understates tail dependence.
+
+What we CANNOT do: fit the copula parameters from your book's historical P&L — the t-copula df is a user input (we default to 5, which is the SPX-calibrated value). Calibrating per-book requires a backtest that we haven't run.
+
+Action 5: Stress-test the position
+from engine.stress_testing import StressTester
+tester = StressTester()
+ladder = tester.greeks_stress_ladder(
+    positions=current_book + proposed_strangle,
+    spot_prices=spots,
+    portfolio_value=500_000,
+    spot_range=(-0.15, 0.15),
+)
+print(ladder[["spot_shock", "total_pnl", "delta_pnl", "gamma_pnl", "vega_pnl", "reliable"]])
+
+Output is the per-spot-shock P&L decomposition (delta, gamma, vega contributions). Audit V P1 adds the reliable column: any row where the Taylor-expansion residual exceeds 10% is flagged reliable=False, and ladder.attrs["residual_gate_passed"] tells you if the whole table is trustworthy. High-residual rows are never shown in the dashboard as authoritative attribution.
+
+Pre-canned scenarios:
+
+tester.run_scenario("2008 Financial Crisis")   # -40% spot, +40 vol pts
+tester.run_scenario("COVID Crash")              # -35% spot, +50 vol pts
+tester.run_scenario("Volatility Explosion")     # flat spot, +30 vol pts
+tester.run_scenario("Rate Shock")               # +100 bps parallel shift
+
+What we CAN do: compute Taylor-expansion P&L attribution across a grid of shocks, flag rows where the decomposition is unreliable, and apply historical crisis scenarios with documented parameters.
+
+What we CANNOT do: run full non-linear Monte Carlo revaluation across every strike in the book — the stress ladder is a linear decomposition, not a full-book repricing. For that you'd use engine/risk_manager.py::calculate_monte_carlo_var which does Cholesky-correlated joint simulations with optional jump diffusion.
+
+6. Example 4 — Position management: rolling vs assignment
+Two weeks later, the MSFT short put is at 60% profit. Spot has drifted up from 410 to 418. DTE has dropped from 35 to 21. The engine wakes the trader up.
+
+Action 1: Mark-to-market all open positions
+GET /api/portfolio?tickers=MSFT,AAPL,JPM,SPY
+
+Runs WheelRunner.portfolio_report which aggregates:
+
+Per-ticker TickerAnalysis
+Portfolio Greeks (from engine/risk_manager.py::aggregate_portfolio_greeks)
+Sector allocation
+Upcoming events across all names
+Time-weighted return (via engine/portfolio_tracker.py)
+The dashboard shows:
+
+MSFT short put 395 5/19   entry $3.20   current $1.28   P&L +$192  (60% of max)  DTE 21
+
+Action 2: Roll or take profit?
+The trader asks the engine for the roll-vs-assignment decision:
+
+from src.features.assignment import AssignmentFeatures
+score = AssignmentFeatures.roll_vs_assignment_score(
+    spot=418,
+    strike=395,
+    current_premium=1.28,
+    roll_premium=2.85,  # same strike, next 45-DTE expiry
+    days_to_expiry=21,
+    roll_dte=45,
+)
+
+Returns structured decision factors: roll_yield_annualized, assignment_profit_pct, days_extended, premium_improvement, and an action recommendation.
+
+More importantly, the wheel state machine in engine/wheel_tracker.py enforces the legal transitions:
+
+NO_POSITION → SHORT_PUT → { 
+    roll: close_short_put → open_new_short_put,
+    expire_otm: → NO_POSITION, 
+    assigned: → STOCK_OWNED → COVERED_CALL → ...
+}
+
+The state machine refuses illegal transitions (e.g. closing a position that doesn't exist). Every transition is logged with the full cost breakdown (commission + slippage + assignment fee via engine/transaction_costs.py).
+
+Action 3: Simulate the roll before doing it
+This is where engine/shared_valuation.py::simulate_option_trade earns its keep. The trader simulates both the current position expiry scenarios AND a hypothetical new position:
+
+from engine.shared_valuation import simulate_option_trade
+outcome = simulate_option_trade(
+    option_type="put",
+    strike=395,
+    entry_premium=2.85,
+    entry_date=date.today(),
+    expiration_date=date.today() + timedelta(days=45),
+    entry_iv=0.22,
+    ohlcv_df=msft_history,
+    iv_trajectory=msft_iv_history,  # audit I fix — no more constant-IV bias
+    early_assignment_on_div=True,
+    ex_div_date=date(2026, 5, 10),
+    expected_dividend=0.75,
+)
+
+The simulator walks every day of the 45-day holding period, marks to market using the daily IV trajectory (not a flat entry IV — audit I fixed this), checks profit target / stop loss / expiration, handles American early exercise on dividend dates (audit II added this), and returns a full TradeOutcome with gross P&L, entry/exit costs, assignment costs, and the max profit/loss reached during the hold.
+
+The trader can run this for both the roll and the "hold to expiry" scenarios and compare.
+
+What we CAN do: simulate any wheel trade with realistic daily mark-to-market, American-style early exercise on dividends, full transaction cost accounting, and stop-loss / profit-target logic that matches the live simulator exactly (train-test consistency for ML models).
+
+What we CANNOT do: simulate under a different IV surface than the one we have. If we don't have a daily IV time series for the ticker, we fall back to constant-IV mode and the simulator prints a clear warning in its docstring.
+
+Action 4: Decision and log
+The trader takes the 60% profit and closes. wheel_tracker.close_short_put() updates the state to NO_POSITION, logs the realized P&L, and the portfolio tracker updates TWR.
+
+7. Example 5 — End-of-day review and the next day's prep
+Markets close. The trader spends 15 minutes on the review ritual.
+
+Action 1: Regenerate the candidate list for tomorrow
+Same call as the morning, but with tomorrow's date:
+
+GET /api/candidates?as_of=2026-04-15&limit=15
+
+The as_of PIT filter ensures nothing from "future" observations leaks into the forward distributions or the regime multipliers. This is a core invariant locked in by tests/test_point_in_time.py and tests/test_audit_invariants.py.
+
+Action 2: Run the calibration gate on the wheel model
+The wheel entry ML model (ml/wheel_model.py) predicts prob_profit for each historical trade. If those probabilities become uncalibrated (model says 70% but empirical hit rate is 45%), the whole downstream EV calculation is invalid.
+
+Audit II added the gate:
+
+from ml.model_governance import DriftDetector
+result = DriftDetector.check_calibration(
+    predicted_probs=last_30_days_predictions,
+    observed_outcomes=last_30_days_actuals,
+    max_brier_score=0.20,
+    n_bins=10,
+)
+print(result)
+
+Output:
+
+{
+  "brier_score": 0.168,
+  "ece": 0.034,
+  "passed": true,
+  "reliability": [...reliability diagram data...],
+  "gate_reason": "ok"
+}
+
+If passed=false, the dashboard shows a red banner: "MODEL CALIBRATION DEGRADED — review before next session". Trades continue to be ranked, but every EV row carries a model_confidence=low flag. Champion/challenger promotion in ml/model_governance.py::ChampionChallenger refuses to promote a shadow model that fails calibration.
+
+Action 3: Survivorship bias audit (weekly ritual)
+from data.pipeline import DataPipeline
+pipeline = get_data_pipeline()
+audit = pipeline.audit_survivorship_bias(
+    start_date="2020-01-01",
+    end_date="2026-04-14",
+    expected_constituents=load_historical_sp500_members("2020-01-01"),
+)
+print(audit)
+
+Returns:
+
+{
+  "period": "2020-01-01 to 2026-04-14",
+  "loaded_tickers": 503,
+  "complete_tickers": 478,
+  "backfilled_tickers": ["PLTR", "ABNB", "CRWD", ...],
+  "missing_tickers": ["BBY", "UAA", ...],  // likely delistings
+  "bias_score": 0.062,
+  "verdict": "MINOR: some bias present; verify against historical constituency"
+}
+
+A CRITICAL verdict (bias_score > 0.30) auto-disables backtesting in the dashboard until re-calibration. A MINOR or OK verdict lets the system proceed with a warning.
+
+What we CAN do: detect two kinds of survivorship bias — backfilled newcomers and missing delistings — and gate the downstream research/backtest paths.
+
+What we CANNOT do: fix the survivorship bias automatically. We don't have a historical SP500 constituency list by default. scripts/download_sp500_constituents.py exists as a one-time setup step; without it, the audit only catches backfilling, not delistings.
+
+Action 4: News brief for tomorrow
+GET /api/memo?ticker=top_gainers_losers_from_today
+
+The local agent (local_agent/) runs overnight. It's a Playwright-driven browser agent with a planner / verifier / DOM actor architecture (local_agent/agents/). It scrolls Yahoo Finance, Finviz, and Seeking Alpha, captures the day's big moves, summarizes them via Ollama, and drops the summaries into chroma_manager.py (a ChromaDB vector store) for the next morning's retrieval.
+
+The agent also refreshes TradingView screenshots for the next day's top 10 candidates so the FilesystemChartProvider has fresh images waiting when the trader opens the dashboard at 8am.
+
+What we CAN do: run an autonomous browser agent overnight that refreshes news, updates the vector memory, captures chart screenshots, and generates daily briefs. All local — no cloud API costs.
+
+What we CANNOT do: run the local agent without Playwright + Ollama installed. It's an optional component — the product works without it, you just lose the automation.
+
+8. What we CAN do (explicit capabilities)
+Data:
+
+Ingest SP500 OHLCV, option chains, IV history, earnings, dividends, rates, VIX, fundamentals, news (SEC EDGAR, Fed, EIA, GDELT, RSS, browser-scraped LLM outputs)
+Point-in-time filtering on every query (as_of parameter propagates through the stack)
+Data quality gates: crossed markets, stale quotes, expired contracts, IV out of range, bid/ask sanity, survivorship detection
+Quant:
+
+Full BSM + Greeks up to 3rd order (speed, color, ultima)
+American option pricing via binomial tree (CRR) and Longstaff-Schwartz MC
+Merton jump-diffusion for tail simulations
+POT-GPD extreme-value CVaR at 99% confidence
+Gaussian HMM 4-state regime detection with Viterbi decoding
+Nelson-Siegel IV term structure + skew momentum
+Gaussian and Student-t copula joint portfolio simulations
+SVI volatility surface with arbitrage-free calibration + empirical surface builder
+Dealer GEX / DEX / vanna / charm aggregation with gamma walls, flip level, pinning zones
+Empirical + block bootstrap + HAR-RV forward distribution builder
+Decision:
+
+Probabilistic EV ranking with CVaR, Omega, prob_profit, prob_assignment, prob_touch, skew, edge_vs_fair, breakeven
+Transaction cost modeling including Almgren-Chriss square-root market impact
+Event lockout for earnings, FOMC, CPI, NFP, PCE, ECB, BoE, dividends, splits
+Heavy-tail penalty, dealer regime multiplier, HMM regime multiplier
+History gate (504 days minimum), chain quality gate
+Committee review with 4 advisor personas (Buffett, Munger, Simons, Taleb)
+Wheel state machine for position lifecycle
+Full trade simulator with daily IV trajectory, early dividend exercise, realistic costs
+TradingView dossier with chart reviewer (6 rules, cannot upgrade negative EV)
+Risk:
+
+Portfolio Greeks aggregation
+Covariance VaR with PSD repair
+Historical + Monte Carlo + parametric VaR
+CVaR from POT-GPD fit for proper tail estimation
+Stress testing with Greeks P&L decomposition + reliability flagging
+Kelly / fractional / volatility-scaled position sizing
+Concentration and correlation constraints
+Interface:
+
+30+ REST API endpoints covering analysis, screening, committee, portfolio, charts, TradingView bridge
+Next.js dashboard for daily workflow
+CLI quant dashboard (dashboard/quant_dashboard.py)
+TradingView Pine indicator + webhook with HMAC + replay protection
+Local AI agent for overnight news, screenshots, memo generation
+Local Ollama integration for trade memos (no data leakage)
+Testing:
+
+1051 automated tests across every module
+Audit invariants: PIT safety, Greeks units, EV guardrails, HMAC security, chart reviewer downgrade-only semantics
+Zero regressions across 5 audit sprints
+9. What we CANNOT do (explicit limits)
+Capability	Why not	Workaround
+Place broker orders automatically	Deliberate: audit drew the line at manual confirmation for wheel decisions. ib_insync listed as dependency but execution layer is a stub.	Trader copies the pre-staged ticket into IBKR TWS manually.
+Classify tick-level options flow (sweeps, blocks)	Bloomberg CSV pipeline carries daily snapshots, not tick-level trade tape.	Use daily OI changes as a proxy via src/features/dynamics.py. Real flow is phase 2 (requires intraday data vendor).
+Backtest dealer positioning over history	We only store latest option-chain snapshots. Historical GEX backtests need a separate data engineering effort.	Use the live dealer view daily; deeper validation is a research project.
+Multi-asset beyond equity options	Models (forward distributions, regime HMM, dealer positioning) are calibrated to equity data.	Equities only by design. Crypto / FX / futures would need re-calibration.
+Real dealer book visibility	No vendor provides it. We use the SpotGamma convention as an explicit approximation.	Enum-selectable dealer assumption (LONG_CALLS_SHORT_PUTS vs SHORT_BOTH).
+Annotate chart screenshots with vision LLMs	Deliberate: violates the "chart is visual sanity check, not decider" guardrail.	Trader reads the chart. Engine produces the verdict.
+Charm / vanna in the EV multiplier	Not yet validated on historical data. Currently observability-only.	They're computed and displayed, but the multiplier only uses GEX + flip + walls.
+Walk the real option chain for execution	The ranker synthesizes a BSM-fair premium at the target delta. Real bid/ask chasing would require a live chain every time.	Phase 2 execution layer. For now, the trader shops the chain in their broker UI.
+Predict regime changes	We classify the present, we don't forecast.	Watch the HMM state probability drift day-over-day; sustained shifts flag regime transitions.
+Run without Python + scipy + pandas + numpy	The engine is a Python library.	That's fine for a private deployment; web UI is Next.js so end users only see HTTP.
+10. The 30-second investor summary
+What this product is: a probabilistic expected-value decision engine for short-put and covered-call wheel strategies, with market-structure awareness (dealer gamma) and hard quant guardrails (event lockouts, survivorship filters, calibration gates).
+
+Why it's not a retail toy:
+
+EV is computed from empirical forward distributions (non-overlapping → block bootstrap → HAR-RV cascade), not a Gaussian proxy.
+Tail risk uses POT-GPD extreme-value theory, not historical-simulation quantiles.
+Regime detection uses a 4-state Gaussian HMM plus Nelson-Siegel skew dynamics plus market-level GEX/flip/walls, three independent views.
+Portfolio CVaR uses Student-t copulas for tail dependence, not Gaussian correlation.
+Every candidate passes 6 hard gates (history, chain quality, event lockout, heavy-tail penalty, dealer regime, chart reviewer) before the trader sees it.
+1051 automated tests lock in every invariant.
+What it's not:
+
+Not a trading bot. The human clicks the final button.
+Not a screener. Screeners don't compute probabilistic EV with assignment probability and tail CVaR.
+Not a chart tool. TradingView is a visual sanity-check layer, not a decider.
+What makes it defensible:
+
+Every published signal (dealer GEX, HMM regime, POT-GPD CVaR, t-copula portfolio risk) is computed on a full option chain + OHLCV + IV surface in ~seconds. Retail tools compute none of this. Institutional tools compute some subset and charge $50k+/year for it.
+The decision authority is unified: no tradeable number anywhere in the product bypasses the EV engine. This is locked in by test test_candidates_does_not_call_screen_candidates among many others.
+The entire stack is PIT-safe by construction. This is not a retrofit; it's enforced at every data access with an as_of parameter that propagates through the ranker, feature store, forward distribution, and regime detector.
+What's not done:
+
+No live broker execution (manual confirmation by design, but wiring ib_insync is a 1-week engineering task when a broker partnership is in place).
+No historical GEX backtest (requires historical chain snapshots; 4-6 weeks data engineering).
+No tick-level flow classification (requires intraday vendor; phase 2).
+Where a trader gets edge: They stop selling premium in negative-GEX regimes below put walls. They stop entering into earnings. They stop using heuristic "wheel scores" and start ranking by ev_per_day with proper tail accounting. They stop trusting chart patterns over probabilistic edge. They keep the 20-50 basis points per year that bad discretionary overrides were costing them.
+
+Where the investor gets edge: a single Python codebase with 1051 green tests that implements, in one place, what SpotGamma + SqueezeMetrics + a GARCH-based risk system + an options analytics desk would each charge for separately — and wires them into a decision engine with hard guardrails that make negative-EV trades structurally impossible.
+
+That's the product, end to end. If you open the dashboard at 08:00, read the news brief, scan the candidate table, drill into the top 3, check their dossiers, run the committee, size via the risk manager, and click confirm on the tickets — that's a full morning in about 12 minutes using every feature I've described.

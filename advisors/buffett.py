@@ -266,8 +266,14 @@ YOUR TONE:
             )
         if len(key_reasons) < 2:
             notional = trade.strike * 100 * trade.contracts
-            pct = notional / input_data.portfolio.total_equity * 100
-            key_reasons.append(f"Position sizing: {pct:.1f}% of portfolio")
+            # total_equity <= 0 is the standalone sentinel (no real
+            # portfolio) — position size cannot be expressed as a % of a
+            # book that does not exist.
+            if input_data.portfolio.total_equity > 0:
+                pct = notional / input_data.portfolio.total_equity * 100
+                key_reasons.append(f"Position sizing: {pct:.1f}% of portfolio")
+            else:
+                key_reasons.append("Position sizing not assessed (no portfolio context)")
 
         # Ensure minimum critical_questions (spec: ≥1)
         if len(critical_questions) < 1:

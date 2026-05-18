@@ -862,7 +862,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 p_otm = 0.70
             ev_dollars = p_otm * premium * 100
 
-        ev = ev_dollars  # committee schema label, dollar-valued
+        # AUDIT: CandidateTrade.expected_value is schema-documented as a
+        # percentage and every advisor renders it with a "%" — feeding the
+        # raw dollar EV produced nonsense like "EV 6199%". Convert the
+        # dollar EV to return on capital-at-risk for the cash-secured put.
+        contracts = 1
+        capital_at_risk = strike * 100 * contracts
+        ev_pct = (ev_dollars / capital_at_risk * 100) if capital_at_risk > 0 else 0.0
 
         # Build realistic AdvisorInput
         trade = CandidateTrade(
@@ -873,8 +879,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             dte=dte,
             delta=delta,
             premium=round(premium, 2),
-            contracts=1,
-            expected_value=round(ev, 2),
+            contracts=contracts,
+            expected_value=round(ev_pct, 2),
             p_otm=round(p_otm, 2),
             p_profit=round(p_otm * 0.95, 2),
             iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
@@ -889,28 +895,45 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             and 0 < (analysis.days_to_earnings or 999) < dte,
         )
 
+        # AUDIT: the API committee evaluates a single candidate trade in
+        # isolation — there is no connected brokerage account, so there is
+        # no real portfolio to measure concentration or correlation
+        # against. The previous hardcoded $150k book made every trade read
+        # as a fabricated XX% concentration (a $368k BKNG put showed as
+        # "245% of portfolio"). total_equity=0.0 is the standalone
+        # sentinel: advisors treat a non-positive total_equity as "no
+        # portfolio context" and report concentration / sizing as not
+        # assessed rather than dividing the notional by an invented book.
         portfolio = PortfolioContext(
             positions=[],
-            total_equity=150000.0,
-            cash_available=50000.0,
-            buying_power=100000.0,
-            sector_allocation={"Technology": 30, "Healthcare": 20, "Financials": 20, "Other": 30},
-            top_5_concentration=50.0,
-            portfolio_beta=1.0,
-            portfolio_delta=0.5,
-            max_drawdown_30d=-5.0,
-            var_95=3.0,
-            open_positions_count=3,
-            total_premium_at_risk=5000.0,
-            total_margin_used=20000.0,
+            total_equity=0.0,
+            cash_available=0.0,
+            buying_power=0.0,
+            sector_allocation={},
+            top_5_concentration=0.0,
+            portfolio_beta=0.0,
+            portfolio_delta=0.0,
+            max_drawdown_30d=0.0,
+            var_95=0.0,
+            open_positions_count=0,
+            total_premium_at_risk=0.0,
+            total_margin_used=0.0,
         )
 
         vix_level = vix_data.get("vix", 20)
+        # AUDIT: the connector returns vix_percentile as a 0-1 fraction,
+        # but MarketContext.vix_percentile and every advisor expect 0-100
+        # (simons/taleb format it as "{:.0f}th percentile"). Without this,
+        # VIX 0.91 rendered as "1th percentile" and flipped Taleb's regime
+        # read from "stressed" to "complacency".
+        vix_pctile = vix_data.get("vix_percentile", 50.0)
+        if vix_pctile < 1:
+            vix_pctile *= 100
         regime = RegimeType.HIGH_VOL if vix_level > 25 else RegimeType.NORMAL
         market = MarketContext(
             regime=regime,
             vix=vix_level,
-            vix_percentile=vix_data.get("vix_percentile", 50),
+            vix_percentile=vix_pctile,
             spy_price=spot,
             spy_50ma=spot * 0.98,
             spy_200ma=spot * 0.95,

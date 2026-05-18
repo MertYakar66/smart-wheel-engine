@@ -149,7 +149,12 @@ class BaseAdvisor(ABC):
         # Calculate notional exposure
         notional = trade.strike * 100 * trade.contracts
 
-        # As percentage of portfolio
+        # As percentage of portfolio. total_equity <= 0 is the standalone
+        # sentinel (no real portfolio) — position size cannot be assessed
+        # without a book to measure against.
+        if portfolio.total_equity <= 0:
+            return "NOT ASSESSED: no portfolio context (standalone evaluation)"
+
         notional_pct = (notional / portfolio.total_equity) * 100
 
         if notional_pct > 10:

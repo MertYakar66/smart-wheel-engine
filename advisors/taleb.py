@@ -186,13 +186,21 @@ YOUR TONE:
             fragility_score += 20
             fragility_factors.append("Short gamma position (+20)")
 
-        # Concentrated in one name
+        # Concentrated in one name. total_equity <= 0 is the standalone
+        # sentinel (no real portfolio): single-name concentration cannot
+        # be computed without a book size, so report it as not assessed
+        # rather than dividing the notional by an invented total.
         notional = trade.strike * 100 * trade.contracts
-        notional_pct = (notional / portfolio.total_equity) * 100
-        if notional_pct > 5:
-            fragility_score += 15
+        if portfolio.total_equity > 0:
+            notional_pct = (notional / portfolio.total_equity) * 100
+            if notional_pct > 5:
+                fragility_score += 15
+                fragility_factors.append(
+                    f"Concentrated in single name at {notional_pct:.1f}% of portfolio (+15)"
+                )
+        else:
             fragility_factors.append(
-                f"Concentrated in single name at {notional_pct:.1f}% of portfolio (+15)"
+                "single-name concentration not assessed (no portfolio context)"
             )
 
         # Near earnings

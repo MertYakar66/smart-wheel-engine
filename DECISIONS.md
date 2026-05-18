@@ -168,7 +168,7 @@ section), `LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
 
 **Decision:** Provider selection is environment-driven via
 `SWE_DATA_PROVIDER` (default: `bloomberg`), read in
-`engine/wheel_runner.py:130` and `scripts/diagnose_candidates.py:59`.
+`engine/wheel_runner.py:131` and `scripts/diagnose_candidates.py:102`.
 Two providers: `bloomberg` (CSVs in git) and `theta` (live Theta v3).
 The SessionStart hook warns when the variable is unset.
 
@@ -178,7 +178,7 @@ the Terminal up uses theta. Hardcoding either would force code
 changes per environment.
 
 **Pinned by:** `CLAUDE.md` §3 (data-provider matrix),
-`engine/wheel_runner.py:130`, SessionStart hook.
+`engine/wheel_runner.py:131`, SessionStart hook.
 
 ---
 

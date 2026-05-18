@@ -27,7 +27,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | File | Purpose | Status | Role |
 |---|---|---|---|
-| `engine_api.py` | HTTP API on `:8787` (29 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
+| `engine_api.py` | HTTP API on `:8787` (32 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `audit.py` | Smoke-test client that hits `localhost:8787` and runs domain-grouped checks; used historically by audit-i through audit-viii. | live | infra |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
@@ -225,7 +225,7 @@ updated. See `PROJECT_STATE.md` §5.
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
-| `tests/` | 71 `test_*.py` files + `quant_benchmarks.py` shared fixtures (~1,700 tests). See `TESTING.md`. | live |
+| `tests/` | 72 `test_*.py` files + `quant_benchmarks.py` shared fixtures (~1,730 tests). See `TESTING.md`. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `CLAUDE.md` §3 for the provider matrix and what is committed vs. regenerable. | live |
 | `docs/` | `ARCHITECTURE.md` (stale, see PROJECT_STATE.md), `DATA_SPECIFICATION.md`, `GOVERNANCE.md`, `GREEKS_UNIT_CONTRACT.md` (canonical), `MODEL_CARDS.md`, `TRADINGVIEW_MCP_INTEGRATION.md` (current), `DATA_COLLECTION_REPORT.md`. | mixed |
 | `config/` | `settings.py`. | live |

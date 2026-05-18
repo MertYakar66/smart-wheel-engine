@@ -15,10 +15,10 @@ described here is no longer accurate.
 
 | Module | Public entry | Locked by |
 |---|---|---|
-| `engine/ev_engine.py` | `EVEngine.evaluate` (line 234) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*` |
+| `engine/ev_engine.py` | `EVEngine.evaluate` (line 237) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` (line 448) | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
 | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (line 109), rules R1–R6 | `tests/test_dossier_invariant.py` |
-| `engine_api.py` | HTTP API on `:8787`; 29 endpoints listed in the file header | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
+| `engine_api.py` | HTTP API on `:8787`; 32 endpoints listed in the file header | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
 tradeable verdict. Reviewers (chart provider, news sentiment, advisor
@@ -111,7 +111,7 @@ was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
 known):
 
 - `BF.B`, `BRK.B` — dotted-ticker symbols. Format is *already*
-  normalized in `engine/theta_connector.py:64-103` (`_normalise_theta_symbol`
+  normalized in `engine/theta_connector.py:134-160` (`_normalise_theta_symbol`
   maps `BRK-B` / `BRK/B` / `BRK B` → `BRK.B`). HTTP 472 on these
   means Theta has no historical data for them at this tier, **not** a
   format rejection. Confirmed by audit on 2026-05-05.
@@ -170,7 +170,7 @@ start; fast-forwarded cleanly to `433231f`.
 | File | Purpose |
 |---|---|
 | `CHANGELOG.md` | Human-readable summary of meaningful changes; companion to `PROJECT_STATE.md` (current) and `ROADMAP.md` (next). |
-| `DECISIONS.md` | 10 architectural decisions (D1–D10) with **Why** + **Rejected alternatives** + **Pinned by**. |
+| `DECISIONS.md` | 11 architectural decisions (D1–D11) with **Why** + **Rejected alternatives** + **Pinned by**. |
 | `ROADMAP.md` | Tracks A (decision-layer correctness), B (documentation drift to repair), C (hygiene + governance follow-ups), D (out of scope). |
 | `DATA_POLICY.md` | Three data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures, drive-mount caveats. |
 | `TRADINGVIEW_INTEGRATION.md` | Parent guide covering both engine bridge (Pine indicator + webhook → EV) and analyst workspace (Claude-driven TradingView Desktop via MCP). |
@@ -271,8 +271,9 @@ names, E741 ambiguous names) needs a follow-up PR. Tracked in
   treat `src/` as load-bearing. Empty subpackages: `src/execution/`,
   `src/models/`, `src/risk/`. Partially populated: `src/data/` (only
   `schemas.py`, `validators.py`), `src/features/` (mirrors what
-  `data/features/` consumes). Plan: either fully remove or fully
-  repopulate. Until then, do not add new modules under `src/`.
+  `data/features/` consumes), and `src/backtest/` (`wheel_backtest.py`).
+  Plan: either fully remove or fully repopulate. Until then, do not
+  add new modules under `src/`.
 - `models/`, `validation/` — empty placeholder dirs (`.gitkeep` only).
 - `dashboard/quant_dashboard.py` — legacy Python CLI dashboard. The
   primary dashboard is the Next.js app under `dashboard/src/`.

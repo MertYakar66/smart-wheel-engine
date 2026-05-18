@@ -51,6 +51,7 @@ class _FakeEVRunner:
     def __init__(self):
         self.rank_calls = []
         self.screen_calls = []
+        self.connector = _FakeConnector()
 
     def rank_candidates_by_ev(self, **kwargs):
         self.rank_calls.append(kwargs)

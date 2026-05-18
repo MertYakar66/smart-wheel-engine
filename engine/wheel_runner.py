@@ -466,6 +466,7 @@ class WheelRunner:
         min_history_days: int = 504,
         enforce_history_gate: bool = True,
         enforce_chain_quality_gate: bool = True,
+        universe_limit: int | None = None,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -492,8 +493,7 @@ class WheelRunner:
 
         Args:
             tickers: Explicit ticker list. When ``None`` the full universe
-                is used (capped at 100 for performance parity with the
-                legacy screen).
+                is ranked; pass ``universe_limit`` to cap the scan.
             dte_target: Target DTE for the synthetic trade.
             delta_target: Target put delta (positive; the sign is handled
                 internally).
@@ -503,6 +503,9 @@ class WheelRunner:
                 below this threshold.
             as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now.
             include_diagnostic_fields: Include CVaR, Omega, fair value, etc.
+            universe_limit: When ``tickers`` is ``None``, cap the scanned
+                universe to the first N names. ``None`` (default) ranks
+                the entire universe.
 
         Returns:
             DataFrame sorted by ``ev_per_day`` descending, or empty.
@@ -575,7 +578,9 @@ class WheelRunner:
                 credit_mult = 1.0
 
         if tickers is None:
-            tickers = conn.get_universe()[:100]
+            tickers = conn.get_universe()
+            if universe_limit is not None and universe_limit > 0:
+                tickers = tickers[:universe_limit]
 
         rows: list[dict] = []
         T = max(dte_target, 1) / 365.0
@@ -1134,6 +1139,7 @@ class WheelRunner:
         use_event_gate: bool = True,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
+        universe_limit: int | None = None,
     ) -> list:
         """Engine-first Mode B: rank by EV, then attach TradingView charts.
 
@@ -1160,8 +1166,8 @@ class WheelRunner:
             chart_timeframe: TradingView timeframe (``"1D"`` default).
             reviewer: Optional :class:`ChartReviewer`; defaults to
                 :class:`EnginePhaseReviewer`.
-            use_event_gate / earnings_buffer_days / macro_buffer_days:
-                Forwarded to :meth:`rank_candidates_by_ev`.
+            use_event_gate / earnings_buffer_days / macro_buffer_days /
+                universe_limit: Forwarded to :meth:`rank_candidates_by_ev`.
 
         Returns:
             List of :class:`CandidateDossier` with full EV + chart +
@@ -1182,6 +1188,7 @@ class WheelRunner:
             use_event_gate=use_event_gate,
             earnings_buffer_days=earnings_buffer_days,
             macro_buffer_days=macro_buffer_days,
+            universe_limit=universe_limit,
         )
 
         if ev_df is None or len(ev_df) == 0:

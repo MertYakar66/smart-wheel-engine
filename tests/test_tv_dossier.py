@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from engine.candidate_dossier import (
     CandidateDossier,
@@ -37,6 +38,9 @@ from engine.chart_context import ChartContext
 from engine.tradingview_bridge import (
     ChainedChartProvider,
     FilesystemChartProvider,
+    MCPCaptureResult,
+    MCPChartProvider,
+    MCPClientError,
     PlaywrightChartProvider,
     build_default_provider,
     build_tradingview_url,
@@ -537,3 +541,158 @@ class TestBuildDefaultProvider:
         p = build_default_provider(screenshots_dir=tmp_path, enable_playwright_fallback=True)
         assert isinstance(p, ChainedChartProvider)
         assert len(p.providers) == 2
+
+
+# =========================================================================
+# 10. MCPChartProvider (integration Stage 1 — offline contract skeleton)
+# =========================================================================
+class _FakeMCPClient:
+    """Test double for an MCPChartClient.
+
+    Returns a fixed :class:`MCPCaptureResult`, or raises a fixed
+    exception, and records every call so tests can assert call count
+    (the contract forbids retries inside the provider).
+    """
+
+    def __init__(self, *, result=None, exc=None):
+        self._result = result
+        self._exc = exc
+        self.calls: list[tuple[str, str]] = []
+
+    def capture(self, ticker, timeframe):
+        self.calls.append((ticker, timeframe))
+        if self._exc is not None:
+            raise self._exc
+        return self._result
+
+
+class TestMCPChartProvider:
+    """Provider mechanics. The dossier-routing contract (errored context
+    routes to review, PIT refusal) is pinned separately by the
+    now-active tests/test_dossier_invariant.py::test_mcp_provider_* tests.
+    """
+
+    def test_default_constructor_is_constructible_and_unconfigured(self):
+        # MCPChartProvider() with no args must work — the contract test
+        # builds one. A live fetch honestly reports mcp_unavailable
+        # because no tradingview-mcp server is wired in Stage 1.
+        provider = MCPChartProvider()
+        ctx = provider.fetch("AAPL", "1D")
+        assert ctx.error == "mcp_unavailable"
+        assert ctx.is_ok() is False
+        assert ctx.source == "mcp"
+        assert "tradingview.com" in ctx.browser_url
+
+    def test_pit_violation_short_circuits_before_client(self):
+        # as_of set → pit_violation, and the MCP client is NOT consulted
+        # (a live screenshot in a backtest is a look-ahead leak).
+        client = _FakeMCPClient(result=MCPCaptureResult(screenshot_path=Path("/unused.png")))
+        provider = MCPChartProvider(client=client)
+        ctx = provider.fetch("AAPL", "1D", as_of=datetime(2024, 6, 1))
+        assert ctx.error == "pit_violation"
+        assert ctx.screenshot_path is None
+        assert ctx.is_ok() is False
+        assert client.calls == []
+
+    def test_with_forced_error_produces_errored_context(self):
+        provider = MCPChartProvider.with_forced_error("screenshot_timeout")
+        ctx = provider.fetch("msft", "1D")
+        assert ctx.error == "screenshot_timeout"
+        assert ctx.is_ok() is False
+        assert ctx.ticker == "MSFT"
+
+    def test_with_forced_error_rejects_noncanonical_value(self):
+        # Contract §7: error strings are not invented ad hoc.
+        with pytest.raises(ValueError):
+            MCPChartProvider.with_forced_error("totally_made_up")
+
+    def test_successful_capture_builds_ok_context(self, tmp_path):
+        png = tmp_path / "AAPL_1D.png"
+        png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+        client = _FakeMCPClient(result=MCPCaptureResult(screenshot_path=png, visible_price=201.5))
+        ctx = MCPChartProvider(client=client).fetch("aapl", "1D")
+        assert ctx.is_ok() is True
+        assert ctx.error == ""
+        assert ctx.screenshot_path == png
+        assert ctx.visible_price == 201.5
+        assert ctx.source == "mcp"
+        assert ctx.ticker == "AAPL"
+
+    def test_visible_indicators_empty_in_m1(self, tmp_path):
+        # Contract §5: M1 does not populate a chart-derived phase.
+        png = tmp_path / "x.png"
+        png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+        client = _FakeMCPClient(result=MCPCaptureResult(screenshot_path=png))
+        ctx = MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert ctx.visible_indicators == {}
+
+    def test_client_error_maps_to_taxonomy(self):
+        client = _FakeMCPClient(exc=MCPClientError("browser_disconnected", "CDP session died"))
+        ctx = MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert ctx.error == "browser_disconnected"
+        assert ctx.is_ok() is False
+
+    def test_unexpected_exception_maps_to_unexpected_error(self):
+        # A non-MCPClientError leaking out of the client must not crash
+        # the provider — it maps to the canonical unexpected_error.
+        client = _FakeMCPClient(exc=RuntimeError("boom"))
+        ctx = MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert ctx.error == "unexpected_error"
+        assert ctx.is_ok() is False
+
+    def test_missing_screenshot_file_is_not_a_quiet_pass(self, tmp_path):
+        # Client claims success but the PNG is not on disk → the
+        # provider surfaces unexpected_error, never an is_ok()=False
+        # context with a blank error field.
+        ghost = tmp_path / "never_written.png"
+        client = _FakeMCPClient(result=MCPCaptureResult(screenshot_path=ghost))
+        ctx = MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert ctx.is_ok() is False
+        assert ctx.error == "unexpected_error"
+
+    def test_never_raises_on_client_failure(self):
+        client = _FakeMCPClient(exc=RuntimeError("kaboom"))
+        ctx = MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert isinstance(ctx, ChartContext)
+
+    def test_no_retries_one_client_call_per_fetch(self):
+        # Contract §7: no retries inside the provider.
+        client = _FakeMCPClient(exc=MCPClientError("mcp_unavailable"))
+        MCPChartProvider(client=client).fetch("AAPL", "1D")
+        assert len(client.calls) == 1
+
+
+class TestMCPChartProviderInChain:
+    """MCPChartProvider as one backend in a ChainedChartProvider."""
+
+    def test_chain_falls_through_mcp_to_filesystem(self, tmp_path):
+        # MCP errors → the chain falls through to a real filesystem
+        # screenshot. Not a "quiet substitution": the MCP provider
+        # returned an honest errored context and the chain legitimately
+        # used the next backend (design contract §4).
+        real_dir = tmp_path / "shots"
+        (real_dir / "AAPL").mkdir(parents=True)
+        (real_dir / "AAPL" / "1D.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+
+        chain = ChainedChartProvider(
+            [
+                MCPChartProvider.with_forced_error("mcp_unavailable"),
+                FilesystemChartProvider(base_dir=real_dir),
+            ]
+        )
+        ctx = chain.fetch("AAPL", "1D")
+        assert ctx.is_ok() is True
+        assert ctx.source == "filesystem"
+
+    def test_chain_surfaces_mcp_error_when_every_provider_fails(self, tmp_path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        chain = ChainedChartProvider(
+            [
+                FilesystemChartProvider(base_dir=empty),
+                MCPChartProvider.with_forced_error("mcp_unavailable"),
+            ]
+        )
+        ctx = chain.fetch("AAPL", "1D")
+        assert ctx.is_ok() is False
+        assert ctx.error == "mcp_unavailable"

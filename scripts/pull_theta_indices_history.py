@@ -240,14 +240,18 @@ def _last_theta_date(symbol: str) -> date | None:
 
 
 def main() -> int:
-    # CLI utf-8 fix for the Windows console. Inside main() so importing
-    # the module under pytest does not replace stdout/stderr globally,
-    # and gated to win32 so it never fires under tests that mock argv +
-    # invoke main() — capsys cannot follow a TextIOWrapper that the
-    # function under test installs after the test has set up capture.
-    if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    # CLI utf-8 fix for Windows: the console / redirected-output default
+    # code page (cp1252) cannot encode the em-dash and arrow characters
+    # this script prints. reconfigure() changes the encoding *in place* —
+    # unlike reassigning sys.stdout to a fresh TextIOWrapper, it keeps the
+    # same stream object, so pytest's capsys still captures main()'s
+    # output when the suite runs on Windows. (The old reassignment did
+    # not: it silently broke test_main_incremental_skips_when_only_today_
+    # remains on Windows while still passing on the Linux CI runner.)
+    if sys.platform == "win32":
+        for _stream in (sys.stdout, sys.stderr):
+            if isinstance(_stream, io.TextIOWrapper):
+                _stream.reconfigure(encoding="utf-8", errors="replace")
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", nargs="+", default=list(DEFAULT_SYMBOLS))

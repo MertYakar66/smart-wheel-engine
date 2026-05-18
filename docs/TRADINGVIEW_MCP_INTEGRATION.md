@@ -199,4 +199,16 @@ at implementation time.
 
 ## 9. Decision log
 
-Empty. Populated as decisions in §8 are made.
+| Decision | Resolution | Recorded |
+|---|---|---|
+| **Transport** | Option A — shell out to the `tv` CLI (JSON on stdout). Not MCP-over-stdio, not direct CDP. | `DECISIONS.md` D12 |
+| §8 q1 — MCP client location | New file `engine/mcp_client.py` (`MCPCLIClient`); the wrapper exceeds the ~150-line guidance, so it is not inlined in `tradingview_bridge.py`. | Stage 2 |
+| §8 q4 — PIT discipline | Adopted as proposed: `MCPChartProvider.fetch` returns `ChartContext(error="pit_violation")` immediately when `as_of` is set. | `tests/test_dossier_invariant.py::test_mcp_provider_pit_violation_when_as_of_set` |
+| §8 q5 — symbol mapping | The bare engine ticker is passed to `tv symbol`; TradingView resolves the listing. `TODO(live-verify)`: fall back to `EXCHANGE:TICKER` if the resolver mis-picks an ambiguous ticker. | `engine/mcp_client.py` |
+| §8 q2 — auth / session lifecycle | **Open** — gated on a human decision (which machine hosts TradingView Desktop; Windows launcher). | — |
+| §8 q3 — latency budget / default ordering | **Open** — gated on a live latency measurement. Stage 3 ships `MCPChartProvider` opt-in via `SWE_USE_MCP_CHART`, not default-first, until resolved. | — |
+
+Integration staging: Stage 1 (offline contract skeleton) and Stage 2
+(`MCPCLIClient`) are landed. Stage 3 (wiring `MCPCLIClient` as a
+provider default behind `SWE_USE_MCP_CHART`) is not started — gated on
+q2/q3.

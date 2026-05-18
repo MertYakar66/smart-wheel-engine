@@ -44,6 +44,7 @@ TradingView bridge:
 import hashlib
 import hmac
 import json
+import logging
 import sys
 import time
 import traceback
@@ -59,6 +60,8 @@ sys.path.insert(0, ".")
 
 from engine.data_connector import MarketDataConnector
 from engine.wheel_runner import WheelRunner
+
+logger = logging.getLogger(__name__)
 
 
 class NumpyEncoder(json.JSONEncoder):

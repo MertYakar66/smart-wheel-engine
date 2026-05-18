@@ -411,6 +411,50 @@ covering `ConnectionError` / `ReadTimeout` / `RetryError`).
 
 ---
 
+## D12. TradingView MCP transport is the `tv` CLI (Option A)
+
+**Decision:** The engine reaches the tradingview-mcp server by shelling
+out to its `tv` command-line interface (JSON on stdout), not by
+speaking the MCP-over-stdio JSON-RPC protocol and not by driving Chrome
+DevTools Protocol directly. `engine/mcp_client.py`'s `MCPCLIClient` is
+the concrete `MCPChartClient`: one `capture()` runs `tv symbol` /
+`tv timeframe` / `tv state` / `tv screenshot` as four subprocesses,
+exactly once each, no retries, every failure mapped to a canonical
+`MCP_ERROR_MODES` value. It is **not** wired as a provider default —
+`MCPChartProvider`'s default client stays `_UnconfiguredMCPClient`;
+promoting `MCPCLIClient` to a default behind `SWE_USE_MCP_CHART`
+(integration Stage 3) remains gated on a separate human decision.
+
+**Why:** `ChartContextProvider.fetch()` is synchronous and is called in
+a plain loop by `build_dossiers`. The MCP-over-stdio transport's Python
+SDK is asyncio-based; bridging async into the synchronous dossier path
+per call is fragile and adds a dependency. The `tv` CLI emits JSON
+explicitly "for piping with jq" — it is purpose-built for programmatic
+consumption, needs no new Python dependency, and is a documented,
+stable surface. The engine makes four fixed calls; it needs no MCP
+tool discovery, schema negotiation, or sampling.
+
+**Rejected alternatives:**
+- *Python MCP SDK (`mcp` package) over stdio.* Async; per-call
+  async→sync bridging is error-prone; adds a runtime dependency; the
+  tool-schema machinery is wasted on four fixed calls.
+- *Direct Chrome DevTools Protocol from Python.* Re-implements what the
+  MCP server already encapsulates (TradingView's undocumented internal
+  APIs). Defeats the point of integrating the server.
+
+**Live-verification caveat:** `MCPCLIClient` is written against the
+*documented* CLI of github.com/tradesdontlie/tradingview-mcp; it has
+not been run against a live server. Field-name and error-string
+assumptions carry `TODO(live-verify)` markers to resolve before
+Stage 3.
+
+**Pinned by:** `engine/mcp_client.py` (`MCPCLIClient`),
+`tests/test_mcp_client.py` (32 tests, all mocking `subprocess`),
+`engine/tradingview_bridge.py` (`MCPChartClient` protocol,
+`MCP_ERROR_MODES`), `docs/TRADINGVIEW_MCP_INTEGRATION.md` §9.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

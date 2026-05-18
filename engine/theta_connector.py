@@ -405,10 +405,23 @@ class ThetaConnector(MarketDataConnector):
         # Normalise column names (v3 returns lowercase)
         df.columns = [c.lower() for c in df.columns]
 
-        # v3 EOD columns: symbol, date, open, high, low, close, volume
-        for col in ("date",):
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
+        # v3 EOD response carries the bar timestamp as `created` (and
+        # `last_trade`), not `date`. Older v3 responses / mocks may still
+        # use `date` — accept either.
+        if "date" not in df.columns:
+            for src in ("created", "last_trade"):
+                if src in df.columns:
+                    df["date"] = pd.to_datetime(df[src], errors="coerce").dt.normalize()
+                    break
+        else:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+
+        if "date" not in df.columns:
+            logger.warning(
+                "ThetaData OHLCV missing date/created column for %s, using Bloomberg CSV",
+                ticker,
+            )
+            return super().get_ohlcv(ticker, orig_start, orig_end)
         df = df.dropna(subset=["date"])
 
         needed = [c for c in ("open", "high", "low", "close", "volume") if c in df.columns]

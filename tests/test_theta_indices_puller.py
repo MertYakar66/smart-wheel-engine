@@ -3,7 +3,7 @@
 The puller previously sent multi-year ``--years`` windows in a single
 request, tripping Theta's 365-day cap on ``/v3/index/history/*``. The
 HTTP 400 / 403 / 472 diagnostic bodies were dropped by the shared
-``ThetaConnector._fetch`` (engine/theta_connector.py:155) and the puller
+``ThetaConnector._fetch`` (engine/theta_connector.py:207) and the puller
 fell through three endpoints with all symbols marked FAIL in 11.4s.
 
 These tests lock in:

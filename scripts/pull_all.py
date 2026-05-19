@@ -40,13 +40,12 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(
-        sys.stdout.buffer, encoding="utf-8", errors="replace", write_through=True
-    )
-    sys.stderr = io.TextIOWrapper(
-        sys.stderr.buffer, encoding="utf-8", errors="replace", write_through=True
-    )
+# UTF-8-safe stdout/stderr (Windows console / redirected output);
+# reconfigure() mutates in place, so it stays safe under pytest's capsys.
+# write_through=True keeps the orchestrator's header prints unbuffered.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper):
+        _stream.reconfigure(encoding="utf-8", errors="replace", write_through=True)
 
 _ROOT = Path(__file__).resolve().parents[1]
 

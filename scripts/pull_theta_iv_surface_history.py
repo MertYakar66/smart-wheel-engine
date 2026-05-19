@@ -494,12 +494,12 @@ def _theta_up() -> bool:
 
 
 def main() -> int:
-    # CLI utf-8 fix (Windows console). Kept inside main() so that importing
-    # the module from a test runner doesn't replace stdout/stderr — that
-    # collides with pytest's capture machinery.
-    if hasattr(sys.stdout, "buffer"):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    # CLI utf-8 fix (Windows console / redirected output). reconfigure()
+    # changes the encoding in place — it does not replace stdout/stderr,
+    # so it stays safe under pytest's capture machinery.
+    for _stream in (sys.stdout, sys.stderr):
+        if isinstance(_stream, io.TextIOWrapper):
+            _stream.reconfigure(encoding="utf-8", errors="replace")
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--tickers", nargs="+")

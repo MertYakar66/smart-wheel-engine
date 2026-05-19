@@ -442,14 +442,18 @@ tool discovery, schema negotiation, or sampling.
   MCP server already encapsulates (TradingView's undocumented internal
   APIs). Defeats the point of integrating the server.
 
-**Live-verification caveat:** `MCPCLIClient` is written against the
-*documented* CLI of github.com/tradesdontlie/tradingview-mcp; it has
-not been run against a live server. Field-name and error-string
-assumptions carry `TODO(live-verify)` markers to resolve before
-Stage 3.
+**Live-verification (2026-05-19):** `MCPCLIClient` was verified against
+a live `tv` CLI (the `LewisWJackson/tradingview-mcp-jackson` fork)
+driving TradingView Desktop on Windows via CDP. Confirmed and fixed in
+`engine/mcp_client.py`: Windows `cmd /c` invocation of the npm-linked
+`tv` shim, the `success` status field, and the `file_path` screenshot
+key. `tv state` carries no price, so `visible_price` is `None` pending
+a future `tv quote` call (deferred by operator decision). Only the
+per-mode error strings in `_classify` remain unverified — no live
+error path was exercised.
 
 **Pinned by:** `engine/mcp_client.py` (`MCPCLIClient`),
-`tests/test_mcp_client.py` (32 tests, all mocking `subprocess`),
+`tests/test_mcp_client.py` (39 tests, all mocking `subprocess`),
 `engine/tradingview_bridge.py` (`MCPChartClient` protocol,
 `MCP_ERROR_MODES`), `docs/TRADINGVIEW_MCP_INTEGRATION.md` §9.
 

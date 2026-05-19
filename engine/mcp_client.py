@@ -18,7 +18,7 @@ calls, exactly once each:
 
     tv symbol <SYMBOL>      (chart_set_symbol)
     tv timeframe <TOKEN>    (chart_set_timeframe)
-    tv state                (chart_get_state)    -> visible_price
+    tv state                (chart_get_state)    -> symbol, timeframe
     tv screenshot -r chart  (capture_screenshot) -> screenshot_path
 
 Contract (docs/TRADINGVIEW_MCP_INTEGRATION.md §7)
@@ -36,16 +36,16 @@ Contract (docs/TRADINGVIEW_MCP_INTEGRATION.md §7)
 
 Live-verification status
 ------------------------
-This client is written against the **documented** CLI surface of
-github.com/tradesdontlie/tradingview-mcp. It has **not** been run
-against a live server (this environment has no TradingView Desktop and
-no MCP server). The upstream README names the ``tv`` subcommands but
-does **not** publish the JSON schema of their output. Every place that
-depends on an unconfirmed field name or error string is marked
-``TODO(live-verify)`` and coded defensively — multiple candidate keys,
-conservative fallback to ``unexpected_error``. Those markers must be
-resolved on a machine with the server running before Stage 3 wires this
-client onto the live decision path.
+Verified **2026-05-19** against a live ``tv`` CLI (the
+``LewisWJackson/tradingview-mcp-jackson`` fork) driving TradingView
+Desktop on Windows via CDP. Confirmed: the four-call sequence; the
+``success`` status field; bare-ticker resolution (``AAPL`` →
+``tv state`` reports ``BATS:AAPL``); ``tv state`` carries **no price**
+(symbol / resolution / studies only — ``visible_price`` stays ``None``
+pending a future ``tv quote`` call, deferred by operator decision); the
+screenshot path key is ``file_path``; payloads are flat (no envelope).
+The per-mode error strings used by :func:`_classify` were **not**
+exercised — that spot keeps its ``TODO(live-verify)`` marker.
 """
 
 from __future__ import annotations
@@ -53,6 +53,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -78,10 +79,10 @@ _TF_TO_CLI: dict[str, str] = {
     "1M": "M",
 }
 
-# TODO(live-verify): the tradingview-mcp README documents the ``tv``
-# subcommands but not the JSON schema of their stdout. The key tuples
-# below list plausible field names in priority order; confirm the real
-# ones against a running server and prune.
+# Field-name candidates for parsing ``tv`` JSON. Verified 2026-05-19:
+# ``tv state`` returns ``symbol`` + ``resolution`` (no price field) and
+# ``tv screenshot`` returns ``file_path``. The remaining candidates are
+# kept as defensive fallbacks against CLI-version drift.
 _PRICE_KEYS: tuple[str, ...] = (
     "price",
     "last",
@@ -93,6 +94,7 @@ _PRICE_KEYS: tuple[str, ...] = (
 _SYMBOL_KEYS: tuple[str, ...] = ("symbol", "ticker", "name")
 _TIMEFRAME_KEYS: tuple[str, ...] = ("timeframe", "interval", "resolution", "tf")
 _SCREENSHOT_PATH_KEYS: tuple[str, ...] = (
+    "file_path",
     "path",
     "file",
     "filepath",
@@ -146,15 +148,17 @@ class MCPCLIClient:
         tf_token = _TF_TO_CLI.get(timeframe, "D")
 
         # 1 + 2: point the chart at the requested symbol / timeframe.
-        # TODO(live-verify): the bare ticker is passed to `tv symbol`
-        # (TradingView resolves the listing). If the resolver picks the
-        # wrong venue for an ambiguous ticker, switch to EXCHANGE:TICKER.
+        # Verified 2026-05-19: the bare ticker resolves — `tv symbol AAPL`
+        # is accepted and `tv state` then reports the listing as
+        # `BATS:AAPL`. `tv symbol` / `tv timeframe` also return a
+        # `chart_ready` bool a future round could poll on.
         self._run(["symbol", symbol], step="chart_set_symbol")
         self._run(["timeframe", tf_token], step="chart_set_timeframe")
 
-        # 3: read the chart state back for the live spot price.
-        # TODO(live-verify): if a live screenshot races chart loading,
-        # a settle delay or a `tv state` readiness poll belongs here.
+        # 3: read the chart state for symbol / timeframe. Verified
+        # 2026-05-19: `tv state` carries NO price (symbol / resolution /
+        # studies only), so `visible_price` stays None until a separate
+        # `tv quote` call is added (deferred — operator decision).
         state = self._run(["state"], step="chart_get_state")
         visible_price = _extract_price(state)
         visible_symbol = _extract_str(state, _SYMBOL_KEYS)
@@ -180,6 +184,22 @@ class MCPCLIClient:
         )
 
     # -- internals -----------------------------------------------------
+    def _spawn_argv(self, args: list[str]) -> list[str]:
+        """Build the full subprocess argv for one ``tv`` call.
+
+        On Windows an ``npm link``-ed ``tv`` is a ``tv.cmd`` shim, and
+        :func:`subprocess.run` (``shell=False`` → ``CreateProcess``)
+        cannot launch a ``.cmd`` directly — it raises
+        ``FileNotFoundError``. So a bare single-token ``cli_command`` is
+        routed through ``cmd /c`` on Windows. A multi-token
+        ``cli_command`` (e.g. ``["node", ".../cli.js"]``) already names a
+        real executable and is passed through unchanged.
+        """
+        cmd = [*self.cli_command, *args]
+        if sys.platform == "win32" and len(self.cli_command) == 1:
+            return ["cmd", "/c", *cmd]
+        return cmd
+
     def _run(self, args: list[str], *, step: str) -> Any:
         """Run one ``tv`` subcommand; return its parsed JSON payload.
 
@@ -187,7 +207,7 @@ class MCPCLIClient:
         :class:`~engine.tradingview_bridge.MCPClientError`. No retries —
         a single :func:`subprocess.run` call.
         """
-        cmd = [*self.cli_command, *args]
+        cmd = self._spawn_argv(args)
         try:
             proc = subprocess.run(
                 cmd,
@@ -230,15 +250,21 @@ class MCPCLIClient:
             ) from exc
 
         if isinstance(payload, dict):
-            # TODO(live-verify): confirm whether the tv CLI signals
-            # failure with {"ok": false} / an "error" field, or only via
-            # the process exit code. Treating either as failure is safe.
-            if payload.get("ok") is False or payload.get("error"):
+            # Verified 2026-05-19: the tv CLI reports status via a
+            # ``success`` boolean. A ``{"success": false}`` payload is a
+            # failure even with no ``error`` string — without the
+            # ``success`` check it would slip through silently. ``ok`` is
+            # kept as a defensive fallback.
+            if (
+                payload.get("success") is False
+                or payload.get("ok") is False
+                or payload.get("error")
+            ):
                 detail = payload.get("error") or payload.get("message") or payload
                 raise _classify(step, str(detail))
-            # TODO(live-verify): confirm whether results are wrapped in a
-            # {"data": {...}} / {"result": {...}} envelope or returned
-            # bare. Descend into an envelope when one is present.
+            # Verified 2026-05-19: tv payloads are flat — no
+            # {"data": {...}} / {"result": {...}} envelope. The descent
+            # below is kept as a defensive fallback for CLI-version drift.
             for key in ("data", "result", "payload"):
                 inner = payload.get(key)
                 if isinstance(inner, dict):
@@ -272,7 +298,14 @@ def _classify(step: str, blob: str) -> MCPClientError:
         return MCPClientError("browser_disconnected", f"{step}: {blob[:200]}")
     if any(
         s in low
-        for s in ("econnrefused", "connection refused", "not running", "unreachable", ":9222")
+        for s in (
+            "econnrefused",
+            "connection refused",
+            "not running",
+            "unreachable",
+            ":9222",
+            "not recognized",
+        )
     ):
         return MCPClientError("mcp_unavailable", f"{step}: {blob[:200]}")
     return MCPClientError("unexpected_error", f"{step}: {blob[:200]}")

@@ -128,10 +128,9 @@ filings + events), **MT Newswires** (real-time news), **LSEG**
 2. **Clone the MCP server** (gitignored, manual install):
    ```bash
    cd tradingview/
-   git clone https://github.com/<org>/tradingview-mcp-jackson.git
+   git clone https://github.com/LewisWJackson/tradingview-mcp-jackson.git
    cd tradingview-mcp-jackson && npm install
    ```
-   (Replace the URL with the actual upstream — confirm with the user.)
 3. **Wire the MCP server into Claude Code.** Add to
    `.claude/mcp_servers.json` or use `claude mcp add` (see Claude
    Code MCP docs).

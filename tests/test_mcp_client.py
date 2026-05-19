@@ -45,6 +45,17 @@ def _completed(
 _TV_SUBCOMMANDS = ("symbol", "timeframe", "state", "screenshot")
 
 
+def _argv_tail(call: list[str]) -> list[str]:
+    """Drop the spawn prefix (``tv`` / ``node cli.js`` / ``cmd /c tv``)
+    from a recorded argv — return from the first tv-subcommand token
+    onward, so call-sequence assertions are platform-independent.
+    """
+    for i, tok in enumerate(call):
+        if tok in _TV_SUBCOMMANDS:
+            return call[i:]
+    return call
+
+
 class _FakeRun:
     """Stands in for subprocess.run.
 
@@ -93,11 +104,11 @@ class TestMCPCLIClientHappyPath:
         fake = _patch(monkeypatch, _FakeRun(_happy()))
         result = MCPCLIClient().capture("aapl", "1D")
 
-        assert fake.calls == [
-            ["tv", "symbol", "AAPL"],
-            ["tv", "timeframe", "D"],
-            ["tv", "state"],
-            ["tv", "screenshot", "-r", "chart"],
+        assert [_argv_tail(c) for c in fake.calls] == [
+            ["symbol", "AAPL"],
+            ["timeframe", "D"],
+            ["state"],
+            ["screenshot", "-r", "chart"],
         ]
         assert isinstance(result, MCPCaptureResult)
         assert result.screenshot_path == Path("/tmp/shot.png")
@@ -108,7 +119,7 @@ class TestMCPCLIClientHappyPath:
     def test_timeframe_token_mapping(self, monkeypatch):
         fake = _patch(monkeypatch, _FakeRun(_happy()))
         MCPCLIClient().capture("AAPL", "1h")
-        assert ["tv", "timeframe", "60"] in fake.calls
+        assert ["timeframe", "60"] in [_argv_tail(c) for c in fake.calls]
 
     def test_custom_cli_command_prefix(self, monkeypatch):
         fake = _patch(monkeypatch, _FakeRun(_happy()))
@@ -284,7 +295,7 @@ class TestMCPCLIClientNoRetries:
         with pytest.raises(MCPClientError):
             MCPCLIClient().capture("AAPL", "1D")
         # symbol failed → timeframe/state/screenshot never attempted.
-        assert fake.calls == [["tv", "symbol", "AAPL"]]
+        assert [_argv_tail(c) for c in fake.calls] == [["symbol", "AAPL"]]
 
     def test_one_call_per_step_through_screenshot(self, monkeypatch):
         fake = _patch(
@@ -449,3 +460,119 @@ class TestMCPCLIClientWithProvider:
         ctx = provider.fetch("AAPL", "1D", as_of=datetime(2024, 6, 1))
         assert ctx.error == "pit_violation"
         assert fake.calls == []
+
+
+# =====================================================================
+# 7. Live-verify fixes (2026-05-19) — Windows invocation + verified shapes
+# =====================================================================
+class TestMCPCLIClientLiveVerifyFixes:
+    def test_windows_wraps_bare_command_in_cmd_c(self, monkeypatch):
+        # #1: a bare ["tv"] on Windows is routed through `cmd /c` —
+        # subprocess cannot launch the tv.cmd npm shim directly.
+        monkeypatch.setattr("engine.mcp_client.sys.platform", "win32")
+        fake = _patch(monkeypatch, _FakeRun(_happy()))
+        MCPCLIClient().capture("AAPL", "1D")
+        assert fake.calls[0] == ["cmd", "/c", "tv", "symbol", "AAPL"]
+        assert _argv_tail(fake.calls[0]) == ["symbol", "AAPL"]
+
+    def test_windows_multitoken_command_not_wrapped(self, monkeypatch):
+        # A multi-token cli_command already names a real executable —
+        # it is not wrapped, even on Windows.
+        monkeypatch.setattr("engine.mcp_client.sys.platform", "win32")
+        fake = _patch(monkeypatch, _FakeRun(_happy()))
+        MCPCLIClient(cli_command=["node", "/x/cli.js"]).capture("AAPL", "1D")
+        assert fake.calls[0] == ["node", "/x/cli.js", "symbol", "AAPL"]
+
+    def test_non_windows_bare_command_not_wrapped(self, monkeypatch):
+        monkeypatch.setattr("engine.mcp_client.sys.platform", "linux")
+        fake = _patch(monkeypatch, _FakeRun(_happy()))
+        MCPCLIClient().capture("AAPL", "1D")
+        assert fake.calls[0] == ["tv", "symbol", "AAPL"]
+
+    def test_screenshot_file_path_key(self, monkeypatch):
+        # #2: the real screenshot path key is `file_path`.
+        _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(0, "{}"),
+                    "timeframe": _completed(0, "{}"),
+                    "state": _completed(0, '{"success": true, "symbol": "X"}'),
+                    "screenshot": _completed(0, '{"success": true, "file_path": "/tmp/f.png"}'),
+                }
+            ),
+        )
+        result = MCPCLIClient().capture("AAPL", "1D")
+        assert result.screenshot_path == Path("/tmp/f.png")
+
+    def test_success_false_is_a_failure(self, monkeypatch):
+        # #4: {"success": false} with no "error" key must still fail —
+        # the latent bug fixed this round.
+        _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(0, "{}"),
+                    "timeframe": _completed(0, "{}"),
+                    "state": _completed(0, '{"success": false}'),
+                }
+            ),
+        )
+        with pytest.raises(MCPClientError) as ei:
+            MCPCLIClient().capture("AAPL", "1D")
+        assert ei.value.error == "unexpected_error"
+
+    def test_capture_against_verified_live_shapes(self, monkeypatch):
+        # The exact JSON shapes captured from the live tv CLI (2026-05-19).
+        _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(
+                        0, '{"success": true, "symbol": "AAPL", "chart_ready": false}'
+                    ),
+                    "timeframe": _completed(
+                        0, '{"success": true, "timeframe": "D", "chart_ready": true}'
+                    ),
+                    "state": _completed(
+                        0,
+                        json.dumps(
+                            {
+                                "success": True,
+                                "symbol": "BATS:AAPL",
+                                "resolution": "1D",
+                                "chartType": 1,
+                                "studies": [{"id": "PL6Puu", "name": "Bollinger Bands"}],
+                            }
+                        ),
+                    ),
+                    "screenshot": _completed(
+                        0,
+                        json.dumps(
+                            {
+                                "success": True,
+                                "method": "cdp",
+                                "file_path": "/tmp/tv_chart.png",
+                                "region": "chart",
+                                "size_bytes": 125200,
+                            }
+                        ),
+                    ),
+                }
+            ),
+        )
+        result = MCPCLIClient().capture("AAPL", "1D")
+        assert result.visible_symbol == "BATS:AAPL"
+        assert result.visible_timeframe == "1D"
+        assert result.visible_price is None  # tv state carries no price
+        assert result.screenshot_path == Path("/tmp/tv_chart.png")
+
+    def test_classify_not_recognized_is_mcp_unavailable(self):
+        # Windows: a missing `tv` via `cmd /c` exits non-zero with
+        # "'tv' is not recognized as an internal or external command".
+        err = _classify(
+            "chart_set_symbol",
+            "'tv' is not recognized as an internal or external command, "
+            "operable program or batch file.",
+        )
+        assert err.error == "mcp_unavailable"

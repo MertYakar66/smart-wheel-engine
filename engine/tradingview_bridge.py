@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -610,15 +611,46 @@ class ChainedChartProvider:
 def build_default_provider(
     screenshots_dir: Path | str = "screenshots",
     enable_playwright_fallback: bool = False,
+    enable_mcp: bool | None = None,
 ) -> ChartContextProvider:
     """Build the canonical provider for the Smart Wheel engine.
 
-    By default this is just a :class:`FilesystemChartProvider` pointing
-    at ``screenshots/``. When ``enable_playwright_fallback=True``, a
-    Playwright provider is chained after the filesystem one.
+    The base is a :class:`FilesystemChartProvider` over ``screenshots/``.
+    Two optional backends chain around it:
+
+    * ``enable_mcp`` — prepend a live :class:`MCPChartProvider` backed by
+      the tradingview-mcp ``tv`` CLI (:class:`engine.mcp_client.MCPCLIClient`).
+      Integration Stage 3 / contract §8 q3: MCP is **opt-in**, never
+      default-on — a live capture costs more than a cached read, so it
+      pays only when the operator asks for fresh chart state. When
+      ``enable_mcp is None`` the decision is read from the
+      ``SWE_USE_MCP_CHART`` environment variable.
+    * ``enable_playwright_fallback`` — append a headless
+      :class:`PlaywrightChartProvider` as a last resort.
+
+    With MCP on, the chain follows the contract §4 canonical ordering:
+    live MCP first, cached filesystem second, headless browser last.
+    A single-provider chain collapses to that bare provider.
     """
-    fs = FilesystemChartProvider(base_dir=screenshots_dir)
-    if not enable_playwright_fallback:
-        return fs
-    pw = PlaywrightChartProvider(output_dir=Path(screenshots_dir) / "_playwright")
-    return ChainedChartProvider([fs, pw])
+    if enable_mcp is None:
+        enable_mcp = os.environ.get("SWE_USE_MCP_CHART", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+
+    providers: list[ChartContextProvider] = []
+    if enable_mcp:
+        # Lazy import: engine.mcp_client imports from this module, so a
+        # module-level import would be circular.
+        from engine.mcp_client import MCPCLIClient
+
+        providers.append(MCPChartProvider(client=MCPCLIClient()))
+    providers.append(FilesystemChartProvider(base_dir=screenshots_dir))
+    if enable_playwright_fallback:
+        providers.append(PlaywrightChartProvider(output_dir=Path(screenshots_dir) / "_playwright"))
+
+    if len(providers) == 1:
+        return providers[0]
+    return ChainedChartProvider(providers)

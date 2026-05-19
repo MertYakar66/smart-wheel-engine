@@ -418,9 +418,12 @@ out to its `tv` command-line interface (JSON on stdout), not by
 speaking the MCP-over-stdio JSON-RPC protocol and not by driving Chrome
 DevTools Protocol directly. `engine/mcp_client.py`'s `MCPCLIClient` is
 the concrete `MCPChartClient`: one `capture()` runs `tv symbol` /
-`tv timeframe` / `tv state` / `tv screenshot` as four subprocesses,
-exactly once each, no retries, every failure mapped to a canonical
-`MCP_ERROR_MODES` value. It is **not** wired as a provider default —
+`tv timeframe` / `tv state` / `tv quote` / `tv screenshot` as five
+subprocesses, exactly once each, no retries. A mandatory step's first
+failure aborts with a canonical `MCP_ERROR_MODES` value; the lone
+exception is the best-effort `tv quote` step — its failure is caught
+and logged, `visible_price` is left `None`, and the capture still
+succeeds. It is **not** wired as a provider default —
 `MCPChartProvider`'s default client stays `_UnconfiguredMCPClient`;
 promoting `MCPCLIClient` to a default behind `SWE_USE_MCP_CHART`
 (integration Stage 3) remains gated on a separate human decision.
@@ -447,13 +450,14 @@ a live `tv` CLI (the `LewisWJackson/tradingview-mcp-jackson` fork)
 driving TradingView Desktop on Windows via CDP. Confirmed and fixed in
 `engine/mcp_client.py`: Windows `cmd /c` invocation of the npm-linked
 `tv` shim, the `success` status field, and the `file_path` screenshot
-key. `tv state` carries no price, so `visible_price` is `None` pending
-a future `tv quote` call (deferred by operator decision). Only the
-per-mode error strings in `_classify` remain unverified — no live
-error path was exercised.
+key. `tv state` carries no price; a fifth best-effort `tv quote
+<SYMBOL>` call now supplies the live spot — verified to return a flat
+`{"success": true, ..., "last": <spot>}` payload, so `visible_price`
+is populated from its `last` field. Only the per-mode error strings in
+`_classify` remain unverified — no live error path was exercised.
 
 **Pinned by:** `engine/mcp_client.py` (`MCPCLIClient`),
-`tests/test_mcp_client.py` (39 tests, all mocking `subprocess`),
+`tests/test_mcp_client.py` (42 tests, all mocking `subprocess`),
 `engine/tradingview_bridge.py` (`MCPChartClient` protocol,
 `MCP_ERROR_MODES`), `docs/TRADINGVIEW_MCP_INTEGRATION.md` §9.
 
@@ -483,7 +487,7 @@ uses for dossier builds. Two boundaries are pinned, resolving the
 **Why:** Co-location matches the existing ThetaTerminal local-only
 convention (D6) — one less network surface, no remote-transport work
 beyond the `MCPCLIClient` subprocess design (D12). Opt-in is the
-conservative default: a live four-call MCP capture costs materially
+conservative default: a live five-call MCP capture costs materially
 more than a cached filesystem read, so across a top-10 dossier batch
 it pays only when the operator explicitly wants fresh chart state. No
 live `capture_screenshot` latency measurement was available when this

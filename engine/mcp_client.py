@@ -13,23 +13,34 @@ The engine reaches the tradingview-mcp server by shelling out to its
 MCP-over-stdio JSON-RPC protocol and does **not** drive Chrome DevTools
 Protocol directly — ``ChartContextProvider.fetch`` is synchronous, and
 both alternatives are a poor fit (async bridging / re-implementing the
-server). One :meth:`MCPCLIClient.capture` performs four subprocess
+server). One :meth:`MCPCLIClient.capture` performs five subprocess
 calls, exactly once each:
 
     tv symbol <SYMBOL>      (chart_set_symbol)
     tv timeframe <TOKEN>    (chart_set_timeframe)
     tv state                (chart_get_state)    -> symbol, timeframe
+    tv quote <SYMBOL>       (chart_get_quote)    -> visible_price
     tv screenshot -r chart  (capture_screenshot) -> screenshot_path
 
 Contract (docs/TRADINGVIEW_MCP_INTEGRATION.md §7)
 -------------------------------------------------
-* **No retries.** One subprocess call per step; the first failure
-  aborts the capture. Retry / fallback is ``ChainedChartProvider``'s
-  job, not this client's.
-* **Canonical failures only.** Every failure raises
+* **No retries.** One subprocess call per step. A *mandatory* step's
+  first failure aborts the capture and raises
   :class:`~engine.tradingview_bridge.MCPClientError` with a value from
-  ``MCP_ERROR_MODES``; the client never returns a half-populated
-  :class:`~engine.tradingview_bridge.MCPCaptureResult`.
+  ``MCP_ERROR_MODES``. Retry / fallback is ``ChainedChartProvider``'s
+  job, not this client's.
+* **One named exception — the best-effort ``tv quote`` step.** Step 4
+  (``tv quote``) supplies ``visible_price`` and is the *only*
+  deliberate departure from "first failure aborts": a ``tv quote``
+  failure is caught, logged, and ``visible_price`` is left ``None`` —
+  the capture still returns a successful ``MCPCaptureResult`` with a
+  valid screenshot. A chart with no spot price is still useful
+  (``MCPChartProvider`` is downgrade-only). The other four steps abort
+  on first failure.
+* **No quiet substitution.** Apart from the ``tv quote`` exception
+  above, the client never returns a half-populated
+  :class:`~engine.tradingview_bridge.MCPCaptureResult` or masks a
+  failure — every mandatory-step failure is raised.
 * **PIT discipline** is the *provider's* responsibility
   (:meth:`MCPChartProvider.fetch` refuses when ``as_of`` is set); this
   client is never handed an ``as_of`` and never consults one.
@@ -38,12 +49,14 @@ Live-verification status
 ------------------------
 Verified **2026-05-19** against a live ``tv`` CLI (the
 ``LewisWJackson/tradingview-mcp-jackson`` fork) driving TradingView
-Desktop on Windows via CDP. Confirmed: the four-call sequence; the
+Desktop on Windows via CDP. Confirmed: the five-call sequence; the
 ``success`` status field; bare-ticker resolution (``AAPL`` →
 ``tv state`` reports ``BATS:AAPL``); ``tv state`` carries **no price**
-(symbol / resolution / studies only — ``visible_price`` stays ``None``
-pending a future ``tv quote`` call, deferred by operator decision); the
-screenshot path key is ``file_path``; payloads are flat (no envelope).
+(symbol / resolution / studies only) — the live spot is read by the
+best-effort ``tv quote <SYMBOL>`` step, verified to return a flat
+``{"success": true, ..., "last": <spot>}`` payload, so ``visible_price``
+is populated from its ``last`` field; the screenshot path key is
+``file_path``; payloads are flat (no envelope).
 The per-mode error strings used by :func:`_classify` were **not**
 exercised — that spot keeps its ``TODO(live-verify)`` marker.
 """
@@ -80,7 +93,8 @@ _TF_TO_CLI: dict[str, str] = {
 }
 
 # Field-name candidates for parsing ``tv`` JSON. Verified 2026-05-19:
-# ``tv state`` returns ``symbol`` + ``resolution`` (no price field) and
+# ``tv state`` returns ``symbol`` + ``resolution`` (no price field),
+# ``tv quote`` returns the live spot as ``last`` (flat payload), and
 # ``tv screenshot`` returns ``file_path``. The remaining candidates are
 # kept as defensive fallbacks against CLI-version drift.
 _PRICE_KEYS: tuple[str, ...] = (
@@ -105,7 +119,7 @@ _SCREENSHOT_PATH_KEYS: tuple[str, ...] = (
     "output",
     "image",
 )
-# Nested blocks ``tv state`` might tuck a price inside.
+# Nested blocks a ``tv quote`` payload might tuck a price inside.
 _PRICE_BLOCKS: tuple[str, ...] = ("quote", "last_bar", "lastBar", "ohlc", "data")
 
 
@@ -120,9 +134,9 @@ class MCPCLIClient:
         ``PATH`` after ``npm link``). Override for an un-linked clone,
         e.g. ``["node", "/path/to/tradingview-mcp/src/cli/index.js"]``.
     timeout_s:
-        Per-subprocess wall-clock budget. Each of the four steps gets
+        Per-subprocess wall-clock budget. Each of the five steps gets
         its own ``timeout_s``; there is no retry, so the worst-case
-        capture latency is ``4 * timeout_s``.
+        capture latency is ``5 * timeout_s``.
     """
 
     def __init__(
@@ -136,13 +150,22 @@ class MCPCLIClient:
 
     # -- public API ----------------------------------------------------
     def capture(self, ticker: str, timeframe: Timeframe) -> MCPCaptureResult:
-        """Drive the four-call capture sequence for one ticker.
+        """Drive the five-call capture sequence for one ticker.
 
-        Returns a fully-populated
-        :class:`~engine.tradingview_bridge.MCPCaptureResult` on success.
-        Raises :class:`~engine.tradingview_bridge.MCPClientError` (a
-        canonical taxonomy value) on any failure — never a partial
-        result.
+        Returns an :class:`~engine.tradingview_bridge.MCPCaptureResult`
+        on success; raises
+        :class:`~engine.tradingview_bridge.MCPClientError` (a canonical
+        taxonomy value) if any *mandatory* step fails.
+
+        The ``tv quote`` step (step 4) is best-effort — the one
+        deliberate exception to "first failure aborts". It supplies
+        ``visible_price``; a ``tv quote`` failure is caught and logged,
+        ``visible_price`` is left ``None``, and the capture still
+        returns a successful result. A screenshot with no spot price is
+        still useful, since ``MCPChartProvider`` is downgrade-only. The
+        other four steps abort on first failure (the §7 no-retry
+        contract). This exception is also recorded in the module
+        docstring.
         """
         symbol = ticker.upper()
         tf_token = _TF_TO_CLI.get(timeframe, "D")
@@ -157,14 +180,32 @@ class MCPCLIClient:
 
         # 3: read the chart state for symbol / timeframe. Verified
         # 2026-05-19: `tv state` carries NO price (symbol / resolution /
-        # studies only), so `visible_price` stays None until a separate
-        # `tv quote` call is added (deferred — operator decision).
+        # studies only) — the live spot is read separately by `tv quote`
+        # in step 4 below.
         state = self._run(["state"], step="chart_get_state")
-        visible_price = _extract_price(state)
         visible_symbol = _extract_str(state, _SYMBOL_KEYS)
         visible_timeframe = _extract_str(state, _TIMEFRAME_KEYS)
 
-        # 4: capture the screenshot.
+        # 4: read the live spot via `tv quote` — BEST-EFFORT, and the
+        # ONE deliberate exception to the "first failure aborts" rule
+        # the other four steps follow. `tv quote` supplies `visible_price`
+        # (the price `tv state` omits); a quote failure must NOT abort
+        # the capture — a screenshot with no spot price is still useful
+        # (MCPChartProvider is downgrade-only). So a quote failure is
+        # caught and logged, `visible_price` is left None, and the
+        # capture continues to the screenshot. See the module docstring.
+        visible_price: float | None = None
+        try:
+            quote = self._run(["quote", symbol], step="chart_get_quote")
+            visible_price = _extract_price(quote)
+        except MCPClientError as exc:
+            logger.warning(
+                "tv quote failed for %s (%s); visible_price left None, capture continues",
+                symbol,
+                exc,
+            )
+
+        # 5: capture the screenshot.
         shot = self._run(["screenshot", "-r", "chart"], step="capture_screenshot")
         path = _extract_str(shot, _SCREENSHOT_PATH_KEYS)
         if not path:
@@ -311,18 +352,18 @@ def _classify(step: str, blob: str) -> MCPClientError:
     return MCPClientError("unexpected_error", f"{step}: {blob[:200]}")
 
 
-def _extract_price(state: Any) -> float | None:
-    """Best-effort live spot price from a ``tv state`` payload."""
-    if not isinstance(state, dict):
+def _extract_price(payload: Any) -> float | None:
+    """Best-effort live spot price from a ``tv quote`` payload."""
+    if not isinstance(payload, dict):
         return None
     for key in _PRICE_KEYS:
-        if state.get(key) is not None:
+        if payload.get(key) is not None:
             try:
-                return float(state[key])
+                return float(payload[key])
             except (TypeError, ValueError):
                 continue
     for block in _PRICE_BLOCKS:
-        sub = state.get(block)
+        sub = payload.get(block)
         if isinstance(sub, dict):
             nested = _extract_price(sub)
             if nested is not None:

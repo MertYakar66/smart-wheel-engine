@@ -152,6 +152,65 @@ class TestPercentDecimalNormalisation:
         assert len(df) == 1
         assert 0.27 <= float(df.iloc[0]["iv"]) <= 0.30
 
+    def test_sub_one_percent_dividend_yield_is_normalised(self):
+        """AUDIT-IX regression: a sub-1% dividend yield in Bloomberg
+        percent form (e.g. CAT at ``0.87`` meaning 0.87%) must be
+        normalised to a decimal before BSM. The pre-fix
+        ``if dividend_yield > 1.0`` guard skipped every value <= 1.0,
+        feeding q=0.87 (an 87% dividend yield) into the delta->strike
+        solve and pushing the nominal 25-delta strike far too deep OTM.
+        """
+        from scipy.stats import norm
+
+        runner = WheelRunner()
+
+        class SubOnePctDivConn(_PercentConnector):
+            def get_fundamentals(self, ticker):
+                # All percent form — IV 25%, a real 0.87% dividend yield.
+                return {
+                    "implied_vol_atm": 25.0,
+                    "volatility_30d": 25.0,
+                    "dividend_yield": 0.87,
+                }
+
+        with patch.object(
+            WheelRunner,
+            "connector",
+            new_callable=lambda: property(lambda self: SubOnePctDivConn()),
+        ):
+            df = runner.rank_candidates_by_ev(
+                tickers=["AAA"],
+                dte_target=35,
+                delta_target=0.25,
+                top_n=5,
+                min_ev_dollars=-1e9,
+                enforce_history_gate=False,
+                enforce_chain_quality_gate=False,
+            )
+        assert len(df) == 1
+        row = df.iloc[0]
+        spot = float(row["spot"])
+        strike = float(row["strike"])
+        iv = float(row["iv"])
+        premium = float(row["premium"])
+        # Sane strike / premium.
+        assert 0 < strike < spot
+        assert np.isfinite(premium) and premium > 0.0
+        # Recompute the BSM put delta of the chosen strike using the
+        # CORRECT decimal dividend yield (0.87% -> 0.0087) and the
+        # connector's 4.333% rate. With normalisation working this is
+        # ~ -0.25 (the delta_target). Under the bug (q used as 0.87) the
+        # same strike is only a ~ -0.10 delta.
+        T = 35 / 365.0
+        q, r = 0.87 / 100.0, 4.333 / 100.0
+        d1 = (np.log(spot / strike) + (r - q + 0.5 * iv**2) * T) / (iv * np.sqrt(T))
+        put_delta = float(np.exp(-q * T) * (norm.cdf(d1) - 1.0))
+        assert -0.30 < put_delta < -0.20, (
+            f"strike {strike:.2f} is a {put_delta:.3f}-delta put under the "
+            f"correct 0.87% dividend yield; expected ~ -0.25. A value near "
+            f"-0.10 means the yield was used un-normalised as 87%."
+        )
+
 
 # ======================================================================
 # P0.3 — datetime module available for news ingest

@@ -649,19 +649,33 @@ class WheelRunner:
                 dividend_yield = float(dividend_yield_raw)
             except (TypeError, ValueError):
                 dividend_yield = 0.0
-            # Bloomberg reports dividend yield in percent too (e.g. ``0.5``
-            # means 0.5% if raw is already small, but Bloomberg sends ``1.5``
-            # for a 1.5% yield). Normalise.
-            if dividend_yield > 1.0:
-                dividend_yield = dividend_yield / 100.0
-            if np.isnan(dividend_yield) or dividend_yield < 0:
+            # AUDIT-IX: ``MarketDataConnector.get_fundamentals`` returns
+            # ``dividend_yield`` straight from the Bloomberg CSV column
+            # ``eqy_dvd_yld_12m``, which is stored in PERCENT (e.g. ``2.04``
+            # means 2.04%; the column's median is ~2.0 and max ~9.8). The
+            # earlier ``if dividend_yield > 1.0`` guard divided only values
+            # above 1.0, so every sub-1%-yield name — 92 of the 410 priced
+            # names, most mega-cap tech — skipped normalisation and reached
+            # BSM as a whole-number decimal (``0.87`` -> an 87% dividend
+            # yield), corrupting the delta->strike solve and the synthetic
+            # premium. The column is uniformly percent, so divide
+            # unconditionally; absurd results fall back to "no dividend".
+            if not np.isfinite(dividend_yield) or dividend_yield < 0.0:
                 dividend_yield = 0.0
+            else:
+                dividend_yield /= 100.0
+                if dividend_yield > 0.30:  # >30% is a data error, not a yield
+                    dividend_yield = 0.0
 
-            # AUDIT-VIII P0.2: ``MarketDataConnector.get_risk_free_rate``
-            # returns the raw treasury CSV value which is in PERCENT
-            # (e.g. ``4.333`` means 4.333%). Passing it straight into BSM
-            # as if it were a decimal breaks delta/premium math and
-            # produced zero tradeable candidates. Normalise defensively.
+            # ``MarketDataConnector.get_risk_free_rate`` normalises the
+            # treasury value internally and returns a DECIMAL rate (e.g.
+            # ``0.0433``), so the ``rf_val > 1.0`` check below is redundant
+            # defence-in-depth; the ``0.0 <= rf_val <= 0.25`` clamp is the
+            # effective guard and falls back to 5% on anything absurd.
+            # AUDIT-IX: the connector's own normaliser still uses a ``> 1``
+            # heuristic that would mis-handle a genuine sub-1% treasury
+            # rate — latent only (rates ~3-5% today) and caught by the
+            # clamp here; tracked as a follow-up in the AUDIT-IX PR.
             risk_free_rate = 0.05
             try:
                 rf_raw = conn.get_risk_free_rate(as_of)

@@ -38,7 +38,7 @@ The MCP integration explicitly does **not**:
 
 The MCP exposes ~70 tools across chart control, market data, Pine,
 strategy testing, watchlists, alerts, and bar replay. Milestone 1 uses
-**three** of them (§5). Resist the rest until M2 with deliberation.
+**five** of them (§5). Resist the rest until M2 with deliberation.
 
 ## 3. Hard invariants
 
@@ -87,14 +87,15 @@ N, not as a replacement for the chain.
 
 ## 5. Milestone 1 scope
 
-M1 wires three MCP tools — the minimum to attach a live chart context
+M1 wires five MCP tools — the minimum to attach a live chart context
 to a dossier:
 
 | MCP tool | Purpose | `ChartContext` field |
 |---|---|---|
 | `chart_set_symbol` | Ensure the chart shows the requested ticker | (state setup) |
 | `chart_set_timeframe` | Set the requested timeframe | (state setup) |
-| `chart_get_state` | Read current spot, symbol, timeframe | `visible_price` |
+| `chart_get_state` | Read the current symbol + timeframe | `visible_symbol`, `visible_timeframe` |
+| `chart_get_quote` | Read the live spot price | `visible_price` |
 | `capture_screenshot` | Save the chart as PNG | `screenshot_path` |
 
 That gives the dossier:
@@ -102,6 +103,12 @@ That gives the dossier:
 - A real-time spot for R3 (currently `FilesystemChartProvider` has a
   stale-screenshot blind spot here).
 - A fresh PNG for the human review pane.
+
+`chart_get_quote` is **best-effort**: a quote failure leaves
+`visible_price` unset (`None`) but does not fail the capture — the
+screenshot still reaches the dossier. It is the one deliberate
+exception to the §7 "first failure aborts" rule (see
+`engine/mcp_client.py` and `DECISIONS.md` D12).
 
 `visible_indicators` stays empty in M1. Phase classification (R4) is
 still driven by the engine's own `phase` field; the MCP doesn't

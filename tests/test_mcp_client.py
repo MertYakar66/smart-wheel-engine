@@ -4,9 +4,10 @@ Tests for engine/mcp_client.py — the Stage 2 tv-CLI MCPChartClient.
 Every test MOCKS subprocess; none touches a real tradingview-mcp server
 or TradingView Desktop. The mock dispatches on the `tv` subcommand and
 returns scripted CompletedProcess objects (or raises scripted
-exceptions), so the four-call capture sequence, the canonical failure
-mapping, the no-retry contract, and the defensive JSON parsing are all
-exercised deterministically.
+exceptions), so the five-call capture sequence, the canonical failure
+mapping, the no-retry contract (and its one best-effort exception, the
+`tv quote` step), and the defensive JSON parsing are all exercised
+deterministically.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ def _completed(
 # The tv subcommands MCPCLIClient invokes. The mock locates the
 # subcommand anywhere in argv so dispatch is robust to a multi-token
 # cli_command prefix (e.g. ["node", "/path/cli.js"]).
-_TV_SUBCOMMANDS = ("symbol", "timeframe", "state", "screenshot")
+_TV_SUBCOMMANDS = ("symbol", "timeframe", "state", "quote", "screenshot")
 
 
 def _argv_tail(call: list[str]) -> list[str]:
@@ -82,11 +83,12 @@ class _FakeRun:
 
 
 def _happy(screenshot_path: str = "/tmp/shot.png", price: float = 201.5) -> dict[str, object]:
-    """A scripted response set where all four steps succeed."""
+    """A scripted response set where all five steps succeed."""
     return {
         "symbol": _completed(0, '{"ok": true}'),
         "timeframe": _completed(0, '{"ok": true}'),
-        "state": _completed(0, json.dumps({"symbol": "AAPL", "timeframe": "D", "price": price})),
+        "state": _completed(0, json.dumps({"symbol": "AAPL", "timeframe": "D"})),
+        "quote": _completed(0, json.dumps({"success": True, "symbol": "AAPL", "last": price})),
         "screenshot": _completed(0, json.dumps({"path": str(screenshot_path)})),
     }
 
@@ -97,10 +99,10 @@ def _patch(monkeypatch, fake: _FakeRun) -> _FakeRun:
 
 
 # =====================================================================
-# 1. Happy path — the four-call capture sequence
+# 1. Happy path — the five-call capture sequence
 # =====================================================================
 class TestMCPCLIClientHappyPath:
-    def test_four_calls_in_order(self, monkeypatch):
+    def test_five_calls_in_order(self, monkeypatch):
         fake = _patch(monkeypatch, _FakeRun(_happy()))
         result = MCPCLIClient().capture("aapl", "1D")
 
@@ -108,6 +110,7 @@ class TestMCPCLIClientHappyPath:
             ["symbol", "AAPL"],
             ["timeframe", "D"],
             ["state"],
+            ["quote", "AAPL"],
             ["screenshot", "-r", "chart"],
         ]
         assert isinstance(result, MCPCaptureResult)
@@ -144,7 +147,7 @@ class TestMCPCLIClientFailureMapping:
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(0, '{"price": 1.0}'),
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
                     "screenshot": subprocess.TimeoutExpired(["tv", "screenshot"], 15.0),
                 }
             ),
@@ -270,7 +273,7 @@ class TestMCPCLIClientFailureMapping:
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(0, '{"price": 1.0}'),
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
                     "screenshot": _completed(0, '{"ok": true}'),
                 }
             ),
@@ -304,15 +307,16 @@ class TestMCPCLIClientNoRetries:
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(0, '{"price": 1.0}'),
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
                     "screenshot": _completed(1, "", "kaboom"),
                 }
             ),
         )
         with pytest.raises(MCPClientError):
             MCPCLIClient().capture("AAPL", "1D")
-        # Exactly four calls, no retry of the failed screenshot step.
-        assert len(fake.calls) == 4
+        # Exactly five calls (quote included), no retry of the failed
+        # screenshot step.
+        assert len(fake.calls) == 5
 
 
 # =====================================================================
@@ -320,13 +324,16 @@ class TestMCPCLIClientNoRetries:
 # =====================================================================
 class TestMCPCLIClientJSONHandling:
     def test_envelope_unwrapping(self, monkeypatch):
+        # `_parse_json` unwraps a {"data": {...}} envelope; verify the
+        # unwrapped price reaches visible_price via the quote step.
         _patch(
             monkeypatch,
             _FakeRun(
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
+                    "quote": _completed(
                         0, '{"ok": true, "data": {"symbol": "AAPL", "price": 150.0}}'
                     ),
                     "screenshot": _completed(0, '{"path": "/tmp/x.png"}'),
@@ -337,13 +344,16 @@ class TestMCPCLIClientJSONHandling:
         assert result.visible_price == 150.0
 
     def test_nested_price_block(self, monkeypatch):
+        # `_extract_price` descends into a nested price block (here
+        # `ohlc`) on the quote payload.
         _patch(
             monkeypatch,
             _FakeRun(
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(0, '{"symbol": "AAPL", "quote": {"last": 175.25}}'),
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
+                    "quote": _completed(0, '{"symbol": "AAPL", "ohlc": {"last": 175.25}}'),
                     "screenshot": _completed(0, '{"path": "/tmp/x.png"}'),
                 }
             ),
@@ -358,7 +368,7 @@ class TestMCPCLIClientJSONHandling:
                 {
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
-                    "state": _completed(0, '{"price": 1.0}'),
+                    "state": _completed(0, '{"symbol": "AAPL"}'),
                     "screenshot": _completed(0, '{"filePath": "/tmp/alt.png"}'),
                 }
             ),
@@ -366,9 +376,10 @@ class TestMCPCLIClientJSONHandling:
         result = MCPCLIClient().capture("AAPL", "1D")
         assert result.screenshot_path == Path("/tmp/alt.png")
 
-    def test_state_without_price_yields_none(self, monkeypatch):
-        # Price is supplemental; a state payload with no price is not a
-        # failure as long as the screenshot still succeeds.
+    def test_quote_without_price_yields_none(self, monkeypatch):
+        # Price is supplemental: a quote payload with no recognised
+        # price field yields visible_price None — not a failure, as
+        # long as the screenshot still succeeds.
         _patch(
             monkeypatch,
             _FakeRun(
@@ -376,6 +387,7 @@ class TestMCPCLIClientJSONHandling:
                     "symbol": _completed(0, "{}"),
                     "timeframe": _completed(0, "{}"),
                     "state": _completed(0, '{"symbol": "AAPL", "timeframe": "D"}'),
+                    "quote": _completed(0, '{"symbol": "AAPL"}'),
                     "screenshot": _completed(0, '{"path": "/tmp/x.png"}'),
                 }
             ),
@@ -546,6 +558,25 @@ class TestMCPCLIClientLiveVerifyFixes:
                             }
                         ),
                     ),
+                    "quote": _completed(
+                        0,
+                        json.dumps(
+                            {
+                                "success": True,
+                                "symbol": "AAPL",
+                                "time": 1779111000,
+                                "open": 300.24,
+                                "high": 300.66,
+                                "low": 294.91,
+                                "close": 297.84,
+                                "last": 297.84,
+                                "volume": 34482959,
+                                "description": "Apple Inc.",
+                                "exchange": "Cboe One",
+                                "type": "stock",
+                            }
+                        ),
+                    ),
                     "screenshot": _completed(
                         0,
                         json.dumps(
@@ -564,7 +595,7 @@ class TestMCPCLIClientLiveVerifyFixes:
         result = MCPCLIClient().capture("AAPL", "1D")
         assert result.visible_symbol == "BATS:AAPL"
         assert result.visible_timeframe == "1D"
-        assert result.visible_price is None  # tv state carries no price
+        assert result.visible_price == 297.84  # from the live `tv quote` payload
         assert result.screenshot_path == Path("/tmp/tv_chart.png")
 
     def test_classify_not_recognized_is_mcp_unavailable(self):
@@ -576,3 +607,80 @@ class TestMCPCLIClientLiveVerifyFixes:
             "operable program or batch file.",
         )
         assert err.error == "mcp_unavailable"
+
+
+# =====================================================================
+# 8. tv quote — the best-effort 5th step (live spot price)
+# =====================================================================
+class TestMCPCLIClientQuoteStep:
+    """`tv quote` (step 4) supplies visible_price and is the one
+    deliberate exception to "first failure aborts": a quote failure is
+    caught, visible_price stays None, and the capture still succeeds.
+    """
+
+    def test_quote_success_populates_visible_price(self, monkeypatch):
+        # A successful `tv quote` populates visible_price from `last`
+        # (the live spot field, verified 2026-05-19).
+        _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(0, "{}"),
+                    "timeframe": _completed(0, "{}"),
+                    "state": _completed(0, '{"symbol": "AAPL", "timeframe": "D"}'),
+                    "quote": _completed(0, '{"success": true, "symbol": "AAPL", "last": 297.84}'),
+                    "screenshot": _completed(0, '{"file_path": "/tmp/x.png"}'),
+                }
+            ),
+        )
+        result = MCPCLIClient().capture("AAPL", "1D")
+        assert result.visible_price == 297.84
+        assert result.screenshot_path == Path("/tmp/x.png")
+
+    def test_quote_nonzero_exit_leaves_price_none_and_capture_succeeds(self, monkeypatch):
+        # A `tv quote` non-zero exit must NOT abort the capture: the
+        # screenshot still lands and a successful result is returned.
+        fake = _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(0, "{}"),
+                    "timeframe": _completed(0, "{}"),
+                    "state": _completed(0, '{"symbol": "AAPL", "timeframe": "D"}'),
+                    "quote": _completed(1, "", "Error: quote unavailable"),
+                    "screenshot": _completed(0, '{"file_path": "/tmp/x.png"}'),
+                }
+            ),
+        )
+        result = MCPCLIClient().capture("AAPL", "1D")
+        assert isinstance(result, MCPCaptureResult)
+        assert result.visible_price is None
+        assert result.screenshot_path == Path("/tmp/x.png")
+        # All five steps were still attempted, in order — the quote
+        # failure did not short-circuit the screenshot.
+        assert [_argv_tail(c) for c in fake.calls] == [
+            ["symbol", "AAPL"],
+            ["timeframe", "D"],
+            ["state"],
+            ["quote", "AAPL"],
+            ["screenshot", "-r", "chart"],
+        ]
+
+    def test_quote_timeout_leaves_price_none_and_capture_succeeds(self, monkeypatch):
+        # A `tv quote` timeout is swallowed exactly like a non-zero
+        # exit — best-effort, never fatal.
+        _patch(
+            monkeypatch,
+            _FakeRun(
+                {
+                    "symbol": _completed(0, "{}"),
+                    "timeframe": _completed(0, "{}"),
+                    "state": _completed(0, '{"symbol": "AAPL", "timeframe": "D"}'),
+                    "quote": subprocess.TimeoutExpired(["tv", "quote"], 15.0),
+                    "screenshot": _completed(0, '{"file_path": "/tmp/x.png"}'),
+                }
+            ),
+        )
+        result = MCPCLIClient().capture("AAPL", "1D")
+        assert result.visible_price is None
+        assert result.screenshot_path == Path("/tmp/x.png")

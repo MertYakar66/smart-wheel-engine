@@ -38,10 +38,10 @@ tradeable verdict:
 
 | Module | Public entry | Pinned by |
 |---|---|---|
-| `engine/ev_engine.py` | `EVEngine.evaluate` (line 234) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
-| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` (line 445) | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer` (line 113), rules R1–R6 | `tests/test_dossier_invariant.py` |
-| `engine_api.py` | HTTP API on `:8787`; 29 endpoints | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
+| `engine/ev_engine.py` | `EVEngine.evaluate` (line 237) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
+| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` (line 448) | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer` (line 109), rules R1–R6 | `tests/test_dossier_invariant.py` |
+| `engine_api.py` | HTTP API on `:8787`; 32 endpoints | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 Any change touching a file under `engine/` that affects these routes
 **must** run the full launch-blocker subset (§4 below) and the full
@@ -54,7 +54,7 @@ suite for `engine/ev_engine.py` or `engine/wheel_runner.py` changes
 
 `EnginePhaseReviewer` is the gatekeeper that converts an EV verdict
 + chart context into the final disposition. The six rules
-(`engine/candidate_dossier.py:113`, pinned by
+(`engine/candidate_dossier.py:109`, pinned by
 `tests/test_dossier_invariant.py`):
 
 | Rule | Trigger | Effect |
@@ -64,7 +64,7 @@ suite for `engine/ev_engine.py` or `engine/wheel_runner.py` changes
 | **R3** | Spot mismatch > 2% between engine-side and chart-side | **skip** |
 | **R4** | Phase contradiction (Pine signal disagrees with engine) | **skip** |
 | **R5** | EV above threshold | **proceed** |
-| **R6** | Short-gamma regime + strike at/above the put wall | **downgrade** |
+| **R6** | Short-gamma regime + strike at/above the put wall, or dealer regime near the gamma flip | **downgrade** |
 
 R1 is the structural realisation of §1 — negative EV ⇒ blocked. The
 test is the merge gate.

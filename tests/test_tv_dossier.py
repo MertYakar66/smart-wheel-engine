@@ -533,14 +533,57 @@ class TestChartContextSerialisation:
 # 9. build_default_provider convenience factory
 # =========================================================================
 class TestBuildDefaultProvider:
-    def test_default_is_filesystem_only(self, tmp_path):
+    def test_default_is_filesystem_only(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SWE_USE_MCP_CHART", raising=False)
         p = build_default_provider(screenshots_dir=tmp_path)
         assert isinstance(p, FilesystemChartProvider)
 
-    def test_with_playwright_returns_chained(self, tmp_path):
+    def test_with_playwright_returns_chained(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SWE_USE_MCP_CHART", raising=False)
         p = build_default_provider(screenshots_dir=tmp_path, enable_playwright_fallback=True)
         assert isinstance(p, ChainedChartProvider)
         assert len(p.providers) == 2
+
+    def test_mcp_opt_in_via_env(self, tmp_path, monkeypatch):
+        # Stage 3 / contract §8 q3: SWE_USE_MCP_CHART opts MCP into the
+        # chain — live MCP first, cached filesystem second (§4 order).
+        monkeypatch.setenv("SWE_USE_MCP_CHART", "1")
+        p = build_default_provider(screenshots_dir=tmp_path)
+        assert isinstance(p, ChainedChartProvider)
+        assert len(p.providers) == 2
+        assert isinstance(p.providers[0], MCPChartProvider)
+        assert isinstance(p.providers[1], FilesystemChartProvider)
+
+    def test_mcp_explicit_enable_overrides_unset_env(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("SWE_USE_MCP_CHART", raising=False)
+        p = build_default_provider(screenshots_dir=tmp_path, enable_mcp=True)
+        assert isinstance(p, ChainedChartProvider)
+        assert isinstance(p.providers[0], MCPChartProvider)
+
+    def test_mcp_explicit_disable_overrides_env(self, tmp_path, monkeypatch):
+        # An explicit enable_mcp=False beats the environment variable.
+        monkeypatch.setenv("SWE_USE_MCP_CHART", "1")
+        p = build_default_provider(screenshots_dir=tmp_path, enable_mcp=False)
+        assert isinstance(p, FilesystemChartProvider)
+
+    def test_mcp_env_falsey_value_stays_off(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SWE_USE_MCP_CHART", "0")
+        p = build_default_provider(screenshots_dir=tmp_path)
+        assert isinstance(p, FilesystemChartProvider)
+
+    def test_mcp_with_playwright_canonical_order(self, tmp_path, monkeypatch):
+        # Full chain follows contract §4: MCP → filesystem → Playwright.
+        monkeypatch.delenv("SWE_USE_MCP_CHART", raising=False)
+        p = build_default_provider(
+            screenshots_dir=tmp_path,
+            enable_playwright_fallback=True,
+            enable_mcp=True,
+        )
+        assert isinstance(p, ChainedChartProvider)
+        assert len(p.providers) == 3
+        assert isinstance(p.providers[0], MCPChartProvider)
+        assert isinstance(p.providers[1], FilesystemChartProvider)
+        assert isinstance(p.providers[2], PlaywrightChartProvider)
 
 
 # =========================================================================

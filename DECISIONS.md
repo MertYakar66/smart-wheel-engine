@@ -455,6 +455,51 @@ Stage 3.
 
 ---
 
+## D13. TradingView MCP is co-located and opt-in (Stage 3)
+
+**Decision:** Integration Stage 3 wires `MCPChartProvider` into the
+canonical chart-provider factory `build_default_provider`
+(`engine/tradingview_bridge.py`) — the factory `WheelRunner` already
+uses for dossier builds. Two boundaries are pinned, resolving the
+`docs/TRADINGVIEW_MCP_INTEGRATION.md` §8 open questions q2 and q3:
+
+- **Co-located (q2).** The engine and TradingView Desktop run on the
+  same machine; the `tv` CLI reaches Desktop via CDP on
+  `localhost:9222`. The operator brings Desktop + the tradingview-mcp
+  server up before a run. On any auth/session failure `MCPCLIClient`
+  raises a canonical `MCP_ERROR_MODES` value, `MCPChartProvider`
+  downgrades only, and `ChainedChartProvider` falls through to
+  `FilesystemChartProvider` — no quiet substitution.
+- **Opt-in (q3).** `MCPChartProvider` is absent from the chain unless
+  the `SWE_USE_MCP_CHART` environment variable is truthy
+  (`1`/`true`/`yes`/`on`). When opted in it takes the §4 canonical
+  first position (live MCP → cached filesystem → headless Playwright).
+  An explicit `enable_mcp=` argument overrides the env var.
+
+**Why:** Co-location matches the existing ThetaTerminal local-only
+convention (D6) — one less network surface, no remote-transport work
+beyond the `MCPCLIClient` subprocess design (D12). Opt-in is the
+conservative default: a live four-call MCP capture costs materially
+more than a cached filesystem read, so across a top-10 dossier batch
+it pays only when the operator explicitly wants fresh chart state. No
+live `capture_screenshot` latency measurement was available when this
+shipped (no TradingView Desktop in the build sandbox); default-first
+ordering should be revisited only against a measured p95 <2s.
+
+**Rejected alternatives:**
+- *MCP as the default-first provider.* Unmeasured latency; would slow
+  every dossier build for all callers, including those with no MCP
+  server up (each pays a full timeout before falling through).
+- *Separate-host MCP server.* Needs a remote transport beyond the
+  current subprocess `MCPCLIClient`; larger scope, more failure modes,
+  no demand.
+
+**Pinned by:** `engine/tradingview_bridge.py` (`build_default_provider`),
+`tests/test_tv_dossier.py::TestBuildDefaultProvider`,
+`docs/TRADINGVIEW_MCP_INTEGRATION.md` §9.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

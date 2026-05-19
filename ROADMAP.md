@@ -19,19 +19,20 @@ Each item carries a **status**:
 ## Track A — Decision-layer correctness
 
 ### A1. TradingView MCP chart provider — `MCPChartProvider`
-**Status:** `next`
+**Status:** `done`
 **Owner contract:** `docs/TRADINGVIEW_MCP_INTEGRATION.md`
-**Seam:** `engine/tradingview_bridge.py` — add a new
-`MCPChartProvider(ChartContextProvider)` that joins the existing
-`ChainedChartProvider` ordering.
-**Done when:** the import-guarded contract test in
-`tests/test_dossier_invariant.py::test_mcp_provider_*` activates and
+**Seam:** `engine/tradingview_bridge.py` — `MCPChartProvider` +
+`engine/mcp_client.py` `MCPCLIClient`.
+**Done when:** ✅ the import-guarded contract test in
+`tests/test_dossier_invariant.py::test_mcp_provider_*` is active and
 passes; the chained provider falls through to filesystem on MCP
 failure (no quiet substitution).
-**Why now:** the design contract is locked, the seam is clean,
-and the MCP server (`tradingview/tradingview-mcp-jackson/`) is the
-mechanism Mert already uses for the analyst workspace — sharing it
-with the engine is a cheap consolidation.
+**Shipped:** Stage 1 (skeleton) + Stage 2 (`MCPCLIClient`) via PR #95;
+Stage 3 wires `MCPChartProvider` into `build_default_provider` behind
+the `SWE_USE_MCP_CHART` env var — opt-in, co-located transport
+(`DECISIONS.md` D13). Remaining: `TODO(live-verify)` markers in
+`engine/mcp_client.py` need a live TradingView Desktop + tradingview-mcp
+server to confirm JSON field names.
 
 ### A2. iv_surface integration — pick the missing-data contract
 **Status:** `open question`

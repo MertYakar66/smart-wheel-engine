@@ -51,12 +51,20 @@ deprecation warnings (down from 1067+1 / 578).
   (commit `c064652`). Pins the seam, the canonical `ChainedChartProvider`
   ordering, the four hard invariants (including no-quiet-substitution
   on MCP failure), and the M1 scope (3 MCP tools).
-- **Implementation seam:** `engine/tradingview_bridge.py` — new class
-  `MCPChartProvider(ChartContextProvider)` to be added.
+- **Implementation seam:** `engine/tradingview_bridge.py` —
+  `MCPChartProvider(ChartContextProvider)` + `engine/mcp_client.py`
+  `MCPCLIClient` (the `tv`-CLI transport).
 - **Contract test:** `tests/test_dossier_invariant.py::test_mcp_provider_*`
-  is import-guarded; dormant until `engine.tradingview_bridge.MCPChartProvider`
-  exists, then auto-activates.
-- **Status:** nothing has shipped on the MCP class itself.
+  is active (the import guard auto-activated once `MCPChartProvider`
+  shipped).
+- **Status:** Stages 1–3 landed. Stage 1 (offline contract skeleton)
+  and Stage 2 (`MCPCLIClient`) merged via PR #95; Stage 3 wires
+  `MCPChartProvider` into `build_default_provider` behind the
+  `SWE_USE_MCP_CHART` env var (opt-in; co-located transport — see
+  `DECISIONS.md` D13). `MCPCLIClient` is still written against the
+  *documented* `tv` CLI — `TODO(live-verify)` markers in
+  `engine/mcp_client.py` flag fields to confirm against a live
+  TradingView Desktop + tradingview-mcp server.
 
 ### iv_surface integration decision
 

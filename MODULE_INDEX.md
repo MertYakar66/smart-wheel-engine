@@ -68,7 +68,8 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | Module | Purpose |
 |---|---|
 | `chart_context.py` | `ChartContext` dataclass + `ChartContextProvider` Protocol. |
-| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`. Future home of `MCPChartProvider` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`). |
+| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
+| `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
 | `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). |
 | `signals.py` | Composite signal aggregator (legacy framework — `IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). |

@@ -205,10 +205,9 @@ at implementation time.
 | §8 q1 — MCP client location | New file `engine/mcp_client.py` (`MCPCLIClient`); the wrapper exceeds the ~150-line guidance, so it is not inlined in `tradingview_bridge.py`. | Stage 2 |
 | §8 q4 — PIT discipline | Adopted as proposed: `MCPChartProvider.fetch` returns `ChartContext(error="pit_violation")` immediately when `as_of` is set. | `tests/test_dossier_invariant.py::test_mcp_provider_pit_violation_when_as_of_set` |
 | §8 q5 — symbol mapping | The bare engine ticker is passed to `tv symbol`; TradingView resolves the listing. `TODO(live-verify)`: fall back to `EXCHANGE:TICKER` if the resolver mis-picks an ambiguous ticker. | `engine/mcp_client.py` |
-| §8 q2 — auth / session lifecycle | **Open** — gated on a human decision (which machine hosts TradingView Desktop; Windows launcher). | — |
-| §8 q3 — latency budget / default ordering | **Open** — gated on a live latency measurement. Stage 3 ships `MCPChartProvider` opt-in via `SWE_USE_MCP_CHART`, not default-first, until resolved. | — |
+| §8 q2 — auth / session lifecycle | **Co-located.** The engine and TradingView Desktop run on one machine; the `tv` CLI reaches Desktop via CDP on `localhost:9222`. The operator brings Desktop + the tradingview-mcp server up before a run (the ThetaTerminal local-only convention, DECISIONS D6 / `LAPTOP_SETUP.md`). On auth/session failure `MCPCLIClient` maps to a canonical `MCP_ERROR_MODES` value and `MCPChartProvider` downgrades only — the chain falls through to `FilesystemChartProvider`. | `DECISIONS.md` D13 |
+| §8 q3 — latency budget / default ordering | **Opt-in.** `MCPChartProvider` is absent from `build_default_provider`'s chain unless `SWE_USE_MCP_CHART` is truthy; when opted in it takes the §4 canonical first position. No live latency measurement was available (no TradingView Desktop in the build sandbox); opt-in is the conservative default — revisit default-first only with a measured `capture_screenshot` p95 <2s. | `DECISIONS.md` D13, `tests/test_tv_dossier.py::TestBuildDefaultProvider` |
 
-Integration staging: Stage 1 (offline contract skeleton) and Stage 2
-(`MCPCLIClient`) are landed. Stage 3 (wiring `MCPCLIClient` as a
-provider default behind `SWE_USE_MCP_CHART`) is not started — gated on
-q2/q3.
+Integration staging: Stage 1 (offline contract skeleton), Stage 2
+(`MCPCLIClient`), and Stage 3 (`build_default_provider` wires
+`MCPChartProvider` behind `SWE_USE_MCP_CHART`) are all landed.

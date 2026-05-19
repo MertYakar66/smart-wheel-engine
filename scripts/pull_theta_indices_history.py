@@ -89,7 +89,7 @@ CHUNK_DAYS = 350
 #   403 — tier-gate ("Requesting index history requiring a STANDARD …")
 #   472 — coverage miss ("No data found for your request")
 # The shared ThetaConnector swallows 400/403/4xx silently (engine/
-# theta_connector.py:155); we issue the requests directly through the
+# theta_connector.py:207); we issue the requests directly through the
 # connector's pooled session so the body text reaches the operator.
 _DIAGNOSTIC_STATUSES = (400, 403, 472)
 _BASE_URL = "http://127.0.0.1:25503"

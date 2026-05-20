@@ -306,5 +306,89 @@ class TestRollMechanics:
         assert result_missing is None
 
 
+# =============================================================================
+# PERFORMANCE SUMMARY TESTS
+# =============================================================================
+class TestPerformanceSummary:
+    """get_performance_summary largest_win / largest_loss accounting."""
+
+    def _close_put(self, tracker: WheelTracker, ticker: str, buyback: float) -> None:
+        tracker.close_short_put(ticker, buyback, date(2024, 1, 20), "manual")
+
+    def test_empty_when_no_closed_positions(self):
+        assert WheelTracker(100_000.0).get_performance_summary().empty
+
+    def test_all_winners_report_zero_largest_loss(self):
+        """An all-green book must not report a win as its largest loss.
+        largest_loss = net_pnl.min() over *all* trades returns the
+        smallest win when there are no losers — the bug this guards."""
+        tracker = WheelTracker(100_000.0)
+        # Two profitable short puts: open at 2.50, buy back cheaper.
+        for tk in ("AAA", "BBB"):
+            tracker.open_short_put(
+                ticker=tk,
+                strike=150.0,
+                premium=2.50,
+                entry_date=date(2024, 1, 1),
+                expiration_date=date(2024, 2, 1),
+                iv=0.25,
+            )
+            self._close_put(tracker, tk, buyback=0.50)
+
+        summ = tracker.get_performance_summary().iloc[0]
+        assert summ["winners"] == 2
+        assert summ["losers"] == 0
+        assert summ["largest_loss"] == 0.0, (
+            f"all-winner book reported largest_loss={summ['largest_loss']} "
+            f"(should be 0.0, never a positive win)"
+        )
+        assert summ["largest_win"] > 0.0
+
+    def test_all_losers_report_zero_largest_win(self):
+        tracker = WheelTracker(100_000.0)
+        # Two losing short puts: open at 2.50, buy back far higher.
+        for tk in ("AAA", "BBB"):
+            tracker.open_short_put(
+                ticker=tk,
+                strike=150.0,
+                premium=2.50,
+                entry_date=date(2024, 1, 1),
+                expiration_date=date(2024, 2, 1),
+                iv=0.25,
+            )
+            self._close_put(tracker, tk, buyback=9.00)
+
+        summ = tracker.get_performance_summary().iloc[0]
+        assert summ["winners"] == 0
+        assert summ["losers"] == 2
+        assert summ["largest_win"] == 0.0
+        assert summ["largest_loss"] < 0.0
+
+    def test_mixed_book_picks_extremes_from_correct_subsets(self):
+        tracker = WheelTracker(100_000.0)
+        # AAA big winner, BBB small winner, CCC loser.
+        plan = {"AAA": 0.20, "BBB": 1.90, "CCC": 9.00}
+        for tk, buyback in plan.items():
+            tracker.open_short_put(
+                ticker=tk,
+                strike=150.0,
+                premium=2.50,
+                entry_date=date(2024, 1, 1),
+                expiration_date=date(2024, 2, 1),
+                iv=0.25,
+            )
+            self._close_put(tracker, tk, buyback=buyback)
+
+        summ = tracker.get_performance_summary().iloc[0]
+        assert summ["winners"] == 2
+        assert summ["losers"] == 1
+        assert summ["largest_win"] > summ["largest_loss"]
+        assert summ["largest_loss"] < 0.0
+        # The reported extremes must actually appear among the trades.
+        pnls = [c["net_pnl"] for c in tracker.closed_positions]
+        assert summ["largest_win"] == pytest.approx(max(pnls))
+        assert summ["largest_loss"] == pytest.approx(min(pnls))
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

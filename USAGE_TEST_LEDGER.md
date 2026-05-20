@@ -258,13 +258,12 @@ fed to the advisor committee.
   trader sees a 30-name list with no signal that 6 candidates were
   removed or why. Same as S1 / S2. **Logged.**
 
-**Follow-up (queued).** A `collateral` / `roc` column on the ranker
-output, and/or an account-aware book-selection helper (account size in
-→ collateral-fitted book out). Both consume post-`EVEngine.evaluate`
-output and only subset / re-present it — neither rescues a candidate
-nor bypasses the EV authority, so both are §2-safe. Left for a human
-to scope: it adds `wheel_runner.py` surface, beyond a usage test's
-remit.
+**Follow-up.** Shipped in #109 — `collateral` / `roc` columns on the
+`rank_candidates_by_ev` output and `WheelRunner.select_book(...)`, an
+account-aware skip-and-fill book selector. Both consume and subset
+post-`EVEngine.evaluate` ranker output — neither rescues a candidate
+nor bypasses the EV authority (§2-safe, pinned by a zero-evaluate-call
+regression test). Deferred: per-name multi-contract sizing.
 
 ### S7 — Advisor committee deep dive
 

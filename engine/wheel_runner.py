@@ -1132,8 +1132,141 @@ class WheelRunner:
 
         df = pd.DataFrame(rows)
         if not df.empty:
+            # Capital-efficiency columns (S4 follow-up). ``collateral``
+            # is the cash a cash-secured put ties up (strike x 100 x
+            # contracts); ``roc`` is EV per dollar of that collateral.
+            # Pure derived fields — no EV recompute — so a small account
+            # can rank by return-on-capital, not just absolute EV/day.
+            # Consumed by :meth:`select_book`. See USAGE_TEST_LEDGER S4.
+            df["collateral"] = (df["strike"] * 100.0 * contracts).round(2)
+            df["roc"] = (df["ev_dollars"] / df["collateral"]).round(6)
             df = df.sort_values("ev_per_day", ascending=False).head(top_n)
         return df
+
+    # ------------------------------------------------------------------
+    # S4 follow-up: account-aware book selection (presentation layer)
+    # ------------------------------------------------------------------
+    def select_book(
+        self,
+        ranked: pd.DataFrame,
+        account_size: float,
+        order_by: str = "roc",
+        max_pct_per_name: float | None = None,
+    ) -> pd.DataFrame:
+        """Select a collateral-fitting book from ranked EV candidates.
+
+        S4 follow-up. Walks ``ranked`` in ``order_by``-descending order
+        and greedily includes each candidate whose cash-secured-put
+        collateral still fits the remaining ``account_size`` budget.
+        This is **skip-and-fill**: a candidate too large for the
+        remaining budget is skipped and the walk continues — not a hard
+        stop — so a smaller, lower-ranked name can still be picked up.
+
+        Presentation layer, and §2-safe by construction: it consumes
+        and subsets the output of :meth:`rank_candidates_by_ev` — it
+        never constructs an :class:`~engine.ev_engine.EVEngine`, never
+        calls ``evaluate``, and never re-ranks by EV. It can only
+        select rows already present in ``ranked``; a candidate the
+        ranker gated out cannot reappear. select_book applies no EV
+        filter of its own — call the ranker with its default
+        ``min_ev_dollars=0`` and the resulting book is positive-EV by
+        inheritance.
+
+        One contract per name: each row is taken at the ``contracts``
+        count already baked into its ``collateral``. Sizing a name up to
+        several contracts is a deliberate further follow-up, not here.
+
+        Args:
+            ranked: A DataFrame from :meth:`rank_candidates_by_ev`. Must
+                carry ``collateral``, ``ev_dollars`` and ``ticker``, plus
+                whatever column ``order_by`` names.
+            account_size: Total capital available, in dollars. The
+                selected book's total ``collateral`` never exceeds it.
+            order_by: Column to walk by, descending. Default ``"roc"``
+                (return on capital); ``"ev_per_day"`` reproduces the
+                ranker's own order, ``"ev_dollars"`` walks absolute EV.
+            max_pct_per_name: Optional concentration cap, a fraction of
+                ``account_size``. When set, any candidate whose
+                collateral exceeds ``account_size * max_pct_per_name`` is
+                skipped regardless of remaining budget. ``None`` (default)
+                applies no cap.
+
+        Returns:
+            The fitted book as a DataFrame — the selected subset of
+            ``ranked`` rows, in selection order, all original columns
+            preserved. Summary figures are attached to ``.attrs``:
+            ``account_size``, ``order_by``, ``max_pct_per_name``,
+            ``n_positions``, ``capital_used``, ``cash_idle``, ``book_ev``.
+            When nothing fits the result is an empty DataFrame that still
+            carries ``.attrs``.
+
+        Raises:
+            ValueError: if ``ranked`` is not a DataFrame, is non-empty
+                but missing a required column, ``account_size`` is not
+                positive, ``order_by`` is not a column of ``ranked``, or
+                ``max_pct_per_name`` is outside ``(0, 1]``.
+        """
+        _EPS = 1e-6  # dollars — absorbs float noise in the budget walk
+
+        if not isinstance(ranked, pd.DataFrame):
+            raise ValueError("select_book: 'ranked' must be a pandas DataFrame")
+        if not account_size > 0:
+            raise ValueError(f"select_book: 'account_size' must be positive, got {account_size!r}")
+        if max_pct_per_name is not None and not 0.0 < max_pct_per_name <= 1.0:
+            raise ValueError(
+                "select_book: 'max_pct_per_name' must be in (0, 1] or None, "
+                f"got {max_pct_per_name!r}"
+            )
+
+        def _finalize(book: pd.DataFrame) -> pd.DataFrame:
+            used = round(float(book["collateral"].sum()), 2) if len(book) else 0.0
+            ev = round(float(book["ev_dollars"].sum()), 2) if len(book) else 0.0
+            book.attrs.update(
+                account_size=float(account_size),
+                order_by=order_by,
+                max_pct_per_name=max_pct_per_name,
+                n_positions=int(len(book)),
+                capital_used=used,
+                cash_idle=round(float(account_size) - used, 2),
+                book_ev=ev,
+            )
+            return book
+
+        if ranked.empty:
+            return _finalize(ranked.copy())
+
+        required = ("collateral", "ev_dollars", "ticker")
+        missing = [c for c in required if c not in ranked.columns]
+        if missing:
+            raise ValueError(
+                f"select_book: 'ranked' is missing required column(s) {missing}; "
+                "pass the output of rank_candidates_by_ev()"
+            )
+        if order_by not in ranked.columns:
+            raise ValueError(
+                f"select_book: order_by={order_by!r} is not a column of 'ranked' "
+                f"(available: {sorted(ranked.columns)})"
+            )
+
+        ordered = ranked.sort_values(order_by, ascending=False, kind="stable").reset_index(
+            drop=True
+        )
+        per_name_cap = account_size * max_pct_per_name if max_pct_per_name is not None else None
+        remaining = float(account_size)
+        keep: list[int] = []
+        for pos in range(len(ordered)):
+            collateral = float(ordered.at[pos, "collateral"])
+            if not collateral > 0:
+                continue  # degenerate row — nothing to secure, skip
+            if per_name_cap is not None and collateral > per_name_cap + _EPS:
+                continue  # exceeds the concentration cap — skip, keep walking
+            if collateral <= remaining + _EPS:
+                keep.append(pos)
+                remaining -= collateral
+            # else: too big for the remaining budget — skip, keep walking
+
+        book = ordered.iloc[keep].reset_index(drop=True)
+        return _finalize(book)
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier

@@ -65,10 +65,12 @@ retail wheel trader would, top-down across the SP500.
   prices with current-date event timing. **Logged.**
 - **R4 reviewer rule effectively dead** in the standard ranker
   path — needs a `phase` field the ranker never emits. **Logged.**
-- **Committee / ranker contract mismatch** — the advisor committee
-  re-ranks at 45-DTE / 0.30-delta while the ranker and dossier use
-  35-DTE / 0.25-delta. Two different contracts on two endpoints.
-  **Logged.**
+- **Committee delta silent default** — `_build_advisor_input`
+  falls back to `delta=-0.30` (`integration.py:165`) because the
+  ranker emits no delta column. The 45-DTE figure in the original
+  S1 note is an omission-only fallback (`integration.py:164`),
+  **not** a live mismatch: the ranker emits `dte`, so the committee
+  sees the correct 35. Corrected by S7. **Logged.**
 - **No `ev_raw` exposed** in the ranker output despite being a
   core EV-engine field. **Logged.**
 - **No return-on-capital column / no account-size input** — the
@@ -122,6 +124,61 @@ cutoff `2026-03-20`. Positions tracked in
   but a UX surface a real trader would want. **Logged.**
 - **Drop-reason silence carries into the rolling case** — same as
   S1, but more visible when a name disappears between snapshots.
+  **Logged.**
+
+### S7 — Advisor committee deep dive
+
+**Purpose.** Verify S1's logged committee/ranker contract-mismatch
+claim, and answer the trader question: do four advisors disagree
+usefully, or is the committee expensive noise on retail short puts?
+
+**Setup.** Bloomberg, offline charts, `as_of=2026-03-20`, 35-DTE /
+25-delta, top-10 ROC names from S4 (CF, FIX, FDS, AJG, EXE, JBHT,
+EG, MCK, HUM, BR), fed through
+`advisors.integration.EngineIntegration.evaluate_trade` — naive
+caller, then a corrected caller emulating the `/api/committee` path
+(delta from spot/strike/IV, `ev_dollars → ev_pct`). Plus 12
+synthetic probes varying one input at a time. No code changes.
+
+**Status.** Done. All findings logged (no fix this session).
+Code-level claims verified by Cowork-B against source; runtime vote
+patterns/probe reactions as reported by the executor run.
+
+**Findings:**
+
+- **Committee structurally pinned at neutral.**
+  `_determine_committee_judgment` leaves neutral only on
+  `approve_count > total/2` or `reject_count > total/2` — i.e.
+  ≥3 of 4 (`committee.py:331,337`). Three advisors default neutral
+  on retail short puts, so the verdict never escapes neutral on
+  realistic ranker output. **Logged.**
+- **`filter_approved(min_approval_count=2)` blocks 100% of
+  positive-EV picks.** Keyed on each trade's advisor
+  `approval_count` (`integration.py:117-141`); max observed
+  approves = 1 (Munger), so it returns 0 trades at thresholds 2, 3,
+  and 4. **Logged.**
+- **The `EngineIntegration` helper has type bugs `/api/committee`
+  already fixed.** The helper passes `ev_dollars` straight into
+  `expected_value` (documented "Expected return %"), rendering
+  $247.76 of EV as "247.76%". The API path converts
+  `ev_dollars → ev_pct` (`engine_api.py:871,883`) and rescales vix
+  fraction→percent (`924-931`); `_build_advisor_input` does
+  neither. Fix belongs in `_build_advisor_input` so all callers
+  benefit, not duplicated per endpoint. **Logged.**
+- **Per-advisor signal is real but discarded.** Negative EV → 2
+  rejects, crisis regime → 2 rejects, earnings-in-expiry → 1
+  reject; the >50% aggregator throws away sub-majority dissent. A
+  `committee_judgment="elevated_concern"` on ≥2 dissents
+  (escalation — §2-safe) would surface it. **Logged.**
+- **Ranker emits no `delta`/`theta`/`gamma`/`vega`/`iv_rank`.**
+  Forces the helper's −0.30 delta fallback. The ranker selects the
+  strike via a chain `delta` column (`wheel_runner.py:899-907`)
+  but emits no delta in its output. **Logged.**
+- **"Areas of agreement" is substring keyword matching, not
+  semantic synthesis.** **Logged.**
+- **Simons is binary-on-EV; the others binary-off.** Simons
+  strong-approves on high EV without distinguishing 5% / 10% /
+  50%; net committee ≈ `Simons_thinks_EV_high ? lean : neutral`.
   **Logged.**
 
 ---
@@ -192,9 +249,6 @@ Worth running when scope and time allow:
   event / stress gates respond as advertised.
 - **Strangle timing-gated strategy** — the `engine/strangle_timing.py`
   path (CLAUDE.md §4 timing-gated strategy). Not yet exercised.
-- **Advisor committee deep-dive** — only briefly hit in S1. Run
-  all four advisors across a 10-trade book; do they disagree
-  usefully? Do their verdicts move actual decisions?
 - **Dashboard end-to-end** — the Next.js app under `dashboard/`
   not exercised at all. Would surface UX issues the API alone
   cannot.

@@ -595,6 +595,14 @@ class MarketDataConnector:
         ``dividend_yield``, ``fcf_yield``, ``roe``,
         ``debt_to_equity``, ``volatility_30d``, ``implied_vol_atm``,
         or ``None`` if the ticker is not found.
+
+        Unit contract: ``dividend_yield``, ``volatility_30d`` and
+        ``implied_vol_atm`` are passed through from the Bloomberg CSV in
+        its native PERCENT units (e.g. ``2.04`` means 2.04%, ``26.17``
+        means 26.17%). Callers feeding these into BSM / EV math must
+        convert to decimals first — and must divide UNCONDITIONALLY,
+        since a value below 1.0 is an ordinary sub-1% reading, not an
+        already-decimal value.
         """
         df = self._load("fundamentals")
         if df.empty:

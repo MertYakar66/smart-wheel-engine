@@ -38,6 +38,7 @@ purpose-built; they don't overlap.
 | See *why* a structural choice was made | `DECISIONS.md` |
 | Find what's intentionally next | `ROADMAP.md` |
 | See what shipped recently | `CHANGELOG.md` |
+| See what *usage* tests we've run and what's queued | `USAGE_TEST_LEDGER.md` |
 | Understand the data layer (what's tracked, regen rules, secrets) | `DATA_POLICY.md` |
 | Know the launch-blocker invariants before merging | `LAUNCH_READINESS.md` |
 | Write a commit message or PR | `COMMIT_GUIDE.md` |

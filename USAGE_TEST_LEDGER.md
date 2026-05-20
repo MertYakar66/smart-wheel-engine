@@ -126,6 +126,44 @@ cutoff `2026-03-20`. Positions tracked in
   S1, but more visible when a name disappears between snapshots.
   **Logged.**
 
+### S3 — Build `WheelTracker.suggest_rolls(...)`
+
+**Purpose.** Close S2's headline management-layer gap: when a short
+put goes adverse, give the trader candidate rolls ranked by EV — not
+just `roll_put` mechanics.
+
+**Status.** Done — shipped in **`#104`** (merged `ece2717`).
+
+**What shipped.** `WheelTracker.suggest_rolls(ticker, as_of,
+current_spot, current_iv, ...)` enumerates roll candidates over a
+DTE × delta grid, runs each through `EVEngine.evaluate` (§2 intact —
+uses the EV authority; pinned by a call-count regression test), and
+returns a DataFrame ranked by forward EV with `roll_ev`, `hold_ev`,
+`net_credit_debit`, `prob_otm`, `recommend`. Short-put rolls only.
+
+**Notes:**
+
+- **EV metric.** `roll_ev = ev_dollars(new) − buyback_total`;
+  `hold_ev = ev_dollars(synthetic) − buyback × 100`. Both express
+  marginal forward dollar P&L from the decision moment — apples-to-
+  apples. The original spec's `+ net_credit_debit` double-counted
+  the new premium (it is already inside `ev_dollars(new)` via
+  `gross_premium`); the shipped single-count form is the correct
+  one.
+- **`recommend` semantics.** `recommend=True` means "this roll's
+  forward EV beats holding's" — **not** "this position needs
+  rescuing". Correct for the intended use (call on a *challenged*
+  position); calling it on a healthy position surfaces
+  premium-harvest churn. A UX-framing note for any dashboard
+  surfacing this.
+- **Live demo.** The S2 campaign's underwater PG position (deep
+  ITM, ~2 weeks to expiry) → the engine surfaces a ~+$1,661
+  forward-EV improvement over holding. The week-2 signal the S2
+  trader didn't get.
+
+**Follow-up (queued):** `suggest_call_rolls` — the covered-call-leg
+parallel, deliberately deferred from #104.
+
 ### S7 — Advisor committee deep dive
 
 **Purpose.** Verify S1's logged committee/ranker contract-mismatch
@@ -185,21 +223,7 @@ patterns/probe reactions as reported by the executor run.
 
 ## 2. In flight
 
-### S3 — Build `WheelTracker.suggest_rolls(...)`
-
-**Purpose.** Close S2's headline management-layer gap. Given a
-challenged short put, return ranked candidate rolls computed through
-`EVEngine.evaluate` (§2 invariant intact — uses the EV authority,
-does not bypass it).
-
-**Setup.** Branch `claude/wheel-tracker-suggest-rolls`. Scope is
-`engine/wheel_tracker.py` + tests; no edits to `ev_engine.py`,
-`wheel_runner.py`, or `candidate_dossier.py`. Short-put rolls only
-this round (covered-call rolls deferred to a follow-up). Verifies
-ruff + full `pytest tests/` + one concrete live demo (the PG
-position from S2). PR opens; the human reviews before merge.
-
-**Status.** Prompt written; executor in flight. No PR number yet.
+_(none currently)_
 
 ---
 

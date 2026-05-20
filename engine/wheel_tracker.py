@@ -4,17 +4,70 @@ Manages the full lifecycle: Short Put → Stock Assignment → Covered Call → 
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum
+from typing import Any
 
+import numpy as np
 import pandas as pd
+from scipy.optimize import brentq
+from scipy.stats import norm
 
+from .ev_engine import EVEngine, ShortOptionTrade
+from .option_pricer import black_scholes_price
 from .transaction_costs import (
     calculate_assignment_costs,
     calculate_reg_t_margin_short_put,
     calculate_total_entry_cost,
     calculate_total_exit_cost,
 )
+
+# ----------------------------------------------------------------------
+# Schema + helper for WheelTracker.suggest_rolls
+# ----------------------------------------------------------------------
+# Output columns pinned at module scope so the empty-result path returns
+# a same-shaped (zero-row) DataFrame for stable downstream consumption.
+_ROLL_COLUMNS = [
+    "new_strike",
+    "new_expiry",
+    "new_dte",
+    "target_delta",
+    "new_premium",
+    "buyback_cost",
+    "net_credit_debit",
+    "new_ev_dollars",
+    "roll_ev",
+    "hold_ev",
+    "prob_otm",
+    "recommend",
+]
+
+
+def _solve_put_strike(
+    spot: float, T: float, r: float, q: float, iv: float, target_delta: float
+) -> float | None:
+    """Solve K such that the BSM put delta equals ``-target_delta``.
+
+    Mirrors the in-line solver in
+    :meth:`engine.wheel_runner.WheelRunner.rank_candidates_by_ev` so
+    :meth:`WheelTracker.suggest_rolls` enumerates roll candidates with
+    the same convention as the ranker. Returns ``None`` when no
+    solution exists in ``[spot*0.5, spot*0.99]``.
+    """
+    if T <= 0 or iv <= 0 or spot <= 0 or not (0.0 < target_delta < 1.0):
+        return None
+
+    def err(K: float) -> float:
+        if K <= 0:
+            return 1.0
+        d1 = (np.log(spot / K) + (r - q + 0.5 * iv * iv) * T) / (iv * np.sqrt(T))
+        put_delta = np.exp(-q * T) * (norm.cdf(d1) - 1.0)
+        return put_delta + target_delta
+
+    try:
+        return brentq(err, spot * 0.5, spot * 0.99, xtol=1e-2)
+    except (ValueError, RuntimeError):
+        return None
 
 
 class PositionState(Enum):
@@ -76,6 +129,7 @@ class WheelTracker:
         self,
         initial_capital: float = 100000.0,
         require_ev_authority: bool = False,
+        connector: Any | None = None,
     ):
         """
         Args:
@@ -91,6 +145,12 @@ class WheelTracker:
                 Default False for backwards compatibility with tests
                 and research usage; production/live tracker instances
                 should set it True.
+            connector: Optional data connector
+                (``MarketDataConnector`` / ``ThetaConnector``-style).
+                Used only by :meth:`suggest_rolls` to resolve
+                ``get_risk_free_rate(as_of)`` and ``get_ohlcv(ticker)``
+                when those values are not passed explicitly. Default
+                ``None`` keeps the tracker dependency-free.
         """
         self.initial_capital = initial_capital
         self.cash = initial_capital
@@ -100,6 +160,7 @@ class WheelTracker:
         self.require_ev_authority = require_ev_authority
         self._ev_authority_tokens: set[str] = set()
         self._ev_authority_log: list[dict] = []
+        self.connector = connector
 
     # ------------------------------------------------------------------
     # EV authority token issuance (audit launch-gate)
@@ -1025,3 +1086,358 @@ class WheelTracker:
         }
 
         return pd.DataFrame([summary])
+
+    # ------------------------------------------------------------------
+    # Roll-suggestion workflow (management-layer integration)
+    # ------------------------------------------------------------------
+    def suggest_rolls(
+        self,
+        ticker: str,
+        as_of: date,
+        current_spot: float,
+        current_iv: float,
+        risk_free_rate: float | None = None,
+        *,
+        target_dtes: tuple[int, ...] = (21, 35, 49, 63),
+        target_deltas: tuple[float, ...] = (0.30, 0.25, 0.20, 0.15),
+        min_net_credit: float = 0.0,
+        dividend_yield: float = 0.0,
+        forward_log_returns: np.ndarray | None = None,
+    ) -> pd.DataFrame:
+        """Rank candidate rolls for an open short put by forward EV.
+
+        Closes the management-layer gap surfaced by the rolling-campaign
+        UX review: when a short put goes adverse the engine has all the
+        pieces (:meth:`EVEngine.evaluate`, BSM pricing, :meth:`roll_put`
+        mechanics) but no integration that says "here are three
+        candidate rolls ranked by EV, with net credit/debit, and whether
+        each beats holding the current position." This is that
+        integration.
+
+        Parameters
+        ----------
+        ticker, as_of, current_spot, current_iv:
+            Identify the open position and the current market state.
+            ``current_iv`` is a decimal (e.g. ``0.28`` for 28%). The
+            position must be in :class:`PositionState.SHORT_PUT`.
+        risk_free_rate:
+            Decimal risk-free rate at ``as_of``. If ``None``, falls
+            back to ``self.connector.get_risk_free_rate(as_of)`` (the
+            connector documents a decimal return). If neither is
+            available, ``ValueError`` is raised.
+        target_dtes, target_deltas:
+            Cartesian product of new expiries and target put deltas
+            (positive numbers; sign handled internally). For each
+            ``(DTE, delta)`` pair the method solves for the strike at
+            that delta under the current state, prices the new put at
+            BSM fair value, and runs it through
+            :meth:`EVEngine.evaluate`. Default grid spans 3-9 weeks
+            out and 15-30 delta — the conventional wheel-roll
+            territory.
+        min_net_credit:
+            Dollar filter on ``net_credit_debit``. Candidates below
+            this threshold are pruned. Default ``0`` keeps only
+            credit-rolls (the conventional wheel discipline). Pass a
+            negative value to allow rescue debit rolls (e.g. ``-200``
+            for up to a $200 debit).
+        dividend_yield:
+            Annual dividend yield (decimal). Default ``0.0``. Per the
+            AUDIT-IX unit contract on
+            :meth:`engine.data_connector.MarketDataConnector.get_fundamentals`,
+            callers integrating with the connector should normalise
+            ``eqy_dvd_yld_12m`` (percent) by dividing by 100.
+        forward_log_returns:
+            Optional explicit empirical forward log-return distribution
+            used for all evaluations (hold + each roll). When ``None``
+            (default), per-horizon distributions are pulled via
+            ``self.connector.get_ohlcv(ticker)`` and
+            :func:`engine.forward_distribution.best_available_forward_distribution`.
+            When neither is available, ``EVEngine`` falls back to its
+            lognormal sampler — the comparison between candidates
+            remains internally consistent, but absolute EV magnitudes
+            collapse toward zero (a documented bias).
+
+        Returns
+        -------
+        pandas.DataFrame
+            Zero or more rows, one per surviving candidate, sorted by
+            ``roll_ev`` descending. Columns:
+
+            * ``new_strike``, ``new_expiry``, ``new_dte``,
+              ``target_delta`` — describe the candidate contract
+            * ``new_premium``, ``buyback_cost`` — per-share BSM marks
+              (new put fair value, and current open put's fair value
+              used as the buyback price)
+            * ``net_credit_debit`` — dollar cash flow at the roll
+              moment, ``(new_premium - buyback_cost) * 100``; positive
+              = credit roll, negative = debit roll
+            * ``new_ev_dollars`` — :attr:`EVResult.ev_dollars` on the
+              new trade (diagnostic / audit)
+            * ``roll_ev`` — marginal forward EV of rolling (the
+              headline metric, see below)
+            * ``hold_ev`` — marginal forward EV of holding the
+              existing position to its expiry (the comparison anchor)
+            * ``prob_otm`` — :attr:`EVResult.prob_profit` on the new
+              trade
+            * ``recommend`` — ``True`` iff ``roll_ev > hold_ev``
+
+        Notes — the EV metric
+        ---------------------
+        Both ``hold_ev`` and ``roll_ev`` express the **expected dollar
+        change in account value from this decision moment forward**,
+        so they are directly comparable.
+
+        ``hold_ev`` — keep the current put to expiry::
+
+            synthetic_hold = ShortOptionTrade(
+                strike=pos.put_strike,
+                premium=buyback_value_per_share,
+                dte=dte_remaining,
+                iv=current_iv, ...)
+            hold_ev = ev_dollars(synthetic_hold)
+                      - buyback_value_per_share * 100
+
+        The synthetic re-sells the existing put at its current fair
+        value, so we can pipe it through :meth:`EVEngine.evaluate` and
+        reuse the engine's empirical forward distribution; we then
+        subtract the notional re-sell premium (no premium is actually
+        re-collected when holding) to recover the pure forward P&L.
+
+        ``roll_ev`` — close the old, open the new::
+
+            roll_ev = ev_dollars(new_trade) - buyback_total_dollars
+
+        ``ev_dollars(new_trade)`` already contains the new premium
+        (the engine's ``gross_premium``); the only additional real
+        cash flow at the roll moment is the buyback, subtracted once.
+        ``buyback_total_dollars`` includes BSM price plus exit-side
+        transaction costs.
+
+        *Why not* ``ev_dollars(new) + net_credit_debit``? Adding
+        ``net_credit_debit = (new_premium - buyback) * 100`` to
+        ``ev_dollars(new)`` would **double-count** the new premium —
+        ``ev_dollars(new)`` already contains it. The single-count
+        formula above is the mathematically correct apples-to-apples
+        comparison against ``hold_ev``.
+
+        ``recommend`` is ``True`` iff ``roll_ev > hold_ev``.
+
+        §2 invariant
+        -------------
+        Every candidate's EV — both ``hold_ev`` and each ``roll_ev`` —
+        runs through :meth:`EVEngine.evaluate` directly with a
+        properly-constructed :class:`ShortOptionTrade`. No
+        approximations, no side-channel ranking. Pre-filtering
+        (``min_net_credit``) and delta-based strike enumeration are
+        purely about *which candidates to score*; the EV authority is
+        untouched.
+
+        Out of scope (follow-up): ``suggest_call_rolls`` for the
+        covered-call leg. Same shape, operating on
+        :class:`PositionState.COVERED_CALL` positions.
+        """
+        # ---------------- validate position ----------------
+        if ticker not in self.positions:
+            raise ValueError(f"No open position for {ticker}")
+        pos = self.positions[ticker]
+        if pos.state != PositionState.SHORT_PUT:
+            raise ValueError(
+                f"suggest_rolls supports SHORT_PUT positions only; {ticker} is in {pos.state.name}"
+            )
+        if pos.put_strike is None or pos.put_premium is None or pos.put_expiration_date is None:
+            raise ValueError(
+                f"position {ticker} is missing put_strike / put_premium / "
+                "put_expiration_date - cannot mark"
+            )
+
+        # ---------------- validate inputs ----------------
+        if current_spot <= 0:
+            raise ValueError(f"current_spot must be positive, got {current_spot}")
+        if not (0.0 < current_iv <= 3.0):
+            raise ValueError(f"current_iv must be a decimal in (0, 3]; got {current_iv}")
+
+        # ---------------- resolve risk-free rate ----------------
+        if risk_free_rate is None:
+            if self.connector is None:
+                raise ValueError(
+                    "risk_free_rate is None and WheelTracker has no connector "
+                    "to resolve it from. Pass risk_free_rate explicitly, or "
+                    "construct the tracker with connector=<MarketDataConnector>."
+                )
+            try:
+                rf_raw = self.connector.get_risk_free_rate(as_of.isoformat())
+            except Exception as e:
+                raise ValueError(f"connector.get_risk_free_rate raised: {e}") from e
+            if rf_raw is None or not np.isfinite(float(rf_raw)):
+                risk_free_rate = 0.04
+            else:
+                risk_free_rate = float(rf_raw)
+                # The connector documents a DECIMAL return (AUDIT-VIII),
+                # but belt-and-suspenders: an unnormalised percent would
+                # blow up BSM downstream.
+                if risk_free_rate > 1.0:
+                    risk_free_rate = risk_free_rate / 100.0
+                risk_free_rate = max(0.0, min(0.25, risk_free_rate))
+        if not (0.0 <= risk_free_rate <= 0.25):
+            raise ValueError(f"risk_free_rate {risk_free_rate} outside [0, 0.25]")
+
+        # ---------------- remaining DTE / buyback ----------------
+        dte_remaining = (pos.put_expiration_date - as_of).days
+        if dte_remaining <= 0:
+            # At/past expiry — rolling is moot, caller handles expiry/assignment.
+            return pd.DataFrame(columns=_ROLL_COLUMNS)
+        T_old = dte_remaining / 365.0
+        multiplier = 100  # per-contract; suggest_rolls is per-contract by convention
+
+        buyback_value_per_share = black_scholes_price(
+            S=current_spot,
+            K=float(pos.put_strike),
+            T=T_old,
+            r=risk_free_rate,
+            sigma=current_iv,
+            option_type="put",
+            q=dividend_yield,
+        )
+        if buyback_value_per_share <= 0.0:
+            # Essentially worthless put — holding wins, no roll can beat that.
+            return pd.DataFrame(columns=_ROLL_COLUMNS)
+
+        # Total dollar cost to close: buyback + exit-side txn costs.
+        buyback_costs = calculate_total_exit_cost(
+            buyback_price_per_share=buyback_value_per_share,
+            bid_ask_spread=buyback_value_per_share * 0.10,
+            bid=None,
+            ask=None,
+            trade_type="option",
+        )
+        buyback_total_dollars = buyback_costs["total_cost"]
+
+        # ---------------- forward-distribution cache ----------------
+        fwd_cache: dict[int, np.ndarray | None] = {}
+
+        def _fwd_for(horizon: int):
+            if forward_log_returns is not None:
+                return forward_log_returns
+            if horizon in fwd_cache:
+                return fwd_cache[horizon]
+            arr = None
+            if self.connector is not None:
+                try:
+                    from .forward_distribution import (
+                        best_available_forward_distribution,
+                    )
+
+                    oh = self.connector.get_ohlcv(ticker)
+                    if oh is not None and len(oh) > 0:
+                        arr, _ = best_available_forward_distribution(
+                            oh,
+                            horizon_days=int(horizon),
+                            as_of=as_of.isoformat(),
+                        )
+                except Exception:
+                    arr = None
+            fwd_cache[horizon] = arr
+            return arr
+
+        # ---------------- hold_ev ----------------
+        ev_engine = EVEngine()  # no event_gate — this is a management decision
+        hold_trade = ShortOptionTrade(
+            option_type="put",
+            underlying=ticker,
+            spot=current_spot,
+            strike=float(pos.put_strike),
+            premium=buyback_value_per_share,
+            dte=int(dte_remaining),
+            iv=current_iv,
+            risk_free_rate=risk_free_rate,
+            dividend_yield=dividend_yield,
+            contracts=1,
+            bid=buyback_value_per_share * 0.95,
+            ask=buyback_value_per_share * 1.05,
+            open_interest=1000,
+            regime_multiplier=1.0,
+        )
+        hold_result = ev_engine.evaluate(
+            hold_trade,
+            forward_log_returns=_fwd_for(int(dte_remaining)),
+        )
+        hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier
+
+        # ---------------- enumerate roll candidates ----------------
+        rows: list[dict] = []
+        for new_dte in target_dtes:
+            if new_dte <= 0:
+                continue
+            T_new = new_dte / 365.0
+            new_expiry = as_of + timedelta(days=int(new_dte))
+            for tgt_delta in target_deltas:
+                new_strike_raw = _solve_put_strike(
+                    spot=current_spot,
+                    T=T_new,
+                    r=risk_free_rate,
+                    q=dividend_yield,
+                    iv=current_iv,
+                    target_delta=tgt_delta,
+                )
+                if new_strike_raw is None:
+                    continue
+                new_strike = round(new_strike_raw * 2) / 2  # nearest $0.50
+                if new_strike <= 0 or new_strike >= current_spot:
+                    continue
+                new_premium = black_scholes_price(
+                    S=current_spot,
+                    K=new_strike,
+                    T=T_new,
+                    r=risk_free_rate,
+                    sigma=current_iv,
+                    option_type="put",
+                    q=dividend_yield,
+                )
+                if new_premium < 0.05:
+                    continue  # too thin to trade
+                net_credit_debit = (new_premium - buyback_value_per_share) * multiplier
+                if net_credit_debit < min_net_credit:
+                    continue
+                new_trade = ShortOptionTrade(
+                    option_type="put",
+                    underlying=ticker,
+                    spot=current_spot,
+                    strike=float(new_strike),
+                    premium=new_premium,
+                    dte=int(new_dte),
+                    iv=current_iv,
+                    risk_free_rate=risk_free_rate,
+                    dividend_yield=dividend_yield,
+                    contracts=1,
+                    bid=new_premium * 0.95,
+                    ask=new_premium * 1.05,
+                    open_interest=1000,
+                    regime_multiplier=1.0,
+                )
+                new_result = ev_engine.evaluate(
+                    new_trade,
+                    forward_log_returns=_fwd_for(int(new_dte)),
+                )
+                roll_ev = new_result.ev_dollars - buyback_total_dollars
+                rows.append(
+                    {
+                        "new_strike": new_strike,
+                        "new_expiry": new_expiry,
+                        "new_dte": int(new_dte),
+                        "target_delta": tgt_delta,
+                        "new_premium": round(new_premium, 3),
+                        "buyback_cost": round(buyback_value_per_share, 3),
+                        "net_credit_debit": round(net_credit_debit, 2),
+                        "new_ev_dollars": round(new_result.ev_dollars, 2),
+                        "roll_ev": round(roll_ev, 2),
+                        "hold_ev": round(hold_ev, 2),
+                        "prob_otm": round(new_result.prob_profit, 4),
+                        "recommend": bool(roll_ev > hold_ev),
+                    }
+                )
+
+        if not rows:
+            return pd.DataFrame(columns=_ROLL_COLUMNS)
+        df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
+        df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
+        return df

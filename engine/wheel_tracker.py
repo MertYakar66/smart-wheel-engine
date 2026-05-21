@@ -986,6 +986,47 @@ class WheelTracker:
 
         return True
 
+    def available_buying_power(self) -> float:
+        """Cash genuinely deployable for new positions, net of CSP collateral.
+
+        ``self.cash`` is correct as *brokerage cash* but overstates what
+        can still be deployed: :meth:`open_short_put` credits the premium
+        to ``cash`` yet never reserves the strike collateral a
+        cash-secured put ties up. S2 / S4 / S8 logged this gap three
+        times — ``cash`` answers "what's in the account", not "what can
+        I still put to work".
+
+        This returns ``cash`` minus the collateral reserved by every open
+        cash-secured put: ``put_strike * 100`` per open
+        :attr:`PositionState.SHORT_PUT` position. The tracker is one
+        contract — 100 shares — per position (``WheelPosition`` has no
+        contract-count field; :meth:`handle_put_assignment` acquires a
+        flat 100 shares), so the per-position term is ``strike * 100``
+        with no contract multiplier. ``STOCK_OWNED`` and ``COVERED_CALL``
+        positions reserve nothing: the cash for the shares was already
+        spent at assignment, and the short call is covered by the held
+        stock, not by cash.
+
+        This is the **cash-secured** definition only. Reg-T margin is a
+        different account model — :meth:`open_short_put` happens to check
+        Reg-T margin via ``calculate_reg_t_margin_short_put``, but that
+        is a separate concern; a Reg-T buying-power mode is a possible
+        follow-up and is deliberately out of scope here.
+
+        Returns:
+            ``cash - Σ reserved collateral``. **May be negative** — a
+            negative result signals an over-committed book: the open
+            cash-secured puts reserve more collateral than there is cash
+            to secure them. The value is returned raw, never clamped to
+            zero, so callers can see the size of the shortfall.
+        """
+        reserved = 0.0
+        for pos in self.positions.values():
+            if pos.state == PositionState.SHORT_PUT and pos.put_strike is not None:
+                # One contract per position → 100 shares of collateral.
+                reserved += pos.put_strike * 100.0
+        return self.cash - reserved
+
     def mark_to_market(
         self,
         current_date: date,

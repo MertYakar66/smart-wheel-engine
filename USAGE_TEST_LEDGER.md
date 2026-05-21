@@ -497,7 +497,7 @@ fails closed when probed directly. No bug, no fix; all findings logged.
   candidate." Of the five gates, only stress-residual surfaces its
   verdict (a `warnings.warn` + `.attrs`); the chain-quality gate at
   least emits a `logger.warning` when it blocks. The three live ranker
-  gates are fully silent. Same gap S1 and S2 logged. **Logged.**
+  gates are fully silent. Same gap S1 and S2 logged. **Fixed in #121.**
 
 ### S10 — News-sentiment downgrade path
 
@@ -635,7 +635,7 @@ provably wrong; no bug. All findings logged.
   with no companion `hmm_regime` label, even though `dealer_regime` and
   `credit_regime` label columns both exist. A trader sees the cut with
   no surfaced "crisis". S1 logged this; S11 confirms it and sharpens it
-  via the asymmetry with the other two overlays. **Logged.**
+  via the asymmetry with the other two overlays. **Fixed in #121.**
 
 - **Dealer & skew multipliers are inert on the Bloomberg provider.**
   `dealer_multiplier` and `skew_multiplier` were pinned at 1.00 across

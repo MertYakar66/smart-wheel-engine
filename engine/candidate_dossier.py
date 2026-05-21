@@ -156,7 +156,7 @@ class EnginePhaseReviewer:
 
         # Rule 1: negative EV is blocked. Chart cannot save it.
         if ev < 0:
-            notes.append(f"engine ev_dollars={ev:.2f} < 0 — chart cannot upgrade negative EV")
+            notes.append(f"engine ev_dollars={ev:.2f} < 0 - chart cannot upgrade negative EV")
             return "blocked", "negative_ev", notes
 
         chart = dossier.chart_context
@@ -174,7 +174,7 @@ class EnginePhaseReviewer:
             if diff > tol:
                 notes.append(
                     f"visible chart price {chart.visible_price:.2f} "
-                    f"disagrees with engine spot {engine_spot:.2f} (|Δ|={diff:.2f} > tol {tol:.2f})"
+                    f"disagrees with engine spot {engine_spot:.2f} (|delta|={diff:.2f} > tol {tol:.2f})"
                 )
                 return "skip", "spot_price_mismatch", notes
             notes.append(
@@ -197,11 +197,11 @@ class EnginePhaseReviewer:
         if ev >= self.min_proceed_ev:
             verdict: Verdict = "proceed"
             reason = "ev_above_threshold"
-            notes.append(f"ev_dollars={ev:.2f} >= {self.min_proceed_ev} — proceed")
+            notes.append(f"ev_dollars={ev:.2f} >= {self.min_proceed_ev} - proceed")
         else:
             verdict = "review"
             reason = "ev_below_proceed_threshold"
-            notes.append(f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} — human review")
+            notes.append(f"ev_dollars={ev:.2f} < min_proceed {self.min_proceed_ev} - human review")
 
         # Rule 6: Dealer-positioning downgrade (audit V).
         # When an aggregated MarketStructure is attached AND the regime
@@ -228,11 +228,11 @@ class EnginePhaseReviewer:
                     notes.append(
                         f"R6: short-gamma regime + strike {strike_f:.2f} "
                         f"at/above put wall {float(nearest_put.strike):.2f} "
-                        "— breach risk amplified, downgrade to review"
+                        "- breach risk amplified, downgrade to review"
                     )
                     return "review", "dealer_short_gamma_above_put_wall", notes
             elif regime == "near_flip":
-                notes.append("R6: dealer regime near gamma flip — downgrade to review")
+                notes.append("R6: dealer regime near gamma flip - downgrade to review")
                 return "review", "dealer_near_flip", notes
 
         return verdict, reason, notes

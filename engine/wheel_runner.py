@@ -16,7 +16,7 @@ Usage:
     analysis = runner.analyze_ticker("AAPL")
 
     # Score strangle entry timing
-    timing = runner.score_strangle_entry("AAPL")
+    timing = runner.strangle_engine.score_entry_with_iv("AAPL")
 
     # Full portfolio analysis
     report = runner.portfolio_report(["AAPL", "MSFT", "JPM"])

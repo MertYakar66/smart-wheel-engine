@@ -1,8 +1,9 @@
-"""Tests for ranker transparency: drop-reason diagnostics and the HMM
-regime label on engine.wheel_runner.WheelRunner.rank_candidates_by_ev.
+"""Tests for ranker transparency: drop-reason diagnostics, the HMM
+regime label, and the ev_raw column on
+engine.wheel_runner.WheelRunner.rank_candidates_by_ev.
 
-Usage tests S1, S9, S11 and S13 repeatedly logged two observability gaps
-in the EV ranker:
+Usage tests S1, S9, S11 and S13 repeatedly logged three observability
+gaps in the EV ranker:
 
   * Silent rejection. A candidate gated out (history, event,
     chain-quality, below-threshold EV, ...) simply vanished from the
@@ -15,10 +16,15 @@ in the EV ranker:
     label, unlike dealer_regime / credit_regime which both carry one.
     The fix adds an hmm_regime column carrying the regime name the HMM
     selected.
+  * EV before vs. after the regime cut. The ranker emitted ev_dollars
+    (post-overlay EV) but not the pre-overlay EV, so the size of the
+    regime adjustment was invisible. The fix adds an ev_raw column,
+    sourced from EVResult.mean_pnl -- the mean scenario P&L the engine
+    computes as ``ev_raw`` before the regime multiplier.
 
-Both are diagnostics-only (CLAUDE.md section 2): no gate, no multiplier
+All are diagnostics-only (CLAUDE.md section 2): no gate, no multiplier
 and no EV-authority change. These tests pin that -- survivor rows are
-unchanged and drop-capture makes zero extra EVEngine.evaluate calls.
+unchanged and the additions make zero extra EVEngine.evaluate calls.
 """
 
 from __future__ import annotations
@@ -140,6 +146,29 @@ def _spy_evaluate():
         return original(self, *a, **k)
 
     return patch.object(EVEngine, "evaluate", autospec=True, side_effect=_pass_through)
+
+
+def _capture_evaluate():
+    """A patch context that captures every (ticker, EVResult) the engine
+    returns, then passes the result through unchanged.
+
+    Returns ``(patch_context, captured)`` -- ``captured`` is a list that
+    fills with ``(ticker, EVResult)`` tuples as evaluate runs, letting a
+    test read EVResult fields the ranker does not surface as columns
+    (here: mean_pnl and the engine's final regime_multiplier).
+    """
+    from unittest.mock import patch
+
+    original = EVEngine.evaluate
+    captured: list = []
+
+    def _cap(self, trade, *a, **k):
+        res = original(self, trade, *a, **k)
+        captured.append((trade.underlying, res))
+        return res
+
+    ctx = patch.object(EVEngine, "evaluate", autospec=True, side_effect=_cap)
+    return ctx, captured
 
 
 # ======================================================================
@@ -379,3 +408,60 @@ class TestSection2ZeroExtraEvaluate:
         assert df.empty
         assert len(df.attrs["drops"]) == 5
         assert spy.call_count == 5
+
+
+# ======================================================================
+# 5. ev_raw column -- EV before the regime overlays
+# ======================================================================
+class TestEvRawColumn:
+    def test_ev_raw_column_present_with_diagnostics(self):
+        """ev_raw appears alongside the core ev_dollars whenever
+        include_diagnostic_fields is on (the default), and every value
+        is a finite number."""
+        df = _rank(_runner())
+        assert not df.empty
+        assert "ev_raw" in df.columns
+        assert "ev_dollars" in df.columns
+        assert np.isfinite(df["ev_raw"].to_numpy()).all()
+
+    def test_ev_raw_absent_without_diagnostic_fields(self):
+        """ev_raw is diagnostic-gated exactly like hmm_multiplier -- it
+        must not appear when diagnostics are off. ev_dollars, a core
+        (non-diagnostic) field, still does: the core column set is
+        unchanged by this fix."""
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        assert "ev_raw" not in df.columns
+        assert "ev_dollars" in df.columns
+
+    def test_ev_raw_is_the_pre_regime_evresult_mean_pnl(self):
+        """The ranker sources ev_raw from EVResult.mean_pnl -- the mean
+        scenario P&L the engine computes as the local ``ev_raw`` before
+        the regime multiplier. Captured EVResults pin the column to that
+        field, per surviving ticker, rounded to 2dp."""
+        ctx, captured = _capture_evaluate()
+        with ctx:
+            df = _rank(_runner())
+        assert not df.empty
+        res_by_ticker = dict(captured)
+        assert set(res_by_ticker) == set(df["ticker"])
+        for _, row in df.iterrows():
+            res = res_by_ticker[row["ticker"]]
+            assert row["ev_raw"] == round(res.mean_pnl, 2)
+
+    def test_ev_dollars_is_ev_raw_times_the_final_regime_multiplier(self):
+        """The relationship ev_raw exists to expose. Inside the engine
+        ev_dollars == mean_pnl * regime_multiplier, where
+        regime_multiplier is the engine's *final* multiplier (the
+        clamped overlay product, x heavy-tail penalty, x dealer mult) --
+        not the runner's raw combined_regime_mult. The identity holds
+        exactly on the captured EVResults and survives, within rounding,
+        into the ev_raw / ev_dollars output columns a caller sees."""
+        ctx, captured = _capture_evaluate()
+        with ctx:
+            df = _rank(_runner())
+        assert not df.empty
+        assert len(captured) >= 2
+        for ticker, res in captured:
+            assert res.ev_dollars == pytest.approx(res.mean_pnl * res.regime_multiplier)
+            r = df[df["ticker"] == ticker].iloc[0]
+            assert r["ev_dollars"] == pytest.approx(r["ev_raw"] * res.regime_multiplier, abs=0.05)

@@ -185,6 +185,51 @@ _CC_RANK_DIAGNOSTIC_COLUMNS = [
     "regime_multiplier",
 ]
 
+# ----------------------------------------------------------------------
+# Column schema for WheelRunner.rank_strangles_by_ev
+# ----------------------------------------------------------------------
+# A strangle is two short legs. ``ev_dollars`` is the *composed* EV
+# (put leg + call leg) — expected value is linear, so the sum is exact.
+# The per-leg risk columns (``put_*`` / ``call_*``) are reported
+# separately and are deliberately NOT summed: the strangle payoff is
+# nonlinear in the shared underlying path, so a summed CVaR / prob would
+# be wrong. A joint combined-risk metric is a documented follow-up.
+_STRANGLE_RANK_CORE_COLUMNS = [
+    "ticker",
+    "spot",
+    "dte",
+    "expiry",
+    "target_delta",
+    "iv",
+    "contracts",
+    "put_strike",
+    "call_strike",
+    "put_premium",
+    "call_premium",
+    "total_premium",
+    "ev_dollars",
+    "put_ev_dollars",
+    "call_ev_dollars",
+    "lower_breakeven",
+    "upper_breakeven",
+    "days_to_earnings",
+    "timing_score",
+    "timing_recommendation",
+    "distribution_source",
+]
+_STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
+    "put_prob_profit",
+    "call_prob_profit",
+    "put_prob_assignment",
+    "call_prob_assignment",
+    "put_cvar_5",
+    "call_cvar_5",
+    "put_edge_vs_fair",
+    "call_edge_vs_fair",
+    "total_transaction_cost",
+    "timing_phase",
+]
+
 
 class WheelRunner:
     """
@@ -2019,6 +2064,546 @@ class WheelRunner:
             return _empty()
         df = pd.DataFrame(rows, columns=cols)
         df = df.sort_values("ev_per_day", ascending=False).head(top_n).reset_index(drop=True)
+        # Drop log attached after sort/head so it rides on the exact frame
+        # returned; survivor rows are untouched (CLAUDE.md §2).
+        df.attrs["drops"] = drops
+        return df
+
+    # ------------------------------------------------------------------
+    # Strangle EV ranking (issue #118 P1 — S14 follow-up)
+    # ------------------------------------------------------------------
+    def rank_strangles_by_ev(
+        self,
+        ticker: str,
+        contracts: int = 1,
+        *,
+        target_dtes: tuple[int, ...] = (21, 35, 49, 63),
+        target_deltas: tuple[float, ...] = (0.30, 0.25, 0.20, 0.15),
+        as_of: str | None = None,
+        min_ev_dollars: float = 0.0,
+        top_n: int = 20,
+        include_diagnostic_fields: bool = True,
+        use_event_gate: bool = True,
+        use_timing_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
+        min_history_days: int = 504,
+        enforce_history_gate: bool = True,
+        risk_free_rate: float | None = None,
+        dividend_yield: float | None = None,
+    ) -> pd.DataFrame:
+        """Rank short-strangle candidates for a ticker by composed forward EV.
+
+        S14 found the strangle path (:mod:`engine.strangle_timing`)
+        produces only a *timing score* — it never yields a tradeable
+        candidate (strikes + premium) and never touches
+        :class:`~engine.ev_engine.EVEngine`. CLAUDE.md §2 held for
+        strangles only because that path never produced a tradeable
+        candidate. Issue #118 P1. This method closes that gap: it
+        enumerates a ``(DTE × delta)`` grid of short strangles (short OTM
+        put + short OTM call) and EV-ranks them, bringing §4's
+        timing-gated strategy under the EV authority.
+
+        **A strangle is two short legs.** Each candidate is scored as two
+        independent :meth:`EVEngine.evaluate` calls — the put leg as a
+        ``ShortOptionTrade(option_type="put")`` and the call leg as a
+        ``ShortOptionTrade(option_type="call")`` — both over the *same*
+        empirical ``forward_log_returns`` (the same underlying path).
+        There is no blended-strangle side channel and no ``StrangleTrade``
+        shortcut: the EV authority sees two ordinary short options.
+
+        **Composed EV is additive.** ``ev_dollars`` is
+        ``put.ev_dollars + call.ev_dollars``. Expected value is linear,
+        so this sum is exact *regardless of how the legs co-move* — it
+        needs no joint distribution. This is the headline metric and the
+        ranking key.
+
+        **Risk metrics are NOT additive.** The strangle's payoff is
+        nonlinear in the shared underlying path (it loses on a large move
+        in *either* direction), so summing the two legs' ``cvar_5`` /
+        ``prob_profit`` / ``prob_assignment`` would be wrong. They are
+        reported per-leg, explicitly labelled ``put_*`` / ``call_*``,
+        each a real :class:`~engine.ev_engine.EVResult` field — never a
+        fabricated sum. A *joint* combined-risk metric (per-path: did the
+        underlying finish between the two strikes) would need per-path
+        P&L, which :class:`EVResult` does not expose; it is a documented
+        follow-up. ``lower_breakeven`` / ``upper_breakeven`` *are*
+        surfaced as a combined view — those are exact contract algebra
+        (``put_strike − credit`` / ``call_strike + credit``), not path
+        statistics, so there is no fabrication risk.
+
+        **§2 — the floor is on the composed EV.** ``min_ev_dollars``
+        (default ``0.0``) drops any candidate whose
+        ``put.ev_dollars + call.ev_dollars`` is below it. Neither leg's
+        EV in isolation admits a candidate: a +$520 put leg paired with a
+        −$540 call leg is a −$20 strangle and is dropped. It **ranks,
+        never rescues** — a negative composed-EV strangle never surfaces
+        as tradeable.
+
+        **The timing gate (§4) is downgrade-only.** When
+        ``use_timing_gate`` is set, :class:`StrangleTimingEngine` scores
+        the ticker; an ``avoid`` recommendation drops the whole ticker
+        (logged in ``.attrs["drops"]`` with gate ``timing``) before any
+        EV ranking. The timing score is a pure pre-filter — it can only
+        *remove* a ticker, never lift a candidate's EV or rescue a
+        negative composed-EV strangle. ``timing_score`` /
+        ``timing_recommendation`` / ``timing_phase`` are surfaced for
+        transparency but feed nothing into ``ev_dollars``.
+
+        Args:
+            ticker: The underlying to scan.
+            contracts: Contracts per leg (the put and call are sized
+                equally — a 1-contract strangle is one short put + one
+                short call).
+            target_dtes: Candidate days-to-expiry (both legs share an
+                expiry).
+            target_deltas: Candidate deltas. Each is applied
+                *symmetrically* — a 0.25 candidate is a 25-delta put plus
+                a 25-delta call. One ``(DTE, delta)`` pair = one strangle.
+            as_of: PIT cutoff date ``YYYY-MM-DD``. ``None`` means now.
+            min_ev_dollars: Hard floor on the **composed** EV.
+            top_n: Number of top candidates to return.
+            include_diagnostic_fields: Append the per-leg risk block.
+            use_event_gate: Hard-block candidates whose holding window
+                touches the ticker's next earnings (downgrade-only).
+            use_timing_gate: Apply the §4 strangle-timing pre-filter
+                (downgrade-only — an ``avoid`` verdict drops the ticker).
+            earnings_buffer_days, macro_buffer_days: Event-gate buffers.
+            min_history_days, enforce_history_gate: Survivorship/quality
+                gate on OHLCV length.
+            risk_free_rate: Decimal rate. ``None`` resolves from the
+                connector; an explicit value outside ``[0, 0.25]`` raises.
+            dividend_yield: Decimal annual yield. ``None`` resolves from
+                the connector's fundamentals.
+
+        Returns:
+            DataFrame sorted by composed ``ev_dollars`` descending — one
+            row per surviving ``(DTE, delta)`` strangle — with the
+            columns of ``_STRANGLE_RANK_CORE_COLUMNS`` (+
+            ``_STRANGLE_RANK_DIAGNOSTIC_COLUMNS`` when
+            ``include_diagnostic_fields``). Empty but correctly shaped
+            when nothing survives.
+
+            ``.attrs["drops"]`` carries one ``{"ticker", "gate",
+            "reason"}`` dict per gated-out candidate — ``gate`` is one of
+            ``data``, ``history``, ``timing``, ``strike``, ``premium``,
+            ``event`` or ``ev_threshold``.
+        """
+        from datetime import timedelta
+
+        from engine.ev_engine import EVEngine, ShortOptionTrade
+        from engine.event_gate import EventGate, ScheduledEvent
+        from engine.forward_distribution import best_available_forward_distribution
+        from engine.option_pricer import black_scholes_price
+        from engine.wheel_tracker import _solve_call_strike, _solve_put_strike
+
+        if risk_free_rate is not None and not (0.0 <= risk_free_rate <= 0.25):
+            raise ValueError(f"risk_free_rate {risk_free_rate} outside [0, 0.25]")
+        contracts = max(int(contracts), 1)
+
+        conn = self.connector
+        drops: list[dict] = []
+
+        cols = list(_STRANGLE_RANK_CORE_COLUMNS)
+        if include_diagnostic_fields:
+            cols = cols + _STRANGLE_RANK_DIAGNOSTIC_COLUMNS
+
+        def _empty() -> pd.DataFrame:
+            df = pd.DataFrame(columns=cols)
+            df.attrs["drops"] = drops
+            return df
+
+        # ---- OHLCV + PIT cutoff ----
+        try:
+            ohlcv = conn.get_ohlcv(ticker)
+        except Exception:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "OHLCV fetch raised"})
+            return _empty()
+        if ohlcv is None or ohlcv.empty or "close" not in ohlcv.columns:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": "no OHLCV data (empty or missing 'close')",
+                }
+            )
+            return _empty()
+        if as_of is not None:
+            try:
+                ohlcv = ohlcv.loc[ohlcv.index <= pd.Timestamp(as_of)]
+            except Exception:
+                pass
+        if ohlcv.empty:
+            drops.append(
+                {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
+            )
+            return _empty()
+        if enforce_history_gate and len(ohlcv) < min_history_days:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "history",
+                    "reason": f"history {len(ohlcv)}d < required {min_history_days}d",
+                }
+            )
+            return _empty()
+
+        spot = float(ohlcv["close"].iloc[-1])
+        if spot <= 0:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
+            return _empty()
+
+        # ---- IV: percent→decimal normalisation (mirrors rank_candidates_by_ev) ----
+        fundamentals = conn.get_fundamentals(ticker) or {}
+        iv_raw = fundamentals.get("implied_vol_atm")
+        if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+            iv_raw = fundamentals.get("volatility_30d")
+        try:
+            iv = float(iv_raw) if iv_raw is not None else 0.0
+        except (TypeError, ValueError):
+            iv = 0.0
+        if np.isnan(iv) or iv <= 0:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"})
+            return _empty()
+        if iv > 3.0:
+            iv = iv / 100.0
+        if iv <= 0 or iv > 5:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": "IV degenerate after percent normalisation",
+                }
+            )
+            return _empty()
+
+        # ---- dividend yield (decimal) ----
+        if dividend_yield is None:
+            dy_raw = fundamentals.get("dividend_yield", 0.0) or 0.0
+            try:
+                div_q = float(dy_raw)
+            except (TypeError, ValueError):
+                div_q = 0.0
+            if not np.isfinite(div_q) or div_q < 0.0:
+                div_q = 0.0
+            else:
+                div_q /= 100.0  # Bloomberg eqy_dvd_yld_12m is percent (AUDIT-IX)
+                if div_q > 0.30:
+                    div_q = 0.0
+        else:
+            div_q = float(dividend_yield)
+            if not np.isfinite(div_q) or div_q < 0.0:
+                div_q = 0.0
+
+        # ---- risk-free rate ----
+        if risk_free_rate is not None:
+            rf = float(risk_free_rate)
+        else:
+            rf = 0.05
+            try:
+                rf_raw = conn.get_risk_free_rate(as_of)
+                if rf_raw is not None and not (isinstance(rf_raw, float) and np.isnan(rf_raw)):
+                    rf_val = float(rf_raw)
+                    if rf_val > 1.0:
+                        rf_val = rf_val / 100.0
+                    if 0.0 <= rf_val <= 0.25:
+                        rf = rf_val
+            except Exception:
+                pass
+
+        today_date = date.fromisoformat(as_of) if as_of else date.today()
+
+        # ---- §4 strangle-timing pre-filter (downgrade-only) ----
+        # Always computed (the timing_* columns are informational); only
+        # *gates* when use_timing_gate is set. An 'avoid' verdict drops
+        # the whole ticker before any EV ranking — it can never lift EV.
+        timing_score: float | None = None
+        timing_recommendation = "unknown"
+        timing_phase = "unknown"
+        try:
+            from engine.strangle_timing import StrangleTimingEngine
+
+            timing = StrangleTimingEngine().score_entry(ohlcv)
+            timing_score = round(float(timing.total_score), 2)
+            timing_recommendation = str(timing.recommendation)
+            if timing.regime is not None:
+                timing_phase = str(timing.regime.phase.value)
+        except Exception:
+            timing_score = None
+            timing_recommendation = "unknown"
+            timing_phase = "unknown"
+        if use_timing_gate and timing_recommendation == "avoid":
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "timing",
+                    "reason": f"strangle timing recommendation 'avoid' (score {timing_score})",
+                }
+            )
+            return _empty()
+
+        # ---- event gate: register the ticker's next earnings ----
+        event_gate: EventGate | None = None
+        if use_event_gate:
+            event_gate = EventGate(
+                earnings_buffer_days=earnings_buffer_days,
+                macro_buffer_days=macro_buffer_days,
+            )
+        days_to_earn: int | None = None
+        try:
+            next_earn = conn.get_next_earnings(ticker, as_of)
+            if next_earn:
+                earn_ts = next_earn.get("announcement_date")
+                if earn_ts is not None:
+                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
+                    days_to_earn = (earn_d - today_date).days
+                    if event_gate is not None:
+                        event_gate.add_event(
+                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
+                        )
+        except Exception:
+            days_to_earn = None
+
+        ev_eng = EVEngine(event_gate=event_gate)
+
+        # ---- forward-distribution cache (one fetch per distinct DTE) ----
+        # Both legs of a candidate share the SAME forward path — that is
+        # what makes the composed EV an honest sum over one distribution.
+        fwd_cache: dict[int, tuple] = {}
+
+        def _fwd_for(horizon: int) -> tuple:
+            if horizon in fwd_cache:
+                return fwd_cache[horizon]
+            try:
+                arr, method = best_available_forward_distribution(
+                    ohlcv, horizon_days=int(horizon), as_of=as_of
+                )
+            except Exception:
+                arr, method = None, "lognormal_fallback"
+            fwd_cache[horizon] = (arr, method)
+            return arr, method
+
+        # ---- enumerate the (DTE × delta) strangle grid ----
+        rows: list[dict] = []
+        for new_dte in target_dtes:
+            if new_dte <= 0:
+                continue
+            T = max(new_dte, 1) / 365.0
+            expiry = today_date + timedelta(days=int(new_dte))
+            fwd_rets, method = _fwd_for(int(new_dte))
+            for tgt_delta in target_deltas:
+                # Put leg — OTM, strike below spot.
+                put_strike_raw = _solve_put_strike(
+                    spot=spot, T=T, r=rf, q=div_q, iv=iv, target_delta=tgt_delta
+                )
+                if put_strike_raw is None:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"put delta-to-strike solve did not converge "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                put_strike = round(put_strike_raw * 2) / 2
+                if put_strike <= 0 or put_strike >= spot:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"put strike {put_strike} not OTM vs spot {spot:.2f} "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                # Call leg — OTM, strike above spot.
+                call_strike_raw = _solve_call_strike(
+                    spot=spot, T=T, r=rf, q=div_q, iv=iv, target_delta=tgt_delta
+                )
+                if call_strike_raw is None:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"call delta-to-strike solve did not converge "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                call_strike = round(call_strike_raw * 2) / 2
+                if call_strike <= spot:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"call strike {call_strike} not OTM vs spot {spot:.2f} "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+
+                put_premium = black_scholes_price(
+                    S=spot, K=put_strike, T=T, r=rf, sigma=iv, option_type="put", q=div_q
+                )
+                if put_premium <= 0.05:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "premium",
+                            "reason": (
+                                f"put premium too thin (<=$0.05) (dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                call_premium = black_scholes_price(
+                    S=spot, K=call_strike, T=T, r=rf, sigma=iv, option_type="call", q=div_q
+                )
+                if call_premium <= 0.05:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "premium",
+                            "reason": (
+                                f"call premium too thin (<=$0.05) "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+
+                # Two short legs → two EVEngine.evaluate calls, same path.
+                put_trade = ShortOptionTrade(
+                    option_type="put",
+                    underlying=ticker,
+                    spot=spot,
+                    strike=float(put_strike),
+                    premium=put_premium,
+                    dte=int(new_dte),
+                    iv=iv,
+                    risk_free_rate=rf,
+                    dividend_yield=div_q,
+                    contracts=contracts,
+                    bid=put_premium * 0.95,
+                    ask=put_premium * 1.05,
+                    open_interest=1000,
+                    regime_multiplier=1.0,
+                )
+                call_trade = ShortOptionTrade(
+                    option_type="call",
+                    underlying=ticker,
+                    spot=spot,
+                    strike=float(call_strike),
+                    premium=call_premium,
+                    dte=int(new_dte),
+                    iv=iv,
+                    risk_free_rate=rf,
+                    dividend_yield=div_q,
+                    contracts=contracts,
+                    bid=call_premium * 0.95,
+                    ask=call_premium * 1.05,
+                    open_interest=1000,
+                    regime_multiplier=1.0,
+                )
+                put_res = ev_eng.evaluate(
+                    put_trade,
+                    forward_log_returns=fwd_rets,
+                    trade_start=today_date,
+                    trade_end=expiry,
+                )
+                call_res = ev_eng.evaluate(
+                    call_trade,
+                    forward_log_returns=fwd_rets,
+                    trade_start=today_date,
+                    trade_end=expiry,
+                )
+                # Event-gate short-circuit: either leg blocked → drop.
+                if put_res.event_lockout_reason or call_res.event_lockout_reason:
+                    reason = put_res.event_lockout_reason or call_res.event_lockout_reason
+                    drops.append({"ticker": ticker, "gate": "event", "reason": str(reason)})
+                    continue
+
+                # Composed strangle EV — additive by linearity of
+                # expectation. The floor is on this composed value, so
+                # neither leg in isolation can admit a candidate.
+                composed_ev = put_res.ev_dollars + call_res.ev_dollars
+                if composed_ev < min_ev_dollars:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "ev_threshold",
+                            "reason": (
+                                f"composed ev_dollars {composed_ev:.2f} < "
+                                f"min_ev_dollars {min_ev_dollars:.2f} "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+
+                total_premium = put_premium + call_premium
+                row: dict = {
+                    "ticker": ticker,
+                    "spot": round(spot, 2),
+                    "dte": int(new_dte),
+                    "expiry": expiry,
+                    "target_delta": tgt_delta,
+                    "iv": round(iv, 4),
+                    "contracts": contracts,
+                    "put_strike": put_strike,
+                    "call_strike": call_strike,
+                    "put_premium": round(put_premium, 3),
+                    "call_premium": round(call_premium, 3),
+                    "total_premium": round(total_premium, 3),
+                    "ev_dollars": round(composed_ev, 2),
+                    "put_ev_dollars": round(put_res.ev_dollars, 2),
+                    "call_ev_dollars": round(call_res.ev_dollars, 2),
+                    # Breakevens — exact contract algebra: the short
+                    # strangle profits if spot finishes between these.
+                    "lower_breakeven": round(put_strike - total_premium, 2),
+                    "upper_breakeven": round(call_strike + total_premium, 2),
+                    "days_to_earnings": days_to_earn,
+                    "timing_score": timing_score,
+                    "timing_recommendation": timing_recommendation,
+                    "distribution_source": method,
+                }
+                if include_diagnostic_fields:
+                    # Per-leg risk — explicitly labelled, NOT summed (the
+                    # strangle payoff is nonlinear in the shared path).
+                    row.update(
+                        {
+                            "put_prob_profit": round(put_res.prob_profit, 4),
+                            "call_prob_profit": round(call_res.prob_profit, 4),
+                            "put_prob_assignment": round(put_res.prob_assignment, 4),
+                            "call_prob_assignment": round(call_res.prob_assignment, 4),
+                            "put_cvar_5": round(put_res.cvar_5, 2),
+                            "call_cvar_5": round(call_res.cvar_5, 2),
+                            "put_edge_vs_fair": round(put_res.edge_vs_fair, 2),
+                            "call_edge_vs_fair": round(call_res.edge_vs_fair, 2),
+                            # Transaction cost IS additive (a deterministic
+                            # cost, not a path statistic) — both legs paid.
+                            "total_transaction_cost": round(
+                                put_res.total_transaction_cost + call_res.total_transaction_cost,
+                                2,
+                            ),
+                            "timing_phase": timing_phase,
+                        }
+                    )
+                rows.append(row)
+
+        if not rows:
+            return _empty()
+        df = pd.DataFrame(rows, columns=cols)
+        df = df.sort_values("ev_dollars", ascending=False).head(top_n).reset_index(drop=True)
         # Drop log attached after sort/head so it rides on the exact frame
         # returned; survivor rows are untouched (CLAUDE.md §2).
         df.attrs["drops"] = drops

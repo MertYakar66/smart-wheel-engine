@@ -193,7 +193,9 @@ they are out of scope by design:
 
 Before making non-trivial changes:
 
-1. Read this file and `LAPTOP_SETUP.md`.
+1. Read this file and `LAPTOP_SETUP.md`. If a second terminal may be
+   active on this repo, also read `docs/PARALLEL_SESSIONS.md` and the
+   coordination board (pinned GitHub issue).
 2. Confirm the provider. Default is wired in
    `engine/wheel_runner.py:131` as
    `os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()` —

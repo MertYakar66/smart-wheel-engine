@@ -615,7 +615,7 @@ class WheelRunner:
                 from engine.external_data.fred_adapter import FREDAdapter
 
                 fa = FREDAdapter()
-                cr = fa.credit_regime()
+                cr = fa.credit_regime(as_of=as_of)
                 credit_regime = cr.get("regime", "unknown")
                 if credit_regime == "crisis":
                     credit_mult = 0.80
@@ -970,8 +970,8 @@ class WheelRunner:
             news_n_articles = 0
             if news_reader is not None:
                 try:
-                    news_mult = float(news_reader.sentiment_multiplier(ticker))
-                    ns = news_reader.get_ticker_sentiment(ticker)
+                    news_mult = float(news_reader.sentiment_multiplier(ticker, as_of=as_of))
+                    ns = news_reader.get_ticker_sentiment(ticker, as_of=as_of)
                     news_sentiment = float(ns.get("sentiment", 0.0))
                     news_n_articles = int(ns.get("n_articles", 0))
                 except Exception:

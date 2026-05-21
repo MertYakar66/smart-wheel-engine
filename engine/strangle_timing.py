@@ -791,23 +791,27 @@ class StrangleTimingWithIV(StrangleTimingEngine):
         """
         connector = self.data_connector
 
-        # Fetch OHLCV (at least 200 bars for robust BB-width percentile)
-        ohlcv = connector.get_ohlcv(ticker, as_of=as_of, lookback=200)
+        # Fetch OHLCV up to the as-of date. get_ohlcv slices by date, not
+        # bar count — the scorer takes its own rolling windows internally.
+        ohlcv = connector.get_ohlcv(ticker, end_date=as_of)
 
-        # Fetch IV metrics
-        iv_rank = connector.get_iv_rank(ticker, as_of=as_of)
-        rv = connector.get_realized_vol(ticker, as_of=as_of)
-        iv_current = connector.get_current_iv(ticker, as_of=as_of)
-        vol_risk_premium = iv_current - rv if (iv_current is not None and rv is not None) else 0.0
-
-        vix_level = connector.get_vix_level(as_of=as_of)
-        vix_contango = connector.get_vix_contango(as_of=as_of)
+        # IV metrics from the connector's real API:
+        #  - get_iv_rank returns a 0-1 fraction; _compute_iv_multiplier
+        #    expects a 0-100 rank, so it is scaled by 100 here.
+        #  - get_vol_risk_premium returns the IV-RV spread (%) directly.
+        #  - get_vix_regime returns a dict with the VIX level and a
+        #    term-structure label ("contango" / "backwardation").
+        iv_rank_raw = connector.get_iv_rank(ticker, as_of=as_of)
+        vol_risk_premium = connector.get_vol_risk_premium(ticker, as_of=as_of)
+        vix_regime = connector.get_vix_regime(as_of=as_of) or {}
+        vix_level = vix_regime.get("vix")
+        vix_contango = vix_regime.get("term_structure") == "contango"
 
         iv_data = {
-            "iv_rank": iv_rank if iv_rank is not None else 50.0,
-            "vol_risk_premium": vol_risk_premium,
+            "iv_rank": (iv_rank_raw * 100.0) if iv_rank_raw is not None else 50.0,
+            "vol_risk_premium": vol_risk_premium if vol_risk_premium is not None else 0.0,
             "vix_level": vix_level if vix_level is not None else 20.0,
-            "vix_contango": vix_contango if vix_contango is not None else True,
+            "vix_contango": vix_contango,
         }
 
         score = self.score_entry(ohlcv, iv_data=iv_data)

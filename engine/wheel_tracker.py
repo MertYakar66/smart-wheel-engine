@@ -1110,6 +1110,75 @@ class WheelTracker:
                 reserved += pos.put_strike * 100.0
         return self.cash - reserved
 
+    # ------------------------------------------------------------------
+    # Mark-to-market IV resolution (S2 / S8 — staleness fix)
+    # ------------------------------------------------------------------
+    def _connector_atm_iv(self, ticker: str, as_of: date) -> float | None:
+        """Best-effort *as-of* ATM implied vol for ``ticker`` from the connector.
+
+        Returns the composite ``(hist_put_imp_vol + hist_call_imp_vol) / 2``
+        as of ``as_of``, normalised to a decimal — or ``None`` when no
+        connector is attached, the connector cannot supply IV history
+        (e.g. a ``ThetaConnector``, which has no ``get_iv_history``), or
+        the lookup fails / yields nothing usable.
+
+        This is what lets :meth:`mark_to_market` mark a short option at
+        *current* vol instead of the position's stale entry IV (S2 / S8).
+        """
+        conn = self.connector
+        if conn is None or not hasattr(conn, "get_iv_history"):
+            return None
+        try:
+            hist = conn.get_iv_history(ticker, end_date=as_of.isoformat())
+        except Exception:
+            return None
+        if hist is None or len(hist) == 0:
+            return None
+        cols = [c for c in ("hist_put_imp_vol", "hist_call_imp_vol") if c in hist.columns]
+        if not cols:
+            return None
+        try:
+            row = hist.iloc[-1]
+            vals = [float(row[c]) for c in cols if pd.notna(row[c])]
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not vals:
+            return None
+        iv = sum(vals) / len(vals)
+        # The Bloomberg vol_iv columns are in PERCENT (e.g. 30.79) — the
+        # >3.0 heuristic normalises to a decimal, matching the convention
+        # in rank_candidates_by_ev. Reject anything still degenerate.
+        if iv > 3.0:
+            iv = iv / 100.0
+        if not (0.0 < iv <= 5.0):
+            return None
+        return iv
+
+    def _resolve_mark_iv(
+        self,
+        ticker: str,
+        as_of: date,
+        entry_iv: float | None,
+        current_ivs: dict[str, float],
+    ) -> float | None:
+        """Resolve the IV to mark a short option at, staleness-aware.
+
+        Priority:
+          1. an explicit ``current_ivs[ticker]`` override (the caller
+             passed a live IV — trust it);
+          2. the connector's *as-of* ATM IV — current vol, the S2 / S8
+             staleness fix;
+          3. the position's **entry** IV — a stale last resort, used
+             only when no connector IV is available.
+        """
+        live = current_ivs.get(ticker)
+        if live is not None and live > 0:
+            return live
+        conn_iv = self._connector_atm_iv(ticker, as_of)
+        if conn_iv is not None:
+            return conn_iv
+        return entry_iv
+
     def mark_to_market(
         self,
         current_date: date,
@@ -1125,13 +1194,15 @@ class WheelTracker:
             prices: Dict of ``{ticker: current_stock_price}``.
             risk_free_rate: Risk-free rate for option pricing (default 4%).
             current_ivs: Optional dict of ``{ticker: live_iv}`` (decimal,
-                e.g. ``0.28`` for 28%). When supplied the short-option
-                liability is marked at the current market IV; when
-                omitted we fall back to the leg's entry IV. The fallback
-                is a documented approximation — positions held through
-                a vol regime change will be mis-marked if ``current_ivs``
-                is not provided. Pass live IV from the broker / options
-                chain for production equity curves.
+                e.g. ``0.28`` for 28%) — an explicit per-ticker IV
+                override. When a ticker is absent, the short-option
+                liability is marked at the connector's *as-of* ATM IV
+                (at ``current_date``) if a connector is attached; only
+                when that is unavailable too does it fall back to the
+                leg's **entry** IV — a stale last resort that mis-marks
+                a position held through a vol regime change. See
+                :meth:`_resolve_mark_iv`. For the freshest marks pass
+                ``current_ivs`` explicitly, or attach a connector.
 
         Returns:
             Total portfolio value including option liabilities.
@@ -1156,8 +1227,9 @@ class WheelTracker:
                 if pos.put_expiration_date and current_date < pos.put_expiration_date:
                     days_to_expiry = (pos.put_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        live_iv = current_ivs.get(ticker)
-                        iv_used = live_iv if (live_iv and live_iv > 0) else pos.put_entry_iv
+                        iv_used = self._resolve_mark_iv(
+                            ticker, current_date, pos.put_entry_iv, current_ivs
+                        )
                         put_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.put_strike,
@@ -1173,8 +1245,9 @@ class WheelTracker:
                 if pos.call_expiration_date and current_date < pos.call_expiration_date:
                     days_to_expiry = (pos.call_expiration_date - current_date).days
                     if days_to_expiry > 0:
-                        live_iv = current_ivs.get(ticker)
-                        iv_used = live_iv if (live_iv and live_iv > 0) else pos.call_entry_iv
+                        iv_used = self._resolve_mark_iv(
+                            ticker, current_date, pos.call_entry_iv, current_ivs
+                        )
                         call_value = estimate_option_price_from_iv(
                             underlying_price=stock_price,
                             strike=pos.call_strike,

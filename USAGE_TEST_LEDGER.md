@@ -368,7 +368,11 @@ only the put entry is engine-ranked.
   `rank_candidates_by_ev`. The covered call is a tradeable short option
   yet nothing ranks or EV-checks it. In this run the $92 strike and its
   premium had to be hand-picked and BSM-priced. The put leg is
-  EV-authoritative; the call leg is unmanaged. **Logged.**
+  EV-authoritative; the call leg is unmanaged. **Fixed in `#124`** —
+  `WheelRunner.rank_covered_calls_by_ev` is the covered-call entry
+  ranker, the call-leg parallel of `rank_candidates_by_ev`: it EV-ranks
+  a (strike × DTE) grid for a held position, every candidate scored
+  through `EVEngine.evaluate`.
 
 - **`open_covered_call` / `roll_call` apply no event gate.** DIS
   earnings 2025-05-07 fell squarely inside the covered call's
@@ -413,20 +417,55 @@ only the put entry is engine-ranked.
 - **`tracker.cash` overstates buying power** — confirmed (S2 / S4).
   After the CSP opened, `cash` read $30,129 while $9,800 of strike
   collateral was unreserved; deployable capital is `cash − Σ(strike ×
-  100)`, still computed by hand. **Logged.**
+  100)`, still computed by hand. **Fixed in `#127`** —
+  `WheelTracker.available_buying_power()` returns `cash − Σ(put_strike ×
+  100)` over the open short puts.
 
 - **`mark_to_market` IV staleness** — confirmed (S2), but mild in this
   cycle: at both mark dates the short put was deep ITM (spot $81.72 vs
   $98 strike), so vega was small and the entry-IV vs live-IV(0.55)
   marks differed by only ~$1. The gap bites on ATM / OTM holds carried
-  through a vol regime change, not on a deep-ITM leg. **Logged.**
+  through a vol regime change, not on a deep-ITM leg. **Fixed in
+  `#129`** — `mark_to_market` now resolves the connector's as-of ATM IV
+  when `current_ivs` omits a ticker, falling back to the entry IV only
+  as a last resort.
 
 **Follow-up.** Two methods bring the wheel's second half under the
 same EV authority as the first: `suggest_call_rolls` (the call-leg
 parallel of `suggest_rolls`) — **done, shipped in `#122`** — and a
 covered-call *entry* ranker (the call-leg parallel of
-`rank_candidates_by_ev`) — still queued (#118 P1). Both are §2-safe by
-construction: they *rank*, not rescue.
+`rank_candidates_by_ev`) — **done, shipped in `#124`**. Both are
+§2-safe by construction: they *rank*, not rescue.
+
+**Validation re-run (2026-05-21).** Confirm-fixed pass on real
+Bloomberg data, `as_of=2026-03-20`. The covered-call leg the original
+run had to walk by hand is now engine-ranked end to end:
+
+- *Covered-call entry.* `rank_covered_calls_by_ev("DIS",
+  shares_held=100)` returns **16 EV-ranked candidates** (4 DTE ×
+  4 delta), each scored through `EVEngine.evaluate` — `ev_dollars`
+  −131 … −71. Every DIS covered call at this `as_of` is negative-EV,
+  so the default `min_ev_dollars=0` floor returns **0 tradeable rows**
+  (ranks, never rescues). *Before:* the $92 strike was hand-picked and
+  BSM-priced with no EV check.
+- *Buying power (`#127`).* After the 98-strike CSP opened, `cash` =
+  $30,304.70 but `available_buying_power()` = **$20,504.70** (cash −
+  $9,800 collateral) — the figure the original run computed by hand.
+- *Persistence (`#128`).* `WheelTracker.save` → `load` round-trips
+  structurally identical (position state + buying power preserved);
+  a mid-campaign save/resume is now possible at all.
+- *Mark-to-market IV (`#129`).* With a connector, `mark_to_market`
+  marks at the as-of IV — DIS @2026-01-20 → **0.359**, well above the
+  position's stale 0.28 entry IV — and the marks differ ($29,811.87
+  vs $29,899.19 on entry IV).
+- *Roll support (`#122`).* `suggest_call_rolls` on an adverse covered
+  call (spot 110 vs a 100C) returns **16 EV-ranked rolls** with
+  `roll_ev` / `hold_ev` / `recommend` — the roll-vs-hold comparison
+  the original $92C → $112C roll lacked.
+
+No new bug surfaced. The two findings still **Logged** above —
+`open_covered_call` / `roll_call` event gate, and the EV-authority
+token encoding only provenance — remain genuinely open (#118 P5).
 
 ### S9 — Adversarial / gate stress
 
@@ -897,7 +936,11 @@ Layer-2 IV overlay); the rest logged.
   short of a candidate. A trader acting on a `strong_entry` then builds
   the strangle fully unranked. The same structural gap S8 logged for the
   covered-call leg: an in-scope strategy (CLAUDE.md §4) with no EV
-  authority beneath it. **Logged.**
+  authority beneath it. **Fixed in `#126`** —
+  `WheelRunner.rank_strangles_by_ev` EV-ranks short-strangle candidates
+  (strikes + premium): the put leg and the call leg are each scored
+  through `EVEngine.evaluate`, and the composed strangle EV is the sum
+  of the two. The strangle strategy is now under the EV authority.
 
 - **The Layer-2 IV overlay was dead code — `score_entry_with_iv` crashed
   on every call. Fixed.** It called `connector.get_ohlcv(ticker,
@@ -974,12 +1017,36 @@ Layer-2 IV overlay); the rest logged.
   example; no such method exists on `WheelRunner`. The real entry points
   are the `strangle_engine` property and `analyze_ticker`. **Logged.**
 
-**Follow-up (queued).** A strangle EV layer — strike selection plus an
+**Follow-up.** A strangle EV layer — strike selection plus an
 EV-ranked strangle candidate, the §4 timing-gated parallel of
-`rank_candidates_by_ev` — and an earnings gate on the strangle path.
-Together they would bring the one timing-gated strategy under the same
-EV authority as the wheel legs. Beyond a usage test's remit; left for a
-human to scope.
+`rank_candidates_by_ev` — **shipped in `#126`** (`rank_strangles_by_ev`),
+which also carries an `EventGate`, so the EV-ranked strangle path is
+earnings-gated. This brings the one timing-gated strategy under the
+same EV authority as the wheel legs. The bare timing engine
+(`strangle_timing.py` — `score_entry`) is unchanged and still has no
+earnings awareness (finding above, **Logged**).
+
+**Validation re-run (2026-05-21).** Confirm-fixed pass on real
+Bloomberg data, `as_of=2026-03-20`.
+
+- *Strangle EV layer.* `rank_strangles_by_ev("AAPL")` returns **16
+  EV-ranked short-strangle candidates** — each a concrete (`put_strike`,
+  `call_strike`, `total_premium`) with a composed `ev_dollars`
+  (put-leg EV + call-leg EV, both through `EVEngine.evaluate`); AAPL
+  composed EV −660 … −106, default floor → 0 tradeable. *Before:* the
+  strangle path stopped at a 0–100 timing score; a trader acting on a
+  `strong_entry` then built the strangle fully unranked.
+- *Earnings gate.* S14 named JPM as a name with earnings inside a
+  strangle's life that the old path could not see. At the same
+  `as_of`, `rank_strangles_by_ev("JPM")` returns **0 candidates** —
+  all 16 dropped at the `event` gate (`earnings@2026-04-14`, inside
+  every 21–63 DTE window). The new EV-ranked strangle path carries an
+  `EventGate`; a trader routing a strangle through the ranker is now
+  earnings-gated. (The bare timing engine is still earnings-blind —
+  the "no earnings awareness" finding above stays **Logged**.)
+
+No new bug surfaced. The `recommendation` / phase findings remain
+**Logged** (#118 P5).
 
 ---
 

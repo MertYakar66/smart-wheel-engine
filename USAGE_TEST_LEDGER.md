@@ -150,6 +150,14 @@ returns a DataFrame ranked by forward EV with `roll_ev`, `hold_ev`,
   the new premium (it is already inside `ev_dollars(new)` via
   `gross_premium`); the shipped single-count form is the correct
   one.
+  **Correction (#122).** The #104 code netted `buyback_total` from
+  `calculate_total_exit_cost(...)["total_cost"]` — exit *transaction
+  costs only* (~$7), omitting the buyback principal (~$400+). So as
+  shipped, `roll_ev` was *not* in fact apples-to-apples with `hold_ev`
+  and nearly every roll spuriously cleared the `recommend` bar. #122
+  corrects `buyback_total` to the `"total_buyback_cost"` key
+  (principal + exit txn costs); a `TestRollEvNetsBuybackPrincipal`
+  regression pins it.
 - **`recommend` semantics.** `recommend=True` means "this roll's
   forward EV beats holding's" — **not** "this position needs
   rescuing". Correct for the intended use (call on a *challenged*
@@ -161,8 +169,11 @@ returns a DataFrame ranked by forward EV with `roll_ev`, `hold_ev`,
   forward-EV improvement over holding. The week-2 signal the S2
   trader didn't get.
 
-**Follow-up (queued):** `suggest_call_rolls` — the covered-call-leg
-parallel, deliberately deferred from #104.
+**Follow-up — done.** `suggest_call_rolls` — the covered-call-leg
+parallel, deferred from #104 — shipped in **`#122`** (merged
+`1821d56`): the same DTE × delta enumeration through
+`EVEngine.evaluate`, covered-call rolls only, pinned by a §2
+call-count regression.
 
 ### S4 — Account-size-constrained book selection
 
@@ -370,7 +381,11 @@ only the put entry is engine-ranked.
   explicitly deferred (#104 follow-up, still queued). The cycle's roll
   ($92C → $112C, a −$1,534 net debit) was a pure-mechanics call with no
   roll-vs-hold-vs-let-assign EV comparison — the trader is on their own
-  for the single most consequential covered-call decision. **Logged.**
+  for the single most consequential covered-call decision.
+  **Fixed in `#122`** — `suggest_call_rolls` ranks covered-call rolls
+  by forward EV through `EVEngine.evaluate`; `roll_call` mechanics are
+  unchanged, but the roll-vs-hold decision support that was missing
+  now exists alongside it.
 
 - **The EV-authority token proves provenance, not tradeability.**
   `issue_ev_authority_token` (`wheel_tracker.py:168`) hashes and
@@ -406,12 +421,12 @@ only the put entry is engine-ranked.
   marks differed by only ~$1. The gap bites on ATM / OTM holds carried
   through a vol regime change, not on a deep-ITM leg. **Logged.**
 
-**Follow-up (queued).** A covered-call entry ranker (the call-leg
-parallel of `rank_candidates_by_ev`) and `suggest_call_rolls` (the
-call-leg parallel of `suggest_rolls`) would together bring the wheel's
-second half under the same EV authority as the first. Both are §2-safe
-by construction — they would *rank*, not rescue. Larger than a usage
-test's remit; left for a human to scope.
+**Follow-up.** Two methods bring the wheel's second half under the
+same EV authority as the first: `suggest_call_rolls` (the call-leg
+parallel of `suggest_rolls`) — **done, shipped in `#122`** — and a
+covered-call *entry* ranker (the call-leg parallel of
+`rank_candidates_by_ev`) — still queued (#118 P1). Both are §2-safe by
+construction: they *rank*, not rescue.
 
 ### S9 — Adversarial / gate stress
 

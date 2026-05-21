@@ -515,50 +515,47 @@ class TestScanUniverseErrorPath:
 
 
 class _StubConnector:
-    """In-process stub fulfilling the methods StrangleTimingWithIV calls.
+    """In-process stub matching the real MarketDataConnector interface
+    that StrangleTimingWithIV.score_entry_with_iv depends on:
 
-    Real MarketDataConnector does not implement get_realized_vol /
-    get_current_iv / get_vix_level / get_vix_contango as of 2026-05-08,
-    so the live `score_entry_with_iv` path requires either a stub here
-    or a connector refactor (out of scope for this coverage commit —
-    pinned by xfail in TestStrangleTimingWithIVLiveBug).
+        get_ohlcv(ticker, start_date=None, end_date=None)
+        get_iv_rank(ticker, as_of=None)           -> 0-1 fraction
+        get_vol_risk_premium(ticker, as_of=None)  -> IV-RV spread, %
+        get_vix_regime(as_of=None)                -> {"vix": float,
+                                                      "term_structure": str}
+
+    score_entry_with_iv scales iv_rank by 100 (the _compute_iv_multiplier
+    contract is a 0-100 rank) and derives vix_contango from
+    term_structure == "contango".
     """
 
     def __init__(
         self,
         ohlcv: pd.DataFrame,
-        iv_rank: float = 60.0,
-        rv: float = 0.18,
-        iv_current: float = 0.25,
+        iv_rank: float = 0.60,
+        vol_risk_premium: float = 4.0,
         vix_level: float = 18.0,
-        vix_contango: bool = True,
+        term_structure: str = "contango",
         universe: list[str] | None = None,
     ) -> None:
         self._ohlcv = ohlcv
         self._iv_rank = iv_rank
-        self._rv = rv
-        self._iv_current = iv_current
+        self._vol_risk_premium = vol_risk_premium
         self._vix_level = vix_level
-        self._vix_contango = vix_contango
+        self._term_structure = term_structure
         self._universe = universe or ["AAPL", "MSFT"]
 
-    def get_ohlcv(self, ticker, as_of=None, lookback=200):  # noqa: ARG002
+    def get_ohlcv(self, ticker, start_date=None, end_date=None):  # noqa: ARG002
         return self._ohlcv.copy()
 
     def get_iv_rank(self, ticker, as_of=None):  # noqa: ARG002
         return self._iv_rank
 
-    def get_realized_vol(self, ticker, as_of=None):  # noqa: ARG002
-        return self._rv
+    def get_vol_risk_premium(self, ticker, as_of=None):  # noqa: ARG002
+        return self._vol_risk_premium
 
-    def get_current_iv(self, ticker, as_of=None):  # noqa: ARG002
-        return self._iv_current
-
-    def get_vix_level(self, as_of=None):  # noqa: ARG002
-        return self._vix_level
-
-    def get_vix_contango(self, as_of=None):  # noqa: ARG002
-        return self._vix_contango
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        return {"vix": self._vix_level, "term_structure": self._term_structure}
 
     def get_universe(self):
         return list(self._universe)
@@ -846,65 +843,80 @@ class TestStrangleTimingWithIVLazyConnector:
 
 
 class TestScoreEntryWithIV:
-    """Cover score_entry_with_iv (lines 792-822) using a stub connector."""
+    """Cover score_entry_with_iv against a connector matching the real
+    MarketDataConnector interface (get_ohlcv / get_iv_rank /
+    get_vol_risk_premium / get_vix_regime)."""
 
-    def test_with_iv_attaches_metadata(self):
+    def test_with_iv_runs_and_attaches_metadata(self):
         df = _generate_ohlcv(seed=1)
         stub = _StubConnector(
-            ohlcv=df, iv_rank=80.0, rv=0.15, iv_current=0.22, vix_level=15.0, vix_contango=True
+            ohlcv=df,
+            iv_rank=0.80,
+            vol_risk_premium=7.0,
+            vix_level=15.0,
+            term_structure="contango",
         )
         engine = StrangleTimingWithIV(data_connector=stub)
         score = engine.score_entry_with_iv("AAPL", as_of="2025-12-01")
         assert isinstance(score, StrangleEntryScore)
+        assert 0 <= score.total_score <= 100
+        assert score.recommendation in ("strong_entry", "conditional", "avoid")
         assert score.regime is not None
-        # Metadata attached onto regime
+        # iv_rank scaled 0-1 -> 0-100 (the _compute_iv_multiplier contract).
         assert score.regime.iv_rank == pytest.approx(80.0)
-        # vol_risk_premium = iv_current - rv = 0.22 - 0.15 = 0.07
-        assert score.regime.vol_risk_premium == pytest.approx(0.07)
+        assert score.regime.vol_risk_premium == pytest.approx(7.0)
         assert score.regime.vix_level == pytest.approx(15.0)
-        assert score.regime.vix_contango is True
+        assert score.regime.vix_contango is True  # term_structure == "contango"
+
+    def test_iv_rank_scaled_from_fraction_to_0_100(self):
+        """Regression: get_iv_rank returns a 0-1 fraction; score_entry_with_iv
+        must scale it to the 0-100 rank _compute_iv_multiplier expects. A 0.92
+        fraction (rich IV) must read as 92 and earn the >70 boost, not as 0.92
+        and trip the <20 low-IV penalty."""
+        df = _generate_ohlcv(seed=2)
+        rich = _StubConnector(
+            ohlcv=df,
+            iv_rank=0.92,
+            vol_risk_premium=0.0,
+            vix_level=20.0,
+            term_structure="backwardation",
+        )
+        cheap = _StubConnector(
+            ohlcv=df,
+            iv_rank=0.05,
+            vol_risk_premium=0.0,
+            vix_level=20.0,
+            term_structure="backwardation",
+        )
+        s_rich = StrangleTimingWithIV(data_connector=rich).score_entry_with_iv("X")
+        s_cheap = StrangleTimingWithIV(data_connector=cheap).score_entry_with_iv("X")
+        assert s_rich.regime.iv_rank == pytest.approx(92.0)
+        assert s_cheap.regime.iv_rank == pytest.approx(5.0)
+        # Rich IV (>70) boosts; cheap IV (<20) penalises -> rich scores higher.
+        assert s_rich.total_score > s_cheap.total_score
 
     def test_with_iv_handles_none_returns(self):
-        """When connector returns None for IV pieces, defaults should kick in."""
+        """When the connector returns None for IV pieces, score_entry_with_iv
+        falls back to neutral defaults rather than crashing."""
 
         class _NoneStub(_StubConnector):
             def get_iv_rank(self, ticker, as_of=None):  # noqa: ARG002
                 return None
 
-            def get_realized_vol(self, ticker, as_of=None):  # noqa: ARG002
+            def get_vol_risk_premium(self, ticker, as_of=None):  # noqa: ARG002
                 return None
 
-            def get_current_iv(self, ticker, as_of=None):  # noqa: ARG002
-                return None
-
-            def get_vix_level(self, as_of=None):  # noqa: ARG002
-                return None
-
-            def get_vix_contango(self, as_of=None):  # noqa: ARG002
+            def get_vix_regime(self, as_of=None):  # noqa: ARG002
                 return None
 
         df = _generate_ohlcv(seed=4)
         engine = StrangleTimingWithIV(data_connector=_NoneStub(ohlcv=df))
         score = engine.score_entry_with_iv("MSFT")
-        # Defaults: iv_rank=50, vrp=0.0, vix=20, contango=True
         assert score.regime is not None
-        assert score.regime.iv_rank == pytest.approx(50.0)
+        assert score.regime.iv_rank == pytest.approx(50.0)  # neutral default
         assert score.regime.vol_risk_premium == pytest.approx(0.0)
         assert score.regime.vix_level == pytest.approx(20.0)
-        assert score.regime.vix_contango is True
-
-    def test_with_iv_partial_none_for_premium(self):
-        """If iv_current or rv is None, vol_risk_premium falls to 0.0."""
-
-        class _PartialNone(_StubConnector):
-            def get_current_iv(self, ticker, as_of=None):  # noqa: ARG002
-                return None
-
-        df = _generate_ohlcv(seed=5)
-        engine = StrangleTimingWithIV(data_connector=_PartialNone(ohlcv=df))
-        score = engine.score_entry_with_iv("AAPL")
-        assert score.regime is not None
-        assert score.regime.vol_risk_premium == pytest.approx(0.0)
+        assert score.regime.vix_contango is False  # no regime -> no contango bonus
 
 
 class TestScanUniverseWithIV:
@@ -912,7 +924,7 @@ class TestScanUniverseWithIV:
 
     def test_scan_returns_dataframe_with_iv_columns(self):
         df = _generate_ohlcv()
-        stub = _StubConnector(ohlcv=df, universe=["AAPL", "MSFT", "GOOGL"], iv_rank=85.0)
+        stub = _StubConnector(ohlcv=df, universe=["AAPL", "MSFT", "GOOGL"], iv_rank=0.85)
         engine = StrangleTimingWithIV(data_connector=stub)
         out = engine.scan_universe_with_iv(min_score=0)
         assert isinstance(out, pd.DataFrame)
@@ -962,8 +974,9 @@ class TestScanUniverseWithIV:
 
         class _VaryingStub(_StubConnector):
             def get_iv_rank(self, ticker, as_of=None):  # noqa: ARG002
-                # Make MSFT's multiplier very high → score boost vs AAPL.
-                return 90.0 if ticker == "MSFT" else 20.0
+                # MSFT gets a rich IV rank (>70 after scaling -> boost);
+                # AAPL a cheap one (<20 -> penalty). 0-1 fraction.
+                return 0.90 if ticker == "MSFT" else 0.10
 
         df = _generate_ohlcv()
         stub = _VaryingStub(ohlcv=df, universe=["AAPL", "MSFT"])
@@ -978,28 +991,25 @@ class TestScanUniverseWithIV:
 
 
 # ============================================================================
-# Latent bug pin — score_entry_with_iv against the real connector
+# score_entry_with_iv against the real connector
 # ============================================================================
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "score_entry_with_iv calls connector.get_ohlcv(..., as_of=..., lookback=200) "
-        "and connector.get_realized_vol/get_current_iv/get_vix_level/get_vix_contango, "
-        "none of which the live MarketDataConnector exposes as of 2026-05-08. "
-        "Today the live path dies on `get_ohlcv() got an unexpected keyword argument "
-        "'as_of'` (TypeError); even with that fixed, the next call would raise "
-        "AttributeError on get_realized_vol. Pinned strict so any future fix "
-        "(connector grows the methods, or strangle_timing migrates to the real "
-        "interface) flips this to a pass and prompts removal. Do not fix here."
-    ),
-    raises=(AttributeError, TypeError),
-)
-def test_score_entry_with_iv_real_connector_signature_mismatch():
-    """Document the latent connector-interface gap. Strict xfail: this will
-    fail the suite if the connector grows the missing methods, prompting a
-    follow-up commit to remove the xfail."""
+def test_score_entry_with_iv_against_real_connector():
+    """score_entry_with_iv runs end-to-end against the real
+    MarketDataConnector. Regression for the previously-dead Layer-2 IV
+    overlay: the method called get_ohlcv(as_of=...) plus get_realized_vol/
+    get_current_iv/get_vix_level/get_vix_contango, none of which the
+    connector exposes. It now uses the connector's real API —
+    get_ohlcv(end_date=...), get_iv_rank, get_vol_risk_premium,
+    get_vix_regime."""
     engine = StrangleTimingWithIV()
-    # Pick a ticker the Bloomberg CSVs cover (AAPL is committed).
-    engine.score_entry_with_iv("AAPL")
+    # AAPL's Bloomberg CSVs are committed to the repo.
+    score = engine.score_entry_with_iv("AAPL", as_of="2026-03-20")
+    assert isinstance(score, StrangleEntryScore)
+    assert 0 <= score.total_score <= 100
+    assert score.recommendation in ("strong_entry", "conditional", "avoid")
+    assert score.regime is not None
+    # IV metadata attached; iv_rank on the 0-100 scale.
+    assert 0.0 <= score.regime.iv_rank <= 100.0
+    assert score.regime.vix_level is not None

@@ -1073,16 +1073,24 @@ class WheelTracker:
 
         df = pd.DataFrame(self.closed_positions)
 
+        # largest_win / largest_loss must be taken over the winning /
+        # losing subsets respectively — not over all trades. ``min()``
+        # over every trade returns the smallest *win* when there are no
+        # losers, so an all-green book would report a profit as its
+        # "largest loss". Empty subset → 0.0.
+        wins = df.loc[df["net_pnl"] > 0, "net_pnl"]
+        losses = df.loc[df["net_pnl"] < 0, "net_pnl"]
+
         summary = {
             "total_trades": len(df),
-            "winners": len(df[df["net_pnl"] > 0]),
-            "losers": len(df[df["net_pnl"] < 0]),
-            "win_rate": len(df[df["net_pnl"] > 0]) / len(df),
+            "winners": len(wins),
+            "losers": len(losses),
+            "win_rate": len(wins) / len(df),
             "total_pnl": df["net_pnl"].sum(),
             "avg_pnl_per_trade": df["net_pnl"].mean(),
             "total_commissions": df["transaction_costs"].sum(),
-            "largest_win": df["net_pnl"].max(),
-            "largest_loss": df["net_pnl"].min(),
+            "largest_win": float(wins.max()) if not wins.empty else 0.0,
+            "largest_loss": float(losses.min()) if not losses.empty else 0.0,
         }
 
         return pd.DataFrame([summary])

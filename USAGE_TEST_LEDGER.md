@@ -575,7 +575,7 @@ EV as designed. No §2 violation, no bug; all findings logged.
   reaches the news reader. A backtest at `as_of=2026-03-20` would
   apply *today's* news — look-ahead, the same family as S1's `as_of`
   footgun. Conversely, news older than 72 h is dropped to neutral with
-  no warning. **Logged.**
+  no warning. **Fixed in #119.**
 
 - **The overlay is surfaced — but only conditionally.** Unlike S9's
   silent ranker gates, the applied multiplier is visible:
@@ -652,7 +652,7 @@ provably wrong; no bug. All findings logged.
   takes no `as_of` — it returns one wall-clock value applied to every
   historical as_of, so a backtest across a credit-stress episode would
   never see the stress. Same family as S10's news PIT leak and S1's
-  `as_of` footgun. **Logged.**
+  `as_of` footgun. **Fixed in #119.**
 
 - **Net — on the Bloomberg provider the HMM carries the entire regime
   response.** `combined_regime_mult = hmm × skew × news × credit`

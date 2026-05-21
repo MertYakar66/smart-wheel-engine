@@ -1337,7 +1337,11 @@ class WheelTracker:
             # Essentially worthless put — holding wins, no roll can beat that.
             return pd.DataFrame(columns=_ROLL_COLUMNS)
 
-        # Total dollar cost to close: buyback + exit-side txn costs.
+        # Full dollar cost to close the current put: BSM principal plus
+        # exit-side transaction costs -- the "total_buyback_cost" key.
+        # ("total_cost" is txn-costs-only; netting that instead omitted
+        # the buyback principal from roll_ev, making every roll look
+        # like a rescue vs hold_ev -- which nets the principal in full.)
         buyback_costs = calculate_total_exit_cost(
             buyback_price_per_share=buyback_value_per_share,
             bid_ask_spread=buyback_value_per_share * 0.10,
@@ -1345,7 +1349,7 @@ class WheelTracker:
             ask=None,
             trade_type="option",
         )
-        buyback_total_dollars = buyback_costs["total_cost"]
+        buyback_total_dollars = buyback_costs["total_buyback_cost"]
 
         # ---------------- forward-distribution cache ----------------
         fwd_cache: dict[int, np.ndarray | None] = {}

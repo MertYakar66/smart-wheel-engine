@@ -458,3 +458,46 @@ class TestSolvePutStrike:
             )
             is None
         )
+
+
+# ======================================================================
+# EV-metric regression -- roll_ev nets the full buyback principal
+# ======================================================================
+class TestRollEvNetsBuybackPrincipal:
+    def test_roll_ev_subtracts_full_buyback_not_just_txn_costs(self):
+        """roll_ev must net the FULL cost to close the current put --
+        BSM principal (buyback_cost * 100) plus exit-side transaction
+        costs, the calculate_total_exit_cost "total_buyback_cost" key.
+
+        Regression: an earlier version netted "total_cost" (transaction
+        costs only, a few dollars), which dropped the buyback principal
+        from roll_ev. That made roll_ev not apples-to-apples with
+        hold_ev (which subtracts buyback_value_per_share * 100 in full)
+        and every roll spuriously looked like a rescue. Here the gap
+        new_ev_dollars - roll_ev must be at least the buyback principal.
+        """
+        entry = date(2026, 1, 1)
+        expiry = entry + timedelta(days=35)
+        t = _make_tracker_with_position(
+            strike=95.0,
+            premium=2.0,
+            entry_date=entry,
+            expiration_date=expiry,
+            iv=0.25,
+        )
+        df = t.suggest_rolls(
+            ticker="TEST",
+            as_of=entry + timedelta(days=21),
+            current_spot=80.0,  # deep ITM -- a large buyback principal
+            current_iv=0.25,
+            risk_free_rate=0.04,
+            min_net_credit=-1_500.0,
+        )
+        assert not df.empty
+        for _, r in df.iterrows():
+            gap = r["new_ev_dollars"] - r["roll_ev"]
+            principal = r["buyback_cost"] * 100.0
+            assert gap >= principal - 0.5, (
+                f"roll_ev gap {gap:.2f} < buyback principal {principal:.2f} -- "
+                f"roll_ev is not netting the full buyback cost"
+            )

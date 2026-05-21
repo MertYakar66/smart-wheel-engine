@@ -162,8 +162,9 @@ class WheelRunner:
         # Keyed by ``(ticker, tail_hash)`` where ``tail_hash`` is a
         # cheap fingerprint of the last 504 log-returns — this
         # invalidates automatically when new bars arrive or when the
-        # PIT cutoff changes (different history → different hash).
-        self._hmm_regime_cache: dict[tuple[str, int], float] = {}
+        # PIT cutoff changes (different history → different hash). The
+        # cached value is ``(regime_multiplier, regime_label)``.
+        self._hmm_regime_cache: dict[tuple[str, int], tuple[float, str]] = {}
 
     @property
     def connector(self):
@@ -556,6 +557,15 @@ class WheelRunner:
             (``strike × 100 × contracts``) and ``roc``
             (``ev_dollars / collateral``); :meth:`select_book` consumes
             both to fit a book under an account-size budget.
+
+            The returned frame's ``.attrs["drops"]`` carries a
+            diagnostic list of dicts -- one per candidate gated out
+            before it could become a row -- each
+            ``{"ticker", "gate", "reason"}``. ``gate`` is one of
+            ``data``, ``history``, ``event``, ``strike``, ``premium``,
+            ``chain_quality`` or ``ev_threshold``. Pure observability:
+            survivor rows are unaffected and no extra
+            ``EVEngine.evaluate`` call is made to populate it.
         """
         from datetime import timedelta
 
@@ -630,14 +640,33 @@ class WheelRunner:
                 tickers = tickers[:universe_limit]
 
         rows: list[dict] = []
+        # Diagnostic drop log: one dict per candidate gated out before
+        # it could become a row, exposed on the returned frame's
+        # ``.attrs["drops"]``. Pure observability -- it captures what was
+        # already being discarded; see CLAUDE.md section 2.
+        drops: list[dict] = []
         T = max(dte_target, 1) / 365.0
 
         for ticker in tickers:
             try:
                 ohlcv = conn.get_ohlcv(ticker)
             except Exception:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "OHLCV fetch raised",
+                    }
+                )
                 continue
             if ohlcv is None or ohlcv.empty or "close" not in ohlcv.columns:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "no OHLCV data (empty or missing 'close')",
+                    }
+                )
                 continue
 
             # Respect PIT cutoff on OHLCV.
@@ -648,6 +677,13 @@ class WheelRunner:
                 except Exception:
                     pass
             if ohlcv.empty:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "no OHLCV history at or before as_of",
+                    }
+                )
                 continue
 
             # AUDIT-V P0.2: Historical data integrity gate.
@@ -659,10 +695,24 @@ class WheelRunner:
             # survived long enough to be in today's SP500). Callers can
             # disable via enforce_history_gate=False for research paths.
             if enforce_history_gate and len(ohlcv) < min_history_days:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "history",
+                        "reason": f"history {len(ohlcv)}d < required {min_history_days}d",
+                    }
+                )
                 continue
 
             spot = float(ohlcv["close"].iloc[-1])
             if spot <= 0:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "non-positive spot price",
+                    }
+                )
                 continue
 
             # Get ATM IV and fundamentals.
@@ -682,6 +732,13 @@ class WheelRunner:
             except (TypeError, ValueError):
                 iv = 0.0
             if np.isnan(iv) or iv <= 0:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "IV missing or non-positive",
+                    }
+                )
                 continue
             # Normalise percent -> decimal. A sigma of 3.0 (= 300%) is an
             # extreme upper bound for any real equity; anything above is
@@ -689,6 +746,13 @@ class WheelRunner:
             if iv > 3.0:
                 iv = iv / 100.0
             if iv <= 0 or iv > 5:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "IV degenerate after percent normalisation",
+                    }
+                )
                 continue  # still degenerate after normalisation
 
             dividend_yield_raw = fundamentals.get("dividend_yield", 0.0) or 0.0
@@ -774,6 +838,15 @@ class WheelRunner:
                     and days_to_earn is not None
                     and 0 <= days_to_earn < earnings_buffer_days
                 ):
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "event",
+                            "reason": (
+                                f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                            ),
+                        }
+                    )
                     continue
             except Exception:
                 days_to_earn = None
@@ -801,10 +874,24 @@ class WheelRunner:
             try:
                 strike = brentq(put_delta_err, spot * 0.5, spot * 0.99, xtol=1e-2)
             except (ValueError, RuntimeError):
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "strike",
+                        "reason": "delta-to-strike solve did not converge",
+                    }
+                )
                 continue
             # Round to nearest $0.50 for realism
             strike = round(strike * 2) / 2
             if strike <= 0 or strike >= spot:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "strike",
+                        "reason": "solved strike out of range (<=0 or >=spot)",
+                    }
+                )
                 continue
 
             # Synthetic fair-value premium (mid). Real chains will differ.
@@ -818,6 +905,13 @@ class WheelRunner:
                 q=dividend_yield,
             )
             if premium <= 0.05:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "premium",
+                        "reason": "synthetic premium too thin (<=$0.05)",
+                    }
+                )
                 continue  # premium too thin to trade
 
             # Approximate a bid/ask from the synthetic mid (10% spread proxy).
@@ -842,6 +936,10 @@ class WheelRunner:
             # but the key is trivially computable. Failure of any
             # sub-step degrades cleanly to 1.0.
             hmm_regime_mult = 1.0
+            # Companion regime label for hmm_regime_mult. "unknown" when
+            # the HMM does not run (short history) or fails -- never a
+            # fabricated regime; mirrors credit_regime's "unknown".
+            hmm_regime = "unknown"
             try:
                 from engine.regime_hmm import GaussianHMM
 
@@ -857,15 +955,23 @@ class WheelRunner:
                     cache_key = (ticker, hash(fp))
                     cached = self._hmm_regime_cache.get(cache_key)
                     if cached is not None:
-                        hmm_regime_mult = cached
+                        hmm_regime_mult, hmm_regime = cached
                     else:
                         hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
                         hmm.fit(tail)
                         probs = hmm.predict_proba(tail)
                         hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
-                        self._hmm_regime_cache[cache_key] = hmm_regime_mult
+                        # Label is the argmax state -- a pure read of the
+                        # same posterior, in its own try so it can never
+                        # perturb the already-computed multiplier.
+                        try:
+                            hmm_regime = hmm.fit_result.state_labels[int(np.argmax(probs[-1]))]
+                        except Exception:
+                            hmm_regime = "unknown"
+                        self._hmm_regime_cache[cache_key] = (hmm_regime_mult, hmm_regime)
             except Exception:
                 hmm_regime_mult = 1.0
+                hmm_regime = "unknown"
 
             # Fetch the chain once and use it for (a) open interest at our
             # strike, (b) 25Δ put / ATM / 25Δ call for skew signals, and
@@ -904,6 +1010,13 @@ class WheelRunner:
                             "%s: chain quality gate blocked ticker — %s",
                             ticker,
                             critical_raw[0].message[:100],
+                        )
+                        drops.append(
+                            {
+                                "ticker": ticker,
+                                "gate": "chain_quality",
+                                "reason": f"chain quality: {critical_raw[0].message[:100]}",
+                            }
                         )
                         continue
                 except Exception:
@@ -1101,8 +1214,24 @@ class WheelRunner:
             )
             # Event-gate short-circuit: drop blocked candidates entirely.
             if res.event_lockout_reason:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "event",
+                        "reason": str(res.event_lockout_reason),
+                    }
+                )
                 continue
             if res.ev_dollars < min_ev_dollars:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "ev_threshold",
+                        "reason": (
+                            f"ev_dollars {res.ev_dollars:.2f} < min_ev_dollars {min_ev_dollars:.2f}"
+                        ),
+                    }
+                )
                 continue
 
             # Capital-efficiency fields. A cash-secured put reserves
@@ -1178,6 +1307,7 @@ class WheelRunner:
                         else None,
                         "skew_multiplier": round(skew_mult, 4),
                         "hmm_multiplier": round(hmm_regime_mult, 4),
+                        "hmm_regime": hmm_regime,
                         "news_multiplier": round(news_mult, 4),
                         "news_sentiment": round(news_sentiment, 4),
                         "news_n_articles": news_n_articles,
@@ -1192,6 +1322,10 @@ class WheelRunner:
         df = pd.DataFrame(rows)
         if not df.empty:
             df = df.sort_values("ev_per_day", ascending=False).head(top_n)
+        # Diagnostic drop log -- attached after the sort/head so it rides
+        # on the exact frame returned (empty or not). Survivor rows are
+        # untouched; see CLAUDE.md section 2.
+        df.attrs["drops"] = drops
         return df
 
     # ------------------------------------------------------------------

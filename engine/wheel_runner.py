@@ -1305,6 +1305,11 @@ class WheelRunner:
             if include_diagnostic_fields:
                 row.update(
                     {
+                        # EV before the regime overlays: res.mean_pnl is
+                        # the mean scenario P&L the engine computes as
+                        # ``ev_raw`` (ev_engine.py), pre regime multiplier.
+                        # ev_dollars is the post-multiplier value.
+                        "ev_raw": round(res.mean_pnl, 2),
                         "cvar_5": round(res.cvar_5, 2),
                         "cvar_99_evt": (
                             round(res.cvar_99_evt, 2) if not np.isnan(res.cvar_99_evt) else None

@@ -144,6 +144,48 @@ def _solve_book_knapsack(weights: list[int], values: list[float], capacity: int)
     return selected
 
 
+# ----------------------------------------------------------------------
+# Column schema for WheelRunner.rank_covered_calls_by_ev
+# ----------------------------------------------------------------------
+# Pinned at module scope (mirrors wheel_tracker._ROLL_COLUMNS) so the
+# empty-result path returns a same-shaped zero-row DataFrame and tests can
+# assert the schema without running the ranker. The diagnostic block is
+# appended only when ``include_diagnostic_fields=True``.
+_CC_RANK_CORE_COLUMNS = [
+    "ticker",
+    "spot",
+    "strike",
+    "premium",
+    "dte",
+    "new_expiry",
+    "target_delta",
+    "iv",
+    "contracts",
+    "ev_dollars",
+    "ev_per_day",
+    "prob_profit",
+    "prob_assignment",
+    "days_to_earnings",
+    "days_to_ex_div",
+    "distribution_source",
+]
+_CC_RANK_DIAGNOSTIC_COLUMNS = [
+    "cvar_5",
+    "cvar_99_evt",
+    "tail_xi",
+    "heavy_tail",
+    "omega_ratio",
+    "fair_value",
+    "edge_vs_fair",
+    "breakeven_move_pct",
+    "prob_touch",
+    "total_transaction_cost",
+    "skew_pnl",
+    "expected_dividend",
+    "regime_multiplier",
+]
+
+
 class WheelRunner:
     """
     Main orchestrator for the Smart Wheel Engine.
@@ -1509,6 +1551,473 @@ class WheelRunner:
             }
         )
         return book
+
+    # ------------------------------------------------------------------
+    # Covered-call entry ranking (issue #118 P1 — S8 follow-up)
+    # ------------------------------------------------------------------
+    def rank_covered_calls_by_ev(
+        self,
+        ticker: str,
+        shares_held: int = 100,
+        *,
+        target_dtes: tuple[int, ...] = (21, 35, 49, 63),
+        target_deltas: tuple[float, ...] = (0.30, 0.25, 0.20, 0.15),
+        as_of: str | None = None,
+        min_ev_dollars: float = 0.0,
+        top_n: int = 20,
+        include_diagnostic_fields: bool = True,
+        use_event_gate: bool = True,
+        earnings_buffer_days: int = 5,
+        macro_buffer_days: int = 1,
+        min_history_days: int = 504,
+        enforce_history_gate: bool = True,
+        risk_free_rate: float | None = None,
+        dividend_yield: float | None = None,
+    ) -> pd.DataFrame:
+        """Rank covered-call **entry** candidates for a held stock by forward EV.
+
+        S8 logged that :meth:`engine.wheel_tracker.WheelTracker.open_covered_call`
+        takes a raw ``strike`` / ``premium`` with **no EV evaluation** — the
+        covered-call entry sits outside the EV authority (CLAUDE.md §2). This
+        is the entry parallel of
+        :meth:`~engine.wheel_tracker.WheelTracker.suggest_call_rolls` (the
+        roll): given a held stock position, it enumerates a
+        ``(DTE × delta)`` grid of candidate covered calls and ranks them by
+        the forward EV of the **short-call leg**, every candidate scored
+        through :meth:`engine.ev_engine.EVEngine.evaluate`.
+
+        It mirrors :meth:`rank_candidates_by_ev` (the put-entry ranker) for
+        the data plumbing — PIT-safe OHLCV, percent→decimal IV/dividend
+        normalisation, the history gate, the event lockout, the
+        ``.attrs["drops"]`` diagnostic — and :meth:`suggest_call_rolls` for
+        the call-leg EV pattern (``ShortOptionTrade(option_type="call")``,
+        :func:`~engine.wheel_tracker._solve_call_strike`, the empirical
+        forward distribution).
+
+        Scope — this ranks the **option leg only**: the forward EV of
+        *being short the call*. The stock leg's P&L (basis vs an
+        assigned/called-away price) is separate position accounting handled
+        by :class:`~engine.wheel_tracker.WheelTracker`; it does not belong in
+        an option-EV ranking and is deliberately not blended in here.
+
+        For each ``(DTE, delta)`` pair:
+          1. Solve the BSM call strike at ``delta`` (OTM, above spot).
+          2. Round to the nearest $0.50 and price a synthetic BSM mid
+             premium (real chains will differ — check the live chain).
+          3. Build a :class:`ShortOptionTrade` with ``option_type="call"``,
+             sized to ``contracts = shares_held // 100``.
+          4. Pull a PIT-safe empirical forward distribution for ``DTE`` and
+             call :meth:`EVEngine.evaluate`.
+          5. Drop event-gate-blocked candidates and any with
+             ``ev_dollars < min_ev_dollars``.
+          6. Return the survivors, sorted by ``ev_per_day`` descending.
+
+        Args:
+            ticker: The held stock.
+            shares_held: Shares of ``ticker`` currently owned. The covered
+                call is sized to the largest whole-contract count the
+                holding supports (``shares_held // 100``); a value below
+                100 raises :class:`ValueError` — you cannot write a covered
+                call without 100 shares to cover it.
+            target_dtes: Candidate days-to-expiry for the new call.
+            target_deltas: Candidate call deltas (positive; OTM). Each
+                ``(DTE, delta)`` pair is one candidate.
+            as_of: PIT cutoff date ``YYYY-MM-DD``. ``None`` means now.
+            min_ev_dollars: Hard EV floor. Candidates with
+                ``ev_dollars`` below this are dropped — the ranker **ranks,
+                never rescues**: with the default ``0.0`` a negative-EV
+                covered call never surfaces as tradeable.
+            top_n: Number of top candidates to return.
+            include_diagnostic_fields: Append CVaR, Omega, fair value,
+                tail and other diagnostics (see ``_CC_RANK_DIAGNOSTIC_COLUMNS``).
+            use_event_gate: Hard-block candidates whose holding window
+                touches the ticker's next earnings (downgrade-only — it can
+                only remove a candidate, never rescue one).
+            earnings_buffer_days, macro_buffer_days: Event-gate buffers.
+            min_history_days, enforce_history_gate: Survivorship/quality
+                gate on OHLCV length (mirrors :meth:`rank_candidates_by_ev`).
+            risk_free_rate: Decimal rate. ``None`` resolves it from the
+                connector; an explicit value outside ``[0, 0.25]`` raises.
+            dividend_yield: Decimal annual yield. ``None`` resolves it from
+                the connector's fundamentals (percent column, normalised).
+
+        Returns:
+            DataFrame sorted by ``ev_per_day`` descending — one row per
+            surviving ``(strike, DTE)`` candidate — with the columns of
+            ``_CC_RANK_CORE_COLUMNS`` (+ ``_CC_RANK_DIAGNOSTIC_COLUMNS``
+            when ``include_diagnostic_fields``). Empty but correctly
+            shaped when nothing survives.
+
+            ``.attrs["drops"]`` carries one ``{"ticker", "gate", "reason"}``
+            dict per gated-out candidate — ``gate`` is one of ``data``,
+            ``history``, ``strike``, ``premium``, ``event`` or
+            ``ev_threshold``. Pure observability; survivor rows are
+            unaffected and no extra :meth:`EVEngine.evaluate` call is made.
+
+        §2 invariant:
+            Every candidate's EV comes from a direct
+            :meth:`EVEngine.evaluate` call on a properly-constructed
+            ``ShortOptionTrade``. Strike enumeration, the synthetic premium
+            and the gates only decide *which* candidates to score and
+            which to drop — they never compute or adjust EV. There is no
+            side-channel that lifts a candidate's EV.
+        """
+        from datetime import timedelta
+
+        from engine.ev_engine import EVEngine, ShortOptionTrade
+        from engine.event_gate import EventGate, ScheduledEvent
+        from engine.forward_distribution import best_available_forward_distribution
+        from engine.option_pricer import black_scholes_price
+        from engine.wheel_tracker import _solve_call_strike
+
+        # A covered call needs 100 shares per contract to be "covered".
+        contracts = int(shares_held) // 100
+        if contracts < 1:
+            raise ValueError(
+                f"rank_covered_calls_by_ev: writing a covered call requires "
+                f">=100 shares to cover one contract; got shares_held={shares_held}."
+            )
+        # An explicit risk-free rate must be a sane decimal; None means
+        # "resolve from the connector" below.
+        if risk_free_rate is not None and not (0.0 <= risk_free_rate <= 0.25):
+            raise ValueError(f"risk_free_rate {risk_free_rate} outside [0, 0.25]")
+
+        conn = self.connector
+        # Diagnostic drop log — one dict per gated-out candidate, exposed
+        # on the returned frame's ``.attrs["drops"]``. See CLAUDE.md §2.
+        drops: list[dict] = []
+
+        cols = list(_CC_RANK_CORE_COLUMNS)
+        if include_diagnostic_fields:
+            cols = cols + _CC_RANK_DIAGNOSTIC_COLUMNS
+
+        def _empty() -> pd.DataFrame:
+            df = pd.DataFrame(columns=cols)
+            df.attrs["drops"] = drops
+            return df
+
+        # ---- OHLCV + PIT cutoff ----
+        try:
+            ohlcv = conn.get_ohlcv(ticker)
+        except Exception:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "OHLCV fetch raised"})
+            return _empty()
+        if ohlcv is None or ohlcv.empty or "close" not in ohlcv.columns:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": "no OHLCV data (empty or missing 'close')",
+                }
+            )
+            return _empty()
+        if as_of is not None:
+            try:
+                ohlcv = ohlcv.loc[ohlcv.index <= pd.Timestamp(as_of)]
+            except Exception:
+                pass
+        if ohlcv.empty:
+            drops.append(
+                {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
+            )
+            return _empty()
+        # Survivorship / distribution-reliability gate — mirrors
+        # rank_candidates_by_ev: an empirical forward distribution from a
+        # short history is statistically unreliable.
+        if enforce_history_gate and len(ohlcv) < min_history_days:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "history",
+                    "reason": f"history {len(ohlcv)}d < required {min_history_days}d",
+                }
+            )
+            return _empty()
+
+        spot = float(ohlcv["close"].iloc[-1])
+        if spot <= 0:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
+            return _empty()
+
+        # ---- IV: percent→decimal normalisation (mirrors rank_candidates_by_ev) ----
+        fundamentals = conn.get_fundamentals(ticker) or {}
+        iv_raw = fundamentals.get("implied_vol_atm")
+        if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+            iv_raw = fundamentals.get("volatility_30d")
+        try:
+            iv = float(iv_raw) if iv_raw is not None else 0.0
+        except (TypeError, ValueError):
+            iv = 0.0
+        if np.isnan(iv) or iv <= 0:
+            drops.append({"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"})
+            return _empty()
+        if iv > 3.0:
+            iv = iv / 100.0
+        if iv <= 0 or iv > 5:
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": "IV degenerate after percent normalisation",
+                }
+            )
+            return _empty()
+
+        # ---- dividend yield (decimal) ----
+        if dividend_yield is None:
+            dy_raw = fundamentals.get("dividend_yield", 0.0) or 0.0
+            try:
+                div_q = float(dy_raw)
+            except (TypeError, ValueError):
+                div_q = 0.0
+            if not np.isfinite(div_q) or div_q < 0.0:
+                div_q = 0.0
+            else:
+                # Bloomberg's eqy_dvd_yld_12m is in PERCENT (AUDIT-IX).
+                div_q /= 100.0
+                if div_q > 0.30:  # >30% is a data error, not a yield
+                    div_q = 0.0
+        else:
+            div_q = float(dividend_yield)
+            if not np.isfinite(div_q) or div_q < 0.0:
+                div_q = 0.0
+
+        # ---- risk-free rate ----
+        if risk_free_rate is not None:
+            rf = float(risk_free_rate)
+        else:
+            rf = 0.05
+            try:
+                rf_raw = conn.get_risk_free_rate(as_of)
+                if rf_raw is not None and not (isinstance(rf_raw, float) and np.isnan(rf_raw)):
+                    rf_val = float(rf_raw)
+                    if rf_val > 1.0:
+                        rf_val = rf_val / 100.0
+                    if 0.0 <= rf_val <= 0.25:
+                        rf = rf_val
+            except Exception:
+                pass
+
+        today_date = date.fromisoformat(as_of) if as_of else date.today()
+
+        # ---- event gate: register the ticker's next earnings ----
+        # The gate blocks (zeroes EV on) any candidate whose holding window
+        # touches earnings; per-candidate trade_start/trade_end are passed
+        # to evaluate() so a short-DTE candidate can clear while a longer
+        # one is blocked. days_to_earnings is surfaced regardless.
+        event_gate: EventGate | None = None
+        if use_event_gate:
+            event_gate = EventGate(
+                earnings_buffer_days=earnings_buffer_days,
+                macro_buffer_days=macro_buffer_days,
+            )
+        days_to_earn: int | None = None
+        try:
+            next_earn = conn.get_next_earnings(ticker, as_of)
+            if next_earn:
+                earn_ts = next_earn.get("announcement_date")
+                if earn_ts is not None:
+                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
+                    days_to_earn = (earn_d - today_date).days
+                    if event_gate is not None:
+                        event_gate.add_event(
+                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
+                        )
+        except Exception:
+            days_to_earn = None
+
+        ev_eng = EVEngine(event_gate=event_gate)
+
+        # ---- ex-dividend early-assignment input (covered-call-specific) ----
+        # A short call ITM into ex-div is a rational early-exercise target;
+        # EVEngine adds the dividend to the expected loss when
+        # days_to_ex_div <= dte. Optional + fully defensive — any failure
+        # degrades to "no ex-div in the holding window".
+        days_to_ex_div: int | None = None
+        expected_dividend = 0.0
+        try:
+            if hasattr(conn, "get_next_dividend"):
+                next_div = conn.get_next_dividend(ticker, as_of)
+                if next_div:
+                    div_ts = next_div.get("ex_date")
+                    amt = next_div.get("dividend_amount", 0.0) or 0.0
+                    if div_ts is not None:
+                        div_d = div_ts.date() if hasattr(div_ts, "date") else div_ts
+                        d2x = (div_d - today_date).days
+                        amt_f = float(amt)
+                        if d2x >= 0 and np.isfinite(amt_f) and amt_f > 0:
+                            days_to_ex_div = d2x
+                            expected_dividend = amt_f
+        except Exception:
+            days_to_ex_div = None
+            expected_dividend = 0.0
+
+        # ---- forward-distribution cache (one fetch per distinct DTE) ----
+        fwd_cache: dict[int, tuple] = {}
+
+        def _fwd_for(horizon: int) -> tuple:
+            if horizon in fwd_cache:
+                return fwd_cache[horizon]
+            try:
+                arr, method = best_available_forward_distribution(
+                    ohlcv, horizon_days=int(horizon), as_of=as_of
+                )
+            except Exception:
+                arr, method = None, "lognormal_fallback"
+            fwd_cache[horizon] = (arr, method)
+            return arr, method
+
+        # ---- enumerate the (DTE × delta) covered-call grid ----
+        rows: list[dict] = []
+        for new_dte in target_dtes:
+            if new_dte <= 0:
+                continue
+            T = max(new_dte, 1) / 365.0
+            new_expiry = today_date + timedelta(days=int(new_dte))
+            for tgt_delta in target_deltas:
+                strike_raw = _solve_call_strike(
+                    spot=spot, T=T, r=rf, q=div_q, iv=iv, target_delta=tgt_delta
+                )
+                if strike_raw is None:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"delta-to-strike solve did not converge "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                strike = round(strike_raw * 2) / 2  # nearest $0.50
+                if strike <= spot:
+                    # A covered call is sold OTM — strike must sit above spot.
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "strike",
+                            "reason": (
+                                f"solved strike {strike} <= spot {spot:.2f} "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+                premium = black_scholes_price(
+                    S=spot, K=strike, T=T, r=rf, sigma=iv, option_type="call", q=div_q
+                )
+                if premium <= 0.05:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "premium",
+                            "reason": (
+                                f"synthetic premium too thin (<=$0.05) "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+
+                fwd_rets, method = _fwd_for(int(new_dte))
+                trade = ShortOptionTrade(
+                    option_type="call",
+                    underlying=ticker,
+                    spot=spot,
+                    strike=float(strike),
+                    premium=premium,
+                    dte=int(new_dte),
+                    iv=iv,
+                    risk_free_rate=rf,
+                    dividend_yield=div_q,
+                    contracts=contracts,
+                    bid=premium * 0.95,
+                    ask=premium * 1.05,
+                    open_interest=1000,
+                    regime_multiplier=1.0,
+                    days_to_ex_div=days_to_ex_div,
+                    expected_dividend=expected_dividend,
+                )
+                res = ev_eng.evaluate(
+                    trade,
+                    forward_log_returns=fwd_rets,
+                    trade_start=today_date,
+                    trade_end=new_expiry,
+                )
+                # Event-gate short-circuit: a blocked candidate has its
+                # ev_dollars zeroed — drop it, never rank it.
+                if res.event_lockout_reason:
+                    drops.append(
+                        {"ticker": ticker, "gate": "event", "reason": str(res.event_lockout_reason)}
+                    )
+                    continue
+                # Ranks, never rescues: a covered call below the EV floor
+                # does not surface as tradeable.
+                if res.ev_dollars < min_ev_dollars:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "ev_threshold",
+                            "reason": (
+                                f"ev_dollars {res.ev_dollars:.2f} < "
+                                f"min_ev_dollars {min_ev_dollars:.2f} "
+                                f"(dte={new_dte}, delta={tgt_delta})"
+                            ),
+                        }
+                    )
+                    continue
+
+                row: dict = {
+                    "ticker": ticker,
+                    "spot": round(spot, 2),
+                    "strike": strike,
+                    "premium": round(premium, 3),
+                    "dte": int(new_dte),
+                    "new_expiry": new_expiry,
+                    "target_delta": tgt_delta,
+                    "iv": round(iv, 4),
+                    "contracts": contracts,
+                    "ev_dollars": round(res.ev_dollars, 2),
+                    "ev_per_day": round(res.ev_per_day, 3),
+                    "prob_profit": round(res.prob_profit, 4),
+                    "prob_assignment": round(res.prob_assignment, 4),
+                    "days_to_earnings": days_to_earn,
+                    "days_to_ex_div": days_to_ex_div,
+                    "distribution_source": method,
+                }
+                if include_diagnostic_fields:
+                    row.update(
+                        {
+                            "cvar_5": round(res.cvar_5, 2),
+                            "cvar_99_evt": (
+                                round(res.cvar_99_evt, 2) if not np.isnan(res.cvar_99_evt) else None
+                            ),
+                            "tail_xi": (
+                                round(res.tail_xi, 4) if not np.isnan(res.tail_xi) else None
+                            ),
+                            "heavy_tail": bool(res.heavy_tail),
+                            "omega_ratio": round(res.omega_ratio, 3),
+                            "fair_value": round(res.fair_value, 3),
+                            "edge_vs_fair": round(res.edge_vs_fair, 2),
+                            "breakeven_move_pct": round(res.breakeven_move_pct, 4),
+                            "prob_touch": round(res.prob_touch, 4),
+                            "total_transaction_cost": round(res.total_transaction_cost, 2),
+                            "skew_pnl": round(res.skew_pnl, 3),
+                            "expected_dividend": round(expected_dividend, 4),
+                            "regime_multiplier": round(res.regime_multiplier, 4),
+                        }
+                    )
+                rows.append(row)
+
+        if not rows:
+            return _empty()
+        df = pd.DataFrame(rows, columns=cols)
+        df = df.sort_values("ev_per_day", ascending=False).head(top_n).reset_index(drop=True)
+        # Drop log attached after sort/head so it rides on the exact frame
+        # returned; survivor rows are untouched (CLAUDE.md §2).
+        df.attrs["drops"] = drops
+        return df
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier

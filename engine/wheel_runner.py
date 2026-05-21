@@ -101,6 +101,49 @@ class TickerAnalysis:
         return "\n".join(lines)
 
 
+# Above this many DP cells (items × capacity) the exact knapsack is
+# skipped for a greedy ROC fill — keeps ``select_book`` responsive for
+# very large accounts. Realistic wheel accounts ($25k–$2M) stay far
+# below it, so the exact path is what runs in practice.
+_KNAPSACK_MAX_CELLS = 60_000_000
+
+
+def _solve_book_knapsack(weights: list[int], values: list[float], capacity: int) -> list[int]:
+    """0/1 knapsack — maximise total value under an integer capacity.
+
+    Returns the indices (into ``weights`` / ``values``) of the selected
+    items. Exact dynamic program; the caller bounds ``capacity`` via the
+    collateral unit so the table stays tractable. Items that cannot fit
+    (``weight <= 0`` or ``weight > capacity``) are skipped cleanly.
+    """
+    n = len(weights)
+    if n == 0 or capacity <= 0:
+        return []
+    dp = [0.0] * (capacity + 1)
+    keep = [bytearray(capacity + 1) for _ in range(n)]
+    for i in range(n):
+        wi = weights[i]
+        vi = values[i]
+        if wi <= 0 or wi > capacity:
+            continue
+        ki = keep[i]
+        # Descending w so dp[w - wi] still holds the pre-item value
+        # (the standard 1-D 0/1-knapsack ordering).
+        for w in range(capacity, wi - 1, -1):
+            cand = dp[w - wi] + vi
+            if cand > dp[w]:
+                dp[w] = cand
+                ki[w] = 1
+    selected: list[int] = []
+    w = capacity
+    for i in range(n - 1, -1, -1):
+        if w >= 0 and keep[i][w]:
+            selected.append(i)
+            w -= weights[i]
+    selected.reverse()
+    return selected
+
+
 class WheelRunner:
     """
     Main orchestrator for the Smart Wheel Engine.
@@ -509,6 +552,10 @@ class WheelRunner:
 
         Returns:
             DataFrame sorted by ``ev_per_day`` descending, or empty.
+            Always carries the capital-efficiency columns ``collateral``
+            (``strike × 100 × contracts``) and ``roc``
+            (``ev_dollars / collateral``); :meth:`select_book` consumes
+            both to fit a book under an account-size budget.
         """
         from datetime import timedelta
 
@@ -1058,6 +1105,16 @@ class WheelRunner:
             if res.ev_dollars < min_ev_dollars:
                 continue
 
+            # Capital-efficiency fields. A cash-secured put reserves
+            # ``strike × 100 × contracts`` of collateral; ROC is the
+            # forward EV per dollar of that collateral. These are core
+            # (not diagnostic) — a capital-constrained trader needs them
+            # to rank, and ``select_book`` consumes them. Computed purely
+            # from ``res.ev_dollars`` (post-``EVEngine.evaluate``), so
+            # they re-present the EV authority's output, never rescue it.
+            collateral = strike * 100.0 * contracts
+            roc = (res.ev_dollars / collateral) if collateral > 0 else 0.0
+
             row: dict = {
                 "ticker": ticker,
                 "spot": spot,
@@ -1067,6 +1124,8 @@ class WheelRunner:
                 "iv": round(iv, 4),
                 "ev_dollars": round(res.ev_dollars, 2),
                 "ev_per_day": round(res.ev_per_day, 3),
+                "collateral": round(collateral, 2),
+                "roc": round(roc, 6),
                 "prob_profit": round(res.prob_profit, 4),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
@@ -1132,141 +1191,190 @@ class WheelRunner:
 
         df = pd.DataFrame(rows)
         if not df.empty:
-            # Capital-efficiency columns (S4 follow-up). ``collateral``
-            # is the cash a cash-secured put ties up (strike x 100 x
-            # contracts); ``roc`` is EV per dollar of that collateral.
-            # Pure derived fields — no EV recompute — so a small account
-            # can rank by return-on-capital, not just absolute EV/day.
-            # Consumed by :meth:`select_book`. See USAGE_TEST_LEDGER S4.
-            df["collateral"] = (df["strike"] * 100.0 * contracts).round(2)
-            df["roc"] = (df["ev_dollars"] / df["collateral"]).round(6)
             df = df.sort_values("ev_per_day", ascending=False).head(top_n)
         return df
 
     # ------------------------------------------------------------------
-    # S4 follow-up: account-aware book selection (presentation layer)
+    # Account-aware book selection (S4 follow-up)
     # ------------------------------------------------------------------
     def select_book(
         self,
-        ranked: pd.DataFrame,
         account_size: float,
-        order_by: str = "roc",
-        max_pct_per_name: float | None = None,
+        tickers: list[str] | None = None,
+        *,
+        ranking: pd.DataFrame | None = None,
+        max_weight_per_name: float | None = None,
+        min_roc: float = 0.0,
+        collateral_unit: float = 50.0,
+        **rank_kwargs,
     ) -> pd.DataFrame:
-        """Select a collateral-fitting book from ranked EV candidates.
+        """Fit a cash-secured-put book under an account-size budget.
 
-        S4 follow-up. Walks ``ranked`` in ``order_by``-descending order
-        and greedily includes each candidate whose cash-secured-put
-        collateral still fits the remaining ``account_size`` budget.
-        This is **skip-and-fill**: a candidate too large for the
-        remaining budget is skipped and the walk continues — not a hard
-        stop — so a smaller, lower-ranked name can still be picked up.
+        S4 logged that :meth:`rank_candidates_by_ev` is capital-blind:
+        it returns the same ranking for a $50k account and a $5M one,
+        front-loads the most expensive names, and offers no helper to
+        answer "which names fit under budget X". This is that helper.
 
-        Presentation layer, and §2-safe by construction: it consumes
-        and subsets the output of :meth:`rank_candidates_by_ev` — it
-        never constructs an :class:`~engine.ev_engine.EVEngine`, never
-        calls ``evaluate``, and never re-ranks by EV. It can only
-        select rows already present in ``ranked``; a candidate the
-        ranker gated out cannot reappear. select_book applies no EV
-        filter of its own — call the ranker with its default
-        ``min_ev_dollars=0`` and the resulting book is positive-EV by
-        inheritance.
+        It is a **pure post-processor** of the ranker output and is
+        §2-safe: it never calls :class:`~engine.ev_engine.EVEngine`
+        itself. Every candidate it considers has already been through
+        ``EVEngine.evaluate`` inside :meth:`rank_candidates_by_ev`; this
+        method only *subsets* that output to maximise total forward EV
+        under the collateral constraint. It cannot rescue a
+        negative-EV candidate — those are filtered out of the pool
+        before selection — and it cannot change any candidate's EV.
 
-        One contract per name: each row is taken at the ``contracts``
-        count already baked into its ``collateral``. Sizing a name up to
-        several contracts is a deliberate further follow-up, not here.
+        The selection is a 0/1 knapsack: each ticker is either in the
+        book (one entry, ``contracts`` as ranked) or out, each reserving
+        ``collateral`` dollars, maximising ``Σ ev_dollars`` subject to
+        ``Σ collateral ≤ account_size``. Solved exactly by dynamic
+        program; for very large accounts it degrades to a greedy ROC
+        fill (see ``_KNAPSACK_MAX_CELLS``).
 
         Args:
-            ranked: A DataFrame from :meth:`rank_candidates_by_ev`. Must
-                carry ``collateral``, ``ev_dollars`` and ``ticker``, plus
-                whatever column ``order_by`` names.
-            account_size: Total capital available, in dollars. The
-                selected book's total ``collateral`` never exceeds it.
-            order_by: Column to walk by, descending. Default ``"roc"``
-                (return on capital); ``"ev_per_day"`` reproduces the
-                ranker's own order, ``"ev_dollars"`` walks absolute EV.
-            max_pct_per_name: Optional concentration cap, a fraction of
-                ``account_size``. When set, any candidate whose
-                collateral exceeds ``account_size * max_pct_per_name`` is
-                skipped regardless of remaining budget. ``None`` (default)
-                applies no cap.
+            account_size: Hard collateral budget in dollars.
+            tickers: Forwarded to :meth:`rank_candidates_by_ev` when
+                ``ranking`` is not supplied.
+            ranking: A precomputed :meth:`rank_candidates_by_ev` frame.
+                When given, no ranking is run (and no ``EVEngine``
+                call is made) — the frame is used as-is. Must carry the
+                ``collateral`` and ``ev_dollars`` columns.
+            max_weight_per_name: Optional concentration cap as a
+                fraction of ``account_size`` (e.g. ``0.25`` → no single
+                name may reserve more than 25% of the account). Names
+                exceeding it are dropped from the pool before selection.
+            min_roc: Drop candidates whose ``roc`` is below this.
+            collateral_unit: Granularity (dollars) the knapsack capacity
+                is discretised to. Defaults to ``50`` — the natural
+                granularity of a $0.50-rounded strike × 100. Must be
+                positive (it is used as a divisor).
+            **rank_kwargs: Forwarded to :meth:`rank_candidates_by_ev`
+                when ``ranking`` is not supplied. ``top_n`` defaults to
+                effectively unlimited here so the budget is fit against
+                the whole candidate set, not the ranker's display slice.
 
         Returns:
-            The fitted book as a DataFrame — the selected subset of
-            ``ranked`` rows, in selection order, all original columns
-            preserved. Summary figures are attached to ``.attrs``:
-            ``account_size``, ``order_by``, ``max_pct_per_name``,
-            ``n_positions``, ``capital_used``, ``cash_idle``, ``book_ev``.
-            When nothing fits the result is an empty DataFrame that still
-            carries ``.attrs``.
-
-        Raises:
-            ValueError: if ``ranked`` is not a DataFrame, is non-empty
-                but missing a required column, ``account_size`` is not
-                positive, ``order_by`` is not a column of ``ranked``, or
-                ``max_pct_per_name`` is outside ``(0, 1]``.
+            The selected book as a DataFrame (subset of the ranking
+            rows, sorted by ``ev_per_day`` descending). ``.attrs``
+            carries ``account_size``, ``total_collateral``,
+            ``total_ev_dollars``, ``cash_remaining``, ``n_positions``,
+            ``capital_utilization`` and ``selection_method``. Empty
+            when nothing fits.
         """
-        _EPS = 1e-6  # dollars — absorbs float noise in the budget walk
+        import math
 
-        if not isinstance(ranked, pd.DataFrame):
-            raise ValueError("select_book: 'ranked' must be a pandas DataFrame")
-        if not account_size > 0:
-            raise ValueError(f"select_book: 'account_size' must be positive, got {account_size!r}")
-        if max_pct_per_name is not None and not 0.0 < max_pct_per_name <= 1.0:
+        if collateral_unit <= 0:
             raise ValueError(
-                "select_book: 'max_pct_per_name' must be in (0, 1] or None, "
-                f"got {max_pct_per_name!r}"
+                f"select_book: collateral_unit must be positive, got "
+                f"{collateral_unit!r}. It discretises the knapsack capacity "
+                f"and is used as a divisor."
             )
 
-        def _finalize(book: pd.DataFrame) -> pd.DataFrame:
-            used = round(float(book["collateral"].sum()), 2) if len(book) else 0.0
-            ev = round(float(book["ev_dollars"].sum()), 2) if len(book) else 0.0
-            book.attrs.update(
-                account_size=float(account_size),
-                order_by=order_by,
-                max_pct_per_name=max_pct_per_name,
-                n_positions=int(len(book)),
-                capital_used=used,
-                cash_idle=round(float(account_size) - used, 2),
-                book_ev=ev,
-            )
-            return book
+        empty_attrs = {
+            "account_size": float(account_size),
+            "total_collateral": 0.0,
+            "total_ev_dollars": 0.0,
+            "cash_remaining": float(max(account_size, 0.0)),
+            "n_positions": 0,
+            "capital_utilization": 0.0,
+            "selection_method": "none",
+        }
 
-        if ranked.empty:
-            return _finalize(ranked.copy())
+        def _empty() -> pd.DataFrame:
+            out = pd.DataFrame()
+            out.attrs.update(empty_attrs)
+            return out
 
-        required = ("collateral", "ev_dollars", "ticker")
-        missing = [c for c in required if c not in ranked.columns]
+        if account_size <= 0:
+            return _empty()
+
+        if ranking is None:
+            # The book is fit against the *whole* feasible candidate set,
+            # not a display slice. rank_candidates_by_ev defaults top_n to
+            # 10, which would silently truncate the pool to the 10 highest
+            # ev_per_day names — and the budget-optimal book for a small
+            # account routinely includes cheaper names ranked below that.
+            # Default top_n wide open here; an explicit caller value still
+            # wins.
+            rank_kwargs.setdefault("top_n", 10**9)
+            ranking = self.rank_candidates_by_ev(tickers=tickers, **rank_kwargs)
+
+        if ranking is None or len(ranking) == 0:
+            return _empty()
+
+        missing = {"collateral", "ev_dollars"} - set(ranking.columns)
         if missing:
             raise ValueError(
-                f"select_book: 'ranked' is missing required column(s) {missing}; "
-                "pass the output of rank_candidates_by_ev()"
-            )
-        if order_by not in ranked.columns:
-            raise ValueError(
-                f"select_book: order_by={order_by!r} is not a column of 'ranked' "
-                f"(available: {sorted(ranked.columns)})"
+                f"select_book: ranking frame is missing required column(s) "
+                f"{sorted(missing)}. Pass a frame from rank_candidates_by_ev "
+                f"(which always emits 'collateral' and 'ev_dollars')."
             )
 
-        ordered = ranked.sort_values(order_by, ascending=False, kind="stable").reset_index(
-            drop=True
+        # Candidate pool: only positive-EV names can enter a book — a
+        # negative-EV trade never improves Σ EV, and including it would
+        # be the §2 violation this helper must not commit. Also enforce
+        # the budget, the ROC floor and the optional concentration cap.
+        pool = ranking[
+            (ranking["ev_dollars"] > 0)
+            & (ranking["collateral"] > 0)
+            & (ranking["collateral"] <= account_size)
+        ].copy()
+        if "roc" in pool.columns and min_roc > 0:
+            pool = pool[pool["roc"] >= min_roc]
+        if max_weight_per_name is not None:
+            name_cap = account_size * max_weight_per_name
+            pool = pool[pool["collateral"] <= name_cap]
+
+        if len(pool) == 0:
+            return _empty()
+
+        pool = pool.reset_index(drop=True)
+        collateral = pool["collateral"].astype(float).tolist()
+        ev = pool["ev_dollars"].astype(float).tolist()
+
+        capacity = int(account_size // collateral_unit)
+        weights = [max(1, math.ceil(c / collateral_unit)) for c in collateral]
+
+        if capacity * len(pool) > _KNAPSACK_MAX_CELLS:
+            # Greedy ROC fill — large-account degradation path.
+            order = sorted(
+                range(len(pool)),
+                key=lambda i: ev[i] / collateral[i],
+                reverse=True,
+            )
+            chosen: list[int] = []
+            spent = 0.0
+            for i in order:
+                if spent + collateral[i] <= account_size:
+                    chosen.append(i)
+                    spent += collateral[i]
+            method = "greedy_roc"
+        else:
+            chosen = _solve_book_knapsack(weights, ev, capacity)
+            method = "exact_knapsack"
+
+        if not chosen:
+            return _empty()
+
+        book = pool.iloc[chosen].copy()
+        if "ev_per_day" in book.columns:
+            book = book.sort_values("ev_per_day", ascending=False)
+        book = book.reset_index(drop=True)
+
+        total_collateral = float(book["collateral"].sum())
+        total_ev = float(book["ev_dollars"].sum())
+        book.attrs.update(
+            {
+                "account_size": float(account_size),
+                "total_collateral": round(total_collateral, 2),
+                "total_ev_dollars": round(total_ev, 2),
+                "cash_remaining": round(account_size - total_collateral, 2),
+                "n_positions": len(book),
+                "capital_utilization": round(total_collateral / account_size, 4),
+                "selection_method": method,
+            }
         )
-        per_name_cap = account_size * max_pct_per_name if max_pct_per_name is not None else None
-        remaining = float(account_size)
-        keep: list[int] = []
-        for pos in range(len(ordered)):
-            collateral = float(ordered.at[pos, "collateral"])
-            if not collateral > 0:
-                continue  # degenerate row — nothing to secure, skip
-            if per_name_cap is not None and collateral > per_name_cap + _EPS:
-                continue  # exceeds the concentration cap — skip, keep walking
-            if collateral <= remaining + _EPS:
-                keep.append(pos)
-                remaining -= collateral
-            # else: too big for the remaining budget — skip, keep walking
-
-        book = ordered.iloc[keep].reset_index(drop=True)
-        return _finalize(book)
+        return book
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier

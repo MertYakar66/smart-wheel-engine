@@ -3,9 +3,11 @@ Wheel Strategy Position Tracker
 Manages the full lifecycle: Short Put → Stock Assignment → Covered Call → Exit
 """
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass, field, fields
 from datetime import date, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -144,6 +146,87 @@ class WheelPosition:
 
     # Metadata
     notes: list[str] = field(default_factory=list)
+
+    # The six ``date``-typed fields. No type annotation → this is a
+    # plain class constant, not a dataclass field. Used by the
+    # (de)serialisation methods below.
+    _DATE_FIELDS = (
+        "entry_date",
+        "put_entry_date",
+        "put_expiration_date",
+        "stock_acquisition_date",
+        "call_entry_date",
+        "call_expiration_date",
+    )
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-safe dict.
+
+        ``state`` becomes its enum ``.value`` string; the six ``date``
+        fields become ISO-8601 strings (or ``None``); ``notes`` is
+        copied; everything else is already JSON-safe. Inverse of
+        :meth:`from_dict`.
+        """
+        out: dict = {}
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if f.name == "state":
+                out[f.name] = value.value
+            elif f.name in self._DATE_FIELDS:
+                out[f.name] = value.isoformat() if value is not None else None
+            elif f.name == "notes":
+                out[f.name] = list(value)
+            else:
+                out[f.name] = value
+        return out
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "WheelPosition":
+        """Rebuild a :class:`WheelPosition` from a :meth:`to_dict` dict.
+
+        Unknown keys are ignored (forward-compatible with a newer
+        schema); missing optional keys fall back to the dataclass
+        defaults.
+        """
+        valid = {f.name for f in fields(cls)}
+        kwargs = {k: v for k, v in data.items() if k in valid}
+        kwargs["state"] = PositionState(kwargs["state"])
+        for name in cls._DATE_FIELDS:
+            if kwargs.get(name) is not None:
+                kwargs[name] = date.fromisoformat(kwargs[name])
+        return cls(**kwargs)
+
+
+# ----------------------------------------------------------------------
+# Serialisation helpers for WheelTracker.to_dict / from_dict
+# ----------------------------------------------------------------------
+# ``closed_positions`` and ``equity_curve`` are append-only record
+# dicts with a single known builder each (``_finalize_position`` and
+# ``mark_to_market``). Their only ``date``-typed values live under these
+# fixed keys, so they round-trip with explicit per-key conversion — no
+# guessing which strings are dates.
+_CLOSED_POSITION_DATE_KEYS = ("entry_date", "exit_date")
+_EQUITY_CURVE_DATE_KEYS = ("date",)
+
+
+def _record_to_jsonable(record: dict, date_keys: tuple[str, ...]) -> dict:
+    """Copy a record dict, converting the named ``date`` keys to ISO strings."""
+    out = dict(record)
+    for key in date_keys:
+        value = out.get(key)
+        if isinstance(value, date):
+            out[key] = value.isoformat()
+    return out
+
+
+def _record_from_jsonable(record: dict, date_keys: tuple[str, ...]) -> dict:
+    """Inverse of :func:`_record_to_jsonable` — ISO strings back to ``date``."""
+    out = dict(record)
+    for key in date_keys:
+        value = out.get(key)
+        if isinstance(value, str):
+            out[key] = date.fromisoformat(value)
+    return out
 
 
 class WheelTracker:
@@ -1162,6 +1245,87 @@ class WheelTracker:
         }
 
         return pd.DataFrame([summary])
+
+    # ------------------------------------------------------------------
+    # Persistence — JSON round-trip of the whole tracker (S2)
+    # ------------------------------------------------------------------
+    def to_dict(self) -> dict:
+        """Serialise the whole tracker to a JSON-safe dict.
+
+        Captures everything needed to resume a session: ``cash``,
+        ``initial_capital``, the open ``positions``, the closed-trade
+        and equity-curve history, and the EV-authority token set /
+        audit log. ``PositionState`` enums and ``date`` fields are
+        converted to JSON-safe forms (see :meth:`WheelPosition.to_dict`
+        and :func:`_record_to_jsonable`).
+
+        The ``connector`` is a live data-source object and is
+        deliberately **not** serialised — :meth:`from_dict` and
+        :meth:`load` take an optional ``connector`` to re-attach it.
+
+        Inverse of :meth:`from_dict`; :meth:`save` / :meth:`load` wrap
+        this with JSON file I/O.
+        """
+        return {
+            "schema_version": 1,
+            "initial_capital": self.initial_capital,
+            "cash": self.cash,
+            "require_ev_authority": self.require_ev_authority,
+            "positions": {tk: p.to_dict() for tk, p in self.positions.items()},
+            "closed_positions": [
+                _record_to_jsonable(rec, _CLOSED_POSITION_DATE_KEYS)
+                for rec in self.closed_positions
+            ],
+            "equity_curve": [
+                _record_to_jsonable(rec, _EQUITY_CURVE_DATE_KEYS) for rec in self.equity_curve
+            ],
+            "ev_authority_tokens": sorted(self._ev_authority_tokens),
+            "ev_authority_log": [dict(entry) for entry in self._ev_authority_log],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, connector: Any | None = None) -> "WheelTracker":
+        """Rebuild a tracker from a :meth:`to_dict` dict.
+
+        ``connector`` is re-attached here — it is never part of the
+        serialised state. Unknown top-level keys are ignored and absent
+        optional keys fall back to empty, so the loader is
+        forward-compatible with a newer ``schema_version``.
+        """
+        tracker = cls(
+            initial_capital=data["initial_capital"],
+            require_ev_authority=data.get("require_ev_authority", False),
+            connector=connector,
+        )
+        tracker.cash = data["cash"]
+        tracker.positions = {
+            tk: WheelPosition.from_dict(p) for tk, p in data.get("positions", {}).items()
+        }
+        tracker.closed_positions = [
+            _record_from_jsonable(rec, _CLOSED_POSITION_DATE_KEYS)
+            for rec in data.get("closed_positions", [])
+        ]
+        tracker.equity_curve = [
+            _record_from_jsonable(rec, _EQUITY_CURVE_DATE_KEYS)
+            for rec in data.get("equity_curve", [])
+        ]
+        tracker._ev_authority_tokens = set(data.get("ev_authority_tokens", []))
+        tracker._ev_authority_log = [dict(entry) for entry in data.get("ev_authority_log", [])]
+        return tracker
+
+    def save(self, path: str | Path) -> None:
+        """Write :meth:`to_dict` to ``path`` as indented UTF-8 JSON."""
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(self.to_dict(), fh, indent=2)
+
+    @classmethod
+    def load(cls, path: str | Path, connector: Any | None = None) -> "WheelTracker":
+        """Read a tracker from a JSON file written by :meth:`save`.
+
+        ``connector`` is re-attached (it is never serialised).
+        """
+        with open(path, encoding="utf-8") as fh:
+            return cls.from_dict(json.load(fh), connector=connector)
 
     # ------------------------------------------------------------------
     # Roll-suggestion workflow (management-layer integration)

@@ -134,15 +134,25 @@ class FREDAdapter:
     # Derived regime signals
     # ------------------------------------------------------------------
 
-    def credit_regime(self) -> dict:
+    def credit_regime(self, as_of: str | pd.Timestamp | None = None) -> dict:
         """HY/IG OAS levels + percentile rank over 5 years.
 
         Returns {'hy_oas', 'ig_oas', 'hy_pct_5y', 'ig_pct_5y', 'regime'}
         where regime is 'benign' | 'stressed' | 'crisis' based on
         HY OAS percentile (>80th = stressed, >95th = crisis).
+
+        ``as_of`` makes this point-in-time: only OAS observations at or
+        before ``as_of`` are used (no look-ahead). ``as_of=None`` uses
+        the full series (live behaviour). If ``as_of`` predates the
+        series the regime is reported 'unknown', never fabricated.
         """
         hy = self.get_series("BAMLH0A0HYM2")
         ig = self.get_series("BAMLC0A0CM")
+        if as_of is not None:
+            # Point-in-time slice — drop observations after as_of.
+            cutoff = pd.Timestamp(as_of)
+            hy = hy[hy.index <= cutoff]
+            ig = ig[ig.index <= cutoff]
         out = {
             "hy_oas": float(hy.iloc[-1]) if not hy.empty else float("nan"),
             "ig_oas": float(ig.iloc[-1]) if not ig.empty else float("nan"),

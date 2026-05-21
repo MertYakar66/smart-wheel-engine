@@ -5,7 +5,7 @@ News sentiment reader — a thin bridge between the existing
 The news pipeline is orchestrated separately (scrapers, browser agents,
 publishers). This module does not run any scraping itself — it just
 looks for a parquet/json/sqlite store on disk and exposes a simple
-``get_ticker_sentiment(ticker, lookback_hours=72)`` -> dict.
+``get_ticker_sentiment(ticker, lookback_hours=72, as_of=None)`` -> dict.
 
 Expected store locations (checked in order)
 -------------------------------------------
@@ -109,8 +109,17 @@ class NewsSentimentReader:
         self,
         ticker: str,
         lookback_hours: int = 72,
+        as_of: str | pd.Timestamp | None = None,
     ) -> dict:
-        """Return the latest sentiment for a ticker (neutral if none)."""
+        """Return the latest sentiment for a ticker (neutral if none).
+
+        ``as_of`` makes the lookup point-in-time: only news timestamped
+        within ``lookback_hours`` before and up to ``as_of`` is eligible
+        — no look-ahead. ``as_of=None`` uses wall-clock ``now()`` (live
+        behaviour). A store with no per-row ``as_of`` column cannot be
+        made point-in-time, so a historical ``as_of`` returns neutral
+        rather than risk a leak.
+        """
         df = self._load()
         if df.empty or "ticker" not in df.columns:
             return {"sentiment": 0.0, "confidence": 0.0, "n_articles": 0}
@@ -120,13 +129,23 @@ class NewsSentimentReader:
             return {"sentiment": 0.0, "confidence": 0.0, "n_articles": 0}
 
         if "as_of" in t.columns:
-            cutoff = pd.Timestamp.now(tz="UTC").tz_localize(None) - pd.Timedelta(
-                hours=lookback_hours
+            # Point-in-time window. as_of=None -> wall-clock now (live);
+            # a historical as_of -> only news at or before that instant
+            # is eligible. lookback_hours bounds the lower edge.
+            upper = (
+                pd.Timestamp.now(tz="UTC").tz_localize(None)
+                if as_of is None
+                else pd.Timestamp(as_of)
             )
-            t = t[t["as_of"] >= cutoff]
+            lower = upper - pd.Timedelta(hours=lookback_hours)
+            t = t[(t["as_of"] >= lower) & (t["as_of"] <= upper)]
             if t.empty:
                 return {"sentiment": 0.0, "confidence": 0.0, "n_articles": 0}
             row = t.sort_values("as_of").iloc[-1]
+        elif as_of is not None:
+            # No per-row timestamp -> point-in-time cannot be
+            # established; refuse rather than return the latest row.
+            return {"sentiment": 0.0, "confidence": 0.0, "n_articles": 0}
         else:
             row = t.iloc[-1]
 
@@ -150,15 +169,23 @@ class NewsSentimentReader:
             "as_of": row.get("as_of"),
         }
 
-    def sentiment_multiplier(self, ticker: str, lookback_hours: int = 72) -> float:
+    def sentiment_multiplier(
+        self,
+        ticker: str,
+        lookback_hours: int = 72,
+        as_of: str | pd.Timestamp | None = None,
+    ) -> float:
         """Map sentiment to an EV multiplier in [0.88, 1.05].
 
         - sentiment <= -0.3 with n_articles >= 5 -> 0.88 (soft derank)
         - sentiment in (-0.3, -0.1)              -> 0.95
         - neutral                                 -> 1.00
         - sentiment >= 0.3 with n_articles >= 5  -> 1.05
+
+        ``as_of`` is threaded to :meth:`get_ticker_sentiment` for
+        point-in-time correctness (``None`` = live wall-clock).
         """
-        s = self.get_ticker_sentiment(ticker, lookback_hours)
+        s = self.get_ticker_sentiment(ticker, lookback_hours, as_of)
         sent = s["sentiment"]
         n = s["n_articles"]
         if n < 5:

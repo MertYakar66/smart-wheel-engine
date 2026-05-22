@@ -200,7 +200,6 @@ Required environment variables:
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and dataflow |
 | [GOVERNANCE.md](docs/GOVERNANCE.md) | Model governance framework |
 | [GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
 | [MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |

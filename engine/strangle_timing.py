@@ -105,6 +105,12 @@ class StrangleEntryScore:
     expansion_active: bool = False
     strong_trend_warning: bool = False
 
+    # Phase-classification confidence (0-1) from `_classify_phase` — the
+    # engine's certainty in the `VolatilityPhase` it assigned. Surfaced
+    # here so callers (and the recommendation gate) can see it without
+    # reaching into `regime`.
+    phase_confidence: float = 0.0
+
     regime: StrangleRegime | None = None
 
     def __str__(self) -> str:
@@ -117,7 +123,8 @@ class StrangleEntryScore:
             flags.append("⚠ TREND")
         flag_str = f" [{', '.join(flags)}]" if flags else ""
         return (
-            f"Entry Score: {self.total_score:.0f}/100 → {self.recommendation}{flag_str}\n"
+            f"Entry Score: {self.total_score:.0f}/100 → {self.recommendation} "
+            f"(phase conf {self.phase_confidence:.0%}){flag_str}\n"
             f"  BB={self.bollinger_score:.0f} ATR={self.atr_score:.0f} "
             f"RSI={self.rsi_score:.0f} Trend={self.trend_score:.0f} Range={self.range_score:.0f}"
         )
@@ -151,6 +158,17 @@ class StrangleTimingEngine:
         "trend": 0.20,
         "range": 0.20,
     }
+
+    # Phase-confidence floor for the `score_entry` recommendation gate
+    # (S14). A confidence below this caps the recommendation at
+    # "conditional" — no "strong_entry" on a regime the engine is not
+    # confident about. `_classify_phase` emits a discrete confidence set
+    # {0.30, 0.55, 0.60, 0.75, 0.80, 0.85, 0.90}; 0.70 sits in the gap
+    # between the uncertain reads (UNKNOWN 0.30, weak COMPRESSION 0.55,
+    # 2-signal POST_EXPANSION / fallback EXPANSION 0.60) and the
+    # confident reads (>= 0.75), so the floor bites exactly the weak
+    # classifications and nothing else.
+    _PHASE_CONFIDENCE_FLOOR = 0.70
 
     def __init__(
         self,
@@ -389,6 +407,40 @@ class StrangleTimingEngine:
 
         return VolatilityPhase.UNKNOWN, 0.30
 
+    def _apply_phase_gate(self, recommendation: str, regime: StrangleRegime | None) -> str:
+        """Gate a score-cut recommendation on the regime phase / confidence.
+
+        Strictly **downgrade-only** (S14): the ``total_score`` cut that
+        produced ``recommendation`` is the base; this gate may only ever
+        make it more conservative, never lift it. A good phase or a high
+        confidence returns ``recommendation`` unchanged.
+
+        - ``VolatilityPhase.TREND`` → ``avoid``. A persistent directional
+          move runs through one leg of a short strangle; the phase is
+          documented "AVOID symmetric".
+        - An ``UNKNOWN`` phase, or a confidence below
+          :attr:`_PHASE_CONFIDENCE_FLOOR`, caps the recommendation at
+          ``conditional`` — no ``strong_entry`` on a regime the engine
+          cannot confidently classify (S14's MSFT 81.6 / unknown-phase
+          case). It acts only on ``strong_entry``, so it can never raise
+          a ``conditional`` / ``avoid`` verdict.
+
+        Shared by :meth:`score_entry` and
+        :meth:`StrangleTimingWithIV.score_entry` so the two paths cannot
+        drift.
+        """
+        if regime is None:
+            return recommendation
+        if regime.phase == VolatilityPhase.TREND:
+            recommendation = "avoid"
+        low_confidence = (
+            regime.phase == VolatilityPhase.UNKNOWN
+            or regime.confidence < self._PHASE_CONFIDENCE_FLOOR
+        )
+        if low_confidence and recommendation == "strong_entry":
+            recommendation = "conditional"
+        return recommendation
+
     def score_entry(self, df: pd.DataFrame) -> StrangleEntryScore:
         """
         Score entry quality for a short strangle (0-100).
@@ -497,6 +549,10 @@ class StrangleTimingEngine:
         if expansion_active:
             recommendation = "avoid" if total < 70 else "conditional"
 
+        # Phase / confidence gate (S14) — strictly downgrade-only;
+        # see `_apply_phase_gate`.
+        recommendation = self._apply_phase_gate(recommendation, regime)
+
         return StrangleEntryScore(
             total_score=total,
             recommendation=recommendation,
@@ -509,6 +565,7 @@ class StrangleTimingEngine:
             compression_warning=compression_warning,
             expansion_active=expansion_active,
             strong_trend_warning=strong_trend,
+            phase_confidence=regime.confidence,
             regime=regime,
         )
 
@@ -755,6 +812,11 @@ class StrangleTimingWithIV(StrangleTimingEngine):
         if layer1_score.expansion_active:
             recommendation = "avoid" if adjusted_total < 70 else "conditional"
 
+        # Preserve the Layer-1 phase / confidence gate (S14) — same
+        # strictly-downgrade-only rule. The regime is Layer 1's: the IV
+        # overlay scales the score, it does not reclassify the phase.
+        recommendation = self._apply_phase_gate(recommendation, layer1_score.regime)
+
         return StrangleEntryScore(
             total_score=adjusted_total,
             recommendation=recommendation,
@@ -767,6 +829,7 @@ class StrangleTimingWithIV(StrangleTimingEngine):
             compression_warning=layer1_score.compression_warning,
             expansion_active=layer1_score.expansion_active,
             strong_trend_warning=layer1_score.strong_trend_warning,
+            phase_confidence=layer1_score.phase_confidence,
             regime=layer1_score.regime,
         )
 

@@ -125,10 +125,19 @@ class EnginePhaseReviewer:
        verdict is **skip**. This catches stale screenshots that would
        otherwise pass through.
 
-    4. If the chart context's ``visible_indicators`` includes a
-       ``phase`` field that disagrees with the engine's phase-based
-       decision (e.g. chart says "compression", engine wants to sell),
-       the verdict is **skip**.
+    4. *(Conditional — reserved.)* If the chart context's
+       ``visible_indicators`` includes a ``phase`` field that disagrees
+       with the engine's phase-based decision (e.g. chart says
+       "compression", engine wants to sell), the verdict is **skip**.
+       This rule is implemented and unit-tested
+       (``tests/test_dossier_invariant.py``) but dormant in the
+       production path: no current chart provider populates
+       ``visible_indicators['phase']`` — it stays empty through M1 — and
+       the ranker emits no ``phase`` field on ``ev_row``, so neither
+       operand of the predicate is fed. R4 activates only when a
+       phase-aware chart provider lands (see
+       ``docs/TRADINGVIEW_INTEGRATION.md``). It is not a live downgrade
+       today.
 
     5. Otherwise, if ``ev_dollars >= min_proceed_ev``, the verdict is
        **proceed**. Below that threshold it is **review** so the human

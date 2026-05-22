@@ -60,7 +60,12 @@ The `EnginePhaseReviewer` rules, for reference:
 - R1: negative EV → blocked (hard stop)
 - R2: chart missing → review
 - R3: spot mismatch > 2% → skip
-- R4: phase contradiction → skip
+- R4: phase contradiction → skip *(conditional/reserved — the rule is
+  implemented and unit-tested but dormant in the production path: no
+  current chart provider populates `visible_indicators['phase']` (empty
+  through M1) and the ranker emits no `phase` on `ev_row`. It fires only
+  when a phase-aware chart provider lands — see
+  `docs/TRADINGVIEW_INTEGRATION.md`. Not a live downgrade today.)*
 - R5: EV above threshold → proceed (below → review)
 - R6: short-gamma regime + strike at/above put wall, or dealer regime
   near gamma flip → downgrade to review

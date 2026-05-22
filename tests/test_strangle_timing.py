@@ -786,6 +786,21 @@ class TestStrangleTimingWithIVOverlay:
 
         original = StrangleTimingEngine.score_entry
 
+        # An EXPANSION-phase regime, consistent with the expansion_active
+        # flag this test isolates. Without it the faked score would carry
+        # the real _generate_ohlcv regime — a TREND phase — and the S14
+        # phase gate would (correctly) force avoid, masking the
+        # expansion-override behaviour under test.
+        expansion_regime = StrangleRegime(
+            phase=VolatilityPhase.EXPANSION,
+            confidence=0.80,
+            bollinger_state="expanding",
+            atr_state="rising",
+            rsi_state="neutral",
+            trend_state="weak",
+            range_state="mid",
+        )
+
         def faked(self, dataframe):
             inner = original(self, dataframe)
             return StrangleEntryScore(
@@ -800,7 +815,7 @@ class TestStrangleTimingWithIVOverlay:
                 compression_warning=False,
                 expansion_active=True,
                 strong_trend_warning=False,
-                regime=inner.regime,
+                regime=expansion_regime,
             )
 
         monkeypatch.setattr(StrangleTimingEngine, "score_entry", faked)

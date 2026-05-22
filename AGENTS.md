@@ -25,7 +25,7 @@ read order.
 4. **`TESTING.md`** — test taxonomy, launch-blocker subset, what to
    run when you touch a given file.
 
-5. **`LAPTOP_SETUP.md`** — only if rehydrating data (Theta Terminal,
+5. **`docs/LAPTOP_SETUP.md`** — only if rehydrating data (Theta Terminal,
    feature store) on a new machine. Not needed for code-only work.
 
 ## Read on demand
@@ -38,11 +38,11 @@ purpose-built; they don't overlap.
 | See *why* a structural choice was made | `DECISIONS.md` |
 | Find what's intentionally next | `ROADMAP.md` |
 | See what shipped recently | `CHANGELOG.md` |
-| See what *usage* tests we've run and what's queued | `USAGE_TEST_LEDGER.md` |
-| Understand the data layer (what's tracked, regen rules, secrets) | `DATA_POLICY.md` |
-| Know the launch-blocker invariants before merging | `LAUNCH_READINESS.md` |
+| See what *usage* tests we've run and what's queued | `docs/USAGE_TEST_LEDGER.md` |
+| Understand the data layer (what's tracked, regen rules, secrets) | `docs/DATA_POLICY.md` |
+| Know the launch-blocker invariants before merging | `docs/LAUNCH_READINESS.md` |
 | Write a commit message or PR | `COMMIT_GUIDE.md` |
-| Wire anything to TradingView (engine bridge or analyst workspace) | `TRADINGVIEW_INTEGRATION.md`, then `docs/TRADINGVIEW_MCP_INTEGRATION.md` for MCP design |
+| Wire anything to TradingView (engine bridge or analyst workspace) | `docs/TRADINGVIEW_INTEGRATION.md`, then `docs/TRADINGVIEW_MCP_INTEGRATION.md` for MCP design |
 | Run a Theta data refresh | `docs/THETA_PULL_SESSION_NOTES.md`, then `docs/THETA_USAGE.md` |
 | Touch Greek calculations | `docs/GREEKS_UNIT_CONTRACT.md` (canonical) |
 

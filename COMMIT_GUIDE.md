@@ -197,7 +197,7 @@ intended to do next. Tell them. Examples:
 - "The 4 persistent failures are upstream — don't waste time
   debugging the puller for them"
 - "This change should probably be paired with a doc update in
-  TRADINGVIEW_INTEGRATION.md §3"
+  docs/TRADINGVIEW_INTEGRATION.md §3"
 
 ---
 

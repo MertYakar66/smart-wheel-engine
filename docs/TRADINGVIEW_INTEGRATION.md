@@ -7,7 +7,7 @@ read this file first to know which surface they're touching.
 
 If you came looking for a deeper design contract for the MCP-driven
 chart provider, jump straight to
-[`docs/TRADINGVIEW_MCP_INTEGRATION.md`](docs/TRADINGVIEW_MCP_INTEGRATION.md).
+[`TRADINGVIEW_MCP_INTEGRATION.md`](TRADINGVIEW_MCP_INTEGRATION.md).
 
 ---
 
@@ -167,13 +167,13 @@ filings + events), **MT Newswires** (real-time news), **LSEG**
 See `ROADMAP.md` Track A:
 
 - **A1** `MCPChartProvider` implementation (design contract is
-  locked in `docs/TRADINGVIEW_MCP_INTEGRATION.md`).
+  locked in `TRADINGVIEW_MCP_INTEGRATION.md`).
 
 ---
 
 ## Cross-references
 
-- `docs/TRADINGVIEW_MCP_INTEGRATION.md` — MCP chart provider design
+- `TRADINGVIEW_MCP_INTEGRATION.md` — MCP chart provider design
   contract (the M1 scope: 3 MCP tools, no quiet substitution on
   failure)
 - `tradingview/README.md` — hands-on setup for Pine indicator + alert

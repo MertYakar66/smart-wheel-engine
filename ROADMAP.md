@@ -114,7 +114,7 @@ real entry; the packages list reflects the real install surface.
 `TRADINGVIEW_INTEGRATION_REPORT.md` at the repo root" — that file
 does not exist.
 **Done when:** the link is updated to point at
-`TRADINGVIEW_INTEGRATION.md` (parent doc) and
+`docs/TRADINGVIEW_INTEGRATION.md` (parent doc) and
 `docs/TRADINGVIEW_MCP_INTEGRATION.md` (MCP-specific design contract).
 
 ---

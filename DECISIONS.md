@@ -135,7 +135,7 @@ user, who needs to switch between them daily. Putting them in the
 same `tradingview/` folder with explicit per-purpose docs preserves
 context without confusing the contract.
 
-**Pinned by:** `TRADINGVIEW_INTEGRATION.md`,
+**Pinned by:** `docs/TRADINGVIEW_INTEGRATION.md`,
 `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `tradingview/README.md`,
 `tradingview/CLAUDE.md`, `tradingview/OVERVIEW.md`.
 
@@ -160,7 +160,7 @@ matters. The risk-of-leak / value-of-tracking ratio is unfavourable.
   consumer.
 
 **Pinned by:** `.gitignore` ("Theta Terminal — installed software"
-section), `LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
+section), `docs/LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
 
 ---
 
@@ -196,7 +196,7 @@ it. Worse, Drive denies `unlink` on existing tracked files, so
 `git pull` may fetch refs but fail to update the worktree.
 
 **Pinned by:** `CLAUDE.md` §3 ("Drive mounts are
-eventually-consistent mirrors"), `LAPTOP_SETUP.md`.
+eventually-consistent mirrors"), `docs/LAPTOP_SETUP.md`.
 
 ---
 
@@ -232,7 +232,7 @@ CI scope (`src + engine + advisors + financial_news` + `data/quality.py`, per
 discovery.
 
 The launch-blocker subset in `TESTING.md` (consolidated in
-`LAUNCH_READINESS.md`) is the floor for any decision-layer change;
+`docs/LAUNCH_READINESS.md`) is the floor for any decision-layer change;
 the full suite (`pytest tests/ -v`) is the floor for shipping
 anything that touches `engine/ev_engine.py`,
 `engine/wheel_runner.py`, or `engine/candidate_dossier.py`. The
@@ -278,7 +278,7 @@ exercising the path. That single bug paid for the whole exercise.
   forcing function: every change becomes about not regressing the
   number rather than about real edge-case discovery.
 
-**Pinned by:** `TESTING.md`, `LAUNCH_READINESS.md`, every
+**Pinned by:** `TESTING.md`, `docs/LAUNCH_READINESS.md`, every
 `test_audit_*.py`, `tests/test_dossier_invariant.py`,
 `tests/test_authority_hardening.py`, `tests/test_launch_blockers.py`.
 The 80% gate itself is enforced by `pyproject.toml`

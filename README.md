@@ -16,7 +16,7 @@ A systematic, data-driven framework for managing short-put and covered-call stra
 > 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
 > 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
 >
-> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`DATA_POLICY.md`](DATA_POLICY.md) (what's tracked vs ignored), [`LAUNCH_READINESS.md`](LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`TRADINGVIEW_INTEGRATION.md`](TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
+> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) (what's tracked vs ignored), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
 >
 > **The body of this README below is partially out of date** — see [`PROJECT_STATE.md` §5](PROJECT_STATE.md) and [`ROADMAP.md` B1](ROADMAP.md) for the repair plan. Trust the documents linked above.
 

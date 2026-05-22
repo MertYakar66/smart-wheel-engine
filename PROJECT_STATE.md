@@ -303,7 +303,7 @@ not been fixed in this review pass:
   (`python -m dashboard.quant_dashboard`) and broker env vars
   (`BROKER_API_KEY`, `BROKER_SECRET`) that are out of scope per
   `CLAUDE.md` §4. Project structure listing is 6 dirs; actual is 20+.
-- `CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
+- `docs/CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
   pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
   deps; none are part of the EV decision path.
 - `docs/ARCHITECTURE.md` — describes `src/data`, `src/features`,

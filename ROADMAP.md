@@ -75,13 +75,13 @@ is a one-shot doc edit, not code.
 removes broker references, and points at `AGENTS.md` /
 `PROJECT_STATE.md` / `MODULE_INDEX.md` for orientation.
 
-### B2. `CONTRIBUTING.md` — installs phantom deps
+### B2. `docs/CONTRIBUTING.md` — installs phantom deps
 **Status:** `next`
 **Issue:** says `pip install -e ".[dev]"` will install from a
 pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
 deps. None are part of the EV decision path.
 **Done when:** either pyproject is cleaned (see B5) or
-CONTRIBUTING.md tells the contributor which deps are optional and
+docs/CONTRIBUTING.md tells the contributor which deps are optional and
 why.
 
 ### B3. `docs/ARCHITECTURE.md` — describes the wrong tree

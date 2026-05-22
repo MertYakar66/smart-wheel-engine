@@ -168,7 +168,7 @@ pytest tests/ --cov=engine --cov=dashboard
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for security policy and best practices.
+See [SECURITY.md](docs/SECURITY.md) for security policy and best practices.
 
 ```python
 from utils.security import InputValidator, AuditLogger
@@ -205,7 +205,7 @@ Required environment variables:
 | [GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
 | [MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
 | [DATA_SPECIFICATION.md](docs/DATA_SPECIFICATION.md) | Data architecture and schemas |
-| [SECURITY.md](SECURITY.md) | Security policy |
+| [SECURITY.md](docs/SECURITY.md) | Security policy |
 
 ## Contributing
 

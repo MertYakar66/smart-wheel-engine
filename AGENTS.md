@@ -36,6 +36,7 @@ purpose-built; they don't overlap.
 | You want to… | Read |
 |---|---|
 | See *why* a structural choice was made | `DECISIONS.md` |
+| Find any tracked file by its purpose | `FILE_MANIFEST.md` |
 | Find what's intentionally next | `ROADMAP.md` |
 | See what shipped recently | `CHANGELOG.md` |
 | See what *usage* tests we've run and what's queued | `docs/USAGE_TEST_LEDGER.md` |

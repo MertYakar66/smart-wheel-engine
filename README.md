@@ -16,7 +16,7 @@ A systematic, data-driven framework for managing short-put and covered-call stra
 > 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
 > 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
 >
-> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) (what's tracked vs ignored), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
+> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) (what's tracked vs ignored), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`FILE_MANIFEST.md`](FILE_MANIFEST.md) (every tracked file, one line), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
 >
 > **The body of this README below is partially out of date** — see [`PROJECT_STATE.md` §5](PROJECT_STATE.md) and [`ROADMAP.md` B1](ROADMAP.md) for the repair plan. Trust the documents linked above.
 
@@ -126,28 +126,30 @@ python -m dashboard.quant_dashboard
 
 ```
 smart-wheel-engine/
-├── dashboard/              # Professional trading dashboard
-│   ├── __init__.py
-│   └── quant_dashboard.py
-├── engine/                 # Core quantitative engine
-│   ├── option_pricer.py    # BS, American, Greeks
-│   ├── risk_manager.py     # VaR, position sizing
-│   ├── monte_carlo.py      # Monte Carlo simulations
-│   └── ...
-├── tests/                  # Comprehensive test suite
-│   ├── test_dashboard.py
-│   ├── test_advanced_quant.py
-│   ├── test_option_pricer.py
-│   └── ...
-├── utils/                  # Utilities
-│   └── security.py         # Security features
-├── docs/                   # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── GOVERNANCE.md
-│   ├── GREEKS_UNIT_CONTRACT.md
-│   ├── MODEL_CARDS.md
-│   └── DATA_SPECIFICATION.md
-└── config/                 # Configuration
+├── engine/          # quant + decision layer (EVEngine, WheelRunner, dossier)
+├── advisors/        # Buffett/Munger/Simons/Taleb committee (advisory only)
+├── scripts/         # data pullers + diagnostics
+├── tests/           # test suite
+├── dashboard/       # Next.js dashboard + legacy Python CLI
+├── data/            # Bloomberg-CSV data layer + feature pipeline
+├── data_raw/        # universe list + sample fixtures
+├── data_processed/  # regenerable Theta/yfinance pulls (mostly gitignored)
+├── financial_news/  # standalone news platform
+├── news_pipeline/   # browser-agent news pipeline (drives morning_run.py)
+├── local_agent/     # experimental browser agent
+├── ml/              # research ML models
+├── backtests/       # research backtesting
+├── src/             # feature-engineering / schema modules (see DECISIONS.md D2)
+├── config/          # configuration
+├── utils/           # shared utilities
+├── tradingview/     # Pine indicator + analyst-workspace assets
+├── docs/            # documentation set
+├── archive/         # superseded / point-in-time artifacts
+├── notebooks/       # exploratory notebooks
+├── models/          # ML model output directory
+├── engine_api.py    # HTTP API entry point (:8787)
+├── morning_run.py   # news-pipeline entry point
+└── *.md             # AGENTS / CLAUDE / README + the Tier-2 index docs
 ```
 
 ## Testing

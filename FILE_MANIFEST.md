@@ -127,7 +127,8 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `dashboard/__init__.py` | Python package init — re-exports the legacy `QuantDashboard` and helpers. |
 | `dashboard/quant_dashboard.py` | Legacy standalone Python CLI dashboard — option pricing, Greeks, VaR, stress, sizing (imports only `engine/`). |
 | `dashboard/web_vitals.py` | `WebVitalsTracker` — records Core Web Vitals and checks per-page budgets. |
-| `dashboard/public/*.svg`, `favicon.ico` | Static icon assets. |
+| `dashboard/public/*.svg` | Default Next.js scaffold icon assets. |
+| `dashboard/src/app/favicon.ico` | Browser favicon. |
 | `dashboard/src/app/layout.tsx` | Root Next.js layout — global metadata and CSS. |
 | `dashboard/src/app/page.tsx` | Root index — redirects to `/top`. |
 | `dashboard/src/app/globals.css` | Global Tailwind styles and terminal color palette. |
@@ -200,9 +201,10 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `data/pipeline.py` | `DataPipeline` — master data interface; auto-detects CSV format; survivorship-bias audit. |
 | `data/quality.py` | `DataQualityFramework` — schema / completeness / consistency / anomaly / freshness validation; the chain-quality gate on the EV path. |
 | `data/bloomberg/EXTRACTION_GUIDE.md` | Runbook of Bloomberg Excel formulas to regenerate the CSV panels. |
-| `data/bloomberg/sp500_*.csv`, `treasury_yields.csv`, `vix_term_structure.csv` | Consolidated wide-format Bloomberg data panels (OHLCV, IV/vol, earnings, dividends, fundamentals, credit, analyst, institutional, macro, VIX, short interest, index membership, sector ETFs). |
+| `data/bloomberg/*.csv` | Consolidated wide-format Bloomberg data panels — OHLCV, IV/vol, earnings, dividends, fundamentals, credit, analyst, institutional, macro, VIX, short interest, index membership, sector ETFs, treasury yields, VIX term structure. |
+| `data/bloomberg/sp500_short_interest.csv.xlsx` | A short-interest export carrying a double `.csv.xlsx` extension (an `.xlsx` file; not loadable by the CSV connector as-named). |
 | `data/features/<group>/ticker=AAPL/{data.parquet,metadata.json,stats.json}` | Committed AAPL-only feature-store sample shards across the 8 feature groups; other tickers regenerate via `scripts/backfill_features.py`. |
-| `data/features/_lineage/`, `_registry/` | Feature-store lineage table and registry index. |
+| `data/features/_lineage/`, `data/features/_registry/` | Feature-store lineage table and registry index. |
 
 ## `data_processed/`
 
@@ -341,6 +343,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `financial_news/ui/__init__.py` | Re-exports the dashboard UI. |
 | `financial_news/ui/dashboard.py` | `NewsDashboard` — a Streamlit news UI. |
 | `financial_news/utils/__init__.py` | Empty utils-package marker. |
+| `financial_news/data/.gitignore` | Ignores the local SQLite database files in the news-platform data directory. |
 
 ## `local_agent/` — experimental autonomous browser agent
 
@@ -378,12 +381,18 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `ml/model_governance.py` | Model lifecycle governance — model cards, drift detection, champion/challenger, registry. |
 | `ml/wheel_model.py` | `WheelEntryModel` — a research GBM entry classifier (default output dir: `models/`). |
 
+## `models/`
+
+| File | Purpose |
+|---|---|
+| `models/.gitkeep` | Placeholder keeping the otherwise-empty `models/` directory tracked; `models/` is the default model-output path named by `ml/wheel_model.py`. |
+
 ## `news_pipeline/` — browser-agent news pipeline (drives `morning_run.py`)
 
 | File | Purpose |
 |---|---|
 | `news_pipeline/__init__.py` | Package root; lazy-imports browser agents to avoid a hard Playwright dependency. |
-| `news_pipeline/orchestrator.py` | `NewsPipelineOrchestrator` — the multi-stage scrape→preprocess→verify→format→publish pipeline. |
+| `news_pipeline/orchestrator.py` | `NewsPipelineOrchestrator` — the multi-stage scrape → preprocess → verify → format → editorial → publish pipeline. |
 | `news_pipeline/publisher.py` | `NewsPublisher` — publishes finalized stories to API / SQLite / file. |
 | `news_pipeline/slo.py` | SLO definitions and the per-stage latency/availability tracker. |
 | `news_pipeline/models/__init__.py` | Re-exports the pipeline data models. |
@@ -461,7 +470,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/bloomberg_export.vba` | Simplified Bloomberg VBA export macro. |
 | `scripts/export_sheets_to_csv.vba` | Excel VBA macro exporting ticker worksheets to CSV. |
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
-| `scripts/ohlcv_formulas.txt`, `iv_formulas.txt`, `earnings_formulas.txt`, `dividends_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste. |
+| `scripts/*_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste (ohlcv / iv / earnings / dividends, plus the combined `bloomberg_formulas.txt`). |
 | `scripts/.gitkeep` | Directory placeholder. |
 
 ## `src/` — feature-engineering / schema / backtest modules

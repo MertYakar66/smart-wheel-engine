@@ -308,9 +308,13 @@ rewritten.**
   `data/features/` consumes), and `src/backtest/` (`wheel_backtest.py`).
   Plan: either fully remove or fully repopulate. Until then, do not
   add new modules under `src/`.
-- `models/` — the default `joblib` output directory for
-  `ml/wheel_model.py`; empty in git but not a removable placeholder.
-  (`validation/`, a genuine empty placeholder, was removed in D14.)
+- `models/` — retained, not deleted as a placeholder: `ml/wheel_model.py`
+  names `models/wheel_entry_model.joblib` as its default model-output
+  path, so `models/` is a *referenced* path. (`ml/wheel_model.py` does
+  `mkdir(parents=True)` on save, so the directory is not strictly
+  required to pre-exist — it was kept on the referenced-path basis, not
+  a runtime need.) The genuinely zero-reference `validation/` placeholder
+  was removed in D14.
 - `dashboard/quant_dashboard.py` — legacy Python CLI dashboard. The
   primary dashboard is the Next.js app under `dashboard/src/`.
   README.md still describes the legacy CLI as the main entry point.

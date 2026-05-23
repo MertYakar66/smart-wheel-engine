@@ -8,7 +8,9 @@ This file is the operational consolidation of:
 - `CLAUDE.md` §2 (the hard EV invariant)
 - `MODULE_INDEX.md` (authoritative vs reviewer roles)
 - `TESTING.md` (launch-blocker subset)
-- `DECISIONS.md` D1 (EV is the only ranker)
+- `DECISIONS.md` D1 (EV is the only ranker), D11 (Theta fail-loud),
+  D13 (MCP opt-in), D14 (FILE_MANIFEST coverage CI gate), D15
+  (per-terminal worktree + env), D16 (token verdict-bound)
 - `tests/test_launch_blockers.py` and the `test_audit_*` family
 
 ---
@@ -29,6 +31,15 @@ model), wire it as a chained-provider participant or a downgrade-only
 reviewer. Never as a code path that converts non-tradeable → tradeable
 without a fresh `EVEngine.evaluate` call.
 
+**Operationalised by the EV-authority token (D16).** The hard invariant
+is enforced at the `WheelTracker` launch-gate by a two-stage predicate:
+`issue_ev_authority_token` raises `EVAuthorityRefused` for any row with
+`ev_dollars <= 0`, and `_consume_ev_authority_token` re-checks a fresh
+`current_ev_dollars` at fire time — a token that was positive at rank
+time but went stale at fire time is rejected (the token is retained
+for retry). Both legs (`open_short_put` and `open_covered_call`) flow
+through the same predicate. See `DECISIONS.md` D16.
+
 ---
 
 ## 2. The four authoritative routes
@@ -41,7 +52,7 @@ tradeable verdict:
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
 | `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R6 | `tests/test_dossier_invariant.py` |
-| `engine_api.py` | HTTP API on `:8787`; 32 endpoints | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
+| `engine_api.py` | HTTP API (default `:8787`); full endpoint list in the module-header docstring | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 Any change touching a file under `engine/` that affects these routes
 **must** run the full launch-blocker subset (§4 below) and the full
@@ -62,7 +73,7 @@ on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 | **R1** | EV is negative | **blocked** (hard stop) |
 | **R2** | Chart missing | **review** |
 | **R3** | Spot mismatch > 2% between engine-side and chart-side | **skip** |
-| **R4** | Phase contradiction (Pine signal disagrees with engine) | **skip** |
+| **R4** | *Conditional / reserved.* Phase contradiction (chart `visible_indicators['phase']` disagrees with engine phase) → **skip**. Implemented and unit-tested but **dormant in production**: no current chart provider populates the `phase` field and the ranker emits no `phase` on `ev_row`, so neither operand of the predicate is fed. R4 activates only when a phase-aware chart provider lands (see `docs/TRADINGVIEW_INTEGRATION.md`). Not a live downgrade today. |
 | **R5** | EV above threshold | **proceed** |
 | **R6** | Short-gamma regime + strike at/above the put wall, or dealer regime near the gamma flip | **downgrade** |
 
@@ -117,16 +128,33 @@ authority files change.
 - [ ] If the change touches the TradingView path —
       `tests/test_tv_signals.py::test_pine_parity_constants`
       passes (Pine ↔ engine constant parity).
-- [ ] If the change touches `wheel_tracker.py` — the rolled-position
-      P&L accumulator tests pass; the three ledgers
-      (`realized_pnl`, `transaction_costs`, `stock_basis`) remain
-      orthogonal (audit-VIII fix).
+- [ ] **If the change touches `wheel_tracker.py`'s EV-authority
+      token surface** — verify both stages of the D16 predicate
+      fire (issue refuses non-positive `ev_dollars` and raises
+      `EVAuthorityRefused`; consume re-checks a fresh
+      `current_ev_dollars` at fire time). Run
+      `tests/test_authority_hardening.py` plus
+      `tests/test_ev_authority_log_schema.py` (the audit-log
+      shape regression).
+- [ ] If the change touches `wheel_tracker.py` more broadly — the
+      rolled-position P&L accumulator tests pass; the three
+      ledgers (`realized_pnl`, `transaction_costs`, `stock_basis`)
+      remain orthogonal (audit-VIII fix).
+- [ ] **Any new tracked file has a `FILE_MANIFEST.md` row** — the
+      `FILE_MANIFEST Coverage` CI job (`scripts/check_manifest_coverage.py`,
+      per `DECISIONS.md` D14) hard-fails the build otherwise. Run
+      `python scripts/check_manifest_coverage.py` before push to
+      catch this locally.
 - [ ] `PROJECT_STATE.md` is updated if the change shifts what is
       "authoritative" or "deprecated".
 - [ ] `CHANGELOG.md` has an entry under the current month.
 - [ ] If the change retired a documented behaviour, the
       corresponding entry in `DECISIONS.md` is updated (not deleted)
       with a `**SUPERSEDED by D<N>**` note.
+- [ ] If you ran the suite from a per-terminal worktree (D15), the
+      relevant env was sourced — `source scripts/setup-terminal.sh
+      <letter>` so `COVERAGE_FILE` / `PYTEST_CACHE_DIR` don't
+      collide with another terminal's run.
 
 ---
 
@@ -136,27 +164,49 @@ new strategy / new broker integration)
 These are the gates beyond the per-PR checklist. Reach for this
 list when shipping something genuinely user-facing:
 
-- [ ] `audit.py` smoke tests pass against a running
-      `engine_api.py` on `localhost:8787`.
-- [ ] `scripts/feature_smoke_test.py` reports the expected pass /
-      fail / skip distribution for the current data tier
-      (~111 PASS / 0 FAIL / 16 SKIP after the 2026-05-04 refresh per
-      `PROJECT_STATE.md` §3.4 — adjust as data tiers shift).
+- [ ] `audit.py` smoke tests pass against a running `engine_api.py`
+      (default `localhost:8787`; honour `SWE_API_PORT` once that
+      env var is promoted from convention to binding — see
+      `DECISIONS.md` D15 Unresolved).
+- [ ] `scripts/feature_smoke_test.py` reports a pass / fail / skip
+      distribution consistent with the current data tier. The
+      absolute count moves with each Theta refresh; the live
+      reference is `PROJECT_STATE.md` §3.4. Re-baseline that section
+      before treating any drift as a regression.
 - [ ] On a Theta-up laptop:
       `python scripts/diagnose_candidates.py` (full universe, not the
       Cowork 5-ticker shim) produces a candidate funnel without
       surprises (no zero-trade ticker that should be tradeable).
+- [ ] **Theta failures fail loud, not silent (D11).** If a per-symbol
+      Theta endpoint times out while the Terminal itself is healthy,
+      `engine/theta_connector.py` raises a typed `PerEndpointFailure`
+      with a `FailureRecord` — it does **not** silently substitute
+      Bloomberg CSVs. Pre-launch checks must surface any
+      `PerEndpointFailure` accumulator
+      (`connector.get_failures()`) and resolve them per puller; a
+      mid-pull mixed-provenance mode is a launch blocker, not
+      acceptable degradation. See `DECISIONS.md` D11.
 - [ ] `python scripts/probe_theta_capabilities.py` regenerates
       `data_processed/theta_capabilities.json` and the persistent
       failure set matches the documented tier ceiling
       (currently: BF.B / BRK.B / NVR / DAY — upstream-data gap, not
       a code bug).
+- [ ] **MCP chart provider mode is explicit, not implicit (D13).**
+      The MCP path is opt-in via `SWE_USE_MCP_CHART=1`; default off.
+      If you intend to go live with MCP charts on, set the env var
+      explicitly in the launch environment and re-run the §4
+      launch-blocker subset (the import-guarded
+      `test_mcp_provider_*` contract test auto-activates). If MCP
+      is off, the chained provider falls through to filesystem
+      without silent substitution.
 - [ ] If broker / OMS surface is being introduced (which is
       out-of-scope per `CLAUDE.md`'s NEVER list — get explicit
       consent first): a separate launch-readiness review against
       the new surface, not just this checklist.
 - [ ] The dashboard (`dashboard/src/`, Next.js) still builds and
-      hits the `:8787` API without errors.
+      hits the API (default `:8787`) without errors. The dashboard
+      is the canonical operator surface for live ranking + dossier
+      review.
 
 ---
 
@@ -168,9 +218,10 @@ Useful to be explicit so reviewers don't over-block:
   invariants matter; the line count doesn't (`DECISIONS.md` D10).
 - **Doc drift** in `README.md`, `docs/ARCHITECTURE.md`, etc. is
   tracked in `ROADMAP.md` Track B — known and being repaired.
-- **Deprecation warnings** in the test output (currently 287 — down
-  from 578 — per `PROJECT_STATE.md` §2) are not blockers; they're a
-  known cleanup queue.
+- **Deprecation warnings** in the test output are not blockers;
+  they're a known cleanup queue. Treat any large delta as worth a
+  look (the suite report total drifts with every audit); raw count
+  doesn't gate merge.
 - **The `iv_surface` integration decision** is open
   (`ROADMAP.md` A2) — shipping any code path that *uses* the SVI
   tooling does require resolving that decision first; everything
@@ -189,3 +240,67 @@ Anything that needs the Theta Terminal — `scripts/diagnose_candidates.py`
 on the full universe, live chain / Greeks / IV-surface checks, the
 MCP-driven TradingView surface — must be re-run on the laptop before
 declaring a launch ready.
+
+### Per-terminal env (D15)
+
+Multi-terminal coordination (`docs/PARALLEL_SESSIONS.md`) is N-generic.
+Each executor terminal runs from its own worktree
+(`../swe-terminal-<x>`) with env loaded by
+`source scripts/setup-terminal.sh <letter>` (bash / Git Bash / WSL)
+or `. .\scripts\setup-terminal.ps1 <letter>` (PowerShell). The loader
+sets six env vars per terminal letter — `SWE_API_PORT`,
+`SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `COVERAGE_FILE`,
+`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `COVERAGE_FILE` and
+`PYTEST_CACHE_DIR` are real today (test-tooling honours them);
+`SWE_API_PORT`, `SWE_DATA_PROCESSED_DIR`, and `SWE_MODELS_DIR` are
+**conventions** until each consumer is wired up. See `DECISIONS.md`
+D15.
+
+### Launch-mode switching
+
+Going from Cowork sandbox to laptop is a deliberate env-var flip,
+not a code branch. The three switches:
+
+| Mode change | Env var | Sandbox | Laptop |
+|---|---|---|---|
+| Data provider | `SWE_DATA_PROVIDER` | `bloomberg` (default; `MarketDataConnector` reads tracked CSVs) | `theta` (live `ThetaConnector` against the Theta Terminal on `127.0.0.1:25503`) — see `DECISIONS.md` D6, D7 |
+| MCP chart provider | `SWE_USE_MCP_CHART` | unset / `0` (chained provider falls through to filesystem) | `1` (live `tv` CLI subprocess; requires TradingView Desktop + the `tv` shim — `DECISIONS.md` D12, D13) |
+| API port | `SWE_API_PORT` | `8787` (convention) | `8787` (convention; promoted to a real binding will land in a follow-on PR per D15 Unresolved) |
+
+After flipping any switch: re-run the §4 launch-blocker subset, then
+the relevant pre-launch checks in §6. The provider switch in
+particular is a recurring bug source — `CLAUDE.md` §4 emphasises
+**always log which provider was actually selected**.
+
+---
+
+## 9. Observability surface
+
+`engine/observability.py` ships structured-logging machinery that
+the launch-readiness contract should make visible:
+
+- **`TraceContext`** — per-evaluation context carrying the EV row,
+  the reviewer's verdict, the multipliers applied, and the final
+  `ev_dollars`. The compliance audit identity
+  (`ev_dollars = ev_raw × Π(multipliers)`, see PR #149 / S16) is
+  reconstructable from a `TraceContext`.
+- **`DecisionEntry` + `DecisionJournal`** — append-only journal of
+  decision-layer outcomes. The journal is the upstream of any
+  external audit / dashboard / compliance consumer.
+- **`AuditLogger`** — file-or-stream sink for the journal. Pre-launch
+  checks should confirm the sink is configured for the launch
+  environment.
+- **`trace_operation`** — instrumentation helper used by the runner
+  and the dossier reviewer.
+- **`WheelTracker._ev_authority_log`** — the D16 audit log. Its five
+  entry shapes (`issue` / `refuse_issue` / `consume` / `reject`
+  with three reason variants) are pinned by
+  `tests/test_ev_authority_log_schema.py` and persisted via
+  `to_dict` / `from_dict` (PR #128).
+
+Pre-launch: confirm the launch environment writes both surfaces
+(`DecisionJournal` and `_ev_authority_log`) somewhere recoverable —
+S16's compliance walkthrough verdict was **partial**, so the audit
+trail is verifiable for survivor rows but the structured-log
+operator-facing story is incomplete. Tracked in audit issue #154
+(C6).

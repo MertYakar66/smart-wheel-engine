@@ -1,123 +1,153 @@
-# FinanceNews - AI Financial News Platform
+# Smart Wheel Engine — Dashboard
 
-A local-first, zero-cost financial news aggregator with AI-powered analysis via Ollama. Built with Next.js 15, SQLite, and free data sources.
+Next.js 15 dashboard for the Smart Wheel Engine. Consumes the engine HTTP
+API at `:8787` (served by [`engine_api.py`](../engine_api.py)) and exposes
+two surfaces:
 
-## Features
+1. **Engine cockpit** — EV-ranked candidates, dossier (engine + chart),
+   strangle timing, dealer-positioning overlay, payoff diagrams, AI memos.
+2. **Financial-news component** — feed, ticker pages, watchlist, macro
+   calendar, research chat against local Ollama. This is the news-side UI
+   that piggybacks on the same Next.js app; it pre-dates the engine
+   integration and is kept alongside it.
 
-- **News Feed** - Aggregated financial news from 8+ RSS sources with automatic entity extraction, story clustering, and sector classification
-- **Ticker Pages** - Per-stock view with price charts (Recharts), related news, and SEC EDGAR filing links
-- **Watchlist** - Track tickers with price alerts and filtered news
-- **Macro Calendar** - FOMC meetings, CPI releases, jobs reports, GDP estimates
-- **Research Chat** - AI-powered research assistant via local Ollama models
-- **Alert System** - Notifications when watched tickers appear in new stories
+The repo root has an alternate legacy Python CLI dashboard at
+[`quant_dashboard.py`](quant_dashboard.py); it is **not** the primary UI
+and is retained as a research-tier surface only (see
+[`MODULE_INDEX.md`](../MODULE_INDEX.md)).
 
-## Tech Stack
+---
+
+## Tech stack
 
 - **Framework**: Next.js 15 (App Router, TypeScript)
-- **UI**: Tailwind CSS v4 + custom shadcn/ui components
+- **UI**: Tailwind CSS v4 + shadcn/ui components
 - **Database**: SQLite via better-sqlite3 + Drizzle ORM
 - **Charts**: Recharts
-- **AI**: Ollama (local) via Vercel AI SDK
-- **Data Sources**: RSS feeds, Finnhub (free tier), SEC EDGAR, FRED
+- **AI**: Local Ollama via Vercel AI SDK (research chat, memo summarisation)
+- **Data**: the engine API (`:8787`) for ranking + analysis; RSS feeds,
+  Finnhub free tier, SEC EDGAR, FRED for the news component
 
-## Getting Started
+---
+
+## Getting started
 
 ### Prerequisites
 
 - Node.js 18+
-- (Optional) [Ollama](https://ollama.ai) for AI features
-- (Optional) Finnhub API key for live quotes
-- (Optional) FRED API key for macro data
+- The engine API up at `:8787` for the engine cockpit
+  (`python engine_api.py` from the repo root — see the
+  [root README](../README.md))
+- Optional: [Ollama](https://ollama.ai) for memo / research-chat AI features
+- Optional: Finnhub free-tier API key for live quotes in the news component
+- Optional: FRED API key for macro indicators
 
 ### Setup
 
 ```bash
+# From the repo root
+cd dashboard
+
 # Install dependencies
 npm install
 
-# Copy environment variables
+# Environment template (Finnhub, FRED, Ollama, etc.)
 cp .env.example .env.local
 
-# Start development server
+# Dev server at :3000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to use the app.
+Open [http://localhost:3000](http://localhost:3000). The engine cockpit
+pages assume `python engine_api.py` is running in another terminal.
 
-### Optional: Ollama Setup
+### Optional: Ollama
 
-For AI-powered entity extraction and research chat:
+For memo summarisation and the research chat:
 
 ```bash
-# Install Ollama (macOS/Linux)
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Pull a model
+curl -fsSL https://ollama.ai/install.sh | sh   # macOS / Linux
 ollama pull qwen2.5:7b
-
-# Ollama runs on http://localhost:11434 by default
+# Ollama serves on http://localhost:11434 by default
 ```
 
-### Optional: API Keys
+The engine's own memo path (`engine/trade_memo.py`) uses Ollama 72B / 32B
+locally; the dashboard's research chat uses the same Ollama instance via
+the Vercel AI SDK.
 
-Set in `.env.local`:
-- `FINNHUB_API_KEY` - Free tier at [finnhub.io](https://finnhub.io/register) (60 calls/min)
-- `FRED_API_KEY` - Free at [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html)
+---
 
-## Architecture
+## App layout
 
 ```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── feed/              # News feed with story cards
-│   ├── ticker/[symbol]/   # Per-ticker view with chart
-│   ├── watchlist/         # Ticker watchlist management
-│   ├── calendar/          # Macro event calendar
-│   ├── research/          # AI chat research surface
-│   └── api/               # API routes
-│       ├── stories/       # Story CRUD + filtering
-│       ├── ingest/        # RSS ingestion trigger
-│       ├── market/        # Market data quotes
-│       ├── watchlist/     # Watchlist management
-│       ├── alerts/        # Alert management
-│       ├── events/        # Calendar events
-│       └── chat/          # Ollama chat streaming
-├── components/            # React components
-│   ├── nav.tsx           # Navigation bar
-│   └── ui/               # shadcn/ui base components
-├── db/                    # Database layer
-│   ├── schema.ts         # Drizzle ORM schema
-│   └── index.ts          # Database connection + init
-├── services/              # Business logic
-│   ├── data-provider.ts  # DataProvider interface
-│   ├── rss-ingestion.ts  # RSS feed parser
-│   ├── rss-feeds.ts      # Feed source config
-│   ├── entity-extraction.ts # NLP via Ollama/regex
-│   ├── story-clustering.ts  # Jaccard similarity dedup
-│   ├── market-data.ts    # Finnhub integration
-│   ├── edgar.ts          # SEC EDGAR API
-│   └── macro-data.ts     # FRED API
-├── types/                 # TypeScript type definitions
-└── lib/                   # Utilities (cn, etc.)
+dashboard/src/
+├── app/
+│   ├── (main)/              # Engine cockpit pages
+│   ├── (terminal)/          # Trading-terminal surface
+│   ├── api/                 # Next.js API routes
+│   │   ├── engine/         # Proxies / wrappers around engine_api.py :8787
+│   │   ├── execute/        # Trade-execution surfaces (committee verdicts)
+│   │   ├── exposure/       # Portfolio Greeks / exposure
+│   │   ├── briefings/      # AI briefings (Ollama-backed)
+│   │   ├── stories/        # News stories (financial-news component)
+│   │   ├── ingest/         # RSS ingestion trigger
+│   │   ├── market/         # Live quotes (Finnhub)
+│   │   ├── events/         # Macro-event calendar
+│   │   ├── watchlist/      # Ticker watchlist
+│   │   ├── alerts/         # Watchlist alerts
+│   │   ├── chat/           # Ollama research chat (streaming)
+│   │   ├── schedule/       # Scheduled tasks
+│   │   ├── stream/         # Server-sent events
+│   │   └── categories/     # News classification
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/              # React components (incl. shadcn/ui)
+├── db/                      # Drizzle schema + connection
+├── services/                # Business logic (RSS, entity extraction, market data, EDGAR, FRED)
+├── types/                   # TypeScript types
+└── lib/                     # Utilities
 ```
 
-## Data Sources (Zero Cost)
+`node_modules/` and the built `.next/` directory are gitignored; everything
+in `src/` is tracked.
 
-| Source | Data | Cost |
-|--------|------|------|
-| RSS Feeds (8 sources) | Financial headlines | Free |
-| Finnhub | Stock quotes | Free tier (60/min) |
-| SEC EDGAR | Company filings | Free (public API) |
-| FRED | Macro indicators | Free (API key required) |
-| Ollama | AI inference | Free (local) |
+---
 
 ## Scripts
 
 ```bash
-npm run dev          # Development server
+npm run dev          # Development server at :3000
 npm run build        # Production build
 npm run start        # Production server
 npm run lint         # ESLint
 npm run db:generate  # Generate Drizzle migrations
 npm run db:migrate   # Run Drizzle migrations
 ```
+
+---
+
+## Data sources (zero cost)
+
+| Source | Data | Cost |
+|---|---|---|
+| Engine API (`:8787`) | EV ranking, analysis, dossier, payoff, dealer positioning | Local |
+| RSS feeds (8 sources) | Financial headlines | Free |
+| Finnhub | Stock quotes | Free tier (60 calls / min) |
+| SEC EDGAR | Company filings | Free (public API) |
+| FRED | Macro indicators | Free (API key required) |
+| Ollama | Local AI inference | Free (local) |
+
+---
+
+## How the engine cockpit talks to the engine
+
+The Next.js API routes under `src/app/api/engine/` are thin proxies that
+forward to the Python HTTP API at `http://localhost:8787`. The engine
+endpoint catalog (32 endpoints — `/api/candidates`, `/api/dossier`,
+`/api/strangle`, `/api/dealer_positioning`, `/api/memo`, `/api/tv/*`,
+etc.) is documented in the [`engine_api.py`](../engine_api.py) header.
+
+The dashboard does **not** reimplement any of the engine's quantitative
+logic; it renders what the API returns. The hard EV invariant
+(`CLAUDE.md`'s "no tradeable candidate bypasses `EVEngine.evaluate`")
+holds because the API itself enforces it.

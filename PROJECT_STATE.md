@@ -331,26 +331,24 @@ rewritten.**
 These are stale relative to `CLAUDE.md` and the live code, and have
 not been fixed in this review pass:
 
-- `README.md` — describes a CLI dashboard
-  (`python -m dashboard.quant_dashboard`) and broker env vars
-  (`BROKER_API_KEY`, `BROKER_SECRET`) that are out of scope per
-  `CLAUDE.md`'s NEVER list. Project structure listing is 6 dirs; actual is 20+.
-- `docs/CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
-  pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
-  deps; none are part of the EV decision path.
-- `dashboard/README.md` — still says "FinanceNews — AI Financial News
-  Platform". Directory was reused; README was not.
 - `pyproject.toml` —
   `[project.scripts] wheel = "src.cli:app"` points at a missing file;
   `[tool.hatch.build.targets.wheel] packages = ["src"]` excludes
   `engine/`, `engine_api.py`, `advisors/`, `dashboard/`, etc., so the
-  built wheel would not contain the live code.
+  built wheel would not contain the live code. Touching pyproject
+  requires explicit ask per `AGENTS.md`.
 - `engine/__init__.py` — re-exports the legacy quant layer
   (option_pricer, monte_carlo, regime_detector, signals, etc.) but
   does **not** re-export `EVEngine`, `WheelRunner`,
   `EnginePhaseReviewer`, `MarketStructure`. Modern decision-layer
   symbols can only be imported via their full submodule paths. This
-  is silent — not broken — but misleading to a fresh agent.
+  is silent — not broken — but misleading to a fresh agent. Held
+  back from prior passes because touching `engine/__init__.py`
+  ripples through every import site.
+
+The entries that previously lived here for `README.md`,
+`docs/CONTRIBUTING.md`, and `dashboard/README.md` were closed by
+the entry-doc repair pass — see `ROADMAP.md` Track B (B1, B2, B4).
 
 ## 6. Branch + workflow policy
 

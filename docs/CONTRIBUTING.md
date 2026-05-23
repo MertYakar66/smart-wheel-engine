@@ -1,134 +1,181 @@
 # Contributing to Smart Wheel Engine
 
-Thank you for your interest in contributing to Smart Wheel Engine! This document provides guidelines for contributing.
-
-> **For AI agents (Claude, Codex, Cursor, Copilot, Aider, …):** Start
-> with [`AGENTS.md`](../AGENTS.md), then [`CLAUDE.md`](../CLAUDE.md) for
-> the structural contract, [`PROJECT_STATE.md`](../PROJECT_STATE.md) for
+> **AI agents (Claude, Codex, Cursor, Copilot, Aider, …):** Start with
+> [`AGENTS.md`](../AGENTS.md), then [`CLAUDE.md`](../CLAUDE.md) for the
+> structural contract, [`PROJECT_STATE.md`](../PROJECT_STATE.md) for
 > what's authoritative right now, and [`COMMIT_GUIDE.md`](../COMMIT_GUIDE.md)
 > before your first commit. The sections below are the human-side
 > open-source workflow; the AI-agent handoff path is more direct.
 
-## Getting Started
+---
+
+## Getting started
 
 ### Prerequisites
 
 - Python 3.11+
+- Node.js 18+ if you'll touch the Next.js dashboard
 - Git
 
 ### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/MertYakar66/smart-wheel-engine.git
 cd smart-wheel-engine
 
-# Create virtual environment
+# Virtual environment (recommended)
 python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+source venv/bin/activate          # macOS / Linux
+# .\venv\Scripts\Activate.ps1    # Windows PowerShell
 
-# Install dependencies
-pip install -e ".[dev]"
+# Install runtime + test deps
+pip install -r requirements.txt
+pip install pytest pytest-cov hypothesis ruff pre-commit
 
-# Install pre-commit hooks
-pip install pre-commit
+# Pre-commit hooks
 pre-commit install
 ```
 
-## Development Workflow
+> **Note on `pyproject.toml`.** The project carries a `pyproject.toml`
+> for tooling config (ruff, mypy, pytest, coverage), but its
+> `[project.dependencies]` list is **known stale** — it includes
+> `streamlit`, `prefect`, `ib_insync` which are *not* on the EV
+> decision path. Do not `pip install -e ".[dev]"`; use the
+> `requirements.txt` install above. See `PROJECT_STATE.md` §5 and
+> `ROADMAP.md` B5 for the pyproject cleanup that's pending.
 
-### 1. Create a Branch
+For Theta Terminal bring-up on a new machine (not needed if you're
+using the committed Bloomberg CSVs, which is the default), see
+[`docs/LAPTOP_SETUP.md`](LAPTOP_SETUP.md).
+
+---
+
+## Development workflow
+
+### 1. Branch off `main`
 
 ```bash
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
+git checkout -b agent/<short-slug>          # for AI-agent work
+git checkout -b claude/<short-slug>         # also accepted
+git checkout -b feature/<short-slug>        # human convention
 ```
 
-### 2. Make Changes
+Never commit to `main` directly (`CLAUDE.md`'s NEVER list).
 
-- Write clean, documented code
-- Follow existing code style (we use Ruff for formatting)
-- Add tests for new functionality
+### 2. Make changes
 
-### 3. Run Tests
+- Follow existing code style — Ruff is the formatter.
+- Type-hint new functions; the codebase is mypy-strict in scope.
+- Add tests for new functionality.
+- If you're touching a doc, prefer **symbol names** over
+  `file.py:line` references — line numbers drift.
+
+### 3. Run the relevant tests
 
 ```bash
-# Run all tests
+# Full suite (always run for decision-layer changes)
 pytest tests/ -v
 
-# Run specific test file
-pytest tests/test_option_pricer.py -v
+# Launch-blocker subset (decision-layer gate)
+pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
+       tests/test_authority_hardening.py tests/test_audit_viii_*.py \
+       tests/test_launch_blockers.py -v
 
-# Run with coverage
-pytest tests/ --cov=engine --cov=dashboard
+# Targeted (e.g. when touching engine/ev_engine.py)
+pytest tests/test_ev_engine_upgrades.py -v
 ```
 
-### 4. Pre-commit Checks
+See [`TESTING.md`](../TESTING.md) for the full taxonomy, launch-blocker
+subset, and the "what to run when you touch X" map.
+
+For any change touching `engine/ev_engine.py`, `engine/wheel_runner.py`,
+or `engine/candidate_dossier.py`: run the **full** suite, not just the
+targeted file. Invariants are cross-cutting.
+
+### 4. Pre-commit + lint
 
 ```bash
-# Run pre-commit on all files
-pre-commit run --all-files
+# Run pre-commit on all changed files
+pre-commit run --files <path1> <path2>
 
 # Or let it run automatically on commit
-git commit -m "Your message"
+git commit -m "type(scope): ..."
+
+# Explicit lint check (CI hard-fails on dirty lint)
+ruff format --check .
+ruff check .
 ```
 
-### 5. Submit Pull Request
+### 5. Submit the PR
 
-1. Push your branch to GitHub
-2. Open a Pull Request against `main`
-3. Describe your changes clearly
-4. Wait for CI checks to pass
-5. Request review
+```bash
+git push -u origin <your-branch>
+gh pr create --base main --title "type(scope): ..." --body "..."
+```
 
-## Code Guidelines
+CI runs eight jobs (Environment Validation, Lint & Type Check,
+Security Scan, Test Suite × 2, Quantitative Validation, Integration
+Tests, FILE_MANIFEST Coverage). All eight must pass before merge.
 
-### Python Style
+---
 
-- Follow PEP 8
-- Use type hints for all functions
-- Document public functions with docstrings
-- Keep functions focused and small
+## Code guidelines
+
+### Python style
+
+- PEP 8 + Ruff defaults.
+- Type hints on all functions; mypy-strict expected.
+- Docstrings on public functions (Args / Returns / Raises).
+- Keep functions focused; if a function grows past ~80 lines, ask
+  whether it's two functions.
 
 ```python
-def calculate_option_price(
+def calculate_ev_dollars(
     spot: float,
     strike: float,
-    volatility: float,
-    option_type: Literal['call', 'put']
+    iv: float,
+    dte: int,
+    *,
+    multiplier: float = 1.0,
 ) -> float:
-    """
-    Calculate option price using Black-Scholes.
+    """Compute expected-value dollars for a short-put leg.
 
     Args:
-        spot: Current stock price
-        strike: Option strike price
-        volatility: Annualized volatility
-        option_type: 'call' or 'put'
+        spot: Underlying spot price.
+        strike: Put strike.
+        iv: Annualised implied volatility (decimal, not percent).
+        dte: Days to expiration.
+        multiplier: Regime / dealer-positioning multiplier (clamped
+            to [0.70, 1.05] by the dealer overlay).
 
     Returns:
-        Option price
+        Expected-value dollars; negative if the trade is non-tradeable.
     """
     ...
 ```
 
+Greeks units are pinned in [`docs/GREEKS_UNIT_CONTRACT.md`](GREEKS_UNIT_CONTRACT.md).
+Read it before touching any Greek code.
+
 ### Testing
 
-- Write tests for all new functionality
-- Use descriptive test names
-- Test edge cases
+- Tests live in `tests/`, file pattern `test_*.py`.
+- Use descriptive test names (`test_atm_call_delta_near_half`,
+  not `test_1`).
+- For decision-layer changes, add a test that pins the invariant,
+  not just one that covers the new code path.
 
 ```python
-class TestOptionPricing:
-    def test_atm_call_delta_near_half(self):
-        """ATM call delta should be approximately 0.5."""
-        ...
-
-    def test_expired_option_returns_intrinsic(self):
-        """Expired option should return intrinsic value."""
+class TestEnginePhaseReviewer:
+    def test_negative_ev_blocked_even_with_perfect_chart(self):
+        """R1 invariant — chart cannot upgrade a negative-EV verdict."""
         ...
 ```
+
+The launch-blocker test family (`test_audit_*`,
+`test_dossier_invariant`, `test_authority_hardening`,
+`test_launch_blockers`) is what enforces the hard EV invariant
+across the codebase. New invariants belong there.
 
 ### Commits
 
@@ -157,37 +204,43 @@ AI handoff:
   exposes, what test to add later)
 ```
 
-## Project Structure
+---
 
-```
-smart-wheel-engine/
-├── dashboard/          # Dashboard module
-├── engine/             # Core quantitative engine
-├── src/                # Source modules
-├── tests/              # Test suite
-├── utils/              # Utilities
-├── docs/               # Documentation
-└── config/             # Configuration
-```
+## What requires explicit ask
 
-## Areas for Contribution
+Per [`AGENTS.md`](../AGENTS.md), the following are *not* covered by
+the "what you can change without asking" allow-list:
 
-### High Priority
-- Additional option pricing models
-- Performance optimizations
-- Documentation improvements
-- Test coverage expansion
+- Any change under `engine/ev_engine.py`, `engine/wheel_runner.py`,
+  or `engine/candidate_dossier.py`.
+- New data-provider classes, advisors, or chart providers.
+- Broker / OMS / order-routing surface (out of scope per
+  `CLAUDE.md`'s NEVER list).
+- Editing `CLAUDE.md` itself.
+- Touching `pyproject.toml` `[project.scripts]` or
+  `[tool.hatch] packages` (in known-stale state).
+- Refreshing the committed Bloomberg CSVs.
 
-### Feature Ideas
-- Monte Carlo Greeks calculation
-- Jump-diffusion pricing models
-- Real-time streaming interface
-- Additional broker integrations
+When in doubt, ask before doing.
 
-## Questions?
+---
 
-Open an issue for questions or discussions about contributing.
+## Areas open for contribution
+
+The current backlog is tracked in [`ROADMAP.md`](../ROADMAP.md):
+
+- **Track A** — decision-layer correctness (highest priority).
+- **Track B** — documentation drift (a few items still pending).
+- **Track C** — hygiene + governance follow-ups.
+- **Track F** — lint debt (44 ruff errors on main).
+
+`DECISIONS.md` records the architectural choices (D1–D14) and what
+was rejected. `PROJECT_STATE.md` records the temporal state — read
+it before assuming any file or pyproject entry is current.
+
+---
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed
+under the MIT License.

@@ -81,9 +81,6 @@ and `tests/test_authority_hardening.py`.
 - Adding broker / OMS / order-routing surface — out of scope per
   `CLAUDE.md`'s NEVER list.
 - Editing `CLAUDE.md` itself.
-- Touching `pyproject.toml` `[project.scripts]` or
-  `[tool.hatch] packages` (currently in a known-stale state — see
-  `PROJECT_STATE.md`).
 - Committing to `main` directly (see `COMMIT_GUIDE.md` §5 — branch
   + PR for everything, even one-line typos).
 - Refreshing the tracked Bloomberg CSVs in

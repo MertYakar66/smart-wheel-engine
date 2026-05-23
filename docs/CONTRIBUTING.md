@@ -37,12 +37,16 @@ pre-commit install
 ```
 
 > **Note on `pyproject.toml`.** The project carries a `pyproject.toml`
-> for tooling config (ruff, mypy, pytest, coverage), but its
-> `[project.dependencies]` list is **known stale** — it includes
-> `streamlit`, `prefect`, `ib_insync` which are *not* on the EV
-> decision path. Do not `pip install -e ".[dev]"`; use the
-> `requirements.txt` install above. See `PROJECT_STATE.md` §5 and
-> `ROADMAP.md` B5 for the pyproject cleanup that's pending.
+> for tooling config (ruff, mypy, pytest, coverage) and a packaging
+> surface (hatchling). `pip install -e ".[dev]"` is what CI uses
+> and is the recommended install for contributors who want the
+> wheel build path. The plain `requirements.txt` install above is
+> equivalent for runtime + test deps and is the bring-up path used
+> on fresh machines. The known-stale state flagged in earlier
+> `PROJECT_STATE.md` §5 (broken `wheel = "src.cli:app"` script,
+> `packages = ["src"]` excluding the live code, two phantom
+> `[project.dependencies]` entries) was closed by ROADMAP Track B5
+> — see `CHANGELOG.md` 2026-05.
 
 For Theta Terminal bring-up on a new machine (not needed if you're
 using the committed Bloomberg CSVs, which is the default), see
@@ -217,8 +221,6 @@ the "what you can change without asking" allow-list:
 - Broker / OMS / order-routing surface (out of scope per
   `CLAUDE.md`'s NEVER list).
 - Editing `CLAUDE.md` itself.
-- Touching `pyproject.toml` `[project.scripts]` or
-  `[tool.hatch] packages` (in known-stale state).
 - Refreshing the committed Bloomberg CSVs.
 
 When in doubt, ask before doing.

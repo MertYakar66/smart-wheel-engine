@@ -2,6 +2,8 @@
 Smart Wheel Engine - Core Trading Components
 
 This module provides the core trading engine components:
+- EV decision layer (authoritative — see CLAUDE.md §1): EVEngine, WheelRunner,
+  EnginePhaseReviewer, CandidateDossier, MarketStructure
 - WheelTracker: Position lifecycle management
 - PortfolioTracker: Comprehensive portfolio tracking with time-period returns
 - Option pricing with Black-Scholes and Greeks
@@ -16,6 +18,9 @@ This module provides the core trading engine components:
 - Monte Carlo simulation (bootstrap, jump diffusion, LSM)
 """
 
+from .candidate_dossier import CandidateDossier, EnginePhaseReviewer
+from .dealer_positioning import MarketStructure
+from .ev_engine import EVEngine, EVResult, ShortOptionTrade
 from .event_calendar import (
     EventCalendar,
     EventCalendarBuilder,
@@ -143,9 +148,18 @@ from .volatility_surface import (
     estimate_iv_for_delta,
     surface_to_dataframe,
 )
+from .wheel_runner import WheelRunner
 from .wheel_tracker import PositionState, WheelPosition, WheelTracker
 
 __all__ = [
+    # EV Decision Layer (authoritative — see CLAUDE.md §1)
+    "EVEngine",
+    "EVResult",
+    "ShortOptionTrade",
+    "WheelRunner",
+    "EnginePhaseReviewer",
+    "CandidateDossier",
+    "MarketStructure",
     # Core
     "WheelTracker",
     "WheelPosition",

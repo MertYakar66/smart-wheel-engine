@@ -48,14 +48,14 @@ is removed from `engine/__init__.py` re-exports and marked
 **deprecated** in `MODULE_INDEX.md`.
 
 ### A3. `engine/__init__.py` re-exports the modern decision-layer
-**Status:** `parked` (revisit when an EV-layer refactor is in flight)
-**Issue:** the package currently re-exports the legacy quant layer
-(`option_pricer`, `monte_carlo`, `regime_detector`, …) but not
-`EVEngine`, `WheelRunner`, `EnginePhaseReviewer`, `MarketStructure`.
-A fresh agent has to discover the full submodule paths.
-**Why parked:** touching `engine/__init__.py` ripples through every
-import site. Bundle with a real refactor instead of doing in
-isolation.
+**Status:** `done` — the parking premise turned out to be wrong. A
+pre-edit grep proved every existing import site uses the full
+submodule path (`from engine.ev_engine import EVEngine`, etc.), so
+adding entries to `__all__` could only *enable* new imports, never
+break existing ones. Shipped a focused 7-symbol re-export (EVEngine,
+EVResult, ShortOptionTrade, WheelRunner, EnginePhaseReviewer,
+CandidateDossier, MarketStructure) plus a docstring line pointing at
+CLAUDE.md §1. See `CHANGELOG.md` 2026-05.
 
 ---
 

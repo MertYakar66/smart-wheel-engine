@@ -65,6 +65,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass). |
 | `earnings_drift.py` | Post-earnings drift adjustment. |
 | `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
+| `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |
 
 ### Reviewers (downgrade-only)
 
@@ -193,6 +194,8 @@ Key scripts:
 | `probe_theta_capabilities.py` | Regenerates `data_processed/theta_capabilities.json`. |
 | `quant_benchmark_gate.py` | Gate run for benchmark suite. |
 | `validate_environment.py` / `check_env.py` | Local environment sanity. |
+| `check_manifest_coverage.py` | CI guard — fails the build if any tracked file is absent from `FILE_MANIFEST.md` or vice versa (the gate behind `DECISIONS.md` D14's tiered layout). |
+| `setup-terminal.{sh,ps1}` | Parallel-session env loader (bash / PowerShell) — sources per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, and three more vars. See `DECISIONS.md` D15. |
 
 ---
 

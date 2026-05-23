@@ -31,7 +31,7 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `PROJECT_STATE.md` | Tier-2 — temporal state: what is authoritative, in progress, or deprecated right now. |
 | `MODULE_INDEX.md` | Tier-2 — per-module purpose and decision-layer role classification. |
 | `TESTING.md` | Tier-2 — test taxonomy, the launch-blocker subset, the "what to run when you touch X" map. |
-| `DECISIONS.md` | Tier-2 — the locked architectural decision log (D1–D14) with rationale and rejected alternatives. |
+| `DECISIONS.md` | Tier-2 — the locked architectural decision log with rationale and rejected alternatives. |
 | `COMMIT_GUIDE.md` | Tier-2 — the commit-message and PR format standard. |
 | `FILE_MANIFEST.md` | Tier-2 — this file: the exhaustive per-file index. |
 | `CHANGELOG.md` | Human-readable history of meaningful changes, grouped by month. |

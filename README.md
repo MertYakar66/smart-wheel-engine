@@ -191,7 +191,7 @@ launch-blocker subset, and the "what to run when you touch X" map.
 | [MODULE_INDEX.md](MODULE_INDEX.md) | Per-module purpose + decision-layer role classification |
 | [FILE_MANIFEST.md](FILE_MANIFEST.md) | Exhaustive per-file index (grep, don't read) |
 | [TESTING.md](TESTING.md) | Test taxonomy + launch-blocker subset |
-| [DECISIONS.md](DECISIONS.md) | Architectural decision log (D1–D14) with rationale |
+| [DECISIONS.md](DECISIONS.md) | Architectural decision log with rationale |
 | [ROADMAP.md](ROADMAP.md) | Intentional next work by track |
 | [CHANGELOG.md](CHANGELOG.md) | Recently-shipped, grouped by month |
 | [COMMIT_GUIDE.md](COMMIT_GUIDE.md) | Commit-message and PR format |

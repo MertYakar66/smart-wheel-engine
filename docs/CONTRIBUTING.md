@@ -236,7 +236,7 @@ The current backlog is tracked in [`ROADMAP.md`](../ROADMAP.md):
 - **Track C** — hygiene + governance follow-ups.
 - **Track F** — lint debt (44 ruff errors on main).
 
-`DECISIONS.md` records the architectural choices (D1–D14) and what
+`DECISIONS.md` records the architectural choices and what
 was rejected. `PROJECT_STATE.md` records the temporal state — read
 it before assuming any file or pyproject entry is current.
 

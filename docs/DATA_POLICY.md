@@ -32,10 +32,11 @@ the engine ran on, which has audit value.
 | `bloomberg` (default if unset) | `MarketDataConnector` | `engine/data_connector.py` |
 | `theta` | `ThetaConnector` | `engine/theta_connector.py` |
 
-Read in `engine/wheel_runner.py:130` and
-`scripts/diagnose_candidates.py:59`. The `.claude/settings.json`
-SessionStart hook prints a warning when the variable is unset and
-defaults to `bloomberg`.
+Read by `WheelRunner.connector` (lazy-load property in
+`engine/wheel_runner.py`) and by `scripts/diagnose_candidates.py`'s
+provider resolution. The `.claude/settings.json` SessionStart hook
+prints a warning when the variable is unset and defaults to
+`bloomberg`.
 
 ### Capability matrix
 

@@ -73,9 +73,9 @@ its number verbatim, so Ctrl-F lands you precisely.
 | `data_processed/theta_capabilities.json` | Tier map cached from the last probe |
 
 The local server runs at `http://127.0.0.1:25503`. Provider selection
-happens in `engine/wheel_runner.py:130`. See `docs/DATA_POLICY.md`
-§2 for the provider capability matrix and `LAPTOP_SETUP.md` for
-rehydration.
+happens in `WheelRunner.connector` (lazy-load property in
+`engine/wheel_runner.py`). See `docs/DATA_POLICY.md` §2 for the
+provider capability matrix and `LAPTOP_SETUP.md` for rehydration.
 
 ---
 
@@ -2345,9 +2345,9 @@ changed.
 A small set of repo-specific facts that complement the upstream
 documentation:
 
-- **Provider selection.** `engine/wheel_runner.py:130` reads
-  `SWE_DATA_PROVIDER`. Default is `bloomberg`; `theta` swaps in
-  `engine/theta_connector.py`.
+- **Provider selection.** `WheelRunner.connector` (in
+  `engine/wheel_runner.py`) reads `SWE_DATA_PROVIDER`. Default is
+  `bloomberg`; `theta` swaps in `engine/theta_connector.py`.
 - **Tier behaviour.** Per `LAPTOP_SETUP.md` §3, our recorded tier
   is: stock EOD ✓, option chains + snapshots ✓, option history
   (EOD/quote/trade/OI/greeks/IV) ✓, index EOD (VIX + SKEW only) ✓.

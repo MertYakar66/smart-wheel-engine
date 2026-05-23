@@ -38,9 +38,9 @@ tradeable verdict:
 
 | Module | Public entry | Pinned by |
 |---|---|---|
-| `engine/ev_engine.py` | `EVEngine.evaluate` (line 237) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
-| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` (line 448) | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer` (line 109), rules R1–R6 | `tests/test_dossier_invariant.py` |
+| `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
+| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R6 | `tests/test_dossier_invariant.py` |
 | `engine_api.py` | HTTP API on `:8787`; 32 endpoints | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 Any change touching a file under `engine/` that affects these routes
@@ -53,8 +53,8 @@ suite for `engine/ev_engine.py` or `engine/wheel_runner.py` changes
 ## 3. Dossier downgrade rules (R1–R6)
 
 `EnginePhaseReviewer` is the gatekeeper that converts an EV verdict
-+ chart context into the final disposition. The six rules
-(`engine/candidate_dossier.py:109`, pinned by
++ chart context into the final disposition. The six rules (defined
+on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 `tests/test_dossier_invariant.py`):
 
 | Rule | Trigger | Effect |

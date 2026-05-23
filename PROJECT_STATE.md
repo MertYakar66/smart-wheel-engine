@@ -15,9 +15,9 @@ described here is no longer accurate.
 
 | Module | Public entry | Locked by |
 |---|---|---|
-| `engine/ev_engine.py` | `EVEngine.evaluate` (line 237) | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*` |
-| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` (line 448) | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer` (line 109), rules R1–R6 | `tests/test_dossier_invariant.py` |
+| `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*` |
+| `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R6 | `tests/test_dossier_invariant.py` |
 | `engine_api.py` | HTTP API on `:8787`; 32 endpoints listed in the file header | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a

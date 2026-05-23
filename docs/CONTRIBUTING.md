@@ -232,9 +232,7 @@ When in doubt, ask before doing.
 The current backlog is tracked in [`ROADMAP.md`](../ROADMAP.md):
 
 - **Track A** — decision-layer correctness (highest priority).
-- **Track B** — documentation drift (a few items still pending).
 - **Track C** — hygiene + governance follow-ups.
-- **Track F** — lint debt (44 ruff errors on main).
 
 `DECISIONS.md` records the architectural choices and what
 was rejected. `PROJECT_STATE.md` records the temporal state — read

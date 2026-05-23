@@ -99,7 +99,7 @@ deprecation warnings (down from 1067+1 / 578).
 result: 5 OK / 3 FAIL / 1 SKIP. The three FAILs are loud strict-mode
 rejections, not data loss — most data landed on disk before the FAIL
 was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
-/ 16 SKIP** (all expected per CLAUDE.md §3 tier matrix).
+/ 16 SKIP** (all expected per the `docs/DATA_POLICY.md` §2 tier matrix).
 
 **On-disk state of `data_processed/theta/` (new vs. prior session):**
 
@@ -334,7 +334,7 @@ not been fixed in this review pass:
 - `README.md` — describes a CLI dashboard
   (`python -m dashboard.quant_dashboard`) and broker env vars
   (`BROKER_API_KEY`, `BROKER_SECRET`) that are out of scope per
-  `CLAUDE.md` §4. Project structure listing is 6 dirs; actual is 20+.
+  `CLAUDE.md`'s NEVER list. Project structure listing is 6 dirs; actual is 20+.
 - `docs/CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
   pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
   deps; none are part of the EV decision path.

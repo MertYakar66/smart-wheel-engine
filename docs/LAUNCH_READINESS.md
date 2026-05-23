@@ -152,9 +152,9 @@ list when shipping something genuinely user-facing:
       (currently: BF.B / BRK.B / NVR / DAY — upstream-data gap, not
       a code bug).
 - [ ] If broker / OMS surface is being introduced (which is
-      out-of-scope per `CLAUDE.md` §4 — get explicit consent first):
-      a separate launch-readiness review against the new surface,
-      not just this checklist.
+      out-of-scope per `CLAUDE.md`'s NEVER list — get explicit
+      consent first): a separate launch-readiness review against
+      the new surface, not just this checklist.
 - [ ] The dashboard (`dashboard/src/`, Next.js) still builds and
       hits the `:8787` API without errors.
 
@@ -180,22 +180,12 @@ Useful to be explicit so reviewers don't over-block:
 
 ## 8. Sandbox-vs-laptop launch caveats
 
-Some launch-readiness checks are simply impossible without the Theta
-Terminal. Cowork sandbox can:
+The full sandbox-vs-laptop capability table lives in
+`docs/DATA_POLICY.md` §7.
 
-- Run the full `pytest` suite
-- Run `WheelRunner.rank_candidates_by_ev` on a 5-ticker explicit list
-- Run `audit.py` against an `engine_api.py` started in the same
-  sandbox
-
-Cowork sandbox cannot:
-
-- Run `scripts/diagnose_candidates.py` with the default full universe
-  (3-min runtime exceeds the 45s bash timeout — pass an explicit
-  short ticker list)
-- Pull live Theta data of any kind
-- Hit the live MCP-driven TradingView surface
-
-For a true launch-readiness pass, run the full checklist on the
-laptop with the Terminal up. Cowork can stage and validate code
+The launch-readiness corollary: Cowork can stage and validate code
 correctness; only the laptop can validate live-data correctness.
+Anything that needs the Theta Terminal — `scripts/diagnose_candidates.py`
+on the full universe, live chain / Greeks / IV-surface checks, the
+MCP-driven TradingView surface — must be re-run on the laptop before
+declaring a launch ready.

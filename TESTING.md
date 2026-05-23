@@ -160,18 +160,13 @@ pytest tests/ -m quant -v
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python audit.py` against a running `engine_api.py` |
 | `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |
 
-## Sandbox notes (canonical: `docs/DATA_POLICY.md` §7)
+## Sandbox notes
 
-In a fresh Cowork bash sandbox:
-
-- `pip install -r requirements.txt` exceeds the 45 s timeout. Batch
-  installs: `scipy` alone, then `statsmodels arch scikit-learn`, then
-  `yfinance pydantic`. The SessionStart hook handles batching.
-- `pyarrow` is **not** pre-installed; any parquet read fails until
-  `pip install pyarrow --break-system-packages`.
-- `scripts/diagnose_candidates.py` with default `tickers=None` runs
-  full-universe (~3 min) and exceeds the 45 s timeout. Pass an
-  explicit 5-ticker list (see `CLAUDE.md`'s fresh-session bring-up).
+Sandbox-vs-laptop capability differences (pip-install chunking, the
+`pyarrow` failure mode, why full-universe `diagnose_candidates.py`
+needs an explicit 5-ticker list in Cowork) live in
+`docs/DATA_POLICY.md` §7 as the canonical reference. The
+5-ticker shim itself is the bring-up smoke test in `CLAUDE.md`.
 
 ## CI
 

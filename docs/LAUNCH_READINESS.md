@@ -164,10 +164,10 @@ new strategy / new broker integration)
 These are the gates beyond the per-PR checklist. Reach for this
 list when shipping something genuinely user-facing:
 
-- [ ] `audit.py` smoke tests pass against a running `engine_api.py`
-      (default `localhost:8787`; honour `SWE_API_PORT` once that
-      env var is promoted from convention to binding — see
-      `DECISIONS.md` D15 Unresolved).
+- [ ] `audit.py` smoke tests pass against a running `engine_api.py`.
+      Default `localhost:8787`; both server and client now honour
+      `SWE_API_PORT` (closed D15 Unresolved). Set the env to bind a
+      non-default port for multi-instance launches.
 - [ ] `scripts/feature_smoke_test.py` reports a pass / fail / skip
       distribution consistent with the current data tier. The
       absolute count moves with each Theta refresh; the live
@@ -265,7 +265,7 @@ not a code branch. The three switches:
 |---|---|---|---|
 | Data provider | `SWE_DATA_PROVIDER` | `bloomberg` (default; `MarketDataConnector` reads tracked CSVs) | `theta` (live `ThetaConnector` against the Theta Terminal on `127.0.0.1:25503`) — see `DECISIONS.md` D6, D7 |
 | MCP chart provider | `SWE_USE_MCP_CHART` | unset / `0` (chained provider falls through to filesystem) | `1` (live `tv` CLI subprocess; requires TradingView Desktop + the `tv` shim — `DECISIONS.md` D12, D13) |
-| API port | `SWE_API_PORT` | `8787` (convention) | `8787` (convention; promoted to a real binding will land in a follow-on PR per D15 Unresolved) |
+| API port | `SWE_API_PORT` | `8787` (default; override via env for multi-instance) | `8787` (default; override via env for multi-instance) |
 
 After flipping any switch: re-run the §4 launch-blocker subset, then
 the relevant pre-launch checks in §6. The provider switch in

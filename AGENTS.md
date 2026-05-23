@@ -7,26 +7,24 @@ read order.
 
 ## Read first
 
-1. **`CLAUDE.md`** — single source of orientation. Pins the four-layer
-   mental model (data → quant → decision → interface), the hard EV
-   invariant, the data-provider matrix (`SWE_DATA_PROVIDER`), what is
-   explicitly out of scope, and the bring-up checklist for a fresh
-   session.
+`CLAUDE.md` is auto-loaded on every Claude Code session (and re-injected
+after `/compact`) — you have it by the time you read this. The mandatory
+companion is:
 
-2. **`PROJECT_STATE.md`** — what is authoritative right now, what is
+1. **`PROJECT_STATE.md`** — what is authoritative right now, what is
    work-in-progress, what is deprecated/phantom, and where the live
    documentation drift is. Read this before assuming any file or
    pyproject entry is current.
 
-3. **`MODULE_INDEX.md`** — per-module purpose and decision-layer
-   relationship. Use this to navigate `engine/`, `advisors/`, and the
-   parallel news/agent trees without rediscovering the topology.
+## Consult when your task requires it
 
-4. **`TESTING.md`** — test taxonomy, launch-blocker subset, what to
-   run when you touch a given file.
-
-5. **`docs/LAPTOP_SETUP.md`** — only if rehydrating data (Theta Terminal,
-   feature store) on a new machine. Not needed for code-only work.
+| Trigger | Read |
+|---|---|
+| Navigating `engine/`, `advisors/`, or a parallel news tree | `MODULE_INDEX.md` |
+| Touching code that needs tests run | `TESTING.md` |
+| **Locating a file by name or directory — `grep` it, do not read in full** | `FILE_MANIFEST.md` |
+| Rehydrating data on a fresh machine (Theta Terminal, feature store) | `docs/LAPTOP_SETUP.md` |
+| Another session may be active on this repo (shared working tree) | `docs/PARALLEL_SESSIONS.md` (and the coordination board pinned in GitHub issues) |
 
 ## Read on demand
 
@@ -36,7 +34,6 @@ purpose-built; they don't overlap.
 | You want to… | Read |
 |---|---|
 | See *why* a structural choice was made | `DECISIONS.md` |
-| Find any tracked file by its purpose | `FILE_MANIFEST.md` |
 | Find what's intentionally next | `ROADMAP.md` |
 | See what shipped recently | `CHANGELOG.md` |
 | See what *usage* tests we've run and what's queued | `docs/USAGE_TEST_LEDGER.md` |

@@ -1,14 +1,15 @@
 # Smart Wheel Engine
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-1087%2B%20passing-green.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Institutional-grade quantitative trading engine for options strategies.**
+**Probabilistic expected-value (EV) decision engine for wheel strategies on
+S&P 500 names** — short cash-secured puts → covered calls, with timing-gated
+strangles. Every tradeable candidate is ranked through a single authoritative
+ranker (`EVEngine.evaluate`); reviewers can downgrade a verdict but never
+rescue a negative-EV trade.
 
-A systematic, data-driven framework for managing short-put and covered-call strategies (the "Wheel Strategy"). The engine evaluates trades using probability estimates and expected-value calculations derived from historical data.
-
-> **🤖 AI agent / fresh contributor — start here:**
+> **AI agent / fresh contributor — start here:**
 >
 > 1. [`AGENTS.md`](AGENTS.md) — read order for any agent (Claude, Codex, Cursor, Copilot, Aider).
 > 2. [`CLAUDE.md`](CLAUDE.md) — structural contract; the four-layer mental model and the hard EV invariant.
@@ -16,39 +17,38 @@ A systematic, data-driven framework for managing short-put and covered-call stra
 > 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
 > 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
 >
-> Other entry points: [`DECISIONS.md`](DECISIONS.md) (architectural why), [`ROADMAP.md`](ROADMAP.md) (intentional next), [`CHANGELOG.md`](CHANGELOG.md) (recent shipped), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) (what's tracked vs ignored), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md) (merge gates), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) (commit format), [`FILE_MANIFEST.md`](FILE_MANIFEST.md) (every tracked file, one line), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md) (TV bridge + analyst workspace).
->
-> **The body of this README below is partially out of date** — see [`PROJECT_STATE.md` §5](PROJECT_STATE.md) and [`ROADMAP.md` B1](ROADMAP.md) for the repair plan. Trust the documents linked above.
+> Other entry points: [`DECISIONS.md`](DECISIONS.md), [`ROADMAP.md`](ROADMAP.md), [`CHANGELOG.md`](CHANGELOG.md), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md), [`FILE_MANIFEST.md`](FILE_MANIFEST.md), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md).
 
-## Features
+---
 
-### Option Pricing
-- **European Options**: Black-Scholes-Merton with continuous dividend yield
-- **American Options**: Barone-Adesi-Whaley (1987) approximation
-- **Implied Volatility**: Newton-Raphson with Brent fallback
+## The four layers
 
-### Greeks (All Orders)
-| Order | Greeks |
-|-------|--------|
-| First | Delta, Theta, Vega, Rho |
-| Second | Gamma, Vanna, Charm, Volga |
-| Third | Speed, Color, Ultima |
+| Layer | Lives at | What it does |
+|---|---|---|
+| **Data** | `data/`, `data_processed/`, `scripts/pull_*.py` | OHLCV, IV history, option chains, fundamentals, macro, news. Two providers selected by `SWE_DATA_PROVIDER` (default `bloomberg`). |
+| **Quant** | `engine/` | Black-Scholes-Merton + Greeks to 3rd order, empirical forward distributions, POT-GPD tails, 4-state Gaussian HMM regime, Nelson-Siegel skew, Student-t copula CVaR, dealer GEX / walls / gamma flip. |
+| **Decision** | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py` | `EVEngine.evaluate` (the authoritative ranker), `WheelRunner.rank_candidates_by_ev` (the one ranker every tradeable path routes through), `EnginePhaseReviewer` (rules R1–R6, downgrade-only). |
+| **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py`, `advisors/` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider), Buffett/Munger/Simons/Taleb advisor committee (advisory only). |
 
-### Risk Management
-- **VaR/CVaR**: Multi-asset covariance with correlation matrix
-- **Stress Testing**: Market crash, vol explosion, rate shock scenarios
-- **Position Sizing**: Kelly criterion with fractional sizing
-- **Portfolio Greeks**: Aggregate exposure tracking
+See [`CLAUDE.md`](CLAUDE.md) for the full four-layer model and the hard EV
+invariant. See [`MODULE_INDEX.md`](MODULE_INDEX.md) for the per-module map.
 
-### Professional Dashboard
-- Interactive CLI interface
-- Option analysis reports
-- Portfolio risk reports
-- Real-time Greeks surface generation
+---
 
-## Quick Start
+## What this is not
 
-### Installation
+Out of scope by design (see `CLAUDE.md`'s NEVER list):
+
+- **No auto-execution.** The engine produces ranked candidates and memos. No broker wiring, no OMS, no order routing.
+- **No tick-level order flow.** Theta v3 doesn't expose realtime stock quotes at this tier.
+- **No non-S&P-500 universe.** Constituent list at `data_raw/sp500_constituents_current.csv`.
+- **No non-wheel strategies.** Short puts + covered calls + timing-gated strangles only.
+
+---
+
+## Quick start
+
+### Install
 
 ```bash
 git clone https://github.com/MertYakar66/smart-wheel-engine.git
@@ -56,94 +56,97 @@ cd smart-wheel-engine
 pip install -r requirements.txt
 ```
 
-### Basic Usage
+Python 3.11+ is required. For Theta Terminal bring-up on a new machine, see
+[`docs/LAPTOP_SETUP.md`](docs/LAPTOP_SETUP.md).
+
+### Smoke test (5 tickers, ~2 s)
+
+The fastest way to confirm the data + connector + EV-engine path is healthy:
 
 ```python
-from dashboard import QuantDashboard, OptionInput, Position
+from engine.wheel_runner import WheelRunner
 
-# Create dashboard
-dash = QuantDashboard()
+runner = WheelRunner()
+print("connector:", type(runner.connector).__name__)
 
-# Price an option
-opt = OptionInput(spot=150, strike=145, dte=30, volatility=0.28, option_type='put')
-result = dash.price_european(opt)
-print(f"Price: ${result['price']:.2f}")
-print(f"Delta: {result['delta']:.4f}")
-
-# Full Greeks analysis (including 3rd order)
-greeks = dash.analyze_greeks(opt)
-print(f"Speed: {greeks['third_order']['speed']:.8f}")
-print(f"Color: {greeks['third_order']['color']:.8f}")
-```
-
-### Portfolio Risk Analysis
-
-```python
-import pandas as pd
-
-# Build portfolio
-dash.set_portfolio_value(500_000)
-dash.add_position(Position('AAPL', 'put', 170, 45, 0.28, 5, True, 175))
-dash.add_position(Position('MSFT', 'put', 400, 45, 0.24, 3, True, 420))
-
-# Set correlation matrix
-corr = pd.DataFrame(
-    [[1.0, 0.72], [0.72, 1.0]],
-    index=['AAPL', 'MSFT'],
-    columns=['AAPL', 'MSFT']
+df = runner.rank_candidates_by_ev(
+    tickers=["AAPL", "MSFT", "JPM", "XOM", "UNH"],
+    top_n=10,
+    min_ev_dollars=-1e9,
+    include_diagnostic_fields=True,
 )
-dash.set_correlation_matrix(corr)
-
-# Calculate VaR
-var_result = dash.calculate_var(confidence=0.95)
-print(f"95% VaR: ${var_result['var']:,.2f} ({var_result['var_pct']:.2%})")
+print(df[["ticker", "ev_dollars", "iv", "premium"]])
 ```
 
-### Interactive Dashboard
+Five rows with non-null `ev_dollars`, `iv`, and `premium` mean the
+Bloomberg-CSV path is healthy. Same snippet is wired as the `/ev-smoke`
+slash command.
+
+### Run the HTTP API + dashboard
 
 ```bash
-python -m dashboard.quant_dashboard
+# Terminal 1: engine API on :8787
+python engine_api.py
+
+# Terminal 2: Next.js dashboard at :3000 (proxies the API)
+cd dashboard && npm install && npm run dev
 ```
 
-```
-╔══════════════════════════════════════════════════════════════╗
-║           SMART WHEEL ENGINE - QUANT DASHBOARD               ║
-╚══════════════════════════════════════════════════════════════╝
+`engine_api.py` serves 32 endpoints — see the file header for the catalog.
 
-  1. Option Pricing (European)
-  2. Option Pricing (American)
-  3. Greeks Analysis
-  4. Implied Volatility Solver
-  5. Portfolio Management
-  6. Risk Analysis (VaR/CVaR)
-  7. Stress Testing
-  8. Position Sizing (Kelly)
-  9. Generate Reports
-  0. Exit
+### Daily news pipeline (optional, no API cost)
+
+```bash
+python morning_run.py
 ```
 
-## Project Structure
+Browser-driven multi-LLM (Claude / ChatGPT / Gemini paid sessions); the
+output feeds `engine/news_sentiment.py`, which is the only news-stack
+module on the EV path.
+
+---
+
+## Provider selection
+
+```bash
+# Cowork sandbox / fresh laptop without Terminal (default)
+export SWE_DATA_PROVIDER=bloomberg
+
+# Laptop with Theta Terminal up
+export SWE_DATA_PROVIDER=theta
+```
+
+`bloomberg` reads the committed CSVs under `data/bloomberg/`. `theta` reads
+live from the Theta Terminal at `127.0.0.1:25503`. Full capability matrix
+in [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) §2.
+
+The `.claude/settings.json` SessionStart hook warns when the variable is
+unset and defaults to `bloomberg`.
+
+---
+
+## Project layout
 
 ```
 smart-wheel-engine/
-├── engine/          # quant + decision layer (EVEngine, WheelRunner, dossier)
+├── engine/          # quant + decision layer (EVEngine, WheelRunner, dossier, dealer positioning, …)
 ├── advisors/        # Buffett/Munger/Simons/Taleb committee (advisory only)
-├── scripts/         # data pullers + diagnostics
-├── tests/           # test suite
-├── dashboard/       # Next.js dashboard + legacy Python CLI
-├── data/            # Bloomberg-CSV data layer + feature pipeline
-├── data_raw/        # universe list + sample fixtures
-├── data_processed/  # regenerable Theta/yfinance pulls (mostly gitignored)
-├── financial_news/  # standalone news platform
-├── news_pipeline/   # browser-agent news pipeline (drives morning_run.py)
-├── local_agent/     # experimental browser agent
+├── scripts/         # data pullers (pull_*.py) + diagnostics + Bloomberg-export assets
+├── tests/           # test suite (taxonomy in TESTING.md)
+├── dashboard/       # Next.js dashboard consuming engine_api.py (+ legacy Python CLI)
+├── data/            # Bloomberg CSVs + feature store (AAPL committed as sample)
+├── data_raw/        # universe list + raw fixtures
+├── data_processed/  # regenerable Theta/yfinance pulls (gitignored)
+├── financial_news/  # standalone news platform (not on the EV path)
+├── news_pipeline/   # browser-agent pipeline driving morning_run.py
+├── local_agent/     # experimental local agent + UI
 ├── ml/              # research ML models
 ├── backtests/       # research backtesting
-├── src/             # feature-engineering / schema modules (see DECISIONS.md D2)
+├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
 ├── config/          # configuration
 ├── utils/           # shared utilities
 ├── tradingview/     # Pine indicator + analyst-workspace assets
-├── docs/            # documentation set
+├── docs/            # documentation set (operational + reference)
 ├── archive/         # superseded / point-in-time artifacts
 ├── notebooks/       # exploratory notebooks
 ├── models/          # ML model output directory
@@ -152,77 +155,79 @@ smart-wheel-engine/
 └── *.md             # AGENTS / CLAUDE / README + the Tier-2 index docs
 ```
 
+The exhaustive per-file index is [`FILE_MANIFEST.md`](FILE_MANIFEST.md) —
+grep it; don't read it in full.
+
+---
+
 ## Testing
 
 ```bash
-# Run all tests
+# Full suite
 pytest tests/ -v
 
-# Run specific test suites
-pytest tests/test_dashboard.py -v
-pytest tests/test_advanced_quant.py -v
-
-# With coverage
-pytest tests/ --cov=engine --cov=dashboard
+# Launch-blocker subset (decision-layer gate)
+/launch-blockers          # slash command, wraps the subset
+# or directly:
+pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
+       tests/test_authority_hardening.py tests/test_audit_viii_*.py \
+       tests/test_launch_blockers.py -v
 ```
 
-**Test Coverage**: 170+ tests covering all quantitative functionality.
+Any change touching `engine/ev_engine.py`, `engine/wheel_runner.py`, or
+`engine/candidate_dossier.py` must run the full suite — the invariants are
+cross-cutting. See [`TESTING.md`](TESTING.md) for the live count, the
+launch-blocker subset, and the "what to run when you touch X" map.
 
-## Security
-
-See [SECURITY.md](docs/SECURITY.md) for security policy and best practices.
-
-```python
-from utils.security import InputValidator, AuditLogger
-
-# Input validation
-spot = InputValidator.validate_price(user_input)
-symbol = InputValidator.validate_symbol(user_input)
-
-# Audit logging
-logger = AuditLogger(log_file="audit.log")
-logger.log_trade("BUY", {"symbol": "AAPL", "contracts": 5})
-```
-
-## Configuration
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit with your settings
-vim .env
-```
-
-Required environment variables:
-- `BROKER_API_KEY`: Your broker API key
-- `BROKER_SECRET`: Your broker secret
+---
 
 ## Documentation
 
 | Document | Description |
-|----------|-------------|
-| [GOVERNANCE.md](docs/GOVERNANCE.md) | Model governance framework |
-| [GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
-| [MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
-| [DATA_SPECIFICATION.md](docs/DATA_SPECIFICATION.md) | Data architecture and schemas |
-| [SECURITY.md](docs/SECURITY.md) | Security policy |
+|---|---|
+| [AGENTS.md](AGENTS.md) | AI-agent onboarding contract — the canonical read order |
+| [CLAUDE.md](CLAUDE.md) | Structural contract — four-layer model + hard EV invariant + NEVER list |
+| [PROJECT_STATE.md](PROJECT_STATE.md) | Temporal state — what's authoritative / in progress / deprecated |
+| [MODULE_INDEX.md](MODULE_INDEX.md) | Per-module purpose + decision-layer role classification |
+| [FILE_MANIFEST.md](FILE_MANIFEST.md) | Exhaustive per-file index (grep, don't read) |
+| [TESTING.md](TESTING.md) | Test taxonomy + launch-blocker subset |
+| [DECISIONS.md](DECISIONS.md) | Architectural decision log (D1–D14) with rationale |
+| [ROADMAP.md](ROADMAP.md) | Intentional next work by track |
+| [CHANGELOG.md](CHANGELOG.md) | Recently-shipped, grouped by month |
+| [COMMIT_GUIDE.md](COMMIT_GUIDE.md) | Commit-message and PR format |
+| [docs/DATA_POLICY.md](docs/DATA_POLICY.md) | Data tiers, provider matrix, refresh procedures, sandbox caveats |
+| [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md) | Launch-blocker invariants before merging |
+| [docs/LAPTOP_SETUP.md](docs/LAPTOP_SETUP.md) | Bring-up on a new machine (Theta Terminal, feature store) |
+| [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge + analyst workspace (MCP) |
+| [docs/GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
+| [docs/GOVERNANCE.md](docs/GOVERNANCE.md) | Model-governance framework |
+| [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security policy |
+
+---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing`)
-3. Run tests (`pytest tests/ -v`)
-4. Commit changes (`git commit -m 'Add amazing feature'`)
-5. Push to branch (`git push origin feature/amazing`)
-6. Open a Pull Request
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the human-side
+workflow and [`AGENTS.md`](AGENTS.md) + [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md)
+for the AI-agent handoff and commit-message standard.
+
+Hard rules in brief:
+
+- Branch + PR for everything; never commit to `main`.
+- Run the full test suite for any decision-layer change.
+- New inputs wire in as chained-provider participants or downgrade-only
+  reviewers — never as a path that rescues a negative-EV trade.
+
+---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- Black-Scholes-Merton model implementation follows Hull (11th Edition)
-- American option pricing uses Barone-Adesi & Whaley (1987)
-- VaR methodology references Jorion's "Value at Risk"
+- Black-Scholes-Merton implementation follows Hull (11th edition).
+- American option pricing uses Barone-Adesi & Whaley (1987).
+- Tail-risk methodology references the POT-GPD literature (Embrechts et al.).
+- Regime detection draws on the 4-state Gaussian HMM regime-switching literature.

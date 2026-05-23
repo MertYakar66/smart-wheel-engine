@@ -57,6 +57,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   the matching CI workflow `--cov-fail-under` flag. Pins the floor
   earned by the coverage push (current baseline 82%, 2pp buffer for
   normal PR-to-PR noise). See `DECISIONS.md` D10.
+- **`engine/__init__.py` re-exports the modern decision layer.** Adds
+  `EVEngine`, `EVResult`, `ShortOptionTrade`, `WheelRunner`,
+  `EnginePhaseReviewer`, `CandidateDossier`, and `MarketStructure` to
+  `__all__` (the seven names CLAUDE.md §1 calls the authoritative
+  surface), and a docstring line pointing back at CLAUDE.md §1.
+  A fresh agent can now do `from engine import EVEngine` instead of
+  discovering the four submodule paths. Closes `ROADMAP.md` A3 —
+  the parking concern ("ripples through every import site") was
+  verified false by a pre-edit grep: every existing import uses the
+  full submodule path, so additions to `__all__` can only enable new
+  imports, never break existing ones. `PROJECT_STATE.md` §5 drift
+  entry closed in the same PR.
 
 ### Fixed
 - **Spread-penalty severe-tier never fired.** Inverted threshold ladder

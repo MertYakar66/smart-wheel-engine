@@ -337,18 +337,12 @@ not been fixed in this review pass:
   `engine/`, `engine_api.py`, `advisors/`, `dashboard/`, etc., so the
   built wheel would not contain the live code. Touching pyproject
   requires explicit ask per `AGENTS.md`.
-- `engine/__init__.py` — re-exports the legacy quant layer
-  (option_pricer, monte_carlo, regime_detector, signals, etc.) but
-  does **not** re-export `EVEngine`, `WheelRunner`,
-  `EnginePhaseReviewer`, `MarketStructure`. Modern decision-layer
-  symbols can only be imported via their full submodule paths. This
-  is silent — not broken — but misleading to a fresh agent. Held
-  back from prior passes because touching `engine/__init__.py`
-  ripples through every import site.
 
 The entries that previously lived here for `README.md`,
 `docs/CONTRIBUTING.md`, and `dashboard/README.md` were closed by
 the entry-doc repair pass — see `ROADMAP.md` Track B (B1, B2, B4).
+The `engine/__init__.py` modern-decision-layer re-export entry was
+closed by `ROADMAP.md` Track A3 — see `CHANGELOG.md` 2026-05.
 
 ## 6. Branch + workflow policy
 

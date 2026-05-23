@@ -514,6 +514,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_audit_viii_unit_invariants.py` | Launch-blocker invariant — IV/rate percent-vs-decimal normalisation and the rolled-leg P&L accumulator. |
 | `tests/test_audit_viii_real_data_smoke.py` | Real-Bloomberg smoke test of the EV ranker (module-level skip without the CSVs). |
 | `tests/test_authority_hardening.py` | Launch-blocker invariant — TV / strangle / tracker route through the EV authority. |
+| `tests/test_ev_authority_log_schema.py` | Schema-closure regression for `WheelTracker._ev_authority_log` — pins the five D16 entry shapes (`issue`, `refuse_issue`, `consume`, `reject` × {unknown_token, missing_current_ev_dollars, stale_ev}) and detects drift (unknown action, missing required key, accidental extra key). |
 | `tests/test_dossier_invariant.py` | Launch-blocker invariant — the downgrade-only `EnginePhaseReviewer` contract. |
 | `tests/test_launch_blockers.py` | Launch-blocker invariant — `/api/candidates` EV authority, research-only flags, the history/chain/stress gates. |
 | `tests/test_audit_improvements.py` | Quant-correctness for the 2026-04 audit deliverables (forward distributions, empirical surface, survivorship). |

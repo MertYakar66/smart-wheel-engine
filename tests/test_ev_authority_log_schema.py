@@ -1,0 +1,424 @@
+"""Schema-closure regression for ``WheelTracker._ev_authority_log``.
+
+The companion to ``test_authority_hardening.py``: where that file
+asserts *behaviour* (refuse on non-positive EV, retain on stale-EV,
+both legs gated, etc.), this file asserts *shape*.
+
+D16 introduced five distinct entry shapes the audit log can carry.
+Individual behaviour tests assert specific fields per scenario but
+none of them enforce **closure** — i.e. "any entry the tracker writes
+matches exactly one of these five shapes, with no unexpected extras
+and no missing required keys." Without closure, three failure modes
+are silent:
+
+1. A future patch adds a new ``action`` value or ``reason`` variant
+   that no downstream consumer (audit script, dashboard, persisted
+   replay) is prepared to parse.
+2. A key gets renamed (``token`` → ``token_hash``) and tests still
+   pass because no behavioural assertion touched the old name.
+3. PR #128 persists ``_ev_authority_log`` to disk via
+   ``to_dict`` / ``from_dict``; a shape drift would corrupt the
+   on-disk JSON, and the regression would only surface the next
+   time someone tries to ``load`` a tracker.
+
+These tests exercise every code path that writes to the log and
+verify the resulting entries against an explicit schema. If you add
+a new entry shape, update ``_VALID_SHAPES`` below and the tests will
+re-pass; if you forget, this file will fail.
+
+See `DECISIONS.md` D16 for the contract and rationale.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from engine.wheel_tracker import EVAuthorityRefused, WheelTracker
+
+# ----------------------------------------------------------------------
+# Schema definition — the five valid shapes for a single log entry.
+#
+# Each shape is (required_keys, optional_keys). A valid entry has
+# every required key and only required+optional keys (no extras).
+# ----------------------------------------------------------------------
+
+# Common keys
+_ACTION = "action"
+
+# Shape 1: action="issue" — token minted for a positive-EV row.
+_SHAPE_ISSUE = (
+    {_ACTION, "token", "row"},
+    set(),
+)
+
+# Shape 2: action="refuse_issue" — non-positive EV refused at issue.
+_SHAPE_REFUSE_ISSUE = (
+    {_ACTION, "reason", "row"},
+    set(),
+)
+
+# Shape 3: action="consume" — successful single-use consume.
+_SHAPE_CONSUME = (
+    {_ACTION, "token", "ticker", "current_ev_dollars"},
+    set(),
+)
+
+# Shape 4a: action="reject", reason="unknown_token" — no/unknown token.
+_SHAPE_REJECT_UNKNOWN = (
+    {_ACTION, "reason", "ticker"},
+    set(),
+)
+
+# Shape 4b: action="reject", reason="missing_current_ev_dollars".
+# Token is known at this point so it's carried.
+_SHAPE_REJECT_MISSING_EV = (
+    {_ACTION, "reason", "ticker", "token"},
+    set(),
+)
+
+# Shape 4c: action="reject", reason="stale_ev" — fire-time EV non-positive.
+# Carries token AND the rejected current_ev_dollars for the audit trail.
+_SHAPE_REJECT_STALE = (
+    {_ACTION, "reason", "ticker", "token", "current_ev_dollars"},
+    set(),
+)
+
+_VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
+    ("issue", None): _SHAPE_ISSUE,
+    ("refuse_issue", "non_positive_ev"): _SHAPE_REFUSE_ISSUE,
+    ("consume", None): _SHAPE_CONSUME,
+    ("reject", "unknown_token"): _SHAPE_REJECT_UNKNOWN,
+    ("reject", "missing_current_ev_dollars"): _SHAPE_REJECT_MISSING_EV,
+    ("reject", "stale_ev"): _SHAPE_REJECT_STALE,
+}
+
+
+def _classify(entry: dict) -> tuple[str, str | None]:
+    """Map an entry to its (action, reason) key in ``_VALID_SHAPES``."""
+    action = entry.get(_ACTION)
+    reason = entry.get("reason") if action in {"refuse_issue", "reject"} else None
+    return action, reason
+
+
+def _validate_entry(entry: dict) -> None:
+    """Assert a single log entry matches one of the five shapes."""
+    key = _classify(entry)
+    assert key in _VALID_SHAPES, (
+        f"Unknown audit-log entry classification {key!r}; "
+        f"if you added a new (action, reason) pair, update "
+        f"_VALID_SHAPES in this file. Entry: {entry!r}"
+    )
+    required, optional = _VALID_SHAPES[key]
+    keys = set(entry.keys())
+    missing = required - keys
+    extra = keys - required - optional
+    assert not missing, f"Entry shape {key!r} is missing required keys {sorted(missing)}: {entry!r}"
+    assert not extra, (
+        f"Entry shape {key!r} has unexpected extra keys {sorted(extra)}; "
+        f"if you added a new field, decide whether it belongs in the "
+        f"required or optional set of _VALID_SHAPES[{key!r}]. "
+        f"Entry: {entry!r}"
+    )
+
+
+def _validate_log(tracker: WheelTracker) -> None:
+    """Assert every entry in the tracker's audit log is well-shaped."""
+    for i, entry in enumerate(tracker._ev_authority_log):
+        try:
+            _validate_entry(entry)
+        except AssertionError as e:
+            raise AssertionError(f"Audit-log entry [{i}] invalid: {e}") from e
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+def _ev_row(**overrides) -> dict:
+    """Canonical-shaped EV row. Overrides win."""
+    row = {
+        "ticker": "TEST",
+        "strike": 95.0,
+        "premium": 1.20,
+        "dte": 35,
+        "ev_dollars": 25.0,
+        "prob_profit": 0.72,
+        "distribution_source": "empirical_non_overlapping",
+    }
+    row.update(overrides)
+    return row
+
+
+def _open_args(**overrides) -> dict:
+    """Standard kwargs for ``open_short_put``. Overrides win."""
+    base = {
+        "ticker": "TEST",
+        "strike": 95.0,
+        "premium": 1.20,
+        "entry_date": date(2026, 4, 14),
+        "expiration_date": date(2026, 5, 19),
+        "iv": 0.25,
+    }
+    base.update(overrides)
+    return base
+
+
+# ======================================================================
+# 1. Each individual code path produces a well-shaped entry.
+# ======================================================================
+class TestPerPathShape:
+    def test_issue_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t.issue_ev_authority_token(_ev_row())
+        assert len(t._ev_authority_log) == 1
+        e = t._ev_authority_log[0]
+        assert e["action"] == "issue"
+        _validate_entry(e)
+
+    def test_refuse_issue_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        with pytest.raises(EVAuthorityRefused):
+            t.issue_ev_authority_token(_ev_row(ev_dollars=-5.0))
+        assert len(t._ev_authority_log) == 1
+        e = t._ev_authority_log[0]
+        assert e["action"] == "refuse_issue"
+        assert e["reason"] == "non_positive_ev"
+        _validate_entry(e)
+
+    def test_consume_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+        )
+        assert ok is True
+        # log: issue, consume
+        consume = [e for e in t._ev_authority_log if e.get("action") == "consume"]
+        assert len(consume) == 1
+        _validate_entry(consume[0])
+
+    def test_reject_unknown_token_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        # No token issued — supplying a bad one hits unknown_token.
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token="0" * 64,
+            current_ev_dollars=25.0,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "unknown_token"
+        _validate_entry(rejects[0])
+
+    def test_reject_unknown_token_shape_when_none(self):
+        """Passing ``ev_authority_token=None`` in strict mode also
+        logs ``unknown_token`` (no separate ``none_token`` shape)."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=None,
+            current_ev_dollars=25.0,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "unknown_token"
+        _validate_entry(rejects[0])
+
+    def test_reject_missing_current_ev_dollars_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=None,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "missing_current_ev_dollars"
+        _validate_entry(rejects[0])
+
+    def test_reject_stale_ev_shape(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=-1.0,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "stale_ev"
+        _validate_entry(rejects[0])
+
+
+# ======================================================================
+# 2. The closure property — every entry, across mixed sequences,
+#    matches one of the five shapes.
+# ======================================================================
+class TestLogClosure:
+    def test_mixed_sequence_closure(self):
+        """A realistic mixed sequence of operations writes only
+        well-shaped entries — no key drift, no unexpected actions."""
+        t = WheelTracker(initial_capital=200_000, require_ev_authority=True)
+
+        # issue + immediate refuse_issue
+        with pytest.raises(EVAuthorityRefused):
+            t.issue_ev_authority_token(_ev_row(ticker="BAD", ev_dollars=-1.0))
+        token_a = t.issue_ev_authority_token(_ev_row(ticker="AAA"))
+
+        # unknown_token reject
+        t.open_short_put(
+            **_open_args(ticker="UNK"),
+            ev_authority_token="deadbeef" * 8,
+            current_ev_dollars=10.0,
+        )
+
+        # missing_current_ev_dollars reject (token retained)
+        t.open_short_put(
+            **_open_args(ticker="AAA"),
+            ev_authority_token=token_a,
+            current_ev_dollars=None,
+        )
+
+        # stale_ev reject (token retained)
+        t.open_short_put(
+            **_open_args(ticker="AAA"),
+            ev_authority_token=token_a,
+            current_ev_dollars=-0.5,
+        )
+
+        # successful consume on same token (retained twice, now fired)
+        ok = t.open_short_put(
+            **_open_args(ticker="AAA"),
+            ev_authority_token=token_a,
+            current_ev_dollars=12.0,
+        )
+        assert ok is True
+
+        # closure: every entry is one of the five shapes
+        _validate_log(t)
+
+        # spot-checks on the witnessed action vocabulary
+        actions = [e["action"] for e in t._ev_authority_log]
+        assert "refuse_issue" in actions
+        assert "issue" in actions
+        assert "reject" in actions
+        assert "consume" in actions
+
+        # spot-check the per-reason coverage
+        reject_reasons = {e.get("reason") for e in t._ev_authority_log if e["action"] == "reject"}
+        assert reject_reasons == {
+            "unknown_token",
+            "missing_current_ev_dollars",
+            "stale_ev",
+        }
+
+    def test_closure_survives_persistence_round_trip(self):
+        """The persisted log shape (PR #128) is the same as the
+        in-memory shape. If the schema drifts, ``from_dict`` would
+        reconstruct entries that fail validation."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+        )
+
+        back = WheelTracker.from_dict(t.to_dict())
+        # Same entries, same shapes — and the schema validator must
+        # accept the reloaded log unchanged.
+        assert back._ev_authority_log == t._ev_authority_log
+        _validate_log(back)
+
+    def test_covered_call_path_closure(self):
+        """D16 brought ``open_covered_call`` under the same gate.
+        Both reject and consume entries it writes must match the
+        same shapes the put leg uses."""
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t.positions["AAA"] = WheelPosition(
+            ticker="AAA",
+            state=PositionState.STOCK_OWNED,
+            entry_date=date(2026, 4, 1),
+            stock_shares=100,
+            stock_basis=180.0,
+        )
+
+        # No token → unknown_token reject from the call leg.
+        t.open_covered_call(
+            ticker="AAA",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+            ev_authority_token=None,
+            current_ev_dollars=18.0,
+        )
+
+        # Valid token + positive EV → successful call-leg consume.
+        token = t.issue_ev_authority_token(
+            _ev_row(ticker="AAA", strike=190.0, premium=1.50, ev_dollars=18.0)
+        )
+        ok = t.open_covered_call(
+            ticker="AAA",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+            ev_authority_token=token,
+            current_ev_dollars=18.0,
+        )
+        assert ok is True
+
+        _validate_log(t)
+
+
+# ======================================================================
+# 3. The validator itself must reject known-bad shapes.
+#    (Meta-test: a faulty validator that accepts everything would
+#    silently let the closure tests pass.)
+# ======================================================================
+class TestValidatorRejectsBadShapes:
+    def test_validator_rejects_unknown_action(self):
+        with pytest.raises(AssertionError, match="Unknown audit-log entry"):
+            _validate_entry({"action": "ship_to_broker", "ticker": "AAA"})
+
+    def test_validator_rejects_missing_required_key(self):
+        # action=issue requires token + row; this entry is missing both.
+        with pytest.raises(AssertionError, match="missing required keys"):
+            _validate_entry({"action": "issue"})
+
+    def test_validator_rejects_extra_key(self):
+        # action=consume is well-formed below except for the extra
+        # ``mood`` field. Closure must fail on the extra.
+        with pytest.raises(AssertionError, match="unexpected extra keys"):
+            _validate_entry(
+                {
+                    "action": "consume",
+                    "token": "abc",
+                    "ticker": "AAA",
+                    "current_ev_dollars": 12.0,
+                    "mood": "confident",
+                }
+            )
+
+    def test_validator_rejects_unknown_reject_reason(self):
+        with pytest.raises(AssertionError, match="Unknown audit-log entry"):
+            _validate_entry(
+                {
+                    "action": "reject",
+                    "reason": "vibes_off",
+                    "ticker": "AAA",
+                }
+            )

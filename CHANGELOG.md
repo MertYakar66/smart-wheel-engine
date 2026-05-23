@@ -107,11 +107,12 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   is secondary" → "Invariants first, then 80% line coverage as a
   forcing function for edge-case discovery." Records the rationale
   for the gate value and the 2026-05 coverage push.
-- **`tradingview/` analyst workspace staged** — commit `d66e7d1`
-  (2026-05-05) tracked the six analyst-workspace files left
-  untracked by the foundation pass: `tradingview/CLAUDE.md`
-  (workspace contract for Claude as Mert's financial analyst — pre-flight
-  checklist, deliverable conventions, known coverage gaps), `tradingview/OVERVIEW.md`
+- **`tradingview/` analyst workspace staged** — PR #78
+  (`claude/audit-fixes-no-coverage`), merged to main as `4e9c3f3` on
+  2026-05-15. Tracked the six analyst-workspace files left untracked
+  by the foundation pass: `tradingview/CLAUDE.md` (workspace contract
+  for Claude as Mert's financial analyst — pre-flight checklist,
+  deliverable conventions, known coverage gaps), `tradingview/OVERVIEW.md`
   (operating-overview narrative), `tradingview/launch-tradingview-cdp.sh`
   (executable launcher with `--remote-debugging-port=9222`), and
   `.gitkeep` placeholders for `models/`, `pine/`, `research/`. The

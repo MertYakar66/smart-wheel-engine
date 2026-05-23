@@ -124,9 +124,9 @@ right now (refreshed earnings + treasury yields).
   that is gitignored
 
 ### C2. Stage the new `tradingview/` analyst workspace files
-**Status:** `done` — shipped 2026-05-05 via commit `d66e7d1`
-(`chore(tradingview): track analyst workspace contract + launcher +
-.gitkeep dirs`). Tracked the six listed files: `tradingview/CLAUDE.md`,
+**Status:** `done` — shipped via PR #78
+(`claude/audit-fixes-no-coverage`), merged to main as `4e9c3f3` on
+2026-05-15. Tracked the six listed files: `tradingview/CLAUDE.md`,
 `tradingview/OVERVIEW.md`, `tradingview/launch-tradingview-cdp.sh`,
 and the three `.gitkeep` placeholders for `models/`, `pine/`, and
 `research/`. The `tradingview-mcp-jackson/` nested repo and the

@@ -1,4 +1,5 @@
 import math
+import os
 import re
 import sys
 import time
@@ -8,7 +9,12 @@ from datetime import datetime
 import requests
 from scipy.stats import norm
 
-BASE = "http://localhost:8787"
+# Honour SWE_API_PORT so the smoke client matches whichever port
+# engine_api.py is bound to (closes D15 Unresolved). Default is 8787
+# — the historical port kept as fallback for single-instance setups
+# that don't set the env var.
+_API_PORT = os.environ.get("SWE_API_PORT", "8787").strip() or "8787"
+BASE = f"http://localhost:{_API_PORT}"
 RESULTS = []
 CURRENT_DOMAIN = None
 REQUEST_TIMEOUT = 120

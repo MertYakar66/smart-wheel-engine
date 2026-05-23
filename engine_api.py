@@ -45,11 +45,17 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import sys
 import time
 import traceback
 from collections import OrderedDict
-from datetime import date, datetime, timezone
+from datetime import (  # noqa: F401  # timezone re-exported for audit-VIII P0.3 (tests/test_audit_viii_unit_invariants.py::TestNewsIngestDatetimeImport)
+    UTC,
+    date,
+    datetime,
+    timezone,
+)
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -165,9 +171,11 @@ def get_connector():
     global _connector
     if _connector is None:
         import os
+
         provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
         if provider == "theta":
             from engine.theta_connector import ThetaConnector
+
             _connector = ThetaConnector()
             logger.info("Data provider: ThetaData v3 (live)")
         else:
@@ -356,7 +364,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_tv_dealer_positioning(
                     ticker=(param("ticker", "") or "").upper(),
                     dte_target=int(param("dte", "35")),
-                    assumption=param("assumption", "long_calls_short_puts") or "long_calls_short_puts",
+                    assumption=param("assumption", "long_calls_short_puts")
+                    or "long_calls_short_puts",
                 )
             elif path == "/api/news":
                 self._handle_news(limit=int(param("limit", "20")))
@@ -731,6 +740,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         Callers who want tradeable candidates MUST use
         ``/api/candidates`` (EV-authoritative) or ``/api/tv/ranked``.
         """
+
         def p(key, default=None):
             return params.get(key, [default])[0]
 
@@ -828,9 +838,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
             T = dte / 365
             if iv_decimal > 0 and T > 0:
-                d1 = (
-                    np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T
-                ) / (iv_decimal * np.sqrt(T))
+                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
+                    iv_decimal * np.sqrt(T)
+                )
                 delta = float(-_norm.cdf(-d1))
             else:
                 delta = -0.30
@@ -850,9 +860,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     iv_decimal * np.sqrt(T)
                 )
                 d2 = d1 - iv_decimal * np.sqrt(T)
-                premium = float(
-                    strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1)
-                )
+                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
                 premium = max(0.01, premium)
                 delta = float(-_norm.cdf(-d1))
                 p_otm = float(_norm.cdf(d2))
@@ -1611,7 +1619,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         loopback-only socket).
         """
         import os
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from engine.tv_signals import TVAlert
 
@@ -1657,7 +1665,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                         cleaned = ts_val.replace("Z", "+00:00")
                         dt = datetime.fromisoformat(cleaned)
                         if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
+                            dt = dt.replace(tzinfo=UTC)
                         ts_parsed = dt.timestamp()
             except Exception:
                 ts_parsed = None
@@ -1665,9 +1673,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             if ts_parsed is not None:
                 age = now - ts_parsed
                 if abs(age) > _TV_WEBHOOK_MAX_AGE_SEC:
-                    self._send_error(
-                        f"alert outside freshness window (age={int(age)}s)", 400
-                    )
+                    self._send_error(f"alert outside freshness window (age={int(age)}s)", 400)
                     return
 
         # Layer 3b: Nonce / replay guard.
@@ -2171,9 +2177,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 continue
             if not story.get("title") and not story.get("summary"):
                 continue
-            story.setdefault(
-                "ingested_at", datetime.now(timezone.utc).isoformat()
-            )
+            story.setdefault("ingested_at", datetime.now(UTC).isoformat())
             story.setdefault("source", "pipeline")
             _NEWS_BUFFER.append(story)
             ingested += 1
@@ -2212,8 +2216,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         print(f"[Engine API] {args[0]}")
 
 
+_DEFAULT_API_PORT = 8787
+
+
+def _resolve_port(env: dict[str, str] | None = None) -> int:
+    """Resolve the API port from ``SWE_API_PORT`` (closes D15 Unresolved).
+
+    Default is 8787 — the historical binding kept as a fallback so
+    existing single-instance setups keep working without setting any
+    env. ``SWE_API_PORT`` (per ``scripts/setup-terminal.sh``) overrides
+    when set. Malformed or out-of-range values raise loudly rather
+    than silently falling back, so a typo in the env doesn't quietly
+    serve on the wrong port.
+    """
+    source = os.environ if env is None else env
+    raw = source.get("SWE_API_PORT", "").strip()
+    if not raw:
+        return _DEFAULT_API_PORT
+    try:
+        port = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"SWE_API_PORT must be a base-10 integer; got {raw!r}") from exc
+    if not (1 <= port <= 65535):
+        raise ValueError(f"SWE_API_PORT out of range; got {port} (expected 1-65535)")
+    return port
+
+
 def main():
-    port = 8787
+    port = _resolve_port()
     # ThreadingHTTPServer spawns one thread per request so a slow committee
     # or memo call can't block the 5+ parallel fetches the dashboard fires
     # when a trader switches tickers.

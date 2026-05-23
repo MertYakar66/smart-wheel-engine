@@ -631,10 +631,11 @@ explicitly.
   points them at the shared dirs; switching to per-terminal is a
   one-line edit when contention appears.
 - *Wire `SWE_API_PORT` into `engine_api.py` in the same PR.* Out of
-  scope for a docs/coordination PR. `engine_api.py` still binds 8787
-  directly; the env var is a convention today and the doc says so
-  explicitly. A later PR that touches the API entrypoint can promote
-  it from convention to binding.
+  scope for the docs/coordination PR D15 shipped in. The promotion
+  was the natural follow-on and **landed as the C7 fix from audit
+  issue #154** — `engine_api.py._resolve_port()` and `audit.py`'s
+  `BASE` both now honour `SWE_API_PORT` with 8787 as the default
+  fallback. Pinned by `tests/test_engine_api_port.py`.
 - *Hardcode Terminal C in the doc.* The whole point of the rewrite
   is N-generic; the moment a third terminal is needed, it claims on
   the board, sources `setup-terminal.sh c`, and starts. The doc

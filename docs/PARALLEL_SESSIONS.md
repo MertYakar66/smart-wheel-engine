@@ -67,19 +67,22 @@ That sets:
 
 | Var | Value (for letter `<x>`) | Status |
 |---|---|---|
-| `SWE_API_PORT` | `8787 + (<x> - 'a')` — A=8787, B=8788, C=8789, … | forward-looking — `engine_api.py` still binds 8787 directly |
+| `SWE_API_PORT` | `8787 + (<x> - 'a')` — A=8787, B=8788, C=8789, … | honoured by `engine_api.py` and `audit.py` (default 8787) |
 | `SWE_DATA_PROCESSED_DIR` | shared `data_processed/` | shared by default; switch to per-terminal only on write contention |
 | `SWE_MODELS_DIR` | shared `models/` | same |
 | `COVERAGE_FILE` | `.coverage.<x>` | real today — coverage.py reads it |
 | `PYTEST_CACHE_DIR` | `.pytest_cache_<x>` | real today — pytest reads it |
 | `SWE_DATA_PROVIDER` | `bloomberg` | silences the SessionStart warning; matches the CLAUDE.md §1 default |
 
-`SWE_API_PORT`, `SWE_DATA_PROCESSED_DIR`, and `SWE_MODELS_DIR` are
-**conventions** — the engine does not read them yet. The contract exists so
-new code that does respect them lands in a consistent shape; today they're
-markers, not bindings. `COVERAGE_FILE` and `PYTEST_CACHE_DIR` are honoured
-automatically by the test tooling and are the ones that actually keep
-parallel `pytest` runs from corrupting each other.
+`SWE_DATA_PROCESSED_DIR` and `SWE_MODELS_DIR` are **conventions** —
+the engine does not read them yet. The contract exists so new code that
+does respect them lands in a consistent shape; today they're markers,
+not bindings. `SWE_API_PORT` is honoured today by `engine_api.py`'s
+`_resolve_port()` and by `audit.py`'s client `BASE` — multi-instance
+launches just set the env per terminal. `COVERAGE_FILE` and
+`PYTEST_CACHE_DIR` are honoured automatically by the test tooling and
+are what actually keep parallel `pytest` runs from corrupting each
+other.
 
 ## Rules
 

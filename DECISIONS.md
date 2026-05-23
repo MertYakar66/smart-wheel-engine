@@ -584,6 +584,72 @@ index), `PROJECT_STATE.md` §3 (the dated reorg entry).
 
 ---
 
+## D15. Parallel-session coordination is N-generic; every terminal lives in its own worktree
+
+**Decision:** `docs/PARALLEL_SESSIONS.md` describes the pattern for an
+arbitrary number of executor terminals, not a fixed two. Roles are
+**Terminal X** + **Session X** (one verifier per executor); the live
+letter count comes from board #113's "Live claims" section, not from
+the doc. Every terminal — *including Terminal A* — works from a
+dedicated worktree (`../swe-terminal-<x>`); the primary clone
+(`smart-wheel-engine/`) is reserved for Sessions, orchestration, and
+safety, with no executor running in it. Per-terminal env (port,
+coverage file, pytest cache, data provider) is sourced from
+parametrised setup scripts: `scripts/setup-terminal.sh` and the
+PowerShell companion `scripts/setup-terminal.ps1`. The `Sn` /
+next-free-number rule is generalised explicitly to `D<N>` too —
+both are global, both are claimed on the board before use.
+
+**Why:** Two earlier rules were starting to bend. The doc was hardcoded
+to two terminals at a time when the project was actually planning to
+spin up a third for short bursts of housekeeping work, which would
+have meant a doc rewrite each time the count flexed. And the
+"Terminal A keeps the primary clone" carve-out put A in a privileged
+position that violated the shared-working-tree hazard it was supposed
+to be protecting against — the very recurring-hazards bullet in the
+doc warned about exactly the failure mode A was exposed to, just for
+A alone. Making the doc N-generic and moving A out of the primary
+removes both the special case and the structural inconsistency in one
+pass. The setup scripts pin the env conventions (port, coverage file,
+pytest cache, provider) so every terminal lands in the same shape.
+
+The Sn ↔ D-number generalisation closes a near-miss: D-numbers are
+exactly the same kind of monotonic global counter as `Sn` and the
+same parallel-collision risk applies. Rule 7 now names both
+explicitly.
+
+**Rejected alternatives:**
+- *Keep A in the primary, just document it as the exception.* Was
+  the status quo; left A exposed to the same shared-working-tree
+  hazard the doc warned everyone else about. The whole point of
+  rule 1 is that no terminal should run there.
+- *Per-terminal `SWE_DATA_PROCESSED_DIR` and `SWE_MODELS_DIR` by
+  default.* The pulled CSVs are ~140 MB combined and read-only at the
+  EV-ranker layer; duplicating them per terminal pays cost for no
+  observed contention. The script keeps the variables defined (so
+  forward code that respects them lands in a consistent shape) but
+  points them at the shared dirs; switching to per-terminal is a
+  one-line edit when contention appears.
+- *Wire `SWE_API_PORT` into `engine_api.py` in the same PR.* Out of
+  scope for a docs/coordination PR. `engine_api.py` still binds 8787
+  directly; the env var is a convention today and the doc says so
+  explicitly. A later PR that touches the API entrypoint can promote
+  it from convention to binding.
+- *Hardcode Terminal C in the doc.* The whole point of the rewrite
+  is N-generic; the moment a third terminal is needed, it claims on
+  the board, sources `setup-terminal.sh c`, and starts. The doc
+  needs no edit.
+- *Single setup script in one shell (just `.sh` or just `.ps1`).*
+  Repo runs on Windows-local + Ubuntu-CI; the bash version covers
+  Git Bash / WSL / CI shells, the PowerShell version covers native
+  Windows shells without an extra shim layer.
+
+**Pinned by:** `docs/PARALLEL_SESSIONS.md` (the rewritten doc itself
+is the spec), `scripts/setup-terminal.sh`, `scripts/setup-terminal.ps1`,
+`FILE_MANIFEST.md` (records both setup scripts under `scripts/`).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

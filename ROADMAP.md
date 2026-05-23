@@ -124,12 +124,14 @@ right now (refreshed earnings + treasury yields).
   that is gitignored
 
 ### C2. Stage the new `tradingview/` analyst workspace files
-**Status:** `next`
-**Files to commit on next branch:** `tradingview/CLAUDE.md`,
+**Status:** `done` — shipped 2026-05-05 via commit `d66e7d1`
+(`chore(tradingview): track analyst workspace contract + launcher +
+.gitkeep dirs`). Tracked the six listed files: `tradingview/CLAUDE.md`,
 `tradingview/OVERVIEW.md`, `tradingview/launch-tradingview-cdp.sh`,
-`tradingview/models/.gitkeep`, `tradingview/pine/.gitkeep`,
-`tradingview/research/.gitkeep`. The `tradingview-mcp-jackson/`
-nested repo and the `*.docx` deliverables stay gitignored.
+and the three `.gitkeep` placeholders for `models/`, `pine/`, and
+`research/`. The `tradingview-mcp-jackson/` nested repo and the
+`*.docx` deliverables remain gitignored as planned. See
+`CHANGELOG.md` 2026-05.
 
 ### C3. Drop `engine/.gitkeep` and the empty `models/` and
 `validation/` placeholders

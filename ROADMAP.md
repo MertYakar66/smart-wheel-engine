@@ -92,13 +92,19 @@ on the same app). Build/dev commands retained; added an explicit
 Next.js → `:8787` proxy contract.
 
 ### B5. `pyproject.toml` — phantom entrypoint and wrong package list
-**Status:** `next`
-**Issue:** `[project.scripts] wheel = "src.cli:app"` references a
-file that does not exist. `[tool.hatch.build.targets.wheel]
-packages = ["src"]` would build a wheel that excludes `engine/`,
-`engine_api.py`, `advisors/`, the dashboard, etc.
-**Done when:** the script entry is either removed or pointed at a
-real entry; the packages list reflects the real install surface.
+**Status:** `done` — closed in this branch. The `[project.scripts]
+wheel = "src.cli:app"` block was removed (the target file does not
+exist; no consumer relied on the script). `[tool.hatch.build.targets.wheel]
+packages` was expanded from `["src"]` to `["engine", "advisors",
+"data", "financial_news", "news_pipeline", "src"]` so a built wheel
+now contains the live install surface. `src` is retained per
+DECISIONS.md D2 (still imported by tests + four production modules).
+The two confirmed-phantom dependencies (`prefect`, `ib_insync`) were
+also removed from `[project.dependencies]` — neither is imported by
+any tracked Python file, and `ib_insync` would have violated the
+CLAUDE.md NEVER-rule "no broker integration." `streamlit` is kept;
+it is a real consumer (`local_agent/ui/streamlit_app.py`). See
+`CHANGELOG.md` 2026-05.
 
 ### B6. `tradingview/README.md` — references a non-existent doc
 **Status:** `done` — fixed during the foundation pass

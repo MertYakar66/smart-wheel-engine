@@ -57,6 +57,24 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   the matching CI workflow `--cov-fail-under` flag. Pins the floor
   earned by the coverage push (current baseline 82%, 2pp buffer for
   normal PR-to-PR noise). See `DECISIONS.md` D10.
+- **`pyproject.toml` truth-up — closes ROADMAP Track B5.**
+  Three concurrent fixes on the same file, all in the same commit:
+  (1) removed `[project.scripts] wheel = "src.cli:app"` — the target
+  `src/cli.py` does not exist (verified pre-edit); no consumer
+  relied on the script. (2) Removed `prefect>=2.14.0` and
+  `ib_insync>=0.9.86` from `[project.dependencies]` — both have
+  zero imports in any tracked Python file (`git grep -l prefect`
+  returns only `docs/CONTRIBUTING.md` and `pyproject.toml`; same
+  for `ib_insync` plus two archived audit docs). `ib_insync` would
+  also have violated the CLAUDE.md NEVER-rule "no broker
+  integration." `streamlit` is retained — it is a real consumer
+  (`local_agent/ui/streamlit_app.py`). (3) Expanded
+  `[tool.hatch.build.targets.wheel] packages` from `["src"]` to
+  `["engine", "advisors", "data", "financial_news", "news_pipeline",
+  "src"]`. `src` is retained per DECISIONS.md D2 (still imported by
+  tests + four production modules; the migration window has not
+  closed). The built wheel now contains the live install surface
+  instead of just the deprecated phantom.
 - **`engine/__init__.py` re-exports the modern decision layer.** Adds
   `EVEngine`, `EVResult`, `ShortOptionTrade`, `WheelRunner`,
   `EnginePhaseReviewer`, `CandidateDossier`, and `MarketStructure` to

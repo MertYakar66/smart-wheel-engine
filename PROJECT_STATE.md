@@ -333,18 +333,17 @@ rewritten.**
 These are stale relative to `CLAUDE.md` and the live code, and have
 not been fixed in this review pass:
 
-- `pyproject.toml` —
-  `[project.scripts] wheel = "src.cli:app"` points at a missing file;
-  `[tool.hatch.build.targets.wheel] packages = ["src"]` excludes
-  `engine/`, `engine_api.py`, `advisors/`, `dashboard/`, etc., so the
-  built wheel would not contain the live code. Touching pyproject
-  requires explicit ask per `AGENTS.md`.
+_All previously-listed drift entries here are now closed — see the
+closer paragraph below for the route to each fix._
 
 The entries that previously lived here for `README.md`,
 `docs/CONTRIBUTING.md`, and `dashboard/README.md` were closed by
 the entry-doc repair pass — see `ROADMAP.md` Track B (B1, B2, B4).
-The `engine/__init__.py` modern-decision-layer re-export entry was
-closed by `ROADMAP.md` Track A3 — see `CHANGELOG.md` 2026-05.
+The `pyproject.toml` drift entry (broken `wheel = "src.cli:app"`
+script + wrong `packages = ["src"]`) was closed by ROADMAP Track B5
+— see `CHANGELOG.md` 2026-05. The `engine/__init__.py`
+modern-decision-layer re-export entry was closed by `ROADMAP.md`
+Track A3 — also see `CHANGELOG.md` 2026-05.
 
 ## 6. Branch + workflow policy
 

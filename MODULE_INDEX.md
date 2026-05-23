@@ -229,7 +229,7 @@ updated. See `PROJECT_STATE.md` §5.
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
-| `tests/` | 72 `test_*.py` files + `quant_benchmarks.py` shared fixtures (~1,730 tests). See `TESTING.md`. | live |
+| `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |
 | `docs/` | The documentation set — operational, reference and design-contract docs. See `FILE_MANIFEST.md` for the full per-file listing. | live |
 | `config/` | `settings.py`. | live |

@@ -167,10 +167,12 @@ section), `docs/LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
 ## D7. Data-provider matrix uses `SWE_DATA_PROVIDER`
 
 **Decision:** Provider selection is environment-driven via
-`SWE_DATA_PROVIDER` (default: `bloomberg`), read in
-`engine/wheel_runner.py:131` and `scripts/diagnose_candidates.py:102`.
-Two providers: `bloomberg` (CSVs in git) and `theta` (live Theta v3).
-The SessionStart hook warns when the variable is unset.
+`SWE_DATA_PROVIDER` (default: `bloomberg`), read by
+`WheelRunner.connector` (the lazy-load property in
+`engine/wheel_runner.py`) and by the `provider` resolution at the
+top of `scripts/diagnose_candidates.py`. Two providers: `bloomberg`
+(CSVs in git) and `theta` (live Theta v3). The SessionStart hook
+warns when the variable is unset.
 
 **Why:** Different runtime contexts need different providers — Cowork
 sandboxes have no Theta access (use bloomberg); a live laptop with
@@ -178,7 +180,7 @@ the Terminal up uses theta. Hardcoding either would force code
 changes per environment.
 
 **Pinned by:** `docs/DATA_POLICY.md` §2 (capability matrix),
-`engine/wheel_runner.py:131`, SessionStart hook.
+`WheelRunner.connector` in `engine/wheel_runner.py`, SessionStart hook.
 
 ---
 

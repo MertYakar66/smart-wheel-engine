@@ -267,6 +267,7 @@ dashboard/data/*.db-wal
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
+!.claude/commands/
 .claude/settings.local.json
 
 # =============================================================================

@@ -135,7 +135,7 @@ user, who needs to switch between them daily. Putting them in the
 same `tradingview/` folder with explicit per-purpose docs preserves
 context without confusing the contract.
 
-**Pinned by:** `TRADINGVIEW_INTEGRATION.md`,
+**Pinned by:** `docs/TRADINGVIEW_INTEGRATION.md`,
 `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `tradingview/README.md`,
 `tradingview/CLAUDE.md`, `tradingview/OVERVIEW.md`.
 
@@ -160,7 +160,7 @@ matters. The risk-of-leak / value-of-tracking ratio is unfavourable.
   consumer.
 
 **Pinned by:** `.gitignore` ("Theta Terminal — installed software"
-section), `LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
+section), `docs/LAPTOP_SETUP.md`, `docs/THETA_USAGE.md`.
 
 ---
 
@@ -196,7 +196,7 @@ it. Worse, Drive denies `unlink` on existing tracked files, so
 `git pull` may fetch refs but fail to update the worktree.
 
 **Pinned by:** `CLAUDE.md` §3 ("Drive mounts are
-eventually-consistent mirrors"), `LAPTOP_SETUP.md`.
+eventually-consistent mirrors"), `docs/LAPTOP_SETUP.md`.
 
 ---
 
@@ -232,7 +232,7 @@ CI scope (`src + engine + advisors + financial_news` + `data/quality.py`, per
 discovery.
 
 The launch-blocker subset in `TESTING.md` (consolidated in
-`LAUNCH_READINESS.md`) is the floor for any decision-layer change;
+`docs/LAUNCH_READINESS.md`) is the floor for any decision-layer change;
 the full suite (`pytest tests/ -v`) is the floor for shipping
 anything that touches `engine/ev_engine.py`,
 `engine/wheel_runner.py`, or `engine/candidate_dossier.py`. The
@@ -278,7 +278,7 @@ exercising the path. That single bug paid for the whole exercise.
   forcing function: every change becomes about not regressing the
   number rather than about real edge-case discovery.
 
-**Pinned by:** `TESTING.md`, `LAUNCH_READINESS.md`, every
+**Pinned by:** `TESTING.md`, `docs/LAUNCH_READINESS.md`, every
 `test_audit_*.py`, `tests/test_dossier_invariant.py`,
 `tests/test_authority_hardening.py`, `tests/test_launch_blockers.py`.
 The 80% gate itself is enforced by `pyproject.toml`
@@ -505,6 +505,79 @@ ordering should be revisited only against a measured p95 <2s.
 **Pinned by:** `engine/tradingview_bridge.py` (`build_default_provider`),
 `tests/test_tv_dossier.py::TestBuildDefaultProvider`,
 `docs/TRADINGVIEW_MCP_INTEGRATION.md` §9.
+
+---
+
+## D14. Tiered documentation layout — root holds only the entry + index docs
+
+**Decision:** Repository documentation is organised into discovery tiers.
+**Tier 1** (canonical entry, repo root): `AGENTS.md`, `CLAUDE.md`,
+`README.md`. **Tier 2** (state + index, repo root): `PROJECT_STATE.md`,
+`MODULE_INDEX.md`, `TESTING.md`, `DECISIONS.md`, `COMMIT_GUIDE.md`,
+`FILE_MANIFEST.md` — plus `CHANGELOG.md` and `ROADMAP.md`, kept at root
+as the temporal-state triad with `PROJECT_STATE.md`. `LICENSE` stays at
+root by convention. Every other Markdown doc lives in `docs/`. Stale or
+superseded artifacts move to `archive/YYYY-MM/`. **Tier 3**
+(`.claude/commands/`) holds thin slash-command wrappers around
+already-documented workflows.
+
+This change is **structure-only**: files move, inbound references are
+updated in the same commit as each move, and no doc's substantive
+content is rewritten. Two clean-ups are **deferred to named follow-on
+PRs** so this PR's diff stays reviewable as a pure move:
+
+- **CLAUDE.md lean-rewrite.** `CLAUDE.md` is edited in this PR for
+  moved-path references only (the `LAPTOP_SETUP.md` mentions and the §5
+  docs list). A dedicated follow-on PR slims its content; this PR
+  deliberately adds no `CLAUDE.md` prose.
+- **Doc-truthfulness reconciliation.** Known-stale facts — code line
+  numbers, the `engine_api` endpoint count, the test count, SVI
+  dormancy wording, the `_yf`-merge claim, the `README.md` broker/CLI
+  body, the `PROJECT_STATE.md` §5 drift list — are left exactly as
+  found. This PR neither fixes nor propagates them; a dedicated
+  follow-on PR reconciles them. `FILE_MANIFEST.md` and the index-doc
+  refresh describe file *purpose* only and introduce no such number.
+
+**Why:** A fresh agent landing at the repo root previously faced a wall
+of Markdown files with no signal as to which to read. The tiered layout
+puts the entry + index docs at root and everything else one predictable
+level down in `docs/`, with `FILE_MANIFEST.md` as the exhaustive
+per-file index. Splitting the cleanup across three sequenced PRs — this
+move, the CLAUDE.md slim, the truth reconciliation — keeps each diff
+independently reviewable: a move PR that also rewrote prose could not be
+verified as behaviour-neutral, and the decision log should show that the
+known-stale facts were left in place *on purpose*, not missed.
+
+**Rejected alternatives:**
+- *Move docs and fix their stale content in one PR.* Mixes a structural
+  diff with prose edits; a reviewer then cannot confirm the move is
+  content-neutral. Deferred to the reconciliation PR.
+- *Invert `AGENTS.md` / `CLAUDE.md` (AGENTS canonical, CLAUDE
+  delegating).* Considered for the Tier-1 split; rejected for this PR —
+  heavy surgery on the two most sensitive docs that would relocate the
+  §2 EV invariant. `CLAUDE.md` keeps its role here; its slimming is the
+  separate follow-on PR.
+- *Sub-folder `docs/` by topic.* Multiplies cross-reference churn for no
+  navigability gain once `FILE_MANIFEST.md` + `AGENTS.md` index `docs/`.
+- *Move `audit.py` into `scripts/`.* Would pull it into CI's ruff scope
+  and mix a lint-scope change into a structural PR while CI lint is
+  already red. Left at the repo root.
+- *Delete the empty `src/` subpackages or `models/`.* `src/` is still
+  imported by live modules (see D2); `models/` is `ml/wheel_model.py`'s
+  default output directory. Only the genuinely dead, zero-reference
+  `validation/` placeholder was removed.
+
+**Migration path:** No compatibility shims — no moved file is an
+imported Python module, and `audit.py` (the one root script with a
+module name) was deliberately not moved. All inbound references were
+updated in the same commit as each move. External bookmarks to
+repo-root doc URLs should repoint to `docs/<name>.md`, or to
+`archive/2026-05/<name>` for the three archived docs. **Shim expiry:**
+n/a — no shims were created.
+
+**Pinned by:** `FILE_MANIFEST.md` (the exhaustive index this layout
+assumes), `archive/README.md`, `AGENTS.md` (the `docs/` "read on demand"
+index), `PROJECT_STATE.md` §3 (the dated reorg entry).
 
 ---
 

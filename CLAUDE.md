@@ -6,7 +6,7 @@ This file is the single source of orientation for a fresh Claude session.
 Read it in full before acting.
 
 For machine/environment rehydration (cloning, Theta Terminal, regenerating
-local data), see `LAPTOP_SETUP.md`. This file is about **how the product
+local data), see `docs/LAPTOP_SETUP.md`. This file is about **how the product
 thinks**, not how to install it.
 
 ---
@@ -193,7 +193,7 @@ they are out of scope by design:
 
 Before making non-trivial changes:
 
-1. Read this file and `LAPTOP_SETUP.md`. If a second terminal may be
+1. Read this file and `docs/LAPTOP_SETUP.md`. If a second terminal may be
    active on this repo, also read `docs/PARALLEL_SESSIONS.md` and the
    coordination board (pinned GitHub issue).
 2. Confirm the provider. Default is wired in

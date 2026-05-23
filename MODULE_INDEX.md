@@ -1,5 +1,8 @@
 # Module Index
 
+> For the exhaustive per-file index — every tracked file, not just
+> modules — see [`FILE_MANIFEST.md`](FILE_MANIFEST.md).
+
 Per-module purpose and decision-layer relationship. The "Role" column
 classifies each module against the EV decision contract from
 `CLAUDE.md` §2:
@@ -228,10 +231,10 @@ updated. See `PROJECT_STATE.md` §5.
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | 72 `test_*.py` files + `quant_benchmarks.py` shared fixtures (~1,730 tests). See `TESTING.md`. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `CLAUDE.md` §3 for the provider matrix and what is committed vs. regenerable. | live |
-| `docs/` | `ARCHITECTURE.md` (stale, see PROJECT_STATE.md), `DATA_SPECIFICATION.md`, `GOVERNANCE.md`, `GREEKS_UNIT_CONTRACT.md` (canonical), `MODEL_CARDS.md`, `TRADINGVIEW_MCP_INTEGRATION.md` (current), `DATA_COLLECTION_REPORT.md`. | mixed |
+| `docs/` | The documentation set — operational, reference and design-contract docs. See `FILE_MANIFEST.md` for the full per-file listing. | live |
 | `config/` | `settings.py`. | live |
 | `utils/` | `data_validation.py`, `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py`. | live |
 | `notebooks/` | Exploration. | research |
 | `src/` | **Phantom scaffold.** Empty `execution/`, `models/`, `risk/` packages; partial `data/` and `features/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
-| `models/` | Empty (`.gitkeep`). | empty |
-| `validation/` | Empty (`.gitkeep`). | empty |
+| `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |
+| `archive/` | Superseded / point-in-time artifacts; see `archive/README.md`. | reference |

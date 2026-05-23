@@ -3,9 +3,9 @@
 Thank you for your interest in contributing to Smart Wheel Engine! This document provides guidelines for contributing.
 
 > **For AI agents (Claude, Codex, Cursor, Copilot, Aider, …):** Start
-> with [`AGENTS.md`](AGENTS.md), then [`CLAUDE.md`](CLAUDE.md) for
-> the structural contract, [`PROJECT_STATE.md`](PROJECT_STATE.md) for
-> what's authoritative right now, and [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md)
+> with [`AGENTS.md`](../AGENTS.md), then [`CLAUDE.md`](../CLAUDE.md) for
+> the structural contract, [`PROJECT_STATE.md`](../PROJECT_STATE.md) for
+> what's authoritative right now, and [`COMMIT_GUIDE.md`](../COMMIT_GUIDE.md)
 > before your first commit. The sections below are the human-side
 > open-source workflow; the AI-agent handoff path is more direct.
 
@@ -135,7 +135,7 @@ class TestOptionPricing:
 The repo uses a structured `type(scope): summary` format with a
 labelled body (`Changed:` / `Why:` / `Tested:` / `Tried but
 rejected:` / `Unresolved:` / `AI handoff:`). The full standard with
-worked examples lives in [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md) —
+worked examples lives in [`COMMIT_GUIDE.md`](../COMMIT_GUIDE.md) —
 read it before your first commit.
 
 Quick template:

@@ -270,6 +270,32 @@ names, E741 ambiguous names) needs a follow-up PR. Tracked in
 | 4 | Original Theta walkthrough — `probe_theta_capabilities.py` step 2 | needs laptop run |
 | 5 | `StrangleTimingWithIV.score_entry_with_iv` connector signature gap | pinned by strict xfail in `tests/test_strangle_timing.py::test_score_entry_with_iv_real_connector_signature_mismatch`; calls `connector.get_realized_vol`, `get_current_iv`, `get_vix_level`, `get_vix_contango` (none exist) and passes `as_of=` to `get_ohlcv` (not in signature). Resolution: extend `MarketDataConnector` with the IV/VIX accessors **or** rewrite the overlay to use `get_iv_history` / `get_vix` / `get_vol_risk_premium`. Remove the xfail in the same commit |
 
+### Repository structure reorg (D14) — 2026-05-21
+
+A structure-only documentation reorganisation (`DECISIONS.md` D14).
+**Zero code or behaviour changes; no doc's substantive content was
+rewritten.**
+
+- The repo root now holds only the Tier-1 entry docs (`AGENTS.md`,
+  `CLAUDE.md`, `README.md`) and the Tier-2 state/index docs
+  (`PROJECT_STATE.md`, `MODULE_INDEX.md`, `TESTING.md`, `DECISIONS.md`,
+  `COMMIT_GUIDE.md`, `FILE_MANIFEST.md`, plus `CHANGELOG.md` and
+  `ROADMAP.md`).
+- Operational and reference docs moved into `docs/`: `DATA_POLICY.md`,
+  `LAPTOP_SETUP.md`, `LAUNCH_READINESS.md`, `THETA_INSTRUCTIONS.md`,
+  `TRADINGVIEW_INTEGRATION.md`, `USAGE_TEST_LEDGER.md`, `CONTRIBUTING.md`,
+  `SECURITY.md`, `Claude_Prompting_Master_Guide.md`.
+- Three stale / superseded docs moved to `archive/2026-05/`:
+  `OptionsEngine.txt`, `docs/ARCHITECTURE.md`,
+  `docs/DATA_COLLECTION_REPORT.md` (see `archive/README.md`).
+- Added `FILE_MANIFEST.md` (the exhaustive per-file index) and
+  `.claude/commands/` (two thin slash-command wrappers). Removed the
+  empty `validation/` placeholder directory.
+- **Deferred to named follow-on PRs** so this PR's diff stays a pure
+  move: a CLAUDE.md lean-rewrite, and a doc-truthfulness reconciliation
+  pass for known-stale facts (code line numbers, counts, the §5 drift
+  list below). This PR neither fixed nor propagated those.
+
 ## 4. Deprecated / phantom — do not extend
 
 - `src/` — phantom architecture from an earlier scaffold. Real
@@ -282,7 +308,13 @@ names, E741 ambiguous names) needs a follow-up PR. Tracked in
   `data/features/` consumes), and `src/backtest/` (`wheel_backtest.py`).
   Plan: either fully remove or fully repopulate. Until then, do not
   add new modules under `src/`.
-- `models/`, `validation/` — empty placeholder dirs (`.gitkeep` only).
+- `models/` — retained, not deleted as a placeholder: `ml/wheel_model.py`
+  names `models/wheel_entry_model.joblib` as its default model-output
+  path, so `models/` is a *referenced* path. (`ml/wheel_model.py` does
+  `mkdir(parents=True)` on save, so the directory is not strictly
+  required to pre-exist — it was kept on the referenced-path basis, not
+  a runtime need.) The genuinely zero-reference `validation/` placeholder
+  was removed in D14.
 - `dashboard/quant_dashboard.py` — legacy Python CLI dashboard. The
   primary dashboard is the Next.js app under `dashboard/src/`.
   README.md still describes the legacy CLI as the main entry point.
@@ -303,7 +335,7 @@ not been fixed in this review pass:
   (`python -m dashboard.quant_dashboard`) and broker env vars
   (`BROKER_API_KEY`, `BROKER_SECRET`) that are out of scope per
   `CLAUDE.md` §4. Project structure listing is 6 dirs; actual is 20+.
-- `CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
+- `docs/CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
   pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
   deps; none are part of the EV decision path.
 - `docs/ARCHITECTURE.md` — describes `src/data`, `src/features`,

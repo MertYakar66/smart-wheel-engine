@@ -84,11 +84,12 @@ Done-when.
 `MODULE_INDEX.md` is the live per-module map.
 
 ### B4. `dashboard/README.md` — wrong product name
-**Status:** `next`
-**Issue:** still says "FinanceNews — AI Financial News Platform".
-The directory was reused; the README was not.
-**Done when:** README describes the Next.js dashboard for the engine,
-its build/dev commands, and how it connects to `engine_api.py`.
+**Status:** `done` — wholesale rewrite. Re-positioned as the Next.js
+cockpit for the Smart Wheel Engine (primary surface: engine
+cockpit; secondary: the financial-news component that piggybacks
+on the same app). Build/dev commands retained; added an explicit
+"How the engine cockpit talks to the engine" section pinning the
+Next.js → `:8787` proxy contract.
 
 ### B5. `pyproject.toml` — phantom entrypoint and wrong package list
 **Status:** `next`

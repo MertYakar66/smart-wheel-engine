@@ -1,7 +1,7 @@
 # Testing — Smart Wheel Engine
 
-The full suite is `pytest tests/ -v` (71 `test_*.py` files,
-~1,700 tests).
+The full suite is `pytest tests/ -v` (87 `test_*.py` files,
+~2,100 tests).
 
 Markers and hypothesis profiles are wired in `conftest.py`.
 

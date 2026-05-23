@@ -24,6 +24,19 @@ from .transaction_costs import (
     calculate_total_exit_cost,
 )
 
+
+class EVAuthorityRefused(ValueError):
+    """Raised when an EV-authority token is refused at issuance.
+
+    Today the only refusal condition is ``ev_dollars <= 0`` — issuing a
+    token for a non-tradeable row would let the token gate accept what
+    CLAUDE.md §2 / `EnginePhaseReviewer` R1 ("negative EV → blocked")
+    explicitly forbids. Subclasses ``ValueError`` so existing ``except
+    ValueError`` catches keep working; the dedicated name is greppable
+    in audit trails. See DECISIONS.md D16.
+    """
+
+
 # ----------------------------------------------------------------------
 # Schema + helpers for WheelTracker.suggest_rolls / suggest_call_rolls
 # ----------------------------------------------------------------------
@@ -245,13 +258,23 @@ class WheelTracker:
         Args:
             initial_capital: Starting cash.
             require_ev_authority: When True, ``open_short_put`` and
-                ``open_covered_call`` REQUIRE an ``ev_authority_token``
-                argument produced by :meth:`issue_ev_authority_token`
-                below, which itself should only be called from within
-                :meth:`WheelRunner.rank_candidates_by_ev` when the
-                candidate has passed the EV ranker. This is the hard
+                ``open_covered_call`` REQUIRE both an
+                ``ev_authority_token`` from
+                :meth:`issue_ev_authority_token` AND a fresh
+                ``current_ev_dollars`` argument that must be
+                strictly positive at consume time. This is the hard
                 launch-gate that prevents heuristic / manual / webhook
                 paths from entering a position bypassing the EV engine.
+
+                Two-stage predicate (D16): issue refuses a token for a
+                non-positive ``ev_dollars`` row (raises
+                :class:`EVAuthorityRefused`); consume re-checks
+                ``current_ev_dollars`` so a token that was positive at
+                rank time but went negative by fire time is rejected
+                with the token retained for retry (audit log records
+                ``reason="stale_ev"``). Both legs (short put + covered
+                call) flow through the same predicate.
+
                 Default False for backwards compatibility with tests
                 and research usage; production/live tracker instances
                 should set it True.
@@ -284,8 +307,19 @@ class WheelTracker:
         token; downstream :meth:`open_short_put` verifies it against
         the accepted-token set.
 
-        Single-use: once consumed, the token is removed. This prevents
-        a captured token being re-played to enter multiple positions.
+        Single-use: once consumed via a successful
+        :meth:`open_short_put` / :meth:`open_covered_call`, the token
+        is removed. This prevents a captured token being re-played to
+        enter multiple positions. A consume rejected for stale-EV
+        retains the token — the token records the immutable fact that
+        an EV calc happened on this row, and a transient stale-EV
+        rejection should not invalidate that.
+
+        Predicate (D16): refuses issuance when
+        ``ev_row['ev_dollars'] <= 0`` by raising
+        :class:`EVAuthorityRefused` — issuing a token for a
+        non-tradeable row would let the consume gate accept what R1
+        explicitly blocks.
         """
         import hashlib
         import json as _json
@@ -299,22 +333,85 @@ class WheelTracker:
             "prob_profit": float(ev_row.get("prob_profit", 0) or 0),
             "distribution_source": str(ev_row.get("distribution_source", "")),
         }
+        if canonical["ev_dollars"] <= 0:
+            self._ev_authority_log.append(
+                {
+                    "action": "refuse_issue",
+                    "reason": "non_positive_ev",
+                    "row": canonical,
+                }
+            )
+            raise EVAuthorityRefused(
+                f"Refusing EV-authority token for {canonical['ticker']} "
+                f"strike={canonical['strike']} — ev_dollars="
+                f"{canonical['ev_dollars']} is non-positive; R1 would block."
+            )
         token = hashlib.sha256(_json.dumps(canonical, sort_keys=True).encode()).hexdigest()
         self._ev_authority_tokens.add(token)
         self._ev_authority_log.append({"action": "issue", "token": token, "row": canonical})
         return token
 
-    def _consume_ev_authority_token(self, token: str | None, ticker: str) -> bool:
-        """Verify and consume an EV authority token. Single-use."""
+    def _consume_ev_authority_token(
+        self,
+        token: str | None,
+        ticker: str,
+        current_ev_dollars: float | None = None,
+    ) -> bool:
+        """Verify and consume an EV authority token.
+
+        Rejection paths (all leave the token in place except the
+        unknown-token case, which never had one to retain):
+
+        - ``unknown_token`` — no token, or token not in the accepted
+          set.
+        - ``missing_current_ev_dollars`` — caller did not supply a
+          current EV value (only when ``require_ev_authority=True``).
+        - ``stale_ev`` — supplied ``current_ev_dollars <= 0``;
+          R1-equivalent, token is retained for retry.
+
+        On success the token is discarded and an action="consume"
+        entry is appended to the audit log.
+        """
         if not token:
+            self._ev_authority_log.append(
+                {"action": "reject", "reason": "unknown_token", "ticker": ticker}
+            )
             return False
         if token not in self._ev_authority_tokens:
             self._ev_authority_log.append(
                 {"action": "reject", "reason": "unknown_token", "ticker": ticker}
             )
             return False
+        if current_ev_dollars is None:
+            self._ev_authority_log.append(
+                {
+                    "action": "reject",
+                    "reason": "missing_current_ev_dollars",
+                    "ticker": ticker,
+                    "token": token,
+                }
+            )
+            return False
+        if current_ev_dollars <= 0:
+            self._ev_authority_log.append(
+                {
+                    "action": "reject",
+                    "reason": "stale_ev",
+                    "ticker": ticker,
+                    "token": token,
+                    "current_ev_dollars": float(current_ev_dollars),
+                }
+            )
+            return False
         self._ev_authority_tokens.discard(token)
-        self._ev_authority_log.append({"action": "consume", "token": token, "ticker": ticker})
+        self._ev_authority_log.append(
+            {
+                "action": "consume",
+                "token": token,
+                "ticker": ticker,
+                "current_ev_dollars": float(current_ev_dollars),
+            }
+        )
         return True
 
     def open_short_put(
@@ -326,6 +423,7 @@ class WheelTracker:
         expiration_date: date,  # CHANGED: explicit date instead of dte
         iv: float,
         ev_authority_token: str | None = None,
+        current_ev_dollars: float | None = None,
     ) -> bool:
         """
         Enter short put position.
@@ -343,13 +441,21 @@ class WheelTracker:
                 Trades without a valid token are rejected outright —
                 this is the launch-gate that prevents heuristic /
                 manual / webhook paths from bypassing the EV engine.
+            current_ev_dollars: Fresh EV evaluated at fire time. In
+                strict mode this is **required** and must be strictly
+                positive (D16) — a token that was positive at rank
+                time but went stale by fire time is rejected with the
+                token retained for retry. Ignored when
+                ``require_ev_authority=False``.
 
         Returns:
             True if position opened successfully
         """
         # Launch-gate: reject trades without EV authority in strict mode.
         if self.require_ev_authority:
-            if not self._consume_ev_authority_token(ev_authority_token, ticker):
+            if not self._consume_ev_authority_token(
+                ev_authority_token, ticker, current_ev_dollars=current_ev_dollars
+            ):
                 return False
 
         # Check if already have position in this ticker
@@ -892,6 +998,8 @@ class WheelTracker:
         entry_date: date,
         expiration_date: date,  # CHANGED: explicit date
         iv: float,
+        ev_authority_token: str | None = None,
+        current_ev_dollars: float | None = None,
     ) -> bool:
         """
         Sell covered call on owned stock.
@@ -903,10 +1011,28 @@ class WheelTracker:
             entry_date: Trade entry date
             expiration_date: Explicit calendar expiration date
             iv: Implied volatility at entry
+            ev_authority_token: When the tracker was created with
+                ``require_ev_authority=True``, this must be a valid
+                single-use token from :meth:`issue_ev_authority_token`
+                — the call-leg launch-gate, mirroring
+                :meth:`open_short_put`. Ignored when
+                ``require_ev_authority=False``.
+            current_ev_dollars: Fresh EV evaluated at fire time;
+                **required** and must be strictly positive in strict
+                mode (D16). Ignored when
+                ``require_ev_authority=False``.
 
         Returns:
             True if call opened successfully
         """
+        # Launch-gate: mirror open_short_put. Closes the leg-asymmetry
+        # the constructor docstring has always claimed was closed.
+        if self.require_ev_authority:
+            if not self._consume_ev_authority_token(
+                ev_authority_token, ticker, current_ev_dollars=current_ev_dollars
+            ):
+                return False
+
         if ticker not in self.positions:
             return False
 

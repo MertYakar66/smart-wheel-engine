@@ -93,6 +93,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   accumulator that pullers will write to a JSON sidecar at
   end-of-run (C4). Per-puller wiring lands separately in this
   PR. See `DECISIONS.md` D11.
+- **`engine/mcp_client.py` live-verified against TradingView Desktop +
+  `tv` CLI (LewisWJackson/tradingview-mcp-jackson fork).** PR #100
+  (`ad1bbbc`, 2026-05-19). Closes the placeholder URL and the
+  `TODO(live-verify)` markers left from MCP Stage 2: Windows `cmd /c`
+  invocation for the npm-linked `tv` shim, the `success` status field,
+  and the `file_path` screenshot key all confirmed. `tv state` carries
+  no price (`visible_price` deferred to a future `tv quote` call —
+  operator decision). Only the per-mode error strings in
+  `MCPCLIClient._classify` remain unverified; no live error path was
+  exercised. `tests/test_mcp_client.py` grew 32 → 39 tests (still all
+  subprocess-mocked). Closes `PROJECT_STATE.md §3` follow-ups row 3.
+- **`engine.strangle_timing.StrangleTimingWithIV.score_entry_with_iv`
+  — Layer-2 IV overlay repaired.** Commit `210463d` (2026-05-20).
+  The previously-dead method called four nonexistent connector
+  methods (`get_realized_vol`, `get_current_iv`, `get_vix_level`,
+  `get_vix_contango`) and passed `as_of=` to `get_ohlcv` (also
+  missing). Rewritten to use the real `MarketDataConnector` API:
+  `get_ohlcv(end_date=…)`, `get_iv_rank`, `get_vol_risk_premium`,
+  `get_vix_regime`. The strict-xfail
+  `test_score_entry_with_iv_real_connector_signature_mismatch` was
+  replaced with the green regression test
+  `test_score_entry_with_iv_against_real_connector`, which exercises
+  the overlay end-to-end against the real connector using AAPL's
+  committed Bloomberg CSVs. Closes `PROJECT_STATE.md §3` follow-ups
+  row 5.
 
 ### Infra
 - **`pyproject.toml [project.optional-dependencies] dev`** — declared

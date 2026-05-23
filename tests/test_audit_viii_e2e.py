@@ -278,6 +278,14 @@ class TestFullAuthorityChain:
         ev_row = ev_df.iloc[0].to_dict()
 
         # Step 3: strict tracker
+        # The synthetic AAPL row's ev_dollars may or may not be positive
+        # depending on the connector fixture — coerce to positive for
+        # the launch-gate happy path so this test stays focused on the
+        # token / replay semantics. The D16 negative-EV refusal path is
+        # covered by test_s8_dis_negative_ev_refused_at_issue.
+        if float(ev_row.get("ev_dollars", 0.0) or 0.0) <= 0.0:
+            ev_row["ev_dollars"] = 25.0
+        current_ev = float(ev_row["ev_dollars"])
         tracker = WheelTracker(initial_capital=250_000, require_ev_authority=True)
         token = tracker.issue_ev_authority_token(ev_row)
 
@@ -290,6 +298,7 @@ class TestFullAuthorityChain:
             expiration_date=date(2026, 4, 14) + timedelta(days=35),
             iv=ev_row["iv"],
             ev_authority_token=None,
+            current_ev_dollars=current_ev,
         )
         assert no_token is False
 
@@ -302,11 +311,12 @@ class TestFullAuthorityChain:
             expiration_date=date(2026, 4, 14) + timedelta(days=35),
             iv=ev_row["iv"],
             ev_authority_token=token,
+            current_ev_dollars=current_ev,
         )
         assert opened is True
         assert "AAPL" in tracker.positions
 
-        # Replayed token → reject
+        # Replayed token → reject (consumed by the prior open).
         tracker2 = WheelTracker(initial_capital=250_000, require_ev_authority=True)
         replayed = tracker2.open_short_put(
             ticker="AAPL",
@@ -316,6 +326,7 @@ class TestFullAuthorityChain:
             expiration_date=date(2026, 4, 14) + timedelta(days=35),
             iv=ev_row["iv"],
             ev_authority_token=token,
+            current_ev_dollars=current_ev,
         )
         assert replayed is False
 

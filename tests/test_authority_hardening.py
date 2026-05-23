@@ -28,7 +28,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from engine.wheel_tracker import WheelTracker
+from engine.wheel_tracker import EVAuthorityRefused, WheelTracker
 
 
 # ======================================================================
@@ -80,7 +80,7 @@ class TestWheelTrackerEVAuthorityGate:
     def test_strict_tracker_accepts_valid_token(self):
         t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(
-            self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32)
+            self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32, ev_dollars=25.0)
         )
         ok = t.open_short_put(
             ticker="AAPL",
@@ -90,6 +90,7 @@ class TestWheelTrackerEVAuthorityGate:
             expiration_date=date(2026, 5, 16),
             iv=0.25,
             ev_authority_token=token,
+            current_ev_dollars=25.0,
         )
         assert ok is True
         assert "AAPL" in t.positions
@@ -99,7 +100,7 @@ class TestWheelTrackerEVAuthorityGate:
         the token, a second attempt with the same token must fail."""
         t = WheelTracker(initial_capital=200_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(
-            self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32)
+            self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32, ev_dollars=25.0)
         )
         # First use: succeeds.
         assert t.open_short_put(
@@ -110,6 +111,7 @@ class TestWheelTrackerEVAuthorityGate:
             expiration_date=date(2026, 5, 16),
             iv=0.25,
             ev_authority_token=token,
+            current_ev_dollars=25.0,
         )
         # Close the position so the ticker slot is free.
         t.positions.pop("AAPL", None)
@@ -122,6 +124,7 @@ class TestWheelTrackerEVAuthorityGate:
             expiration_date=date(2026, 5, 16),
             iv=0.25,
             ev_authority_token=token,
+            current_ev_dollars=25.0,
         )
 
     def test_strict_tracker_rejects_random_string(self):
@@ -136,6 +139,7 @@ class TestWheelTrackerEVAuthorityGate:
             expiration_date=date(2026, 5, 16),
             iv=0.25,
             ev_authority_token="0" * 64,  # looks like a digest but isn't issued
+            current_ev_dollars=25.0,
         )
         assert ok is False
 
@@ -149,10 +153,222 @@ class TestWheelTrackerEVAuthorityGate:
             expiration_date=date(2026, 5, 16),
             iv=0.25,
             ev_authority_token="bad",
+            current_ev_dollars=25.0,
         )
         rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
         assert len(rejects) >= 1
         assert rejects[0]["reason"] == "unknown_token"
+
+    # ------------------------------------------------------------------
+    # D16: issue-time predicate (negative EV → refused)
+    # ------------------------------------------------------------------
+    def test_s8_dis_negative_ev_refused_at_issue(self):
+        """The S8 finding regression (docs/USAGE_TEST_LEDGER.md S8):
+
+        Real DIS candidate carried ``ev_dollars = -30.65`` at rank
+        time, the token gate accepted it, and ``open_short_put``
+        opened a non-tradeable position. After D16, issuance refuses
+        the row outright by raising :class:`EVAuthorityRefused`, and
+        the audit log records the refusal with the canonicalised row.
+        """
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        dis_row = self._ev_row(
+            ticker="DIS",
+            strike=95.0,
+            premium=1.18,
+            dte=35,
+            ev_dollars=-30.65,  # the literal S8 value
+            prob_profit=0.65,
+        )
+        with pytest.raises(EVAuthorityRefused, match="DIS"):
+            t.issue_ev_authority_token(dis_row)
+        refusals = [e for e in t._ev_authority_log if e.get("action") == "refuse_issue"]
+        assert len(refusals) == 1
+        assert refusals[0]["reason"] == "non_positive_ev"
+        assert refusals[0]["row"]["ev_dollars"] == pytest.approx(-30.65)
+        # No token was minted, so the accepted set stayed empty.
+        assert t._ev_authority_tokens == set()
+
+    def test_issue_refuses_zero_ev(self):
+        """ev_dollars == 0 is non-tradeable too — the predicate is
+        strictly positive, matching R1's ``negative EV → blocked``
+        when the EV is exactly at threshold."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        with pytest.raises(EVAuthorityRefused):
+            t.issue_ev_authority_token(self._ev_row(ev_dollars=0.0))
+
+    def test_issue_accepts_positive_ev(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        tok = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
+        assert isinstance(tok, str) and len(tok) == 64  # sha256 hex
+
+    # ------------------------------------------------------------------
+    # D16: consume-time predicate (stale-EV / missing) — token RETAINED
+    # ------------------------------------------------------------------
+    def test_strict_consume_rejects_missing_current_ev_dollars(self):
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=None,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert any(r["reason"] == "missing_current_ev_dollars" for r in rejects)
+        # Token retained — the calc-happened fact is still true.
+        assert token in t._ev_authority_tokens
+
+    def test_strict_consume_rejects_stale_ev_and_retains_token(self):
+        """Stale-EV rejection retains the token (D16). Rationale: the
+        token records an immutable fact (an EV calc happened on this
+        canonical row). A transient negative-EV at fire time does not
+        invalidate that. A subsequent fresh re-rank that comes back
+        positive must be able to re-fire the same token."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
+        # Fire-time EV went negative — reject, retain.
+        ok1 = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=-1.50,
+        )
+        assert ok1 is False
+        assert token in t._ev_authority_tokens
+        stale = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject" and e.get("reason") == "stale_ev"
+        ]
+        assert len(stale) == 1
+        assert stale[0]["current_ev_dollars"] == pytest.approx(-1.50)
+
+        # Now EV re-ranks positive — same token fires successfully.
+        ok2 = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=12.0,
+        )
+        assert ok2 is True
+        assert "TEST" in t.positions
+        # Successful consume discards the token.
+        assert token not in t._ev_authority_tokens
+
+    def test_strict_consume_rejects_zero_current_ev_dollars(self):
+        """Zero is non-tradeable — predicate is strictly positive."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=0.0,
+        )
+        assert ok is False
+        assert token in t._ev_authority_tokens  # retained
+
+    # ------------------------------------------------------------------
+    # D16: open_covered_call brought under the same gate (was exempt)
+    # ------------------------------------------------------------------
+    def test_strict_open_covered_call_rejects_without_token(self):
+        """Mirror of test_strict_tracker_rejects_trade_without_token
+        for the call leg — the constructor docstring has always
+        claimed this was enforced; D16 makes it true."""
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        # Set up a STOCK_OWNED position by hand (skipping the put-leg
+        # gate is fine for this unit; the call-leg gate is the target).
+        t.positions["AAPL"] = WheelPosition(
+            ticker="AAPL",
+            state=PositionState.STOCK_OWNED,
+            entry_date=date(2026, 4, 1),
+            stock_shares=100,
+            stock_basis=180.0,
+        )
+        ok = t.open_covered_call(
+            ticker="AAPL",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+            ev_authority_token=None,
+            current_ev_dollars=None,
+        )
+        assert ok is False
+        # Position state still STOCK_OWNED — call leg was not opened.
+        assert t.positions["AAPL"].state == PositionState.STOCK_OWNED
+
+    def test_strict_open_covered_call_accepts_valid_token(self):
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t.positions["AAPL"] = WheelPosition(
+            ticker="AAPL",
+            state=PositionState.STOCK_OWNED,
+            entry_date=date(2026, 4, 1),
+            stock_shares=100,
+            stock_basis=180.0,
+        )
+        token = t.issue_ev_authority_token(
+            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0)
+        )
+        ok = t.open_covered_call(
+            ticker="AAPL",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+            ev_authority_token=token,
+            current_ev_dollars=18.0,
+        )
+        assert ok is True
+        assert t.positions["AAPL"].state == PositionState.COVERED_CALL
+
+    def test_non_strict_open_covered_call_unchanged(self):
+        """In non-strict mode the new parameters are ignored — the
+        existing covered-call test surface (which never passes a
+        token) stays green."""
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=100_000)  # default: require_ev_authority=False
+        t.positions["AAPL"] = WheelPosition(
+            ticker="AAPL",
+            state=PositionState.STOCK_OWNED,
+            entry_date=date(2026, 4, 1),
+            stock_shares=100,
+            stock_basis=180.0,
+        )
+        ok = t.open_covered_call(
+            ticker="AAPL",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+        )
+        assert ok is True
 
 
 # ======================================================================

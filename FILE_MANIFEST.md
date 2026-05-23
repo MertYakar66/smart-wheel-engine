@@ -460,6 +460,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/validate_environment.py` | Environment validation for CI — Python version, dependencies, env vars, directory structure. |
 | `scripts/check_env.py` | A small environment smoke check printing core-package versions. |
 | `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa); wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
+| `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `SWE_DATA_PROVIDER`. See `docs/PARALLEL_SESSIONS.md` "Env vars per terminal". |
+| `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same six env vars. |
 | `scripts/process_bloomberg_exports.py` | Cleans and validates Bloomberg-exported CSVs into the per-ticker layout. |
 | `scripts/download_sp500_constituents.py` | Scrapes the current S&P 500 constituent list from Wikipedia. |
 | `scripts/download_ohlcv.py` | yfinance per-ticker OHLCV downloader. |

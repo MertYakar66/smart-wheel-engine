@@ -184,12 +184,47 @@ class TestWheelTrackerRoundTrip:
     def test_ev_authority_tokens_and_log_round_trip(self):
         t = WheelTracker(initial_capital=100_000.0, require_ev_authority=True)
         token = t.issue_ev_authority_token(
-            {"ticker": "AAA", "strike": 180.0, "premium": 2.0, "dte": 35}
+            # ev_dollars must be > 0 post-D16 or issuance raises.
+            {"ticker": "AAA", "strike": 180.0, "premium": 2.0, "dte": 35, "ev_dollars": 25.0}
         )
         back = WheelTracker.from_dict(t.to_dict())
         assert back.require_ev_authority is True
         assert token in back._ev_authority_tokens
         assert back._ev_authority_log == t._ev_authority_log
+
+    def test_persisted_token_consume_round_trip_d16(self):
+        """D16: a token issued under the new contract survives
+        save → load → consume, provided the caller supplies a fresh
+        ``current_ev_dollars`` at fire time. The persistence schema
+        (set[str] of hashes) is unchanged; the new predicate is
+        applied at consume against the *reloaded* tracker."""
+        t = WheelTracker(initial_capital=100_000.0, require_ev_authority=True)
+        token = t.issue_ev_authority_token(
+            {
+                "ticker": "AAA",
+                "strike": 180.0,
+                "premium": 2.0,
+                "dte": 35,
+                "ev_dollars": 30.0,
+            }
+        )
+        back = WheelTracker.from_dict(t.to_dict())
+        assert token in back._ev_authority_tokens
+
+        # Fire on the reloaded tracker with a fresh current_ev_dollars.
+        ok = back.open_short_put(
+            ticker="AAA",
+            strike=180.0,
+            premium=2.0,
+            entry_date=date(2026, 1, 5),
+            expiration_date=date(2026, 2, 9),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=30.0,
+        )
+        assert ok is True
+        # Successful consume discards the token on the reloaded tracker.
+        assert token not in back._ev_authority_tokens
 
     def test_connector_not_serialised_and_reattached(self):
         sentinel = object()

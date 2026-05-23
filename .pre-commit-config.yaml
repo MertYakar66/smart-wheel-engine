@@ -53,6 +53,16 @@ repos:
         args: ['--baseline', '.secrets.baseline']
         exclude: package.lock.json
 
+  # Repo-doc integrity — FILE_MANIFEST.md must account for every tracked file
+  - repo: local
+    hooks:
+      - id: manifest-coverage
+        name: FILE_MANIFEST.md covers every tracked file
+        entry: python scripts/check_manifest_coverage.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
 # CI configuration
 ci:
   autofix_commit_msg: |
@@ -61,5 +71,5 @@ ci:
   autoupdate_branch: ''
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: [mypy]  # Skip mypy in CI as it's handled separately
+  skip: [mypy, manifest-coverage]  # run as dedicated CI jobs, not on pre-commit.ci
   submodules: false

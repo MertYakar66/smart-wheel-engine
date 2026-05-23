@@ -459,6 +459,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/run_pipeline.py` | CLI front-end to the data `PipelineOrchestrator`. |
 | `scripts/validate_environment.py` | Environment validation for CI — Python version, dependencies, env vars, directory structure. |
 | `scripts/check_env.py` | A small environment smoke check printing core-package versions. |
+| `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa); wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
 | `scripts/process_bloomberg_exports.py` | Cleans and validates Bloomberg-exported CSVs into the per-ticker layout. |
 | `scripts/download_sp500_constituents.py` | Scrapes the current S&P 500 constituent list from Wikipedia. |
 | `scripts/download_ohlcv.py` | yfinance per-ticker OHLCV downloader. |

@@ -57,6 +57,21 @@ jobs:
         run: mypy src/ --ignore-missing-imports
         continue-on-error: true  # Type errors are warnings for now
 
+  manifest-coverage:
+    name: FILE_MANIFEST Coverage
+    runs-on: ubuntu-latest
+    # Independent of the lint job: stdlib + git only, no pip install, no needs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check FILE_MANIFEST.md covers every tracked file
+        run: python scripts/check_manifest_coverage.py
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest

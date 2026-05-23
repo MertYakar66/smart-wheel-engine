@@ -65,24 +65,19 @@ These were named in `PROJECT_STATE.md` §5 and are still pending. Each
 is a one-shot doc edit, not code.
 
 ### B1. `README.md` — describes the wrong product
-**Status:** `next`
-**Issue:** the root README references the Python CLI dashboard
-(`python -m dashboard.quant_dashboard`), broker env vars
-(`BROKER_API_KEY`, `BROKER_SECRET`) which are out of scope per
-`CLAUDE.md`'s NEVER list, and a 6-folder project structure (actual is 20+).
-**Done when:** README reflects the real entry points
-(`python engine_api.py`, the Next.js dashboard, `morning_run.py`),
-removes broker references, and points at `AGENTS.md` /
-`PROJECT_STATE.md` / `MODULE_INDEX.md` for orientation.
+**Status:** `done` — wholesale rewrite. README now leads with the
+four-layer model + EV invariant, points at `python engine_api.py` /
+the Next.js dashboard / `morning_run.py` as the real entry points,
+removes the CLI-dashboard and broker-env-var references, and links
+the full Tier-1 + Tier-2 + on-demand doc set.
 
 ### B2. `docs/CONTRIBUTING.md` — installs phantom deps
-**Status:** `next`
-**Issue:** says `pip install -e ".[dev]"` will install from a
-pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
-deps. None are part of the EV decision path.
-**Done when:** either pyproject is cleaned (see B5) or
-docs/CONTRIBUTING.md tells the contributor which deps are optional and
-why.
+**Status:** `done` — rewrote setup to use `pip install -r requirements.txt`
+plus the explicit dev-tooling install. The pyproject install
+(`pip install -e ".[dev]"`) is explicitly called out as known-stale
+with a pointer to B5. Took the "docs/CONTRIBUTING.md tells the
+contributor which deps are optional and why" branch of the original
+Done-when.
 
 ### B3. `docs/ARCHITECTURE.md` — describes the wrong tree
 **Status:** `done` — archived in D14 to `archive/2026-05/ARCHITECTURE.md`.

@@ -4,8 +4,9 @@ How market data, derived features, credentials, and analyst
 deliverables flow through this repo — what is tracked, what is
 ignored, what is regenerable, and what must never leave the laptop.
 
-This file is the operational counterpart to `CLAUDE.md` §3
-(provider matrix) and `DATA_SPECIFICATION.md` (schemas).
+This file is the operational counterpart to the data-layer entry
+in `CLAUDE.md` and to `DATA_SPECIFICATION.md` (schemas). The full
+provider capability matrix lives in §2 below.
 
 ---
 
@@ -148,8 +149,9 @@ The repo lives on a Google Drive mount. Two operational rules apply:
    `git show origin/<branch>:<path>` and apply manually, or do the
    pull on the laptop (where unlink works) and let Drive sync.
 
-`CLAUDE.md` §3 has the canonical version of these rules; this file
-duplicates them because data refresh sessions hit them constantly.
+These rules are surfaced again in `docs/LAPTOP_SETUP.md`; the
+data-refresh use case hits them constantly so the canonical version
+lives here.
 
 ---
 
@@ -199,5 +201,5 @@ adapter, new RSS feed):
    reviewer per `DECISIONS.md` D1 — never as a direct ranker input.
 5. Add a `pull_*.py` under `scripts/` and wire it into
    `scripts/pull_all.py` so daily refreshes pick it up.
-6. Add a row to `CLAUDE.md` §3 capability matrix and to §1 of this
-   file.
+6. Add a row to the capability matrix in §2 above and to §1 of
+   this file.

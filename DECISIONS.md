@@ -177,7 +177,7 @@ sandboxes have no Theta access (use bloomberg); a live laptop with
 the Terminal up uses theta. Hardcoding either would force code
 changes per environment.
 
-**Pinned by:** `CLAUDE.md` §3 (data-provider matrix),
+**Pinned by:** `docs/DATA_POLICY.md` §2 (capability matrix),
 `engine/wheel_runner.py:131`, SessionStart hook.
 
 ---
@@ -195,8 +195,8 @@ laptop hasn't checked out won't appear on Drive even if origin has
 it. Worse, Drive denies `unlink` on existing tracked files, so
 `git pull` may fetch refs but fail to update the worktree.
 
-**Pinned by:** `CLAUDE.md` §3 ("Drive mounts are
-eventually-consistent mirrors"), `docs/LAPTOP_SETUP.md`.
+**Pinned by:** `docs/DATA_POLICY.md` §6 (Drive-mount caveats),
+`docs/LAPTOP_SETUP.md`.
 
 ---
 
@@ -215,9 +215,10 @@ contract would create a silent fallback path. The choice is between
 clearly-named fallback (`flat_iv_fallback`, never silent). Either is
 acceptable; a silent flat-IV stub is not.
 
-**Pinned by:** `CLAUDE.md` §3, `PROJECT_STATE.md` §3 (iv_surface
-integration decision), `MODULE_INDEX.md` (`volatility_surface.py`
-marked **dormant**).
+**Pinned by:** `PROJECT_STATE.md` §3 (iv_surface integration
+decision), `MODULE_INDEX.md` (`volatility_surface.py` marked
+**dormant**). `CLAUDE.md`'s quant-layer entry points back at this
+decision rather than re-stating it.
 
 ---
 

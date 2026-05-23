@@ -64,7 +64,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass). |
 | `earnings_drift.py` | Post-earnings drift adjustment. |
-| `strangle_timing.py` | Strangle entry timing gate (timing-gated strategy from CLAUDE.md §4). |
+| `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
 
 ### Reviewers (downgrade-only)
 
@@ -186,7 +186,7 @@ Key scripts:
 |---|---|
 | `pull_all.py` | Orchestrates every `pull_*.py` step; respects `--skip` for tier-blocked endpoints. |
 | `backfill_features.py` | Rebuilds the `data/features/**` shards (1.2 GB total; AAPL is the in-git sample). |
-| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `CLAUDE.md` §6. |
+| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `CLAUDE.md`'s fresh-session bring-up. |
 | `feature_smoke_test.py` | 127 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
 | `theta_backfill.py` | Tier-aware bulk backfill with circuit breakers. |
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
@@ -230,7 +230,7 @@ updated. See `PROJECT_STATE.md` §5.
 | `backtests/` | `simulator.py`, `walk_forward.py`. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | 72 `test_*.py` files + `quant_benchmarks.py` shared fixtures (~1,730 tests). See `TESTING.md`. | live |
-| `data/`, `data_processed/`, `data_raw/` | See `CLAUDE.md` §3 for the provider matrix and what is committed vs. regenerable. | live |
+| `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |
 | `docs/` | The documentation set — operational, reference and design-contract docs. See `FILE_MANIFEST.md` for the full per-file listing. | live |
 | `config/` | `settings.py`. | live |
 | `utils/` | `data_validation.py`, `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py`. | live |

@@ -48,7 +48,7 @@ locked in by tests; violating them must fail CI.
 | Rule | Source | Lock |
 |---|---|---|
 | EV is the only ranker | `CLAUDE.md` §2; `EVEngine.evaluate` | `tests/test_audit_invariants.py` |
-| Any chart provider routes through `EnginePhaseReviewer` | `CLAUDE.md` §7 | `tests/test_dossier_invariant.py` |
+| Any chart provider routes through `EnginePhaseReviewer` | `CLAUDE.md` (the hard EV invariant); `MODULE_INDEX.md` (`tradingview_bridge.py` row) | `tests/test_dossier_invariant.py` |
 | Reviewers can downgrade, never upgrade | `engine/candidate_dossier.py` | `TestEnginePhaseReviewer.test_negative_ev_blocked_even_with_perfect_chart` |
 | **No quiet substitution on MCP failure** | this doc, §7 | `tests/test_dossier_invariant.py::test_mcp_provider_errored_context_routes_to_review` (pending) |
 

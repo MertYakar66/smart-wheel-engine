@@ -69,7 +69,7 @@ is a one-shot doc edit, not code.
 **Issue:** the root README references the Python CLI dashboard
 (`python -m dashboard.quant_dashboard`), broker env vars
 (`BROKER_API_KEY`, `BROKER_SECRET`) which are out of scope per
-`CLAUDE.md` §4, and a 6-folder project structure (actual is 20+).
+`CLAUDE.md`'s NEVER list, and a 6-folder project structure (actual is 20+).
 **Done when:** README reflects the real entry points
 (`python engine_api.py`, the Next.js dashboard, `morning_run.py`),
 removes broker references, and points at `AGENTS.md` /
@@ -233,9 +233,9 @@ tests/ scripts/ utils/ news_pipeline/ dashboard/` is clean
 
 ## Track D — Things explicitly out of scope (do not propose)
 
-Reproduced from `CLAUDE.md` §4 so a fresh agent doesn't have to find
-it. Adding any of these requires explicit user consent and probably
-a redesign of the EV path:
+Reproduced from `CLAUDE.md`'s NEVER list so a fresh agent doesn't
+have to find it. Adding any of these requires explicit user consent
+and probably a redesign of the EV path:
 
 - Tick-level order flow / microstructure (Theta v3 doesn't expose it)
 - Auto-execution / broker wiring / OMS / order routing

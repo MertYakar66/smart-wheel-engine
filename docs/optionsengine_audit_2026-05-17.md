@@ -66,7 +66,7 @@
 | Margin "from `calculate_reg_t_margin_short_put`" | **PASS** | exists: `transaction_costs.calculate_reg_t_margin_short_put(strike,underlying_price,premium)` |
 | Sizing "from `engine/risk_manager.py::position_size_kelly`" | **STALE/MISSING** | no `position_size_kelly`. Real: `risk_manager.calculate_kelly_fraction()` + `RiskManager.calculate_position_size()` |
 | `wheel_tracker.py` NO_POSITION→SHORT_PUT logging | **PASS (module)** | `wheel_tracker` imports |
-| No auto broker execution (ib_insync stub) | **PASS** | consistent with CLAUDE.md §4 |
+| No auto broker execution (ib_insync stub) | **PASS** | consistent with CLAUDE.md's NEVER list |
 
 ## §5 — Example 3 (SPX strangle)
 
@@ -117,7 +117,7 @@
 | "**1051 automated tests**" (§8 + §10 ×2) | **STALE** | real = **1734** |
 | "Zero regressions across 5 audit sprints" | **CANT-RUN** | not a structural claim — unverified |
 | "locked in by test `test_candidates_does_not_call_screen_candidates`" | **PASS** | test exists in `tests/test_launch_blockers.py` |
-| §9 limits (no auto-exec, no tick flow, no historical GEX, equities-only, no vision-LLM, charm/vanna observability-only) | **PASS (consistent)** | matches CLAUDE.md §4 / DECISIONS; `src/features/dynamics.py` exists |
+| §9 limits (no auto-exec, no tick flow, no historical GEX, equities-only, no vision-LLM, charm/vanna observability-only) | **PASS (consistent)** | matches CLAUDE.md's NEVER list / DECISIONS; `src/features/dynamics.py` exists |
 
 ## Overall accuracy assessment
 

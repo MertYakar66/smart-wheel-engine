@@ -972,7 +972,8 @@ computation. No §2 violation, no bug. All findings logged.
 ### S14 — Strangle timing-gated entry
 
 **Purpose.** Exercise the strangle timing engine
-(`engine/strangle_timing.py`) — CLAUDE.md §4's one timing-gated
+(`engine/strangle_timing.py`) — the one timing-gated strategy in
+CLAUDE.md's NEVER list,
 strategy, unexercised by every prior usage test — and answer the §2
 question: does the strangle path ever produce a tradeable candidate
 that bypasses `EVEngine.evaluate`, or is it purely a timing signal?
@@ -1010,7 +1011,7 @@ Layer-2 IV overlay); the rest logged.
   *violated*, but only because the path stops at "is now a good moment",
   short of a candidate. A trader acting on a `strong_entry` then builds
   the strangle fully unranked. The same structural gap S8 logged for the
-  covered-call leg: an in-scope strategy (CLAUDE.md §4) with no EV
+  covered-call leg: an in-scope strategy (per CLAUDE.md's NEVER list) with no EV
   authority beneath it. **Fixed in `#126`** —
   `WheelRunner.rank_strangles_by_ev` EV-ranks short-strangle candidates
   (strikes + premium): the put leg and the call leg are each scored

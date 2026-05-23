@@ -79,7 +79,7 @@ and `tests/test_authority_hardening.py`.
   `engine/wheel_runner.py`, or `engine/candidate_dossier.py`.
 - Any new data-provider class, advisor, or chart provider.
 - Adding broker / OMS / order-routing surface — out of scope per
-  `CLAUDE.md` §4.
+  `CLAUDE.md`'s NEVER list.
 - Editing `CLAUDE.md` itself.
 - Touching `pyproject.toml` `[project.scripts]` or
   `[tool.hatch] packages` (currently in a known-stale state — see

@@ -1,10 +1,11 @@
 ---
-description: Run the 5-ticker EV-ranker smoke check from CLAUDE.md §6
+description: Run the 5-ticker EV-ranker smoke check from CLAUDE.md (fresh-session bring-up)
 ---
 
-Run the data-layer smoke check from `CLAUDE.md` §6 — it confirms the
-Bloomberg-CSV + connector + EV-engine path is healthy without the
-slow full-universe `scripts/diagnose_candidates.py` run.
+Run the data-layer smoke check from `CLAUDE.md` (the fresh-session
+bring-up steps) — it confirms the Bloomberg-CSV + connector +
+EV-engine path is healthy without the slow full-universe
+`scripts/diagnose_candidates.py` run.
 
 Execute exactly:
 
@@ -27,7 +28,7 @@ The path is healthy if it returns 5 rows with non-null `ev_dollars`,
 `iv`, and `premium`. Report the result, and report which connector class
 was selected (`MarketDataConnector` for the `bloomberg` provider,
 `ThetaConnector` for `theta`) — silent provider selection is a known bug
-source per `CLAUDE.md` §3.
+source per `CLAUDE.md`'s fresh-session bring-up.
 
-This command is a thin wrapper around the documented §6 check; it adds no
-logic of its own.
+This command is a thin wrapper around that documented bring-up check;
+it adds no logic of its own.

@@ -160,7 +160,7 @@ pytest tests/ -m quant -v
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python audit.py` against a running `engine_api.py` |
 | `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |
 
-## Sandbox notes (from `CLAUDE.md` §3)
+## Sandbox notes (canonical: `docs/DATA_POLICY.md` §7)
 
 In a fresh Cowork bash sandbox:
 
@@ -171,7 +171,7 @@ In a fresh Cowork bash sandbox:
   `pip install pyarrow --break-system-packages`.
 - `scripts/diagnose_candidates.py` with default `tickers=None` runs
   full-universe (~3 min) and exceeds the 45 s timeout. Pass an
-  explicit 5-ticker list (see CLAUDE.md §6).
+  explicit 5-ticker list (see `CLAUDE.md`'s fresh-session bring-up).
 
 ## CI
 

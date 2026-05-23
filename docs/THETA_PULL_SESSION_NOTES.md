@@ -77,7 +77,7 @@ itself uses `timeout=30` and chunked retries, so those endpoints actually
 work in practice.
 
 Second, the v3 capability matrix you actually need is already pinned in
-`CLAUDE.md` §3 (provider matrix) and `docs/THETA_USAGE.md` — fundamentals
+`docs/DATA_POLICY.md` §2 (capability matrix) and `docs/THETA_USAGE.md` — fundamentals
 and corp actions are not in v3, VIX futures are tier-blocked, snapshots are
 blocked, EOD index history works.
 
@@ -179,7 +179,7 @@ python scripts/feature_smoke_test.py --section theta --verbose
 
 Sections 15 (connector), 22 (history pulls), and 26 (outputs) should all
 report PASS. Persistent SKIP rows are tier-blocked endpoints (VIX futures,
-snapshots, etc.) and are expected per `CLAUDE.md` §3. What you **don't**
+snapshots, etc.) and are expected per `docs/DATA_POLICY.md` §2. What you **don't**
 want to see: any FAIL.
 
 For a faster sanity check, you can run:

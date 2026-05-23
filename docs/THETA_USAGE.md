@@ -73,8 +73,9 @@ its number verbatim, so Ctrl-F lands you precisely.
 | `data_processed/theta_capabilities.json` | Tier map cached from the last probe |
 
 The local server runs at `http://127.0.0.1:25503`. Provider selection
-happens in `engine/wheel_runner.py:130`. See `CLAUDE.md` §3 for the
-data-provider matrix and `LAPTOP_SETUP.md` for rehydration.
+happens in `engine/wheel_runner.py:130`. See `docs/DATA_POLICY.md`
+§2 for the provider capability matrix and `LAPTOP_SETUP.md` for
+rehydration.
 
 ---
 

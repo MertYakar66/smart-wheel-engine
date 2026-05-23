@@ -152,9 +152,9 @@ list when shipping something genuinely user-facing:
       (currently: BF.B / BRK.B / NVR / DAY — upstream-data gap, not
       a code bug).
 - [ ] If broker / OMS surface is being introduced (which is
-      out-of-scope per `CLAUDE.md` §4 — get explicit consent first):
-      a separate launch-readiness review against the new surface,
-      not just this checklist.
+      out-of-scope per `CLAUDE.md`'s NEVER list — get explicit
+      consent first): a separate launch-readiness review against
+      the new surface, not just this checklist.
 - [ ] The dashboard (`dashboard/src/`, Next.js) still builds and
       hits the `:8787` API without errors.
 

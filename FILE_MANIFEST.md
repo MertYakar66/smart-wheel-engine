@@ -26,7 +26,7 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | File | Purpose |
 |---|---|
 | `AGENTS.md` | Tier-1 canonical agent entry doc — the read order any AI agent follows on entering the repo, plus the hard EV invariant. |
-| `CLAUDE.md` | Tier-1 entry contract — the four-layer mental model, the §2 EV invariant, the data-provider matrix, the out-of-scope list, the bring-up checklist. |
+| `CLAUDE.md` | Tier-1 entry contract — the four-layer mental model, the hard EV invariant, the NEVER list, the fresh-session bring-up, and the on-demand pointer block. |
 | `README.md` | Tier-1 human entry point; routes agents to `AGENTS.md` and the doc set. |
 | `PROJECT_STATE.md` | Tier-2 — temporal state: what is authoritative, in progress, or deprecated right now. |
 | `MODULE_INDEX.md` | Tier-2 — per-module purpose and decision-layer role classification. |

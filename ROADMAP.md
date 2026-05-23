@@ -190,32 +190,21 @@ calculus changes and this should be revisited.
 
 ---
 
-## Track F — Lint debt cleanup (next)
+## Track F — Lint debt cleanup (closed)
 
-### F1. Close the residual 44 ruff errors
-**Status:** `next`
-**Context:** PR #64 (`1fb2c33`) closed 187/229 ruff errors via
-`ruff check --fix` + `ruff format`. The residual 44 need
-judgement-required fixes:
-- `UP038` (~14): `isinstance(x, (A, B))` → `isinstance(x, A | B)`.
-  `--unsafe-fixes` autofixable but each one deserves an eyeball
-  for `__instancecheck__` sites.
-- `B904` (~8): `raise X` inside `except` → `raise X from <orig>`.
-  Per-site judgement on which cause to chain.
-- `B023` (~6): closure trap on loop variables. Real bugs hiding
-  in the lint output.
-- `F841` (~5): unused locals. Delete or `_`-prefix.
-- `B019` (~5): mutable default args / cached values.
-- `F821` (~3): undefined names. **Investigate before
-  suppressing** — if real, runtime should already be failing.
-- Misc (~3): `E741` (ambiguous names), `C408` (unnecessary
-  collection call), `P031`, `E402`, `C410`, `B007`.
-**Approach:** one rule per commit so each is independently
-reviewable. Optionally suppress in `pyproject.toml [tool.ruff]
-ignore` with a per-rule justification comment.
-**Done when:** `ruff check src/ engine/ advisors/ financial_news/
-tests/ scripts/ utils/ news_pipeline/ dashboard/` is clean
-(or every remaining error has a documented suppression).
+### F1. Close the residual ruff errors
+**Status:** `done` — closed by PR #79 (`9e15dbf`), merged
+2026-05-15. The mechanical pass (PR #64 `1fb2c33`) left 44
+judgement-required errors as of `3754779`; additional churn between
+that commit and PR #79 grew the count to 75, all cleared in one
+rule-per-commit pass. CI scope (`src/ engine/ data/ advisors/
+financial_news/ tests/ scripts/ utils/ news_pipeline/ dashboard/`)
+verified clean post-merge. Surfaced two real bugs during the cleanup:
+F821 in `engine/ev_engine.py` (missing `if TYPE_CHECKING:` imports —
+`typing.get_type_hints` would have raised `NameError`); B023 closure
+traps in `engine/wheel_runner.py` and `engine/earnings_drift.py`
+(rebound via default-arg capture — latent if either nested function
+is ever stored or deferred). See `CHANGELOG.md` 2026-05.
 
 ---
 

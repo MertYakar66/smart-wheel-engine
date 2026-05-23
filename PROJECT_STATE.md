@@ -338,9 +338,6 @@ not been fixed in this review pass:
 - `docs/CONTRIBUTING.md` — `pip install -e ".[dev]"` will install from a
   pyproject still listing `streamlit`, `prefect`, `ib_insync` as hard
   deps; none are part of the EV decision path.
-- `docs/ARCHITECTURE.md` — describes `src/data`, `src/features`,
-  `src/execution` as the live architecture. Actual quant layer is
-  `engine/`. CLAUDE.md §1 supersedes.
 - `dashboard/README.md` — still says "FinanceNews — AI Financial News
   Platform". Directory was reused; README was not.
 - `pyproject.toml` —

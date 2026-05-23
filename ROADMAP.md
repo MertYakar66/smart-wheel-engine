@@ -85,12 +85,8 @@ docs/CONTRIBUTING.md tells the contributor which deps are optional and
 why.
 
 ### B3. `docs/ARCHITECTURE.md` — describes the wrong tree
-**Status:** `next`
-**Issue:** documents `src/data`, `src/features`, `src/execution` as
-the live architecture. Actual quant layer is `engine/`.
-**Done when:** the doc is rewritten against `engine/` and references
-`MODULE_INDEX.md` for the per-module map, OR the doc is replaced
-with a one-line redirect to `MODULE_INDEX.md`.
+**Status:** `done` — archived in D14 to `archive/2026-05/ARCHITECTURE.md`.
+`MODULE_INDEX.md` is the live per-module map.
 
 ### B4. `dashboard/README.md` — wrong product name
 **Status:** `next`
@@ -109,13 +105,9 @@ packages = ["src"]` would build a wheel that excludes `engine/`,
 real entry; the packages list reflects the real install surface.
 
 ### B6. `tradingview/README.md` — references a non-existent doc
-**Status:** `next`
-**Issue:** line 11 says "the underlying architecture is documented in
-`TRADINGVIEW_INTEGRATION_REPORT.md` at the repo root" — that file
-does not exist.
-**Done when:** the link is updated to point at
-`docs/TRADINGVIEW_INTEGRATION.md` (parent doc) and
-`docs/TRADINGVIEW_MCP_INTEGRATION.md` (MCP-specific design contract).
+**Status:** `done` — fixed during the foundation pass
+(see `PROJECT_STATE.md` §3.5). Link now points at
+`docs/TRADINGVIEW_INTEGRATION.md`.
 
 ---
 

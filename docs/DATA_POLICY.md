@@ -36,9 +36,21 @@ Read in `engine/wheel_runner.py:130` and
 SessionStart hook prints a warning when the variable is unset and
 defaults to `bloomberg`.
 
-The full per-capability matrix (chains / IV history / fundamentals /
-corporate actions / VIX / etc.) lives in `CLAUDE.md` §3 — read it
-before assuming a feature works on both providers.
+### Capability matrix
+
+| Capability | `bloomberg` (CSVs in git) | `theta` (live Terminal) |
+|---|---|---|
+| Historical OHLCV | ✅ `data/bloomberg/sp500_ohlcv.csv` | ✅ stock EOD |
+| IV history | ✅ `sp500_vol_iv_full.csv` | ✅ |
+| Liquidity | ✅ `sp500_liquidity.csv` | ⚠ derived |
+| Fundamentals | ✅ `sp500_fundamentals*.csv` | ❌ (not in v3) |
+| Option chains (live) | ❌ | ✅ requires Terminal @ `127.0.0.1:25503` |
+| First-order greeks | ❌ | ✅ |
+| VIX / SKEW EOD | ✅ | ✅ (EOD only — snapshots blocked) |
+| VIX futures (UX1–UX8) | ❌ | ❌ (tier-blocked) |
+| Corporate actions | ✅ | ❌ (not in v3) |
+
+Read this matrix before assuming a feature works on both providers.
 
 ---
 
@@ -112,6 +124,7 @@ panels keyed by `(ticker, period, announcement_date)`. The
 | Treasury yields | `python scripts/pull_treasury_yields_yf.py` | weekly | refreshes `treasury_yields.csv` |
 | Feature shards | `python scripts/backfill_features.py` | when feature def changes | regenerates `data/features/`; AAPL stays as sample |
 | Bloomberg Terminal exports | Excel macros in `scripts/bloomberg_*.bas` | monthly | manual; produces fresh wide-format panels |
+| Theta capability probe | `python scripts/probe_theta_capabilities.py` | when tier coverage changes | regenerates `data_processed/theta_capabilities.json` (the tier map). Run if the file is absent or after a Theta v3 plan change. |
 
 The yfinance refreshes mutate tracked CSVs in place. Treat each
 refresh as a data commit (see `ROADMAP.md` C1 for the open question
@@ -154,6 +167,20 @@ duplicates them because data refresh sessions hit them constantly.
 The SessionStart hook validates the laptop-side prerequisites on
 every fresh Claude session. In Cowork it warns about the missing
 provider and falls back to the bloomberg-CSV path.
+
+**Sandbox operational notes:**
+
+- **`pyarrow` is not pre-installed in a fresh Cowork bash sandbox.**
+  Any parquet read dies with `Unable to find a usable engine` until
+  you run `pip install pyarrow --break-system-packages`.
+- **`pip install -r requirements.txt` exceeds the 45 s bash timeout.**
+  Batch the installs: `scipy` alone, then
+  `statsmodels arch scikit-learn`, then `yfinance pydantic`. The
+  SessionStart hook can handle the batching when configured.
+- **The 45 s rule applies to any single bash call** — if it can't
+  finish in 45 s, chunk it and pass state through workspace files.
+  Bash calls don't share state across invocations, so `nohup &` does
+  not persist.
 
 ---
 

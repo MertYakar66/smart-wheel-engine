@@ -253,18 +253,20 @@ modules' outputs via files on disk; the consumers are already
 covered. Pushing for higher % on the producers would be coverage
 theater.
 
-**Lint debt (44 errors)** still red on main as of `3754779`. PR
-#64 closed 187/229 mechanical errors but the residual judgement-
-required tail (UP038 unsafe-fixes, B904 raise-from, B023 closure
-trap, F841 unused locals, B019 mutable defaults, F821 undefined
-names, E741 ambiguous names) needs a follow-up PR. Tracked in
-`ROADMAP.md` Track F.
+**Lint debt — closed.** At commit `3754779` the residual was 44
+judgement-required errors after PR #64 (`1fb2c33`) closed 187/229
+mechanical fixes. The tail (B904 raise-from, B023 closure trap,
+F841 unused locals, B019 lru_cache-on-method, F821 undefined names,
+E741 ambiguous names + UP/I/F/C one-offs) was cleared by PR #79
+(`9e15dbf`) on 2026-05-15 — 75 → 0 across the CI scope (additional
+errors had accumulated between `3754779` and PR #79). ROADMAP Track
+F is closed.
 
 **Open follow-ups (small, self-contained):**
 
 | # | Item | Status |
 |---|---|---|
-| 1 | Lint debt cleanup (44 → 0 errors) | next |
+| 1 | Lint debt cleanup (44 → 0 errors) | done — PR #79 (`9e15dbf`) |
 | 2 | yfinance CSV refresh stash decision | next — real revisions, not noise; ROADMAP C1 |
 | 3 | TRADINGVIEW_INTEGRATION.md MCP repo URL placeholder | done — PR #100 (`ad1bbbc`) 2026-05-19; real URL + live-verified MCP shapes |
 | 4 | Original Theta walkthrough — `probe_theta_capabilities.py` step 2 | needs laptop run |

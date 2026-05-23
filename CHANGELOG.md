@@ -105,6 +105,23 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   accumulator that pullers will write to a JSON sidecar at
   end-of-run (C4). Per-puller wiring lands separately in this
   PR. See `DECISIONS.md` D11.
+- **Lint debt closed — 75 ruff errors → 0 across the CI scope.**
+  PR #79 (`9e15dbf`, 2026-05-15) cleared the judgement-required tail
+  left after PR #64's mechanical pass: B904 raise-from, B023 closure
+  trap, F841 unused locals, B019 lru_cache-on-method, F821 undefined
+  names, E741 ambiguous, plus UP/I/F/C one-offs. Rule-per-commit pass;
+  CI scope (`src/ engine/ data/ advisors/ financial_news/ tests/
+  scripts/ utils/ news_pipeline/ dashboard/`) verified clean
+  post-merge. **Two real latent bugs surfaced:** F821 in
+  `engine/ev_engine.py` — the unconventional `if False:  # TYPE_CHECKING`
+  guard hid the bug from ruff but `typing.get_type_hints(EVEngine)`
+  would have raised `NameError`; fix uses the canonical
+  `if TYPE_CHECKING:` and adds the missing `EventGate`,
+  `MarketStructure`, `datetime.date` imports. B023 closure traps in
+  `engine/wheel_runner.py` (put-delta solver) and
+  `engine/earnings_drift.py` (return calculator) — both rebound via
+  default-arg capture; latent if either nested function is ever
+  stored or deferred. ROADMAP Track F closed.
 - **`engine/mcp_client.py` live-verified against TradingView Desktop +
   `tv` CLI (LewisWJackson/tradingview-mcp-jackson fork).** PR #100
   (`ad1bbbc`, 2026-05-19). Closes the placeholder URL and the

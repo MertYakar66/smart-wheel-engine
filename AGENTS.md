@@ -83,10 +83,10 @@ and `tests/test_authority_hardening.py`.
 - Editing `CLAUDE.md` itself.
 - Committing to `main` directly (see `COMMIT_GUIDE.md` §5 — branch
   + PR for everything, even one-line typos).
-- Refreshing the tracked Bloomberg CSVs in
-  `data/bloomberg/sp500_*.csv`, `treasury_yields.csv` — these are
-  data commits with audit value (see `ROADMAP.md` C1 — the
-  track-vs-gitignore decision is open).
+- Refreshing the tracked Bloomberg CSVs under `data/bloomberg/`
+  (`sp500_*.csv`, `treasury_yields.csv`) — these are data commits with
+  audit value (see `ROADMAP.md` C1 — the track-vs-gitignore decision
+  is open).
 
 ## Commit format
 

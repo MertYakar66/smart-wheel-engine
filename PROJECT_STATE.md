@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-05-06 (against `origin/main` at `3754779`,
-post-coverage-push merging PRs #63–#69).
+**Last updated:** 2026-05-23 (against `origin/main` at `643f1af`,
+post-D14 doc reorg and the parallel-session work campaign; see
+`CHANGELOG.md` 2026-05 and the coordination board on GitHub
+issue #113 for the per-PR detail).
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of

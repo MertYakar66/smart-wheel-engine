@@ -108,7 +108,7 @@ it is a real consumer (`local_agent/ui/streamlit_app.py`). See
 
 ### B6. `tradingview/README.md` — references a non-existent doc
 **Status:** `done` — fixed during the foundation pass
-(see `PROJECT_STATE.md` §3.5). Link now points at
+(see `PROJECT_STATE.md` §3.6). Link now points at
 `docs/TRADINGVIEW_INTEGRATION.md`.
 
 ---

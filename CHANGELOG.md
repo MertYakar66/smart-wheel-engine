@@ -121,8 +121,8 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   within the same instance short-circuit on the flag without
   re-probing. `get_failures()` returns + clears a per-instance
   accumulator that pullers will write to a JSON sidecar at
-  end-of-run (C4). Per-puller wiring lands separately in this
-  PR. See `DECISIONS.md` D11.
+  end-of-run. Per-puller wiring lands separately in this PR.
+  See `DECISIONS.md` D11.
 - **Lint debt closed — 75 ruff errors → 0 across the CI scope.**
   PR #79 (`9e15dbf`, 2026-05-15) cleared the judgement-required tail
   left after PR #64's mechanical pass: B904 raise-from, B023 closure

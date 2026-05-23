@@ -57,6 +57,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   the matching CI workflow `--cov-fail-under` flag. Pins the floor
   earned by the coverage push (current baseline 82%, 2pp buffer for
   normal PR-to-PR noise). See `DECISIONS.md` D10.
+- **`engine/__init__.py` re-exports the modern decision layer.** Adds
+  `EVEngine`, `EVResult`, `ShortOptionTrade`, `WheelRunner`,
+  `EnginePhaseReviewer`, `CandidateDossier`, and `MarketStructure` to
+  `__all__` (the seven names CLAUDE.md §1 calls the authoritative
+  surface), and a docstring line pointing back at CLAUDE.md §1.
+  A fresh agent can now do `from engine import EVEngine` instead of
+  discovering the four submodule paths. Closes `ROADMAP.md` A3 —
+  the parking concern ("ripples through every import site") was
+  verified false by a pre-edit grep: every existing import uses the
+  full submodule path, so additions to `__all__` can only enable new
+  imports, never break existing ones. `PROJECT_STATE.md` §5 drift
+  entry closed in the same PR.
 
 ### Fixed
 - **Spread-penalty severe-tier never fired.** Inverted threshold ladder
@@ -110,6 +122,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   `engine/earnings_drift.py` (return calculator) — both rebound via
   default-arg capture; latent if either nested function is ever
   stored or deferred. ROADMAP Track F closed.
+- **`engine/mcp_client.py` live-verified against TradingView Desktop +
+  `tv` CLI (LewisWJackson/tradingview-mcp-jackson fork).** PR #100
+  (`ad1bbbc`, 2026-05-19). Closes the placeholder URL and the
+  `TODO(live-verify)` markers left from MCP Stage 2: Windows `cmd /c`
+  invocation for the npm-linked `tv` shim, the `success` status field,
+  and the `file_path` screenshot key all confirmed. `tv state` carries
+  no price (`visible_price` deferred to a future `tv quote` call —
+  operator decision). Only the per-mode error strings in
+  `MCPCLIClient._classify` remain unverified; no live error path was
+  exercised. `tests/test_mcp_client.py` grew 32 → 39 tests (still all
+  subprocess-mocked). Closes `PROJECT_STATE.md §3` follow-ups row 3.
+- **`engine.strangle_timing.StrangleTimingWithIV.score_entry_with_iv`
+  — Layer-2 IV overlay repaired.** Commit `210463d` (2026-05-20).
+  The previously-dead method called four nonexistent connector
+  methods (`get_realized_vol`, `get_current_iv`, `get_vix_level`,
+  `get_vix_contango`) and passed `as_of=` to `get_ohlcv` (also
+  missing). Rewritten to use the real `MarketDataConnector` API:
+  `get_ohlcv(end_date=…)`, `get_iv_rank`, `get_vol_risk_premium`,
+  `get_vix_regime`. The strict-xfail
+  `test_score_entry_with_iv_real_connector_signature_mismatch` was
+  replaced with the green regression test
+  `test_score_entry_with_iv_against_real_connector`, which exercises
+  the overlay end-to-end against the real connector using AAPL's
+  committed Bloomberg CSVs. Closes `PROJECT_STATE.md §3` follow-ups
+  row 5.
 
 ### Infra
 - **`pyproject.toml [project.optional-dependencies] dev`** — declared
@@ -124,6 +161,17 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   is secondary" → "Invariants first, then 80% line coverage as a
   forcing function for edge-case discovery." Records the rationale
   for the gate value and the 2026-05 coverage push.
+- **`tradingview/` analyst workspace staged** — PR #78
+  (`claude/audit-fixes-no-coverage`), merged to main as `4e9c3f3` on
+  2026-05-15. Tracked the six analyst-workspace files left untracked
+  by the foundation pass: `tradingview/CLAUDE.md` (workspace contract
+  for Claude as Mert's financial analyst — pre-flight checklist,
+  deliverable conventions, known coverage gaps), `tradingview/OVERVIEW.md`
+  (operating-overview narrative), `tradingview/launch-tradingview-cdp.sh`
+  (executable launcher with `--remote-debugging-port=9222`), and
+  `.gitkeep` placeholders for `models/`, `pine/`, `research/`. The
+  `tradingview-mcp-jackson/` nested repo and `*.docx` deliverables
+  remain gitignored. Closes ROADMAP Track C2.
 - **`PROJECT_STATE.md` §3.7** added — records the coverage push
   outcome, the four still-open follow-ups (lint debt cleanup,
   yfinance stash decision, MCP repo URL, Theta walkthrough), and

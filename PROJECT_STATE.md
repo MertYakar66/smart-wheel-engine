@@ -268,9 +268,9 @@ F is closed.
 |---|---|---|
 | 1 | Lint debt cleanup (44 → 0 errors) | done — PR #79 (`9e15dbf`) |
 | 2 | yfinance CSV refresh stash decision | next — real revisions, not noise; ROADMAP C1 |
-| 3 | TRADINGVIEW_INTEGRATION.md MCP repo URL placeholder | needs user input |
+| 3 | TRADINGVIEW_INTEGRATION.md MCP repo URL placeholder | done — PR #100 (`ad1bbbc`) 2026-05-19; real URL + live-verified MCP shapes |
 | 4 | Original Theta walkthrough — `probe_theta_capabilities.py` step 2 | needs laptop run |
-| 5 | `StrangleTimingWithIV.score_entry_with_iv` connector signature gap | pinned by strict xfail in `tests/test_strangle_timing.py::test_score_entry_with_iv_real_connector_signature_mismatch`; calls `connector.get_realized_vol`, `get_current_iv`, `get_vix_level`, `get_vix_contango` (none exist) and passes `as_of=` to `get_ohlcv` (not in signature). Resolution: extend `MarketDataConnector` with the IV/VIX accessors **or** rewrite the overlay to use `get_iv_history` / `get_vix` / `get_vol_risk_premium`. Remove the xfail in the same commit |
+| 5 | `StrangleTimingWithIV.score_entry_with_iv` connector signature gap | done — commit `210463d` 2026-05-20; overlay rewritten to use the real connector API (`get_ohlcv(end_date=…)`, `get_iv_rank`, `get_vol_risk_premium`, `get_vix_regime`); xfail replaced with the green `test_score_entry_with_iv_against_real_connector` regression test |
 
 ### Repository structure reorg (D14) — 2026-05-21
 
@@ -339,18 +339,12 @@ not been fixed in this review pass:
   `engine/`, `engine_api.py`, `advisors/`, `dashboard/`, etc., so the
   built wheel would not contain the live code. Touching pyproject
   requires explicit ask per `AGENTS.md`.
-- `engine/__init__.py` — re-exports the legacy quant layer
-  (option_pricer, monte_carlo, regime_detector, signals, etc.) but
-  does **not** re-export `EVEngine`, `WheelRunner`,
-  `EnginePhaseReviewer`, `MarketStructure`. Modern decision-layer
-  symbols can only be imported via their full submodule paths. This
-  is silent — not broken — but misleading to a fresh agent. Held
-  back from prior passes because touching `engine/__init__.py`
-  ripples through every import site.
 
 The entries that previously lived here for `README.md`,
 `docs/CONTRIBUTING.md`, and `dashboard/README.md` were closed by
 the entry-doc repair pass — see `ROADMAP.md` Track B (B1, B2, B4).
+The `engine/__init__.py` modern-decision-layer re-export entry was
+closed by `ROADMAP.md` Track A3 — see `CHANGELOG.md` 2026-05.
 
 ## 6. Branch + workflow policy
 

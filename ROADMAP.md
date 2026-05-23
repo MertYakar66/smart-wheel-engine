@@ -48,14 +48,14 @@ is removed from `engine/__init__.py` re-exports and marked
 **deprecated** in `MODULE_INDEX.md`.
 
 ### A3. `engine/__init__.py` re-exports the modern decision-layer
-**Status:** `parked` (revisit when an EV-layer refactor is in flight)
-**Issue:** the package currently re-exports the legacy quant layer
-(`option_pricer`, `monte_carlo`, `regime_detector`, …) but not
-`EVEngine`, `WheelRunner`, `EnginePhaseReviewer`, `MarketStructure`.
-A fresh agent has to discover the full submodule paths.
-**Why parked:** touching `engine/__init__.py` ripples through every
-import site. Bundle with a real refactor instead of doing in
-isolation.
+**Status:** `done` — the parking premise turned out to be wrong. A
+pre-edit grep proved every existing import site uses the full
+submodule path (`from engine.ev_engine import EVEngine`, etc.), so
+adding entries to `__all__` could only *enable* new imports, never
+break existing ones. Shipped a focused 7-symbol re-export (EVEngine,
+EVResult, ShortOptionTrade, WheelRunner, EnginePhaseReviewer,
+CandidateDossier, MarketStructure) plus a docstring line pointing at
+CLAUDE.md §1. See `CHANGELOG.md` 2026-05.
 
 ---
 
@@ -124,12 +124,14 @@ right now (refreshed earnings + treasury yields).
   that is gitignored
 
 ### C2. Stage the new `tradingview/` analyst workspace files
-**Status:** `next`
-**Files to commit on next branch:** `tradingview/CLAUDE.md`,
+**Status:** `done` — shipped via PR #78
+(`claude/audit-fixes-no-coverage`), merged to main as `4e9c3f3` on
+2026-05-15. Tracked the six listed files: `tradingview/CLAUDE.md`,
 `tradingview/OVERVIEW.md`, `tradingview/launch-tradingview-cdp.sh`,
-`tradingview/models/.gitkeep`, `tradingview/pine/.gitkeep`,
-`tradingview/research/.gitkeep`. The `tradingview-mcp-jackson/`
-nested repo and the `*.docx` deliverables stay gitignored.
+and the three `.gitkeep` placeholders for `models/`, `pine/`, and
+`research/`. The `tradingview-mcp-jackson/` nested repo and the
+`*.docx` deliverables remain gitignored as planned. See
+`CHANGELOG.md` 2026-05.
 
 ### C3. Drop `engine/.gitkeep` and the empty `models/` and
 `validation/` placeholders

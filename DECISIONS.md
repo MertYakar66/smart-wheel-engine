@@ -650,6 +650,87 @@ is the spec), `scripts/setup-terminal.sh`, `scripts/setup-terminal.ps1`,
 
 ---
 
+## D16. EV-authority token is verdict-bound, not just provenance-bound
+
+**Decision:** The EV-authority token gate enforces R1 ("negative EV →
+blocked") at **two** stages, not one. Issuance refuses non-tradeable
+rows outright by raising :class:`EVAuthorityRefused` when
+`ev_row['ev_dollars'] <= 0`. Consume re-checks a fresh
+`current_ev_dollars` argument supplied at fire time: a token that was
+positive at rank time but went stale by fire time is rejected with the
+token **retained** for retry (the calc-happened fact is immutable; a
+transient stale-EV does not invalidate it). Both legs of the wheel —
+`open_short_put` and `open_covered_call` — flow through the same
+`_consume_ev_authority_token` predicate; before D16 only the short-put
+leg was gated despite the constructor docstring claiming both were.
+
+The persistence schema (PR #128's `set[str]` of token hashes) is
+unchanged. Tokens issued under the old code remain consumable from a
+reloaded tracker as long as the caller supplies a fresh
+`current_ev_dollars`.
+
+**Why:** S8 (`docs/USAGE_TEST_LEDGER.md`) found a real DIS candidate
+with `ev_dollars = -30.65` that the token gate accepted because the
+gate only verified that *a calc had happened*, not that the calc said
+*tradeable*. A token can outlive its underlying rank position: market
+moves between rank time and fire time, and "EVEngine.evaluate ran" is
+not the same property as "this is positive-EV now". The two-stage
+predicate aligns the token gate with `EnginePhaseReviewer` R1 so the
+token can never accept what R1 explicitly blocks. The call-leg gap
+was a structural correctness bug, not just doc drift — the docstring
+had promised the leg was gated since the audit-VI hardening pass
+landed.
+
+**Rejected alternatives:**
+- *Option B — R5-strict / `min_proceed_ev` threshold at issuance.*
+  R5 is a configurable reviewer preference (the proceed/review
+  threshold); R1 is the hard CLAUDE.md §2 rule. The token must
+  enforce R1, not import the reviewer's tunable. Importing R5 would
+  also create a new cross-module invariant between `wheel_tracker.py`
+  and `candidate_dossier.py` that would silently drift as either
+  side's threshold changes.
+- *Option C — verdict-encoded token; schema migration.* Encode the
+  rank-time verdict into the token payload itself and migrate
+  persistence to carry it. Rejected for this PR because PR #128 (the
+  persistence schema) shipped ~3 days before this work and migrating
+  the just-stabilised schema is disproportionate to closing the
+  named S8 finding. Option A+Y (this decision) closes S8 without the
+  migration cost; Option C is the right move when a second use case
+  justifies it.
+- *Externalised threshold knob (e.g. `min_ev_dollars` constructor
+  param on `WheelTracker`).* The threshold IS zero — that's R1.
+  Adding a configurable knob re-introduces the Option-B drift risk
+  and gives operators a footgun (set the knob below zero and the
+  gate is back to provenance-only).
+- *Discard the token on stale-EV consume rejection.* The token
+  represents the immutable fact "an EV calc happened on this
+  canonical ev_row". A stale-EV rejection only says the trade isn't
+  positive-EV right now, not that the evidence of the calc is gone.
+  A subsequent fresh re-rank that returns positive should be able to
+  re-fire the same token. Retaining also makes the audit log more
+  useful: N×reject with `reason=stale_ev` for one token is a signal
+  the system was bouncing off the gate.
+- *Make `current_ev_dollars` required positional.* Would break every
+  non-strict test caller in the repo for zero gate value — the gate
+  only fires when `require_ev_authority=True`. Keeping the param
+  optional preserves the research/test surface unchanged.
+- *Gate the call leg silently (no D-entry, treat as bug fix).*
+  Considered. Rejected because the leg-asymmetry has been load-bearing
+  for the audit-VI hardening narrative since the constructor docstring
+  was written; closing it explicitly with a D-entry beats a commit
+  message that decays.
+
+**Pinned by:** `engine/wheel_tracker.py` (`EVAuthorityRefused`,
+`issue_ev_authority_token`, `_consume_ev_authority_token`,
+`open_short_put`, `open_covered_call`),
+`tests/test_authority_hardening.py` (D16 test block including
+`test_s8_dis_negative_ev_refused_at_issue`),
+`tests/test_audit_viii_e2e.py`, `tests/test_wheel_tracker_persistence.py`
+(`test_persisted_token_consume_round_trip_d16`),
+`docs/USAGE_TEST_LEDGER.md` S8 (the originating finding).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

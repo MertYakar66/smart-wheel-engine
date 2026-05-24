@@ -1443,6 +1443,101 @@ class WheelRunner:
         return df
 
     # ------------------------------------------------------------------
+    # Single-ticker surface exploration (investor-scenario 2 follow-up)
+    # ------------------------------------------------------------------
+    def explore_ticker(
+        self,
+        ticker: str,
+        deltas: tuple[float, ...] = (0.15, 0.20, 0.25, 0.30, 0.35),
+        dtes: tuple[int, ...] = (21, 28, 35, 42, 49, 60),
+        contracts: int = 1,
+        as_of: str | None = None,
+        include_diagnostic_fields: bool = True,
+        **rank_kwargs,
+    ) -> pd.DataFrame:
+        """Return a (delta, DTE) grid of short-put candidates for one ticker.
+
+        Where :meth:`rank_candidates_by_ev` solves for **one** strike per
+        ticker via brentq on a single ``delta_target`` and emits one row,
+        this method evaluates every (delta, DTE) cell in the grid and
+        returns one row per cell. The strike-solve, premium construction,
+        forward-distribution pull, and EV evaluation are reused
+        cell-by-cell via :meth:`rank_candidates_by_ev` itself — every row
+        is produced by the same authoritative EV path (§2-safe, no
+        parallel implementation).
+
+        Investor-scenario 2 logged that the screener emits a single
+        ``(delta=0.25, DTE=35)`` cell per ticker, while a direct grid
+        scan shows 14 of 48 cells with strictly higher pre-multiplier EV
+        than the screener's pick. This method surfaces the same grid
+        through the production EV path so investors (or an AI
+        explanation layer) can compare strikes/DTEs after the screener
+        has surfaced a candidate.
+
+        Args:
+            ticker: Single ticker to explore. For multi-ticker screening
+                use :meth:`rank_candidates_by_ev` directly; this method
+                is the per-ticker follow-up.
+            deltas: Tuple of target put deltas (positive, OTM). Each
+                element becomes ``delta_target`` for one inner ranker call.
+            dtes: Tuple of target DTEs in days. Each element becomes
+                ``dte_target`` for one inner ranker call.
+            contracts: Number of contracts per cell (constant across grid).
+            as_of: PIT cutoff date string (same semantics as
+                :meth:`rank_candidates_by_ev`).
+            include_diagnostic_fields: Forwarded to the inner ranker.
+            **rank_kwargs: Additional kwargs forwarded to the inner
+                ranker (e.g. ``use_dealer_positioning=False`` to skip
+                chain-fetch overhead, ``enforce_history_gate=False`` for
+                a short-history research path).
+
+        Returns:
+            DataFrame with one row per (delta, DTE) cell, sorted
+            descending by ``ev_dollars``. The output schema is the
+            inner ranker's schema with an additional ``delta_target``
+            column (inserted after ``ticker``) carrying the cell's
+            target delta. Cells the inner ranker drops (history gate,
+            strike-solver failure, event lockout, etc.) are absent from
+            the returned frame; the union of all inner-ranker drops is
+            exposed on ``df.attrs["drops"]`` with each entry tagged by
+            its ``delta_target`` and ``dte_target``.
+        """
+        rows: list[pd.DataFrame] = []
+        all_drops: list[dict] = []
+        for d in deltas:
+            for t in dtes:
+                sub = self.rank_candidates_by_ev(
+                    tickers=[ticker],
+                    delta_target=float(d),
+                    dte_target=int(t),
+                    contracts=contracts,
+                    top_n=1,
+                    # The grid's purpose is to surface every cell, so we
+                    # disable the EV floor here. Callers that want to
+                    # filter post-hoc can apply ``df[df.ev_dollars > X]``.
+                    min_ev_dollars=-1e9,
+                    as_of=as_of,
+                    include_diagnostic_fields=include_diagnostic_fields,
+                    **rank_kwargs,
+                )
+                if sub is not None and len(sub) > 0:
+                    sub = sub.copy()
+                    # Insert delta_target right after ticker so the grid
+                    # frame reads naturally left-to-right.
+                    sub.insert(1, "delta_target", float(d))
+                    rows.append(sub)
+                inner_drops = sub.attrs.get("drops", []) if sub is not None else []
+                for drop in inner_drops:
+                    all_drops.append({**drop, "delta_target": float(d), "dte_target": int(t)})
+        if not rows:
+            out = pd.DataFrame()
+        else:
+            out = pd.concat(rows, ignore_index=True)
+            out = out.sort_values("ev_dollars", ascending=False).reset_index(drop=True)
+        out.attrs["drops"] = all_drops
+        return out
+
+    # ------------------------------------------------------------------
     # Account-aware book selection (S4 follow-up)
     # ------------------------------------------------------------------
     def select_book(

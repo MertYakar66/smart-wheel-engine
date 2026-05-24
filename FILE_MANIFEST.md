@@ -287,6 +287,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/risk_manager.py` | Position sizing (Kelly), portfolio Greeks, VaR family, sector exposure, hierarchical risk parity. |
 | `engine/stress_testing.py` | Stress-testing — historical/hypothetical scenarios, Greeks sensitivity ladders, scenario reports. |
 | `engine/wheel_tracker.py` | `WheelTracker` — wheel position lifecycle (short put → assignment → covered call → exit) with EV-scored roll suggestions. |
+| `engine/portfolio_risk_gates.py` | D17 / #154 C4 — pure-function library of portfolio-risk gates (sector cap, portfolio delta, Kelly size, VaR, stress scenario, dealer regime) shared by the tracker hard-blocks (Phase 2) and the dossier soft-warns R7+R8 (Phase 3). Wires the existing `risk_manager.py` + `stress_testing.py` + `dealer_positioning.py` machinery that S15 found unimported by the decision-layer trio. |
 | `engine/portfolio_tracker.py` | `PortfolioTracker` — portfolio bookkeeping: tax lots, time-weighted returns, allocation, dividends. |
 | `engine/portfolio_intelligence.py` | Congressional and institutional (13F) trading trackers cross-referenced against a watchlist. |
 | `engine/performance_metrics.py` | Backtest performance reports — return, Sharpe/Sortino, drawdown, profit factor. |
@@ -516,6 +517,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_authority_hardening.py` | Launch-blocker invariant — TV / strangle / tracker route through the EV authority. |
 | `tests/test_ev_authority_log_schema.py` | Schema-closure regression for `WheelTracker._ev_authority_log` — pins the five D16 entry shapes (`issue`, `refuse_issue`, `consume`, `reject` × {unknown_token, missing_current_ev_dollars, stale_ev}) and detects drift (unknown action, missing required key, accidental extra key). |
 | `tests/test_engine_api_port.py` | Unit tests for `engine_api._resolve_port()` — pins the `SWE_API_PORT` contract (default 8787, env override, loud failure on malformed / out-of-range). Closes D15 Unresolved per #154 C7. |
+| `tests/test_portfolio_risk_gates.py` | Unit tests for `engine/portfolio_risk_gates.py` (D17 / #154 C4 Phase 1) — pins the adapter (`take_snapshot`) per `WheelPosition` state plus the five gate functions' pass/fail/skip semantics against the locked D17 defaults. |
 | `tests/test_dossier_invariant.py` | Launch-blocker invariant — the downgrade-only `EnginePhaseReviewer` contract. |
 | `tests/test_launch_blockers.py` | Launch-blocker invariant — `/api/candidates` EV authority, research-only flags, the history/chain/stress gates. |
 | `tests/test_audit_improvements.py` | Quant-correctness for the 2026-04 audit deliverables (forward distributions, empirical surface, survivorship). |

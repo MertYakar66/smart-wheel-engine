@@ -58,6 +58,15 @@ class CandidateDossier:
     # that can downgrade — never upgrade — a candidate based on the
     # market-structure regime relative to the trade strike.
     market_structure: Any = None
+    # Optional portfolio-wide context for the D17 dossier soft-warns
+    # (R7 = VaR; R8 = stress + dealer regime). When attached, the
+    # reviewer can run check_var / check_stress_scenario /
+    # check_dealer_regime against the held book and downgrade
+    # proceed → review if a tail-risk gate fires. When absent, R7
+    # and R8 do not fire — soft-warns should not fire on absent
+    # evidence (Q3 of the #154 C4 design checkpoint). See
+    # engine/portfolio_risk_gates.PortfolioContext.
+    portfolio_context: Any = None
     verdict: Verdict = "review"
     verdict_reason: str = ""
     review_notes: list[str] = field(default_factory=list)
@@ -143,9 +152,35 @@ class EnginePhaseReviewer:
        **proceed**. Below that threshold it is **review** so the human
        opens the screenshot before firing.
 
+    6. *(Conditional — audit V.)* If a `MarketStructure` is attached
+       and the dealer regime is short-gamma amplifying with the
+       candidate strike at or above the nearest put wall — OR the
+       regime is near gamma flip — the verdict is **review**. Like
+       R4, downgrade-only.
+
+    7. *(Conditional — new in D17.)* If a `PortfolioContext` is
+       attached and ``check_var`` reports portfolio VaR_95 (30-day
+       horizon) above ``max_var_pct × NAV`` (default 5%), the
+       verdict is **review** with ``verdict_reason="portfolio_var_breach"``.
+       When the context is absent OR ``check_var`` skips for missing
+       correlation/returns data, R7 does **not** fire — soft-warns
+       don't fire on absent evidence (Q3 of the #154 C4 design
+       checkpoint; matches D11's "no silent substitution" principle).
+
+    8. *(Conditional — new in D17.)* One R8, two trigger conditions
+       (mirrors R6). Either the C4 vol-spike scenario shows
+       portfolio drawdown > 8% NAV (``check_stress_scenario`` fails)
+       OR the candidate's underlying is in ``short_gamma_amplifying``
+       regime (``check_dealer_regime`` fails). Distinct
+       ``verdict_reason`` per trigger
+       (``"stress_breach"`` / ``"short_gamma_regime"``) so the audit
+       trail records which one. Like R6/R7, downgrade-only — never
+       rescues a negative-EV trade (R1 already does that).
+
     Notes:
       * The reviewer is pure — no I/O, no network, no LLM. It only
-        consumes the already-captured dossier.
+        consumes the already-captured dossier (plus the optional
+        attached ``market_structure`` and ``portfolio_context``).
       * All decisions are logged as a list of review_notes strings so
         the audit trail can reconstruct exactly why the verdict
         landed where it did.
@@ -244,7 +279,112 @@ class EnginePhaseReviewer:
                 notes.append("R6: dealer regime near gamma flip - downgrade to review")
                 return "review", "dealer_near_flip", notes
 
+        # Rule 7: portfolio-level VaR (D17 soft-warn). Fires only if
+        # the candidate currently has verdict == "proceed"; downgrade-
+        # only, never upgrades. When no portfolio context is attached
+        # OR check_var skips for missing data, R7 doesn't fire
+        # (soft-warns don't fire on absent evidence — Q3).
+        ctx = getattr(dossier, "portfolio_context", None)
+        if ctx is not None and verdict == "proceed":
+            from .portfolio_risk_gates import check_var
+
+            candidate_dict = self._build_candidate_dict(dossier)
+            var_result = check_var(
+                held_option_positions=getattr(ctx, "held_option_positions", []),
+                spot_prices=getattr(ctx, "spot_prices", {}),
+                candidate_option=candidate_dict,
+                nav=float(getattr(ctx, "nav", 0.0) or 0.0),
+                returns_data=getattr(ctx, "returns_data", None),
+                correlation_matrix=getattr(ctx, "correlation_matrix", None),
+                volatilities=getattr(ctx, "volatilities", None),
+            )
+            if not var_result.passed:
+                var_pct = var_result.details.get("var_pct", 0.0)
+                limit_pct = var_result.details.get("var_limit_pct", 0.0)
+                notes.append(
+                    f"R7: portfolio VaR_95 {var_pct:.1%} exceeds {limit_pct:.1%} NAV "
+                    "- downgrade to review"
+                )
+                return "review", "portfolio_var_breach", notes
+            if var_result.reason == "missing_data":
+                skip_reason = var_result.details.get("skip_reason", "missing_data")
+                notes.append(f"R7: VaR check skipped ({skip_reason})")
+
+        # Rule 8: portfolio stress + dealer regime (D17 soft-warn).
+        # ONE rule with TWO trigger conditions per the Q1 design
+        # decision: either the C4 vol-spike stress drawdown exceeds
+        # the 8% NAV threshold OR the candidate's underlying is in
+        # short_gamma_amplifying regime. Mirrors R6's "short-gamma +
+        # put-wall OR dealer-flip" two-trigger pattern. Distinct
+        # verdict_reason per trigger so the audit trail records
+        # which one fired. Downgrade-only; never upgrades.
+        if ctx is not None and verdict == "proceed":
+            from .portfolio_risk_gates import check_dealer_regime, check_stress_scenario
+
+            candidate_dict = self._build_candidate_dict(dossier)
+
+            stress_result = check_stress_scenario(
+                held_option_positions=getattr(ctx, "held_option_positions", []),
+                spot_prices=getattr(ctx, "spot_prices", {}),
+                candidate_option=candidate_dict,
+                nav=float(getattr(ctx, "nav", 0.0) or 0.0),
+            )
+            if not stress_result.passed:
+                drawdown = stress_result.details.get("drawdown_pct", 0.0)
+                limit = stress_result.details.get("drawdown_limit_pct", 0.0)
+                scenario = stress_result.details.get("scenario_name", "stress")
+                notes.append(
+                    f"R8 (stress): {scenario} drawdown {drawdown:.1%} exceeds "
+                    f"{limit:.1%} NAV - downgrade to review"
+                )
+                return "review", "stress_breach", notes
+
+            regime_result = check_dealer_regime(
+                candidate_ticker=dossier.ticker,
+                dealer_regime_by_ticker=getattr(ctx, "dealer_regime_by_ticker", None),
+            )
+            if not regime_result.passed:
+                notes.append(
+                    f"R8 (dealer): {dossier.ticker} in short_gamma_amplifying regime "
+                    "- downgrade to review"
+                )
+                return "review", "short_gamma_regime", notes
+
         return verdict, reason, notes
+
+    @staticmethod
+    def _build_candidate_dict(dossier: CandidateDossier) -> dict:
+        """Build the option position-dict shape upstream gate APIs
+        expect, from a dossier's ev_row.
+
+        Pure helper — no I/O, no state. Used by R7 and R8.
+        """
+        ev_row = dossier.ev_row
+        # Default option_type to "put" because the wheel pipeline
+        # ranks short puts; the column is rarely present on the row
+        # itself.
+        opt_type = str(ev_row.get("option_type", "put"))
+        try:
+            strike = float(ev_row.get("strike", 0) or 0)
+        except (TypeError, ValueError):
+            strike = 0.0
+        try:
+            dte = int(ev_row.get("dte", 0) or 0)
+        except (TypeError, ValueError):
+            dte = 0
+        try:
+            iv = float(ev_row.get("iv", 0) or 0)
+        except (TypeError, ValueError):
+            iv = 0.0
+        return {
+            "symbol": dossier.ticker,
+            "option_type": opt_type,
+            "strike": strike,
+            "dte": dte,
+            "iv": iv,
+            "contracts": 1,
+            "is_short": True,
+        }
 
 
 # ----------------------------------------------------------------------

@@ -52,6 +52,53 @@ from .stress_testing import Scenario, ScenarioType, StressTester
 if TYPE_CHECKING:
     from .wheel_tracker import WheelPosition
 
+
+@dataclass
+class PortfolioContext:
+    """Portfolio-wide inputs for the D17 dossier soft-warns (R7 + R8).
+
+    Attached to a :class:`CandidateDossier` so the reviewer can run
+    the VaR and stress gates against the held book without re-reading
+    the tracker. When absent, R7 and R8 do not fire — same
+    "missing data → skip" semantics from Q3 of the design checkpoint
+    (soft-warns should not fire on absent evidence).
+
+    Caller (typically the dossier builder or the tracker, whichever
+    has portfolio state in hand) constructs this once per ranking
+    pass and attaches it to every dossier in the pass.
+
+    Fields:
+        held_option_positions: List of position dicts in the shape
+            ``risk_manager.py``'s APIs expect — produced by
+            :func:`take_snapshot`.
+        spot_prices: Spot price per ticker for delta/stress math.
+            Caller fetches.
+        stock_holdings: ``(ticker, shares)`` pairs from
+            :func:`take_snapshot`.
+        nav: Net asset value (live or static per the operator's
+            choice — see DECISIONS.md D17).
+        dealer_regime_by_ticker: Optional ticker → regime map for the
+            R8 short-gamma trigger. When None or candidate ticker
+            missing, the regime branch of R8 skips
+            (``check_dealer_regime`` returns ``missing_data``).
+        returns_data: Optional historical returns for the
+            ``check_var`` historical path.
+        correlation_matrix: Optional correlation matrix for the
+            ``check_var`` covariance path.
+        volatilities: Optional per-ticker vol overrides for the
+            covariance path.
+    """
+
+    held_option_positions: list[dict] = field(default_factory=list)
+    spot_prices: dict[str, float] = field(default_factory=dict)
+    stock_holdings: list[tuple[str, int]] = field(default_factory=list)
+    nav: float = 0.0
+    dealer_regime_by_ticker: dict[str, str] | None = None
+    returns_data: object | None = None
+    correlation_matrix: object | None = None
+    volatilities: dict[str, float] | None = None
+
+
 # ----------------------------------------------------------------------
 # Locked defaults (D17). Override per-call; do not change the constants.
 # ----------------------------------------------------------------------

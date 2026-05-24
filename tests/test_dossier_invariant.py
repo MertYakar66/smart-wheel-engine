@@ -186,3 +186,226 @@ def test_mcp_provider_pit_violation_when_as_of_set():
         "should have refused the live call to avoid look-ahead leak"
     )
     assert ctx.screenshot_path is None
+
+
+# ======================================================================
+# D17 dossier soft-warns — R7 (VaR) + R8 (stress + dealer regime)
+# ======================================================================
+class TestD17DossierSoftWarns:
+    """R7 and R8 are downgrade-only soft-warns introduced in #154 C4.
+    Each test attaches a PortfolioContext to the dossier and verifies
+    the reviewer fires (or skips) the rule against the expected
+    trigger conditions."""
+
+    def _proceeding_dossier(self, ticker="TEST", strike=100.0, premium=2.0, ev_dollars=50.0):
+        """Build a dossier in 'proceed' state via R5 (EV > threshold)
+        with a clean chart (no R2/R3/R4/R6 trigger). Then attach
+        portfolio_context per-test and re-run the reviewer."""
+        from engine.candidate_dossier import CandidateDossier
+
+        return CandidateDossier(
+            ticker=ticker,
+            ev_row={
+                "ticker": ticker,
+                "strike": strike,
+                "premium": premium,
+                "ev_dollars": ev_dollars,
+                "iv": 0.25,
+                "dte": 30,
+                "spot": strike,
+            },
+            chart_context=ChartContext(
+                ticker=ticker,
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=strike,
+                visible_indicators={},  # no phase → R4 skipped
+                source="test",
+            ),
+        )
+
+    def test_no_portfolio_context_skips_r7_and_r8(self):
+        """When portfolio_context is None, R7 and R8 do not fire and
+        the verdict from R5 (proceed at ev=50) is preserved."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+
+        d = self._proceeding_dossier()
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        # No R7/R8 notes in the trail.
+        assert not any("R7" in n or "R8" in n for n in notes)
+
+    def test_r7_var_check_skips_when_no_correlation_or_returns(self):
+        """PortfolioContext attached but no returns_data /
+        correlation_matrix → check_var returns missing_data → R7
+        records a skip note without downgrading."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier()
+        d.portfolio_context = PortfolioContext(nav=100_000.0)  # no returns/corr
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        # R7 skipped (missing_data), R8 also passes (empty book), so
+        # the verdict stays proceed.
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        assert any("R7: VaR check skipped" in n for n in notes)
+
+    def test_r7_var_breach_downgrades_with_synthetic_returns(self):
+        """Give check_var a returns_data input + a candidate that
+        will produce a large VaR for the synthetic portfolio. R7
+        fires."""
+        import numpy as np
+
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        idx = pd.date_range("2026-01-01", periods=120, freq="B")
+        # Heavy-vol synthetic returns make VaR explode relative to NAV.
+        returns = pd.DataFrame(
+            {"portfolio": np.random.default_rng(7).normal(0, 0.08, 120)},
+            index=idx,
+        )
+        d = self._proceeding_dossier(ticker="TEST", strike=100.0)
+        d.portfolio_context = PortfolioContext(
+            nav=10_000.0,  # tiny NAV → any VaR > 5% NAV breaches easily
+            spot_prices={"TEST": 100.0},
+            returns_data=returns,
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        # Heavy-vol returns at tiny NAV: R7 fires.
+        assert verdict == "review"
+        assert reason == "portfolio_var_breach"
+
+    def test_r8_stress_breach_downgrades(self):
+        """A large concentrated short-put position at small NAV will
+        produce a stress drawdown > 8% under the C4 vol-spike → R8
+        fires with reason='stress_breach'."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="TEST", strike=100.0)
+        # Pre-load a held short put on the same ticker so the
+        # stress-scenario P&L is non-trivial. Tiny NAV makes any
+        # drawdown breach the 8% cap.
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "TEST",
+                    "option_type": "put",
+                    "strike": 100.0,
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"TEST": 100.0},
+            nav=5_000.0,
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        assert reason == "stress_breach"
+
+    def test_r8_short_gamma_regime_downgrades(self):
+        """If the candidate's underlying is in short_gamma_amplifying
+        regime, R8 fires with reason='short_gamma_regime' even when
+        stress passes."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=180.0)
+        d.portfolio_context = PortfolioContext(
+            nav=10_000_000.0,  # huge NAV → stress doesn't breach
+            spot_prices={"AAPL": 180.0},
+            dealer_regime_by_ticker={"AAPL": "short_gamma_amplifying"},
+        )
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        assert reason == "short_gamma_regime"
+        assert any("R8 (dealer)" in n for n in notes)
+
+    def test_r8_passes_on_neutral_regime(self):
+        """Neutral regime + clean stress → R8 doesn't fire; verdict
+        stays proceed from R5."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=180.0)
+        d.portfolio_context = PortfolioContext(
+            nav=10_000_000.0,
+            spot_prices={"AAPL": 180.0},
+            dealer_regime_by_ticker={"AAPL": "neutral"},
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+
+    def test_r7_r8_cannot_upgrade_negative_ev(self):
+        """R1 still wins. Even with a PortfolioContext attached and
+        gates that would pass, a negative-EV candidate stays
+        blocked."""
+        from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = CandidateDossier(
+            ticker="BAD",
+            ev_row={
+                "ticker": "BAD",
+                "strike": 100.0,
+                "premium": 0.5,
+                "ev_dollars": -25.0,  # R1 territory
+                "iv": 0.25,
+                "dte": 30,
+                "spot": 100.0,
+            },
+            chart_context=ChartContext(
+                ticker="BAD",
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=100.0,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+        d.portfolio_context = PortfolioContext(nav=10_000_000.0)
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        # R1 fires before R7/R8 even get a chance.
+        assert verdict == "blocked"
+        assert reason == "negative_ev"
+
+    def test_r7_r8_cannot_upgrade_review_to_proceed(self):
+        """Downgrade-only contract: a candidate already at 'review'
+        (e.g., EV below threshold) doesn't get upgraded by R7/R8
+        passing. R7/R8 only fire when verdict == 'proceed'."""
+        from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = CandidateDossier(
+            ticker="LOW",
+            ev_row={
+                "ticker": "LOW",
+                "strike": 100.0,
+                "premium": 0.5,
+                "ev_dollars": 5.0,  # < min_proceed_ev=10 → 'review'
+                "iv": 0.25,
+                "dte": 30,
+                "spot": 100.0,
+            },
+            chart_context=ChartContext(
+                ticker="LOW",
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=100.0,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+        d.portfolio_context = PortfolioContext(nav=10_000_000.0)
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        assert reason == "ev_below_proceed_threshold"

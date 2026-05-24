@@ -2350,6 +2350,313 @@ clean rank.
 
 ---
 
+### S20 — `engine_api.py` concurrency & crash resilience
+
+**Purpose.** Characterise `engine_api.py` (HTTP on `:8787`) under
+concurrency and crash conditions — parallel POST/GET, ring-buffer race
+on `_TV_ALERT_LOG`, nonce-replay race on `_TV_SEEN_NONCES`, slow-ranker
+blocking responsiveness, process-kill mid-write, payload validation,
+auth-under-load — and document whether the API holds invariants under
+production-shaped exposure. **The campaign-headline question is G3:
+does S19's C7b `+inf` defence-in-depth gap become live-exploitable via
+the network surface?** Closes the reliability arc (S18 scale + S19
+chaos + S20 concurrency).
+
+**Setup.** Server spawned as subprocess on `SWE_API_PORT=18787` /
+`18788` (PR #158's per-instance binding, so the test instance doesn't
+collide with the production port). 8 vectors planned (G1–G8); 5
+landed cleanly. Bloomberg provider. Throwaway driver under
+`%TEMP%\s20_concurrency\` (`tempfile`-style, not committed; not in
+the worktree per the S18/S19 desktop-clutter feedback).
+`urllib.request` + `concurrent.futures.ThreadPoolExecutor` for the
+client side.
+
+**Path.** Server uses `http.server.ThreadingHTTPServer` with
+`daemon_threads = True` (`engine_api.py:2250-2251`) — one thread per
+request, no explicit handler-side locking. The shared mutable state
+that S20 stresses: `_TV_ALERT_LOG: list[dict]` (line 106),
+`_TV_SEEN_NONCES: OrderedDict[str, float]` (line 121), and the
+implicit shared state inside the lazy connector cache
+(`engine/data_connector.py:_load`, no lock).
+
+**Status.** Done. **Verdict: PARTIAL.** §2 G3 **REFUTED** (the
+campaign-headline positive); 4 secondary findings (server-capacity
+limit at the OS socket backlog, ungraceful 10 MB rejection, type-
+coerced ticker accepted, two divergent verdict-producing paths);
+1 code-level race surface (`engine/data_connector.py:_load` has no
+lock around the cache-populate); 3 vectors (G1 ring-buffer trim,
+G2 torn read, G4 nonce-replay race exact ratio) **partially observed
+but obscured by the server-capacity finding below** — server
+saturation at high concurrency made it impossible to cleanly isolate
+the race signal from the capacity signal. Three iterations on the
+chaos driver (path bug → response-key bug → stdout-PIPE deadlock)
+before landing usable data; the methodology cost is itself worth
+flagging for the next API-chaos Sn.
+
+> **§2 G3 — REFUTED on the network surface.** No live exploit of
+> S19's C7b inf-bypass via either `/api/tv/dossier` or
+> `/api/tv/webhook`. Three control payloads (`+inf / NaN / -inf` as
+> `ev_dollars` in the webhook body) all returned the server-computed
+> AAPL EV (`-95.47` on the test run's `as_of`), with `verdict=skip`
+> on all three. The server-side override is **mechanically protected**
+> at `engine_api.py:2061-2072`: `_enrich_alert` re-initializes
+> `ev_dollars = 0.0` and then overrides from
+> `runner.rank_candidates_by_ev(...).iloc[0]["ev_dollars"]` — the
+> payload's `ev_dollars` field is never read on the EV path
+> (`TVAlert.parse` at `engine/tv_signals.py:537-567` doesn't have
+> `ev_dollars` in its known-field set; it lands in
+> `extras` and is ignored). `/api/tv/dossier` (line 1843-1865)
+> similarly computes via `runner.build_candidate_dossiers(...)` from
+> Bloomberg data; the only user-controlled EV-related input is
+> `min_ev_dollars` (the **filter threshold**, not a candidate-level
+> EV value). Probed `min_ev=Infinity` → 0 dossiers returned (filter
+> drops everything; no fail-open). **C7b remains defence-in-depth
+> only — log into S19's AI-handoff as the closing word: no
+> network-path exploit observed.**
+
+**Findings:**
+
+- **Per-vector outcome table.** Verdicts after the methodology
+  iterations; raw timings are best-effort given the capacity-related
+  noise.
+
+  | Vector | Description | Verdict | Detail (line cites) |
+  |---|---|---|---|
+  | **G3a** | `/api/tv/dossier?min_ev=Infinity&tickers=AAPL` | **REFUTED — fail-closed** | 200 OK, 0 dossiers (filter drops everything); `min_ev_dollars` is the filter threshold at `engine_api.py:1860`, not a candidate-EV override |
+  | **G3a'** | `/api/tv/dossier?min_ev=-1e9&tickers=AAPL` (baseline) | works as designed | 200 OK, 1 dossier returned |
+  | **G3c (+inf)** | webhook POST with `payload.ev_dollars = float("inf")` | **REFUTED — server overrides** | 200 OK, response `enriched.ev_dollars=-95.47` (real AAPL EV), `verdict=skip`. Payload's `+inf` never reaches the reviewer |
+  | **G3c (NaN)** | same with `NaN` | **REFUTED — server overrides** | same: `enriched.ev_dollars=-95.47`, `verdict=skip` |
+  | **G3c (-inf)** | same with `-inf` | **REFUTED — server overrides** | same: `enriched.ev_dollars=-95.47`, `verdict=skip` |
+  | **G6** | crash recovery (kill PID, restart, verify) | **CLEAN** | pre-restart buffer cleared on cold start (`_TV_ALERT_LOG` per `engine_api.py:106`); post-restart POST returns 200 |
+  | **G7a** | empty body | **fail_closed_400** | `{"error": "alert payload missing ticker or signal"}` |
+  | **G7b** | non-JSON body | **fail_closed_400** | `{"error": "Invalid JSON: Expecting value..."}` |
+  | **G7c** | `{"ticker": 42, "signal": [None, None]}` | **degraded** | 200 accepted; `TVAlert.parse` at `engine/tv_signals.py:557` does `str(payload.get("ticker", "")).upper()` → `"42"`; downstream `_enrich_alert` hits the `ticker_not_in_universe` branch at `engine_api.py:1989-1994` so no decision is produced — but the type-coerced row is accepted into `_TV_ALERT_LOG` as a no-op enriched record. Defence-in-depth: a `isinstance(payload.get("ticker"), str)` guard would fail-closed-400 instead |
+  | **G7d** | `__proto__` / `constructor` keys | **clean** | 200 accepted; Python's `json.loads` has no JS prototype-pollution surface; keys captured into `TVAlert.extras` and ignored |
+  | **G7e** | 10 MB payload | **fail_closed_socket_abort** | `ConnectionAbortedError(10053)`. Server abruptly closes the socket rather than emitting a 413 Payload Too Large. **Ungraceful** — a real load balancer in front of this would see the connection drop and may retry. Worth a proper `Content-Length` check upstream of the body read |
+  | **G1, G2, G4, G5** | ring-buffer trim, torn-read, nonce-replay race, slow-ranker-blocks | **partially observed; obscured by server-capacity finding below** | See "obscured" finding |
+
+  Vectors G1/G2/G4/G5 require ≥100 concurrent connections to surface
+  their race / blocking signals; the server's listen backlog (see
+  next finding) starts dropping connections before the race window
+  is exercised. The signal is buried in the noise. Re-attempt would
+  need a different probe shape (e.g. driving from outside the box
+  with a real load-balancer queue) or a lower-traffic measurement
+  that establishes a *bound* on race exposure rather than a count.
+  Out of scope for one Sn.
+
+- **Server-capacity ceiling (the production-readiness limiter).** At
+  16 concurrent workers driving POSTs, **133 of 200** got
+  `ConnectionRefusedError` / `-1` from the client. The remaining 67
+  succeeded with 200 OK. `http.server.ThreadingHTTPServer` accepts
+  connections on a single listening socket whose listen-queue depth
+  is the OS default (`socketserver.TCPServer.request_queue_size = 5`,
+  inherited; see Python `Lib/socketserver.py`). Beyond ~5 in-flight
+  accepts, the kernel refuses new connections. On a real dashboard
+  hard-reload scenario (dashboard issues 5–10 simultaneous requests
+  on tab open; a CI smoke + an oncall manual check could pile to
+  20+) the server **will drop a measurable fraction**. **Logged as
+  a production-readiness gap.** Mitigations: (a) raise
+  `request_queue_size` (`ThreadingHTTPServer.request_queue_size =
+  128` before instantiating the server); (b) front the server with
+  a real reverse proxy (`nginx` / `caddy`) that handles the
+  connection backpressure; (c) reduce dashboard concurrent-fetch
+  count.
+
+- **`engine/data_connector.py:_load` has no lock around cache-populate.**
+  Code-level finding from reading the file (no observation needed):
+
+  ```python
+  # engine/data_connector.py:95-131
+  def _load(self, key: str) -> pd.DataFrame:
+      if key in self._cache:          # <- read without lock
+          return self._cache[key]
+      ...
+      df = pd.read_csv(path, ...)     # <- can run concurrently in N threads
+      ...
+      self._cache[key] = df           # <- last writer wins
+      return df
+  ```
+
+  Under ThreadingHTTPServer with `daemon_threads=True` and a cold
+  connector (first request after server boot), the first ~16
+  concurrent requests can ALL fall into the `pd.read_csv` branch
+  for the same key, each loading 60 MB into memory in parallel.
+  Last writer wins on `_cache[key]`, the earlier loads' DataFrames
+  are garbage-collected — but during the load the process holds
+  ~16× the steady-state memory footprint. This is plausibly what
+  wedged the server in the v3 driver run after the first concurrent
+  burst. Mitigation is one line: a `threading.Lock` field guarding
+  the populate branch. **Logged. Terminal A decision-layer-adjacent
+  lane** — `data_connector.py` is the data layer per CLAUDE.md §1,
+  not the decision layer; a lock-add is safe but should be claimed
+  on #113.
+
+- **Two divergent verdict-producing paths in `engine_api.py`.** The
+  dossier endpoint (`/api/tv/dossier`) uses `EnginePhaseReviewer` at
+  `engine/candidate_dossier.py:109-247` (rules R1–R6, the canonical
+  reviewer). The webhook endpoint (`/api/tv/webhook` →
+  `_enrich_alert`) runs **its own inline verdict logic** at
+  `engine_api.py:2082-2099`:
+
+  ```python
+  # engine_api.py:2082-2099 (inline verdict, NOT EnginePhaseReviewer)
+  if days_to_earnings is not None and 0 <= days_to_earnings < 5:
+      verdict = "skip"; verdict_reason = "earnings_within_5d"
+  elif verdict_authority != "ev_ranked":
+      verdict = "review"
+  elif ev_dollars < 0:
+      verdict = "skip"
+  elif ev_dollars >= 10 and prob_profit >= 0.65 and agrees:
+      verdict = "proceed"
+  elif ev_dollars > 0:
+      verdict = "review"
+  else:
+      verdict = "skip"
+  ```
+
+  Both paths run `EVEngine.evaluate` upstream (so §2 holds in
+  both), but the **rule structure diverges**: the webhook's
+  conditions check `days_to_earnings < 5` (an earnings-gate
+  duplicate not in `EnginePhaseReviewer`), `prob_profit >= 0.65`
+  (additional confidence threshold), and `agrees` (signal-match
+  predicate). The dossier reviewer has the dealer-positioning R6
+  downgrade that the webhook does NOT. Same input could produce
+  *different verdicts* between the two endpoints. **Code-duplication
+  + consistency risk.** Logged as a divergence finding; the right
+  fix is to route both endpoints through `EnginePhaseReviewer` and
+  let R1–R6 be the single source of truth — but that's a Terminal A
+  decision-layer change, not in scope here.
+
+  **Bonus observation tied to S19 C7b:** the webhook's inline rule
+  has the same `if ev_dollars >= 10` admit at `engine_api.py:2091`.
+  If `ev_dollars` were ever `+inf` from the ranker (which it isn't
+  on real Bloomberg data — see S19 C7b), this path would also emit
+  `proceed` on garbage. Two paths, same defence-in-depth gap, both
+  protected today only by the ranker not producing inf.
+
+- **`_sanitize_nans` (`engine_api.py:209-217`) is a positive
+  structural defence.** Every JSON response goes through
+  `_sanitize_nans` which replaces `float('inf')` / `float('-inf')` /
+  `float('nan')` with `None`. So even if internal state contained a
+  non-finite EV that survived processing, the response would carry
+  `None`, not the malicious value. **Belt-and-suspenders for the
+  network reply path.** Worth pinning with a regression test
+  (Terminal A lane).
+
+- **G6 crash recovery is clean.** Killed the server PID
+  (`subprocess.Popen.kill()` — SIGKILL on Unix, `TerminateProcess`
+  on Windows), re-spawned on the same port, verified
+  `_TV_ALERT_LOG` is empty after restart and POSTs work again. The
+  docstring claim at `engine_api.py:103-105` ("buffer is rebuilt on
+  each server start") holds. **Logged as a positive.** Note: the
+  ring buffer is the *only* persistence surface in
+  `engine_api.py` — there's no DB, no replay log, no disk-backed
+  state. A crash mid-write loses at most one alert (the in-flight
+  POST that didn't finish); everything else is on-disk in
+  `data/bloomberg/*.csv` and loads cleanly on cold start.
+
+- **Methodology debt.** Three iterations (v1 → v3 → v4) before
+  landing usable data: v1 had a wrong endpoint path
+  (`/api/tv/alert` vs the actual `/api/tv/webhook`); v3 had a wrong
+  response-key (`body["items"]` vs the actual `body["alerts"]`);
+  v4 deadlocked on `subprocess.Popen(stdout=PIPE, stderr=PIPE)`
+  with no draining (server filled the 64 KB pipe buffer and blocked
+  on its next `print()`, all client requests then timed out).
+  Future API-chaos Sns should: (a) `subprocess.Popen(stdout=open(
+  log, "w"), stderr=subprocess.STDOUT)` to a real file (or
+  `DEVNULL`) to avoid PIPE deadlock; (b) probe the response shape
+  with one request before scaling to N. **Logged for the
+  next-Sn-prompt template.**
+
+- **§2 verified across the network surface.** The G3 negative
+  result is the campaign-headline answer: C7b is mechanically
+  closed by `_enrich_alert`'s `ev_dollars = float(r0.get(
+  "ev_dollars", 0) or 0)` override at line 2072, and by the
+  dossier endpoint's `runner.build_candidate_dossiers(...)`
+  server-computation. **No observed network path emits a tradeable
+  `proceed` on garbage ev_dollars.** This closes the reliability
+  arc (S18 + S19 + S20) on a structural positive.
+
+**AI handoff.**
+
+- **Top fix-up surface:** raise `request_queue_size` to handle
+  realistic dashboard burst load. Two-line change at
+  `engine_api.py:2250` —
+
+  ```python
+  # engine_api.py:2250 (current)
+  server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+  # proposed:
+  ThreadingHTTPServer.request_queue_size = 128
+  server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+  ```
+
+  Default is 5 (inherited from `socketserver.TCPServer`); 128 is the
+  uvicorn/gunicorn default and is more aligned with the dashboard's
+  burst pattern. **Terminal A decision-layer-adjacent lane**
+  (`engine_api.py` is the interface layer; not the EV decision
+  layer, but is on the launch-blocker list).
+
+- **Second fix-up surface:** add a `threading.Lock` to
+  `engine/data_connector.py:_load` to prevent N-thread cold-load
+  amplification. Single-line lock acquire/release around lines
+  101-129.
+
+  ```python
+  # engine/data_connector.py:86-89 (current)
+  def __init__(self, data_dir: str = "data/bloomberg") -> None:
+      self._data_dir = Path(data_dir)
+      self._cache: dict[str, pd.DataFrame] = {}
+  # proposed:
+  def __init__(self, data_dir: str = "data/bloomberg") -> None:
+      self._data_dir = Path(data_dir)
+      self._cache: dict[str, pd.DataFrame] = {}
+      self._cache_lock = threading.Lock()  # NEW
+  # then in _load, wrap the cache-populate branch:
+  def _load(self, key: str) -> pd.DataFrame:
+      if key in self._cache:
+          return self._cache[key]
+      with self._cache_lock:
+          if key in self._cache:    # double-check after lock
+              return self._cache[key]
+          # ...existing populate body unchanged...
+  ```
+
+  **Data-layer change, not decision-layer.** Worth a small Sn or
+  Terminal A claim.
+
+- **Third fix-up surface:** unify the two verdict-producing paths
+  in `engine_api.py`. Either (a) route `_enrich_alert`'s decision
+  logic through `EnginePhaseReviewer` (preferred — single source of
+  truth), or (b) explicitly document the divergence and pin both
+  rule-sets in tests. The S20 inline-rules block at
+  `engine_api.py:2082-2099` reads like a parallel implementation of
+  R1/R5 + extras; a regression test that drives the same `ev_row`
+  through both endpoints and asserts identical verdicts would catch
+  any future drift. **Terminal A decision-layer-adjacent lane.**
+
+- **G7e 10 MB payload ungraceful disconnect** — add a
+  `Content-Length` size guard at the top of `do_POST` (read header,
+  reject 413 if > N bytes) so the server doesn't accept a
+  body-too-large connection only to abort mid-stream. Defensive
+  hygiene; not exploitable, but worth a clean 413.
+
+- **Ruled out per the prompt:** any decision-layer code change
+  (S20 found surfaces, did not fix), real-network load from off-box
+  (none available in sandbox), MCP / chart provider chaos
+  (S5 / S19 covered), fuzz testing (hypothesis), performance
+  tuning, Theta provider failure (sandbox-blocked).
+
+- **Campaign arc closure:** S18 (scale) + S19 (chaos) + S20
+  (concurrency) all done. The **§2 invariant holds across all three
+  axes on the live decision path.** Defence-in-depth gaps named
+  (C7b inf-bypass, the silent-as_of substitution, the FRED-down
+  silent regime label, the data_connector race, the two verdict
+  paths) are all reads-not-writes findings; the fix surface is
+  small and well-scoped for a follow-up. **Logged.**
+
+---
+
 ## 2. In flight
 
 _(none currently)_

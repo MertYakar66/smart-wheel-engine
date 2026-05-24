@@ -2379,19 +2379,26 @@ that S20 stresses: `_TV_ALERT_LOG: list[dict]` (line 106),
 implicit shared state inside the lazy connector cache
 (`engine/data_connector.py:_load`, no lock).
 
-**Status.** Done. **Verdict: PARTIAL.** §2 G3 **REFUTED** (the
-campaign-headline positive); 4 secondary findings (server-capacity
-limit at the OS socket backlog, ungraceful 10 MB rejection, type-
-coerced ticker accepted, two divergent verdict-producing paths);
-1 code-level race surface (`engine/data_connector.py:_load` has no
-lock around the cache-populate); 3 vectors (G1 ring-buffer trim,
-G2 torn read, G4 nonce-replay race exact ratio) **partially observed
-but obscured by the server-capacity finding below** — server
-saturation at high concurrency made it impossible to cleanly isolate
-the race signal from the capacity signal. Three iterations on the
-chaos driver (path bug → response-key bug → stdout-PIPE deadlock)
-before landing usable data; the methodology cost is itself worth
-flagging for the next API-chaos Sn.
+**Status.** Done. **Verdict: PASS, with one production-readiness
+caveat (capacity ceiling at the OS socket backlog).** §2 G3
+**REFUTED** (the campaign-headline positive); 4 secondary findings
+(server-capacity limit at the OS socket backlog, ungraceful 10 MB
+rejection, type-coerced ticker accepted, two divergent verdict-
+producing paths); 1 code-level race surface
+(`engine/data_connector.py:_load` has no lock around the cache-
+populate). The race vectors (G1 ring-buffer trim + dedup, G2 torn
+read, G4 nonce-replay race, G5 slow-vs-fast isolation, G8 HMAC under
+load) all landed **clean** in the v5 backfill — see the per-vector
+table. Four driver iterations (v1 wrong path → v3 wrong response key
+→ v4 PIPE deadlock → v5 stdout-to-file fix) before the race
+signals were measurable; the methodology debt is itself a finding
+for the next API-chaos Sn.
+
+*(Amended 2026-05-23 same-day: original entry shipped with
+G1/G2/G4/G5/G8 as partially observed; v5 backfill landed clean
+race-vector data. Original PARTIAL verdict revised to
+PASS-with-caveat. Methodology-debt bullet preserves the v1→v5
+driver history.)*
 
 > **§2 G3 — REFUTED on the network surface.** No live exploit of
 > S19's C7b inf-bypass via either `/api/tv/dossier` or
@@ -2433,37 +2440,38 @@ flagging for the next API-chaos Sn.
   | **G7c** | `{"ticker": 42, "signal": [None, None]}` | **degraded** | 200 accepted; `TVAlert.parse` at `engine/tv_signals.py:557` does `str(payload.get("ticker", "")).upper()` → `"42"`; downstream `_enrich_alert` hits the `ticker_not_in_universe` branch at `engine_api.py:1989-1994` so no decision is produced — but the type-coerced row is accepted into `_TV_ALERT_LOG` as a no-op enriched record. Defence-in-depth: a `isinstance(payload.get("ticker"), str)` guard would fail-closed-400 instead |
   | **G7d** | `__proto__` / `constructor` keys | **clean** | 200 accepted; Python's `json.loads` has no JS prototype-pollution surface; keys captured into `TVAlert.extras` and ignored |
   | **G7e** | 10 MB payload | **fail_closed_socket_abort** | `ConnectionAbortedError(10053)`. Server abruptly closes the socket rather than emitting a 413 Payload Too Large. **Ungraceful** — a real load balancer in front of this would see the connection drop and may retry. Worth a proper `Content-Length` check upstream of the body read |
-  | **G1, G2, G4, G5** | ring-buffer trim, torn-read, nonce-replay race, slow-ranker-blocks | **partially observed; obscured by server-capacity finding below** | See "obscured" finding |
+  | **G1a** | ring-buffer 32 POSTs at workers=4 | **clean** | 32/32 success; buffer length 33 = 32 new + 1 warmup AAPL; 33 unique tickers — no lost appends, no duplicates |
+  | **G1c** | +200 POSTs to force trim, workers=4 | **clean** | 200/200 success; buffer length after = **exactly 200**; `_TV_ALERT_LOG_MAX=200` ring-trim at `engine_api.py:1683-1684` holds precisely |
+  | **G2** | 40 POST + 40 GET parallel at workers=4 | **clean** | all 40 POSTs 200; all 40 GETs 200; every GET response returned exactly 30 items (`limit=30` honored); `get_len_min=get_len_max=30` — **no torn reads observed**, Python's GIL + slice semantics keep `_TV_ALERT_LOG[-limit:]` (line 1714) atomic |
+  | **G4** | 16 same-nonce POSTs at workers=4 | **clean** | **1 × 200, 15 × 409** (`replay_blocked` per `_tv_seen_register` at `engine_api.py:125-143`). No race surfaced at workers=4. **Lock-free check-then-set IS theoretically racy** (lines 137-140); GIL + dict-op atomicity protect at this concurrency, but the pattern is fragile — see code-level finding below |
+  | **G5** | slow dossier + fast alerts GET parallel | **clean** | slow_wall=0.69 s (warm caches), fast_wall=0.03 s (started 0.5 s after slow). `ThreadingHTTPServer` per-thread isolation works as advertised; **no serialization behind the shared `WheelRunner`** at `engine_api.py:163-167` (`get_runner` is the only shared mutation, lazy-init, single read after first call) |
+  | **G6** | crash recovery (kill PID + restart) | **clean** | pre-kill: 10 POSTs OK, buffer=100; post-restart: buffer=**0**, follow-up POST=200. In-memory ring buffer cleared on cold start per `engine_api.py:103-105` docstring |
+  | **G8** | 32 wrong-HMAC + 16 correct-HMAC POSTs at workers=4 | **clean — no auth bypass** | wrong: **32 × 401**; correct: **16 × 200**. `_tv_verify_hmac` (`engine_api.py:146-160`, `hmac.compare_digest` constant-time) holds deterministically under contention. No TOCTOU surfaced. |
 
-  Vectors G1/G2/G4/G5 require ≥100 concurrent connections to surface
-  their race / blocking signals; the server's listen backlog (see
-  next finding) starts dropping connections before the race window
-  is exercised. The signal is buried in the noise. Re-attempt would
-  need a different probe shape (e.g. driving from outside the box
-  with a real load-balancer queue) or a lower-traffic measurement
-  that establishes a *bound* on race exposure rather than a count.
-  Out of scope for one Sn.
-
-- **Server-capacity ceiling (the production-readiness limiter).** At
-  16 concurrent workers driving POSTs, **133 of 200** got
-  `ConnectionRefusedError` / `-1` from the client. The remaining 67
-  succeeded with 200 OK. `http.server.ThreadingHTTPServer` accepts
-  connections on a single listening socket whose listen-queue depth
-  is the OS default (`socketserver.TCPServer.request_queue_size = 5`,
-  inherited; see Python `Lib/socketserver.py`). Beyond ~5 in-flight
-  accepts, the kernel refuses new connections. On a real dashboard
-  hard-reload scenario (dashboard issues 5–10 simultaneous requests
-  on tab open; a CI smoke + an oncall manual check could pile to
-  20+) the server **will drop a measurable fraction**. **Logged as
+- **Server-capacity ceiling (the only production-readiness limiter).**
+  At 16 concurrent workers driving POSTs in the original v3 driver,
+  **133 of 200** got `ConnectionRefusedError` / `-1` from the client.
+  The remaining 67 succeeded with 200 OK. `http.server.
+  ThreadingHTTPServer` accepts connections on a single listening
+  socket whose listen-queue depth is the OS default
+  (`socketserver.TCPServer.request_queue_size = 5`, inherited; see
+  Python `Lib/socketserver.py`). Beyond ~5 in-flight accepts, the
+  kernel refuses new connections. **The v5 backfill at workers=4
+  showed zero drops across G1/G2/G4/G6/G8 (414+ POSTs total)**, so
+  the production-readiness boundary is between workers=5 and
+  workers=16. A typical dashboard hard-reload (5–10 simultaneous
+  fetches) lands **right at the boundary** — usable, but a single CI
+  smoke pile-up or an oncall investigator hitting it concurrently
+  with the dashboard would tip into measurable drops. **Logged as
   a production-readiness gap.** Mitigations: (a) raise
   `request_queue_size` (`ThreadingHTTPServer.request_queue_size =
-  128` before instantiating the server); (b) front the server with
-  a real reverse proxy (`nginx` / `caddy`) that handles the
-  connection backpressure; (c) reduce dashboard concurrent-fetch
-  count.
+  128` before instantiating the server) — the two-line fix below;
+  (b) front the server with a real reverse proxy (`nginx` / `caddy`)
+  that handles the connection backpressure; (c) reduce dashboard
+  concurrent-fetch count.
 
 - **`engine/data_connector.py:_load` has no lock around cache-populate.**
-  Code-level finding from reading the file (no observation needed):
+  Code-level finding from reading the file:
 
   ```python
   # engine/data_connector.py:95-131
@@ -2483,13 +2491,15 @@ flagging for the next API-chaos Sn.
   for the same key, each loading 60 MB into memory in parallel.
   Last writer wins on `_cache[key]`, the earlier loads' DataFrames
   are garbage-collected — but during the load the process holds
-  ~16× the steady-state memory footprint. This is plausibly what
-  wedged the server in the v3 driver run after the first concurrent
-  burst. Mitigation is one line: a `threading.Lock` field guarding
-  the populate branch. **Logged. Terminal A decision-layer-adjacent
-  lane** — `data_connector.py` is the data layer per CLAUDE.md §1,
-  not the decision layer; a lock-add is safe but should be claimed
-  on #113.
+  ~16× the steady-state memory footprint. Plausibly contributory to
+  what wedged the v3 server after the first concurrent burst (though
+  the proximate cause was the `subprocess.Popen(stdout=PIPE)`
+  deadlock — v5 with stdout-to-file ran identical concurrency cleanly,
+  so the lock-free `_load` was not the actual blocker in v3 either).
+  Mitigation is one line: a `threading.Lock` field guarding the
+  populate branch. **Logged. Terminal A data-layer-adjacent lane** —
+  `data_connector.py` is the data layer per CLAUDE.md §1, not the
+  decision layer; a lock-add is safe but should be claimed on #113.
 
 - **Two divergent verdict-producing paths in `engine_api.py`.** The
   dossier endpoint (`/api/tv/dossier`) uses `EnginePhaseReviewer` at
@@ -2555,18 +2565,22 @@ flagging for the next API-chaos Sn.
   POST that didn't finish); everything else is on-disk in
   `data/bloomberg/*.csv` and loads cleanly on cold start.
 
-- **Methodology debt.** Three iterations (v1 → v3 → v4) before
-  landing usable data: v1 had a wrong endpoint path
-  (`/api/tv/alert` vs the actual `/api/tv/webhook`); v3 had a wrong
-  response-key (`body["items"]` vs the actual `body["alerts"]`);
-  v4 deadlocked on `subprocess.Popen(stdout=PIPE, stderr=PIPE)`
-  with no draining (server filled the 64 KB pipe buffer and blocked
-  on its next `print()`, all client requests then timed out).
+- **Methodology debt — solved in v5.** Four iterations (v1 → v3 →
+  v4 → v5) before landing usable race-vector data: v1 had a wrong
+  endpoint path (`/api/tv/alert` vs the actual `/api/tv/webhook`); v3
+  had a wrong response-key (`body["items"]` vs the actual
+  `body["alerts"]`); v4 deadlocked on `subprocess.Popen(stdout=PIPE,
+  stderr=PIPE)` with no draining (server filled the 64 KB pipe buffer
+  and blocked on its next `print()`, all client requests then timed
+  out); **v5 fixed all three by sending server stdout/stderr to a
+  log file**, which unblocked clean numbers for G1/G2/G4/G5/G6/G8.
   Future API-chaos Sns should: (a) `subprocess.Popen(stdout=open(
   log, "w"), stderr=subprocess.STDOUT)` to a real file (or
-  `DEVNULL`) to avoid PIPE deadlock; (b) probe the response shape
-  with one request before scaling to N. **Logged for the
-  next-Sn-prompt template.**
+  `DEVNULL`) — **never** PIPE without an active reader thread;
+  (b) probe the response shape with one request before scaling to N;
+  (c) start with workers=4 to stay under the default listen-queue;
+  scale up only after validating the response shape. **Logged for
+  the next-Sn-prompt template.**
 
 - **§2 verified across the network surface.** The G3 negative
   result is the campaign-headline answer: C7b is mechanically
@@ -2576,6 +2590,42 @@ flagging for the next API-chaos Sn.
   server-computation. **No observed network path emits a tradeable
   `proceed` on garbage ev_dollars.** This closes the reliability
   arc (S18 + S19 + S20) on a structural positive.
+
+- **v5 backfill — race-vector positives.** Once the v4 PIPE
+  deadlock was unblocked (v5 stdout-to-file), all five race vectors
+  came back **clean at workers=4**:
+  - **G1 ring-buffer trim is precise.** 32 unique POSTs all
+    landed (buffer=33 including warmup); +200 more triggered the
+    `_TV_ALERT_LOG_MAX=200` trim at `engine_api.py:1683-1684` —
+    buffer cap held *exactly* at 200, no drift, no off-by-one.
+  - **G2 GET-during-POST is atomic.** 40 GETs concurrent with 40
+    POSTs returned **exactly 30 items each**
+    (`get_len_min=get_len_max=30`). Python's GIL + the
+    `_TV_ALERT_LOG[-limit:]` slice at line 1714 are atomic — no
+    torn read, no truncated JSON, no `IndexError` 500s.
+  - **G4 nonce-replay is correct under concurrency.** 16 same-
+    payload POSTs at workers=4 yielded **1 × 200, 15 × 409** —
+    exactly the expected behaviour from `_tv_seen_register`
+    (`engine_api.py:125-143`). **However**, the check-then-set at
+    lines 137-140 is **lock-free**, so the win is the GIL + dict-
+    op atomicity, not explicit synchronisation. At higher
+    concurrency (or under a non-CPython interpreter, or if the
+    check/set window grew with future code changes), this could
+    surface as >1 accept. **Logged as a code-level finding** —
+    the same `threading.Lock` pattern as `_load` would close it.
+  - **G5 per-thread isolation works.** Slow dossier (0.69 s warm)
+    + fast `/api/tv/alerts` (0.03 s) ran concurrently; the fast
+    GET was **not blocked** by the slow ranker. ThreadingHTTPServer's
+    per-request threading at `engine_api.py:2250-2251` does what it
+    advertises; the shared `WheelRunner` instance does NOT
+    serialise readers behind a global mutation lock.
+  - **G8 auth deterministic under load.** With `TV_WEBHOOK_HMAC_SECRET`
+    set, 32 wrong-signature POSTs at workers=4 all returned 401;
+    16 correct-signature POSTs all returned 200. **No auth bypass,
+    no TOCTOU window.** `_tv_verify_hmac` (`engine_api.py:146-160`)
+    uses `hmac.compare_digest` constant-time and is stateless, so
+    the deterministic result under contention matches the code.
+  **Logged as the campaign reliability-arc positive.**
 
 **AI handoff.**
 
@@ -2640,6 +2690,34 @@ flagging for the next API-chaos Sn.
   reject 413 if > N bytes) so the server doesn't accept a
   body-too-large connection only to abort mid-stream. Defensive
   hygiene; not exploitable, but worth a clean 413.
+
+- **Fourth fix-up surface (new from v5):** lock the check-then-set
+  in `_tv_seen_register`. Current code at
+  `engine/external/engine_api.py:125-143` (well, in `engine_api.py`
+  itself):
+
+  ```python
+  # engine_api.py:125-143 (current — lock-free)
+  def _tv_seen_register(digest: str, now: float) -> bool:
+      cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
+      while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
+          _TV_SEEN_NONCES.popitem(last=False)
+      if digest in _TV_SEEN_NONCES:
+          return False
+      _TV_SEEN_NONCES[digest] = now
+      while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
+          _TV_SEEN_NONCES.popitem(last=False)
+      return True
+  # proposed: add a module-level _TV_SEEN_NONCES_LOCK = threading.Lock()
+  # and wrap the body in `with _TV_SEEN_NONCES_LOCK:`.
+  ```
+
+  At workers=4 the race didn't surface (CPython GIL + dict-op
+  atomicity protect the small check-then-set window), but the
+  pattern is fragile: a future code change that widens the window,
+  or a move off CPython, or higher concurrency in production, could
+  surface a >1-accept anomaly. The fix is one `threading.Lock` plus
+  a `with` block wrapping the function body.
 
 - **Ruled out per the prompt:** any decision-layer code change
   (S20 found surfaces, did not fix), real-network load from off-box

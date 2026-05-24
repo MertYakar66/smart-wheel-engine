@@ -528,6 +528,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_ranker_transparency.py` | Launch-blocker invariant — ranker drop-log, regime label and `ev_raw` transparency. |
 | `tests/test_wheel_runner_select_book.py` | Launch-blocker invariant — `select_book` as a pure post-processor. |
 | `tests/test_wheel_runner_coverage.py` | `WheelRunner` coverage — analysis summary, connector selection, wheel score, screening. |
+| `tests/test_explore_ticker.py` | `WheelRunner.explore_ticker` — single-ticker (delta × DTE) grid surfacing for short-put EV exploration via the production EV path. |
 | `tests/test_option_pricer.py` | Quant-correctness — Black-Scholes pricing/Greeks, put-call parity, vectorized pricing. |
 | `tests/test_binomial_tree.py` | Quant-correctness — CRR binomial pricing and cross-model validation. |
 | `tests/test_monte_carlo.py` | Quant-correctness — block bootstrap, jump diffusion, Longstaff-Schwartz. |

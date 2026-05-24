@@ -470,14 +470,15 @@ class WheelTracker:
                 token retained for retry. Ignored when
                 ``require_ev_authority=False``.
             prob_profit: Probability the short put expires worthless
-                (the ``prob_profit`` column from the ev_row). Used
-                in strict mode for the D17 Kelly gate
-                (``check_kelly_size``). When ``None`` in strict mode
-                the gate naturally refuses (Kelly returns 0
-                recommended exposure for invalid inputs) and the
-                audit-log details bag carries
-                ``kelly_recommended_max=0`` as the unique signature
-                of "Kelly inputs were missing." Ignored when
+                (the ``prob_profit`` column from the ev_row).
+                Forwarded to the D17 Kelly gate
+                (``check_kelly_size``) as the ``win_rate`` input
+                for forward-compatibility with a future continuous-
+                Kelly refinement; the gate's current per-trade NAV
+                cap formula (``kelly_fraction × NAV``) does not
+                consume this value, so the choice of
+                ``prob_profit`` (including ``None``) has no effect
+                on whether Kelly fires today. Ignored when
                 ``require_ev_authority=False``.
 
         Returns:

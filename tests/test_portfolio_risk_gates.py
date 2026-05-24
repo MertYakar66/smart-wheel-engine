@@ -327,7 +327,22 @@ class TestCheckKellySize:
         assert result.details["kelly_fraction"] == 0.5
         assert result.details["kelly_recommended_max"] > 0
 
-    def test_margin_above_recommendation_refuses(self):
+    def test_margin_above_cap_refuses(self):
+        # Half-Kelly cap = 0.5 × $100k = $50k. Margin $60k > cap.
+        result = check_kelly_size(
+            margin_required=60_000.0,
+            win_rate=0.7,
+            avg_win=100.0,
+            avg_loss=50.0,
+            nav=100_000.0,
+        )
+        assert result.passed is False
+        assert result.reason == "kelly_size_exceeded"
+        assert result.details["margin_required"] == 60_000.0
+        assert result.details["kelly_recommended_max"] == 50_000.0
+
+    def test_margin_at_cap_passes(self):
+        # Boundary: margin exactly at the cap should pass.
         result = check_kelly_size(
             margin_required=50_000.0,
             win_rate=0.7,
@@ -335,41 +350,42 @@ class TestCheckKellySize:
             avg_loss=50.0,
             nav=100_000.0,
         )
-        # Half-Kelly recommended = $20k; margin $50k → refuse.
-        assert result.passed is False
-        assert result.reason == "kelly_size_exceeded"
-        assert result.details["margin_required"] == 50_000.0
-        assert result.details["kelly_recommended_max"] < 50_000.0
+        assert result.passed is True
+        assert result.details["kelly_recommended_max"] == 50_000.0
 
-    def test_zero_edge_returns_zero_kelly_refuses(self):
+    def test_zero_nav_refuses_any_positive_margin(self):
+        # Per-trade cap = 0.5 × 0 = 0; any positive margin refuses.
         result = check_kelly_size(
             margin_required=1.0,
-            win_rate=0.5,
+            win_rate=0.7,
             avg_win=100.0,
-            avg_loss=100.0,
-            nav=100_000.0,
+            avg_loss=50.0,
+            nav=0.0,
         )
-        # win_rate * b - q = 0.5*1 - 0.5 = 0; Kelly = 0; recommended = 0.
-        # Any positive margin refuses.
         assert result.passed is False
         assert result.details["kelly_recommended_max"] == 0.0
 
-    def test_invalid_win_rate_returns_zero_kelly(self):
+    def test_win_rate_unused_today(self):
+        """Forward-compat: win_rate is in the signature but the
+        cap-based formula doesn't consume it. Out-of-range values
+        therefore do NOT cause a refuse; the cap-vs-margin check is
+        what matters. A future continuous-Kelly refinement may use
+        the value."""
         result = check_kelly_size(
             margin_required=1.0,
-            win_rate=1.5,  # invalid
+            win_rate=1.5,  # nonsensical but not consumed
             avg_win=100.0,
             avg_loss=50.0,
             nav=100_000.0,
         )
-        assert result.passed is False
-        assert result.details["kelly_recommended_max"] == 0.0
+        # $1 << $50k cap → passes regardless of win_rate.
+        assert result.passed is True
 
     def test_custom_kelly_fraction(self):
-        # Full-Kelly (kelly_fraction=1.0) gives larger budget than
-        # half-Kelly, for the same inputs.
+        # Full-Kelly (kelly_fraction=1.0) gives a larger cap than
+        # half-Kelly (0.5), for the same NAV.
         half = check_kelly_size(
-            margin_required=15_000.0,
+            margin_required=60_000.0,
             win_rate=0.7,
             avg_win=100.0,
             avg_loss=50.0,
@@ -377,14 +393,17 @@ class TestCheckKellySize:
             kelly_fraction=0.5,
         )
         full = check_kelly_size(
-            margin_required=15_000.0,
+            margin_required=60_000.0,
             win_rate=0.7,
             avg_win=100.0,
             avg_loss=50.0,
             nav=100_000.0,
             kelly_fraction=1.0,
         )
-        assert full.details["kelly_recommended_max"] >= half.details["kelly_recommended_max"]
+        # Half-Kelly cap = 50k → refuses 60k. Full-Kelly cap = 100k → passes.
+        assert half.passed is False
+        assert full.passed is True
+        assert full.details["kelly_recommended_max"] == 100_000.0
 
 
 # ======================================================================

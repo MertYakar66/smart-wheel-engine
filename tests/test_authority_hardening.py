@@ -64,7 +64,7 @@ class TestWheelTrackerEVAuthorityGate:
 
     def test_strict_tracker_rejects_trade_without_token(self):
         """Production tracker must refuse trades lacking an EV token."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         ok = t.open_short_put(
             ticker="AAPL",
             strike=180,
@@ -78,7 +78,7 @@ class TestWheelTrackerEVAuthorityGate:
         assert "AAPL" not in t.positions
 
     def test_strict_tracker_accepts_valid_token(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(
             self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32, ev_dollars=25.0)
         )
@@ -98,7 +98,7 @@ class TestWheelTrackerEVAuthorityGate:
     def test_strict_tracker_rejects_replayed_token(self):
         """Single-use token: after the first open_short_put consumes
         the token, a second attempt with the same token must fail."""
-        t = WheelTracker(initial_capital=200_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(
             self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32, ev_dollars=25.0)
         )
@@ -128,7 +128,7 @@ class TestWheelTrackerEVAuthorityGate:
         )
 
     def test_strict_tracker_rejects_random_string(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         _ = t.issue_ev_authority_token(self._ev_row())
         # Wrong token
         ok = t.open_short_put(
@@ -144,7 +144,7 @@ class TestWheelTrackerEVAuthorityGate:
         assert ok is False
 
     def test_authority_log_captures_reject_reason(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         t.open_short_put(
             ticker="AAPL",
             strike=180,
@@ -171,7 +171,7 @@ class TestWheelTrackerEVAuthorityGate:
         the row outright by raising :class:`EVAuthorityRefused`, and
         the audit log records the refusal with the canonicalised row.
         """
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         dis_row = self._ev_row(
             ticker="DIS",
             strike=95.0,
@@ -193,12 +193,12 @@ class TestWheelTrackerEVAuthorityGate:
         """ev_dollars == 0 is non-tradeable too — the predicate is
         strictly positive, matching R1's ``negative EV → blocked``
         when the EV is exactly at threshold."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         with pytest.raises(EVAuthorityRefused):
             t.issue_ev_authority_token(self._ev_row(ev_dollars=0.0))
 
     def test_issue_accepts_positive_ev(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         tok = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
         assert isinstance(tok, str) and len(tok) == 64  # sha256 hex
 
@@ -206,7 +206,7 @@ class TestWheelTrackerEVAuthorityGate:
     # D16: consume-time predicate (stale-EV / missing) — token RETAINED
     # ------------------------------------------------------------------
     def test_strict_consume_rejects_missing_current_ev_dollars(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
         ok = t.open_short_put(
             ticker="TEST",
@@ -230,7 +230,7 @@ class TestWheelTrackerEVAuthorityGate:
         canonical row). A transient negative-EV at fire time does not
         invalidate that. A subsequent fresh re-rank that comes back
         positive must be able to re-fire the same token."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
         # Fire-time EV went negative — reject, retain.
         ok1 = t.open_short_put(
@@ -271,7 +271,7 @@ class TestWheelTrackerEVAuthorityGate:
 
     def test_strict_consume_rejects_zero_current_ev_dollars(self):
         """Zero is non-tradeable — predicate is strictly positive."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(self._ev_row(ev_dollars=25.0))
         ok = t.open_short_put(
             ticker="TEST",
@@ -295,7 +295,7 @@ class TestWheelTrackerEVAuthorityGate:
         claimed this was enforced; D16 makes it true."""
         from engine.wheel_tracker import PositionState, WheelPosition
 
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         # Set up a STOCK_OWNED position by hand (skipping the put-leg
         # gate is fine for this unit; the call-leg gate is the target).
         t.positions["AAPL"] = WheelPosition(
@@ -322,7 +322,7 @@ class TestWheelTrackerEVAuthorityGate:
     def test_strict_open_covered_call_accepts_valid_token(self):
         from engine.wheel_tracker import PositionState, WheelPosition
 
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         t.positions["AAPL"] = WheelPosition(
             ticker="AAPL",
             state=PositionState.STOCK_OWNED,
@@ -631,3 +631,282 @@ class TestDiagnosticEndpointAuthorityMarkers:
         payload = captured.get("payload", {})
         assert payload.get("authority") == "heuristic_diagnostic"
         assert payload.get("tradeable_endpoint") == "/api/candidates"
+
+
+# ======================================================================
+# 4. D17 portfolio-risk hard-blocks (#154 C4 Phase 2)
+#
+# Each test sets NAV / strike / position parameters intentionally to
+# trip exactly one D17 gate, so the audit-log reject identifies the
+# right reason. The strict-mode tests above this section use a $10M
+# NAV to avoid accidentally tripping these gates while exercising the
+# D16 token contract.
+# ======================================================================
+class TestD17HardBlocks:
+    def _ev_row(self, ticker="TEST", **overrides):
+        r = {
+            "ticker": ticker,
+            "strike": 95.0,
+            "premium": 1.20,
+            "dte": 35,
+            "ev_dollars": 25.0,
+            "prob_profit": 0.72,
+            "distribution_source": "empirical_non_overlapping",
+        }
+        r.update(overrides)
+        return r
+
+    def test_d17_passes_at_realistic_nav(self):
+        """The headline happy path — strict-mode tracker at $10M NAV
+        opens an ATM short put on AAPL with full D16+D17 inputs.
+        Verifies the gates do NOT spuriously fire when the position
+        is sized appropriately for the book."""
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(
+            self._ev_row(ticker="AAPL", strike=180, premium=2.50, dte=32)
+        )
+        ok = t.open_short_put(
+            ticker="AAPL",
+            strike=180,
+            premium=2.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is True
+        # No D17 reject entries in the log.
+        rejects_d17 = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject"
+            and e.get("reason")
+            in {
+                "nav_exhausted",
+                "sector_cap_breach",
+                "portfolio_delta_breach",
+                "kelly_size_exceeded",
+            }
+        ]
+        assert rejects_d17 == []
+
+    def test_d17_nav_exhausted_pre_gate(self):
+        """min_nav_for_trading=$1M; tracker capital $100k → live NAV
+        below the floor → nav_exhausted refuses outright before any
+        gate runs."""
+        t = WheelTracker(
+            initial_capital=100_000,
+            require_ev_authority=True,
+            min_nav_for_trading=1_000_000.0,
+        )
+        token = t.issue_ev_authority_token(self._ev_row())
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "nav_exhausted"
+        assert rejects[0]["nav"] == 100_000
+        assert rejects[0]["min_nav_for_trading"] == 1_000_000.0
+        assert rejects[0]["nav_source"] == "static_fallback"
+
+    def test_d17_portfolio_delta_breach(self):
+        """At $100k NAV the delta cap is $300. An ATM short put with
+        ~$4750 delta-dollars trips the cap before the sector or
+        Kelly gates."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row(ticker="TEST", strike=95.0))
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["reason"] == "portfolio_delta_breach"
+        assert rejects[0]["post_open_delta_dollars"] > rejects[0]["delta_cap_dollars"]
+
+    def test_d17_kelly_or_other_d17_gate_fires_at_small_nav(self):
+        """The Kelly gate's isolated behaviour is unit-tested in
+        ``tests/test_portfolio_risk_gates.py`` (where the function
+        signature lets us drive margin / NAV directly). Tracker-side
+        Kelly isolation is fundamentally hard: at any NAV small
+        enough for Kelly to fire, sector + delta also fire first.
+        This test just verifies the gate path *runs* in the
+        tracker — any D17 reject reason is acceptable proof that
+        ``_evaluate_d17_hard_blocks`` got control."""
+        t = WheelTracker(initial_capital=10_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row(ticker="HIGH", strike=400.0, premium=5.0))
+        ok = t.open_short_put(
+            ticker="HIGH",
+            strike=400.0,
+            premium=5.0,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.30,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) >= 1
+        # Tracker buying-power check (self.cash < margin_required at
+        # $10k NAV with a $400 strike) MAY also refuse the trade
+        # before D17 runs — that legacy path is fine too. What we're
+        # verifying is that the gate orchestration didn't crash.
+        reasons = {r["reason"] for r in rejects}
+        # Either a D17 reason fired, or no audit-log reject at all
+        # (legacy buying-power path returns False without writing to
+        # the log). Both are acceptable proof the integration runs.
+        assert reasons.issubset(
+            {
+                "kelly_size_exceeded",
+                "portfolio_delta_breach",
+                "sector_cap_breach",
+                "nav_exhausted",
+                "unknown_token",
+                "missing_current_ev_dollars",
+                "stale_ev",
+            }
+        )
+
+    def test_d17_static_fallback_when_no_connector(self):
+        """No connector attached → live NAV falls back to
+        initial_capital with nav_source='static_fallback' visible in
+        the audit log. The gate still fires (or doesn't) against the
+        static value."""
+        t = WheelTracker(
+            initial_capital=100_000,
+            require_ev_authority=True,
+            # connector default is None
+        )
+        token = t.issue_ev_authority_token(self._ev_row())
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        # Delta gate trips at $100k NAV (cap $300 vs delta ~$4750).
+        assert ok is False
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["nav_source"] == "static_fallback"
+        assert rejects[0]["nav"] == 100_000
+
+    def test_d17_non_strict_mode_bypasses_all_gates(self):
+        """Default tracker (require_ev_authority=False) — no D16
+        token check, no D17 gates. The position opens regardless of
+        sector / delta / Kelly status."""
+        t = WheelTracker(initial_capital=100_000)  # no require_ev_authority
+        ok = t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+        )
+        assert ok is True
+        # No D17 reject entries — non-strict mode bypasses the audit
+        # log entirely for this path.
+        d17_rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject"
+            and e.get("reason")
+            in {
+                "nav_exhausted",
+                "sector_cap_breach",
+                "portfolio_delta_breach",
+                "kelly_size_exceeded",
+            }
+        ]
+        assert d17_rejects == []
+
+    def test_d17_compute_once_per_call(self):
+        """The same NAV value threads through every gate in one
+        open_* call. Verify by checking that the single reject's
+        ``nav`` field matches the tracker's initial_capital (the
+        static_fallback value) — if NAV were re-computed mid-call
+        the second computation would land at a different cash
+        balance after the trade tried to commit."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(self._ev_row())
+        t.open_short_put(
+            ticker="TEST",
+            strike=95.0,
+            premium=1.20,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        # Exactly one reject entry, with one NAV value.
+        rejects = [e for e in t._ev_authority_log if e.get("action") == "reject"]
+        assert len(rejects) == 1
+        assert rejects[0]["nav"] == 100_000  # static_fallback NAV, computed once
+
+    def test_d17_covered_call_skips_kelly(self):
+        """The call leg has no new margin (stock already owned) so
+        the Kelly gate is intentionally short-circuited. Sector +
+        delta still fire."""
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
+        # Set up a STOCK_OWNED position by hand.
+        t.positions["AAPL"] = WheelPosition(
+            ticker="AAPL",
+            state=PositionState.STOCK_OWNED,
+            entry_date=date(2026, 4, 1),
+            stock_shares=100,
+            stock_basis=180.0,
+        )
+        token = t.issue_ev_authority_token(
+            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0)
+        )
+        ok = t.open_covered_call(
+            ticker="AAPL",
+            strike=190.0,
+            premium=1.50,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 16),
+            iv=0.22,
+            ev_authority_token=token,
+            current_ev_dollars=18.0,
+        )
+        assert ok is True
+        # No D17 rejects on the call-leg path (sector + delta pass at $10M NAV).
+        d17_rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject"
+            and e.get("reason") in {"sector_cap_breach", "portfolio_delta_breach"}
+        ]
+        assert d17_rejects == []

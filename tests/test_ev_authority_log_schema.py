@@ -85,6 +85,79 @@ _SHAPE_REJECT_STALE = (
     set(),
 )
 
+# D17 (#154 C4 Phase 2) — four new shapes for the portfolio-risk
+# hard-blocks. All carry the post-D16 fields (token, current_ev_dollars)
+# plus the gate-specific details bag and the live-NAV fingerprint
+# (nav + nav_source) so an audit consumer can grep by nav_source to
+# spot static-fallback vs live-mark-to-market gate runs.
+
+# Shape 5a: action="reject", reason="nav_exhausted" — pre-gate floor.
+_SHAPE_REJECT_NAV_EXHAUSTED = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "current_ev_dollars",
+        "nav",
+        "nav_source",
+        "min_nav_for_trading",
+    },
+    set(),
+)
+
+# Shape 5b: action="reject", reason="sector_cap_breach".
+_SHAPE_REJECT_SECTOR = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "current_ev_dollars",
+        "nav",
+        "nav_source",
+        "sector",
+        "sector_pct",
+        "sector_limit",
+        "narrative",
+    },
+    set(),
+)
+
+# Shape 5c: action="reject", reason="portfolio_delta_breach".
+_SHAPE_REJECT_DELTA = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "current_ev_dollars",
+        "nav",
+        "nav_source",
+        "current_portfolio_delta_dollars",
+        "post_open_delta_dollars",
+        "delta_cap_dollars",
+    },
+    set(),
+)
+
+# Shape 5d: action="reject", reason="kelly_size_exceeded".
+_SHAPE_REJECT_KELLY = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "current_ev_dollars",
+        "nav",
+        "nav_source",
+        "margin_required",
+        "kelly_recommended_max",
+        "kelly_fraction",
+    },
+    set(),
+)
+
 _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("issue", None): _SHAPE_ISSUE,
     ("refuse_issue", "non_positive_ev"): _SHAPE_REFUSE_ISSUE,
@@ -92,6 +165,11 @@ _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("reject", "unknown_token"): _SHAPE_REJECT_UNKNOWN,
     ("reject", "missing_current_ev_dollars"): _SHAPE_REJECT_MISSING_EV,
     ("reject", "stale_ev"): _SHAPE_REJECT_STALE,
+    # D17 hard-block reject shapes (#154 C4 Phase 2)
+    ("reject", "nav_exhausted"): _SHAPE_REJECT_NAV_EXHAUSTED,
+    ("reject", "sector_cap_breach"): _SHAPE_REJECT_SECTOR,
+    ("reject", "portfolio_delta_breach"): _SHAPE_REJECT_DELTA,
+    ("reject", "kelly_size_exceeded"): _SHAPE_REJECT_KELLY,
 }
 
 
@@ -169,7 +247,7 @@ def _open_args(**overrides) -> dict:
 # ======================================================================
 class TestPerPathShape:
     def test_issue_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         t.issue_ev_authority_token(_ev_row())
         assert len(t._ev_authority_log) == 1
         e = t._ev_authority_log[0]
@@ -177,7 +255,7 @@ class TestPerPathShape:
         _validate_entry(e)
 
     def test_refuse_issue_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         with pytest.raises(EVAuthorityRefused):
             t.issue_ev_authority_token(_ev_row(ev_dollars=-5.0))
         assert len(t._ev_authority_log) == 1
@@ -187,7 +265,7 @@ class TestPerPathShape:
         _validate_entry(e)
 
     def test_consume_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(_ev_row())
         ok = t.open_short_put(
             **_open_args(),
@@ -201,7 +279,7 @@ class TestPerPathShape:
         _validate_entry(consume[0])
 
     def test_reject_unknown_token_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         # No token issued — supplying a bad one hits unknown_token.
         ok = t.open_short_put(
             **_open_args(),
@@ -217,7 +295,7 @@ class TestPerPathShape:
     def test_reject_unknown_token_shape_when_none(self):
         """Passing ``ev_authority_token=None`` in strict mode also
         logs ``unknown_token`` (no separate ``none_token`` shape)."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         ok = t.open_short_put(
             **_open_args(),
             ev_authority_token=None,
@@ -230,7 +308,7 @@ class TestPerPathShape:
         _validate_entry(rejects[0])
 
     def test_reject_missing_current_ev_dollars_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(_ev_row())
         ok = t.open_short_put(
             **_open_args(),
@@ -244,7 +322,7 @@ class TestPerPathShape:
         _validate_entry(rejects[0])
 
     def test_reject_stale_ev_shape(self):
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(_ev_row())
         ok = t.open_short_put(
             **_open_args(),
@@ -266,7 +344,7 @@ class TestLogClosure:
     def test_mixed_sequence_closure(self):
         """A realistic mixed sequence of operations writes only
         well-shaped entries — no key drift, no unexpected actions."""
-        t = WheelTracker(initial_capital=200_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
 
         # issue + immediate refuse_issue
         with pytest.raises(EVAuthorityRefused):
@@ -324,7 +402,7 @@ class TestLogClosure:
         """The persisted log shape (PR #128) is the same as the
         in-memory shape. If the schema drifts, ``from_dict`` would
         reconstruct entries that fail validation."""
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = t.issue_ev_authority_token(_ev_row())
         t.open_short_put(
             **_open_args(),
@@ -344,7 +422,7 @@ class TestLogClosure:
         same shapes the put leg uses."""
         from engine.wheel_tracker import PositionState, WheelPosition
 
-        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         t.positions["AAA"] = WheelPosition(
             ticker="AAA",
             state=PositionState.STOCK_OWNED,
@@ -420,5 +498,187 @@ class TestValidatorRejectsBadShapes:
                     "action": "reject",
                     "reason": "vibes_off",
                     "ticker": "AAA",
+                }
+            )
+
+
+# ======================================================================
+# 4. D17 (#154 C4 Phase 2) — schema for portfolio-risk hard-block
+#    reject entries. Each path through the tracker's
+#    _evaluate_d17_hard_blocks emits an entry that must match one of
+#    the four new D17 shapes registered in _VALID_SHAPES.
+# ======================================================================
+class TestD17EntryShapes:
+    def test_nav_exhausted_shape(self):
+        """min_nav_for_trading=$1M; tracker capital $100k → nav < floor."""
+        t = WheelTracker(
+            initial_capital=100_000,
+            require_ev_authority=True,
+            min_nav_for_trading=1_000_000.0,
+        )
+        token = t.issue_ev_authority_token(_ev_row())
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject" and e.get("reason") == "nav_exhausted"
+        ]
+        assert len(rejects) == 1
+        _validate_entry(rejects[0])
+
+    def test_portfolio_delta_breach_shape(self):
+        """At $100k NAV the delta cap is $300; ATM short put has
+        delta-dollars ~$4750. Should trip the delta gate (it sorts
+        before Kelly in the orchestration)."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        ok = t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        delta_rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject" and e.get("reason") == "portfolio_delta_breach"
+        ]
+        assert len(delta_rejects) == 1
+        _validate_entry(delta_rejects[0])
+
+    def test_sector_cap_breach_shape(self):
+        """Force the sector gate to fire by pre-loading the held
+        list with same-sector positions. Easiest path: open one
+        AAPL short put at $10M NAV (delta passes), then try a
+        second AAPL position that would breach sector. Actually
+        simpler: instantiate a tracker with a 0.001% sector cap
+        override... not supported. Use the gate-direct path
+        instead: pre-load self.positions with an AAPL position
+        whose strike makes the sector cap tight."""
+        from engine.wheel_tracker import PositionState, WheelPosition
+
+        t = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
+        # Pre-load $2M of held AAPL (one $20k put × 100 contracts
+        # equivalent is impractical; use the persistence layer
+        # injection to set a giant held position).
+        t.positions["AAPL"] = WheelPosition(
+            ticker="AAPL",
+            state=PositionState.SHORT_PUT,
+            entry_date=date(2026, 4, 1),
+            put_strike=2_400_000.0,  # nonsense strike for test setup
+            put_premium=1.0,
+            put_entry_date=date(2026, 4, 1),
+            put_dte_at_entry=30,
+            put_entry_iv=0.25,
+            put_expiration_date=date(2026, 5, 1),
+        )
+        token = t.issue_ev_authority_token(
+            _ev_row(ticker="MSFT", strike=350.0, premium=2.5, ev_dollars=25.0)
+        )
+        ok = t.open_short_put(
+            ticker="MSFT",
+            strike=350.0,
+            premium=2.5,
+            entry_date=date(2026, 4, 14),
+            expiration_date=date(2026, 5, 19),
+            iv=0.25,
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        assert ok is False
+        sector_rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject" and e.get("reason") == "sector_cap_breach"
+        ]
+        assert len(sector_rejects) == 1
+        _validate_entry(sector_rejects[0])
+
+    def test_kelly_size_exceeded_shape_via_direct_log_check(self):
+        """Validate the kelly_size_exceeded shape through the audit
+        log even when delta-breach fires first in the same call.
+        We can't easily isolate Kelly at the tracker level, but the
+        SHAPE is what this test pins — so we synthesise a kelly
+        reject entry directly and validate it."""
+        synthesised = {
+            "action": "reject",
+            "reason": "kelly_size_exceeded",
+            "ticker": "TEST",
+            "token": "0" * 64,
+            "current_ev_dollars": 25.0,
+            "nav": 10_000.0,
+            "nav_source": "static_fallback",
+            "margin_required": 8_000.0,
+            "kelly_recommended_max": 5_000.0,
+            "kelly_fraction": 0.5,
+        }
+        _validate_entry(synthesised)
+
+    def test_d17_static_fallback_source_in_audit(self):
+        """Connector=None → nav_source='static_fallback' on every
+        D17 reject entry."""
+        t = WheelTracker(initial_capital=100_000, require_ev_authority=True)
+        token = t.issue_ev_authority_token(_ev_row())
+        t.open_short_put(
+            **_open_args(),
+            ev_authority_token=token,
+            current_ev_dollars=25.0,
+            prob_profit=0.72,
+        )
+        d17_rejects = [
+            e
+            for e in t._ev_authority_log
+            if e.get("action") == "reject"
+            and e.get("reason")
+            in {
+                "nav_exhausted",
+                "sector_cap_breach",
+                "portfolio_delta_breach",
+                "kelly_size_exceeded",
+            }
+        ]
+        assert len(d17_rejects) >= 1
+        for entry in d17_rejects:
+            assert entry["nav_source"] == "static_fallback"
+            assert entry["nav"] == 100_000
+
+    def test_validator_rejects_d17_entry_with_unknown_reason(self):
+        """Meta-test: the validator's closure check catches a
+        D17-shaped entry with a fabricated reason."""
+        with pytest.raises(AssertionError, match="Unknown audit-log entry"):
+            _validate_entry(
+                {
+                    "action": "reject",
+                    "reason": "gamma_overrun",  # not a registered D17 reason
+                    "ticker": "TEST",
+                    "token": "0" * 64,
+                    "current_ev_dollars": 25.0,
+                    "nav": 100_000,
+                    "nav_source": "static_fallback",
+                }
+            )
+
+    def test_validator_rejects_d17_entry_missing_nav_source(self):
+        """nav_source is required on every D17 reject shape; a
+        forgotten field surfaces here."""
+        with pytest.raises(AssertionError, match="missing required keys"):
+            _validate_entry(
+                {
+                    "action": "reject",
+                    "reason": "nav_exhausted",
+                    "ticker": "TEST",
+                    "token": "0" * 64,
+                    "current_ev_dollars": 25.0,
+                    "nav": 100_000,
+                    # nav_source omitted
+                    "min_nav_for_trading": 1_000_000.0,
                 }
             )

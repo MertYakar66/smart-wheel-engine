@@ -416,6 +416,54 @@ class MarketDataConnector:
             "year_period": row.get("year/period", row.get("year_period")),
         }
 
+    def get_recent_earnings(
+        self,
+        ticker: str,
+        as_of: str | None = None,
+        lookback_days: int = 7,
+    ) -> dict | None:
+        """Return the most recent earnings event in ``[as_of - lookback_days, as_of]``.
+
+        The symmetric complement of :meth:`get_next_earnings` — where
+        that returns the next FUTURE earnings, this returns the most
+        recent PAST earnings within a lookback window. Both are needed
+        by :class:`~engine.event_gate.EventGate`, whose
+        ``_event_touches_window`` arithmetic
+        (``window_start = trade_start - timedelta(days=buf)``) and
+        ``±{buf}d buffer`` reason string make the gate explicitly
+        symmetric (S23 F1). Without this method, callers register only
+        forward earnings; a trade opened just after an earnings
+        announcement is silently allowed even though the post-event
+        IV-crush / drift window is exactly what the gate's docstring
+        cites as the motivation for blocking.
+
+        Returns a dict with the same keys as :meth:`get_next_earnings`
+        (``announcement_date``, ``announcement_time``, ``estimate_eps``,
+        ``year_period``) or ``None`` if no past earnings are found in
+        the window. The two methods are *complementary* — the
+        ``> ref`` / ``<= ref`` cutoff is set so an event ON ``as_of``
+        is treated as past (returned by this method, not by
+        ``get_next_earnings``).
+        """
+        ref = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
+        lookback_start = ref - pd.Timedelta(days=int(lookback_days))
+        df = self._load("earnings")
+        df = self._filter_ticker(df, ticker)
+        if df.empty or "announcement_date" not in df.columns:
+            return None
+        past = df[
+            (df["announcement_date"] >= lookback_start) & (df["announcement_date"] <= ref)
+        ].sort_values("announcement_date")
+        if past.empty:
+            return None
+        row = past.iloc[-1]  # most recent within the lookback
+        return {
+            "announcement_date": row["announcement_date"],
+            "announcement_time": row.get("announcement_time"),
+            "estimate_eps": row.get("estimate_eps"),
+            "year_period": row.get("year/period", row.get("year_period")),
+        }
+
     # ------------------------------------------------------------------
     # Events – Dividends
     # ------------------------------------------------------------------

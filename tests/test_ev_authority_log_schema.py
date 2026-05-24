@@ -142,6 +142,18 @@ _SHAPE_REJECT_DELTA = (
 )
 
 # Shape 5d: action="reject", reason="kelly_size_exceeded".
+#
+# Coverage note (#166 B1): this shape is verified by the static
+# schema in this file only — no end-to-end tracker integration test
+# in TestD17HardBlocks exercises the Kelly gate. The gate is
+# preemptively reserved for a future multi-contract position path
+# (see engine/portfolio_risk_gates.check_kelly_size's docstring and
+# #166 B3); under WheelTracker.open_short_put's current single-
+# contract emission it is structurally unreachable at realistic NAVs.
+# When the multi-contract WheelPosition path lands, add a tracker
+# integration test mirroring the sector / delta cases in
+# tests/test_authority_hardening.TestD17HardBlocks and remove this
+# note.
 _SHAPE_REJECT_KELLY = (
     {
         _ACTION,

@@ -472,6 +472,25 @@ def check_kelly_size(
     continuous-Kelly refinement lands, both consumption and
     audit-log surfacing of these inputs should be added together.
 
+    **Current-path reachability (#166 B3).** Under
+    ``WheelTracker.open_short_put``'s single-contract emission today
+    (``WheelPosition`` has no ``contracts`` field; ``available_buying_power``
+    hardcodes 100 shares per ``SHORT_PUT``), the Kelly gate is
+    structurally unreachable at any realistic NAV. One Reg-T short-put
+    margin is typically $4-$13k for S&P names; the cap at default
+    ``kelly_fraction=0.5`` is $50k at $100k NAV and scales linearly,
+    so any NAV that leaves room for the (smaller, $300/$100k) delta
+    cap to clear will also clear the Kelly cap, and below that the
+    legacy ``self.cash < margin_required`` check refuses before D17
+    is entered. The gate is therefore **preemptively reserved for a
+    future multi-contract position path** where one trade can consume
+    meaningful fractional NAV. Until that lands, no
+    ``kelly_size_exceeded`` audit-log entry will be emitted from the
+    tracker entry path; the function is exercised in tests via direct
+    invocation and audit-log schema closure only. This is a
+    conservative gate (it can only refuse, never rescue — see §2),
+    so the reservation does not introduce risk.
+
     Args:
         margin_required: The Reg-T margin the trade would consume.
         win_rate: Probability of profit (forward-compat; unused).

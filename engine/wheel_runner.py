@@ -991,6 +991,13 @@ class WheelRunner:
                 option_type="put",
                 q=dividend_yield,
             )
+            # Provenance: this branch is the only one that constructs `premium`
+            # today; a future market-mid path would set `"market_mid"` instead.
+            # Consumers use this to tell a real quote from a synthetic one --
+            # and, consequently, to know that ``edge_vs_fair`` is structurally
+            # zero on the synthetic path (premium and fair both come from the
+            # same BSM call in ev_engine.evaluate).
+            premium_source = "synthetic_bsm"
             if premium <= 0.05:
                 drops.append(
                     {
@@ -1114,6 +1121,7 @@ class WheelRunner:
 
             # Look up OI at our target strike from the chain when possible
             strike_oi = 1000  # mid-liquid fallback
+            oi_source = "fallback"
             if chain_df is not None and len(chain_df) > 0:
                 try:
                     cdf_lc = chain_df.copy()
@@ -1126,6 +1134,7 @@ class WheelRunner:
                             row_oi = puts_only.sort_values("_gap").iloc[0]["open_interest"]
                             if pd.notna(row_oi) and float(row_oi) > 0:
                                 strike_oi = int(float(row_oi))
+                                oi_source = "chain"
                 except Exception:
                     pass
 
@@ -1406,6 +1415,19 @@ class WheelRunner:
                         "credit_multiplier": round(credit_mult, 4),
                         "credit_regime": credit_regime,
                         "strike_open_interest": strike_oi,
+                        # Provenance: "chain" means OI came from the real chain;
+                        # "fallback" means the 1000 placeholder was used. On the
+                        # bloomberg-CSV path the connector exposes no chain so
+                        # this is always "fallback"; on a real-chain path it
+                        # reflects the per-strike lookup outcome.
+                        "oi_source": oi_source,
+                        # Provenance: "synthetic_bsm" means `premium` was
+                        # constructed from BSM at the engine boundary (the
+                        # current bloomberg-CSV path); "market_mid" would
+                        # indicate a real quote. When this is "synthetic_bsm",
+                        # `edge_vs_fair` is structurally zero (the engine prices
+                        # `fair` from the same BSM inputs).
+                        "premium_source": premium_source,
                         "chain_quality_warning": chain_quality_blocked_reason or None,
                     }
                 )

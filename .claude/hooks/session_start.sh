@@ -29,6 +29,30 @@ for f in data/bloomberg/sp500_ohlcv.csv data/bloomberg/sp500_vol_iv_full.csv; do
   fi
 done
 
+# 2b. OHLCV staleness — warn-only when the most recent date in
+#     sp500_ohlcv.csv is more than 30 days behind today. The Bloomberg
+#     refresh path is documented as "monthly manual" (docs/DATA_POLICY.md
+#     §5); without this check a stale CSV silently produces analyses that
+#     look "current" but reason about old market state. Pure bash + awk +
+#     GNU date so the warning fires the same on Cowork (Linux) and on a
+#     Windows Git Bash dev box (where `python3` is the MS Store stub).
+OHLCV="data/bloomberg/sp500_ohlcv.csv"
+if [ -f "$OHLCV" ]; then
+  # ISO YYYY-MM-DD in column 1 sorts lexically -> string-max == date-max.
+  LAST_DATE=$(awk -F, 'NR>1 && $1>m {m=$1} END {print m}' "$OHLCV" 2>/dev/null)
+  if [ -n "$LAST_DATE" ]; then
+    LAST_EPOCH=$(date -d "$LAST_DATE" +%s 2>/dev/null)
+    NOW_EPOCH=$(date +%s 2>/dev/null)
+    if [ -n "$LAST_EPOCH" ] && [ -n "$NOW_EPOCH" ]; then
+      DAYS_STALE=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+      if [ "$DAYS_STALE" -gt 30 ]; then
+        echo "│  ⚠ sp500_ohlcv.csv is $DAYS_STALE days stale (most recent: $LAST_DATE)"
+        echo "│    Refresh per docs/DATA_POLICY.md §5 before relying on a 'today' scan."
+      fi
+    fi
+  fi
+fi
+
 # 3. Theta manifest — warn-only. Cowork still functions on bloomberg fallback.
 MANIFEST="data_processed/theta/_manifest.json"
 if [ -f "$MANIFEST" ]; then

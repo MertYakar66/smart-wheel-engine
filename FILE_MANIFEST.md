@@ -244,6 +244,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
+| `docs/ENGINE_BACKTEST_2022_2024.md` | Predictive-validity backtest of the EV ranker against real historical OHLCV (S22, 3 years across 2022 bear / 2023 recovery / 2024 bull). Spearman + quartile + calibration + per-year + tail analyses; documents the IV-snapshot caveat. New file per backtest window. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/data_inventory_2026-05-17.md` | Point-in-time data-inventory analysis report. |
 | `docs/optionsengine_audit_2026-05-17.md` | Point-in-time accuracy audit of the archived `OptionsEngine.txt` walkthrough. |

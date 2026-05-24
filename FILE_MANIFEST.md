@@ -243,6 +243,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/USAGE_TEST_LEDGER.md` | Record of end-to-end usage tests — purpose, setup, findings, follow-up PRs. |
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
+| `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/data_inventory_2026-05-17.md` | Point-in-time data-inventory analysis report. |
 | `docs/optionsengine_audit_2026-05-17.md` | Point-in-time accuracy audit of the archived `OptionsEngine.txt` walkthrough. |

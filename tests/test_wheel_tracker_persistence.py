@@ -182,7 +182,7 @@ class TestWheelTrackerRoundTrip:
         assert back.equity_curve[0]["date"] == t.equity_curve[0]["date"]
 
     def test_ev_authority_tokens_and_log_round_trip(self):
-        t = WheelTracker(initial_capital=100_000.0, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000.0, require_ev_authority=True)
         token = t.issue_ev_authority_token(
             # ev_dollars must be > 0 post-D16 or issuance raises.
             {"ticker": "AAA", "strike": 180.0, "premium": 2.0, "dte": 35, "ev_dollars": 25.0}
@@ -198,7 +198,7 @@ class TestWheelTrackerRoundTrip:
         ``current_ev_dollars`` at fire time. The persistence schema
         (set[str] of hashes) is unchanged; the new predicate is
         applied at consume against the *reloaded* tracker."""
-        t = WheelTracker(initial_capital=100_000.0, require_ev_authority=True)
+        t = WheelTracker(initial_capital=10_000_000.0, require_ev_authority=True)
         token = t.issue_ev_authority_token(
             {
                 "ticker": "AAA",

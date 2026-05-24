@@ -286,7 +286,7 @@ class TestFullAuthorityChain:
         if float(ev_row.get("ev_dollars", 0.0) or 0.0) <= 0.0:
             ev_row["ev_dollars"] = 25.0
         current_ev = float(ev_row["ev_dollars"])
-        tracker = WheelTracker(initial_capital=250_000, require_ev_authority=True)
+        tracker = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         token = tracker.issue_ev_authority_token(ev_row)
 
         # No token → reject
@@ -317,7 +317,7 @@ class TestFullAuthorityChain:
         assert "AAPL" in tracker.positions
 
         # Replayed token → reject (consumed by the prior open).
-        tracker2 = WheelTracker(initial_capital=250_000, require_ev_authority=True)
+        tracker2 = WheelTracker(initial_capital=10_000_000, require_ev_authority=True)
         replayed = tracker2.open_short_put(
             ticker="AAPL",
             strike=ev_row["strike"],

@@ -46,7 +46,6 @@ from typing import TYPE_CHECKING, Literal
 from .risk_manager import (
     RiskManager,
     SectorExposureManager,
-    calculate_kelly_fraction,
 )
 from .stress_testing import Scenario, ScenarioType, StressTester
 
@@ -391,56 +390,66 @@ def check_kelly_size(
     *,
     kelly_fraction: float = _DEFAULT_KELLY_FRACTION,
 ) -> GateResult:
-    """Refuse if the candidate's margin requirement exceeds the
-    half-Kelly recommended dollar exposure for the trade.
+    """Refuse if the candidate's margin requirement exceeds
+    ``kelly_fraction × NAV`` — the half-Kelly per-trade sizing cap.
 
-    Uses ``calculate_kelly_fraction`` from `risk_manager.py`. The
-    classical binary form: ``f* = (p*b - q) / b`` where ``p=win_rate``,
-    ``q=1-p``, ``b=avg_win/avg_loss``. Half-Kelly is the standard
-    risk-of-ruin reduction (D17 spec).
+    **Implementation note (#154 C4 Phase 2 amendment):** an earlier
+    sketch used the classical binary Kelly formula from
+    ``calculate_kelly_fraction`` (``f* = (p*b - q) / b`` where
+    ``b = avg_win / avg_loss``). For typical short puts, the
+    binary form returns 0 — the loss-to-win ratio
+    (``avg_loss = (strike − premium) × 100`` vs ``avg_win = premium × 100``)
+    is so wide that ``f*`` goes negative for any realistic
+    ``win_rate``. After the ``max(0, …)`` clamp, recommended
+    exposure is $0 and the gate refuses every short put,
+    regardless of edge. That makes the gate worse than useless
+    (it just refuses indiscriminately, with no information value).
 
-    For a short put the typical inputs are:
+    The shipped form is the **per-trade NAV cap** interpretation of
+    "half-Kelly": no single trade may consume more than
+    ``kelly_fraction × NAV`` of margin (default 50% at half-Kelly).
+    This is the practitioner's reading of half-Kelly as a sizing
+    cap, captures the spirit of the D17 spec (limit single-position
+    concentration), and actually fires useful refusals when an
+    operator over-sizes one trade.
 
-    - ``win_rate = prob_profit`` (from the ev_row)
-    - ``avg_win = premium * 100`` (premium kept if expires worthless)
-    - ``avg_loss = (strike - premium) * 100`` (assignment, treating
-      the post-assignment stock as zero-recovery — overly pessimistic
-      for the formula's input direction, see #113 design comment)
-
-    ``calculate_kelly_fraction`` returns 0 for invalid inputs
-    (win_rate outside [0,1], non-positive avg_win or avg_loss); this
-    function then refuses (recommended dollar exposure = 0).
+    ``win_rate`` / ``avg_win`` / ``avg_loss`` are kept in the
+    signature for forward-compatibility with a future continuous-
+    Kelly refinement (``f* = μ/σ²``) that would use a per-trade
+    EV/variance estimate; they are not consumed by the current
+    formula. The audit-log details bag carries them for
+    observability so a future analyst can grep for the inputs even
+    while the formula is the simple cap.
 
     Args:
         margin_required: The Reg-T margin the trade would consume.
-        win_rate: Probability of profit (from ev_row).
-        avg_win: Average win dollars (typically premium*100).
-        avg_loss: Average loss dollars (positive; typically
-            (strike-premium)*100).
+        win_rate: Probability of profit (forward-compat; unused).
+        avg_win: Average win dollars (forward-compat; unused).
+        avg_loss: Average loss dollars (forward-compat; unused).
         nav: Net asset value.
-        kelly_fraction: Default 0.5 (half-Kelly) per D17.
+        kelly_fraction: Per-trade NAV cap as a fraction of NAV;
+            default 0.5 (half-Kelly).
     """
-    kelly_pct = calculate_kelly_fraction(win_rate, avg_win, avg_loss, kelly_fraction)
-    recommended_max = kelly_pct * nav
+    # NOTE: ``calculate_kelly_fraction`` (binary Kelly from
+    # risk_manager.py) is intentionally NOT used here — see the
+    # docstring above for the rationale. Kept available via the
+    # import so a future continuous-Kelly refinement can drop in
+    # without an import churn.
+    _ = (win_rate, avg_win, avg_loss)  # forward-compat; unused today
+    recommended_max = kelly_fraction * nav
+
+    common_details = {
+        "margin_required": margin_required,
+        "kelly_recommended_max": recommended_max,
+        "kelly_fraction": kelly_fraction,
+    }
 
     if margin_required <= recommended_max:
-        return GateResult(
-            passed=True,
-            reason=None,
-            details={
-                "margin_required": margin_required,
-                "kelly_recommended_max": recommended_max,
-                "kelly_fraction": kelly_fraction,
-            },
-        )
+        return GateResult(passed=True, reason=None, details=common_details)
     return GateResult(
         passed=False,
         reason="kelly_size_exceeded",
-        details={
-            "margin_required": margin_required,
-            "kelly_recommended_max": recommended_max,
-            "kelly_fraction": kelly_fraction,
-        },
+        details=common_details,
     )
 
 

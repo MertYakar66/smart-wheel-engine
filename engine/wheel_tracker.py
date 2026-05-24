@@ -253,6 +253,7 @@ class WheelTracker:
         initial_capital: float = 100000.0,
         require_ev_authority: bool = False,
         connector: Any | None = None,
+        min_nav_for_trading: float = 0.0,
     ):
         """
         Args:
@@ -275,15 +276,34 @@ class WheelTracker:
                 ``reason="stale_ev"``). Both legs (short put + covered
                 call) flow through the same predicate.
 
-                Default False for backwards compatibility with tests
-                and research usage; production/live tracker instances
-                should set it True.
+                D17 portfolio-risk hard-blocks also fire in strict
+                mode: ``check_sector_cap``, ``check_portfolio_delta``,
+                ``check_kelly_size`` from
+                :mod:`engine.portfolio_risk_gates`. Default False for
+                backwards compatibility with tests and research
+                usage; production/live tracker instances should set
+                it True.
             connector: Optional data connector
                 (``MarketDataConnector`` / ``ThetaConnector``-style).
-                Used only by :meth:`suggest_rolls` to resolve
+                Used by :meth:`suggest_rolls` to resolve
                 ``get_risk_free_rate(as_of)`` and ``get_ohlcv(ticker)``
-                when those values are not passed explicitly. Default
-                ``None`` keeps the tracker dependency-free.
+                when those values are not passed explicitly, AND by
+                :meth:`_compute_live_nav` (D17) to fetch spot prices
+                for the live mark-to-market NAV that the
+                hard-block gates evaluate against. When ``None``, the
+                gates fall back to ``initial_capital`` as the NAV
+                source and the audit log records
+                ``nav_source="static_fallback"``. Default ``None``
+                keeps the tracker dependency-free for research use.
+            min_nav_for_trading: D17 pre-gate floor (#154 C4). When
+                live NAV drops below this value in strict mode,
+                ``open_short_put`` / ``open_covered_call`` refuse
+                outright with ``reason="nav_exhausted"`` — clearer
+                signal than a misleading sector-cap or delta-cap
+                rejection when the real problem is that the book has
+                no NAV left to risk. Default ``0.0`` permits any
+                strictly-positive NAV; operators dial up
+                ($1000 / $10,000 / etc.) per their account profile.
         """
         self.initial_capital = initial_capital
         self.cash = initial_capital
@@ -294,6 +314,7 @@ class WheelTracker:
         self._ev_authority_tokens: set[str] = set()
         self._ev_authority_log: list[dict] = []
         self.connector = connector
+        self.min_nav_for_trading = min_nav_for_trading
 
     # ------------------------------------------------------------------
     # EV authority token issuance (audit launch-gate)
@@ -424,6 +445,7 @@ class WheelTracker:
         iv: float,
         ev_authority_token: str | None = None,
         current_ev_dollars: float | None = None,
+        prob_profit: float | None = None,
     ) -> bool:
         """
         Enter short put position.
@@ -447,6 +469,16 @@ class WheelTracker:
                 time but went stale by fire time is rejected with the
                 token retained for retry. Ignored when
                 ``require_ev_authority=False``.
+            prob_profit: Probability the short put expires worthless
+                (the ``prob_profit`` column from the ev_row). Used
+                in strict mode for the D17 Kelly gate
+                (``check_kelly_size``). When ``None`` in strict mode
+                the gate naturally refuses (Kelly returns 0
+                recommended exposure for invalid inputs) and the
+                audit-log details bag carries
+                ``kelly_recommended_max=0`` as the unique signature
+                of "Kelly inputs were missing." Ignored when
+                ``require_ev_authority=False``.
 
         Returns:
             True if position opened successfully
@@ -469,6 +501,41 @@ class WheelTracker:
         )
         if self.cash < margin_required:
             return False
+
+        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2). Only fires
+        # in strict mode after the D16 token consume succeeded.
+        if self.require_ev_authority:
+            put_dte = max(0, (expiration_date - entry_date).days)
+            candidate_dict = {
+                "symbol": ticker,
+                "option_type": "put",
+                "strike": float(strike),
+                "dte": put_dte,
+                "iv": float(iv),
+                "contracts": 1,
+                "is_short": True,
+            }
+            # Kelly inputs for a short put:
+            # - win_rate = prob_profit (None → 0 → natural refusal)
+            # - avg_win = premium * 100 (premium kept if expires)
+            # - avg_loss = (strike - premium) * 100 (assignment, simplified)
+            kelly_inputs = (
+                float(prob_profit) if prob_profit is not None else 0.0,
+                premium * 100.0,
+                max(0.0, (strike - premium) * 100.0),
+            )
+            reject_entry = self._evaluate_d17_hard_blocks(
+                ticker=ticker,
+                candidate_option=candidate_dict,
+                proposed_notional=strike * 100.0,
+                margin_required=margin_required,
+                kelly_inputs=kelly_inputs,
+                ev_authority_token=ev_authority_token,
+                current_ev_dollars=current_ev_dollars,
+            )
+            if reject_entry is not None:
+                self._ev_authority_log.append(reject_entry)
+                return False
 
         # Calculate entry costs (commission + slippage) and net premium collected
         cost_details = calculate_total_entry_cost(
@@ -1022,6 +1089,13 @@ class WheelTracker:
                 mode (D16). Ignored when
                 ``require_ev_authority=False``.
 
+        D17 portfolio-risk gates also fire on this leg in strict
+        mode (sector cap + portfolio delta). The Kelly gate is
+        **skipped** for covered calls because the stock is already
+        owned — no new margin is consumed; the position's downside
+        was incurred at put-assignment time, which the put leg's
+        Kelly gate already evaluated.
+
         Returns:
             True if call opened successfully
         """
@@ -1039,6 +1113,33 @@ class WheelTracker:
         pos = self.positions[ticker]
         if pos.state != PositionState.STOCK_OWNED:
             return False
+
+        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2). Sector cap +
+        # portfolio delta only — Kelly is intentionally skipped on the
+        # call leg per the docstring rationale above.
+        if self.require_ev_authority:
+            call_dte = max(0, (expiration_date - entry_date).days)
+            candidate_dict = {
+                "symbol": ticker,
+                "option_type": "call",
+                "strike": float(strike),
+                "dte": call_dte,
+                "iv": float(iv),
+                "contracts": 1,
+                "is_short": True,
+            }
+            reject_entry = self._evaluate_d17_hard_blocks(
+                ticker=ticker,
+                candidate_option=candidate_dict,
+                proposed_notional=strike * 100.0,
+                margin_required=0.0,
+                kelly_inputs=None,  # call leg: stock already owned
+                ev_authority_token=ev_authority_token,
+                current_ev_dollars=current_ev_dollars,
+            )
+            if reject_entry is not None:
+                self._ev_authority_log.append(reject_entry)
+                return False
 
         # Calculate entry costs for covered call (commission + slippage)
         cost_details = calculate_total_entry_cost(
@@ -1305,33 +1406,22 @@ class WheelTracker:
             return conn_iv
         return entry_iv
 
-    def mark_to_market(
+    def _compute_nav(
         self,
         current_date: date,
         prices: dict[str, float],
         risk_free_rate: float = 0.04,
         current_ivs: dict[str, float] | None = None,
     ) -> float:
-        """
-        Calculate current portfolio value (cash + stock + option liabilities).
+        """Compute portfolio NAV (cash + stock + option liabilities)
+        without recording to the equity curve.
 
-        Args:
-            current_date: Current date for mark.
-            prices: Dict of ``{ticker: current_stock_price}``.
-            risk_free_rate: Risk-free rate for option pricing (default 4%).
-            current_ivs: Optional dict of ``{ticker: live_iv}`` (decimal,
-                e.g. ``0.28`` for 28%) — an explicit per-ticker IV
-                override. When a ticker is absent, the short-option
-                liability is marked at the connector's *as-of* ATM IV
-                (at ``current_date``) if a connector is attached; only
-                when that is unavailable too does it fall back to the
-                leg's **entry** IV — a stale last resort that mis-marks
-                a position held through a vol regime change. See
-                :meth:`_resolve_mark_iv`. For the freshest marks pass
-                ``current_ivs`` explicitly, or attach a connector.
-
-        Returns:
-            Total portfolio value including option liabilities.
+        Extracted from :meth:`mark_to_market` so the D17 hard-block
+        gates can compute live NAV at consume time without spamming
+        the equity curve with synthetic points per
+        ``open_short_put`` / ``open_covered_call`` call. The math is
+        identical to ``mark_to_market`` — that method now calls this
+        helper and records the result.
         """
         from .option_pricer import estimate_option_price_from_iv
 
@@ -1384,7 +1474,40 @@ class WheelTracker:
                         )
                         total_value -= call_value * 100  # Short = liability
 
-        # Record equity curve
+        return total_value
+
+    def mark_to_market(
+        self,
+        current_date: date,
+        prices: dict[str, float],
+        risk_free_rate: float = 0.04,
+        current_ivs: dict[str, float] | None = None,
+    ) -> float:
+        """
+        Calculate current portfolio value (cash + stock + option liabilities).
+
+        Args:
+            current_date: Current date for mark.
+            prices: Dict of ``{ticker: current_stock_price}``.
+            risk_free_rate: Risk-free rate for option pricing (default 4%).
+            current_ivs: Optional dict of ``{ticker: live_iv}`` (decimal,
+                e.g. ``0.28`` for 28%) — an explicit per-ticker IV
+                override. When a ticker is absent, the short-option
+                liability is marked at the connector's *as-of* ATM IV
+                (at ``current_date``) if a connector is attached; only
+                when that is unavailable too does it fall back to the
+                leg's **entry** IV — a stale last resort that mis-marks
+                a position held through a vol regime change. See
+                :meth:`_resolve_mark_iv`. For the freshest marks pass
+                ``current_ivs`` explicitly, or attach a connector.
+
+        Returns:
+            Total portfolio value including option liabilities.
+        """
+        total_value = self._compute_nav(current_date, prices, risk_free_rate, current_ivs)
+
+        # Record equity curve (the side effect that distinguishes
+        # mark_to_market from _compute_nav).
         self.equity_curve.append(
             {
                 "date": current_date,
@@ -1395,6 +1518,188 @@ class WheelTracker:
         )
 
         return total_value
+
+    # ------------------------------------------------------------------
+    # D17 — live NAV + portfolio-risk hard-block orchestration
+    # ------------------------------------------------------------------
+    def _compute_live_nav(
+        self,
+        risk_free_rate: float = 0.04,
+    ) -> tuple[float, str]:
+        """Compute live NAV for D17 gate decisions.
+
+        Returns ``(nav, source)`` where ``source`` is one of:
+
+        - ``"live_mark_to_market"`` — connector available, spot prices
+          fetched, NAV computed via ``_compute_nav`` with current
+          marks (the production path, IV-aware per #129).
+        - ``"static_fallback"`` — no connector attached. Falls back to
+          ``self.initial_capital`` so research-mode trackers (no I/O)
+          still work; the audit log records the source so any reader
+          sees the gate fired against a static NAV, not a live one.
+        - ``"static_fallback_connector_error"`` — connector attached
+          but spot fetch raised. Same fallback as no-connector but
+          the source string is distinct so the operator can grep for
+          connector failures vs deliberate research-mode runs.
+
+        Per the Q4 design decision (live NAV via mark_to_market —
+        see #113 design comment + DECISIONS.md D17): caps are
+        evaluated against current portfolio value, not starting
+        capital, so the gates self-adjust in drawdowns (a feature
+        per standard portfolio semantics — a trader down 20% should
+        be more cautious, not less). Q3's missing-data → skip
+        semantics in the dossier soft-warns
+        (``check_var`` / ``check_dealer_regime``) cover the case
+        where market data is genuinely unavailable; live NAV here
+        is the tracker-side analogue.
+        """
+        if self.connector is None:
+            return self.initial_capital, "static_fallback"
+
+        try:
+            today = date.today()
+            prices: dict[str, float] = {}
+            for ticker in self.positions:
+                ohlcv = self.connector.get_ohlcv(ticker)
+                if ohlcv is None or len(ohlcv) == 0:
+                    continue
+                close = ohlcv["close"].iloc[-1] if "close" in ohlcv.columns else None
+                if close is not None and not pd.isna(close):
+                    prices[ticker] = float(close)
+            nav = self._compute_nav(today, prices, risk_free_rate=risk_free_rate)
+            return nav, "live_mark_to_market"
+        except Exception:
+            # Loud-fail at the gate layer means refusing every trade
+            # whenever the connector blips — that's a worse failure
+            # mode than falling back to static and recording the
+            # source. Operator can grep the audit log for
+            # "static_fallback_connector_error" entries.
+            return self.initial_capital, "static_fallback_connector_error"
+
+    def _evaluate_d17_hard_blocks(
+        self,
+        ticker: str,
+        candidate_option: dict,
+        proposed_notional: float,
+        margin_required: float,
+        kelly_inputs: tuple[float, float, float] | None,
+        ev_authority_token: str | None,
+        current_ev_dollars: float | None,
+    ) -> dict | None:
+        """Run the three D17 hard-block gates and return a reject
+        audit-log entry on first failure, or ``None`` if all pass.
+
+        Computes NAV exactly **once** at the top and threads it
+        into every gate so the gates see a single consistent NAV
+        (per the Q4 refinement — IV jitter between successive
+        ``_compute_nav`` calls would otherwise yield slightly
+        different NAVs between sector / delta / Kelly evaluations).
+
+        Args:
+            ticker: Candidate ticker.
+            candidate_option: Position-dict shape for the candidate
+                (matches the adapter's `option_positions` entries).
+                Pass an empty dict ``{}`` for the call-leg path
+                where Kelly is skipped (covered call uses owned
+                stock for collateral, no new margin).
+            proposed_notional: Dollar notional for the sector gate
+                (``strike * 100`` for one short-put contract).
+            margin_required: Reg-T margin the trade would consume.
+                Pass 0.0 for the call-leg path; the Kelly gate is
+                short-circuited regardless.
+            kelly_inputs: Optional ``(win_rate, avg_win, avg_loss)``
+                triple for the Kelly gate. Pass ``None`` to skip
+                the gate (covered-call path). Missing
+                ``current_ev_dollars`` upstream in strict mode
+                already refuses the trade before reaching here.
+            ev_authority_token: The token that was just consumed —
+                threaded through so the audit-log reject entry can
+                carry it (matches the D16 reject shapes).
+            current_ev_dollars: Same — threaded for the audit log.
+        """
+        from .portfolio_risk_gates import (
+            check_kelly_size,
+            check_portfolio_delta,
+            check_sector_cap,
+            take_snapshot,
+        )
+
+        nav, nav_source = self._compute_live_nav()
+        common_audit = {
+            "action": "reject",
+            "ticker": ticker,
+            "token": ev_authority_token,
+            "current_ev_dollars": current_ev_dollars,
+            "nav": nav,
+            "nav_source": nav_source,
+        }
+
+        # Pre-gate: nav exhausted.
+        if nav < self.min_nav_for_trading:
+            return {
+                **common_audit,
+                "reason": "nav_exhausted",
+                "min_nav_for_trading": self.min_nav_for_trading,
+            }
+
+        snapshot = take_snapshot(self.positions)
+
+        # Spot prices best-effort: prefer connector marks if available,
+        # else fall back to strike approximation per-position (which is
+        # what calculate_portfolio_greeks does internally too).
+        spot_prices: dict[str, float] = {}
+        if self.connector is not None:
+            symbols_needed: set[str] = {ticker}
+            symbols_needed.update(p["symbol"] for p in snapshot.option_positions)
+            symbols_needed.update(s for s, _ in snapshot.stock_holdings)
+            for sym in symbols_needed:
+                try:
+                    ohlcv = self.connector.get_ohlcv(sym)
+                except Exception:
+                    continue
+                if ohlcv is not None and len(ohlcv) > 0 and "close" in ohlcv.columns:
+                    close = ohlcv["close"].iloc[-1]
+                    if not pd.isna(close):
+                        spot_prices[sym] = float(close)
+
+        # Gate 1: sector cap.
+        sector = check_sector_cap(
+            symbol=ticker,
+            proposed_notional=proposed_notional,
+            held_option_positions=snapshot.option_positions,
+            nav=nav,
+        )
+        if not sector.passed:
+            return {**common_audit, "reason": sector.reason, **sector.details}
+
+        # Gate 2: portfolio delta cap.
+        delta = check_portfolio_delta(
+            held_option_positions=snapshot.option_positions,
+            spot_prices=spot_prices,
+            candidate_option=candidate_option,
+            stock_holdings=snapshot.stock_holdings,
+            nav=nav,
+        )
+        if not delta.passed:
+            return {**common_audit, "reason": delta.reason, **delta.details}
+
+        # Gate 3: Kelly size — only for paths that have kelly inputs
+        # (short-put leg). The covered-call leg short-circuits by
+        # passing ``kelly_inputs=None`` because no new margin is
+        # consumed (stock already owned).
+        if kelly_inputs is not None:
+            win_rate, avg_win, avg_loss = kelly_inputs
+            kelly = check_kelly_size(
+                margin_required=margin_required,
+                win_rate=win_rate,
+                avg_win=avg_win,
+                avg_loss=avg_loss,
+                nav=nav,
+            )
+            if not kelly.passed:
+                return {**common_audit, "reason": kelly.reason, **kelly.details}
+
+        return None
 
     def _finalize_position(self, pos: WheelPosition, exit_date: date, exit_reason: str) -> dict:
         """Internal: Convert position to closed trade record"""
@@ -1470,6 +1775,7 @@ class WheelTracker:
             "initial_capital": self.initial_capital,
             "cash": self.cash,
             "require_ev_authority": self.require_ev_authority,
+            "min_nav_for_trading": self.min_nav_for_trading,
             "positions": {tk: p.to_dict() for tk, p in self.positions.items()},
             "closed_positions": [
                 _record_to_jsonable(rec, _CLOSED_POSITION_DATE_KEYS)
@@ -1495,6 +1801,7 @@ class WheelTracker:
             initial_capital=data["initial_capital"],
             require_ev_authority=data.get("require_ev_authority", False),
             connector=connector,
+            min_nav_for_trading=data.get("min_nav_for_trading", 0.0),
         )
         tracker.cash = data["cash"]
         tracker.positions = {

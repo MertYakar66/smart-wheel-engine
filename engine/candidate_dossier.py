@@ -398,6 +398,7 @@ def build_dossiers(
     timeframe: Timeframe = "1D",
     top_n: int = 10,
     as_of: datetime | None = None,
+    portfolio_context: Any = None,
 ) -> list[CandidateDossier]:
     """Walk the ranked EV frame, attach a chart, run the reviewer.
 
@@ -412,6 +413,14 @@ def build_dossiers(
             without visual context until the user clicks into them).
         as_of: PIT cutoff passed through to the provider for stale
             filesystem screenshots.
+        portfolio_context: Optional
+            :class:`engine.portfolio_risk_gates.PortfolioContext` to
+            attach to every dossier built in this pass. When set, the
+            reviewer's R7 (VaR) / R8 (stress + dealer regime)
+            soft-warns fire live for each candidate; when ``None``
+            (the default) the existing missing-data skip preserves
+            today's behaviour. Typically constructed once per ranking
+            pass via :meth:`engine.wheel_tracker.WheelTracker.portfolio_context_snapshot`.
 
     Returns:
         List of :class:`CandidateDossier`, one per (top-N) ticker.
@@ -435,6 +444,7 @@ def build_dossiers(
             ticker=ticker,
             ev_row=row_dict,
             chart_context=chart_ctx,
+            portfolio_context=portfolio_context,
         )
 
         verdict, reason, notes = reviewer.review(dossier)

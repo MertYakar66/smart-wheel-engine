@@ -576,6 +576,88 @@ class WheelTracker:
 
         return True
 
+    def consume_ranker_row(
+        self,
+        row: dict,
+        entry_date: date,
+        expiration_date: date | None = None,
+    ) -> bool:
+        """Canonical wire from a ranker row to a tracker short-put open.
+
+        Issues an EV-authority token from ``row`` (D16: refuses
+        non-positive ``ev_dollars`` at issuance by raising
+        :class:`EVAuthorityRefused`) and consumes it via
+        :meth:`open_short_put` with ``current_ev_dollars`` plumbed
+        from the same row.
+
+        This is the production-caller helper the operator-facing chain
+        is meant to use end to end:
+        :meth:`engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+        produces ``row``; the operator (or the dashboard / dossier
+        consumer) calls this once per row they want to enter. Without
+        this helper every consumer would re-implement the same
+        token-issue / token-consume / current_ev_dollars boilerplate
+        and drift from D16's contract.
+
+        Behaviour:
+
+        - :meth:`issue_ev_authority_token` runs first. If
+          ``row['ev_dollars'] <= 0`` it raises
+          :class:`EVAuthorityRefused` — the exception propagates so
+          the caller knows R1 refused at the launch gate.
+        - :meth:`open_short_put` runs next, with the just-issued token
+          and ``current_ev_dollars=row['ev_dollars']``. Its return
+          value (True on success, False on stale-EV reject / D17
+          hard-block / duplicate position / insufficient cash) is
+          returned as-is.
+
+        ``expiration_date`` defaults to
+        ``entry_date + timedelta(days=row['dte'])``; pass an explicit
+        date for calendar-exact control.
+
+        Currently short-put only. ``rank_covered_calls_by_ev`` has a
+        separate downstream surface (:meth:`open_covered_call`); a
+        ``consume_covered_call_row`` helper mirroring this one is a
+        trivial follow-up.
+
+        Args:
+            row: A row from
+                :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+                — must carry ``ticker`` / ``strike`` / ``premium`` /
+                ``dte`` / ``ev_dollars`` / ``iv`` /
+                ``distribution_source`` (the canonicalised fields the
+                token hashes over) and optionally ``prob_profit``.
+            entry_date: Trade entry date.
+            expiration_date: Explicit expiration date. Defaults to
+                ``entry_date + timedelta(days=row['dte'])``.
+
+        Returns:
+            The :meth:`open_short_put` bool. ``True`` if the position
+            opened; ``False`` if any downstream gate refused (stale EV,
+            D17 hard-block, duplicate ticker, or insufficient cash).
+
+        Raises:
+            EVAuthorityRefused: when ``row['ev_dollars'] <= 0``.
+        """
+        if expiration_date is None:
+            dte = int(row.get("dte", 0) or 0)
+            expiration_date = entry_date + timedelta(days=dte)
+
+        token = self.issue_ev_authority_token(row)
+        prob_profit_raw = row.get("prob_profit")
+        prob_profit = float(prob_profit_raw) if prob_profit_raw is not None else None
+        return self.open_short_put(
+            ticker=str(row["ticker"]),
+            strike=float(row["strike"]),
+            premium=float(row["premium"]),
+            entry_date=entry_date,
+            expiration_date=expiration_date,
+            iv=float(row.get("iv", 0.0) or 0.0),
+            ev_authority_token=token,
+            current_ev_dollars=float(row["ev_dollars"]),
+            prob_profit=prob_profit,
+        )
+
     def close_short_put(
         self, ticker: str, buyback_price: float, exit_date: date, reason: str = "early_exit"
     ) -> dict | None:
@@ -1519,6 +1601,88 @@ class WheelTracker:
         )
 
         return total_value
+
+    def portfolio_context_snapshot(
+        self,
+        spot_prices: dict[str, float] | None = None,
+        *,
+        dealer_regime_by_ticker: dict[str, str] | None = None,
+        returns_data: object | None = None,
+        correlation_matrix: object | None = None,
+        volatilities: dict[str, float] | None = None,
+        today: date | None = None,
+        risk_free_rate: float = 0.04,
+    ):
+        """Build a `PortfolioContext` from current tracker state.
+
+        Convenience constructor for the D17 dossier soft-warns. Pass
+        the returned context to
+        :func:`engine.candidate_dossier.build_dossiers` so the
+        reviewer's R7 / R8 rules fire live for every dossier in a
+        ranking pass instead of skipping for absent evidence.
+
+        The snapshot is a *thin* projection of tracker state:
+
+        - ``held_option_positions`` + ``stock_holdings`` come from
+          :func:`engine.portfolio_risk_gates.take_snapshot` over
+          ``self.positions``.
+        - ``nav`` is computed via :meth:`mark_to_market` with the
+          supplied ``spot_prices`` (empty dict if ``None``; the
+          resulting marks fall through to entry-IV / stock-basis
+          when a ticker's spot is absent).
+        - ``spot_prices``, ``dealer_regime_by_ticker``, ``returns_data``,
+          ``correlation_matrix``, ``volatilities`` are pass-through;
+          absent values keep the matching R7 / R8 branch on its
+          missing-data skip per the Q3 design rule
+          (soft-warns don't fire on absent evidence).
+
+        Cheap to call once per ranking pass. No I/O beyond what
+        :meth:`mark_to_market` does — the connector is consulted
+        only if it is attached and ``current_ivs`` is not supplied
+        for a ticker.
+
+        Args:
+            spot_prices: ``{ticker: spot_price}`` for live marks. Empty
+                dict falls through to entry-state marks. Also passed
+                through to the resulting context so the dossier
+                reviewer's R7 / R8 see the same spots.
+            dealer_regime_by_ticker: Optional ticker → regime string
+                map for R8's short-gamma trigger.
+            returns_data: Optional historical returns for the
+                ``check_var`` historical path.
+            correlation_matrix: Optional correlation matrix for
+                ``check_var``'s covariance path.
+            volatilities: Optional per-ticker vol overrides for the
+                covariance path.
+            today: Reference date for DTE computation inside the
+                snapshot. Defaults to ``date.today()``; injectable for
+                deterministic tests.
+            risk_free_rate: Forwarded to :meth:`mark_to_market`.
+
+        Returns:
+            A fresh :class:`engine.portfolio_risk_gates.PortfolioContext`
+            reflecting tracker state as of ``today``.
+        """
+        from .portfolio_risk_gates import PortfolioContext, take_snapshot
+
+        if today is None:
+            today = date.today()
+        if spot_prices is None:
+            spot_prices = {}
+
+        snap = take_snapshot(self.positions, today=today)
+        nav = self.mark_to_market(today, prices=dict(spot_prices), risk_free_rate=risk_free_rate)
+
+        return PortfolioContext(
+            held_option_positions=list(snap.option_positions),
+            spot_prices=dict(spot_prices),
+            stock_holdings=list(snap.stock_holdings),
+            nav=float(nav),
+            dealer_regime_by_ticker=dealer_regime_by_ticker,
+            returns_data=returns_data,
+            correlation_matrix=correlation_matrix,
+            volatilities=volatilities,
+        )
 
     # ------------------------------------------------------------------
     # D17 — live NAV + portfolio-risk hard-block orchestration

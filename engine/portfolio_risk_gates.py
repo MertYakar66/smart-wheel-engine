@@ -1,0 +1,691 @@
+"""Portfolio-level risk gates — pure-function library shared by the
+tracker hard-blocks and the dossier soft-warns (D17 / #154 C4).
+
+S15 (PR #148) found that `engine/risk_manager.py` and
+`engine/stress_testing.py` ship full machinery (portfolio Greeks,
+parametric / historical / Monte-Carlo VaR, `SectorExposureManager`,
+Kelly helpers, full stress ladders) but **none of it is imported by
+the decision-layer trio** — positions open today with no NAV-level
+sector cap, no portfolio-delta cap, no Kelly check. This module wires
+that machinery in.
+
+Single source of truth for both consumers:
+
+- ``engine/wheel_tracker.py`` (Phase 2): three of these gates are
+  hard-blocks at position-open time — ``check_sector_cap``,
+  ``check_portfolio_delta``, ``check_kelly_size``. A failed gate
+  refuses the position (audit-log reject).
+- ``engine/candidate_dossier.py`` (Phase 3): two of these gates are
+  soft-warns on the verdict — R7 = ``check_var``,
+  R8 = ``check_stress_scenario`` + ``check_dealer_regime``. A failed
+  gate downgrades ``proceed → review`` (never upgrades). R1 takes
+  precedence as the hard-block for negative EV — see CLAUDE.md §2.
+
+Pure-function design rationale (see #113 design comment, Q2/Q5):
+
+- Tracker and dossier need identical predicates (same sector cap,
+  same Kelly formula) — methods on ``WheelTracker`` would force the
+  dossier reviewer to reach across modules awkwardly.
+- Each gate function is independently unit-testable
+  (``tests/test_portfolio_risk_gates.py``) with constructed position
+  dicts; no fixture for the full tracker / dossier surface needed.
+- Adding a sixth gate later is a new function + one import line,
+  not surgery on the tracker.
+
+All five locked defaults from #154 C4 are module-level constants
+named ``_DEFAULT_*``. Overridable per-call but do **not** edit the
+constants in this file — defaults are part of D17's contract.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date as _date_cls
+from typing import TYPE_CHECKING, Literal
+
+from .risk_manager import (
+    RiskManager,
+    SectorExposureManager,
+    calculate_kelly_fraction,
+)
+from .stress_testing import Scenario, ScenarioType, StressTester
+
+if TYPE_CHECKING:
+    from .wheel_tracker import WheelPosition
+
+# ----------------------------------------------------------------------
+# Locked defaults (D17). Override per-call; do not change the constants.
+# ----------------------------------------------------------------------
+_DEFAULT_MAX_SECTOR_PCT = 0.25
+_DEFAULT_DELTA_CAP_PER_100K_NAV = 300.0
+_DEFAULT_KELLY_FRACTION = 0.5
+_DEFAULT_MAX_VAR_PCT = 0.05
+_DEFAULT_VAR_CONFIDENCE = 0.95
+_DEFAULT_VAR_HORIZON_DAYS = 30
+_DEFAULT_MAX_STRESS_DRAWDOWN_PCT = 0.08
+
+# The C4 standard stress scenario — instantiated here (not in
+# stress_testing.py's HYPOTHETICAL_SCENARIOS) to respect the prompt
+# rule_out forbidding modifications to stress_testing.py. If a future
+# task wants this scenario in the standard library, relocating it is
+# a trivial follow-up — see #113 design comment.
+_C4_VOL_SPIKE_SCENARIO = Scenario(
+    name="C4 Vol Spike",
+    scenario_type=ScenarioType.HYPOTHETICAL,
+    description="D17 standard portfolio-risk stress: 10% spot drop + 30% IV spike",
+    spot_change_pct=-0.10,
+    iv_change_pct=0.30,
+)
+
+
+# ----------------------------------------------------------------------
+# Result type
+# ----------------------------------------------------------------------
+@dataclass
+class GateResult:
+    """Outcome of a single gate check.
+
+    - ``passed=True, reason=None`` — gate did not fire (the candidate
+      survives this gate).
+    - ``passed=False, reason="<one_of_the_known_reasons>"`` — gate
+      fires. Tracker hard-blocks refuse the position; dossier
+      soft-warns downgrade the verdict.
+    - ``passed=True, reason="missing_data"`` — gate cannot evaluate
+      (e.g. VaR with no correlation matrix or returns data, per Q3
+      from the #113 design checkpoint). Treated as "no evidence to
+      fire" so the candidate is not penalised for missing input data
+      — matches D11's "no silent substitution" principle (don't
+      claim what you can't prove). Caller is expected to surface the
+      ``missing_data`` reason via ``details`` for the audit trail.
+
+    ``details`` is a free-form dict that carries the field bag the
+    audit-log entry shapes expect (e.g. ``sector_pct``,
+    ``kelly_recommended_max``, ``portfolio_delta_dollars``). The
+    schema-closure regression in
+    ``tests/test_ev_authority_log_schema.py`` (Phase 2) pins the keys
+    that flow from here into the tracker's audit log.
+    """
+
+    passed: bool
+    reason: str | None = None
+    details: dict = field(default_factory=dict)
+
+
+# ----------------------------------------------------------------------
+# Position adapter — WheelPosition → upstream-API position dicts
+# ----------------------------------------------------------------------
+@dataclass
+class PortfolioSnapshot:
+    """Entry-time snapshot of the held portfolio.
+
+    The upstream risk_manager / stress_testing APIs expect option
+    position dicts (with strike, dte, iv, etc.); stock holdings are
+    represented separately because those APIs are option-centric.
+    """
+
+    option_positions: list[dict] = field(default_factory=list)
+    stock_holdings: list[tuple[str, int]] = field(default_factory=list)
+    """Stock holdings as ``(ticker, shares)`` pairs."""
+
+
+def take_snapshot(
+    positions: dict[str, WheelPosition],
+    *,
+    today: _date_cls | None = None,
+) -> PortfolioSnapshot:
+    """Build a `PortfolioSnapshot` from `WheelTracker.positions`.
+
+    Uses **entry-time IV** as the implied volatility input (the
+    "entry-time snapshot" semantics from the C4 spec). When live
+    Greeks are available (a future enhancement), the caller can
+    enrich the snapshot post-hoc; the default path keeps the engine
+    runnable in the Bloomberg-only sandbox where live option Greeks
+    are not available.
+
+    Per-state mapping:
+
+    - ``SHORT_PUT`` → one option dict (short put leg).
+    - ``STOCK_OWNED`` → one stock holding entry (no option leg —
+      the short put was assigned).
+    - ``COVERED_CALL`` → one option dict (short call leg) + one
+      stock holding entry (the assigned shares).
+
+    Positions with no live legs (e.g. fully closed but still in the
+    ``positions`` dict by some caller-side mistake) are skipped
+    silently.
+
+    Args:
+        positions: ``WheelTracker.positions``; a dict of ticker →
+            ``WheelPosition``.
+        today: Reference date for DTE computation. Defaults to
+            ``date.today()``; injectable for deterministic tests.
+
+    Returns:
+        A `PortfolioSnapshot` with option_positions ready to pass to
+        ``RiskManager.calculate_portfolio_greeks`` / ``calculate_var``
+        / ``StressTester.run_scenario``, and stock_holdings for the
+        portfolio-delta computation.
+    """
+    from .wheel_tracker import PositionState  # avoid circular import at module load
+
+    if today is None:
+        today = _date_cls.today()
+
+    snapshot = PortfolioSnapshot()
+
+    for ticker, pos in positions.items():
+        if pos.state == PositionState.SHORT_PUT:
+            if (
+                pos.put_strike is not None
+                and pos.put_entry_iv is not None
+                and pos.put_expiration_date is not None
+            ):
+                dte = max(0, (pos.put_expiration_date - today).days)
+                snapshot.option_positions.append(
+                    {
+                        "symbol": ticker,
+                        "option_type": "put",
+                        "strike": float(pos.put_strike),
+                        "dte": dte,
+                        "iv": float(pos.put_entry_iv),
+                        "contracts": 1,
+                        "is_short": True,
+                    }
+                )
+        elif pos.state == PositionState.STOCK_OWNED:
+            if pos.stock_shares > 0:
+                snapshot.stock_holdings.append((ticker, int(pos.stock_shares)))
+        elif pos.state == PositionState.COVERED_CALL:
+            if pos.stock_shares > 0:
+                snapshot.stock_holdings.append((ticker, int(pos.stock_shares)))
+            if (
+                pos.call_strike is not None
+                and pos.call_entry_iv is not None
+                and pos.call_expiration_date is not None
+            ):
+                dte = max(0, (pos.call_expiration_date - today).days)
+                snapshot.option_positions.append(
+                    {
+                        "symbol": ticker,
+                        "option_type": "call",
+                        "strike": float(pos.call_strike),
+                        "dte": dte,
+                        "iv": float(pos.call_entry_iv),
+                        "contracts": 1,
+                        "is_short": True,
+                    }
+                )
+
+    return snapshot
+
+
+# ----------------------------------------------------------------------
+# Gate 1: Sector cap (tracker hard-block)
+# ----------------------------------------------------------------------
+def check_sector_cap(
+    symbol: str,
+    proposed_notional: float,
+    held_option_positions: list[dict],
+    nav: float,
+    *,
+    max_sector_pct: float = _DEFAULT_MAX_SECTOR_PCT,
+    sector_map: dict[str, str] | None = None,
+) -> GateResult:
+    """Refuse if opening the candidate would push the symbol's sector
+    over ``max_sector_pct`` of NAV.
+
+    Wraps ``SectorExposureManager.check_sector_limit``. Default
+    sector map is ``DEFAULT_SECTOR_MAP`` from `risk_manager.py`.
+
+    Args:
+        symbol: The candidate's ticker.
+        proposed_notional: Dollar notional of the proposed position
+            (``strike * 100 * contracts`` for a short put).
+        held_option_positions: The current option positions from
+            ``take_snapshot(...).option_positions``. Stock holdings
+            don't contribute to the option-side sector exposure.
+        nav: Net asset value (live cash + mark-to-market). Caller
+            decides whether to pass live or static NAV.
+        max_sector_pct: Sector concentration cap; default 25% per
+            D17.
+        sector_map: Optional symbol → sector override; defaults to
+            ``DEFAULT_SECTOR_MAP``.
+    """
+    manager = SectorExposureManager(
+        sector_map=sector_map,
+        max_sector_pct=max_sector_pct,
+    )
+    # SectorExposureManager.check_sector_limit expects positions with
+    # symbol / strike / contracts; option_positions already match.
+    is_allowed, reason_str = manager.check_sector_limit(
+        symbol=symbol,
+        proposed_notional=proposed_notional,
+        positions=held_option_positions,
+        portfolio_value=nav,
+    )
+    sector = manager.get_sector(symbol)
+
+    # Compute the post-open exposure for the details bag.
+    exposures = manager.calculate_sector_exposures(held_option_positions, nav)
+    current_notional = exposures.get(sector).notional_exposure if sector in exposures else 0.0
+    post_open_pct = (current_notional + proposed_notional) / nav if nav > 0 else 0.0
+
+    if is_allowed:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "sector": sector,
+                "post_open_sector_pct": post_open_pct,
+                "sector_limit": max_sector_pct,
+            },
+        )
+    return GateResult(
+        passed=False,
+        reason="sector_cap_breach",
+        details={
+            "sector": sector,
+            "sector_pct": post_open_pct,
+            "sector_limit": max_sector_pct,
+            "narrative": reason_str,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 2: Portfolio delta cap (tracker hard-block)
+# ----------------------------------------------------------------------
+def check_portfolio_delta(
+    held_option_positions: list[dict],
+    spot_prices: dict[str, float],
+    candidate_option: dict,
+    stock_holdings: list[tuple[str, int]],
+    nav: float,
+    *,
+    delta_cap_per_100k_nav: float = _DEFAULT_DELTA_CAP_PER_100K_NAV,
+    risk_free_rate: float = 0.05,
+) -> GateResult:
+    """Refuse if opening the candidate would push portfolio delta
+    over the per-NAV cap.
+
+    Delta cap is ``±delta_cap_per_100k_nav * (NAV / 100_000)``. Default
+    ``±$300 / $100k NAV`` per D17.
+
+    Portfolio delta = option-leg delta-dollars (from
+    ``RiskManager.calculate_portfolio_greeks``) + stock-leg delta-
+    dollars (``shares × spot`` for each holding).
+
+    Args:
+        held_option_positions: Current option positions.
+        spot_prices: Spot price per ticker (caller resolves).
+        candidate_option: Position dict for the candidate (same shape
+            as held positions). Pass an empty dict ``{}`` if checking
+            the existing portfolio without a new candidate.
+        stock_holdings: ``(ticker, shares)`` pairs from
+            ``take_snapshot(...).stock_holdings``.
+        nav: Net asset value; the cap scales with this.
+        delta_cap_per_100k_nav: Default 300.0 per D17.
+        risk_free_rate: Used by Black-Scholes when computing the
+            candidate's delta. Default 0.05.
+    """
+    rm = RiskManager(risk_free_rate=risk_free_rate)
+
+    # Option-leg delta-dollars
+    option_positions_with_candidate = list(held_option_positions)
+    if candidate_option:
+        option_positions_with_candidate.append(candidate_option)
+
+    # The greeks API needs spot per symbol; fall back to strike if missing.
+    full_spots = dict(spot_prices)
+    for p in option_positions_with_candidate:
+        full_spots.setdefault(p["symbol"], p["strike"])
+
+    greeks = rm.calculate_portfolio_greeks(option_positions_with_candidate, full_spots)
+    option_delta_dollars = greeks.delta_dollars
+
+    # Stock-leg delta-dollars
+    stock_delta_dollars = 0.0
+    for ticker, shares in stock_holdings:
+        spot = full_spots.get(ticker, 0.0)
+        stock_delta_dollars += shares * spot
+
+    portfolio_delta_dollars = option_delta_dollars + stock_delta_dollars
+    cap_dollars = delta_cap_per_100k_nav * (nav / 100_000.0)
+
+    if abs(portfolio_delta_dollars) <= cap_dollars:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "portfolio_delta_dollars": portfolio_delta_dollars,
+                "delta_cap_dollars": cap_dollars,
+            },
+        )
+
+    # For the audit-log details, recompute the pre-candidate delta so
+    # the operator can see how much the candidate moved the needle.
+    pre_greeks = rm.calculate_portfolio_greeks(held_option_positions, full_spots)
+    pre_option_delta = pre_greeks.delta_dollars
+    pre_portfolio_delta = pre_option_delta + stock_delta_dollars
+
+    return GateResult(
+        passed=False,
+        reason="portfolio_delta_breach",
+        details={
+            "current_portfolio_delta_dollars": pre_portfolio_delta,
+            "post_open_delta_dollars": portfolio_delta_dollars,
+            "delta_cap_dollars": cap_dollars,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 3: Kelly size (tracker hard-block)
+# ----------------------------------------------------------------------
+def check_kelly_size(
+    margin_required: float,
+    win_rate: float,
+    avg_win: float,
+    avg_loss: float,
+    nav: float,
+    *,
+    kelly_fraction: float = _DEFAULT_KELLY_FRACTION,
+) -> GateResult:
+    """Refuse if the candidate's margin requirement exceeds the
+    half-Kelly recommended dollar exposure for the trade.
+
+    Uses ``calculate_kelly_fraction`` from `risk_manager.py`. The
+    classical binary form: ``f* = (p*b - q) / b`` where ``p=win_rate``,
+    ``q=1-p``, ``b=avg_win/avg_loss``. Half-Kelly is the standard
+    risk-of-ruin reduction (D17 spec).
+
+    For a short put the typical inputs are:
+
+    - ``win_rate = prob_profit`` (from the ev_row)
+    - ``avg_win = premium * 100`` (premium kept if expires worthless)
+    - ``avg_loss = (strike - premium) * 100`` (assignment, treating
+      the post-assignment stock as zero-recovery — overly pessimistic
+      for the formula's input direction, see #113 design comment)
+
+    ``calculate_kelly_fraction`` returns 0 for invalid inputs
+    (win_rate outside [0,1], non-positive avg_win or avg_loss); this
+    function then refuses (recommended dollar exposure = 0).
+
+    Args:
+        margin_required: The Reg-T margin the trade would consume.
+        win_rate: Probability of profit (from ev_row).
+        avg_win: Average win dollars (typically premium*100).
+        avg_loss: Average loss dollars (positive; typically
+            (strike-premium)*100).
+        nav: Net asset value.
+        kelly_fraction: Default 0.5 (half-Kelly) per D17.
+    """
+    kelly_pct = calculate_kelly_fraction(win_rate, avg_win, avg_loss, kelly_fraction)
+    recommended_max = kelly_pct * nav
+
+    if margin_required <= recommended_max:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "margin_required": margin_required,
+                "kelly_recommended_max": recommended_max,
+                "kelly_fraction": kelly_fraction,
+            },
+        )
+    return GateResult(
+        passed=False,
+        reason="kelly_size_exceeded",
+        details={
+            "margin_required": margin_required,
+            "kelly_recommended_max": recommended_max,
+            "kelly_fraction": kelly_fraction,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 4: VaR (dossier soft-warn → R7)
+# ----------------------------------------------------------------------
+def check_var(
+    held_option_positions: list[dict],
+    spot_prices: dict[str, float],
+    candidate_option: dict,
+    nav: float,
+    *,
+    max_var_pct: float = _DEFAULT_MAX_VAR_PCT,
+    confidence: float = _DEFAULT_VAR_CONFIDENCE,
+    horizon_days: int = _DEFAULT_VAR_HORIZON_DAYS,
+    returns_data=None,
+    correlation_matrix=None,
+    volatilities: dict[str, float] | None = None,
+    risk_free_rate: float = 0.05,
+) -> GateResult:
+    """Soft-warn (R7) if portfolio-level VaR_95 (30-day horizon)
+    exceeds ``max_var_pct × NAV``.
+
+    Per Q3 of the #113 design checkpoint: when neither
+    ``correlation_matrix`` nor ``returns_data`` is provided, this
+    gate **returns passed=True with reason="missing_data"** rather
+    than silently falling through to the delta-normal approximation
+    (D11's "no silent substitution"). The caller surfaces the
+    missing_data reason via the audit / dossier note; R7 does not
+    fire because there is no evidence to fire on.
+
+    Args:
+        held_option_positions, spot_prices, candidate_option: Same
+            shape as ``check_portfolio_delta``.
+        nav: Net asset value.
+        max_var_pct: Default 0.05 (5% NAV) per D17.
+        confidence: Default 0.95.
+        horizon_days: Default 30.
+        returns_data, correlation_matrix, volatilities: Optional
+            inputs for the historical / covariance VaR paths in
+            ``RiskManager.calculate_var``. If both correlation_matrix
+            and returns_data are None, the gate skips (see above).
+        risk_free_rate: Default 0.05.
+    """
+    if correlation_matrix is None and returns_data is None:
+        return GateResult(
+            passed=True,
+            reason="missing_data",
+            details={
+                "var_check": "skipped",
+                "skip_reason": "no_correlation_matrix_or_returns_data",
+            },
+        )
+
+    rm = RiskManager(risk_free_rate=risk_free_rate)
+    positions_with_candidate = list(held_option_positions)
+    if candidate_option:
+        positions_with_candidate.append(candidate_option)
+
+    full_spots = dict(spot_prices)
+    for p in positions_with_candidate:
+        full_spots.setdefault(p["symbol"], p["strike"])
+
+    var_dollars, cvar_dollars = rm.calculate_var(
+        portfolio_value=nav,
+        positions=positions_with_candidate,
+        spot_prices=full_spots,
+        returns_data=returns_data,
+        correlation_matrix=correlation_matrix,
+        volatilities=volatilities,
+        confidence=confidence,
+        horizon_days=horizon_days,
+    )
+
+    var_pct = var_dollars / nav if nav > 0 else 0.0
+    threshold = max_var_pct
+
+    if var_pct <= threshold:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "var_dollars": var_dollars,
+                "cvar_dollars": cvar_dollars,
+                "var_pct": var_pct,
+                "var_limit_pct": threshold,
+                "confidence": confidence,
+                "horizon_days": horizon_days,
+            },
+        )
+    return GateResult(
+        passed=False,
+        reason="portfolio_var_breach",
+        details={
+            "var_dollars": var_dollars,
+            "cvar_dollars": cvar_dollars,
+            "var_pct": var_pct,
+            "var_limit_pct": threshold,
+            "confidence": confidence,
+            "horizon_days": horizon_days,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 5a: Stress scenario (dossier soft-warn — R8 trigger 1)
+# ----------------------------------------------------------------------
+def check_stress_scenario(
+    held_option_positions: list[dict],
+    spot_prices: dict[str, float],
+    candidate_option: dict,
+    nav: float,
+    *,
+    max_drawdown_pct: float = _DEFAULT_MAX_STRESS_DRAWDOWN_PCT,
+    scenario: Scenario | None = None,
+    risk_free_rate: float = 0.05,
+) -> GateResult:
+    """Soft-warn (R8 trigger 1) if the C4 vol-spike scenario shows
+    portfolio drawdown > ``max_drawdown_pct × NAV``.
+
+    Default scenario is ``_C4_VOL_SPIKE_SCENARIO`` (-10% spot +30%
+    IV) per D17.
+
+    Args:
+        held_option_positions, spot_prices, candidate_option: Same
+            shape as ``check_portfolio_delta``.
+        nav: Net asset value.
+        max_drawdown_pct: Default 0.08 (8% NAV) per D17.
+        scenario: Override the default C4 vol-spike with an arbitrary
+            ``Scenario``; useful for dossier-side scenario sweeps.
+        risk_free_rate: Default 0.05.
+    """
+    if scenario is None:
+        scenario = _C4_VOL_SPIKE_SCENARIO
+
+    tester = StressTester(risk_free_rate=risk_free_rate)
+    positions_with_candidate = list(held_option_positions)
+    if candidate_option:
+        positions_with_candidate.append(candidate_option)
+
+    full_spots = dict(spot_prices)
+    for p in positions_with_candidate:
+        full_spots.setdefault(p["symbol"], p["strike"])
+
+    if not positions_with_candidate:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "scenario_name": scenario.name,
+                "portfolio_pnl_dollars": 0.0,
+                "drawdown_pct": 0.0,
+                "drawdown_limit_pct": max_drawdown_pct,
+                "note": "no_positions_to_stress",
+            },
+        )
+
+    result = tester.run_scenario(
+        scenario=scenario,
+        positions=positions_with_candidate,
+        spot_prices=full_spots,
+        portfolio_value=nav,
+    )
+
+    # Drawdown is the negative P&L as a fraction of NAV.
+    drawdown_pct = -result.portfolio_pnl / nav if nav > 0 and result.portfolio_pnl < 0 else 0.0
+
+    if drawdown_pct <= max_drawdown_pct:
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "scenario_name": scenario.name,
+                "portfolio_pnl_dollars": result.portfolio_pnl,
+                "drawdown_pct": drawdown_pct,
+                "drawdown_limit_pct": max_drawdown_pct,
+            },
+        )
+    return GateResult(
+        passed=False,
+        reason="stress_breach",
+        details={
+            "scenario_name": scenario.name,
+            "portfolio_pnl_dollars": result.portfolio_pnl,
+            "drawdown_pct": drawdown_pct,
+            "drawdown_limit_pct": max_drawdown_pct,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 5b: Dealer regime (dossier soft-warn — R8 trigger 2)
+# ----------------------------------------------------------------------
+DealerRegime = Literal[
+    "long_gamma_dampening",
+    "short_gamma_amplifying",
+    "near_flip",
+    "neutral",
+]
+
+
+def check_dealer_regime(
+    candidate_ticker: str,
+    dealer_regime_by_ticker: dict[str, DealerRegime] | None,
+) -> GateResult:
+    """Soft-warn (R8 trigger 2) if the candidate's underlying is in
+    ``short_gamma_amplifying`` regime per ``MarketStructure.regime``.
+
+    Per Q1 of the #113 design checkpoint, R8 has two trigger
+    conditions — stress drawdown (``check_stress_scenario``) and
+    dealer regime (this function) — mirroring R6's "short-gamma +
+    put-wall OR dealer-flip" pattern. The dossier reviewer fires R8
+    if either gate returns ``passed=False``.
+
+    When ``dealer_regime_by_ticker`` is None or the candidate's
+    ticker is missing, this gate skips (``passed=True,
+    reason="missing_data"``). Matches the Q3 D11 anti-pattern: don't
+    fire R8 on absent evidence.
+
+    Args:
+        candidate_ticker: The ticker being evaluated.
+        dealer_regime_by_ticker: Map of ticker →
+            ``MarketStructure.regime``. Caller (dossier reviewer in
+            Phase 3) obtains this from ``DealerPositioningAnalyzer``.
+    """
+    if dealer_regime_by_ticker is None or candidate_ticker not in dealer_regime_by_ticker:
+        return GateResult(
+            passed=True,
+            reason="missing_data",
+            details={
+                "dealer_regime_check": "skipped",
+                "skip_reason": "no_regime_data_for_ticker",
+                "ticker": candidate_ticker,
+            },
+        )
+
+    regime = dealer_regime_by_ticker[candidate_ticker]
+    if regime == "short_gamma_amplifying":
+        return GateResult(
+            passed=False,
+            reason="short_gamma_regime",
+            details={"ticker": candidate_ticker, "dealer_regime": regime},
+        )
+    return GateResult(
+        passed=True,
+        reason=None,
+        details={"ticker": candidate_ticker, "dealer_regime": regime},
+    )

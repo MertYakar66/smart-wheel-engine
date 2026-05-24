@@ -312,9 +312,13 @@ class TestCheckPortfolioDelta:
 # ======================================================================
 class TestCheckKellySize:
     def test_classic_winning_edge_passes(self):
-        # win_rate 0.7, avg_win $100, avg_loss $50 → Kelly = 0.4
-        # Half-Kelly = 0.2, capped at 0.25. Recommended max = 0.2 × NAV
-        # = $20,000 at $100k NAV. Margin $5k → pass.
+        # Per-trade NAV cap formula (post-#163):
+        #   kelly_recommended_max = kelly_fraction × NAV
+        #                         = 0.5 × $100k = $50,000.
+        # Margin $5k well below cap → pass. The win_rate / avg_win /
+        # avg_loss inputs are forward-compat placeholders the current
+        # formula ignores (their previous role in this test described
+        # the binary-Kelly form that was rewritten in PR #163).
         result = check_kelly_size(
             margin_required=5_000.0,
             win_rate=0.7,
@@ -325,7 +329,10 @@ class TestCheckKellySize:
         assert result.passed is True
         assert result.details["margin_required"] == 5_000.0
         assert result.details["kelly_fraction"] == 0.5
-        assert result.details["kelly_recommended_max"] > 0
+        # Pin the cap value, not just a positivity check — the previous
+        # `> 0` assertion would have passed under the binary-Kelly form
+        # too, masking the formula change.
+        assert result.details["kelly_recommended_max"] == 50_000.0
 
     def test_margin_above_cap_refuses(self):
         # Half-Kelly cap = 0.5 × $100k = $50k. Margin $60k > cap.

@@ -12,16 +12,17 @@
 #
 # What this sets:
 #
-#   SWE_API_PORT                — 8787 + (letter - 'a'). Forward-looking;
-#                                 engine_api.py still binds 8787 directly
-#                                 today (see CLAUDE.md interface layer).
+#   SWE_API_PORT                — 8787 + (letter - 'a'). Honoured today
+#                                 by engine_api.py's `_resolve_port()` and
+#                                 audit.py's `BASE` (PR #158 / D15);
+#                                 default 8787 falls through when unset.
 #   SWE_DATA_PROCESSED_DIR      — shared `data_processed/` by default.
 #   SWE_MODELS_DIR              — shared `models/` by default.
 #                                 Switch both to per-terminal (`data_processed_<x>/`
 #                                 / `models_<x>/`) only if you hit write
 #                                 contention; the engine does not read these
-#                                 env vars yet, so they're a convention until
-#                                 a consumer is wired in.
+#                                 env vars yet, so these two remain a
+#                                 convention until a consumer is wired in.
 #   COVERAGE_FILE               — per-terminal `.coverage.<letter>`.
 #                                 Read by coverage.py automatically — this
 #                                 one is real today and stops parallel

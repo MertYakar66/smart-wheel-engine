@@ -10,9 +10,9 @@
 # Doc:        docs/PARALLEL_SESSIONS.md "Env vars per terminal".
 #
 # Sets the same six vars as the bash companion; see that file's header for
-# what each one means and which are real-today (COVERAGE_FILE,
-# PYTEST_CACHE_DIR, SWE_DATA_PROVIDER) vs forward-looking convention
-# (SWE_API_PORT, SWE_DATA_PROCESSED_DIR, SWE_MODELS_DIR).
+# what each one means and which are real-today (SWE_API_PORT,
+# COVERAGE_FILE, PYTEST_CACHE_DIR, SWE_DATA_PROVIDER) vs forward-looking
+# convention (SWE_DATA_PROCESSED_DIR, SWE_MODELS_DIR).
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]

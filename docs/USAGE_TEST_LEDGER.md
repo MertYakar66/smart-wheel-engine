@@ -478,7 +478,12 @@ only the put entry is engine-ranked.
   is "ranker-derived", not "ranker-approved". A token that encoded the
   verdict (or a positive-EV assertion in `issue_ev_authority_token`)
   would close this. Left for a human to scope — it changes the
-  launch-gate contract. **Logged.**
+  launch-gate contract. **Logged → Fixed in #145** (D16) —
+  `issue_ev_authority_token` now raises `EVAuthorityRefused` on
+  `ev_dollars <= 0`, and `_consume_ev_authority_token` re-checks a
+  fresh `current_ev_dollars` at fire time (stale-EV rejects with
+  the token retained). Both wheel legs (`open_short_put` /
+  `open_covered_call`) flow through the same predicate.
 
 - **`get_performance_summary` reported a winning trade as
   `largest_loss`.** `largest_loss` was `net_pnl.min()` over *all*

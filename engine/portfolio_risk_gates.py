@@ -464,9 +464,13 @@ def check_kelly_size(
     signature for forward-compatibility with a future continuous-
     Kelly refinement (``f* = μ/σ²``) that would use a per-trade
     EV/variance estimate; they are not consumed by the current
-    formula. The audit-log details bag carries them for
-    observability so a future analyst can grep for the inputs even
-    while the formula is the simple cap.
+    formula and the audit-log details bag does **not** carry them
+    either (``common_details`` below ships only ``margin_required``,
+    ``kelly_recommended_max``, and ``kelly_fraction``; the schema
+    regression in ``tests/test_ev_authority_log_schema.py``'s
+    ``_SHAPE_REJECT_KELLY`` pins exactly those three). When the
+    continuous-Kelly refinement lands, both consumption and
+    audit-log surfacing of these inputs should be added together.
 
     Args:
         margin_required: The Reg-T margin the trade would consume.

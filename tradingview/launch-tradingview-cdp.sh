@@ -1,6 +1,8 @@
 #!/bin/bash
-# Launch TradingView Desktop with Chrome DevTools Protocol enabled
-# This allows Claude Code to connect and control your charts
+# Launch TradingView Desktop with Chrome DevTools Protocol enabled (macOS).
+# This allows Claude Code to connect and control your charts.
+# Windows users: use launch-tradingview-cdp.ps1 instead — Store/MSIX installs
+# need a different exe-discovery path (see docs/TRADINGVIEW_INTEGRATION.md).
 
 PORT=9222
 

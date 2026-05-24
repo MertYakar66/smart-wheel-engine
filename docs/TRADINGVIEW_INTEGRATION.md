@@ -123,29 +123,61 @@ filings + events), **MT Newswires** (real-time news), **LSEG**
 
 ### One-time
 
-1. **Install TradingView Desktop.** macOS: download from
-   tradingview.com, install to `/Applications`.
+1. **Install TradingView Desktop.**
+   - macOS: download from tradingview.com, install to `/Applications`.
+   - Windows: install from the Microsoft Store (the official Windows
+     distribution). The resulting MSIX install lives at
+     `C:\Program Files\WindowsApps\TradingView.Desktop_*_x64__*\TradingView.exe`,
+     **not** `%LOCALAPPDATA%\TradingView\`. The PS1 launcher below uses
+     `Get-AppxPackage -Name TradingView.Desktop` to locate it, since the
+     WindowsApps ACL blocks `Get-ChildItem` listing and `where TradingView.exe`
+     returns nothing for Store apps.
 2. **Clone the MCP server** (gitignored, manual install):
    ```bash
    cd tradingview/
    git clone https://github.com/LewisWJackson/tradingview-mcp-jackson.git
    cd tradingview-mcp-jackson && npm install
    ```
-3. **Wire the MCP server into Claude Code.** Add to
-   `.claude/mcp_servers.json` or use `claude mcp add` (see Claude
-   Code MCP docs).
+3. **Wire the MCP server into Claude Code** (user scope, persists across
+   sessions on this machine):
+   ```bash
+   # macOS / Linux
+   claude mcp add --scope user tradingview -- node ~/path/to/tradingview-mcp-jackson/src/server.js
+
+   # Windows (PowerShell)
+   claude mcp add --scope user tradingview -- node C:\Users\<you>\Desktop\smart-wheel-engine\tradingview\tradingview-mcp-jackson\src\server.js
+   ```
+   Verify with `claude mcp list` — the `tradingview` row should show
+   `✓ Connected`. **Restart Claude Code** after adding; MCP tools only
+   load at startup.
 4. **Pin the Pine indicator constants** to match
    `engine/tv_signals.py`. The `test_pine_parity_constants` test
    enforces it; mismatches break the suite.
 
 ### Every session
 
-1. Run `bash tradingview/launch-tradingview-cdp.sh` if TradingView
-   isn't already up with CDP. **Never relaunch TradingView from the
-   dock** — the dock launch loses the `--remote-debugging-port` flag.
+1. If TradingView isn't already up with CDP:
+   - macOS: `bash tradingview/launch-tradingview-cdp.sh`
+   - Windows: `powershell -ExecutionPolicy Bypass -File tradingview\launch-tradingview-cdp.ps1`
+
+   **Never relaunch TradingView from the dock, taskbar, or Start menu** —
+   those launch paths drop the `--remote-debugging-port=9222` flag and
+   CDP attach silently fails.
 2. Verify `http://localhost:9222/json` returns chart info.
 3. In Cowork sessions, the `tv_health_check` MCP tool is the
    one-liner to confirm.
+
+### Windows gotchas
+
+- `tv_launch` (the MCP's auto-detect tool) does NOT find Microsoft Store
+  installs — it searches `%LOCALAPPDATA%\TradingView\` and
+  `%PROGRAMFILES%\TradingView\` only, and `where TradingView.exe` returns
+  nothing for MSIX. Use the PS1 launcher instead.
+- The WindowsApps folder is ACL-locked: `BUILTIN\Users` has
+  `ReadAndExecute` (so direct spawn works) but cannot list the directory.
+  The launcher relies on `Get-AppxPackage` for path resolution.
+- After a reboot or any Start-menu relaunch of TradingView, CDP is gone —
+  re-run the PS1 launcher.
 
 ---
 

@@ -732,6 +732,185 @@ landed.
 
 ---
 
+## D17. Portfolio-level risk gates are wired on both surfaces — hard-block on entry, soft-warn on review
+
+**Decision:** Portfolio-wide risk gates (sector concentration, portfolio
+delta, Kelly per-trade sizing, parametric VaR, hypothetical stress
+drawdown, dealer-regime) live in one pure-function library
+`engine/portfolio_risk_gates.py` and are consumed on **two** decision-
+layer surfaces:
+
+1. **Tracker hard-blocks** (`engine/wheel_tracker.py._evaluate_d17_hard_blocks`)
+   — at `open_short_put` / `open_covered_call` time, in strict mode
+   (`require_ev_authority=True`), three gates fire as **refusals**
+   (audit-log `action="reject"` with `nav` + `nav_source` fingerprint):
+   sector cap, portfolio delta cap, Kelly per-trade NAV cap. NAV is
+   computed **live** via `_compute_live_nav` (mark-to-market through
+   the attached connector) and threaded into every gate so all three
+   see one consistent value per call. A pre-gate `nav_exhausted` refuse
+   fires when live NAV drops below the operator-set
+   `min_nav_for_trading` floor. The Kelly gate is intentionally
+   short-circuited on the covered-call leg (stock already owned; no
+   new margin).
+2. **Dossier soft-warns** (`engine/candidate_dossier.py`
+   `EnginePhaseReviewer` R7 + R8) — at ranking time, when a
+   `PortfolioContext` is attached, the reviewer adds two
+   *downgrade-only* rules on top of the existing R1–R6:
+   - **R7** = `check_var`. Portfolio VaR_95 (30-day horizon) above
+     `max_var_pct × NAV` → `proceed` downgrades to `review`,
+     `verdict_reason="portfolio_var_breach"`.
+   - **R8** = `check_stress_scenario` OR `check_dealer_regime` (one
+     rule, two triggers — mirrors R6). The C4 vol-spike scenario's
+     drawdown above 8% NAV fires `verdict_reason="stress_breach"`;
+     the candidate's underlying being in `short_gamma_amplifying`
+     regime fires `verdict_reason="short_gamma_regime"`. Distinct
+     reasons per trigger so the audit trail records which one.
+
+R1 (`negative EV → blocked`) still wins over every D17 surface — the
+hard invariant from CLAUDE.md §2 / D1 / D16 is not amended.
+
+**Locked defaults** (overridable per-call; do **not** edit the constants):
+
+| Gate | Default | Module constant |
+|---|---|---|
+| Sector cap | 25% of NAV | `_DEFAULT_MAX_SECTOR_PCT = 0.25` |
+| Portfolio delta cap | ±$300 per $100k NAV | `_DEFAULT_DELTA_CAP_PER_100K_NAV = 300.0` |
+| Kelly per-trade fraction | 50% NAV ("half-Kelly") | `_DEFAULT_KELLY_FRACTION = 0.5` |
+| VaR ceiling | 5% NAV at 95% / 30d | `_DEFAULT_MAX_VAR_PCT = 0.05` |
+| Stress drawdown ceiling | 8% NAV | `_DEFAULT_MAX_STRESS_DRAWDOWN_PCT = 0.08` |
+| C4 vol-spike scenario | −10% spot + 30% IV | `_C4_VOL_SPIKE_SCENARIO` |
+
+Missing-data behaviour (soft-warns only): when the dossier's
+`PortfolioContext` is absent, or `check_var` has neither correlation
+matrix nor returns data, or `check_dealer_regime` has no regime map
+for the ticker, the gate returns `passed=True, reason="missing_data"`
+and the soft-warn does **not** fire. Q3 of the #154 C4 design
+checkpoint: soft-warns should not fire on absent evidence. Matches
+D11's "no silent substitution" principle — the gate refuses to
+penalise a candidate for data it can't see.
+
+The four new tracker audit-log entry shapes (D17 hard-block rejects)
+join the five D16 shapes in `tests/test_ev_authority_log_schema.py`'s
+`_VALID_SHAPES`: `nav_exhausted`, `sector_cap_breach`,
+`portfolio_delta_breach`, `kelly_size_exceeded` — each carries
+`nav` + `nav_source` plus its gate-specific details bag.
+
+**Why:** S15 (`docs/USAGE_TEST_LEDGER.md`) found that
+`engine/risk_manager.py` and `engine/stress_testing.py` ship complete
+machinery — portfolio Greeks, parametric / historical / Monte-Carlo
+VaR, `SectorExposureManager`, full stress ladders — but **none of it
+was imported** by `wheel_runner.py` / `wheel_tracker.py` /
+`ev_engine.py`. Position-opening was happening today with no
+NAV-level sector cap, no portfolio-delta cap, no Kelly check, no
+tail-risk awareness. The risk infrastructure existed; the decision
+layer didn't consume it. The two-surface wiring (hard-block at
+opening + soft-warn on review) keeps the contracts orthogonal: the
+tracker refuses positions that would breach absolute book-level
+limits; the dossier flags positions where tail-risk evidence
+weakens an otherwise-`proceed` verdict. R1 remains the single hard
+authority — D17 never rescues a negative-EV trade.
+
+Locked defaults are operator-tunable per call but are written into
+the module as constants because they encode the C4 design's risk
+tolerance and should not drift PR-to-PR during remediation work;
+tuning them is a follow-on decision, not part of D17.
+
+**Rejected alternatives:**
+
+- **Binary Kelly (`f* = (p*b - q) / b`) — the classical formula.**
+  This was Phase 1's first cut. For any realistic short put
+  (`avg_win = premium × 100 ≈ $50–$300`, `avg_loss ≈ (strike −
+  premium) × 100 ≈ $5k–$15k`), the loss-to-win ratio is wide enough
+  that the formula returns 0 for any plausible `win_rate`. After the
+  `max(0, …)` clamp the recommended exposure is $0 and the gate
+  refuses every short put regardless of edge. Phase-1 unit tests
+  passed because they used synthetic `(win_rate=0.7, avg_win=100,
+  avg_loss=50)` inputs that happen to satisfy the formula — a
+  textbook case of test inputs not matching production inputs. The
+  binary form was rewritten to a **per-trade NAV cap** during Phase 2
+  integration (PR #163), keeping `win_rate` / `avg_win` / `avg_loss`
+  in the signature for forward-compatibility but not consuming them.
+  This is the practitioner's reading of "half-Kelly" as a sizing
+  ceiling rather than an edge-derived `f*`.
+
+- **Continuous Kelly (`f* = μ/σ²`) with per-trade EV/variance
+  estimates.** The "right" Kelly for size-on-edge, but requires a
+  reliable per-trade σ that the current EV pipeline doesn't surface
+  (the ranker outputs `ev_dollars` and `prob_profit`, not a
+  distribution variance). Deferred until a per-trade variance
+  estimate is available; the cap form is the conservative
+  placeholder.
+
+- **`_C4_VOL_SPIKE_SCENARIO` added to
+  `stress_testing.HYPOTHETICAL_SCENARIOS`.** The natural home would
+  be the existing scenario library. Rejected for Phase 1 because the
+  prompt's `<rule_outs>` forbade modifying `stress_testing.py`;
+  the scenario lives module-local in `portfolio_risk_gates.py` for
+  now. Relocating it is a trivial follow-on when a future task wants
+  it in the standard library.
+
+- **Split R8 into R8 (stress) + R9 (dealer regime).** Considered
+  for explicit accounting symmetry with R7. Rejected because R8 has
+  the same shape as R6 — one rule, two trigger conditions, one
+  downgrade verdict — and splitting would break the parallel with R6.
+  Distinct `verdict_reason` per trigger (`stress_breach` vs
+  `short_gamma_regime`) carries the per-trigger fact into the audit
+  log without inflating the rule count.
+
+- **Opt-in `require_portfolio_risk_gates` flag separate from
+  `require_ev_authority`.** Considered for backwards-compat: gate
+  the D17 hard-blocks behind a fresh flag so existing
+  `require_ev_authority=True` callers keep their old refuse-set.
+  Rejected because the D16 hardening pass already established
+  `require_ev_authority` as the "production-strict" mode marker,
+  and adding a second flag splits the strict surface into two
+  knobs with no clear use case for one-without-the-other. D17 hard-
+  blocks fire under the same `require_ev_authority=True` switch.
+
+- **Static NAV (use `initial_capital` always, not live mark-to-
+  market).** Considered for determinism: every gate evaluation uses
+  the same NAV regardless of P&L. Rejected because gates should
+  self-adjust in drawdowns (a book down 20% should be more
+  conservative, not less) — that's the *point* of NAV-relative
+  caps. The static path is preserved as the `connector=None` and
+  `connector raised` fallbacks, with explicit `nav_source`
+  fingerprints (`"static_fallback"` / `"static_fallback_connector_error"`)
+  in the audit log so any auditor can spot a gate run that landed
+  on the static value.
+
+- **Ratchet NAV (only update upward).** A floor that never lets
+  recent drawdown raise the cap. Rejected for path-dependence: the
+  same book at the same time would get different gate decisions
+  depending on its peak-NAV history. Live mark-to-market is the
+  symmetric, path-independent choice.
+
+- **Wire D17 into `EVEngine.evaluate` directly (compute portfolio
+  context as a multiplier).** Would put portfolio-level risk inside
+  the EV scoring path. Rejected because it would violate the
+  downgrade-only contract: a portfolio multiplier could in principle
+  scale `ev_dollars` upward (against the §2 invariant). Keeping
+  D17 as a tracker refuse / dossier downgrade preserves the §2
+  contract — D17 can only refuse or downgrade, never rescue.
+
+**Pinned by:** `engine/portfolio_risk_gates.py` (the library —
+`check_sector_cap`, `check_portfolio_delta`, `check_kelly_size`,
+`check_var`, `check_stress_scenario`, `check_dealer_regime`,
+`take_snapshot`, locked-defaults constants, `_C4_VOL_SPIKE_SCENARIO`);
+`engine/wheel_tracker.py` (`_evaluate_d17_hard_blocks`,
+`_compute_live_nav`, `min_nav_for_trading` constructor param);
+`engine/candidate_dossier.py` (`EnginePhaseReviewer` rules R7 + R8,
+`_build_candidate_dict`); `tests/test_portfolio_risk_gates.py`
+(per-gate unit tests against the locked defaults);
+`tests/test_authority_hardening.py::TestD17HardBlocks` (tracker
+hard-block end-to-end + `nav_source` fingerprint);
+`tests/test_dossier_invariant.py` (R7 + R8 reviewer tests);
+`tests/test_ev_authority_log_schema.py` (the four D17 hard-block
+reject shapes in `_VALID_SHAPES`); `docs/USAGE_TEST_LEDGER.md` S15
+(the originating finding) and S21 (end-to-end confirm-fixed at
+$1M pro-account NAV).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

@@ -10,7 +10,8 @@ This file is the operational consolidation of:
 - `TESTING.md` (launch-blocker subset)
 - `DECISIONS.md` D1 (EV is the only ranker), D11 (Theta fail-loud),
   D13 (MCP opt-in), D14 (FILE_MANIFEST coverage CI gate), D15
-  (per-terminal worktree + env), D16 (token verdict-bound)
+  (per-terminal worktree + env), D16 (token verdict-bound),
+  D17 (portfolio-risk gates on both surfaces)
 - `tests/test_launch_blockers.py` and the `test_audit_*` family
 
 ---
@@ -61,10 +62,10 @@ suite for `engine/ev_engine.py` or `engine/wheel_runner.py` changes
 
 ---
 
-## 3. Dossier downgrade rules (R1–R6)
+## 3. Dossier downgrade rules (R1–R8)
 
 `EnginePhaseReviewer` is the gatekeeper that converts an EV verdict
-+ chart context into the final disposition. The six rules (defined
++ chart context into the final disposition. The eight rules (defined
 on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 `tests/test_dossier_invariant.py`):
 
@@ -75,10 +76,22 @@ on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 | **R3** | Spot mismatch > 2% between engine-side and chart-side | **skip** |
 | **R4** | *Conditional / reserved.* Phase contradiction (chart `visible_indicators['phase']` disagrees with engine phase) → **skip**. Implemented and unit-tested but **dormant in production**: no current chart provider populates the `phase` field and the ranker emits no `phase` on `ev_row`, so neither operand of the predicate is fed. R4 activates only when a phase-aware chart provider lands (see `docs/TRADINGVIEW_INTEGRATION.md`). Not a live downgrade today. |
 | **R5** | EV above threshold | **proceed** |
-| **R6** | Short-gamma regime + strike at/above the put wall, or dealer regime near the gamma flip | **downgrade** |
+| **R6** | Short-gamma regime + strike at/above the put wall, or dealer regime near the gamma flip | **downgrade** (`proceed → review`) |
+| **R7** | *D17 soft-warn.* Portfolio VaR_95 (30-day horizon) above 5% NAV (`check_var`). Fires only when a `PortfolioContext` is attached and the verdict is currently `proceed`. Missing correlation matrix or returns data → skip (no fire on absent evidence). | **downgrade** (`proceed → review`, `verdict_reason="portfolio_var_breach"`) |
+| **R8** | *D17 soft-warn.* One rule, two triggers (mirrors R6). Either the C4 vol-spike scenario shows portfolio drawdown > 8% NAV (`check_stress_scenario` → `"stress_breach"`) OR the candidate's underlying is in `short_gamma_amplifying` regime (`check_dealer_regime` → `"short_gamma_regime"`). Fires only when a `PortfolioContext` is attached and verdict is currently `proceed`. | **downgrade** (`proceed → review`) |
 
 R1 is the structural realisation of §1 — negative EV ⇒ blocked. The
-test is the merge gate.
+test is the merge gate. R7 + R8 are *soft-warns*: they only downgrade
+`proceed → review` and never override R1's `blocked`. See
+`DECISIONS.md` D17 for the rationale and the locked defaults.
+
+The corresponding **hard-block** half of D17 lives on the tracker —
+`engine/wheel_tracker.py._evaluate_d17_hard_blocks` refuses
+position-opening on sector / portfolio-delta / Kelly-size breaches
+when `require_ev_authority=True`. The hard-block surface is what
+guarantees a book-level cap; R7 + R8 surface the same kind of
+evidence on the dossier so an operator reviewing candidates sees the
+warning at ranking time, not at firing time.
 
 ---
 
@@ -136,6 +149,21 @@ authority files change.
       `tests/test_authority_hardening.py` plus
       `tests/test_ev_authority_log_schema.py` (the audit-log
       shape regression).
+- [ ] **If the change touches the portfolio-risk gates (D17)** —
+      verify the tracker hard-blocks **refuse** the position
+      (`tests/test_authority_hardening.py::TestD17HardBlocks`,
+      `tests/test_ev_authority_log_schema.py::TestD17EntryShapes`),
+      and the dossier soft-warns **downgrade only** —
+      R7/R8 may move `proceed → review` and must never upgrade or
+      override R1's `blocked` (`tests/test_dossier_invariant.py`).
+      Confirm the locked defaults in
+      `engine/portfolio_risk_gates.py` (sector 25%, Kelly 0.5,
+      VaR 5%, stress 8%, delta $300/$100k NAV) are not edited;
+      D17's contract treats them as constants — tuning is a
+      follow-on decision, not a remediation PR. Verify the four
+      D17 audit-log shapes (`nav_exhausted` / `sector_cap_breach`
+      / `portfolio_delta_breach` / `kelly_size_exceeded`) still
+      validate against `_VALID_SHAPES`.
 - [ ] If the change touches `wheel_tracker.py` more broadly — the
       rolled-position P&L accumulator tests pass; the three
       ledgers (`realized_pnl`, `transaction_costs`, `stock_basis`)
@@ -250,11 +278,13 @@ Each executor terminal runs from its own worktree
 or `. .\scripts\setup-terminal.ps1 <letter>` (PowerShell). The loader
 sets six env vars per terminal letter — `SWE_API_PORT`,
 `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `COVERAGE_FILE`,
-`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `COVERAGE_FILE` and
-`PYTEST_CACHE_DIR` are real today (test-tooling honours them);
-`SWE_API_PORT`, `SWE_DATA_PROCESSED_DIR`, and `SWE_MODELS_DIR` are
-**conventions** until each consumer is wired up. See `DECISIONS.md`
-D15.
+`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `SWE_API_PORT` (PR #158,
+honoured by `engine_api.py._resolve_port()` and `audit.py`'s `BASE`),
+`COVERAGE_FILE` (coverage.py), `PYTEST_CACHE_DIR` (pytest), and
+`SWE_DATA_PROVIDER` (`WheelRunner.connector`) are real today —
+each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` and
+`SWE_MODELS_DIR` remain **conventions** until each consumer is
+wired up. See `DECISIONS.md` D15.
 
 ### Launch-mode switching
 
@@ -292,11 +322,21 @@ the launch-readiness contract should make visible:
   environment.
 - **`trace_operation`** — instrumentation helper used by the runner
   and the dossier reviewer.
-- **`WheelTracker._ev_authority_log`** — the D16 audit log. Its five
-  entry shapes (`issue` / `refuse_issue` / `consume` / `reject`
-  with three reason variants) are pinned by
+- **`WheelTracker._ev_authority_log`** — the D16 + D17 audit log.
+  Nine entry shapes total, all pinned by
   `tests/test_ev_authority_log_schema.py` and persisted via
-  `to_dict` / `from_dict` (PR #128).
+  `to_dict` / `from_dict` (PR #128):
+  - **D16 (five shapes):** `action="issue"`, `action="refuse_issue"`
+    with `reason="non_positive_ev"`, `action="consume"`, and three
+    `action="reject"` variants — `reason="unknown_token"` /
+    `"missing_current_ev_dollars"` / `"stale_ev"`.
+  - **D17 hard-block (four shapes):** `action="reject"` with
+    `reason="nav_exhausted"` (pre-gate floor),
+    `reason="sector_cap_breach"`, `reason="portfolio_delta_breach"`,
+    `reason="kelly_size_exceeded"`. All four carry the live-NAV
+    fingerprint (`nav` + `nav_source`) so an audit consumer can
+    grep `nav_source="static_fallback"` to spot gate runs that
+    landed on the static cap rather than live mark-to-market.
 
 Pre-launch: confirm the launch environment writes both surfaces
 (`DecisionJournal` and `_ev_authority_log`) somewhere recoverable —

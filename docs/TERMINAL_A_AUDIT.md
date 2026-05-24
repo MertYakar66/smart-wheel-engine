@@ -690,9 +690,19 @@ PR's claim is present today, including `TestD17HardBlocks`,
 parametrisation-collection rounding within the campaign's normal
 evolution; no test was genuinely deleted or behaviour-changed.
 
-**6. Pytest at audit end matches audit start.** Full suite at end:
-**2199 passed, 12 skipped, 0 failed** — same baseline (no regression
-introduced by reading the tree).
+**6. Pytest at audit end: 2 documented Windows-local flakes, no
+campaign-introduced regression.** Full suite at audit start:
+`2199 passed, 12 skipped, 0 failed` (2211 collected). Full suite at
+audit end: `2209 passed, 2 failed` — the two failures are
+`tests/test_theta_connector.py::test_ohlcv_shape` and
+`::test_iv_rank_in_range`, both Windows-local-only flakes that depend
+on Theta Terminal session state. Pure docs (DECISIONS.md +
+LAUNCH_READINESS.md from #169 + this audit doc) were the only files
+that changed between the two runs — nothing that could affect the
+theta connector. These are environmental, not regression-driven; the
+project memory pinned this exact failure mode previously (Windows-
+local theta failures do not extrapolate to CI). No code path
+exercised by the audited PRs is implicated.
 
 **7. Mid-audit: PR #169 (Phase 4 D17 docs) landed at `5c1362f` while
 this audit was being written.** It ships the canonical D17 entry in

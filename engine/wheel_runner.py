@@ -144,6 +144,58 @@ def _solve_book_knapsack(weights: list[int], values: list[float], capacity: int)
     return selected
 
 
+def _resolve_pit_atm_iv(conn, ticker: str, as_of: str | None) -> float | None:
+    """Best-effort point-in-time ATM IV from the connector, normalised to decimal.
+
+    Mirrors :meth:`engine.wheel_tracker.WheelTracker._connector_atm_iv`
+    for use by the rankers, which historically used
+    ``conn.get_fundamentals(ticker)["implied_vol_atm"]`` — a snapshot
+    column with no date axis. That meant a ranker run with
+    ``as_of="2026-03-05"`` priced strikes against today's IV, not the
+    IV that was actually quoted on 2026-03-05 — distorting EV for any
+    name whose IV had since drifted (S23 F3: AVGO 42.96% snapshot vs
+    49.5% PIT on 2026-03-05, a 15% relative error in the IV input to
+    the BSM strike-solve and synthetic-premium computation).
+
+    Returns the composite ``(hist_put_imp_vol + hist_call_imp_vol) / 2``
+    from the most recent row of ``get_iv_history(ticker, end_date=as_of)``,
+    normalised to a decimal — or ``None`` when no connector is attached,
+    the connector lacks ``get_iv_history`` (e.g. ``ThetaConnector``), the
+    lookup raises, or the result is empty / unusable. ``None`` signals
+    the caller to fall back to the legacy snapshot fundamentals path —
+    which preserves connectors and tests that stub only
+    ``get_fundamentals``.
+    """
+    if conn is None or not hasattr(conn, "get_iv_history"):
+        return None
+    try:
+        hist = conn.get_iv_history(ticker, end_date=as_of)
+    except Exception:
+        return None
+    if hist is None or len(hist) == 0:
+        return None
+    cols = [c for c in ("hist_put_imp_vol", "hist_call_imp_vol") if c in hist.columns]
+    if not cols:
+        return None
+    try:
+        row = hist.iloc[-1]
+        vals = [float(row[c]) for c in cols if pd.notna(row[c])]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not vals:
+        return None
+    iv = sum(vals) / len(vals)
+    # Bloomberg vol_iv columns are in PERCENT (e.g. 30.79). Anything
+    # above 3.0 (= 300%) is virtually certainly a percent representation;
+    # below is already decimal. Mirrors the legacy snapshot path's
+    # heuristic in the three rankers.
+    if iv > 3.0:
+        iv = iv / 100.0
+    if not (0.0 < iv <= 5.0):
+        return None
+    return iv
+
+
 # ----------------------------------------------------------------------
 # Column schema for WheelRunner.rank_covered_calls_by_ev
 # ----------------------------------------------------------------------
@@ -608,7 +660,11 @@ class WheelRunner:
 
         For each ticker:
           1. Pull OHLCV up to ``as_of`` from the connector.
-          2. Pull ATM IV (``volatility_30d`` fallback to Bloomberg ATM IV).
+          2. Pull ATM IV at ``as_of`` — :func:`_resolve_pit_atm_iv` reads
+             the most recent row of ``conn.get_iv_history(end_date=as_of)``
+             (S23 F3); falls back to ``fundamentals['implied_vol_atm']``
+             (then ``volatility_30d``) only when no PIT history is
+             available, e.g. on a connector without ``get_iv_history``.
           3. Solve BSM delta to find the strike corresponding to
              ``delta_target`` (e.g. 0.25 = 25-delta put).
           4. Compute a fair BSM premium as a synthetic quote (flagged as
@@ -803,6 +859,13 @@ class WheelRunner:
                 continue
 
             # Get ATM IV and fundamentals.
+            # S23 F3 fix: prefer the connector's as-of IV via
+            # ``get_iv_history`` over ``fundamentals['implied_vol_atm']``,
+            # which is a single snapshot with no date column and silently
+            # mis-prices any historical ``as_of`` run. The fundamentals
+            # path stays as a fallback for connectors / test stubs that
+            # don't expose ``get_iv_history``.
+            #
             # AUDIT-VIII P0.1: Bloomberg fundamentals CSV reports IV and
             # volatility in PERCENT (e.g. ``26.15`` means 26.15% annualized).
             # Earlier code treated the raw value as a decimal, then rejected
@@ -811,36 +874,38 @@ class WheelRunner:
             # We normalize to a decimal by dividing by 100 when the raw
             # value is clearly a percentage (>3) and guard NaN/None.
             fundamentals = conn.get_fundamentals(ticker) or {}
-            iv_raw = fundamentals.get("implied_vol_atm")
-            if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
-                iv_raw = fundamentals.get("volatility_30d")
-            try:
-                iv = float(iv_raw) if iv_raw is not None else 0.0
-            except (TypeError, ValueError):
-                iv = 0.0
-            if np.isnan(iv) or iv <= 0:
-                drops.append(
-                    {
-                        "ticker": ticker,
-                        "gate": "data",
-                        "reason": "IV missing or non-positive",
-                    }
-                )
-                continue
-            # Normalise percent -> decimal. A sigma of 3.0 (= 300%) is an
-            # extreme upper bound for any real equity; anything above is
-            # virtually certainly a percent representation.
-            if iv > 3.0:
-                iv = iv / 100.0
-            if iv <= 0 or iv > 5:
-                drops.append(
-                    {
-                        "ticker": ticker,
-                        "gate": "data",
-                        "reason": "IV degenerate after percent normalisation",
-                    }
-                )
-                continue  # still degenerate after normalisation
+            iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+            if iv is None:
+                iv_raw = fundamentals.get("implied_vol_atm")
+                if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+                    iv_raw = fundamentals.get("volatility_30d")
+                try:
+                    iv = float(iv_raw) if iv_raw is not None else 0.0
+                except (TypeError, ValueError):
+                    iv = 0.0
+                if np.isnan(iv) or iv <= 0:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": "IV missing or non-positive",
+                        }
+                    )
+                    continue
+                # Normalise percent -> decimal. A sigma of 3.0 (= 300%) is an
+                # extreme upper bound for any real equity; anything above is
+                # virtually certainly a percent representation.
+                if iv > 3.0:
+                    iv = iv / 100.0
+                if iv <= 0 or iv > 5:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": "IV degenerate after percent normalisation",
+                        }
+                    )
+                    continue  # still degenerate after normalisation
 
             dividend_yield_raw = fundamentals.get("dividend_yield", 0.0) or 0.0
             try:
@@ -1906,29 +1971,34 @@ class WheelRunner:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
 
-        # ---- IV: percent→decimal normalisation (mirrors rank_candidates_by_ev) ----
+        # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
+        # S23 F3 fix: same as rank_candidates_by_ev.
         fundamentals = conn.get_fundamentals(ticker) or {}
-        iv_raw = fundamentals.get("implied_vol_atm")
-        if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
-            iv_raw = fundamentals.get("volatility_30d")
-        try:
-            iv = float(iv_raw) if iv_raw is not None else 0.0
-        except (TypeError, ValueError):
-            iv = 0.0
-        if np.isnan(iv) or iv <= 0:
-            drops.append({"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"})
-            return _empty()
-        if iv > 3.0:
-            iv = iv / 100.0
-        if iv <= 0 or iv > 5:
-            drops.append(
-                {
-                    "ticker": ticker,
-                    "gate": "data",
-                    "reason": "IV degenerate after percent normalisation",
-                }
-            )
-            return _empty()
+        iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+        if iv is None:
+            iv_raw = fundamentals.get("implied_vol_atm")
+            if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+                iv_raw = fundamentals.get("volatility_30d")
+            try:
+                iv = float(iv_raw) if iv_raw is not None else 0.0
+            except (TypeError, ValueError):
+                iv = 0.0
+            if np.isnan(iv) or iv <= 0:
+                drops.append(
+                    {"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"}
+                )
+                return _empty()
+            if iv > 3.0:
+                iv = iv / 100.0
+            if iv <= 0 or iv > 5:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "IV degenerate after percent normalisation",
+                    }
+                )
+                return _empty()
 
         # ---- dividend yield (decimal) ----
         if dividend_yield is None:
@@ -2370,29 +2440,34 @@ class WheelRunner:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
 
-        # ---- IV: percent→decimal normalisation (mirrors rank_candidates_by_ev) ----
+        # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
+        # S23 F3 fix: same as rank_candidates_by_ev.
         fundamentals = conn.get_fundamentals(ticker) or {}
-        iv_raw = fundamentals.get("implied_vol_atm")
-        if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
-            iv_raw = fundamentals.get("volatility_30d")
-        try:
-            iv = float(iv_raw) if iv_raw is not None else 0.0
-        except (TypeError, ValueError):
-            iv = 0.0
-        if np.isnan(iv) or iv <= 0:
-            drops.append({"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"})
-            return _empty()
-        if iv > 3.0:
-            iv = iv / 100.0
-        if iv <= 0 or iv > 5:
-            drops.append(
-                {
-                    "ticker": ticker,
-                    "gate": "data",
-                    "reason": "IV degenerate after percent normalisation",
-                }
-            )
-            return _empty()
+        iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+        if iv is None:
+            iv_raw = fundamentals.get("implied_vol_atm")
+            if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+                iv_raw = fundamentals.get("volatility_30d")
+            try:
+                iv = float(iv_raw) if iv_raw is not None else 0.0
+            except (TypeError, ValueError):
+                iv = 0.0
+            if np.isnan(iv) or iv <= 0:
+                drops.append(
+                    {"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"}
+                )
+                return _empty()
+            if iv > 3.0:
+                iv = iv / 100.0
+            if iv <= 0 or iv > 5:
+                drops.append(
+                    {
+                        "ticker": ticker,
+                        "gate": "data",
+                        "reason": "IV degenerate after percent normalisation",
+                    }
+                )
+                return _empty()
 
         # ---- dividend yield (decimal) ----
         if dividend_yield is None:

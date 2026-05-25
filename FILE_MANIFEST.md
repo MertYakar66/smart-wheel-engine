@@ -244,6 +244,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
+| `docs/AUDIT_OF_AUDIT_REVIEW.md` | Meta-verification of `docs/TERMINAL_A_AUDIT.md` (PR #173) — seven meta-checks M1–M7 on the audit's headline tally, D17 promotion logic, second-layer drift discipline, the two named line-drifts, test counts, exclusion-list defensibility, and the no-production-callers observation. |
 | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` | S27 follow-up to PR #178's `ENGINE_BACKTEST_2022_2024.md`: re-runs the same 2022-2024 backtest against the post-fix engine (`claude/fix-ranker-iv-pit-aware` `d26a8d6`). Side-by-side ρ / quartile / per-year / tail-episode comparison. Verdict: signal preserved at ρ=0.22 (halved); 2022 bear actually stronger; F4 tail-risk gap confirmed real. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/data_inventory_2026-05-17.md` | Point-in-time data-inventory analysis report. |

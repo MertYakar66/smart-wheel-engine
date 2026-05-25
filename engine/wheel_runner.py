@@ -985,21 +985,67 @@ class WheelRunner:
                                     event_date=earn_d,
                                 )
                             )
-                if (
-                    event_gate is None
-                    and days_to_earn is not None
-                    and 0 <= days_to_earn < earnings_buffer_days
-                ):
-                    drops.append(
-                        {
-                            "ticker": ticker,
-                            "gate": "event",
-                            "reason": (
-                                f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
-                            ),
-                        }
+                # S23 F1 — symmetric back-buffer. The gate's
+                # _event_touches_window arithmetic is symmetric and its
+                # reason string says ±{buf}d, but get_next_earnings only
+                # ever returns future events. Also pull the most recent
+                # PAST earnings within the back-buffer and register it
+                # so the gate can fire on a trade opened immediately
+                # post-earnings (the IV-crush window the gate's
+                # docstring explicitly cites as motivation). Defensive
+                # hasattr() so connectors / test stubs without the new
+                # method continue working with the legacy behavior.
+                if event_gate is not None and hasattr(conn, "get_recent_earnings"):
+                    recent_earn = conn.get_recent_earnings(
+                        ticker, as_of, lookback_days=earnings_buffer_days
                     )
-                    continue
+                    if recent_earn:
+                        recent_ts = recent_earn.get("announcement_date")
+                        if recent_ts is not None:
+                            recent_d = recent_ts.date() if hasattr(recent_ts, "date") else recent_ts
+                            event_gate.add_event(
+                                ScheduledEvent(
+                                    ticker=ticker,
+                                    kind="earnings",
+                                    event_date=recent_d,
+                                )
+                            )
+                if event_gate is None:
+                    # Soft fallback (use_event_gate=False) — also
+                    # symmetric. Forward branch was the original
+                    # behavior; back branch is the S23 F1 fix.
+                    if days_to_earn is not None and 0 <= days_to_earn < earnings_buffer_days:
+                        drops.append(
+                            {
+                                "ticker": ticker,
+                                "gate": "event",
+                                "reason": (
+                                    f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                                ),
+                            }
+                        )
+                        continue
+                    if hasattr(conn, "get_recent_earnings"):
+                        recent_earn = conn.get_recent_earnings(
+                            ticker, as_of, lookback_days=earnings_buffer_days
+                        )
+                        if recent_earn:
+                            r_ts = recent_earn.get("announcement_date")
+                            if r_ts is not None:
+                                r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
+                                d_since = (today_date - r_d).days
+                                if 0 <= d_since < earnings_buffer_days:
+                                    drops.append(
+                                        {
+                                            "ticker": ticker,
+                                            "gate": "event",
+                                            "reason": (
+                                                f"earnings was {d_since}d ago "
+                                                f"< buffer {earnings_buffer_days}d"
+                                            ),
+                                        }
+                                    )
+                                    continue
             except Exception:
                 days_to_earn = None
 
@@ -2060,6 +2106,22 @@ class WheelRunner:
                         event_gate.add_event(
                             ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
                         )
+            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+            # Pull the most recent past earnings within the back-buffer
+            # so the gate can fire on a trade opened immediately
+            # post-earnings (IV-crush window). Defensive hasattr() for
+            # legacy connectors.
+            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
+                recent_earn = conn.get_recent_earnings(
+                    ticker, as_of, lookback_days=earnings_buffer_days
+                )
+                if recent_earn:
+                    r_ts = recent_earn.get("announcement_date")
+                    if r_ts is not None:
+                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
+                        event_gate.add_event(
+                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
+                        )
         except Exception:
             days_to_earn = None
 
@@ -2552,6 +2614,22 @@ class WheelRunner:
                     if event_gate is not None:
                         event_gate.add_event(
                             ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
+                        )
+            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+            # Pull the most recent past earnings within the back-buffer
+            # so the gate can fire on a trade opened immediately
+            # post-earnings (IV-crush window). Defensive hasattr() for
+            # legacy connectors.
+            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
+                recent_earn = conn.get_recent_earnings(
+                    ticker, as_of, lookback_days=earnings_buffer_days
+                )
+                if recent_earn:
+                    r_ts = recent_earn.get("announcement_date")
+                    if r_ts is not None:
+                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
+                        event_gate.add_event(
+                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
                         )
         except Exception:
             days_to_earn = None

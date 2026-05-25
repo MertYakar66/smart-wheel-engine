@@ -165,14 +165,25 @@ inside `check_kelly_size`'s docstring (the "Current-path reachability
 but #161 contributed 95 of those 117 lines and #160 (also
 Terminal C, also wheel_runner.py, also same audit window) contributed
 the other 22. The audit's substantive load-bearing claim — *function
-definitions and bodies unchanged at the new offsets; drift is purely
-positional* — is **correct**. The attribution wording is imprecise
-but not consequential; a reader who runs the same `git diff` will
-hit the +117 number the audit cites for the offset shift and the +95
+**signatures** unchanged at the new offsets; drift is purely
+positional* — is verified directly here (signatures at the cited
+lines today match the audit's quoted `def ...` headers). The audit's
+adjacent claim that the *bodies* are unchanged I take on the audit's
+verification; spot-checking that further would require diffing each
+body against the prior-audit snapshot, which is beyond M1–M7's
+spot-check scope. The lack of body-edit commits to these functions
+in `git log -- engine/wheel_runner.py` between `86b917c7` and
+`cc54619` (only PR #174's two new methods landed) is consistent
+with body-equivalence. The attribution wording is imprecise but not
+consequential; a reader who runs the same `git diff` will hit the
++117 number the audit cites for the offset shift and the +95
 number it cites for #161's stat, and can reconcile them on the spot.
 
 A one-line follow-up clarification — "PR #161 (+95) plus PR #160
 (+22, same window) total +117" — would close the precision gap.
+Since PR #173 has now merged onto `main` at `2ccb936`, the follow-up
+would land as a small docs PR against `main` rather than an in-place
+edit on the audit branch. Candidate next-docs-sweep item.
 
 ---
 
@@ -334,6 +345,9 @@ briefly conclude the audit is wrong before noticing #160 sitting
 adjacent in the same Terminal-C window. A one-line "PR #161 (+95) +
 PR #160 (+22) = +117 total" would close this; not consequential
 enough to block the audit, but the natural minor-follow-up.
+**Now that PR #173 is merged**, the clarification lands as a small
+docs PR against `main` — folded into the next docs sweep, not its own
+PR.
 
 **3. The §2 surface holds across both audit layers.** The audit
 correctly identifies that none of the 22 Terminal A PRs opened a

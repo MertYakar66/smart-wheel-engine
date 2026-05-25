@@ -49,6 +49,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -68,6 +69,7 @@ import numpy as np
 # Add project root to path
 sys.path.insert(0, ".")
 
+from engine.candidate_dossier import MIN_PROCEED_EV_DOLLARS
 from engine.data_connector import MarketDataConnector
 from engine.wheel_runner import WheelRunner
 
@@ -124,6 +126,18 @@ _NEWS_BUFFER_MAX = 100
 _TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
 _TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
 _TV_SEEN_NONCES_MAX = 1024
+
+# Shared EV-proceed threshold (in dollars). Single source of truth
+# lives in :mod:`engine.candidate_dossier` so the two verdict ladders
+# in this file (``/api/candidates`` recommendation label and
+# ``_enrich_alert`` for ``/api/tv/webhook``) and the canonical
+# dossier reviewer (``EnginePhaseReviewer.min_proceed_ev``) cannot
+# drift on threshold value. The ladders themselves are divergent
+# **by design** in their overlay rules (Pine chart agreement,
+# ``prob_profit`` floor) — only the bare EV floor is unified here.
+# Closes the threshold-drift half of C2 from
+# ``docs/END_TO_END_REVIEW_2026_05_25.md``.
+_MIN_PROCEED_EV_DOLLARS: float = MIN_PROCEED_EV_DOLLARS
 
 
 def _tv_seen_register(digest: str, now: float) -> bool:
@@ -567,11 +581,22 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "maxLoss": round((strike - premium) * 100, 2) if strike > 0 else 0,
                     "score": row.get("wheel_score", round(prob_profit * 100, 1)),
                     "wheelScore": row.get("wheel_score"),
+                    # Dashboard-facing recommendation label. Mirrors the
+                    # ``/api/tv/webhook`` proceed conditions
+                    # (`_MIN_PROCEED_EV_DOLLARS` + ``prob_profit >= 0.65``)
+                    # minus the chart-agreement check (no Pine alert
+                    # arrives at ``/api/candidates``). Shares the
+                    # threshold so a future tightening can land in one
+                    # place. Closes the recommendation-label half of C2.
                     "recommendation": (
                         "proceed"
-                        if ev_dollars >= 10 and prob_profit >= 0.65
+                        if (
+                            math.isfinite(ev_dollars)
+                            and ev_dollars >= _MIN_PROCEED_EV_DOLLARS
+                            and prob_profit >= 0.65
+                        )
                         else "review"
-                        if ev_dollars > 0
+                        if (math.isfinite(ev_dollars) and ev_dollars > 0)
                         else "skip"
                     ),
                     "expiration": "",
@@ -2081,23 +2106,51 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             verdict_authority = "ev_unavailable"
             verdict_reason = "ev_computation_failed"
 
-        # Hard event gate (second line of defense — EV should already have
-        # blocked). This remains as a belt-and-suspenders skip.
+        # Webhook verdict ladder.
+        #
+        # Divergence-by-design vs ``EnginePhaseReviewer.review`` (used by
+        # ``/api/tv/dossier``): this ladder adds two webhook-specific
+        # overlays that the dossier reviewer does not impose —
+        # ``prob_profit >= 0.65`` and the Pine-chart-agreement check
+        # (``agrees``). Both reflect that the webhook is the **push**
+        # side of the bridge (Pine declares "this chart entered the
+        # zone"); a proceed verdict here requires both the engine and
+        # the chart to align. The dossier path is the **pull** side
+        # (engine ranks first, charts are supplementary), so it admits
+        # ``proceed`` on engine signal alone. Both paths share the
+        # ``_MIN_PROCEED_EV_DOLLARS`` threshold and the non-finite /
+        # negative-EV hard-blocks.
+        #
+        # The non-finite branch mirrors
+        # ``EnginePhaseReviewer.review`` R1a (closes C1 from
+        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without it,
+        # ``+inf`` ``ev_dollars`` would slip past the ``ev_dollars < 0``
+        # check (False) and could land in the ``>= 10`` proceed branch;
+        # ``NaN`` would fall all the way through to the final
+        # ``"ev_zero_or_below"`` skip with a misleading reason. No
+        # production code path injects non-finite ev_dollars today —
+        # the ranker server-computes it — but the defense-in-depth gap
+        # is closed here for symmetry with the dossier path.
         if days_to_earnings is not None and 0 <= days_to_earnings < 5:
             verdict = "skip"
             verdict_reason = "earnings_within_5d"
         elif verdict_authority != "ev_ranked":
             verdict = "review"
             verdict_reason = verdict_reason or "ev_engine_unreachable"
+        elif not math.isfinite(ev_dollars):
+            verdict = "skip"
+            verdict_reason = "ev_non_finite"
         elif ev_dollars < 0:
             verdict = "skip"
             verdict_reason = "negative_ev"
-        elif ev_dollars >= 10 and prob_profit >= 0.65 and agrees:
+        elif ev_dollars >= _MIN_PROCEED_EV_DOLLARS and prob_profit >= 0.65 and agrees:
             verdict = "proceed"
             verdict_reason = "ev_above_threshold_and_chart_agrees"
         elif ev_dollars > 0:
             verdict = "review"
-            verdict_reason = "positive_but_low_ev" if ev_dollars < 10 else "chart_disagrees"
+            verdict_reason = (
+                "positive_but_low_ev" if ev_dollars < _MIN_PROCEED_EV_DOLLARS else "chart_disagrees"
+            )
         else:
             verdict = "skip"
             verdict_reason = "ev_zero_or_below"

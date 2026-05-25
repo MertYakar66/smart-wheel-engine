@@ -4565,7 +4565,7 @@ extension of the heuristic, not a contradiction.**
   filtered cells. That's a 1-page Sn that pays back the Fix #3
   investment.
 
-### S27 — CC dividend realism (VZ / JPM / MSFT / KO / AAPL / WMT)
+### S28 — CC dividend realism (VZ / JPM / MSFT / KO / AAPL / WMT)
 
 **Purpose.** Realism check on the dividend-aware leg of the CC
 ranker. Wheel-trader pain point: a covered call that goes ITM near
@@ -4685,17 +4685,30 @@ gate's real-world effectiveness.**
   **Parallels S23 F2 (earnings-file forward truncation).
   Logged.**
 
-- **(F4 — gap, observability) ITM CC strikes are silently
-  skipped.** `target_deltas=(0.70, 0.80)` returns an empty
-  frame on every ticker in the matrix — engine does not
-  produce ITM CC candidates. `_solve_call_strike` (and the
-  downstream chain-clipping) likely floors the solved strike
-  to OTM. **Auto-mitigates** the worst-case ITM-near-ex-div
-  early-exercise scenario, but **silently** — there's no
-  signal in the output saying "ITM strikes skipped." A
-  trader who deliberately wants to write ITM covered calls
-  (e.g. to lock in upside on a held position with a known
-  ex-div) gets an empty frame and no explanation. **Logged.**
+- **(F4 — design-intent + observability gap) ITM CC strikes
+  are silently skipped *by design*.** `target_deltas=(0.70,
+  0.80)` returns an empty frame on every ticker in the
+  matrix — engine does not produce ITM CC candidates.
+  Post-PR-open 30-second code check confirmed this is
+  **explicit design intent**: `_solve_call_strike` at
+  `engine/wheel_tracker.py:88-112` brackets Brent root-finding
+  on `[spot*1.01, spot*2.0]` and the docstring is explicit —
+  *"Returns None when no solution exists in [spot*1.01,
+  spot*2.0] — the OTM region a covered call is sold into
+  (strike above spot)."* A 0.70-delta call needs a strike
+  below spot, which sits outside that bracket, so Brent
+  cannot find a root and `_solve_call_strike` returns
+  `None` → ranker emits no row. **Auto-mitigates** the
+  worst-case ITM-near-ex-div early-exercise scenario by
+  refusing to produce ITM CC strikes at all — a sound
+  wheel-strategy default (sell calls you'd be happy to
+  assign, above your basis). The remaining gap is
+  **observability**: a trader asking for ITM CC strikes
+  (e.g. to lock in upside on a held position around a
+  known ex-div) gets an empty frame and no `drops` signal
+  saying "ITM strikes are out of scope for CC ranking by
+  design." Logged as a design-intent finding with an
+  observability follow-up rather than a logic bug.
 
 - **(F5 — gap, data coverage) WMT history-gated despite being
   a household name.** Engine drops WMT entirely:
@@ -4758,14 +4771,18 @@ gate's real-world effectiveness.**
   truncation). The diagnostic column misleads on
   outside-window names (F2). ITM strikes — the
   high-early-exercise-risk regime the gate was designed for —
-  are silently skipped (F4). The continuous BSM q is a
+  are skipped by design (F4 — `_solve_call_strike` brackets
+  to OTM-only as a wheel-strategy invariant), but the design
+  intent is not surfaced to a trader asking for ITM via
+  `target_deltas≥0.70`. The continuous BSM q is a
   partial safety net for the truncated names but is not the
   same instrument as the discrete penalty.
 
 - **The realism gap is not in the engine's logic.** Three of
   the four findings (F2/F3/F5) are data-layer or
   observability gaps, not engine-math gaps. F4 is an engine
-  scope-of-output gap rather than a logic bug.
+  design intent (wheel-strategy CCs are OTM by convention)
+  with an observability follow-up, not a logic bug.
 
 **AI handoff.**
 
@@ -4791,17 +4808,20 @@ gate's real-world effectiveness.**
   would partially close the truncation gap without a data
   refresh.
 
-- **Fix #3 (engine surface, may not be wanted):** add a
-  `cc_strike_floor: str | None = "otm"` kwarg to
-  `rank_covered_calls_by_ev` that controls whether ITM
-  strikes can be produced. Default to current behaviour
-  ("otm"); allow `"any"` for traders who want ITM as an
-  explicit choice. Couples with a drops entry
-  (`gate="strike_itm_skipped"`) so the silent skip becomes
-  observable. The natural follow-on Sn after Fix #3 ships
-  would re-run S27's ITM probe on VZ/JPM with the new flag
-  and confirm the early-exercise penalty actually fires in
-  the EV math.
+- **Fix #3 (observability — the F4 follow-up):** emit a
+  `drops` entry (e.g. `gate="strike_itm_design_skip"`,
+  `reason="target_delta>=0.5 outside CC OTM bracket
+  [spot*1.01, spot*2.0]"`) when `_solve_call_strike` returns
+  `None` because the user-requested `target_deltas` are too
+  high to admit an OTM solution. The OTM-only bracket is a
+  wheel-strategy invariant and should NOT be relaxed
+  (changing `_solve_call_strike` would break the wheel's
+  "sell calls you'd happily assign above basis" semantics),
+  so the fix is purely observability. Mirrors the [[realism-check-pattern]]
+  S22 F1 → PR #181 drops-accumulator shape. The natural
+  follow-on Sn after Fix #3 ships would re-run S28's ITM
+  probe on VZ/JPM and confirm the drops entry surfaces with
+  the right reason string.
 
 - **Fix #4 (data-coverage triage):** investigate the WMT
   70-day OHLCV (F5). A likely cause is a Bloomberg ticker
@@ -4821,11 +4841,11 @@ gate's real-world effectiveness.**
 
 **Methodology debt.**
 
-- **Single-as_of test (2026-03-20).** Repeating S27 at a
+- **Single-as_of test (2026-03-20).** Repeating S28 at a
   different as_of with different inside/outside groupings
   would confirm the F3 truncation generalises (versus
   "the file is fresh through 2026-Q1 but stale after"). A
-  cleaner phrasing: re-run S27 at `as_of=2025-12-01` to see
+  cleaner phrasing: re-run S28 at `as_of=2025-12-01` to see
   if the 25% future-coverage figure shifts up (more recent
   vintage) or stays at 25% (systematic). If it stays at 25%,
   the file has a fixed-look-ahead horizon problem; if it

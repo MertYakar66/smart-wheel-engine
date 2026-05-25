@@ -544,6 +544,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_greeks_unit_invariants.py` | Launch-blocker invariant — the Greeks unit contract. |
 | `tests/test_realized_vol.py` | Quant-correctness — the realised-volatility estimators. |
 | `tests/test_tail_risk.py` | Quant-correctness — POT-GPD tail estimation. |
+| `tests/test_f4_tail_risk_gap.py` | F4 regression-watch from PR #178 / #184 — pins that today's forward-distribution + POT-GPD pipeline does NOT widen tail metrics for the COST 2022-04 / UNH 2024-11 19-24% realized drops. Synthetic two-regime tests isolate the 504-day-lookback-dilution mechanism (H1) and demonstrate the fix direction. Two `xfail(strict=False)` tests track the `heavy_tail` flag until the gap is fixed. |
 | `tests/test_portfolio_copula_coverage.py` | Quant-correctness — copula edge paths (PSD repair, Cholesky fallback, CVaR ladder). |
 | `tests/test_risk_manager.py` | `RiskManager` — sizing, portfolio Greeks, VaR, sector exposure, HRP. |
 | `tests/test_stress_testing.py` | `StressTester` — scenarios, sensitivity, Greeks stress ladder. |

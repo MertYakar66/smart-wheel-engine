@@ -546,6 +546,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_payoff_engine.py` | `PayoffEngine` — payoff diagrams, expected-move bands, strike recommendations. |
 | `tests/test_regime_detector.py` | The rule-based regime classifier. |
 | `tests/test_dealer_positioning.py` | Dealer positioning — analyzer math, the clamped multiplier, reviewer rule R6. |
+| `tests/test_dealer_multiplier_evengine_integration.py` | Dealer-multiplier integration boundaries — pins that `[0.70, 1.05]` survives `EVEngine.evaluate` to `EVResult.dealer_multiplier`, the asymmetric-by-design clamp at the EVResult level, the `regime_mult *= dealer_mult` compounding, and the §2 "scales ev_dollars only" claim as proportionality. Companion to PR #185's blocked-path test. |
 | `tests/test_extreme_numerics.py` | Numerical stability under near-expiry / near-zero-vol / deep-moneyness extremes. |
 | `tests/test_edge_cases.py` | Engine edge cases across pricing, costs and the tracker state machine. |
 | `tests/test_properties.py` | Hypothesis property-based invariants for pricing, RSI, IV-rank, Kelly. |

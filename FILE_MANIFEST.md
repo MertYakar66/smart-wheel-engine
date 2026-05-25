@@ -529,6 +529,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_covered_call_ranker.py` | Launch-blocker invariant — the covered-call EV ranker schema and authority. |
 | `tests/test_strangle_ev_ranker.py` | Launch-blocker invariant — the strangle EV ranker composition and authority. |
 | `tests/test_ranker_transparency.py` | Launch-blocker invariant — ranker drop-log, regime label and `ev_raw` transparency. |
+| `tests/test_ranker_iv_pit.py` | Pin S23 F3 fix — the three rankers prefer `conn.get_iv_history(end_date=as_of)` over the snapshot `fundamentals['implied_vol_atm']`, with defensive fallback for connectors without `get_iv_history`. |
 | `tests/test_wheel_runner_select_book.py` | Launch-blocker invariant — `select_book` as a pure post-processor. |
 | `tests/test_wheel_runner_coverage.py` | `WheelRunner` coverage — analysis summary, connector selection, wheel score, screening. |
 | `tests/test_explore_ticker.py` | `WheelRunner.explore_ticker` — single-ticker (delta × DTE) grid surfacing for short-put EV exploration via the production EV path. |
@@ -546,6 +547,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_payoff_engine.py` | `PayoffEngine` — payoff diagrams, expected-move bands, strike recommendations. |
 | `tests/test_regime_detector.py` | The rule-based regime classifier. |
 | `tests/test_dealer_positioning.py` | Dealer positioning — analyzer math, the clamped multiplier, reviewer rule R6. |
+| `tests/test_dealer_multiplier_evengine_integration.py` | Dealer-multiplier integration boundaries — pins that `[0.70, 1.05]` survives `EVEngine.evaluate` to `EVResult.dealer_multiplier`, the asymmetric-by-design clamp at the EVResult level, the `regime_mult *= dealer_mult` compounding, and the §2 "scales ev_dollars only" claim as proportionality. Companion to PR #185's blocked-path test. |
 | `tests/test_extreme_numerics.py` | Numerical stability under near-expiry / near-zero-vol / deep-moneyness extremes. |
 | `tests/test_edge_cases.py` | Engine edge cases across pricing, costs and the tracker state machine. |
 | `tests/test_properties.py` | Hypothesis property-based invariants for pricing, RSI, IV-rank, Kelly. |
@@ -556,6 +558,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_observability.py` | `engine.observability` trace context, decision journal, audit logger. |
 | `tests/test_event_calendar.py` | `engine.event_calendar` queries, builder, ingestion manager. |
 | `tests/test_event_gate.py` | `EventGate` lockout, buffer windows, candidate filtering. |
+| `tests/test_event_gate_back_buffer.py` | Pin S23 F1 fix — `MarketDataConnector.get_recent_earnings` complements `get_next_earnings`; the three rankers register past earnings on the gate so the symmetric back-buffer fires. |
 | `tests/test_earnings_drift.py` | `EarningsDriftAnalyzer` post-earnings drift statistics. |
 | `tests/test_signals.py` | The signal-generation framework and aggregator. |
 | `tests/test_strangle_timing.py` | The strangle-timing engine — regime classification, entry scoring, IV overlay. |
@@ -580,6 +583,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_wheel_tracker_persistence.py` | `WheelTracker` JSON persistence round-trips. |
 | `tests/test_wheel_tracker_suggest_rolls.py` | Launch-blocker invariant — `suggest_rolls` properties and roll-EV regression. |
 | `tests/test_wheel_tracker_suggest_call_rolls.py` | Launch-blocker invariant — `suggest_call_rolls` properties and roll-EV regression. |
+| `tests/test_suggest_rolls_drops.py` | Pin S22 F1 fix — `suggest_rolls` and `suggest_call_rolls` emit `.attrs["drops"]` mirroring the ranker drop-log pattern; per-filter-site drop entries with conformant schema. |
 | `tests/test_mark_to_market_iv.py` | `WheelTracker.mark_to_market` IV-staleness fix regression. |
 | `tests/test_available_buying_power.py` | `WheelTracker.available_buying_power` CSP-collateral netting. |
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |

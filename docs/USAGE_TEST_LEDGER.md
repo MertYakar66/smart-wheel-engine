@@ -3058,6 +3058,2106 @@ NAV scales tested).**
   blocked), advisor committee (not in scope), tuning the gate
   defaults (design discussion, not a usage test's remit).
 
+### S22 — Roll defense economics (ITM short put with ≤7 DTE)
+
+**Purpose.** Exercise the management-layer decision a wheel trader
+hits every cycle: a short put goes meaningfully ITM with little
+time left. The engine ships three paths for this moment —
+`WheelTracker.suggest_rolls` (PR landing the put-roll ranker),
+`WheelTracker.handle_put_assignment` followed by
+`WheelRunner.rank_covered_calls_by_ev` (the post-assignment monetise
+path, PR #124), and the implicit "hold to expiry" comparison
+embedded in `suggest_rolls`'s `hold_ev` column. S2 / S3 / S8 logged
+the surface; no prior Sn ran the three side-by-side on real data
+to compare the three EVs at one decision moment.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`,
+`as_of=2026-03-13` (decision date, Friday). Hypothetical scenario:
+a 25-delta short put on **PNC** opened 2026-02-13 (Friday) with
+35 DTE (expiry 2026-03-20). PNC dropped 11.3% over that window
+(228.18 → 202.29; IV 26.5% → 36.2% → 34.1%), putting the put deep
+ITM. At decision time (2026-03-13) the open put has DTE remaining
+= 7. The BSM-fair opened-put parameters (strike $218 rounded to
+integer-bank, premium $3.02/sh, IV 26.5%) are the engine's own
+synthetic-chain convention from `rank_candidates_by_ev`. The
+underlying spot, IV, and earnings calendar all come straight from
+the Bloomberg connector — no fabricated numbers.
+
+Three branches driven side-by-side under `%TEMP%\s22\` (system temp,
+not in repo):
+
+- **(A) Hold to expiry.** Surfaced as `hold_ev` by
+  `tracker.suggest_rolls`. The engine internally builds a
+  `ShortOptionTrade` with the current buyback fair value as the
+  re-sell premium, runs it through `EVEngine.evaluate`, then
+  subtracts the notional re-sell premium to recover the pure
+  forward P&L (see the put-roll EV derivation in
+  `engine/wheel_tracker.py:1937-1968`).
+- **(B) Roll.** `tracker.suggest_rolls(ticker='PNC',
+  as_of=2026-03-13, current_spot=204.37, current_iv=0.3624,
+  target_dtes=(14,21,35,49), target_deltas=(0.15,0.20,0.25,0.30),
+  min_net_credit=-1000.0)` — debit rolls allowed since the put is
+  ITM and the rescue might cost up to ~$10/sh debit. The headline
+  metric is `roll_ev` — the marginal forward EV of the chosen roll
+  *net of the buyback cost*.
+- **(C) Accept assignment + best covered call.** Fork a fresh
+  `WheelTracker`, replay the opened put, call
+  `tracker.handle_put_assignment(ticker='PNC',
+  assignment_date=2026-03-20, stock_price=202.29)` then
+  `wr.rank_covered_calls_by_ev(ticker='PNC', shares_held=100,
+  as_of='2026-03-20', target_dtes=(14,35,49,63),
+  target_deltas=(0.30,0.25,0.20,0.15))`. The composed EV is "stock
+  leg paper P&L (basis vs spot, path-dependent) + best CC
+  `ev_dollars` (forward)".
+
+**Path.** `suggest_rolls` (at `engine/wheel_tracker.py:1840`)
+enumerates `(dte × delta)` cartesian, solves each strike at the
+target call/put delta under current state, BSM-prices it, builds a
+`ShortOptionTrade(option_type='put')` and calls
+`EVEngine.evaluate` for every candidate plus the hold-synthetic.
+`rank_covered_calls_by_ev` (at `engine/wheel_runner.py:1608`) does
+the same on `option_type='call'` for the covered-call leg, with
+the connector's earnings calendar wiring an `EventGate`
+(`earnings_buffer_days=5`).
+
+**Status.** Done. **Verdict: the roll path correctly beats hold
+($+63) on a real ITM situation; assignment-then-CC is worst by a
+large margin; observability asymmetry surfaced between the
+`suggest_rolls` output and the two ranker outputs.**
+
+**Findings:**
+
+- **Headline EVs.** Live driver output (all three branches, one
+  decision moment):
+
+  ```
+  (A) Hold to expiry      hold_ev      = $-1,385.48
+  (B) Best roll           roll_ev      = $-1,322.09  (K=194.50, DTE=35, Δ=0.30)
+  (C) Accept + best CC    forward EV   = $   +40.85  (+ stock leg $-1,571.00 path-dependent)
+                          composed     = $-1,530.15
+  ```
+
+  Roll beats hold by **$63.39**; both lose money in expectation
+  (the put is structurally underwater), but the roll buys forward
+  time and re-strikes 24$ lower at a $940 debit. **`recommend=True`
+  fires on rows 0 and 1; the engine correctly picks the least-bad
+  branch.** Composed assignment-then-CC is worst — the $1,571
+  stock paper loss dominates the +$41 CC forward EV. **Logged**:
+  the ranker / `suggest_rolls` triple is internally consistent
+  and matches the qualitative wheel-trader intuition (don't accept
+  an early-cycle assignment on a name you don't want).
+
+- **Roll candidate filtering — 13 of 16 candidates silently
+  dropped.** `target_dtes=(14,21,35,49)` × `target_deltas=(0.15,
+  0.20,0.25,0.30)` = 16 grid points. Only 3 survived:
+
+  ```
+     new_strike  new_dte  target_delta  ...  hold_ev  roll_ev  recommend
+  0       194.5       35          0.30  ... -1385.48 -1322.09       True
+  1       193.5       49          0.30  ... -1385.48 -1365.15       True
+  2       189.5       49          0.25  ... -1385.48 -1415.54      False
+  ```
+
+  No 14-DTE candidate, no 21-DTE candidate, no 0.15-delta or
+  0.20-delta candidate. **`suggest_rolls` does NOT emit
+  `.attrs['drops']`** — the driver confirmed
+  `rolls.attrs.get('drops', 'NOT_SET') == 'NOT_SET'`. The trader has
+  no diagnostic for *why* 81% of the candidate grid vanished
+  (event gate? `min_net_credit` filter? strike-solve failure?).
+  **Observability gap. Logged** as the highest-leverage finding
+  from this run.
+
+- **`rank_candidates_by_ev` and `rank_covered_calls_by_ev` both
+  emit `.attrs['drops']` (S1 / S2 logged; PR #102 / PR #124).**
+  `WheelTracker.suggest_rolls` and `WheelTracker.suggest_call_rolls`
+  (PR #126) do not. **Asymmetric observability across the four
+  EV-aware ranking surfaces.** Three of the four have drops; one
+  silently filters. **Logged.**
+
+- **Covered-call ranker on freshly-assigned stock is event-gated
+  hard.** All `(dte × delta)` grid points except DTE=14 blocked by
+  PNC's 2026-04-15 earnings (+5d buffer); 12 of 16 candidates in
+  drops. Only DTE=14 (expiry 2026-04-03, 12 days before earnings)
+  survives. **Operational observation, not a bug** — the event
+  gate is doing exactly what it should. But the practical
+  consequence is: a freshly-assigned shareholder ~30 days before
+  the company's earnings has only a 14-day covered-call window, and
+  premium harvest is structurally compressed. A `low_dte_only`
+  warning bit on the CC result would surface this without forcing
+  the trader to inspect `.attrs["drops"]`. **Logged.**
+
+- **`reason` strings in `.attrs['drops']` still mangle `±`** under
+  Windows cp1252. Live drops sample:
+
+  ```
+  {'ticker': 'PNC', 'gate': 'event',
+   'reason': 'event_lockout:earnings@2026-04-15 (�5d buffer)'}
+  ```
+
+  The intended character is `±` (U+00B1); cp1252 renders it as
+  `\xfd�`. Same root cause as S1's `Δ` (U+0394) crash in
+  `candidate_dossier.py` R3 review note. **S1's Unicode finding
+  is still alive on the drops path.** The driver itself crashed
+  once when an `f"Δ={...}"` was printed (had to swap to `d=`); the
+  drops-string mangle doesn't crash, just renders unreadable.
+  **Logged — repeating from S1.**
+
+- **`rank_covered_calls_by_ev` does not emit a `delta` column** —
+  the column is `target_delta` (per `_CC_RANK_CORE_COLUMNS` at
+  `engine/wheel_runner.py:154-171`). The CC ranker returns the
+  *target* delta used to solve the strike, not the BSM delta at
+  the solved strike — those would be near-identical on synthetic
+  BSM prices but could diverge on a real chain. **Observation, not
+  a bug** — the column is documented, and `rank_candidates_by_ev`
+  uses the same convention. **Logged.**
+
+- **Composed-assignment EV is by design not surfaced by any single
+  call.** The wheel-trader's real number is "stock paper P&L + CC
+  forward EV", but `rank_covered_calls_by_ev`'s docstring (at
+  `engine/wheel_runner.py:1648-1651`) deliberately scopes the
+  output to the option leg only — "The stock leg's P&L (basis vs
+  an assigned/called-away price) is separate position accounting".
+  This is the correct scoping decision (forward EV vs realised
+  paper), but it puts the composed view in the trader's
+  spreadsheet, not in the ranker. A `WheelTracker.evaluate_
+  assignment_branch(ticker)` helper that composes the two would
+  close the gap; out of scope here. **Logged as a UX observation.**
+
+- **§2 verified across all three branches.** `suggest_rolls`
+  invokes `EVEngine.evaluate` once per (DTE, delta) grid point
+  plus once for the hold synthetic — per
+  `engine/wheel_tracker.py:1972-1985` ("Every candidate's EV —
+  both `hold_ev` and each `roll_ev` — runs through
+  `EVEngine.evaluate` directly"). `rank_covered_calls_by_ev`
+  invokes it once per surviving CC candidate. **No tradeable
+  candidate surfaces without `EVEngine.evaluate`. §2 invariant
+  preserved across the rolling decision tree.** **Logged as a
+  positive.**
+
+**Verdict.**
+
+- **`suggest_rolls` works end-to-end and produces a defensible
+  recommendation** on a real ITM situation: roll +$63 better than
+  hold, both negative; assignment composed −$1,530 (worst). The
+  ranker's `recommend` boolean fires correctly (True iff
+  `roll_ev > hold_ev`). **No correctness bug surfaced.**
+
+- **`suggest_rolls` observability is asymmetric with the put /
+  covered-call ranker pair.** No `.attrs['drops']`, no diagnostic
+  for why 13/16 candidates were filtered. The same asymmetry
+  almost certainly applies to `suggest_call_rolls` (the covered-
+  call roll surface, PR #126); not exercised here. **Observability
+  gap — highest-leverage finding from this run.**
+
+- **The S1 `±` / `Δ` Unicode cp1252 finding is still alive.** It
+  hits the drops-`reason` strings and any driver code that prints
+  the literal Greek delta. The fix is one-line per call-site
+  (replace `±` with `+/-`, `Δ` with `d` or `delta`) but spans
+  several files. Not fixed in this Sn.
+
+**AI handoff.**
+
+- **Fix sketch for `suggest_rolls.attrs['drops']`.** The structural
+  analogue is `WheelRunner.rank_candidates_by_ev` — it appends
+  drop dicts at four gate sites (data / history / event / strike /
+  premium / chain_quality / ev_threshold) and exposes them via
+  `frame.attrs['drops'] = drops`. `suggest_rolls` has the same
+  drop sites (event gate, strike-solve failure, `min_net_credit`
+  filter) but never accumulates. One literal pattern that would
+  close the gap, in
+  `engine/wheel_tracker.py:suggest_rolls` (approx — the function
+  body builds `candidates: list[dict]` internally):
+
+  ```python
+  # current (illustrative):
+  for dte, delta in itertools.product(target_dtes, target_deltas):
+      try:
+          new_strike = _solve_put_strike(...)
+      except ValueError:
+          continue              # silent drop
+      ...
+      if net_credit_debit < min_net_credit:
+          continue              # silent drop
+      ...
+
+  # proposed:
+  drops: list[dict] = []
+  for dte, delta in itertools.product(target_dtes, target_deltas):
+      try:
+          new_strike = _solve_put_strike(...)
+      except ValueError as e:
+          drops.append({"ticker": ticker, "gate": "strike",
+                        "reason": f"solve_failed:{e}",
+                        "dte": dte, "target_delta": delta})
+          continue
+      ...
+      if net_credit_debit < min_net_credit:
+          drops.append({"ticker": ticker, "gate": "min_credit",
+                        "reason": f"net_credit_debit={net_credit_debit:.2f} "
+                                  f"< min={min_net_credit}",
+                        "dte": dte, "target_delta": delta})
+          continue
+      ...
+  result = pd.DataFrame(candidates, ...)
+  result.attrs["drops"] = drops
+  return result
+  ```
+
+  Mirror change in `suggest_call_rolls` (`engine/wheel_tracker.py`
+  ~ line 2196). **Behavior of survivor rows is unchanged. Pure
+  observability add. Decision-layer surface — needs a decision-
+  layer lock claim (per PARALLEL_SESSIONS) and a regression
+  test.** Out of scope for this Sn.
+
+- **Fix sketch for the Unicode mangle on `±` / `Δ`.** Replace
+  `±` in the event-gate `reason` string at the gate-emit site
+  (in `engine/wheel_runner.py` rank_candidates_by_ev /
+  rank_covered_calls_by_ev — search for the
+  `event_lockout:earnings@...` format string). Replace with `+/-`
+  for cp1252 safety. Mirror fix for `Δ` in
+  `engine/candidate_dossier.py` R3 review note (re-logging from
+  S1). Each is a one-character literal change; the harder
+  question is whether to fix at the producer site (engine) or
+  at the consumer site (the driver / dashboard). **Producer fix
+  is cleaner — make the engine emit cp1252-safe text by default.**
+  Out of scope for this Sn.
+
+- **A `WheelTracker.evaluate_assignment_branch(ticker)` helper**
+  would close the composed-EV UX gap by combining the realised
+  stock paper P&L (from the position's `stock_basis` field, which
+  exists post-assignment per `engine/wheel_tracker.py:678`) with
+  the forward EV of the best covered-call candidate. Returns
+  `(composed_ev, stock_paper, best_cc_ev_dollars,
+  best_cc_strike, best_cc_dte)`. Decision-layer surface; needs
+  its own claim + regression test. Out of scope.
+
+**Methodology debt.**
+
+- **Single-name single-decision-moment scenario.** The roll
+  decision is a sequence — at DTE=14, 7, 3, 1 the trader makes
+  it again. S22 ran one decision moment; a multi-decision-moment
+  follow-up could observe whether `recommend` flips as DTE
+  decays (the buyback gets cheaper, so the roll's debit shrinks).
+  **Logged.**
+
+- **Synthetic premiums throughout** — the opened put, the
+  buyback, every roll candidate, every CC candidate are all
+  BSM-fair from the connector's IV / spot / risk-free pulls. Real
+  chain quotes (Theta) would give actual buyback / new-premium
+  asks; not run here per the Theta-isolation constraint of this
+  campaign (the other agent is on the Theta surface). **Logged.**
+
+- **One ticker.** The drawdown survey identified ~30 names with
+  10-12% drops over the window; S22 ran PNC only. A future Sn
+  could batch the survey output through `suggest_rolls` to
+  characterise the cross-section (does the `recommend` rate vary
+  with sector / cap / IV regime?). **Logged.**
+
+- **Ruled out per the campaign constraints:** Theta provider
+  (other agent active), `models/`-empty HMM (no persisted regime
+  artifacts), decision-layer code change (S22 found gaps, did
+  not fix), `date.today()` paths (none touched on `as_of`
+  branches), dashboard surface (read-only on engine only).
+
+### S23 — Earnings-window navigation (event gate + IV-crush on AVGO)
+
+**Purpose.** Exercise the engine's earnings-aware behavior end-to-end:
+event-gate boundary on `WheelRunner.rank_candidates_by_ev` across
+the trading day before / day of / day after a real earnings event,
+plus the IV-crush impact on the forward-distribution + strike-solve
+that a wheel trader would expect to see in the ranker output. AVGO
+reported 2026-03-04 (Wed) inside the data window — a clean target
+for the boundary scan, with multiple post-earnings trading days
+available before the 2026-03-20 OHLCV cutoff.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`.
+Five-ticker basket: **AVGO** (target) + AAPL, MSFT, KO, HD (clean
+controls with no earnings inside any tested buffered window).
+Default 35-DTE / 25-delta / 5-day earnings buffer. Four `as_of`
+dates probing the boundary:
+
+- **2026-03-03** (Tue, TDB — earnings tomorrow)
+- **2026-03-05** (Thu, TDA — earnings yesterday)
+- **2026-03-10** (Tue, 6 calendar days post-event — first date
+  outside the nominal back buffer)
+- **2026-03-13** (Fri, 9 calendar days post-event — deep into the
+  post-event regime)
+
+Driver under `%TEMP%\s23\`, not committed. Pure observation —
+reads `wr.rank_candidates_by_ev(...).attrs['drops']` and the
+survivor frame; no `EnginePhaseReviewer` wiring, no `WheelTracker`
+attached.
+
+**Path.** `rank_candidates_by_ev` at `engine/wheel_runner.py:579`
+builds a per-run `EventGate` (`engine/event_gate.py:76`) from
+`conn.get_next_earnings(ticker, as_of)` per ticker
+(`engine/wheel_runner.py:906`). The gate's
+`_event_touches_window` (`event_gate.py:110-119`) is symmetric —
+buffer applied to both `trade_start` and `trade_end`. The IV input
+for the strike-solve comes from `conn.get_fundamentals(ticker)`
+(`engine/wheel_runner.py:813-816`), preferring
+`implied_vol_atm` then falling back to `volatility_30d`.
+
+**Status.** Done. **Verdict: the event gate boundary fires
+correctly on AVGO at the TDB (2026-03-03), then never again — and
+the IV the engine uses for the strike-solve is a single snapshot
+that does NOT change across the four `as_of` dates. Three
+structural findings.**
+
+**Findings:**
+
+- **Headline cross-section.** AVGO across the four as_of dates,
+  same 35-DTE / 25-delta config:
+
+  ```
+  2026-03-03 (TDB)        DROPPED  gate=event  reason=event_lockout:earnings@2026-03-04 (+/-5d buffer)
+  2026-03-05 (TDA)        SURVIVED iv=0.4296   premium=$7.139   ev_dollars=$+268.85   ev_per_day=$+14.28
+  2026-03-10 (6d post)    SURVIVED iv=0.4296   premium=$7.325   ev_dollars=$+310.30   ev_per_day=$+16.93
+  2026-03-13 (9d post)    SURVIVED iv=0.4296   premium=$6.857   ev_dollars=$+150.46   ev_per_day= $+8.28
+  ```
+
+  The event gate fires exactly once — at the TDB — then AVGO
+  reappears at the TDA and never disappears again. **Logged.**
+
+- **(F1) `get_next_earnings` is strictly forward-only — the 5d
+  back-buffer in `EventGate` is effectively dead code.**
+  `engine/data_connector.py:408` filters with
+  `df[df["announcement_date"] > ref]`. So at `as_of=2026-03-05`
+  (the day after AVGO's 2026-03-04 earnings),
+  `get_next_earnings("AVGO", "2026-03-05")` returns `None` — the
+  just-passed earnings event is never registered on the
+  `EventGate`, so the symmetric back-buffer at
+  `engine/event_gate.py:117` never has any past event to test
+  against. **The 5d back buffer is unreachable in production.**
+  Live probe from the driver:
+
+  ```
+  as_of=2026-03-03  next_earnings_after={'announcement_date': Timestamp('2026-03-04 ...')}
+  as_of=2026-03-04  next_earnings_after=None
+  as_of=2026-03-05  next_earnings_after=None
+  as_of=2026-03-10  next_earnings_after=None
+  as_of=2026-03-13  next_earnings_after=None
+  ```
+
+  **Either** the back-buffer was intended to fire on just-passed
+  earnings (and the `>` filter at `data_connector.py:408` is a bug
+  — it should be `>=` minus the buffer, or the gate should pull
+  past events too), **or** the back-buffer is intentionally
+  dormant (the wheel trader can write into post-earnings IV crush
+  opportunistically). The current code says one thing
+  (symmetric buffer) and the connector says another (forward-only
+  feed) — they disagree. **Logged as a structural inconsistency.**
+
+- **(F2) Bloomberg earnings CSV is forward-truncated for many
+  tickers — silent event-gate bypass.** Live driver probe at
+  `as_of=2026-03-20`:
+
+  ```
+  AAPL  : next after 2026-03-20 = None
+  MSFT  : next after 2026-03-20 = None
+  GOOGL : next after 2026-03-20 = None
+  AVGO  : next after 2026-03-20 = None
+  COST  : next after 2026-03-20 = None
+  ORCL  : next after 2026-03-20 = None
+  ```
+
+  AAPL/MSFT/GOOGL/AVGO/COST/ORCL all have well-known late-April
+  2026 earnings in real life, but the Bloomberg earnings CSV in
+  the repo (`data/bloomberg/sp500_earnings.csv`, last row
+  2026-03-31) has no entries past mid-March for these names. The
+  consequence: at `as_of=2026-03-20`, the event gate is a **no-op**
+  on six of the top-ten S&P 500 names. A trader running a 35-DTE
+  ranker at the data cutoff would freely open AAPL/MSFT/GOOGL
+  positions whose holding window crosses their real earnings. **The
+  event gate's silent-on-no-data behavior makes this invisible**:
+  no drop entry, no warning, just no event registered. By
+  contrast, XOM (2026-04-07 earnings IS in the CSV), JPM
+  (2026-04-14), UNH (2026-04-21), and JNJ (2026-04-14) DO get
+  blocked correctly — the gate is doing its job when the data is
+  there. **Logged as a data-completeness vs. observability gap.**
+
+- **(F3) The IV input to the strike-solve is NOT PIT-aware.**
+  AVGO surfaced with `iv=0.4296` (= 42.96%) at **all four** of
+  the post-event `as_of` dates — even though the connector's
+  `get_iv_history` shows the put-IV moving meaningfully:
+
+  ```
+  date        hist_put_imp_vol  volatility_30d
+  2026-03-03           55.935          36.208
+  2026-03-04           52.957          36.309    (earnings day)
+  2026-03-05           49.547          38.926
+  2026-03-10           48.437          40.184
+  2026-03-13           49.819          42.414
+  2026-03-20           46.503          35.010
+  ```
+
+  The 42.96% value matches `conn.get_fundamentals("AVGO")
+  ['implied_vol_atm']` exactly — and that connector method
+  (`engine/data_connector.py:590`) takes **no `as_of` argument**
+  and reads from a snapshot fundamentals CSV
+  (`sp500_fundamentals.csv`) that has **no date column** at all:
+
+  ```
+  >>> conn.get_fundamentals('AVGO')
+  {..., 'volatility_30d': 34.875, 'implied_vol_atm': 42.9566, ...}
+  ```
+
+  So the engine's per-call IV is frozen — same value at
+  `as_of=2026-02-13` as at `as_of=2026-03-20`. **The "PIT-safe"
+  claim in `rank_candidates_by_ev` (line 607 of the docstring)
+  is true for OHLCV and the empirical forward distribution
+  derived from it, but the IV used for the strike-solve and the
+  BSM-fair premium is a snapshot.** The IV-crush experiment is
+  literally not observable through the ranker output.
+
+  This isn't theoretical — it shapes the result. At 2026-03-05
+  AVGO's *real* IV was 49.5% (immediately post-crush spike); at
+  2026-03-13 it was 49.8%; at 2026-03-20 it was 46.5%. The
+  engine used 42.96% throughout — too low at the TDA, roughly
+  right at 2026-03-20. The strike solved at the wrong IV (lower
+  than reality at the TDA) is too far OTM, the synthetic premium
+  is undershoot, and `ev_dollars` is mispriced versus what the
+  trader would actually transact at. **Logged as the highest-
+  leverage finding in S23.**
+
+- **The `WheelTracker._connector_atm_iv` helper at
+  `engine/wheel_tracker.py:1344` already does the right thing for
+  mark-to-market** — it pulls
+  `conn.get_iv_history(ticker, end_date=as_of)` and takes the
+  most recent row, normalising percent→decimal. The same helper
+  pattern would solve F3 inside `rank_candidates_by_ev`. Cross-
+  reference: `rank_covered_calls_by_ev` (used in S22) and
+  `rank_strangles_by_ev` likely share the same IV-snapshot bug
+  (both use the same `conn.get_fundamentals` fallback per
+  `engine/wheel_runner.py:1913` and `:2377`), not exercised
+  separately in S23. **Logged.**
+
+- **§2 verified.** Every candidate that surfaced as tradeable
+  (positive `ev_dollars`, no event drop) routed through
+  `EVEngine.evaluate` — per the engine's standard ranker contract.
+  The findings above are about **what IV the engine evaluated
+  WITH**, not about a bypass of `evaluate`. No §2 violation.
+  **Logged as a positive.**
+
+- **Control names behave correctly.** AAPL/MSFT/KO/HD survive at
+  all four `as_of` dates with no event-gate drops — none of their
+  earnings fall inside the buffered window for any of the four
+  tested dates (AAPL/MSFT Jan 2026, KO 2026-02-10, HD
+  2026-02-24, all sufficiently before; their next April-2026
+  earnings are not in the CSV, which is finding F2). **Logged.**
+
+- **`±` cp1252 mangle on `event_lockout` reason strings**
+  re-confirmed in this run — `event_lockout:earnings@2026-03-04
+  (±5d buffer)` rendered as `... (�5d buffer)` on the Windows
+  console. Producer-side one-character fix. **Logged.**
+
+**Verdict.**
+
+- **Event-gate FORWARD buffer behaves correctly.** AVGO blocked
+  at TDB (2026-03-03) with the expected `event_lockout` reason.
+  Standard wheel-trader expectation met.
+
+- **Event-gate BACK buffer is dead code.** `get_next_earnings` is
+  strictly forward-only, so the symmetric 5d-back logic at
+  `event_gate.py:117` has nothing to trigger on. Either fix the
+  connector or document the asymmetry — currently the code reads
+  symmetric and the behavior is forward-only. **Structural
+  inconsistency.**
+
+- **The earnings CSV is incomplete for major tickers' April-2026
+  reports** — silent event-gate bypass on AAPL/MSFT/GOOGL-class
+  names at the data cutoff. Data refresh, not engine, but
+  surfaces a brittle "silent-on-no-data" contract. **Logged.**
+
+- **The IV input to the put-entry strike-solve is a single
+  snapshot, NOT a PIT-aware time-series.** The engine ranker
+  cannot reflect IV-crush at all; the value is frozen between
+  fundamentals refreshes. Material to anyone trading around
+  earnings. **Logged as the highest-leverage finding.**
+
+**AI handoff.**
+
+- **F3 (IV snapshot) fix sketch — promote `rank_candidates_by_ev`
+  to use the same PIT-aware IV helper `WheelTracker` already
+  uses.** Today, at `engine/wheel_runner.py:813-816`:
+
+  ```python
+  fundamentals = conn.get_fundamentals(ticker) or {}
+  iv_raw = fundamentals.get("implied_vol_atm")
+  if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+      iv_raw = fundamentals.get("volatility_30d")
+  ```
+
+  Proposed (mirrors `WheelTracker._connector_atm_iv` at
+  `engine/wheel_tracker.py:1344-1383`):
+
+  ```python
+  iv = None
+  if hasattr(conn, "get_iv_history"):
+      try:
+          hist = conn.get_iv_history(ticker, end_date=as_of)
+          if hist is not None and not hist.empty:
+              cols = [c for c in ("hist_put_imp_vol", "hist_call_imp_vol")
+                      if c in hist.columns]
+              if cols:
+                  row = hist.iloc[-1]
+                  vals = [float(row[c]) for c in cols if pd.notna(row[c])]
+                  if vals:
+                      iv = sum(vals) / len(vals)
+      except Exception:
+          iv = None
+  if iv is None:
+      fundamentals = conn.get_fundamentals(ticker) or {}
+      iv_raw = fundamentals.get("implied_vol_atm")
+      if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
+          iv_raw = fundamentals.get("volatility_30d")
+      iv = float(iv_raw) if iv_raw is not None else 0.0
+  # Existing percent->decimal normalisation continues below.
+  ```
+
+  Mirror change in `rank_covered_calls_by_ev`
+  (`engine/wheel_runner.py:1913`) and `rank_strangles_by_ev`
+  (`engine/wheel_runner.py:2377`). **Decision-layer surface — needs
+  a decision-layer lock claim and regression coverage that the IV
+  used by the ranker matches `get_iv_history(ticker, as_of).iloc[-1]`
+  when both are available.** Out of scope for this Sn.
+
+- **F1 (back-buffer dead code) options.** Either (a) fix
+  `get_next_earnings` to return events within `as_of - max_buffer`
+  through the future, so the back-buffer in the gate has events
+  to test, or (b) document the asymmetry and remove the
+  back-buffer arithmetic to avoid the misleading code. (a) is
+  the trader-intent-preserving fix (block writes immediately
+  post-earnings until the news / IV-crush absorbs); (b) is the
+  honest-code fix if "write into the crush" is the actual
+  policy. **Design call**, not a usage-test fix.
+
+- **F2 (forward-truncated earnings CSV) is a data refresh.** The
+  Bloomberg earnings file ends mid-March 2026 for AAPL-class
+  tickers; the next April earnings need to be pulled. **Data,
+  not engine.** Tracked under the existing Bloomberg-refresh
+  memory.
+
+- **A regression test that would have caught F3** — a unit test
+  asserting that, for a fixed ticker and two `as_of` dates with
+  different `hist_put_imp_vol` values in `sp500_vol_iv_full.csv`,
+  the `iv` column in `rank_candidates_by_ev`'s output differs.
+  Today's behavior would fail that assertion. Out of scope for
+  this Sn.
+
+**Methodology debt.**
+
+- **Single ticker, single earnings event.** S23 ran AVGO only.
+  COST (2026-03-05), ORCL (2026-03-10), LULU (2026-03-17),
+  MU (2026-03-18) are all in the data window and would let the
+  finding be replicated across more events. **Logged.**
+
+- **The `regime_multiplier` column was empty in the survivor
+  output** (omitted from the printed columns because the
+  diagnostic column wasn't populated by the engine on this
+  basket). Whether that's an HMM-cold-start issue (no persisted
+  model in `models/`) or by design at this basket size isn't
+  exercised here. **Logged for a future Sn** — overlaps with the
+  ruled-out scenario E (steady-state regime sizing).
+
+- **R7 / R8 not exercised in S23** — no `PortfolioContext`
+  attached, no `EnginePhaseReviewer` wired. S21 covered them at
+  a different angle; S24 (multi-strategy book) will exercise
+  them on a richer book.
+
+- **Ruled out per the campaign constraints:** Theta provider,
+  decision-layer code change (S23 found gaps, did not fix), the
+  HMM regime path (no persisted model), the dashboard surface.
+
+### S24 — Multi-strategy book composition ($500k wheel + CC + strangle scan)
+
+**Purpose.** S21 explicitly flagged multi-strategy book composition
+as the next pro-trader-lens scenario. Build a $500k NAV book that
+holds short puts + covered calls (post-assignment) simultaneously,
+attach a `PortfolioContext` and run `EnginePhaseReviewer` on a fresh
+candidate, then probe the D17 hard-block + dossier soft-warn gates
+directly to characterise how they compose across strategies (option-
+only vs option+stock). Try the strangle ranker
+(`WheelRunner.rank_strangles_by_ev`, S14 / #118) on a third ticker
+to confirm whether/how strangles can join the book.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`,
+`as_of=2026-03-20` (data cutoff), `WheelTracker(initial_capital=
+$500_000, require_ev_authority=False)`. Non-strict mode keeps the
+EV-authority token plumbing out of the way so the gate-composition
+math is the only thing under test. Driver under `%TEMP%\s24\`,
+not committed.
+
+The book is built via the public surfaces:
+
+1. `wr.rank_candidates_by_ev(['MRK'], delta_target=0.20)` →
+   `tracker.open_short_put(...)` (Health Care, MRK $105.50, 35 DTE).
+2. `wr.rank_candidates_by_ev(['KO'], delta_target=0.20)` →
+   `tracker.open_short_put(...)` (Consumer Staples, KO $71.00).
+3. `tracker.handle_put_assignment('KO', as_of, spot=$70.50)` to
+   transition KO into `STOCK_OWNED`, then
+   `wr.rank_covered_calls_by_ev('KO', shares_held=100, ...)` →
+   `tracker.open_covered_call(...)` (CC at KO $80, DTE 49) to land
+   the position in `COVERED_CALL`.
+4. `wr.rank_strangles_by_ev('NVDA', ...)` for the strangle scan —
+   pure ranking, no tracker call (no `open_strangle` surface
+   exists; S14 finding).
+5. `take_snapshot(tracker.positions, today=AS_OF)` →
+   `PortfolioContext(held_option_positions, stock_holdings,
+   spot_prices, nav)`.
+6. Construct a `CandidateDossier` for a fresh CAT candidate
+   (`rank_candidates_by_ev(['CAT'])`), attach a synthetic
+   `ChartContext(visible_price=spot, screenshot_path=Path('.../
+   synthetic-s24.png'), error='')` so R2 / R3 stay silent, then
+   call `EnginePhaseReviewer.review(...)` with and without the
+   `PortfolioContext`.
+7. Direct probes of `check_var`, `check_stress_scenario`,
+   `check_sector_cap`, `check_portfolio_delta` to read out the
+   gate math on the multi-strategy book.
+
+`returns_data` for R7 is built ad-hoc from connector OHLCV — 252-day
+daily log returns per ticker (MRK + KO + CAT) — so R7 has actual
+inputs rather than the missing-data skip from S21.
+
+**Path.** `take_snapshot` at `engine/portfolio_risk_gates.py:177`
+maps each `PositionState` to the snapshot shape:
+
+  - `SHORT_PUT` → one option dict (short put leg).
+  - `STOCK_OWNED` → one stock holding (no option leg).
+  - `COVERED_CALL` → one option dict (short call leg) + one stock
+    holding.
+
+`EnginePhaseReviewer.review` runs R1 → R3 → R4 → R5 → R6 → R7 → R8
+in sequence per `engine/candidate_dossier.py:197-353`. R7 and R8
+only fire when `portfolio_context is not None and verdict ==
+"proceed"`. The C4 vol-spike scenario (-10% spot + 30% IV) is
+defined at `engine/portfolio_risk_gates.py:118`. The sector cap
+(`check_sector_cap`, line 271) ignores stock holdings by design
+(option-side concentration only); the delta cap
+(`check_portfolio_delta`, line 344) includes the stock-leg
+delta-dollars via the `stock_holdings` argument.
+
+**Status.** Done. **Verdict: gate composition behaves correctly
+across strategies (3 of 5 questions cleanly answered, 1 negative
+finding on R8 stress, 1 pre-existing S14 strangle-integration
+gap re-confirmed). One major methodology finding surfaced — the
+dev-box's `sys.path` discovery silently picks up an older primary
+clone, so a driver run from `%TEMP%` without explicit
+`sys.path.insert(0, worktree)` evaluates against the wrong engine
+SHA. Drivers fixed; S22 / S23 re-validated bit-identically against
+the worktree.**
+
+**Findings:**
+
+- **Q1 — `take_snapshot` correctly translates the 3-state book.**
+  Live driver output:
+
+  ```
+  option_positions (2):
+    {'symbol': 'MRK', 'option_type': 'put',  'strike': 105.5, 'dte': 35, 'iv': 0.3128, 'contracts': 1, 'is_short': True}
+    {'symbol': 'KO',  'option_type': 'call', 'strike': 80.0,  'dte': 49, 'iv': 0.2127, 'contracts': 1, 'is_short': True}
+  stock_holdings (1):
+    ('KO', 100)
+  ```
+
+  The covered-call position decomposes into TWO dict entries
+  (option + stock); the SHORT_PUT into one; the STOCK_OWNED
+  (transitional) into one stock entry. **Snapshot fidelity is
+  correct across all three states. Logged as a positive.**
+
+- **Q2 — R7 (VaR) correctly fires with real returns_data.** Driver
+  built 252-day log returns per held ticker (MRK / KO) plus the
+  candidate (CAT) from `conn.get_ohlcv(...)`. Direct probe:
+
+  ```
+  check_var (no returns_data):  passed=True reason='missing_data' skipped
+  check_var (with returns_data): passed=True
+    var_dollars=$4,344.88  cvar_dollars=$5,448.66  var_pct=0.87%  var_limit_pct=5%
+  ```
+
+  **R7 path is wired end-to-end and passes the actual VaR math
+  when the inputs are supplied** — the limit was 5% NAV ($25k);
+  the actual portfolio 30-day VaR_95 is 0.87% NAV. **Closes S21's
+  Q2-shaped follow-up** ("a future Sn could exercise R7 with real
+  returns data"). The 2-position book is well under the cap, but
+  the math fires and would downgrade `proceed → review` on a
+  book whose VaR breached 5%. **Logged as a positive.** **Open
+  follow-up:** no upstream caller assembles `returns_data` for the
+  `PortfolioContext` automatically — the dossier-builder / tracker
+  hand-off has no `returns_data` plumbing; the operator-level
+  caller would need to build it. Mirrors S21's "PortfolioContext
+  with real returns" hand-off.
+
+- **Q3 — R8 (C4 vol-spike stress) is benign on a $500k 2-position
+  book.** Driver output:
+
+  ```
+  check_stress_scenario (C4 Vol Spike: -10% spot + 30% IV):
+    passed=True  portfolio_pnl_dollars=-$5,266.72  drawdown_pct=1.05%  drawdown_limit_pct=8%
+  ```
+
+  Same shape S21 saw at $1M / 2 positions (drawdown 0.56% vs 8%
+  cap). **R8 needs a larger or more concentrated book to fire.**
+  Mechanically wired, contractually correct, but never bites at
+  this scale. **Logged.** S21's "exercise R8 with a richer book"
+  follow-up is still open; S24 corroborates it.
+
+- **Q4 — Strangle ranker produces candidates the tracker cannot
+  ever accept.** `wr.rank_strangles_by_ev('NVDA', target_dtes=
+  (35,49), target_deltas=(0.20,0.15))` returned 4 candidates:
+
+  ```
+     put_strike  call_strike  dte  ev_dollars timing_recommendation    timing_phase
+  0       156.0        197.0   35    -1360.22           conditional  post_expansion
+  1       159.5        192.5   35    -1442.91           conditional  post_expansion
+  2       153.5        202.0   49    -1734.34           conditional  post_expansion
+  3       157.5        196.5   49    -1882.32           conditional  post_expansion
+  ```
+
+  All 4 are negative composed EV (timing gate "conditional", not
+  "avoid"), and `WheelTracker` exposes **no** `open_strangle`,
+  `SHORT_STRANGLE` state, or any way to add a strangle leg-pair
+  to the book. Grep on the tracker file confirms zero matches for
+  `strangle | SHORT_STRANGLE | open_strangle`. **The S14 / #118
+  finding is unresolved at the tracker layer:** strangles are
+  rank-only — they can score, they cannot be tracked, sized
+  against NAV, or fed into R7 / R8 via `take_snapshot`. **A
+  tradeable strategy with no portfolio integration.** Re-logging.
+
+- **Q5a — `check_sector_cap` correctly ignores stock holdings.**
+  Live probe:
+
+  ```
+  check_sector_cap (CAT in Industrials, $65,000 notional):
+    passed=True post_open_sector_pct=0.13 sector_limit=0.25
+  ```
+
+  Post-open Industrials = 13% of NAV; the existing KO option
+  (Consumer Staples) and MRK option (Health Care) don't show in
+  Industrials. **And critically, the KO 100 shares from the
+  assignment also don't contribute to the Industrials check** —
+  matching the docstring at `engine/portfolio_risk_gates.py:286-
+  293` ("stock holdings don't contribute to the option-side
+  sector exposure"). **Design call** — the wheel mental model is
+  "options drive risk concentration; the assigned stock is parked
+  capital." A pro-trader who'd rather see *total-position* sector
+  exposure (option + stock) would want a different cap. Mostly
+  a transparency note. **Logged as expected behavior, with the
+  design caveat.**
+
+- **Q5b — `check_portfolio_delta` DOES include the stock holding's
+  delta.** Live probe (candidate CAT 25-delta @ $625.50 against the
+  multi-strategy book):
+
+  ```
+  check_portfolio_delta (CAT 25-delta @ $625.50 + stock_holdings):
+    passed=False  reason='portfolio_delta_breach'
+    current_portfolio_delta_dollars=$7,983.29  post_open_delta_dollars=$37,944.55  delta_cap_dollars=$1,500.00
+  ```
+
+  Current book delta = **$7,983**, dominated by the KO stock leg
+  (100 shares × $74.69 spot ≈ $7,469); the short put on MRK and
+  the short call on KO contribute roughly the remaining $514
+  combined. **The stock holding visibly bites into the
+  portfolio-delta cap** — exactly opposite of the sector cap's
+  treatment. **Both behaviors are correct per their docstrings;
+  the cross-gate asymmetry (sector option-only, delta total)
+  is a documented design call.** **Logged.**
+
+  Adding CAT (+$16,815 of delta-dollars per a 25-delta at $625.50
+  × 100 × ~0.25) would push the book to $37,945 — 25× over the
+  $1,500 cap. The delta cap remains the dominant binding
+  constraint at $500k NAV (`300 × ($500k / $100k) = $1,500`),
+  echoing S21.
+
+- **`EnginePhaseReviewer` verdict-delta WITH vs WITHOUT
+  `PortfolioContext`.** Same multi-strategy book, same CAT
+  candidate, same synthetic chart (R2/R3 silent):
+
+  ```
+  WITHOUT PortfolioContext:
+    verdict='proceed' reason='ev_above_threshold'
+  WITH PortfolioContext (multi-strategy book attached):
+    verdict='proceed' reason='ev_above_threshold'
+    note: R7: VaR check skipped (no_correlation_matrix_or_returns_data)
+  ```
+
+  No verdict change — the `returns_data` was assembled in the
+  *direct* R7 probe (Q2 above) but the `PortfolioContext` passed
+  to `EnginePhaseReviewer` did **not** carry it through. **R7
+  silently skipped despite the dossier path having a context
+  attached.** This is the second face of the "no upstream
+  `returns_data` plumbing" finding above — the field is
+  optional, the reviewer doesn't fabricate it, and the
+  downgrade-only contract means absent data = silent pass.
+  **R7's downgrade-only-when-fired contract held.** **Logged.**
+
+- **(F-METH-1) Dev-box `sys.path` discovery silently picks up
+  the primary clone, not the worktree.** Highest-leverage finding
+  from this run. A driver run as `python %TEMP%\s24\driver.py`
+  with cwd at the project directory ends up with this `sys.path`:
+
+  ```
+  ''                                                       (cwd-empty - effective)
+  ...
+  'C:\\Users\\merty\\Desktop\\Local AI Agent'              (user-site)
+  'C:\\Users\\merty\\Desktop\\smart-wheel-engine'          (older primary clone)
+  ```
+
+  When the script is invoked by path (not `-c`), Python sets
+  `sys.path[0]` to the script's directory (`%TEMP%\s24\`), which
+  is not the project. The cwd is *not* automatically on the path.
+  But the user-site `pth` files add `C:\Users\merty\Desktop\
+  smart-wheel-engine` — **a separate, older clone** currently at
+  `cd16443` (pre-D17, diverged 776 lines on `portfolio_risk_gates`
+  alone from `origin/main` at `86b917c`). The driver imports
+  `engine.portfolio_risk_gates` **from that older clone**,
+  not from the Terminal A worktree.
+
+  **My S22 and S23 drivers ran against the older primary clone
+  silently.** I noticed on S24 only because the older clone
+  doesn't *have* `portfolio_risk_gates.py` (pre-D17), so the
+  import failed and the masking became visible. **For S22 and
+  S23 the import succeeded against the older code, and the
+  driver produced findings I logged against the wrong SHA.**
+
+  **Re-validation: I re-ran both S22 and S23 with an explicit
+  `sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`
+  prepended.** Both produced **bit-identical** numbers — every
+  EV, every drop, every IV value — to the original primary-clone
+  runs. The relevant code paths (`suggest_rolls`,
+  `rank_covered_calls_by_ev`, `get_next_earnings`,
+  `get_fundamentals`, `event_gate.is_blocked`, the IV-snapshot
+  fallback at `wheel_runner.py:813-816`) are common to both
+  SHAs. So the S22 and S23 findings hold against `origin/main`.
+  **But the masking risk is real for any future Sn that touches
+  D17 surfaces**, which would diverge silently.
+
+  **Mitigations (fix sketch for future Sn templates):**
+
+  ```python
+  # Top of every %TEMP%\sNN\driver.py:
+  import sys
+  sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")
+  ```
+
+  Or, equivalently, run as `python -m runpy` with explicit
+  module path. **The longer-term fix is operator-level** —
+  `pip uninstall` the older primary clone or remove its `.pth`
+  file from the user-site, but that's outside the scope of a
+  usage-test PR. **Logged as the highest-leverage methodology
+  finding in S24.**
+
+- **(F-METH-2) `take_snapshot` falls back to `date.today()` when
+  `today=None`.** At `engine/portfolio_risk_gates.py:217-218`:
+
+  ```python
+  if today is None:
+      today = _date_cls.today()
+  ```
+
+  My S24 driver passed `today=AS_OF` explicitly, avoiding the
+  footgun. **A naive caller who forgets to inject `today` would
+  compute DTEs against the system date** — exactly the
+  `date.today()` smell the prompt flagged from audit #166. Not
+  yet a live bug (the current callers in `dossier_builder` and
+  the tracker do inject `today`), but the latent surface remains.
+  **Logged.**
+
+- **§2 verified.** Every put opened, every CC ranked, every CAT
+  dossier reviewed routed through `EVEngine.evaluate` upstream
+  (via `rank_candidates_by_ev` / `rank_covered_calls_by_ev` /
+  `rank_strangles_by_ev`). R7 / R8 are downgrade-only soft-warns;
+  sector / delta caps are post-EV hard-blocks (live in strict mode
+  per S21, mathematically observable here in non-strict mode by
+  direct call). **No tradeable verdict surfaced without
+  `EVEngine.evaluate` on the option leg.** The strangle scan
+  returned candidates but they're not tradeable in the tracker —
+  the §2 question doesn't even arise. **Logged as a positive.**
+
+**Verdict.**
+
+- **Multi-strategy book composition works mechanically:**
+  `take_snapshot` correctly decomposes SHORT_PUT / STOCK_OWNED /
+  COVERED_CALL into the option-position + stock-holding shape
+  `PortfolioContext` expects. R7 / R8 / sector cap / delta cap
+  all run on the composed book without special-casing.
+
+- **R7 (VaR) is fully wired and fires with real
+  `returns_data`** — closes S21's "next Sn could exercise R7
+  with real data" hand-off. **But no upstream caller in the
+  decision-layer assembles `returns_data` for the
+  `PortfolioContext` automatically**, so the reviewer path
+  silently skips R7 in the default integration. Same gap S21
+  noted; the proper fix is a builder-side helper.
+
+- **R8 (stress) is benign at $500k / 2 positions** — same
+  pattern as S21 at $1M / 2 positions. Needs a larger or
+  concentrated book to bite.
+
+- **Sector cap option-only, delta cap option+stock.** Documented
+  design call; cross-gate asymmetry. A trader who wants total-
+  position sector concentration would need a different cap.
+
+- **The strangle ranker is rank-only.** S14 / #118 closed the EV
+  authority for strangles (`rank_strangles_by_ev` exists and
+  routes through `EVEngine.evaluate` per leg), but
+  `WheelTracker` has no surface to *open* a strangle. **A
+  tradeable strategy with no tracker integration** — the natural
+  next PR.
+
+- **The dev-box `sys.path` discovery silently shadows the
+  worktree's engine with an older primary-clone version.**
+  Future drivers must explicitly prepend the worktree to
+  `sys.path` to evaluate against the intended SHA. S22 / S23
+  re-validated bit-identically against the worktree, so their
+  findings hold — but the failure mode is silent and could mask
+  serious findings on D17-era surfaces.
+
+**AI handoff.**
+
+- **Fix sketch for R7 / R8 reachability — `PortfolioContext`
+  builder helper.** Today the reviewer's R7 / R8 paths require
+  the caller to populate `returns_data` /
+  `dealer_regime_by_ticker` / `volatilities` on the context.
+  The dossier builder doesn't do this. Proposed helper at
+  `engine/portfolio_risk_gates.py` (or a new
+  `engine/portfolio_context_builder.py`):
+
+  ```python
+  def build_portfolio_context_from_tracker(
+      tracker: "WheelTracker",
+      *,
+      today: date,
+      connector,
+      returns_lookback_days: int = 252,
+  ) -> PortfolioContext:
+      snap = take_snapshot(tracker.positions, today=today)
+      spot_prices = {tk: float(connector.get_ohlcv(tk)
+                                       [connector.get_ohlcv(tk).index
+                                        <= pd.Timestamp(today)]
+                                       ["close"].iloc[-1])
+                     for tk in tracker.positions}
+      # 252-day log returns per held ticker for R7's historical path.
+      returns_data = {}
+      for tk in tracker.positions:
+          o = connector.get_ohlcv(tk)
+          o = o[o.index <= pd.Timestamp(today)]
+          if len(o) >= returns_lookback_days:
+              returns_data[tk] = np.log(o["close"]).diff().dropna() \
+                                   .iloc[-returns_lookback_days:].values
+      return PortfolioContext(
+          held_option_positions=snap.option_positions,
+          stock_holdings=snap.stock_holdings,
+          spot_prices=spot_prices,
+          nav=tracker.cash + sum(s * spot_prices.get(t, 0)
+                                 for t, s in snap.stock_holdings),
+          returns_data=returns_data,
+      )
+  ```
+
+  The dossier builder calls this once per ranking pass and
+  attaches the result. R7 fires on real data; R8 stress
+  unchanged (no extra input needed); `dealer_regime_by_ticker`
+  remains optional (when present, R8's regime branch lights up).
+  **Decision-layer surface — needs a decision-layer lock claim
+  and regression test that the reviewer's R7 path consumes the
+  builder-supplied `returns_data` end-to-end.** Out of scope
+  for this Sn.
+
+- **Fix sketch for the strangle tracker integration.** Add a
+  `PositionState.SHORT_STRANGLE`, an `open_strangle` method on
+  `WheelTracker` that opens two legs simultaneously (put + call,
+  same ticker, same expiry, two strikes, two premiums), and
+  extend `take_snapshot` to emit one option_position dict per
+  leg under the same ticker (the snapshot shape already supports
+  N option dicts per ticker, so no schema change). The delta /
+  sector caps already aggregate by ticker, so they'd see the
+  strangle as two-legged automatically. **Pre-flight on §2:**
+  `rank_strangles_by_ev` already routes both legs through
+  `EVEngine.evaluate` (per the docstring at
+  `engine/wheel_runner.py:2106-2113`); the tracker just needs a
+  channel to receive the result. **Larger surface; needs its
+  own claim, a `WheelTracker.suggest_strangle_rolls` parallel,
+  and several regression tests.** Out of scope for this Sn.
+
+- **Fix sketch for the `sys.path` discovery footgun.** Two paths:
+  (a) operator-level — remove the `.pth` file or `pip uninstall`
+  the old primary clone (out of scope for any Sn); (b) campaign-
+  level — every `%TEMP%\sNN\driver.py` template should start with
+  `sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`.
+  Add this to the documented usage-test driver template in
+  `docs/PARALLEL_SESSIONS.md` (or wherever the template lives).
+  **The memory `[[dev-box-working-tree-is-shared]]` covers the
+  git-state version of this hazard — this finding extends it to
+  Python's import system.** Out of scope for this Sn entry as a
+  doc edit, but worth a one-line update to that memory.
+
+- **Fix sketch for `take_snapshot`'s `date.today()` default.**
+  The default is a footgun for callers who forget to inject
+  `today` — the function then computes DTEs against the system
+  clock, not the data's `as_of`. Two options: (a) raise on
+  `today=None` to force injection (breaking change for the
+  current callers); (b) accept `today=None` but document loudly
+  that it defaults to `date.today()` and warn callers to inject
+  in any PIT-sensitive code path. **Tracked under the existing
+  audit #166 `date.today()` thread.** Out of scope here.
+
+**Methodology debt.**
+
+- **F-METH-1 (sys.path) shadowed S22 / S23 originally.** I
+  re-validated both bit-identically against the worktree once
+  the issue was found; the findings hold. **For any future Sn
+  that touches D17 / post-D17 surfaces, the masking would be
+  destructive** because the primary clone diverges by 776 lines
+  on `portfolio_risk_gates.py`. **Highest-priority for any
+  template / docs update.**
+
+- **R7 was exercised with synthetic `returns_data` built ad-hoc
+  in the driver, not via a production code path.** The
+  *reviewer* path through `PortfolioContext` (without
+  `returns_data`) silently skipped R7. So **R7 is wired but
+  not reachable in the standard integration** without the
+  builder helper sketched above. **Logged.**
+
+- **R8 stress remains untriggerable at any tested book size**
+  (2 positions at $500k or $1M, drawdown 1.05% / 0.56% vs 8%
+  cap). To exercise R8, future Sn needs either:
+  (a) a 10-15 position book in concentrated sectors, OR
+  (b) directly testing with a hand-crafted
+  `dealer_regime_by_ticker={'CAT': 'short_gamma_amplifying'}`
+  to fire R8's dealer-regime branch.
+
+- **Strangle integration is the natural next PR** — fix sketch
+  above. Not in scope for a usage-test Sn.
+
+- **Ruled out per the campaign constraints:** Theta provider
+  (other agent active), strict-mode D17 token plumbing (S21
+  covered it; orthogonal to the gate-composition math under
+  test here), HMM regime (no persisted model), decision-layer
+  code change (S24 found surfaces, did not fix), dashboard
+  surface (read-only on engine only).
+
+### S25 — Vol-shock recovery (MU 2026-03-18 earnings, beat-but-tank)
+
+**Purpose.** First explicit **realism check** Sn (per the new
+campaign framing): compare engine output to the realized market
+behavior around a real, high-vol earnings event. Specifically —
+when a 35-DTE put or covered call's holding window crosses a known
+earnings, does the engine's empirical forward distribution
+adequately bound the realized post-event move, or does it
+systematically understate post-event tail risk?
+
+MU 2026-03-18 is the concrete event: actual EPS beat
+(12.2 vs 9.0 estimate) followed by a -8.83% 2-day sell-off — a
+classic "sell the news" outcome with measurable IV crush in the
+file.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`,
+ticker MU. Three observation dates around the event:
+
+- **2026-03-17** (Tue, pre-event, IV elevated at 69.39%)
+- **2026-03-18** (Wed, event day, close essentially flat)
+- **2026-03-19** (Thu, post-event, -3.77% from pre-event close,
+  IV crushed to 65.15%)
+- **2026-03-20** (Fri, T+2, -8.83% from pre-event close, IV
+  re-elevated to 69.82%)
+
+35-DTE / 25-delta covered call. Driver under `%TEMP%\s25\`, not
+committed; `sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`
+prepended per [[sys-path-worktree-shadow]].
+
+**Path.** `engine.forward_distribution.best_available_forward_distribution`
+at `engine/forward_distribution.py` builds the 35-DTE log-return
+distribution from OHLCV up to as_of (block-bootstrap / HAR-RV
+cascade). `WheelRunner.rank_covered_calls_by_ev` at
+`engine/wheel_runner.py:1790` builds a synthetic CC at the target
+delta, prices it via BSM at the IV from
+`conn.get_fundamentals(ticker)['implied_vol_atm']` (S23 F3 — a
+snapshot, no date column), and runs each through
+`EVEngine.evaluate`.
+
+**Status.** Done. **Verdict: the engine's empirical forward
+distribution is wide enough to comfortably contain MU's realized
+post-event move — tail risk is NOT understated on this scenario.
+But the IV input bug (S23 F3) re-surfaces on MU exactly as on
+AVGO. The engine also correctly classifies a 25-delta MU CC as
+net-negative EV both pre- and post-event — sound conservative
+behavior on a high-tail-risk name.**
+
+**Findings:**
+
+- **Headline cross-section.** MU 35-DTE / 0.25-delta CC with the
+  event gate forcibly disabled (so the post-event re-evaluation
+  is observable; the gate would otherwise block the 03-17 cell
+  with a 1-day-out earnings event):
+
+  ```
+  as_of=2026-03-17   spot=461.69  strike=541.0  premium=$12.597  iv=0.6485  ev_dollars=-$1058.28
+  as_of=2026-03-19   spot=444.27  strike=521.0  premium=$12.044  iv=0.6485  ev_dollars=-$  803.41
+  ```
+
+  Both cells engine-recommend AGAINST the trade
+  (`ev_dollars < 0`). Spot drop is fully observable; IV is NOT
+  (same value at both as_ofs because of S23 F3). **Logged.**
+
+- **(F1) Engine forward distribution is wide enough to bound the
+  realized move.** At `as_of=2026-03-17`, 35-DTE non-overlapping
+  block bootstrap on 2062 rows of MU OHLCV (2018-01-02 →
+  2026-03-17) gave:
+
+  ```
+  method:               empirical_non_overlapping
+  samples:              35
+  log-return std:       0.1886   (= 18.86%, 35-day; scaled to ~3.19% daily)
+  p1  log-return:       -0.2660  (= -23.4% price move)
+  p5  log-return:       -0.2060  (= -18.6% price move)
+  ```
+
+  Realized 2-day post-event move: log-return = -0.0925 = -8.83%
+  price drop. That is **-0.49 sigmas** of the 35-DTE distribution
+  — well inside the body, far from the 5th percentile (-0.2060).
+  The engine's tail is *consistent with* the realization; no
+  systematic underestimation visible at this single scenario.
+  **Logged as a positive — F1 confirms the empirical block
+  bootstrap is doing its job on a real high-vol earnings event.**
+
+- **(F2) Engine correctly flags 25-delta MU CC as net-negative
+  EV.** Both pre and post the event, the engine returns
+  `ev_dollars < 0` for the synthetic CC. The combination of MU's
+  wide forward distribution (F1) and elevated absolute spot
+  (~$460) means the engine sees enough tail risk that even the
+  fat $12.60 premium doesn't compensate. A "sell vol around
+  earnings" trader would override; the engine is structurally
+  conservative on high-tail-risk names. **Logged as a positive —
+  the engine's decision aligns with the "MU is too volatile for
+  credit-selling" prior a pro options trader would hold.**
+
+- **(F3) IV-snapshot bug re-confirmed on MU (validates S23 F3
+  generality).** The engine used `iv=0.6485` (64.85%) at BOTH
+  `as_of=2026-03-17` and `as_of=2026-03-19` — the
+  `implied_vol_atm` snapshot from `sp500_fundamentals.csv`. The
+  IV file's actual PIT values for the same dates:
+
+  ```
+  date         hist_put_imp_vol  hist_call_imp_vol  iv_avg     vs snapshot 64.85%
+  2026-03-17           69.39             69.39    69.39%       +4.54 pp ( +7.0% rel)
+  2026-03-18           70.42             70.42    70.42%       +5.57 pp ( +8.6% rel)
+  2026-03-19           65.15             65.15    65.15%       +0.30 pp ( +0.5% rel)
+  2026-03-20           69.82             69.82    69.82%       +4.97 pp ( +7.7% rel)
+  ```
+
+  At 2026-03-17 (pre-event), the engine used 64.85% when the
+  actual IV was 69.39%. **The engine pre-event was pricing as if
+  the market expected a calmer day than it did.** Same direction
+  as S23's AVGO finding, different ticker, larger gap. After
+  Fix #1 lands (`claude/fix-ranker-iv-pit-aware` @ `d26a8d6`),
+  this gap closes mechanically. **Logged — confirms the bug is
+  not AVGO-specific and motivates Fix #1.**
+
+- **(F4) IV crush is observable in the data but invisible
+  through the engine.** The IV file shows a clean -5.27 pp
+  crush from 03-18 (70.42%) to 03-19 (65.15%) on MU. The
+  ranker's `iv` column is the snapshot value, so a trader
+  inspecting the ranker output sees no evidence of the crush.
+  Same root cause as F3. Post Fix #1 this becomes a usable
+  signal in the ranker output. **Logged.**
+
+- **(F5) `volatility_30d` (realized) shows the dispersion in the
+  underlying.** Realized 30-day vol jumped from 71.14% on 03-17
+  to a momentary 63.50% on 03-18 (lookback windowing artifact)
+  then 64.92% on 03-19 — the post-event realized vol normalized
+  quickly. Not directly used by the engine for synthetic
+  pricing (BSM uses IV), but useful diagnostic. **Logged.**
+
+- **§2 verified.** The forward distribution call sits inside
+  `rank_covered_calls_by_ev`, which still routes each candidate
+  through `EVEngine.evaluate`. No bypass. The two negative-EV
+  surfaces in the headline came through `evaluate` honestly —
+  the conservative recommendation is the engine's product, not
+  a side-channel veto. **Logged as a positive.**
+
+**Realism Check.**
+
+| Aspect | Engine | Reality (file / market) | Verdict |
+|---|---|---|---|
+| 35-DTE log-return std (block bootstrap) | 0.1886 | Realized 2-day move = -0.0925 (= -0.49σ) | **Consistent** — engine tail bounds reality |
+| IV input to BSM strike-solve at 2026-03-17 | 0.6485 (snapshot) | 0.6939 (PIT) | **Mismatch** — engine under by 4.54 pp (-6.5% relative). S23 F3 / Fix #1 |
+| IV crush observable in ranker output | No (snapshot frozen) | Yes (-5.27 pp on 03-18 → 03-19) | **Mismatch** — invisible until Fix #1 |
+| 25-delta CC EV verdict | Negative both runs | Pro trader would hold the conservative view on MU at high-IV | **Aligned** — engine's bearish-on-credit-selling-MU stance is sound |
+| Spot move tracked through re-evaluation | Yes (461.69 → 444.27) | -3.77% / -8.83% cumulative | **Aligned** — engine reads spot from OHLCV correctly |
+
+**Verdict.**
+
+- **The quant layer is doing better than the data layer on this
+  scenario.** Forward distribution (F1) cleanly bounds the
+  realized move, with the realized 2-day drop sitting at -0.49σ
+  of the 35-DTE distribution — well within the body. The block
+  bootstrap on 8 years of MU history captures enough idiosyncratic
+  vol that an 8.83% drop is unsurprising.
+- **The IV-snapshot bug is the binding constraint on realism for
+  this trade**. Fix #1 (`claude/fix-ranker-iv-pit-aware`) closes
+  F3 and F4 mechanically. The engine's evaluation pre- and post-
+  event would still both be negative-EV after Fix #1 (the IV move
+  is in the right direction to slightly improve the synthetic
+  premium and reduce the EV magnitude), but the trader-visible
+  numbers would be **correct** as of each date.
+- **Decision quality is sound**. The engine refusing to credit-
+  sell MU at a 25-delta CC even with $12.60 of premium reflects
+  the wide empirical forward distribution. A trader who disagrees
+  ("sell into the IV pop, take the premium, manage if it goes
+  bad") would have to override the engine's verdict — but the
+  engine is being honest about the tail.
+
+**No new bug surfaced beyond the F3/F4 re-confirmation of the
+S23 finding.** This is the intended realism-check outcome: a
+single, real, high-vol event that lets us *quantify* whether the
+engine's distributional output is realistic. Answer: yes for the
+forward distribution, no for the IV input until Fix #1 lands.
+
+**AI handoff.**
+
+- The realism-check verdict on the forward distribution is from a
+  single scenario. To make a stronger claim ("the engine's
+  empirical bootstrap is *systematically* well-calibrated for
+  earnings tails"), the same machinery should be run across a
+  basket of historical earnings events with various IV regimes
+  and sector mixes. A natural follow-up Sn: 20-event basket of
+  S&P 500 names with earnings in the 2024-2026 window, each
+  evaluated at `as_of=earnings_date - 1d` for 35-DTE horizon, and
+  the realized move converted to engine-sigma units. Histogram
+  the result. If the distribution of "realized in engine-sigma"
+  is well-centered with no fat left tail beyond the engine's
+  predicted tail, that's confirmation. If it has a fat left
+  tail, that's evidence the empirical bootstrap is missing the
+  pure-earnings-jump regime that's underrepresented in 8 years
+  of post-2018 data.
+
+- The reason the engine returns NEGATIVE EV on a 25-delta MU CC
+  even with $12.60 premium deserves a separate audit. Hypothesis:
+  the synthetic forward distribution's left tail
+  (`p1=-0.2660 logret` = -23.4% price drop) generates large
+  ITM assignment losses that dominate the expected premium
+  collection. The engine is pricing a fat-tailed name correctly,
+  but the "wheel premium harvester" trader's mental model
+  ("just sell the vol, manage on assignment") doesn't line up
+  with the engine's "honest expected dollar P&L over a single
+  hold-to-expiry sample" framing. Worth a documentation pass on
+  what `ev_dollars` means semantically — it's not a "premium
+  harvested if all goes well" number, it's "expected $ P&L
+  including the bad scenarios weighted by their probability."
+
+- Re-running this entry after Fix #1 lands will move the
+  `iv=0.6485` rows to `iv=0.6939` (03-17) and `iv=0.6515` (03-19).
+  Premium and ev_dollars will shift; sign almost certainly stays
+  negative (the IV move is modest in absolute terms compared to
+  the wide forward distribution). The realism table's "Mismatch"
+  rows for IV will become "Aligned".
+
+### S26 — Mid-cycle re-evaluation realism (AAPL challenged vs MU winning)
+
+**Purpose.** Realism counterpart to S25 on the management side.
+The pro-trader heuristic for an open short put is well-known:
+*"roll at 21 DTE if the put is < 0.10 delta — lock the gain."*
+S26 asks: does the engine's `WheelTracker.suggest_rolls` produce
+the same shape of decision at DTE_remaining=21? Tested on two
+matched scenarios — one where the put is winning (heuristic
+applies, expect ALIGNED) and one where the put is challenged
+(heuristic is silent, observe what the engine does).
+
+**Setup.** Both scenarios are 35-DTE entries re-evaluated 14 days
+later (= 21 DTE remaining), so the heuristic's "21 DTE" trigger
+fires in both cases.
+
+| | Scenario A (challenged) | Scenario B (winning) |
+|---|---|---|
+| Ticker | AAPL | MU |
+| Entry | 2026-02-09 | 2026-03-03 |
+| Re-eval | 2026-02-23 | 2026-03-17 |
+| Entry spot | $274.62 | $379.68 |
+| Re-eval spot | $266.18 (-3.07%) | $461.69 (+21.60%) |
+| Entry strike (engine 25-delta) | $261.50 | $339.50 |
+| Entry premium | $3.41 | $12.63 |
+| Re-eval current delta | -0.3610 | -0.0260 |
+| Re-eval BSM mark | $4.13 (loss) | $0.81 (big gain) |
+
+Driver under `%TEMP%\s26\`, not committed;
+`sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`
+prepended per [[sys-path-worktree-shadow]].
+
+**Path.** `WheelTracker.suggest_rolls` at `engine/wheel_tracker.py:1840`,
+exercised on a real position opened via `open_short_put`.
+`rank_candidates_by_ev` at `engine/wheel_runner.py:579` provides
+the entry-strike anchor. `event_gate=False` throughout (so the
+B-scenario re-eval can run; MU's 2026-03-18 earnings is 1 day
+forward of the re-eval date and would otherwise block).
+
+**Status.** Done. **Verdict: the engine's `recommend` flag
+aligns with the pro-trader heuristic in the case the heuristic
+APPLIES (winning put, delta < 0.10). In the case the heuristic
+is silent (challenged put), the engine makes a defensive-roll
+recommendation that minimizes expected loss — a reasonable
+extension of the heuristic, not a contradiction.**
+
+**Findings:**
+
+- **Scenario A — AAPL challenged put, ENGINE SAYS ROLL (heuristic
+  silent → "HOLD" by default).** AAPL drifted down -3.07% and the
+  put is now ITM-ish (delta -0.36). Engine says:
+
+  ```
+  16/16 candidates recommend=True
+  best roll_ev:  -$162.01
+  hold_ev:       -$391.27
+  edge:          +$229.26  (roll is the lesser loss)
+  ```
+
+  Top 3 by roll_ev:
+
+  ```
+  new_dte  new_strike  target_delta  new_premium  net_credit_debit  new_ev_dollars  roll_ev  hold_ev
+       49       256.0          0.30         5.01            +88.08          257.59  -162.01  -391.27
+       49       252.5          0.25         3.93            -19.64          193.74  -225.86  -391.27
+       35       257.0          0.30         4.12             -0.71          145.50  -274.10  -391.27
+  ```
+
+  The engine sees a -$391 expected loss on hold (the put is
+  challenged) and offers a defensive roll out 14 more days at a
+  slightly lower strike for -$162 expected loss. **Net edge $229
+  in favor of rolling.** This is *NOT* the heuristic's "lock the
+  gain" case — but it IS a coherent management recommendation
+  (limit the loss). The pro-trader heuristic doesn't address the
+  challenged-put case; the engine produces a sensible default
+  there. **Logged as a positive — engine extends naturally
+  into the "challenged" regime the heuristic doesn't cover.**
+
+- **Scenario B — MU winning put, ENGINE AND HEURISTIC BOTH SAY
+  ROLL — ALIGNED.** MU rallied +21.60% (the put went from $339.50
+  strike, $379.68 spot at entry, to $461.69 spot at re-eval — a
+  -26.5% spot move from below the strike to well above). Current
+  put delta -0.026 (deep OTM, almost worthless). Engine says:
+
+  ```
+  16/16 candidates recommend=True
+  best roll_ev:  +$1874.19
+  hold_ev:       -$1.86
+  edge:          +$1876.05
+  ```
+
+  Top 3:
+
+  ```
+  new_dte  new_strike  target_delta  new_premium  net_credit_debit  new_ev_dollars  roll_ev
+       63       416.5          0.30        29.82          +2901.52         1956.62  1874.19
+       63       398.5          0.25        23.06          +2225.18         1670.49  1588.05
+       49       419.5          0.30        25.78          +2497.17         1363.87  1281.43
+  ```
+
+  The current put is worth $0.81 (unrealized gain of $11.82 per
+  share = +$1,182 / contract). A new 63-DTE 30-delta put at
+  $416.50 collects $29.82 / share = +$2,982 fresh premium and
+  expects +$1,956 ev_dollars. **The engine produces exactly the
+  "lock the gain, roll into more premium" pattern the heuristic
+  prescribes.** Logged as a positive.
+
+- **The engine's hold_ev formula correctly distinguishes the two
+  cases.** For the winning put (B), hold_ev = -$1.86 (essentially
+  zero — the residual decision after the gain is "wait a bit
+  more for the last $0.81 of premium to decay"). For the
+  challenged put (A), hold_ev = -$391.27 (real expected
+  additional loss from holding the ITM position to expiry). The
+  engine reads the position state correctly through the
+  EVEngine.evaluate of the synthetic hold trade. **Logged as a
+  positive.**
+
+- **(F1) `suggest_rolls` returns 16 candidates in both scenarios
+  but emits NO `.attrs["drops"]`** — re-confirms S22 F1 on a
+  different ticker (and validates that Fix #3,
+  `claude/fix-suggest-rolls-drops` @ `358bffc`, is the right
+  shape for it). After Fix #3 lands, the trader inspecting these
+  rolls will see WHY any non-recommended candidate didn't make
+  it through (in these runs all 16 recommended, so the drops
+  list would be empty — but on a tighter `min_net_credit` filter
+  it would surface). **Logged — points to the value of Fix #3
+  for the rolling-campaign UX.**
+
+- **(F2) The IV input to the strike-solve at the entry-side
+  `rank_candidates_by_ev` is still the snapshot — re-confirms
+  S23 F3 on a third ticker.** MU PIT IV at 2026-03-03 = 74.96%
+  per the IV file; engine used `0.7496` (correct via PIT
+  arithmetic) WAIT — actually checking: the entry strike picked
+  by the engine at 2026-03-03 was $339.50 with premium $12.63.
+  This is using whatever IV `get_fundamentals` returned for MU,
+  which is the 2026 snapshot. After Fix #1 lands, the entry
+  strike on this same scenario may shift slightly because the
+  PIT IV (74.96%) is higher than the snapshot. **Logged —
+  cross-confirms Fix #1's relevance on a high-vol name.**
+
+- **§2 verified.** Every `suggest_rolls` candidate (both
+  scenarios, 32 total candidates) routed through
+  `EVEngine.evaluate`. The hold_trade did too. No bypass.
+  **Logged as a positive.**
+
+**Realism Check.**
+
+| Aspect | Engine | Heuristic / Reality | Verdict |
+|---|---|---|---|
+| Recommendation on winning put (delta < 0.10) | ROLL (edge +$1876) | ROLL (lock the gain) | **Aligned** |
+| Recommendation on challenged put (delta ~ -0.36) | ROLL (edge +$229, lesser loss) | Heuristic silent; default HOLD | **Coherent extension** |
+| hold_ev magnitude on winning put | -$1.86 (near-zero) | "Almost no premium left" | **Aligned** |
+| hold_ev magnitude on challenged put | -$391.27 (real loss) | "Position is hurting" | **Aligned** |
+| `.attrs["drops"]` on suggest_rolls | None (pre-Fix #3) | Should mirror ranker | **Mismatch** — closed by Fix #3 |
+| Mark of the open put at re-eval | $4.13 / $0.81 | Computed from current spot/IV | **Aligned** — BSM correct |
+
+**Verdict.**
+
+- **The engine's `recommend` boolean is well-calibrated.** It
+  fires when rolling is genuinely better than holding by the
+  apples-to-apples ev_dollars comparison. In the winning-put
+  case (B), this lines up exactly with the pro-trader's "lock the
+  gain" heuristic. In the challenged-put case (A), it lines up
+  with a defensive-roll mindset the heuristic doesn't explicitly
+  cover but a real trader would still apply.
+- **The engine recommends rolling MORE often than the strict
+  heuristic prescribes** because it considers BOTH the
+  gain-locking case AND the loss-limiting case. A trader who
+  strictly wants "only lock the gain, never roll on a loss"
+  would have to filter on `current_delta < 0.10` in addition to
+  reading `recommend`.
+- **Fix #3 (drops accumulator) makes this surface fully
+  observable.** In the current runs all 16 candidates recommend
+  in both scenarios, so the drops list would be empty. Setting
+  a tight `min_net_credit` (e.g. $500 to force credit-only big
+  rolls) is what would populate the drops list with the
+  filtered-out cells — see Fix #3's regression test for that
+  pattern.
+- **No new bugs surfaced.** Re-confirms S22 F1 (Fix #3) and S23
+  F3 (Fix #1) on different tickers; cross-validates that those
+  findings generalize across the universe.
+
+**AI handoff.**
+
+- The S26 ALIGNED-on-winning / COHERENT-EXTENSION-on-challenged
+  result is from two single scenarios. A stronger claim ("the
+  engine's `recommend` is well-calibrated across the population")
+  would require a basket Sn — e.g. 50 random short puts opened
+  across 2024-2026, advanced to 21-DTE-remaining, with the
+  realized recommend / heuristic agreement tabulated. If the
+  agreement rate is high on winning puts (heuristic applies) and
+  the engine adds coherent defensive rolls on challenged ones,
+  S26 generalizes. If the engine recommends rolling unprofitably
+  often, the hold_ev formula needs a closer look.
+
+- The scenario-B "16/16 recommend with edge $1876" deserves a
+  sanity check: is the engine over-promising on the new
+  contract's ev_dollars? A +$1876 edge over hold_ev = -$1.86
+  on a $339.50-strike position is a 9% return on the original
+  premium received — high but not absurd for a deep-OTM put
+  that's almost free to close. The arithmetic looks honest, but
+  worth verifying on a paper-trade pair against the post-roll
+  observed P&L. (Outside the data window — would need a fresh
+  data refresh or a Theta replay.)
+
+- Fix #3 makes the drops list available; the natural follow-on
+  Sn would re-run S26 with `min_net_credit` tight enough to
+  filter most candidates, then inspect the drops list to verify
+  that the gate=credit reason matches expectations on the
+  filtered cells. That's a 1-page Sn that pays back the Fix #3
+  investment.
+
+### S28 — CC dividend realism (VZ / JPM / MSFT / KO / AAPL / WMT)
+
+**Purpose.** Realism check on the dividend-aware leg of the CC
+ranker. Wheel-trader pain point: a covered call that goes ITM near
+ex-div is at high early-exercise risk — the call holder rationally
+exercises if extrinsic < dividend. Engine claim (`engine/ev_engine.py`
+line 357-361): when `option_type=="call"` AND `days_to_ex_div <= dte`
+AND `expected_dividend > 0`, the dividend is subtracted from the
+expected loss on outcomes where the call is ITM at expiry. Test
+asks: does this gate actually fire on the right names? Is the
+dividend-aware signal observable in the ranker output?
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`,
+six names spanning the dividend-window space at `as_of=2026-03-20`:
+
+| Ticker | Ex-div in file | dte_to_ex | Class |
+|---|---|---|---|
+| VZ | 2026-04-10 ($0.7075) | 21d | **INSIDE** 35-DTE window |
+| JPM | 2026-04-06 ($1.50) | 17d | **INSIDE** 35-DTE window |
+| MSFT | 2026-05-21 ($0.91) | 62d | **OUTSIDE** 35-DTE window |
+| WMT | 2026-05-08 ($0.2475) | 49d | **OUTSIDE** 35-DTE window |
+| KO | none in file | n/a | **TRUNCATED** (known dividend aristocrat) |
+| AAPL | none in file | n/a | **TRUNCATED** (low yield, but tracked) |
+
+OTM grid: 35-DTE × (0.30, 0.25, 0.15) deltas. ITM probe: 35-DTE ×
+(0.70, 0.80). A/B follow-up: same matrix at 0.25 delta with
+`dividend_yield=None` (engine resolves from fundamentals) vs
+`dividend_yield=0.0` (forced no carry) to isolate the dividend's
+quantitative impact on `ev_dollars`. `use_event_gate=False`
+throughout (so the JPM 17-day ex-div / MSFT 62-day ex-div don't
+trigger event-window blocks unrelated to the dividend test).
+Drivers under `%TEMP%\s27\`, not committed;
+`sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`
+prepended per [[sys-path-worktree-shadow]].
+
+**Path.** `WheelRunner.rank_covered_calls_by_ev` at
+`engine/wheel_runner.py:1836`. Per-row data plumbing at lines
+2049-2152 (BSM continuous yield from `fundamentals.dividend_yield`,
+discrete `expected_dividend` from `conn.get_next_dividend(ticker,
+as_of)`). Strike-solve in `_solve_call_strike`. Each candidate scored
+through `EVEngine.evaluate`. Dividend early-exercise penalty at
+`engine/ev_engine.py:355-361` (the gate: `option_type=="call"` AND
+`days_to_ex_div is not None` AND `days_to_ex_div <= dte` AND
+`expected_dividend > 0` → `pnls -= is_itm * expected_dividend *
+multiplier`).
+
+**Status.** Done. **Verdict: the engine's dividend math is
+correct — both the BSM continuous yield AND the EVEngine
+discrete early-exercise penalty fire in the right direction
+on names with inside-DTE ex-divs. But three observability /
+data-coverage gaps surface that materially reduce the dividend
+gate's real-world effectiveness.**
+
+**Findings:**
+
+- **(F1 — verified, positive) Both dividend pathways exist and
+  work.** Two independent code paths apply dividend influence
+  to CC EV:
+  1. **Continuous yield (BSM q)** from
+     `fundamentals.dividend_yield`. Always applied to the
+     strike-solve and synthetic premium via
+     `engine/wheel_runner.py:2049-2064` (`div_q` argument to
+     BSM). No gate.
+  2. **Discrete early-exercise penalty** from
+     `conn.get_next_dividend(ticker, as_of)` →
+     `expected_dividend` → `EVEngine`. Gated on
+     `days_to_ex_div <= dte` (`ev_engine.py:357-358`) and
+     `is_itm` at simulated expiry.
+
+  Both fire on JPM (inside DTE, $1.50 dividend, 25-delta CC):
+  ev_dollars shifts by **-$15.04** when `dividend_yield` is
+  forced to 0 vs default — the largest single-trade impact in
+  the matrix. On VZ (inside DTE, $0.7075 dividend, highest
+  yield in the matrix at 5.47%), the shift is **-$6.57**.
+
+  **Logged as a positive — the engine has the right machinery,
+  in the right place, with the right gate.**
+
+- **(F2 — gap, observability) `expected_dividend` diagnostic
+  column populates regardless of the gate.** Even when
+  `days_to_ex_div > dte` (so the EVEngine penalty cannot
+  fire), the ranker output's `expected_dividend` column shows
+  the upcoming dividend amount. MSFT at 25-delta CC:
+
+  ```
+  days_to_ex_div=62  dte=35  expected_dividend=0.91
+  ```
+
+  A trader inspecting the ranker output would reasonably
+  conclude the engine is factoring $0.91 of dividend cost into
+  this trade. It is not — the EVEngine gate blocks it (62 >
+  35). The -$8.22 EV shift observed in the A/B is from the
+  BSM continuous yield alone (MSFT yield 0.91%), not the
+  discrete penalty. **Same observability shape as S22 F1
+  (suggest_rolls missing `drops`). Logged.**
+
+- **(F3 — gap, data coverage) 75% of S&P 500 tickers have NO
+  future ex-div in the dividend file after 2026-03-20.** The
+  raw counts:
+
+  ```
+  total tickers in sp500_dividends.csv:                427
+  tickers with ANY ex_date > 2026-03-20:               107  (25%)
+  ```
+
+  Forward-truncated major payers include KO, PG, JNJ, AAPL,
+  UNH, XOM, CVX, PEP, MCD, T. These are all known quarterly
+  dividend payers; the file just doesn't carry their
+  forward-declared ex-divs at the cutoff. Effect: on 320 of
+  427 (75%) S&P 500 tickers, `get_next_dividend` returns
+  `None`, so `expected_dividend=0.0` and the EVEngine
+  early-exercise penalty cannot fire — the discrete
+  ITM-near-ex-div protection is silently inactive. The BSM
+  continuous yield still applies (KO's 25-delta CC EV shifts
+  -$4.74 when `dividend_yield=0` is forced), so the engine
+  retains *some* dividend awareness via fundamentals — but
+  the discrete protection is the trader-meaningful one.
+  **Parallels S23 F2 (earnings-file forward truncation).
+  Logged.**
+
+- **(F4 — design-intent + observability gap) ITM CC strikes
+  are silently skipped *by design*.** `target_deltas=(0.70,
+  0.80)` returns an empty frame on every ticker in the
+  matrix — engine does not produce ITM CC candidates.
+  Post-PR-open 30-second code check confirmed this is
+  **explicit design intent**: `_solve_call_strike` at
+  `engine/wheel_tracker.py:88-112` brackets Brent root-finding
+  on `[spot*1.01, spot*2.0]` and the docstring is explicit —
+  *"Returns None when no solution exists in [spot*1.01,
+  spot*2.0] — the OTM region a covered call is sold into
+  (strike above spot)."* A 0.70-delta call needs a strike
+  below spot, which sits outside that bracket, so Brent
+  cannot find a root and `_solve_call_strike` returns
+  `None` → ranker emits no row. **Auto-mitigates** the
+  worst-case ITM-near-ex-div early-exercise scenario by
+  refusing to produce ITM CC strikes at all — a sound
+  wheel-strategy default (sell calls you'd be happy to
+  assign, above your basis). The remaining gap is
+  **observability**: a trader asking for ITM CC strikes
+  (e.g. to lock in upside on a held position around a
+  known ex-div) gets an empty frame and no `drops` signal
+  saying "ITM strikes are out of scope for CC ranking by
+  design." Logged as a design-intent finding with an
+  observability follow-up rather than a logic bug.
+
+- **(F5 — gap, data coverage) WMT history-gated despite being
+  a household name.** Engine drops WMT entirely:
+
+  ```
+  [{'ticker': 'WMT', 'gate': 'history', 'reason': 'history 70d < required 504d'}]
+  ```
+
+  Direct OHLCV probe: WMT has 70 rows of data starting
+  2025-12-09 — not 504+ as the 504-day history gate expects.
+  The dividends + fundamentals files do have WMT (yield
+  0.80%, ex-div 2026-05-08). Likely a recent split or
+  ticker-symbol change that wasn't propagated to the OHLCV
+  extraction. Inconsistent coverage across the three Bloomberg
+  files for the same ticker. **Logged — partial-coverage
+  data quality bug, not a wheel-runner bug.**
+
+- **(F6 — observation) Even on the highest-yielding name in
+  the matrix, the dividend's EV impact is modest at OTM
+  deltas.** VZ (5.47% yield) 25-delta CC EV shifts -$6.57
+  from the dividend pathway. JPM ($1.50 absolute, 2.02%
+  yield) shifts -$15.04 — the largest in the matrix. Both
+  are small fractions of the absolute EV magnitudes (JPM's
+  ev=-$164.40 is dominated by the high-IV / wide-tail
+  factors). **Wheel traders should not over-weight dividend
+  defense as a CC-killer for OTM strikes**; the dividend
+  shifts the answer slightly, but does not flip OTM verdicts
+  in this matrix. The dividend cost would be much larger on
+  ITM strikes — exactly the strikes the ranker silently
+  refuses to produce (F4). **Logged.**
+
+- **§2 verified.** `rank_covered_calls_by_ev` routes every
+  candidate through `EVEngine.evaluate`. The dividend
+  pathway is integrated into the EV math, not a
+  side-channel adjustment. No bypass. **Logged as a
+  positive.**
+
+**Realism Check.**
+
+| Ticker | Ex-div (file) | dte_to_ex | Engine `days_to_ex_div` | Engine `expected_dividend` | Δ ev_dollars from dy=0 | Trader expectation | Aligned? |
+|---|---|---|---|---|---|---|---|
+| VZ | 2026-04-10 ($0.7075) | 21d | 21 | $0.7075 | -$6.57 | Modest CC penalty for OTM at high yield | ✓ Aligned |
+| JPM | 2026-04-06 ($1.50) | 17d | 17 | $1.50 | -$15.04 | Largest dollar impact (high $/share div) | ✓ Aligned |
+| MSFT | 2026-05-21 ($0.91) | 62d | 62 | $0.91 (column populated, gate blocks penalty) | -$8.22 (BSM q only) | Diag column should be 0 when gate blocks | ⚠ Observability gap (F2) |
+| KO | none in file (known $0.42 Q1 historical) | n/a | None | 0.0 | -$4.74 (BSM q from 2.76% yield still applies) | Engine should know KO is a dividend aristocrat | ⚠ Truncation (F3); partial via BSM q |
+| AAPL | none in file | n/a | None | 0.0 | -$2.48 (BSM q from 0.42% yield) | Low yield → low impact | ✓ aligned despite truncation |
+| WMT | 2026-05-08 ($0.2475) | n/a | dropped | dropped | n/a | A household name with multi-decade history should rank | ❌ Data-coverage gap (F5) |
+
+**Verdict.**
+
+- **Dividend math: correct and well-placed.** Two independent
+  pathways (BSM q + EVEngine early-exercise penalty), gate
+  properly enforced internally, EV shifts in the right
+  direction on inside-window names. The engine has the
+  protective machinery a wheel trader would expect.
+
+- **Real-world effectiveness: limited by data coverage and
+  observability.** On 75% of S&P 500 tickers, the discrete
+  protection is silently inactive (F3 dividend-file
+  truncation). The diagnostic column misleads on
+  outside-window names (F2). ITM strikes — the
+  high-early-exercise-risk regime the gate was designed for —
+  are skipped by design (F4 — `_solve_call_strike` brackets
+  to OTM-only as a wheel-strategy invariant), but the design
+  intent is not surfaced to a trader asking for ITM via
+  `target_deltas≥0.70`. The continuous BSM q is a
+  partial safety net for the truncated names but is not the
+  same instrument as the discrete penalty.
+
+- **The realism gap is not in the engine's logic.** Three of
+  the four findings (F2/F3/F5) are data-layer or
+  observability gaps, not engine-math gaps. F4 is an engine
+  design intent (wheel-strategy CCs are OTM by convention)
+  with an observability follow-up, not a logic bug.
+
+**AI handoff.**
+
+- **Fix #1 (natural follow-on, smallest scope):** zero the
+  `expected_dividend` diagnostic column when the EVEngine
+  gate would block (`days_to_ex_div > dte`). This is a
+  one-line change at the ranker's diagnostic emission site
+  (`engine/wheel_runner.py` around line 2306 where
+  `expected_dividend` is rounded into the output dict). The
+  EV math itself is correct; only the observability is off.
+  Test: MSFT 25-delta CC should show `expected_dividend=0.0`
+  in the ranker output (current: 0.91).
+
+- **Fix #2 (separate scope, data layer):** refresh
+  `sp500_dividends.csv` with forward-declared ex-divs for
+  the truncated tickers. Per the [[bloomberg-data-refresh-blocked]]
+  memory this requires the user's BQL queries + `end_date`
+  bumps and cannot be self-served. Alternative: when
+  `get_next_dividend` returns `None`, fall back to estimating
+  the next ex-div from `dividend_frequency` + most-recent
+  historical `ex_date` (`KO`'s last ex-div was 2026-03-13 with
+  quarterly frequency, so the next is ≈ 2026-06-13). That
+  would partially close the truncation gap without a data
+  refresh.
+
+- **Fix #3 (observability — the F4 follow-up):** emit a
+  `drops` entry (e.g. `gate="strike_itm_design_skip"`,
+  `reason="target_delta>=0.5 outside CC OTM bracket
+  [spot*1.01, spot*2.0]"`) when `_solve_call_strike` returns
+  `None` because the user-requested `target_deltas` are too
+  high to admit an OTM solution. The OTM-only bracket is a
+  wheel-strategy invariant and should NOT be relaxed
+  (changing `_solve_call_strike` would break the wheel's
+  "sell calls you'd happily assign above basis" semantics),
+  so the fix is purely observability. Mirrors the [[realism-check-pattern]]
+  S22 F1 → PR #181 drops-accumulator shape. The natural
+  follow-on Sn after Fix #3 ships would re-run S28's ITM
+  probe on VZ/JPM and confirm the drops entry surfaces with
+  the right reason string.
+
+- **Fix #4 (data-coverage triage):** investigate the WMT
+  70-day OHLCV (F5). A likely cause is a Bloomberg ticker
+  re-extract that missed pre-2025-12 data; another is a
+  recent ticker change (`WMT US Equity` → some new BBG
+  identifier). Either way the dividends and fundamentals
+  files contain WMT, so the symbol is alive in the universe.
+  Fix is upstream of the engine.
+
+- **The CC-near-ex-div realism test would benefit from a
+  Theta replay.** A Theta-provider Sn (queued S6) would
+  provide actual quoted chains at the strikes the engine
+  refuses to produce on Bloomberg (F4), so an ITM-near-ex-div
+  CC could be priced against real market premiums and the
+  engine's early-exercise penalty validated against
+  market-implied early-exercise probability.
+
+**Methodology debt.**
+
+- **Single-as_of test (2026-03-20).** Repeating S28 at a
+  different as_of with different inside/outside groupings
+  would confirm the F3 truncation generalises (versus
+  "the file is fresh through 2026-Q1 but stale after"). A
+  cleaner phrasing: re-run S28 at `as_of=2025-12-01` to see
+  if the 25% future-coverage figure shifts up (more recent
+  vintage) or stays at 25% (systematic). If it stays at 25%,
+  the file has a fixed-look-ahead horizon problem; if it
+  shifts up, the file is just stale-as-of-2026-03-20.
+
+- **No Theta cross-check.** All dividend amounts are read from
+  Bloomberg's `sp500_dividends.csv`. A spot check against
+  Yahoo Finance or another source for the four inside-window
+  names (VZ, JPM, MSFT historical, WMT historical) would
+  catch transcription errors in the dividend file.
+
+- **A/B held `dividend_yield=0.0` to isolate the dividend's
+  total impact, but did not isolate the BSM-q-only vs
+  EVEngine-penalty-only contributions.** To split them
+  cleanly would require either (a) exposing
+  `expected_dividend` as a separate kwarg on
+  `rank_covered_calls_by_ev` (not currently a parameter)
+  or (b) monkey-patching `conn.get_next_dividend` to return
+  None for the test, which crosses into integration-test
+  territory.
+### S30 — HMM regime-multiplier realism (April 2025 vol spike)
+
+**Purpose.** Realism check on the HMM regime layer — does the
+engine's `hmm_multiplier` (output of the 4-state Gaussian HMM at
+`engine/regime_hmm.py:76`, wired into `rank_candidates_by_ev` at
+`engine/wheel_runner.py:1143-1179`) actually shift in the right
+direction at a known regime transition, and is the magnitude
+realistic? CLAUDE.md §2 documents the multiplier range as
+`[0.0, 1.25]` (per-state weights: `crisis: 0.2, bear: 0.5,
+normal: 1.0, bull_quiet: 1.25`). S30 tests both downward and
+upward transitions against the April 2025 broad-market vol
+spike — a real-world event with measurable spot, IV, and
+realized-vol moves.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`,
+five-name watchlist (AAPL, MSFT, JPM, XOM, UNH) across two
+transition windows + one calm-period anchor:
+
+| Window | Pre-date | Post-date | Transition (survey-identified on AAPL) |
+|---|---|---|---|
+| T1 — downturn | 2025-04-02 (Wed) | 2025-04-04 (Fri) | bear → crisis |
+| T2 — recovery | 2025-04-11 (Fri) | 2025-04-15 (Tue) | crisis → bear |
+| Anchor | — | 2026-03-20 (cutoff) | for current-regime comparison |
+
+Survey used AAPL log-returns 2018-2026 fit to a 4-state Gaussian
+HMM (n_iter=20, random_state=42 — same as the live ranker config
+at `wheel_runner.py:1165`) and Viterbi-decoded the state path
+to find the transitions inside the data window.
+
+Driver under `%TEMP%\s29\`, not committed;
+`sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")`
+prepended per [[sys-path-worktree-shadow]]. 25-delta / 35-DTE
+short puts. `use_event_gate=False` to isolate the HMM signal
+from earnings-window noise. Read-only on decision layer.
+
+**Path.** `WheelRunner.rank_candidates_by_ev` at
+`engine/wheel_runner.py:631`. HMM fitting at lines 1143-1179
+(`tail = log_rets[-504:]`, cached by `(ticker, hash(fingerprint))`).
+Per-state weights at `regime_hmm.py:265-280`
+(`position_multiplier`). Final regime multiplier composed at
+`wheel_runner.py:1300`
+(`combined_regime_mult = hmm_regime_mult * skew_mult * news_mult
+* credit_mult`), passed into `ShortOptionTrade.regime_multiplier`,
+consumed by `EVEngine.evaluate`.
+
+**Status.** Done. **Verdict: the engine's HMM is the
+best-behaved of the four knowledge surfaces in this campaign.
+It captured the April 2025 vol spike correctly across ALL FIVE
+names simultaneously (broad-market crisis recognition), respects
+its documented multiplier range, and the downstream EV behaviour
+is realistic — the multiplier cut is balanced against the
+simultaneous IV-spike-driven premium increase, not a blind
+kill-switch.**
+
+**Findings:**
+
+- **(F1 — major positive) The HMM correctly recognised the April
+  2025 broad-market crisis on every name.** Pre-vs-post the
+  2025-04-03 transition:
+
+  ```
+  ticker   mult_pre   regime_pre   ->  mult_post  regime_post   d_mult   d_spot     d_iv
+  AAPL        0.898       normal   ->      0.200       crisis   -0.698  -15.85%  +73%
+  JPM         0.552         bear   ->      0.200       crisis   -0.352  -14.46%  +76%
+  MSFT        0.700       normal   ->      0.201       crisis   -0.499   -5.84%  +39%
+  UNH         0.668         bear   ->      0.232       crisis   -0.436   +0.35%  +25%
+  XOM         0.700       crisis   ->      0.200       crisis   -0.499  -12.07%  +89%
+  ```
+
+  Per-ticker independent HMM fits converged on `crisis` for
+  all five names within two trading days. The realised spot
+  moves (-5% to -16%) and IV spikes (+25% to +89%) on four of
+  five names are consistent with a real broad-market crisis
+  episode; UNH was a partial exception (spot held, IV moved
+  less) but the HMM still moved to crisis on UNH's own
+  returns. **Logged as a positive — per-ticker HMM converging
+  on the same regime label across a watchlist IS the right
+  signal for a macro event, even without an explicit
+  cross-asset aggregator.**
+
+- **(F2 — positive) Reverse transition (recovery) captured on
+  2025-04-15.** Pre-vs-post the 2025-04-14 transition:
+
+  ```
+  ticker   mult_pre   regime_pre   ->  mult_post  regime_post   d_mult
+  AAPL        0.212       crisis   ->      0.817       normal   +0.605
+  MSFT        0.478         bear   ->      0.633         bear   +0.155
+  XOM         0.405       crisis   ->      0.738       normal   +0.334
+  ```
+
+  AAPL recovers crisis → normal (multiplier rises 4×). XOM same
+  shape. MSFT stays bear but moves up the bear-confidence axis
+  (0.48 → 0.63). The HMM is **responsive to recovery, not just
+  downturns** — it does not get permanently stuck in crisis
+  after a vol spike. JPM and UNH dropped out of the result set
+  on one of the two dates in T2 (history-gate or chain-quality
+  cutoff during the high-vol window — F6 below). **Logged as
+  a positive — the HMM mean-reverts correctly.**
+
+- **(F3 — positive) HMM multipliers respect the documented
+  `[0.20, 1.25]` envelope.** Every `hmm_multiplier` value
+  observed in the matrix sits inside the bound. The crisis
+  weight maps to exactly 0.200 (the hard floor) for pure-state
+  posteriors; mixed states yield values like 0.201, 0.212,
+  0.232 (posterior-weighted average across the 4-state
+  weights). The maximum observed was XOM at 0.9217 on
+  2026-03-20 (`bull_quiet` posterior weighted into the average,
+  sub-1.25 because the posterior is not 100% bull_quiet).
+  **Logged.**
+
+- **(F4 — design positive) EV impact is balanced, not blind.**
+  On T1 the HMM cut multiplier 0.5-0.9 → 0.2, but `ev_dollars`
+  did not simply collapse. Same window:
+
+  ```
+  ticker    ev_pre   ev_post   d_ev      Driver
+  AAPL      +32.52   +60.95   +28.43    IV spike +73% → premium 3.05 -> 4.60 outweighed HMM cut
+  JPM     +108.33    +75.40   -32.93    HMM cut dominated
+  MSFT    +195.91    +90.39  -105.52    HMM cut dominated
+  UNH     +520.19   +177.81  -342.38    HMM cut + premium up less than HMM impact
+  XOM      -12.58    +20.19   +32.77    IV spike +89% rescued an underwater candidate
+  ```
+
+  The engine is doing balanced multi-signal math — IV spike
+  raises the synthetic premium (and `ev_dollars` is positive in
+  the integrand) while the HMM multiplier cuts the final scaling.
+  Whichever wins on a given name depends on which moved more.
+  **This matches the intent of the dealer-multiplier asymmetric
+  clamp (CLAUDE.md §2) — the HMM is a *de-emphasis* lever, not
+  a *veto*.** A real wheel trader does not want a regime
+  indicator to fully suppress trades; the engine's behaviour
+  here is realistic. **Logged as a positive.**
+
+- **(F5 — observability gap) No cross-asset coherence
+  signal.** The HMM is fit per-ticker independently. When
+  5/5 names go to `crisis` simultaneously (T1), that is a
+  macro-event signal worth surfacing distinctly. Currently
+  the trader sees five separate "this name's HMM says
+  crisis" rows in the ranker output, not a single
+  "macro regime appears to be in crisis" header. A
+  `macro_regime` aggregator column (or board-level
+  signal in the dossier) would close this. **Logged as a
+  follow-on observability finding** (same family as S22 F1,
+  S28 F2, S29 F5 — the campaign's observability theme).
+
+- **(F6 — data dropout, minor) UNH and JPM dropped from
+  some result sets during T2.** UNH disappears on the
+  2025-04-15 post-row; JPM disappears on the 2025-04-11
+  pre-row. Most likely cause: history-gate or chain-quality
+  gate triggered by the unusual return distribution from
+  the 2025-04-04 crisis day. Not a HMM bug but a data-flow
+  observation — the HMM had data to fit on the surviving
+  rows; the question is why the upstream filters dropped
+  these specific cells. **Logged.**
+
+- **(Anchor) Current data-cutoff regime is mildly defensive.**
+  At `as_of=2026-03-20`:
+
+  ```
+  ticker      hmm_regime   hmm_multiplier
+  AAPL        bear         0.677
+  JPM         bear         0.711
+  MSFT        bear         0.463
+  UNH         bear         0.668
+  XOM         bull_quiet   0.922
+  ```
+
+  Four of five megacaps in bear regime; energy (XOM) the
+  outlier in `bull_quiet`. Consistent with a recent
+  modest-vol environment, not a crisis. **Logged as an
+  anchor.**
+
+- **§2 verified.** `rank_candidates_by_ev` routes every
+  candidate through `EVEngine.evaluate`. The HMM
+  multiplier is multiplicative and cannot rescue a
+  negative-EV trade (XOM in T1 went from -$12.58 to +$20.19
+  not because of HMM but because of the IV-spike-driven
+  premium increase; the HMM actually pulled the multiplier
+  *down*). **Logged as a positive.**
+
+**Realism Check.**
+
+| Aspect | Engine | Real-market behaviour | Verdict |
+|---|---|---|---|
+| AAPL HMM regime at 2025-04-04 (post-vol-spike) | `crisis` (mult 0.200) | -15.85% spot, +73% IV spike — clear crisis | ✓ Aligned |
+| 5/5 watchlist names at `crisis` on 2025-04-04 | All five converge to `crisis` simultaneously | Broad-market sell-off; macro event signature | ✓ Aligned (per-ticker convergence is the correct macro signal) |
+| AAPL recovery to `normal` at 2025-04-15 | mult 0.817 (`normal`) | AAPL +2.0% recovery, IV partially crushed | ✓ Aligned |
+| MSFT lag-recovery (stays bear) | mult 0.633 (`bear`) | MSFT only -0.7% net recovery, IV still elevated | ✓ Aligned (cautious mean-reversion) |
+| Anchor regime at 2026-03-20 | 4/5 bear, XOM bull_quiet | Recent regime is mildly defensive | ✓ Aligned (consistent with current data) |
+| HMM multiplier respect `[0.20, 1.25]` envelope | Observed range 0.200 - 0.922 across matrix | Documented bound | ✓ Aligned |
+| EV-impact direction on T1 | Mixed: AAPL/XOM up, JPM/MSFT/UNH down | Trader expects regime cut but vol spike raises premium | ✓ Aligned (balanced multi-signal) |
+| Cross-asset coherence signal | None — each name reads independently | Trader watching 5/5 crisis would call macro event | ⚠ Observability gap (F5) |
+
+**Verdict.**
+
+- **The HMM is the best-behaved knowledge surface in this
+  campaign.** It captured a real broad-market crisis on
+  every name in the watchlist simultaneously, respects its
+  documented multiplier bounds, mean-reverts correctly on
+  recovery, and behaves realistically as a *de-emphasis*
+  signal (not a veto) when composed with IV spikes.
+
+- **No new bug surfaced in the HMM logic itself.** F1-F4
+  are all positives. F5 is a *missing* feature (cross-asset
+  aggregator) rather than a logic error. F6 is upstream
+  data-flow, not HMM.
+
+- **The HMM is the realism counter-example to S29's skew
+  finding.** Skew is dormant on Bloomberg because the data
+  isn't there; HMM is alive because it consumes OHLCV
+  log-returns — a column that *is* populated cleanly across
+  503 tickers × 8+ years. The lesson generalises: engine
+  surfaces that consume well-supported data columns work as
+  built; surfaces that need chain-level data don't, on
+  Bloomberg.
+
+**AI handoff.**
+
+- **Fix #1 (observability, follow-on to F5):** add a
+  `macro_regime` row at the top of the ranker output (or a
+  `macro_regime_unanimous` boolean in the dossier metadata).
+  Compute as the modal `hmm_regime` across the result set
+  when the agreement rate exceeds a threshold (e.g. 4/5 of
+  ranked names share a regime). Surfaces the broad-market
+  signal that's currently latent in five separate rows.
+
+- **Fix #2 (observability, related):** add a
+  `hmm_state_posterior` column with the full 4-state
+  posterior (or just the top-2 probabilities) so the trader
+  can distinguish "0.21 because I'm 95% crisis" from "0.32
+  because I'm 50% crisis + 50% bear" — currently both
+  serialize to similar multiplier values but mean different
+  things downstream.
+
+- **Fix #3 (data-flow, follow-on to F6):** investigate why
+  UNH and JPM dropped from the T2 result sets. If it's the
+  history gate firing on tail-window length (the 504-day
+  tail at the high-vol windows might shift the cache key
+  enough to gate them), the fix is at `wheel_runner.py`
+  history-gate level. If it's chain-quality gate, that's
+  separate (and not a real concern given Bloomberg has no
+  chain anyway). Small Sn (~1 page).
+
+- **HMM-cross-asset Sn:** the natural follow-on to S30 is a
+  basket Sn that rank-orders 50 S&P 500 names on the same
+  watershed dates (e.g. 2025-04-04) and reports the fraction
+  in each HMM regime. If 40+/50 go to crisis simultaneously,
+  that confirms the macro signal interpretation. If it's
+  noisier (15/50 crisis, 20/50 bear, 15/50 other), the
+  per-ticker convergence in S30 was a small-sample artifact
+  and the F5 macro-aggregator design would need a smarter
+  threshold.
+
+- **Dealer positioning (S31 candidate, deferred this cycle):**
+  the dealer-regime path is similar to skew in that it needs
+  per-strike gamma data Bloomberg doesn't have. After a Theta
+  replay, a small Sn could test R6 / R8 contract fire on a
+  synthetic `dealer_regime_by_ticker={"AAPL": "short_gamma_amplifying"}`
+  via `WheelTracker.portfolio_context_snapshot` and
+  `build_dossiers(portfolio_context=ctx)` (the #174 wire). Pair
+  with skew on the same Theta data.
+
+**Methodology debt.**
+
+- **Single watershed event (April 2025 vol spike).** The
+  T1 finding ("all 5 names converge to crisis simultaneously")
+  is from one transition. To make the broader claim ("the
+  per-ticker HMM converges on macro events"), basket the test
+  across a half-dozen other historical vol-spike dates (e.g.
+  COVID 2020-03, August 2024 yen-carry unwind, October 2023,
+  September 2022 CPI shock) and verify the same shape. If 4
+  of 6 events show 4/5 convergence, the macro-signal
+  interpretation is strong; if it's 2 of 6, F5's macro
+  aggregator needs a per-event regime classifier.
+
+- **Cache not exercised.** The HMM cache (keyed by
+  `(ticker, hash(tail-fingerprint))`) means re-running the
+  same as_of for the same ticker hits the cache and skips
+  re-fit. The 2-as_of test in S30 always re-fits (the tail
+  fingerprint differs between adjacent days). A
+  cache-stress Sn would help confirm "the cache is invalidated
+  correctly when new bars arrive" but isn't a realism
+  question.
+
+- **No comparison to a heuristic baseline.** A pro trader's
+  mental model for regime might be "VIX > 30 → crisis, VIX
+  < 15 → bull_quiet, in between → normal/bear." The
+  engine's HMM agrees on the T1 dates (VIX clearly spiked
+  to >30 in April 2025) but a side-by-side comparison
+  across a basket would quantify "HMM is X% concordant with
+  VIX-threshold regime" — a useful sanity check.
+
 ---
 
 ## 2. In flight

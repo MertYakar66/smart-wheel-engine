@@ -528,6 +528,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_covered_call_ranker.py` | Launch-blocker invariant — the covered-call EV ranker schema and authority. |
 | `tests/test_strangle_ev_ranker.py` | Launch-blocker invariant — the strangle EV ranker composition and authority. |
 | `tests/test_ranker_transparency.py` | Launch-blocker invariant — ranker drop-log, regime label and `ev_raw` transparency. |
+| `tests/test_ranker_iv_pit.py` | Pin S23 F3 fix — the three rankers prefer `conn.get_iv_history(end_date=as_of)` over the snapshot `fundamentals['implied_vol_atm']`, with defensive fallback for connectors without `get_iv_history`. |
 | `tests/test_wheel_runner_select_book.py` | Launch-blocker invariant — `select_book` as a pure post-processor. |
 | `tests/test_wheel_runner_coverage.py` | `WheelRunner` coverage — analysis summary, connector selection, wheel score, screening. |
 | `tests/test_explore_ticker.py` | `WheelRunner.explore_ticker` — single-ticker (delta × DTE) grid surfacing for short-put EV exploration via the production EV path. |

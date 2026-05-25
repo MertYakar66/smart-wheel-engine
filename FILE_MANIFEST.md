@@ -581,6 +581,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_wheel_tracker_persistence.py` | `WheelTracker` JSON persistence round-trips. |
 | `tests/test_wheel_tracker_suggest_rolls.py` | Launch-blocker invariant — `suggest_rolls` properties and roll-EV regression. |
 | `tests/test_wheel_tracker_suggest_call_rolls.py` | Launch-blocker invariant — `suggest_call_rolls` properties and roll-EV regression. |
+| `tests/test_suggest_rolls_drops.py` | Pin S22 F1 fix — `suggest_rolls` and `suggest_call_rolls` emit `.attrs["drops"]` mirroring the ranker drop-log pattern; per-filter-site drop entries with conformant schema. |
 | `tests/test_mark_to_market_iv.py` | `WheelTracker.mark_to_market` IV-staleness fix regression. |
 | `tests/test_available_buying_power.py` | `WheelTracker.available_buying_power` CSP-collateral netting. |
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |

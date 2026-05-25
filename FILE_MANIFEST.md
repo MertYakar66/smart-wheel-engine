@@ -525,6 +525,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_audit_improvements.py` | Quant-correctness for the 2026-04 audit deliverables (forward distributions, empirical surface, survivorship). |
 | `tests/test_quant_upgrades.py` | Quant-correctness for the audit-III modules (tail risk, HMM, skew, copula, event gate). |
 | `tests/test_ev_engine_upgrades.py` | `EVEngine` upgrades — deterministic fallback, regime-multiplier clamp, Omega ratio. |
+| `tests/test_evengine_event_lockout.py` | `EVEngine.evaluate` event-lockout short-circuit — pins the blocked-branch return shape, boundary cases on `EventGate._event_touches_window`'s symmetric arithmetic, and §2-adjacent: dealer multiplier NOT applied when blocked. |
 | `tests/test_covered_call_ranker.py` | Launch-blocker invariant — the covered-call EV ranker schema and authority. |
 | `tests/test_strangle_ev_ranker.py` | Launch-blocker invariant — the strangle EV ranker composition and authority. |
 | `tests/test_ranker_transparency.py` | Launch-blocker invariant — ranker drop-log, regime label and `ev_raw` transparency. |

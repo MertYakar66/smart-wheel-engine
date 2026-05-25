@@ -3,7 +3,41 @@ Wheel Strategy Backtesting Engine.
 
 STATUS: RESEARCH / SIMULATION ONLY — NOT LAUNCH-GRADE.
 
-Audit (2026-04-14) known gaps (documented, not silently broken):
+§2 NON-COMPLIANCE (the load-bearing distinction)
+-------------------------------------------------
+
+This backtester is **NOT EVEngine-driven**. Three structural divergences
+from the production ranking path:
+
+* **Entry signals come from `_score_entry`** — a heuristic combining
+  ``rv_rank_252`` / ``trend_20d`` / ``rsi_14`` / ``above_sma_200`` /
+  ``drawdown_52w``, NOT :meth:`engine.ev_engine.EVEngine.evaluate`.
+* **Premiums are fabricated** via :meth:`_estimate_put_price` /
+  :meth:`_estimate_call_price` — BSM against ``realized_vol_20`` as
+  the IV proxy, NOT real chain data.
+* **Positions are opened on a `WheelTracker` with no
+  ``ev_authority_token``** (the tracker is constructed in non-strict
+  mode at :meth:`WheelBacktest.run`).
+
+`CLAUDE.md` §2 ("no tradeable candidate bypasses ``EVEngine.evaluate``")
+**does not apply** here because nothing this file produces is sanctioned
+as a tradeable candidate — the equity curve is a *heuristic* simulation
+result, not a forecast of the live engine.
+
+**Operators MUST NOT use this backtest's equity curve as a forecast of
+the live engine's performance.** For an EV-driven backtest of the same
+2022-2024 window, see ``docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md``
+(the S27 work that correctly used ``WheelRunner.rank_candidates_by_ev``).
+For the launch-grade ranking surface:
+
+    runner = WheelRunner()
+    df = runner.rank_candidates_by_ev(...)
+    tracker = WheelTracker(require_ev_authority=True)
+    for _, row in df.iterrows():
+        tracker.consume_ranker_row(row.to_dict(), entry_date=...)
+
+Audit (2026-04-14) known gaps (documented, not silently broken)
+----------------------------------------------------------------
 
 1. Uses CONSTANT entry IV for intermediate mark-to-market, not a daily
    IV trajectory. The fix in ``engine/shared_valuation.py::simulate_option_trade``
@@ -33,9 +67,7 @@ Audit (2026-04-14) known gaps (documented, not silently broken):
 6. Uses ``ml/wheel_model.py`` which itself is research-only and has
    purging-gap issues documented in that module's header.
 
-For launch-grade performance claims, use
-``WheelRunner.rank_candidates_by_ev`` live with the existing audit V
-guardrails (event gate + chain quality gate + history gate). This
+For launch-grade performance claims, use the EV chain above; this
 backtest exists as an offline research tool.
 
 Simulates wheel strategy execution with:

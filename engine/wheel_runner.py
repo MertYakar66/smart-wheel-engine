@@ -1255,8 +1255,20 @@ class WheelRunner:
             # Map slope -> multiplier in [0.85, 1.08]. Positive slope
             # (normal risk-off) cuts multiplier; negative slope (call-skew
             # risk-on, rare in equities) boosts it slightly.
+            #
+            # ``skew_source`` provenance (S29 Fix #1, mirrors S1B's
+            # ``oi_source`` / ``premium_source``): tells a trader whether
+            # ``skew_multiplier`` reflects measured chain data
+            # (``"chain"``) or just the unmeasured-default identity
+            # (``"unavailable"``). On the Bloomberg connector
+            # ``chain_df`` is always ``None`` (no ``get_options`` /
+            # ``get_option_chain`` method), so this column is the
+            # honest signal that ``skew_multiplier=1.0`` means
+            # "not measured" rather than "measured neutral". S29
+            # confirmed the block is uniformly dormant on Bloomberg.
             skew_mult = 1.0
             skew_diag: dict = {}
+            skew_source = "unavailable"
             if use_skew_dynamics and chain_df is not None and len(chain_df) > 0:
                 try:
                     from engine.skew_dynamics import skew_slope
@@ -1281,8 +1293,10 @@ class WheelRunner:
                                 # Anchor: slope=0 -> 1.0, slope=+0.20 -> 0.90,
                                 # slope=-0.10 -> 1.05. Clamp to [0.85, 1.08].
                                 skew_mult = float(np.clip(1.0 - 0.5 * slope, 0.85, 1.08))
+                                skew_source = "chain"
                 except Exception:
                     skew_mult = 1.0
+                    # Leave skew_source = "unavailable"; the calc failed.
 
             # News sentiment multiplier (per-ticker).
             news_mult = 1.0
@@ -1518,6 +1532,16 @@ class WheelRunner:
                         if skew_diag
                         else None,
                         "skew_multiplier": round(skew_mult, 4),
+                        # Provenance: "chain" means skew was measured from
+                        # the per-strike option chain; "unavailable" means
+                        # the connector has no chain access OR the chain
+                        # lacked the 25Δ points the slope calc needs. On
+                        # Bloomberg-CSV path this is always "unavailable"
+                        # (no get_options method); on Theta it reflects
+                        # per-call outcome. Closes S29 Fix #1 — separates
+                        # "measured neutral skew" from "not measured at
+                        # all" in the diagnostic row.
+                        "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
                         "news_multiplier": round(news_mult, 4),
@@ -2286,6 +2310,25 @@ class WheelRunner:
                     "distribution_source": method,
                 }
                 if include_diagnostic_fields:
+                    # Mirror the EVEngine dividend gate at
+                    # engine/ev_engine.py:355-361: the early-exercise
+                    # penalty fires only when option_type=="call"
+                    # (always true here) AND days_to_ex_div <= dte AND
+                    # expected_dividend > 0. When the gate would NOT
+                    # fire (e.g. ex-div falls outside the holding
+                    # window), the diagnostic column reads 0.0 — not
+                    # the upstream amount — so a trader inspecting the
+                    # row doesn't conclude the engine is factoring an
+                    # ex-div it isn't. Closes S28 Fix #1.
+                    applied_dividend = (
+                        expected_dividend
+                        if (
+                            days_to_ex_div is not None
+                            and days_to_ex_div <= int(new_dte)
+                            and expected_dividend > 0
+                        )
+                        else 0.0
+                    )
                     row.update(
                         {
                             "cvar_5": round(res.cvar_5, 2),
@@ -2303,7 +2346,7 @@ class WheelRunner:
                             "prob_touch": round(res.prob_touch, 4),
                             "total_transaction_cost": round(res.total_transaction_cost, 2),
                             "skew_pnl": round(res.skew_pnl, 3),
-                            "expected_dividend": round(expected_dividend, 4),
+                            "expected_dividend": round(applied_dividend, 4),
                             "regime_multiplier": round(res.regime_multiplier, 4),
                         }
                     )

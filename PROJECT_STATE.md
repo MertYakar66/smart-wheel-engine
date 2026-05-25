@@ -302,14 +302,23 @@ rewritten.**
 
 ## 4. Deprecated / phantom — do not extend
 
-- `src/` — phantom architecture from an earlier scaffold. Real
-  decision-layer code is in `engine/`, not `src/`. The pyproject
-  entrypoint `wheel = "src.cli:app"` targets a `src/cli.py` that does
-  **not exist**; coverage and `[tool.hatch] packages = ["src"]`
-  treat `src/` as load-bearing. Empty subpackages: `src/execution/`,
-  `src/models/`, `src/risk/`. Partially populated: `src/data/` (only
-  `schemas.py`, `validators.py`), `src/features/` (mirrors what
-  `data/features/` consumes), and `src/backtest/` (`wheel_backtest.py`).
+- `src/` — partial scaffold from an earlier layout. Real
+  decision-layer code is in `engine/`, not `src/`. The
+  `wheel = "src.cli:app"` pyproject entrypoint was removed under
+  ROADMAP B5 (no `[project.scripts]` section today); `src/` remains
+  a build target via `[tool.hatch.build.targets.wheel] packages = ["src"]`
+  and a coverage source via `[tool.coverage.run] source = ["src", …]`
+  (`pyproject.toml:68-72, 109`). Empty subpackages: `src/execution/`,
+  `src/models/`, `src/risk/`. Partially populated:
+  `src/data/` (only `schemas.py`, `validators.py`),
+  `src/features/` (`technical.py` is **live** — imported by
+  `engine/strangle_timing.py:31`, `engine/tv_signals.py:48`, and
+  `engine_api.py:1161`; other modules dormant), and
+  `src/backtest/` (`wheel_backtest.py` is a **heuristic** wheel
+  backtester — explicitly §2-non-compliant per its top-of-file
+  banner — distinct from the EV-driven path under
+  `WheelRunner.rank_candidates_by_ev` + `WheelTracker.consume_ranker_row`;
+  see `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`).
   Plan: either fully remove or fully repopulate. Until then, do not
   add new modules under `src/`.
 - `models/` — retained, not deleted as a placeholder: `ml/wheel_model.py`

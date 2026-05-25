@@ -26,9 +26,13 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from engine.wheel_tracker import WheelTracker
 
 logger = logging.getLogger(__name__)
 
@@ -2941,6 +2945,7 @@ class WheelRunner:
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
         universe_limit: int | None = None,
+        portfolio_context: Any | None = None,
     ) -> list:
         """Engine-first Mode B: rank by EV, then attach TradingView charts.
 
@@ -2969,6 +2974,34 @@ class WheelRunner:
                 :class:`EnginePhaseReviewer`.
             use_event_gate / earnings_buffer_days / macro_buffer_days /
                 universe_limit: Forwarded to :meth:`rank_candidates_by_ev`.
+            portfolio_context: Optional
+                :class:`engine.portfolio_risk_gates.PortfolioContext`
+                threaded into :func:`engine.candidate_dossier.build_dossiers`
+                and attached to every :class:`CandidateDossier` built
+                in this pass. When set, the dossier reviewer's D17
+                soft-warns fire live: **R7** (portfolio VaR_95 >
+                ``max_var_pct`` × NAV) and **R8** (stress drawdown
+                > 8% NAV OR underlying in ``short_gamma_amplifying``
+                regime) can downgrade a ``"proceed"`` to ``"review"``
+                against the held book.
+
+                When ``None`` (the default), R7 and R8 are no-ops —
+                soft-warns do not fire on absent evidence (Q3 of the
+                #154 C4 design checkpoint; matches D11's
+                "no silent substitution" principle). Construct the
+                context via
+                :meth:`engine.wheel_tracker.WheelTracker.portfolio_context_snapshot`
+                when you have a live tracker. The HTTP API
+                (:mod:`engine_api`) does **not** supply one — the
+                endpoint is stateless and has no held-book reference,
+                so R7/R8 remain dormant on ``/api/tv/dossier`` by
+                design.
+
+                Closes C3 from
+                ``docs/END_TO_END_REVIEW_2026_05_25.md`` by exposing
+                the parameter the underlying
+                :func:`~engine.candidate_dossier.build_dossiers`
+                already accepted.
 
         Returns:
             List of :class:`CandidateDossier` with full EV + chart +
@@ -3004,7 +3037,148 @@ class WheelRunner:
             reviewer=chart_reviewer,
             timeframe=chart_timeframe,  # type: ignore[arg-type]
             top_n=top_n,
+            portfolio_context=portfolio_context,
         )
+
+    # ------------------------------------------------------------------
+    # Production wire: rank → consume_ranker_row over the top-N
+    # ------------------------------------------------------------------
+    def consume_into_tracker(
+        self,
+        tracker: "WheelTracker",
+        entry_date: date,
+        *,
+        rank_kwargs: dict[str, Any] | None = None,
+        top_n_to_consume: int | None = None,
+        expiration_date: date | None = None,
+    ) -> list[dict[str, Any]]:
+        """End-to-end production wire: rank → ``consume_ranker_row``.
+
+        Loops :meth:`engine.wheel_tracker.WheelTracker.consume_ranker_row`
+        over the top-N rows of :meth:`rank_candidates_by_ev`, capturing
+        per-row outcomes. The wire is:
+
+        ``rank_candidates_by_ev`` →
+        :meth:`~engine.wheel_tracker.WheelTracker.issue_ev_authority_token`
+        (D16 launch gate refuses non-positive ``ev_dollars``) →
+        :meth:`~engine.wheel_tracker.WheelTracker.open_short_put`
+        with ``current_ev_dollars`` (D16 fresh-EV stale-check + D17
+        portfolio-risk hard-blocks when ``require_ev_authority=True``).
+
+        Refusals at any stage (D16 ``EVAuthorityRefused``, D17
+        sector-cap / portfolio-delta / Kelly hard-block, stale-EV,
+        duplicate position, insufficient cash, NAV exhaustion) are
+        caught and recorded rather than raised — the helper is
+        loop-safe so a single bad row does not abort the campaign.
+        Callers inspect the returned outcomes to know what fired and
+        what refused.
+
+        Closes C4 from ``docs/END_TO_END_REVIEW_2026_05_25.md`` and
+        TERMINAL_A_AUDIT.md cross-cutting #4: until this method
+        landed, the rank-to-tracker chain was the operator's
+        responsibility to wire row-by-row. D16 / D17 hardening was a
+        contract for *direct* tracker callers (tests today), not the
+        ranker chain operators run.
+
+        Args:
+            tracker: The :class:`~engine.wheel_tracker.WheelTracker`
+                positions land in. For production use this should be
+                constructed with ``require_ev_authority=True`` so the
+                D16 token + D17 hard-blocks gate the fire path; the
+                helper itself does not enforce that — it surfaces
+                refusals if they happen but does not require the
+                caller to use strict mode.
+            entry_date: Trade entry date passed through to
+                :meth:`~engine.wheel_tracker.WheelTracker.consume_ranker_row`.
+            rank_kwargs: Keyword arguments forwarded to
+                :meth:`rank_candidates_by_ev`. Use to control the
+                ranker (``dte_target``, ``delta_target``, ``as_of``,
+                ``universe_limit``, ``tickers`` subset, etc.).
+                ``top_n`` is overridden — see ``top_n_to_consume``
+                below. ``include_diagnostic_fields`` is forced True
+                because the token-hash canonicalisation reads
+                ``distribution_source``.
+            top_n_to_consume: How many of the ranker's top rows to
+                feed into ``consume_ranker_row``. Defaults to the
+                ranker's own ``top_n`` (default 20). Bounded by the
+                ranker's actual output size.
+            expiration_date: Optional explicit expiration; passed
+                through to ``consume_ranker_row``. When ``None``,
+                ``consume_ranker_row`` defaults to
+                ``entry_date + row['dte']``.
+
+        Returns:
+            A list of per-row outcome dicts, in ranking order:
+
+            ``{
+                "ticker": str,
+                "ev_dollars": float,
+                "opened": bool,           # tracker accepted + position landed
+                "refusal_reason": str | None,  # None on success
+            }``
+
+            Possible ``refusal_reason`` values:
+
+            * ``"ev_authority_refused"`` — ``ev_dollars <= 0`` at
+              token issuance (D16); should not happen with the
+              default ``min_ev_dollars=0.0`` filter on the ranker,
+              but is caught for callers who relax the floor.
+            * ``"tracker_rejected"`` — :meth:`open_short_put`
+              returned False (stale-EV, D17 hard-block, duplicate
+              ticker, insufficient cash, or NAV exhaustion). Inspect
+              ``tracker._ev_authority_log`` for the structured reason.
+            * ``"unexpected_exception"`` — any other exception
+              during the per-row consume. The exception string is
+              appended to the reason for triage.
+
+            Empty list when the ranker returns no rows.
+        """
+        from engine.wheel_tracker import EVAuthorityRefused
+
+        rank_kwargs = dict(rank_kwargs or {})
+        # Force the schema flag the token-hash needs.
+        rank_kwargs["include_diagnostic_fields"] = True
+
+        df = self.rank_candidates_by_ev(**rank_kwargs)
+        if df is None or len(df) == 0:
+            return []
+
+        if top_n_to_consume is not None:
+            df = df.head(int(top_n_to_consume))
+
+        outcomes: list[dict[str, Any]] = []
+        for _, row in df.iterrows():
+            row_dict = row.to_dict()
+            ticker = str(row_dict.get("ticker", ""))
+            ev_dollars = float(row_dict.get("ev_dollars", 0.0) or 0.0)
+            outcome: dict[str, Any] = {
+                "ticker": ticker,
+                "ev_dollars": ev_dollars,
+                "opened": False,
+                "refusal_reason": None,
+            }
+            try:
+                opened = tracker.consume_ranker_row(
+                    row_dict, entry_date=entry_date, expiration_date=expiration_date
+                )
+            except EVAuthorityRefused:
+                # D16 launch-gate refusal — ev_dollars <= 0 at issuance.
+                # Token never issued; position not opened. Audit log on
+                # the tracker records ``action="refuse_issue"``.
+                outcome["refusal_reason"] = "ev_authority_refused"
+            except Exception as exc:  # pragma: no cover — defensive
+                outcome["refusal_reason"] = f"unexpected_exception:{exc!r}"
+            else:
+                outcome["opened"] = bool(opened)
+                if not opened:
+                    # ``consume_ranker_row`` returned False — the tracker
+                    # logged the reason on ``_ev_authority_log``
+                    # (e.g. stale_ev, sector_cap, portfolio_delta,
+                    # kelly_blocked, duplicate ticker, insufficient cash).
+                    outcome["refusal_reason"] = "tracker_rejected"
+            outcomes.append(outcome)
+
+        return outcomes
 
     def portfolio_report(
         self,

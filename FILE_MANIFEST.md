@@ -244,6 +244,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
+| `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` | S27 follow-up to PR #178's `ENGINE_BACKTEST_2022_2024.md`: re-runs the same 2022-2024 backtest against the post-fix engine (`claude/fix-ranker-iv-pit-aware` `d26a8d6`). Side-by-side ρ / quartile / per-year / tail-episode comparison. Verdict: signal preserved at ρ=0.22 (halved); 2022 bear actually stronger; F4 tail-risk gap confirmed real. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/data_inventory_2026-05-17.md` | Point-in-time data-inventory analysis report. |
 | `docs/optionsengine_audit_2026-05-17.md` | Point-in-time accuracy audit of the archived `OptionsEngine.txt` walkthrough. |
@@ -526,6 +527,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_audit_improvements.py` | Quant-correctness for the 2026-04 audit deliverables (forward distributions, empirical surface, survivorship). |
 | `tests/test_quant_upgrades.py` | Quant-correctness for the audit-III modules (tail risk, HMM, skew, copula, event gate). |
 | `tests/test_ev_engine_upgrades.py` | `EVEngine` upgrades — deterministic fallback, regime-multiplier clamp, Omega ratio. |
+| `tests/test_evengine_event_lockout.py` | `EVEngine.evaluate` event-lockout short-circuit — pins the blocked-branch return shape, boundary cases on `EventGate._event_touches_window`'s symmetric arithmetic, and §2-adjacent: dealer multiplier NOT applied when blocked. |
 | `tests/test_covered_call_ranker.py` | Launch-blocker invariant — the covered-call EV ranker schema and authority. |
 | `tests/test_strangle_ev_ranker.py` | Launch-blocker invariant — the strangle EV ranker composition and authority. |
 | `tests/test_ranker_transparency.py` | Launch-blocker invariant — ranker drop-log, regime label and `ev_raw` transparency. |

@@ -576,6 +576,88 @@ class WheelTracker:
 
         return True
 
+    def consume_ranker_row(
+        self,
+        row: dict,
+        entry_date: date,
+        expiration_date: date | None = None,
+    ) -> bool:
+        """Canonical wire from a ranker row to a tracker short-put open.
+
+        Issues an EV-authority token from ``row`` (D16: refuses
+        non-positive ``ev_dollars`` at issuance by raising
+        :class:`EVAuthorityRefused`) and consumes it via
+        :meth:`open_short_put` with ``current_ev_dollars`` plumbed
+        from the same row.
+
+        This is the production-caller helper the operator-facing chain
+        is meant to use end to end:
+        :meth:`engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+        produces ``row``; the operator (or the dashboard / dossier
+        consumer) calls this once per row they want to enter. Without
+        this helper every consumer would re-implement the same
+        token-issue / token-consume / current_ev_dollars boilerplate
+        and drift from D16's contract.
+
+        Behaviour:
+
+        - :meth:`issue_ev_authority_token` runs first. If
+          ``row['ev_dollars'] <= 0`` it raises
+          :class:`EVAuthorityRefused` — the exception propagates so
+          the caller knows R1 refused at the launch gate.
+        - :meth:`open_short_put` runs next, with the just-issued token
+          and ``current_ev_dollars=row['ev_dollars']``. Its return
+          value (True on success, False on stale-EV reject / D17
+          hard-block / duplicate position / insufficient cash) is
+          returned as-is.
+
+        ``expiration_date`` defaults to
+        ``entry_date + timedelta(days=row['dte'])``; pass an explicit
+        date for calendar-exact control.
+
+        Currently short-put only. ``rank_covered_calls_by_ev`` has a
+        separate downstream surface (:meth:`open_covered_call`); a
+        ``consume_covered_call_row`` helper mirroring this one is a
+        trivial follow-up.
+
+        Args:
+            row: A row from
+                :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+                — must carry ``ticker`` / ``strike`` / ``premium`` /
+                ``dte`` / ``ev_dollars`` / ``iv`` /
+                ``distribution_source`` (the canonicalised fields the
+                token hashes over) and optionally ``prob_profit``.
+            entry_date: Trade entry date.
+            expiration_date: Explicit expiration date. Defaults to
+                ``entry_date + timedelta(days=row['dte'])``.
+
+        Returns:
+            The :meth:`open_short_put` bool. ``True`` if the position
+            opened; ``False`` if any downstream gate refused (stale EV,
+            D17 hard-block, duplicate ticker, or insufficient cash).
+
+        Raises:
+            EVAuthorityRefused: when ``row['ev_dollars'] <= 0``.
+        """
+        if expiration_date is None:
+            dte = int(row.get("dte", 0) or 0)
+            expiration_date = entry_date + timedelta(days=dte)
+
+        token = self.issue_ev_authority_token(row)
+        prob_profit_raw = row.get("prob_profit")
+        prob_profit = float(prob_profit_raw) if prob_profit_raw is not None else None
+        return self.open_short_put(
+            ticker=str(row["ticker"]),
+            strike=float(row["strike"]),
+            premium=float(row["premium"]),
+            entry_date=entry_date,
+            expiration_date=expiration_date,
+            iv=float(row.get("iv", 0.0) or 0.0),
+            ev_authority_token=token,
+            current_ev_dollars=float(row["ev_dollars"]),
+            prob_profit=prob_profit,
+        )
+
     def close_short_put(
         self, ticker: str, buyback_price: float, exit_date: date, reason: str = "early_exit"
     ) -> dict | None:
@@ -1520,6 +1602,88 @@ class WheelTracker:
 
         return total_value
 
+    def portfolio_context_snapshot(
+        self,
+        spot_prices: dict[str, float] | None = None,
+        *,
+        dealer_regime_by_ticker: dict[str, str] | None = None,
+        returns_data: object | None = None,
+        correlation_matrix: object | None = None,
+        volatilities: dict[str, float] | None = None,
+        today: date | None = None,
+        risk_free_rate: float = 0.04,
+    ):
+        """Build a `PortfolioContext` from current tracker state.
+
+        Convenience constructor for the D17 dossier soft-warns. Pass
+        the returned context to
+        :func:`engine.candidate_dossier.build_dossiers` so the
+        reviewer's R7 / R8 rules fire live for every dossier in a
+        ranking pass instead of skipping for absent evidence.
+
+        The snapshot is a *thin* projection of tracker state:
+
+        - ``held_option_positions`` + ``stock_holdings`` come from
+          :func:`engine.portfolio_risk_gates.take_snapshot` over
+          ``self.positions``.
+        - ``nav`` is computed via :meth:`mark_to_market` with the
+          supplied ``spot_prices`` (empty dict if ``None``; the
+          resulting marks fall through to entry-IV / stock-basis
+          when a ticker's spot is absent).
+        - ``spot_prices``, ``dealer_regime_by_ticker``, ``returns_data``,
+          ``correlation_matrix``, ``volatilities`` are pass-through;
+          absent values keep the matching R7 / R8 branch on its
+          missing-data skip per the Q3 design rule
+          (soft-warns don't fire on absent evidence).
+
+        Cheap to call once per ranking pass. No I/O beyond what
+        :meth:`mark_to_market` does — the connector is consulted
+        only if it is attached and ``current_ivs`` is not supplied
+        for a ticker.
+
+        Args:
+            spot_prices: ``{ticker: spot_price}`` for live marks. Empty
+                dict falls through to entry-state marks. Also passed
+                through to the resulting context so the dossier
+                reviewer's R7 / R8 see the same spots.
+            dealer_regime_by_ticker: Optional ticker → regime string
+                map for R8's short-gamma trigger.
+            returns_data: Optional historical returns for the
+                ``check_var`` historical path.
+            correlation_matrix: Optional correlation matrix for
+                ``check_var``'s covariance path.
+            volatilities: Optional per-ticker vol overrides for the
+                covariance path.
+            today: Reference date for DTE computation inside the
+                snapshot. Defaults to ``date.today()``; injectable for
+                deterministic tests.
+            risk_free_rate: Forwarded to :meth:`mark_to_market`.
+
+        Returns:
+            A fresh :class:`engine.portfolio_risk_gates.PortfolioContext`
+            reflecting tracker state as of ``today``.
+        """
+        from .portfolio_risk_gates import PortfolioContext, take_snapshot
+
+        if today is None:
+            today = date.today()
+        if spot_prices is None:
+            spot_prices = {}
+
+        snap = take_snapshot(self.positions, today=today)
+        nav = self.mark_to_market(today, prices=dict(spot_prices), risk_free_rate=risk_free_rate)
+
+        return PortfolioContext(
+            held_option_positions=list(snap.option_positions),
+            spot_prices=dict(spot_prices),
+            stock_holdings=list(snap.stock_holdings),
+            nav=float(nav),
+            dealer_regime_by_ticker=dealer_regime_by_ticker,
+            returns_data=returns_data,
+            correlation_matrix=correlation_matrix,
+            volatilities=volatilities,
+        )
+
     # ------------------------------------------------------------------
     # D17 — live NAV + portfolio-risk hard-block orchestration
     # ------------------------------------------------------------------
@@ -1928,6 +2092,17 @@ class WheelTracker:
               trade
             * ``recommend`` — ``True`` iff ``roll_ev > hold_ev``
 
+            The returned frame's ``.attrs["drops"]`` carries a
+            structured list of dicts -- one per grid cell that did
+            NOT survive the per-candidate filters (strike solve /
+            OTM check / premium thinness / min_net_credit). Each
+            entry is ``{"new_dte", "target_delta", "gate", "reason"}``
+            with ``gate`` one of ``dte``, ``strike``, ``premium``,
+            ``credit``. Mirrors
+            :meth:`engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+            (S22 F1). Pure observability: survivor rows and
+            EVEngine.evaluate calls are unchanged.
+
         Notes — the EV metric
         ---------------------
         Both ``hold_ev`` and ``roll_ev`` express the **expected dollar
@@ -2032,7 +2207,9 @@ class WheelTracker:
         dte_remaining = (pos.put_expiration_date - as_of).days
         if dte_remaining <= 0:
             # At/past expiry — rolling is moot, caller handles expiry/assignment.
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = []
+            return out
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_rolls is per-contract by convention
 
@@ -2047,7 +2224,9 @@ class WheelTracker:
         )
         if buyback_value_per_share <= 0.0:
             # Essentially worthless put — holding wins, no roll can beat that.
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = []
+            return out
 
         # Full dollar cost to close the current put: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2115,9 +2294,25 @@ class WheelTracker:
         hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier
 
         # ---------------- enumerate roll candidates ----------------
+        # S22 F1: drops accumulator mirrors the rank_candidates_by_ev /
+        # rank_covered_calls_by_ev pattern (.attrs["drops"]). Pre-fix the
+        # silent `continue` at each filter site made the asymmetry
+        # between "no candidate considered" and "considered, dropped"
+        # invisible; S22 saw 13 of 16 grid cells silently filtered with
+        # no diagnostic. Additive observability only — survivor rows
+        # are byte-for-byte unchanged.
         rows: list[dict] = []
+        drops: list[dict] = []
         for new_dte in target_dtes:
             if new_dte <= 0:
+                drops.append(
+                    {
+                        "new_dte": int(new_dte),
+                        "target_delta": None,
+                        "gate": "dte",
+                        "reason": f"new_dte {new_dte} <= 0",
+                    }
+                )
                 continue
             T_new = new_dte / 365.0
             new_expiry = as_of + timedelta(days=int(new_dte))
@@ -2131,9 +2326,28 @@ class WheelTracker:
                     target_delta=tgt_delta,
                 )
                 if new_strike_raw is None:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "strike",
+                            "reason": "delta-to-strike solve did not converge",
+                        }
+                    )
                     continue
                 new_strike = round(new_strike_raw * 2) / 2  # nearest $0.50
                 if new_strike <= 0 or new_strike >= current_spot:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "strike",
+                            "reason": (
+                                f"solved strike {new_strike} not OTM put vs spot "
+                                f"{current_spot:.2f} (must be 0 < strike < spot)"
+                            ),
+                        }
+                    )
                     continue
                 new_premium = black_scholes_price(
                     S=current_spot,
@@ -2145,9 +2359,28 @@ class WheelTracker:
                     q=dividend_yield,
                 )
                 if new_premium < 0.05:
-                    continue  # too thin to trade
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "premium",
+                            "reason": (f"BSM premium {new_premium:.4f} < 0.05 (too thin to trade)"),
+                        }
+                    )
+                    continue
                 net_credit_debit = (new_premium - buyback_value_per_share) * multiplier
                 if net_credit_debit < min_net_credit:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "credit",
+                            "reason": (
+                                f"net_credit_debit {net_credit_debit:.2f} "
+                                f"< min_net_credit {min_net_credit:.2f}"
+                            ),
+                        }
+                    )
                     continue
                 new_trade = ShortOptionTrade(
                     option_type="put",
@@ -2188,9 +2421,12 @@ class WheelTracker:
                 )
 
         if not rows:
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = drops
+            return out
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
+        df.attrs["drops"] = drops
         return df
 
     def suggest_call_rolls(
@@ -2259,6 +2495,11 @@ class WheelTracker:
             ``target_delta`` the call delta, ``prob_otm`` the probability
             the short call expires worthless. Empty (but correctly
             shaped) when no candidate survives.
+
+            The returned frame's ``.attrs["drops"]`` carries the same
+            ``{"new_dte", "target_delta", "gate", "reason"}`` diagnostic
+            list as :meth:`suggest_rolls` -- S22 F1 fix. Pure
+            observability.
 
         Notes -- the EV metric
         ----------------------
@@ -2334,7 +2575,9 @@ class WheelTracker:
         dte_remaining = (pos.call_expiration_date - as_of).days
         if dte_remaining <= 0:
             # At/past expiry - rolling is moot; caller handles expiry/assignment.
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = []
+            return out
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_call_rolls is per-contract by convention
 
@@ -2349,7 +2592,9 @@ class WheelTracker:
         )
         if buyback_value_per_share <= 0.0:
             # Essentially worthless call - holding wins, no roll can beat it.
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = []
+            return out
 
         # Full dollar cost to close the current call: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2417,9 +2662,21 @@ class WheelTracker:
         hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier
 
         # ---------------- enumerate roll candidates ----------------
+        # S22 F1: drops accumulator mirrors suggest_rolls and the ranker
+        # diagnostic surface. Additive observability; survivor rows
+        # unchanged.
         rows: list[dict] = []
+        drops: list[dict] = []
         for new_dte in target_dtes:
             if new_dte <= 0:
+                drops.append(
+                    {
+                        "new_dte": int(new_dte),
+                        "target_delta": None,
+                        "gate": "dte",
+                        "reason": f"new_dte {new_dte} <= 0",
+                    }
+                )
                 continue
             T_new = new_dte / 365.0
             new_expiry = as_of + timedelta(days=int(new_dte))
@@ -2433,9 +2690,28 @@ class WheelTracker:
                     target_delta=tgt_delta,
                 )
                 if new_strike_raw is None:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "strike",
+                            "reason": "delta-to-strike solve did not converge",
+                        }
+                    )
                     continue
                 new_strike = round(new_strike_raw * 2) / 2  # nearest $0.50
                 if new_strike <= current_spot:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "strike",
+                            "reason": (
+                                f"solved strike {new_strike} not OTM call vs spot "
+                                f"{current_spot:.2f} (must be > spot)"
+                            ),
+                        }
+                    )
                     continue  # a covered call is sold OTM (strike above spot)
                 new_premium = black_scholes_price(
                     S=current_spot,
@@ -2447,9 +2723,28 @@ class WheelTracker:
                     q=dividend_yield,
                 )
                 if new_premium < 0.05:
-                    continue  # too thin to trade
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "premium",
+                            "reason": (f"BSM premium {new_premium:.4f} < 0.05 (too thin to trade)"),
+                        }
+                    )
+                    continue
                 net_credit_debit = (new_premium - buyback_value_per_share) * multiplier
                 if net_credit_debit < min_net_credit:
+                    drops.append(
+                        {
+                            "new_dte": int(new_dte),
+                            "target_delta": float(tgt_delta),
+                            "gate": "credit",
+                            "reason": (
+                                f"net_credit_debit {net_credit_debit:.2f} "
+                                f"< min_net_credit {min_net_credit:.2f}"
+                            ),
+                        }
+                    )
                     continue
                 new_trade = ShortOptionTrade(
                     option_type="call",
@@ -2490,7 +2785,10 @@ class WheelTracker:
                 )
 
         if not rows:
-            return pd.DataFrame(columns=_ROLL_COLUMNS)
+            out = pd.DataFrame(columns=_ROLL_COLUMNS)
+            out.attrs["drops"] = drops
+            return out
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
+        df.attrs["drops"] = drops
         return df

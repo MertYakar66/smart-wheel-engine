@@ -4,6 +4,38 @@ The full suite is `pytest tests/ -v` (~2,100 tests).
 
 Markers and hypothesis profiles are wired in `conftest.py`.
 
+## Two-axis verification
+
+The pytest suite is one of two complementary verification surfaces;
+they answer different questions and feed each other.
+
+| Surface | Question it answers | Source of truth |
+|---|---|---|
+| `tests/` (this file) | "Does the engine still produce the right output as code evolves?" — continuous red-green regression | ~2,100+ pytest functions; CI gates merges on the full suite plus `--cov-fail-under=80` |
+| `docs/USAGE_TEST_LEDGER.md` | "Did the engine produce realistic output on this scenario one time?" — one-shot trader-meaningful walkthroughs | Sn entries S1–S30; Realism Check tables (S25 onward) compare engine output to Bloomberg CSV / IV file / real market moves row by row |
+
+**Promotion path: Sn finding → pytest test.** When an Sn walkthrough
+surfaces a real invariant or a real gap, the finding gets promoted
+into the regression suite so it can't silently regress. Recent examples:
+
+| Sn finding | Promoted to | PR |
+|---|---|---|
+| F4 tail-risk gap (COST 2022-04-04 / UNH 2024-11-11 deep drawdowns; S22 + S27) | `tests/test_f4_tail_risk_gap.py` | #196 |
+| Dealer multiplier `[0.70, 1.05]` clamp survives integration to `EVResult.dealer_multiplier` | `tests/test_dealer_multiplier_evengine_integration.py` | #193 |
+| `consume_ranker_row` chain with real ranker output | `tests/test_consume_ranker_row_anchor.py` | #186 |
+| `EVEngine.evaluate` event-lockout short-circuit | `tests/test_evengine_event_lockout.py` | #185 |
+
+The `xfail` markers in `test_f4_tail_risk_gap.py` are the
+regression-watch contract for findings that aren't fixed yet: if the
+engine ever starts producing the correct value, the xfail flips to
+pass and the suite tells us.
+
+**Third surface: predictive validity.** Whether `ev_dollars` actually
+correlates with realized P&L over many trades lives on the *backtest*
+axis — `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` reports
+Spearman ρ = 0.2183 post-PIT-fix (vs. the pre-fix ρ = 0.4838 that
+was inflated by the snapshot-IV bug).
+
 ## Test taxonomy
 
 Filenames don't always reveal intent — some `test_audit_*` files pin

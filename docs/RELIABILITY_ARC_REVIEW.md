@@ -236,7 +236,7 @@ expected behaviour given GIL + slice atomicity.
 ### G4 — lock-free nonce check-then-set
 
 ```python
-# engine_api.py:126-143 (function definition)
+# engine_api.py:125-143 (function definition)
 def _tv_seen_register(digest: str, now: float) -> bool:
     """..."""
     cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC

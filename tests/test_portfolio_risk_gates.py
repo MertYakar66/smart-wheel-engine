@@ -24,8 +24,10 @@ import pytest
 
 from engine.portfolio_risk_gates import (
     _C4_VOL_SPIKE_SCENARIO,
+    _DEFAULT_ALT_CLUSTERS,
     GateResult,
     PortfolioSnapshot,
+    check_alt_cluster_cap,
     check_dealer_regime,
     check_kelly_size,
     check_portfolio_delta,
@@ -244,6 +246,138 @@ class TestCheckSectorCap:
         )
         assert result.passed is True
         assert result.details["sector"] == "Crypto"
+
+
+# ======================================================================
+# 2b. check_alt_cluster_cap — S31 Fix #5 colloquial-cluster overlay
+# ======================================================================
+class TestCheckAltClusterCap:
+    """The S31 F6 complementary fix: a GICS-strict sector cap doesn't
+    aggregate AAPL (Info Tech) + TSLA (Cons Disc) + GOOGL (Comm Svcs)
+    as "tech" even though traders think of them that way. The
+    alt-cluster gate adds that aggregation, configurable per-call.
+    Default cap is 0.40 (looser than the 0.25 sector cap because
+    clusters are wider). Default cluster set ships one named cluster:
+    `mega_cap_growth = {AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA,
+    AVGO}`."""
+
+    def test_empty_portfolio_passes(self):
+        result = check_alt_cluster_cap(
+            symbol="AAPL",
+            proposed_notional=18_000.0,
+            held_option_positions=[],
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.reason is None
+        assert "cluster_memberships" in result.details
+        assert "mega_cap_growth" in result.details["cluster_memberships"]
+
+    def test_symbol_outside_all_clusters_passes_silently(self):
+        """Per the design — clusters are intentionally tight; a symbol
+        in NO cluster gets a silent pass with empty memberships, NOT a
+        rejection (mirrors the "missing data → skip" semantics)."""
+        result = check_alt_cluster_cap(
+            symbol="XOM",  # not in any default cluster
+            proposed_notional=50_000.0,
+            held_option_positions=[],
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.details["cluster_memberships"] == []
+        assert result.details["max_post_open_cluster_pct"] == 0.0
+
+    def test_three_tech_then_tsla_breaches_mega_cap_growth_cluster(self):
+        """The S31 F6 scenario: 3 IT puts (AAPL, MSFT, NVDA) already
+        held; trader proposes TSLA. GICS sector_cap passes (TSLA is
+        Consumer Discretionary, isolated from Information Technology),
+        but the alt-cluster gate fires because all four belong to the
+        mega_cap_growth cluster which adds up over the 40% cap."""
+        held = [
+            # Each at $240 strike = $24k notional each = $72k total = 72% of NAV
+            # already in cluster — well over the 40% cap.
+            {"symbol": "AAPL", "strike": 240.0, "contracts": 1},
+            {"symbol": "MSFT", "strike": 240.0, "contracts": 1},
+            {"symbol": "NVDA", "strike": 240.0, "contracts": 1},
+        ]
+        result = check_alt_cluster_cap(
+            symbol="TSLA",
+            proposed_notional=20_000.0,  # any positive
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is False
+        assert result.reason == "alt_cluster_cap_breach"
+        assert result.details["breaching_cluster"] == "mega_cap_growth"
+        assert result.details["post_open_cluster_pct"] > 0.40
+        assert "mega_cap_growth" in result.details["cluster_memberships"]
+        assert "narrative" in result.details
+
+    def test_small_proposed_under_loose_cluster_cap_passes(self):
+        """One small held position + small new position — well under
+        the 40% default cap."""
+        held = [{"symbol": "AAPL", "strike": 180.0, "contracts": 1}]  # $18k = 18%
+        result = check_alt_cluster_cap(
+            symbol="MSFT",
+            proposed_notional=15_000.0,  # 18 + 15 = 33%, < 40%
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.details["max_post_open_cluster_pct"] < 0.40
+
+    def test_custom_clusters_override_default(self):
+        """Operators with a different mental model pass their own
+        cluster definitions — the gate honors them."""
+        custom_clusters = {
+            "banks_meme": frozenset({"GME", "AMC", "JPM"}),
+        }
+        result = check_alt_cluster_cap(
+            symbol="GME",
+            proposed_notional=50_000.0,
+            held_option_positions=[{"symbol": "AMC", "strike": 100.0, "contracts": 1}],
+            nav=100_000.0,
+            clusters=custom_clusters,
+            max_cluster_pct=0.50,
+        )
+        # AMC at 10k + GME 50k = 60% > 50% → breach
+        assert result.passed is False
+        assert result.details["breaching_cluster"] == "banks_meme"
+
+    def test_post_open_pct_keys_are_pass_fail_symmetric(self):
+        """Mirrors the S31 F7 fix on check_sector_cap: pass and fail
+        details must use consistent keys. Both paths emit
+        `max_post_open_cluster_pct` and `cluster_limit`."""
+        passing = check_alt_cluster_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=[],
+            nav=100_000.0,
+        )
+        failing = check_alt_cluster_cap(
+            symbol="TSLA",
+            proposed_notional=50_000.0,
+            held_option_positions=[
+                {"symbol": "AAPL", "strike": 400.0, "contracts": 1},
+            ],
+            nav=100_000.0,
+        )
+        assert passing.passed is True
+        assert failing.passed is False
+        for d in (passing.details, failing.details):
+            assert "max_post_open_cluster_pct" in d
+            assert "cluster_limit" in d
+            assert "cluster_memberships" in d
+
+    def test_default_clusters_contains_mega_cap_growth(self):
+        """The shipped default cluster set names the most common
+        trader-mental-model cluster."""
+        assert "mega_cap_growth" in _DEFAULT_ALT_CLUSTERS
+        members = _DEFAULT_ALT_CLUSTERS["mega_cap_growth"]
+        # The five FAAMG names + NVDA / TSLA / AVGO that recur in
+        # institutional-wheel-trader feedback as "the cluster".
+        for required in ("AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO"):
+            assert required in members, f"{required} should be in mega_cap_growth"
 
 
 # ======================================================================

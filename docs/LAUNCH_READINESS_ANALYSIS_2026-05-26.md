@@ -263,6 +263,81 @@ until 504 trading days accumulate.**
 
 Full doc: `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` (PR #224).
 
+### 1.9. Where does the dollar alpha come from? (added 2026-05-26 post-soundness-review)
+
+The earlier sections framed the engine's "+27pp over SPY" (S22/S27)
+and "+11.6pp over SPY" (S34) as primarily driven by put-selection
+skill. The skeptical re-review in
+`docs/SOUNDNESS_REVIEW_2026-05-26.md` (PR #229) found this framing
+is **mechanically incomplete** and corrects it as follows.
+
+Mechanical decomposition of each backtest's NAV gain:
+
+| Backtest | NAV gain | Realized P&L from executed trades | Equity-beta residual |
+|---|---|---|---|
+| S27 ($100k 24t 2022-2024) | +$51,444 | **−$3,421 (NEGATIVE)** | +$54,865 |
+| S32 ($1M 24t 2022-2024) | +$18,514 | +$15,290 | +$3,224 |
+| **S34 ($1M 100t 2022-2024)** | +$356,128 | +$28,571 | **+$327,557 (92% of gain)** |
+| S35 ($100k 24t 2018-2020) | +$3,566 | **−$48,326 (NEGATIVE)** | +$51,892 |
+
+**Two of four backtests had NEGATIVE realized P&L from executed
+trades.** In those backtests (S27 and S35), all the NAV growth came
+from STOCK APPRECIATION on positions that got assigned and were then
+held. The engine's "alpha" was 100% equity beta on assignments.
+
+In the most favourable backtest (S34), **only 8% of the NAV gain
+came from put-selection alpha**; the other 92% came from equity
+beta on assigned positions during the 2023-2024 bull market.
+
+**Interpretation:** the wheel strategy by design captures equity
+beta. When a put is assigned, the seller takes delivery of the stock
+at the strike, then participates in subsequent equity moves. This is
+not a defect — it's how the wheel works.
+
+**But the engine's value proposition deserves more precision:**
+- **Ranker quality** (positive Spearman ρ, robust to concentration):
+  small per-trade dollar contribution, statistically significant
+  edge. The engine is genuinely good at *relative* ranking.
+- **Refusal mechanism**: 97-99.8% refusal in adverse periods,
+  correct in aggregate (refused candidates averaged $-200 to $-400
+  per trade if blindly entered). **This is the engine's strongest
+  defensible property.**
+- **Dollar outcome at scale**: dominated by equity beta on
+  assignments. In bull markets (2023-2024), this drives big NAV
+  gains. In bear / sideways markets (2018-2020), this drags or
+  goes negative.
+
+**Concentration risk amplifies the above.** In S34, BKNG alone
+contributed $31,576 of $28,571 total executed realized P&L (110%
+of net). Without BKNG, the engine's realized executions across 268
+other trades summed to **−$3,004**. The signal IS robust to BKNG
+removal (ρ 0.327 → 0.324), but the **dollar outcome at scale
+depends materially on a few high-priced ticker outliers tracking
+correctly**.
+
+**Revised honest framing of the "engine beats SPY" claim:**
+
+> *The engine has a real ranker and a strong refusal mechanism. The
+> wheel-strategy harness around them captures equity beta in bull
+> markets via assignments and prevents catastrophic losses in bears
+> via refusal. The dollar alpha at scale comes mostly from the
+> equity beta path, not from pure put-selection skill — and is
+> regime-dependent (window) and concentration-sensitive
+> (one or two high-priced tickers can dominate).*
+
+This framing doesn't change the deployment matrix verdicts (§3 is
+unchanged) but it clarifies WHY they hold. Specifically:
+- Supervised use at $100k or $1M-with-100-tickers remains
+  defensible, but with the explicit understanding that the
+  engine's dollar value is largely a levered-SPY-subset bet, not
+  pure premium edge.
+- Autonomous use remains blocked not just by F4 / D17-live /
+  multi-window-confirmation, but ALSO by the fact that
+  unsupervised autonomous deployment would be a thinly-disguised
+  levered equity beta bet.
+
+Full mechanical evidence in `docs/SOUNDNESS_REVIEW_2026-05-26.md`.
+
 ---
 
 ## 2. The five-pillar verification

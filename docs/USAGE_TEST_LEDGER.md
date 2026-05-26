@@ -5742,59 +5742,202 @@ dormant on Bloomberg the same way S29 found for skew.**
   "rescue-debit roll." Same observability pattern as F1 and
   F3. **Logged.**
 
-- **§2 verified.** Across all six checks: (a) the dealer
-  multiplier never moved outside `[0.70, 1.05]` (always 1.0
-  on Bloomberg); (b) every ranker-output row was generated via
-  `EVEngine.evaluate` (the survivors AVGO/NVDA have
-  EV > 0 after compounded multipliers); (c) the silent filter
-  of 20 names dropped them from consideration but did not
-  insert any non-EV-evaluated row into the output;
-  (d) `suggest_rolls` returning zero candidates is the
-  conservative refusal, not a bypass. **The §2 contract holds
-  under compounding stress.** Logged as positive.
+- **(F9 — observability, combined-multiplier omission;
+  surfaced during V1 verification) The combined
+  `regime_multiplier` (HMM × skew × news × credit) is NOT
+  surfaced in the ranker output, even though it is the single
+  value that scales `ev_raw → ev_dollars`.** The components
+  `hmm_multiplier`, `skew_multiplier`, `news_multiplier`,
+  `credit_multiplier` ARE in the output (46-column DataFrame),
+  but no combined `regime_multiplier` column exists. A trader
+  who doesn't know `credit_multiplier` exists (it's not in
+  any "obvious" diagnostic subset and was not in the F3
+  list) will compute `ev_raw × hmm × skew × news` and find a
+  20% gap with `ev_dollars` on a crisis day — no
+  explanation. The author of this Sn entry made exactly this
+  mistake on first read; the V1 verification surfaced the
+  discrepancy and traced it to `credit_mult = 0.80` (line
+  `engine/wheel_runner.py:773`, fires when global
+  `credit_regime == "crisis"`). Same observability family as
+  F1 / F3. **Logged.**
+
+- **§2 verified (with stress-coverage caveats).** Across all
+  six checks: (a) the dealer multiplier never moved outside
+  `[0.70, 1.05]` — but was always 1.0 on Bloomberg
+  (dormant), so the clamp was preserved **vacuously, not
+  under stress**. The first-PR framing "§2 invariants
+  survive compounding stress intact" overstated this — the
+  clamp was never put under stress on this provider. (b) Every
+  ranker-output row was generated via `EVEngine.evaluate`,
+  and per V5 the 20 silently-filtered names are blocked by
+  `event_gate`'s holding-window check, NOT by a non-EV
+  rescue path. (c) `suggest_rolls` returning zero candidates
+  is the conservative refusal per V6 + V7 — confirmed
+  defensive, not bypass. **The §2 contract holds; the
+  stress only meaningfully tested some of it.** Logged with
+  the corrected scope.
+
+**Verification probe (V1–V7).** A follow-up driver
+(`%TEMP%\s31\verify.py`) closed the gap between *engine output
+observed* and *engine output verified* for the most uncertain
+claims above. The first-PR framing was honest about what was
+observed but loose about what was *verified*; this section
+upgrades or downgrades each claim accordingly:
+
+- **V1 — composition arithmetic VERIFIED CORRECT.** For both
+  survivors, the full multiplier chain matches `ev_dollars`
+  to better than one cent:
+
+  ```
+  AVGO: ev_raw=457.89, hmm=0.2256, skew=1.0, news=1.0, credit=0.80
+        product           = 457.89 × 0.2256 × 1.0 × 1.0 × 0.80 = 82.66
+        ev_dollars output = 82.65  ✓ (rounding)
+
+  NVDA: ev_raw=221.32, hmm=0.2046, skew=1.0, news=1.0, credit=0.80
+        product           = 221.32 × 0.2046 × 1.0 × 1.0 × 0.80 = 36.23
+        ev_dollars output = 36.22  ✓ (rounding)
+  ```
+
+  The arithmetic is exact. The previously-undocumented
+  factor was `credit_mult = 0.80` from
+  `engine/wheel_runner.py:773` (fires when global
+  `credit_regime == "crisis"` per `fa.credit_regime`).
+
+- **V2 — BSM fair-value sanity VERIFIED.** Both rows have
+  `premium == fair_value` exactly (AVGO 4.829, NVDA 3.592)
+  and `edge_vs_fair = 0`. Confirms the Bloomberg path
+  (premium is BSM-derived, not quoted) per S1 / S29 F1.
+  Same finding, fresh verification.
+
+- **V3 — HMM state-probability decomposition VERIFIED.**
+  Fitting the same 504-day-tail HMM directly on AVGO and
+  NVDA log-returns at `as_of=2025-04-04`:
+
+  ```
+  AVGO state_probs   = [crisis 0.9680, bear 0.0000, normal 0.0320, bull_quiet 0.0000]
+       Σ probs × wts = 0.9680*0.2 + 0*0.5 + 0.0320*1.0 + 0*1.25 = 0.2256  ✓
+       matches ranker hmm_multiplier (0.2256) within 0.000017.
+
+  NVDA state_probs   = [crisis 0.9941, bear 0.0003, normal 0.0056, bull_quiet 0.0000]
+       Σ probs × wts = 0.2046                                         ✓
+       matches ranker hmm_multiplier (0.2046) within 0.000026.
+  ```
+
+  Both names are 96–99% pure crisis state. The first-PR
+  F2 framing "close to 0.20" was lazy — the math is *exact*,
+  the values are probability-weighted blends of the four
+  state multipliers, and the blend is dominated by crisis on
+  this date. **F2 upgrade: verified mathematically clean.**
+
+- **V4 — missing-data categorization of the 20 filtered
+  names: ZERO data-layer drops.** Per-name probe: all 20 had
+  OHLCV at `as_of`, all 20 had PIT IV (both `hist_put_imp_vol`
+  and `hist_call_imp_vol`), and 0 had earnings within the
+  default 5-day buffer.  So the silent filter is NOT caused
+  by missing data, missing IV, or near-term-earnings (within
+  documented default `earnings_buffer_days=5`).
+
+- **V5 — the silent filter IS `event_gate` firing on the
+  holding-window earnings overlap.** Re-running
+  `rank_candidates_by_ev` with `use_event_gate=False`
+  surfaced **all 20 missing names** with positive EV. The
+  newly-surfaced rows have EVs ranging from $5.50 (VZ) to
+  $720.48 (LLY); 17 are in `hmm_regime=crisis`, one in
+  `bear`. Earnings for the 7 blocked-but-not-≤5-days names
+  (JPM, MS, WFC at +7d; GS at +10d; BAC, C, JNJ at +11d;
+  UNH at +13d) all sit INSIDE the 35-DTE holding window of
+  the proposed trade. The `event_gate` blocks any trade
+  whose holding window brackets an earnings event — that's
+  exactly the right behaviour. **F1's "killer observability"
+  finding upgrades to:** the engine is acting correctly,
+  but the output offers the trader no way to see *why* each
+  name was filtered. The decision is right; the explanation
+  is missing.
+
+- **V6 — `suggest_rolls` returns 0 candidates across 4 grid
+  shapes on 43%-ITM NVDA**, including longer DTE (180d),
+  debit allowed (`min_net_credit=-$500`), and very far OTM
+  (5-delta strikes). The honest output ("no defensible
+  roll") survives every parameter widening tested.
+
+- **V7 — `suggest_rolls` returns 1 candidate on 0.9% ITM
+  AAPL (control).** Engine WORKS on shallow ITM. The AAPL
+  candidate carries `net_credit_debit = +$23.39` (passed
+  the credit filter) but `roll_ev = −$141.28` (negative EV
+  surfaced because the credit-only filter accepted it).
+  **V6's zero on 43% ITM is therefore *defensible refusal
+  at extreme moneyness*, not a bug.** F8 downgrade: the
+  silent zero is correct in conclusion; the observability
+  gap (no `reason_tally` of which (DTE, delta) cells failed
+  and why) remains the only operational issue.
 
 **Realism Check.**
 
 | Aspect | Engine (Bloomberg, 2025-04-04) | Real-market / sound-trader expectation | Verdict |
 |---|---|---|---|
-| 22-name universe ranker scan | 2 rows returned, 20 silently filtered, zero telemetry | A real trader at a desk would expect either a row per considered name (with `filter_reason`) or a header summary of "20 skipped — 7 missing IV, 8 negative EV, 3 event-blocked, 2 chain-unavailable" | ❌ Silent filter, no operability |
-| HMM regime on a confirmed crisis day | `hmm_regime=crisis`, multipliers 0.205 / 0.226 | S30 already confirmed this transition on AAPL log-returns; VIX > 30 in April 2025; "crisis" is the right verdict | ✓ Aligned |
-| Crisis multiplier × raw EV composition | Survivors carry $82 / $36 EV (small absolute, positive sign) | Crisis premiums are high → raw EV positive; crisis multiplier (~0.2) compresses → small but positive EV is internally consistent | ✓ Aligned |
+| 22-name universe ranker scan | 2 rows returned, 20 silently filtered. **V5 proves filter is `event_gate` firing on 35-DTE holding-window earnings overlap.** All 20 missing names surface with positive EV when `use_event_gate=False` | A real trader at a desk would expect either a row per considered name (with `filter_reason`) or a header summary of "20 skipped — N event-blocked, M missing-IV, ..." | ⚠ Decision correct (event_gate fires on real overlap); operability gap remains (silent drop) |
+| HMM regime on a confirmed crisis day | `hmm_regime=crisis`, multipliers 0.2256 / 0.2046. **V3 verifies state_probs decomposition: AVGO 96.8% crisis + 3.2% normal; NVDA 99.4% crisis + 0.06% bear + 0.56% normal — products match to within 3e-5** | S30 already confirmed this transition on AAPL log-returns; VIX > 30 in April 2025; "crisis" is the right verdict | ✓ Verified mathematically |
+| Crisis multiplier × raw EV composition | **V1 verifies** `ev_dollars = ev_raw × hmm × skew × news × credit_mult` exactly: AVGO 457.89 × 0.2256 × 1.0 × 1.0 × 0.80 = 82.66 ≈ 82.65 ✓; NVDA 221.32 × 0.2046 × 1.0 × 1.0 × 0.80 = 36.23 ≈ 36.22 ✓ | Engine arithmetic should be reproducible from surfaced components — the 5th factor (credit_mult) was the missing piece | ✓ Verified to <1¢ tolerance |
 | Dealer multiplier under compounding stress | 1.0 across both survivors, `dealer_regime=None` | Real crisis days have *meaningful* dealer-positioning signal (forced unwinds, short-gamma below put walls) | ⚠ Dormant (Bloomberg-only, same shape as S29 skew) |
-| §2 clamp `[0.70, 1.05]` on dealer multiplier | always 1.0 → trivially in band | The clamp pinned by `test_dealer_multiplier_evengine_integration.py` (#193) | ✓ Aligned (vacuously — clamp not stressed) |
-| Per-name event-gate visibility | No `event_locked` / `event_reason` columns in ranker output; per-ticker `get_earnings` probe required to see JPM/MS/WFC at 7d | Trader needs to know which book positions hit earnings windows; especially when a CC's expiry brackets earnings | ❌ Column missing |
+| §2 clamp `[0.70, 1.05]` on dealer multiplier | always 1.0 → trivially in band; **stress was not applied on this provider — clamp not exercised under load** | The clamp pinned by `test_dealer_multiplier_evengine_integration.py` (#193) | ⚠ Vacuously preserved (clamp not stressed; would need Theta replay to test under load) |
+| Per-name event-gate visibility (output schema) | No `event_locked` / `event_reason` columns in ranker output; `event_gate` correctly fires per V5 but the trader cannot see why | Trader needs to know which book positions hit earnings windows; especially when a CC's expiry brackets earnings | ❌ Column missing (decision correct, telemetry absent) |
+| Combined `regime_multiplier` in output | **F9 — missing entirely.** Components (`hmm_multiplier`, `skew_multiplier`, `news_multiplier`, `credit_multiplier`) are present; the trader must multiply 4 columns to reconstruct the EV scaling | Output should expose the actual scalar that multiplies `ev_raw → ev_dollars`, so verifying the composition doesn't require knowing the 4-factor formula | ❌ Column missing |
 | Sector concentration with 3 IT puts + new TSLA | `sector_cap.passed=True` (TSLA = Consumer Discretionary, not IT) | Trader's mental model: "60% tech by count → block another tech name." Engine's: "TSLA ≠ IT → 9% Cons Disc, allowed." Both technically correct; mental models diverge | ⚠ Realism mismatch (taxonomy) |
 | `GateResult.details` key consistency | `post_open_sector_pct` (pass) vs `sector_pct` (fail) | Caller-side observability should be shape-stable: same key, regardless of verdict | ❌ Key asymmetry (footgun) |
-| `suggest_rolls` on 33–43% ITM puts | Returns 0 candidates, zero diagnostic on which filter rejected each | A trader needs to choose between close-and-take-assignment, rescue-debit roll, or hold. Zero candidates with no `reason_tally` doesn't help that decision | ❌ Silent zero |
+| `suggest_rolls` on 43% ITM puts | Returns 0 candidates across 4 grid shapes (V6); **V7 confirms 1 candidate returned on 0.9% ITM control — engine WORKS on shallow ITM, V6's zero is defensible refusal at extreme moneyness via the `min_net_credit=0` filter killing all-debit candidates** | A trader needs to choose between close-and-take-assignment, rescue-debit roll, or hold. Zero candidates with no `reason_tally` doesn't help that decision | ⚠ Decision defensible (correct refusal); operability gap remains |
+| BSM fair-value sanity on the Bloomberg path | **V2 verifies** `premium == fair_value` on both rows (AVGO 4.829 / NVDA 3.592), `edge_vs_fair = 0` | Bloomberg path is BSM-derived per S29 F1 / S1 (no quoted chain) | ✓ Verified |
 
 **Verdict.**
 
-- **The §2 hard invariants survive compounding stress
-  intact.** The dealer multiplier clamp `[0.70, 1.05]` is
-  preserved (trivially at 1.0 on Bloomberg per F4); every
-  ranker-output row is generated via `EVEngine.evaluate`;
-  `suggest_rolls`'s zero return is a refusal, not a bypass.
-  Five of six tested gates compose correctly when they fire;
-  the sixth (dealer) is dormant for data reasons not logic
-  reasons. The recent campaign-close tests
-  (`test_evengine_event_lockout.py`,
+- **Engine math is verified correct under stress; the §2
+  invariants hold to the extent the provider lets them be
+  stressed.** V1 verifies the 5-factor composition arithmetic
+  to <1¢ tolerance: `ev_dollars = ev_raw × hmm × skew × news ×
+  credit_mult` exactly. V3 verifies the HMM
+  state-probability decomposition is mathematically clean
+  (matches to 3e-5). V2 confirms BSM fair-value sanity on
+  the Bloomberg path. V5 confirms the silent filter of 20
+  names is `event_gate` correctly firing on the 35-DTE
+  holding-window earnings overlap (NOT random drops). V7
+  confirms `suggest_rolls` works on shallow ITM and refuses
+  appropriately at extreme moneyness. **The decision-layer
+  arithmetic, regime detection, and gate-firing logic are
+  all verified to behave as documented.** The recent
+  campaign-close tests (`test_evengine_event_lockout.py`,
   `test_dealer_multiplier_evengine_integration.py`,
   `test_f4_tail_risk_gap.py`,
   `test_consume_ranker_row_anchor.py` — PRs #185 / #186 /
-  #193 / #196) all hold up under this composed stress. The
-  engine is structurally sound.
+  #193 / #196) all hold up under this composed stress.
+
+- **§2 framing must be honest about the stress that was
+  applied.** The dealer-multiplier clamp `[0.70, 1.05]`
+  was preserved trivially (always 1.0 on Bloomberg per F4
+  — dealer module dormant for chain-access reasons). The
+  clamp was NOT exercised under load on this provider; the
+  test that pins it (`test_dealer_multiplier_evengine_integration.py`
+  / PR #193) holds, but S31 does not add fresh stress
+  evidence to the clamp. A Theta replay (S6) would put the
+  clamp under genuine load on a crisis day. The first-PR
+  framing "§2 invariants survive compounding stress
+  intact" was thus over-claimed; the corrected scope is
+  "§2 invariants are not breached; the dealer clamp was not
+  stressable on this provider."
 
 - **The engine is operationally *illegible* in this
-  regime.** The killer finding (F1 — 22 → 2 silent filter)
-  combines with F3 (schema gap), F5 (hidden event stressor
-  on book CC), F7 (key asymmetry), and F8 (silent-zero roll
-  suggest) to produce a system the trader cannot
-  *interrogate*. The engine knows the right answer; the
-  trader cannot reconstruct the reasoning. This is the
-  same observability shape S22, S28, S29 surfaced — but
-  S31 is the first time it has been documented as a
-  composed pattern across the whole decision layer in one
-  cycle.
+  regime, but the underlying decisions are defensible.**
+  F1 (silent filter), F3 (schema gaps), F5 (hidden book
+  stressor), F7 (key asymmetry), F8 (silent-zero roll),
+  and F9 (combined-multiplier omission) all share one
+  shape: *the engine has the right answer, the output does
+  not let the trader see why*. V4 + V5 prove the silent
+  filter is correctly-acting `event_gate`. V6 + V7 prove
+  the silent-zero roll is correctly-acting refusal. The
+  engine is structurally sound and decisionally
+  defensible; the trader-facing surface is the gap. This
+  is the same observability pattern S22, S28, S29
+  surfaced — but S31 is the first time it has been
+  documented as a composed pattern across the whole
+  decision layer in one cycle.
 
 - **The dealer dormancy on Bloomberg is now a confirmed
   multi-Sn pattern, not an isolated bug.** S29 found
@@ -5865,6 +6008,17 @@ dormant on Bloomberg the same way S29 found for skew.**
   warned even when GICS doesn't aggregate them.
   Lower priority — this is realism polish, not a
   correctness gap.
+
+- **Fix #6 (F9 combined-multiplier surfacing):** add a
+  `regime_multiplier` column to the ranker output, equal
+  to `hmm_multiplier × skew_multiplier × news_multiplier
+  × credit_multiplier` (the exact product passed into
+  `EVEngine.evaluate`). The components are already in
+  the 46-column DataFrame; adding the product is a
+  one-line computation in the ranker. Closes the F9
+  observability gap that the verification driver surfaced
+  (the entry author themselves got tripped up on first
+  read). Cheap; pairs naturally with Fix #1.
 
 - **Sanity follow-up Sn (S6 dependency): re-run S31 on a
   Theta replay** to confirm the dealer multiplier

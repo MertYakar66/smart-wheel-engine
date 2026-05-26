@@ -287,6 +287,42 @@ _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
 ]
 
 
+def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFrame:
+    """Attach the drops list AND a trader-facing roll-up summary to a
+    ranker output frame.
+
+    Both attributes ride on ``frame.attrs`` so survivor rows are
+    untouched (CLAUDE.md §2). The summary closes S31 F1/F4
+    discoverability: a caller scanning the frame sees at a glance
+    "20 dropped — 17 event, 3 history" without iterating the full
+    drops list.
+
+    - ``attrs["drops"]``: the existing per-candidate list of
+      ``{"ticker", "gate", "reason"}`` dicts (or
+      ``{"new_dte", "target_delta", "gate", "reason"}`` for
+      :meth:`WheelTracker.suggest_rolls` siblings).
+    - ``attrs["drops_summary"]``: ``{"total_dropped": int, "by_gate":
+      {gate: count}}``. Gate-set matches whatever the per-call drops
+      taxonomy used (no new gate labels invented here).
+
+    Used by every ranker return path in this module so the shape is
+    consistent across ``rank_candidates_by_ev``,
+    ``rank_covered_calls_by_ev``, ``rank_strangles_by_ev``, and the
+    multi-grid ``select_book`` aggregator. The same helper is defined
+    in :mod:`engine.wheel_tracker` for ``suggest_rolls`` /
+    ``suggest_call_rolls`` (small duplication to keep the
+    decision-layer modules import-independent).
+    """
+    from collections import Counter
+
+    frame.attrs["drops"] = drops
+    frame.attrs["drops_summary"] = {
+        "total_dropped": len(drops),
+        "by_gate": dict(Counter(d["gate"] for d in drops)),
+    }
+    return frame
+
+
 class WheelRunner:
     """
     Main orchestrator for the Smart Wheel Engine.
@@ -1584,11 +1620,11 @@ class WheelRunner:
         df = pd.DataFrame(rows)
         if not df.empty:
             df = df.sort_values("ev_per_day", ascending=False).head(top_n)
-        # Diagnostic drop log -- attached after the sort/head so it rides
-        # on the exact frame returned (empty or not). Survivor rows are
-        # untouched; see CLAUDE.md section 2.
-        df.attrs["drops"] = drops
-        return df
+        # Diagnostic drop log + S31 F1/F4 discoverability summary —
+        # attached after the sort/head so it rides on the exact frame
+        # returned (empty or not). Survivor rows are untouched; see
+        # CLAUDE.md section 2.
+        return _attach_drops_summary(df, drops)
 
     # ------------------------------------------------------------------
     # Single-ticker surface exploration (investor-scenario 2 follow-up)
@@ -1682,8 +1718,7 @@ class WheelRunner:
         else:
             out = pd.concat(rows, ignore_index=True)
             out = out.sort_values("ev_dollars", ascending=False).reset_index(drop=True)
-        out.attrs["drops"] = all_drops
-        return out
+        return _attach_drops_summary(out, all_drops)
 
     # ------------------------------------------------------------------
     # Account-aware book selection (S4 follow-up)
@@ -2008,8 +2043,7 @@ class WheelRunner:
 
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            df.attrs["drops"] = drops
-            return df
+            return _attach_drops_summary(df, drops)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -2369,10 +2403,10 @@ class WheelRunner:
             return _empty()
         df = pd.DataFrame(rows, columns=cols)
         df = df.sort_values("ev_per_day", ascending=False).head(top_n).reset_index(drop=True)
-        # Drop log attached after sort/head so it rides on the exact frame
-        # returned; survivor rows are untouched (CLAUDE.md §2).
-        df.attrs["drops"] = drops
-        return df
+        # Drop log + S31 F1/F4 summary attached after sort/head so it
+        # rides on the exact frame returned; survivor rows are
+        # untouched (CLAUDE.md §2).
+        return _attach_drops_summary(df, drops)
 
     # ------------------------------------------------------------------
     # Strangle EV ranking (issue #118 P1 — S14 follow-up)
@@ -2515,8 +2549,7 @@ class WheelRunner:
 
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            df.attrs["drops"] = drops
-            return df
+            return _attach_drops_summary(df, drops)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -2930,10 +2963,10 @@ class WheelRunner:
             return _empty()
         df = pd.DataFrame(rows, columns=cols)
         df = df.sort_values("ev_dollars", ascending=False).head(top_n).reset_index(drop=True)
-        # Drop log attached after sort/head so it rides on the exact frame
-        # returned; survivor rows are untouched (CLAUDE.md §2).
-        df.attrs["drops"] = drops
-        return df
+        # Drop log + S31 F1/F4 summary attached after sort/head so it
+        # rides on the exact frame returned; survivor rows are
+        # untouched (CLAUDE.md §2).
+        return _attach_drops_summary(df, drops)
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier

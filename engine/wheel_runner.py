@@ -31,6 +31,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
+from engine.risk_manager import DEFAULT_SECTOR_MAP
+
 if TYPE_CHECKING:
     from engine.wheel_tracker import WheelTracker
 
@@ -224,6 +226,7 @@ _CC_RANK_CORE_COLUMNS = [
     "days_to_earnings",
     "days_to_ex_div",
     "distribution_source",
+    "sector",  # S31 F2 / F6 closer — GICS sector per DEFAULT_SECTOR_MAP
 ]
 _CC_RANK_DIAGNOSTIC_COLUMNS = [
     "cvar_5",
@@ -272,6 +275,7 @@ _STRANGLE_RANK_CORE_COLUMNS = [
     "timing_score",
     "timing_recommendation",
     "distribution_source",
+    "sector",  # S31 F2 / F6 closer — GICS sector per DEFAULT_SECTOR_MAP
 ]
 _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
     "put_prob_profit",
@@ -1520,6 +1524,17 @@ class WheelRunner:
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
                 "distribution_source": method,
+                # S31 F2 / F6 closer: GICS sector for the underlying.
+                # Same source the sector_cap gate uses
+                # (engine.portfolio_risk_gates.check_sector_cap →
+                # engine.risk_manager.SectorExposureManager) so the
+                # trader sees the SAME sector label the gate would
+                # aggregate by. Closes the F6 trader-mental-model gap
+                # where "tech" colloquially crosses three GICS sectors
+                # (Info Tech / Cons Disc / Comm Svcs) and the ranker
+                # output offered no per-row sector tag for
+                # post-hoc verification.
+                "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
             }
             if include_diagnostic_fields:
                 row.update(
@@ -2355,6 +2370,7 @@ class WheelRunner:
                     "days_to_earnings": days_to_earn,
                     "days_to_ex_div": days_to_ex_div,
                     "distribution_source": method,
+                    "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
                 }
                 if include_diagnostic_fields:
                     # Mirror the EVEngine dividend gate at
@@ -2934,6 +2950,7 @@ class WheelRunner:
                     "timing_score": timing_score,
                     "timing_recommendation": timing_recommendation,
                     "distribution_source": method,
+                    "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
                 }
                 if include_diagnostic_fields:
                     # Per-leg risk — explicitly labelled, NOT summed (the

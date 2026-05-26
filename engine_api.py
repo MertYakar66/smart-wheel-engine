@@ -36,7 +36,7 @@ TradingView bridge:
   GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
   GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
-  GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
+  GET  /api/tv/dossier?top_n=10&timeframe=1D[&nav=250000&holdings=AAPL:100][&puts_held=AAPL:180:1][&regime_map=NVDA:short_gamma_amplifying] - EV + TV screenshot dossier (Mode B). Optional nav/holdings/puts_held/regime_map engage D17 R7+R8 soft-warns.
   GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 
@@ -245,6 +245,111 @@ def _resolve_universe_scope(conn, tickers, universe_limit_param):
     return limit, scanned, universe_total
 
 
+def _build_portfolio_context_from_params(
+    nav: float | None,
+    holdings_csv: str | None,
+    puts_held_csv: str | None,
+    regime_map_csv: str | None,
+):
+    """Construct a :class:`PortfolioContext` from API query params.
+
+    D17 wire-in (`docs/PRODUCTION_READINESS.md` §3 Blocker B2). When
+    ``nav`` is None we return None — preserves the pre-wire no-op
+    behaviour of R7 / R8 (Q3 missing-data semantics: dossier
+    soft-warns do not fire on absent evidence).
+
+    Parsing is forgiving: malformed entries in ``holdings_csv`` /
+    ``puts_held_csv`` / ``regime_map_csv`` are silently dropped
+    rather than rejected with 400. The premise is that an operator
+    integration that supplies bad data should not break the dossier
+    endpoint; the affected D17 sub-gate just falls back to
+    missing-data behaviour for the unparseable entries.
+
+    Args:
+        nav: Net asset value (live or static). Required for any D17
+            engagement; ``None`` disables the wire.
+        holdings_csv: Optional ``TICKER:shares`` CSV.
+            Example: ``"AAPL:100,MSFT:50"``.
+        puts_held_csv: Optional ``TICKER:strike:contracts:expiry`` CSV
+            (expiry YYYY-MM-DD; omit for a 35-day default).
+            Example: ``"AAPL:180:1:2026-04-19"``.
+        regime_map_csv: Optional ``TICKER:regime`` CSV mapping
+            ticker → dealer-positioning regime.
+            Example: ``"AAPL:normal,NVDA:short_gamma_amplifying"``.
+
+    Returns:
+        A populated :class:`PortfolioContext` when ``nav`` is supplied;
+        ``None`` otherwise.
+    """
+    if nav is None:
+        return None
+
+    from datetime import date, timedelta
+
+    from engine.portfolio_risk_gates import PortfolioContext
+
+    stock_holdings: list[tuple[str, int]] = []
+    if holdings_csv:
+        for pair in holdings_csv.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            ticker_part, share_part = pair.split(":", 1)
+            try:
+                stock_holdings.append((ticker_part.strip().upper(), int(share_part.strip())))
+            except (TypeError, ValueError):
+                continue
+
+    held_option_positions: list[dict] = []
+    if puts_held_csv:
+        default_expiry = (date.today() + timedelta(days=35)).isoformat()
+        for entry in puts_held_csv.split(","):
+            entry = entry.strip()
+            if not entry or ":" not in entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) < 2:
+                continue
+            try:
+                ticker_part = parts[0].strip().upper()
+                strike = float(parts[1])
+                contracts = int(parts[2]) if len(parts) >= 3 and parts[2] else 1
+                expiration = parts[3] if len(parts) >= 4 and parts[3] else default_expiry
+            except (TypeError, ValueError):
+                continue
+            held_option_positions.append(
+                {
+                    "ticker": ticker_part,
+                    "strike": strike,
+                    "contracts": contracts,
+                    "expiration": expiration,
+                    "option_type": "put",
+                }
+            )
+
+    dealer_regime_by_ticker: dict[str, str] | None = None
+    if regime_map_csv:
+        dealer_regime_by_ticker = {}
+        for pair in regime_map_csv.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            t_part, r_part = pair.split(":", 1)
+            t = t_part.strip().upper()
+            r = r_part.strip()
+            if t and r:
+                dealer_regime_by_ticker[t] = r
+        if not dealer_regime_by_ticker:
+            dealer_regime_by_ticker = None
+
+    return PortfolioContext(
+        held_option_positions=held_option_positions,
+        stock_holdings=stock_holdings,
+        nav=float(nav),
+        dealer_regime_by_ticker=dealer_regime_by_ticker,
+    )
+
+
 def _sanitize_nans(obj):
     """Recursively replace NaN/Inf with None in nested dicts/lists."""
     if isinstance(obj, dict):
@@ -388,6 +493,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     universe_limit=param("universe_limit"),
                 )
             elif path == "/api/tv/dossier":
+                # D17 portfolio-context opt-in: when ``nav`` is provided, the
+                # endpoint constructs a :class:`PortfolioContext` from
+                # ``nav`` + optional ``holdings`` / ``puts_held`` /
+                # ``regime_map`` and threads it into the dossier reviewer.
+                # The reviewer's R7 (VaR) + R8 (stress / dealer regime)
+                # soft-warns then fire against the operator's book.
+                # When ``nav`` is omitted, behaviour is unchanged from
+                # pre-D17-wire (R7/R8 are no-ops per Q3 missing-data
+                # semantics). Opt-in by design so existing GET callers
+                # remain compatible.
+                _nav_raw = param("nav")
                 self._handle_tv_dossier(
                     top_n=int(param("top_n", "10")),
                     dte_target=int(param("dte", "35")),
@@ -398,6 +514,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
                     universe_limit=param("universe_limit"),
+                    nav=float(_nav_raw) if _nav_raw else None,
+                    holdings_csv=param("holdings"),
+                    puts_held_csv=param("puts_held"),
+                    regime_map_csv=param("regime_map"),
                 )
             elif path == "/api/tv/dealer_positioning":
                 self._handle_tv_dealer_positioning(
@@ -1869,6 +1989,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         timeframe: str,
         screenshots_dir: str,
         universe_limit=None,
+        nav: float | None = None,
+        holdings_csv: str | None = None,
+        puts_held_csv: str | None = None,
+        regime_map_csv: str | None = None,
     ):
         """Mode B dossier endpoint.
 
@@ -1879,7 +2003,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
              at ``screenshots_dir``. The terminal is expected to drop
              screenshots at ``<screenshots_dir>/<TICKER>/<TIMEFRAME>.png``.
           3. Run the :class:`EnginePhaseReviewer` to produce a verdict
-             per candidate.
+             per candidate. **When the operator supplies portfolio state
+             via the ``nav`` / ``holdings`` / ``puts_held`` /
+             ``regime_map`` query params, the reviewer additionally
+             engages D17 R7 (VaR > 5% NAV → review) and R8 (stress
+             drawdown > 8% NAV OR ticker in short_gamma_amplifying
+             regime → review).** Closes PRODUCTION_READINESS.md
+             Blocker B2 (D17 live-wire to engine_api.py).
           4. Return the full dossier JSON for the dashboard candidate
              table + detail drawer.
 
@@ -1893,6 +2023,22 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             timeframe       TradingView timeframe for screenshots (default 1D)
             screenshots_dir filesystem provider base directory
             universe_limit  cap the universe scan; omit/all = full universe
+            nav             OPTIONAL operator NAV (float). When set, D17
+                            R7+R8 soft-warns engage on the dossier.
+                            When omitted, R7/R8 are no-ops per Q3
+                            missing-data semantics.
+            holdings        OPTIONAL ``TICKER:shares`` pairs CSV, e.g.
+                            ``AAPL:100,MSFT:50``. Stock holdings used by
+                            check_var / check_stress_scenario. Honored only
+                            when ``nav`` is also provided.
+            puts_held       OPTIONAL ``TICKER:strike:contracts:expiry`` CSV.
+                            ``expiry`` is YYYY-MM-DD; omit to use a 35-day
+                            default. Used by check_var. Honored only when
+                            ``nav`` is also provided.
+            regime_map      OPTIONAL ``TICKER:regime`` CSV mapping ticker →
+                            dealer-positioning regime. Used by
+                            check_dealer_regime (R8 short-gamma trigger).
+                            Honored only when ``nav`` is also provided.
         """
         from engine.tradingview_bridge import FilesystemChartProvider
 
@@ -1907,6 +2053,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         provider = FilesystemChartProvider(base_dir=screenshots_dir)
 
+        # D17 portfolio-context engagement (opt-in). Construct a
+        # ``PortfolioContext`` only when ``nav`` is supplied; otherwise
+        # pass None so R7/R8 keep their pre-wire no-op semantics.
+        portfolio_context = _build_portfolio_context_from_params(
+            nav=nav,
+            holdings_csv=holdings_csv,
+            puts_held_csv=puts_held_csv,
+            regime_map_csv=regime_map_csv,
+        )
+
         try:
             dossiers = runner.build_candidate_dossiers(
                 tickers=tickers,
@@ -1918,6 +2074,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 chart_provider=provider,
                 chart_timeframe=timeframe,
                 universe_limit=ulimit,
+                portfolio_context=portfolio_context,
             )
         except Exception as exc:
             traceback.print_exc()

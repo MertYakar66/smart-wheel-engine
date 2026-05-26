@@ -52,6 +52,7 @@ import logging
 import math
 import os
 import sys
+import threading
 import time
 import traceback
 from collections import OrderedDict
@@ -127,6 +128,18 @@ _TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
 _TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
 _TV_SEEN_NONCES_MAX = 1024
 
+# Explicit mutex around _TV_SEEN_NONCES check-then-set. The S20 reliability
+# arc (PR #194 reliability-arc-review C3 + USAGE_TEST_LEDGER.md §S20)
+# observed clean nonce-dedup behaviour at workers=4 because CPython's GIL
+# happens to keep the small check-then-set window bytecode-atomic in
+# practice — but the pattern is fragile: a wider window (e.g., from a
+# future logging or telemetry call between the membership test and the
+# insertion), higher concurrency, or a move off CPython would surface
+# >1-accept anomalies. The lock makes the invariant structural rather
+# than incidental. Module-level (not per-instance) because both
+# _TV_SEEN_NONCES and the function are module-level.
+_TV_SEEN_NONCES_LOCK = threading.Lock()
+
 # Shared EV-proceed threshold (in dollars). Single source of truth
 # lives in :mod:`engine.candidate_dossier` so the two verdict ladders
 # in this file (``/api/candidates`` recommendation label and
@@ -146,19 +159,27 @@ def _tv_seen_register(digest: str, now: float) -> bool:
     Returns True if this is a *new* nonce (proceed). Returns False if we have
     already processed a payload with this digest, which means we should reject
     it as a replay attempt.
+
+    The entire body runs under ``_TV_SEEN_NONCES_LOCK`` so the check + set
+    pair is atomic against concurrent workers (S20 reliability-arc finding).
+    Holding the lock through the LRU-purge is intentional — the structure
+    we are guarding against is "two workers both see ``digest not in cache``
+    before either writes," and the cheapest safe primitive for that is a
+    single mutex around the whole transaction.
     """
-    # Purge stale entries at the head of the LRU
-    cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
-    while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
-        _TV_SEEN_NONCES.popitem(last=False)
+    with _TV_SEEN_NONCES_LOCK:
+        # Purge stale entries at the head of the LRU
+        cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
+        while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
+            _TV_SEEN_NONCES.popitem(last=False)
 
-    if digest in _TV_SEEN_NONCES:
-        return False
+        if digest in _TV_SEEN_NONCES:
+            return False
 
-    _TV_SEEN_NONCES[digest] = now
-    while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
-        _TV_SEEN_NONCES.popitem(last=False)
-    return True
+        _TV_SEEN_NONCES[digest] = now
+        while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
+            _TV_SEEN_NONCES.popitem(last=False)
+        return True
 
 
 def _tv_verify_hmac(body_bytes: bytes, provided_sig: str, secret: str) -> bool:

@@ -31,6 +31,7 @@ a (possibly missing) screenshot path and a review verdict.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -40,6 +41,17 @@ import pandas as pd
 from .chart_context import ChartContext, ChartContextProvider, Timeframe
 
 Verdict = Literal["proceed", "review", "skip", "blocked"]
+
+# Canonical proceed-threshold (in dollars) for EV-driven verdicts.
+# Lives here so :class:`EnginePhaseReviewer`'s default and any external
+# caller that mirrors the dossier-side ladder (e.g.
+# ``engine_api.EngineAPIHandler._enrich_alert`` for ``/api/tv/webhook``,
+# ``_handle_candidates`` for ``/api/candidates``) share the same number
+# and cannot drift on threshold value. The two ladders are divergent
+# **by design** in their overlay rules (chart agreement, ``prob_profit``
+# floor) but the bare EV floor should be one number. Closes the
+# threshold-drift half of C2 from ``docs/END_TO_END_REVIEW_2026_05_25.md``.
+MIN_PROCEED_EV_DOLLARS: float = 10.0
 
 
 @dataclass
@@ -120,9 +132,25 @@ class EnginePhaseReviewer:
 
     Rules (explicit and conservative):
 
-    1. If ``ev_dollars < 0`` the verdict is **blocked**. No chart review
-       is allowed to override a negative-EV engine verdict. This is the
-       hard guardrail from the TradingView strategic review.
+    1. If ``ev_dollars`` is non-finite (``+inf`` / ``-inf`` / ``NaN``)
+       OR strictly negative, the verdict is **blocked**. No chart
+       review is allowed to override either case. This is the hard
+       guardrail from the TradingView strategic review.
+
+       The non-finite branch returns ``verdict_reason="ev_non_finite"``
+       (distinct from ``"negative_ev"``) so the audit trail tells
+       "engine produced an unparseable value — investigate the
+       upstream computation" apart from "engine evaluated the trade
+       as a loss". Closes C1 from
+       ``docs/END_TO_END_REVIEW_2026_05_25.md``: without the
+       non-finite block, ``+inf`` slid through both R1 (``+inf < 0``
+       is False) and R5 (``+inf >= threshold`` is True) and was
+       reported as ``"proceed"``; ``NaN`` silently degraded to
+       ``"review"`` via R5's strict ``>=`` (``NaN >= threshold``
+       is False), masking the real signal. No production code path
+       injects non-finite ``ev_dollars`` today (S20 G3 confirms the
+       network surface excludes ``ev_dollars`` from user-controllable
+       fields), but the defense-in-depth gap is closed.
 
     2. If the chart context is missing or errored, the verdict is
        **review** — the trade can still go on, but a human should
@@ -188,7 +216,7 @@ class EnginePhaseReviewer:
 
     def __init__(
         self,
-        min_proceed_ev: float = 10.0,
+        min_proceed_ev: float = MIN_PROCEED_EV_DOLLARS,
         spot_tolerance_pct: float = 0.02,
     ) -> None:
         self.min_proceed_ev = min_proceed_ev
@@ -197,6 +225,20 @@ class EnginePhaseReviewer:
     def review(self, dossier: CandidateDossier) -> tuple[Verdict, str, list[str]]:
         notes: list[str] = []
         ev = dossier.ev_dollars
+
+        # Rule 1a: non-finite EV is blocked. +inf would otherwise slip
+        # through both R1 (False: +inf < 0) and R5 (True: +inf >=
+        # threshold) and be reported as "proceed"; NaN would silently
+        # degrade to "review" via R5's strict >=. Distinct
+        # verdict_reason ("ev_non_finite") so the audit trail tells
+        # an unparseable engine value apart from an evaluated loss.
+        # No production path injects non-finite ev_dollars today
+        # (S20 G3 confirms; engine math is bounded by finite inputs)
+        # but the defense-in-depth gap from RELIABILITY_ARC_REVIEW C1
+        # is closed here. Chart cannot upgrade.
+        if not math.isfinite(ev):
+            notes.append(f"engine ev_dollars={ev!r} not finite - hard block (non-finite EV)")
+            return "blocked", "ev_non_finite", notes
 
         # Rule 1: negative EV is blocked. Chart cannot save it.
         if ev < 0:

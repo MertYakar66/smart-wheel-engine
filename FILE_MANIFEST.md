@@ -232,6 +232,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
+| `docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | Comprehensive launch-readiness analysis pulling every backtest (S22/S27/S32/S34/S35) + every review PR + every shipped fix into one yes/no real-life-trading verdict. Headline finding: signal is real and scale-AND-window-invariant (ρ = 0.22-0.50 across capital scales and time windows) but **dollar-alpha is window-dependent** (engine +27pp vs SPY in 2022-2024, −41pp in 2018-2020 — same parameters). Verdict: NO autonomous; conditional supervised at ≤ $100k with window-sensitivity caveat. |
 | `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
@@ -608,6 +609,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
+| `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |

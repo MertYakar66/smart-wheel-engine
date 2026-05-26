@@ -1220,12 +1220,30 @@ class WheelRunner:
             # the HMM does not run (short history) or fails -- never a
             # fabricated regime; mirrors credit_regime's "unknown".
             hmm_regime = "unknown"
+            # S33 F4 closer: realized vol / mean over the 252d window
+            # the HMM saw at fit time. The "crisis" label by itself means
+            # "high-vol regime" regardless of return direction (S33
+            # documented Feb 2026 labeling as 'crisis' with positive
+            # annualized return) -- a trader assuming "crisis = crashing"
+            # mis-anchors. Surfacing the underlying vol + return lets
+            # them disambiguate without re-fitting the HMM. NaN when the
+            # HMM did not run (history too short or fit failed).
+            hmm_realized_vol_252d_ann = float("nan")
+            hmm_realized_return_252d_ann = float("nan")
             try:
                 from engine.regime_hmm import GaussianHMM
 
                 log_rets = np.diff(np.log(ohlcv["close"].values))
                 if len(log_rets) >= 200:
                     tail = log_rets[-504:]
+                    # Realized vol / mean from the most recent 252 days
+                    # of the same window the HMM fitted to. Computed
+                    # outside the cache lookup so both fresh and cached
+                    # paths emit consistent disambiguation stats.
+                    if len(tail) >= 252:
+                        tail_252 = tail[-252:]
+                        hmm_realized_vol_252d_ann = float(np.std(tail_252) * np.sqrt(252))
+                        hmm_realized_return_252d_ann = float(np.mean(tail_252) * 252)
                     fp = (
                         len(tail),
                         round(float(tail[0]), 6),
@@ -1630,6 +1648,24 @@ class WheelRunner:
                         "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
+                        # S33 F4 disambiguation: realized vol + mean
+                        # over the same 252d window the HMM fitted to.
+                        # The "crisis" label alone means "high-vol
+                        # regime regardless of direction" -- these
+                        # two columns let the trader see WHY the HMM
+                        # called crisis (genuinely crashing vs
+                        # high-vol-with-positive-trend). NaN when the
+                        # HMM did not run (short history / fit fail).
+                        "hmm_realized_vol_252d_ann": (
+                            round(hmm_realized_vol_252d_ann, 4)
+                            if not np.isnan(hmm_realized_vol_252d_ann)
+                            else None
+                        ),
+                        "hmm_realized_return_252d_ann": (
+                            round(hmm_realized_return_252d_ann, 4)
+                            if not np.isnan(hmm_realized_return_252d_ann)
+                            else None
+                        ),
                         "news_multiplier": round(news_mult, 4),
                         "news_sentiment": round(news_sentiment, 4),
                         "news_n_articles": news_n_articles,

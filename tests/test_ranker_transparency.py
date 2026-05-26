@@ -465,3 +465,32 @@ class TestEvRawColumn:
             assert res.ev_dollars == pytest.approx(res.mean_pnl * res.regime_multiplier)
             r = df[df["ticker"] == ticker].iloc[0]
             assert r["ev_dollars"] == pytest.approx(r["ev_raw"] * res.regime_multiplier, abs=0.05)
+
+    def test_regime_multiplier_column_matches_engine_final_multiplier(self):
+        """S31 F9 regression: the ranker output must expose the engine's
+        final regime_multiplier as a column, not just the four component
+        multipliers (hmm / skew / news / credit) the trader would need
+        to multiply manually. The combined value differs from the input
+        product by the engine's clamp to [0.0, 1.25], heavy_tail_penalty
+        if heavy_tail, and dealer_mult. Without this column, a trader
+        verifying composition (ev_dollars / ev_raw) gets a value that
+        does NOT equal hmm * skew * news * credit -- the S31 driver
+        author hit exactly this confusion."""
+        ctx, captured = _capture_evaluate()
+        with ctx:
+            df = _rank(_runner())
+        assert not df.empty
+        assert "regime_multiplier" in df.columns, (
+            "regime_multiplier column must be present in ranker output"
+        )
+        res_by_ticker = dict(captured)
+        for _, row in df.iterrows():
+            res = res_by_ticker[row["ticker"]]
+            # Column matches the engine's final multiplier to the rounding
+            # precision used in the row dict (4 decimals).
+            assert row["regime_multiplier"] == pytest.approx(res.regime_multiplier, abs=1e-4)
+            # And ev_dollars / ev_raw reconstructs the same multiplier
+            # (within the rounding of both ev_raw and ev_dollars to 2 dp).
+            if abs(row["ev_raw"]) > 1e-6:
+                implied = row["ev_dollars"] / row["ev_raw"]
+                assert implied == pytest.approx(row["regime_multiplier"], abs=0.01)

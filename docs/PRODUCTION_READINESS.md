@@ -25,15 +25,20 @@ operate?".
 | Does it **survive operational stress** (load, chaos, concurrency)? | **Yes.** 2,374 of 2,378 tests pass; the 2 failing tests are documented Windows-local Theta-tier flakes, not engine defects. S18 / S19 / S20 reliability arc (PR #194) verified. |
 | Is its **§2 invariant** intact ("no tradeable candidate bypasses EVEngine.evaluate")? | **Yes.** Verified across S18 load, S19 chaos, S20 concurrency, S22 / S27 / S32 / S34 / S35 backtests, and the audit-of-audit review (PR #195). |
 | Does it **beat SPY at meaningful capital scales**? | **Conditionally yes** at $1M with 100-ticker universe in 2022-2024 (S34: +11.6pp over SPY). **No** at $100k in 2018-2020 (S35: −41pp under SPY). The dollar-alpha is regime-dependent; the +27pp headline from S22/S27 is window-specific. |
-| Should we **deploy it autonomously with real money today**? | **No** — three blockers remain (F4 tail-risk, D17 live-wire, multi-window confirmation). See §3 below. |
-| Should we **use it as a research / decision-aid signal**? | **Yes, with supervision and explicit window-sensitivity caveat.** The signal is real and consistent; the gaps below mean a human should review every entry / roll the engine recommends. |
+| **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `docs/SOUNDNESS_REVIEW_2026-05-26.md`. |
+| **Is the dollar alpha concentration-resilient?** (post-soundness-review) | **No — one ticker can dominate.** In S34, BKNG alone contributed $31,576 of $28,571 total executed realized P&L (110% of net). Without BKNG, the engine's realized executions are slightly negative (−$3,004). **However, the ranking SIGNAL is robust** — ρ moves 0.327 → 0.324 when BKNG is removed. Ranking quality is genuine; the dollar outcome at scale is concentration-dependent. |
+| Should we **deploy it autonomously with real money today**? | **No** — three blockers remain (F4 tail-risk, D17 live-wire, multi-window confirmation). Plus the equity-beta-vs-ranking-alpha framing means autonomous deployment would be a thinly-disguised levered equity beta bet in disguise. See §3 below. |
+| Should we **use it as a research / decision-aid signal**? | **Yes, with supervision and explicit window-sensitivity + alpha-decomposition caveats.** The signal is real (verified ρ + robust to concentration); the refusal mechanism is the engine's strongest property (98%+ refusal in adverse periods, correct in aggregate); the dollar outcome at scale comes mostly from equity beta on assignments. |
 
-**One-sentence verdict:** the engine is a *research-grade ranker with
-verified predictive signal that can deploy alpha at $1M with the
-right universe in the right window*, not yet a *production-deployable
-autonomous trading system*. Three engineering blockers (F4, D17-live,
-multi-window confirmation) sit between today and "deploy real money
-autonomously."
+**One-sentence verdict:** the engine is a *research-grade ranker
+with verified predictive signal and a strong refusal mechanism*; the
+*dollar alpha at scale comes mostly from equity beta on wheel-strategy
+assignments rather than from pure put-selection skill*. As an
+autonomous trading system it is not yet deployable (three blockers
+remain). As a supervised decision-aid + refusal layer over a wheel
+strategy, it has demonstrable value — with the explicit
+acknowledgment that historical dollar-outperformance is partly a
+levered SPY-subset bet on bull-market-favored single names.
 
 ---
 
@@ -252,6 +257,70 @@ skew-aware IV. Theta connector can, but Theta-tier-data access on
 the dev box is limited (see the 2 Theta-Windows-local flake tests).
 Production deployments needing skew-aware IV must run with
 `SWE_DATA_PROVIDER=theta` and a working Theta Terminal subscription.
+
+### Caveat — alpha decomposition (added 2026-05-26 post-soundness-review)
+
+The engine's NAV-level outperformance against SPY in S22 / S27 / S34
+comes primarily from **equity beta on assigned stocks**, not from
+put-selection skill per se. The wheel strategy by design captures
+equity beta via assignments: when a put is assigned, the seller takes
+delivery of the stock at the strike; that stock then participates in
+subsequent equity moves.
+
+The mechanical evidence from `docs/SOUNDNESS_REVIEW_2026-05-26.md`:
+
+| Backtest | NAV gain | Realized P&L from executed | Equity-beta residual |
+|---|---|---|---|
+| S27 ($100k 24t 2022-2024) | +$51,444 | **−$3,421** (NEGATIVE) | +$54,865 |
+| S34 ($1M 100t 2022-2024) | +$356,128 | +$28,571 | **+$327,557 (92% of gain)** |
+| S35 ($100k 24t 2018-2020) | +$3,566 | −$48,326 (NEGATIVE) | +$51,892 |
+
+**Implication:**
+- The engine's value as a *premium-selling alpha engine* is small per
+  trade (the ranker is statistically robust but each trade earns only
+  a modest expected dollar amount above breakeven).
+- The engine's value as a *wheel-strategy executor with strong
+  refusal* is substantial: refuses 97-99.8% of candidates in adverse
+  regimes, correctly identifies which stocks to take assignment on
+  (those stocks then appreciate during bull markets).
+- **In a regime where equity beta on the engine's preferred
+  assignments does NOT outperform SPY** (e.g., 2018-2020 per S35, or
+  a future regime where wheel-favored single names lag), the engine
+  would likely underperform SPY by 10-40pp.
+
+This is **honest framing**, not a defect. The wheel strategy is
+*designed* to capture equity beta. The earlier session docs framed
+the "beat SPY" headline as ranker-driven; this caveat clarifies it
+is mostly assignment-driven equity exposure with a smaller
+ranker-driven edge on top.
+
+### Caveat — single-ticker concentration risk (added 2026-05-26 post-soundness-review)
+
+In S34, **BKNG alone contributed $31,576 of $28,571 net executed
+realized P&L (110% of net)**. Without BKNG, the engine's realized
+executions across 268 other trades summed to **−$3,004**.
+
+Mechanism: BKNG's stock rose from ~$2,336 (Jan 2022) to ~$5,000+
+(end of 2024). High-priced tickers carry proportionally larger
+premiums (premium scales with strike); the engine systematically
+ranked BKNG high; BKNG kept the puts OTM as it rose; each trade
+captured $3-4k of premium income.
+
+The engine's **within-ticker ρ on BKNG was modest (0.156)** — this
+wasn't unusual skill at timing BKNG entries; it was systematic
+exposure to a single-name uptrend.
+
+**The signal IS robust to BKNG removal** (full-set ρ = 0.3273
+→ ex-BKNG ρ = 0.3244, delta 0.0029). The ranking quality doesn't
+depend on the concentration. But the **dollar outcome is
+concentration-dependent**: a deployment that doesn't see a BKNG-style
+single-name bull run would not reproduce the S34 dollar result.
+
+**Implication:** any dollar-alpha forecast from the engine's
+historical backtests should be discounted for concentration risk.
+The +11.6pp S34 result is not a "minimum" or "expected" — it's a
+specific realization that depended materially on a single name's
+trajectory.
 
 ---
 

@@ -326,3 +326,98 @@ test suite. Specifically:
 
 This diagnostic closes the **understanding** part of the F4 gap.
 The **implementation** part is the next PR.
+
+---
+
+## 9. Fix A attempt result — INSUFFICIENT (added 2026-05-26)
+
+A single-session attempt at the proposed Fix A (lookback shortening)
+was made on branch `claude/fix-f4-tail-risk-lookback` and **reverted
+without merging**. Result: **Fix A alone does NOT close the F4 gap;
+in fact it makes the engine MORE optimistic on the COST 2022-04
+case, not less.** Documenting the negative result here so future
+work does not re-attempt the same path.
+
+### What was tried
+
+Three variants tested live against the F4 regression suite + the
+COST 2022-04-04 case via direct ranker probe:
+
+| Variant | COST 2022-04-04 prob_profit | distribution_source |
+|---|---|---|
+| Baseline (lookback=5.0, min_samples=20) | **0.8333** (the F4 gap) | empirical_non_overlapping |
+| `lookback_years=3.0` (everything else unchanged) | 0.8333 (unchanged) | empirical_non_overlapping |
+| `lookback_years=2.0` (everything else unchanged) | **0.8635 → 0.8771 (WORSE)** | empirical_overlapping (cascade fell through) |
+| `min_empirical_samples=40` (forces overlapping at 5y) | **0.8766 (WORSE)** | empirical_overlapping (~1300 samples at 5y) |
+
+### Why Fix A alone fails
+
+The F4 gap manifests at the engine's default lookback. Naive
+shortening (5y → 2y) at the COST 2022-04 case produces a sample
+window of **2020-04 to 2022-04** — which is dominated by:
+
+- COVID recovery V-shape (April 2020 → end 2020): big up moves
+- 2021 strong bull market
+- Just the very beginning of 2022 vol pickup
+
+This 2-year window is **MORE BULLISH than the 5-year window** that
+included pre-COVID grind. The engine's empirical forward
+distribution therefore implies HIGHER `prob_profit` (engine more
+optimistic), not lower.
+
+Similarly, forcing the cascade to use the overlapping path (via
+`min_empirical_samples=40`) gives ~1300 sample points at 5y. The
+larger sample doesn't tilt toward the recent vol — it averages
+across the same 5-year history with more granularity. Result: same
+~0.87 prob_profit on COST 2022-04.
+
+### What this proves
+
+The F4 root cause is **NOT** the lookback window size or the
+NOS-vs-overlapping cascade. The root cause is the **historical
+backward-look** itself: any sample of past returns will fail to
+predict idiosyncratic single-name drawdowns like COST 2022-04
+(supply chain + inflation surprise) or UNH 2024-11 (regulatory
+event).
+
+The only way to widen the engine's distribution for these cases
+is **regime-conditioned widening** (Fix B1) — multiply the
+empirical std by a regime-dependent factor when the HMM regime
+classifier flags `crisis` or `bear`, OR widen when the underlying's
+30-day realized volatility is materially elevated versus its
+historical baseline. This requires:
+
+1. Threading the HMM regime label (or a recent-vol ratio) into
+   the forward-distribution computation.
+2. Calibrating the widening factor (1.25, 1.5, data-driven, etc.)
+   against the S22 / S27 / S32 / S34 / S35 backtest set to confirm
+   signal preservation in calm regimes.
+3. Updating `tests/test_f4_tail_risk_gap.py` to flip the
+   regression-watch assertions after validation.
+
+**This is research-level engineering, not a single-session fix.**
+Estimated effort: 3-6 hours implementation + 4-8 hours backtest
+re-runs + 2 hours documentation. Should be its own scoped PR with
+explicit owner ownership.
+
+### Implications for `docs/PRODUCTION_READINESS.md`
+
+§3 Blocker B1 cannot be marked resolved with Fix A alone. The
+deployment matrix's "autonomous" verdicts remain blocked. The
+"supervised at $1M with 100-ticker universe" conditional verdict
+in §5 still requires F4 fix (B1 closure) before promoting to
+unconditional.
+
+### Sources for the negative result
+
+- `engine/forward_distribution.py` defaults verified at baseline
+  via `inspect.signature(...)` — `lookback_years=5.0`,
+  `min_empirical_samples=20`.
+- Live ranker probe (`_f4_probe.py`, throwaway, deleted before
+  commit) on COST 2022-04-04 and 2022-04-14 across baseline +
+  three variant settings.
+- F4 regression suite (`tests/test_f4_tail_risk_gap.py`): all 5
+  pass + 2 xfail across all variants. The regression-watch
+  assertions are not sensitive enough to detect "engine became
+  more optimistic" — they only assert the gap exists with a
+  permissive threshold (`cvar_5 > -10% of collateral`).

@@ -232,6 +232,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
+| `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |

@@ -331,7 +331,7 @@ def check_sector_cap(
         reason="sector_cap_breach",
         details={
             "sector": sector,
-            "sector_pct": post_open_pct,
+            "post_open_sector_pct": post_open_pct,
             "sector_limit": max_sector_pct,
             "narrative": reason_str,
         },

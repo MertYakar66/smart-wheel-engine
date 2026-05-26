@@ -396,11 +396,28 @@ class WheelRunner:
             )
         return self._calendar
 
-    def analyze_ticker(self, ticker: str, as_of: str | None = None) -> TickerAnalysis:
+    def analyze_ticker(
+        self,
+        ticker: str,
+        as_of: str | None = None,
+        *,
+        max_as_of_staleness_days: int = 30,
+    ) -> TickerAnalysis:
         """
         Complete wheel suitability analysis for a single ticker.
 
         Combines fundamentals, volatility, events, and strangle timing.
+
+        S33 audit holdover: spot price now respects ``as_of`` (PIT
+        filtered to ``<= as_of``) and refuses to silently substitute
+        when ``as_of`` is more than ``max_as_of_staleness_days``
+        beyond the latest available OHLCV row. On a stale-as_of
+        rejection, ``spot_price`` stays at its default 0.0 -- the
+        same "no data available" signal callers already handle.
+        Mirrors the gate applied to ``rank_candidates_by_ev`` /
+        ``rank_covered_calls_by_ev`` / ``rank_strangles_by_ev``
+        (PRs #215 / #220) for surface consistency. Default 30 days
+        permits normal weekend / holiday / refresh-cycle gaps.
         """
         analysis = TickerAnalysis(ticker=ticker)
         conn = self.connector
@@ -422,10 +439,37 @@ class WheelRunner:
         if credit:
             analysis.credit_rating = credit.get("rtg_sp_lt_lc_issuer_credit", "")
 
-        # --- Spot price ---
+        # --- Spot price (PIT + staleness gate; S33 audit holdover) ---
         ohlcv = conn.get_ohlcv(ticker)
         if not ohlcv.empty:
-            analysis.spot_price = float(ohlcv["close"].iloc[-1])
+            # PIT filter: respect as_of by trimming OHLCV to <= as_of.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    ohlcv_pit = ohlcv.loc[ohlcv.index <= cutoff]
+                    # Staleness gate: refuse to substitute if as_of is
+                    # more than max_as_of_staleness_days beyond the
+                    # latest filtered row. Leaves spot_price at the
+                    # 0.0 default (the "no data available" signal).
+                    if not ohlcv_pit.empty:
+                        gap_days = (cutoff - ohlcv_pit.index.max()).days
+                        if gap_days <= max_as_of_staleness_days:
+                            analysis.spot_price = float(ohlcv_pit["close"].iloc[-1])
+                        else:
+                            logger.warning(
+                                "analyze_ticker(%s, as_of=%s): %d days beyond "
+                                "latest OHLCV (%s); spot_price left at default 0.0",
+                                ticker,
+                                as_of,
+                                gap_days,
+                                ohlcv_pit.index.max().date().isoformat(),
+                            )
+                except Exception:
+                    # PIT-filter cast failed -- fall back to live behavior.
+                    analysis.spot_price = float(ohlcv["close"].iloc[-1])
+            else:
+                # No as_of -> live behaviour: latest close.
+                analysis.spot_price = float(ohlcv["close"].iloc[-1])
 
         # --- IV rank & percentile ---
         try:

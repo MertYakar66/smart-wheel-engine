@@ -39,6 +39,10 @@ TradingView bridge:
   GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
   GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
+
+News (dashboard-facing ring buffer; not on the EV decision path):
+  GET  /api/news?limit=20                 - Most recent ingested news stories
+  POST /api/news/ingest                   - Push stories from the news pipeline
 """
 
 import hashlib
@@ -2162,9 +2166,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         at minimum ``title`` and ``summary``. Optional fields:
         ``tickers``, ``impact``, ``source``, ``timestamp``, ``url``.
 
-        Stories are appended to the in-memory ring buffer and served
-        via ``GET /api/news``. The endpoint also extracts ticker
-        mentions and checks them against the event gate.
+        Stories are appended to the in-memory ring buffer
+        (``_NEWS_BUFFER``) and served back via ``GET /api/news``. The
+        buffer is dashboard-facing — it does **not** feed the EV
+        decision path (``engine/news_sentiment.py`` is the EV-path
+        news reviewer, consumed by ``WheelRunner.rank_candidates_by_ev``
+        from on-disk sentiment shards, not from this in-memory buffer).
+        No event-gate integration happens at this endpoint.
         """
         stories = payload.get("stories", [])
         if not isinstance(stories, list):

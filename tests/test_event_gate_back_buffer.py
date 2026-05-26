@@ -134,7 +134,7 @@ class _SymEarningsConn:
         *,
         recent_earnings: dict[str, str] | None = None,
         next_earnings: dict[str, str] | None = None,
-        default_days: int = 1400,
+        default_days: int = 3000,
         snapshot_iv: float = 28.0,
     ) -> None:
         self._tickers = list(tickers)

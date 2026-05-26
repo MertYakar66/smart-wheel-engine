@@ -111,3 +111,126 @@ class TestCreditPIT:
         cr = FREDAdapter().credit_regime()
         assert cr["hy_oas"] == pytest.approx(3.0)  # latest, calm
         assert cr["regime"] == "benign"
+
+
+# ── ohlcv future-as_of silent substitution (S32 F3 closer) ──────────
+class TestRankerAsOfBeyondData:
+    """S32 F3: querying rank_candidates_by_ev with a future as_of
+    well beyond the data cutoff used to silently substitute the
+    latest available close as 'current spot' with no warning.
+    This violates D11 'no silent substitution'. The fix gates such
+    queries via max_as_of_staleness_days (default 30); over-the-
+    threshold queries drop the ticker with reason='as_of_beyond_data'."""
+
+    def _runner_with_data_through(self, last_date_iso: str):
+        """Build a WheelRunner whose connector returns OHLCV ending at
+        last_date_iso. Synthetic; no on-disk dependency."""
+        import numpy as np
+        import pandas as pd
+
+        from engine.wheel_runner import WheelRunner
+
+        end = pd.Timestamp(last_date_iso)
+        idx = pd.date_range(end - pd.Timedelta(days=800), end, freq="B")
+        rng = np.random.default_rng(42)
+        prices = 100 * np.exp(np.cumsum(rng.normal(0.0003, 0.012, len(idx))))
+        oh = pd.DataFrame({"close": prices}, index=idx)
+
+        class _Conn:
+            def get_ohlcv(self, ticker):
+                return oh
+
+            def get_fundamentals(self, ticker):
+                return {"implied_vol_atm": 0.28, "volatility_30d": 0.25, "dividend_yield": 0.01}
+
+            def get_risk_free_rate(self, as_of=None):
+                return 0.05
+
+            def get_next_earnings(self, ticker, as_of=None):
+                return None
+
+            def get_universe(self):
+                return ["TEST"]
+
+        r = WheelRunner()
+        r._connector = _Conn()
+        return r
+
+    def test_far_future_as_of_drops_with_as_of_beyond_data_reason(self):
+        """as_of well past data cutoff -> drop with explicit reason."""
+        r = self._runner_with_data_through("2026-03-20")
+        df = r.rank_candidates_by_ev(
+            tickers=["TEST"],
+            as_of="2030-01-01",
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_dealer_positioning=False,
+            use_news_sentiment=False,
+            use_credit_regime=False,
+            use_skew_dynamics=False,
+        )
+        assert df.empty, "engine must NOT silently substitute future as_of"
+        drops = df.attrs.get("drops", [])
+        assert len(drops) == 1
+        d = drops[0]
+        assert d["gate"] == "data"
+        assert "beyond latest data" in d["reason"]
+        assert "2030-01-01" in d["reason"]
+
+    def test_within_threshold_as_of_proceeds_normally(self):
+        """as_of within the default 30-day threshold proceeds normally."""
+        r = self._runner_with_data_through("2026-03-20")
+        df = r.rank_candidates_by_ev(
+            tickers=["TEST"],
+            as_of="2026-04-10",  # 21 days later, within 30
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_dealer_positioning=False,
+            use_news_sentiment=False,
+            use_credit_regime=False,
+            use_skew_dynamics=False,
+        )
+        # Drop is allowed for non-data reasons (insufficient history,
+        # ev_threshold, etc.), but must NOT be an 'as_of_beyond_data'
+        # rejection.
+        drops = df.attrs.get("drops", [])
+        for d in drops:
+            assert "beyond latest data" not in d.get("reason", ""), (
+                f"21-day gap should not trip the as_of_beyond_data gate: {d}"
+            )
+
+    def test_custom_threshold_overrides_default(self):
+        """A caller can tighten the threshold (e.g. 0 days = strict)."""
+        r = self._runner_with_data_through("2026-03-20")
+        df = r.rank_candidates_by_ev(
+            tickers=["TEST"],
+            as_of="2026-04-05",  # 16 days later
+            top_n=10,
+            min_ev_dollars=-1e9,
+            max_as_of_staleness_days=7,  # tight: 16 > 7 -> drop
+            use_dealer_positioning=False,
+            use_news_sentiment=False,
+            use_credit_regime=False,
+            use_skew_dynamics=False,
+        )
+        assert df.empty
+        drops = df.attrs.get("drops", [])
+        assert any("beyond latest data" in d["reason"] for d in drops)
+
+    def test_historical_as_of_unaffected(self):
+        """as_of in the PAST (well-covered by data) is unaffected by
+        the gate."""
+        r = self._runner_with_data_through("2026-03-20")
+        df = r.rank_candidates_by_ev(
+            tickers=["TEST"],
+            as_of="2025-06-15",  # well within history
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_dealer_positioning=False,
+            use_news_sentiment=False,
+            use_credit_regime=False,
+            use_skew_dynamics=False,
+        )
+        drops = df.attrs.get("drops", [])
+        for d in drops:
+            assert "beyond latest data" not in d.get("reason", "")

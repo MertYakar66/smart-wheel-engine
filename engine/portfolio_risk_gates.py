@@ -110,6 +110,30 @@ _DEFAULT_VAR_CONFIDENCE = 0.95
 _DEFAULT_VAR_HORIZON_DAYS = 30
 _DEFAULT_MAX_STRESS_DRAWDOWN_PCT = 0.08
 
+# S31 Fix #5 — alt-cluster exposure cap. Complementary to
+# check_sector_cap (GICS-strict): aggregates exposure across
+# colloquial clusters that cross GICS sector boundaries. Closes the
+# S31 F6 trader-mental-model gap where "tech" in trader-speak spans
+# Information Technology (AAPL/MSFT/NVDA/AVGO) + Communication
+# Services (META/GOOGL) + Consumer Discretionary (TSLA/AMZN) so the
+# GICS sector cap doesn't aggregate them.
+#
+# Default cap is 0.40 (looser than the 0.25 sector cap because
+# clusters are wider — a 25% mega-cap-growth cap would be too
+# restrictive for institutional wheel books). Override per-call when
+# tighter discipline is desired.
+_DEFAULT_MAX_ALT_CLUSTER_PCT = 0.40
+
+# Default cluster set. Membership is intentionally tight (rather than
+# trying to enumerate every possible cluster a trader might care
+# about) — operators with a different mental model pass a `clusters`
+# kwarg with their own definitions. The starter set names the most
+# common one ("the FAAMNG-T super-cluster") that recurs across
+# institutional wheel-trader feedback.
+_DEFAULT_ALT_CLUSTERS: dict = {
+    "mega_cap_growth": frozenset({"AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "AVGO"}),
+}
+
 # The C4 standard stress scenario — instantiated here (not in
 # stress_testing.py's HYPOTHETICAL_SCENARIOS) to respect the prompt
 # rule_out forbidding modifications to stress_testing.py. If a future
@@ -334,6 +358,128 @@ def check_sector_cap(
             "sector_pct": post_open_pct,
             "sector_limit": max_sector_pct,
             "narrative": reason_str,
+        },
+    )
+
+
+# ----------------------------------------------------------------------
+# Gate 1b: Alt-cluster exposure cap (S31 Fix #5)
+# ----------------------------------------------------------------------
+def check_alt_cluster_cap(
+    symbol: str,
+    proposed_notional: float,
+    held_option_positions: list[dict],
+    nav: float,
+    *,
+    clusters: dict | None = None,
+    max_cluster_pct: float = _DEFAULT_MAX_ALT_CLUSTER_PCT,
+) -> GateResult:
+    """Refuse if opening the candidate would push any alt-cluster the
+    symbol belongs to over ``max_cluster_pct`` of NAV.
+
+    **Complementary to** :func:`check_sector_cap` (GICS-strict).
+    Closes the S31 F6 trader-mental-model gap where "tech"
+    colloquially crosses three GICS sectors (Information Technology /
+    Communication Services / Consumer Discretionary). The GICS
+    sector_cap treats AAPL + TSLA as separate sectors; this gate lets
+    a trader define their own clusters that aggregate them.
+
+    Pass / fail semantics mirror :func:`check_sector_cap`:
+
+    - ``passed=True`` if (a) the symbol is in no defined cluster, or
+      (b) for every cluster the symbol belongs to, the post-open
+      cluster exposure is below ``max_cluster_pct`` of NAV.
+    - ``passed=False, reason="alt_cluster_cap_breach"`` if any
+      cluster the symbol belongs to would exceed the cap.
+
+    Args:
+        symbol: The candidate's ticker.
+        proposed_notional: Dollar notional of the proposed position
+            (``strike * 100 * contracts`` for a short put).
+        held_option_positions: Current option positions in the same
+            shape ``take_snapshot(...).option_positions`` returns
+            (each carrying ``symbol``, ``strike``, ``contracts``).
+            Stock holdings are NOT aggregated here -- mirrors the
+            sector-cap convention that stock-leg sizing is handled
+            separately (no margin consumed).
+        nav: Net asset value (live cash + mark-to-market). Caller
+            decides whether to pass live or static NAV.
+        clusters: Optional mapping ``{cluster_name: frozenset(symbols)}``
+            overriding the default cluster definitions. The default
+            (:data:`_DEFAULT_ALT_CLUSTERS`) ships one cluster
+            (``"mega_cap_growth"``) -- operators with a richer mental
+            model pass their own.
+        max_cluster_pct: Per-cluster cap; default 0.40. Looser than
+            the 0.25 GICS sector cap because clusters are wider.
+
+    Returns:
+        :class:`GateResult` with ``details`` carrying the cluster
+        memberships and post-open percentages. Key shape mirrors
+        :func:`check_sector_cap` post-S31 F7 fix (pass and fail use
+        the same ``post_open_*`` keys -- no key asymmetry).
+    """
+    if clusters is None:
+        clusters = _DEFAULT_ALT_CLUSTERS
+
+    # Which clusters does this symbol belong to?
+    memberships = sorted(name for name, members in clusters.items() if symbol in members)
+    if not memberships:
+        # Symbol is not in any defined cluster — the gate is silent
+        # (matches the "missing data → skip" semantics from Q3 of the
+        # #113 design checkpoint).
+        return GateResult(
+            passed=True,
+            reason=None,
+            details={
+                "cluster_memberships": [],
+                "max_post_open_cluster_pct": 0.0,
+                "cluster_limit": max_cluster_pct,
+            },
+        )
+
+    # For each cluster the symbol belongs to, sum existing notional
+    # from held option positions whose symbol is in the same cluster.
+    cluster_pcts: dict[str, float] = {}
+    for cname in memberships:
+        members = clusters[cname]
+        current = sum(
+            float(p.get("strike", 0.0)) * 100.0 * int(p.get("contracts", 1))
+            for p in held_option_positions
+            if p.get("symbol") in members
+        )
+        post_open = (current + proposed_notional) / nav if nav > 0 else 0.0
+        cluster_pcts[cname] = post_open
+
+    breaching = [(cname, pct) for cname, pct in cluster_pcts.items() if pct > max_cluster_pct]
+    max_post_open = max(cluster_pcts.values()) if cluster_pcts else 0.0
+
+    if breaching:
+        worst_cluster, worst_pct = max(breaching, key=lambda kv: kv[1])
+        narrative = (
+            f"Alt-cluster '{worst_cluster}' would be {worst_pct:.1%} "
+            f"of NAV (limit {max_cluster_pct:.1%}). "
+            f"Cluster members held + proposed exceed the cap."
+        )
+        return GateResult(
+            passed=False,
+            reason="alt_cluster_cap_breach",
+            details={
+                "cluster_memberships": memberships,
+                "breaching_cluster": worst_cluster,
+                "post_open_cluster_pct": worst_pct,
+                "max_post_open_cluster_pct": max_post_open,
+                "cluster_limit": max_cluster_pct,
+                "narrative": narrative,
+            },
+        )
+
+    return GateResult(
+        passed=True,
+        reason=None,
+        details={
+            "cluster_memberships": memberships,
+            "max_post_open_cluster_pct": max_post_open,
+            "cluster_limit": max_cluster_pct,
         },
     )
 

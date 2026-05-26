@@ -183,6 +183,15 @@ authority files change.
       relevant env was sourced — `source scripts/setup-terminal.sh
       <letter>` so `COVERAGE_FILE` / `PYTEST_CACHE_DIR` don't
       collide with another terminal's run.
+- [ ] **If the change touches `engine/ev_engine.py`,
+      `engine/wheel_runner.py`, `engine/forward_distribution.py`,
+      `engine/dealer_positioning.py`, or `engine/tail_risk.py`** —
+      the backtest-regression harness (§10) must run green in
+      addition to the launch blockers. Paste the run timestamp + SHA
+      into the PR description. The four ledger backtests
+      (S27/S32/S34/S35) are downstream of all five files; silent
+      drift here means the documented ρ / NAV / hit-rate claims
+      become falsehoods on `main`.
 
 ---
 
@@ -344,3 +353,40 @@ S16's compliance walkthrough verdict was **partial**, so the audit
 trail is verifiable for survivor rows but the structured-log
 operator-facing story is incomplete. Tracked in audit issue #154
 (C6).
+
+---
+
+## 10. Backtest regression gate
+
+The four committed ledger backtests
+(`docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` S27,
+`docs/ENGINE_BACKTEST_S32_FRICTION.md` S32,
+`docs/SOUNDNESS_REVIEW_2026-05-26.md` S34,
+`docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` S35) are pinned by
+executable assertions in `tests/test_backtest_regression.py` against
+snapshots committed under `backtests/regression/snapshots/`.
+
+This is a **per-release** gate, not a per-merge gate. The runtime is
+prohibitive for per-PR CI (~4–5 hours total, dominated by S34 at
+~3.5 h on a 100-ticker universe), so it lives behind the
+`backtest_regression` pytest marker and is excluded from
+`.github/workflows/ci.yml`'s `Test Suite` job.
+
+When to run:
+- **Before any release tag on `main`.** Required green.
+- **Before any PR that touches the five files in the §5 last bullet.**
+  Required green; paste the run timestamp + SHA into the PR
+  description.
+- **Weekly heartbeat** if the dedicated workflow
+  (`.github/workflows/backtest-regression.yml`) is wired with a
+  schedule. Otherwise: triggered manually via the
+  `.claude/commands/backtest-regression.md` skill on the laptop.
+
+On failure: see TESTING.md § "Backtest regression — re-baseline
+workflow" — diagnose before regenerating.
+
+S35 is the only backtest whose snapshot was generated against the
+**post-PIT-fix** engine (PR4 re-baseline). Snapshots for
+S27/S32/S34 were locked against the same post-fix engine; the
+documented headline numbers in their respective docs should match
+within the per-metric tolerance band.

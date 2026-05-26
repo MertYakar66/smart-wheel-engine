@@ -373,7 +373,8 @@ def run_backtest(
         if prices_today:
             tracker.mark_to_market(today, prices_today)
 
-        # 2) Settle expirations
+        # 2) Settle expirations — handle_put_expiration / handle_call_expiration
+        # encapsulate the "ITM → assign, OTM → keep/close" branching cleanly.
         for t in list(tracker.positions.keys()):
             pos = tracker.positions[t]
             if (
@@ -384,14 +385,12 @@ def run_backtest(
                 spot = prices_today.get(t) or _spot_on_or_after(conn, t, today)
                 if spot is None:
                     continue
-                if spot < (pos.put_strike or 0.0):
-                    tracker.handle_put_assignment(t, today, spot)
-                    if friction_level == "full":
-                        tracker.cash -= friction_assignment_cost(
-                            pos.put_strike or 0.0, contracts, friction_level
-                        )
-                else:
-                    tracker.close_short_put(t, 0.0, today, reason="expired_otm")
+                was_assigned = spot < (pos.put_strike or 0.0)
+                tracker.handle_put_expiration(t, today, spot)
+                if was_assigned and friction_level == "full":
+                    tracker.cash -= friction_assignment_cost(
+                        pos.put_strike or 0.0, contracts, friction_level
+                    )
             elif (
                 pos.state == PositionState.COVERED_CALL
                 and pos.call_expiration_date
@@ -400,10 +399,69 @@ def run_backtest(
                 spot = prices_today.get(t) or _spot_on_or_after(conn, t, today)
                 if spot is None:
                     continue
-                if spot > (pos.call_strike or float("inf")):
-                    tracker.handle_call_assignment(t, today)
+                was_called_away = spot > (pos.call_strike or float("inf"))
+                tracker.handle_call_expiration(t, today, spot)
+                if was_called_away and friction_level == "full":
+                    tracker.cash -= friction_assignment_cost(
+                        pos.call_strike or 0.0, contracts, friction_level
+                    )
+
+        # 2.5) Wheel into covered calls on stock-owned tickers. Without
+        # this, every assigned position locks its ticker out of future
+        # rotation; S22 documented 16 CC entries off 7 put assignments
+        # — the wheel's second leg is essential to the documented
+        # execution count.
+        expiration_default = _next_business_day(today + timedelta(days=dte_target))
+        for t in list(tracker.positions.keys()):
+            pos = tracker.positions[t]
+            if pos.state != PositionState.STOCK_OWNED:
+                continue
+            try:
+                cc_frame = runner.rank_covered_calls_by_ev(
+                    ticker=t,
+                    shares_held=100 * contracts,
+                    as_of=today.isoformat(),
+                    target_dtes=(dte_target,),
+                    target_deltas=(delta_target,),
+                    top_n=5,
+                    min_ev_dollars=-1e9,
+                    include_diagnostic_fields=True,
+                )
+            except Exception:
+                continue
+            if cc_frame is None or len(cc_frame) == 0:
+                continue
+            for _, cc_row in cc_frame.iterrows():
+                if float(cc_row.get("ev_dollars", 0.0)) <= 0:
+                    continue
+                cc_strike = float(cc_row.get("strike", 0.0))
+                cc_premium = friction_adjusted_premium(
+                    float(cc_row.get("premium", 0.0)), friction_level
+                )
+                if cc_premium <= 0 or cc_strike <= 0:
+                    continue
+                # ``new_expiry`` is a Timestamp / str / date from the CC ranker
+                raw_expiry = cc_row.get("new_expiry")
+                if isinstance(raw_expiry, str):
+                    cc_expiry = date.fromisoformat(raw_expiry[:10])
+                elif hasattr(raw_expiry, "date"):
+                    cc_expiry = raw_expiry.date()
+                elif isinstance(raw_expiry, date):
+                    cc_expiry = raw_expiry
                 else:
-                    tracker.close_covered_call(t, 0.0, today, reason="expired_otm")
+                    cc_expiry = expiration_default
+                opened_cc = tracker.open_covered_call(
+                    ticker=t,
+                    strike=cc_strike,
+                    premium=cc_premium,
+                    entry_date=today,
+                    expiration_date=cc_expiry,
+                    iv=float(cc_row.get("iv", 0.0)),
+                )
+                if opened_cc:
+                    if friction_level == "full":
+                        tracker.cash -= friction_open_cost(contracts, friction_level)
+                    break  # one CC per ticker per day
 
         # 3) Rank candidates
         try:

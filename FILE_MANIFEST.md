@@ -232,6 +232,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
+| `docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | Comprehensive launch-readiness analysis pulling every backtest (S22/S27/S32/S34/S35) + every review PR + every shipped fix into one yes/no real-life-trading verdict. Headline finding: signal is real and scale-AND-window-invariant (ρ = 0.22-0.50 across capital scales and time windows) but **dollar-alpha is window-dependent** (engine +27pp vs SPY in 2022-2024, −41pp in 2018-2020 — same parameters). Verdict: NO autonomous; conditional supervised at ≤ $100k with window-sensitivity caveat. |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |

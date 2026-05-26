@@ -66,7 +66,8 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 
 | File | Purpose |
 |---|---|
-| `.github/workflows/ci.yml` | CI pipeline — environment validation, lint/type check, test+coverage matrix, quant validation, security scan, integration. |
+| `.github/workflows/ci.yml` | CI pipeline — environment validation, lint/type check, test+coverage matrix (excludes `backtest_regression` marker), quant validation, security scan, integration. |
+| `.github/workflows/backtest-regression.yml` | Manual-dispatch workflow that runs the backtest-regression suite (S27/S32/S34/S35 reproducers, ~4–5 h). Cron disabled until CSV hydration in CI is solved; today's primary entry point is the `.claude/commands/backtest-regression.md` skill on the dev laptop. |
 
 ## `archive/`
 

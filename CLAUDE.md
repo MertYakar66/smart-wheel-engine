@@ -28,8 +28,8 @@ block at the bottom routes you to the right on-demand document.
      returns `EVResult`.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev`. The
      one ranker every tradeable path routes through.
-   - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the six
-     downgrade rules R1–R6 (see §2).
+   - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the
+     downgrade rules R1–R8 (see §2).
 4. **Interface layer** — `engine_api.py` (HTTP on `:8787`), `dashboard/`
    (Next.js), `engine/tradingview_bridge.py` (chart providers — sanity
    check, not a decider), `advisors/` (Buffett / Munger / Simons / Taleb
@@ -69,6 +69,16 @@ The `EnginePhaseReviewer` rules, for reference:
 - R5: EV above threshold → proceed (below → review)
 - R6: short-gamma regime + strike at/above put wall, or dealer regime
   near gamma flip → downgrade to review
+- R7: *(D17 soft-warn — conditional on attached `PortfolioContext`)*
+  portfolio VaR_95 (30-day horizon) above `max_var_pct × NAV` (default
+  5%) → downgrade proceed → review. Skips silently when no context is
+  attached OR when `check_var` lacks correlation/returns data — soft-warns
+  don't fire on absent evidence.
+- R8: *(D17 soft-warn — conditional on attached `PortfolioContext`,
+  two trigger conditions mirroring R6.)* Either the C4 vol-spike stress
+  drawdown > 8% NAV OR the candidate's underlying is in
+  `short_gamma_amplifying` regime → downgrade proceed → review. Distinct
+  `verdict_reason` per trigger.
 
 ---
 

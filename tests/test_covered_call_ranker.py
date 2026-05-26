@@ -125,7 +125,14 @@ def _runner(conn: _FakeConn | None = None) -> WheelRunner:
 
 def _rank(runner: WheelRunner, **extra) -> pd.DataFrame:
     """rank_covered_calls_by_ev with deterministic defaults: event gate off,
-    EV floor wide open so the threshold gate is silent unless opted in."""
+    EV floor wide open so the threshold gate is silent unless opted in.
+
+    `max_as_of_staleness_days=10000` disables the S33 F3 staleness gate
+    for these tests — `as_of=2026-01-15` is 12+ months after the
+    synthetic OHLCV window. The staleness gate is exercised
+    separately by `TestCoveredCallRankerAsOfBeyondData` in
+    `tests/test_pit_leaks.py`.
+    """
     kw: dict = {
         "ticker": "TEST",
         "shares_held": 100,
@@ -133,6 +140,7 @@ def _rank(runner: WheelRunner, **extra) -> pd.DataFrame:
         "use_event_gate": False,
         "min_ev_dollars": -1e9,
         "top_n": 50,
+        "max_as_of_staleness_days": 10000,
     }
     kw.update(extra)
     return runner.rank_covered_calls_by_ev(**kw)
@@ -280,7 +288,11 @@ class TestRanksNeverRescues:
         is presented as tradeable — every candidate is dropped, no rescue."""
         runner = _runner(_FakeConn(ohlcv=_trending_ohlcv()))
         df = runner.rank_covered_calls_by_ev(
-            ticker="TEST", shares_held=100, as_of="2026-01-15", use_event_gate=False
+            ticker="TEST",
+            shares_held=100,
+            as_of="2026-01-15",
+            use_event_gate=False,
+            max_as_of_staleness_days=10000,
         )
         assert df.empty
         drops = df.attrs["drops"]
@@ -353,6 +365,7 @@ class TestSection2EvaluateCallCount:
                 use_event_gate=True,
                 min_ev_dollars=-1e9,
                 top_n=50,
+                max_as_of_staleness_days=10000,
             )
         drops = df.attrs["drops"]
         pre_eval = [d for d in drops if d["gate"] in ("data", "history", "strike", "premium")]
@@ -376,7 +389,11 @@ class TestEventGate:
             _FakeConn(ohlcv=_flat_ohlcv(), earnings=date(2026, 1, 15) + timedelta(days=10))
         )
         df = runner.rank_covered_calls_by_ev(
-            ticker="TEST", shares_held=100, as_of="2026-01-15", use_event_gate=True
+            ticker="TEST",
+            shares_held=100,
+            as_of="2026-01-15",
+            use_event_gate=True,
+            max_as_of_staleness_days=10000,
         )
         assert df.empty
         drops = df.attrs["drops"]

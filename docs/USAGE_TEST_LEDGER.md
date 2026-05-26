@@ -7320,7 +7320,7 @@ history gate that effectively makes this a 2020-only backtest.
   "2022-2024-class".
 - 504-day history gate worth surfacing in onboarding docs.
 - A multi-year backtest (e.g., 2020-2024 = 5 years post-gate)
-  would average out window-specific noise.
+  would average out window-specific noise. (S38 closed this.)
 
 Full doc: `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md`.
 

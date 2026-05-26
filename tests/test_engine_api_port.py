@@ -102,3 +102,48 @@ class TestResolvePortReadsProcessEnv:
     def test_set_to_default_is_no_op(self, monkeypatch):
         monkeypatch.setenv("SWE_API_PORT", "8787")
         assert _resolve_port() == 8787
+
+
+class TestEngineHTTPServerListenQueueDepth:
+    """Pin the kernel listen-queue depth for the production HTTP server.
+
+    The S20 reliability arc measured 133 of 200 ``ConnectionRefusedError``
+    at 16 concurrent connect attempts when the stdlib default
+    ``request_queue_size = 5`` was in effect. A regression that silently
+    reverts to the stdlib default would re-open that production-readiness
+    gap without surfacing in any other test. This class makes the regression
+    loud.
+    """
+
+    def test_engine_http_server_overrides_stdlib_default(self):
+        """The engine API server must use a non-default listen-queue depth."""
+        import socketserver
+
+        from engine_api import _EngineHTTPServer
+
+        assert _EngineHTTPServer.request_queue_size > socketserver.TCPServer.request_queue_size
+
+    def test_listen_queue_depth_constant_is_128(self):
+        """Pin the value to 128 — matches uvicorn / gunicorn defaults and
+        the S20 AI-handoff recommendation."""
+        from engine_api import _LISTEN_QUEUE_DEPTH
+
+        assert _LISTEN_QUEUE_DEPTH == 128
+
+    def test_engine_http_server_inherits_from_threading(self):
+        """Belt-and-suspenders: the subclass must remain a
+        ``ThreadingHTTPServer`` so per-request threading still applies
+        (S20 G5 isolation property)."""
+        from http.server import ThreadingHTTPServer
+
+        from engine_api import _EngineHTTPServer
+
+        assert issubclass(_EngineHTTPServer, ThreadingHTTPServer)
+
+    def test_engine_http_server_class_attribute_matches_constant(self):
+        """The subclass's ``request_queue_size`` must match
+        ``_LISTEN_QUEUE_DEPTH`` — a guard against accidental
+        de-synchronisation between the constant and the class attribute."""
+        from engine_api import _LISTEN_QUEUE_DEPTH, _EngineHTTPServer
+
+        assert _EngineHTTPServer.request_queue_size == _LISTEN_QUEUE_DEPTH

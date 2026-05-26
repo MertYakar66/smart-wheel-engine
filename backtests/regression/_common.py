@@ -244,20 +244,29 @@ def _compute_metrics(rank_log: pd.DataFrame, tracker: Any) -> dict:
                 "hit": float((grp["realized_pnl"] > 0).mean()),
             }
 
-    # Tracker state
-    executed_short_puts = sum(
-        1 for r in tracker.closed_positions if r.get("put_entry_date") is not None
+    # Tracker state. closed_positions only appends on _finalize_position
+    # (close_short_put / close_covered_call / handle_call_assignment — NOT
+    # on handle_put_assignment, which transitions SHORT_PUT → STOCK_OWNED
+    # without closing). So executed_trades = closed-with-put + still-open
+    # with put-history. equity_curve records use key "portfolio_value".
+    closed_with_put = sum(1 for r in tracker.closed_positions if (r.get("put_premium") or 0) > 0)
+    open_with_put = sum(1 for p in tracker.positions.values() if (p.put_premium or 0) > 0)
+    put_assigned_open = sum(
+        1 for p in tracker.positions.values() if p.state.value in ("stock_owned", "covered_call")
     )
-    put_assignments = sum(
-        1 for r in tracker.closed_positions if r.get("exit_reason") == "put_assignment"
+    put_assigned_closed = sum(
+        1 for r in tracker.closed_positions if r.get("exit_reason") == "call_assigned"
+    )
+    final_pv = (
+        float(tracker.equity_curve[-1].get("portfolio_value", tracker.cash))
+        if tracker.equity_curve
+        else float(tracker.cash)
     )
     tracker_metrics = {
         "final_cash": float(tracker.cash),
-        "final_nav": float(tracker.equity_curve[-1]["nav"])
-        if tracker.equity_curve
-        else float(tracker.cash),
-        "executed_trades": int(executed_short_puts),
-        "put_assignments": int(put_assignments),
+        "final_nav": final_pv,
+        "executed_trades": int(closed_with_put + open_with_put),
+        "put_assignments": int(put_assigned_open + put_assigned_closed),
         "open_at_end": int(
             sum(1 for p in tracker.positions.values() if p.state.value != "no_position")
         ),

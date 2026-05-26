@@ -16,7 +16,7 @@ from pathlib import Path
 
 import typer
 
-from backtests.regression._common import run_backtest, save_snapshot
+from backtests.regression._common import run_backtest_multi_friction, save_snapshot
 from backtests.regression.universes import UNIVERSE_100
 
 SNAPSHOT_ID = "s34_universe_100t_1m"
@@ -38,16 +38,12 @@ CANONICAL: dict = {
 
 
 def run(**overrides) -> dict:
-    """Run all three friction levels over the 100-ticker universe."""
+    """Run all three friction levels over the 100-ticker universe via
+    the shared-rank multi-driver."""
     args = {**CANONICAL, **overrides}
-    per_level: dict[str, dict] = {}
-    headline = None
-    for level in FRICTION_LEVELS:
-        result = run_backtest(friction_level=level, **args)
-        per_level[level] = result.metrics
-        if level == "full":
-            headline = result
-    assert headline is not None
+    results = run_backtest_multi_friction(friction_levels=FRICTION_LEVELS, **args)
+    headline = results["full"]
+    per_level = {level: r.metrics for level, r in results.items()}
     return {
         "aggregate": headline.metrics["aggregate"],
         "per_year": headline.metrics["per_year"],

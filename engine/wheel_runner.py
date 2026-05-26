@@ -694,6 +694,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         enforce_chain_quality_gate: bool = True,
         universe_limit: int | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -872,6 +873,36 @@ class WheelRunner:
                     }
                 )
                 continue
+
+            # S32 F3 closer: refuse a future as_of when the actual data
+            # ends more than `max_as_of_staleness_days` before. Before
+            # this gate the engine silently used the latest available
+            # close as the "current spot" for any future as_of (e.g.
+            # querying as_of=2030-01-01 against 2026-03-20 data returned
+            # a row with 2026 spot, NO warning) -- a D11 "no silent
+            # substitution" violation. The default 30-day tolerance
+            # allows the normal weekend/holiday/refresh-cycle gap; a
+            # year-out as_of correctly drops.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    actual_last = ohlcv.index.max()
+                    gap_days = (cutoff - actual_last).days
+                    if gap_days > max_as_of_staleness_days:
+                        drops.append(
+                            {
+                                "ticker": ticker,
+                                "gate": "data",
+                                "reason": (
+                                    f"as_of {as_of} is {gap_days} days beyond "
+                                    f"latest data ({actual_last.date().isoformat()}); "
+                                    f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                                ),
+                            }
+                        )
+                        continue
+                except Exception:
+                    pass
 
             # AUDIT-V P0.2: Historical data integrity gate.
             # Survivorship bias protection in the live path. We refuse

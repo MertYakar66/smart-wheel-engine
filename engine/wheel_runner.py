@@ -1525,6 +1525,15 @@ class WheelRunner:
                         "news_n_articles": news_n_articles,
                         "credit_multiplier": round(credit_mult, 4),
                         "credit_regime": credit_regime,
+                        # S31 F9 closer: surface the engine's FINAL regime
+                        # multiplier (= ev_dollars / ev_raw), the scalar
+                        # that actually scaled the EV. Differs from the
+                        # input combined_regime_mult (hmm × skew × news ×
+                        # credit) by the engine's clamp to [0.0, 1.25],
+                        # heavy_tail_penalty if heavy_tail, and dealer_mult.
+                        # Mirrors the pattern at line 2315 (the strangle
+                        # ranker's emit) for consistency.
+                        "regime_multiplier": round(res.regime_multiplier, 4),
                         "strike_open_interest": strike_oi,
                         # Provenance: "chain" means OI came from the real chain;
                         # "fallback" means the 1000 placeholder was used. On the

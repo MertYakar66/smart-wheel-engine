@@ -123,7 +123,14 @@ def _runner(conn: _FakeConn | None = None) -> WheelRunner:
 
 def _rank(runner: WheelRunner, **extra) -> pd.DataFrame:
     """rank_strangles_by_ev with deterministic defaults: both gates off,
-    EV floor wide open so only the strike/premium gates can fire."""
+    EV floor wide open so only the strike/premium gates can fire.
+
+    `max_as_of_staleness_days=10000` disables the S33 F3 staleness gate
+    for these tests — `_AS_OF=2026-01-15` is 12+ months after the
+    `_synth_ohlcv` data window (which ends ~2025-01-28). The
+    staleness gate is exercised separately by
+    `TestStrangleRankerAsOfBeyondData` in `tests/test_pit_leaks.py`.
+    """
     kw: dict = {
         "ticker": "TEST",
         "contracts": 1,
@@ -132,6 +139,7 @@ def _rank(runner: WheelRunner, **extra) -> pd.DataFrame:
         "use_timing_gate": False,
         "min_ev_dollars": -1e9,
         "top_n": 50,
+        "max_as_of_staleness_days": 10000,
     }
     kw.update(extra)
     return runner.rank_strangles_by_ev(**kw)
@@ -296,14 +304,22 @@ class TestRanksNeverRescues:
         )
         # under the default floor, none of those surface as tradeable
         ranked = _runner(_FakeConn(ohlcv=_trending_ohlcv())).rank_strangles_by_ev(
-            ticker="TEST", as_of=_AS_OF, use_event_gate=False, use_timing_gate=False
+            ticker="TEST",
+            as_of=_AS_OF,
+            use_event_gate=False,
+            use_timing_gate=False,
+            max_as_of_staleness_days=10000,
         )
         assert ranked.empty
 
     def test_negative_composed_ev_dropped_under_default_floor(self):
         runner = _runner(_FakeConn(ohlcv=_trending_ohlcv()))
         df = runner.rank_strangles_by_ev(
-            ticker="TEST", as_of=_AS_OF, use_event_gate=False, use_timing_gate=False
+            ticker="TEST",
+            as_of=_AS_OF,
+            use_event_gate=False,
+            use_timing_gate=False,
+            max_as_of_staleness_days=10000,
         )
         assert df.empty
         drops = df.attrs["drops"]
@@ -379,6 +395,7 @@ class TestSection2EvaluateCallCount:
                 use_timing_gate=False,
                 min_ev_dollars=-1e9,
                 top_n=50,
+                max_as_of_staleness_days=10000,
             )
         drops = df.attrs["drops"]
         pre_eval = [
@@ -439,7 +456,11 @@ class TestTimingGate:
     def test_avoid_verdict_drops_the_ticker(self, monkeypatch):
         monkeypatch.setattr(StrangleTimingEngine, "score_entry", _fake_timing("avoid", 30.0))
         df = _runner().rank_strangles_by_ev(
-            ticker="TEST", as_of=_AS_OF, use_event_gate=False, use_timing_gate=True
+            ticker="TEST",
+            as_of=_AS_OF,
+            use_event_gate=False,
+            use_timing_gate=True,
+            max_as_of_staleness_days=10000,
         )
         assert df.empty
         drops = df.attrs["drops"]
@@ -461,6 +482,7 @@ class TestTimingGate:
             use_event_gate=False,
             use_timing_gate=True,
             min_ev_dollars=-1e9,
+            max_as_of_staleness_days=10000,
         )
         assert len(df) == _GRID_SIZE
 
@@ -490,6 +512,7 @@ class TestEventGate:
             use_event_gate=True,
             use_timing_gate=False,
             min_ev_dollars=-1e9,
+            max_as_of_staleness_days=10000,
         )
         assert df.empty
         drops = df.attrs["drops"]

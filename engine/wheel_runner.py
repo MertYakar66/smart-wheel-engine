@@ -396,11 +396,28 @@ class WheelRunner:
             )
         return self._calendar
 
-    def analyze_ticker(self, ticker: str, as_of: str | None = None) -> TickerAnalysis:
+    def analyze_ticker(
+        self,
+        ticker: str,
+        as_of: str | None = None,
+        *,
+        max_as_of_staleness_days: int = 30,
+    ) -> TickerAnalysis:
         """
         Complete wheel suitability analysis for a single ticker.
 
         Combines fundamentals, volatility, events, and strangle timing.
+
+        S33 audit holdover: spot price now respects ``as_of`` (PIT
+        filtered to ``<= as_of``) and refuses to silently substitute
+        when ``as_of`` is more than ``max_as_of_staleness_days``
+        beyond the latest available OHLCV row. On a stale-as_of
+        rejection, ``spot_price`` stays at its default 0.0 -- the
+        same "no data available" signal callers already handle.
+        Mirrors the gate applied to ``rank_candidates_by_ev`` /
+        ``rank_covered_calls_by_ev`` / ``rank_strangles_by_ev``
+        (PRs #215 / #220) for surface consistency. Default 30 days
+        permits normal weekend / holiday / refresh-cycle gaps.
         """
         analysis = TickerAnalysis(ticker=ticker)
         conn = self.connector
@@ -422,10 +439,37 @@ class WheelRunner:
         if credit:
             analysis.credit_rating = credit.get("rtg_sp_lt_lc_issuer_credit", "")
 
-        # --- Spot price ---
+        # --- Spot price (PIT + staleness gate; S33 audit holdover) ---
         ohlcv = conn.get_ohlcv(ticker)
         if not ohlcv.empty:
-            analysis.spot_price = float(ohlcv["close"].iloc[-1])
+            # PIT filter: respect as_of by trimming OHLCV to <= as_of.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    ohlcv_pit = ohlcv.loc[ohlcv.index <= cutoff]
+                    # Staleness gate: refuse to substitute if as_of is
+                    # more than max_as_of_staleness_days beyond the
+                    # latest filtered row. Leaves spot_price at the
+                    # 0.0 default (the "no data available" signal).
+                    if not ohlcv_pit.empty:
+                        gap_days = (cutoff - ohlcv_pit.index.max()).days
+                        if gap_days <= max_as_of_staleness_days:
+                            analysis.spot_price = float(ohlcv_pit["close"].iloc[-1])
+                        else:
+                            logger.warning(
+                                "analyze_ticker(%s, as_of=%s): %d days beyond "
+                                "latest OHLCV (%s); spot_price left at default 0.0",
+                                ticker,
+                                as_of,
+                                gap_days,
+                                ohlcv_pit.index.max().date().isoformat(),
+                            )
+                except Exception:
+                    # PIT-filter cast failed -- fall back to live behavior.
+                    analysis.spot_price = float(ohlcv["close"].iloc[-1])
+            else:
+                # No as_of -> live behaviour: latest close.
+                analysis.spot_price = float(ohlcv["close"].iloc[-1])
 
         # --- IV rank & percentile ---
         try:
@@ -694,6 +738,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         enforce_chain_quality_gate: bool = True,
         universe_limit: int | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -872,6 +917,36 @@ class WheelRunner:
                     }
                 )
                 continue
+
+            # S32 F3 closer: refuse a future as_of when the actual data
+            # ends more than `max_as_of_staleness_days` before. Before
+            # this gate the engine silently used the latest available
+            # close as the "current spot" for any future as_of (e.g.
+            # querying as_of=2030-01-01 against 2026-03-20 data returned
+            # a row with 2026 spot, NO warning) -- a D11 "no silent
+            # substitution" violation. The default 30-day tolerance
+            # allows the normal weekend/holiday/refresh-cycle gap; a
+            # year-out as_of correctly drops.
+            if as_of is not None:
+                try:
+                    cutoff = pd.Timestamp(as_of)
+                    actual_last = ohlcv.index.max()
+                    gap_days = (cutoff - actual_last).days
+                    if gap_days > max_as_of_staleness_days:
+                        drops.append(
+                            {
+                                "ticker": ticker,
+                                "gate": "data",
+                                "reason": (
+                                    f"as_of {as_of} is {gap_days} days beyond "
+                                    f"latest data ({actual_last.date().isoformat()}); "
+                                    f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                                ),
+                            }
+                        )
+                        continue
+                except Exception:
+                    pass
 
             # AUDIT-V P0.2: Historical data integrity gate.
             # Survivorship bias protection in the live path. We refuse
@@ -1189,12 +1264,30 @@ class WheelRunner:
             # the HMM does not run (short history) or fails -- never a
             # fabricated regime; mirrors credit_regime's "unknown".
             hmm_regime = "unknown"
+            # S33 F4 closer: realized vol / mean over the 252d window
+            # the HMM saw at fit time. The "crisis" label by itself means
+            # "high-vol regime" regardless of return direction (S33
+            # documented Feb 2026 labeling as 'crisis' with positive
+            # annualized return) -- a trader assuming "crisis = crashing"
+            # mis-anchors. Surfacing the underlying vol + return lets
+            # them disambiguate without re-fitting the HMM. NaN when the
+            # HMM did not run (history too short or fit failed).
+            hmm_realized_vol_252d_ann = float("nan")
+            hmm_realized_return_252d_ann = float("nan")
             try:
                 from engine.regime_hmm import GaussianHMM
 
                 log_rets = np.diff(np.log(ohlcv["close"].values))
                 if len(log_rets) >= 200:
                     tail = log_rets[-504:]
+                    # Realized vol / mean from the most recent 252 days
+                    # of the same window the HMM fitted to. Computed
+                    # outside the cache lookup so both fresh and cached
+                    # paths emit consistent disambiguation stats.
+                    if len(tail) >= 252:
+                        tail_252 = tail[-252:]
+                        hmm_realized_vol_252d_ann = float(np.std(tail_252) * np.sqrt(252))
+                        hmm_realized_return_252d_ann = float(np.mean(tail_252) * 252)
                     fp = (
                         len(tail),
                         round(float(tail[0]), 6),
@@ -1599,6 +1692,24 @@ class WheelRunner:
                         "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
+                        # S33 F4 disambiguation: realized vol + mean
+                        # over the same 252d window the HMM fitted to.
+                        # The "crisis" label alone means "high-vol
+                        # regime regardless of direction" -- these
+                        # two columns let the trader see WHY the HMM
+                        # called crisis (genuinely crashing vs
+                        # high-vol-with-positive-trend). NaN when the
+                        # HMM did not run (short history / fit fail).
+                        "hmm_realized_vol_252d_ann": (
+                            round(hmm_realized_vol_252d_ann, 4)
+                            if not np.isnan(hmm_realized_vol_252d_ann)
+                            else None
+                        ),
+                        "hmm_realized_return_252d_ann": (
+                            round(hmm_realized_return_252d_ann, 4)
+                            if not np.isnan(hmm_realized_return_252d_ann)
+                            else None
+                        ),
                         "news_multiplier": round(news_mult, 4),
                         "news_sentiment": round(news_sentiment, 4),
                         "news_n_articles": news_n_articles,
@@ -1938,6 +2049,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank covered-call **entry** candidates for a held stock by forward EV.
 
@@ -2085,6 +2197,33 @@ class WheelRunner:
                 {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
             )
             return _empty()
+
+        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
+        # rank_candidates_by_ev (PR #215). Without it the CC ranker
+        # silently substituted the latest available close as "current
+        # spot" for any future as_of — same D11 violation, same fix
+        # shape.
+        if as_of is not None:
+            try:
+                cutoff = pd.Timestamp(as_of)
+                actual_last = ohlcv.index.max()
+                gap_days = (cutoff - actual_last).days
+                if gap_days > max_as_of_staleness_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": (
+                                f"as_of {as_of} is {gap_days} days beyond "
+                                f"latest data ({actual_last.date().isoformat()}); "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            ),
+                        }
+                    )
+                    return _empty()
+            except Exception:
+                pass
+
         # Survivorship / distribution-reliability gate — mirrors
         # rank_candidates_by_ev: an empirical forward distribution from a
         # short history is statistically unreliable.
@@ -2446,6 +2585,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank short-strangle candidates for a ticker by composed forward EV.
 
@@ -2592,6 +2732,33 @@ class WheelRunner:
                 {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
             )
             return _empty()
+
+        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
+        # rank_candidates_by_ev (PR #215). Without it the strangle
+        # ranker silently substituted the latest available close as
+        # "current spot" for any future as_of — same D11 violation,
+        # same fix shape.
+        if as_of is not None:
+            try:
+                cutoff = pd.Timestamp(as_of)
+                actual_last = ohlcv.index.max()
+                gap_days = (cutoff - actual_last).days
+                if gap_days > max_as_of_staleness_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": (
+                                f"as_of {as_of} is {gap_days} days beyond "
+                                f"latest data ({actual_last.date().isoformat()}); "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            ),
+                        }
+                    )
+                    return _empty()
+            except Exception:
+                pass
+
         if enforce_history_gate and len(ohlcv) < min_history_days:
             drops.append(
                 {

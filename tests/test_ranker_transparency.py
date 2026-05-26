@@ -390,6 +390,49 @@ class TestHmmRegimeLabel:
         assert "hmm_regime" not in df.columns
         assert "hmm_multiplier" not in df.columns
 
+    def test_hmm_realized_vol_and_return_columns_present(self):
+        """S33 F4 regression: alongside `hmm_regime` / `hmm_multiplier`,
+        every surviving row carries `hmm_realized_vol_252d_ann` and
+        `hmm_realized_return_252d_ann` — the realized statistics of
+        the same 252-day window the HMM fitted to. These disambiguate
+        the "crisis" label (which means "high-vol regardless of
+        direction") from the trader's "crashing" mental model. NaN /
+        None is permitted when the HMM did not run (history too short
+        or fit failed)."""
+        df = _rank(_runner())
+        assert "hmm_realized_vol_252d_ann" in df.columns
+        assert "hmm_realized_return_252d_ann" in df.columns
+        # On the _GBMConn fixture the HMM runs (default 1400 business
+        # days >> the 200-required-day floor), so all rows have
+        # non-None / non-NaN values.
+        assert df["hmm_realized_vol_252d_ann"].notna().all()
+        assert df["hmm_realized_return_252d_ann"].notna().all()
+
+    def test_hmm_realized_vol_matches_manual_computation(self):
+        """The columns must equal np.std(tail_252) * sqrt(252) and
+        np.mean(tail_252) * 252 where tail_252 is the last 252 log
+        returns of the OHLCV the HMM fitted to. This pins the math
+        against an external reference, not engine-vs-itself."""
+        runner = _runner()
+        df = _rank(runner)
+        # Pull AAA's synthetic OHLCV from the connector and recompute
+        # the realized stats by hand.
+        ohlcv = runner._connector.get_ohlcv("AAA")
+        log_rets = np.diff(np.log(ohlcv["close"].values))
+        tail_252 = log_rets[-252:]
+        expected_vol = float(np.std(tail_252) * np.sqrt(252))
+        expected_mean = float(np.mean(tail_252) * 252)
+        row = df[df["ticker"] == "AAA"].iloc[0]
+        assert row["hmm_realized_vol_252d_ann"] == pytest.approx(expected_vol, abs=1e-4)
+        assert row["hmm_realized_return_252d_ann"] == pytest.approx(expected_mean, abs=1e-4)
+
+    def test_hmm_realized_columns_absent_without_diagnostic_fields(self):
+        """Like hmm_regime / hmm_multiplier, the disambiguation columns
+        are diagnostics -- they must not appear when diagnostics are off."""
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        assert "hmm_realized_vol_252d_ann" not in df.columns
+        assert "hmm_realized_return_252d_ann" not in df.columns
+
     def test_sector_column_present_on_all_survivor_rows(self):
         """S31 F2 / F6 regression: every surviving row carries a `sector`
         column, sourced from engine.risk_manager.DEFAULT_SECTOR_MAP (the

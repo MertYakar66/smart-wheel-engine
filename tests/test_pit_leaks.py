@@ -389,3 +389,122 @@ class TestStrangleRankerAsOfBeyondData:
         )
         for d in df.attrs.get("drops", []):
             assert "beyond latest data" not in d.get("reason", "")
+
+
+class TestAnalyzeTickerAsOfGate:
+    """S33 audit holdover: WheelRunner.analyze_ticker used to ignore
+    `as_of` entirely for the spot-price computation -- it called
+    conn.get_ohlcv(ticker) without filtering and took the latest
+    close via `.iloc[-1]`. A caller passing a historical or future
+    as_of got today's spot, silently. This pins the fix:
+    - PIT filter: spot_price respects as_of (uses latest close <= as_of).
+    - Staleness gate: if as_of is more than max_as_of_staleness_days
+      beyond the latest available row, spot_price stays at its 0.0
+      default (the existing "no data available" signal). Caller
+      sees a logged warning."""
+
+    def _runner_with_data_through(self, last_date_iso: str):
+        """Build a WheelRunner with synthetic OHLCV ending at
+        last_date_iso. Mirrors the helper used by the ranker tests."""
+        import numpy as np
+        import pandas as pd
+
+        from engine.wheel_runner import WheelRunner
+
+        end = pd.Timestamp(last_date_iso)
+        idx = pd.date_range(end - pd.Timedelta(days=800), end, freq="B")
+        rng = np.random.default_rng(42)
+        prices = 100 * np.exp(np.cumsum(rng.normal(0.0003, 0.012, len(idx))))
+        oh = pd.DataFrame({"close": prices}, index=idx)
+
+        class _Conn:
+            def get_ohlcv(self, ticker):
+                return oh
+
+            def get_fundamentals(self, ticker):
+                return {
+                    "market_cap": 1e9,
+                    "pe_ratio": 20.0,
+                    "beta": 1.0,
+                    "dividend_yield": 0.01,
+                    "sector": "Test",
+                    "implied_vol_atm": 0.28,
+                    "volatility_30d": 0.25,
+                }
+
+            def get_credit_risk(self, ticker):
+                return None
+
+            def get_iv_rank(self, ticker, as_of=None):
+                return 50.0
+
+            def get_iv_percentile(self, ticker, as_of=None):
+                return 50.0
+
+            def get_vol_risk_premium(self, ticker, as_of=None):
+                return 0.0
+
+            def get_next_earnings(self, ticker, as_of=None):
+                return None
+
+            def get_next_dividend(self, ticker, as_of=None):
+                return None
+
+            def get_risk_free_rate(self, as_of=None):
+                return 0.04
+
+        r = WheelRunner()
+        r._connector = _Conn()
+        return r
+
+    def test_as_of_none_uses_latest_close(self):
+        """as_of=None preserves live behavior: latest close from OHLCV."""
+        r = self._runner_with_data_through("2026-03-20")
+        ohlcv = r._connector.get_ohlcv("TEST")
+        expected_spot = float(ohlcv["close"].iloc[-1])
+        a = r.analyze_ticker("TEST")
+        assert a.spot_price == pytest.approx(expected_spot)
+
+    def test_historical_as_of_respects_pit(self):
+        """A historical as_of returns the spot from THAT date, not today."""
+        import pandas as pd
+
+        r = self._runner_with_data_through("2026-03-20")
+        ohlcv = r._connector.get_ohlcv("TEST")
+        # Spot at the 2024-06-01 PIT cutoff
+        target_date = pd.Timestamp("2024-06-01")
+        pit_ohlcv = ohlcv.loc[ohlcv.index <= target_date]
+        expected_spot = float(pit_ohlcv["close"].iloc[-1])
+        a = r.analyze_ticker("TEST", as_of="2024-06-01")
+        assert a.spot_price == pytest.approx(expected_spot)
+        # And the live close is different (drift over ~21 months)
+        live_spot = float(ohlcv["close"].iloc[-1])
+        assert abs(a.spot_price - live_spot) > 0.01, (
+            "PIT spot must differ from live spot for a meaningful test"
+        )
+
+    def test_far_future_as_of_leaves_spot_at_default(self):
+        """as_of beyond data by > max_as_of_staleness_days: spot_price
+        stays at the 0.0 default (no silent substitution)."""
+        r = self._runner_with_data_through("2026-03-20")
+        a = r.analyze_ticker("TEST", as_of="2030-01-01")
+        assert a.spot_price == 0.0, (
+            "spot_price must NOT silently substitute when as_of is years "
+            "beyond data; should stay at default 0.0"
+        )
+
+    def test_within_threshold_as_of_proceeds(self):
+        """A near-future as_of (within the 30-day default) proceeds
+        normally, using the latest available close as 'current'."""
+        r = self._runner_with_data_through("2026-03-20")
+        ohlcv = r._connector.get_ohlcv("TEST")
+        expected_spot = float(ohlcv["close"].iloc[-1])
+        a = r.analyze_ticker("TEST", as_of="2026-04-10")  # 21 days, within 30
+        assert a.spot_price == pytest.approx(expected_spot)
+
+    def test_custom_threshold_tightens(self):
+        """A tighter max_as_of_staleness_days catches shorter gaps."""
+        r = self._runner_with_data_through("2026-03-20")
+        a = r.analyze_ticker("TEST", as_of="2026-04-05", max_as_of_staleness_days=7)
+        # 16-day gap > 7-day threshold -> spot stays at default 0.0
+        assert a.spot_price == 0.0

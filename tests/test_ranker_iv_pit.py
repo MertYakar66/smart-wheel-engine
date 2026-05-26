@@ -74,7 +74,7 @@ class _PitIVConn:
         *,
         iv_by_date: dict[str, float] | None = None,
         snapshot_iv: float = 28.0,
-        default_days: int = 1400,
+        default_days: int = 3000,
     ) -> None:
         self._tickers = list(tickers)
         self._iv_by_date = dict(iv_by_date or {})
@@ -132,7 +132,7 @@ class _NoIVHistConn:
     ``_PitIVConn`` so ``hasattr(conn, 'get_iv_history')`` is False at
     the type level (no fragile per-instance attribute juggling)."""
 
-    def __init__(self, tickers, *, snapshot_iv: float = 28.0, default_days: int = 1400):
+    def __init__(self, tickers, *, snapshot_iv: float = 28.0, default_days: int = 3000):
         self._tickers = list(tickers)
         self._snapshot_iv = snapshot_iv
         self._ohlcv: dict[str, pd.DataFrame] = {}

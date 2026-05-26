@@ -606,6 +606,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
+| `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |

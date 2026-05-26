@@ -208,7 +208,7 @@ class TestCheckSectorCap:
         )
         assert result.passed is False
         assert result.reason == "sector_cap_breach"
-        assert result.details["sector_pct"] > 0.25
+        assert result.details["post_open_sector_pct"] > 0.25
         assert result.details["sector_limit"] == 0.25
 
     def test_custom_max_sector_pct_overrides_default(self):
@@ -234,6 +234,32 @@ class TestCheckSectorCap:
         # DEFAULT_SECTOR_MAP fallback).
         assert result.passed is True
         assert result.details["sector"] == "Unknown"
+
+    def test_details_post_open_sector_pct_key_is_consistent_across_pass_and_fail(self):
+        # S31 F7 regression: previously the pass path emitted
+        # `post_open_sector_pct` while the fail path emitted `sector_pct`
+        # (same value, different key). Caller-side `.get("post_open_sector_pct", 0)`
+        # against a failing result silently defaulted to 0, masking the
+        # breach magnitude. Both paths must now emit the same key.
+        passing = check_sector_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=[],
+            nav=100_000.0,
+        )
+        failing = check_sector_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=[{"symbol": "AAPL", "strike": 240.0, "contracts": 1}],
+            nav=100_000.0,
+        )
+        assert passing.passed is True
+        assert failing.passed is False
+        assert "post_open_sector_pct" in passing.details
+        assert "post_open_sector_pct" in failing.details
+        # Old key must NOT appear in either — the rename is total.
+        assert "sector_pct" not in passing.details
+        assert "sector_pct" not in failing.details
 
     def test_custom_sector_map(self):
         custom = {"FAKE": "Crypto"}

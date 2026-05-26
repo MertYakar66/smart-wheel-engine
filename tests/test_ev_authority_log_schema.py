@@ -117,7 +117,7 @@ _SHAPE_REJECT_SECTOR = (
         "nav",
         "nav_source",
         "sector",
-        "sector_pct",
+        "post_open_sector_pct",
         "sector_limit",
         "narrative",
     },

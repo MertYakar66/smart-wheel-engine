@@ -337,6 +337,41 @@ class TestHmmRegimeLabel:
         assert "hmm_regime" not in df.columns
         assert "hmm_multiplier" not in df.columns
 
+    def test_sector_column_present_on_all_survivor_rows(self):
+        """S31 F2 / F6 regression: every surviving row carries a `sector`
+        column, sourced from engine.risk_manager.DEFAULT_SECTOR_MAP (the
+        same map check_sector_cap aggregates by). Unknown tickers default
+        to "Unknown" so the column is never NaN."""
+        df = _rank(_runner())
+        assert "sector" in df.columns
+        # _GBMConn uses synthetic tickers (AAA..EEE) not in
+        # DEFAULT_SECTOR_MAP, so the lookup falls back to "Unknown".
+        # Whatever the value, it must be a populated string (no NaN).
+        assert df["sector"].notna().all()
+        assert df["sector"].apply(lambda s: isinstance(s, str) and len(s) > 0).all()
+
+    def test_sector_column_uses_default_sector_map(self):
+        """The sector lookup must use DEFAULT_SECTOR_MAP — same source as
+        check_sector_cap — so the trader sees the GICS sector the gate
+        would aggregate by. Using a known ticker ('AAPL' is GICS
+        Information Technology) verifies the wiring."""
+        from engine.risk_manager import DEFAULT_SECTOR_MAP
+
+        runner = _runner(tickers=["AAPL"])
+        df = _rank(runner, tickers=["AAPL"])
+        if df.empty:
+            return  # _GBMConn synth path may yield no survivor for AAPL alone
+        expected = DEFAULT_SECTOR_MAP.get("AAPL", "Unknown")
+        assert (df["sector"] == expected).all()
+
+    def test_sector_column_is_present_even_without_diagnostic_fields(self):
+        """sector is a CORE column (per-ticker fact, useful for
+        portfolio reasoning regardless of diagnostic depth) -- it must
+        appear when include_diagnostic_fields=False, unlike the
+        hmm_*/skew_* diagnostic columns."""
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        assert "sector" in df.columns
+
     def test_hmm_regime_is_unknown_when_hmm_unavailable(self, monkeypatch):
         """When the HMM fit fails the ranker falls back to a neutral
         multiplier -- the label must report 'unknown', never a fabricated

@@ -367,3 +367,83 @@ class TestSurvivorRowsUnchanged:
             f"a grid cell cannot be both survivor and drop; "
             f"overlap = {survivor_cells & dropped_cells}"
         )
+
+
+# ======================================================================
+# 6. .attrs["drops_summary"] roll-up (S31 F4 discoverability closer)
+# ======================================================================
+class TestDropsSummaryAttr:
+    """The S31 F4 fix: alongside .attrs['drops'] (which already exists),
+    a trader-facing summary .attrs['drops_summary'] = {total_dropped,
+    by_gate} is attached so a caller scanning the output sees at a
+    glance 'N dropped — by_gate={...}' without iterating the full
+    drops list."""
+
+    def test_drops_summary_present_on_survivor_frame(self):
+        t = _tracker_with_put()
+        df = t.suggest_rolls(
+            ticker="TEST",
+            as_of=date(2026, 2, 1),
+            current_spot=100.0,
+            current_iv=0.30,
+            risk_free_rate=0.04,
+            min_net_credit=-1e9,
+        )
+        assert "drops_summary" in df.attrs
+        s = df.attrs["drops_summary"]
+        assert isinstance(s, dict)
+        assert "total_dropped" in s
+        assert "by_gate" in s
+        assert s["total_dropped"] == len(df.attrs["drops"])
+        # by_gate counts must sum to total_dropped (no orphan gates).
+        assert sum(s["by_gate"].values()) == s["total_dropped"]
+
+    def test_drops_summary_present_on_empty_frame(self):
+        """When min_net_credit gates out every candidate the frame is
+        empty but the summary still rolls up the drops."""
+        t = _tracker_with_put()
+        df = t.suggest_rolls(
+            ticker="TEST",
+            as_of=date(2026, 2, 1),
+            current_spot=100.0,
+            current_iv=0.30,
+            risk_free_rate=0.04,
+            min_net_credit=10_000.0,  # impossibly high
+        )
+        assert df.empty
+        s = df.attrs["drops_summary"]
+        assert s["total_dropped"] > 0
+        # Every drop went through the credit gate.
+        assert s["by_gate"] == {"credit": s["total_dropped"]}
+
+    def test_drops_summary_present_on_early_return(self):
+        """Past-expiry early return: no candidates considered → empty
+        summary (total_dropped=0, by_gate empty)."""
+        t = _tracker_with_put(expiry=date(2026, 1, 20))
+        df = t.suggest_rolls(
+            ticker="TEST",
+            as_of=date(2026, 1, 25),
+            current_spot=100.0,
+            current_iv=0.30,
+            risk_free_rate=0.04,
+        )
+        assert df.empty
+        s = df.attrs["drops_summary"]
+        assert s == {"total_dropped": 0, "by_gate": {}}
+
+    def test_drops_summary_present_on_call_rolls(self):
+        """suggest_call_rolls mirrors the suggest_rolls drops_summary
+        attachment for shape consistency."""
+        t = _tracker_with_call()
+        df = t.suggest_call_rolls(
+            ticker="TEST",
+            as_of=date(2026, 2, 1),
+            current_spot=100.0,
+            current_iv=0.30,
+            risk_free_rate=0.04,
+            min_net_credit=-1e9,
+        )
+        assert "drops_summary" in df.attrs
+        s = df.attrs["drops_summary"]
+        assert s["total_dropped"] == len(df.attrs["drops"])
+        assert sum(s["by_gate"].values()) == s["total_dropped"]

@@ -267,6 +267,59 @@ class TestDropReasonsAttr:
 
 
 # ======================================================================
+# 1b. .attrs["drops_summary"] roll-up (S31 F1 discoverability closer)
+# ======================================================================
+class TestDropsSummaryAttr:
+    """The S31 F1 fix: alongside .attrs['drops'] (which already exists),
+    a trader-facing roll-up .attrs['drops_summary'] = {total_dropped,
+    by_gate} is attached so a caller scanning the output sees at a
+    glance 'N dropped — by_gate={...}' without iterating the full
+    drops list. Mirrors the same shape on
+    WheelTracker.suggest_rolls."""
+
+    def test_summary_present_on_clean_run(self):
+        """No drops → total_dropped=0, by_gate is empty."""
+        df = _rank(_runner())
+        assert "drops_summary" in df.attrs
+        s = df.attrs["drops_summary"]
+        assert s == {"total_dropped": 0, "by_gate": {}}
+
+    def test_summary_present_on_all_gated_run(self):
+        """An impossibly long history requirement gates out all 5; the
+        summary correctly reports total_dropped=5 with by_gate={'history':5}."""
+        df = _rank(_runner(), min_history_days=10_000_000)
+        s = df.attrs["drops_summary"]
+        assert s["total_dropped"] == 5
+        assert s["by_gate"] == {"history": 5}
+
+    def test_summary_present_on_ev_threshold_run(self):
+        """An impossibly high EV floor gates out all 5 at the ev_threshold
+        gate; the summary correctly classifies them."""
+        df = _rank(_runner(), min_ev_dollars=1e9)
+        s = df.attrs["drops_summary"]
+        assert s["total_dropped"] == 5
+        assert s["by_gate"] == {"ev_threshold": 5}
+
+    def test_summary_counts_match_drops_list(self):
+        """Across any run, sum of by_gate counts equals total_dropped
+        and matches len(drops). No orphans, no double-counting."""
+        for kwargs in [
+            {},
+            {"min_history_days": 10_000_000},
+            {"min_ev_dollars": 1e9},
+            {"empty": {"CCC"}},
+        ]:
+            df = _rank(_runner(empty=kwargs.pop("empty", None) or set()), **kwargs)
+            s = df.attrs["drops_summary"]
+            assert s["total_dropped"] == len(df.attrs["drops"]), (
+                f"total_dropped mismatch with drops list at kwargs={kwargs}"
+            )
+            assert sum(s["by_gate"].values()) == s["total_dropped"], (
+                f"by_gate sum mismatch with total_dropped at kwargs={kwargs}"
+            )
+
+
+# ======================================================================
 # 2. CLAUDE.md section 2 -- survivor rows are byte-for-byte unchanged
 # ======================================================================
 class TestSurvivorsUnchanged:

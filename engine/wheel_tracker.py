@@ -242,6 +242,30 @@ def _record_from_jsonable(record: dict, date_keys: tuple[str, ...]) -> dict:
     return out
 
 
+def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFrame:
+    """Attach drops list AND a trader-facing roll-up summary to a
+    suggest_rolls / suggest_call_rolls output frame.
+
+    Mirrors the helper of the same name in :mod:`engine.wheel_runner`
+    (small duplication keeps the decision-layer modules
+    import-independent). S31 F4 discoverability closer.
+
+    - ``attrs["drops"]``: the per-cell list of
+      ``{"new_dte", "target_delta", "gate", "reason"}`` dicts.
+    - ``attrs["drops_summary"]``: ``{"total_dropped": int, "by_gate":
+      {gate: count}}``. Gate-set matches the per-call drops taxonomy
+      used here (``dte``, ``strike``, ``premium``, ``credit``).
+    """
+    from collections import Counter
+
+    frame.attrs["drops"] = drops
+    frame.attrs["drops_summary"] = {
+        "total_dropped": len(drops),
+        "by_gate": dict(Counter(d["gate"] for d in drops)),
+    }
+    return frame
+
+
 class WheelTracker:
     """
     Portfolio-level tracker for all Wheel positions.
@@ -2208,8 +2232,7 @@ class WheelTracker:
         if dte_remaining <= 0:
             # At/past expiry — rolling is moot, caller handles expiry/assignment.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = []
-            return out
+            return _attach_drops_summary(out, [])
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_rolls is per-contract by convention
 
@@ -2225,8 +2248,7 @@ class WheelTracker:
         if buyback_value_per_share <= 0.0:
             # Essentially worthless put — holding wins, no roll can beat that.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = []
-            return out
+            return _attach_drops_summary(out, [])
 
         # Full dollar cost to close the current put: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2422,12 +2444,10 @@ class WheelTracker:
 
         if not rows:
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = drops
-            return out
+            return _attach_drops_summary(out, drops)
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
-        df.attrs["drops"] = drops
-        return df
+        return _attach_drops_summary(df, drops)
 
     def suggest_call_rolls(
         self,
@@ -2576,8 +2596,7 @@ class WheelTracker:
         if dte_remaining <= 0:
             # At/past expiry - rolling is moot; caller handles expiry/assignment.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = []
-            return out
+            return _attach_drops_summary(out, [])
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_call_rolls is per-contract by convention
 
@@ -2593,8 +2612,7 @@ class WheelTracker:
         if buyback_value_per_share <= 0.0:
             # Essentially worthless call - holding wins, no roll can beat it.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = []
-            return out
+            return _attach_drops_summary(out, [])
 
         # Full dollar cost to close the current call: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2786,9 +2804,7 @@ class WheelTracker:
 
         if not rows:
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            out.attrs["drops"] = drops
-            return out
+            return _attach_drops_summary(out, drops)
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
-        df.attrs["drops"] = drops
-        return df
+        return _attach_drops_summary(df, drops)

@@ -165,6 +165,117 @@ moves up.
 
 ---
 
+## Alpha decomposition — where does the +$356k NAV gain actually come from? (added 2026-05-26 post-soundness-review)
+
+The headline result `+35.61% NAV` ($1M → $1,356,128 over 3 years)
+sounds like the engine printed $356k of put-selection alpha. A
+skeptical re-review in `docs/SOUNDNESS_REVIEW_2026-05-26.md`
+(PR #229) decomposed where the $356k actually came from. Three
+findings worth flagging here.
+
+### Finding 1 — 92% of NAV gain is equity beta on assignments, not put-selection P&L
+
+Decomposition of S34's $356,128 NAV gain (full friction):
+
+| Source | Dollar contribution | Share |
+|---|---|---|
+| **Realized P&L from 277 executed trades** | **+$28,571** | **8%** |
+| Equity-beta residual (open positions + assigned stock appreciation) | +$327,557 | 92% |
+
+The 277 executed trades (180 puts + 97 CCs) generated $28,571 of
+realized P&L when forward-replayed through the harness. The other
+$327,557 came from being LONG STOCKS (via assignments and CC stock
+holdings) during the 2023-2024 bull market.
+
+**Per-year breakdown of the realized executed P&L (full friction):**
+
+| Year | Executed | Puts realized | CCs realized | Total |
+|---|---|---|---|---|
+| 2022 | 105 | +$26,146 | +$2,236 | +$28,383 |
+| 2023 | 103 | +$5,131 | −$6,543 | −$1,413 |
+| 2024 | 69 | +$925 | +$677 | +$1,601 |
+
+**2022's executed P&L was actually positive ($28k)** — the engine
+correctly refused most candidates in the bear (97.9% refusal rate
+in Jan-Oct 2022) and the few it took yielded positive premium income.
+
+**2023 and 2024 executed P&L was near zero or slightly negative.** Yet
+the NAV grew massively in those years. The growth came from **stocks
+assigned in 2022 / early 2023** that subsequently appreciated as
+markets recovered through 2024.
+
+This is the wheel strategy by design — capture equity beta via
+assignments. But it does mean: the **+11.6pp over SPY headline is
+mostly a levered SPY-subset bet on bull-market megacaps**, not a
+put-premium edge claim.
+
+### Finding 2 — Single-ticker concentration: BKNG drove 110% of net executed P&L
+
+Ticker-level breakdown of S34's executed realized P&L:
+
+| Tier | Aggregate |
+|---|---|
+| Total executed realized P&L (62 traded tickers) | **+$28,571** |
+| **Top contributor: BKNG** | **+$31,576** |
+| Top-1 share of net | **110.5%** |
+| Top-3 share (BKNG + AZO + AVGO) | $37,095 (130%) |
+| Top-10 share | $45,416 (159%) |
+| Sum of all negative contributors (40 tickers) | **−$26,488** |
+
+**Without BKNG, the engine's realized executions across 268 trades
+on 61 other tickers summed to −$3,004 — net NEGATIVE.**
+
+The BKNG deep-dive:
+
+- BKNG stock: $2,336 (Jan 2022) → $5,000+ (end of 2024). Massive
+  bull run.
+- The engine wrote 9 BKNG puts. 7 expired OTM (premium captured), 2
+  assigned (small loss + held stock that subsequently rose).
+- Mean premium per executed BKNG trade: $3,500 (because BKNG is so
+  expensive — premium scales with strike).
+- **Within-ticker ρ on BKNG: 0.156** — modest. The engine wasn't
+  unusually skillful at TIMING BKNG entries; it just kept ranking
+  BKNG high (because of its IV + price level) and BKNG kept moving
+  in the engine's favour.
+
+This is a **high-priced-ticker leverage effect**, not pure
+put-selection skill. The engine's other 61 tickers collectively
+broke even on realized P&L.
+
+### Finding 3 — Signal IS robust to concentration (good news)
+
+| Spearman ρ on full friction puts | N | ρ | p |
+|---|---|---|---|
+| Full S34 set | 10,315 | 0.3273 | 4.84e-256 |
+| **S34 ex-BKNG** | **10,189** | **0.3244** | **2.47e-248** |
+| Delta on removal | — | **+0.0029** | — |
+
+Removing BKNG moves ρ by 0.003 — virtually unchanged. **The
+ranking SIGNAL does NOT depend on BKNG.** The engine genuinely
+ranks well across the broader universe; the dollar OUTCOME just
+happens to be dominated by one ticker's bull run.
+
+This means: the **engine's value as a ranker is preserved** even
+without concentration; the engine's **value as a dollar-alpha
+generator** is concentration-sensitive.
+
+### What this means for the deployment matrix
+
+The deployment matrix verdicts (`docs/PRODUCTION_READINESS.md` §5)
+don't change. But the REASONING column should mention that:
+- The +11.6pp over SPY is 92% equity beta + a few high-priced-ticker
+  outliers.
+- A forward deployment depending on the +11.6pp number should be
+  acknowledged as a bet on (a) bull-market conditions favouring
+  wheel-strategy assignments and (b) high-priced ticker
+  out-performance.
+
+The companion `docs/PRODUCTION_READINESS.md` (PR #218) and
+`docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` (PR #225) have
+parallel amendments with this framing.
+
+---
+
 ## What this validates / invalidates
 
 | S22 / S27 / S32 claim | S34 verdict |

@@ -5961,6 +5961,34 @@ upgrades or downgrades each claim accordingly:
 
 **AI handoff.**
 
+**✓ Shipped status (post-campaign, 2026-05-25/26):** All six
+Fix# entries below shipped against the findings they
+referenced. The bullets are retained for historical rationale;
+the actual code lives in the PRs listed here.
+
+| Fix # | Targets | Shipped in |
+|---|---|---|
+| Fix #1 + Fix #4 | F1 silent filter, F4 / F8 suggest_rolls silent zero | **PR #209** — `fix(decision-layer): add drops_summary attribute to all ranker / roll-suggest frames`. **Discovery during verification:** the per-candidate reason list (`df.attrs["drops"]`) was *already* populated on every ranker / suggest_rolls return path (S22 F1 fix shipped earlier); the actual gap was *discoverability*. PR #209 adds the trader-facing `df.attrs["drops_summary"] = {"total_dropped": N, "by_gate": {...}}` roll-up on all 6 ranker returns + both suggest_rolls + suggest_call_rolls returns, applied uniformly via a module-level `_attach_drops_summary` helper. Closes F1 / F4 / F8 as composed-pattern observability — the engine had the right answer; the trader can now see *why* a name was dropped at a glance. |
+| Fix #2 | F3 schema gap (the `sector` slice) | **PR #210** — `fix(wheel_runner): surface GICS sector column on all ranker survivor rows`. Adds a CORE `sector` column (sourced from `DEFAULT_SECTOR_MAP`, same map `check_sector_cap` aggregates by) to all 3 ranker outputs. F3's other requested columns (`regime_multiplier`, `event_locked` / `event_reason`) are addressed by **PR #208** (regime_multiplier) and PR #209's `drops_summary` (event_locked / event_reason now inferable from `by_gate` since `event_gate` is the documented `event` gate). |
+| Fix #3 | F7 GateResult key asymmetry | **PR #207** — `fix(portfolio_risk_gates): rename check_sector_cap fail-path details key for pass/fail symmetry`. One-line rename `sector_pct` → `post_open_sector_pct` in the failure-path details dict + 2 test updates + regression test pinning the symmetry. |
+| Fix #5 | F6 alt-cluster overlay (the GICS-strict mental-model gap) | **PR #212** — `feat(portfolio_risk_gates): add check_alt_cluster_cap for colloquial-cluster exposure`. Complementary to `check_sector_cap`; aggregates across colloquial clusters (default ships `mega_cap_growth = {AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA, AVGO}`); operators pass `clusters` kwarg for custom definitions. Default cap 0.40 (looser than the 0.25 sector cap). Standalone gate — not wired into the D17 hard-block flow yet (follow-up: opt-in mechanism). |
+| Fix #6 | F9 combined-multiplier omission | **PR #208** — `fix(wheel_runner): surface combined regime_multiplier column in ranker output`. Adds `regime_multiplier` column (= `res.regime_multiplier`, the engine's *final* multiplier post-clamp + heavy_tail_penalty + dealer_mult — the scalar that actually scales `ev_raw → ev_dollars`). Regression test pins the composition identity. |
+
+**What was NOT shipped:** the original Fix #1 framing (add
+`include_filtered_candidates=True` + `filter_reason` per dropped
+candidate as new rows in the output) — superseded by the V5
+verification discovery that `df.attrs["drops"]` was already
+populated, making the rows-only addition redundant. The
+discoverability fix (drops_summary on top of the existing drops
+list) achieves the same trader operability with less surface
+area. Documented for posterity.
+
+The original Fix# bullets that follow are kept for the design
+rationale; replace the "do this" framing with "*was done in
+PR #YYY*" when reading them.
+
+---
+
 - **Fix #1 (highest-priority, the F1 closer):
   `filter_reason` per dropped candidate in
   `rank_candidates_by_ev`.** Currently the ranker returns

@@ -2457,6 +2457,41 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 _DEFAULT_API_PORT = 8787
 
+# Listen-queue depth. ``socketserver.TCPServer.request_queue_size`` defaults
+# to 5, which gets exceeded during a realistic dashboard hard-reload
+# (5–10 simultaneous fetches) or a CI smoke pile-up. The S20 reliability
+# arc (``docs/USAGE_TEST_LEDGER.md`` and ``docs/RELIABILITY_ARC_REVIEW.md``)
+# measured 133/200 ``ConnectionRefusedError`` at 16 concurrent connect
+# attempts on the stdlib default. 128 matches uvicorn / gunicorn defaults
+# and is well within Linux's ``net.core.somaxconn`` (typically ≥ 4096) and
+# Windows' default backlog ceiling.
+_LISTEN_QUEUE_DEPTH = 128
+
+
+class _EngineHTTPServer(ThreadingHTTPServer):
+    """``ThreadingHTTPServer`` with a non-default kernel listen-queue depth.
+
+    Stdlib's ``socketserver.TCPServer.request_queue_size = 5`` is the
+    backlog passed to ``socket.listen()``. Once 5 connections are
+    accept-pending the kernel refuses new ``connect()`` attempts with
+    ``ECONNREFUSED`` — observable as ``ConnectionRefusedError`` at the
+    client and as silent connection loss in dashboards / load balancers.
+
+    The S20 concurrency Sn (``docs/USAGE_TEST_LEDGER.md``) demonstrated
+    this directly: at 16 concurrent POST workers, **133 of 200** connect
+    attempts were refused. The same Sn showed clean behaviour at workers=4
+    (under the default queue depth), so the production-readiness boundary
+    sits between 5 and 16 — exactly where dashboard hard reloads (5–10
+    parallel fetches) plus an oncall or CI investigator overlap.
+
+    Bumping the class attribute on a private subclass keeps the stdlib
+    base class untouched, leaves room to override per-instance for tests,
+    and documents the deviation at the point a future reader will look
+    for it.
+    """
+
+    request_queue_size = _LISTEN_QUEUE_DEPTH
+
 
 def _resolve_port(env: dict[str, str] | None = None) -> int:
     """Resolve the API port from ``SWE_API_PORT`` (closes D15 Unresolved).
@@ -2485,8 +2520,12 @@ def main():
     port = _resolve_port()
     # ThreadingHTTPServer spawns one thread per request so a slow committee
     # or memo call can't block the 5+ parallel fetches the dashboard fires
-    # when a trader switches tickers.
-    server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    # when a trader switches tickers. The local ``_EngineHTTPServer``
+    # subclass bumps ``request_queue_size`` from stdlib's 5 to
+    # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
+    # realistic dashboard / CI bursts without ``ECONNREFUSED`` drops —
+    # see the S20 reliability arc for the measurement.
+    server = _EngineHTTPServer(("0.0.0.0", port), EngineAPIHandler)
     server.daemon_threads = True
     print(f"Smart Wheel Engine API running on http://localhost:{port}")
     print("Endpoints:")

@@ -6523,24 +6523,23 @@ replay (S6 queued) would activate the dormant dealer signal.**
 | F3 — Silent substitution on future `as_of` in `rank_candidates_by_ev` | **PR #215** (`fix(wheel_runner): refuse rank_candidates_by_ev with as_of beyond data cutoff (S32 F3)`, merged at `40d6076`). Adds `max_as_of_staleness_days` kwarg; over-threshold queries drop with explicit reason; 4 regression tests in `tests/test_pit_leaks.py::TestRankerAsOfBeyondData`. Note: the commit / PR description labels this as "S32 F3" because the entry was authored before the renumber to S33 — this is the same fix referenced as F3 in S33. |
 | F3 follow-up — Same silent-substitution surface on `rank_covered_calls_by_ev` + `rank_strangles_by_ev` | **PR #220** (`fix(wheel_runner): extend as_of-beyond-data gate to CC + strangle rankers (S33 F3 follow-up)`, merged at `c07b265`). Same `max_as_of_staleness_days` parameter and freshness gate applied to both. 8 new regression tests (`TestCoveredCallRankerAsOfBeyondData` + `TestStrangleRankerAsOfBeyondData` in `tests/test_pit_leaks.py`). All three §2 ranker entry points now gate future `as_of` consistently. |
 | F4 — HMM "crisis" label vocabulary mismatch ("crisis = high-vol regardless of direction") | **PR #222** (`fix(wheel_runner): add HMM realized-vol / return disambiguation columns (S33 F4)`, merged at `b0a7d8a`). Adds `hmm_realized_vol_252d_ann` and `hmm_realized_return_252d_ann` columns alongside `hmm_regime` / `hmm_multiplier`. Trader inspecting one row can now disambiguate "crisis = crashing" from "crisis = high-vol-with-positive-trend" without re-fitting the HMM. Math externally verified against `np.std(tail_252)*sqrt(252)` / `np.mean(tail_252)*252`. 3 regression tests added. |
-| Audit — `ohlcv.iloc[-1]` patterns across `engine/` | **Completed inline during PR #220 work.** Scanned 15 engine files; identified 4 candidate surfaces (`wheel_runner.py:428` `analyze_ticker`, `wheel_runner.py:925` `rank_candidates_by_ev`, `wheel_runner.py:2132` `rank_covered_calls_by_ev`, `wheel_runner.py:2636` `rank_strangles_by_ev`). Three §2 ranker entry points all gated. The fourth (`analyze_ticker`) is a research-path single-ticker analyzer, not a §2 entry — documented but not gated (would benefit from the same gate in future hardening but lower-priority). `wheel_tracker.py` and `strangle_timing.py` `iloc[-1]` uses are live-mark-to-market and indicator computations (different shape, not as_of-resolution). |
+| Audit — `ohlcv.iloc[-1]` patterns across `engine/` | **Completed inline during PR #220 work.** Scanned 15 engine files; identified 4 candidate surfaces (`wheel_runner.py:428` `analyze_ticker`, `wheel_runner.py:925` `rank_candidates_by_ev`, `wheel_runner.py:2132` `rank_covered_calls_by_ev`, `wheel_runner.py:2636` `rank_strangles_by_ev`). All four now gated. `wheel_tracker.py` and `strangle_timing.py` `iloc[-1]` uses are live-mark-to-market and indicator computations (different shape, not as_of-resolution). |
+| `analyze_ticker` `as_of` + staleness gate (audit holdover, the fourth surface) | **PR #227** (`fix(wheel_runner): analyze_ticker now respects as_of + staleness gate (S33 audit holdover)`, merged at `f65fdfa`). Adds the same `max_as_of_staleness_days` kwarg as the three rankers; PIT filter + staleness gate; on rejection `spot_price` stays at the existing 0.0 default with `logger.warning`. 5 regression tests in `tests/test_pit_leaks.py::TestAnalyzeTickerAsOfGate`. **All four `ohlcv.iloc[-1]` surfaces in `wheel_runner.py` now respect `as_of` consistently.** |
 
-**Remaining queued follow-ups (S6-gated or out-of-scope):**
+**Remaining queued follow-ups (out-of-scope for the soundness verification campaign):**
 
 - **F5 follow-up (ranking philosophy):** new Sn evaluating
   the engine on `roc` (risk-adjusted EV per dollar of
   collateral) vs `ev_dollars` (absolute EV) as the primary
   ranking key on crisis days. Would resolve whether the
   current "offensive dominates top half on crisis days"
-  outcome is a feature or a gap.
+  outcome is a feature or a gap. **This is an investigation,
+  not a fix** — belongs to a new Sn (S35+).
 
-- **`analyze_ticker` gate (audit holdover):** apply the same
-  `max_as_of_staleness_days` gate to
-  `wheel_runner.py:analyze_ticker` (line 428). It's a
-  research path, not §2-touching, so lower priority than
-  the three ranker fixes that shipped — but for full
-  symmetry across all "spot from latest close" resolution
-  points, a future docs/cleanup PR could close it.
+- **Sanity follow-up Sn (S6-gated):** re-run V4 (BSM sanity)
+  + V2 (dealer signal under load) against Theta-replay quoted
+  chains. Closes the Bloomberg-only scope acknowledged in
+  S33's verdict. Gated on physical Theta Terminal access.
 
 - **Sanity follow-up Sn (S6 dependency):** re-run V4 (BSM
   sanity) against Theta-replay quoted chains, not Bloomberg

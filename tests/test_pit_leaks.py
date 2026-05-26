@@ -459,8 +459,6 @@ class TestAnalyzeTickerAsOfGate:
 
     def test_as_of_none_uses_latest_close(self):
         """as_of=None preserves live behavior: latest close from OHLCV."""
-        import pandas as pd
-
         r = self._runner_with_data_through("2026-03-20")
         ohlcv = r._connector.get_ohlcv("TEST")
         expected_spot = float(ohlcv["close"].iloc[-1])

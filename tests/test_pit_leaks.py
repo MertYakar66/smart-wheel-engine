@@ -234,3 +234,158 @@ class TestRankerAsOfBeyondData:
         drops = df.attrs.get("drops", [])
         for d in drops:
             assert "beyond latest data" not in d.get("reason", "")
+
+
+def _runner_for_single_ranker(last_date_iso: str):
+    """Shared synthetic-connector helper for the CC + strangle ranker
+    PIT-gate tests. Returns a WheelRunner whose connector emits OHLCV
+    ending at `last_date_iso`."""
+    import numpy as np
+    import pandas as pd
+
+    from engine.wheel_runner import WheelRunner
+
+    end = pd.Timestamp(last_date_iso)
+    idx = pd.date_range(end - pd.Timedelta(days=800), end, freq="B")
+    rng = np.random.default_rng(42)
+    prices = 100 * np.exp(np.cumsum(rng.normal(0.0003, 0.012, len(idx))))
+    oh = pd.DataFrame({"close": prices}, index=idx)
+
+    class _Conn:
+        def get_ohlcv(self, ticker):
+            return oh
+
+        def get_fundamentals(self, ticker):
+            return {"implied_vol_atm": 0.28, "volatility_30d": 0.25, "dividend_yield": 0.01}
+
+        def get_risk_free_rate(self, as_of=None):
+            return 0.05
+
+        def get_next_earnings(self, ticker, as_of=None):
+            return None
+
+        def get_universe(self):
+            return ["TEST"]
+
+    r = WheelRunner()
+    r._connector = _Conn()
+    return r
+
+
+class TestCoveredCallRankerAsOfBeyondData:
+    """S33 F3 follow-up: rank_covered_calls_by_ev had the same
+    silent-substitution surface as rank_candidates_by_ev. This
+    pins the equivalent fix."""
+
+    def test_far_future_as_of_drops_with_explicit_reason(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_covered_calls_by_ev(
+            ticker="TEST",
+            as_of="2030-01-01",
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+        )
+        assert df.empty, "CC ranker must NOT silently substitute future as_of"
+        drops = df.attrs.get("drops", [])
+        assert any("beyond latest data" in d.get("reason", "") for d in drops)
+        assert any("2030-01-01" in d.get("reason", "") for d in drops)
+
+    def test_within_threshold_as_of_proceeds(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_covered_calls_by_ev(
+            ticker="TEST",
+            as_of="2026-04-10",  # 21 days, within 30
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+        )
+        for d in df.attrs.get("drops", []):
+            assert "beyond latest data" not in d.get("reason", "")
+
+    def test_custom_threshold_overrides_default(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_covered_calls_by_ev(
+            ticker="TEST",
+            as_of="2026-04-05",  # 16 days
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+            max_as_of_staleness_days=7,  # tight
+        )
+        assert df.empty
+        drops = df.attrs.get("drops", [])
+        assert any("beyond latest data" in d.get("reason", "") for d in drops)
+
+    def test_historical_as_of_unaffected(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_covered_calls_by_ev(
+            ticker="TEST",
+            as_of="2025-06-15",  # well within history
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+        )
+        for d in df.attrs.get("drops", []):
+            assert "beyond latest data" not in d.get("reason", "")
+
+
+class TestStrangleRankerAsOfBeyondData:
+    """S33 F3 follow-up: rank_strangles_by_ev had the same
+    silent-substitution surface. This pins the equivalent fix."""
+
+    def test_far_future_as_of_drops_with_explicit_reason(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_strangles_by_ev(
+            ticker="TEST",
+            as_of="2030-01-01",
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+            use_timing_gate=False,
+        )
+        assert df.empty, "strangle ranker must NOT silently substitute future as_of"
+        drops = df.attrs.get("drops", [])
+        assert any("beyond latest data" in d.get("reason", "") for d in drops)
+        assert any("2030-01-01" in d.get("reason", "") for d in drops)
+
+    def test_within_threshold_as_of_proceeds(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_strangles_by_ev(
+            ticker="TEST",
+            as_of="2026-04-10",  # 21 days, within 30
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+            use_timing_gate=False,
+        )
+        for d in df.attrs.get("drops", []):
+            assert "beyond latest data" not in d.get("reason", "")
+
+    def test_custom_threshold_overrides_default(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_strangles_by_ev(
+            ticker="TEST",
+            as_of="2026-04-05",  # 16 days
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+            use_timing_gate=False,
+            max_as_of_staleness_days=7,
+        )
+        assert df.empty
+        drops = df.attrs.get("drops", [])
+        assert any("beyond latest data" in d.get("reason", "") for d in drops)
+
+    def test_historical_as_of_unaffected(self):
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_strangles_by_ev(
+            ticker="TEST",
+            as_of="2025-06-15",
+            top_n=10,
+            min_ev_dollars=-1e9,
+            use_event_gate=False,
+            use_timing_gate=False,
+        )
+        for d in df.attrs.get("drops", []):
+            assert "beyond latest data" not in d.get("reason", "")

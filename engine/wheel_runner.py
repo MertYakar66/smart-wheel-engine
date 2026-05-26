@@ -1969,6 +1969,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank covered-call **entry** candidates for a held stock by forward EV.
 
@@ -2116,6 +2117,33 @@ class WheelRunner:
                 {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
             )
             return _empty()
+
+        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
+        # rank_candidates_by_ev (PR #215). Without it the CC ranker
+        # silently substituted the latest available close as "current
+        # spot" for any future as_of — same D11 violation, same fix
+        # shape.
+        if as_of is not None:
+            try:
+                cutoff = pd.Timestamp(as_of)
+                actual_last = ohlcv.index.max()
+                gap_days = (cutoff - actual_last).days
+                if gap_days > max_as_of_staleness_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": (
+                                f"as_of {as_of} is {gap_days} days beyond "
+                                f"latest data ({actual_last.date().isoformat()}); "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            ),
+                        }
+                    )
+                    return _empty()
+            except Exception:
+                pass
+
         # Survivorship / distribution-reliability gate — mirrors
         # rank_candidates_by_ev: an empirical forward distribution from a
         # short history is statistically unreliable.
@@ -2477,6 +2505,7 @@ class WheelRunner:
         enforce_history_gate: bool = True,
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
+        max_as_of_staleness_days: int = 30,
     ) -> pd.DataFrame:
         """Rank short-strangle candidates for a ticker by composed forward EV.
 
@@ -2623,6 +2652,33 @@ class WheelRunner:
                 {"ticker": ticker, "gate": "data", "reason": "no OHLCV history at or before as_of"}
             )
             return _empty()
+
+        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
+        # rank_candidates_by_ev (PR #215). Without it the strangle
+        # ranker silently substituted the latest available close as
+        # "current spot" for any future as_of — same D11 violation,
+        # same fix shape.
+        if as_of is not None:
+            try:
+                cutoff = pd.Timestamp(as_of)
+                actual_last = ohlcv.index.max()
+                gap_days = (cutoff - actual_last).days
+                if gap_days > max_as_of_staleness_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "data",
+                            "reason": (
+                                f"as_of {as_of} is {gap_days} days beyond "
+                                f"latest data ({actual_last.date().isoformat()}); "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            ),
+                        }
+                    )
+                    return _empty()
+            except Exception:
+                pass
+
         if enforce_history_gate and len(ohlcv) < min_history_days:
             drops.append(
                 {

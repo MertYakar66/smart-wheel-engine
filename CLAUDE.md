@@ -57,7 +57,12 @@ non-tradeable candidate into a tradeable one without a fresh
 
 The `EnginePhaseReviewer` rules, for reference:
 
-- R1: negative EV → blocked (hard stop)
+- R1: negative OR non-finite EV → blocked (hard stop; **R1a** at
+  `engine/candidate_dossier.py` guards `+inf` / `-inf` / `NaN` via
+  `math.isfinite` *before* the negative check, returning
+  `verdict_reason="ev_non_finite"` distinct from `"negative_ev"` so the
+  audit trail tells an unparseable engine value apart from an evaluated
+  loss — see PR #204)
 - R2: chart missing → review
 - R3: spot mismatch > 2% → skip
 - R4: phase contradiction → skip *(conditional/reserved — the rule is

@@ -1,11 +1,23 @@
 """
-News sentiment reader — a thin bridge between the existing
-``news_pipeline`` / ``financial_news`` subsystems and the wheel EV ranker.
+News sentiment reader — operator-facing transparency layer.
 
-The news pipeline is orchestrated separately (scrapers, browser agents,
-publishers). This module does not run any scraping itself — it just
-looks for a parquet/json/sqlite store on disk and exposes a simple
-``get_ticker_sentiment(ticker, lookback_hours=72, as_of=None)`` -> dict.
+Status (DECISIONS.md D18, 2026-05-26): verbal news is **severed** from
+the EV decision path. ``sentiment_multiplier`` is now a constant-1.0
+stub. ``get_ticker_sentiment`` still reads the sentiment store so the
+dashboard / row-dict / morning-brief can surface the underlying
+sentiment + article count to the operator, but the score has zero
+influence on the EV verdict.
+
+Why severed
+-----------
+The previous EV-path scoring was VADER + a tiny finance lexicon over
+news headlines (see ``scripts/pull_news_sentiment.py``). That is a poor
+fit for the kind of qualitative input that actually moves wheel
+candidates ("China blocks Nvidia chips", "FTC sues exec for fraud",
+etc.) — exactly the cases where a 50-word lexicon can flip sign on
+syntactic accident. The right place for verbal news is the operator
+brief, not a multiplier on EV. See DECISIONS.md D3 (superseded for the
+verbal-news clause) and D18 (the severance and its rationale).
 
 Expected store locations (checked in order)
 -------------------------------------------
@@ -22,10 +34,14 @@ If no store is found, every lookup returns ``{'sentiment': 0.0,
 
 Primary consumers
 -----------------
-- wheel_runner: can optionally apply a sentiment multiplier to the
-  regime scaling. Strong negative sentiment (< -0.3) with ≥ 5 articles
-  triggers a soft de-rank (multiplier 0.90).
-- dashboard: exposes sentiment as a column in the candidate table.
+- wheel_runner: row dict surfaces ``news_sentiment`` / ``news_n_articles``
+  for transparency; ``news_multiplier`` is read from
+  ``sentiment_multiplier`` which is now constant 1.0 — keeping the call
+  site preserves the audit trail without re-introducing the override
+  problem D1 forbids.
+- dashboard: exposes sentiment as a column in the candidate table for
+  the operator to read alongside the engine verdict. The engine itself
+  ignores it.
 """
 
 from __future__ import annotations
@@ -175,25 +191,24 @@ class NewsSentimentReader:
         lookback_hours: int = 72,
         as_of: str | pd.Timestamp | None = None,
     ) -> float:
-        """Map sentiment to an EV multiplier in [0.88, 1.05].
+        """Severed EV-path stub. Always returns 1.0.
 
-        - sentiment <= -0.3 with n_articles >= 5 -> 0.88 (soft derank)
-        - sentiment in (-0.3, -0.1)              -> 0.95
-        - neutral                                 -> 1.00
-        - sentiment >= 0.3 with n_articles >= 5  -> 1.05
+        DECISIONS.md D18 severed verbal news from the EV decision path.
+        Previously this function mapped sentiment to a multiplier in
+        [0.88, 1.05]; that channel is now closed. The signature is
+        preserved so the existing call site in
+        :mod:`engine.wheel_runner` keeps its audit-trail shape (the
+        underlying ``sentiment`` and ``n_articles`` are still surfaced
+        on the row dict via :meth:`get_ticker_sentiment`), but the
+        multiplier itself has no EV influence.
 
-        ``as_of`` is threaded to :meth:`get_ticker_sentiment` for
-        point-in-time correctness (``None`` = live wall-clock).
+        The arguments are accepted (and a stash-lookup is performed so
+        the disk store is still validated and the 5-minute cache stays
+        warm for ``get_ticker_sentiment`` callers) but ignored for the
+        return value.
         """
-        s = self.get_ticker_sentiment(ticker, lookback_hours, as_of)
-        sent = s["sentiment"]
-        n = s["n_articles"]
-        if n < 5:
-            return 1.0
-        if sent <= -0.3:
-            return 0.88
-        if sent <= -0.1:
-            return 0.95
-        if sent >= 0.3:
-            return 1.05
+        # Touch the store so call-site behaviour around cache warm-up
+        # and PIT validation is unchanged from the operator-dashboard
+        # perspective. The result is discarded.
+        _ = self.get_ticker_sentiment(ticker, lookback_hours, as_of)
         return 1.0

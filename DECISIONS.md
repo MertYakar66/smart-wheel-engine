@@ -1018,6 +1018,94 @@ $1M pro-account NAV).
 
 ---
 
+## D18. Verbal news is severed from the EV decision path
+
+**Decision:** ``engine/news_sentiment.py::sentiment_multiplier`` is
+stubbed to always return ``1.0``. Verbal news (qualitative narrative
+from `news_pipeline/`, `financial_news/`, or the sentiment parquet
+that ``scripts/pull_news_sentiment.py`` populates) has **zero**
+influence on the EV verdict. ``get_ticker_sentiment`` is preserved so
+the dashboard, the row dict (``news_sentiment`` / ``news_n_articles``
+columns), and the morning brief can still surface the score for the
+operator — but the engine itself ignores it.
+
+This entry **supersedes the "engine/news_sentiment.py is the only
+news module on the EV path" clause of D3** (only that clause; D3's
+two-news-subsystems-coexist framing still holds — and is in fact
+strengthened, since now *no* news subsystem feeds the EV authority).
+
+**Why:** The previous EV-path scoring was VADER + a 50-word finance
+lexicon over headlines (see ``scripts/pull_news_sentiment.py``'s
+``_LEXICON_POS`` / ``_LEXICON_NEG`` sets). That tool is fundamentally
+mismatched with the qualitative-narrative inputs that actually move
+wheel candidates:
+
+- "Trump announces Intel stake" is positive for Intel; the lexicon
+  has no "stake" entry, only "announce".
+- "Nvidia under FTC investigation" is unambiguously negative; the
+  word "investigation" is in the negative lexicon but the headline
+  also contains "Nvidia" which has no sign.
+- Sarcasm, double negatives, and headline-vs-body disagreements
+  flip lexicon scores on syntactic accident.
+
+The right place for verbal news is the operator brief and the
+dashboard's "things the engine has no signal on" pane — both of
+which continue to consume the sentiment store. The wrong place is
+a multiplier on the EV verdict.
+
+Architecturally, severing also fixes a smaller debt: the existing
+``combined_regime_mult = hmm × skew × news × credit`` product
+mixed regime-state and news-state under a "regime" label, which
+is a category error. With ``news_mult`` always 1.0 the name now
+matches what's computed.
+
+The quantitative complement of this decision lives in later
+campaign PRs: EDGAR earnings calendar (PR3/9) feeds the existing
+``EventGate``; FRED macro data (PR6/9) rewrites ``credit_mult``;
+the quality-score reviewer (PR5/9) becomes **R9** in
+``EnginePhaseReviewer`` since R7 and R8 are already taken by D17's
+portfolio-risk reviewers.
+
+**§2 (D1) survives:** a constant multiplier of 1.0 cannot rescue a
+negative-EV candidate. Reviewers are still downgrade-only. No
+existing test covering negative-EV blocking is affected.
+
+**Rejected alternatives:**
+- *Remove the call site in ``engine/wheel_runner.py`` entirely
+  rather than stubbing the function.* Considered; rejected because
+  the row dict surfaces ``news_sentiment``, ``news_multiplier``,
+  ``news_n_articles`` for the operator audit trail. Removing the
+  call site means losing those columns or keeping a parallel
+  reader for the dashboard; the stub keeps the EV path zero-touch
+  while preserving the audit columns. The ``news_multiplier``
+  column will now always read 1.0 — which is the honest signal.
+- *Replace VADER/lexicon with a paid sentiment vendor (Benzinga,
+  Refinitiv, RavenPack) and keep the multiplier channel.* Trades
+  one vendor cost for one vendor lock-in without fixing the
+  underlying architectural mistake — verbal sentiment is still
+  the wrong shape for an EV multiplier. The fixed-channel
+  problem (one scalar applied uniformly across regimes / strike
+  selection / Greeks exposure) is structural, not scoring-quality.
+- *Replace the multiplier with a downgrade-only reviewer rule that
+  consumes verbal sentiment.* Same shape mismatch as a multiplier;
+  reviewers fire on structured numerical signals (EV sign, spot
+  mismatch, dealer regime, NAV gate). Qualitative narrative
+  doesn't compress into a clean threshold.
+- *Auto-disable instead of return 1.0 — i.e. raise if anyone
+  calls ``sentiment_multiplier``.* Would force every caller to
+  add a guard. The stub return is the cheapest no-op and keeps
+  the call site idempotent.
+
+**Pinned by:** ``engine/news_sentiment.py`` (the stub),
+``tests/test_news_sentiment.py::TestSentimentMultiplier`` (rewritten
+to assert 1.0 for every band the old code derated/boosted),
+``tests/test_news_severance.py`` (new — invariant: multiplier is
+1.0 across the full (sentiment, n_articles) grid),
+``tests/test_pit_leaks.py::TestNewsPIT::test_multiplier_is_pit``
+(rewritten to assert the severance contract trivially preserves PIT).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

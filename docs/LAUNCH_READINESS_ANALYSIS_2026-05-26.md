@@ -21,6 +21,36 @@ at $1M with the 100-ticker universe in conditions resembling
 2022-2024**, with explicit acknowledgment that historical
 performance varies by ±70pp on regime alone.
 
+---
+
+> ⚠ **Amendment 2026-05-27 (post-S38).** The "multi-window confirmation
+> backtest" that this doc identified as the third remaining blocker has
+> since landed: **S38 (PR #235)** ran the same universe / capital as
+> S34 (100 tickers, $1M) but over the longer **2020-2024** window
+> (which includes COVID + 2021 mega-bull + 2022 bear + 2023-2024
+> recovery). **The S38 result was −52pp under SPY** (engine +33.18% vs
+> SPY ~+85%), **falsifying the "deployable as a supervised decision-aid
+> at $1M in conditions resembling 2022-2024" framing as a forward
+> estimate**. Honest forward expectation at $1M / 100t across measured
+> multi-year windows now spans **−52pp to +11.6pp**. The §3 deployment
+> matrix row "Supervised $500k–$1M, universe ≥ 100 tickers" has been
+> amended in-place to ⚠ **Conditional with explicit underperformance
+> acknowledgment**. The honest value proposition is **conservative
+> income generation (+33% / 5y ≈ +5.9% annualized) with strong
+> crisis refusal (97.8% COVID refusal, ~$215k loss avoidance in S38)**
+> — NOT SPY-beating dollar alpha. **Also:** D17 live-wire shipped
+> 2026-05-26 (B2 closed, PR #233); only B1 (F4 tail-risk fix) remains
+> of the three named blockers, and it is in flight on Terminal A's
+> `claude/fix-f4-regime-conditioned-widening`. See
+> `docs/PRODUCTION_READINESS.md` (the gate doc, updated in the same
+> 2026-05-27 PR) for the canonical reframing, and
+> `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` for the underlying
+> evidence. The 2026-05-26 verdict and analysis below is preserved
+> for campaign-arc readability; this callout marks where subsequent
+> evidence has moved the picture.
+
+---
+
 This file is the consolidated launch-readiness analysis the user
 explicitly requested on 2026-05-26. It synthesises the entire
 campaign (S18 through S34 + the four review PRs + the small fixes
@@ -424,7 +454,7 @@ with identical parameters.**
 | Research signal / paper-trading the ranker | any | clean | ✅ **Go.** Signal is real (ρ scale-AND-window invariant). |
 | Supervised decision-aid at $100k | ≤ $100k | clean except F4 + window-sensitivity | ✅ **Go with explicit window-sensitivity caveat.** S35 proves the engine can underperform SPY by 41pp in adverse windows; supervisor must override entries when realized vol is elevated or absolute environment is hostile. F4 tail risk also unresolved. |
 | Autonomous decision-aid at $100k | ≤ $100k | F4 open + window-dependent | ❌ **No.** Tail risk uncovered AND dollar-alpha varies wildly by regime. |
-| Supervised $500k–$1M, universe ≥ 100 tickers | $100k–$1M | **S34 closed B3 partially** | ⚠ **Conditional ✅.** S34 (PR #226) measured +11.6pp over SPY at $1M with 100-ticker universe in 2022-2024 — capacity gap demonstrably closable via universe expansion alone. Window-sensitivity (S35) still requires a multi-window confirmation before high-confidence deployment. Defensible with strict supervision + manual F4-prone-ticker override. |
+| Supervised $500k–$1M, universe ≥ 100 tickers | $100k–$1M | **S34 closed B3 capacity; S38 falsified the alpha claim** | ⚠ **Conditional with explicit underperformance acknowledgment** *(amended 2026-05-27 — see top-of-doc callout)*. S34 (PR #226) measured +11.6pp over SPY at $1M with 100-ticker universe in 2022-2024 — capacity gap demonstrably closable via universe expansion alone. **S38 (PR #235) subsequently ran the same universe / capital over the longer 2020-2024 window and returned −52pp**, demonstrating window-specificity. Honest forward expectation at $1M / 100t spans **−52pp to +11.6pp** across measured multi-year windows. Defensible only with strict supervision and the explicit understanding that the engine is a **conservative income strategy with crisis refusal — not a SPY-beating alpha strategy**. |
 | Supervised at $1M, universe ≤ 24 tickers | $1M | capacity gap (S32) | ❌ **No.** S32 measured −22pp underperformance. Use 100-ticker universe per S34. |
 | Autonomous at $1M+ | $1M+ | three blockers + window-sensitivity | ❌ **No.** F4 + D17-live + capacity + window-sensitivity all stack. |
 | Any deployment | any | after B1 + B2 + B3 ship + multi-window backtest + clean follow-on | conditional ✅ |
@@ -565,3 +595,21 @@ on 2026-05-26. Refresh when:
 If this file goes stale (more than 7 days behind `origin/main` after
 material changes), it is itself a deployment blocker — pause real-money
 decisions until refreshed.
+
+### Amendment log
+
+- **2026-05-27 — post-S38 reframing.** S38 (PR #235) ran the
+  multi-window backtest this doc identified as a §6 prerequisite;
+  result was **−52pp at $1M / 100t / 2020-2024**, falsifying the
+  S34-only "+11.6pp" alpha claim. Amended: top-of-doc Verdict
+  callout (added Amendment 2026-05-27 inset); §3 deployment matrix
+  "$500k–$1M supervised, universe ≥ 100 tickers" row (verdict
+  changed from ⚠ Conditional ✅ to ⚠ Conditional with explicit
+  underperformance acknowledgment). Companion gate doc
+  `docs/PRODUCTION_READINESS.md` was amended in the same PR
+  (§1 headline status + §5 deployment matrix). Original 2026-05-26
+  text preserved elsewhere for campaign-arc readability. **Also
+  noted in passing:** B2 (D17 live-wire) shipped 2026-05-26 via
+  PR #233 — the matrix above still cites it as "open" in some
+  rows; intentionally not edited here because the broader §4
+  status refresh is out of scope for this amendment PR.

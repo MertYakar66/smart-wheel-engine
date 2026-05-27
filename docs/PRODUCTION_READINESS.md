@@ -1,7 +1,9 @@
 # Production readiness — real-money deployment gate
 
-**Last updated:** 2026-05-26 (against `origin/main` at `e504801`,
-post-PR #216 / S32).
+**Last updated:** 2026-05-27 (against `origin/main` at `b2cce25`,
+post-S38 multi-window + D17 live-wire + realism-verification campaign;
+amends §1 headline + §5 deployment matrix to honestly reframe the
+engine-vs-SPY claim now that the multi-window result is in hand).
 **Owner:** anyone deploying this engine against a real brokerage
 account is the owner of this doc.
 
@@ -24,21 +26,27 @@ operate?".
 | Does the engine produce **realistic, EV-correct outputs**? | **Yes.** Spearman ρ ranges 0.19–0.50 across (capital × universe × window) configurations; the ranking quality is scale-invariant AND universe-invariant AND window-invariant. Statistically overwhelming across every measurement (p < 1e-48 in all cases). |
 | Does it **survive operational stress** (load, chaos, concurrency)? | **Yes.** 2,374 of 2,378 tests pass; the 2 failing tests are documented Windows-local Theta-tier flakes, not engine defects. S18 / S19 / S20 reliability arc (PR #194) verified. |
 | Is its **§2 invariant** intact ("no tradeable candidate bypasses EVEngine.evaluate")? | **Yes.** Verified across S18 load, S19 chaos, S20 concurrency, S22 / S27 / S32 / S34 / S35 backtests, and the audit-of-audit review (PR #195). |
-| Does it **beat SPY at meaningful capital scales**? | **Conditionally yes** at $1M with 100-ticker universe in 2022-2024 (S34: +11.6pp over SPY). **No** at $100k in 2018-2020 (S35: −41pp under SPY). The dollar-alpha is regime-dependent; the +27pp headline from S22/S27 is window-specific. |
-| **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `docs/SOUNDNESS_REVIEW_2026-05-26.md`. |
+| Does it **beat SPY at meaningful capital scales**? | **Window-dependent across the entire range.** Measured (capital × universe × window) engine-vs-SPY deltas span **−52pp (S38: $1M / 100t / 2020-2024) to +27pp (S22/S27: $100k / 24t / 2022-2024)**. S34's "+11.6pp at $1M/100t" was 2022-2024-window-specific; **the subsequent S38 multi-window result demonstrates window-specificity** — same universe / capital over the longer 2020-2024 window (which includes COVID + 2021 mega-bull + 2022 bear + 2023-2024 recovery) returned **−52pp**. **No single number represents the engine's forward edge.** |
+| **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **S38 reinforced and intensified this pattern**: realized executed P&L over 305 puts + 168 CCs across 2020-2024 was **−$28,647** (also NEGATIVE); all NAV growth (+$331,764) came from equity-beta-on-assignments (108.6% attributable). **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `docs/SOUNDNESS_REVIEW_2026-05-26.md` and `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` §"Alpha decomposition". |
 | **Is the dollar alpha concentration-resilient?** (post-soundness-review) | **No — one ticker can dominate.** In S34, BKNG alone contributed $31,576 of $28,571 total executed realized P&L (110% of net). Without BKNG, the engine's realized executions are slightly negative (−$3,004). **However, the ranking SIGNAL is robust** — ρ moves 0.327 → 0.324 when BKNG is removed. Ranking quality is genuine; the dollar outcome at scale is concentration-dependent. |
-| Should we **deploy it autonomously with real money today**? | **No** — three blockers remain (F4 tail-risk, D17 live-wire, multi-window confirmation). Plus the equity-beta-vs-ranking-alpha framing means autonomous deployment would be a thinly-disguised levered equity beta bet in disguise. See §3 below. |
+| Should we **deploy it autonomously with real money today**? | **No.** **F4 tail-risk widening still open** (B1; A is in flight on `claude/fix-f4-regime-conditioned-widening`). **D17 live-wire shipped 2026-05-26** (B2 closed, PR #233). **Multi-window confirmation also ran** (S38, PR #235) — but **the result was −52pp vs SPY at $1M/100t over 2020-2024**, falsifying the S34-only "+11.6pp" alpha claim. Even with B2 closed and the multi-window evidence in hand, autonomous deployment would be a strategy that systematically underperforms SPY in bull-dominated 3-5y windows AND would be a thinly-disguised levered equity beta bet. See §3 below. |
 | Should we **use it as a research / decision-aid signal**? | **Yes, with supervision and explicit window-sensitivity + alpha-decomposition caveats.** The signal is real (verified ρ + robust to concentration); the refusal mechanism is the engine's strongest property (98%+ refusal in adverse periods, correct in aggregate); the dollar outcome at scale comes mostly from equity beta on assignments. |
 
 **One-sentence verdict:** the engine is a *research-grade ranker
-with verified predictive signal and a strong refusal mechanism*; the
-*dollar alpha at scale comes mostly from equity beta on wheel-strategy
-assignments rather than from pure put-selection skill*. As an
-autonomous trading system it is not yet deployable (three blockers
-remain). As a supervised decision-aid + refusal layer over a wheel
-strategy, it has demonstrable value — with the explicit
-acknowledgment that historical dollar-outperformance is partly a
-levered SPY-subset bet on bull-market-favored single names.
+with verified predictive signal and a strong crisis-refusal mechanism*
+(S38 measured 97.8% refusal during 2020-02-15 → 2020-05-15 COVID,
+avoiding ~$215k of would-have-been losses on the refused candidates);
+the *dollar alpha at scale is window-dependent across a wide range
+(−52pp in S38 / 2020-2024 to +27pp in S22/S27 / 2022-2024) — there
+is no single forward estimate*. As an autonomous trading system it is
+not yet deployable: F4 tail-risk remains open, and the multi-window
+evidence (S38) shows the engine systematically underperforms SPY in
+bull-dominated multi-year windows even at the universe size that
+S34 favored. As a supervised decision-aid + crisis-refusal layer
+over a wheel strategy, it has demonstrable value — but the honest
+headline value proposition is **conservative income generation
+(+33% over 5y in S38 ≈ +5.9% annualized) with strong crisis
+refusal**, NOT SPY-beating dollar alpha.
 
 ---
 
@@ -331,10 +339,10 @@ trajectory.
 | **Research signal / paper-trading the ranker** | Any | Today | ✅ **Go.** Signal is real (ρ ≈ 0.22); pair it with human review on every candidate. |
 | **$100k account, supervised** | ≤ $100k | Today | ⚠ **Conditional.** The BP-saturation pattern accidentally limits damage; this is exactly the scale where S22 / S27 reported the +27pp-over-SPY result. Acknowledge F4 tail risk and review every entry; supervise rolls. |
 | **$100k account, autonomous** | ≤ $100k | Today | ❌ **No.** F4 tail-risk gap means single-name drawdowns are not protected. D17 not wired to API means the engine has no live portfolio-level brake. |
-| **$500k–$1M supervised, universe ≥ 100 tickers** | $500k–$1M | After S34 (2026-05-26) | ⚠ **Conditional.** S34 validated that universe expansion to 100 tickers closes the capacity gap (engine vs SPY: −22pp → +11.6pp at $1M / 2022-2024). Still subject to (a) F4 fix, (b) multi-window confirmation per S35's window-sensitivity finding, (c) D17 live-wire. With strict supervision and these conditions partially met, supervised use is defensible. |
-| **$500k–$1M, universe ≤ 24 tickers** | $500k–$1M | Today | ❌ **No.** S32 measured −22pp underperformance. Use the 100-ticker universe (per S34). |
-| **$1M+ autonomous deployment** | $1M+ | Today | ❌ **No.** Three blockers (F4, D17-live) remain even with universe expansion. Plus S35 window-sensitivity. Plus Caveat 2 (parameters in-sample). |
-| **Any production deployment** | Any | **After F4 + D17-live + universe expand + multi-window backtest** | Conditional ✅. Re-evaluate based on (a) the post-F4-fix Spearman, (b) the post-F4-fix tail-risk regression test, (c) the multi-window backtest at $1M with 100-ticker universe (S34-style on 2020-2024), and (d) D17 live-wire in `engine_api.py`. |
+| **$500k–$1M supervised, universe ≥ 100 tickers** | $500k–$1M | After S34 + S38 (2026-05-26) | ⚠ **Conditional with explicit underperformance acknowledgment.** S34 (PR #226) showed +11.6pp over SPY at $1M / 100t / **2022-2024** — that result was **window-specific**. **Subsequent S38 (PR #235) ran the same universe / capital over the longer 2020-2024 window and returned −52pp** (engine +33.18% vs SPY ~+85%). Honest forward expectation at $1M scale spans **−52pp to +11.6pp** across measured multi-year windows. D17 live-wire shipped 2026-05-26 (B2 closed, PR #233); F4 fix still open (B1 in flight, Terminal A `claude/fix-f4-regime-conditioned-widening`). Defensible **only with strict supervision and the explicit understanding that the engine is a conservative income strategy with crisis refusal — not a SPY-beating alpha strategy**. The +33% / 5y in S38 ≈ 5.9% annualized is a defensible income-tier value proposition; the "+11.6pp over SPY" framing is not. |
+| **$500k–$1M, universe ≤ 24 tickers** | $500k–$1M | Today | ❌ **No.** S32 measured −22pp underperformance. Use the 100-ticker universe (per S34), with the S38 caveat above. |
+| **$1M+ autonomous deployment** | $1M+ | Today | ❌ **No.** F4 (B1) still open. Even after F4 fix lands, the multi-window evidence (S38) shows engine systematically underperforms SPY in bull-dominated 3-5y windows at $1M scale (engine +33% vs SPY ~+85% over 2020-2024). Autonomous deployment under these conditions would run a strategy that deploys ~23% of capital, produces **negative realized put P&L over 5y (S38: −$28,647 across 305 puts + 168 CCs)**, and relies entirely on equity-beta-on-assignments for NAV growth. Plus Caveat 2 (parameters in-sample). |
+| **Any production deployment** | Any | **After F4 fix lands** | Conditional ⚠ after F4 fix. **D17 live-wire and universe expansion already shipped** (B2 PR #233, B3 S34 PR #226); **the multi-window backtest at $1M / 100t already ran** (S38 PR #235) and returned −52pp. The open question is no longer "will multi-window confirm S34's +11.6pp?" but **"can F4 fix sufficiently reduce executed-trade loss rate to close the −52pp multi-window engine-vs-SPY gap?"** Re-evaluate the matrix based on (a) the post-F4-fix Spearman + tail-risk regression test, (b) a post-F4-fix re-run of S38's window to measure whether widened tails materially improve bull-dominated 5y performance, (c) a rolling-multi-window backtest (multiple non-overlapping 5y windows) to bound the engine-vs-SPY range with more data points. |
 
 ---
 
@@ -401,6 +409,22 @@ B1 / B2 / B3 fixes.
   backtest. Headline ρ = 0.22.
 - **`docs/ENGINE_BACKTEST_S32_FRICTION.md`** — S32 $1M friction
   simulation. Headline +1.85% vs SPY +24%.
+- **`docs/ENGINE_BACKTEST_S34_UNIVERSE.md`** — S34 universe expansion
+  (24 → 100 tickers) at $1M / 2022-2024 (PR #226). Headline +11.6pp
+  over SPY — **window-specific; see S38 for the multi-window correction**.
+- **`docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md`** — S35 out-of-window
+  cross-validation 2018-2020 (PR #224). Headline −41pp under SPY at
+  $100k / 24t; demonstrated dollar-alpha is window-dependent.
+- **`docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md`** — S38 multi-window
+  backtest at $1M / 100t / 2020-2024 (PR #235). Headline **−52pp under
+  SPY**; falsifies the S34-only "+11.6pp" alpha claim and provides the
+  multi-window evidence cited in §1 and §5 of this doc.
+- **`docs/SESSION_REPORT_2026-05-26.md`** — full campaign ledger for
+  the deployment-readiness verification session that produced S34 /
+  S35 / S38 + D17 live-wire (B2) + engine-API hardening.
+- **`docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md`** — parallel
+  launch-readiness verdict doc (snapshot at SHA `c07b265`, amended
+  2026-05-27 post-S38 to keep matrix in sync with this file).
 - **`docs/PREDICTIVE_VALIDITY_REVIEW.md`** — independent meta-review
   of S22 + S27 (PR #197). Headline: 8 VERIFIED, 1 VERIFIED-WITH-NOTE.
 - **`docs/RELIABILITY_ARC_REVIEW.md`** — independent review of S18 /

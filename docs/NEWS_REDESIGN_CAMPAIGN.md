@@ -56,14 +56,17 @@ rule 4, infrastructure (EDGAR + FRED) before the consumer (R9).
 |---|---|---|---|---|---|---|
 | 1 | EV percentile spread (p25/p50/p75) on `EVResult`, ranker row, `/api/candidates` | `claude/lucid-davinci-pm15H-pct-spread` | yes (additive on `EVResult`) | **open** | [#248](https://github.com/MertYakar66/smart-wheel-engine/pull/248) | — |
 | 2 | Sever verbal news from EV path; stub `sentiment_multiplier → 1.0`; D18 | `claude/lucid-davinci-pm15H-sever-news` | yes (drops `news_mult` from `combined_regime_mult`) | **open** | [#249](https://github.com/MertYakar66/smart-wheel-engine/pull/249) | D18 |
-| 3 | EDGAR earnings calendar feeding the existing `EventGate` | `claude/lucid-davinci-pm15H-edgar` | no (consumer of `EventGate`, not §2 itself) | not started | — | — |
+| 3 | EDGAR earnings history + projection (data layer; integration deferred) | `claude/lucid-davinci-pm15H-edgar` | no (data layer only) | **open** | [#251](https://github.com/MertYakar66/smart-wheel-engine/pull/251) | — |
+| 3.5 | Wire `EDGARAdapter.project_next_earnings` into `MarketDataConnector.get_next_earnings` | `claude/lucid-davinci-pm15H-edgar-wire` | likely yes (touches `wheel_runner.py` consumption) | not started | — | TBD |
 | 4 | Quality score computation (sector-relative z-scores from EDGAR XBRL) | `claude/lucid-davinci-pm15H-quality` | no | not started | — | — |
 | 5 | R9 reviewer rule (regime-aware threshold, abstain on missing) | `claude/lucid-davinci-pm15H-r9` | **yes** (new reviewer in `EnginePhaseReviewer`) | not started | — | TBD |
 | 6 | FRED → `credit_mult` rewrite | `claude/lucid-davinci-pm15H-fred` | partial (changes a multiplier input source) | not started | — | TBD |
 | 7 | Backtest re-baseline + new `S<N>` ledger entry | `claude/lucid-davinci-pm15H-s-rebase` | no | not started | — | — |
 | 8 | Dashboard: candidates pane + portfolio pane + "no-signal" pane | `claude/lucid-davinci-pm15H-dashboard` | no | not started | — | — |
 | 9 | Override-accuracy log (schema + first month's data) | `claude/lucid-davinci-pm15H-override-log` | no | not started | — | — |
-| meta | This tracking doc | `claude/lucid-davinci-pm15H-tracker` | no | this PR | — | — |
+| meta | This tracking doc | `claude/lucid-davinci-pm15H-tracker` | no | **open** | [#250](https://github.com/MertYakar66/smart-wheel-engine/pull/250) | — |
+
+PR 3.5 was inserted after PR 3 was implemented as a data-layer-only PR. The integration step (wiring EDGAR into the existing `conn.get_next_earnings` consumption pattern) deserves its own design decision (replace yfinance / preferred-with-fallback / surface-both) — see `docs/EDGAR_EARNINGS.md` §6 for the three integration shapes.
 
 ---
 

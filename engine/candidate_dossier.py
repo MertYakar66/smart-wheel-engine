@@ -217,6 +217,21 @@ class EnginePhaseReviewer:
        downgrade-only and only fires when context is attached —
        absent context keeps R9 a no-op (Q3 missing-data semantics).
 
+    10. *(Conditional — F4 damage-bounding addition.)* If a
+        `PortfolioContext` is attached and opening the candidate
+        would push the SINGLE-NAME (per-underlying) short-option
+        notional over ``max_single_name_pct × NAV`` (default 10% per
+        :func:`engine.portfolio_risk_gates.check_single_name_cap`),
+        the verdict is **review** with
+        ``verdict_reason="single_name_breach"``. Sits BENEATH the
+        sector cap (R9): a ticker concentrated as the only name in
+        its sector could still pass R9 at 25% NAV; R10 catches it
+        at 10% NAV first. Bounds idiosyncratic single-name drawdown
+        damage (the F4 case style — see
+        ``docs/F4_TAIL_RISK_DIAGNOSTIC.md`` §10) that no market-wide
+        regime detector can predict. Downgrade-only; no-op when
+        ``nav == 0`` or context is absent.
+
     Notes:
       * The reviewer is pure — no I/O, no network, no LLM. It only
         consumes the already-captured dossier (plus the optional
@@ -438,6 +453,40 @@ class EnginePhaseReviewer:
                     )
                     return "review", "sector_cap_breach", notes
 
+        # Rule 10: single-name (per-underlying) exposure cap. Sits
+        # BENEATH R9: even when sector cap is satisfied, a single
+        # ticker concentrated as the dominant name in its sector
+        # could still exceed the per-name floor. Bounds F4-style
+        # idiosyncratic-drawdown damage. Downgrade-only.
+        if ctx is not None and verdict == "proceed":
+            from .portfolio_risk_gates import check_single_name_cap
+
+            ev_row = dossier.ev_row
+            try:
+                strike = float(ev_row.get("strike", 0) or 0)
+                contracts = int(ev_row.get("contracts", 1) or 1)
+            except (TypeError, ValueError):
+                strike = 0.0
+                contracts = 1
+            proposed_notional = strike * 100.0 * contracts
+
+            nav = float(getattr(ctx, "nav", 0.0) or 0.0)
+            if nav > 0 and proposed_notional > 0:
+                name_result = check_single_name_cap(
+                    symbol=dossier.ticker,
+                    proposed_notional=proposed_notional,
+                    held_option_positions=getattr(ctx, "held_option_positions", []),
+                    nav=nav,
+                )
+                if not name_result.passed:
+                    post_pct = name_result.details.get("post_open_name_pct", 0.0)
+                    limit_pct = name_result.details.get("name_limit_pct", 0.0)
+                    notes.append(
+                        f"R10: {dossier.ticker} single-name exposure would be "
+                        f"{post_pct:.1%} (limit {limit_pct:.1%} NAV) — downgrade to review"
+                    )
+                    return "review", "single_name_breach", notes
+
         return verdict, reason, notes
 
     @staticmethod
@@ -445,7 +494,7 @@ class EnginePhaseReviewer:
         """Build the option position-dict shape upstream gate APIs
         expect, from a dossier's ev_row.
 
-        Pure helper — no I/O, no state. Used by R7, R8, and R9.
+        Pure helper — no I/O, no state. Used by R7, R8, R9, and R10.
         """
         ev_row = dossier.ev_row
         # Default option_type to "put" because the wheel pipeline

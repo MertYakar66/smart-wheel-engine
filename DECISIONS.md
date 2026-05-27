@@ -753,8 +753,8 @@ layer surfaces:
    short-circuited on the covered-call leg (stock already owned; no
    new margin).
 2. **Dossier soft-warns** (`engine/candidate_dossier.py`
-   `EnginePhaseReviewer` R7 + R8 + R9) — at ranking time, when a
-   `PortfolioContext` is attached, the reviewer adds three
+   `EnginePhaseReviewer` R7 + R8 + R9 + R10) — at ranking time, when
+   a `PortfolioContext` is attached, the reviewer adds four
    *downgrade-only* rules on top of the existing R1–R6:
    - **R7** = `check_var`. Portfolio VaR_95 (30-day horizon) above
      `max_var_pct × NAV` → `proceed` downgrades to `review`,
@@ -774,6 +774,21 @@ layer surfaces:
      tracker's hard refusal so a trader scanning the dossier UI
      sees the warning BEFORE attempting execution. Skips silently
      when `nav == 0` or the context is missing (Q3 semantics).
+   - **R10** = `check_single_name_cap`. Added 2026-05-27 as the F4
+     damage-bounding addition (the F4 widening fix had to be
+     rolled back per `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10 because
+     HMM `crisis` labels over-fired on the calm-bull plurality;
+     R10 is the orthogonal-by-design follow-up that bounds the
+     damage from idiosyncratic single-name drawdowns the engine
+     cannot predict). Tighter per-underlying floor that sits
+     BENEATH the sector cap: a ticker concentrated as the only
+     name in its sector could still pass R9 at 25% NAV, but R10
+     catches it at 10% NAV first. Aggregates SHORT-option notional
+     by symbol via `check_single_name_cap`. Default 10% NAV.
+     `verdict_reason="single_name_breach"`. Tracker mirrors the
+     same gate as a HARD refusal at `open_short_put` (added to
+     `_evaluate_d17_hard_blocks` as Gate 1b, between sector and
+     delta).
 
 R1 (`negative EV → blocked`) still wins over every D17 surface — the
 hard invariant from CLAUDE.md §2 / D1 / D16 is not amended.
@@ -783,6 +798,7 @@ hard invariant from CLAUDE.md §2 / D1 / D16 is not amended.
 | Gate | Default | Module constant |
 |---|---|---|
 | Sector cap | 25% of NAV | `_DEFAULT_MAX_SECTOR_PCT = 0.25` |
+| Single-name cap | 10% of NAV | `_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10` |
 | Portfolio delta cap | ±$300 per $100k NAV | `_DEFAULT_DELTA_CAP_PER_100K_NAV = 300.0` |
 | Kelly per-trade fraction | 50% NAV ("half-Kelly") | `_DEFAULT_KELLY_FRACTION = 0.5` |
 | VaR ceiling | 5% NAV at 95% / 30d | `_DEFAULT_MAX_VAR_PCT = 0.05` |
@@ -798,11 +814,12 @@ checkpoint: soft-warns should not fire on absent evidence. Matches
 D11's "no silent substitution" principle — the gate refuses to
 penalise a candidate for data it can't see.
 
-The four new tracker audit-log entry shapes (D17 hard-block rejects)
+The five tracker audit-log entry shapes (D17 hard-block rejects)
 join the five D16 shapes in `tests/test_ev_authority_log_schema.py`'s
 `_VALID_SHAPES`: `nav_exhausted`, `sector_cap_breach`,
-`portfolio_delta_breach`, `kelly_size_exceeded` — each carries
-`nav` + `nav_source` plus its gate-specific details bag.
+`single_name_breach`, `portfolio_delta_breach`, `kelly_size_exceeded`
+— each carries `nav` + `nav_source` plus its gate-specific details
+bag.
 
 **Why:** S15 (`docs/USAGE_TEST_LEDGER.md`) found that
 `engine/risk_manager.py` and `engine/stress_testing.py` ship complete

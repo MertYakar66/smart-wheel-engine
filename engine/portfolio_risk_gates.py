@@ -109,6 +109,18 @@ _DEFAULT_MAX_VAR_PCT = 0.05
 _DEFAULT_VAR_CONFIDENCE = 0.95
 _DEFAULT_VAR_HORIZON_DAYS = 30
 _DEFAULT_MAX_STRESS_DRAWDOWN_PCT = 0.08
+# Single-name (per-underlying) exposure cap. Aggregates SHORT option
+# notional across all held positions on the same symbol; refuses /
+# downgrades when adding the candidate would push the per-name total
+# over ``max_pct × NAV``. Default 10% — a balanced wheel book can hold
+# up to 10 names at full cap before maxing out. Closes the documented
+# gap where ``check_sector_cap`` aggregates by GICS sector but a
+# single ticker concentrated as the only name in its sector could
+# still pass the sector check at 25% NAV — the per-name cap is the
+# tighter per-underlying floor underneath the sector ceiling. F4
+# damage-bounding mechanism (`docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10
+# noted the named cases as idiosyncratic single-name drawdowns).
+_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10
 
 # S31 Fix #5 — alt-cluster exposure cap. Complementary to
 # check_sector_cap (GICS-strict): aggregates exposure across
@@ -360,6 +372,110 @@ def check_sector_cap(
             "narrative": reason_str,
         },
     )
+
+
+# ----------------------------------------------------------------------
+# Gate 1c: Single-name exposure cap (F4 damage-bounding addition)
+# ----------------------------------------------------------------------
+def check_single_name_cap(
+    symbol: str,
+    proposed_notional: float,
+    held_option_positions: list[dict],
+    nav: float,
+    *,
+    max_single_name_pct: float = _DEFAULT_MAX_SINGLE_NAME_PCT,
+) -> GateResult:
+    """Refuse / downgrade if opening the candidate would push the
+    SINGLE-NAME (per-underlying) short-option notional over
+    ``max_single_name_pct × NAV``.
+
+    Bounds the F4-style idiosyncratic-drawdown damage that no
+    market-wide regime detector can predict (see
+    ``docs/F4_TAIL_RISK_DIAGNOSTIC.md`` §10). Tighter per-underlying
+    floor that sits beneath the GICS sector cap: a single ticker
+    concentrated as the only name in its sector could still pass
+    ``check_sector_cap`` at 25% NAV; this gate caps it at 10% NAV
+    instead (default).
+
+    Aggregation rule: sums the dollar notional of every HELD short
+    option (put or call) whose ``symbol`` matches the candidate.
+    Long positions, stock holdings, and other symbols are ignored.
+    Notional is ``strike × 100 × contracts`` — the same convention
+    ``check_sector_cap`` uses.
+
+    Args:
+        symbol: The candidate's ticker.
+        proposed_notional: Dollar notional of the proposed position
+            (``strike * 100 * contracts``).
+        held_option_positions: Current option positions from
+            ``take_snapshot(...).option_positions``. Each dict must
+            carry ``symbol``, ``strike``, ``contracts``, and
+            ``is_short``; non-short / non-matching rows are skipped.
+        nav: Net asset value. Caller chooses live vs static.
+        max_single_name_pct: Per-underlying cap; default 10% per
+            ``_DEFAULT_MAX_SINGLE_NAME_PCT``.
+
+    Returns:
+        :class:`GateResult` with ``reason="single_name_breach"`` on
+        failure. ``details`` carries ``symbol``, ``current_name_notional``,
+        ``post_open_name_notional``, ``post_open_name_pct``, and
+        ``name_limit_pct`` for the audit log.
+
+    Missing-data behaviour: when ``nav <= 0`` the gate returns
+    ``passed=True, reason="missing_data"`` (matches Q3 semantics from
+    R7/R8/R9 — soft-warns don't fire on absent evidence; tracker hard-
+    blocks treat this as "no NAV evidence, don't refuse"). Tracker
+    callers are expected to gate on ``nav_exhausted`` separately.
+    """
+    sym = (symbol or "").upper()
+
+    # Missing-data path: can't divide by zero NAV; can't enforce a %
+    # cap without it. Tracker / dossier both treat this as no-fire.
+    if nav <= 0:
+        return GateResult(
+            passed=True,
+            reason="missing_data",
+            details={
+                "skip_reason": "nav_zero_or_negative",
+                "symbol": sym,
+                "name_limit_pct": max_single_name_pct,
+            },
+        )
+
+    # Aggregate existing short option notional for the same symbol.
+    current_name_notional = 0.0
+    for pos in held_option_positions or []:
+        try:
+            if not bool(pos.get("is_short", False)):
+                continue
+            pos_sym = str(pos.get("symbol", "")).upper()
+            if pos_sym != sym:
+                continue
+            strike = float(pos.get("strike", 0) or 0)
+            contracts = int(pos.get("contracts", 0) or 0)
+            current_name_notional += strike * 100.0 * contracts
+        except (TypeError, ValueError):
+            # Skip malformed rows; treat as zero contribution. Don't
+            # crash the gate on bad inputs — caller has bigger problems.
+            continue
+
+    post_open_notional = current_name_notional + max(0.0, float(proposed_notional))
+    post_open_pct = post_open_notional / nav
+
+    details = {
+        "symbol": sym,
+        "current_name_notional": current_name_notional,
+        "post_open_name_notional": post_open_notional,
+        "post_open_name_pct": post_open_pct,
+        "name_limit_pct": max_single_name_pct,
+    }
+    if post_open_pct > max_single_name_pct:
+        return GateResult(
+            passed=False,
+            reason="single_name_breach",
+            details=details,
+        )
+    return GateResult(passed=True, reason=None, details=details)
 
 
 # ----------------------------------------------------------------------

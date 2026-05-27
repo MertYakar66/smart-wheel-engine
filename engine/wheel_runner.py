@@ -1639,6 +1639,15 @@ class WheelRunner:
                 "iv": round(iv, 4),
                 "ev_dollars": round(res.ev_dollars, 2),
                 "ev_per_day": round(res.ev_per_day, 3),
+                # Raw P&L distribution spread (pre regime/dealer
+                # multipliers). Headline fields so the operator reads
+                # the verdict as a distribution, not a point estimate.
+                # NaN-safe via None: small-distribution paths and the
+                # event-lockout short-circuit both leave these as nan
+                # on EVResult.
+                "pnl_p25": (round(res.pnl_p25, 2) if not np.isnan(res.pnl_p25) else None),
+                "pnl_p50": (round(res.pnl_p50, 2) if not np.isnan(res.pnl_p50) else None),
+                "pnl_p75": (round(res.pnl_p75, 2) if not np.isnan(res.pnl_p75) else None),
                 "collateral": round(collateral, 2),
                 "roc": round(roc, 6),
                 "prob_profit": round(res.prob_profit, 4),
@@ -2538,6 +2547,11 @@ class WheelRunner:
                     "contracts": contracts,
                     "ev_dollars": round(res.ev_dollars, 2),
                     "ev_per_day": round(res.ev_per_day, 3),
+                    # Raw P&L distribution spread (pre multipliers); see
+                    # rank_candidates_by_ev row above for rationale.
+                    "pnl_p25": (round(res.pnl_p25, 2) if not np.isnan(res.pnl_p25) else None),
+                    "pnl_p50": (round(res.pnl_p50, 2) if not np.isnan(res.pnl_p50) else None),
+                    "pnl_p75": (round(res.pnl_p75, 2) if not np.isnan(res.pnl_p75) else None),
                     "prob_profit": round(res.prob_profit, 4),
                     "prob_assignment": round(res.prob_assignment, 4),
                     "days_to_earnings": days_to_earn,

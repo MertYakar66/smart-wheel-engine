@@ -707,6 +707,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "iv": float(row.get("iv", 0) or 0),
                     "evDollars": round(ev_dollars, 2),
                     "evPerDay": round(float(row.get("ev_per_day", 0) or 0), 3),
+                    # Raw P&L distribution spread (pre regime/dealer
+                    # multipliers). Operators read the verdict as a
+                    # distribution; the point estimate above is the mean.
+                    "pnlP25": row.get("pnl_p25"),
+                    "pnlP50": row.get("pnl_p50"),
+                    "pnlP75": row.get("pnl_p75"),
                     "probProfit": round(prob_profit, 4),
                     "probAssignment": round(float(row.get("prob_assignment", 0) or 0), 4),
                     "cvar5": row.get("cvar_5"),

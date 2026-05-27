@@ -153,7 +153,7 @@ class TestConsumeIntoTrackerHappyPath:
             tracker,
             entry_date=_ENTRY_DATE,
             rank_kwargs={
-                "tickers": ["GOOGL"],
+                "tickers": ["AAPL"],
                 "as_of": _AS_OF,
                 "top_n": 1,
             },
@@ -178,7 +178,7 @@ class TestConsumeIntoTrackerHappyPath:
         outcomes = runner.consume_into_tracker(
             tracker,
             entry_date=_ENTRY_DATE,
-            rank_kwargs={"tickers": ["GOOGL"], "as_of": _AS_OF, "top_n": 1},
+            rank_kwargs={"tickers": ["AAPL"], "as_of": _AS_OF, "top_n": 1},
         )
         assert outcomes
         for o in outcomes:
@@ -294,7 +294,7 @@ class TestConsumeIntoTrackerRefusalPaths:
         first = runner.consume_into_tracker(
             tracker,
             entry_date=_ENTRY_DATE,
-            rank_kwargs={"tickers": ["GOOGL"], "as_of": _AS_OF, "top_n": 1},
+            rank_kwargs={"tickers": ["AAPL"], "as_of": _AS_OF, "top_n": 1},
         )
         opened = [o for o in first if o["opened"]]
         if not opened:
@@ -391,7 +391,7 @@ class TestConsumeIntoTrackerSchemaAndDefaults:
             tracker,
             entry_date=_ENTRY_DATE,
             rank_kwargs={
-                "tickers": ["GOOGL"],
+                "tickers": ["AAPL"],
                 "as_of": _AS_OF,
                 "top_n": 1,
                 "min_ev_dollars": 1e9,  # impossible — every row filtered
@@ -502,7 +502,7 @@ class TestConsumeIntoTrackerStrictMode:
         outcomes = runner.consume_into_tracker(
             tracker,
             entry_date=_ENTRY_DATE,
-            rank_kwargs={"tickers": ["GOOGL"], "as_of": _AS_OF, "top_n": 1},
+            rank_kwargs={"tickers": ["AAPL"], "as_of": _AS_OF, "top_n": 1},
         )
         assert outcomes
         opened_outcomes = [o for o in outcomes if o["opened"]]

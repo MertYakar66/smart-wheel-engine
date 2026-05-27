@@ -810,11 +810,7 @@ class WheelRunner:
         )
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import (
-            best_available_forward_distribution,
-            regime_widened_log_returns,
-            regime_widening_factor,
-        )
+        from engine.forward_distribution import best_available_forward_distribution
         from engine.option_pricer import black_scholes_price
 
         conn = self.connector
@@ -1268,11 +1264,6 @@ class WheelRunner:
             # the HMM does not run (short history) or fails -- never a
             # fabricated regime; mirrors credit_regime's "unknown".
             hmm_regime = "unknown"
-            # F4 Fix B1: posterior probabilities for the cold-regime
-            # states. Default 0.0 so the widening function is a no-op
-            # when the HMM didn't run or failed.
-            hmm_p_crisis = 0.0
-            hmm_p_bear = 0.0
             # S33 F4 closer: realized vol / mean over the 252d window
             # the HMM saw at fit time. The "crisis" label by itself means
             # "high-vol regime" regardless of return direction (S33
@@ -1305,15 +1296,8 @@ class WheelRunner:
                     )
                     cache_key = (ticker, hash(fp))
                     cached = self._hmm_regime_cache.get(cache_key)
-                    # Backwards compat: pre-F4-B1 cache stored 2-tuples;
-                    # post-F4-B1 stores 4-tuples (adds p_crisis, p_bear).
-                    if cached is not None and len(cached) == 4:
-                        (
-                            hmm_regime_mult,
-                            hmm_regime,
-                            hmm_p_crisis,
-                            hmm_p_bear,
-                        ) = cached
+                    if cached is not None:
+                        hmm_regime_mult, hmm_regime = cached
                     else:
                         hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
                         hmm.fit(tail)
@@ -1323,33 +1307,13 @@ class WheelRunner:
                         # same posterior, in its own try so it can never
                         # perturb the already-computed multiplier.
                         try:
-                            labels = hmm.fit_result.state_labels
-                            hmm_regime = labels[int(np.argmax(probs[-1]))]
-                            # F4 Fix B1: extract cold-regime posterior
-                            # probabilities for the widening function.
-                            # Default 0.0 when the label is missing (e.g.
-                            # K=2 or K=3 fits don't have "crisis").
-                            i_crisis = labels.index("crisis") if "crisis" in labels else None
-                            i_bear = labels.index("bear") if "bear" in labels else None
-                            hmm_p_crisis = (
-                                float(probs[-1][i_crisis]) if i_crisis is not None else 0.0
-                            )
-                            hmm_p_bear = float(probs[-1][i_bear]) if i_bear is not None else 0.0
+                            hmm_regime = hmm.fit_result.state_labels[int(np.argmax(probs[-1]))]
                         except Exception:
                             hmm_regime = "unknown"
-                            hmm_p_crisis = 0.0
-                            hmm_p_bear = 0.0
-                        self._hmm_regime_cache[cache_key] = (
-                            hmm_regime_mult,
-                            hmm_regime,
-                            hmm_p_crisis,
-                            hmm_p_bear,
-                        )
+                        self._hmm_regime_cache[cache_key] = (hmm_regime_mult, hmm_regime)
             except Exception:
                 hmm_regime_mult = 1.0
                 hmm_regime = "unknown"
-                hmm_p_crisis = 0.0
-                hmm_p_bear = 0.0
 
             # Fetch the chain once and use it for (a) open interest at our
             # strike, (b) 25Δ put / ATM / 25Δ call for skew signals, and
@@ -1599,29 +1563,9 @@ class WheelRunner:
                     # Graceful degrade — dealer positioning is optional
                     market_structure = None
 
-            # F4 Fix B1: regime-conditioned widening of the empirical
-            # forward distribution. Sign-preserving (the widening factor
-            # is >= 1.0 by construction; see
-            # docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 9-10). Bounded above
-            # at 1.5x. Preserves the empirical mean — only widens spread
-            # around the mean. No-op when both p_crisis and p_bear are
-            # 0 (i.e. HMM didn't flag a cold-tail regime, or HMM didn't
-            # run at all). Applied BEFORE the EVEngine evaluate call so
-            # the engine's prob_profit / CVaR / heavy_tail are computed
-            # on the widened distribution.
-            fwd_rets_for_engine = regime_widened_log_returns(
-                fwd_rets,
-                p_crisis=hmm_p_crisis,
-                p_bear=hmm_p_bear,
-            )
-            tail_widening_factor = regime_widening_factor(
-                p_crisis=hmm_p_crisis,
-                p_bear=hmm_p_bear,
-            )
-
             res = ev_eng.evaluate(
                 trade,
-                forward_log_returns=fwd_rets_for_engine,
+                forward_log_returns=fwd_rets,
                 trade_start=trade_start_d,
                 trade_end=trade_end_d,
                 market_structure=market_structure,
@@ -1766,16 +1710,6 @@ class WheelRunner:
                             if not np.isnan(hmm_realized_return_252d_ann)
                             else None
                         ),
-                        # F4 Fix B1 disambiguation: regime posterior
-                        # probabilities + the widening factor applied
-                        # to the forward distribution before EV eval.
-                        # widening factor == 1.0 means the engine was
-                        # unaffected by Fix B1 on this candidate; > 1.0
-                        # means the empirical distribution std was
-                        # multiplied by that factor (preserving mean).
-                        "hmm_p_crisis": round(hmm_p_crisis, 4),
-                        "hmm_p_bear": round(hmm_p_bear, 4),
-                        "tail_widening_factor": round(tail_widening_factor, 4),
                         "news_multiplier": round(news_mult, 4),
                         "news_sentiment": round(news_sentiment, 4),
                         "news_n_articles": news_n_articles,

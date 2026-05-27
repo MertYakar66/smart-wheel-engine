@@ -14,6 +14,65 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05-27 — News-architecture redesign campaign (PRs 1–3 of 9)
+
+A 9-PR campaign reshaping how "news" reaches the EV path. Tracking
+doc: `docs/NEWS_REDESIGN_CAMPAIGN.md` (PR #250). Branch prefix:
+`claude/lucid-davinci-pm15H`. Decision log entry: **D18**.
+
+Headline reframing: **verbal news** (qualitative narrative) is severed
+from the EV path (operator-only); **numbered news** (earnings dates,
+fundamentals, macro) replaces it as separate structured layers.
+
+### Added
+- `EVResult` gains `pnl_p25 / pnl_p50 / pnl_p75` — raw P&L distribution
+  percentiles (pre regime/dealer multipliers), surfaced through the
+  ranker row and `/api/candidates` JSON. Operator framing shifts from a
+  point estimate to a distribution. PR #248. (`tests/test_ev_engine_percentiles.py`)
+- `EDGARAdapter.recent_8k_filings / earnings_history / project_next_earnings`
+  — PIT-correct earnings-release history and projection from SEC EDGAR
+  Form 8-K Item 2.02. Drop-in compatible with
+  `MarketDataConnector.get_next_earnings`'s return shape. Wiring into
+  the EV path deferred to a follow-up PR. PR #251.
+  (`tests/test_external_data_edgar.py` + 22 new tests; `docs/EDGAR_EARNINGS.md`)
+- `scripts/pull_edgar_earnings.py` — CLI puller for the EDGAR earnings
+  store. PR #251.
+
+### Changed
+- **D18: verbal news severed from the EV decision path.**
+  `engine/news_sentiment.py::sentiment_multiplier` is now a constant-1.0
+  stub. `get_ticker_sentiment` is preserved so the dashboard, the row
+  dict (`news_sentiment` / `news_n_articles`), and the morning brief
+  still surface the underlying score for operator transparency. PR #249.
+  (`tests/test_news_sentiment.py::TestSentimentMultiplier` rewritten;
+  `tests/test_news_severance.py` added; `tests/test_pit_leaks.py::test_multiplier_is_pit`
+  rewritten.)
+- `MODULE_INDEX.md`, `PROJECT_STATE.md`, `README.md`, `AGENTS.md`,
+  `FILE_MANIFEST.md`, `ROADMAP.md` aligned with the D18 severance.
+
+### Deprecated
+- `engine/news_sentiment.py::sentiment_multiplier` is preserved as a
+  no-op stub (returns 1.0) for call-site stability; future callers
+  should not assume any EV influence from this function.
+
+### Docs
+- `docs/NEWS_REDESIGN_CAMPAIGN.md` (NEW, PR #250) — canonical
+  state of the 9-PR campaign + the non-obvious facts a future agent
+  needs (R7+R8 are taken by D17, so the quality reviewer in PR 5/9
+  must be R9; FMP rejected; abstain-on-missing contract; mandatory
+  backtest re-baseline; `gh pr create` cwd gotcha).
+- `docs/EDGAR_EARNINGS.md` (NEW, PR #251) — EDGAR earnings layer
+  walkthrough and integration preview.
+
+### Known follow-ups (not started)
+- PR 3.5 — wire `EDGARAdapter.project_next_earnings` into
+  `MarketDataConnector.get_next_earnings`. Three integration shapes
+  documented in `docs/EDGAR_EARNINGS.md` §6.
+- PRs 4–9 — quality score, R9 reviewer, FRED `credit_mult` rewrite,
+  backtest re-baseline, dashboard panes, override-accuracy log.
+
+---
+
 ## 2026-05 (late) — Backtest regression harness
 
 ### Added

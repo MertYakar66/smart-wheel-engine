@@ -286,6 +286,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/verification_artifacts/f4_baseline_2026-05-26_raw_output.txt` | Pre-fix baseline output. Headline: COST 2022-04-04 reproduces `prob_profit=0.8333` exactly (F4 doc value is NOT stale; corrects the earlier realism-doc "drift" claim which was a date mismatch). UNH 2024-11-11 the cleanest F4 reproducer: `prob_profit=0.8571` vs realised −20.27%. `heavy_tail=False` on both F4 cases — POT-GPD not firing on realised-tail dates. |
 | `docs/ENGINE_SUBSYSTEM_AUDIT.md` | Structural read-through audit of 46 `engine/` files and 10 `advisors/` files, complementary to S31 / S33 / S36 / S37's verification axes. Surveys danger patterns (silent excepts, ignored kwargs, fabricated data, EV bypasses) and confirms the post-soundness-campaign state is structurally clean. No new bugs surfaced; 3 small observability nudges queued (log `wheel_runner.py` bare excepts, log GEX skip rate in `dealer_positioning`, replace `strangle_timing` legacy bare excepts). The dossier R1-R6 contract noted as the most carefully-engineered single file. |
 | `docs/BACKTEST_REGRESSION_CAMPAIGN.md` | Campaign report for the backtest regression harness (4-PR series: scaffolding → snapshots → CI split → S35 re-baseline). Architecture, methodology, snapshot-vs-doc comparison tables for S27/S32/S34/S35, on-fail re-baseline workflow, compute profile, and known limitations. Reference doc for other agents picking up or auditing this work. |
+| `docs/NEWS_REDESIGN_CAMPAIGN.md` | Tracking doc for the 9-PR news-architecture redesign campaign. PR sequence + status, key decisions (D18, R-number reservation), non-obvious gotchas, pause-safety notes. Owned by Terminal D for the campaign's duration. |
+| `docs/EDGAR_EARNINGS.md` | EDGAR earnings-release layer (PR3/9 of the news redesign) — rationale (yfinance leaks lookahead), what the data layer ships vs. defers, PIT walkthrough, SEC rate-limit and User-Agent notes, three integration-shape options for the follow-up PR. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/data_inventory_2026-05-17.md` | Point-in-time data-inventory analysis report. |
 | `docs/optionsengine_audit_2026-05-17.md` | Point-in-time accuracy audit of the archived `OptionsEngine.txt` walkthrough. |
@@ -307,7 +309,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
 | `engine/signal_context.py` | Builds the context dicts the signal framework consumes from the Bloomberg data loaders. |
 | `engine/signals.py` | Signal-generation framework — IV-rank / trend / profit-target / stop-loss / DTE / event signals and the aggregator. |
-| `engine/news_sentiment.py` | `NewsSentimentReader` — reads news-pipeline sentiment from disk and maps it to a clamped EV multiplier. |
+| `engine/news_sentiment.py` | `NewsSentimentReader` — reads news-pipeline sentiment from disk. `sentiment_multiplier` is a constant-1.0 stub post-D18 (verbal news severed from the EV path); `get_ticker_sentiment` is preserved as an operator-transparency layer for the dashboard / row dict. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
 | `engine/forward_distribution.py` | PIT-safe forward-return distribution builder (empirical → block bootstrap → HAR-RV cascade). |
@@ -485,7 +487,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/pull_earnings_yf.py` | yfinance pull of past and upcoming earnings dates. |
 | `scripts/pull_treasury_yields_yf.py` | yfinance pull of Treasury yield indices. |
 | `scripts/pull_vol_indices.py` | Theta-then-yfinance pull of the volatility-index family. |
-| `scripts/pull_news_sentiment.py` | Pulls and scores per-ticker news from Polygon/Finnhub/Benzinga. |
+| `scripts/pull_news_sentiment.py` | Pulls and scores per-ticker news from Polygon/Finnhub/Benzinga. **Note:** post-D18 (2026-05-26), the scored sentiment is no longer consumed by the EV path; this puller still feeds the operator dashboard via the parquet `engine/news_sentiment.py` reads. |
+| `scripts/pull_edgar_earnings.py` | EDGAR earnings-release history puller (PR3/9 of the news redesign). Writes `data_processed/edgar/earnings_history.parquet` — Form 8-K Item 2.02 filings per ticker, append-only with `(ticker, accession)` idempotency. Streams progress per ticker. Universe `sp500` ≈ 60 s at SEC's 10 req/sec rate limit. |
 | `scripts/pull_theta_indices_history.py` | Theta pull of VIX-family index OHLC history. |
 | `scripts/pull_theta_iv_surface_history.py` | Theta pull of historical IV surfaces with strict partial-coverage rejection. |
 | `scripts/pull_theta_options_flow.py` | Theta pull of daily per-ticker options-flow aggregates. |
@@ -649,7 +652,9 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_financial_news.py` | The `financial_news` platform — schema, macro calendar, verification engine. |
 | `tests/test_news_processing.py` | `financial_news` article classification. |
 | `tests/test_news_pipeline.py` | The `news_pipeline` package — models, security, recovery, publisher. |
-| `tests/test_news_sentiment.py` | `NewsSentimentReader` — sentiment reading and the EV multiplier. |
+| `tests/test_news_sentiment.py` | `NewsSentimentReader` — sentiment reading; the `TestSentimentMultiplier` class is rewritten post-D18 to assert the constant-1.0 contract across every band the old code derated/boosted. |
+| `tests/test_news_severance.py` | DECISIONS.md D18 invariant — `sentiment_multiplier` is 1.0 across every `(sentiment, n_articles)` combination plus a side-effect test pinning that `get_ticker_sentiment` still returns the underlying data after the stub is called. |
+| `tests/test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` invariants — monotone ordering, pre-multiplier invariance, `cvar_5 ≤ pnl_p25`, NaN guards on small distributions and event-lockout. |
 | `tests/test_adversarial_news.py` | Adversarial news-scenario smoke test. |
 | `tests/test_recovery_checkpoints.py` | `news_pipeline.recovery.checkpoints` save/load/resume. |
 | `tests/test_recovery_fallbacks.py` | `news_pipeline.recovery.fallbacks` degraded-mode and fallback chains. |

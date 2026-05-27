@@ -33,8 +33,12 @@ described here is no longer accurate.
 | `engine_api.py` | HTTP API on `:8787`; 32 endpoints listed in the file header | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
-tradeable verdict. Reviewers (chart provider, news sentiment, advisor
-committee, dealer positioning) can downgrade outputs — never upgrade.
+tradeable verdict. Reviewers (chart provider, advisor committee,
+dealer positioning) can downgrade outputs — never upgrade. As of D18
+(2026-05-26), news sentiment is severed from the EV path —
+`engine/news_sentiment.py::sentiment_multiplier` is a constant-1.0
+stub; the operator dashboard still consumes the underlying score for
+transparency.
 
 ## 2. Recent decision-layer audits
 
@@ -56,6 +60,28 @@ After audit-VIII the suite reports 1087 passed / 0 failed and 287
 deprecation warnings (down from 1067+1 / 578).
 
 ## 3. Work in progress
+
+### News-architecture redesign campaign — 2026-05-26+
+
+A 9-PR campaign reshaping how "news" (in the broad sense) reaches the
+EV path. Tracking doc: `docs/NEWS_REDESIGN_CAMPAIGN.md`. Branch
+prefix: `claude/lucid-davinci-pm15H`. Decision log entry: D18.
+
+Headline reframing: **verbal news** (qualitative narrative) is severed
+from the EV path (operator-only); **numbered news** (earnings dates,
+fundamentals, macro) replaces it as separate structured layers.
+
+In-flight PRs as of 2026-05-27:
+
+| # | Scope | PR | Status |
+|---|---|---|---|
+| 1 | EV percentile spread (`pnl_p25/p50/p75` on `EVResult`) | #248 | open, §2-surface |
+| 2 | Sever `sentiment_multiplier` → 1.0 stub; D18 in `DECISIONS.md` | #249 | open, §2-surface |
+| 3 | EDGAR earnings history + projection (data layer; integration deferred to PR 3.5) | #251 | open |
+| meta | Campaign tracking doc | #250 | open |
+
+PRs 4–9 (quality score / R9 reviewer / FRED rewrite / backtest
+rebaseline / dashboard panes / override log) are not started.
 
 ### TradingView MCP integration
 
@@ -344,10 +370,15 @@ rewritten.**
 - News-stack duplication — `financial_news/` (34 files,
   RSS/scraping/clustering platform), `news_pipeline/` (29 files,
   browser-agent pipeline driving `morning_run.py`),
-  `engine/news_sentiment.py` (downgrade-only reviewer on the EV path),
-  `scripts/pull_news_sentiment.py` (one-shot puller). Only
-  `engine/news_sentiment.py` feeds the EV path. Verify before adding
-  a new news source.
+  `engine/news_sentiment.py` (operator-only transparency layer — was
+  a downgrade-only reviewer until D18 severed it from the EV path),
+  `scripts/pull_news_sentiment.py` (one-shot puller, still writes the
+  parquet that the dashboard consumes). Post-D18 (2026-05-26), **no
+  news subsystem feeds the EV authority** — verbal news is operator-
+  layer only. Replacement quantitative layers (EDGAR earnings dates,
+  FRED macro, EDGAR-XBRL fundamentals quality score) are in flight
+  via the news-architecture redesign campaign — see
+  `docs/NEWS_REDESIGN_CAMPAIGN.md`.
 
 ## 5. Documentation drift to repair
 

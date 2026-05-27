@@ -65,6 +65,7 @@ rule 4, infrastructure (EDGAR + FRED) before the consumer (R9).
 | 8 | Dashboard: candidates pane + portfolio pane + "no-signal" pane | `claude/lucid-davinci-pm15H-dashboard` | no | not started | — | — |
 | 9 | Override-accuracy log (schema + first month's data) | `claude/lucid-davinci-pm15H-override-log` | no | not started | — | — |
 | meta | This tracking doc | `claude/lucid-davinci-pm15H-tracker` | no | **open** | [#250](https://github.com/MertYakar66/smart-wheel-engine/pull/250) | — |
+| meta | Descriptive-doc alignment sweep (`MODULE_INDEX`, `PROJECT_STATE`, `README`, `AGENTS`, `FILE_MANIFEST`, `ROADMAP`, `CHANGELOG`, `pull_news_sentiment.py` docstring) for D18 + EDGAR | `claude/lucid-davinci-pm15H-docs-align` | no | **open** | [#252](https://github.com/MertYakar66/smart-wheel-engine/pull/252) | — |
 
 PR 3.5 was inserted after PR 3 was implemented as a data-layer-only PR. The integration step (wiring EDGAR into the existing `conn.get_next_earnings` consumption pattern) deserves its own design decision (replace yfinance / preferred-with-fallback / surface-both) — see `docs/EDGAR_EARNINGS.md` §6 for the three integration shapes.
 

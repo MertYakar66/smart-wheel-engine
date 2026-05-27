@@ -1,13 +1,34 @@
-from datetime import date
+"""Transaction-costs walkthrough — a print-driven demo, not a pytest file.
 
-from engine.transaction_costs import (
+Relocated from `tests/test_transaction_costs.py` in PR #247: the file lived
+under `tests/` with a `test_*` filename but contained zero `def test_*`, so
+every pytest collection executed it as a script. The real coverage tests
+moved to `tests/test_transaction_costs.py` (formerly `_coverage.py`).
+
+Run from the repo root:
+
+    python scripts/transaction_costs_demo.py
+"""
+
+import sys
+from pathlib import Path
+
+# Bootstrap: prepend the repo root to sys.path so `from engine.* import ...`
+# resolves when this file is invoked directly. Under `tests/`, pytest set
+# this up automatically; under `scripts/`, Python sets sys.path[0] to the
+# script's own directory, which would mask `engine/` and break the imports.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from datetime import date  # noqa: E402
+
+from engine.transaction_costs import (  # noqa: E402
     calculate_assignment_fee,
     calculate_commission,
     calculate_slippage,
     calculate_total_entry_cost,
     calculate_total_exit_cost,
 )
-from engine.wheel_tracker import WheelTracker
+from engine.wheel_tracker import WheelTracker  # noqa: E402
 
 print("=== Testing Transaction Cost Module ===\n")
 

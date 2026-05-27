@@ -69,7 +69,7 @@ build-backend = "hatchling.build"
 # `src/` is deprecated (DECISIONS.md D2) but kept here while six tests
 # and four production modules still import `src.features.*`. Drop only
 # after the D2 migration window closes.
-packages = ["engine", "advisors", "data", "financial_news", "news_pipeline", "src"]
+packages = ["engine", "advisors", "data", "financial_news", "news_pipeline", "src", "backtests"]
 
 [tool.ruff]
 target-version = "py311"

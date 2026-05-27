@@ -102,6 +102,20 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `backtests/walk_forward.py` | Walk-forward validation framework (anchored / rolling / purged k-fold, parameter-stability analysis, out-of-sample tracking). |
 | `backtests/.gitkeep` | Directory placeholder. |
 
+## `backtests/regression/` — backtest regression harness
+
+The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapshots, pytest harness, and the on-fail re-baseline workflow land in PR2; see `docs/LAUNCH_READINESS.md` §6 (PR2) and `.claude/commands/backtest-regression.md` (PR2).
+
+| File | Purpose |
+|---|---|
+| `backtests/regression/__init__.py` | Package marker for the regression sub-package. |
+| `backtests/regression/universes.py` | `UNIVERSE_24` (S17-minus-WMT, the S22/S27/S32/S35 set) and `UNIVERSE_100` (first 100 from `MarketDataConnector.get_universe()`). Static tuples; no import-time disk access. |
+| `backtests/regression/_common.py` | Shared driver: `run_backtest()` loops trading days through `WheelRunner.rank_candidates_by_ev` + `WheelTracker`, forward-replays realized P&L on every ranked row, returns a metrics dict. Plus friction overlay (`friction_adjusted_premium`, `friction_open_cost`, `friction_assignment_cost`), `assert_data_window_available`, `ohlcv_sha256`, JSON snapshot I/O. |
+| `backtests/regression/s27_ivpit_24t_100k.py` | S27 reproducer — $100k / 24 tickers / 2022-2024 / frictionless. Mirrors `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`. |
+| `backtests/regression/s32_friction_24t_1m.py` | S32 reproducer — $1M / 24 tickers / 2022-2024 / three friction levels. Mirrors `docs/ENGINE_BACKTEST_S32_FRICTION.md`. |
+| `backtests/regression/s34_universe_100t_1m.py` | S34 reproducer — $1M / 100 tickers / 2022-2024 / three friction levels / `top_n=15`. Mirrors the S34 section of `docs/SOUNDNESS_REVIEW_2026-05-26.md`. |
+| `backtests/regression/s35_oos_24t_100k.py` | S35 reproducer — $100k / 24 tickers / 2018-2020 OOS / three friction levels. Mirrors `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md`. PR4 re-baselines against the post-PIT-fix engine. |
+
 ## `config/`
 
 | File | Purpose |

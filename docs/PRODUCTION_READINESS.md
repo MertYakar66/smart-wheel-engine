@@ -1,7 +1,7 @@
 # Production readiness — real-money deployment gate
 
-**Last updated:** 2026-05-26 (against `origin/main` at `e504801`,
-post-PR #216 / S32).
+**Last updated:** 2026-05-27 (post-S34/S38, post-PR #255 B2
+closure + PR #256 R10 single-name cap, post-PR #253 F4 rollback).
 **Owner:** anyone deploying this engine against a real brokerage
 account is the owner of this doc.
 
@@ -68,34 +68,53 @@ What this validates:
 
 ## 2. What's **not** production-ready (the headline gap)
 
-S32 measured the engine's behaviour at realistic capital. The result
-inverts the campaign's earlier marketing-friendly claim:
+S32, S34, and S38 between them define the dollar-alpha story
+across (capital × universe × window) configurations:
 
-| Metric | $100k (S22 / S27) | $1M (S32) | SPY same window |
-|---|---|---|---|
-| Final NAV | $151,444 | $1,018,514 | $1,240,000 |
-| Return | +51.4% | **+1.85%** | **~+24%** |
-| Engine vs SPY | **+27pp** | **−22pp** | — |
-| Average capital deployment | ~50–100% (BP saturated) | **10.8%** | 100% |
-| Spearman ρ (signal quality) | 0.218 | 0.192 | — |
+| Metric | $100k 24t 2022-2024 (S22/S27) | $1M 24t 2022-2024 (S32) | $1M 100t 2022-2024 (S34) | $1M 100t 2020-2024 (S38) |
+|---|---|---|---|---|
+| Final NAV | $151,444 | $1,018,514 | $1,356,128 | $1,331,764 |
+| Return | +51.4% | +1.85% | **+35.6%** | +33.18% |
+| SPY same window | ~+24% | ~+24% | ~+24% | ~+85% |
+| Engine vs SPY | **+27pp** | **−22pp** | **+11.6pp** | **−52pp** |
+| Capital deployment | ~50–100% | 10.8% | 22.1% | 22.6% |
+| Spearman ρ | 0.218 | 0.192 | 0.327 | 0.358 |
 
-**The "+27pp over SPY" headline from S22 / S27 was a $100k-capital
-artifact, not a property of the engine.** At $1M with the current
-24-ticker × 35-DTE × 25-delta × hold-to-expiry parametrization,
-89% of NAV sits in cash — the strategy cannot deploy more.
-A passive SPY hold beats the engine cleanly at any non-toy
-capital level today.
+Three findings from the matrix:
 
-This is **not** a marketing problem; it is a capacity-and-parametrization
-problem. Detail and remediation in §3 and §4.
+1. **The "+27pp over SPY" headline from S22/S27 was a $100k-capital
+   artifact**, not a property of the engine. At $1M with the
+   original 24-ticker universe, the engine UNDERPERFORMS SPY by 22pp.
+2. **Universe expansion to 100 tickers (S34) flips the $1M result
+   to +11.6pp over SPY** — the capacity gap is structurally closeable.
+3. **But the +11.6pp is 2022-2024-window-specific.** S38 ran the
+   same 100-ticker universe at $1M over 2020-2024 and the engine
+   underperformed SPY by 52pp. The structural finding (universe
+   expansion uncaps capacity) is robust; the dollar alpha is
+   window-favored, not a property of the engine.
+4. **Spearman ρ is window-INVARIANT and capital-INVARIANT.** Signal
+   quality holds at 0.19–0.36 across every configuration; the
+   ranker is structurally good. The dollar alpha is mostly equity
+   beta on assigned stocks, as the §1 / §4 alpha decomposition
+   makes explicit.
+
+This is **not** a marketing problem; it is a capacity / window /
+alpha-source problem. The engine's strongest demonstrable property
+is the refusal mechanism + signal robustness, not dollar
+outperformance of SPY at scale. Detail and remediation in §3 and §4.
 
 ---
 
 ## 3. Production-readiness blockers (must be resolved before real money)
 
 These three items are the difference between "research tool" and
-"autonomous deployment." Each has a measurable defect and a scoped
-fix path; none has shipped yet.
+"autonomous deployment." **Status as of 2026-05-27:** B2 shipped
+(PR #255), B3 structurally shipped via S34 (window-favored dollar
+alpha caveat per S38), B1 rolled back after S27 ρ inversion (the
+naive Fix B1+C attempt destroyed the broader signal — see
+`docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10). The new R1+
+single-name exposure cap (PR #256) is the orthogonal-by-design
+damage-bounding response to B1's remaining gap.
 
 ### Blocker 1 — F4 tail-risk machinery does not widen on adversarial drawdowns
 
@@ -169,7 +188,7 @@ verdict with `action="reject"` + `reason="sector_cap_breach"`.
 **Without this fix:** D17 protection exists only in tests, not in the
 production code path.
 
-### Blocker 3 — Strategy capacity at $1M — **PARTIALLY CLOSED by S34**
+### Blocker 3 — Strategy capacity at $1M — **STRUCTURALLY CLOSED by S34; dollar alpha window-dependent per S38**
 
 **What (original):** With 24 tickers × one-position-per-name × 35-DTE
 × hold-to-expiry × `top_n=10` × `MAX_NEW_PER_DAY=3`, S32 measured the
@@ -199,17 +218,29 @@ further deployment but are NOT required for $1M-class trading.
   produce different absolute numbers; the structural finding
   (capacity gap closable) is robust but the exact "+11.6pp" is
   universe-shape-specific.
-- **S35 window-sensitivity still applies.** S34's +11.6pp is a
-  2022-2024 result. A multi-window run (e.g., 2020-2024) is
-  required before drawing forward-deployment conclusions.
+- **S35 window-sensitivity still applies — and S38 measured the
+  window cost.** S34's +11.6pp is a 2022-2024 result. S38
+  (`docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md`) ran the same 100-ticker
+  universe at $1M over 2020-2024 (5y) and found **the engine
+  UNDERPERFORMED SPY by ~52pp** (engine +33.18% vs SPY ~+85%). The
+  structural "universe expansion closes capacity gap" finding
+  holds (deployment never hit a BP wall over 5y either), but
+  **dollar alpha is window-dependent.** The engine's value at
+  scale is *conservative income generation with strong refusal in
+  crises*, not SPY-beating dollar alpha. Operators picking the
+  S34 result for deployment expectations should explicitly
+  disclaim the window dependence.
 
-**Updated required fixes (re-prioritised by S34):**
-- ✅ **Universe expansion to 100+ tickers — VALIDATED by S34.**
-  Sufficient to flip engine vs SPY from −22pp to +11.6pp at
-  $1M / 2022-2024.
-- 🔬 **Multi-window backtest** (2020-2024 with 100-ticker universe)
-  to address S35's window-sensitivity finding. Without this, the
-  +11.6pp result could be 2022-2024-specific.
+**Updated required fixes (re-prioritised by S34 + S38):**
+- ✅ **Universe expansion to 100+ tickers — VALIDATED structurally
+  by S34** (capacity-gap closure) **and challenged on dollar alpha
+  by S38** (window-dependence). Engineering work is complete; the
+  remaining call is a deployment-thesis one (income generation vs
+  SPY-beating).
+- 🔬 **Per-universe-shape audit.** S34's first-100-alphanumeric cut
+  excluded COST and many notable post-`CNP` names. A sector-balanced
+  or SP100-by-market-cap cut is the next universe-shape question if
+  alpha extraction at scale becomes a deployment requirement.
 - 📋 **Multi-contract per position** — still scoped (helps for
   $5M+ but not required at $1M).
 - 📋 **Strategy stack** (wheel + strangle + covered-call) — still
@@ -348,7 +379,7 @@ independent and can be picked up in parallel.
 |---|---|---|---|
 | **B1** | **F4 tail-risk widening fix.** Diagnose whether the 504-day empirical lookback dilutes recent vol or the POT-GPD threshold is too high. Implement the fix. | `tests/test_f4_tail_risk_gap.py` extended: replay COST 2022-04-01 → 2022-05-25 through the forward-distribution + POT-GPD pipeline; assert `prob_profit` moves below 0.75 at the trough. | targeted unit test passes; full S22 / S27 backtest re-run shows 2022 mean realized > $0. |
 | **B2** | **Wire D17 strict mode to `engine_api.py`.** `_handle_tv_dossier` and `_enrich_alert` must call `portfolio_context_snapshot` and attach the result to `build_candidate_dossiers`. Default `require_ev_authority=True` for execution-routing endpoints. | New integration test in `tests/test_tv_dossier.py`: drive endpoint with a payload that should trigger `sector_cap_breach`; assert response carries the refused verdict. | targeted integration test passes; manual smoke against running `engine_api.py`. |
-| **B3** | **Universe expansion to 100+ tickers.** Add a default universe config that's the full SP500 (or a documented 100-name subset). Re-run S32 at $1M with the larger universe. | New `### S33` ledger entry: `$1M friction-modeled simulation, 100+ ticker universe`. Hypothesis: average deployment rises from 10.8% to ~40–60%, NAV vs SPY gap closes from -22pp to roughly -10pp. | run completes; documented in `docs/ENGINE_BACKTEST_S33_*.md` (TBD). |
+| **B3** | **Universe expansion to 100+ tickers.** **(Largely shipped — 2026-05-26.)** S34 (`docs/ENGINE_BACKTEST_S34_UNIVERSE.md`) validated the universe-expansion hypothesis at $1M with 100 first-alphanumeric SP500 tickers: engine returned **+35.6% NAV over 2022-2024 vs SPY ~+24% = +11.6pp**, vs S32's −22pp at 24 tickers. Average deployment **22.1%** at $1M (vs S32's 10.8%; original hypothesis was 40–60%, exceeded only the lower bound). The reproducer + snapshot live at `backtests/regression/s34_universe_100t_1m.py` + `.json`. **Remaining caveat:** S38 (`docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md`) showed the +11.6pp is 2022-2024-window-specific — over 2020-2024 the engine returns +33.18% vs SPY ~+85% = **−52pp** at the same universe / capital. The structural finding ("universe expansion closes capacity gap") is robust; the +11.6pp dollar alpha is window-favored. A 2020-2024 100-ticker run is the documented next step in §3. | S34 reproducer pinned via `tests/test_backtest_regression.py::test_backtest_matches_snapshot[s34_universe_100t_1m]`. | ✅ S34 ran + documented; S38 multi-window caveat documented. Full closure requires deploying decision on 2022-2024-window claim vs S38's longer-window result. |
 | C1 | **Out-of-sample parameter freeze.** Implement HMM / POT-GPD parameter freeze + replay infrastructure. | snapshot parameters at a cutoff date, run a held-out backtest. | new harness; new test that asserts the frozen parameters reproduce the snapshot's classifier output. |
 | C2 | **413 Payload Too Large on engine_api.py.** S20 found the 10 MB request causes `ConnectionAbortedError` instead of a proper 413. Add `Content-Length` check at top of `do_POST`. | targeted test in `tests/test_tv_api.py`. | targeted test passes. |
 | C3 | **Unify the two verdict paths in `engine_api.py`.** `_handle_tv_dossier` uses `EnginePhaseReviewer`; `_enrich_alert` runs an inline R1/R5 clone. Both should route through `EnginePhaseReviewer`. | both endpoints produce identical verdicts on the same `ev_row` input. | new regression test driving identical input through both endpoints. |
@@ -356,8 +387,29 @@ independent and can be picked up in parallel.
 
 **Blockers** = B1, B2, B3. **Caveats / cleanups** = C1–C4.
 
+**Status snapshot (2026-05-27):**
+- **B1** — F4 tail-risk fix: ❌ open (research-grade redesign required;
+  the Fix B1+C attempt on PR #253 was rolled back after S27 Spearman
+  ρ inversion; HMM `crisis` label over-fires on 98% of 2022-2024
+  pairs and a static-multiplier widening cannot satisfy both
+  "close named F4 cases" + "preserve calm-period ρ"; see
+  `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10).
+- **B2** — D17 wire on `engine_api.py`: ✅ shipped (PR #255 — R9
+  sector_cap added to `EnginePhaseReviewer` + D17 wired to
+  `/api/tv/enrich` mirroring the dossier path).
+- **B3** — Universe expansion: ✅ **structurally shipped** via S34
+  (100-ticker universe + reproducer/snapshot/test). Window-favoured
+  dollar alpha caveat per S38 remains.
+- **R1+** — Single-name exposure cap (F4 damage-bounding follow-up
+  to B1's rollback): ✅ shipped (PR #256 — R10 + tracker hard-block
+  on `check_single_name_cap`).
+
 The MINIMUM bar for "deploy real money at any scale" is **B1 + B2**.
 B3 is required only for "deploy real money at scales above $100k."
+**Current state: B2 shipped, B3 structurally shipped (window
+caveat), B1 still open.** The minimum is therefore one blocker away
+from "any scale" deployment, with the new R1+ damage-bounding floor
+as a partial mitigation for B1's remaining gap.
 
 ---
 

@@ -69,13 +69,11 @@ class TestEVResultPercentiles:
         rng = np.random.default_rng(7)
         log_rets = 0.30 * np.sqrt(30 / 252) * rng.standard_normal(8000)
         res = EVEngine().evaluate(_base_trade(), forward_log_returns=log_rets)
-        # Median is a quantile, not a mean — should match np.percentile
-        # exactly because we computed it the same way.
-        # We can't re-derive pnls from outside the engine, but we can pin
-        # the relationship to mean_pnl + std_pnl: for the engine's empirical
-        # P&L distribution the median lies inside [mean - 3σ, mean + 3σ]
-        # (a much weaker but reliable invariant).
-        assert res.pnl_p50 == pytest.approx(res.pnl_p50, rel=0)  # no NaN
+        # Median is a quantile, not a mean — but for the engine's
+        # empirical P&L distribution the median lies inside
+        # [mean - 3σ, mean + 3σ] (a weaker but reliable invariant we
+        # can check from outside the engine without re-deriving pnls).
+        assert np.isfinite(res.pnl_p50)
         assert res.mean_pnl - 3 * res.std_pnl <= res.pnl_p50 <= res.mean_pnl + 3 * res.std_pnl
 
     def test_percentiles_are_pre_multiplier(self):

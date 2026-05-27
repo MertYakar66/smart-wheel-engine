@@ -1,0 +1,55 @@
+name: Backtest Regression
+
+# Long-running ledger-backtest reproducers (S27/S32/S34/S35). Total
+# runtime ~4–5 hours, dominated by S34 at ~3.5 h on the 100-ticker
+# universe. Excluded from the per-PR CI lane (see `ci.yml`'s `test`
+# job, which adds `-m "not backtest_regression"`).
+#
+# Trigger:
+# - Manual dispatch (`workflow_dispatch`) — primary entry point.
+# - Weekly cron is intentionally NOT enabled: GitHub-hosted runners
+#   cannot reach the Bloomberg CSV today (it lives on the dev laptop,
+#   not in the repo). Until CSV hydration in CI is solved, this
+#   workflow exists as a placeholder + local-runner template.
+#
+# See:
+# - `.claude/commands/backtest-regression.md` — the laptop-local
+#   invocation (runs against the committed Bloomberg CSV).
+# - `docs/LAUNCH_READINESS.md` §10 — the per-release gate.
+# - `TESTING.md` § "Backtest regression — re-baseline workflow" —
+#   the on-fail flow.
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  backtest:
+    name: Backtest Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 300  # S34 alone is ~3.5 h
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # WARNING: this job will currently fail unless the Bloomberg
+      # CSVs are hydrated. The committed `data/bloomberg/sp500_*.csv`
+      # files may not be present in CI (gitignored or LFS-managed in
+      # some setups). When CSV hydration is solved, remove this
+      # comment and let the test run.
+
+      - name: Run backtest regression suite
+        run: pytest tests/test_backtest_regression.py -v -m backtest_regression --tb=long

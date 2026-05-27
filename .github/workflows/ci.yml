@@ -98,6 +98,7 @@ jobs:
       - name: Run unit tests with coverage
         run: |
           pytest tests/ \
+            -m "not backtest_regression" \
             --cov=src \
             --cov=engine \
             --cov=advisors \

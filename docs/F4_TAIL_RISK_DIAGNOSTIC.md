@@ -522,3 +522,128 @@ production deployment matrix's "autonomous" verdicts can be partially
 upgraded — the engine now refuses the two named failure cases via
 ev_dollars sign (the operational gate). Full resolution requires the
 sample-density follow-up.
+
+---
+
+## 11. Fix B1+C shipped — worst-of-two evaluation (2026-05-27)
+
+Following §10 (Fix B1 partial close), **Fix C** was implemented as a
+worst-of-two evaluation that combines the Fix-B1 widening with a
+sample-density alternate — without the regressions §9 documented for a
+naïve sample-source switch.
+
+### What naïve Fix C does NOT work
+
+A first attempt simply switched the empirical sample from
+non-overlapping (~30 samples) to overlapping (~1225 samples) whenever
+the regime widening factor > 1.0. The intent was to give std-scaling
+finer-grained resolution to shift the discrete count of samples above
+the strike AND to unlock the POT-GPD heavy-tail fit
+(`engine/ev_engine.py` gates heavy_tail on `len(pnls) >= 200`).
+
+Live probe at COST 2022-04-04 with the naïve Fix C:
+
+| Path | prob_profit | ev_dollars | tail_widening | distribution_source |
+|---|---|---|---|---|
+| Pre-fix (baseline) | 0.8333 | +$62.88 | 1.000 | empirical_non_overlapping |
+| Post Fix-B1 | 0.8333 | −$25.31 | 1.092 | empirical_non_overlapping (widened) |
+| **Naïve Fix C (source-switch)** | **0.8621** | **+$114.53** | 1.092 | empirical_overlapping_widened |
+
+The naïve Fix C **regressed** COST: ev_dollars flipped back positive,
+worse than the pre-fix baseline. Root cause: at the COST 2022-04
+as-of, the 5y daily-step overlapping sample (2017-04 → 2022-04) is
+DOMINATED by the COVID recovery V-shape + 2021 bull market. Its
+empirical mean is +3.42% per 35-day forward — substantially more
+bullish than the 30-sample non-overlapping (which has the same mean
+in this period but with a much higher std-noise floor on individual
+samples). The 9% widening factor cannot overcome the mean shift; the
+engine becomes MORE OPTIMISTIC on COST, not less.
+
+### What Fix C ships — worst-of-two evaluation
+
+`engine/forward_distribution.py::regime_aware_forward_distribution`
+returns BOTH samples (primary = Fix-B1 NOS-widened cascade; alt =
+overlapping-widened) whenever widening fires. The ranker then
+evaluates `EVEngine.evaluate` on BOTH, and surfaces the result whose
+ev_dollars is **lower** (more conservative).
+
+§2 invariant: the engine always picks the WORSE reading. The pair is
+a downgrade-only mechanism — alt can deepen ev_dollars below primary's
+but never rescue a worse primary. The conservative anchor is always
+at least as conservative as Fix-B1 alone.
+
+Post Fix-B1+C live probe (verified 2026-05-27):
+
+| Case | Pre-fix | Post Fix-B1 | Post Fix-B1+C (worst-of-two) | Winner path |
+|---|---|---|---|---|
+| **UNH 2024-11-11** | 0.857 / +$114.53 | 0.714 / −$65.83 | **0.7725 / −$118.82** | overlapping_widened |
+| **COST 2022-04-04** | 0.833 / +$62.88 | 0.833 / −$25.31 | **0.833 / −$25.31** | non_overlapping_widened |
+| **AAPL 2026-02-13** (control) | 0.857 / +$5.50 | 0.829 / −$55.78 | **0.7355 / −$55.81** | overlapping_widened |
+
+UNH cleanly improves on Fix-B1: overlapping-widened produces a more
+negative ev_dollars (the 5y overlapping window includes 2020 COVID +
+2022 bear which the NOS sample under-samples), and the worst-of-two
+correctly picks it. COST is unchanged from Fix-B1 — the NOS-widened
+path wins as the conservative anchor; the overlapping path's bullish
+mean is rejected. AAPL's prob_profit drops further (0.83 → 0.74) on
+the overlapping path while ev_dollars is essentially the same.
+
+### What Fix B1+C closes (vs §10's open list)
+
+- **UNH 2024-11 ev_dollars deepening**: −$65 → −$118 ✅. The
+  `cvar_5_pct_of_collateral` metric on the regression-watch test
+  (`tests/test_f4_tail_risk_gap.py`) now reaches **−13.7%** of
+  collateral, past the −10% threshold that the F4 finding identified
+  as the engine's failure to reach. The "UNH gap" assertion in that
+  file is flipped from `> -0.10` to `< -0.10` to pin the close.
+- **Heavy-tail eligibility unlocked.** The POT-GPD fit can now produce
+  a finite `tail_xi` on the overlapping-widened path (was always
+  `None` on the 30-sample non-overlapping path because
+  `fit_gpd_tail` requires `min_exceedances=15` and the 95th percentile
+  of 30 samples gives 1-2 exceedances). On COST/UNH the fitted
+  `tail_xi` is ≈ −0.02 to −0.20 (still THIN-tailed by construction —
+  long-horizon equity log-returns are near-Gaussian by CLT), so
+  `heavy_tail` remains False on these specific cases. The two
+  `tests/test_f4_tail_risk_gap.py::*heavy_tail_should_be_true` xfail
+  watch tests therefore continue to XFAIL with `strict=False`, which
+  is the correct honest reporting: the flag MECHANISM is now
+  consumable; the COST/UNH samples just don't fit a heavy tail.
+
+### What remains open
+
+- **COST 2022-04 prob_profit** (target < 0.65): still 0.833. The
+  worst-of-two correctly preserves this as the conservative reading —
+  closing it would require a name-level regime signal (e.g.
+  ticker-specific 30-day realized vol vs 1y baseline) that fires when
+  the HMM under-detects idiosyncratic single-name drawdowns. Out of
+  scope for this PR; tracked as research-grade follow-up.
+- **S27 / S32 / S34 / S35 backtest re-run** on Fix-B1+C. The unit
+  regression tests pin the three canonical cases live, but the full
+  backtest validation (Spearman ρ preservation across the calm-bull
+  period, 2022 mean P&L improvement) still needs running outside this
+  scope. Tracked in PRODUCTION_READINESS.md §3 B1.
+- **CC + strangle ranker widening symmetry.** `rank_candidates_by_ev`
+  consumes the regime-aware pair; `rank_covered_calls_by_ev` and
+  `rank_strangles_by_ev` still call `best_available_forward_distribution`
+  directly. Wiring widening into the CC/strangle rankers requires the
+  same HMM extraction the CSP path uses — a mechanical port. Tracked as
+  follow-up; not a §2 breach because all three rankers still route
+  through `EVEngine.evaluate`, but the asymmetry is a quality gap.
+
+### Validation
+
+- `_f4_fix_c_probe.py` (throwaway, deleted before commit) — live ranker
+  probe on COST 2022-04-04 + UNH 2024-11-11 + AAPL 2026-02-13.
+- Launch-blocker subset (`pytest tests/test_audit_invariants.py
+  tests/test_dossier_invariant.py tests/test_authority_hardening.py
+  tests/test_audit_viii_unit_invariants.py tests/test_audit_viii_e2e.py
+  tests/test_audit_viii_real_data_smoke.py tests/test_launch_blockers.py`):
+  93/93 PASS post Fix-B1+C.
+- `tests/test_f4_tail_risk_regression.py`: extended with worst-of-two
+  pins (COST `distribution_source == "empirical_non_overlapping_widened"`,
+  UNH `ev_dollars < -100`, UNH `prob_profit <= 0.78`).
+- `tests/test_f4_tail_risk_gap.py`: UNH `cvar_5_pct_of_collateral`
+  assertion flipped from `> -0.10` to `< -0.10`. COST assertion
+  unchanged (still > -0.10; partial preserved). Heavy-tail xfail
+  watches unchanged (strict=False; still XFAIL on natural
+  thin-tailed 35d forwards).

@@ -810,11 +810,7 @@ class WheelRunner:
         )
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import (
-            best_available_forward_distribution,
-            regime_widened_log_returns,
-            regime_widening_factor,
-        )
+        from engine.forward_distribution import regime_aware_forward_distribution
         from engine.option_pricer import black_scholes_price
 
         conn = self.connector
@@ -1246,12 +1242,9 @@ class WheelRunner:
             bid = premium * 0.95
             ask = premium * 1.05
 
-            # Pull the PIT-safe forward distribution
-            fwd_rets, method = best_available_forward_distribution(
-                ohlcv,
-                horizon_days=dte_target,
-                as_of=as_of,
-            )
+            # Forward distribution is built BELOW (in the EV section), AFTER
+            # the HMM extraction so the regime posterior can drive the
+            # F4 Fix B1+C worst-of-two pair.
 
             # HMM regime multiplier — compute from the ticker's own
             # OHLCV log-returns. The HMM fit is cheap (~50 ms per
@@ -1599,33 +1592,58 @@ class WheelRunner:
                     # Graceful degrade — dealer positioning is optional
                     market_structure = None
 
-            # F4 Fix B1: regime-conditioned widening of the empirical
-            # forward distribution. Sign-preserving (the widening factor
-            # is >= 1.0 by construction; see
-            # docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 9-10). Bounded above
-            # at 1.5x. Preserves the empirical mean — only widens spread
-            # around the mean. No-op when both p_crisis and p_bear are
-            # 0 (i.e. HMM didn't flag a cold-tail regime, or HMM didn't
-            # run at all). Applied BEFORE the EVEngine evaluate call so
-            # the engine's prob_profit / CVaR / heavy_tail are computed
-            # on the widened distribution.
-            fwd_rets_for_engine = regime_widened_log_returns(
-                fwd_rets,
-                p_crisis=hmm_p_crisis,
-                p_bear=hmm_p_bear,
-            )
-            tail_widening_factor = regime_widening_factor(
+            # F4 Fix B1+C: regime-aware forward distribution with
+            # worst-of-two evaluation.
+            #
+            # Sign-preserving widening factor in [1.0, 1.5] driven by the
+            # HMM posterior (B1) + sample-source dual-evaluation (C).
+            # When widening fires, the engine evaluates on BOTH the
+            # NOS-widened sample (~30 samples, statistically honest)
+            # AND the overlapping-widened sample (~1225 samples,
+            # heavy-tail eligible) and surfaces the more conservative
+            # result (lower ev_dollars). Always downgrade — §2-compliant.
+            #
+            # Preserves the documented Fix-B1 partial close on COST
+            # 2022-04 (NOS path is more bearish there) while unlocking
+            # the sample-density benefit on UNH 2024-11 (overlapping
+            # path produces a more negative ev_dollars and prob_profit).
+            # No-op when both p_crisis and p_bear are 0 — the primary
+            # falls through to the legacy cascade and ``alt`` is None.
+            (
+                fwd_primary,
+                primary_method,
+                fwd_alt,
+                alt_method,
+                tail_widening_factor,
+            ) = regime_aware_forward_distribution(
+                ohlcv,
+                horizon_days=dte_target,
+                as_of=as_of,
                 p_crisis=hmm_p_crisis,
                 p_bear=hmm_p_bear,
             )
 
             res = ev_eng.evaluate(
                 trade,
-                forward_log_returns=fwd_rets_for_engine,
+                forward_log_returns=fwd_primary,
                 trade_start=trade_start_d,
                 trade_end=trade_end_d,
                 market_structure=market_structure,
             )
+            method = primary_method
+            if fwd_alt is not None:
+                res_alt = ev_eng.evaluate(
+                    trade,
+                    forward_log_returns=fwd_alt,
+                    trade_start=trade_start_d,
+                    trade_end=trade_end_d,
+                    market_structure=market_structure,
+                )
+                # Conservative pick: lower ev_dollars wins. NaN-safe
+                # (NaN comparison is always False, so primary holds).
+                if res_alt.ev_dollars < res.ev_dollars:
+                    res = res_alt
+                    method = alt_method or primary_method
             # Event-gate short-circuit: drop blocked candidates entirely.
             if res.event_lockout_reason:
                 drops.append(

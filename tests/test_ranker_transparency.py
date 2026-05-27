@@ -511,13 +511,40 @@ class TestHmmRegimeLabel:
 # 4. CLAUDE.md section 2 -- drop-capture makes zero extra evaluate calls
 # ======================================================================
 class TestSection2ZeroExtraEvaluate:
-    def test_clean_run_evaluates_once_per_survivor(self):
-        """The baseline path: one EVEngine.evaluate call per surviving
-        candidate, nothing more."""
+    """Section-2 invariants on the ranker's evaluate-call count.
+
+    The original spirit: drop-capture diagnostics (the .attrs["drops"]
+    feature) introduce zero extra EVEngine.evaluate calls. A drop logged
+    at a pre-EV gate (history, data, event, ...) skips evaluate entirely;
+    a drop logged at the post-EV gate (ev_threshold) reuses the single
+    evaluate already paid for.
+
+    F4 Fix B1+C update (2026-05-27): the ranker now optionally runs a
+    SECOND EVEngine.evaluate when the regime widening factor > 1.0 (the
+    HMM flagged a cold-tail regime), per the worst-of-two design in
+    docs/F4_TAIL_RISK_DIAGNOSTIC.md §11. The two calls share trade /
+    market_structure inputs; only forward_log_returns differs. The
+    ranker surfaces the more conservative ev_dollars result.
+
+    Updated bound: <= 2x evaluate calls per surviving candidate. Lower
+    bound is still N (one per survivor). The drop-capture invariant
+    is preserved — pre-EV drops still cost 0, and ev_threshold drops
+    reuse the existing call(s).
+    """
+
+    def test_clean_run_evaluates_at_most_twice_per_survivor(self):
+        """One EVEngine.evaluate call per surviving candidate baseline;
+        up to one additional call per candidate when F4 Fix B1+C
+        widening fires (the worst-of-two pair from
+        docs/F4_TAIL_RISK_DIAGNOSTIC.md §11)."""
         with _spy_evaluate() as spy:
             df = _rank(_runner())
         assert len(df) == 5
-        assert spy.call_count == 5
+        assert 5 <= spy.call_count <= 10, (
+            f"evaluate called {spy.call_count} times for 5 survivors; "
+            f"expected 5 (no widening) or up to 10 (F4 Fix B1+C "
+            f"worst-of-two when widening fires on every survivor)."
+        )
 
     def test_pre_evaluate_drop_triggers_no_evaluate(self):
         """A drop recorded at a pre-evaluation gate (history) costs zero
@@ -529,16 +556,23 @@ class TestSection2ZeroExtraEvaluate:
         assert len(df.attrs["drops"]) == 5
         assert spy.call_count == 0
 
-    def test_post_evaluate_drop_reuses_the_single_evaluate(self):
+    def test_post_evaluate_drop_reuses_existing_evaluate_calls(self):
         """A drop recorded at a post-evaluation gate (ev_threshold) reuses
-        the EVResult already produced -- five tickers means five evaluate
-        calls, not ten. Recording the reason adds no second evaluation.
+        the EVResult(s) already produced -- recording the reason adds no
+        further evaluate calls. Five tickers means at most 10 evaluate
+        calls (5 primary + 5 alt under Fix B1+C worst-of-two when
+        widening fires); recording the drops does not add an 11th.
         """
         with _spy_evaluate() as spy:
             df = _rank(_runner(), min_ev_dollars=1e9)
         assert df.empty
         assert len(df.attrs["drops"]) == 5
-        assert spy.call_count == 5
+        assert 5 <= spy.call_count <= 10, (
+            f"evaluate called {spy.call_count} times for 5 ev_threshold "
+            f"drops; expected 5 (no widening) or up to 10 (F4 Fix B1+C "
+            f"worst-of-two when widening fires on every survivor). "
+            f"Drop-capture itself must not add an 11th call."
+        )
 
 
 # ======================================================================
@@ -567,17 +601,29 @@ class TestEvRawColumn:
     def test_ev_raw_is_the_pre_regime_evresult_mean_pnl(self):
         """The ranker sources ev_raw from EVResult.mean_pnl -- the mean
         scenario P&L the engine computes as the local ``ev_raw`` before
-        the regime multiplier. Captured EVResults pin the column to that
-        field, per surviving ticker, rounded to 2dp."""
+        the regime multiplier.
+
+        F4 Fix B1+C (2026-05-27): the ranker may invoke EVEngine.evaluate
+        TWICE per survivor when widening fires (worst-of-two; see
+        docs/F4_TAIL_RISK_DIAGNOSTIC.md §11). The captured list then
+        holds two EVResults per ticker — primary and alt. The row's
+        ev_raw comes from the WINNING (lower-ev_dollars) result, so the
+        assertion checks that ev_raw matches ONE of the captured
+        mean_pnl values for that ticker (rounded to 2dp).
+        """
         ctx, captured = _capture_evaluate()
         with ctx:
             df = _rank(_runner())
         assert not df.empty
-        res_by_ticker = dict(captured)
-        assert set(res_by_ticker) == set(df["ticker"])
+        captured_tickers = {t for t, _ in captured}
+        assert captured_tickers == set(df["ticker"])
         for _, row in df.iterrows():
-            res = res_by_ticker[row["ticker"]]
-            assert row["ev_raw"] == round(res.mean_pnl, 2)
+            ticker = row["ticker"]
+            candidate_means = {round(res.mean_pnl, 2) for t, res in captured if t == ticker}
+            assert row["ev_raw"] in candidate_means, (
+                f"{ticker}: ev_raw={row['ev_raw']} not in any captured "
+                f"mean_pnl: {sorted(candidate_means)} (F4 Fix B1+C worst-of-two)"
+            )
 
     def test_ev_dollars_is_ev_raw_times_the_final_regime_multiplier(self):
         """The relationship ev_raw exists to expose. Inside the engine
@@ -585,17 +631,29 @@ class TestEvRawColumn:
         regime_multiplier is the engine's *final* multiplier (the
         clamped overlay product, x heavy-tail penalty, x dealer mult) --
         not the runner's raw combined_regime_mult. The identity holds
-        exactly on the captured EVResults and survives, within rounding,
-        into the ev_raw / ev_dollars output columns a caller sees."""
+        exactly on every captured EVResult, and within rounding on the
+        row's exposed columns (ev_dollars == ev_raw *
+        regime_multiplier)."""
         ctx, captured = _capture_evaluate()
         with ctx:
             df = _rank(_runner())
         assert not df.empty
         assert len(captured) >= 2
-        for ticker, res in captured:
+        # Per-EVResult identity holds regardless of which call won the
+        # worst-of-two pick.
+        for _ticker, res in captured:
             assert res.ev_dollars == pytest.approx(res.mean_pnl * res.regime_multiplier)
-            r = df[df["ticker"] == ticker].iloc[0]
-            assert r["ev_dollars"] == pytest.approx(r["ev_raw"] * res.regime_multiplier, abs=0.05)
+        # Row-level identity uses the WINNING res's regime_multiplier,
+        # which the ranker surfaces directly in the regime_multiplier
+        # column (verified by the dedicated test below).
+        for _, row in df.iterrows():
+            if abs(row["ev_raw"]) < 1e-6:
+                continue
+            implied = row["ev_dollars"] / row["ev_raw"]
+            assert implied == pytest.approx(row["regime_multiplier"], abs=0.01), (
+                f"{row['ticker']}: ev_dollars/ev_raw={implied:.4f} != "
+                f"regime_multiplier column {row['regime_multiplier']:.4f}"
+            )
 
     def test_regime_multiplier_column_matches_engine_final_multiplier(self):
         """S31 F9 regression: the ranker output must expose the engine's
@@ -606,7 +664,12 @@ class TestEvRawColumn:
         if heavy_tail, and dealer_mult. Without this column, a trader
         verifying composition (ev_dollars / ev_raw) gets a value that
         does NOT equal hmm * skew * news * credit -- the S31 driver
-        author hit exactly this confusion."""
+        author hit exactly this confusion.
+
+        F4 Fix B1+C: when widening fires, two EVResults per ticker may be
+        captured (primary + alt). The row's regime_multiplier matches the
+        WINNING one — checked by asserting equality with ONE of the
+        captured regime_multiplier values for that ticker."""
         ctx, captured = _capture_evaluate()
         with ctx:
             df = _rank(_runner())
@@ -614,12 +677,16 @@ class TestEvRawColumn:
         assert "regime_multiplier" in df.columns, (
             "regime_multiplier column must be present in ranker output"
         )
-        res_by_ticker = dict(captured)
         for _, row in df.iterrows():
-            res = res_by_ticker[row["ticker"]]
-            # Column matches the engine's final multiplier to the rounding
-            # precision used in the row dict (4 decimals).
-            assert row["regime_multiplier"] == pytest.approx(res.regime_multiplier, abs=1e-4)
+            ticker = row["ticker"]
+            candidate_rms = [res.regime_multiplier for t, res in captured if t == ticker]
+            assert candidate_rms, f"no captured res for {ticker}"
+            assert any(
+                row["regime_multiplier"] == pytest.approx(rm, abs=1e-4) for rm in candidate_rms
+            ), (
+                f"{ticker}: regime_multiplier column {row['regime_multiplier']:.6f} "
+                f"matches none of the captured values {candidate_rms}"
+            )
             # And ev_dollars / ev_raw reconstructs the same multiplier
             # (within the rounding of both ev_raw and ev_dollars to 2 dp).
             if abs(row["ev_raw"]) > 1e-6:

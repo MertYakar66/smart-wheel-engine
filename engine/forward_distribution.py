@@ -393,6 +393,174 @@ def regime_widening_factor(
     return min(max_widening, raw)
 
 
+def regime_aware_forward_distribution(
+    ohlcv: pd.DataFrame,
+    horizon_days: int,
+    *,
+    as_of: pd.Timestamp | str | None = None,
+    p_crisis: float = 0.0,
+    p_bear: float = 0.0,
+    crisis_weight: float = 0.5,
+    bear_weight: float = 0.25,
+    max_widening: float = 1.5,
+    min_empirical_samples: int = 20,
+    overlapping_min_samples: int = 60,
+    n_scenarios: int = 5000,
+    price_col: str = "close",
+    seed: int | None = 42,
+) -> tuple[np.ndarray, str, np.ndarray | None, str | None, float]:
+    """Regime-aware forward distribution PAIR: ``(primary, primary_method,
+    alt, alt_method, widening_factor)``.
+
+    Builds the two samples that :meth:`engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+    needs to perform a **worst-of-two evaluation** under F4 Fix B1+C:
+
+    * **Primary** — Fix-B1 only. The legacy NOS-first cascade
+      (:func:`best_available_forward_distribution`) with regime widening
+      applied to the std. Statistically honest because non-overlapping
+      samples are independent.
+    * **Alternate** — Fix-C sample-density. When widening fires
+      (factor > 1.0), the overlapping empirical branch (~1225 samples at
+      5y/35d default) with regime widening applied. The larger sample
+      makes std-scaling shift discrete counts continuously and **unlocks
+      heavy-tail consumption** in :meth:`engine.ev_engine.EVEngine.evaluate`,
+      which requires ``len(pnls) >= 200`` for the POT-GPD fit.
+
+    When widening does NOT fire (calm regime), ``alt`` is ``None`` and the
+    caller just evaluates on ``primary`` — byte-identical to the legacy
+    code path so calm-regime rows do not move.
+
+    When widening fires, the caller runs ``EVEngine.evaluate`` on BOTH
+    samples and surfaces the more conservative result (lower
+    ``ev_dollars``). This preserves the documented Fix-B1 partial close
+    on **COST 2022-04** (the NOS sample's higher mean keeps prob_profit
+    at 0.833 and ev_dollars at ~−$25) while unlocking the sample-density
+    benefit on **UNH 2024-11** (the overlapping sample's heavier
+    realized 5y-window tail drops ev_dollars from −$65 to −$118). §2 is
+    preserved because the engine always takes the WORSE reading —
+    downgrade-only.
+
+    Method strings recorded so the audit trail tells the trader which
+    branch the engine actually consumed (worst-of-two winner)::
+
+        "empirical_non_overlapping"          # calm path, NOS (primary)
+        "empirical_overlapping"              # calm path, NOS too thin
+        "block_bootstrap" / "har_rv"         # calm path, deep cascade
+        "empirical_non_overlapping_widened"  # B1 primary (worst of two)
+        "empirical_overlapping_widened"      # C alt (worst of two)
+        "block_bootstrap_widened"            # C alt, history too short for overlapping
+        "har_rv_widened"                     # C alt, last resort
+
+    Returns:
+        ``(primary, primary_method, alt, alt_method, widening_factor)``.
+        ``alt`` and ``alt_method`` are ``None`` when ``widening_factor ==
+        1.0`` (calm regime) or when no alternate sample could be
+        constructed.
+    """
+    widening_factor = regime_widening_factor(
+        p_crisis=p_crisis,
+        p_bear=p_bear,
+        crisis_weight=crisis_weight,
+        bear_weight=bear_weight,
+        max_widening=max_widening,
+    )
+
+    # Calm path: no widening → legacy cascade, byte-identical to pre-F4-C.
+    if widening_factor <= 1.0 + 1e-9:
+        primary, primary_method = best_available_forward_distribution(
+            ohlcv,
+            horizon_days=horizon_days,
+            as_of=as_of,
+            min_empirical_samples=min_empirical_samples,
+            n_scenarios=n_scenarios,
+            price_col=price_col,
+            seed=seed,
+        )
+        return primary, primary_method, None, None, widening_factor
+
+    # Widening fires.
+    # Primary: legacy cascade (NOS-first) with widening applied. Statistically
+    # honest because NOS samples are independent. This is the Fix-B1 baseline
+    # and the conservative anchor for the COST 2022-04 case (the NOS sample
+    # has a more bearish 5y mean than the daily-step overlapping sample).
+    primary_raw, primary_source = best_available_forward_distribution(
+        ohlcv,
+        horizon_days=horizon_days,
+        as_of=as_of,
+        min_empirical_samples=min_empirical_samples,
+        n_scenarios=n_scenarios,
+        price_col=price_col,
+        seed=seed,
+    )
+    primary = regime_widened_log_returns(
+        primary_raw,
+        p_crisis=p_crisis,
+        p_bear=p_bear,
+        crisis_weight=crisis_weight,
+        bear_weight=bear_weight,
+        max_widening=max_widening,
+    )
+    # Annotate the primary method so the audit trail records that
+    # widening was applied (vs the calm-path identical string).
+    if primary_source == "empirical_non_overlapping":
+        primary_method = "empirical_non_overlapping_widened"
+    elif primary_source == "empirical_overlapping":
+        primary_method = "empirical_overlapping_widened"
+    elif primary_source == "block_bootstrap":
+        primary_method = "block_bootstrap_widened"
+    elif primary_source == "har_rv":
+        primary_method = "har_rv_widened"
+    else:
+        primary_method = primary_source  # "none"
+
+    # Alternate: force the overlapping branch (or the next-best deep
+    # sample) so the POT-GPD heavy-tail fit becomes eligible AND so
+    # std-scaling has finer-grained resolution. Suppressed when the
+    # primary already used overlapping/bootstrap/HAR (no new info).
+    alt: np.ndarray | None = None
+    alt_method: str | None = None
+    if primary_source == "empirical_non_overlapping":
+        ovp = empirical_forward_log_returns(
+            ohlcv,
+            horizon_days=horizon_days,
+            as_of=as_of,
+            min_samples=overlapping_min_samples,
+            price_col=price_col,
+            non_overlapping=False,
+        )
+        if len(ovp) >= overlapping_min_samples:
+            alt = regime_widened_log_returns(
+                ovp,
+                p_crisis=p_crisis,
+                p_bear=p_bear,
+                crisis_weight=crisis_weight,
+                bear_weight=bear_weight,
+                max_widening=max_widening,
+            )
+            alt_method = "empirical_overlapping_widened"
+        else:
+            bs = block_bootstrap_log_returns(
+                ohlcv,
+                horizon_days=horizon_days,
+                n_scenarios=n_scenarios,
+                as_of=as_of,
+                price_col=price_col,
+                seed=seed,
+            )
+            if len(bs) > 0:
+                alt = regime_widened_log_returns(
+                    bs,
+                    p_crisis=p_crisis,
+                    p_bear=p_bear,
+                    crisis_weight=crisis_weight,
+                    bear_weight=bear_weight,
+                    max_widening=max_widening,
+                )
+                alt_method = "block_bootstrap_widened"
+
+    return primary, primary_method, alt, alt_method, widening_factor
+
+
 def regime_widened_log_returns(
     log_returns: np.ndarray,
     *,

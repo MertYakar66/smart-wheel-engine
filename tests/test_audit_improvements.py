@@ -480,17 +480,10 @@ class TestWheelRunnerEVRanker:
         # ev_per_day descending
         if len(df) > 1:
             assert df["ev_per_day"].iloc[0] >= df["ev_per_day"].iloc[-1]
-        # A distribution source was used. The ``_widened`` variants are
-        # produced by F4 Fix B1+C's regime-aware worst-of-two evaluation
-        # when the HMM flags a cold-tail regime (see
-        # docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 11).
+        # A distribution source was used
         assert df["distribution_source"].iloc[0] in (
             "empirical_non_overlapping",
             "empirical_overlapping",
             "block_bootstrap",
             "har_rv",
-            "empirical_non_overlapping_widened",
-            "empirical_overlapping_widened",
-            "block_bootstrap_widened",
-            "har_rv_widened",
         )

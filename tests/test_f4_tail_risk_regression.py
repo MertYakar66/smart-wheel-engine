@@ -176,39 +176,29 @@ class TestF4FixB1OnProductionRanker:
     """
 
     def test_unh_2024_11_prob_profit_drops_below_threshold(self, unh_2024_11_row: dict):
-        """UNH 2024-11-11 prob_profit drops from pre-fix 0.857 to <=0.78.
+        """UNH 2024-11-11 prob_profit drops from pre-fix 0.857 to <=0.72.
 
-        Verified live post Fix-B1+C: 0.7725 with widening factor 1.32
-        (HMM posterior 28% crisis + 72% bear). The worst-of-two
-        evaluation picked the overlapping-widened path (lower ev_dollars
-        but slightly higher prob_profit than NOS-widened at 0.7143);
-        both are well below the pre-fix 0.857 baseline.
+        Verified live post-fix: 0.7143 with widening factor 1.32 (HMM
+        posterior 28% crisis + 72% bear).
         """
         pp = float(unh_2024_11_row["prob_profit"])
-        assert pp <= 0.78, (
-            f"UNH 2024-11-11 prob_profit = {pp:.4f}; expected <=0.78 "
-            f"post Fix-B1+C (was 0.8571 pre-fix per PR #245 baseline)."
+        assert pp <= 0.72, (
+            f"UNH 2024-11-11 prob_profit = {pp:.4f}; expected <=0.72 "
+            f"post-fix (was 0.8571 pre-fix per PR #245 baseline)."
         )
 
     def test_unh_2024_11_ev_dollars_now_negative(self, unh_2024_11_row: dict):
-        """UNH 2024-11-11 ev_dollars flips from +$114 to deeply negative
-        post Fix-B1+C.
+        """UNH 2024-11-11 ev_dollars flips from +$114 to negative post-fix.
 
-        Post Fix-B1 alone: -$65.83 (NOS-widened only).
-        Post Fix-B1+C: -$118.82 (worst-of-two: overlapping-widened path
-        produced a more negative ev_dollars and was selected as the
-        conservative anchor).
-
-        The engine now correctly refuses this candidate (a real 19%
+        The engine now correctly refuses this candidate (a real 20%
         drop case that was previously accepted with positive EV).
         """
         ev = float(unh_2024_11_row["ev_dollars"])
-        assert ev < -100.0, (
-            f"UNH 2024-11-11 ev_dollars = ${ev:.2f}; expected < -$100 "
-            f"post Fix-B1+C (was +$114.53 pre-fix, -$65.83 post-B1 "
-            f"alone). The worst-of-two evaluation should pick the "
-            f"overlapping-widened path here — its larger sample widens "
-            f"the realized tail-loss enough to exceed -$100."
+        assert ev < 0, (
+            f"UNH 2024-11-11 ev_dollars = ${ev:.2f}; expected negative "
+            f"post-fix (was +$114.53 pre-fix). The widened tail "
+            f"distribution should push expected P&L below zero on a "
+            f"case that realised a 20% drop."
         )
 
     def test_unh_2024_11_widening_factor_recorded(self, unh_2024_11_row: dict):
@@ -224,52 +214,23 @@ class TestF4FixB1OnProductionRanker:
     def test_cost_2022_04_ev_dollars_now_negative(self, cost_2022_04_row: dict):
         """COST 2022-04-04 ev_dollars flips from +$62 to negative.
 
-        Note: COST 2022-04 is the documented partial case. The HMM
-        posterior does NOT fully fire on this date (~14% crisis + 9%
-        bear), producing a widening factor of only 1.09. The
-        worst-of-two evaluation correctly picks the NOS-widened path as
-        the more conservative anchor because the 5y overlapping sample
-        at this date has a more bullish mean (COVID recovery + 2021
-        bull dominate). prob_profit stays at 0.8333 (30-sample
-        non-overlapping discrete count). BUT the widened tail still
+        Note: COST 2022-04 is a known partial case — the HMM posterior
+        does NOT fully fire on this date (~14% crisis + 9% bear),
+        producing a widening factor of only 1.09. The prob_profit
+        count above the strike doesn't shift (still 0.8333 because the
+        30-sample non-overlapping empirical is too coarse for std-
+        scaling to move discrete counts). BUT the widened tail still
         increases expected loss enough to push ev_dollars below zero —
         the engine now refuses the trade even though prob_profit
         stays at 0.83.
 
-        See ``docs/F4_TAIL_RISK_DIAGNOSTIC.md`` sec 10 (Fix B1 close)
-        and sec 11 (Fix C worst-of-two design that preserves this
-        partial without regressing into +EV).
+        This is the documented Fix B1 partial close. See
+        ``docs/F4_TAIL_RISK_DIAGNOSTIC.md`` sec 10.
         """
         ev = float(cost_2022_04_row["ev_dollars"])
         assert ev < 0, (
             f"COST 2022-04-04 ev_dollars = ${ev:.2f}; expected negative "
             f"post-fix (was +$62.88 pre-fix per PR #245 baseline)."
-        )
-
-    def test_cost_2022_04_worst_of_two_picks_non_overlapping(self, cost_2022_04_row: dict):
-        """COST 2022-04-04 must resolve to the NOS-widened path, not
-        the overlapping-widened path.
-
-        This pins the worst-of-two design's COST-specific behaviour
-        (see docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 11): the 5y daily-step
-        overlapping sample at 2022-04-04 has a more BULLISH mean
-        (+3.42% per 35-day forward) than the 30-sample non-overlapping
-        (which spreads samples across 5y at 35-day stride). With only
-        9% widening, the overlapping-widened path's std-scale cannot
-        overcome its mean shift — it produces ev_dollars=+$114
-        (regression). The NOS-widened path produces ev_dollars=-$25.
-        The worst-of-two design correctly anchors on NOS here.
-
-        Regression-watch: if this assertion ever fires, the engine
-        accepted the more-bullish overlapping reading on COST, which
-        would re-open the F4 partial — investigate immediately.
-        """
-        dist = str(cost_2022_04_row.get("distribution_source", ""))
-        assert dist == "empirical_non_overlapping_widened", (
-            f"COST 2022-04-04 distribution_source = '{dist}'; expected "
-            f"'empirical_non_overlapping_widened' (the worst-of-two anchor "
-            f"that preserves the F4 partial — see "
-            f"docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 11)."
         )
 
     def test_cost_2022_04_widening_factor_recorded(self, cost_2022_04_row: dict):

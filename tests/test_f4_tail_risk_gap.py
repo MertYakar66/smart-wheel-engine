@@ -169,34 +169,23 @@ class TestF4RealWorldGapOnProductionRanker:
             f"POT-GPD threshold may have been lowered — verify the fix."
         )
 
-    def test_unh_2024_11_cvar_5_now_reaches_threshold(self, unh_2024_11_row: dict):
-        """UNH November 2024 (realized -19.31%): post Fix B1+C, the
-        engine's 5%-CVaR now exceeds the -10%-of-collateral threshold
-        the original F4 finding flagged it as failing to reach.
-
-        Pre-fix: cvar_5_pct_of_collateral was around -7% of collateral
-        (gap). Post Fix-B1: -9.3% (gap narrowed but still failing). Post
-        Fix-B1+C: -13.7% (gap closed for UNH — the engine's tail-risk
-        estimate now plausibly reflects the realized 19% drop). The
-        assertion direction is flipped from the pre-fix gap version per
-        the inline hint in this test's prior commit message.
-
-        COST 2022-04 remains a documented partial — the NOS sample's
-        mean is the worst-of-two anchor and its 30-sample discrete
-        count still pins prob_profit at 0.833. See test
-        ``test_cost_2022_04_forward_distribution_does_not_widen_for_tail``
-        above which still asserts the COST gap shape.
-        """
+    def test_unh_2024_11_same_gap_shape(self, unh_2024_11_row: dict):
+        """UNH November 2024 (realized -19.31%): same combined shape as
+        COST tests above. Cross-ticker replication of the F4 finding."""
         spot = float(unh_2024_11_row["spot"])
         cvar_5 = float(unh_2024_11_row["cvar_5"])
         collateral = float(unh_2024_11_row["strike"]) * 100.0
         cvar_5_pct_of_collateral = cvar_5 / collateral
-        assert cvar_5_pct_of_collateral < -0.10, (
+        heavy_tail = bool(unh_2024_11_row["heavy_tail"])
+        assert cvar_5_pct_of_collateral > -0.10, (
             f"UNH 2024-11 cvar_5 = ${cvar_5:.2f} = "
             f"{cvar_5_pct_of_collateral * 100:.2f}% of collateral. "
-            f"Post Fix-B1+C the engine's 5%-CVaR should now reach past "
-            f"-10% on this case (closed F4 gap on UNH; see "
-            f"docs/F4_TAIL_RISK_DIAGNOSTIC.md sec 11). spot={spot:.2f}"
+            f"F4 narrative: engine's 5%-CVaR doesn't reach the realized "
+            f"-19.31% drop. spot={spot:.2f}"
+        )
+        assert heavy_tail is False, (
+            f"UNH 2024-11 heavy_tail = {heavy_tail}. F4 narrative: flag "
+            f"stays False despite the realized 19.31% drop."
         )
 
 

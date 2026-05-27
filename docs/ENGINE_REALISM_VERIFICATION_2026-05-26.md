@@ -29,17 +29,23 @@ engine running** and compares to ground truth.
 | 5-ticker smoke (`AAPL / MSFT / JPM / XOM / UNH`) | ✅ 5 / 5 rows with non-null `ev_dollars`, `iv`, `premium` |
 | IV PIT realism (engine `iv` vs Bloomberg file) | ✅ **All 5 tickers match within 0.015% relative diff** |
 | EV magnitude not monotonic in raw IV alone | ✅ Regime multiplier dominates — feature working as designed |
-| F4 tail-risk gap on COST 2022-04-25 | ⚠ **prob_profit = 0.903** (optimistic; gap REAL and unfixed) |
+| F4 tail-risk gap on COST 2022-04-25 (and 2022-04-04 canonical) | ⚠ **gap REAL and unfixed** — 0.8333 on canonical date 2022-04-04 (matches F4 doc exactly); 0.903 on 2022-04-25 (different date, not in F4 doc table) |
 | Refusal behaviour | ✅ Crisis = event/regime refusal; normal = selective survival |
 
-**One genuine reliability gap surfaced:** the F4 case's `prob_profit`
-shifted from the historically-documented `0.8333` to `0.9032` after
-the IV-PIT fix (PR #128) — i.e. the engine is now *more* optimistic
-on the COST 2022-04 case than when F4 was first characterised. The
-qualitative finding (`prob_profit` is too high given COST's
-subsequent 31.5% drop) is unchanged. The exact-number drift means
-[`F4_TAIL_RISK_DIAGNOSTIC.md`](F4_TAIL_RISK_DIAGNOSTIC.md) should be
-updated with the post-PIT-fix value when B1's structural fix lands.
+**One genuine reliability gap surfaced:** F4 tail-risk is unfixed.
+The canonical COST 2022-04-04 case still produces `prob_profit = 0.8333`
+(reproducing the F4 doc exactly), and UNH 2024-11-11 produces `0.8571`
+against a realised -20.27% drop. **Terminal A has claimed the
+structural fix** under `claude/fix-f4-regime-conditioned-widening`.
+
+**Earlier-in-the-day correction:** the first version of this doc
+incorrectly claimed F4's `prob_profit` had drifted from `0.8333`
+to `0.9032` after the IV-PIT fix. That was a date-mismatch artifact
+(2022-04-25 vs the canonical 2022-04-04). The F4 doc value is NOT
+stale and does NOT need a refresh. See
+[Test 5](#test-5--f4-reproducibility-cost-2022-04-25) finding 1
+and the multi-case baseline at
+[`verification_artifacts/f4_baseline_2026-05-26_raw_output.txt`](verification_artifacts/f4_baseline_2026-05-26_raw_output.txt).
 
 ---
 
@@ -199,26 +205,38 @@ COST 2022-04-25 prob_profit = 0.903200
 
 **Two findings here:**
 
-1. **The exact prob_profit value drifted** from `0.8333` to `0.9032`
-   after the IV-PIT fix landed. F4's underlying mechanism (only ~30
-   non-overlapping 35-day samples at the default `lookback_years=5.0`,
-   advancing `as_of` by 14 days adds 0 new samples) is unchanged. The
-   PIT IV value for COST on 2022-04-25 simply differs from the
-   snapshot value F4 was first measured against, so the
-   forward-distribution intersection with the strike shifts.
-2. **The F4 gap is REAL and now WORSE.** `prob_profit = 0.903` says
-   the engine assigns 90% probability that COST will close above the
-   strike at expiry — but COST in fact dropped 31.5% over the next 18
-   days. The engine is even more confident in a benign outcome than
-   when F4 was originally characterised. This re-confirms that **Fix
-   A (lookback compression, attempted in PR #234) was insufficient**
-   and a structural fix (regime-conditioned widening, POT-GPD on the
-   rolling distribution, or a Bayesian wide-prior shrinkage when
-   N<30) is needed.
+1. ~~**The exact prob_profit value drifted** from `0.8333` to `0.9032`
+   after the IV-PIT fix landed.~~ **CORRECTED 2026-05-26 (later
+   that day):** this was a **date-mismatch artifact, not a real
+   engine drift.** The original F4 case in
+   [`F4_TAIL_RISK_DIAGNOSTIC.md`](F4_TAIL_RISK_DIAGNOSTIC.md) §0
+   covers `as_of` dates **2022-04-01 through 2022-04-14**, all
+   showing `prob_profit = 0.8333`. The 2022-04-25 date used in this
+   test is OUTSIDE that table — comparing 2022-04-25 against the
+   2022-04-01-to-04-14 documented value is apples to oranges.
+   The follow-up baseline driver
+   ([`f4_baseline_driver.py`](verification_artifacts/f4_baseline_driver.py),
+   raw output at
+   [`f4_baseline_2026-05-26_raw_output.txt`](verification_artifacts/f4_baseline_2026-05-26_raw_output.txt))
+   shows the canonical date `as_of=2022-04-04` reproduces
+   `prob_profit = 0.8333` exactly. **F4 doc is NOT stale; no
+   refresh needed.**
+2. **The F4 gap is REAL and unchanged from when it was first
+   characterised.** Even at the new 2022-04-25 date, `prob_profit
+   = 0.903` says the engine assigns 90% probability that COST will
+   close above the strike at expiry — but COST in fact dropped
+   31.5% over the next 18 days. The post-IV-PIT engine still
+   produces optimistic predictions on the canonical F4 dates
+   (verified at 2022-04-04). Fix A (lookback compression, PR #234)
+   was insufficient and a structural fix is needed. **Terminal A
+   has claimed this work** under branch
+   `claude/fix-f4-regime-conditioned-widening`.
 
-**Verdict:** F4 unfixed; structural fix needed; the documented value
-in `F4_TAIL_RISK_DIAGNOSTIC.md` should be refreshed to the post-PIT
-value when B1's real fix lands.
+**Verdict:** F4 unfixed; structural fix needed. **`F4_TAIL_RISK_DIAGNOSTIC.md`
+does NOT need refreshing** — the 0.8333 documented value reproduces
+exactly on the canonical date (see correction in finding 1 above).
+Multi-case baseline data for Terminal A's incoming F4 fix is captured at
+[`verification_artifacts/f4_baseline_2026-05-26_raw_output.txt`](verification_artifacts/f4_baseline_2026-05-26_raw_output.txt).
 
 ---
 

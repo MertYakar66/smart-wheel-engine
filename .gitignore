@@ -37,6 +37,11 @@ gcloud_credentials.json
 *.backup
 *.old
 
+# Backtest regression — opt-in forensic deep-diff artifact (the JSON
+# scalar snapshots ARE committed; the per-row parquet is not, since
+# it's only generated when a deep-diff is needed).
+backtests/regression/snapshots/*.rows.parquet.gz
+
 # Audit logs (may contain sensitive info)
 logs/
 *.audit.log

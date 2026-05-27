@@ -60,12 +60,14 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `.claude/hooks/session_start.sh` | SessionStart hook — provider warning, dataset presence, Theta manifest recency, dependency batching, connector smoke. |
 | `.claude/commands/launch-blockers.md` | Tier-3 slash command — runs the launch-blocker test subset. |
 | `.claude/commands/ev-smoke.md` | Tier-3 slash command — runs the 5-ticker EV-ranker smoke check. |
+| `.claude/commands/backtest-regression.md` | Tier-3 slash command — runs the four ledger-backtest reproducers (S27/S32/S34/S35) against the current engine. Long-running (~4–5 h); excluded from per-PR CI. |
 
 ## `.github/`
 
 | File | Purpose |
 |---|---|
-| `.github/workflows/ci.yml` | CI pipeline — environment validation, lint/type check, test+coverage matrix, quant validation, security scan, integration. |
+| `.github/workflows/ci.yml` | CI pipeline — environment validation, lint/type check, test+coverage matrix (excludes `backtest_regression` marker), quant validation, security scan, integration. |
+| `.github/workflows/backtest-regression.yml` | Manual-dispatch workflow that runs the backtest-regression suite (S27/S32/S34/S35 reproducers, ~4–5 h). Cron disabled until CSV hydration in CI is solved; today's primary entry point is the `.claude/commands/backtest-regression.md` skill on the dev laptop. |
 
 ## `archive/`
 
@@ -115,6 +117,8 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `backtests/regression/s32_friction_24t_1m.py` | S32 reproducer — $1M / 24 tickers / 2022-2024 / three friction levels. Mirrors `docs/ENGINE_BACKTEST_S32_FRICTION.md`. |
 | `backtests/regression/s34_universe_100t_1m.py` | S34 reproducer — $1M / 100 tickers / 2022-2024 / three friction levels / `top_n=15`. Mirrors the S34 section of `docs/SOUNDNESS_REVIEW_2026-05-26.md`. |
 | `backtests/regression/s35_oos_24t_100k.py` | S35 reproducer — $100k / 24 tickers / 2018-2020 OOS / three friction levels. Mirrors `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md`. PR4 re-baselines against the post-PIT-fix engine. |
+| `backtests/regression/snapshots/s27_ivpit_24t_100k.json` | Locked S27 snapshot — aggregate / per-year / per-quartile metrics from current post-PIT-fix engine. Generated via `--update-snapshot` against `data_csv_sha256` recorded in the fingerprint. Re-baseline workflow in `TESTING.md`. |
+| `backtests/regression/snapshots/s32_friction_24t_1m.json` | Locked S32 snapshot — $1M / 24 tickers / 2022-2024 / three friction levels (none / bid_ask / full). Generated via the shared-rank `run_backtest_multi_friction` driver. |
 
 ## `config/`
 
@@ -545,6 +549,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_audit_viii_unit_invariants.py` | Launch-blocker invariant — IV/rate percent-vs-decimal normalisation and the rolled-leg P&L accumulator. |
 | `tests/test_audit_viii_real_data_smoke.py` | Real-Bloomberg smoke test of the EV ranker (module-level skip without the CSVs). |
 | `tests/test_authority_hardening.py` | Launch-blocker invariant — TV / strangle / tracker route through the EV authority. |
+| `tests/test_backtest_regression.py` | Backtest-regression harness — runs S27/S32/S34/S35 reproducers against the current engine and compares to committed snapshots in `backtests/regression/snapshots/`. Gated behind the `backtest_regression` marker (long-running). |
 | `tests/test_ev_authority_log_schema.py` | Schema-closure regression for `WheelTracker._ev_authority_log` — pins the five D16 entry shapes (`issue`, `refuse_issue`, `consume`, `reject` × {unknown_token, missing_current_ev_dollars, stale_ev}) and detects drift (unknown action, missing required key, accidental extra key). |
 | `tests/test_engine_api_port.py` | Unit tests for `engine_api._resolve_port()` — pins the `SWE_API_PORT` contract (default 8787, env override, loud failure on malformed / out-of-range). Closes D15 Unresolved per #154 C7. |
 | `tests/test_tv_nonce_register_lock.py` | Regression tests pinning the explicit `_TV_SEEN_NONCES_LOCK` around `_tv_seen_register` (S20 C3). Asserts lock existence + 64-worker contention behavior (exactly 1 worker accepts a duplicate digest, all 64 distinct digests accepted). |

@@ -9,11 +9,12 @@ of truth for that re-baseline.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import typer
 
-from backtests.regression._common import run_backtest
+from backtests.regression._common import run_backtest_multi_friction, save_snapshot
 from backtests.regression.universes import UNIVERSE_24
 
 SNAPSHOT_ID = "s35_oos_24t_100k"
@@ -35,16 +36,12 @@ CANONICAL: dict = {
 
 
 def run(**overrides) -> dict:
-    """Run all three friction levels over the out-of-window 2018-2020 regime."""
+    """Run all three friction levels over the out-of-window 2018-2020
+    regime via the shared-rank multi-driver."""
     args = {**CANONICAL, **overrides}
-    per_level: dict[str, dict] = {}
-    headline = None
-    for level in FRICTION_LEVELS:
-        result = run_backtest(friction_level=level, **args)
-        per_level[level] = result.metrics
-        if level == "full":
-            headline = result
-    assert headline is not None
+    results = run_backtest_multi_friction(friction_levels=FRICTION_LEVELS, **args)
+    headline = results["full"]
+    per_level = {level: r.metrics for level, r in results.items()}
     return {
         "aggregate": headline.metrics["aggregate"],
         "per_year": headline.metrics["per_year"],
@@ -52,6 +49,11 @@ def run(**overrides) -> dict:
         "per_friction_level": per_level,
         "fingerprint": headline.fingerprint,
     }
+
+
+def build_payload(result: dict) -> dict:
+    """Snapshot payload for S35 — wraps the multi-friction run dict."""
+    return {"snapshot_id": SNAPSHOT_ID, "doc": DOC, **result}
 
 
 app = typer.Typer(add_completion=False, help=__doc__)
@@ -65,13 +67,17 @@ def main(
     seed: int = CANONICAL["seed"],
     top_n: int = CANONICAL["top_n"],
     output_dir: Path | None = None,
+    update_snapshot: bool = False,
 ) -> None:
     """Execute S35 — 2018-2020 out-of-window."""
     args: dict = {"capital": capital, "start": start, "end": end, "seed": seed, "top_n": top_n}
     if output_dir is not None:
         args["output_dir"] = output_dir
-    payload = run(**args)
-    print(json.dumps({"snapshot_id": SNAPSHOT_ID, **payload}, indent=2, default=str))
+    payload = build_payload(run(**args))
+    print(json.dumps(payload, indent=2, default=str))
+    if update_snapshot:
+        path = save_snapshot(SNAPSHOT_ID, payload)
+        print(f"\nSnapshot written to {path}", file=sys.stderr)
 
 
 if __name__ == "__main__":

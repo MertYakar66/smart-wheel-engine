@@ -54,6 +54,11 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "quant: marks tests as quantitative validation tests"
     )
+    config.addinivalue_line(
+        "markers",
+        "backtest_regression: long-running backtest reproducers — excluded from per-PR CI; "
+        "run via .claude/commands/backtest-regression.md",
+    )
 
 
 @pytest.fixture

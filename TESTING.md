@@ -174,6 +174,7 @@ pytest tests/ -m quant -v
 | `@pytest.mark.integration` | Requires external services (Theta Terminal, Ollama, browser sessions). Skip in CI. |
 | `@pytest.mark.slow` | Long-running. Deselect with `-m "not slow"`. |
 | `@pytest.mark.quant` | Quantitative validation tests. |
+| `@pytest.mark.backtest_regression` | Long-running ledger-backtest reproducers (S27/S32/S34/S35). Excluded from per-PR CI; run via `.claude/commands/backtest-regression.md` or the `Backtest Regression` workflow. |
 
 ## What to run when you change ___
 
@@ -190,6 +191,32 @@ pytest tests/ -m quant -v
 | `advisors/*` | `pytest tests/test_advisors.py tests/test_authority_hardening.py` |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python audit.py` against a running `engine_api.py` |
 | `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |
+| `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/forward_distribution.py`, `engine/dealer_positioning.py`, `engine/tail_risk.py` | **Backtest regression** in addition to the launch blockers — run `.claude/commands/backtest-regression.md` (~4–5 h). The four S27/S32/S34/S35 backtests are downstream of all five files. |
+
+## Backtest regression — re-baseline workflow
+
+When `pytest tests/test_backtest_regression.py -m backtest_regression`
+fails, the response is **diagnose first, re-baseline second**:
+
+1. **Do not regenerate snapshots reflexively.** A failure is a signal,
+   not a chore.
+2. `git log --oneline engine/ since <last successful snapshot date>` —
+   identify the candidate PR. The snapshot fingerprint records
+   `engine_sha_at_snapshot_lock`; compare against current `HEAD`.
+3. Read the offending PR description and `CHANGELOG.md`. Is the engine
+   change **deliberate** (a real methodology improvement) or
+   **accidental** (a refactor that should have been numerically
+   invariant)?
+4. **Deliberate:** regenerate via
+   `python -m backtests.regression.<id> --update-snapshot`, amend the
+   relevant `docs/ENGINE_BACKTEST_*.md` with a `## Rebased <date>`
+   section preserving the original numbers, file the snapshot-update
+   PR linking back to the engine PR that caused the drift.
+5. **Accidental:** revert the engine PR. The harness has done its job.
+
+The `data_csv_sha256` field in each snapshot's fingerprint pins the
+Bloomberg CSV; a CSV refresh that changes the SHA forces an explicit
+re-baseline rather than a silent drift.
 
 ## Sandbox notes
 

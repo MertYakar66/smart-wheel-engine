@@ -205,6 +205,18 @@ class EnginePhaseReviewer:
        trail records which one. Like R6/R7, downgrade-only — never
        rescues a negative-EV trade (R1 already does that).
 
+    9. *(Conditional — D17 B2 closure.)* If a `PortfolioContext` is
+       attached and opening the candidate would push its GICS sector
+       over ``max_sector_pct × NAV`` (default 25% per the D17 sector
+       cap; see :func:`engine.portfolio_risk_gates.check_sector_cap`),
+       the verdict is **review** with
+       ``verdict_reason="sector_cap_breach"``. Soft-warn preview of
+       the same gate the tracker applies as a HARD refusal at
+       ``open_short_put`` time when ``require_ev_authority=True``
+       (see :class:`engine.wheel_tracker.WheelTracker`). Like R7/R8,
+       downgrade-only and only fires when context is attached —
+       absent context keeps R9 a no-op (Q3 missing-data semantics).
+
     Notes:
       * The reviewer is pure — no I/O, no network, no LLM. It only
         consumes the already-captured dossier (plus the optional
@@ -392,6 +404,40 @@ class EnginePhaseReviewer:
                 )
                 return "review", "short_gamma_regime", notes
 
+        # Rule 9: sector cap (D17 soft-warn / B2 closure). Soft-warn
+        # preview of the same gate the tracker applies as a HARD
+        # refusal at open_short_put time when
+        # require_ev_authority=True. Downgrade-only.
+        if ctx is not None and verdict == "proceed":
+            from .portfolio_risk_gates import check_sector_cap
+
+            ev_row = dossier.ev_row
+            try:
+                strike = float(ev_row.get("strike", 0) or 0)
+                contracts = int(ev_row.get("contracts", 1) or 1)
+            except (TypeError, ValueError):
+                strike = 0.0
+                contracts = 1
+            proposed_notional = strike * 100.0 * contracts
+
+            nav = float(getattr(ctx, "nav", 0.0) or 0.0)
+            if nav > 0 and proposed_notional > 0:
+                sector_result = check_sector_cap(
+                    symbol=dossier.ticker,
+                    proposed_notional=proposed_notional,
+                    held_option_positions=getattr(ctx, "held_option_positions", []),
+                    nav=nav,
+                )
+                if not sector_result.passed:
+                    sector = sector_result.details.get("sector", "Unknown")
+                    post_pct = sector_result.details.get("post_open_sector_pct", 0.0)
+                    limit_pct = sector_result.details.get("sector_limit", 0.0)
+                    notes.append(
+                        f"R9: {sector} sector exposure would be {post_pct:.1%} "
+                        f"(limit {limit_pct:.1%} NAV) — downgrade to review"
+                    )
+                    return "review", "sector_cap_breach", notes
+
         return verdict, reason, notes
 
     @staticmethod
@@ -399,7 +445,7 @@ class EnginePhaseReviewer:
         """Build the option position-dict shape upstream gate APIs
         expect, from a dossier's ev_row.
 
-        Pure helper — no I/O, no state. Used by R7 and R8.
+        Pure helper — no I/O, no state. Used by R7, R8, and R9.
         """
         ev_row = dossier.ev_row
         # Default option_type to "put" because the wheel pipeline

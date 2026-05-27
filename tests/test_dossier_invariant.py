@@ -226,16 +226,16 @@ class TestD17DossierSoftWarns:
         )
 
     def test_no_portfolio_context_skips_r7_and_r8(self):
-        """When portfolio_context is None, R7 and R8 do not fire and
-        the verdict from R5 (proceed at ev=50) is preserved."""
+        """When portfolio_context is None, R7, R8, and R9 do not fire
+        and the verdict from R5 (proceed at ev=50) is preserved."""
         from engine.candidate_dossier import EnginePhaseReviewer
 
         d = self._proceeding_dossier()
         verdict, reason, notes = EnginePhaseReviewer().review(d)
         assert verdict == "proceed"
         assert reason == "ev_above_threshold"
-        # No R7/R8 notes in the trail.
-        assert not any("R7" in n or "R8" in n for n in notes)
+        # No R7/R8/R9 notes in the trail.
+        assert not any("R7" in n or "R8" in n or "R9" in n for n in notes)
 
     def test_r7_var_check_skips_when_no_correlation_or_returns(self):
         """PortfolioContext attached but no returns_data /
@@ -409,3 +409,148 @@ class TestD17DossierSoftWarns:
         verdict, reason, _notes = EnginePhaseReviewer().review(d)
         assert verdict == "review"
         assert reason == "ev_below_proceed_threshold"
+
+
+class TestD17DossierR9SectorCap:
+    """R9 (D17 B2 closure): sector_cap soft-warn on the dossier.
+
+    Mirrors the R7/R8 tests above but exercises ``check_sector_cap``.
+    Downgrade-only: an already-blocked or already-review verdict is
+    never upgraded. Closes the documented integration test from
+    ``docs/PRODUCTION_READINESS.md`` §6 B2.
+    """
+
+    def _proceeding_dossier(self, ticker="TEST", strike=100.0, premium=2.0, ev_dollars=50.0):
+        from engine.candidate_dossier import CandidateDossier
+
+        return CandidateDossier(
+            ticker=ticker,
+            ev_row={
+                "ticker": ticker,
+                "strike": strike,
+                "premium": premium,
+                "ev_dollars": ev_dollars,
+                "iv": 0.25,
+                "dte": 30,
+                "spot": strike,
+                "contracts": 1,
+            },
+            chart_context=ChartContext(
+                ticker=ticker,
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=strike,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+
+    def test_r9_sector_cap_breach_downgrades_proceed_to_review(self):
+        """A candidate whose proposed notional + held same-sector
+        positions exceeds the sector cap (25% NAV default) gets
+        downgraded to review with reason='sector_cap_breach'.
+
+        AAPL is in Information Technology in DEFAULT_SECTOR_MAP.
+        Pre-load a large existing AAPL short put so opening a second
+        AAPL put pushes the IT sector exposure past 25% of a small NAV.
+        """
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=180.0)
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "AAPL",
+                    "option_type": "put",
+                    "strike": 180.0,
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,  # one held → $18,000 notional
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"AAPL": 180.0},
+            nav=50_000.0,  # post-open IT exposure: $36,000 / $50,000 = 72% > 25% → breach
+        )
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review", f"expected review, got {verdict} (notes={notes})"
+        assert reason == "sector_cap_breach", f"expected sector_cap_breach, got {reason}"
+        assert any("R9" in n for n in notes), f"expected R9 note, got: {notes}"
+
+    def test_r9_passes_when_below_sector_cap(self):
+        """Same setup but with a NAV large enough that the post-open
+        sector exposure stays well under 25% → R9 doesn't fire,
+        verdict stays proceed."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=180.0)
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "AAPL",
+                    "option_type": "put",
+                    "strike": 180.0,
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"AAPL": 180.0},
+            nav=10_000_000.0,  # post-open IT exposure: $36k / $10M = 0.36% → well below cap
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+
+    def test_r9_skips_when_nav_is_zero(self):
+        """Defensive: nav=0 or missing → R9 silently no-ops (matches
+        Q3 missing-data semantics from R7/R8)."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=180.0)
+        d.portfolio_context = PortfolioContext(
+            spot_prices={"AAPL": 180.0},
+            nav=0.0,  # nav=0 → skip
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        # No NAV → no R9 fire, verdict stays proceed from R5.
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+
+    def test_r9_cannot_upgrade_negative_ev(self):
+        """R1 still wins: negative-EV candidate stays blocked even if
+        R9 would have passed."""
+        from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = CandidateDossier(
+            ticker="AAPL",
+            ev_row={
+                "ticker": "AAPL",
+                "strike": 180.0,
+                "premium": 0.5,
+                "ev_dollars": -25.0,
+                "iv": 0.25,
+                "dte": 30,
+                "spot": 180.0,
+                "contracts": 1,
+            },
+            chart_context=ChartContext(
+                ticker="AAPL",
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=180.0,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+        d.portfolio_context = PortfolioContext(nav=10_000_000.0, spot_prices={"AAPL": 180.0})
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "blocked"
+        assert reason == "negative_ev"

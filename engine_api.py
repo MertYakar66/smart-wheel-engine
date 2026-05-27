@@ -474,11 +474,21 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     param("zone"),
                 )
             elif path == "/api/tv/enrich":
+                # D17 portfolio-context opt-in mirrors the dossier
+                # endpoint: when ``nav`` is provided, build a
+                # PortfolioContext and engage the sector_cap / VaR /
+                # stress soft-warns. When omitted, behaviour is
+                # unchanged (no D17 firing).
                 ticker = (param("ticker", "") or "").upper()
+                _nav_raw = param("nav")
                 self._handle_tv_enrich(
                     ticker,
                     param("signal", "wheel_put_zone"),
                     param("as_of"),
+                    nav=float(_nav_raw) if _nav_raw not in (None, "") else None,
+                    holdings_csv=param("holdings"),
+                    puts_held_csv=param("puts_held"),
+                    regime_map_csv=param("regime_map"),
                 )
             elif path == "/api/tv/alerts":
                 self._handle_tv_alerts(int(param("limit", "50")))
@@ -1861,12 +1871,30 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         self._send_json({"accepted": True, "enriched": enriched})
 
-    def _handle_tv_enrich(self, ticker: str, signal_name: str, as_of):
+    def _handle_tv_enrich(
+        self,
+        ticker: str,
+        signal_name: str,
+        as_of,
+        nav: float | None = None,
+        holdings_csv: str | None = None,
+        puts_held_csv: str | None = None,
+        regime_map_csv: str | None = None,
+    ):
         """Pull-style enrichment: build the same decision object the
         webhook would, but for an arbitrary ticker/signal combination.
 
         Useful for UI callers that want the enriched view without wiring
         up a Pine alert first.
+
+        D17 portfolio-context engagement (opt-in): when ``nav`` is
+        provided, the same ``PortfolioContext`` the dossier endpoint
+        constructs is threaded into ``_enrich_alert``, engaging the
+        sector_cap / VaR / stress / dealer-regime soft-warns. Closes
+        ``docs/PRODUCTION_READINESS.md`` Blocker B2 for the pull
+        enrichment surface. The push surface (the POST webhook) does
+        NOT accept these params because Pine cannot know the
+        operator's book.
         """
         from engine.tv_signals import TVAlert
 
@@ -1874,8 +1902,15 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             self._send_error("ticker parameter is required", 400)
             return
 
+        portfolio_context = _build_portfolio_context_from_params(
+            nav=nav,
+            holdings_csv=holdings_csv,
+            puts_held_csv=puts_held_csv,
+            regime_map_csv=regime_map_csv,
+        )
+
         alert = TVAlert(ticker=ticker, signal=signal_name, source="api")
-        enriched = self._enrich_alert(alert, as_of=as_of)
+        enriched = self._enrich_alert(alert, as_of=as_of, portfolio_context=portfolio_context)
         self._send_json(enriched)
 
     def _handle_tv_alerts(self, limit: int):
@@ -2184,13 +2219,24 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------
 
-    def _enrich_alert(self, alert, as_of=None):
+    def _enrich_alert(self, alert, as_of=None, portfolio_context=None):
         """Build the enriched decision object for a TV alert.
 
         This is the decision layer of the integration: after Pine tells us
         "post-expansion stabilization on MU," we want to attach IV rank,
         expected move, preferred delta zone, event risk, and a ranked
         verdict so the trader does not have to re-query five endpoints.
+
+        When ``portfolio_context`` is supplied (only on the pull
+        ``/api/tv/enrich`` endpoint; the webhook does NOT accept it
+        because Pine cannot know the operator's book), D17 portfolio-
+        risk soft-warns engage: a ``proceed`` verdict gets downgraded
+        to ``review`` if the candidate would breach the sector cap
+        (R9 in the dossier reviewer), the portfolio VaR limit (R7), or
+        the stress-scenario drawdown threshold (R8). Mirrors the
+        dossier endpoint's D17 behaviour. Closes
+        ``docs/PRODUCTION_READINESS.md`` Blocker B2 for the webhook/
+        pull-enrichment surface.
         """
         from engine.tv_signals import compute_tv_signal
 
@@ -2332,6 +2378,111 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         else:
             verdict = "skip"
             verdict_reason = "ev_zero_or_below"
+
+        # D17 portfolio-risk soft-warns (B2 closure for the webhook /
+        # pull-enrichment surface). Downgrade ``proceed`` → ``review``
+        # if the candidate would breach the sector cap, VaR limit, or
+        # stress-scenario drawdown. Mirrors the dossier reviewer's
+        # R7 / R8 / R9 pattern. Only fires when a PortfolioContext is
+        # attached AND the initial verdict was "proceed" — never
+        # rescues skip/blocked, never upgrades.
+        if portfolio_context is not None and verdict == "proceed":
+            try:
+                from engine.portfolio_risk_gates import (
+                    check_dealer_regime,
+                    check_sector_cap,
+                    check_stress_scenario,
+                    check_var,
+                )
+
+                # Build the candidate option dict for the gate APIs.
+                ev_row = ev_df.iloc[0].to_dict() if ev_df is not None and len(ev_df) > 0 else {}
+                try:
+                    strike = float(ev_row.get("strike", 0) or 0)
+                    contracts = int(ev_row.get("contracts", 1) or 1)
+                except (TypeError, ValueError):
+                    strike = 0.0
+                    contracts = 1
+                try:
+                    iv = float(ev_row.get("iv", 0) or 0)
+                except (TypeError, ValueError):
+                    iv = 0.0
+                try:
+                    dte_for_gates = int(ev_row.get("dte", 0) or 0)
+                except (TypeError, ValueError):
+                    dte_for_gates = 0
+                candidate_dict = {
+                    "symbol": alert.ticker,
+                    "option_type": "put",
+                    "strike": strike,
+                    "dte": dte_for_gates,
+                    "iv": iv,
+                    "contracts": contracts,
+                    "is_short": True,
+                }
+                proposed_notional = strike * 100.0 * contracts
+                nav_val = float(getattr(portfolio_context, "nav", 0.0) or 0.0)
+
+                # R7: portfolio VaR.
+                if nav_val > 0:
+                    var_result = check_var(
+                        held_option_positions=getattr(
+                            portfolio_context, "held_option_positions", []
+                        ),
+                        spot_prices=getattr(portfolio_context, "spot_prices", {}),
+                        candidate_option=candidate_dict,
+                        nav=nav_val,
+                        returns_data=getattr(portfolio_context, "returns_data", None),
+                        correlation_matrix=getattr(portfolio_context, "correlation_matrix", None),
+                        volatilities=getattr(portfolio_context, "volatilities", None),
+                    )
+                    if not var_result.passed:
+                        verdict = "review"
+                        verdict_reason = "portfolio_var_breach"
+
+                # R8a: stress-scenario drawdown.
+                if nav_val > 0 and verdict == "proceed":
+                    stress_result = check_stress_scenario(
+                        held_option_positions=getattr(
+                            portfolio_context, "held_option_positions", []
+                        ),
+                        spot_prices=getattr(portfolio_context, "spot_prices", {}),
+                        candidate_option=candidate_dict,
+                        nav=nav_val,
+                    )
+                    if not stress_result.passed:
+                        verdict = "review"
+                        verdict_reason = "stress_breach"
+
+                # R8b: dealer-regime (short-gamma amplifying).
+                if verdict == "proceed":
+                    regime_result = check_dealer_regime(
+                        candidate_ticker=alert.ticker,
+                        dealer_regime_by_ticker=getattr(
+                            portfolio_context, "dealer_regime_by_ticker", None
+                        ),
+                    )
+                    if not regime_result.passed:
+                        verdict = "review"
+                        verdict_reason = "short_gamma_regime"
+
+                # R9: sector cap.
+                if nav_val > 0 and proposed_notional > 0 and verdict == "proceed":
+                    sector_result = check_sector_cap(
+                        symbol=alert.ticker,
+                        proposed_notional=proposed_notional,
+                        held_option_positions=getattr(
+                            portfolio_context, "held_option_positions", []
+                        ),
+                        nav=nav_val,
+                    )
+                    if not sector_result.passed:
+                        verdict = "review"
+                        verdict_reason = "sector_cap_breach"
+            except Exception:
+                # Defensive: portfolio gates must never crash the webhook.
+                # On any failure, leave the verdict ladder's result unchanged.
+                pass
 
         # Preferred expiry / delta suggestion — deterministic heuristic
         preferred_dte = 31 if sig.phase == "post_expansion" else 45

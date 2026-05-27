@@ -182,25 +182,37 @@ sample size (10,911) makes the ρ statistic most reliable.
 
 $100k / 24 tickers / 2018–2020 OOS / 3 friction levels.
 
-**S35 was originally generated against the pre-PIT-fix engine.** The
-PR4 re-baseline locks the post-PIT-fix numbers. **The post-fix
-snapshot will diverge materially from the pre-fix doc**; that's the
-campaign's main reason for existing. The comparison table below will
-be filled in when the S35 reproducer completes (in progress at the
-time of this commit).
+**Surprise finding**: the S35 doc was generated against the
+**post-PIT-fix engine** (commit `e504801`), not the pre-fix engine as
+the campaign plan initially assumed. PR4 is therefore an
+engine-version-neutral driver-implementation lock, not a pre→post fix
+re-baseline. The divergences below are due to driver implementation
+(strike rounding, CC-entry strike choice, expiration handling), not
+engine math — the same systematic gap pattern as S27 / S32.
 
-| Metric | S35 doc (pre-PIT-fix) | Snapshot (post-PIT-fix) | Notes |
+| Metric | S35 doc (full friction) | Snapshot (full) | Notes |
 |---|---|---|---|
-| Spearman ρ | 0.4970 | _pending_ | _expect significant decrease — same IV-bug pattern as S22 → S27_ |
-| Final NAV (full) | $103,566 | _pending_ | |
-| Short puts opened | 19 | _pending_ | |
-| CCs opened | 24 | _pending_ | |
-| Put assignments | 6 | _pending_ | |
-| 504-day history gate ON | yes | yes | (engine constant; unchanged) |
+| Spearman ρ | 0.4970 | 0.4998 | **near-identical — driver-invariant** |
+| Rank rows (per friction) | 1,970 | 2,003 | +1.7 % |
+| Short puts opened | 19 | 40 | +110 % — driver finds more EV>0 |
+| Put assignments | 6 | 8 | close |
+| Final NAV ($100k start) | $103,566 | $115,830 | +11.8 % |
+| 504-day history gate ON | yes | yes | engine constant unchanged |
+| BP-binding pattern | yes (uniform) | mixed (40 / 39 / 40) | driver's friction-cash path diverges marginally |
+
+The signal-quality finding — **S35's ρ ≈ 0.50 dwarfs S27's 0.22** —
+survives the driver change exactly. This is the most important
+finding the original S35 doc made, and the harness preserves it.
+
+Execution count doubled (19 → 40). The post-PIT-fix engine actually
+surfaces more positive-EV opportunities in 2018–2020 than the
+original throwaway harness captured. The committed reproducer's
+EV>0 + BP-available + 3-per-day cap is now the recorded
+source-of-truth going forward.
 
 The S35 doc explicitly warned: "in-sample HMM / POT-GPD parameters
-STILL APPLY". The post-fix re-baseline preserves that caveat — the
-parameters were tuned with full 2018-2026 visibility, so 2018-2020
+STILL APPLY". The re-baseline preserves that caveat — the
+parameters were tuned with full 2018-2026 visibility, so 2018–2020
 is not a fully independent OOS validation.
 
 ---

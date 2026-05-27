@@ -289,3 +289,55 @@ friction level × 3 levels).
 
 Runtime: ~40 minutes wall-clock on the dev box, with parallel
 S34 backtest also running.
+
+---
+
+## Re-baseline 2026-05-26 (regression harness lock)
+
+The throwaway S35 harness above is lost (deleted per convention).
+The committed reproducer
+`backtests/regression/s35_oos_24t_100k.py` re-runs the same window /
+universe / strategy through `run_backtest_multi_friction` and locks
+the resulting metrics in
+`backtests/regression/snapshots/s35_oos_24t_100k.json`. The
+re-baseline is **engine-version-neutral** — both the original S35
+and this re-baseline run against the post-PIT-fix engine. The
+divergences below are due to driver-implementation differences
+(strike rounding, CC-entry strike choice, expiration handling), not
+engine math.
+
+| Metric | Original S35 (full friction) | Re-baseline (full friction) | Δ |
+|---|---|---|---|
+| Spearman ρ | 0.4970 | 0.4998 | **+0.003 — near-identical** |
+| Rank rows (per friction) | 1,970 | 2,003 | +1.7 % |
+| Short puts opened | 19 | 40 | **+110 % — driver finds more EV>0** |
+| Put assignments | 6 | 8 | close |
+| Final NAV ($100k start) | $103,566 | $115,830 | +11.8 % |
+| Engine return | +3.57 % | +15.83 % | wider gap from SPY narrows |
+| BP not binding | yes | yes | "same exec across levels" not preserved (40 / 39 / 40) |
+
+Interpretation:
+- **ρ is stable.** The signal-quality finding (S35's ρ ≈ 0.50 dwarfs
+  S27's 0.22) survives the driver change. This was the headline of
+  the original S35 doc and it holds.
+- **Executions doubled.** The post-PIT-fix engine actually surfaces
+  more positive-EV opportunities in 2018–2020 than the original
+  throwaway harness captured. The original ran on the same post-fix
+  engine but its execution-decision logic was stricter or its
+  open-cap differently configured. The committed reproducer's
+  EV>0 + BP-available + 3-per-day cap is the recorded
+  source-of-truth going forward.
+- **41 pp underperformance vs SPY** (the original S35 headline)
+  narrows to ~29 pp (engine +15.8 % vs SPY ~+45 %). The signal
+  finding holds; the dollar narrative tightens but the qualitative
+  conclusion ("engine sat out the recovery") still applies.
+- The COVID-window refusal-rate finding (engine refused 99.8 % of
+  high-loss candidates) is preserved: same 504-day history gate is
+  active in both runs; same regime sensitivity in the multipliers.
+
+This re-baseline is locked by
+`tests/test_backtest_regression.py::test_backtest_matches_snapshot
+[s35_oos_24t_100k-...]`. Future engine changes that drift the
+documented ρ / NAV will fail this test loudly. See
+`docs/BACKTEST_REGRESSION_CAMPAIGN.md` for the full harness context
+and re-baseline workflow.

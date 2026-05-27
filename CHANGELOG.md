@@ -14,6 +14,73 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05 (late) — Backtest regression harness
+
+### Added
+- **Backtest regression harness** (4-PR series). Converts the four
+  committed ledger backtests (S27 / S32 / S34 / S35) from human-
+  curated Markdown into executable pytest assertions against the
+  current engine. Snapshots in `backtests/regression/snapshots/`
+  are the regression baseline; the slow-lane test is gated behind
+  `@pytest.mark.backtest_regression` and a dedicated workflow.
+  - **PR1** `claude/backtests-regression-scaffolding` — `backtests/
+    regression/` scaffolding (4 reproducers + universes + driver),
+    `pyproject.toml` adds `backtests` to wheel packages.
+  - **PR2** `claude/backtests-regression-snapshots-tests` — locked
+    snapshots for S27 / S32 / S34 plus `tests/
+    test_backtest_regression.py`, `backtest_regression` marker,
+    `.claude/commands/backtest-regression.md` skill, TESTING.md +
+    LAUNCH_READINESS.md §10 updates. CC wheeling added to the driver
+    (without it, assigned tickers locked out of rotation; S27 v1
+    executed 15 trades vs documented 50; v2 with CC wheeling executed
+    51). `run_backtest_multi_friction` shares one SP rank call per
+    day across N friction levels (~3× faster than naive sequential).
+    Comprehensive campaign report at `docs/BACKTEST_REGRESSION_CAMPAIGN.md`.
+  - **PR3** `claude/backtests-regression-ci-split` — `ci.yml` `Test
+    Suite` excludes the marker; new
+    `.github/workflows/backtest-regression.yml` workflow_dispatch
+    entry (cron deferred until CSV hydration in CI is solved).
+  - **PR4** `claude/backtests-regression-s35-rebaseline` — S35
+    re-baseline against the current driver. Finding: S35's headline ρ
+    is **driver-invariant** (0.4970 doc vs 0.4998 snapshot) but
+    execution count doubled (19 → 40) — the post-PIT-fix engine
+    surfaces more positive-EV opportunities in 2018–2020 than the
+    original throwaway harness captured.
+
+### Docs
+- `docs/BACKTEST_REGRESSION_CAMPAIGN.md` — campaign report
+  (architecture, methodology, snapshot-vs-doc tables for all four,
+  on-fail re-baseline workflow). Entry point for any agent picking
+  up or auditing the harness.
+- `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` amended with a
+  `## Re-baseline 2026-05-26 (regression harness lock)` section
+  preserving the original numbers and documenting the driver-
+  implementation divergences.
+- `TESTING.md` — new `backtest_regression` marker row + "Backtest
+  regression — re-baseline workflow" section.
+- `docs/LAUNCH_READINESS.md` — new §10 "Backtest regression gate"
+  (per-release blocker, not per-merge) + pre-merge checklist bullet
+  for the five engine files (`ev_engine`, `wheel_runner`,
+  `forward_distribution`, `dealer_positioning`, `tail_risk`) whose
+  changes mandate running the harness.
+
+### Snapshot-vs-doc divergences (campaign-wide)
+
+| Backtest | ρ match | NAV match | Notes |
+|---|---|---|---|
+| S27 | within 0.03 | −16 % | systematic strike-rounding gap; executed count 51 vs 50 ✓ |
+| S32 | within 0.006 | +5.8 % | "BP not binding at $1M with 24 tickers" ✓ |
+| S34 | **within 0.002** | within 2.5 % | strongest match (large sample averages out per-ticker noise) |
+| S35 | within 0.003 | +11.8 % | doubled execution count is the meaningful finding |
+
+The harness captures **current engine behavior** as the regression
+baseline. The documented numbers serve as a sanity check on signal
+direction and ordering, not as an exact target. Future engine drift
+fails the test loudly; intentional methodology changes force an
+explicit re-baseline + doc amendment.
+
+---
+
 ## 2026-05 — Coverage push + lint debt mechanical fix + foundation pass
 
 ### Added

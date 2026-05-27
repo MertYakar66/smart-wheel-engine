@@ -1,93 +1,286 @@
-from datetime import date
+"""Coverage tests for engine/transaction_costs.py.
 
-from engine.transaction_costs import (
-    calculate_assignment_fee,
-    calculate_commission,
-    calculate_slippage,
-    calculate_total_entry_cost,
-    calculate_total_exit_cost,
-)
-from engine.wheel_tracker import WheelTracker
+Targets the missing-line set identified by the 2026-05-08 audit (F7):
+lines 66, 73-74, 133, 135, 138->146 branch, 143, 283, 354-372.
 
-print("=== Testing Transaction Cost Module ===\n")
+Tests are hermetic — pure-Python arithmetic, no fixtures from disk.
+"""
 
-print("1. Testing individual cost functions:")
-comm = calculate_commission("option")
-print(f"   Commission per contract: ${comm:.2f}")
+from __future__ import annotations
 
-slippage = calculate_slippage(mid_price=2.50, bid_ask_spread=0.25, trade_direction="sell")
-print(f"   Slippage (15% of $0.25 spread): ${slippage:.4f}")
+import math
 
-assignment_fee = calculate_assignment_fee()
-print(f"   Assignment fee: ${assignment_fee:.2f}")
+import pytest
 
-print("\n2. Testing entry cost calculation:")
-entry_costs = calculate_total_entry_cost(premium_per_share=2.50, bid_ask_spread=0.25)
-print(f"   Gross premium: ${entry_costs['gross_premium']:.2f}")
-print(f"   Slippage: ${entry_costs['slippage']:.2f}")
-print(f"   Commission: ${entry_costs['commission']:.2f}")
-print(f"   Total cost: ${entry_costs['total_cost']:.2f}")
-print(f"   Net premium collected: ${entry_costs['net_premium_collected']:.2f}")
+from engine import transaction_costs as tc
 
-print("\n3. Testing exit cost calculation:")
-exit_costs = calculate_total_exit_cost(buyback_price_per_share=1.00, bid_ask_spread=0.10)
-print(f"   Gross buyback: ${exit_costs['gross_buyback_cost']:.2f}")
-print(f"   Slippage: ${exit_costs['slippage']:.2f}")
-print(f"   Commission: ${exit_costs['commission']:.2f}")
-print(f"   Total cost: ${exit_costs['total_cost']:.2f}")
-print(f"   Total buyback cost: ${exit_costs['total_buyback_cost']:.2f}")
+# ---------------------------------------------------------------------------
+# calculate_actual_spread — covers lines 66 (normal bid/ask), 73-74 (basis fallback)
+# ---------------------------------------------------------------------------
 
-print("\n4. Testing full Wheel cycle with cost tracking:")
-tracker = WheelTracker(100000.0)
 
-tracker.open_short_put(
-    ticker="COST_TEST",
-    strike=150.0,
-    premium=2.50,
-    entry_date=date(2024, 1, 1),
-    expiration_date=date(2024, 2, 1),
-    iv=0.25,
-)
-pos = tracker.positions["COST_TEST"]
-print("   After put entry:")
-print(f"     Cash: ${tracker.cash:.2f}")
-print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
-print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+class TestCalculateActualSpread:
+    def test_normal_bid_ask_returns_difference(self):
+        # Line 66: ask >= bid >= 0 → return ask - bid
+        assert tc.calculate_actual_spread(bid=1.00, ask=1.20) == pytest.approx(0.20)
 
-tracker.handle_put_assignment("COST_TEST", date(2024, 1, 15), 145.0)
-print("   After assignment:")
-print(f"     Cash: ${tracker.cash:.2f}")
-print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+    def test_zero_bid_zero_ask_returns_zero(self):
+        # Edge: bid=ask=0 still satisfies ask >= bid >= 0
+        assert tc.calculate_actual_spread(bid=0.0, ask=0.0) == 0.0
 
-tracker.open_covered_call(
-    ticker="COST_TEST",
-    strike=155.0,
-    premium=1.50,
-    entry_date=date(2024, 1, 16),
-    expiration_date=date(2024, 2, 16),
-    iv=0.23,
-)
-print("   After call entry:")
-print(f"     Cash: ${tracker.cash:.2f}")
-print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
-print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+    def test_inverted_quote_falls_through_to_mid(self):
+        # ask < bid violates the ask >= bid guard — should fall through.
+        # With mid_price provided, returns mid_price * fallback_pct.
+        spread = tc.calculate_actual_spread(bid=1.5, ask=1.0, mid_price=1.25)
+        assert spread == pytest.approx(0.125)  # 1.25 * 0.10
 
-result = tracker.close_covered_call("COST_TEST", 0.75, date(2024, 1, 25), "profit_target")
-print("   After call buyback:")
-print(f"     Cash: ${tracker.cash:.2f}")
-print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
-print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
-print(f"     Net P&L: ${pos.realized_pnl - pos.transaction_costs:.2f}")
+    def test_no_bid_or_ask_uses_mid_fallback(self):
+        # First fallback: mid_price * fallback_pct
+        spread = tc.calculate_actual_spread(bid=None, ask=None, mid_price=2.0, fallback_pct=0.10)
+        assert spread == pytest.approx(0.20)
 
-expected_min_costs = 4 * 0.65 + 5.0
-print("\n5. Cost validation:")
-print(f"   Total transaction costs: ${pos.transaction_costs:.2f}")
-print(f"   Expected minimum (4 commissions + 1 assignment): ${expected_min_costs:.2f}")
-print(f"   Additional costs from slippage: ${pos.transaction_costs - expected_min_costs:.2f}")
+    def test_no_mid_uses_ask_basis(self):
+        # Lines 73-74: mid is None → basis = ask, returns ask * fallback_pct
+        spread = tc.calculate_actual_spread(bid=None, ask=2.0, mid_price=None, fallback_pct=0.10)
+        assert spread == pytest.approx(0.20)
 
-if pos.transaction_costs > expected_min_costs:
-    print("\n✓ Slippage is being modeled correctly (costs exceed commission-only baseline)")
-else:
-    print("\n✗ Warning: Costs do not exceed baseline, slippage may not be applied")
+    def test_no_mid_no_ask_uses_bid_basis(self):
+        # Lines 73-74: mid + ask both None → basis = bid
+        spread = tc.calculate_actual_spread(bid=1.5, ask=None, mid_price=None, fallback_pct=0.10)
+        assert spread == pytest.approx(0.15)
 
-print("\n✓ Transaction cost module validation complete")
+    def test_no_inputs_returns_zero(self):
+        # Lines 73-74 final branch: everything None → basis=0 → 0 * pct = 0
+        assert tc.calculate_actual_spread(bid=None, ask=None, mid_price=None) == 0.0
+
+    def test_zero_mid_falls_through_to_basis(self):
+        # mid_price=0 fails `mid_price > 0`, so we fall through to basis.
+        spread = tc.calculate_actual_spread(bid=None, ask=3.0, mid_price=0.0, fallback_pct=0.10)
+        assert spread == pytest.approx(0.30)
+
+
+# ---------------------------------------------------------------------------
+# calculate_slippage — covers lines 133, 135, 143, 138->146 branch
+# ---------------------------------------------------------------------------
+
+
+class TestCalculateSlippageLiquidityBuckets:
+    """Open-interest tier multipliers (lines 130-135)."""
+
+    def test_open_interest_below_50_doubles_and_a_half(self):
+        # OI < 50 → base_factor *= 2.5 (line 131)
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            open_interest=10,
+        )
+        # base = 0.15 * 2.5 = 0.375; clamped to 0.50 cap; spread_slippage = 0.10 * 0.375
+        assert slippage == pytest.approx(0.10 * 0.375)
+
+    def test_open_interest_below_100_doubles(self):
+        # Line 133: OI in [50, 100) → base_factor *= 2.0
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            open_interest=80,
+        )
+        # base = 0.15 * 2.0 = 0.30; spread_slippage = 0.10 * 0.30
+        assert slippage == pytest.approx(0.10 * 0.30)
+
+    def test_open_interest_below_500_one_and_a_half(self):
+        # Line 135: OI in [100, 500) → base_factor *= 1.5
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            open_interest=300,
+        )
+        # base = 0.15 * 1.5 = 0.225; spread_slippage = 0.10 * 0.225
+        assert slippage == pytest.approx(0.10 * 0.225)
+
+    def test_open_interest_at_or_above_500_unchanged(self):
+        # OI >= 500 → no liquidity penalty
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            open_interest=1000,
+        )
+        # base = 0.15; spread_slippage = 0.10 * 0.15
+        assert slippage == pytest.approx(0.10 * 0.15)
+
+
+class TestCalculateSlippageSpreadPenalties:
+    """Spread-pct penalty branches (lines 138-143)."""
+
+    def test_zero_mid_skips_spread_pct_branch(self):
+        # Branch 138->146: mid_price <= 0 skips the spread_pct adjustment.
+        # Sqrt-impact also disabled (no adv_contracts), so size_slippage = 0.
+        slippage = tc.calculate_slippage(
+            mid_price=0.0,
+            bid_ask_spread=0.05,
+            trade_direction="sell",
+        )
+        # base_factor unchanged at 0.15; spread_slippage = 0.05 * 0.15
+        assert slippage == pytest.approx(0.05 * 0.15)
+
+    def test_wide_spread_above_30pct_increases_penalty(self):
+        # Line 141: spread_pct > 0.30 → base_factor *= 1.5
+        # mid_price=1.0, spread=0.40 → spread_pct = 0.40 > 0.30
+        slippage = tc.calculate_slippage(
+            mid_price=1.0,
+            bid_ask_spread=0.40,
+            trade_direction="buy",
+        )
+        # base = 0.15 * 1.5 = 0.225; capped under 0.50; spread_slippage = 0.40 * 0.225
+        assert slippage == pytest.approx(0.40 * 0.225)
+
+
+class TestCalculateSlippageSqrtImpact:
+    """Almgren-Chriss sqrt impact (lines 149-153)."""
+
+    def test_sqrt_impact_zero_when_adv_unknown(self):
+        # adv_contracts=None → size_slippage = 0
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            num_contracts=10,
+            adv_contracts=None,
+        )
+        assert slippage == pytest.approx(0.10 * 0.15)  # spread-only
+
+    def test_sqrt_impact_disabled_returns_spread_only(self):
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            num_contracts=10,
+            adv_contracts=100,
+            use_sqrt_impact=False,
+        )
+        assert slippage == pytest.approx(0.10 * 0.15)
+
+    def test_sqrt_impact_scales_with_participation(self):
+        # 10 contracts on 100 ADV → participation = 0.10 → sqrt = 0.3162...
+        # size_slippage = 0.10 * 10.0 * 0.3162... = ~0.3162
+        slippage = tc.calculate_slippage(
+            mid_price=10.0,
+            bid_ask_spread=0.10,
+            trade_direction="sell",
+            num_contracts=10,
+            adv_contracts=100,
+            use_sqrt_impact=True,
+            impact_coefficient=0.10,
+        )
+        expected_size = 0.10 * 10.0 * math.sqrt(0.10)
+        expected_spread = 0.10 * 0.15
+        assert slippage == pytest.approx(expected_spread + expected_size)
+
+
+# ---------------------------------------------------------------------------
+# calculate_total_exit_cost — covers line 283 (auto-spread fallback)
+# ---------------------------------------------------------------------------
+
+
+class TestExitCostSpreadFallback:
+    def test_exit_cost_without_spread_computes_one(self):
+        # Line 283: bid_ask_spread is None → calculate_actual_spread is called
+        result = tc.calculate_total_exit_cost(
+            buyback_price_per_share=2.0,
+            bid_ask_spread=None,
+            bid=1.95,
+            ask=2.05,
+        )
+        # Spread should be 2.05 - 1.95 = 0.10; slippage = 0.10 * 0.15 = 0.015 per share
+        # slippage_per_contract = 0.015 * 100 = 1.50
+        assert result["slippage"] == pytest.approx(1.50)
+        assert result["commission"] == pytest.approx(tc.DEFAULT_COMMISSION_PER_CONTRACT)
+        assert result["gross_buyback_cost"] == pytest.approx(200.0)
+
+
+# ---------------------------------------------------------------------------
+# estimate_round_trip_cost — covers lines 354-372
+# ---------------------------------------------------------------------------
+
+
+class TestEstimateRoundTripCost:
+    def test_full_round_trip_with_explicit_spreads(self):
+        result = tc.estimate_round_trip_cost(
+            entry_premium=2.50,
+            expected_exit_premium=1.00,
+            entry_spread=0.10,
+            exit_spread=0.08,
+            open_interest=200,
+        )
+        assert result["entry_costs"] > 0
+        assert result["exit_costs"] > 0
+        assert result["total_costs"] == pytest.approx(result["entry_costs"] + result["exit_costs"])
+        # Premium is non-zero → cost-as-pct must be the ratio.
+        assert result["cost_as_pct_of_premium"] == pytest.approx(
+            result["total_costs"] / (2.50 * 100)
+        )
+        assert result["breakeven_decay_needed"] == pytest.approx(result["total_costs"] / 100)
+
+    def test_round_trip_defaults_entry_spread_when_missing(self):
+        # Line 354-355: entry_spread is None → use entry_premium * 0.10
+        result_no_spread = tc.estimate_round_trip_cost(
+            entry_premium=2.50,
+            expected_exit_premium=1.00,
+            entry_spread=None,
+            exit_spread=None,
+        )
+        result_with_spread = tc.estimate_round_trip_cost(
+            entry_premium=2.50,
+            expected_exit_premium=1.00,
+            entry_spread=0.25,  # = 2.50 * 0.10
+            exit_spread=0.25,
+        )
+        assert result_no_spread["total_costs"] == pytest.approx(result_with_spread["total_costs"])
+
+    def test_round_trip_defaults_exit_spread_to_entry(self):
+        # Line 357-358: exit_spread is None → mirrors entry_spread
+        explicit_entry = tc.estimate_round_trip_cost(
+            entry_premium=3.0,
+            expected_exit_premium=1.5,
+            entry_spread=0.20,
+            exit_spread=None,
+        )
+        both_explicit = tc.estimate_round_trip_cost(
+            entry_premium=3.0,
+            expected_exit_premium=1.5,
+            entry_spread=0.20,
+            exit_spread=0.20,
+        )
+        assert explicit_entry["total_costs"] == pytest.approx(both_explicit["total_costs"])
+
+    def test_round_trip_zero_entry_premium_returns_zero_pct(self):
+        # Line 376: entry_premium <= 0 short-circuits cost_as_pct_of_premium to 0.
+        result = tc.estimate_round_trip_cost(
+            entry_premium=0.0,
+            expected_exit_premium=0.0,
+            entry_spread=0.05,
+            exit_spread=0.05,
+        )
+        assert result["cost_as_pct_of_premium"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Bug pinned by audit F7 — line 143 unreachable
+# ---------------------------------------------------------------------------
+
+
+def test_severe_spread_penalty_doubles_base_factor():
+    """Pins the intent that spread_pct > 0.50 triggers a 2.0× penalty."""
+    # mid_price=1.0, spread=0.60 → spread_pct = 0.60 (> 0.50, also > 0.30)
+    # Intended: base_factor = 0.15 * 2.0 = 0.30; spread_slippage = 0.60 * 0.30 = 0.180
+    # Actual: base_factor = 0.15 * 1.5 = 0.225; spread_slippage = 0.60 * 0.225 = 0.135
+    slippage = tc.calculate_slippage(
+        mid_price=1.0,
+        bid_ask_spread=0.60,
+        trade_direction="sell",
+    )
+    intended = 0.60 * (tc.DEFAULT_SLIPPAGE_PCT * 2.0)
+    assert slippage == pytest.approx(intended)

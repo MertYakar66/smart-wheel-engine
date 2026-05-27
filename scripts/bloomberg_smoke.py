@@ -8,9 +8,9 @@ Run this script to:
 3. Verify data pipeline is working
 
 Usage:
-    python scripts/test_bloomberg.py
-    python scripts/test_bloomberg.py --ticker AAPL
-    python scripts/test_bloomberg.py --extract-all
+    python scripts/bloomberg_smoke.py
+    python scripts/bloomberg_smoke.py --ticker AAPL
+    python scripts/bloomberg_smoke.py --extract-all
 """
 
 import argparse
@@ -52,7 +52,7 @@ def check_dependencies():
     return deps
 
 
-def test_connection():
+def run_connection_check():
     """Test Bloomberg connection."""
     print("\n" + "=" * 50)
     print("Testing Bloomberg Connection")
@@ -246,11 +246,11 @@ def main():
         print("\nOptions:")
         print("1. Install pywin32: pip install pywin32")
         print("2. Install Bloomberg Python API (blpapi)")
-        print("3. Use the VBA script in scripts/bloomberg_excel_extractor.bas")
+        print("3. Use the VBA script in scripts/bloomberg_excel_extractor_v2.bas")
         return
 
     # Test connection
-    if not test_connection():
+    if not run_connection_check():
         print("\nBloomberg connection failed.")
         print("Make sure:")
         print("1. Bloomberg Terminal is running")

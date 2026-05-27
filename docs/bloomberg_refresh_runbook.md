@@ -16,7 +16,7 @@
 | 4 | `sp500_earnings.csv` | **None found in repo** | — | — | — | — |
 | 5 | `treasury_yields.csv` | `scripts/pull_treasury_yields_yf.py` — `yfinance` (`^IRX`/`^FVX`/`^TNX`/`^TYX`) → writes consolidated CSV **directly** | `python scripts/pull_treasury_yields_yf.py --incremental` (or `--years N`) | `data/bloomberg/treasury_yields.csv` (`OUT_CSV`, the default) | ✅ **Yes** | Python (yfinance — no Bloomberg) |
 | 6 | `vix_term_structure.csv` | **None found in repo** | — | — | — | — |
-| 7 | `sp500_fundamentals.csv` | **No producer for the current schema.** Closest: `scripts/bloomberg_excel_extractor.bas` / `_v2.bas` → `ExtractFundamentals` — but wrong schema (7 cols vs the file's 13), 17–24 tickers not 503, writes to a subdir | Excel: Alt+F8 → run `ExtractFundamentals` | `data/bloomberg/fundamentals/sp500_fundamentals.csv` (subdir) | ❌ **No** — subdir mismatch **+** schema/universe mismatch | Excel Add-In |
+| 7 | `sp500_fundamentals.csv` | **No producer for the current schema.** Closest: `scripts/bloomberg_excel_extractor_v2.bas` → `ExtractFundamentals` — but wrong schema (7 cols vs the file's 13), 17–24 tickers not 503, writes to a subdir (V1 archived to `archive/2026-05/`) | Excel: Alt+F8 → run `ExtractFundamentals` | `data/bloomberg/fundamentals/sp500_fundamentals.csv` (subdir) | ❌ **No** — subdir mismatch **+** schema/universe mismatch | Excel Add-In |
 | 8 | `sp500_credit_risk.csv` | **None found in repo** | — | — | — | — |
 | 9 | `sp500_liquidity.csv` | `scripts/pull_liquidity.py` — `xbbg`: `blp.bds("SPX Index","INDX_MWEIGHT")` → universe-wide `blp.bdh` → writes consolidated CSV **directly** | `python scripts/pull_liquidity.py` — **first edit the hardcoded `end_date="2026-03-20"` at line 26** | `data/bloomberg/sp500_liquidity.csv` | ✅ **Yes** | Python (xbbg → needs Bloomberg Terminal) |
 
@@ -36,7 +36,7 @@ There is **no per-ticker → consolidated step** anywhere in the repo. The three
 **6 of the 9 connector files have no valid producer in the repository:**
 
 - `sp500_vol_iv_full.csv`, `sp500_dividends.csv`, `sp500_earnings.csv`, `sp500_credit_risk.csv`, `vix_term_structure.csv` — **no script, no macro, no formula set, no BQL** writes any of these. Grep of the repo for each filename returns only *readers* (the connector, `consolidated_loader.py`, `pipeline.py`, `data_integration.py`, tests) and docs — zero writers.
-- `sp500_fundamentals.csv` — the only fundamentals extractor (`bloomberg_excel_extractor[_v2].bas`) produces a **different 7-column schema** for **17–24 tickers** into a **`fundamentals/` subdir** — it cannot have produced the current 13-column, 503-ticker `sp500_fundamentals.csv`.
+- `sp500_fundamentals.csv` — the only fundamentals extractor (`bloomberg_excel_extractor_v2.bas`; V1 archived) produces a **different 7-column schema** for **17–24 tickers** into a **`fundamentals/` subdir** — it cannot have produced the current 13-column, 503-ticker `sp500_fundamentals.csv`.
 
 What the Bloomberg assets that *do* exist actually cover:
 - `EXTRACTION_GUIDE.md`, both `.bas`, both `.vba`, all 5 `*_formulas.txt` — the **per-ticker pipeline** (subdir `ohlcv/`,`iv_history/`,`earnings/`,`dividends/` per-`{TICKER}.csv`), feeding `bloomberg_loader.py`. Not connector producers. Also stale: hardcoded `2024-01-01…2026-03-17` ranges, hardcoded non-existent `BLOOMBERG_DIR` paths, partial schemas.

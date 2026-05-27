@@ -193,7 +193,7 @@ Key scripts:
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
 | `probe_theta_capabilities.py` | Regenerates `data_processed/theta_capabilities.json`. |
 | `quant_benchmark_gate.py` | Gate run for benchmark suite. |
-| `validate_environment.py` / `check_env.py` | Local environment sanity. |
+| `validate_environment.py` | Local environment sanity (wired into CI). |
 | `check_manifest_coverage.py` | CI guard — fails the build if any tracked file is absent from `FILE_MANIFEST.md` or vice versa (the gate behind `DECISIONS.md` D14's tiered layout). |
 | `setup-terminal.{sh,ps1}` | Parallel-session env loader (bash / PowerShell) — sources per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, and three more vars. See `DECISIONS.md` D15. |
 

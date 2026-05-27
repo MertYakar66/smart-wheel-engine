@@ -421,3 +421,150 @@ unconditional.
   assertions are not sensitive enough to detect "engine became
   more optimistic" — they only assert the gap exists with a
   permissive threshold (`cvar_5 > -10% of collateral`).
+
+---
+
+## 10. Fix B1+C attempt rolled back — research-grade calibration needed (2026-05-27)
+
+Following §9, a Fix B1 (regime-conditioned widening) and Fix C
+(worst-of-two evaluation) attempt was shipped on
+`claude/fix-f4-regime-conditioned-widening` (PR #253), validated
+against the named F4 cases via unit-test pins, and **rolled back
+after the S27 backtest validation surfaced a Spearman ρ inversion**.
+Documenting the negative result here so future work does not
+re-attempt the same calibration.
+
+### What was tried (commits a055349, ec3d51b — both reverted)
+
+**Fix B1** (a055349): multiplied the empirical forward-log-return
+std by `regime_widening_factor(p_crisis, p_bear)` immediately before
+`EVEngine.evaluate`. Factor bounded to `[1.0, 1.5]`. Sign-preserving
+(factor ≥ 1.0). Mean-preserving (only widens spread). Wired in
+`engine/wheel_runner.py::rank_candidates_by_ev`.
+
+**Fix C** (ec3d51b): added a "worst-of-two" evaluation. When
+widening fires, the ranker evaluates `EVEngine.evaluate` on both the
+NOS-widened sample (Fix-B1 baseline) and an overlapping-widened
+sample (~1225 samples at 5y/35d default; unlocks the POT-GPD
+heavy-tail fit which is gated on `len(pnls) >= 200`). The
+more-conservative result (lower `ev_dollars`) wins. Designed to
+preserve the COST 2022-04 partial close while deepening the UNH
+2024-11 close.
+
+### Unit-test pins closed the named cases
+
+Live probe on Fix B1+C @ ec3d51b vs pre-fix baseline @ 9f0afaf:
+
+| Case | Pre-fix | Post Fix-B1+C | Status |
+|---|---|---|---|
+| UNH 2024-11 | 0.857 / +\$114.53 | 0.7725 / **−\$118.82** | F4 gap CLOSED (cvar past −10% of coll) |
+| COST 2022-04 | 0.833 / +\$62.88 | 0.833 / **−\$25.31** | partial — ev_dollars flips |
+| AAPL 2026-02 (control) | 0.857 / +\$5.50 | 0.7355 / −\$55.81 | flagged via legitimate HMM p_crisis=0.879 |
+
+All three unit-test classes in `tests/test_f4_tail_risk_regression.py`
+passed. Launch-blocker subset 93/93 passed. Full pytest (excl.
+backtest_regression + slow): 2,428 passed, 2 xfailed.
+
+### Backtest regression surfaced the failure mode
+
+S27 IV-PIT backtest (`tests/test_backtest_regression.py::test_backtest_matches_snapshot[s27_ivpit_24t_100k]`):
+
+| Metric | Pre-fix (snapshot) | Post Fix-B1+C | Δ |
+|---|---|---|---|
+| Spearman ρ (aggregate) | **+0.1881** | **−0.1450** | **INVERTED** |
+
+This is not a degradation — the ranking signal flipped sign.
+The engine's "best" picks underperform its "worst" picks across
+2,400+ trades in the 2022-2024 window.
+
+### Diagnosis: HMM widening over-fires across calm-bull periods
+
+A fast Spearman probe (905 ticker-date pairs across 2022-2024) with
+**Fix B1 only** (Fix-C reverted) confirmed Fix-B1 is also the root
+regression — not just Fix-C:
+
+```
+Spearman rho(ev_dollars, realized_pnl) = -0.0940  (p=0.0046)
+positive ev: 132 / 905
+widening factor mean: 1.185
+no-widening rate: 14 / 905 (1.5%)
+```
+
+The HMM fires `crisis` / `bear` labels on **98.5% of probed pairs**.
+Reading the HMM source: the K=4 GMM labels `crisis` as the
+HIGHEST-VARIANCE state, not "actual systemic crisis." During the
+2022-2024 window, the HMM appears to oscillate between `bear` and
+`crisis` labels for moderate-vol equity ranges that are NOT
+realized tail events. The widening multipliers
+(`crisis_weight=0.5`, `bear_weight=0.25`) were calibrated against
+UNH 2024-11 and the AAPL 2026-02 control — both genuine tail
+periods — but the *frequency* of widening firing in non-tail
+periods was not measured before the calibration.
+
+The result: widening pulls ev_dollars down on a per-ticker basis
+that's orthogonal to forward returns. Per-ticker bias creates
+ranking shifts → signal degradation → eventual sign flip.
+
+### Why naïve fixes don't recover the signal
+
+Tried during the rollback investigation:
+
+1. **Worst-of-two adding overlapping**: makes the signal MORE
+   degraded (S27 ρ from −0.094 to −0.145) because the larger
+   overlapping sample is even more sensitive to mean-shift
+   artifacts than NOS.
+2. **Single-evaluation B1-only**: still inverted (ρ = −0.094).
+3. **Raising the fire threshold** (e.g., widening_factor > 1.20):
+   would skip the COST 2022-04 case (factor 1.09), losing the
+   partial close.
+4. **Halving the weights** (crisis 0.5 → 0.25, bear 0.25 →
+   0.125): would not close UNH 2024-11 (factor 1.16 vs needed
+   1.32 for the prob_profit drop).
+
+The named F4 cases (UNH at 0.27 crisis + 0.72 bear, COST at 0.14 +
+0.09) need DIFFERENT calibration from the broader window, where the
+HMM mostly reports 0.1–0.4 crisis + 0.1–0.3 bear on calm periods.
+A static multiplier cannot satisfy both.
+
+### What a correct fix needs
+
+A working F4 fix must:
+
+1. Distinguish "true tail-regime" from "moderate elevated vol"
+   beyond the HMM's K=4 label alone. Candidate signals:
+   - Ticker-specific 30-day realized vol vs. its 1y baseline
+     (idiosyncratic regime signal).
+   - VIX level / VIX term structure as a market-wide regime
+     signal independent of the per-ticker HMM.
+   - HMM posterior threshold (e.g., fire only when p_crisis >
+     0.7) tuned against the full backtest, not against single cases.
+2. Be calibrated against the **full backtest set** (S22 / S27 /
+   S32 / S34 / S35) such that Spearman ρ does not drop below the
+   pre-fix +0.188 baseline.
+3. Close the named F4 cases (UNH, COST) without firing on the
+   calm-bull plurality.
+
+This is a multi-week research effort with explicit
+"keep-ρ-non-negative" + "close-named-cases" co-objectives. Not a
+single-PR fix.
+
+### What was preserved through the rollback
+
+- **All non-§2 work**: the `f4_baseline_driver.py` and
+  `f4_baseline_2026-05-26_raw_output.txt` from PR #245 still
+  reproduce the pre-fix engine exactly.
+- **The diagnostic chain**: §1-9 above (root cause, lookback
+  sensitivity, why Fix A failed) is unchanged.
+- **The validation harness**: `tests/test_f4_tail_risk_gap.py` and
+  the S27 backtest regression test continue to pin the GAP.
+
+PR #253 converted to draft and left open as a research record.
+The implementation work + verification artifacts are reachable in
+the branch's `Reverted` commits for future agents to inspect.
+
+### Status of `docs/PRODUCTION_READINESS.md` §3 Blocker B1
+
+**Not resolved.** F4 widening attempt rolled back. The B1 blocker
+remains open and requires the research-grade redesign above. No
+engine code changed. Engine is at `origin/main` predictive-signal
+parity.

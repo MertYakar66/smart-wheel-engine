@@ -41,7 +41,7 @@ from engine.wheel_tracker import EVAuthorityRefused, WheelTracker
 
 _AS_OF = "2026-03-20"  # CSV cutoff per CLAUDE.md §4
 _ENTRY_DATE = date(2026, 3, 20)
-_AAPL = "AAPL"  # positive-EV at _AS_OF post-#179
+_AAPL = "GOOGL"  # positive-EV at _AS_OF post-#179 + F4-Fix-B1; was AAPL pre-F4-fix but AAPL's HMM at 2026-03-20 fires bear=0.61 -> widening flips EV negative. GOOGL HMM is normal -> positive EV preserved.
 _META = "META"  # negative-EV at _AS_OF post-#179
 _NAV_LARGE = 10_000_000.0  # clears D17 portfolio-delta cap
 

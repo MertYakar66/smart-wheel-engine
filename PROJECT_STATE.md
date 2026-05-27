@@ -11,6 +11,16 @@ in progress, what is deprecated. It is the half-life partner of
 when you finish a meaningful unit of work or discover that something
 described here is no longer accurate.
 
+> ⚠️ **Real-money deployment gate — read `docs/PRODUCTION_READINESS.md`
+> before any decision to operate this engine against a real brokerage
+> account.** The engine's predictive signal is verified (Spearman ρ ≈
+> 0.22, scale-invariant), but three blockers remain unresolved as of
+> `e504801`: F4 tail-risk widening, D17 live-wire to `engine_api.py`,
+> and strategy capacity at scales above $100k. `docs/LAUNCH_READINESS.md`
+> covers code-quality merge gates; `docs/PRODUCTION_READINESS.md`
+> covers commercial deployment gates. They are complementary, not
+> substitutes.
+
 ---
 
 ## 1. Authoritative — do not bypass

@@ -263,7 +263,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/GOVERNANCE.md` | Model governance framework. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
 | `docs/USAGE_TEST_LEDGER.md` | Record of end-to-end usage tests — purpose, setup, findings, follow-up PRs. |
-| `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
+| `docs/PARALLEL_SESSIONS.md` | How the repo is worked by N parallel Claude Code terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
 | `docs/AUDIT_OF_AUDIT_REVIEW.md` | Meta-verification of `docs/TERMINAL_A_AUDIT.md` (PR #173) — seven meta-checks M1–M7 on the audit's headline tally, D17 promotion logic, second-layer drift discipline, the two named line-drifts, test counts, exclusion-list defensibility, and the no-production-callers observation. |

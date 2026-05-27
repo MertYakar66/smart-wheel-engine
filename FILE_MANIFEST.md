@@ -120,6 +120,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `backtests/regression/snapshots/s27_ivpit_24t_100k.json` | Locked S27 snapshot — aggregate / per-year / per-quartile metrics from current post-PIT-fix engine. Generated via `--update-snapshot` against `data_csv_sha256` recorded in the fingerprint. Re-baseline workflow in `TESTING.md`. |
 | `backtests/regression/snapshots/s32_friction_24t_1m.json` | Locked S32 snapshot — $1M / 24 tickers / 2022-2024 / three friction levels (none / bid_ask / full). Generated via the shared-rank `run_backtest_multi_friction` driver. |
 | `backtests/regression/snapshots/s34_universe_100t_1m.json` | Locked S34 snapshot — $1M / 100 tickers / 2022-2024 / three friction levels. Universe-expansion backtest from `docs/SOUNDNESS_REVIEW_2026-05-26.md`. ρ ≈ 0.329 matches doc within 0.002. |
+| `backtests/regression/snapshots/s35_oos_24t_100k.json` | Locked S35 snapshot — $100k / 24 tickers / 2018-2020 OOS / three friction levels. PR4 re-baseline. ρ ≈ 0.500 matches doc within 0.003 (driver-invariant signal); execution count doubled (19 → 40). |
 
 ## `config/`
 

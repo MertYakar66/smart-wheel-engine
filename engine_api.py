@@ -36,7 +36,7 @@ TradingView bridge:
   GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone - Enriched decision
   GET  /api/tv/alerts?limit=50            - Recent webhook alerts (ring buffer)
   GET  /api/tv/ranked?limit=20&dte=35&delta=0.25 - EV-ranked candidates (audit-II)
-  GET  /api/tv/dossier?top_n=10&timeframe=1D - EV + TV screenshot dossier (Mode B)
+  GET  /api/tv/dossier?top_n=10&timeframe=1D[&nav=250000&holdings=AAPL:100][&puts_held=AAPL:180:1][&regime_map=NVDA:short_gamma_amplifying] - EV + TV screenshot dossier (Mode B). Optional nav/holdings/puts_held/regime_map engage D17 R7+R8 soft-warns.
   GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
 
@@ -52,6 +52,7 @@ import logging
 import math
 import os
 import sys
+import threading
 import time
 import traceback
 from collections import OrderedDict
@@ -127,6 +128,18 @@ _TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
 _TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
 _TV_SEEN_NONCES_MAX = 1024
 
+# Explicit mutex around _TV_SEEN_NONCES check-then-set. The S20 reliability
+# arc (PR #194 reliability-arc-review C3 + USAGE_TEST_LEDGER.md §S20)
+# observed clean nonce-dedup behaviour at workers=4 because CPython's GIL
+# happens to keep the small check-then-set window bytecode-atomic in
+# practice — but the pattern is fragile: a wider window (e.g., from a
+# future logging or telemetry call between the membership test and the
+# insertion), higher concurrency, or a move off CPython would surface
+# >1-accept anomalies. The lock makes the invariant structural rather
+# than incidental. Module-level (not per-instance) because both
+# _TV_SEEN_NONCES and the function are module-level.
+_TV_SEEN_NONCES_LOCK = threading.Lock()
+
 # Shared EV-proceed threshold (in dollars). Single source of truth
 # lives in :mod:`engine.candidate_dossier` so the two verdict ladders
 # in this file (``/api/candidates`` recommendation label and
@@ -146,19 +159,27 @@ def _tv_seen_register(digest: str, now: float) -> bool:
     Returns True if this is a *new* nonce (proceed). Returns False if we have
     already processed a payload with this digest, which means we should reject
     it as a replay attempt.
+
+    The entire body runs under ``_TV_SEEN_NONCES_LOCK`` so the check + set
+    pair is atomic against concurrent workers (S20 reliability-arc finding).
+    Holding the lock through the LRU-purge is intentional — the structure
+    we are guarding against is "two workers both see ``digest not in cache``
+    before either writes," and the cheapest safe primitive for that is a
+    single mutex around the whole transaction.
     """
-    # Purge stale entries at the head of the LRU
-    cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
-    while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
-        _TV_SEEN_NONCES.popitem(last=False)
+    with _TV_SEEN_NONCES_LOCK:
+        # Purge stale entries at the head of the LRU
+        cutoff = now - _TV_WEBHOOK_MAX_AGE_SEC
+        while _TV_SEEN_NONCES and next(iter(_TV_SEEN_NONCES.values())) < cutoff:
+            _TV_SEEN_NONCES.popitem(last=False)
 
-    if digest in _TV_SEEN_NONCES:
-        return False
+        if digest in _TV_SEEN_NONCES:
+            return False
 
-    _TV_SEEN_NONCES[digest] = now
-    while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
-        _TV_SEEN_NONCES.popitem(last=False)
-    return True
+        _TV_SEEN_NONCES[digest] = now
+        while len(_TV_SEEN_NONCES) > _TV_SEEN_NONCES_MAX:
+            _TV_SEEN_NONCES.popitem(last=False)
+        return True
 
 
 def _tv_verify_hmac(body_bytes: bytes, provided_sig: str, secret: str) -> bool:
@@ -222,6 +243,111 @@ def _resolve_universe_scope(conn, tickers, universe_limit_param):
         return limit, len(tickers), universe_total
     scanned = universe_total if limit is None else min(limit, universe_total)
     return limit, scanned, universe_total
+
+
+def _build_portfolio_context_from_params(
+    nav: float | None,
+    holdings_csv: str | None,
+    puts_held_csv: str | None,
+    regime_map_csv: str | None,
+):
+    """Construct a :class:`PortfolioContext` from API query params.
+
+    D17 wire-in (`docs/PRODUCTION_READINESS.md` §3 Blocker B2). When
+    ``nav`` is None we return None — preserves the pre-wire no-op
+    behaviour of R7 / R8 (Q3 missing-data semantics: dossier
+    soft-warns do not fire on absent evidence).
+
+    Parsing is forgiving: malformed entries in ``holdings_csv`` /
+    ``puts_held_csv`` / ``regime_map_csv`` are silently dropped
+    rather than rejected with 400. The premise is that an operator
+    integration that supplies bad data should not break the dossier
+    endpoint; the affected D17 sub-gate just falls back to
+    missing-data behaviour for the unparseable entries.
+
+    Args:
+        nav: Net asset value (live or static). Required for any D17
+            engagement; ``None`` disables the wire.
+        holdings_csv: Optional ``TICKER:shares`` CSV.
+            Example: ``"AAPL:100,MSFT:50"``.
+        puts_held_csv: Optional ``TICKER:strike:contracts:expiry`` CSV
+            (expiry YYYY-MM-DD; omit for a 35-day default).
+            Example: ``"AAPL:180:1:2026-04-19"``.
+        regime_map_csv: Optional ``TICKER:regime`` CSV mapping
+            ticker → dealer-positioning regime.
+            Example: ``"AAPL:normal,NVDA:short_gamma_amplifying"``.
+
+    Returns:
+        A populated :class:`PortfolioContext` when ``nav`` is supplied;
+        ``None`` otherwise.
+    """
+    if nav is None:
+        return None
+
+    from datetime import date, timedelta
+
+    from engine.portfolio_risk_gates import PortfolioContext
+
+    stock_holdings: list[tuple[str, int]] = []
+    if holdings_csv:
+        for pair in holdings_csv.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            ticker_part, share_part = pair.split(":", 1)
+            try:
+                stock_holdings.append((ticker_part.strip().upper(), int(share_part.strip())))
+            except (TypeError, ValueError):
+                continue
+
+    held_option_positions: list[dict] = []
+    if puts_held_csv:
+        default_expiry = (date.today() + timedelta(days=35)).isoformat()
+        for entry in puts_held_csv.split(","):
+            entry = entry.strip()
+            if not entry or ":" not in entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) < 2:
+                continue
+            try:
+                ticker_part = parts[0].strip().upper()
+                strike = float(parts[1])
+                contracts = int(parts[2]) if len(parts) >= 3 and parts[2] else 1
+                expiration = parts[3] if len(parts) >= 4 and parts[3] else default_expiry
+            except (TypeError, ValueError):
+                continue
+            held_option_positions.append(
+                {
+                    "ticker": ticker_part,
+                    "strike": strike,
+                    "contracts": contracts,
+                    "expiration": expiration,
+                    "option_type": "put",
+                }
+            )
+
+    dealer_regime_by_ticker: dict[str, str] | None = None
+    if regime_map_csv:
+        dealer_regime_by_ticker = {}
+        for pair in regime_map_csv.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            t_part, r_part = pair.split(":", 1)
+            t = t_part.strip().upper()
+            r = r_part.strip()
+            if t and r:
+                dealer_regime_by_ticker[t] = r
+        if not dealer_regime_by_ticker:
+            dealer_regime_by_ticker = None
+
+    return PortfolioContext(
+        held_option_positions=held_option_positions,
+        stock_holdings=stock_holdings,
+        nav=float(nav),
+        dealer_regime_by_ticker=dealer_regime_by_ticker,
+    )
 
 
 def _sanitize_nans(obj):
@@ -367,6 +493,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     universe_limit=param("universe_limit"),
                 )
             elif path == "/api/tv/dossier":
+                # D17 portfolio-context opt-in: when ``nav`` is provided, the
+                # endpoint constructs a :class:`PortfolioContext` from
+                # ``nav`` + optional ``holdings`` / ``puts_held`` /
+                # ``regime_map`` and threads it into the dossier reviewer.
+                # The reviewer's R7 (VaR) + R8 (stress / dealer regime)
+                # soft-warns then fire against the operator's book.
+                # When ``nav`` is omitted, behaviour is unchanged from
+                # pre-D17-wire (R7/R8 are no-ops per Q3 missing-data
+                # semantics). Opt-in by design so existing GET callers
+                # remain compatible.
+                _nav_raw = param("nav")
                 self._handle_tv_dossier(
                     top_n=int(param("top_n", "10")),
                     dte_target=int(param("dte", "35")),
@@ -377,6 +514,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
                     universe_limit=param("universe_limit"),
+                    nav=float(_nav_raw) if _nav_raw else None,
+                    holdings_csv=param("holdings"),
+                    puts_held_csv=param("puts_held"),
+                    regime_map_csv=param("regime_map"),
                 )
             elif path == "/api/tv/dealer_positioning":
                 self._handle_tv_dealer_positioning(
@@ -1848,6 +1989,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         timeframe: str,
         screenshots_dir: str,
         universe_limit=None,
+        nav: float | None = None,
+        holdings_csv: str | None = None,
+        puts_held_csv: str | None = None,
+        regime_map_csv: str | None = None,
     ):
         """Mode B dossier endpoint.
 
@@ -1858,7 +2003,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
              at ``screenshots_dir``. The terminal is expected to drop
              screenshots at ``<screenshots_dir>/<TICKER>/<TIMEFRAME>.png``.
           3. Run the :class:`EnginePhaseReviewer` to produce a verdict
-             per candidate.
+             per candidate. **When the operator supplies portfolio state
+             via the ``nav`` / ``holdings`` / ``puts_held`` /
+             ``regime_map`` query params, the reviewer additionally
+             engages D17 R7 (VaR > 5% NAV → review) and R8 (stress
+             drawdown > 8% NAV OR ticker in short_gamma_amplifying
+             regime → review).** Closes PRODUCTION_READINESS.md
+             Blocker B2 (D17 live-wire to engine_api.py).
           4. Return the full dossier JSON for the dashboard candidate
              table + detail drawer.
 
@@ -1872,6 +2023,22 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             timeframe       TradingView timeframe for screenshots (default 1D)
             screenshots_dir filesystem provider base directory
             universe_limit  cap the universe scan; omit/all = full universe
+            nav             OPTIONAL operator NAV (float). When set, D17
+                            R7+R8 soft-warns engage on the dossier.
+                            When omitted, R7/R8 are no-ops per Q3
+                            missing-data semantics.
+            holdings        OPTIONAL ``TICKER:shares`` pairs CSV, e.g.
+                            ``AAPL:100,MSFT:50``. Stock holdings used by
+                            check_var / check_stress_scenario. Honored only
+                            when ``nav`` is also provided.
+            puts_held       OPTIONAL ``TICKER:strike:contracts:expiry`` CSV.
+                            ``expiry`` is YYYY-MM-DD; omit to use a 35-day
+                            default. Used by check_var. Honored only when
+                            ``nav`` is also provided.
+            regime_map      OPTIONAL ``TICKER:regime`` CSV mapping ticker →
+                            dealer-positioning regime. Used by
+                            check_dealer_regime (R8 short-gamma trigger).
+                            Honored only when ``nav`` is also provided.
         """
         from engine.tradingview_bridge import FilesystemChartProvider
 
@@ -1886,6 +2053,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         provider = FilesystemChartProvider(base_dir=screenshots_dir)
 
+        # D17 portfolio-context engagement (opt-in). Construct a
+        # ``PortfolioContext`` only when ``nav`` is supplied; otherwise
+        # pass None so R7/R8 keep their pre-wire no-op semantics.
+        portfolio_context = _build_portfolio_context_from_params(
+            nav=nav,
+            holdings_csv=holdings_csv,
+            puts_held_csv=puts_held_csv,
+            regime_map_csv=regime_map_csv,
+        )
+
         try:
             dossiers = runner.build_candidate_dossiers(
                 tickers=tickers,
@@ -1897,6 +2074,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 chart_provider=provider,
                 chart_timeframe=timeframe,
                 universe_limit=ulimit,
+                portfolio_context=portfolio_context,
             )
         except Exception as exc:
             traceback.print_exc()
@@ -2279,6 +2457,41 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 _DEFAULT_API_PORT = 8787
 
+# Listen-queue depth. ``socketserver.TCPServer.request_queue_size`` defaults
+# to 5, which gets exceeded during a realistic dashboard hard-reload
+# (5–10 simultaneous fetches) or a CI smoke pile-up. The S20 reliability
+# arc (``docs/USAGE_TEST_LEDGER.md`` and ``docs/RELIABILITY_ARC_REVIEW.md``)
+# measured 133/200 ``ConnectionRefusedError`` at 16 concurrent connect
+# attempts on the stdlib default. 128 matches uvicorn / gunicorn defaults
+# and is well within Linux's ``net.core.somaxconn`` (typically ≥ 4096) and
+# Windows' default backlog ceiling.
+_LISTEN_QUEUE_DEPTH = 128
+
+
+class _EngineHTTPServer(ThreadingHTTPServer):
+    """``ThreadingHTTPServer`` with a non-default kernel listen-queue depth.
+
+    Stdlib's ``socketserver.TCPServer.request_queue_size = 5`` is the
+    backlog passed to ``socket.listen()``. Once 5 connections are
+    accept-pending the kernel refuses new ``connect()`` attempts with
+    ``ECONNREFUSED`` — observable as ``ConnectionRefusedError`` at the
+    client and as silent connection loss in dashboards / load balancers.
+
+    The S20 concurrency Sn (``docs/USAGE_TEST_LEDGER.md``) demonstrated
+    this directly: at 16 concurrent POST workers, **133 of 200** connect
+    attempts were refused. The same Sn showed clean behaviour at workers=4
+    (under the default queue depth), so the production-readiness boundary
+    sits between 5 and 16 — exactly where dashboard hard reloads (5–10
+    parallel fetches) plus an oncall or CI investigator overlap.
+
+    Bumping the class attribute on a private subclass keeps the stdlib
+    base class untouched, leaves room to override per-instance for tests,
+    and documents the deviation at the point a future reader will look
+    for it.
+    """
+
+    request_queue_size = _LISTEN_QUEUE_DEPTH
+
 
 def _resolve_port(env: dict[str, str] | None = None) -> int:
     """Resolve the API port from ``SWE_API_PORT`` (closes D15 Unresolved).
@@ -2307,8 +2520,12 @@ def main():
     port = _resolve_port()
     # ThreadingHTTPServer spawns one thread per request so a slow committee
     # or memo call can't block the 5+ parallel fetches the dashboard fires
-    # when a trader switches tickers.
-    server = ThreadingHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    # when a trader switches tickers. The local ``_EngineHTTPServer``
+    # subclass bumps ``request_queue_size`` from stdlib's 5 to
+    # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
+    # realistic dashboard / CI bursts without ``ECONNREFUSED`` drops —
+    # see the S20 reliability arc for the measurement.
+    server = _EngineHTTPServer(("0.0.0.0", port), EngineAPIHandler)
     server.daemon_threads = True
     print(f"Smart Wheel Engine API running on http://localhost:{port}")
     print("Endpoints:")

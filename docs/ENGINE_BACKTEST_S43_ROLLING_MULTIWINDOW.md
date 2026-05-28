@@ -917,11 +917,34 @@ exposures cap out earlier. Take W1's 25.07% as a lower-bound; the
 actual running max is likely between 25% and 44%.
 
 **Earlier doc revisions reported the END-STATE max (7-21%); the
-RUNNING peak is 4-7× higher (44-47% of NAV).** A single 1-contract
-put on a high-strike ticker (BKNG at $4,400 strike ⇒ $440k
-notional ⇒ 44% of $1M NAV) is by itself well above the 10% R10
-cap. The 4-5% would-fire rate accumulates from these high-priced
-concurrent positions across the run.
+RUNNING peak is 4-7× higher (44-47% of NAV).**
+
+**Mechanism of the 44.25% W2/W3 peak (verified by tracing BKNG events).**
+On 2022-12-13, the BKNG wheel cycle that started 2021-11-09 at
+strike $2506.50 (notional $250,650) called away (close event) AND
+a new BKNG put at strike $1918.50 (notional $191,850) was opened
+on the same day. The audit walks opens-before-closes on a given
+day, so both positions briefly co-exist: $442,500 = 44.25% NAV.
+**The "between-roll" steady-state peak for BKNG was $250,650
+(25.07% NAV) — a SINGLE 1-contract BKNG put, already 2.5× the
+10% R10 cap.** Both numbers are real exposures the cap would have
+caught — 44.25% during the same-day roll; 25.07% between rolls.
+
+Top-5 per-ticker peak single-name exposure in W2 (illustrative —
+W3 / W4 are similar with the same top contributors):
+
+| Ticker | Peak running exposure | % of $1M NAV |
+|---|---|---|
+| BKNG | $442,500 (with same-day roll) / $250,650 (between rolls) | 44.25% / 25.07% |
+| AZO | $214,200 | 21.42% |
+| ADBE | $88,200 | 8.82% |
+| BLK | $84,400 | 8.44% |
+| APD | $56,600 | 5.66% |
+
+**BKNG and AZO alone systematically exceed the 10% R10 cap** with
+just a single 1-contract position. The 4-5% would-fire rate
+accumulates across the run from these high-priced concurrent
+positions.
 
 **Per-window R9 (sector 25% cap) would-fire counts and running
 max sector exposure (NEW — sector map wired in this revision):**

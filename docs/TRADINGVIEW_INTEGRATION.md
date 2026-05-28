@@ -174,7 +174,7 @@ See `ROADMAP.md` Track A:
 ## Cross-references
 
 - `TRADINGVIEW_MCP_INTEGRATION.md` — MCP chart provider design
-  contract (the M1 scope: 3 MCP tools, no quiet substitution on
+  contract (the M1 scope: 5 MCP tools, no quiet substitution on
   failure)
 - `tradingview/README.md` — hands-on setup for Pine indicator + alert
 - `tradingview/CLAUDE.md` — analyst workspace contract

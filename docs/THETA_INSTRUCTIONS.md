@@ -2,7 +2,7 @@
 
 Quick-reference for refreshing every Theta-sourced dataset the engine
 consumes. For the long-form rationale and the full table of what's covered
-vs. not, see `scripts/theta_data_guide.md`.
+vs. not, see `docs/THETA_USAGE.md`.
 
 ---
 
@@ -114,4 +114,4 @@ python scripts/feature_smoke_test.py --fast   # verify
 ```
 
 That's it. For deeper context (per-endpoint coverage, optional pulls,
-caveats) see `scripts/theta_data_guide.md`.
+caveats) see `docs/THETA_USAGE.md`.

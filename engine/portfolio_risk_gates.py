@@ -193,6 +193,42 @@ class GateResult:
     details: dict = field(default_factory=dict)
 
 
+def _filter_bsm_safe_positions(positions: list[dict]) -> list[dict]:
+    """Skip rows whose ``strike <= 0`` or ``contracts <= 0`` would
+    crash Black-Scholes pricing downstream.
+
+    Closes S42 Findings #2 + #4: ``option_pricer.black_scholes_price``
+    validates ``K > 0`` and raises ``ValueError`` for non-positive
+    strikes. When a malformed row (corrupted data, degenerate
+    candidate with strike=0) reached ``check_stress_scenario`` or
+    ``check_var``, the BSM call crashed the dossier reviewer at R8
+    before R9 / R10 ever had a chance to skip the row defensively.
+    The defensive try/except inside ``check_single_name_cap`` was
+    structurally unreachable as a result.
+
+    This pure-function filter sits at the gate boundary. Returns a
+    new list containing only rows that BSM can price. Malformed rows
+    are silently dropped — consistent with ``check_single_name_cap``'s
+    try/except + ``.get()`` pattern and the D11 "no silent
+    substitution" framing (don't claim what you can't prove; here,
+    you can't prove a corrupted row's contribution to portfolio risk
+    so you don't count it).
+    """
+    out: list[dict] = []
+    for p in positions:
+        try:
+            strike = float(p.get("strike", 0) or 0)
+            contracts = int(p.get("contracts", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        if strike <= 0 or contracts <= 0:
+            continue
+        if not p.get("symbol"):
+            continue
+        out.append(p)
+    return out
+
+
 # ----------------------------------------------------------------------
 # Position adapter — WheelPosition → upstream-API position dicts
 # ----------------------------------------------------------------------
@@ -840,6 +876,11 @@ def check_var(
     positions_with_candidate = list(held_option_positions)
     if candidate_option:
         positions_with_candidate.append(candidate_option)
+    # S42 Finding #2 / #4: filter malformed rows (strike<=0 /
+    # contracts<=0 / missing symbol) so BSM doesn't crash inside
+    # rm.calculate_var. Without this filter a corrupted held row
+    # would crash R7 before R9/R10 could even run.
+    positions_with_candidate = _filter_bsm_safe_positions(positions_with_candidate)
 
     full_spots = dict(spot_prices)
     for p in positions_with_candidate:
@@ -921,6 +962,11 @@ def check_stress_scenario(
     positions_with_candidate = list(held_option_positions)
     if candidate_option:
         positions_with_candidate.append(candidate_option)
+    # S42 Finding #2 / #4: filter malformed rows (strike<=0 /
+    # contracts<=0 / missing symbol) so BSM doesn't crash inside
+    # tester.run_scenario. The empty-after-filter branch below will
+    # then return the existing "no_positions_to_stress" pass.
+    positions_with_candidate = _filter_bsm_safe_positions(positions_with_candidate)
 
     full_spots = dict(spot_prices)
     for p in positions_with_candidate:

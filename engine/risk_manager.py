@@ -1769,9 +1769,19 @@ class SectorExposureManager:
         sector_data: dict[str, dict] = {}
 
         for pos in positions:
-            symbol = pos["symbol"]
+            # Defensive: skip malformed rows rather than raise KeyError
+            # (S42 Finding #1 — `pos["strike"]` previously crashed the
+            # dossier reviewer's R9 path when a held-position dict was
+            # missing required keys). Mirrors `check_single_name_cap`'s
+            # try/except + .get() pattern so the two gates degrade
+            # consistently on bad inputs.
+            symbol = pos.get("symbol")
+            strike = pos.get("strike")
+            contracts = pos.get("contracts")
+            if symbol is None or strike is None or contracts is None:
+                continue
             sector = self.get_sector(symbol)
-            notional = pos["strike"] * 100 * pos["contracts"]
+            notional = strike * 100 * contracts
 
             if sector not in sector_data:
                 sector_data[sector] = {"notional": 0, "count": 0, "symbols": []}

@@ -28,6 +28,36 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
   documented findings — see `docs/USAGE_TEST_LEDGER.md` S42 for
   detail. No engine math changed; read-only against §2.
 
+### Fixed
+- **Dossier reviewer defensive guards (S42 Findings #1-4 closed).**
+  Four sharp edges surfaced by the S42 audit are now closed by a
+  stacked hardening PR (`claude/fix-dossier-defensive-guards`):
+  - `engine/risk_manager.py`
+    `SectorExposureManager.calculate_sector_exposures` now uses
+    defensive `.get()` calls — skips malformed rows rather than
+    raising `KeyError`. (Closes Finding #1.)
+  - `engine/portfolio_risk_gates.py` — new pure-function filter
+    `_filter_bsm_safe_positions` drops rows that would crash BSM
+    (`strike ≤ 0`, `contracts ≤ 0`, missing symbol). Wired into
+    `check_var` and `check_stress_scenario`. R8 no longer
+    pre-empts R9/R10 for malformed rows; R10's defensive
+    try/except is now reachable via the dossier path. (Closes
+    Findings #2 + #4.)
+  - `engine/candidate_dossier.py` — the R9 and R10 paths drop
+    the `or 1` truthy fallback on contracts so an explicit
+    `contracts=0` is honoured (`proposed_notional` becomes 0;
+    existing `if nav > 0 and proposed_notional > 0` guard
+    catches it). (Closes Finding #3.)
+  - `tests/test_dossier_r9_r10_audit.py` — F4.3, F4.4, F6.3,
+    F6.4, F6.5 updated from `pytest.raises(...)` pins to assert
+    the new graceful verdicts. Audit value preserved — tests
+    still pin behaviour, just the now-correct behaviour. The
+    audit acted as the forcing function it was designed to be.
+  - §2 invariant preserved: changes are defensive (skip
+    malformed rows / honour explicit 0). Reviewers remain
+    downgrade-only. No `ev_dollars` / `ev_raw` / multiplier
+    code edited.
+
 ### Added
 - **Backtest regression harness** (4-PR series). Converts the four
   committed ledger backtests (S27 / S32 / S34 / S35) from human-

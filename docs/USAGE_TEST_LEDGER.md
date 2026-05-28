@@ -7443,32 +7443,46 @@ conditions require upstream data corruption):**
    Pinned by F6.5 with `pytest.raises(ValueError)`. Production
    reach: low — same reasoning as Finding #2.
 
-**Follow-ups (none filed as separate PRs — see rationale).**
-All four findings are low-severity defensive issues, not live
-production bugs. Their trigger conditions require upstream data
-corruption (missing/zero/negative strikes, contracts=0) that
-`WheelTracker` and `MarketDataConnector` do not produce today.
-Hardening them would be a small follow-up PR that:
+**Follow-up: Findings #1-4 RESOLVED by the hardening PR
+(`claude/fix-dossier-defensive-guards`, stacked on this branch).**
+The audit's `pytest.raises(...)` pins acted as the forcing function
+they were designed to be — the hardening PR's source edits trip
+them, and the same PR updates the assertions to pin the new
+graceful behaviour:
 
-- Adds a `proposed_notional > 0` guard to R8 stress + R7 VaR (the
-  same guard R9 + R10 already have).
-- Changes `pos["strike"]` -> `pos.get("strike", 0.0)` in
-  `SectorExposureManager.calculate_sector_exposures`.
-- Replaces `or 1` truthy fallback with explicit None handling in
-  the R9/R10 path.
-- Updates the F4.3 / F6.3 / F6.5 audit tests from
-  `pytest.raises(...)` to the new graceful behaviour.
-
-None of these are decision-layer changes (§2 untouched). Not
-queued — surface area is small enough that an audit-prompted
-hardening PR is the natural next move if the user wants it. The
-audit tests will trip when the behaviour changes, so they form a
-forcing function rather than a passive note.
+- **Finding #1** closed by defensive `.get()` calls in
+  `engine/risk_manager.py` `SectorExposureManager.calculate_sector_exposures`
+  (skip rows missing `symbol` / `strike` / `contracts` rather than
+  raising `KeyError`). F4.3 renamed to
+  `test_r9_skips_held_position_missing_strike_gracefully`.
+- **Findings #2 + #4** closed by a new pure-function filter
+  `_filter_bsm_safe_positions` in `engine/portfolio_risk_gates.py`,
+  wired into both `check_var` and `check_stress_scenario` to drop
+  rows that would crash BSM (strike ≤ 0, contracts ≤ 0, missing
+  symbol). R8 no longer pre-empts R9/R10's reachability for
+  malformed rows; R10's defensive try/except is now reachable.
+  F6.3 and F6.5 renamed to
+  `test_r8_stress_filters_candidate_strike_zero_gracefully` and
+  `test_r8_stress_filters_held_position_negative_strike_gracefully`.
+- **Finding #3** closed by removing the `or 1` truthy fallback in
+  the R9 and R10 paths of `engine/candidate_dossier.py`
+  (lines 432, 467). An explicit `contracts=0` is now honoured
+  (proposed_notional becomes 0; the existing
+  `if nav > 0 and proposed_notional > 0` guard catches it).
+  F6.4 renamed to
+  `test_r9_r10_path_honors_explicit_zero_contracts_after_or_fix`.
 
 **No engine math changed.** No `ev_dollars` / `ev_raw` /
-multiplier code edited. The audit is read-only against §2.
+multiplier code edited in either the audit PR (#265) or the
+hardening PR. The audit is read-only against §2; the hardening
+fixes touch §2 (`candidate_dossier.py`) but only add defensive
+guards — the hard invariant from CLAUDE.md §2 ("No tradeable
+candidate bypasses `EVEngine.evaluate`") holds. R-rules remain
+downgrade-only.
 
-PR: pending push on `claude/usage-test-s42-r9-r10-audit`.
+PR: `claude/usage-test-s42-r9-r10-audit` (#265, this branch's
+parent) + `claude/fix-dossier-defensive-guards` (stacked, opens
+once #265 merges).
 
 ---
 

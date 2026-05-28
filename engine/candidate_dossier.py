@@ -427,9 +427,13 @@ class EnginePhaseReviewer:
             from .portfolio_risk_gates import check_sector_cap
 
             ev_row = dossier.ev_row
+            # S42 Finding #3: drop the `or 1` truthy fallback on
+            # contracts so an explicit ``contracts=0`` produces
+            # proposed_notional=0 (and is caught by the guard below)
+            # rather than being silently coerced to 1 contract.
             try:
                 strike = float(ev_row.get("strike", 0) or 0)
-                contracts = int(ev_row.get("contracts", 1) or 1)
+                contracts = int(ev_row.get("contracts", 1))
             except (TypeError, ValueError):
                 strike = 0.0
                 contracts = 1
@@ -462,9 +466,10 @@ class EnginePhaseReviewer:
             from .portfolio_risk_gates import check_single_name_cap
 
             ev_row = dossier.ev_row
+            # S42 Finding #3: same fix as R9 above — drop `or 1`.
             try:
                 strike = float(ev_row.get("strike", 0) or 0)
-                contracts = int(ev_row.get("contracts", 1) or 1)
+                contracts = int(ev_row.get("contracts", 1))
             except (TypeError, ValueError):
                 strike = 0.0
                 contracts = 1

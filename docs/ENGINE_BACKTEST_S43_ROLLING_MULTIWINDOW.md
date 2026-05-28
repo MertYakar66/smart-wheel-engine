@@ -130,9 +130,48 @@ rows). Min EV −$1,160.71, max EV +$3,857.69.
 the harness was extended to dump `WheelTracker.to_dict()` to disk
 (commit `daa2282`). Concentration analysis (top-5 vs net), R9/R10
 fire-rate audit, and capital deployment time-series for W1 are
-therefore **not reportable directly** from artifacts and would
-require either a re-run or rank_log reconstruction. W2/W3/W4 all
-have the tracker dump and will report these sections.
+therefore **not reportable directly** from artifacts. An
+approximate reconstruction via rank_log replay is included below
+with explicit caveats. W2/W3/W4 all have the tracker dump and
+report these sections from primary data.
+
+**Approximate concentration (rank_log replay)** — caveat: the
+reconstructor doesn't model the wheel-into-CC chain after put
+assignment, so it over-counts opens (752 reconstructed vs harness's
+398 actual). The dollar realised P&L per ticker is directionally
+correct because each rank-log row carries the harness's forward-
+replayed `realized_pnl`. The TOP-N ticker LIST is therefore the
+useful output; the per-ticker trade COUNT is inflated.
+
+| Ticker | Reconstructed trades | Reconstructed realised |
+|---|---|---|
+| AZO | 14 | +$17,613 |
+| ADBE | 17 | +$11,623 |
+| BKNG | 22 | +$9,056 |
+| BIIB | 12 | +$8,561 |
+| APD | 14 | +$4,479 |
+| **Top-5 total** | — | **+$51,332** |
+| Net total (reconstructed) | — | +$30,301 |
+| Positive contributors | — | +$87,152 |
+| Negative contributors | — | −$56,851 |
+
+Top-5 share-of-net ≈ 170% (BKNG-style concentration pattern; the
+"winners cluster" remains a property of the engine on W1's
+2020-2022 effective period — consistent with S38).
+
+**R10 (single-name 10% cap) post-hoc would-fire — approximate.**
+On the reconstructed 752-open replay, R10 would have refused **35
+opens** (4.7% of reconstructed opens). The reconstructed maximum
+single-name exposure reached **25.07% of NAV** — well above the
+10% cap. With R10 active, the post-#260 engine would have
+materially limited concentration on W1's universe — particularly
+on the high-strike high-volume tickers (AZO, BKNG, ADBE which carry
+$200-$5,000 strikes ⇒ $20k-$500k single-position notional).
+
+**R9 (sector 25% cap)** — sector map not available in the rank-log
+artifact, so the sector audit is skipped for W1. Where the sector
+map is wired in (out-of-band for the W3/W4 sections below), it'll
+be reported then.
 
 **W1 — Δ vs S38 (both windows include 2020-2022):**
 

@@ -16,6 +16,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ## 2026-05 (late) — Backtest regression harness
 
+### Tests
+- **S42 R9 + R10 reviewer audit** (`tests/test_dossier_r9_r10_audit.py`,
+  32 tests). Systematic audit of the two new dossier downgrade rules
+  shipped in PR `#255` (R9 sector_cap) and PR `#262` (R10 single-name
+  exposure cap). Six probe families pin behavioural correctness, the
+  downgrade-only invariant, fail-closed-on-missing-data semantics,
+  rule-order short-circuit (R7 → R8 → R9 → R10), and cap-boundary
+  semantics (both R9 and R10 use strict `>` — exact 25% sector / 10%
+  single-name passes). Surfaced four low-severity sharp edges as
+  documented findings — see `docs/USAGE_TEST_LEDGER.md` S42 for
+  detail. No engine math changed; read-only against §2.
+
 ### Added
 - **Backtest regression harness** (4-PR series). Converts the four
   committed ledger backtests (S27 / S32 / S34 / S35) from human-

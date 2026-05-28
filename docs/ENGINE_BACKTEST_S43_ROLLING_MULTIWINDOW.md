@@ -76,7 +76,7 @@ per-window detail sections below._
 |---|---|---|---|---|---|---|---|---|---|
 | S38 (cite, pre-#260) | $1M | 100 | 2020-2024 (5y) | $1,331,764 | +33.18% | +95.02% | **−61.84pp** | 0.358 (17,192) | 305 |
 | **W1 S43** | $1M | 100 | 2018-2022 (gate-trunc → ~3y) | **$1,101,884** | **+10.19%** | +70.42% | **−60.23pp** | 0.378 (10,807) | 398 |
-| **W2 S43** | $1M | 100 | 2019-2023 (gate-trunc → ~4y) | _running_ | _TBD_ | +127.71% | _TBD_ | _TBD_ | _TBD_ |
+| **W2 S43** | $1M | 100 | 2019-2023 (gate-trunc → ~4y) | **$1,240,789** | **+24.08%** | +127.71% | **−103.63pp** | 0.369 (14,406) | 465 |
 | **W3 S43** | $1M | 100 | 2020-2024 (S38 re-run) | _TBD_ | _TBD_ | +95.02% | _TBD_ | _TBD_ | _TBD_ |
 | **W4 S43** | $1M | 100 | 2021-2025 (NEW) | _TBD_ | _TBD_ | +91.14% | _TBD_ | _TBD_ | _TBD_ |
 
@@ -194,12 +194,77 @@ for that scenario.
 
 | Metric | Frictionless | bid_ask | full friction |
 |---|---|---|---|
-| Final NAV | _TBD_ | _TBD_ | _TBD_ |
-| Return | _TBD_ | _TBD_ | _TBD_ |
-| Spearman ρ | _TBD_ | _TBD_ | _TBD_ |
-| Executed trades | _TBD_ | _TBD_ | _TBD_ |
-| Mean realized / trade | _TBD_ | _TBD_ | _TBD_ |
-| §2 R1a non-finite count | _TBD_ | _TBD_ | _TBD_ |
+| Final NAV | TBD (per-friction file) | TBD | **$1,240,789** |
+| Return | TBD | TBD | **+24.08%** |
+| Spearman ρ (N=14,406) | TBD | TBD | **0.369** |
+| Executed trades | TBD | TBD | **465** |
+| Put assignments | TBD | TBD | **114** |
+| Open at end | TBD | TBD | **54** |
+| Mean realized / trade | TBD | TBD | **$25.80** |
+| Hit rate | TBD | TBD | **80.5%** |
+| §2 R1a non-finite count | 0 | 0 | **0 ✓** |
+| EV ≤ 0 (engine-side refused) | 5,538 / 14,406 (38.4%) | same | same |
+
+**Per-year (full friction):**
+
+| Year | n | ρ | Mean realized | Hit rate | IV mean |
+|---|---|---|---|---|---|
+| 2020 (COVID) | 3,636 | **+0.538** | −$23.42 | 83.3% | 0.367 |
+| 2021 (bull) | 3,596 | +0.218 | **+$152.37** | 85.7% | 0.286 |
+| 2022 (bear) | 3,575 | +0.358 | **−$120.70** | 72.6% | 0.358 |
+| 2023 (recovery) | 3,599 | +0.311 | **+$94.58** | 80.4% | 0.277 |
+
+2020-2022 cells are **identical to W1's** — same engine, same data, same as_of dates → same ranking output. The convergence is a sanity check passing: the ranker is deterministic per (date, ticker).
+
+2023 (new for W2) tracks **S38's 2023 (0.309)** within 0.002 — exactly as expected.
+
+**Concentration (tracker_state.json, full friction, post-friction net_pnl):**
+
+| Tier | Realized | Share of net |
+|---|---|---|
+| Top-5 tickers (BRK/B, BLK, BIIB, AZO, APD) | **+$58,243** | 91.9% of net |
+| Top-10 tickers | +$83,451 | 131.7% of net |
+| Positive contributors (39 of 72) | +$135,569 | — |
+| Negative contributors (33 of 72) | **−$72,207** | — |
+| **Net (all 72 tickers traded)** | **+$63,361** | — |
+
+**Note:** BKNG was the WORST loser in W2 at −$28,081 (13 trades), opposite S38 where BKNG was the +$31k carry. The difference is the window endpoint: S38 (2020-2024) captures BKNG's 2023-2024 bull from $2,500 → $5,000+; W2 ends 2023-12-29 and misses most of that run. **BKNG concentration is window-endpoint-dependent**, not a stable engine property.
+
+Top winners W2:
+| Ticker | Trades | Realized |
+|---|---|---|
+| BRK/B | 2 | +$19,400 |
+| BLK | 3 | +$12,172 |
+| BIIB | 12 | +$9,945 |
+| AZO | 5 | +$9,851 |
+| APD | 9 | +$6,875 |
+
+Top losers W2:
+| Ticker | Trades | Realized |
+|---|---|---|
+| BKNG | 13 | −$28,081 |
+| BA | 1 | −$15,272 |
+| CLX | 5 | −$6,545 |
+| AVB | 4 | −$6,455 |
+| CINF | 3 | −$3,503 |
+
+**R10 (single-name 10% cap) post-hoc audit on tracker actual data:**
+- 465 open events; **19 (4.1%) would have been refused by R10**
+- Max single-name exposure reached **20.79% of NAV** (BKNG-style high-strike concurrent positions)
+- With R10 active, those 19 opens would not have happened — meaningful damage-bounding
+
+**R9 (sector 25% cap)** — sector map not in artifact; skipped. (Out-of-band sector mapping is a future enhancement.)
+
+**Refusal during adverse periods (engine-side EV ≤ 0):**
+
+| Period | Ranked rows | EV ≤ 0 | Refusal rate |
+|---|---|---|---|
+| COVID 2020-02-15 → 2020-05-15 | 893 | 41 | 4.6% (same as W1) |
+| 2022 bear (Jan-Oct) | 2,915 | 822 | 28.2% (same as W1) |
+
+**§2 invariant scan (W2):** ✅ R1a passes on all three friction levels
+(0 non-finite EVs in 14,406 × 3 = 43,218 candidate rows). Min EV
+−$1,347.19, max +$3,857.69.
 
 ### W3 — 2020-01-02 → 2024-12-31 (S38 re-run on post-#260)
 
@@ -325,13 +390,18 @@ the dollar outcome is window-dependent.
 
 | Year | W1 ρ (n) | W2 ρ (n) | W3 ρ (n) | W4 ρ (n) | S38 ρ (n) |
 |---|---|---|---|---|---|
-| 2020 | +0.538 (3,636) | _TBD_ | _TBD_ | — | 0.548 (3,467) |
-| 2021 | +0.218 (3,596) | _TBD_ | _TBD_ | _TBD_ | 0.211 (3,410) |
-| 2022 | +0.358 (3,575) | _TBD_ | _TBD_ | _TBD_ | 0.370 (3,390) |
-| 2023 | — | _TBD_ | _TBD_ | _TBD_ | 0.309 (3,391) |
+| 2020 | +0.538 (3,636) | +0.538 (3,636) | _TBD_ | — | 0.548 (3,467) |
+| 2021 | +0.218 (3,596) | +0.218 (3,596) | _TBD_ | _TBD_ | 0.211 (3,410) |
+| 2022 | +0.358 (3,575) | +0.358 (3,575) | _TBD_ | _TBD_ | 0.370 (3,390) |
+| 2023 | — | +0.311 (3,599) | _TBD_ | _TBD_ | 0.309 (3,391) |
 | 2024 | — | — | _TBD_ | _TBD_ | 0.312 (3,534) |
 | 2025 | — | — | — | _TBD_ | — |
-| **Full** | **+0.378 (10,807)** | _TBD_ | _TBD_ | _TBD_ | **0.358 (17,192)** |
+| **Full** | **+0.378 (10,807)** | **+0.369 (14,406)** | _TBD_ | _TBD_ | **0.358 (17,192)** |
+
+**Cross-window per-year identity check** (W1 vs W2 on shared years
+2020/2021/2022): IDENTICAL ρ values. This is expected (deterministic
+ranker on shared dates) and verifies the runner is stable: same
+(date, ticker, as_of) inputs produce same `ev_dollars`.
 
 The "never negative" check: tally how many cells in W1-W4 have
 ρ < 0 (if any). Each cell is reported full friction.

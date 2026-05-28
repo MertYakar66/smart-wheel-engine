@@ -137,18 +137,26 @@ def _concentration(tracker_state: dict, ohlcv_path: Path) -> dict:
     by_ticker: dict[str, dict] = defaultdict(lambda: {"trades": 0, "realized": 0.0})
     for rec in closed:
         t = str(rec.get("ticker", ""))
-        # Realized P&L for closed positions: there are several shapes;
-        # use total_pnl when present (the tracker computes net of premiums
-        # in / out and stock leg).
-        pnl = rec.get("total_pnl")
+        # `WheelTracker` records realized P&L on closed_positions as
+        # ``realized_pnl`` (gross) and ``net_pnl`` (post-transaction-cost),
+        # both in DOLLARS (premium × 100 already applied). Use ``net_pnl``
+        # for full-friction (the harness's "full" friction level applies
+        # the same friction overlay this column captures). Fall back to
+        # realized_pnl if net_pnl missing.
+        pnl = rec.get("net_pnl")
         if pnl is None:
-            # Reconstruct from individual legs.
+            pnl = rec.get("realized_pnl")
+        if pnl is None:
+            # Last-resort reconstruct from legs (already in dollars per
+            # the tracker schema — do NOT multiply by 100). This branch
+            # is normally unreached because the tracker always populates
+            # realized_pnl on close.
             put_p = float(rec.get("put_premium") or 0.0)
             call_p = float(rec.get("call_premium") or 0.0)
             put_buyback = float(rec.get("put_buyback") or 0.0)
             call_buyback = float(rec.get("call_buyback") or 0.0)
             stock_pnl = float(rec.get("stock_pnl") or 0.0)
-            pnl = (put_p - put_buyback) * 100.0 + (call_p - call_buyback) * 100.0 + stock_pnl
+            pnl = (put_p - put_buyback) + (call_p - call_buyback) + stock_pnl
         by_ticker[t]["trades"] += 1
         by_ticker[t]["realized"] += float(pnl)
 
@@ -247,9 +255,27 @@ def _r9_r10_audit(
     Without sector data this returns ``sector_audit_skipped``; the
     single-name audit is computable from tracker state alone.
     """
+    import re
+
+    _PUT_STRIKE_RE = re.compile(r"Sold\s+\d+d\s+(\d+\.?\d*)P")
+
     closed = tracker_state.get("closed_positions", [])
     positions = tracker_state.get("positions", {})
     initial_capital = float(tracker_state.get("initial_capital", 0.0))
+
+    def _strike_from_record(rec: dict) -> float:
+        # Closed positions don't carry put_strike; parse it from notes.
+        s = rec.get("put_strike") or rec.get("strike")
+        if s:
+            return float(s)
+        notes = rec.get("notes")
+        if isinstance(notes, list):
+            notes = " | ".join(notes)
+        if isinstance(notes, str):
+            m = _PUT_STRIKE_RE.search(notes)
+            if m:
+                return float(m.group(1))
+        return 0.0
 
     # Reconstruct the time-ordered open-position notional. closed_positions
     # carry both entry and exit dates; we approximate the open set on each
@@ -260,15 +286,15 @@ def _r9_r10_audit(
         t = str(rec.get("ticker", ""))
         ed = rec.get("put_entry_date") or rec.get("entry_date")
         xd = rec.get("exit_date") or rec.get("call_exit_date")
-        strike = float(rec.get("put_strike") or rec.get("strike") or 0.0)
+        strike = _strike_from_record(rec)
         if ed and strike > 0:
             events.append((str(ed), "open", t, strike))
         if xd and strike > 0:
             events.append((str(xd), "close", t, strike))
     # Open positions still present at end
     for t, pos in positions.items():
-        strike = float(pos.get("put_strike") or 0.0)
-        ed = pos.get("put_entry_date")
+        strike = _strike_from_record(pos)
+        ed = pos.get("put_entry_date") or pos.get("entry_date")
         if ed and strike > 0:
             events.append((str(ed), "open", t, strike))
 

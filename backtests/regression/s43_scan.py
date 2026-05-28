@@ -1,4 +1,4 @@
-"""Per-window §2 invariant scan + analysis support for S41.
+"""Per-window §2 invariant scan + analysis support for S43.
 
 The §2 invariant ("no tradeable candidate bypasses ``EVEngine.evaluate``")
 manifests in the backtest rank_log as two falsifiers:
@@ -79,7 +79,7 @@ def one(window_dir: Path) -> None:
 
 
 @app.command()
-def all(root: Path = Path("C:/Users/merty/AppData/Local/Temp/s41_backtest")) -> None:
+def all(root: Path = Path("C:/Users/merty/AppData/Local/Temp/s43_backtest")) -> None:
     """Scan all windows under ``root``."""
     reports = []
     overall = True

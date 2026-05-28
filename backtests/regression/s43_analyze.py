@@ -1,8 +1,8 @@
-"""Per-window analysis for S41.
+"""Per-window analysis for S43.
 
 Consumes the artifacts the harness writes per window/friction-level
 (``rank_log.csv``, ``metrics.json``, ``tracker_state.json``) and the
-Bloomberg OHLCV CSV, and produces the analysis sections the S41
+Bloomberg OHLCV CSV, and produces the analysis sections the S43
 writeup needs:
 
   - Univ-EW passive baseline (equal-weighted buy-and-hold of the same
@@ -365,7 +365,7 @@ def analyze(window_dir: Path, ohlcv_path: Path = Path("data/bloomberg/sp500_ohlc
 
 @app.command()
 def all(
-    root: Path = Path(os.environ.get("TEMP", "/tmp")) / "s41_backtest",
+    root: Path = Path(os.environ.get("TEMP", "/tmp")) / "s43_backtest",
     ohlcv_path: Path = Path("data/bloomberg/sp500_ohlcv.csv"),
     out_path: Path | None = None,
 ) -> None:

@@ -1,4 +1,4 @@
-# Engine backtest — S41: rolling multi-window with post-#260 engine (2026-05-27)
+# Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27)
 
 **Question:** *Is S38's "engine underperforms SPY by 52pp over
 2020-2024" result window-specific, or a property that generalises
@@ -75,10 +75,10 @@ per-window detail sections below._
 | Sn / Window | Capital | Universe | Period | Engine NAV (full) | Engine return | Univ-EW return | Engine vs Univ-EW | Spearman ρ (N) | Executed |
 |---|---|---|---|---|---|---|---|---|---|
 | S38 (cite) | $1M | 100 | 2020-2024 (5y) | $1,331,764 | +33.18% | — | — | 0.358 (17,192) | 305 |
-| **W1 S41** | $1M | 100 | 2018-2022 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W2 S41** | $1M | 100 | 2019-2023 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W3 S41** | $1M | 100 | 2020-2024 (S38 re-run) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W4 S41** | $1M | 100 | 2021-2025 (NEW) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| **W1 S43** | $1M | 100 | 2018-2022 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| **W2 S43** | $1M | 100 | 2019-2023 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| **W3 S43** | $1M | 100 | 2020-2024 (S38 re-run) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| **W4 S43** | $1M | 100 | 2021-2025 (NEW) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
 
 ### W1 — 2018-01-03 → 2022-12-30 (effective ~2020-01-02 → 2022-12-30)
 
@@ -139,7 +139,46 @@ under measurement.
 External SPY total-return numbers are also cited for context, with
 explicit source attribution.
 
-_TBD — table populated after each window's run completes._
+### Univ-EW passive baselines (pre-computed)
+
+Equal-weighted buy-and-hold over the 100-ticker universe between
+the window's calendar bookends. Reproducible from
+`data/bloomberg/sp500_ohlcv.csv` via
+`backtests/regression/s43_analyze.py::_univ_ew_return`.
+
+| Window | Period (calendar) | Univ-EW return (mean) | Univ-EW median | Tickers included |
+|---|---|---|---|---|
+| W1 | 2018-01-03 → 2022-12-30 | **+70.42%** | +51.95% | 99 / 100 |
+| W2 | 2019-01-02 → 2023-12-29 | **+127.71%** | +76.00% | 99 / 100 |
+| W3 | 2020-01-02 → 2024-12-31 | **+95.02%** | +42.66% | 99 / 100 |
+| W4 | 2021-01-04 → 2025-12-31 | **+91.14%** | +47.17% | 99 / 100 |
+| S38 (cite) | 2020-01-02 → 2024-12-31 | +95.02% (this metric) | +42.66% | 99 / 100 |
+
+The mean-vs-median gap is large in every window — a few mega-winners
+(BKNG-style trajectories) pull the EW mean well above the EW median.
+This is consistent with S38's BKNG-concentration finding: equity
+returns over multi-year windows are heavy-right-tail and the EW
+"average" is dominated by the best-performing handful.
+
+**S38's cited "~+85%" SPY total-return figure** (used to compute its
+−52pp engine-vs-SPY delta) is approximately correct against published
+total-return numbers for 2020-2024 (≈ +97%) once dividend yield is
+added back to a cap-weighted index — but it understates the
+**Univ-EW** baseline (+95.02% computed above) which is the
+apples-to-apples comparison for this engine. Two consequences for
+the engine-vs-baseline reads below:
+
+1. Engine return vs Univ-EW (this doc's primary comparison) will
+   tend to be a couple of points more negative than engine vs
+   external SPY in pure-bull windows. Same direction, slightly
+   larger gap.
+2. The −52pp S38 headline becomes ≈ −62pp when restated against
+   Univ-EW from the actual OHLCV. (S38's quoted number isn't wrong
+   — it's vs a different baseline.)
+
+### Engine vs Univ-EW — main table
+
+_TBD — populated after each window's run completes._
 
 ---
 
@@ -251,7 +290,7 @@ while bringing the targeted improvement on the F4 named cases.
 R9 (sector cap, 25% per sector) and R10 (single-name cap, 10% per
 underlying) are the D17 soft-warn + tracker hard-block additions
 landed in PRs #255 and #256. **Important methodological note:** the
-S41 harness runs with `require_ev_authority=False` and does not
+S43 harness runs with `require_ev_authority=False` and does not
 attach a `PortfolioContext`, so neither gate fires during execution
 — the harness uses the same configuration as S34 / S38, which is
 the apples-to-apples baseline.
@@ -333,16 +372,16 @@ Identical to S34 / S38 (`backtests/regression/_common.py`):
 
 ```bash
 # Run all four windows sequentially (~25h on the dev box):
-python -m backtests.regression.s41_rolling_multiwindow all
+python -m backtests.regression.s43_rolling_multiwindow all
 
 # Or one at a time:
-python -m backtests.regression.s41_rolling_multiwindow one w1_2018_2022
-python -m backtests.regression.s41_rolling_multiwindow one w2_2019_2023
-python -m backtests.regression.s41_rolling_multiwindow one w3_2020_2024
-python -m backtests.regression.s41_rolling_multiwindow one w4_2021_2025
+python -m backtests.regression.s43_rolling_multiwindow one w1_2018_2022
+python -m backtests.regression.s43_rolling_multiwindow one w2_2019_2023
+python -m backtests.regression.s43_rolling_multiwindow one w3_2020_2024
+python -m backtests.regression.s43_rolling_multiwindow one w4_2021_2025
 ```
 
-Output per window: `%TEMP%/s41_backtest/<window_id>/<friction_level>/`
+Output per window: `%TEMP%/s43_backtest/<window_id>/<friction_level>/`
 containing `rank_log.csv`, `metrics.json`, and (post this campaign)
 `tracker_state.json`. The harness's `_common.py` was extended with
 an additive tracker-state dump for richer post-process analysis;
@@ -351,9 +390,9 @@ artifact is changed).
 
 ### §2 invariant scan + analysis tools
 
-- `backtests/regression/s41_scan.py` — R1a guard scan
+- `backtests/regression/s43_scan.py` — R1a guard scan
   (non-finite EV count). Runs in seconds per window.
-- `backtests/regression/s41_analyze.py` — per-window analysis
+- `backtests/regression/s43_analyze.py` — per-window analysis
   (Univ-EW baseline, refusal rates, concentration, R9/R10 audit).
   Runs in <1 minute per window.
 

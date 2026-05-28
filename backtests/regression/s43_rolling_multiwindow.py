@@ -1,4 +1,4 @@
-"""S41 — Rolling 5-window backtest with post-#260 engine.
+"""S43 — Rolling 5-window backtest with post-#260 engine.
 
 Tests whether S38's "engine underperforms SPY by 52pp over 2020-2024"
 result generalises across rolling 5-year windows OR is window-specific
@@ -30,7 +30,7 @@ W4          2021-01-02 → 2025-12-31       2021-01-02 → 2025-12-31
 W3 (2020-2024) is the direct S38 re-run on the post-#260 engine —
 delivers the "Δ vs pre-#260 baseline" comparison.
 
-Output layout (per window, under ``%TEMP%\\s41_backtest\\<window_id>``)::
+Output layout (per window, under ``%TEMP%\\s43_backtest\\<window_id>``)::
 
     <WORK_DIR>/w1_2018_2022/
         none/rank_log.csv      # one CSV per friction level
@@ -45,11 +45,11 @@ Output layout (per window, under ``%TEMP%\\s41_backtest\\<window_id>``)::
 
 Run all four sequentially::
 
-    python -m backtests.regression.s41_rolling_multiwindow all
+    python -m backtests.regression.s43_rolling_multiwindow all
 
 Run one window only (checkpoint-friendly)::
 
-    python -m backtests.regression.s41_rolling_multiwindow one --window w3_2020_2024
+    python -m backtests.regression.s43_rolling_multiwindow one --window w3_2020_2024
 """
 
 from __future__ import annotations
@@ -66,8 +66,8 @@ import typer
 from backtests.regression._common import run_backtest_multi_friction
 from backtests.regression.universes import UNIVERSE_100
 
-SNAPSHOT_ID_PREFIX = "s41_rolling"
-DOC = "docs/ENGINE_BACKTEST_S41_ROLLING_MULTIWINDOW.md"
+SNAPSHOT_ID_PREFIX = "s43_rolling"
+DOC = "docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md"
 FRICTION_LEVELS = ("none", "bid_ask", "full")
 
 
@@ -116,7 +116,7 @@ def _work_dir() -> Path:
     """Per-window output directory. Uses ``$TEMP`` so the large CSVs
     don't accidentally land in git."""
     temp = os.environ.get("TEMP") or os.environ.get("TMPDIR") or "/tmp"
-    return Path(temp) / "s41_backtest"
+    return Path(temp) / "s43_backtest"
 
 
 def _window_dir(window_id: str) -> Path:
@@ -176,7 +176,7 @@ app = typer.Typer(add_completion=False, help=__doc__)
 @app.command()
 def all() -> None:
     """Run all four windows sequentially. ~12h wall-clock on the dev box."""
-    print("S41 — Rolling multi-window. Engine SHA = origin/main HEAD (post-#260).", flush=True)
+    print("S43 — Rolling multi-window. Engine SHA = origin/main HEAD (post-#260).", flush=True)
     print(f"Universe: 100 tickers ({UNIVERSE_100[0]}, ..., {UNIVERSE_100[-1]}).", flush=True)
     print(f"Output root: {_work_dir()}", flush=True)
     summaries = []
@@ -215,7 +215,7 @@ def one(window: str) -> None:
 @app.command()
 def info() -> None:
     """Print the window plan + output paths without running anything."""
-    print("S41 — Rolling multi-window plan")
+    print("S43 — Rolling multi-window plan")
     print(f"Output root: {_work_dir()}")
     print(f"Friction levels: {FRICTION_LEVELS}")
     print(f"Canonical knobs: {CANONICAL}")

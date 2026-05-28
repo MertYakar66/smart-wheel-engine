@@ -126,7 +126,7 @@ per-window detail sections below._
 
 ---
 
-## 3. Engine vs SPY-equivalent across all windows
+## 3. Engine vs Univ-EW baseline (and SPY context) across all windows
 
 SPY itself is not in the on-disk OHLCV data (`data/bloomberg/sp500_ohlcv.csv`
 contains the 503 S&P 500 single-name constituents only). The primary
@@ -146,13 +146,25 @@ the window's calendar bookends. Reproducible from
 `data/bloomberg/sp500_ohlcv.csv` via
 `backtests/regression/s43_analyze.py::_univ_ew_return`.
 
-| Window | Period (calendar) | Univ-EW return (mean) | Univ-EW median | Tickers included |
-|---|---|---|---|---|
-| W1 | 2018-01-03 → 2022-12-30 | **+70.42%** | +51.95% | 99 / 100 |
-| W2 | 2019-01-02 → 2023-12-29 | **+127.71%** | +76.00% | 99 / 100 |
-| W3 | 2020-01-02 → 2024-12-31 | **+95.02%** | +42.66% | 99 / 100 |
-| W4 | 2021-01-04 → 2025-12-31 | **+91.14%** | +47.17% | 99 / 100 |
-| S38 (cite) | 2020-01-02 → 2024-12-31 | +95.02% (this metric) | +42.66% | 99 / 100 |
+| Window | Period (calendar) | Univ-EW (mean) | Univ-EW median | External SPY total-return (compounded) | Tickers included |
+|---|---|---|---|---|---|
+| W1 | 2018-01-03 → 2022-12-30 | **+70.42%** | +51.95% | ~+56.8% | 99 / 100 |
+| W2 | 2019-01-02 → 2023-12-29 | **+127.71%** | +76.00% | ~+107.2% | 99 / 100 |
+| W3 | 2020-01-02 → 2024-12-31 | **+95.02%** | +42.66% | ~+97.1% | 99 / 100 |
+| W4 | 2021-01-04 → 2025-12-31 | **+91.14%** | +47.17% | TBD (2025 actuals) | 99 / 100 |
+| S38 (cite) | 2020-01-02 → 2024-12-31 | +95.02% (this metric) | +42.66% | "~+85%" per S38 doc | 99 / 100 |
+
+**External SPY** numbers compounded from published annual total-return
+figures (price + dividends): 2018 −4.38%, 2019 +31.49%, 2020 +18.40%,
+2021 +28.71%, 2022 −18.11%, 2023 +26.29%, 2024 +25.02%. Sources:
+S&P Dow Jones Indices / Morningstar. These are reference numbers
+not derived from on-disk data; use Univ-EW for the on-disk
+apples-to-apples baseline.
+
+The S38 doc's "~+85%" SPY figure understates the actual 2020-2024
+total return (+97.1%) — likely because S38 cited a price-only
+figure (without dividends ≈ +82%). Either is a reasonable proxy
+but the +97% total-return number is the more standard comparison.
 
 The mean-vs-median gap is large in every window — a few mega-winners
 (BKNG-style trajectories) pull the EW mean well above the EW median.
@@ -200,19 +212,30 @@ _TBD — per-window decomposition table after runs complete._
 
 ---
 
-## 5. Per-year ρ within each window
+## 5. Per-year ρ within each window — the (window × year) matrix
 
 The ranker's Spearman ρ measures whether `ev_dollars` predicts
-realised P&L. The §2 invariant is statistical: ρ should be positive
-and statistically significant in every year. S38 reported ρ ranging
-0.21 – 0.55 across years; **never negative**.
-
-_TBD — per-year ρ table covering W1-W4 × every covered year._
+realised P&L. The §2 ranker invariant is statistical: ρ should be
+positive and statistically significant in every year. S38 reported
+ρ ranging 0.21 – 0.55 across years; **never negative**.
 
 A **(window × year) ρ matrix** is the most direct test of whether
 the ranker generalises out-of-(specific-window): if ρ is positive
 in EVERY cell, the ranker quality is window-invariant, even when
 the dollar outcome is window-dependent.
+
+| Year | W1 ρ (n) | W2 ρ (n) | W3 ρ (n) | W4 ρ (n) | S38 ρ (n) |
+|---|---|---|---|---|---|
+| 2020 | _TBD_ | _TBD_ | _TBD_ | — | 0.548 (3,467) |
+| 2021 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 0.211 (3,410) |
+| 2022 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 0.370 (3,390) |
+| 2023 | — | _TBD_ | _TBD_ | _TBD_ | 0.309 (3,391) |
+| 2024 | — | — | _TBD_ | _TBD_ | 0.312 (3,534) |
+| 2025 | — | — | — | _TBD_ | — |
+| **Full** | _TBD_ | _TBD_ | _TBD_ | _TBD_ | **0.358 (17,192)** |
+
+The "never negative" check: tally how many cells in W1-W4 have
+ρ < 0 (if any). Each cell is reported full friction.
 
 ---
 
@@ -312,12 +335,48 @@ _TBD — per-window R9 / R10 would-fire tables._
 
 ## 11. Findings (observable not interpretive)
 
-_TBD — populated after all numbers are in._
+_TBD — populated after all numbers are in. Anticipated finding shape
+below; numbers fill in as windows complete._
 
 Findings drafted live from the rank_log + tracker artifacts only;
 no extrapolation beyond the executed sample. Convention: F<N> with
-a one-sentence observation + a "source" line giving the artifact
+a one-sentence observation + a `source:` line giving the artifact
 that supports it.
+
+**Anticipated finding skeletons:**
+
+- **F1 — Window-dependence of dollar outcome holds on post-#260
+  engine.** Engine vs Univ-EW: W1 _TBD_, W2 _TBD_, W3 _TBD_, W4
+  _TBD_. (S38 pre-#260 was −62pp vs Univ-EW restated.) source:
+  `summary.json` per window; Univ-EW from `data/bloomberg/sp500_ohlcv.csv`.
+
+- **F2 — Ranker quality preserved across all (window × year)
+  cells.** ρ positive in every measured cell; no negatives.
+  source: per-window `metrics.json::per_year`.
+
+- **F3 — Realised executed P&L _TBD_.** S38 had this NEGATIVE
+  (−$28,647 over 5y). Did post-#260's F4 widening flip the sign
+  by refusing the worst trades? source: per-window
+  `tracker_state.json::closed_positions`.
+
+- **F4 — Refusal rate during COVID _TBD_.** S38 had 97.8% in
+  Feb-May 2020. Same on post-#260? source: per-window
+  `rank_log.csv` filtered to date range.
+
+- **F5 — Concentration _TBD_.** S38 found top-5 +$23k while net
+  −$28k. Same on post-#260? source: tracker `closed_positions`.
+
+- **F6 — Capital deployment _TBD_.** S38 reported 22.6%; S34
+  reported 22.1% on a shorter window. source: tracker `equity_curve`.
+
+- **F7 — R9 / R10 would-fire counts _TBD_.** Each gate's
+  post-hoc would-fire count under the published defaults
+  (25% sector, 10% single-name). source: per-window
+  `tracker_state.json::closed_positions` + tracker `positions`.
+
+- **F8 — Δ vs pre-#260 baseline.** W3 (S38 re-run on post-#260)
+  vs S38's published numbers — full-window NAV, ρ, 2022 mean
+  realised. source: W3 `summary.json` ⟷ S38 doc.
 
 ---
 

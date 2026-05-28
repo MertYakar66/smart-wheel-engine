@@ -646,13 +646,18 @@ or flip at smaller capital (where BP saturates and accidentally
 limits the wheel's upside drag) and widen further at larger capital
 (where deployment ratio drops further).
 
-**For B1 (F4 tail-risk fix, in flight on Terminal A's
-`claude/fix-f4-regime-conditioned-widening`):** S40 reinforces the
-case for F4 fix. The COVID 2020 year contributed −$33k of realized
-loss to S38 alone (mean −$431/trade × 78 trades); proper tail
-widening on 2020-class events would shift the engine's realized
-positive in S38 too, possibly reducing the engine-vs-passive gap
-by 5-10pp in 5y windows that include crisis years.
+**For B1 (F4 tail-risk fix):** **PR #260 shipped the F4
+fix — realized-vol-ratio widening — to `origin/main` while this
+S40 campaign was running (replaces the rolled-back HMM widening
+from PR #253).** S40's backtests ran on engine SHA `b2cce25`
+(pre-F4-fix). A future S* re-run on the post-F4-fix engine could
+test whether realized-vol-ratio widening shifts the engine's
+realized positive in S38 — particularly the 2020 COVID year
+contribution of −$33k (mean −$431/trade × 78 trades). The
+hypothesis from S40 + S38 data: proper tail widening on
+2020-class events could close 5-10pp of the engine-vs-passive
+gap in 5y windows that include crisis years. Worth re-running
+S38 specifically on the post-F4-fix engine to validate.
 
 **For S6 (Theta provider with real chains, still blocked on Theta
 Terminal access):** the SPY-not-in-Bloomberg issue surfaced in S40

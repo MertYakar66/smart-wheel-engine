@@ -753,8 +753,8 @@ layer surfaces:
    short-circuited on the covered-call leg (stock already owned; no
    new margin).
 2. **Dossier soft-warns** (`engine/candidate_dossier.py`
-   `EnginePhaseReviewer` R7 + R8) — at ranking time, when a
-   `PortfolioContext` is attached, the reviewer adds two
+   `EnginePhaseReviewer` R7 + R8 + R9) — at ranking time, when a
+   `PortfolioContext` is attached, the reviewer adds three
    *downgrade-only* rules on top of the existing R1–R6:
    - **R7** = `check_var`. Portfolio VaR_95 (30-day horizon) above
      `max_var_pct × NAV` → `proceed` downgrades to `review`,
@@ -765,6 +765,15 @@ layer surfaces:
      the candidate's underlying being in `short_gamma_amplifying`
      regime fires `verdict_reason="short_gamma_regime"`. Distinct
      reasons per trigger so the audit trail records which one.
+   - **R9** = `check_sector_cap`. Added in B2 closure (2026-05-27).
+     If opening the candidate would push its GICS sector over
+     `max_sector_pct × NAV` (default 25% — same gate the tracker
+     applies as a HARD refusal at `open_short_put` time when
+     `require_ev_authority=True`), `proceed` downgrades to `review`,
+     `verdict_reason="sector_cap_breach"`. Soft-warn preview of the
+     tracker's hard refusal so a trader scanning the dossier UI
+     sees the warning BEFORE attempting execution. Skips silently
+     when `nav == 0` or the context is missing (Q3 semantics).
 
 R1 (`negative EV → blocked`) still wins over every D17 surface — the
 hard invariant from CLAUDE.md §2 / D1 / D16 is not amended.
@@ -855,7 +864,10 @@ tuning them is a follow-on decision, not part of D17.
   downgrade verdict — and splitting would break the parallel with R6.
   Distinct `verdict_reason` per trigger (`stress_breach` vs
   `short_gamma_regime`) carries the per-trigger fact into the audit
-  log without inflating the rule count.
+  log without inflating the rule count. **Note (2026-05-27):** R9
+  was later added in the B2 closure for `check_sector_cap`, NOT as
+  a split of R8 — a separate gate with its own concern. R8 keeps
+  its dual-trigger shape.
 
 - **Opt-in `require_portfolio_risk_gates` flag separate from
   `require_ev_authority`.** Considered for backwards-compat: gate

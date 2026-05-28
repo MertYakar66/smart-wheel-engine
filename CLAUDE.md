@@ -29,7 +29,7 @@ block at the bottom routes you to the right on-demand document.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev`. The
      one ranker every tradeable path routes through.
    - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the
-     downgrade rules R1–R8 (see §2).
+     downgrade rules R1–R9 (see §2).
 4. **Interface layer** — `engine_api.py` (HTTP on `:8787`), `dashboard/`
    (Next.js), `engine/tradingview_bridge.py` (chart providers — sanity
    check, not a decider), `advisors/` (Buffett / Munger / Simons / Taleb
@@ -84,6 +84,16 @@ The `EnginePhaseReviewer` rules, for reference:
   drawdown > 8% NAV OR the candidate's underlying is in
   `short_gamma_amplifying` regime → downgrade proceed → review. Distinct
   `verdict_reason` per trigger.
+- R9: *(D17 soft-warn — conditional on attached `PortfolioContext`,
+  added in B2 closure.)* Sector concentration cap. If opening the
+  candidate would push its GICS sector over `max_sector_pct × NAV`
+  (default 25% per the D17 sector cap; same gate
+  `engine.portfolio_risk_gates.check_sector_cap` the tracker applies
+  as a HARD refusal at `open_short_put` time when
+  `require_ev_authority=True`), downgrade proceed → review with
+  `verdict_reason="sector_cap_breach"`. Skips silently when no
+  context is attached OR `nav == 0` — soft-warns don't fire on
+  absent evidence.
 
 ---
 

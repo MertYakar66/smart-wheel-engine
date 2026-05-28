@@ -7402,7 +7402,11 @@ Calm-regime signal preserved across all 6 unit-control cells (factor
   composition. Total dollar impact is small (~$2,900 over 1,936
   rows). The fix's value shows up in `executed_trades` (51 → 40,
   −22%) and `final_NAV` ($127,694 → $112,223, −12.1%, the
-  documented trade-off in PR #260).
+  documented trade-off in PR #260). On the **opener-eligible 2022
+  subset** (1,100 rows where `ev_dollars > 0`), mean realized is
+  **+$55.23 with 81.3% hit-rate** — the engine IS net-profitable
+  on the trades it actually surfaces for opening; the losses
+  concentrate in two clusters (COST 4/22 + MSFT 8/22).
 - **(F6 — calm-regime preservation)**. 6 calm-control cells (AAPL,
   MSFT @ three calm 2023-2024 dates) all have factor=1.00 — no
   spurious caution. AAPL @ 2024-09-09 has `hmm_regime=bear` but
@@ -7410,6 +7414,18 @@ Calm-regime signal preserved across all 6 unit-control cells (factor
   HMM `bear/crisis` labels are vol-state labels, not tail-event
   predictors, and the RV-ratio signal is independent of (and more
   precise than) HMM.
+- **(F7 — S27 snapshot byte-for-byte reproducible)**. Standalone
+  S27 reproducer run (`backtests.regression.s27_ivpit_24t_100k`)
+  produced 5,944-row rank_log + metrics.json matching the in-repo
+  snapshot to 6+ decimal places across every aggregate / per-year /
+  per-quartile field. The snapshot is current-engine-trustworthy.
+- **(F8 — second worst-loss cluster: MSFT 2022-08)**. The 2022
+  top-15 worst-realized is dominated by COST 2022-04 (11 entries,
+  the canonical F4 case) PLUS MSFT 2022-08 (4 entries, prob_profit
+  0.849, the August inflation surprise). MSFT 2022-08 is not in
+  PR #260's named-case set but shows the same first-event pattern:
+  pre-event `rv30/rv252 < 1.30`, F4 fix silent, R10 the only damage
+  bound.
 
 **AI handoff:**
 

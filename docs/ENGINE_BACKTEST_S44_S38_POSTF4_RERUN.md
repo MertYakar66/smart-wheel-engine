@@ -1,4 +1,4 @@
-# Engine backtest — S43: S38 re-run on post-F4 engine (2026-05-28)
+# Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28)
 
 **Question:** *Does PR #260's F4 realized-vol-ratio widening close
 any of S38's −52pp engine-vs-passive gap at $1M / 100t / 2020-2024?
@@ -265,7 +265,7 @@ reported PR #260 alone causes:
 - NAV −12.1% (\$127,694 → \$112,223)
 - executed_trades −22% (51 → 40)
 
-My S43 (100t × $1M × 2020-2024 on S38 setup) reports PR #260 causes:
+My S44 (100t × $1M × 2020-2024 on S38 setup) reports PR #260 causes:
 - ρ −1.0% (0.3576 → 0.3539)
 - NAV **+0.4%** (\$1,331,764 → \$1,337,350)
 - executed_trades **+0.7%** (305 → 307)
@@ -278,7 +278,7 @@ configuration moves from (24t × \$100k × 2022-2024) to
    etc); the 100-ticker universe spreads exposure across more
    names where F4 firing rate is more balanced.
 2. **Window length averages out per-year noise.** S27's 3-year
-   window has F4 effects concentrated in the 2022 bear; S43's 5-year
+   window has F4 effects concentrated in the 2022 bear; S44's 5-year
    window includes 2 calm-regime years (2023, 2024) where F4 doesn't
    fire much, averaging the per-year impact toward zero.
 3. **\$1M capital opens more candidates per day** (S40 measured
@@ -286,11 +286,60 @@ configuration moves from (24t × \$100k × 2022-2024) to
    16% avg deployment and 0 BP skips). Larger capital means each
    F4-refused candidate has less marginal impact.
 
-**Both S41 and S43 agree on the structural finding:** **PR #260
+**Both S41 and S44 agree on the structural finding:** **PR #260
 alone is not a dollar-improver.** The size and sign of the
 non-improvement varies by configuration; the qualitative direction
 ("F4 fix is the frequency guard, not the magnitude guard")
 holds.
+
+## 7b. Cross-reference with Terminal C's S43 (PR #270)
+
+**Numbering note:** This doc was originally written as S43 and
+renamed to S44 after Terminal C's PR #270 claimed S43 ~6 min
+earlier (FIFO). Per the parallel-sessions Sn discipline, C has
+the S43 number.
+
+**Overlap with C's S43.** C's PR #270 is a 4-window rolling backtest
+study at \$1M / 100t on the post-F4 engine; its **W3 window is the
+S38 re-run** — i.e., the same backtest this doc covers. C's W3
+result:
+
+> "PR #260 is signal-preserving on the W3 ⟷ S38 comparison
+> (Δρ −0.002; Δ2022-mean-realised −\$2.70)"
+
+My S44 result on the same comparison:
+
+| Metric | S44 (mine) | C's S43 W3 |
+|---|---|---|
+| Δρ | −0.0037 (−1.0%) | −0.002 |
+| Δ2022-mean-realized executed | −\$41.10 | −\$2.70 |
+
+**The Δρ numbers are in the same direction but different
+magnitude** (mine reports a slightly larger ρ degradation). The
+Δ2022-mean-realized numbers diverge meaningfully (−\$41 vs −\$2.70).
+Possible reasons for the divergence:
+
+1. **Different friction level reported.** This doc consistently
+   reports `full` friction; C's may report frictionless or bid_ask.
+2. **Different aggregation.** Mine is mean over **executed PUT**
+   trades (n=47 pre-F4, n=48 post-F4); C may report mean over
+   **all 2022 candidates** or include CCs.
+3. **Engine SHA drift** — though both should be `56d8e5c` per
+   the timestamps.
+4. **Different pre-F4 baseline.** C may have used a different
+   pre-F4 reproduction; mine used the canonical S38 rank_log
+   from `%TEMP%\s38_backtest\` (engine `b2cce25`).
+
+**The qualitative conclusion is the same in both:** F4 fix is
+signal-preserving but not value-creating on the S38 window. **The
+quantitative divergence is worth user attention** — recommended
+reconciliation is to align the comparison metric (full friction,
+executed put trades only) across both docs in a single follow-up.
+
+C's broader 4-window study tests questions S44 doesn't (rolling
+multi-window post-F4); my S44 doc focuses specifically on the
+pre-vs-post F4 comparison on the S38 setup. **Both contribute**
+non-overlapping content despite the W3 overlap.
 
 ## 8. Implications for the deployment matrix
 
@@ -302,15 +351,15 @@ reads:
 > S38 −52pp — span of −52pp to +11.6pp across measured multi-year
 > windows.
 
-**No change required.** S43's post-F4 result (−51.5pp vs SPY ext) is
+**No change required.** S44's post-F4 result (−51.5pp vs SPY ext) is
 within the same range. The amendment text already captures the
 underperformance honestly; F4 fix does not move the needle enough
 to require a re-revision.
 
-The deployment-bundle framing from S41 (and S43 reinforces): the
+The deployment-bundle framing from S41 (and S44 reinforces): the
 combination of PR #260 (F4 RV widening, frequency guard) + PR #262
 (R10 single-name notional cap, magnitude guard) is what closes
-PROD_READINESS §3 B1, not either alone. S43 didn't test R10 because
+PROD_READINESS §3 B1, not either alone. S44 didn't test R10 because
 the harness uses `require_ev_authority=False` and R10 is
 conditional on PortfolioContext + strict mode.
 
@@ -347,14 +396,14 @@ netted positive via large premium.
 
 ## AI handoff
 
-- **S43 falsifies the S40 AI-handoff hypothesis** that F4 widening
+- **S44 falsifies the S40 AI-handoff hypothesis** that F4 widening
   would close 5-10pp of the −52pp engine-vs-passive gap. The gap
   is structural to the strategy's limited deployment at \$1M/100t,
   not to the engine's tail-risk widening capability.
 - **The dollar-alpha range from the deployment-matrix amendment
-  (PR #263) doesn't need revision.** S43's −51.5pp is within the
+  (PR #263) doesn't need revision.** S44's −51.5pp is within the
   −52pp framing.
-- **The F4 + R10 deployment-bundle framing from S41 + S43 is the
+- **The F4 + R10 deployment-bundle framing from S41 + S44 is the
   honest closure of PROD_READINESS §3 B1.** F4 alone is signal-
   preserving but not value-creating; R10 alone caps notional but
   doesn't widen the engine's distribution; together they form
@@ -364,11 +413,11 @@ netted positive via large premium.
   Set up a PortfolioContext on each tracker step that aggregates
   per-name exposure; verify R10 blocks AAPL / BKNG / AZO when
   any single name approaches 10% NAV. This would close the
-  parallel S43 question of "does R10 actually constrain anything
+  parallel S44 question of "does R10 actually constrain anything
   at \$1M/100t scale?" Likely answer: rarely, since the engine's
   natural deployment is wide; R10 mostly fires when the engine
   ranks AAPL or BKNG heavily for several consecutive days.
 - **The Univ-EW benchmark is a more conservative passive comparison
   than external SPY.** S40 reported Univ-EW +92.19% vs external
-  SPY ~+85% on the same window. S43 reinforces using Univ-EW as
+  SPY ~+85% on the same window. S44 reinforces using Univ-EW as
   the apples-to-apples benchmark for engine-vs-passive analysis.

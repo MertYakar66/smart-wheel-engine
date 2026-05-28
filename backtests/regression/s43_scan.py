@@ -78,8 +78,8 @@ def one(window_dir: Path) -> None:
         sys.exit(1)
 
 
-@app.command()
-def all(root: Path = Path("C:/Users/merty/AppData/Local/Temp/s43_backtest")) -> None:
+@app.command(name="all")
+def scan_all(root: Path = Path("C:/Users/merty/AppData/Local/Temp/s43_backtest")) -> None:
     """Scan all windows under ``root``."""
     reports = []
     overall = True

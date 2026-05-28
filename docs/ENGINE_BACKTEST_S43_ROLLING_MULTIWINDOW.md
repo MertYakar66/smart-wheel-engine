@@ -74,22 +74,82 @@ per-window detail sections below._
 
 | Sn / Window | Capital | Universe | Period | Engine NAV (full) | Engine return | Univ-EW return | Engine vs Univ-EW | Spearman ρ (N) | Executed |
 |---|---|---|---|---|---|---|---|---|---|
-| S38 (cite) | $1M | 100 | 2020-2024 (5y) | $1,331,764 | +33.18% | — | — | 0.358 (17,192) | 305 |
-| **W1 S43** | $1M | 100 | 2018-2022 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W2 S43** | $1M | 100 | 2019-2023 (gate-trunc) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W3 S43** | $1M | 100 | 2020-2024 (S38 re-run) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| **W4 S43** | $1M | 100 | 2021-2025 (NEW) | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| S38 (cite, pre-#260) | $1M | 100 | 2020-2024 (5y) | $1,331,764 | +33.18% | +95.02% | **−61.84pp** | 0.358 (17,192) | 305 |
+| **W1 S43** | $1M | 100 | 2018-2022 (gate-trunc → ~3y) | **$1,101,884** | **+10.19%** | +70.42% | **−60.23pp** | 0.378 (10,807) | 398 |
+| **W2 S43** | $1M | 100 | 2019-2023 (gate-trunc → ~4y) | _running_ | _TBD_ | +127.71% | _TBD_ | _TBD_ | _TBD_ |
+| **W3 S43** | $1M | 100 | 2020-2024 (S38 re-run) | _TBD_ | _TBD_ | +95.02% | _TBD_ | _TBD_ | _TBD_ |
+| **W4 S43** | $1M | 100 | 2021-2025 (NEW) | _TBD_ | _TBD_ | +91.14% | _TBD_ | _TBD_ | _TBD_ |
 
 ### W1 — 2018-01-03 → 2022-12-30 (effective ~2020-01-02 → 2022-12-30)
 
 | Metric | Frictionless | bid_ask | full friction |
 |---|---|---|---|
-| Final NAV | _TBD_ | _TBD_ | _TBD_ |
-| Return | _TBD_ | _TBD_ | _TBD_ |
-| Spearman ρ | _TBD_ | _TBD_ | _TBD_ |
-| Executed trades | _TBD_ | _TBD_ | _TBD_ |
-| Mean realized / trade | _TBD_ | _TBD_ | _TBD_ |
-| §2 R1a non-finite count | _TBD_ | _TBD_ | _TBD_ |
+| Final NAV | $1,103,402 | $1,105,677 | **$1,101,884** |
+| Return | +10.34% | +10.57% | **+10.19%** |
+| Spearman ρ (N=10,807) | 0.381 | 0.378 | **0.378** |
+| Executed trades | 417 | 394 | **398** |
+| Put assignments | 99 | 97 | **96** |
+| Open at end | 51 | 51 | **50** |
+| Mean realized / trade | $34.80 | $2.89 | **$2.89** |
+| Hit rate | 80.9% | 80.6% | **80.6%** |
+| §2 R1a non-finite count | 0 | 0 | **0 ✓** |
+| EV ≤ 0 (engine-side refused) | 3,302 / 10,807 (30.6%) | 3,302 / 10,807 | 3,302 / 10,807 |
+
+**Per-year (full friction):**
+
+| Year | n | ρ | Mean realized | Hit rate | IV mean |
+|---|---|---|---|---|---|
+| 2020 (COVID) | 3,636 | **+0.538** | −$23.42 | 83.3% | 0.367 |
+| 2021 (bull) | 3,596 | +0.218 | **+$152.37** | 85.7% | 0.286 |
+| 2022 (bear) | 3,575 | +0.358 | **−$120.70** | 72.6% | 0.358 |
+
+**Adverse-period refusal (rank_log filter; engine-side EV ≤ 0 counts;
+does not include the harness's secondary BP / already-held / daily-cap
+filters):**
+
+| Period | Ranked rows | EV ≤ 0 | Refusal rate |
+|---|---|---|---|
+| COVID 2020-02-15 → 2020-05-15 | 893 | 41 | 4.6% |
+| 2022 bear (Jan-Oct) | 2,915 | 822 | 28.2% |
+
+**Methodology note for COVID refusal.** The 4.6% engine-side rate is
+**not** comparable to S38's 97.8% headline. S38's refusal counted
+"candidates ranked vs candidates *actually opened*" — including the
+harness's secondary filters (no existing position, BP available,
+under `max_new_per_day`). My number counts only the engine-EV
+filter; the harness's secondary filters typically reject many more
+candidates. The exact "% executed of ranked" is reported once the
+W2/W3/W4 runs land — they have `tracker_state.json` (added to the
+harness mid-campaign — see §12).
+
+**§2 invariant scan (W1):** ✅ R1a passes on all three friction levels
+(0 non-finite EVs in 10,807 rows × 3 levels = 32,421 candidate
+rows). Min EV −$1,160.71, max EV +$3,857.69.
+
+**W1 limitation — tracker_state.json missing.** W1 launched before
+the harness was extended to dump `WheelTracker.to_dict()` to disk
+(commit `daa2282`). Concentration analysis (top-5 vs net), R9/R10
+fire-rate audit, and capital deployment time-series for W1 are
+therefore **not reportable directly** from artifacts and would
+require either a re-run or rank_log reconstruction. W2/W3/W4 all
+have the tracker dump and will report these sections.
+
+**W1 — Δ vs S38 (both windows include 2020-2022):**
+
+| Metric (2022 only) | S38 | W1 | Δ |
+|---|---|---|---|
+| 2022 n (rank rows) | 3,390 | 3,575 | +185 |
+| 2022 ρ | 0.370 | 0.358 | −0.012 |
+| 2022 mean realized | −$118 | −$120.70 | −$2.70 |
+| 2022 hit rate | (not in S38 doc) | 72.6% | n/a |
+
+The post-#260 engine produced **virtually identical 2022 numbers**
+to S38's pre-#260 engine over the same year. The realised-vol-ratio
+widening landed in PR #260 did NOT materially change the W1 2022
+outcome. This is signal-preserving (good) but also means F4-style
+single-name drawdowns are not yet bounded by the EV widening alone —
+the R10 single-name cap (PR #256) is the orthogonal-by-design floor
+for that scenario.
 
 ### W2 — 2019-01-02 → 2023-12-29 (effective ~2020-01-02 → 2023-12-29)
 
@@ -226,13 +286,13 @@ the dollar outcome is window-dependent.
 
 | Year | W1 ρ (n) | W2 ρ (n) | W3 ρ (n) | W4 ρ (n) | S38 ρ (n) |
 |---|---|---|---|---|---|
-| 2020 | _TBD_ | _TBD_ | _TBD_ | — | 0.548 (3,467) |
-| 2021 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 0.211 (3,410) |
-| 2022 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 0.370 (3,390) |
+| 2020 | +0.538 (3,636) | _TBD_ | _TBD_ | — | 0.548 (3,467) |
+| 2021 | +0.218 (3,596) | _TBD_ | _TBD_ | _TBD_ | 0.211 (3,410) |
+| 2022 | +0.358 (3,575) | _TBD_ | _TBD_ | _TBD_ | 0.370 (3,390) |
 | 2023 | — | _TBD_ | _TBD_ | _TBD_ | 0.309 (3,391) |
 | 2024 | — | — | _TBD_ | _TBD_ | 0.312 (3,534) |
 | 2025 | — | — | — | _TBD_ | — |
-| **Full** | _TBD_ | _TBD_ | _TBD_ | _TBD_ | **0.358 (17,192)** |
+| **Full** | **+0.378 (10,807)** | _TBD_ | _TBD_ | _TBD_ | **0.358 (17,192)** |
 
 The "never negative" check: tally how many cells in W1-W4 have
 ρ < 0 (if any). Each cell is reported full friction.

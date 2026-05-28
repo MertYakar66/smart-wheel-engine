@@ -363,8 +363,8 @@ def analyze(window_dir: Path, ohlcv_path: Path = Path("data/bloomberg/sp500_ohlc
     print(json.dumps(report, indent=2, default=str))
 
 
-@app.command()
-def all(
+@app.command(name="all")
+def analyze_all(
     root: Path = Path(os.environ.get("TEMP", "/tmp")) / "s43_backtest",
     ohlcv_path: Path = Path("data/bloomberg/sp500_ohlcv.csv"),
     out_path: Path | None = None,

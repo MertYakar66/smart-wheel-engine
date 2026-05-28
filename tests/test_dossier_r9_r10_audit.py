@@ -883,13 +883,16 @@ class TestS42F5_CrossRuleInteraction:
         assert not any("R10" in n for n in notes)
 
     def test_all_four_soft_warns_trip_simultaneously_first_in_order_wins(self) -> None:
-        """The four soft-warns (R7, R8 stress, R8 dealer, R9, R10) all
-        have conditions met. ``EnginePhaseReviewer.review`` evaluates
-        R7 first and short-circuits. The verdict is ``review`` (not
-        blocked, not proceed, not skip), the reason is the first
-        firing rule's reason (``portfolio_var_breach``), and the
-        ``review_notes`` contain only the R7 note — no R8 / R9 / R10
-        notes because those code paths never executed.
+        """All four soft-warn RULES (R7, R8, R9, R10) have firing
+        conditions met simultaneously, with R8 tripped on BOTH of its
+        triggers (stress + dealer) — five total trigger conditions
+        across four rules. ``EnginePhaseReviewer.review`` evaluates
+        R7 first and short-circuits via ``return``. The verdict is
+        ``review`` (not blocked, not proceed, not skip), the reason
+        is the first firing rule's reason
+        (``portfolio_var_breach``), and the ``review_notes`` contain
+        only the R7 note — no R8 / R9 / R10 notes because those code
+        paths never executed.
 
         This pins the rule ordering and the short-circuit contract.
         A future refactor that allowed multiple soft-warn notes to
@@ -915,7 +918,8 @@ class TestS42F5_CrossRuleInteraction:
             ],
             # Tiny NAV + concentrated AAPL: R8 stress would fire, R9
             # would fire (Info Tech > 25%), R10 would fire (single-
-            # name > 10%). All five conditions met simultaneously.
+            # name > 10%). All four rules' conditions are met, with
+            # R8 tripped on both triggers (5 total triggers).
         )
         verdict, reason, notes = EnginePhaseReviewer().review(d)
         assert verdict == "review"

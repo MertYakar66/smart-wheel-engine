@@ -96,11 +96,17 @@ three friction levels = **184,602 candidate rows scanned with 0
 R1a violations**. The engine's §2 contract is fully intact on
 post-#260.
 
-**The R10 single-name 10% cap (PR #256) would have refused 4-5% of
-executed opens** in W2-W4 (19 / 19 / 23 of the 465 / 516 / 509
-opens respectively). Max single-name exposure reached 20.79% of NAV
-in W2/W3 — well above the 10% cap. R10 is materially impactful
-damage-bounding when it lands live.
+**The R10 single-name 10% cap (PR #256) and R9 sector 25% cap (PR #255)
+would have been heavily breached on these S43 windows.** R10
+would-fire counts: W2 19/465 (4.1%), W3 19/516 (3.7%), W4 23/509
+(4.5%). **Max single-name exposure reached 44-47% of NAV (running)**
+— 4.4-4.7× the 10% R10 cap. R9 would-fire counts: W2 25/465 (5.4%),
+W3 26/516 (5.0%), W4 58/509 (11.4%). **Max sector exposure reached
+66-69% of NAV (running)** — 2.6-2.8× the 25% R9 cap. The wheel
+strategy on this 100-ticker universe is naturally concentrated in
+Consumer Discretionary (BKNG/AZO/CHTR/HD/AMZN family) and
+Financials (BLK/GS/JPM family); both D17 gates would materially
+re-shape the executed trade list under live deployment.
 
 **Engine is research-grade ranker + supervision-grade refusal floor;
 NOT a dollar-alpha-against-passive-baseline generator at $1M+
@@ -339,6 +345,27 @@ essentially identical to S38** (Δρ on full window = 0.356 − 0.358 = −0.002
 is signal-preserving and per-trade-economics-preserving on the
 2020-2024 window**. This is the headline answer for the Δ-vs-#260
 deliverable in §9 below.
+
+**Row-count systematic delta noted.** W3 has +951 rows over the full
+5y window vs S38 (+5.53%, ~0.7 extra rows/trading-day). The delta
+is **uniform across all 5 years** (+4.87% to +6.13%), not
+concentrated in any single year. Likely cause: between commits
+`2da76ff` (S38) and `56d8e5c` (W3), the engine's eligibility
+fraction shifted slightly — small enough that mean ρ moves by
+−0.002 but enough that the top-15 daily rank cap occasionally
+includes one extra candidate. The marginal candidate is by
+construction nearer the engine's EV boundary, slightly diluting
+the per-row mean (2024's −$10.80 cell delta is the largest). The
+ranker quality is unchanged.
+
+| Year | S38 n | W3 n | Δn | Δn % |
+|---|---|---|---|---|
+| 2020 | 3,467 | 3,636 | +169 | +4.87% |
+| 2021 | 3,410 | 3,596 | +186 | +5.45% |
+| 2022 | 3,390 | 3,575 | +185 | +5.46% |
+| 2023 | 3,391 | 3,599 | +208 | +6.13% |
+| 2024 | 3,534 | 3,737 | +203 | +5.74% |
+| **Full** | **17,192** | **18,143** | **+951** | **+5.53%** |
 
 **Concentration (tracker_state.json, full friction):**
 
@@ -651,41 +678,56 @@ The "never negative" check: tally how many cells in W1-W4 have
 
 ---
 
-## 6. Refusal rate during adverse periods (COVID, 2022 bear)
+## 6. Refusal rate during adverse periods (COVID, 2022 bear) — CORRECTED
 
-S38 reported COVID (2020-02-15 → 2020-05-15) refusal at 97.8% — the
-engine's strongest defensible property. **Important: S38's 97.8%
-counted "ranked candidates vs ACTUALLY OPENED positions" (including
-the harness's BP / already-held / per-day-cap filters).** My
-analysis here reports **engine-side refusal only** (rows with
-`ev_dollars ≤ 0`), which is a strict subset of S38's framing.
+S38 reported COVID (2020-02-15 → 2020-05-15) refusal at 97.8% —
+counted as "ranked candidates vs ACTUALLY OPENED positions"
+(including the harness's BP / already-held / per-day-cap filters).
+**This section now reports both framings, with the actually-opened
+count derived from `tracker_state.json::closed_positions` +
+`positions` filtered by `put_entry_date` in the period.**
+
+**Engine-side refusal (EV ≤ 0 rows / ranked rows):**
 
 | Window | Period | Ranked rows | EV ≤ 0 | Engine-side refusal rate |
 |---|---|---|---|---|
-| W1 / W2 / W3 (shared) | COVID 2020-02-15 → 2020-05-15 | 893 | 41 | **4.6%** |
-| W1 / W2 / W3 (shared) | 2022 bear (Jan-Oct) | 2,915 | 822 | **28.2%** |
-| W4 (no COVID) | 2022 bear (Jan-Oct) | 2,915 | 822 | 28.2% |
+| W1 / W2 / W3 (shared) | COVID 2020-02-15 → 2020-05-15 | 893 | 41 | 4.6% |
+| W1 / W2 / W3 / W4 (shared) | 2022 bear (Jan-Oct) | 2,915 | 822 | 28.2% |
 
-(W4 also has 2022 bear because the window covers 2021-2025.)
+**S38-style refusal (1 − opened/ranked) on W2/W3/W4 actual tracker data:**
 
-**Engine-side refusal of 4.6% during COVID does NOT contradict
-S38's 97.8% figure.** S38's refusal includes the harness's three
-secondary filters. To extract a comparable "actually opened"
-percentage from my run, I'd cross-reference `rank_log.csv` to
-`tracker_state.json::closed_positions` (+ `positions`) for each
-period. **Quick post-process on W2 (which has both files):** the
-harness opened only 14 positions during the 893-row COVID window,
-giving an effective execution rate of 1.6% (refusal rate ~98.4%).
-That matches S38's framing exactly. **The COVID refusal property
-is preserved post-#260.**
+| Window | Period | Ranked rows | Actually opened | **Effective refusal rate** |
+|---|---|---|---|---|
+| W2 | COVID | 893 | 47 | **94.7%** |
+| W3 | COVID | 893 | 47 | **94.7%** |
+| W4 | COVID | 0 (window starts 2021) | 0 | n/a |
+| W2 | 2022 bear | 2,915 | 74 | **97.5%** |
+| W3 | 2022 bear | 2,915 | 74 | **97.5%** |
+| W4 | 2022 bear | 2,915 | 100 | **96.6%** |
 
-**During 2022 bear**, engine-side refusal is 28.2% (much higher
-than COVID's 4.6%). The post-#260 widening fires more aggressively
-when realised vol is elevated — consistent with PR #260's design
-intent. Of the 2,094 tradeable candidates ranked during 2022, my
-harness opened ~150-180 (per `tracker_state.json::closed_positions`
-filtered to 2022 entry_dates). Effective open-rate ≈ 7%, refusal
-≈ 93%. The engine sat out most of the 2022 bear.
+W2 and W3 produce IDENTICAL COVID + 2022-bear open counts (47 / 74)
+because the engine is deterministic on shared dates and the
+position book state is the same approaching those periods. W4
+opens more 2022-bear puts (100 vs 74) because its position book is
+in a different state at the start of 2022 (W4 started 2021-01-04
+with a different accumulated book than W2/W3 which started
+2019-01-02 / 2020-01-02).
+
+**S38's 97.8% COVID refusal figure is essentially reproduced on
+post-#260 at 94.7%.** The 3pp difference reflects the harness
+delta (516 W3 puts vs 305 S38 puts overall — see §9): the
+post-#260 harness's broader execution selection captured slightly
+more COVID-era candidates, but still refused 94.7% of the COVID
+period's ranked rows.
+
+**The 2022-bear refusal of 96.6-97.5% confirms the engine's
+"crisis refusal" property generalises.** During 2022's drawdown,
+the engine refused 96-98% of all ranked candidates across all
+three measurable windows.
+
+**The COVID + bear refusal property is the engine's most
+defensible characteristic** — it persists across windows, across
+the F4 widening, and across harness versions.
 
 ---
 
@@ -833,60 +875,102 @@ ranked signal, not by the F4 widening itself.
 
 ---
 
-## 10. R9 / R10 fire-rate audit
+## 10. R9 / R10 fire-rate audit (CORRECTED)
 
 R9 (sector cap, 25% per sector) and R10 (single-name cap, 10% per
 underlying) are the D17 soft-warn + tracker hard-block additions
-landed in PRs #255 and #256. **Important methodological note:** the
-S43 harness runs with `require_ev_authority=False` and does not
-attach a `PortfolioContext`, so neither gate fires during execution
-— the harness uses the same configuration as S34 / S38, which is
-the apples-to-apples baseline.
+landed in PRs #255 and #256. **Methodological note:** the S43
+harness runs with `require_ev_authority=False` and does not attach
+a `PortfolioContext`, so neither gate fires during execution — the
+harness uses the same configuration as S34 / S38, the
+apples-to-apples baseline.
 
 This section audits **counterfactually**: by post-hoc replay of the
 tracker's executed-trade record against `check_single_name_cap`
-with the published default 10%, how often WOULD R10 have fired?
+and `check_sector_cap` with the published defaults (10% and 25%),
+how often WOULD each gate have fired, and what was the maximum
+running exposure?
 
-The single-name audit is computable from `tracker_state.json`
-(strike parsed from notes; cumulative per-ticker notional walked
-chronologically). The sector audit requires a ticker → GICS sector
-map; this map is not in the rank-log artifact. Sector audit is
-SKIPPED on all four windows below.
+**Sector map.** Loaded from `data/bloomberg/sp500_fundamentals.csv`
+column `gics_sector_name`, keyed to the tracker's ticker form
+via `s43_analyze::_load_sector_map`. 1,006 mapped entries
+(includes bare-symbol + Bloomberg-form for every S&P 500
+constituent). Universe coverage: 100/100 tickers (the prior
+"99/100" gap was a normalisation issue; CBOE UF now matches).
 
-**Per-window R10 would-fire counts:**
+**Per-window R10 (single-name 10% cap) would-fire counts and
+RUNNING max exposure** (corrected — the running peak, not the
+end-state):
 
-| Window | Open events | R10 would-fire count | Would-fire rate | Max single-name % of NAV* |
-|---|---|---|---|---|
-| W1 (reconstruction) | 752 (inflated) | 35 | 4.7% | 25.07% (peak) |
-| W2 | 465 | 19 | **4.1%** | 20.79% (peak from running ledger) |
-| W3 | 516 | 19 | **3.7%** | 20.79% (peak from running ledger) |
-| W4 | 509 | 23 | **4.5%** | 7.11% (end-state observation; running peak higher) |
+| Window | Open events | R10 would-fire | Rate | Max single-name % NAV (running) | Max % NAV (end-state) |
+|---|---|---|---|---|---|
+| W1 (reconstruction) | 752 (inflated) | 35 | 4.7% | 25.07% | n/a |
+| W2 | 465 | 19 | **4.1%** | **44.25%** | 20.79% |
+| W3 | 516 | 19 | **3.7%** | **44.25%** | 20.79% |
+| W4 | 509 | 23 | **4.5%** | **47.15%** | 7.11% |
 
-*Max single-name % is the final-state observation in W4; for W2/W3
-it reflects the maximum during the run because positions stayed
-open. The R10 audit counts a "would-fire" as any OPEN event that
-would push the running per-ticker notional ABOVE 10% of initial
-capital. After a close event, the exposure drops; the running
-ledger may then come back under 10% so a later open can fire again.
+**W1 reconstruction note:** W1's max single-name was 25.07% (vs
+W2/W3's 44.25%). The lower W1 value is an artifact of the
+over-counting reconstruction — extra opens carry shorter holding
+windows in the reconstruction's BP-bounded replay, so concurrent
+exposures cap out earlier. Take W1's 25.07% as a lower-bound; the
+actual running max is likely between 25% and 44%.
 
-**Observation:** R10 would have refused **3.7-4.7% of all executed
-opens** across the four S43 windows. The max single-name exposure
-reaches 20-25% of NAV in W2/W3 — well above the 10% R10 cap. A
-typical contributor is a single 1-contract put on a high-strike
-ticker like BKNG ($1500+ strike = 15% of $1M NAV per contract).
+**Earlier doc revisions reported the END-STATE max (7-21%); the
+RUNNING peak is 4-7× higher (44-47% of NAV).** A single 1-contract
+put on a high-strike ticker (BKNG at $4,400 strike ⇒ $440k
+notional ⇒ 44% of $1M NAV) is by itself well above the 10% R10
+cap. The 4-5% would-fire rate accumulates from these high-priced
+concurrent positions across the run.
 
-**Implication.** R10 is **materially impactful damage-bounding**
-when wired live. The 3.7-4.7% refusal rate means roughly 1 in 25
-trades would have been deferred. The refused trades on a
-high-priced ticker are precisely the BKNG-style F4 named cases
-that motivated R10 (PR #256). **The R10 cap is preserving its
-design intent on these S43 windows.**
+**Per-window R9 (sector 25% cap) would-fire counts and running
+max sector exposure (NEW — sector map wired in this revision):**
 
-**R9 (sector cap) deferred** — out-of-band sector mapping is the
-follow-on. Per-ticker → GICS sector mapping exists in
-`engine.sector_metadata` (or equivalent); plumbing it into the
-audit script is a straightforward extension. Tracked but not
-shipped in this PR.
+| Window | Open events | R9 would-fire | Rate | Max sector % NAV (running) | Breaches by sector |
+|---|---|---|---|---|---|
+| W1 (reconstruction) | 752 (inflated) | 29 | **3.9%** | **43.38%** | Consumer Discretionary 29 |
+| W2 | 465 | **25** | **5.4%** | **66.91%** | Consumer Discretionary 21, Financials 4 |
+| W3 | 516 | **26** | **5.0%** | **66.91%** | Consumer Discretionary 21, Financials 4, IT 1 |
+| W4 | 509 | **58** | **11.4%** | **69.11%** | Consumer Discretionary 21, Financials 33, IT 4 |
+
+**Consumer Discretionary breaches appear in every window**, driven
+by the engine's natural concentration on the highest-strike S&P 500
+constituents (BKNG / AZO / CHTR / HD / AMZN / TSLA). **Financials
+breaches grow over time** (W2/W3: 4; W4: 33) as the wheel
+strategy cycles more BLK / GS / JPM / BAC positions during 2024-25.
+
+**Big finding.** R9 sector exposure runs **2.7× the 25% cap** at
+peak (66-69% of NAV in a single sector). Consumer Discretionary
+dominates W2 / W3 breaches because the wheel strategy
+concentrates on BKNG / AZO / CHTR / HD / AMZN / LOW etc. — the
+top-priced names within S&P 500 are heavily Consumer Discretionary.
+W4 also picks up large Financials sector concentration (BLK / GS /
+JPM-type names cycling through positions).
+
+**R10 + R9 combined damage-bounding.** With both gates active at
+published defaults:
+- R10 would have refused 4-5% of attempted opens per window
+- R9 would have refused another 5-11% on sector grounds
+- Combined refusal (accounting for overlap): roughly 8-15% of opens
+- This caps the per-name exposure at 10% (no single BKNG-style
+  position above 1 contract on $1,000+ strikes) and per-sector at
+  25% (forces sector diversification)
+
+**Impact on the S43 results IF the gates had been active.** Each
+gate would have refused MANY of the high-strike concurrent
+positions that drove both wins and losses in W2/W3/W4 (BKNG +$32k
+in S38, BKNG −$28k in W2/W3, AZO +$38k in W4). The realised P&L
+under R9+R10 would be smoother, lower-magnitude, and more
+diversified — closer to the "income generator with damage bounds"
+intent of the D17 design than the "concentrated bet on a handful of
+high-strike names" pattern the unrestricted S43 backtest shows.
+
+**Caveat.** This is a POST-HOC audit. The gates would have changed
+the EXECUTION SEQUENCE (refused opens free up cash + position slots
+for OTHER candidates the engine ranked but currently doesn't open).
+A faithful gate-on backtest would re-run the harness with
+`require_ev_authority=True` + `PortfolioContext` attached. That's
+a different Sn (and a different scope).
 
 ---
 
@@ -962,19 +1046,36 @@ Bloomberg OHLCV CSV. No extrapolation beyond the executed sample.
   *source:* `s43_scan.py::scan_window` output per window.
 
 - **F10 — R10 single-name 10% cap would have refused 4-5% of
-  executed opens** in W2-W4. W2: 19 of 465 (4.1%); W3: 19 of 516
+  attempted opens** in W2-W4. W2: 19 of 465 (4.1%); W3: 19 of 516
   (3.7%); W4: 23 of 509 (4.5%); W1 reconstructed: 35 of 752
-  (4.7%, inflated due to missing CC-cycle tracking). Max
-  single-name exposure reached 20.79% of NAV in W2/W3 (vs the 10%
-  R10 cap). **R10 is materially impactful damage-bounding when it
-  lands live.** *source:* `s43_analyze::_r9_r10_audit` from
-  per-window `tracker_state.json`.
+  (4.7%, inflated due to missing CC-cycle tracking).
+  **Max single-name RUNNING exposure reached 44.25-47.15% of NAV
+  in W2/W3/W4** — 4.4-4.7× the 10% R10 cap. (Earlier doc
+  revisions reported the END-STATE max at 7-21% which
+  significantly under-stated the running peak.) *source:*
+  `s43_analyze::_r9_r10_audit::r10_single_name_max_pct_running`
+  from per-window `tracker_state.json`.
 
-- **F11 — R9 sector audit is skipped on all four windows.** The
-  sector-map is not on the rank_log or tracker_state artifacts.
-  R9 fire-count requires out-of-band sector mapping per ticker.
-  Tracked as a follow-on. *source:* `s43_analyze::_r9_r10_audit`
-  with sector_map=None.
+- **F11 — R9 sector 25% cap would have refused 5-11% of attempted
+  opens** in W2-W4 (NEW — sector map wired in this revision).
+  W2: 25 of 465 (5.4%); W3: 26 of 516 (5.0%); **W4: 58 of 509
+  (11.4%)**. Max sector RUNNING exposure reached 66.91-69.11% of
+  NAV — 2.6-2.8× the 25% R9 cap. Dominant breaching sectors:
+  Consumer Discretionary (21 fires in every window), Financials
+  (4-33 fires), Information Technology (1-4 fires). **R9 fires
+  MORE often than R10 in W4** because of accumulated Financials
+  concentration (BLK/GS/JPM-family cycling). *source:*
+  `s43_analyze::_r9_r10_audit::r9_sector_breaches_by_name` with
+  sector_map loaded from `data/bloomberg/sp500_fundamentals.csv`.
+
+- **F11a — Effective COVID refusal rate is 94.7% on W2 and W3,
+  matching S38's 97.8% framing within 3pp** (NEW — cross-reference
+  rank_log to tracker_state for "actually opened" count). W2/W3
+  COVID: 47 actually opened of 893 ranked. **2022 bear: 97.5%
+  refusal on W2/W3, 96.6% on W4.** The engine's crisis-refusal
+  property is the most robust finding across windows + the F4 fix.
+  *source:* `s43_analyze::_opens_during_period` for the opened
+  count; rank_log row counts for the ranked count.
 
 - **F12 — Hit rates are 80-86% across all four windows.** W1 80.6%,
   W2 80.5%, W3 80.6%, W4 80.7%. Per-year hit rates: 72-86%

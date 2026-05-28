@@ -38,6 +38,41 @@ from backtests.regression.universes import UNIVERSE_100
 app = typer.Typer(add_completion=False, help=__doc__)
 
 
+def _load_sector_map(
+    fundamentals_path: Path = Path("data/bloomberg/sp500_fundamentals.csv"),
+    universe: tuple[str, ...] = UNIVERSE_100,
+) -> dict[str, str]:
+    """Build ticker→GICS sector map keyed by the tracker's ticker form
+    (which matches ``UNIVERSE_100``).
+
+    Bloomberg ticker format in the CSV: ``"<symbol> <exchange> Equity"``
+    (e.g., ``"A UN Equity"``, ``"AAPL UW Equity"``, ``"CBOE UF Equity"``).
+    The universe stores either the bare symbol (``"A"``, ``"AAPL"``)
+    or — for one anomaly — the symbol+exchange-code (``"CBOE UF"``).
+    This helper normalises both forms and returns a map keyed by the
+    universe-form ticker.
+    """
+    df = pd.read_csv(fundamentals_path, usecols=["ticker", "gics_sector_name"])
+    sector_map: dict[str, str] = {}
+    for _, row in df.iterrows():
+        bberg = str(row["ticker"])
+        sector = row["gics_sector_name"]
+        if not isinstance(sector, str) or not sector:
+            continue
+        # Strip trailing " Equity" then everything after; the symbol is
+        # the first token, the exchange code (UN/UW/UF) is the second.
+        clean = bberg.replace(" Equity", "").strip()
+        parts = clean.split()
+        if not parts:
+            continue
+        sym_bare = parts[0]
+        sym_with_xch = " ".join(parts) if len(parts) > 1 else sym_bare
+        # Map every form into the sector
+        for k in (sym_bare, sym_with_xch):
+            sector_map[k] = sector
+    return sector_map
+
+
 def _load_window(window_dir: Path) -> dict:
     """Load rank_log + metrics + tracker_state for each friction level."""
     data: dict = {"window_dir": str(window_dir), "per_friction": {}}
@@ -200,6 +235,40 @@ def _refusal_rate(rank_log: pd.DataFrame, start: str, end: str) -> dict:
     }
 
 
+def _opens_during_period(tracker_state: dict, period_start: str, period_end: str) -> dict:
+    """Count put-opens whose ``put_entry_date`` falls within
+    ``[period_start, period_end]`` from tracker_state (closed + open).
+
+    This is the "actually opened" count S38's 97.8% COVID refusal
+    framing uses (vs the engine-side EV ≤ 0 framing in
+    :func:`_refusal_during_period`).
+    """
+    ps = pd.to_datetime(period_start).date()
+    pe = pd.to_datetime(period_end).date()
+    n_opens = 0
+    closed = tracker_state.get("closed_positions", [])
+    positions = tracker_state.get("positions", {})
+    for rec in closed:
+        ed = rec.get("put_entry_date") or rec.get("entry_date")
+        if ed:
+            try:
+                d = pd.to_datetime(ed).date()
+                if ps <= d <= pe:
+                    n_opens += 1
+            except Exception:
+                continue
+    for pos in positions.values():
+        ed = pos.get("put_entry_date") or pos.get("entry_date")
+        if ed:
+            try:
+                d = pd.to_datetime(ed).date()
+                if ps <= d <= pe:
+                    n_opens += 1
+            except Exception:
+                continue
+    return {"n_opens_in_period": n_opens, "period": [period_start, period_end]}
+
+
 def _refusal_during_period(rank_log: pd.DataFrame, period_start: str, period_end: str) -> dict:
     """Refusal rate inside a specific period (used for COVID + 2022 bear)."""
     if rank_log.empty:
@@ -298,16 +367,24 @@ def _r9_r10_audit(
         if ed and strike > 0:
             events.append((str(ed), "open", t, strike))
 
-    events.sort(key=lambda e: (e[0], e[1] == "close"))  # opens before closes on the same day
+    # Stable sort: opens before closes on the same day (assume opens
+    # accumulate notional before any same-day close releases it).
+    events.sort(key=lambda e: (e[0], e[1] == "close"))
 
     open_by_ticker: dict[str, float] = {}
     open_by_sector: dict[str, float] = defaultdict(float)
     single_name_breaches = 0
     sector_breaches = 0
     n_opens = 0
+    # Track RUNNING max during the walk (not end-state — positions close
+    # over the run so end-state under-reports the peak).
+    running_max_single: float = 0.0
+    running_max_sector: float = 0.0
+    # Per-sector breach detail (which sectors fire and how often).
+    sector_breaches_by_name: dict[str, int] = defaultdict(int)
 
     for evt in events:
-        d, kind, t, strike = evt
+        _d, kind, t, strike = evt
         notional = strike * 100.0
         if kind == "open":
             n_opens += 1
@@ -315,7 +392,8 @@ def _r9_r10_audit(
             new_single = open_by_ticker.get(t, 0.0) + notional
             if new_single > max_single_name_pct * initial_capital:
                 single_name_breaches += 1
-            open_by_ticker[t] = open_by_ticker.get(t, 0.0) + notional
+            open_by_ticker[t] = new_single
+            running_max_single = max(running_max_single, new_single)
 
             if sector_map:
                 sec = sector_map.get(t)
@@ -323,7 +401,9 @@ def _r9_r10_audit(
                     new_sec = open_by_sector[sec] + notional
                     if new_sec > max_sector_pct * initial_capital:
                         sector_breaches += 1
-                    open_by_sector[sec] += notional
+                        sector_breaches_by_name[sec] += 1
+                    open_by_sector[sec] = new_sec
+                    running_max_sector = max(running_max_sector, new_sec)
         else:  # close
             open_by_ticker[t] = max(0.0, open_by_ticker.get(t, 0.0) - notional)
             if sector_map:
@@ -334,12 +414,25 @@ def _r9_r10_audit(
     return {
         "n_open_events": n_opens,
         "r10_single_name_would_fire_count": single_name_breaches,
-        "r10_single_name_max_pct": (
+        "r10_single_name_max_pct_running": (
+            100.0 * running_max_single / initial_capital if initial_capital else 0.0
+        ),
+        "r10_single_name_max_pct_end_state": (
             100.0 * max(open_by_ticker.values()) / initial_capital
             if open_by_ticker and initial_capital
             else 0.0
         ),
+        # Backwards-compatible alias — populates with the running peak
+        # (the correct value). Existing callers that read this key now
+        # get the more accurate number.
+        "r10_single_name_max_pct": (
+            100.0 * running_max_single / initial_capital if initial_capital else 0.0
+        ),
         "r9_sector_would_fire_count": sector_breaches if sector_map else None,
+        "r9_sector_breaches_by_name": dict(sector_breaches_by_name) if sector_map else None,
+        "r9_sector_max_pct_running": (
+            100.0 * running_max_sector / initial_capital if sector_map and initial_capital else None
+        ),
         "sector_audit_skipped": sector_map is None,
         "defaults": {
             "max_single_name_pct": max_single_name_pct,
@@ -355,11 +448,13 @@ def analyze(window_dir: Path, ohlcv_path: Path = Path("data/bloomberg/sp500_ohlc
     summary = data.get("summary", {})
     start = summary.get("start") or "2018-01-03"
     end = summary.get("end") or "2022-12-30"
+    sector_map = _load_sector_map()
 
     report: dict = {
         "window_dir": str(window_dir),
         "window": {"start": start, "end": end},
         "univ_ew_baseline": _univ_ew_return(start, end, ohlcv_path),
+        "sector_map_size": len(sector_map),
         "per_friction": {},
     }
 
@@ -382,7 +477,9 @@ def analyze(window_dir: Path, ohlcv_path: Path = Path("data/bloomberg/sp500_ohlc
 
         if ts is not None:
             sub["concentration"] = _concentration(ts, ohlcv_path)
-            sub["r9_r10_audit"] = _r9_r10_audit(ts, sector_map=None)
+            sub["r9_r10_audit"] = _r9_r10_audit(ts, sector_map=sector_map)
+            sub["opens_covid"] = _opens_during_period(ts, "2020-02-15", "2020-05-15")
+            sub["opens_2022_bear"] = _opens_during_period(ts, "2022-01-01", "2022-10-31")
 
         report["per_friction"][level] = sub
 
@@ -396,6 +493,7 @@ def analyze_all(
     out_path: Path | None = None,
 ) -> None:
     """Analyse all windows under ``root``."""
+    sector_map = _load_sector_map()
     reports = []
     for d in sorted(root.glob("w*_*")):
         if not d.is_dir():
@@ -431,7 +529,9 @@ def analyze_all(
                     )
                 if ts is not None:
                     sub["concentration"] = _concentration(ts, ohlcv_path)
-                    sub["r9_r10_audit"] = _r9_r10_audit(ts, sector_map=None)
+                    sub["r9_r10_audit"] = _r9_r10_audit(ts, sector_map=sector_map)
+                    sub["opens_covid"] = _opens_during_period(ts, "2020-02-15", "2020-05-15")
+                    sub["opens_2022_bear"] = _opens_during_period(ts, "2022-01-01", "2022-10-31")
                 report["per_friction"][level] = sub
             reports.append(report)
         except Exception as e:

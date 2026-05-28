@@ -29,7 +29,7 @@ block at the bottom routes you to the right on-demand document.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev`. The
      one ranker every tradeable path routes through.
    - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the
-     downgrade rules R1–R9 (see §2).
+     downgrade rules R1–R10 (see §2).
 4. **Interface layer** — `engine_api.py` (HTTP on `:8787`), `dashboard/`
    (Next.js), `engine/tradingview_bridge.py` (chart providers — sanity
    check, not a decider), `advisors/` (Buffett / Munger / Simons / Taleb
@@ -94,6 +94,19 @@ The `EnginePhaseReviewer` rules, for reference:
   `verdict_reason="sector_cap_breach"`. Skips silently when no
   context is attached OR `nav == 0` — soft-warns don't fire on
   absent evidence.
+- R10: *(D17 soft-warn — conditional on attached `PortfolioContext`,
+  F4 damage-bounding addition.)* Single-name (per-underlying)
+  exposure cap. Sits BENEATH R9: even when sector cap is satisfied,
+  a single ticker concentrated as the only name in its sector could
+  exceed the per-name floor. If opening the candidate would push
+  the SINGLE-NAME short-option notional over `max_single_name_pct ×
+  NAV` (default 10% per `engine.portfolio_risk_gates.check_single_name_cap`;
+  same gate the tracker applies as a HARD refusal at
+  `open_short_put` time when `require_ev_authority=True`),
+  downgrade proceed → review with `verdict_reason="single_name_breach"`.
+  Bounds F4-style idiosyncratic-drawdown damage that no market-wide
+  regime detector can predict (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
+  §10). Same Q3 missing-data semantics as R7-R9.
 
 ---
 

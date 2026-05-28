@@ -1810,6 +1810,7 @@ class WheelTracker:
             check_kelly_size,
             check_portfolio_delta,
             check_sector_cap,
+            check_single_name_cap,
             take_snapshot,
         )
 
@@ -1860,6 +1861,20 @@ class WheelTracker:
         )
         if not sector.passed:
             return {**common_audit, "reason": sector.reason, **sector.details}
+
+        # Gate 1b: single-name (per-underlying) exposure cap. Tighter
+        # per-name floor that sits beneath the GICS sector cap above.
+        # Bounds F4-style idiosyncratic-drawdown damage that no
+        # market-wide regime detector can predict. Hard refusal at
+        # 10% NAV per name (default).
+        single_name = check_single_name_cap(
+            symbol=ticker,
+            proposed_notional=proposed_notional,
+            held_option_positions=snapshot.option_positions,
+            nav=nav,
+        )
+        if not single_name.passed:
+            return {**common_audit, "reason": single_name.reason, **single_name.details}
 
         # Gate 2: portfolio delta cap.
         delta = check_portfolio_delta(

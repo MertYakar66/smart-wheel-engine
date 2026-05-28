@@ -170,6 +170,27 @@ _SHAPE_REJECT_KELLY = (
     set(),
 )
 
+# Shape 5e: action="reject", reason="single_name_breach". Tighter
+# per-underlying floor that sits beneath the sector cap. Bounds
+# F4-style idiosyncratic-drawdown damage.
+_SHAPE_REJECT_SINGLE_NAME = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "current_ev_dollars",
+        "nav",
+        "nav_source",
+        "symbol",
+        "current_name_notional",
+        "post_open_name_notional",
+        "post_open_name_pct",
+        "name_limit_pct",
+    },
+    set(),
+)
+
 _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("issue", None): _SHAPE_ISSUE,
     ("refuse_issue", "non_positive_ev"): _SHAPE_REFUSE_ISSUE,
@@ -182,6 +203,8 @@ _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("reject", "sector_cap_breach"): _SHAPE_REJECT_SECTOR,
     ("reject", "portfolio_delta_breach"): _SHAPE_REJECT_DELTA,
     ("reject", "kelly_size_exceeded"): _SHAPE_REJECT_KELLY,
+    # F4 damage-bounding addition
+    ("reject", "single_name_breach"): _SHAPE_REJECT_SINGLE_NAME,
 }
 
 

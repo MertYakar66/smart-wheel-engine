@@ -226,16 +226,16 @@ class TestD17DossierSoftWarns:
         )
 
     def test_no_portfolio_context_skips_r7_and_r8(self):
-        """When portfolio_context is None, R7, R8, and R9 do not fire
-        and the verdict from R5 (proceed at ev=50) is preserved."""
+        """When portfolio_context is None, R7, R8, R9, and R10 do not
+        fire and the verdict from R5 (proceed at ev=50) is preserved."""
         from engine.candidate_dossier import EnginePhaseReviewer
 
         d = self._proceeding_dossier()
         verdict, reason, notes = EnginePhaseReviewer().review(d)
         assert verdict == "proceed"
         assert reason == "ev_above_threshold"
-        # No R7/R8/R9 notes in the trail.
-        assert not any("R7" in n or "R8" in n or "R9" in n for n in notes)
+        # No R7/R8/R9/R10 notes in the trail.
+        assert not any(("R7" in n or "R8" in n or "R9" in n or "R10" in n) for n in notes)
 
     def test_r7_var_check_skips_when_no_correlation_or_returns(self):
         """PortfolioContext attached but no returns_data /
@@ -554,3 +554,165 @@ class TestD17DossierR9SectorCap:
         verdict, reason, _notes = EnginePhaseReviewer().review(d)
         assert verdict == "blocked"
         assert reason == "negative_ev"
+
+
+class TestD17DossierR10SingleNameCap:
+    """R10 (F4 damage-bounding): single-name (per-underlying)
+    exposure cap. Soft-warn on the dossier mirrors the tracker's hard
+    refusal. Tighter floor BENEATH the sector cap (R9 at 25% NAV vs
+    R10 at 10% NAV)."""
+
+    def _proceeding_dossier(self, ticker="TEST", strike=100.0, premium=2.0, ev_dollars=50.0):
+        from engine.candidate_dossier import CandidateDossier
+
+        return CandidateDossier(
+            ticker=ticker,
+            ev_row={
+                "ticker": ticker,
+                "strike": strike,
+                "premium": premium,
+                "ev_dollars": ev_dollars,
+                "iv": 0.25,
+                "dte": 30,
+                "spot": strike,
+                "contracts": 1,
+            },
+            chart_context=ChartContext(
+                ticker=ticker,
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=strike,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+
+    def test_r10_single_name_breach_downgrades_proceed_to_review(self):
+        """$8k AAPL held + $5k proposed = $13k = 13% > 10% cap → R10 fires."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=50.0)  # $5k proposed
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "AAPL",
+                    "option_type": "put",
+                    "strike": 80.0,
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"AAPL": 100.0},
+            nav=100_000.0,  # post-open: 13% > 10% cap
+        )
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review", f"expected review, got {verdict} (notes={notes})"
+        assert reason == "single_name_breach", f"expected single_name_breach, got {reason}"
+        assert any("R10" in n for n in notes), f"expected R10 note, got: {notes}"
+
+    def test_r10_passes_when_below_cap(self):
+        """$3k AAPL held + $5k proposed = $8k = 8% < 10% cap → no R10."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=50.0)
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "AAPL",
+                    "option_type": "put",
+                    "strike": 30.0,  # $3k
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"AAPL": 100.0},
+            nav=100_000.0,  # post-open: 8% < 10%
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+
+    def test_r10_skips_when_nav_zero(self):
+        """nav=0 → R10 no-op via missing_data."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=50.0)
+        d.portfolio_context = PortfolioContext(
+            spot_prices={"AAPL": 100.0},
+            nav=0.0,
+        )
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+
+    def test_r10_cannot_upgrade_negative_ev(self):
+        """R1 still wins: negative EV → blocked, regardless of R10."""
+        from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = CandidateDossier(
+            ticker="AAPL",
+            ev_row={
+                "ticker": "AAPL",
+                "strike": 50.0,
+                "premium": 0.5,
+                "ev_dollars": -25.0,  # R1
+                "iv": 0.25,
+                "dte": 30,
+                "spot": 100.0,
+                "contracts": 1,
+            },
+            chart_context=ChartContext(
+                ticker="AAPL",
+                timeframe="1D",
+                captured_at=datetime(2026, 4, 25, 12, 0, 0),
+                screenshot_path=Path("/tmp/fake.png"),
+                visible_price=100.0,
+                visible_indicators={},
+                source="test",
+            ),
+        )
+        d.portfolio_context = PortfolioContext(nav=100_000.0, spot_prices={"AAPL": 100.0})
+        verdict, reason, _notes = EnginePhaseReviewer().review(d)
+        assert verdict == "blocked"
+        assert reason == "negative_ev"
+
+    def test_r10_fires_when_r9_would_pass(self):
+        """Critical safety property: a single ticker concentrated as
+        the dominant name in its sector can pass R9 but still trip
+        R10. Example: $9k AAPL held + $5k proposed = $14k = 14% NAV.
+        Sector (Info Tech) is 14% < 25% R9 limit → R9 passes. But
+        single-name is also 14% > 10% R10 limit → R10 fires."""
+        from engine.candidate_dossier import EnginePhaseReviewer
+        from engine.portfolio_risk_gates import PortfolioContext
+
+        d = self._proceeding_dossier(ticker="AAPL", strike=50.0)  # $5k proposed
+        d.portfolio_context = PortfolioContext(
+            held_option_positions=[
+                {
+                    "symbol": "AAPL",
+                    "option_type": "put",
+                    "strike": 90.0,  # $9k
+                    "dte": 30,
+                    "iv": 0.25,
+                    "contracts": 1,
+                    "is_short": True,
+                }
+            ],
+            spot_prices={"AAPL": 100.0},
+            nav=100_000.0,
+        )
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        # Specifically R10 fires (not R9) — single-name caught it
+        # before the sector cap.
+        assert reason == "single_name_breach"
+        assert any("R10" in n for n in notes)

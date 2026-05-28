@@ -576,6 +576,15 @@ def run_backtest(
         rank_log.to_csv(out / "rank_log.csv", index=False)
         with open(out / "metrics.json", "w", encoding="utf-8") as f:
             json.dump({"fingerprint": fingerprint, **metrics}, f, indent=2, default=str)
+        # Additive: dump the tracker's serialised state so post-processors
+        # (concentration analysis, R9/R10 fire-rate audit, cash-curve
+        # reconstruction) don't have to replay the rank log. Pure additive
+        # — no behaviour change; only writes a new file.
+        try:
+            with open(out / "tracker_state.json", "w", encoding="utf-8") as f:
+                json.dump(tracker.to_dict(), f, indent=2, default=str)
+        except Exception:
+            pass
 
     return BacktestResult(metrics=metrics, rank_log=rank_log, fingerprint=fingerprint)
 
@@ -903,6 +912,15 @@ def run_backtest_multi_friction(
             rank_log.to_csv(out / "rank_log.csv", index=False)
             with open(out / "metrics.json", "w", encoding="utf-8") as f:
                 json.dump({"fingerprint": fingerprint, **metrics}, f, indent=2, default=str)
+            # Additive: dump the tracker's serialised state so post-processors
+            # (concentration analysis, R9/R10 fire-rate audit, cash-curve
+            # reconstruction) don't have to replay the rank log. Pure additive
+            # — no behaviour change; only writes a new file.
+            try:
+                with open(out / "tracker_state.json", "w", encoding="utf-8") as f:
+                    json.dump(tracker.to_dict(), f, indent=2, default=str)
+            except Exception:
+                pass
 
         results[level] = BacktestResult(metrics=metrics, rank_log=rank_log, fingerprint=fingerprint)
 

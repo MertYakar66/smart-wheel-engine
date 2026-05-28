@@ -1,5 +1,12 @@
 # Session Handoff
 
+> **⚠ SUPERSEDED — point-in-time snapshot (2026-05-18).** This document is a
+> dated handoff from one work batch and is **no longer maintained**. Several
+> of its claims (test counts, Stage-3 status, MCP tool counts) now contradict
+> the live canonical docs. For current state read `PROJECT_STATE.md`,
+> `DECISIONS.md`, and `docs/TRADINGVIEW_MCP_INTEGRATION.md` — none of this
+> snapshot's contents should be trusted without cross-checking those.
+
 **Written:** 2026-05-18, by an autonomous work batch against `main` @
 `e2b5115`.
 

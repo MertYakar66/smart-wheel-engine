@@ -1,0 +1,114 @@
+"""Transaction-costs walkthrough — a print-driven demo, not a pytest file.
+
+Relocated from `tests/test_transaction_costs.py` in PR #247: the file lived
+under `tests/` with a `test_*` filename but contained zero `def test_*`, so
+every pytest collection executed it as a script. The real coverage tests
+moved to `tests/test_transaction_costs.py` (formerly `_coverage.py`).
+
+Run from the repo root:
+
+    python scripts/transaction_costs_demo.py
+"""
+
+import sys
+from pathlib import Path
+
+# Bootstrap: prepend the repo root to sys.path so `from engine.* import ...`
+# resolves when this file is invoked directly. Under `tests/`, pytest set
+# this up automatically; under `scripts/`, Python sets sys.path[0] to the
+# script's own directory, which would mask `engine/` and break the imports.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from datetime import date  # noqa: E402
+
+from engine.transaction_costs import (  # noqa: E402
+    calculate_assignment_fee,
+    calculate_commission,
+    calculate_slippage,
+    calculate_total_entry_cost,
+    calculate_total_exit_cost,
+)
+from engine.wheel_tracker import WheelTracker  # noqa: E402
+
+print("=== Testing Transaction Cost Module ===\n")
+
+print("1. Testing individual cost functions:")
+comm = calculate_commission("option")
+print(f"   Commission per contract: ${comm:.2f}")
+
+slippage = calculate_slippage(mid_price=2.50, bid_ask_spread=0.25, trade_direction="sell")
+print(f"   Slippage (15% of $0.25 spread): ${slippage:.4f}")
+
+assignment_fee = calculate_assignment_fee()
+print(f"   Assignment fee: ${assignment_fee:.2f}")
+
+print("\n2. Testing entry cost calculation:")
+entry_costs = calculate_total_entry_cost(premium_per_share=2.50, bid_ask_spread=0.25)
+print(f"   Gross premium: ${entry_costs['gross_premium']:.2f}")
+print(f"   Slippage: ${entry_costs['slippage']:.2f}")
+print(f"   Commission: ${entry_costs['commission']:.2f}")
+print(f"   Total cost: ${entry_costs['total_cost']:.2f}")
+print(f"   Net premium collected: ${entry_costs['net_premium_collected']:.2f}")
+
+print("\n3. Testing exit cost calculation:")
+exit_costs = calculate_total_exit_cost(buyback_price_per_share=1.00, bid_ask_spread=0.10)
+print(f"   Gross buyback: ${exit_costs['gross_buyback_cost']:.2f}")
+print(f"   Slippage: ${exit_costs['slippage']:.2f}")
+print(f"   Commission: ${exit_costs['commission']:.2f}")
+print(f"   Total cost: ${exit_costs['total_cost']:.2f}")
+print(f"   Total buyback cost: ${exit_costs['total_buyback_cost']:.2f}")
+
+print("\n4. Testing full Wheel cycle with cost tracking:")
+tracker = WheelTracker(100000.0)
+
+tracker.open_short_put(
+    ticker="COST_TEST",
+    strike=150.0,
+    premium=2.50,
+    entry_date=date(2024, 1, 1),
+    expiration_date=date(2024, 2, 1),
+    iv=0.25,
+)
+pos = tracker.positions["COST_TEST"]
+print("   After put entry:")
+print(f"     Cash: ${tracker.cash:.2f}")
+print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
+print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+
+tracker.handle_put_assignment("COST_TEST", date(2024, 1, 15), 145.0)
+print("   After assignment:")
+print(f"     Cash: ${tracker.cash:.2f}")
+print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+
+tracker.open_covered_call(
+    ticker="COST_TEST",
+    strike=155.0,
+    premium=1.50,
+    entry_date=date(2024, 1, 16),
+    expiration_date=date(2024, 2, 16),
+    iv=0.23,
+)
+print("   After call entry:")
+print(f"     Cash: ${tracker.cash:.2f}")
+print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
+print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+
+result = tracker.close_covered_call("COST_TEST", 0.75, date(2024, 1, 25), "profit_target")
+print("   After call buyback:")
+print(f"     Cash: ${tracker.cash:.2f}")
+print(f"     Realized P&L: ${pos.realized_pnl:.2f}")
+print(f"     Transaction costs: ${pos.transaction_costs:.2f}")
+print(f"     Net P&L: ${pos.realized_pnl - pos.transaction_costs:.2f}")
+
+expected_min_costs = 4 * 0.65 + 5.0
+print("\n5. Cost validation:")
+print(f"   Total transaction costs: ${pos.transaction_costs:.2f}")
+print(f"   Expected minimum (4 commissions + 1 assignment): ${expected_min_costs:.2f}")
+print(f"   Additional costs from slippage: ${pos.transaction_costs - expected_min_costs:.2f}")
+
+if pos.transaction_costs > expected_min_costs:
+    print("\n✓ Slippage is being modeled correctly (costs exceed commission-only baseline)")
+else:
+    print("\n✗ Warning: Costs do not exceed baseline, slippage may not be applied")
+
+print("\n✓ Transaction cost module validation complete")

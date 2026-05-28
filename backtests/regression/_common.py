@@ -34,7 +34,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -567,7 +567,7 @@ def run_backtest(
         "delta_target": delta_target,
         "contracts": contracts,
         "data_csv_sha256": ohlcv_sha256(),
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
     if output_dir is not None:
@@ -894,7 +894,7 @@ def run_backtest_multi_friction(
             "delta_target": delta_target,
             "contracts": contracts,
             "data_csv_sha256": ohlcv_sha256(),
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
         if output_dir is not None:

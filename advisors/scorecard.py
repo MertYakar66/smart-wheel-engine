@@ -21,6 +21,9 @@ from typing import Any
 
 import numpy as np
 
+from .schema import ConfidenceLevel
+from .schema import Judgment as JudgmentType
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,26 +34,6 @@ class OutcomeType(Enum):
     LOSS = "loss"  # Unprofitable trade
     SCRATCH = "scratch"  # Break-even (within transaction costs)
     PENDING = "pending"  # Not yet closed
-
-
-class JudgmentType(Enum):
-    """Advisor judgment classification."""
-
-    STRONG_APPROVE = "strong_approve"
-    APPROVE = "approve"
-    NEUTRAL = "neutral"
-    REJECT = "reject"
-    STRONG_REJECT = "strong_reject"
-
-
-class ConfidenceLevel(Enum):
-    """Advisor confidence levels."""
-
-    VERY_LOW = 1
-    LOW = 2
-    MEDIUM = 3
-    HIGH = 4
-    VERY_HIGH = 5
 
 
 @dataclass

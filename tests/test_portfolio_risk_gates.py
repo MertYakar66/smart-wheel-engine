@@ -32,6 +32,7 @@ from engine.portfolio_risk_gates import (
     check_kelly_size,
     check_portfolio_delta,
     check_sector_cap,
+    check_single_name_cap,
     check_stress_scenario,
     check_var,
     take_snapshot,
@@ -272,6 +273,149 @@ class TestCheckSectorCap:
         )
         assert result.passed is True
         assert result.details["sector"] == "Crypto"
+
+
+# ======================================================================
+# 2c. check_single_name_cap — F4 damage-bounding per-underlying floor
+# ======================================================================
+class TestCheckSingleNameCap:
+    """Tighter per-name floor that sits beneath the sector cap.
+    Default 10% NAV. Aggregates SHORT-option notional by underlying."""
+
+    def test_empty_portfolio_passes(self):
+        """No holdings, propose $5k on $100k NAV = 5% < 10% cap."""
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=[],
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.reason is None
+        assert result.details["symbol"] == "AAPL"
+        assert result.details["current_name_notional"] == 0.0
+        assert result.details["post_open_name_notional"] == 5_000.0
+        assert result.details["post_open_name_pct"] == 0.05
+        assert result.details["name_limit_pct"] == 0.10
+
+    def test_breach_at_default_10_pct(self):
+        """$8k AAPL held + $5k proposed = $13k = 13% > 10% cap → breach."""
+        held = [
+            {"symbol": "AAPL", "strike": 80.0, "contracts": 1, "is_short": True}  # $8k
+        ]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is False
+        assert result.reason == "single_name_breach"
+        assert result.details["current_name_notional"] == 8_000.0
+        assert result.details["post_open_name_notional"] == 13_000.0
+        assert result.details["post_open_name_pct"] == 0.13
+        assert result.details["name_limit_pct"] == 0.10
+
+    def test_other_symbols_do_not_contribute(self):
+        """Holdings on a DIFFERENT symbol are excluded from the
+        per-name aggregation. A $50k MSFT position doesn't count
+        toward AAPL's per-name exposure."""
+        held = [
+            {"symbol": "MSFT", "strike": 500.0, "contracts": 1, "is_short": True},  # $50k
+        ]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=8_000.0,  # 8% < 10% cap if MSFT excluded
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.details["current_name_notional"] == 0.0
+        assert result.details["post_open_name_notional"] == 8_000.0
+
+    def test_long_positions_do_not_contribute(self):
+        """is_short=False rows are excluded — only short option
+        notional aggregates toward the cap."""
+        held = [
+            {"symbol": "AAPL", "strike": 80.0, "contracts": 1, "is_short": False},  # long
+        ]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is True
+        assert result.details["current_name_notional"] == 0.0
+
+    def test_multiple_held_positions_same_symbol_aggregate(self):
+        """Two short AAPL positions ($4k + $5k) + $3k proposed = $12k > $10k cap."""
+        held = [
+            {"symbol": "AAPL", "strike": 40.0, "contracts": 1, "is_short": True},  # $4k
+            {"symbol": "AAPL", "strike": 50.0, "contracts": 1, "is_short": True},  # $5k
+        ]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=3_000.0,
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.passed is False
+        assert result.reason == "single_name_breach"
+        assert result.details["current_name_notional"] == 9_000.0
+        assert result.details["post_open_name_notional"] == 12_000.0
+
+    def test_custom_cap_overrides_default(self):
+        """Tighter cap (5% instead of 10%) catches a smaller position."""
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=6_000.0,  # 6% NAV
+            held_option_positions=[],
+            nav=100_000.0,
+            max_single_name_pct=0.05,
+        )
+        assert result.passed is False
+        assert result.reason == "single_name_breach"
+
+    def test_zero_nav_returns_missing_data_no_op(self):
+        """nav <= 0 → missing_data sentinel (don't refuse, don't divide)."""
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=[],
+            nav=0.0,
+        )
+        assert result.passed is True
+        assert result.reason == "missing_data"
+        assert result.details["skip_reason"] == "nav_zero_or_negative"
+
+    def test_symbol_normalisation(self):
+        """Lower-case ticker normalises to uppercase for matching."""
+        held = [{"symbol": "aapl", "strike": 80.0, "contracts": 1, "is_short": True}]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        assert result.details["current_name_notional"] == 8_000.0
+
+    def test_malformed_rows_silently_skipped(self):
+        """Bad row shapes don't crash the gate; they contribute zero
+        and the well-formed rows still aggregate."""
+        held = [
+            {"symbol": "AAPL", "strike": "not_a_float", "contracts": 1, "is_short": True},
+            {"symbol": "AAPL", "strike": 80.0, "contracts": 1, "is_short": True},  # $8k OK
+        ]
+        result = check_single_name_cap(
+            symbol="AAPL",
+            proposed_notional=5_000.0,
+            held_option_positions=held,
+            nav=100_000.0,
+        )
+        # Only the well-formed AAPL contributed → $8k + $5k = $13k > 10%.
+        assert result.passed is False
+        assert result.details["current_name_notional"] == 8_000.0
 
 
 # ======================================================================

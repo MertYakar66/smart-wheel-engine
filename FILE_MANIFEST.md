@@ -79,6 +79,8 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-05/OptionsEngine.txt` | Archived narrative end-to-end usage walkthrough (point-in-time, unmaintained). |
 | `archive/2026-05/ARCHITECTURE.md` | Archived architecture doc describing a planned `src/`-based layout that does not match the repo. |
 | `archive/2026-05/DATA_COLLECTION_REPORT.md` | Archived dated data-collection phase report. |
+| `archive/2026-05/bloomberg_excel_extractor.bas` | Archived V1 of the Bloomberg Excel VBA extractor — superseded by `scripts/bloomberg_excel_extractor_v2.bas` ("fixed version with longer wait times"). |
+| `archive/2026-05/download_ohlcv.py` | Archived early yfinance OHLCV downloader — superseded by `scripts/download_yf_ohlcv.py` (adds multi-index header cleanup). |
 
 ## `advisors/` — investment committee (advisory-only)
 
@@ -188,7 +190,6 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |
 | `dashboard/src/services/briefing-generator.ts` | Generates/persists morning/evening/breaking briefings. |
 | `dashboard/src/services/code-execution.ts` | Code-execution abstraction — Daytona plus local template executor. |
-| `dashboard/src/services/data-provider.ts` | `FinanceDataProvider` singleton aggregating RSS/Finnhub/EDGAR/FRED. |
 | `dashboard/src/services/edgar.ts` | SEC EDGAR client — ticker-to-CIK and recent filings. |
 | `dashboard/src/services/entity-extraction.ts` | Entity extraction — Ollama NLP with regex fallback. |
 | `dashboard/src/services/exposure-ranking.ts` | Exposure-first story ranking against holdings/watchlist/factors. |
@@ -200,9 +201,6 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/services/rss-ingestion.ts` | RSS feed parser/ingester with ticker extraction. |
 | `dashboard/src/services/scheduled-ingestion.ts` | Orchestrates the multi-step ingestion pipeline. |
 | `dashboard/src/services/story-clustering.ts` | Story-graph clustering — Jaccard dedup, contradiction detection. |
-| `dashboard/src/services/retrieval/index.ts` | `RetrievalOrchestrator` — multi-provider search aggregation. |
-| `dashboard/src/services/retrieval/rss-provider.ts` | RSS-backed retrieval provider. |
-| `dashboard/src/services/retrieval/valyu-provider.ts` | Valyu-backed retrieval provider. |
 
 ## `data/` — data layer (Bloomberg-CSV provider + feature pipeline)
 
@@ -263,7 +261,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/GOVERNANCE.md` | Model governance framework. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
 | `docs/USAGE_TEST_LEDGER.md` | Record of end-to-end usage tests — purpose, setup, findings, follow-up PRs. |
-| `docs/PARALLEL_SESSIONS.md` | How the repo is worked by two parallel Claude terminals — roles, lanes, coordination board. |
+| `docs/PARALLEL_SESSIONS.md` | How the repo is worked by N parallel Claude Code terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/TERMINAL_A_AUDIT.md` | Independent engineering audit of Terminal A's coordinated PR run on board #113 — per-PR seven-step protocol, cross-cutting observations, audit-history table. Append-only on re-audit. |
 | `docs/AUDIT_OF_AUDIT_REVIEW.md` | Meta-verification of `docs/TERMINAL_A_AUDIT.md` (PR #173) — seven meta-checks M1–M7 on the audit's headline tally, D17 promotion logic, second-layer drift discipline, the two named line-drifts, test counts, exclusion-list defensibility, and the no-production-callers observation. |
@@ -502,18 +500,16 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/orchestrate.py` | Unified daily orchestrator (morning / intraday / evening / full). |
 | `scripts/run_pipeline.py` | CLI front-end to the data `PipelineOrchestrator`. |
 | `scripts/validate_environment.py` | Environment validation for CI — Python version, dependencies, env vars, directory structure. |
-| `scripts/check_env.py` | A small environment smoke check printing core-package versions. |
 | `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa); wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
 | `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `SWE_DATA_PROVIDER`. See `docs/PARALLEL_SESSIONS.md` "Env vars per terminal". |
 | `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same six env vars. |
 | `scripts/process_bloomberg_exports.py` | Cleans and validates Bloomberg-exported CSVs into the per-ticker layout. |
 | `scripts/download_sp500_constituents.py` | Scrapes the current S&P 500 constituent list from Wikipedia. |
-| `scripts/download_ohlcv.py` | yfinance per-ticker OHLCV downloader. |
 | `scripts/download_yf_ohlcv.py` | yfinance OHLCV downloader with multi-index header cleanup. |
 | `scripts/download_yf_options.py` | yfinance option-chain downloader. |
-| `scripts/test_bloomberg.py` | Bloomberg connectivity tester (a CLI tool, not a pytest file). |
-| `scripts/bloomberg_excel_extractor.bas` | Excel VBA module automating Bloomberg data extraction. |
-| `scripts/bloomberg_excel_extractor_v2.bas` | Revised Bloomberg Excel VBA extractor. |
+| `scripts/bloomberg_smoke.py` | Bloomberg connectivity tester (a CLI tool, not a pytest file). |
+| `scripts/transaction_costs_demo.py` | `print()`-driven walkthrough of the `engine.transaction_costs` round-trip (commissions, slippage, assignment) on a synthetic Wheel cycle — a demo, not a pytest file. |
+| `scripts/bloomberg_excel_extractor_v2.bas` | Bloomberg Excel VBA extractor — "fixed version with longer wait times" (V1 archived). |
 | `scripts/bloomberg_export.vba` | Simplified Bloomberg VBA export macro. |
 | `scripts/export_sheets_to_csv.vba` | Excel VBA macro exporting ticker worksheets to CSV. |
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
@@ -590,6 +586,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_realized_vol.py` | Quant-correctness — the realised-volatility estimators. |
 | `tests/test_tail_risk.py` | Quant-correctness — POT-GPD tail estimation. |
 | `tests/test_f4_tail_risk_gap.py` | F4 regression-watch from PR #178 / #184 — pins that today's forward-distribution + POT-GPD pipeline does NOT widen tail metrics for the COST 2022-04 / UNH 2024-11 19-24% realized drops. Synthetic two-regime tests isolate the 504-day-lookback-dilution mechanism (H1) and demonstrate the fix direction. Two `xfail(strict=False)` tests track the `heavy_tail` flag until the gap is fixed. |
+| `tests/test_f4_rv_widening.py` | F4 Fix B2 (post-rollback) — pins `realized_vol_ratio` / `realized_vol_widening_factor` / `realized_vol_widened_log_returns` in `engine/forward_distribution.py`. 18 tests: PIT-safety + edges on the ratio helper, calibration pins on the factor (threshold 1.30, slope 0.20, cap 1.15), sign-/mean-preserving invariants on the widened-returns transform, end-to-end ranker pins on COST/UNH/AAPL F4 cases. Documents the honest scope: rv-widening makes the engine ~2x more cautious on empirically-elevated-vol regimes but does NOT close named F4 cases (those are R10's job). See `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §11. |
 | `tests/test_portfolio_copula_coverage.py` | Quant-correctness — copula edge paths (PSD repair, Cholesky fallback, CVaR ladder). |
 | `tests/test_risk_manager.py` | `RiskManager` — sizing, portfolio Greeks, VaR, sector exposure, HRP. |
 | `tests/test_stress_testing.py` | `StressTester` — scenarios, sensitivity, Greeks stress ladder. |
@@ -636,8 +633,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_mark_to_market_iv.py` | `WheelTracker.mark_to_market` IV-staleness fix regression. |
 | `tests/test_available_buying_power.py` | `WheelTracker.available_buying_power` CSP-collateral netting. |
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |
-| `tests/test_transaction_costs.py` | A `print()`-driven transaction-costs demo script (not a pytest file). |
-| `tests/test_transaction_costs_coverage.py` | `engine.transaction_costs` coverage backfill — slippage tiers, round-trip cost. |
+| `tests/test_transaction_costs.py` | `engine.transaction_costs` coverage — slippage tiers, OI penalties, sqrt-impact participation, round-trip cost composition. |
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |

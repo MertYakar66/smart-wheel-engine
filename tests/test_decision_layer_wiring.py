@@ -378,8 +378,16 @@ class TestEndToEndChain:
     def test_snapshot_then_consume_top_row_round_trip(self):
         """Empty tracker → snapshot (NAV = cash, empty positions) →
         build dossier with that context → consume the top row →
-        position appears in tracker."""
-        t = WheelTracker(initial_capital=100_000)
+        position appears in tracker.
+
+        NAV note: initial_capital is $1M so the $18,000 AAPL position
+        notional (1 contract × $180 strike × 100) stays at 1.8% of
+        NAV — well under the 10% single-name cap (R10) and the 25%
+        sector cap (R9). Smaller NAVs would trip R10 here, which is
+        correct safety behaviour but not what this end-to-end smoke
+        test is exercising.
+        """
+        t = WheelTracker(initial_capital=1_000_000)
         ctx = t.portfolio_context_snapshot(today=date(2026, 4, 14))
         # Build a one-row dossier set.
         df = pd.DataFrame(
@@ -401,7 +409,7 @@ class TestEndToEndChain:
             df, _StubChartProvider(spot=180.0), top_n=1, portfolio_context=ctx
         )
         d = dossiers[0]
-        # Empty tracker + positive EV → proceed.
+        # Empty tracker + positive EV + small notional/NAV ratio → proceed.
         assert d.verdict == "proceed"
         # Consume the row through the canonical chain.
         ok = t.consume_ranker_row(d.ev_row, entry_date=date(2026, 4, 14))

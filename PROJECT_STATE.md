@@ -62,7 +62,7 @@ deprecation warnings (down from 1067+1 / 578).
 - **Design contract:** `docs/TRADINGVIEW_MCP_INTEGRATION.md`
   (commit `c064652`). Pins the seam, the canonical `ChainedChartProvider`
   ordering, the four hard invariants (including no-quiet-substitution
-  on MCP failure), and the M1 scope (3 MCP tools).
+  on MCP failure), and the M1 scope (5 MCP tools).
 - **Implementation seam:** `engine/tradingview_bridge.py` —
   `MCPChartProvider(ChartContextProvider)` + `engine/mcp_client.py`
   `MCPCLIClient` (the `tv`-CLI transport).

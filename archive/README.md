@@ -13,5 +13,7 @@ read as current reference. Subdirectories are named by archive date
 | `2026-05/OptionsEngine.txt` | repo root | A narrative end-to-end usage walkthrough. It is a point-in-time document, not maintained; a paired accuracy audit of it is preserved at `docs/optionsengine_audit_2026-05-17.md`. Archived rather than kept at the orientation root. |
 | `2026-05/ARCHITECTURE.md` | `docs/` | Describes a planned `src/`-based module layout (`src/data`, `src/models`, `src/execution`, …) that does not match the actual repository tree. Superseded as the architecture reference by `MODULE_INDEX.md`. |
 | `2026-05/DATA_COLLECTION_REPORT.md` | `docs/` | A dated data-collection phase report (2026-03-22) describing the collection effort as in progress. The phase is complete; the report is no longer current. |
+| `2026-05/bloomberg_excel_extractor.bas` | `scripts/` | V1 of the Bloomberg Excel VBA extractor. V2 explicitly self-describes as a "FIXED VERSION with longer wait times"; `docs/bloomberg_refresh_runbook.md` is the live path. |
+| `2026-05/download_ohlcv.py` | `scripts/` | An early yfinance OHLCV downloader. Superseded by `scripts/download_yf_ohlcv.py`, which adds multi-index header cleanup. |
 
 See `DECISIONS.md` D14 for the restructure rationale.

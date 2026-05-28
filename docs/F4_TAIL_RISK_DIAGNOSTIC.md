@@ -421,3 +421,143 @@ unconditional.
   assertions are not sensitive enough to detect "engine became
   more optimistic" — they only assert the gap exists with a
   permissive threshold (`cvar_5 > -10% of collateral`).
+
+---
+
+## 10. Fix B1+C attempt → rolled back (2026-05-27)
+
+The first attempt at a structural F4 fix shipped on branch
+`claude/fix-f4-regime-conditioned-widening` (PR #253) and was
+**rolled back after S27 backtest validation revealed a Spearman ρ
+inversion**.
+
+**What was tried** (commits a055349, ec3d51b — both reverted):
+
+- **Fix B1**: multiplied the empirical forward-log-return std by
+  `regime_widening_factor(p_crisis, p_bear)` immediately before
+  `EVEngine.evaluate`. Factor bounded to `[1.0, 1.5]`. Sign- and
+  mean-preserving.
+- **Fix C**: when widening fires, the ranker evaluates `EVEngine.evaluate`
+  on BOTH the NOS-widened sample AND an overlapping-widened sample
+  (~1225 samples), and surfaces the more conservative result.
+
+**Unit-test pins closed the named cases** but the backtest revealed
+the failure mode:
+
+| Metric | Pre-fix | Post Fix-B1+C | Δ |
+|---|---|---|---|
+| S27 Spearman ρ | +0.1881 | **−0.1450** | **INVERTED** |
+
+A fast 905-pair Spearman probe confirmed Fix-B1 alone was also a
+regression (ρ = −0.094, p=0.0046). **The HMM `crisis` label is a
+vol-state label, not a tail-event predictor.** The post-rollback
+signal probe (branch `claude/fix-f4-threshold-gated-widening`)
+measured this directly:
+
+| Signal | Recall on tail dates | False-positive on non-tails | Lift |
+|---|---|---|---|
+| HMM combined ≥ 0.30 | 80% | 67% | 1.20x |
+| HMM combined ≥ 0.50 | 63% | 52% | 1.21x |
+| HMM combined ≥ 0.70 | 40% | 31% | 1.29x |
+
+Modest lift at best. The HMM fires on 98% of probed (ticker, date)
+pairs in 2022-2024 with mean factor 1.185. No threshold-+-multiplier
+calibration can satisfy both "close named F4 cases" + "preserve ρ"
+with this signal.
+
+**Rolled back as documented in commits 4b0be03 → 3dc3624 → 5c9df2f.**
+PR #253 left open as a draft research record.
+
+---
+
+## 11. Fix B2: realized-vol-ratio widening (shipped, this branch)
+
+After §10's negative result, the post-rollback signal probe
+identified a stronger signal: **30d realized vol vs 252d baseline
+(`rv30 / rv252`)**. Independent of HMM (price-derived, different
+math, different cause). Captures vol-clustering empirically — when
+recent vol is elevated vs the 1y baseline, the next 35d is more
+likely to also be elevated.
+
+**Probe results (720 (ticker, date) pairs, 2022-2024):**
+
+| RV-ratio threshold | Recall on tail dates | False-positive | Lift |
+|---|---|---|---|
+| ratio ≥ 1.00 | 53.3% | 39.8% | 1.34x |
+| ratio ≥ 1.10 | 45.0% | 28.3% | 1.59x |
+| ratio ≥ 1.20 | 33.3% | 19.7% | 1.69x |
+| **ratio ≥ 1.30** | **26.7%** | **12.9%** | **2.07x** |
+| ratio ≥ 1.50 | 0.0% | 4.6% | n/a (no tails fire) |
+
+**Calibration shipped** (`engine.forward_distribution.realized_vol_widening_factor`):
+
+- **Threshold**: 1.30 (fires on ~14% of probed dates)
+- **Slope**: 0.20 (ramps linearly above threshold)
+- **Max widening**: 1.15 (vs Fix B1's 1.50 — much gentler)
+
+Specifically::
+
+    if rv30 / rv252 < 1.30:
+        return 1.0
+    return min(1.15, 1.0 + 0.20 * (ratio - 1.30))
+
+**Behaviour on F4 named cases:**
+
+| Case | rv30/rv252 | factor | Fires? | Comment |
+|---|---|---|---|---|
+| **COST 2022-04-04** | 0.96 | 1.00 | NO | Pre-drawdown RV was actually CALM — fundamentally unpredictable |
+| **UNH 2024-11-11** | 1.36 | 1.012 | YES (mildly) | The only named case the signal catches |
+| **AAPL 2026-02-13** (control) | 0.85 | 1.00 | NO | No spurious caution |
+| **META 2022-02-02** | 1.15 | 1.00 | NO | Earnings-driven (handled by event_gate) |
+
+**Does NOT close named F4 cases** — that remains a fundamental
+problem (idiosyncratic single-name drawdowns have no advance
+signal at the ticker level, by definition). The
+**R10 single-name exposure cap** (PR #256) is the damage-bounding
+mechanism for those.
+
+**What this fix achieves:**
+
+- The engine is **mildly more cautious during vol-cluster regimes**
+  (14% of 2022-2024 dates) where elevated tail risk is empirically
+  ~2x more likely.
+- **S27 Spearman ρ: +0.1881 → +0.1819** (delta −0.006). Signal
+  essentially preserved. Compare to Fix B1+C's −0.145.
+- **Calm-regime output is byte-identical** to main on the canonical
+  5-ticker bring-up (all five tickers show `tail_widening_factor =
+  1.00` at 2026-03-20).
+- Sign-preserving (factor ≥ 1.0 always). Mean-preserving (only
+  widens spread). §2-compliant: downgrade-only.
+
+**What this fix does NOT achieve:**
+
+- Doesn't predict idiosyncratic single-name drawdowns (COST 2022-04,
+  META 2022-02-02). Those have no advance signal at the ticker level.
+- Doesn't flip named F4 cases to negative ev_dollars. UNH 2024-11
+  ev_dollars moves from +$114.53 → +$108.25 (modest reduction; still
+  positive).
+- The named F4 case dollar-damage bounding remains R10's job
+  (single-name notional capped at 10% NAV).
+
+**Status of `docs/PRODUCTION_READINESS.md` §3 Blocker B1:**
+
+**Partially closed.** The engine now meaningfully widens its
+tail-risk estimate during empirically-elevated-vol regimes. Combined
+with R10's per-name notional cap and R7-R9 portfolio gates, the
+defence-in-depth around F4-style events is meaningfully stronger.
+Closure of the SPECIFIC named cases (COST 2022-04 prob_profit, UNH
+2024-11 ev sign flip) remains structurally impossible without a
+ticker-level fundamental signal (earnings surprise prediction,
+regulatory event detection) outside the current data layer.
+
+### Sources
+
+- Signal probe: `_f4_signal_probe.py` + `_f4_rv_signal_probe.py`
+  (throwaway, deleted before commit).
+- S27 backtest validation: `tests/test_backtest_regression.py::test_backtest_matches_snapshot[s27_ivpit_24t_100k]`
+  (snapshot regen included in this PR to lock the new baseline).
+- Unit + integration tests:
+  `tests/test_f4_rv_widening.py` (18 tests).
+- PRs in the chain: #253 (Fix B1+C, rolled back, draft research
+  record), #255 (B2 closure with R9 sector_cap), #256 (R10
+  single-name cap), this PR (rv-widening).

@@ -348,3 +348,172 @@ def best_available_forward_distribution(
         return rets, "har_rv"
 
     return np.asarray([], dtype=float), "none"
+
+
+# ----------------------------------------------------------------------
+# 5. F4 follow-up — realized-vol-ratio widening
+# ----------------------------------------------------------------------
+#
+# Background (`docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10): the rolled-back
+# Fix B1 used HMM cold-tail posterior as the widening signal. The
+# post-rollback signal probe showed HMM posterior is a weak
+# discriminator of tail-realized dates (~1.3x lift; ~50% non-tail
+# false-positive rate at the threshold that catches 60% of tails).
+# Aggressive widening on this signal inverts S27 Spearman ρ.
+#
+# Realized-vol ratio (rv30 / rv252) is a stronger signal: 2.07x lift
+# at threshold 1.30, recall 27% on tail dates, false-positive 13% on
+# non-tail dates. Captures vol-clustering — when 30d realized vol is
+# materially elevated vs the 1y baseline, the next 35d is empirically
+# more likely to also be elevated. Independent of HMM (price-derived,
+# different math, different cause).
+#
+# This widening is SCOPED CONSERVATIVELY:
+#   - Gate threshold 1.30 (only ~14% of 2022-2024 dates fire)
+#   - Max factor 1.15 (vs rolled-back Fix B1's 1.50)
+#   - Mean-preserving (same as Fix B1 — only widens spread)
+#   - Sign-preserving (factor always >= 1.0; downgrade-only)
+#
+# Does NOT close named F4 cases (COST 2022-04 had rv ratio 0.96,
+# below threshold — calm pre-drawdown). The R10 single-name cap
+# remains the damage-bounding mechanism for those.
+def realized_vol_ratio(
+    ohlcv: pd.DataFrame,
+    as_of: pd.Timestamp | str | None = None,
+    price_col: str = "close",
+    short_window: int = 30,
+    long_window: int = 252,
+) -> float:
+    """Return the ratio of ``short_window`` realized vol to
+    ``long_window`` realized vol at the as_of date.
+
+    PIT-safe: strictly filters to ``date <= as_of`` before computing
+    log-returns. Returns ``1.0`` (no-fire default) when history is
+    insufficient — gates the widening to no-op rather than firing
+    on noise.
+
+    Args:
+        ohlcv: DataFrame indexed by date with a ``close`` column.
+        as_of: PIT cutoff. ``None`` means latest available.
+        price_col: Column name for close prices.
+        short_window: Trading days for the numerator vol (default 30).
+        long_window: Trading days for the denominator baseline
+            (default 252 — 1 trading year).
+
+    Returns:
+        ``rv_short / rv_long`` as a float. Returns 1.0 when:
+        - OHLCV is empty
+        - Less than ``long_window + 1`` log-returns available after PIT filter
+        - Long-window vol is ~zero (degenerate constant-price history)
+    """
+    if ohlcv is None or ohlcv.empty or price_col not in ohlcv.columns:
+        return 1.0
+    df = ohlcv.copy()
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+    if as_of is not None:
+        cutoff = pd.Timestamp(as_of)
+        df = df.loc[df.index <= cutoff]
+    closes = df[price_col].dropna().astype(float).values
+    if len(closes) < long_window + 1:
+        return 1.0
+    log_rets = np.diff(np.log(closes))
+    if len(log_rets) < long_window:
+        return 1.0
+    rv_short = float(np.std(log_rets[-short_window:]))
+    rv_long = float(np.std(log_rets[-long_window:]))
+    if rv_long <= 1e-9:
+        return 1.0
+    return rv_short / rv_long
+
+
+def realized_vol_widening_factor(
+    ohlcv: pd.DataFrame,
+    as_of: pd.Timestamp | str | None = None,
+    *,
+    threshold: float = 1.30,
+    slope: float = 0.20,
+    max_widening: float = 1.15,
+    price_col: str = "close",
+    short_window: int = 30,
+    long_window: int = 252,
+) -> float:
+    """Compute the realized-vol-ratio widening factor at the as_of date.
+
+    Returns 1.0 (no widening) when ``rv30 / rv252 < threshold``. Above
+    the threshold, ramps linearly with slope ``slope`` and caps at
+    ``max_widening``.
+
+    Concretely::
+
+        ratio = rv30 / rv252
+        if ratio < threshold:
+            return 1.0
+        return min(max_widening, 1.0 + slope * (ratio - threshold))
+
+    Default calibration (threshold 1.30, slope 0.20, max 1.15):
+        - ratio = 1.30 → factor 1.00 (no widening at threshold)
+        - ratio = 1.50 → factor 1.04
+        - ratio = 1.80 → factor 1.10
+        - ratio = 2.05 → factor 1.15 (cap)
+
+    Sign- and mean-preserving. Per the F4 signal probe
+    (2026-05-27, branch `claude/fix-f4-threshold-gated-widening`):
+        - Fires on 14% of 2022-2024 (ticker, date) probes
+        - Catches 27% of tail-realized dates (lift 2.07x vs random)
+        - UNH 2024-11-11 (the cleanest F4 case): ratio 1.36, factor 1.012
+        - COST 2022-04-04: ratio 0.96, no fire (calm pre-drawdown)
+        - AAPL 2026-02-13 (control): ratio 0.85, no fire
+
+    Calibration choice rationale: the rolled-back HMM-based Fix B1
+    used max widening 1.50 on a signal that fired on 98% of dates and
+    inverted S27 ρ. This calibration is intentionally much gentler
+    (max 1.15 on a signal that fires on 14% of dates) so the S27 ρ
+    stays positive while the engine becomes meaningfully more
+    cautious during vol-cluster regimes.
+    """
+    ratio = realized_vol_ratio(
+        ohlcv,
+        as_of=as_of,
+        price_col=price_col,
+        short_window=short_window,
+        long_window=long_window,
+    )
+    if ratio < threshold:
+        return 1.0
+    return min(max_widening, 1.0 + slope * (ratio - threshold))
+
+
+def realized_vol_widened_log_returns(
+    log_returns: np.ndarray,
+    ohlcv: pd.DataFrame,
+    as_of: pd.Timestamp | str | None = None,
+    *,
+    threshold: float = 1.30,
+    slope: float = 0.20,
+    max_widening: float = 1.15,
+    price_col: str = "close",
+) -> np.ndarray:
+    """Widen the std of an empirical log-return array by the
+    realized-vol-ratio widening factor.
+
+    Mean-preserving (only widens spread around the mean). Sign-
+    preserving (factor always >= 1.0 — downgrade-only). No-op when
+    rv ratio < threshold (the cheap fast path; 86% of the 2022-2024
+    sample).
+    """
+    if log_returns is None or len(log_returns) == 0:
+        return log_returns
+    factor = realized_vol_widening_factor(
+        ohlcv,
+        as_of=as_of,
+        threshold=threshold,
+        slope=slope,
+        max_widening=max_widening,
+        price_col=price_col,
+    )
+    if factor <= 1.0 + 1e-9:
+        return log_returns
+    arr = np.asarray(log_returns, dtype=float)
+    mu = float(arr.mean())
+    return mu + factor * (arr - mu)

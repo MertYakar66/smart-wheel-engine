@@ -810,7 +810,11 @@ class WheelRunner:
         )
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            realized_vol_widened_log_returns,
+            realized_vol_widening_factor,
+        )
         from engine.option_pricer import black_scholes_price
 
         conn = self.connector
@@ -1563,9 +1567,33 @@ class WheelRunner:
                     # Graceful degrade — dealer positioning is optional
                     market_structure = None
 
+            # F4 follow-up — realized-vol-ratio widening. When the
+            # ticker's 30d realized vol is materially elevated vs its
+            # 1y baseline (rv30/rv252 >= 1.30), widen the forward
+            # distribution's std by a gentle factor (max 1.15) before
+            # the EV engine evaluates. Captures vol-clustering. No-op
+            # on calm regimes (86% of dates). Sign- and mean-preserving.
+            # Replaces the rolled-back Fix B1+C (HMM-multiplier
+            # widening that inverted S27 ρ — see
+            # docs/F4_TAIL_RISK_DIAGNOSTIC.md §10). The new signal
+            # has 2.07x lift on tail-realized dates (vs HMM's ~1.3x)
+            # and fires on 14% of dates (vs HMM's 98%) — calibrated
+            # to preserve S27 ρ. Does NOT close named F4 cases
+            # (COST 2022-04 had rv30/rv252 = 0.96, below threshold —
+            # the named cases are fundamentally unpredictable; the
+            # R10 single-name cap is the damage-bounding mechanism).
+            fwd_rets_widened = realized_vol_widened_log_returns(
+                fwd_rets,
+                ohlcv,
+                as_of=as_of,
+            )
+            tail_widening_factor = realized_vol_widening_factor(
+                ohlcv,
+                as_of=as_of,
+            )
             res = ev_eng.evaluate(
                 trade,
-                forward_log_returns=fwd_rets,
+                forward_log_returns=fwd_rets_widened,
                 trade_start=trade_start_d,
                 trade_end=trade_end_d,
                 market_structure=market_structure,
@@ -1692,6 +1720,12 @@ class WheelRunner:
                         "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
+                        # F4 follow-up: realized-vol-ratio widening
+                        # factor (1.00 = no widening, > 1.0 = vol-
+                        # cluster regime fired). Audit signal for the
+                        # post-rollback widening mechanism. See
+                        # engine.forward_distribution.realized_vol_widening_factor.
+                        "tail_widening_factor": round(tail_widening_factor, 4),
                         # S33 F4 disambiguation: realized vol + mean
                         # over the same 252d window the HMM fitted to.
                         # The "crisis" label alone means "high-vol

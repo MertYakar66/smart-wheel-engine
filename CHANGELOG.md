@@ -79,6 +79,36 @@ direction and ordering, not as an exact target. Future engine drift
 fails the test loudly; intentional methodology changes force an
 explicit re-baseline + doc amendment.
 
+### Fixed
+- **`_common.py`** replaces deprecated `datetime.utcnow()` with the
+  modern `datetime.now(UTC)` (PR `#259`). Closes 3 deprecation
+  warnings per reproducer run; future-proofs against Python 3.13.
+  Output format shifts from `"...Z"` to `"...+00:00"` (both ISO 8601
+  UTC). `generated_at` is metadata and skipped by the regression
+  comparison, so existing snapshots remain valid.
+
+### Docs
+- **`docs/BACKTEST_REGRESSION_CAMPAIGN.md`** Known-limitations section
+  rewritten as a consolidated catalog with three categories
+  (harness-internal H1–H6, engine-realism E1–E6, production-readiness
+  P1–P3), each item carrying status + owner. Cross-references the
+  existing `SOUNDNESS_REVIEW`, `F4_TAIL_RISK_DIAGNOSTIC`, and
+  `PRODUCTION_READINESS` docs. Single source of truth for "what the
+  harness does and doesn't claim."
+
+### Validated end-to-end (overnight)
+All four backtests' `@pytest.mark.backtest_regression` cases passed
+against committed snapshots on `main`:
+- **S27** ✓ ~50 min
+- **S32** ✓ 1 h 42 min
+- **S34** ✓ 6 h 54 min (longest; multi-friction forward-replay over 30 K rank rows)
+- **S35** ✓ ~50 min
+
+Harness mechanism is operationally proven; what remains unverified is
+real-drift detection — the snapshots were self-generated, so the test
+passes trivially today. First real engine change is the actual
+validation. Documented as H3 in the campaign report.
+
 ---
 
 ## 2026-05 — Coverage push + lint debt mechanical fix + foundation pass

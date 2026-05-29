@@ -7324,6 +7324,502 @@ history gate that effectively makes this a 2020-only backtest.
 
 Full doc: `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md`.
 
+### S44 — S38 re-run on post-F4 engine (PR #260 dollar-improvement test)
+
+**Purpose.** S40's AI-handoff (PR #264) hypothesised that PR #260's
+realized-vol-ratio widening would close 5-10pp of S38's −52pp
+engine-vs-passive gap at \$1M/100t/2020-2024 by refusing more
+candidates in elevated-vol regimes (especially COVID 2020). S41
+(PR #267, Terminal A) tested this at the 24t/\$100k/2022-2024 scale
+and found PR #260 alone is a slight dollar NEGATIVE (ρ −3.3%,
+NAV −12.1%, executed −22%). S44 tests the same question at the
+100t/\$1M/2020-2024 scale to surface whether COVID's elevated vol
+regime materially changes the F4 impact.
+
+**Setup.** Identical to S38 except engine SHA. 100 alphanumeric SP500
+tickers, \$1M, 2020-01-02 → 2024-12-31, 35-DTE / 25-delta puts,
+wheel into CC, hold to expiry, `require_ev_authority=False`, three
+parallel WheelTracker instances. Engine SHA `56d8e5c` (post-PR #260
+F4 RV widening + PR #262 R10 single-name cap). Driver under
+`%TEMP%\s38_postf4_backtest\` (throwaway). Compute 6.31h wall-clock
+(18 sec/day; 1,258 trading days).
+
+**Section-2 invariant scan: CLEAN both pre- and post-F4.** 0 PUT
+executions on `ev_dollars ≤ 0`; 0 non-finite `ev_dollars` anywhere.
+CC negative-EV opens (258 pre, 270 post) are harness design with
+`require_ev_authority=False`, not engine §2 breaches.
+
+**Headline result.**
+
+| Metric | Pre-F4 (b2cce25) | Post-F4 (56d8e5c) | Δ | Δ% |
+|---|---|---|---|---|
+| Final NAV (full friction) | \$1,331,764 | \$1,337,350 | +\$5,586 | +0.4% |
+| Engine return | +33.18% | +33.74% | +0.56pp | — |
+| n_executed_puts | 305 | **307** | +2 | +0.7% |
+| Realized grand total | −\$28,647 | −\$32,729 | **−\$4,082** | +14.2% |
+| Spearman ρ | 0.3576 | 0.3539 | −0.0037 | **−1.0%** |
+| Engine vs Univ-EW (+92.19% baseline) | **−59pp** | **−58.45pp** | +0.56pp closer | — |
+
+**Realism check.**
+
+| Aspect | Engine (S44) | External reference / prior Sn | Verdict |
+|---|---|---|---|
+| Section-2 invariant preservation | 0 breaches on PUTs both pre/post | F4 fix is downgrade-only by design | ✓ |
+| Cross-config consistency with S41 | S44 ρ −1.0% vs S41 ρ −3.3%; S44 NAV +0.4% vs S41 NAV −12.1% | Universe size + window length dilute per-trade F4 impact | ✓ Different magnitude same direction-of-effect on ρ |
+| COVID-specific refusal hypothesis | 19 → 18 executed (97.76% → 97.87% refusal) | Hypothesis was material refusal increase; observed +0.11pp | ⚠ Hypothesis falsified |
+| Deployment-matrix amendment (PR #263) | S44 result −58.45pp Univ-EW; PR #263 cites −52pp SPY | Within error bars; matrix verdict unchanged | ✓ No re-revision needed |
+| F4 + R10 deployment bundle (S41 framing) | S44 reinforces: PR #260 alone not value-creating at \$1M/100t | F4 = frequency guard; R10 = magnitude guard; bundle closes B1 | ✓ Consistent |
+
+**Verdict.**
+
+- **F4 fix has near-zero impact on S38 at the 5y/100t scale.**
+  +0.56pp engine return; realized P&L slightly worse (−\$4,082);
+  ρ minimally degraded (−1.0%); executed +0.7%.
+- **The S40 hypothesis is falsified.** Predicted 5-10pp closure of
+  the −59pp Univ-EW gap; observed 0.56pp. The −52pp pattern is
+  structural to the strategy's limited deployment (15-23% NAV),
+  NOT to a missing tail-risk widening mechanism.
+- **COVID specifically: no material effect.** 1 fewer trade taken
+  in the 12-week window (19 → 18 of 847 candidates). The hypothesis
+  that COVID's elevated vol would trigger material F4 refusal +
+  loss avoidance does not pan out — rv30/rv252's 30-day window
+  takes too long to catch up to a sharp drawdown.
+- **Cross-configuration finding holds:** PR #260 alone is signal-
+  preserving but not value-creating. **Deployment bundle that
+  closes PROD_READINESS §3 B1 is PR #260 + PR #262 together, per
+  S41's framing.**
+- **PROD_READINESS deployment matrix (PR #263 amendment) requires
+  no revision based on S44.** The −52pp framing is within the
+  observed range.
+
+**AI handoff.**
+
+- **For research follow-up:** test R10 in strict mode on the S38
+  setup. Set up a `PortfolioContext` per-step that aggregates
+  per-name exposure; verify R10 blocks AAPL/BKNG/AZO when any
+  approaches 10% NAV. This would close the parallel question:
+  "does R10 actually constrain anything at \$1M/100t?" (Likely:
+  rarely, since natural deployment is wide.)
+- **For the F4 docs-sync follow-up flagged in PR #263's
+  Unresolved:** S44 reinforces that PROD_READINESS §1/§3/§6 should
+  cite PR #260 as "shipped, but value-creating only in bundle with
+  R10" rather than open-vs-shipped status binary. S41 + S44
+  together are the validation that B1 closure requires both PRs.
+- **For PR #263 reviewers:** S44 confirms the deployment matrix
+  amendment is honest. The −52pp framing holds; F4 fix does not
+  close it.
+
+**Methodology debt.**
+
+- Same in-sample HMM/POT-GPD parameters caveat inherited from
+  S22-S40. Engine parameters were fit on data overlapping the
+  backtest window.
+- Bloomberg-only (SPY not in dataset). Used Univ-EW + external SPY
+  estimates.
+- F4 widening factor is NOT captured in rank_log (the harness
+  doesn't save it), so this doc cannot directly count "how often
+  did F4 fire in 2020 in the backtest." Inferred from numerical
+  shifts. A future Sn harness should add the column.
+- Same engine SHA across the run (no main-advance mid-campaign).
+
+Full doc: `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md`.
+
+### S40 — Rolling multi-window backtest at 100 tickers / $1M (3 new start dates)
+
+**Purpose.** S38 found −52pp engine-vs-SPY at $1M / 100t over
+2020-2024. Open question: is the −52pp window-specific to
+2020-2024 or a general property at scale? S40 runs 3 NEW backtests
+with starts 2021/2022/2023 (all ending 2026-02-06) at the same
+universe / capital / strategy as S38, cross-referenced against
+S34 (2022-2024) and S38 (2020-2024) for a 5-measurement-point
+picture at $1M / 100t with 4 distinct start dates.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`.
+Identical to S38 except the window. Same 100 first-alphanumeric
+SP500 tickers. $1M starting capital. 35-DTE / 25-delta puts →
+wheel into CC on assignment → hold to expiry. Three parallel
+`WheelTracker` instances (frictionless / bid_ask / full).
+`require_ev_authority=False`. Engine SHA `b2cce25` (`origin/main`
+HEAD at run time). Throwaway drivers under
+`%TEMP%\s40_backtest_{2021,2022,2023}\` (per Sn convention).
+Per-window outputs: `rank_log.csv` (~32-53k rows each),
+`summary.txt`, `run.log`.
+
+**Pre-flight data constraint.** OHLCV starts 2018-01-02 — pre-COVID
+windows (2015-2019 spec from original task) cannot run. With user
+direction, campaign adapted to 3 post-2020-start windows.
+
+**Path.** `WheelRunner.rank_candidates_by_ev` at
+`engine/wheel_runner.py` (the §2 ranker route) — daily re-rank,
+top-3 trade attempts per day, frictionless + bid_ask + full-friction
+parallel trackers. Same path as S38.
+
+**Compute.** Total wall-clock 15.91h (W3 4.25h, W2 5.44h,
+W1 6.22h; sequential). Mid-run CPU contention from other
+terminals' jobs reduced per-day rate from estimated 8.6s/day to
+~17-20s/day; total within ~6% of budget.
+
+**Section-2 invariant scan: CLEAN across all 3 new windows and
+both cross-references.** 0 puts executed with ev_dollars ≤ 0;
+0 non-finite ev_dollars anywhere; CC opens with ev_dollars ≤ 0
+(174/264/285) are harness design (require_ev_authority=False; CC
+EV-floor at −$50 because alternative is unproductive stock
+holding), not engine §2 breaches.
+
+**Headline result.**
+
+| Sn / Window | Length | Engine return | Univ-EW return | Engine vs Univ-EW |
+|---|---|---|---|---|
+| W1 (S40-2021) | 5.1y | +41.46% | +92.22% | **−50.76pp** |
+| W2 (S40-2022) | 4.1y | +45.36% | +45.52% | **−0.16pp (≈tied)** |
+| W3 (S40-2023) | 3.1y | +12.28% | +96.91% | **−84.63pp** |
+| S34 (cross-ref) | 3.0y | +35.61% | +25.97% | **+9.64pp** |
+| S38 (cross-ref) | 5.0y | +33.18% | +92.19% | **−59.01pp** |
+
+**Realism Check.**
+
+| Aspect | Engine (S40) | External reference / prior Sn | Verdict |
+|---|---|---|---|
+| S38 reproducibility (W1 has same start-1y, similar duration) | W1 −51pp vs Univ-EW; S38 −59pp vs Univ-EW | Same general magnitude (~10pp difference attributable to W1's 2021 bull start vs S38's 2020 COVID start) | ✓ S38 not anomalous |
+| Per-year ρ across windows | bit-identical for overlapping years (2022=0.370, 2025=0.525, etc.) | Engine is deterministic on (SHA, universe, date) | ✓ Reproducibility confirmed |
+| 2022 bear refusal rate | 98.1-98.6% across W1/W2/S34/S38 | Engine's strongest defensible property; replicates S38's COVID 97.8% finding pattern | ✓ Refusal mechanism robust |
+| Pure-bull engine underperformance | W3 (no bear, pure 2023-2026 bull): −85pp engine-vs-Univ-EW | Predicted: limited deployment (~23%) cannot capture full bull upside | ✓ Strategy works as designed |
+| Bear-included engine performance | W2/S34 (2022 bear): tied or +10pp | Bear-year selectivity + crisis refusal protect downside | ✓ Value proposition validates |
+| Spearman ρ never negative | 14 (window × year) cells, ρ range 0.21-0.55 | Statistical: min p ≈ 1.5e-35 | ✓ Robust ranker signal |
+| Realized executed P&L | +$35k to +$49k in W1/W2/W3 (all positive); S38 was −$28k | The S38 negative was driven by 2020 COVID year alone (−$33k); post-COVID windows show positive realized | ✓ Refines S38 finding |
+
+**Verdict.**
+
+- **S38's −52pp is NOT 2020-2024-specific. It is a general property
+  at $1M / 100t scale, modulated by bull-year share.** Across 5
+  measurement points: −85pp (pure bull) to +10pp (bear-heavy).
+- **The engine-vs-passive delta scales monotonically with bull-year
+  share.** Pure-bull windows show 60-85pp underperformance;
+  bear-heavy windows (>25% bear share) show parity or modest
+  outperformance.
+- **The wheel strategy at this scale cannot keep up with passive
+  during sustained bull markets** because limited deployment
+  (14-24% of NAV) caps upside capture. This is fundamental to the
+  strategy design, not a bug.
+- **The engine's defensible value proposition remains
+  conservative income + crisis refusal**, not bull-market alpha.
+  +5-10% annualized depending on regime mix is the honest forward
+  expectation at $1M / 100t.
+- **§2 invariant clean across all 5 windows.** Engine never returned
+  non-finite ev_dollars; never recommended executed puts on
+  ev_dollars ≤ 0.
+- **Cross-window reproducibility verified.** Per-year ρ is
+  bit-identical across windows for overlapping years
+  (deterministic engine).
+
+**AI handoff.**
+
+- **The deployment-matrix amendment PR**
+  (`claude/docs-deployment-matrix-s38-amendment` commit `077cc28`,
+  sibling PR to this Sn) is reinforced by S40. The "$500k–$1M
+  supervised, universe ≥ 100 tickers" matrix row's revision to
+  "Conditional with explicit underperformance acknowledgment"
+  is now backed by 5 measurement points, not just the single S38.
+- **Follow-up: test the "bull-year share" hypothesis at other
+  capital scales** ($100k, $5M) and universe sizes (24t, 500t).
+  Hypothesis: smaller capital saturates BP and limits the wheel's
+  upside drag; larger capital widens the gap further.
+- **For B1 (F4 tail-risk fix, in flight Terminal A
+  `claude/fix-f4-regime-conditioned-widening`):** S40 reinforces
+  case for F4 fix. COVID 2020 contributed −$33k to S38's realized;
+  proper tail widening could close 5-10pp of the engine-vs-passive
+  gap in 5y windows including crisis years.
+- **The originally-proposed pre-COVID baseline windows (2015-2019,
+  2016-2020, 2017-2021) require a Bloomberg OHLCV refresh** back
+  to ~2013. Deferred until S6 (Theta provider) or a manual
+  Bloomberg backfill closes the data gap.
+
+**Methodology debt.**
+
+- **Bloomberg-only.** SP500 ETFs (SPY, IVV, VOO) NOT in dataset
+  (constituent-only). Engine-vs-SPY for new windows uses estimated
+  ext SPY (Univ-EW minus typical 10-20pp EW vs cap-weighted gap).
+  Resolved by Theta provider (S6, blocked).
+- **Capital deployment metric difference.** S40 reports
+  short-put-collateral-only avg (15-24%); prior S34/S38 docs
+  reported total-NAV-deployed (22%+) including assigned stock
+  market value. Both metrics agree on the structural finding
+  (~76-86% of NAV idle) but they're not directly comparable.
+  Future docs should report both for clarity.
+- **In-sample HMM/POT-GPD parameters** (inherited from S22-S38).
+  The forward-distribution parameters were fit on data overlapping
+  the backtest period. Resolution requires parameter-freeze-then-
+  replay infrastructure not present today.
+- **Pre-2020 windows unreachable.** Bloomberg OHLCV starts
+  2018-01-02; 504-day history gate forces effective start ≥ 2020.
+  Resolution requires data refresh back to ~2013.
+
+Full doc: `docs/ENGINE_BACKTEST_S40_ROLLING_MULTIWINDOW.md`.
+
+### S43 — Rolling 5-window backtest with post-#260 engine
+
+**Purpose.** Test whether S38's "engine underperforms a same-universe
+EW hold by ~62pp over 2020-2024" generalises across rolling 5-year
+windows OR is window-specific. Same setup as S38 except dates; engine
+is now post-F4-fix (PR #260 realised-vol-ratio widening) + R9 sector
+cap (PR #255) + R10 single-name cap (PR #256), so this also
+implicitly tests whether (a) the F4 widening changes 2022 outcomes
+and (b) the new gates would have changed capacity / concentration
+outcomes vs S38's pre-fix engine.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg`, `MarketDataConnector`.
+Identical to S34 / S38 except the windows. Same 100 tickers
+(first alphanumeric SP500 names — `UNIVERSE_100`). $1M starting
+capital. 35-DTE / 25-delta puts → wheel into CC on assignment →
+hold to expiry. Three parallel `WheelTracker` instances
+(frictionless / bid_ask / full). `require_ev_authority=False`.
+Post-#260 engine on `origin/main` (commit `56d8e5c`). Harness
+under `backtests/regression/s43_rolling_multiwindow.py` (committed
+on the S43 branch).
+
+**Data-coverage finding.** OHLCV CSV on disk starts 2018-01-02 (not
+2014 as the task spec assumed). With `enforce_history_gate=True` +
+`min_history_days=504`, the survivorship gate rejects every
+candidate until ~2020-01-02. So the user's W1=2015-2019 / W2=2016-2020 /
+W3=2017-2021 are infeasible (backtest can't start before OHLCV).
+Adapted to four runnable windows: W1=2018-2022 (gate-truncated
+effective ~3y), W2=2019-2023 (gate-truncated effective ~4y), W3=2020-2024
+(direct S38 re-run, the Δ-vs-#260 deliverable), W4=2021-2025 (NEW
+clean 5y forward-anchored).
+
+**Path.** `WheelRunner.rank_candidates_by_ev` at
+`engine/wheel_runner.py` (the §2 ranker route) — daily re-rank,
+top-3 trade attempts per day per friction-level tracker, shared SP
+rank call across friction levels per
+`backtests/regression/_common.py::run_backtest_multi_friction`.
+Routes through `EVEngine.evaluate` end-to-end; no engine mocking;
+zero §2 bypass.
+
+**Status.** Done. **Verdict: S38's 50-60pp engine-vs-passive
+underperformance GENERALISES across all four rolling 5-year windows
+on post-#260.** Engine NEVER beats a same-universe EW baseline.
+Range −51pp (W3, the post-#260 S38 re-run) to −104pp (W2, the
+2019-2023 window where Univ-EW gained +128%). Spearman ρ is
+window-INVARIANT at 0.356-0.378. Per-year ρ is POSITIVE in 16 of
+16 (window × year) cells measured (no negatives). **F4 fix (PR
+#260) is signal-preserving on the W3 ⟷ S38 comparison** (Δρ
+−0.002; 2022 mean realised Δ −$2.70). The +$103k NAV delta on the
+same 2020-2024 window is driven by harness execution-selection
+differences (516 W3 puts vs 305 S38 puts), not by the F4 widening.
+
+**Findings:**
+
+- **(F1 — Window dependence GENERALISES on post-#260).** Engine vs
+  Univ-EW: W1 −60.23pp, W2 −103.63pp, W3 −51.52pp, W4 −55.04pp.
+  S38 pre-#260 restated against Univ-EW = −61.84pp. All five
+  negative. **Engine never beats a same-universe EW baseline.**
+- **(F2 — ρ is window-invariant)**. Full-window ρ clusters within
+  0.022 (0.356 to 0.378) across four windows. Per-year ρ positive
+  in all 16 measured cells.
+- **(F3 — F4 fix signal-preserving on W3 ⟷ S38)**. Δρ −0.002;
+  Δ2022-mean-realised −$2.70. The post-#260 widening doesn't
+  materially change EV ranking on this window. The +$103k NAV
+  delta is harness mechanics on the same signal.
+- **(F4 — Top-ticker membership rotates per window)**. BKNG: S38
+  +$31k (carry) → W2/W3 −$28k (worst loser) → W4 outside top-5.
+  AZO: stable winner W1-W3 → +$38k (W4 top winner). ADBE: W1-W3
+  winner → W4 worst loser (−$21k). **No ticker carries the
+  engine's dollar outcome stably across windows.**
+- **(F5 — §2 invariant intact across 184,602 rows)**. Zero
+  non-finite `ev_dollars` across all four windows × three friction
+  levels. R1a guard (PR #204) holds.
+- **(F6 — R10 would-fire 3.7-4.5% of executed opens)**. 19/465
+  (W2), 19/516 (W3), 23/509 (W4); W1 reconstructed 35/752. Max
+  single-name exposure reached 20-25% of NAV in W2/W3 vs the 10%
+  R10 cap. R10 is materially impactful damage-bounding when wired
+  live.
+- **(F7 — 2025 ρ = 0.524 is the second-highest year measured)**.
+  Only 2020 COVID at 0.538 higher. 2025 mean realised +$172/trade
+  is the highest of any year. Signal persists through the forward-
+  anchored window.
+
+**Implications for `docs/PRODUCTION_READINESS.md` §1 / §5:**
+- B1 (F4 tail-risk fix): the RV-ratio widening is signal-preserving
+  but does NOT measurably better-bound named F4 cases (BKNG was W3's
+  WORST loser despite the widening). R10 single-name cap (PR #256)
+  is the operative damage-bound on those names.
+- **Deployment matrix should now cite four more (capital × universe
+  × window) cells:** W1 −60pp, W2 −104pp, W3 −52pp, W4 −55pp at
+  $1M / 100 tickers. Engine never beats same-universe-EW at this
+  scale in 5y rolling windows.
+
+**Methodology caveats:**
+- W1's `tracker_state.json` is missing (W1 launched before the
+  harness was extended with the tracker dump). Concentration / R10
+  audit / deployment time-series for W1 are approximate from
+  rank_log replay. W2/W3/W4 have exact tracker_state.
+- Three of the user's five task-spec windows (2015-2019, 2016-2020,
+  2017-2021) are infeasible due to OHLCV coverage starting
+  2018-01-02. Documented in the writeup §0.
+- Refusal-rate framing differs from S38's: my reported numbers are
+  engine-side EV-≤-0 only; S38's 97.8% COVID figure also included
+  the harness's secondary BP / already-held / per-day-cap filters.
+  Cross-checked: W2's effective COVID open rate is ~1.6% (refusal
+  ~98.4%), matching S38's 97.8% framing.
+
+**Compute pacing.** Initially launched W1 alone (5h06m wall-clock
+with Terminal B's S40 contending). After W1 done, launched W2 with
+~5h estimate. When W2 was 60% through with rate slowing as
+positions accumulated (going from 0.47 day/s → 0.10 day/s), I
+deviated from "sequential" and launched W3 + W4 in parallel — the
+dev box has 16+ cores and each Python process uses only 1. Parallel
+saved ~3-4 hours of wall-clock. Deviation announced on board #113.
+Total campaign wall-clock 11h47m start-to-finish.
+
+Full doc: `docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md`. Harness
++ scan + analyze + reconstruct under `backtests/regression/s43_*.py`.
+
+---
+
+### S42 — R9 + R10 reviewer audit
+
+**Purpose.** PR #255 (R9 sector_cap) and PR #262 (R10 single-name
+exposure cap) expanded the dossier downgrade ruleset from R1-R8 to
+R1-R10. S42 audits the two new rules systematically — beyond the
+seven happy-path spot checks already in
+`tests/test_dossier_invariant.py` — for the four properties an
+external operator needs to trust them in production: behavioural
+correctness, downgrade-only invariant, fail-closed-on-missing-data
+semantics, and clean interaction with R1 / R7 / R8.
+
+**Setup.** `SWE_DATA_PROVIDER=bloomberg` (Cowork default), read-only
+against `engine/candidate_dossier.py` and
+`engine/portfolio_risk_gates.py`. New file
+`tests/test_dossier_r9_r10_audit.py` (32 tests organised in six
+families):
+
+1. **Family 1 — R9 fires correctly** (5 tests). Pins the D17
+   locked default `_DEFAULT_MAX_SECTOR_PCT = 0.25`, multi-position
+   same-sector aggregation, unknown-sector fallback.
+2. **Family 2 — R10 fires correctly** (5 tests). Pins
+   `_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10`, multi-holding aggregation
+   on the same ticker, long-position skip (`is_short=True` filter),
+   put+call short aggregation, different-ticker non-aggregation.
+3. **Family 3 — Downgrade-only invariant** (6 tests). R1 negative
+   EV and R1a non-finite EV both short-circuit R9 and R10; R7 and
+   R8 also short-circuit subsequent rules. No soft-warn can rescue
+   a blocked verdict.
+4. **Family 4 — Fail-closed on missing context** (4 tests). No
+   `PortfolioContext`, empty default `PortfolioContext()`, and the
+   KeyError-on-missing-strike paths (findings, below).
+5. **Family 5 — Cross-rule interaction** (5 tests). Pins the rule
+   ordering R7 -> R8(stress) -> R8(dealer) -> R9 -> R10 and the
+   short-circuit-via-`return` contract.
+6. **Family 6 — Edge cases** (5 tests). Strict-`>` boundaries at
+   25% sector and 10% single-name (exact cap passes), plus three
+   pinned findings (below). Pinned by separate
+   `test_min_proceed_ev_dollars_default_pinned` and
+   `test_fixture_math_for_r9_boundary_is_exact` module-level tests.
+
+**Status.** Done. 32/32 audit tests passing in 0.61s. Launch-blocker
+subset 103/103 passing (count grown from the documented 93 since
+#255/#262 added R9/R10 tests). 5-ticker EV smoke unchanged
+(XOM $137.57 / JPM $124.90 / MSFT $90.97 / UNH $62.62 / AAPL $20.45).
+Ruff format + check clean on the new file.
+
+**Behaviour confirmed (no defects on the documented surface):**
+
+- R9 strict-`>` boundary at exactly 25% sector exposure passes; only
+  strictly above fires. Pinned by F6.1.
+- R10 strict-`>` boundary at exactly 10% single-name exposure
+  passes; only strictly above fires. Pinned by F6.2.
+- R9 and R10 are downgrade-only: cannot rescue R1's `blocked` (both
+  `negative_ev` and `ev_non_finite` paths). Pinned by F3.1-3.3.
+- R7 / R8 short-circuit silences R9 and R10 notes — only the first
+  firing rule's note appears in `review_notes`. Pinned by F3.4-3.6
+  and F5.
+- When all four soft-warns (R7 / R8 stress / R8 dealer / R9 / R10)
+  would simultaneously fire, R7 wins by code order. The verdict is
+  `review`, the reason is `portfolio_var_breach`, and only the R7
+  note is recorded. Pinned by F5.5.
+- Missing `PortfolioContext` (None) and default-constructed
+  `PortfolioContext()` (nav=0, no holdings): R9 and R10 silent. No
+  exceptions. Pinned by F4.1-4.2.
+- Locked defaults `_DEFAULT_MAX_SECTOR_PCT = 0.25` and
+  `_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10` are honoured (no override
+  surface in the dossier path). Pinned by F1.3 and F2.1.
+
+**Findings (sharp edges surfaced during the audit — all four
+low-severity; not live production bugs since their trigger
+conditions require upstream data corruption):**
+
+1. **Finding #1 — R9 path raises `KeyError` on a held position dict
+   missing `strike`.** `SectorExposureManager.calculate_sector_exposures`
+   (in `engine/risk_manager.py`) does `pos["strike"]` directly with
+   no `.get()` fallback. A held position dict missing the `strike`
+   key crashes the dossier reviewer at R9 before R10 even runs.
+   Pinned by F4.3 with `pytest.raises(KeyError)`. Production reach:
+   low — `take_snapshot()` always constructs proper dicts from
+   `WheelPosition`, so this only matters if a future caller
+   constructs `held_option_positions` by hand.
+
+2. **Finding #2 — R8 stress crashes first when candidate strike is
+   `0`.** The dossier code path runs R8 stress BEFORE R9/R10. R8
+   stress -> `check_stress_scenario` -> `StressTester.run_scenario`
+   -> `black_scholes_price` validates `K > 0` and raises
+   `ValueError` for strike <= 0. R9/R10's `if nav > 0 and
+   proposed_notional > 0` guard is structurally unreachable when
+   the candidate has strike=0. Pinned by F6.3 with
+   `pytest.raises(ValueError)`. Production reach: low — option
+   chains never carry zero strikes.
+
+3. **Finding #3 — `contracts=0` is silently coerced to 1 in the
+   R9/R10 path via `or 1` truthy fallback.**
+   `engine/candidate_dossier.py` lines 432 and 467 read::
+
+       contracts = int(ev_row.get("contracts", 1) or 1)
+
+   The `or 1` was intended to handle missing keys but also coerces
+   an explicit `contracts=0` to `1` because `0 or 1 == 1`. A
+   degenerate `contracts=0` candidate is therefore sized as 1
+   contract for the cap check. Pinned by F6.4. Production reach:
+   low — `WheelTracker` emits `contracts=1`. Hardening: replace
+   with `int(c) if (c := ev_row.get("contracts")) is not None else 1`.
+
+4. **Finding #4 — R10's defensive try/except is structurally
+   unreachable via the dossier path when R8 stress runs first on
+   the same malformed held position.** `check_single_name_cap`
+   has a defensive `try ... except (TypeError, ValueError):
+   continue` for malformed rows (e.g. negative strikes from
+   corrupted data). But on the dossier path R8 stress runs first
+   and crashes the same row via the BSM pricing call (same root as
+   Finding #2 but on the held-position side). R10's defensive code
+   is exercised only by direct `check_single_name_cap` unit tests.
+   Pinned by F6.5 with `pytest.raises(ValueError)`. Production
+   reach: low — same reasoning as Finding #2.
+
+**Follow-ups (none filed as separate PRs — see rationale).**
+All four findings are low-severity defensive issues, not live
+production bugs. Their trigger conditions require upstream data
+corruption (missing/zero/negative strikes, contracts=0) that
+`WheelTracker` and `MarketDataConnector` do not produce today.
+Hardening them would be a small follow-up PR that:
+
+- Adds a `proposed_notional > 0` guard to R8 stress + R7 VaR (the
+  same guard R9 + R10 already have).
+- Changes `pos["strike"]` -> `pos.get("strike", 0.0)` in
+  `SectorExposureManager.calculate_sector_exposures`.
+- Replaces `or 1` truthy fallback with explicit None handling in
+  the R9/R10 path.
+- Updates the F4.3 / F6.3 / F6.5 audit tests from
+  `pytest.raises(...)` to the new graceful behaviour.
+
+None of these are decision-layer changes (§2 untouched). Not
+queued — surface area is small enough that an audit-prompted
+hardening PR is the natural next move if the user wants it. The
+audit tests will trip when the behaviour changes, so they form a
+forcing function rather than a passive note.
+
+**No engine math changed.** No `ev_dollars` / `ev_raw` /
+multiplier code edited. The audit is read-only against §2.
+
+PR: pending push on `claude/usage-test-s42-r9-r10-audit`.
+
 ---
 
 ## 2. In flight

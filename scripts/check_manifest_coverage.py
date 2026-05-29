@@ -14,8 +14,15 @@ It cross-checks the manifest against `git ls-files`:
         `data_raw/ohlcv/*.csv`, `data/features/<group>/ticker=AAPL/...`);
   * (b) every manifest path/glob must match at least one tracked file.
 
-Exit code 0 when the manifest accounts for every tracked file; 1 (with the
-offenders printed) otherwise. Stdlib + git only — no third-party deps.
+It also scans every tracked ``.md`` file for committed git merge-conflict
+markers (``<<<<<<<``, ``=======``, ``>>>>>>>`` at line start). The token
+parser only reads ``|``-prefixed table rows, so a manifest committed with
+markers still passed (a) and (b) silently; this scan closes that gap, and
+catches the same trap in any other tracked Markdown.
+
+Exit code 0 when the manifest accounts for every tracked file and no
+``.md`` file contains conflict markers; 1 (with the offenders printed)
+otherwise. Stdlib + git only — no third-party deps.
 
 The matching semantics are lifted verbatim from the one-off cross-check in
 commit 4de0cca (the PR #133 review): backtick-quoted tokens in the left
@@ -98,6 +105,52 @@ def _glob_matches(pattern: str, tracked: list[str]) -> list[str]:
     return [f for f in tracked if fnmatch.fnmatch(f, resolved) or f.startswith(resolved)]
 
 
+def _is_conflict_marker_line(line: str) -> bool:
+    """True iff ``line`` is a git three-way-merge conflict marker.
+
+    Git writes exactly-7-char markers at column 0 with these shapes:
+
+    - ``<<<<<<<`` alone, or ``<<<<<<< <ref>`` (open)
+    - ``=======`` alone (separator)
+    - ``>>>>>>>`` alone, or ``>>>>>>> <ref>`` (close)
+
+    Lines with MORE than seven of the marker char — ``=========`` visual
+    separators, pytest's ``================ 93 passed ... ================``,
+    long-rule ``<<<<<<<<<<<<<<`` in prose — are deliberately NOT flagged,
+    nor are indented occurrences or substrings in the middle of a line.
+    """
+    if line.startswith("<<<<<<<"):
+        return len(line) == 7 or line[7] == " "
+    if line.startswith(">>>>>>>"):
+        return len(line) == 7 or line[7] == " "
+    return line == "======="
+
+
+def _find_conflict_markers(path: str, content: str) -> list[tuple[str, int, str]]:
+    """Return ``(path, line_num_1indexed, line)`` for each conflict-marker line."""
+    offenders: list[tuple[str, int, str]] = []
+    for line_num, line in enumerate(content.splitlines(), start=1):
+        if _is_conflict_marker_line(line):
+            offenders.append((path, line_num, line))
+    return offenders
+
+
+def _scan_md_files_for_conflict_markers(
+    root: Path, tracked: list[str]
+) -> list[tuple[str, int, str]]:
+    """Scan every tracked ``.md`` file for git merge-conflict markers."""
+    offenders: list[tuple[str, int, str]] = []
+    for rel_path in tracked:
+        if not rel_path.endswith(".md"):
+            continue
+        try:
+            content = (root / rel_path).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        offenders.extend(_find_conflict_markers(rel_path, content))
+    return offenders
+
+
 def main() -> int:
     root = _repo_root()
     manifest_path = root / MANIFEST
@@ -106,6 +159,20 @@ def main() -> int:
         return 1
 
     tracked = _tracked_files(root)
+
+    marker_offenders = _scan_md_files_for_conflict_markers(root, tracked)
+    if marker_offenders:
+        print(
+            f"FAIL: {len(marker_offenders)} merge-conflict marker line(s) committed "
+            f"in tracked .md file(s):"
+        )
+        for path, line_num, line in marker_offenders:
+            excerpt = line[:80] + ("…" if len(line) > 80 else "")
+            print(f"  {path}:{line_num}: {excerpt}")
+        print()
+        print("Fix: resolve the merge conflict, remove the marker lines, re-stage, and re-run.")
+        return 1
+
     tracked_set = set(tracked)
     tokens = _manifest_tokens(manifest_path.read_text(encoding="utf-8"))
 

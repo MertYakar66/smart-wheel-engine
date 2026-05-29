@@ -121,6 +121,20 @@ CI runs eight jobs (Environment Validation, Lint & Type Check,
 Security Scan, Test Suite × 2, Quantitative Validation, Integration
 Tests, FILE_MANIFEST Coverage). All eight must pass before merge.
 
+### Keeping `FILE_MANIFEST.md` in sync
+
+The `FILE_MANIFEST Coverage` job is the one that most commonly fails on
+docs-heavy PRs: a new file lands without a manifest row and CI rejects the
+merge. `scripts/sync_manifest.py` is the local sync helper that smooths
+this. Default invocation is the same read-only scan as
+`scripts/check_manifest_coverage.py`. Pass `--fix` and the script appends
+rows for any missing files into an "Untriaged additions" section at the
+tail of `FILE_MANIFEST.md` with a placeholder purpose — your follow-up is
+to move each row under the correct `## <directory>` section and replace
+the placeholder with a real description. Orphans (manifest entries that
+match no tracked file) are flagged but never auto-removed; they usually
+signal a recently moved or renamed file and need a human judgement.
+
 ---
 
 ## Code guidelines

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -576,6 +577,15 @@ def run_backtest(
         rank_log.to_csv(out / "rank_log.csv", index=False)
         with open(out / "metrics.json", "w", encoding="utf-8") as f:
             json.dump({"fingerprint": fingerprint, **metrics}, f, indent=2, default=str)
+        # Additive: dump the tracker's serialised state so post-processors
+        # (concentration analysis, R9/R10 fire-rate audit, cash-curve
+        # reconstruction) don't have to replay the rank log. Pure additive
+        # — no behaviour change; only writes a new file.
+        try:
+            with open(out / "tracker_state.json", "w", encoding="utf-8") as f:
+                json.dump(tracker.to_dict(), f, indent=2, default=str)
+        except Exception:
+            pass
 
     return BacktestResult(metrics=metrics, rank_log=rank_log, fingerprint=fingerprint)
 
@@ -790,7 +800,20 @@ def run_backtest_multi_friction(
     trading_days = [d.date() for d in pd.bdate_range(start, end)]
     tickers = list(tickers)
 
-    for today in trading_days:
+    _total_days = len(trading_days)
+    _progress_every = max(1, _total_days // 25)  # ~25 prints across the run
+    _t_start = time.time()
+
+    for _day_idx, today in enumerate(trading_days):
+        if _day_idx > 0 and _day_idx % _progress_every == 0:
+            _elapsed = time.time() - _t_start
+            _rate = _day_idx / _elapsed if _elapsed > 0 else 0.0
+            _eta = (_total_days - _day_idx) / _rate if _rate > 0 else 0.0
+            print(
+                f"[multi_friction] day {_day_idx:4d}/{_total_days} ({100 * _day_idx / _total_days:5.1f}%) "
+                f"elapsed {_elapsed / 60:6.1f}min  ETA {_eta / 60:6.1f}min  ({_rate:5.2f} day/s)",
+                flush=True,
+            )
         expiration_default = _next_business_day(today + timedelta(days=dte_target))
 
         # Per-tracker pre-rank steps (independent)
@@ -903,6 +926,15 @@ def run_backtest_multi_friction(
             rank_log.to_csv(out / "rank_log.csv", index=False)
             with open(out / "metrics.json", "w", encoding="utf-8") as f:
                 json.dump({"fingerprint": fingerprint, **metrics}, f, indent=2, default=str)
+            # Additive: dump the tracker's serialised state so post-processors
+            # (concentration analysis, R9/R10 fire-rate audit, cash-curve
+            # reconstruction) don't have to replay the rank log. Pure additive
+            # — no behaviour change; only writes a new file.
+            try:
+                with open(out / "tracker_state.json", "w", encoding="utf-8") as f:
+                    json.dump(tracker.to_dict(), f, indent=2, default=str)
+            except Exception:
+                pass
 
         results[level] = BacktestResult(metrics=metrics, rank_log=rank_log, fingerprint=fingerprint)
 

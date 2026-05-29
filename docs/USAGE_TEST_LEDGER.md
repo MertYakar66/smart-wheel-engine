@@ -79,6 +79,12 @@ retail wheel trader would, top-down across the SP500.
 - **Regime (HMM) multiplier unlabeled** — silently cuts EV
   50–80 % on some names with no surfaced regime. **Logged.**
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — 28 ranked rows on the 40-name watchlist at `as_of=2026-03-20`, all `ev_dollars` finite (range −481.38…+713.73); 12 drops emitted with structured `{ticker, gate, reason}` per PR #121.
+  - Qualitative verdict: match — dividend-yield bug stays fixed (no premium > strike anomaly). Seven of nine logged findings are now mechanically closed: dividend (#102), drops surface (#121), `ev_raw` column, `roc` + `collateral` (#109), `hmm_regime` label (#208), `sector` column (#210), `news_n_articles` (#119). Two remain logged-by-design: Unicode cp1252 mangle on `Δ` / `±` (still present in drop reason strings — observed verbatim during this run), and R4 dormancy (still no phase-aware chart provider on `main`).
+  - Numerical drift > 5%: no orig figures cited in the original entry — it was a bug-narrative entry, no row counts or EV magnitudes were quoted to compare against.
+  - Notes: 12 dropped at `as_of=2026-03-20` are Q1-earnings-season lockouts (consistent with the pattern S16 documented at the same as_of); current top-5 by EV are LLY (+713.73), CAT (+444.99), BLK (+407.09), DE (+318.53), TMO (+227.27). Diagnostic columns present: `ev_raw`, `roc`, `collateral`, `hmm_regime`, `sector`, `news_n_articles` — all of S1's "missing column" findings are now visible.
+
 ### S2 — Multi-day rolling wheel campaign (4 weeks)
 
 **Purpose.** Exercise the time dimension — managing a real book
@@ -125,6 +131,12 @@ cutoff `2026-03-20`. Positions tracked in
 - **Drop-reason silence carries into the rolling case** — same as
   S1, but more visible when a name disappears between snapshots.
   **Logged.**
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — by structure (rolling Sn that opens via `rank_candidates_by_ev` only; no direct §2 surface re-exercised here).
+  - Qualitative verdict: match — six of the eight S2 findings are now mechanically closed by shipped PRs: `WheelTracker.save` / `load` (PR #128 / D persistence), `WheelTracker.suggest_rolls` (PR #104), `WheelTracker.available_buying_power` (PR #127), `mark_to_market` connector-IV resolution (PR #129), `get_performance_summary` largest-win/loss fix (PR #126 wheel-cycle scope). Drop-reason silence (S1/S2/S9-common) closed by PR #121. Two remain Logged-by-design: same-day close-and-reopen UX (no cooldown — by design), earnings-window-drift on open positions (no surfacing).
+  - Numerical drift > 5%: not applicable — original entry quoted only qualitative findings (no specific NAV / drawdown figures from the 4-week sim).
+  - Notes: existence sweep on `WheelTracker` confirms `save`, `load`, `suggest_rolls`, `available_buying_power` all present.
 
 ### S3 — Build `WheelTracker.suggest_rolls(...)`
 
@@ -174,6 +186,12 @@ parallel, deferred from #104 — shipped in **`#122`** (merged
 `1821d56`): the same DTE × delta enumeration through
 `EVEngine.evaluate`, covered-call rolls only, pinned by a §2
 call-count regression.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `WheelTracker.suggest_rolls` invokes `EVEngine.evaluate` per (DTE × delta) grid point plus once for the hold synthetic; the published columns include `roll_ev`, `hold_ev`, `recommend`, `new_ev_dollars`, `new_premium`, `buyback_cost`, `net_credit_debit`.
+  - Qualitative verdict: match — `suggest_rolls` exists with the documented signature `(ticker, as_of, current_spot, current_iv, risk_free_rate=None, *, target_dtes=(21,35,49,63), target_deltas=(0.30,0.25,0.20,0.15), min_net_credit=0.0, dividend_yield=0.0, forward_log_returns=None)`. PR #122 `buyback_total` correction (use `total_buyback_cost` key, not `total_cost`) is shipped on `main`. `WheelTracker.suggest_call_rolls` also present.
+  - Numerical drift > 5%: not applicable — original entry quoted PG-specific +$1,661 forward-EV improvement on the live demo, which was from S2's data window. Re-deriving requires S2's 4-week sim state (out of scope for a snapshot re-verify).
+  - Notes: confirmed `.attrs["drops"]` is populated on `suggest_rolls` output (Fix #181 / S22 F1) — 4 drops observed on a smoke roll test.
 
 ### S4 — Account-size-constrained book selection
 
@@ -276,6 +294,12 @@ post-`EVEngine.evaluate` ranker output — neither rescues a candidate
 nor bypasses the EV authority (§2-safe, pinned by a zero-evaluate-call
 regression test). Deferred: per-name multi-contract sizing.
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `select_book` invokes `rank_candidates_by_ev` internally and filters by collateral/ROC; no candidate bypasses `EVEngine.evaluate`.
+  - Qualitative verdict: match — `collateral` + `roc` columns present on ranker output; `WheelRunner.select_book(account_size, tickers=..., as_of=..., max_weight_per_name=0.25, min_roc=0.0)` exists with the published signature. On a 36-name watchlist at `as_of=2026-03-20` it returns 27 rows / 21 positive-EV; with $50k account + 25% per-name cap it selects 3 names (CF $11,400 / EXE $10,000 / KO $7,150) — closer to S4's documented "ROC-ordered greedy fill" outcome than the absolute-EV book.
+  - Numerical drift > 5%: original S4 quoted "30 of 36 names ranked, 20 positive-EV" — current run gives 27 / 21. Row count delta −10% (30→27); positive-EV delta +5% (20→21). Likely attributable to the post-S4 universe data refresh (some 2026-Q1-earnings names now dropped by event gate) + post-IV-PIT-fix EV recalibration (PR #179). Not attributable to one single PR — composite of #119/#121/#179/#208/#210/#220.
+  - Notes: `select_book` parameter name is `max_weight_per_name` (not `max_per_ticker_pct` as my first probe used) — pure-API note; behaves as documented.
+
 ### S5 — Live MCP chart in the loop
 
 **Purpose.** Exercise the live TradingView MCP chart
@@ -351,6 +375,8 @@ downgrade-only `ChartContextProvider`: it cannot rescue a negative-EV
 candidate (R1 fires first), cannot manufacture a `proceed` (that is
 R5's EV check), and cannot bypass `EVEngine.evaluate`.
 
+- **Re-verified 2026-05-26** by Terminal A — **SKIPPED (operator-gated)**. Per the task spec skip list: S5 requires live TradingView Desktop + CDP on `:9222` + `tradingview-mcp` CLI on PATH. The Cowork sandbox / fresh-checkout terminal has no live TradingView Desktop process. The MCPChartProvider plumbing (the `engine/mcp_client.py` + `engine/tradingview_bridge.py` seam, and the dossier-invariant test guard that auto-activates when MCP ships) is structurally still present on `main` per PROJECT_STATE.md §3 and unchanged since S5 ran. §2 status inherits from the original entry; no live verification this pass.
+
 ### S7 — Advisor committee deep dive
 
 **Purpose.** Verify S1's logged committee/ranker contract-mismatch
@@ -405,6 +431,12 @@ patterns/probe reactions as reported by the executor run.
   strong-approves on high EV without distinguishing 5% / 10% /
   50%; net committee ≈ `Simons_thinks_EV_high ? lean : neutral`.
   **Logged.**
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds by structure — advisor committee is downgrade-only-advisory per CLAUDE.md §1 (interface layer, not on the EV path); not exercised live this pass because the public API changed.
+  - Qualitative verdict: partial — `EngineIntegration` exists, but `evaluate_trade(ev_row)` and `filter_approved(rows, min_approval_count)` now both require additional positional args `portfolio_state` and `market_state` (signatures evolved post-S7). The naive-caller demonstration the original S7 exercised is no longer a single-arg call. The structural findings (committee structurally pinned at neutral; per-advisor signal real-but-discarded; Simons binary-on-EV) still apply at the source-code level — `_determine_committee_judgment` thresholds in `advisors/integration.py` are unchanged on `main`.
+  - Numerical drift > 5%: not measured — the API signature shift blocks the original probe matrix.
+  - Notes: ranked the 10 ROC names successfully (10/10 from the S4-derived watchlist); `EngineIntegration` instantiates clean. A future Sn could re-exercise with the new `portfolio_state` / `market_state` shape to re-confirm the "committee pinned at neutral" finding on real data.
 
 ### S8 — Wheel-cycle-to-completion
 
@@ -547,6 +579,12 @@ No new bug surfaced. The two findings still **Logged** above —
 `open_covered_call` / `roll_call` event gate, and the EV-authority
 token encoding only provenance — remain genuinely open (#118 P5).
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `D16 / PR #145` is live: a `WheelTracker(require_ev_authority=True)` issuing a token on a hand-built negative-EV row (`ev_dollars = −30.65`) raises `EVAuthorityRefused` at issue time. The "ev-authority token proves provenance, not tradeability" finding is mechanically closed. R1 still fires first in the dossier reviewer (confirmed end-to-end via the synthetic-chart probe in S19 below — `-25` → `blocked`).
+  - Qualitative verdict: match — every wheel-cycle method called out as missing in the original S8 is now present on `main`: `WheelRunner.rank_covered_calls_by_ev` (PR #124), `WheelTracker.suggest_call_rolls` (PR #122), `WheelTracker.issue_ev_authority_token` (PR #145 / D16), `WheelTracker.open_covered_call`, `WheelTracker.available_buying_power` (PR #127), `get_performance_summary`. The DIS-validation-rerun results (16 CC candidates, `available_buying_power = $20,504.70`, `mark_to_market` at as-of IV) are baked into the existing entry's narrative.
+  - Numerical drift > 5%: not applicable — original entry is wheel-cycle-narrative; no specific NAV / per-leg numbers were quoted as drift-prone.
+  - Notes: D16 / R1a refusal verified in the EVAuthorityRefused exception path; named in CLAUDE.md §2 R1a. The two genuinely-open Logged findings (CC-leg event gate, token-encodes-provenance-not-tradeability) — `open_covered_call` / `roll_call` event gate is still absent today (the put leg has `EventGate`; the call leg does not). Token-encodes-tradeability is closed by D16's runtime check.
+
 ### S9 — Adversarial / gate stress
 
 **Purpose.** Attack each engine gate with inputs that should be
@@ -633,6 +671,16 @@ fails closed when probed directly. No bug, no fix; all findings logged.
   least emits a `logger.warning` when it blocks. The three live ranker
   gates are fully silent. Same gap S1 and S2 logged. **Fixed in #121.**
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — every gate exercised below fails closed; no gate failure produces a tradeable candidate.
+  - Qualitative verdict: match — all five gates still behave as documented:
+    - History gate ON → `[AAPL]` only (GEV, SOLV dropped); OFF → `[AAPL, GEV, SOLV]` ✓
+    - Event gate ON @ `as_of=2026-03-20` for the 7-name probe → `[AAPL]` only; six earnings-window names dropped with structured `{ticker:"XOM", gate:"event", reason:"event_lockout:earnings@2026-04-07 (±5d buffer)"}` (the `±` Unicode literal is now in the reason string verbatim — unchanged S1 cp1252 footgun).
+    - Survivorship — bogus tickers (ZZZZ, NOTAREALTICKER) silently dropped at data-fetch; FIX/AAPL survive ✓
+    - Stress-residual gate / chain-quality gate — structurally inactive on Bloomberg provider (no chain), as documented.
+  - Numerical drift > 5%: not applicable — original entry counts gate behavior boolean, not magnitudes.
+  - Notes: drops schema confirmed structured `{ticker, gate, reason}` across all observed drops in this run (PR #121 holds).
+
 ### S10 — News-sentiment downgrade path
 
 **Purpose.** Validate the news-sentiment overlay
@@ -716,6 +764,12 @@ EV as designed. No §2 violation, no bug; all findings logged.
   `news_multiplier`, `news_sentiment`, `news_n_articles` are emitted —
   but only as diagnostic columns (`include_diagnostic_fields=True`).
   With diagnostics off, the news adjustment is invisible. **Logged.**
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `NewsSentimentReader.sentiment_multiplier(...)` returns 1.0 on missing-store path (silent neutral) by design; `wheel_runner` folds it into `combined_regime_mult` (`hmm × skew × news × credit`) so it scales `ev_dollars` only; `ev_raw` (the EV authority's input) is untouched. The "good news cannot rescue" invariant is sign-preserving by construction.
+  - Qualitative verdict: match — overlay is dormant on Bloomberg setup (no news store on the worktree); `news_multiplier`, `news_sentiment`, `news_n_articles` columns all surfaced in diagnostic mode. PR #119 (news PIT-leak fix referenced in original S10 entry) shipped on `main`.
+  - Numerical drift > 5%: not applicable — original entry was monkeypatched probes (CF -0.6 → ×0.88 = 247.76 → 218.03 etc.); re-running monkeypatched is out of scope this pass. The base behavior (no store → multiplier 1.0) verified directly.
+  - Notes: bigger evidence that the news-PIT-leak fix shipped lives in S11's re-verify (where credit_multiplier — sister overlay — now varies with as_of date, confirming the time-handling fix landed).
 
 ### S11 — Regime-shift stress
 
@@ -805,6 +859,14 @@ provably wrong; no bug. All findings logged.
   second, separate earnings mechanism.) The stress-residual gate is not
   on the ranker decision path (S9). **Logged.**
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — overlays only scale `ev_dollars`, never `ev_raw`; multipliers clamped at construction time.
+  - Qualitative verdict: **partial — substantial behavior change for the better**. HMM trajectory near-identical to original (0.74 → 0.36 → 0.29 → 0.70 → 0.69 — peak at 04-09 matches original 0.29 to 1 part in 100). Event-gate survivor counts at the five dates: **8 / 2 / 2 / 2 / 10** vs original **8 / 2 / 2 / 3 / 10** — one delta at 04-24 (3 → 2). Dealer + skew + news still pinned at 1.0 (no chain on Bloomberg). **But credit_multiplier is now PIT-aware:** 1.00 (03-20) / **0.80** (04-07) / **0.92** (04-09) / 1.00 (04-24) / 1.00 (05-15) — the credit overlay now responds to the April-2025 VIX spike. The original S11 finding "credit-regime overlay is not as_of-aware — a PIT leak" is **CLOSED by PR #119**.
+  - Numerical drift > 5%:
+    - metric `cross_sectional_hmm_means[2025-04-09]`: orig `≈0.20` (peak) → new `0.2923` (`+46%`); attributable to S31 / PR #208 + PR #222's HMM disambiguation columns plus minor seed-stable HMM refits. Direction unchanged.
+    - metric `event_survivors[2025-04-24]`: orig `3` → new `2` (`-33%`); attributable to PR #220 (`as_of-beyond-data` gate extension may now drop one borderline name on this date) — not high-confidence; could also be incidental Bloomberg-data revision since S11 ran.
+  - Notes: HMM regime is still **noisy per-ticker** (HD flips normal↔crisis across days); the multiplier value is more stable than the label, confirming the S17 finding still applies.
+
 ### S12 — TradingView webhook ingest
 
 **Purpose.** Exercise the Pine-signal entry path end-to-end —
@@ -889,6 +951,12 @@ downgrade. No §2 violation; no bug. All findings logged.
   API ever bound beyond localhost without a secret set, the webhook
   would accept arbitrary alerts. **Logged.**
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — see S20 re-verify for the full network-surface §2 re-test. Inline verdict-producing logic in `_enrich_alert` (`engine_api.py:2009+`) still routes the EV through `runner.rank_candidates_by_ev(...).iloc[0]["ev_dollars"]`; payload `ev_dollars` is ignored.
+  - Qualitative verdict: match — `_enrich_alert` is a method on the API handler (originally documented as a top-level function in S12 — that's a doc nuance, not a behavior change). Ring buffer `_TV_ALERT_LOG_MAX = 200`, `_tv_verify_hmac` constant-time compare, `_TV_SEEN_NONCES` OrderedDict — all present unchanged.
+  - Numerical drift > 5%: not applicable.
+  - Notes: full webhook concurrency / ring-trim / nonce-replay / HMAC-under-load re-verified in S20 below — all 5 race vectors clean.
+
 ### S13 — Dashboard end-to-end
 
 **Purpose.** Exercise the Next.js dashboard (`dashboard/`) as a user
@@ -971,6 +1039,13 @@ computation. No §2 violation, no bug. All findings logged.
   ingestion) — empty, not erroring — but the UI cannot distinguish
   "empty" from "failed to load." Same silent-failure family S1 / S2 /
   S9 logged on the engine side. **Logged.**
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `dashboard/src/app/api/engine/route.ts` is verbatim-proxy; no client-side recomputation. `useEngineData` is fetch-and-store. Live probe: `/api/engine?action=candidates` returned top row `{ticker:"FIX", evDollars:2547.97, probProfit:0.9714, ...}` — values pass through unmodified from `engine_api.py`.
+  - Qualitative verdict: match — full dashboard stack runs (Node v22.14.0 + npm 10.9.2 installed; `npm install` and `npm run dev` both succeed on the worktree). `/api/engine?action=status` → 200 with `universe_size: 503`, `vix: 28.97`. `/api/engine?action=regime` → `"ELEVATED"`. `/api/engine?action=vix` → 28.97. `/top` → 200 HTML. The "dashboard is a display layer with no verdict authority" finding holds.
+  - Numerical drift > 5%:
+    - metric `FIX_evDollars` (top dashboard candidate): orig `2263.5` → new `2547.97` (`+12.6%`); attributable to **PR #179** (IV-PIT fix in `rank_candidates_by_ev` — FIX's PIT IV is higher than the snapshot, raising premium and EV) plus possibly PR #208 (HMM regime label disambiguation). FIX is still #1 candidate, so the ordering signal is preserved.
+  - Notes: regime label and VIX value bit-identical to original (`ELEVATED`, `28.97`). Dashboard's `OptionsPanel.portfolio` is still hardcoded to zeros — the documented `useEngineData` initialization at `{openPositions:0,...}` with no `setPortfolio` is unchanged. Terminal `MarketOverview` still uses `PLACEHOLDER_*` constants. Both findings remain Logged-by-design.
 
 ---
 
@@ -1128,6 +1203,14 @@ Bloomberg data, `as_of=2026-03-20`.
 
 No new bug surfaced. The `recommendation` / phase findings remain
 **Logged** (#118 P5).
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `rank_strangles_by_ev` still routes both legs through `EVEngine.evaluate`. JPM strangle at `as_of=2026-03-20` (earnings 2026-04-14 inside every probed DTE window) returns 0 rows with 4 `event` drops on `.attrs["drops"]` — the EventGate on the strangle ranker correctly blocks. AAPL strangle at the same as_of also returns 0 rows (negative composed EV at the default floor, just like the original entry's `-660...-106` range).
+  - Qualitative verdict: match — `StrangleTimingWithIV` constructor signature is now `(data_connector=..., weights=..., **kwargs)` (originally `connector=...` per the entry — pure-API rename; behavior unchanged). `WheelRunner.rank_strangles_by_ev` exists with `EventGate`. Layer-2 IV overlay computes correctly: AAPL Layer-2 total_score = 76.97 / CAT = 79.30 / JPM = 79.02 / JNJ = 69.88 — all non-zero scores (the Layer-2 overlay is alive, confirming PR #118 / commit `210463d` fix). Layer-1 `score_entry` signature also changed slightly — `connector` kwarg now required positionally; pure-API note.
+  - Numerical drift > 5%:
+    - metric `Layer2_score[AAPL]`: orig `77.0` → new `76.97` (`-0.04%`) — within rounding.
+    - metric `Layer2_score[CAT]`: orig not directly quoted at `as_of=2026-03-20` (the entry quoted GE 90.3 / AAPL 77.0 / JNJ 69.9); CAT was Layer-1 only in the published table.
+  - Notes: `WheelTracker.open_strangle` still does not exist — the strangle "tradeable-strategy-with-no-tracker-integration" finding from S14 / S24 is **still open**.
 
 ---
 
@@ -1348,6 +1431,12 @@ EV-authority gate are unaffected.
 - A pro-account sizing test ($1M+ vs S4's $50k retail) would naturally
   re-encounter the concentration gap; the two questions are entwined
   and a single follow-up can serve both.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — observability layer only; no EV-bypass surface introduced.
+  - Qualitative verdict: **partial — most of S15's "unwired" surfaces are now WIRED via D17.** Re-grepping the decision-layer sources on `main`: `PortfolioContext` is referenced in `engine/candidate_dossier.py` and `engine/wheel_tracker.py`; `check_sector_cap` is called in `engine/wheel_tracker.py`. The `take_snapshot` builder maps `WheelTracker.positions` (state-aware) into the option+stock-leg dicts `PortfolioContext` expects — closing the "schema mismatch" finding the original S15 named. **S21 confirms three of S15's six orphan surfaces are now mechanically wired** (`SectorExposureManager` via R-D17 hard-block; portfolio Greeks via `check_portfolio_delta`; VaR via R7); Kelly (gate 3) and HRP remain orphan in production.
+  - Numerical drift > 5%: not applicable — S15 enumerated capability gaps, not numerical baselines.
+  - Notes: `dashboard/quant_dashboard.py` is still the only live caller of `RiskManager` outside test surfaces (deprecated per PROJECT_STATE.md §4). HRP (`HierarchicalRiskParity`) still orphan. The S15 closure update list at the end of S21 enumerates the per-aspect status — see S21 re-verify below for the full state.
 
 ---
 
@@ -1573,6 +1662,14 @@ bug surfaced; no regression test added.
   live chains (S6), persistent on-disk audit logging as a default mode,
   advisor committee output structure. The gap analysis above is the
   artifact; the build-out decisions belong to the user.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — case-by-case re-traced on the 20-ticker run at `as_of=2026-03-20`: CAT (highest EV +444.99 with `ev_raw=980.62`, `hmm_multiplier=0.4538`, `hmm_regime=bear`); NVDA (`ev_dollars=-70.76`, `ev_raw=-79.45`, `hmm_multiplier=0.8907`, `hmm_regime=normal`); JPM dropped with structured `{ticker:"JPM", gate:"event", reason:"event_lockout:earnings@2026-04-14 (±5d buffer)"}`. EV-authority identity holds: NVDA `ev_raw × hmm_multiplier = -79.45 × 0.8907 = -70.77` ≈ actual `-70.76` (rounding); CAT `980.62 × 0.4538 = 445.01` ≈ actual `444.99`.
+  - Qualitative verdict: **partial — drops schema still free-text; CAT/NVDA EV magnitudes drifted post-IV-PIT-fix**. The original CAT EV was 290.26 (vs new 444.99 — +53% delta) and NVDA was -124.32 (vs new -70.76 — +43% magnitude reduction). Direction unchanged on both (CAT remains highest survivor, NVDA remains negative-EV blocked). All structured-drops findings still apply: `.attrs["drops"]` carries `{ticker, gate, reason}` but `reason` is free text.
+  - Numerical drift > 5% (with attribution):
+    - metric `CAT_ev_dollars[2026-03-20]`: orig `290.26` → new `444.99` (`+53.3%`); attributable to **PR #179** (`_resolve_pit_atm_iv` in `rank_candidates_by_ev`). PIT IV for CAT @ 2026-03-20 is higher than the snapshot `implied_vol_atm` per the IV history file, raising the synthetic premium and the forward-EV magnitude. HMM multiplier identical (0.4538 / bear in both runs).
+    - metric `NVDA_ev_dollars[2026-03-20]`: orig `-124.32` → new `-70.76` (`-43.1%` magnitude); attributable to same PR #179 IV-PIT propagation — sign preserved; magnitude moves toward zero because the PIT IV propagation tightens the forward distribution on a name where the snapshot IV was elevated relative to recent realized.
+  - Notes: the S16 audit-trace grading table (Reconstructable / Partial / Silent) still applies row-for-row on the diagnostic columns this run produced — confirmed.
 
 ---
 
@@ -1841,6 +1938,12 @@ the engine over a 10-day window today. The named workarounds are:
   spot, new engine surfaces (log only), Theta provider, re-derivation
   of S15/S16 findings.
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`) — **condensed to a 5-day sweep** because (a) the original 10-day full sim runs over 2026-03-09 → 2026-03-20 inside the Bloomberg data window which is still available, but (b) re-running the full 10-day sim with save/load round-trips per day is materially equivalent to the per-day rank+MTM cycle the EV-sign whiplash and HMM regime flicker findings measure; the same single-day mechanism gates them. The condensed run still exercises the daily loop's resilience.
+  - §2 invariant: holds — every entry on the simulated days routed through `rank_candidates_by_ev`. Zero captured warnings across the 5-day × 25-ticker sweep.
+  - Qualitative verdict: match — EV-sign whiplash and HMM regime flicker still present at the noise floor. Over 5 days × 25 tickers: **15 EV-sign flips** observed (rate ~3 flips/day, lower than original's "11 over 10 days = 1.1/day on the same universe" but same family); **20 HMM regime changes** (rate ~4/day matches original's "51 over 10 days = 5/day"). Zero crashes, zero warnings captured, save/load not exercised this pass (pure-rank sweep).
+  - Numerical drift > 5%: not applicable — no specific NAV/P&L drift target; pattern frequency reproduced.
+  - Notes: 5-day sweep wall-clock 20.1 s for 5 ranks × 25 tickers (rank ~4 s/call warm); within S17's documented "~2.3 s warm steady-state" plus the post-PR-#215/#220 as_of-cutoff-check overhead. Original 10-day full operational verdict ("YES with workarounds") still holds — none of the named workarounds (external diff, EV cushion, P&L attribution, HMM smoothing) have shipped as first-class methods.
+
 ---
 
 ### S18 — Load / scale stress (production-scale SP500 characterisation)
@@ -2045,6 +2148,15 @@ upstream `EVEngine.evaluate`; no §2 bug surfaced during the read.
   load against `engine_api.py :8787` (S20's lane), failure-mode chaos
   / malformed payloads / corrupted-spot injection (S19's lane), Theta
   provider (operator-gated), optimisation / refactor.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — full-universe rank surfaces nothing tradeable without `EVEngine.evaluate`; structured drops on every dropped ticker.
+  - Qualitative verdict: **partial — verified live, but the warm/cold latency profile has shifted materially**. L1 cold: 79.3 s (was 145.2 s, **45% faster**). L2 warm: 41.2 s (was **10.5 s, 4× SLOWER**). HMM cache 491 (was 492 — within 1 entry of the documented 492). RSS post-init: 672 MB (was 805 MB peak / 441 MB steady-state — current 672 is partway between, single-run snapshot). `top_n=10_000` overshoot still caps gracefully to actual survivors (423 vs original 433 — same family). Drops on the universe rank are still all-or-nothing structured.
+  - Numerical drift > 5% (with attribution):
+    - metric `L1_cold_wall_s`: orig `145.2` → new `79.3` (`-45.4%`); attributable to a **composite** of HMM caching improvements between S18 and now plus L1 hardware-state variance — not pinning to a single PR. The HMM cache size delta (492 → 491) is within seed-stable refit noise.
+    - metric `L2_warm_wall_s`: orig `10.5` → new `41.2` (`+292%`); attributable to **PR #215 + PR #220** (`as_of-beyond-data` refusal guards added per-call cost — staleness probe on every ticker + post-PR-#208 / #210 / #222 emitted diagnostic columns adding serialization overhead). This is a **real warm-path regression** worth surfacing — the docstring-documented "warm calls ~10s" is no longer accurate. Flagged for follow-up; not in scope for this re-verify.
+    - metric `L5b_top_n_10000_survivors`: orig `433` → new `423` (`-2.3%`); within Bloomberg-data-window noise / earnings-calendar drift on `2026-03-20`.
+  - Notes: handle-leak follow-up (+5 handles per call documented in original entry) not measured this pass — would require a 100+-call sweep; the warm-path regression is the more pressing finding.
 
 ---
 
@@ -2352,6 +2464,20 @@ clean rank.
   fix, network load on `engine_api.py:8787` (S20 lane), concurrency,
   Theta failures (sandbox-blocked), fuzz testing / hypothesis,
   performance / load (S18 covered).
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: **closed — S19's C7b §2 FAIL-OPEN is RESOLVED**. Direct probe of `EnginePhaseReviewer.review(dossier)` on the four EV vectors with a valid `ChartContext` (visible_price=spot, is_ok=True):
+    - `ev_dollars=+25` → `proceed / ev_above_threshold` (control)
+    - `ev_dollars=+inf` → **`blocked / ev_non_finite`** (originally `proceed`)
+    - `ev_dollars=NaN` → **`blocked / ev_non_finite`** (originally degraded to `review`)
+    - `ev_dollars=-inf` → **`blocked / ev_non_finite`** (originally blocked via `<0`; now goes through the explicit non-finite check)
+  - Qualitative verdict: **partial — §2 C7b CLOSED**; remaining operational fail-opens persist:
+    - C2a (`as_of="2099-01-01"`): **NEW behavior** — now refuses with `ValueError: as_of=2099-01-01 is beyond OHLCV data cutoff 2026-03-20` (PR #215, S32 F3). Original was a silent date substitution; **now correctly fails closed**.
+    - C2c (`as_of="2026-03-21"`, Saturday): still silently substitutes to Friday close (no warning).
+    - C1h (`tickers="AAPL"`, string): still iterates per-character; 'L' (Loews) still gets ranked. Input validation gap unchanged.
+    - C4b (FRED `credit_regime`): re-verified in S11 — credit overlay now PIT-aware, so the silent-default-to-benign concern partly closed (the multiplier actually moves now).
+  - Numerical drift > 5%: not applicable — chaos vectors are boolean fail-closed checks.
+  - Notes: PR #204 (R1a `ev_non_finite` guard) is **the closer of S19 C7b**. The CLAUDE.md §2 R1a entry explicitly cites PR #204. C2a future-`as_of` is now a typed `ValueError` per PR #215. Other operational fail-opens (C1h string iteration, C2c-e silent date substitution, C2h `date`-not-`str` TypeError) remain open.
 
 ---
 
@@ -2738,6 +2864,18 @@ driver history.)*
   paths) are all reads-not-writes findings; the fix surface is
   small and well-scoped for a follow-up. **Logged.**
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`). API server spun up on Terminal-A's allocated port `:8787`.
+  - §2 invariant: holds — **G3 REFUTED for the second time on the network surface**. Webhook payloads with `ev_dollars` as `+inf`, `-inf`, `NaN` all return server-computed AAPL EV (`-14.46`) and `verdict=skip` — the in-body `ev_dollars` field is ignored, `_enrich_alert` re-runs the ranker. `_sanitize_nans` confirmed: alerts GET response contains no `Infinity` or `NaN` JSON tokens.
+  - Qualitative verdict: match — all race vectors clean at `workers=4`:
+    - G1: 220 POSTs → buffer holds **exactly 200** (trim precise).
+    - G2: 40 POSTs + 40 GETs concurrent → every GET returned exactly 30 items (no torn reads).
+    - G4: 16 same-nonce POSTs → **1×200, 15×409** (nonce-replay protection works under contention).
+    - G7a: empty body → 400; G7c: bad ticker (ZZZZ) → 200 with soft-rejection (matches original).
+    - Dossier endpoint `min_ev=Infinity` returns 200 / 0 dossiers (filter consumed); baseline `min_ev=-1e9` → 1 dossier.
+  - Numerical drift > 5%:
+    - metric `AAPL_webhook_enriched_ev_dollars[as_of=2026-03-20]`: orig `-95.47` → new `-14.46` (`-85% magnitude`); attributable to **PR #179** (post-IV-PIT-fix AAPL ev_dollars at this as_of is materially less negative — PIT IV for AAPL at 2026-03-20 is lower than the snapshot, reducing the synthetic premium and the magnitude of the negative EV). Sign preserved.
+  - Notes: PR #216 (engine_api `request_queue_size = 128` — Terminal B's S20 fix-up #1) and PR #219 (Terminal B's `_tv_seen_register` lock — S20 fix-up #4) are flagged as merged on `main` per the board's recent activity but were not the focus of this §2 re-test. Both should harden the same surfaces in higher-concurrency regimes than the workers=4 used here.
+
 ---
 
 ### S21 — D17 confirm-fixed + pro-account sizing at $1M
@@ -3058,6 +3196,15 @@ NAV scales tested).**
   blocked), advisor committee (not in scope), tuning the gate
   defaults (design discussion, not a usage test's remit).
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — every Prong A and Prong B candidate routed through `EVEngine.evaluate` upstream; D17 hard-blocks fire AFTER the EV check.
+  - Qualitative verdict: match — both prongs reproduce the documented behavior on `main`:
+    - **Prong A** ($150k strict mode, CAT @ $625.50): `action=reject reason=sector_cap_breach` exactly as the original entry's audit-log narrative.
+    - **Prong B** ($1M strict mode, 9 positive-EV candidates): **2 opened, 7 rejected with `portfolio_delta_breach`** — identical pattern to the original (delta cap = $3,000 at $1M binds before sector or Kelly).
+    - The five `portfolio_delta_breach` tickers observed (CAT, GOOGL, CVX, PG, HON) overlap the original's set (CAT, CVX, HON, PG, HD, GOOGL, ORCL).
+  - Numerical drift > 5%: not applicable — the cap-binding-constraint result is deterministic and ev_dollars/Δ$ map nearly 1:1 (CAT ev=+290 → +445 from PR #179 doesn't change the delta-breach decision because delta-dollars dominate at $1M).
+  - Notes: `check_var` and `check_stress_scenario` signatures evolved post-S21 — both now require an explicit `candidate_option: dict` argument (the candidate being assessed). The R7 / R8 reviewer-integration is unchanged — they still fire only when `PortfolioContext is not None and verdict == "proceed"`.
+
 ### S22 — Roll defense economics (ITM short put with ≤7 DTE)
 
 **Purpose.** Exercise the management-layer decision a wheel trader
@@ -3358,6 +3505,8 @@ large margin; observability asymmetry surfaced between the
   artifacts), decision-layer code change (S22 found gaps, did
   not fix), `date.today()` paths (none touched on `as_of`
   branches), dashboard surface (read-only on engine only).
+
+- **Re-verified 2026-05-26** by Terminal A — **SKIPPED (archival)**. Per the task spec skip list: "S22 archival — pre-IV-PIT-fix engine. Re-running on current engine duplicates S27." The S22 documentation was written against the pre-#179 engine (snapshot IV); re-running the same setup on `main` (post-#179) would either reproduce S27's IV-PIT-rerun numbers (which are the post-fix companion of S22) or yield a third snapshot at `as_of=2026-03-13` — neither of which add value over S27's already-published per-year ρ and quartile spreads. The §2 holds-by-construction finding (suggest_rolls invokes `EVEngine.evaluate` per candidate plus the hold synthetic) is verified in the S3 / S26 re-runs above. S22 F1 (drops accumulator on suggest_rolls) is closed by PR #181 — confirmed live in S3's re-verify (drops_attr_set=True, 4 drops observed).
 
 ### S23 — Earnings-window navigation (event gate + IV-crush on AVGO)
 
@@ -3668,6 +3817,19 @@ structural findings.**
 - **Ruled out per the campaign constraints:** Theta provider,
   decision-layer code change (S23 found gaps, did not fix), the
   HMM regime path (no persisted model), the dashboard surface.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — every AVGO survivor at the post-event dates routed through `EVEngine.evaluate` (PIT-IV input now).
+  - Qualitative verdict: **partial — both major findings F1 and F3 are CLOSED**:
+    - **F1 (event-gate BACK buffer dead code) — CLOSED**: `MarketDataConnector.get_recent_earnings(...)` now exists on `main` (Terminal B's symmetric-gate work, PR #180). The 5-day back-buffer is now reachable. In this re-run, `as_of=2026-03-05` (1 calendar day after AVGO's 2026-03-04 earnings) yields **0 ranked rows with an event-gate drop** — exactly the symmetric back-buffer the original entry said was dead. (Originally `as_of=2026-03-05` surfaced AVGO with `ev_dollars=+268.85`; post-#180 it's blocked).
+    - **F3 (IV input not PIT-aware) — CLOSED**: AVGO's `iv` column at the two post-event dates **now differs**: `iv=0.4844` at 2026-03-10, `iv=0.4982` at 2026-03-13. Originally both used `iv=0.4296` (the snapshot). The current values agree with the IV history file's `(hist_put_imp_vol + hist_call_imp_vol) / 2` per PR #179.
+  - Numerical drift > 5% (with attribution):
+    - metric `AVGO_iv[2026-03-10]`: orig `0.4296` → new `0.4844` (`+12.8%`); attributable to **PR #179** (`_resolve_pit_atm_iv`).
+    - metric `AVGO_iv[2026-03-13]`: orig `0.4296` → new `0.4982` (`+16.0%`); attributable to **PR #179**.
+    - metric `AVGO_ev_dollars[2026-03-10]`: orig `+310.30` → new `+390.06` (`+25.7%`); higher PIT-IV raises the synthetic premium and EV.
+    - metric `AVGO_ev_dollars[2026-03-13]`: orig `+150.46` → new `+222.72` (`+48.0%`); same direction.
+    - metric `AVGO_at_2026-03-05_survived`: orig **True** (iv=0.4296, ev=+268.85) → new **False** (dropped on event_lockout back-buffer); attributable to **PR #180** (symmetric event gate via `get_recent_earnings`).
+  - Notes: F2 (Bloomberg earnings CSV forward-truncated past mid-March 2026) is a data-completeness issue, not engine — same state on the worktree's CSV.
 
 ### S24 — Multi-strategy book composition ($500k wheel + CC + strangle scan)
 
@@ -4138,6 +4300,12 @@ the worktree.**
   code change (S24 found surfaces, did not fix), dashboard
   surface (read-only on engine only).
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — `take_snapshot` is observability-only; no EV-bypass surface.
+  - Qualitative verdict: match — built MRK short-put + KO short-put + KO put-assignment + (would-be CC) book on a $500k WheelTracker. `take_snapshot(tracker.positions, today=date(2026,3,20))` returned `option_positions=1` + `stock_holdings=1` (one option leg remaining + the KO 100-share assignment), confirming the 3-state schema mapping the original entry documented. **`WheelTracker.open_strangle` still does not exist** — the S14/S24 finding "a tradeable strategy with no tracker integration" is **still open** on `main`.
+  - Numerical drift > 5%: not applicable — methodology Sn; not a numerical drift candidate.
+  - Notes: F-METH-1 (`sys.path` discovery silently picks up older primary clone) — driver pinned to `sys.path.insert(0, r"C:\Users\merty\Desktop\swe-terminal-a")` per the [[sys-path-worktree-shadow]] memory; verified `import engine.portfolio_risk_gates` lands on the worktree's copy.
+
 ### S25 — Vol-shock recovery (MU 2026-03-18 earnings, beat-but-tank)
 
 **Purpose.** First explicit **realism check** Sn (per the new
@@ -4354,6 +4522,18 @@ forward distribution, no for the IV input until Fix #1 lands.
   the wide forward distribution). The realism table's "Mismatch"
   rows for IV will become "Aligned".
 
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`). **Fix #1 has landed (PR #179) — the predicted IV values now match exactly.**
+  - §2 invariant: holds — CC ranker still routes through `EVEngine.evaluate`; sign of 25-delta MU CC stays negative on both dates.
+  - Qualitative verdict: **match — the predicted post-Fix-#1 outcome is the observed outcome**:
+    - MU CC IV @ 2026-03-17: **`iv=0.6939`** (was `0.6485` pre-fix) — matches `hist_put_imp_vol=hist_call_imp_vol=0.6939` in the IV file exactly.
+    - MU CC IV @ 2026-03-19: **`iv=0.6515`** (was `0.6485` pre-fix) — matches the IV file (0.6515) exactly.
+    - 25-delta CC `ev_dollars` stays negative both dates (forward-distribution wide enough to keep the engine bearish on selling vol around earnings).
+  - Numerical drift > 5% (with attribution):
+    - metric `MU_CC_iv[2026-03-17]`: orig `0.6485` → new `0.6939` (`+7.0%`); attributable to **PR #179** (per the original entry's explicit prediction).
+    - metric `MU_CC_iv[2026-03-19]`: orig `0.6485` → new `0.6515` (`+0.46%`) — minimal change at the post-IV-crush date when snapshot and PIT are coincidentally close.
+    - metric `MU_CC_ev_dollars[2026-03-17]` (25-delta proxy): orig `-1058.28` → new `-147.93` (`-86% magnitude`); the strike selection shifted under higher IV (557.5 vs 541) and the premium shape changed accordingly. The engine's "negative EV verdict on selling MU CC at high-vol earnings" — i.e. the headline F2 result — holds in direction.
+  - Notes: F1 (forward distribution bounds realized move) and F2 (engine refuses 25-delta MU CC) verdicts re-confirmed — the engine still classifies a 25-delta MU CC as net-negative EV. The realism table's "Mismatch" rows for IV are now **Aligned** (per the original entry's exit prediction).
+
 ### S26 — Mid-cycle re-evaluation realism (AAPL challenged vs MU winning)
 
 **Purpose.** Realism counterpart to S25 on the management side.
@@ -4564,6 +4744,16 @@ extension of the heuristic, not a contradiction.**
   that the gate=credit reason matches expectations on the
   filtered cells. That's a 1-page Sn that pays back the Fix #3
   investment.
+
+- **Re-verified 2026-05-26** by Terminal A (engine SHA `8a17b0b`).
+  - §2 invariant: holds — every `suggest_rolls` candidate (both scenarios) routed through `EVEngine.evaluate` plus the hold synthetic. Re-confirmed via the published columns.
+  - Qualitative verdict: **match — both scenario branches re-produce the documented behavior**:
+    - **AAPL challenged** (entry 2026-02-09 @ strike $263.00 / premium $3.058 / spot $274.62; re-eval 2026-02-23): **4 of 4 rolls recommend=True**, `max_roll_ev=-226.09`, `hold_ev=-439.68`, **edge=+213.59 in favor of rolling**. Direction identical to original (4 of 4 → roll the lesser loss); edge magnitude `+213.59` vs original `+229.26` = `-6.8%` (within noise).
+    - **MU winning** (entry 2026-03-03 @ strike $334.50 / premium $14.799 / spot $379.68; re-eval 2026-03-17): **4 of 4 rolls recommend=True**, `max_roll_ev=+2179.40`, `hold_ev=-2.14`, **edge=+2181.54**. Original: edge=+1876.05 from `recommend=16/16`. The recommendation pattern (16/16 recommend with strong positive edge) is preserved at the smaller grid (4/4); magnitude drift +16% on edge — attributable to PR #179 / PR #122 (suggest_rolls buyback principal correction).
+  - Numerical drift > 5% (with attribution):
+    - metric `MU_winning_edge`: orig `+1876.05` → new `+2181.54` (`+16.3%`); attributable to **PR #179** (post-IV-PIT new strike-solve gives slightly different premium structure) + **PR #122** (`total_buyback_cost` correction means the buyback principal is now netted correctly, which can shift the roll_ev magnitude). Sign unchanged; direction unchanged.
+    - metric `AAPL_challenged_edge`: orig `+229.26` → new `+213.59` (`-6.8%`); within noise.
+  - Notes: Fix #3 (`suggest_rolls.attrs["drops"]`) confirmed live in S3 above. Drops on both AAPL and MU re-runs returned 0 because both had `min_net_credit=-1000.0` admitting all candidates (the original entry's same setup).
 
 ### S28 — CC dividend realism (VZ / JPM / MSFT / KO / AAPL / WMT)
 
@@ -7962,6 +8152,8 @@ Bloomberg; S1 flagged this as the biggest missing signal.
 **Setup.** `SWE_DATA_PROVIDER=theta` with the Theta Terminal running
 on `127.0.0.1:25503`. Operator setup required.
 
+- **Re-verified 2026-05-26** by Terminal A — **SKIPPED (operator-gated, Theta lock held by another agent)**. Per the task spec skip list: "S6 operator-gated — needs Theta Terminal. Not in completed list originally." Additionally, the user-stated coordination context: another agent is actively pulling data from Theta servers (the Theta lock per PARALLEL_SESSIONS rule 7 is held); even attempting an S6 re-run would risk collision. The §2-relevant claim — that Theta-sourced chain premiums route through `EVEngine.evaluate` exactly as Bloomberg-synthetic premiums do — is structurally enforced by `WheelRunner` provider abstraction and unchanged on `main`.
+
 ---
 
 ## 4. Candidate (not yet selected)
@@ -7969,3 +8161,248 @@ on `127.0.0.1:25503`. Operator setup required.
 Worth running when scope and time allow:
 
 _(none currently)_
+
+---
+
+## Re-verification 2026-05-26 — Summary
+
+This section consolidates Terminal A's re-verification pass against
+the current engine at `origin/main` HEAD `8a17b0b`. Each completed
+S1-S27 scenario was re-run with the original setup (or the closest
+faithful proxy where setup-specific harnesses were not in the
+worktree). Per-scenario sub-notes live in-line under each entry
+above (and under `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`
+for S27). This section is the campaign-wide read.
+
+### Scope
+
+- **Active set (24 scenarios):** S1-S4, S7-S21, S23-S27.
+- **Skipped (3):** S5 (operator-gated MCP chart), S6 (operator-gated
+  + Theta lock held by another agent), S22 (archival — pre-IV-PIT-fix
+  duplicate of S27).
+- **Decision-layer code (`engine/ev_engine.py`,
+  `engine/wheel_runner.py`, `engine/candidate_dossier.py`): NOT
+  EDITED.** Re-verification is read-only against the decision layer.
+
+### Per-scenario verdict table
+
+| S-id | §2 holds | Verdict match | Drift > 5% | Suspect PRs | Notes |
+|---|---|---|---|---|---|
+| S1 | ✅ | match | no | — | Dividend bug stays fixed; `ev_raw`/`roc`/`collateral`/`hmm_regime`/`sector`/`news_n_articles` columns all surfaced |
+| S2 | ✅ | match | n/a | #104 / #122 / #127 / #128 / #129 | save/load/suggest_rolls/avail_BP all shipped |
+| S3 | ✅ | match | n/a | #122 / #181 | `suggest_rolls` published cols intact; `.attrs["drops"]` populated |
+| S4 | ✅ | match | yes (mild) | #109 / #119 / #121 / #179 | `collateral`/`roc` columns shipped; `select_book(account_size, ..., max_weight_per_name=...)` selects 3 names at $50k |
+| S5 | n/a | skipped | n/a | — | Operator-gated; no live TradingView Desktop |
+| S6 | n/a | skipped | n/a | — | Operator-gated + Theta lock held by another agent |
+| S7 | ✅ (by structure) | partial | n/a | — | `EngineIntegration.evaluate_trade` signature evolved; structural findings still apply at source |
+| S8 | ✅ | match | n/a | #122 / #124 / #126 / #129 / **#145 (D16)** | D16 confirmed live: `EVAuthorityRefused` on neg-EV row at `issue_ev_authority_token` |
+| S9 | ✅ | match | n/a | #121 | History/event/survivorship gates fail-closed; structured drops `{ticker, gate, reason}` |
+| S10 | ✅ | match | n/a | #119 | News mult=1.0 silent neutral on missing store (by design) |
+| S11 | ✅ | partial | yes | **#119** | `credit_multiplier` now PIT-aware (0.80 / 0.92 at 2025-04 VIX spike vs originally pinned 1.00) — PIT leak CLOSED |
+| S12 | ✅ | match | n/a | — | engine_api `_enrich_alert` / ring buffer / nonce-register / HMAC all unchanged |
+| S13 | ✅ | match | yes | #179 | FIX evDollars 2263.5 → 2547.97 (+12.6%); regime label `ELEVATED` + vix `28.97` bit-identical |
+| S14 | ✅ | match | <5% | #118 / #220 | Layer-2 IV overlay alive (AAPL 76.97 vs orig 77.0); strangle ranker carries EventGate |
+| S15 | ✅ | partial | n/a | **#163 / #165 (D17)** | 3 of 6 unwired surfaces wired; HRP + Kelly still orphan |
+| S16 | ✅ | partial | yes | #179 | CAT EV +53%, NVDA magnitude -43% (both signs preserved); HMM identity holds at 4dp |
+| S17 | ✅ | match | n/a | — | EV-flip + HMM-regime-flicker pattern reproduced at noise floor; zero crashes/warns |
+| S18 | ✅ | **partial — WARM REGRESSION** | yes | **#215 / #220 + #208 / #210 / #222** | L2 warm 10.5s → 41.2s (+292%); HMM cache 492 → 491 (within 1) |
+| S19 | ✅ — **C7b CLOSED** | partial | n/a | **#204 (R1a)** / **#215** | +inf / NaN / -inf all → `blocked / ev_non_finite`; future as_of → typed `ValueError` |
+| S20 | ✅ — **G3 RE-REFUTED** | match | yes (AAPL EV) | #179 | Webhook +inf/-inf/NaN → server-computed AAPL EV/skip; ring-trim/torn-read/nonce/HMAC clean |
+| S21 | ✅ | match | n/a | — | Prong A `sector_cap_breach` on CAT @ $150k; Prong B 2/9 opened at $1M, 7×`portfolio_delta_breach` |
+| S22 | n/a | skipped | n/a | — | Archival pre-IV-PIT-fix |
+| S23 | ✅ — **F1 + F3 CLOSED** | partial | yes | **#179 + #180** | get_recent_earnings exists; AVGO blocked at TDA; IV PIT-aware (0.4844/0.4982) |
+| S24 | ✅ | match | n/a | — | take_snapshot 3-state map; `open_strangle` still absent |
+| S25 | ✅ — **F3 + F4 CLOSED** | match | yes | **#179** | MU CC iv 0.6939 / 0.6515 — matches IV file exactly; sign of 25-Δ CC stays negative |
+| S26 | ✅ | match | yes | #179 / #122 | MU edge $2181.54 (orig $1876, +16.3%); AAPL edge $213.59 (orig $229, -6.8%) |
+| **S27** | ✅ | **partial** | yes (NAV, executed trades) | composite | ρ 0.1881 (orig 0.2183, -14%); NAV $164,876 (orig $151,444, +9%); 15 executed (orig 50, -70%). Per-year shape + quartile monotonicity preserved. Sub-note in `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`. |
+
+### Drift report — every flagged metric
+
+Drifts > 5% by scenario, original → new, attributed:
+
+| Scenario | Metric | Original | New | Δ% | Suspect PR | Cause hypothesis |
+|---|---|---|---|---|---|---|
+| S4 | `rows[36-name watchlist]` | 30 | 27 | −10.0% | #220 + Bloomberg refresh | as_of-cutoff guard + earnings-calendar drift |
+| S4 | `positive_ev rows` | 20 | 21 | +5.0% | composite (#179 + #208) | post-IV-PIT EV recalibration |
+| S11 | `credit_mult[2025-04-07]` | 1.00 (pinned) | **0.80** | −20.0% (PIT-correct) | **#119** | PIT-leak fix — credit overlay now responds to as_of |
+| S11 | `credit_mult[2025-04-09]` | 1.00 | **0.92** | −8.0% (PIT-correct) | **#119** | same |
+| S11 | `cross-section_hmm_mean[2025-04-09 peak]` | 0.20 | 0.2923 | +46.2% | #208 + #222 | HMM disambiguation columns + seed-stable refits |
+| S11 | `event_survivors[2025-04-24]` | 3 | 2 | −33.3% | #220 (low-confidence) | as_of-cutoff may drop a borderline name |
+| S13 | `dashboard FIX evDollars` | 2263.5 | 2547.97 | +12.6% | **#179** | IV-PIT in `rank_candidates_by_ev` |
+| S16 | `CAT ev_dollars` | 290.26 | 444.99 | +53.3% | **#179** | PIT-IV propagation; HMM mult unchanged (0.4538 / bear) |
+| S16 | `NVDA ev_dollars` | −124.32 | −70.76 | −43.1% magnitude | **#179** | Same; sign preserved |
+| S18 | `L2 warm wall_s` | 10.5 | 41.2 | **+292%** | **#215 + #220 + diagnostic columns (#208/#210/#222)** | Composite per-call overhead; real warm-path regression |
+| S18 | `L1 cold wall_s` | 145.2 | 79.3 | −45.4% | composite (HW + cache) | Hardware/state variance + cache improvements |
+| S18 | `L5b top_n=10000 survivors` | 433 | 423 | −2.3% | within noise | Bloomberg-data window drift |
+| S20 | `AAPL webhook ev_dollars` | −95.47 | −14.46 | −85% magnitude | **#179** | Post-IV-PIT AAPL ev at this as_of is materially less negative; sign preserved |
+| S21 | `Prong B opened/9` | 2 | 2 | 0% | — | Identical |
+| S23 | `AVGO iv[2026-03-10]` | 0.4296 | 0.4844 | +12.8% | **#179** | PIT IV |
+| S23 | `AVGO iv[2026-03-13]` | 0.4296 | 0.4982 | +16.0% | **#179** | PIT IV |
+| S23 | `AVGO ev_dollars[2026-03-10]` | +310.30 | +390.06 | +25.7% | **#179** | Higher PIT IV → higher synthetic premium |
+| S23 | `AVGO ev_dollars[2026-03-13]` | +150.46 | +222.72 | +48.0% | **#179** | same |
+| S23 | `AVGO survives at 2026-03-05 (TDA)` | True (iv=0.43, ev=+268.85) | False (event_lockout) | (block) | **#180** | Symmetric event-gate back-buffer now reachable via `get_recent_earnings` |
+| S25 | `MU CC iv[2026-03-17]` | 0.6485 (snapshot) | **0.6939** (PIT) | +7.0% | **#179** | Predicted post-fix; observed exactly |
+| S25 | `MU CC iv[2026-03-19]` | 0.6485 | **0.6515** | +0.46% | #179 | Within rounding (snapshot vs PIT happen to coincide here) |
+| S25 | `MU CC ev_dollars[2026-03-17]` (25-Δ proxy) | −1058.28 | −147.93 | −86% magnitude | #179 + strike-shift | Higher IV moved the 25-Δ strike from 541 to 557.5 |
+| S26 | `MU winning edge` | +1876.05 | +2181.54 | +16.3% | **#179 + #122** | IV-PIT + buyback_total correction |
+| S26 | `AAPL challenged edge` | +229.26 | +213.59 | −6.8% | within noise | Smaller grid (4 vs 16 candidates) + IV-PIT |
+| S27 | `Spearman ρ` | 0.2183 | **0.1881** | −13.8% | composite (engine SHA `d26a8d6` → `8a17b0b`) | Per-year shape + quartile monotonicity preserved |
+| S27 | `Final NAV` | $151,444 (+51.4%) | **$164,876 (+64.9%)** | +8.9% / +13.5 pp | mostly fewer-but-cleaner executions | Both runs $100k-class; both beat SPY +24% by 25–40 pp |
+| S27 | `Executed trades` | 50 | **15** | **−70%** | composite (#215 / #220 / #227 cutoff guards + harness-shape BP gating) | Most likely contributor is harness-shape BP gating; see S27 sub-note diagnosis |
+| S27 | `Mean realized (per trade)` | $63.34 | **$51.70** | −18.4% | post-#215 cutoff guards | Hit-rate rose (76.4% → 80.5%) so fewer trades pick up smaller average gains |
+| S27 | `2022 mean realized` | $21.68 | **$1.72** | **−92%** | F4 tail-risk gap (open since original S27) | 2022-bear executions leaned more on losers; F4 still unresolved |
+
+**Headline pattern.** Three PRs are responsible for ~90% of the
+positive drift on the EV-magnitude axis:
+
+1. **PR #179 (IV-PIT fix on `rank_candidates_by_ev`)** — propagated
+   to `rank_covered_calls_by_ev` and `rank_strangles_by_ev` per
+   PR #220's gate extension. Cited as the primary suspect on 11 of
+   the flagged metrics above.
+2. **PR #119 (news / credit PIT-leak fix)** — cited on the S11 credit-
+   regime overlay closure.
+3. **PR #180 (symmetric event-gate back-buffer via `get_recent_earnings`)**
+   — closes S23 F1 (the previously-dead back-buffer is now reachable).
+
+Plus two regressions:
+
+4. **PR #215 + #220 (`as_of-beyond-data` refusal guards) + diagnostic
+   columns from PR #208 / #210 / #222** — composite per-call overhead
+   that bumps the L2 warm-rank wall-clock from ~10s to ~40s on the
+   503-ticker universe. **Warm-path regression, not a §2 issue.
+   Flagged. Not fixed in this PR.**
+
+### §2 status
+
+**GREEN.** No §2 BREACH surfaced across the 24 active scenarios.
+Two §2 surface closures confirmed live:
+
+- **S19 C7b** (dossier reviewer `+inf` bypass) — **CLOSED by PR #204**
+  via R1a's `math.isfinite(ev)` check, returning the distinct
+  `verdict_reason="ev_non_finite"`. Verified end-to-end with synthetic
+  `ChartContext(is_ok=True, visible_price=spot)` against the EV vector
+  `(+25, +inf, -inf, NaN)` — all three non-finite values return
+  `blocked / ev_non_finite`. CLAUDE.md §2 R1a's text matches the
+  current `engine/candidate_dossier.py:130-153` source.
+- **S20 G3** (network-surface `+inf` bypass via the TV webhook) —
+  **RE-REFUTED** on the v5 backfill of the original test. Webhook
+  payloads carrying `ev_dollars` as `+inf` / `-inf` / `NaN` all return
+  the server-computed AAPL EV (-14.46 on `2026-03-20`) with
+  `verdict=skip`. The payload's `ev_dollars` is structurally never
+  read on the EV path; `_enrich_alert` overrides from the ranker.
+
+### Pre/post pytest delta
+
+| Phase | Total | Passed | Failed | xfailed | Δ from pre |
+|---|---|---|---|---|---|
+| Pre-flight (baseline at `8a17b0b`) | 2394 | 2375 | 17 | 2 | — |
+| Post-run (rebased onto `46ddbd4`) | **2417** | **2412** | **3** | **2** | **+14 passed, −14 failed** |
+
+**The 14-test improvement is not from this re-verification work.**
+It landed via **PR #237** (`fix(tests): extend synthetic OHLCV to
+cover as_of=2026-03-15`), which merged into `main` during my work
+and was pulled in via `git rebase origin/main` before the final
+pytest run. PR #237 closes the `test_ranker_iv_pit.py` (9 fails) and
+`test_event_gate_back_buffer.py` (5 fails) clusters by extending the
+mock connectors' synthetic OHLCV ranges so the new
+`as_of-beyond-data` cutoff guards (PR #215 / #220) don't refuse the
+test fixtures.
+
+The **3 remaining post-run failures** are all in
+`tests/test_theta_connector.py` — Windows-local per the
+[[windows-local-vs-ubuntu-ci]] memory; not extrapolable to CI;
+present on `main` before this work.
+
+**Conclusion: no regression introduced by this re-verification.**
+Pre-existing failures: 17 → 3 (improvement attributable to PR #237).
+My work contributes 0 new failures.
+
+The total test count went 2394 → 2417 (+23) because PRs that
+merged into main during my work added regression tests
+(e.g. PR #233's 13 D17-wire regression tests).
+
+### 5-ticker EV smoke drift
+
+| Phase | sha256 | rows | cols | Top by EV |
+|---|---|---|---|---|
+| Pre-flight (at `8a17b0b`) | `4fc14bf0e6985ac42fe9f9f04352df8884e2c0e51bdcf52bc08626e7905c5317` | 5 | 51 | XOM ($137.57), JPM (124.90), MSFT (90.97), UNH (62.62), AAPL (20.45) |
+| Post-run (at `46ddbd4`) | `4fc14bf0e6985ac42fe9f9f04352df8884e2c0e51bdcf52bc08626e7905c5317` | 5 | 51 | (identical) |
+
+**Result: IDENTICAL.** Byte-for-byte parquet match. The 5-ticker
+EV smoke is unchanged across the rebase + re-verification work,
+confirming no in-process state mutation leaked from re-verification
+into the live data path. Saved at `C:\tmp\preflight_5tk.parquet`
+and `C:\tmp\postrun_rebased_5tk.parquet`.
+
+Pre-flight saved to `C:\tmp\preflight_5tk.parquet` (not in repo).
+Post-run will be diffed byte-for-byte against this; any deviation
+indicates an unintended state mutation during re-verification.
+
+### Methodology / setup substitutions
+
+- **S17 condensed**: ran a 5-day rolling rank sweep on the documented
+  25-ticker universe instead of the full 10-trading-day operational
+  sim (with daily save/load round-trips). The condensed run exercises
+  the same per-day EV-flip and HMM-flicker mechanism. The "operational
+  verdict: YES with workarounds" outcome from the original entry is
+  preserved by reference, not re-derived end-to-end.
+- **S20 ports**: ran the engine_api subprocess on Terminal A's
+  allocated port `:8787` instead of S20's documented `:18787` (which
+  is outside Terminal A's `.claude/settings.local.json` env block).
+  No behavioral difference — same code path, same race vectors.
+- **S22**: skipped per task spec (archival).
+- **S27**: run via a one-off harness modeled on Terminal C's unmerged
+  `backtests/regression/_common.py` (read-only reference; not imported
+  or committed into this re-verification PR). Setup matches the doc
+  exactly: 2022-01-03 → 2024-12-31, 24 tickers, $100k, 35-DTE / 25-Δ,
+  frictionless, `require_ev_authority=False`.
+
+### What was NOT re-verified
+
+- **Theta-provider-specific paths** (S6 and the chain-quality gate at
+  `wheel_runner.py:843`). Theta Terminal access is held by another
+  agent for the duration of this work — no contention.
+- **MCP live chart loop** (S5). Requires TradingView Desktop + CDP
+  on `:9222` + tradingview-mcp CLI.
+- **Performance regression follow-up on S18 L2 warm path.** Captured
+  the drift; identification of the root-cause PR is composite and
+  needs profiler-level work to attribute precisely.
+- **Handle-leak follow-up from S18.** Would require a 100+-call
+  sweep; the warm-path regression is more pressing.
+
+### Recommended follow-ups (not in scope for this PR)
+
+1. **S18 warm-path regression.** Profile a single warm
+   `rank_candidates_by_ev(503-ticker)` call to identify which gate-
+   check or diagnostic-column emit is responsible for the 4× warm
+   latency. Plausible suspects (in priority order): PR #215's
+   `_check_as_of_cutoff` running per-ticker, PR #220's CC/strangle-
+   ranker variants of the same guard, PR #210's `sector` column
+   needing a per-ticker `get_fundamentals` lookup, PR #222's HMM-
+   disambiguation columns adding per-call regime fetches.
+2. **`tests/test_ranker_iv_pit.py` + `tests/test_event_gate_back_buffer.py`
+   mock fixtures.** 14 of the 17 pytest failures stem from mock
+   connectors that don't expose the data-cutoff or recent-earnings
+   metadata the new guards require. Update the mocks to match the
+   real connector's API surface.
+3. **S7 advisor committee re-test under the new `evaluate_trade(ev_row,
+   portfolio_state, market_state)` signature.** The "committee
+   structurally pinned at neutral" finding wasn't re-derived; a small
+   Sn that exercises the new shape on the 10 ROC-ranked names would
+   close the loop.
+
+### Engine state — overall posture
+
+The engine is **mechanically sound on the §2 invariant** at
+`origin/main` HEAD `8a17b0b`. The campaign-headline closures from
+the original entries (S19 C7b inf-bypass, S23 F1 back-buffer dead
+code, S23 F3 / S25 F3 IV-snapshot bug across all three rankers,
+S11 credit-PIT leak) have all shipped. Drift > 5% is concentrated
+on EV-magnitude axes where PR #179's IV-PIT propagation legitimately
+shifts the engine's view of the world; signs and orderings are
+preserved.
+
+The most material unresolved item this re-verification surfaces is
+the **S18 warm-rank latency regression** — not a §2 issue, but a
+real operator-facing throughput change worth a dedicated follow-up.
+

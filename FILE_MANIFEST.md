@@ -266,6 +266,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
+| `docs/TESTED_SURFACE_MAP.md` | Per-module tested-surface map + top-N coverage-gap ranking, generated from `coverage.json` by `scripts/generate_tested_surface_map.py`. Answers "what is and isn't covered by the test suite" in one file. `coverage.json` is regenerated locally / in CI (gitignored, not committed); regenerate this doc after a meaningful coverage shift. |
 | `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
@@ -521,6 +522,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/validate_environment.py` | Environment validation for CI — Python version, dependencies, env vars, directory structure. |
 | `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa); wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
 | `scripts/sync_manifest.py` | Local sync helper — same scan as `check_manifest_coverage.py`, with `--fix` to append rows for missing files into a marked "Untriaged additions" section at the tail of `FILE_MANIFEST.md`. Orphans are flagged but never auto-deleted. Smooths the recurring CI failure where docs PRs forget manifest rows. |
+| `scripts/generate_tested_surface_map.py` | Reads `coverage.json` and writes `docs/TESTED_SURFACE_MAP.md` — per-module table + top-N gap ranking + module→test static-import map. Stdlib only; re-run after a meaningful coverage shift. |
 | `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `SWE_DATA_PROVIDER`. See `docs/PARALLEL_SESSIONS.md` "Env vars per terminal". |
 | `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same six env vars. |
 | `scripts/process_bloomberg_exports.py` | Cleans and validates Bloomberg-exported CSVs into the per-ticker layout. |

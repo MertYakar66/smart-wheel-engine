@@ -40,7 +40,7 @@ clamp, the tail-risk POT-GPD threshold, and the forward-distribution
 method-selection logic were tuned with full 2018-2026 data visibility.
 The 2022-2024 window is in-sample for those parameters. **This is a
 restatement of S22's Caveat 2 that S27's doc dropped silently** (see
-P9 finding in `docs/PREDICTIVE_VALIDITY_REVIEW.md`). Numbers below
+P9 finding in `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md`). Numbers below
 inherit it.
 
 **Caveat 3 (frictionless P&L) — closed by THIS run.** Friction
@@ -292,7 +292,7 @@ would underperform SPY.
 - **F7 (new) — Caveat 2 (in-sample HMM / POT-GPD parameters) was
   silently dropped in S27.** S22 had it explicit; S27 implicitly
   retired it (since it dropped the whole "Hard methodology caveats"
-  section). My P9 finding in `docs/PREDICTIVE_VALIDITY_REVIEW.md`
+  section). My P9 finding in `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md`
   surfaced this; this S32 doc explicitly restates Caveat 2 to close
   the gap. **Logged — future backtest docs must restate Caveat 2
   until parameter-freeze-then-replay infrastructure exists.**

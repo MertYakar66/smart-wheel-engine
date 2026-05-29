@@ -361,7 +361,7 @@ operator-facing story is incomplete. Tracked in audit issue #154
 The four committed ledger backtests
 (`docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` S27,
 `docs/ENGINE_BACKTEST_S32_FRICTION.md` S32,
-`docs/SOUNDNESS_REVIEW_2026-05-26.md` S34,
+`archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` S34,
 `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` S35) are pinned by
 executable assertions in `tests/test_backtest_regression.py` against
 snapshots committed under `backtests/regression/snapshots/`.

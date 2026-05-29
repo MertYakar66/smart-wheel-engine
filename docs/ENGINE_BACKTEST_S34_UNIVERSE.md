@@ -169,7 +169,7 @@ moves up.
 
 The headline result `+35.61% NAV` ($1M → $1,356,128 over 3 years)
 sounds like the engine printed $356k of put-selection alpha. A
-skeptical re-review in `docs/SOUNDNESS_REVIEW_2026-05-26.md`
+skeptical re-review in `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md`
 (PR #229) decomposed where the $356k actually came from. Three
 findings worth flagging here.
 
@@ -271,7 +271,7 @@ don't change. But the REASONING column should mention that:
   out-performance.
 
 The companion `docs/PRODUCTION_READINESS.md` (PR #218) and
-`docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` (PR #225) have
+`archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` (PR #225) have
 parallel amendments with this framing.
 
 ---

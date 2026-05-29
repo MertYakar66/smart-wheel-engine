@@ -14,7 +14,119 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05 (late) — D17 B2 closure + F4 fix v2 + engine audit
+
+### Added
+- **R9 sector_cap dossier soft-warn + D17 wire on `/api/tv/enrich`**
+  (PR `#255`, `f3a4fa8`). Closes D17 B2 part 2. Adds the per-sector
+  exposure cap as a downgrade-only rule on `EnginePhaseReviewer`
+  alongside the existing R7 (VaR) and R8 (stress + dealer regime)
+  soft-warns. Default 25% NAV per sector via
+  `engine.portfolio_risk_gates.check_sector_cap`. Mirrors the
+  tracker's HARD refusal at `open_short_put` time when
+  `require_ev_authority=True`. `/api/tv/enrich` now constructs and
+  threads a `PortfolioContext` through `build_dossiers` so the
+  soft-warn fires live for any candidate that reaches the endpoint.
+- **R10 single-name (per-underlying) exposure cap** (PR `#262`,
+  `45ca861`). F4 damage-bounding closure — bounds the
+  idiosyncratic-drawdown style of failure that no market-wide
+  regime detector can predict (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
+  §10). 10% NAV cap on aggregated SHORT option notional per
+  underlying. Sits BENEATH R9: a ticker concentrated as the only
+  name in its sector could pass R9 at 25% but trip R10 at 10%.
+  Soft-warn on dossier (downgrade `proceed → review`,
+  `verdict_reason="single_name_breach"`); HARD refusal on the
+  tracker when `require_ev_authority=True`. Pure-function gate at
+  `engine.portfolio_risk_gates.check_single_name_cap` shared by
+  both surfaces.
+
+### Fixed
+- **F4 tail-risk widening v2 — realized-vol-ratio
+  (RV30 / RV252)** (PR `#260`, `0dddf76`). Replaces the rolled-back
+  HMM-based widening from PR `#253` which over-fired on `K=4`
+  crisis labels (98% of 2022-2024 dates, inverting S27 ρ from
+  +0.188 to −0.094 — see memory `f4-widening-overfires-on-hmm-
+  labels`). The shipped form uses a continuous regime-conditioned
+  multiplier driven by the realized-vol ratio: when recent
+  volatility exceeds the longer-horizon baseline by enough, the
+  forward distribution is widened proportionally. Sign-preserving
+  (factor ≥ 1.0; never narrows tail risk), capped at 1.5×,
+  routed through the forward distribution → `EVEngine.evaluate`
+  (never an overlay on final `ev_dollars`). S27 ρ gate held
+  (≥ +0.15 required); COST 2022-04 + UNH 2024-11 anchor cases
+  resolved.
+- **D17 portfolio-context live wire on `/api/tv/dossier`**
+  (PR `#233`, `b55a59a`). Closes D17 B2 part 1. The R7 (VaR)
+  and R8 (stress + dealer regime) soft-warns now fire live for
+  any candidate that reaches the `/api/tv/dossier` endpoint —
+  previously the wire existed but no production endpoint
+  constructed a `PortfolioContext`, so the soft-warns were
+  silent on the network surface.
+
+### Docs
+- **Systematic engine audit of `engine/` + `advisors/`**
+  (PR `#232`, `8a17b0b`). Six subsystem audits — decision-layer,
+  risk-management, advisors-scorecard, dealer positioning,
+  event gate, news sentiment — produced as separate
+  `docs/AUDIT_<subsystem>_2026-05.md` files. Findings catalogued
+  by severity with closure owners; high-priority items routed to
+  PROJECT_STATE WIP and ROADMAP follow-ups.
+- **Engine realism + reliability verification** (PR `#244`,
+  `70fdb78`). Six observable tests against `origin/main` @
+  `9f0afaf`: §2 launch-blocker subset (93/93), 5-ticker smoke
+  (all realistic), IV PIT realism vs Bloomberg-direct (all
+  within 0.015% rel-diff), EV magnitude regime-multiplier
+  dominance (corr(iv, ev_dollars) = 0 — regime sensitivity
+  dominates raw IV per D17), F4 reproducibility (drifted to
+  prob_profit=0.903, closed by `#260`), refusal behaviour at
+  3 anchor dates. `docs/verification_artifacts/` ships the
+  driver + raw output for re-runnable verification.
+- **F4 baseline doc pre-#260** (PR `#245`, `b2cce25`). Captures
+  the COST 2022-04 / UNH 2024-11 / AAPL anchor cases' pre-fix
+  `prob_profit` values against the post-IV-PIT engine. Provides
+  the diffable baseline that `#260` later resolved.
+- **PRODUCTION_READINESS B3 sync + B2 / R10 closures captured**
+  (PR `#257`, `79a6b88`). Refreshes the deployment-matrix to
+  reflect both S34's +11.6pp at $1M/100t/2022-2024 AND S38's
+  −52pp at $1M/100t/2020-2024 — the window-specificity finding
+  (engine vs passive delta correlates with bear-year share of
+  the measurement window). Notes B2 (D17 wire) and R10
+  (single-name cap) as closed; carries the honest reframe per
+  Terminal B's S38 finding.
+- **Five doc-drift one-liners from audit §2a** (PR `#254`,
+  `b956cde`). Targeted corrections across five Tier-1/2 docs to
+  resolve issues surfaced by the systematic audit (`#232`)
+  before higher-effort rewrites.
+
+### Chore / refactor
+- **Layout audit §1 (PR `#247`, `56d8e5c`).** Read-only
+  structural audit ran five Explore agents + a synthesis pass;
+  this PR applies seven pure rename / delete / move
+  cleanups from §1 plus a SESSION_HANDOFF banner refresh.
+  Zero behaviour change; the eighth flagged item (scorecard
+  enum dedup) split into PR `#258` per single-concern rule.
+- **`advisors/scorecard.py` enum dedup** (PR `#258`,
+  `6aa9609`). `ConfidenceLevel` and `JudgmentType` deduped to
+  `advisors/schema.py` — single source of truth for the two
+  enums; behaviour-preserving import rewires across consumers.
+  Split from PR `#247` because it's a behaviour change
+  (`Enum` re-pointing affects identity checks).
+
+---
+
 ## 2026-05 (late) — Backtest regression harness
+
+### Tests
+- **S42 R9 + R10 reviewer audit** (`tests/test_dossier_r9_r10_audit.py`,
+  32 tests). Systematic audit of the two new dossier downgrade rules
+  shipped in PR `#255` (R9 sector_cap) and PR `#262` (R10 single-name
+  exposure cap). Six probe families pin behavioural correctness, the
+  downgrade-only invariant, fail-closed-on-missing-data semantics,
+  rule-order short-circuit (R7 → R8 → R9 → R10), and cap-boundary
+  semantics (both R9 and R10 use strict `>` — exact 25% sector / 10%
+  single-name passes). Surfaced four low-severity sharp edges as
+  documented findings — see `docs/USAGE_TEST_LEDGER.md` S42 for
+  detail. No engine math changed; read-only against §2.
 
 ### Added
 - **Backtest regression harness** (4-PR series). Converts the four

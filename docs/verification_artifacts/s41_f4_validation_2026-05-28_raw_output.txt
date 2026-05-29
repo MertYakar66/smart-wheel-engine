@@ -1,0 +1,95 @@
+connector: MarketDataConnector
+worktree:  C:\Users\merty\Desktop\swe-terminal-a
+
+==============================================================================
+LAYER 1 — named F4 cases (engine output diffed against pre-fix baseline)
+==============================================================================
+
+--- COST as_of=2022-04-04 ---
+  note: F4 canonical case 1 (calm pre-drawdown)
+  spot      = 575.13
+  strike    = 554.00
+  premium   = 5.6720
+  iv        = 0.208300
+  ev_dollars       = +62.88
+  prob_profit      = 0.8333
+  cvar_5           = -4376.07
+  tail_widening_factor = 1.0000
+  hmm_regime       = normal
+  distribution     = empirical_non_overlapping
+
+--- UNH as_of=2024-11-11 ---
+  note: F4 canonical case 2 (vol-cluster firing)
+  spot      = 625.25
+  strike    = 601.00
+  premium   = 6.0980
+  iv        = 0.204900
+  ev_dollars       = +108.25
+  prob_profit      = 0.8571
+  cvar_5           = -2608.69
+  tail_widening_factor = 1.0121
+  hmm_regime       = bear
+  distribution     = empirical_non_overlapping
+
+--- AAPL as_of=2026-02-13 ---
+  note: No-loss control (must NOT widen)
+  spot      = 255.78
+  strike    = 243.00
+  premium   = 3.5120
+  iv        = 0.281100
+  ev_dollars       = +5.50
+  prob_profit      = 0.8571
+  cvar_5           = -2898.15
+  tail_widening_factor = 1.0000
+  hmm_regime       = crisis
+  distribution     = empirical_non_overlapping
+
+==============================================================================
+LAYER 1c — COST 2022-04 unfolding-event window (F4 doc §2.1 reproduction)
+==============================================================================
+
+as_of            spot   strike    prem      iv      pp        ev   rv30/rv252   factor            hmm
+  2022-04-01     575.57   553.00   6.243  0.2251  0.8333   +131.70       0.9669   1.0000         normal
+  2022-04-04     575.13   554.00   5.672  0.2083  0.8333    +62.88       0.9615   1.0000         normal
+  2022-04-05     575.32   553.00   6.157  0.2225  0.8333    +95.35       0.8915   1.0000           bear
+  2022-04-06     584.79   561.00   6.479  0.2316  0.8333   +181.90       0.8611   1.0000         normal
+  2022-04-07     608.05   582.50   6.999  0.2396  0.8333   +224.24       0.9486   1.0000         normal
+  2022-04-08     600.04   575.00   6.852  0.2379  0.8333   +120.86       0.9502   1.0000         crisis
+  2022-04-11     584.67   559.00   6.887  0.2476  0.8333   +104.41       1.0360   1.0000         crisis
+  2022-04-12     581.36   556.50   6.813  0.2438  0.8333   +116.55       1.0435   1.0000         crisis
+  2022-04-13     591.09   567.50   6.377  0.2264  0.8333   +138.71       1.0558   1.0000         normal
+  2022-04-14     590.39   567.00   6.382  0.2259  0.8333    +96.90       1.0546   1.0000           bear
+
+  mean ev_dollars       = +127.35
+  mean prob_profit      = 0.8333
+  mean rv30/rv252       = 0.9770
+  mean tail_widening    = 1.0000
+  cross-check S27 doc:  pre-#260 mean EV = +$127.35; mean pp = 0.8333
+
+==============================================================================
+LAYER 3 — calm-regime controls (must have factor = 1.0)
+==============================================================================
+
+  ticker as_of          factor  prob_profit         ev       iv            hmm  note
+  AAPL  2023-06-12     1.0000       0.6857    -467.54   0.1780     bull_quiet  calm bull mid-2023
+  MSFT  2023-06-12     1.0000       0.8286    -123.45   0.2015         normal  calm bull mid-2023
+  AAPL  2024-06-10     1.0000       0.8000     -62.35   0.1868         normal  calm bull mid-2024
+  MSFT  2024-06-10     1.0000       0.8571     -98.26   0.1774     bull_quiet  calm bull mid-2024
+  AAPL  2024-09-09     1.0000       0.7714    -122.17   0.2503           bear  calm late-2024
+  MSFT  2024-09-09     1.0000       0.8571     -63.62   0.2235     bull_quiet  calm late-2024
+
+  [OK] All calm-regime control rows have factor = 1.0 (no spurious caution).
+
+==============================================================================
+LAYER 0 — direct rv30/rv252 + widening factor (PR #260 signal table check)
+==============================================================================
+
+  ticker as_of          rv30/rv252   factor  note
+  COST  2022-04-04         0.9615   1.0000  F4 case 1 — PR #260: rv30/rv252=0.96, factor=1.00
+  UNH   2024-11-11         1.3607   1.0121  F4 case 2 — PR #260: rv30/rv252=1.36, factor=1.012
+  AAPL  2026-02-13         0.8532   1.0000  control — PR #260: rv30/rv252=0.85, factor=1.00
+  META  2022-02-02         1.1510   1.0000  HMM-missed earnings — PR #260: rv30/rv252=1.15, factor=1.00
+
+==============================================================================
+S41 F4 FIX VALIDATION DRIVER — COMPLETE
+==============================================================================

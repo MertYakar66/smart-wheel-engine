@@ -123,4 +123,39 @@ except Exception as e:
     print(f"✗ connector smoke failed: {type(e).__name__}: {e}")
 PY
 
+# 6. Parallel-session coordination — surfaced every session so no terminal
+#    branches without seeing the contract + who's already working.
+echo "│  ─ Parallel sessions (docs/PARALLEL_SESSIONS.md) ─"
+echo "│    • Claim on GitHub issue #113 BEFORE 'git checkout -b'."
+echo "│    • Sn / D-numbers are assigned at MERGE, not work-start (rule 7)."
+echo "│    • One FILE_MANIFEST.md owner per cycle (rule 8); rebase, never --theirs."
+# Live board claims — best-effort, only when gh is present + authed. Never
+# blocks the session: gh failures are swallowed, no network wait is forced.
+if command -v gh >/dev/null 2>&1; then
+  CLAIMS=$(gh issue view 113 --repo MertYakar66/smart-wheel-engine --json body --jq '.body' 2>/dev/null \
+           | sed -n '/Live state/,/^## /p' | grep '^|' | head -6)
+  if [ -n "$CLAIMS" ]; then
+    echo "│    Live board (#113):"
+    echo "$CLAIMS" | sed 's/^/│      /'
+  fi
+fi
+
+# 7. Doc currency — warn when the temporal docs drift. Bash-native (awk/date/
+#    grep, NO python3 — it is the MS-Store stub in Windows Git Bash). The full
+#    check (CHANGELOG too) is scripts/check_doc_currency.py, run in CI.
+PS="PROJECT_STATE.md"
+if [ -f "$PS" ]; then
+  PS_DATE=$(grep -m1 -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$PS" 2>/dev/null)
+  if [ -n "$PS_DATE" ]; then
+    PS_EPOCH=$(date -d "$PS_DATE" +%s 2>/dev/null)
+    NOW_EPOCH=$(date +%s 2>/dev/null)
+    if [ -n "$PS_EPOCH" ] && [ -n "$NOW_EPOCH" ]; then
+      PS_AGE=$(( (NOW_EPOCH - PS_EPOCH) / 86400 ))
+      if [ "$PS_AGE" -gt 21 ]; then
+        echo "│  ⚠ PROJECT_STATE.md last updated $PS_DATE (${PS_AGE}d ago) — refresh its durable state."
+      fi
+    fi
+  fi
+fi
+
 echo "└────────────────────────────────────────────────────────────────"

@@ -56,7 +56,10 @@ def _check_project_state(warn_days: int, fail_days: int) -> tuple[str, str]:
     except ValueError:
         return ("FAIL", f"PROJECT_STATE.md: unparseable date {m.group(1)!r}")
     age = (dt.date.today() - last).days
-    return (_classify(age, warn_days, fail_days), f"PROJECT_STATE.md last updated {last} ({age}d ago)")
+    return (
+        _classify(age, warn_days, fail_days),
+        f"PROJECT_STATE.md last updated {last} ({age}d ago)",
+    )
 
 
 def _check_changelog(warn_days: int, fail_days: int) -> tuple[str, str]:
@@ -69,7 +72,10 @@ def _check_changelog(warn_days: int, fail_days: int) -> tuple[str, str]:
         return ("FAIL", "CHANGELOG.md: no '## YYYY-MM ...' section headers found")
     newest = max(dt.date(int(y), int(mo), 1) for y, mo in months)
     age = (dt.date.today().replace(day=1) - newest).days
-    return (_classify(age, warn_days, fail_days), f"CHANGELOG.md newest section {newest:%Y-%m} ({age}d behind)")
+    return (
+        _classify(age, warn_days, fail_days),
+        f"CHANGELOG.md newest section {newest:%Y-%m} ({age}d behind)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

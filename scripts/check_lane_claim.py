@@ -88,9 +88,7 @@ _CLAIM_BLOCK_RE = re.compile(r"<!--\s*lane-claim\b(.*?)-->", re.IGNORECASE | re.
 
 def _git(args: list[str]) -> str:
     """Run a git command and return stdout (raises on non-zero)."""
-    return subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=True
-    ).stdout
+    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
 def _changed_files(base: str) -> list[str]:

@@ -241,10 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             with open(INDEX_PATH, encoding="utf-8") as fh:
                 existing = fh.read()
         if existing != content:
-            print(
-                "FAIL: docs/worklog/INDEX.md is stale — "
-                "run: python scripts/gen_worklog_index.py"
-            )
+            print("FAIL: docs/worklog/INDEX.md is stale — run: python scripts/gen_worklog_index.py")
             return 1
         print("worklog-index: OK (INDEX.md is current).")
         return 0

@@ -429,7 +429,7 @@ trajectory.
 |---|---|---|---|
 | **Research signal / paper-trading the ranker** | Any | Today | ✅ **Go.** Signal is real (ρ ≈ 0.22); pair it with human review on every candidate. |
 | **$100k account, supervised** | ≤ $100k | Today | ⚠ **Conditional.** The BP-saturation pattern accidentally limits damage; this is exactly the scale where S22 / S27 reported the +27pp-over-SPY result. Acknowledge F4 tail risk and review every entry; supervise rolls. |
-| **$100k account, autonomous** | ≤ $100k | Today | ❌ **No.** F4 tail-risk gap means single-name drawdowns are not protected. D17 not wired to API means the engine has no live portfolio-level brake. |
+| **$100k account, autonomous** | ≤ $100k | Today | ❌ **No.** Engine-side mitigations are now in place (F4: #260 RV-ratio widening + #262 R10 single-name cap = B1 deployment bundle; D17 wired to `engine_api.py` via #233 + #255 = B2 closed), but autonomous mode at this scale still falls foul of the **structural finding**: named-case events like COST 2022-04 stay below the `rv30/rv252 ≥ 1.30` widening trigger throughout the drawdown, so `prob_profit` can stay at 0.83+ through a 30%+ realised drop. The empirical-distribution method has no self-correction surface for this class of mis-calibration; supervised mode is what catches it. |
 | **$500k–$1M supervised, universe ≥ 100 tickers** | $500k–$1M | After S34 + S38 (2026-05-26) | ⚠ **Conditional with explicit underperformance acknowledgment.** S34 (PR #226) showed +11.6pp over SPY at $1M / 100t / **2022-2024** — that result was **window-specific**. **Subsequent S38 (PR #235) ran the same universe / capital over the longer 2020-2024 window and returned −52pp** (engine +33.18% vs SPY ~+85%). Honest forward expectation at $1M scale spans **−52pp to +11.6pp** across measured multi-year windows. D17 live-wire shipped 2026-05-26 (B2 closed, PR #233 + #255); **F4 fix shipped 2026-05-27/28 as the #260 + #262 bundle (B1 closed)**. Defensible **only with strict supervision and the explicit understanding that the engine is a conservative income strategy with crisis refusal — not a SPY-beating alpha strategy**. S44 (PR #271) verified F4 fix is signal-preserving but does NOT close the engine-vs-passive gap at this scale. The +33% / 5y in S38 ≈ 5.9% annualized is a defensible income-tier value proposition; the "+11.6pp over SPY" framing is not. |
 | **$500k–$1M, universe ≤ 24 tickers** | $500k–$1M | Today | ❌ **No.** S32 measured −22pp underperformance. Use the 100-ticker universe (per S34), with the S38 caveat above. |
 | **$1M+ autonomous deployment** | $1M+ | Today | ❌ **No.** **F4 fix shipped via PR #260 + #262 bundle (B1 closed)**, but S44 (PR #271) confirmed F4 fix has near-zero impact at $1M/100t scale (ρ −1.0%, NAV +0.4%) — the −52pp gap was never F4-bound; it's structural to limited deployment. The multi-window evidence (S38 + S40 5 measurement points spanning −85pp to +10pp) shows engine systematically underperforms passive in bull-dominated 3-5y windows at $1M scale (engine +33% vs SPY ~+85% over 2020-2024). Autonomous deployment under these conditions runs a strategy that deploys ~15-23% of capital, produces **near-zero realized put P&L over 5y** (S38 pre-F4: −$28,647; S44 post-F4: −$32,729), and relies entirely on equity-beta-on-assignments for NAV growth. Plus Caveat 2 (parameters in-sample). |
@@ -494,10 +494,21 @@ limited deployment (15-23% NAV) — fixing F4 / D17 / capacity does
 not change this. Deployment decisions must explicitly acknowledge
 the engine's **honest value proposition: conservative income +
 crisis refusal, not bull-market alpha**.
-**Current state: B2 shipped, B3 structurally shipped (window
-caveat), B1 still open.** The minimum is therefore one blocker away
-from "any scale" deployment, with the new R1+ damage-bounding floor
-as a partial mitigation for B1's remaining gap.
+**Current state: B1 mitigated — #260 + #262 deployment bundle shipped
+(RV-ratio widening + R10 single-name notional cap), residual structural
+limitation documented; B2 shipped; B3 structurally shipped (window
+caveat).** The three named blocker-gates are mechanically in place.
+**Named-case closure for B1 is structurally impossible at the engine
+layer** (e.g. COST 2022-04 had `rv30/rv252 < 1.30` throughout, so the
+widening fix never fires; the empirical-distribution method cannot
+self-correct top-bin over-confidence — see
+`docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`), and the structural
+finding (S38 / S40 / S44 evidence) that engine vs passive at
+$1M/100t spans −85pp to +10pp across multi-year windows due to
+limited deployment (15-23% NAV) is not a blocker the engine layer
+can remove. **Deployment is now a value-proposition decision** —
+"conservative income + crisis refusal at this scale, not bull-market
+alpha" — **not a blocker-removal decision.**
 
 ---
 
@@ -511,12 +522,22 @@ the minimum supervision protocol is:
 2. **Review every candidate before execution.** Use the engine's
    ranked output as a *decision aid*, not as an autonomous executor.
 3. **Cap single-name exposure at 25% of NAV.** This is what D17's
-   `_DEFAULT_MAX_SECTOR_PCT` enforces in strict mode; today you must
-   enforce it manually because D17 isn't wired to the API.
+   `_DEFAULT_MAX_SECTOR_PCT` enforces in strict mode — wired to
+   `engine_api.py` via PR #233 + #255; PR #262's R10 single-name cap
+   also hard-blocks at 10% NAV per underlying at `open_short_put`
+   time when `require_ev_authority=True`. Supervised mode still
+   benefits from a visual sanity check on each candidate's
+   `verdict_reason` — the gates are now mechanical, but the engine
+   has no way to flag *why* a name became concentrated.
 4. **Watch concentration tail-risk by hand.** When a held position
    drops more than 10% from entry, override the engine's
-   `prob_profit` reading and consider closing — the engine will not
-   alert you to widening tail risk until F4 ships.
+   `prob_profit` reading and consider closing. F4 widening (PR #260)
+   is live but only fires on the ~12% of cells where
+   `rv30/rv252 ≥ 1.30`; named-case events like COST 2022-04 stay
+   below that threshold throughout the drawdown so the empirical
+   distribution does NOT widen. The engine's `prob_profit` can stay
+   high (0.83+) through a 30%+ realised drop; human supervision is
+   the only check that catches this class of mis-calibration.
 5. **Daily session restart.** The S18 finding of `+5 handles per
    ranker call` means a process running for >7 days accumulates
    thousands of file handles. Restart at session-close.

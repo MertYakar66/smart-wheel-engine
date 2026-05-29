@@ -72,6 +72,9 @@ jobs:
       - name: Check FILE_MANIFEST.md covers every tracked file
         run: python scripts/check_manifest_coverage.py
 
+      - name: Check doc currency (PROJECT_STATE / CHANGELOG freshness)
+        run: python scripts/check_doc_currency.py
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest

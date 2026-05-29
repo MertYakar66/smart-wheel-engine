@@ -308,8 +308,8 @@ The deployment decision matrix's $1M row can move from ❌ to ⚠ for
 SUPERVISED USE conditional on:
 1. Universe at 100+ tickers (S34 validates the structural fix)
 2. Multi-window backtest (S35's window-sensitivity finding still applies)
-3. F4 fix (B1 still open — bear-year mean realized −$118 in S34 hints F4 affects the larger universe too)
-4. D17 live-wire (B2 still open)
+3. F4 fix (B1 mitigated via the #260 + #262 bundle; residual structural limit — bear-year mean realized −$118 in S34 hints the tail affects the larger universe too)
+4. D17 live-wire (B2 shipped via #233 + #255)
 
 Autonomous deployment at $1M remains ❌ — F4, D17-live, and the
 window-sensitivity finding aren't addressed by capacity expansion.

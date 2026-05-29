@@ -7,7 +7,8 @@ decision path and replaces it with structured quantitative layers
 
 This is a **temporal** doc — update the status table as each PR lands.
 The structural decisions taken inside the campaign live in
-`DECISIONS.md` (D18 onwards).
+`DECISIONS.md` (D18 onwards — note D18 lands with PR #249 and is not yet
+merged into `DECISIONS.md` on `main`).
 
 ---
 

@@ -1,5 +1,16 @@
 # Engine verification index — 2026-05-28
 
+> **CANONICAL — single living verification index for the
+> smart-wheel engine.** This file is maintained going forward;
+> twelve dated review snapshots from the 2026-05 campaign have
+> been moved to `archive/2026-05/` so the live `docs/` tree stays
+> orientable. Their headline findings are carried into the
+> Tested-surfaces table below; the originals are preserved for
+> per-PR detail and the engine SHA they were captured against.
+> See §"Archived snapshots" and §"Deferred (locked by open PRs
+> this cycle)" for the doc-level map. **Refresh this file as
+> new verification work lands.**
+
 **Purpose:** Single reference for any future agent asking "what
 verification has been done on this engine?" Built as the wrap-up of
 the 2026-05 verification campaign.
@@ -24,10 +35,10 @@ snapshot), then individual Sn docs by topic.
 | **Backtest regression (S27/S32/S34/S35 snapshots)** | A's PR #267 (verified S27) + A's PR #265 audit | ✅ Reproduces byte-for-byte to 6+ dp | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md`, `backtests/regression/snapshots/` |
 | **F4 RV widening (PR #260)** | PR #267 (A) + PR #271 (B) backtests | ✅ Scope-limited validation; signal-preserving but not value-creating alone | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md`, `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
 | **R10 single-name cap (PR #262)** | PR #268 live + C's PR #270 post-hoc audit | ✅ Fires `single_name_breach` correctly; R10-beneath-R9 safety verified | `docs/REALISM_VERIFICATION_2026-05-28.md` §1.6, `docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` R10 audit |
-| **Spearman ρ / quartile predictive validity** | PR #197 P2 + S40 (PR #264) + S43 (PR #270) | ✅ ρ ∈ [0.19, 0.55] across 14+ window×year cells; never negative; bit-identical for overlapping years | `docs/PREDICTIVE_VALIDITY_REVIEW.md`, `docs/ENGINE_BACKTEST_S40_ROLLING_MULTIWINDOW.md` |
-| **Per-trade P&L formula** | PR #197 P3 | ✅ 77/77 executed rows verified; < $0.01 delta | `docs/PREDICTIVE_VALIDITY_REVIEW.md` P3 |
+| **Spearman ρ / quartile predictive validity** | PR #197 P2 + S40 (PR #264) + S43 (PR #270) | ✅ ρ ∈ [0.19, 0.55] across 14+ window×year cells; never negative; bit-identical for overlapping years | `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md`, `docs/ENGINE_BACKTEST_S40_ROLLING_MULTIWINDOW.md` |
+| **Per-trade P&L formula** | PR #197 P3 | ✅ 77/77 executed rows verified; < $0.01 delta | `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` P3 |
 | **Determinism (same input → same output)** | PR #268 §1.9 | ✅ Bit-identical (rel_tol=1e-12) | `docs/REALISM_VERIFICATION_2026-05-28.md` §1.9 |
-| **Reliability (load + chaos + concurrency)** | PR #194 reliability arc review | ✅ S18 load / S19 chaos / S20 concurrency all PASS-with-caveat | `docs/RELIABILITY_ARC_REVIEW.md` |
+| **Reliability (load + chaos + concurrency)** | PR #194 reliability arc review | ✅ S18 load / S19 chaos / S20 concurrency all PASS-with-caveat | `archive/2026-05/RELIABILITY_ARC_REVIEW.md` |
 | **Edge cases (fail-closed contract)** | PR #268 §1.8 | ✅ 7/7 cases pass | `docs/REALISM_VERIFICATION_2026-05-28.md` §1.8 |
 | **Bloomberg CSV column-rename handling** | PR #273 (this PR) discovery | ✅ Connector handles correctly (`engine/data_connector.py:202-208`); external reproducers documented to use CSV `high` column | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` § "Bloomberg CSV column-rename quirk" |
 
@@ -44,15 +55,15 @@ The verification work happened in 7 numbered arcs over 2026-04 →
 Foundational §2 invariant verification + per-PR audits. Terminal A
 ran a 22-PR campaign audit covering audit-i → audit-viii surface
 fixes. Result: all 22 PRs SOLID, 0 §2 breaches missed by the prior
-audit. Artifact: `docs/TERMINAL_A_AUDIT.md`, PR #170 + #173 audit
-report, `docs/AUDIT_OF_AUDIT_REVIEW.md` (PR #195 meta-verification).
+audit. Artifact: `archive/2026-05/TERMINAL_A_AUDIT.md`, PR #170 + #173 audit
+report, `archive/2026-05/AUDIT_OF_AUDIT_REVIEW.md` (PR #195 meta-verification).
 
 **2. Reliability (S18–S20).**
 Operational stress arc: 503-ticker load runs, 27 hostile/malformed
 input vectors fail-closed, HTTP API concurrency at default-thread-
 count. Verdict: PASS-with-caveat. Listen-queue depth (5 → 128) and
 nonce-register thread lock follow-on fixes shipped via PRs #216 +
-#219. Artifact: `docs/RELIABILITY_ARC_REVIEW.md` (PR #194 meta).
+#219. Artifact: `archive/2026-05/RELIABILITY_ARC_REVIEW.md` (PR #194 meta).
 
 **3. Predictive validity (S22 pre-fix → S27 post-fix).**
 The IV-PIT bug surfaced mid-backtest in S22 (engine pulled snapshot
@@ -60,7 +71,7 @@ IV instead of as-of IV); fixed via PR #179. Re-run as S27. Headline:
 Spearman ρ = 0.22 (post-fix), down from S22's spurious 0.48 (pre-fix).
 This is the **honest predictive-signal floor** the campaign uses as
 reference. Artifact: `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`,
-`docs/PREDICTIVE_VALIDITY_REVIEW.md` (PR #197 meta).
+`archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` (PR #197 meta).
 
 **4. Capacity (S32 → S34).**
 S32 measured $1M/24t/2022-2024: engine +1.85% vs SPY +24% = −22pp,
@@ -241,19 +252,13 @@ Re-run my 2026-05-28 verification harness pattern:
 | Capital deployment metric ambiguity (collateral-only vs total-NAV) | `docs/ENGINE_BACKTEST_S40_ROLLING_MULTIWINDOW.md` §8 |
 | prob_profit miscalibration in top bins (engine 0.92-0.97 → actual 0.79-0.82) | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §B (this PR) |
 | R10 strict-mode test on S38 setup not yet run | `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` AI handoff |
-| PROJECT_STATE.md refresh overdue (last updated 2026-05-23) | This file (§ "Open recommendations") |
+| PROJECT_STATE.md refresh — addressed by the docs-consolidate-verification PR (refreshes §1-§6 to the 2026-05 campaign state) | `PROJECT_STATE.md` (post-PR) |
 
 ---
 
 ## Open recommendations for future agents
 
-1. **Refresh `PROJECT_STATE.md`** to reflect the 2026-05 campaign
-   (F4 fix #260 shipped, R9 #255, R10 #262, S40-S44 backtests,
-   verification arcs #244 + #267 + #268 + #270 + #271 + #273). The
-   verification index in this file now provides the "what's been
-   done" picture; PROJECT_STATE refresh should follow.
-
-2. **prob_profit calibration check has been extended** across 10
+1. **prob_profit calibration check has been extended** across 10
    backtests (S22, S27, S32, S34, S35, S38 pre/post-F4, S40
    W1/W2/W3) and the **top-bin miscalibration is now confirmed
    UNIVERSAL** (`docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`).
@@ -262,16 +267,55 @@ Re-run my 2026-05-28 verification harness pattern:
    machinery in `engine/tail_risk.py` but doesn't apply it to
    prob_profit. Scoped as a future research item.
 
-3. **Run R10 in strict mode** (`require_ev_authority=True` +
+2. **Run R10 in strict mode** (`require_ev_authority=True` +
    attached `PortfolioContext`) on the S38 setup to measure how
    often R10 actually constrains anything at $1M/100t scale.
 
-4. **Tighten the BSM sanity check** by figuring out engine's exact
+3. **Tighten the BSM sanity check** by figuring out engine's exact
    risk-free + dividend conventions. Currently 3.37% delta; could be
    reduced to ~1% with convention alignment.
 
-5. **Re-baseline the 5-ticker EV smoke** if engine SHA changes.
+4. **Re-baseline the 5-ticker EV smoke** if engine SHA changes.
    The canonical values are the canonical drift indicator.
+
+---
+
+## Archived snapshots (point-in-time docs preserved for per-PR detail)
+
+The 2026-05 verification campaign produced twelve dated review docs
+that are now archived to `archive/2026-05/`. The headline finding of
+each is carried into §"Tested surfaces" above; the originals are
+preserved for per-PR detail and the engine SHA they were captured
+against. None are maintained — treat each as a historical snapshot.
+
+| Archived doc | Original PR / Sn | Headline carried forward to §"Tested surfaces" |
+|---|---|---|
+| `archive/2026-05/TERMINAL_A_AUDIT.md` | board #113 Terminal A 22-PR campaign | 22/22 SOLID, 0 §2 breaches missed (per-PR seven-step) |
+| `archive/2026-05/AUDIT_OF_AUDIT_REVIEW.md` | PR #195 | Meta-verification of TERMINAL_A_AUDIT (M1–M7); confirmed tally |
+| `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` | PR #197 | S22 + S27 P1–P9 meta-verification; ρ ≈ 0.22 floor |
+| `archive/2026-05/RELIABILITY_ARC_REVIEW.md` | PR #194 | S18 load / S19 chaos / S20 concurrency PASS-with-caveat |
+| `archive/2026-05/ENGINE_SUBSYSTEM_AUDIT.md` | structural read-through | 46 engine/ + 10 advisors/ files; no new bugs |
+| `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | PR #229 | Equity-beta-on-assignments + BKNG concentration findings |
+| `archive/2026-05/END_TO_END_REVIEW_2026_05_25.md` | four-pass product review | §2 BREACH 0 / CONCERN 5 / WITH-NOTE 10 / SOLID 12 (pre-#260) |
+| `archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | PR #225 | 2026-05-26 launch verdict (pre-#260 / pre-#262) |
+| `archive/2026-05/SESSION_REPORT_2026-05-26.md` | 2026-05-26 campaign ledger | 10 PRs shipped; B2 closed; B3 structurally closed |
+| `archive/2026-05/ENGINE_REALISM_VERIFICATION_2026-05-26.md` | pre-#260 realism battery | Superseded on the live surface by `docs/REALISM_VERIFICATION_2026-05-28.md` (post-F4 + R9 + R10) |
+| `archive/2026-05/optionsengine_audit_2026-05-17.md` | accuracy audit | Audit of the (also-archived) `OptionsEngine.txt` walkthrough |
+| `archive/2026-05/data_inventory_2026-05-17.md` | data-inventory analysis | Point-in-time |
+
+## Deferred (docs touched by open PRs this cycle — NOT moved)
+
+These docs would normally be candidates for archive / consolidation
+but are deferred because an open PR currently edits them. Re-evaluate
+after each PR merges.
+
+| Doc | Open PR(s) | Reason for defer |
+|---|---|---|
+| (none of the 12 archive candidates above were locked by any open PR this cycle) | — | All cleanly moved |
+| `docs/F4_TAIL_RISK_DIAGNOSTIC.md` | #253 (draft, research-record) | KEEP-LIVE regardless; flagged here for transparency |
+| `docs/USAGE_TEST_LEDGER.md` | #278 (D, S46), #275 (D, defensive-guards) | Append-only; not an archive candidate |
+| `FILE_MANIFEST.md` | #278, #252 (D, news_redesign descriptive) | Shared catalog; rebase-and-keep-both on conflict |
+| `PROJECT_STATE.md` | #252 | Refreshed in this PR's end-of-PR commit; rebase-and-keep-both on conflict |
 
 ---
 

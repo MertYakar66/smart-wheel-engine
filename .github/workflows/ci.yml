@@ -117,6 +117,25 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
+      # Additive: regenerate coverage.json from the .coverage data already
+      # collected by the test step above, and upload it as a build artifact.
+      # Does not change the test step's pass/fail behaviour or the
+      # --cov-fail-under gate; the artifact is for the tested-surface map
+      # (docs/TESTED_SURFACE_MAP.md) and ad-hoc gap drill-downs.
+      # if: always() so we still publish the artifact when a test failed.
+      - name: Generate coverage.json artifact
+        if: always()
+        run: coverage json -o coverage.json
+
+      - name: Upload coverage.json artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-json-py${{ matrix.python-version }}
+          path: coverage.json
+          if-no-files-found: warn
+          retention-days: 30
+
   quant-tests:
     name: Quantitative Validation
     runs-on: ubuntu-latest

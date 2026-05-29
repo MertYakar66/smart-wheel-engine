@@ -582,6 +582,37 @@ n/a — no shims were created.
 assumes), `archive/README.md`, `AGENTS.md` (the `docs/` "read on demand"
 index), `PROJECT_STATE.md` §3 (the dated reorg entry).
 
+### Extended (2026-05-29) — per-task worklog fragments replace the ledger monolith + the dated-report treadmill
+
+D14 put the index docs at root and operational docs in `docs/`. Two `docs/`
+artifacts then became scaling problems:
+
+- `docs/USAGE_TEST_LEDGER.md` grew to ~490 KB / 8,600 lines (42 `Sn` entries) —
+  append-only, unreadable whole, and a rebase magnet every parallel terminal
+  had to edit.
+- backtest / verification write-ups followed a "dated report → hand-maintained
+  `VERIFICATION_INDEX` → archive" treadmill.
+
+Both are replaced by **per-task worklog fragments**: one file per task/scenario
+under `docs/worklog/`, with front-matter + a fixed *what-we-tried / worked /
+didn't / how-we-fixed* body, plus a **generated** `docs/worklog/INDEX.md`
+(`scripts/gen_worklog_index.py`, CI-checked via `--check`). Fragments are
+write-once and collision-free — each task owns its own file, which also retires
+the PARALLEL_SESSIONS "one ledger / FILE_MANIFEST owner per cycle" contention.
+The ledger's 42 `Sn` entries were split **verbatim** into fragments and the
+monolith frozen to a banner + scenario→fragment map (original content remains
+in git history). The dated reports are **indexed in place, not moved** — they
+carry 243 inbound references across 43 files (incl. `CLAUDE.md` and
+decision-layer docstrings), so relocating them is pure link-breakage risk for
+no functional gain.
+
+**Why an in-place extension, not a new D-number.** Same reasoning as the D15
+extension — `D` numbers are assigned at merge (`docs/PARALLEL_SESSIONS.md`
+rule 9); this is the natural evolution of D14's documentation architecture.
+
+**Also pinned by:** `docs/worklog/README.md`, `scripts/gen_worklog_index.py`,
+`scripts/new_worklog.py`, `.github/workflows/ci.yml` (the worklog-index check).
+
 ---
 
 ## D15. Parallel-session coordination is N-generic; every terminal lives in its own worktree

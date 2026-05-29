@@ -62,6 +62,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: worklog-index
+        name: docs/worklog/INDEX.md is current
+        entry: python scripts/gen_worklog_index.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
 
 # CI configuration
 ci:
@@ -71,5 +77,5 @@ ci:
   autoupdate_branch: ''
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: [mypy, manifest-coverage]  # run as dedicated CI jobs, not on pre-commit.ci
+  skip: [mypy, manifest-coverage, worklog-index]  # run as dedicated CI jobs, not on pre-commit.ci
   submodules: false

@@ -16,6 +16,25 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ## 2026-05 (late) — Repo-efficiency + coordination cycle
 
+### Added — coordination overhaul + documentation redesign (PR `#285`)
+- **Coordination: Major-Session task-card model + decision-layer CI gate.**
+  `docs/PARALLEL_SESSIONS.md` rewritten — a single persistent Major Session
+  allocates **disjoint task cards** (one per terminal), so two terminals can't
+  be handed the same file (duplicate self-selected work, e.g. the `select_book`
+  #107/#109 double-build, is designed out). New `scripts/check_lane_claim.py`
+  + the `decision-layer-claim` CI job fail any PR that edits the decision-layer
+  trio without a `lane-claim` block, replacing the manual "checked the board"
+  prose. New `.github/pull_request_template.md`. Extends `DECISIONS.md` D15.
+- **Docs: per-task worklog fragments replace the 490 KB ledger monolith.**
+  `docs/USAGE_TEST_LEDGER.md` (8,600 lines / 42 `Sn`) split **verbatim** into
+  `docs/worklog/*.md` fragments; monolith frozen to a banner + scenario→fragment
+  map. New `scripts/gen_worklog_index.py` generates `docs/worklog/INDEX.md`
+  (CI-checked via `--check`) over the fragments + the dated reports indexed
+  **in place** (243 inbound refs ⇒ not moved), retiring the hand-maintained
+  `VERIFICATION_INDEX`. `scripts/new_worklog.py` scaffolds a fragment. Each task
+  now writes its own file — no shared "magnet" doc to collide on. Extends
+  `DECISIONS.md` D14.
+
 ### Changed
 - **Coordination contract hardened** (PR `#282`). `docs/PARALLEL_SESSIONS.md`
   rule 7: `Sn` / `D`-numbers are allocated at MERGE (serialised), not at

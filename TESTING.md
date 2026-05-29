@@ -12,7 +12,7 @@ they answer different questions and feed each other.
 | Surface | Question it answers | Source of truth |
 |---|---|---|
 | `tests/` (this file) | "Does the engine still produce the right output as code evolves?" — continuous red-green regression | ~2,300+ pytest functions; CI gates merges on the full suite plus `--cov-fail-under=80` |
-| `docs/USAGE_TEST_LEDGER.md` | "Did the engine produce realistic output on this scenario one time?" — one-shot trader-meaningful walkthroughs | Sn entries S1–S30; Realism Check tables (S25 onward) compare engine output to Bloomberg CSV / IV file / real market moves row by row |
+| `docs/worklog/` fragments (index: `docs/worklog/INDEX.md`) | "Did the engine produce realistic output on this scenario one time?" — one-shot trader-meaningful walkthroughs | `Sn` fragments S1–S46 (split verbatim from the now-frozen `USAGE_TEST_LEDGER.md`); Realism Check tables compare engine output to Bloomberg CSV / IV file / real market moves row by row |
 
 **Promotion path: Sn finding → pytest test.** When an Sn walkthrough
 surfaces a real invariant or a real gap, the finding gets promoted

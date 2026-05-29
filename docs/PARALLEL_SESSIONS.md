@@ -45,7 +45,24 @@ task, branch name, files it expects to touch; (3) posts the merge SHA and marks
 the claim done when its PR merges.
 
 The board — not merged `main` — is the source of truth for *in-flight* work
-(claimed-but-unmerged branches, scenario numbers, and D-numbers).
+(claimed-but-unmerged branches, branch/PR identifiers, and — once merged —
+scenario / D-numbers).
+
+### Glanceable live state + cycle allocation
+
+The board's pinned **body** carries a *Live state* table — one row per active
+terminal (`terminal · current task · branch · status · updated`) that each
+terminal edits in place, so the current state is readable at a glance without
+scrolling the comment log. The comment log stays the durable, append-only
+audit trail (claims, done-notices, merge SHAs); the body table is just the
+scannable summary of it.
+
+At the **start of a cycle** a single *cycle allocator* (a dedicated session,
+or the operator) posts one plan: a non-overlapping task per active terminal,
+each with a pre-assigned branch and the files it owns. Terminals start from
+the plan rather than self-selecting — this is what prevents two terminals
+doing the same work (the `select_book` double-build, the S43/S44 duplicate
+backtest). The allocator allocates and steps out; it does not execute.
 
 ## Env vars per terminal
 
@@ -108,12 +125,35 @@ other.
 5. **`USAGE_TEST_LEDGER.md` is append-only.** Add your own `### Sn` entry; never
    edit another terminal's. On conflict, rebase and keep both.
 6. **`git fetch origin && git rebase origin/main` before every push.**
-7. **Scenario numbers (`Sn`) and D-numbers (`D<N>`) are global and consumed
-   in parallel.** Take the next free number from the *board's claims*, not
-   the merged ledger / `DECISIONS.md` — another terminal may hold an
-   unmerged number. Next-free = `max(merged numbers in the canonical file,
-   all claimed numbers on the board) + 1`. Never hardcode `Sn`; read it at
-   runtime.
+7. **Scenario numbers (`Sn`) and D-numbers (`D<N>`) are assigned at MERGE,
+   not at work-start.** While a task is in flight it is identified by its
+   **branch name + PR number** only — both are globally unique and need no
+   coordination, so there is no shared counter to race on. The
+   human-readable `Sn` / `D<N>` is allocated by whoever merges, as
+   `max(merged numbers in the canonical file) + 1`, at the moment of merge.
+   Because merges are serialised through the operator, this allocation is
+   race-free. Never claim a global number at work-start; never hardcode one.
+
+   *Why this replaced the old "take the next free number from the board"
+   rule:* the old rule allocated the number at the concurrent moment (work
+   start), so two terminals reading the board minutes apart both grabbed the
+   same `Sn` — three such collisions happened on 2026-05-28 alone. Moving
+   allocation to the serialised merge point removes the race by construction
+   instead of asking terminals to share a counter more carefully (a
+   convention that demonstrably failed).
+
+8. **`FILE_MANIFEST.md` has ONE designated owner per cycle.** It is the
+   highest-contention file in the repo — every new tracked file needs a
+   row, so every docs/infra task wants to touch it. The allocator names
+   one owner per cycle; other terminals list their new files in the PR
+   body and the owner (or a single `python scripts/sync_manifest.py
+   --fix` reconciliation pass at end of cycle) adds the rows. If two
+   branches do edit it, the later one **rebases** onto the merged `main`
+   and re-applies its rows — never bulk-resolve with
+   `git checkout --theirs FILE_MANIFEST.md`, which silently reverts a
+   concurrent restructure (learned 2026-05-29: a coverage-map branch's
+   `--theirs` resolution reverted a 12-doc archive move, leaving ten
+   manifest rows pointing at files that had been moved).
 
 ## Recurring hazards (learned the hard way)
 

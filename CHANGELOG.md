@@ -14,6 +14,43 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05 (late) — Repo-efficiency + coordination cycle
+
+### Changed
+- **Coordination contract hardened** (PR `#282`). `docs/PARALLEL_SESSIONS.md`
+  rule 7: `Sn` / `D`-numbers are allocated at MERGE (serialised), not at
+  work-start — kills the parallel-counter race (three `Sn` collisions on
+  2026-05-28). New rule 8: one `FILE_MANIFEST.md` owner per cycle; the later
+  branch rebases, never `checkout --theirs`.
+
+### Added
+- **`docs/TESTED_SURFACE_MAP.md` + CI coverage artifact** (PR `#281`). One
+  file answers "what's covered" (per-module map + top-N gap ranking,
+  generated from `coverage.json`, which is now gitignored and uploaded by CI
+  as an artifact rather than committed).
+- **`scripts/sync_manifest.py`** (PR `#279`). `--fix` appends missing
+  `FILE_MANIFEST.md` rows; closed four pre-existing manifest gaps.
+- **Conflict-marker CI guard** (PR `#283`). `scripts/check_manifest_coverage.py`
+  now fails on committed `<<<<<<<` / `=======` / `>>>>>>>` markers in any
+  tracked `.md` (plus a 16-test unit suite) — catches the rebase trap
+  automatically instead of by luck.
+
+### Docs
+- **Verification corpus consolidated** (PR `#280`). 12 dated review snapshots
+  archived to `archive/2026-05/`; `docs/VERIFICATION_INDEX_2026-05-28.md` is
+  the canonical living index; `PROJECT_STATE.md` refreshed.
+- **S46 re-verify** of the closed tests on the post-#260/#262 engine
+  (PR `#278`).
+- **`PRODUCTION_READINESS.md` B1 framing** reconciled — "shipped as the
+  #260 + #262 bundle (residual structural limit)", no longer self-contradictory
+  (PR `#283`).
+
+### Infra
+- Closed PR #253 (rolled-back F4 Fix-B1+C research record; findings preserved
+  in `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10–11). Deleted eight stale branches.
+
+---
+
 ## 2026-05 (late) — D17 B2 closure + F4 fix v2 + engine audit
 
 ### Added

@@ -1,13 +1,15 @@
 # Project State
 
-**Last updated:** 2026-05-28 (against `origin/main` at `0738b76`,
-post the 2026-05 late campaign: D17 portfolio-risk-gates closures
-(PR #233 + #255 + #262), F4 fix v2 bundle (PR #260 + #262), S34→S46
-backtest campaign (PR #264 / #267 / #270 / #271 / #278), and the
-verification wrap-up (PR #268 / #270 / #271 / #273). See
-`CHANGELOG.md` 2026-05 (late) and the coordination board on GitHub
-issue #113 for per-PR detail. The single CANONICAL living
-verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`).
+**Last updated:** 2026-05-29.
+
+> **Live sources of truth — don't duplicate them here, they decay.** The
+> current `main` HEAD and exact test count are in `git log origin/main` and
+> the latest CI run; in-flight work is on GitHub issue #113 (the
+> coordination board); per-PR history is in `CHANGELOG.md`; the canonical
+> verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`. This file
+> records *durable* temporal state (what's authoritative vs deprecated), not
+> a pinned commit SHA or test count — last time those were pinned here they
+> went stale within a day.
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
@@ -82,11 +84,9 @@ entries in `CHANGELOG.md` rather than the `audit-<N>` series:
 | **Backtest regression harness** — S27/S32/S34/S35 + S43 rolling multi-window pinned against current engine | PR #196 / #220 / #270 | `tests/test_backtest_regression.py` (gated by `@pytest.mark.backtest_regression`) |
 | **Verification battery wrap-up** — live R1-R10 check + real-data anchor checks + master canonical index | PR #268 / #270 / #271 / #273 | (docs + drivers; observable-test pattern, not pytest) |
 
-The suite reports **2,501 tests collected** on `origin/main` @
-`0738b76` (2026-05-28 measured via `pytest --collect-only -q`) — up
-from 1087 at audit-viii. Pass-rate snapshot per PRODUCTION_READINESS
-was 2,374 of 2,378 (the 2 failing are documented Windows-local
-Theta-tier flakes; not engine defects).
+The suite is **~2,500 tests** — run `pytest --collect-only -q` for the
+live count — up from 1087 at audit-viii. A small number of Windows-local
+Theta-tier tests skip/flake off the laptop; they are not engine defects.
 
 ## 3. Work in progress
 

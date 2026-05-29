@@ -129,6 +129,7 @@ echo "│  ─ Parallel sessions (docs/PARALLEL_SESSIONS.md) ─"
 echo "│    • Work the task card the Major Session allocated — don't self-select."
 echo "│    • Edit only your card's 'owns' files; decision-layer trio is CI-gated."
 echo "│    • Sn / D-numbers are assigned at MERGE, not work-start."
+echo "│    • Document your task in docs/worklog/ ('python scripts/new_worklog.py')."
 # 6b. Per-terminal env — parallel pytest / engine_api runs need isolation
 #     (separate port + coverage file + pytest cache). Warn if unset.
 if [ -z "${SWE_API_PORT:-}" ] || [ -z "${COVERAGE_FILE:-}" ] || [ -z "${PYTEST_CACHE_DIR:-}" ]; then

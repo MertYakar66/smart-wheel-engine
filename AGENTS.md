@@ -66,6 +66,11 @@ and `tests/test_authority_hardening.py`.
 
 - Module-level docstrings; per-function docstrings.
 - New tests under `tests/` that exercise existing public surface.
+- A **worklog fragment** under `docs/worklog/` recording your task — what you
+  tried, what worked, what didn't, how you fixed it. Scaffold with
+  `python scripts/new_worklog.py`; refresh the index with
+  `python scripts/gen_worklog_index.py`. This is *the* place to document work
+  (see `docs/PARALLEL_SESSIONS.md` "Where to document").
 - Documentation (`docs/`, `*.md` at repo root) **except** `CLAUDE.md`,
   which the user maintains directly.
 - Files under your active feature branch (never `main`).

@@ -50,19 +50,43 @@ channel.
 4. **Work.** Edit only files in your card's `owns`. You may *read* anything in
    `reads`. If you discover you must edit a file outside `owns`, **stop and
    tell the Major Session** — that is a re-allocation, not a judgment call.
-5. **PR.** One branch, one PR. Body follows `.github/pull_request_template.md`.
-   If your card is `decision_layer: true`, the body **must** carry a
-   `lane-claim` block (§5) — CI fails otherwise.
-6. **Verify (Session X).** Re-run the acceptance check; confirm the diff stays
+5. **Document (Terminal X).** Write your card's **worklog fragment** — the one
+   place the work is recorded so other agents learn from it. Scaffold it with
+   `python scripts/new_worklog.py <card-id> --title "..." --kind <kind>`, fill
+   the fixed sections (*what we tried / what worked / what didn't / how we fixed
+   it / unresolved-handoff*), then `python scripts/gen_worklog_index.py` to
+   refresh `docs/worklog/INDEX.md` (CI fails if it is stale). Format spec:
+   `docs/worklog/README.md`. See "Where to document" below for the one-home-per-
+   record rule.
+6. **PR.** One branch, one PR. Body follows `.github/pull_request_template.md`
+   and links your worklog fragment. If your card is `decision_layer: true`, the
+   body **must** carry a `lane-claim` block (§5) — CI fails otherwise.
+7. **Verify (Session X).** Re-run the acceptance check; confirm the diff stays
    inside `owns`; confirm `§2` (CLAUDE.md) holds.
-7. **Done-notice (Terminal X).** One compact comment on #113 with the merge
+8. **Done-notice (Terminal X).** One compact comment on #113 with the merge
    SHA (§8). Edit your live-state row to `done`.
-8. **Reconcile (Major Session) at cycle close.** Assign `Sn`/`D` numbers
-   (rule R7), merge the per-task doc fragments / CHANGELOG lines, close the
+9. **Reconcile (Major Session) at cycle close.** Assign `Sn`/`D` numbers
+   (rule R7), merge the per-task CHANGELOG lines / DECISIONS pointers, close the
    cycle, post the next plan.
 
 Allocation is a **batch** at cycle start, so terminals never block on the
 Major Session per task — they run 4-wide with no required mid-cycle sync.
+
+### Where to document (so other agents learn)
+
+One home per kind of record — do **not** scatter the same content across five
+files:
+
+| What | Where |
+|---|---|
+| **What you tried / worked / didn't / how you fixed it** — the learning record | a **worklog fragment** `docs/worklog/<card>.md` (`scripts/new_worklog.py`) — the canonical place |
+| Shipping summary for review | the **PR body** (`.github/pull_request_template.md`) — *link* the fragment, don't re-type it |
+| A *structural* decision + rejected alternatives | a `DECISIONS.md` D-entry that links the fragment — only when you actually made one |
+| One-line "what shipped" | a `CHANGELOG.md` bullet (the Major Session reconciles these at merge) |
+
+The worklog fragment is the durable record; everything else points at it. The
+old 490 KB `docs/USAGE_TEST_LEDGER.md` is **frozen** — never reopen it; its
+`S1`–`S46` entries are now fragments under `docs/worklog/`.
 
 ---
 
@@ -81,7 +105,7 @@ fenced block on #113 so they are machine-scannable. Schema:
   decision_layer: false         # true iff owns ev_engine/wheel_runner/candidate_dossier
   depends_on: []                # card ids that must merge before this starts
   acceptance: "sentiment_multiplier returns 1.0 for every (sentiment, n) input"
-  worklog: docs/worklog/C7-A.md # the task's learning record (Part B of the redesign)
+  worklog: docs/worklog/C7-A.md # the task's learning record (docs/worklog/README.md)
 ```
 
 The Major Session's allocation invariant: **the union of `owns.paths` over all

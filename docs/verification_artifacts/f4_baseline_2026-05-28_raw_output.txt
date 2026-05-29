@@ -1,0 +1,67 @@
+==============================================================================
+F4 TAIL-RISK PRE-FIX BASELINE — 2026-05-26
+==============================================================================
+Engine: origin/main @ 9f0afaf (pre-F4-fix)
+
+Each row is the production-ranker output for a known F4 case.
+Compare to: documented realized 35-day forward return (where known)
+and to the same row produced AFTER Terminal A's F4 fix lands.
+
+--- COST as_of=2022-04-04 ---
+  note: F4 canonical case from PR #178; realized verified from CSV
+  documented realized 35d: -23.89% (from tests/test_f4_tail_risk_gap.py)
+  recomputed realized 35d: -13.27%
+  Engine output (pre-F4-fix):
+    strike       = 554.00
+    premium      = 5.6720
+    iv           = 0.208300
+    ev_dollars   = +62.88
+    prob_profit  = 0.8333
+    cvar_5      = -4376.0700
+    cvar_99_evt = (n/a)
+    heavy_tail  = False
+    regime_mult = 0.8798
+  F4 GAP: realized -13.27% but engine prob_profit = 0.8333 (should be <= ~0.70 post-fix)
+
+--- UNH as_of=2024-11-11 ---
+  note: F4 second canonical case; realized verified from CSV
+  documented realized 35d: -19.31% (from tests/test_f4_tail_risk_gap.py)
+  recomputed realized 35d: -20.27%
+  Engine output (pre-F4-fix):
+    strike       = 601.00
+    premium      = 6.0980
+    iv           = 0.204900
+    ev_dollars   = +108.25
+    prob_profit  = 0.8571
+    cvar_5      = -2608.6900
+    cvar_99_evt = (n/a)
+    heavy_tail  = False
+    regime_mult = 0.4195
+  F4 GAP: realized -20.27% but engine prob_profit = 0.8571 (should be <= ~0.70 post-fix)
+
+--- AAPL as_of=2026-02-13 ---
+  note: No-loss control — normal-regime date; engine should NOT become spuriously bearish post-fix
+  recomputed realized 35d: -3.18%
+  Engine output (pre-F4-fix):
+    strike       = 243.00
+    premium      = 3.5120
+    iv           = 0.281100
+    ev_dollars   = +5.50
+    prob_profit  = 0.8571
+    cvar_5      = -2898.1500
+    cvar_99_evt = (n/a)
+    heavy_tail  = False
+    regime_mult = 0.2362
+  No-loss control: realized -3.18%; engine prob_profit = 0.8571 (should stay similar post-fix)
+
+==============================================================================
+BASELINE CAPTURED
+==============================================================================
+
+To validate F4 fix (when Terminal A's branch lands):
+  1. Re-run this driver against the post-fix engine.
+  2. Diff the prob_profit / cvar_5 / heavy_tail columns vs this baseline.
+  3. SUCCESS = prob_profit drops materially on the two F4 cases,
+     control case AAPL stays roughly unchanged.
+  4. FAILURE = prob_profit drops on the control (over-correction)
+     OR stays high on F4 cases (under-correction).

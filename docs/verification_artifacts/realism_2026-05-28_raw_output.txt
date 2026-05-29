@@ -1,0 +1,64 @@
+========================================================================
+ENGINE REALISM + RELIABILITY VERIFICATION — 2026-05-26
+========================================================================
+
+--- (1) 5-ticker smoke ---
+Provider: MarketDataConnector
+Rows returned: 5
+Non-null ev_dollars: 5
+Non-null iv: 5
+Non-null premium: 5
+
+ticker  strike  premium     iv  ev_dollars  prob_profit
+   XOM   151.5    2.472 0.3216      137.57       0.8857
+   JPM   270.0    4.559 0.3255      124.90       0.8571
+  MSFT   358.5    6.303 0.3383       90.97       0.8286
+   UNH   257.0    5.956 0.4347       62.62       0.8857
+  AAPL   234.0    3.700 0.3079       20.45       0.8571
+
+
+--- (2) IV PIT realism: engine.iv vs Bloomberg file ---
+IV file: C:\Users\merty\Desktop\swe-terminal-d\data\bloomberg\sp500_vol_iv_full.csv (81,197,425 bytes)
+as_of: 2026-03-20
+ticker  engine_iv  ref_pit_iv  rel_diff_pct
+  AAPL     0.3079     0.30790         0.000
+  MSFT     0.3383     0.33835         0.015
+   JPM     0.3255     0.32549         0.003
+   XOM     0.3216     0.32163         0.009
+   UNH     0.4347     0.43468         0.005
+
+
+--- (3) EV sign + magnitude consistency ---
+Expectation: higher IV (rich premium) -> higher ev_dollars at same delta band, modulo regime multipliers.
+ticker     iv  premium  ev_dollars  regime_multiplier
+   UNH 0.4347    5.956       62.62             0.6676
+  MSFT 0.3383    6.303       90.97             0.4626
+   JPM 0.3255    4.559      124.90             0.7113
+   XOM 0.3216    2.472      137.57             0.9217
+  AAPL 0.3079    3.700       20.45             0.6768
+
+ev_dollars range: 20.45 to 137.57
+Spearman corr(iv, ev_dollars) = 0.000
+
+
+--- (4) F4 reproducibility: COST 2022-04-25 prob_profit ---
+Documented in docs/F4_TAIL_RISK_DIAGNOSTIC.md: prob_profit should be 0.8333 at default settings.
+COST 2022-04-25 prob_profit = 0.903200
+  strike=538.50, premium=8.1590
+  ev_dollars=214.91, iv=0.297400
+  matches documented 0.8333? False
+
+
+--- (5) Refusal behaviour: COVID 2020-03-23 / mid-COVID 2020-05-11 / normal 2026-03-20 ---
+as_of=2020-03-23: 0 survivors / 5 total = 100.0% refusal
+  drops: [{'ticker': 'AAPL', 'gate': 'event', 'reason': 'event_lockout:earnings@2020-04-30 (±5d buffer)'}, {'ticker': 'MSFT', 'gate': 'event', 'reason': 'event_lockout:earnings@2020-04-29 (±5d buffer)'}, {'ticker': 'JPM', 'gate': 'event', 'reason': 'event_lockout:earnings@2020-04-14 (±5d buffer)'}]
+as_of=2020-05-11: 5 survivors / 5 total = 0.0% refusal
+  ev_dollars range: -44.66 to 167.80
+  mean regime_multiplier: 0.678
+as_of=2026-03-20: 2 survivors / 5 total = 60.0% refusal
+  ev_dollars range: 20.38 to 90.89
+  mean regime_multiplier: 0.570
+
+========================================================================
+VERIFICATION COMPLETE
+========================================================================

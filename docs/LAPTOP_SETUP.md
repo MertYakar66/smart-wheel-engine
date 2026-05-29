@@ -122,3 +122,16 @@ python scripts/feature_smoke_test.py --fast
 ```
 
 That's it — same workflow as on the desktop, just fewer tiers available.
+
+---
+
+## 6. Optional — TradingView analyst workspace
+
+If you also use Claude to drive TradingView Desktop interactively (read
+charts, run Pine, drive the analyst function), the bring-up is OS-specific.
+See `docs/TRADINGVIEW_INTEGRATION.md` → "Setup (laptop bring-up)" for the
+full checklist (install Desktop, clone & register the
+`tradingview-mcp-jackson` MCP, launch with CDP). The Windows path has a
+Microsoft Store / WindowsApps gotcha documented there — use
+`tradingview/launch-tradingview-cdp.ps1` rather than the MCP's `tv_launch`
+auto-detect.

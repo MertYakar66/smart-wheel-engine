@@ -15,7 +15,11 @@ The TradingView MCP exposes ~70 tools across chart control, market data, Pine Sc
 
 @tradingview-mcp-jackson/CLAUDE.md
 
-If TradingView CDP isn't responding (port 9222), relaunch with: `bash launch-tradingview-cdp.sh` — never use the dock to relaunch TradingView, you'll lose the `--remote-debugging-port` flag.
+If TradingView CDP isn't responding (port 9222), relaunch with:
+- macOS: `bash launch-tradingview-cdp.sh`
+- Windows: `powershell -ExecutionPolicy Bypass -File launch-tradingview-cdp.ps1`
+
+Never use the dock, taskbar, or Start menu to relaunch TradingView — those paths lose the `--remote-debugging-port` flag and CDP silently fails. On Windows the install is typically the Microsoft Store MSIX package; the PS1 launcher uses `Get-AppxPackage` to locate it (see `docs/TRADINGVIEW_INTEGRATION.md` → "Windows gotchas" for why `tv_launch` and `where TradingView.exe` can't find it).
 
 ## Conventions
 

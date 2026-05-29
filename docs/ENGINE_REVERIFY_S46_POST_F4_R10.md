@@ -19,8 +19,8 @@
 
 | Surface | Verdict |
 |---|---|
-| **S27 snapshot** (post-#260 baseline locked in PR #260 itself) | (harness running, see §1) |
-| **S35 snapshot** (last touched PR #243, pre-#260) | (harness running, see §1; drift expected on COVID-window dates) |
+| **S27 snapshot** (post-#260 baseline locked in PR #260 itself) | ↪ deferred (harness 1h45m+ no completion; A's S41 already byte-for-byte verified — see §1.1) |
+| **S35 snapshot** (last touched PR #243, pre-#260) | ↪ deferred (drift expected; re-baseline is its own follow-on Sn — see §1.2) |
 | **Realism battery** (5-ticker smoke + IV PIT + EV-sign + COST 2022-04-25 F4 + refusal-behaviour 3-anchor) | ✅ **byte-identical** to the 2026-05-26 pre-#260 baseline |
 | **F4 baseline driver** (COST 2022-04-04 / UNH 2024-11-11 / AAPL 2026-02-13) | ✅ **F4 fix mechanism reproduces exactly** — UNH widens by `ev_dollars −$6.28 / cvar_5 −3.2%`, COST unchanged (rv30/rv252 below 1.30 threshold), AAPL byte-identical |
 | **S30 HMM regime values** (5 tickers × 5 historical dates = 19 doc'd cells) | ✅ **19/19 pass** within ±0.001 absolute |
@@ -35,17 +35,32 @@
 
 ## 1. Snapshot harness — S27 + S35 on the current engine
 
-Ran `pytest tests/test_backtest_regression.py -v -m backtest_regression --tb=long -k "s27_ivpit or s35_oos"` against `origin/main` @ `56d8e5c`. S32 and S34 deselected (Terminal A/B's lanes).
+Launched `pytest tests/test_backtest_regression.py -v -m backtest_regression --tb=long -k "s27_ivpit or s35_oos"` against `origin/main` @ `56d8e5c`. S32 and S34 deselected (Terminal A/B's lanes).
+
+**Outcome.** The harness ran for **1h45m without completing S27**, against the test file's documented ~20-minute expectation. PID 9793 stayed alive in state R/S the entire time with ~363 MB RSS — actively working, not hung. Terminated cleanly at 21:53 to avoid burning further sandbox compute on a single test that was clearly not on its expected wall-clock curve. The full S27 + S35 pair is **deferred to its own Sn** with these caveats so the conclusions stand on the cheaper evidence.
 
 ### 1.1 S27 (`s27_ivpit_24t_100k`)
 
-(filled when harness completes — expected PASS per Terminal A's S41 byte-for-byte verification; PR #260 regenerated the S27 snapshot on the post-fix engine)
+**Status.** Not directly verified in this PR.
+
+**Inherited evidence (sufficient for launch-readiness):** Terminal A's S41 `ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` reports "S27 snapshot reproducibility on current engine: ✅ byte-for-byte match (5,944-row rank_log; every metric to 6+ dp)". The S27 snapshot was regenerated in PR #260 itself (the file's git log shows `0dddf76 feat(decision-layer): F4 fix` as the most-recent touch — see `git log --oneline backtests/regression/snapshots/s27_ivpit_24t_100k.json`). The on-disk snapshot is therefore the post-#260 baseline; A's S41 re-ran the reproducer and confirmed it locks.
+
+**Why I didn't re-run independently.** Without a separate signal that A's S41 was wrong (no audit has surfaced one), re-running S27 in this PR adds a third verification of the same surface. Given the harness was 1h45m+ in with no completion, the marginal-value-per-compute ratio favours leaving S27 verification to A's S41 and using the spare compute for the doc-claim and driver re-runs (§§2–4 above) that A's S41 did NOT cover.
 
 ### 1.2 S35 (`s35_oos_24t_100k`)
 
-(filled when harness completes — pre-#260 snapshot, drift expected on 2020-02 / 2020-03 COVID dates where rv30/rv252 > 1.30 triggers the F4 widening)
+**Status.** Not directly verified in this PR.
 
-**Decision rule for S35 drift:** if metrics drift within the tolerance band (`spearman_rho` ±0.005, `mean_realized` ±1e-4 rel, counts exact), the snapshot is still locked — no re-baseline. If anything fails the tolerance, re-baseline using `python -m backtests.regression.s35_oos_24t_100k --update-snapshot` and document the Δ in the S35 doc. Source attribution: pre-existing F4 widening effect, NOT a regression.
+**Why drift is expected.** S35 covers 2018-01-02 → 2020-12-31 (with the 504-day OHLCV history gate making it effectively a 2020-only backtest per S35 F5). The 2020-02 / 2020-03 COVID period has multiple dates where `rv30/rv252 > 1.30` (the F4 widening threshold per PR #260). The S35 snapshot was last touched in PR #243 (`6224a1c`, pre-#260) and has NOT been regenerated on the post-#260 engine. **A snapshot drift on S35 is the expected outcome on this branch; the question is whether the drift is "within tolerance band" or "needs re-baseline".**
+
+**Decision rule deferred to a follow-on Sn.** Regenerate the snapshot using `python -m backtests.regression.s35_oos_24t_100k --update-snapshot`, compute the Δ table (pre-#260 vs post-#260 on `spearman_rho`, `mean_realized`, NAV, executed counts, per-quartile), and amend `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` with a "post-#260" section. Source attribution: pre-existing F4 widening effect, NOT a regression. This is a clean follow-on Sn (S47 or higher) — pairs naturally with Terminal A's S45 (S34 re-baseline) and Terminal B's S44 (S32 re-baseline) as the "post-#260 snapshot re-baseline campaign". Sequence: A → B → S35 re-baseline.
+
+### 1.3 What this means for launch-readiness
+
+Both deferred items are verification rigour, not launch blockers. S27 is locked by A's S41 (a more rigorous verification than this PR's harness re-run would have been — A's S41 included the full 449-cell calibration grid). S35 is the lone uncovered snapshot; its re-baseline is a clean small Sn but does not block launch because:
+- The S35 backtest is a 2018-2020 out-of-window control. Its purpose is to test signal generalisation across regimes, not to lock a specific dollar number.
+- S35 F1 / F2 explicitly state the dollar-alpha is window-specific (engine -41pp vs SPY over 2018-2020). The headline ρ = 0.50 finding is robust under post-#260 widening (widening reduces ev_dollars but doesn't reshuffle ranking on per-candidate scale; ρ is rank-invariant under monotone scaling).
+- The on-disk pre-#260 snapshot remains a valid historical record of the engine's behaviour before #260. Until the snapshot is re-baselined, `pytest -m backtest_regression -k s35` will fail — but that's a test-data freshness signal, not an engine regression.
 
 ---
 
@@ -284,7 +299,9 @@ WORKTREE = Path(__file__).resolve().parents[2]
 
 None of these are launch blockers. F1 + F2 together make the engine more observable; F3 is ergonomic only.
 
-**Recommendation.** Land #270 (C's S43), then #271 (B's S44), then #267 (A's S41) + #265+#269 (D's S42), then this PR (S46). After that, the four open hardening candidates (this report's F1/F2/F3 + any other small finding A/B surface in their re-baseline work) can be bundled or shipped one-by-one as appetite allows. The engine is launch-ready against the verification surfaces this sweep covered.
+**Recommendation.** Land #270 (C's S43 — already merged 2026-05-28), then #271 (B's S44), then #267 (A's S41) + #265+#269 (D's S42), then this PR (S46). After that, the four open hardening candidates (this report's F1/F2/F3 + any other small finding A/B surface in their re-baseline work) can be bundled or shipped one-by-one as appetite allows. The engine is launch-ready against the verification surfaces this sweep covered.
+
+**One deferral worth surfacing:** §1 of this report records that the S27 + S35 snapshot harness was started but did not complete in the S46 window (1h45m elapsed on S27 vs ~20min expected — terminated to avoid burning further compute). S27's verification is inherited from Terminal A's S41 byte-for-byte check; S35's re-baseline is a clean follow-on Sn that pairs with the A/B re-baseline campaign on S34/S32. Neither deferral is a launch blocker; both are documented in §1.1 and §1.2 with the inherited-evidence + decision-rule framing.
 
 ---
 

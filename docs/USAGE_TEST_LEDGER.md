@@ -7469,7 +7469,13 @@ post-PR #262 R10 single-name cap). Three orthogonal probe sets:
 1. **Snapshot harness.** `pytest tests/test_backtest_regression.py
    -m backtest_regression -k "s27_ivpit or s35_oos"`. S32 / S34
    deselected — Terminal A's S45 and Terminal B's S44 own those
-   re-baselines.
+   re-baselines. **Result: S27 ran 1h45m without completing** (vs
+   ~20min expected per the test file); terminated to avoid burning
+   sandbox compute. S27 verification inherited from Terminal A's
+   S41 byte-for-byte check; S35 re-baseline deferred to a follow-
+   on Sn (pairs with A's S45 / B's S44 re-baseline campaign).
+   Documented in S46 report §1.1 + §1.2 with the
+   inherited-evidence framing.
 2. **Committed verification drivers.** Re-ran
    `docs/verification_artifacts/realism_verify_driver.py` and
    `docs/verification_artifacts/f4_baseline_driver.py` against

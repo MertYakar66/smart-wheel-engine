@@ -142,6 +142,19 @@ other.
    instead of asking terminals to share a counter more carefully (a
    convention that demonstrably failed).
 
+8. **`FILE_MANIFEST.md` has ONE designated owner per cycle.** It is the
+   highest-contention file in the repo — every new tracked file needs a
+   row, so every docs/infra task wants to touch it. The allocator names
+   one owner per cycle; other terminals list their new files in the PR
+   body and the owner (or a single `python scripts/sync_manifest.py
+   --fix` reconciliation pass at end of cycle) adds the rows. If two
+   branches do edit it, the later one **rebases** onto the merged `main`
+   and re-applies its rows — never bulk-resolve with
+   `git checkout --theirs FILE_MANIFEST.md`, which silently reverts a
+   concurrent restructure (learned 2026-05-29: a coverage-map branch's
+   `--theirs` resolution reverted a 12-doc archive move, leaving ten
+   manifest rows pointing at files that had been moved).
+
 ## Recurring hazards (learned the hard way)
 
 - **Shared working tree.** Two terminals in one directory: a fix commit landed

@@ -298,7 +298,7 @@ test suite. Specifically:
   finding.
 - **`docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`** §F4 — confirmed
   unchanged across IV-PIT fix.
-- **`docs/PREDICTIVE_VALIDITY_REVIEW.md`** P5 — meta-verified
+- **`archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md`** P5 — meta-verified
   finding.
 - **`docs/ENGINE_BACKTEST_S32_FRICTION.md`** §F5 — F4 re-surfaces
   under friction; same `prob_profit = 0.833` constant observed.

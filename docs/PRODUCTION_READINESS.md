@@ -31,7 +31,7 @@ operate?".
 | Does it **survive operational stress** (load, chaos, concurrency)? | **Yes.** 2,374 of 2,378 tests pass; the 2 failing tests are documented Windows-local Theta-tier flakes, not engine defects. S18 / S19 / S20 reliability arc (PR #194) verified. |
 | Is its **§2 invariant** intact ("no tradeable candidate bypasses EVEngine.evaluate")? | **Yes.** Verified across S18 load, S19 chaos, S20 concurrency, S22 / S27 / S32 / S34 / S35 backtests, and the audit-of-audit review (PR #195). |
 | Does it **beat SPY at meaningful capital scales**? | **Window-dependent across the entire range.** Measured (capital × universe × window) engine-vs-SPY deltas span **−52pp (S38: $1M / 100t / 2020-2024) to +27pp (S22/S27: $100k / 24t / 2022-2024)**. S34's "+11.6pp at $1M/100t" was 2022-2024-window-specific; **the subsequent S38 multi-window result demonstrates window-specificity** — same universe / capital over the longer 2020-2024 window (which includes COVID + 2021 mega-bull + 2022 bear + 2023-2024 recovery) returned **−52pp**. **No single number represents the engine's forward edge.** |
-| **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **S38 reinforced and intensified this pattern**: realized executed P&L over 305 puts + 168 CCs across 2020-2024 was **−$28,647** (also NEGATIVE); all NAV growth (+$331,764) came from equity-beta-on-assignments (108.6% attributable). **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `docs/SOUNDNESS_REVIEW_2026-05-26.md` and `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` §"Alpha decomposition". |
+| **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **S38 reinforced and intensified this pattern**: realized executed P&L over 305 puts + 168 CCs across 2020-2024 was **−$28,647** (also NEGATIVE); all NAV growth (+$331,764) came from equity-beta-on-assignments (108.6% attributable). **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` and `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` §"Alpha decomposition". |
 | **Is the dollar alpha concentration-resilient?** (post-soundness-review) | **No — one ticker can dominate.** In S34, BKNG alone contributed $31,576 of $28,571 total executed realized P&L (110% of net). Without BKNG, the engine's realized executions are slightly negative (−$3,004). **However, the ranking SIGNAL is robust** — ρ moves 0.327 → 0.324 when BKNG is removed. Ranking quality is genuine; the dollar outcome at scale is concentration-dependent. |
 | Should we **deploy it autonomously with real money today**? | **No** — but for reasons no longer dominated by an open B1. **B1 (F4 tail-risk widening) shipped 2026-05-27/28 as a deployment bundle**: PR #260 (realized-vol-ratio widening, the **frequency guard**) + PR #262 (R10 single-name cap, the **magnitude guard**). Honest scope-limits documented by S41 (PR #267, A) + S44 (PR #271, B): PR #260 alone is signal-preserving but not value-creating; PR #262 alone caps notional but doesn't widen distributions in elevated-vol regimes; **together they form the F4 defense-in-depth pair**. **D17 live-wire shipped 2026-05-26** (B2 closed, PR #233 + #255). **Multi-window confirmation also ran** (S38 PR #235; S40 PR #264 extended to 5 measurement points spanning −85pp to +10pp engine-vs-passive at $1M/100t) — the −52pp pattern is now established as a general property at $1M/100t scale, not 2020-2024-specific. **The remaining barrier to autonomous deployment is the structural finding itself**: engine systematically underperforms passive in bull-dominated multi-year windows due to limited deployment (15-23% NAV), regardless of F4 fix status. See §3 below. |
 | Should we **use it as a research / decision-aid signal**? | **Yes, with supervision and explicit window-sensitivity + alpha-decomposition caveats.** The signal is real (verified ρ + robust to concentration); the refusal mechanism is the engine's strongest property (98%+ refusal in adverse periods, correct in aggregate); the dollar outcome at scale comes mostly from equity beta on assignments. |
@@ -66,9 +66,9 @@ finding below is reproducible from on-disk artifacts (rank logs in
 
 | Arc | Sn / PR | What was verified | Where it lives |
 |---|---|---|---|
-| **Predictive validity** | S22 / S27 / PR #197 | Engine `ev_dollars` ranks realized P&L with Spearman ρ ≈ 0.22 (post-IV-PIT-fix). Quartile monotonicity clean. Top quartile beats bottom by 1.7×–2× in mean realized. | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`, `docs/PREDICTIVE_VALIDITY_REVIEW.md` |
-| **Reliability** | S18 / S19 / S20 / PR #194 | 503-ticker load runs (S18). 27 hostile / malformed input vectors fail-closed (S19). HTTP API concurrency holds at default-thread-count (S20). | `docs/USAGE_TEST_LEDGER.md` §S18–§S20, `docs/RELIABILITY_ARC_REVIEW.md` |
-| **Audit-of-audit** | PR #195 | All 22 Terminal A campaign PRs independently re-verified at the code level. 0 §2 breaches missed. 1 cosmetic attribution note. | `docs/TERMINAL_A_AUDIT.md`, `docs/AUDIT_OF_AUDIT_REVIEW.md` |
+| **Predictive validity** | S22 / S27 / PR #197 | Engine `ev_dollars` ranks realized P&L with Spearman ρ ≈ 0.22 (post-IV-PIT-fix). Quartile monotonicity clean. Top quartile beats bottom by 1.7×–2× in mean realized. | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`, `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` |
+| **Reliability** | S18 / S19 / S20 / PR #194 | 503-ticker load runs (S18). 27 hostile / malformed input vectors fail-closed (S19). HTTP API concurrency holds at default-thread-count (S20). | `docs/USAGE_TEST_LEDGER.md` §S18–§S20, `archive/2026-05/RELIABILITY_ARC_REVIEW.md` |
+| **Audit-of-audit** | PR #195 | All 22 Terminal A campaign PRs independently re-verified at the code level. 0 §2 breaches missed. 1 cosmetic attribution note. | `archive/2026-05/TERMINAL_A_AUDIT.md`, `archive/2026-05/AUDIT_OF_AUDIT_REVIEW.md` |
 | **Friction at scale** | S32 / PR #213 | Friction drag at $1M = **0.27% NAV** (much smaller than S22's "2-5% per leg" worst case). Signal preserved under friction (ρ moves 0.194 → 0.192). | `docs/ENGINE_BACKTEST_S32_FRICTION.md`, `docs/USAGE_TEST_LEDGER.md` §S32 |
 
 What this validates:
@@ -237,7 +237,7 @@ BP protection nor (b) the explicit D17 protection. The worst trades
 WILL fire.
 
 **Evidence:** `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` §F5,
-`docs/PREDICTIVE_VALIDITY_REVIEW.md` P6, `docs/ENGINE_BACKTEST_S32_FRICTION.md`
+`archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` P6, `docs/ENGINE_BACKTEST_S32_FRICTION.md`
 §F5. PR #205 added the helpers; the HTTP-endpoint hookup is open.
 
 **Required fix:** Modify `engine_api.py._handle_tv_dossier` (and the
@@ -366,7 +366,7 @@ equity beta via assignments: when a put is assigned, the seller takes
 delivery of the stock at the strike; that stock then participates in
 subsequent equity moves.
 
-The mechanical evidence from `docs/SOUNDNESS_REVIEW_2026-05-26.md`:
+The mechanical evidence from `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md`:
 
 | Backtest | NAV gain | Realized P&L from executed | Equity-beta residual |
 |---|---|---|---|
@@ -551,17 +551,17 @@ B1 / B2 / B3 fixes.
   backtest at $1M / 100t / 2020-2024 (PR #235). Headline **−52pp under
   SPY**; falsifies the S34-only "+11.6pp" alpha claim and provides the
   multi-window evidence cited in §1 and §5 of this doc.
-- **`docs/SESSION_REPORT_2026-05-26.md`** — full campaign ledger for
+- **`archive/2026-05/SESSION_REPORT_2026-05-26.md`** — full campaign ledger for
   the deployment-readiness verification session that produced S34 /
   S35 / S38 + D17 live-wire (B2) + engine-API hardening.
-- **`docs/LAUNCH_READINESS_ANALYSIS_2026-05-26.md`** — parallel
+- **`archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md`** — parallel
   launch-readiness verdict doc (snapshot at SHA `c07b265`, amended
   2026-05-27 post-S38 to keep matrix in sync with this file).
-- **`docs/PREDICTIVE_VALIDITY_REVIEW.md`** — independent meta-review
+- **`archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md`** — independent meta-review
   of S22 + S27 (PR #197). Headline: 8 VERIFIED, 1 VERIFIED-WITH-NOTE.
-- **`docs/RELIABILITY_ARC_REVIEW.md`** — independent review of S18 /
+- **`archive/2026-05/RELIABILITY_ARC_REVIEW.md`** — independent review of S18 /
   S19 / S20 (PR #194). Headline: 2 CONFIRMED, 2 CONFIRMED-WITH-NOTE.
-- **`docs/AUDIT_OF_AUDIT_REVIEW.md`** — meta-verification of the
+- **`archive/2026-05/AUDIT_OF_AUDIT_REVIEW.md`** — meta-verification of the
   Terminal A campaign audit (PR #195). 6 VERIFIED, 1 VERIFIED-WITH-NOTE.
 - **GitHub issue #113** — coordination board; per-PR claims with
   branch + files + verdicts.

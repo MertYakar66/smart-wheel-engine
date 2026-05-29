@@ -161,7 +161,7 @@ $1M / 24 tickers / 2022–2024 / 3 friction levels.
 | Put assignments | 14 | 19 | +36 % |
 | Same exec across levels | yes | yes | "BP never binding at $1M" ✓ |
 
-### S34 — `docs/SOUNDNESS_REVIEW_2026-05-26.md` / `docs/ENGINE_BACKTEST_S34_UNIVERSE.md`
+### S34 — `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` / `docs/ENGINE_BACKTEST_S34_UNIVERSE.md`
 
 $1M / 100 tickers / 2022–2024 / 3 friction levels / `top_n=15`.
 
@@ -322,9 +322,9 @@ harness consumer sees the full picture in one place.
 
 | Item | Source doc | Status | Owner |
 |---|---|---|---|
-| E1: **Equity-beta dominance** — S34 shows ~92 % of NAV gain is equity-beta on assigned stocks, not put-selection alpha. | `docs/SOUNDNESS_REVIEW_2026-05-26.md` | documented, not fixed | unowned (likely accepted as feature, not bug) |
+| E1: **Equity-beta dominance** — S34 shows ~92 % of NAV gain is equity-beta on assigned stocks, not put-selection alpha. | `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | documented, not fixed | unowned (likely accepted as feature, not bug) |
 | E2: **Scale dependency** — Engine UNDERPERFORMS SPY by 22 pp at $1M (S32) vs +27 pp at $100k (S27). The +27 pp headline is a BP-saturation artifact, not scale-invariant. | `docs/ENGINE_BACKTEST_S32_FRICTION.md` | documented, not fixed | unowned |
-| E3: **BKNG concentration** — S34's full executed realized P&L is dominated by BKNG (+$31,576 of +$28,571 net = 110 %). Net of BKNG = −$3,004. ρ is robust; dollar story is not. | `docs/SOUNDNESS_REVIEW_2026-05-26.md` | documented, not fixed | unowned |
+| E3: **BKNG concentration** — S34's full executed realized P&L is dominated by BKNG (+$31,576 of +$28,571 net = 110 %). Net of BKNG = −$3,004. ρ is robust; dollar story is not. | `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | documented, not fixed | unowned |
 | E4: **F4 tail-risk gap** — `prob_profit ≈ 0.83` stays constant across 31 % drawdowns (COST April 2022, UNH November 2024) because the empirical forward distribution has only ~30 samples at the configured `lookback_years=5 / non_overlapping=True / DTE=35`. | `docs/F4_TAIL_RISK_DIAGNOSTIC.md` | in-flight | Terminal A (`claude/docs-f4-baseline...` and follow-up fix PR) |
 | E5: **In-sample HMM / POT-GPD parameters** — Regime thresholds, dealer multiplier clamp, dropout, POT-GPD tail calibration all tuned with full 2018–2026 visibility. No backtest is parameter-OOS. | `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` "Caveat 2" | documented, not fixed | unowned — would need parameter-freeze + replay setup |
 | E6: **Friction at scale** — 0.27 % NAV drag is small relative to gross alpha at $100k but large relative to deployed-capital at $1M (only 10.8 % deployed → effective drag is ~10× larger on a per-active-dollar basis). | `docs/ENGINE_BACKTEST_S32_FRICTION.md` | documented, not fixed | unowned |

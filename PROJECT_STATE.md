@@ -1,9 +1,13 @@
 # Project State
 
-**Last updated:** 2026-05-23 (against `origin/main` at `643f1af`,
-post-D14 doc reorg and the parallel-session work campaign; see
-`CHANGELOG.md` 2026-05 and the coordination board on GitHub
-issue #113 for the per-PR detail).
+**Last updated:** 2026-05-28 (against `origin/main` at `0738b76`,
+post the 2026-05 late campaign: D17 portfolio-risk-gates closures
+(PR #233 + #255 + #262), F4 fix v2 bundle (PR #260 + #262), S34→S46
+backtest campaign (PR #264 / #267 / #270 / #271 / #278), and the
+verification wrap-up (PR #268 / #270 / #271 / #273). See
+`CHANGELOG.md` 2026-05 (late) and the coordination board on GitHub
+issue #113 for per-PR detail. The single CANONICAL living
+verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`).
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
@@ -13,12 +17,20 @@ described here is no longer accurate.
 
 > ⚠️ **Real-money deployment gate — read `docs/PRODUCTION_READINESS.md`
 > before any decision to operate this engine against a real brokerage
-> account.** The engine's predictive signal is verified (Spearman ρ ≈
-> 0.22, scale-invariant), but three blockers remain unresolved as of
-> `e504801`: F4 tail-risk widening, D17 live-wire to `engine_api.py`,
-> and strategy capacity at scales above $100k. `docs/LAUNCH_READINESS.md`
-> covers code-quality merge gates; `docs/PRODUCTION_READINESS.md`
-> covers commercial deployment gates. They are complementary, not
+> account.** Predictive signal is verified (Spearman ρ ∈ [0.19, 0.55]
+> across 14+ window×year cells; never negative; window- and capital-
+> invariant within ~0.05). All three historical deployment blockers
+> are now closed at the code level: **B1** (F4 tail-risk) shipped as
+> a defense-in-depth bundle via PR #260 (realized-vol-ratio widening
+> — the frequency guard) + PR #262 (R10 single-name notional cap —
+> the magnitude guard); **B2** (D17 live-wire) shipped via PR #233 +
+> #255; **B3** (capacity) is structurally closed via S34. The
+> *structural* finding from S38 + S40 + S44 remains: the engine
+> systematically underperforms passive in bull-dominated multi-year
+> windows due to limited deployment (15-23% NAV) — this is not
+> fixable engine-side. `docs/LAUNCH_READINESS.md` covers code-
+> quality merge gates; `docs/PRODUCTION_READINESS.md` covers
+> commercial deployment gates. They are complementary, not
 > substitutes.
 
 ---
@@ -29,12 +41,16 @@ described here is no longer accurate.
 |---|---|---|
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*`, `tests/test_evengine_event_lockout.py`, `tests/test_dealer_multiplier_evengine_integration.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_f4_tail_risk_gap.py`, `tests/test_consume_ranker_row_anchor.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R6 | `tests/test_dossier_invariant.py` |
-| `engine_api.py` | HTTP API on `:8787`; 32 endpoints listed in the file header | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R10** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py` |
+| `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
 tradeable verdict. Reviewers (chart provider, news sentiment, advisor
-committee, dealer positioning) can downgrade outputs — never upgrade.
+committee, dealer positioning, **R7-R10 portfolio-context gates**) can
+downgrade outputs — never upgrade. R1 (negative or non-finite EV →
+blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
+soft-warns that fire only when a `PortfolioContext` is attached.
+**The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
 ## 2. Recent decision-layer audits
 
@@ -52,10 +68,126 @@ Each row links to the commit that shipped the change. Use
 | `audit-vii` (`506b348`) | Unified orchestrator; HMM regime wiring; Grok/X agent; news API; ML guard | — |
 | `audit-viii` (`e4c30e1`) | EV-path unit bugs (IV / risk-free rate percent↔decimal); roll/close P&L double-count; committee authority leak | `test_audit_viii_unit_invariants.py`, `test_audit_viii_e2e.py`, `test_audit_viii_real_data_smoke.py` (20 new tests) |
 
-After audit-VIII the suite reports 1087 passed / 0 failed and 287
+After audit-VIII the suite reported 1087 passed / 0 failed and 287
 deprecation warnings (down from 1067+1 / 578).
 
+**Post-audit-viii shipped work (2026-05).** Tracked as PR-level
+entries in `CHANGELOG.md` rather than the `audit-<N>` series:
+
+| Bundle | Shipped via | Tests added |
+|---|---|---|
+| **D16** EV-authority token verdict-binding (issuance + consume both re-check `ev_dollars > 0`) | PR #128 + audit-viii follow-on | `tests/test_authority_hardening.py` (D16 block), `tests/test_audit_viii_e2e.py`, `tests/test_wheel_tracker_persistence.py::test_persisted_token_consume_round_trip_d16` |
+| **D17** portfolio-risk gates (sector / single-name / delta / Kelly / VaR / stress / dealer-regime) — tracker hard-blocks + R7-R10 dossier soft-warns; live-wired on `/api/tv/dossier` and `/api/tv/enrich` | PR #154 + #163 + #233 + #255 + #262 | `tests/test_portfolio_risk_gates.py`, `tests/test_authority_hardening.py::TestD17HardBlocks`, `tests/test_dossier_r9_r10_audit.py`, `tests/test_ev_authority_log_schema.py` |
+| **F4 tail-risk widening v2** — realized-vol-ratio (RV30/RV252) regime-conditioned widening; replaces rolled-back HMM v1 from #253 | PR #260 | `tests/test_f4_rv_widening.py` |
+| **Backtest regression harness** — S27/S32/S34/S35 + S43 rolling multi-window pinned against current engine | PR #196 / #220 / #270 | `tests/test_backtest_regression.py` (gated by `@pytest.mark.backtest_regression`) |
+| **Verification battery wrap-up** — live R1-R10 check + real-data anchor checks + master canonical index | PR #268 / #270 / #271 / #273 | (docs + drivers; observable-test pattern, not pytest) |
+
+The suite reports **2,501 tests collected** on `origin/main` @
+`0738b76` (2026-05-28 measured via `pytest --collect-only -q`) — up
+from 1087 at audit-viii. Pass-rate snapshot per PRODUCTION_READINESS
+was 2,374 of 2,378 (the 2 failing are documented Windows-local
+Theta-tier flakes; not engine defects).
+
 ## 3. Work in progress
+
+> ⚠️ **PROJECT_STATE divergence note (2026-05-28):** prior to this
+> refresh, the file was last touched on 2026-05-23 against `origin/main`
+> @ `643f1af`. Five days and ~15 merged PRs have intervened (D17
+> closures, F4 v2, R9-R10, S40-S46 backtests, verification campaign);
+> the older subsections below (TradingView MCP integration, iv_surface
+> decision, Theta data refresh, etc.) are preserved verbatim as the
+> historical record. Newest-first additions for the 2026-05 late
+> campaign appear above them.
+
+### D17 portfolio-risk-gates closure — 2026-05-26 → 2026-05-27
+
+- **B2 part 1** (PR `#233`, `b55a59a`) — D17 portfolio-context live
+  wire on `/api/tv/dossier`; R7 (VaR) and R8 (stress + dealer-regime)
+  soft-warns now fire live on the network surface for any candidate
+  that reaches the endpoint.
+- **B2 part 2** (PR `#255`, `f3a4fa8`) — R9 `sector_cap` dossier
+  soft-warn added on top of R7/R8 + D17 wired on `/api/tv/enrich`.
+  Mirrors the tracker's HARD refusal at `open_short_put` time when
+  `require_ev_authority=True`. Default 25% NAV per sector via
+  `engine.portfolio_risk_gates.check_sector_cap`.
+- **R10 single-name cap** (PR `#262`, `45ca861`) — F4 damage-bounding
+  closure. 10% NAV per-underlying short-option notional cap. Sits
+  BENEATH R9 (a ticker concentrated as the only name in its sector
+  could pass R9 at 25% but trip R10 at 10%). Soft-warn on dossier
+  (`verdict_reason="single_name_breach"`); HARD refusal on tracker
+  when `require_ev_authority=True`. See `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
+  §10 for the F4 motivation.
+- `DECISIONS.md` D17 documents the full design (gates, defaults,
+  Q3 missing-data semantics, rejected alternatives).
+
+### F4 tail-risk widening v2 — 2026-05-27
+
+- **HMM v1 rolled back** (PR `#253` draft research-record). The
+  K=4 HMM "crisis" label over-fired on the calm-bull plurality
+  (98% of 2022-2024 dates) and inverted S27 ρ from +0.188 to
+  −0.094 — see memory `f4-widening-overfires-on-hmm-labels` for
+  the diagnosis. Branch `claude/fix-f4-regime-conditioned-widening`
+  carries the research record; the fix was abandoned.
+- **Realized-vol-ratio widening shipped** (PR `#260`, `0dddf76`).
+  Uses RV30 / RV252 as a continuous regime-conditioned multiplier
+  (cap 1.5×; sign-preserving — factor ≥ 1.0; never narrows tail
+  risk). Routed through the forward distribution →
+  `EVEngine.evaluate` (never an overlay on final `ev_dollars`).
+  S27 ρ gate held (`ρ ≥ +0.15` required). COST 2022-04 and UNH
+  2024-11 anchor cases resolved at the input-signal level.
+- **B1 closure framing:** F4 deployment is the **bundle** of #260
+  (frequency guard, RV widening) + #262 (magnitude guard, R10
+  single-name cap). Neither alone is sufficient — S41 (PR #267) +
+  S44 (PR #271) backtests independently confirmed that #260 alone
+  is signal-preserving but not value-creating in dollars; R10 is
+  the load-bearing magnitude guard.
+
+### Backtest + verification campaign — 2026-05-25 → 2026-05-28
+
+Backtest evidence sequence at $1M / 100t scale (deployment matrix in
+`docs/PRODUCTION_READINESS.md` §1):
+
+| Sn | Window | Scale | Engine vs passive | Doc |
+|---|---|---|---|---|
+| S34 | 2022-2024 | $1M / 100t | **+11.6pp** | `docs/ENGINE_BACKTEST_S34_UNIVERSE.md` |
+| S35 | 2018-2020 OOS | $100k / 24t | **−41pp** | `docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` |
+| S38 | 2020-2024 | $1M / 100t | **−52pp** | `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` |
+| S40 | rolling 3-start | $1M / 100t | **−85pp to +10pp** | `docs/ENGINE_BACKTEST_S40_ROLLING_MULTIWINDOW.md` (PR #264) |
+| S41 | 2022-2024 (F4 fix probe) | $100k / 24t | F4 fix signal-preserving (ρ +0.188 → +0.182), value-neutral | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` (PR #267) |
+| S43 | rolling 4-window | $1M / 100t post-#260 | **−51pp to −104pp**; ρ window-invariant | `docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` (PR #270) |
+| S44 | S38 re-run post-F4 | $1M / 100t | **F4 hypothesis FALSIFIED** — +0.56pp delta | `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` (PR #271) |
+| S46 | re-verify closed tests post-F4 + R10 | various | in flight as PR #278 | `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+
+Verification campaign wrap-up artifacts (all merged to `origin/main`
+during the 2026-05-28 → 2026-05-29 wave; see `CHANGELOG.md`):
+
+- PR #268 — `docs/REALISM_VERIFICATION_2026-05-28.md` (live R1-R10
+  battery, 8/8 sections green, 0 defects);
+- PR #270 — S43 rolling backtest + R10 post-hoc audit;
+- PR #271 — S44 S38 post-F4 re-run;
+- PR #273 — `docs/REAL_DATA_VERIFICATION_2026-05-28.md`
+  (rv30/rv252 bit-identical; prob_profit calibration MIXED; BSM ≤5%
+  textbook; IV bit-identical to raw CSV) + multi-config calibration
+  follow-up `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`;
+- **Canonical wrap-up index:** `docs/VERIFICATION_INDEX_2026-05-28.md`
+  (marked CANONICAL 2026-05-28 in this PR). Twelve dated review docs
+  were archived to `archive/2026-05/` in this PR; the index carries
+  forward each headline finding.
+
+### prob_profit calibration — open structural finding
+
+The **top bin (0.95, 1.0]** of `prob_profit` is over-optimistic by
+10-18pp across all 10 backtest configurations measured (S22, S27,
+S32, S34, S35, S38 pre/post-F4, S40 W1/W2/W3). 9 of 10 configs have
+the top bin MISCAL > 10pp; F4 fix (#260) does NOT improve calibration.
+Established as **structural to the empirical-distribution method**
+in `engine.forward_distribution`, not S38-specific. **R10 (#262) is
+the load-bearing magnitude guard** precisely because the engine
+cannot self-correct its top-bin over-confidence in the rank-time
+EV. Doc: `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`. Open research
+direction: wire POT-GPD tail extension (machinery in
+`engine/tail_risk.py`) into the `prob_profit` computation path —
+the engine has the machinery but does not apply it to `prob_profit`.
 
 ### TradingView MCP integration
 
@@ -366,6 +498,16 @@ script + wrong `packages = ["src"]`) was closed by ROADMAP Track B5
 modern-decision-layer re-export entry was closed by `ROADMAP.md`
 Track A3 — also see `CHANGELOG.md` 2026-05.
 
+**This 2026-05-28 PR** (`claude/docs-consolidate-verification`)
+closes the latest drift batch: it archives 12 superseded review
+docs to `archive/2026-05/`, marks `docs/VERIFICATION_INDEX_2026-05-28.md`
+as the single CANONICAL living verification index (with an
+"Archived snapshots" map + "Deferred (locked by open PRs)" table),
+and refreshes §1-§6 of this file to reflect the 2026-05 late
+campaign (D17 closures, F4 v2, R9-R10, S34→S46, verification
+wrap-up). No code changes; the engine SHA and the §2 invariant are
+unchanged.
+
 ## 6. Branch + workflow policy
 
 - Default branch: `main`. Don't edit `main` directly.
@@ -377,3 +519,11 @@ Track A3 — also see `CHANGELOG.md` 2026-05.
   `pre-commit install`.
 - `.claude/settings.json` SessionStart hook validates dataset presence,
   Theta manifest recency, and connector class on every fresh session.
+- **Parallel sessions (D15).** Each executor terminal runs in its own
+  git worktree (`../swe-terminal-<x>`); the primary clone
+  (`smart-wheel-engine/`) is reserved for Sessions and orchestration.
+  Per-terminal env (`SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`)
+  is sourced from `scripts/setup-terminal.{sh,ps1}` or — preferred on
+  Windows — from a per-worktree `.claude/settings.local.json` (gitignored)
+  picked up by the Claude Code harness on launch. Coordination is via
+  GitHub issue #113. See `docs/PARALLEL_SESSIONS.md`.

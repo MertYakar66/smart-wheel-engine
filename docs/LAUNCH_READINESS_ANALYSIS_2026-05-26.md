@@ -51,6 +51,37 @@ performance varies by ±70pp on regime alone.
 
 ---
 
+> ⚠ **Amendment 2026-05-28 (post-#260 + #262 F4 fix bundle + S41 + S44).**
+> The single remaining blocker the 2026-05-27 amendment identified
+> (B1 = F4 tail-risk fix) has since shipped as a deployment bundle:
+> **PR #260 (realized-vol-ratio widening, the frequency guard) + PR #262
+> (R10 single-name notional cap, the magnitude guard)**. Neither alone
+> is sufficient; together they close B1. **Honest scope-limits**: PR #260
+> does NOT close the named F4 cases (COST 2022-04 had rv30/rv252 < 1.30
+> throughout — the fix is structurally lagged by the 30-day RV window);
+> PR #262 bounds dollar damage on first-event idiosyncratic cases via
+> notional capping. **Backtest evidence:** S41 (PR #267, Terminal A)
+> reported PR #260 alone on S27 24t/\$100k/2022-2024 is signal-
+> preserving but slight dollar negative (ρ −3.3%, NAV −12.1%, executed
+> −22%); S44 (PR #271, Terminal B) reported PR #260 on S38 100t/\$1M/
+> 2020-2024 has near-zero impact (ρ −1.0%, NAV +0.4%, executed +0.7%)
+> — falsifying the S40 hypothesis that F4 widening would close
+> 5-10pp of the −52pp gap. **The deployment gates (B1, B2, B3) are
+> mechanically closed**; the remaining barrier to autonomous
+> deployment is the structural finding (S40 + S44) that engine
+> systematically underperforms passive in bull-dominated multi-year
+> windows due to limited deployment (15-23% NAV), which no engine-side
+> change addresses. S40 (PR #264) extended the multi-window evidence
+> from 2 measurement points (S34 +11.6pp / S38 −52pp) to **5 points
+> spanning −85pp to +10pp engine-vs-passive**. The §3 deployment
+> matrix and §4 B-status table below have NOT been rewritten in
+> place (preserving the 2026-05-26 snapshot for campaign-arc
+> readability); for the canonical post-bundle picture, see
+> `docs/PRODUCTION_READINESS.md` §1 + §3 + §5 + §6 (updated 2026-05-28
+> in the same PR).
+
+---
+
 This file is the consolidated launch-readiness analysis the user
 explicitly requested on 2026-05-26. It synthesises the entire
 campaign (S18 through S34 + the four review PRs + the small fixes
@@ -613,3 +644,24 @@ decisions until refreshed.
   PR #233 — the matrix above still cites it as "open" in some
   rows; intentionally not edited here because the broader §4
   status refresh is out of scope for this amendment PR.
+
+- **2026-05-28 — post-#260 + #262 F4 fix bundle + S41 + S44.** The
+  single remaining blocker the 2026-05-27 amendment identified
+  (B1 = F4 tail-risk fix) has since shipped as a deployment bundle:
+  PR #260 (realized-vol-ratio widening, frequency guard) + PR #262
+  (R10 single-name notional cap, magnitude guard). Honest scope-
+  limits validated by S41 (PR #267) + S44 (PR #271): PR #260 alone
+  is signal-preserving but slight dollar negative on the S27 24t
+  setup (ρ −3.3%, NAV −12.1%) and near-zero on the S38 100t setup
+  (ρ −1.0%, NAV +0.4%). The S40 hypothesis that F4 widening would
+  close 5-10pp of the −52pp engine-vs-passive gap is falsified;
+  the gap is structural to limited deployment, not F4-bound.
+  Amended: top-of-doc added a new Amendment 2026-05-28 inset (after
+  the 2026-05-27 one) describing the bundle closure. §3 deployment
+  matrix and §4 B-status table NOT rewritten in place — preserved
+  for campaign-arc readability per the established pattern; the
+  canonical post-bundle picture lives in `docs/PRODUCTION_READINESS.md`
+  §1 + §3 + §5 + §6 (updated in the same 2026-05-28 PR). S40
+  (PR #264) extended the multi-window evidence from 2 measurement
+  points to 5 spanning −85pp to +10pp engine-vs-passive at
+  $1M/100t.

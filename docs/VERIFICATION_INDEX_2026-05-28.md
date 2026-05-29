@@ -17,7 +17,8 @@ snapshot), then individual Sn docs by topic.
 |---|---|---|---|
 | **§2 invariant (R1-R10 reviewer downgrade-only)** | PR #268 live battery | ✅ | `docs/REALISM_VERIFICATION_2026-05-28.md` |
 | **rv30/rv252 from raw OHLCV** | PR #273 anchor check (this PR) | ✅ CONFIRMED bit-identical (3/3 cases, delta 0.0000) | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §A |
-| **prob_profit calibration** | PR #273 anchor check (this PR) | ⚠ **MIXED — 2 of 7 bins MISCALIBRATED (>10pp delta) in the top range**; the rest calibrated or slightly miscalibrated | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §B |
+| **prob_profit calibration (S38, single-config)** | PR #273 anchor check (this PR) | ⚠ **MIXED — 2 of 7 bins MISCALIBRATED (>10pp delta) in the top range**; the rest calibrated or slightly miscalibrated | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §B |
+| **prob_profit calibration (multi-config, 10 backtests)** | PR #273 follow-up (this PR) | ⚠ **UNIVERSAL top-bin miscalibration** — 10/10 configs have ≥1 MISCAL bin; top (0.95, 1.0] bin MISCAL in 9/10 (Δ −5pp to −18pp); F4 fix does NOT improve calibration | `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | **BSM put pricing** | PR #273 anchor check (this PR) | ✅ Within pre-declared 5% threshold (3.37% delta vs hand-coded textbook BSM) | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §C |
 | **IV pipeline (engine `iv` vs raw CSV)** | PR #273 anchor check (this PR) | ✅ EXACT MATCH (0.2811 = 0.2811) | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` §D |
 | **Backtest regression (S27/S32/S34/S35 snapshots)** | A's PR #267 (verified S27) + A's PR #265 audit | ✅ Reproduces byte-for-byte to 6+ dp | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md`, `backtests/regression/snapshots/` |
@@ -100,11 +101,21 @@ Four pre-declared external-anchor checks against raw Bloomberg data:
 rv30/rv252 reproduction (✅ bit-identical), prob_profit calibration
 (⚠ **MIXED — top 2 bins miscalibrated by 13-15pp**), BSM pricing
 (✅ within 5% vs hand-coded textbook), IV pipeline (✅ exact match),
-backtest regression (✅ S27 reproduced byte-for-byte per S41). The
-top-bin prob_profit miscalibration is the canonical F4 finding
-quantified on real-data anchors and is exactly what the #260 + #262
-deployment bundle was designed to bound. Artifact:
-`docs/REAL_DATA_VERIFICATION_2026-05-28.md`.
+backtest regression (✅ S27 reproduced byte-for-byte per S41).
+**Follow-up multi-backtest analysis (same PR)**: extended the
+prob_profit calibration check across 10 configurations (S22, S27,
+S32, S34, S35, S38 pre/post-F4, S40 W1/W2/W3). Verdict: **top-bin
+miscalibration is UNIVERSAL** — 10 of 10 configs have ≥ 1 MISCAL
+bin; the (0.95, 1.0] bin is MISCAL in 9 of 10 (Δ −5pp to −18pp);
+mean MAD 6.16pp aligns with PR #197's 7.6pp; F4 fix produces
+essentially identical calibration to pre-F4. The top-bin miscalibration
+is now established as **structural to the empirical-distribution
+method**, not S38-specific. This is the canonical F4 finding
+quantified across 10 backtests. **R10 (PR #262) is the load-
+bearing magnitude guard** because the engine cannot self-correct
+its top-bin over-confidence. Artifacts:
+`docs/REAL_DATA_VERIFICATION_2026-05-28.md`,
+`docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`.
 
 ---
 
@@ -242,9 +253,14 @@ Re-run my 2026-05-28 verification harness pattern:
    verification index in this file now provides the "what's been
    done" picture; PROJECT_STATE refresh should follow.
 
-2. **Extend the prob_profit calibration check** to S22/S27/S32/S34/S40
-   windows to test whether top-bin miscalibration is universal or
-   S38-specific. Likely universal per the F4 mechanism.
+2. **prob_profit calibration check has been extended** across 10
+   backtests (S22, S27, S32, S34, S35, S38 pre/post-F4, S40
+   W1/W2/W3) and the **top-bin miscalibration is now confirmed
+   UNIVERSAL** (`docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`).
+   The next research direction is wiring POT-GPD tail extension
+   into the prob_profit computation path — engine has the POT-GPD
+   machinery in `engine/tail_risk.py` but doesn't apply it to
+   prob_profit. Scoped as a future research item.
 
 3. **Run R10 in strict mode** (`require_ev_authority=True` +
    attached `PortfolioContext`) on the S38 setup to measure how
@@ -271,14 +287,19 @@ capital-invariant within ~0.05, robust to single-ticker concentration).
 The engine's §2 invariant is **structurally enforced and verified live**
 (R1-R10 reviewer is downgrade-only across all named paths; 0 §2
 breaches across 9 multi-year backtests). The engine's **operational
-layer** survives load, chaos, concurrency. The engine has one **known
-miscalibration**: prob_profit in the top two bins (>0.90) is
-over-optimistic by 13-15pp — engine claims 0.92 → actual 0.79;
-engine claims 0.97 → actual 0.82. This is the canonical F4 finding
-(empirical distribution misses unseen tails) quantified on real-data
-anchors. The miscalibration is exactly what the F4 deployment bundle
-(PR #260 RV widening + PR #262 R10 single-name cap) was designed to
-bound. The engine's **dollar-alpha at scale is window-dependent**
+layer** survives load, chaos, concurrency. The engine has one **structural,
+universal miscalibration**: prob_profit in the top two bins (>0.90)
+is over-optimistic by 10-18pp — confirmed across 10 backtest
+configurations (S22-S40), 9 of 10 configs have MISCAL top bin
+(`docs/PROB_PROFIT_CALIBRATION_2026-05-28.md`). Engine claims 0.92
+→ actual 0.79; engine claims 0.97 → actual 0.82. This is the
+canonical F4 finding (empirical distribution misses unseen tails)
+quantified across the entire campaign. **F4 fix (PR #260) does NOT
+improve calibration** — its scope is regime-conditioned vol widening
+(fires on 12% of cells), not high-bin probability correction.
+**R10 (PR #262, single-name notional cap)** is the load-bearing
+magnitude guard precisely because the engine cannot self-correct
+its top-bin over-confidence. The engine's **dollar-alpha at scale is window-dependent**
 (−85pp to +10pp engine-vs-passive at $1M/100t across 5 measurement
 points), which is **structural to the strategy's limited deployment
 (15-23% NAV)**, not an engine defect.

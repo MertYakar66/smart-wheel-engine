@@ -649,6 +649,38 @@ explicitly.
 is the spec), `scripts/setup-terminal.sh`, `scripts/setup-terminal.ps1`,
 `FILE_MANIFEST.md` (records both setup scripts under `scripts/`).
 
+### Extended (2026-05) — Major Session + disjoint task cards + CI-gated decision layer
+
+The two soft spots D15 left open were closed without changing its
+worktree/N-generic core:
+
+- **The rotating "cycle allocator" became a persistent *Major Session*.**
+  One allocator decomposes each cycle into **disjoint task cards** (one per
+  terminal) and guarantees the `owns` file-sets are pairwise non-overlapping
+  *before* terminals start. Collisions and duplicate self-selected work
+  (the `select_book` double-build, #107 vs #109) are designed out:
+  two terminals cannot be handed the same file. Terminals receive cards;
+  they do not self-select.
+- **"Claim the decision-layer file on the board" became a CI gate.** The
+  old rule was policed by prose ("checked the board — no open claim touches
+  `wheel_runner.py`"); `scripts/check_lane_claim.py` now fails any PR that
+  edits `ev_engine.py` / `wheel_runner.py` / `candidate_dossier.py` without
+  a `lane-claim` block in the PR description naming the file. The gate is
+  intentionally narrow (the trio only) so routine refactors never fight it;
+  non-decision-layer ownership stays advisory (Major-Session allocation +
+  the board).
+
+**Why an in-place extension, not a new D-number.** Per
+`docs/PARALLEL_SESSIONS.md` rule 9, `D`/`Sn` numbers are assigned at merge;
+a fresh number written at work-start would race the pending news-campaign
+D18 (PR #249). Recording this as a D15 extension follows the
+"How to add a decision" §4 convention (update the related entry) and
+avoids the race. Promote to a standalone D-number at merge only if desired.
+
+**Also pinned by:** `scripts/check_lane_claim.py`,
+`tests/test_check_lane_claim.py`, `.github/pull_request_template.md`,
+`.github/workflows/ci.yml` (the `decision-layer-claim` job).
+
 ---
 
 ## D16. EV-authority token is verdict-bound, not just provenance-bound

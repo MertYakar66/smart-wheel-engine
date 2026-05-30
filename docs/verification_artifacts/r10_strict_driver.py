@@ -1018,6 +1018,307 @@ def _build_summary(
 # -----------------------------------------------------------------------------
 
 
+def analyze(out_dir: Path) -> None:
+    """Post-hoc analyzer — reads ``out_dir/`` artifacts and emits the
+    markdown tables for ``docs/HEAVY_R10_STRICT_SCALE.md`` §2-§6 to
+    stdout. Re-runnable without re-running the backtest.
+
+    Reads (all REQUIRED to exist):
+      ``summary.json``, ``open_attempts_loose.csv``,
+      ``open_attempts_strict.csv``, ``daily_state.csv``,
+      ``rank_log_loose.csv``, ``rank_log_strict.csv``,
+      ``equity_curve_loose.csv``, ``equity_curve_strict.csv``.
+
+    Sections emitted:
+      §2  Headline results (strict / loose / Δ)
+      §2.1 R10 / R9 bind rates
+      §2.2 Per-name peak short-option notional (top-10 by max %NAV)
+      §4  Per-year breakdown
+      §5  Concentration / R10 firing pattern (top tickers by refusal count)
+      §6  §2 invariant scan (executed rows with ev_dollars <= 0)
+    """
+    summary = json.loads((out_dir / "summary.json").read_text(encoding="utf-8"))
+    attempts_loose = pd.read_csv(out_dir / "open_attempts_loose.csv")
+    attempts_strict = pd.read_csv(out_dir / "open_attempts_strict.csv")
+    daily = pd.read_csv(out_dir / "daily_state.csv")
+    # rank_log and equity_curve are not consumed here today — kept on disk
+    # for future post-hoc analysis (e.g. ρ-over-time, NAV-drawdown plots).
+
+    setup = summary["setup"]
+    loose = summary["loose"]
+    strict = summary["strict"]
+    delta = summary["delta_strict_minus_loose"]
+    capital = setup["capital"]
+
+    print("=" * 78)
+    print(f"R10 STRICT-VS-LOOSE ANALYSIS — {out_dir.name}")
+    print(f"Window: {setup['start']} -> {setup['end']}  Capital: ${capital:,.0f}")
+    print(f"Universe: {setup['universe_size']}t  Friction: {setup['friction_level']}")
+    print("=" * 78)
+    print()
+
+    # -----------------------------------------------------------------
+    # §2 Headline
+    # -----------------------------------------------------------------
+    print("## §2 Headline results")
+    print()
+    print("| Metric | Loose | Strict | Δ strict − loose |")
+    print("|---|---|---|---|")
+    print(
+        f"| Final NAV | ${loose['final_nav']:,.0f} | ${strict['final_nav']:,.0f} | "
+        f"${delta['final_nav']:+,.0f} |"
+    )
+    print(
+        f"| Return | {loose['return_pct'] * 100:+.2f}% | {strict['return_pct'] * 100:+.2f}% | "
+        f"{delta['return_pp']:+.2f}pp |"
+    )
+    print(
+        f"| Final cash | ${loose['final_cash']:,.0f} | ${strict['final_cash']:,.0f} | "
+        f"${strict['final_cash'] - loose['final_cash']:+,.0f} |"
+    )
+    print(
+        f"| Put open ATTEMPTS | {loose['n_put_attempts']:,} | {strict['n_put_attempts']:,} | "
+        f"{strict['n_put_attempts'] - loose['n_put_attempts']:+,} |"
+    )
+    print(
+        f"| Puts OPENED | {loose['n_put_opened']:,} | {strict['n_put_opened']:,} | "
+        f"{delta['n_put_opened']:+,} |"
+    )
+    refuse_rate_loose = (
+        100 * (1 - loose["n_put_opened"] / loose["n_put_attempts"])
+        if loose["n_put_attempts"]
+        else 0.0
+    )
+    refuse_rate_strict = (
+        100 * (1 - strict["n_put_opened"] / strict["n_put_attempts"])
+        if strict["n_put_attempts"]
+        else 0.0
+    )
+    print(
+        f"| Put refuse rate | {refuse_rate_loose:.1f}% | {refuse_rate_strict:.1f}% | "
+        f"{refuse_rate_strict - refuse_rate_loose:+.1f}pp |"
+    )
+    print(
+        f"| Put assignments | {loose['n_put_assignments']:,} | {strict['n_put_assignments']:,} | "
+        f"{delta['n_put_assignments']:+,} |"
+    )
+    print(
+        f"| CCs OPENED | {loose['n_cc_opened']:,} | {strict['n_cc_opened']:,} | "
+        f"{delta['n_cc_opened']:+,} |"
+    )
+    rho_loose = loose["spearman_rho_all_candidates"]
+    rho_strict = strict["spearman_rho_all_candidates"]
+    print(
+        f"| Spearman ρ (all candidates) | "
+        f"{rho_loose:.4f} | {rho_strict:.4f} | "
+        f"{(rho_strict - rho_loose):+.4f} |"
+    )
+    print(
+        f"| Mean realized (all candidates) | "
+        f"${loose['mean_realized_all_candidates']:+,.2f} | "
+        f"${strict['mean_realized_all_candidates']:+,.2f} | "
+        f"identical (shared rank) |"
+    )
+    print(
+        f"| Executed realized total | "
+        f"${loose['executed_realized_total']:+,.2f} | "
+        f"${strict['executed_realized_total']:+,.2f} | "
+        f"${strict['executed_realized_total'] - loose['executed_realized_total']:+,.2f} |"
+    )
+    print(
+        f"| Executed realized per trade | "
+        f"${loose.get('executed_realized_mean', 0) or 0:+,.2f} | "
+        f"${strict.get('executed_realized_mean', 0) or 0:+,.2f} | — |"
+    )
+    print()
+
+    # -----------------------------------------------------------------
+    # §2.1 R10 / R9 bind rates
+    # -----------------------------------------------------------------
+    print("## §2.1 D17 hard-block firing breakdown (strict only)")
+    print()
+    print("| Gate | Put refusals | CC refusals | Total | % of all strict refusals |")
+    print("|---|---|---|---|---|")
+    put_rbr = strict.get("put_refuse_by_reason", {}) or {}
+    cc_rbr = strict.get("cc_refuse_by_reason", {}) or {}
+    all_reasons = sorted(set(put_rbr) | set(cc_rbr))
+    grand_refusals = sum(put_rbr.values()) + sum(cc_rbr.values())
+    for r in all_reasons:
+        p = put_rbr.get(r, 0)
+        c = cc_rbr.get(r, 0)
+        tot = p + c
+        pct = (100.0 * tot / grand_refusals) if grand_refusals else 0.0
+        label = r.replace("_", " ")
+        print(f"| `{r}` ({label}) | {p:,} | {c:,} | {tot:,} | {pct:.1f}% |")
+    print(
+        f"| **Total refusals** | **{sum(put_rbr.values()):,}** | "
+        f"**{sum(cc_rbr.values()):,}** | **{grand_refusals:,}** | 100% |"
+    )
+    print()
+
+    # -----------------------------------------------------------------
+    # §2.2 Per-name peak short-option notional
+    # -----------------------------------------------------------------
+    print("## §2.2 Per-name peak short-option notional — top-10 by max %NAV (both trackers)")
+    print()
+    print("Captured from `daily_state.csv` (`max_name_pct` column tracked end-of-day).")
+    print()
+    print("| Tracker | Peak max-name %NAV | Date | n_names at peak |")
+    print("|---|---|---|---|")
+    for label in ("loose", "strict"):
+        sub = daily[daily["tracker"] == label]
+        if sub.empty:
+            print(f"| {label} | n/a | n/a | n/a |")
+            continue
+        peak_row = sub.loc[sub["max_name_pct"].idxmax()]
+        print(
+            f"| {label} | {peak_row['max_name_pct'] * 100:.2f}% | {peak_row['date']} | "
+            f"{int(peak_row['num_names_held'])} |"
+        )
+    print()
+    # Daily max-name-pct distribution — how often does loose breach the 10% R10 cap?
+    breaches_loose = (daily[daily["tracker"] == "loose"]["max_name_pct"] > 0.10).sum()
+    days_loose = (daily["tracker"] == "loose").sum()
+    breaches_strict = (daily[daily["tracker"] == "strict"]["max_name_pct"] > 0.10).sum()
+    days_strict = (daily["tracker"] == "strict").sum()
+    print(
+        f"Loose tracker breached 10% per-name cap on **{breaches_loose} of {days_loose} "
+        f"trading days** ({100 * breaches_loose / days_loose:.1f}%) — that is the rate at which "
+        f"R10 would have bound HAD it been enabled."
+    )
+    print()
+    print(
+        f"Strict tracker breached 10% per-name cap on **{breaches_strict} of {days_strict} "
+        f"trading days** ({100 * breaches_strict / days_strict:.1f}%) — should be 0 by "
+        f"construction; any > 0 indicates an R10 gap (single-name notional from CC + put "
+        f"summed exceeds cap, or a position grew via assignment after R10 check)."
+    )
+    print()
+
+    # -----------------------------------------------------------------
+    # §4 Per-year breakdown
+    # -----------------------------------------------------------------
+    print("## §4 Per-year breakdown (all candidates view + executed view)")
+    print()
+    print(
+        "| Year | n_candidates | ρ (shared) | Mean realized (all) | "
+        "Loose executed | Strict executed | R10 (loose) | R10 (strict) |"
+    )
+    print("|---|---|---|---|---|---|---|---|")
+    loose_years = loose.get("per_year", {}) or {}
+    strict_years = strict.get("per_year", {}) or {}
+    # Per-year executed counts from open_attempts
+    if not attempts_strict.empty:
+        attempts_strict["year"] = pd.to_datetime(attempts_strict["date"]).dt.year
+        per_year_str_exec = (
+            attempts_strict[attempts_strict["outcome"] == "opened"].groupby("year").size().to_dict()
+        )
+        per_year_str_r10 = (
+            attempts_strict[
+                (attempts_strict["outcome"].isin(["refused", "refuse_issue"]))
+                & (attempts_strict["reason"] == "single_name_breach")
+            ]
+            .groupby("year")
+            .size()
+            .to_dict()
+        )
+    else:
+        per_year_str_exec = {}
+        per_year_str_r10 = {}
+    if not attempts_loose.empty:
+        attempts_loose["year"] = pd.to_datetime(attempts_loose["date"]).dt.year
+        per_year_loo_exec = (
+            attempts_loose[attempts_loose["outcome"] == "opened"].groupby("year").size().to_dict()
+        )
+        # R10 doesn't fire in loose mode (gate disabled), but count would-be R10 breaches
+        # from daily_state: days when max_name_pct > 0.10
+        daily_loose = daily[daily["tracker"] == "loose"].copy()
+        daily_loose["year"] = pd.to_datetime(daily_loose["date"]).dt.year
+        per_year_loo_r10 = (
+            daily_loose[daily_loose["max_name_pct"] > 0.10].groupby("year").size().to_dict()
+        )
+    else:
+        per_year_loo_exec = {}
+        per_year_loo_r10 = {}
+    for year in sorted(set(loose_years) | set(strict_years)):
+        ly = loose_years.get(year, {})
+        n = ly.get("n_candidates", 0)
+        rho = ly.get("rho", float("nan"))
+        rho_str = f"{rho:.4f}" if rho is not None else "n/a"
+        mean_r = ly.get("mean_realized_all_candidates", float("nan"))
+        mean_r_str = f"${mean_r:+,.2f}" if mean_r is not None else "n/a"
+        y_int = int(year)
+        loose_exec = per_year_loo_exec.get(y_int, 0)
+        strict_exec = per_year_str_exec.get(y_int, 0)
+        loose_r10_breach_days = per_year_loo_r10.get(y_int, 0)
+        strict_r10 = per_year_str_r10.get(y_int, 0)
+        print(
+            f"| {year} | {n:,} | {rho_str} | {mean_r_str} | "
+            f"{loose_exec} | {strict_exec} | {loose_r10_breach_days} days >10% | {strict_r10} |"
+        )
+    print()
+    print(
+        "`R10 (loose)` = number of EOD days when loose tracker's max-name "
+        "%NAV exceeded 10% (i.e. would-have-been R10 breaches). "
+        "`R10 (strict)` = actual count of strict R10 refusals."
+    )
+    print()
+
+    # -----------------------------------------------------------------
+    # §5 Concentration / R10 firing pattern
+    # -----------------------------------------------------------------
+    print("## §5 Concentration / R10 firing pattern — top tickers by refusal type (strict)")
+    print()
+    if not attempts_strict.empty:
+        for reason in ("single_name_breach", "portfolio_delta_breach", "sector_cap_breach"):
+            sub = attempts_strict[attempts_strict["reason"] == reason]
+            if sub.empty:
+                continue
+            top = (
+                sub.groupby("ticker")
+                .size()
+                .reset_index(name="refuse_count")
+                .sort_values("refuse_count", ascending=False)
+                .head(10)
+            )
+            if top.empty:
+                continue
+            print(f"### `{reason}` — top-10 tickers")
+            print()
+            print("| Ticker | Refuse count |")
+            print("|---|---|")
+            for _, r in top.iterrows():
+                print(f"| {r['ticker']} | {r['refuse_count']:,} |")
+            print()
+    print()
+
+    # -----------------------------------------------------------------
+    # §6 §2 invariant scan
+    # -----------------------------------------------------------------
+    print("## §6 §2 invariant scan")
+    print()
+    print(
+        "Count of OPEN attempts where the strict tracker successfully opened a "
+        "position despite `ev_dollars <= 0` or non-finite (must be 0 — `consume_ranker_row` "
+        "refuses non-positive at issuance)."
+    )
+    print()
+    for label, atts in (("loose", attempts_loose), ("strict", attempts_strict)):
+        if atts.empty:
+            print(f"- {label}: no attempts.")
+            continue
+        opened = atts[atts["outcome"] == "opened"]
+        n_open_with_nonpositive = (opened["ev_dollars"] <= 0).sum()
+        n_open_nonfinite = (~np.isfinite(opened["ev_dollars"])).sum()
+        n_open_total = len(opened)
+        print(
+            f"- **{label}**: opened {n_open_total:,} put positions. "
+            f"With ev_dollars<=0: {n_open_with_nonpositive}. Non-finite: {n_open_nonfinite}. "
+            f"{'§2 OK' if (n_open_with_nonpositive + n_open_nonfinite == 0) else '§2 BREACH'}."
+        )
+    print()
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="HT-D R10 strict-vs-loose backtest driver.")
     ap.add_argument("--start", default="2020-01-02", help="Window start ISO date.")
@@ -1049,7 +1350,19 @@ def main(argv: list[str] | None = None) -> int:
         choices=("24", "100"),
         help="Universe size. Default '100' = UNIVERSE_100.",
     )
+    ap.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Post-hoc analysis mode: read existing out_dir artifacts and emit "
+        "the markdown tables for the report. Skips the backtest.",
+    )
     args = ap.parse_args(argv)
+
+    out_dir = Path(args.out_dir).resolve()
+
+    if args.analyze:
+        analyze(out_dir)
+        return 0
 
     if args.universe == "100":
         tickers = UNIVERSE_100
@@ -1058,7 +1371,6 @@ def main(argv: list[str] | None = None) -> int:
 
         tickers = UNIVERSE_24
 
-    out_dir = Path(args.out_dir).resolve()
     run_strict_vs_loose(
         capital=args.capital,
         tickers=tickers,

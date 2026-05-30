@@ -2,12 +2,12 @@
 id: heavy-r10-strict
 title: R10 strict-mode at $1M/100t scale — load-bearing magnitude guard, never previously backtested
 kind: verification
-status: in-flight
+status: completed
 terminal: D
 pr:
 decisions: []
 date: 2026-05-30
-headline: portfolio_delta_breach is the dominant binding D17 gate (96.7% of refusals in pilot); R10 is a "single-contract entry cap" for high-priced names (BKNG/AZO at $1M NAV), not an "accumulation cap"; loose tracker breached 10% per-name cap on 81.4% of pilot days
+headline: full 5y run — strict loses to loose by −15.81pp; R10 fires 571× exclusively on BKNG/AZO (S44 prediction confirmed); portfolio_delta_breach dominates D17 refusals at 92.1% (R10 only 7.8%); strict opens 31 puts ALL in 2020 then freezes for 4 years; strict ahead 66.6% of days but crosses below loose 2023-11-01
 surface: [docs/HEAVY_R10_STRICT_SCALE.md, docs/verification_artifacts/r10_strict_driver.py]
 ---
 
@@ -128,33 +128,62 @@ deliverable; engine code is untouched per HT-D card rules
 (READ-ONLY on `engine/`; bugs surface as findings for Major Session
 triage, not in-line fixes).
 
+## What worked (full 5y, 2020-01-02 → 2024-12-31, 7.00h wall-clock)
+
+Full-run headlines (see `docs/HEAVY_R10_STRICT_SCALE.md` for the
+complete report):
+
+- **Final NAV: loose $1,405,794 (+40.58%) vs strict $1,247,668
+  (+24.77%) = −15.81pp delta.** Strict loses the 5y race.
+- **Strict was ahead on 66.6% of trading days** (peaked at +$149k /
+  +18.5% NAV during COVID April 2020); crossed below loose
+  permanently on 2023-11-01; ended the run −$158k behind.
+- **R10 bound 571 times.** Exclusively on BKNG (331) + AZO (240) —
+  S44 §7 AI handoff's prediction 100% confirmed.
+- **`portfolio_delta_breach` dominates at 92.1% of D17 refusals**
+  (6,704 of 7,276). R10 = 7.8%; R9 = 0.01% (one AZO fire); Kelly = 0.
+- **Strict opens ALL 31 of its put trades in 2020. Strict opens
+  ZERO puts in 2021, 2022, 2023, 2024.** The portfolio_delta cap
+  saturates from assigned-stock long delta after the initial COVID
+  acquisition phase and never frees room for new entries.
+- **Loose tracker breached 10% per-name cap on 47.8% of trading
+  days** (623 of 1,304); breach rate dropped monotonically from
+  25.36% peak in 2020 → 4.64% peak in 2024 as the loose book
+  naturally diversified.
+- **§2 invariant CLEAN in both modes** (0 opens with non-positive
+  or non-finite EV).
+
 ## Evidence
-- Pilot artifacts: `docs/verification_artifacts/r10_pilot_2020-q1apr_summary.json`
-  + `r10_pilot_2020-q1apr_raw_output.txt`. Full per-day rank logs +
-  attempt logs live in `%TEMP%/r10_pilot/` (NOT committed per Sn
-  throwaway-harness convention).
-- Pilot wall-clock: 26.8min for 86 trading days (0.32 min/day = 18.7
-  s/day) on the dev box. Projects 6.5h for full 5y run.
-- Driver: `docs/verification_artifacts/r10_strict_driver.py` (~1300
-  lines). Compiles + ruff-clean. Both `run_strict_vs_loose` and
-  `analyze` modes exercised against pilot output.
-- Full 5y run launched in background; results to be appended here +
-  in the report doc (`docs/HEAVY_R10_STRICT_SCALE.md`) when it
-  completes.
+- Driver: `docs/verification_artifacts/r10_strict_driver.py`
+  (~1,400 lines). Compiles + ruff-clean. Both `run_strict_vs_loose`
+  and `analyze` modes exercised end-to-end.
+- Pilot artifacts (Q1+April 2020, 86 days, 26.8min):
+  `docs/verification_artifacts/r10_pilot_2020-q1apr_summary.json` +
+  `r10_pilot_2020-q1apr_raw_output.txt`.
+- Full-run artifacts (5y, 1,258 days, 7.00h):
+  `docs/verification_artifacts/r10_full_2020-2024_summary.json` +
+  `r10_full_2020-2024_raw_output.txt` (trimmed; HMM `RuntimeWarning`
+  bookkeeping stripped) + `r10_full_2020-2024_analysis.txt` (the
+  `--analyze` output).
+- Full per-day rank logs + attempt logs + tracker states +
+  equity curves live in `%TEMP%/r10_full/` (NOT committed — they are
+  ~10 MB of CSV/JSON per the canonical Sn throwaway-harness
+  convention). Re-runnable from the driver: `python
+  docs/verification_artifacts/r10_strict_driver.py --start
+  2020-01-02 --end 2024-12-31 --out-dir <some_temp_dir>/r10_full`.
 
 ## Unresolved / handoff
-- **Full 5y run results** to be appended to this fragment + the report
-  doc when complete. Critical question for full run: does strict-
-  mode's lower deployment DRAG performance during the 2021-2024 bull
-  years (offsetting the Q1-2020 preservation seen in the pilot)?
-- **Structural finding for Major Session triage**: the dominance of
-  `portfolio_delta_breach` (96.7% of refusals in the pilot) may
-  warrant a follow-up D-decision about whether the ±$300 / $100k NAV
-  default is well-calibrated for the wheel strategy. The cap was set
-  in D17 for a generic options book; a wheel book with assigned-
-  shares legs has STRUCTURALLY long delta, and the cap may bind too
-  early relative to the strategy's intended exposure profile. NOT
-  in scope for HT-D — flagged as a finding.
+- **`portfolio_delta_breach` is STRUCTURALLY MISCALIBRATED for the
+  wheel strategy.** A wheel book has long-delta from assigned stock
+  by design; the ±$300 / $100k NAV cap (set in D17 for a generic
+  options book per #154 C4) freezes the strict tracker after the
+  assigned-stock book exceeds ~$3,000 delta-dollars at $1M NAV
+  (which happens after ~21 assigned positions at any realistic
+  spot). **Recommended follow-up D-decision**: either exclude
+  stock-leg delta from `check_portfolio_delta`'s aggregation, scale
+  the cap with deployed (not initial) capital, or set a wheel-
+  specific cap multiplier. Out of HT-D scope; flagged for Major
+  Session triage.
 - **R10 in entry-only mode** cannot prevent assignment-driven per-name
   accumulation breaches (loose tracker reached 25.36% per-name on
   2020-03-23 via assignments, not new opens). A future card could
@@ -162,3 +191,16 @@ triage, not in-line fixes).
   CC on a name already > 10% NAV) or a closing-side R10 (force-close
   on a name that grew past the cap via assignment). Outside HT-D
   scope; surfaced as a finding.
+- **The deployment-story answer is regime-dependent.** Strict won
+  every bear / drawdown phase (peaked +$149k ahead in COVID-April-
+  2020); loose won the 2023-2024 bull recovery. Over the full 5y
+  window, loose wins by −15.81pp. A regime-aware strict/loose
+  switching strategy is a separate (large) research surface — out
+  of HT-D scope.
+- **R10's binding rate is non-stationary across the run.** Loose's
+  max-name %NAV monotonically decreased from 25.4% (2020) to 4.6%
+  (2024) as the book naturally diversified. **R10 is most useful in
+  early-phase / drawdown-shock phases when concentration is acute;
+  less useful in steady-state when the book has self-diversified.**
+  Production implication: R10 adds the most defensive value in the
+  first 1-2 years after a fresh deployment, less in years 3+.

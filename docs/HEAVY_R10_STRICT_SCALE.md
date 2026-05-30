@@ -44,8 +44,18 @@ loose delta isolates R10/D17 cleanly.
 
 ## 1. Setup
 
-- **Window:** 2020-01-02 → 2024-12-31 (1,258 trading days — identical to
-  S38 / S44 / S43 W3)
+- **Window:** 2020-01-02 → 2024-12-31. Same calendar window as
+  S38 / S44 / S43 W3, but the driver iterates **1,304 business days**
+  (`pd.bdate_range`, Mon-Fri excluding weekends only) whereas S38's
+  harness used a US-holiday-aware 1,258-trading-day filter. The
+  difference is ~46 US market holidays — they are no-op iterations
+  on both trackers (no fresh rank data, no opens), so the A/B is
+  byte-clean over the same 1,304 days, but the methodological claim
+  "identical to S38/S44" is softened by the calendar filter; the
+  shared-rank ρ = 0.4326 confirms the input is identical on the
+  trading days that ARE common. Earlier draft erroneously cited
+  S38's 1,258 as this run's count — corrected below in §2.2 / §3 /
+  §10 to the driver's actual 1,304.
 - **Capital:** $1M
 - **Universe:** `backtests.regression.universes.UNIVERSE_100` (100 first-
   alphanumeric SP500 tickers — same as S34 / S38 / S40 / S43 / S44)
@@ -69,8 +79,8 @@ loose delta isolates R10/D17 cleanly.
   contract sizing).
 - **Engine SHA under test:** `origin/main` @ `56c671d` (cycle-1-close).
 - **Driver:** `docs/verification_artifacts/r10_strict_driver.py` (this
-  PR). Wall-clock 7.0h (419.7 min for 1,258 trading days = 20.0 s/day,
-  modestly slower than S38's 18.7 s/day pilot rate because the
+  PR). Wall-clock 7.0h (419.7 min for **1,304 business days = 19.3
+  s/day**, modestly slower than the 18.7 s/day pilot rate because the
   strict-mode path adds D17 gate evaluation on every refused attempt —
   6,704 extra `_evaluate_d17_hard_blocks` calls vs the loose path).
 - **Output artifacts:** `rank_log_{loose,strict}.csv`,
@@ -502,9 +512,9 @@ as a deployment-bundle:
   `ohlcv_sha256`) from `backtests/regression/_common.py` and the
   canonical `UNIVERSE_100` from `backtests/regression/universes.py`
   to keep the comparison apples-to-apples with S38 / S44 / S43.
-- **Compute:** 7.00h wall-clock (419.7 min for 1,258 trading days =
-  20.0 s/day; modestly slower than S38's 18.7 s/day because the
-  strict-mode path adds `_evaluate_d17_hard_blocks` evaluation on
+- **Compute:** 7.00h wall-clock (419.7 min for **1,304 business days =
+  19.3 s/day**; modestly slower than the 18.7 s/day pilot rate because
+  the strict-mode path adds `_evaluate_d17_hard_blocks` evaluation on
   6,704 refused attempts that the loose path skips).
 - **Methodology — A/B harness:** Both trackers built inside ONE
   `run_strict_vs_loose` call. They share **one** daily

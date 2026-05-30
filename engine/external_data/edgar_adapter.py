@@ -293,6 +293,14 @@ class EDGARAdapter:
         if len(hist) < min_history:
             return None
 
+        # Dedupe same-date filings before computing inter-filing deltas.
+        # Multiple Item 2.02 8-Ks on one date (earnings release + a
+        # same-day restated guidance amendment) inject 0-day deltas that
+        # can collapse the median to 0 and stall the roll-forward loop.
+        hist = hist.drop_duplicates(subset=["filing_date"], keep="last")
+        if len(hist) < min_history:
+            return None
+
         # Inter-filing deltas in days; median is robust to occasional
         # delayed filings (e.g. when an 8-K Item 2.02 also bundles
         # restated guidance, the SEC accept timestamp may slip).
@@ -300,6 +308,11 @@ class EDGARAdapter:
         if deltas.empty:
             return None
         median_days = float(deltas.median())
+        if median_days <= 0:
+            # Should not happen post-dedupe, but a pathological
+            # filing_date sequence could still yield a non-positive
+            # median — reject rather than risk an infinite loop below.
+            return None
         last_filing = hist["filing_date"].iloc[-1]
         projected = last_filing + pd.Timedelta(days=int(round(median_days)))
         # Don't project a date that's already past — clamp forward to

@@ -108,6 +108,37 @@ def _existing_tickers(out_path: Path) -> set[str]:
         return set()
 
 
+def merge_with_existing(
+    old_df: pd.DataFrame,
+    new_df: pd.DataFrame,
+    *,
+    refresh: bool,
+) -> pd.DataFrame:
+    """Merge ``new_df`` into ``old_df`` and return the combined frame.
+
+    Append-only mode (``refresh=False``): concatenate both, dedupe on
+    ``(ticker, accession)`` keeping the latest row.
+
+    Refresh mode (``refresh=True``): drop rows from ``old_df`` for any
+    ticker present in ``new_df`` (i.e. successfully refreshed in this
+    run), then merge. Tickers absent from ``new_df`` — including ones
+    the operator asked to refresh but which transiently failed or
+    returned empty — keep their prior rows so a partial refresh never
+    silently destroys previously-pulled data.
+    """
+    if refresh:
+        refreshed = set(new_df["ticker"].astype(str).str.upper().unique())
+        retained = old_df[~old_df["ticker"].astype(str).str.upper().isin(refreshed)]
+    else:
+        retained = old_df
+    return (
+        pd.concat([retained, new_df], ignore_index=True)
+        .drop_duplicates(subset=["ticker", "accession"], keep="last")
+        .sort_values(["ticker", "filing_date"])
+        .reset_index(drop=True)
+    )
+
+
 def pull_ticker(
     adapter: EDGARAdapter,
     ticker: str,
@@ -197,18 +228,13 @@ def main() -> int:
         return 0
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    if out_path.exists() and not args.refresh:
-        # Append to existing parquet
+    if out_path.exists():
         old_df = pd.read_parquet(out_path)
-        combined = (
-            pd.concat([old_df, new_df], ignore_index=True)
-            .drop_duplicates(subset=["ticker", "accession"], keep="last")
-            .sort_values(["ticker", "filing_date"])
-            .reset_index(drop=True)
-        )
+        combined = merge_with_existing(old_df, new_df, refresh=args.refresh)
+        action = "Refreshed" if args.refresh else "Appended"
         combined.to_parquet(out_path, index=False)
         print(
-            f"\nAppended {len(new_df)} rows ({len(combined)} total) → {out_path}  "
+            f"\n{action} {len(new_df)} rows ({len(combined)} total) → {out_path}  "
             f"in {elapsed:.1f}s  |  {n_err} errors, {n_empty} empty."
         )
     else:

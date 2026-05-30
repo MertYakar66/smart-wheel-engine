@@ -459,3 +459,131 @@ class TestProjectNextEarnings:
         res = adapter.project_next_earnings("AAPL", as_of="2026-05-15")
         assert res is not None
         assert res["announcement_date"] > pd.Timestamp("2026-05-15")
+
+    def test_same_date_filings_do_not_stall_projection(self, mock: rm_module.Mocker):
+        """Two Item 2.02 8-Ks on the same calendar date (an earnings
+        release plus a same-day restated-guidance amendment, say) would
+        inject a 0-day delta into the median; before the guard, that
+        could collapse the median to 0 and the roll-forward loop would
+        spin forever. After the fix the duplicate is dropped pre-median
+        and the projection lands as if the duplicate had never been
+        filed; n_history reflects the deduped count."""
+        mock.get(COMPANY_TICKERS_URL, json=_ticker_index())
+        # 5 raw filings → 4 unique dates after dedupe. Quarterly cadence
+        # of ~91 days is unchanged because the same-date pair collapses
+        # to one entry instead of injecting a stray 0.
+        mock.get(
+            f"{_EDGAR_BASE}/submissions/CIK0000320193.json",
+            json=_submissions_with_items(
+                filing_dates=[
+                    "2026-04-30",
+                    "2026-04-30",  # same-date duplicate
+                    "2026-01-30",
+                    "2025-10-30",
+                    "2025-07-30",
+                ],
+                forms=["8-K"] * 5,
+                items=["2.02"] * 5,
+            ),
+        )
+        adapter = EDGARAdapter(min_interval_s=0.0)
+        res = adapter.project_next_earnings("AAPL", as_of="2026-05-15")
+        assert res is not None
+        # Unique filing dates feed the projection — 4, not 5.
+        assert res["n_history"] == 4
+        # Median must be the cadence (~91 d), not 0.
+        assert res["median_quarter_days"] > 0
+        # Projection still lands ~92 days after 2026-04-30, i.e. late
+        # July 2026 — the duplicate had no effect on the forward jump.
+        proj = res["announcement_date"]
+        expected = pd.Timestamp("2026-07-31")
+        assert abs((proj - expected).days) <= 5
+
+
+# =========================================================================
+# Puller helper — scripts/pull_edgar_earnings.py
+# =========================================================================
+class TestMergeWithExisting:
+    """Pin the parquet-merge contract for ``scripts/pull_edgar_earnings``:
+    append-only mode concatenates and dedupes on ``(ticker, accession)``;
+    refresh mode drops only the rows for successfully-refreshed tickers
+    so a partial-refresh run never silently destroys prior data."""
+
+    def _row(self, ticker: str, accession: str, day: str) -> dict:
+        return {
+            "ticker": ticker,
+            "filing_date": pd.Timestamp(day),
+            "accession": accession,
+            "items": "2.02",
+            "primary_document": f"{accession}.htm",
+            "pulled_at": pd.Timestamp("2026-05-29"),
+        }
+
+    def test_refresh_preserves_other_tickers(self):
+        """``--refresh`` with only AAPL in ``new_df`` must keep MSFT's
+        prior rows untouched — the pre-fix behaviour overwrote the whole
+        parquet with just AAPL."""
+        from scripts.pull_edgar_earnings import merge_with_existing
+
+        old_df = pd.DataFrame(
+            [
+                self._row("AAPL", "acc-aapl-1", "2026-01-30"),
+                self._row("MSFT", "acc-msft-1", "2026-01-25"),
+                self._row("MSFT", "acc-msft-2", "2026-04-25"),
+            ]
+        )
+        new_df = pd.DataFrame(
+            [
+                self._row("AAPL", "acc-aapl-2", "2026-04-30"),
+            ]
+        )
+        combined = merge_with_existing(old_df, new_df, refresh=True)
+        # MSFT rows preserved.
+        msft = combined[combined["ticker"] == "MSFT"]
+        assert len(msft) == 2
+        # AAPL's old accession dropped (re-pulled this run), new one in.
+        aapl = combined[combined["ticker"] == "AAPL"]
+        assert list(aapl["accession"]) == ["acc-aapl-2"]
+
+    def test_refresh_failed_ticker_keeps_prior_rows(self):
+        """If a refresh asks for AAPL+MSFT but only MSFT actually
+        returns rows (AAPL hit a transient SEC failure / empty), AAPL's
+        old rows must stay in the parquet — losing them would be a
+        silent data destruction the operator wouldn't notice until the
+        next backtest. (MSFT is fully replaced by the new pull because
+        the SEC's recent-filings block is authoritative for any ticker
+        we successfully re-pulled.)"""
+        from scripts.pull_edgar_earnings import merge_with_existing
+
+        old_df = pd.DataFrame(
+            [
+                self._row("AAPL", "acc-aapl-1", "2026-01-30"),
+                self._row("MSFT", "acc-msft-1", "2026-01-25"),
+            ]
+        )
+        # Refresh round only produced MSFT (AAPL failed → not in new_df).
+        new_df = pd.DataFrame([self._row("MSFT", "acc-msft-2", "2026-04-25")])
+        combined = merge_with_existing(old_df, new_df, refresh=True)
+        # AAPL's prior row preserved despite AAPL being on the refresh list.
+        aapl = combined[combined["ticker"] == "AAPL"]
+        assert list(aapl["accession"]) == ["acc-aapl-1"]
+        # MSFT was successfully refreshed → its prior row is dropped and
+        # only the new pull's row remains.
+        msft = combined[combined["ticker"] == "MSFT"]
+        assert list(msft["accession"]) == ["acc-msft-2"]
+
+    def test_append_mode_dedupes_on_ticker_accession(self):
+        """Append-only mode is the default: concatenate then drop
+        duplicates on ``(ticker, accession)`` keeping the latest row.
+        The new pull's ``pulled_at`` should win for shared accessions."""
+        from scripts.pull_edgar_earnings import merge_with_existing
+
+        old_df = pd.DataFrame([self._row("AAPL", "acc-1", "2026-01-30")])
+        new_df = pd.DataFrame(
+            [
+                self._row("AAPL", "acc-1", "2026-01-30"),  # same accession
+                self._row("AAPL", "acc-2", "2026-04-30"),  # new accession
+            ]
+        )
+        combined = merge_with_existing(old_df, new_df, refresh=False)
+        assert sorted(combined["accession"].tolist()) == ["acc-1", "acc-2"]

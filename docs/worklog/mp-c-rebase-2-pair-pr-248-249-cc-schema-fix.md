@@ -34,7 +34,7 @@ Both PRs touch the decision-layer trio, so each PR body needed a `lane-claim` bl
 2. **Rebased `claude/lucid-davinci-pm15H-pct-spread` onto `origin/main`.** Two commits replayed without conflict. The merge-base was `70fdb78` — 12 PRs of drift, none touching `EVResult` / `_CC_RANK_CORE_COLUMNS`, which is why the replay was clean.
 3. **Reproduced the #248 P2 bug by reading.** `rank_covered_calls_by_ev` builds its survivor frame with `pd.DataFrame(rows, columns=cols)` where `cols = list(_CC_RANK_CORE_COLUMNS)` (+ diagnostics). The row dict at L2538–2554 writes `pnl_p25/50/75`, but those keys aren't in `_CC_RANK_CORE_COLUMNS` so pandas drops them silently on CC rows. Put-side rows survive only because `rank_candidates_by_ev` builds its frame without `columns=`.
 4. **Two fix shapes considered:** (a) add the three keys to `_CC_RANK_CORE_COLUMNS`; (b) drop `columns=cols` and let pandas infer. Chose (a) — the pinned schema is what makes `_empty()` return a same-shaped zero-row frame and what the `TestSchema` tests assert against. Dropping `columns=` would silently un-pin the shape contract.
-5. **Rebased `claude/lucid-davinci-pm15H-sever-news` onto rebased #248** with `git rebase --onto`. One conflict: a meaningless three-way text overlap inside `engine/wheel_runner.py` between #248's new percentile read and a docstring expansion that landed in main; resolved by keeping the percentile read intact. D18 in `DECISIONS.md` carries through unchanged — main still tops at D17 so the slot is free.
+5. **Rebased `claude/lucid-davinci-pm15H-sever-news` onto rebased #248** with plain `git rebase claude/lucid-davinci-pm15H-pct-spread` (no `--onto`, no merge-base override — the two branches share the same merge-base `70fdb78`). Git reported `Successfully rebased and updated refs/heads/claude/lucid-davinci-pm15H-sever-news` on the single news-severance commit; **zero conflicts**, despite the wider main-vs-old-base divergence (12 PRs landed on main between the original branch point and `482bc79`). The news-severance commit only meaningfully edits `engine/news_sentiment.py`, `DECISIONS.md`, and three test files — no overlap with the intervening main changes. D18 in `DECISIONS.md` carries through unchanged; main still tops at D17 so the slot is free.
 
 ## What worked
 
@@ -65,10 +65,13 @@ Both PRs touch the decision-layer trio, so each PR body needed a `lane-claim` bl
 ### #249 — sever-news
 
 1. `git checkout claude/lucid-davinci-pm15H-sever-news`
-2. `git rebase --onto claude/lucid-davinci-pm15H-pct-spread <old-base>` so the news-severance commit lands on top of the rebased #248 head.
+2. `git rebase claude/lucid-davinci-pm15H-pct-spread` — plain rebase (NOT `--onto`); git replayed the single news-severance commit cleanly on top of rebased #248 and reported `Successfully rebased (1/1)`. **Zero conflicts** despite the 12-PR drift on main since the original branch point.
 3. Verified D18 is still in `DECISIONS.md` after the replay (no edits needed — the commit carries the full D18 block).
-4. Added a `lane-claim` block in the PR body naming `engine/wheel_runner.py` + `engine/news_sentiment.py`.
-5. `git push --force-with-lease`.
+4. `python scripts/sync_manifest.py --fix` — added `tests/test_news_severance.py` under `## Untriaged additions` in `FILE_MANIFEST.md` (pre-existing gap from the original commit; the post-#279 `FILE_MANIFEST Coverage` CI gate would have flagged it). Sixth commit on the branch (`chore(file_manifest): ...`).
+5. Added a `lane-claim` block in the PR body naming `engine/ev_engine.py`, `engine/wheel_runner.py`, and `engine/news_sentiment.py` — the first two are touched via the stacked #248 commits, the third is the actual #249 surface.
+6. `git push --force-with-lease`.
+
+Final commit count: **6 commits above `origin/main`** (#248's 4 + the news-severance commit + the manifest fixup) — confirmed by `git log --oneline origin/main..HEAD` showing 6 entries after push.
 
 ### Shared cleanup
 

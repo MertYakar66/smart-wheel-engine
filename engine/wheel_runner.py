@@ -221,6 +221,12 @@ _CC_RANK_CORE_COLUMNS = [
     "contracts",
     "ev_dollars",
     "ev_per_day",
+    # Raw P&L distribution spread (pre regime/dealer multipliers) — mirrors
+    # the put-side ranker row; without these the row dict's pnl_p25/50/75
+    # keys are silently dropped by `pd.DataFrame(rows, columns=cols)` below.
+    "pnl_p25",
+    "pnl_p50",
+    "pnl_p75",
     "prob_profit",
     "prob_assignment",
     "days_to_earnings",

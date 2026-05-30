@@ -200,6 +200,46 @@ defence-in-depth.
 Wall time on the dev box: 5-15 minutes (full SP500 scan +
 dossier batch + tracker walkthrough + §2 invariants).
 
+## Cross-verification (PR #289)
+
+A paired Verifier Session independently reproduced HT-A's headline
+claims off a fresh checkout at `as_of=2026-03-20` — top-6 EVs
+exact (FIX 2547.56, BKNG 1468.83, NVR 1439.85, AZO 1374.72,
+KLAC 1260.65, MCK 1109.92), tail-widening 2/20 pattern matched
+(BKNG 1.0368, AZO 1.0055), three sector_cap_breach percentages
+exact (FIX 48.5%, FICO 39.7%, REGN 27.1%), D16 token-gate refusal
+on negative-EV row independently confirmed. The verifier also
+re-ran the universe scan and arrived at the same `336 positive-EV
+survivors` count (= 503 − 167 drops; trim = 316), then computed
+two pool-wide stats my driver hadn't:
+
+- 262 / 336 (78.0%) percentile collapse pool-wide (vs the 20/20
+  I captured for the displayed rows).
+- 257 / 336 (76.5%) `sector='Unknown'` pool-wide (vs the 11/20 I
+  captured for the displayed rows — i.e. the sector-map gap is
+  broader pool-wide than the doc cited).
+
+Two scoping/portability follow-ups flagged + addressed in the
+same PR:
+
+1. **Driver portability.** `WORKTREE = Path(r"C:\...swe-terminal-a")`
+   hardcoded on line 46 made the driver non-portable across
+   clones. Switched to `Path(__file__).resolve().parents[2]`
+   (matching `s41_f4_validation_driver.py`'s convention noted in
+   `FILE_MANIFEST.md` line 302).
+2. **F-A7 scoping precision.** Original wording "every one of the
+   20" is accurate as-scoped to displayed rows; widened by
+   adding Ask 1b to the driver so the pool-wide collapse rate is
+   *my* measurement, not the verifier's. Doc §4.1 + §6 F-A7
+   updated with the 262/336 figure and the "every non-collapsed
+   row still has P50==P75" structural observation.
+
+Sector-map pool-wide rate (257/336) NOT added to the driver in
+this delta — would have needed another full SP500 re-rank pass.
+The verifier's measurement is cited as cross-reference in the
+doc's reproducibility section. Future driver-extension scope, not
+a correctness gap.
+
 ## Unresolved / handoff
 
 - **9 findings sit in `docs/HEAVY_PERSONA_WALKTHROUGH.md` §6.**

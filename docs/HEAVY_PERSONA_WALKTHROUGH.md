@@ -28,6 +28,11 @@ The driver runs end-to-end on the Bloomberg-CSV path (default
 1. `WheelRunner.rank_candidates_by_ev` over the full SP500 universe
    (35 DTE, 25-delta, 1 contract, top 20, positive-EV only,
    `include_diagnostic_fields=True`).
+1b. *Ask 1b — pool-wide measurement.* Re-ranks with `top_n=10**9`
+   so F-A1 (silent trim) and F-A7 (percentile-collapse rate) are
+   cited from *measured* pool numbers, not derived ones. Added in
+   the PR #289 follow-up after the cross-verifier flagged the
+   scoping nuance.
 2. `WheelRunner.select_book` to fit a $250k account under a 25%/name
    concentration cap (§2-safe knapsack post-processor — never calls
    `EVEngine`).
@@ -190,6 +195,12 @@ that reports "there are N total positive-EV candidates today";
 they must either re-run with `top_n=10**9` or use
 `select_book(tickers=None)` (which auto-sets `top_n=10**9`). See
 Finding **F-A1**.
+
+*Ask 1b directly measures the pool* — re-ranks with `top_n=10**9`,
+the result is **336 positive-EV survivors** (raw output L106) with
+the same drops_summary as Ask 1. Arithmetic check (raw output L110):
+`universe(503) − drops(167) − shown(20) − trimmed(316) = 0`. The
+"316 missing" claim is now a direct measurement, not a subtraction.
 
 ---
 
@@ -422,7 +433,18 @@ IQR (P75 - P25) = $0.00
 The "headline P&L distribution spread" the engine advertises
 collapses to a single point estimate for FIX. The full output
 table (L20-65) confirms this is true for *every one of the 20
-survivors*: P25 == P50 == P75 in every row.
+displayed survivors*: P25 == P50 == P75 in every row.
+
+**Pool-wide rate (raw output L112-113):** Ask 1b measured the
+collapse across the entire positive-EV pool (336 candidates) —
+**262 of 336 (78.0%)** collapse to a single point. The remaining
+74 names are listed at raw output L115-189; *every single one*
+exhibits `P50 == P75` with only the lower-quartile `P25`
+separating downward (e.g. GWW 1215.25 / 1329.60 / 1329.60).
+This is structural: at 35 DTE on empirical non-overlapping
+forward returns over a 504-day history, the upper-quartile
+samples almost always cluster on "max profit = full premium
+kept" and only the bottom 25% pulls the P25 down.
 
 The cause is structural: at 35 DTE on an empirical
 non-overlapping forward distribution, the sample size is too
@@ -621,13 +643,13 @@ is the CLAUDE.md §2 hard guardrail observed live.**
 
 | # | Severity | Title | Pointer |
 |---|---|---|---|
-| **F-A1** | SURFACE | 316 of 503 universe tickers are silently truncated by `top_n` | §1.3 + §1.2 |
+| **F-A1** | SURFACE | 316 of 503 universe tickers are silently truncated by `top_n` (pool measured at 336) | §1.3 + §1.2 |
 | **F-A2** | SURFACE | `select_book(ranking=ranking)` silently uses the truncated frame | §3.1 |
 | **F-A3** | SURFACE → GAP | 11 of 20 survivors collapse to `sector="Unknown"`; R9 treats Unknown as one bucket | §1.2 + §3.4 |
 | **F-A4** | SURFACE → GAP | Bloomberg-default path: 4 multipliers structurally 1.0 (news / credit / dealer / skew); tail-widening fires only 2/20; HMM dominates the regime overlay | §1.2 + §4.3 |
 | **F-A5** | SURFACE | `cvar_99_evt`, `tail_xi`, `heavy_tail=False` look like assessments but are unevaluated defaults at 35 DTE | §1.2 + §4.2 |
 | **F-A6** | SURFACE → GAP | Dossier R7-R10 portfolio-risk soft-warns are unreachable on Bloomberg-default path (R2 fires first) | §3.3 |
-| **F-A7** | SURFACE | `pnl_p25 == pnl_p50 == pnl_p75` for every one of the 20 survivors — distribution headline collapses | §4.1 |
+| **F-A7** | SURFACE | `pnl_p25 == pnl_p50 == pnl_p75` for every displayed row (20/20); pool-wide 262/336 (78%) collapse | §4.1 |
 | **F-A8** | §2 (positive) | D17 sector_cap_breach fires correctly 3× with full audit-log narrative + NAV provenance | §3.2 + §3.4 |
 | **F-A9** | §2 (positive) | D16 leg 1 + leg 2, dossier R1 + R1a, "reviewer never upgrades" all observed upheld | §5 |
 
@@ -643,6 +665,13 @@ Detail follows.
 and were trimmed by `.head(20)` after the sort. The frame has no
 field that reports the total positive-EV survivor count, and no
 trim-aware analog of `drops_summary` (e.g. `attrs['trimmed_count']`).
+
+**Measured by Ask 1b** (raw output L106): the pool size is **336
+positive-EV survivors** (`top_n=10**9` re-rank, same kwargs). The
+"316" figure is now a measurement (`336 - 20`), not an inferred
+subtraction. The arithmetic check `universe(503) − drops(167) −
+shown(20) − trimmed(316) = 0` (raw output L110) closes the
+discoverability gap directly.
 
 **Where.** `engine/wheel_runner.py:1795-1797`:
 
@@ -835,15 +864,19 @@ actually evaluated vs which were skipped because R2 returned
 first. Alternatively, allow R7-R10 to run when chart is missing
 but mark the result as `partial`.
 
-### F-A7 — `pnl_p25 == pnl_p50 == pnl_p75` for every survivor
+### F-A7 — `pnl_p25 == pnl_p50 == pnl_p75` for every displayed survivor; pool-wide rate 78%
 
 **Severity:** SURFACE.
 
 **What.** The "headline P&L distribution percentiles" collapse for
-every survivor at 35 DTE on the empirical non-overlapping
+every displayed survivor at 35 DTE on the empirical non-overlapping
 distribution. The driver observed `IQR = $0.00` for the top
 survivor; the table at raw output L20-65 confirms this pattern
-across all 20 rows.
+across all **20 displayed rows**. *Pool-wide, the collapse rate is
+**262 / 336 (78.0%)*** (raw output L112-113), and *every* one of
+the 74 non-collapsed names has `P50 == P75` with only the
+lower-quartile `P25` separating downward — see raw output
+L115-189 for the list.
 
 **Where.** `engine/ev_engine.py:166-174` (dataclass) +
 `engine.forward_distribution` + the percentile computation in
@@ -853,14 +886,20 @@ across all 20 rows.
 "verdict-as-distribution-not-point-estimate" surface. When they
 collapse, the persona loses the distributional read. Cvar_5
 remains meaningful (it samples the tail) but the body of the
-distribution is lost.
+distribution is lost. Even on the 22% of names where the
+percentiles "separate", they only separate at the *bottom* end —
+P75 is always max-profit, so the operator gets no upper-tail
+information either way.
 
 **Suggested fix shape (NOT a fix).** Either flag the collapse with
 a `pnl_percentile_status` field (`degenerate` /
 `insufficient_samples` / `ok`) or fall back to the empirical
 forward-distribution sample's own percentiles when the post-EV
-P&L distribution is degenerate. This is well below §2 — it's
-operator surface.
+P&L distribution is degenerate. The structural P50==P75 pattern
+suggests reporting a single `pnl_lower_tail_p25` plus the existing
+`mean_pnl` would carry strictly more information than three
+identical percentiles. This is well below §2 — it's operator
+surface.
 
 ### F-A8 — D17 sector_cap_breach fires correctly 3× with full audit trail
 
@@ -960,3 +999,15 @@ _Generated by an autonomous Terminal A session under HT-A. The
 findings doc + driver + raw output are committed together so a
 future agent can re-run, diff, and audit the findings against the
 captured artifact._
+
+**Cross-verification (PR #289 follow-up).** A paired Verifier
+Session independently reproduced the headline claims off a fresh
+checkout at `as_of=2026-03-20`: top-6 EVs, the P25 = P50 = P75
+collapse, the four 1.0 multipliers (news / credit / dealer / skew)
++ tail-widening firing on 2 of 20, the three sector_cap_breach
+percentages, and the D16 token-gate refusal on negative EV — all
+matched bit-for-bit. The verifier flagged two scoping/portability
+follow-ups (driver hardcoded `WORKTREE`; F-A7's "every one of the
+20" worth widening to a pool-wide rate); both are addressed in
+the same PR via this update + the `__file__`-relative path
+bootstrap. CI 9/9 green; engine/ byte-identical at `56c671d`.

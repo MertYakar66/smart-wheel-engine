@@ -8,14 +8,19 @@ This driver is deliberately a single file with flat-printed output so the
 captured `_raw_output.txt` is grep-able and the findings doc in
 `docs/HEAVY_PERSONA_WALKTHROUGH.md` can cite specific numbers/lines.
 
-Four operator asks, in order:
-    Ask 1 — "rank me 20 names" — full SP500 scan at as_of=2026-03-20.
-    Ask 2 — "why was X filtered" — pick a dropped name, surface gate + reason.
-    Ask 3 — "size this within a $250k book" — knapsack fit + tracker with
-            require_ev_authority=True + PortfolioContext + R7-R10 soft-warns.
-    Ask 4 — "what's the downside if I get assigned" — for one survivor:
-            forward distribution percentiles, CVaR_5, CVaR_99 EVT, tail_xi,
-            dealer regime, walls, breakeven, ROC.
+Four operator asks plus an explicit-measurement sub-probe:
+    Ask 1  — "rank me 20 names" — full SP500 scan at as_of=2026-03-20.
+    Ask 1b — pool-wide survivor count + percentile-collapse rate. Re-ranks
+             with top_n=10**9 so the F-A1 (silent trim) and F-A7 (percentile
+             collapse) findings cite *measured* pool numbers rather than
+             derived ones. Added in the PR #289 follow-up after the
+             cross-verifier flagged the scoping nuance for F-A7.
+    Ask 2  — "why was X filtered" — pick a dropped name, surface gate + reason.
+    Ask 3  — "size this within a $250k book" — knapsack fit + tracker with
+             require_ev_authority=True + PortfolioContext + R7-R10 soft-warns.
+    Ask 4  — "what's the downside if I get assigned" — for one survivor:
+             forward distribution percentiles, CVaR_5, CVaR_99 EVT, tail_xi,
+             dealer regime, walls, breakeven, ROC.
 
 End-of-run trace of §2 invariants:
     * issuance refuses non-positive EV (D16 leg 1).
@@ -43,7 +48,12 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-WORKTREE = Path(r"C:\Users\merty\Desktop\swe-terminal-a").resolve()
+# Path bootstrap is `__file__`-relative so this driver runs on any clone
+# without an edit. The driver sits at `docs/verification_artifacts/<this>.py`,
+# so `parents[2]` is the worktree root. Matches the convention
+# `s41_f4_validation_driver.py` already uses in this directory and removes
+# the hardcoded-WORKTREE portability wart flagged on PR #289.
+WORKTREE = Path(__file__).resolve().parents[2]
 if str(WORKTREE) not in sys.path:
     sys.path.insert(0, str(WORKTREE))
 
@@ -242,6 +252,88 @@ if top_survivor is not None:
         f"ev_dollars=${top_survivor['ev_dollars']}  "
         f"ev_per_day=${top_survivor['ev_per_day']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Ask 1b — pool-wide survivor count + percentile-collapse rate
+# ---------------------------------------------------------------------------
+# F-A1 in the findings doc says "316 of 503 tickers are positive-EV survivors
+# silently trimmed by .head(top_n=20)". The number is computed by arithmetic
+# (503 - 167 drops - 20 shown). This sub-probe recomputes it directly by
+# re-ranking with top_n=10**9 and counting, so the finding cites a
+# *measured* pool size rather than a derived one. Also widens F-A7's
+# percentile-collapse claim from "every one of the 20 displayed" to a
+# pool-wide rate — flagged by the cross-verifier on PR #289 as the
+# precise-scoping nuance worth carrying.
+hline("Ask 1b — pool-wide survivor count + percentile-collapse rate")
+print(
+    "Trader follow-up: 'How many positive-EV candidates exist TOTAL right\n"
+    "now (not just the 20 shown), and across the full pool how often does\n"
+    "the pnl_p25 / pnl_p50 / pnl_p75 spread collapse?'\n"
+)
+
+pool_ranking = runner.rank_candidates_by_ev(
+    tickers=None,
+    dte_target=35,
+    delta_target=0.25,
+    contracts=1,
+    top_n=10**9,  # ≫ universe size; effectively "all positive-EV survivors"
+    min_ev_dollars=0.0,
+    as_of=AS_OF,
+    include_diagnostic_fields=True,
+)
+pool_drops = pool_ranking.attrs.get("drops", [])
+pool_drops_summary = pool_ranking.attrs.get("drops_summary", {})
+
+print("Pool-wide rank result:")
+print(f"  positive-EV survivors (rows in frame) : {len(pool_ranking)}")
+print(f"  drops (.attrs['drops_summary'])       : {pool_drops_summary}")
+print(f"  universe size                         : {universe_size}")
+trimmed_count = (len(pool_ranking) - len(ranking)) if not pool_ranking.empty else 0
+print(
+    f"  silently trimmed by display top_n=20  : "
+    f"{len(pool_ranking) - len(ranking)}  "
+    f"(= pool {len(pool_ranking)} - shown {len(ranking)})"
+)
+arith_check = (
+    universe_size - len(pool_drops) - len(ranking) - max(0, len(pool_ranking) - len(ranking))
+)
+print(
+    f"  arithmetic check: universe - drops - shown - trimmed = "
+    f"{universe_size} - {len(pool_drops)} - {len(ranking)} - "
+    f"{max(0, len(pool_ranking) - len(ranking))} = {arith_check}  "
+    "(expect 0)"
+)
+
+
+def _collapses(row: pd.Series) -> bool:
+    p25 = row.get("pnl_p25")
+    p50 = row.get("pnl_p50")
+    p75 = row.get("pnl_p75")
+    if p25 is None or p50 is None or p75 is None:
+        return False
+    try:
+        return float(p25) == float(p50) == float(p75)
+    except (TypeError, ValueError):
+        return False
+
+
+if not pool_ranking.empty:
+    collapse_mask = pool_ranking.apply(_collapses, axis=1)
+    collapse_n = int(collapse_mask.sum())
+    pool_n = len(pool_ranking)
+    pct = 100.0 * collapse_n / pool_n if pool_n else 0.0
+    print(
+        "\nPercentile-collapse rate (pnl_p25 == pnl_p50 == pnl_p75) across "
+        "the full positive-EV pool:"
+    )
+    print(f"  {collapse_n} / {pool_n}  ({pct:.1f}%)")
+    if collapse_n < pool_n:
+        non_collapsed = pool_ranking.loc[
+            ~collapse_mask, ["ticker", "pnl_p25", "pnl_p50", "pnl_p75"]
+        ]
+        print("  Names where percentiles separate:")
+        print(non_collapsed.to_string(index=False))
 
 
 # ---------------------------------------------------------------------------

@@ -212,15 +212,30 @@ it. Worse, Drive denies `unlink` on existing tracked files, so
 a flat-IV stub.
 
 **Why:** Wiring SVI surfaces in before deciding the missing-data
-contract would create a silent fallback path. The choice is between
-(a) failing loudly on the ~475 uncovered tickers or (b) using a
+contract would create a silent fallback path. The choice was between
+(a) failing loudly on the uncovered tickers or (b) using a
 clearly-named fallback (`flat_iv_fallback`, never silent). Either is
 acceptable; a silent flat-IV stub is not.
 
-**Pinned by:** `PROJECT_STATE.md` §3 (iv_surface integration
-decision), `MODULE_INDEX.md` (`volatility_surface.py` marked
-**dormant**). `CLAUDE.md`'s quant-layer entry points back at this
-decision rather than re-stating it.
+**Resolved (2026-05-30, ROADMAP A2 — "wire in, fail-loud"): option (a).**
+The SVI tooling is wired in behind a fail-loud guard rather than left
+dormant: `SurfaceDataUnavailable` + `require_surface(surface, ticker)`
+in `engine/volatility_surface.py` raise when a ticker has no calibrated
+surface, instead of fabricating a flat IV. The first production caller
+is `scripts/diagnose_iv_surface.py` — an operator diagnostic that
+reports per-expiry skew / term-structure and **exits non-zero** on any
+uncovered ticker (e.g. on the bloomberg provider, which carries no
+skew — S29). `create_constant_surface` remains the ONLY flat surface
+and is opt-in by name (clearly-labelled last resort). The internal
+`0.20` defaults inside `get_iv` / `get_skew` are now governed by the
+`require_surface` contract (consumers check first); converting them to
+raise directly is a documented follow-up. Contract pinned by
+`tests/test_iv_surface_failloud.py`.
+
+**Pinned by:** `engine/volatility_surface.py` (`SurfaceDataUnavailable`,
+`require_surface`), `scripts/diagnose_iv_surface.py`,
+`tests/test_iv_surface_failloud.py`, `PROJECT_STATE.md` §3,
+`MODULE_INDEX.md` (`volatility_surface.py` now **live**).
 
 ---
 

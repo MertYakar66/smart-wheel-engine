@@ -14,6 +14,23 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05 (late) — Open-question closures: A2 (iv_surface) + C1 (CSV tracking)
+
+### Added
+- **A2 — SVI iv_surface tooling wired in, fail-loud** (ROADMAP A2 / `DECISIONS.md`
+  D9). `engine/volatility_surface.py` gains `SurfaceDataUnavailable` +
+  `require_surface()`; the previously-dormant SVI calibrator now has a first
+  production caller, `scripts/diagnose_iv_surface.py` (operator diagnostic —
+  per-expiry skew / term-structure, **exits non-zero** on any uncovered ticker,
+  never a fabricated flat IV). `create_constant_surface` stays the only opt-in
+  flat surface. Pinned by `tests/test_iv_surface_failloud.py`.
+
+### Decided
+- **C1 — bloomberg yfinance CSVs: keep tracking as data commits** (ROADMAP C1).
+  The point-in-time "what data did we run on?" audit trail outweighs the
+  commit-per-refresh history noise; zero migration. Recorded in
+  `docs/DATA_POLICY.md` §5.
+
 ## 2026-05 (late) — Repo-efficiency + coordination cycle
 
 ### Added — coordination overhaul + documentation redesign (PR `#285`)

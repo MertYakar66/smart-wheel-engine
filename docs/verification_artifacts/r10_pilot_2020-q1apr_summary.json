@@ -1,0 +1,82 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2020-01-02",
+    "end": "2020-04-30",
+    "friction_level": "full",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "ohlcv_csv_sha256": "c3d5443158b12ec5309a08111cdbeae6610baea78c39e676ef109b571c5edfb1"
+  },
+  "loose": {
+    "final_nav": 914542.7407571973,
+    "final_cash": 282582.77573999745,
+    "return_pct": -0.08545725924280274,
+    "n_put_attempts": 75,
+    "n_put_opened": 75,
+    "n_put_assignments": 34,
+    "n_cc_attempts": 30,
+    "n_cc_opened": 30,
+    "executed_trades_put_metric": 75,
+    "put_refuse_by_reason": {},
+    "cc_refuse_by_reason": {},
+    "spearman_rho_all_candidates": 0.39105100044983393,
+    "mean_realized_all_candidates": -695.8761603773585,
+    "hit_rate_all_candidates": 0.6320754716981132,
+    "per_year": {
+      "2020": {
+        "n_candidates": 848,
+        "rho": 0.39105100044983393,
+        "mean_realized_all_candidates": -695.8761603773585,
+        "hit_rate_all_candidates": 0.6320754716981132
+      }
+    },
+    "executed_realized_total": 4946.5,
+    "executed_realized_mean": 170.56896551724142,
+    "n_closed_positions": 29,
+    "n_open_positions_at_end": 46
+  },
+  "strict": {
+    "final_nav": 991808.1426999988,
+    "final_cash": 721046.9426999989,
+    "return_pct": -0.008191857300001196,
+    "n_put_attempts": 446,
+    "n_put_opened": 31,
+    "n_put_assignments": 21,
+    "n_cc_attempts": 125,
+    "n_cc_opened": 1,
+    "executed_trades_put_metric": 31,
+    "put_refuse_by_reason": {
+      "portfolio_delta_breach": 398,
+      "single_name_breach": 17
+    },
+    "cc_refuse_by_reason": {
+      "portfolio_delta_breach": 124
+    },
+    "spearman_rho_all_candidates": 0.39105100044983393,
+    "mean_realized_all_candidates": -695.8761603773585,
+    "hit_rate_all_candidates": 0.6320754716981132,
+    "per_year": {
+      "2020": {
+        "n_candidates": 848,
+        "rho": 0.39105100044983393,
+        "mean_realized_all_candidates": -695.8761603773585,
+        "hit_rate_all_candidates": 0.6320754716981132
+      }
+    },
+    "executed_realized_total": 974.704,
+    "executed_realized_mean": 97.4704,
+    "n_closed_positions": 10,
+    "n_open_positions_at_end": 21
+  },
+  "delta_strict_minus_loose": {
+    "final_nav": 77265.40194280155,
+    "return_pp": 7.726540194280155,
+    "executed_trades_put_metric": -44,
+    "n_put_opened": -44,
+    "n_cc_opened": -29,
+    "n_put_assignments": -13
+  }
+}

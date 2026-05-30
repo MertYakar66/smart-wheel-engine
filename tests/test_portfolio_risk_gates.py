@@ -27,6 +27,7 @@ from engine.portfolio_risk_gates import (
     _DEFAULT_ALT_CLUSTERS,
     GateResult,
     PortfolioSnapshot,
+    _filter_bsm_safe_positions,
     check_alt_cluster_cap,
     check_dealer_regime,
     check_kelly_size,
@@ -900,3 +901,204 @@ class TestC4VolSpikeScenario:
         assert _C4_VOL_SPIKE_SCENARIO.iv_change_pct == 0.30
         assert _C4_VOL_SPIKE_SCENARIO.iv_change_abs == 0.0
         assert _C4_VOL_SPIKE_SCENARIO.name == "C4 Vol Spike"
+
+
+# ======================================================================
+# 10. _filter_bsm_safe_positions — the BSM input safety filter
+# ======================================================================
+class TestFilterBSMSafePositions:
+    """Direct unit tests for the helper that drops malformed position
+    rows before they reach Black-Scholes pricing. Closes S42 Findings
+    #2 + #4 by preventing the dossier reviewer's R8 stress / R7 VaR
+    paths from crashing on degenerate inputs.
+
+    Filter rules (current contract):
+
+    1. Skip if ``float(strike)`` raises ``TypeError`` or ``ValueError``.
+    2. Skip if ``int(contracts)`` raises ``TypeError`` or ``ValueError``.
+    3. Skip if ``strike <= 0``.
+    4. Skip if ``contracts <= 0``.
+    5. Skip if ``symbol`` is missing or falsy (None, empty string).
+    6. Otherwise pass through unchanged (identity preserved).
+
+    Known limitation: ``float("nan") <= 0`` is False, so a position
+    with ``strike=NaN`` passes the filter and would still crash BSM.
+    Documented in ``test_nan_strike_currently_passes`` as the
+    boundary of the filter's contract. NaN-strike defense is a
+    separate, larger concern (probably belongs upstream in the
+    data layer rather than in this defensive filter)."""
+
+    def test_empty_list_returns_empty(self):
+        assert _filter_bsm_safe_positions([]) == []
+
+    def test_all_valid_positions_pass_through(self):
+        valid = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 2, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(valid)
+        # Identity preserved: same objects, same order.
+        assert out == valid
+        assert len(out) == 2
+
+    def test_filters_strike_zero(self):
+        positions = [
+            {"symbol": "AAPL", "strike": 0.0, "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_strike_negative(self):
+        positions = [
+            {"symbol": "AAPL", "strike": -100.0, "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_contracts_zero(self):
+        positions = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": 0, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_contracts_negative(self):
+        positions = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": -1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_missing_symbol(self):
+        positions = [
+            {"strike": 180.0, "contracts": 1, "is_short": True},  # symbol missing
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_empty_string_symbol(self):
+        positions = [
+            {"symbol": "", "strike": 180.0, "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        # Empty string is falsy → caught by `not p.get("symbol")`.
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_none_strike_via_typeerror(self):
+        """``float(None)`` raises ``TypeError`` → row skipped via the
+        try/except branch."""
+        positions = [
+            {"symbol": "AAPL", "strike": None, "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_filters_non_numeric_strike_via_valueerror(self):
+        """``float("abc")`` raises ``ValueError`` → row skipped via
+        the try/except branch."""
+        positions = [
+            {"symbol": "AAPL", "strike": "abc", "contracts": 1, "is_short": True},
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        assert out[0]["symbol"] == "MSFT"
+
+    def test_mixed_valid_and_malformed_returns_only_valid(self):
+        positions = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": 1, "is_short": True},
+            {"symbol": "BAD1", "strike": 0.0, "contracts": 1, "is_short": True},  # bad
+            {"symbol": "MSFT", "strike": 400.0, "contracts": 2, "is_short": True},
+            {"symbol": "BAD2", "strike": 100.0, "contracts": -3, "is_short": True},  # bad
+            {"symbol": "JPM", "strike": 250.0, "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 3
+        kept_symbols = [p["symbol"] for p in out]
+        assert kept_symbols == ["AAPL", "MSFT", "JPM"]
+
+    def test_filter_preserves_extra_keys(self):
+        """Identity preserved on valid rows — additional keys (option_type,
+        dte, iv, is_short) are not stripped. The filter is a row-level
+        accept/reject, not a field-level rewrite."""
+        positions = [
+            {
+                "symbol": "AAPL",
+                "strike": 180.0,
+                "contracts": 1,
+                "option_type": "put",
+                "dte": 30,
+                "iv": 0.25,
+                "is_short": True,
+            }
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        assert len(out) == 1
+        # All keys present + values unchanged.
+        assert out[0] == positions[0]
+        # Same object (no copy).
+        assert out[0] is positions[0]
+
+    def test_float_contracts_are_silently_int_cast(self):
+        """``int(1.5)`` returns ``1`` (truncates). A position with
+        ``contracts=1.5`` (floating-point sizing — should not happen
+        in normal pipeline) passes the filter as 1 contract. Documents
+        the current contract: the filter does not validate that
+        ``contracts`` is an integer-valued numeric type.
+
+        Pinning this so a future refactor that adds stricter type
+        checking trips here."""
+        positions = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": 1.5, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        # 1.5 -> int -> 1; row passes.
+        assert len(out) == 1
+        # The original dict is returned unchanged (the filter doesn't
+        # rewrite the contracts value; downstream consumers see 1.5).
+        assert out[0]["contracts"] == 1.5
+
+    def test_nan_strike_currently_passes(self):
+        """**Known limitation.** ``float("nan") <= 0`` evaluates to
+        False (any comparison with NaN returns False), so a position
+        with ``strike=NaN`` passes the filter and would crash BSM
+        downstream. This test pins the current contract — NaN-strike
+        defence is a separate concern (probably belongs in the data
+        layer, not in this filter).
+
+        If a future PR closes this gap (e.g. by adding ``math.isnan``
+        check), this test trips and must be updated to assert the
+        new behaviour."""
+        positions = [
+            {"symbol": "AAPL", "strike": float("nan"), "contracts": 1, "is_short": True},
+        ]
+        out = _filter_bsm_safe_positions(positions)
+        # NaN passes the strike <= 0 check; row not filtered.
+        assert len(out) == 1
+        assert out[0]["symbol"] == "AAPL"
+
+    def test_filter_does_not_mutate_input_list(self):
+        """The filter returns a new list; the input list is not
+        modified. Important for callers that pass a shared reference."""
+        positions = [
+            {"symbol": "AAPL", "strike": 180.0, "contracts": 1, "is_short": True},
+            {"symbol": "BAD", "strike": 0.0, "contracts": 1, "is_short": True},
+        ]
+        original_len = len(positions)
+        out = _filter_bsm_safe_positions(positions)
+        assert len(positions) == original_len  # input unchanged
+        assert len(out) == 1  # one row filtered out

@@ -61,7 +61,7 @@ trade-count delta vs the same setup with strict mode OFF.
   max-name notional exceeded the 10% cap).
 - **Two-phase compute**: pilot first (2020-Q1+April, 86 days,
   26.8min) to validate correctness + measure preliminary firing rates,
-  then full 5y (2020-01-02 → 2024-12-31, 1258 days, estimated ~6.5h).
+  then full 5y (2020-01-02 → 2024-12-31, **1,304 business days**, estimated ~6.5h).
 - **Post-hoc analyzer** (`--analyze` mode on the driver) reads the
   on-disk artifacts and emits the markdown tables for the report
   doc. Decouples expensive backtest from cheap analysis pass.
@@ -160,7 +160,7 @@ complete report):
 - Pilot artifacts (Q1+April 2020, 86 days, 26.8min):
   `docs/verification_artifacts/r10_pilot_2020-q1apr_summary.json` +
   `r10_pilot_2020-q1apr_raw_output.txt`.
-- Full-run artifacts (5y, 1,258 days, 7.00h):
+- Full-run artifacts (5y, **1,304 business days**, 7.00h):
   `docs/verification_artifacts/r10_full_2020-2024_summary.json` +
   `r10_full_2020-2024_raw_output.txt` (trimmed; HMM `RuntimeWarning`
   bookkeeping stripped) + `r10_full_2020-2024_analysis.txt` (the

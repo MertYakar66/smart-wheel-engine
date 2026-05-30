@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**66 records.**
+**67 records.**
 
 ## Features (1)
 
@@ -48,11 +48,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (8)
+## Verification & realism (9)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| [heavy-news-calibration](heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md) | in-flight |  | On Bloomberg the pre-D18 news_multiplier was 1.0 in 1300/1300 probes — D18 is a measured no-op for prior backtests; prob_profit calibration matches the published 10-config matrix exactly. | `heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md` |
 | [heavy-r10-strict](heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md) | completed |  | full 5y run — strict loses to loose by −15.81pp; R10 fires 571× exclusively on BKNG/AZO (S44 prediction confirmed); portfolio_delta_breach dominates D17 refusals at 92.1% (R10 only 7.8%); strict opens 31 puts ALL in 2020 then freezes for 4 years; strict ahead 66.6% of days but crosses below loose 2023-11-01 | `heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md` |
 | [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |

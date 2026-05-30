@@ -32,8 +32,14 @@ import argparse
 import os
 import sys
 from datetime import date, timedelta
+from pathlib import Path
 
-from engine.volatility_surface import (
+# Put the repo root (not scripts/) on sys.path so `import engine` works when
+# run as documented from the repo root: `python scripts/diagnose_iv_surface.py`.
+# Mirrors the bootstrap other scripts use (scripts/diagnose_candidates.py et al.).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from engine.volatility_surface import (  # noqa: E402 — sys.path bootstrap above
     SurfaceDataUnavailable,
     VolatilitySurface,
     create_empirical_surface,
@@ -88,17 +94,52 @@ def summarize_surface(surface: VolatilitySurface) -> list[dict]:
     return rows
 
 
+def _term_structure_from_df(df, dte_col: str, iv_col: str) -> dict[int, float]:
+    """Parse a ``{dte: iv}`` map from a DataFrame with one IV row per tenor."""
+    out: dict[int, float] = {}
+    for _, r in df.iterrows():
+        try:
+            d = int(r[dte_col])
+            v = float(r[iv_col])
+        except (TypeError, ValueError):
+            continue
+        if d > 0 and 0.01 < v < 3.0:
+            out.setdefault(d, v)
+    return out
+
+
 def _atm_term_structure_from_connector(conn, ticker: str) -> dict[int, float]:
-    """Best-effort ATM IV term structure from the live provider.
+    """ATM IV term structure from the live provider — ATM rows, not wing rows.
+
+    Prefers ``conn.get_atm_term_structure()`` (columns ``expiration, dte,
+    atm_iv`` — the closest-to-ATM IV per expiry, purpose-built for term-structure
+    fits). Only if that method is absent does it fall back to a defensive parse
+    of ``get_iv_surface()`` — which returns EVERY strike/right row per expiry, so
+    a naive first-row pick would calibrate off an arbitrary wing IV. There we
+    select the row whose ``delta`` is nearest 0.5 (ATM) per tenor.
 
     Returns ``{}`` (→ fail-loud upstream) when the provider exposes no usable
-    surface for the ticker. The exact surface-DataFrame shape is
-    operator-first-run-verified; everything is defensive so a shape mismatch
-    degrades to UNAVAILABLE rather than a wrong number.
+    surface for the ticker (e.g. the bloomberg ``MarketDataConnector``, which
+    carries no skew — S29). Defensive throughout: a shape mismatch degrades to
+    UNAVAILABLE, never a wrong number.
     """
+    get_atm = getattr(conn, "get_atm_term_structure", None)
+    if get_atm is not None:
+        try:
+            ts = get_atm(ticker)
+        except Exception:
+            ts = None
+        if ts is not None and not getattr(ts, "empty", True):
+            cols = {c.lower(): c for c in ts.columns}
+            dte_col = cols.get("dte") or cols.get("days_to_expiry")
+            iv_col = cols.get("atm_iv") or cols.get("iv")
+            if dte_col and iv_col:
+                return _term_structure_from_df(ts, dte_col, iv_col)
+
+    # Fallback: parse the full surface, picking the nearest-ATM row per tenor.
     get_surface = getattr(conn, "get_iv_surface", None)
     if get_surface is None:
-        return {}  # e.g. bloomberg MarketDataConnector — no surface (S29)
+        return {}
     try:
         surf = get_surface(ticker)
     except Exception:
@@ -107,19 +148,27 @@ def _atm_term_structure_from_connector(conn, ticker: str) -> dict[int, float]:
         return {}
     cols = {c.lower(): c for c in surf.columns}
     dte_col = cols.get("dte") or cols.get("days_to_expiry")
-    iv_col = cols.get("atm_iv") or cols.get("iv") or cols.get("iv_mid")
+    iv_col = cols.get("iv") or cols.get("iv_mid")
     if not dte_col or not iv_col:
         return {}
+    delta_col = cols.get("delta")
     out: dict[int, float] = {}
-    for _, r in surf.iterrows():
-        try:
-            d = int(r[dte_col])
-            v = float(r[iv_col])
-        except (TypeError, ValueError):
-            continue
-        if d > 0 and 0.01 < v < 3.0:
-            out.setdefault(d, v)  # nearest-ATM row per tenor
-    return out
+    if delta_col is not None:
+        # Keep, per tenor, the row whose |delta| is nearest 0.5 (ATM).
+        best: dict[int, float] = {}  # dte -> |abs(delta) - 0.5|
+        for _, r in surf.iterrows():
+            try:
+                d = int(r[dte_col])
+                v = float(r[iv_col])
+                dist = abs(abs(float(r[delta_col])) - 0.5)
+            except (TypeError, ValueError):
+                continue
+            if d > 0 and 0.01 < v < 3.0 and (d not in best or dist < best[d]):
+                best[d] = dist
+                out[d] = v
+        return out
+    # No delta column — fall back to first valid row per tenor (best effort).
+    return _term_structure_from_df(surf, dte_col, iv_col)
 
 
 def main(argv: list[str] | None = None) -> int:

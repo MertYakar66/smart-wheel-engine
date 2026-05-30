@@ -20,16 +20,16 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
+from diagnose_iv_surface import (  # noqa: E402 — sys.path injection above
+    build_surface_from_atm_term_structure,
+    summarize_surface,
+)
+
 from engine.volatility_surface import (  # noqa: E402
     SurfaceDataUnavailable,
     VolatilitySurface,
     create_empirical_surface,
     require_surface,
-)
-
-from diagnose_iv_surface import (  # noqa: E402 — sys.path injection above
-    build_surface_from_atm_term_structure,
-    summarize_surface,
 )
 
 _AS_OF = date(2026, 1, 2)

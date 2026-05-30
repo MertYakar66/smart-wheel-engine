@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 """
-News sentiment puller → writes the parquet the existing NewsSentimentReader expects.
+News sentiment puller → writes the parquet ``engine/news_sentiment.py`` reads
+for the operator-facing dashboard / row-dict transparency layer.
 
-Today ``engine/news_sentiment.py`` checks four paths and finds nothing, so
-``sentiment_multiplier(ticker)`` returns 1.0 for every candidate. This puller
-fills in the most-used path (``data_processed/news_sentiment.parquet``).
+**Status (D18, 2026-05-26):** verbal news is severed from the EV decision
+path. ``sentiment_multiplier`` is now a constant-1.0 stub regardless of the
+sentiment store contents. This puller still runs because:
+
+- The dashboard's candidate table surfaces ``news_sentiment`` and
+  ``news_n_articles`` from the parquet for operator situational awareness.
+- The morning brief consumes the same store.
+- Future EV-side experiments (e.g. event-aware reviewer rules) may revisit
+  this data without resurrecting the multiplier channel.
+
+If you want to retire the puller entirely, that's an explicit decision —
+the EV path no longer depends on it. See: ``DECISIONS.md`` D18,
+``docs/NEWS_REDESIGN_CAMPAIGN.md``.
 
 Providers
 ---------

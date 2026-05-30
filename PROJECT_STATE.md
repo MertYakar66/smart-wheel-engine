@@ -47,9 +47,13 @@ described here is no longer accurate.
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
-tradeable verdict. Reviewers (chart provider, news sentiment, advisor
-committee, dealer positioning, **R7-R10 portfolio-context gates**) can
-downgrade outputs — never upgrade. R1 (negative or non-finite EV →
+tradeable verdict. Reviewers (chart provider, advisor committee,
+dealer positioning, **R7-R10 portfolio-context gates**) can
+downgrade outputs — never upgrade. As of D18 (2026-05-26), news
+sentiment is severed from the EV path —
+`engine/news_sentiment.py::sentiment_multiplier` is a constant-1.0
+stub; the operator dashboard still consumes the underlying score for
+transparency. R1 (negative or non-finite EV →
 blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
@@ -477,10 +481,15 @@ rewritten.**
 - News-stack duplication — `financial_news/` (34 files,
   RSS/scraping/clustering platform), `news_pipeline/` (29 files,
   browser-agent pipeline driving `morning_run.py`),
-  `engine/news_sentiment.py` (downgrade-only reviewer on the EV path),
-  `scripts/pull_news_sentiment.py` (one-shot puller). Only
-  `engine/news_sentiment.py` feeds the EV path. Verify before adding
-  a new news source.
+  `engine/news_sentiment.py` (operator-only transparency layer — was
+  a downgrade-only reviewer until D18 severed it from the EV path),
+  `scripts/pull_news_sentiment.py` (one-shot puller, still writes the
+  parquet that the dashboard consumes). Post-D18 (2026-05-26), **no
+  news subsystem feeds the EV authority** — verbal news is operator-
+  layer only. Replacement quantitative layers (EDGAR earnings dates,
+  FRED macro, EDGAR-XBRL fundamentals quality score) are in flight
+  via the news-architecture redesign campaign — see
+  `docs/NEWS_REDESIGN_CAMPAIGN.md`.
 
 ## 5. Documentation drift to repair
 

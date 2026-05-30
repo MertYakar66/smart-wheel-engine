@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**64 records.**
+**65 records.**
 
 ## Features (1)
 
@@ -48,11 +48,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (6)
+## Verification & realism (7)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| [heavy-r10-strict](heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md) | in-flight |  | portfolio_delta_breach is the dominant binding D17 gate (96.7% of refusals in pilot); R10 is a "single-contract entry cap" for high-priced names (BKNG/AZO at $1M NAV), not an "accumulation cap"; loose tracker breached 10% per-name cap on 81.4% of pilot days | `heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |
 | [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |

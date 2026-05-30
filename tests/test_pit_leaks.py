@@ -64,11 +64,18 @@ class TestNewsPIT:
         assert pd.Timestamp(s["as_of"]) <= pd.Timestamp(_HIST)
 
     def test_multiplier_is_pit(self, tmp_path):
-        """sentiment_multiplier honours as_of: bullish Row A (+0.40) at the
-        historical as_of -> 1.05; bearish now-row (-0.90) live -> 0.88."""
+        """Post-D18: ``sentiment_multiplier`` is severed from the EV path
+        and returns 1.0 unconditionally. PIT correctness is preserved
+        trivially — a constant cannot leak future news.
+
+        The real PIT regression check on the news store lives in
+        ``test_historical_as_of_excludes_future_news`` above (which
+        exercises ``get_ticker_sentiment``, the surface that still
+        consumes ``as_of``).
+        """
         r = _news_reader(tmp_path, _news_rows())
-        assert r.sentiment_multiplier("TEST", as_of=_HIST) == pytest.approx(1.05)
-        assert r.sentiment_multiplier("TEST") == pytest.approx(0.88)
+        assert r.sentiment_multiplier("TEST", as_of=_HIST) == 1.0
+        assert r.sentiment_multiplier("TEST") == 1.0
 
     def test_as_of_none_preserves_now_behaviour(self, tmp_path):
         """as_of=None keeps the live wall-clock window -> the fresh row."""

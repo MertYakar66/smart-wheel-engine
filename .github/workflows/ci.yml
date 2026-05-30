@@ -75,6 +75,33 @@ jobs:
       - name: Check doc currency (PROJECT_STATE / CHANGELOG freshness)
         run: python scripts/check_doc_currency.py
 
+      - name: Check worklog index is current
+        run: python scripts/gen_worklog_index.py --check
+
+  decision-layer-claim:
+    name: Decision-Layer Lane Claim
+    runs-on: ubuntu-latest
+    # PR-only: a PR that edits the decision-layer trio (ev_engine /
+    # wheel_runner / candidate_dossier) must carry a lane-claim block naming
+    # the file (docs/PARALLEL_SESSIONS.md §5). stdlib + git only — no pip.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Enforce decision-layer lane claim
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python scripts/check_lane_claim.py --base "origin/${{ github.base_ref }}"
+
   test:
     name: Test Suite
     runs-on: ubuntu-latest

@@ -10,6 +10,13 @@
 > See §"Archived snapshots" and §"Deferred (locked by open PRs
 > this cycle)" for the doc-level map. **Refresh this file as
 > new verification work lands.**
+>
+> **2026-05-29:** the complete, machine-generated list of every record
+> (backtests, verification runs, usage scenarios) now lives in
+> [`docs/worklog/INDEX.md`](worklog/INDEX.md) (`scripts/gen_worklog_index.py`,
+> CI-checked). This file is the **curated-findings** companion — the headline
+> takeaways and archive map — not the auto-maintained list. New verification
+> work is a worklog fragment (`scripts/new_worklog.py`, `kind: verification`).
 
 **Purpose:** Single reference for any future agent asking "what
 verification has been done on this engine?" Built as the wrap-up of
@@ -313,7 +320,7 @@ after each PR merges.
 |---|---|---|
 | (none of the 12 archive candidates above were locked by any open PR this cycle) | — | All cleanly moved |
 | `docs/F4_TAIL_RISK_DIAGNOSTIC.md` | #253 (draft, research-record) | KEEP-LIVE regardless; flagged here for transparency |
-| `docs/USAGE_TEST_LEDGER.md` | #278 (D, S46), #275 (D, defensive-guards) | Append-only; not an archive candidate |
+| `docs/USAGE_TEST_LEDGER.md` | — | **FROZEN 2026-05-29** — S1–S46 migrated to `docs/worklog/`; banner + scenario→fragment map only (D14 extension) |
 | `FILE_MANIFEST.md` | #278, #252 (D, news_redesign descriptive) | Shared catalog; rebase-and-keep-both on conflict |
 | `PROJECT_STATE.md` | #252 | Refreshed in this PR's end-of-PR commit; rebase-and-keep-both on conflict |
 

@@ -582,6 +582,37 @@ n/a — no shims were created.
 assumes), `archive/README.md`, `AGENTS.md` (the `docs/` "read on demand"
 index), `PROJECT_STATE.md` §3 (the dated reorg entry).
 
+### Extended (2026-05-29) — per-task worklog fragments replace the ledger monolith + the dated-report treadmill
+
+D14 put the index docs at root and operational docs in `docs/`. Two `docs/`
+artifacts then became scaling problems:
+
+- `docs/USAGE_TEST_LEDGER.md` grew to ~490 KB / 8,600 lines (42 `Sn` entries) —
+  append-only, unreadable whole, and a rebase magnet every parallel terminal
+  had to edit.
+- backtest / verification write-ups followed a "dated report → hand-maintained
+  `VERIFICATION_INDEX` → archive" treadmill.
+
+Both are replaced by **per-task worklog fragments**: one file per task/scenario
+under `docs/worklog/`, with front-matter + a fixed *what-we-tried / worked /
+didn't / how-we-fixed* body, plus a **generated** `docs/worklog/INDEX.md`
+(`scripts/gen_worklog_index.py`, CI-checked via `--check`). Fragments are
+write-once and collision-free — each task owns its own file, which also retires
+the PARALLEL_SESSIONS "one ledger / FILE_MANIFEST owner per cycle" contention.
+The ledger's 42 `Sn` entries were split **verbatim** into fragments and the
+monolith frozen to a banner + scenario→fragment map (original content remains
+in git history). The dated reports are **indexed in place, not moved** — they
+carry 243 inbound references across 43 files (incl. `CLAUDE.md` and
+decision-layer docstrings), so relocating them is pure link-breakage risk for
+no functional gain.
+
+**Why an in-place extension, not a new D-number.** Same reasoning as the D15
+extension — `D` numbers are assigned at merge (`docs/PARALLEL_SESSIONS.md`
+rule 9); this is the natural evolution of D14's documentation architecture.
+
+**Also pinned by:** `docs/worklog/README.md`, `scripts/gen_worklog_index.py`,
+`scripts/new_worklog.py`, `.github/workflows/ci.yml` (the worklog-index check).
+
 ---
 
 ## D15. Parallel-session coordination is N-generic; every terminal lives in its own worktree
@@ -648,6 +679,38 @@ explicitly.
 **Pinned by:** `docs/PARALLEL_SESSIONS.md` (the rewritten doc itself
 is the spec), `scripts/setup-terminal.sh`, `scripts/setup-terminal.ps1`,
 `FILE_MANIFEST.md` (records both setup scripts under `scripts/`).
+
+### Extended (2026-05) — Major Session + disjoint task cards + CI-gated decision layer
+
+The two soft spots D15 left open were closed without changing its
+worktree/N-generic core:
+
+- **The rotating "cycle allocator" became a persistent *Major Session*.**
+  One allocator decomposes each cycle into **disjoint task cards** (one per
+  terminal) and guarantees the `owns` file-sets are pairwise non-overlapping
+  *before* terminals start. Collisions and duplicate self-selected work
+  (the `select_book` double-build, #107 vs #109) are designed out:
+  two terminals cannot be handed the same file. Terminals receive cards;
+  they do not self-select.
+- **"Claim the decision-layer file on the board" became a CI gate.** The
+  old rule was policed by prose ("checked the board — no open claim touches
+  `wheel_runner.py`"); `scripts/check_lane_claim.py` now fails any PR that
+  edits `ev_engine.py` / `wheel_runner.py` / `candidate_dossier.py` without
+  a `lane-claim` block in the PR description naming the file. The gate is
+  intentionally narrow (the trio only) so routine refactors never fight it;
+  non-decision-layer ownership stays advisory (Major-Session allocation +
+  the board).
+
+**Why an in-place extension, not a new D-number.** Per
+`docs/PARALLEL_SESSIONS.md` rule 9, `D`/`Sn` numbers are assigned at merge;
+a fresh number written at work-start would race the pending news-campaign
+D18 (PR #249). Recording this as a D15 extension follows the
+"How to add a decision" §4 convention (update the related entry) and
+avoids the race. Promote to a standalone D-number at merge only if desired.
+
+**Also pinned by:** `scripts/check_lane_claim.py`,
+`tests/test_check_lane_claim.py`, `.github/pull_request_template.md`,
+`.github/workflows/ci.yml` (the `decision-layer-claim` job).
 
 ---
 

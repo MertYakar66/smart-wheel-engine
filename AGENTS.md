@@ -36,7 +36,7 @@ purpose-built; they don't overlap.
 | See *why* a structural choice was made | `DECISIONS.md` |
 | Find what's intentionally next | `ROADMAP.md` |
 | See what shipped recently | `CHANGELOG.md` |
-| See what *usage* tests we've run and what's queued | `docs/USAGE_TEST_LEDGER.md` |
+| See what *usage* tests we've run + every backtest / verification record | `docs/worklog/INDEX.md` (per-task fragments; `docs/USAGE_TEST_LEDGER.md` is the frozen pre-2026-05-29 monolith) |
 | Understand the data layer (what's tracked, regen rules, secrets) | `docs/DATA_POLICY.md` |
 | Know the launch-blocker invariants before merging | `docs/LAUNCH_READINESS.md` |
 | Write a commit message or PR | `COMMIT_GUIDE.md` |
@@ -66,6 +66,11 @@ and `tests/test_authority_hardening.py`.
 
 - Module-level docstrings; per-function docstrings.
 - New tests under `tests/` that exercise existing public surface.
+- A **worklog fragment** under `docs/worklog/` recording your task — what you
+  tried, what worked, what didn't, how you fixed it. Scaffold with
+  `python scripts/new_worklog.py`; refresh the index with
+  `python scripts/gen_worklog_index.py`. This is *the* place to document work
+  (see `docs/PARALLEL_SESSIONS.md` "Where to document").
 - Documentation (`docs/`, `*.md` at repo root) **except** `CLAUDE.md`,
   which the user maintains directly.
 - Files under your active feature branch (never `main`).

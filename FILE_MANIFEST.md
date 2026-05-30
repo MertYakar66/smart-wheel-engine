@@ -68,6 +68,7 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 |---|---|
 | `.github/workflows/ci.yml` | CI pipeline — environment validation, lint/type check, test+coverage matrix (excludes `backtest_regression` marker), quant validation, security scan, integration. |
 | `.github/workflows/backtest-regression.yml` | Manual-dispatch workflow that runs the backtest-regression suite (S27/S32/S34/S35 reproducers, ~4–5 h). Cron disabled until CSV hydration in CI is solved; today's primary entry point is the `.claude/commands/backtest-regression.md` skill on the dev laptop. |
+| `.github/pull_request_template.md` | Default PR body — the COMMIT_GUIDE §3 sections (Summary / Changes / Why / Tests / §2 surface / Tried-rejected / Unresolved / AI-handoff) plus the `lane-claim` block required by `scripts/check_lane_claim.py` for decision-layer PRs. |
 
 ## `archive/`
 
@@ -276,7 +277,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
 | `docs/GOVERNANCE.md` | Model governance framework. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
-| `docs/USAGE_TEST_LEDGER.md` | Record of end-to-end usage tests — purpose, setup, findings, follow-up PRs. |
+| `docs/USAGE_TEST_LEDGER.md` | **FROZEN** (2026-05-29, D14 extension) — its S1–S46 entries were split verbatim into per-task fragments under `docs/worklog/`; now a banner + scenario→fragment map. New usage records are worklog fragments (`scripts/new_worklog.py`), indexed by `docs/worklog/INDEX.md`. |
+| `docs/worklog/*.md` | Per-task **worklog fragments** (doc redesign, D14 extension): one file per task/scenario with front-matter + a fixed *what-we-tried / worked / didn't / fixed* body. Includes `README.md` (format spec), `_template.md`, the migrated `sNN-*.md` scenario records, and the generated `INDEX.md`. Generated/validated by `scripts/gen_worklog_index.py`. |
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by N parallel Claude Code terminals — roles, lanes, coordination board. |
 | `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` | S27 follow-up to PR #178's `ENGINE_BACKTEST_2022_2024.md`: re-runs the same 2022-2024 backtest against the post-fix engine (`claude/fix-ranker-iv-pit-aware` `d26a8d6`). Side-by-side ρ / quartile / per-year / tail-episode comparison. Verdict: signal preserved at ρ=0.22 (halved); 2022 bear actually stronger; F4 tail-risk gap confirmed real. |
@@ -523,6 +525,9 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa), and ALSO when any tracked `.md` contains a committed git merge-conflict marker (`<<<<<<<`, `=======`, `>>>>>>>` at column 0, exact 7-char tokens — visual separators with more `=`/`<`/`>` are NOT flagged). Wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
 | `scripts/sync_manifest.py` | Local sync helper — same scan as `check_manifest_coverage.py`, with `--fix` to append rows for missing files into a marked "Untriaged additions" section at the tail of `FILE_MANIFEST.md`. Orphans are flagged but never auto-deleted. Smooths the recurring CI failure where docs PRs forget manifest rows. |
 | `scripts/check_doc_currency.py` | CI + hook guard against temporal-doc drift — checks `PROJECT_STATE.md`'s `Last updated` date and `CHANGELOG.md`'s newest month section; WARNs on mild staleness, FAILs only on egregious staleness / structural breakage (so normal PRs aren't blocked). Stdlib only (runs on Linux / Windows / CI); wired into the `FILE_MANIFEST Coverage` CI job and surfaced by the SessionStart hook. |
+| `scripts/check_lane_claim.py` | CI guard (decision-layer lane gate, D15 2026-05 extension) — fails a PR whose diff touches the decision-layer trio (`engine/ev_engine.py` / `engine/wheel_runner.py` / `engine/candidate_dossier.py`) without a `lane-claim` block in the PR description naming the file. Stdlib + git only; the `decision-layer-claim` job in `.github/workflows/ci.yml` runs it PR-only. See `docs/PARALLEL_SESSIONS.md` §5. |
+| `scripts/gen_worklog_index.py` | Generates `docs/worklog/INDEX.md` from worklog-fragment front-matter + the in-place dated reports (`ENGINE_BACKTEST_*` etc. — not moved; 243 inbound refs). `--check` fails CI when the index is stale. Stdlib only; replaces the hand-maintained `VERIFICATION_INDEX` (D14 extension). |
+| `scripts/new_worklog.py` | Scaffolds a new `docs/worklog/<id>-<slug>.md` fragment from `_template.md` with front-matter filled. Stdlib only. |
 | `scripts/generate_tested_surface_map.py` | Reads `coverage.json` and writes `docs/TESTED_SURFACE_MAP.md` — per-module table + top-N gap ranking + module→test static-import map. Stdlib only; re-run after a meaningful coverage shift. |
 | `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `SWE_DATA_PROVIDER`. See `docs/PARALLEL_SESSIONS.md` "Env vars per terminal". |
 | `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same six env vars. |
@@ -574,6 +579,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |
 | `tests/test_audit_invariants.py` | Launch-blocker invariants — Greeks unit contract, PIT safety, TV webhook HMAC, EV-engine invariants. |
 | `tests/test_check_manifest_coverage.py` | Unit tests for the conflict-marker guard in `scripts/check_manifest_coverage.py` — pins exact 7-char marker shapes (with/without ref, separator alone) and the negative cases that drove the precision (visual `=========` separators, pytest section dividers, indented occurrences, prose substrings). |
+| `tests/test_check_lane_claim.py` | Unit tests for `scripts/check_lane_claim.py` — the decision-layer lane gate's behaviour matrix (no-touch passes, unclaimed edit fails, claimed passes, partial claim fails on the remainder, no-claim-source skips as not-a-PR-context). |
 | `tests/test_audit_viii_e2e.py` | Launch-blocker invariant — the end-to-end TV-webhook → EV-ranker → tracker authority chain. |
 | `tests/test_audit_viii_unit_invariants.py` | Launch-blocker invariant — IV/rate percent-vs-decimal normalisation and the rolled-leg P&L accumulator. |
 | `tests/test_audit_viii_real_data_smoke.py` | Real-Bloomberg smoke test of the EV ranker (module-level skip without the CSVs). |

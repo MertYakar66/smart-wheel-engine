@@ -126,9 +126,18 @@ PY
 # 6. Parallel-session coordination — surfaced every session so no terminal
 #    branches without seeing the contract + who's already working.
 echo "│  ─ Parallel sessions (docs/PARALLEL_SESSIONS.md) ─"
-echo "│    • Claim on GitHub issue #113 BEFORE 'git checkout -b'."
-echo "│    • Sn / D-numbers are assigned at MERGE, not work-start (rule 7)."
-echo "│    • One FILE_MANIFEST.md owner per cycle (rule 8); rebase, never --theirs."
+echo "│    • Work the task card the Major Session allocated — don't self-select."
+echo "│    • Edit only your card's 'owns' files; decision-layer trio is CI-gated."
+echo "│    • Sn / D-numbers are assigned at MERGE, not work-start."
+echo "│    • Document your task in docs/worklog/ ('python scripts/new_worklog.py')."
+# 6b. Per-terminal env — parallel pytest / engine_api runs need isolation
+#     (separate port + coverage file + pytest cache). Warn if unset.
+if [ -z "${SWE_API_PORT:-}" ] || [ -z "${COVERAGE_FILE:-}" ] || [ -z "${PYTEST_CACHE_DIR:-}" ]; then
+  echo "│    ⚠ per-terminal env unset — 'source scripts/setup-terminal.sh <letter>'"
+  echo "│      (isolates SWE_API_PORT / COVERAGE_FILE / PYTEST_CACHE_DIR)"
+else
+  echo "│    ✓ per-terminal env: port=$SWE_API_PORT cov=$COVERAGE_FILE"
+fi
 # Live board claims — best-effort, only when gh is present + authed. Never
 # blocks the session: gh failures are swallowed, no network wait is forced.
 if command -v gh >/dev/null 2>&1; then

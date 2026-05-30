@@ -153,7 +153,12 @@ class VolatilitySurface:
     def _interpolate_expiry(self, strike: float, expiry: date, spot: float | None) -> float:
         """Interpolate IV for expiry not in surface."""
         if not self.svi_params:
-            return 0.20  # Default
+            raise SurfaceDataUnavailable(
+                f"{self.underlying or '<unknown>'}: get_iv called on empty surface "
+                f"(zero calibrated expiries). Fail loud rather than fabricate a flat IV — "
+                f"see DECISIONS.md D9. If a flat surface is genuinely intended, call "
+                f"create_constant_surface() explicitly."
+            )
 
         # Find bracketing expiries
         expiries = sorted(self.svi_params.keys())
@@ -188,7 +193,16 @@ class VolatilitySurface:
                 else:
                     return (iv1 + iv2) / 2
 
-        return 0.20  # Fallback
+        # Unreachable in practice: the edge cases above (expiry <= first, expiry >=
+        # last) already handle expiries outside the bracketed range, and any expiry
+        # in between is caught by the loop. Kept as a defensive raise rather than a
+        # silent 0.20 — same D9 fail-loud contract as the empty-surface branch.
+        raise SurfaceDataUnavailable(
+            f"{self.underlying or '<unknown>'}: get_iv could not bracket "
+            f"expiry {expiry} between calibrated expiries "
+            f"{sorted(self.svi_params.keys())[0]} and "
+            f"{sorted(self.svi_params.keys())[-1]} — see DECISIONS.md D9."
+        )
 
     def get_term_structure(self, strike: float | None = None, delta: float = 0.5) -> pd.DataFrame:
         """
@@ -223,9 +237,21 @@ class VolatilitySurface:
 
         Returns:
             (25-delta put IV, ATM IV, 25-delta call IV)
+
+        Raises:
+            SurfaceDataUnavailable: when ``expiry`` has no calibrated SVI params.
+                Fail-loud per DECISIONS.md D9 — never fabricate a flat (0.20, 0.20,
+                0.20) skew. Use :func:`create_constant_surface` if a flat surface
+                is genuinely intended.
         """
         if expiry not in self.svi_params:
-            return 0.20, 0.20, 0.20
+            raise SurfaceDataUnavailable(
+                f"{self.underlying or '<unknown>'}: get_skew has no calibrated "
+                f"SVI params for expiry {expiry} "
+                f"(available: {sorted(self.svi_params.keys()) or 'none'}). "
+                f"Fail loud rather than fabricate (0.20, 0.20, 0.20) — see "
+                f"DECISIONS.md D9."
+            )
 
         params = self.svi_params[expiry]
         T = (expiry - self.as_of_date).days / 365

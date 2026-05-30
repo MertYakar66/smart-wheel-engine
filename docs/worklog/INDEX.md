@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**61 records.**
+**62 records.**
 
 ## Features (1)
 
@@ -94,6 +94,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S36](s36-multi-ticker-hmm-regime-realism.md) | completed |  | Multi-ticker HMM regime realism | `s36-multi-ticker-hmm-regime-realism.md` |
 | [S37](s37-ranking-philosophy-ev-dollars-vs-roc.md) | completed |  | Ranking philosophy: ev_dollars vs roc | `s37-ranking-philosophy-ev-dollars-vs-roc.md` |
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
+
+## Refactors (1)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
 ## Research records (2)
 

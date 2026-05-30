@@ -716,3 +716,11 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `utils/logging_config.py` | Logging setup helpers. |
 | `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. |
 | `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. |
+
+## Untriaged additions (auto-appended by `scripts/sync_manifest.py`)
+
+Rows below were added automatically because the file was tracked but absent from the manifest. Move each entry under the correct `## <directory>` section with a real purpose description, then delete it from here. Re-running `--fix` rebuilds this section from scratch.
+
+| File | Purpose |
+|---|---|
+| `tests/test_ev_engine_percentiles.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |

@@ -31,7 +31,8 @@ Card HT-C from the 2026-05-30 heavy-verify cycle. The campaign tracking doc (`do
 4. **Read `engine/ev_engine.py`** to confirm that `prob_profit` is invariant to `news_mult`: `prob_profit = float(np.mean(pnls > 0))` (line 385) is computed BEFORE the regime multiplier is applied (comment at line ~469 "Regime multiplier is applied *last*"); `test_percentiles_are_pre_multiplier` in `tests/test_ev_engine_percentiles.py` is the existing pin.
 5. **Extended the driver to compute calibration on 10 existing rank_logs** in `%TEMP%\s{n}_backtest\` (the exact files PROB_PROFIT_CALIBRATION_2026-05-28.md cites as its data source). 7-bin scheme + the pre-declared verdict thresholds from the published doc.
 6. **Hit a Windows cp1252 encoding crash** on the FINAL SYNTHESIS print (the Greek capital delta in `top-bin Δ -4.88pp`). Fixed by adding `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` at module top, matching the pattern in `scripts/pull_news_sentiment.py`.
-7. **Started a §C S27 re-run on the current post-#249 engine** (background, ~20 min) to empirically confirm the analytical claim that `prob_profit` is byte-identical row-for-row between pre- and post-#249 engines for the same input.
+7. **Ran a §C S27 re-run on the current engine** (`75eda2e`, post-#249 + post-#260 + post-#262) to empirically confirm the analytical claim of `prob_profit` byte-equality. The aggregate metrics block returned cleanly (5,944 rows, ρ +0.182 vs published +0.188); the row-aligned join then crashed on `KeyError: 'exit_reason'` at driver L226 because the post-#249 rank_log schema no longer carries that column.
+8. **Session C reviewed the captured run** and flagged the §C framing as methodologically unsound: the rerun routes through post-#260 F4 widening + post-#262 R10 cap + post-#249 D18, so the rank_log diff measures D18 + F4 + R10 + harness — not D18 alone. The correct isolation comparison is `edba283` vs `9e8edcd` at otherwise-identical engine SHA, which is structurally what `ev_engine.py:385` vs `:520` proves analytically. Reframed §C around the structural argument; the empirical rerun is retained as F4/R10-confound evidence, not as the no-op proof.
 
 ## What worked
 
@@ -49,7 +50,7 @@ Card HT-C from the 2026-05-30 heavy-verify cycle. The campaign tracking doc (`do
 
 - §A driver section measures the news_mult distribution directly on the Bloomberg connector via `NewsSentimentReader`. With an empty store, `get_ticker_sentiment` returns the neutral default by design — the driver applies the inlined pre-D18 ladder to that output and reports the resulting multiplier values.
 - §B driver section iterates the 10 calibration-eligible `rank_log.csv` files under `%TEMP%`, computes the 7-bin table per config, and renders both a cross-config summary table and a detailed S27 reference table.
-- §C driver section runs `backtests/regression/s27_ivpit_24t_100k.run(output_dir=…)` against the current engine, computes its calibration table, then joins row-by-row to the existing `s27_backtest/rank_log.csv` on `(entry_date, rank_position, ticker, option_type, strike)` and reports `max_abs_diff` on `prob_profit`.
+- §C driver section runs `backtests/regression/s27_ivpit_24t_100k.run(output_dir=…)` against the current engine and reports aggregate metrics. The row-aligned join + `max_abs_diff` step is retained in the driver source for reference but is documented (in the findings doc §C) as F4/R10-confounded — the no-op proof is the `ev_engine.py:385` vs `:520` structural argument, not the empirical join.
 - All three sections write to stdout; the consumer captures via `tee` into `docs/verification_artifacts/heavy_news_calibration_2026-05-30_raw_output.txt`.
 
 ## Evidence
@@ -62,13 +63,16 @@ Card HT-C from the 2026-05-30 heavy-verify cycle. The campaign tracking doc (`do
 | Store ever in git | `git log --all --diff-filter=A --name-only \| grep news_sentiment` | empty (file never added) |
 | Pre-D18 ladder source | `git show 9e8edcd~1:engine/news_sentiment.py \| sed -n '188,218p'` | matches the driver's inlined `pre_d18_sentiment_multiplier` |
 | Ruff format/lint | `py -3.12 -m ruff format --check ... && ruff check ...` on the driver | clean |
-| §C status | background `b7a4x024f`, ETA ~20 min from kickoff at ~04:35 UTC | TBD on completion |
+| §C aggregate metrics | post-#249 / post-#260 / post-#262 S27 rerun captured | row_count=5944, ρ=+0.182, executed_trades=40 (vs published ρ=+0.188); F4/R10/harness-attributable, NOT D18 |
+| §C row-aligned join | attempted | `KeyError: 'exit_reason'` — rank_log schema drift post-#249/#260 blocks the join |
+| §C no-op proof | structural code reading | `ev_engine.py:385` (`prob_profit = float(np.mean(pnls > 0))`) runs strictly before `ev_engine.py:520` (`ev_dollars = ev_raw * regime_mult`); `news_mult` enters only through `regime_mult` → cannot move `prob_profit`. Independently verified by Session C ("airtight"). |
 
 Raw output: `docs/verification_artifacts/heavy_news_calibration_2026-05-30_raw_output.txt`.
 
 ## Unresolved / handoff
 
-- **§C completion.** Background rerun in flight (`b7a4x024f`). Expected `max_abs_diff(prob_profit) ≤ 1e-6` row-for-row on the join. Both findings doc and this fragment get a final-status update on completion.
+- **§C reframed (closed).** Original row-aligned `prob_profit` byte-equality framing was revised post-Session-C review to the `ev_engine.py:385` vs `:520` structural argument. The empirical rerun is retained as F4/R10-confound evidence; the no-op proof is §A (empirical news_mult = 1.0) + the structural pre-multiplier argument. Findings doc §C carries the full reasoning.
+- **HT-B (#290) reconciliation.** Findings doc §B verdict carries a footnote qualifying "robust" as "under the published `otm_expire` methodology"; HT-B found the same top-bin finding is regime-dependent under engine-EXACT attribution. Not contradictory; both framings are legitimate.
 - **F1 (campaign-doc currency).** `NEWS_REDESIGN_CAMPAIGN.md` §3's "re-baseline mandatory" claim is too broad for D18 alone. Surfaced for the magnet-doc reconciliation at next cycle close; suggested edit text in the findings doc §"Findings" F1.
 - **F2 (operator transparency gap).** Dashboard column `news_sentiment` surfaces a permanently zero store. Either retire `scripts/pull_news_sentiment.py` (operator call per the D18 commit's "Unresolved" item) or label the column as "(severed — D18, store empty on this env)".
 - **F3 (post-#260 calibration matrix beyond S38-postF4).** A complete post-#260 re-baseline of S34 / S38 / S40 is outside HT-C's measure-first scope. Worth a follow-on card if the operator wants a complete post-#260 calibration matrix; the POT-GPD prob_profit research direction (`PROB_PROFIT_CALIBRATION_2026-05-28.md` §"For future research") is the natural follow-on.

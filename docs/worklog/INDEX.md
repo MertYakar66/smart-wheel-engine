@@ -9,15 +9,16 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**59 records.**
+**60 records.**
 
-## Backtests (18)
+## Backtests (19)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [BACKTEST_REGRESSION_CAMPAIGN](../BACKTEST_REGRESSION_CAMPAIGN.md) | legacy |  | Backtest Regression Harness — Campaign Report | `../BACKTEST_REGRESSION_CAMPAIGN.md` |
 | [ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN](../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md) | legacy |  | Engine backtest — 2022-2024 IV-PIT re-run (S27, 2026-05-24) | `../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` |
 | [ENGINE_BACKTEST_S32_FRICTION](../ENGINE_BACKTEST_S32_FRICTION.md) | legacy |  | Engine backtest — S32: $1M with full friction (2026-05-25) | `../ENGINE_BACKTEST_S32_FRICTION.md` |
+| [ENGINE_BACKTEST_S32_REBASELINE_POST260](../ENGINE_BACKTEST_S32_REBASELINE_POST260.md) | legacy |  | Engine backtest — S32 snapshot re-baseline (post-#260) | `../ENGINE_BACKTEST_S32_REBASELINE_POST260.md` |
 | [ENGINE_BACKTEST_S34_UNIVERSE](../ENGINE_BACKTEST_S34_UNIVERSE.md) | legacy |  | Engine backtest — S34: 100-ticker universe at $1M with full friction (2026-05-26) | `../ENGINE_BACKTEST_S34_UNIVERSE.md` |
 | [ENGINE_BACKTEST_S35_OUT_OF_WINDOW](../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md) | legacy |  | Engine backtest — S35: 2018-2020 out-of-window cross-validation (2026-05-26) | `../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` |
 | [ENGINE_BACKTEST_S38_MULTIWINDOW](../ENGINE_BACKTEST_S38_MULTIWINDOW.md) | legacy |  | Engine backtest — S38: multi-window at 100 tickers + $1M (2026-05-26) | `../ENGINE_BACKTEST_S38_MULTIWINDOW.md` |

@@ -7,7 +7,7 @@ terminal: B
 pr:
 decisions: []
 date: 2026-05-30
-headline: Top-bin (0.95,1.0] over-confidence is REGIME-DEPENDENT, not uniform-structural — in-sample Δ −9pp / OOS-2020 −7pp / OOS-fresh −35pp (n=8, sector-concentrated). Mid-high bins (0.85,0.95] remain uniformly miscalibrated −11 to −17pp. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of the headline is methodology artifact.
+headline: Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation).
 surface: [docs/HEAVY_PIT_REALISM.md, docs/verification_artifacts/pit_realism_driver.py]
 ---
 
@@ -161,16 +161,35 @@ hypothesis verdicts + diagnostic candidate listing in
 
 ## Unresolved / handoff
 
+- **Verifier-driven correction (2026-05-30):** the original
+  write-up labelled H3 SUPPORTED based on the in-sample −9.07pp
+  vs calibration-doc S34 −15.05pp delta. A paired-Session
+  read flagged two issues: (1) at n=8 the binomial 95% CI on
+  the in-sample top bin overlaps S34's reading — the delta is
+  inside sampling variance; (2) HT-C (paired terminal,
+  in-flight) reports "10/10 calibration re-derivations match
+  published values" on the post-#249 engine — the apples-to-
+  apples reproducibility test directly contradicts SUPPORTED.
+  H3 is now INCONCLUSIVE. The lesson: at small top-bin n, a
+  single backtest is not enough to claim engine drift; cross-
+  validation with an apples-to-apples re-derivation is the
+  right primary evidence.
 - **OOS-fresh top-bin n=8 with sector concentration** wants a
   follow-up larger-n test on a wider universe to firm up the
   −35pp magnitude. The current data point is real (the 3 ITM
   losses are not noise — ADI alone lost $4,122 per contract)
-  but the magnitude is sensitive to small-n.
+  but the magnitude is sensitive to small-n AND to R10-being-
+  off in the candidate-level analysis. R10 would have blocked
+  the 2nd and 3rd AVGO entries in production.
 - **The empirical_overlapping vs non_overlapping calibration gap**
-  is the most actionable new finding. A non-§2 follow-up could
-  test whether preferring overlapping for top-bin candidates
-  (or applying a post-hoc shrinkage based on source) improves
-  calibration without touching the EV authority.
+  is the most actionable new finding from this study. A non-§2
+  follow-up could test whether preferring overlapping for top-bin
+  candidates (or applying a post-hoc shrinkage based on source)
+  improves calibration without touching the EV authority. Caveat:
+  the gap is partly window-confounded (overlapping is used more
+  in OOS-2020 which is also the better-calibrated window) — a
+  controlled test would need to use the same window with both
+  sources where possible.
 - **The 2020a pre-COVID phase** is the canonical empirical case
   of "regime change inside the forward window" — mid-bin Δ
   −47 to −65pp. The F4 fix mechanism (RV30/RV252 widening) is

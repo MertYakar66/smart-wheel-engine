@@ -33,26 +33,43 @@ documented column-rename quirk applied).
 
 ## Verdict (one sentence)
 
-**The post-#249 engine's top-bin miscalibration is REGIME-DEPENDENT,
-not uniform-structural as the prior cross-config doc inferred:** in-
-sample 2022-2024 top-bin Δ = **−9.07pp** (WARN, well below the doc's
-−15 to −17pp claim); OOS 2020 crisis Δ = **−6.81pp** (WARN, with the
-largest top-bin n=67); OOS fresh 2024-2026 Δ = **−35.00pp** (MISCAL,
-dominated by 3 AI/semi single-name losses that the R10 cap would
-de-duplicate in production). The mid-high bins (0.85, 0.95] remain
-consistently MISCAL across all three windows (−11 to −17pp), confirming
-the **structural mid-bin claim**; the very-top-bin uniformity claim is
-**weakened, not refuted** — the apparent in-sample improvement may be
-methodology-aware (this driver runs the ranker only, not the tracker;
-top-bin n=8 is much smaller than the calibration doc's tracker-based
-n=37-642). Under the **engine-exact `prob_profit` definition**
-(`spot ≥ strike − premium`), in-sample top-bin Δ flips to **+3.43pp
-(OK)**, meaning roughly 12pp of the headline OTM-convention
-"over-confidence" is methodology artifact, not engine miscalibration.
+**The robust finding is the uniform MID-HIGH bin (0.85, 0.95]
+miscalibration of −11 to −17pp across all 3 windows** (n=68-552 per
+bin per window — high confidence). The very-top-bin (0.95, 1.0] is
+sample-poor (n=8/67/8 across windows) and its apparent regime-
+dependence (in-sample Δ −9.07pp / OOS-2020 −6.81pp / OOS-fresh
+−35.00pp) sits inside the sampling-variance envelope at this n, so
+the "regime-dependent" framing is HYPOTHESIS-GENERATING, not
+decision-grade. Under the **engine-exact `prob_profit` definition**
+(`spot ≥ strike − premium`), the in-sample top-bin Δ flips to
+**+3.43pp (OK)**, meaning ~12pp of the OTM-convention "over-confidence"
+is methodology artifact, not engine miscalibration — a methodological
+sharpening that applies symmetrically to the prior calibration-doc
+baseline. The OOS-fresh −35.00pp top-bin signal is driven by 3 AI/
+semi single-name losses (AVGO×3, ADI×1) that R10 single-name cap
+would de-duplicate in production; it is **NOT** clean evidence that
+the engine got worse in the recent period.
 
-**Confidence:** medium-high on the regime-dependence finding (3 windows
-× hundreds of rows each, total n=4,537); low-medium on the OOS-fresh
-−35pp magnitude (n=8 top-bin, dominated by sector concentration).
+**Confidence levels:**
+- **High** — mid-high bin uniform miscalibration claim (large-n,
+  reproduces directionally across 3 windows).
+- **Medium** — methodology artifact / OTM-vs-EXACT-pnl distinction
+  (mathematically grounded, holds in all 3 windows on the same data).
+- **Low** — very-top-bin "regime-dependent" framing (n=8-67 across
+  windows, inside sampling variance, partially confounded by sector
+  concentration in OOS-fresh).
+
+**Cross-validation note:** HT-C (in-flight, paired terminal) reports
+"10/10 calibration re-derivations match published values" on the
+post-#249 engine using the calibration doc's exact rank_logs. That
+result, when its PR lands, is the apples-to-apples reproducibility
+check; if confirmed, it implies the post-#249 engine produces
+calibration tables matching the published baseline — which means
+my in-sample top-bin Δ of −9.07pp (vs the calibration doc's S34
+−15.05pp) is a SAMPLING-VARIANCE difference at small top-bin n,
+not engine-behaviour drift. Under that reading, **H3 below should
+be read as INCONCLUSIVE / not supported** — see the hypothesis
+section for the updated verdict.
 
 ---
 
@@ -455,22 +472,39 @@ S38-postF4 / S40 baseline (~−15pp).
 S34 −15.05pp (6 pp improvement). Under exact `prob_profit`
 definition, +3.43pp (18 pp improvement). The OOS-fresh window
 shows a much WORSE top-bin Δ (−35.00pp) than any prior baseline.
-**Verdict:** **SUPPORTED.** The post-#249 engine produces
-materially different (better in-sample, worse in OOS-fresh)
-calibration than the prior cross-config baseline. Confidence:
-medium — the in-sample improvement is robust (matches the
-EXACT pnl definition, where it flips OK); the OOS-fresh
-worsening is sensitive to the small top-bin n=8 and sector
-concentration. **A follow-up calibration test with larger n
-in the OOS-fresh top bin would tighten this verdict.**
+
+**Verdict (updated 2026-05-30 post-verifier review): INCONCLUSIVE.**
+The original write-up labelled this SUPPORTED, but two issues weaken
+that:
+1. **Sampling variance dominates.** My in-sample top-bin n=8 vs the
+   calibration doc's S34 n=37. At p̂=0.875 with n=8 the binomial
+   95% CI is roughly [0.47, 1.00] — overlapping the S34 reading.
+   The 6-18pp delta is well inside what sampling noise produces at
+   this n; it is NOT a robust engine-behaviour difference.
+2. **HT-C cross-validation contradicts the SUPPORTED reading.** The
+   paired-terminal news-severance re-verify (in-flight) reports
+   "10/10 calibration re-derivations match published values" on
+   the post-#249 engine using the EXACT prior rank_logs. That is
+   the apples-to-apples reproducibility test; if its PR confirms
+   the result, the published S34 / S38 / etc. tables reproduce on
+   the current engine SHA → the engine did not change, and my
+   smaller in-sample Δ is the small-n artifact above.
+
+The OOS-fresh −35pp top-bin remains a real anomaly at n=8 but,
+per the diagnostic, is driven by AI/semi sector concentration that
+R10 would mitigate in production; it is not clean evidence of
+engine drift either. **The honest verdict is INCONCLUSIVE pending
+HT-C's apples-to-apples re-derivation landing on main.**
+Confidence: medium (the methodological argument is strong; the
+HT-C cross-validation has not yet been ratified by merge).
 
 ### Summary table
 
 | H | Verdict | Confidence | Key supporting numbers |
 |---|---|---|---|
-| H1 structural top-bin | PARTIALLY REFUTED | med-high | Top-bin Δ range −6.81 to −35.00pp across windows; mid-high bin Δ uniform −11 to −17pp |
-| H2 in-sample tuning | REFUTED | med-high | OOS-2020 (−6.81) better-calibrated than in-sample (−9.07); opposite to prediction |
-| H3 post-#249 shift | SUPPORTED | med | In-sample 2022-2024 −9.07pp vs prior baseline −15.05pp; flips OK under exact pnl metric |
+| H1 structural top-bin | PARTIALLY REFUTED | med-high | Top-bin Δ range −6.81 to −35.00pp across windows AT SMALL n=8-67 (variance, not unequivocal regime-dependence); mid-high bin Δ uniform −11 to −17pp is the more reliable structural finding |
+| H2 in-sample tuning | REFUTED | med-high | OOS-2020 (−6.81) better-calibrated than in-sample (−9.07); opposite to prediction. Confirmed by mid-high-bin behaviour too. |
+| H3 post-#249 shift | **INCONCLUSIVE (was SUPPORTED — corrected 2026-05-30 after verifier flagged sampling-variance + HT-C cross-validation)** | med | In-sample n=8 binomial CI overlaps S34's prior reading; HT-C reports the published baseline reproduces on post-#249. |
 
 ---
 
@@ -571,15 +605,23 @@ adds a second calibration table per window using
 
 ## AI handoff
 
-- **Headline update for the calibration doc:** the
-  `PROB_PROFIT_CALIBRATION_2026-05-28.md` claim "top-bin Δ
-  uniformly −15 to −17pp across 10 configs" needs a
-  REGIME-DEPENDENT qualifier on the post-#249 engine: in-sample
-  2022-2024 Δ is meaningfully smaller (−9pp OTM / +3pp exact),
-  OOS-2020 is mild (−7pp), OOS-fresh is dramatic (−35pp with
-  n=8 sector-concentration caveat). The mid-high (0.85, 0.95]
-  bins remain uniformly miscalibrated and that's the more
-  reliable structural claim.
+- **What's robust enough to act on:** the mid-high (0.85, 0.95] bin
+  uniform miscalibration (−11 to −17pp across 3 windows, n=68-552
+  per bin per window). That's the part of the calibration story
+  this study confirms with high confidence on the post-#249 engine.
+- **What's NOT decision-grade from this study alone:** the very-
+  top-bin (0.95, 1.0] "regime-dependent" framing. At n=8 in the
+  in-sample and OOS-fresh windows, sampling variance dominates
+  any signal. HT-C's apples-to-apples re-derivation
+  (in-flight, paired terminal) is the right cross-check; if it
+  lands "matches published," the calibration doc's headline
+  number stands on the post-#249 engine and this study's smaller
+  in-sample Δ is the small-n artifact.
+- **Methodology recommendation (robust):** future calibration
+  analyses should report BOTH the OTM convention (for comparability
+  with prior rank_logs) AND the engine-exact `prob_profit` definition.
+  The ~12pp gap between them in-sample is methodology-only — applies
+  symmetrically to the prior baseline.
 - **Methodology improvement:** the engine-exact `prob_profit`
   definition (`spot ≥ strike − premium`) gives systematically
   better calibration than the OTM-only convention. Future

@@ -724,3 +724,4 @@ Rows below were added automatically because the file was tracked but absent from
 | File | Purpose |
 |---|---|
 | `tests/test_ev_engine_percentiles.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
+| `tests/test_news_severance.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |

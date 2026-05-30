@@ -22,6 +22,19 @@ from scipy import interpolate, optimize
 from scipy.stats import norm
 
 
+class SurfaceDataUnavailable(ValueError):
+    """Raised when an IV surface has no usable data for the requested ticker.
+
+    The fail-loud contract for the SVI surface tooling (DECISIONS.md D9, A2):
+    a consumer must NEVER silently fall back to a fabricated flat IV when the
+    underlying has no surface data (e.g. a ticker outside Theta's
+    ``iv_surface_history`` coverage). Consumers call :func:`require_surface`
+    and let this propagate, rather than quoting a fake 0.20. The only
+    sanctioned flat surface is :func:`create_constant_surface`, which is
+    opt-in by name and clearly labelled.
+    """
+
+
 @dataclass
 class SVIParams:
     """
@@ -623,6 +636,37 @@ def validate_no_calendar_arbitrage(
         results["health_metrics"].append("Surface is arbitrage-free")
 
     return results
+
+
+def require_surface(surface: VolatilitySurface, ticker: str = "") -> VolatilitySurface:
+    """Fail-loud guard for SVI surface consumers (DECISIONS.md D9, A2).
+
+    Returns ``surface`` unchanged when it carries at least one calibrated
+    expiry; otherwise raises :class:`SurfaceDataUnavailable`. Every consumer
+    of the SVI tooling that might receive an uncovered ticker (outside Theta's
+    partial ``iv_surface_history`` coverage) MUST route through this guard so a
+    missing surface raises loudly instead of silently quoting a fabricated flat
+    IV. This is the contract that keeps the dormant SVI layer safe to wire in.
+
+    Args:
+        surface: the surface to check.
+        ticker: optional symbol, used only to make the error message specific.
+
+    Returns:
+        The same ``surface`` object (so callers can write
+        ``surf = require_surface(build(...), ticker)``).
+
+    Raises:
+        SurfaceDataUnavailable: when ``surface.svi_params`` is empty.
+    """
+    if not surface.svi_params:
+        name = ticker or surface.underlying or "<unknown>"
+        raise SurfaceDataUnavailable(
+            f"{name}: no calibrated IV surface (zero expiries). Fail loud rather "
+            f"than fabricate a flat IV — see DECISIONS.md D9. If a flat surface is "
+            f"genuinely intended, call create_constant_surface() explicitly."
+        )
+    return surface
 
 
 def create_constant_surface(

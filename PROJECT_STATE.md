@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-05-29.
+**Last updated:** 2026-05-30.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -224,10 +224,11 @@ the engine has the machinery but does not apply it to `prob_profit`.
   2026-04-25**. Audit pass: no live silent-fallback paths.
 - `get_iv_surface()` returns an empty DataFrame on missing data, not a
   flat-IV stub.
-- **Open decision:** before wiring SVI surfaces into a feature or the
-  decision path, pick a missing-data contract — fail loudly on the
-  ~122 uncovered tickers (snapshot: ~475), or use a clearly-named
-  fallback (`flat_iv_fallback`, never silent).
+- **Resolved (2026-05-30, A2 — `DECISIONS.md` D9):** chose **fail loudly**.
+  The SVI tooling is wired in behind `SurfaceDataUnavailable` +
+  `require_surface`; first caller `scripts/diagnose_iv_surface.py` (non-zero
+  exit on uncovered tickers). `create_constant_surface` is the only opt-in
+  flat surface. Pinned by `tests/test_iv_surface_failloud.py`.
 
 ### `.claude/` SessionStart hook
 

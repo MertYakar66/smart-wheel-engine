@@ -517,6 +517,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/probe_theta_capabilities.py` | Probes the Theta tier and writes the capability map. |
 | `scripts/backfill_features.py` | Recomputes the feature store for every universe ticker in parallel. |
 | `scripts/diagnose_candidates.py` | Read-only EV-ranker funnel report for zero-trade debugging. |
+| `scripts/diagnose_iv_surface.py` | Fail-loud SVI IV-surface diagnostic (ROADMAP A2 / `DECISIONS.md` D9) — first production caller of `engine/volatility_surface.py`; reports per-expiry skew / term-structure and exits non-zero on any uncovered ticker. Pure core unit-tested in `tests/test_iv_surface_failloud.py`; connector path operator-first-run-verified. |
 | `scripts/feature_smoke_test.py` | End-to-end smoke-test harness exercising the data layer, EV engine and API. |
 | `scripts/quant_benchmark_gate.py` | Hard acceptance gate validating the quant engine against academic reference values. |
 | `scripts/orchestrate.py` | Unified daily orchestrator (morning / intraday / evening / full). |
@@ -580,6 +581,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_audit_invariants.py` | Launch-blocker invariants — Greeks unit contract, PIT safety, TV webhook HMAC, EV-engine invariants. |
 | `tests/test_check_manifest_coverage.py` | Unit tests for the conflict-marker guard in `scripts/check_manifest_coverage.py` — pins exact 7-char marker shapes (with/without ref, separator alone) and the negative cases that drove the precision (visual `=========` separators, pytest section dividers, indented occurrences, prose substrings). |
 | `tests/test_check_lane_claim.py` | Unit tests for `scripts/check_lane_claim.py` — the decision-layer lane gate's behaviour matrix (no-touch passes, unclaimed edit fails, claimed passes, partial claim fails on the remainder, no-claim-source skips as not-a-PR-context). |
+| `tests/test_iv_surface_failloud.py` | Pins the A2 fail-loud SVI-surface contract (`DECISIONS.md` D9) — `require_surface` raises on an empty surface, `create_empirical_surface` raises on empty input, the diagnostic's pure core builds from a synthetic ATM term structure and fails loud on missing data, and a populated surface still works. |
 | `tests/test_audit_viii_e2e.py` | Launch-blocker invariant — the end-to-end TV-webhook → EV-ranker → tracker authority chain. |
 | `tests/test_audit_viii_unit_invariants.py` | Launch-blocker invariant — IV/rate percent-vs-decimal normalisation and the rolled-leg P&L accumulator. |
 | `tests/test_audit_viii_real_data_smoke.py` | Real-Bloomberg smoke test of the EV ranker (module-level skip without the CSVs). |

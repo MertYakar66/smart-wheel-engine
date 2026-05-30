@@ -329,7 +329,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
 | `engine/signal_context.py` | Builds the context dicts the signal framework consumes from the Bloomberg data loaders. |
 | `engine/signals.py` | Signal-generation framework — IV-rank / trend / profit-target / stop-loss / DTE / event signals and the aggregator. |
-| `engine/news_sentiment.py` | `NewsSentimentReader` — reads news-pipeline sentiment from disk and maps it to a clamped EV multiplier. |
+| `engine/news_sentiment.py` | `NewsSentimentReader` — reads news-pipeline sentiment from disk. `sentiment_multiplier` is a constant-1.0 stub post-D18 (verbal news severed from the EV path); `get_ticker_sentiment` is preserved as an operator-transparency layer for the dashboard / row dict. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
 | `engine/forward_distribution.py` | PIT-safe forward-return distribution builder (empirical → block bootstrap → HAR-RV cascade). |
@@ -681,7 +681,9 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_financial_news.py` | The `financial_news` platform — schema, macro calendar, verification engine. |
 | `tests/test_news_processing.py` | `financial_news` article classification. |
 | `tests/test_news_pipeline.py` | The `news_pipeline` package — models, security, recovery, publisher. |
-| `tests/test_news_sentiment.py` | `NewsSentimentReader` — sentiment reading and the EV multiplier. |
+| `tests/test_news_sentiment.py` | `NewsSentimentReader` — sentiment reading; the `TestSentimentMultiplier` class is rewritten post-D18 to assert the constant-1.0 contract across every band the old code derated/boosted. |
+| `tests/test_news_severance.py` | DECISIONS.md D18 invariant — `sentiment_multiplier` is 1.0 across every `(sentiment, n_articles)` combination plus a side-effect test pinning that `get_ticker_sentiment` still returns the underlying data after the stub is called. |
+| `tests/test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` invariants — monotone ordering, pre-multiplier invariance, `cvar_5 ≤ pnl_p25`, NaN guards on small distributions and event-lockout. |
 | `tests/test_adversarial_news.py` | Adversarial news-scenario smoke test. |
 | `tests/test_recovery_checkpoints.py` | `news_pipeline.recovery.checkpoints` save/load/resume. |
 | `tests/test_recovery_fallbacks.py` | `news_pipeline.recovery.fallbacks` degraded-mode and fallback chains. |
@@ -716,12 +718,3 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `utils/logging_config.py` | Logging setup helpers. |
 | `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. |
 | `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. |
-
-## Untriaged additions (auto-appended by `scripts/sync_manifest.py`)
-
-Rows below were added automatically because the file was tracked but absent from the manifest. Move each entry under the correct `## <directory>` section with a real purpose description, then delete it from here. Re-running `--fix` rebuilds this section from scratch.
-
-| File | Purpose |
-|---|---|
-| `tests/test_ev_engine_percentiles.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
-| `tests/test_news_severance.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |

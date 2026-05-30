@@ -101,8 +101,12 @@ python morning_run.py
 ```
 
 Browser-driven multi-LLM (Claude / ChatGPT / Gemini paid sessions); the
-output feeds `engine/news_sentiment.py`, which is the only news-stack
-module on the EV path.
+output feeds the operator dashboard. As of D18 (2026-05-26), no news
+subsystem feeds the EV authority — `engine/news_sentiment.py` is now
+an operator-transparency layer with a constant-1.0 multiplier stub.
+See `DECISIONS.md` D18 and `docs/NEWS_REDESIGN_CAMPAIGN.md` for the
+in-flight quantitative replacements (EDGAR earnings, fundamentals
+quality score, FRED macro).
 
 ---
 

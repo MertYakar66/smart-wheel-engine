@@ -172,7 +172,10 @@ async paths of `recovery/health.py`. Three reasons not to chase it:
    EV engine only through `engine/news_sentiment.py` (already at
    94% via E1), which reads from disk. The browser plumbing that
    *produces* those files is consumed asynchronously, off the
-   decision path.
+   decision path. **Post-D18 (2026-05-26):** even
+   `engine/news_sentiment.py`'s EV-influence channel is severed
+   (`sentiment_multiplier` returns constant 1.0), strengthening
+   the case — no news subsystem feeds the EV authority any more.
 2. **Infrastructure investment far exceeds value.** Coverage would
    require a Playwright + aiohttp + SessionManager mock harness —
    ~hundreds of lines of fixture infrastructure for code that's

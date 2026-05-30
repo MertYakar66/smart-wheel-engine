@@ -14,6 +14,62 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05-30 — merge-prep cycle: news-architecture redesign PRs 1–3 + MP-D + S42 close
+
+The 2026-05-30 "merge-prep" parallel-session cycle landed five PRs onto
+`main` (board #113). Decision-log entry for the news work: **D18**.
+Headline reframing: **verbal news** (qualitative narrative) is severed
+from the EV path (operator-only); **numbered news** (earnings dates,
+fundamentals, macro) replaces it as separate structured layers.
+
+### Added
+- `EVResult` gains `pnl_p25 / pnl_p50 / pnl_p75` — raw P&L distribution
+  percentiles (pre regime/dealer multipliers), surfaced through the
+  ranker row and `/api/candidates`. Operator framing shifts from a point
+  estimate to a distribution. **PR #248** (`tests/test_ev_engine_percentiles.py`).
+- `EDGARAdapter.recent_8k_filings / earnings_history / project_next_earnings`
+  — PIT-correct earnings-release history + projection from SEC EDGAR
+  Form 8-K Item 2.02; drop-in compatible with
+  `MarketDataConnector.get_next_earnings`. Integration into the EV path
+  deferred to a follow-up. **PR #251** (+22 tests; `docs/EDGAR_EARNINGS.md`).
+- `scripts/pull_edgar_earnings.py` — CLI puller for the EDGAR earnings
+  store (append-only, `--refresh` merges with the prior parquet). **PR #251**.
+
+### Changed
+- **D18: verbal news severed from the EV decision path.**
+  `engine/news_sentiment.py::sentiment_multiplier` is now a constant-1.0
+  stub. `get_ticker_sentiment` is preserved so the dashboard, the row
+  dict (`news_sentiment` / `news_n_articles`), and the morning brief
+  still surface the underlying score for operator transparency. **PR #249**
+  (`tests/test_news_severance.py` added; `TestSentimentMultiplier` +
+  `test_multiplier_is_pit` rewritten).
+- `MODULE_INDEX.md`, `PROJECT_STATE.md`, `README.md`, `AGENTS.md`,
+  `ROADMAP.md`, `FILE_MANIFEST.md`, `scripts/pull_news_sentiment.py`
+  aligned with the D18 severance (Major-Session cycle-close reconciliation;
+  folds the descriptive-doc sweep originally drafted as PR #252).
+
+### Fixed
+- **MP-D / D9 follow-up:** `VolatilitySurface.get_iv` / `get_skew`'s three
+  internal `return 0.20` missing-data fallbacks now `raise
+  SurfaceDataUnavailable`, extending the fail-loud contract #286 set on
+  the public surface down into the surface object's own methods. **MP-D**
+  (squash `a77d61d`; `tests/test_iv_surface_failloud.py` +6).
+- **S42 Findings #1–4 (dossier defensive guards):** drop the `or 1`
+  truthy fallback on `contracts` in R9/R10; new `_filter_bsm_safe_positions`
+  skips rows that would crash BSM (`strike<=0` / `contracts<=0` / missing
+  symbol) in `check_var` + `check_stress_scenario`; `SectorExposureManager`
+  uses defensive `.get()`. §2-preserved (defensive only; reviewers stay
+  downgrade-only). **PR #275** (`tests/test_dossier_r9_r10_audit.py`
+  updated; `TestFilterBSMSafePositions` +15).
+
+### Docs
+- `docs/NEWS_REDESIGN_CAMPAIGN.md` (PR #250, prior) is the canonical
+  campaign state; PRs 4–9 (quality score / R9 reviewer / FRED
+  `credit_mult` / backtest re-baseline / dashboard panes / override log)
+  are not started.
+
+---
+
 ## 2026-05 (late) — Open-question closures: A2 (iv_surface) + C1 (CSV tracking)
 
 ### Added

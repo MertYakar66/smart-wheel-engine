@@ -1,0 +1,286 @@
+
+==============================================================================
+HT-A — Persona walkthrough (heavy-verify, 2026-05-30)
+==============================================================================
+Persona: professional quant trader.
+As-of date: 2026-03-20 (freshest Bloomberg data per SessionStart hook).
+Mode: read-only — no engine/ edits. Observe + document only.
+
+Provider: MarketDataConnector
+  (default per CLAUDE.md §4: MarketDataConnector = bloomberg CSV path)
+Connector universe size: 503
+
+==============================================================================
+Ask 1 — 'rank me 20 names'
+==============================================================================
+Trader request: 'Scan the universe and show me the 20 best short-put
+candidates right now, with EV and downside.'
+
+Rows returned: 20  (requested top_n=20)
+
+Headline columns (sorted by ev_per_day desc):
+ticker     spot  strike  premium  dte     iv  ev_dollars  ev_per_day  pnl_p25  pnl_p50  pnl_p75    cvar_5  prob_profit  prob_assignment  collateral      roc                 sector       distribution_source
+   FIX 1360.790  1212.0   47.187   35 0.6740     2547.56     146.975  4647.29  4647.29  4647.29   4102.46       0.9714           0.0286    121200.0 0.021019                Unknown empirical_non_overlapping
+  BKNG 4286.810  3969.5   89.340   35 0.4219     1468.83      80.118  8799.38  8799.38  8799.38 -38611.77       0.8000           0.2000    396950.0 0.003700 Consumer Discretionary empirical_non_overlapping
+   NVR 6327.000  5971.5   97.317   35 0.3166     1439.85      78.537  9585.03  9585.03  9585.03 -36124.06       0.8000           0.2286    597150.0 0.002411                Unknown empirical_non_overlapping
+   AZO 3292.240  3104.5   51.463   35 0.3216     1374.72      72.354  5068.50  5068.50  5068.50  -8876.71       0.9143           0.1143    310450.0 0.004428                Unknown empirical_non_overlapping
+  KLAC 1474.090  1339.5   40.034   35 0.5395     1260.65      68.763  3942.67  3942.67  3942.67 -13265.29       0.9143           0.1429    133950.0 0.009411 Information Technology empirical_non_overlapping
+   MCK  891.140   837.0   14.944   35 0.3430     1109.92      62.239  1471.32  1471.32  1471.32  -3186.01       0.9429           0.0571     83700.0 0.013261                Unknown empirical_non_overlapping
+  FICO 1105.000   993.0   34.560   35 0.6142     1026.12      56.484  3403.55  3403.55  3403.55 -11567.97       0.8857           0.2286     99300.0 0.010334                Unknown empirical_non_overlapping
+   EME  725.640   667.0   16.975   35 0.4700      958.24      55.820  1671.36  1671.36  1671.36  -5747.75       0.9429           0.1143     66700.0 0.014366                Unknown empirical_non_overlapping
+   LLY  902.210   832.0   19.997   35 0.4472      713.73      37.897  1969.03  1969.03  1969.03  -4012.67       0.8857           0.1143     83200.0 0.008578             Healthcare empirical_non_overlapping
+   LMT  627.330   588.0   10.653   35 0.3463      707.78      37.251  1048.70  1048.70  1048.70  -1782.13       0.9143           0.1429     58800.0 0.012037            Industrials empirical_non_overlapping
+  REGN  733.700   678.0   15.759   35 0.4350      492.01      28.385  1551.59  1551.59  1551.59  -9129.41       0.8571           0.1714     67800.0 0.007257             Healthcare empirical_non_overlapping
+   HII  407.600   374.5    9.415   35 0.4653      505.59      27.831   926.73   926.73   926.73  -4724.40       0.8857           0.1429     37450.0 0.013500                Unknown empirical_non_overlapping
+   PWR  555.430   510.5   12.894   35 0.4686      457.46      25.894  1269.37  1269.37  1269.37  -3604.50       0.9143           0.1714     51050.0 0.008961                Unknown empirical_non_overlapping
+  VRTX  455.060   426.0    7.980   35 0.3606      444.13      25.139   785.40   785.40   785.40  -3374.12       0.9143           0.1429     42600.0 0.010426             Healthcare empirical_non_overlapping
+   TER  287.300   253.0   11.195   35 0.7507      443.23      24.398  1102.03  1102.03  1102.03  -4804.85       0.8857           0.1714     25300.0 0.017519                Unknown empirical_non_overlapping
+   CAT  672.620   618.5   15.492   35 0.4635      444.99      23.628  1525.27  1525.27  1525.27  -3990.19       0.8857           0.1714     61850.0 0.007195            Industrials empirical_non_overlapping
+   ELV  292.390   268.5    6.805   35 0.4662      402.73      22.796   669.69   669.69   669.69  -3557.46       0.9143           0.1429     26850.0 0.014999             Healthcare empirical_non_overlapping
+    EG  316.030   298.5    4.671   35 0.3023      401.40      22.300   459.43   459.43   459.43   -131.49       0.9714           0.1143     29850.0 0.013447                Unknown empirical_non_overlapping
+   CMI  527.100   491.0   10.069   35 0.3865      376.80      22.165   991.12   991.12   991.12  -5813.68       0.9143           0.2286     49100.0 0.007674                Unknown empirical_non_overlapping
+   BLK  949.145   885.0   17.404   35 0.3742      407.09      22.005  1713.66  1713.66  1713.66 -10064.99       0.8286           0.2000     88500.0 0.004600             Financials empirical_non_overlapping
+
+Diagnostic columns (same order):
+ticker  ev_raw  ev_dollars  regime_multiplier hmm_regime  hmm_multiplier  news_multiplier  credit_multiplier  dealer_multiplier dealer_regime  tail_widening_factor  heavy_tail  tail_xi  cvar_99_evt gex_total gamma_flip_distance_pct nearest_put_wall_strike nearest_call_wall_strike  skew_multiplier skew_source oi_source premium_source
+   FIX 4102.46     2547.56             0.6210     normal          0.6210              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+  BKNG 2640.16     1468.83             0.5563       bear          0.5563              1.0                1.0                1.0          None                1.0368       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   NVR 2960.88     1439.85             0.4863     crisis          0.4863              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   AZO 3948.67     1374.72             0.3481     crisis          0.3481              1.0                1.0                1.0          None                1.0055       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+  KLAC 2593.75     1260.65             0.4860       bear          0.4860              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   MCK 1205.19     1109.92             0.9210     normal          0.9210              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+  FICO 2159.27     1026.12             0.4752       bear          0.4752              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   EME 1220.79      958.24             0.7849     normal          0.7849              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   LLY 1462.40      713.73             0.4881       bear          0.4881              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   LMT  816.89      707.78             0.8664     normal          0.8664              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+  REGN  513.84      492.01             0.9575     normal          0.9575              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   HII  511.43      505.59             0.9886     normal          0.9886              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   PWR  910.01      457.46             0.5027     crisis          0.5027              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+  VRTX  508.22      444.13             0.8739     normal          0.8739              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   TER  602.78      443.23             0.7353     normal          0.7353              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   CAT  980.62      444.99             0.4538       bear          0.4538              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   ELV  378.96      402.73             1.0627 bull_quiet          1.0627              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+    EG  419.19      401.40             0.9576     normal          0.9576              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   CMI  435.07      376.80             0.8661     normal          0.8661              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+   BLK  513.84      407.09             0.7923     normal          0.7923              1.0                1.0                1.0          None                1.0000       False      NaN          NaN      None                    None                    None                     None              1.0 unavailable  fallback  synthetic_bsm
+
+.attrs['drops_summary'] = {'total_dropped': 167, 'by_gate': {'ev_threshold': 87, 'event': 68, 'premium': 1, 'history': 11}}
+.attrs['drops'] length = 167
+
+--- Per-gate drop counts (silent-filtering census) ---
+    ev_threshold : 87
+           event : 68
+         history : 11
+         premium : 1
+
+--- Sample of dropped tickers per gate (up to 5 each) ---
+  [ev_threshold]   ABNB : ev_dollars -69.00 < min_ev_dollars 0.00
+  [event]   ACGL : event_lockout:earnings@2026-04-28 (±5d buffer)
+  [event]    ACN : event_lockout:earnings@2026-03-19 (±5d buffer)
+  [ev_threshold]   ADBE : ev_dollars -280.87 < min_ev_dollars 0.00
+  [ev_threshold]   ADSK : ev_dollars -22.43 < min_ev_dollars 0.00
+  [premium]    AES : synthetic premium too thin (<=$0.05)
+  [event]    AFL : event_lockout:earnings@2026-04-29 (±5d buffer)
+  [ev_threshold]   ALGN : ev_dollars -179.47 < min_ev_dollars 0.00
+  [ev_threshold]    AMT : ev_dollars -21.26 < min_ev_dollars 0.00
+  [event]    APH : event_lockout:earnings@2026-04-29 (±5d buffer)
+  [event]    ARE : event_lockout:earnings@2026-04-27 (±5d buffer)
+  [history]    CPB : history 398d < required 504d
+  [history]    DPZ : history 304d < required 504d
+  [history]    GEV : history 497d < required 504d
+  [history]    KMB : history 203d < required 504d
+  [history]   PLTR : history 328d < required 504d
+
+Coverage: 20 survivors + 167 drops = 187 of 503 universe tickers
+
+Top survivor cached for Asks 3/4: FIX 1212.0P  ev_dollars=$2547.56  ev_per_day=$146.975
+
+==============================================================================
+Ask 2 — 'why was X filtered'
+==============================================================================
+Trader request: 'I expected to see PRGO and a few others on the screen.
+ Why didn't they make it?'
+
+Probing dropped tickers (one per gate where present): ['ABNB', 'ACGL', 'AES', 'CPB']
+    ABNB  gate=ev_threshold  reason=ev_dollars -69.00 < min_ev_dollars 0.00
+    ACGL  gate=     event  reason=event_lockout:earnings@2026-04-28 (±5d buffer)
+     AES  gate=   premium  reason=synthetic premium too thin (<=$0.05)
+     CPB  gate=   history  reason=history 398d < required 504d
+
+--- Single-ticker re-rank (each in isolation, same kwargs) ---
+    ABNB  survived in isolation: ev=$-69.0  prob_profit=0.7429  premium=$2.831  iv=0.4422
+    ACGL  dropped  gate=event  reason=event_lockout:earnings@2026-04-28 (±5d buffer)
+     AES  dropped  gate=premium  reason=synthetic premium too thin (<=$0.05)
+     CPB  dropped  gate=history  reason=history 398d < required 504d
+
+--- Operator typo case: rank for an unknown ticker ---
+  rows=0  drops=[{'ticker': 'XYZZ', 'gate': 'data', 'reason': "no OHLCV data (empty or missing 'close')"}]
+
+==============================================================================
+Ask 3 — 'size this within a $250k book'
+==============================================================================
+Trader request: 'I have $250k to deploy. Size this for me, then walk
+ each opener through the EV-authority gate so we don't double-deploy
+ a name or breach the sector / single-name caps.'
+
+select_book — 6 positions chosen out of 20 ranked.
+  attrs: {'drops': [{'ticker': 'ABNB', 'gate': 'ev_threshold', 'reason': 'ev_dollars -69.00 < min_ev_dollars 0.00'}, {'ticker': 'ACGL', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-28 (±5d buffer)'}, {'ticker': 'ACN', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-19 (±5d buffer)'}, {'ticker': 'ADBE', 'gate': 'ev_threshold', 'reason': 'ev_dollars -280.87 < min_ev_dollars 0.00'}, {'ticker': 'ADSK', 'gate': 'ev_threshold', 'reason': 'ev_dollars -22.43 < min_ev_dollars 0.00'}, {'ticker': 'AES', 'gate': 'premium', 'reason': 'synthetic premium too thin (<=$0.05)'}, {'ticker': 'AFL', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-29 (±5d buffer)'}, {'ticker': 'ALGN', 'gate': 'ev_threshold', 'reason': 'ev_dollars -179.47 < min_ev_dollars 0.00'}, {'ticker': 'AMT', 'gate': 'ev_threshold', 'reason': 'ev_dollars -21.26 < min_ev_dollars 0.00'}, {'ticker': 'APH', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-29 (±5d buffer)'}, {'ticker': 'APP', 'gate': 'ev_threshold', 'reason': 'ev_dollars -80.44 < min_ev_dollars 0.00'}, {'ticker': 'APTV', 'gate': 'ev_threshold', 'reason': 'ev_dollars -76.94 < min_ev_dollars 0.00'}, {'ticker': 'ARE', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-27 (±5d buffer)'}, {'ticker': 'AWK', 'gate': 'ev_threshold', 'reason': 'ev_dollars -5.05 < min_ev_dollars 0.00'}, {'ticker': 'AXP', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'BA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -85.62 < min_ev_dollars 0.00'}, {'ticker': 'BAC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-15 (±5d buffer)'}, {'ticker': 'BALL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -9.06 < min_ev_dollars 0.00'}, {'ticker': 'BBY', 'gate': 'ev_threshold', 'reason': 'ev_dollars -1.76 < min_ev_dollars 0.00'}, {'ticker': 'BIIB', 'gate': 'ev_threshold', 'reason': 'ev_dollars -32.28 < min_ev_dollars 0.00'}, {'ticker': 'BK', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'C', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-14 (±5d buffer)'}, {'ticker': 'CAG', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-01 (±5d buffer)'}, {'ticker': 'CBRE', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'CCI', 'gate': 'ev_threshold', 'reason': 'ev_dollars -13.20 < min_ev_dollars 0.00'}, {'ticker': 'CCL', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-27 (±5d buffer)'}, {'ticker': 'CFG', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'CHTR', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-24 (±5d buffer)'}, {'ticker': 'CMCSA', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'CME', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'CMG', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-29 (±5d buffer)'}, {'ticker': 'COIN', 'gate': 'ev_threshold', 'reason': 'ev_dollars -85.53 < min_ev_dollars 0.00'}, {'ticker': 'COST', 'gate': 'ev_threshold', 'reason': 'ev_dollars -102.49 < min_ev_dollars 0.00'}, {'ticker': 'CPB', 'gate': 'history', 'reason': 'history 398d < required 504d'}, {'ticker': 'CRM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -87.01 < min_ev_dollars 0.00'}, {'ticker': 'CRWD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -240.57 < min_ev_dollars 0.00'}, {'ticker': 'CTAS', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-25 (±5d buffer)'}, {'ticker': 'CVNA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -652.96 < min_ev_dollars 0.00'}, {'ticker': 'D', 'gate': 'ev_threshold', 'reason': 'ev_dollars -6.80 < min_ev_dollars 0.00'}, {'ticker': 'DAL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.07 < min_ev_dollars 0.00'}, {'ticker': 'DECK', 'gate': 'ev_threshold', 'reason': 'ev_dollars -66.25 < min_ev_dollars 0.00'}, {'ticker': 'DG', 'gate': 'ev_threshold', 'reason': 'ev_dollars -61.45 < min_ev_dollars 0.00'}, {'ticker': 'DGX', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'DHI', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'DIS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -38.48 < min_ev_dollars 0.00'}, {'ticker': 'DLR', 'gate': 'ev_threshold', 'reason': 'ev_dollars -6.45 < min_ev_dollars 0.00'}, {'ticker': 'DLTR', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-16 (±5d buffer)'}, {'ticker': 'DOC', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.97 < min_ev_dollars 0.00'}, {'ticker': 'DOV', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'DPZ', 'gate': 'history', 'reason': 'history 304d < required 504d'}, {'ticker': 'DRI', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-19 (±5d buffer)'}, {'ticker': 'DUK', 'gate': 'ev_threshold', 'reason': 'ev_dollars -0.00 < min_ev_dollars 0.00'}, {'ticker': 'DXCM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -51.62 < min_ev_dollars 0.00'}, {'ticker': 'EA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -150.81 < min_ev_dollars 0.00'}, {'ticker': 'ECL', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-28 (±5d buffer)'}, {'ticker': 'EIX', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.83 < min_ev_dollars 0.00'}, {'ticker': 'EPAM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -260.68 < min_ev_dollars 0.00'}, {'ticker': 'EQIX', 'gate': 'ev_threshold', 'reason': 'ev_dollars -107.93 < min_ev_dollars 0.00'}, {'ticker': 'EQR', 'gate': 'ev_threshold', 'reason': 'ev_dollars -6.11 < min_ev_dollars 0.00'}, {'ticker': 'ESS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -78.10 < min_ev_dollars 0.00'}, {'ticker': 'F', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-28 (±5d buffer)'}, {'ticker': 'FAST', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-13 (±5d buffer)'}, {'ticker': 'FDX', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-19 (±5d buffer)'}, {'ticker': 'FIS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -7.65 < min_ev_dollars 0.00'}, {'ticker': 'FITB', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-17 (±5d buffer)'}, {'ticker': 'FRT', 'gate': 'ev_threshold', 'reason': 'ev_dollars -19.03 < min_ev_dollars 0.00'}, {'ticker': 'GE', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'GEV', 'gate': 'history', 'reason': 'history 497d < required 504d'}, {'ticker': 'GIS', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-18 (±5d buffer)'}, {'ticker': 'GL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -22.55 < min_ev_dollars 0.00'}, {'ticker': 'GM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-28 (±5d buffer)'}, {'ticker': 'GNRC', 'gate': 'ev_threshold', 'reason': 'ev_dollars -67.39 < min_ev_dollars 0.00'}, {'ticker': 'GS', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-13 (±5d buffer)'}, {'ticker': 'HAS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.00 < min_ev_dollars 0.00'}, {'ticker': 'HBAN', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'HOLX', 'gate': 'ev_threshold', 'reason': 'ev_dollars -180.76 < min_ev_dollars 0.00'}, {'ticker': 'HOOD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -21.93 < min_ev_dollars 0.00'}, {'ticker': 'HPQ', 'gate': 'ev_threshold', 'reason': 'ev_dollars -1.59 < min_ev_dollars 0.00'}, {'ticker': 'HRL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.13 < min_ev_dollars 0.00'}, {'ticker': 'IBM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'IDXX', 'gate': 'ev_threshold', 'reason': 'ev_dollars -92.36 < min_ev_dollars 0.00'}, {'ticker': 'IFF', 'gate': 'ev_threshold', 'reason': 'ev_dollars -22.94 < min_ev_dollars 0.00'}, {'ticker': 'ISRG', 'gate': 'ev_threshold', 'reason': 'ev_dollars -29.06 < min_ev_dollars 0.00'}, {'ticker': 'JBL', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-18 (±5d buffer)'}, {'ticker': 'JNJ', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-14 (±5d buffer)'}, {'ticker': 'JPM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-14 (±5d buffer)'}, {'ticker': 'KEY', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'KIM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.48 < min_ev_dollars 0.00'}, {'ticker': 'KMB', 'gate': 'history', 'reason': 'history 203d < required 504d'}, {'ticker': 'KVUE', 'gate': 'ev_threshold', 'reason': 'ev_dollars -16.76 < min_ev_dollars 0.00'}, {'ticker': 'LULU', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-17 (±5d buffer)'}, {'ticker': 'LVS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -5.28 < min_ev_dollars 0.00'}, {'ticker': 'LW', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-01 (±5d buffer)'}, {'ticker': 'MDT', 'gate': 'ev_threshold', 'reason': 'ev_dollars -12.28 < min_ev_dollars 0.00'}, {'ticker': 'META', 'gate': 'ev_threshold', 'reason': 'ev_dollars -481.38 < min_ev_dollars 0.00'}, {'ticker': 'MGM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.01 < min_ev_dollars 0.00'}, {'ticker': 'MKC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-31 (±5d buffer)'}, {'ticker': 'MMM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -16.19 < min_ev_dollars 0.00'}, {'ticker': 'MRNA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -58.12 < min_ev_dollars 0.00'}, {'ticker': 'MS', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-15 (±5d buffer)'}, {'ticker': 'MTB', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-15 (±5d buffer)'}, {'ticker': 'MTCH', 'gate': 'ev_threshold', 'reason': 'ev_dollars -33.21 < min_ev_dollars 0.00'}, {'ticker': 'MU', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-18 (±5d buffer)'}, {'ticker': 'NCLH', 'gate': 'ev_threshold', 'reason': 'ev_dollars -1.56 < min_ev_dollars 0.00'}, {'ticker': 'NDSN', 'gate': 'ev_threshold', 'reason': 'ev_dollars -117.13 < min_ev_dollars 0.00'}, {'ticker': 'NFLX', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'NKE', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-31 (±5d buffer)'}, {'ticker': 'NOC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'NSC', 'gate': 'ev_threshold', 'reason': 'ev_dollars -57.04 < min_ev_dollars 0.00'}, {'ticker': 'NTRS', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'NUE', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-27 (±5d buffer)'}, {'ticker': 'NVDA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -70.76 < min_ev_dollars 0.00'}, {'ticker': 'NWSA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -5.40 < min_ev_dollars 0.00'}, {'ticker': 'NXPI', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-28 (±5d buffer)'}, {'ticker': 'O', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.47 < min_ev_dollars 0.00'}, {'ticker': 'PANW', 'gate': 'ev_threshold', 'reason': 'ev_dollars -54.75 < min_ev_dollars 0.00'}, {'ticker': 'PAYX', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-25 (±5d buffer)'}, {'ticker': 'PCG', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.14 < min_ev_dollars 0.00'}, {'ticker': 'PEP', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'PFE', 'gate': 'ev_threshold', 'reason': 'ev_dollars -0.54 < min_ev_dollars 0.00'}, {'ticker': 'PGR', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-15 (±5d buffer)'}, {'ticker': 'PHM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-23 (±5d buffer)'}, {'ticker': 'PKG', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'PLD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -125.97 < min_ev_dollars 0.00'}, {'ticker': 'PLTR', 'gate': 'history', 'reason': 'history 328d < required 504d'}, {'ticker': 'PM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'PNC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-15 (±5d buffer)'}, {'ticker': 'PODD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -73.35 < min_ev_dollars 0.00'}, {'ticker': 'PSKY', 'gate': 'history', 'reason': 'history 156d < required 504d'}, {'ticker': 'PYPL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -60.04 < min_ev_dollars 0.00'}, {'ticker': 'Q', 'gate': 'history', 'reason': 'history 100d < required 504d'}, {'ticker': 'QCOM', 'gate': 'ev_threshold', 'reason': 'ev_dollars -26.39 < min_ev_dollars 0.00'}, {'ticker': 'RF', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-17 (±5d buffer)'}, {'ticker': 'RJF', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'ROST', 'gate': 'ev_threshold', 'reason': 'ev_dollars -13.50 < min_ev_dollars 0.00'}, {'ticker': 'SBAC', 'gate': 'ev_threshold', 'reason': 'ev_dollars -16.59 < min_ev_dollars 0.00'}, {'ticker': 'SCHW', 'gate': 'ev_threshold', 'reason': 'ev_dollars -35.47 < min_ev_dollars 0.00'}, {'ticker': 'SNDK', 'gate': 'history', 'reason': 'history 276d < required 504d'}, {'ticker': 'SOLV', 'gate': 'history', 'reason': 'history 498d < required 504d'}, {'ticker': 'SPG', 'gate': 'ev_threshold', 'reason': 'ev_dollars -99.47 < min_ev_dollars 0.00'}, {'ticker': 'STT', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-17 (±5d buffer)'}, {'ticker': 'STZ', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-08 (±5d buffer)'}, {'ticker': 'SW', 'gate': 'history', 'reason': 'history 428d < required 504d'}, {'ticker': 'SYF', 'gate': 'ev_threshold', 'reason': 'ev_dollars -8.12 < min_ev_dollars 0.00'}, {'ticker': 'T', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-22 (±5d buffer)'}, {'ticker': 'TFC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-17 (±5d buffer)'}, {'ticker': 'TGT', 'gate': 'ev_threshold', 'reason': 'ev_dollars -112.79 < min_ev_dollars 0.00'}, {'ticker': 'TRMB', 'gate': 'ev_threshold', 'reason': 'ev_dollars -9.58 < min_ev_dollars 0.00'}, {'ticker': 'TROW', 'gate': 'ev_threshold', 'reason': 'ev_dollars -65.00 < min_ev_dollars 0.00'}, {'ticker': 'TRV', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-16 (±5d buffer)'}, {'ticker': 'TSLA', 'gate': 'ev_threshold', 'reason': 'ev_dollars -475.90 < min_ev_dollars 0.00'}, {'ticker': 'TTD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -17.16 < min_ev_dollars 0.00'}, {'ticker': 'UBER', 'gate': 'ev_threshold', 'reason': 'ev_dollars -67.12 < min_ev_dollars 0.00'}, {'ticker': 'UNH', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-21 (±5d buffer)'}, {'ticker': 'USB', 'gate': 'ev_threshold', 'reason': 'ev_dollars -4.49 < min_ev_dollars 0.00'}, {'ticker': 'VTR', 'gate': 'ev_threshold', 'reason': 'ev_dollars -5.66 < min_ev_dollars 0.00'}, {'ticker': 'VTRS', 'gate': 'ev_threshold', 'reason': 'ev_dollars -3.58 < min_ev_dollars 0.00'}, {'ticker': 'WBD', 'gate': 'ev_threshold', 'reason': 'ev_dollars -97.15 < min_ev_dollars 0.00'}, {'ticker': 'WEC', 'gate': 'ev_threshold', 'reason': 'ev_dollars -4.31 < min_ev_dollars 0.00'}, {'ticker': 'WFC', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-14 (±5d buffer)'}, {'ticker': 'WMT', 'gate': 'history', 'reason': 'history 70d < required 504d'}, {'ticker': 'WSM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-03-18 (±5d buffer)'}, {'ticker': 'WY', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.46 < min_ev_dollars 0.00'}, {'ticker': 'XEL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -2.16 < min_ev_dollars 0.00'}, {'ticker': 'XOM', 'gate': 'event', 'reason': 'event_lockout:earnings@2026-04-07 (±5d buffer)'}, {'ticker': 'XYL', 'gate': 'ev_threshold', 'reason': 'ev_dollars -44.41 < min_ev_dollars 0.00'}, {'ticker': 'XYZ', 'gate': 'ev_threshold', 'reason': 'ev_dollars -80.09 < min_ev_dollars 0.00'}], 'drops_summary': {'total_dropped': 167, 'by_gate': {'ev_threshold': 87, 'event': 68, 'premium': 1, 'history': 11}}, 'account_size': 250000.0, 'total_collateral': 242050.0, 'total_ev_dollars': 2960.92, 'cash_remaining': 7950.0, 'n_positions': 6, 'capital_utilization': 0.9682, 'selection_method': 'exact_knapsack'}C:\Users\merty\Desktop\swe-terminal-a\docs\verification_artifacts\persona_walkthrough_driver.py:142: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  captured_at=datetime.utcnow(),  # required dataclass field
+C:\Users\merty\Desktop\swe-terminal-a\docs\verification_artifacts\persona_walkthrough_driver.py:142: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  captured_at=datetime.utcnow(),  # required dataclass field
+C:\Users\merty\Desktop\swe-terminal-a\docs\verification_artifacts\persona_walkthrough_driver.py:693: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  captured_at=datetime.utcnow(),
+
+ticker  strike  premium  collateral  ev_dollars  ev_per_day      roc  prob_profit      sector
+   LMT   588.0   10.653     58800.0      707.78      37.251 0.012037       0.9143 Industrials
+   HII   374.5    9.415     37450.0      505.59      27.831 0.013500       0.8857     Unknown
+   PWR   510.5   12.894     51050.0      457.46      25.894 0.008961       0.9143     Unknown
+  VRTX   426.0    7.980     42600.0      444.13      25.139 0.010426       0.9143  Healthcare
+   TER   253.0   11.195     25300.0      443.23      24.398 0.017519       0.8857     Unknown
+   ELV   268.5    6.805     26850.0      402.73      22.796 0.014999       0.9143  Healthcare
+
+WheelTracker constructed with:
+  initial_capital = 250_000
+  require_ev_authority = True   (D16 token gate)
+  connector wired (D17 live NAV mark-to-market)
+  min_nav_for_trading = 1_000
+
+Seeding tracker with two existing short puts (so R7-R10 have evidence):
+  [seed]   REGN  strike= 678.0  premium=$15.759  opened=False
+  [seed]   FICO  strike= 993.0  premium=$34.56  opened=False
+
+Tracker positions after seed: []
+Tracker cash after seed: $250,000.00
+
+PortfolioContext: NAV=$250,000.00  held_option_positions=0  stock_holdings=0
+
+Dossiers built: 20
+
+--- Verdict distribution ---
+  verdict=  review : 20
+
+--- Verdict-reason distribution ---
+  reason=         chart_context_missing : 20
+
+--- Top 5 dossiers (verdict + key fields + notes) ---
+
+  FIX  verdict=review  reason='chart_context_missing'  ev=$2547.56  pp=0.9714
+    note: chart context unavailable: no_chart_provider_attached
+
+  BKNG  verdict=review  reason='chart_context_missing'  ev=$1468.83  pp=0.8
+    note: chart context unavailable: no_chart_provider_attached
+
+  NVR  verdict=review  reason='chart_context_missing'  ev=$1439.85  pp=0.8
+    note: chart context unavailable: no_chart_provider_attached
+
+  AZO  verdict=review  reason='chart_context_missing'  ev=$1374.72  pp=0.9143
+    note: chart context unavailable: no_chart_provider_attached
+
+  KLAC  verdict=review  reason='chart_context_missing'  ev=$1260.65  pp=0.9143
+    note: chart context unavailable: no_chart_provider_attached
+
+--- §2 path — consume_ranker_row(top survivor) ---
+  candidate: FIX 1212.0P  premium=$47.187  ev=$2547.56
+  open_short_put returned: False
+  tracker positions now: []
+  tracker cash now: $250,000.00
+
+--- EV-authority audit log (last 12 entries) ---
+  action=issue, token=1a62ba45c8e9973d9faf8ddcf3cb5f96c8472920cfe08cb97581c9d623ef8c4c
+  action=consume, current_ev_dollars=492.01, ticker=REGN, token=1a62ba45c8e9973d9faf8ddcf3cb5f96c8472920cfe08cb97581c9d623ef8c4c
+  action=reject, current_ev_dollars=492.01, narrative=Sector 'Healthcare' would be 27.1% (limit: 25.0%). Current positions: [], nav=250000.0, nav_source=live_mark_to_market, post_open_sector_pct=0.2712, reason=sector_cap_breach, sector=Healthcare, sector_limit=0.25, ticker=REGN, token=1a62ba45c8e9973d9faf8ddcf3cb5f96c8472920cfe08cb97581c9d623ef8c4c
+  action=issue, token=2a44375eeca3e918778254202e374529dcd6c02e037a5496154034b935b9eb9d
+  action=consume, current_ev_dollars=1026.12, ticker=FICO, token=2a44375eeca3e918778254202e374529dcd6c02e037a5496154034b935b9eb9d
+  action=reject, current_ev_dollars=1026.12, narrative=Sector 'Unknown' would be 39.7% (limit: 25.0%). Current positions: [], nav=250000.0, nav_source=live_mark_to_market, post_open_sector_pct=0.3972, reason=sector_cap_breach, sector=Unknown, sector_limit=0.25, ticker=FICO, token=2a44375eeca3e918778254202e374529dcd6c02e037a5496154034b935b9eb9d
+  action=issue, token=676f0323cbf8ddfe77b690694d7421bce37d63d88710750c18b27bfe6c682fcb
+  action=consume, current_ev_dollars=2547.56, ticker=FIX, token=676f0323cbf8ddfe77b690694d7421bce37d63d88710750c18b27bfe6c682fcb
+  action=reject, current_ev_dollars=2547.56, narrative=Sector 'Unknown' would be 48.5% (limit: 25.0%). Current positions: [], nav=250000.0, nav_source=live_mark_to_market, post_open_sector_pct=0.4848, reason=sector_cap_breach, sector=Unknown, sector_limit=0.25, ticker=FIX, token=676f0323cbf8ddfe77b690694d7421bce37d63d88710750c18b27bfe6c682fcb
+
+==============================================================================
+Ask 4 — 'what is the downside if I get assigned?'
+==============================================================================
+Trader request: 'For the trade we just opened, walk me through the
+ downside — distribution percentiles, CVaR, what regime we're in, and
+ what the chart-side signals say about a bounce vs further drawdown.'
+
+Anchor candidate: FIX
+  spot=1360.79  strike=1212.0P  premium=$47.187  dte=35d
+
+--- Distribution shape (raw $ — total position, premium × 100 × contracts) ---
+           pnl_p25 = 4647.29
+           pnl_p50 = 4647.29
+           pnl_p75 = 4647.29
+            cvar_5 = 4102.46
+       cvar_99_evt = nan
+           tail_xi = nan
+        heavy_tail = False
+  IQR (P75 - P25) = $0.00  (post-multiplier P&L spread)
+
+--- Assignment-side framing ---
+  spot                 = $1360.79
+  strike               = $1212.0
+  premium              = $47.187
+  notional if assigned = $121,200.00
+  cost basis if assigned (strike - premium) × 100 = $116,481.30
+  breakeven_move_pct (engine column) = -0.143
+  prob_profit / prob_assignment = 0.9714 / 0.0286
+
+--- Regime + dealer-positioning context ---
+                        hmm_regime = normal
+                    hmm_multiplier = 0.621
+         hmm_realized_vol_252d_ann = 0.5351
+      hmm_realized_return_252d_ann = 1.3366
+                     credit_regime = benign
+                 credit_multiplier = 1.0
+                   news_multiplier = 1.0
+                   news_n_articles = 0
+                 regime_multiplier = 0.621
+              tail_widening_factor = 1.0
+                     dealer_regime = None
+                 dealer_multiplier = 1.0
+                         gex_total = None
+           gamma_flip_distance_pct = None
+           nearest_put_wall_strike = None
+          nearest_call_wall_strike = None
+                   skew_multiplier = 1.0
+                       skew_source = unavailable
+
+--- Capital efficiency ---
+  collateral = $121200.0
+  roc        = 0.021019  (= ev_dollars / collateral)
+  roc cross-check ev_dollars/collateral = 0.021019
+
+==============================================================================
+§2 invariants — observed behaviour
+==============================================================================
+
+--- (a) D16 leg 1: issue refuses ev_dollars <= 0 ---
+  OK EVAuthorityRefused raised: Refusing EV-authority token for ZZZZ strike=100.0 — ev_dollars=-42.0 is non-positive; R1 would block.
+
+--- (b) D16 leg 2: consume rejects stale ev_dollars (positive at issue, zero at fire) ---
+  issued token for positive EV row: 19a0baad869669be…
+  open_short_put returned: False  (expect False)
+  audit-log tail: {'action': 'reject', 'reason': 'stale_ev', 'ticker': 'ZZZZ', 'token': '19a0baad869669beb61c99829aae36a857a2e376e9074368c36a09c8f55ced0e', 'current_ev_dollars': 0.0}
+
+--- (c) Dossier R1: negative EV → verdict=blocked, never upgrade ---
+  ZZNG  verdict=blocked  reason=negative_ev
+    note: engine ev_dollars=-15.50 < 0 - chart cannot upgrade negative EV
+
+--- (d) Dossier R1a: non-finite EV → verdict=blocked, reason=ev_non_finite ---
+  ZZNF  verdict=blocked  reason=ev_non_finite  ev_dollars=nan
+    finite? False
+
+--- (e) Reviewer never upgrades: even a 'perfect' chart leaves negative EV blocked ---
+  ZZNG  verdict=blocked  reason=negative_ev  (perfect chart attached)
+    note: engine ev_dollars=-15.50 < 0 - chart cannot upgrade negative EV
+
+==============================================================================
+Run complete
+==============================================================================
+Tickers in survivor frame : 20
+Tickers dropped           : 167
+Dossiers built            : 20
+Tracker positions opened  : 0
+Audit-log entries         : 12
+
+Persona walkthrough driver finished.

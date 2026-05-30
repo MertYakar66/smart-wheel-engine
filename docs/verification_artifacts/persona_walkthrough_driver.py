@@ -47,6 +47,15 @@ WORKTREE = Path(r"C:\Users\merty\Desktop\swe-terminal-a").resolve()
 if str(WORKTREE) not in sys.path:
     sys.path.insert(0, str(WORKTREE))
 
+# Force UTF-8 stdout so em-dashes / "§" / ASCII fallbacks like "OK" all
+# round-trip through a Windows redirect (default cp1252 corrupts on
+# em-dash, and historically corrupted on "✓" before we removed it).
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import pandas as pd  # noqa: E402  (sys.path bootstrap above)
 
 from engine.candidate_dossier import (  # noqa: E402
@@ -596,7 +605,7 @@ try:
     tok = tracker.issue_ev_authority_token(neg_row)
     print(f"  ! UNEXPECTED: token issued for negative EV: {tok}")
 except EVAuthorityRefused as e:
-    print(f"  ✓ EVAuthorityRefused raised: {e}")
+    print(f"  OK EVAuthorityRefused raised: {e}")
 
 # (b) Consume rejects stale EV.
 sub("(b) D16 leg 2: consume rejects stale ev_dollars (positive at issue, zero at fire)")

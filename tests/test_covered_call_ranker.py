@@ -179,6 +179,25 @@ class TestSchema:
         assert "drops" in df.attrs
         assert isinstance(df.attrs["drops"], list)
 
+    def test_pnl_percentiles_reach_survivor_rows(self):
+        # Regression for the #248 P2 fix: the row dict at
+        # rank_covered_calls_by_ev writes pnl_p25/50/75 but they were
+        # silently dropped by `pd.DataFrame(rows, columns=cols)` until
+        # the keys were added to `_CC_RANK_CORE_COLUMNS`. The schema-
+        # equality tests above pin column presence; this one pins the
+        # row-dict → DataFrame link so a future change that strips the
+        # writes (or the schema entries) trips here.
+        df = _rank(_runner())
+        assert not df.empty
+        for col in ("pnl_p25", "pnl_p50", "pnl_p75"):
+            assert col in df.columns
+            assert df[col].notna().all(), f"{col} should be finite for survivor rows"
+        # Monotone ordering: same invariant as EVResult, surfaced here on
+        # the ranker output so a row-dict regression that drops one of
+        # the three keys is caught even if the column survives.
+        assert (df["pnl_p25"] <= df["pnl_p50"]).all()
+        assert (df["pnl_p50"] <= df["pnl_p75"]).all()
+
 
 # ======================================================================
 # 2. Edge cases

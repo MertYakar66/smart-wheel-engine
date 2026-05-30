@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**65 records.**
+**66 records.**
 
 ## Features (1)
 
@@ -48,12 +48,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (7)
+## Verification & realism (8)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
 | [heavy-r10-strict](heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md) | completed |  | full 5y run — strict loses to loose by −15.81pp; R10 fires 571× exclusively on BKNG/AZO (S44 prediction confirmed); portfolio_delta_breach dominates D17 refusals at 92.1% (R10 only 7.8%); strict opens 31 puts ALL in 2020 then freezes for 4 years; strict ahead 66.6% of days but crosses below loose 2023-11-01 | `heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md` |
+| [ht-a](ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md) | in-flight |  | Bloomberg-default path is HMM-overlay-only; 316 positive-EV survivors trimmed silently by top_n; P25=P50=P75 collapses; §2 invariants observed upheld (D16 + D17 + R1/R1a + reviewer-never-upgrades). | `ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |
 | [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |

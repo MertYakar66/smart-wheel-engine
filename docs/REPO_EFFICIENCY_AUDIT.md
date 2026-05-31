@@ -1,15 +1,19 @@
 # Repo Structure & Reading-Efficiency Audit + Executable Proposal
 
-> **Status:** Phase-1 proposal (read-only audit). Authored 2026-05-31 against
-> `main @ 1f72dd5`. This document recommends; it does not refactor. Every
-> file move/delete/merge below is **Phase 2 — human-gated, deferred until the
-> in-flight heavy-verify cycle (HT-A..HT-D) closes**. Hand this to the Major
-> Session to decompose into gated cards. Nothing here has been actioned.
->
-> _Housekeeping note for whoever lands this file: it is a new tracked doc, so it
-> needs one row in `FILE_MANIFEST.md` (the `check_manifest_coverage` CI gate).
-> That one-line edit was intentionally NOT made here to honour the Phase-1
-> "create exactly one doc, edit nothing else" scope rule._
+> **Status:** authored 2026-05-30 against `main @ 1f72dd5` as a Phase-1 read-only
+> proposal; the **safe tier was then executed in this same branch** under explicit
+> user authorization (the HT-A..HT-D cycle that originally gated Phase 2 is idle).
+> **Executed here:** the drift fix (R1-R6→R1-R10 in MODULE_INDEX/README/TESTING;
+> the stale `src.cli:app` "Stale" label corrected in MODULE_INDEX/TESTING; the
+> pinned TESTING test-count de-pinned), the canonical index `docs/REPO_MAP.md`,
+> and the FILE_MANIFEST registration of both new docs. The dead print-script
+> `test_wheel_cycle.py` is queued for removal on a **separate** branch (PR pending,
+> kept apart so the test-suite change is reviewable independently of the docs).
+> **Still deferred / human-gated** (steps 4–7 below): the `tests/conftest.py`
+> fixture consolidation (§2-adjacent), the small content folds, the R9 near-dup
+> (both INVARIANT-PIN), and the `src/` reconcile. CLAUDE.md was **not edited**
+> (it is already current at R1-R10); no `engine/` file moved; the §2 trio is
+> untouched.
 
 ---
 
@@ -41,7 +45,7 @@ re-verified by hand) says:
 
 | # | Change | Est. token reduction | Blast radius |
 |---|---|---|---|
-| **1** | **Fix the live drift** (DOC-ONLY): `R1-R6`→`R1-R10` in MODULE_INDEX/README/TESTING; strike the already-removed `wheel = "src.cli:app"` claim from 4 docs; stop pinning a test count. | Removes the *wrong-answer* tax entirely; ~0 cost to make. | Zero code. CLAUDE.md change is **proposed to the user only**. |
+| **1** | **Fix the live drift** (DOC-ONLY): `R1-R6`→`R1-R10` in MODULE_INDEX/README/TESTING; correct the already-removed `wheel = "src.cli:app"` "Stale" label in 2 docs (MODULE_INDEX, TESTING); de-pin the TESTING test count. | Removes the *wrong-answer* tax entirely; ~0 cost. | Zero code. CLAUDE.md unchanged (already R1-R10). |
 | **2** | **One canonical where/what index** (`docs/REPO_MAP.md` ~180L, or fold a router into the top of the CI-guarded `FILE_MANIFEST.md`). Single-sources the four drifting facts; every other doc becomes a one-line pointer. | "Where does X live + what's authoritative" bootstrap **~1,712L → ~420L (~75%)**, drift class structurally eliminated. | One new doc + one-line pointer edits. No file moves. |
 | **3** | **`tests/conftest.py` shared-fixture consolidation** (factories: `make_synthetic_ohlcv`, `fake_connector`, `ev_row`, `chart_context`, `bloomberg_csv_dir`); delete the 3 never-consumed root fixtures. | −30–50 setup lines × ~24 files; removes a maintenance hazard (a connector-interface change today edits ~23 stubs). | Structural, truth-neutral PR; fixtures consumed by INVARIANT-PIN tests are HUMAN-APPROVAL. |
 
@@ -82,10 +86,12 @@ The seven "where/what" docs total **~2,165 lines**. The layout is *well-governed
   L49, README.md L30, TESTING.md L52. *One fact, 5 docs, 3 wrong* — a fresh agent
   reading MODULE_INDEX/README under-counts the live reviewer rules by four. This
   is the single strongest argument for one canonical index.
-- **`wheel = "src.cli:app"` stale-script claim.** PROJECT_STATE.md L303/L335,
-  MODULE_INDEX.md L38, TESTING.md L175, ROADMAP.md L96 all flag it as a live
-  problem — but `pyproject.toml` has **no `[project.scripts]` table at all** (it
-  was already removed; `src/cli.py` never existed). *One falsehood, 4 docs.*
+- **`wheel = "src.cli:app"` stale-script claim.** `pyproject.toml` has **no
+  `[project.scripts]` table** (removed under ROADMAP B5; `src/cli.py` never
+  existed). PROJECT_STATE.md (L454/L505) and ROADMAP.md (B5) already state this
+  correctly; only MODULE_INDEX.md L38 and TESTING.md (CI section) still flagged it
+  as a live "Stale" problem. *Stale in 2 docs* — the first-pass agent over-counted
+  this as 4; re-verified by hand. **Fixed in this branch.**
 - **§2 hard invariant** restated in 5 docs (CLAUDE §2, AGENTS, README, DECISIONS
   D1, PROJECT_STATE §1); only DECISIONS D1 carries the rationale.
 - **Four-layer mental model** in 3 (CLAUDE §1, README, PROJECT_STATE §1).
@@ -301,10 +307,12 @@ Grounded importer analysis of the 19 `src/*.py`:
 | `src/{risk,models,execution}/` | none (empty `__init__` stubs) | **zero importers** |
 
 **Reconcile decision (do not action), lowest-risk-first:**
-1. **DOC FIX** — strike the dead `wheel = "src.cli:app"` claim from PROJECT_STATE
-   L303/L335, MODULE_INDEX L38, TESTING L175, ROADMAP L96 (it's gone from
-   pyproject; zero code blast radius). Also refresh D2's "pyproject still names
-   src — known stale" note (the cli:app half is already fixed).
+1. **DOC FIX** — the dead `wheel = "src.cli:app"` claim was still flagged "Stale"
+   in MODULE_INDEX L38 and TESTING (CI section); PROJECT_STATE/ROADMAP already
+   stated it removed. Corrected the 2 stale spots (it's gone from pyproject; zero
+   code blast radius). D2's "pyproject still names src — known stale" note may
+   still be refreshed (the cli:app half is fixed; the `packages=["src"]` half
+   remains by the D2 freeze).
 2. The empty `src/{risk,models,execution}` stubs + `src/data/validators.py` are
    removable today with near-zero blast radius — **but D2 says keep frozen ⇒
    flag, don't move.**
@@ -325,10 +333,10 @@ card is disjoint (own file-set). Step 0 first registers this proposal doc.
 
 | Step | Card | File-set | Import/CI impact | Touches §2 trio? |
 |---|---|---|---|---|
-| 0 | Register this doc | `FILE_MANIFEST.md` (+1 row) | manifest gate | No |
-| 1 | **Drift fix (DOC-ONLY)** — `R1-R6`→`R1-R10` (MODULE_INDEX L49, README L30, TESTING L52); strike `src.cli:app` from 4 docs; replace pinned test counts with `--collect-only` reference | MODULE_INDEX, README, TESTING, PROJECT_STATE, ROADMAP | none | No (CLAUDE.md unchanged — **propose to user**) |
-| 2 | **Canonical index** — add `docs/REPO_MAP.md` (WHERE / AUTHORITY / QUESTION-router / src-per-file truth / engine→test map / layer→test lookup / single launch-blocker list); convert duplicate sections elsewhere to one-line pointers | new doc + pointer edits in MODULE_INDEX/README/TESTING/PROJECT_STATE | manifest gate | No (additive routing) |
-| 3 | **Delete `test_wheel_cycle.py`** (print-script, no asserts; covered by test_wheel_lifecycle) | `tests/test_wheel_cycle.py` | removes a non-collecting file | No |
+| 0 | Register this doc + REPO_MAP ✅ done | `FILE_MANIFEST.md` (+2 rows) | manifest gate | No |
+| 1 | **Drift fix (DOC-ONLY)** ✅ done in this branch — `R1-R6`→`R1-R10` (MODULE_INDEX L49, README L30, TESTING L52); corrected stale `src.cli:app` label (MODULE_INDEX L38, TESTING CI section); de-pinned the TESTING count | MODULE_INDEX, README, TESTING | none | No (CLAUDE.md unchanged) |
+| 2 | **Canonical index** ✅ done — added `docs/REPO_MAP.md` (question-router / §2 authority block / `src/` per-file truth / layer→test lookup / single launch-blocker list) + an AGENTS.md pointer. Kept pointer-only to avoid new drift; did not rip out every duplicate section (lower-risk than mass pointer edits). | new doc + AGENTS.md pointer | manifest gate | No (additive routing) |
+| 3 | **Delete `test_wheel_cycle.py`** ⏳ queued (separate branch, PR pending) — print-script, 0 `def test_` / 0 asserts (verified `pytest --collect-only` → 0 items on `origin/main`); covered by test_wheel_lifecycle (57 asserts) | `tests/test_wheel_cycle.py` | removes a non-collecting file | No |
 | 4 | **`tests/conftest.py` consolidation** (shared factories; delete 3 dead root fixtures) — truth-neutral structural PR | new `tests/conftest.py` + import edits across ~24 test files | full suite must stay green | **Fixtures used by INVARIANT-PIN tests ⇒ HUMAN-APPROVAL**; assertions unchanged |
 | 5 | **Small content folds** — `test_option_pricer` basic BSM cases → `test_quant_fixtures`; trim `test_news_sentiment::TestSentimentMultiplier` → pointer to `test_news_severance` | those 2 file pairs | none | No (neither file is INVARIANT-PIN) |
 | 6 | **R9 sector-cap near-dup** | `test_dossier_invariant` / `test_dossier_r9_r10_audit` | none | **YES — both INVARIANT-PIN; HUMAN-APPROVAL; default LEAVE** |

@@ -265,6 +265,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 |---|---|
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
+| `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
+| `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
 | `docs/TESTED_SURFACE_MAP.md` | Per-module tested-surface map + top-N coverage-gap ranking, generated from `coverage.json` by `scripts/generate_tested_surface_map.py`. Answers "what is and isn't covered by the test suite" in one file. `coverage.json` is regenerated locally / in CI (gitignored, not committed); regenerate this doc after a meaningful coverage shift. |

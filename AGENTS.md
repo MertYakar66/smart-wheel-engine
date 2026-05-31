@@ -16,10 +16,15 @@ companion is:
    documentation drift is. Read this before assuming any file or
    pyproject entry is current.
 
+For a fast "where does X live / what tests cover Y / what is authoritative for Z"
+lookup, **`docs/REPO_MAP.md`** routes each question to the one owning doc (so you
+don't open three and reconcile them).
+
 ## Consult when your task requires it
 
 | Trigger | Read |
 |---|---|
+| Fast where/what/authoritative router (one stop) | `docs/REPO_MAP.md` |
 | Navigating `engine/`, `advisors/`, or a parallel news tree | `MODULE_INDEX.md` |
 | Touching code that needs tests run | `TESTING.md` |
 | **Locating a file by name or directory — `grep` it, do not read in full** | `FILE_MANIFEST.md` |

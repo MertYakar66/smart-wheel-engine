@@ -46,6 +46,7 @@ Branch `claude/heavy-verify-campaign-2026-05-31`. Drivers + raw output:
 | **EV semantics are sound** — `ev_dollars` correctly reflects probability-weighted tail risk (MU CC −$812 despite $1,334 premium) | re-verified on current engine | I5-A |
 | **The ranking adds real selection value** — monthly top-10 by any engine signal beats random/all (+$166–206 vs −$26 mean; positive vs negative ROC); `prob_profit` is the best risk-adjusted selector | top-K selection vs random | I6-B |
 | **The over-confidence is fixable** — a recalibration trained on 2020-2023 generalizes (out-of-sample ECE 3.17→1.29pp; >0.90 forecast 0.924→0.806 = realized) | out-of-sample recalibration | I6-C |
+| **Roll-management adds value** — when the engine offers a credit roll, rolling a challenged put beats holding by +$195/contract (87% win, CI excludes 0); avoids assignment 80% of the time (horizon-mismatch caveat) | roll-vs-hold paired test | I7 |
 
 ## Where you CANNOT trust it (ranked by materiality)
 
@@ -94,6 +95,8 @@ the highest-value fix target — flagged, not implemented (observe-only).
 | I4 | §2 invariant adversarial probe | HELD across 6 attacks; firewall intact | `HEAVY_VERIFY_2026-05-31_I4_SECTION2_INVARIANT.md` |
 | I5 | Re-verify prior claims | All hold; #294 did not touch the EV path | `HEAVY_VERIFY_2026-05-31_I5_PRIOR_CLAIMS.md` |
 | I6 | Wave-2 deepening (regime overlay / selection value / fixability) | Ranking *works* (top-K beats random); regime overlay over-penalizes bear; over-confidence is recalibratable | `HEAVY_VERIFY_2026-05-31_I6_DEEPENING.md` |
+| I7 | Roll/management economics | Rolling a challenged put beats holding by +$195/contract when a credit roll is offered (87% win); engine declines to roll 74% of the time (discipline); horizon-mismatch caveat | `HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md` |
+| I8 | Daily-marked NAV risk (corrects I2) | True intra-crash drawdown −20.6% (not −2.6%); defensive edge ~0.4–0.6× index, real but smaller than monthly implied | `HEAVY_VERIFY_2026-05-31_I8_DAILY_RISK.md` |
 
 ## Method & honesty notes
 

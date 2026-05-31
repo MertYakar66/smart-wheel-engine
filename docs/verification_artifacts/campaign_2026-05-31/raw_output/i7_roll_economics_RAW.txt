@@ -1,0 +1,119 @@
+==============================================================================
+I7 — ROLL-MANAGEMENT ECONOMICS: suggest_rolls vs hold-to-assignment
+==============================================================================
+ROOT=C:\Users\merty\Desktop\swe-verif
+provider=bloomberg  connector=MarketDataConnector
+ENTRY_DTE=35  ROLL_OFFSET_DAYS=28  div_yld=0.0
+CONVENTION: both arms measure forward P&L from the roll moment (entry premium is sunk, excluded in both).
+  HOLD = -intrinsic_old_at_expiry*100
+  ROLL = (new_premium - new_intrinsic_at_new_expiry)*100 - buyback_cost(old, BSM*100)
+
+snapshots found: 74
+puts scanned: 16005
+CHALLENGED puts (ITM at roll date, valid PIT data): 636
+errors from suggest_rolls: 0
+
+------------------------------------------------------------------------------
+ROLL AVAILABILITY
+------------------------------------------------------------------------------
+challenged puts: 636
+  engine offered >=1 credit-roll candidate: 168 (26.4%)
+  engine offered NO credit-roll (default min_net_credit=0): 468 (73.6%)
+
+------------------------------------------------------------------------------
+HEADLINE: HOLD vs ROLL (paired, over puts where a roll was offered)
+------------------------------------------------------------------------------
+n paired                 : 168
+mean HOLD realized ($)   : -328.84
+mean ROLL realized ($)   : -133.53
+mean (ROLL - HOLD) ($)   :  195.30  95% CI [  52.56,  344.75]
+median (ROLL - HOLD) ($) :   81.85
+roll-wins rate           : 86.9%
+paired t-stat            :    2.62
+VERDICT (headline)       : ROLL ADDS VALUE
+
+------------------------------------------------------------------------------
+PERMISSIVE ARM: min_net_credit=-1e9 (rescue debit rolls ALLOWED)
+  Isolates roll MECHANICS (engine forced to act on every challenged
+  put) from the engine's default discipline (refusing to roll).
+------------------------------------------------------------------------------
+challenged puts where a rescue-roll was produced: 634 / 636
+  mean HOLD realized ($)   : -801.15
+  mean RESCUE-ROLL ($)     : -596.08
+  mean (RESCUE - HOLD) ($) :  205.07  95% CI [ 127.58,  284.33]
+  median (RESCUE - HOLD)   :   73.70
+  rescue-wins rate         : 65.0%
+  VERDICT (mechanics)      : RESCUE-ROLL ADDS VALUE
+  rescue NEW put ends ITM again (deferred): 17.4%
+
+------------------------------------------------------------------------------
+ASSIGNMENT / DEFERRAL ANALYSIS  (adversarial: roll defers vs reduces?)
+------------------------------------------------------------------------------
+of 168 rolled puts:
+  HOLD would be ASSIGNED at old expiry : 52.4%
+  ROLL's NEW put ALSO ends ITM (deferred, not avoided): 19.6%
+  -> roll AVOIDED terminal assignment in: 80.4% of rolled puts
+  mean buyback cost paid at roll moment : $333.42
+
+------------------------------------------------------------------------------
+IS THE ENGINE'S `recommend` FLAG PREDICTIVE OF WHEN TO ROLL?
+------------------------------------------------------------------------------
+  recommend=True : n=129  mean(ROLL-HOLD)= 188.38  95%CI[  10.44, 373.45]  win=87.6%
+  recommend=False: n= 39  mean(ROLL-HOLD)= 218.20  95%CI[  77.23, 420.01]  win=84.6%
+
+------------------------------------------------------------------------------
+BY CALENDAR REGIME (paired ROLL-HOLD over offered rolls)
+------------------------------------------------------------------------------
+  regime                    n  meanHOLD  meanROLL  ROLL-HOLD    CI_lo    CI_hi   win%
+  crash_2020               17  -44.65   91.98  136.63   46.72  233.49  94.1
+  bull_2021                15 -208.78 -111.92   96.86 -180.43  344.65  86.7
+  bear_2022                44 -132.98   52.50  185.48  115.33  279.39 100.0
+  recovery_2023_2024       53 -245.72 -112.12  133.59  -17.60  312.13  77.4
+  recent_2025              29 -1052.38 -638.14  414.24 -320.40 1187.74  79.3
+  other                    10 -196.10  -17.98  178.12  -14.24  432.60  90.0
+
+------------------------------------------------------------------------------
+BY MONEYNESS AT ROLL DATE (how deep ITM the short put is)
+------------------------------------------------------------------------------
+  bucket              n  meanHOLD  meanROLL  ROLL-HOLD    CI_lo    CI_hi   win%
+  atm_0to1pct       102 -411.07 -180.93  230.14    6.06  470.70  85.3
+  itm_1to5pct        66 -201.76  -60.29  141.47   26.82  258.06  89.4
+
+------------------------------------------------------------------------------
+SAMPLE ROWS (first 25 offered rolls)
+------------------------------------------------------------------------------
+ticker      as_of     regime   moneyness  spot_over_strike  strike  new_strike  new_dte recommend  hold_realized  roll_realized  delta_roll_minus_hold  old_assigned new_assigned
+   HUM 2020-03-02 crash_2020 itm_1to5pct          0.974116   319.5       282.5     49.0      True            0.0           34.6                   34.6         False        False
+  IDXX 2020-03-02 crash_2020 itm_1to5pct          0.985767   244.5       220.0     63.0      True            0.0          266.4                  266.4         False        False
+   NOC 2020-03-02 crash_2020 itm_1to5pct          0.989653   317.0       286.0     63.0      True            0.0          423.1                  423.1         False        False
+  MSFT 2020-03-02 crash_2020 itm_1to5pct          0.989074   162.0       147.0     63.0      True            0.0          166.1                  166.1         False        False
+  FFIV 2020-03-02 crash_2020 itm_1to5pct          0.976089   112.5       100.5     63.0      True            0.0           45.0                   45.0         False        False
+   MCK 2020-03-02 crash_2020 itm_1to5pct          0.982349   140.5       125.5     63.0      True         -530.0          125.7                  655.7          True        False
+   ATO 2020-03-02 crash_2020 atm_0to1pct          0.993430   103.5        94.0     63.0      True            0.0          149.1                  149.1         False        False
+   HII 2020-03-02 crash_2020 itm_1to5pct          0.967041   196.0       171.0     63.0      True         -229.0           35.9                  264.9          True        False
+   MRK 2020-03-02 crash_2020 atm_0to1pct          0.991538    74.0        68.0     63.0      True            0.0           60.7                   60.7         False        False
+   ECL 2020-06-01 crash_2020 atm_0to1pct          0.995522   196.5       182.0     63.0      True            0.0          188.9                  188.9         False        False
+  KEYS 2020-06-01 crash_2020 itm_1to5pct          0.981300   100.0        91.0     63.0      True            0.0           25.2                   25.2         False        False
+   AEE 2020-06-01 crash_2020 itm_1to5pct          0.989078    70.5        65.5     63.0      True            0.0           28.7                   28.7         False        False
+   LYV 2020-06-01 crash_2020 itm_1to5pct          0.984222    45.0        39.5     63.0      True            0.0           73.0                   73.0         False        False
+   RSG 2020-06-01 crash_2020 atm_0to1pct          0.994969    81.5        76.5     63.0      True            0.0           40.4                   40.4         False        False
+   COF 2020-06-01 crash_2020 atm_0to1pct          0.998080    62.5        56.5     63.0      True            0.0          128.7                  128.7         False        False
+  INTC 2020-06-01 crash_2020 atm_0to1pct          0.996068    58.5        54.5     63.0      True            0.0         -292.9                 -292.9         False         True
+  SBUX 2020-06-01 crash_2020 atm_0to1pct          0.992973    74.0        68.5     63.0      True            0.0           65.1                   65.1         False        False
+    MU 2020-08-03      other itm_1to5pct          0.978710    46.5        41.5     63.0      True         -147.0           12.1                  159.1          True        False
+   UHS 2020-09-01      other atm_0to1pct          0.995437   103.0        94.0     63.0      True            0.0          165.7                  165.7         False        False
+   OMC 2020-09-01      other itm_1to5pct          0.986869    49.5        45.5     63.0      True            0.0           27.8                   27.8         False        False
+  TRMB 2020-09-01      other itm_1to5pct          0.978400    50.0        45.5     63.0     False         -107.0            8.2                  115.2          True        False
+   EFX 2020-09-01      other itm_1to5pct          0.983427   160.5       147.5     63.0      True         -323.0           39.1                  362.1          True        False
+   TJX 2020-10-01      other itm_1to5pct          0.976038    53.0        48.0     63.0      True            0.0            9.8                    9.8         False        False
+   PCG 2021-01-01      other atm_0to1pct          0.993913    11.5        11.0     21.0     False            0.0            0.8                    0.8         False        False
+   HLT 2021-06-01  bull_2021 atm_0to1pct          0.991250   120.0       113.0     49.0      True            0.0            8.9                    8.9         False        False
+
+------------------------------------------------------------------------------
+DISTRIBUTION SANITY (offered rolls)
+------------------------------------------------------------------------------
+  ROLL-HOLD  min=-6189  p25=18  med=82  p75=299  max=6646
+  HOLD       mean=-329  min=-7384  max=0
+  ROLL       mean=-134  min=-7470  max=617
+
+DONE.

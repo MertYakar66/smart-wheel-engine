@@ -3350,6 +3350,18 @@ class WheelRunner:
         provider = chart_provider or build_default_provider()
         chart_reviewer = reviewer or EnginePhaseReviewer()
 
+        # Thread the PIT market-wide VIX *level* into the dossier reviewer so
+        # R11 (elevated-vol top-bin size-down, heavy-verify I11) fires live.
+        # Best-effort: any failure (no connector / no VIX data / future as_of)
+        # degrades to None, which makes R11 a no-op — never blocks ranking.
+        vix_level: float | None = None
+        try:
+            if self.connector is not None and hasattr(self.connector, "get_vix_regime"):
+                _v = self.connector.get_vix_regime(as_of).get("vix")
+                vix_level = float(_v) if _v is not None else None
+        except Exception:  # noqa: BLE001 — VIX is advisory; never fail the rank
+            vix_level = None
+
         return build_dossiers(
             ev_frame=ev_df,
             provider=provider,
@@ -3357,6 +3369,7 @@ class WheelRunner:
             timeframe=chart_timeframe,  # type: ignore[arg-type]
             top_n=top_n,
             portfolio_context=portfolio_context,
+            vix_level=vix_level,
         )
 
     # ------------------------------------------------------------------

@@ -53,6 +53,17 @@ Verdict = Literal["proceed", "review", "skip", "blocked"]
 # threshold-drift half of C2 from ``docs/END_TO_END_REVIEW_2026_05_25.md``.
 MIN_PROCEED_EV_DOLLARS: float = 10.0
 
+# R11 (elevated-vol top-bin size-down) parameters — heavy-verify 2026-05-31 I11.
+# The engine's high-confidence (top-bin) prob_profit is materially over-confident
+# in crisis (I1: ~0.57 realized vs ~0.96 forecast) and that miss is neither
+# forecastable (I9) nor cleanly detectable by a single transition signal (I10).
+# I11's measured-robust response: size the top bin DOWN whenever VIX *level* is
+# elevated. VIX>25 is the robust-not-optimal threshold — it survived leave-one-
+# crisis-out in BOTH the 2020 crash and 2022 bear ({20,22.5,25} survive; >=27.5
+# fails the 2022 fold). prob_profit>0.90 is the inherited top-bin cutoff (I1/I9/I10).
+R11_TOP_BIN_PROB: float = 0.90
+R11_VIX_THRESHOLD: float = 25.0
+
 
 @dataclass
 class CandidateDossier:
@@ -79,6 +90,13 @@ class CandidateDossier:
     # evidence (Q3 of the #154 C4 design checkpoint). See
     # engine/portfolio_risk_gates.PortfolioContext.
     portfolio_context: Any = None
+    # Optional market-wide VIX *level* on the candidate's as_of (NOT a ratio —
+    # I10 showed ratios invert onset/recovery). When present the reviewer
+    # applies R11: an elevated-vol size-down of the top bin (downgrade-only).
+    # When absent (the default) R11 is a no-op — same missing-evidence semantics
+    # as R6/R7. Typically threaded in by the ranker from the connector's
+    # get_vix_regime(as_of). See heavy-verify 2026-05-31 I11.
+    vix_level: float | None = None
     verdict: Verdict = "review"
     verdict_reason: str = ""
     review_notes: list[str] = field(default_factory=list)
@@ -231,6 +249,27 @@ class EnginePhaseReviewer:
         ``docs/F4_TAIL_RISK_DIAGNOSTIC.md`` §10) that no market-wide
         regime detector can predict. Downgrade-only; no-op when
         ``nav == 0`` or context is absent.
+
+    11. *(Conditional — heavy-verify 2026-05-31 I11.)* If a
+        market-wide ``vix_level`` is attached and the candidate is a
+        high-confidence top-bin pick (``prob_profit > R11_TOP_BIN_PROB``,
+        0.90) while ``vix_level > R11_VIX_THRESHOLD`` (25.0), the verdict
+        is **review** with ``verdict_reason="elevated_vol_top_bin"``.
+        Rationale: I1 found the top ``prob_profit`` bin is materially
+        over-confident in the regime that *follows* an elevated-vol
+        reading (~0.57 realized vs ~0.96 forecast in crisis), a miss
+        that is neither forecastable (I9) nor cleanly detectable from a
+        single onset signal (I10). I11 showed SIZING DOWN is favorably
+        asymmetric in every well-powered crisis fold and the VIX>25 cut
+        survives leave-one-crisis-out (θ≥27.5 fails the 2022 fold; 25 is
+        the robust-not-optimal floor). Counterpart to R10: R10 bounds
+        idiosyncratic single-name size, R11 bounds market-wide vol
+        exposure on the over-confident top bin. Downgrade-only — never
+        rescues a negative-EV trade (R1) and never upgrades; no-op when
+        ``vix_level`` is absent (missing-evidence semantics, like
+        R6–R10). The warning payload carries the candidate's OWN modeled
+        tail (``cvar_5`` from ``ev_row``) — computed/regime-matched, not
+        a hardcoded constant. See ``docs/HEAVY_VERIFY_2026-05-31_I11.md``.
 
     Notes:
       * The reviewer is pure — no I/O, no network, no LLM. It only
@@ -492,6 +531,40 @@ class EnginePhaseReviewer:
                     )
                     return "review", "single_name_breach", notes
 
+        # Rule 11: elevated-vol top-bin size-down (heavy-verify 2026-05-31 I11).
+        # When market-wide VIX *level* is elevated (> R11_VIX_THRESHOLD) AND this
+        # is a high-confidence candidate (prob_profit > R11_TOP_BIN_PROB), the
+        # engine's top-bin prob_profit is materially over-confident in the regime
+        # that follows (I1: ~0.57 realized vs ~0.96 forecast in crisis) — a miss
+        # that is neither forecastable (I9) nor cleanly detectable (I10). I11
+        # showed the robust response is to SIZE DOWN regardless; the VIX>25 cut
+        # survived leave-one-crisis-out (2020 +$86k / 2022 +$3.5k averted-vs-
+        # forgone). Downgrade-only, never upgrades; no-op when vix_level is absent
+        # (missing-evidence semantics, like R6-R10). The warning carries THIS
+        # candidate's own modeled tail (cvar_5) — computed/regime-matched, not a
+        # hardcoded constant, so it stays honest as data updates.
+        vix_level = getattr(dossier, "vix_level", None)
+        if vix_level is not None and verdict == "proceed":
+            try:
+                pp = float(dossier.ev_row.get("prob_profit", 0.0) or 0.0)
+                vix_f = float(vix_level)
+            except (TypeError, ValueError):
+                pp, vix_f = 0.0, 0.0
+            if pp > R11_TOP_BIN_PROB and vix_f > R11_VIX_THRESHOLD:
+                cvar = dossier.ev_row.get("cvar_5")
+                try:
+                    cvar_s = f"${float(cvar):,.0f}" if cvar is not None else "n/a"
+                except (TypeError, ValueError):
+                    cvar_s = "n/a"
+                notes.append(
+                    f"R11: VIX={vix_f:.1f} > {R11_VIX_THRESHOLD} and prob_profit="
+                    f"{pp:.3f} > {R11_TOP_BIN_PROB} — elevated-vol top bin. The crisis "
+                    f"top bin historically realized ~0.57 vs the ~{pp:.0%} forecast "
+                    f"(heavy-verify I1/I11); this candidate's modeled tail cvar_5="
+                    f"{cvar_s}. Size down — downgrade to review."
+                )
+                return "review", "elevated_vol_top_bin", notes
+
         return verdict, reason, notes
 
     @staticmethod
@@ -541,6 +614,7 @@ def build_dossiers(
     top_n: int = 10,
     as_of: datetime | None = None,
     portfolio_context: Any = None,
+    vix_level: float | None = None,
 ) -> list[CandidateDossier]:
     """Walk the ranked EV frame, attach a chart, run the reviewer.
 
@@ -587,6 +661,7 @@ def build_dossiers(
             ev_row=row_dict,
             chart_context=chart_ctx,
             portfolio_context=portfolio_context,
+            vix_level=vix_level,
         )
 
         verdict, reason, notes = reviewer.review(dossier)

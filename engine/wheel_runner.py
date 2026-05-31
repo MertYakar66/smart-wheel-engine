@@ -333,6 +333,42 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
     return frame
 
 
+def make_live_book_tracker(
+    initial_capital: float = 100_000.0,
+    connector: Any | None = None,
+    **kwargs: Any,
+) -> "WheelTracker":
+    """Canonical production / live-book ``WheelTracker`` constructor.
+
+    The library default (``WheelTracker(...)``) leaves the D17 concentration
+    caps OFF — research-safe, matching the ``require_ev_authority`` convention
+    (default off; production sets it on). Production / live books MUST be
+    constructed through this factory, which ARMS the refusal-only
+    concentration caps — **R9 sector (25% NAV)** and **R10 single-name
+    (10% NAV)** — so "off in the library, on in production" is enforced in
+    code, not promised in prose (heavy-verify 2026-05-31 Category A; #154
+    follow-up). ``tests/test_production_tracker_caps.py`` pins that a tracker
+    from this factory refuses an over-concentrated book, so the production
+    arming is an invariant a future change cannot silently drop.
+
+    §2-safe: the caps only REFUSE an over-concentrated open; they never touch
+    ``ev_raw`` / ``ev_dollars`` / ``prob_profit``. ``enforce_delta_cap`` /
+    ``enforce_kelly_cap`` stay OFF (deferred) even here: the delta cap's
+    $300/$100k-NAV calibration would refuse essentially every post-assignment
+    wheel book until re-calibrated. Pass ``require_ev_authority=True`` via
+    ``kwargs`` to additionally arm the D16 token gate + delta/Kelly.
+    """
+    from engine.wheel_tracker import WheelTracker
+
+    return WheelTracker(
+        initial_capital=initial_capital,
+        connector=connector,
+        enforce_sector_cap=True,
+        enforce_single_name_cap=True,
+        **kwargs,
+    )
+
+
 class WheelRunner:
     """
     Main orchestrator for the Smart Wheel Engine.

@@ -106,6 +106,7 @@ EV-authority re-baseline (which should be bundled with the deferred D19+D21).
 | I7 | Roll/management economics | Rolling a challenged put beats holding by +$195/contract when a credit roll is offered (87% win); engine declines to roll 74% of the time (discipline); horizon-mismatch caveat | `HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md` |
 | I8 | Daily-marked NAV risk (corrects I2) | True intra-crash drawdown −20.6% (not −2.6%); defensive edge ~0.4–0.6× index, real but smaller than monthly implied | `HEAVY_VERIFY_2026-05-31_I8_DAILY_RISK.md` |
 | I9 | Calibration-fix generalization (B-verification gate) | Recalibration fix does NOT generalize to unseen crises (qualifies I6-C); gate not cleared — needs a structural POT-GPD fix, untested | `HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md` |
+| I10 | B1-vs-B2 fix scoping | Instability real (≥26pp, well-powered CIs); but no simple PIT signal detects the transition (rv_ratio highest at recovery) → neither naive fix clears the bar; route to a multi-feature onset detector or a risk-budget sizing rule | `HEAVY_VERIFY_2026-05-31_I10_B1_VS_B2_SCOPING.md` |
 
 ## Method & honesty notes
 

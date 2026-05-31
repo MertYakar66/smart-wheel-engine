@@ -62,6 +62,19 @@ realized rate is unstable across crises, 0.37–0.93, 56.5pp spread). **So:**
    the published `prob_profit` matrix, re-pin the exact-EV invariant tests, gate the
    merge. One re-baseline, not three.
 
+**B-routing update (I10).** A scoping study tested B1 (probability fix) vs B2 (behavioral
+transition gate) head-to-head. Result: **neither *naive* form clears the bar.** The
+crisis instability is real (≥26pp between well-powered cells, CIs non-overlapping), but
+**no simple PIT signal detects the transition cleanly** — `rv_ratio` is highest at the
+2020 *recovery* (the best entry) and the 2022 bear-onset looks calm by drawdown; a crude
+gate conflates onset / recovery / sustained-bear. So: (a) do NOT commission a
+single-signal gate (naive B2) or the recalibration (naive B1); (b) if a fix is pursued
+it is a **multi-feature *onset* detector**, acceptance = the 3-way separation under
+leave-one-crisis-out (I10 P2) — a *research* task; (c) the robust default needing no
+detector is a §2-clean, downgrade-only **risk-budget rule** — cap `prob_profit > 0.90`
+size in elevated-vol regimes (the defensive-sleeve posture). See
+`HEAVY_VERIFY_2026-05-31_I10_B1_VS_B2_SCOPING.md`.
+
 ## C — Reframe (document; not a fix — this IS the strategy)
 
 I2 bull-lag and the I1 dollar-EV-magnitude caveat are **structural to short-premium

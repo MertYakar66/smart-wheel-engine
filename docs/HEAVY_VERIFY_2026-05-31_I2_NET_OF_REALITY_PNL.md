@@ -15,7 +15,9 @@ the shared monthly ranked snapshots). **Raw:** `raw_output/i2_pnl_all_slip*.json
 > **The wheel is a defensive, income/rate-harvesting strategy — not a bull-market
 > growth substitute. It DECISIVELY OUTPERFORMS buy-and-hold in down and sideways
 > markets (2022 bear: +4.5% vs −22.4%, a +27pp edge; 2020 crash window: +9.1% vs
-> −0.9%) while taking roughly a quarter of the drawdown. It ROUGHLY MATCHES passive
+> −0.9%) with lower drawdown than buy-and-hold (≈0.4–0.6× the index drawdown when
+> both are marked daily — see the **I8 correction** below; NOT the "¼" the monthly
+> marks first implied). It ROUGHLY MATCHES passive
 > in calm/high-rate regimes (2025: +24.9% vs +24.3%). It SUBSTANTIALLY UNDERPERFORMS
 > in strong bull markets (2021: +13.3% vs +32.8%, −19pp; 2023-24 recovery: +40.2%
 > vs +66.5%, −26pp) because upside is capped at the strike and ~20-45% of capital
@@ -69,6 +71,15 @@ replacement for — long equity beta.
 | bull_2021 | 2021 | +13.3% | +0.1% | 0.54% | +32.8% | **−19.4pp** ❌ | 54% | −0.7% | 21% |
 | recovery_2023_2024 | 2023-24 | +40.2% | +8.4% | 1.19% | +66.5% | **−26.3pp** ❌ | 80% | −0.8% | 29% |
 
+> **⚠ DRAWDOWN CORRECTION (I8, daily marks).** The "max DD (monthly)" column above is
+> a **monthly-mark lower bound** and materially understates true intra-month path
+> risk (by 1.6×–8×). Daily-marked, the true max drawdowns are **crash_2020 −20.56%**
+> (trough on the COVID bottom 2020-03-23; worst day −9.1%, worst 5-day −16.0%) and
+> **bear_2022 −10.31%** — vs the −2.6% / −6.6% shown here. The monthly snapshot for
+> the crash landed *after* the V-recovery and hid ~18pp of pain. The defensive edge
+> is still real but is **~0.4–0.6× the index drawdown**, not ¼. See
+> `HEAVY_VERIFY_2026-05-31_I8_DAILY_RISK.md`.
+
 (Frictionless variant in `i2_pnl_all_slip0.0_mf.json`; differences are ≤~1.5pp/yr
 and partly path-divergence — see friction note.)
 
@@ -76,7 +87,8 @@ and partly path-divergence — see friction note.)
 
 1. **Downside protection is the product.** In the only genuinely bad equity year in
    the sample (2022), the wheel returned **+4.5% while the index lost −22.4%** — a
-   27pp edge with a −6.6% max drawdown vs the index's ~−25%. In the 2020 crash
+   27pp edge with a **true daily max drawdown of −10.3%** vs the index's −27.4% (the
+   −6.6% in the table is a monthly-mark lower bound — see the I8 correction). In the 2020 crash
    window it was +9% vs roughly flat. This is a real, large, repeatable edge in
    down/sideways tape.
 2. **Bull-market underperformance is structural and large.** In 2023-24 the wheel
@@ -106,9 +118,10 @@ and partly path-divergence — see friction note.)
 * **Modeled-fill share:** ≈30-45% of fills fall back to a modeled 10% spread where
   Theta lacks the exact strike/date; the headline is therefore part-real,
   part-modeled. The real-fill subset behaves the same directionally.
-* **Monthly NAV marks** understate intra-month drawdown — the −6.6% (2022) /
-  −3.2% (2025) figures are lower bounds on true path risk; still far below the
-  index's drawdowns.
+* **Monthly NAV marks understate intra-month drawdown — quantified in I8 as 1.6×–8×.**
+  The table's DD column is a lower bound; true daily-marked DD is −20.6% (crash) /
+  −10.3% (bear). This is the largest single correction in the campaign; the
+  defensive *direction* holds, the *magnitude* did not. See I8.
 * **Survivorship in the benchmark** biases passive *up* (current members only), so
   the wheel's bear-market edge is, if anything, understated and its bull lag
   overstated.

@@ -25,7 +25,7 @@ Branch `claude/heavy-verify-campaign-2026-05-31`. Drivers + raw output:
 > from ~0.6–0.85 (±5pp over 16,005 trades) but over-promises at the top (says 96%,
 > delivers 70%), worst in crisis. Net of real spreads, T-bill carry, and dividends,
 > the wheel **beats buy-and-hold by ~27pp in the 2022 bear and ~10pp in the 2020
-> crash with a quarter of the drawdown**, roughly matches it in 2025, and **trails by
+> crash at ~0.4–0.6× the index's (daily-marked) drawdown**, roughly matches it in 2025, and **trails by
 > 19–26pp in strong bulls** (capped upside + cash drag). The §2 firewall is intact —
 > a negative-EV trade cannot be made tradeable. The two things a PM must know before
 > wiring capital: (1) the portfolio risk caps are **off by default**, and (2) the
@@ -40,7 +40,7 @@ Branch `claude/heavy-verify-campaign-2026-05-31`. Drivers + raw output:
 |---|---|---|
 | **`prob_profit` in the 0.6–0.85 range** — calibrated within ±5pp across ~12,000 candidates; the bulk (.7,.8] bin, n=7,463, is +0.6pp | reliability table, Wilson CIs | I1 |
 | **Calibration in calm/recent markets** — weighted-MAD ~3pp in 2023-2025; ~3pp in `bear` regime | per-year/regime stratification | I1 |
-| **Downside protection / bear & crash alpha** — +26.8pp vs passive in 2022, +9.9pp in the 2020 window, ¼ the drawdown | frictioned multi-regime backtest w/ real Theta fills | I2 |
+| **Downside protection / bear & crash alpha** — +26.8pp vs passive in 2022, +9.9pp in the 2020 window, at ~0.4–0.6× the index drawdown (daily-marked) | frictioned multi-regime backtest w/ real Theta fills | I2, I8 |
 | **The §2 invariant** — no negative-EV candidate can become tradeable; reviewers are downgrade-only; dealer/regime multipliers are sign-preserving | 6 adversarial attacks, all held; lead-verified | I4 |
 | **The negative-EV hard-block & downgrade-only review contract** — no rescue path (negative/inf/NaN → blocked even with a perfect chart) | dossier probes | I3-C, I4 |
 | **EV semantics are sound** — `ev_dollars` correctly reflects probability-weighted tail risk (MU CC −$812 despite $1,334 premium) | re-verified on current engine | I5-A |

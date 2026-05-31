@@ -276,6 +276,10 @@ class WheelTracker:
         self,
         initial_capital: float = 100000.0,
         require_ev_authority: bool = False,
+        enforce_sector_cap: bool = False,
+        enforce_single_name_cap: bool = False,
+        enforce_delta_cap: bool = False,
+        enforce_kelly_cap: bool = False,
         connector: Any | None = None,
         min_nav_for_trading: float = 0.0,
     ):
@@ -307,6 +311,31 @@ class WheelTracker:
                 backwards compatibility with tests and research
                 usage; production/live tracker instances should set
                 it True.
+            enforce_sector_cap / enforce_single_name_cap /
+            enforce_delta_cap / enforce_kelly_cap: Per-gate arming of the
+                D17 hard-blocks, DECOUPLED from ``require_ev_authority`` and
+                the D16 token path (#154 follow-up; heavy-verify 2026-05-31
+                Category A). This decoupling is the structural fix: R9 sector
+                (25% NAV) and R10 single-name (10% NAV) can now be enforced
+                on the normal (token-free) ``open_short_put`` /
+                ``open_covered_call`` path WITHOUT ``require_ev_authority`` or
+                a D16 token. The caps are refusal-only and §2-safe: they never
+                touch ``ev_raw`` / ``ev_dollars`` / ``prob_profit``, only block
+                an open.
+
+                **All four default False** — library-safe, matching the
+                ``require_ev_authority`` convention (default off; production /
+                live-book trackers explicitly set them). Production sets
+                ``enforce_sector_cap=True, enforce_single_name_cap=True`` at
+                its live-book construction site (see
+                ``engine.wheel_runner``), so concentration is enforced in
+                production, off in research/tests. ``enforce_delta_cap`` /
+                ``enforce_kelly_cap`` stay deferred even in production: the
+                delta cap's $300/$100k-NAV calibration would refuse
+                essentially every post-assignment wheel book, so it waits on
+                re-calibration. Strict mode (``require_ev_authority=True``)
+                still arms **all four** regardless of these flags, preserving
+                the existing token-gated behaviour.
             connector: Optional data connector
                 (``MarketDataConnector`` / ``ThetaConnector``-style).
                 Used by :meth:`suggest_rolls` to resolve
@@ -335,6 +364,10 @@ class WheelTracker:
         self.closed_positions: list[dict] = []
         self.equity_curve: list[dict] = []
         self.require_ev_authority = require_ev_authority
+        self.enforce_sector_cap = enforce_sector_cap
+        self.enforce_single_name_cap = enforce_single_name_cap
+        self.enforce_delta_cap = enforce_delta_cap
+        self.enforce_kelly_cap = enforce_kelly_cap
         self._ev_authority_tokens: set[str] = set()
         self._ev_authority_log: list[dict] = []
         self.connector = connector
@@ -527,9 +560,12 @@ class WheelTracker:
         if self.cash < margin_required:
             return False
 
-        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2). Only fires
-        # in strict mode after the D16 token consume succeeded.
-        if self.require_ev_authority:
+        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2; arming
+        # decoupled per heavy-verify 2026-05-31 Cat-A). Concentration caps
+        # (R9 sector / R10 single-name) fire on the normal token-free path
+        # by default; delta/Kelly only when their flag (or strict mode) is
+        # on. Each gate is armed individually inside _evaluate_d17_hard_blocks.
+        if self._d17_any_enabled():
             put_dte = max(0, (expiration_date - entry_date).days)
             candidate_dict = {
                 "symbol": ticker,
@@ -1221,10 +1257,11 @@ class WheelTracker:
         if pos.state != PositionState.STOCK_OWNED:
             return False
 
-        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2). Sector cap +
-        # portfolio delta only — Kelly is intentionally skipped on the
-        # call leg per the docstring rationale above.
-        if self.require_ev_authority:
+        # D17 portfolio-risk hard-blocks (#154 C4 Phase 2; arming decoupled
+        # per heavy-verify 2026-05-31 Cat-A). Concentration caps (R9/R10)
+        # fire on the normal token-free path by default; delta only in strict
+        # mode; Kelly always skipped on the call leg (kelly_inputs=None).
+        if self._d17_any_enabled():
             call_dte = max(0, (expiration_date - entry_date).days)
             candidate_dict = {
                 "symbol": ticker,
@@ -1765,6 +1802,34 @@ class WheelTracker:
             # "static_fallback_connector_error" entries.
             return self.initial_capital, "static_fallback_connector_error"
 
+    def _d17_gate_enabled(self, gate: str) -> bool:
+        """Whether a specific D17 gate is armed for this tracker.
+
+        Strict mode (``require_ev_authority=True``) arms all four (preserves
+        the existing token-gated behaviour). Otherwise each gate is governed
+        by its own ``enforce_*`` flag — default config arms R9 ``sector`` +
+        R10 ``single_name`` only; ``delta`` / ``kelly`` stay off.
+        """
+        if self.require_ev_authority:
+            return True
+        return {
+            "sector": self.enforce_sector_cap,
+            "single_name": self.enforce_single_name_cap,
+            "delta": self.enforce_delta_cap,
+            "kelly": self.enforce_kelly_cap,
+        }.get(gate, False)
+
+    def _d17_any_enabled(self) -> bool:
+        """True if any D17 gate is armed (gates whether to run the block)."""
+        return self.require_ev_authority or any(
+            (
+                self.enforce_sector_cap,
+                self.enforce_single_name_cap,
+                self.enforce_delta_cap,
+                self.enforce_kelly_cap,
+            )
+        )
+
     def _evaluate_d17_hard_blocks(
         self,
         ticker: str,
@@ -1837,8 +1902,11 @@ class WheelTracker:
         # Spot prices best-effort: prefer connector marks if available,
         # else fall back to strike approximation per-position (which is
         # what calculate_portfolio_greeks does internally too).
+        # Spot marks are only needed by the delta gate; skip the connector
+        # loop entirely when delta is disabled (the default token-free path
+        # arms only R9/R10, which are notional/NAV-based and need no marks).
         spot_prices: dict[str, float] = {}
-        if self.connector is not None:
+        if self.connector is not None and self._d17_gate_enabled("delta"):
             symbols_needed: set[str] = {ticker}
             symbols_needed.update(p["symbol"] for p in snapshot.option_positions)
             symbols_needed.update(s for s, _ in snapshot.stock_holdings)
@@ -1852,46 +1920,51 @@ class WheelTracker:
                     if not pd.isna(close):
                         spot_prices[sym] = float(close)
 
-        # Gate 1: sector cap.
-        sector = check_sector_cap(
-            symbol=ticker,
-            proposed_notional=proposed_notional,
-            held_option_positions=snapshot.option_positions,
-            nav=nav,
-        )
-        if not sector.passed:
-            return {**common_audit, "reason": sector.reason, **sector.details}
+        # Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on).
+        if self._d17_gate_enabled("sector"):
+            sector = check_sector_cap(
+                symbol=ticker,
+                proposed_notional=proposed_notional,
+                held_option_positions=snapshot.option_positions,
+                nav=nav,
+            )
+            if not sector.passed:
+                return {**common_audit, "reason": sector.reason, **sector.details}
 
         # Gate 1b: single-name (per-underlying) exposure cap. Tighter
         # per-name floor that sits beneath the GICS sector cap above.
         # Bounds F4-style idiosyncratic-drawdown damage that no
         # market-wide regime detector can predict. Hard refusal at
         # 10% NAV per name (default).
-        single_name = check_single_name_cap(
-            symbol=ticker,
-            proposed_notional=proposed_notional,
-            held_option_positions=snapshot.option_positions,
-            nav=nav,
-        )
-        if not single_name.passed:
-            return {**common_audit, "reason": single_name.reason, **single_name.details}
+        if self._d17_gate_enabled("single_name"):
+            single_name = check_single_name_cap(
+                symbol=ticker,
+                proposed_notional=proposed_notional,
+                held_option_positions=snapshot.option_positions,
+                nav=nav,
+            )
+            if not single_name.passed:
+                return {**common_audit, "reason": single_name.reason, **single_name.details}
 
-        # Gate 2: portfolio delta cap.
-        delta = check_portfolio_delta(
-            held_option_positions=snapshot.option_positions,
-            spot_prices=spot_prices,
-            candidate_option=candidate_option,
-            stock_holdings=snapshot.stock_holdings,
-            nav=nav,
-        )
-        if not delta.passed:
-            return {**common_audit, "reason": delta.reason, **delta.details}
+        # Gate 2: portfolio delta cap — armed by enforce_delta_cap (default
+        # OFF; the $300/$100k-NAV calibration would refuse every
+        # post-assignment book — deferred until re-calibrated).
+        if self._d17_gate_enabled("delta"):
+            delta = check_portfolio_delta(
+                held_option_positions=snapshot.option_positions,
+                spot_prices=spot_prices,
+                candidate_option=candidate_option,
+                stock_holdings=snapshot.stock_holdings,
+                nav=nav,
+            )
+            if not delta.passed:
+                return {**common_audit, "reason": delta.reason, **delta.details}
 
         # Gate 3: Kelly size — only for paths that have kelly inputs
         # (short-put leg). The covered-call leg short-circuits by
         # passing ``kelly_inputs=None`` because no new margin is
         # consumed (stock already owned).
-        if kelly_inputs is not None:
+        if kelly_inputs is not None and self._d17_gate_enabled("kelly"):
             win_rate, avg_win, avg_loss = kelly_inputs
             kelly = check_kelly_size(
                 margin_required=margin_required,

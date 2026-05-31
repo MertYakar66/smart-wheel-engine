@@ -45,7 +45,7 @@ Branch `claude/heavy-verify-campaign-2026-05-31`. Drivers + raw output:
 | **The negative-EV hard-block & downgrade-only review contract** — no rescue path (negative/inf/NaN → blocked even with a perfect chart) | dossier probes | I3-C, I4 |
 | **EV semantics are sound** — `ev_dollars` correctly reflects probability-weighted tail risk (MU CC −$812 despite $1,334 premium) | re-verified on current engine | I5-A |
 | **The ranking adds real selection value** — monthly top-10 by any engine signal beats random/all (+$166–206 vs −$26 mean; positive vs negative ROC); `prob_profit` is the best risk-adjusted selector | top-K selection vs random | I6-B |
-| **The over-confidence is fixable** — a recalibration trained on 2020-2023 generalizes (out-of-sample ECE 3.17→1.29pp; >0.90 forecast 0.924→0.806 = realized) | out-of-sample recalibration | I6-C |
+| **The over-confidence is fixable *in calm regimes*** by recalibration (OOS ECE 3.17→1.29pp) — **but I9 shows recalibration does NOT generalize to crises** (the only place it matters); a structural (POT-GPD) fix is needed and is untested | recalibration + leave-one-crisis-out | I6-C, **I9** |
 | **Roll-management adds value** — when the engine offers a credit roll, rolling a challenged put beats holding by +$195/contract (87% win, CI excludes 0); avoids assignment 80% of the time (horizon-mismatch caveat) | roll-vs-hold paired test | I7 |
 
 ## Where you CANNOT trust it (ranked by materiality)
@@ -70,6 +70,14 @@ ones reality surprises, and making the engine procyclical. POT-GPD tail machiner
 exists (`engine/tail_risk.py`) but is **not wired into `prob_profit`**. The HMM
 regime de-rate helps (0.31× in the 2020 crash) but does not fully offset it. This is
 the highest-value fix target — flagged, not implemented (observe-only).
+
+**On fixing it (I9 gate).** A post-hoc *recalibration layer* looked promising on calm
+data (I6-C) but **fails the generalization gate**: I9 shows it does not transfer to
+unseen crises (the crisis realized rate is unstable across crises, 0.37–0.93). So the
+fix must be *structural and forward-looking* — wiring POT-GPD into `prob_profit` so it
+responds to current tail conditions rather than a backward-fit label. That route is
+**untested** and must pass the same leave-one-crisis-out test before it earns the
+EV-authority re-baseline (which should be bundled with the deferred D19+D21).
 
 ## How to allocate (if you do)
 
@@ -97,6 +105,7 @@ the highest-value fix target — flagged, not implemented (observe-only).
 | I6 | Wave-2 deepening (regime overlay / selection value / fixability) | Ranking *works* (top-K beats random); regime overlay over-penalizes bear; over-confidence is recalibratable | `HEAVY_VERIFY_2026-05-31_I6_DEEPENING.md` |
 | I7 | Roll/management economics | Rolling a challenged put beats holding by +$195/contract when a credit roll is offered (87% win); engine declines to roll 74% of the time (discipline); horizon-mismatch caveat | `HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md` |
 | I8 | Daily-marked NAV risk (corrects I2) | True intra-crash drawdown −20.6% (not −2.6%); defensive edge ~0.4–0.6× index, real but smaller than monthly implied | `HEAVY_VERIFY_2026-05-31_I8_DAILY_RISK.md` |
+| I9 | Calibration-fix generalization (B-verification gate) | Recalibration fix does NOT generalize to unseen crises (qualifies I6-C); gate not cleared — needs a structural POT-GPD fix, untested | `HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md` |
 
 ## Method & honesty notes
 

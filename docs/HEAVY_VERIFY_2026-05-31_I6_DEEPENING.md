@@ -20,7 +20,15 @@ on `raw_output/i1_realized_rows.parquet`). **Raw:** `raw_output/i6_deepening_RAW
 > is directionally right for `crisis` (de-rated hardest, realizes worst) but
 > *over-penalizes* `bear`. (W2-C) A histogram recalibration trained on 2020-2023
 > generalizes out-of-sample (ECE 3.17pp → 1.29pp), so the top-bin over-confidence is
-> learnable and fixable.**
+> learnable and fixable **in the calm/recent regime tested**.
+>
+> **⚠ QUALIFIED BY I9.** This W2-C result is on a BENIGN 2024-2026 test window. The
+> follow-up generalization study (I9) shows the recalibration fix does **NOT**
+> generalize to unseen *crises* (leave-one-crisis-out leaves the 2020 crash top-bin at
+> 0.84-predicted vs 0.72-realized; the crisis realized rate is unstable across crises,
+> 0.37–0.93). So the over-confidence is fixable in calm tape by recalibration but NOT
+> where it actually bites — a structural (POT-GPD) fix is needed and is untested. See
+> `HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md`.**
 
 Confidence: **high** for W2-B (large pooled samples, clear separation from random);
 **medium** for W2-A (4 regime cells) and W2-C (benign 2024-2026 test period likely

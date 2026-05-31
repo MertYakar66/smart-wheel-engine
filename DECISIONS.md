@@ -1252,6 +1252,64 @@ recorded at issue #113.
 
 ---
 
+## D23. R11 — an elevated-vol top-bin size-down reviewer, wired live (not dormant)
+
+**Decision:** `EnginePhaseReviewer` gains an eleventh rule, **R11**. When a
+high-confidence top-bin candidate (`prob_profit > R11_TOP_BIN_PROB`, 0.90) is opened
+while the market-wide **VIX *level*** is elevated (`vix_level > R11_VIX_THRESHOLD`, 25.0),
+R11 downgrades the verdict `proceed → review` with
+`verdict_reason="elevated_vol_top_bin"`. It is **downgrade-only** — gated on
+`verdict == "proceed"` so R1 (`ev < 0 → blocked`) still hard-stops negative EV first,
+and it never upgrades or rescues. It is a no-op when `vix_level` is absent
+(missing-evidence semantics, like R6–R10). Unlike R9/R10 (armed-but-gated behind
+`make_live_book_tracker`), **R11 is wired live**: `wheel_runner` reads
+`connector.get_vix_regime(as_of)["vix"]` and threads it through
+`build_dossiers(vix_level=…) → CandidateDossier`, so R11 fires in any ranker run whose
+connector returns a VIX level. The VIX fetch is wrapped in `try/except` — VIX is
+advisory and never fails the rank (falls back to `vix_level=None` → R11 no-op). The
+warning payload carries the candidate's OWN modeled `cvar_5` from `ev_row`
+(regime-matched, computed by the engine — not a hardcoded constant).
+
+**Why:** The 2026-05-31 heavy-verify campaign traced a single mechanism through four
+investigations. **I1:** the top `prob_profit` bin is materially over-confident in the
+regime that *follows* an elevated-vol reading — ~0.57 realized vs ~0.96 forecast in
+`crisis`. **I9:** that miss is **not forecastable** — an OOS recalibration/haircut fails
+leave-one-crisis-out (crisis realized rate swings 0.37–0.93). **I10:** it is **not
+cleanly detectable** from any single PIT onset signal (`rv_ratio` peaks at the 2020
+*recovery*, not bear-onset — "you can't gate what you can't detect"). **I11:** so the
+robust response is to **size down regardless**; a VIX-level > 25 top-bin size-down is
+favorably asymmetric in every well-powered crisis fold (2020 +$86k averting the
+−$1,305/contract tail; 2022 +$3.5k) and the cut **survives leave-one-crisis-out**. R11
+is §2-clean: refusal-only, never touches `ev_raw` / `ev_dollars` / `prob_profit` / the
+dealer clamp (cf. D17). It ships **live, not dormant, deliberately** — finding I3-A
+showed the D17 caps sat dark on every path precisely because they were gated behind an
+unset flag; R11 avoids repeating that trap. It is the market-wide-vol counterpart to the
+now-armed R10: R10 bounds idiosyncratic single-name size (the calm-market tail R11 can't
+see); R11 bounds market-wide vol exposure on the over-confident top bin (which R10 can't
+see).
+
+**Rejected alternatives:** (1) *OOS recalibration / a prob_profit haircut* (I6-C) — fails
+the leave-one-crisis-out gate (I9): it under-corrects on unseen crises, so it is
+insufficient, not §2-safe-but-weak. (2) *A single-signal onset detector / the B2 3-way
+regime gate* — I10 showed no simple PIT feature achieves the 3-way separation it needs
+(`rv_ratio` highest at recovery); a real detector is a multi-feature research task, not a
+reviewer rule. (3) *A higher threshold (θ ≥ 27.5)* — fires less but **fails the 2022
+fold** in leave-one-crisis-out; 25 is the robust-not-optimal floor. (4) *Land R11 dormant
+behind a flag like R9/R10* — would reproduce the I3-A dormancy trap (a defensive rule
+that protects nothing because nothing arms it); live-with-advisory-fallback is the safer
+default for a downgrade-only rule. (5) *Hardcode the warning's tail figure* — would drift
+from the data; using the candidate's own computed `cvar_5` keeps the payload honest.
+
+**Pinned by:** `engine/candidate_dossier.py` (`R11_TOP_BIN_PROB` / `R11_VIX_THRESHOLD`
+constants, `CandidateDossier.vix_level`, the R11 rule after R10, `build_dossiers(vix_level=…)`),
+`engine/wheel_runner.py` (the live VIX wiring), `tests/test_r11_elevated_vol.py` (8 pins:
+fires, four no-ops, never-rescues-negative-EV, strictly-greater-than boundaries,
+computed-not-hardcoded payload, `build_dossiers` threading). Study:
+`docs/HEAVY_VERIFY_2026-05-31_I11.md`. PR #306 (squash `a9d3de5`); §2 second-read +
+operator merge recorded at issue #113.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

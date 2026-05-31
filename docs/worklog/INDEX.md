@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**69 records.**
+**70 records.**
 
 ## Features (1)
 
@@ -25,7 +25,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
 
-## Backtests (19)
+## Backtests (20)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -33,6 +33,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN](../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md) | legacy |  | Engine backtest — 2022-2024 IV-PIT re-run (S27, 2026-05-24) | `../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` |
 | [ENGINE_BACKTEST_S32_FRICTION](../ENGINE_BACKTEST_S32_FRICTION.md) | legacy |  | Engine backtest — S32: $1M with full friction (2026-05-25) | `../ENGINE_BACKTEST_S32_FRICTION.md` |
 | [ENGINE_BACKTEST_S32_REBASELINE_POST260](../ENGINE_BACKTEST_S32_REBASELINE_POST260.md) | legacy |  | Engine backtest — S32 snapshot re-baseline (post-#260) | `../ENGINE_BACKTEST_S32_REBASELINE_POST260.md` |
+| [ENGINE_BACKTEST_S34_REBASELINE_POST260](../ENGINE_BACKTEST_S34_REBASELINE_POST260.md) | legacy |  | Engine backtest — S34 snapshot re-baseline (post-#260) + R10 firing analysis | `../ENGINE_BACKTEST_S34_REBASELINE_POST260.md` |
 | [ENGINE_BACKTEST_S34_UNIVERSE](../ENGINE_BACKTEST_S34_UNIVERSE.md) | legacy |  | Engine backtest — S34: 100-ticker universe at $1M with full friction (2026-05-26) | `../ENGINE_BACKTEST_S34_UNIVERSE.md` |
 | [ENGINE_BACKTEST_S35_OUT_OF_WINDOW](../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md) | legacy |  | Engine backtest — S35: 2018-2020 out-of-window cross-validation (2026-05-26) | `../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` |
 | [ENGINE_BACKTEST_S38_MULTIWINDOW](../ENGINE_BACKTEST_S38_MULTIWINDOW.md) | legacy |  | Engine backtest — S38: multi-window at 100 tickers + $1M (2026-05-26) | `../ENGINE_BACKTEST_S38_MULTIWINDOW.md` |

@@ -1852,22 +1852,21 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         ts_val = alert.timestamp
         if ts_val:
             ts_parsed: float | None = None
+            # alert.timestamp is always a str (TVAlert.parse stringifies it), so a
+            # numeric epoch-ms/s comes through the float() path and ISO 8601 via
+            # the fromisoformat fallback. (A prior isinstance(ts_val,(int,float))
+            # branch was dead code — the value is never numeric here.)
             try:
-                if isinstance(ts_val, (int, float)):
-                    # TradingView {{time}} is epoch ms — accept either.
-                    ts_parsed = float(ts_val) / 1000.0 if ts_val > 1e12 else float(ts_val)
-                elif isinstance(ts_val, str):
-                    # Numeric string?
-                    try:
-                        num = float(ts_val)
-                        ts_parsed = num / 1000.0 if num > 1e12 else num
-                    except ValueError:
-                        # ISO 8601
-                        cleaned = ts_val.replace("Z", "+00:00")
-                        dt = datetime.fromisoformat(cleaned)
-                        if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=UTC)
-                        ts_parsed = dt.timestamp()
+                try:
+                    num = float(ts_val)
+                    ts_parsed = num / 1000.0 if num > 1e12 else num
+                except ValueError:
+                    # ISO 8601
+                    cleaned = ts_val.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(cleaned)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=UTC)
+                    ts_parsed = dt.timestamp()
             except Exception:
                 ts_parsed = None
 

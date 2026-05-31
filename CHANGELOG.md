@@ -19,18 +19,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 A multi-agent read-only review of the whole repo, then a fix pass on `main` for
 the findings verified to be live on `main` (15 findings were already fixed on
 main and skipped). Full detail + the verified-findings ledger:
-`docs/CODE_REVIEW_2026-05-30.md`. New decisions: **D19** (EV nets expected exit
-costs), **D20** (treasury rate is percent → ÷100 unconditionally), **D21**
-(forward-distribution horizon is calendar-in / trading-bar-out).
+`docs/CODE_REVIEW_2026-05-30.md`. Decisions: **D20** (treasury rate is percent →
+÷100 unconditionally) shipped; **D19** (EV nets expected exit costs) and **D21**
+(forward-distribution horizon calendar/trading-day mismatch) are confirmed +
+fix-ready but **DEFERRED** — both change the EV-authority output and trip the
+byte-identical-to-main baselines, so they land together in a coordinated backtest
++ calibration re-baseline rather than in this bug sweep.
 
 ### Fixed (EV decision path)
-- `ev_engine.evaluate` now subtracts the expected exit-leg transaction cost from
-  `ev_dollars` (was reported but never applied → EV overstated). **D19**.
 - Risk-free rate accessors (`data_connector`, `data_integration`) divide the
   percent treasury value by 100 unconditionally; the old `>1` heuristic mis-read
-  every sub-1% rate (the 2011-2022 ZIRP era) 100× too high. **D20**.
-- `forward_distribution` converts the calendar DTE horizon to trading-day bars,
-  fixing a ~18-45% over-dispersion of the terminal distribution. **D21**.
+  every sub-1% rate (the 2011-2022 ZIRP era) 100× too high. **D20**. (Only the
+  sub-1% ZIRP era is affected, so 2026-dated baselines are unchanged.)
 - `dealer_positioning.analyze` anchors time-to-expiry to `as_of` (was wall-clock
   `now()` → collapsed in backtests); `theta_connector.get_vol_risk_premium`
   normalizes IV percent→decimal; `regime_hmm.fit` refuses degenerate input.
@@ -47,6 +47,19 @@ costs), **D20** (treasury rate is percent → ÷100 unconditionally), **D21**
 ### Fixed (hardening)
 - NaN/inf and edge guards across `ev_engine`, `realized_vol`, `contracts`,
   `regime_detector`, `dealer_positioning`.
+
+### Deferred (confirmed + fix-ready, not shipped — bundle into one re-baseline)
+Both change the EV-authority output and trip the team's byte-identical-to-main
+backtest baselines, so they are documented and ready but not shipped in this bug
+sweep; apply them together with a backtest + prob_profit re-baseline.
+- **D19** EV omits the expected exit-leg transaction cost (~$1-4/contract, EV
+  mildly overstated). Fix authored; does NOT touch prob_profit. The exact site is
+  marked with a DEFERRED note in `ev_engine.evaluate`.
+- **D21** forward-distribution horizon calendar/trading-day mismatch. Fix-ready
+  (`calendar_days_to_trading_bars`), but applying it shifts every EV/prob_profit
+  value (e.g. prob_profit 0.833→0.886) and would de-calibrate the published
+  prob_profit matrix + all backtest snapshots. Left as a documented, unit-tested
+  helper the orchestrator does not yet call.
 
 ### Docs
 - Reconciled `GREEKS_UNIT_CONTRACT` (vega finite-diff example), `MODEL_CARDS`

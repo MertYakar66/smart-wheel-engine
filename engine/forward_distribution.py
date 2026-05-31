@@ -51,6 +51,13 @@ def calendar_days_to_trading_bars(calendar_days: int) -> int:
     """Convert a calendar-day horizon (e.g. an option DTE) to trading-day bars.
 
     Returns at least 1 bar. ``round(35 * 252 / 365) == 24``.
+
+    DEFERRED (DECISIONS D21): this is the dimensionally-correct conversion for the
+    forward-distribution horizon, but ``best_available_forward_distribution`` does
+    NOT apply it yet — doing so shifts every EV/prob_profit value and would
+    de-calibrate the published prob_profit matrix and all backtest snapshots. It
+    is kept here, validated by a unit test, ready to wire in during a coordinated
+    re-baseline.
     """
     bars = round(int(calendar_days) * TRADING_DAYS_PER_YEAR / CALENDAR_DAYS_PER_YEAR)
     return max(1, int(bars))
@@ -324,14 +331,17 @@ def best_available_forward_distribution(
     Returns ``(log_returns, method_name)``. When nothing works, the returned
     array is empty and ``method_name`` is ``"none"``.
 
-    ``horizon_days`` is a **calendar-day** horizon (the option DTE). It is
-    converted once to trading-day bars (D21) before the bar-indexed samplers
-    below are called, so a 35-DTE option uses ~24 trading bars rather than 35.
+    KNOWN DISCREPANCY (DEFERRED — see DECISIONS D21): callers pass the option's
+    *calendar* DTE as ``horizon_days``, but the samplers below index *trading-day*
+    bars, so the effective horizon is ~46% too long. The dimensionally-correct
+    conversion is available as :func:`calendar_days_to_trading_bars`, but it is
+    intentionally NOT applied here yet: doing so shifts every EV/prob_profit value
+    and would de-calibrate the published prob_profit matrix and all backtest
+    snapshots. Applying it is a coordinated re-baseline change, not a point fix.
     """
-    horizon_bars = calendar_days_to_trading_bars(horizon_days)
     rets = empirical_forward_log_returns(
         ohlcv,
-        horizon_days=horizon_bars,
+        horizon_days=horizon_days,
         as_of=as_of,
         min_samples=min_empirical_samples,
         price_col=price_col,
@@ -342,7 +352,7 @@ def best_available_forward_distribution(
 
     rets = empirical_forward_log_returns(
         ohlcv,
-        horizon_days=horizon_bars,
+        horizon_days=horizon_days,
         as_of=as_of,
         min_samples=max(min_empirical_samples * 3, 60),
         price_col=price_col,
@@ -353,7 +363,7 @@ def best_available_forward_distribution(
 
     rets = block_bootstrap_log_returns(
         ohlcv,
-        horizon_days=horizon_bars,
+        horizon_days=horizon_days,
         n_scenarios=n_scenarios,
         as_of=as_of,
         price_col=price_col,
@@ -364,7 +374,7 @@ def best_available_forward_distribution(
 
     rets = har_rv_conditional_distribution(
         ohlcv,
-        horizon_days=horizon_bars,
+        horizon_days=horizon_days,
         n_scenarios=n_scenarios,
         as_of=as_of,
         price_col=price_col,

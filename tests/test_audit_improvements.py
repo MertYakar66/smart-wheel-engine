@@ -107,7 +107,10 @@ class TestForwardDistribution:
         assert method == "none"
 
     def test_horizon_calendar_to_trading_bar_conversion(self):
-        # D21: option DTE is calendar days; samplers index trading-day bars.
+        # D21 (DEFERRED): the calendar->trading-day conversion helper exists and
+        # is correct, but is intentionally NOT applied by the orchestrator yet
+        # (applying it shifts every EV/prob_profit value and needs a coordinated
+        # re-baseline). This pins the helper's arithmetic for when it is wired in.
         from engine.forward_distribution import calendar_days_to_trading_bars as c2b
 
         assert c2b(35) == 24
@@ -115,22 +118,6 @@ class TestForwardDistribution:
         assert c2b(365) == 252
         assert c2b(0) == 1  # never zero
         assert c2b(1) == 1
-
-    def test_orchestrator_horizon_uses_trading_bars_not_calendar(self):
-        """A 35-DTE (calendar) horizon must disperse like ~24 trading bars, not
-        35. Pre-fix the empirical sampler indexed 35 *bars*, over-stating the
-        horizon by ~45% and over-dispersing the terminal distribution (D21)."""
-        df = self._synth(n=2000, seed=1)
-        sigma = 0.012  # _synth daily log-return vol
-        rets, method = best_available_forward_distribution(df, horizon_days=35, as_of=None)
-        assert method.startswith("empirical")
-        std = float(np.std(rets))
-        exp_24 = sigma * np.sqrt(24)  # corrected (trading-bar) horizon
-        exp_35 = sigma * np.sqrt(35)  # pre-fix (calendar-as-bar) horizon
-        assert abs(std - exp_24) < abs(std - exp_35), (
-            f"forward-dist std {std:.4f} should track the ~24 trading-bar "
-            f"horizon ({exp_24:.4f}), not the 35-calendar-day count ({exp_35:.4f})"
-        )
 
 
 # =========================================================================

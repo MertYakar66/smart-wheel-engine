@@ -128,9 +128,9 @@ Updated as fixes land on `claude/code-review-fixes` (off `origin/main`).
 | Item | Status | Commit / note |
 |---|---|---|
 | _baseline_ | ✅ | 193 relevant tests green on `origin/main` before edits |
-| E1 exit costs | ✅ | `ev_engine.py` applies expected exit cost; D19 added; regression test pins `mean_pnl == gross − total_cost` |
+| E1 exit costs | ⏸ DEFERRED | Confirmed + fix authored, but **not applied**: subtracting the expected exit cost changes the EV-authority output and trips the byte-identical-to-main baselines (e.g. f4 AAPL control +$5.50→+$4.15). Bundled with E3 into one coordinated re-baseline — see DECISIONS D19. (Does NOT touch prob_profit.) |
 | E2 risk-free rate + T1 tests | ✅ | both accessors ÷100 unconditionally; D20 added; masking test rewritten + ZIRP-era regressions added (connector & integration) |
-| E3 forward horizon | ✅ | orchestrator converts calendar DTE → trading bars (`calendar_days_to_trading_bars`); D21 added; 2 regression tests |
+| E3 forward horizon | ⏸ DEFERRED | Confirmed + fix authored (`calendar_days_to_trading_bars`, unit-tested), but **not applied to engine behaviour**: it shifts every EV/prob_profit value (prob_profit 0.833→0.886; a borderline strangle fixture flips sign) and would de-calibrate the published prob_profit matrix + all backtest snapshots. Requires a coordinated re-baseline — see DECISIONS D21. |
 | E4 dealer as_of T | ✅ | `analyze` anchors T to `ms.as_of`; wheel_runner passes `as_of`; regression test |
 | E5 theta VRP unit | ✅ | IV normalized percent→decimal (>3.0 ÷100) before VRP subtraction |
 | E6 HMM degenerate | ✅ | `fit` raises on near-constant input → caller neutral 1.0; regression test |

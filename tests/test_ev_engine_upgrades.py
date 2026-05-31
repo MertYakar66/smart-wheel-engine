@@ -89,33 +89,6 @@ def test_empirical_distribution_source_flagged():
 
 
 # ----------------------------------------------------------------------
-# Exit-leg transaction costs (audit fix 2026-05-30, DECISIONS D19)
-# ----------------------------------------------------------------------
-def test_exit_transaction_costs_subtracted_from_ev():
-    """Round-trip (entry + exit) transaction costs must be reflected in EV.
-
-    Previously the exit-leg commission + slippage were reported in
-    ``total_transaction_cost`` but never subtracted from ``ev_dollars`` — EV was
-    systematically overstated by the exit leg. With a deterministic all-OTM
-    forward distribution every path expires worthless and is profitable, so
-    P(early close) == 1 and the full expected exit cost applies:
-    ``mean_pnl`` must equal ``gross_premium - total_transaction_cost``.
-    This assertion fails on the pre-fix code (which yielded
-    ``gross_premium - entry_costs_only``).
-    """
-    trade = _trade(strike=90.0, premium=2.0)  # well-OTM put -> all paths expire worthless
-    res = EVEngine().evaluate(trade, forward_log_returns=np.zeros(2000))
-    gross_premium = trade.premium * 100 * max(trade.contracts, 1)
-    assert res.prob_profit == 1.0
-    assert res.total_transaction_cost > 0
-    assert math.isclose(res.mean_pnl, gross_premium - res.total_transaction_cost, abs_tol=1e-6), (
-        f"EV must net the full round-trip cost; got mean_pnl={res.mean_pnl}"
-    )
-    # No regime/dealer scaling -> ev_dollars == net mean P&L.
-    assert math.isclose(res.ev_dollars, res.mean_pnl, abs_tol=1e-6)
-
-
-# ----------------------------------------------------------------------
 # Regime multiplier clamp
 # ----------------------------------------------------------------------
 def test_regime_multiplier_nan_clamped_and_flagged():

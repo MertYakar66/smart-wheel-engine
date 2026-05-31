@@ -134,7 +134,17 @@ Updated as fixes land on `claude/code-review-fixes` (off `origin/main`).
 | E4 dealer as_of T | ✅ | `analyze` anchors T to `ms.as_of`; wheel_runner passes `as_of`; regression test |
 | E5 theta VRP unit | ✅ | IV normalized percent→decimal (>3.0 ÷100) before VRP subtraction |
 | E6 HMM degenerate | ✅ | `fit` raises on near-constant input → caller neutral 1.0; regression test |
-| O1–O9, S1–S3 | ⏳ | |
+| O1–O2 portfolio_tracker | ✅ | partial-close P&L on closed qty only; cash-flow-adjusted vol/Sharpe/Sortino/drawdown; regression test |
+| O3 risk_manager VaR vega | ✅ | parametric + covariance vega ×100 (decimal→vol-point) |
+| O4 stress IV-shock | ✅ | base leg priced at original iv; full repricing now reflects vol shock; regression test |
+| O5 payoff CSP EV | ✅ | downside-aware assignment-shortfall loss term; regression test |
+| O6 committee p_otm | ✅ | p_otm = 1−prob_assignment; p_profit = real prob_profit (or BSM breakeven) |
+| O7 model_validation LSM | ✅ | correct kwargs (S0=, n_paths=); tier now runs; regression test |
+| O8 news_sentiment tz | ✅ | tz-naive UTC normalization on both sides; regression test |
+| O9 dashboard IV display | ✅ | options-panel scales decimal IV ×100 for `%` display |
+| S1 scripts PerEndpointFailure | ✅ | option_tape + corp_actions workers catch fetch failures (D11), no crash |
+| S2 scripts ticker precedence | ✅ | removed buggy redundant `not endswith("D")` filter (dropped AMD/GOLD/HOOD) |
+| S3 scripts earnings overwrite | ✅ | pull_earnings_yf merges with prior CSV (partial fetch no longer destroys data) |
 | _note_ | ℹ | `test_theta_connector` `test_ohlcv_shape`/`test_iv_rank_in_range` fail pre-existing on this box (live-Terminal env; CI skips) |
 | edge-guard hardening | ⏳ | |
 | dead-code deletion (conservative) | ⏳ | |

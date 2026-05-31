@@ -161,6 +161,20 @@ def main() -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Merge with any existing data so a PARTIAL fetch (e.g. yfinance throttling
+    # returns only a subset of tickers) updates the fetched tickers and PRESERVES
+    # prior rows for the rest, rather than overwriting the whole file with the
+    # subset. Fresh rows win on collision (concat prior-first, keep="last").
+    if out.exists():
+        try:
+            prior = pd.read_csv(out)
+            all_df = pd.concat([prior, all_df], ignore_index=True)
+            all_df = all_df.sort_values(["ticker", "announcement_date"]).drop_duplicates(
+                subset=["ticker", "announcement_date"], keep="last"
+            )
+        except Exception as e:
+            print(f"  WARN: could not merge prior {out.name} ({e}); writing fetched data only")
     all_df.to_csv(out, index=False)
 
     today = pd.Timestamp.now(tz="America/New_York").date()

@@ -154,9 +154,13 @@ class TestRiskFreeRateFallback:
                 "rate_3m": [0.04, 0.13, 5.20],  # percent
             }
         ).to_csv(csv, index=False)
-        r2015 = get_current_risk_free_rate(as_of="2015-07-01", tenor="rate_3m", data_dir=str(tmp_path))
+        r2015 = get_current_risk_free_rate(
+            as_of="2015-07-01", tenor="rate_3m", data_dir=str(tmp_path)
+        )
         assert r2015 == pytest.approx(0.0004)
-        r2023 = get_current_risk_free_rate(as_of="2023-07-01", tenor="rate_3m", data_dir=str(tmp_path))
+        r2023 = get_current_risk_free_rate(
+            as_of="2023-07-01", tenor="rate_3m", data_dir=str(tmp_path)
+        )
         assert r2023 == pytest.approx(0.052)
 
     def test_missing_earnings_returns_empty(self):

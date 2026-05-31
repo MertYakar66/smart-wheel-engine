@@ -108,9 +108,9 @@ def test_exit_transaction_costs_subtracted_from_ev():
     gross_premium = trade.premium * 100 * max(trade.contracts, 1)
     assert res.prob_profit == 1.0
     assert res.total_transaction_cost > 0
-    assert math.isclose(
-        res.mean_pnl, gross_premium - res.total_transaction_cost, abs_tol=1e-6
-    ), f"EV must net the full round-trip cost; got mean_pnl={res.mean_pnl}"
+    assert math.isclose(res.mean_pnl, gross_premium - res.total_transaction_cost, abs_tol=1e-6), (
+        f"EV must net the full round-trip cost; got mean_pnl={res.mean_pnl}"
+    )
     # No regime/dealer scaling -> ev_dollars == net mean P&L.
     assert math.isclose(res.ev_dollars, res.mean_pnl, abs_tol=1e-6)
 

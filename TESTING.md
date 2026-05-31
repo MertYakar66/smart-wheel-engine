@@ -1,6 +1,7 @@
 # Testing — Smart Wheel Engine
 
-The full suite is `pytest tests/ -v` (~2,300 tests).
+The full suite is `pytest tests/ -v` (run `pytest --collect-only -q | tail -1`
+for the live count — pinned numbers drift within a day).
 
 Markers and hypothesis profiles are wired in `conftest.py`.
 
@@ -49,7 +50,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | File | Pins |
 |---|---|
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
-| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R6; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |
@@ -229,6 +230,8 @@ needs an explicit 5-ticker list in Cowork) live in
 ## CI
 
 `.github/workflows/ci.yml` runs on push to `main` / `develop` and on
-PRs. It currently `pip install -e ".[dev]"` — note that pyproject's
-`wheel = "src.cli:app"` console-script entry references a missing
-file (see `PROJECT_STATE.md` §5).
+PRs (it `pip install -e ".[dev]"`). CI jobs include the lane-claim gate,
+FILE_MANIFEST coverage, lint, security scan, the 3.11/3.12 test suites,
+quantitative validation, and integration tests. (The old broken
+`wheel = "src.cli:app"` console-script was removed under ROADMAP B5 — no
+`[project.scripts]` table exists today.)

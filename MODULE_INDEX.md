@@ -35,7 +35,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `audit.py` | Smoke-test client that hits `localhost:8787` and runs domain-grouped checks; used historically by audit-i through audit-viii. | live | infra |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
-| `pyproject.toml` | packaging + tooling. **Stale**: `[project.scripts] wheel = "src.cli:app"` references a file that does not exist; `[tool.hatch] packages = ["src"]` excludes the live code. | partial | infra |
+| `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
 | `pull_branch.bat` / `pull.bat` / `fetch_data.bat` | Windows one-click launchers. | live | infra |
 
 ## `engine/` — quant + decision layer
@@ -46,7 +46,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `ev_engine.py` | `EVEngine.evaluate`. THE ranker. Runs event lockout → forward distribution → cost model → regime + dealer multipliers → returns `EVResult`. (**authority**) |
 | `wheel_runner.py` | `WheelRunner.rank_candidates_by_ev`. The one public route into the EV path. Provider selection (`SWE_DATA_PROVIDER`) lives here. (**runner**) |
-| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R6). Reviewers downgrade only. (**reviewer**) |
+| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R10; R7-R10 are the D17 portfolio soft-warns). Reviewers downgrade only. (**reviewer**) |
 
 ### EV-path participants
 

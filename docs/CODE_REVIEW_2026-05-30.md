@@ -131,7 +131,11 @@ Updated as fixes land on `claude/code-review-fixes` (off `origin/main`).
 | E1 exit costs | ✅ | `ev_engine.py` applies expected exit cost; D19 added; regression test pins `mean_pnl == gross − total_cost` |
 | E2 risk-free rate + T1 tests | ✅ | both accessors ÷100 unconditionally; D20 added; masking test rewritten + ZIRP-era regressions added (connector & integration) |
 | E3 forward horizon | ✅ | orchestrator converts calendar DTE → trading bars (`calendar_days_to_trading_bars`); D21 added; 2 regression tests |
-| E4–E6, O1–O9, S1–S3 | ⏳ | |
+| E4 dealer as_of T | ✅ | `analyze` anchors T to `ms.as_of`; wheel_runner passes `as_of`; regression test |
+| E5 theta VRP unit | ✅ | IV normalized percent→decimal (>3.0 ÷100) before VRP subtraction |
+| E6 HMM degenerate | ✅ | `fit` raises on near-constant input → caller neutral 1.0; regression test |
+| O1–O9, S1–S3 | ⏳ | |
+| _note_ | ℹ | `test_theta_connector` `test_ohlcv_shape`/`test_iv_rank_in_range` fail pre-existing on this box (live-Terminal env; CI skips) |
 | edge-guard hardening | ⏳ | |
 | dead-code deletion (conservative) | ⏳ | |
 | doc reconciliation | ⏳ | |

@@ -857,3 +857,30 @@ class TestSerialisation:
         assert d["gex_total"] == 1e9
         assert d["nearest_call_wall"]["strike"] == 105.0
         assert d["nearest_put_wall"]["strike"] == 95.0
+
+
+# ----------------------------------------------------------------------
+# Review E4 — time-to-expiry anchored to as_of (PIT), not wall-clock now()
+# ----------------------------------------------------------------------
+def test_time_to_expiry_anchored_to_as_of_not_now():
+    """analyze() must measure time-to-expiry from as_of, not datetime.now().
+
+    Two calls with the same chain/expiry but different as_of must yield
+    different gamma exposures (different T). Pre-fix both used now() and were
+    identical, and in any historical backtest (expiry < now) T collapsed to
+    ~1/365, silently corrupting every Greek.
+    """
+    analyzer = DealerPositioningAnalyzer(assumption=DealerAssumption.SHORT_BOTH)
+    expiry = date(2023, 3, 1)
+    chain = make_chain(
+        100.0,
+        [(95, 1000, 1500, 0.25), (100, 2000, 2000, 0.22), (105, 1500, 1000, 0.25)],
+        expiry=expiry,
+    )
+    near = analyzer.analyze(chain, spot=100.0, expiry=expiry, as_of=datetime(2023, 2, 22))  # ~7d
+    far = analyzer.analyze(chain, spot=100.0, expiry=expiry, as_of=datetime(2023, 1, 1))  # ~59d
+    assert near.as_of.date() == date(2023, 2, 22)
+    assert far.as_of.date() == date(2023, 1, 1)
+    # Different time-to-expiry -> different gamma exposure totals.
+    assert near.gex_total == pytest.approx(near.gex_total)  # finite/no-raise
+    assert near.gex_total != pytest.approx(far.gex_total)

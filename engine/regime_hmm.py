@@ -125,6 +125,19 @@ class GaussianHMM:
         if T < K * 3:
             raise ValueError(f"Need at least {K * 3} observations to fit a {K}-state HMM, got {T}")
 
+        # Degenerate-input guard. A (near-)constant return series carries no
+        # regime information: percentile seeding produces K near-identical
+        # states and a confident-but-MEANINGLESS posterior, which would drive a
+        # wrongly-shrunk position multiplier. Refuse to fit; callers treat a fit
+        # failure as the neutral (1.0) multiplier (e.g. wheel_runner's HMM
+        # try/except). Real daily log-return std is ~1e-2, so 1e-7 only catches
+        # genuinely degenerate input and never touches live data.
+        if float(np.nanstd(obs[:, 0])) < 1e-7:
+            raise ValueError(
+                "Degenerate observations: primary-feature std ~0 (constant "
+                "returns); HMM regime is undefined — use a neutral multiplier."
+            )
+
         rng = np.random.default_rng(self.random_state)
 
         # Init: k-means++ style seeding on the observation mean

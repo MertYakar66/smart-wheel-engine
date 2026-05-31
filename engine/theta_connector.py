@@ -818,7 +818,16 @@ class ThetaConnector(MarketDataConnector):
             if iv is None or np.isnan(float(iv)):
                 return super().get_vol_risk_premium(ticker, as_of)
 
-            return float(iv) - realised_vol
+            # Normalise IV percent -> decimal before subtracting the decimal
+            # realised_vol. get_fundamentals returns a DECIMAL when the live
+            # ATM-IV injection ran, but PERCENT (e.g. 26.17 = 26.17%) when it
+            # fell through to the Bloomberg parent — mixing the two gave a
+            # ~100x-wrong VRP on the CSV-fallback branch. A sigma > 3.0
+            # (= 300%) is virtually certainly a percent representation.
+            iv = float(iv)
+            if iv > 3.0:
+                iv = iv / 100.0
+            return iv - realised_vol
         except PerEndpointFailure:
             raise
         except Exception:

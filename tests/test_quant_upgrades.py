@@ -108,6 +108,17 @@ class TestGaussianHMM:
         with pytest.raises(ValueError):
             hmm.fit(np.array([0.01, -0.02, 0.03]))  # only 3 obs
 
+    def test_fit_degenerate_constant_returns_raises(self):
+        # Review E6: a (near-)constant return series carries no regime
+        # information; fitting it yields a confident-but-meaningless posterior
+        # and a wrongly-shrunk multiplier. fit() must refuse so the caller falls
+        # back to the neutral (1.0) multiplier.
+        hmm = GaussianHMM(n_states=4)
+        with pytest.raises(ValueError):
+            hmm.fit(np.full(200, 0.001))  # constant -> std == 0
+        with pytest.raises(ValueError):
+            hmm.fit(np.zeros(200))
+
     def test_fit_recovers_two_regime_structure(self):
         rng = np.random.default_rng(7)
         T = 800

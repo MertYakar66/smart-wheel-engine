@@ -342,8 +342,13 @@ class DealerPositioningAnalyzer:
             ms.regime = "neutral"
             return ms
 
-        # Compute time to expiry in years
-        T = max((expiry - datetime.now(UTC).replace(tzinfo=None).date()).days, 1) / 365.0
+        # Compute time to expiry in years, anchored to as_of (PIT-safe). Using
+        # wall-clock now() collapses T to ~0 whenever expiry is in the past
+        # (every historical backtest), silently corrupting every Greek fed into
+        # the per-strike exposure and gamma-flip math below. ms.as_of is the
+        # resolved as_of (caller value or now() for live).
+        as_of_date = ms.as_of.date() if hasattr(ms.as_of, "date") else ms.as_of
+        T = max((expiry - as_of_date).days, 1) / 365.0
 
         # Per-strike aggregation: group strikes and collect call + put rows.
         per_strike = self._per_strike_exposures(df, spot, T, dividend_yield)

@@ -275,6 +275,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
 | `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
+| `docs/CODE_REVIEW_2026-05-30.md` | Full-codebase code-review remediation ledger (2026-05-30): verified findings, fixes shipped vs deferred (D19/D21), and the per-item remediation log. |
 | `docs/GOVERNANCE.md` | Model governance framework. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
 | `docs/USAGE_TEST_LEDGER.md` | **FROZEN** (2026-05-29, D14 extension) — its S1–S46 entries were split verbatim into per-task fragments under `docs/worklog/`; now a banner + scenario→fragment map. New usage records are worklog fragments (`scripts/new_worklog.py`), indexed by `docs/worklog/INDEX.md`. |

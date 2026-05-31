@@ -1,0 +1,35 @@
+==============================================================================
+I3-B  CONCENTRATION-CAP ASYMMETRY
+==============================================================================
+
+--- B1: select_book max_weight_per_name cap ---
+  ranking pool: 37 positive-EV rows, collateral range $2,500..$43,950
+  cap=None: n_positions=10 total_collateral=$199,250 max_single_name_weight=15.0% method=exact_knapsack
+  cap=0.25: n_positions=10 total_collateral=$199,250 max_single_name_weight=15.0% method=exact_knapsack
+        names dropped pre-selection for exceeding 25%*account=$50,000: []
+  cap=0.1: n_positions=19 total_collateral=$198,400 max_single_name_weight=9.7% method=exact_knapsack
+        names dropped pre-selection for exceeding 10%*account=$20,000: ['BIIB', 'GNRC', 'SBAC', 'PODD', 'MPWR', 'WTW', 'MSCI', 'CRL', 'MOH', 'PYPL', 'MSFT', 'DHR', 'KLAC', 'TMO', 'EL', 'AMT']
+
+  SEMANTICS NOTE: select_book.max_weight_per_name filters on a SINGLE contract's
+  COLLATERAL (strike*100) vs account_size. Because select_book emits at
+  most ONE entry per name (0/1 knapsack), the cap can only ever DROP a
+  too-expensive single name; it never aggregates across multiple positions
+  in the same name (there can't be any). It is also OFF by default (None).
+
+--- B2: sector-cap excludes assigned stock; delta-cap includes it ---
+  check_sector_cap (sees ONLY option_positions, no stock):
+     sector=Information Technology post_open_sector_pct=3.0000% passed=True
+     -> the 1000 assigned AAPL shares ($150,000 = 15.0% NAV) are INVISIBLE to this gate.
+
+  check_portfolio_delta (adds stock_holdings delta-dollars):
+     portfolio_delta_dollars (or current/post): {'current_portfolio_delta_dollars': np.float64(156914.13749325206), 'post_open_delta_dollars': np.float64(163828.27498650414), 'delta_cap_dollars': 3000.0} passed=False
+     stock-leg delta-dollars alone = 1000 * $150 = $150,000
+     -> the SAME assigned shares the sector cap ignored fully count here.
+
+  --- asymmetry that BITES: pass sector, fail delta on stock alone ---
+     3000 assigned AAPL shares = $450,000 stock delta (45% NAV)
+     sector cap: post_open_pct=0.0% passed=True  (option notional = $0, so it PASSES)
+     delta cap: post_open_delta=$450000.0 limit=$3,000 passed=False
+     -> CONFIRMS asymmetry: sector-cap blind to assigned stock; delta-cap is not.
+
+DONE.

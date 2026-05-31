@@ -1,0 +1,37 @@
+==============================================================================
+I3-E supplement  CRASH-ENTRY REALIZED OUTCOMES
+==============================================================================
+
+Frictionless realized P&L (engine-synthetic premium). Per contract.
+Caveat: synthetic premium (no real spread); 504-day history gate thins
+the early-2020 universe; assignment uses close at as_of+dte (no early
+management). Direction-of-result is the point, not the exact dollar.
+
+  [CRASH entry 2020-03-02 (21 days before Mar-23 bottom)] n=378
+     engine: mean_ev=$46.6 median_ev=$17.7 positive_ev_share=88.6%
+     REALIZED (all): mean_pnl=$-1229.1 median_pnl=$-612.6 win_rate=23.8% assignment_rate=81.2%
+     REALIZED (engine said POSITIVE-EV only, n=335): mean_pnl=$-1305.4 median_pnl=$-624.7 win_rate=23.3%
+     worst single realized: NVR $-83039 (engine ev was $676, regime_mult=1.13)
+
+  [CRASH entry 2020-04-01 (deep drawdown, recovering)] n=63
+     engine: mean_ev=$52.8 median_ev=$32.2 positive_ev_share=100.0%
+     REALIZED (all): mean_pnl=$302.2 median_pnl=$211.5 win_rate=100.0% assignment_rate=0.0%
+     REALIZED (engine said POSITIVE-EV only, n=63): mean_pnl=$302.2 median_pnl=$211.5 win_rate=100.0%
+     worst single realized: NVDA $27 (engine ev was $1, regime_mult=0.20)
+
+  [CALM entry 2021-06-01 (low-vol bull)] n=429
+     engine: mean_ev=$-92.2 median_ev=$-58.2 positive_ev_share=8.6%
+     REALIZED (all): mean_pnl=$122.5 median_pnl=$99.5 win_rate=83.4% assignment_rate=24.9%
+     REALIZED (engine said POSITIVE-EV only, n=37): mean_pnl=$220.8 median_pnl=$221.0 win_rate=91.9%
+     worst single realized: SNA $-1820 (engine ev was $-314, regime_mult=0.96)
+
+--- VERDICT INPUT ---
+  On 2020-03-02 the engine flagged 89% of candidates POSITIVE-EV.
+  Those positive-EV trades realized a mean $-1305 and 23% win rate into the bottom.
+  => The engine did NOT refuse crash trades a senior trader would refuse;
+     it RECOMMENDED them. Root cause probed separately: forward
+     distribution = 100% empirical_overlapping off the trailing (still
+     bull-dominated) window; HMM de-rated to ~0.31x but not enough to
+     flip EV sign while IV-inflated premium pulled EV positive.
+
+DONE.

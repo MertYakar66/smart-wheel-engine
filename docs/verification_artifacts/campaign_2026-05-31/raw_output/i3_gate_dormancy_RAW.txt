@@ -1,0 +1,87 @@
+==============================================================================
+I3-A  RISK-GATE BINDING & DEFAULT-PATH DORMANCY
+==============================================================================
+
+--- PART 1: CODE FACTS (read-only static confirmation) ---
+  open_short_put token-guard: line 512:         if self.require_ev_authority:
+  open_short_put D17 hard-block guard: line 532:         if self.require_ev_authority:
+    -> _evaluate_d17_hard_blocks call: line 552:             reject_entry = self._evaluate_d17_hard_blocks(
+  WheelTracker.__init__ default: line 278:         require_ev_authority: bool = False,
+
+  'RiskManager' appears in wheel_runner.py? False
+  'portfolio_risk_gates' imported in wheel_runner.py? True
+  rank_candidates_by_ev references 'require_ev_authority'? False
+  rank_candidates_by_ev references any D17 gate (check_sector_cap/check_single_name_cap/check_portfolio_delta)? True
+
+--- PART 2: WHAT THE DEFAULT PATH ADMITS (real snapshot) ---
+  put_2021-06-01.parquet: rows=429 positive_ev=37
+  put_2021-11-01.parquet: rows=146 positive_ev=11
+  put_2024-07-01.parquet: rows=54 positive_ev=5
+  put_2021-04-01.parquet: rows=53 positive_ev=8
+  put_2023-12-01.parquet: rows=441 positive_ev=31
+
+  USING put_2021-06-01.parquet (37 positive-EV rows)
+
+  >>> DEFAULT BOOK top_n=10, account=$1,000,000
+      n_positions: 10
+      total_collateral: 269550.0
+      capital_deployed_pct: 0.26955
+      max_single_name_pct: 0.04395
+      max_single_name_ticker: MSCI
+      n_names_over_10pct: 0
+      max_sector_pct: 0.0985
+      max_sector: Healthcare
+      n_sectors_over_25pct: 0
+      sector_breakdown: {'Healthcare': 0.0985, 'Financial Services': 0.06845, 'Industrials': 0.04185, 'Technology': 0.03195, 'Real Estate': 0.0288}
+
+  >>> DEFAULT BOOK top_n=20, account=$1,000,000
+      n_positions: 20
+      total_collateral: 441600.0
+      capital_deployed_pct: 0.4416
+      max_single_name_pct: 0.04395
+      max_single_name_ticker: MSCI
+      n_names_over_10pct: 0
+      max_sector_pct: 0.14275
+      max_sector: Healthcare
+      n_sectors_over_25pct: 0
+      sector_breakdown: {'Healthcare': 0.14275, 'Financial Services': 0.0929, 'Technology': 0.0716, 'Real Estate': 0.04715, 'Industrials': 0.04185, 'Information Technology': 0.02375, 'Communication Services': 0.01355, 'Utilities': 0.00805}
+
+  >>> DEFAULT BOOK top_n=40, account=$1,000,000
+      n_positions: 37
+      total_collateral: 680150.0
+      capital_deployed_pct: 0.68015
+      max_single_name_pct: 0.04395
+      max_single_name_ticker: MSCI
+      n_names_over_10pct: 0
+      max_sector_pct: 0.24015
+      max_sector: Healthcare
+      n_sectors_over_25pct: 0
+      sector_breakdown: {'Healthcare': 0.24015, 'Financial Services': 0.0929, 'Technology': 0.0807, 'Real Estate': 0.0719, 'Information Technology': 0.0594, 'Industrials': 0.04435, 'Consumer Defensive': 0.03375, 'Utilities': 0.0156, 'Communication Services': 0.01355, 'Financials': 0.0106, 'Materials': 0.007, 'Consumer Cyclical': 0.00535, 'Basic Materials': 0.0049}
+
+--- PART 2c: most-concentrated admitted book (adversarial) ---
+  positive-EV names per sector (collateral if all taken):
+      Healthcare: n=11 collateral=$240,150 (24.0% of $1M)
+      Financial Services: n=3 collateral=$92,900 (9.3% of $1M)
+      Technology: n=5 collateral=$80,700 (8.1% of $1M)
+      Real Estate: n=3 collateral=$71,900 (7.2% of $1M)
+      Information Technology: n=3 collateral=$59,400 (5.9% of $1M)
+      Industrials: n=3 collateral=$44,350 (4.4% of $1M)
+      Consumer Defensive: n=2 collateral=$33,750 (3.4% of $1M)
+      Utilities: n=2 collateral=$15,600 (1.6% of $1M)
+      Communication Services: n=1 collateral=$13,550 (1.4% of $1M)
+      Financials: n=1 collateral=$10,600 (1.1% of $1M)
+      Materials: n=1 collateral=$7,000 (0.7% of $1M)
+      Consumer Cyclical: n=1 collateral=$5,350 (0.5% of $1M)
+      Basic Materials: n=1 collateral=$4,900 (0.5% of $1M)
+
+--- PART 3: R7/R8 SILENT-SKIP TRACE (default reviewer path) ---
+  Default dossier (portfolio_context=None): verdict=proceed reason=ev_above_threshold
+  R7 note present in audit trail? False
+  R8 note present in audit trail? False
+  notes: ['chart captured from probe at 2021-06-01 00:00:00', 'chart price 267.15 agrees with engine spot 267.15', 'ev_dollars=1084.81 >= 10.0 - proceed']
+
+  With PortfolioContext but returns_data=None: verdict=proceed reason=ev_above_threshold
+  R7 VaR notes: ['R7: VaR check skipped (no_correlation_matrix_or_returns_data)']
+  (expect 'VaR check skipped (no_correlation_matrix_or_returns_data)')
+
+DONE.

@@ -1,0 +1,33 @@
+==============================================================================
+I3-E  CRASH-WINDOW TAIL BEHAVIOR
+==============================================================================
+
+--- per-snapshot distribution summary ---
+                               label  n_rankable  pct_positive_ev  median_ev_dollars  median_iv  median_prob_assignment  cvar5_median  cvar5_p5_worst  cvar99_evt_filled_pct  tail_xi_median  heavy_tail_pct
+CRASH 2020-03-02 (pre-Mar-23 bottom)         378           0.8862              17.68     0.3401                  0.1827        -538.9           -2401                 0.9894         -0.4725         0.02116
+    CRASH 2020-04-01 (deep drawdown)          63                1              32.24     0.6178                  0.1337        -765.4           -2084                      1         -0.5214               0
+                PRE-CRASH 2020-02-03          97           0.3299              -8.09     0.2275                  0.2551        -706.9           -2675                      1         -0.5144               0
+      CALM 2021-06-01 (low-vol bull)         429          0.08625             -58.25      0.238                  0.2083         -1704           -6476                0.02797         -0.8887               0
+                     CALM 2021-11-01         146          0.07534             -48.48     0.2341                  0.2222         -1837           -5795               0.006849          -0.823               0
+
+--- CRASH(2020-03-02) vs CALM(2021-06-01) head-to-head ---
+  median iv                : crash=      0.3401  calm=      0.2380  crash/calm=1.43x
+  median ev_dollars        : crash=     17.6750  calm=    -58.2500  crash/calm=-0.30x
+  median cvar_5            : crash=   -538.8700  calm=  -1703.6100  crash/calm=0.32x
+  median prob_assignment   : crash=      0.1827  calm=      0.2083  crash/calm=0.88x
+  median prob_profit       : crash=      0.8644  calm=      0.7917  crash/calm=1.09x
+
+  share of candidates with POSITIVE ev_dollars: crash=88.6%  calm=8.6%
+  -> engine REFUSES LESS in the crash window (lower positive-EV share = more refusals)
+
+  median cvar_5 (per-contract $ tail loss; more negative = fatter left tail):
+     crash=-538.9  calm=-1703.6  -> crash tail is SHALLOWER (0.32x)
+
+  heavy_tail flag rate: crash=2.1% calm=0.0%
+
+  --- premium-illusion discipline check (crash 2020-03-02) ---
+     high-IV half (median iv=0.39): median premium=$1.51 BUT median ev_dollars=$19.2, positive-EV share=85.7%
+     -> if median ev_dollars is modest/negative despite fat premiums,
+        the engine is NOT fooled by crash-inflated premium (good).
+
+DONE.

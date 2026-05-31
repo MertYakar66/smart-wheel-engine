@@ -1,0 +1,86 @@
+==============================================================================
+I3-D  EARNINGS LOCKOUT + PIT-CORRECTNESS
+==============================================================================
+
+Connector: MarketDataConnector
+Subset: 25 tickers
+
+============================================================
+as_of=2022-06-01
+============================================================
+  use_event_gate=False: survivors=24  drops_by_gate={'data': 1}
+  use_event_gate=True: survivors=23  drops_by_gate={'data': 1, 'event': 1}
+        EVENT-DROP ORCL: event_lockout:earnings@2022-06-13 (±5d buffer)
+
+============================================================
+as_of=2022-07-01
+============================================================
+  use_event_gate=False: survivors=24  drops_by_gate={'data': 1}
+  use_event_gate=True: survivors=4  drops_by_gate={'event': 20, 'data': 1}
+        EVENT-DROP AAPL: event_lockout:earnings@2022-07-28 (±5d buffer)
+        EVENT-DROP MSFT: event_lockout:earnings@2022-07-26 (±5d buffer)
+        EVENT-DROP JPM: event_lockout:earnings@2022-07-14 (±5d buffer)
+        EVENT-DROP XOM: event_lockout:earnings@2022-07-29 (±5d buffer)
+        EVENT-DROP UNH: event_lockout:earnings@2022-07-15 (±5d buffer)
+        EVENT-DROP PG: event_lockout:earnings@2022-07-29 (±5d buffer)
+        EVENT-DROP JNJ: event_lockout:earnings@2022-07-19 (±5d buffer)
+        EVENT-DROP KO: event_lockout:earnings@2022-07-26 (±5d buffer)
+        EVENT-DROP MCD: event_lockout:earnings@2022-07-26 (±5d buffer)
+        EVENT-DROP CAT: event_lockout:earnings@2022-08-02 (±5d buffer)
+        EVENT-DROP BA: event_lockout:earnings@2022-07-27 (±5d buffer)
+        EVENT-DROP GS: event_lockout:earnings@2022-07-18 (±5d buffer)
+
+============================================================
+D2: POINT-IN-TIME CORRECTNESS OF EARNINGS SOURCE
+============================================================
+
+  [Probe 1] earnings rows dated AFTER today (2026-05-31) in the CSV:
+     rows: 110 (max date 2028-01-19)
+     -> the file is a FIXED calendar of dates; for a historical as_of it
+        returns the date as it ENDED UP being, not as it was scheduled then.
+
+  [Probe 2] horizon of the 'next earnings' the gate uses, per as_of (days from as_of):
+     as_of=2022-06-01: n=12 median_horizon=55d max=62d  | #beyond 30d=12 #beyond 45d=10
+     as_of=2022-06-25: n=12 median_horizon=31d max=38d  | #beyond 30d=8 #beyond 45d=0
+     as_of=2022-07-01: n=12 median_horizon=25d max=32d  | #beyond 30d=1 #beyond 45d=0
+     as_of=2023-01-15: n=12 median_horizon=16d max=89d  | #beyond 30d=2 #beyond 45d=2
+     as_of=2024-09-15: n=12 median_horizon=38d max=47d  | #beyond 30d=8 #beyond 45d=2
+
+     'next earnings' the gate locked out that were >60 days ahead of as_of
+     (a trader could NOT have known these on as_of -> if the buffer
+      reached them it would be look-ahead; mostly it does NOT because the
+      5-day buffer only bites near-dated ones):
+        as_of=2023-01-15 JPM: next_earn=2023-04-14 (+89d)
+        as_of=2023-01-15 UNH: next_earn=2023-04-14 (+89d)
+        as_of=2022-06-01 CAT: next_earn=2022-08-02 (+62d)
+
+  [Probe 3] for as_of=2022-06-25, dte=35 (+/-5d buffer): which subset names
+     get earnings-blocked, and is the blocking date within the trade window?
+     AAPL: next_earn=2022-07-28 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     MSFT: next_earn=2022-07-26 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     JPM: next_earn=2022-07-14 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     XOM: next_earn=2022-07-29 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     UNH: next_earn=2022-07-15 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     PG: next_earn=2022-07-29 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     JNJ: next_earn=2022-07-19 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     KO: next_earn=2022-07-26 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     MCD: next_earn=2022-07-26 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     CAT: next_earn=2022-08-02 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     BA: next_earn=2022-07-27 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     GS: next_earn=2022-07-18 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+     NVDA: next_earn=2022-08-24 in_window[2022-06-20..2022-08-04]=False
+     HD: next_earn=2022-08-16 in_window[2022-06-20..2022-08-04]=False
+     VZ: next_earn=2022-07-22 in_window[2022-06-20..2022-08-04]=True  <-- BLOCKS (date must be known)
+
+  INTERPRETATION:
+     The gate sources REALIZED announcement dates from a static CSV and
+     filters announcement_date > as_of. It is therefore NOT a true
+     point-in-time scheduled-earnings calendar: for any near-dated
+     earnings whose realized date differs from what was scheduled/known
+     on as_of, the gate decides using hindsight. The PRACTICAL exposure
+     is bounded by the 5d buffer (only earnings within ~as_of+40d can
+     bite), and most S&P names DO pre-announce within that horizon, so
+     the realized vs scheduled gap is usually small -- but the gate has
+     no mechanism to use only as-of-known dates. See verdict in report.
+
+DONE.

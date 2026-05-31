@@ -1,0 +1,97 @@
+loaded 16005 realized rows; years ['2020', '2021', '2022', '2023', '2024', '2025', '2026']
+outcome = engine_exact (engine's own prob_profit definition)
+
+==============================================================================
+T1 — WALK-FORWARD: train on years < Y, test on Y (does history fix the next period?)
+==============================================================================
+
+[train<2021 -> test 2021]  n_train=2339 n_test=2553
+  ECE   raw=5.53pp  +bin=7.55pp  +binxregime=7.19pp
+  Brier raw=0.1199  +bin=0.1224  +binxregime=0.1249
+  top  bin-only   : (>0.9: n=276) raw_fc=0.920 realized=0.906 recal_fc=0.739
+  top  binxregime : (>0.9: n=276) raw_fc=0.920 realized=0.906 recal_fc=0.823
+
+[train<2022 -> test 2022  [2022 = BEAR]]  n_train=4892 n_test=2587
+  ECE   raw=11.98pp  +bin=13.63pp  +binxregime=12.12pp
+  Brier raw=0.2234  +bin=0.2276  +binxregime=0.2291
+  top  bin-only   : (>0.9: n=270) raw_fc=0.922 realized=0.785 recal_fc=0.813
+  top  binxregime : (>0.9: n=270) raw_fc=0.922 realized=0.785 recal_fc=0.796
+
+[train<2023 -> test 2023]  n_train=7479 n_test=2720
+  ECE   raw=4.07pp  +bin=1.50pp  +binxregime=6.53pp
+  Brier raw=0.1720  +bin=0.1701  +binxregime=0.1760
+  top  bin-only   : (>0.9: n=34) raw_fc=0.923 realized=0.853 recal_fc=0.804
+  top  binxregime : (>0.9: n=34) raw_fc=0.923 realized=0.853 recal_fc=0.785
+
+[train<2024 -> test 2024]  n_train=10199 n_test=2782
+  ECE   raw=2.87pp  +bin=1.00pp  +binxregime=1.24pp
+  Brier raw=0.1808  +bin=0.1782  +binxregime=0.1790
+  top  bin-only   : (>0.9: n=58) raw_fc=0.925 realized=0.793 recal_fc=0.804
+  top  binxregime : (>0.9: n=58) raw_fc=0.925 realized=0.793 recal_fc=0.801
+
+[train<2025 -> test 2025]  n_train=12981 n_test=2751
+  ECE   raw=2.95pp  +bin=0.70pp  +binxregime=0.83pp
+  Brier raw=0.1790  +bin=0.1763  +binxregime=0.1740
+  top  bin-only   : (>0.9: n=113) raw_fc=0.923 realized=0.796 recal_fc=0.807
+  top  binxregime : (>0.9: n=113) raw_fc=0.923 realized=0.796 recal_fc=0.808
+
+==============================================================================
+T2 — LEAVE-ONE-CRISIS-OUT: train EXCLUDING the crisis, test on it (the hard test)
+==============================================================================
+
+[train(all but 2020) -> test 2020  [CRASH]]  n_train=13666 n_test=2339
+  ECE   raw=6.22pp  +bin=3.22pp  +binxregime=2.16pp
+  Brier raw=0.1734  +bin=0.1697  +binxregime=0.1664
+  top  bin-only   : (>0.9: n=358) raw_fc=0.929 realized=0.723 recal_fc=0.842
+  top  binxregime : (>0.9: n=358) raw_fc=0.929 realized=0.723 recal_fc=0.828
+
+[train(all but 2022) -> test 2022  [BEAR]]  n_train=13418 n_test=2587
+  ECE   raw=11.98pp  +bin=10.75pp  +binxregime=10.80pp
+  Brier raw=0.2234  +bin=0.2203  +binxregime=0.2222
+  top  bin-only   : (>0.9: n=270) raw_fc=0.922 realized=0.785 recal_fc=0.810
+  top  binxregime : (>0.9: n=270) raw_fc=0.922 realized=0.785 recal_fc=0.793
+
+==============================================================================
+T3 — REGIME-HOLDOUT: train on hmm_regime != 'crisis', test on 'crisis'
+==============================================================================
+
+[train(non-crisis) -> test(crisis regime)]  n_train=13626 n_test=2379
+  ECE   raw=11.02pp  +bin=9.12pp  +binxregime=9.12pp
+  Brier raw=0.2249  +bin=0.2165  +binxregime=0.2165
+  top  bin-only   : (>0.9: n=300) raw_fc=0.927 realized=0.670 recal_fc=0.843
+  top  binxregime : (>0.9: n=300) raw_fc=0.927 realized=0.670 recal_fc=0.843
+
+==============================================================================
+STABILITY — realized engine_exact rate in the >0.90 bin, per (year, hmm_regime)
+==============================================================================
+                   n     fc  realized
+year hmm_regime                      
+2020 bear        123  0.925     0.911
+     bull_quiet   33  0.924     0.909
+     crisis      158  0.932     0.570
+     normal       44  0.931     0.614
+2021 bear        150  0.919     0.947
+     bull_quiet   37  0.918     0.811
+     crisis       15  0.936     0.933
+     normal       74  0.919     0.865
+2022 bear        106  0.925     0.783
+     bull_quiet   17  0.915     0.647
+     crisis       86  0.918     0.826
+     normal       61  0.923     0.770
+2024 bear         17  0.926     0.882
+     normal       25  0.920     0.720
+2025 bear         42  0.922     0.929
+     crisis       19  0.925     0.368
+     normal       47  0.923     0.851
+
+>0.90 CRISIS-regime realized rate by year (the cells a regime-conditional fix relies on):
+      size   mean
+year             
+2020   158  0.570
+2021    15  0.933
+2022    86  0.826
+2025    19  0.368
+
+cross-crisis spread in crisis-bin realized rate: 56.5pp -> UNSTABLE (even regime-conditioning may not generalize; favors a structural/POT-GPD fix)
+
+I9 DONE.

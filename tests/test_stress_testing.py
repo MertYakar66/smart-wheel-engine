@@ -325,6 +325,29 @@ class TestGreeksStressTesting:
         # Should have non-zero vega P&L
         assert any(ladder["vega_pnl"] != 0)
 
+    def test_iv_shock_is_reflected_in_full_repricing_total_pnl(self):
+        """O4: with no spot move and no decay, the only P&L source is the vol
+        shock, so the full-repricing total_pnl must materially reflect it. The
+        pre-fix code priced the base leg at the SHOCKED iv, cancelling the vol
+        shock out of (new_price - base_price) -> total_pnl ~ 0 despite a clearly
+        non-zero vega_pnl in the decomposition."""
+        tester = StressTester()
+        ladder = tester.greeks_stress_ladder(
+            positions=self.positions,
+            spot_prices=self.spot_prices,
+            portfolio_value=self.portfolio_value,
+            spot_range=(0.0, 0.0),  # single row, no spot move
+            n_steps=1,
+            iv_shock=0.30,
+            dte_decay=0,
+        )
+        row = ladder.iloc[0]
+        assert abs(row["vega_pnl"]) > 0
+        # Full-repricing total_pnl must reflect the vol shock, not collapse to ~0.
+        assert abs(row["total_pnl"]) > 0.5 * abs(row["vega_pnl"])
+        # Short vega (short put + short call): a +IV shock is a loss.
+        assert row["total_pnl"] < 0
+
     def test_greeks_scenario_matrix(self):
         """Should generate comprehensive scenario matrices."""
         tester = StressTester()

@@ -571,9 +571,14 @@ class StressTester:
                 direction = -1 if is_short else 1
                 multiplier = contracts * 100 * direction
 
-                # Calculate current Greeks at original T (before any decay)
+                # Base-state Greeks at the ORIGINAL iv (pre-shock) and original
+                # T. These drive BOTH the Taylor decomposition (sensitivities at
+                # the base point) and the full-repricing base price below.
+                # Pricing the base leg at the SHOCKED iv (as before) cancelled
+                # the vol shock out of the repricing P&L, so total_pnl silently
+                # ignored iv_shock. (No-op when iv_shock == 0, where iv==pos[iv].)
                 greeks = black_scholes_all_greeks(
-                    S=spot, K=strike, T=T, r=r, sigma=iv, option_type=option_type, q=q
+                    S=spot, K=strike, T=T, r=r, sigma=pos["iv"], option_type=option_type, q=q
                 )
 
                 # Calculate new price at shocked spot and decayed time

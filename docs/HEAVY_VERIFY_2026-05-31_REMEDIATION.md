@@ -92,13 +92,17 @@ writing** (the CBOE PUT-index profile). "Fixing" bull-lag means changing the str
    (best risk-adjusted selector) or `ev_roc`, and label `ev_dollars` as a
    tail-risk-adjusted score.
 
-**Proposed propagation (ready to apply on operator nod; doc/display-side only):**
-- `PROJECT_STATE.md`: add a one-line "what the engine is / isn't" framing + pointer to
-  this campaign.
-- `dashboard/`: relabel the `ev_dollars` column/tooltip as a "tail-adjusted EV score
-  (not a profit forecast)"; consider sorting by `prob_profit`/`ev_roc`. (A dashboard
-  copy change, not engine — still observe-side, but it is a UI edit, so flagged for
-  explicit go-ahead.)
+**Propagation status (applied 2026-05-31):**
+- `PROJECT_STATE.md`: **DONE** — added a "what the engine is / isn't" defensive-sleeve
+  framing block (+ the `ev_dollars`-is-a-ranking-score-not-a-profit-forecast note + a
+  pointer to this campaign) at the top of the file, after the deployment-gate warning.
+- `dashboard/`: **N/A — checked, already clean.** The dashboard surfaces a 0–100
+  composite `score` (`trade.score.toFixed(1)`) plus mechanical `premium`/`maxProfit`; it
+  does **not** render `ev_dollars`/`ev_roc`/`prob_profit` magnitude as expected profit
+  anywhere. So Category C's display-side concern does not apply to the current UI — there
+  is nothing to relabel. (If a future dashboard iteration adds an EV-dollar column, label
+  it "tail-adjusted EV score, not a profit forecast" and prefer `prob_profit`/`ev_roc`
+  for sort.)
 
 ## D — Daily marking in the reporting layer (DONE)
 

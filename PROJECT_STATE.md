@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-05-30.
+**Last updated:** 2026-05-31.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -34,6 +34,19 @@ described here is no longer accurate.
 > quality merge gates; `docs/PRODUCTION_READINESS.md` covers
 > commercial deployment gates. They are complementary, not
 > substitutes.
+
+> **What the engine is / isn't (defensive-sleeve framing — heavy-verify
+> 2026-05-31, Category C).** The engine is a **defensive premium sleeve, not a
+> bull-market growth substitute**: it earns its keep in down/sideways/high-rate
+> tape (+27pp vs passive in the 2022 bear, +10pp in the 2020 crash, at ~0.4–0.6×
+> the index drawdown) and structurally lags strong bulls (−19 to −26pp) — size it
+> as a complement to long equity beta, not a replacement. And **`ev_dollars` is a
+> tail-risk-adjusted *ranking* score, NOT a dollar-profit forecast** — it has ≈0
+> rank-correlation with realized $ P&L (I1); its value is in *selection* (top-K
+> beats random, I6-B). Use `prob_profit` / `ev_roc` for ranking and read
+> `ev_dollars` only as a tail-aware score. Basis:
+> `docs/HEAVY_VERIFY_2026-05-31_INDEX.md` (Category C of
+> `docs/HEAVY_VERIFY_2026-05-31_REMEDIATION.md`).
 
 ---
 

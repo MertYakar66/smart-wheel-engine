@@ -1212,6 +1212,46 @@ helper + the deferred-conversion docstring note in
 
 ---
 
+## D22. The D17 concentration caps are decoupled into per-cap `enforce_*` flags — default-off in the library, armed in production
+
+**Decision:** The four D17 portfolio hard-blocks (R9 sector 25% NAV, R10 single-name
+10% NAV, portfolio-delta, Kelly) were bundled behind the single `require_ev_authority`
+flag, so they were dormant on every ranker / backtest / library path. They are now
+decoupled into independent per-cap flags — `enforce_sector_cap` /
+`enforce_single_name_cap` / `enforce_delta_cap` / `enforce_kelly_cap` — evaluable
+**without** `require_ev_authority` or a D16 token. All four default **False**
+(library/research-safe, matching the D16 / `require_ev_authority` convention). The
+canonical production constructor `wheel_runner.make_live_book_tracker()` arms **R9 + R10**;
+delta/Kelly stay deferred. Strict mode (`require_ev_authority=True`) still arms all four,
+unchanged.
+
+**Why:** The 2026-05-31 heavy-verify campaign (finding I3-A) showed the caps were off on
+every path a backtest or the ranker used — "the engine respects the 10%/25% caps" was
+unsupported. The fix had to (a) make concentration enforcement real in production,
+(b) keep the research/library default unchanged so the campaign backtests + ~2,600 tests
+stay reproducible (zero churn; backtest-regression baselines byte-identical), and (c) be
+§2-clean — the caps are refusal-only and never touch `ev_raw` / `ev_dollars` /
+`prob_profit` (cf. D17). Decoupled flags + a default-off-but-production-armed factory
+satisfy all three. Delta/Kelly stay off even in production: the delta cap's $300/$100k-NAV
+calibration would refuse essentially every post-assignment wheel book — it waits on
+re-calibration.
+
+**Rejected alternatives:** (1) *Arm-by-default* (`enforce_*=True`) — protects naive callers
+but breaks 61 mechanics tests and shifts the backtest-regression baselines: a large,
+diffuse blast radius for a change meant to be light. (2) *Keep coupled, flip
+`require_ev_authority` default True* — also arms delta/Kelly and drags the D16 token-consume
+onto every open; bigger surface. (3) *Arm only on a production book path, no library flag* —
+no single production-construction site exists today, and it leaves the caps un-armable
+elsewhere.
+
+**Pinned by:** `engine/wheel_tracker.py` (`enforce_*` flags + `_d17_gate_enabled` /
+`_d17_any_enabled`), `engine/wheel_runner.py` (`make_live_book_tracker`),
+`tests/test_production_tracker_caps.py` (production refuses >25% sector / >10% single-name
+token-free; library default unchanged; strict arms all four). PR #303; §2 second-read
+recorded at issue #113.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

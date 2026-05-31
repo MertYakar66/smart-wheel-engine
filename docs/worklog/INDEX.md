@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**66 records.**
+**70 records.**
 
 ## Features (1)
 
@@ -25,13 +25,15 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
 
-## Backtests (18)
+## Backtests (20)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [BACKTEST_REGRESSION_CAMPAIGN](../BACKTEST_REGRESSION_CAMPAIGN.md) | legacy |  | Backtest Regression Harness — Campaign Report | `../BACKTEST_REGRESSION_CAMPAIGN.md` |
 | [ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN](../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md) | legacy |  | Engine backtest — 2022-2024 IV-PIT re-run (S27, 2026-05-24) | `../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` |
 | [ENGINE_BACKTEST_S32_FRICTION](../ENGINE_BACKTEST_S32_FRICTION.md) | legacy |  | Engine backtest — S32: $1M with full friction (2026-05-25) | `../ENGINE_BACKTEST_S32_FRICTION.md` |
+| [ENGINE_BACKTEST_S32_REBASELINE_POST260](../ENGINE_BACKTEST_S32_REBASELINE_POST260.md) | legacy |  | Engine backtest — S32 snapshot re-baseline (post-#260) | `../ENGINE_BACKTEST_S32_REBASELINE_POST260.md` |
+| [ENGINE_BACKTEST_S34_REBASELINE_POST260](../ENGINE_BACKTEST_S34_REBASELINE_POST260.md) | legacy |  | Engine backtest — S34 snapshot re-baseline (post-#260) + R10 firing analysis | `../ENGINE_BACKTEST_S34_REBASELINE_POST260.md` |
 | [ENGINE_BACKTEST_S34_UNIVERSE](../ENGINE_BACKTEST_S34_UNIVERSE.md) | legacy |  | Engine backtest — S34: 100-ticker universe at $1M with full friction (2026-05-26) | `../ENGINE_BACKTEST_S34_UNIVERSE.md` |
 | [ENGINE_BACKTEST_S35_OUT_OF_WINDOW](../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md) | legacy |  | Engine backtest — S35: 2018-2020 out-of-window cross-validation (2026-05-26) | `../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` |
 | [ENGINE_BACKTEST_S38_MULTIWINDOW](../ENGINE_BACKTEST_S38_MULTIWINDOW.md) | legacy |  | Engine backtest — S38: multi-window at 100 tickers + $1M (2026-05-26) | `../ENGINE_BACKTEST_S38_MULTIWINDOW.md` |
@@ -48,12 +50,14 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (8)
+## Verification & realism (10)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| [heavy-news-calibration](heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md) | in-flight |  | On Bloomberg the pre-D18 news_multiplier was 1.0 in 1300/1300 probes — D18 is a measured no-op for prior backtests; prob_profit calibration matches the published 10-config matrix exactly. | `heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md` |
 | [heavy-r10-strict](heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md) | completed |  | full 5y run — strict loses to loose by −15.81pp; R10 fires 571× exclusively on BKNG/AZO (S44 prediction confirmed); portfolio_delta_breach dominates D17 refusals at 92.1% (R10 only 7.8%); strict opens 31 puts ALL in 2020 then freezes for 4 years; strict ahead 66.6% of days but crosses below loose 2023-11-01 | `heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md` |
+| [ht-a](ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md) | in-flight |  | Bloomberg-default path is HMM-overlay-only; 316 positive-EV survivors trimmed silently by top_n; P25=P50=P75 collapses; §2 invariants observed upheld (D16 + D17 + R1/R1a + reviewer-never-upgrades). | `ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md` |
 | [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |

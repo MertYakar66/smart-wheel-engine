@@ -909,3 +909,46 @@ class TestEdgeCases:
         assert len(df) == 1
         assert "ticker" in df.columns
         assert "action" in df.columns
+
+
+# ----------------------------------------------------------------------
+# Review O1 — partial option close
+# ----------------------------------------------------------------------
+def test_partial_option_close_books_pnl_on_closed_qty_only():
+    """A partial buy-back must realize P&L only on the contracts closed and keep
+    the remaining short open. Pre-fix it booked P&L on the full original
+    quantity (abs(holding.shares)) and deleted the whole position."""
+    tracker = PortfolioTracker(initial_cash=100_000)
+    exp = date.today() + timedelta(days=30)
+    tracker.add_transaction(
+        Transaction(
+            ticker="AAPL",
+            action=TransactionType.OPTION_OPEN,
+            shares=5,
+            price=2.00,
+            date=date.today(),
+            option_type="put",
+            strike=150.0,
+            expiration=exp,
+        )
+    )
+    key = f"AAPL_put_150.0_{exp}"
+    assert tracker.holdings[key].shares == -5
+    rp_before = tracker.realized_pnl
+    tracker.add_transaction(
+        Transaction(
+            ticker="AAPL",
+            action=TransactionType.OPTION_CLOSE,
+            shares=2,
+            price=1.00,
+            date=date.today(),
+            option_type="put",
+            strike=150.0,
+            expiration=exp,
+        )
+    )
+    # Realized only on the 2 closed contracts: (2.00 - 1.00) * 2 * 100 = 200.
+    assert tracker.realized_pnl - rp_before == pytest.approx(200.0)
+    # The remaining 3 contracts stay short.
+    assert key in tracker.holdings
+    assert tracker.holdings[key].shares == -3

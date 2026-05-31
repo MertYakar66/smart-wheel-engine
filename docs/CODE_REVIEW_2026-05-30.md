@@ -148,4 +148,5 @@ Updated as fixes land on `claude/code-review-fixes` (off `origin/main`).
 | _note_ | ℹ | `test_theta_connector` `test_ohlcv_shape`/`test_iv_rank_in_range` fail pre-existing on this box (live-Terminal env; CI skips) |
 | edge-guard hardening | ✅ | ev_engine (spread bid==0 / dividend days>=0 / price_scenarios NaN filter); realized_vol (_log non-positive→NaN, isfinite VRP); contracts (finiteness in both validators + test); regime_detector (NaN trend/RV guards); dealer (stored_gamma `is not None`) |
 | dead-code deletion (conservative) | ✅ | removed the unreachable numeric-timestamp branch in the TV webhook freshness check. Other candidates resolved differently: the dead LSM tier was **fixed** (O7) not deleted; the "zero-collect" `test_wheel_cycle`/`test_transaction_costs` collect 23 tests on main (branch-staleness, not dead); `earnings_drift`/`src/`/`models/` intentionally kept per D2/D14. |
-| doc reconciliation | ⏳ | |
+| doc reconciliation | ✅ | GREEKS vega finite-diff example; MODEL_CARDS §4 VaR formula + §6 live regime models; MODULE_INDEX 5 RV estimators; ev_engine omega cap implemented; dealer no-rescue docstring; pull_earnings_yf gate claim; CHANGELOG + D19/D20/D21. (LAUNCH_READINESS R4 already correct on main.) |
+| _remaining_ | ℹ | DATA_SPECIFICATION Parquet/Garman-Klass note left as a known low-priority doc item (reference doc, off path) |

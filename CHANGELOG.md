@@ -14,6 +14,48 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-05-30 — full-codebase code-review remediation (branch `claude/code-review-fixes`)
+
+A multi-agent read-only review of the whole repo, then a fix pass on `main` for
+the findings verified to be live on `main` (15 findings were already fixed on
+main and skipped). Full detail + the verified-findings ledger:
+`docs/CODE_REVIEW_2026-05-30.md`. New decisions: **D19** (EV nets expected exit
+costs), **D20** (treasury rate is percent → ÷100 unconditionally), **D21**
+(forward-distribution horizon is calendar-in / trading-bar-out).
+
+### Fixed (EV decision path)
+- `ev_engine.evaluate` now subtracts the expected exit-leg transaction cost from
+  `ev_dollars` (was reported but never applied → EV overstated). **D19**.
+- Risk-free rate accessors (`data_connector`, `data_integration`) divide the
+  percent treasury value by 100 unconditionally; the old `>1` heuristic mis-read
+  every sub-1% rate (the 2011-2022 ZIRP era) 100× too high. **D20**.
+- `forward_distribution` converts the calendar DTE horizon to trading-day bars,
+  fixing a ~18-45% over-dispersion of the terminal distribution. **D21**.
+- `dealer_positioning.analyze` anchors time-to-expiry to `as_of` (was wall-clock
+  `now()` → collapsed in backtests); `theta_connector.get_vol_risk_premium`
+  normalizes IV percent→decimal; `regime_hmm.fit` refuses degenerate input.
+
+### Fixed (off path: trackers, risk, validation, dashboard, scripts)
+- `portfolio_tracker` partial option close (P&L on closed qty only) +
+  cash-flow-adjusted risk metrics/drawdown; `risk_manager` VaR vega ×100;
+  `stress_testing` IV-shock now in the full repricing; `payoff_engine` CSP EV
+  downside-aware; `engine_api` committee `p_otm`/`p_profit`; `model_validation`
+  LSM tier kwargs (was dead); `news_sentiment` tz-aware compare; dashboard IV
+  ×100 display; theta-puller `PerEndpointFailure` handling; iv-surface ticker
+  filter; `pull_earnings_yf` merge-on-partial-fetch.
+
+### Fixed (hardening)
+- NaN/inf and edge guards across `ev_engine`, `realized_vol`, `contracts`,
+  `regime_detector`, `dealer_positioning`.
+
+### Docs
+- Reconciled `GREEKS_UNIT_CONTRACT` (vega finite-diff example), `MODEL_CARDS`
+  (parametric-VaR formula, live regime models), `MODULE_INDEX` (5 RV estimators),
+  and code docstrings (`ev_engine` omega cap, `dealer_positioning` no-rescue
+  mechanism, `pull_earnings_yf` gate claim) with the actual code.
+
+---
+
 ## 2026-05-30 — merge-prep cycle: news-architecture redesign PRs 1–3 + MP-D + S42 close
 
 The 2026-05-30 "merge-prep" parallel-session cycle landed five PRs onto

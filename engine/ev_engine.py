@@ -418,7 +418,7 @@ class EVEngine:
         gains = pnls[pnls > 0].sum() if np.any(pnls > 0) else 0.0
         losses = -pnls[pnls < 0].sum() if np.any(pnls < 0) else 0.0
         if losses > 1e-9:
-            omega = float(gains / losses)
+            omega = min(float(gains / losses), 1000.0)  # cap to keep the field aggregable
         else:
             omega = 1000.0 if gains > 0 else 0.0
 

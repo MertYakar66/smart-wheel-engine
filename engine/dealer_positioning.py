@@ -47,9 +47,11 @@ regime into a scalar in [0.70, 1.05] for the EV engine to consume.
 Hard guardrails
 ---------------
 * Dealer positioning is a **multiplier**, never a decider. It cannot
-  rescue a negative-EV trade. This is enforced at the EV engine level
-  (the short-circuit on ``ev_raw < 0`` runs before any regime
-  multiplication).
+  rescue a negative-EV trade: ``ev_dollars = ev_raw * regime_mult`` and
+  every multiplier (regime, heavy-tail, dealer) is non-negative, so the
+  sign of ``ev_raw`` is preserved — a negative EV stays negative. The
+  dealer multiplier scales ``ev_dollars`` only and never touches
+  ``ev_raw`` itself.
 * The long-gamma boost is capped at 1.05; the short-gamma cut can go
   as low as 0.70. Asymmetric by design — we stay conservative.
 * Missing / degenerate chains degrade gracefully: the analyzer returns

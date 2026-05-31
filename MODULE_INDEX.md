@@ -62,7 +62,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `regime_hmm.py` | 4-state Gaussian HMM regime detector. Cached per-ticker by `WheelRunner._hmm_regime_cache` (audit-VIII P2). (**multiplier input**) |
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
-| `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass). |
+| `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang). |
 | `earnings_drift.py` | Post-earnings drift adjustment. |
 | `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
 | `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |

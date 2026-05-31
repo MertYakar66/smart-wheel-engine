@@ -2,9 +2,13 @@
 """
 Pull upcoming + recent earnings dates from yfinance.
 
-Activates the event gate's earnings-lockout path for the full universe
-(today ``sp500_earnings.csv`` only carries Bloomberg's historical rows,
-and the event gate needs *upcoming* dates to block trades).
+Produces an upcoming-earnings dataset to complement Bloomberg's historical-only
+``sp500_earnings.csv`` (the event gate needs *upcoming* dates to block trades).
+
+NOTE: this script only WRITES ``sp500_earnings_yf.csv``. The event gate and
+``engine.data_integration`` currently load ``sp500_earnings.csv`` (the Bloomberg
+file), NOT this ``_yf`` output — wiring the gate to merge/consume this file is a
+separate, not-yet-done step. Running this puller alone does not change gate behaviour.
 
 yfinance's ``Ticker.earnings_dates`` returns both past-and-upcoming
 earnings with EPS estimates and surprises. We normalise the schema to

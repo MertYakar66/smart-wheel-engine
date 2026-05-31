@@ -1,0 +1,34 @@
+
+==============================================================================
+CLAIM C -- Bloomberg IV file has no skew (put_iv == call_iv)
+==============================================================================
+total rows           : 1,361,615
+rows both populated  : 1,353,901
+put_iv == call_iv    : 1,353,901  (100.0000%)
+max |put_iv-call_iv| : 0.000e+00
+VERDICT: CONFIRMED -- no skew, identical
+
+==============================================================================
+CLAIM A -- MU covered call ~25-delta: NEGATIVE EV despite fat premium
+==============================================================================
+connector=MarketDataConnector
+  2026-03-17: spot=461.69  strike=548.0  premium=13.341  iv=0.6939  ev_dollars=-811.91  prob_profit=0.7714  prob_assignment=0.2286  cvar_5=-19960.6  pnl_p25=1313.4  pnl_p50=1313.4  pnl_p75=1313.4  regime_multiplier=1.0
+  2026-03-19: spot=444.27  strike=521.0  premium=12.173  iv=0.6515  ev_dollars=-790.68  prob_profit=0.8571  prob_assignment=0.2  cvar_5=-19567.81  pnl_p25=1198.43  pnl_p50=1198.43  pnl_p75=1198.43  regime_multiplier=1.0
+Interpretation: EV<0 with a large premium => ev_dollars is probability-weighted
+P&L incl. the fat left tail (assignment loss), NOT premium-if-all-goes-well.
+
+==============================================================================
+CLAIM B -- ranker IV is point-in-time (A/B vs forced snapshot fallback)
+==============================================================================
+as_of=2022-06-01  (PIT IV vs forced-snapshot-IV fallback)
+ticker   iv_pit  iv_snap     ev_pit    ev_snap  sign_flip
+AAPL     0.3325   0.2616     -27.01     -79.21      False
+MSFT     0.3036   0.2657     155.60      97.79      False
+JPM      0.3000   0.3215     -13.38      -0.67      False
+XOM      0.3209   0.3194     -73.02     -74.05      False
+UNH      0.2865   0.4323     153.40     405.10      False
+sign flips PIT-vs-snapshot: 0/5
+VERDICT: PIT IV is active (current code); using a stale snapshot IV
+materially changes EV and can flip the trade sign -- the bug the fix closed.
+
+I5 DONE.

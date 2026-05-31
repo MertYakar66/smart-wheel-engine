@@ -1,0 +1,26 @@
+[
+  {
+    "regime": "bull_2021",
+    "window": "2021-01-04..2021-12-31",
+    "capital": 1000000,
+    "slippage": 0.0,
+    "modeled_fallback": true,
+    "final_nav": 1137643.0,
+    "wheel_return_pct": 13.76,
+    "n_put": 117,
+    "n_assign": 25,
+    "n_call": 29,
+    "n_called_away": 12,
+    "assign_rate": 0.214,
+    "real_fills": 93,
+    "modeled_fills": 53,
+    "avg_capital_deployed_pct": 54.4,
+    "max_drawdown_pct": -0.59,
+    "sharpe_monthly_ann": 2.94,
+    "passive_index_cap_pct": 31.53,
+    "passive_index_ew_pct": 31.88,
+    "passive_capital_matched_pct": 17.16,
+    "wheel_minus_matched_pp": -3.39,
+    "wheel_minus_index_pp": -17.76
+  }
+]

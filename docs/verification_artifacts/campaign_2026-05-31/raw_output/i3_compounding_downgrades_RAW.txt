@@ -1,0 +1,41 @@
+==============================================================================
+I3-C  COMPOUNDING / FIRST-MATCH DOWNGRADES
+==============================================================================
+
+Base row: BIIB spot=267.15 strike=230.00 ev_dollars=1084.81 (positive)
+Put wall placed at strike 230.00 (== candidate strike, so 'at/above') for R6.
+
+  [clean proceed (good chart, price matches)]
+     verdict=proceed reason=ev_above_threshold
+     notes=['chart captured from probe at 2021-06-01 00:00:00', 'chart price 267.15 agrees with engine spot 267.15', 'ev_dollars=1084.81 >= 10.0 - proceed']
+
+  [R2: chart MISSING -> review]
+     verdict=review reason=chart_context_missing
+     notes=['chart context unavailable: capture_failed']
+
+  [R3: spot mismatch >2% -> skip (chart present)]
+     verdict=skip reason=spot_price_mismatch
+     notes=['chart captured from probe at 2021-06-01 00:00:00', 'visible chart price 280.51 disagrees with engine spot 267.15 (|delta|=13.36 > tol 5.34)']
+
+  [R6: short-gamma + strike at/above put wall -> review]
+     verdict=review reason=dealer_short_gamma_above_put_wall
+     notes=['chart captured from probe at 2021-06-01 00:00:00', 'chart price 267.15 agrees with engine spot 267.15', 'ev_dollars=1084.81 >= 10.0 - proceed', 'R6: short-gamma regime + strike 230.00 at/above put wall 230.00 - breach risk amplified, downgrade to review']
+
+  [STACK R2+R3+R6: chart missing AND mismatch AND short-gamma]
+     verdict=review reason=chart_context_missing
+     notes=['chart context unavailable: capture_failed']
+
+  [STACK R3+R6: mismatch AND short-gamma (chart present)]
+     verdict=skip reason=spot_price_mismatch
+     notes=['chart captured from probe at 2021-06-01 00:00:00', 'visible chart price 280.51 disagrees with engine spot 267.15 (|delta|=13.36 > tol 5.34)']
+
+--- RESCUE TEST: can a perfect chart upgrade a negative / +inf EV? ---
+  negative EV (-123.45) + perfect chart + benign dealer: verdict=blocked reason=negative_ev
+  +inf EV + perfect chart: verdict=blocked reason=ev_non_finite
+  NaN EV + perfect chart: verdict=blocked reason=ev_non_finite
+
+--- FIRST-MATCH ORDERING: negative EV short-circuits before R2 ---
+  negative EV + missing chart: verdict=blocked reason=negative_ev  (R1 blocked beats R2 review)
+
+ALL RESCUE / ORDERING ASSERTIONS PASSED.
+DONE.

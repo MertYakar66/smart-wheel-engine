@@ -1,0 +1,4 @@
+# Regenerable intermediate artifacts (reproduce via rank_snapshots.py / i1_calibration.py).
+# The human-readable evidence (raw_output/*.txt, *.json) IS committed.
+snapshots/
+raw_output/*.parquet

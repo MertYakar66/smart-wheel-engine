@@ -1,0 +1,88 @@
+C:\Users\merty\Desktop\swe-verif\docs\verification_artifacts\campaign_2026-05-31\i1_calibration.py:73: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  df = pd.concat(frames, ignore_index=True)
+loaded 74 snapshots, 16005 candidate rows
+realized 16005/16005 rows (0 unrealizable -- data ends before expiry)
+
+### RELIABILITY (engine_exact = close > strike-premium = engine's prob_profit definition)   (Brier=0.1757  ECE=4.06pp  weightedMAD=4.06pp  N=16005)
+     bin    n  fc_mean  realized          ci95  delta_pp verdict
+  (0,.5]    1   0.4920    1.0000 [0.207,1.000]     50.80  MISCAL
+ (.5,.6]  125   0.5828    0.7440 [0.661,0.812]     16.12  MISCAL
+ (.6,.7] 1472   0.6694    0.7595 [0.737,0.781]      9.01    WARN
+ (.7,.8] 7463   0.7611    0.7668 [0.757,0.776]      0.57      OK
+(.8,.85] 3077   0.8280    0.7829 [0.768,0.797]     -4.51      OK
+(.85,.9] 2745   0.8723    0.8080 [0.793,0.822]     -6.43    WARN
+(.9,.95] 1017   0.9197    0.8112 [0.786,0.834]    -10.84  MISCAL
+ (.95,1]  105   0.9657    0.6952 [0.602,0.775]    -27.05  MISCAL
+
+### RELIABILITY (otm_expire = close >= strike = prior-study convention)   (Brier=0.2025  ECE=7.15pp  weightedMAD=7.15pp  N=16005)
+     bin    n  fc_mean  realized          ci95  delta_pp verdict
+  (0,.5]    1   0.4920    1.0000 [0.207,1.000]     50.80  MISCAL
+ (.5,.6]  125   0.5828    0.7040 [0.619,0.777]     12.12  MISCAL
+ (.6,.7] 1472   0.6694    0.7140 [0.690,0.736]      4.46      OK
+ (.7,.8] 7463   0.7611    0.7220 [0.712,0.732]     -3.92      OK
+(.8,.85] 3077   0.8280    0.7364 [0.721,0.752]     -9.15    WARN
+(.85,.9] 2745   0.8723    0.7636 [0.747,0.779]    -10.87  MISCAL
+(.9,.95] 1017   0.9197    0.7640 [0.737,0.789]    -15.56  MISCAL
+ (.95,1]  105   0.9657    0.6571 [0.562,0.741]    -30.86  MISCAL
+
+### TOP-BIN OVER-CONFIDENCE (.95,1] and (.9,.95]
+  (.9,.95] [engine_exact] n=1017 fc=0.9197 realized=0.8112 CI95=[0.786,0.834] Δ=-10.84pp
+  (.9,.95] [otm_expire] n=1017 fc=0.9197 realized=0.7640 CI95=[0.737,0.789] Δ=-15.56pp
+  (.95,1] [engine_exact] n=105 fc=0.9657 realized=0.6952 CI95=[0.602,0.775] Δ=-27.05pp
+  (.95,1] [otm_expire] n=105 fc=0.9657 realized=0.6571 CI95=[0.562,0.741] Δ=-30.86pp
+
+### EV calibration: forecast ev_raw bin -> realized P&L / contract
+    (mean is fat-tail-dominated for short puts; median + win-rate + bootstrap CI added)
+                 ev_bin    n  ev_raw_mean  real_mean    mean_ci95  real_median  win_rate
+(-1000000000.0, -200.0] 1867       -420.3     -123.1    [-250,-7]        228.5     0.745
+        (-200.0, -50.0] 5278       -104.2      -24.1     [-42,-7]        100.6     0.764
+           (-50.0, 0.0] 4645        -24.1      -14.6     [-31,-1]         57.6     0.789
+            (0.0, 50.0] 2245         20.1      -10.9     [-36,14]        100.9     0.811
+          (50.0, 100.0]  810         72.1      -81.6   [-145,-23]        193.7     0.775
+         (100.0, 200.0]  647        139.6      -24.9    [-122,72]        281.7     0.770
+         (200.0, 500.0]  411        298.7       41.0   [-145,199]        494.6     0.813
+  (500.0, 1000000000.0]  102       1357.2      984.1 [-1486,2827]       1334.7     0.873
+
+Spearman(ev_raw,   realized_pnl)   = -0.0018   (dollar rank-discrimination)
+Spearman(ev_roc,   realized_roc)   = +0.1637   (ROC-normalized, no size confound)
+Spearman(ev_dollars,realized_pnl)  = +0.0089   (haircut ranking score)
+Spearman(prob_profit,realized_pnl) = +0.1454
+
+### 10 worst realized trades (tail that dominates the mean):
+ticker      as_of  strike  premium  realized_close   ev_raw  realized_pnl_synth hmm_regime
+   NVR 2020-03-02  3580.0   58.214         2691.40   596.55            -83038.6 bull_quiet
+  BKNG 2026-01-01  5115.5   63.185         4443.42  -392.08            -60889.5       bear
+   NVR 2024-12-02  8670.5  141.191         7988.67 -3836.20            -54063.9       bear
+  BKNG 2025-03-03  4713.0   62.434         4244.68 -1123.13            -40588.6     normal
+   AZO 2025-10-01  4079.5   45.175         3661.81  2348.54            -37251.5     crisis
+  BKNG 2022-06-01  2082.0   41.829         1750.86  1387.17            -28931.1     normal
+   TDG 2020-03-02   528.5   10.439          288.93   989.02            -22913.1     crisis
+   APP 2026-01-01   602.0   22.592          375.23  -840.19            -20417.8       bear
+  FICO 2024-12-02  2205.0   35.080         1968.01  -923.77            -20191.0     crisis
+  INTU 2026-01-01   632.5    7.963          434.91   -29.38            -18962.7       bear
+
+mean realized P&L: all=-25.9  trimmed-bottom-1%=55.2 (n_trimmed=161)
+
+Spearman(ev_raw, realized_pnl) EXCLUDING 2020 crash = +0.0071  (n=14939)
+
+### top-bin (.9,1] engine_exact realized rate by hmm_regime
+  bear                         n=  456 fc=0.923 exact=0.893 (Δ-3.1) otm=0.836 (Δ-8.8)
+  bull_quiet                   n=  101 fc=0.921 exact=0.812 (Δ-10.9) otm=0.703 (Δ-21.8)
+  crisis                       n=  300 fc=0.927 exact=0.670 (Δ-25.7) otm=0.650 (Δ-27.7)
+  normal                       n=  265 fc=0.922 exact=0.785 (Δ-13.8) otm=0.751 (Δ-17.1)
+
+### top-bin (.9,1] engine_exact realized rate by distribution_source
+  empirical_non_overlapping    n=  783 fc=0.923 exact=0.840 (Δ-8.2) otm=0.803 (Δ-11.9)
+  empirical_overlapping        n=  339 fc=0.927 exact=0.708 (Δ-21.9) otm=0.640 (Δ-28.7)
+
+### weighted-MAD (engine_exact) by entry year
+  2020: n= 2339 weightedMAD=6.22pp
+  2021: n= 2553 weightedMAD=5.53pp
+  2022: n= 2587 weightedMAD=11.98pp
+  2023: n= 2720 weightedMAD=4.07pp
+  2024: n= 2782 weightedMAD=2.87pp
+  2025: n= 2751 weightedMAD=2.95pp
+  2026: n=  273 weightedMAD=9.45pp
+
+saved summary + 16005 realized rows to raw_output/
+I1 DONE.

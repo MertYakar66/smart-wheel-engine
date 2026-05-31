@@ -1,0 +1,110 @@
+PROVIDER=bloomberg
+ROOT=C:\Users\merty\Desktop\swe-verif
+engine.ev_engine from: engine.ev_engine (C:\Users\merty\Desktop\swe-verif\engine\ev_engine.py)
+
+========================================================================================
+ATTACK 1 — SIGN-FLIP VIA MULTIPLIERS (ev_engine.py:498-538)
+========================================================================================
+baseline ev_raw (mean_pnl) = -2815.3727   prob_profit = 0.0414
+baseline heavy_tail = False  tail_xi = 0.16482049338497048
+
+(a) Sweep trade.regime_multiplier, NO market_structure:
+     regime_in  regime_mult  dealer_mult         ev_raw     ev_dollars sign_match  clamp_ok
+          -100      0.00000      1.00000     -2815.3727        -0.0000       True      True   anomaly=regime_mult_negative:-100.0000
+            -1      0.00000      1.00000     -2815.3727        -0.0000       True      True   anomaly=regime_mult_negative:-1.0000
+             0      0.00000      1.00000     -2815.3727        -0.0000       True      True
+           0.5      0.50000      1.00000     -2815.3727     -1407.6864       True      True
+             1      1.00000      1.00000     -2815.3727     -2815.3727       True      True
+          1.25      1.25000      1.00000     -2815.3727     -3519.2159       True      True
+             5      1.25000      1.00000     -2815.3727     -3519.2159       True      True   anomaly=regime_mult_over_cap:5.0000
+         1e+09      1.25000      1.00000     -2815.3727     -3519.2159       True      True   anomaly=regime_mult_over_cap:1000000000.0000
+           inf      1.00000      1.00000     -2815.3727     -2815.3727       True      True   anomaly=regime_mult_nonfinite:inf
+           nan      1.00000      1.00000     -2815.3727     -2815.3727       True      True   anomaly=regime_mult_nonfinite:nan
+
+(b) Adversarial MarketStructure (try to exceed 1.05 or go negative):
+                      regime   conf  dealer_mult in[0.70,1.05]?     ev_dollars sign_match
+        long_gamma_dampening    1.0      1.05000           True     -2956.1414       True
+        long_gamma_dampening    5.0      1.05000           True     -2956.1414       True
+        long_gamma_dampening   -3.0      1.00000           True     -2815.3727       True
+      short_gamma_amplifying    1.0      0.70000           True     -1970.7609       True
+      short_gamma_amplifying  100.0      0.70000           True     -1970.7609       True
+                   near_flip    1.0      0.85000           True     -2393.0668       True
+                     neutral    1.0      1.00000           True     -2815.3727       True
+
+(c) Forged regime label 'totally_made_up' → falls through to 1.0:
+  dealer_regime_multiplier(forged regime) = 1.0  (fall-through 1.0, no breach)
+
+(d) Positive-EV: long-gamma boost scales UP a POSITIVE ev (allowed; not a breach):
+  ev_dollars no-MS=197.8238  with 1.05 boost=207.7150  ratio=1.05000
+
+  >>> ATTACK 1: HELD
+========================================================================================
+ATTACK 2 — R6 + R7-R10 COMPOSITION (candidate_dossier.py:319-495)
+========================================================================================
+  R6 alone (short-gamma + strike95 >= put-wall94): verdict=review reason=dealer_short_gamma_above_put_wall
+  R6 + portfolio_ctx BOTH attached: verdict=review reason=dealer_short_gamma_above_put_wall  (first-match short-circuit)
+      note: chart captured from probe at 2024-07-08 00:00:00
+      note: chart price 100.00 agrees with engine spot 100.00
+      note: ev_dollars=50.00 >= 10.0 - proceed
+      note: R6: short-gamma regime + strike 95.00 at/above put wall 94.00 - breach risk amplified, downgrade to review
+  portfolio_ctx only (tiny NAV): verdict=review reason=sector_cap_breach
+      note: chart captured from probe at 2024-07-08 00:00:00
+      note: chart price 100.00 agrees with engine spot 100.00
+      note: ev_dollars=50.00 >= 10.0 - proceed
+      note: R7: VaR check skipped (no_correlation_matrix_or_returns_data)
+      note: R9: Unknown sector exposure would be 95.0% (limit 25.0% NAV) — downgrade to review
+  NEGATIVE ev + R6 + portfolio_ctx: verdict=blocked reason=negative_ev  (R1 short-circuits FIRST; downgraders cannot rescue)
+
+  downgrade_only=True  first_match(R6 before R7-R10)=True
+  >>> ATTACK 2: HELD
+========================================================================================
+ATTACK 3 — FORGED ev_row: dossier is NOT the chokepoint; tracker gate is
+========================================================================================
+  Forged ev_dollars=999 in dossier: verdict=proceed reason=ev_above_threshold  (dossier trusts ev_row — by design, NOT the chokepoint)
+  REAL engine ev_dollars for the same trade = -2815.37 (prob_profit=0.041) → genuinely negative-EV
+  tracker.issue_ev_authority_token(real negative row) → REFUSED: Refusing EV-authority token for ZZZ strike=130.0 — ev_dollars=-2815.372735429546 is non-positive; R1 would block.
+  open_short_put(forged token, current_ev=-2815.37<0) → opened=False  (stale_ev consume reject)
+
+  dossier_trusts_forged=True  issue_refused=True  consume_refused_on_real_negative=True
+  >>> ATTACK 3: HELD
+========================================================================================
+ATTACK 4 — TOKEN GATE (wheel_tracker.py:399-516)
+========================================================================================
+  (a) no token                          → opened=False (expect False)
+  (b) forged token string               → opened=False (expect False)
+  (c) valid token + current_ev=-5.0     → opened=False (expect False, stale_ev)
+      token retained after stale reject = True (expect True)
+  (c2) valid token + current_ev=None    → opened=False (expect False, missing)
+  (d) issue(ev_dollars=-0.01)           → REFUSED: EVAuthorityRefused
+  (d) issue(ev_dollars=0.0)             → REFUSED (<=0 boundary)
+  (e) valid token + current_ev=50.0     → opened=True (expect True; gate not vacuous)
+  (e2) replay consumed token            → opened=False (expect False, single-use)
+
+  >>> ATTACK 4: HELD
+========================================================================================
+ATTACK 5 — R5 BOUNDARY (candidate_dossier.py:310, MIN_PROCEED_EV=10.0)
+========================================================================================
+  ev=10.00 → verdict=proceed reason=ev_above_threshold (expect proceed)
+  ev= 9.99 → verdict=review reason=ev_below_proceed_threshold (expect review)
+  ev=10.01 → verdict=proceed reason=ev_above_threshold (expect proceed)
+
+  >>> ATTACK 5: HELD
+========================================================================================
+ATTACK 6 — NON-FINITE EV (candidate_dossier.py:266-268, R1a)
+========================================================================================
+  ev=+inf → verdict=blocked reason=ev_non_finite (expect blocked / ev_non_finite)
+  ev=-inf → verdict=blocked reason=ev_non_finite (expect blocked / ev_non_finite)
+  ev= nan → verdict=blocked reason=ev_non_finite (expect blocked / ev_non_finite)
+
+  >>> ATTACK 6: HELD
+========================================================================================
+SUMMARY
+========================================================================================
+       HELD  ATTACK 1 (sign-flip via multipliers)
+       HELD  ATTACK 2 (R6+R7-R10 composition)
+       HELD  ATTACK 3 (forged ev_row / chokepoint)
+       HELD  ATTACK 4 (token gate)
+       HELD  ATTACK 5 (R5 boundary)
+       HELD  ATTACK 6 (non-finite EV)
+
+  §2 INVARIANT: HELD across all 6 attacks — could not break it

@@ -76,7 +76,11 @@ This document defines the canonical unit conventions for all Greeks across the S
 
 Each module should include unit tests verifying:
 
-1. **Finite difference check:** Vega should match `(P(sigma+0.01) - P(sigma)) / 0.01`
+1. **Finite difference check:** The pricer's vega is **per 1 vol point**, so it
+   should match a +1-vol-point bump directly: `vega ≈ P(sigma+0.01) - P(sigma)`.
+   (Equivalently `(P(sigma+0.01) - P(sigma)) / 0.01 / 100`. The bare
+   `(P(sigma+0.01) - P(sigma)) / 0.01` form is ∂P/∂σ per *unit* (decimal) vol —
+   100× the per-vol-point value the pricer returns — do not validate against it.)
 2. **Cross-module consistency:** Same position priced in pricer vs risk_manager should give same vega
 3. **P&L decomposition:** Sum of Greek P&Ls should approximate full repricing within 1% for small moves
 

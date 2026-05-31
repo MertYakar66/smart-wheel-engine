@@ -47,9 +47,11 @@ regime into a scalar in [0.70, 1.05] for the EV engine to consume.
 Hard guardrails
 ---------------
 * Dealer positioning is a **multiplier**, never a decider. It cannot
-  rescue a negative-EV trade. This is enforced at the EV engine level
-  (the short-circuit on ``ev_raw < 0`` runs before any regime
-  multiplication).
+  rescue a negative-EV trade: ``ev_dollars = ev_raw * regime_mult`` and
+  every multiplier (regime, heavy-tail, dealer) is non-negative, so the
+  sign of ``ev_raw`` is preserved — a negative EV stays negative. The
+  dealer multiplier scales ``ev_dollars`` only and never touches
+  ``ev_raw`` itself.
 * The long-gamma boost is capped at 1.05; the short-gamma cut can go
   as low as 0.70. Asymmetric by design — we stay conservative.
 * Missing / degenerate chains degrade gracefully: the analyzer returns
@@ -342,8 +344,13 @@ class DealerPositioningAnalyzer:
             ms.regime = "neutral"
             return ms
 
-        # Compute time to expiry in years
-        T = max((expiry - datetime.now(UTC).replace(tzinfo=None).date()).days, 1) / 365.0
+        # Compute time to expiry in years, anchored to as_of (PIT-safe). Using
+        # wall-clock now() collapses T to ~0 whenever expiry is in the past
+        # (every historical backtest), silently corrupting every Greek fed into
+        # the per-strike exposure and gamma-flip math below. ms.as_of is the
+        # resolved as_of (caller value or now() for live).
+        as_of_date = ms.as_of.date() if hasattr(ms.as_of, "date") else ms.as_of
+        T = max((expiry - as_of_date).days, 1) / 365.0
 
         # Per-strike aggregation: group strikes and collect call + put rows.
         per_strike = self._per_strike_exposures(df, spot, T, dividend_yield)
@@ -519,7 +526,14 @@ class DealerPositioningAnalyzer:
 
         # Prefer stored first-order Greeks when available and finite;
         # fall back to BSM. Second-order Greeks always from BSM.
-        gamma = stored_gamma if stored_gamma and np.isfinite(stored_gamma) else greeks["gamma"]
+        # `is not None` (not truthiness): a legitimately-stored gamma of exactly
+        # 0.0 (deep ITM/OTM) must be kept, not silently recomputed from BSM —
+        # matching the delta branch below.
+        gamma = (
+            stored_gamma
+            if stored_gamma is not None and np.isfinite(stored_gamma)
+            else greeks["gamma"]
+        )
         delta = (
             stored_delta
             if stored_delta is not None and np.isfinite(stored_delta)

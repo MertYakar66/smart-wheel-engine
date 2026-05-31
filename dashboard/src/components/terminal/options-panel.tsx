@@ -200,7 +200,9 @@ export function OptionsPanel({
       {trades.length > 0 ? (
         <div className="grid grid-cols-2 gap-x-4">
           <TerminalRow label="Delta" value={trades[0].delta.toFixed(3)} />
-          <TerminalRow label="IV" value={`${trades[0].iv.toFixed(1)}%`} />
+          {/* iv from the candidates endpoint is a DECIMAL (e.g. 0.28); scale to
+              percent for display so 28% IV does not render as "0.3%". */}
+          <TerminalRow label="IV" value={`${(trades[0].iv * 100).toFixed(1)}%`} />
           <TerminalRow
             label="Premium"
             value={`$${trades[0].premium.toFixed(2)}`}

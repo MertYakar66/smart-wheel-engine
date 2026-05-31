@@ -740,12 +740,21 @@ class PortfolioTracker:
             option_key = f"{txn.ticker}_{txn.option_type}_{txn.strike}_{txn.expiration}"
             if option_key in self.holdings:
                 holding = self.holdings[option_key]
-                # Buying back: pay premium
+                # Buying back: pay premium on the contracts being closed.
                 cost = txn.shares * txn.price * 100 + txn.fees
-                realized = (holding.cost_basis - txn.price) * abs(holding.shares) * 100
-                self.realized_pnl += realized
                 self.cash -= cost
-                del self.holdings[option_key]
+                # Realized P&L only on the CLOSED quantity, not the full original
+                # short. Reduce the position; delete only when fully closed. The
+                # previous code booked P&L on abs(holding.shares) and deleted the
+                # whole position even on a partial close.
+                closed = min(txn.shares, abs(holding.shares))
+                realized = (holding.cost_basis - txn.price) * closed * 100
+                self.realized_pnl += realized
+                remaining = abs(holding.shares) - closed
+                if remaining <= 0:
+                    del self.holdings[option_key]
+                else:
+                    holding.shares = -remaining  # still short the remainder
 
         return True
 
@@ -867,9 +876,19 @@ class PortfolioTracker:
         # All-time return
         metrics.return_all_time = self._calculate_twr(df, as_of_date, start_date=df.index[0])
 
-        # Risk metrics
+        # Risk metrics. Returns MUST exclude external cash flows
+        # (deposits/withdrawals); using raw total_value.pct_change() mis-counts a
+        # deposit as a +return and a withdrawal as a -return, corrupting
+        # volatility / Sharpe / Sortino / drawdown. Net flow per period comes
+        # from the cumulative columns, subtracted at end-of-period (simple TWR
+        # step), consistent with the GIPS TWR used for the return_* fields above.
         if len(df) > 1:
-            daily_returns = df["total_value"].pct_change().dropna()
+            prev_tv = df["total_value"].shift(1)
+            net_flow = df["deposits_cumulative"].diff().fillna(0.0) - df[
+                "withdrawals_cumulative"
+            ].diff().fillna(0.0)
+            daily_returns = (df["total_value"] - net_flow - prev_tv) / prev_tv.replace(0.0, np.nan)
+            daily_returns = daily_returns.replace([np.inf, -np.inf], np.nan).dropna()
             if len(daily_returns) > 0:
                 metrics.volatility_annualized = daily_returns.std() * np.sqrt(252)
 
@@ -888,9 +907,11 @@ class PortfolioTracker:
                         excess_returns.mean() / downside_returns.std()
                     ) * np.sqrt(252)
 
-                # Max drawdown
+                # Max drawdown on the cash-flow-adjusted equity index, not the
+                # raw value path (a withdrawal is not a drawdown).
+                equity_index = (1.0 + daily_returns).cumprod().values
                 metrics.max_drawdown, metrics.max_drawdown_duration_days = (
-                    self._calculate_max_drawdown(df)
+                    self._calculate_max_drawdown(df, values=equity_index)
                 )
 
         # Totals
@@ -1014,9 +1035,20 @@ class PortfolioTracker:
         # Convert from growth factor to return
         return cumulative_return - 1.0
 
-    def _calculate_max_drawdown(self, df: pd.DataFrame) -> tuple[float, int]:
-        """Calculate maximum drawdown and duration."""
-        values = df["total_value"].values
+    def _calculate_max_drawdown(
+        self, df: pd.DataFrame, values: np.ndarray | None = None
+    ) -> tuple[float, int]:
+        """Calculate maximum drawdown and duration.
+
+        When ``values`` is supplied (e.g. a cash-flow-adjusted equity index) it
+        is used directly; otherwise raw ``total_value`` is used. Drawdown on raw
+        total_value mis-counts a withdrawal as a drawdown, so the risk-metrics
+        caller passes the adjusted index.
+        """
+        if values is None:
+            values = df["total_value"].values
+        if len(values) == 0:
+            return 0.0, 0
         peak = np.maximum.accumulate(values)
         drawdown = (values - peak) / peak
 

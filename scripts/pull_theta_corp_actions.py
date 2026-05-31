@@ -173,8 +173,16 @@ def _one_ticker(
         conn = ThetaConnector()
     except Exception as e:
         return ticker, pd.DataFrame(), pd.DataFrame(), f"conn: {e}"
-    sp = _fetch_splits(conn, ticker, start, end) if do_splits else pd.DataFrame()
-    dv = _fetch_dividends(conn, ticker, start, end) if do_divs else pd.DataFrame()
+    try:
+        sp = _fetch_splits(conn, ticker, start, end) if do_splits else pd.DataFrame()
+        dv = _fetch_dividends(conn, ticker, start, end) if do_divs else pd.DataFrame()
+    except Exception as e:
+        # Per-ticker failure (incl. PerEndpointFailure): mark FAILED and
+        # continue; do NOT fall back to Bloomberg CSV (DECISIONS D11), and write
+        # no parquet for this ticker. Previously these fetch calls sat OUTSIDE
+        # the try block, so the exception propagated to the executor's
+        # fut.result() in main() and crashed the whole run.
+        return ticker, pd.DataFrame(), pd.DataFrame(), f"FAIL: {e}"
     msg = f"splits={len(sp)} divs={len(dv)}"
     return ticker, sp, dv, msg
 

@@ -258,7 +258,13 @@ class RegimeDetector:
             window = self.rv_window
 
         recent_returns = returns.tail(window)
+        # std with ddof=1 on a single return is NaN; need >=2 returns to estimate
+        # vol. Fall back to the default rather than propagating NaN downstream.
+        if len(recent_returns) < 2:
+            return 0.20
         daily_vol = recent_returns.std()
+        if not np.isfinite(daily_vol):
+            return 0.20
 
         # Annualize
         return daily_vol * np.sqrt(252)
@@ -284,11 +290,14 @@ class RegimeDetector:
         avg_price = recent.mean()
         normalized_slope = (slope * len(recent)) / avg_price
 
-        # Direction: -1 to +1
-        direction = np.clip(normalized_slope * 10, -1, 1)
+        # Direction: -1 to +1. A flat/constant series gives slope 0 and
+        # r_value NaN (0/0); guard so direction/strength never go NaN.
+        if not np.isfinite(normalized_slope):
+            normalized_slope = 0.0
+        direction = float(np.clip(normalized_slope * 10, -1, 1))
 
         # Strength: R-squared * 100 (how consistent is the trend)
-        strength = abs(r_value) * 100
+        strength = abs(r_value) * 100 if np.isfinite(r_value) else 0.0
 
         # ADX-like adjustment: also consider ATR ratio
         high_low_range = (recent.max() - recent.min()) / avg_price

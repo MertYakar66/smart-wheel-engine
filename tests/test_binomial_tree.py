@@ -366,3 +366,18 @@ class TestBinomialEdgeCases:
         """High continuous dividend yield should work."""
         p = binomial_american_price(100, 100, 0.5, 0.05, 0.25, "call", q=0.10, n_steps=300)
         assert np.isfinite(p) and p > 0
+
+
+# ----------------------------------------------------------------------
+# Review O7 — LSM Tier-3 escalation must actually run (was dead code)
+# ----------------------------------------------------------------------
+def test_lsm_escalation_populates_price():
+    """The Tier-3 LSM call used kwargs the function does not accept
+    (S=, n_simulations=) -> TypeError swallowed -> lsm_price stayed None. With
+    the correct kwargs (S0=, n_paths=) the escalation runs and reports a price."""
+    v = CrossModelValidator(lsm_simulations=2000)
+    report = v.validate(
+        S=100.0, K=100.0, T=0.5, r=0.04, sigma=0.30, option_type="put", q=0.02, include_lsm=True
+    )
+    assert report.lsm_price is not None
+    assert report.lsm_price > 0

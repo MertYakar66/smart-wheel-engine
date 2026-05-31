@@ -200,14 +200,21 @@ b = avg_win / avg_loss (win/loss ratio)
 
 ### Methods
 
-**1. Parametric VaR:**
+**1. Parametric VaR (delta-gamma-vega):**
+The delta and vega terms contribute variance combined **in quadrature**
+(independence assumption); the gamma term is a directional expected-loss
+**added linearly outside the root** (it is not a variance); vega is converted
+decimal→vol-point with ×100 (per `GREEKS_UNIT_CONTRACT.md`). This matches
+`engine/risk_manager.py::_parametric_var`:
 ```
-VaR_Δ = Δ$ * σ_spot * z_α * √T
-VaR_Γ = 0.5 * Γ$ * (σ_spot * √T)²  (expected loss component)
-VaR_ν = ν * σ_vol * √T
-
-Combined: sqrt(VaR_Δ² + VaR_Γ² + VaR_ν²)
+σ_h          = σ_spot,horizon                       # horizon spot vol (decimal)
+delta_var    = (Δ$ * σ_h)²
+vega_var     = (ν_per_pt * 100 * σ_volofvol,horizon)²
+VaR          = z_α * sqrt(delta_var + vega_var)  +  Γ_adjustment
+Γ_adjustment = 0.5 * |Γ$| * σ_h² * z_α              # short gamma; long gamma → partial credit
 ```
+(The previous card put all three terms inside one quadrature root, which the
+code does not do.)
 
 **2. Historical VaR:**
 - Multi-asset support with leverage effect
@@ -269,7 +276,14 @@ IV_Rank = (IV_current - IV_min) / (IV_max - IV_min) * 100
 
 ## 6. Regime Detection
 
-### Market Regime Classifier
+> **Live models (EV path):** regime is produced by `engine/regime_detector.py`
+> (rule-based: realized-vol vs implied-vol, trend, term-structure) and
+> `engine/regime_hmm.py` (4-state Gaussian HMM — crisis / bear / normal /
+> bull_quiet — mapped to a position multiplier in [0.2, 1.25]). The classifier
+> table below describes the **deprecated, off-path** `src/features/regime.py`
+> scaffold (Bull/Bear/Sideways/Euphoria), retained for reference only.
+
+### Market Regime Classifier (deprecated `src/features/regime.py`)
 
 **States:**
 | Regime | Value | Conditions |

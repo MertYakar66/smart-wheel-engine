@@ -8,6 +8,7 @@ and wheel_runner.py (the main orchestrator).
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from engine.data_integration import (
@@ -140,6 +141,27 @@ class TestRiskFreeRateFallback:
     def test_missing_file_returns_default(self):
         rate = get_current_risk_free_rate(data_dir="/tmp/nonexistent_dir")
         assert rate == 0.05
+
+    def test_low_rate_era_percent_normalised(self, tmp_path):
+        # D20 regression: the treasury CSV is authoritatively percent, so a
+        # sub-1% ZIRP-era rate must be divided by 100, not returned as-is. The
+        # pre-fix `/100 if > 1 else rate` heuristic returned 0.04 (=4%) for a
+        # 0.04% T-bill — a 100x error across 2011-2022.
+        csv = tmp_path / "treasury_yields.csv"
+        pd.DataFrame(
+            {
+                "date": ["2015-06-30", "2020-06-30", "2023-06-30"],
+                "rate_3m": [0.04, 0.13, 5.20],  # percent
+            }
+        ).to_csv(csv, index=False)
+        r2015 = get_current_risk_free_rate(
+            as_of="2015-07-01", tenor="rate_3m", data_dir=str(tmp_path)
+        )
+        assert r2015 == pytest.approx(0.0004)
+        r2023 = get_current_risk_free_rate(
+            as_of="2023-07-01", tenor="rate_3m", data_dir=str(tmp_path)
+        )
+        assert r2023 == pytest.approx(0.052)
 
     def test_missing_earnings_returns_empty(self):
         events = load_earnings_from_bloomberg(filepath="/tmp/nonexistent.csv")

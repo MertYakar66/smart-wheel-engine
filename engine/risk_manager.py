@@ -549,7 +549,10 @@ class RiskManager:
         # dVol ~ Normal(0, vol_of_vol * sqrt(horizon))
         vega = greeks.vega
         horizon_vol_of_vol = vol_of_vol * np.sqrt(horizon_days)
-        vega_var_component = (vega * horizon_vol_of_vol) ** 2
+        # vega is per 1 vol POINT (GREEKS_UNIT_CONTRACT); horizon_vol_of_vol is a
+        # DECIMAL IV change (vol_of_vol=0.05 => 5 vol points). Convert decimal ->
+        # points with x100, else the vega VaR is understated 100x.
+        vega_var_component = (vega * horizon_vol_of_vol * 100.0) ** 2
 
         # === Combined VaR ===
         # Total variance (assuming independence between price and vol shocks)
@@ -857,7 +860,10 @@ class RiskManager:
         if symbol_vegas:
             total_vega = sum(symbol_vegas.values())
             horizon_vol_of_vol = vol_of_vol * np.sqrt(horizon_days)
-            vega_var = abs(total_vega * horizon_vol_of_vol * z_score)
+            # vega is per 1 vol POINT; horizon_vol_of_vol is a DECIMAL IV change.
+            # Convert decimal -> points with x100 (GREEKS_UNIT_CONTRACT), matching
+            # _parametric_var; otherwise vega VaR is understated 100x.
+            vega_var = abs(total_vega * horizon_vol_of_vol * 100.0 * z_score)
 
         # === Combined VaR ===
         # Assuming independence between spot and vol shocks (conservative)

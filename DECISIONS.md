@@ -1106,6 +1106,112 @@ to assert 1.0 for every band the old code derated/boosted),
 
 ---
 
+## D19. EV should net the expected exit-leg transaction cost — DEFERRED
+
+**Status:** Confirmed finding, fix authored + verified, **deferred** to a
+coordinated re-baseline (bundled with D21). Not applied to engine behaviour in
+the 2026-05-30 review pass.
+
+**The defect:** `EVEngine.evaluate` computes the exit-leg commission + slippage
+into `total_transaction_cost` and the cost-block comment promises to "penalise EV
+by a fraction of [the exit costs] proportional to prob_profit + prob_stop", but
+that subtraction does not exist — only the entry leg is netted into
+`net_premium_in`. So `ev_dollars` (the authority gated at `min_proceed_ev`) is
+mildly overstated by the exit leg (~$1-4/contract), a one-directional optimistic
+bias that can lift marginal candidates over the floor.
+
+**The fix (authored, verified, not shipped):** subtract
+`expected_exit_cost = min(1, prob_profit + prob_stop_terminal) · (exit_commission
++ exit_slippage)` from `ev_raw`. It only ever *reduces* `ev_raw` (cannot rescue a
+negative-EV trade — §2 preserved) and leaves `prob_profit` and the distribution
+shape untouched.
+
+**Why deferred (not shipped):** it changes the EV-authority output and trips the
+byte-identical-to-main backtest baselines (e.g. `test_f4_rv_widening`'s AAPL
+control: ev_dollars +$5.50 → +$4.15) and shifts every backtest's EV totals.
+Unlike D21 it does **not** de-calibrate `prob_profit`, but it is still an
+EV-authority output change, so it lands **with** D21 in the same coordinated
+re-baseline (re-run backtests, refresh the byte-identical baselines) rather than
+as a point fix in a bug sweep.
+
+**Follow-up to wire it in:** restore the `expected_exit_cost` subtraction block in
+`EVEngine.evaluate` (the deferred-note comment marks the exact site), re-run the
+backtest baselines, and re-pin the affected exact-ev tests.
+
+**Pinned by:** the DEFERRED note comment in `engine/ev_engine.py::EVEngine.evaluate`
+(at the `expected_days_held` block); this DECISIONS entry.
+
+---
+
+## D20. The treasury CSV is authoritatively percent; risk-free accessors divide by 100 unconditionally
+
+**Decision:** `MarketDataConnector.get_risk_free_rate` and
+`data_integration.get_current_risk_free_rate` divide the treasury-yield value by
+100 unconditionally. `data/bloomberg/treasury_yields.csv` (written by
+`scripts/pull_treasury_yields_yf.py`) stores rates in **percent** (e.g.
+`1.3757` = 1.3757%, `0.04` = 0.04%).
+
+**Why:** Both accessors previously used the value-based heuristic
+`rate / 100 if rate > 1 else rate` to "handle both % and decimal formats." A
+sub-1% *percent* rate (e.g. a 0.04% ZIRP-era 3-month T-bill stored as `0.04`)
+fails the `> 1` test and was returned unchanged → consumed downstream as
+0.04 = 4%, a **100x error**. ~56% of `rate_3m` rows (2011-05-31 → 2022-05-23) are
+≤ 1.0, so the entire low-rate decade was mis-scaled, silently contaminating every
+historical backtest spanning it. A per-value heuristic fundamentally cannot
+disambiguate `0.04` (0.04% percent) from `0.04` (4% decimal); the only correct
+rule fixes the source convention. The CSV is percent, so divide by 100 always.
+
+**Rejected alternatives:**
+- *Series-level magnitude heuristic (÷100 iff the column median > 1).* Still
+  wrong here: the real `rate_3m` column median is ≤ 1 because most sampled
+  history is ZIRP, so it mis-classifies the whole percent column as decimal.
+- *Keep the per-value heuristic with a lower threshold.* Any value threshold has
+  an ambiguous band; the bug recurs for rates straddling it.
+
+**Pinned by:** `engine/data_connector.py::get_risk_free_rate`,
+`engine/data_integration.py::get_current_risk_free_rate`,
+`tests/test_data_connector.py::TestRiskFreeRate` (`test_sub_one_percent_rate_normalised_as_percent`,
+`test_low_rate_era_within_percent_series`),
+`tests/test_data_integration.py::TestRiskFreeRateFallback::test_low_rate_era_percent_normalised`.
+
+---
+
+## D21. Forward-distribution horizon mixes calendar-day and trading-day units — DEFERRED
+
+**Status:** Confirmed finding, fix authored, **deferred** pending a coordinated
+re-baseline. Not applied to engine behaviour in the 2026-05-30 review pass.
+
+**The defect:** `best_available_forward_distribution` receives the option's
+*calendar* DTE as `horizon_days`, but the empirical / block-bootstrap / HAR-RV
+samplers index *trading-day* price bars. A 35-calendar-day option evolves over
+~24 trading bars, not 35, so the effective horizon is ~46% too long and the
+terminal distribution is ~21% over-dispersed (terminal-return std scales
+~√horizon). The dimensionally-correct conversion is implemented as
+`calendar_days_to_trading_bars` (≈ `round(days·252/365)`) and unit-tested.
+
+**Why deferred (not shipped):** applying the conversion shifts **every**
+`ev_dollars` and `prob_profit` value engine-wide (verified: a representative
+`prob_profit` moves 0.833 → 0.886; a borderline strangle fixture flips sign).
+That would **de-calibrate the published prob_profit matrix** (validated in the
+HT-C heavy-news-calibration work) and **invalidate every backtest snapshot**
+(S32/S34/S38/… and the rolling multi-window campaigns). Correcting the horizon is
+therefore an engine-behaviour change that must land **with** a re-run of the
+backtest suite, a prob_profit re-calibration, and recalibration of the
+fixture-tuned ranker tests (`test_strangle_ev_ranker::TestRanksNeverRescues`,
+`test_f4_rv_widening::TestF4CasesRanker`) — not as a point fix in a bug sweep.
+
+**Follow-up to wire it in:** apply `calendar_days_to_trading_bars(horizon_days)`
+at the top of `best_available_forward_distribution`, then re-run the full backtest
+campaign, refresh `PROB_PROFIT_CALIBRATION`, and update the fixture-pinned tests
+to the new values.
+
+**Pinned by:** `engine/forward_distribution.py` (`calendar_days_to_trading_bars`
+helper + the deferred-conversion docstring note in
+`best_available_forward_distribution`),
+`tests/test_audit_improvements.py::TestForwardDistribution::test_horizon_calendar_to_trading_bar_conversion`.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

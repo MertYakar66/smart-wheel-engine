@@ -106,6 +106,19 @@ class TestForwardDistribution:
         assert len(rets) == 0
         assert method == "none"
 
+    def test_horizon_calendar_to_trading_bar_conversion(self):
+        # D21 (DEFERRED): the calendar->trading-day conversion helper exists and
+        # is correct, but is intentionally NOT applied by the orchestrator yet
+        # (applying it shifts every EV/prob_profit value and needs a coordinated
+        # re-baseline). This pins the helper's arithmetic for when it is wired in.
+        from engine.forward_distribution import calendar_days_to_trading_bars as c2b
+
+        assert c2b(35) == 24
+        assert c2b(45) == 31
+        assert c2b(365) == 252
+        assert c2b(0) == 1  # never zero
+        assert c2b(1) == 1
+
 
 # =========================================================================
 # 2. Empirical volatility surface (smile-aware)

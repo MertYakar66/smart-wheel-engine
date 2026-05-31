@@ -461,11 +461,29 @@ class TestRiskFreeRate:
         conn = MarketDataConnector(data_dir=str(data_dir))
         assert conn.get_risk_free_rate(tenor="rate_3m") == pytest.approx(0.0525)
 
-    def test_decimal_form_passed_through(self, tmp_path):
-        # A value already <= 1 is treated as decimal and returned as-is.
-        _csv(tmp_path / "treasury_yields.csv", [{"date": "2024-01-02", "rate_3m": 0.045}])
+    def test_sub_one_percent_rate_normalised_as_percent(self, tmp_path):
+        # D20 regression: the treasury CSV is authoritatively PERCENT, so a
+        # sub-1% value (a ZIRP-era T-bill) must be divided by 100, NOT returned
+        # as-is. The pre-fix `/100 if > 1 else rate` heuristic returned 0.045
+        # (=4.5%) for a 0.045% rate — a 100x error across 2011-2022.
+        _csv(tmp_path / "treasury_yields.csv", [{"date": "2015-06-30", "rate_3m": 0.045}])
         conn = MarketDataConnector(data_dir=str(tmp_path))
-        assert conn.get_risk_free_rate(tenor="rate_3m") == pytest.approx(0.045)
+        assert conn.get_risk_free_rate(tenor="rate_3m") == pytest.approx(0.00045)
+
+    def test_low_rate_era_within_percent_series(self, tmp_path):
+        # The exact failure mode: a sub-1% percent row sitting in a percent
+        # series. Each row is /100 regardless of magnitude.
+        _csv(
+            tmp_path / "treasury_yields.csv",
+            [
+                {"date": "2015-06-30", "rate_3m": 0.04},  # 0.04% (ZIRP)
+                {"date": "2020-06-30", "rate_3m": 0.13},  # 0.13%
+                {"date": "2023-06-30", "rate_3m": 5.20},  # 5.20%
+            ],
+        )
+        conn = MarketDataConnector(data_dir=str(tmp_path))
+        assert conn.get_risk_free_rate(as_of="2015-07-01", tenor="rate_3m") == pytest.approx(0.0004)
+        assert conn.get_risk_free_rate(as_of="2023-07-01", tenor="rate_3m") == pytest.approx(0.052)
 
     def test_as_of_picks_latest_on_or_before(self, data_dir):
         conn = MarketDataConnector(data_dir=str(data_dir))

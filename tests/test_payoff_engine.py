@@ -140,6 +140,24 @@ class TestRecommendStrikes:
             assert 0 < r["probabilityOtm"] < 100
             assert r["score"] >= 0
 
+    def test_csp_expected_value_is_downside_sensitive(self):
+        """O5: the CSP expectedValue loss term must depend on assignment depth.
+        The pre-fix form prob_otm*put - (1-prob_otm)*(strike-breakeven) reduced
+        to the constant identity put*(2*prob_otm-1) because strike-breakeven ==
+        put_price, so EV had no downside sensitivity."""
+        recs = recommend_strikes("AAPL", spot=200, iv=25, dte=45, strategy="csp")
+        assert recs
+        diffs = [
+            abs(
+                r["expectedValue"]
+                - round(r["premium"] * (2 * (r["probabilityOtm"] / 100.0) - 1), 2)
+            )
+            for r in recs
+        ]
+        assert any(d > 0.01 for d in diffs), (
+            "expectedValue still collapses to the degenerate put*(2*prob_otm-1) form"
+        )
+
     def test_cc_recommendations(self):
         recs = recommend_strikes("AAPL", spot=200, iv=25, dte=45, strategy="cc")
         assert len(recs) == 5

@@ -1568,6 +1568,9 @@ class WheelRunner:
                                 expiry=expiry_date,
                                 ticker=ticker,
                                 dividend_yield=dividend_yield,
+                                # PIT: anchor dealer time-to-expiry to as_of, not
+                                # wall-clock now() (D-review E4). None = live.
+                                as_of=pd.Timestamp(as_of) if as_of else None,
                             )
                 except Exception:
                     # Graceful degrade — dealer positioning is optional

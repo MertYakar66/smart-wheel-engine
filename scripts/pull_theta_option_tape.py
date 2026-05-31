@@ -193,34 +193,43 @@ def _one(ticker: str, expiration: str, day: date, strike: float | None) -> tuple
     except Exception as e:
         return ticker, day, f"conn: {e}"
 
-    trades = _fetch_tape(
-        conn, "/v3/option/history/trade", ticker, expiration, day, strike, interval=None
-    )
-    if not trades.empty:
-        # Normalise / add side inference
-        ts_col = next(
-            (c for c in ("ts", "timestamp", "trade_time", "created") if c in trades.columns), None
+    try:
+        trades = _fetch_tape(
+            conn, "/v3/option/history/trade", ticker, expiration, day, strike, interval=None
         )
-        if ts_col:
-            trades[ts_col] = pd.to_datetime(trades[ts_col], errors="coerce")
-            trades = trades.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
-        if {"nbbo_bid", "nbbo_ask", "price"}.issubset(trades.columns):
-            trades["side_inferred"] = trades.apply(_classify_side, axis=1)
+        if not trades.empty:
+            # Normalise / add side inference
+            ts_col = next(
+                (c for c in ("ts", "timestamp", "trade_time", "created") if c in trades.columns),
+                None,
+            )
+            if ts_col:
+                trades[ts_col] = pd.to_datetime(trades[ts_col], errors="coerce")
+                trades = trades.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
+            if {"nbbo_bid", "nbbo_ask", "price"}.issubset(trades.columns):
+                trades["side_inferred"] = trades.apply(_classify_side, axis=1)
 
-    quotes = _fetch_tape(
-        conn, "/v3/option/history/quote", ticker, expiration, day, strike, interval="1m"
-    )
-    if not quotes.empty:
-        ts_col = next(
-            (c for c in ("ts", "timestamp", "bar_start", "created") if c in quotes.columns), None
+        quotes = _fetch_tape(
+            conn, "/v3/option/history/quote", ticker, expiration, day, strike, interval="1m"
         )
-        if ts_col:
-            quotes[ts_col] = pd.to_datetime(quotes[ts_col], errors="coerce")
-            quotes = quotes.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
-        if {"bid", "ask"}.issubset(quotes.columns):
-            quotes["mid"] = (quotes["bid"] + quotes["ask"]) / 2
+        if not quotes.empty:
+            ts_col = next(
+                (c for c in ("ts", "timestamp", "bar_start", "created") if c in quotes.columns),
+                None,
+            )
+            if ts_col:
+                quotes[ts_col] = pd.to_datetime(quotes[ts_col], errors="coerce")
+                quotes = quotes.dropna(subset=[ts_col]).rename(columns={ts_col: "ts"})
+            if {"bid", "ask"}.issubset(quotes.columns):
+                quotes["mid"] = (quotes["bid"] + quotes["ask"]) / 2
 
-    msg = _write_day(ticker, day, trades, quotes)
+        msg = _write_day(ticker, day, trades, quotes)
+    except Exception as e:
+        # Per-ticker failure (incl. PerEndpointFailure): mark FAILED, continue;
+        # no Bloomberg fallback (DECISIONS D11), no parquet for this ticker.
+        # Previously these fetch/write calls sat OUTSIDE the try, so the
+        # exception propagated to the executor's fut.result() and crashed the run.
+        return ticker, day, f"FAIL: {e}"
     return ticker, day, msg
 
 

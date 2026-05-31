@@ -261,8 +261,23 @@ def recommend_strikes(
             # Distance from spot
             dist_pct = (spot - strike) / spot * 100
 
-            # Expected value (simplified)
-            ev = prob_otm * put_price - (1 - prob_otm) * (strike - breakeven)
+            # Expected value (simplified, per share). The loss term must depend
+            # on HOW FAR in-the-money assignment goes. The previous form used
+            # ``strike - breakeven``, which equals ``put_price`` identically, so
+            # the loss term collapsed to a constant and EV had no downside
+            # sensitivity. Use the lognormal conditional mean E[S_T | S_T < K] =
+            # S e^{rT} N(-d1)/N(-d2): the expected assignment shortfall net of
+            # premium kept, weighted by P(assignment) = 1 - prob_otm.
+            prob_assign = 1.0 - prob_otm
+            n_minus_d2 = float(norm.cdf(-d2))
+            if prob_assign > 1e-9 and n_minus_d2 > 1e-9:
+                exp_st_given_itm = (
+                    spot * np.exp(risk_free_rate * T) * norm.cdf(-d1_actual) / n_minus_d2
+                )
+                expected_assignment_loss = max(0.0, strike - exp_st_given_itm - put_price)
+            else:
+                expected_assignment_loss = 0.0
+            ev = prob_otm * put_price - prob_assign * expected_assignment_loss
 
             # Score: weighted combination
             score = (

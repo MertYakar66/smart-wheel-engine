@@ -127,11 +127,13 @@ def load_universe(mode: str, pit_date: str | None = None) -> list[str]:
     L = get_bloomberg_loader()
     # PIT universe if a date is given; else latest.
     tickers = L.get_universe_as_of(pit_date)
-    # Drop Bloomberg internal codes ("1284849D" etc.) — those are delisted
-    # placeholders that Theta cannot resolve.
-    tickers = [t for t in tickers if t and not t.endswith("D") or "." in t]
-    # Light filtering: keep alpha-only or dotted symbols.
-    tickers = [t for t in tickers if all(c.isalpha() or c == "." for c in t)]
+    # Keep only real equity symbols: alpha-only or dotted (e.g. BRK.B). This also
+    # drops Bloomberg internal placeholder codes like "1284849D" (they contain
+    # digits). A prior `not t.endswith("D")` filter had an operator-precedence
+    # bug -- ((t and not t.endswith("D")) or "." in t) -- that silently dropped
+    # legitimate all-alpha tickers ending in D (AMD, GOLD, HOOD, ...). The
+    # alpha-only filter below already excludes the numeric codes, so it was removed.
+    tickers = [t for t in tickers if t and all(c.isalpha() or c == "." for c in t)]
     return sorted(set(tickers))
 
 

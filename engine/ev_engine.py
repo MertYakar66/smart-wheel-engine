@@ -466,6 +466,25 @@ class EVEngine:
         )
         expected_days_held = max(1.0, expected_days_held)
 
+        # Expected early-close exit cost (audit fix 2026-05-30, see D19).
+        # Profit-target and stop-loss exits buy the short option back BEFORE
+        # expiration and incur the exit-leg commission + slippage; OTM-expiry
+        # paths expire worthless and incur none. The cost block above and the
+        # class docstring promise this penalty, but previously the exit legs
+        # were folded only into ``total_transaction_cost`` and never subtracted
+        # from ``ev_dollars`` — so EV was systematically overstated by the exit
+        # leg. We apply it as an expected (mean-level) cost
+        #   expected_exit_cost = P(early close) * (exit_commission + exit_slippage)
+        # with P(early close) ≈ prob_profit + prob_stop_terminal (the two
+        # non-expiration exit paths; mutually exclusive, so their sum ≤ 1). This
+        # only *reduces* ev_raw — it cannot rescue a negative-EV trade (§2) and
+        # is conservative by construction. std/skew/cvar describe the gross P&L
+        # distribution shape, which a deterministic cost shift does not change.
+        prob_early_close = min(1.0, prob_profit + prob_stop_terminal)
+        expected_exit_cost = prob_early_close * (exit_commission + exit_slippage)
+        ev_raw = ev_raw - expected_exit_cost
+        mean_pnl = ev_raw
+
         # Regime multiplier is applied *last* to dollar EV so other metrics
         # remain pure and auditable. Heavy-tail regimes additionally
         # shrink EV by ``heavy_tail_penalty`` (default 0.5) to reflect

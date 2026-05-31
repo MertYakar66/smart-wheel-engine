@@ -1106,6 +1106,42 @@ to assert 1.0 for every band the old code derated/boosted),
 
 ---
 
+## D19. EV nets the expected exit-leg transaction cost
+
+**Decision:** `EVEngine.evaluate` now subtracts the *expected* exit-leg cost
+from `ev_raw`/`ev_dollars`:
+`expected_exit_cost = (prob_profit + prob_stop_terminal) · (exit_commission +
+exit_slippage)`. Entry-leg commission + slippage were already netted into
+`net_premium_in`; the exit leg was computed into `total_transaction_cost` and
+described in the cost-block comment but never applied to the ranking number.
+
+**Why:** The class docstring and the cost-block comment both promise a
+round-trip cost treatment ("penalise EV by a fraction of [the exit costs]
+proportional to the probability of a non-expiration exit, approximated as
+prob_profit + prob_stop"). That subtraction did not exist, so `ev_dollars` — the
+authority gated at `min_proceed_ev`/`min_ev_dollars` — was systematically
+overstated by the exit leg (~$3.65/contract + slippage), a one-directional
+optimistic bias that could lift marginal candidates over the floor. The fix
+restores the documented behaviour. It only ever *reduces* `ev_raw`, so it cannot
+rescue a negative-EV trade (CLAUDE.md §2 preserved) and is conservative.
+Historical EV outputs drop slightly versus pre-fix backtests; this is expected.
+
+**Rejected alternatives:**
+- *Subtract the exit cost from every terminal path uniformly.* Same expectation
+  but contaminates `prob_profit`/percentiles for OTM-expiry paths that incur no
+  buyback; the mean-level adjustment keeps the distribution shape statistics
+  (std/skew/CVaR) describing the gross P&L while making the reported `mean_pnl`
+  and `ev_dollars` net-of-expected-cost.
+- *Subtract the full exit cost unconditionally.* Over-penalises: OTM-expiry
+  positions expire worthless with no buyback and no exit cost; the penalty must
+  be weighted by the probability of a non-expiration close.
+
+**Pinned by:** `engine/ev_engine.py` (the `expected_exit_cost` block),
+`tests/test_ev_engine_upgrades.py::test_exit_transaction_costs_subtracted_from_ev`
+(deterministic all-OTM case: `mean_pnl == gross_premium − total_transaction_cost`).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

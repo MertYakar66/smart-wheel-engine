@@ -146,6 +146,6 @@ Updated as fixes land on `claude/code-review-fixes` (off `origin/main`).
 | S2 scripts ticker precedence | ✅ | removed buggy redundant `not endswith("D")` filter (dropped AMD/GOLD/HOOD) |
 | S3 scripts earnings overwrite | ✅ | pull_earnings_yf merges with prior CSV (partial fetch no longer destroys data) |
 | _note_ | ℹ | `test_theta_connector` `test_ohlcv_shape`/`test_iv_rank_in_range` fail pre-existing on this box (live-Terminal env; CI skips) |
-| edge-guard hardening | ⏳ | |
+| edge-guard hardening | ✅ | ev_engine (spread bid==0 / dividend days>=0 / price_scenarios NaN filter); realized_vol (_log non-positive→NaN, isfinite VRP); contracts (finiteness in both validators + test); regime_detector (NaN trend/RV guards); dealer (stored_gamma `is not None`) |
 | dead-code deletion (conservative) | ⏳ | |
 | doc reconciliation | ⏳ | |

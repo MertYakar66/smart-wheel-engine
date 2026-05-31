@@ -524,7 +524,14 @@ class DealerPositioningAnalyzer:
 
         # Prefer stored first-order Greeks when available and finite;
         # fall back to BSM. Second-order Greeks always from BSM.
-        gamma = stored_gamma if stored_gamma and np.isfinite(stored_gamma) else greeks["gamma"]
+        # `is not None` (not truthiness): a legitimately-stored gamma of exactly
+        # 0.0 (deep ITM/OTM) must be kept, not silently recomputed from BSM —
+        # matching the delta branch below.
+        gamma = (
+            stored_gamma
+            if stored_gamma is not None and np.isfinite(stored_gamma)
+            else greeks["gamma"]
+        )
         delta = (
             stored_delta
             if stored_delta is not None and np.isfinite(stored_delta)

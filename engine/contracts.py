@@ -8,6 +8,7 @@ ensuring module interoperability.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal, Protocol, runtime_checkable
 
 import pandas as pd
@@ -196,8 +197,8 @@ def validate_greeks_output(greeks: dict[str, float]) -> list[str]:
         val = greeks[key]
         if not isinstance(val, (int, float)):
             errors.append(f"Key '{key}' must be numeric, got {type(val).__name__}")
-        elif isinstance(val, float) and (val != val):  # NaN check
-            errors.append(f"Key '{key}' is NaN")
+        elif isinstance(val, float) and not math.isfinite(val):  # NaN or ±inf
+            errors.append(f"Key '{key}' is not finite ({val})")
 
     return errors
 
@@ -254,6 +255,24 @@ def validate_greeks_semantics(greeks: dict[str, float], option_type: str) -> lis
     gamma = greeks.get("gamma", 0)
     vega = greeks.get("vega", 0)
     theta = greeks.get("theta", 0)
+
+    # Reject non-finite Greeks up front. NaN compares False to every bound below
+    # (so a NaN passed silently) and most +inf values slip past the one-sided
+    # sign checks; flag them explicitly and skip the value checks that assume
+    # finite numbers.
+    nonfinite = [
+        k
+        for k, v in (
+            ("price", price),
+            ("delta", delta),
+            ("gamma", gamma),
+            ("vega", vega),
+            ("theta", theta),
+        )
+        if isinstance(v, (int, float)) and not math.isfinite(float(v))
+    ]
+    if nonfinite:
+        return [f"non-finite Greek(s): {', '.join(nonfinite)}"]
 
     # Price must be non-negative
     if price < -1e-10:

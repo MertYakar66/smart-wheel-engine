@@ -71,7 +71,21 @@ class TestValidateGreeksOutput:
             "rho": 0.01,
         }
         errors = validate_greeks_output(greeks)
-        assert any("NaN" in e for e in errors)
+        # Non-finite (NaN or ±inf) values are rejected; message names the key.
+        assert any("price" in e and "finite" in e for e in errors)
+
+    def test_inf_value_rejected(self):
+        # Regression: the old NaN-only check (val != val) let +inf pass.
+        greeks = {
+            "price": 1.0,
+            "delta": float("inf"),
+            "gamma": 0.02,
+            "theta": -0.05,
+            "vega": 0.2,
+            "rho": 0.01,
+        }
+        errors = validate_greeks_output(greeks)
+        assert any("delta" in e and "finite" in e for e in errors)
 
     def test_not_a_dict(self):
         errors = validate_greeks_output("not a dict")

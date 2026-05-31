@@ -300,7 +300,15 @@ class EVEngine:
         # Transaction costs (entry + potential exit)
         # --------------------------------------------------------------
         entry_commission = calculate_commission("option", trade.contracts)
-        spread = (trade.ask - trade.bid) if (trade.ask and trade.bid) else trade.premium * 0.10
+        # Use the real quoted spread when both sides are present and not crossed.
+        # Test truthiness-free (a legitimate far-OTM bid of 0.0 is valid, not
+        # "missing") so a 0-bid wide market is not silently replaced by the
+        # 10%-of-premium proxy.
+        spread = (
+            (trade.ask - trade.bid)
+            if (trade.ask is not None and trade.bid is not None and trade.ask >= trade.bid)
+            else trade.premium * 0.10
+        )
         entry_slippage_per_share = calculate_slippage(
             mid_price=trade.premium,
             bid_ask_spread=spread,
@@ -364,7 +372,7 @@ class EVEngine:
         if (
             trade.option_type == "call"
             and trade.days_to_ex_div is not None
-            and trade.days_to_ex_div <= trade.dte
+            and 0 <= trade.days_to_ex_div <= trade.dte
             and trade.expected_dividend > 0
         ):
             pnls = pnls - is_itm.astype(float) * trade.expected_dividend * multiplier
@@ -598,8 +606,11 @@ class EVEngine:
         fallback (biased toward zero EV — see class docstring).
         """
         if price_scenarios is not None and len(price_scenarios) > 0:
-            self._last_distribution_source = "price_scenarios"
-            return np.asarray(price_scenarios, dtype=float)
+            arr = np.asarray(price_scenarios, dtype=float)
+            arr = arr[np.isfinite(arr)]  # drop NaN/inf (parity with the fwd branch)
+            if len(arr) > 0:
+                self._last_distribution_source = "price_scenarios"
+                return arr
 
         if forward_log_returns is not None and len(forward_log_returns) > 0:
             arr = np.asarray(forward_log_returns, dtype=float)

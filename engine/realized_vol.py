@@ -27,7 +27,12 @@ _TRADING_DAYS = 252
 
 
 def _log(x):
-    return np.log(np.asarray(x, dtype=float))
+    # Non-positive prices are invalid; map them to NaN so a bad bar yields a NaN
+    # vol (the honest sentinel) rather than ±inf leaking through diff/std/mean,
+    # which violated the MODEL_CARDS "non-negativity enforced" contract.
+    arr = np.where(np.asarray(x, dtype=float) > 0, np.asarray(x, dtype=float), np.nan)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.log(arr)
 
 
 def close_to_close_vol(df: pd.DataFrame, window: int = 20) -> float:
@@ -133,9 +138,11 @@ def vol_risk_premium_bundle(df: pd.DataFrame, iv_atm: float, window: int = 20) -
     """
     rv = realised_vol_bundle(df, window)
     iv = float(iv_atm)
-    vrp = {f"vrp_{k}": iv - v if v == v else float("nan") for k, v in rv.items()}
+    # Use np.isfinite, not ``v == v``: the latter rejects NaN but lets +inf
+    # through (inf == inf is True), which produced consensus_rv=+inf.
+    vrp = {f"vrp_{k}": (iv - v if np.isfinite(v) else float("nan")) for k, v in rv.items()}
     robust = [rv["garman_klass"], rv["rogers_satchell"], rv["yang_zhang"]]
-    robust = [x for x in robust if x == x]
+    robust = [x for x in robust if np.isfinite(x)]
     vrp["consensus_rv"] = float(np.mean(robust)) if robust else float("nan")
     vrp["consensus_vrp"] = iv - vrp["consensus_rv"] if robust else float("nan")
     vrp["iv_atm"] = iv

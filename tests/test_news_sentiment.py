@@ -58,6 +58,28 @@ class TestCsvStore:
         assert result["confidence"] == pytest.approx(0.8)
         assert result["n_articles"] == 9
 
+    def test_tz_aware_store_does_not_raise(self, tmp_path: Path):
+        """O8: a tz-aware as_of column (the real production store) must not raise
+        'Cannot compare tz-naive and tz-aware' against the naive PIT window. The
+        TypeError was swallowed upstream, silently no-op'ing the news overlay."""
+        now = datetime.now(UTC)  # tz-AWARE
+        _write_sentiment_csv(
+            tmp_path,
+            [
+                {
+                    "ticker": "AAPL",
+                    "as_of": now - timedelta(hours=1),
+                    "sentiment": 0.4,
+                    "confidence": 0.8,
+                    "n_articles": 9,
+                },
+            ],
+        )
+        reader = NewsSentimentReader(base_dir=tmp_path)
+        # Live (as_of=None) and historical tz-aware as_of must both work.
+        assert reader.get_ticker_sentiment("AAPL")["sentiment"] == pytest.approx(0.4)
+        assert reader.get_ticker_sentiment("AAPL", as_of=now)["n_articles"] == 9
+
     def test_lookback_horizon_filters_old_rows(self, tmp_path: Path):
         now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(

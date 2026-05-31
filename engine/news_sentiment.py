@@ -148,13 +148,18 @@ class NewsSentimentReader:
             # Point-in-time window. as_of=None -> wall-clock now (live);
             # a historical as_of -> only news at or before that instant
             # is eligible. lookback_hours bounds the lower edge.
-            upper = (
-                pd.Timestamp.now(tz="UTC").tz_localize(None)
-                if as_of is None
-                else pd.Timestamp(as_of)
-            )
+            # Normalise BOTH the bound and the column to tz-naive UTC: a
+            # tz-aware store column (the real production case) compared against a
+            # tz-naive bound raised "Cannot compare tz-naive and tz-aware",
+            # which was swallowed upstream and silently no-op'd the news overlay.
+            if as_of is None:
+                upper = pd.Timestamp.now(tz="UTC").tz_localize(None)
+            else:
+                _u = pd.Timestamp(as_of)
+                upper = _u.tz_convert("UTC").tz_localize(None) if _u.tzinfo is not None else _u
             lower = upper - pd.Timedelta(hours=lookback_hours)
-            t = t[(t["as_of"] >= lower) & (t["as_of"] <= upper)]
+            col = pd.to_datetime(t["as_of"], errors="coerce", utc=True).dt.tz_localize(None)
+            t = t[(col >= lower) & (col <= upper)]
             if t.empty:
                 return {"sentiment": 0.0, "confidence": 0.0, "n_articles": 0}
             row = t.sort_values("as_of").iloc[-1]

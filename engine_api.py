@@ -1018,7 +1018,14 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             strike = float(ev_row["strike"])
             premium = float(ev_row["premium"])
             dte = int(ev_row.get("dte", 45))
-            p_otm = float(ev_row.get("prob_profit", 0.70))
+            # p_otm = P(expire OTM) = 1 - P(assignment/ITM at expiry). The EV row
+            # carries prob_assignment (P ITM) and prob_profit (P net P&L > 0)
+            # SEPARATELY; the previous code put prob_profit into the p_otm slot
+            # and then synthesized p_profit = 0.95*p_otm, inverting the
+            # schema-documented ordering (p_profit > p_otm for short puts) and
+            # feeding every advisor contradictory probability inputs.
+            p_otm = 1.0 - float(ev_row.get("prob_assignment", 0.30))
+            p_profit = float(ev_row.get("prob_profit", p_otm))
             # Put delta at the actual EV strike (signed negative).
             from scipy.stats import norm as _norm
 
@@ -1050,10 +1057,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 premium = max(0.01, premium)
                 delta = float(-_norm.cdf(-d1))
                 p_otm = float(_norm.cdf(d2))
+                # P(profit) for a short put = P(S_T > breakeven), breakeven =
+                # strike - premium < strike, so p_profit >= p_otm.
+                breakeven = max(strike - premium, 0.01)
+                d2_be = (np.log(spot / breakeven) + (0.04 - 0.5 * iv_decimal**2) * T) / (
+                    iv_decimal * np.sqrt(T)
+                )
+                p_profit = float(_norm.cdf(d2_be))
             else:
                 premium = 1.0
                 delta = -0.30
                 p_otm = 0.70
+                p_profit = 0.74
             ev_dollars = p_otm * premium * 100
 
         # AUDIT: CandidateTrade.expected_value is schema-documented as a
@@ -1076,7 +1091,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             contracts=contracts,
             expected_value=round(ev_pct, 2),
             p_otm=round(p_otm, 2),
-            p_profit=round(p_otm * 0.95, 2),
+            p_profit=round(p_profit, 2),
             iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
             iv_percentile=analysis.iv_percentile * 100
             if analysis.iv_percentile < 1

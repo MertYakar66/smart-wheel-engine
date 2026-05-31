@@ -247,15 +247,20 @@ class CrossModelValidator:
             try:
                 from .monte_carlo import price_american_option
 
+                # Correct kwargs: price_american_option(S0=..., n_paths=...).
+                # The previous call used S= and n_simulations=, which the
+                # function does not accept -> every LSM escalation raised
+                # TypeError, was swallowed below, and lsm_price stayed None
+                # (the Tier-3 escalation was dead).
                 lsm_result = price_american_option(
-                    S=S,
+                    S0=S,
                     K=K,
                     T=T,
                     r=r,
                     sigma=sigma,
                     option_type=option_type,
                     q=q,
-                    n_simulations=self.lsm_simulations,
+                    n_paths=self.lsm_simulations,
                 )
                 if isinstance(lsm_result, dict):
                     report.lsm_price = lsm_result.get("american_price", lsm_result.get("price"))

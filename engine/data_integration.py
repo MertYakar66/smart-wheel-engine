@@ -312,6 +312,11 @@ def get_current_risk_free_rate(
 
     Returns:
         Annual risk-free rate as decimal (e.g. 0.0435)
+
+    The treasury CSV is authoritatively in percent (see DECISIONS D20), so the
+    value is divided by 100 unconditionally. The previous heuristic
+    (``/100 only if > 1``) mis-read sub-1% percent rates (e.g. a 0.04% ZIRP-era
+    T-bill) as already-decimal — a 100x error across the 2011-2022 low-rate era.
     """
     filepath = Path(data_dir) / "treasury_yields.csv"
     if not filepath.exists():
@@ -332,5 +337,7 @@ def get_current_risk_free_rate(
     if df.empty:
         return 0.05
 
-    rate = df[tenor].iloc[-1]
-    return rate / 100.0 if rate > 1 else rate  # Handle both % and decimal formats
+    rate = float(df[tenor].iloc[-1])
+    if pd.isna(rate):
+        return 0.05
+    return rate / 100.0  # CSV is authoritatively percent (D20)

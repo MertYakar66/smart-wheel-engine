@@ -1142,6 +1142,39 @@ Historical EV outputs drop slightly versus pre-fix backtests; this is expected.
 
 ---
 
+## D20. The treasury CSV is authoritatively percent; risk-free accessors divide by 100 unconditionally
+
+**Decision:** `MarketDataConnector.get_risk_free_rate` and
+`data_integration.get_current_risk_free_rate` divide the treasury-yield value by
+100 unconditionally. `data/bloomberg/treasury_yields.csv` (written by
+`scripts/pull_treasury_yields_yf.py`) stores rates in **percent** (e.g.
+`1.3757` = 1.3757%, `0.04` = 0.04%).
+
+**Why:** Both accessors previously used the value-based heuristic
+`rate / 100 if rate > 1 else rate` to "handle both % and decimal formats." A
+sub-1% *percent* rate (e.g. a 0.04% ZIRP-era 3-month T-bill stored as `0.04`)
+fails the `> 1` test and was returned unchanged → consumed downstream as
+0.04 = 4%, a **100x error**. ~56% of `rate_3m` rows (2011-05-31 → 2022-05-23) are
+≤ 1.0, so the entire low-rate decade was mis-scaled, silently contaminating every
+historical backtest spanning it. A per-value heuristic fundamentally cannot
+disambiguate `0.04` (0.04% percent) from `0.04` (4% decimal); the only correct
+rule fixes the source convention. The CSV is percent, so divide by 100 always.
+
+**Rejected alternatives:**
+- *Series-level magnitude heuristic (÷100 iff the column median > 1).* Still
+  wrong here: the real `rate_3m` column median is ≤ 1 because most sampled
+  history is ZIRP, so it mis-classifies the whole percent column as decimal.
+- *Keep the per-value heuristic with a lower threshold.* Any value threshold has
+  an ambiguous band; the bug recurs for rates straddling it.
+
+**Pinned by:** `engine/data_connector.py::get_risk_free_rate`,
+`engine/data_integration.py::get_current_risk_free_rate`,
+`tests/test_data_connector.py::TestRiskFreeRate` (`test_sub_one_percent_rate_normalised_as_percent`,
+`test_low_rate_era_within_percent_series`),
+`tests/test_data_integration.py::TestRiskFreeRateFallback::test_low_rate_era_percent_normalised`.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

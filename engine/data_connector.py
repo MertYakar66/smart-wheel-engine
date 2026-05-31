@@ -534,14 +534,15 @@ class MarketDataConnector:
         meaning 4.5%), matching the convention used by the rest of the
         engine (``EVEngine``, ``black_scholes_price``, HMM, etc.).
 
-        AUDIT-VIII: the raw treasury CSV is in percent form
-        (e.g. ``1.3757``). The pre-audit implementation returned that
-        raw percent value, which silently corrupted every BSM / EV
-        calculation that consumed it as a decimal. We now normalise
-        defensively: values greater than 1 are divided by 100 (treated
-        as percent), values already ≤ 1 are returned unchanged. Returns
-        ``NaN`` if data is unavailable so callers can detect missing
-        data explicitly rather than getting a default 0.
+        AUDIT-VIII / D20: the raw treasury CSV is authoritatively in
+        percent form (e.g. ``1.3757`` = 1.3757%, ``0.04`` = 0.04%), so we
+        divide by 100 **unconditionally**. The previous value-based
+        heuristic (``/100 only if > 1``) silently mis-read any sub-1%
+        *percent* rate — e.g. a 0.04% ZIRP-era T-bill — as already-decimal,
+        a 100x error across the entire 2011-2022 low-rate era (where ~56%
+        of ``rate_3m`` rows are ≤ 1.0). Returns ``NaN`` if data is
+        unavailable so callers can detect missing data explicitly rather
+        than getting a default 0.
         """
         df = self._load("treasury")
         if df.empty or tenor not in df.columns:
@@ -554,7 +555,7 @@ class MarketDataConnector:
         rate = float(df.sort_values("date").iloc[-1][tenor])
         if np.isnan(rate):
             return float("nan")
-        return rate / 100.0 if rate > 1.0 else rate
+        return rate / 100.0
 
     # ------------------------------------------------------------------
     # VIX

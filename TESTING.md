@@ -100,8 +100,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 
 | File | Purpose |
 |---|---|
-| `test_wheel_lifecycle.py` | State transitions |
-| `test_wheel_cycle.py` | Cycle accounting |
+| `test_wheel_lifecycle.py` | State transitions + cycle accounting |
 | `test_wheel_backtest.py` | Backtest harness |
 | `test_portfolio_tracker.py` | Portfolio bookkeeping |
 
@@ -188,7 +187,7 @@ pytest tests/ -m quant -v
 | `engine/data_connector.py` or `theta_connector.py` | `pytest tests/test_bloomberg_loader.py tests/test_theta_connector.py tests/test_data_pipeline.py` then `python scripts/theta_health_check.py` if Terminal is up |
 | `engine/dealer_positioning.py` | `pytest tests/test_dealer_positioning.py tests/test_audit_invariants.py` |
 | `engine/regime_detector.py` or `regime_hmm.py` | `pytest tests/test_regime_detector.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
-| `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_wheel_cycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
+| `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
 | `advisors/*` | `pytest tests/test_advisors.py tests/test_authority_hardening.py` |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python audit.py` against a running `engine_api.py` |
 | `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |

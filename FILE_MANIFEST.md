@@ -678,7 +678,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_external_data_fred.py` | HTTP-mocked `FREDAdapter`. |
 | `tests/test_external_data_yfinance.py` | HTTP-mocked `YFinanceAdapter`. |
 | `tests/test_wheel_lifecycle.py` | `WheelTracker` partial assignment and roll mechanics. |
-| `tests/test_wheel_cycle.py` | A `print()`-driven `WheelTracker` cycle demo script (not a pytest file). |
 | `tests/test_wheel_backtest.py` | `src.backtest.wheel_backtest` run, scoring and metrics. |
 | `tests/test_wheel_tracker_persistence.py` | `WheelTracker` JSON persistence round-trips. |
 | `tests/test_wheel_tracker_suggest_rolls.py` | Launch-blocker invariant — `suggest_rolls` properties and roll-EV regression. |

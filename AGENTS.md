@@ -50,12 +50,14 @@ From `CLAUDE.md` §2:
 
 > **No tradeable candidate bypasses `EVEngine.evaluate`.**
 
-Reviewers (chart provider, news sentiment, advisor committee, dealer
-positioning, TradingView bridge) can **downgrade** a verdict.
-None of them can **rescue** a negative-EV trade.
+Reviewers (chart provider, advisor committee, dealer positioning,
+TradingView bridge) can **downgrade** a verdict. None of them can
+**rescue** a negative-EV trade. (News sentiment used to be a
+downgrade-only reviewer; D18 severed it from the EV path —
+`engine/news_sentiment.py` is now an operator-transparency layer.)
 
 If you add a new input — new data source, new advisor, a TradingView
-MCP feed, a sentiment model — wire it as a chained-provider
+MCP feed, a quantitative news layer — wire it as a chained-provider
 participant or a downgrade-only reviewer. Do not introduce a code path
 that converts a non-tradeable candidate into a tradeable one without
 a fresh `EVEngine.evaluate` call. This is enforced structurally by

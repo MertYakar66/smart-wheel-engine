@@ -128,9 +128,11 @@ panels keyed by `(ticker, period, announcement_date)`. The
 | Bloomberg Terminal exports | Excel macros in `scripts/bloomberg_*.bas` | monthly | manual; produces fresh wide-format panels |
 | Theta capability probe | `python scripts/probe_theta_capabilities.py` | when tier coverage changes | regenerates `data_processed/theta_capabilities.json` (the tier map). Run if the file is absent or after a Theta v3 plan change. |
 
-The yfinance refreshes mutate tracked CSVs in place. Treat each
-refresh as a data commit (see `ROADMAP.md` C1 for the open question
-on whether to gitignore them instead).
+The yfinance refreshes mutate tracked CSVs in place. **Policy (ROADMAP C1,
+decided 2026-05-30): keep tracking — treat each refresh as a data commit.**
+The point-in-time "what data did we run on?" audit trail outweighs the
+commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
+`sp500_fundamentals_yf.csv`, and `treasury_yields.csv` stay tracked.
 
 ---
 

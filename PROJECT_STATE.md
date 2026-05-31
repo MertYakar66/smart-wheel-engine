@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-05-29.
+**Last updated:** 2026-05-30.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -47,9 +47,13 @@ described here is no longer accurate.
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
-tradeable verdict. Reviewers (chart provider, news sentiment, advisor
-committee, dealer positioning, **R7-R10 portfolio-context gates**) can
-downgrade outputs — never upgrade. R1 (negative or non-finite EV →
+tradeable verdict. Reviewers (chart provider, advisor committee,
+dealer positioning, **R7-R10 portfolio-context gates**) can
+downgrade outputs — never upgrade. As of D18 (2026-05-26), news
+sentiment is severed from the EV path —
+`engine/news_sentiment.py::sentiment_multiplier` is a constant-1.0
+stub; the operator dashboard still consumes the underlying score for
+transparency. R1 (negative or non-finite EV →
 blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
@@ -224,10 +228,11 @@ the engine has the machinery but does not apply it to `prob_profit`.
   2026-04-25**. Audit pass: no live silent-fallback paths.
 - `get_iv_surface()` returns an empty DataFrame on missing data, not a
   flat-IV stub.
-- **Open decision:** before wiring SVI surfaces into a feature or the
-  decision path, pick a missing-data contract — fail loudly on the
-  ~122 uncovered tickers (snapshot: ~475), or use a clearly-named
-  fallback (`flat_iv_fallback`, never silent).
+- **Resolved (2026-05-30, A2 — `DECISIONS.md` D9):** chose **fail loudly**.
+  The SVI tooling is wired in behind `SurfaceDataUnavailable` +
+  `require_surface`; first caller `scripts/diagnose_iv_surface.py` (non-zero
+  exit on uncovered tickers). `create_constant_surface` is the only opt-in
+  flat surface. Pinned by `tests/test_iv_surface_failloud.py`.
 
 ### `.claude/` SessionStart hook
 
@@ -476,10 +481,15 @@ rewritten.**
 - News-stack duplication — `financial_news/` (34 files,
   RSS/scraping/clustering platform), `news_pipeline/` (29 files,
   browser-agent pipeline driving `morning_run.py`),
-  `engine/news_sentiment.py` (downgrade-only reviewer on the EV path),
-  `scripts/pull_news_sentiment.py` (one-shot puller). Only
-  `engine/news_sentiment.py` feeds the EV path. Verify before adding
-  a new news source.
+  `engine/news_sentiment.py` (operator-only transparency layer — was
+  a downgrade-only reviewer until D18 severed it from the EV path),
+  `scripts/pull_news_sentiment.py` (one-shot puller, still writes the
+  parquet that the dashboard consumes). Post-D18 (2026-05-26), **no
+  news subsystem feeds the EV authority** — verbal news is operator-
+  layer only. Replacement quantitative layers (EDGAR earnings dates,
+  FRED macro, EDGAR-XBRL fundamentals quality score) are in flight
+  via the news-architecture redesign campaign — see
+  `docs/NEWS_REDESIGN_CAMPAIGN.md`.
 
 ## 5. Documentation drift to repair
 

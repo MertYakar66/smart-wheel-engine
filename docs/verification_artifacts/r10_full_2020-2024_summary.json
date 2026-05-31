@@ -1,0 +1,133 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2020-01-02",
+    "end": "2024-12-31",
+    "friction_level": "full",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "ohlcv_csv_sha256": "c3d5443158b12ec5309a08111cdbeae6610baea78c39e676ef109b571c5edfb1"
+  },
+  "loose": {
+    "final_nav": 1405794.4757748793,
+    "final_cash": 87099.12181998731,
+    "return_pct": 0.4057944757748793,
+    "n_put_attempts": 619,
+    "n_put_opened": 492,
+    "n_put_assignments": 113,
+    "n_cc_attempts": 288,
+    "n_cc_opened": 288,
+    "executed_trades_put_metric": 492,
+    "put_refuse_by_reason": {
+      "insufficient_bp": 127
+    },
+    "cc_refuse_by_reason": {},
+    "spearman_rho_all_candidates": 0.43262909284801854,
+    "mean_realized_all_candidates": 54.83378770256649,
+    "hit_rate_all_candidates": 0.8054586337908041,
+    "per_year": {
+      "2020": {
+        "n_candidates": 2585,
+        "rho": 0.5768221269844228,
+        "mean_realized_all_candidates": 22.556829400386864,
+        "hit_rate_all_candidates": 0.8390715667311412
+      },
+      "2021": {
+        "n_candidates": 2569,
+        "rho": 0.3194090577248458,
+        "mean_realized_all_candidates": 168.08625535227716,
+        "hit_rate_all_candidates": 0.8536395484624367
+      },
+      "2022": {
+        "n_candidates": 2558,
+        "rho": 0.3883268083290025,
+        "mean_realized_all_candidates": -139.05712900703674,
+        "hit_rate_all_candidates": 0.7279124315871774
+      },
+      "2023": {
+        "n_candidates": 2568,
+        "rho": 0.4119986499419574,
+        "mean_realized_all_candidates": 113.43805062305296,
+        "hit_rate_all_candidates": 0.8064641744548287
+      },
+      "2024": {
+        "n_candidates": 2617,
+        "rho": 0.42528057005324804,
+        "mean_realized_all_candidates": 107.55352999617887,
+        "hit_rate_all_candidates": 0.7997707298433321
+      }
+    },
+    "executed_realized_total": 65691.836,
+    "executed_realized_mean": 151.36367741935481,
+    "n_closed_positions": 434,
+    "n_open_positions_at_end": 58
+  },
+  "strict": {
+    "final_nav": 1247667.9426999989,
+    "final_cash": 721046.9426999989,
+    "return_pct": 0.24766794269999884,
+    "n_put_attempts": 5652,
+    "n_put_opened": 31,
+    "n_put_assignments": 21,
+    "n_cc_attempts": 1656,
+    "n_cc_opened": 1,
+    "executed_trades_put_metric": 31,
+    "put_refuse_by_reason": {
+      "portfolio_delta_breach": 5049,
+      "sector_cap_breach": 1,
+      "single_name_breach": 571
+    },
+    "cc_refuse_by_reason": {
+      "portfolio_delta_breach": 1655
+    },
+    "spearman_rho_all_candidates": 0.43262909284801854,
+    "mean_realized_all_candidates": 54.83378770256649,
+    "hit_rate_all_candidates": 0.8054586337908041,
+    "per_year": {
+      "2020": {
+        "n_candidates": 2585,
+        "rho": 0.5768221269844228,
+        "mean_realized_all_candidates": 22.556829400386864,
+        "hit_rate_all_candidates": 0.8390715667311412
+      },
+      "2021": {
+        "n_candidates": 2569,
+        "rho": 0.3194090577248458,
+        "mean_realized_all_candidates": 168.08625535227716,
+        "hit_rate_all_candidates": 0.8536395484624367
+      },
+      "2022": {
+        "n_candidates": 2558,
+        "rho": 0.3883268083290025,
+        "mean_realized_all_candidates": -139.05712900703674,
+        "hit_rate_all_candidates": 0.7279124315871774
+      },
+      "2023": {
+        "n_candidates": 2568,
+        "rho": 0.4119986499419574,
+        "mean_realized_all_candidates": 113.43805062305296,
+        "hit_rate_all_candidates": 0.8064641744548287
+      },
+      "2024": {
+        "n_candidates": 2617,
+        "rho": 0.42528057005324804,
+        "mean_realized_all_candidates": 107.55352999617887,
+        "hit_rate_all_candidates": 0.7997707298433321
+      }
+    },
+    "executed_realized_total": 974.704,
+    "executed_realized_mean": 97.4704,
+    "n_closed_positions": 10,
+    "n_open_positions_at_end": 21
+  },
+  "delta_strict_minus_loose": {
+    "final_nav": -158126.53307488048,
+    "return_pp": -15.812653307488048,
+    "executed_trades_put_metric": -461,
+    "n_put_opened": -461,
+    "n_cc_opened": -287,
+    "n_put_assignments": -92
+  }
+}

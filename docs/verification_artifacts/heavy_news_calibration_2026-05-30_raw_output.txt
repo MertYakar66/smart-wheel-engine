@@ -1,0 +1,84 @@
+
+==============================================================================
+  §A. EMPIRICAL news_multiplier distribution (UNIVERSE_100 × 13 dates)
+==============================================================================
+  store state    : {'shape': (0, 0), 'columns': [], 'is_empty': True}
+  total probes   : 1300 (100 tickers × 13 dates)
+  max n_articles : 0
+  any non-zero sentiment: False
+  any non-zero n_articles: False
+  non-neutral cells: 0
+  multiplier value counts: {1.0: 1300}
+
+  >>> §A VERDICT: pre-D18 news_multiplier was CONSTANT 1.0 (D18 = no-op for news_mult).
+
+==============================================================================
+  §B. Multi-config calibration on existing rank_logs (pre-#249 engine output)
+==============================================================================
+  configs discovered: 10
+
+  config                                             n_rows     MAD      top   OK/ W/MIS
+  ------------------------------------------------  -------  ------  -------  ---/--/---
+  S22 (24t/$100k/2022-2024 pre-PIT)                    6163    4.97    -7.75    2/ 3/  1
+  S27 (24t/$100k/2022-2024 post-PIT)                   6163    6.15    -4.88    3/ 1/  3
+  S32 (24t/$1M/2022-2024)                             17229    6.22    -5.11    2/ 2/  3
+  S34 (100t/$1M/2022-2024)                            30945    7.29   -15.05    2/ 2/  3
+  S35 (24t/$100k/2018-2020 OOS)                        5838    8.77   -16.64    2/ 1/  3
+  S38 (100t/$1M/2020-2024 pre-F4)                     51576    6.45   -14.80    2/ 3/  2
+  S38-postF4 (100t/$1M/2020-2024 post-F4)             51576    6.40   -15.63    2/ 2/  3
+  S40-W1 (100t/$1M/2021-2026)                         52560    5.75   -17.57    2/ 2/  3
+  S40-W2 (100t/$1M/2022-2026)                         42330    6.54   -15.06    2/ 2/  3
+  S40-W3 (100t/$1M/2023-2026)                         32160    3.07   -17.44    3/ 2/  2
+
+
+==============================================================================
+  §B.1. Reference S27 calibration table (detail — comparison baseline for §C)
+==============================================================================
+  rank_log    : C:\Users\merty\AppData\Local\Temp\s27_backtest\rank_log.csv
+  n_rows      : 6163
+  weighted MAD: 6.15pp
+  ok / warn / MISCAL bins: 3 / 1 / 3
+  (0.95, 1.0] delta: -4.88pp
+
+  bin                 n  engine_mean  actual_otm   delta_pp  verdict
+  -------------  ------  -----------  ----------  ---------  -----------
+  (0.5, 0.6]         43       0.5873      0.7907     +20.34  MISCAL
+  (0.6, 0.7]        498       0.6660      0.7550      +8.90  warn
+  (0.7, 0.8]       2367       0.7675      0.7436      -2.39  calibrated
+  (0.8, 0.85]      1312       0.8285      0.7035     -12.50  MISCAL
+  (0.85, 0.9]      1377       0.8704      0.8410      -2.95  calibrated
+  (0.9, 0.95]       529       0.9185      0.7996     -11.88  MISCAL
+  (0.95, 1.0]        37       0.9678      0.9189      -4.88  calibrated
+
+==============================================================================
+  §C. Re-run S27 on post-#249 engine → C:\Users\merty\AppData\Local\Temp\htc_s27_rerun_2026-05-30 (~20 min)
+==============================================================================
+  metrics: {"aggregate": {"ev_mean": -21.067565612382236, "executed_trades": 40, "final_cash": 7118.158000000014, "final_nav": 112222.7981966671, "hit_rate": 0.803835800807537, "iv_mean": 0.2563788526244953, "mean_realized": 50.794485195154785, "open_at_end": 5, "put_assignments": 9, "row_count": 5944, "spearman_p": 2.1854591235481714e-45, "spearman_rho": 0.1818971708354886}, "per_quartile": {"Q0": {"ev_mean": -122.28341857335128, "hit": 0.8082099596231493, "n": 1486, "pnl_mean": 60.30451547779272}, "Q1": {"ev_mean": -31.17345895020188, "hit": 0.7671601615074024, "n": 1486, "pnl_mean": 24.57449528936744}, "Q2": {"ev_mean": -2.112113055181696, "hit": 0.7644683714670256, "n": 1486, "pnl_mean": 28.88311574697174}, "Q3": {"ev_mean": 71.29872812920593, "hit": 0.8755047106325706, "n": 1486, "pnl_mean": 89.4158142664872}}, "per_year": {"2022": {"hit_rate": 0.7324380165289256, "iv_mean": 0.3106100723140496, "mean_realized": 0.21274276859503516, "n": 1936, "p": 1.1790345350403789e-61, "rho": 0.3638107406435585}, "2023": {"hit_rate": 0.8082191780821918, "iv_mean": 0.2340952815829528, "mean_realized": 86.44353120243531, "n": 1971, "p": 9.34108742246766e-16, "rho": 0.17962987063151603}, "2024": {"hit_rate": 0.8674521354933726, "iv_mean": 0.22639813451153656, "mean_realized": 64.37425135002456, "n": 2037, "p": 0.0017466245221466167, "rho": 0.06931485526980749}}}
+Traceback (most recent call last):
+  File "C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\indexes\base.py", line 3812, in get_loc
+    return self._engine.get_loc(casted_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'exit_reason'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\merty\Desktop\swe-terminal-c\docs\verification_artifacts\news_calibration_driver.py", line 578, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\merty\Desktop\swe-terminal-c\docs\verification_artifacts\news_calibration_driver.py", line 533, in main
+    section_c_calibration = compute_calibration(new_rank_log)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\merty\Desktop\swe-terminal-c\docs\verification_artifacts\news_calibration_driver.py", line 226, in compute_calibration
+    df = df[df["exit_reason"].notna()]
+            ~~^^^^^^^^^^^^^^^
+  File "C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\frame.py", line 4113, in __getitem__
+    indexer = self.columns.get_loc(key)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\indexes\base.py", line 3819, in get_loc
+    raise KeyError(key) from err
+KeyError: 'exit_reason'

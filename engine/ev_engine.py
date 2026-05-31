@@ -163,6 +163,15 @@ class EVResult:
     cvar_99_evt: float = float("nan")
     tail_xi: float = float("nan")
     heavy_tail: bool = False
+    # P&L distribution percentiles in raw dollars (pre regime/dealer
+    # multipliers), computed alongside cvar_5. These are the headline
+    # spread fields surfaced to the operator so the verdict is read as
+    # a distribution, not a point estimate. NaN when the distribution
+    # has fewer than 4 samples (consistent with cvar_5's small-sample
+    # behaviour) or the event-lockout short-circuit fired.
+    pnl_p25: float = float("nan")
+    pnl_p50: float = float("nan")
+    pnl_p75: float = float("nan")
     # Event lockout gate (quant upgrade 2026-04-14). When non-empty
     # the candidate was blocked by a pre-EV event gate and the
     # ``ev_dollars`` field was zeroed to prevent ranking.
@@ -383,6 +392,15 @@ class EVEngine:
         else:
             cvar_5 = float(np.min(pnls)) if len(pnls) > 0 else 0.0
 
+        # P&L distribution spread (p25 / p50 / p75) in raw dollars,
+        # pre regime/dealer multipliers. Needs ≥4 samples to be
+        # meaningful; below that, NaN is more honest than a degenerate
+        # quartile read off two points.
+        if len(pnls) >= 4:
+            p25, p50, p75 = (float(x) for x in np.percentile(pnls, [25, 50, 75]))
+        else:
+            p25 = p50 = p75 = float("nan")
+
         # Omega ratio at 0 threshold: E[(X-0)+] / E[(0-X)+]. Cap at 1000 so
         # the field is safely aggregable downstream (np.mean / np.sort on a
         # column containing float("inf") silently propagates inf across the
@@ -521,6 +539,9 @@ class EVEngine:
             cvar_99_evt=cvar_99_evt,
             tail_xi=tail_xi,
             heavy_tail=heavy_tail,
+            pnl_p25=p25,
+            pnl_p50=p50,
+            pnl_p75=p75,
             dealer_regime=dealer_regime_label,
             dealer_multiplier=dealer_mult,
             gex_total=gex_total,

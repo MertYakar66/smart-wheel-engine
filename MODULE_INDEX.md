@@ -77,7 +77,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
 | `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). |
 | `signals.py` | Composite signal aggregator (legacy framework — `IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). |
-| `news_sentiment.py` | News ingestion + scoring. The only news-stack module on the EV path. |
+| `news_sentiment.py` | Operator-facing sentiment reader. **Severed from the EV path by D18** — `sentiment_multiplier()` returns constant 1.0. `get_ticker_sentiment` is preserved so the dashboard / row dict / morning brief still surface the underlying score for transparency, but the engine ignores it. |
 
 ### Data layer
 
@@ -95,7 +95,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `option_pricer.py` | Black-Scholes-Merton pricing, Greeks (1st/2nd/3rd order), IV solver (Newton-Raphson + Brent). |
 | `binomial_tree.py` | Binomial-tree pricer. |
 | `monte_carlo.py` | Block bootstrap, jump-diffusion, Longstaff-Schwartz American pricing. |
-| `volatility_surface.py` | SVI calibration, `VolatilitySurfaceBuilder`. **dormant** — no live caller as of 2026-04-25 (see `PROJECT_STATE.md` §3). |
+| `volatility_surface.py` | SVI calibration, `VolatilitySurfaceBuilder`. **live** (A2, 2026-05-30) — wired in fail-loud via `SurfaceDataUnavailable` / `require_surface`; first caller `scripts/diagnose_iv_surface.py` (see `DECISIONS.md` D9). |
 | `model_validation.py` | Textbook + property tests for pricing models. |
 | `shared_valuation.py` | Unified labeling — `simulate_option_trade`, `simulate_wheel_cycle`, `TradeOutcome`. |
 

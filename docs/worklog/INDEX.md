@@ -9,7 +9,21 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**60 records.**
+**69 records.**
+
+## Features (1)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
+
+## Fixes (3)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [MP-A](mp-a-close-s42-dossier-defensive-guards-findings-1-4.md) | in-flight | #275 | Close S42 Findings #1-4 with defensive guards in the R7-R10 path (skip malformed rows; honour explicit contracts=0); §2 invariant preserved — reviewers stay downgrade-only. | `mp-a-close-s42-dossier-defensive-guards-findings-1-4.md` |
+| [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
+| [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
 
 ## Backtests (19)
 
@@ -35,11 +49,15 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (6)
+## Verification & realism (10)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| [heavy-news-calibration](heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md) | in-flight |  | On Bloomberg the pre-D18 news_multiplier was 1.0 in 1300/1300 probes — D18 is a measured no-op for prior backtests; prob_profit calibration matches the published 10-config matrix exactly. | `heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md` |
+| [heavy-r10-strict](heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md) | completed |  | full 5y run — strict loses to loose by −15.81pp; R10 fires 571× exclusively on BKNG/AZO (S44 prediction confirmed); portfolio_delta_breach dominates D17 refusals at 92.1% (R10 only 7.8%); strict opens 31 puts ALL in 2020 then freezes for 4 years; strict ahead 66.6% of days but crosses below loose 2023-11-01 | `heavy-r10-strict-r10-strict-mode-at-1m-100t-scale-load-bearing-ma.md` |
+| [ht-a](ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md) | in-flight |  | Bloomberg-default path is HMM-overlay-only; 316 positive-EV survivors trimmed silently by top_n; P25=P50=P75 collapses; §2 invariants observed upheld (D16 + D17 + R1/R1a + reviewer-never-upgrades). | `ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md` |
+| [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |
 | [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |
@@ -83,6 +101,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S36](s36-multi-ticker-hmm-regime-realism.md) | completed |  | Multi-ticker HMM regime realism | `s36-multi-ticker-hmm-regime-realism.md` |
 | [S37](s37-ranking-philosophy-ev-dollars-vs-roc.md) | completed |  | Ranking philosophy: ev_dollars vs roc | `s37-ranking-philosophy-ev-dollars-vs-roc.md` |
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
+
+## Refactors (1)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
 ## Research records (2)
 

@@ -166,6 +166,15 @@ class TestSqliteFallback:
 
 
 class TestSentimentMultiplier:
+    """DECISIONS.md D18: ``sentiment_multiplier`` is severed from the EV
+    path. The previous behaviour mapped sentiment bands to multipliers
+    in [0.88, 1.05]; the stub now returns 1.0 unconditionally for every
+    band the old code derated or boosted. The bands themselves are
+    enumerated here (one test per original band) so a future re-wire
+    that accidentally re-introduces an EV-influencing multiplier flips
+    a band-by-band failure rather than a single generic test.
+    """
+
     def _setup(self, tmp_path: Path, sentiment: float, n_articles: int) -> NewsSentimentReader:
         now = datetime.now(UTC).replace(tzinfo=None)
         _write_sentiment_csv(
@@ -182,32 +191,37 @@ class TestSentimentMultiplier:
         )
         return NewsSentimentReader(base_dir=tmp_path)
 
-    def test_few_articles_means_neutral(self, tmp_path: Path):
+    def test_few_articles_band_returns_one(self, tmp_path: Path):
+        """Old behaviour: 1.0 (low confidence). Post-D18: still 1.0."""
         reader = self._setup(tmp_path, sentiment=-0.9, n_articles=3)
         assert reader.sentiment_multiplier("AAPL") == 1.0
 
-    def test_strong_negative_with_5plus_articles_derank(self, tmp_path: Path):
+    def test_strong_negative_band_returns_one(self, tmp_path: Path):
+        """Old behaviour: 0.88 (soft derank). Post-D18: 1.0."""
         reader = self._setup(tmp_path, sentiment=-0.5, n_articles=8)
-        assert reader.sentiment_multiplier("AAPL") == 0.88
+        assert reader.sentiment_multiplier("AAPL") == 1.0
 
-    def test_mild_negative_with_5plus_articles(self, tmp_path: Path):
+    def test_mild_negative_band_returns_one(self, tmp_path: Path):
+        """Old behaviour: 0.95. Post-D18: 1.0."""
         reader = self._setup(tmp_path, sentiment=-0.2, n_articles=8)
-        assert reader.sentiment_multiplier("AAPL") == 0.95
+        assert reader.sentiment_multiplier("AAPL") == 1.0
 
-    def test_neutral_band(self, tmp_path: Path):
+    def test_neutral_band_returns_one(self, tmp_path: Path):
+        """Old behaviour: 1.0. Post-D18: still 1.0."""
         reader = self._setup(tmp_path, sentiment=0.05, n_articles=8)
         assert reader.sentiment_multiplier("AAPL") == 1.0
 
-    def test_strong_positive_with_5plus_articles_boost(self, tmp_path: Path):
+    def test_strong_positive_band_returns_one(self, tmp_path: Path):
+        """Old behaviour: 1.05 (boost). Post-D18: 1.0."""
         reader = self._setup(tmp_path, sentiment=0.5, n_articles=8)
-        assert reader.sentiment_multiplier("AAPL") == 1.05
+        assert reader.sentiment_multiplier("AAPL") == 1.0
 
-    def test_multiplier_bounds_observed(self, tmp_path: Path):
-        # Across all four bands the multiplier should stay in [0.88, 1.05]
+    def test_multiplier_constant_across_all_bands(self, tmp_path: Path):
+        """Across the bands that used to span [0.88, 1.05], the
+        multiplier is constant 1.0 post-D18."""
         for sent, n in [(-0.9, 10), (-0.2, 10), (0.0, 10), (0.5, 10)]:
             reader = self._setup(tmp_path, sentiment=sent, n_articles=n)
-            m = reader.sentiment_multiplier("AAPL")
-            assert 0.88 <= m <= 1.05
+            assert reader.sentiment_multiplier("AAPL") == 1.0
 
 
 class TestCacheBehavior:

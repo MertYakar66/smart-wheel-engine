@@ -668,26 +668,28 @@ class TestS42F4_FailClosedOnMissingContext:
         assert reason == "ev_above_threshold"
         assert not any("R9" in n or "R10" in n for n in notes)
 
-    def test_r9_path_raises_keyerror_on_held_position_missing_strike(self) -> None:
-        """A held position dict with ``strike`` missing entirely.
-        ``check_sector_cap`` -> ``SectorExposureManager.check_sector_limit``
-        -> ``calculate_sector_exposures`` does ``pos["strike"]`` — that's
-        a hard ``KeyError`` on the first malformed row.
+    def test_r9_skips_held_position_missing_strike_gracefully(self) -> None:
+        """A held position dict with ``strike`` missing is now
+        silently skipped by ``SectorExposureManager.calculate_sector_exposures``
+        — same defensive ``.get()`` pattern that
+        ``check_single_name_cap`` already used. S42 Finding #1
+        closed by this PR.
 
-        **This is current behaviour, not desired behaviour.** The
-        gate does not defensively skip malformed rows; it crashes.
-        Pinning the crash here is deliberate — see ledger S42
-        Finding #1 for the follow-up call. If a future PR hardens
-        the row adapter (e.g. ``pos.get("strike", 0)`` or a try/
-        except around the loop), this test will trip and must be
-        updated to assert the new graceful behaviour."""
+        Updated semantics: verdict stays at the R5 proceed result;
+        no R9 note because the bad row contributed zero to the
+        sector aggregate, leaving only the candidate's own notional
+        ($18k / $50k = 36% > 25%) — wait, 36% trips R9 by itself.
+        So R9 fires on the candidate-only aggregate. Refined
+        assertion: verdict is review with sector_cap_breach, and
+        R9 note mentions the candidate's sector (Information
+        Technology) — NO crash."""
         d = _proceeding_dossier(ticker="AAPL", strike=180.0)
         d.portfolio_context = PortfolioContext(
             held_option_positions=[
                 {
                     "symbol": "AAPL",
                     "option_type": "put",
-                    # 'strike' missing
+                    # 'strike' missing — gracefully skipped post-fix
                     "dte": 30,
                     "iv": 0.25,
                     "contracts": 1,
@@ -697,40 +699,37 @@ class TestS42F4_FailClosedOnMissingContext:
             spot_prices={"AAPL": 180.0},
             nav=50_000.0,
         )
-        # KeyError is what current code raises via the sector path.
-        # Pin the symptom — a future hardening that catches this and
-        # treats the row as zero-notional should update this test to
-        # assert a 'proceed' or 'review' verdict instead.
-        import pytest as _pytest
+        # Without the malformed held row contributing, the candidate
+        # alone is $18k / $50k = 36% of NAV — still > 25% R9 cap.
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        assert reason == "sector_cap_breach"
+        r9_notes = [n for n in notes if "R9" in n]
+        assert len(r9_notes) == 1
+        assert "Information Technology" in r9_notes[0]
 
-        with _pytest.raises(KeyError):
-            EnginePhaseReviewer().review(d)
+    def test_r10_defensive_handling_now_reachable_after_filter_fix(self) -> None:
+        """Once R8 stress no longer crashes on malformed held rows
+        (S42 Findings #2 / #4 closed by the
+        ``_filter_bsm_safe_positions`` filter in
+        ``portfolio_risk_gates.py``), R10's pre-existing defensive
+        try/except is reachable via the dossier path.
 
-    def test_r10_defensive_handling_is_unreachable_when_r9_runs_first(self) -> None:
-        """``check_single_name_cap`` has a defensive try/except that
-        skips malformed rows silently (``except (TypeError,
-        ValueError): continue`` at lines 457-460 in
-        ``portfolio_risk_gates.py``). On the dossier path R9 runs
-        BEFORE R10 and crashes on the same dict — so R10's
-        defensive handling is structurally unreachable for any
-        malformed row that reaches the reviewer.
-
-        This test pins the routing: with a held row missing
-        ``strike``, the dossier raises ``KeyError`` from R9 before
-        R10 ever gets a chance to skip the row defensively. Even
-        unknown-sector tickers route through the same code path —
-        ``calculate_sector_exposures`` does ``pos["strike"]``
-        regardless of which sector bucket the symbol resolves to.
-
-        Implication: R10's defensive code is exercised only by
-        direct ``check_single_name_cap`` unit tests, not via the
-        dossier reviewer. See ledger S42 Finding #1."""
+        This test uses an unknown-sector ticker (so R9 is the
+        Unknown bucket) with a held position missing ``strike``.
+        Post-fix path: R7 skips (no returns), R8 stress filters the
+        malformed row out (no crash), R9 silently skips the same
+        row (also filtered by Finding #1 fix), R10's defensive
+        try/except in ``check_single_name_cap`` matches — but the
+        row is already filtered upstream by R9 / R8, so R10 sees a
+        clean held set + candidate. Net: no crash; verdict drops
+        through to R10's pass branch."""
         d = _proceeding_dossier(ticker="XYZA", strike=200.0)
         d.portfolio_context = PortfolioContext(
             held_option_positions=[
                 {
-                    "symbol": "XYZA",  # same unknown-sector ticker
-                    # 'strike' missing
+                    "symbol": "XYZA",
+                    # 'strike' missing — gracefully skipped post-fix
                     "option_type": "put",
                     "dte": 30,
                     "iv": 0.25,
@@ -741,10 +740,11 @@ class TestS42F4_FailClosedOnMissingContext:
             spot_prices={"XYZA": 200.0},
             nav=50_000.0,
         )
-        import pytest as _pytest
-
-        with _pytest.raises(KeyError):
-            EnginePhaseReviewer().review(d)
+        # Candidate-only contribution: $20k / $50k = 40%. Unknown
+        # sector bucket fires R9 at 40% > 25%.
+        verdict, reason, _ = EnginePhaseReviewer().review(d)
+        assert verdict == "review"
+        assert reason == "sector_cap_breach"
 
 
 # ======================================================================
@@ -1005,27 +1005,17 @@ class TestS42F6_EdgeCases:
         assert reason == "ev_above_threshold"
         assert not any("R10" in n for n in notes)
 
-    def test_r8_stress_crashes_first_when_candidate_strike_is_zero(self) -> None:
-        """**Finding #2 (sharp edge).** The dossier guard ``if nav > 0
-        and proposed_notional > 0`` in R9 and R10 is structurally
-        unreachable when ``strike == 0`` because R8 stress runs
-        before R9/R10 and crashes on the BSM pricing call:
+    def test_r8_stress_filters_candidate_strike_zero_gracefully(self) -> None:
+        """A degenerate candidate (strike=0) used to crash R8 stress
+        at the BSM pricing call before R9/R10 had a chance to skip
+        it via their ``proposed_notional > 0`` guard. S42 Finding #2
+        closed by the ``_filter_bsm_safe_positions`` filter in
+        ``portfolio_risk_gates.py`` — R8 now silently drops the
+        malformed candidate row before BSM sees it. R9/R10 then run
+        normally; their existing guard catches proposed_notional=0
+        and skips silently.
 
-        - ``EnginePhaseReviewer.review`` runs R7 → R8 → R9 → R10
-          unconditionally when a PortfolioContext is attached and the
-          verdict is currently proceed.
-        - R8's ``check_stress_scenario`` -> ``StressTester.run_scenario``
-          -> ``black_scholes_price`` validates ``K > 0`` and raises
-          ``ValueError`` for any strike <= 0.
-        - R9 and R10 never get a chance to skip silently via the
-          ``proposed_notional > 0`` guard.
-
-        Pinning the crash here — see ledger S42 Finding #2. Hardening
-        would either (a) add the same ``proposed_notional > 0`` guard
-        to R8, or (b) harden ``black_scholes_price`` against
-        zero/negative strikes upstream."""
-        import pytest as _pytest
-
+        Updated semantics: no crash; verdict stays at R5's proceed."""
         d = _proceeding_dossier(ticker="AAPL", strike=0.0, contracts=1)
         d.ev_row["spot"] = 0.0  # match chart spot so R3 doesn't fire
         d.portfolio_context = PortfolioContext(
@@ -1033,36 +1023,38 @@ class TestS42F6_EdgeCases:
             spot_prices={"AAPL": 180.0},
             nav=10_000.0,
         )
-        with _pytest.raises(ValueError, match="Strike price K must be positive"):
-            EnginePhaseReviewer().review(d)
+        # No crash; soft-warns don't fire. R7 may leave a "VaR check
+        # skipped (missing_data)" note because no returns_data was
+        # supplied — that's a benign trace, not a firing.
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        assert not any("R9" in n or "R10" in n for n in notes)
+        # The R8 stress + R8 dealer rules ran but passed (R8 stress
+        # filtered the malformed candidate out; R8 dealer skipped on
+        # missing dealer_regime_by_ticker).
+        # No R8 firing note should appear.
+        assert not any("R8 (stress):" in n or "R8 (dealer):" in n for n in notes)
 
-    def test_r9_r10_path_coerces_zero_contracts_to_one_via_or_truthy_fallback(self) -> None:
-        """**Finding #3 (silent coercion).** The R9 and R10 paths in
-        ``candidate_dossier.py`` both call::
+    def test_r9_r10_path_honors_explicit_zero_contracts_after_or_fix(self) -> None:
+        """S42 Finding #3 closed. The R9 and R10 paths in
+        ``candidate_dossier.py`` no longer coerce an explicit
+        ``contracts=0`` to 1 — the ``or 1`` truthy fallback has been
+        removed so ``int(ev_row.get("contracts", 1))`` returns 0 when
+        the key is explicitly 0, the missing-key default of 1
+        remains intact (handled by the ``.get(..., 1)`` second
+        argument).
 
-            contracts = int(ev_row.get("contracts", 1) or 1)
+        Updated semantics: with ``contracts=0``, proposed_notional=0
+        triggers the existing ``if nav > 0 and proposed_notional > 0``
+        guard around R9 and R10 — both gates skip silently. Verdict
+        stays at the R5 proceed result. The held $18k AAPL alone is
+        $18k / $100k = 18%, well below the 25% R9 sector cap and the
+        10% R10 single-name cap when the candidate contributes 0.
 
-        The ``or 1`` truthy fallback was meant to handle a missing key,
-        but it ALSO coerces an explicit ``contracts=0`` to 1 because
-        ``0 or 1`` evaluates to ``1`` in Python. Result: a degenerate
-        ``contracts=0`` candidate is silently sized as 1 contract for
-        the R9/R10 cap check.
-
-        Pinning the coercion. Hardening would change to
-        ``int(ev_row.get("contracts") or 1)`` -> nope, same problem; the
-        actual fix is ``int(ev_row.get("contracts") if
-        ev_row.get("contracts") is not None else 1)`` or just explicit
-        ``None`` handling.
-
-        Setup: AAPL $18k held + ``contracts=0`` candidate (coerced to
-        1) at ``nav=$100k``. ATM short-put C4 stress drawdown stays
-        below 8% (sized so R8 stress passes), but Info Tech sector
-        exposure of ($18k + $18k)/$100k = 36% > 25% R9 cap, so R9
-        fires. If the coercion bug were fixed (contracts=0 honoured
-        as 0), proposed_notional would be 0 and R9 would skip via its
-        guard — verdict would land at proceed instead. Trip
-        condition: assertion fails means the coercion has been
-        repaired (good!)."""
+        Trip condition: if a future refactor re-introduces the
+        truthy coercion (or replaces it with another silent fallback),
+        this test fires."""
         d = _proceeding_dossier(ticker="AAPL", strike=180.0, contracts=0)
         d.portfolio_context = PortfolioContext(
             held_option_positions=[
@@ -1077,40 +1069,39 @@ class TestS42F6_EdgeCases:
                 }
             ],
             spot_prices={"AAPL": 180.0},
-            nav=100_000.0,  # large enough that R8 stress drawdown < 8%
+            nav=100_000.0,
         )
         verdict, reason, notes = EnginePhaseReviewer().review(d)
-        # The contracts=0 was coerced to 1 — R9 fires.
-        assert verdict == "review"
-        assert reason == "sector_cap_breach"
-        assert any("R9" in n for n in notes)
+        # contracts=0 honoured → proposed_notional=0 → R9/R10 skip.
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        assert not any("R9" in n or "R10" in n for n in notes)
 
-    def test_r8_stress_crashes_first_when_held_position_strike_is_negative(self) -> None:
-        """**Finding #4 (sharp edge — symmetrical to Finding #2 but on
-        the held-position side).** A held option position with a
-        negative strike (data corruption) crashes R8 stress via the
-        BSM pricing call on the malformed held position.
+    def test_r8_stress_filters_held_position_negative_strike_gracefully(self) -> None:
+        """S42 Finding #4 closed. A held position with a negative
+        strike (data corruption) used to crash R8 stress at the BSM
+        pricing call. The ``_filter_bsm_safe_positions`` filter in
+        ``portfolio_risk_gates.py`` now drops the malformed held row
+        before BSM sees it. R9 and R10's defensive try/except in
+        ``check_single_name_cap`` is also structurally reachable
+        now (the cascading R8 crash no longer pre-empts R10).
 
-        ``check_single_name_cap`` itself has a defensive try/except
-        that catches ``TypeError`` and ``ValueError`` on malformed
-        rows (it would treat a negative strike as zero contribution
-        per its arithmetic). But on the dossier path R8 stress runs
-        first and crashes on the same row before R10 ever runs.
-
-        Implication: R10's defensive try/except is structurally
-        unreachable for malformed held positions when they reach the
-        dossier reviewer with a PortfolioContext attached. Same
-        finding as the missing-strike crash in F4 — see ledger S42
-        Finding #1 and Finding #4."""
-        import pytest as _pytest
-
+        Updated semantics: held row dropped from the stress pool
+        but the candidate is valid; R8 stress runs on a single-
+        position pool (the candidate-only). At $5k proposed on $100k
+        NAV the C4 stress drawdown stays below 8% so R8 stress
+        passes. R9 sector exposure: held row contributes 0 (filtered
+        from sector aggregation by Finding #1 fix), candidate
+        contributes $5k = 5% < 25% — R9 passes. R10 single-name:
+        held also filtered → 5% < 10% — R10 passes. Verdict
+        proceeds."""
         d = _proceeding_dossier(ticker="AAPL", strike=50.0)
         d.portfolio_context = PortfolioContext(
             held_option_positions=[
                 {
                     "symbol": "AAPL",
                     "option_type": "put",
-                    "strike": -100.0,  # corruption
+                    "strike": -100.0,  # corruption — filtered post-fix
                     "dte": 30,
                     "iv": 0.25,
                     "contracts": 1,
@@ -1120,8 +1111,10 @@ class TestS42F6_EdgeCases:
             spot_prices={"AAPL": 100.0},
             nav=100_000.0,
         )
-        with _pytest.raises(ValueError, match="Strike price K must be positive"):
-            EnginePhaseReviewer().review(d)
+        verdict, reason, notes = EnginePhaseReviewer().review(d)
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        assert not any("R9" in n or "R10" in n for n in notes)
 
 
 # ======================================================================

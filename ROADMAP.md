@@ -35,17 +35,12 @@ the `SWE_USE_MCP_CHART` env var — opt-in, co-located transport
 server to confirm JSON field names.
 
 ### A2. iv_surface integration — pick the missing-data contract
-**Status:** `open question`
-**Context:** `engine/volatility_surface.py` (SVI calibrator + builder)
-has zero non-test callers. Theta `iv_surface/` snapshot covers
-28/503 tickers; `iv_surface_history/` is now 381/503 after the
-2026-05-04 pull (122 strict-mode rejections).
-**The question:** for the uncovered tickers, do we (a) fail loudly,
-or (b) use a clearly-named `flat_iv_fallback` (never silent)?
-**Done when:** the contract is recorded in `DECISIONS.md` D9 and the
-SVI tooling has at least one production caller, OR the SVI tooling
-is removed from `engine/__init__.py` re-exports and marked
-**deprecated** in `MODULE_INDEX.md`.
+**Status:** `done` (2026-05-30) — decided **(a) fail loudly**. The SVI
+tooling is wired in behind `SurfaceDataUnavailable` + `require_surface`
+(`engine/volatility_surface.py`); first production caller is
+`scripts/diagnose_iv_surface.py` (fail-loud, non-zero exit on uncovered
+tickers); contract recorded in `DECISIONS.md` D9; pinned by
+`tests/test_iv_surface_failloud.py`. See `CHANGELOG.md` 2026-05.
 
 ### A3. `engine/__init__.py` re-exports the modern decision-layer
 **Status:** `done` — the parking premise turned out to be wrong. A
@@ -116,18 +111,14 @@ it is a real consumer (`local_agent/ui/streamlit_app.py`). See
 ## Track C — Hygiene + governance follow-ups
 
 ### C1. Decide whether the bloomberg yfinance CSVs should be tracked
-**Status:** `open question`
-**Issue:** `data/bloomberg/sp500_earnings_yf.csv`,
-`sp500_fundamentals_yf.csv`, `treasury_yields.csv` are tracked but
-re-generated on every yfinance pull. They show local modifications
-right now (refreshed earnings + treasury yields).
-**Options:**
-- *Track and treat refreshes as data commits* — current behaviour;
-  forces a commit-and-push every refresh
-- *Gitignore and add to a daily refresh script* — cleaner history;
-  loses the "what data did we run on?" historical record
-- *Track but freeze* — refresh in a separate `data/refresh/` overlay
-  that is gitignored
+**Status:** `done` (2026-05-30) — decided **keep tracking as data
+commits** (the *Track and treat refreshes as data commits* option).
+Rationale: the point-in-time "what data did we run on?" audit trail
+(`docs/DATA_POLICY.md` §4 PIT discipline) outweighs the
+commit-per-refresh history noise, and it needs zero migration.
+`sp500_earnings_yf.csv`, `sp500_fundamentals_yf.csv`,
+`treasury_yields.csv` stay tracked; a refresh is a data commit.
+Recorded in `docs/DATA_POLICY.md` §5. See `CHANGELOG.md` 2026-05.
 
 ### C2. Stage the new `tradingview/` analyst workspace files
 **Status:** `done` — shipped via PR #78
@@ -181,7 +172,10 @@ async paths of `recovery/health.py`. Three reasons not to chase it:
    EV engine only through `engine/news_sentiment.py` (already at
    94% via E1), which reads from disk. The browser plumbing that
    *produces* those files is consumed asynchronously, off the
-   decision path.
+   decision path. **Post-D18 (2026-05-26):** even
+   `engine/news_sentiment.py`'s EV-influence channel is severed
+   (`sentiment_multiplier` returns constant 1.0), strengthening
+   the case — no news subsystem feeds the EV authority any more.
 2. **Infrastructure investment far exceeds value.** Coverage would
    require a Playwright + aiohttp + SessionManager mock harness —
    ~hundreds of lines of fixture infrastructure for code that's

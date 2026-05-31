@@ -1,0 +1,39 @@
+[r10_strict_driver] connector: MarketDataConnector
+[r10_strict_driver] worktree:  C:\Users\merty\Desktop\swe-terminal-d
+[r10_strict_driver] universe size=100 window=2020-01-02->2020-04-30 capital=$1,000,000 friction=full
+[r10_strict_driver] out_dir: C:\Users\merty\Desktop\r10_artifacts\pilot
+[r10_strict] day    3/86 (  3.5%) elapsed    0.7min  ETA   18.9min  ( 0.07 day/s)  NAV_loose=$999,459  NAV_strict=$999,939  n_loose=9 n_strict=8
+[r10_strict] day    6/86 (  7.0%) elapsed    1.4min  ETA   18.5min  ( 0.07 day/s)  NAV_loose=$1,001,097  NAV_strict=$1,000,267  n_loose=13 n_strict=9
+[r10_strict] day    9/86 ( 10.5%) elapsed    2.1min  ETA   17.8min  ( 0.07 day/s)  NAV_loose=$1,001,572  NAV_strict=$1,000,383  n_loose=13 n_strict=9
+[r10_strict] day   12/86 ( 14.0%) elapsed    2.8min  ETA   17.0min  ( 0.07 day/s)  NAV_loose=$1,002,290  NAV_strict=$1,000,567  n_loose=13 n_strict=9
+[r10_strict] day   15/86 ( 17.4%) elapsed    3.3min  ETA   15.6min  ( 0.08 day/s)  NAV_loose=$1,000,660  NAV_strict=$1,000,635  n_loose=13 n_strict=9
+[r10_strict] day   18/86 ( 20.9%) elapsed    4.0min  ETA   15.0min  ( 0.08 day/s)  NAV_loose=$992,317  NAV_strict=$1,000,266  n_loose=14 n_strict=9
+[r10_strict] day   21/86 ( 24.4%) elapsed    4.7min  ETA   14.5min  ( 0.07 day/s)  NAV_loose=$988,875  NAV_strict=$1,000,333  n_loose=18 n_strict=13
+[r10_strict] day   24/86 ( 27.9%) elapsed    5.4min  ETA   14.0min  ( 0.07 day/s)  NAV_loose=$986,229  NAV_strict=$1,000,487  n_loose=22 n_strict=15
+[r10_strict] day   27/86 ( 31.4%) elapsed    6.2min  ETA   13.5min  ( 0.07 day/s)  NAV_loose=$999,997  NAV_strict=$1,000,842  n_loose=22 n_strict=14
+[r10_strict] day   30/86 ( 34.9%) elapsed    6.9min  ETA   12.9min  ( 0.07 day/s)  NAV_loose=$997,840  NAV_strict=$1,001,128  n_loose=22 n_strict=12
+[r10_strict] day   33/86 ( 38.4%) elapsed    7.6min  ETA   12.2min  ( 0.07 day/s)  NAV_loose=$1,000,623  NAV_strict=$1,001,275  n_loose=21 n_strict=12
+[r10_strict] day   36/86 ( 41.9%) elapsed    8.4min  ETA   11.6min  ( 0.07 day/s)  NAV_loose=$1,000,701  NAV_strict=$1,001,100  n_loose=23 n_strict=14
+[r10_strict] day   39/86 ( 45.3%) elapsed    9.2min  ETA   11.0min  ( 0.07 day/s)  NAV_loose=$962,083  NAV_strict=$996,255  n_loose=27 n_strict=16
+[r10_strict] day   42/86 ( 48.8%) elapsed   10.0min  ETA   10.5min  ( 0.07 day/s)  NAV_loose=$939,841  NAV_strict=$985,261  n_loose=33 n_strict=21
+[r10_strict] day   45/86 ( 52.3%) elapsed   11.0min  ETA   10.0min  ( 0.07 day/s)  NAV_loose=$964,598  NAV_strict=$998,898  n_loose=34 n_strict=22
+[r10_strict] day   48/86 ( 55.8%) elapsed   12.1min  ETA    9.6min  ( 0.07 day/s)  NAV_loose=$910,586  NAV_strict=$976,415  n_loose=39 n_strict=21
+[r10_strict] day   51/86 ( 59.3%) elapsed   13.4min  ETA    9.2min  ( 0.06 day/s)  NAV_loose=$831,311  NAV_strict=$960,802  n_loose=40 n_strict=21
+[r10_strict] day   54/86 ( 62.8%) elapsed   14.7min  ETA    8.7min  ( 0.06 day/s)  NAV_loose=$838,286  NAV_strict=$962,335  n_loose=41 n_strict=21
+[r10_strict] day   57/86 ( 66.3%) elapsed   16.1min  ETA    8.2min  ( 0.06 day/s)  NAV_loose=$761,882  NAV_strict=$939,886  n_loose=47 n_strict=21
+[r10_strict] day   60/86 ( 69.8%) elapsed   17.3min  ETA    7.5min  ( 0.06 day/s)  NAV_loose=$822,979  NAV_strict=$956,295  n_loose=48 n_strict=21
+[r10_strict] day   63/86 ( 73.3%) elapsed   18.5min  ETA    6.7min  ( 0.06 day/s)  NAV_loose=$853,585  NAV_strict=$973,510  n_loose=51 n_strict=21
+[r10_strict] day   66/86 ( 76.7%) elapsed   19.7min  ETA    6.0min  ( 0.06 day/s)  NAV_loose=$818,441  NAV_strict=$965,607  n_loose=52 n_strict=21
+[r10_strict] day   69/86 ( 80.2%) elapsed   20.9min  ETA    5.2min  ( 0.06 day/s)  NAV_loose=$863,635  NAV_strict=$976,568  n_loose=51 n_strict=21
+[r10_strict] day   72/86 ( 83.7%) elapsed   22.0min  ETA    4.3min  ( 0.05 day/s)  NAV_loose=$900,683  NAV_strict=$991,128  n_loose=49 n_strict=21
+[r10_strict] day   75/86 ( 87.2%) elapsed   23.1min  ETA    3.4min  ( 0.05 day/s)  NAV_loose=$889,676  NAV_strict=$985,058  n_loose=48 n_strict=21
+[r10_strict] day   78/86 ( 90.7%) elapsed   24.2min  ETA    2.5min  ( 0.05 day/s)  NAV_loose=$898,436  NAV_strict=$990,386  n_loose=47 n_strict=21
+[r10_strict] day   81/86 ( 94.2%) elapsed   25.3min  ETA    1.6min  ( 0.05 day/s)  NAV_loose=$885,920  NAV_strict=$984,797  n_loose=47 n_strict=21
+[r10_strict] day   84/86 ( 97.7%) elapsed   26.5min  ETA    0.6min  ( 0.05 day/s)  NAV_loose=$910,942  NAV_strict=$992,077  n_loose=47 n_strict=21
+
+[r10_strict_driver] DONE
+  out_dir: C:\Users\merty\Desktop\r10_artifacts\pilot
+  loose NAV:  $914,542.74
+  strict NAV: $991,808.14
+  R10 bind count (strict puts): 17
+  R9  bind count (strict puts): 0

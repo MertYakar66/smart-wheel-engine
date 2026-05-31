@@ -1,0 +1,95 @@
+==============================================================================
+R10 STRICT-VS-LOOSE ANALYSIS — full
+Window: 2020-01-02 -> 2024-12-31  Capital: $1,000,000
+Universe: 100t  Friction: full
+==============================================================================
+
+## §2 Headline results
+
+| Metric | Loose | Strict | Δ strict − loose |
+|---|---|---|---|
+| Final NAV | $1,405,794 | $1,247,668 | $-158,127 |
+| Return | +40.58% | +24.77% | -15.81pp |
+| Final cash | $87,099 | $721,047 | $+633,948 |
+| Put open ATTEMPTS | 619 | 5,652 | +5,033 |
+| Puts OPENED | 492 | 31 | -461 |
+| Put refuse rate | 20.5% | 99.5% | +78.9pp |
+| Put assignments | 113 | 21 | -92 |
+| CCs OPENED | 288 | 1 | -287 |
+| Spearman ρ (all candidates) | 0.4326 | 0.4326 | +0.0000 |
+| Mean realized (all candidates) | $+54.83 | $+54.83 | identical (shared rank) |
+| Executed realized total | $+65,691.84 | $+974.70 | $-64,717.13 |
+| Executed realized per trade | $+151.36 | $+97.47 | — |
+
+## §2.1 D17 hard-block firing breakdown (strict only)
+
+| Gate | Put refusals | CC refusals | Total | % of all strict refusals |
+|---|---|---|---|---|
+| `portfolio_delta_breach` (portfolio delta breach) | 5,049 | 1,655 | 6,704 | 92.1% |
+| `sector_cap_breach` (sector cap breach) | 1 | 0 | 1 | 0.0% |
+| `single_name_breach` (single name breach) | 571 | 0 | 571 | 7.8% |
+| **Total refusals** | **5,621** | **1,655** | **7,276** | 100% |
+
+## §2.2 Per-name peak short-option notional — top-10 by max %NAV (both trackers)
+
+Captured from `daily_state.csv` (`max_name_pct` column tracked end-of-day).
+
+| Tracker | Peak max-name %NAV | Date | n_names at peak |
+|---|---|---|---|
+| loose | 25.36% | 2020-03-23 | 45 |
+| strict | 4.80% | 2020-03-23 | 11 |
+
+Loose tracker breached 10% per-name cap on **623 of 1304 trading days** (47.8%) — that is the rate at which R10 would have bound HAD it been enabled.
+
+Strict tracker breached 10% per-name cap on **0 of 1304 trading days** (0.0%) — should be 0 by construction; any > 0 indicates an R10 gap (single-name notional from CC + put summed exceeds cap, or a position grew via assignment after R10 check).
+
+## §4 Per-year breakdown (all candidates view + executed view)
+
+| Year | n_candidates | ρ (shared) | Mean realized (all) | Loose executed | Strict executed | R10 (loose) | R10 (strict) |
+|---|---|---|---|---|---|---|---|
+| 2020 | 2,585 | 0.5768 | $+22.56 | 174 | 31 | 235 days >10% | 108 |
+| 2021 | 2,569 | 0.3194 | $+168.09 | 108 | 0 | 173 days >10% | 97 |
+| 2022 | 2,558 | 0.3883 | $-139.06 | 81 | 0 | 204 days >10% | 224 |
+| 2023 | 2,568 | 0.4120 | $+113.44 | 77 | 0 | 11 days >10% | 75 |
+| 2024 | 2,617 | 0.4253 | $+107.55 | 52 | 0 | 0 days >10% | 67 |
+
+`R10 (loose)` = number of EOD days when loose tracker's max-name %NAV exceeded 10% (i.e. would-have-been R10 breaches). `R10 (strict)` = actual count of strict R10 refusals.
+
+## §5 Concentration / R10 firing pattern — top tickers by refusal type (strict)
+
+### `single_name_breach` — top-10 tickers
+
+| Ticker | Refuse count |
+|---|---|
+| BKNG | 331 |
+| AZO | 240 |
+
+### `portfolio_delta_breach` — top-10 tickers
+
+| Ticker | Refuse count |
+|---|---|
+| CDNS | 405 |
+| AMT | 392 |
+| CCI | 339 |
+| BF/B | 262 |
+| ADBE | 255 |
+| CARR | 195 |
+| AMAT | 194 |
+| AKAM | 191 |
+| ARES | 183 |
+| CLX | 173 |
+
+### `sector_cap_breach` — top-10 tickers
+
+| Ticker | Refuse count |
+|---|---|
+| AZO | 1 |
+
+
+## §6 §2 invariant scan
+
+Count of OPEN attempts where the strict tracker successfully opened a position despite `ev_dollars <= 0` or non-finite (must be 0 — `consume_ranker_row` refuses non-positive at issuance).
+
+- **loose**: opened 492 put positions. With ev_dollars<=0: 0. Non-finite: 0. §2 OK.
+- **strict**: opened 31 put positions. With ev_dollars<=0: 0. Non-finite: 0. §2 OK.
+

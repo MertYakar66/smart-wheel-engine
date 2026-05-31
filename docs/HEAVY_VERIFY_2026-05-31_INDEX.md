@@ -44,6 +44,8 @@ Branch `claude/heavy-verify-campaign-2026-05-31`. Drivers + raw output:
 | **The §2 invariant** — no negative-EV candidate can become tradeable; reviewers are downgrade-only; dealer/regime multipliers are sign-preserving | 6 adversarial attacks, all held; lead-verified | I4 |
 | **The negative-EV hard-block & downgrade-only review contract** — no rescue path (negative/inf/NaN → blocked even with a perfect chart) | dossier probes | I3-C, I4 |
 | **EV semantics are sound** — `ev_dollars` correctly reflects probability-weighted tail risk (MU CC −$812 despite $1,334 premium) | re-verified on current engine | I5-A |
+| **The ranking adds real selection value** — monthly top-10 by any engine signal beats random/all (+$166–206 vs −$26 mean; positive vs negative ROC); `prob_profit` is the best risk-adjusted selector | top-K selection vs random | I6-B |
+| **The over-confidence is fixable** — a recalibration trained on 2020-2023 generalizes (out-of-sample ECE 3.17→1.29pp; >0.90 forecast 0.924→0.806 = realized) | out-of-sample recalibration | I6-C |
 
 ## Where you CANNOT trust it (ranked by materiality)
 
@@ -91,6 +93,7 @@ the highest-value fix target — flagged, not implemented (observe-only).
 | I3 | Stress / discipline | Sound rules; caps dormant by default; procyclical at crash entry | `HEAVY_VERIFY_2026-05-31_I3_STRESS_DISCIPLINE.md` |
 | I4 | §2 invariant adversarial probe | HELD across 6 attacks; firewall intact | `HEAVY_VERIFY_2026-05-31_I4_SECTION2_INVARIANT.md` |
 | I5 | Re-verify prior claims | All hold; #294 did not touch the EV path | `HEAVY_VERIFY_2026-05-31_I5_PRIOR_CLAIMS.md` |
+| I6 | Wave-2 deepening (regime overlay / selection value / fixability) | Ranking *works* (top-K beats random); regime overlay over-penalizes bear; over-confidence is recalibratable | `HEAVY_VERIFY_2026-05-31_I6_DEEPENING.md` |
 
 ## Method & honesty notes
 

@@ -1,0 +1,51 @@
+loaded 16005 realized rows, 73 dates
+
+==============================================================================
+W2-A  Does the HMM regime overlay earn its keep?
+==============================================================================
+Per-regime realized outcome + the multiplier the engine applied:
+               n  mean_regime_mult  mean_prob_profit  realized_win  realized_mean_pnl  realized_median_pnl
+hmm_regime                                                                                                
+crisis      2379             0.405             0.810         0.706           -121.441                 85.5
+bear        5923             0.600             0.801         0.811             -7.802                106.1
+normal      5071             0.875             0.786         0.776            -20.701                101.7
+bull_quiet  2632             0.991             0.782         0.777              9.817                 91.6
+
+Reading: if the regimes the engine de-rates most (lowest mean_regime_mult)
+also realize the WORST (lowest win / median), the haircut is directionally
+correct. Rank-corr(mean_regime_mult, realized_median across regimes):
+  Spearman = +0.200
+
+sign discipline: ev_dollars<=0 rows realize median 87 (n=11790); ev_dollars>0 realize median 155 (n=4215)
+
+==============================================================================
+W2-B  Which engine signal best SELECTS profitable trades? (monthly top-K)
+==============================================================================
+   selector     n  mean_pnl  median_pnl   win  realized_roc_mean_%  roc_sharpe
+ ev_dollars   730     205.5       349.1 0.827                0.379       0.081
+     ev_raw   730     194.9       367.6 0.822                0.338       0.069
+prob_profit   730     172.8       163.6 0.808                0.479       0.114
+     ev_roc   730     166.2       208.8 0.819                0.438       0.070
+     random   730     -24.2        97.5 0.778               -0.120      -0.026
+        all 16005     -25.9        99.6 0.779               -0.262      -0.053
+
+Reading: if ev_dollars/ev_roc top-K beats random and 'all', the engine's
+ranking adds selection value; compare which signal ranks best by realized ROC.
+
+==============================================================================
+W2-C  Out-of-sample recalibration demo (does a regime-conditional haircut fix it?)
+==============================================================================
+train (<=2023) n=10199  test (>=2024) n=5806
+
+OUT-OF-SAMPLE (test >=2024):
+  raw prob_profit         : ECE=3.17pp  Brier=0.1815
+  +per-bin recalibration  : ECE=1.29pp  Brier=0.1788
+  +bin x regime recalib   : ECE=1.36pp  Brier=0.1783
+  test >0.90 bin (n=184): raw fc=0.924 realized=0.804 | per-bin-recal fc=0.806 | binxregime fc=0.812
+  test >0.95 bin (n=10): raw fc=0.974 realized=0.900 | per-bin-recal fc=0.674 | binxregime fc=0.748
+
+Reading: if recalibrated ECE << raw ECE out-of-sample, a histogram/regime-
+conditional haircut on prob_profit generalizes -- i.e. the over-confidence is
+learnable and fixable (the candidate fix flagged in I1/I3-E). Observe-only.
+
+I6 DONE.

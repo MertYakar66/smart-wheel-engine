@@ -1175,6 +1175,37 @@ rule fixes the source convention. The CSV is percent, so divide by 100 always.
 
 ---
 
+## D21. Forward-distribution horizon is calendar-day in, trading-day-bar out
+
+**Decision:** `best_available_forward_distribution` treats its `horizon_days`
+argument as a **calendar-day** horizon (the option DTE) and converts it once to
+trading-day bars via `calendar_days_to_trading_bars` (≈ `round(days·252/365)`)
+before calling the bar-indexed samplers (empirical / block-bootstrap / HAR-RV).
+The low-level samplers continue to interpret their `horizon_days` argument as
+trading-day bars (their natural unit; they index price-bar arrays).
+
+**Why:** The samplers index trading-day price bars, but every live caller in
+`wheel_runner` passes the option's calendar DTE (e.g. 35) straight through. A
+35-calendar-day option evolves over ~24 trading bars, not 35, so indexing the
+calendar count over-stated the horizon by ~45% and over-dispersed the terminal
+distribution feeding EV (terminal-return std scales ~√horizon). The docstring
+already claimed "calendar days"; the code did not honour it. Converting once in
+the orchestrator fixes every live caller without changing the samplers' tested
+bar-level behaviour.
+
+**Rejected alternatives:**
+- *Convert at each `wheel_runner` call site.* Three call sites, easy to miss
+  one; the orchestrator is the single choke point all live callers share.
+- *Convert inside each low-level sampler.* Would change the semantics of the
+  functions the unit tests call directly with explicit bar counts, for no gain.
+
+**Pinned by:** `engine/forward_distribution.py` (`calendar_days_to_trading_bars`,
+the orchestrator conversion), `tests/test_audit_improvements.py::TestForwardDistribution`
+(`test_horizon_calendar_to_trading_bar_conversion`,
+`test_orchestrator_horizon_uses_trading_bars_not_calendar`).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

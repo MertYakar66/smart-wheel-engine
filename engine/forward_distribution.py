@@ -37,6 +37,24 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+# Calendar->trading-day horizon conversion (D21). An option DTE is a
+# CALENDAR-day quantity, but the samplers below index *trading-day* price bars.
+# ~252 trading days span ~365 calendar days, so a 35-DTE option evolves over
+# ~24 trading bars, not 35. Indexing calendar DTE directly over-states the
+# horizon (~45%) and over-disperses the terminal distribution feeding EV. The
+# orchestrator converts once; the low-level samplers take bars.
+TRADING_DAYS_PER_YEAR = 252
+CALENDAR_DAYS_PER_YEAR = 365
+
+
+def calendar_days_to_trading_bars(calendar_days: int) -> int:
+    """Convert a calendar-day horizon (e.g. an option DTE) to trading-day bars.
+
+    Returns at least 1 bar. ``round(35 * 252 / 365) == 24``.
+    """
+    bars = round(int(calendar_days) * TRADING_DAYS_PER_YEAR / CALENDAR_DAYS_PER_YEAR)
+    return max(1, int(bars))
+
 
 # ----------------------------------------------------------------------
 # 1. Empirical non-overlapping forward log-returns
@@ -59,8 +77,11 @@ def empirical_forward_log_returns(
 
     Args:
         ohlcv: DataFrame indexed by date with at least a ``close`` column.
-        horizon_days: Forward horizon in calendar days (33 for a typical
-                      45-DTE option held to profit target, for instance).
+        horizon_days: Forward horizon in **trading-day bars** (this is a
+                      bar-indexed sampler). Callers holding a calendar DTE
+                      should go through :func:`best_available_forward_distribution`,
+                      which converts via :func:`calendar_days_to_trading_bars`
+                      (D21), or convert themselves.
         as_of: PIT cutoff — history strictly before or equal to this date is
                used. When ``None`` we use the last date in the frame.
         lookback_years: Maximum years of history to sample from.
@@ -302,10 +323,15 @@ def best_available_forward_distribution(
 
     Returns ``(log_returns, method_name)``. When nothing works, the returned
     array is empty and ``method_name`` is ``"none"``.
+
+    ``horizon_days`` is a **calendar-day** horizon (the option DTE). It is
+    converted once to trading-day bars (D21) before the bar-indexed samplers
+    below are called, so a 35-DTE option uses ~24 trading bars rather than 35.
     """
+    horizon_bars = calendar_days_to_trading_bars(horizon_days)
     rets = empirical_forward_log_returns(
         ohlcv,
-        horizon_days=horizon_days,
+        horizon_days=horizon_bars,
         as_of=as_of,
         min_samples=min_empirical_samples,
         price_col=price_col,
@@ -316,7 +342,7 @@ def best_available_forward_distribution(
 
     rets = empirical_forward_log_returns(
         ohlcv,
-        horizon_days=horizon_days,
+        horizon_days=horizon_bars,
         as_of=as_of,
         min_samples=max(min_empirical_samples * 3, 60),
         price_col=price_col,
@@ -327,7 +353,7 @@ def best_available_forward_distribution(
 
     rets = block_bootstrap_log_returns(
         ohlcv,
-        horizon_days=horizon_days,
+        horizon_days=horizon_bars,
         n_scenarios=n_scenarios,
         as_of=as_of,
         price_col=price_col,
@@ -338,7 +364,7 @@ def best_available_forward_distribution(
 
     rets = har_rv_conditional_distribution(
         ohlcv,
-        horizon_days=horizon_days,
+        horizon_days=horizon_bars,
         n_scenarios=n_scenarios,
         as_of=as_of,
         price_col=price_col,

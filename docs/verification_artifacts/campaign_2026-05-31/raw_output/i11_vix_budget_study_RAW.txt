@@ -1,0 +1,85 @@
+top-bin trades (prob_profit>0.9): 1122; VIX joined on as_of
+VIX by year (median): 2020=29, 2021=23, 2022=27, 2023=18, 2024=16, 2025=18, 2026=15
+
+==============================================================================
+§4/§5 — LOCO cost/benefit of the VIX-level size-down, per crisis x coarse theta
+==============================================================================
+downgraded = top-bin trade with VIX(as_of) > theta; net_book = -sum(realized over downgraded)
+(net_book > 0 => sizing those out HELPED on net; the 2020 averted-tail should dominate)
+
+--- theta = VIX > 20.0 ---
+cell          n  dgr bleed_averted prem_forgone   net_book   net/ctr  dg_win
+2020        358  352        145656        63897      81758       232   0.733
+2022        270  257         61230        54978       6252        24   0.809
+POOLED     1122  854        231095       196407      34688        41   0.808
+   per-fold net_book: 2020=+81758, 2022=+6252  -> survives-every-fold=True
+
+--- theta = VIX > 22.5 ---
+cell          n  dgr bleed_averted prem_forgone   net_book   net/ctr  dg_win
+2020        358  344        145656        61823      83833       244   0.727
+2022        270  248         56900        53572       3328        13   0.823
+POOLED     1122  790        226028       161087      64941        82   0.803
+   per-fold net_book: 2020=+83833, 2022=+3328  -> survives-every-fold=True
+
+--- theta = VIX > 25.0 ---
+cell          n  dgr bleed_averted prem_forgone   net_book   net/ctr  dg_win
+2020        358  324        144641        58275      86366       267   0.722
+2022        270  245         56900        53350       3550        14   0.820
+POOLED     1122  652        208813       131420      77394       119   0.788
+   per-fold net_book: 2020=+86366, 2022=+3550  -> survives-every-fold=True
+
+--- theta = VIX > 27.5 ---
+cell          n  dgr bleed_averted prem_forgone   net_book   net/ctr  dg_win
+2020        358  249        143673        40434     103239       415   0.659
+2022        270  134          3771        37172     -33400      -249   0.948
+POOLED     1122  466        154717        97401      57317       123   0.794
+   per-fold net_book: 2020=+103239, 2022=-33400  -> survives-every-fold=False
+
+--- theta = VIX > 30.0 ---
+cell          n  dgr bleed_averted prem_forgone   net_book   net/ctr  dg_win
+2020        358  175        142889        26149     116741       667   0.526
+2022        270  134          3771        37172     -33400      -249   0.948
+POOLED     1122  392        153933        83115      70818       181   0.760
+   per-fold net_book: 2020=+116741, 2022=-33400  -> survives-every-fold=False
+
+
+==============================================================================
+§4.4 — 2022 headline: a VIX-level rule FIRES through 2022 (no detection miss)
+==============================================================================
+2022 top-bin trades: 270; VIX median 27, range [17,33]
+2022 net realized P&L (all top-bin, no rule): -14445  (if positive, the rule's 2022 cost is forgone premium — the bounded side)
+  theta>20.0: downgrades 257/270, forgoes 54978, averts 61230, net +6252
+  theta>22.5: downgrades 248/270, forgoes 53572, averts 56900, net +3328
+  theta>25.0: downgrades 245/270, forgoes 53350, averts 56900, net +3550
+  theta>27.5: downgrades 134/270, forgoes 37172, averts 3771, net -33400
+  theta>30.0: downgrades 134/270, forgoes 37172, averts 3771, net -33400
+
+==============================================================================
+2020 — the averted tail (the unforecastable loss the rule exists to bound)
+==============================================================================
+2020 top-bin: n=358, realized win 259/358 Wilson95=[0.67,0.77], VIX median 29; worst realized -22913
+
+==============================================================================
+§6 — honesty scan: top-bin trades with VIX BELOW theta AND a fat realized left tail
+==============================================================================
+bottom-decile realized threshold (top-bin): -625; scan window 2020-02-03..2026-02-02
+  theta=25.0: 30 low-VIX + fat-tail misses (mean realized -1611 if any)
+    -> of these, term-structure backwardation flags 27% (secondary signal coverage of the level-rule's miss)
+{'2020': 2, '2021': 3, '2022': 8, '2023': 1, '2024': 5, '2025': 11}
+  theta=30.0: 47 low-VIX + fat-tail misses (mean realized -2060 if any)
+    -> of these, term-structure backwardation flags 17% (secondary signal coverage of the level-rule's miss)
+{'2020': 2, '2021': 3, '2022': 25, '2023': 1, '2024': 5, '2025': 11}
+
+==============================================================================
+VERDICT
+==============================================================================
+coarse-theta survival (favorable = net_book>0 in EVERY crisis fold, §5):
+  VIX>20.0: per-fold [2020=+81758, 2022=+6252]  agg-ratio 1.74 -> SURVIVES every fold
+  VIX>22.5: per-fold [2020=+83833, 2022=+3328]  agg-ratio 1.76 -> SURVIVES every fold
+  VIX>25.0: per-fold [2020=+86366, 2022=+3550]  agg-ratio 1.81 -> SURVIVES every fold
+  VIX>27.5: per-fold [2020=+103239, 2022=-33400]  agg-ratio 1.90 -> FAILS a fold
+  VIX>30.0: per-fold [2020=+116741, 2022=-33400]  agg-ratio 2.32 -> FAILS a fold
+
+SURVIVES-EVERY-FOLD theta(s): [20.0, 22.5, 25.0]. Robust-not-optimal pick: VIX > 25.0 (the cleanest round-number 'elevated-vol' line that stays favorable in BOTH the 2020 crash and the 2022 bear; higher theta fails the 2022 fold). Conditional R11 form supported: downgrade top-bin (prob_profit>0.90) when VIX close > 25.0.
+
+I11 DONE.

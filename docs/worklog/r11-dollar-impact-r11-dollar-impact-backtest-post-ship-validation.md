@@ -7,7 +7,7 @@ terminal: ultracode
 pr:
 decisions: []
 date: 2026-06-01
-headline: R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but it lowers Sharpe in BOTH windows, net-COSTS the book in a window with a sharp V-recovery crash (W3 2020-2024 −$37.6k/−3.76pp), HELPS where the 2022 bear dominates (W4 2021-2025 +$21.7k/+2.17pp), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg.
+headline: R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but its WHOLE-BOOK impact is statistically indistinguishable from zero over both windows (paired daily-return |t|<0.7; point Δ W3 2020-2024 −$37.6k, W4 2021-2025 +$21.7k), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. Net read: the I11 justification was overstated; R11 doesn't measurably help the book, isn't shown to hurt it, and is real but narrow 2022 tail insurance.
 surface:
   - docs/verification_artifacts/r11_dollar_impact_2026-06-01/r11_dollar_impact_driver.py
   - docs/verification_artifacts/r11_dollar_impact_2026-06-01/R11_DOLLAR_IMPACT_FINDINGS.md
@@ -50,9 +50,12 @@ The decomposition cleanly separates R11's two opposite effects:
 - **Sharp V-crash (2020): R11 BACKFIRES** — its VIX>25 *level* trigger fires
   AFTER the spike, blocking trades that ride the V-recovery (forwent +$26,525
   W3). Calm-regime VIX blips forgo more (+$67,405 W3).
-- **Whole-book sign flips by window:** W3 −$37,590 / −3.76pp (hurts); W4
-  +$21,733 / +2.17pp (helps).
-- **Sharpe falls in BOTH windows** (−0.010 W3, −0.054 W4): R11 thins the book.
+- **Whole-book point estimates flip sign by window** (W3 −$37,590 / −3.76pp;
+  W4 +$21,733 / +2.17pp) — but the paired active-minus-suppressed daily-return
+  stream is NOT significant in either (|t| = 0.62 W3, 0.24 W4). The net
+  whole-book effect is within noise; only the regime decomposition is robust.
+- Sharpe point deltas (W3 ≈0, W4 −0.054) are likewise inside noise — do not
+  read "Sharpe-negative" as established.
 - **The CSP-leg "averted" number over-states full-wheel value:** W3 R11 "averts"
   −$173,583 on the blocked CSPs in isolation, yet the book is −$37,590 — the
   suppressed arm wheels its extra assignments into the recovery (the

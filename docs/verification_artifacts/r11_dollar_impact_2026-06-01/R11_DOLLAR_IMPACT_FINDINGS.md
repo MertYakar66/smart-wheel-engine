@@ -47,9 +47,14 @@ over-states its value to the full wheel.**
 3. **Whole-book sign flips by window.** W3 2020-2024 (contains the V-crash):
    **−$37,590 / −3.76pp** (R11 HURTS). W4 2021-2025 (2022 grind-down dominates,
    no 2020 offset): **+$21,733 / +2.17pp** (R11 HELPS).
-4. **R11 lowers Sharpe in BOTH windows** (W3 Δ −0.010, W4 Δ −0.054): removing
-   the top bin thins the book, so daily NAV gets lumpier — risk-adjusted return
-   falls even when total return rises (W4).
+4. **R11's whole-book impact is statistically indistinguishable from zero on
+   this evidence.** The point-estimate Sharpe deltas (W3 ≈ 0.00 to −0.01, W4
+   −0.054) and the NAV deltas above are NOT significant: the paired
+   active-minus-suppressed daily-return stream has |t| = 0.62 (W3) and 0.24
+   (W4) — far inside noise. So the honest claim is NOT "R11 hurts Sharpe"; it is
+   that R11 does not *measurably help* the book either, while I11 claimed a
+   large benefit. (See "Significance" below — this is the correction that keeps
+   this doc from repeating I11's overclaim with the sign flipped.)
 5. **The held-to-expiry "averted" number over-states R11's full-wheel value.**
    In W3 R11 "averted" −$173,583 on the blocked CSPs in isolation — yet the book
    ended $37,590 WORSE, because the suppressed arm gets assigned and wheels those
@@ -72,6 +77,27 @@ window-dependent, and Sharpe-negative.
 | Put assignments | 116 | 110 | −6 | 97 | 93 | −4 |
 | Executed realised (closed CSPs) | +$148,461 | +$119,974 | −$28,486 | +$162,552 | +$66,386 | −$96,167 |
 | R11 blocked opens | 0 | 399 | +399 | 0 | 145 | +145 |
+
+## Significance — the whole-book deltas are within noise
+
+The per-window Δ NAV / Δ Sharpe are **point estimates over two overlapping
+windows (W3/W4 share 2021-2024), driven by one 2020 V-crash and one 2022 bear —
+not independent samples.** A paired test on the active-minus-suppressed daily
+return stream (the arms share the same daily rank, so this is the right paired
+quantity):
+
+| Window | days arms differ | daily mean (act−supp) | t-stat | distinguishable from 0? |
+|---|---|---|---|---|
+| W3 2020-2024 | 1266/1304 | −0.21 bp/day | **−0.62** | no |
+| W4 2021-2025 | 1303/1303 | +0.23 bp/day | **+0.24** | no |
+
+R11 changes the book on nearly every day, but the **net risk-adjusted
+difference washes out to noise in both windows.** Treat the headline ±$ and
+Sharpe figures as directionally suggestive of the regime mechanism below, NOT
+as an established net benefit or cost. What IS robust is the *qualitative*
+decomposition (per-regime sign, the post-spike timing of the level trigger, and
+the CSP-leg-vs-full-wheel divergence) — those are mechanisms, not noisy point
+estimates.
 
 ## Blocked-set counterfactual by regime
 
@@ -152,11 +178,15 @@ R11 is **correctly motivated and works in the regime it was built for** (the
 reliably averted in both windows). But this backtest does NOT support reading
 it as a free or uniformly-positive overlay:
 
-- It **lowers Sharpe in both windows**, and **net-costs the book in a window
-  containing a sharp V-recovery crash** (W3 −$37,590), because its `VIX>25`
-  *level* trigger fires post-spike and forecloses the wheel's recovery leg.
+- Its whole-book NAV/Sharpe effect is **not statistically distinguishable from
+  zero** over these two windows (paired daily-return |t| < 0.7 both) — so the
+  evidence does NOT show R11 helping the book, and does NOT show it hurting
+  either. The directional point estimates (W3 −$37,590, W4 +$21,733) track the
+  regime mechanism but are within noise.
 - Its per-contract "averted loss" headline is a CSP-leg-in-isolation metric;
-  the full-wheel book sees a much smaller (and sometimes opposite-signed) effect.
+  at the full-wheel book level that benefit largely **disappears** (the
+  suppressed arm wheels its assignments into the recovery), which is why a real
+  per-contract protection produces no measurable book benefit.
 
 If R11 is kept (it is downgrade-only and §2-safe, so it cannot create risk), the
 honest framing is "insurance premium against sustained-bear assignment, paid in

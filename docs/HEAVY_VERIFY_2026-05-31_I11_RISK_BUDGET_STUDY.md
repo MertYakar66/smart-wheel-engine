@@ -7,6 +7,16 @@ elevated" rule) by measuring its leave-one-crisis-out cost/benefit on real data.
 **Driver:** `docs/verification_artifacts/campaign_2026-05-31/i11_vix_budget_study.py`.
 **Raw:** `raw_output/i11_vix_budget_study_RAW.txt`. **Status:** observe-only; `engine/` not modified.
 
+> **Post-ship correction (2026-06-01).** This study's per-contract leave-one-crisis-out
+> result (incl. "2020 +$86k / −$1,305-contract") justified shipping R11 (D23), but it
+> measures the CSP leg held-to-expiry in isolation. A full $1M/100t dollar backtest
+> (`docs/verification_artifacts/r11_dollar_impact_2026-06-01/`) found R11's per-contract
+> 2022 protection is real (~$165–269k averted, ~50% assignment) BUT its whole-book
+> NAV/Sharpe impact is statistically indistinguishable from zero (paired daily-return
+> |t|<0.7, both windows) — the per-contract benefit largely disappears once the wheel
+> recovers its assignments via covered calls. Read this study's figures as per-contract
+> CSP-leg, not book-level. R11 retained; see D23's "Post-ship validation" note.
+
 ---
 
 ## VERDICT

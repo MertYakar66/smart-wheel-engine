@@ -1305,8 +1305,33 @@ constants, `CandidateDossier.vix_level`, the R11 rule after R10, `build_dossiers
 `engine/wheel_runner.py` (the live VIX wiring), `tests/test_r11_elevated_vol.py` (8 pins:
 fires, four no-ops, never-rescues-negative-EV, strictly-greater-than boundaries,
 computed-not-hardcoded payload, `build_dossiers` threading). Study:
-`docs/HEAVY_VERIFY_2026-05-31_I11.md`. PR #306 (squash `a9d3de5`); §2 second-read +
-operator merge recorded at issue #113.
+`docs/HEAVY_VERIFY_2026-05-31_I11_RISK_BUDGET_STUDY.md`. PR #306 (squash `a9d3de5`);
+§2 second-read + operator merge recorded at issue #113.
+
+**Post-ship validation (2026-06-01).** A full $1M / 100-ticker dollar backtest of
+R11 — `suppressed` (pre-R11 open policy) vs `active` (R11's exact gate) over the
+same daily rank, two windows — confirms the per-contract protection in the
+2022-style sustained grind-down (R11 averts ~$165–269k of CSP-leg loss across the
+two windows, ~50% assignment) but **qualifies the "Why" framing above** in two
+ways the I11 leave-one-crisis-out study could not see. (a) R11's **whole-book
+NAV/Sharpe impact is statistically indistinguishable from zero** over both
+windows — the paired active-minus-suppressed daily-return stream has |t| = 0.62
+(W3 2020-2024) / 0.24 (W4 2021-2025), and the NAV point estimates flip sign by
+window (W3 −$37.6k, W4 +$21.7k). (b) The per-contract **"2020 +$86k / averting
+the −$1,305/contract tail" figure is a CSP-leg-held-to-expiry metric**; at the
+full-wheel book level that benefit largely **disappears**, because R11 blocks
+*entry* and so forecloses the assignment→covered-call→recovery leg the wheel
+rides — and R11's VIX-*level* trigger fires *post-spike*, forgoing the 2020
+V-recovery specifically. **R11 is retained** (downgrade-only, §2-safe, genuine
+narrow insurance for sustained-bear assignment); the honest reframe is "insurance
+that is net-neutral-to-the-book on average," not "free crisis alpha." The natural
+improvement is a **persistence / onset-aware trigger** (e.g. fire only when
+VIX>25 has held N consecutive days — catches the 2022 grind, skips the 2020
+spike), which sidesteps the I10 `rv_ratio` detection problem; filed as a research
+card (`docs/worklog/r11-onset-aware-trigger-*.md`). Evidence:
+`docs/verification_artifacts/r11_dollar_impact_2026-06-01/` (driver, findings,
+per-window summaries). No code change — R11's behaviour is unchanged; this
+annotation corrects the record only.
 
 ---
 

@@ -1,0 +1,108 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2020-01-02",
+    "end": "2024-12-31",
+    "friction_level": "full",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "r11_vix_threshold": 25.0,
+    "r11_top_bin_prob": 0.9,
+    "min_proceed_ev_dollars": 10.0,
+    "ohlcv_csv_sha256": "c3d5443158b12ec5309a08111cdbeae6610baea78c39e676ef109b571c5edfb1"
+  },
+  "suppressed": {
+    "final_nav": 1370770.7075912831,
+    "final_cash": 376221.9588199804,
+    "return_pct": 0.3707707075912831,
+    "sharpe": 0.5107054747650993,
+    "n_put_opened": 521,
+    "n_r11_blocked": 0,
+    "n_put_assignments": 116,
+    "executed_realized_total": 148460.52,
+    "executed_realized_mean": 319.269935483871,
+    "n_closed_positions": 465,
+    "n_open_at_end": 56
+  },
+  "active": {
+    "final_nav": 1333180.3171695662,
+    "final_cash": 355508.2272799819,
+    "return_pct": 0.3331803171695662,
+    "sharpe": 0.5002583975557563,
+    "n_put_opened": 490,
+    "n_r11_blocked": 399,
+    "n_put_assignments": 110,
+    "executed_realized_total": 119974.492,
+    "executed_realized_mean": 277.7187314814815,
+    "n_closed_positions": 432,
+    "n_open_at_end": 58
+  },
+  "delta": {
+    "final_nav": -37590.39042171696,
+    "return_pp": -3.7590390421716915,
+    "sharpe": -0.010447077209343014,
+    "n_put_opened": -31,
+    "n_put_assignments": -6,
+    "executed_realized_total": -28486.02799999999
+  },
+  "r11_blocked": {
+    "n": 399,
+    "n_with_realized": 399,
+    "realized_total": -173583.08400000003,
+    "realized_mean": -435.0453233082708,
+    "assignment_rate": 0.21052631578947367,
+    "premium_forgone_total": 226404.91599999997
+  },
+  "r11_blocked_by_regime": {
+    "bear_2022": {
+      "n": 129,
+      "realized_total": -268803.5400000001,
+      "realized_mean": -2083.748372093024,
+      "assignment_rate": 0.5116279069767442
+    },
+    "bull_2021": {
+      "n": 5,
+      "realized_total": 1290.3919999999998,
+      "realized_mean": 258.0784,
+      "assignment_rate": 0.0
+    },
+    "calm": {
+      "n": 168,
+      "realized_total": 67404.948,
+      "realized_mean": 401.21992857142857,
+      "assignment_rate": 0.02976190476190476
+    },
+    "crash_2020": {
+      "n": 97,
+      "realized_total": 26525.116,
+      "realized_mean": 273.45480412371137,
+      "assignment_rate": 0.13402061855670103
+    }
+  },
+  "r11_blocked_by_vix_bucket": {
+    "25-35": {
+      "n": 292,
+      "realized_total": -213953.36800000007,
+      "realized_mean": -732.7170136986304,
+      "assignment_rate": 0.2568493150684932
+    },
+    "vix>35": {
+      "n": 107,
+      "realized_total": 40370.284,
+      "realized_mean": 377.2923738317757,
+      "assignment_rate": 0.08411214953271028
+    }
+  },
+  "section2_scan": {
+    "suppressed": {
+      "n_opened": 521,
+      "n_opened_nonpositive_ev": 0
+    },
+    "active": {
+      "n_opened": 490,
+      "n_opened_nonpositive_ev": 0
+    }
+  }
+}

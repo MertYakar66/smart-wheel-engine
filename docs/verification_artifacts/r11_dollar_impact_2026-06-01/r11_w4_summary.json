@@ -1,0 +1,102 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2021-01-04",
+    "end": "2025-12-31",
+    "friction_level": "full",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "r11_vix_threshold": 25.0,
+    "r11_top_bin_prob": 0.9,
+    "min_proceed_ev_dollars": 10.0,
+    "ohlcv_csv_sha256": "c3d5443158b12ec5309a08111cdbeae6610baea78c39e676ef109b571c5edfb1"
+  },
+  "suppressed": {
+    "final_nav": 1458144.635747132,
+    "final_cash": 325387.9224199836,
+    "return_pct": 0.4581446357471319,
+    "sharpe": 0.6940156246331665,
+    "n_put_opened": 477,
+    "n_r11_blocked": 0,
+    "n_put_assignments": 97,
+    "executed_realized_total": 162552.128,
+    "executed_realized_mean": 390.7503076923076,
+    "n_closed_positions": 416,
+    "n_open_at_end": 61
+  },
+  "active": {
+    "final_nav": 1479877.556897399,
+    "final_cash": 135114.76503999345,
+    "return_pct": 0.479877556897399,
+    "sharpe": 0.6404310350267233,
+    "n_put_opened": 418,
+    "n_r11_blocked": 145,
+    "n_put_assignments": 93,
+    "executed_realized_total": 66385.5,
+    "executed_realized_mean": 182.37774725274724,
+    "n_closed_positions": 364,
+    "n_open_at_end": 54
+  },
+  "delta": {
+    "final_nav": 21732.921150267124,
+    "return_pp": 2.173292115026715,
+    "sharpe": -0.05358458960644319,
+    "n_put_opened": -59,
+    "n_put_assignments": -4,
+    "executed_realized_total": -96166.628
+  },
+  "r11_blocked": {
+    "n": 145,
+    "n_with_realized": 145,
+    "realized_total": -152052.07200000004,
+    "realized_mean": -1048.6349793103452,
+    "assignment_rate": 0.4413793103448276,
+    "premium_forgone_total": 115545.92799999999
+  },
+  "r11_blocked_by_regime": {
+    "bear_2022": {
+      "n": 125,
+      "realized_total": -165688.26800000004,
+      "realized_mean": -1325.5061440000004,
+      "assignment_rate": 0.496
+    },
+    "bull_2021": {
+      "n": 17,
+      "realized_total": 12580.311999999998,
+      "realized_mean": 740.0183529411763,
+      "assignment_rate": 0.11764705882352941
+    },
+    "calm": {
+      "n": 3,
+      "realized_total": 1055.884,
+      "realized_mean": 351.96133333333336,
+      "assignment_rate": 0.0
+    }
+  },
+  "r11_blocked_by_vix_bucket": {
+    "25-35": {
+      "n": 142,
+      "realized_total": -153250.64800000007,
+      "realized_mean": -1079.2299154929583,
+      "assignment_rate": 0.4507042253521127
+    },
+    "vix>35": {
+      "n": 3,
+      "realized_total": 1198.5759999999998,
+      "realized_mean": 399.52533333333326,
+      "assignment_rate": 0.0
+    }
+  },
+  "section2_scan": {
+    "suppressed": {
+      "n_opened": 477,
+      "n_opened_nonpositive_ev": 0
+    },
+    "active": {
+      "n_opened": 418,
+      "n_opened_nonpositive_ev": 0
+    }
+  }
+}

@@ -108,18 +108,23 @@ ranking path. A test should inject (a) a connector whose `get_vix_regime` raises
 and (b) one returning `None`, and assert `rank_candidates_by_ev(...)` completes
 with `vix_level → None` (R11 dormant), not propagating.
 
-**Theme ③ — R11 ranker-path coverage gap.** R11
-(`candidate_dossier.py:534–566`) fires only when BOTH `vix_level > 25` AND
-`ev_row["prob_profit"] > 0.90`. The ranker threads `vix_level`
-(`wheel_runner.py:3357–3373`) but emits `prob_profit` under **different keys on
-different paths**: unprefixed `"prob_profit"` at `wheel_runner.py:1698` & `2600`,
-but **prefixed** `"put_prob_profit"` / `"call_prob_profit"` at `3220–3221`. R11
-reads the unprefixed key only. If the rows reaching the vix-threaded
-`build_dossiers` carry only the prefixed keys, `ev_row.get("prob_profit", 0.0)`
-→ `0.0` → **R11 can never fire live** despite correct VIX threading. Theme ③ =
-an end-to-end test asserting R11 actually fires on the ranker path (or a fix +
-test that closes the prefix gap). Needs tracing which ranker method feeds the
-vix-threaded dossier build — **not resolved in this PR** (flagged, not fixed).
+**Theme ③ — R11 strangle-path coverage gap (corrected post-trace; NOT "R11
+dormant live").** R11 (`candidate_dossier.py:534–566`) fires only when BOTH
+`vix_level > 25` AND `ev_row["prob_profit"] > 0.90`, reading the *unprefixed*
+`prob_profit` key (`:549`). **Traced against source (this card + Major-Session
+second-read): on the primary put path R11 DOES fire.** `rank_candidates_by_ev`
+emits the unprefixed `"prob_profit"` in its row dict (`wheel_runner.py:1698`),
+and that ranker's `ev_df` is exactly what `build_candidate_dossiers` feeds into
+`build_dossiers(..., vix_level=…)` after threading the PIT VIX level
+(`wheel_runner.py:3334–3372`). Key matches → R11 is correctly wired live on the
+core wheel path. The residual is narrow: the **strangle / combined-leg path**
+emits *prefixed* `"put_prob_profit"` / `"call_prob_profit"`
+(`wheel_runner.py:3220–3221`), which R11's unprefixed read would miss. So theme
+③ is a **coverage gap on a secondary (timing-gated strangle) path** — worth a
+test, or a key-normalisation fix — **not** a dead capstone. (An earlier draft of
+this fragment framed it as "R11 may be dormant live"; that was overstated and is
+corrected here so no one chases a phantom production failure. Theme ② remains the
+genuine live risk and the right NEXT PRIORITY.)
 
 **Corrected facts (preserve — these were stated wrong in earlier triage):**
 - `prob_profit = float(np.mean(pnls > 0))` at **`ev_engine.py:393`** — a plain
@@ -127,9 +132,9 @@ vix-threaded dossier build — **not resolved in this PR** (flagged, not fixed).
   term** in `prob_profit`; the GPD/tail tooling feeds `cvar_5` and tail risk
   elsewhere, never `prob_profit`. Any test/doc asserting a GPD term in
   `prob_profit` is wrong.
-- The R11 ranker-path gap above (theme ③) is the live integration risk to
-  confirm, distinct from the dossier-side R11 logic this PR's matrix already
-  pins.
+- R11 wiring is confirmed live on the primary put path (theme ③ trace above);
+  the only residual is the strangle-path prefixed-key gap. Distinct from the
+  dossier-side R11 logic this PR's matrix already pins.
 
 Scope note: this property pins the **dossier-side** §2 invariant. The
 **ranker-side** authority (no negative-EV rescue inside

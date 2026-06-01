@@ -231,7 +231,9 @@ class ThetaConnector(MarketDataConnector):
         url = f"{self._base}{path}"
         try:
             with self._semaphore:
-                resp = self._session.get(url, params=params, timeout=30)
+                resp = self._session.get(
+                    url, params=params, timeout=getattr(self, "_read_timeout", 30)
+                )
             if resp.status_code in (400, 403, 404, 500, 502, 503):
                 logger.debug(
                     "ThetaData %s on %s params=%s (subscription or server-side)",

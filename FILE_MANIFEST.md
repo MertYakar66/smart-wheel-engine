@@ -285,6 +285,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
+| `docs/THETA_LARDER_SCOPE.md` | Scope + caveats for the `pull_theta_option_history.py` larder: top-150 by 2018→now turnover, 2018→now, all-strikes, 90-day lookback, SPY/QQQ reference-only. Documents the **survivor-bias caveat** (ranked on current 503 → backtests inherit survivor bias; delisted once-liquid names excluded until a PIT-membership source lands) and the deferred extensions (2016–17, >90d lookback, delisted backfill, IV/Greeks/tick phases). |
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
 | `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
@@ -561,6 +562,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/pull_edgar_earnings.py` | SEC EDGAR pull of Form 8-K Item 2.02 (earnings-release) filings → `data_processed/edgar/earnings_history.parquet`. Append-only by default; `--refresh` merges with the prior parquet so partial-refresh runs never silently drop prior data. Campaign PR3/9 — see `docs/EDGAR_EARNINGS.md`. |
 | `scripts/pull_theta_indices_history.py` | Theta pull of VIX-family index OHLC history. |
 | `scripts/pull_theta_iv_surface_history.py` | Theta pull of historical IV surfaces with strict partial-coverage rejection. |
+| `scripts/pull_theta_option_history.py` | Per-(ticker,expiration) EOD + Open Interest option-history puller (STANDARD tier). `--all-strikes` uses the bulk per-expiration EOD endpoint (~100x fewer calls, all strikes in one request); `--lookback-days` sets the per-contract window (90 = the 0–90 DTE cross-section a wheel/skew fit reads); `--cadence weekly` keeps Friday expirations only (drops 0DTE bloat); `--out-dir` for a reference dir (index ETFs kept out of the ranker). Clamps `start_date` to the 2016-01-01 tier floor (below-floor → silent empty-range bug) and writes partitions atomically (tmp+rename, resume-safe). Scope + survivor-bias caveat in `docs/THETA_LARDER_SCOPE.md`; pinned by `tests/test_option_history_puller.py`. |
 | `scripts/pull_theta_options_flow.py` | Theta pull of daily per-ticker options-flow aggregates. |
 | `scripts/pull_theta_corp_actions.py` | Theta pull of stock splits and dividends. |
 | `scripts/pull_theta_option_tape.py` | Theta pull of intraday option trade+quote tape. |
@@ -744,6 +746,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_dashboard.py` | The legacy `QuantDashboard` CLI surface. |
 | `tests/test_infrastructure.py` | Repo-level infrastructure components — env validation, benchmarks, health, SLO. |
 | `tests/test_iv_surface_history_puller.py` | Regression for the IV-surface-history puller. |
+| `tests/test_option_history_puller.py` | Pins the option-history puller's correctness fixes: the 2016-01-01 history-floor clamp (below-floor start → empty whole range), the `--lookback-days` window, and atomic partition writes (no partial file a resume skips as "done"). |
 | `tests/test_theta_indices_puller.py` | Regression for the Theta indices-history puller. |
 
 ## `tradingview/` — Pine indicator + analyst-workspace assets

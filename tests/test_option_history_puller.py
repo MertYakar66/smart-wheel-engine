@@ -12,6 +12,7 @@ Two bugs found 2026-06-01 that these tests prevent from regressing:
    crash mid-write must not leave a partial ``data.parquet`` that the next run
    skips as "done". The write goes to a tmp file then atomically renames.
 """
+
 import pandas as pd
 
 import scripts.pull_theta_option_history as m
@@ -68,9 +69,7 @@ def test_lookback_days_sets_the_window():
 
 def test_write_partition_is_atomic(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "OUT_ROOT", tmp_path)
-    frame = pd.DataFrame(
-        {"strike": [100.0, 105.0], "right": ["put", "call"], "close": [1.0, 2.0]}
-    )
+    frame = pd.DataFrame({"strike": [100.0, 105.0], "right": ["put", "call"], "close": [1.0, 2.0]})
     rows, contracts = m._write_partition("AAPL", "20240119", [frame])
     part = tmp_path / "ticker=AAPL" / "expiration=20240119" / "data.parquet"
     assert part.exists() and part.stat().st_size > 0
@@ -81,9 +80,9 @@ def test_write_partition_is_atomic(tmp_path, monkeypatch):
 
 def test_cadence_filters():
     # monthly = 3rd Friday only (the load-bearing _is_third_friday gate).
-    assert m._is_third_friday(pd.Timestamp("2024-01-19"))      # 3rd Fri Jan 2024
+    assert m._is_third_friday(pd.Timestamp("2024-01-19"))  # 3rd Fri Jan 2024
     assert not m._is_third_friday(pd.Timestamp("2024-01-05"))  # 1st Fri
     assert not m._is_third_friday(pd.Timestamp("2024-01-26"))  # 4th Fri
     # weekly = all Friday expirations (weekday()==4); drops Mon-Thu 0DTE dailies.
-    assert pd.Timestamp("2024-01-05").weekday() == 4           # kept (Friday)
-    assert pd.Timestamp("2024-01-17").weekday() != 4           # dropped (Wed 0DTE)
+    assert pd.Timestamp("2024-01-05").weekday() == 4  # kept (Friday)
+    assert pd.Timestamp("2024-01-17").weekday() != 4  # dropped (Wed 0DTE)

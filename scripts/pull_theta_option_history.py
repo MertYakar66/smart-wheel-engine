@@ -58,7 +58,7 @@ import logging
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 for _stream in (sys.stdout, sys.stderr):
@@ -153,7 +153,9 @@ def _list_expirations(conn: ThetaConnector, ticker: str) -> pd.DatetimeIndex:
     col = next((c for c in ("expiration", "date") if c in df.columns), None)
     if col is None:
         return pd.DatetimeIndex([])
-    return pd.DatetimeIndex(pd.to_datetime(df[col], errors="coerce").dropna().unique()).sort_values()
+    return pd.DatetimeIndex(
+        pd.to_datetime(df[col], errors="coerce").dropna().unique()
+    ).sort_values()
 
 
 def _list_strikes(conn: ThetaConnector, ticker: str, expiration: str) -> list[float]:
@@ -247,7 +249,10 @@ def _fetch_contract_history(
 
 
 def _fetch_expiration_bulk(
-    conn: ThetaConnector, ticker: str, expiration: str, include_oi: bool,
+    conn: ThetaConnector,
+    ticker: str,
+    expiration: str,
+    include_oi: bool,
     lookback_days: int = 210,
 ) -> pd.DataFrame:
     """ALL strikes & rights for one expiration in a SINGLE call (no strike
@@ -279,7 +284,9 @@ def _fetch_expiration_bulk(
                 None,
             )
             if (
-                ts_oi and ts_eod and "open_interest" in df_oi.columns
+                ts_oi
+                and ts_eod
+                and "open_interest" in df_oi.columns
                 and {"strike", "right"}.issubset(df_oi.columns)
             ):
                 df_oi["_d"] = pd.to_datetime(df_oi[ts_oi], errors="coerce").dt.normalize()
@@ -300,9 +307,7 @@ def _partition_exists(ticker: str, expiration: str) -> bool:
     return p.exists() and p.stat().st_size > 0
 
 
-def _write_partition(
-    ticker: str, expiration: str, frames: list[pd.DataFrame]
-) -> tuple[int, int]:
+def _write_partition(ticker: str, expiration: str, frames: list[pd.DataFrame]) -> tuple[int, int]:
     """Concatenate per-contract frames and write one parquet for the
     (ticker, expiration) partition. Returns (rows, contracts)."""
     if not frames:
@@ -412,7 +417,9 @@ def _one_ticker(
             for K in keep:
                 for r in ("call", "put"):
                     try:
-                        df = _fetch_contract_history(conn, ticker, exp_str, K, r, include_oi, lookback_days)
+                        df = _fetch_contract_history(
+                            conn, ticker, exp_str, K, r, include_oi, lookback_days
+                        )
                     except Exception as e:
                         logger.debug("%s %s %s %s: %s", ticker, exp_str, K, r, e)
                         continue
@@ -439,26 +446,35 @@ def main() -> int:
     ap.add_argument("--start", help="Start expiration date YYYY-MM-DD (default: 10 years ago)")
     ap.add_argument("--end", help="End expiration date YYYY-MM-DD (default: today)")
     ap.add_argument(
-        "--cadence", choices=["monthly", "weekly", "all"], default="monthly",
+        "--cadence",
+        choices=["monthly", "weekly", "all"],
+        default="monthly",
         help="monthly (3rd Friday only), weekly (all Friday expirations = "
         "weeklies+monthlies, drops Mon-Thu dailies/0DTE), or all (every listed)",
     )
     ap.add_argument(
-        "--lookback-days", type=int, default=210,
+        "--lookback-days",
+        type=int,
+        default=210,
         help="Per-contract EOD history window before expiry (default 210 = full "
         "contract life; 90 covers the 0-90 DTE band a 30-45 DTE wheel + skew fit read)",
     )
     ap.add_argument(
-        "--out-dir", default=None,
+        "--out-dir",
+        default=None,
         help="Override output root (e.g. a reference dir for index ETFs kept out "
         "of the wheel universe). Defaults to data_processed/theta/option_history.",
     )
     ap.add_argument(
-        "--strike-band-pct", type=float, default=15.0,
+        "--strike-band-pct",
+        type=float,
+        default=15.0,
         help="Strike band as ± percent of spot at expiration (default 15)",
     )
     ap.add_argument(
-        "--max-strikes", type=int, default=10,
+        "--max-strikes",
+        type=int,
+        default=10,
         help="Maximum strikes per expiration, evenly around spot (default 10)",
     )
     ap.add_argument("--workers", type=int, default=4)
@@ -477,7 +493,9 @@ def main() -> int:
     )
     ap.add_argument("--limit-tickers", type=int, help="Cap number of tickers (testing)")
     ap.add_argument(
-        "--read-timeout", type=int, default=180,
+        "--read-timeout",
+        type=int,
+        default=180,
         help="Connector read timeout (s). Bulk all-strikes calls run 45-110s for "
         "liquid names, past the connector's 30s default; 180 prevents mega-cap "
         "calls timing out and silently dropping. Set lower only for banded pulls.",
@@ -612,7 +630,7 @@ def main() -> int:
 
     # Manifest sidecar
     manifest = {
-        "ran_at": datetime.now(timezone.utc).isoformat(),
+        "ran_at": datetime.now(UTC).isoformat(),
         "tickers": len(tickers),
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),

@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**74 records.**
+**75 records.**
 
 ## Features (1)
 
@@ -25,7 +25,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
 
-## Backtests (20)
+## Backtests (21)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -41,6 +41,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_S41_F4_FIX_VALIDATION](../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md) | legacy |  | Engine backtest — S41: F4 fix validation (post-#260) | `../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` |
 | [ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW](../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md) | legacy |  | Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27) | `../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` |
 | [ENGINE_BACKTEST_S44_S38_POSTF4_RERUN](../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md) | legacy |  | Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28) | `../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
+| [r11-dollar-impact](r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md) | complete |  | R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but it lowers Sharpe in BOTH windows, net-COSTS the book in a window with a sharp V-recovery crash (W3 2020-2024 −$37.6k/−3.76pp), HELPS where the 2022 bear dominates (W4 2021-2025 +$21.7k/+2.17pp), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. | `r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md` |
 | [S22](s22-roll-defense-economics-itm-short-put-with-7-dte.md) | completed |  | Roll defense economics (ITM short put with ≤7 DTE) | `s22-roll-defense-economics-itm-short-put-with-7-dte.md` |
 | [S32](s32-1m-friction-modeled-simulation-closes-s22-caveat.md) | completed |  | $1M friction-modeled simulation (closes S22 Caveat 3) | `s32-1m-friction-modeled-simulation-closes-s22-caveat.md` |
 | [S35](s35-2018-2020-out-of-window-cross-validation.md) | completed |  | 2018-2020 out-of-window cross-validation | `s35-2018-2020-out-of-window-cross-validation.md` |

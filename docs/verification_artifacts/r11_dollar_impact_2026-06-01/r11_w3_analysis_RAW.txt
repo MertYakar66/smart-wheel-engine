@@ -1,0 +1,48 @@
+==============================================================================
+R11 DOLLAR-IMPACT ANALYSIS — r11_w3
+Window: 2020-01-02 -> 2024-12-31  Capital: $1,000,000
+Universe: 100t  Friction: full
+R11 gate: vix > 25.0  AND  prob_profit > 0.9  AND  ev > $10.0
+==============================================================================
+
+## Headline — active (R11 on) vs suppressed (pre-R11 baseline)
+
+| Metric | Suppressed | Active | Δ (active − suppressed) |
+|---|---|---|---|
+| Final NAV | $1,370,771 | $1,333,180 | $-37,590 |
+| Return | +37.08% | +33.32% | -3.76pp |
+| Sharpe (daily NAV, ann.) | 0.511 | 0.500 | -0.010 |
+| Puts opened | 521 | 490 | -31 |
+| Put assignments | 116 | 110 | -6 |
+| Executed realised total | $+148,461 | $+119,974 | $-28,486 |
+| R11 blocked opens | 0 | 399 | +399 |
+
+## R11-blocked set — counterfactual (held-to-expiry P&L of the removed opens)
+
+- Blocked opens (active arm): **399** (399 with expiry data)
+- Counterfactual realised P&L if KEPT: **$-173,583** total, **$-435.05/contract** mean
+- Assignment rate of blocked set: **21.1%**
+- Premium forgone (gross, if all expired worthless): $226,405
+- **Direction: R11 AVERTED net losses on the blocked set.**
+
+## R11-blocked set by calendar regime
+
+| Regime | n blocked | Counterfactual realised total | mean/contract | assignment % |
+|---|---|---|---|---|
+| bear_2022 | 129 | $-268,804 | $-2,083.75 | 51.2% |
+| bull_2021 | 5 | $+1,290 | $+258.08 | 0.0% |
+| calm | 168 | $+67,405 | $+401.22 | 3.0% |
+| crash_2020 | 97 | $+26,525 | $+273.45 | 13.4% |
+
+## R11-blocked set by VIX-at-entry bucket (the mechanism slice)
+
+| VIX bucket | n blocked | Counterfactual realised total | mean/contract | assignment % |
+|---|---|---|---|---|
+| 25-35 | 292 | $-213,953 | $-732.72 | 25.7% |
+| vix>35 | 107 | $+40,370 | $+377.29 | 8.4% |
+
+## §2 invariant scan
+
+- **suppressed**: opened 521 puts; with ev_dollars<=0: 0. §2 OK.
+- **active**: opened 490 puts; with ev_dollars<=0: 0. §2 OK.
+

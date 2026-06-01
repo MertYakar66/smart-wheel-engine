@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**73 records.**
+**74 records.**
 
 ## Features (1)
 
@@ -68,7 +68,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
 
-## Usage-test scenarios (33)
+## Usage-test scenarios (34)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -105,6 +105,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S36](s36-multi-ticker-hmm-regime-realism.md) | completed |  | Multi-ticker HMM regime realism | `s36-multi-ticker-hmm-regime-realism.md` |
 | [S37](s37-ranking-philosophy-ev-dollars-vs-roc.md) | completed |  | Ranking philosophy: ev_dollars vs roc | `s37-ranking-philosophy-ev-dollars-vs-roc.md` |
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
+| [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
 ## Refactors (1)
 

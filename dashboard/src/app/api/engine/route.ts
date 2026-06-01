@@ -35,11 +35,60 @@ export async function GET(request: Request) {
       }
 
       case "candidates": {
+        // The decision cockpit forwards the full PIT parameter set. Defaults
+        // mirror the engine's own (min_score=0 so the heuristic filter never
+        // gates the EV ranking; min_ev=0 = the tradeable proceed+review set).
         const limit = searchParams.get("limit") || "15";
-        const minScore = searchParams.get("min_score") || "50";
-        const data = await fetchEngine(
-          `/api/candidates?limit=${limit}&min_score=${minScore}`
-        );
+        const minScore = searchParams.get("min_score") || "0";
+        const dte = searchParams.get("dte") || "35";
+        const delta = searchParams.get("delta") || "0.25";
+        const minEv = searchParams.get("min_ev") || "0";
+        const asOf = searchParams.get("as_of") || "";
+        const universeLimit = searchParams.get("universe_limit") || "";
+        const qs = new URLSearchParams({
+          limit,
+          min_score: minScore,
+          dte,
+          delta,
+          min_ev: minEv,
+        });
+        if (asOf) qs.set("as_of", asOf);
+        if (universeLimit) qs.set("universe_limit", universeLimit);
+        const data = await fetchEngine(`/api/candidates?${qs.toString()}`);
+        return NextResponse.json(data);
+      }
+
+      case "dossier": {
+        // Mode-B dossier: EV + reviewer chain (R1-R11) + verdict per
+        // candidate. Optional nav/holdings/puts_held engage the D17 R7/R8/R9/
+        // R10 portfolio gates (concentration meters + tail soft-warns).
+        const topN = searchParams.get("top_n") || "10";
+        const dte = searchParams.get("dte") || "35";
+        const delta = searchParams.get("delta") || "0.25";
+        const minEv = searchParams.get("min_ev") || "0";
+        const asOf = searchParams.get("as_of") || "";
+        const timeframe = searchParams.get("timeframe") || "1D";
+        const screenshotsDir = searchParams.get("screenshots_dir") || "";
+        const universeLimit = searchParams.get("universe_limit") || "";
+        const nav = searchParams.get("nav") || "";
+        const holdings = searchParams.get("holdings") || "";
+        const putsHeld = searchParams.get("puts_held") || "";
+        const regimeMap = searchParams.get("regime_map") || "";
+        const qs = new URLSearchParams({
+          top_n: topN,
+          dte,
+          delta,
+          min_ev: minEv,
+          timeframe,
+        });
+        if (asOf) qs.set("as_of", asOf);
+        if (screenshotsDir) qs.set("screenshots_dir", screenshotsDir);
+        if (universeLimit) qs.set("universe_limit", universeLimit);
+        if (nav) qs.set("nav", nav);
+        if (holdings) qs.set("holdings", holdings);
+        if (putsHeld) qs.set("puts_held", putsHeld);
+        if (regimeMap) qs.set("regime_map", regimeMap);
+        const data = await fetchEngine(`/api/tv/dossier?${qs.toString()}`);
         return NextResponse.json(data);
       }
 

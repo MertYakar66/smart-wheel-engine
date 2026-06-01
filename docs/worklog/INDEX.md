@@ -11,11 +11,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 
 **75 records.**
 
-## Features (1)
+## Features (2)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
+| [dashboard-cockpit](dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md) | complete |  | A read-top-to-bottom decision cockpit in dashboard/src that encodes WHAT TO TRUST and WHAT TO DISTRUST about the engine output — distribution-not-point-EV, calibration-flagged top bin, R11 regime banner. Pure display layer; no engine changes. | `dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md` |
 
 ## Fixes (3)
 

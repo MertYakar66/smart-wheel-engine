@@ -608,6 +608,18 @@ class TestMCPCLIClientLiveVerifyFixes:
         )
         assert err.error == "mcp_unavailable"
 
+    def test_classify_cdp_connection_failed_is_mcp_unavailable(self):
+        # Live-observed 2026-06-01: with TradingView Desktop down, the
+        # `tv` CLI exits non-zero with "CDP connection failed after N
+        # attempts: fetch failed". That is a connection failure to the
+        # CDP/MCP, so it must classify as mcp_unavailable, not the
+        # less-specific unexpected_error it fell through to before.
+        err = _classify(
+            "chart_set_symbol",
+            "CDP connection failed after 5 attempts: fetch failed",
+        )
+        assert err.error == "mcp_unavailable"
+
 
 # =====================================================================
 # 8. tv quote — the best-effort 5th step (live spot price)

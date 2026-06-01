@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CockpitTable } from "@/components/cockpit/cockpit-table";
+import { ConcentrationMeters } from "@/components/cockpit/concentration-meters";
 import { DossierDrawer } from "@/components/cockpit/dossier-drawer";
 import { Funnel } from "@/components/cockpit/funnel";
 import { RegimeBanner } from "@/components/cockpit/regime-banner";
@@ -179,6 +180,11 @@ export default function CockpitPage() {
               />
             )}
           </div>
+          {candidates.length > 0 && (
+            <div className="mt-2">
+              <ConcentrationMeters candidates={candidates} />
+            </div>
+          )}
           <TrustLegend />
         </div>
 

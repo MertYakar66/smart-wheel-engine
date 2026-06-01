@@ -192,6 +192,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/cockpit/dossier-drawer.tsx` | Expandable dossier panel — verdict card + plain-language reviewer-chain trace (R1–R11) derived from the EV row + market VIX using the engine's R11 thresholds; chart/book-dependent rules marked needs-chart/needs-book + EV diagnostics. |
 | `dashboard/src/components/cockpit/funnel.tsx` | Selection funnel — universe → scanned → ranked → shown. Flags that per-gate drop reasons (`frame.attrs["drops_summary"]`) are not serialized by `/api/candidates` (API follow-up), rather than inventing numbers. |
 | `dashboard/src/components/cockpit/verdict-card.tsx` | Glanceable verdict card (quant-card FORMAT) — verdict + calibration-flagged confidence + distribution sparkline + top reasons. Used in the dossier drawer header. |
+| `dashboard/src/components/cockpit/concentration-meters.tsx` | Single-name concentration meter (R10 · 10% cap) — bars per actionable candidate's collateral as % of an adjustable book NAV, with the cap line. Flags R9 sector bars (need the engine sector map) + live R9/R10 verdicts as a `/api/tv/dossier` follow-up rather than guessing sectors. |
 | `dashboard/src/app/api/stories/route.ts` | Stories list API — query by sector/ticker, exposure-ranked. |
 | `dashboard/src/app/api/stories/[id]/route.ts` | Single-story detail API. |
 | `dashboard/src/app/api/stories/[id]/impact/route.ts` | Story impact API — quotes plus event-study templates. |

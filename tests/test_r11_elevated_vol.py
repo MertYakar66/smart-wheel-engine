@@ -22,6 +22,7 @@ from engine.candidate_dossier import (
     build_dossiers,
 )
 from engine.chart_context import ChartContext, Timeframe
+from engine.wheel_runner import WheelRunner
 
 REVIEWER = EnginePhaseReviewer()
 
@@ -140,3 +141,177 @@ def test_build_dossiers_threads_vix_level_and_r11_fires():
     # Same frame, no vix_level → R11 dormant, proceeds.
     dormant = build_dossiers(ev_frame=ev, provider=_FakeProvider(), top_n=1)
     assert dormant[0].verdict == "proceed"
+
+
+# ---------------------------------------------------------------------------
+# build_candidate_dossiers VIX-threading FAIL-SAFE (wheel_runner side).
+#
+# WheelRunner.build_candidate_dossiers threads the PIT market-wide VIX *level*
+# into the dossier reviewer so R11 fires live on the ranking path
+# (engine/wheel_runner.py, ~L3357):
+#
+#     vix_level: float | None = None
+#     try:
+#         if self.connector is not None and hasattr(self.connector, "get_vix_regime"):
+#             _v = self.connector.get_vix_regime(as_of).get("vix")
+#             vix_level = float(_v) if _v is not None else None
+#     except Exception:        # noqa: BLE001 — VIX is advisory; never fail the rank
+#         vix_level = None
+#
+# The broad ``except`` is the fail-safe: VIX is advisory, so ANY connector
+# failure must degrade R11 to a no-op (``vix_level=None``) and never propagate
+# out of the live rank. The dossier-side tests above pin R11 given a vix_level;
+# these pin the *source* of that vix_level — so a future refactor that narrows
+# or drops the ``except`` (or breaks the threading) re-introduces a crash on the
+# live ranking path, or silently kills R11, and trips CI either way.
+# (PR #308 worklog, backlog theme ②.)
+# ---------------------------------------------------------------------------
+
+# One R11-eligible row: ev>threshold so R1/R5 reach "proceed", spot==chart price
+# so R3 doesn't skip, prob_profit>R11_TOP_BIN_PROB so R11 *can* fire.
+_R11_ELIGIBLE_ROW = {
+    "ticker": "TEST",
+    "strike": 100.0,
+    "premium": 2.0,
+    "ev_dollars": 50.0,
+    "iv": 0.25,
+    "dte": 30,
+    "spot": 100.0,
+    "prob_profit": 0.95,
+    "cvar_5": -5000.0,
+}
+
+
+class _CleanChartProvider:
+    """Returns a clean chart so R2 (missing) / R3 (mismatch) don't pre-empt R11."""
+
+    def fetch(self, ticker: str, timeframe: Timeframe = "1D", *, as_of=None):
+        return ChartContext(
+            ticker=ticker,
+            timeframe="1D",
+            captured_at=datetime(2026, 4, 25, 12, 0, 0),
+            screenshot_path=Path("/tmp/fake.png"),
+            visible_price=100.0,
+            visible_indicators={},
+            source="test",
+        )
+
+
+class _RaisingVix:
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        raise RuntimeError("VIX feed down")
+
+
+class _NoneVix:
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        return None  # None.get("vix") -> AttributeError -> caught
+
+
+class _VixlessDictVix:
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        return {}  # .get("vix") is None -> vix_level None, no exception
+
+
+class _NonNumericVix:
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        return {"vix": "not-a-number"}  # float(...) -> ValueError -> caught
+
+
+class _NoVixMethod:
+    """A connector that doesn't implement get_vix_regime at all."""
+
+
+class _WorkingVix:
+    def __init__(self, vix):
+        self._vix = vix
+
+    def get_vix_regime(self, as_of=None):  # noqa: ARG002
+        return {"vix": self._vix}
+
+
+def _runner_with_vix(monkeypatch, connector):
+    """A WheelRunner whose ranker is stubbed to one R11-eligible row and whose
+    connector is ``connector``. Isolates the build_candidate_dossiers VIX-
+    threading fail-safe from the (separately tested) ranker + data layer:
+    ``_connector`` is set directly so the lazy real connector is never built.
+    """
+    runner = WheelRunner()
+    runner._connector = connector
+    ev = pd.DataFrame([_R11_ELIGIBLE_ROW])
+    monkeypatch.setattr(runner, "rank_candidates_by_ev", lambda *a, **k: ev)
+    return runner
+
+
+def _build_one(runner):
+    """Drive build_candidate_dossiers over the single stubbed row; return its dossier.
+
+    A propagating exception here fails the test outright — which is the point for
+    the degradation cases below.
+    """
+    dossiers = runner.build_candidate_dossiers(
+        tickers=["TEST"],
+        top_n=1,
+        min_ev_dollars=-1e9,
+        chart_provider=_CleanChartProvider(),
+    )
+    assert len(dossiers) == 1
+    return dossiers[0]
+
+
+def test_failsafe_get_vix_regime_raises_degrades_to_noop(monkeypatch):
+    """A raising VIX connector must NOT propagate: vix_level degrades to None and
+    R11 is dormant, so the rank completes and the candidate keeps its R5 verdict."""
+    d = _build_one(_runner_with_vix(monkeypatch, _RaisingVix()))
+    assert d.vix_level is None
+    assert d.verdict == "proceed"
+    assert d.verdict_reason != "elevated_vol_top_bin"
+
+
+def test_failsafe_get_vix_regime_returns_none_degrades_to_noop(monkeypatch):
+    """connector.get_vix_regime() -> None makes ``.get('vix')`` raise
+    AttributeError; the fail-safe must catch it and degrade to a no-op."""
+    d = _build_one(_runner_with_vix(monkeypatch, _NoneVix()))
+    assert d.vix_level is None
+    assert d.verdict == "proceed"
+
+
+def test_failsafe_vixless_dict_degrades_to_noop(monkeypatch):
+    """A dict with no 'vix' key -> ``_v is None`` -> vix_level None, no exception."""
+    d = _build_one(_runner_with_vix(monkeypatch, _VixlessDictVix()))
+    assert d.vix_level is None
+    assert d.verdict == "proceed"
+
+
+def test_failsafe_non_numeric_vix_degrades_to_noop(monkeypatch):
+    """A non-numeric 'vix' -> ``float(...)`` ValueError -> caught -> no-op."""
+    d = _build_one(_runner_with_vix(monkeypatch, _NonNumericVix()))
+    assert d.vix_level is None
+    assert d.verdict == "proceed"
+
+
+def test_failsafe_connector_without_get_vix_regime_degrades_to_noop(monkeypatch):
+    """A connector lacking get_vix_regime -> ``hasattr`` False -> threading skipped."""
+    d = _build_one(_runner_with_vix(monkeypatch, _NoVixMethod()))
+    assert d.vix_level is None
+    assert d.verdict == "proceed"
+
+
+def test_failsafe_teeth_working_elevated_vix_fires_r11(monkeypatch):
+    """ANTI-VACUITY teeth: with a *working* connector returning an elevated VIX,
+    the SAME harness reaches R11 and downgrades proceed->review. This proves the
+    degradation cases above are dormant because the connector failed — not because
+    R11 was unreachable in this fixture. If the threading silently dropped
+    vix_level to None always, THIS test fails."""
+    d = _build_one(_runner_with_vix(monkeypatch, _WorkingVix(30.0)))
+    assert d.vix_level == 30.0
+    assert d.verdict == "review"
+    assert d.verdict_reason == "elevated_vol_top_bin"
+
+
+def test_working_low_vix_threads_through_but_r11_holds(monkeypatch):
+    """A working connector below the threshold threads the real level through, but
+    R11's own gate keeps it silent — distinguishes 'threading works' from
+    'R11 over-fires'."""
+    d = _build_one(_runner_with_vix(monkeypatch, _WorkingVix(15.0)))
+    assert d.vix_level == 15.0
+    assert d.verdict == "proceed"

@@ -77,3 +77,13 @@ def test_write_partition_is_atomic(tmp_path, monkeypatch):
     assert not (part.parent / "data.parquet.tmp").exists()  # no partial left behind
     assert rows == 2 and contracts == 2
     assert m._partition_exists("AAPL", "20240119")
+
+
+def test_cadence_filters():
+    # monthly = 3rd Friday only (the load-bearing _is_third_friday gate).
+    assert m._is_third_friday(pd.Timestamp("2024-01-19"))      # 3rd Fri Jan 2024
+    assert not m._is_third_friday(pd.Timestamp("2024-01-05"))  # 1st Fri
+    assert not m._is_third_friday(pd.Timestamp("2024-01-26"))  # 4th Fri
+    # weekly = all Friday expirations (weekday()==4); drops Mon-Thu 0DTE dailies.
+    assert pd.Timestamp("2024-01-05").weekday() == 4           # kept (Friday)
+    assert pd.Timestamp("2024-01-17").weekday() != 4           # dropped (Wed 0DTE)

@@ -1,57 +1,52 @@
 #!/usr/bin/env python3
 """
-Pull per-contract historical OHLC + OI for past option expirations.
+Pull per-(ticker, expiration) historical option EOD OHLC + OI from Theta.
 
-The ``theta_backfill.py option-ohlc`` subcommand iterates only today's
-35-DTE expiry. To backtest the wheel over years of past months, we need
-per-contract data for every historical monthly expiration. This puller
-does that.
+Two strike-selection modes:
 
-Strategy
---------
-For each ticker × monthly expiration in [start, end]:
-  1. List all strikes that traded for that expiration (Theta exposes
-     this even for long-expired contracts — verified 2026-05-24).
-  2. Look up the underlying close on the expiration date from Bloomberg
-     OHLCV (sp500_ohlcv.csv) to anchor the strike band.
-  3. Keep strikes within ±``strike_band_pct`` of spot at expiration — the
-     wheel-relevant grid (ATM ± wings).
-  4. For each (strike, right): pull /v3/option/history/eod over the
-     contract's lifetime. Theta returns the full daily series in one call.
-  5. Optionally pull /v3/option/history/open_interest with the same
-     contract scope.
+**``--all-strikes`` (primary for the larder).** One BULK call per expiration —
+``/v3/option/history/eod`` with (symbol, expiration) but NO strike/right — returns
+the ENTIRE chain (all strikes, both rights) in a single request (~100x fewer calls
+than per-contract; ~88-235 strikes verified). Needs no spot, so it also covers
+ranges with no spot source. This is what makes a full-universe / full-depth pull
+feasible at the 4-connection cap.
+
+**Banded (default).** Per-(strike, right) calls within ±``strike_band_pct`` of
+spot at expiration, with spot looked up from Bloomberg OHLCV (``sp500_ohlcv.csv``,
+2018+) — falls back to Theta stock EOD if the connector tier allows it. Used when
+you want a small near-the-money grid and have a spot source.
+
+Both paths fetch the contract's EOD over a ``--lookback-days`` window before expiry
+(default 210 = full life; 90 = the 0-90 DTE cross-section a 30-45 DTE wheel + skew
+fit read), clamped to the 2016-01-01 STANDARD-tier history floor (a start_date
+below the floor makes the EOD endpoint return EMPTY for the whole range — see
+``_THETA_HISTORY_FLOOR``). Partitions are written atomically (tmp + rename) so a
+crash mid-write can't leave a partial file that ``--resume`` skips as "done".
 
 Output
 ------
-data_processed/theta/option_history/
-    ticker=<SYM>/
-        expiration=<YYYYMMDD>/
-            data.parquet     # columns: ticker, expiration, strike, right,
-                             # date, open, high, low, close, volume, count,
-                             # bid, ask, [open_interest if --include-oi]
+``--out-dir`` (default ``data_processed/theta/option_history/``)
+    ticker=<SYM>/expiration=<YYYYMMDD>/data.parquet
+        columns: ticker, expiration, strike, right, created/last_trade, open,
+        high, low, close, volume, count, bid, ask, [open_interest if --include-oi]
 
-Resumability
-------------
-``--resume`` skips any (ticker, expiration) partition that already has a
-non-empty data.parquet. Re-running with the same args is a no-op for
-completed expirations.
+Cadence: ``monthly`` (3rd Friday), ``weekly`` (all Friday expirations =
+weeklies+monthlies, drops Mon-Thu 0DTE), or ``all`` (every listed expiration).
 
 Quick start
 -----------
-    # Sanity check on 2 tickers, last 12 months
-    python scripts/pull_theta_option_history.py --tickers AAPL,SPY \
-        --start 2025-01-01 --end 2026-05-24 --workers 4
+    # All-strikes larder: top liquid names, 2018+, 90d window, with OI, resumable
+    python scripts/pull_theta_option_history.py --tickers AAPL,MSFT \
+        --start 2018-01-01 --cadence all --all-strikes --include-oi \
+        --lookback-days 90 --workers 4 --resume
 
-    # Full S&P 500, 10-year monthly grid, with OI, resumable
-    python scripts/pull_theta_option_history.py --start 2016-01-01 \
-        --workers 4 --include-oi --resume
-
-Tier note
----------
-``/v3/option/history/eod`` and ``/v3/option/history/open_interest`` work
-on OPTION.STANDARD when called with (symbol, expiration, strike, right).
-The bulk variants (no strike) return 472 "No data found". This puller
-always passes strike+right.
+Tier / timeout note
+-------------------
+``/v3/option/history/eod`` and ``/v3/option/history/open_interest`` work on
+OPTION.STANDARD both per-contract AND in bulk (no strike → whole chain). Bulk
+calls return large responses (45-110s for liquid names, past the connector's 30s
+default), so this puller raises the connector read timeout via ``--read-timeout``
+(default 180) — without it, mega-cap bulk calls time out and silently drop.
 """
 
 from __future__ import annotations
@@ -63,7 +58,7 @@ import logging
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 for _stream in (sys.stdout, sys.stderr):
@@ -290,7 +285,9 @@ def _fetch_expiration_bulk(
                 df_oi["_d"] = pd.to_datetime(df_oi[ts_oi], errors="coerce").dt.normalize()
                 df_eod["_d"] = pd.to_datetime(df_eod[ts_eod], errors="coerce").dt.normalize()
                 df_eod = df_eod.merge(
-                    df_oi[["strike", "right", "_d", "open_interest"]],
+                    df_oi[["strike", "right", "_d", "open_interest"]].drop_duplicates(
+                        ["strike", "right", "_d"]
+                    ),
                     on=["strike", "right", "_d"],
                     how="left",
                 )
@@ -479,6 +476,12 @@ def main() -> int:
         help="Skip (ticker, expiration) partitions that already exist",
     )
     ap.add_argument("--limit-tickers", type=int, help="Cap number of tickers (testing)")
+    ap.add_argument(
+        "--read-timeout", type=int, default=180,
+        help="Connector read timeout (s). Bulk all-strikes calls run 45-110s for "
+        "liquid names, past the connector's 30s default; 180 prevents mega-cap "
+        "calls timing out and silently dropping. Set lower only for banded pulls.",
+    )
     ap.add_argument("--log-level", default="INFO")
     args = ap.parse_args()
     if args.out_dir:
@@ -530,6 +533,10 @@ def main() -> int:
 
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     conn = ThetaConnector()  # one shared connector; its semaphore caps at 4
+    # All-strikes bulk EOD calls return whole chains over the lookback window and
+    # can take 45-110s for liquid names — well past the connector's default 30s
+    # read timeout (which would fail mega-caps outright). Raise it for this pull.
+    conn._read_timeout = args.read_timeout
 
     all_stats: list[dict] = []
     t0 = pd.Timestamp.utcnow()
@@ -605,7 +612,7 @@ def main() -> int:
 
     # Manifest sidecar
     manifest = {
-        "ran_at": datetime.utcnow().isoformat() + "Z",
+        "ran_at": datetime.now(timezone.utc).isoformat(),
         "tickers": len(tickers),
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),

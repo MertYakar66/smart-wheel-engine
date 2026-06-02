@@ -126,3 +126,58 @@ export function num(v: unknown): number | null {
   const n = typeof v === "number" ? v : Number(v);
   return isFinite(n) ? n : null;
 }
+
+/**
+ * Wilson 95% sampling-CI for prob_profit, rendered in percent (e.g. "71–94%").
+ * Surfaces the SAMPLING uncertainty of the k/N forward-scenario frequency —
+ * orthogonal to the calibration bias confidenceTrust()/calibrationNote()
+ * encode. A wide band means the point estimate rests on few scenarios and must
+ * not be read to 2 dp.
+ *
+ * Bounds are ORDERED defensively (min/max) and widened on display — lower bound
+ * floored, upper ceiled — so the caption never claims tighter precision than
+ * Wilson gives, and never inverts on a malformed payload. Returns "" (NOT the
+ * "—" sentinel fmtUsd/fmtPct use) when the CI is absent: callers gate on
+ * truthiness and embed this inside brackets, where a stray "—" would read wrong.
+ * Honesty across forward-distribution tiers is the CALLER's job — see
+ * samplingCiHonest(); a Wilson interval over a bootstrap/synthetic draw count is
+ * false precision and must be suppressed before it reaches here.
+ */
+export function fmtProbCi(
+  ciLow: number | null | undefined,
+  ciHigh: number | null | undefined
+): string {
+  const a = num(ciLow);
+  const b = num(ciHigh);
+  if (a === null || b === null) return "";
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  return `${Math.floor(lo * 100)}–${Math.ceil(hi * 100)}%`;
+}
+
+/** "N=<count>" for a positive finite scenario count, else null (so "N=0" /
+ *  negative / non-finite never render). Centralizes the guard both CI surfaces
+ *  share, matching the fmtUsd/fmtPct/fmtProbCi formatter convention. */
+export function fmtN(n: number | null | undefined): string | null {
+  const v = num(n);
+  return v !== null && v > 0 ? `N=${v}` : null;
+}
+
+/**
+ * Is the Wilson sampling-CI an HONEST sampling spread for this candidate?
+ *
+ * Only on the IID non-overlapping empirical tier (~35 truly independent forward
+ * windows) is `n_scenarios` a real binomial sample size, so only there is a
+ * Wilson interval the honest sampling uncertainty of prob_profit. The other
+ * forward_distribution tiers feed the engine autocorrelated overlapping returns
+ * ("empirical_overlapping", effective N << count), block-bootstrap resamples
+ * ("block_bootstrap", n=5000) or HAR-RV synthetic draws ("har_rv", n=5000) —
+ * `n_scenarios = len(pnls)` for all of them, and a Wilson CI over those counts
+ * renders a deceptively tight band (false precision, the opposite of the goal).
+ * Suppress the CI there and degrade to the bare point estimate. Mirrors the
+ * source labels returned by engine/forward_distribution.py
+ * ::best_available_forward_distribution.
+ */
+export function samplingCiHonest(source: string | null | undefined): boolean {
+  return source === "empirical_non_overlapping";
+}

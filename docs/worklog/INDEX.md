@@ -9,14 +9,15 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**77 records.**
+**78 records.**
 
-## Features (2)
+## Features (3)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
 | [dashboard-cockpit](dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md) | complete |  | A read-top-to-bottom decision cockpit in dashboard/src that encodes WHAT TO TRUST and WHAT TO DISTRUST about the engine output — distribution-not-point-EV, calibration-flagged top bin, R11 regime banner. Pure display layer; no engine changes. | `dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md` |
+| [dashboard-prob-profit-ci](dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md) | in-flight |  | Decision-cockpit renders the prob_profit Wilson 95% sampling CI + N, gated to the IID non-overlapping forward tier so it never shows false precision. | `dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md` |
 
 ## Fixes (3)
 

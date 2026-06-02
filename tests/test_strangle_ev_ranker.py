@@ -227,18 +227,33 @@ class TestProbProfitCI:
     def test_ci_reaches_survivor_rows_and_brackets_each_leg(self):
         # Row-dict -> DataFrame link: dropped silently by
         # `pd.DataFrame(rows, columns=cols)` unless in BOTH the row dict
-        # and the diagnostic column list. On the positive-EV fixture
-        # every survivor has finite CI and ci_low <= prob_profit <=
-        # ci_high for each leg.
+        # and the diagnostic column list.
+        #
+        # Tier-gated honesty (D4, 2026-06-01): per-leg Wilson CIs are
+        # emitted ONLY on IID (empirical non-overlapping) rows; longer-DTE
+        # grid cells on the overlapping / bootstrap tiers carry a null CI
+        # bundle (a binomial CI over a non-IID N is false precision). Assert
+        # per tier; the per-leg prob_profit values are always present.
         df = _rank(_runner())
         assert not df.empty
+        assert df["put_prob_profit"].notna().all()
+        assert df["call_prob_profit"].notna().all()
+
+        iid = df["distribution_source"] == "empirical_non_overlapping"
+        assert iid.any(), "fixture should yield at least one IID-tier survivor"
+        kept = df[iid]
         for col in self._CI_COLS:
-            assert df[col].notna().all(), f"{col} should be finite for survivor rows"
-        assert (df["put_prob_profit_ci_low"] <= df["put_prob_profit"]).all()
-        assert (df["put_prob_profit"] <= df["put_prob_profit_ci_high"]).all()
-        assert (df["call_prob_profit_ci_low"] <= df["call_prob_profit"]).all()
-        assert (df["call_prob_profit"] <= df["call_prob_profit_ci_high"]).all()
-        assert (df["n_scenarios"] > 0).all()
+            assert kept[col].notna().all(), f"{col} must be finite on IID-tier rows"
+        assert (kept["put_prob_profit_ci_low"] <= kept["put_prob_profit"]).all()
+        assert (kept["put_prob_profit"] <= kept["put_prob_profit_ci_high"]).all()
+        assert (kept["call_prob_profit_ci_low"] <= kept["call_prob_profit"]).all()
+        assert (kept["call_prob_profit"] <= kept["call_prob_profit_ci_high"]).all()
+        assert (kept["n_scenarios"] > 0).all()
+
+        # Non-IID survivors (if any) carry a suppressed (null) CI bundle.
+        gated = df[~iid]
+        for col in self._CI_COLS:
+            assert gated[col].isna().all(), f"{col} must be null on non-IID rows"
 
 
 # ======================================================================
@@ -268,18 +283,32 @@ class TestProbProfitCIRealSurvivor:
             "call_prob_profit_ci_high",
         ):
             assert col in df.columns
-        row = df.iloc[0]
-        assert row["n_scenarios"] is not None and row["n_scenarios"] > 0
-        assert (
-            row["put_prob_profit_ci_low"]
-            <= row["put_prob_profit"]
-            <= row["put_prob_profit_ci_high"]
-        )
-        assert (
-            row["call_prob_profit_ci_low"]
-            <= row["call_prob_profit"]
-            <= row["call_prob_profit_ci_high"]
-        )
+        # Per-leg prob_profit is always present on a survivor.
+        assert df["put_prob_profit"].notna().all()
+        assert df["call_prob_profit"].notna().all()
+        # Tier-gated CI (D4): present + bracketing on IID rows; suppressed
+        # (null) on non-IID grid cells. AAPL's top-EV strangle is frequently
+        # a longer-DTE cell that misses the non-overlapping minimum, so its
+        # CI is correctly null — assert per tier, not on iloc[0].
+        for _, row in df.iterrows():
+            if row["distribution_source"] == "empirical_non_overlapping":
+                assert row["n_scenarios"] is not None and row["n_scenarios"] > 0
+                assert (
+                    row["put_prob_profit_ci_low"]
+                    <= row["put_prob_profit"]
+                    <= row["put_prob_profit_ci_high"]
+                )
+                assert (
+                    row["call_prob_profit_ci_low"]
+                    <= row["call_prob_profit"]
+                    <= row["call_prob_profit_ci_high"]
+                )
+            else:
+                assert pd.isna(row["n_scenarios"])
+                assert pd.isna(row["put_prob_profit_ci_low"])
+                assert pd.isna(row["put_prob_profit_ci_high"])
+                assert pd.isna(row["call_prob_profit_ci_low"])
+                assert pd.isna(row["call_prob_profit_ci_high"])
 
 
 # ======================================================================

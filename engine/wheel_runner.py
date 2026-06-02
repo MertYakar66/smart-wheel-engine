@@ -875,6 +875,7 @@ class WheelRunner:
         from engine.event_gate import EventGate, ScheduledEvent
         from engine.forward_distribution import (
             best_available_forward_distribution,
+            is_iid_forward_source,
             realized_vol_widened_log_returns,
             realized_vol_widening_factor,
         )
@@ -1696,6 +1697,15 @@ class WheelRunner:
             collateral = strike * 100.0 * contracts
             roc = (res.ev_dollars / collateral) if collateral > 0 else 0.0
 
+            # Sampling-honesty gate (2026-06-01): prob_profit's Wilson CI is an
+            # honest binomial interval only when n_scenarios is an
+            # independent-trial count — i.e. the empirical non-overlapping
+            # forward tier. On the overlapping / block_bootstrap / har_rv /
+            # lognormal_fallback tiers ``method`` reports a non-IID N, so the CI
+            # is false precision and is suppressed (None) below. See
+            # engine.forward_distribution.is_iid_forward_source.
+            ci_ok = is_iid_forward_source(method)
+
             row: dict = {
                 "ticker": ticker,
                 "spot": spot,
@@ -1724,15 +1734,15 @@ class WheelRunner:
                 # scenarios were evaluated. prob_profit itself is unchanged —
                 # this annotates PRECISION, not a recalibration. See
                 # engine.ev_engine._wilson_score_interval.
-                "n_scenarios": (int(res.n_scenarios) if res.n_scenarios else None),
+                "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
                 "prob_profit_ci_low": (
                     round(res.prob_profit_ci_low, 4)
-                    if not np.isnan(res.prob_profit_ci_low)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_low)
                     else None
                 ),
                 "prob_profit_ci_high": (
                     round(res.prob_profit_ci_high, 4)
-                    if not np.isnan(res.prob_profit_ci_high)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_high)
                     else None
                 ),
                 "prob_assignment": round(res.prob_assignment, 4),
@@ -2270,7 +2280,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike
 
@@ -2619,6 +2632,12 @@ class WheelRunner:
                     )
                     continue
 
+                # Sampling-honesty gate — see rank_candidates_by_ev for the
+                # rationale: the Wilson CI is honest only on the IID
+                # (empirical non-overlapping) forward tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
+
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -2642,15 +2661,15 @@ class WheelRunner:
                     # prob_profit itself is unchanged — this annotates
                     # PRECISION, not a recalibration. None when no scenarios
                     # were evaluated / the CI is NaN.
-                    "n_scenarios": (int(res.n_scenarios) if res.n_scenarios else None),
+                    "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
                     "prob_profit_ci_low": (
                         round(res.prob_profit_ci_low, 4)
-                        if not np.isnan(res.prob_profit_ci_low)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_low)
                         else None
                     ),
                     "prob_profit_ci_high": (
                         round(res.prob_profit_ci_high, 4)
-                        if not np.isnan(res.prob_profit_ci_high)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_high)
                         else None
                     ),
                     "prob_assignment": round(res.prob_assignment, 4),
@@ -2836,7 +2855,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike, _solve_put_strike
 
@@ -3241,6 +3263,12 @@ class WheelRunner:
                     continue
 
                 total_premium = put_premium + call_premium
+                # Sampling-honesty gate — see rank_candidates_by_ev: both legs
+                # walk the same forward path, so one ``method`` governs the
+                # shared n_scenarios + both legs' Wilson CIs. Honest only on the
+                # IID (empirical non-overlapping) tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -3281,26 +3309,28 @@ class WheelRunner:
                             # no scenarios were evaluated. The leg
                             # prob_profit values themselves are unchanged.
                             "n_scenarios": (
-                                int(put_res.n_scenarios) if put_res.n_scenarios else None
+                                int(put_res.n_scenarios)
+                                if (ci_ok and put_res.n_scenarios)
+                                else None
                             ),
                             "put_prob_profit_ci_low": (
                                 round(put_res.prob_profit_ci_low, 4)
-                                if not np.isnan(put_res.prob_profit_ci_low)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_low)
                                 else None
                             ),
                             "put_prob_profit_ci_high": (
                                 round(put_res.prob_profit_ci_high, 4)
-                                if not np.isnan(put_res.prob_profit_ci_high)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_high)
                                 else None
                             ),
                             "call_prob_profit_ci_low": (
                                 round(call_res.prob_profit_ci_low, 4)
-                                if not np.isnan(call_res.prob_profit_ci_low)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_low)
                                 else None
                             ),
                             "call_prob_profit_ci_high": (
                                 round(call_res.prob_profit_ci_high, 4)
-                                if not np.isnan(call_res.prob_profit_ci_high)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_high)
                                 else None
                             ),
                             "put_prob_assignment": round(put_res.prob_assignment, 4),

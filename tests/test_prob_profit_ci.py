@@ -34,6 +34,7 @@ import numpy as np
 import pytest
 
 from engine.ev_engine import EVEngine, ShortOptionTrade, _wilson_score_interval
+from engine.forward_distribution import is_iid_forward_source
 
 
 # ======================================================================
@@ -176,7 +177,15 @@ class TestRankerEmitsCI:
         )
         if df.empty:
             pytest.skip(f"no survivor rows at as_of={_AS_OF} — likely all event-gated")
+        # The put ranker targets a fixed ~35 DTE, whose trailing window
+        # yields enough non-overlapping forward windows that survivor rows
+        # are on the IID empirical_non_overlapping tier — so the CI is
+        # emitted and brackets prob_profit. (The tier gate itself is
+        # exercised directly in section 5; here we only require that the
+        # honest CI reaches the rows it should.)
         for _, r in df.iterrows():
+            if r["distribution_source"] != "empirical_non_overlapping":
+                continue  # non-IID rows carry a suppressed CI by design (D4)
             pp = r["prob_profit"]
             n = r["n_scenarios"]
             lo, hi = r["prob_profit_ci_low"], r["prob_profit_ci_high"]
@@ -184,3 +193,87 @@ class TestRankerEmitsCI:
             assert n is not None and n > 0
             assert lo is not None and hi is not None
             assert 0.0 <= lo <= pp <= hi <= 1.0, f"{r['ticker']}: {lo} <= {pp} <= {hi} failed"
+
+
+# ======================================================================
+# 5. Tier gate — the Wilson CI is honest ONLY on the IID forward tier (D4)
+# ======================================================================
+# prob_profit's Wilson CI is a binomial interval; it is an honest *sampling*
+# spread only when n_scenarios is a count of INDEPENDENT trials — the
+# empirical non-overlapping tier. The overlapping (autocorrelated),
+# block_bootstrap / har_rv (synthetic, n~5000) and lognormal_fallback
+# (n~20000) tiers report an N that is NOT an independent-trial count, so a
+# Wilson CI over them is deceptively tight (false precision). The rankers gate
+# CI emission on engine.forward_distribution.is_iid_forward_source so the only
+# interval a trader ever sees is a genuine sampling spread.
+class TestIsIidForwardSource:
+    def test_only_non_overlapping_is_iid(self):
+        assert is_iid_forward_source("empirical_non_overlapping") is True
+
+    def test_non_iid_tiers_are_rejected(self):
+        for src in [
+            "empirical_overlapping",
+            "block_bootstrap",
+            "har_rv",
+            "lognormal_fallback",
+            "price_scenarios",
+            "none",
+        ]:
+            assert is_iid_forward_source(src) is False, src
+
+    def test_none_and_unknown_are_rejected(self):
+        assert is_iid_forward_source(None) is False
+        assert is_iid_forward_source("") is False
+        assert is_iid_forward_source("something_new") is False
+
+
+class TestRankerGatesCiOffIidTier:
+    """End-to-end: when the forward tier is NOT the IID non-overlapping one,
+    the put ranker suppresses the CI bundle (n_scenarios + CI → None) while
+    prob_profit itself is unchanged. The tier is forced by RELABELLING the
+    cascade output (keeping the real returns, so candidates survive and
+    prob_profit is identical); the ranker's function-scope import of
+    ``best_available_forward_distribution`` picks up the patched attribute."""
+
+    def _relabelled_df(self, monkeypatch, label):
+        import engine.forward_distribution as fd
+
+        real = fd.best_available_forward_distribution
+
+        def fake(*a, **k):
+            rets, _src = real(*a, **k)
+            return rets, label
+
+        monkeypatch.setattr(fd, "best_available_forward_distribution", fake)
+        from engine.wheel_runner import WheelRunner
+
+        return WheelRunner().rank_candidates_by_ev(
+            tickers=["AAPL", "MSFT"],
+            top_n=5,
+            min_ev_dollars=-1e9,
+            as_of=_AS_OF,
+            include_diagnostic_fields=True,
+        )
+
+    def test_non_iid_tier_suppresses_ci_keeps_prob_profit(self, monkeypatch):
+        df = self._relabelled_df(monkeypatch, "block_bootstrap")
+        if df.empty:
+            pytest.skip(f"no survivor rows at as_of={_AS_OF}")
+        assert (df["distribution_source"] == "block_bootstrap").all()
+        # prob_profit is unchanged: still a finite frequency in [0, 1].
+        assert df["prob_profit"].notna().all()
+        assert ((df["prob_profit"] >= 0.0) & (df["prob_profit"] <= 1.0)).all()
+        # The CI bundle is suppressed → every gated column is null.
+        for col in _CI_COLS:
+            assert df[col].isna().all(), f"{col} must be null on a non-IID tier"
+
+    def test_iid_tier_emits_ci(self, monkeypatch):
+        # Control: forcing the IID label keeps the CI present + bracketing,
+        # proving the suppression above is the tier gate, not a side effect.
+        df = self._relabelled_df(monkeypatch, "empirical_non_overlapping")
+        if df.empty:
+            pytest.skip(f"no survivor rows at as_of={_AS_OF}")
+        for col in _CI_COLS:
+            assert df[col].notna().all(), f"{col} must be finite on the IID tier"
+        assert (df["prob_profit_ci_low"] <= df["prob_profit"]).all()
+        assert (df["prob_profit"] <= df["prob_profit_ci_high"]).all()

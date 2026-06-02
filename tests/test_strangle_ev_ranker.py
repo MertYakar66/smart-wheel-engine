@@ -189,6 +189,100 @@ class TestSchema:
 
 
 # ======================================================================
+# 1b. per-leg prob_profit confidence interval (small-sample honesty)
+# ======================================================================
+class TestProbProfitCI:
+    """The strangle ranker mirrors the put ranker's CI honesty per leg:
+    shared ``n_scenarios`` (both legs walk the same forward path) plus
+    each leg's Wilson 95% CI bracketing its k/N ``*_prob_profit``
+    frequency. These live in ``_STRANGLE_RANK_DIAGNOSTIC_COLUMNS`` right
+    after the per-leg prob_profit (where the strangle's prob_profit
+    travels — there is no blended prob_profit). §2-safe: this surfaces an
+    existing value's uncertainty, never recalibrating prob_profit /
+    ev_dollars / verdict.
+    """
+
+    _CI_COLS = (
+        "n_scenarios",
+        "put_prob_profit_ci_low",
+        "put_prob_profit_ci_high",
+        "call_prob_profit_ci_low",
+        "call_prob_profit_ci_high",
+    )
+
+    def test_ci_columns_are_in_diagnostic_schema(self):
+        for col in self._CI_COLS:
+            assert col in _STRANGLE_RANK_DIAGNOSTIC_COLUMNS
+        # n_scenarios is pinned right after the per-leg prob_profit pair.
+        pp = _STRANGLE_RANK_DIAGNOSTIC_COLUMNS.index("call_prob_profit")
+        assert _STRANGLE_RANK_DIAGNOSTIC_COLUMNS[pp + 1 : pp + 6] == list(self._CI_COLS)
+
+    def test_ci_columns_absent_without_diagnostics(self):
+        # Per-leg prob_profit (and thus its CI) is a diagnostic field —
+        # so the CI columns must NOT appear in the core-only frame.
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        for col in self._CI_COLS:
+            assert col not in df.columns
+
+    def test_ci_reaches_survivor_rows_and_brackets_each_leg(self):
+        # Row-dict -> DataFrame link: dropped silently by
+        # `pd.DataFrame(rows, columns=cols)` unless in BOTH the row dict
+        # and the diagnostic column list. On the positive-EV fixture
+        # every survivor has finite CI and ci_low <= prob_profit <=
+        # ci_high for each leg.
+        df = _rank(_runner())
+        assert not df.empty
+        for col in self._CI_COLS:
+            assert df[col].notna().all(), f"{col} should be finite for survivor rows"
+        assert (df["put_prob_profit_ci_low"] <= df["put_prob_profit"]).all()
+        assert (df["put_prob_profit"] <= df["put_prob_profit_ci_high"]).all()
+        assert (df["call_prob_profit_ci_low"] <= df["call_prob_profit"]).all()
+        assert (df["call_prob_profit"] <= df["call_prob_profit_ci_high"]).all()
+        assert (df["n_scenarios"] > 0).all()
+
+
+# ======================================================================
+# 1c. per-leg prob_profit CI on a REAL survivor (Bloomberg connector)
+# ======================================================================
+class TestProbProfitCIRealSurvivor:
+    """End-to-end against the live Bloomberg connector. Skips if no
+    strangle candidate survives at the fixed as_of."""
+
+    def test_real_survivor_ci_brackets_each_leg(self):
+        runner = WheelRunner()  # real provider via SWE_DATA_PROVIDER
+        df = runner.rank_strangles_by_ev(
+            ticker="AAPL",
+            as_of="2026-03-20",
+            use_event_gate=False,
+            use_timing_gate=False,
+            min_ev_dollars=-1e9,
+            top_n=50,
+        )
+        if df.empty:
+            pytest.skip("no strangle survivor for AAPL at as_of=2026-03-20")
+        for col in (
+            "n_scenarios",
+            "put_prob_profit_ci_low",
+            "put_prob_profit_ci_high",
+            "call_prob_profit_ci_low",
+            "call_prob_profit_ci_high",
+        ):
+            assert col in df.columns
+        row = df.iloc[0]
+        assert row["n_scenarios"] is not None and row["n_scenarios"] > 0
+        assert (
+            row["put_prob_profit_ci_low"]
+            <= row["put_prob_profit"]
+            <= row["put_prob_profit_ci_high"]
+        )
+        assert (
+            row["call_prob_profit_ci_low"]
+            <= row["call_prob_profit"]
+            <= row["call_prob_profit_ci_high"]
+        )
+
+
+# ======================================================================
 # 2. Edge cases
 # ======================================================================
 class TestEdgeCases:

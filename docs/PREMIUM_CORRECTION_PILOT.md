@@ -155,6 +155,17 @@ normal risk premium.
   repudiated Q−P tautology, but the high-correction bin is also the
   deep-OTM/low-predicted bin, so read the *gap* (not realized alone) and lean on
   the cluster-robust CI.
+- **Strike-snap directional bias.** `eng_prob_itm` is the engine's predicted
+  prob at its *solved* strike; `realized_itm` is at the nearest *listed* strike,
+  up to 4% away (and ±5d on expiry). When the snap lands more-OTM, realized
+  assignment is lower than the predicted prob at the higher engine strike —
+  biasing `gap = realized − predicted` **down**, the **same direction as D21**.
+  Net consequence: a near-zero or negative observed gap is **NOT** clean
+  evidence of engine conservatism — once D21 + the snap bias are removed it is
+  consistent with the engine actually *under*-predicting. The honest reading is
+  that the *level* of the gap is unreliable; only a **large, cluster-robust,
+  cross-name** positive gap (which the 3-name preliminary does not show) would
+  survive these downward biases as a reprice-and-reshape signal.
 
 ### 4.1 Preliminary 3-name result — a mirage, dissolved by clustering
 

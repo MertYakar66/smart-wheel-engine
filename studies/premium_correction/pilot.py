@@ -117,6 +117,13 @@ def _larder_mid(ticker: str, real_exp: date, as_of: date, raw_target_strike: flo
         return None
     use_date = max(df["d"])
     df = df[df["d"] == use_date].drop_duplicates(["strike", "right", "d"])
+    # Reject invalid/crossed quotes BEFORE nearest-strike selection: a crossed
+    # snapshot (bid > ask) would otherwise yield a negative spread_pct that
+    # slips past the MAX_SPREAD_PCT gate with a meaningless mid. (Empirically 0
+    # crossed in-band, but don't rely on that.)
+    df = df[(df["ask"] > 0) & (df["ask"] >= df["bid"]) & (df["bid"] >= 0)]
+    if df.empty:
+        return None
     df = df.assign(_gap=(df["strike"] - raw_target_strike).abs()).sort_values("_gap")
     row = df.iloc[0]
     bid, ask = float(row["bid"]), float(row["ask"])
@@ -127,7 +134,7 @@ def _larder_mid(ticker: str, real_exp: date, as_of: date, raw_target_strike: flo
         "ask": ask,
         "raw_mid": mid,
         "open_interest": float(row["open_interest"]),
-        "spread_pct": (ask - bid) / mid if mid > 0 else np.inf,
+        "spread_pct": abs(ask - bid) / mid if mid > 0 else np.inf,
         "quote_date": use_date,
     }
 

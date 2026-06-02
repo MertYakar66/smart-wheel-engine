@@ -18,6 +18,8 @@ Three deferred decision-layer changes are **entangled and must re-base in one pa
 - **D19** — `EVEngine.evaluate` computes the exit-leg commission + slippage (~$1–4/contract) into `total_transaction_cost` but **never subtracts it from `ev_raw`**, so EV is mildly overstated.
 - **Recalibration** — the top `prob_profit` bin is over-confident (I1: ~0.96 forecast vs ~0.57 realized in crisis, **−27 pp** miss). A prior recalibration map (W2-C) cut ECE 3.17 → 1.29 pp on calm tape **but failed leave-one-crisis-out (LOCO)** — and crucially, **it was fit on D21-deflated `prob_profit`**.
 
+> **Set the expectation going in.** This re-baseline **makes the numbers honest; it most likely does *not* fix the calibration.** The crisis realized-rate spread (0.37–0.93) is a property of the outcomes, not a D21 artifact, so the re-fit map will probably fail LOCO again even on corrected inputs. The **base-case landing is: accept the residual gap and keep R11 (downgrade-only) as the operational mitigation, with POT-GPD a *separate* study — not an automatic escalation.** A recalibration map that passes LOCO is the upside, not the plan. We still run the clean re-attempt (§6) — the instruction was to re-measure on corrected inputs, not to pre-judge — but go in expecting accept-the-gap, not a miracle.
+
 **The entanglement, precisely:** D21's over-long horizon *deflates* `prob_profit` today, which drags the forecast **down toward** the realized rate and therefore **masks part of the top-bin over-confidence**. Fixing D21 alone *raises* `prob_profit` (verified example **0.833 → 0.886**) → the measured calibration gap gets **worse**, not better. So D21 cannot ship without re-measuring calibration and re-attempting the recalibration on the corrected probabilities; and because both D21 and D19 move EV-authority output, every backtest baseline and the published calibration matrix re-base together. One commit, one backtest re-run, one baseline refresh.
 
 ---
@@ -76,9 +78,9 @@ Step 2  Apply D19 (exit-cost netting)     ── code, ev_engine.py   (order vs 
 Step 3  Re-MEASURE calibration on the     ── re-run i1 on D21-corrected prob_profit;
         D21-corrected probabilities          the masked gap now shows at its true size
 Step 4  Re-ATTEMPT the recalibration map  ── re-fit i6 W2-C + re-gate i9 LOCO  (see §6)
-        └─ passes LOCO → ship the map
-        └─ fails  LOCO → escalate decision: POT-GPD structural fix, or accept gap +
-                          keep R11 (downgrade-only) as the operational mitigation
+        └─ BASE CASE — fails LOCO → accept the residual gap; keep R11 (downgrade-only)
+                       as the mitigation; POT-GPD = SEPARATE study, not an in-line escalation
+        └─ UPSIDE    — passes LOCO → ship the map  (do not plan around this)
 Step 5  Re-run full backtest suite        ── with D21+D19 (and map, if shipped) applied
 Step 6  Refresh PROB_PROFIT_CALIBRATION    ── the published matrix
 Step 7  Re-pin fixture-locked EV tests    ── new expected ev_dollars/prob_profit
@@ -116,6 +118,8 @@ Producers: `prob_assignment` `engine/ev_engine.py:363-364, 544`; `prob_profit` `
 
 The prior recalibration is **not written off**; it was fit on biased inputs and earns a clean re-run.
 
+**Expected landing (base case): accept the gap, keep R11.** The re-baseline makes the numbers honest but most likely does **not** close the calibration gap — the crisis realized-rate spread (0.37–0.93) is an outcome property, not a D21 artifact, so the re-fit map will probably fail LOCO again. Plan for: *accept the residual gap, keep R11 (downgrade-only) as the operational mitigation, scope POT-GPD as a separate study.* The re-run below is the **clean re-measurement that earns that conclusion** (vs. asserting it on biased inputs) — and preserves the upside that the map passes. It is not a step that is expected to succeed.
+
 **Procedure (after Steps 1–2 land D21+D19):**
 1. **Re-realize** all calibration rows against the D21-corrected forward distributions — re-run `i1_calibration.py` (`load_realized` `:68-94`); outputs the corrected reliability table (Wilson-CI bins, Brier, ECE). This is the **re-measure** step — expect the top-bin gap to *widen* vs today.
 2. **Re-fit** the recalibration map on a LOCO-train split (2020-2023 excluding the held-out crisis), per-bin and bin×regime — `i6_deepening.py` W2-C (`:127-141`).
@@ -125,7 +129,7 @@ The prior recalibration is **not written off**; it was fit on biased inputs and 
 
 **Two honest caveats to carry:**
 - **The D21 contribution to the −27 pp is not yet decomposed.** I1 measures the *total* miss; no document isolates "how much is the D21 horizon artifact vs. structural tail under-modelling." The masking is a mechanically sound, well-motivated hypothesis — **the re-baseline is the experiment that decomposes it.** State it as a hypothesis-under-test, not a settled fact.
-- **The map may still fail on corrected inputs.** The crisis realized-rate spread (0.37–0.93) is a property of the *outcomes*, not of D21. If LOCO fails again post-correction, that is itself a finding: it points to the **structural POT-GPD route** (untested) rather than a histogram map, and that becomes an explicit operator decision (wire POT-GPD now, or defer it and lean on R11). Do not silently ship a map that only helps calm tape.
+- **The map will probably fail on corrected inputs — and that is a clean finding, not a failure of the work.** The crisis realized-rate spread (0.37–0.93) is a property of the *outcomes*, not of D21. A LOCO failure post-correction says the residual is **structural**, pointing at the POT-GPD route — which is then scoped as its **own** study (its own prototype + LOCO gate), not an automatic in-line escalation of this re-baseline. Do not ship a map that only helps calm tape.
 
 ---
 
@@ -143,7 +147,7 @@ The prior recalibration is **not written off**; it was fit on biased inputs and 
 
 ## 8. Open questions to settle before execution
 
-1. **Recalibration route if LOCO fails again:** wire the structural POT-GPD fix into `prob_profit` (untested — needs its own prototype + LOCO gate), or defer it and keep R11 as the operational mitigation with the gap documented? (§6)
+1. **Recalibration route when LOCO fails again (the expected case):** the working base case is **defer POT-GPD to a separate study and keep R11**, residual gap documented — confirm you want that rather than wiring POT-GPD in-line (untested; needs its own prototype + LOCO gate). (§6)
 2. **Pre-register the LOCO pass/fail tolerance** (proposed ≤ ~5 pp on T2/T3 top bin) so the re-run can't be graded post-hoc.
 3. **Confirm the canonical backtest snapshot registry** — which exact `ENGINE_BACKTEST_*` docs/IDs and rolling-window campaigns re-base, and whether all ~2,600 regression baselines flip or a subset. (§5 **[CONFIRM]**)
 4. **Re-locate the fixture-pinned EV tests** — the class names in `DECISIONS.md` did not grep-match; identify the real tests carrying hard-coded `ev_dollars`. (§5 **[CONFIRM]**)

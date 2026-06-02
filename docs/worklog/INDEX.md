@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**77 records.**
+**78 records.**
 
 ## Features (2)
 
@@ -114,6 +114,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
+
+## Docs / process (1)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [bloomberg-refresh-2026-06-02](bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md) | in-flight |  | Delta-refreshed OHLCV/IV/liquidity to 2026-06-02 and added 7 context datasets via the Bloomberg Desktop API (xbbg); deep historical backfill deferred (metered cap) | `bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md` |
 
 ## Research records (3)
 

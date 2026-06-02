@@ -276,6 +276,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 |---|---|
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
+| `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
@@ -627,11 +628,20 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/models/__init__.py` | Empty package stub. |
 | `src/risk/__init__.py` | Empty package stub. |
 
+## `studies/` — observe-only research studies (read-only over the engine)
+
+| File | Purpose |
+|---|---|
+| `studies/premium_correction/__init__.py` | Package marker + study summary (real-mid vs synthetic-BSM premium correction). |
+| `studies/premium_correction/splits.py` | Split-adjustment layer joining engine (split-adjusted) strikes to larder (raw) strikes; cumulative-factor table + adjusted↔raw strike/premium conversions. |
+| `studies/premium_correction/pilot.py` | Observe-only harness: drives `WheelRunner.explore_ticker` (authoritative EV path) per (ticker, as_of), joins the real Theta EOD mid, computes the premium correction and the market-vs-engine calibration gap, emits records + summary + cross-plot. |
+
 ## `tests/` — test suite
 
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |
 | `tests/test_audit_invariants.py` | Launch-blocker invariants — Greeks unit contract, PIT safety, TV webhook HMAC, EV-engine invariants. |

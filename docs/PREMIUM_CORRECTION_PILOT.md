@@ -75,7 +75,21 @@ Two views:
    reprice-premium is closer to honest. **This is the result that decides the
    §2 wiring arc.**
 
-### Why NOT a risk-neutral comparison (the trap this version fixes)
+### Independence: cluster, don't count contracts (the second trap)
+
+Each (ticker, as_of) yields **many** (delta, dte, strike) contracts that all
+resolve against the **same** terminal price path — they are **pseudo-replicates,
+not independent trials**. Counting 155 contracts as 155 binomial draws makes a
+naive Wilson interval **far too narrow**. So the deliverable uses a **cluster
+(block) bootstrap** over `(ticker, as_of)` events: CIs are computed by resampling
+whole clusters, `n_clusters` is reported alongside `n`, and a bin is
+`trustworthy` only when it clears **both** `n ≥ MIN_BIN_N` (30) **and**
+`n_clusters ≥ MIN_CLUSTERS` (8). The summary also prints the **per-name** gap,
+because a single name's directional run (one stock that fell over the window)
+pools into a fake cross-sectional signal otherwise. The preliminary 3-name run
+demonstrated exactly this — see §4.1.
+
+### Why NOT a risk-neutral comparison (the first trap)
 
 An earlier cut used `calib_gap = mkt_prob_itm − eng_prob_itm`, where
 `mkt_prob_itm = N(−d2)` at the contract's implied vol. That is **wrong as a
@@ -118,7 +132,41 @@ normal risk premium.
   JPM/XOM will be milder). Treat the pilot magnitude as **suggestive, not
   representative**, until the broader set lands.
 
-## 5. Two correctness traps caught before any number (the discipline)
+### 4.1 Preliminary 3-name result — a mirage, dissolved by clustering
+
+The first preliminary run (≈200 resolved contracts, AAPL/NVDA/TSLA, calm
+2024–25) produced a **striking but false** reprice-and-reshape signal, and
+dissolving it is itself the finding:
+
+- **Naive read (independence-assuming Wilson):** the high-correction bin showed
+  realized assignment **0.42 vs predicted 0.20, gap +0.22, CI [+0.06, +0.39]
+  clearing 0**, rising monotonically — textbook "engine under-sees risk where
+  premium is fat."
+- **Why it's false:** (1) **pseudo-replication** — those ≈200 contracts are
+  only **~14 independent (ticker, as_of) events** (the high-correction bin: 5–6
+  clusters); the naive CI counted correlated contracts as independent draws.
+  (2) **single-name direction** — the entire signal is **AAPL** (which drifted
+  down in the resolved window); **NVDA −0.16, TSLA −0.30** show the *opposite*
+  (engine conservative).
+- **Cluster-robust read:** resampling whole `(ticker, as_of)` clusters, the
+  high-correction gap collapses to **+0.05, CI [−0.25, +0.61]** — every
+  high-correction bin falls below the 8-cluster floor and is flagged
+  `not signal`. Verdict: **no calibration failure established; the apparent
+  signal is within cluster-robust noise.**
+
+Refinement 1 (premium correction is real and positive — medians roughly
+AAPL ~+16%, NVDA ~+5%, TSLA ~+1% of BSM) holds. Refinement 2 is **inconclusive
+by construction** at 3 names / ~14 clusters — it **requires the ~15-name set**
+(so direction averages out and clusters multiply) **and** a 2020/2022 stress
+window. The preliminary's value was negative-space: it proved the guard catches
+a confident-wrong result that two earlier traps (Q-vs-P, then small-n) would
+have let through.
+
+## 5. Two data-level traps caught before any number (the discipline)
+
+*(The two methodology/statistics traps — risk-neutral-vs-physical (§3) and
+pseudo-replication (§3, §4.1) — were caught at/after first numbers; these two
+are the data-level ones caught before any number ran.)*
 
 1. **Data overlap, not expiration count.** The engine needs **≥504 trading
    days of OHLCV before `as_of`** to build the forward distribution. With

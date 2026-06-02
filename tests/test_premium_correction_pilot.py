@@ -102,7 +102,13 @@ def test_unknown_ticker_is_identity():
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from studies.premium_correction.pilot import _binned, _terminal_close  # noqa: E402
+from studies.premium_correction.pilot import (  # noqa: E402
+    MIN_BIN_N,
+    MIN_CLUSTERS,
+    _binned,
+    _terminal_close,
+    _wilson_ci,
+)
 
 
 def _synth_ohlcv():
@@ -155,3 +161,92 @@ def test_binned_reports_predicted_vs_realized_gap():
     assert not out.empty
     # The highest-correction bin must show a clearly positive realized−predicted gap.
     assert out.iloc[-1]["gap_realized_minus_pred"] > out.iloc[0]["gap_realized_minus_pred"]
+
+
+# --------------------------------------------------------------------------
+# Small-sample statistical guard: Wilson score interval + n-based flagging.
+# Realized assignment frequency is a small binomial proportion — every point
+# carries a Wilson CI and thin bins must be flagged, never read as signal.
+# --------------------------------------------------------------------------
+
+
+def test_wilson_ci_zero_events_clamps_low_and_is_positive_upper():
+    lo, hi = _wilson_ci(0, 30)
+    assert lo == 0.0  # clamped at 0
+    assert 0.08 < hi < 0.14  # upper bound is meaningfully above the 0 estimate
+
+
+def test_wilson_ci_half_is_symmetric_and_wide_for_small_n():
+    lo, hi = _wilson_ci(15, 30)
+    assert lo == pytest.approx(0.331, abs=0.01)
+    assert hi == pytest.approx(0.669, abs=0.01)
+    assert (lo + hi) / 2 == pytest.approx(0.5, abs=1e-9)  # symmetric at p=0.5
+
+
+def test_wilson_ci_all_events_clamps_upper_at_one():
+    lo, hi = _wilson_ci(5, 5)
+    assert hi == 1.0
+    assert lo < 1.0  # not a degenerate point
+
+
+def test_wilson_ci_zero_n_is_nan():
+    lo, hi = _wilson_ci(0, 0)
+    assert np.isnan(lo) and np.isnan(hi)
+
+
+def test_binned_refuses_below_honest_floor():
+    # Fewer than 2*MIN_BIN_N resolved contracts → no bins (don't bin dishonestly).
+    df = pd.DataFrame(
+        {
+            "correction_pct": np.linspace(0, 0.3, 2 * MIN_BIN_N - 1),
+            "eng_prob_itm": 0.2,
+            "realized_itm": 0.0,
+        }
+    )
+    assert _binned(df, "correction_pct").empty
+
+
+def test_binned_emits_wilson_ci_and_trust_columns():
+    n = 6 * MIN_BIN_N
+    df = pd.DataFrame(
+        {
+            "correction_pct": np.linspace(0, 0.5, n),
+            "eng_prob_itm": np.full(n, 0.2),
+            "realized_itm": (np.arange(n) % 4 == 0).astype(float),
+        }
+    )
+    out = _binned(df, "correction_pct")
+    assert not out.empty
+    for col in ("realized_lo", "realized_hi", "gap_lo", "gap_hi", "trustworthy", "n", "n_clusters"):
+        assert col in out.columns
+    # No ticker/as_of columns ⇒ each row is its own cluster ⇒ many clusters ⇒
+    # trustworthy, and the cluster-robust CI brackets the point estimate.
+    assert out["trustworthy"].all()
+    assert (out["realized_lo"] <= out["realized"] + 1e-9).all()
+    assert (out["realized"] <= out["realized_hi"] + 1e-9).all()
+
+
+def test_binned_flags_pseudo_replicated_bin_as_untrustworthy():
+    # Large n but only a few independent (ticker, as_of) clusters — the exact
+    # trap the preliminary exposed: 150 contracts, 4 clusters. Must NOT be
+    # trustworthy despite n >> MIN_BIN_N, because n_clusters < MIN_CLUSTERS.
+    rng = np.random.default_rng(1)
+    n = 6 * MIN_BIN_N
+    # 4 clusters total (2 tickers x 2 as_of); all correction values span the
+    # range so every bin inherits the same 4 clusters.
+    tickers = np.array(["AAA", "BBB"])[rng.integers(0, 2, n)]
+    as_ofs = np.array(["2025-01-01", "2025-02-01"])[rng.integers(0, 2, n)]
+    df = pd.DataFrame(
+        {
+            "ticker": tickers,
+            "as_of": as_ofs,
+            "correction_pct": np.linspace(0, 0.5, n),
+            "eng_prob_itm": np.full(n, 0.2),
+            "realized_itm": (rng.uniform(size=n) < 0.4).astype(float),
+        }
+    )
+    out = _binned(df, "correction_pct")
+    assert not out.empty
+    assert (out["n"] >= MIN_BIN_N).all()  # plenty of contracts
+    assert (out["n_clusters"] < MIN_CLUSTERS).all()  # but too few independent events
+    assert not out["trustworthy"].any()  # ⇒ never read as signal

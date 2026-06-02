@@ -66,6 +66,18 @@ MAX_EXP_GAP_DAYS = 5  # nearest listed expiry within 5 days of target DTE
 MAX_SPREAD_PCT = 1.50  # discard pathologically wide markets (>150% of mid)
 AS_OF_BACKFILL_DAYS = 4  # tolerate weekend/holiday: use latest date <= as_of
 
+# Statistical-rigor guard. Realized assignment frequency is a small-sample
+# binomial proportion, so every realized point carries a Wilson score interval
+# and any bin below MIN_BIN_N is FLAGGED as not-signal (drawn faded, never read
+# as a finding). Mirrors the R11 "don't read a noisy point estimate as signal".
+MIN_BIN_N = 30  # bins with fewer resolved contracts are flagged untrustworthy
+# Pseudo-replication guard. Many (delta, dte, strike) contracts share a
+# (ticker, as_of) and resolve against the SAME terminal price, so they are NOT
+# independent. A bin must also clear MIN_CLUSTERS distinct (ticker, as_of)
+# events, and CIs are cluster-bootstrapped (not naive Wilson) over those events.
+MIN_CLUSTERS = 8  # distinct (ticker, as_of) resolution events required to trust a bin
+N_BOOT = 2000  # cluster-bootstrap resamples
+
 
 # --------------------------------------------------------------------------
 # Larder access (raw strike space)
@@ -353,25 +365,102 @@ def _winsorize(s: pd.Series, lo: float = 0.01, hi: float = 0.99) -> pd.Series:
     return s.clip(s.quantile(lo), s.quantile(hi))
 
 
+def _wilson_ci(k: float, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion k/n.
+
+    Robust for small n and p near 0/1 (where the normal approximation fails),
+    which is exactly the realized-assignment regime here. Returns (lo, hi);
+    (nan, nan) for n == 0.
+    """
+    if n <= 0:
+        return (np.nan, np.nan)
+    p = k / n
+    denom = 1.0 + z**2 / n
+    center = (p + z**2 / (2 * n)) / denom
+    half = (z / denom) * np.sqrt(p * (1 - p) / n + z**2 / (4 * n**2))
+    return (max(0.0, center - half), min(1.0, center + half))
+
+
+def _cluster_id(g: pd.DataFrame) -> pd.Series:
+    """Independent-information unit. Many (delta, dte, strike) contracts at the
+    same (ticker, as_of) resolve against the SAME terminal price path, so they
+    are NOT independent trials — the cluster is (ticker, as_of). When those
+    columns are absent (synthetic test data) each row is its own cluster.
+    """
+    if {"ticker", "as_of"}.issubset(g.columns):
+        return g["ticker"].astype(str) + "|" + g["as_of"].astype(str)
+    return pd.Series(range(len(g)), index=g.index).astype(str)
+
+
+def _cluster_bootstrap(gb: pd.DataFrame, b: int = N_BOOT, seed: int = 12345):
+    """Cluster (block) bootstrap CI for realized rate and gap: resample whole
+    (ticker, as_of) clusters with replacement so within-cluster correlation is
+    respected. Returns (realized_lo, realized_hi, gap_lo, gap_hi, n_clusters).
+    A naive Wilson CI on the raw contract count would be far too narrow here.
+    """
+    cid = _cluster_id(gb)
+    clusters = cid.unique()
+    nc = len(clusters)
+    # Per-cluster sufficient statistics (sum realized, count, sum predicted).
+    grp = gb.assign(_c=cid.values).groupby("_c")
+    cs_real = grp["realized_itm"].sum().to_numpy()
+    cs_n = grp["realized_itm"].size().to_numpy().astype(float)
+    cs_pred = grp["eng_prob_itm"].sum().to_numpy()
+    if nc < 2:
+        return (np.nan, np.nan, np.nan, np.nan, nc)
+    rng = np.random.default_rng(seed)
+    picks = rng.integers(0, nc, size=(b, nc))
+    n_tot = cs_n[picks].sum(axis=1)
+    realized_s = cs_real[picks].sum(axis=1) / n_tot
+    gap_s = realized_s - cs_pred[picks].sum(axis=1) / n_tot
+    return (
+        float(np.percentile(realized_s, 2.5)),
+        float(np.percentile(realized_s, 97.5)),
+        float(np.percentile(gap_s, 2.5)),
+        float(np.percentile(gap_s, 97.5)),
+        nc,
+    )
+
+
 def _binned(clean: pd.DataFrame, by: str, q: int = 6) -> pd.DataFrame:
-    """Quantile-bin ``clean`` by column ``by``; per bin report predicted vs
-    realized assignment frequency and the premium correction."""
+    """Quantile-bin ``clean`` by ``by``; per bin report predicted vs realized
+    assignment frequency with BOTH a naive Wilson CI (independence-assuming)
+    and a **cluster-robust** bootstrap CI over (ticker, as_of), plus
+    ``n_clusters``. A bin is ``trustworthy`` only when it has >= MIN_BIN_N
+    contracts AND >= MIN_CLUSTERS independent (ticker, as_of) events — because
+    many contracts per event are pseudo-replicates, not independent trials.
+    """
     g = clean.dropna(subset=[by, "realized_itm", "eng_prob_itm"]).copy()
-    if len(g) < q * 4:
-        q = max(2, len(g) // 4)
-    if len(g) < 8:
-        return pd.DataFrame()
+    if len(g) < 2 * MIN_BIN_N:
+        return pd.DataFrame()  # too few resolved contracts to bin honestly
+    q = max(2, min(q, len(g) // MIN_BIN_N))
     g["_bin"] = pd.qcut(g[by], q=q, duplicates="drop")
     rows = []
     for b, gb in g.groupby("_bin", observed=True):
+        n = len(gb)
+        k = float(gb["realized_itm"].sum())
+        realized = k / n
+        predicted = gb["eng_prob_itm"].mean()
+        wlo, whi = _wilson_ci(k, n)
+        rlo, rhi, glo, ghi, nc = _cluster_bootstrap(gb)
         rows.append(
             {
                 "bin": str(b),
-                "n": len(gb),
+                "n": n,
+                "n_clusters": nc,
                 f"{by}_mid": gb[by].mean(),
-                "predicted": gb["eng_prob_itm"].mean(),
-                "realized": gb["realized_itm"].mean(),
-                "gap_realized_minus_pred": gb["realized_itm"].mean() - gb["eng_prob_itm"].mean(),
+                "predicted": predicted,
+                "realized": realized,
+                # cluster-robust CI is the reported (honest) interval
+                "realized_lo": rlo,
+                "realized_hi": rhi,
+                "gap_realized_minus_pred": realized - predicted,
+                "gap_lo": glo,
+                "gap_hi": ghi,
+                # naive Wilson kept as the (overconfident) independence reference
+                "realized_lo_wilson": wlo,
+                "realized_hi_wilson": whi,
+                "trustworthy": (n >= MIN_BIN_N) and (nc >= MIN_CLUSTERS),
             }
         )
     return pd.DataFrame(rows)
@@ -408,96 +497,180 @@ def summarize(df: pd.DataFrame) -> str:
 
     # Refinement 2 — the deliverable: physical-vs-physical calibration.
     lines.append("## Refinement 2 — engine predicted vs REALIZED assignment (physical-vs-physical)")
-    if len(res) < 8:
-        lines.append("  Not enough resolved contracts yet for the calibration axis.")
+    if len(res) < 2 * MIN_BIN_N:
+        lo, hi = (
+            _wilson_ci(float(res["realized_itm"].sum()), len(res)) if len(res) else (np.nan, np.nan)
+        )
+        lines.append(
+            f"  Only {len(res)} resolved contracts (< {2 * MIN_BIN_N}) — TOO FEW to bin honestly. "
+            "Preliminary; do NOT read as a finding."
+        )
+        if len(res):
+            lines.append(
+                f"  overall realized {res['realized_itm'].mean():.3f} "
+                f"[Wilson95 {lo:.3f}, {hi:.3f}, n={len(res)}] vs predicted "
+                f"{res['eng_prob_itm'].mean():.3f}"
+            )
         lines.append("")
     else:
+        n_all = len(res)
+        n_clust_all = res.pipe(_cluster_id).nunique()
         overall_pred = res["eng_prob_itm"].mean()
         overall_real = res["realized_itm"].mean()
         lines.append(
-            f"  overall: predicted P(assign) {overall_pred:.3f}  vs  realized {overall_real:.3f}  "
-            f"(gap {overall_real - overall_pred:+.3f}; >0 ⇒ engine UNDER-sees realized risk)"
+            f"  overall: predicted {overall_pred:.3f} vs realized {overall_real:.3f} "
+            f"(gap {overall_real - overall_pred:+.3f}) — but n={n_all} contracts come from only "
+            f"n_clusters={n_clust_all} independent (ticker, as_of) events: NOT 155 trials."
         )
+        # Per-name decomposition — a single-name directional run masquerades as
+        # a cross-sectional finding when names are pooled.
+        lines.append("  per-name gap (realized − predicted):")
+        for tk, gtk in res.groupby("ticker"):
+            lines.append(
+                f"    {tk}: pred {gtk.eng_prob_itm.mean():.3f}  real {gtk.realized_itm.mean():.3f}  "
+                f"gap {gtk.realized_itm.mean() - gtk.eng_prob_itm.mean():+.3f}  "
+                f"(n={len(gtk)}, clusters={gtk.pipe(_cluster_id).nunique()})"
+            )
         mc = _binned(res, "correction_pct")
         if not mc.empty:
             lines.append("")
-            lines.append("  miscalibration vs premium correction (the reprice-vs-reshape signal):")
-            lines.append("    correction%   n    predicted  realized   gap(real−pred)")
+            lines.append("  miscalibration vs premium correction (cluster-robust CI):")
+            lines.append(
+                "    correction%    n  clus  predicted  realized [cluster95]    gap[cluster95]      flag"
+            )
             for _, row in mc.iterrows():
+                flag = "" if row["trustworthy"] else "  <not signal: <8 clusters or <30 n>"
                 lines.append(
-                    f"    {100 * row['correction_pct_mid']:+7.1f}%  {int(row['n']):>4} "
-                    f"   {row['predicted']:.3f}     {row['realized']:.3f}    "
-                    f"{row['gap_realized_minus_pred']:+.3f}"
+                    f"    {100 * row['correction_pct_mid']:+7.1f}%  {int(row['n']):>4} {int(row['n_clusters']):>4}   "
+                    f"{row['predicted']:.3f}     {row['realized']:.3f} "
+                    f"[{row['realized_lo']:.3f},{row['realized_hi']:.3f}]  "
+                    f"{row['gap_realized_minus_pred']:+.3f}[{row['gap_lo']:+.3f},{row['gap_hi']:+.3f}]{flag}"
                 )
             lines.append("")
-            lines.append(
-                "    Rising, positive gap in the high-correction bins ⇒ the engine under-sees "
-                "realized risk exactly where the premium is fat ⇒ reprice-AND-reshape."
-            )
+            trust = mc[mc["trustworthy"]]
+            if len(trust) >= 2:
+                hi_bin = trust.iloc[trust["correction_pct_mid"].argmax()]
+                lo_bin = trust.iloc[trust["correction_pct_mid"].argmin()]
+                hi_clears = hi_bin["gap_lo"] > 0
+                lines.append(
+                    f"    READ (trustworthy bins, n>={MIN_BIN_N} AND clusters>={MIN_CLUSTERS}): "
+                    + (
+                        f"high-corr gap {hi_bin['gap_realized_minus_pred']:+.3f} "
+                        f"[{hi_bin['gap_lo']:+.3f},{hi_bin['gap_hi']:+.3f}] cluster-robust CI clears 0 "
+                        "AND exceeds low-corr ⇒ engine under-sees realized risk where premium is fat "
+                        "⇒ reprice-AND-reshape."
+                        if (
+                            hi_clears
+                            and hi_bin["gap_realized_minus_pred"]
+                            > lo_bin["gap_realized_minus_pred"]
+                        )
+                        else "high-corr gap cluster-robust CI does NOT clear 0 ⇒ NO calibration failure "
+                        "established; the apparent signal is within cluster-robust noise."
+                    )
+                )
+            else:
+                lines.append(
+                    f"    Fewer than 2 TRUSTWORTHY bins (need n>={MIN_BIN_N} AND clusters>={MIN_CLUSTERS}) "
+                    "— with 3 names / ~10 clusters this is NOT a finding. Needs ~15 names (the "
+                    "user's own prior) so direction averages out and clusters multiply."
+                )
+        else:
+            lines.append("  Not enough resolved contracts to bin at the trust floor yet.")
         lines.append("")
         lines.append(
             "  NOTE: `risk_premium_wedge` (Q − P) is in the records for context only — it is the "
             "risk premium, NOT a calibration gap, and is not used as a deliverable axis."
         )
+        lines.append(
+            "  CAVEAT: calm 2024–25 band; the crisis-onset under-seeing case needs a 2020/2022 "
+            "stress window (deferred to the full study)."
+        )
     return "\n".join(lines)
 
 
-def make_plots(df: pd.DataFrame, outdir: Path) -> None:
+def make_plots(df: pd.DataFrame, outdir: Path) -> bool:
+    """Render the reliability + deliverable cross-plot PNG. Returns False (no
+    crash) when matplotlib is absent or there is nothing resolved to plot."""
     clean = df[df["join_ok"]].copy()
     res = clean[clean["resolved"] & clean["realized_itm"].notna()].copy()
     if res.empty:
-        return
+        return False
     try:
         import matplotlib
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
-        return
+        return False
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # Cluster-robust CI error bars; bins with too few independent (ticker,
+    # as_of) clusters drawn faded/open so a pseudo-replicated bin is never read
+    # as signal (the R11 noisy-/correlated-estimate guard).
+    def _draw(ax, x, row, y, ylo, yhi, color):
+        trust = bool(row["trustworthy"])
+        ax.errorbar(
+            x,
+            y,
+            yerr=[[y - ylo], [yhi - y]],
+            fmt="o",
+            mfc=color if trust else "white",
+            mec=color,
+            ecolor=color,
+            alpha=0.9 if trust else 0.45,
+            capsize=3,
+            ms=7 if trust else 6,
+            mew=1.3,
+        )
+        ax.annotate(
+            f"n={int(row['n'])}/c{int(row['n_clusters'])}" + ("" if trust else " low"),
+            (x, y),
+            fontsize=7,
+            xytext=(4, 4),
+            textcoords="offset points",
+            color="black" if trust else "gray",
+        )
 
     # (1) Reliability curve: engine predicted vs realized assignment frequency.
     rel = _binned(res, "eng_prob_itm")
     if not rel.empty:
-        ax1.plot(
-            [0, rel["predicted"].max() * 1.1],
-            [0, rel["predicted"].max() * 1.1],
-            "k--",
-            lw=0.8,
-            label="perfect calibration",
-        )
-        ax1.scatter(rel["predicted"], rel["realized"], s=rel["n"], alpha=0.7, color="#0077bb")
+        top = max(rel["predicted"].max(), rel["realized_hi"].max()) * 1.1
+        ax1.plot([0, top], [0, top], "k--", lw=0.8, label="perfect calibration")
         for _, row in rel.iterrows():
-            ax1.annotate(
-                f"n={int(row['n'])}",
-                (row["predicted"], row["realized"]),
-                fontsize=7,
-                xytext=(3, 3),
-                textcoords="offset points",
+            _draw(
+                ax1,
+                row["predicted"],
+                row,
+                row["realized"],
+                row["realized_lo"],
+                row["realized_hi"],
+                "#0077bb",
             )
     ax1.set_xlabel("engine predicted P(assignment)  [physical]")
-    ax1.set_ylabel("realized assignment frequency")
+    ax1.set_ylabel("realized assignment frequency  (cluster-robust 95% CI)")
     ax1.set_title(
-        "Reliability: predicted vs realized\n(points above line ⇒ engine under-sees risk)"
+        "Reliability: predicted vs realized  (n contracts / c clusters)\n"
+        "(above line ⇒ engine under-sees risk; faded = <8 clusters, not signal)"
     )
     ax1.legend()
 
     # (2) The deliverable: miscalibration (realized − predicted) vs correction.
-    res["_cw"] = _winsorize(res["correction_pct"])
+    # Quantile binning (qcut in _binned) is already robust to the near-zero-fair
+    # blow-ups in correction_pct; winsorize only the x display for outliers.
     mc = _binned(res, "correction_pct")
     if not mc.empty:
+        mc = mc.assign(_x=100 * _winsorize(mc["correction_pct_mid"]))
         ax2.axhline(0, color="k", lw=0.7, ls="--")
-        ax2.plot(
-            100 * mc["correction_pct_mid"], mc["gap_realized_minus_pred"], "-o", color="#cc3311"
-        )
         for _, row in mc.iterrows():
-            ax2.annotate(
-                f"n={int(row['n'])}",
-                (100 * row["correction_pct_mid"], row["gap_realized_minus_pred"]),
-                fontsize=7,
-                xytext=(3, 3),
-                textcoords="offset points",
+            _draw(
+                ax2,
+                row["_x"],
+                row,
+                row["gap_realized_minus_pred"],
+                row["gap_lo"],
+                row["gap_hi"],
+                "#cc3311",
             )
     ax2.set_xlabel("premium under-pricing  (real_mid − BSM(iv), % of BSM)")
     ax2.set_ylabel("realized − predicted assignment freq")
@@ -508,10 +681,19 @@ def make_plots(df: pd.DataFrame, outdir: Path) -> None:
     fig.tight_layout()
     fig.savefig(outdir / "refinement2_calibration.png", dpi=120)
     plt.close(fig)
+    return True
 
 
 def main() -> int:
     warnings.filterwarnings("ignore")
+    # The summary uses typographic minus/arrows; force utf-8 stdout so a
+    # cp1252 Windows console doesn't crash on print (the .md is already utf-8).
+    try:
+        import sys
+
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     df = run_pilot()
     if df.empty:
@@ -523,9 +705,25 @@ def main() -> int:
     df.to_csv(OUT_DIR / "pilot_records.csv", index=False)
     summary = summarize(df)
     (OUT_DIR / "pilot_summary.md").write_text(summary, encoding="utf-8")
-    make_plots(df, OUT_DIR)
+
+    # Binned cross-plot DATA is written regardless of matplotlib — it is the
+    # data of record (with Wilson CIs + n + trustworthy flags); the PNG is just
+    # the visual. So the deliverable survives even where matplotlib is absent.
+    res = df[df["join_ok"] & df["resolved"] & df["realized_itm"].notna()]
+    rel = _binned(res, "eng_prob_itm")
+    mc = _binned(res, "correction_pct")
+    if not rel.empty:
+        rel.to_csv(OUT_DIR / "reliability_bins.csv", index=False)
+    if not mc.empty:
+        mc.to_csv(OUT_DIR / "crossplot_bins.csv", index=False)
+    plotted = make_plots(df, OUT_DIR)
+
     print("\n" + summary)
-    print(f"\nWrote: {OUT_DIR}/pilot_records.csv, pilot_summary.md, refinement2_calibration.png")
+    extra = "refinement2_calibration.png, " if plotted else "(matplotlib absent — PNG skipped) "
+    print(
+        f"\nWrote: {OUT_DIR}/ pilot_records.csv, pilot_summary.md, "
+        f"reliability_bins.csv, crossplot_bins.csv, {extra}"
+    )
     return 0
 
 

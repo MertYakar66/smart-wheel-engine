@@ -1696,6 +1696,24 @@ class WheelRunner:
                 "collateral": round(collateral, 2),
                 "roc": round(roc, 6),
                 "prob_profit": round(res.prob_profit, 4),
+                # Small-sample honesty (2026-06-01): prob_profit is a k/N
+                # frequency over n_scenarios forward windows (often ~30-35);
+                # surface N + the Wilson 95% CI so the 4-dp figure is not read
+                # as exact (the interval is ~20pp wide at N=35). None when no
+                # scenarios were evaluated. prob_profit itself is unchanged —
+                # this annotates PRECISION, not a recalibration. See
+                # engine.ev_engine._wilson_score_interval.
+                "n_scenarios": (int(res.n_scenarios) if res.n_scenarios else None),
+                "prob_profit_ci_low": (
+                    round(res.prob_profit_ci_low, 4)
+                    if not np.isnan(res.prob_profit_ci_low)
+                    else None
+                ),
+                "prob_profit_ci_high": (
+                    round(res.prob_profit_ci_high, 4)
+                    if not np.isnan(res.prob_profit_ci_high)
+                    else None
+                ),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
                 "distribution_source": method,

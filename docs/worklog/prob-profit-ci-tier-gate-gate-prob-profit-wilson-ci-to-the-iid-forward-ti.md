@@ -1,6 +1,6 @@
 ---
 id: prob-profit-ci-tier-gate
-title: Gate prob_profit Wilson CI to the IID forward tier (D4)
+title: Gate prob_profit Wilson CI to the IID forward tier (RA-4)
 kind: fix
 status: in-flight
 terminal:
@@ -17,7 +17,9 @@ surface:
 ---
 
 ## Goal
-Close **D4** from the 2026-06-01 reliability/realism audit. The prob_profit
+Close **RA-4** from the 2026-06-01 reliability/realism audit (RA-N are the
+audit's internal finding numbers, namespaced to avoid collision with the
+`DECISIONS.md` D-number series, which is live at D23). The prob_profit
 Wilson 95% CI (shipped on `claude/prob-profit-ci-honesty` + propagated to the
 CC/strangle rankers, `engine_api`, and the Ollama memo on
 `claude/prob-profit-ci-propagate`) was computed over `n_scenarios = len(pnls)`
@@ -104,5 +106,5 @@ half (`claude/dashboard-prob-profit-ci`) already guarded this with
 - The dashboard's `samplingCiHonest` guard is now belt-and-suspenders (the API
   will already send null on non-IID tiers) — harmless, keep it.
 - Optional future: emit an *effective* sample size on the non-IID tiers instead
-  of plain suppression (more informative than null), and the D2 earnings-gate
+  of plain suppression (more informative than null), and the RA-2 earnings-gate
   PIT diagnostic + the GATED calibration band remain open from the audit.

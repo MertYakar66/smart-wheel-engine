@@ -76,7 +76,7 @@ much of the honesty value with unimpeachable, regime-independent math.
 - Docstring note on `heavy_tail`: it is False-by-default and the POT-GPD
   fit only runs at N>=200, so `heavy_tail=False` / NaN `tail_xi` at the
   small-N path mean "not evaluated", not "thin tail confirmed" — read with
-  `n_scenarios` (the D3 provenance freebie from the audit).
+  `n_scenarios` (the RA-3 provenance freebie from the audit).
 
 `engine/wheel_runner.py` (`rank_candidates_by_ev`): emit `n_scenarios`,
 `prob_profit_ci_low`, `prob_profit_ci_high` in the **core** row dict
@@ -123,5 +123,7 @@ but it is observability only.
 - **CC / strangle rankers:** mirror the three columns in
   `rank_covered_calls_by_ev` / `rank_strangles_by_ev` (mechanical;
   EVResult already carries the fields for them).
-- **D2 (earnings-gate PIT look-ahead)** and **D3 (tail-fit status string)**
+- **RA-2 (earnings-gate PIT look-ahead)** and **RA-3 (tail-fit status string)**
   from the same audit remain as separate additive/off-trio follow-ups.
+  (RA-N = reliability-audit finding numbers, distinct from `DECISIONS.md`
+  D-numbers — see the tier-gate worklog.)

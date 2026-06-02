@@ -333,6 +333,14 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
     return frame
 
 
+# Sentinel for ``WheelRunner.consume_into_live_book(connector=...)``: lets the
+# method distinguish "caller did not specify" (→ use the runner's own
+# connector) from an explicit ``connector=None`` (→ a connector-less tracker,
+# e.g. the data-free cap tests). The R9/R10 caps are notional/NAV-based and
+# fire without a connector (see ``tests/test_production_tracker_caps.py``).
+_USE_RUNNER_CONNECTOR = object()
+
+
 def make_live_book_tracker(
     initial_capital: float = 100_000.0,
     connector: Any | None = None,
@@ -3511,6 +3519,74 @@ class WheelRunner:
             outcomes.append(outcome)
 
         return outcomes
+
+    def consume_into_live_book(
+        self,
+        *,
+        entry_date: date,
+        initial_capital: float = 100_000.0,
+        connector: Any = _USE_RUNNER_CONNECTOR,
+        rank_kwargs: dict[str, Any] | None = None,
+        top_n_to_consume: int | None = None,
+        expiration_date: date | None = None,
+        **tracker_kwargs: Any,
+    ) -> tuple["WheelTracker", list[dict[str, Any]]]:
+        """Production rank→book entry with the R9/R10 concentration caps ARMED.
+
+        The library default ``WheelTracker(...)`` leaves the D17
+        concentration caps OFF (research-safe, matching the
+        ``require_ev_authority`` convention). This is the one-call
+        production wire that closes the "``make_live_book_tracker`` has
+        zero callers" gap (heavy-verify 2026-05-31 Category A): it builds
+        the tracker via :func:`make_live_book_tracker` (so
+        ``enforce_sector_cap`` + ``enforce_single_name_cap`` are on) and
+        runs :meth:`consume_into_tracker` through it, so an
+        over-concentrated open is **refused** on the live path — R9
+        (sector > 25% NAV) and R10 (single-name > 10% NAV) fire at
+        :meth:`~engine.wheel_tracker.WheelTracker.open_short_put` time,
+        token-free.
+
+        §2: the caps only REFUSE an over-concentrated open; they never
+        touch ``ev_raw`` / ``ev_dollars`` / ``prob_profit`` and never
+        rescue a negative-EV candidate (the D16 launch gate inside
+        :meth:`~engine.wheel_tracker.WheelTracker.consume_ranker_row`
+        still refuses ``ev_dollars <= 0`` at token issuance). This method
+        adds no EV path of its own — it composes the already-§2-safe
+        factory + :meth:`consume_into_tracker` wire.
+
+        Args:
+            entry_date: Trade entry date, forwarded to
+                :meth:`consume_into_tracker`.
+            initial_capital: Starting NAV for the live book.
+            connector: Data connector for the tracker. Defaults to the
+                runner's own connector (:attr:`connector`). Pass
+                ``connector=None`` for a connector-less book — the caps
+                are notional/NAV-based and fire without one.
+            rank_kwargs / top_n_to_consume / expiration_date: Forwarded
+                verbatim to :meth:`consume_into_tracker`.
+            **tracker_kwargs: Extra :class:`~engine.wheel_tracker.WheelTracker`
+                kwargs — e.g. ``require_ev_authority=True`` to additionally
+                arm the D16 token gate + delta / Kelly caps.
+
+        Returns:
+            ``(tracker, outcomes)`` — the armed
+            :class:`~engine.wheel_tracker.WheelTracker` the positions
+            landed in (inspect ``.positions`` / ``._ev_authority_log``
+            for what fired and what refused) and the per-row outcome list
+            from :meth:`consume_into_tracker`.
+        """
+        conn = self.connector if connector is _USE_RUNNER_CONNECTOR else connector
+        tracker = make_live_book_tracker(
+            initial_capital=initial_capital, connector=conn, **tracker_kwargs
+        )
+        outcomes = self.consume_into_tracker(
+            tracker,
+            entry_date,
+            rank_kwargs=rank_kwargs,
+            top_n_to_consume=top_n_to_consume,
+            expiration_date=expiration_date,
+        )
+        return tracker, outcomes
 
     def portfolio_report(
         self,

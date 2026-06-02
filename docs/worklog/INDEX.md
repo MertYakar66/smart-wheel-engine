@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**77 records.**
+**78 records.**
 
 ## Features (2)
 
@@ -52,7 +52,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (13)
+## Verification & realism (14)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -69,6 +69,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
+| [vnv-campaign-2026-06-01](vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md) | in-flight |  | Read-only V&V sweep of origin/main — funnel is transparent (423/503 survive, all drops auditable), Wilson-CI coverage 98.6% on the put ranker, prob_profit top-bin over-confidence is real + regime-dependent, ev_dollars SIGN predicts realized direction, IV has zero skew (100%), and connector ticker-filtering dominates a universe scan. | `vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md` |
 
 ## Usage-test scenarios (34)
 

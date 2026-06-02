@@ -43,9 +43,13 @@ headline as "free money" is the seductive half-truth the pilot exists to
 guard against; §3 is the guard.
 
 Validation anchor (post-split band, clean join): AAPL 35-DTE 0.25Δ short put,
-as_of 2024-09-06 — synthetic `BSM(iv)=2.869`, real mid `3.300` →
-**+20.8%** under-pricing. (The split-bug version of this same join printed a
-bogus **−99%** by matching an adjusted strike to a raw strike — see §5.)
+as_of 2024-09-06 — engine solves strike 210.5, snaps to the **listed** 210
+strike (exp 2024-10-11); `BSM(iv)` recomputed **at that listed contract** is
+`2.733`, real mid `3.300` → correction `+0.567/sh` = **+20.8%** under-pricing.
+(The `fair` must be recomputed at the listed strike — the engine's own fair at
+its un-snapped 210.5 strike is `2.869`, a different contract; conflating the two
+gives an inconsistent figure.) The split-bug version of this same join printed a
+bogus **−99%** by matching an adjusted strike to a raw strike — see §5.
 
 ## 3. The deliverable — Refinement 2, physical-vs-physical
 
@@ -132,6 +136,26 @@ normal risk premium.
   JPM/XOM will be milder). Treat the pilot magnitude as **suggestive, not
   representative**, until the broader set lands.
 
+**Known confounds in the realized-vs-predicted *level* (audit-surfaced):**
+- **Horizon-units bug (DECISIONS D21).** The engine's `prob_assignment` forward
+  distribution indexes **trading-day** bars while callers pass the option's
+  **calendar** DTE, so the engine's predicted horizon is **~46% too long** →
+  `prob_assignment` is **inflated**. The pilot consumes `prob_assignment` as-is,
+  so the *level* of the gap (and any "engine conservative / over-predicts"
+  reading) is **partly a D21 artifact, not risk-model shape**. D21 is a deferred
+  coordinated re-baseline, not a point fix — the pilot must **not** patch it; the
+  cross-sectional *shape* (gap vs correction) is more robust to a roughly uniform
+  horizon bias than the level is.
+- **Deep-OTM selection bias.** Far-OTM puts often have `bid=0`, so
+  `spread_pct=(ask−0)/(ask/2)=200% > MAX_SPREAD_PCT` and are dropped by
+  `join_ok`. That trims exactly the **fattest-skew tail** the study targets —
+  biasing the measured signal **toward the null** (against reprice-and-reshape).
+- **Residual x–y coupling via strike depth.** `correction_pct` grows with OTM
+  depth; `eng_prob_itm` falls with OTM depth. The coupling is far weaker than the
+  repudiated Q−P tautology, but the high-correction bin is also the
+  deep-OTM/low-predicted bin, so read the *gap* (not realized alone) and lean on
+  the cluster-robust CI.
+
 ### 4.1 Preliminary 3-name result — a mirage, dissolved by clustering
 
 The first preliminary run (≈200 resolved contracts, AAPL/NVDA/TSLA, calm
@@ -203,6 +227,11 @@ are the data-level ones caught before any number ran.)*
 python -m studies.premium_correction.pilot
 ```
 
-Writes `pilot_records.csv` (per-candidate), `pilot_summary.md` (per-name
-correction + calib_gap distributions, clean joins only), and
-`crossplot_correction_vs_calibgap.png`.
+Writes (to `studies/premium_correction/output/`, gitignored — regenerable and
+moving with larder coverage): `pilot_records.csv` (per-candidate),
+`pilot_summary.md` (per-name correction + the cluster-robust Refinement-2
+read), `reliability_bins.csv` + `crossplot_bins.csv` (binned data of record
+with Wilson **and** cluster-robust CIs + `n_clusters`), and
+`refinement2_calibration.png` (reliability curve + the deliverable cross-plot,
+low-cluster bins faded). The PNG renders only if matplotlib is installed; the
+CSVs are always written.

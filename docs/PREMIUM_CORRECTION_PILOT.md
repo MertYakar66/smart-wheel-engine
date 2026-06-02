@@ -47,34 +47,61 @@ as_of 2024-09-06 — synthetic `BSM(iv)=2.869`, real mid `3.300` →
 **+20.8%** under-pricing. (The split-bug version of this same join printed a
 bogus **−99%** by matching an adjusted strike to a raw strike — see §5.)
 
-## 3. The deliverable — Refinement 2 cross-plot
+## 3. The deliverable — Refinement 2, physical-vs-physical
 
-Per candidate we also compute, on the **same** contract:
+The decision (reprice-premium vs reprice-and-reshape) hinges on **engine
+prediction vs reality**, so the deliverable axis must be **physical-vs-physical**:
 
-- `mkt_prob_itm` — risk-neutral `P(S_T < K)` under the **contract's own**
-  implied vol (inverted from the real mid). The market's priced downside.
-- `eng_prob_itm` — the engine's **empirical** `prob_assignment` from its
-  forward distribution. The risk the engine's model sees.
-- `calib_gap = mkt_prob_itm − eng_prob_itm`. **> 0 ⇒ the market prices more
-  downside than the engine's empirical distribution sees** (engine
-  over-confident there).
+- `eng_prob_itm` — the engine's **physical** `prob_assignment` from its
+  empirical forward distribution. The risk the engine's model *predicts*.
+- `realized_itm` — did the contract **actually** finish ITM? `1` if the
+  split-adjusted Bloomberg close at the real expiry is below the (adjusted)
+  strike, else `0`. The risk that *actually happened*. Resolved only when
+  Bloomberg has the terminal price (`real_exp ≤ 2026-03-20`); the last ~3
+  months of the band are unresolved and excluded.
 
-The cross-plot is **premium under-pricing (x)** vs **`calib_gap` (y)**. If the
-strikes with the **largest** premium correction cluster in the **upper-right**
-(big correction *and* positive calib_gap), repricing the premium alone books
-`edge_vs_fair` as free money on exactly the strikes where the engine's risk
-model is most over-confident → the honest wiring is **reprice-and-reshape**,
-not reprice-premium. If big-correction strikes sit at `calib_gap ≈ 0` (benign
-empirical tails that agree with the market), reprice-premium is closer to
-honest. **The cross-plot is the result that decides the §2 wiring arc.**
+Two views:
+
+1. **Reliability curve** — bin candidates by `eng_prob_itm`, plot predicted vs
+   realized assignment frequency against the 45° line. Points **above** the
+   line ⇒ the engine **under-sees** realized risk.
+2. **The deliverable cross-plot** — bin by **premium under-pricing (x)**, plot
+   **`realized_itm − eng_prob_itm` (y)**. If the **high-correction** (fat-skew)
+   bins show a **rising, positive** gap (realized assignment exceeds what the
+   engine predicted), then repricing the premium alone books `edge_vs_fair` as
+   free money on exactly the strikes where the engine **under-models the
+   realized tail** → the honest wiring is **reprice-and-reshape**. If the gap is
+   ~0 across correction (engine calibrated even where premium is fat),
+   reprice-premium is closer to honest. **This is the result that decides the
+   §2 wiring arc.**
+
+### Why NOT a risk-neutral comparison (the trap this version fixes)
+
+An earlier cut used `calib_gap = mkt_prob_itm − eng_prob_itm`, where
+`mkt_prob_itm = N(−d2)` at the contract's implied vol. That is **wrong as a
+calibration measure**: `mkt_prob_itm` is **risk-neutral (Q)** while
+`eng_prob_itm` is **physical (P)**, and for OTM equity puts `Q > P` **by
+construction** — that wedge **is the risk premium**, positive even when the
+engine's physical model is perfectly calibrated. Worse, both `Q`-implied
+`P(ITM)` and the premium correction grow with skew, so plotting one against the
+other is **x against a transform of x** — a tidy upper-right cluster that
+"confirms" reprice-and-reshape regardless of the truth. `Q − P` is retained in
+the records as **`risk_premium_wedge`** (the *apparent* free edge the
+premium-only wiring would perceive) for context, but it is **not** a deliverable
+axis. Only realized-vs-predicted distinguishes genuine under-modeled risk from a
+normal risk premium.
 
 ## 4. What this pilot can and cannot settle
 
 **Can (3 post-split names, 2024-09 → 2026-03):**
 - Refinement 1 — the **magnitude** and sign of the premium correction, by
   name / delta / DTE.
-- The **cross-sectional** form of Refinement 2 — at a point in time, do
-  fat-premium strikes sit in benign empirical tails?
+- The **cross-sectional** form of Refinement 2 — across the band's resolved
+  contracts, is the engine's predicted assignment **mis-calibrated against
+  realized outcomes more in the high-premium-correction strikes** than the
+  low-correction ones? (Caveat: predicted `prob_assignment` is at the engine's
+  solved strike/DTE; realized is at the snapped listed contract — held within
+  4% strike / 5 days by the join-quality gate.)
 
 **Cannot:**
 - **Verdict-flip rate.** That is cross-sectional and needs ~15 names; **do

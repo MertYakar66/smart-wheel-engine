@@ -157,12 +157,44 @@ def _implied_vol_put(price: float, S: float, K: float, T: float, r: float, q: fl
 
 
 def _prob_itm_put(S: float, K: float, T: float, r: float, q: float, sigma: float) -> float:
-    """Risk-neutral P(S_T < K) = N(-d2) under the given vol."""
+    """Risk-neutral (Q-measure) P(S_T < K) = N(-d2) under the given vol.
+
+    NOTE: this is risk-neutral. Differencing it against the engine's *physical*
+    prob_assignment yields the **risk-premium wedge** (Q − P), which is > 0 for
+    OTM equity puts *by construction* — it is NOT a calibration gap and cannot
+    answer reprice-vs-reshape. The honest axis is physical-vs-physical:
+    engine-predicted assignment prob vs the **realized** assignment frequency
+    (`_terminal_close` below). See ``docs/PREMIUM_CORRECTION_PILOT.md`` §3.
+    """
     if sigma <= 0 or T <= 0:
         return np.nan
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
     return float(norm.cdf(-d2))
+
+
+def _ohlcv_adjusted(wr: WheelRunner, ticker: str) -> pd.DataFrame | None:
+    """Split-adjusted daily OHLCV (Bloomberg), date-indexed. Cached per call."""
+    try:
+        o = wr.connector.get_ohlcv(ticker)
+    except Exception:  # noqa: BLE001
+        return None
+    if o is None or len(o) == 0:
+        return None
+    o = o.copy()
+    o.index = pd.to_datetime(o.index)
+    return o
+
+
+def _terminal_close(ohlcv: pd.DataFrame, exp: date, tol_days: int = 4) -> float:
+    """Adjusted close at/just before ``exp`` (nearest trading day <= exp)."""
+    if ohlcv is None:
+        return np.nan
+    lo = pd.Timestamp(exp) - pd.Timedelta(days=tol_days)
+    win = ohlcv[(ohlcv.index <= pd.Timestamp(exp)) & (ohlcv.index >= lo)]
+    if win.empty:
+        return np.nan
+    return float(win.iloc[-1]["close"])
 
 
 # --------------------------------------------------------------------------
@@ -187,6 +219,8 @@ def run_pilot() -> pd.DataFrame:
         if not exps:
             print(f"[skip] {ticker}: no larder partitions yet")
             continue
+        ohlcv = _ohlcv_adjusted(wr, ticker)
+        bbg_last = ohlcv.index.max().date() if ohlcv is not None else date(1900, 1, 1)
         for as_of in _as_of_grid():
             aod = date.fromisoformat(as_of)
             # Split factor MUST be 1.0 in the pilot band — assert the join is
@@ -234,13 +268,30 @@ def run_pilot() -> pd.DataFrame:
                 correction = adj_mid - fair_listed
                 correction_pct = correction / fair_listed if fair_listed > 0 else np.nan
 
-                # Refinement-2 axis: market-implied vs engine-empirical P(ITM).
+                # Engine's PHYSICAL predicted assignment probability.
+                eng_prob_itm = float(c["prob_assignment"])
+
+                # Refinement-2 DELIVERABLE axis (physical-vs-physical): did the
+                # contract actually finish ITM? realized assignment vs the
+                # engine's predicted prob is the honest calibration check — it
+                # separates "engine genuinely under-sees risk" from "normal
+                # risk premium". Resolved only when Bloomberg has the terminal
+                # price (real_exp <= bbg_last); the last ~3 months are unresolved.
+                resolved = real_exp <= bbg_last
+                terminal_close = _terminal_close(ohlcv, real_exp) if resolved else np.nan
+                realized_itm = (
+                    float(terminal_close < adj_listed_strike)
+                    if (resolved and np.isfinite(terminal_close))
+                    else np.nan
+                )
+
+                # Risk-premium WEDGE (Q − P): kept for context, NOT a
+                # calibration gap. mkt is risk-neutral (N(-d2) at contract iv),
+                # eng is physical — their difference is the risk premium, > 0
+                # for OTM puts by construction. Do NOT use as the deliverable.
                 contract_iv = _implied_vol_put(adj_mid, spot, adj_listed_strike, T_real, r, q)
                 mkt_prob_itm = _prob_itm_put(spot, adj_listed_strike, T_real, r, q, contract_iv)
-                eng_prob_itm = float(c["prob_assignment"])
-                # >0 ⇒ market prices MORE downside than the engine's empirical
-                # forward distribution sees (engine over-confident there).
-                calib_gap = mkt_prob_itm - eng_prob_itm
+                risk_premium_wedge = mkt_prob_itm - eng_prob_itm
 
                 strike_gap_pct = abs(adj_listed_strike - strike) / strike
                 exp_gap_days = abs((real_exp - target_exp).days)
@@ -269,11 +320,15 @@ def run_pilot() -> pd.DataFrame:
                         "correction": correction,
                         "correction_pct": correction_pct,
                         "correction_dollars_per_contract": correction * 100.0,
-                        # risk axis
+                        # DELIVERABLE risk axis (physical-vs-physical)
+                        "eng_prob_itm": eng_prob_itm,
+                        "realized_itm": realized_itm,
+                        "resolved": resolved,
+                        "terminal_close": terminal_close,
+                        # risk-premium wedge (Q − P) — context only, NOT calibration
                         "contract_iv": contract_iv,
                         "mkt_prob_itm": mkt_prob_itm,
-                        "eng_prob_itm": eng_prob_itm,
-                        "calib_gap": calib_gap,
+                        "risk_premium_wedge": risk_premium_wedge,
                         "cvar_5": float(c["cvar_5"]),
                         "tail_xi": float(c["tail_xi"]) if pd.notna(c["tail_xi"]) else np.nan,
                         "heavy_tail": bool(c["heavy_tail"]),
@@ -292,12 +347,47 @@ def run_pilot() -> pd.DataFrame:
     return pd.DataFrame(records)
 
 
+def _winsorize(s: pd.Series, lo: float = 0.01, hi: float = 0.99) -> pd.Series:
+    if s.dropna().empty:
+        return s
+    return s.clip(s.quantile(lo), s.quantile(hi))
+
+
+def _binned(clean: pd.DataFrame, by: str, q: int = 6) -> pd.DataFrame:
+    """Quantile-bin ``clean`` by column ``by``; per bin report predicted vs
+    realized assignment frequency and the premium correction."""
+    g = clean.dropna(subset=[by, "realized_itm", "eng_prob_itm"]).copy()
+    if len(g) < q * 4:
+        q = max(2, len(g) // 4)
+    if len(g) < 8:
+        return pd.DataFrame()
+    g["_bin"] = pd.qcut(g[by], q=q, duplicates="drop")
+    rows = []
+    for b, gb in g.groupby("_bin", observed=True):
+        rows.append(
+            {
+                "bin": str(b),
+                "n": len(gb),
+                f"{by}_mid": gb[by].mean(),
+                "predicted": gb["eng_prob_itm"].mean(),
+                "realized": gb["realized_itm"].mean(),
+                "gap_realized_minus_pred": gb["realized_itm"].mean() - gb["eng_prob_itm"].mean(),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def summarize(df: pd.DataFrame) -> str:
     clean = df[df["join_ok"]].copy()
+    res = clean[clean["resolved"] & clean["realized_itm"].notna()]
     lines = ["# Premium-correction pilot — summary", ""]
-    lines.append(f"Total candidate rows: {len(df)}  |  clean joins: {len(clean)}")
+    lines.append(
+        f"Total rows: {len(df)}  |  clean joins: {len(clean)}  |  "
+        f"resolved (terminal price known): {len(res)}"
+    )
     lines.append("")
-    lines.append("HEADLINE = premium under-pricing (real_mid - BSM(iv)); skew-driven, NOT VRP.")
+    lines.append("HEADLINE (Refinement 1) = premium under-pricing (real_mid − BSM(iv));")
+    lines.append("skew-driven, NOT VRP.")
     lines.append("")
     if clean.empty:
         lines.append("No clean joins — larder coverage in the band is still landing.")
@@ -310,21 +400,52 @@ def summarize(df: pd.DataFrame) -> str:
             f"{g.correction_dollars_per_contract.quantile(0.75):+.1f}]"
         )
         lines.append(
-            f"  correction %% of BSM   : median {100 * g.correction_pct.median():+.1f}%%  "
-            f"IQR [{100 * g.correction_pct.quantile(0.25):+.1f}%%, "
-            f"{100 * g.correction_pct.quantile(0.75):+.1f}%%]"
-        )
-        lines.append(
-            f"  calib_gap (mkt-eng P_itm): median {g.calib_gap.median():+.3f}  "
-            f"(>0 ⇒ market prices more downside than engine empirical sees)"
+            f"  correction % of BSM   : median {100 * g.correction_pct.median():+.1f}%  "
+            f"IQR [{100 * g.correction_pct.quantile(0.25):+.1f}%, "
+            f"{100 * g.correction_pct.quantile(0.75):+.1f}%]"
         )
         lines.append("")
+
+    # Refinement 2 — the deliverable: physical-vs-physical calibration.
+    lines.append("## Refinement 2 — engine predicted vs REALIZED assignment (physical-vs-physical)")
+    if len(res) < 8:
+        lines.append("  Not enough resolved contracts yet for the calibration axis.")
+        lines.append("")
+    else:
+        overall_pred = res["eng_prob_itm"].mean()
+        overall_real = res["realized_itm"].mean()
+        lines.append(
+            f"  overall: predicted P(assign) {overall_pred:.3f}  vs  realized {overall_real:.3f}  "
+            f"(gap {overall_real - overall_pred:+.3f}; >0 ⇒ engine UNDER-sees realized risk)"
+        )
+        mc = _binned(res, "correction_pct")
+        if not mc.empty:
+            lines.append("")
+            lines.append("  miscalibration vs premium correction (the reprice-vs-reshape signal):")
+            lines.append("    correction%   n    predicted  realized   gap(real−pred)")
+            for _, row in mc.iterrows():
+                lines.append(
+                    f"    {100 * row['correction_pct_mid']:+7.1f}%  {int(row['n']):>4} "
+                    f"   {row['predicted']:.3f}     {row['realized']:.3f}    "
+                    f"{row['gap_realized_minus_pred']:+.3f}"
+                )
+            lines.append("")
+            lines.append(
+                "    Rising, positive gap in the high-correction bins ⇒ the engine under-sees "
+                "realized risk exactly where the premium is fat ⇒ reprice-AND-reshape."
+            )
+        lines.append("")
+        lines.append(
+            "  NOTE: `risk_premium_wedge` (Q − P) is in the records for context only — it is the "
+            "risk premium, NOT a calibration gap, and is not used as a deliverable axis."
+        )
     return "\n".join(lines)
 
 
-def make_crossplot(df: pd.DataFrame, path: Path) -> None:
+def make_plots(df: pd.DataFrame, outdir: Path) -> None:
     clean = df[df["join_ok"]].copy()
-    if clean.empty:
+    res = clean[clean["resolved"] & clean["realized_itm"].notna()].copy()
+    if res.empty:
         return
     try:
         import matplotlib
@@ -333,27 +454,59 @@ def make_crossplot(df: pd.DataFrame, path: Path) -> None:
         import matplotlib.pyplot as plt
     except ImportError:
         return
-    fig, ax = plt.subplots(figsize=(8, 6))
-    colors = {"TSLA": "#cc3311", "NVDA": "#117733", "AAPL": "#0077bb"}
-    for ticker, g in clean.groupby("ticker"):
-        ax.scatter(
-            100 * g["correction_pct"],
-            g["calib_gap"],
-            s=18,
-            alpha=0.6,
-            label=f"{ticker} (n={len(g)})",
-            color=colors.get(ticker, "gray"),
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # (1) Reliability curve: engine predicted vs realized assignment frequency.
+    rel = _binned(res, "eng_prob_itm")
+    if not rel.empty:
+        ax1.plot(
+            [0, rel["predicted"].max() * 1.1],
+            [0, rel["predicted"].max() * 1.1],
+            "k--",
+            lw=0.8,
+            label="perfect calibration",
         )
-    ax.axhline(0, color="k", lw=0.7, ls="--")
-    ax.set_xlabel("premium under-pricing  (real_mid − BSM(iv), % of BSM)  →  skew-driven, NOT VRP")
-    ax.set_ylabel("calibration gap  (market P(ITM) − engine empirical P(ITM))")
-    ax.set_title(
-        "Refinement 2: do fat-premium strikes sit in benign empirical tails?\n"
-        "upper-right = market prices fear the engine's empirical model under-sees"
+        ax1.scatter(rel["predicted"], rel["realized"], s=rel["n"], alpha=0.7, color="#0077bb")
+        for _, row in rel.iterrows():
+            ax1.annotate(
+                f"n={int(row['n'])}",
+                (row["predicted"], row["realized"]),
+                fontsize=7,
+                xytext=(3, 3),
+                textcoords="offset points",
+            )
+    ax1.set_xlabel("engine predicted P(assignment)  [physical]")
+    ax1.set_ylabel("realized assignment frequency")
+    ax1.set_title(
+        "Reliability: predicted vs realized\n(points above line ⇒ engine under-sees risk)"
     )
-    ax.legend()
+    ax1.legend()
+
+    # (2) The deliverable: miscalibration (realized − predicted) vs correction.
+    res["_cw"] = _winsorize(res["correction_pct"])
+    mc = _binned(res, "correction_pct")
+    if not mc.empty:
+        ax2.axhline(0, color="k", lw=0.7, ls="--")
+        ax2.plot(
+            100 * mc["correction_pct_mid"], mc["gap_realized_minus_pred"], "-o", color="#cc3311"
+        )
+        for _, row in mc.iterrows():
+            ax2.annotate(
+                f"n={int(row['n'])}",
+                (100 * row["correction_pct_mid"], row["gap_realized_minus_pred"]),
+                fontsize=7,
+                xytext=(3, 3),
+                textcoords="offset points",
+            )
+    ax2.set_xlabel("premium under-pricing  (real_mid − BSM(iv), % of BSM)")
+    ax2.set_ylabel("realized − predicted assignment freq")
+    ax2.set_title(
+        "Refinement 2 deliverable: does the engine under-see realized\n"
+        "risk where premium is fat?  (rising & >0 ⇒ reprice-and-reshape)"
+    )
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(outdir / "refinement2_calibration.png", dpi=120)
     plt.close(fig)
 
 
@@ -370,9 +523,9 @@ def main() -> int:
     df.to_csv(OUT_DIR / "pilot_records.csv", index=False)
     summary = summarize(df)
     (OUT_DIR / "pilot_summary.md").write_text(summary, encoding="utf-8")
-    make_crossplot(df, OUT_DIR / "crossplot_correction_vs_calibgap.png")
+    make_plots(df, OUT_DIR)
     print("\n" + summary)
-    print(f"\nWrote: {OUT_DIR}/pilot_records.csv, pilot_summary.md, crossplot_*.png")
+    print(f"\nWrote: {OUT_DIR}/pilot_records.csv, pilot_summary.md, refinement2_calibration.png")
     return 0
 
 

@@ -92,3 +92,66 @@ def test_pilot_band_is_split_free(ticker, as_of):
 
 def test_unknown_ticker_is_identity():
     assert cumulative_factor_after("ZZZZ", "2019-01-01") == 1.0
+
+
+# --------------------------------------------------------------------------
+# Refinement-2 axis: realized-outcome resolution (physical-vs-physical).
+# The deliverable axis is engine-predicted vs *realized* assignment, NOT the
+# risk-neutral-vs-physical wedge (Q − P) — see the review that drove this.
+# --------------------------------------------------------------------------
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from studies.premium_correction.pilot import _binned, _terminal_close  # noqa: E402
+
+
+def _synth_ohlcv():
+    idx = pd.to_datetime(pd.date_range("2024-10-01", "2024-10-31", freq="B"))
+    return pd.DataFrame({"close": np.linspace(220.0, 230.0, len(idx))}, index=idx)
+
+
+def test_terminal_close_nearest_trading_day_on_or_before():
+    o = _synth_ohlcv()
+    # 2024-10-11 is a Friday (trading day) — exact match.
+    assert _terminal_close(o, date(2024, 10, 11)) == pytest.approx(
+        float(o.loc["2024-10-11", "close"])
+    )
+
+
+def test_terminal_close_backfills_weekend():
+    o = _synth_ohlcv()
+    # 2024-10-12/13 is a weekend — must fall back to Friday's close.
+    assert _terminal_close(o, date(2024, 10, 13)) == pytest.approx(
+        float(o.loc["2024-10-11", "close"])
+    )
+
+
+def test_terminal_close_unavailable_is_nan():
+    o = _synth_ohlcv()
+    # Far before the series start, outside the tolerance window → NaN.
+    assert np.isnan(_terminal_close(o, date(2024, 1, 1)))
+
+
+def test_realized_assignment_is_terminal_close_below_strike():
+    o = _synth_ohlcv()
+    tc = _terminal_close(o, date(2024, 10, 31))  # ~230
+    assert float(tc < 235.0) == 1.0  # finishes ITM for a 235 put
+    assert float(tc < 225.0) == 0.0  # not ITM for a 225 put
+
+
+def test_binned_reports_predicted_vs_realized_gap():
+    # Construct a frame where high-correction rows have realized >> predicted
+    # (engine under-sees realized risk) and low-correction rows are calibrated.
+    rng = np.random.default_rng(0)
+    n = 200
+    corr = np.concatenate([rng.uniform(0, 0.1, n), rng.uniform(0.3, 0.6, n)])
+    pred = np.full(2 * n, 0.2)
+    # low-correction: realized ~ predicted; high-correction: realized ~ 0.5
+    realized = np.concatenate(
+        [(rng.uniform(size=n) < 0.2).astype(float), (rng.uniform(size=n) < 0.5).astype(float)]
+    )
+    df = pd.DataFrame({"correction_pct": corr, "eng_prob_itm": pred, "realized_itm": realized})
+    out = _binned(df, "correction_pct", q=4)
+    assert not out.empty
+    # The highest-correction bin must show a clearly positive realized−predicted gap.
+    assert out.iloc[-1]["gap_realized_minus_pred"] > out.iloc[0]["gap_realized_minus_pred"]

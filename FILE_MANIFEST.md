@@ -171,7 +171,11 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/layout.tsx` | Root Next.js layout — global metadata and CSS. |
 | `dashboard/src/app/page.tsx` | Root index — redirects to `/top`. |
 | `dashboard/src/app/globals.css` | Global Tailwind styles and terminal color palette. |
+| `dashboard/src/app/not-found.tsx` | Global 404 page — branded, links back to the Cockpit / TOP. |
+| `dashboard/src/app/global-error.tsx` | Root-level error boundary (catches root-layout errors; renders its own html/body) with a retry. |
 | `dashboard/src/app/(main)/layout.tsx` | Layout for the standard web app — nav plus centered container. |
+| `dashboard/src/app/(main)/loading.tsx` | Suspense fallback for the news-app routes — skeleton list under the nav. |
+| `dashboard/src/app/(main)/error.tsx` | Error boundary for the news-app routes — retry, nav stays usable. |
 | `dashboard/src/app/(main)/top/page.tsx` | "TOP" command-center page — breaking strip, top stories, category sections. |
 | `dashboard/src/app/(main)/feed/page.tsx` | News feed page — story cards with sector filter and RSS refresh. |
 | `dashboard/src/app/(main)/calendar/page.tsx` | Macro calendar page. |
@@ -180,6 +184,8 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/(main)/ticker/[symbol]/page.tsx` | Per-ticker page — quote, price chart, related news. |
 | `dashboard/src/app/(main)/watchlist/page.tsx` | Watchlist page — add/remove tickers, prices, alerts. |
 | `dashboard/src/app/(terminal)/layout.tsx` | Layout for the terminal route. |
+| `dashboard/src/app/(terminal)/loading.tsx` | Suspense fallback for the terminal/cockpit routes — monospace skeleton. |
+| `dashboard/src/app/(terminal)/error.tsx` | Error boundary for the terminal/cockpit routes — monospace, retry, engine-down hint. |
 | `dashboard/src/app/(terminal)/terminal/page.tsx` | Bloomberg-style terminal dashboard — 6-panel grid, command line, engine data. |
 | `dashboard/src/app/api/engine/route.ts` | Server-side proxy bridge to the Python engine API on `:8787`. Forwards the full PIT parameter set for `candidates` (as_of/dte/delta/min_ev/universe_limit) and adds a `dossier` action proxying `/api/tv/dossier` (top_n/timeframe/screenshots_dir + optional nav/holdings/puts_held/regime_map for the D17 portfolio gates). |
 | `dashboard/src/app/(terminal)/cockpit/page.tsx` | Decision-cockpit page — read top-to-bottom and act. Regime banner → selection funnel → candidate cockpit table → one-click dossier drawer. Client component; fetches `/api/engine?action=candidates` + `?action=vix`; PIT controls (as_of/dte/delta/scan/top-N). All numbers from the engine; no decision logic here. |

@@ -9,24 +9,28 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**78 records.**
+**86 records.**
 
-## Features (2)
+## Features (4)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
 | [dashboard-cockpit](dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md) | complete |  | A read-top-to-bottom decision cockpit in dashboard/src that encodes WHAT TO TRUST and WHAT TO DISTRUST about the engine output — distribution-not-point-EV, calibration-flagged top bin, R11 regime banner. Pure display layer; no engine changes. | `dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md` |
+| [dashboard-launch-polish](dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md) | in-flight |  | Launch-grade polish of the Next.js dashboard from a read-only repo audit — the Decision Cockpit is now the front door + in the nav, fake "LIVE"/mock data is labelled honestly or wired to real data, the Research chat + SSE leak are fixed, and the cockpit is keyboard/mobile accessible. Interface layer only; no engine logic touched. | `dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md` |
+| [dashboard-ux-boundaries](dashboard-ux-boundaries-add-app-router-loading-error-not-found.md) | complete |  | Added the missing Next.js App Router special files — graceful loading skeletons, error boundaries (retry, no blank screen), and a branded 404 — across the news-app and terminal route groups. Additive-only; zero engine/decision-layer surface. | `dashboard-ux-boundaries-add-app-router-loading-error-not-found.md` |
 
-## Fixes (3)
+## Fixes (5)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [engine-api-hardening](engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md) | in-flight |  | Loopback bind by default, 400 on bad params, 404 on unknown tickers, no exception leak, and verdict-label parity — all NON-§2. | `engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md` |
 | [MP-A](mp-a-close-s42-dossier-defensive-guards-findings-1-4.md) | in-flight | #275 | Close S42 Findings #1-4 with defensive guards in the R7-R10 path (skip malformed rows; honour explicit contracts=0); §2 invariant preserved — reviewers stay downgrade-only. | `mp-a-close-s42-dossier-defensive-guards-findings-1-4.md` |
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
+| [pricer-failloud-guards](pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md) | in-flight |  | Two input-validation hardenings to engine/option_pricer.py — the three vectorized BS pricers now raise on any S<=0/K<=0 element (mirroring the scalar contract) instead of silently emitting NaN, and the BAW American-call branch short-circuits to European for r<=0 (was a div-by-zero NaN at r=0). Behaviour on valid inputs is byte-for-byte unchanged; §2-adjacent guard only. | `pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md` |
 
-## Backtests (21)
+## Backtests (22)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -43,6 +47,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW](../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md) | legacy |  | Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27) | `../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` |
 | [ENGINE_BACKTEST_S44_S38_POSTF4_RERUN](../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md) | legacy |  | Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28) | `../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
 | [r11-dollar-impact](r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md) | complete |  | R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but its WHOLE-BOOK impact is statistically indistinguishable from zero over both windows (paired daily-return \|t\|<0.7; point Δ W3 2020-2024 −$37.6k, W4 2021-2025 +$21.7k), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. Net read: the I11 justification was overstated; R11 doesn't measurably help the book, isn't shown to hurt it, and is real but narrow 2022 tail insurance. | `r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md` |
+| [rebaseline-backtest-snapshots-2026-06-02](rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md) | in-flight |  | Re-pin the 4 backtest_regression snapshots to the deterministic _common @main output; drift attributed (s35←#260 F4 widening, s27/s32/s34←D20 rate) — benign merged fixes, not regressions. | `rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md` |
 | [S22](s22-roll-defense-economics-itm-short-put-with-7-dte.md) | completed |  | Roll defense economics (ITM short put with ≤7 DTE) | `s22-roll-defense-economics-itm-short-put-with-7-dte.md` |
 | [S32](s32-1m-friction-modeled-simulation-closes-s22-caveat.md) | completed |  | $1M friction-modeled simulation (closes S22 Caveat 3) | `s32-1m-friction-modeled-simulation-closes-s22-caveat.md` |
 | [S35](s35-2018-2020-out-of-window-cross-validation.md) | completed |  | 2018-2020 out-of-window cross-validation | `s35-2018-2020-out-of-window-cross-validation.md` |
@@ -110,11 +115,19 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
 | [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
-## Refactors (1)
+## Refactors (2)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
+
+## Docs / process (2)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
+| [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
 
 ## Research records (3)
 

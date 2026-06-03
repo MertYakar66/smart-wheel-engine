@@ -5,8 +5,11 @@ deliverables flow through this repo — what is tracked, what is
 ignored, what is regenerable, and what must never leave the laptop.
 
 This file is the operational counterpart to the data-layer entry
-in `CLAUDE.md` and to `DATA_SPECIFICATION.md` (schemas). The full
-provider capability matrix lives in §2 below.
+in `CLAUDE.md`. For schemas, see `DATA_SPECIFICATION.md` — but note
+that doc is an **aspirational / forward-looking** design (a
+partitioned-Parquet tree); the on-disk reality is the 22 flat CSVs
+under `data/bloomberg/` described here. The full provider capability
+matrix lives in §2 below.
 
 ---
 
@@ -133,6 +136,26 @@ decided 2026-05-30): keep tracking — treat each refresh as a data commit.**
 The point-in-time "what data did we run on?" audit trail outweighs the
 commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 `sp500_fundamentals_yf.csv`, and `treasury_yields.csv` stay tracked.
+
+> **The `*_yf.csv` files are currently UNCONSUMED parallel files.** The
+> connector (`engine/data_connector.py`) reads `sp500_fundamentals.csv`
+> and `sp500_earnings.csv` (the Bloomberg files) — NOT their `_yf`
+> counterparts. Running `pull_fundamentals_yf.py` / `pull_earnings_yf.py`
+> refreshes the parallel files but does not change engine behaviour until
+> a merge/consume step is wired (not yet done).
+
+> **⚠ Not every connector CSV is refreshable from a repo script.** Of the
+> **9 files** `engine/data_connector.py` reads, only **3** have a
+> reproducible in-repo producer (`sp500_ohlcv.csv`, `sp500_liquidity.csv`
+> via `xbbg` after editing a hardcoded `end_date`; `treasury_yields.csv`
+> via `pull_treasury_yields_yf.py`). The other **6 — including the core
+> IV file `sp500_vol_iv_full.csv`** plus `sp500_dividends.csv`,
+> `sp500_earnings.csv`, `sp500_credit_risk.csv`, `vix_term_structure.csv`,
+> and the schema-correct `sp500_fundamentals.csv` — have **no script,
+> macro, or BQL producer in the repo** and cannot be refreshed by the
+> `pull_*` scripts. Refreshing them needs the operator's original
+> universe-wide BQL/BDH queries recovered or new pullers written. Full
+> per-file investigation: [`bloomberg_refresh_runbook.md`](bloomberg_refresh_runbook.md).
 
 ---
 

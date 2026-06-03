@@ -171,7 +171,11 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/layout.tsx` | Root Next.js layout — global metadata and CSS. |
 | `dashboard/src/app/page.tsx` | Root index — redirects to `/top`. |
 | `dashboard/src/app/globals.css` | Global Tailwind styles and terminal color palette. |
+| `dashboard/src/app/not-found.tsx` | Global 404 page — branded, links back to the Cockpit / TOP. |
+| `dashboard/src/app/global-error.tsx` | Root-level error boundary (catches root-layout errors; renders its own html/body) with a retry. |
 | `dashboard/src/app/(main)/layout.tsx` | Layout for the standard web app — nav plus centered container. |
+| `dashboard/src/app/(main)/loading.tsx` | Suspense fallback for the news-app routes — skeleton list under the nav. |
+| `dashboard/src/app/(main)/error.tsx` | Error boundary for the news-app routes — retry, nav stays usable. |
 | `dashboard/src/app/(main)/top/page.tsx` | "TOP" command-center page — breaking strip, top stories, category sections. |
 | `dashboard/src/app/(main)/feed/page.tsx` | News feed page — story cards with sector filter and RSS refresh. |
 | `dashboard/src/app/(main)/calendar/page.tsx` | Macro calendar page. |
@@ -180,6 +184,8 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/(main)/ticker/[symbol]/page.tsx` | Per-ticker page — quote, price chart, related news. |
 | `dashboard/src/app/(main)/watchlist/page.tsx` | Watchlist page — add/remove tickers, prices, alerts. |
 | `dashboard/src/app/(terminal)/layout.tsx` | Layout for the terminal route. |
+| `dashboard/src/app/(terminal)/loading.tsx` | Suspense fallback for the terminal/cockpit routes — monospace skeleton. |
+| `dashboard/src/app/(terminal)/error.tsx` | Error boundary for the terminal/cockpit routes — monospace, retry, engine-down hint. |
 | `dashboard/src/app/(terminal)/terminal/page.tsx` | Bloomberg-style terminal dashboard — 6-panel grid, command line, engine data. |
 | `dashboard/src/app/api/engine/route.ts` | Server-side proxy bridge to the Python engine API on `:8787`. Forwards the full PIT parameter set for `candidates` (as_of/dte/delta/min_ev/universe_limit) and adds a `dossier` action proxying `/api/tv/dossier` (top_n/timeframe/screenshots_dir + optional nav/holdings/puts_held/regime_map for the D17 portfolio gates). |
 | `dashboard/src/app/(terminal)/cockpit/page.tsx` | Decision-cockpit page — read top-to-bottom and act. Regime banner → selection funnel → candidate cockpit table → one-click dossier drawer. Client component; fetches `/api/engine?action=candidates` + `?action=vix`; PIT controls (as_of/dte/delta/scan/top-N). All numbers from the engine; no decision logic here. |
@@ -277,6 +283,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
+| `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` | Planning-only scope for the coordinated **D19** (exit-cost netting) + **D21** (forward-distribution horizon-units) + **probability-recalibration** re-baseline. Covers the entanglement (D21's over-long horizon deflates `prob_profit`, masking top-bin over-confidence; fixing it makes the measured gap worse), the dependency order, the full `prob_assignment`/`prob_profit` blast radius (backtests, calibration band, S-claims, premium-correction pilot risk axis, R1/R5/R11), the LOCO recalibration re-run on D21-corrected probabilities, and the decision-trio test + §2 plan. Draft for operator review; not yet executed. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
@@ -378,7 +385,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/__init__.py` | Package init re-exporting the legacy quant-layer symbols (pricing, risk, regime, signals, Monte Carlo, portfolio). |
 | `engine/ev_engine.py` | `EVEngine.evaluate` — the authoritative probabilistic expected-value computation for short-option trades. |
 | `engine/wheel_runner.py` | `WheelRunner` — the orchestrator and authoritative ranker (`rank_candidates_by_ev`, covered-call/strangle rankers, `select_book`, dossier builder); provider selection. |
-| `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R6 rules). |
+| `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R11 rules). |
 | `engine/chart_context.py` | `ChartContext` dataclass and the `ChartContextProvider` protocol. |
 | `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, MCP, chained) and the default-provider factory. |
 | `engine/mcp_client.py` | `MCPCLIClient` — the `tv`-CLI subprocess client backing the MCP chart provider. |
@@ -664,6 +671,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_tv_nonce_register_lock.py` | Regression tests pinning the explicit `_TV_SEEN_NONCES_LOCK` around `_tv_seen_register` (S20 C3). Asserts lock existence + 64-worker contention behavior (exactly 1 worker accepts a duplicate digest, all 64 distinct digests accepted). |
 | `tests/test_portfolio_risk_gates.py` | Unit tests for `engine/portfolio_risk_gates.py` (D17 / #154 C4 Phase 1) — pins the adapter (`take_snapshot`) per `WheelPosition` state plus the five gate functions' pass/fail/skip semantics against the locked D17 defaults. |
 | `tests/test_production_tracker_caps.py` | Invariant pins for the production-armed concentration caps (heavy-verify 2026-05-31 Cat-A / #154 follow-up). Pins that `engine.wheel_runner.make_live_book_tracker` ARMS R9 sector + R10 single-name (refuses >25% sector / >10% single-name, token-free, reject-audit shape unchanged), that the library-default `WheelTracker` is unchanged (caps off), and that strict mode still arms all four D17 gates. Guards the decoupled `enforce_*` flags so production-arming can't be silently dropped. |
+| `tests/test_data_connector_ticker_filter.py` | Output-equivalence pins for the connector ticker-filter speed-up: the cached-groupby `_filter_ticker` returns byte-identical frames to the prior `df[df["ticker"]==t]` mask (present / multi-occurrence / absent tickers; cache reuse; empty/tickerless passthrough), and `_load`'s unique-map normalization equals the prior `.apply(normalize_ticker)`. Guards that the perf change is §2-neutral (engine sees identical data). Synthetic data — no large-CSV dependency. |
 | `tests/test_dossier_invariant.py` | Launch-blocker invariant — the downgrade-only `EnginePhaseReviewer` contract. |
 | `tests/test_dossier_downgrade_property.py` | §2 downgrade-only lattice property — states the severity invariant (`proceed`<`review`<`skip`<`blocked`) ONCE over `EnginePhaseReviewer.review()`'s full R1–R11 chain instead of per-rule examples: 8 overlay firing scenarios × 6 `ev_dollars` probes assert `severity(with_overlay) ≥ severity(without)`, plus firing-cell teeth, a cannot-rescue-blocked check, a Hypothesis ev-fuzz, and five source-introspection meta-tripwires that force any future rule (R12+) into the matrix (overlay-guard count, no hard-returned `proceed`, verdict vocabulary, overlay-reason coverage, downgrade-to-`review`). Read-only against §2 (test-only). |
 | `tests/test_r11_elevated_vol.py` | Pins R11 — the elevated-vol top-bin size-down reviewer (heavy-verify 2026-05-31 I11). Eight tests: fires (top-bin `prob_profit>0.90` + `vix_level>25` → review / `elevated_vol_top_bin`), no-ops (VIX≤25, not-top-bin, `vix_level` absent), never-rescues (negative-EV stays blocked by R1), strictly-greater-than boundaries, computed-not-hardcoded payload (candidate's own `cvar_5`), and `build_dossiers(vix_level=…)` threading. Read-only against §2 (downgrade-only). |
@@ -742,6 +750,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |
 | `tests/test_transaction_costs.py` | `engine.transaction_costs` coverage — slippage tiers, OI penalties, sqrt-impact participation, round-trip cost composition. |
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
+| `tests/test_engine_api_hardening.py` | Error-path + security hardening for the `engine_api.py` network surface — loopback-bind/CORS helpers (R3), malformed-param → 400 (R18), generic-500 + correlation-id no-leak (R19), unknown-ticker → 404 on payoff/expected_move/strikes (R20), 4xx instead of 200 on no-data bodies (R21), unknown-path/oversized-body/invalid-JSON routing, and the R27 §2-adjacent negative/non-finite-EV verdict-LABEL alignment (`blocked`). |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
 | `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |

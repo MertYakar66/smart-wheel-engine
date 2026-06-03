@@ -38,18 +38,27 @@ export default function TickerPage() {
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [stories, setStories] = useState<StoryCard[]>([]);
-  const [filing, setFiling] = useState<FilingSummary | null>(null);
+  // EDGAR filing data is fetched on demand (not yet wired); the SEC card shows
+  // an honest empty state until then.
+  const [filing] = useState<FilingSummary | null>(null);
   const [inWatchlist, setInWatchlist] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [priceHistory, setPriceHistory] = useState<
+    { date: string; price: number }[]
+  >([]);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [quoteRes, storiesRes, watchlistRes] = await Promise.allSettled([
-        fetch(`/api/market?ticker=${symbol}`),
-        fetch(`/api/stories?ticker=${symbol}`),
-        fetch("/api/watchlist"),
-      ]);
+      const [quoteRes, storiesRes, watchlistRes, chartRes] =
+        await Promise.allSettled([
+          fetch(`/api/market?ticker=${symbol}`),
+          fetch(`/api/stories?ticker=${symbol}`),
+          fetch("/api/watchlist"),
+          fetch(
+            `/api/engine?action=chart&chart_type=bollinger&ticker=${symbol}&days=30`
+          ),
+        ]);
 
       if (quoteRes.status === "fulfilled" && quoteRes.value.ok) {
         setQuote(await quoteRes.value.json());
@@ -62,6 +71,33 @@ export default function TickerPage() {
         setInWatchlist(
           wl.some((w: { ticker: string }) => w.ticker === symbol)
         );
+      }
+      // Real 30-day daily closes from the engine OHLCV chart endpoint. If the
+      // engine is unavailable we show an honest empty state below — never a
+      // fabricated/random-walk series.
+      if (chartRes.status === "fulfilled" && chartRes.value.ok) {
+        try {
+          const json = await chartRes.value.json();
+          const rows: { date?: string; close?: number }[] = Array.isArray(
+            json?.data
+          )
+            ? json.data
+            : [];
+          setPriceHistory(
+            rows
+              .filter(
+                (r) =>
+                  typeof r.close === "number" &&
+                  Number.isFinite(r.close) &&
+                  Boolean(r.date)
+              )
+              .map((r) => ({ date: r.date as string, price: r.close as number }))
+          );
+        } catch {
+          setPriceHistory([]);
+        }
+      } else {
+        setPriceHistory([]);
       }
       setLoading(false);
     }
@@ -81,19 +117,6 @@ export default function TickerPage() {
       setInWatchlist(true);
     }
   };
-
-  // Mock price history for chart (in production, this would come from market data service)
-  const priceHistory = quote
-    ? Array.from({ length: 30 }, (_, i) => ({
-        date: new Date(
-          Date.now() - (29 - i) * 86400000
-        ).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        price: +(
-          quote.price *
-          (1 + (Math.random() - 0.5) * 0.1)
-        ).toFixed(2),
-      }))
-    : [];
 
   if (loading) {
     return (
@@ -152,13 +175,14 @@ export default function TickerPage() {
         </Button>
       </div>
 
-      {/* Price Chart */}
-      {quote && priceHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Price History (30D)</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Price Chart — real daily closes from the engine OHLCV feed. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Price History (30D)</CardTitle>
+          <CardDescription>Daily closes from the engine OHLCV feed</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {priceHistory.length > 0 ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={priceHistory}>
@@ -191,9 +215,19 @@ export default function TickerPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-sm text-zinc-500">
+              No price history available. Start the engine API (
+              <code>python engine_api.py</code>) to load daily closes, or open
+              the full chart in the{" "}
+              <Link href="/terminal" className="text-blue-500 hover:underline">
+                Terminal
+              </Link>
+              .
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Related News */}
       <Card>

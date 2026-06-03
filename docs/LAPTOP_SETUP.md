@@ -87,7 +87,7 @@ What this rehydrates:
 ## 5. Verify
 
 ```bash
-python scripts/feature_smoke_test.py        # 127 checks across 26 sections
+python scripts/feature_smoke_test.py        # 108 checks across 26 sections
 pytest -q                                    # regression suite
 ```
 
@@ -99,7 +99,7 @@ for tiers you don't have (futures, realtime snapshots).
 ## What's already in git (no action needed)
 
 - All engine code, scripts, tests
-- All 25 Bloomberg CSVs (~260 MB committed — OHLCV, IV, liquidity, index
+- All 22 Bloomberg CSVs (~260 MB committed — OHLCV, IV, liquidity, index
   membership, dividends, earnings, fundamentals, short interest, etc.)
 - `data_processed/trade_universe/2025-11-22_trade_universe.csv`
 - AAPL feature-store sample

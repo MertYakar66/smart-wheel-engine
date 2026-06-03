@@ -9,15 +9,16 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**89 records.**
+**90 records.**
 
-## Features (6)
+## Features (7)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
 | [dashboard-cockpit](dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md) | complete |  | A read-top-to-bottom decision cockpit in dashboard/src that encodes WHAT TO TRUST and WHAT TO DISTRUST about the engine output — distribution-not-point-EV, calibration-flagged top bin, R11 regime banner. Pure display layer; no engine changes. | `dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md` |
 | [dashboard-launch-polish](dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md) | in-flight |  | Launch-grade polish of the Next.js dashboard from a read-only repo audit — the Decision Cockpit is now the front door + in the nav, fake "LIVE"/mock data is labelled honestly or wired to real data, the Research chat + SSE leak are fixed, and the cockpit is keyboard/mobile accessible. Interface layer only; no engine logic touched. | `dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md` |
+| [dashboard-prob-profit-ci](dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md) | in-flight |  | Decision-cockpit renders the prob_profit Wilson 95% sampling CI + N, gated to the IID non-overlapping forward tier so it never shows false precision. | `dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md` |
 | [dashboard-ux-boundaries](dashboard-ux-boundaries-add-app-router-loading-error-not-found.md) | complete |  | Added the missing Next.js App Router special files — graceful loading skeletons, error boundaries (retry, no blank screen), and a branded 404 — across the news-app and terminal route groups. Additive-only; zero engine/decision-layer surface. | `dashboard-ux-boundaries-add-app-router-loading-error-not-found.md` |
 | [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
 | [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |

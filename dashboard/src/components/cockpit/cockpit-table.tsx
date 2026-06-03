@@ -130,7 +130,14 @@ export function CockpitTable({
                   />
                 </td>
                 <td className="px-2 py-1.5">
-                  <CalibratedProb probProfit={c.probProfit} vix={vix} />
+                  <CalibratedProb
+                    probProfit={c.probProfit}
+                    vix={vix}
+                    ciLow={c.probProfitCiLow}
+                    ciHigh={c.probProfitCiHigh}
+                    nScenarios={c.nScenarios}
+                    distributionSource={c.distributionSource}
+                  />
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-terminal-text">
                   ${c.strike.toFixed(2)}

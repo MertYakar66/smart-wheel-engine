@@ -87,6 +87,14 @@ class MarketDataConnector:
         self._data_dir = Path(data_dir)
         # Cache for loaded DataFrames – keys match ``_FILES`` keys
         self._cache: dict[str, pd.DataFrame] = {}
+        # Per-DataFrame ``{ticker: sub-frame}`` index, built lazily on the
+        # first ``_filter_ticker`` call against a given cached frame and keyed
+        # by ``id(df)``. Collapses the repeated O(rows) object-column scan a
+        # universe sweep would otherwise do (one full pass instead of one per
+        # ticker). Keyed by id() is safe because the frames live in
+        # ``self._cache`` for the connector's lifetime, so their identity is
+        # stable and they are never GC'd out from under the key.
+        self._ticker_groups: dict[int, dict[str, pd.DataFrame]] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -110,9 +118,13 @@ class MarketDataConnector:
             self._cache[key] = pd.DataFrame()
             return self._cache[key]
 
-        # Normalize ticker column if present
+        # Normalize ticker column if present. Map over the ~500 UNIQUE raw
+        # tickers rather than ``.apply`` over every row — same values, but it
+        # turns ~2.4M per-row ``normalize_ticker`` calls (OHLCV + IV combined)
+        # into ~500. Output is identical to the prior ``.apply``.
         if "ticker" in df.columns:
-            df["ticker"] = df["ticker"].apply(normalize_ticker)
+            _norm = {t: normalize_ticker(t) for t in df["ticker"].unique()}
+            df["ticker"] = df["ticker"].map(_norm)
 
         # Parse common date columns
         for col in (
@@ -154,12 +166,33 @@ class MarketDataConnector:
             out = out[out[date_col] <= pd.Timestamp(end)]
         return out
 
-    @staticmethod
-    def _filter_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-        """Filter DataFrame to a single (already-normalized) ticker."""
+    def _filter_ticker(self, df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """Filter DataFrame to a single (already-normalized) ticker.
+
+        Output-identical to ``df[df["ticker"] == ticker]`` (same rows, same
+        original order, same columns; empty frame with the same schema when the
+        ticker is absent). The speed-up is the lazily-built, cached
+        ``{ticker: sub-frame}`` index (``self._ticker_groups``): the first call
+        against a frame does a single ``groupby`` pass, every subsequent
+        per-ticker lookup is O(1) — so a full-universe sweep makes one pass over
+        each data file instead of one object-column scan per ticker.
+        """
         if df.empty or "ticker" not in df.columns:
             return df
-        return df[df["ticker"] == ticker]
+        key = id(df)
+        groups = self._ticker_groups.get(key)
+        if groups is None:
+            # ``groupby`` preserves within-group row order, matching the
+            # boolean-mask semantics this replaces. NB: must iterate the
+            # (name, group) pairs explicitly — ``dict(df.groupby(...))`` is NOT
+            # equivalent (GroupBy exposes ``.keys``, so ``dict()`` takes the
+            # mapping-protocol path and builds the wrong thing). Hence noqa C416.
+            groups = {t: sub for t, sub in df.groupby("ticker", sort=False)}  # noqa: C416
+            self._ticker_groups[key] = groups
+        hit = groups.get(ticker)
+        if hit is None:
+            return df.iloc[0:0]  # empty, same columns/dtypes — matches mask miss
+        return hit
 
     # ------------------------------------------------------------------
     # Ticker normalization (public static)

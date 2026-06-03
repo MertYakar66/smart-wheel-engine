@@ -143,7 +143,7 @@ npm run db:migrate   # Run Drizzle migrations
 
 The Next.js API routes under `src/app/api/engine/` are thin proxies that
 forward to the Python HTTP API at `http://localhost:8787`. The engine
-endpoint catalog (32 endpoints — `/api/candidates`, `/api/dossier`,
+endpoint catalog (34 endpoints — `/api/candidates`, `/api/dossier`,
 `/api/strangle`, `/api/dealer_positioning`, `/api/memo`, `/api/tv/*`,
 etc.) is documented in the [`engine_api.py`](../engine_api.py) header.
 

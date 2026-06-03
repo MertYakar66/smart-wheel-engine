@@ -51,6 +51,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 |---|---|
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
 | `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |
@@ -145,6 +146,7 @@ pytest tests/ -v
 # Decision-layer launch blockers only (fast subset)
 pytest tests/test_audit_invariants.py \
        tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py \
        tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py \
@@ -182,7 +184,7 @@ pytest tests/ -m quant -v
 |---|---|
 | `engine/ev_engine.py` | `pytest tests/test_audit_invariants.py tests/test_audit_viii_*.py tests/test_ev_engine_upgrades.py` then **the full suite** (invariants are cross-cutting) |
 | `engine/wheel_runner.py` | Full suite |
-| `engine/candidate_dossier.py` | `pytest tests/test_dossier_invariant.py tests/test_tv_dossier.py tests/test_authority_hardening.py` |
+| `engine/candidate_dossier.py` | `pytest tests/test_dossier_invariant.py tests/test_r11_elevated_vol.py tests/test_tv_dossier.py tests/test_authority_hardening.py` |
 | `engine/option_pricer.py` | `pytest tests/test_option_pricer.py tests/test_greeks_unit_invariants.py tests/test_properties.py` |
 | `engine/data_connector.py` or `theta_connector.py` | `pytest tests/test_bloomberg_loader.py tests/test_theta_connector.py tests/test_data_pipeline.py` then `python scripts/theta_health_check.py` if Terminal is up |
 | `engine/dealer_positioning.py` | `pytest tests/test_dealer_positioning.py tests/test_audit_invariants.py` |

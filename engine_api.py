@@ -361,6 +361,24 @@ def _sanitize_nans(obj):
     return obj
 
 
+def _nan_to_none(v):
+    """Scalar NaN/Inf → None; everything else passes through unchanged.
+
+    A per-field counterpart to :func:`_sanitize_nans` for values lifted
+    straight out of a pandas row, where a Python ``None`` placed in a
+    column that also holds numerics resurfaces as ``numpy.float64('nan')``
+    (numpy floats subclass ``float``, so the ``isinstance`` guard catches
+    both ``float`` and ``numpy.floating``). Keeps the additive prob_profit
+    CI fields JSON-null (not the invalid ``NaN`` literal) before they enter
+    the response dict.
+    """
+    if v is None:
+        return None
+    if isinstance(v, float) and (np.isnan(v) or np.isinf(v)):
+        return None
+    return v
+
+
 class BadParam(ValueError):
     """Raised by :func:`_parse_param` when a query param can't be coerced.
 
@@ -842,6 +860,21 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "pnlP50": row.get("pnl_p50"),
                     "pnlP75": row.get("pnl_p75"),
                     "probProfit": round(prob_profit, 4),
+                    # Small-sample honesty (2026-06-01): probProfit is a k/N
+                    # frequency over nScenarios forward windows (often ~30-35).
+                    # Surface N + the Wilson 95% CI so the 4-dp figure is not
+                    # read as exact (the interval is ~20pp wide at N=35). These
+                    # are pass-throughs of the ranker frame's n_scenarios /
+                    # prob_profit_ci_low / prob_profit_ci_high columns; None
+                    # when no scenarios were evaluated (the ranker NaN-safes the
+                    # event-lockout short-circuit, and a None alongside numeric
+                    # rows resurfaces as NaN once pandas coerces the column —
+                    # _nan_to_none normalizes both back to JSON null). probProfit
+                    # itself is unchanged — this annotates PRECISION, not a
+                    # recalibration.
+                    "nScenarios": _nan_to_none(row.get("n_scenarios")),
+                    "probProfitCiLow": _nan_to_none(row.get("prob_profit_ci_low")),
+                    "probProfitCiHigh": _nan_to_none(row.get("prob_profit_ci_high")),
                     "probAssignment": round(float(row.get("prob_assignment", 0) or 0), 4),
                     "cvar5": row.get("cvar_5"),
                     "cvar99Evt": row.get("cvar_99_evt"),

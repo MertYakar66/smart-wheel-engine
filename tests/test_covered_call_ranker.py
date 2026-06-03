@@ -200,6 +200,105 @@ class TestSchema:
 
 
 # ======================================================================
+# 1b. prob_profit confidence interval (small-sample honesty, 2026-06-01)
+# ======================================================================
+class TestProbProfitCI:
+    """The CC ranker mirrors the put ranker's three CI columns:
+    ``n_scenarios`` + the Wilson 95% CI ``[prob_profit_ci_low,
+    prob_profit_ci_high]`` bracketing the k/N ``prob_profit`` frequency.
+    These are pinned in ``_CC_RANK_CORE_COLUMNS`` right after
+    ``prob_profit`` (so a column reindex never separates the estimate
+    from its uncertainty). §2-safe: surfacing an existing value's
+    uncertainty, never recalibrating prob_profit / ev_dollars / verdict.
+    """
+
+    _CI_COLS = ("n_scenarios", "prob_profit_ci_low", "prob_profit_ci_high")
+
+    def test_ci_columns_are_in_core_schema_after_prob_profit(self):
+        # Pinned in CORE so the CI always travels with prob_profit, even
+        # with include_diagnostic_fields=False.
+        for col in self._CI_COLS:
+            assert col in _CC_RANK_CORE_COLUMNS
+        pp = _CC_RANK_CORE_COLUMNS.index("prob_profit")
+        assert _CC_RANK_CORE_COLUMNS[pp + 1 : pp + 4] == list(self._CI_COLS)
+
+    def test_ci_columns_present_without_diagnostics(self):
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        assert not df.empty
+        for col in self._CI_COLS:
+            assert col in df.columns
+
+    def test_ci_reaches_survivor_rows_and_brackets_prob_profit(self):
+        # Row-dict -> DataFrame link (the #248-class gotcha): the keys
+        # are dropped by `pd.DataFrame(rows, columns=cols)` unless they
+        # are BOTH in the row dict and the column list.
+        #
+        # Tier-gated honesty (D4, 2026-06-01): the Wilson CI is emitted
+        # ONLY on rows whose forward distribution is the IID empirical
+        # non-overlapping tier (where n_scenarios is a real
+        # independent-trial count). Longer-DTE grid cells that fall to the
+        # overlapping / bootstrap tiers carry a NULL CI by design — a
+        # binomial CI over a non-IID N is false precision. So we assert per
+        # tier; prob_profit itself is always present.
+        df = _rank(_runner())
+        assert not df.empty
+        assert df["prob_profit"].notna().all()
+
+        iid = df["distribution_source"] == "empirical_non_overlapping"
+        assert iid.any(), "fixture should yield at least one IID-tier survivor"
+        kept = df[iid]
+        for col in self._CI_COLS:
+            assert kept[col].notna().all(), f"{col} must be finite on IID-tier rows"
+        assert (kept["prob_profit_ci_low"] <= kept["prob_profit"]).all()
+        assert (kept["prob_profit"] <= kept["prob_profit_ci_high"]).all()
+        assert (kept["prob_profit_ci_low"] <= kept["prob_profit_ci_high"]).all()
+        # N is the forward-scenario count -> a positive integer here.
+        assert (kept["n_scenarios"] > 0).all()
+
+        # Non-IID survivors (if any) carry a suppressed (null) CI bundle.
+        gated = df[~iid]
+        for col in self._CI_COLS:
+            assert gated[col].isna().all(), f"{col} must be null on non-IID rows"
+
+
+# ======================================================================
+# 1c. prob_profit CI on a REAL survivor (Bloomberg connector, as_of fixed)
+# ======================================================================
+class TestProbProfitCIRealSurvivor:
+    """End-to-end against the live Bloomberg connector (no fake conn).
+    Skips if no covered-call candidate survives at the fixed as_of —
+    the assertion only fires on a genuine survivor row."""
+
+    def test_real_survivor_ci_brackets_prob_profit(self):
+        runner = WheelRunner()  # real provider via SWE_DATA_PROVIDER
+        df = runner.rank_covered_calls_by_ev(
+            ticker="AAPL",
+            shares_held=100,
+            as_of="2026-03-20",
+            use_event_gate=False,
+            min_ev_dollars=-1e9,
+            top_n=50,
+        )
+        if df.empty:
+            pytest.skip("no covered-call survivor for AAPL at as_of=2026-03-20")
+        for col in ("n_scenarios", "prob_profit_ci_low", "prob_profit_ci_high"):
+            assert col in df.columns
+        # prob_profit is always present on a survivor row.
+        assert df["prob_profit"].notna().all()
+        # Tier-gated CI (D4): present + bracketing on IID rows; suppressed
+        # (null) on non-IID grid cells. Assert per tier rather than assuming
+        # the top-EV row is on the IID tier.
+        for _, row in df.iterrows():
+            if row["distribution_source"] == "empirical_non_overlapping":
+                assert row["n_scenarios"] is not None and row["n_scenarios"] > 0
+                assert row["prob_profit_ci_low"] <= row["prob_profit"] <= row["prob_profit_ci_high"]
+            else:
+                assert pd.isna(row["n_scenarios"])
+                assert pd.isna(row["prob_profit_ci_low"])
+                assert pd.isna(row["prob_profit_ci_high"])
+
+
+# ======================================================================
 # 2. Edge cases
 # ======================================================================
 class TestEdgeCases:

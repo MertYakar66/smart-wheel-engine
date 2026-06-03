@@ -60,7 +60,9 @@ Other items:
   Mac/Cowork framing, pointer to `docs/TRADINGVIEW_INTEGRATION.md`, date
   bump 2026-06-02).
 - `docs/PRODUCTION_READINESS.md` §8 — Sn high-water "S1-S32" replaced with
-  a reference to the `docs/worklog/INDEX.md` ledger as source of truth.
+  a reference to the `docs/worklog/INDEX.md` ledger as source of truth; and
+  the LAUNCH_READINESS gate-ref count drift "R1-R8" → "R1-R11" corrected
+  (commit e2c6384).
 - `PROJECT_STATE.md` — S46 status corrected (completed, was "in flight");
   added S47 high-water row; added a point-in-time data-currency note
   (CSVs as-of 2026-03-20, refresh partially blocked).
@@ -82,10 +84,6 @@ NOT-IMPLEMENTED STATUS banner; PROJECT_STATE §1 already listed R1-R11.
 
 ## Unresolved / handoff
 
-- `docs/PRODUCTION_READINESS.md` §8 still summarises LAUNCH_READINESS as
-  "R1-R8" — a genuine count drift, but left untouched because this task's
-  scope for item 9 was explicitly "Sn-ledger staleness only" and the caps
-  status is owned by another work-stream. Flag for a follow-up.
 - `docs/DATA_SPECIFICATION.md` Overview prose is still present-tense
   ("All data is stored in Parquet"); the top STATUS banner already
   overrides it. A deeper prose rewrite was out of scope.

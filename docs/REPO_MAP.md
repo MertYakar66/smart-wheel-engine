@@ -26,20 +26,21 @@ The four sanctioned routes from raw inputs to a tradeable verdict (full contract
 |---|---|---|---|
 | Ranker authority | `engine/ev_engine.py` | `EVEngine.evaluate` | **authority** — the only place a candidate becomes tradeable |
 | Runner | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | the one route every tradeable path takes |
-| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R10) | downgrade-only |
+| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R11) | downgrade-only |
 | Interface | `engine_api.py` | HTTP API on `:8787` | serves verdicts; never re-ranks |
 
 **Invariant:** no tradeable candidate bypasses `EVEngine.evaluate`; reviewers can
 **downgrade** (proceed→review→skip→blocked) but never upgrade; the dealer
 multiplier is clamped `[0.70, 1.05]` and scales `ev_dollars` only, never `ev_raw`.
 
-**Reviewer rules (the canonical count is R1–R10; rule *text* lives in `CLAUDE.md`
+**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `CLAUDE.md`
 §2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
 missing/errored→review · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
 (*dormant*) · R5 EV ≥ `min_proceed_ev` (10.0)→proceed else review · R6 short-gamma
 + strike ≥ put wall / near gamma flip→review · **R7–R10 = D17 portfolio
 soft-warns** (require an attached `PortfolioContext`): R7 VaR breach · R8
-stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach. All
+stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach · R11
+elevated-vol top-bin size-down (VIX level >25 + top-bin `prob_profit` >0.90). All
 downgrade-only.
 
 **Pinned by** (the INVARIANT-PIN test set — never move/merge without §2 owner

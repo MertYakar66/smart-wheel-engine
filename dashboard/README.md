@@ -1,6 +1,6 @@
 # Smart Wheel Engine — Dashboard
 
-Next.js 15 dashboard for the Smart Wheel Engine. Consumes the engine HTTP
+Next.js 16 dashboard for the Smart Wheel Engine. Consumes the engine HTTP
 API at `:8787` (served by [`engine_api.py`](../engine_api.py)) and exposes
 two surfaces:
 
@@ -20,7 +20,7 @@ and is retained as a research-tier surface only (see
 
 ## Tech stack
 
-- **Framework**: Next.js 15 (App Router, TypeScript)
+- **Framework**: Next.js 16 (App Router, TypeScript)
 - **UI**: Tailwind CSS v4 + shadcn/ui components
 - **Database**: SQLite via better-sqlite3 + Drizzle ORM
 - **Charts**: Recharts
@@ -34,7 +34,7 @@ and is retained as a research-tier surface only (see
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+ (required by Next.js 16)
 - The engine API up at `:8787` for the engine cockpit
   (`python engine_api.py` from the repo root — see the
   [root README](../README.md))
@@ -82,8 +82,8 @@ the Vercel AI SDK.
 ```
 dashboard/src/
 ├── app/
-│   ├── (main)/              # Engine cockpit pages
-│   ├── (terminal)/          # Trading-terminal surface
+│   ├── (main)/              # Financial-news app (feed, ticker, watchlist, calendar, research)
+│   ├── (terminal)/          # Engine surfaces — Decision Cockpit (/cockpit) + Terminal (/terminal)
 │   ├── api/                 # Next.js API routes
 │   │   ├── engine/         # Proxies / wrappers around engine_api.py :8787
 │   │   ├── execute/        # Trade-execution surfaces (committee verdicts)

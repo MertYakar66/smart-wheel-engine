@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface StatusBarProps {
   indices: { symbol: string; price: number; changePct: number }[];
@@ -68,9 +69,13 @@ export function StatusBar({
     <div className="flex h-8 shrink-0 items-center justify-between border-b border-terminal-border bg-terminal-header px-3 font-mono text-[11px]">
       {/* Left: Brand + Ticker tape */}
       <div className="flex min-w-0 items-center gap-4">
-        <span className="shrink-0 font-bold tracking-wider text-terminal-amber">
+        <Link
+          href="/cockpit"
+          title="Open the Decision Cockpit"
+          className="shrink-0 font-bold tracking-wider text-terminal-amber hover:text-terminal-amber/80"
+        >
           ■ YAKAR TERMINAL
-        </span>
+        </Link>
         <div className="flex min-w-0 items-center gap-3">
           {indices.map((idx) => (
             <span key={idx.symbol} className="flex shrink items-center gap-1">

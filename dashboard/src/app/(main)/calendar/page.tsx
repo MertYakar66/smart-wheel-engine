@@ -52,7 +52,7 @@ const STATIC_EVENTS: CalendarEvent[] = [
 ];
 
 export default function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>(STATIC_EVENTS);
+  const [events] = useState<CalendarEvent[]>(STATIC_EVENTS);
 
   // Sort events by date, filter to upcoming
   const upcomingEvents = events
@@ -86,7 +86,10 @@ export default function CalendarPage() {
           Macro Calendar
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          FOMC meetings, CPI releases, jobs reports, GDP estimates
+          FOMC meetings, CPI releases, jobs reports, GDP estimates ·{" "}
+          <span className="text-amber-600 dark:text-amber-500">
+            projected schedule — approximate dates
+          </span>
         </p>
       </div>
 
@@ -96,9 +99,12 @@ export default function CalendarPage() {
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Upcoming Events
+            <Badge variant="secondary" className="ml-1 text-[10px] uppercase">
+              Projected
+            </Badge>
           </CardTitle>
           <CardDescription>
-            {upcomingEvents.length} events scheduled
+            {upcomingEvents.length} events scheduled · dates are projected/approximate
           </CardDescription>
         </CardHeader>
         <CardContent>

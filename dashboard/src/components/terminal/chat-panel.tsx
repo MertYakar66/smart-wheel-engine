@@ -28,6 +28,9 @@ export function ChatPanel({ initialQuery }: ChatPanelProps) {
     if (initialQuery && initialQuery !== input) {
       setInput(initialQuery);
     }
+    // Intentionally only re-sync when a NEW initialQuery arrives; including
+    // `input` would clobber the user's in-progress typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
   const sendMessage = async () => {
@@ -61,22 +64,14 @@ export function ChatPanel({ initialQuery }: ChatPanelProps) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("0:")) {
-            try {
-              const text = JSON.parse(line.slice(2));
-              assistantContent += text;
-              setMessages([
-                ...newMessages,
-                { role: "assistant", content: assistantContent },
-              ]);
-            } catch {
-              // skip
-            }
-          }
-        }
+        // The server responds via toTextStreamResponse() — a raw UTF-8 text
+        // stream of assistant tokens (no SSE/data-stream framing), so each
+        // chunk is plain text to append directly.
+        assistantContent += decoder.decode(value, { stream: true });
+        setMessages([
+          ...newMessages,
+          { role: "assistant", content: assistantContent },
+        ]);
       }
 
       if (!assistantContent) {

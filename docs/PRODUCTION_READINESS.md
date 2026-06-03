@@ -557,7 +557,7 @@ B1 / B2 / B3 fixes.
   is now frozen and covers only S1–S32). The worklog ledger is the
   source of truth for the current Sn high-water — do not hardcode a
   count here; it drifts every session.
-- **`docs/LAUNCH_READINESS.md`** — code-quality merge gates (R1–R8,
+- **`docs/LAUNCH_READINESS.md`** — code-quality merge gates (R1–R11,
   the four authoritative routes, the launch-blocker test subset).
   Complement, not substitute, for this doc.
 - **`docs/ENGINE_BACKTEST_2022_2024.md`** — S22 pre-IV-PIT-fix backtest

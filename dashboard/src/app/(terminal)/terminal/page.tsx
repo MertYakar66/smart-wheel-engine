@@ -92,8 +92,9 @@ export default function TerminalPage() {
   // Ollama status
   const [ollamaStatus, setOllamaStatus] = useState<"connected" | "disconnected" | "checking">("checking");
 
-  // Retrieval providers
-  const [retrievalProviders, setRetrievalProviders] = useState<string[]>(["rss"]);
+  // Retrieval providers (RSS is always on; the setter is unused until more
+  // providers are wired).
+  const [retrievalProviders] = useState<string[]>(["rss"]);
 
   // Command history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -198,9 +199,26 @@ export default function TerminalPage() {
 
   const checkOllama = useCallback(async () => {
     try {
-      const url = process.env.NEXT_PUBLIC_OLLAMA_URL || "http://localhost:11434";
-      const res = await fetch(`${url}/api/version`, { signal: AbortSignal.timeout(3000) });
-      setOllamaStatus(res.ok ? "connected" : "disconnected");
+      // Proxy through the same-origin engine route. A direct browser fetch to
+      // Ollama (localhost:11434) is CORS-blocked and always reports
+      // "disconnected" even when Ollama is healthy; the engine checks Ollama
+      // server-side — and it is the engine that actually calls Ollama for memos.
+      const res = await fetch("/api/engine?action=ollama_status", {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!res.ok) {
+        setOllamaStatus("disconnected");
+        return;
+      }
+      const data = await res.json();
+      const connected = Boolean(
+        data?.available ||
+          data?.connected ||
+          data?.ok ||
+          data?.status === "connected" ||
+          data?.status === "ok"
+      );
+      setOllamaStatus(connected ? "connected" : "disconnected");
     } catch {
       setOllamaStatus("disconnected");
     }
@@ -348,7 +366,9 @@ export default function TerminalPage() {
         }))}
         alertCount={alertCount}
         ollamaStatus={ollamaStatus}
-        agentStatus={PLACEHOLDER_AGENT_STATUS.online ? "online" : "offline"}
+        // The local agent runtime is not yet wired (AgentPanel is connected=false),
+        // so report it honestly as offline rather than a hardcoded "online".
+        agentStatus="offline"
         retrievalProviders={retrievalProviders}
         vix={engineData.regime.vix}
         regime={engineData.regime.regime}
@@ -382,6 +402,7 @@ export default function TerminalPage() {
             futures={PLACEHOLDER_FUTURES}
             commodities={PLACEHOLDER_COMMODITIES}
             loading={false}
+            isLive={false}
           />
           <OptionsPanel
             trades={engineData.trades}

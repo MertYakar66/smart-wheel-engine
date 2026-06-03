@@ -387,6 +387,48 @@ def best_available_forward_distribution(
 
 
 # ----------------------------------------------------------------------
+# Sampling-honesty predicate for prob_profit's Wilson CI
+# ----------------------------------------------------------------------
+#
+# prob_profit is a k/N binomial frequency over the forward-scenario set, and
+# ev_engine surfaces a Wilson 95% CI for it (engine.ev_engine._wilson_score_interval).
+# A Wilson binomial interval is only an honest *sampling* spread when N is a
+# count of INDEPENDENT Bernoulli trials. That holds for exactly one tier:
+#
+#   * empirical_non_overlapping — disjoint, ~IID forward windows (N ~ 30-35).
+#     The Wilson CI is honest here.
+#
+# It does NOT hold for the other tiers, all of which report an ``n_scenarios``
+# that is not an independent-trial count, so a Wilson CI over it is deceptively
+# TIGHT (false precision — the opposite of the honesty goal):
+#
+#   * empirical_overlapping — autocorrelated windows; effective N << count.
+#   * block_bootstrap / har_rv — large synthetic resample counts (n ~ 5000).
+#   * lognormal_fallback — parametric draws (n ~ 20000; ev_engine's own label).
+#   * none — no scenarios evaluated.
+#
+# Callers (the wheel_runner rankers) gate CI emission on this predicate so the
+# only interval a trader ever sees is a genuine sampling spread. This is the
+# Python source of truth mirrored by the dashboard's ``samplingCiHonest``
+# (dashboard/src/lib/cockpit-trust.ts).
+_IID_FORWARD_SOURCES: frozenset[str] = frozenset({"empirical_non_overlapping"})
+
+
+def is_iid_forward_source(source: str | None) -> bool:
+    """True iff ``source`` is a forward tier whose ``n_scenarios`` is a count
+    of INDEPENDENT trials — i.e. prob_profit's Wilson 95% CI is statistically
+    honest for it.
+
+    Only ``"empirical_non_overlapping"`` qualifies (see ``_IID_FORWARD_SOURCES``).
+    Every other tier label (``empirical_overlapping``, ``block_bootstrap``,
+    ``har_rv``, ``lognormal_fallback``, ``none``, or ``None``) reports an N that
+    is not an independent-trial count, so a binomial CI over it is false
+    precision and must be suppressed by the caller.
+    """
+    return source in _IID_FORWARD_SOURCES
+
+
+# ----------------------------------------------------------------------
 # 5. F4 follow-up — realized-vol-ratio widening
 # ----------------------------------------------------------------------
 #

@@ -21,6 +21,7 @@ the artifact files here are the raw observable data.
 | **F4 pre-fix baseline** (companion to [`F4_TAIL_RISK_DIAGNOSTIC.md`](../F4_TAIL_RISK_DIAGNOSTIC.md)) | [`f4_baseline_driver.py`](f4_baseline_driver.py) | [`f4_baseline_2026-05-26_raw_output.txt`](f4_baseline_2026-05-26_raw_output.txt) | `70fdb78` (pre-#260) |
 | **F4 post-fix re-run** ([`ENGINE_REVERIFY_S46_POST_F4_R10.md`](../ENGINE_REVERIFY_S46_POST_F4_R10.md) §3) | (same driver, re-run) | [`f4_baseline_2026-05-28_raw_output.txt`](f4_baseline_2026-05-28_raw_output.txt) | `56d8e5c` (post-#260+#262) |
 | **S41 — F4 fix validation (post-#260)** (companion to [`ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md`](../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md)) | [`s41_f4_validation_driver.py`](s41_f4_validation_driver.py) | [`s41_f4_validation_2026-05-28_raw_output.txt`](s41_f4_validation_2026-05-28_raw_output.txt) | `56d8e5c` (post-#260+#262) |
+| **V&V campaign — efficiency / realism / reliability** (companion to [`VNV_CAMPAIGN_2026-06-01.md`](../VNV_CAMPAIGN_2026-06-01.md)) | [`vnv_funnel_tier_report.py`](../../scripts/vnv_funnel_tier_report.py), [`vnv_prob_profit_calibration.py`](../../scripts/vnv_prob_profit_calibration.py) | [`vnv_2026-06-01/`](vnv_2026-06-01/) — funnel JSON, calibration JSON, profile txt | `1c69062` |
 
 **The F4 baseline + post-fix pair** is the captured pre/post evidence
 for PR #260's RV30/RV252 widening. Diff the two raw outputs to see

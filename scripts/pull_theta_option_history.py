@@ -55,8 +55,10 @@ import argparse
 import io
 import json
 import logging
+import os
 import socket
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -307,6 +309,18 @@ def _partition_exists(ticker: str, expiration: str) -> bool:
     return p.exists() and p.stat().st_size > 0
 
 
+def _tmp_partition_path(outdir: Path) -> Path:
+    """Per-writer-unique tmp path for the atomic partition write.
+
+    A FIXED ``data.parquet.tmp`` name races when two writers target the same
+    partition dir at once — e.g. two pulls sharing one larder, or (defensively)
+    a retried unit re-entering before the first finished. They'd clobber each
+    other's in-flight tmp and one ``replace`` could rename a half-written file
+    into place. PID + uuid4 makes every writer's tmp collision-free.
+    """
+    return outdir / f"data.parquet.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+
+
 def _write_partition(ticker: str, expiration: str, frames: list[pd.DataFrame]) -> tuple[int, int]:
     """Concatenate per-contract frames and write one parquet for the
     (ticker, expiration) partition. Returns (rows, contracts)."""
@@ -319,10 +333,14 @@ def _write_partition(ticker: str, expiration: str, frames: list[pd.DataFrame]) -
     outdir.mkdir(parents=True, exist_ok=True)
     # Atomic write: a crash mid-write must NOT leave a partial data.parquet that
     # the resume check (file-exists + size>0) would skip as "done". Write to a
-    # tmp file, then atomically rename into place.
-    tmp = outdir / "data.parquet.tmp"
-    df.to_parquet(tmp, index=False)
-    tmp.replace(outdir / "data.parquet")
+    # per-writer-unique tmp, then atomically rename into place; the finally clears
+    # the tmp if the rename never happened so unique names can't accumulate.
+    tmp = _tmp_partition_path(outdir)
+    try:
+        df.to_parquet(tmp, index=False)
+        tmp.replace(outdir / "data.parquet")
+    finally:
+        tmp.unlink(missing_ok=True)
     contracts = df.groupby(["strike", "right"]).ngroups if not df.empty else 0
     return len(df), contracts
 

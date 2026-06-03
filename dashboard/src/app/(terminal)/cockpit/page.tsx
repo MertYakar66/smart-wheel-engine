@@ -6,6 +6,7 @@
 // Every number comes from the engine via /api/engine (no engine logic here).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { CockpitTable } from "@/components/cockpit/cockpit-table";
 import { ConcentrationMeters } from "@/components/cockpit/concentration-meters";
@@ -33,6 +34,19 @@ export default function CockpitPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<EngineCandidate | null>(null);
+  // Computed client-side (in an effect) so it never causes an SSR/client
+  // hydration mismatch — "how many days old is the loaded as_of vs today".
+  const [staleDays, setStaleDays] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!params.asOf) {
+      setStaleDays(null);
+      return;
+    }
+    const asOfMs = new Date(`${params.asOf}T00:00:00`).getTime();
+    const days = Math.floor((Date.now() - asOfMs) / 86_400_000);
+    setStaleDays(Number.isFinite(days) ? days : null);
+  }, [params.asOf]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +106,17 @@ export default function CockpitPage() {
           <p className="text-[10px] text-terminal-dim">
             short-put EV ranking · read the distribution, not the point estimate
           </p>
+          <nav className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wider">
+            <span className="text-terminal-amber">Cockpit</span>
+            <span className="text-terminal-dim">·</span>
+            <Link href="/terminal" className="text-terminal-dim hover:text-terminal-text">
+              Terminal
+            </Link>
+            <span className="text-terminal-dim">·</span>
+            <Link href="/top" className="text-terminal-dim hover:text-terminal-text">
+              News
+            </Link>
+          </nav>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <Field label="as_of">
@@ -140,6 +165,7 @@ export default function CockpitPage() {
       <RegimeBanner
         vix={vix}
         asOf={params.asOf}
+        staleDays={staleDays}
         universeScanned={data?.universe_scanned}
         universeTotal={data?.universe_total}
         candidateCount={data?.count}
@@ -188,7 +214,7 @@ export default function CockpitPage() {
           <TrustLegend />
         </div>
 
-        {/* Drawer column */}
+        {/* Drawer column — desktop side panel (lg+) */}
         {selected && (
           <div className="hidden w-[360px] shrink-0 lg:block" style={{ minHeight: 480 }}>
             <DossierDrawer
@@ -199,6 +225,28 @@ export default function CockpitPage() {
           </div>
         )}
       </div>
+
+      {/* Drawer — mobile/tablet bottom sheet (below lg, where the side column
+          is hidden so a row click would otherwise do nothing visible). */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DossierDrawer
+              candidate={selected}
+              vix={vix}
+              onClose={() => setSelected(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

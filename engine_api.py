@@ -379,13 +379,107 @@ def _nan_to_none(v):
     return v
 
 
+class BadParam(ValueError):
+    """Raised by :func:`_parse_param` when a query param can't be coerced.
+
+    Carries a clean, client-safe message so the GET dispatcher can turn it
+    into an HTTP 400 instead of letting the bare ``int()`` / ``float()``
+    ``ValueError`` fall through to the catch-all 500 (R18). The message names
+    the offending param and value but never leaks an exception traceback.
+    """
+
+
+def _parse_param(name, raw, kind, default=None):
+    """Coerce a single query param to ``int`` / ``float``, or raise BadParam.
+
+    R18 hardening: GET handlers previously called bare ``int(param(...))`` /
+    ``float(param(...))`` inline, so a value like ``?dte=abc`` raised a
+    ``ValueError`` that fell through to the ``do_GET`` catch-all and was
+    served as an opaque HTTP 500. This helper turns malformed input into a
+    clean HTTP 400 with a message naming the param. ``None`` / empty string
+    fall back to ``default`` (the param simply wasn't supplied).
+
+    Mirrors the existing forgiving try/except in ``_handle_candidates``
+    (which clamps to documented defaults) but for the dispatch-site params
+    a 400 is more honest than silently substituting a default — the caller
+    sent something they expected to be honoured.
+    """
+    if raw is None or raw == "":
+        return default
+    try:
+        if kind is int:
+            return int(raw)
+        if kind is float:
+            return float(raw)
+    except (TypeError, ValueError):
+        type_label = "an integer" if kind is int else "a number"
+        raise BadParam(f"query param '{name}' must be {type_label}; got {raw!r}") from None
+    raise BadParam(f"unsupported param kind for '{name}'")
+
+
+# CORS allow-list. The dashboard reaches this server through a *server-side*
+# Next.js proxy (server-to-server fetch sends no ``Origin`` header), so CORS
+# is not on that path at all. CORS only matters if a browser tab on some
+# other origin tries to read this API directly. R3 hardening replaces the
+# unconditional ``*`` with a localhost allow-list (echoing the request's
+# Origin when it is a localhost/loopback origin), plus an optional explicit
+# extra origin via ``SWE_API_CORS_ORIGIN``. Requests with no Origin header
+# (the proxy, curl, server-to-server) are unaffected.
+_LOCALHOST_ORIGIN_PREFIXES = (
+    "http://localhost",
+    "https://localhost",
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "http://[::1]",
+    "https://[::1]",
+)
+
+
+def _resolve_cors_origin(request_origin, env=None):
+    """Return the value to echo in ``Access-Control-Allow-Origin``, or None.
+
+    R3 hardening. Allows any localhost/loopback origin by default (so the
+    local dashboard keeps working if it ever calls the API from the browser)
+    and one optional configured origin from ``SWE_API_CORS_ORIGIN``. Returns
+    ``None`` when the origin is not allowed — the caller then simply omits
+    the CORS header, which is the correct default-deny behaviour for a
+    cross-origin browser request. A missing/empty ``request_origin`` also
+    yields ``None`` (non-browser callers don't need the header).
+    """
+    if not request_origin:
+        return None
+    origin = request_origin.strip()
+    if any(origin.startswith(p) for p in _LOCALHOST_ORIGIN_PREFIXES):
+        return origin
+    source = os.environ if env is None else env
+    configured = (source.get("SWE_API_CORS_ORIGIN", "") or "").strip()
+    if configured and origin == configured:
+        return origin
+    return None
+
+
 class EngineAPIHandler(BaseHTTPRequestHandler):
     """Handle HTTP requests for the engine API."""
+
+    def _cors_origin_header(self):
+        """Resolve the CORS origin to echo for the current request (R3)."""
+        try:
+            request_origin = self.headers.get("Origin")
+        except Exception:
+            request_origin = None
+        return _resolve_cors_origin(request_origin)
 
     def _send_json(self, data, status=200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # R3: echo a localhost/configured Origin instead of unconditional '*'.
+        # Omit the header entirely when the origin isn't allowed (default-deny
+        # for cross-origin browsers); the server-side dashboard proxy sends no
+        # Origin so it is unaffected.
+        cors = self._cors_origin_header()
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", cors)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -394,10 +488,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
     def _send_error(self, message, status=500):
         self._send_json({"error": message}, status)
 
+    def _send_internal_error(self, exc, context=""):
+        """Send a generic 500 with a correlation id; log full detail server-side.
+
+        R19 hardening: client-facing error bodies must not leak file paths,
+        pandas internals, or any other exception text. We generate a short
+        hex id, log the full traceback (and ``context``) against that id
+        server-side, and return only the id to the client so an operator can
+        correlate a user report with the server log line.
+        """
+        import uuid
+
+        error_id = uuid.uuid4().hex[:8]
+        # Full detail goes to the server log / stderr only — never the client.
+        logger.error("error_id=%s context=%s exc=%r", error_id, context, exc)
+        traceback.print_exc()
+        print(f"[Engine API] error_id={error_id} context={context!r} exc={exc!r}", file=sys.stderr)
+        self._send_json(
+            {"error": "internal server error", "error_id": error_id},
+            500,
+        )
+
     def do_OPTIONS(self):
         """Handle CORS preflight."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        cors = self._cors_origin_header()
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", cors)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -450,30 +568,32 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/chart/"):
                 chart_type = path.split("/")[-1]
                 ticker = param("ticker", "AAPL")
-                days = param("days", "120")
-                self._handle_chart(chart_type, ticker, int(days))
+                days = _parse_param("days", param("days"), int, 120)
+                self._handle_chart(chart_type, ticker, days)
             elif path == "/api/payoff":
                 ticker = param("ticker", "AAPL")
                 self._handle_payoff(
                     ticker,
                     param("strategy", "csp"),
-                    param("strike"),
-                    param("premium"),
-                    param("dte", "45"),
+                    _parse_param("strike", param("strike"), float),
+                    _parse_param("premium", param("premium"), float),
+                    _parse_param("dte", param("dte"), int, 45),
                 )
             elif path == "/api/expected_move":
                 ticker = param("ticker", "AAPL")
-                self._handle_expected_move(ticker, param("dte", "45"))
+                self._handle_expected_move(ticker, _parse_param("dte", param("dte"), int, 45))
             elif path == "/api/strikes":
                 ticker = param("ticker", "AAPL")
-                self._handle_strikes(ticker, param("strategy", "csp"), param("dte", "45"))
+                self._handle_strikes(
+                    ticker, param("strategy", "csp"), _parse_param("dte", param("dte"), int, 45)
+                )
             elif path == "/api/strangle":
                 ticker = param("ticker", "AAPL")
                 self._handle_strangle(ticker)
             elif path == "/api/iv_history":
                 ticker = param("ticker", "AAPL")
-                days = param("days", "252")
-                self._handle_iv_history(ticker, int(days))
+                days = _parse_param("days", param("days"), int, 252)
+                self._handle_iv_history(ticker, days)
             elif path == "/api/memo":
                 ticker = param("ticker", "AAPL")
                 self._handle_memo(ticker, param("as_of"))
@@ -498,24 +618,23 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # stress soft-warns. When omitted, behaviour is
                 # unchanged (no D17 firing).
                 ticker = (param("ticker", "") or "").upper()
-                _nav_raw = param("nav")
                 self._handle_tv_enrich(
                     ticker,
                     param("signal", "wheel_put_zone"),
                     param("as_of"),
-                    nav=float(_nav_raw) if _nav_raw not in (None, "") else None,
+                    nav=_parse_param("nav", param("nav"), float),
                     holdings_csv=param("holdings"),
                     puts_held_csv=param("puts_held"),
                     regime_map_csv=param("regime_map"),
                 )
             elif path == "/api/tv/alerts":
-                self._handle_tv_alerts(int(param("limit", "50")))
+                self._handle_tv_alerts(_parse_param("limit", param("limit"), int, 50))
             elif path == "/api/tv/ranked":
                 self._handle_tv_ranked(
-                    limit=int(param("limit", "20")),
-                    dte_target=int(param("dte", "35")),
-                    delta_target=float(param("delta", "0.25")),
-                    min_ev_dollars=float(param("min_ev", "0")),
+                    limit=_parse_param("limit", param("limit"), int, 20),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
+                    delta_target=_parse_param("delta", param("delta"), float, 0.25),
+                    min_ev_dollars=_parse_param("min_ev", param("min_ev"), float, 0.0),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
                     universe_limit=param("universe_limit"),
@@ -531,18 +650,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # pre-D17-wire (R7/R8 are no-ops per Q3 missing-data
                 # semantics). Opt-in by design so existing GET callers
                 # remain compatible.
-                _nav_raw = param("nav")
                 self._handle_tv_dossier(
-                    top_n=int(param("top_n", "10")),
-                    dte_target=int(param("dte", "35")),
-                    delta_target=float(param("delta", "0.25")),
-                    min_ev_dollars=float(param("min_ev", "0")),
+                    top_n=_parse_param("top_n", param("top_n"), int, 10),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
+                    delta_target=_parse_param("delta", param("delta"), float, 0.25),
+                    min_ev_dollars=_parse_param("min_ev", param("min_ev"), float, 0.0),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
                     universe_limit=param("universe_limit"),
-                    nav=float(_nav_raw) if _nav_raw else None,
+                    nav=_parse_param("nav", param("nav"), float),
                     holdings_csv=param("holdings"),
                     puts_held_csv=param("puts_held"),
                     regime_map_csv=param("regime_map"),
@@ -550,24 +668,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/tv/dealer_positioning":
                 self._handle_tv_dealer_positioning(
                     ticker=(param("ticker", "") or "").upper(),
-                    dte_target=int(param("dte", "35")),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
                     assumption=param("assumption", "long_calls_short_puts")
                     or "long_calls_short_puts",
                 )
             elif path == "/api/news":
-                self._handle_news(limit=int(param("limit", "20")))
+                self._handle_news(limit=_parse_param("limit", param("limit"), int, 20))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
+        except BadParam as bp:
+            # R18: malformed query param → clean 400 instead of opaque 500.
+            self._send_error(str(bp), 400)
         except Exception as e:
-            traceback.print_exc()
-            self._send_error(str(e))
+            # R19: never leak exception detail to the client; log + correlation id.
+            self._send_internal_error(e, context=f"GET {path}")
 
     def do_POST(self):
         """Handle POST requests — currently only TradingView webhook alerts."""
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         try:
-            length = int(self.headers.get("Content-Length", "0") or 0)
+            try:
+                length = int(self.headers.get("Content-Length", "0") or 0)
+            except (TypeError, ValueError):
+                self._send_error("invalid Content-Length header", 400)
+                return
+            if length < 0:
+                self._send_error("invalid Content-Length header", 400)
+                return
             # Hard cap body size to prevent memory-exhaustion DoS. TradingView
             # alert bodies are <1 KB in practice; 16 KB is generous.
             if length > 16 * 1024:
@@ -599,8 +727,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
-            traceback.print_exc()
-            self._send_error(str(e))
+            # R19: never leak exception detail to the client; log + correlation id.
+            self._send_internal_error(e, context=f"POST {path}")
 
     def _handle_status(self):
         conn = get_connector()
@@ -680,8 +808,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 universe_limit=ulimit,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="candidates:rank_candidates_by_ev")
             return
 
         if df is None or df.empty:
@@ -1281,36 +1409,51 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
     def _handle_fundamentals(self, ticker):
         conn = get_connector()
         fund = conn.get_fundamentals(ticker.upper())
-        self._send_json(fund or {"error": "Not found"})
+        if not fund:
+            # R21: not-found is a 404, not a 200 with an {error} body.
+            self._send_error(f"Fundamentals not found for '{ticker.upper()}'", 404)
+            return
+        self._send_json(fund)
 
     def _handle_universe(self):
         conn = get_connector()
         universe = conn.get_universe()
         self._send_json({"tickers": universe, "count": len(universe)})
 
-    def _handle_payoff(self, ticker, strategy, strike_str, premium_str, dte_str):
-        """Generate payoff diagram data."""
+    def _handle_payoff(self, ticker, strategy, strike, premium, dte):
+        """Generate payoff diagram data.
+
+        ``strike`` / ``premium`` are pre-coerced floats (or None to
+        auto-estimate); ``dte`` is a pre-coerced int (R18 — coercion +
+        400-on-bad-input happens at the GET dispatch site).
+        """
         from engine.payoff_engine import compute_payoff
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: an unknown ticker must not return a 200 computed against a
+        # fake $100 spot. Guard like _handle_analyze (404 not-found).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         # Auto-estimate strike and premium if not provided
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
 
-        if strike_str and strike_str != "None":
-            strike = float(strike_str)
+        if strike is not None:
+            strike = float(strike)
         else:
             strike = round(spot * 0.95 if strategy == "csp" else spot * 1.05, 0)
 
-        if premium_str and premium_str != "None":
-            premium = float(premium_str)
+        if premium is not None:
+            premium = float(premium)
         else:
             # Rough BSM estimate
             iv_dec = iv / 100 if iv > 1 else iv
-            T = int(dte_str) / 365
+            T = int(dte) / 365
             from scipy.stats import norm as _norm
 
             d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
@@ -1341,34 +1484,44 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_expected_move(self, ticker, dte_str):
-        """Compute expected move bands."""
+    def _handle_expected_move(self, ticker, dte):
+        """Compute expected move bands. ``dte`` is a pre-coerced int (R18)."""
         from engine.payoff_engine import compute_expected_move
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: unknown ticker → 404 (no fake $100 spot).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
 
-        result = compute_expected_move(spot, iv, int(dte_str))
+        result = compute_expected_move(spot, iv, int(dte))
         self._send_json(result)
 
-    def _handle_strikes(self, ticker, strategy, dte_str):
-        """Recommend optimal strikes."""
+    def _handle_strikes(self, ticker, strategy, dte):
+        """Recommend optimal strikes. ``dte`` is a pre-coerced int (R18)."""
         from engine.data_integration import get_current_risk_free_rate
         from engine.payoff_engine import recommend_strikes
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: unknown ticker → 404 (no fake $100 spot).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
         rf = get_current_risk_free_rate()
 
-        candidates = recommend_strikes(ticker, spot, iv, int(dte_str), rf, strategy)
+        candidates = recommend_strikes(ticker, spot, iv, int(dte), rf, strategy)
         # AUDIT FIX: recommend_strikes uses BSM payoff math (delta/OTM
         # probability), NOT EV. These are diagnostic strike ranges — they
         # do not represent a ranked tradeable recommendation.
@@ -1384,7 +1537,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "strategy": strategy,
                 "spot": round(spot, 2),
                 "iv": round(iv, 1),
-                "dte": int(dte_str),
+                "dte": int(dte),
                 "riskFreeRate": round(rf, 4),
                 "recommendations": candidates,
             }
@@ -1398,7 +1551,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         ohlcv = conn.get_ohlcv(ticker)
 
         if ohlcv.empty:
-            self._send_json({"error": f"No OHLCV data for {ticker}", "data": []})
+            # R21: no data is a 404, not a 200. Keep the {error, data:[]} body
+            # shape so existing chart clients that read .data don't break.
+            self._send_json({"error": f"No OHLCV data for {ticker}", "data": []}, 404)
             return
 
         tech = TechnicalFeatures()
@@ -1549,7 +1704,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
         if ohlcv.empty or len(ohlcv) < 100:
-            self._send_json({"error": "Insufficient data", "ticker": ticker})
+            # R21: insufficient data is a 422 (unprocessable), not a 200.
+            # Keep the {error, ticker} body shape for existing clients.
+            self._send_json({"error": "Insufficient data", "ticker": ticker}, 422)
             return
 
         engine = StrangleTimingEngine()
@@ -1615,7 +1772,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         iv_df = conn.get_iv_history(ticker)
         if iv_df.empty:
-            self._send_json({"error": "No IV data", "ticker": ticker, "data": []})
+            # R21: no IV data is a 404, not a 200. Keep the {error, ticker,
+            # data:[]} body shape so chart clients that read .data don't break.
+            self._send_json({"error": "No IV data", "ticker": ticker, "data": []}, 404)
             return
 
         data = []
@@ -1849,8 +2008,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
            within the freshness window to be accepted.
 
         When none of the env vars above are set the handler accepts all
-        alerts (the intended behaviour for local development on a
-        loopback-only socket).
+        alerts. This is safe *only* because the server binds loopback
+        (``127.0.0.1``) by default — see ``_resolve_host`` / the
+        ``SWE_API_HOST`` env var (R3 hardening). An operator who flips
+        ``SWE_API_HOST=0.0.0.0`` to expose the port on a LAN MUST also set
+        ``TV_WEBHOOK_HMAC_SECRET`` (or at minimum ``TV_WEBHOOK_SECRET``),
+        or these write endpoints become unauthenticated writes reachable
+        from any host on the network.
         """
         import os
         from datetime import datetime
@@ -2018,8 +2182,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif hasattr(conn, "get_option_chain"):
                 chain_df = conn.get_option_chain(ticker)
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"chain fetch failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="dealer_positioning:chain_fetch")
             return
 
         if chain_df is None or len(chain_df) == 0:
@@ -2165,8 +2329,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 portfolio_context=portfolio_context,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"build_candidate_dossiers failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="dossier:build_candidate_dossiers")
             return
 
         records = [d.to_dict() for d in dossiers]
@@ -2247,8 +2411,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 universe_limit=ulimit,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="tv_ranked:rank_candidates_by_ev")
             return
 
         records = df.to_dict(orient="records") if hasattr(df, "to_dict") else []
@@ -2398,16 +2562,24 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         # ``_MIN_PROCEED_EV_DOLLARS`` threshold and the non-finite /
         # negative-EV hard-blocks.
         #
-        # The non-finite branch mirrors
-        # ``EnginePhaseReviewer.review`` R1a (closes C1 from
-        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without it,
-        # ``+inf`` ``ev_dollars`` would slip past the ``ev_dollars < 0``
-        # check (False) and could land in the ``>= 10`` proceed branch;
-        # ``NaN`` would fall all the way through to the final
-        # ``"ev_zero_or_below"`` skip with a misleading reason. No
+        # The non-finite + negative-EV hard-stops mirror
+        # ``EnginePhaseReviewer.review`` R1a / R1 (closes C1 from
+        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without the non-finite
+        # branch, ``+inf`` ``ev_dollars`` would slip past the
+        # ``ev_dollars < 0`` check (False) and could land in the ``>= 10``
+        # proceed branch; ``NaN`` would fall all the way through to the final
+        # ``"ev_zero_or_below"`` branch with a misleading reason. No
         # production code path injects non-finite ev_dollars today —
         # the ranker server-computes it — but the defense-in-depth gap
         # is closed here for symmetry with the dossier path.
+        #
+        # R27 (§2-adjacent, label-only): both hard-stops emit the verdict
+        # LABEL ``"blocked"`` to match the dossier reviewer (R1/R1a), rather
+        # than the historical ``"skip"``. This is a pure audit-trail
+        # consistency fix — ``"blocked"`` and ``"skip"`` are both
+        # non-tradeable and neither rescues a candidate, so the §2 invariant
+        # is untouched. The earnings-lockout and zero-EV branches keep
+        # ``"skip"`` (those are not the dossier's R1/R1a hard-stops).
         if days_to_earnings is not None and 0 <= days_to_earnings < 5:
             verdict = "skip"
             verdict_reason = "earnings_within_5d"
@@ -2415,10 +2587,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             verdict = "review"
             verdict_reason = verdict_reason or "ev_engine_unreachable"
         elif not math.isfinite(ev_dollars):
-            verdict = "skip"
+            # R27 (§2-adjacent, label-only): align the hard-stop LABEL to the
+            # dossier reviewer's R1a, which emits "blocked" (not "skip") for
+            # non-finite EV. Same verdict_reason ("ev_non_finite"), same
+            # non-tradeable outcome — only the label is reconciled so the
+            # webhook and dossier audit trails read consistently. No behaviour
+            # / EV-math change: both "blocked" and "skip" are non-tradeable and
+            # neither rescues the candidate (§2 holds).
+            verdict = "blocked"
             verdict_reason = "ev_non_finite"
         elif ev_dollars < 0:
-            verdict = "skip"
+            # R27 (§2-adjacent, label-only): mirror dossier R1 — negative EV is
+            # "blocked", not "skip". Reason unchanged ("negative_ev").
+            verdict = "blocked"
             verdict_reason = "negative_ev"
         elif ev_dollars >= _MIN_PROCEED_EV_DOLLARS and prob_profit >= 0.65 and agrees:
             verdict = "proceed"
@@ -2661,6 +2842,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 _DEFAULT_API_PORT = 8787
 
+# Default bind host. Loopback-only (R3 hardening): the dashboard reaches this
+# server through a server-side Next.js proxy, so the raw port never needs to
+# be reachable from a browser or another LAN host. Override with the
+# ``SWE_API_HOST`` env var (e.g. ``0.0.0.0``) to expose the port explicitly.
+_DEFAULT_API_HOST = "127.0.0.1"
+
 # Listen-queue depth. ``socketserver.TCPServer.request_queue_size`` defaults
 # to 5, which gets exceeded during a realistic dashboard hard-reload
 # (5–10 simultaneous fetches) or a CI smoke pile-up. The S20 reliability
@@ -2720,8 +2907,28 @@ def _resolve_port(env: dict[str, str] | None = None) -> int:
     return port
 
 
+def _resolve_host(env: dict[str, str] | None = None) -> str:
+    """Resolve the bind host from ``SWE_API_HOST`` (default ``127.0.0.1``).
+
+    Hardening (R3): the server historically bound ``0.0.0.0``, which made
+    the unauthenticated-by-default write endpoints (``POST /api/tv/webhook``,
+    ``POST /api/news/ingest``) reachable from any host on the LAN. The
+    dashboard talks to this server through a *server-side* Next.js proxy,
+    so the raw port never needs to be reachable from a browser or another
+    machine — a loopback bind is the safe default. An operator who really
+    wants to expose the port (e.g. a trusted private subnet behind a
+    firewall) can opt back in explicitly with ``SWE_API_HOST=0.0.0.0``.
+    The value is passed straight through to ``socket.bind`` so any address
+    the host resolves is accepted; we only default it.
+    """
+    source = os.environ if env is None else env
+    raw = source.get("SWE_API_HOST", "").strip()
+    return raw or _DEFAULT_API_HOST
+
+
 def main():
     port = _resolve_port()
+    host = _resolve_host()
     # ThreadingHTTPServer spawns one thread per request so a slow committee
     # or memo call can't block the 5+ parallel fetches the dashboard fires
     # when a trader switches tickers. The local ``_EngineHTTPServer``
@@ -2729,9 +2936,13 @@ def main():
     # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
     # realistic dashboard / CI bursts without ``ECONNREFUSED`` drops —
     # see the S20 reliability arc for the measurement.
-    server = _EngineHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    #
+    # R3 hardening: bind ``host`` (default 127.0.0.1) instead of the old
+    # hard-coded 0.0.0.0. The unauthenticated-by-default write endpoints
+    # are now loopback-only unless an operator sets SWE_API_HOST.
+    server = _EngineHTTPServer((host, port), EngineAPIHandler)
     server.daemon_threads = True
-    print(f"Smart Wheel Engine API running on http://localhost:{port}")
+    print(f"Smart Wheel Engine API running on http://{host}:{port}")
     print("Endpoints:")
     print("  GET /api/status")
     print("  GET /api/candidates?limit=15&min_score=50")
@@ -2761,7 +2972,12 @@ def main():
     print("  GET  /api/tv/scan?limit=25&zone=wheel_put")
     print("  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone")
     print("  GET  /api/tv/alerts?limit=50")
+    print("  GET  /api/tv/ranked?limit=20&dte=35&delta=0.25")
+    print("  GET  /api/tv/dossier?top_n=10&timeframe=1D")
+    print("  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35")
     print("  POST /api/tv/webhook")
+    print("  GET  /api/news?limit=20")
+    print("  POST /api/news/ingest")
     print()
     try:
         server.serve_forever()

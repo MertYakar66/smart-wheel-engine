@@ -316,3 +316,6 @@ tradingview/research/*.pdf
 tradingview/models/*.xlsx
 tradingview/models/*.csv
 tradingview/screenshots/
+
+# premium-correction pilot regenerable outputs (CSVs/PNG move with larder coverage)
+studies/premium_correction/output/

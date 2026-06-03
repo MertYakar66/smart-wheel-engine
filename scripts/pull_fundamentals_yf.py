@@ -3,10 +3,16 @@
 Pull a fundamentals snapshot for every ticker in the universe from yfinance.
 
 The existing ``data/bloomberg/sp500_fundamentals.csv`` can go stale between
-Bloomberg refreshes. This puller refreshes a parallel file in the **same
-schema** so the consolidated loader can pick it up seamlessly (it writes
-to ``sp500_fundamentals_yf.csv`` — the wheel runner merges this on top of
-the Bloomberg snapshot, ticker-by-ticker).
+Bloomberg refreshes. This puller writes a parallel file in the **same
+schema** (``sp500_fundamentals_yf.csv``) so a future consolidation step
+could pick it up.
+
+NOTE: this script only WRITES ``sp500_fundamentals_yf.csv``. The connector
+(``engine.data_connector`` / ``MarketDataConnector``) currently loads
+``sp500_fundamentals.csv`` (the Bloomberg file), NOT this ``_yf`` output —
+the ``_yf`` file is currently UNCONSUMED. Wiring the loader to merge/consume
+this file is a separate, not-yet-done step. Running this puller alone does
+not change engine behaviour.
 
 Fields (mapped to the Bloomberg column names the loader already understands)::
 

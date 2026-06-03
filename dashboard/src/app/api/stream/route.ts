@@ -6,10 +6,20 @@ import { desc, sql } from "drizzle-orm";
 // Push architecture: clients maintain a persistent connection.
 // New stories are pushed as they appear. Polls DB every 10 seconds.
 
-export async function GET() {
+export async function GET(request: Request) {
   const encoder = new TextEncoder();
   let lastCheckTime = new Date().toISOString();
   let isActive = true;
+  let interval: ReturnType<typeof setInterval> | undefined;
+
+  // Single teardown path: stop polling and release the timer. Wired to both
+  // the request abort signal (client disconnect / navigation) and the stream's
+  // own cancel(), so the 10s DB poll never outlives the connection.
+  const stop = () => {
+    isActive = false;
+    if (interval) clearInterval(interval);
+  };
+  request.signal.addEventListener("abort", stop);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -19,7 +29,7 @@ export async function GET() {
       );
 
       // Poll for new stories
-      const interval = setInterval(async () => {
+      interval = setInterval(async () => {
         if (!isActive) {
           clearInterval(interval);
           return;
@@ -60,17 +70,9 @@ export async function GET() {
           console.error("SSE poll error:", err);
         }
       }, 10000); // 10 second poll interval
-
-      // Cleanup when client disconnects
-      const cleanup = () => {
-        isActive = false;
-        clearInterval(interval);
-      };
-
-      // Handle abort
-      controller.enqueue(
-        encoder.encode(`event: heartbeat\ndata: ${JSON.stringify({ time: new Date().toISOString() })}\n\n`)
-      );
+    },
+    cancel() {
+      stop();
     },
   });
 

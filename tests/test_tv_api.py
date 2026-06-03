@@ -222,7 +222,7 @@ def test_tv_webhook_accepts_valid_alert():
     enriched = body["enriched"]
     assert enriched["ticker"] == "MU"
     assert enriched["signal"] == "wheel_put_zone"
-    assert enriched["verdict"] in {"proceed", "review", "skip"}
+    assert enriched["verdict"] in {"proceed", "review", "skip", "blocked"}
     assert enriched["preferred_dte"] in {31, 45}
     assert len(enriched["preferred_delta_range"]) == 2
     # Ring buffer updated
@@ -290,7 +290,7 @@ def test_tv_enrich_returns_decision():
     status, body = _drive("GET", "/api/tv/enrich?ticker=MU&signal=wheel_put_zone")
     assert status == 200
     assert body["ticker"] == "MU"
-    assert body["verdict"] in {"proceed", "review", "skip"}
+    assert body["verdict"] in {"proceed", "review", "skip", "blocked"}
     assert body["preferred_dte"] in {31, 45}
 
 

@@ -65,9 +65,15 @@ If you add a new input — new data source, new advisor, a TradingView
 MCP feed, a quantitative news layer — wire it as a chained-provider
 participant or a downgrade-only reviewer. Do not introduce a code path
 that converts a non-tradeable candidate into a tradeable one without
-a fresh `EVEngine.evaluate` call. This is enforced structurally by
-`tests/test_audit_invariants.py`, `tests/test_dossier_invariant.py`,
-and `tests/test_authority_hardening.py`.
+a fresh `EVEngine.evaluate` call.
+
+The canonical reviewer rule set is **R1–R11** (`CLAUDE.md` §2). R11 is
+the elevated-vol top-bin size-down (`DECISIONS.md` D23) — wired live,
+downgrade-only. This contract is enforced structurally by
+`tests/test_audit_invariants.py`, `tests/test_dossier_invariant.py`
+(R1–R10), `tests/test_r11_elevated_vol.py` (R11), and
+`tests/test_authority_hardening.py`. Never move or merge a change
+touching these without §2-owner sign-off.
 
 ## What you can change without asking
 

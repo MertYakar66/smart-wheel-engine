@@ -462,10 +462,12 @@ class TestEnrichAlertEVAuthority:
         assert enriched["verdict"] == "proceed"
         assert enriched["verdict_reason"] == "ev_above_threshold_and_chart_agrees"
 
-    def test_enrich_skips_on_negative_ev(self):
+    def test_enrich_blocks_on_negative_ev(self):
         """Even with a strong heuristic wheel_score, negative EV must
-        force a skip verdict — the guardrail that the prior audit
-        added for /api/candidates must apply here too."""
+        force a non-tradeable verdict — the guardrail that the prior audit
+        added for /api/candidates must apply here too. R27 aligns the
+        hard-stop LABEL to "blocked" (matching the dossier reviewer R1);
+        was historically "skip". Reason unchanged ("negative_ev")."""
         from engine.tv_signals import TVAlert
         from engine_api import EngineAPIHandler
 
@@ -526,8 +528,9 @@ class TestEnrichAlertEVAuthority:
 
         assert enriched["authority"] == "ev_ranked"
         assert enriched["ev_dollars"] == pytest.approx(-5.0)
-        # Negative EV must produce skip regardless of chart agreement.
-        assert enriched["verdict"] == "skip"
+        # Negative EV must produce a hard-stop regardless of chart agreement.
+        # R27: label is "blocked" (was "skip"), matching dossier R1.
+        assert enriched["verdict"] == "blocked"
         assert enriched["verdict_reason"] == "negative_ev"
 
 

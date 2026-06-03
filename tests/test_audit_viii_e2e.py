@@ -211,8 +211,10 @@ class TestEnrichmentEVAuthority:
             enriched = h._enrich_alert(alert)
         # Authority is EV-ranked or ev_unavailable — never heuristic.
         assert enriched["authority"] in ("ev_ranked", "ev_unavailable")
-        # Verdict field exists and is one of the known values.
-        assert enriched["verdict"] in ("proceed", "review", "skip")
+        # Verdict field exists and is one of the known values. "blocked" is
+        # the hard-stop label for negative / non-finite EV (R27 — aligned to
+        # the dossier reviewer R1/R1a; was historically "skip").
+        assert enriched["verdict"] in ("proceed", "review", "skip", "blocked")
         # EV dollars is a real number, not None.
         assert isinstance(enriched["ev_dollars"], (int, float))
 

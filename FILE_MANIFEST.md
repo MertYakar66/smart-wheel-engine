@@ -737,6 +737,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |
 | `tests/test_transaction_costs.py` | `engine.transaction_costs` coverage — slippage tiers, OI penalties, sqrt-impact participation, round-trip cost composition. |
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
+| `tests/test_engine_api_hardening.py` | Error-path + security hardening for the `engine_api.py` network surface — loopback-bind/CORS helpers (R3), malformed-param → 400 (R18), generic-500 + correlation-id no-leak (R19), unknown-ticker → 404 on payoff/expected_move/strikes (R20), 4xx instead of 200 on no-data bodies (R21), unknown-path/oversized-body/invalid-JSON routing, and the R27 §2-adjacent negative/non-finite-EV verdict-LABEL alignment (`blocked`). |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
 | `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |

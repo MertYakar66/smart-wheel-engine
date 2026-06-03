@@ -922,6 +922,16 @@ def american_option_price(
     if option_type == "call" and q <= 0:
         return european
 
+    # For American calls with non-positive interest rate, early exercise is
+    # never optimal (the only incentive to exercise a call early is to capture
+    # a dividend, and that incentive requires r > 0 to make forgoing the
+    # interest on the strike worthwhile). Beyond the economics, the BAW
+    # critical-price machinery is undefined here: k = 1 - exp(-r*T) <= 0 for
+    # r <= 0, so 4*M/k divides by zero (-> NaN) when r == 0 and yields a
+    # spurious early-exercise premium when r < 0. Short-circuit to European.
+    if option_type == "call" and r <= 0:
+        return european
+
     # For American puts with zero interest rate, early exercise is never optimal
     if option_type == "put" and r <= 0:
         return european
@@ -1016,6 +1026,30 @@ def american_option_greeks(
 # =============================================================================
 
 
+def _validate_vectorized_inputs(S: np.ndarray, K: np.ndarray) -> None:
+    """
+    Validate vectorized option pricing inputs (fail loud, don't silently NaN).
+
+    Mirrors the scalar ``_validate_inputs`` positivity contract for S and K:
+    a single bad strike (K<=0) or spot (S<=0) from a data gap would otherwise
+    flow through as ``log(<=0)`` -> NaN into batch Greek/exposure computation.
+    We raise on ANY non-positive element rather than silently propagating NaN.
+
+    Args:
+        S: Spot prices (every element must be > 0)
+        K: Strike prices (every element must be > 0)
+
+    Raises:
+        ValueError: If any element of S or K is <= 0
+    """
+    if np.any(S <= 0):
+        bad = S[S <= 0]
+        raise ValueError(f"Spot price S must be positive, got {bad[0]} (and {bad.size - 1} more)")
+    if np.any(K <= 0):
+        bad = K[K <= 0]
+        raise ValueError(f"Strike price K must be positive, got {bad[0]} (and {bad.size - 1} more)")
+
+
 def _vectorized_intrinsic(
     S: np.ndarray, K: np.ndarray, is_call: np.ndarray, exp_qT: np.ndarray, exp_rT: np.ndarray
 ) -> np.ndarray:
@@ -1047,6 +1081,7 @@ def vectorized_bs_price(
     T_raw = np.asarray(T, dtype=float)
     sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
+    _validate_vectorized_inputs(S, K)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)
@@ -1098,6 +1133,7 @@ def vectorized_bs_delta(
     T_raw = np.asarray(T, dtype=float)
     sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
+    _validate_vectorized_inputs(S, K)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)
@@ -1153,6 +1189,7 @@ def vectorized_bs_all_greeks(
     T_raw = np.asarray(T, dtype=float)
     sigma_raw = np.asarray(sigma, dtype=float)
     is_call = np.asarray(is_call, dtype=bool)
+    _validate_vectorized_inputs(S, K)
 
     if isinstance(r, (int, float)):
         r = np.full_like(S, r)

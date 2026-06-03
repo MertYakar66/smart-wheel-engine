@@ -9,6 +9,8 @@ import { r11Active, vixRegimeLabel } from "@/lib/cockpit-trust";
 interface RegimeBannerProps {
   vix: number | null;
   asOf: string;
+  /** How many days old the loaded as_of is vs today (computed client-side). */
+  staleDays?: number | null;
   universeScanned?: number;
   universeTotal?: number;
   candidateCount?: number;
@@ -17,6 +19,7 @@ interface RegimeBannerProps {
 export function RegimeBanner({
   vix,
   asOf,
+  staleDays,
   universeScanned,
   universeTotal,
   candidateCount,
@@ -61,6 +64,20 @@ export function RegimeBanner({
           <span className="text-[12px] font-semibold tabular-nums text-terminal-text">
             {asOf || "latest"}
           </span>
+          {typeof staleDays === "number" && staleDays >= 0 && (
+            <span
+              className={`text-[10px] tabular-nums ${
+                staleDays > 30
+                  ? "text-terminal-red"
+                  : staleDays > 7
+                    ? "text-terminal-amber"
+                    : "text-terminal-dim"
+              }`}
+              title="Age of the loaded point-in-time data vs today. This is the freshest data available, not necessarily today."
+            >
+              ({staleDays}d old)
+            </span>
+          )}
         </div>
 
         {typeof universeTotal === "number" && (

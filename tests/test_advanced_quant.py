@@ -239,6 +239,42 @@ class TestAmericanOptionPricing:
         assert call_s0 == max(0, S - K)
         assert put_s0 == max(0, K - S)
 
+    def test_american_call_zero_rate_with_dividend_finite(self):
+        """R37: American call with r<=0 and q>0 must be finite, not NaN.
+
+        With q>0 the call branch skips the q<=0 short-circuit and used to fall
+        into _baw_critical_price_call, where k = 1 - exp(-r*T) = 0 at r=0 caused
+        a division by zero -> NaN. A call with r<=0 is never optimally exercised
+        early, so American == European here.
+        """
+        S, K, T, sigma, q = 100.0, 100.0, 0.5, 0.20, 0.05
+
+        # r = 0: previously NaN.
+        european = black_scholes_price(S, K, T, 0.0, sigma, "call", q=q)
+        american = american_option_price(S, K, T, 0.0, sigma, "call", q=q)
+        assert np.isfinite(american), f"American call (r=0, q>0) must be finite, got {american}"
+        assert abs(american - european) < 1e-9, (
+            f"American call (r=0, q>0) should equal European: Am={american}, Eu={european}"
+        )
+
+        # r < 0: same reasoning (BAW critical-price machinery invalid for r<0).
+        european_neg = black_scholes_price(S, K, T, -0.01, sigma, "call", q=q)
+        american_neg = american_option_price(S, K, T, -0.01, sigma, "call", q=q)
+        assert np.isfinite(american_neg)
+        assert abs(american_neg - european_neg) < 1e-9, (
+            f"American call (r<0, q>0) should equal European: Am={american_neg}, Eu={european_neg}"
+        )
+
+    def test_american_call_positive_rate_dividend_unchanged(self):
+        """R37 control: the r>0, q>0 path still runs BAW (American >= European)."""
+        S, K, T, r, sigma, q = 100.0, 100.0, 0.5, 0.05, 0.20, 0.05
+
+        european = black_scholes_price(S, K, T, r, sigma, "call", q=q)
+        american = american_option_price(S, K, T, r, sigma, "call", q=q)
+        assert american >= european - 1e-9, (
+            f"American call (r>0, q>0) should >= European: Am={american}, Eu={european}"
+        )
+
 
 # =============================================================================
 # Multi-Asset Covariance VaR Tests

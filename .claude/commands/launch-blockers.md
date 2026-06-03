@@ -12,6 +12,7 @@ Execute exactly:
 ```bash
 pytest tests/test_audit_invariants.py \
        tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py \
        tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py \

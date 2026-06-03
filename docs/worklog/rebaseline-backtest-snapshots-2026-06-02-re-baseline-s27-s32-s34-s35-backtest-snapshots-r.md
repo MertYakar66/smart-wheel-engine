@@ -57,7 +57,11 @@ re-baseline (#320 scope doc), which is a *future intentional* EV-output change.
   on sub-1% rates — DECISIONS D20). Bites only the **2022 ZIRP-tail** (`rate_3m`<1%);
   2023/24 rates >1 → identical both ways. Drift is 2022-concentrated; 2023/24 stable.
 - **Both movers are intended, reviewed, merged fixes — re-pricings, NOT regressions.**
-  Counts/NAV stable; only value metrics moved.
+  `row_count` (ranked candidates) is stable in all four. For s27/s32/s34 the D20
+  re-pricing shifts 2022 candidates across the execution threshold, so
+  `executed_trades` / `put_assignments` / `open_at_end` and `final_nav` move
+  modestly (s34: exec 271→303); s35 (#260) is count-preserving — only EV values
+  move (zero count changes), consistent with a mean/sign-preserving widening.
 
 New pins = the deterministic `_common.py @main` payloads (regression test passes by
 construction given the determinism proof). `data_csv_sha256` unchanged (`c3d544…`).

@@ -27,7 +27,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
 
-## Backtests (21)
+## Backtests (22)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -44,6 +44,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW](../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md) | legacy |  | Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27) | `../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` |
 | [ENGINE_BACKTEST_S44_S38_POSTF4_RERUN](../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md) | legacy |  | Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28) | `../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
 | [r11-dollar-impact](r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md) | complete |  | R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but its WHOLE-BOOK impact is statistically indistinguishable from zero over both windows (paired daily-return \|t\|<0.7; point Δ W3 2020-2024 −$37.6k, W4 2021-2025 +$21.7k), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. Net read: the I11 justification was overstated; R11 doesn't measurably help the book, isn't shown to hurt it, and is real but narrow 2022 tail insurance. | `r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md` |
+| [rebaseline-backtest-snapshots-2026-06-02](rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md) | in-flight |  | Re-pin the 4 backtest_regression snapshots to the deterministic _common @main output; drift attributed (s35←#260 F4 widening, s27/s32/s34←D20 rate) — benign merged fixes, not regressions. | `rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md` |
 | [S22](s22-roll-defense-economics-itm-short-put-with-7-dte.md) | completed |  | Roll defense economics (ITM short put with ≤7 DTE) | `s22-roll-defense-economics-itm-short-put-with-7-dte.md` |
 | [S32](s32-1m-friction-modeled-simulation-closes-s22-caveat.md) | completed |  | $1M friction-modeled simulation (closes S22 Caveat 3) | `s32-1m-friction-modeled-simulation-closes-s22-caveat.md` |
 | [S35](s35-2018-2020-out-of-window-cross-validation.md) | completed |  | 2018-2020 out-of-window cross-validation | `s35-2018-2020-out-of-window-cross-validation.md` |

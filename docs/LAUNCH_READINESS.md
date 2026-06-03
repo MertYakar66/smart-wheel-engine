@@ -52,7 +52,7 @@ tradeable verdict:
 |---|---|---|
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R6 | `tests/test_dossier_invariant.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules R1–R11 | `tests/test_dossier_invariant.py`, `tests/test_r11_elevated_vol.py` |
 | `engine_api.py` | HTTP API (default `:8787`); full endpoint list in the module-header docstring | `tests/test_tv_api.py`, `tests/test_tv_dossier.py` |
 
 Any change touching a file under `engine/` that affects these routes
@@ -62,10 +62,10 @@ suite for `engine/ev_engine.py` or `engine/wheel_runner.py` changes
 
 ---
 
-## 3. Dossier downgrade rules (R1–R8)
+## 3. Dossier downgrade rules (R1–R11)
 
 `EnginePhaseReviewer` is the gatekeeper that converts an EV verdict
-+ chart context into the final disposition. The eight rules (defined
++ chart context into the final disposition. The eleven rules (defined
 on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 `tests/test_dossier_invariant.py`):
 
@@ -79,9 +79,12 @@ on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 | **R6** | Short-gamma regime + strike at/above the put wall, or dealer regime near the gamma flip | **downgrade** (`proceed → review`) |
 | **R7** | *D17 soft-warn.* Portfolio VaR_95 (30-day horizon) above 5% NAV (`check_var`). Fires only when a `PortfolioContext` is attached and the verdict is currently `proceed`. Missing correlation matrix or returns data → skip (no fire on absent evidence). | **downgrade** (`proceed → review`, `verdict_reason="portfolio_var_breach"`) |
 | **R8** | *D17 soft-warn.* One rule, two triggers (mirrors R6). Either the C4 vol-spike scenario shows portfolio drawdown > 8% NAV (`check_stress_scenario` → `"stress_breach"`) OR the candidate's underlying is in `short_gamma_amplifying` regime (`check_dealer_regime` → `"short_gamma_regime"`). Fires only when a `PortfolioContext` is attached and verdict is currently `proceed`. | **downgrade** (`proceed → review`) |
+| **R9** | *D17 soft-warn.* Opening the candidate would push its GICS sector over `max_sector_pct × NAV` (default 25%, `check_sector_cap`). Fires only when a `PortfolioContext` is attached and `nav > 0`. | **downgrade** (`proceed → review`, `verdict_reason="sector_cap_breach"`) |
+| **R10** | *D17 soft-warn.* Sits beneath R9: opening the candidate would push the single-name short-option notional over `max_single_name_pct × NAV` (default 10%, `check_single_name_cap`). Bounds idiosyncratic single-name drawdown. | **downgrade** (`proceed → review`, `verdict_reason="single_name_breach"`) |
+| **R11** | *Heavy-verify 2026-05-31 I11.* Elevated-vol top-bin size-down: market-wide `vix_level > 25.0` AND `prob_profit > 0.90`. `wheel_runner` threads `vix_level` into `build_dossiers`; `vix_level=None` → no-op (missing-evidence semantics). See `DECISIONS.md` D23. | **downgrade** (`proceed → review`, `verdict_reason="elevated_vol_top_bin"`) |
 
 R1 is the structural realisation of §1 — negative EV ⇒ blocked. The
-test is the merge gate. R7 + R8 are *soft-warns*: they only downgrade
+test is the merge gate. R7–R11 are *soft-warns*: they only downgrade
 `proceed → review` and never override R1's `blocked`. See
 `DECISIONS.md` D17 for the rationale and the locked defaults.
 
@@ -89,7 +92,7 @@ The corresponding **hard-block** half of D17 lives on the tracker —
 `engine/wheel_tracker.py._evaluate_d17_hard_blocks` refuses
 position-opening on sector / portfolio-delta / Kelly-size breaches
 when `require_ev_authority=True`. The hard-block surface is what
-guarantees a book-level cap; R7 + R8 surface the same kind of
+guarantees a book-level cap; R7–R11 surface the same kind of
 evidence on the dossier so an operator reviewing candidates sees the
 warning at ranking time, not at firing time.
 
@@ -103,12 +106,17 @@ touch the decision layer. This is the floor before merge:
 ```bash
 pytest tests/test_audit_invariants.py \
        tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py \
        tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py \
        tests/test_audit_viii_real_data_smoke.py \
        tests/test_launch_blockers.py -v
 ```
+
+`test_dossier_invariant.py` pins R1–R10; `test_r11_elevated_vol.py`
+pins R11 (the elevated-vol top-bin size-down, `DECISIONS.md` D23)
+separately — both are required gates.
 
 For changes to `engine/ev_engine.py`, `engine/wheel_runner.py`, or
 `engine/candidate_dossier.py`: **also run the full suite**:
@@ -131,8 +139,8 @@ authority files change.
       or `EnginePhaseReviewer` as **downgrade-only**.
 - [ ] If a new multiplier was added, it's clamped (`[low, high]`)
       and only scales `ev_dollars`, never `ev_raw`.
-- [ ] All R1–R6 dossier rules still pass
-      (`tests/test_dossier_invariant.py`).
+- [ ] All R1–R11 dossier rules still pass
+      (`tests/test_dossier_invariant.py`, `tests/test_r11_elevated_vol.py`).
 - [ ] The launch-blocker subset (§4) passes locally.
 - [ ] If the change touches percent↔decimal handling (IV, risk-free
       rate, etc.) — `tests/test_audit_viii_unit_invariants.py`

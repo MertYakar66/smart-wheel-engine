@@ -8,6 +8,13 @@ interface MarketOverviewProps {
   futures: MarketIndex[];
   commodities: MarketIndex[];
   loading: boolean;
+  /**
+   * Whether these quotes come from a live feed. Defaults to false: until a
+   * real index/futures feed is wired, the tiles render placeholder values and
+   * must NOT be badged "LIVE" — a finance surface that labels static numbers as
+   * live is the fastest way to lose trust.
+   */
+  isLive?: boolean;
 }
 
 function PriceRow({ item }: { item: MarketIndex }) {
@@ -46,13 +53,18 @@ export function MarketOverview({
   futures,
   commodities,
   loading,
+  isLive = false,
 }: MarketOverviewProps) {
   return (
     <TerminalPanel
       title="Market Overview"
       tag="INDICES"
       headerRight={
-        <TerminalBadge variant="green">LIVE</TerminalBadge>
+        isLive ? (
+          <TerminalBadge variant="green">LIVE</TerminalBadge>
+        ) : (
+          <TerminalBadge variant="amber">DEMO</TerminalBadge>
+        )
       }
     >
       {loading ? (

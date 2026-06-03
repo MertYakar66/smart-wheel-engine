@@ -71,6 +71,14 @@ blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
+> **Data currency (point-in-time).** The committed Bloomberg CSVs are
+> point-in-time as of **2026-03-20** (the freshest cut the `xbbg`
+> pullers' hardcoded `end_date` reaches). A full refresh is **partially
+> blocked**: only 3 of the 9 connector CSVs have a reproducible in-repo
+> producer; the other 6 — including the core IV file
+> `sp500_vol_iv_full.csv` — have no repo producer. See
+> `docs/DATA_POLICY.md` §5 and `docs/bloomberg_refresh_runbook.md`.
+
 ## 2. Recent decision-layer audits
 
 Each row links to the commit that shipped the change. Use
@@ -173,7 +181,12 @@ Backtest evidence sequence at $1M / 100t scale (deployment matrix in
 | S41 | 2022-2024 (F4 fix probe) | $100k / 24t | F4 fix signal-preserving (ρ +0.188 → +0.182), value-neutral | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` (PR #267) |
 | S43 | rolling 4-window | $1M / 100t post-#260 | **−51pp to −104pp**; ρ window-invariant | `docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` (PR #270) |
 | S44 | S38 re-run post-F4 | $1M / 100t | **F4 hypothesis FALSIFIED** — +0.56pp delta | `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` (PR #271) |
-| S46 | re-verify closed tests post-F4 + R10 | various | in flight as PR #278 | `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| S46 | re-verify closed tests post-F4 + R10 | various | completed | `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| S47 | live wheel session trust-audit (`as_of=2026-03-20`, VIX 28.97, HMM bear) | $- / 5t | TRUST entry, DISTRUST management; R11 size-down behaves correctly | `docs/worklog/s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
+
+The current usage-test high-water is **S47** (the worklog ledger
+`docs/worklog/INDEX.md` is the source of truth — don't hardcode a count;
+it drifts every session).
 
 Verification campaign wrap-up artifacts (all merged to `origin/main`
 during the 2026-05-28 → 2026-05-29 wave; see `CHANGELOG.md`):

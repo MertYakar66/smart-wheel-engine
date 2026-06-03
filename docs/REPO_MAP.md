@@ -15,7 +15,7 @@
 | What is **authoritative** for a trade decision? | the **Authority block** below → then `CLAUDE.md` §2 for the rule text | re-deriving from 4 docs |
 | What **tests** cover area Y / what must I run? | `TESTING.md` (taxonomy + per-module "what to run") | — |
 | What is the **current state / WIP**? | `PROJECT_STATE.md` (now) · `ROADMAP.md` (next) · `docs/worklog/INDEX.md` (per-task) | pinned counts (run `pytest --collect-only -q`) |
-| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…D21) | — |
+| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…) | — |
 
 ## Authority block — the §2 firewall (do not bypass)
 
@@ -45,7 +45,8 @@ downgrade-only.
 
 **Pinned by** (the INVARIANT-PIN test set — never move/merge without §2 owner
 sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_data_smoke}`,
-`test_dossier_invariant` (R1–R10), `test_dossier_r9_r10_audit` (R9/R10 structural),
+`test_dossier_invariant` (R1–R10), `test_r11_elevated_vol` (R11),
+`test_dossier_r9_r10_audit` (R9/R10 structural),
 `test_authority_hardening` + `test_ev_authority_log_schema` (D16 token gate),
 `test_decision_layer_wiring` + `test_consume_ranker_row_anchor` + `test_ranker_tracker_wire`
 (D16/D17 wire), `test_ev_non_finite_defense` (R1a), `test_evengine_event_lockout`
@@ -114,6 +115,7 @@ point here):
 
 ```
 pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py tests/test_audit_viii_real_data_smoke.py \
        tests/test_launch_blockers.py -v

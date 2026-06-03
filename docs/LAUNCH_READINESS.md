@@ -106,12 +106,17 @@ touch the decision layer. This is the floor before merge:
 ```bash
 pytest tests/test_audit_invariants.py \
        tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py \
        tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py \
        tests/test_audit_viii_real_data_smoke.py \
        tests/test_launch_blockers.py -v
 ```
+
+`test_dossier_invariant.py` pins R1–R10; `test_r11_elevated_vol.py`
+pins R11 (the elevated-vol top-bin size-down, `DECISIONS.md` D23)
+separately — both are required gates.
 
 For changes to `engine/ev_engine.py`, `engine/wheel_runner.py`, or
 `engine/candidate_dossier.py`: **also run the full suite**:

@@ -145,6 +145,53 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
 - `DECISIONS.md` D17 documents the full design (gates, defaults,
   Q3 missing-data semantics, rejected alternatives).
 
+### D17 cap adoption status — verified 2026-06-01
+
+A reliability sweep against `origin/main` found the R9/R10 concentration
+caps are correctly **implemented and unit-tested** but **not active on any
+default operator path** — "documented protection ≠ active protection".
+Source-verified specifics:
+
+- **Hard refusals (tracker, at `open_short_put`):** armed when
+  `enforce_sector_cap` / `enforce_single_name_cap` is `True` (decoupled
+  from `require_ev_authority` since D22 / PR #303 —
+  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1805`), or
+  when `require_ev_authority=True`. All three default `False`
+  (`WheelTracker.__init__`, `wheel_tracker.py:278-280`). The canonical
+  armed constructor `engine.wheel_runner.make_live_book_tracker()` (sets
+  both `enforce_*_cap=True`) has **zero non-test callers** — every non-test
+  `WheelTracker(...)` site uses the bare default (`backtests/simulator.py`,
+  `backtests/regression/_common.py`, `scripts/s47_trader_session_2026_03_20.py`,
+  `scripts/transaction_costs_demo.py`). The hard refusals are therefore
+  dormant on every backtest / reproduction / demo path. (Arming them on the
+  regression baselines is intentionally avoided — D22 rejected flipping the
+  library default because it moves pinned snapshots + mechanics tests.)
+- **Soft-warns (dossier R7-R10, downgrade proceed→review):** fire only when
+  a populated `PortfolioContext` is attached to `build_candidate_dossiers()`.
+  On the network surface that happens on `/api/tv/dossier` + `/api/tv/enrich`
+  **only when the caller supplies `nav`** — `_build_portfolio_context_from_params`
+  returns `None` otherwise (`engine_api.py:284-285`, the Q3 "don't fire on
+  absent evidence" rule). The default `rank_candidates_by_ev` attaches no
+  context, and the tracker's own `portfolio_context_snapshot()` is never
+  auto-fed to the reviewer (only test + S47 + verification-artifact callers).
+- **Net:** the caps guard correctly *when armed*, but there is **no
+  default-armed live path today** — consistent with the §3 design that the
+  engine has no broker / OMS / execution surface. Closing the gap is a
+  forward step: route a future live path (or the S47-style operator harness)
+  through `make_live_book_tracker()`, and/or have the tracker auto-feed its
+  book to the dossier reviewer (an engine behaviour change that needs a
+  backtest re-baseline). This note supersedes the "HARD refusal … when
+  `require_ev_authority=True`" framing in the B2 / R10 bullets above, which
+  predates the D22 decoupling.
+
+> **Known stale code comment (flagged, not fixed — trio files).** The inline
+> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)` at
+> `wheel_tracker.py:1923` reads "default on", but the bare-constructor default
+> is OFF — accurate only inside `make_live_book_tracker()`. Likewise that
+> factory's docstring says production "MUST be constructed through this
+> factory" though no production caller exists yet. Both are trio-file edits
+> deferred to an operator-greenlit decision-layer touch.
+
 ### F4 tail-risk widening v2 — 2026-05-27
 
 - **HMM v1 rolled back** (PR `#253` draft research-record). The

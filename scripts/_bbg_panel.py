@@ -29,6 +29,9 @@ Env knobs (all optional; defaults preserve prior behaviour):
   SWE_PULL_MODE             forward | backfill | both     (default both).
   SWE_BACKFILL_CHUNK_MONTHS months per backward window     (default 30).
   SWE_BACKFILL_MAX_WINDOWS  cap # BACKWARD windows this run (0/unset = all).
+  SWE_OUT_PATH              write to this path instead of data/bloomberg/<out_name>
+                            (used to grow a deep-history scratch off the frozen
+                            connector monolith).
 """
 
 from __future__ import annotations
@@ -160,7 +163,11 @@ def run(cfg: PanelConfig):
     chunk_months = int(_env("SWE_BACKFILL_CHUNK_MONTHS", str(cfg.chunk_months)))
     max_windows = int(_env("SWE_BACKFILL_MAX_WINDOWS", "0") or "0")
 
-    out_path = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg", cfg.out_name)
+    # SWE_OUT_PATH lets the deep-history backfill grow a scratch file off the
+    # connector monolith (which stays frozen <100 MB on the refresh branch).
+    out_path = _env("SWE_OUT_PATH") or os.path.join(
+        os.path.dirname(__file__), "..", "data", "bloomberg", cfg.out_name
+    )
 
     existing = None
     if os.path.exists(out_path) and os.path.getsize(out_path) > 100:

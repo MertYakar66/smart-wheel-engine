@@ -70,6 +70,99 @@ _(503 names in the banded backup; individual datasets differ by a handful as mem
 
 <!-- NEW ENTRIES GO DIRECTLY BELOW THIS LINE -->
 
+## 2026-06-04 16:02 local · 7,204 chains · 25 names · +592 in 4h · worker alive  *(lab-handoff snapshot)*
+Data title: EOD option-history chain (all-strikes, calls+puts, + open interest). Health: worker 42892 + supervisor(2) + java(2) alive.
+Frontier: V→2020-03, JPM→2018-03, INTC→2017-08, NFLX→2024-06. 12 names complete (MSFT, GOOGL, GOOG, META, AAPL, AMZN, NVDA, TSLA, PLTR, WMT, AVGO, MU); V/JPM/INTC/NFLX filling.
+
+| Name | Title | Expiration dates (min … max) | Chains | New (4h) |
+|---|---|---|---:|---:|
+| AAPL  | AAPL option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | 0 (complete) |
+| TSLA  | TSLA option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | +32 (complete) |
+| AVGO  | AVGO option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | +11 (complete) |
+| MSFT  | MSFT option-history EOD  | 2016-01-08 … 2026-06-01 | 576 | 0 (complete) |
+| NVDA  | NVDA option-history EOD  | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| GOOGL | GOOGL option-history EOD | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| AMZN  | AMZN option-history EOD  | 2016-01-08 … 2026-06-01 | 574 | 0 (complete) |
+| WMT   | WMT option-history EOD   | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| MU    | MU option-history EOD    | 2016-01-08 … 2026-05-29 | 543 | +55 (complete) |
+| GOOG  | GOOG option-history EOD  | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| NFLX  | NFLX option-history EOD  | 2016-01-08 … 2024-06-21 | 442 | +75 |
+| PLTR  | PLTR option-history EOD  | 2020-10-16 … 2026-05-29 | 294 | 0 (complete) |
+| META  | META option-history EOD  | 2021-07-16 … 2026-06-01 | 250 | 0 (complete) |
+| V     | V option-history EOD     | 2016-01-08 … 2020-03-27 | 221 | +221 |
+| JPM   | JPM option-history EOD   | 2016-01-08 … 2018-03-16 | 115 | +115 |
+| INTC  | INTC option-history EOD  | 2016-01-08 … 2017-08-04 | 83  | +83 |
+| AMD   | AMD option-history EOD   | 2016-01-08 … 2016-07-22 | 29  | 0 |
+| MMM   | MMM option-history EOD   | 2016-01-08 … 2016-05-27 | 21  | 0 |
+| ADBE  | ADBE option-history EOD  | 2016-01-15 … 2017-05-19 | 17  | 0 |
+| ABBV  | ABBV option-history EOD  | 2016-01-08 … 2016-04-29 | 17  | 0 |
+| ACN   | ACN option-history EOD   | 2016-01-08 … 2016-04-08 | 14  | 0 |
+| AES   | AES option-history EOD   | 2016-01-15 … 2016-12-16 | 12  | 0 |
+| AFL   | AFL option-history EOD   | 2016-01-15 … 2016-11-18 | 11  | 0 |
+| AOS   | AOS option-history EOD   | 2016-01-15 … 2016-10-21 | 10  | 0 |
+| ABT   | ABT option-history EOD   | 2016-01-15 … 2016-05-20 | 8   | 0 |
+
+## 2026-06-04 15:28 local · 7,096 chains · 25 names · +555 in 4h · worker alive
+Data title: EOD option-history chain (all-strikes, calls+puts, + open interest). Health: worker 42892 + supervisor(2) + java(2) alive.
+Frontier: V→2019-07, JPM→2017-09, INTC→2016-11, NFLX→2024-04. 12 names complete (MSFT, GOOGL, GOOG, META, AAPL, AMZN, NVDA, TSLA, PLTR, WMT, AVGO, MU); V/JPM/INTC just started.
+
+| Name | Title | Expiration dates (min … max) | Chains | New (4h) |
+|---|---|---|---:|---:|
+| AAPL  | AAPL option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | 0 (complete) |
+| TSLA  | TSLA option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | +46 (complete) |
+| AVGO  | AVGO option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | +31 (complete) |
+| MSFT  | MSFT option-history EOD  | 2016-01-08 … 2026-06-01 | 576 | 0 (complete) |
+| NVDA  | NVDA option-history EOD  | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| GOOGL | GOOGL option-history EOD | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| AMZN  | AMZN option-history EOD  | 2016-01-08 … 2026-06-01 | 574 | 0 (complete) |
+| WMT   | WMT option-history EOD   | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| MU    | MU option-history EOD    | 2016-01-08 … 2026-05-29 | 543 | +75 (complete) |
+| GOOG  | GOOG option-history EOD  | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| NFLX  | NFLX option-history EOD  | 2016-01-08 … 2024-04-26 | 434 | +84 |
+| PLTR  | PLTR option-history EOD  | 2020-10-16 … 2026-05-29 | 294 | 0 (complete) |
+| META  | META option-history EOD  | 2021-07-16 … 2026-06-01 | 250 | 0 (complete) |
+| V     | V option-history EOD     | 2016-01-08 … 2019-07-12 | 184 | +184 |
+| JPM   | JPM option-history EOD   | 2016-01-08 … 2017-09-22 | 90  | +90 |
+| INTC  | INTC option-history EOD  | 2016-01-08 … 2016-11-11 | 45  | +45 |
+| AMD   | AMD option-history EOD   | 2016-01-08 … 2016-07-22 | 29  | 0 |
+| MMM   | MMM option-history EOD   | 2016-01-08 … 2016-05-27 | 21  | 0 |
+| ADBE  | ADBE option-history EOD  | 2016-01-15 … 2017-05-19 | 17  | 0 |
+| ABBV  | ABBV option-history EOD  | 2016-01-08 … 2016-04-29 | 17  | 0 |
+| ACN   | ACN option-history EOD   | 2016-01-08 … 2016-04-08 | 14  | 0 |
+| AES   | AES option-history EOD   | 2016-01-15 … 2016-12-16 | 12  | 0 |
+| AFL   | AFL option-history EOD   | 2016-01-15 … 2016-11-18 | 11  | 0 |
+| AOS   | AOS option-history EOD   | 2016-01-15 … 2016-10-21 | 10  | 0 |
+| ABT   | ABT option-history EOD   | 2016-01-15 … 2016-05-20 | 8   | 0 |
+
+## 2026-06-04 11:10 local · 6,499 chains · 22 names · +450 in 4h · worker alive
+Data title: EOD option-history chain (all-strikes, calls+puts, + open interest). Health: worker 42892 + supervisor(2) + java(2) alive.
+Frontier: AVGO→2026-02, TSLA→2026-01, NFLX→2022-07, MU→2024-09. 9 names complete; AVGO & TSLA nearing their ends; MU & NFLX filling.
+
+| Name | Title | Expiration dates (min … max) | Chains | New (4h) |
+|---|---|---|---:|---:|
+| AAPL  | AAPL option-history EOD  | 2016-01-08 … 2026-06-01 | 577 | 0 (complete) |
+| MSFT  | MSFT option-history EOD  | 2016-01-08 … 2026-06-01 | 576 | 0 (complete) |
+| NVDA  | NVDA option-history EOD  | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| GOOGL | GOOGL option-history EOD | 2016-01-08 … 2026-06-01 | 575 | 0 (complete) |
+| AMZN  | AMZN option-history EOD  | 2016-01-08 … 2026-06-01 | 574 | 0 (complete) |
+| GOOG  | GOOG option-history EOD  | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| WMT   | WMT option-history EOD   | 2016-01-08 … 2026-05-29 | 543 | 0 (complete) |
+| AVGO  | AVGO option-history EOD  | 2016-01-08 … 2026-02-20 | 534 | +92 |
+| TSLA  | TSLA option-history EOD  | 2016-01-08 … 2026-01-16 | 524 | +70 |
+| MU    | MU option-history EOD    | 2016-01-08 … 2024-09-20 | 455 | +188 |
+| NFLX  | NFLX option-history EOD  | 2016-01-08 … 2022-07-08 | 340 | +100 |
+| PLTR  | PLTR option-history EOD  | 2020-10-16 … 2026-05-29 | 294 | 0 (complete) |
+| META  | META option-history EOD  | 2021-07-16 … 2026-06-01 | 250 | 0 (complete) |
+| AMD   | AMD option-history EOD   | 2016-01-08 … 2016-07-22 | 29  | 0 |
+| MMM   | MMM option-history EOD   | 2016-01-08 … 2016-05-27 | 21  | 0 |
+| ADBE  | ADBE option-history EOD  | 2016-01-15 … 2017-05-19 | 17  | 0 |
+| ABBV  | ABBV option-history EOD  | 2016-01-08 … 2016-04-29 | 17  | 0 |
+| ACN   | ACN option-history EOD   | 2016-01-08 … 2016-04-08 | 14  | 0 |
+| AES   | AES option-history EOD   | 2016-01-15 … 2016-12-16 | 12  | 0 |
+| AFL   | AFL option-history EOD   | 2016-01-15 … 2016-11-18 | 11  | 0 |
+| AOS   | AOS option-history EOD   | 2016-01-15 … 2016-10-21 | 10  | 0 |
+| ABT   | ABT option-history EOD   | 2016-01-15 … 2016-05-20 | 8   | 0 |
+
 ## 2026-06-04 07:32 local · 6,096 chains · 22 names · +612 in 4h · worker alive
 Data title: EOD option-history chain (all-strikes, calls+puts, + open interest). Health: worker 42892 + supervisor(2) + java(2) alive.
 Frontier: TSLA→2024-05, MU→2021-06, NFLX→2020-11, AVGO→2024-07. 9 names complete (MSFT, GOOGL, GOOG, META, AAPL, AMZN, PLTR, NVDA, WMT); MU & NFLX filling fast (+285 / +163).

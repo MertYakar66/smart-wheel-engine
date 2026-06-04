@@ -7,7 +7,7 @@ terminal: lab
 pr:
 decisions: []
 date: 2026-06-04
-headline: Fixed the OHLCV column-rotation defect, made all Tier-1 + context data current to 2026-06-04, deepened all single-series context to inception, generalized the pullers to contiguous backfill, and began the per-name deep-history backfill (vol_iv incl. the 2008 GFC) — deep data routed to a gz buffer branch to keep the connector monoliths <100 MB.
+headline: Fixed the OHLCV column-rotation defect, made all Tier-1 + context data current to 2026-06-04, deepened all single-series context to inception, generalized the pullers to contiguous backfill, COMPLETED the vol_iv deep-history backfill to the 1994 floor (captures the 2000-2002 and 2008 crises), and routed deep data to a gz buffer branch (rclone/Drive staged) to keep the connector monoliths <100 MB.
 surface: [scripts/_bbg_panel.py, scripts/pull_ohlcv.py, scripts/pull_liquidity.py, scripts/pull_vol_iv.py, scripts/pull_vix_term_structure.py, scripts/pull_context_index.py, data/bloomberg/]
 ---
 
@@ -66,12 +66,14 @@ across 1,014,916 non-NaN rows**. Verified offline (round-trip) + live.
 - **window 1 (8dc6f59, pushed in the refresh monolith):** vol_iv 2012-07 ->
   2015-01 (+280,302). This is the frozen floor of the refresh-branch monolith
   (vol_iv now 2012-07-02 -> 2026-06-04, 1,668,021 rows, 94.5 MB).
-- **windows 2-3 (relocated to the gz buffer branch):** vol_iv 2007-07 -> 2012-06
-  (+526,932). **The 2008 GFC IV is captured.** Stored as
-  `data/bloomberg/deep/sp500_vol_iv_full__1994_2012.csv.gz` (526,932 rows,
-  2007-07-02 -> 2012-06-29, 436 tickers, 8.7 MB gz) on
-  `deep-history/bloomberg-raw`. The full uncompressed scratch monolith
-  (2007-07 -> 2026-06-04) is also at `C:\Users\mertmert\deep_scratch\` on the box.
+- **windows 2-8 (gz buffer branch `deep-history/bloomberg-raw` @ 61c2183):**
+  vol_iv backfilled 2012-06 all the way to the **1994 IV floor — COMPLETE**.
+  `data/bloomberg/deep/sp500_vol_iv_full__1994_2012.csv.gz` = 1,661,191 rows,
+  **1994-01-03 -> 2012-06-29**, 436 tickers, 27.0 MB gz. **Both the 2000-2002
+  dot-com bear (+9/11) and the 2008 GFC IV are captured.** With the frozen
+  monolith the vol_iv panel is contiguous 1994 -> 2026. Full uncompressed scratch
+  (1994-2026, 3,329,212 rows) also at `C:\Users\mertmert\deep_scratch\` on the box.
+  Pulled with **zero throttling** (~14M data points across the session).
 
 ## The machinery
 
@@ -104,9 +106,12 @@ prove window tiling + the rotation round-trip/gate. All passed.
 
 Terminal up + logged in; venv active; `cd` repo; `$env:PYTHONUTF8='1'`.
 
-### Continue the deep backfill (vol_iv shown; ohlcv/liquidity analogous)
-Grow the off-monolith scratch with `SWE_OUT_PATH`, then re-carve the gz and push
-to the buffer branch. The refresh-branch monolith is NEVER advanced.
+### Deep backfill — vol_iv is DONE (to 1994). Remaining: ohlcv + liquidity.
+vol_iv is fully backfilled to the 1994 floor (deep gz on the buffer branch). For
+ohlcv and liquidity, grow an off-monolith scratch with `SWE_OUT_PATH`, then carve
+the gz and push to the buffer branch. The refresh-branch monolith is NEVER advanced.
+The proven loop (shown for vol_iv; swap the script + scratch + deep filename for
+ohlcv `sp500_ohlcv__1994_2018.csv.gz` / liquidity `sp500_liquidity__1994_2015.csv.gz`):
 ```
 $env:SWE_OUT_PATH='C:\Users\mertmert\deep_scratch\sp500_vol_iv_full.csv'
 $env:SWE_PULL_MODE='backfill'; $env:SWE_BACKFILL_MAX_WINDOWS='2'
@@ -134,6 +139,25 @@ gate still applies.)
   `{30,60,90}DAY_IMPVOL_{90,95,100,105,110}.0%MNY_DF`, LONG
   `date,ticker,tenor_days,moneyness_pct,iv`. Verify the field floor on one
   ticker; prioritise put side + crisis windows.
+
+## Google Drive (rclone) — STAGED; upload pending operator permission
+rclone v1.74.2 at `C:\Users\mertmert\rclone\rclone-v1.74.2-windows-amd64\rclone.exe`.
+Remote `gdrive` authorized via browser OAuth (token in `%APPDATA%\rclone\rclone.conf`);
+`rclone about gdrive:` shows **4.79 TiB free**; `gdrive:swe-deep-history/` created and
+the t.txt round-trip verified. The deep-DATA upload is BLOCKED by Claude Code's
+auto-mode classifier (data-exfiltration hard block) and the agent cannot self-grant
+the permission. **Nothing is lost** — the deep gz is on the buffer branch. To finish
+the Drive copy, EITHER the operator runs it, OR adds this allow rule to
+`~/.claude/settings.local.json` (then the agent runs it):
+```
+permissions.allow += "PowerShell(& 'C:/Users/mertmert/rclone/rclone-v1.74.2-windows-amd64/rclone.exe' *)"
+```
+Upload + verify (forward-slash paths to match the rule):
+```
+& 'C:/Users/mertmert/rclone/rclone-v1.74.2-windows-amd64/rclone.exe' copy 'C:/Users/mertmert/deep_scratch/sp500_vol_iv_full__1994_2012.csv.gz' gdrive:swe-deep-history/ -P
+& 'C:/Users/mertmert/rclone/rclone-v1.74.2-windows-amd64/rclone.exe' lsl gdrive:swe-deep-history/
+```
+Confirm bytes on Drive before deleting any local copy (the gz is also on the buffer branch).
 
 ## DEFER to laptop/overnight (NOT the metered terminal)
 Move the deep gz files from `deep-history/bloomberg-raw` into **Google Drive**

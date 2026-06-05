@@ -75,6 +75,45 @@ across 1,014,916 non-NaN rows**. Verified offline (round-trip) + live.
   (1994-2026, 3,329,212 rows) also at `C:\Users\mertmert\deep_scratch\` on the box.
   Pulled with **zero throttling** (~14M data points across the session).
 
+## 2026-06-05 — Phase 3b: OHLCV + liquidity deep backfill COMPLETE (to 1994)
+
+Resumed on a fresh lab terminal (cloned the repo, recreated `bbg-venv`
+[blpapi 3.26.4.2 / xbbg 1.2.6 / pandas 3.0.3], live API gate). Completed the two
+remaining per-name panels to the 1994 floor, newest-first, with the SAME proven
+machinery (`scripts/pull_ohlcv.py` / `pull_liquidity.py` + `_bbg_panel.py`,
+`SWE_PULL_MODE=backfill` `SWE_BACKFILL_MAX_WINDOWS=1`). Each window grew an
+**off-monolith scratch** (`C:\Users\mertmert\deep_scratch\`); the deep slice
+(date < monolith floor) was carved → gz → pushed to `deep-history/bloomberg-raw`
+after every chunk (durable on a transient box). Monoliths stayed FROZEN (verified
+unmodified on the refresh branch). Commits went through a dedicated **git worktree
+pinned to the buffer branch** instead of checkout-switching the main tree — same
+result, no 850-file churn, scripts always present for the next pull.
+
+- **OHLCV** `data/bloomberg/deep/sp500_ohlcv__1994_2018.csv.gz` —
+  **1994-01-03 → 2017-12-29**, 2,083,270 rows, 449 tickers, 31.7 MB gz.
+  Joins the frozen monolith (2018-01-02 → 2026-06-04) → unbroken 1994 → 2026.
+  Final buffer SHA `5296515`.
+- **Liquidity** `data/bloomberg/deep/sp500_liquidity__1994_2015.csv.gz` —
+  **1994-01-03 → 2014-12-31**, 1,987,751 rows, 457 tickers, 20.9 MB gz.
+  Joins the frozen monolith (2015-01-02 → 2026-06-04). Final buffer SHA `c814bc5`.
+
+All three deep panels (vol_iv, OHLCV, liquidity) are now on the buffer branch and
+join their frozen monoliths for contiguous **1994-01-03 → 2026-06-04** coverage.
+All three gz are < 100 MB → GitHub-resident, no Drive needed for these.
+
+### OHLCV bad-tick policy (operator-approved 2026-06-05)
+The rotation gate (`open == row-max` AND `low == row-min`) tripped on **97 rows**
+across the 1994–2010 windows — genuine bad Bloomberg prints on illiquid names
+(true open/close a few cents OUTSIDE the reported high/low), **not** a rotation
+defect: the field map is identical to the clean 2010–2018 windows, which passed
+100%, and the per-window failure rate stayed 0.000–0.014% (never trended up as
+the universe thinned). Decision: **drop only the gate-failing rows**, audit each
+to `data/bloomberg/deep/ohlcv_dropped_ticks.csv` (ticker, date, OHLCV, which
+check failed, window), under a **0.5%-per-window safety valve** (exceed → STOP as
+a systematic signal). Breakdown: 51 `open!=max`, 46 `low!=min`. The carved gz
+independently RE-GATES clean (0 violations). Liquidity has no OHLC invariant →
+no gate, no drops.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]
@@ -106,9 +145,11 @@ prove window tiling + the rotation round-trip/gate. All passed.
 
 Terminal up + logged in; venv active; `cd` repo; `$env:PYTHONUTF8='1'`.
 
-### Deep backfill — vol_iv is DONE (to 1994). Remaining: ohlcv + liquidity.
-vol_iv is fully backfilled to the 1994 floor (deep gz on the buffer branch). For
-ohlcv and liquidity, grow an off-monolith scratch with `SWE_OUT_PATH`, then carve
+### Deep backfill — ALL THREE PANELS DONE to 1994 (vol_iv + ohlcv + liquidity) [2026-06-05]
+vol_iv, ohlcv, AND liquidity are now fully backfilled to the 1994 floor (deep gz on
+the buffer branch `deep-history/bloomberg-raw`; see the 2026-06-05 section above for
+spans/SHAs + the OHLCV bad-tick audit). The loop below is retained for reference /
+any future per-name panel: grow an off-monolith scratch with `SWE_OUT_PATH`, then carve
 the gz and push to the buffer branch. The refresh-branch monolith is NEVER advanced.
 The proven loop (shown for vol_iv; swap the script + scratch + deep filename for
 ohlcv `sp500_ohlcv__1994_2018.csv.gz` / liquidity `sp500_liquidity__1994_2015.csv.gz`):

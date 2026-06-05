@@ -170,9 +170,12 @@ For OHLCV/liquidity: first SEED the scratch from the frozen monolith
 gate still applies.)
 
 ### Not done this session (lower urgency / bespoke)
-- **Phase 2c snapshots** (`sp500_fundamentals`, `credit_risk`, `institutional`,
-  `analyst`, `iv_snapshot_today`): point-in-time `bdp`; re-pull anytime with the
-  prior session's verified field lists.
+- **Phase 2c snapshots** — **DONE 2026-06-05.** Refreshed all five point-in-time
+  `bdp` snapshots (`sp500_fundamentals`, `credit_risk`, `institutional`,
+  `analyst`, `iv_snapshot_today`) to today (503 members) and codified the verified
+  field lists + per-file schema/ticker-format/column-order in the new reusable
+  `scripts/pull_snapshots.py` (`SWE_SNAP_SMOKE` / `SWE_SNAP_ONLY` knobs;
+  3-ticker smoke before the full run). Committed to the refresh branch.
 - **sp500_macro:** stale to 2026-03-20; OHLC-per-instrument; refresh + backfill
   to 1990 (+ IG/HY OAS + financial-conditions proxy if entitled). Verify the
   per-instrument bbg map on one instrument first.

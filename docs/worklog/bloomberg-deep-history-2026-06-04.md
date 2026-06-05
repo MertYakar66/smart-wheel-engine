@@ -152,6 +152,41 @@ a systematic signal). Breakdown: 51 `open!=max`, 46 `low!=min`. The carved gz
 independently RE-GATES clean (0 violations). Liquidity has no OHLC invariant →
 no gate, no drops.
 
+## 2026-06-05 — Phase 4: IV moneyness/skew surface COMPLETE (2005→2026)
+
+New per-name **implied-vol moneyness/skew surface** — raw material for put-side
+strike selection and skew/term-structure signals. New reusable
+`scripts/pull_iv_surface.py` (built on `_bbg_panel.py`, same machinery as
+`pull_vol_iv.py`).
+
+**Field tokens VERIFIED on AAPL first (the worklog spec was partly wrong):**
+- Tenor `90DAY`/`120DAY`/`180DAY`/`360DAY` tokens are **INVALID** (return empty).
+  Bloomberg uses `30DAY`, `60DAY`, then **`3MTH`(=90d), `6MTH`(=180d),
+  `12MTH`(=360d)**. Operator chose the **extended 5-tenor** set.
+- Moneyness is **fixed at 90/95/100/105/110** (80/85/115/120 unavailable).
+- Surface floor is **~2005-01-03** (empty before then; NOT the 1994 IV floor).
+- Skew shape sane (put wing richest; term structure rises).
+
+**Layout/storage (operator decision):** WIDE — `date, iv_{30d,60d,90d,180d,360d}_
+{90,95,100,105,110}` (25 cols), `ticker` ("AAPL UW"), `bdh Fill=P`. Grown in an
+off-monolith scratch (`SWE_OUT_PATH`); 1.4-yr seed then 30-month backfill windows
+to floor, writing after each (cap-safe). The single wide gz came to **174.8 MB
+(> the 100 MB git blob limit)**, so it was **partitioned by era into 3 gz**, each
+< 100 MB, pushed to the buffer branch `deep-history/bloomberg-raw` (matches the
+eventual year-partitioned-Parquet plan; avoids the blocked Drive):
+
+| file | rows | span | gz |
+|---|---|---|---|
+| `deep/sp500_iv_surface__2005_2011.csv.gz` | 685,310 | 2005-01-03 → 2011-12-30 | 49.2 MB |
+| `deep/sp500_iv_surface__2012_2018.csv.gz` | 795,760 | 2012-01-03 → 2018-12-31 | 56.6 MB |
+| `deep/sp500_iv_surface__2019_2026.csv.gz` | 912,802 | 2019-01-02 → 2026-06-04 | 69.1 MB |
+
+Total **2,393,872 rows, 501 tickers, 2005-01-03 → 2026-06-04**. Buffer SHA
+`5beac7b`. Non-null: 30/60/90d ~100%, 180d 96.6%, 360d 88.6% (long tenors thinner
+in deep history). Ticker count tapers back (498→383) — fewer of today's members
+had a listed surface that far back. Connector read-path **deferred** (like the
+other deep panels — see DEFER). `pull_iv_surface.py` committed to the refresh branch.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]
@@ -219,10 +254,11 @@ gate still applies.)
   per-instrument BBG map verified against the committed overlap. See the
   2026-06-05 macro section above for the map + OHLC-completeness notes. (IG/HY OAS +
   financial-conditions proxy not added — defer unless requested.)
-- **Phase 4 IV moneyness/skew surface:** `sp500_iv_surface.csv`,
-  `{30,60,90}DAY_IMPVOL_{90,95,100,105,110}.0%MNY_DF`, LONG
-  `date,ticker,tenor_days,moneyness_pct,iv`. Verify the field floor on one
-  ticker; prioritise put side + crisis windows.
+- **Phase 4 IV moneyness/skew surface:** **DONE 2026-06-05.** 25-pt wide surface
+  (5 tenors × 5 moneyness), 501 names, 2005-01-03 → 2026-06-04 (2,393,872 rows),
+  3 era-partitioned gz on the buffer branch (SHA `5beac7b`) via the new
+  `scripts/pull_iv_surface.py`. See the 2026-06-05 Phase 4 section above (note the
+  worklog's `90DAY` field token was invalid → `3MTH`; floor is 2005 not 1994).
 
 ## Google Drive (rclone) — STAGED; upload pending operator permission
 rclone v1.74.2 at `C:\Users\mertmert\rclone\rclone-v1.74.2-windows-amd64\rclone.exe`.

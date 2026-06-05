@@ -3,6 +3,10 @@
 Use this when you move to a new machine. Everything you need is either in
 this repo or regeneratable on the laptop with your Theta subscription.
 
+> **Pulling Bloomberg from a fresh/shared lab box instead?** That's a
+> different bring-up (transient machine, no memory, Bloomberg Desktop API,
+> push to buffer branches). See `docs/FRESH_LAB_BOX_SETUP.md`.
+
 ---
 
 ## 1. Clone + Python env

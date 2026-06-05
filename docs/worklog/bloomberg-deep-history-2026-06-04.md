@@ -32,8 +32,10 @@ warnings). The deep per-name backfill pushes the monoliths past 100 MB, so:
 
 - **Refresh branch `data/bloomberg-refresh-2026-06-02`** keeps the
   connector-read MONOLITHS (`sp500_ohlcv.csv`, `sp500_liquidity.csv`,
-  `sp500_vol_iv_full.csv`) **FROZEN at their <100 MB pushed floors** (vol_iv at
-  the 2012-07-02 floor, 94.5 MB). The engine baseline stays clean & pushable.
+  `sp500_vol_iv_full.csv`) **FROZEN at their <100 MB pushed floors**. As of
+  2026-06-05 all three are aligned at the **2018-01-02** floor (vol_iv was sharded
+  from the 2012 floor / 94.5 MB down to **2018+ / 59.3 MB** — see the 2026-06-05
+  vol_iv shard section). The engine baseline stays clean & pushable.
 - **Deep history goes to SEPARATE gz files** under `data/bloomberg/deep/`, pushed
   to a transient **buffer branch `deep-history/bloomberg-raw`** (NEVER merged).
   gz keeps them well under 100 MB (the 2007–2012 vol_iv slice is 8.7 MB gz).
@@ -187,6 +189,42 @@ in deep history). Ticker count tapers back (498→383) — fewer of today's memb
 had a listed surface that far back. Connector read-path **deferred** (like the
 other deep panels — see DEFER). `pull_iv_surface.py` committed to the refresh branch.
 
+## 2026-06-05 — Treasury risk-free backfill to 1994 (COMPLETE)
+
+`data/bloomberg/treasury_yields.csv` (connector risk-free source,
+`get_risk_free_rate`) started 2021-05-07 (yfinance) → NaN risk-free pre-2021 →
+BSM NaN → every pre-2021 backtest candidate R1a-blocked. Backfilled via new
+reusable `scripts/pull_treasury_yields.py` (Bloomberg `USGG3M/6M/2YR/10YR Index`
+`PX_LAST`): **1994-01-03 → 2026-06-05, 8,458 rows**, schema unchanged
+(`date,rate_3m,rate_6m,rate_2y,rate_10y`). PX_LAST kept in **PERCENT, unchanged**
+(D20: connector divides by 100 — a wrong scale silently 100×'s the rate).
+
+Gate: percent-scale confirmed (rate_3m mean 5.64 in 1995, ~0.04 in 2011-15, 5.17
+in 2023; every tenor max>1). **rate_2y/rate_10y match `sp500_macro` us_2y/us_10y
+exactly** (max|diff|=0.0000, same tickers). vs the old yfinance file: rate_10y
+mean diff 0.011pp, but rate_6m/rate_2y differ up to 0.80/1.20pp — the old yfinance
+6m/2y were interpolated proxies; the new are true CMT yields (a correctness fix).
+Commit `8ff460b` (refresh branch).
+
+## 2026-06-05 — vol_iv monolith sharded to 2018+ (COMPLETE)
+
+`sp500_vol_iv_full.csv` was 94.5 MB (~a month of daily refresh from GitHub's
+100 MB reject). Sharded at **2018-01-02** (the OHLCV monolith floor) via a
+byte-preserving raw-line split (no pandas reserialize):
+- pre-2018 tail → `deep/sp500_vol_iv_full__2012_2018.csv.gz` (630,743 rows,
+  2012-07-02 → 2017-12-29, 10.1 MB) on the buffer branch (`e7d7069`).
+  `__1994_2012.csv.gz` left untouched.
+- monolith trimmed to **2018-01-02 → 2026-06-04, 1,037,278 rows, 59.3 MB**
+  (`ec50c5e`, refresh branch). git diff = 630,743 deletions / 0 insertions, and
+  retained 2018+ rows md5-verified byte-identical to the prior monolith.
+
+Gate: row conservation exact (630,743 + 1,037,278 == 1,668,021 original);
+identical schema across all three pieces; seams adjacent (1994_2012 ends 2012-06-29
+→ 2012_2018 starts 2012-07-02; 2012_2018 ends 2017-12-29 → monolith starts
+2018-01-02); zero date overlap monolith↔deep. No backtestable data lost (connector
+reads only the monolith and OHLCV is already 2018+). All three monoliths now align
+at the 2018 floor.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]
@@ -285,5 +323,5 @@ Move the deep gz files from `deep-history/bloomberg-raw` into **Google Drive**
 read-path that assembles recent(git monolith) + deep(Drive); then delete the gz
 buffer branch. That connector wiring is the real fix and is out of scope here.
 Also deferred (wrong channel): option chains (Theta), dealer GEX (subscription),
-`borrow_rate_net` + macro `importance`/deep-history (BQL/Excel), `treasury_yields`
-(yfinance).
+`borrow_rate_net` + macro `importance`/deep-history (BQL/Excel). (`treasury_yields`
+is no longer deferred — backfilled to 1994 via Bloomberg on 2026-06-05; see above.)

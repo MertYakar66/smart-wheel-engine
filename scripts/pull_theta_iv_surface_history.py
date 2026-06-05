@@ -254,6 +254,7 @@ def _surface_for_date(
     cache_lock: threading.Lock | None = None,
     strict: bool = True,
     fallback_k: int = _FALLBACK_K_DEFAULT,
+    target_dtes: tuple[int, ...] = TARGET_DTES,
 ) -> tuple[pd.DataFrame, dict]:
     """Pull the historical IV surface for one ticker on one date.
 
@@ -303,7 +304,7 @@ def _surface_for_date(
     downstream, so the SVI calibrator can't tell it's missing data.
     """
     sym = _normalise_theta_symbol(ticker)
-    target_n = len(TARGET_DTES)
+    target_n = len(target_dtes)
 
     def _empty_status(extra: dict | None = None) -> dict:
         s = {
@@ -324,11 +325,11 @@ def _surface_for_date(
     else:
         exps_all = _get_cached_expirations(conn, sym, None, None)
     if exps_all is None or exps_all.empty:
-        return pd.DataFrame(), _empty_status({"failed_buckets": list(TARGET_DTES)})
+        return pd.DataFrame(), _empty_status({"failed_buckets": list(target_dtes)})
 
     exps_future = exps_all[exps_all >= pd.Timestamp(as_of)]
     if exps_future.empty:
-        return pd.DataFrame(), _empty_status({"failed_buckets": list(TARGET_DTES)})
+        return pd.DataFrame(), _empty_status({"failed_buckets": list(target_dtes)})
 
     # 2 + 3) For each TARGET_DTES bucket, iterate up to fallback_k nearest
     # expirations; first one that returns data wins. Used expirations are
@@ -339,7 +340,7 @@ def _surface_for_date(
     chosen: list[pd.Timestamp] = []
     failed_buckets: list[int] = []
 
-    for dte in TARGET_DTES:
+    for dte in target_dtes:
         target = pd.Timestamp(as_of) + pd.Timedelta(days=dte)
         # Filter out expirations that earlier buckets already claimed
         available = exps_future[~exps_future.isin(used_exps)]
@@ -438,6 +439,8 @@ def _process_one(
     expirations_cache: dict[str, pd.Series],
     cache_lock: threading.Lock,
     strict: bool,
+    fallback_k: int,
+    target_dtes: tuple[int, ...],
     args: tuple[str, date, bool],
 ) -> tuple[str, date, bool, str]:
     """Worker callable. ``conn`` / ``expirations_cache`` / ``cache_lock`` /
@@ -455,12 +458,14 @@ def _process_one(
             expirations_cache=expirations_cache,
             cache_lock=cache_lock,
             strict=strict,
+            fallback_k=fallback_k,
+            target_dtes=target_dtes,
         )
     except Exception as e:
         return ticker, d, False, f"{type(e).__name__}: {e}"
 
     succeeded = status.get("succeeded_buckets", 0)
-    target_n = status.get("target_dtes", len(TARGET_DTES))
+    target_n = status.get("target_dtes", len(target_dtes))
 
     if df.empty:
         if status.get("rejected_partial"):
@@ -529,6 +534,24 @@ def main() -> int:
         "run ~14s (mega-caps up to ~30s+), past the connector's 30s default; "
         "120 prevents the timeout-retry thrash that throttled this puller.",
     )
+    ap.add_argument(
+        "--fallback-k",
+        type=int,
+        default=_FALLBACK_K_DEFAULT,
+        help="Max nearest-expiration candidates to try per DTE bucket before "
+        "giving up on that bucket (default 10). Theta's IV-history coverage is "
+        "sparser than its listed expirations, so liberal fallback raises "
+        "coverage on recent dates. On deep-historical dates (e.g. 2020) each "
+        "empty candidate is a ~45s call, so a high k multiplies the per-ticker-"
+        "date cost; lowering to ~2-3 trades coverage for speed there.",
+    )
+    ap.add_argument(
+        "--dte-buckets",
+        default=None,
+        help="Comma-separated DTE buckets to sample, e.g. '30,60,90'. "
+        "Default: 7,14,30,60,90,180. Fewer buckets => fewer all-strikes calls "
+        "per ticker-date (faster) but a coarser term structure.",
+    )
     ap.add_argument("--resume", action="store_true", help="Skip partitions that already exist")
     ap.add_argument("--force", action="store_true", help="Overwrite existing partitions")
     ap.add_argument(
@@ -589,6 +612,14 @@ def main() -> int:
 
     force = args.force and not args.resume
     strict = not args.allow_partial
+    if args.dte_buckets:
+        try:
+            target_dtes = tuple(int(x) for x in args.dte_buckets.split(","))
+        except ValueError:
+            print(f"ERROR: --dte-buckets must be comma-separated ints, got {args.dte_buckets!r}")
+            return 2
+    else:
+        target_dtes = TARGET_DTES
     jobs = [(t, d, force) for t in tickers for d in dates]
     total = len(jobs)
 
@@ -606,12 +637,15 @@ def main() -> int:
     try:
         expirations_cache: dict[str, pd.Series] = {}
         cache_lock = threading.Lock()
-        process = partial(_process_one, conn, expirations_cache, cache_lock, strict)
+        process = partial(
+            _process_one, conn, expirations_cache, cache_lock, strict, args.fallback_k, target_dtes
+        )
 
         print(
             f"Pulling IV surface history  tickers={len(tickers)}  "
             f"dates={len(dates)} ({start_d}..{end_d})  jobs={total}  "
-            f"workers={args.workers}  strict={strict}"
+            f"workers={args.workers}  strict={strict}  "
+            f"dte_buckets={target_dtes}  fallback_k={args.fallback_k}"
         )
 
         t0 = time.perf_counter()

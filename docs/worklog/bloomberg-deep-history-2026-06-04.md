@@ -225,6 +225,40 @@ identical schema across all three pieces; seams adjacent (1994_2012 ends 2012-06
 reads only the monolith and OHLCV is already 2018+). All three monoliths now align
 at the 2018 floor.
 
+## 2026-06-05 — Core dividends refresh + archival completeness sweep (COMPLETE)
+
+Six data-layer datasets refreshed/backfilled. Each got a new or rewritten reusable
+puller, was smoke-verified against committed values BEFORE the full pull, and gated
+on bytes before push. All are small monoliths on the refresh branch.
+
+| dataset | rows was→now | range | puller / commit |
+|---|---|---|---|
+| sp500_dividends | 50,230 → 52,064 | ex 1962-05-31 → 2027-03-12; declared→2026-06-05; 158 fwd ex-dates (was 10); 481 payers | `pull_dividends.py` (new) · `2bbe0c2` |
+| sp500_short_interest | 38,099 → 172,565 | 1990-01-31 → 2026-05-29, monthly | `pull_short_interest.py` (rewrite) · `94466bb` |
+| sp500_sector_etfs | 29,954 → 66,824 | 1998-12-22 → 2026-06-05, 11 ETFs | `pull_sector_etfs.py` (new) · `8e50a1a` |
+| sp500_historical_fundamentals | 30,347 → 79,198 | 1990-01-01 → 2026-05-10, quarterly | `pull_historical_fundamentals.py` (rewrite) · `6494eac` |
+| sp500_corporate_actions | 17,717 → 52,442 | eff 1962-05-31 → 2027-03-12 | `pull_corporate_actions.py` (new) · `4ea2537` |
+| sp500_vix_full | 16,955 → 17,274 | 2015-01-02 → 2026-06-05, 6 instruments | `pull_vix_full.py` (new) · `8e6332a` |
+
+Notes / gotchas for the next session:
+- **dividends & corp_actions both come from `blp.bds(EQY_DVD_HIST_ALL)`.** corp_actions
+  was VERIFIED to be a 2015+ window of exactly this field (99.6% of rows match a
+  dividend event, 100% equal values, announcement_date==declared_date). Routing:
+  `ratio` for Stock Split / Stock Dividend / Split-Off, `amount` otherwise. dividends
+  dedupes (ticker,ex_date) keep-last; corp_actions keeps same-ex_date duplicates
+  (exact-row dedup only) → +378 rows.
+- **short_interest & historical_fundamentals: the old `df.stack(level=0)` pullers were
+  BROKEN on xbbg 1.2.6** (long narwhals frames) → rewritten on the working reshape
+  pattern. Field maps reproduce committed values exactly (A UN 2020-01 short interest
+  = 5091993 / 1.65 / 310.18342 / 99.488877). short_interest `borrow_rate_net` stays
+  empty (not entitled); `float_pct` is DERIVED `EQY_FLOAT/EQY_SH_OUT*100` (>100 in
+  ~0.05% of rows is the pre-existing as-of-mismatch artifact — old file had 0.03%).
+- **VIX futures yellow-key is `UX1 Index` / `UX2 Index`, NOT `UX*Comdty`** (Comdty
+  returns empty). vix_full kept at its 2015 floor (deep VIX history is in
+  vix_term_structure → 1990); it is redundant context, refreshed for completeness.
+- treasury_yields was backfilled to 1994 earlier this session (`8ff460b`); its
+  rate_2y/rate_10y == sp500_macro us_2y/us_10y exactly.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]

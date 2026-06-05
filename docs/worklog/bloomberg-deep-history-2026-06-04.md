@@ -101,6 +101,44 @@ All three deep panels (vol_iv, OHLCV, liquidity) are now on the buffer branch an
 join their frozen monoliths for contiguous **1994-01-03 → 2026-06-04** coverage.
 All three gz are < 100 MB → GitHub-resident, no Drive needed for these.
 
+## 2026-06-05 — sp500_macro refresh + deep backfill to 1990 (COMPLETE)
+
+Cross-asset OHLC panel (NOT SPX members), so it does NOT use `_bbg_panel.py`;
+new reusable `scripts/pull_macro.py` pulls six fixed instruments via `blp.bdh`
+and stacks them long with the `instrument` label the connector keys on
+(`data/consolidated_loader.py get_macro`). Small file → refreshed **in place** on
+the refresh branch (not a frozen monolith). Schema preserved EXACTLY:
+`date,open,high,low,close,instrument` (straight PX_OPEN/HIGH/LOW/LAST → open/high/
+low/close; NOT rotated, unlike sp500_ohlcv).
+
+**Per-instrument BBG map — VERIFIED** by reproducing the committed 2026-03-19/20
+OHLC exactly (overlap match, all six) before any write:
+
+| instrument | BBG ticker | note |
+|---|---|---|
+| us_10y | `USGG10YR Index` | 10Y CMT yield OHLC |
+| us_2y | `USGG2YR Index` | 2Y CMT yield OHLC |
+| spx | `SPX Index` | S&P 500 price |
+| dxy | `DXY Curncy` | US dollar index |
+| gold | `XAU Curncy` | spot gold (GC1 futures differ — rejected) |
+| wti_oil | `CL1 Comdty` | front WTI future (USCRWTIC spot is flat O=H=L=C — rejected) |
+
+Result: **17,320 → 56,180 rows**; every instrument now **1990-01-02 → 2026-06-04**
+(was 2015-01-01 → 2026-03-20, stale). Refresh is a clean fresh-authoritative
+rebuild (fresh reproduces the committed overlap identically; merged keep-last so
+nothing dropped). Verified: header byte-identical, no dup `(date,instrument)`,
+overlap values intact, forward gap filled (+52–54 rows/instrument).
+
+**OHLC completeness (honest — Bloomberg deep-history availability, not a defect):**
+`close` (PX_LAST) is ~100% complete for all six back to 1990. Intraday O/H/L is
+close-only in the deep tail for two CMT/spot series:
+- `gold` — full OHLC from **1992-08-03** (6.9% open-null overall; pre-1992-08 close-only)
+- `us_2y` — full OHLC from **1998-10-20** (24.1% open-null; pre-1998-10 close-only)
+- dxy/spx/us_10y/wti_oil — full OHLC from 1990-01-02 (≤32 stray open-nulls each).
+
+IG/HY OAS + financial-conditions proxy (the optional "if entitled" extras) NOT
+added — out of the verified six-instrument scope; defer unless requested.
+
 ### OHLCV bad-tick policy (operator-approved 2026-06-05)
 The rotation gate (`open == row-max` AND `low == row-min`) tripped on **97 rows**
 across the 1994–2010 windows — genuine bad Bloomberg prints on illiquid names
@@ -176,9 +214,11 @@ gate still applies.)
   field lists + per-file schema/ticker-format/column-order in the new reusable
   `scripts/pull_snapshots.py` (`SWE_SNAP_SMOKE` / `SWE_SNAP_ONLY` knobs;
   3-ticker smoke before the full run). Committed to the refresh branch.
-- **sp500_macro:** stale to 2026-03-20; OHLC-per-instrument; refresh + backfill
-  to 1990 (+ IG/HY OAS + financial-conditions proxy if entitled). Verify the
-  per-instrument bbg map on one instrument first.
+- **sp500_macro:** **DONE 2026-06-05.** Refreshed + backfilled all six instruments
+  to **1990-01-02 → 2026-06-04** (56,180 rows) via the new `scripts/pull_macro.py`;
+  per-instrument BBG map verified against the committed overlap. See the
+  2026-06-05 macro section above for the map + OHLC-completeness notes. (IG/HY OAS +
+  financial-conditions proxy not added — defer unless requested.)
 - **Phase 4 IV moneyness/skew surface:** `sp500_iv_surface.csv`,
   `{30,60,90}DAY_IMPVOL_{90,95,100,105,110}.0%MNY_DF`, LONG
   `date,ticker,tenor_days,moneyness_pct,iv`. Verify the field floor on one

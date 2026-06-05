@@ -259,6 +259,39 @@ Notes / gotchas for the next session:
 - treasury_yields was backfilled to 1994 earlier this session (`8ff460b`); its
   rate_2y/rate_10y == sp500_macro us_2y/us_10y exactly.
 
+## 2026-06-05 — Forward earnings estimates (new, event-gate enrichment)
+
+New ADDITIVE snapshot `data/bloomberg/sp500_earnings_estimates.csv` (503 rows) +
+`scripts/pull_earnings_estimates.py`. Closes the highest clean gap from the data-gap
+audit: `event_gate.py` (largest tail-loss guard) keyed off historical realized
+earnings with no forward date and a single point estimate. Per current SPX member,
+point-in-time `blp.bdp`:
+`ticker, expected_report_date (EXPECTED_REPORT_DT), last_announcement_date
+(ANNOUNCEMENT_DT), best_eps[/median/high/low/numest], best_sales[/median/high/low/numest]`.
+Does NOT modify the engine-consumed `sp500_earnings.csv`.
+
+Field mnemonics verified on AAPL/JPM first; **`BEST_EPS_SD`/`_STD_DEV` are NOT
+populated at this tier** → dispersion captured via hi/lo/median/#estimates (range +
+analyst count) instead of stddev. Also: this xbbg backend (`xbbg_async`) drops the
+whole bdp response when invalid mnemonics are mixed in — probe fields one-at-a-time.
+
+Gate: expected_report_date 503/503 forward (2026-06-08 → 2026-10-21); EPS/sales
+consensus+dispersion 501/503 (2 names no consensus); 0 dup; 0 rows high<low; mean
+within [low,high] for all; no all-NaN field. Commit on the refresh branch.
+
+### Data-gap audit (2026-06-05) — also surfaced two CODE defects (NOT data gaps)
+A read-only consumption audit found the engine silently ignores data we DO have:
+1. `get_credit_risk` returns key `sp_rating` but `wheel_runner.py:482` reads
+   `rtg_sp_lt_lc_issuer_credit` → S&P credit rating always `""` (dead). `sp500_credit_risk.csv` wasted.
+2. R9/R10 sector cap uses a hard-coded `DEFAULT_SECTOR_MAP` (`risk_manager.py:1579`)
+   instead of the pulled `gics_sector_name` → names absent from the map gate as "Unknown".
+Both are one-line code fixes for a separate PR (out of the data-only mandate). Other
+audit notes: `sp500_vol_dvd.csv` is stale (2026-03-20) but superseded by vol_iv_full
+(deprecate, don't refresh); `sp500_iv_history.csv` is an empty stub; index_membership
+`percentage_weight` is the all-zeros sentinel so the PIT `min_weight` filter is a no-op.
+Still genuinely DEFERRED (channel/entitlement, not Desktop-API): option chains (Theta),
+dealer GEX (BQL subscription), `borrow_rate_net` (not entitled), macro `importance` (BQL).
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]

@@ -1,10 +1,11 @@
 # IBKR Live-Book Integration — Design Doc (DRAFT, no code yet)
 
 **Status:** DESIGN ONLY — nothing in this document is implemented. It proposes
-two `DECISIONS.md` entries (a **D24** that is in-scope under CLAUDE.md §2/§3, and
-a **D25** that is an explicit, consent-gated *scope expansion*). Neither is
-adopted. This is the written output of a brainstorming session; it exists so the
-design is on the record before any branch touches code.
+three `DECISIONS.md` entries: a **D24** that is in-scope under CLAUDE.md §2/§3, a
+**D25** that is an explicit, consent-gated *scope expansion* (the exit-evaluator),
+and a **D26** read-only personal **performance viewer** (in-scope, observational).
+None is adopted. This is the written output of a brainstorming session; it exists
+so the design is on the record before any branch touches code.
 
 **Author context:** written against `main` @ the HEAD that shipped the
 prob_profit Wilson-CI work (#317/#318) and the D17 cap-adoption status note
@@ -334,12 +335,138 @@ routing.** The human executes at IBKR.
 | **2** | Dashboard "Live Book" panel reading the snapshot (Track D) | after Phase 1 |
 | **3** | Wire snapshot into live `/api/tv/dossier` so a real scan's candidates are gated against the book (Track A end-to-end) | after Phase 1 |
 | **4** | Reconciliation (Track B) and/or the exit-evaluator (Track E / D25) | **explicit consent** (D25) |
+| **PV** | Performance viewer (D26): `/api/portfolio/*` + `/(terminal)/portfolio` + risk overlay; agent layer phased (chat → in-dashboard). Reuses the D24 feed + existing trackers | D26 adoption; can run parallel to Phases 2–3 |
 
 **Open decisions for the operator:**
 1. Adopt **D24** (in-scope live-book feed)? Default acquisition mode = agent-produced snapshot.
 2. Greenlight **D25** (exit-evaluator) as a scope expansion, or hold entry-only?
 3. Snapshot refresh cadence + staleness threshold for the SessionStart warning.
 4. FX policy for the multi-currency book (USD + CAD) in NAV / concentration math.
+5. Adopt **D26** (read-only performance viewer)? Agent layer is phased per operator decision
+   (Claude session now → in-dashboard `chat-panel` later). Also: persist daily snapshots
+   for the equity curve, and ingest the Flex `CashTransactions` export for since-inception TWR.
+
+---
+
+## 6. Personal performance viewer (proposed D26 — design only)
+
+This part exists because the brainstorm surfaced a second, complementary product
+on the same IBKR feed: a **read-only personal portfolio performance viewer** — a
+Sharesight / IBKR-PortfolioAnalyst-style surface, but **scoped to one book,
+wheel-aware, and conversational.** It is the *realized, backward-looking*
+counterpart to the engine's *forward-looking* ranker, and it is squarely
+in-scope: purely observational, single-user, no EV authority, no order routing.
+
+### 6.1 It is ~60–70% already built (unwired)
+
+Three production analytics modules exist today with **zero UI**, plus a
+charting-ready front end:
+
+| Existing asset | Already computes | Status |
+|---|---|---|
+| `engine/portfolio_tracker.py` | TWR; 1D/1W/1M/3M/YTD/1Y/All returns; snapshot history; sector/asset allocation; **benchmark comparison** | live, no UI |
+| `engine/wheel_tracker.py` | position lifecycle (short put→assignment→covered call→exit); realized/unrealized P&L; roll suggestions; win rate | live, no UI |
+| `engine/performance_metrics.py` | Sharpe, Sortino, drawdown | live, no UI |
+| `engine_api.py` `GET /api/portfolio` | per-ticker portfolio report | live, **not wired to UI** |
+| `dashboard/` (Next.js 16, Recharts, Tailwind, shadcn/ui, SQLite+Drizzle) | the `(terminal)` route group (`/cockpit`, `/terminal`), a streaming chat panel, Ollama memos | live |
+
+So the analytics brain, the chart library, the API server, and page routing all
+exist. **D26 is wiring + a live data source — the same D24 IBKR snapshot.**
+
+### 6.2 Three layers
+
+1. **Visual layer** — a `/(terminal)/portfolio` page (sibling to `/cockpit`):
+   equity curve + period returns vs SPY; holdings table with the wheel state
+   machine (short-put / assigned-stock / covered-call); **premium-income view**
+   (the metric brokers can't show because they don't know it's a wheel);
+   sector/asset/currency allocation; realized P&L by name / week / month (the
+   exact views surfaced manually in the 2026-06-05 session).
+2. **Live risk overlay** — the same R7–R11 read from D24 (concentration vs
+   R9/R10 caps, margin stress, VaR/stress). A performance viewer that also shows
+   *where the book is about to hurt* — which no consumer platform does.
+3. **Conversational agent layer (BOTH, phased — per operator decision).**
+   Phase A: the Claude Code session is the query layer (the 2026-06-05 chat —
+   "deposits?", "trades this week", "GOOGL P&L", "MU assignment math" — is the
+   working prototype). Phase B: surface the same engine-backed query tools in the
+   dashboard's existing `chat-panel.tsx`, routing portfolio questions to the
+   trackers + IBKR snapshot in-app. Dashboard handles the ~10 standard views; the
+   agent handles the long tail.
+
+### 6.3 The novel, on-mission feature: closing the forecast→outcome loop
+
+PROJECT_STATE records finding **I1**: `ev_dollars` has ≈0 rank-correlation with
+realized P&L — the engine has never measured whether its *forecasts* pay off on
+live trades. If the viewer **tags each position with the engine's original EV
+verdict / prob_profit at entry**, it can finally compare forecast vs. realized
+outcome on the real book — a feedback signal no broker platform can produce, and
+a direct advance on the project's core open question.
+
+### 6.4 Honest gaps (scope this right)
+
+1. **Since-inception / money-weighted return needs the deposit ledger**, which
+   the IBKR *MCP* does not expose (confirmed in-session). Ingest the IBKR **Flex
+   `CashTransactions` export** as an on-disk artifact (same pattern as D24).
+   Until then: mark-to-market P&L, period returns from snapshot deltas, and
+   realized P&L from trades — but not a clean TWR/IRR since inception.
+2. **The equity curve needs history to accumulate** — one snapshot is a point.
+   Persist daily snapshots (a `portfolio_snapshots` table in the dashboard's
+   existing SQLite/Drizzle DB, or parquet on disk); starts thin, optionally
+   backfilled from trade history.
+3. **Multi-currency (USD + CAD)** needs the same explicit FX policy as D24.
+
+### 6.5 Architecture (reuses the D24 feed end-to-end)
+
+```
+IBKR (D24 snapshot JSON  +  Flex CashTransactions export)  ──▶  data_processed/ibkr/
+        │
+        ├─▶ portfolio_tracker / wheel_tracker / performance_metrics   (analytics)
+        ├─▶ portfolio_risk_gates  R7–R11                              (live risk overlay)
+        └─▶ portfolio_snapshots (accumulates → equity curve)
+                        │
+        engine_api:  /api/portfolio/{summary,positions,returns,income,risk,history}
+                        │
+        Next.js /(terminal)/portfolio  (Recharts)   +   chat-panel agent (NL queries)
+```
+
+### 6.6 Proposed `DECISIONS.md` D26 (DRAFT — not adopted)
+
+> **D26 — Read-only personal performance viewer. STATUS: PROPOSED, NOT ADOPTED.**
+>
+> **Decision (proposed).** Wire the existing `portfolio_tracker` /
+> `wheel_tracker` / `performance_metrics` analytics + the D24 IBKR snapshot into
+> new `engine_api` `/api/portfolio/*` endpoints and a `/(terminal)/portfolio`
+> Next.js surface, with a live R7–R11 risk overlay and a phased conversational
+> agent (Claude session now; in-dashboard `chat-panel` later). Read-only,
+> single-user, observational; no EV authority, no order routing. Optionally tags
+> positions with their entry-time EV verdict to measure forecast vs. realized
+> outcome (the I1 loop).
+>
+> **Why.** ~60–70% of it already exists unwired; it gives the operator the
+> real-portfolio view brokers give *plus* the engine's wheel-native income view,
+> live risk read, and forecast→outcome feedback — on the same IBKR feed D24
+> already introduces.
+>
+> **Rejected alternatives.** (1) *Use a third-party tracker (Sharesight/IBKR
+> PortfolioAnalyst)* — gives generic performance but no wheel-state, no premium
+> income, no R7–R11 overlay, no forecast→outcome loop; the differentiators are
+> exactly the engine-native parts. (2) *Recompute analytics in the React/TS
+> frontend* — rejected: shadows Python logic, drifts from the trackers; the
+> engine API stays the single source of truth. (3) *Block on a full
+> since-inception TWR* — rejected: ship mark-to-market + period + realized views
+> first; layer money-weighted return once the Flex `CashTransactions` ingest
+> lands.
+>
+> **Pinned by.** (planned) new `/api/portfolio/*` endpoint tests, a
+> `portfolio_snapshots` persistence test, a forecast-vs-outcome tagging test, and
+> a viewer-never-claims-EV-authority guard (the viewer is observational only).
+
+### 6.7 Scope note
+
+D26 never converts data into a tradeable verdict and never routes orders; it
+*reads* the book and *reports*. It is the descriptive complement to the engine's
+prescriptive ranker, and it must keep that line crisp: realized P&L (what
+happened) is displayed distinctly from `ev_dollars` (a forward tail-aware score
+that, per I1, does not forecast realized P&L).
 
 ---
 

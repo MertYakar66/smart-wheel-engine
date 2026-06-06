@@ -654,6 +654,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_credit_rating_population.py` | R0a regression guard — `analyze_ticker` populates `credit_rating` from the `get_credit_risk()` `sp_rating` key (not the raw `rtg_sp_lt_lc_issuer_credit` field). Pins the dead-read fix; documents the field is off the EV path. |
 | `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |

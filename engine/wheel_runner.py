@@ -500,7 +500,15 @@ class WheelRunner:
         # Credit risk
         credit = conn.get_credit_risk(ticker)
         if credit:
-            analysis.credit_rating = credit.get("rtg_sp_lt_lc_issuer_credit", "")
+            # get_credit_risk() returns the S&P rating under the friendly key
+            # "sp_rating" (it maps the raw Bloomberg field
+            # rtg_sp_lt_lc_issuer_credit -> sp_rating). Reading the raw field
+            # name here always missed -> credit_rating was silently "" for
+            # every ticker (dead read; sp500_credit_risk.csv wasted). This is
+            # off the EV-authoritative path: credit_rating feeds only the
+            # legacy heuristic _compute_wheel_score()/screen_candidates() and
+            # the memo / API display, never rank_candidates_by_ev / EVEngine.
+            analysis.credit_rating = credit.get("sp_rating", "")
 
         # --- Spot price (PIT + staleness gate; S33 audit holdover) ---
         ohlcv = conn.get_ohlcv(ticker)

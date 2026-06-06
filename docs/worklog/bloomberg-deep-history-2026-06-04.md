@@ -328,6 +328,34 @@ rate_3m/6m/2y/10y IDENTICAL to prior (max|diff|=0); curve monotonic up. SOFR sou
 SOFRRATE Index (SOFRINDX = compounding index level, wrong; SOFR Index = BAD_SEC).
 Commit `cf0cd75`.
 
+## 2026-06-05 — Phase 2: delisted-constituent price/vol backfill COMPLETE (survivorship)
+
+The big survivorship-completion pull. Driver `_delisted_universe.csv` (1,016 historical
+SPX members with no current OHLCV), windowed per-name `[first_in_index-1Q,
+last_in_index+1Q]` (cost-bounded ~5x vs full 1990-2026), PIT Bloomberg IDs (the
+numeric/`Q`/`Z` codes resolve to history). New `scripts/pull_delisted.py`
+(checkpoint+resume every 50 names; per-name try/except log+skip). Three deep panels on
+the buffer branch (schemas match the current-universe monoliths -> assemble cleanly):
+
+- `deep/sp500_ohlcv__delisted.csv.gz` — **2,383,622 rows, 1,015 names, 1990-01-02 →
+  2026-06-05, 32.5 MB**. Rotation-fixed map (PX_HIGH→open, PX_LAST→high, PX_LOW→low,
+  PX_OPEN→close). **Rotation gate 0 violations on 2,379,809 complete rows**; 51 bad
+  ticks dropped+audited (`ohlcv_dropped_ticks__delisted.csv`; 0.0021%, under the 0.5%
+  per-name valve).
+- `deep/sp500_vol_iv__delisted.csv.gz` — 2,408,183 rows, 1,016 names, 38.2 MB. Implied
+  IV 1.40M non-null (post-1994), realized vol 2.39M (incl. pre-1994 bonus).
+- `deep/sp500_liquidity__delisted.csv.gz` — 2,393,425 rows, 1,011 names, 23.0 MB.
+- `deep/delisted_status.csv` — per-name provenance. 0 no_data, 0 errors/skips. One name
+  (Office Depot `9995522D UN`) resolved vol_iv+liquidity but not OHLCV under that PIT code.
+
+Verification was paused after the first 50 (oldest leavers, all PIT IDs resolved,
+0 rotation violations) + a 6-name recent-delisting demo (Lehman last bar 2008-09-12 @
+$3.65) before the full run. Buffer SHA `e7818f4`. All three gz <100 MB → no sharding.
+**Drive mirror (rclone) still BLOCKED by the exfil classifier** — buffer branch is the
+durable store (operator can mirror later; command in the Google Drive section). These
+delisted panels + the current-universe monoliths/deep slices give survivorship-bias-free
+1990-2026 coverage.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]

@@ -292,6 +292,42 @@ audit notes: `sp500_vol_dvd.csv` is stale (2026-03-20) but superseded by vol_iv_
 Still genuinely DEFERRED (channel/entitlement, not Desktop-API): option chains (Theta),
 dealer GEX (BQL subscription), `borrow_rate_net` (not entitled), macro `importance` (BQL).
 
+## 2026-06-05 — Phase 1: survivorship membership + two cost-model gaps (COMPLETE)
+
+Data only, refresh branch. Smoke + gate each. **Phase 2 (delisted price pulls) NOT
+started** — `_delisted_universe.csv` is the list to review first.
+
+**A. Historical SPX membership** (`pull_index_membership.py`) — `sp500_index_membership.csv`
+overwritten. `bds(INDX_MWEIGHT_HIST, END_DATE_OVERRIDE=YYYYMMDD)` quarterly.
+**as_of floor = 1990-04-01** (verified: 1990-01-01 → 0 names, 1990-04-01 → 500;
+nothing 1986-1989). 72,696 rows, 145 snapshots 1990-04-01 → 2026-04-01, **1,523
+distinct names ever** (was 781), ~500/snapshot (499-506), 0 dup. `percentage_weight`
+stays the all-zeros sentinel — historical index weights NOT entitled (names+as_of
+are the value). Derived `data/bloomberg/_delisted_universe.csv` (NEW; drives Phase 2):
+**1,016 historical members with no OHLCV, all NAME-resolved** = 926 true delistings
+(root absent) + 90 relistings/code-changes of held names (e.g. WMT UN → now WMT UW).
+Famous delistings correct: Lehman 2008-07, Enron 2001-10, Bear Stearns 2008-04,
+Compaq 2002-04, Kodak 2010-10. Cols ticker,name,first_in_index,last_in_index,
+n_snapshots. Commit `82cb381`.
+
+**B. Underlying bid-ask** (`pull_bid_ask.py`) — `BID_ASK_SPREAD` is NOT a historical
+field at this tier (bdh/bdp empty), so spread is DERIVED from `PX_BID`/`PX_ASK`
+(daily, ~1990+). Written as a **sibling `sp500_bid_ask.csv`** (NOT a liquidity column)
+to keep the connector monolith clean (67MB) + avoid merge misalignment. 1,332,740
+rows, 503 names, 2015-01-02 → 2026-06-05, **90.3MB (<100MB)**. Schema date,ticker,
+px_bid,px_ask,bid_ask_spread,bid_ask_spread_bps. Gate: 0 dup; no all-NaN; spread_bps
+median 2.28 / p95 9.41 (AAPL 1.20, KO 2.01, NVDA 2.23 bps); 0 negative; 0.16%
+zero-spread + rare stale-quote outliers kept faithful. **Nearing 100MB → shard like
+vol_iv when it crosses.** Commit `574f543`.
+
+**C. Fuller rate curve** (`pull_treasury_yields.py`) — added rate_1m (USGG1M, 2001+),
+rate_5y (USGG5YR), rate_30y (USGG30YR), sofr (SOFRRATE Index, 2018-04+) →
+`treasury_yields.csv` now 8 tenors, 1994-01-03 → 2026-06-05, 8,458 rows, logical
+tenor order, PERCENT unchanged. Gate: every tenor max>1 (percent); existing
+rate_3m/6m/2y/10y IDENTICAL to prior (max|diff|=0); curve monotonic up. SOFR source =
+SOFRRATE Index (SOFRINDX = compounding index level, wrong; SOFR Index = BAD_SEC).
+Commit `cf0cd75`.
+
 ## The machinery
 
 `scripts/_bbg_panel.py` (NEW) — shared engine. Fills FORWARD gap [max+1 -> END]

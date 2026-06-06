@@ -49,9 +49,10 @@ merge / re-baseline / connector change.
 
 ## What didn't
 - **The "sector-cap source" fix is NOT a one-liner.** The ev_row `"sector"` tag
-  (`wheel_runner.py:1761`) deliberately uses the same hardcoded `DEFAULT_SECTOR_MAP`
-  as the R9/R10 gate, by documented design. Fixing the source means changing the
-  diagnostic AND the gate in lockstep — an R9/R10 firing change that needs a
+  (`wheel_runner.py:1769`, three sites) deliberately uses the same hardcoded
+  `DEFAULT_SECTOR_MAP` as the R9 sector-cap gate, by documented design (R10 keys
+  off ticker, not the sector map). Fixing the source means changing the
+  diagnostic AND the gate in lockstep — an R9 firing change that needs a
   re-baseline. That is the "consequential, touches the decision layer" class the
   task says to defer → planned (R0b), not executed.
 - **Can't run the regression suite to "measure" the data impact:** ~5h, the
@@ -61,9 +62,9 @@ merge / re-baseline / connector change.
   re-baseline signal instead.
 
 ## How we fixed it
-- Shipped **R0a** only: `wheel_runner.py:503` now reads `credit.get("sp_rating")`
+- Shipped **R0a** only: `wheel_runner.py:511` now reads `credit.get("sp_rating")`
   (the key the connector actually returns) instead of the raw Bloomberg field
-  name. Off the EV-authoritative path (legacy `_calculate_wheel_score` + memo/API
+  name. Off the EV-authoritative path (legacy `_compute_wheel_score` + memo/API
   display only) → §2-safe, no re-baseline.
 - Wrote `DATA_LAYER_ACTIVATION_ROADMAP.md` (verified inventory + R0–R7 prioritized
   roadmap with effort/risk/§2-touch/re-baseline per item + the R1 merge hazard)
@@ -80,6 +81,21 @@ merge / re-baseline / connector change.
   list, `assert_data_window_available` monolith-only, `ohlcv_sha256` OHLCV-only).
 - Ticker keys sampled live: delisted `0111145D UN`, membership
   `member_ticker_and_exchange_code=0111145D UN`, `percentage_weight≈-2.4e-14`.
+- Full suite (`pytest -m "not backtest_regression"`): **2804 passed, 12 skipped,
+  1 failed**. The one failure — `test_f4_rv_widening.py::...calm_regime_5_ticker_
+  smoke_preserves_main_baseline` (expects 5 rows, gets 4; JPM drops) — reproduces
+  **identically on pristine `origin/main` (efc491c)**, so it is **pre-existing**:
+  a date-sensitive no-`as_of` smoke that ages out as wall-clock (now 2026-06-06)
+  advances past the stale committed data (ends 2026-03-20) and JPM falls outside
+  the staleness window. NOT caused by R0a (which sets a string after candidate
+  selection and cannot change row count).
+- 7-agent adversarial verification (read-only, raw bytes + source): all 7
+  load-bearing claims reproduced. It caught + I corrected 4 accuracy items: the
+  heuristic is `_compute_wheel_score` (not `_calculate_wheel_score`); line refs
+  shifted +7 after the R0a comment edit (`:511`, sites `1769/2687/3304`); the
+  sector source drives **R9** only (R10 keys off ticker); and a plain 3-way merge
+  of the refresh branch would NOT auto-revert the engine (the hazard is adopting
+  its tree wholesale).
 
 ## Unresolved / handoff
 Awaiting operator greenlight on the consequential steps: R0b (sector source),

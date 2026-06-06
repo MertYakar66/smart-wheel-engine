@@ -93,12 +93,15 @@ Concatenating recent ∪ deep ∪ delisted per series (the design in
 | liquidity | **1994-01-03 → 2026-06-04** (2015 seam) | +1,011 dead names | ~5.77 M |
 | iv_surface (skew) | 2005-01-03 → 2026-06-04 (3 shards) | current names only | ~2.39 M |
 
-Ticker-key fact (verified on the bytes): delisted panels, the membership file,
-and `_delisted_universe.csv` **all key on the Bloomberg PIT code** (e.g.
-`0111145D UN`, `1323Q US`); `normalize_ticker` maps these to opaque-but-stable
-stubs (`0111145D`, `1323Q`) that join consistently across the three. Current
-names use the real-symbol form (`A UN → A`). The only collision risk is the
-~90 relistings/code-changes of *held* names — bounded by concat precedence
+Ticker-key fact (verified on the bytes): delisted names key on their **Bloomberg
+code + exchange suffix** — a digit-leading PIT code for ~368 of them
+(`0111145D UN`, `1323Q US`) and an ordinary symbol for the rest (`NKE US`,
+`MRO US`) — and that key is **consistent across the delisted panels, the
+membership file, and `_delisted_universe.csv`** (the panels carry a trailing
+` Equity` that `normalize_ticker` strips; the others don't). `normalize_ticker`
+maps each to a stable stub (`0111145D`, `1323Q`, `NKE`) that joins across the
+three. Current names use the same real-symbol form (`A UN → A`). The only
+collision risk is the ~90 relistings/code-changes of *held* names — bounded by concat precedence
 (see design §A4).
 
 ### 1d. Anomalies carried from / confirmed against the 2026-06-05 QA
@@ -120,9 +123,9 @@ Legend — **Effort:** S(≤½d) / M(1–2d) / L(3d+). **Risk:** low / med / hig
 
 | # | Item | Effort | Risk | §2-touch | Re-baseline? |
 |---|---|:--:|:--:|---|:--:|
-| **R0a** | **Fix credit-rating dead-read** (`wheel_runner.py:503`) — DONE on this branch | S | low | trio file, but **off the EV path** (legacy `_calculate_wheel_score` + memo/API only) | no |
-| **R0b** | **Fix sector-cap source** (route R9/R10 gate + ev_row tag to real `gics_sector_name`) — **PLANNED, not done** | S–M | **med** | **R9/R10 gate behaviour** — moves which names the sector cap aggregates/blocks | **yes** |
-| **R1** | **Data-only merge** of refresh `data/` into `main` (NEVER the branch whole — it reverts the engine) + re-baseline S27/S32/S34/S35 | M | high | data bytes feed the ranker | **yes** |
+| **R0a** | **Fix credit-rating dead-read** (`wheel_runner.py:511`) — DONE on this branch | S | low | trio file, but **off the EV path** (legacy `_compute_wheel_score` + memo/API only) | no |
+| **R0b** | **Fix sector-cap source** (route R9 sector-cap gate + 3 ev_row tags to real `gics_sector_name`) — **PLANNED, not done** | S–M | **med** | **R9 sector-cap gate behaviour** — moves which names the sector cap aggregates/blocks (R10 keys off ticker, unaffected) | **yes** |
+| **R1** | **Data-only merge** of refresh `data/` into `main` (NEVER adopt its engine tree — it's behind main) + re-baseline S27/S32/S34/S35 | M | high | data bytes feed the ranker | **yes** |
 | **R2** | **Connector deep-read path** — assemble monolith ∪ deep ∪ delisted in `_load` (design doc) | L | high | feeds `EVEngine.evaluate` inputs (longer/wider history); trio untouched | **yes** |
 | **R3** | **Survivorship-aware backtest harness** — PIT universe from membership; read current-or-delisted names | M | med | `backtests/` only; routes through `rank_candidates_by_ev` (§2-clean) | n/a (new harness) |
 | **R4** | **Theta option chains into the cost model** — real bid/ask/mid where available, BSM(iv)+`bid_ask`/`iv_surface` fallback | L | high | `wheel_runner` premium sourcing → `EVEngine` inputs (downgrade-only contract preserved) | **yes** |
@@ -150,10 +153,21 @@ commit, per `git log --grep "^audit"` discipline.
 
 ### The R1 merge hazard (load-bearing)
 
-`git diff main…data/bloomberg-refresh-2026-06-02` **reverts** `engine/ev_engine.py`
-(−50), `engine/wheel_runner.py` (−118), `engine_api.py` (−395) and many
-launch-campaign tests — the branch predates them. **Do not merge it whole.**
-Bring over **`data/` only** (new branch off `main`:
+The refresh branch is **behind `main`** on the engine: its
+`engine/ev_engine.py` / `engine/wheel_runner.py` / `engine_api.py` are
+byte-identical to the merge-base (`0a9c17c`, PR #320, 2026-06-02), which
+**predates** the 2026-06-03 launch campaign. Mechanism precision (verified):
+
+- A plain 3-way `git merge origin/data/bloomberg-refresh-2026-06-02` into `main`
+  would **NOT** revert those files — refresh didn't touch them, so the merge keeps
+  main's newer side (no conflict, no rollback). The requested three-dot diff
+  `git diff main…refresh -- engine/…` is in fact **empty** for them.
+- The hazard is **adopting refresh's tree wholesale** — `git checkout refresh --
+  engine/`, or treating the branch as source-of-truth. That deletes **488 lines**
+  (`engine_api.py` −395, `wheel_runner.py` −118, `ev_engine.py` −50; the two-dot
+  `main` vs `refresh` delta).
+
+**So: take `data/` only**, never its engine files (new branch off `main`:
 `git checkout origin/data/bloomberg-refresh-2026-06-02 -- data/bloomberg`,
 verify with `scripts/check_manifest_coverage.py`). The deep gz live on the
 buffer branch `deep-history/bloomberg-raw` and need an assembly/loader step
@@ -169,7 +183,7 @@ decision-layer trio (`ev_engine`, `wheel_runner`, `candidate_dossier`) is not
 restructured; it simply receives longer series. R4 prefers a real Theta mid in
 the cost model but never converts a negative-EV candidate to tradeable
 (reviewers stay downgrade-only; the dealer clamp `[0.70,1.05]` is untouched).
-R0b changes an R9/R10 *downgrade-only* soft-warn input, never a rescue.
+R0b changes the **R9** sector-cap *downgrade-only* soft-warn input, never a rescue.
 
 ## 4. What is done on this branch vs. awaiting review
 

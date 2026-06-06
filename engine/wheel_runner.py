@@ -506,7 +506,7 @@ class WheelRunner:
             # name here always missed -> credit_rating was silently "" for
             # every ticker (dead read; sp500_credit_risk.csv wasted). This is
             # off the EV-authoritative path: credit_rating feeds only the
-            # legacy heuristic _calculate_wheel_score()/screen_candidates() and
+            # legacy heuristic _compute_wheel_score()/screen_candidates() and
             # the memo / API display, never rank_candidates_by_ev / EVEngine.
             analysis.credit_rating = credit.get("sp_rating", "")
 

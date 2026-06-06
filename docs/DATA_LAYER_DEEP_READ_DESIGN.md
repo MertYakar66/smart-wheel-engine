@@ -201,7 +201,7 @@ universe is the right set, but flag the coverage taper in any early-era result.
 ### C1. Today
 
 `rank_candidates_by_ev` **synthesizes the premium** via BSM:
-`wheel_runner.py:1291` — *"Synthetic fair-value premium (mid). Real chains will
+`wheel_runner.py:1298` — *"Synthetic fair-value premium (mid). Real chains will
 differ."* A chain (`conn.get_option_chain` / `conn.get_options`, when present) is
 used **only** for open-interest lookup + the chain-quality gate, not for the
 premium. `engine/theta_connector.py` exists (v3 REST, `_normalise_theta_symbol`).
@@ -241,13 +241,13 @@ tier 1.
 
 `engine/data_connector.py.get_credit_risk()` returns the S&P rating under the
 friendly key **`sp_rating`** (it maps raw `rtg_sp_lt_lc_issuer_credit →
-sp_rating`). `wheel_runner.py:503` read the **raw** name → always missed →
+sp_rating`). `wheel_runner.py:511` read the **raw** name → always missed →
 `credit_rating` was silently `""` for every ticker (`sp500_credit_risk.csv`
 wasted). Fixed to `credit.get("sp_rating", "")`.
 
 **§2 / re-baseline:** safe, no re-baseline. `credit_rating` flows only into the
-**legacy heuristic** `_calculate_wheel_score()` (`fund_score += 10` for A/B
-ratings) — used by `screen_candidates()` (engine_api `/screen` + the module
+**legacy heuristic** `_compute_wheel_score()` (`fund_score += 10` for A/B
+ratings, the sole computational read) — used by `screen_candidates()` (engine_api `/screen` + the module
 demo), **never** `rank_candidates_by_ev` / `EVEngine` — plus the memo
 (`trade_memo.py:482`) and API (`engine_api.py:976`) display. The four regression
 snapshots are driven by the EV path, so they don't move. (It *does* change the
@@ -260,20 +260,22 @@ The audit asks to source sectors from the pulled `gics_sector_name` instead of
 the hardcoded `DEFAULT_SECTOR_MAP` (`risk_manager.py:1579`), so names absent from
 the map stop collapsing into one `"Unknown"` bucket. **This is not a one-liner**:
 
-- `wheel_runner.py:1761/2679/3296` tag each ev_row `"sector"` via
+- `wheel_runner.py:1769/2687/3304` tag each ev_row `"sector"` (three sites) via
   `DEFAULT_SECTOR_MAP` **deliberately**, with a comment that it must match *"the
   SAME source the sector_cap gate uses"* (`SectorExposureManager`). So the
-  diagnostic and the **R9/R10 gate** must change **in lockstep** — otherwise the
-  shown label diverges from the gated label.
+  diagnostic and the **R9 sector-cap gate** must change **in lockstep** —
+  otherwise the shown label diverges from the gated label. (R10, the single-name
+  cap, keys off ticker-symbol equality, **not** the sector map, so it is
+  unaffected by the sector source.)
 - The connector already has the truth (`get_fundamentals → gics_sector_name`;
   `analyze_ticker` already loads it into `analysis.sector`). The fix routes the
-  R9/R10 `SectorExposureManager` (via
+  **R9** `SectorExposureManager` (via
   `portfolio_risk_gates.check_sector_cap`) to a connector-backed sector lookup,
-  and points the ev_row tag at the same source.
-- **§2:** R9/R10 are downgrade-only soft-warns (and dormant by default — the
-  caps are armed on no default path today, per `PROJECT_STATE.md` §3). Changing
-  the sector source can only change *which* candidates the cap downgrades/blocks
-  when armed — never a rescue — but it **does move R9/R10 firing → re-baseline**,
+  and points all three ev_row tags at the same source.
+- **§2:** R9 (and R10) are downgrade-only soft-warns, and dormant by default —
+  the caps are armed on no default path today, per `PROJECT_STATE.md` §3. Changing
+  the sector source can only change *which* candidates the **R9** cap downgrades/blocks
+  when armed — never a rescue — but it **does move R9 firing → re-baseline**,
   which is exactly the "consequential, touches the decision layer" class STEP 3
   defers. Recommend folding R0b's re-baseline into R1's single tagged re-baseline.
 

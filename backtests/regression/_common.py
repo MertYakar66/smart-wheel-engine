@@ -96,6 +96,8 @@ def friction_assignment_cost(strike: float, contracts: int, friction_level: str)
 # ---------------------------------------------------------------------------
 
 _OHLCV_PATH = Path("data/bloomberg/sp500_ohlcv.csv")
+_VOL_IV_PATH = Path("data/bloomberg/sp500_vol_iv_full.csv")
+_TREASURY_PATH = Path("data/bloomberg/treasury_yields.csv")
 _REFRESH_COMMAND = "python scripts/pull_ohlcv.py  # first edit hardcoded end_date"
 
 
@@ -120,15 +122,34 @@ def assert_data_window_available(start: str, end: str, ohlcv_path: Path | None =
         )
 
 
-def ohlcv_sha256(ohlcv_path: Path | None = None) -> str:
-    """SHA-256 of the OHLCV CSV — pinned in snapshot fingerprints so a
-    CSV refresh forces an explicit re-baseline."""
-    path = ohlcv_path or _OHLCV_PATH
+def _file_sha256(path: Path) -> str:
+    """SHA-256 of a file, streamed in 1 MB chunks."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def ohlcv_sha256(ohlcv_path: Path | None = None) -> str:
+    """SHA-256 of the OHLCV CSV — pinned in snapshot fingerprints so a
+    CSV refresh forces an explicit re-baseline."""
+    return _file_sha256(ohlcv_path or _OHLCV_PATH)
+
+
+def vol_iv_sha256(path: Path | None = None) -> str:
+    """SHA-256 of the vol/IV CSV. Pinned alongside the OHLCV hash so a vol_iv
+    refresh also trips the re-baseline guard — it feeds the EV path (IV rank /
+    VRP / BSM premium) but was previously unfingerprinted (the blind-spot the
+    2026-06-05 data-layer QA flagged: the fingerprint pinned OHLCV only)."""
+    return _file_sha256(path or _VOL_IV_PATH)
+
+
+def treasury_sha256(path: Path | None = None) -> str:
+    """SHA-256 of the treasury-yields CSV (risk-free curve). Pinned for the same
+    reason as vol_iv: it feeds the backtests' rate-dependent math and was
+    previously unfingerprinted."""
+    return _file_sha256(path or _TREASURY_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +589,8 @@ def run_backtest(
         "delta_target": delta_target,
         "contracts": contracts,
         "data_csv_sha256": ohlcv_sha256(),
+        "vol_iv_sha256": vol_iv_sha256(),
+        "treasury_sha256": treasury_sha256(),
         "generated_at": datetime.now(UTC).isoformat(),
     }
 
@@ -917,6 +940,8 @@ def run_backtest_multi_friction(
             "delta_target": delta_target,
             "contracts": contracts,
             "data_csv_sha256": ohlcv_sha256(),
+            "vol_iv_sha256": vol_iv_sha256(),
+            "treasury_sha256": treasury_sha256(),
             "generated_at": datetime.now(UTC).isoformat(),
         }
 

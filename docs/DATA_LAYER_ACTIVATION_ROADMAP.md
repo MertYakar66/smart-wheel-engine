@@ -1,13 +1,15 @@
 # Data-Layer Activation Roadmap — survivorship-free 1990–2026 → live engine
 
 > **Status: PLAN (2026-06-05).** This is the deliverable of STEP 2 of the
-> data-layer activation task. The *safe prep* (verified inventory below, the
-> credit-rating code fix, and the companion design doc) is done on this branch;
-> the **consequential steps — the data merge, the snapshot re-baseline, and the
-> connector deep-read itself — are NOT executed here.** They are scoped below
-> and await operator review. Nothing in `engine/ev_engine.py`,
-> `engine/wheel_runner.py` (beyond the one diagnostic fix in R0), or
-> `engine/candidate_dossier.py` is changed by the executed work.
+> data-layer activation task. **This branch is DOCS-ONLY** (the verified
+> inventory below + the companion design doc + this roadmap); the R0a
+> credit-rating code fix ships separately as **PR #333**
+> (`claude/fix-credit-rating-deadread`) so this PR carries no decision-layer
+> edit. The **consequential steps — the data merge, the snapshot re-baseline,
+> and the connector deep-read itself — are NOT executed here.** They are scoped
+> below and await operator review. Nothing in `engine/ev_engine.py`,
+> `engine/wheel_runner.py`, or `engine/candidate_dossier.py` is changed by this
+> docs-only branch.
 
 ## 0. The one-paragraph problem
 
@@ -123,7 +125,7 @@ Legend — **Effort:** S(≤½d) / M(1–2d) / L(3d+). **Risk:** low / med / hig
 
 | # | Item | Effort | Risk | §2-touch | Re-baseline? |
 |---|---|:--:|:--:|---|:--:|
-| **R0a** | **Fix credit-rating dead-read** (`wheel_runner.py:511`) — DONE on this branch | S | low | trio file, but **off the EV path** (legacy `_compute_wheel_score` + memo/API only) | no |
+| **R0a** | **Fix credit-rating dead-read** (`wheel_runner.py:511`) — DONE, shipped as **PR #333** (`claude/fix-credit-rating-deadread`, not this branch) | S | low | trio file, but **off the EV path** (legacy `_compute_wheel_score` + memo/API only) | no |
 | **R0b** | **Fix sector-cap source** (route R9 sector-cap gate + 3 ev_row tags to real `gics_sector_name`) — **PLANNED, not done** | S–M | **med** | **R9 sector-cap gate behaviour** — moves which names the sector cap aggregates/blocks (R10 keys off ticker, unaffected) | **yes** |
 | **R1** | **Data-only merge** of refresh `data/` into `main` (NEVER adopt its engine tree — it's behind main) + re-baseline S27/S32/S34/S35 | M | high | data bytes feed the ranker | **yes** |
 | **R2** | **Connector deep-read path** — assemble monolith ∪ deep ∪ delisted in `_load` (design doc) | L | high | feeds `EVEngine.evaluate` inputs (longer/wider history); trio untouched | **yes** |
@@ -187,7 +189,8 @@ R0b changes the **R9** sector-cap *downgrade-only* soft-warn input, never a resc
 
 ## 4. What is done on this branch vs. awaiting review
 
-**Done (safe prep):** the verified inventory above; R0a (credit-rating fix); the
+**Done (safe prep):** the verified inventory above; R0a (credit-rating fix —
+shipped as PR #333, not this docs-only branch); the
 design doc `docs/DATA_LAYER_DEEP_READ_DESIGN.md`; this roadmap; the worklog
 fragment. **Awaiting operator greenlight:** R0b, R1, R2, R3, R4, R5, R6, R7 —
 i.e. every consequential / decision-layer-touching step.

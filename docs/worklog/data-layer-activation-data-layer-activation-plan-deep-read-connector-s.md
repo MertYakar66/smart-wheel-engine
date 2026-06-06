@@ -62,9 +62,10 @@ merge / re-baseline / connector change.
   re-baseline signal instead.
 
 ## How we fixed it
-- Shipped **R0a** only: `wheel_runner.py:511` now reads `credit.get("sp_rating")`
-  (the key the connector actually returns) instead of the raw Bloomberg field
-  name. Off the EV-authoritative path (legacy `_compute_wheel_score` + memo/API
+- Shipped **R0a** as its own PR #333 (`claude/fix-credit-rating-deadread`, split
+  out so this branch is docs-only): `wheel_runner.py:511` now reads
+  `credit.get("sp_rating")` (the key the connector actually returns) instead of
+  the raw Bloomberg field name. Off the EV-authoritative path (legacy `_compute_wheel_score` + memo/API
   display only) → §2-safe, no re-baseline.
 - Wrote `DATA_LAYER_ACTIVATION_ROADMAP.md` (verified inventory + R0–R7 prioritized
   roadmap with effort/risk/§2-touch/re-baseline per item + the R1 merge hazard)

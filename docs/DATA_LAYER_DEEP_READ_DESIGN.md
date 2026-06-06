@@ -237,13 +237,15 @@ tier 1.
 
 ## Part D — The two audit code fixes
 
-### D1. Credit-rating dead-read — **DONE (R0a)**
+### D1. Credit-rating dead-read — **DONE (R0a — PR #333)**
 
 `engine/data_connector.py.get_credit_risk()` returns the S&P rating under the
 friendly key **`sp_rating`** (it maps raw `rtg_sp_lt_lc_issuer_credit →
 sp_rating`). `wheel_runner.py:511` read the **raw** name → always missed →
 `credit_rating` was silently `""` for every ticker (`sp500_credit_risk.csv`
-wasted). Fixed to `credit.get("sp_rating", "")`.
+wasted). Fixed to `credit.get("sp_rating", "")` — shipped in **PR #333**
+(`claude/fix-credit-rating-deadread`) with a regression test, **not** on this
+docs-only branch.
 
 **§2 / re-baseline:** safe, no re-baseline. `credit_rating` flows only into the
 **legacy heuristic** `_compute_wheel_score()` (`fund_score += 10` for A/B

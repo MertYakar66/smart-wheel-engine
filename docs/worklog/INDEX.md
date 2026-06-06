@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**91 records.**
+**94 records.**
 
 ## Features (7)
 
@@ -23,7 +23,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
 | [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |
 
-## Fixes (7)
+## Fixes (8)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -36,7 +36,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [prob-profit-ci-tier-gate](prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md) | in-flight |  | prob_profit's Wilson CI is now emitted only on the IID empirical_non_overlapping forward tier; suppressed (null) on the overlapping/bootstrap/har_rv/lognormal tiers where N is not an independent-trial count and the interval would be false precision. | `prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md` |
 | [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |
 
-## Backtests (22)
+## Backtests (23)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -52,6 +52,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_S41_F4_FIX_VALIDATION](../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md) | legacy |  | Engine backtest — S41: F4 fix validation (post-#260) | `../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` |
 | [ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW](../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md) | legacy |  | Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27) | `../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` |
 | [ENGINE_BACKTEST_S44_S38_POSTF4_RERUN](../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md) | legacy |  | Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28) | `../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
+| [r1-data-refresh-rebaseline](r1-data-refresh-rebaseline-r1-bloomberg-data-refresh-s27-s32-s34-s35-re-bas.md) | completed |  | R1 = data-only refresh (Option B, 16 monoliths; sp500_dividends.csv held at main to avoid a source regression) + S27/S32/S34/S35 re-baseline, deep-read OFF; in-window EV-path movers are treasury_yields.csv (dominant; corrects wrong/missing main rates) + sp500_fundamentals.csv eqy_dvd_yld_12m (BSM dividend_yield, small/pervasive), plus S34's UNIVERSE_100 swap; ohlcv + vol_iv byte-identical in-window; trio byte-identical. | `r1-data-refresh-rebaseline-r1-bloomberg-data-refresh-s27-s32-s34-s35-re-bas.md` |
 | [r11-dollar-impact](r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md) | complete |  | R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but its WHOLE-BOOK impact is statistically indistinguishable from zero over both windows (paired daily-return \|t\|<0.7; point Δ W3 2020-2024 −$37.6k, W4 2021-2025 +$21.7k), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. Net read: the I11 justification was overstated; R11 doesn't measurably help the book, isn't shown to hurt it, and is real but narrow 2022 tail insurance. | `r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md` |
 | [rebaseline-backtest-snapshots-2026-06-02](rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md) | in-flight |  | Re-pin the 4 backtest_regression snapshots to the deterministic _common @main output; drift attributed (s35←#260 F4 widening, s27/s32/s34←D20 rate) — benign merged fixes, not regressions. | `rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md` |
 | [S22](s22-roll-defense-economics-itm-short-put-with-7-dte.md) | completed |  | Roll defense economics (ITM short put with ≤7 DTE) | `s22-roll-defense-economics-itm-short-put-with-7-dte.md` |

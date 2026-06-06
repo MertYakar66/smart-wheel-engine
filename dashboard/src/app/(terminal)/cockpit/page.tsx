@@ -109,6 +109,10 @@ export default function CockpitPage() {
           <nav className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wider">
             <span className="text-terminal-amber">Cockpit</span>
             <span className="text-terminal-dim">·</span>
+            <Link href="/portfolio" className="text-terminal-dim hover:text-terminal-text">
+              Portfolio
+            </Link>
+            <span className="text-terminal-dim">·</span>
             <Link href="/terminal" className="text-terminal-dim hover:text-terminal-text">
               Terminal
             </Link>

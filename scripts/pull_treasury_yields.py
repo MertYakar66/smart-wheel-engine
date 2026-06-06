@@ -10,10 +10,14 @@ Schema preserved EXACTLY (no extra columns, same order):
   date,rate_3m,rate_6m,rate_2y,rate_10y
 
 Tenor -> BBG ticker; field PX_LAST returns the yield ALREADY IN PERCENT:
+  rate_1m  <- USGG1M Index    (hist floor ~2001)
   rate_3m  <- USGG3M Index
   rate_6m  <- USGG6M Index
   rate_2y  <- USGG2YR Index
+  rate_5y  <- USGG5YR Index
   rate_10y <- USGG10YR Index
+  rate_30y <- USGG30YR Index
+  sofr     <- SOFRRATE Index  (Secured Overnight Financing Rate, %, floor 2018-04)
 
 SCALE (load-bearing, D20): PX_LAST is already PERCENT (e.g. 5.2 == 5.2%). Write
 it through UNCHANGED -- do NOT divide by 100 / convert to decimal; the connector
@@ -45,12 +49,16 @@ for _s in (sys.stdout, sys.stderr):
 DATA = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg")
 OUT = os.path.join(DATA, "treasury_yields.csv")
 
-# output column -> BBG ticker (order is the committed column order)
+# output column -> BBG ticker (order is the committed column order: logical tenor order)
 TREASURY_MAP = {
+    "rate_1m": "USGG1M Index",
     "rate_3m": "USGG3M Index",
     "rate_6m": "USGG6M Index",
     "rate_2y": "USGG2YR Index",
+    "rate_5y": "USGG5YR Index",
     "rate_10y": "USGG10YR Index",
+    "rate_30y": "USGG30YR Index",
+    "sofr": "SOFRRATE Index",
 }
 OUT_COLS = ["date"] + list(TREASURY_MAP)
 

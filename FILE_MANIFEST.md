@@ -117,6 +117,7 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `backtests/__init__.py` | Re-exports the simulator and walk-forward classes. |
 | `backtests/simulator.py` | `WheelBacktester` — a simplified placeholder backtester (constant-IV approximation). |
 | `backtests/walk_forward.py` | Walk-forward validation framework (anchored / rolling / purged k-fold, parameter-stability analysis, out-of-sample tracking). |
+| `backtests/survivorship.py` | R3 survivorship-aware harness — PIT universe via `consolidated_loader.get_universe_as_of` (membership presence; `min_weight` is the dead all-zeros sentinel), a `deep_history=True` connector, delisting-aware `terminal_spot` (last close on/before expiry, else 0 — never NaN-drop), and `run_survivorship_backtest` routing 100% through `rank_candidates_by_ev`. Not on the decision-layer path. |
 | `backtests/.gitkeep` | Directory placeholder. |
 
 ## `backtests/regression/` — backtest regression harness
@@ -655,6 +656,8 @@ See `DECISIONS.md` D2 for `src/`'s status.
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
 | `tests/test_deep_read_connector.py` | R2 deep-read connector tests — flag plumbing (default-OFF, `SWE_DEEP_HISTORY`), graceful degrade when deep slices absent (ON==OFF), and (local-only, gated on `SWE_DEEP_TEST_DATA`) assembly reaches 1994, default-OFF ignores deep when present, delisted Lehman returns its last bar, rotation invariant post-assembly, schema parity. |
+| `tests/test_survivorship_harness.py` | R3 survivorship harness tests (gated on `SWE_DEEP_TEST_DATA`) — PIT 2008 universe includes Lehman/WaMu + excludes post-2008 names + size ~500; `terminal_spot` delisting-aware; the `assert_data_window_available` deep-floor extension accepts a pre-2018 start. |
+| `tests/test_survivorship_r6_lehman.py` | R6 survivorship proof (gated on `SWE_DEEP_TEST_DATA`) — a 2008 deep-history backtest where Lehman (LEHMQ) flows through the EV ranker and its post-delisting put loss is realized (non-NaN, < -$500), not silently dropped. |
 | `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |

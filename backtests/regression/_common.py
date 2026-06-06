@@ -99,11 +99,25 @@ _OHLCV_PATH = Path("data/bloomberg/sp500_ohlcv.csv")
 _REFRESH_COMMAND = "python scripts/pull_ohlcv.py  # first edit hardcoded end_date"
 
 
-def assert_data_window_available(start: str, end: str, ohlcv_path: Path | None = None) -> None:
-    """Raise if the Bloomberg OHLCV CSV doesn't cover ``[start, end]``.
+def assert_data_window_available(
+    start: str,
+    end: str,
+    ohlcv_path: Path | None = None,
+    *,
+    extra_floor_paths: list[Path] | None = None,
+) -> None:
+    """Raise if the Bloomberg OHLCV data doesn't cover ``[start, end]``.
 
     Caller passes ISO date strings. Reads only the ``date`` column for
     head/tail efficiency on the 59 MB file.
+
+    ``extra_floor_paths`` (R3): additional OHLCV files (e.g. the deep +
+    delisted gz slices) whose earliest date EXTENDS the available floor. When a
+    deep-history backtest runs, the connector assembles monolith ∪ deep ∪
+    delisted, so the real floor is 1994/1990, not the monolith's 2018 — pass the
+    deep slice paths here so the assertion reflects the ASSEMBLED span instead of
+    rejecting every pre-2018 start. Default ``None`` preserves the exact
+    monolith-only behaviour the regression backtests rely on.
     """
     path = ohlcv_path or _OHLCV_PATH
     if not path.exists():
@@ -112,10 +126,18 @@ def assert_data_window_available(start: str, end: str, ohlcv_path: Path | None =
         )
     dates = pd.read_csv(path, usecols=["date"], parse_dates=["date"])["date"]
     earliest, latest = dates.min().date(), dates.max().date()
+    for fp in extra_floor_paths or []:
+        fp = Path(fp)
+        if not fp.exists():
+            continue
+        comp = "gzip" if fp.suffix == ".gz" else None
+        d = pd.read_csv(fp, usecols=["date"], parse_dates=["date"], compression=comp)["date"]
+        if not d.empty:
+            earliest = min(earliest, d.min().date())
     req_start, req_end = date.fromisoformat(start), date.fromisoformat(end)
     if req_start < earliest or req_end > latest:
         raise RuntimeError(
-            f"OHLCV CSV covers {earliest} → {latest}; backtest needs {req_start} → {req_end}. "
+            f"OHLCV data covers {earliest} → {latest}; backtest needs {req_start} → {req_end}. "
             f"Refresh: {_REFRESH_COMMAND}"
         )
 

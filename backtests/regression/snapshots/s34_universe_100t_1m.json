@@ -388,6 +388,8 @@
     "delta_target": 0.25,
     "contracts": 1,
     "data_csv_sha256": "c3d5443158b12ec5309a08111cdbeae6610baea78c39e676ef109b571c5edfb1",
+    "vol_iv_sha256": "a64b747d81eb68da24f904741610ba517088dfaec00d7d999962c779bc08f1d1",
+    "treasury_sha256": "a76a3ef85fa60ef936ce145caa35e075bbc8c8510aa98e9528a8e51aaa9ecfc5",
     "generated_at": "2026-06-02T21:13:31.514674+00:00"
   }
 }

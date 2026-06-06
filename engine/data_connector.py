@@ -112,6 +112,19 @@ class MarketDataConnector:
         ),
     }
 
+    # Deep-IV sentinel floor (R7). The deep vol_iv panels carry a corrupt
+    # implied-vol sentinel of magnitude ~134217.7 (≈ 2**27/1000), confined to
+    # 1994-95 + a few delisted names (the 2026-06-05 QA's CONCERN-2). Left in, it
+    # poisons IV-rank / z-score / VRP. On the assembled (deep) vol_iv read we NULL
+    # ``hist_put_imp_vol`` / ``hist_call_imp_vol`` ABOVE this floor (keeping the
+    # row — realized-vol columns may still be valid). The floor is set at 10000
+    # (10,000% implied vol — physically absurd), NOT the ~500% the early design
+    # note suggested: inspecting the delisted panel on the bytes showed real
+    # distressed-name implied vols of 500-1196% that a 500 cut would wrongly
+    # discard, while the sentinel sits alone at ~134217.7 with a clean gap below.
+    _DEEP_IV_SENTINEL_FLOOR: float = 10_000.0
+    _DEEP_IV_COLS: tuple[str, ...] = ("hist_put_imp_vol", "hist_call_imp_vol")
+
     def __init__(
         self, data_dir: str = "data/bloomberg", *, deep_history: bool | None = None
     ) -> None:
@@ -256,6 +269,15 @@ class MarketDataConnector:
         ):
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce")
+
+        # R7: null the deep-IV sentinel (~134217.7) in the implied-vol columns,
+        # keeping the row. Only on the assembled vol_iv read; the OFF/monolith
+        # path is untouched.
+        if key == "vol_iv":
+            for col in self._DEEP_IV_COLS:
+                if col in df.columns:
+                    numeric = pd.to_numeric(df[col], errors="coerce")
+                    df[col] = numeric.where(numeric <= self._DEEP_IV_SENTINEL_FLOOR)
 
         # Dedup keep-first (precedence = concat order = recent > deep > delisted)
         # then sort. Guards the ~90 relisted held names so their stale delisted

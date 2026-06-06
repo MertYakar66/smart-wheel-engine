@@ -654,6 +654,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_deep_read_connector.py` | R2 deep-read connector tests — flag plumbing (default-OFF, `SWE_DEEP_HISTORY`), graceful degrade when deep slices absent (ON==OFF), and (local-only, gated on `SWE_DEEP_TEST_DATA`) assembly reaches 1994, default-OFF ignores deep when present, delisted Lehman returns its last bar, rotation invariant post-assembly, schema parity. |
 | `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |

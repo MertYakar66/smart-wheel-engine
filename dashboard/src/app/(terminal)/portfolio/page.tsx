@@ -5,7 +5,7 @@
 // the /api/portfolio/* endpoints + IBKR snapshot feed land in the functionality
 // round. Read-only, observational — no EV authority, no order routing.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Allocation } from "@/components/portfolio/allocation";
@@ -22,13 +22,21 @@ const SUBNAV = ["Overview", "Holdings", "Income", "Risk", "Ask"];
 
 export default function PortfolioPage() {
   const [period, setPeriod] = useState<Period>("YTD");
-
-  const asOf = new Date(ACCOUNT.asOf).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  // Format the snapshot time CLIENT-SIDE only — toLocaleString is timezone-
+  // dependent, so doing it during render would differ between the server (UTC)
+  // and the browser (local tz) and trip a hydration mismatch. Same pattern the
+  // cockpit uses for staleDays.
+  const [asOf, setAsOf] = useState<string>("");
+  useEffect(() => {
+    setAsOf(
+      new Date(ACCOUNT.asOf).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    );
+  }, []);
 
   return (
     <div className="min-h-screen overflow-y-auto bg-pf-bg font-sans text-terminal-text">
@@ -50,7 +58,7 @@ export default function PortfolioPage() {
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-terminal-dim">
             <span className="h-1.5 w-1.5 rounded-full bg-pf-ok" />
-            as of {asOf}
+            as of {asOf || "…"}
           </div>
         </div>
 

@@ -94,10 +94,11 @@ export const HOLDINGS: Holding[] = [
   { sym: "CNQ", name: "Canadian Natural Res.", state: "assigned", qty: 100, mark: 45.8, mktValue: 4580, uPnl: -142, pctNav: 3, breach: false, sector: "Energy", currency: "CAD" },
 ];
 
+// Hex (not CSS vars) so the badge can append an alpha suffix for the tint.
 export const WHEEL_LABEL: Record<WheelState, { full: string; short: string; color: string }> = {
-  csp: { full: "Cash-Secured Put", short: "CSP", color: "var(--color-pf-csp)" },
-  assigned: { full: "Assigned Stock", short: "ASSIGNED", color: "var(--color-pf-assigned)" },
-  cc: { full: "Covered Call", short: "COV CALL", color: "var(--color-pf-cc)" },
+  csp: { full: "Cash-Secured Put", short: "CSP", color: "#56b6f5" },
+  assigned: { full: "Assigned Stock", short: "ASSIGNED", color: "#b79cfb" },
+  cc: { full: "Covered Call", short: "COV CALL", color: "#f5b544" },
 };
 
 // Allocation donut — share of gross exposure by sector.

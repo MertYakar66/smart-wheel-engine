@@ -10,7 +10,7 @@ date: 2026-06-06
 headline: R1 = data-only refresh (Option B, 16 monoliths; sp500_dividends.csv held at main to avoid a source regression) + S27/S32/S34/S35 re-baseline, deep-read OFF; in-window EV-path movers are treasury_yields.csv (dominant; corrects wrong/missing main rates) + sp500_fundamentals.csv eqy_dvd_yld_12m (BSM dividend_yield, small/pervasive), plus S34's UNIVERSE_100 swap; ohlcv + vol_iv byte-identical in-window; trio byte-identical.
 surface:
   - "In-window EV-path movers (adversarially verified, NOT treasury-only): treasury_yields.csv (dominant; 2018-20 0->784 rows; restated 2022-24 values CORRECT vs a known main bug, e.g. 2022-04-01 rate_2y 1.25->2.46%) AND sp500_fundamentals.csv eqy_dvd_yld_12m (BSM dividend_yield via get_fundamentals; dateless snapshot; small but pervasive, AAPL 0.42->0.34%). ohlcv + vol_iv in-window slices byte-identical (vol_iv -324k all pre-2018, ohlcv +26k all 2026). Other 15 refreshed files do NOT feed the EV ranking path."
-  - "S34 baseline PROVISIONAL: data refresh drifted the connector universe (BNY/CASY in, CMG/CMI out) -> UNIVERSE_100 regenerated + S34 re-run (test_universes_match_connector enforces the derivation). BUT BNY is a re-ticker of BK (BK ohlcv stops 2026-03-20, BNY starts 2026-03-23 = BoNY Mellon rebrand) and CASY is also recent-only; both have 0 in-window 2022-24 rows while displaced CMG/CMI have full in-window data -> S34 effectively backtests 98 real names. Correct per current derivation; flag provisional. Data-layer follow-up: fix BK<->BNY continuity (same thread as BK dividends drop) then re-baseline S34. UNIVERSE_24 unaffected (S27/S32/S35 valid)."
+  - "S34 baseline PROVISIONAL: data refresh drifted the connector universe (BNY/CASY in, CMG/CMI out) -> UNIVERSE_100 regenerated + S34 re-run (test_universes_match_connector enforces the derivation). BUT BNY is a re-ticker of BK (BK ohlcv stops 2026-03-20, BNY starts 2026-03-23 = BoNY Mellon rebrand) and CASY is also recent-only; both have 0 in-window 2022-24 rows while displaced CMG/CMI have full in-window data -> S34 effectively backtests 98 real names. Correct per current derivation; flag provisional. Data-layer follow-up: fix BK<->BNY continuity (same thread as BK dividends drop) then re-baseline S34 — tracked in issue #339 (seam audit confirms BNY+CASY are the ONLY two recent-only names; S34 = 98 real names). UNIVERSE_24 unaffected (S27/S32/S35 valid)."
   - "Refresh also invalidated two recent-date test pins: test_aapl_control (AAPL 2026-02-13 ev 5.50->5.27) and test_calm_regime smoke (no-as_of date drift) — both re-pinned in this PR."
   - "Data-quality (dividends HELD AT MAIN): the refresh source's sp500_dividends.csv dropped entire 2018-24 ex-div history for CTRA/BK/LW/PAYC (BK in UNIVERSE_100), so it was NOT refreshed (held at main -> BK 28 rows restored). OFF the rank_candidates_by_ev path so snapshots unaffected + §2 intact; dividends now ~2.5mo stale vs the rest. Data-layer follow-up: re-pull then refresh."
 ---
@@ -120,10 +120,16 @@ test on main -> the UNIVERSE_100==connector[:100] derivation is enforced going f
   before merge (the reproducibility proof the fast-CI suite skips).
 - **f4 smoke fix** is carried in R1 (`test_calm_regime` as_of pin); the standalone
   `claude/f4-smoke-pin-asof` branch is being CLOSED (operator decision — R1 carries it).
-- **Data-layer follow-ups (logged):** (a) re-pull `sp500_dividends.csv` (held at main),
-  then refresh; (b) fix the BoNY-Mellon BK<->BNY re-ticker (restore history continuity so
-  BNY isn't a separate phantom in the connector universe), then **re-baseline S34** to
-  clear its provisional flag — same data thread as the BK dividends drop.
+- **Data-layer follow-ups — tracked in GitHub issue #339** (whole thread): (a) re-pull
+  `sp500_dividends.csv` (held at main; refresh source dropped 2018-24 ex-div history for
+  BK/CTRA/LW/PAYC), then refresh; (b) fix the BoNY-Mellon BK<->BNY re-ticker (BK ohlcv
+  stops 2026-03-20, BNY starts 2026-03-23 — restore continuity so BNY isn't a separate
+  phantom in the connector universe); (c) backfill CASY history; then **re-derive
+  UNIVERSE_100 + re-baseline S34** to clear its provisional flag. Seam audit (read-only,
+  all 100 UNIVERSE_100 names vs the 2026-03-23 seam): **BNY + CASY are the ONLY two
+  recent-only members** (both first-ohlcv 2026-03-23, 0 rows in BOTH the 2022-24 and
+  2018-20 windows) -> S34 backtests **98 real names exactly** (not an undercount). Same
+  data thread as the BK dividends drop.
 - **Deep-read flip-on** (R2) stays a SEPARATE reviewed step (deep gz not on main).
   **R0b** (sector source / R9) deferred — when it lands, first check whether the
   regression harness even arms R9 before assuming a re-baseline.

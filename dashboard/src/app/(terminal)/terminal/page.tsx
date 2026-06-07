@@ -18,6 +18,7 @@ import type {
   AgentTask,
 } from "@/types";
 import { ChartPanel } from "@/components/terminal/chart-panel";
+import { PanelErrorBoundary } from "@/components/terminal/panel-error-boundary";
 import { useEngineData } from "@/hooks/useEngineData";
 
 // ─── Placeholder data for systems not yet connected ────────────────────
@@ -358,81 +359,105 @@ export default function TerminalPage() {
   return (
     <div className="flex h-screen flex-col bg-terminal-bg font-mono">
       {/* Status Bar */}
-      <StatusBar
-        indices={PLACEHOLDER_INDICES.slice(0, 4).map((i) => ({
-          symbol: i.symbol,
-          price: i.price,
-          changePct: i.changePct,
-        }))}
-        alertCount={alertCount}
-        ollamaStatus={ollamaStatus}
-        // The local agent runtime is not yet wired (AgentPanel is connected=false),
-        // so report it honestly as offline rather than a hardcoded "online".
-        agentStatus="offline"
-        retrievalProviders={retrievalProviders}
-        vix={engineData.regime.vix}
-        regime={engineData.regime.regime}
-      />
+      <PanelErrorBoundary label="Status Bar">
+        <StatusBar
+          indices={PLACEHOLDER_INDICES.slice(0, 4).map((i) => ({
+            symbol: i.symbol,
+            price: i.price,
+            changePct: i.changePct,
+          }))}
+          alertCount={alertCount}
+          ollamaStatus={ollamaStatus}
+          // The local agent runtime is not yet wired (AgentPanel is connected=false),
+          // so report it honestly as offline rather than a hardcoded "online".
+          agentStatus="offline"
+          retrievalProviders={retrievalProviders}
+          vix={engineData.regime.vix}
+          regime={engineData.regime.regime}
+        />
+      </PanelErrorBoundary>
 
-      {/* Main Grid */}
+      {/* Main Grid — each panel gets its own error boundary so one panel's
+          throw (e.g. a malformed engine payload) degrades that panel alone
+          instead of taking down the whole terminal + crash-looping the poll. */}
       {selectedTicker ? (
         /* Chart View: shows when a ticker is selected */
         <div className="flex-1 grid grid-cols-[1fr_350px] gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
-          <ChartPanel
-            key={selectedTicker}
-            ticker={selectedTicker}
-            onClose={() => setSelectedTicker(null)}
-          />
-          <div className="grid grid-rows-2 gap-[1px]">
-            <OptionsPanel
-              trades={engineData.trades}
-              regime={engineData.regime}
-              portfolio={engineData.portfolio}
-              connected={engineData.connected}
+          <PanelErrorBoundary label="Chart">
+            <ChartPanel
+              key={selectedTicker}
+              ticker={selectedTicker}
+              onClose={() => setSelectedTicker(null)}
             />
-            <ChatPanel initialQuery={chatQuery} />
+          </PanelErrorBoundary>
+          <div className="grid grid-rows-2 gap-[1px]">
+            <PanelErrorBoundary label="Options Engine">
+              <OptionsPanel
+                trades={engineData.trades}
+                regime={engineData.regime}
+                portfolio={engineData.portfolio}
+                connected={engineData.connected}
+              />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary label="Research">
+              <ChatPanel initialQuery={chatQuery} />
+            </PanelErrorBoundary>
           </div>
         </div>
       ) : (
         /* Default View: full terminal dashboard */
         <div className="flex-1 grid grid-cols-3 grid-rows-2 gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
           {/* Row 1 */}
-          <MarketOverview
-            indices={PLACEHOLDER_INDICES}
-            futures={PLACEHOLDER_FUTURES}
-            commodities={PLACEHOLDER_COMMODITIES}
-            loading={false}
-            isLive={false}
-          />
-          <OptionsPanel
-            trades={engineData.trades}
-            regime={engineData.regime}
-            portfolio={engineData.portfolio}
-            connected={engineData.connected}
-          />
-          <AgentPanel
-            status={PLACEHOLDER_AGENT_STATUS}
-            tasks={PLACEHOLDER_AGENT_TASKS}
-            connected={false}
-          />
+          <PanelErrorBoundary label="Market Overview">
+            <MarketOverview
+              indices={PLACEHOLDER_INDICES}
+              futures={PLACEHOLDER_FUTURES}
+              commodities={PLACEHOLDER_COMMODITIES}
+              loading={false}
+              isLive={false}
+            />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Options Engine">
+            <OptionsPanel
+              trades={engineData.trades}
+              regime={engineData.regime}
+              portfolio={engineData.portfolio}
+              connected={engineData.connected}
+            />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Local Agent">
+            <AgentPanel
+              status={PLACEHOLDER_AGENT_STATUS}
+              tasks={PLACEHOLDER_AGENT_TASKS}
+              connected={false}
+            />
+          </PanelErrorBoundary>
 
           {/* Row 2 */}
-          <NewsPanel
-            stories={stories}
-            loading={storiesLoading}
-            onRefresh={handleIngest}
-            refreshing={ingesting}
-            onSelectStory={handleSelectStory}
-          />
-          <WatchlistPanel
-            items={watchlist}
-            loading={watchlistLoading}
-            onRefresh={fetchWatchlist}
-            onAddTicker={handleAddTicker}
-          />
+          <PanelErrorBoundary label="News">
+            <NewsPanel
+              stories={stories}
+              loading={storiesLoading}
+              onRefresh={handleIngest}
+              refreshing={ingesting}
+              onSelectStory={handleSelectStory}
+            />
+          </PanelErrorBoundary>
+          <PanelErrorBoundary label="Watchlist">
+            <WatchlistPanel
+              items={watchlist}
+              loading={watchlistLoading}
+              onRefresh={fetchWatchlist}
+              onAddTicker={handleAddTicker}
+            />
+          </PanelErrorBoundary>
           <div className="grid grid-rows-2 gap-[1px]">
-            <MacroPanel events={events} loading={eventsLoading} />
-            <ChatPanel initialQuery={chatQuery} />
+            <PanelErrorBoundary label="Macro Calendar">
+              <MacroPanel events={events} loading={eventsLoading} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary label="Research">
+              <ChatPanel initialQuery={chatQuery} />
+            </PanelErrorBoundary>
           </div>
         </div>
       )}

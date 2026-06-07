@@ -62,17 +62,20 @@ export function OptionsPanel({
           {regime.regime} {REGIME_ARROWS[regime.regime]}
         </TerminalBadge>
         <span className="text-terminal-dim text-[10px]">
-          Conf: {(regime.confidence * 100).toFixed(0)}%
+          Conf: {((regime.confidence ?? 0) * 100).toFixed(0)}%
         </span>
       </div>
-      <TerminalRow label="VIX" value={regime.vix.toFixed(2)} />
+      <TerminalRow label="VIX" value={(regime.vix ?? 0).toFixed(2)} />
       <TerminalRow
         label="Trend Score"
         value={
-          (regime.trendScore >= 0 ? "+" : "") + regime.trendScore.toFixed(2)
+          ((regime.trendScore ?? 0) >= 0 ? "+" : "") +
+          (regime.trendScore ?? 0).toFixed(2)
         }
         valueColor={
-          regime.trendScore >= 0 ? "text-terminal-green" : "text-terminal-red"
+          (regime.trendScore ?? 0) >= 0
+            ? "text-terminal-green"
+            : "text-terminal-red"
         }
       />
 
@@ -87,14 +90,14 @@ export function OptionsPanel({
           <TerminalRow label="Open Positions" value={portfolio.openPositions} />
           <TerminalRow
             label="Premium Collected"
-            value={`$${portfolio.totalPremiumCollected.toLocaleString()}`}
+            value={`$${(portfolio.totalPremiumCollected ?? 0).toLocaleString()}`}
             valueColor="text-terminal-green"
           />
           <TerminalRow
             label="Win Rate"
-            value={`${portfolio.winRate.toFixed(1)}%`}
+            value={`${(portfolio.winRate ?? 0).toFixed(1)}%`}
             valueColor={
-              portfolio.winRate >= 70
+              (portfolio.winRate ?? 0) >= 70
                 ? "text-terminal-green"
                 : "text-terminal-amber"
             }
@@ -136,59 +139,69 @@ export function OptionsPanel({
           No trade candidates. Connect smart-wheel-engine to scan.
         </div>
       ) : (
-        trades.map((trade, i) => (
-          <div
-            key={i}
-            className="grid gap-x-1 py-[2px] items-center hover:bg-terminal-border/30"
-            style={{
-              gridTemplateColumns:
-                "minmax(42px,1fr) 28px minmax(52px,1fr) minmax(42px,1fr) minmax(56px,1fr) minmax(36px,1fr)",
-            }}
-          >
-            <span className="text-terminal-amber truncate">{trade.ticker}</span>
-            <span>
-              <TerminalBadge
-                variant={trade.strategy === "short_put" ? "blue" : "green"}
+        trades.map((trade, i) => {
+          // Guard every numeric the engine may omit (a partial/degraded
+          // candidates payload, or fields like delta it doesn't emit) so a
+          // missing value renders 0 instead of throwing "Cannot read
+          // properties of undefined (reading 'toFixed')" and crashing the panel.
+          const strike = trade.strike ?? 0;
+          const probability = trade.probability ?? 0;
+          const expectedPnL = trade.expectedPnL ?? 0;
+          const score = trade.score ?? 0;
+          return (
+            <div
+              key={i}
+              className="grid gap-x-1 py-[2px] items-center hover:bg-terminal-border/30"
+              style={{
+                gridTemplateColumns:
+                  "minmax(42px,1fr) 28px minmax(52px,1fr) minmax(42px,1fr) minmax(56px,1fr) minmax(36px,1fr)",
+              }}
+            >
+              <span className="text-terminal-amber truncate">{trade.ticker}</span>
+              <span>
+                <TerminalBadge
+                  variant={trade.strategy === "short_put" ? "blue" : "green"}
+                >
+                  {trade.strategy === "short_put" ? "SP" : "CC"}
+                </TerminalBadge>
+              </span>
+              <span className="text-right text-terminal-text tabular-nums">
+                ${strike}
+              </span>
+              <span
+                className={`text-right tabular-nums ${
+                  probability >= 75
+                    ? "text-terminal-green"
+                    : probability >= 60
+                      ? "text-terminal-amber"
+                      : "text-terminal-red"
+                }`}
               >
-                {trade.strategy === "short_put" ? "SP" : "CC"}
-              </TerminalBadge>
-            </span>
-            <span className="text-right text-terminal-text tabular-nums">
-              ${trade.strike}
-            </span>
-            <span
-              className={`text-right tabular-nums ${
-                trade.probability >= 75
-                  ? "text-terminal-green"
-                  : trade.probability >= 60
-                    ? "text-terminal-amber"
+                {probability.toFixed(0)}%
+              </span>
+              <span
+                className={`text-right tabular-nums ${
+                  expectedPnL >= 0
+                    ? "text-terminal-green"
                     : "text-terminal-red"
-              }`}
-            >
-              {trade.probability.toFixed(0)}%
-            </span>
-            <span
-              className={`text-right tabular-nums ${
-                trade.expectedPnL >= 0
-                  ? "text-terminal-green"
-                  : "text-terminal-red"
-              }`}
-            >
-              ${trade.expectedPnL.toFixed(2)}
-            </span>
-            <span
-              className={`text-right font-bold tabular-nums ${
-                trade.score >= 80
-                  ? "text-terminal-green"
-                  : trade.score >= 60
-                    ? "text-terminal-amber"
-                    : "text-terminal-text"
-              }`}
-            >
-              {trade.score.toFixed(1)}
-            </span>
-          </div>
-        ))
+                }`}
+              >
+                ${expectedPnL.toFixed(2)}
+              </span>
+              <span
+                className={`text-right font-bold tabular-nums ${
+                  score >= 80
+                    ? "text-terminal-green"
+                    : score >= 60
+                      ? "text-terminal-amber"
+                      : "text-terminal-text"
+                }`}
+              >
+                {score.toFixed(1)}
+              </span>
+            </div>
+          );
+        })
       )}
 
       <TerminalDivider />
@@ -199,18 +212,24 @@ export function OptionsPanel({
       </div>
       {trades.length > 0 ? (
         <div className="grid grid-cols-2 gap-x-4">
-          <TerminalRow label="Delta" value={trades[0].delta.toFixed(3)} />
+          {/* Guard each Greek the candidates payload may omit — delta in
+              particular is NOT emitted by /api/candidates today — so a missing
+              field shows 0 instead of crashing the whole terminal. */}
+          <TerminalRow label="Delta" value={(trades[0].delta ?? 0).toFixed(3)} />
           {/* iv from the candidates endpoint is a DECIMAL (e.g. 0.28); scale to
               percent for display so 28% IV does not render as "0.3%". */}
-          <TerminalRow label="IV" value={`${(trades[0].iv * 100).toFixed(1)}%`} />
+          <TerminalRow
+            label="IV"
+            value={`${((trades[0].iv ?? 0) * 100).toFixed(1)}%`}
+          />
           <TerminalRow
             label="Premium"
-            value={`$${trades[0].premium.toFixed(2)}`}
+            value={`$${(trades[0].premium ?? 0).toFixed(2)}`}
             valueColor="text-terminal-green"
           />
           <TerminalRow
             label="Max Loss"
-            value={`$${trades[0].maxLoss.toLocaleString()}`}
+            value={`$${(trades[0].maxLoss ?? 0).toLocaleString()}`}
             valueColor="text-terminal-red"
           />
         </div>

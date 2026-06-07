@@ -86,10 +86,30 @@ export function useEngineData(): EngineData {
 
       setConnected(status.status === "connected");
 
-      // Parse candidates
+      // Parse candidates. The engine can return rows missing numeric fields
+      // (delta is not emitted by /api/candidates today; a degraded/partial
+      // payload may omit others). Coerce every numeric the terminal formats
+      // with ?? 0 so a missing field renders 0 downstream instead of throwing
+      // "Cannot read properties of undefined (reading 'toFixed')". This is the
+      // belt-and-suspenders pair to the per-field guards in OptionsPanel.
       if (candidatesRes.ok) {
         const candidateData: CandidatesResponse = await candidatesRes.json();
-        setTrades(candidateData.trades || []);
+        const rawTrades = Array.isArray(candidateData.trades)
+          ? candidateData.trades
+          : [];
+        setTrades(
+          rawTrades.map((t) => ({
+            ...t,
+            strike: t.strike ?? 0,
+            probability: t.probability ?? 0,
+            expectedPnL: t.expectedPnL ?? 0,
+            score: t.score ?? 0,
+            delta: t.delta ?? 0,
+            iv: t.iv ?? 0,
+            premium: t.premium ?? 0,
+            maxLoss: t.maxLoss ?? 0,
+          }))
+        );
       }
 
       // Parse regime

@@ -55,6 +55,7 @@ _ROLL_COLUMNS = [
     "hold_ev",
     "prob_otm",
     "recommend",
+    "defensive",
 ]
 
 
@@ -242,7 +243,9 @@ def _record_from_jsonable(record: dict, date_keys: tuple[str, ...]) -> dict:
     return out
 
 
-def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFrame:
+def _attach_drops_summary(
+    frame: pd.DataFrame, drops: list[dict], *, include_defensive: bool = False
+) -> pd.DataFrame:
     """Attach drops list AND a trader-facing roll-up summary to a
     suggest_rolls / suggest_call_rolls output frame.
 
@@ -255,6 +258,18 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
     - ``attrs["drops_summary"]``: ``{"total_dropped": int, "by_gate":
       {gate: count}}``. Gate-set matches the per-call drops taxonomy
       used here (``dte``, ``strike``, ``premium``, ``credit``).
+    - ``attrs["defensive"]``: ``{"available", "surfaced", "suppressed",
+      "included"}`` — how many defensive (debit / credit-gate-failing)
+      rolls *reached the credit gate* (candidates pruned earlier at the
+      dte / strike / premium gates are NOT counted here), how many were
+      surfaced into the frame as ``defensive=True`` rows, how many were
+      suppressed into the ``gate="credit"`` drops, and whether the
+      caller opted in via ``include_defensive``. A defensive roll is
+      always exactly one of
+      surfaced XOR suppressed, so ``available == surfaced + suppressed``.
+      This turns the silent-empty default (a challenged ITM put whose
+      only rolls are debits) into a visible "N defensive rolls
+      available" signal (S47 F-S47-1).
     """
     from collections import Counter
 
@@ -262,6 +277,14 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
     frame.attrs["drops_summary"] = {
         "total_dropped": len(drops),
         "by_gate": dict(Counter(d["gate"] for d in drops)),
+    }
+    surfaced = int(frame["defensive"].sum()) if "defensive" in frame.columns and len(frame) else 0
+    suppressed = sum(1 for d in drops if d.get("gate") == "credit")
+    frame.attrs["defensive"] = {
+        "available": surfaced + suppressed,
+        "surfaced": surfaced,
+        "suppressed": suppressed,
+        "included": bool(include_defensive),
     }
     return frame
 
@@ -2124,6 +2147,7 @@ class WheelTracker:
         target_dtes: tuple[int, ...] = (21, 35, 49, 63),
         target_deltas: tuple[float, ...] = (0.30, 0.25, 0.20, 0.15),
         min_net_credit: float = 0.0,
+        include_defensive: bool = False,
         dividend_yield: float = 0.0,
         forward_log_returns: np.ndarray | None = None,
     ) -> pd.DataFrame:
@@ -2163,6 +2187,25 @@ class WheelTracker:
             credit-rolls (the conventional wheel discipline). Pass a
             negative value to allow rescue debit rolls (e.g. ``-200``
             for up to a $200 debit).
+        include_defensive:
+            When ``False`` (default) the credit gate keeps the legacy
+            behaviour byte-for-byte: candidates with
+            ``net_credit_debit < min_net_credit`` are pruned into the
+            ``gate="credit"`` drops. When ``True``, those defensive
+            (debit / credit-gate-failing) rolls are instead **scored
+            through** :meth:`EVEngine.evaluate` and surfaced as rows
+            with ``defensive=True`` — the fix for S47 F-S47-1, where a
+            challenged ITM put returned an empty frame because every
+            defensive roll is a debit. Surfacing never rescues a
+            negative-EV trade: each surfaced roll carries its own
+            honest ``roll_ev`` / ``hold_ev`` and ``recommend`` stays
+            ``roll_ev > hold_ev`` — so on a deeply challenged position a
+            surfaced roll may show ``recommend=True`` while still being
+            negative-EV (it merely loses *less* than holding); it is a
+            relative least-bad signal, not an absolute buy. Independent
+            of this flag, ``.attrs["defensive"]`` always reports how many
+            credit-gate-failing (defensive) rolls were found, so the
+            silent-empty default is never silent.
         dividend_yield:
             Annual dividend yield (decimal). Default ``0.0``. Per the
             AUDIT-IX unit contract on
@@ -2203,6 +2246,14 @@ class WheelTracker:
             * ``prob_otm`` — :attr:`EVResult.prob_profit` on the new
               trade
             * ``recommend`` — ``True`` iff ``roll_ev > hold_ev``
+            * ``defensive`` — ``True`` iff this row is a debit /
+              credit-gate-failing roll surfaced via ``include_defensive``
+              (always ``False`` on the credit-only default path)
+
+            The returned frame also carries ``.attrs["defensive"]``
+            ``= {"available", "surfaced", "suppressed", "included"}``
+            so a caller seeing zero credit rolls can still tell that
+            ``N`` credit-gate-failing rolls were found (S47 F-S47-1).
 
             The returned frame's ``.attrs["drops"]`` carries a
             structured list of dicts -- one per grid cell that did
@@ -2320,7 +2371,7 @@ class WheelTracker:
         if dte_remaining <= 0:
             # At/past expiry — rolling is moot, caller handles expiry/assignment.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, [])
+            return _attach_drops_summary(out, [], include_defensive=include_defensive)
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_rolls is per-contract by convention
 
@@ -2336,7 +2387,7 @@ class WheelTracker:
         if buyback_value_per_share <= 0.0:
             # Essentially worthless put — holding wins, no roll can beat that.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, [])
+            return _attach_drops_summary(out, [], include_defensive=include_defensive)
 
         # Full dollar cost to close the current put: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2479,7 +2530,8 @@ class WheelTracker:
                     )
                     continue
                 net_credit_debit = (new_premium - buyback_value_per_share) * multiplier
-                if net_credit_debit < min_net_credit:
+                is_defensive = net_credit_debit < min_net_credit
+                if is_defensive and not include_defensive:
                     drops.append(
                         {
                             "new_dte": int(new_dte),
@@ -2527,15 +2579,16 @@ class WheelTracker:
                         "hold_ev": round(hold_ev, 2),
                         "prob_otm": round(new_result.prob_profit, 4),
                         "recommend": bool(roll_ev > hold_ev),
+                        "defensive": bool(is_defensive),
                     }
                 )
 
         if not rows:
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, drops)
+            return _attach_drops_summary(out, drops, include_defensive=include_defensive)
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, include_defensive=include_defensive)
 
     def suggest_call_rolls(
         self,
@@ -2548,6 +2601,7 @@ class WheelTracker:
         target_dtes: tuple[int, ...] = (21, 35, 49, 63),
         target_deltas: tuple[float, ...] = (0.30, 0.25, 0.20, 0.15),
         min_net_credit: float = 0.0,
+        include_defensive: bool = False,
         dividend_yield: float = 0.0,
         forward_log_returns: np.ndarray | None = None,
     ) -> pd.DataFrame:
@@ -2584,6 +2638,13 @@ class WheelTracker:
             Dollar filter on ``net_credit_debit``; candidates below it
             are pruned. Default ``0`` keeps credit-rolls only. Pass a
             negative value to allow rescue debit rolls.
+        include_defensive:
+            Mirrors :meth:`suggest_rolls`: when ``True``, debit /
+            credit-gate-failing rolls are scored through
+            :meth:`EVEngine.evaluate` and surfaced as ``defensive=True``
+            rows instead of being pruned (S47 F-S47-1). Default
+            ``False`` preserves the legacy credit-only behaviour;
+            ``.attrs["defensive"]`` always reports the count regardless.
         dividend_yield:
             Annual dividend yield (decimal). Default ``0.0``. Flows into
             BSM pricing and the :class:`ShortOptionTrade` so the engine
@@ -2684,7 +2745,7 @@ class WheelTracker:
         if dte_remaining <= 0:
             # At/past expiry - rolling is moot; caller handles expiry/assignment.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, [])
+            return _attach_drops_summary(out, [], include_defensive=include_defensive)
         T_old = dte_remaining / 365.0
         multiplier = 100  # per-contract; suggest_call_rolls is per-contract by convention
 
@@ -2700,7 +2761,7 @@ class WheelTracker:
         if buyback_value_per_share <= 0.0:
             # Essentially worthless call - holding wins, no roll can beat it.
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, [])
+            return _attach_drops_summary(out, [], include_defensive=include_defensive)
 
         # Full dollar cost to close the current call: BSM principal plus
         # exit-side transaction costs -- the "total_buyback_cost" key.
@@ -2839,7 +2900,8 @@ class WheelTracker:
                     )
                     continue
                 net_credit_debit = (new_premium - buyback_value_per_share) * multiplier
-                if net_credit_debit < min_net_credit:
+                is_defensive = net_credit_debit < min_net_credit
+                if is_defensive and not include_defensive:
                     drops.append(
                         {
                             "new_dte": int(new_dte),
@@ -2887,12 +2949,13 @@ class WheelTracker:
                         "hold_ev": round(hold_ev, 2),
                         "prob_otm": round(new_result.prob_profit, 4),
                         "recommend": bool(roll_ev > hold_ev),
+                        "defensive": bool(is_defensive),
                     }
                 )
 
         if not rows:
             out = pd.DataFrame(columns=_ROLL_COLUMNS)
-            return _attach_drops_summary(out, drops)
+            return _attach_drops_summary(out, drops, include_defensive=include_defensive)
         df = pd.DataFrame(rows, columns=_ROLL_COLUMNS)
         df = df.sort_values("roll_ev", ascending=False).reset_index(drop=True)
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, include_defensive=include_defensive)

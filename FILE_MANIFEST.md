@@ -661,6 +661,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_deep_read_assembly_synthetic.py` | R2 deep-read assembly unit tests on synthetic gz fixtures (CI-runnable, no committed data) — dedup precedence recent > deep-current > delisted, multi-slice span, delisted-only name presence, default-OFF monolith-only, missing-slice degrade, non-`_DEEP_SLICES` key not assembled. |
 | `tests/test_survivorship_harness.py` | R3 survivorship harness tests (gated on `SWE_DEEP_TEST_DATA`) — PIT 2008 universe includes Lehman/WaMu + excludes post-2008 names + size ~500; `terminal_spot` delisting-aware; the `assert_data_window_available` deep-floor extension accepts a pre-2018 start. |
 | `tests/test_survivorship_r6_lehman.py` | R6 survivorship proof (gated on `SWE_DEEP_TEST_DATA`) — a 2008 deep-history backtest where Lehman (LEHMQ) flows through the EV ranker and its post-delisting put loss is realized (non-NaN, < -$500), not silently dropped. |
+| `tests/test_deep_iv_sentinel.py` | R7 deep-IV sentinel test (gated on `SWE_DEEP_TEST_DATA`) — the assembled vol_iv read nulls implied-vol values above the ~134217.7 sentinel floor (keeping the row, NaN IV) while preserving real distressed-name extremes (500-1000%). |
 | `tests/test_credit_rating_population.py` | R0a regression guard — `analyze_ticker` populates `credit_rating` from the `get_credit_risk()` `sp_rating` key (not the raw `rtg_sp_lt_lc_issuer_credit` field). Pins the dead-read fix; documents the field is off the EV path. |
 | `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
@@ -755,6 +756,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_wheel_tracker_suggest_rolls.py` | Launch-blocker invariant — `suggest_rolls` properties and roll-EV regression. |
 | `tests/test_wheel_tracker_suggest_call_rolls.py` | Launch-blocker invariant — `suggest_call_rolls` properties and roll-EV regression. |
 | `tests/test_suggest_rolls_drops.py` | Pin S22 F1 fix — `suggest_rolls` and `suggest_call_rolls` emit `.attrs["drops"]` mirroring the ranker drop-log pattern; per-filter-site drop entries with conformant schema. |
+| `tests/test_suggest_rolls_defensive.py` | Pin S47 F-S47-1 fix — `include_defensive` surfaces credit-gate-failing (debit) rolls flagged `defensive=True` (each scored via `EVEngine.evaluate`); `.attrs["defensive"]` reports available/surfaced/suppressed so the silent-empty default is visible; default path + §2 (no rescue, one eval per row) preserved. |
 | `tests/test_mark_to_market_iv.py` | `WheelTracker.mark_to_market` IV-staleness fix regression. |
 | `tests/test_available_buying_power.py` | `WheelTracker.available_buying_power` CSP-collateral netting. |
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |

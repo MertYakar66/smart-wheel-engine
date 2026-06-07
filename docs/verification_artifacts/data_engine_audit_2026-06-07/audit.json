@@ -1,0 +1,1022 @@
+{
+  "meta": {
+    "generated_at": "2026-06-07T23:30:29+00:00",
+    "provider": "MarketDataConnector",
+    "data_dir": "data\\bloomberg",
+    "frontier": "2026-06-04",
+    "as_of": "2026-06-04",
+    "per_file_max": {
+      "ohlcv": "2026-06-04",
+      "vol_iv": "2026-06-04",
+      "liquidity": "2026-06-04",
+      "vix": "2026-06-04",
+      "treasury": "2026-06-05"
+    },
+    "probe_universe": "full",
+    "seam": "2026-03-23",
+    "branch_note": "Auto-detected frontier (most-recent bar common to OHLCV & IV) = **2026-06-04**. Per-file max: {'ohlcv': '2026-06-04', 'vol_iv': '2026-06-04', 'liquidity': '2026-06-04', 'vix': '2026-06-04', 'treasury': '2026-06-05'}. The SessionStart staleness warning reflects the *checked-out branch*, not `main`: `main` carries data through ~2026-06-04, while `claude/suggest-rolls-defensive-surfacing` (the primary working tree) ends 2026-03-20. The probe pins to the auto-detected frontier so it is deterministic on either branch."
+  },
+  "inventory": [
+    {
+      "key": "ohlcv",
+      "file": "sp500_ohlcv.csv",
+      "exists": true,
+      "size_mb": 62.4,
+      "rows": 1014920,
+      "cols": 7,
+      "tickers": 511,
+      "date_col": "date",
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "staleness_days": 0,
+      "sha256": "7a3e77a4fab07f85"
+    },
+    {
+      "key": "vol_iv",
+      "file": "sp500_vol_iv_full.csv",
+      "exists": true,
+      "size_mb": 62.1,
+      "rows": 1037278,
+      "cols": 8,
+      "tickers": 510,
+      "date_col": "date",
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "staleness_days": 0,
+      "sha256": "aab4eada1af5c9aa"
+    },
+    {
+      "key": "dividends",
+      "file": "sp500_dividends.csv",
+      "exists": true,
+      "size_mb": 4.0,
+      "rows": 50230,
+      "cols": 8,
+      "tickers": 427,
+      "date_col": "ex_date",
+      "date_min": "1962-05-31",
+      "date_max": "2027-03-12",
+      "staleness_days": null,
+      "sha256": "317e56c69615fdd8"
+    },
+    {
+      "key": "earnings",
+      "file": "sp500_earnings.csv",
+      "exists": true,
+      "size_mb": 2.6,
+      "rows": 49379,
+      "cols": 7,
+      "tickers": 503,
+      "date_col": "announcement_date",
+      "date_min": "1980-01-31",
+      "date_max": "2028-01-19",
+      "staleness_days": null,
+      "sha256": "a3548da18a31c848"
+    },
+    {
+      "key": "treasury",
+      "file": "treasury_yields.csv",
+      "exists": true,
+      "size_mb": 0.5,
+      "rows": 8458,
+      "cols": 9,
+      "tickers": null,
+      "date_col": "date",
+      "date_min": "1994-01-03",
+      "date_max": "2026-06-05",
+      "staleness_days": -1,
+      "sha256": "48a20a883580b038"
+    },
+    {
+      "key": "vix",
+      "file": "vix_term_structure.csv",
+      "exists": true,
+      "size_mb": 0.2,
+      "rows": 9200,
+      "cols": 4,
+      "tickers": null,
+      "date_col": "date",
+      "date_min": "1990-01-02",
+      "date_max": "2026-06-04",
+      "staleness_days": 0,
+      "sha256": "8054b746f5110d49"
+    },
+    {
+      "key": "fundamentals",
+      "file": "sp500_fundamentals.csv",
+      "exists": true,
+      "size_mb": 0.1,
+      "rows": 503,
+      "cols": 13,
+      "tickers": 503,
+      "date_col": null,
+      "date_min": null,
+      "date_max": null,
+      "staleness_days": null,
+      "sha256": "2509f94da9b7da38"
+    },
+    {
+      "key": "credit_risk",
+      "file": "sp500_credit_risk.csv",
+      "exists": true,
+      "size_mb": 0.0,
+      "rows": 503,
+      "cols": 4,
+      "tickers": 503,
+      "date_col": null,
+      "date_min": null,
+      "date_max": null,
+      "staleness_days": null,
+      "sha256": "6a3e31e0c94b6ba6"
+    },
+    {
+      "key": "liquidity",
+      "file": "sp500_liquidity.csv",
+      "exists": true,
+      "size_mb": 70.4,
+      "rows": 1388848,
+      "cols": 5,
+      "tickers": 511,
+      "date_col": "date",
+      "date_min": "2015-01-02",
+      "date_max": "2026-06-04",
+      "staleness_days": 0,
+      "sha256": "08ca8f7ec7a64151"
+    }
+  ],
+  "capability_map": {
+    "ohlcv": {
+      "accessor": "get_ohlcv",
+      "capability": "Spot/price history -> forward distribution (empirical NOS -> overlapping -> block bootstrap -> HAR-RV) + 504-day survivorship gate"
+    },
+    "vol_iv": {
+      "accessor": "get_iv_history",
+      "capability": "Implied vol (PIT) for BSM pricing/Greeks; realized-vol cols feed the F4 RV30/RV252 widening signal"
+    },
+    "dividends": {
+      "accessor": "get_dividends / get_next_dividend",
+      "capability": "Ex-dividend early-assignment EV for the COVERED-CALL ranker only (the short-put ranker never consults ex-div)"
+    },
+    "earnings": {
+      "accessor": "get_earnings / get_next_earnings",
+      "capability": "Earnings-date event lockout (first gate in EVEngine.evaluate; degrades gracefully -> name is simply un-gated if absent)"
+    },
+    "treasury": {
+      "accessor": "get_risk_free_rate",
+      "capability": "Risk-free rate for BSM (get_risk_free_rate returns decimal via unconditional /100; NaN if missing so callers detect absence)"
+    },
+    "vix": {
+      "accessor": "get_vix / get_vix_regime",
+      "capability": "VIX level + term-structure regime (contango/backwardation) + percentile"
+    },
+    "fundamentals": {
+      "accessor": "get_fundamentals / screen_universe",
+      "capability": "BSM dividend_yield (eqy_dvd_yld_12m), GICS sector (R9 sector cap), beta, market cap, screening"
+    },
+    "credit_risk": {
+      "accessor": "get_credit_risk",
+      "capability": "S&P rating / Altman-Z / interest-coverage credit gate"
+    },
+    "liquidity": {
+      "accessor": "get_liquidity",
+      "capability": "avg_vol_30d / turnover / shares_out liquidity context"
+    }
+  },
+  "coverage": {
+    "referential_gaps": {
+      "in_ohlcv_not_vol_iv": [
+        "FDXF"
+      ],
+      "in_vol_iv_not_ohlcv": [],
+      "in_ohlcv_not_dividends": [
+        "ABNB",
+        "AKAM",
+        "ALGN",
+        "AMZN",
+        "ANET",
+        "APP",
+        "AXON",
+        "AZO",
+        "BIIB",
+        "BLDR",
+        "BNY",
+        "BRK/B",
+        "BSX",
+        "CASY",
+        "CBRE",
+        "CDNS",
+        "CHTR",
+        "CIEN",
+        "CMG",
+        "CNC",
+        "COHR",
+        "COIN",
+        "CPAY",
+        "CPRT",
+        "CRL",
+        "CRWD",
+        "CSGP",
+        "CVNA",
+        "DASH",
+        "DDOG",
+        "DECK",
+        "DLTR",
+        "DVA",
+        "DXCM",
+        "EPAM",
+        "EW",
+        "FDXF",
+        "FFIV",
+        "FISV",
+        "FSLR",
+        "FTNT",
+        "GDDY",
+        "HOLX",
+        "HOOD",
+        "HSIC",
+        "IDXX",
+        "INCY",
+        "IQV",
+        "ISRG",
+        "KEYS",
+        "LITE",
+        "LULU",
+        "LYV",
+        "MNST",
+        "MOH",
+        "MRNA",
+        "MTD",
+        "NCLH",
+        "NFLX",
+        "NOW",
+        "ON",
+        "ORLY",
+        "PANW",
+        "PLTR",
+        "PODD",
+        "PTC",
+        "SATS",
+        "SMCI",
+        "SNDK",
+        "SNPS",
+        "SOLV",
+        "TDY",
+        "TRMB",
+        "TSLA",
+        "TTD",
+        "UBER",
+        "VEEV",
+        "VRT",
+        "VRTX",
+        "WAT",
+        "WBD",
+        "WDAY",
+        "XYZ",
+        "ZBRA"
+      ],
+      "in_dividends_not_ohlcv": [],
+      "in_ohlcv_not_earnings": [
+        "BNY",
+        "CASY",
+        "COHR",
+        "FDXF",
+        "LITE",
+        "SATS",
+        "VEEV",
+        "VRT"
+      ],
+      "in_earnings_not_ohlcv": [],
+      "in_ohlcv_not_fundamentals": [
+        "BK",
+        "CTRA",
+        "EPAM",
+        "HOLX",
+        "LW",
+        "MOH",
+        "MTCH",
+        "PAYC"
+      ],
+      "in_fundamentals_not_ohlcv": [],
+      "in_ohlcv_not_credit_risk": [
+        "BK",
+        "CTRA",
+        "EPAM",
+        "HOLX",
+        "LW",
+        "MOH",
+        "MTCH",
+        "PAYC"
+      ],
+      "in_credit_risk_not_ohlcv": [],
+      "in_ohlcv_not_liquidity": [],
+      "in_liquidity_not_ohlcv": []
+    },
+    "seams": {
+      "joiner_clusters": {
+        "2026-03-23": 7
+      },
+      "leaver_clusters": {
+        "2026-03-20": 8
+      }
+    },
+    "name_classes": {
+      "post_seam_only": [
+        "BNY",
+        "CASY",
+        "COHR",
+        "FDXF",
+        "LITE",
+        "SATS",
+        "VEEV",
+        "VRT"
+      ],
+      "thin_history": [
+        "BNY",
+        "CASY",
+        "COHR",
+        "CPB",
+        "DPZ",
+        "FDXF",
+        "KMB",
+        "LITE",
+        "PLTR",
+        "PSKY",
+        "Q",
+        "SATS",
+        "SNDK",
+        "SW",
+        "VEEV",
+        "VRT",
+        "WMT"
+      ],
+      "delisted_stale": [
+        "BK",
+        "CTRA",
+        "EPAM",
+        "HOLX",
+        "LW",
+        "MOH",
+        "MTCH",
+        "PAYC"
+      ]
+    },
+    "universes": [
+      {
+        "universe": "UNIVERSE_24",
+        "size": 24,
+        "complete_all_files": 24,
+        "partial_count": 0,
+        "partial": {},
+        "flags": {
+          "post_seam_only": [],
+          "thin_history": [],
+          "absent_from_ohlcv": []
+        }
+      },
+      {
+        "universe": "UNIVERSE_100",
+        "size": 100,
+        "complete_all_files": 97,
+        "partial_count": 3,
+        "partial": {
+          "BK": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "BNY": [
+            "earnings"
+          ],
+          "CASY": [
+            "earnings"
+          ]
+        },
+        "flags": {
+          "post_seam_only": [
+            "BNY",
+            "CASY"
+          ],
+          "thin_history": [
+            "BNY",
+            "CASY"
+          ],
+          "absent_from_ohlcv": []
+        }
+      },
+      {
+        "universe": "connector_universe",
+        "size": 511,
+        "complete_all_files": 495,
+        "partial_count": 16,
+        "partial": {
+          "BK": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "BNY": [
+            "earnings"
+          ],
+          "CASY": [
+            "earnings"
+          ],
+          "COHR": [
+            "earnings"
+          ],
+          "CTRA": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "EPAM": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "FDXF": [
+            "vol_iv",
+            "earnings"
+          ],
+          "HOLX": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "LITE": [
+            "earnings"
+          ],
+          "LW": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "MOH": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "MTCH": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "PAYC": [
+            "fundamentals",
+            "credit_risk"
+          ],
+          "SATS": [
+            "earnings"
+          ],
+          "VEEV": [
+            "earnings"
+          ],
+          "VRT": [
+            "earnings"
+          ]
+        },
+        "flags": {
+          "post_seam_only": [
+            "BNY",
+            "CASY",
+            "COHR",
+            "FDXF",
+            "LITE",
+            "SATS",
+            "VEEV",
+            "VRT"
+          ],
+          "thin_history": [
+            "BNY",
+            "CASY",
+            "COHR",
+            "CPB",
+            "DPZ",
+            "FDXF",
+            "KMB",
+            "LITE",
+            "PLTR",
+            "PSKY",
+            "Q",
+            "SATS",
+            "SNDK",
+            "SW",
+            "VEEV",
+            "VRT",
+            "WMT"
+          ],
+          "absent_from_ohlcv": []
+        }
+      }
+    ]
+  },
+  "engine_probe": {
+    "as_of": "2026-06-04",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "n_requested": 511,
+    "n_produced": 480,
+    "n_dropped": 31,
+    "n_vanished": 0,
+    "drops_summary": {
+      "total_dropped": 31,
+      "by_gate": {
+        "event": 6,
+        "data": 8,
+        "history": 17
+      }
+    },
+    "drops_by_gate_reason": {
+      "event": {
+        "event_lockout:earnings@2026-07-14 (\u00b15d buffer)": 5,
+        "event_lockout:earnings@2026-07-13 (\u00b15d buffer)": 1
+      },
+      "data": {
+        "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30": 8
+      },
+      "history": {
+        "history 52d < required 504d": 7,
+        "history 450d < required 504d": 1,
+        "history 356d < required 504d": 1,
+        "history 7d < required 504d": 1,
+        "history 255d < required 504d": 1,
+        "history 380d < required 504d": 1,
+        "history 208d < required 504d": 1,
+        "history 152d < required 504d": 1,
+        "history 328d < required 504d": 1,
+        "history 480d < required 504d": 1,
+        "history 122d < required 504d": 1
+      }
+    },
+    "distribution_tier_histogram": {
+      "empirical_non_overlapping": 473,
+      "empirical_overlapping": 7
+    },
+    "nonfinite_outputs": {},
+    "vanished_tickers": [],
+    "produced_columns": [
+      "ticker",
+      "spot",
+      "strike",
+      "premium",
+      "dte",
+      "iv",
+      "ev_dollars",
+      "ev_per_day",
+      "pnl_p25",
+      "pnl_p50",
+      "pnl_p75",
+      "collateral",
+      "roc",
+      "prob_profit",
+      "n_scenarios",
+      "prob_profit_ci_low",
+      "prob_profit_ci_high",
+      "prob_assignment",
+      "days_to_earnings",
+      "distribution_source",
+      "sector",
+      "ev_raw",
+      "cvar_5",
+      "cvar_99_evt",
+      "tail_xi",
+      "heavy_tail",
+      "omega_ratio",
+      "fair_value",
+      "edge_vs_fair",
+      "breakeven_move_pct",
+      "total_transaction_cost",
+      "skew_pnl",
+      "dealer_regime",
+      "dealer_multiplier",
+      "gex_total",
+      "gamma_flip_distance_pct",
+      "nearest_put_wall_strike",
+      "nearest_call_wall_strike",
+      "skew_slope",
+      "put_skew",
+      "risk_reversal",
+      "skew_multiplier",
+      "skew_source",
+      "hmm_multiplier",
+      "hmm_regime",
+      "tail_widening_factor",
+      "hmm_realized_vol_252d_ann",
+      "hmm_realized_return_252d_ann",
+      "news_multiplier",
+      "news_sentiment",
+      "news_n_articles",
+      "credit_multiplier",
+      "credit_regime",
+      "regime_multiplier",
+      "strike_open_interest",
+      "oi_source",
+      "premium_source",
+      "chain_quality_warning"
+    ],
+    "drops": [
+      {
+        "ticker": "BAC",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-14 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "BK",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "BNY",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "C",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-14 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "CASY",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "COHR",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "CPB",
+        "gate": "history",
+        "reason": "history 450d < required 504d"
+      },
+      {
+        "ticker": "CTRA",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "DPZ",
+        "gate": "history",
+        "reason": "history 356d < required 504d"
+      },
+      {
+        "ticker": "EPAM",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "FAST",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-13 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "FDXF",
+        "gate": "history",
+        "reason": "history 7d < required 504d"
+      },
+      {
+        "ticker": "GS",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-14 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "HOLX",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "JPM",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-14 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "KMB",
+        "gate": "history",
+        "reason": "history 255d < required 504d"
+      },
+      {
+        "ticker": "LITE",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "LW",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "MOH",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "MTCH",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "PAYC",
+        "gate": "data",
+        "reason": "as_of 2026-06-04 is 76 days beyond latest data (2026-03-20); max_as_of_staleness_days=30"
+      },
+      {
+        "ticker": "PLTR",
+        "gate": "history",
+        "reason": "history 380d < required 504d"
+      },
+      {
+        "ticker": "PSKY",
+        "gate": "history",
+        "reason": "history 208d < required 504d"
+      },
+      {
+        "ticker": "Q",
+        "gate": "history",
+        "reason": "history 152d < required 504d"
+      },
+      {
+        "ticker": "SATS",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "SNDK",
+        "gate": "history",
+        "reason": "history 328d < required 504d"
+      },
+      {
+        "ticker": "SW",
+        "gate": "history",
+        "reason": "history 480d < required 504d"
+      },
+      {
+        "ticker": "VEEV",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "VRT",
+        "gate": "history",
+        "reason": "history 52d < required 504d"
+      },
+      {
+        "ticker": "WFC",
+        "gate": "event",
+        "reason": "event_lockout:earnings@2026-07-14 (\u00b15d buffer)"
+      },
+      {
+        "ticker": "WMT",
+        "gate": "history",
+        "reason": "history 122d < required 504d"
+      }
+    ]
+  },
+  "hygiene": {
+    "ohlcv": {
+      "rows": 1014920,
+      "rename_invariant_violations_high": 0,
+      "rename_invariant_violations_low": 0,
+      "nonpositive_price_rows": 0,
+      "nan_price_rows": 4,
+      "negative_volume": 0,
+      "zero_volume": 0,
+      "duplicate_date_ticker": 0
+    },
+    "iv": {
+      "rows": 1037278,
+      "put_imp_vol_min": 0.01,
+      "put_imp_vol_median": 27.925,
+      "put_imp_vol_max": 769.273,
+      "put_eq_call_exact_pct": 100.0,
+      "zero_skew_n": 1031368,
+      "rows_in_heuristic_danger_zone_0_to_3": 17,
+      "rows_iv_above_300pct": 10,
+      "sentinel_134217_7": 0
+    },
+    "dividends": {
+      "rows": 50230,
+      "negative_count": 82,
+      "negative_min": -2.4245362661989844e-14,
+      "materially_negative_lt_-0.001": 0,
+      "ex_date_max": "2027-03-12",
+      "max_past_ex_date": "2026-06-01",
+      "truncation_watchlist": {
+        "CTRA": {
+          "rows": 146,
+          "rows_2018_2024": 30,
+          "ex_date_min": "1990-05-25",
+          "ex_date_max": "2026-03-11"
+        },
+        "BK": {
+          "rows": 187,
+          "rows_2018_2024": 28,
+          "ex_date_min": "1980-01-14",
+          "ex_date_max": "2026-01-23"
+        },
+        "LW": {
+          "rows": 37,
+          "rows_2018_2024": 28,
+          "ex_date_min": "2017-01-26",
+          "ex_date_max": "2026-01-30"
+        },
+        "PAYC": {
+          "rows": 12,
+          "rows_2018_2024": 7,
+          "ex_date_min": "2023-05-26",
+          "ex_date_max": "2026-03-09"
+        },
+        "MTCH": {
+          "rows": 6,
+          "rows_2018_2024": 0,
+          "ex_date_min": "2025-01-06",
+          "ex_date_max": "2026-04-07"
+        }
+      }
+    },
+    "treasury": {
+      "rows": 8458,
+      "tenors": {
+        "rate_1m": {
+          "first_nonnull": "2001-07-31",
+          "nan_pct": 23.4,
+          "min": -0.1728,
+          "negative_count": 185
+        },
+        "rate_3m": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.0,
+          "min": -0.1372,
+          "negative_count": 60
+        },
+        "rate_6m": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.0,
+          "min": -0.0279,
+          "negative_count": 3
+        },
+        "rate_2y": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.1,
+          "min": 0.1013,
+          "negative_count": 0
+        },
+        "rate_5y": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.1,
+          "min": 0.1902,
+          "negative_count": 0
+        },
+        "rate_10y": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.0,
+          "min": 0.5069,
+          "negative_count": 0
+        },
+        "rate_30y": {
+          "first_nonnull": "1994-01-03",
+          "nan_pct": 0.1,
+          "min": 0.9953,
+          "negative_count": 0
+        },
+        "sofr": {
+          "first_nonnull": "2018-04-02",
+          "nan_pct": 75.9,
+          "min": 0.01,
+          "negative_count": 0
+        }
+      }
+    },
+    "dateless_snapshots": {
+      "fundamentals_has_date_col": false,
+      "credit_risk_has_date_col": false,
+      "fundamentals_rows": 503,
+      "credit_risk_rows": 503
+    },
+    "fingerprint": {
+      "pinned_files": [
+        "sp500_ohlcv.csv"
+      ],
+      "unpinned_connector_files": [
+        "sp500_vol_iv_full.csv",
+        "sp500_dividends.csv",
+        "sp500_earnings.csv",
+        "treasury_yields.csv",
+        "vix_term_structure.csv",
+        "sp500_fundamentals.csv",
+        "sp500_credit_risk.csv",
+        "sp500_liquidity.csv"
+      ]
+    }
+  },
+  "weaknesses": [
+    {
+      "id": "W1",
+      "severity": "HIGH",
+      "category": "unit-scale",
+      "title": "Ranker IV uses a conditional `if iv>3.0: iv/100` heuristic (per-trio), diverging from the unconditional /100 used for treasury & dividend_yield",
+      "evidence": "wheel_runner.py:198/1101/2418/2980; a genuine sub-3% IV is read as up to 300% and survives the 0<iv<=5.0 guard. vol_iv rows with 0<IV<=3.0 today: 17. Same class as the D20 treasury fix.",
+      "fixable_in": "TRIO (wheel_runner) \u2014 log only, separate lane-claimed PR",
+      "phase2_test": "data->engine: assert ranker output iv is decimal (0<iv<3) for a name whose as_of IV is genuinely low; pin the heuristic boundary"
+    },
+    {
+      "id": "W2",
+      "severity": "HIGH",
+      "category": "pit-lookahead",
+      "title": "fundamentals.csv & credit_risk.csv are dateless single snapshots \u2014 get_fundamentals/get_credit_risk ignore as_of (structural lookahead)",
+      "evidence": "no date column in either file (fundamentals_has_date=False, credit_has_date=False); a 2026 snapshot feeds BSM dividend_yield, GICS sector (R9 cap) and the credit gate at every historical as_of",
+      "fixable_in": "additive test can pin the contract; a true fix needs PIT fundamentals (data-layer)",
+      "phase2_test": "data->engine + pit: assert the snapshot is documented as as_of-invariant; extend tests/test_pit_leaks.py"
+    },
+    {
+      "id": "W3",
+      "severity": "HIGH",
+      "category": "fingerprint-blindspot",
+      "title": "Snapshot fingerprint pins ONLY sp500_ohlcv.csv \u2014 a silent IV / treasury / dividends refresh does not force a re-baseline (the dividends-incident class)",
+      "evidence": "backtests/regression/_common.py ohlcv_sha256(); unpinned connector files: sp500_vol_iv_full.csv, sp500_dividends.csv, sp500_earnings.csv, treasury_yields.csv, vix_term_structure.csv, sp500_fundamentals.csv, sp500_credit_risk.csv, sp500_liquidity.csv",
+      "fixable_in": "additive: extend the fingerprint to all connector-read files (in _common, not trio)",
+      "phase2_test": "integrity: assert connector_data_sha256 pins exactly MarketDataConnector._FILES"
+    },
+    {
+      "id": "W4",
+      "severity": "MEDIUM",
+      "category": "referential",
+      "title": "Cross-file ticker-universe inconsistency from the 2026-03-23 index reconstitution: earnings=pre-seam membership, fundamentals/credit=post-seam, OHLCV/vol_iv/liquidity span both",
+      "evidence": "in OHLCV not vol_iv: ['FDXF'] (unpriceable, no IV); in OHLCV not earnings (post-seam joiners): ['BNY', 'CASY', 'COHR', 'FDXF', 'LITE', 'SATS', 'VEEV', 'VRT']; in OHLCV not fundamentals (departed): ['BK', 'CTRA', 'EPAM', 'HOLX', 'LW', 'MOH', 'MTCH', 'PAYC']",
+      "fixable_in": "additive test pins the contract; data-layer follow-up to reconcile membership",
+      "phase2_test": "integrity: every vol_iv/fundamentals/credit/liquidity ticker exists in OHLCV with overlapping date range"
+    },
+    {
+      "id": "W5",
+      "severity": "MEDIUM",
+      "category": "re-ticker",
+      "title": "BK->BNY re-ticker at the seam splits one continuous company into a 'delisted' name (BK, ends 2026-03-20) + a 52-bar 'thin' name (BNY, from 2026-03-23) with no linkage",
+      "evidence": "BK in OHLCV/vol_iv/dividends but not fundamentals; BNY in OHLCV/vol_iv/fundamentals but not earnings/dividends; the engine sees two unrelated names",
+      "fixable_in": "additive: a re-ticker map (data-layer); not fixable in tests",
+      "phase2_test": "integrity: flag known re-tickers; assert continuity or an explicit alias"
+    },
+    {
+      "id": "W6",
+      "severity": "MEDIUM",
+      "category": "survivorship",
+      "title": "17 names fail the 504-day history gate \u2014 several are blue-chips whose thinness is a data gap, not genuine newness",
+      "evidence": "thin: ['BNY', 'CASY', 'COHR', 'CPB', 'DPZ', 'FDXF', 'KMB', 'LITE', 'PLTR', 'PSKY', 'Q', 'SATS', 'SNDK', 'SW', 'VEEV', 'VRT', 'WMT']; e.g. WMT/KMB/CPB/DPZ have full real histories but short OHLCV on the dev box (see backtests/regression/universes.py WMT note)",
+      "fixable_in": "additive test pins which names are gated; data-layer backfill is the fix",
+      "phase2_test": "data->engine: thin names degrade gracefully (gate=history), never emit a tradeable from <504 bars"
+    },
+    {
+      "id": "W8",
+      "severity": "MEDIUM",
+      "category": "unit-scale",
+      "title": "IV band has implausible extremes (min 0.01%, max 769%) with no sanity gate on the raw file",
+      "evidence": "vol_iv hist_put_imp_vol min=0.01 max=769.273 (percent); rows >300%: 10",
+      "fixable_in": "additive test (no engine change needed; ranker guard bounds it downstream)",
+      "phase2_test": "integrity: 0.1% <= IV <= ~500% on the served file; flag outliers"
+    },
+    {
+      "id": "W9",
+      "severity": "LOW",
+      "category": "structural",
+      "title": "Zero put/call IV skew \u2014 put_iv == call_iv EXACTLY across 100% of rows (Nelson-Siegel skew tooling is fed a flat surface; skew dormant on Bloomberg)",
+      "evidence": "put==call exact 100.0% of 1031368 both-present rows",
+      "fixable_in": "not a defect \u2014 a load-bearing data fact asserted nowhere",
+      "phase2_test": "integrity: pin put_iv==call_iv so a future skew-bearing refresh is noticed"
+    },
+    {
+      "id": "W10",
+      "severity": "LOW",
+      "category": "unit-scale",
+      "title": "Treasury: rate_3m has a negative print and rate_1m is missing pre-2001 (memory's 'treasury only 2021-05+' is STALE \u2014 file now covers 1994-01-03)",
+      "evidence": "rate_3m min=-0.1372 negatives=60; rate_1m first_nonnull=2001-07-31 nan%=23.4",
+      "fixable_in": "additive test; data hygiene note",
+      "phase2_test": "integrity: rate curve plausible band; as_of before coverage -> NaN (not 0)"
+    },
+    {
+      "id": "W11",
+      "severity": "LOW",
+      "category": "data-hygiene",
+      "title": "82 negative dividend_amount values are float-epsilon noise on Discontinued/Omitted rows (should clamp to 0)",
+      "evidence": "negative_count=82 all >= -0.001 (materially negative: 0), min=-2.4245362661989844e-14",
+      "fixable_in": "additive: clamp in a producer (no producer script exists today)",
+      "phase2_test": "integrity: dividend_amount >= -1e-9 (tolerance) OR clamp Discontinued/Omitted to 0"
+    },
+    {
+      "id": "W7",
+      "severity": "INFO",
+      "category": "staleness",
+      "title": "Memory-flagged dividends truncation (CTRA/BK/LW/PAYC) is NOT present on current main \u2014 full 2018-24 ex-div history is intact (resolved, like the stale treasury memory)",
+      "evidence": "2018-24 row counts: {'CTRA': 30, 'BK': 28, 'LW': 28, 'PAYC': 7, 'MTCH': 0} (PAYC/MTCH legitimately started paying late); overall most-recent past ex-date 2026-06-01; residual: no in-repo producer script + future-declared rows to 2027-03-12 (dividends is reconstructable-only)",
+      "fixable_in": "n/a (resolved on main); residual is the missing producer + reconstructable-only",
+      "phase2_test": "data->engine: a dividends->CC->cash test pinning an in-window ex-div changes CC selection (the R1 mechanism)"
+    },
+    {
+      "id": "W12",
+      "severity": "INFO",
+      "category": "staleness",
+      "title": "SessionStart 'OHLCV 79 days stale / 2026-03-20' is BRANCH-LOCAL to claude/suggest-rolls-defensive-surfacing; main is current",
+      "evidence": "Auto-detected frontier (most-recent bar common to OHLCV & IV) = **2026-06-04**. Per-file max: {'ohlcv': '2026-06-04', 'vol_iv': '2026-06-04', 'liquidity': '2026-06-04', 'vix': '2026-06-04', 'treasury': '2026-06-05'}. The SessionStart staleness warning reflects the *checked-out branch*, not `main`: `main` carries data through ~2026-06-04, while `claude/suggest-rolls-defensive-surfacing` (the primary working tree) ends 2026-03-20. The probe pins to the auto-detected frontier so it is deterministic on either branch.",
+      "fixable_in": "not a defect on main; pin engine probes to the auto-detected frontier",
+      "phase2_test": "data->engine: frontier auto-detection is deterministic across branches"
+    },
+    {
+      "id": "W13",
+      "severity": "INFO",
+      "category": "silent-drop",
+      "title": "No silent drops \u2014 every requested ticker either produced a row or carried an explicit drop reason (drops attrs are complete)",
+      "evidence": "requested=511 produced=480 dropped=31 vanished=0",
+      "fixable_in": "n/a (positive control)",
+      "phase2_test": "data->engine: assert n_produced + n_dropped == n_requested"
+    }
+  ]
+}

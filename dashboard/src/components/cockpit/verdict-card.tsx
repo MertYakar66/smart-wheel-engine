@@ -7,8 +7,11 @@ import type { EngineCandidate, Verdict } from "@/types/cockpit";
 import {
   calibrationNote,
   confidenceTrust,
+  fmtN,
   fmtPct,
+  fmtProbCi,
   fmtUsd,
+  samplingCiHonest,
   verdictVariant,
 } from "@/lib/cockpit-trust";
 import { DistributionBar } from "./distribution-bar";
@@ -31,6 +34,13 @@ export function VerdictCard({
   const v = verdict || c.recommendation;
   const trust = confidenceTrust(c.probProfit, vix);
   const note = calibrationNote(c.probProfit, trust);
+  // Wilson 95% sampling CI (orthogonal to the calibration trust): widen the
+  // headline so it is never read as a precise 2-dp figure. Shown only on the
+  // IID non-overlapping tier (samplingCiHonest) — elsewhere the CI is false
+  // precision; degrade to the bare %. Mirrors the cockpit-table render.
+  const ciOk = samplingCiHonest(c.distributionSource);
+  const ppCi = ciOk ? fmtProbCi(c.probProfitCiLow, c.probProfitCiHigh) : "";
+  const ppN = ciOk ? fmtN(c.nScenarios) : null;
   const rocAnn =
     c.strike > 0 && c.dte > 0 ? (c.premium / c.strike) * (365 / c.dte) : null;
 
@@ -68,8 +78,8 @@ export function VerdictCard({
         <Metric label="Premium" value={fmtUsd(c.premium * 100)} color="text-terminal-green" />
         <Metric label="ROC ann." value={fmtPct(rocAnn, 1)} />
         <Metric
-          label="prob_profit"
-          value={`${Math.round(c.probProfit * 100)}%`}
+          label={ppN ? `prob_profit · ${ppN}` : "prob_profit"}
+          value={`${Math.round(c.probProfit * 100)}%${ppCi ? ` [${ppCi}]` : ""}`}
           color={
             trust === "trust"
               ? "text-terminal-green"

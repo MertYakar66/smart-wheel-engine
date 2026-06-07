@@ -10,6 +10,7 @@ for OHLCV, volatility/IV, events, rates, fundamentals, and screening.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -83,19 +84,83 @@ class MarketDataConnector:
         "liquidity": "sp500_liquidity.csv",
     }
 
-    def __init__(self, data_dir: str = "data/bloomberg") -> None:
+    # Deep-history slice manifest (R2 / docs/DATA_LAYER_DEEP_READ_DESIGN.md §A1).
+    # Per series, the deep + delisted gz panels (under ``data_dir``) that extend
+    # the recent monolith back to the 1994/1990 floor and add the ~1,015 delisted
+    # constituents. Read ONLY when ``deep_history`` is enabled (default OFF). The
+    # order matters: slices are concatenated AFTER the recent monolith and
+    # de-duplicated keep-first, so precedence is
+    # ``recent monolith > deep-current > delisted`` (a relisted held name's live
+    # rows always win over a stale delisted row on the same (ticker, date)).
+    # A manifest (vs. hardcoded names) lets future shards register without
+    # touching ``_load``. A missing slice file is logged and skipped, never
+    # raised — matching the connector's "missing CSV degrades, never crashes"
+    # contract, so the feature is safe to ship before the gz exist everywhere.
+    _DEEP_SLICES: dict[str, tuple[str, ...]] = {
+        "ohlcv": (
+            "deep/sp500_ohlcv__1994_2018.csv.gz",
+            "deep/sp500_ohlcv__delisted.csv.gz",
+        ),
+        "vol_iv": (
+            "deep/sp500_vol_iv_full__1994_2012.csv.gz",
+            "deep/sp500_vol_iv_full__2012_2018.csv.gz",
+            "deep/sp500_vol_iv__delisted.csv.gz",
+        ),
+        "liquidity": (
+            "deep/sp500_liquidity__1994_2015.csv.gz",
+            "deep/sp500_liquidity__delisted.csv.gz",
+        ),
+    }
+
+    def __init__(
+        self, data_dir: str = "data/bloomberg", *, deep_history: bool | None = None
+    ) -> None:
         self._data_dir = Path(data_dir)
+        # Deep-history assembly (R2). DEFAULT OFF — the recent-monolith fast path
+        # is unchanged until an architect-reviewed re-baseline flips it on (it is
+        # a re-baseline event: it changes what EVEngine sees). When ``None`` the
+        # env var ``SWE_DEEP_HISTORY`` (1/true/yes/on) decides; an explicit
+        # bool argument always wins. Keyword-only so the positional ``data_dir``
+        # contract every existing caller relies on is untouched.
+        if deep_history is None:
+            deep_history = os.environ.get("SWE_DEEP_HISTORY", "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
+        self._deep_history = bool(deep_history)
         # Cache for loaded DataFrames – keys match ``_FILES`` keys
         self._cache: dict[str, pd.DataFrame] = {}
+        # Per-DataFrame ``{ticker: sub-frame}`` index, built lazily on the
+        # first ``_filter_ticker`` call against a given cached frame and keyed
+        # by ``id(df)``. Collapses the repeated O(rows) object-column scan a
+        # universe sweep would otherwise do (one full pass instead of one per
+        # ticker). Keyed by id() is safe because the frames live in
+        # ``self._cache`` for the connector's lifetime, so their identity is
+        # stable and they are never GC'd out from under the key.
+        self._ticker_groups: dict[int, dict[str, pd.DataFrame]] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _load(self, key: str) -> pd.DataFrame:
-        """Lazy-load a CSV by key, normalize tickers, cache the result."""
+        """Lazy-load a CSV by key, normalize tickers, cache the result.
+
+        Default path (``deep_history`` OFF) is unchanged: read the single recent
+        monolith. With ``deep_history`` ON and ``key`` in :attr:`_DEEP_SLICES`,
+        delegate to :meth:`_load_assembled`, which extends the monolith with the
+        deep + delisted slices BELOW this method — so every ``get_*`` accessor
+        and the ranker above see longer history through unchanged signatures
+        (CLAUDE.md §2: the decision-layer trio is untouched).
+        """
         if key in self._cache:
             return self._cache[key]
+
+        # Deep-history assembly is opt-in and only for the three per-name panels.
+        if self._deep_history and key in self._DEEP_SLICES:
+            return self._load_assembled(key)
 
         path = self._data_dir / self._FILES[key]
         if not path.exists():
@@ -110,9 +175,13 @@ class MarketDataConnector:
             self._cache[key] = pd.DataFrame()
             return self._cache[key]
 
-        # Normalize ticker column if present
+        # Normalize ticker column if present. Map over the ~500 UNIQUE raw
+        # tickers rather than ``.apply`` over every row — same values, but it
+        # turns ~2.4M per-row ``normalize_ticker`` calls (OHLCV + IV combined)
+        # into ~500. Output is identical to the prior ``.apply``.
         if "ticker" in df.columns:
-            df["ticker"] = df["ticker"].apply(normalize_ticker)
+            _norm = {t: normalize_ticker(t) for t in df["ticker"].unique()}
+            df["ticker"] = df["ticker"].map(_norm)
 
         # Parse common date columns
         for col in (
@@ -128,6 +197,83 @@ class MarketDataConnector:
 
         self._cache[key] = df
         logger.info("Loaded %s: %d rows from %s", key, len(df), path)
+        return df
+
+    def _load_assembled(self, key: str) -> pd.DataFrame:
+        """Assemble recent monolith ∪ deep ∪ delisted for a per-name panel.
+
+        Concatenates the recent monolith FIRST, then each present deep/delisted
+        slice from :attr:`_DEEP_SLICES`; normalizes tickers + parses dates over
+        the combined frame; de-duplicates ``(ticker, date)`` keep-first (so
+        precedence is recent > deep-current > delisted — a relisted held name's
+        live rows win over a stale delisted row on a shared key); and sorts.
+        Missing slices are logged and skipped (degrade to whatever is present).
+        Cached for the connector lifetime exactly like :meth:`_load`.
+        """
+        parts: list[pd.DataFrame] = []
+
+        recent_path = self._data_dir / self._FILES[key]
+        if recent_path.exists():
+            try:
+                parts.append(pd.read_csv(recent_path, low_memory=False))
+            except Exception:
+                logger.exception("Failed to read %s", recent_path)
+        else:
+            logger.warning("Recent monolith not found: %s", recent_path)
+
+        for rel in self._DEEP_SLICES[key]:
+            slice_path = self._data_dir / rel
+            if not slice_path.exists():
+                logger.warning("Deep slice not found, skipping: %s", slice_path)
+                continue
+            try:
+                comp = "gzip" if slice_path.suffix == ".gz" else None
+                parts.append(pd.read_csv(slice_path, compression=comp, low_memory=False))
+            except Exception:
+                logger.exception("Failed to read deep slice %s", slice_path)
+
+        if not parts:
+            logger.warning("No sources found for assembled key %r", key)
+            self._cache[key] = pd.DataFrame()
+            return self._cache[key]
+
+        df = pd.concat(parts, ignore_index=True) if len(parts) > 1 else parts[0]
+
+        # Normalize tickers over the combined frame (map over uniques — identical
+        # values to a per-row apply, far fewer calls).
+        if "ticker" in df.columns:
+            _norm = {t: normalize_ticker(t) for t in df["ticker"].unique()}
+            df["ticker"] = df["ticker"].map(_norm)
+
+        # Parse common date columns (same set as _load).
+        for col in (
+            "date",
+            "ex_date",
+            "declared_date",
+            "record_date",
+            "payable_date",
+            "announcement_date",
+        ):
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+
+        # Dedup keep-first (precedence = concat order = recent > deep > delisted)
+        # then sort. Guards the ~90 relisted held names so their stale delisted
+        # rows never shadow the live monolith on a shared (ticker, date).
+        if "ticker" in df.columns and "date" in df.columns:
+            df = (
+                df.drop_duplicates(subset=["ticker", "date"], keep="first")
+                .sort_values(["ticker", "date"])
+                .reset_index(drop=True)
+            )
+
+        self._cache[key] = df
+        logger.info(
+            "Loaded %s (deep_history): %d rows from %d source(s)",
+            key,
+            len(df),
+            len(parts),
+        )
         return df
 
     @staticmethod
@@ -154,12 +300,33 @@ class MarketDataConnector:
             out = out[out[date_col] <= pd.Timestamp(end)]
         return out
 
-    @staticmethod
-    def _filter_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-        """Filter DataFrame to a single (already-normalized) ticker."""
+    def _filter_ticker(self, df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """Filter DataFrame to a single (already-normalized) ticker.
+
+        Output-identical to ``df[df["ticker"] == ticker]`` (same rows, same
+        original order, same columns; empty frame with the same schema when the
+        ticker is absent). The speed-up is the lazily-built, cached
+        ``{ticker: sub-frame}`` index (``self._ticker_groups``): the first call
+        against a frame does a single ``groupby`` pass, every subsequent
+        per-ticker lookup is O(1) — so a full-universe sweep makes one pass over
+        each data file instead of one object-column scan per ticker.
+        """
         if df.empty or "ticker" not in df.columns:
             return df
-        return df[df["ticker"] == ticker]
+        key = id(df)
+        groups = self._ticker_groups.get(key)
+        if groups is None:
+            # ``groupby`` preserves within-group row order, matching the
+            # boolean-mask semantics this replaces. NB: must iterate the
+            # (name, group) pairs explicitly — ``dict(df.groupby(...))`` is NOT
+            # equivalent (GroupBy exposes ``.keys``, so ``dict()`` takes the
+            # mapping-protocol path and builds the wrong thing). Hence noqa C416.
+            groups = {t: sub for t, sub in df.groupby("ticker", sort=False)}  # noqa: C416
+            self._ticker_groups[key] = groups
+        hit = groups.get(ticker)
+        if hit is None:
+            return df.iloc[0:0]  # empty, same columns/dtypes — matches mask miss
+        return hit
 
     # ------------------------------------------------------------------
     # Ticker normalization (public static)

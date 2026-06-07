@@ -42,6 +42,17 @@ export interface EngineCandidate {
   // (~0.6-0.85) and OVER-confident in the top bin (>0.90): crisis-realized
   // ~0.57 vs ~0.96 forecast (heavy-verify I1).
   probProfit: number;
+  /**
+   * Wilson 95% SAMPLING CI for prob_profit and the scenario count it rests on
+   * (engine `n_scenarios` / `prob_profit_ci_low` / `prob_profit_ci_high`). This
+   * is the sampling uncertainty of the k/N forward-scenario frequency — a wide
+   * band (N is small, ~30-35 on the empirical path) means the point estimate
+   * must not be read to 2 dp. Orthogonal to the top-bin calibration bias noted
+   * above. Optional: absent on older engine payloads, null when N <= 0.
+   */
+  nScenarios?: number;
+  probProfitCiLow?: number | null;
+  probProfitCiHigh?: number | null;
   probAssignment: number;
 
   fairValue: number | null;

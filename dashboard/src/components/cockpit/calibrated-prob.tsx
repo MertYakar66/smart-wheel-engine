@@ -14,12 +14,24 @@ import {
   TOP_BIN_REALIZED,
   calibrationNote,
   confidenceTrust,
+  fmtN,
+  fmtProbCi,
+  num,
+  samplingCiHonest,
   type ConfidenceTrust,
 } from "@/lib/cockpit-trust";
 
 interface CalibratedProbProps {
   probProfit: number;
   vix: number | null;
+  /** Wilson 95% sampling-CI bounds + scenario count (0-1). Optional: absent on
+   *  older engine payloads, in which case only the bare dot is drawn. */
+  ciLow?: number | null;
+  ciHigh?: number | null;
+  nScenarios?: number | null;
+  /** forward_distribution source label. The CI is only an honest sampling
+   *  spread on the IID non-overlapping tier — see samplingCiHonest(). */
+  distributionSource?: string | null;
 }
 
 const DOT_COLOR: Record<ConfidenceTrust, string> = {
@@ -33,7 +45,14 @@ const TEXT_COLOR: Record<ConfidenceTrust, string> = {
   "hard-caution": "text-terminal-red",
 };
 
-export function CalibratedProb({ probProfit, vix }: CalibratedProbProps) {
+export function CalibratedProb({
+  probProfit,
+  vix,
+  ciLow,
+  ciHigh,
+  nScenarios,
+  distributionSource,
+}: CalibratedProbProps) {
   const trust = confidenceTrust(probProfit, vix);
   const note = calibrationNote(probProfit, trust);
   const pct = Math.round(probProfit * 100);
@@ -41,10 +60,33 @@ export function CalibratedProb({ probProfit, vix }: CalibratedProbProps) {
   const showGhost = trust === "hard-caution";
   const ghostPct = TOP_BIN_REALIZED * 100;
 
+  // Wilson 95% SAMPLING CI — the sampling uncertainty of the k/N forward-
+  // scenario frequency, orthogonal to the calibration trust above. The band on
+  // the track makes "few scenarios -> wide, low-confidence estimate" visible.
+  // Shown ONLY on the IID non-overlapping tier (samplingCiHonest): on
+  // bootstrap/synthetic tiers the same field is a 5000-draw count whose Wilson
+  // interval is false precision, so we suppress it and degrade to the bare dot
+  // — same path as an absent CI on older payloads.
+  const ciOk = samplingCiHonest(distributionSource);
+  const lo = ciOk ? num(ciLow) : null;
+  const hi = ciOk ? num(ciHigh) : null;
+  const ci = lo !== null && hi !== null ? fmtProbCi(lo, hi) : "";
+  const showBand = lo !== null && hi !== null;
+  // Band geometry uses the exact (ordered) bounds; the caption text widens them.
+  const bandLeft =
+    showBand ? Math.max(0, Math.min(100, Math.min(lo, hi) * 100)) : 0;
+  const bandRight =
+    showBand ? Math.max(0, Math.min(100, Math.max(lo, hi) * 100)) : 0;
+  const bandWidth = Math.max(0, bandRight - bandLeft);
+  const nStr = ciOk ? fmtN(nScenarios) : null;
+
+  const ciTitle = showBand
+    ? ` · Wilson 95% sampling CI [${ci}]${nStr ? ` from ${nStr} windows` : ""}`
+    : "";
   const title =
-    trust === "trust"
+    (trust === "trust"
       ? `prob_profit ${probProfit.toFixed(3)} — mid-range, well-calibrated (trust).`
-      : `${note}`;
+      : `${note}`) + ciTitle;
 
   return (
     <div className="flex flex-col gap-0.5" title={title}>
@@ -64,6 +106,17 @@ export function CalibratedProb({ probProfit, vix }: CalibratedProbProps) {
           className="absolute inset-y-0 rounded-full bg-terminal-green/15"
           style={{ left: "60%", width: "30%" }}
         />
+        {/* Wilson 95% sampling-CI band — width encodes how few windows back the
+            dot (regime-independent; complements the calibration ghost). Must
+            stay BEFORE the ghost/dot below so the opaque dot paints on top and
+            is never occluded when the point estimate sits on the band edge. */}
+        {showBand && (
+          <div
+            className="absolute -inset-y-0.5 rounded-full border border-terminal-text/25 bg-terminal-text/10"
+            style={{ left: `${bandLeft}%`, width: `${bandWidth}%` }}
+            title={`Wilson 95% sampling CI [${ci}]`}
+          />
+        )}
         {/* ghost: crisis-realized ~0.57 for the top bin */}
         {showGhost && (
           <div
@@ -78,6 +131,14 @@ export function CalibratedProb({ probProfit, vix }: CalibratedProbProps) {
           style={{ left: `${dotPct}%` }}
         />
       </div>
+      {ci && (
+        <span
+          className="text-[9px] leading-tight text-terminal-dim tabular-nums"
+          title="Wilson 95% sampling CI for prob_profit (independent forward windows)"
+        >
+          sampling 95% CI [{ci}]{nStr ? ` · ${nStr}` : ""}
+        </span>
+      )}
       {showGhost && (
         <span className="text-[9px] leading-tight text-terminal-red/80">
           realized ~{Math.round(TOP_BIN_REALIZED * 100)}% in crisis

@@ -89,7 +89,16 @@ export function CockpitTable({
               <tr
                 key={c.ticker}
                 onClick={() => onSelect?.(c)}
-                className={`cursor-pointer border-b border-terminal-border/40 align-middle hover:bg-terminal-border/30 ${
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect?.(c);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={`Open dossier for ${c.ticker} — ${c.recommendation}`}
+                className={`cursor-pointer border-b border-terminal-border/40 align-middle hover:bg-terminal-border/30 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-terminal-amber ${
                   selected ? "bg-terminal-border/40" : ""
                 }`}
               >
@@ -121,7 +130,14 @@ export function CockpitTable({
                   />
                 </td>
                 <td className="px-2 py-1.5">
-                  <CalibratedProb probProfit={c.probProfit} vix={vix} />
+                  <CalibratedProb
+                    probProfit={c.probProfit}
+                    vix={vix}
+                    ciLow={c.probProfitCiLow}
+                    ciHigh={c.probProfitCiHigh}
+                    nScenarios={c.nScenarios}
+                    distributionSource={c.distributionSource}
+                  />
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-terminal-text">
                   ${c.strike.toFixed(2)}

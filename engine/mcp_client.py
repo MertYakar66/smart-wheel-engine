@@ -57,8 +57,12 @@ best-effort ``tv quote <SYMBOL>`` step, verified to return a flat
 ``{"success": true, ..., "last": <spot>}`` payload, so ``visible_price``
 is populated from its ``last`` field; the screenshot path key is
 ``file_path``; payloads are flat (no envelope).
-The per-mode error strings used by :func:`_classify` were **not**
-exercised — that spot keeps its ``TODO(live-verify)`` marker.
+The ``mcp_unavailable`` error wording in :func:`_classify` is now
+live-verified (CDP-down: ``"connection failed"`` / ``"fetch failed"``,
+confirmed 2026-06-01 against the installed ``tv`` CLI). The
+``symbol_not_found`` / ``browser_disconnected`` wordings still need a
+live server with Desktop **up** — they keep the ``TODO(live-verify)``
+marker.
 """
 
 from __future__ import annotations
@@ -324,11 +328,20 @@ def _blob(stdout: str | None, stderr: str | None) -> str:
 def _classify(step: str, blob: str) -> MCPClientError:
     """Map a CLI error blob to a canonical :class:`MCPClientError`.
 
-    TODO(live-verify): the substring checks are written against
-    *plausible* error wording — the upstream README does not document
-    the CLI's error strings. Confirm against a live server and tighten.
-    Anything unmatched falls through to ``unexpected_error`` — still a
-    downgrade-only signal, just less specific in the audit trail.
+    The ``mcp_unavailable`` wording is live-verified: against the
+    installed ``tv`` CLI with TradingView Desktop down (CDP
+    unreachable), ``tv state`` / ``tv symbol`` / ``tv quote`` all exit
+    non-zero with ``"CDP connection failed after N attempts: fetch
+    failed"`` — so ``"connection failed"`` / ``"fetch failed"`` join the
+    ``mcp_unavailable`` set (2026-06-01; S47 / C4). Before that fix this
+    string fell through to ``unexpected_error``.
+
+    TODO(live-verify): the ``symbol_not_found`` and
+    ``browser_disconnected`` wordings are still written against
+    *plausible* strings — confirming them needs a live server with
+    Desktop *up*. Anything unmatched falls through to
+    ``unexpected_error`` — still a downgrade-only signal, just less
+    specific in the audit trail.
     """
     low = blob.lower()
     if step == "chart_set_symbol" and any(
@@ -342,6 +355,8 @@ def _classify(step: str, blob: str) -> MCPClientError:
         for s in (
             "econnrefused",
             "connection refused",
+            "connection failed",
+            "fetch failed",
             "not running",
             "unreachable",
             ":9222",

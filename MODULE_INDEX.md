@@ -30,7 +30,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | File | Purpose | Status | Role |
 |---|---|---|---|
-| `engine_api.py` | HTTP API on `:8787` (32 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
+| `engine_api.py` | HTTP API on `:8787` (34 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `audit.py` | Smoke-test client that hits `localhost:8787` and runs domain-grouped checks; used historically by audit-i through audit-viii. | live | infra |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
@@ -46,7 +46,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `ev_engine.py` | `EVEngine.evaluate`. THE ranker. Runs event lockout → forward distribution → cost model → regime + dealer multipliers → returns `EVResult`. (**authority**) |
 | `wheel_runner.py` | `WheelRunner.rank_candidates_by_ev`. The one public route into the EV path. Provider selection (`SWE_DATA_PROVIDER`) lives here. (**runner**) |
-| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R10; R7-R10 are the D17 portfolio soft-warns). Reviewers downgrade only. (**reviewer**) |
+| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R11; R7-R10 are the D17 portfolio soft-warns, R11 is the elevated-vol top-bin size-down). Reviewers downgrade only. (**reviewer**) |
 
 ### EV-path participants
 
@@ -188,7 +188,7 @@ Key scripts:
 | `pull_all.py` | Orchestrates every `pull_*.py` step; respects `--skip` for tier-blocked endpoints. |
 | `backfill_features.py` | Rebuilds the `data/features/**` shards (1.2 GB total; AAPL is the in-git sample). |
 | `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `CLAUDE.md`'s fresh-session bring-up. |
-| `feature_smoke_test.py` | 127 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
+| `feature_smoke_test.py` | 108 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
 | `theta_backfill.py` | Tier-aware bulk backfill with circuit breakers. |
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
 | `probe_theta_capabilities.py` | Regenerates `data_processed/theta_capabilities.json`. |

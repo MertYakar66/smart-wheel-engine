@@ -1,6 +1,13 @@
 # Operating Overview — Mert's Financial Analyst Function
 
-*Last updated: 2026-04-25*
+*Last updated: 2026-06-02*
+
+> For the engine-side bridge contract and the MCP design (the
+> downgrade-only chart-provider seam, `ChainedChartProvider` ordering,
+> the no-quiet-substitution invariant), see
+> [`../docs/TRADINGVIEW_INTEGRATION.md`](../docs/TRADINGVIEW_INTEGRATION.md).
+> This file is the **analyst-workspace** half — Claude driving a live
+> TradingView Desktop for research deliverables.
 
 ## Purpose
 
@@ -10,9 +17,9 @@ This is **research and decision support**. No autonomous execution, no order rou
 
 ## Operating Model
 
-Mert writes prompts in Cowork (this chat surface). Claude executes against the live TradingView MCP and any other connected tools, then files deliverables into Mert's workspace folder at `~/Desktop/TradingView/`. Mert does not touch TradingView Desktop directly — the chart, watchlist, indicators, alerts, and Pine Script are all driven through Claude.
+Mert writes prompts to Claude. Claude executes against the live TradingView MCP and any other connected tools, then files deliverables into the repo-local workspace folder at `tradingview/` (this directory). Mert does not touch TradingView Desktop directly — the chart, watchlist, indicators, alerts, and Pine Script are all driven through Claude.
 
-The TradingView Desktop app must be running with Chrome DevTools Protocol enabled on port 9222. A helper script (`launch-tradingview-cdp.sh`) handles this; if connection drops, that script is the recovery path. The Mac never needs to be touched beyond keeping TradingView open.
+The TradingView Desktop app must be running with Chrome DevTools Protocol enabled on port 9222. On the Windows primary, the PowerShell helper `launch-tradingview-cdp.ps1` (in this directory) handles this; if the connection drops, that script is the recovery path. (`launch-tradingview-cdp.sh` is the macOS counterpart.) Nothing else needs touching beyond keeping TradingView open.
 
 ## Coverage Mandate
 
@@ -39,7 +46,7 @@ Every chart reading cites the symbol, timeframe, and timestamp (e.g., "SPY 1D, l
 
 **Memory** — Persistent across sessions; tracks Mert's preferences, mandate evolution, and lessons from prior work.
 
-**Workspace** — `~/Desktop/TradingView/` is the single source of truth. `CLAUDE.md` boots every session with the analyst mandate. `rules.json` carries the live trading rules. Output folders are pre-created.
+**Workspace** — the repo-local `tradingview/` directory is the single source of truth. `CLAUDE.md` boots every session with the analyst mandate. `rules.json` carries the live trading rules. Output folders (`research/`, `models/`, `pine/`, `screenshots/`) are pre-created.
 
 ## Standard Session Flow
 

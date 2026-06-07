@@ -421,7 +421,6 @@ def run_backtest(
         )
 
     assert_data_window_available(start, end)
-    np.random.default_rng(seed)  # placeholder for any downstream seed consumers
 
     runner = WheelRunner()
     conn = runner.connector
@@ -855,7 +854,6 @@ def run_backtest_multi_friction(
             raise ValueError(f"friction_level must be one of {_FRICTION_LEVELS}, got {level!r}")
 
     assert_data_window_available(start, end)
-    np.random.default_rng(seed)
 
     runner = WheelRunner()
     conn = runner.connector

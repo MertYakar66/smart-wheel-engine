@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from backtests.regression._common import load_snapshot
+from backtests.regression._common import connector_data_sha256, load_snapshot
 from backtests.regression.universes import UNIVERSE_24, UNIVERSE_100
 
 # ---------------------------------------------------------------------------
@@ -70,6 +70,10 @@ _FINGERPRINT_REQUIRED = (
     # either trips the re-baseline guard instead of silently moving results.
     "vol_iv_sha256",
     "treasury_sha256",
+    # #340: the FULL connector-set fingerprint (a dict of per-file shas) — pinned so
+    # the active drift guard (``test_snapshot_data_fingerprint_matches_current``) can
+    # catch drift in ANY connector input, not just OHLCV/vol_iv/treasury.
+    "connector_data_sha256",
 )
 
 
@@ -162,6 +166,52 @@ def test_snapshot_fingerprints_have_required_keys(snapshot_id):
     fp = snap.get("fingerprint", {})
     missing = [k for k in _FINGERPRINT_REQUIRED if k not in fp]
     assert not missing, f"{snapshot_id}: fingerprint missing keys {missing}"
+
+
+@pytest.mark.parametrize(
+    "snapshot_id",
+    ["s27_ivpit_24t_100k", "s32_friction_24t_1m", "s34_universe_100t_1m", "s35_oos_24t_100k"],
+)
+def test_snapshot_data_fingerprint_matches_current(snapshot_id):
+    """Active data-drift guard (fast — NOT behind the ``backtest_regression``
+    marker, so it runs in the normal per-PR lane).
+
+    Asserts each committed snapshot's pinned ``connector_data_sha256`` (the SHA
+    of every connector input CSV) still matches the *current* committed data.
+    The moment any connector input drifts from what the snapshot was generated
+    against, this fails fast — forcing an explicit re-baseline BEFORE the
+    multi-hour ``backtest_regression`` markers run.
+
+    Closes the 2026-06-06 blind-spot: a ``sp500_dividends.csv`` revert *after*
+    snapshot generation silently shifted the covered-call realized cash and went
+    undetected until a 3.5 h marker run failed — the legacy fingerprint pinned
+    only OHLCV/vol_iv/treasury and nothing compared a snapshot's pins to the
+    live data.
+
+    EXPECTED to fail on every legitimate data change until the snapshots are
+    regenerated — that is the point. See TESTING.md "Backtest regression —
+    re-baseline workflow".
+    """
+    try:
+        snap = load_snapshot(snapshot_id)
+    except FileNotFoundError:
+        pytest.skip(f"snapshot {snapshot_id}.json not yet committed")
+
+    pinned = snap.get("fingerprint", {}).get("connector_data_sha256")
+    assert pinned is not None, (
+        f"{snapshot_id}: fingerprint has no connector_data_sha256 — regenerate the "
+        f"snapshot to pin the full connector set (see TESTING.md)."
+    )
+
+    current = connector_data_sha256()
+    drifted = sorted(k for k in set(pinned) | set(current) if pinned.get(k) != current.get(k))
+    assert not drifted, (
+        f"{snapshot_id}: connector data has drifted from the snapshot's pinned "
+        f"fingerprint for {drifted}. The committed data no longer matches what this "
+        f"snapshot was generated against, so the slow markers would (eventually) fail. "
+        f"Re-baseline the affected snapshot(s) before running them — see TESTING.md "
+        f'"Backtest regression — re-baseline workflow".'
+    )
 
 
 # ---------------------------------------------------------------------------

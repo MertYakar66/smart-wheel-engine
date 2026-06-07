@@ -216,9 +216,27 @@ fails, the response is **diagnose first, re-baseline second**:
    PR linking back to the engine PR that caused the drift.
 5. **Accidental:** revert the engine PR. The harness has done its job.
 
-The `data_csv_sha256` field in each snapshot's fingerprint pins the
-Bloomberg CSV; a CSV refresh that changes the SHA forces an explicit
-re-baseline rather than a silent drift.
+**Data-drift guards (fast — run in the normal per-PR lane, NOT behind the
+`backtest_regression` marker):**
+
+- `test_snapshot_fingerprints_have_required_keys` asserts every snapshot
+  carries the required fingerprint keys, including `connector_data_sha256`
+  (the dict of per-file SHAs for *every* connector input — #340).
+- `test_snapshot_data_fingerprint_matches_current` asserts each snapshot's
+  pinned `connector_data_sha256` still matches the **current committed data**.
+  It fails fast the moment ANY connector input CSV drifts from what the
+  snapshot was generated against — so a data refresh forces an explicit
+  re-baseline instead of a silent drift caught only by a multi-hour marker run.
+  (The 2026-06-06 `sp500_dividends.csv` revert-after-generation went undetected
+  until a 3.5 h S34 run failed, because the legacy fingerprint pinned only
+  OHLCV/vol_iv/treasury and nothing compared a snapshot's pins to the live
+  data.) **This guard is EXPECTED to fail on every legitimate data change** —
+  that is the signal to regenerate the four snapshots (step 4 above) and
+  re-pin, not a regression to investigate.
+
+The legacy scalar `data_csv_sha256` / `vol_iv_sha256` / `treasury_sha256`
+fields remain for back-compat; `connector_data_sha256` supersedes them by
+pinning the full connector set.
 
 ## Sandbox notes
 

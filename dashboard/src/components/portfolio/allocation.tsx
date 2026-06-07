@@ -2,7 +2,7 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { CURRENCY as MOCK_CURRENCY, SECTORS as MOCK_SECTORS } from "./mock";
-import { PfCard } from "./parts";
+import { PfCard, ProvenanceBadge, type SliceSource } from "./parts";
 
 const RESOLVED: Record<string, string> = {
   "var(--color-pf-accent)": "#2dd4bf",
@@ -30,16 +30,18 @@ function colorFor(s: SectorSlice, i: number): string {
 export function Allocation({
   sectors = MOCK_SECTORS,
   currency = MOCK_CURRENCY,
+  source,
 }: {
   sectors?: SectorSlice[];
   currency?: CurrencySlice[];
+  source?: SliceSource;
 }) {
   const SECTORS = sectors;
   const top = SECTORS[0] ?? { name: "—", val: 0 };
   const usd = currency.find((c) => c.name === "USD")?.val ?? 0;
   const cad = currency.find((c) => c.name === "CAD")?.val ?? 0;
   return (
-    <PfCard title="Allocation" className="h-full">
+    <PfCard title="Allocation" className="h-full" right={<ProvenanceBadge source={source} />}>
       <div className="flex items-center gap-4">
         <div className="relative shrink-0" style={{ width: 132, height: 132 }}>
           <ResponsiveContainer width="100%" height="100%">

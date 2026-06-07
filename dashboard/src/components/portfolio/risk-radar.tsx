@@ -9,7 +9,7 @@ import {
   SINGLE_NAME as MOCK_SINGLE_NAME,
   SINGLE_NAME_CAP as MOCK_SINGLE_NAME_CAP,
 } from "./mock";
-import { PfCard } from "./parts";
+import { PfCard, ProvenanceBadge, type SliceSource } from "./parts";
 
 const C = { ok: "#34d399", caution: "#f5a524", breach: "#f2495e" };
 type Status = keyof typeof C;
@@ -133,12 +133,14 @@ export function RiskRadar({
   sectorExposure = MOCK_SECTOR_EXPOSURE,
   caps = { singleName: MOCK_SINGLE_NAME_CAP, sector: MOCK_SECTOR_CAP },
   marginHealth = 0.12,
+  source,
 }: {
   account?: typeof MOCK_ACCOUNT;
   singleName?: { sym: string; pct: number }[];
   sectorExposure?: { name: string; pct: number }[];
   caps?: { singleName: number; sector: number };
   marginHealth?: number;
+  source?: SliceSource;
 }) {
   const stressed = account.availableFunds < 0;
   return (
@@ -147,6 +149,7 @@ export function RiskRadar({
       title="Risk Radar"
       right={
         <span className="flex items-center gap-1.5 text-[10px] text-terminal-dim">
+          <ProvenanceBadge source={source} />
           <ShieldAlert className="h-3.5 w-3.5" style={{ color: C.breach }} />
           concentration · margin
         </span>

@@ -153,6 +153,21 @@ def load_ledger(data_dir: str | Path | None = None) -> dict:
     return led
 
 
+def provenance(artifact: dict) -> str:
+    """Honest data-source tag for the viewer's live/demo badge.
+
+    The committed demo fixtures carry a top-level ``"source": "fixture"``
+    marker; a real point-in-time IBKR drop does not. Returns ``"demo"`` for a
+    fixture (or an explicit ``demo`` / ``mock`` marker), else ``"live"``. The
+    engine_api attaches this per slice and the dashboard renders an honest
+    header + per-card badge from it, so committed demo data can never
+    masquerade as a live IBKR pull (browser-QA §D finding). The viewer-offline
+    case ("mock") is decided client-side when a slice fetch fails.
+    """
+    marker = str(artifact.get("source", "")).strip().lower()
+    return "demo" if marker in ("fixture", "demo", "mock") else "live"
+
+
 # ----------------------------------------------------------------------
 # Small helpers
 # ----------------------------------------------------------------------

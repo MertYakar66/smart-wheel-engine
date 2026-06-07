@@ -22,6 +22,7 @@ import {
   type EquityPoint,
   type Holding,
 } from "./mock";
+import { type SliceSource } from "./parts";
 
 export interface Margin {
   availableFunds: number;
@@ -70,18 +71,31 @@ async function fetchView<T>(sub: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export type SliceName = "summary" | "positions" | "returns" | "risk" | "history";
+
 export interface PortfolioState {
   data: PortfolioData;
-  /** true once at least the account summary came from the live engine */
+  /** true once the account summary came from a real (live) IBKR drop */
   live: boolean;
   loading: boolean;
+  /** per-slice provenance — drives the honest header label + per-card badges */
+  sources: Record<SliceName, SliceSource>;
 }
+
+const ALL_MOCK: Record<SliceName, SliceSource> = {
+  summary: "mock",
+  positions: "mock",
+  returns: "mock",
+  risk: "mock",
+  history: "mock",
+};
 
 export function usePortfolioData(): PortfolioState {
   const [state, setState] = useState<PortfolioState>({
     data: MOCK_DATA,
     live: false,
     loading: true,
+    sources: ALL_MOCK,
   });
 
   useEffect(() => {
@@ -153,7 +167,23 @@ export function usePortfolioData(): PortfolioState {
         next.margin = r.margin ?? MOCK_DATA.margin;
       }
 
-      setState({ data: next, live: ok(summary), loading: false });
+      // Per-slice provenance: a fetched slice reports source "live"/"demo"
+      // (engine), a failed one is "mock" (typed fallback). The page derives an
+      // honest header from these so a demo fixture never reads as "Live IBKR".
+      const srcOf = (r: PromiseSettledResult<unknown>): SliceSource => {
+        if (r.status !== "fulfilled") return "mock";
+        const s = (r.value as { source?: string } | null)?.source;
+        return s === "live" ? "live" : "demo";
+      };
+      const sources: Record<SliceName, SliceSource> = {
+        summary: srcOf(summary),
+        positions: srcOf(positions),
+        returns: srcOf(returns),
+        risk: srcOf(risk),
+        history: srcOf(history),
+      };
+
+      setState({ data: next, live: sources.summary === "live", loading: false, sources });
     })();
 
     return () => {

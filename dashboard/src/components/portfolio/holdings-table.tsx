@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { fmtUsd } from "@/lib/cockpit-trust";
 import { HOLDINGS as MOCK_HOLDINGS, type Holding } from "./mock";
-import { PfCard, WheelBadge, fmtSignedUsd, pnlColor } from "./parts";
+import { PfCard, ProvenanceBadge, WheelBadge, fmtSignedUsd, pnlColor, type SliceSource } from "./parts";
 
 type SortKey = "sym" | "mktValue" | "uPnl" | "pctNav";
 type Sort = { key: SortKey; dir: 1 | -1 };
@@ -45,7 +45,13 @@ function Th({
   );
 }
 
-export function HoldingsTable({ holdings = MOCK_HOLDINGS }: { holdings?: Holding[] }) {
+export function HoldingsTable({
+  holdings = MOCK_HOLDINGS,
+  source,
+}: {
+  holdings?: Holding[];
+  source?: SliceSource;
+}) {
   const [sort, setSort] = useState<Sort>({
     key: "pctNav",
     dir: -1,
@@ -60,7 +66,16 @@ export function HoldingsTable({ holdings = MOCK_HOLDINGS }: { holdings?: Holding
     setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: -1 }));
 
   return (
-    <PfCard pad={false} title="Holdings" right={<span className="text-[10px] text-terminal-dim">{rows.length} positions</span>}>
+    <PfCard
+      pad={false}
+      title="Holdings"
+      right={
+        <div className="flex items-center gap-2">
+          <ProvenanceBadge source={source} />
+          <span className="text-[10px] text-terminal-dim">{rows.length} positions</span>
+        </div>
+      }
+    >
       <div className="overflow-x-auto px-2 pb-2">
         <table className="w-full border-collapse text-[12px]">
           <thead>

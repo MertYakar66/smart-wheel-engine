@@ -1039,22 +1039,35 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 except adapter.SnapshotSchemaError:
                     ledger = None
                 payload = adapter.account_summary(snapshot, ledger)
+                source = adapter.provenance(snapshot)
             elif sub == "positions":
                 payload = {"holdings": adapter.build_holdings_view(snapshot)}
+                source = adapter.provenance(snapshot)
             elif sub == "returns":
-                payload = adapter.returns_view(adapter.load_history(), snapshot)
+                history = adapter.load_history()
+                payload = adapter.returns_view(history, snapshot)
+                source = adapter.provenance(history)
             elif sub == "income":
-                payload = adapter.income_view(adapter.load_ledger(), snapshot=snapshot)
+                ledger = adapter.load_ledger()
+                payload = adapter.income_view(ledger, snapshot=snapshot)
+                source = adapter.provenance(ledger)
             elif sub == "risk":
                 payload = adapter.risk_view(snapshot)
+                source = adapter.provenance(snapshot)
             else:  # history
-                payload = adapter.equity_view(adapter.load_history())
+                history = adapter.load_history()
+                payload = adapter.equity_view(history)
+                source = adapter.provenance(history)
         except adapter.SnapshotSchemaError as exc:
             # Missing / unversioned fixture → clean 503 so the dashboard can
             # fall back to its typed mock rather than crash.
             self._send_error(f"portfolio snapshot unavailable: {exc}", 503)
             return
 
+        # Honest per-slice provenance for the dashboard's live/demo badge
+        # (browser-QA §D): "demo" when served from the committed fixtures,
+        # "live" from a real IBKR drop. Metadata only — never a verdict/EV field.
+        payload["source"] = source
         self._send_json(payload)
 
     def _handle_regime(self, ticker):

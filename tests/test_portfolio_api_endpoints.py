@@ -105,3 +105,26 @@ def test_observational_no_tradeable_fields(server, sub):
     blob = json.dumps(data).lower()
     for forbidden in ("verdict", "ev_authority", "tradeable", "ev_dollars"):
         assert forbidden not in blob
+
+
+@pytest.mark.parametrize("sub", SUBS)
+def test_source_is_demo_for_fixtures(server, sub):
+    """Provenance honesty (browser-QA §D): served from the committed demo
+    fixtures (``source: 'fixture'``), every slice must report ``source ==
+    'demo'`` — never 'live' — so the dashboard cannot label fixture data as a
+    live IBKR pull. A real IBKR drop (no marker) reports 'live' (unit test
+    below)."""
+    _, data = _get(server, f"/api/portfolio/{sub}")
+    assert data.get("source") == "demo"
+
+
+def test_provenance_helper_live_vs_demo():
+    """``provenance()``: fixtures (or explicit demo/mock markers) → 'demo';
+    a real IBKR drop (no top-level ``source``) → 'live'."""
+    from engine import ibkr_portfolio_adapter as adapter
+
+    assert adapter.provenance({}) == "live"
+    assert adapter.provenance({"source": "fixture"}) == "demo"
+    assert adapter.provenance({"source": "demo"}) == "demo"
+    assert adapter.provenance({"source": "mock"}) == "demo"
+    assert adapter.provenance({"source": "live"}) == "live"

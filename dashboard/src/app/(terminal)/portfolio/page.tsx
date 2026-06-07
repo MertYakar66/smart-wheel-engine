@@ -17,14 +17,24 @@ import { KpiCards } from "@/components/portfolio/kpi-cards";
 import { RiskRadar } from "@/components/portfolio/risk-radar";
 import { usePortfolioData } from "@/components/portfolio/use-portfolio-data";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { fmtSignedPct, fmtSignedUsd, pnlColor, type Period } from "@/components/portfolio/parts";
+import {
+  fmtSignedPct,
+  fmtSignedUsd,
+  pnlColor,
+  provenanceSummary,
+  type Period,
+} from "@/components/portfolio/parts";
 
 const SUBNAV = ["Overview", "Holdings", "Income", "Risk", "Ask"];
 
 export default function PortfolioPage() {
   const [period, setPeriod] = useState<Period>("YTD");
-  const { data, live, loading } = usePortfolioData();
+  const { data, loading, sources } = usePortfolioData();
   const account = data.account;
+  // Honest header provenance (browser-QA §D): derived from the per-slice
+  // sources, never hardcoded — so committed demo fixtures read "Demo data",
+  // not "Live IBKR snapshot".
+  const prov = provenanceSummary(Object.values(sources), loading);
 
   // Format the snapshot time CLIENT-SIDE only — toLocaleString is timezone-
   // dependent, so doing it during render would differ between the server (UTC)
@@ -68,11 +78,9 @@ export default function PortfolioPage() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-terminal-dim">
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${live ? "bg-pf-ok" : "bg-terminal-dim"}`}
-              title={live ? "Live engine snapshot" : "Mock fallback (engine offline)"}
-            />
-            as of {asOf || "…"}
+            <span className={`h-1.5 w-1.5 rounded-full ${prov.dot}`} title={`${prov.label} data`} />
+            <span className={prov.text}>{prov.label}</span>
+            <span>· as of {asOf || "…"}</span>
           </div>
         </div>
 
@@ -105,15 +113,15 @@ export default function PortfolioPage() {
         {/* Hero chart + allocation */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <EquityCurve period={period} onPeriod={setPeriod} equity={data.equity} />
+            <EquityCurve period={period} onPeriod={setPeriod} equity={data.equity} source={sources.history} />
           </div>
-          <Allocation sectors={data.sectors} currency={data.currency} />
+          <Allocation sectors={data.sectors} currency={data.currency} source={sources.risk} />
         </div>
 
         {/* Holdings + risk radar */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <HoldingsTable holdings={data.holdings} />
+            <HoldingsTable holdings={data.holdings} source={sources.positions} />
           </div>
           <RiskRadar
             account={account}
@@ -121,6 +129,7 @@ export default function PortfolioPage() {
             sectorExposure={data.sectorExposure}
             caps={data.caps}
             marginHealth={data.margin.cushionPct}
+            source={sources.risk}
           />
         </div>
 
@@ -128,10 +137,8 @@ export default function PortfolioPage() {
 
         <p className="pb-2 text-center text-[10px] text-terminal-dim">
           {loading
-            ? "Loading live book…"
-            : live
-              ? "Live IBKR snapshot · read-only performance viewer (design D26). Realized P&L shown distinctly from forward EV — observational only."
-              : "Mock data (engine offline) · read-only performance viewer (design D26). Start the engine API to load the live book."}
+            ? "Loading book…"
+            : `${prov.label} · read-only performance viewer (design D26). Realized P&L shown distinctly from forward EV — observational only.`}
         </p>
       </main>
     </div>

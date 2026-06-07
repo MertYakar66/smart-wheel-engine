@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { fmtUsd } from "@/lib/cockpit-trust";
 import { EQUITY as MOCK_EQUITY, PERIOD_WINDOW, type EquityPoint } from "./mock";
-import { PeriodToggle, PfCard, type Period } from "./parts";
+import { PeriodToggle, PfCard, ProvenanceBadge, type Period, type SliceSource } from "./parts";
 
 const ACCENT = "#2dd4bf";
 const BENCH = "#7c8696";
@@ -31,10 +31,12 @@ export function EquityCurve({
   period,
   onPeriod,
   equity = MOCK_EQUITY,
+  source,
 }: {
   period: Period;
   onPeriod: (p: Period) => void;
   equity?: EquityPoint[];
+  source?: SliceSource;
 }) {
   const [tab, setTab] = useState<"equity" | "premium">("equity");
   const data = useMemo(
@@ -49,6 +51,7 @@ export function EquityCurve({
           <h3 className="text-sm font-semibold text-terminal-text">
             {tab === "equity" ? "Portfolio Value" : "Premium Income"}
           </h3>
+          <ProvenanceBadge source={source} />
           <div className="inline-flex rounded-lg border border-white/[0.08] bg-pf-bg p-0.5 text-[11px]">
             {(["equity", "premium"] as const).map((t) => (
               <button

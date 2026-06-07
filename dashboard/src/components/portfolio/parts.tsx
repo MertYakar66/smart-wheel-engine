@@ -122,4 +122,49 @@ export function orDash(
   return v == null ? "—" : fmt(v);
 }
 
+// ── Provenance honesty (browser-QA §D) ───────────────────────────────────
+// A slice is "live" (real IBKR drop), "demo" (committed fixture), or "mock"
+// (engine offline → typed fallback). Surfaced as a per-card badge and an
+// honest header label so fixture data never reads as a live IBKR pull.
+export type SliceSource = "live" | "demo" | "mock";
+
+const SOURCE_META: Record<SliceSource, { label: string; text: string; dot: string }> = {
+  live: { label: "Live", text: "text-pf-ok", dot: "bg-pf-ok" },
+  demo: { label: "Demo", text: "text-pf-caution", dot: "bg-pf-caution" },
+  mock: { label: "Mock", text: "text-terminal-dim", dot: "bg-terminal-dim" },
+};
+
+/** Small per-card chip showing where that slice's data came from. */
+export function ProvenanceBadge({ source }: { source?: SliceSource }) {
+  if (!source) return null;
+  const m = SOURCE_META[source];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border border-white/[0.08] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide",
+        m.text
+      )}
+      title={`${m.label} data`}
+    >
+      <span className={cn("h-1 w-1 rounded-full", m.dot)} />
+      {m.label}
+    </span>
+  );
+}
+
+/** Resolve the page-level header label/tone from the per-slice sources —
+ * honest about all-live / all-demo / all-mock / mixed. */
+export function provenanceSummary(
+  sources: SliceSource[],
+  loading: boolean
+): { label: string; text: string; dot: string } {
+  if (loading) return { label: "Loading…", text: "text-terminal-dim", dot: "bg-terminal-dim" };
+  const has = (s: SliceSource) => sources.length > 0 && sources.every((x) => x === s);
+  if (has("live")) return { label: "Live IBKR", text: "text-pf-ok", dot: "bg-pf-ok" };
+  if (has("mock"))
+    return { label: "Mock data (engine offline)", text: "text-terminal-dim", dot: "bg-terminal-dim" };
+  if (has("demo")) return { label: "Demo data", text: "text-pf-caution", dot: "bg-pf-caution" };
+  return { label: "Partial — mixed sources", text: "text-pf-caution", dot: "bg-pf-caution" };
+}
+
 export type { Period };

@@ -42,7 +42,18 @@
     "data_csv_sha256": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961",
     "vol_iv_sha256": "aab4eada1af5c9aa70699e669115663d9a45e5fa6c4523b1275170ed5baadaca",
     "treasury_sha256": "48a20a883580b038e7c34ecc07d90c21ab43294b7c0be3a823ac5e2dfa0d00ce",
-    "generated_at": "2026-06-06T16:19:04.019155+00:00"
+    "connector_data_sha256": {
+      "credit_risk": "6a3e31e0c94b6ba6c403748f76d0fe94f0d50b9b406b60c0124216668f6c813d",
+      "dividends": "317e56c69615fdd8110280588cff4bccce4f151a56991cb1e03fec7c954e3143",
+      "earnings": "a3548da18a31c8488876ac6e603e707370767085e07eefadf7948d18c3896c47",
+      "fundamentals": "2509f94da9b7da38d3531411820291982028d58c32f82d876c2f5956ae21c563",
+      "liquidity": "08ca8f7ec7a641514a54cb8ffef2be5df0c1c654e3420e0a02d1d23abf94d40f",
+      "ohlcv": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961",
+      "treasury": "48a20a883580b038e7c34ecc07d90c21ab43294b7c0be3a823ac5e2dfa0d00ce",
+      "vix": "8054b746f5110d49e8910242c28a05652f0b79039f8c3886f0967b0a13fbd743",
+      "vol_iv": "aab4eada1af5c9aa70699e669115663d9a45e5fa6c4523b1275170ed5baadaca"
+    },
+    "generated_at": "2026-06-07T02:31:32.148828+00:00"
   },
   "aggregate": {
     "row_count": 5944,

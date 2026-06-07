@@ -4,7 +4,7 @@ title: R1 Bloomberg data refresh + S27/S32/S34/S35 re-baseline
 kind: backtest
 status: completed
 terminal:
-pr:
+pr: 338
 decisions: []
 date: 2026-06-06
 headline: R1 = data-only refresh (Option B, 16 monoliths; sp500_dividends.csv held at main to avoid a source regression) + S27/S32/S34/S35 re-baseline, deep-read OFF; in-window EV-path movers are treasury_yields.csv (dominant; corrects wrong/missing main rates) + sp500_fundamentals.csv eqy_dvd_yld_12m (BSM dividend_yield, small/pervasive), plus S34's UNIVERSE_100 swap; ohlcv + vol_iv byte-identical in-window; trio byte-identical.
@@ -74,25 +74,42 @@ files, only treasury + fundamentals feed the path AND change in-window:
   non-zero BSM dividend_yield after the /100 + >0.30 guard; dividend-only sensitivity
   ~UNH strike +$0.16 (non-zero, small vs treasury).
 - The other refreshed files do NOT feed the EV path (liquidity uncalled; credit/vix
-  off-path or FRED; `sp500_dividends.csv` only ex-date lookups via `get_next_dividend`,
-  not the BSM yield — and it is held at main anyway; 9 files have no connector accessor).
+  off-path or FRED; 9 files have no connector accessor).
+- **`sp500_dividends.csv` — held at main, but NOT inert (mechanism corrected):** it is
+  off the *short-put* ranker (`rank_candidates_by_ev`; puts never consult ex-div) and does
+  NOT feed the BSM `dividend_yield` (that's `eqy_dvd_yld_12m` from fundamentals). But it
+  **is** read by the *covered-call* ranker: `rank_covered_calls_by_ev -> get_next_dividend`
+  feeds `EVEngine`'s ex-div early-assignment expected-loss input, which changes which CC is
+  selected -> the CC-leg realized cash (`final_nav`/`final_cash`). So dividends move the CC
+  leg in every book; short-put `ev_mean`/entry-count stay dividend-independent. Held at main
+  in both old and new here, so dividends contribute **zero** to the old->new delta above —
+  but a future re-pull WILL shift all four `final_nav`s (see the controlled-swap proof under
+  Unresolved), which is why the re-pull re-baselines all four, not just S34. §2 untouched
+  (no `EVEngine.evaluate` bypass).
 
 **Data-quality (dividends HELD AT MAIN):** the refresh source's `sp500_dividends.csv`
 dropped the entire 2018-2024 ex-dividend history for CTRA/BK/LW/PAYC (BK in UNIVERSE_100),
 verified via `get_dividends` (BK -> 0 rows; not migrated to corporate_actions).
 **Decision (operator): hold `sp500_dividends.csv` at main** — reverted, not refreshed, so
 history is preserved (BK -> 28 rows restored); committed refresh is therefore **16** files,
-not 17. It is OFF the `rank_candidates_by_ev` path so snapshots are unaffected and §2
-intact; dividends are now ~2.5mo stale vs the rest. Data-layer follow-up: re-pull
-dividends, then refresh.
+not 17. It is OFF the short-put path (`rank_candidates_by_ev`) but ON the covered-call path
+(`get_next_dividend` ex-div early-assignment) — so the snapshots are baselined against
+*main* dividends; holding at main keeps them consistent (had we shipped refreshed dividends,
+all four `final_nav`s would shift — proven below). §2 intact; dividends are now ~2.5mo stale
+vs the rest. Data-layer follow-up: re-pull dividends, then **re-baseline all four** snapshots.
 
 **Snapshot deltas (old -> new):**
 | Snapshot | spearman_rho | final_nav | trades | iv_mean |
 |---|---|---|---|---|
 | S27 (2022-24 $100k) | 0.1855 -> 0.1833 | 112,311 -> 113,382 | 43 -> 45 | +-0.0000 |
-| S32 (2022-24 $1M fric) | 0.1837 -> 0.1819 | 1,073,819 -> 1,072,050 | 105 -> 102 | +-0.0000 |
-| S34 (2022-24 $1M 100t, new UNIVERSE_100; PROVISIONAL) | 0.3222 -> 0.3152 | 1,308,573 -> 1,287,698 | 303 -> 295 | +-0.0000 |
-| S35 (2018-20 $100k OOS) | 0.4904 -> 0.5120 | 115,830 -> 112,604 | 40 -> 33 | -0.0011 |
+| S32 (2022-24 $1M fric) | 0.1837 -> 0.1819 | 1,073,819 -> 1,072,269 | 105 -> 102 | +-0.0000 |
+| S34 (2022-24 $1M 100t, new UNIVERSE_100; PROVISIONAL) | 0.3222 -> 0.3152 | 1,308,573 -> 1,287,703 | 303 -> 295 | +-0.0000 |
+| S35 (2018-20 $100k OOS) | 0.4904 -> 0.5120 | 115,830 -> 112,605 | 40 -> 33 | -0.0011 |
+
+(final_nav values are the committed main-div snapshots, exact: S27 113,381.96 / S32
+1,072,269.50 / S34 1,287,703.49 / S35 112,604.58. These differ from the *earlier*
+refreshed-dividends snapshots by exactly the CC-leg ex-div amounts — S32 +$219.81,
+S34 +$5.33, S27/S35 sub-tolerance — see the dividend-mechanism note below.)
 
 iv_mean is flat across all (vol_iv in-window identical; tiny shifts are
 executed-set composition). Movement = treasury (dominant) + fundamentals dividend_yield
@@ -114,10 +131,28 @@ and resolved: `test_universes_match_connector` (UNIVERSE_100 regen), `test_aapl_
 + `test_calm_regime` (re-pinned). `test_universes_match_connector` is a fast (non-marker)
 test on main -> the UNIVERSE_100==connector[:100] derivation is enforced going forward.
 
+## Resolved before merge
+- **Regression-marker determinism re-run — CLEAN 4/4** (`test_backtest_matches_snapshot`,
+  the reproducibility proof the fast-CI suite skips). All four reproduce the committed
+  snapshots: S27/S32/S35 (1 passed each) + S34 (1 passed, 1:58 h). Determinism was in fact
+  proven *twice* — two fully independent regen runs (a planned one + a stray concurrent one)
+  produced byte-identical values (S32 `811672.686459997`, S34 `391286.1946799898`), and the
+  markers reproduce them a third time. No skips/errors.
+- **Dividend-mechanism root-cause (controlled-swap proof).** An initial S32/S34 marker
+  mismatch traced to snapshots that had been generated with *refreshed* dividends while the
+  committed tree holds *main* dividends. Controlled swap: refreshed dividends -> S32 reproduces
+  the (stale) value; main dividends -> S32 `811672.69` (+$219.81), S34 `391286.19` (+$5.33),
+  S27/S35 sub-tolerance. Mechanism = `get_next_dividend` -> CC ex-div early-assignment EV
+  input -> CC selection -> CC-leg realized cash (above). Fixed by regenerating all four
+  against committed main dividends.
+- **Fingerprint extended to the full connector set (`_common.py` only).** Added
+  `connector_data_sha256()` (SHA-256 of all 9 connector input CSVs, incl. dividends) to the
+  snapshot fingerprint, closing the blind-spot that let the dividends drift go unrecorded
+  (the legacy fingerprint pinned only ohlcv/vol_iv/treasury). Harness-only change; trio still
+  byte-identical. Enforcement (a guard test that fails fast on drift) is deferred to issue
+  #340 with the placebo-RNG cleanup.
+
 ## Unresolved / handoff
-- **Regression-marker determinism re-run** (`pytest -m backtest_regression`, ~4-5 h)
-  re-runs all four backtests vs the committed snapshots — IN FLIGHT; must be green
-  before merge (the reproducibility proof the fast-CI suite skips).
 - **f4 smoke fix** is carried in R1 (`test_calm_regime` as_of pin); the standalone
   `claude/f4-smoke-pin-asof` branch is being CLOSED (operator decision — R1 carries it).
 - **Data-layer follow-ups — tracked in GitHub issue #339** (whole thread): (a) re-pull

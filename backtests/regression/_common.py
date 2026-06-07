@@ -152,6 +152,27 @@ def treasury_sha256(path: Path | None = None) -> str:
     return _file_sha256(path or _TREASURY_PATH)
 
 
+def connector_data_sha256() -> dict[str, str]:
+    """SHA-256 of *every* connector input CSV, keyed by connector file-key.
+
+    Pins the FULL connector data set — not just OHLCV/vol_iv/treasury — so drift
+    in an otherwise-unpinned input between snapshot generation and the committed
+    tree is recorded and auditable. Closes the 2026-06-06 blind-spot: a
+    ``sp500_dividends.csv`` revert *after* snapshot generation silently shifted
+    the covered-call ex-div early-assignment realized cash (the CC EV input via
+    ``wheel_runner.get_next_dividend``), and the fingerprint — which pinned only
+    OHLCV/vol_iv/treasury — did not record it. Files absent on disk are skipped."""
+    from engine.data_connector import MarketDataConnector
+
+    bloomberg_dir = _OHLCV_PATH.parent
+    shas: dict[str, str] = {}
+    for key, fname in sorted(MarketDataConnector._FILES.items()):
+        path = bloomberg_dir / fname
+        if path.exists():
+            shas[key] = _file_sha256(path)
+    return shas
+
+
 # ---------------------------------------------------------------------------
 # Snapshot I/O
 # ---------------------------------------------------------------------------
@@ -591,6 +612,7 @@ def run_backtest(
         "data_csv_sha256": ohlcv_sha256(),
         "vol_iv_sha256": vol_iv_sha256(),
         "treasury_sha256": treasury_sha256(),
+        "connector_data_sha256": connector_data_sha256(),
         "generated_at": datetime.now(UTC).isoformat(),
     }
 
@@ -942,6 +964,7 @@ def run_backtest_multi_friction(
             "data_csv_sha256": ohlcv_sha256(),
             "vol_iv_sha256": vol_iv_sha256(),
             "treasury_sha256": treasury_sha256(),
+            "connector_data_sha256": connector_data_sha256(),
             "generated_at": datetime.now(UTC).isoformat(),
         }
 

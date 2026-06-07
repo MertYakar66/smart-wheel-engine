@@ -245,6 +245,155 @@ def _resolve_universe_scope(conn, tickers, universe_limit_param):
     return limit, scanned, universe_total
 
 
+def build_concentration_preview(
+    runner,
+    *,
+    entry_date,
+    initial_capital,
+    rank_kwargs,
+    top_n_to_consume,
+    universe_scanned=None,
+    universe_total=None,
+):
+    """Pure builder for the ``/api/concentration_preview`` payload — the
+    concentration-cap preview that wires the armed R9/R10 caps onto an
+    operator surface.
+
+    Runs the EV-authoritative ranker and feeds its top-N rows through the
+    canonical production live-book wire
+    (:meth:`engine.wheel_runner.WheelRunner.consume_into_live_book`, which
+    builds the tracker via ``make_live_book_tracker`` so **R9 sector
+    (25% NAV)** + **R10 single-name (10% NAV)** are armed), then reports —
+    per candidate — whether the armed caps ADMIT or REFUSE it, with the
+    structured refusal reason from the tracker's audit log.
+
+    This closes the "the armed R9/R10 caps have no live caller" gap
+    (heavy-verify 2026-05-31 Category A; #154 / #343): until an operator
+    surface invoked the armed wire, the caps protected nothing in
+    production — they were exercised only in ``tests/``. This is that
+    surface.
+
+    §2 / §3 contract (why this is safe):
+
+    * **No EV bypass.** Candidates come *only* from
+      :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`,
+      which routes every row through ``EVEngine.evaluate``. This builder
+      adds no EV path of its own.
+    * **Refuse-only.** The caps REFUSE over-concentration; they never
+      touch ``ev_raw`` / ``ev_dollars`` / ``prob_profit`` / the dealer
+      multiplier, and never rescue a non-positive-EV candidate — the D16
+      launch gate inside
+      :meth:`~engine.wheel_tracker.WheelTracker.consume_ranker_row`
+      still refuses ``ev_dollars <= 0`` at token issuance (token-free
+      path included).
+    * **No order surface (§3).** The book is an EPHEMERAL in-memory
+      :class:`~engine.wheel_tracker.WheelTracker` built per call and
+      discarded on return — nothing is persisted and no orders are
+      routed. This is a risk preview over ranked candidates, not a
+      broker / OMS surface.
+
+    Pure: takes a ``runner`` and returns the JSON-able response dict.
+    Kept module-level (not a handler method) so it is unit-testable
+    without booting the HTTP server — same pattern as ``_resolve_port``.
+
+    Args:
+        runner: A :class:`~engine.wheel_runner.WheelRunner` (or test
+            double) exposing ``consume_into_live_book``.
+        entry_date: ``datetime.date`` trade-entry date forwarded to the
+            wire.
+        initial_capital: Starting NAV for the ephemeral book.
+        rank_kwargs: Forwarded verbatim to
+            :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+            (``dte_target`` / ``delta_target`` / ``top_n`` /
+            ``min_ev_dollars`` / ``as_of`` / ``universe_limit`` /
+            ``tickers``).
+        top_n_to_consume: How many of the ranker's top rows to feed into
+            the caps.
+        universe_scanned / universe_total: Pass-through scope metadata for
+            the response (resolved by the caller).
+
+    Returns:
+        A JSON-able dict with ``outcomes`` (per-row admit/refuse),
+        ``refusals`` (structured cap-breach audit), ``book`` (opened
+        positions + cash), and the armed ``caps`` percentages.
+    """
+    from engine.portfolio_risk_gates import (
+        _DEFAULT_MAX_SECTOR_PCT,
+        _DEFAULT_MAX_SINGLE_NAME_PCT,
+    )
+
+    tracker, outcomes = runner.consume_into_live_book(
+        entry_date=entry_date,
+        initial_capital=initial_capital,
+        rank_kwargs=rank_kwargs,
+        top_n_to_consume=top_n_to_consume,
+    )
+
+    # Structured refusals from the armed caps. Each over-concentrated open
+    # appends one ``action="reject"`` entry to ``_ev_authority_log`` with
+    # the cap-specific ``reason`` (sector_cap_breach / single_name_breach /
+    # nav_exhausted) plus detail fields (see portfolio_risk_gates).
+    refusals = []
+    for entry in getattr(tracker, "_ev_authority_log", []):
+        if entry.get("action") != "reject":
+            continue
+        refusals.append(
+            {
+                "ticker": entry.get("ticker"),
+                "reason": entry.get("reason"),
+                "nav": entry.get("nav"),
+                "navSource": entry.get("nav_source"),
+                "sector": entry.get("sector"),
+                "postOpenSectorPct": entry.get("post_open_sector_pct"),
+                "sectorLimit": entry.get("sector_limit"),
+                "postOpenNamePct": entry.get("post_open_name_pct"),
+                "nameLimitPct": entry.get("name_limit_pct"),
+            }
+        )
+
+    out_rows = [
+        {
+            "ticker": o.get("ticker"),
+            "evDollars": round(float(o.get("ev_dollars", 0) or 0), 2),
+            "opened": bool(o.get("opened")),
+            "refusalReason": o.get("refusal_reason"),
+        }
+        for o in outcomes
+    ]
+    n_opened = sum(1 for o in outcomes if o.get("opened"))
+
+    return {
+        "authority": "ev_ranked_concentration_gated",
+        "engine_version": "ev_engine_2026_04_14",
+        "surface": "concentration_preview",
+        "note": (
+            "Ephemeral in-memory evaluation of the armed R9 (sector) / "
+            "R10 (single-name) production concentration caps over the "
+            "EV-ranked batch. Candidates come only from the EV ranker; the "
+            "caps refuse over-concentration and never rescue a negative-EV "
+            "trade. No positions are persisted and no orders are routed "
+            "(CLAUDE.md §2/§3)."
+        ),
+        "entry_date": str(entry_date),
+        "initial_capital": round(float(initial_capital), 2),
+        "caps": {
+            "sector_cap_pct": _DEFAULT_MAX_SECTOR_PCT,
+            "single_name_cap_pct": _DEFAULT_MAX_SINGLE_NAME_PCT,
+        },
+        "consumed": len(outcomes),
+        "opened": n_opened,
+        "refused": len(outcomes) - n_opened,
+        "outcomes": out_rows,
+        "refusals": refusals,
+        "book": {
+            "positions": sorted(tracker.positions.keys()),
+            "cash": round(float(tracker.cash), 2),
+        },
+        "universe_scanned": universe_scanned,
+        "universe_total": universe_total,
+    }
+
+
 def _build_portfolio_context_from_params(
     nav: float | None,
     holdings_csv: str | None,
@@ -541,6 +690,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     min_ev=param("min_ev", "0"),
                     as_of=param("as_of"),
                     universe_limit=param("universe_limit"),
+                )
+            elif path == "/api/concentration_preview":
+                self._handle_concentration(
+                    dte=param("dte", "35"),
+                    delta=param("delta", "0.25"),
+                    min_ev=param("min_ev", "0"),
+                    as_of=param("as_of"),
+                    universe_limit=param("universe_limit"),
+                    initial_capital=param("initial_capital", "100000"),
+                    top_n=param("top_n", "20"),
+                    entry_date=param("entry_date"),
+                    tickers=param("tickers"),
                 )
             elif path == "/api/analyze" or path.startswith("/api/analyze/"):
                 ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
@@ -946,6 +1107,101 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 },
             }
         )
+
+    def _handle_concentration(
+        self,
+        dte="35",
+        delta="0.25",
+        min_ev="0",
+        as_of=None,
+        universe_limit=None,
+        initial_capital="100000",
+        top_n="20",
+        entry_date=None,
+        tickers=None,
+    ):
+        """Concentration-cap preview — wires the armed R9/R10 caps onto the
+        operator HTTP surface.
+
+        Thin HTTP adapter over :func:`build_concentration_preview`: parses query
+        params, resolves the universe scope, runs the EV ranker through the
+        armed production live-book wire, and returns the per-candidate
+        admit/refuse verdict with the structured cap-breach reasons. This is
+        the operator surface that makes the armed R9/R10 caps fire on a live
+        path (they were exercised only in ``tests/`` before — #154 / #343).
+
+        §2 / §3: see :func:`build_concentration_preview`. Candidates come only
+        from the EV ranker; the caps refuse-only (never rescue, never touch
+        ev_raw / ev_dollars / prob_profit / the dealer multiplier); the book
+        is ephemeral (no persistence, no order routing).
+
+        Query params (all optional):
+            dte / delta / min_ev / as_of / universe_limit
+                       forwarded to the ranker (same as /api/candidates)
+            initial_capital  starting NAV for the ephemeral book (default 100000)
+            top_n            how many top-ranked rows to evaluate (default 20)
+            entry_date       YYYY-MM-DD trade-entry date (default today)
+            tickers          optional comma-separated subset; overrides the
+                             universe scan
+        """
+        try:
+            dte_int = int(dte or 35)
+            delta_f = float(delta or 0.25)
+            min_ev_f = float(min_ev or 0)
+            capital_f = float(initial_capital or 100_000)
+            top_n_int = max(1, int(top_n or 20))
+        except (TypeError, ValueError):
+            self._send_error("invalid numeric parameter", 400)
+            return
+        if capital_f <= 0:
+            self._send_error("initial_capital must be positive", 400)
+            return
+
+        if entry_date:
+            try:
+                entry_d = datetime.strptime(entry_date, "%Y-%m-%d").date()
+            except ValueError:
+                self._send_error("entry_date must be YYYY-MM-DD", 400)
+                return
+        else:
+            entry_d = date.today()
+
+        runner = get_runner()
+        conn = runner.connector
+
+        rank_kwargs = {
+            "dte_target": dte_int,
+            "delta_target": delta_f,
+            "top_n": top_n_int,
+            "min_ev_dollars": min_ev_f,
+            "as_of": as_of,
+        }
+        ticker_list = None
+        if tickers:
+            ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+        ulimit, universe_scanned, universe_total = _resolve_universe_scope(
+            conn, ticker_list, universe_limit
+        )
+        if ticker_list:
+            rank_kwargs["tickers"] = ticker_list
+        else:
+            rank_kwargs["universe_limit"] = ulimit
+
+        try:
+            payload = build_concentration_preview(
+                runner,
+                entry_date=entry_d,
+                initial_capital=capital_f,
+                rank_kwargs=rank_kwargs,
+                top_n_to_consume=top_n_int,
+                universe_scanned=universe_scanned,
+                universe_total=universe_total,
+            )
+        except Exception as exc:
+            self._send_internal_error(exc, context="concentration_preview:consume_into_live_book")
+            return
+
+        self._send_json(payload)
 
     def _handle_analyze(self, ticker, as_of):
         if not ticker or not ticker.strip():

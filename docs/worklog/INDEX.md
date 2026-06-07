@@ -9,9 +9,9 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**101 records.**
+**102 records.**
 
-## Features (10)
+## Features (11)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -25,6 +25,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
 | [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
+| [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
 ## Fixes (11)
 

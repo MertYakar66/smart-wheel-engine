@@ -1335,6 +1335,85 @@ annotation corrects the record only.
 
 ---
 
+## D24 — IBKR read-only snapshot feed + portfolio adapter (gate-arming foundation)
+
+**Decision.** Introduce a point-in-time, schema-versioned IBKR artifact on disk
+(`data_processed/ibkr/portfolio_snapshot.json` — gitignored runtime; a frozen
+demo copy lives in `tests/fixtures/ibkr/`, and the directory is overridable via
+`SWE_IBKR_DATA_DIR`) and a new `engine/ibkr_portfolio_adapter.py` — **outside**
+the CI-gated trio, importing nothing from `ev_engine` / `wheel_runner` /
+`candidate_dossier` — that turns the snapshot into the engine's existing types: a
+`portfolio_risk_gates.PortfolioContext` + `held_option_positions` (notional =
+`strike × 100 × |qty|`, gate-shape with `symbol` + `is_short`) + `nav`
+(= `net_liquidation`, FX-normalized to USD via the snapshot `fx_rates`).
+Out-of-universe names (CNQ/ENB on the TSX) are **exposure-only**: counted in the
+NAV / sector / single-name denominators, never placed in the rankable set.
+
+**Why.** Closes the #319 "documented protection ≠ active protection" gap by
+giving the dormant D17 R7–R11 gates a real book to evaluate against, via the
+same file-on-disk point-in-time discipline as the Bloomberg CSVs — broker out of
+the hot decision path, fixtures are just JSON (design-doc §1/§2).
+
+**Rejected alternatives.** (1) In-process live IBKR API during a scan — breaks
+point-in-time auditability, harder to test, closer to the §3 line; deferred to an
+optional puller. (2) Feeding the book straight into the trio reviewers — would
+edit CI-gated files; the `PortfolioContext` parameter is the sanctioned
+downgrade-only seam. (3) The `ticker`-keyed dict
+`engine_api._build_portfolio_context_from_params` emits — omits `is_short`,
+which zeroes the single-name aggregation; the adapter emits the gate-correct
+`symbol` / `is_short` shape.
+
+**Scope shipped here.** The read-only adapter + snapshot schema (v1) + the D26
+viewer's risk overlay. Wiring the context into `build_candidate_dossiers`
+(Track A — arming R7–R11 on every live scan) is deliberately **not** in this
+change; it touches the dossier path and lands separately.
+
+**Pinned by.** `engine/ibkr_portfolio_adapter.py`,
+`tests/test_ibkr_portfolio_adapter.py` (snapshot→context fidelity, universe
+filter, FX normalization, R9/R10 firing on the adapter-built context, the
+no-trio-import guard), `tests/fixtures/ibkr/*.json`.
+
+## D25 — Position-management (exit) EV evaluator. STATUS: PROPOSED, NOT ADOPTED.
+
+Reserved for the advisory roll / close / assign evaluator sketched in
+`docs/IBKR_LIVE_BOOK_INTEGRATION.md` §3. It expands the engine's scope from
+entry-ranking to position management and requires explicit operator greenlight.
+Nothing in this change implements it.
+
+## D26 — Read-only personal performance viewer (IMPLEMENTED, observational)
+
+**Decision.** Wire the existing `portfolio_tracker` (period returns / TWR),
+`wheel_tracker` (win-rate, realized P&L), `performance_metrics` (Sharpe /
+Sortino / drawdown), and `portfolio_risk_gates` (the live R7–R11 overlay) + the
+D24 snapshot into six read-only `engine_api` endpoints
+(`GET /api/portfolio/{summary,positions,returns,income,risk,history}`) and the
+`/(terminal)/portfolio` Next.js surface — fetched through a
+`/api/portfolio/[sub]` proxy and a `usePortfolioData` hook with `mock.ts` as the
+typed per-slice fallback. Strictly **observational**: read-only, single-user, no
+EV authority, no order routing. Realized P&L is presented distinctly from
+`ev_dollars`, which (finding I1) does not forecast realized P&L and is never
+produced by the viewer path.
+
+**Why.** ~60–70% already existed unwired (design-doc §6.1); this gives the
+operator the broker-style performance view *plus* the wheel-native premium-income
+view, the live R9/R10 concentration read against the real book, and the realized
+outcome — all on the same D24 feed, with the engine API as the single source of
+truth.
+
+**Rejected alternatives.** (1) Recompute analytics in React/TS — shadows the
+Python logic and drifts; the engine API stays authoritative. (2) A third-party
+tracker (Sharesight / IBKR PortfolioAnalyst) — no wheel-state, no premium income,
+no R7–R11 overlay. (3) Block on since-inception TWR — deferred; period returns
+are snapshot-deltas (§6.4) until the Flex `CashTransactions` ingest lands.
+
+**Pinned by.** `engine/ibkr_portfolio_adapter.py` (payload builders),
+`engine_api.py::_handle_portfolio_view`, `tests/test_portfolio_api_endpoints.py`
+(endpoint shapes + the observational guard that no endpoint emits a verdict /
+EV-authority field), `dashboard/src/app/(terminal)/portfolio/` +
+`dashboard/src/components/portfolio/`.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

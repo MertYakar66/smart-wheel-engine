@@ -24,9 +24,14 @@ export default function TerminalError({
         This terminal view failed to render
       </h1>
       <p className="mt-2 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
-        The engine API may be unreachable or returned an unexpected payload.
-        Confirm the engine is running on :8787, then retry.
+        If this is the cockpit, the engine API may be unreachable — confirm it is
+        running on :8787, then retry. Otherwise see the message below.
       </p>
+      {error.message ? (
+        <pre className="mt-3 max-w-md overflow-x-auto whitespace-pre-wrap rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-left text-xs text-red-300">
+          {error.message}
+        </pre>
+      ) : null}
       {error.digest ? (
         <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-600">
           ref: {error.digest}

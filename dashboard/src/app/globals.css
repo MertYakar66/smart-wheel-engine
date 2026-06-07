@@ -23,6 +23,24 @@
   --color-terminal-blue: #3b82f6;
   --color-terminal-text: #e2e8f0;
   --color-terminal-dim: #64748b;
+
+  /* Portfolio viewer palette (Slate-teal direction) — additive, scoped to the
+     /portfolio surface. Accent teal; fixed semantic + wheel-state colors so a
+     green/red means the same thing everywhere. */
+  --color-pf-bg: #0b0f14;
+  --color-pf-panel: #11161d;
+  --color-pf-panel2: #161c25;
+  --color-pf-accent: #2dd4bf;
+  --color-pf-accent-dim: #14b8a6;
+  --color-pf-gain: #4ade80;
+  --color-pf-loss: #fb7185;
+  --color-pf-neutral: #94a3b8;
+  --color-pf-ok: #34d399;
+  --color-pf-caution: #f5a524;
+  --color-pf-breach: #f2495e;
+  --color-pf-csp: #56b6f5;       /* cash-secured put */
+  --color-pf-assigned: #b79cfb;  /* assigned stock */
+  --color-pf-cc: #f5b544;        /* covered call */
 }
 
 @media (prefers-color-scheme: dark) {

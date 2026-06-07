@@ -17,7 +17,7 @@ import type {
   AgentStatus,
   AgentTask,
 } from "@/types";
-import { ChartPanel } from "@/components/terminal/chart-panel";
+import { TradingViewLinkPanel } from "@/components/terminal/tradingview-link-panel";
 import { PanelErrorBoundary } from "@/components/terminal/panel-error-boundary";
 import { useEngineData } from "@/hooks/useEngineData";
 
@@ -384,9 +384,8 @@ export default function TerminalPage() {
         /* Chart View: shows when a ticker is selected */
         <div className="flex-1 grid grid-cols-[1fr_350px] gap-[1px] bg-terminal-border p-[1px] overflow-hidden">
           <PanelErrorBoundary label="Chart">
-            <ChartPanel
-              key={selectedTicker}
-              ticker={selectedTicker}
+            <TradingViewLinkPanel
+              symbol={selectedTicker}
               onClose={() => setSelectedTicker(null)}
             />
           </PanelErrorBoundary>

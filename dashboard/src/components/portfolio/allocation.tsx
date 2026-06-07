@@ -44,7 +44,10 @@ export function Allocation({
     <PfCard title="Allocation" className="h-full" right={<ProvenanceBadge source={source} />}>
       <div className="flex items-center gap-4">
         <div className="relative shrink-0" style={{ width: 132, height: 132 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          {/* Fixed numeric dimensions: recharts resolves the size statically and
+              skips the ResizeObserver entirely, so there is no first-paint -1
+              ("width(-1)/height(-1) ... should be greater than 0") warning. */}
+          <ResponsiveContainer width={132} height={132}>
             <PieChart>
               <Pie
                 data={SECTORS}

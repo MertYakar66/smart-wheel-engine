@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**97 records.**
+**99 records.**
 
 ## Features (8)
 
@@ -24,7 +24,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
 | [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |
 
-## Fixes (10)
+## Fixes (11)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -37,6 +37,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [pricer-failloud-guards](pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md) | in-flight |  | Two input-validation hardenings to engine/option_pricer.py — the three vectorized BS pricers now raise on any S<=0/K<=0 element (mirroring the scalar contract) instead of silently emitting NaN, and the BAW American-call branch short-circuits to European for r<=0 (was a div-by-zero NaN at r=0). Behaviour on valid inputs is byte-for-byte unchanged; §2-adjacent guard only. | `pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md` |
 | [prob-profit-ci-tier-gate](prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md) | in-flight |  | prob_profit's Wilson CI is now emitted only on the IID empirical_non_overlapping forward tier; suppressed (null) on the overlapping/bootstrap/har_rv/lognormal tiers where N is not an independent-trial count and the interval would be false precision. | `prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md` |
 | [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |
+| [r7-deep-iv-sentinel](r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md) | complete |  | On the assembled (deep) vol_iv read, null the corrupt implied-vol sentinel (~134217.7) above a 10,000 floor while keeping the row — chosen over the early "IV>500%" note because on-bytes inspection of the delisted panel showed real distressed-name IVs of 500-1196% that a 500 cut would wrongly discard. Stacked on the deep-read branch. Other R7 items (drop .xlsx, shard bid_ask, deprecate vol_dvd) are R1-merge-time data ops — NOTED, not executed. | `r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md` |
 | [suggest-rolls-defensive](suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md) | in-flight |  | suggest_rolls / suggest_call_rolls no longer go silent on a challenged position — an opt-in include_defensive surfaces credit-gate-failing (debit) rolls flagged defensive=True (each scored through EVEngine.evaluate), and .attrs["defensive"] always reports how many defensive rolls exist so the credit-only default is never a silent zero. | `suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md` |
 
 ## Backtests (23)
@@ -132,12 +133,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (2)
+## Docs / process (3)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
+| [unattended-run-2026-06-06](unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md) | complete |  | End-of-run summary of the ~9h unattended data-layer activation queue — 6 PRs opened (none merged), all CI green except the one known pre-existing f4 smoke. Deep-read ships DEFAULT-OFF; the trio is untouched beyond R0a; R1 (data merge + re-baseline + flip-on) is left for the architect-reviewed session. | `unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md` |
 
 ## Research records (4)
 

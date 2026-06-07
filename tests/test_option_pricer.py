@@ -20,6 +20,7 @@ from engine.option_pricer import (
     black_scholes_vega,
     estimate_option_price_from_iv,
     vectorized_bs_all_greeks,
+    vectorized_bs_delta,
     vectorized_bs_price,
 )
 
@@ -203,6 +204,90 @@ class TestVectorizedPricing:
         assert isinstance(greeks_df, pd.DataFrame)
         assert len(greeks_df) == 3
         assert set(greeks_df.columns) == {"price", "delta", "gamma", "theta", "vega", "rho"}
+
+
+class TestVectorizedFailLoud:
+    """R8: vectorized pricers must fail loud on S<=0 / K<=0 (no silent NaN).
+
+    A single bad strike or spot from a data gap would otherwise flow through as
+    log(<=0) -> NaN into batch Greek/exposure computation. The guard mirrors the
+    scalar _validate_inputs positivity contract: raise ValueError if ANY element
+    is non-positive. These tests also prove the guard changes NOTHING for valid
+    inputs by equality-checking against the scalar pricer.
+    """
+
+    # Valid base arrays (no element violates positivity).
+    S = np.array([100.0, 110.0, 90.0])
+    K = np.array([100.0, 105.0, 95.0])
+    T = np.array([0.25, 0.50, 0.10])
+    sigma = np.array([0.20, 0.25, 0.18])
+    is_call = np.array([True, False, True])
+    r = 0.05
+
+    def test_price_raises_on_negative_strike(self):
+        K_bad = np.array([100.0, -5.0, 95.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_price(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_price_raises_on_zero_spot(self):
+        S_bad = np.array([100.0, 0.0, 90.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_price(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_delta_raises_on_negative_strike(self):
+        K_bad = np.array([100.0, 105.0, -1.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_delta(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_delta_raises_on_zero_spot(self):
+        S_bad = np.array([0.0, 110.0, 90.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_delta(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_all_greeks_raises_on_negative_strike(self):
+        K_bad = np.array([-100.0, 105.0, 95.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_all_greeks(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_all_greeks_raises_on_zero_spot(self):
+        S_bad = np.array([100.0, 110.0, 0.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_all_greeks(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_valid_arrays_unchanged_price(self):
+        """Guard must not alter valid-input behavior: match scalar pricer exactly."""
+        prices = vectorized_bs_price(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert np.all(np.isfinite(prices))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_price(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            assert abs(prices[i] - scalar) < 1e-9
+
+    def test_valid_arrays_unchanged_delta(self):
+        """Guard must not alter valid-input behavior: match scalar delta exactly."""
+        deltas = vectorized_bs_delta(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert np.all(np.isfinite(deltas))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_delta(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            assert abs(deltas[i] - scalar) < 1e-9
+
+    def test_valid_arrays_unchanged_all_greeks(self):
+        """Guard must not alter valid-input behavior: match scalar all-greeks exactly."""
+        df = vectorized_bs_all_greeks(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert df.to_numpy().shape[0] == len(self.S)
+        assert np.all(np.isfinite(df.to_numpy()))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_all_greeks(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            for col in ["price", "delta", "gamma", "theta", "vega", "rho"]:
+                assert abs(df.iloc[i][col] - scalar[col]) < 1e-9, f"mismatch in {col} at row {i}"
 
 
 class TestEstimateOptionPrice:

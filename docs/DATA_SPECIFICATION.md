@@ -1,5 +1,12 @@
 # Smart Wheel Engine - Data Specification
 
+> **STATUS — forward-looking design spec, NOT current on-disk reality.** The
+> committed data layer is **22 flat CSVs under `data/bloomberg/`** (plus the
+> `data/features/**` feature store), *not* the partitioned Parquet tree and
+> filenames described below. This file records the *intended* schema; for what
+> exists today and how to refresh it, see [`DATA_POLICY.md`](DATA_POLICY.md) and
+> [`LAPTOP_SETUP.md`](LAPTOP_SETUP.md).
+
 ## Overview
 
 This document defines the complete data architecture for the Smart Wheel Trading System.

@@ -70,6 +70,73 @@ def _call_ollama(prompt: str, model: str | None = None, system: str = "") -> str
         return ""
 
 
+def _format_prob_profit_line(row: dict | None) -> str | None:
+    """Render the candidate's ``prob_profit`` WITH its small-sample interval.
+
+    Additive small-sample honesty (2026-06-01). ``prob_profit`` is a ``k / N``
+    binomial frequency over ``n_scenarios`` forward windows — often only ~30-35
+    on the empirical non-overlapping path, where the Wilson 95% CI spans ~20pp.
+    Presenting the bare 4-dp figure invites the reader to treat it as exact, so
+    we surface ``[ci_low, ci_high] (N=...)`` alongside it plus a one-line
+    caveat. This NEVER changes ``prob_profit`` (or EV / verdict / multipliers) —
+    it annotates the estimate's PRECISION only.
+
+    Reads the exact field names the PUT ranker (``rank_candidates_by_ev``) and
+    :class:`engine.ev_engine.EVResult` already emit: ``prob_profit``,
+    ``n_scenarios``, ``prob_profit_ci_low``, ``prob_profit_ci_high``.
+
+    Returns ``None`` when ``row`` is falsy or carries no usable ``prob_profit``,
+    so the caller can omit the line entirely (NaN/None when not evaluated).
+    """
+    if not row:
+        return None
+    pp = row.get("prob_profit")
+    if pp is None:
+        return None
+    try:
+        pp_f = float(pp)
+    except (TypeError, ValueError):
+        return None
+    if pp_f != pp_f:  # NaN
+        return None
+
+    ci_low = row.get("prob_profit_ci_low")
+    ci_high = row.get("prob_profit_ci_high")
+    n_scen = row.get("n_scenarios")
+
+    def _finite(x) -> float | None:
+        if x is None:
+            return None
+        try:
+            xf = float(x)
+        except (TypeError, ValueError):
+            return None
+        return xf if xf == xf else None  # drop NaN
+
+    ci_low_f = _finite(ci_low)
+    ci_high_f = _finite(ci_high)
+    try:
+        n_int = int(n_scen) if n_scen is not None else None
+    except (TypeError, ValueError):
+        n_int = None
+
+    line = f"PROB PROFIT: {pp_f:.2f}"
+    if ci_low_f is not None and ci_high_f is not None:
+        line += f"  [{ci_low_f:.2f}, {ci_high_f:.2f}]"
+    if n_int is not None:
+        line += f"  (N={n_int})"
+
+    # Only emit the small-sample caveat when we actually have an interval/N to
+    # qualify; a bare point estimate (CI not evaluated) gets no false caveat.
+    if (ci_low_f is not None and ci_high_f is not None) or n_int is not None:
+        line += (
+            "\nNOTE: prob_profit is a k/N frequency over N forward scenarios; "
+            "the bracket is its Wilson 95% small-sample interval — read it as a "
+            "range, not an exact probability."
+        )
+    return line
+
+
 def _check_ollama() -> dict:
     """Check which Ollama models are available."""
     import urllib.error
@@ -137,8 +204,14 @@ You write concise, precise trade memos for portfolio managers. Your writing styl
         # 3. Get strangle timing detail
         strangle_data = self._get_strangle_detail(ticker, runner)
 
+        # 3b. Get the EV ranker's top short-put row for this ticker so the memo
+        #     can surface prob_profit WITH its small-sample Wilson interval + N.
+        #     This routes through EVEngine.evaluate (rank_candidates_by_ev) — no
+        #     bypass — and the memo only READS the already-computed values.
+        ev_row = self._get_ev_row(ticker, runner, as_of)
+
         # 4. Build the data package for the AI
-        data_package = self._build_data_package(analysis, committee_data, strangle_data)
+        data_package = self._build_data_package(analysis, committee_data, strangle_data, ev_row)
 
         # 5. Generate the memo with AI
         prompt = self._build_memo_prompt(ticker, data_package)
@@ -369,7 +442,35 @@ You write concise, precise trade memos for portfolio managers. Your writing styl
             logger.warning(f"Strangle detail failed: {e}")
             return {}
 
-    def _build_data_package(self, analysis, committee: dict, strangle: dict) -> str:
+    def _get_ev_row(self, ticker: str, runner, as_of: str | None) -> dict:
+        """Get the EV ranker's top short-put row for this ticker.
+
+        Used only to surface the candidate's ``prob_profit`` + small-sample
+        Wilson interval + ``n_scenarios`` in the memo. Routes through
+        :meth:`WheelRunner.rank_candidates_by_ev` (i.e. ``EVEngine.evaluate``),
+        so no candidate bypasses the engine — the memo is a pure consumer.
+
+        Returns an empty dict on any failure (no candidate, gated out, ranker
+        error); callers treat that as "prob_profit not evaluated".
+        """
+        try:
+            df = runner.rank_candidates_by_ev(
+                tickers=[ticker],
+                top_n=1,
+                min_ev_dollars=-1e9,  # don't filter; we want the row even if EV<0
+                as_of=as_of,
+                include_diagnostic_fields=True,
+            )
+            if df is None or df.empty:
+                return {}
+            return df.iloc[0].to_dict()
+        except Exception as e:
+            logger.warning(f"EV row fetch failed for {ticker}: {e}")
+            return {}
+
+    def _build_data_package(
+        self, analysis, committee: dict, strangle: dict, ev_row: dict | None = None
+    ) -> str:
         """Build a structured data summary for the AI prompt."""
         lines = [
             f"TICKER: {analysis.ticker}",
@@ -396,6 +497,14 @@ You write concise, precise trade memos for portfolio managers. Your writing styl
             f"WHEEL SCORE: {analysis.wheel_score:.0f}/100",
             f"RECOMMENDATION: {analysis.wheel_recommendation}",
         ]
+
+        # Additive small-sample honesty: surface the candidate's prob_profit with
+        # its Wilson 95% interval + N (omitted entirely when not evaluated). This
+        # does NOT touch EV / verdict / multipliers — it qualifies a probability
+        # the memo would otherwise present (or omit) without uncertainty.
+        prob_line = _format_prob_profit_line(ev_row)
+        if prob_line:
+            lines.extend(["", "--- PROBABILITY OF PROFIT ---", prob_line])
 
         if strangle:
             lines.extend(

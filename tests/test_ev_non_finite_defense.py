@@ -253,36 +253,39 @@ class TestEnrichAlertNonFiniteDefense:
     of the dossier R1a fix; closes the C2 non-finite half.
     """
 
-    def test_plus_inf_yields_skip_with_ev_non_finite_reason(self):
+    def test_plus_inf_yields_blocked_with_ev_non_finite_reason(self):
+        # R27: hard-stop label aligned to the dossier reviewer R1a ("blocked",
+        # was "skip"). The verdict_reason is unchanged.
         enriched = _enrich_with_ev(float("inf"))
         assert enriched["authority"] == "ev_ranked"
-        assert enriched["verdict"] == "skip", (
-            f"+inf must skip (not proceed via the >= threshold branch); "
+        assert enriched["verdict"] == "blocked", (
+            f"+inf must block (not proceed via the >= threshold branch); "
             f"got verdict={enriched['verdict']!r} reason={enriched['verdict_reason']!r}"
         )
         assert enriched["verdict_reason"] == "ev_non_finite"
 
-    def test_nan_yields_skip_with_ev_non_finite_reason(self):
+    def test_nan_yields_blocked_with_ev_non_finite_reason(self):
         enriched = _enrich_with_ev(float("nan"))
-        assert enriched["verdict"] == "skip"
+        assert enriched["verdict"] == "blocked"  # R27 label alignment
         assert enriched["verdict_reason"] == "ev_non_finite", (
             f"NaN must use the distinct ev_non_finite reason; "
             f"got {enriched['verdict_reason']!r} (was 'ev_zero_or_below' "
             "pre-fix because NaN fell all the way through the ladder)"
         )
 
-    def test_minus_inf_yields_skip_with_ev_non_finite_reason(self):
+    def test_minus_inf_yields_blocked_with_ev_non_finite_reason(self):
         enriched = _enrich_with_ev(float("-inf"))
-        assert enriched["verdict"] == "skip"
+        assert enriched["verdict"] == "blocked"  # R27 label alignment
         # -inf is non-finite first; R1a-equivalent fires before negative_ev.
         assert enriched["verdict_reason"] == "ev_non_finite"
 
     def test_finite_negative_still_yields_negative_ev(self):
         """Finite negative EV preserves the original ``"negative_ev"``
-        verdict_reason — the non-finite branch must not over-reach.
+        verdict_reason — the non-finite branch must not over-reach. R27
+        aligns the verdict LABEL to "blocked" (was "skip"); reason unchanged.
         """
         enriched = _enrich_with_ev(-5.0)
-        assert enriched["verdict"] == "skip"
+        assert enriched["verdict"] == "blocked"  # R27 label alignment
         assert enriched["verdict_reason"] == "negative_ev"
 
     def test_finite_positive_at_threshold_proceeds(self):

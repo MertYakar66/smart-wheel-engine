@@ -66,6 +66,10 @@ _FINGERPRINT_REQUIRED = (
     "seed",
     "friction_level",
     "data_csv_sha256",
+    # R5: vol_iv + treasury also feed the backtests; pin them so a refresh of
+    # either trips the re-baseline guard instead of silently moving results.
+    "vol_iv_sha256",
+    "treasury_sha256",
 )
 
 

@@ -118,6 +118,7 @@ UNIVERSE_100: tuple[str, ...] = (
     "BLDR",
     "BLK",
     "BMY",
+    "BNY",
     "BR",
     "BRK/B",
     "BRO",
@@ -128,6 +129,7 @@ UNIVERSE_100: tuple[str, ...] = (
     "CAG",
     "CAH",
     "CARR",
+    "CASY",
     "CAT",
     "CB",
     "CBOE UF",
@@ -149,8 +151,6 @@ UNIVERSE_100: tuple[str, ...] = (
     "CLX",
     "CMCSA",
     "CME",
-    "CMG",
-    "CMI",
 )
 
 assert len(UNIVERSE_24) == 24, f"UNIVERSE_24 must be 24 tickers, got {len(UNIVERSE_24)}"

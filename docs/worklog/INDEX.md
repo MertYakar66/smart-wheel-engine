@@ -9,25 +9,35 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**78 records.**
+**95 records.**
 
-## Features (2)
+## Features (7)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [A2-C1](a2c1-iv-surface-failloud-and-csv-tracking.md) | in-flight |  | SVI tooling wired in fail-loud (require_surface + diagnose_iv_surface); bloomberg CSVs stay tracked as data commits | `a2c1-iv-surface-failloud-and-csv-tracking.md` |
 | [dashboard-cockpit](dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md) | complete |  | A read-top-to-bottom decision cockpit in dashboard/src that encodes WHAT TO TRUST and WHAT TO DISTRUST about the engine output — distribution-not-point-EV, calibration-flagged top bin, R11 regime banner. Pure display layer; no engine changes. | `dashboard-cockpit-decision-cockpit-dashboard-trust-calibrated-read.md` |
+| [dashboard-launch-polish](dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md) | in-flight |  | Launch-grade polish of the Next.js dashboard from a read-only repo audit — the Decision Cockpit is now the front door + in the nav, fake "LIVE"/mock data is labelled honestly or wired to real data, the Research chat + SSE leak are fixed, and the cockpit is keyboard/mobile accessible. Interface layer only; no engine logic touched. | `dashboard-launch-polish-dashboard-launch-polish-cockpit-front-door-data.md` |
+| [dashboard-prob-profit-ci](dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md) | in-flight |  | Decision-cockpit renders the prob_profit Wilson 95% sampling CI + N, gated to the IID non-overlapping forward tier so it never shows false precision. | `dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md` |
+| [dashboard-ux-boundaries](dashboard-ux-boundaries-add-app-router-loading-error-not-found.md) | complete |  | Added the missing Next.js App Router special files — graceful loading skeletons, error boundaries (retry, no blank screen), and a branded 404 — across the news-app and terminal route groups. Additive-only; zero engine/decision-layer surface. | `dashboard-ux-boundaries-add-app-router-loading-error-not-found.md` |
+| [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
+| [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |
 
-## Fixes (4)
+## Fixes (9)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [engine-api-hardening](engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md) | in-flight |  | Loopback bind by default, 400 on bad params, 404 on unknown tickers, no exception leak, and verdict-label parity — all NON-§2. | `engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md` |
+| [fix-credit-rating-deadread](fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md) | complete |  | Re-shipped the R0a credit-rating dead-read one-liner as its own PR (split out of the docs-only #332) with the decision-layer lane ceremony + a regression unit test pinning that analyze_ticker reads the get_credit_risk "sp_rating" key, not the raw Bloomberg field name. | `fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md` |
 | [mcp-classify-cdp-down](mcp-classify-cdp-down-classify-the-live-cdp-down-tv-cli-error-as-mcp-u.md) | in-flight |  | engine/mcp_client._classify mapped the real "CDP connection failed after N attempts: fetch failed" string (emitted by the tv CLI when TradingView Desktop / CDP is down) to unexpected_error instead of mcp_unavailable; added "connection failed" / "fetch failed" to the mcp_unavailable substring set, pinned it, and narrowed the TODO(live-verify) marker to the still-Desktop-gated symbol_not_found / browser_disconnected wordings. | `mcp-classify-cdp-down-classify-the-live-cdp-down-tv-cli-error-as-mcp-u.md` |
 | [MP-A](mp-a-close-s42-dossier-defensive-guards-findings-1-4.md) | in-flight | #275 | Close S42 Findings #1-4 with defensive guards in the R7-R10 path (skip malformed rows; honour explicit contracts=0); §2 invariant preserved — reviewers stay downgrade-only. | `mp-a-close-s42-dossier-defensive-guards-findings-1-4.md` |
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
+| [pricer-failloud-guards](pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md) | in-flight |  | Two input-validation hardenings to engine/option_pricer.py — the three vectorized BS pricers now raise on any S<=0/K<=0 element (mirroring the scalar contract) instead of silently emitting NaN, and the BAW American-call branch short-circuits to European for r<=0 (was a div-by-zero NaN at r=0). Behaviour on valid inputs is byte-for-byte unchanged; §2-adjacent guard only. | `pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md` |
+| [prob-profit-ci-tier-gate](prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md) | in-flight |  | prob_profit's Wilson CI is now emitted only on the IID empirical_non_overlapping forward tier; suppressed (null) on the overlapping/bootstrap/har_rv/lognormal tiers where N is not an independent-trial count and the interval would be false precision. | `prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md` |
+| [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |
 
-## Backtests (21)
+## Backtests (23)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -43,7 +53,9 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ENGINE_BACKTEST_S41_F4_FIX_VALIDATION](../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md) | legacy |  | Engine backtest — S41: F4 fix validation (post-#260) | `../ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` |
 | [ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW](../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md) | legacy |  | Engine backtest — S43: rolling multi-window with post-#260 engine (2026-05-27) | `../ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` |
 | [ENGINE_BACKTEST_S44_S38_POSTF4_RERUN](../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md) | legacy |  | Engine backtest — S44: S38 re-run on post-F4 engine (2026-05-28) | `../ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` |
+| [r1-data-refresh-rebaseline](r1-data-refresh-rebaseline-r1-bloomberg-data-refresh-s27-s32-s34-s35-re-bas.md) | completed | #338 | R1 = data-only refresh (Option B, 16 monoliths; sp500_dividends.csv held at main to avoid a source regression) + S27/S32/S34/S35 re-baseline, deep-read OFF; in-window EV-path movers are treasury_yields.csv (dominant; corrects wrong/missing main rates) + sp500_fundamentals.csv eqy_dvd_yld_12m (BSM dividend_yield, small/pervasive), plus S34's UNIVERSE_100 swap; ohlcv + vol_iv byte-identical in-window; trio byte-identical. | `r1-data-refresh-rebaseline-r1-bloomberg-data-refresh-s27-s32-s34-s35-re-bas.md` |
 | [r11-dollar-impact](r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md) | complete |  | R11 is targeted insurance for the 2022-style sustained grind-down (reliably averts ~$165-269k of CSP-leg loss, ~50% assignment) — but its WHOLE-BOOK impact is statistically indistinguishable from zero over both windows (paired daily-return \|t\|<0.7; point Δ W3 2020-2024 −$37.6k, W4 2021-2025 +$21.7k), and its per-contract "averted loss" over-states full-wheel value because blocking entry forecloses the wheel's recovery leg. Net read: the I11 justification was overstated; R11 doesn't measurably help the book, isn't shown to hurt it, and is real but narrow 2022 tail insurance. | `r11-dollar-impact-r11-dollar-impact-backtest-post-ship-validation.md` |
+| [rebaseline-backtest-snapshots-2026-06-02](rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md) | in-flight |  | Re-pin the 4 backtest_regression snapshots to the deterministic _common @main output; drift attributed (s35←#260 F4 widening, s27/s32/s34←D20 rate) — benign merged fixes, not regressions. | `rebaseline-backtest-snapshots-2026-06-02-re-baseline-s27-s32-s34-s35-backtest-snapshots-r.md` |
 | [S22](s22-roll-defense-economics-itm-short-put-with-7-dte.md) | completed |  | Roll defense economics (ITM short put with ≤7 DTE) | `s22-roll-defense-economics-itm-short-put-with-7-dte.md` |
 | [S32](s32-1m-friction-modeled-simulation-closes-s22-caveat.md) | completed |  | $1M friction-modeled simulation (closes S22 Caveat 3) | `s32-1m-friction-modeled-simulation-closes-s22-caveat.md` |
 | [S35](s35-2018-2020-out-of-window-cross-validation.md) | completed |  | 2018-2020 out-of-window cross-validation | `s35-2018-2020-out-of-window-cross-validation.md` |
@@ -53,7 +65,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (13)
+## Verification & realism (14)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -70,6 +82,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
+| [vnv-campaign-2026-06-01](vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md) | in-flight |  | Read-only V&V sweep of origin/main — funnel is transparent (423/503 survive, all drops auditable), Wilson-CI coverage 98.6% on the put ranker, prob_profit top-bin over-confidence is real + regime-dependent, ev_dollars SIGN predicts realized direction, IV has zero skew (100%), and connector ticker-filtering dominates a universe scan. | `vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md` |
 
 ## Usage-test scenarios (34)
 
@@ -110,16 +123,25 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
 | [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
-## Refactors (1)
+## Refactors (2)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Research records (3)
+## Docs / process (2)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
+| [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
+
+## Research records (4)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [data-layer-activation](data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md) | in-flight |  | Verified the campaign's survivorship-free 1990-2026 data on the bytes (refresh 6bb3399 / deep e7818f4), confirmed the engine still reads only 2018+ monoliths, and produced a prioritized activation roadmap + a connector deep-read / survivorship-harness design — executing only the safe prep (the credit-rating dead-read fix), deferring every decision-layer-touching step (merge, re-baseline, connector change) for operator review. | `data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md` |
 | [F4_TAIL_RISK_DIAGNOSTIC](../F4_TAIL_RISK_DIAGNOSTIC.md) | legacy |  | F4 tail-risk gap — diagnostic + fix plan (2026-05-26) | `../F4_TAIL_RISK_DIAGNOSTIC.md` |
 | [PROB_PROFIT_CALIBRATION_2026-05-28](../PROB_PROFIT_CALIBRATION_2026-05-28.md) | legacy |  | prob_profit calibration — multi-backtest analysis (2026-05-28) | `../PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | [r11-onset-aware-trigger](r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md) | proposed |  | PROPOSED (not started). R11's VIX-level trigger fires post-spike and forgoes V-recoveries (2020). Hypothesis: a PERSISTENCE condition — fire only when VIX>25 has held N consecutive trading days — keeps the 2022 grind-down protection while skipping the 2020 spike, sidestepping the I10 rv_ratio detection problem. Backtest-able with the existing r11_dollar_impact driver. | `r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md` |

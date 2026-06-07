@@ -282,6 +282,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 |---|---|
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
+| `docs/DATA_LAYER_ACTIVATION_ROADMAP.md` | Plan (2026-06-05) for activating the campaign's survivorship-free 1990–2026 layer: the on-the-bytes verified inventory (33 refresh CSVs + 13 deep panels @ refresh `6bb3399` / deep `e7818f4`), the gap (connector reads only 2018+ monoliths), and the prioritized R0–R7 roadmap with effort/risk/§2-touch/re-baseline + the R1 merge hazard. Safe prep done; merge/re-baseline/connector deferred. |
+| `docs/DATA_LAYER_DEEP_READ_DESIGN.md` | Design (2026-06-05) for the connector deep-read (`_load` assembly of monolith ∪ deep ∪ delisted via a slice manifest, ticker/dedup precedence, memory/perf, opt-in flag) + the survivorship-aware backtest harness (PIT membership reuse) + Theta-chain cost-model fallback + the two audit code fixes. §2-safe by construction (assembly below `get_*`; trio untouched). Companion to the activation roadmap. |
 | `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
 | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` | Planning-only scope for the coordinated **D19** (exit-cost netting) + **D21** (forward-distribution horizon-units) + **probability-recalibration** re-baseline. Covers the entanglement (D21's over-long horizon deflates `prob_profit`, masking top-bin over-confidence; fixing it makes the measured gap worse), the dependency order, the full `prob_assignment`/`prob_profit` blast radius (backtests, calibration band, S-claims, premium-correction pilot risk axis, R1/R5/R11), the LOCO recalibration re-run on D21-corrected probabilities, and the decision-trio test + §2 plan. Draft for operator review; not yet executed. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
@@ -654,6 +656,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_credit_rating_population.py` | R0a regression guard — `analyze_ticker` populates `credit_rating` from the `get_credit_risk()` `sp_rating` key (not the raw `rtg_sp_lt_lc_issuer_credit` field). Pins the dead-read fix; documents the field is off the EV path. |
 | `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |

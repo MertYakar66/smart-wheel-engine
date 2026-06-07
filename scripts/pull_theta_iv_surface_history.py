@@ -513,11 +513,21 @@ def main() -> int:
     ap.add_argument(
         "--workers",
         type=int,
-        default=4,
+        default=2,
         help="Worker threads. All workers share a single "
         "ThetaConnector whose internal semaphore caps "
         "aggregate concurrency at the tier limit, so "
-        "extra workers queue rather than oversubscribe.",
+        "extra workers queue rather than oversubscribe. "
+        "Default 2: the all-strikes hourly IV calls run ~14s each, so "
+        ">=3 concurrent overrun the connector read timeout and thrash.",
+    )
+    ap.add_argument(
+        "--read-timeout",
+        type=int,
+        default=120,
+        help="Connector read timeout (s). All-strikes hourly IV-greeks calls "
+        "run ~14s (mega-caps up to ~30s+), past the connector's 30s default; "
+        "120 prevents the timeout-retry thrash that throttled this puller.",
     )
     ap.add_argument("--resume", action="store_true", help="Skip partitions that already exist")
     ap.add_argument("--force", action="store_true", help="Overwrite existing partitions")
@@ -589,6 +599,10 @@ def main() -> int:
     # 472 NO_DATA under contention and the puller silently dropped partial
     # surfaces. Sharing the connector caps aggregate concurrency.
     conn = ThetaConnector()
+    # All-strikes hourly IV-greeks calls run ~14s (mega-caps up to ~30s+), past
+    # the connector's 30s default read timeout — which caused constant timeout-
+    # retry thrash (~110s/ticker-date). Raise it so calls complete first-try.
+    conn._read_timeout = args.read_timeout
     try:
         expirations_cache: dict[str, pd.Series] = {}
         cache_lock = threading.Lock()

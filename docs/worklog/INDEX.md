@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**95 records.**
+**96 records.**
 
 ## Features (8)
 
@@ -37,6 +37,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [pricer-failloud-guards](pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md) | in-flight |  | Two input-validation hardenings to engine/option_pricer.py — the three vectorized BS pricers now raise on any S<=0/K<=0 element (mirroring the scalar contract) instead of silently emitting NaN, and the BAW American-call branch short-circuits to European for r<=0 (was a div-by-zero NaN at r=0). Behaviour on valid inputs is byte-for-byte unchanged; §2-adjacent guard only. | `pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md` |
 | [prob-profit-ci-tier-gate](prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md) | in-flight |  | prob_profit's Wilson CI is now emitted only on the IID empirical_non_overlapping forward tier; suppressed (null) on the overlapping/bootstrap/har_rv/lognormal tiers where N is not an independent-trial count and the interval would be false precision. | `prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md` |
 | [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |
+| [r7-deep-iv-sentinel](r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md) | complete |  | On the assembled (deep) vol_iv read, null the corrupt implied-vol sentinel (~134217.7) above a 10,000 floor while keeping the row — chosen over the early "IV>500%" note because on-bytes inspection of the delisted panel showed real distressed-name IVs of 500-1196% that a 500 cut would wrongly discard. Stacked on the deep-read branch. Other R7 items (drop .xlsx, shard bid_ask, deprecate vol_dvd) are R1-merge-time data ops — NOTED, not executed. | `r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md` |
 
 ## Backtests (23)
 

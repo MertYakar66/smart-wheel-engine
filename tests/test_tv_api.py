@@ -222,7 +222,7 @@ def test_tv_webhook_accepts_valid_alert():
     enriched = body["enriched"]
     assert enriched["ticker"] == "MU"
     assert enriched["signal"] == "wheel_put_zone"
-    assert enriched["verdict"] in {"proceed", "review", "skip"}
+    assert enriched["verdict"] in {"proceed", "review", "skip", "blocked"}
     assert enriched["preferred_dte"] in {31, 45}
     assert len(enriched["preferred_delta_range"]) == 2
     # Ring buffer updated
@@ -290,5 +290,151 @@ def test_tv_enrich_returns_decision():
     status, body = _drive("GET", "/api/tv/enrich?ticker=MU&signal=wheel_put_zone")
     assert status == 200
     assert body["ticker"] == "MU"
-    assert body["verdict"] in {"proceed", "review", "skip"}
+    assert body["verdict"] in {"proceed", "review", "skip", "blocked"}
     assert body["preferred_dte"] in {31, 45}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/candidates — prob_profit small-sample CI surfacing (additive)
+# ---------------------------------------------------------------------------
+
+
+class _CandidatesRunner:
+    """Runner stub whose EV frame carries the prob_profit Wilson CI columns.
+
+    Mirrors the real ``rank_candidates_by_ev(include_diagnostic_fields=True)``
+    frame shape: ``prob_profit`` plus the small-sample honesty trio
+    (``n_scenarios`` / ``prob_profit_ci_low`` / ``prob_profit_ci_high``).
+    The connector is exposed via ``.connector`` because ``_handle_candidates``
+    reads ``runner.connector`` for the universe-scope resolution.
+    """
+
+    def __init__(self, conn):
+        self.connector = conn
+
+    def rank_candidates_by_ev(self, **_kwargs):
+        return pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "spot": 100.0,
+                    "strike": 95.0,
+                    "premium": 1.50,
+                    "dte": 35,
+                    "iv": 0.22,
+                    "ev_dollars": 45.0,
+                    "ev_per_day": 1.30,
+                    "prob_profit": 0.7714,
+                    "n_scenarios": 35,
+                    "prob_profit_ci_low": 0.6107,
+                    "prob_profit_ci_high": 0.8804,
+                    "prob_assignment": 0.18,
+                    "distribution_source": "empirical_non_overlapping",
+                },
+                # Event-lockout short-circuit row: prob_profit present but
+                # no scenarios evaluated → CI is None (NaN-safed upstream).
+                {
+                    "ticker": "MSFT",
+                    "spot": 200.0,
+                    "strike": 190.0,
+                    "premium": 2.00,
+                    "dte": 35,
+                    "iv": 0.20,
+                    "ev_dollars": 10.0,
+                    "ev_per_day": 0.30,
+                    "prob_profit": 0.0,
+                    "n_scenarios": None,
+                    "prob_profit_ci_low": None,
+                    "prob_profit_ci_high": None,
+                    "prob_assignment": 0.10,
+                    "distribution_source": "event_lockout",
+                },
+            ]
+        )
+
+
+def test_candidates_surface_prob_profit_ci(monkeypatch):
+    """/api/candidates additively ships nScenarios + the Wilson 95% CI, and
+    the CI brackets the probProfit it reports — without mutating probProfit."""
+    conn = _FakeConnector()
+    runner = _CandidatesRunner(conn)
+    monkeypatch.setattr(engine_api, "get_runner", lambda: runner)
+    monkeypatch.setattr(engine_api, "get_connector", lambda: conn)
+
+    status, body = _drive("GET", "/api/candidates?limit=5&min_score=0")
+    assert status == 200
+    trades = body["trades"]
+    assert len(trades) == 2
+
+    aapl = next(t for t in trades if t["ticker"] == "AAPL")
+    # The CI trio is present with the camelCase keys this file uses.
+    assert "nScenarios" in aapl
+    assert "probProfitCiLow" in aapl
+    assert "probProfitCiHigh" in aapl
+    assert aapl["nScenarios"] == 35
+    # probProfit is unchanged — the pass-through annotates precision only.
+    assert aapl["probProfit"] == pytest.approx(0.7714)
+    # CI brackets the reported point estimate (low <= p <= high).
+    assert aapl["probProfitCiLow"] <= aapl["probProfit"] <= aapl["probProfitCiHigh"]
+    # ...and the legacy "probability" alias (probProfit * 100) is untouched.
+    assert aapl["probability"] == pytest.approx(77.1, abs=0.1)
+
+    # Event-lockout row: no scenarios → CI is null, not fabricated.
+    msft = next(t for t in trades if t["ticker"] == "MSFT")
+    assert msft["nScenarios"] is None
+    assert msft["probProfitCiLow"] is None
+    assert msft["probProfitCiHigh"] is None
+    assert msft["probProfit"] == pytest.approx(0.0)
+
+
+def test_tv_dossier_passes_through_prob_profit_ci(monkeypatch):
+    """/api/tv/dossier serializes the full ev_row verbatim, so the ranker's
+    n_scenarios / prob_profit_ci_low / prob_profit_ci_high (snake_case) ride
+    through with no extra wiring — confirm they arrive and bracket prob_profit.
+
+    The dossier path keeps the ranker's snake_case keys (it ships the raw
+    ev_row), unlike /api/candidates which re-keys to camelCase. We assert the
+    convention each surface actually uses rather than forcing one on the other.
+    """
+    from engine.candidate_dossier import CandidateDossier
+
+    ev_row = {
+        "ticker": "AAPL",
+        "spot": 100.0,
+        "strike": 95.0,
+        "premium": 1.50,
+        "dte": 35,
+        "ev_dollars": 45.0,
+        "prob_profit": 0.7714,
+        "n_scenarios": 35,
+        "prob_profit_ci_low": 0.6107,
+        "prob_profit_ci_high": 0.8804,
+    }
+    dossier = CandidateDossier(
+        ticker="AAPL",
+        ev_row=ev_row,
+        verdict="proceed",
+        verdict_reason="ev_above_threshold",
+    )
+
+    conn = _FakeConnector()
+
+    class _DossierRunner:
+        connector = conn
+
+        def build_candidate_dossiers(self, **_kwargs):
+            return [dossier]
+
+    runner = _DossierRunner()
+    monkeypatch.setattr(engine_api, "get_runner", lambda: runner)
+    monkeypatch.setattr(engine_api, "get_connector", lambda: conn)
+
+    status, body = _drive("GET", "/api/tv/dossier?top_n=5")
+    assert status == 200
+    records = body["dossiers"]
+    assert len(records) == 1
+    row = records[0]["ev_row"]
+    # The CI trio rides through the ev_row pass-through unchanged.
+    assert row["n_scenarios"] == 35
+    assert row["prob_profit"] == pytest.approx(0.7714)
+    assert row["prob_profit_ci_low"] <= row["prob_profit"] <= row["prob_profit_ci_high"]

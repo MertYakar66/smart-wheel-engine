@@ -228,6 +228,14 @@ _CC_RANK_CORE_COLUMNS = [
     "pnl_p50",
     "pnl_p75",
     "prob_profit",
+    # Small-sample honesty: prob_profit is a k/N frequency over
+    # n_scenarios forward windows; the Wilson 95% CI travels alongside it
+    # so the 4-dp figure is not read as exact. Mirrors the put ranker
+    # (rank_candidates_by_ev). Pinned right after prob_profit so a column
+    # reindex never separates the estimate from its uncertainty.
+    "n_scenarios",
+    "prob_profit_ci_low",
+    "prob_profit_ci_high",
     "prob_assignment",
     "days_to_earnings",
     "days_to_ex_div",
@@ -286,6 +294,19 @@ _STRANGLE_RANK_CORE_COLUMNS = [
 _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
     "put_prob_profit",
     "call_prob_profit",
+    # Small-sample honesty: per-leg prob_profit is a k/N frequency over
+    # the same n_scenarios forward windows shared by both legs (one
+    # forward path); surface N + each leg's Wilson 95% CI so neither
+    # 4-dp figure is read as exact. Mirrors the put ranker
+    # (rank_candidates_by_ev). Pinned right after the per-leg
+    # prob_profit so a column reindex never separates an estimate from
+    # its uncertainty. The leg prob_profit values themselves are
+    # unchanged — this annotates PRECISION, not a recalibration.
+    "n_scenarios",
+    "put_prob_profit_ci_low",
+    "put_prob_profit_ci_high",
+    "call_prob_profit_ci_low",
+    "call_prob_profit_ci_high",
     "put_prob_assignment",
     "call_prob_assignment",
     "put_cvar_5",
@@ -487,7 +508,15 @@ class WheelRunner:
         # Credit risk
         credit = conn.get_credit_risk(ticker)
         if credit:
-            analysis.credit_rating = credit.get("rtg_sp_lt_lc_issuer_credit", "")
+            # get_credit_risk() returns the S&P rating under the friendly key
+            # "sp_rating" (it maps the raw Bloomberg field
+            # rtg_sp_lt_lc_issuer_credit -> sp_rating). Reading the raw field
+            # name here always missed -> credit_rating was silently "" for
+            # every ticker (dead read; sp500_credit_risk.csv wasted). This is
+            # off the EV-authoritative path: credit_rating feeds only the
+            # legacy heuristic _compute_wheel_score()/screen_candidates() and
+            # the memo / API display, never rank_candidates_by_ev / EVEngine.
+            analysis.credit_rating = credit.get("sp_rating", "")
 
         # --- Spot price (PIT + staleness gate; S33 audit holdover) ---
         ohlcv = conn.get_ohlcv(ticker)
@@ -862,6 +891,7 @@ class WheelRunner:
         from engine.event_gate import EventGate, ScheduledEvent
         from engine.forward_distribution import (
             best_available_forward_distribution,
+            is_iid_forward_source,
             realized_vol_widened_log_returns,
             realized_vol_widening_factor,
         )
@@ -1683,6 +1713,15 @@ class WheelRunner:
             collateral = strike * 100.0 * contracts
             roc = (res.ev_dollars / collateral) if collateral > 0 else 0.0
 
+            # Sampling-honesty gate (2026-06-01): prob_profit's Wilson CI is an
+            # honest binomial interval only when n_scenarios is an
+            # independent-trial count — i.e. the empirical non-overlapping
+            # forward tier. On the overlapping / block_bootstrap / har_rv /
+            # lognormal_fallback tiers ``method`` reports a non-IID N, so the CI
+            # is false precision and is suppressed (None) below. See
+            # engine.forward_distribution.is_iid_forward_source.
+            ci_ok = is_iid_forward_source(method)
+
             row: dict = {
                 "ticker": ticker,
                 "spot": spot,
@@ -1704,6 +1743,24 @@ class WheelRunner:
                 "collateral": round(collateral, 2),
                 "roc": round(roc, 6),
                 "prob_profit": round(res.prob_profit, 4),
+                # Small-sample honesty (2026-06-01): prob_profit is a k/N
+                # frequency over n_scenarios forward windows (often ~30-35);
+                # surface N + the Wilson 95% CI so the 4-dp figure is not read
+                # as exact (the interval is ~20pp wide at N=35). None when no
+                # scenarios were evaluated. prob_profit itself is unchanged —
+                # this annotates PRECISION, not a recalibration. See
+                # engine.ev_engine._wilson_score_interval.
+                "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
+                "prob_profit_ci_low": (
+                    round(res.prob_profit_ci_low, 4)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_low)
+                    else None
+                ),
+                "prob_profit_ci_high": (
+                    round(res.prob_profit_ci_high, 4)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_high)
+                    else None
+                ),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
                 "distribution_source": method,
@@ -2239,7 +2296,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike
 
@@ -2588,6 +2648,12 @@ class WheelRunner:
                     )
                     continue
 
+                # Sampling-honesty gate — see rank_candidates_by_ev for the
+                # rationale: the Wilson CI is honest only on the IID
+                # (empirical non-overlapping) forward tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
+
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -2606,6 +2672,22 @@ class WheelRunner:
                     "pnl_p50": (round(res.pnl_p50, 2) if not np.isnan(res.pnl_p50) else None),
                     "pnl_p75": (round(res.pnl_p75, 2) if not np.isnan(res.pnl_p75) else None),
                     "prob_profit": round(res.prob_profit, 4),
+                    # Small-sample honesty: N + the Wilson 95% CI of
+                    # prob_profit (see rank_candidates_by_ev for rationale).
+                    # prob_profit itself is unchanged — this annotates
+                    # PRECISION, not a recalibration. None when no scenarios
+                    # were evaluated / the CI is NaN.
+                    "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
+                    "prob_profit_ci_low": (
+                        round(res.prob_profit_ci_low, 4)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_low)
+                        else None
+                    ),
+                    "prob_profit_ci_high": (
+                        round(res.prob_profit_ci_high, 4)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_high)
+                        else None
+                    ),
                     "prob_assignment": round(res.prob_assignment, 4),
                     "days_to_earnings": days_to_earn,
                     "days_to_ex_div": days_to_ex_div,
@@ -2789,7 +2871,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike, _solve_put_strike
 
@@ -3194,6 +3279,12 @@ class WheelRunner:
                     continue
 
                 total_premium = put_premium + call_premium
+                # Sampling-honesty gate — see rank_candidates_by_ev: both legs
+                # walk the same forward path, so one ``method`` governs the
+                # shared n_scenarios + both legs' Wilson CIs. Honest only on the
+                # IID (empirical non-overlapping) tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -3227,6 +3318,37 @@ class WheelRunner:
                         {
                             "put_prob_profit": round(put_res.prob_profit, 4),
                             "call_prob_profit": round(call_res.prob_profit, 4),
+                            # Small-sample honesty: N (shared — both legs
+                            # walk the same forward path) + each leg's
+                            # Wilson 95% CI of prob_profit. Mirrors the put
+                            # ranker idiom; None when the res value is NaN /
+                            # no scenarios were evaluated. The leg
+                            # prob_profit values themselves are unchanged.
+                            "n_scenarios": (
+                                int(put_res.n_scenarios)
+                                if (ci_ok and put_res.n_scenarios)
+                                else None
+                            ),
+                            "put_prob_profit_ci_low": (
+                                round(put_res.prob_profit_ci_low, 4)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_low)
+                                else None
+                            ),
+                            "put_prob_profit_ci_high": (
+                                round(put_res.prob_profit_ci_high, 4)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_high)
+                                else None
+                            ),
+                            "call_prob_profit_ci_low": (
+                                round(call_res.prob_profit_ci_low, 4)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_low)
+                                else None
+                            ),
+                            "call_prob_profit_ci_high": (
+                                round(call_res.prob_profit_ci_high, 4)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_high)
+                                else None
+                            ),
                             "put_prob_assignment": round(put_res.prob_assignment, 4),
                             "call_prob_assignment": round(call_res.prob_assignment, 4),
                             "put_cvar_5": round(put_res.cvar_5, 2),

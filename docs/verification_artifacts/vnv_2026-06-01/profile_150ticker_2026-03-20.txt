@@ -1,0 +1,33 @@
+EXIT=0
+survivors 124
+         23668265 function calls (23585865 primitive calls) in 31.372 seconds
+
+   Ordered by: internal time
+   List reduced from 2337 to 22 due to restriction <22>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      742   10.092    0.014   10.094    0.014 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\ops\array_ops.py:113(comp_method_OBJECT_ARRAY)
+     3087    7.897    0.003   11.786    0.004 C:\Users\merty\Desktop\swe-vnv\engine\regime_hmm.py:315(_forward_backward)
+  3195413    4.747    0.000    4.747    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+  2400306    1.702    0.000    2.973    0.000 C:\Users\merty\Desktop\swe-vnv\engine\data_connector.py:32(normalize_ticker)
+        7    0.915    0.131    0.923    0.132 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\io\parsers\c_parser_wrapper.py:222(read)
+      147    0.420    0.003   13.313    0.091 C:\Users\merty\Desktop\swe-vnv\engine\regime_hmm.py:112(fit)
+        4    0.386    0.096    3.359    0.840 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\algorithms.py:1667(map_array)
+        6    0.347    0.058    0.349    0.058 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\tools\datetimes.py:458(_array_strptime_with_fallback)
+  2400306    0.338    0.000    0.338    0.000 {method 'rsplit' of 'str' objects}
+    12350    0.319    0.000    0.837    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\scipy\stats\_distn_infrastructure.py:2090(logpdf)
+  2405393    0.298    0.000    0.298    0.000 {method 'endswith' of 'str' objects}
+  3389709    0.285    0.000    0.285    0.000 {method 'strip' of 'str' objects}
+3011377/3004801    0.244    0.000    0.300    0.000 {built-in method builtins.isinstance}
+3621144/3557601    0.239    0.000    0.254    0.000 {built-in method builtins.len}
+        1    0.164    0.164    0.164    0.164 {method 'load_verify_locations' of '_ssl._SSLContext' objects}
+    14409    0.075    0.000    0.103    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\numpy\lib\_stride_tricks_impl.py:373(_broadcast_to)
+    12695    0.058    0.000    0.101    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\scipy\stats\_distn_infrastructure.py:1039(_support_mask)
+        4    0.055    0.014    0.055    0.014 {method 'read' of '_ssl._SSLSocket' objects}
+     8703    0.052    0.000    0.100    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\array_algos\take.py:120(_take_nd_ndarray)
+    14062    0.051    0.000    0.310    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\scipy\stats\_distn_infrastructure.py:612(argsreduce)
+       11    0.046    0.004    0.046    0.004 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\pandas\core\dtypes\missing.py:305(_isna_string_dtype)
+    12348    0.045    0.000    0.045    0.000 C:\Users\merty\AppData\Local\Programs\Python\Python312\Lib\site-packages\scipy\stats\_continuous_distns.py:366(_norm_logpdf)
+
+
+

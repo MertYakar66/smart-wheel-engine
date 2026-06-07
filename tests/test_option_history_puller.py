@@ -14,6 +14,7 @@ Two bugs found 2026-06-01 that these tests prevent from regressing:
 """
 
 import pandas as pd
+import pytest
 
 import scripts.pull_theta_option_history as m
 
@@ -73,9 +74,38 @@ def test_write_partition_is_atomic(tmp_path, monkeypatch):
     rows, contracts = m._write_partition("AAPL", "20240119", [frame])
     part = tmp_path / "ticker=AAPL" / "expiration=20240119" / "data.parquet"
     assert part.exists() and part.stat().st_size > 0
-    assert not (part.parent / "data.parquet.tmp").exists()  # no partial left behind
+    # No tmp litter left behind — the finally clears the (now per-writer-unique)
+    # tmp whether or not the rename happened.
+    assert not list(part.parent.glob("*.tmp"))
     assert rows == 2 and contracts == 2
     assert m._partition_exists("AAPL", "20240119")
+
+
+def test_tmp_partition_path_is_unique_per_writer(tmp_path):
+    # The race fix: two writers targeting the SAME partition dir must get
+    # distinct tmp paths so neither clobbers the other's in-flight file before
+    # the atomic rename.
+    a = m._tmp_partition_path(tmp_path)
+    b = m._tmp_partition_path(tmp_path)
+    assert a != b
+    assert a.parent == tmp_path and a.name.startswith("data.parquet.") and a.suffix == ".tmp"
+
+
+def test_write_partition_leaves_no_tmp_on_failure(tmp_path, monkeypatch):
+    # If the parquet write blows up mid-flight, the finally must clear the tmp so
+    # a unique-named partial can't accumulate across crashes.
+    monkeypatch.setattr(m, "OUT_ROOT", tmp_path)
+
+    def _boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(m.pd.DataFrame, "to_parquet", _boom)
+    frame = pd.DataFrame({"strike": [100.0], "right": ["put"], "close": [1.0]})
+    with pytest.raises(OSError):
+        m._write_partition("AAPL", "20240119", [frame])
+    outdir = tmp_path / "ticker=AAPL" / "expiration=20240119"
+    assert not list(outdir.glob("*.tmp"))  # no leftover partial
+    assert not (outdir / "data.parquet").exists()  # and nothing renamed into place
 
 
 def test_cadence_filters():

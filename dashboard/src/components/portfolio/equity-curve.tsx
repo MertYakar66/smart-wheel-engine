@@ -83,8 +83,12 @@ export function EquityCurve({
         <PeriodToggle value={period} onChange={onPeriod} size="xs" />
       </div>
 
-      <div className="px-2 pb-3 pt-4" style={{ height: 300 }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="px-2 pb-3 pt-4">
+        {/* Numeric height (not "100%") so recharts has a positive dimension on
+            the first paint, before its ResizeObserver measures the parent. With
+            height="100%" the container reports -1 on the first render and logs
+            "The width(-1) and height(-1) of chart should be greater than 0". */}
+        <ResponsiveContainer width="100%" height={300}>
           {tab === "equity" ? (
             <AreaChart data={data} margin={{ top: 6, right: 12, left: 4, bottom: 0 }}>
               <defs>

@@ -26,8 +26,10 @@ export function AskBar() {
           className="min-w-0 flex-1 bg-transparent text-sm text-terminal-text outline-none placeholder:text-terminal-dim"
         />
         <button
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-pf-accent/15 text-pf-accent transition-colors hover:bg-pf-accent/25"
-          aria-label="Ask"
+          disabled
+          title="Conversational layer coming soon"
+          className="flex h-7 w-7 cursor-not-allowed items-center justify-center rounded-md bg-pf-accent/10 text-pf-accent/40"
+          aria-label="Ask (coming soon)"
         >
           <Send className="h-3.5 w-3.5" />
         </button>

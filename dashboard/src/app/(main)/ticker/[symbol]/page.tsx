@@ -184,7 +184,10 @@ export default function TickerPage() {
         <CardContent>
           {priceHistory.length > 0 ? (
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              {/* Numeric height (matches h-64 = 256px) so recharts has a positive
+                  dimension on the first paint, before its ResizeObserver runs —
+                  avoids the "width(-1)/height(-1) ... greater than 0" warning. */}
+              <ResponsiveContainer width="100%" height={256}>
                 <LineChart data={priceHistory}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                   <XAxis

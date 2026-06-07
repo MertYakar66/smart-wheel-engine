@@ -3,11 +3,11 @@
 import { AlertTriangle, Check, ShieldAlert } from "lucide-react";
 import { fmtUsd } from "@/lib/cockpit-trust";
 import {
-  ACCOUNT,
-  SECTOR_CAP,
-  SECTOR_EXPOSURE,
-  SINGLE_NAME,
-  SINGLE_NAME_CAP,
+  ACCOUNT as MOCK_ACCOUNT,
+  SECTOR_CAP as MOCK_SECTOR_CAP,
+  SECTOR_EXPOSURE as MOCK_SECTOR_EXPOSURE,
+  SINGLE_NAME as MOCK_SINGLE_NAME,
+  SINGLE_NAME_CAP as MOCK_SINGLE_NAME_CAP,
 } from "./mock";
 import { PfCard } from "./parts";
 
@@ -127,8 +127,20 @@ function MarginGauge({ health }: { health: number }) {
   );
 }
 
-export function RiskRadar() {
-  const stressed = ACCOUNT.availableFunds < 0;
+export function RiskRadar({
+  account = MOCK_ACCOUNT,
+  singleName = MOCK_SINGLE_NAME,
+  sectorExposure = MOCK_SECTOR_EXPOSURE,
+  caps = { singleName: MOCK_SINGLE_NAME_CAP, sector: MOCK_SECTOR_CAP },
+  marginHealth = 0.12,
+}: {
+  account?: typeof MOCK_ACCOUNT;
+  singleName?: { sym: string; pct: number }[];
+  sectorExposure?: { name: string; pct: number }[];
+  caps?: { singleName: number; sector: number };
+  marginHealth?: number;
+}) {
+  const stressed = account.availableFunds < 0;
   return (
     <PfCard
       pad={false}
@@ -141,8 +153,8 @@ export function RiskRadar() {
       }
     >
       <div className="px-4 pb-2 pt-2">
-        <Rule title="Single-name" cap={SINGLE_NAME_CAP} rows={SINGLE_NAME.map((s) => ({ label: s.sym, pct: s.pct }))} />
-        <Rule title="Sector" cap={SECTOR_CAP} rows={SECTOR_EXPOSURE.map((s) => ({ label: s.name.slice(0, 6), pct: s.pct }))} />
+        <Rule title="Single-name" cap={caps.singleName} rows={singleName.map((s) => ({ label: s.sym, pct: s.pct }))} />
+        <Rule title="Sector" cap={caps.sector} rows={sectorExposure.map((s) => ({ label: s.name.slice(0, 6), pct: s.pct }))} />
 
         <div className="border-t border-white/[0.08] pt-3">
           <div className="mb-1 flex items-center justify-between">
@@ -158,25 +170,25 @@ export function RiskRadar() {
             </span>
           </div>
           <div className="flex items-center justify-center">
-            <MarginGauge health={0.12} />
+            <MarginGauge health={marginHealth} />
           </div>
           <div className="mt-1 grid grid-cols-3 gap-2 text-center">
             <div>
               <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Avail. funds</div>
               <div className="text-xs font-semibold tabular-nums text-pf-loss">
-                {fmtUsd(ACCOUNT.availableFunds, { signed: true })}
+                {fmtUsd(account.availableFunds, { signed: true })}
               </div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Excess liq.</div>
               <div className="text-xs font-semibold tabular-nums text-terminal-text">
-                {fmtUsd(ACCOUNT.excessLiquidity)}
+                {fmtUsd(account.excessLiquidity)}
               </div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Maint. margin</div>
               <div className="text-xs font-semibold tabular-nums text-terminal-text">
-                {fmtUsd(ACCOUNT.maintMargin)}
+                {fmtUsd(account.maintMargin)}
               </div>
             </div>
           </div>

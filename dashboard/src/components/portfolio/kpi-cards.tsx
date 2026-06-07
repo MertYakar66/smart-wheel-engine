@@ -2,12 +2,13 @@
 
 import { Coins, Percent, Sparkles, TrendingDown, Trophy, Wallet } from "lucide-react";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { ACCOUNT, RETURNS } from "./mock";
+import { ACCOUNT as MOCK_ACCOUNT, RETURNS as MOCK_RETURNS } from "./mock";
 import {
   PfCard,
   PeriodToggle,
   fmtSignedPct,
   fmtSignedUsd,
+  orDash,
   pnlColor,
   type Period,
 } from "./parts";
@@ -55,18 +56,26 @@ function Kpi({
 export function KpiCards({
   period,
   onPeriod,
+  account = MOCK_ACCOUNT,
+  returns = MOCK_RETURNS,
 }: {
   period: Period;
   onPeriod: (p: Period) => void;
+  account?: typeof MOCK_ACCOUNT;
+  returns?: typeof MOCK_RETURNS;
 }) {
-  const r = RETURNS[period];
+  const r = returns[period];
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
       <Kpi
         label="Net Liquidation"
-        value={fmtUsd(ACCOUNT.netLiq)}
-        sub={`${fmtSignedUsd(ACCOUNT.dayChangeUsd)} (${fmtSignedPct(ACCOUNT.dayChangePct)}) today`}
-        subColor={pnlColor(ACCOUNT.dayChangeUsd)}
+        value={fmtUsd(account.netLiq)}
+        sub={
+          account.dayChangeUsd == null
+            ? "today —"
+            : `${fmtSignedUsd(account.dayChangeUsd)} (${fmtSignedPct(account.dayChangePct ?? 0)}) today`
+        }
+        subColor={pnlColor(account.dayChangeUsd ?? 0)}
         icon={Wallet}
         accentTop
       />
@@ -84,28 +93,28 @@ export function KpiCards({
       </Kpi>
       <Kpi
         label="Unrealized P&L"
-        value={fmtSignedUsd(ACCOUNT.unrealizedPnl)}
+        value={orDash(account.unrealizedPnl, (v) => fmtSignedUsd(v))}
         sub="open positions, mark-to-market"
-        subColor={pnlColor(ACCOUNT.unrealizedPnl)}
+        subColor={pnlColor(account.unrealizedPnl ?? 0)}
         icon={TrendingDown}
       />
       <Kpi
         label="Realized P&L · YTD"
-        value={fmtSignedUsd(ACCOUNT.realizedYtd)}
+        value={orDash(account.realizedYtd, (v) => fmtSignedUsd(v))}
         sub="closed trades, 2026"
-        subColor={pnlColor(ACCOUNT.realizedYtd)}
+        subColor={pnlColor(account.realizedYtd ?? 0)}
         icon={Coins}
       />
       <Kpi
         label="Premium · 30d"
-        value={fmtSignedUsd(ACCOUNT.premium30d)}
+        value={orDash(account.premium30d, (v) => fmtSignedUsd(v))}
         sub="option income collected"
         subColor="text-pf-accent"
         icon={Percent}
       />
       <Kpi
         label="Win Rate"
-        value={`${Math.round(ACCOUNT.winRate * 100)}%`}
+        value={orDash(account.winRate, (v) => `${Math.round(v * 100)}%`)}
         sub="closed wheel cycles"
         icon={Trophy}
       />

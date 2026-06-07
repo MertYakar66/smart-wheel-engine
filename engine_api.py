@@ -550,6 +550,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/portfolio":
                 tickers = param("tickers", "AAPL,MSFT,JPM")
                 self._handle_portfolio(tickers.split(","), param("as_of"))
+            elif path.startswith("/api/portfolio/"):
+                # D26 read-only performance viewer. Observational only —
+                # served from the point-in-time IBKR snapshot via
+                # engine.ibkr_portfolio_adapter (outside the trio). No EV
+                # authority, no order routing (CLAUDE.md §2/§3).
+                self._handle_portfolio_view(path[len("/api/portfolio/") :])
             elif path == "/api/regime":
                 self._handle_regime(param("ticker", "SPY"))
             elif path == "/api/calendar":
@@ -1000,6 +1006,56 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         runner = get_runner()
         report = runner.portfolio_report([t.strip().upper() for t in tickers], as_of)
         self._send_json(report)
+
+    def _handle_portfolio_view(self, sub):
+        """D26 read-only performance-viewer endpoints.
+
+        ``GET /api/portfolio/{summary,positions,returns,income,risk,history}``
+        — served from the point-in-time IBKR artifacts on disk via
+        ``engine.ibkr_portfolio_adapter`` (outside the CI-gated trio).
+
+        Strictly **observational** (CLAUDE.md §2/§3, design-doc D26): these
+        endpoints report the held book + realized history; they never rank a
+        candidate, never call ``EVEngine.evaluate``, never issue an EV
+        authority token, and never route an order. Realized P&L is reported
+        distinctly from any forward ``ev_dollars`` score (finding I1).
+        """
+        from engine import ibkr_portfolio_adapter as adapter
+
+        sub = (sub or "").strip("/").lower()
+        known = {"summary", "positions", "returns", "income", "risk", "history"}
+        if sub not in known:
+            self._send_error(f"Unknown portfolio view: {sub!r}", 404)
+            return
+
+        try:
+            snapshot = adapter.load_snapshot()
+            if sub == "summary":
+                # The ledger is optional: a snapshot-only live drop (no Flex
+                # trade export yet) still serves the real balance sheet —
+                # realized/premium/win-rate then come back null ("—").
+                try:
+                    ledger = adapter.load_ledger()
+                except adapter.SnapshotSchemaError:
+                    ledger = None
+                payload = adapter.account_summary(snapshot, ledger)
+            elif sub == "positions":
+                payload = {"holdings": adapter.build_holdings_view(snapshot)}
+            elif sub == "returns":
+                payload = adapter.returns_view(adapter.load_history(), snapshot)
+            elif sub == "income":
+                payload = adapter.income_view(adapter.load_ledger(), snapshot=snapshot)
+            elif sub == "risk":
+                payload = adapter.risk_view(snapshot)
+            else:  # history
+                payload = adapter.equity_view(adapter.load_history())
+        except adapter.SnapshotSchemaError as exc:
+            # Missing / unversioned fixture → clean 503 so the dashboard can
+            # fall back to its typed mock rather than crash.
+            self._send_error(f"portfolio snapshot unavailable: {exc}", 503)
+            return
+
+        self._send_json(payload)
 
     def _handle_regime(self, ticker):
         conn = get_connector()

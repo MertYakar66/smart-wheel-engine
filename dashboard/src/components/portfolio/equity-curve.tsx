@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { EQUITY, PERIOD_WINDOW } from "./mock";
+import { EQUITY as MOCK_EQUITY, PERIOD_WINDOW, type EquityPoint } from "./mock";
 import { PeriodToggle, PfCard, type Period } from "./parts";
 
 const ACCENT = "#2dd4bf";
@@ -30,14 +30,16 @@ const tipStyle = {
 export function EquityCurve({
   period,
   onPeriod,
+  equity = MOCK_EQUITY,
 }: {
   period: Period;
   onPeriod: (p: Period) => void;
+  equity?: EquityPoint[];
 }) {
   const [tab, setTab] = useState<"equity" | "premium">("equity");
   const data = useMemo(
-    () => EQUITY.slice(EQUITY.length - PERIOD_WINDOW[period]),
-    [period]
+    () => equity.slice(equity.length - PERIOD_WINDOW[period]),
+    [period, equity]
   );
 
   return (

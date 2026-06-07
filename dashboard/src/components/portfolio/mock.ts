@@ -8,7 +8,26 @@ export type Period = "1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "All";
 
 export const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "YTD", "1Y", "All"];
 
-export const ACCOUNT = {
+// Fields the live IBKR feed may not derive (deltas need history; realized/
+// premium/win-rate need a trade ledger) are nullable — the engine returns
+// null and the UI renders "—" rather than a misleading 0. The balance-sheet
+// fields are always present.
+export interface Account {
+  asOf: string;
+  netLiq: number;
+  dayChangeUsd: number | null;
+  dayChangePct: number | null;
+  cash: number;
+  unrealizedPnl: number | null;
+  realizedYtd: number | null;
+  premium30d: number | null;
+  winRate: number | null;
+  availableFunds: number;
+  excessLiquidity: number;
+  maintMargin: number;
+}
+
+export const ACCOUNT: Account = {
   asOf: "2026-06-05T21:36:00Z",
   netLiq: 144507,
   dayChangeUsd: -1240,

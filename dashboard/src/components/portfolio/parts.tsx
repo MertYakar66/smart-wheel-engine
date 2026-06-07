@@ -112,4 +112,14 @@ export function fmtSignedPct(frac: number, decimals = 2): string {
   return `${sign}${Math.abs(frac * 100).toFixed(decimals)}%`;
 }
 
+/** Format a value, or render an em-dash when it's null/undefined — used for
+ * KPIs the live IBKR feed can't derive (deltas, realized/premium/win-rate
+ * without a trade ledger). Honest "not available", not a misleading 0. */
+export function orDash(
+  v: number | null | undefined,
+  fmt: (n: number) => string
+): string {
+  return v == null ? "—" : fmt(v);
+}
+
 export type { Period };

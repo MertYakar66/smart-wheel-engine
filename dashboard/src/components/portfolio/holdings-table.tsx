@@ -3,34 +3,29 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { HOLDINGS, type Holding } from "./mock";
+import { HOLDINGS as MOCK_HOLDINGS, type Holding } from "./mock";
 import { PfCard, WheelBadge, fmtSignedUsd, pnlColor } from "./parts";
 
 type SortKey = "sym" | "mktValue" | "uPnl" | "pctNav";
+type Sort = { key: SortKey; dir: 1 | -1 };
 
-export function HoldingsTable() {
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({
-    key: "pctNav",
-    dir: -1,
-  });
-
-  const rows = [...HOLDINGS].sort((a, b) => {
-    if (sort.key === "sym") return a.sym.localeCompare(b.sym) * sort.dir;
-    return (a[sort.key] - b[sort.key]) * sort.dir;
-  });
-
-  const toggle = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: -1 }));
-
-  const Th = ({
-    label,
-    k,
-    align = "right",
-  }: {
-    label: string;
-    k: SortKey;
-    align?: "left" | "right";
-  }) => (
+// Module-scope so the sortable header isn't a component created during the
+// parent's render (react-hooks/cannot-create-components-during-render); sort
+// state + toggle flow in as props.
+function Th({
+  label,
+  k,
+  align = "right",
+  sort,
+  toggle,
+}: {
+  label: string;
+  k: SortKey;
+  align?: "left" | "right";
+  sort: Sort;
+  toggle: (k: SortKey) => void;
+}) {
+  return (
     <th className={`px-3 py-2 ${align === "left" ? "text-left" : "text-right"}`}>
       <button
         onClick={() => toggle(k)}
@@ -48,6 +43,21 @@ export function HoldingsTable() {
       </button>
     </th>
   );
+}
+
+export function HoldingsTable({ holdings = MOCK_HOLDINGS }: { holdings?: Holding[] }) {
+  const [sort, setSort] = useState<Sort>({
+    key: "pctNav",
+    dir: -1,
+  });
+
+  const rows = [...holdings].sort((a, b) => {
+    if (sort.key === "sym") return a.sym.localeCompare(b.sym) * sort.dir;
+    return (a[sort.key] - b[sort.key]) * sort.dir;
+  });
+
+  const toggle = (key: SortKey) =>
+    setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: -1 }));
 
   return (
     <PfCard pad={false} title="Holdings" right={<span className="text-[10px] text-terminal-dim">{rows.length} positions</span>}>
@@ -55,13 +65,13 @@ export function HoldingsTable() {
         <table className="w-full border-collapse text-[12px]">
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-terminal-dim">
-              <Th label="Symbol" k="sym" align="left" />
+              <Th label="Symbol" k="sym" align="left" sort={sort} toggle={toggle} />
               <th className="px-3 py-2 text-left">State</th>
               <th className="px-3 py-2 text-right">Qty</th>
               <th className="px-3 py-2 text-right">Mark</th>
-              <Th label="Value" k="mktValue" />
-              <Th label="Unreal. P&L" k="uPnl" />
-              <Th label="% NAV" k="pctNav" />
+              <Th label="Value" k="mktValue" sort={sort} toggle={toggle} />
+              <Th label="Unreal. P&L" k="uPnl" sort={sort} toggle={toggle} />
+              <Th label="% NAV" k="pctNav" sort={sort} toggle={toggle} />
             </tr>
           </thead>
           <tbody>

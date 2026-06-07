@@ -163,11 +163,17 @@ export default function FeedPage() {
         </div>
       ) : stories.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <p className="text-zinc-500 dark:text-zinc-400">
-              No stories yet. Click &quot;Refresh Feeds&quot; to ingest news from
-              RSS sources.
+              No stories yet. Click &quot;Refresh Feeds&quot; to ingest the latest
+              headlines from the configured RSS sources.
             </p>
+            <Button onClick={handleIngest} disabled={ingesting} size="sm">
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${ingesting ? "animate-spin" : ""}`}
+              />
+              {ingesting ? "Ingesting..." : "Refresh Feeds"}
+            </Button>
           </CardContent>
         </Card>
       ) : (

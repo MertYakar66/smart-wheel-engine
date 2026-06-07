@@ -518,3 +518,200 @@ class TestConsumeIntoTrackerStrictMode:
         actions = [entry.get("action") for entry in tracker._ev_authority_log]
         assert "issue" in actions
         assert "consume" in actions
+
+
+# ======================================================================
+# consume_into_live_book — armed production rank→book entry (R9/R10)
+# ======================================================================
+
+
+class TestConsumeIntoLiveBook:
+    """``consume_into_live_book`` is the one-call armed production wire:
+    it builds the tracker via ``make_live_book_tracker`` (R9 sector + R10
+    single-name caps enforced) and runs ``consume_into_tracker`` through
+    it, so an over-concentrated open is REFUSED end-to-end — closing the
+    "``make_live_book_tracker`` has zero callers" gap (heavy-verify
+    2026-05-31 Category A). §2-safe: refusal-only, no EV path of its own;
+    a negative-EV candidate is still refused at the D16 launch gate.
+    """
+
+    # Positive-EV but over-concentrated: a $200 strike = $20k notional
+    # = 20% of a $100k NAV book > the 10% single-name cap (R10). Same
+    # fixture shape the synthetic consume_into_tracker tests use.
+    _OVER_CONCENTRATED = pd.DataFrame(
+        [
+            {
+                "ticker": "AAPL",
+                "spot": 210.0,
+                "strike": 200.0,
+                "premium": 2.0,
+                "dte": 35,
+                "iv": 0.30,
+                "ev_dollars": 40.0,  # positive — clears the D16 launch gate
+                "ev_per_day": 1.14,
+                "prob_profit": 0.75,
+                "prob_assignment": 0.20,
+                "distribution_source": "empirical_non_overlapping",
+            }
+        ]
+    )
+
+    def test_built_tracker_has_caps_armed(self):
+        """The tracker the method constructs has R9 + R10 enforced (the
+        library default leaves them off)."""
+        from unittest.mock import patch
+
+        runner = WheelRunner()
+        with patch.object(WheelRunner, "rank_candidates_by_ev", return_value=pd.DataFrame()):
+            tracker, outcomes = runner.consume_into_live_book(
+                entry_date=_ENTRY_DATE,
+                initial_capital=100_000.0,
+                connector=None,
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert tracker.enforce_sector_cap is True
+        assert tracker.enforce_single_name_cap is True
+        assert outcomes == []
+
+    def test_refuses_over_concentration_end_to_end(self):
+        """R10 refuses a 20%-NAV single-name open on the full rank→book
+        wire, with the canonical reject reason on the audit log."""
+        from unittest.mock import patch
+
+        runner = WheelRunner()
+        with patch.object(
+            WheelRunner, "rank_candidates_by_ev", return_value=self._OVER_CONCENTRATED
+        ):
+            tracker, outcomes = runner.consume_into_live_book(
+                entry_date=_ENTRY_DATE,
+                initial_capital=100_000.0,
+                connector=None,
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert len(outcomes) == 1
+        assert outcomes[0]["ticker"] == "AAPL"
+        assert outcomes[0]["opened"] is False
+        assert outcomes[0]["refusal_reason"] == "tracker_rejected"
+        assert "AAPL" not in tracker.positions
+        assert tracker._ev_authority_log[-1]["reason"] == "single_name_breach"
+
+    def test_unarmed_default_tracker_accepts_the_same_open(self):
+        """Control: the exact open the live book REFUSES opens on the
+        plain (unarmed) tracker via consume_into_tracker — proving the
+        refusal is the caps, not some unrelated gate."""
+        from unittest.mock import patch
+
+        runner = WheelRunner()
+        tracker = WheelTracker(initial_capital=100_000.0)  # caps OFF (library default)
+        with patch.object(
+            WheelRunner, "rank_candidates_by_ev", return_value=self._OVER_CONCENTRATED
+        ):
+            outcomes = runner.consume_into_tracker(
+                tracker,
+                entry_date=_ENTRY_DATE,
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert outcomes[0]["opened"] is True
+        assert "AAPL" in tracker.positions
+
+    def test_diversified_open_succeeds_on_armed_book(self):
+        """Positive control: a 5%-NAV position opens fine on the armed
+        live book — the caps refuse concentration, not trading."""
+        from unittest.mock import patch
+
+        small = pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "spot": 55.0,
+                    "strike": 50.0,  # $5k = 5% of $100k NAV — within both caps
+                    "premium": 1.0,
+                    "dte": 35,
+                    "iv": 0.25,
+                    "ev_dollars": 20.0,
+                    "ev_per_day": 0.57,
+                    "prob_profit": 0.72,
+                    "prob_assignment": 0.20,
+                    "distribution_source": "empirical_non_overlapping",
+                }
+            ]
+        )
+        runner = WheelRunner()
+        with patch.object(WheelRunner, "rank_candidates_by_ev", return_value=small):
+            tracker, outcomes = runner.consume_into_live_book(
+                entry_date=_ENTRY_DATE,
+                initial_capital=100_000.0,
+                connector=None,
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert outcomes[0]["opened"] is True
+        assert "AAPL" in tracker.positions
+
+    def test_negative_ev_refused_at_launch_gate_not_rescued(self):
+        """§2: the armed live book never rescues a negative-EV candidate
+        — the D16 launch gate refuses it before any cap logic runs."""
+        from unittest.mock import patch
+
+        neg = pd.DataFrame(
+            [
+                {
+                    "ticker": "AAPL",
+                    "spot": 55.0,
+                    "strike": 50.0,
+                    "premium": 1.0,
+                    "dte": 35,
+                    "iv": 0.25,
+                    "ev_dollars": -15.0,  # negative — refused at issuance
+                    "ev_per_day": -0.43,
+                    "prob_profit": 0.50,
+                    "prob_assignment": 0.50,
+                    "distribution_source": "empirical_non_overlapping",
+                }
+            ]
+        )
+        runner = WheelRunner()
+        with patch.object(WheelRunner, "rank_candidates_by_ev", return_value=neg):
+            tracker, outcomes = runner.consume_into_live_book(
+                entry_date=_ENTRY_DATE,
+                initial_capital=100_000.0,
+                connector=None,
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert outcomes[0]["opened"] is False
+        assert outcomes[0]["refusal_reason"] == "ev_authority_refused"
+        assert "AAPL" not in tracker.positions
+
+    def test_signature_exposes_documented_kwargs(self):
+        import inspect
+
+        sig = inspect.signature(WheelRunner.consume_into_live_book)
+        for kw in (
+            "entry_date",
+            "initial_capital",
+            "connector",
+            "rank_kwargs",
+            "top_n_to_consume",
+            "expiration_date",
+        ):
+            assert kw in sig.parameters, f"consume_into_live_book missing {kw!r}"
+
+    def test_tracker_kwargs_forward_and_cannot_weaken_caps(self):
+        """``**tracker_kwargs`` forward to the WheelTracker — e.g.
+        ``require_ev_authority=True`` additionally arms the D16 token gate
+        + delta/Kelly — while R9/R10 stay armed (the factory hardcodes
+        them, so they cannot be turned off through this entry)."""
+        from unittest.mock import patch
+
+        runner = WheelRunner()
+        with patch.object(WheelRunner, "rank_candidates_by_ev", return_value=pd.DataFrame()):
+            tracker, _ = runner.consume_into_live_book(
+                entry_date=_ENTRY_DATE,
+                initial_capital=100_000.0,
+                connector=None,
+                require_ev_authority=True,  # forwarded via **tracker_kwargs
+                rank_kwargs={"top_n": 1, "min_ev_dollars": -1e9},
+            )
+        assert tracker.require_ev_authority is True
+        # R9/R10 remain armed alongside the strict-mode gates.
+        assert tracker.enforce_sector_cap is True
+        assert tracker.enforce_single_name_cap is True

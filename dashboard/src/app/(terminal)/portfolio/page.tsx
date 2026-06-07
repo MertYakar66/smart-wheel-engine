@@ -78,7 +78,7 @@ export default function PortfolioPage() {
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-terminal-dim">
-            <span className={`h-1.5 w-1.5 rounded-full ${prov.dot}`} title={`${prov.label} data`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${prov.dot}`} title={`Data source: ${prov.label}`} />
             <span className={prov.text}>{prov.label}</span>
             <span>· as of {asOf || "…"}</span>
           </div>

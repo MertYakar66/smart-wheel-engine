@@ -503,11 +503,14 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
         float(points[0]["port"]),
     )
 
+    # Null-safe: a real IBKR snapshot (and the PDF-imported book) carries JSON
+    # null for the day/week deltas the source can't derive — use _num so a
+    # present-but-null value falls back to 0.0 instead of crashing float(None).
     acct = (snapshot or {}).get("account", {})
-    day_pct = float(acct.get("day_change_pct", 0.0))
-    day_usd = float(acct.get("day_change_usd", 0.0))
-    week_pct = float(acct.get("week_change_pct", 0.0))
-    week_usd = float(acct.get("week_change_usd", 0.0))
+    day_pct = _num(acct.get("day_change_pct"))
+    day_usd = _num(acct.get("day_change_usd"))
+    week_pct = _num(acct.get("week_change_pct"))
+    week_usd = _num(acct.get("week_change_usd"))
 
     returns = {
         "1D": {"pct": day_pct, "usd": round(day_usd)},
@@ -683,16 +686,20 @@ def risk_view(snapshot: dict, *, default_iv: float = _DEFAULT_IV) -> dict:
     ctx = build_portfolio_context(snapshot, default_iv=default_iv)
     gates = _run_gates(ctx, holdings, nav)
 
-    excess = float(acct.get("excess_liquidity", 0.0))
-    maint = float(acct.get("maintenance_margin", 0.0))
+    # Null-safe: a performance-report import has no balance-sheet margin
+    # fields (only a live IBKR snapshot does) — _num maps present-but-null to
+    # 0.0 so the margin card renders an honest "unknown" instead of crashing.
+    excess = _num(acct.get("excess_liquidity"))
+    maint = _num(acct.get("maintenance_margin"))
+    avail = _num(acct.get("available_funds"))
     margin = {
-        "availableFunds": round(float(acct.get("available_funds", 0.0))),
+        "availableFunds": round(avail),
         "excessLiquidity": round(excess),
         "maintMargin": round(maint),
         # Cushion ratio in [0,1]: how much excess liquidity covers the
         # maintenance requirement. A stressed book reads low.
         "cushionPct": round(max(0.0, excess) / maint, 4) if maint else 0.0,
-        "stressed": float(acct.get("available_funds", 0.0)) < 0,
+        "stressed": avail < 0,
     }
 
     return {

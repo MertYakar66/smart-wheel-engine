@@ -145,13 +145,27 @@ validation, *not* an autonomous engine change:
    (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`). Any such change must clear the
    S27 ρ ≥ +0.15 gate and the regression baselines before merge.
 
-## Data-quality finding (fixed in this harness)
-Bloomberg's **NFLX** OHLCV series is mis-scaled ~10× (a 2025 NFLX put struck at
-1075 shows a Bloomberg "spot" of ~110 vs the real ~$1,100). Feeding that to the
-engine produced a garbage moneyness (prob_profit 0.0, realized −$95,831) that
-**single-handedly** inflated the EV Pearson r and flipped the EV-sign split. The
-moneyness gate (drop strike/spot ∉ [0.5, 1.5]) removes it; this should be raised
-as a Bloomberg data-quality issue (NFLX scale) for the data layer.
+## Data-quality findings (engine-affecting — for the data layer)
+Surfaced while verifying this calibration; the data itself is the data layer's to
+fix (the connector reads `data/bloomberg/sp500_ohlcv.csv`). A scan of all 511
+OHLCV series found **3 scale-corrupted names** that the engine would **mis-rank
+live** (none are real stock splits — these mega-priced names famously do not split):
+
+1. **NFLX — uniformly ~10× low.** The connector returns a close range of
+   **16.64–133.91** vs the real ~$166–1,339. A 2025 NFLX put struck at 1075 shows
+   a Bloomberg "spot" of ~110. In this harness it produced a garbage moneyness
+   (prob_profit 0.0, realized −$95,831) that **single-handedly** inflated the EV
+   Pearson r (0.9966 → true Spearman 0.11) and flipped the EV-sign split — caught
+   by the moneyness gate (drop strike/spot ∉ [0.5, 1.5]).
+2. **BKNG — scale break at the 2026-03-23 reconstitution seam:** 4293.38 → 168.75
+   (~25×). 3. **CVNA — same seam:** 291.36 → 58.40 (~5×).
+
+The raw file stores Bloomberg-format identifiers (`BKNG UW Equity`, `CVNA UN
+Equity`, …) that the connector normalizes; the corruption rides through to
+`get_ohlcv('NFLX'/'BKNG'/'CVNA')`. This cross-references the known 2026-03-23 seam
+(see the data-engine audit) and pins the specific affected tickers. **Recommend a
+data-layer re-pull of NFLX / BKNG / CVNA**; until then the engine's EV for those
+names is unreliable. (The other 508 names show no scale discontinuity.)
 
 ## Limitations
 - **Universe-restricted** to S&P-500 names with Bloomberg data — the operator's

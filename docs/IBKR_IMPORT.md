@@ -88,3 +88,78 @@ import carries for the non-derivable fields) crashed `float(None)`. Both now
 use the module's null-safe `_num()`. The demo fixtures had all fields
 populated, so this latent bug only surfaces on a real (or PDF-imported) book.
 Covered by `tests/test_ibkr_import.py`.
+
+---
+
+# Phase 4 — exact per-fill ledger (`scripts/ibkr_flex_ledger.py`)
+
+Re-keys `wheel_ledger.json` from the **IBKR Flex "Trades"** export — the
+authoritative per-execution feed the performance PDF lacks — and refreshes the
+`premium` series in `portfolio_history.json`. Same read-only / §2-§3 discipline;
+the decision-layer trio is untouched and real data stays gitignored.
+
+```
+python scripts/ibkr_flex_ledger.py "<A.csv>" "<B.csv>" --out data_processed/ibkr
+```
+
+## Inputs
+Two contiguous Activity-Flex CSVs (IBKR caps a single run at 365 days). 14
+columns: `AssetClass, Symbol, Strike, DateTime, Put/Call, Proceeds,
+IBCommission, Open/CloseIndicator, Buy/Sell, CurrencyPrimary, Expiry, Quantity,
+TradePrice, OrigTradeID`. **`OrigTradeID` is blank** in this export, so dedup is
+by the file boundary: keep all of A, append B fills with `DateTime` strictly
+after A's last timestamp (the 2026-03-10 boundary overlap drops out). Subtotal
+rows (blank `DateTime`) are skipped.
+
+## Reconstruction
+- **FX** — CAD option/stock fills → USD at the trade-date `USD.CAD` rate carried
+  by the forex (`CASH`) fills (nearest-prior). Forex conversions themselves are
+  not trading P&L and are excluded from realized.
+- **Stock** — the account trades **both long and short** (the `Open/Close`
+  indicator proves it: `SELL O` opens a short, `BUY C` covers). Accounting uses
+  separate long & short **average-cost** books driven by that indicator
+  (order-robust); the long book is seeded with the ACAT-in transfer basis from
+  the PDF. Replaying every fill reproduces the p6 book **exactly** (CLS 500;
+  AMD/NVDA/TSM/WMT/CNQ/ENB 100 each).
+- **Options** — realize per contract by net cash. IBKR books an expiry/assignment
+  as a **$0 close**, so premium is kept; `exit_reason` distinguishes
+  `csp_expired_otm` / `csp_assigned` / `csp_bought_to_close` (and the `cc_*`
+  analogues), assignment detected by a stock fill at ~strike within 3 days of
+  expiry.
+- **Dates are now exact** — `entry_date` is the real sell-to-open fill, not the
+  expiry (the Phase-1 limitation this phase removes). 957 closed positions
+  (870 option contracts + 87 stock closes).
+
+## Reconciliation (run-time)
+| Quantity | Value | Source / check |
+|---|---|---|
+| Net deposits/withdrawals/ACAT | 111,683.03 | PDF — exact |
+| Dividends | 634.98 | PDF — exact |
+| Interest | −501.08 | PDF — exact |
+| Ending NAV | 143,115.00 | PDF — exact |
+| **MTM (trading) gain** | **+32,637.69** | PDF waterfall — exact |
+| Option contracts | 871 | = PDF Trade Summary ✓ |
+| Option net proceeds | 124,838.62 | vs PDF 124,829.96 (±$8.66 CAD FX) |
+| Commissions | −1,209.27 | + other fees −61.71 = −1,270.98 ✓ |
+| Ending stock book | CLS 500 + 6×100 | = p6 exactly ✓ |
+| **Reconstructed MTM (from fills)** | realized 76,378 − unrealized 41,597 = **34,781** | vs 32,637.69 → **residual +$2,143** |
+
+The +$2,143 residual on the **independent fills-based** MTM is the only
+non-exact figure: it is the average-cost-basis methodology (commissions folded
+into basis; trade-date vs IBKR-settlement FX on the CAD sleeve) versus IBKR's
+own lot accounting. The statement's five printed truths reconcile to the cent.
+
+## Return basis (both kept)
+- **Money-weighted** = (143,115 − 111,683.03) / 111,683.03 = **+28.1%** on
+  deposited capital.
+- **Time-weighted (TWR)** = **+63.40%** since inception (the `portfolio_history`
+  series; the viewer's All-time figure).
+
+## Residual limitations
+- `premium` is **gross** credit collected (sold-to-open proceeds), not
+  net-of-buyback — matches the demo-fixture convention.
+- Strict flat-to-flat *cycle* aggregation isn't emitted: heavily-traded names
+  (CLS 560 option fills) hold many concurrent contracts, so the ledger is
+  per-contract + per-stock-close with cycle-aware `exit_reason`s rather than one
+  row per put→assignment→call episode.
+

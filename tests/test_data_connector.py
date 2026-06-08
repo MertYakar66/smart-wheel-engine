@@ -85,12 +85,14 @@ def data_dir(tmp_path):
                 "ticker": "AAPL UW Equity",
                 "hist_put_imp_vol": v,
                 "hist_call_imp_vol": v,
-                "volatility_30d": 0.30,
-                "volatility_60d": 0.31,
-                "volatility_90d": 0.32,
-                "volatility_260d": 0.33,
+                "volatility_30d": 30.0,
+                "volatility_60d": 31.0,
+                "volatility_90d": 32.0,
+                "volatility_260d": 33.0,
             }
-            for i, v in enumerate([0.10, 0.20, 0.30, 0.40, 0.50], start=1)
+            # IV in PERCENT (Bloomberg contract). The connector's R7/W8 gate
+            # nulls sub-3.0 implied-vol cells, so synthetic vol_iv must be percent.
+            for i, v in enumerate([10.0, 20.0, 30.0, 40.0, 50.0], start=1)
         ],
     )
     _csv(
@@ -355,12 +357,12 @@ class TestVolatilityIV:
         assert conn.get_iv_history("NOSUCH").empty
 
     def test_iv_rank_exact(self, data_dir):
-        # Composite IV series = [0.10, 0.20, 0.30, 0.40, 0.50], current 0.50.
+        # Composite IV series = [10, 20, 30, 40, 50] (PERCENT), current 50.
         conn = MarketDataConnector(data_dir=str(data_dir))
         assert conn.get_iv_rank("AAPL") == pytest.approx(1.0)
 
     def test_iv_percentile_exact(self, data_dir):
-        # 4 of 5 days strictly below the current 0.50 -> 0.8.
+        # 4 of 5 days strictly below the current 50 -> 0.8.
         conn = MarketDataConnector(data_dir=str(data_dir))
         assert conn.get_iv_percentile("AAPL") == pytest.approx(0.8)
 
@@ -381,8 +383,8 @@ class TestVolatilityIV:
                 {
                     "date": f"2024-01-0{i}",
                     "ticker": "FLAT",
-                    "hist_put_imp_vol": 0.25,
-                    "hist_call_imp_vol": 0.25,
+                    "hist_put_imp_vol": 25.0,
+                    "hist_call_imp_vol": 25.0,
                 }
                 for i in range(1, 4)
             ],
@@ -395,13 +397,124 @@ class TestVolatilityIV:
         assert np.isnan(conn.get_iv_percentile("NOSUCH"))
 
     def test_vol_risk_premium(self, data_dir):
-        # Last row: IV 0.50, realized vol_30d 0.30 -> premium 0.20.
+        # Last row: IV 50.0%, realized vol_30d 30.0% -> premium 20.0 points
+        # (vol_risk_premium is IV - RV in the file's native PERCENT units).
         conn = MarketDataConnector(data_dir=str(data_dir))
-        assert conn.get_vol_risk_premium("AAPL") == pytest.approx(0.20)
+        assert conn.get_vol_risk_premium("AAPL") == pytest.approx(20.0)
 
     def test_vol_risk_premium_nan_when_no_data(self, data_dir):
         conn = MarketDataConnector(data_dir=str(data_dir))
         assert np.isnan(conn.get_vol_risk_premium("NOSUCH"))
+
+
+# =====================================================================
+# 4b. vol_iv implausible-IV cleaning gate (R7 / audit W1+W8 / #356 / #360)
+# =====================================================================
+class TestVolIvCleaningGate:
+    """The connector NULLs implausible vol_iv implied-vol cells on the
+    (default) monolith read — the sub-3.0 low-tail garbage and the ~134217.7
+    high sentinel — keeping the row (and its realized-vol columns). So every
+    served IV is unambiguous PERCENT (> 3.0), which makes the downstream
+    ``if iv > 3.0`` percent->decimal conversion in wheel_runner / wheel_tracker
+    always correct without a decision-trio edit (#356, #360)."""
+
+    def _conn(self, tmp_path, rows):
+        _csv(tmp_path / "sp500_vol_iv_full.csv", rows)
+        return MarketDataConnector(data_dir=str(tmp_path))
+
+    def test_sub_floor_implied_vol_nulled_row_and_realized_kept(self, tmp_path):
+        conn = self._conn(
+            tmp_path,
+            [
+                {
+                    "date": "2024-01-01",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 28.0,
+                    "hist_call_imp_vol": 28.0,
+                    "volatility_30d": 26.0,
+                },
+                {
+                    "date": "2024-01-02",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 0.01,
+                    "hist_call_imp_vol": 0.01,
+                    "volatility_30d": 25.0,
+                },
+            ],
+        )
+        iv = conn.get_iv_history("ZZ")
+        assert len(iv) == 2  # the sub-3.0 row is KEPT, not dropped
+        assert iv["hist_put_imp_vol"].iloc[0] == pytest.approx(28.0)  # normal kept
+        assert pd.isna(iv["hist_put_imp_vol"].iloc[1])  # 0.01 implied nulled
+        assert pd.isna(iv["hist_call_imp_vol"].iloc[1])
+        assert iv["volatility_30d"].iloc[1] == pytest.approx(25.0)  # realized survives
+
+    def test_high_sentinel_nulled_on_monolith(self, tmp_path):
+        conn = self._conn(
+            tmp_path,
+            [
+                {
+                    "date": "2024-01-01",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 134217.7,
+                    "hist_call_imp_vol": 134217.7,
+                    "volatility_30d": 26.0,
+                }
+            ],
+        )
+        iv = conn.get_iv_history("ZZ")
+        assert len(iv) == 1
+        assert pd.isna(iv["hist_put_imp_vol"].iloc[0])
+
+    def test_band_boundaries(self, tmp_path):
+        conn = self._conn(
+            tmp_path,
+            [
+                {
+                    "date": "2024-01-01",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 3.0,
+                    "hist_call_imp_vol": 3.0,
+                },
+                {
+                    "date": "2024-01-02",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 3.01,
+                    "hist_call_imp_vol": 3.01,
+                },
+                {
+                    "date": "2024-01-03",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 10000.0,
+                    "hist_call_imp_vol": 10000.0,
+                },
+                {
+                    "date": "2024-01-04",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 10000.1,
+                    "hist_call_imp_vol": 10000.1,
+                },
+            ],
+        )
+        vals = conn.get_iv_history("ZZ")["hist_put_imp_vol"].tolist()
+        assert pd.isna(vals[0])  # 3.0 nulled (<= low floor)
+        assert vals[1] == pytest.approx(3.01)  # just above floor: kept
+        assert vals[2] == pytest.approx(10000.0)  # at sentinel floor: kept
+        assert pd.isna(vals[3])  # above sentinel floor: nulled
+
+    def test_normal_percent_iv_untouched(self, tmp_path):
+        conn = self._conn(
+            tmp_path,
+            [
+                {
+                    "date": "2024-01-01",
+                    "ticker": "ZZ",
+                    "hist_put_imp_vol": 30.79,
+                    "hist_call_imp_vol": 30.79,
+                }
+            ],
+        )
+        assert conn.get_iv_history("ZZ")["hist_put_imp_vol"].iloc[0] == pytest.approx(30.79)
 
 
 # =====================================================================

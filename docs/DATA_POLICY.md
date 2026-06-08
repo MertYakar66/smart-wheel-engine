@@ -157,6 +157,15 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > universe-wide BQL/BDH queries recovered or new pullers written. Full
 > per-file investigation: [`bloomberg_refresh_runbook.md`](bloomberg_refresh_runbook.md).
 
+> **⚠ Preflight frontier guard — bump on every OHLCV refresh.** On **every
+> OHLCV refresh** (any change that moves `sp500_ohlcv.csv`'s most-recent bar),
+> **bump `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py` in the
+> same commit.** That constant pins the date the bundled OHLCV is expected to
+> reach; the preflight guard (`test_bundled_ohlcv_reaches_expected_frontier`)
+> fails loud on a tree ending earlier — the stale-clone / wrong-tree class of
+> mistake. Keep the two in lockstep: refresh-without-bump lets the guard rot
+> (it passes on stale data); bump-without-refresh makes it false-fail.
+
 ---
 
 ## 6. Drive-mount caveats

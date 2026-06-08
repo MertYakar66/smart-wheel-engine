@@ -1,8 +1,9 @@
 """Phase 3 — EV calibration: does the engine's PIT prediction match what actually
-happened on the operator's real short-put (CSP) trades?
+happened on the operator's real wheel options — short puts (CSPs) AND covered
+calls (short calls)?
 
-For every cash-secured-put the operator SOLD-TO-OPEN (from the IBKR Flex fills),
-this:
+For every short option the operator SOLD-TO-OPEN (from the IBKR Flex fills) —
+both the put leg and the covered-call (short-call) leg in isolation — this:
   1. Reconstructs the engine's **point-in-time** prediction AT ENTRY by reusing
      the exact ranker machinery — PIT spot (OHLCV <= entry), PIT ATM IV
      (`_resolve_pit_atm_iv`), as-of risk-free, the empirical forward distribution
@@ -138,12 +139,14 @@ def main(csv_a, csv_b, out_dir):
     conn = MarketDataConnector()
     ev = EVEngine()
 
-    # short-put OPENS (SELL P, Open) — each is one CSP entry to calibrate
+    # short-option OPENS (SELL, Open) — each short PUT is a CSP entry, each short
+    # CALL is a covered-call entry. Both legs are calibrated (the short-call leg in
+    # isolation, which is exactly what the engine's call-leg prob_profit models).
     opens = [
-        r
+        (r["Put/Call"], r)
         for r in fills
         if r["AssetClass"] == "OPT"
-        and r["Put/Call"] == "P"
+        and r["Put/Call"] in ("P", "C")
         and r["Buy/Sell"] == "SELL"
         and (r["Open/CloseIndicator"] or "").startswith("O")
     ]
@@ -168,8 +171,8 @@ def main(csv_a, csv_b, out_dir):
 
     funnel = defaultdict(int)
     records = []
-    for r in opens:
-        funnel["csp_opens"] += 1
+    for right, r in opens:
+        funnel["opens"] += 1
         und = flex.underlying(r["Symbol"])
         if und not in universe:
             funnel["drop_out_of_universe"] += 1
@@ -261,7 +264,7 @@ def main(csv_a, csv_b, out_dir):
             continue
 
         trade = ShortOptionTrade(
-            option_type="put",
+            option_type=("call" if right == "C" else "put"),
             underlying=und,
             spot=spot,
             strike=strike,
@@ -287,11 +290,19 @@ def main(csv_a, csv_b, out_dir):
             funnel["drop_event_lockout"] += 1
             continue
 
-        intrinsic = max(0.0, strike - s_expiry)
-        sp_pnl = (premium_ps - intrinsic) * 100.0  # per-contract $, hold-to-expiry
+        # hold-to-expiry outcome — put: intrinsic when S<K, called; call: when S>K.
+        if right == "P":
+            intrinsic = max(0.0, strike - s_expiry)
+            assigned = int(s_expiry < strike)
+        else:
+            intrinsic = max(0.0, s_expiry - strike)
+            assigned = int(s_expiry > strike)
+        sp_pnl = (premium_ps - intrinsic) * 100.0  # short-option leg P&L, per-contract $
         funnel["evaluated"] += 1
+        funnel["evaluated_put" if right == "P" else "evaluated_call"] += 1
         records.append(
             {
+                "leg": "put" if right == "P" else "call",
                 "ticker": und,
                 "entry": entry,
                 "expiry": expiry,
@@ -306,7 +317,7 @@ def main(csv_a, csv_b, out_dir):
                 "pred_ev_raw": round(float(res.mean_pnl), 2),
                 "realized_pnl": round(sp_pnl, 2),
                 "win": int(sp_pnl > 0),
-                "assigned": int(s_expiry < strike),
+                "assigned": assigned,
             }
         )
 
@@ -315,22 +326,9 @@ def main(csv_a, csv_b, out_dir):
     out.mkdir(parents=True, exist_ok=True)
     result = {"funnel": dict(funnel), "n": len(records)}
     if records:
-        df = pd.DataFrame(records)
-        pp_rows, pp_brier, pp_ece = reliability(df["pred_prob_profit"], df["win"])
-        pa_rows, pa_brier, pa_ece = reliability(df["pred_prob_assignment"], df["assigned"])
-        # ev_raw vs realized — Pearson is outlier-sensitive; Spearman is robust.
         from scipy.stats import spearmanr
 
-        ev_pear = (
-            float(np.corrcoef(df["pred_ev_raw"], df["realized_pnl"])[0, 1])
-            if len(df) > 2
-            else float("nan")
-        )
-        ev_spear = (
-            float(spearmanr(df["pred_ev_raw"], df["realized_pnl"]).correlation)
-            if len(df) > 2
-            else float("nan")
-        )
+        df = pd.DataFrame(records)
 
         def _split(d):
             return {
@@ -341,12 +339,27 @@ def main(csv_a, csv_b, out_dir):
                 "assignment_rate": round(float(d["assigned"].mean()), 4) if len(d) else None,
             }
 
-        result.update(
-            {
-                "observed_win_rate": round(float(df["win"].mean()), 4),
-                "mean_pred_prob_profit": round(float(df["pred_prob_profit"].mean()), 4),
-                "observed_assignment_rate": round(float(df["assigned"].mean()), 4),
-                "mean_pred_prob_assignment": round(float(df["pred_prob_assignment"].mean()), 4),
+        def _metrics(d):
+            if not len(d):
+                return {"n": 0}
+            pp_rows, pp_brier, pp_ece = reliability(d["pred_prob_profit"], d["win"])
+            pa_rows, pa_brier, pa_ece = reliability(d["pred_prob_assignment"], d["assigned"])
+            ev_pear = (
+                float(np.corrcoef(d["pred_ev_raw"], d["realized_pnl"])[0, 1])
+                if len(d) > 2
+                else float("nan")
+            )
+            ev_spear = (
+                float(spearmanr(d["pred_ev_raw"], d["realized_pnl"]).correlation)
+                if len(d) > 2
+                else float("nan")
+            )
+            return {
+                "n": int(len(d)),
+                "observed_win_rate": round(float(d["win"].mean()), 4),
+                "mean_pred_prob_profit": round(float(d["pred_prob_profit"].mean()), 4),
+                "observed_assignment_rate": round(float(d["assigned"].mean()), 4),
+                "mean_pred_prob_assignment": round(float(d["pred_prob_assignment"].mean()), 4),
                 "prob_profit": {
                     "brier": round(pp_brier, 4),
                     "ece": round(pp_ece, 4),
@@ -360,59 +373,56 @@ def main(csv_a, csv_b, out_dir):
                 "ev_raw_vs_realized": {
                     "pearson_r": round(ev_pear, 4),
                     "spearman_rho": round(ev_spear, 4),
-                    "mean_pred_ev_raw": round(float(df["pred_ev_raw"].mean()), 2),
-                    "mean_realized": round(float(df["realized_pnl"].mean()), 2),
-                    "median_realized": round(float(df["realized_pnl"].median()), 2),
-                    "note": "Pearson is outlier-sensitive (one tail trade can dominate); Spearman is the robust rank measure.",
+                    "mean_pred_ev_raw": round(float(d["pred_ev_raw"].mean()), 2),
+                    "mean_realized": round(float(d["realized_pnl"].mean()), 2),
+                    "median_realized": round(float(d["realized_pnl"].median()), 2),
+                    "note": "Pearson is outlier-sensitive; Spearman is the robust rank measure.",
                 },
                 "ev_sign_split": {
-                    "pred_ev_positive": _split(df[df["pred_ev_raw"] > 0]),
-                    "pred_ev_nonpositive": _split(df[df["pred_ev_raw"] <= 0]),
+                    "pred_ev_positive": _split(d[d["pred_ev_raw"] > 0]),
+                    "pred_ev_nonpositive": _split(d[d["pred_ev_raw"] <= 0]),
                 },
-                "by_ticker": {t: int(c) for t, c in df["ticker"].value_counts().items()},
             }
-        )
+
+        result["all"] = _metrics(df)
+        result["put"] = _metrics(df[df["leg"] == "put"])
+        result["call"] = _metrics(df[df["leg"] == "call"])
+        result["by_ticker"] = {t: int(c) for t, c in df["ticker"].value_counts().items()}
         (out / "ev_calibration_detail.csv").write_text(df.to_csv(index=False), encoding="utf-8")
     (out / "ev_calibration.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 
     # ---- print ----
     print("=== PHASE 3 — EV calibration (PIT, strike-matched, hold-to-expiry) ===")
     print("funnel:", dict(funnel))
-    print(f"calibrated CSPs: {len(records)}")
     if records:
-        print(
-            f"\nobserved win-rate {result['observed_win_rate']} vs mean pred prob_profit {result['mean_pred_prob_profit']}"
-        )
-        print(
-            f"observed assignment {result['observed_assignment_rate']} vs mean pred prob_assignment {result['mean_pred_prob_assignment']}"
-        )
-        print(
-            f"prob_profit:    Brier={result['prob_profit']['brier']}  ECE={result['prob_profit']['ece']}"
-        )
-        print(
-            f"prob_assignment:Brier={result['prob_assignment']['brier']}  ECE={result['prob_assignment']['ece']}"
-        )
-        evr = result["ev_raw_vs_realized"]
-        print(
-            f"ev_raw vs realized: Pearson={evr['pearson_r']} Spearman={evr['spearman_rho']} (Spearman is robust)  "
-            f"mean_pred={evr['mean_pred_ev_raw']} mean_real={evr['mean_realized']} median_real={evr['median_realized']}"
-        )
-        sp = result["ev_sign_split"]
-        print(
-            f"EV-sign split: pred_ev>0  n={sp['pred_ev_positive']['n']} win={sp['pred_ev_positive']['win_rate']} "
-            f"mean_real={sp['pred_ev_positive']['mean_realized']} median={sp['pred_ev_positive']['median_realized']}"
-        )
-        print(
-            f"               pred_ev<=0 n={sp['pred_ev_nonpositive']['n']} win={sp['pred_ev_nonpositive']['win_rate']} "
-            f"mean_real={sp['pred_ev_nonpositive']['mean_realized']} median={sp['pred_ev_nonpositive']['median_realized']}"
-        )
-        print("\nprob_profit reliability (pred bin -> observed win-rate [95% CI], n):")
-        for b in result["prob_profit"]["bins"]:
-            if b["n"]:
-                print(
-                    f"  {b['bin']}  pred={b['mean_pred']:.3f}  obs={b['obs']:.3f} "
-                    f"[{b['ci_lo']:.3f},{b['ci_hi']:.3f}]  n={b['n']}"
-                )
+        for leg in ("put", "call", "all"):
+            m = result.get(leg, {})
+            if not m.get("n"):
+                continue
+            print(
+                f"\n[{leg.upper()}] n={m['n']}  obs_win={m['observed_win_rate']} vs pred {m['mean_pred_prob_profit']}"
+                f"  obs_assign={m['observed_assignment_rate']} vs pred {m['mean_pred_prob_assignment']}"
+                f"  | prob_profit Brier={m['prob_profit']['brier']} ECE={m['prob_profit']['ece']}"
+            )
+            evr = m["ev_raw_vs_realized"]
+            print(
+                f"   ev_raw: Pearson={evr['pearson_r']} Spearman={evr['spearman_rho']} "
+                f"mean_pred={evr['mean_pred_ev_raw']} mean_real={evr['mean_realized']}"
+            )
+            sp = m["ev_sign_split"]
+            print(
+                f"   EV-sign: pred>0 n={sp['pred_ev_positive']['n']} win={sp['pred_ev_positive']['win_rate']} "
+                f"mean_real={sp['pred_ev_positive']['mean_realized']} | "
+                f"pred<=0 n={sp['pred_ev_nonpositive']['n']} win={sp['pred_ev_nonpositive']['win_rate']} "
+                f"mean_real={sp['pred_ev_nonpositive']['mean_realized']}"
+            )
+            print("   prob_profit reliability (pred bin -> obs [95% CI], n):")
+            for b in m["prob_profit"]["bins"]:
+                if b["n"]:
+                    print(
+                        f"     {b['bin']} pred={b['mean_pred']:.3f} obs={b['obs']:.3f} "
+                        f"[{b['ci_lo']:.3f},{b['ci_hi']:.3f}] n={b['n']}"
+                    )
     print(f"\nwrote -> {out.resolve()}")
     return result
 

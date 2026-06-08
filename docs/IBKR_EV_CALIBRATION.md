@@ -1,10 +1,12 @@
 # Phase 3 — EV calibration against the operator's real trades
 
 Does the engine's **point-in-time** prediction match what actually happened on
-the operator's real cash-secured puts (CSPs)? `scripts/ibkr_ev_calibration.py`
-answers this by replaying every short-put the operator sold-to-open against the
-engine **as it would have run at entry**, then comparing to the realized
-hold-to-expiry outcome.
+the operator's real wheel options — cash-secured puts (CSPs) **and** covered
+calls? `scripts/ibkr_ev_calibration.py` answers this by replaying every short
+option the operator sold-to-open against the engine **as it would have run at
+entry**, then comparing to the realized hold-to-expiry outcome. Both legs are
+calibrated: the short-put leg, and the short-call (covered-call) leg in isolation
+— which is exactly what the engine's call-leg `prob_profit` models.
 
 **Read-only / observational (CLAUDE.md §2/§3).** This is analysis. It *uses*
 `EVEngine.evaluate` (the authoritative evaluator) at each trade's exact strike —
@@ -33,13 +35,13 @@ PIT discipline was independently verified: **0/175 rows** where the recorded spo
 ≠ the connector's last close ≤ entry.
 
 ## Funnel
-381 CSP opens → **175 calibrated**. Dropped: 176 out-of-universe (CLS, TSM ADR,
-CCO, CNQ, ENB, BN, TOU — outside the S&P-500 mandate), 18 non-positive DTE (same-day
-0DTE / data gaps), 9 expiry beyond OHLCV (2026-06-05+), 1 thin forward dist,
-1 no PIT spot, **1 moneyness/scale gate** (see data-quality finding). 23 tickers;
-heaviest: NVDA 28, GOOGL 23, DELL 18, AMZN 15, META 14, AAPL 13, MU 10, TSLA 10.
+949 short-option opens → **456 calibrated** (**175 puts + 281 covered calls**).
+Dropped: 426 out-of-universe (CLS, TSM ADR, CCO, CNQ, ENB, BN, TOU — outside the
+S&P-500 mandate), 37 non-positive DTE (same-day 0DTE / data gaps), 21 expiry beyond
+OHLCV (2026-06-05+), 4 no PIT spot, 2 thin forward dist, **2 moneyness/scale gate**
+(see data-quality finding), 1 no IV. 23 underlyings.
 
-## Results (175 CSPs, Mar 2025 – Jun 2026)
+## Results — short-put (CSP) leg (175 CSPs, Mar 2025 – Jun 2026)
 - **Engine is slightly conservative overall:** observed win-rate **0.857** vs mean
   predicted prob_profit **0.823**; observed assignment **0.183** vs predicted **0.216**.
 - **prob_profit:** Brier **0.122**, ECE **0.078**.
@@ -72,7 +74,44 @@ Positive-EV CSPs realized better, but both buckets were net-positive over this
 (largely bull) period — the gate ranks better-from-worse, it does not cleanly
 separate winners from losers on this sample.
 
-## The weakness (found + gone through): top-bin prob_profit over-confidence
+## Results — covered-call (short-call) leg (281 calls)
+- **Engine is *under*-confident on covered calls:** observed win-rate **0.840** vs
+  mean predicted prob_profit **0.760**; observed assignment **0.192** vs predicted
+  **0.274** — it systematically **over**-predicts the call finishing ITM (being
+  called away). prob_profit Brier **0.130**, ECE **0.094**.
+- **EV-sign gate is *stronger* on calls:** predicted ev_raw > 0 → win **0.985**,
+  mean **+$212** (n=65); ≤ 0 → win 0.796, mean **−$96** (n=216). ev_raw rank
+  signal is still weak (Spearman 0.07).
+
+### call prob_profit reliability (predicted bin → observed [95% CI], n)
+| bin | mean pred | observed | 95% CI | n |
+|---|---|---|---|---|
+| [0.5,0.6) | 0.562 | 0.714 | 0.500–0.862 | 21 |
+| [0.6,0.7) | 0.656 | 0.785 | 0.670–0.867 | 65 |
+| [0.7,0.8) | 0.748 | 0.879 | 0.792–0.933 | 83 |
+| [0.8,0.9) | 0.840 | 0.833 | 0.713–0.910 | 54 |
+| [0.9,1.0) | 0.945 | 0.981 | 0.899–0.997 | 52 |
+
+The 0.5–0.8 band (n=169) is materially **under-confident** (observed well above
+predicted, mostly outside the CI) — the engine over-states call-assignment risk.
+
+## Combined (456 legs)
+Observed win-rate **0.847** vs predicted **0.785**; prob_profit Brier **0.127**,
+ECE **0.075**; ev_raw Spearman **0.13**.
+
+## The two weaknesses (found + gone through)
+The puts and calls miscalibrate in **opposite** directions, and both trace to the
+same root cause — the empirical forward distribution does not match the realized
+short-window moves over this regime:
+- **Puts: top-bin *over*-confidence** (the dangerous one — detailed below).
+- **Calls: broad *under*-confidence** — the engine over-predicts the stock
+  rallying through the strike, so it under-rates covered calls (predicted 0.76,
+  realized 0.84). Less dangerous (it leaves premium on the table rather than
+  taking hidden risk), but it means the engine would *skip* covered calls that
+  would have won. Both point at forward-distribution tail/shape calibration over
+  short horizons.
+
+### Put top-bin prob_profit over-confidence
 The engine's **most confident** short puts disappoint. In the [0.90,1.0) bin the
 engine predicted **93.6%** profit but only **82.1%** realized (n=28). All 5
 failures were **genuine assignments** (the put finished ITM), and they do **not**
@@ -118,9 +157,10 @@ as a Bloomberg data-quality issue (NFLX scale) for the data layer.
 - **Universe-restricted** to S&P-500 names with Bloomberg data — the operator's
   dominant position (CLS) and TSM ADR / Canadian sleeve are excluded, so this
   calibrates the engine's *mandate*, not the whole book.
-- **n=175**, per-bin counts are small (top bin n=28) — findings are reported with
-  Wilson CIs; the top-bin over-confidence is significant (prediction outside CI),
-  the rest are suggestive.
+- **n=456** (175 puts + 281 calls); per-bin counts are small (put top bin n=28) —
+  findings are reported with Wilson CIs; the put top-bin over-confidence and the
+  call 0.6–0.8 under-confidence are significant (predictions outside the CI), the
+  rest are suggestive.
 - **In-sample / single regime** — Mar 2025–Jun 2026 was largely a bull market with
   one sharp April-2026 drawdown; calibration may differ in other regimes.
 - **dividend_yield** from the dateless fundamentals snapshot (slow-moving; matches

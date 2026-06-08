@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-06-07T23:30:29+00:00",
+    "generated_at": "2026-06-08T00:19:57+00:00",
     "provider": "MarketDataConnector",
     "data_dir": "data\\bloomberg",
     "frontier": "2026-06-04",
@@ -885,19 +885,31 @@
       "credit_risk_rows": 503
     },
     "fingerprint": {
-      "pinned_files": [
-        "sp500_ohlcv.csv"
+      "fingerprint_fn": "backtests.regression._common.connector_data_sha256",
+      "pinned_keys": [
+        "credit_risk",
+        "dividends",
+        "earnings",
+        "fundamentals",
+        "liquidity",
+        "ohlcv",
+        "treasury",
+        "vix",
+        "vol_iv"
       ],
-      "unpinned_connector_files": [
-        "sp500_vol_iv_full.csv",
-        "sp500_dividends.csv",
-        "sp500_earnings.csv",
-        "treasury_yields.csv",
-        "vix_term_structure.csv",
-        "sp500_fundamentals.csv",
-        "sp500_credit_risk.csv",
-        "sp500_liquidity.csv"
-      ]
+      "all_connector_keys": [
+        "credit_risk",
+        "dividends",
+        "earnings",
+        "fundamentals",
+        "liquidity",
+        "ohlcv",
+        "treasury",
+        "vix",
+        "vol_iv"
+      ],
+      "unpinned_keys": [],
+      "complete": true
     }
   },
   "weaknesses": [
@@ -918,15 +930,6 @@
       "evidence": "no date column in either file (fundamentals_has_date=False, credit_has_date=False); a 2026 snapshot feeds BSM dividend_yield, GICS sector (R9 cap) and the credit gate at every historical as_of",
       "fixable_in": "additive test can pin the contract; a true fix needs PIT fundamentals (data-layer)",
       "phase2_test": "data->engine + pit: assert the snapshot is documented as as_of-invariant; extend tests/test_pit_leaks.py"
-    },
-    {
-      "id": "W3",
-      "severity": "HIGH",
-      "category": "fingerprint-blindspot",
-      "title": "Snapshot fingerprint pins ONLY sp500_ohlcv.csv \u2014 a silent IV / treasury / dividends refresh does not force a re-baseline (the dividends-incident class)",
-      "evidence": "backtests/regression/_common.py ohlcv_sha256(); unpinned connector files: sp500_vol_iv_full.csv, sp500_dividends.csv, sp500_earnings.csv, treasury_yields.csv, vix_term_structure.csv, sp500_fundamentals.csv, sp500_credit_risk.csv, sp500_liquidity.csv",
-      "fixable_in": "additive: extend the fingerprint to all connector-read files (in _common, not trio)",
-      "phase2_test": "integrity: assert connector_data_sha256 pins exactly MarketDataConnector._FILES"
     },
     {
       "id": "W4",
@@ -990,6 +993,15 @@
       "evidence": "negative_count=82 all >= -0.001 (materially negative: 0), min=-2.4245362661989844e-14",
       "fixable_in": "additive: clamp in a producer (no producer script exists today)",
       "phase2_test": "integrity: dividend_amount >= -1e-9 (tolerance) OR clamp Discontinued/Omitted to 0"
+    },
+    {
+      "id": "W3",
+      "severity": "INFO",
+      "category": "fingerprint",
+      "title": "Snapshot fingerprint pins ALL connector files via connector_data_sha256 (_common.py:177) \u2014 the 2026-06-06 dividends blind-spot is already closed on main",
+      "evidence": "pinned keys = ['credit_risk', 'dividends', 'earnings', 'fundamentals', 'liquidity', 'ohlcv', 'treasury', 'vix', 'vol_iv']. Residual: the drift compare (test_snapshot_data_fingerprint_matches_current) runs on the SLOW backtest_regression lane, not fast CI; no fast-CI completeness guard exists.",
+      "fixable_in": "additive: add a fast-CI completeness guard (Phase 2 integrity suite)",
+      "phase2_test": "integrity: set(connector_data_sha256().keys()) == set(MarketDataConnector._FILES)"
     },
     {
       "id": "W7",

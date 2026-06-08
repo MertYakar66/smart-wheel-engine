@@ -1,6 +1,6 @@
 # Data + Engine Audit — Phase 1 (discovery)
 
-_Generated 2026-06-07T23:30:29+00:00 · provider `MarketDataConnector` · frontier `2026-06-04` · as_of `2026-06-04` · universe `full` (511 names)._
+_Generated 2026-06-08T00:19:57+00:00 · provider `MarketDataConnector` · frontier `2026-06-04` · as_of `2026-06-04` · universe `full` (511 names)._
 
 > Discovery pass — asserts nothing. Phase 2 turns these findings into tests. Every engine probe routes through `WheelRunner.rank_candidates_by_ev` (no §2 bypass). Decision trio untouched.
 
@@ -113,12 +113,6 @@ Severity → `fixable_in` says whether it can be fixed additively (data/tests) o
 - **fixable in:** additive test can pin the contract; a true fix needs PIT fundamentals (data-layer)
 - **Phase-2 test:** data->engine + pit: assert the snapshot is documented as as_of-invariant; extend tests/test_pit_leaks.py
 
-### [HIGH] W3 · Snapshot fingerprint pins ONLY sp500_ohlcv.csv — a silent IV / treasury / dividends refresh does not force a re-baseline (the dividends-incident class)
-- **category:** fingerprint-blindspot
-- **evidence:** backtests/regression/_common.py ohlcv_sha256(); unpinned connector files: sp500_vol_iv_full.csv, sp500_dividends.csv, sp500_earnings.csv, treasury_yields.csv, vix_term_structure.csv, sp500_fundamentals.csv, sp500_credit_risk.csv, sp500_liquidity.csv
-- **fixable in:** additive: extend the fingerprint to all connector-read files (in _common, not trio)
-- **Phase-2 test:** integrity: assert connector_data_sha256 pins exactly MarketDataConnector._FILES
-
 ### [MEDIUM] W4 · Cross-file ticker-universe inconsistency from the 2026-03-23 index reconstitution: earnings=pre-seam membership, fundamentals/credit=post-seam, OHLCV/vol_iv/liquidity span both
 - **category:** referential
 - **evidence:** in OHLCV not vol_iv: ['FDXF'] (unpriceable, no IV); in OHLCV not earnings (post-seam joiners): ['BNY', 'CASY', 'COHR', 'FDXF', 'LITE', 'SATS', 'VEEV', 'VRT']; in OHLCV not fundamentals (departed): ['BK', 'CTRA', 'EPAM', 'HOLX', 'LW', 'MOH', 'MTCH', 'PAYC']
@@ -160,6 +154,12 @@ Severity → `fixable_in` says whether it can be fixed additively (data/tests) o
 - **evidence:** negative_count=82 all >= -0.001 (materially negative: 0), min=-2.4245362661989844e-14
 - **fixable in:** additive: clamp in a producer (no producer script exists today)
 - **Phase-2 test:** integrity: dividend_amount >= -1e-9 (tolerance) OR clamp Discontinued/Omitted to 0
+
+### [INFO] W3 · Snapshot fingerprint pins ALL connector files via connector_data_sha256 (_common.py:177) — the 2026-06-06 dividends blind-spot is already closed on main
+- **category:** fingerprint
+- **evidence:** pinned keys = ['credit_risk', 'dividends', 'earnings', 'fundamentals', 'liquidity', 'ohlcv', 'treasury', 'vix', 'vol_iv']. Residual: the drift compare (test_snapshot_data_fingerprint_matches_current) runs on the SLOW backtest_regression lane, not fast CI; no fast-CI completeness guard exists.
+- **fixable in:** additive: add a fast-CI completeness guard (Phase 2 integrity suite)
+- **Phase-2 test:** integrity: set(connector_data_sha256().keys()) == set(MarketDataConnector._FILES)
 
 ### [INFO] W7 · Memory-flagged dividends truncation (CTRA/BK/LW/PAYC) is NOT present on current main — full 2018-24 ex-div history is intact (resolved, like the stale treasury memory)
 - **category:** staleness

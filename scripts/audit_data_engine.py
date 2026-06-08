@@ -517,13 +517,23 @@ def hygiene_checks(data_dir: Path, frontier: str) -> dict[str, Any]:
         "credit_risk_rows": int(len(cr)),
     }
 
-    # Fingerprint blind-spot: which connector files the snapshot fingerprint
-    # (ohlcv_sha256) does NOT pin.
+    # Fingerprint completeness: read the ACTUAL snapshot fingerprint
+    # (connector_data_sha256) and compare its key set to the connector's
+    # _FILES, rather than assuming. On main this pins all 9 files.
+    pinned_keys: list[str] = []
+    try:
+        from backtests.regression._common import connector_data_sha256
+
+        pinned_keys = sorted(connector_data_sha256().keys())
+    except Exception:  # pragma: no cover - defensive
+        pinned_keys = []
+    all_keys = sorted(MarketDataConnector._FILES.keys())
     out["fingerprint"] = {
-        "pinned_files": ["sp500_ohlcv.csv"],
-        "unpinned_connector_files": [
-            fn for k, fn in MarketDataConnector._FILES.items() if fn != "sp500_ohlcv.csv"
-        ],
+        "fingerprint_fn": "backtests.regression._common.connector_data_sha256",
+        "pinned_keys": pinned_keys,
+        "all_connector_keys": all_keys,
+        "unpinned_keys": sorted(set(all_keys) - set(pinned_keys)),
+        "complete": set(pinned_keys) == set(all_keys),
     }
     return out
 
@@ -590,18 +600,30 @@ def build_weaknesses(
         "extend tests/test_pit_leaks.py",
     )
 
-    # Fingerprint blind-spot.
+    # Fingerprint completeness (data-driven against main's actual fingerprint).
     fp = hygiene["fingerprint"]
-    add(
-        "HIGH",
-        "fingerprint-blindspot",
-        "Snapshot fingerprint pins ONLY sp500_ohlcv.csv — a silent IV / treasury / "
-        "dividends refresh does not force a re-baseline (the dividends-incident class)",
-        f"backtests/regression/_common.py ohlcv_sha256(); unpinned connector files: "
-        f"{', '.join(fp['unpinned_connector_files'])}",
-        "additive: extend the fingerprint to all connector-read files (in _common, not trio)",
-        "integrity: assert connector_data_sha256 pins exactly MarketDataConnector._FILES",
-    )
+    if not fp.get("complete"):
+        add(
+            "HIGH",
+            "fingerprint-blindspot",
+            "Snapshot fingerprint does NOT pin every connector file — a silent refresh "
+            "of an unpinned file would not force a re-baseline (the dividends-incident class)",
+            f"connector_data_sha256() pins {fp['pinned_keys']}; UNPINNED: {fp['unpinned_keys']}",
+            "additive: extend the fingerprint to all connector-read files (in _common, not trio)",
+            "integrity: assert set(connector_data_sha256().keys()) == set(_FILES)",
+        )
+    else:
+        add(
+            "INFO",
+            "fingerprint",
+            "Snapshot fingerprint pins ALL connector files via connector_data_sha256 "
+            "(_common.py:177) — the 2026-06-06 dividends blind-spot is already closed on main",
+            f"pinned keys = {fp['pinned_keys']}. Residual: the drift compare "
+            "(test_snapshot_data_fingerprint_matches_current) runs on the SLOW "
+            "backtest_regression lane, not fast CI; no fast-CI completeness guard exists.",
+            "additive: add a fast-CI completeness guard (Phase 2 integrity suite)",
+            "integrity: set(connector_data_sha256().keys()) == set(MarketDataConnector._FILES)",
+        )
 
     # Cross-file referential gaps from the seam reconstitution.
     iv_gap = gaps.get("in_ohlcv_not_vol_iv", [])

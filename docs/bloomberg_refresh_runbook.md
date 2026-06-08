@@ -43,3 +43,18 @@ What the Bloomberg assets that *do* exist actually cover:
 - `bloomberg_bql_pulls.md` — 12 BQL queries, but every one targets a **gap dataset** (`sp500_macro_calendar.csv`, `sp500_corporate_actions.csv`, `vix_futures_curve.csv`, etc.). **None of its 12 outputs is one of the 9 connector files.**
 
 **Conclusion for the lab session:** of the 8 files flagged stale in the data inventory's Q2-A, only `sp500_ohlcv.csv` and `sp500_liquidity.csv` can be refreshed from a repo script (Bloomberg Terminal + `xbbg`, after editing the hardcoded end-date). `treasury_yields.csv` is already refreshable and current. The other five connector files — `sp500_vol_iv_full.csv`, `sp500_dividends.csv`, `sp500_earnings.csv`, `vix_term_structure.csv`, `sp500_credit_risk.csv` — plus the schema-correct `sp500_fundamentals.csv` — **have no reproducible refresh path in the repo at all.** Whoever last produced them used a universe-wide BQL/BDH in Bloomberg Excel that was never captured as a script or workbook. Refreshing them requires either recovering those queries from the operator or writing new pullers.
+
+---
+
+## Addendum (2026-06-08): after refreshing `sp500_ohlcv.csv`, bump the preflight frontier
+
+Row #1 above is the live OHLCV refresh step (`python scripts/pull_ohlcv.py`
+after editing the hardcoded `end_date`). **Whenever that refresh moves the
+file's most-recent bar, also bump `EXPECTED_FRONTIER` in
+`tests/test_preflight_environment.py` in the same commit.** That constant pins
+the date the bundled OHLCV is expected to reach; the preflight guard
+(`test_bundled_ohlcv_reaches_expected_frontier`) fails loud on a tree ending
+earlier — the stale-clone / wrong-tree mistake this very runbook exists to
+help diagnose. Refresh-without-bump rots the guard (it passes on stale data);
+bump-without-refresh makes it false-fail. Canonical reference:
+[`DATA_POLICY.md` §5](DATA_POLICY.md).

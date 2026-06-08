@@ -106,7 +106,7 @@ class _GBMConn:
         return self._ohlcv[ticker]
 
     def get_fundamentals(self, ticker: str) -> dict:
-        return {"implied_vol_atm": 0.28, "volatility_30d": 0.25, "dividend_yield": 0.01}
+        return {"implied_vol_atm": 28.0, "volatility_30d": 25.0, "dividend_yield": 0.01}  # IV %, #356
 
     def get_risk_free_rate(self, as_of=None) -> float:
         return 0.05

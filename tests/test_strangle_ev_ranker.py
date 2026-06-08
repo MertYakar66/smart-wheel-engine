@@ -85,7 +85,7 @@ class _FakeConn:
         self,
         ohlcv: pd.DataFrame | None = None,
         *,
-        iv: float = 0.30,
+        iv: float = 30.0,  # PERCENT — Bloomberg vol_iv/fundamentals contract (#356)
         rf: float = 0.04,
         dividend_yield_pct: float = 0.0,
         earnings: date | None = None,

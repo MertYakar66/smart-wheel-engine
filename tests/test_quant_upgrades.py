@@ -416,8 +416,8 @@ class TestWheelRunnerWithEventGate:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.25,
-                    "volatility_30d": 0.22,
+                    "implied_vol_atm": 25.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 22.0,
                     "dividend_yield": 0.01,
                 }
 

@@ -217,9 +217,13 @@ class TestResolvePitAtmIv:
         conn = _PitIVConn(_TICKERS, iv_by_date={"2026-03-05": 40.0})
         assert _resolve_pit_atm_iv(conn, "AAA", "2026-03-05") == pytest.approx(0.40)
 
-    def test_already_decimal_passes_through(self):
-        conn = _PitIVConn(_TICKERS, iv_by_date={"2026-03-05": 0.28})
-        assert _resolve_pit_atm_iv(conn, "AAA", "2026-03-05") == pytest.approx(0.28)
+    def test_sub_three_percent_iv_divided_unconditionally(self):
+        # #356 / audit W1: vol_iv is authoritatively PERCENT, so the helper
+        # divides by 100 UNCONDITIONALLY. The old `if iv > 3.0` sniffer left a
+        # genuine sub-3% reading (e.g. 2.5 = 2.5%) undivided, then the (0,5]
+        # guard accepted it as 250%. Now 2.5% normalises to 0.025 decimal.
+        conn = _PitIVConn(_TICKERS, iv_by_date={"2026-03-05": 2.5})
+        assert _resolve_pit_atm_iv(conn, "AAA", "2026-03-05") == pytest.approx(0.025)
 
     def test_uses_most_recent_row_at_or_before_as_of(self):
         conn = _PitIVConn(

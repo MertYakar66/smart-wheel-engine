@@ -52,8 +52,8 @@ class _FakeConn:
 
     def get_fundamentals(self, ticker: str) -> dict:
         return {
-            "implied_vol_atm": 0.28,
-            "volatility_30d": 0.25,
+            "implied_vol_atm": 28.0,  # IV in PERCENT (Bloomberg contract; #356)
+            "volatility_30d": 25.0,
             "dividend_yield": 0.01,
         }
 

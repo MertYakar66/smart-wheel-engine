@@ -399,8 +399,8 @@ class TestWheelRunnerDossierMode:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.25,
-                    "volatility_30d": 0.22,
+                    "implied_vol_atm": 25.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 22.0,
                     "dividend_yield": 0.01,
                 }
 
@@ -458,8 +458,8 @@ class TestWheelRunnerDossierMode:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.25,
-                    "volatility_30d": 0.22,
+                    "implied_vol_atm": 25.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 22.0,
                     "dividend_yield": 0.01,
                 }
 
@@ -517,8 +517,8 @@ class TestD17DossierSectorCapBreachIntegration:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.25,
-                    "volatility_30d": 0.22,
+                    "implied_vol_atm": 25.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 22.0,
                     "dividend_yield": 0.01,
                 }
 
@@ -610,7 +610,7 @@ class TestD17DossierSectorCapBreachIntegration:
                 return pd.DataFrame({"close": prices}, index=idx)
 
             def get_fundamentals(self, ticker):
-                return {"implied_vol_atm": 0.25, "volatility_30d": 0.22, "dividend_yield": 0.01}
+                return {"implied_vol_atm": 25.0, "volatility_30d": 22.0, "dividend_yield": 0.01}  # IV %, #356
 
             def get_risk_free_rate(self, as_of=None):
                 return 0.05

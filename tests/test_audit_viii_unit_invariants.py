@@ -119,26 +119,29 @@ class TestPercentDecimalNormalisation:
         # Prob of profit is a valid probability.
         assert 0.0 <= float(row["prob_profit"]) <= 1.0
 
-    def test_iv_boundary_decimal_untouched(self):
-        """IVs already in decimal form (e.g. 0.28) must not get divided
-        by 100 again. The guard ``iv > 3`` protects this path."""
+    def test_fundamentals_iv_percent_normalised_unconditionally(self):
+        """#356 / audit W1: fundamentals IV is authoritatively PERCENT, so the
+        ranker divides by 100 UNCONDITIONALLY — the old ``iv > 3`` magnitude
+        sniffer is gone (it left a true sub-3% reading undivided, e.g. 2.5 ->
+        250%; see TestResolvePitAtmIv for the unit-level sub-3% pin). A 28%
+        fundamentals IV must normalise to ~0.28 decimal."""
         runner = WheelRunner()
 
-        class DecimalConn(_PercentConnector):
+        class PercentConn(_PercentConnector):
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.28,
-                    "volatility_30d": 0.29,
+                    "implied_vol_atm": 28.0,  # PERCENT (Bloomberg contract)
+                    "volatility_30d": 29.0,
                     "dividend_yield": 0.005,
                 }
 
             def get_risk_free_rate(self, as_of=None, tenor="rate_3m"):
-                return 0.0425  # already decimal
+                return 0.0425  # already decimal (rf path is not W1; unchanged)
 
         with patch.object(
             WheelRunner,
             "connector",
-            new_callable=lambda: property(lambda self: DecimalConn()),
+            new_callable=lambda: property(lambda self: PercentConn()),
         ):
             df = runner.rank_candidates_by_ev(
                 tickers=["AAA"],

@@ -672,8 +672,8 @@ class TestWheelRunnerDealerIntegration:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.22,
-                    "volatility_30d": 0.20,
+                    "implied_vol_atm": 22.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 20.0,
                     "dividend_yield": 0.0,
                 }
 
@@ -725,8 +725,8 @@ class TestWheelRunnerDealerIntegration:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.22,
-                    "volatility_30d": 0.20,
+                    "implied_vol_atm": 22.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 20.0,
                     "dividend_yield": 0.0,
                 }
 
@@ -771,8 +771,8 @@ class TestWheelRunnerDealerIntegration:
 
             def get_fundamentals(self, ticker):
                 return {
-                    "implied_vol_atm": 0.22,
-                    "volatility_30d": 0.20,
+                    "implied_vol_atm": 22.0,  # IV in PERCENT (Bloomberg contract; #356)
+                    "volatility_30d": 20.0,
                     "dividend_yield": 0.0,
                 }
 

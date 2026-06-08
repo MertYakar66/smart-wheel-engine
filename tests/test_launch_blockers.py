@@ -291,7 +291,7 @@ class TestHistoryGate:
                 return short_ohlcv
 
             def get_fundamentals(self, ticker):
-                return {"implied_vol_atm": 0.25, "volatility_30d": 0.22, "dividend_yield": 0.0}
+                return {"implied_vol_atm": 25.0, "volatility_30d": 22.0, "dividend_yield": 0.0}  # IV %, #356
 
             def get_risk_free_rate(self, as_of=None):
                 return 0.05
@@ -326,7 +326,7 @@ class TestHistoryGate:
                 return short_ohlcv
 
             def get_fundamentals(self, ticker):
-                return {"implied_vol_atm": 0.25, "volatility_30d": 0.22, "dividend_yield": 0.0}
+                return {"implied_vol_atm": 25.0, "volatility_30d": 22.0, "dividend_yield": 0.0}  # IV %, #356
 
             def get_risk_free_rate(self, as_of=None):
                 return 0.05
@@ -369,7 +369,7 @@ class TestChainQualityGate:
                 return ohlcv
 
             def get_fundamentals(self, ticker):
-                return {"implied_vol_atm": 0.25, "volatility_30d": 0.22, "dividend_yield": 0.0}
+                return {"implied_vol_atm": 25.0, "volatility_30d": 22.0, "dividend_yield": 0.0}  # IV %, #356
 
             def get_risk_free_rate(self, as_of=None):
                 return 0.05

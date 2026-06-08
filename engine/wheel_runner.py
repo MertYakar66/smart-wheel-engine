@@ -191,12 +191,12 @@ def _resolve_pit_atm_iv(conn, ticker: str, as_of: str | None) -> float | None:
     if not vals:
         return None
     iv = sum(vals) / len(vals)
-    # Bloomberg vol_iv columns are in PERCENT (e.g. 30.79). Anything
-    # above 3.0 (= 300%) is virtually certainly a percent representation;
-    # below is already decimal. Mirrors the legacy snapshot path's
-    # heuristic in the three rankers.
-    if iv > 3.0:
-        iv = iv / 100.0
+    # Bloomberg vol_iv columns are authoritatively in PERCENT (e.g. 30.79).
+    # Convert to decimal UNCONDITIONALLY. The previous `if iv > 3.0` magnitude
+    # sniffer left a genuine sub-3% IV (e.g. 2.5 = 2.5%) undivided, so the
+    # `0 < iv <= 5.0` guard below then accepted it as 250%. Same shape as the
+    # D20 treasury fix (unconditional /100). See issue #356 / audit W1.
+    iv = iv / 100.0
     if not (0.0 < iv <= 5.0):
         return None
     return iv
@@ -1095,11 +1095,11 @@ class WheelRunner:
                         }
                     )
                     continue
-                # Normalise percent -> decimal. A sigma of 3.0 (= 300%) is an
-                # extreme upper bound for any real equity; anything above is
-                # virtually certainly a percent representation.
-                if iv > 3.0:
-                    iv = iv / 100.0
+                # Fundamentals IV is in PERCENT — convert UNCONDITIONALLY
+                # (#356 / audit W1; D20 shape). This branch only runs on the
+                # fundamentals fallback, where iv_raw is always a percent value;
+                # the old `if iv > 3.0` sniffer left a true sub-3% IV as ~250%.
+                iv = iv / 100.0
                 if iv <= 0 or iv > 5:
                     drops.append(
                         {
@@ -2415,8 +2415,9 @@ class WheelRunner:
                     {"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"}
                 )
                 return _empty()
-            if iv > 3.0:
-                iv = iv / 100.0
+            # Fundamentals IV is in PERCENT — unconditional /100 (#356 / audit
+            # W1; D20 shape). Only the fundamentals fallback reaches here.
+            iv = iv / 100.0
             if iv <= 0 or iv > 5:
                 drops.append(
                     {
@@ -2977,8 +2978,9 @@ class WheelRunner:
                     {"ticker": ticker, "gate": "data", "reason": "IV missing or non-positive"}
                 )
                 return _empty()
-            if iv > 3.0:
-                iv = iv / 100.0
+            # Fundamentals IV is in PERCENT — unconditional /100 (#356 / audit
+            # W1; D20 shape). Only the fundamentals fallback reaches here.
+            iv = iv / 100.0
             if iv <= 0 or iv > 5:
                 drops.append(
                     {

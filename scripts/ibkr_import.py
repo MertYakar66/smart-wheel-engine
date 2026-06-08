@@ -28,7 +28,9 @@ import json
 import re
 from pathlib import Path
 
-import fitz  # PyMuPDF
+# NOTE: PyMuPDF (`fitz`) is imported lazily inside load_pages() — it's only needed
+# to read the PDF, not to import this module. This keeps the pure parsers (and
+# tests/test_ibkr_import.py) importable in environments without PyMuPDF (e.g. CI).
 
 # ---- monthly TWR returns (%), transcribed from the report's "Historical
 # Performance Benchmark Comparison" monthly matrix (PDF p5) + the Jun-2026
@@ -109,6 +111,8 @@ def parse_occ(sym: str):
 
 # ---------------------------------------------------------------- text load
 def load_pages(pdf_path: str) -> dict[int, list[str]]:
+    import fitz  # PyMuPDF — lazy import (only needed to read the PDF)
+
     doc = fitz.open(pdf_path)
     return {
         i + 1: [ln.strip() for ln in p.get_text("text").splitlines()] for i, p in enumerate(doc)

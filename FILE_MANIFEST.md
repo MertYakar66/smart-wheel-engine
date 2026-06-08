@@ -394,6 +394,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/EDGAR_EARNINGS.md` | Rationale + operational notes for the EDGAR earnings layer (campaign PR3/9). PIT story (8-K Item 2.02 is immutable; yfinance leaks lookahead), projection heuristic (median inter-filing delta), SEC User-Agent + 10 req/sec rate-limit, integration preview for follow-up PR3.5. Companion to `scripts/pull_edgar_earnings.py`. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
 | `docs/CASY_BACKFILL_SPEC.md` | Exact Bloomberg pull spec for CASY's pre-2026 OHLCV/vol_iv/liquidity/earnings — the one Bloomberg-gated piece of #339 (everything else reconstructs from git); plus the post-pull integration + re-baseline plan. |
+| `docs/NEXT_DATA_SESSION_RUNBOOK.md` | Turnkey, one-pass execution runbook consolidating the open data queue (#339/#355/#354/#357): Phase A Bloomberg pulls (CASY + 10 blue-chip backfills), Phase B git-reconstructable integration (BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive), Phase C re-baseline-all-4 + marker re-run + EXPECTED_FRONTIER bump + xfail flips. Draws the Bloomberg-gated vs. git-reconstructable line. Companion to `CASY_BACKFILL_SPEC.md`. |
 | `docs/CONTRIBUTING.md` | Contributor workflow guide. |
 | `docs/SECURITY.md` | Security policy and best practices. |
 | `docs/Claude_Prompting_Master_Guide.md` | General Claude prompt-engineering reference (not project-specific). |

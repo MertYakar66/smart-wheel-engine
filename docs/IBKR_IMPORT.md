@@ -163,3 +163,26 @@ own lot accounting. The statement's five printed truths reconcile to the cent.
   per-contract + per-stock-close with cycle-aware `exit_reason`s rather than one
   row per put→assignment→call episode.
 
+## Interpreting the numbers (verifier notes — do not mis-label)
+These three points keep the viewer honest (finding-I1: report realized distinctly
+from any forward score, and never overstate precision):
+
+1. **Realized P&L is average-cost basis, ~±$2k vs IBKR's official lot accounting
+   — not lot-exact.** The five *printed* statement truths (deposits, dividends,
+   interest, ending NAV, and the waterfall MTM +32,637.69) reconcile to the cent
+   because they come from the PDF. The *independent* fills-based MTM is
+   **+34,781** (a +$2,143 / ~6.6% residual from average-cost basis + trade-date
+   FX on the CAD sleeve). Therefore the per-name / per-month realized figures are
+   average-cost approximations within ~a couple thousand dollars of IBKR's
+   official realized P&L. The viewer must not imply lot-exactness for them.
+2. **Cumulative realized ≠ money made.** Realized sums to ~**+$76k**, but ~**$42k**
+   of that is offset by *unrealized* losses still in the open book (CLS −$24k, the
+   deep-ITM MU / MRVL short puts, etc.), netting to the true **+$32.6k** trading
+   gain. Realized and unrealized are surfaced as **distinct** fields
+   (`summary.realizedYtd` / `summary.unrealizedPnl`); never present "+$76k
+   realized" as profit.
+3. **Win-rate is per closed *position* (756/957 ≈ 79%), not per wheel *cycle*.**
+   Because heavy names hold many concurrent contracts, a flat-to-flat "cycle" is
+   ill-defined, so the rate counts closed option contracts + stock closes. Label
+   it "win rate (per closed position)" — not "% of wheels profitable".
+

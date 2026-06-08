@@ -294,7 +294,14 @@ def build(path_a, path_b, out_dir):
                     "+ per stock close) with real open/close dates. net_pnl/premium in USD (CAD "
                     "fills FX-converted at trade-date USD.CAD; forex conversions excluded). Stock "
                     "uses Open/Close-driven long & short average-cost, long book seeded with ACAT "
-                    "transfer basis. Decision trio untouched; real data gitignored."
+                    "transfer basis. Decision trio untouched; real data gitignored. "
+                    "INTERPRETATION: realized_pnl is AVERAGE-COST basis (within ~a couple thousand "
+                    "USD of IBKR's official lot accounting — the independent fills-MTM carries a "
+                    "+~$2.1k FX/basis residual), not lot-exact. Cumulative realized is NOT net "
+                    "profit: it is offset by open-position unrealized losses (the net trading gain "
+                    "ties to the statement MTM). put_premium/call_premium are GROSS credit. Any "
+                    "win-rate derived from these records is PER-CLOSED-POSITION, not per "
+                    "wheel-cycle."
                 ),
                 "closed_positions": closed,
             },

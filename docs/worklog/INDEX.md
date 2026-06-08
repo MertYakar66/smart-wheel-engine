@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**108 records.**
+**109 records.**
 
 ## Features (12)
 
@@ -141,10 +141,11 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (4)
+## Docs / process (5)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [clarify-full-suite-slow-lane](clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md) | in-flight |  | TESTING.md called the full suite a bare `pytest tests/ -v`, but that does NOT auto-deselect the `backtest_regression` marker — with the S27/S32/S34/S35 snapshots committed locally a bare run pulls the ~4–5h slow lane inline. Added a callout pinning the per-PR gate to `-m "not backtest_regression"` (what CI runs) and naming the trap. | `clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md` |
 | [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
 | [next-data-session-runbook](next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md) | in-flight |  | One ordered, doc-only execution plan (docs/NEXT_DATA_SESSION_RUNBOOK.md) so a single logged-in Bloomberg Terminal session clears the whole open data queue in one pass — draws the Bloomberg-gated (CASY + 10 blue-chip backfills) vs. git-reconstructable (BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive, 4-snapshot re-baseline) line explicitly | `next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md` |
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |

@@ -125,6 +125,20 @@ class MarketDataConnector:
     _DEEP_IV_SENTINEL_FLOOR: float = 10_000.0
     _DEEP_IV_COLS: tuple[str, ...] = ("hist_put_imp_vol", "hist_call_imp_vol")
 
+    # Low-end IV floor (R7 / audit W1+W8). vol_iv implied-vol is authoritatively
+    # in PERCENT (e.g. 30.79 means 30.79%); a reading at or below 3.0 (= 3% vol)
+    # is implausibly low for any real equity — the W8 low-tail garbage (e.g. the
+    # 0.01 cells). We NULL such ``hist_put_imp_vol`` / ``hist_call_imp_vol`` cells
+    # on EVERY served vol_iv read (monolith + assembled), keeping the row so the
+    # realized-vol columns survive. Setting the floor exactly at the rankers' /
+    # tracker's percent->decimal threshold (``if iv > 3.0: iv/100`` in
+    # wheel_runner + wheel_tracker) means every IV the engine ever sees is
+    # unambiguously percent (> 3.0), so that conditional conversion is ALWAYS
+    # correct — this is the data-layer fix that obviates #356 (W1) and #360
+    # WITHOUT a decision-trio edit. Realized-vol columns (``volatility_*``) are
+    # left untouched: a low realized vol is legitimate and feeds F4 / VRP.
+    _IV_LOW_FLOOR: float = 3.0
+
     def __init__(
         self, data_dir: str = "data/bloomberg", *, deep_history: bool | None = None
     ) -> None:
@@ -208,6 +222,11 @@ class MarketDataConnector:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce")
 
+        # R7/W8: clean the vol_iv implied-vol tails on the monolith read too
+        # (the assembled deep read cleans via the same helper). Default-path fix.
+        if key == "vol_iv":
+            self._clean_vol_iv_inplace(df)
+
         self._cache[key] = df
         logger.info("Loaded %s: %d rows from %s", key, len(df), path)
         return df
@@ -270,14 +289,11 @@ class MarketDataConnector:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce")
 
-        # R7: null the deep-IV sentinel (~134217.7) in the implied-vol columns,
-        # keeping the row. Only on the assembled vol_iv read; the OFF/monolith
-        # path is untouched.
+        # R7/W8: clean the vol_iv implied-vol tails (high ~134217.7 sentinel +
+        # low sub-3% garbage), keeping the row. Same helper as the monolith read
+        # so both paths share one clean PERCENT band.
         if key == "vol_iv":
-            for col in self._DEEP_IV_COLS:
-                if col in df.columns:
-                    numeric = pd.to_numeric(df[col], errors="coerce")
-                    df[col] = numeric.where(numeric <= self._DEEP_IV_SENTINEL_FLOOR)
+            self._clean_vol_iv_inplace(df)
 
         # Dedup keep-first (precedence = concat order = recent > deep > delisted)
         # then sort. Guards the ~90 relisted held names so their stale delisted
@@ -297,6 +313,25 @@ class MarketDataConnector:
             len(parts),
         )
         return df
+
+    def _clean_vol_iv_inplace(self, df: pd.DataFrame) -> None:
+        """NULL corrupt implied-vol cells on a vol_iv frame, keeping the row.
+
+        Applied to BOTH the monolith (:meth:`_load`) and the assembled deep
+        read (:meth:`_load_assembled`) so every IV consumer sees a clean PERCENT
+        band ``(_IV_LOW_FLOOR, _DEEP_IV_SENTINEL_FLOOR]``: the high cut removes
+        the ~134217.7 deep sentinel; the low cut removes the W8 sub-3% garbage
+        (and makes the downstream ``if iv > 3.0`` percent->decimal conversion in
+        wheel_runner / wheel_tracker always correct — #356 / #360 — with no
+        decision-trio edit). Only ``hist_put_imp_vol`` / ``hist_call_imp_vol``
+        are touched; realized-vol columns (``volatility_*``) are preserved.
+        """
+        for col in self._DEEP_IV_COLS:
+            if col in df.columns:
+                numeric = pd.to_numeric(df[col], errors="coerce")
+                df[col] = numeric.where(
+                    (numeric > self._IV_LOW_FLOOR) & (numeric <= self._DEEP_IV_SENTINEL_FLOOR)
+                )
 
     @staticmethod
     def _to_ts(value: str | None) -> pd.Timestamp | None:

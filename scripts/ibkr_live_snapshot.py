@@ -176,9 +176,16 @@ def build_snapshot(
     reference: dict[str, dict[str, str]] | None = None,
     as_of: str | None = None,
     source: str = "ibkr_live_connector",
+    include_day_change: bool = True,
 ) -> dict:
     """Assemble the ``schema_version: 1`` snapshot from the three raw IBKR
-    read-only endpoint payloads."""
+    read-only endpoint payloads.
+
+    ``include_day_change=False`` nulls ``day_change_usd`` / ``day_change_pct``
+    even when ``daily_pnl`` is present — the conservative default until the
+    derived day-change has been reconciled against IBKR's own account Day P&L
+    (the connector exposes no authoritative account-level day figure to verify
+    against, so an unverified headline is withheld rather than shipped)."""
     ref = reference if reference is not None else load_reference()
     fx = _fx_rates(balances)
     as_of = as_of or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -197,8 +204,9 @@ def build_snapshot(
             continue
         have_daily = True
         day_usd += dp * fx.get((p.get("currency") or "USD").upper(), 1.0)
+    emit_day = have_daily and include_day_change
     prior_nav = nav - day_usd
-    day_pct = (day_usd / prior_nav) if (have_daily and prior_nav) else None
+    day_pct = (day_usd / prior_nav) if (emit_day and prior_nav) else None
 
     account = {
         "net_liquidation": nav,
@@ -211,7 +219,7 @@ def build_snapshot(
         # Realized-YTD is a ledger-accumulation figure, not on the live summary
         # (its realized_pnl is a daily number) — left null, filled by the ledger.
         "realized_pnl_ytd": None,
-        "day_change_usd": round(day_usd, 2) if have_daily else None,
+        "day_change_usd": round(day_usd, 2) if emit_day else None,
         "day_change_pct": round(day_pct, 4) if day_pct is not None else None,
         # Week-change needs ~5 accumulated daily snapshots — null until then.
         "week_change_usd": None,
@@ -296,6 +304,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True, help="destination portfolio_snapshot.json")
     ap.add_argument("--as-of", default=None, help="ISO-8601 timestamp (default: now UTC)")
     ap.add_argument("--constituents", default=None, help="override constituents CSV path")
+    ap.add_argument(
+        "--no-day-change",
+        action="store_true",
+        help="null day_change_* (until reconciled against IBKR's own account Day P&L)",
+    )
     args = ap.parse_args(argv)
 
     snap = build_snapshot(
@@ -304,6 +317,7 @@ def main(argv: list[str] | None = None) -> int:
         _read_json(args.positions),
         reference=load_reference(args.constituents),
         as_of=args.as_of,
+        include_day_change=not args.no_day_change,
     )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -169,6 +169,15 @@ def test_build_snapshot_day_change_fx_normalized_includes_closed():
     assert snap["account"]["day_change_pct"] == round(2550.0 / prior, 4)
 
 
+def test_include_day_change_false_nulls_the_headline():
+    summary, balances, positions = _inputs()
+    snap = live.build_snapshot(
+        summary, balances, positions, reference=_REF, include_day_change=False
+    )
+    assert snap["account"]["day_change_usd"] is None
+    assert snap["account"]["day_change_pct"] is None
+
+
 def test_build_snapshot_excludes_zero_qty_positions():
     summary, balances, positions = _inputs()
     snap = live.build_snapshot(summary, balances, positions, reference=_REF)

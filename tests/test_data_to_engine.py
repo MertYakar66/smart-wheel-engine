@@ -1,0 +1,385 @@
+"""Data -> engine-output tests on the real Bloomberg CSVs (Phase 2 B).
+
+Extends ``tests/test_audit_viii_real_data_smoke.py``: routes every probe through
+``WheelRunner.rank_candidates_by_ev`` / ``rank_covered_calls_by_ev`` — no §2
+bypass, never hand-builds a candidate around ``EVEngine.evaluate`` — pinned to
+the data-supported frontier (deterministic, never ``today()``). Asserts the
+committed data produces finite, banded, well-formed engine output, that thin /
+post-seam / garbage inputs degrade gracefully (skip or block, never a tradeable
+from bad data), and that the forward-distribution cascade + drop accounting are
+correct.
+
+Policy: a test that fails because the data is genuinely bad is a SUCCESS — we do
+not soften. Confirmed defects are ``xfail(strict=True)`` + a linked issue.
+
+Findings map to ``docs/DATA_ENGINE_AUDIT_2026-06-07.md`` (W-numbers).
+"""
+
+from __future__ import annotations
+
+import math
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from engine.data_connector import MarketDataConnector, normalize_ticker
+from engine.wheel_runner import WheelRunner
+
+try:
+    from backtests.regression.universes import UNIVERSE_24
+except Exception:  # pragma: no cover
+    UNIVERSE_24 = ()
+
+DATA_DIR = Path("data/bloomberg")
+HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_ohlcv.csv").exists()
+
+# Pinned, data-supported frontier (most-recent bar common to OHLCV & IV on main).
+FRONTIER = "2026-06-04"
+DTE = 35
+DELTA = 0.25
+
+# Cascade tier labels emitted by best_available_forward_distribution.
+VALID_TIERS = {
+    "empirical_non_overlapping",
+    "empirical_overlapping",
+    "block_bootstrap",
+    "har_rv",
+    "lognormal_fallback",
+    "none",
+}
+
+# W6 split (audit §3c + issue #355 / #356). Backfill-defects = long real history
+# truncated in the file; legit-recent = genuine IPO/spinoff/merger/re-ticker.
+W6_BACKFILL_DEFECT = [
+    "WMT",
+    "KMB",
+    "CPB",
+    "DPZ",
+    "PLTR",
+    "VEEV",
+    "COHR",
+    "CASY",
+    "LITE",
+    "SATS",
+    "VRT",
+]
+W6_LEGIT_RECENT = ["BNY", "FDXF", "SNDK", "SW", "PSKY", "Q"]
+POST_SEAM_ONLY = ["BNY", "CASY", "COHR", "LITE", "SATS", "VEEV", "VRT"]
+ALL_THIN = sorted(set(W6_BACKFILL_DEFECT) | set(W6_LEGIT_RECENT))
+
+pytestmark = pytest.mark.skipif(
+    not HAS_BLOOMBERG_DATA, reason="Bloomberg CSVs not available (data/bloomberg)"
+)
+
+
+@pytest.fixture(scope="module")
+def runner():
+    return WheelRunner()
+
+
+@pytest.fixture(scope="module")
+def frontier(runner):
+    """Confirm the bundled data actually covers the pinned frontier; skip on a
+    stale branch (e.g. data ending 2026-03-20) so the probe stays deterministic."""
+    df = runner.connector.get_ohlcv("AAPL", start_date="2026-05-20", end_date="2026-06-30")
+    if df.empty or str(df.index.max())[:10] < FRONTIER:
+        pytest.skip(f"bundled data does not cover frontier {FRONTIER}")
+    return FRONTIER
+
+
+def _rank(runner, tickers, **kw):
+    kw.setdefault("dte_target", DTE)
+    kw.setdefault("delta_target", DELTA)
+    kw.setdefault("top_n", len(tickers) + 10)
+    kw.setdefault("min_ev_dollars", -1e9)
+    kw.setdefault("include_diagnostic_fields", True)
+    return runner.rank_candidates_by_ev(tickers=list(tickers), as_of=FRONTIER, **kw)
+
+
+# ---------------------------------------------------------------------------
+# Output sanity on a clean positive control (UNIVERSE_24)
+# ---------------------------------------------------------------------------
+
+
+def test_clean_universe_output_is_well_formed(runner, frontier):
+    """Every produced row from the clean control set is finite (R1a), banded,
+    and internally coherent."""
+    frame = _rank(runner, UNIVERSE_24)
+    assert len(frame) > 0, "clean control produced zero rows"
+
+    for _, row in frame.iterrows():
+        t = row["ticker"]
+        # R1a: ev_dollars / ev_raw finite (no NaN/inf reaches output).
+        assert math.isfinite(float(row["ev_dollars"])), f"{t}: non-finite ev_dollars"
+        assert math.isfinite(float(row["ev_raw"])), f"{t}: non-finite ev_raw"
+        # Premium and IV plausible (IV decimal: the ranker converts percent->decimal).
+        assert float(row["premium"]) > 0, f"{t}: premium not > 0"
+        iv = float(row["iv"])
+        assert 0.0 < iv < 3.0, f"{t}: iv {iv} implausible (expected decimal in (0,3))"
+        # prob_profit / prob_assignment are probabilities.
+        pp = float(row["prob_profit"])
+        assert 0.0 <= pp <= 1.0, f"{t}: prob_profit {pp} out of [0,1]"
+        assert 0.0 <= float(row["prob_assignment"]) <= 1.0, f"{t}: prob_assignment out of [0,1]"
+        # Short put is OTM: strike below spot (delta is not surfaced as a column,
+        # so strike<spot + prob_assignment band stand in for delta in [-1,0]).
+        assert float(row["strike"]) > 0 and float(row["strike"]) < float(row["spot"]), (
+            f"{t}: short-put strike {row['strike']} not below spot {row['spot']}"
+        )
+        # Wilson CI coherence: when present, low <= prob_profit <= high and N>0.
+        lo, hi, n = row["prob_profit_ci_low"], row["prob_profit_ci_high"], row["n_scenarios"]
+        if pd.notna(lo) and pd.notna(hi):
+            assert float(lo) <= pp <= float(hi), f"{t}: prob_profit outside its Wilson CI"
+            assert pd.notna(n) and int(n) > 0, f"{t}: CI present but n_scenarios not > 0"
+        # Distribution tier reported and valid.
+        assert row["distribution_source"] in VALID_TIERS, (
+            f"{t}: bad tier {row['distribution_source']}"
+        )
+
+
+def test_distribution_cascade_picks_expected_tier(runner, frontier):
+    """A full-history liquid name uses the richest empirical tier; every produced
+    row reports a valid, non-null cascade tier (distribution_source correct)."""
+    frame = _rank(runner, ["AAPL", "MSFT", "JPM", "XOM", "UNH"])
+    src = dict(zip(frame["ticker"], frame["distribution_source"], strict=False))
+    assert src.get("AAPL") == "empirical_non_overlapping", f"AAPL tier {src.get('AAPL')}"
+    assert frame["distribution_source"].notna().all()
+    assert set(frame["distribution_source"]).issubset(VALID_TIERS)
+
+
+# ---------------------------------------------------------------------------
+# No silent drops — every requested name ranks OR carries a logged reason
+# ---------------------------------------------------------------------------
+
+
+def test_no_silent_drops_on_control(runner, frontier):
+    """Pin the audit's accounting invariant: produced + dropped == requested and
+    nothing vanishes (drops attrs are complete with {ticker,gate,reason})."""
+    tickers = list(UNIVERSE_24)
+    frame = _rank(runner, tickers)
+    produced = set(frame["ticker"].astype(str))
+    drops = list(frame.attrs.get("drops", []))
+    dropped = {d["ticker"] for d in drops}
+    for d in drops:
+        assert {"ticker", "gate", "reason"} <= set(d), f"drop entry missing keys: {d}"
+    requested = {normalize_ticker(t) for t in tickers}
+    vanished = requested - produced - dropped
+    assert not vanished, f"silently vanished (neither produced nor dropped): {sorted(vanished)}"
+    assert len(produced) + len(dropped) >= len(requested)
+
+
+# ---------------------------------------------------------------------------
+# Graceful degradation: thin / post-seam never emit a tradeable
+# ---------------------------------------------------------------------------
+
+
+def test_thin_names_degrade_gracefully(runner, frontier):
+    """All 17 thin (<504-bar) names — backfill-defect AND legit-recent — are
+    blocked by the history/data gate, never emitting a tradeable from bad data."""
+    frame = _rank(runner, ALL_THIN)
+    produced = set(frame["ticker"].astype(str)) if len(frame) else set()
+    drops = {d["ticker"]: d["gate"] for d in frame.attrs.get("drops", [])}
+    leaked = [t for t in ALL_THIN if t in produced]
+    assert not leaked, f"thin names produced a tradeable candidate: {leaked}"
+    for t in ALL_THIN:
+        assert drops.get(t) in {"history", "data"}, (
+            f"{t} not gracefully gated (gate={drops.get(t)})"
+        )
+
+
+@pytest.mark.parametrize("ticker", W6_BACKFILL_DEFECT)
+@pytest.mark.xfail(
+    strict=True,
+    reason="W6 backfill defect (#355): long-history name truncated in sp500_ohlcv.csv "
+    "(<504 bars) — flips green when its pre-seam OHLCV is backfilled",
+)
+def test_blue_chip_history_is_complete(runner, ticker):
+    """Long-history blue-chips SHOULD clear the 504-day gate. They currently
+    don't (truncated file) — xfail(strict) tracks each backfill."""
+    df = runner.connector.get_ohlcv(ticker, end_date=FRONTIER)
+    assert len(df) >= 504, f"{ticker} has only {len(df)} OHLCV bars (< 504-day gate)"
+
+
+# ---------------------------------------------------------------------------
+# Determinism
+# ---------------------------------------------------------------------------
+
+
+def test_determinism_same_as_of_twice(runner, frontier):
+    """Same as_of twice -> identical ranked output (deterministic engine)."""
+    a = _rank(runner, UNIVERSE_24)[
+        ["ticker", "ev_dollars", "strike", "premium", "iv", "prob_profit"]
+    ]
+    b = _rank(runner, UNIVERSE_24)[
+        ["ticker", "ev_dollars", "strike", "premium", "iv", "prob_profit"]
+    ]
+    pd.testing.assert_frame_equal(
+        a.reset_index(drop=True), b.reset_index(drop=True), check_exact=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dividends -> covered-call selection (R1 mechanism)
+# ---------------------------------------------------------------------------
+
+
+def test_in_window_exdiv_flows_into_cc_selection(runner, frontier):
+    """R1 mechanism: an ex-dividend inside the CC window feeds the covered-call
+    ex-div early-assignment EV. DIS has a 2026-06-30 ex-div ($0.75), 26 days out
+    (< 35 DTE) — the CC ranker's expected_dividend must equal it."""
+    nd = runner.connector.get_next_dividend("DIS", as_of=FRONTIER)
+    assert nd is not None and nd["dividend_amount"] > 0, "DIS upcoming dividend missing"
+    cc = runner.rank_covered_calls_by_ev(
+        ticker="DIS",
+        shares_held=100,
+        as_of=FRONTIER,
+        target_dtes=(DTE,),
+        target_deltas=(DELTA,),
+        top_n=5,
+        min_ev_dollars=-1e9,
+        include_diagnostic_fields=True,
+    )
+    assert cc is not None and len(cc) > 0, "DIS produced no covered-call candidate"
+    row = cc.iloc[0]
+    assert int(row["days_to_ex_div"]) < DTE, "ex-div should fall inside the CC window"
+    assert float(row["expected_dividend"]) == pytest.approx(
+        float(nd["dividend_amount"]), abs=1e-6
+    ), "CC expected_dividend does not match the in-window ex-dividend (R1 mechanism broken)"
+
+
+# ---------------------------------------------------------------------------
+# W2 — dateless fundamentals/credit lookahead (confirmed defect)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="W2 (#354): get_fundamentals/get_credit_risk are dateless snapshots — "
+    "no as_of, so historical backtests read the 2026 snapshot (structural lookahead)",
+)
+def test_fundamentals_credit_are_point_in_time():
+    """A PIT-correct accessor must accept as_of. Both currently ignore it
+    (data_connector.py:828/868) — xfail(strict) flips red when PIT lands."""
+    import inspect
+
+    conn = MarketDataConnector()
+    assert "as_of" in inspect.signature(conn.get_fundamentals).parameters
+    assert "as_of" in inspect.signature(conn.get_credit_risk).parameters
+
+
+# ---------------------------------------------------------------------------
+# Negative control — corrupt / truncated fixture must be rejected
+# ---------------------------------------------------------------------------
+
+
+def _write_fixture(dirpath: Path, specs: dict[str, dict]) -> None:
+    """Write a minimal connector fixture (ohlcv + vol_iv) for synthetic tickers.
+
+    ``specs[ticker] = {"n": rows, "price": float}``. OHLCV is written in the
+    Bloomberg RAW column convention the connector expects (it renames
+    open->high, high->close, close->open); flat bars (all four equal) keep the
+    rename invariant valid, so any rejection is due to the spec, not malformed
+    structure.
+    """
+    dirpath.mkdir(parents=True, exist_ok=True)
+    oh_rows, iv_rows = [], []
+    for ticker, spec in specs.items():
+        dates = pd.bdate_range(end=FRONTIER, periods=spec["n"])
+        price = spec["price"]
+        for d in dates:
+            ds = d.strftime("%Y-%m-%d")
+            oh_rows.append(
+                {
+                    "date": ds,
+                    "ticker": ticker,
+                    "open": price,
+                    "high": price,
+                    "low": price,
+                    "close": price,
+                    "volume": 1_000_000,
+                }
+            )
+            iv_rows.append(
+                {
+                    "date": ds,
+                    "ticker": ticker,
+                    "hist_put_imp_vol": 25.0,
+                    "hist_call_imp_vol": 25.0,
+                    "volatility_30d": 25.0,
+                    "volatility_60d": 25.0,
+                    "volatility_90d": 25.0,
+                    "volatility_260d": 25.0,
+                }
+            )
+    pd.DataFrame(oh_rows).to_csv(dirpath / "sp500_ohlcv.csv", index=False)
+    pd.DataFrame(iv_rows).to_csv(dirpath / "sp500_vol_iv_full.csv", index=False)
+
+
+def test_negative_control_corrupt_data_is_rejected(tmp_path):
+    """Truncated history and garbage prices must be REJECTED by the real ranker
+    (no tradeable emitted), each with an explicit drop gate. Routes through
+    rank_candidates_by_ev — no §2 bypass."""
+    _write_fixture(
+        tmp_path,
+        {
+            "THIN": {"n": 100, "price": 100.0},  # < 504 bars -> history gate
+            "GARB": {"n": 600, "price": -1.0},  # non-positive prices -> data gate
+        },
+    )
+    runner = WheelRunner(data_dir=tmp_path)
+    frame = runner.rank_candidates_by_ev(
+        tickers=["THIN", "GARB"],
+        dte_target=DTE,
+        delta_target=DELTA,
+        top_n=10,
+        min_ev_dollars=-1e9,
+        as_of=FRONTIER,
+        include_diagnostic_fields=True,
+    )
+    produced = set(frame["ticker"].astype(str)) if len(frame) else set()
+    drops = {d["ticker"]: d["gate"] for d in frame.attrs.get("drops", [])}
+    assert "THIN" not in produced and "GARB" not in produced, "corrupt data leaked a candidate"
+    assert drops.get("THIN") == "history", f"THIN gate={drops.get('THIN')} (expected history)"
+    assert drops.get("GARB") == "data", f"GARB gate={drops.get('GARB')} (expected data)"
+
+
+# ---------------------------------------------------------------------------
+# 5-ticker smoke (CLAUDE.md) stays green
+# ---------------------------------------------------------------------------
+
+
+def test_five_ticker_smoke_stays_green(runner, frontier):
+    frame = _rank(runner, ["AAPL", "MSFT", "JPM", "XOM", "UNH"])
+    assert len(frame) >= 1
+    for col in ("ev_dollars", "iv", "premium"):
+        assert frame[col].notna().all(), f"{col} has nulls in the 5-ticker smoke"
+
+
+# ---------------------------------------------------------------------------
+# Full-universe sweep (slow) — pins the produced/dropped split
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.slow
+def test_full_universe_no_silent_drops_and_split(runner, frontier):
+    """Full connector universe: the accounting invariant holds and the
+    produced/dropped split is pinned to the 2026-06-04 frontier (re-baseline on
+    a data refresh — the pin going red is the signal, by design)."""
+    universe = sorted(set(MarketDataConnector(str(runner.data_dir)).get_universe()))
+    frame = _rank(runner, universe)
+    produced = set(frame["ticker"].astype(str))
+    drops = list(frame.attrs.get("drops", []))
+    dropped = {d["ticker"] for d in drops}
+    requested = {normalize_ticker(t) for t in universe}
+    vanished = requested - produced - dropped
+    assert not vanished, f"silent vanish: {sorted(vanished)}"
+    gates = {d["gate"] for d in drops}
+    assert {"event", "data", "history"} <= gates, f"expected gate set; got {gates}"
+    # Pinned at frontier 2026-06-04 (see docs/DATA_ENGINE_AUDIT_2026-06-07.md).
+    assert len(produced) == 480, f"produced {len(produced)} != 480 (re-baseline if data refreshed)"
+    assert len(drops) == 31, f"dropped {len(drops)} != 31 (re-baseline if data refreshed)"
+    assert all(math.isfinite(float(v)) for v in frame["ev_dollars"]), (
+        "non-finite ev_dollars at scale"
+    )
+    assert np.isfinite(pd.to_numeric(frame["ev_raw"], errors="coerce")).all(), "non-finite ev_raw"

@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**103 records.**
+**104 records.**
 
 ## Features (11)
 
@@ -71,11 +71,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (15)
+## Verification & realism (16)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [audit-data-engine](audit-data-engine-phase-1-data-engine-audit-discovery.md) | in-flight |  | Reusable data+engine audit pass — 13 ranked findings; data spine sound, frontier-pinned probe clean (480/511 produced, 0 silent drops); 3 HIGH (conditional IV /100 heuristic in-trio, dateless fundamentals/credit lookahead, OHLCV-only fingerprint blind-spot) | `audit-data-engine-phase-1-data-engine-audit-discovery.md` |
+| [data-phase2-tests](data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md) | in-flight |  | Phase-2 of the data audit — 2 real-CSV test suites (integrity + data→engine) turning the Phase-1 findings into strong assertions; confirmed defects tracked as xfail(strict)+issue; trio byte-identical | `data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md` |
 | [dossier-downgrade-property](dossier-downgrade-property-dossier-downgrade-only-lattice-property-test.md) | in-flight |  | §2 downgrade-only severity lattice stated as one property over R1–R11, plus source-introspection meta-tripwires that force any future rule into the matrix; 3-theme test backlog preserved. | `dossier-downgrade-property-dossier-downgrade-only-lattice-property-test.md` |
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
 | [heavy-news-calibration](heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md) | in-flight |  | On Bloomberg the pre-D18 news_multiplier was 1.0 in 1300/1300 probes — D18 is a measured no-op for prior backtests; prob_profit calibration matches the published 10-config matrix exactly. | `heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md` |

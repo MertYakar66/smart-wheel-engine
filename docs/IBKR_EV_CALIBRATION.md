@@ -150,6 +150,17 @@ ranged only **15.3–25.8**. **R11 would fire on just 2 of the 28 top-bin trades
 catch 0 of the 5 realized failures.** Its VIX>25 gate is structurally blind to this
 miss — so R11 is not the fix here.
 
+> **⚠️ Guardrail — do NOT "fix" this by widening R11's VIX gate.** "R11 catches
+> 0/5" is **not** an argument to lower `R11_VIX_THRESHOLD`. R11's crisis-only scope
+> (VIX>25) is **deliberate and validated** — leave-one-crisis-out survives at 25
+> while ≥27.5 fails the 2022 fold (heavy-verify I11). Making R11 fire in calm vol
+> would size down *every* high-confidence trade regardless of regime — an
+> unvalidated over-correction that stretches a narrow crisis rule into a general
+> one. The finding here is that a **separate, calm-regime** over-confidence exists
+> that R11 was **never meant to cover**; the only §2-safe response is the
+> observational recalibration overlay (path 1 below) — **not** a wider R11, and
+> **not** forward-distribution widening (path 2, S27 ρ risk).
+
 **Remediation (supervised — not shipped here).** Two paths, both needing
 validation, *not* an autonomous engine change:
 1. *Observational recalibration overlay* (isotonic/Platt map from predicted →

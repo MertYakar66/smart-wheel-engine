@@ -32,7 +32,11 @@ For each SELL-put-to-open fill (from the IBKR Flex export):
   probabilities model — used even for puts the operator closed early.)
 
 PIT discipline was independently verified: **0/175 rows** where the recorded spot
-≠ the connector's last close ≤ entry.
+≠ the connector's last close ≤ entry. As a second, harness-independent check, the
+PIT spot, expiry close, and realized P&L were re-derived directly from raw OHLCV
+for **all 456 legs** — **0 mismatches** on each (spot / expiry / P&L), and the
+headline stats recompute identically. (This reproduces the numbers on current
+data — the connector reads `data/bloomberg/` at 2026-06-04, not a stale clone.)
 
 ## Funnel
 949 short-option opens → **456 calibrated** (**175 puts + 281 covered calls**).
@@ -135,11 +139,23 @@ the largest dollar losses (ORCL −$1,853). This independently corroborates the
 prior internal PIT finding of top-bin over-confidence — now confirmed on **real,
 out-of-sample, real-money** trades.
 
+**Why R11 does not cover this (quantified).** The engine already carries **R11**,
+an elevated-vol top-bin size-down (`candidate_dossier.py`: downgrade *proceed →
+review* when `prob_profit > 0.90` **and** `vix_level > 25.0`). R11 validates the
+*direction* — top-bin confidence is unreliable — but it is gated on **crisis VIX**,
+and these failures are a **calm-regime** phenomenon. Pulling the actual VIX level
+at each entry (`vix_term_structure.csv`): all 5 failures occurred at VIX **16.3–
+17.3** (ORCL's −$1,853 at VIX **16.5**), and across all 28 top-bin puts VIX-at-entry
+ranged only **15.3–25.8**. **R11 would fire on just 2 of the 28 top-bin trades and
+catch 0 of the 5 realized failures.** Its VIX>25 gate is structurally blind to this
+miss — so R11 is not the fix here.
+
 **Remediation (supervised — not shipped here).** Two paths, both needing
 validation, *not* an autonomous engine change:
 1. *Observational recalibration overlay* (isotonic/Platt map from predicted →
-   empirical prob_profit) surfaced in the viewer/analysis. Safe (no trio change)
-   but must be fit out-of-sample (175 in-sample points overfit).
+   empirical prob_profit) surfaced in the viewer/analysis. **The better-targeted
+   path** for a calm-regime miss that R11's VIX gate cannot see. Safe (no trio
+   change) but must be fit out-of-sample (175 in-sample points overfit).
 2. *Forward-distribution left-tail widening* in the engine. **High risk:** prior
    tail-widening attempts inverted the S27 backtest ρ and were rolled back twice
    (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`). Any such change must clear the

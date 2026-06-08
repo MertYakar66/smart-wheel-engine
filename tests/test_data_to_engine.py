@@ -253,19 +253,96 @@ def test_in_window_exdiv_flows_into_cc_selection(runner, frontier):
 # ---------------------------------------------------------------------------
 
 
+_PIT_TICKER = "PITX"
+
+
+def _write_pit_fundamentals_fixture(dirpath: Path) -> None:
+    """Write synthetic ``fundamentals`` + ``credit_risk`` CSVs carrying TWO dated
+    snapshots (2023 + 2024) for one ticker — deliberately ordered so the
+    *dateless / no-op* path returns the **2024** row two different ways:
+
+    * the 2024 row is written **first**, so today's ``df[...].iloc[0]`` returns it;
+    * the 2024 row also has the **latest date**, so a "take the most recent" stub
+      returns it too.
+
+    A PIT-correct accessor asked for an ``as_of`` *between* the two snapshots must
+    return the **2023** row. That is the only behaviour a genuine as_of-selection
+    produces — a no-op ``as_of`` param (added just to satisfy the signature) cannot.
+    """
+    dirpath.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        [
+            {
+                "date": "2024-12-31",
+                "ticker": _PIT_TICKER,
+                "eqy_dvd_yld_12m": 4.56,
+                "gics_sector_name": "Sector2024",
+            },
+            {
+                "date": "2023-12-31",
+                "ticker": _PIT_TICKER,
+                "eqy_dvd_yld_12m": 1.23,
+                "gics_sector_name": "Sector2023",
+            },
+        ]
+    ).to_csv(dirpath / "sp500_fundamentals.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "date": "2024-12-31",
+                "ticker": _PIT_TICKER,
+                "rtg_sp_lt_lc_issuer_credit": "CR2024",
+                "altman_z_score": 9.99,
+            },
+            {
+                "date": "2023-12-31",
+                "ticker": _PIT_TICKER,
+                "rtg_sp_lt_lc_issuer_credit": "CR2023",
+                "altman_z_score": 1.11,
+            },
+        ]
+    ).to_csv(dirpath / "sp500_credit_risk.csv", index=False)
+
+
 @pytest.mark.xfail(
     strict=True,
-    reason="W2 (#354): get_fundamentals/get_credit_risk are dateless snapshots — "
-    "no as_of, so historical backtests read the 2026 snapshot (structural lookahead)",
+    reason="W2 (#354): get_fundamentals/get_credit_risk are dateless snapshots with "
+    "no as_of SELECTION, so historical backtests read the latest (2026) snapshot "
+    "(structural lookahead). Flips red only when a PIT accessor that genuinely "
+    "selects by as_of lands — a no-op as_of param cannot satisfy this assertion.",
 )
-def test_fundamentals_credit_are_point_in_time():
-    """A PIT-correct accessor must accept as_of. Both currently ignore it
-    (data_connector.py:828/868) — xfail(strict) flips red when PIT lands."""
-    import inspect
+def test_fundamentals_credit_are_point_in_time(tmp_path):
+    """PIT *behaviour*, not signature shape.
 
-    conn = MarketDataConnector()
-    assert "as_of" in inspect.signature(conn.get_fundamentals).parameters
-    assert "as_of" in inspect.signature(conn.get_credit_risk).parameters
+    With two dated snapshots (2023 + 2024) for one ticker — ordered so the
+    dateless/no-op path returns 2024 — a PIT-correct accessor asked for an
+    ``as_of`` between them must return the **2023** row.
+
+    Today both accessors take no ``as_of`` (``data_connector.py`` get_fundamentals
+    / get_credit_risk), so the call raises ``TypeError`` → xfail. Crucially this
+    can no longer be **false-greened** by bolting on a no-op ``as_of`` param: such
+    a stub still returns the 2024 row (``iloc[0]`` / latest) and fails the 2023
+    assertion. Only a genuine as_of SELECTION flips this green — which is the
+    signal that #354 is truly fixed (then remove the xfail). See #354 and the
+    memory note "assert behaviour, not shape".
+    """
+    _write_pit_fundamentals_fixture(tmp_path)
+    conn = MarketDataConnector(data_dir=tmp_path)
+
+    # as_of falls strictly between the 2023-12-31 and 2024-12-31 snapshots, so a
+    # PIT accessor (date <= as_of, latest such) selects the 2023 row.
+    fund = conn.get_fundamentals(_PIT_TICKER, as_of="2024-06-01")
+    assert fund is not None and float(fund["dividend_yield"]) == pytest.approx(1.23), (
+        "get_fundamentals must SELECT the 2023 snapshot for as_of=2024-06-01 "
+        f"(got dividend_yield={None if fund is None else fund.get('dividend_yield')!r}); "
+        "a no-op as_of that returns the 2024 row (4.56) does NOT satisfy PIT"
+    )
+
+    credit = conn.get_credit_risk(_PIT_TICKER, as_of="2024-06-01")
+    assert credit is not None and credit["sp_rating"] == "CR2023", (
+        "get_credit_risk must SELECT the 2023 snapshot for as_of=2024-06-01 "
+        f"(got sp_rating={None if credit is None else credit.get('sp_rating')!r})"
+    )
 
 
 # ---------------------------------------------------------------------------

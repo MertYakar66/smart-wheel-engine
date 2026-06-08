@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**107 records.**
+**108 records.**
 
 ## Features (12)
 
@@ -28,12 +28,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (12)
+## Fixes (13)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [engine-api-hardening](engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md) | in-flight |  | Loopback bind by default, 400 on bad params, 404 on unknown tickers, no exception leak, and verdict-label parity — all NON-§2. | `engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md` |
 | [fix-credit-rating-deadread](fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md) | complete |  | Re-shipped the R0a credit-rating dead-read one-liner as its own PR (split out of the docs-only #332) with the decision-layer lane ceremony + a regression unit test pinning that analyze_ticker reads the get_credit_risk "sp_rating" key, not the raw Bloomberg field name. | `fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md` |
+| [harden-354-pit-xfail](harden-354-pit-xfail-strengthen-the-354-pit-xfail-to-assert-behaviour.md) | in-flight |  | test_fundamentals_credit_are_point_in_time now asserts PIT row-SELECTION (synthetic 2-snapshot fixture, 2024 row ordered first + latest so a no-op as_of returns it) instead of just `"as_of" in signature` — so a future no-op as_of param can no longer false-green the xfail(strict) while the dateless-snapshot lookahead persists | `harden-354-pit-xfail-strengthen-the-354-pit-xfail-to-assert-behaviour.md` |
 | [mcp-classify-cdp-down](mcp-classify-cdp-down-classify-the-live-cdp-down-tv-cli-error-as-mcp-u.md) | in-flight |  | engine/mcp_client._classify mapped the real "CDP connection failed after N attempts: fetch failed" string (emitted by the tv CLI when TradingView Desktop / CDP is down) to unexpected_error instead of mcp_unavailable; added "connection failed" / "fetch failed" to the mcp_unavailable substring set, pinned it, and narrowed the TODO(live-verify) marker to the still-Desktop-gated symbol_not_found / browser_disconnected wordings. | `mcp-classify-cdp-down-classify-the-live-cdp-down-tv-cli-error-as-mcp-u.md` |
 | [MP-A](mp-a-close-s42-dossier-defensive-guards-findings-1-4.md) | in-flight | #275 | Close S42 Findings #1-4 with defensive guards in the R7-R10 path (skip malformed rows; honour explicit contracts=0); §2 invariant preserved — reviewers stay downgrade-only. | `mp-a-close-s42-dossier-defensive-guards-findings-1-4.md` |
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |

@@ -710,6 +710,136 @@ def test_dividend_epsilon_negative_is_immaterial(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Covered-call ranker real-data coverage (the wheel's 2nd leg) — W29/W30/W31/W32
+# (2026-06-09 data-test audit round 2; docs/DATA_TEST_AUDIT_2026-06-09.md). The CC
+# ranker was real-data-starved vs the put side (its only real-data assertion was the
+# single DIS ex-div row); these mirror the put-side well-formed/W15/W16 coverage.
+# ---------------------------------------------------------------------------
+
+
+def _rank_cc(runner, ticker, **kw):
+    kw.setdefault("shares_held", 100)
+    kw.setdefault("target_dtes", (DTE,))
+    kw.setdefault("target_deltas", (DELTA,))
+    kw.setdefault("top_n", 10)
+    kw.setdefault("min_ev_dollars", -1e9)
+    kw.setdefault("include_diagnostic_fields", True)
+    return runner.rank_covered_calls_by_ev(ticker=ticker, as_of=FRONTIER, **kw)
+
+
+def test_cc_clean_universe_output_is_well_formed(runner, frontier):
+    """W29: every produced covered-call row on real data is finite (R1a), banded, and
+    coherent — the CC analogue of test_clean_universe_output_is_well_formed. The CC
+    ranker's only prior real-data assertion was the single DIS ex-div row."""
+    frames = []
+    for t in UNIVERSE_24:
+        cc = _rank_cc(runner, t)
+        if len(cc):
+            frames.append(cc)
+    assert frames, "no covered-call rows produced across the clean control set"
+    frame = pd.concat(frames, ignore_index=True)
+    for _, row in frame.iterrows():
+        t = row["ticker"]
+        assert math.isfinite(float(row["ev_dollars"])), f"{t}: non-finite ev_dollars"
+        assert math.isfinite(float(row["ev_per_day"])), f"{t}: non-finite ev_per_day"
+        assert float(row["premium"]) > 0, f"{t}: premium not > 0"
+        iv = float(row["iv"])
+        assert 0.0 < iv < 3.0, f"{t}: iv {iv} implausible (expected decimal in (0,3))"
+        pp = float(row["prob_profit"])
+        assert 0.0 <= pp <= 1.0, f"{t}: prob_profit {pp} out of [0,1]"
+        assert 0.0 <= float(row["prob_assignment"]) <= 1.0, f"{t}: prob_assignment out of [0,1]"
+        # Covered call: strike ABOVE spot (OTM call) — the mirror of the short put.
+        assert float(row["strike"]) > float(row["spot"]) > 0, (
+            f"{t}: CC strike {row['strike']} not above spot {row['spot']}"
+        )
+        lo, hi, n = row["prob_profit_ci_low"], row["prob_profit_ci_high"], row["n_scenarios"]
+        if pd.notna(lo) and pd.notna(hi):
+            assert float(lo) <= pp <= float(hi), f"{t}: prob_profit outside its Wilson CI"
+            assert pd.notna(n) and int(n) > 0, f"{t}: CI present but n_scenarios not > 0"
+        assert row["distribution_source"] in VALID_TIERS, (
+            f"{t}: bad tier {row['distribution_source']}"
+        )
+
+
+def test_cc_real_earnings_event_lockout_fires(runner, frontier):
+    """W30: the CC analogue of W16. JPM has a real earnings date inside the 49/63-DTE
+    CC window at FRONTIER; with the event gate ON it is locked out (0 rows, every drop
+    gate=='event'), with it OFF it produces. Pins the real sp500_earnings.csv ->
+    get_next_earnings -> EventGate -> evaluate wire on the CC leg (CC event-gate tests
+    use synthetic dates only)."""
+    on = _rank_cc(runner, "JPM", target_dtes=(49, 63), use_event_gate=True)
+    produced_on = set(on["ticker"].astype(str)) if len(on) else set()
+    gates_on = [d.get("gate") for d in on.attrs.get("drops", [])]
+    assert "JPM" not in produced_on, "JPM CC should be event-locked at the frontier"
+    assert gates_on and all(g == "event" for g in gates_on), (
+        f"JPM CC expected only event-gate drops, got {gates_on}"
+    )
+    off = _rank_cc(runner, "JPM", target_dtes=(49, 63), use_event_gate=False)
+    assert len(off) > 0, "JPM CC should produce with the event gate off"
+    off_event = [d for d in off.attrs.get("drops", []) if d.get("gate") == "event"]
+    assert not off_event, f"no event-gate drops expected with the gate off: {off_event}"
+
+
+def test_cc_exdiv_penalty_lowers_ev(runner, frontier):
+    """W31: the in-window ex-dividend early-assignment penalty (call-only) LOWERS
+    ev_dollars. The DIS real-data test pins only that expected_dividend reaches the
+    row, not that it BITES — a regression dropping the penalty subtraction would pass
+    it. Toggle the REAL DIS ex-div (from get_next_dividend) on a controlled call
+    evaluation over the SAME forward distribution and assert the penalty is
+    negative-signed. Calls EVEngine.evaluate directly (the ranker can't suppress the
+    ex-div for an A/B) — no §2 bypass; evaluate is the authoritative EV path."""
+    from engine.ev_engine import EVEngine, ShortOptionTrade
+
+    nd = runner.connector.get_next_dividend("DIS", as_of=FRONTIER)
+    assert nd is not None and float(nd["dividend_amount"]) > 0, "DIS upcoming dividend missing"
+    div = float(nd["dividend_amount"])
+    # 35-day log-returns with enough spread that some calls finish ITM (penalty bites).
+    fwd = np.random.default_rng(0).normal(0.0, 0.10, 500)
+    base = {
+        "option_type": "call",
+        "underlying": "DIS",
+        "spot": 100.0,
+        "strike": 105.0,
+        "premium": 1.20,
+        "dte": 35,
+        "iv": 0.25,
+        "risk_free_rate": 0.05,
+        "dividend_yield": 0.0,
+    }
+    eng = EVEngine()
+    ev_no = eng.evaluate(
+        ShortOptionTrade(**base, days_to_ex_div=None, expected_dividend=0.0),
+        forward_log_returns=fwd,
+    ).ev_dollars
+    ev_div = eng.evaluate(
+        ShortOptionTrade(**base, days_to_ex_div=20, expected_dividend=div),
+        forward_log_returns=fwd,
+    ).ev_dollars
+    assert ev_div < ev_no, (
+        "in-window ex-div should LOWER CC ev (early-assignment penalty): "
+        f"with-exdiv {ev_div} not < without {ev_no}"
+    )
+
+
+def test_cc_ev_dollars_sign_controls(runner, frontier):
+    """W32: the CC analogue of W15 — pin ev_dollars SIGN on real CC data. HD is a
+    clean +EV covered call at FRONTIER; UNH and AAPL are -EV. Sign only (FRONTIER-tied)
+    so the pending ev_mean re-baseline moves magnitudes in lockstep but a CC sign
+    inversion fails. Gate off so earnings lockout doesn't suppress the controls."""
+    hd = _rank_cc(runner, "HD", target_deltas=(0.20, 0.25, 0.30), use_event_gate=False)
+    assert len(hd) > 0, "HD CC produced no rows"
+    assert float(hd["ev_dollars"].max()) > 0, (
+        f"HD expected a +EV covered call at the frontier, got max {hd['ev_dollars'].max()}"
+    )
+    for name in ("UNH", "AAPL"):
+        neg = _rank_cc(runner, name, target_deltas=(0.20, 0.25, 0.30), use_event_gate=False)
+        assert len(neg) > 0, f"{name} CC produced no rows"
+        assert float(neg["ev_dollars"].max()) < 0, (
+            f"{name} expected all -EV covered calls, got max {neg['ev_dollars'].max()}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 

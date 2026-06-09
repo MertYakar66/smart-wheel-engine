@@ -523,6 +523,59 @@ def test_363_gate_does_not_clean_fundamentals_iv(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# W15 — data -> EVEngine.evaluate -> EVResult SIGN controls.
+# A sign inversion in the data->forward-dist->EV transform on real inputs passes
+# every other real-data test (which assert finite + banded only). Pin the SIGN of
+# a known +EV and a known -EV trade, FRONTIER-tied so the pending ev_mean
+# re-baseline moves the magnitudes in lockstep but the sign must hold.
+# 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W15).
+# ---------------------------------------------------------------------------
+
+
+def test_ev_dollars_sign_controls(runner, frontier):
+    """W15: route real names through ``rank_candidates_by_ev`` (no §2 bypass) at
+    the fixed FRONTIER and assert the SIGN of ev_dollars — not the magnitude:
+
+    * XOM is a clean +EV cash-secured put (comfortable margin, ~+113 at lock);
+    * UNH is structurally -EV at the same as_of (fat left tail, ~-77).
+
+    Pins only the sign, so the pending ev_mean re-baseline moves the numbers but a
+    sign INVERSION (the scariest silent failure for a decision engine) fails."""
+    frame = _rank(runner, ["XOM", "UNH"])
+    ev = dict(zip(frame["ticker"].astype(str), frame["ev_dollars"].astype(float), strict=False))
+    assert "XOM" in ev and "UNH" in ev, f"sign controls did not both produce: {sorted(ev)}"
+    assert ev["XOM"] > 0, f"XOM expected +EV at the frontier, got {ev['XOM']}"
+    assert ev["UNH"] < 0, f"UNH expected -EV at the frontier, got {ev['UNH']}"
+
+
+# ---------------------------------------------------------------------------
+# W16 — real earnings file -> get_next_earnings -> EventGate -> EVEngine.evaluate
+# lockout fires on a REAL near-earnings name (existing lockout tests use synthetic
+# hand-built dates). Asserts the EXISTING wire — builds none.
+# 2026-06-09 data-test audit (W16).
+# ---------------------------------------------------------------------------
+
+
+def test_real_earnings_event_lockout_fires(runner, frontier):
+    """W16: JPM has a real earnings date inside the 35-DTE window at the FRONTIER.
+    With the hard event gate ON it is dropped with ``gate=='event'``; with the
+    gate OFF the same name produces. Confirms the real ``sp500_earnings.csv`` (date
+    format + the ``'JPM UN'`` Bloomberg suffix) actually populates the gate, i.e.
+    the §2 first-gate lockout is DATA-wired, not only synthetic-date-tested."""
+    on = _rank(runner, ["JPM"])  # use_event_gate=True (default)
+    produced_on = set(on["ticker"].astype(str)) if len(on) else set()
+    drops_on = {d["ticker"]: d["gate"] for d in on.attrs.get("drops", [])}
+    assert "JPM" not in produced_on, "JPM should be locked out by the event gate at the frontier"
+    assert drops_on.get("JPM") == "event", f"JPM expected gate=='event', got {drops_on.get('JPM')}"
+
+    off = _rank(runner, ["JPM"], use_event_gate=False)
+    produced_off = set(off["ticker"].astype(str)) if len(off) else set()
+    off_event_drops = [d["ticker"] for d in off.attrs.get("drops", []) if d.get("gate") == "event"]
+    assert "JPM" in produced_off, "JPM should produce with the event gate off"
+    assert not off_event_drops, f"no event-gate drops expected with the gate off: {off_event_drops}"
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 

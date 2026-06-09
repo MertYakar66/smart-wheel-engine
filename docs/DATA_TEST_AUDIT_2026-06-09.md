@@ -15,6 +15,65 @@ read-only · decision trio untouched._
 
 ---
 
+## STATUS — EXECUTED (updated 2026-06-09): all (T) items landed, register extended W29–W37
+
+This doc opened as Phase-1 discovery (register **W14–W28**, §5 below). It has since been
+**executed and extended** in an autonomous session — all test-only **(T)** items
+**W14–W37** are merged to `main` across **8 held, CI-green, self-reviewed PRs**; a
+second discovery round (recon workflow) added **W29–W37**; and the engine/data-side
+items are tracked as issues (not grabbed — they need the §2 lane-claim ceremony or a
+producer change). Decision trio + data files untouched throughout; §2 only asserted,
+never weakened.
+
+**Landed test PRs (all squash-merged):**
+
+| PR | Items | Surface |
+|---|---|---|
+| #370 | W14 served-IV gate · W18 PIT-IV vs real connector · W21 realized-vol positivity · W26 band constants · W27(T) fallback IV | IV |
+| #371 | W15 EV sign controls · W16 real earnings lockout | data→engine |
+| #373 | W19 yield-band + GICS-11 · W20 dividend_yield→carry · W17 R9 map characterization | fundamentals/sector |
+| #374 | W22 depth invariant · W23 NaN-price two-sided · W25 dividend epsilon · W10 rate_1m | OHLCV/dividends |
+| #375 | W24 credit ladder + Altman-Z | credit (off-EV) |
+| #376 | W29 CC banded/finite · W30 CC real earnings lockout · W31 CC ex-div penalty sign · W32 CC EV sign | covered-call ranker |
+| #377 | W33 full-universe bands at scale · W35 vix→R11 content · W34 liquidity | realism / peripheral |
+| #379 | W36 vol_iv↔ohlcv date consistency · W37 rate-accessor divergence | cross-file / rate |
+
+**Round-2 register (W29–W37)** — gaps the first round did not reach, found by the
+round-2 recon workflow (covered-call ranker was real-data-starved vs the put side;
+realism-at-scale; vix/liquidity content; cross-file/rate robustness). All landed (T)
+above.
+
+**Capability-map correction C3 (refines §1).** Round 1 said "VIX is off the EV verdict"
+— true for the ranker's `ev_dollars` (the regime multiplier is the per-ticker OHLCV HMM,
+not VIX). But VIX **is** EV-decision-relevant via **R11**: `candidate_dossier.py:546-553`
+reads `dossier.vix_level` (← `get_vix_regime`, `wheel_runner.py:3490`) and downgrades
+proceed→review when `vix_level > 25.0 & prob_profit > threshold`. So a wrong-scale VIX
+silently breaks an EV-authoritative downgrade reviewer — pinned by **W35**.
+
+**Tracked, NOT grabbed** (need the §2 ceremony / a producer change):
+
+- **(E)** #369 — #363 IV gate doesn't clean the fundamentals-fallback IV path (W27 residue).
+- **(E)** #372 — R9 sector cap uses the hardcoded `DEFAULT_SECTOR_MAP` (132/511), ignoring
+  the pulled `gics_sector_name` (W17). HIGH; re-baseline-coupled.
+- **(E)** #378 — engine robustness under `deep_history`/staggered refresh: IV-staleness
+  gate (`_resolve_pit_atm_iv`) + rate-fallback divergence (`data_integration`) (W36/W37).
+- **(D)** W28 (`edge_vs_fair` ≡ 0 until a market-mid premium producer); #354 (PIT
+  fundamentals), #355 (blue-chip backfill), #357 (dividend producer clamp) — each already
+  behind a behaviour-pinning `xfail(strict)`.
+
+**Realism check (engine output is reliable/realistic).** Ranked UNIVERSE_100 at a
+historical (2024-06-03) and the frontier (2026-06-04) as_of: **0 non-finite, 0 band
+violations** (iv∈(0,3), prob∈[0,1], premium>0, strike<spot) at both. The 2024 skew
+(84/86 negative-EV at a low-vol date) is the documented conservative
+"forward-dist-lags-regime" bias (prior heavy-verify campaigns), not a new defect.
+
+**Re-baseline note:** the slow backtest snapshots (S27/S32/S34/S35) carry an
+`ev_mean`-only drift from #363's IV gate (a serving-logic re-pricing, NOT a regression —
+trades/cash/NAV byte-identical); batched into the pending universe re-baseline. W16/W30
+(JPM earnings-window) and W14–W37 magnitudes are FRONTIER-tied and re-baseline-aware.
+
+---
+
 ## 0. Headline — the picture is *better* than the precedent implied
 
 1. **Phase 2 (A)+(B) already shipped.** `tests/test_data_integrity_bloomberg.py`

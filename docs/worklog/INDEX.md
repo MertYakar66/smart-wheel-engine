@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**112 records.**
+**113 records.**
 
 ## Features (12)
 
@@ -74,7 +74,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (19)
+## Verification & realism (20)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -83,6 +83,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [data-tests-ev-sign-earnings](data-tests-ev-sign-earnings-data-test-pr-2-ev-sign-controls-real-earnings-lo.md) | in-flight |  | Phase-2 PR-2 of the data-layer test audit. Adds the two HIGH data→engine gaps — W15 the real-data EV SIGN controls (XOM +EV / UNH -EV through rank_candidates_by_ev at the FRONTIER, sign pinned not magnitude — catches a transform sign inversion that finite+banded tests miss), and W16 the real earnings→event-lockout wire (JPM dropped gate=='event' with the gate on, produces with it off — asserts the existing §2 first-gate on the real sp500_earnings.csv). Test-only; trio/data untouched. | `data-tests-ev-sign-earnings-data-test-pr-2-ev-sign-controls-real-earnings-lo.md` |
 | [data-tests-fundamentals-sector](data-tests-fundamentals-sector-data-test-pr-3-fundamentals-and-sector-w19-w20-w.md) | in-flight |  | Phase-2 PR-3 of the data-layer test audit. Adds W19 (eqy_dvd_yld_12m band + GICS-11 set on the real file), W20 (real dividend_yield flows into the BSM carry q — controlled synthetic + real percent assertion), and W17 (characterization that R9's DEFAULT_SECTOR_MAP ignores the pulled GICS — 379/511 names collapse to 'Unknown'). Opened issue #372 (E) for the R9→GICS rewire; W17 is a passing characterization that flips when #372 lands. Test-only; trio/data untouched. | `data-tests-fundamentals-sector-data-test-pr-3-fundamentals-and-sector-w19-w20-w.md` |
 | [data-tests-iv-surface](data-tests-iv-surface-data-test-pr-1-iv-surface-w14-w18-w21-w26-w27-ch.md) | in-flight |  | Phase-2 PR-1 of the data-layer test audit (docs/DATA_TEST_AUDIT_2026-06-09.md). Adds 7 real-data IV-surface assertions — the #363 served-IV band gate on the bundled CONNECTOR read (W14, the marquee gap, previously synthetic-only), the ranker iv == as-of PIT IV from the real connector (W18), realized-vol positivity/finiteness (W21), the authoritative IV-band constants (W26), and a passing characterization that #363 does NOT clean the fundamentals-fallback IV path (W27, connector fix tracked as (E) in #369). Test-only; trio/data untouched. | `data-tests-iv-surface-data-test-pr-1-iv-surface-w14-w18-w21-w26-w27-ch.md` |
+| [data-tests-ohlcv-dividends-hygiene](data-tests-ohlcv-dividends-hygiene-data-test-pr-4-ohlcv-and-dividends-hygiene-w22-w.md) | in-flight |  | Phase-2 PR-4 of the data-layer test audit. Adds W22 (per-name OHLCV ≥504 depth invariant — a new <504 name outside the known thin set fails, vs the per-name W6 xfail that only covers 11 and skips off-frontier), W23 (two-sided NaN-price pin catching the count GROWING, complementing the one-directional xfail), W25 (dividend epsilon-negatives stay immaterial through get_next_dividend), and the W10 rate_1m residual (coverage gap vs rate_3m + as_of-before-coverage→NaN). Test-only; trio/data untouched. | `data-tests-ohlcv-dividends-hygiene-data-test-pr-4-ohlcv-and-dividends-hygiene-w22-w.md` |
 | [dossier-downgrade-property](dossier-downgrade-property-dossier-downgrade-only-lattice-property-test.md) | in-flight |  | §2 downgrade-only severity lattice stated as one property over R1–R11, plus source-introspection meta-tripwires that force any future rule into the matrix; 3-theme test backlog preserved. | `dossier-downgrade-property-dossier-downgrade-only-lattice-property-test.md` |
 | [ENGINE_REVERIFY_S46_POST_F4_R10](../ENGINE_REVERIFY_S46_POST_F4_R10.md) | legacy |  | Engine re-verification — S46: closed tests on post-#260/#262 engine | `../ENGINE_REVERIFY_S46_POST_F4_R10.md` |
 | [heavy-news-calibration](heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md) | in-flight |  | On Bloomberg the pre-D18 news_multiplier was 1.0 in 1300/1300 probes — D18 is a measured no-op for prior backtests; prob_profit calibration matches the published 10-config matrix exactly. | `heavy-news-calibration-heavy-verify-ht-c-news-mult-measure-first-prob-p.md` |

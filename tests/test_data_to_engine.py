@@ -677,6 +677,39 @@ def test_dividend_yield_reaches_bsm_carry(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# W25 — dividend epsilon-negatives stay immaterial through the connector path.
+# 2026-06-09 data-test audit (W25); the producer clamp-to-0 is tracked as (D) #357.
+# ---------------------------------------------------------------------------
+
+
+def test_dividend_epsilon_negative_is_immaterial(tmp_path):
+    """W25: the real file carries 82 epsilon-negative ``dividend_amount`` values
+    (~-2.4e-14 float noise on Discontinued/Omitted rows). ``get_next_dividend`` does
+    NOT clamp, so confirm the epsilon stays IMMATERIAL (>= -1e-9) and cannot surface
+    as a spurious negative carry. The producer clamp-to-0 is (D) #357; this passes
+    whether the value is the epsilon today or a clamped 0 after the fix."""
+    pd.DataFrame(
+        [
+            {
+                "ticker": "ZZZ",
+                "declared_date": "2026-06-01",
+                "ex_date": "2026-07-01",
+                "record_date": "2026-07-02",
+                "payable_date": "2026-07-15",
+                "dividend_amount": -2.4245362661989844e-14,
+                "dividend_frequency": "Quarterly",
+                "dividend_type": "Discontinued",
+            }
+        ]
+    ).to_csv(tmp_path / "sp500_dividends.csv", index=False)
+    nd = MarketDataConnector(data_dir=tmp_path).get_next_dividend("ZZZ", as_of="2026-06-04")
+    assert nd is not None, "synthetic upcoming dividend not found"
+    assert float(nd["dividend_amount"]) >= -1e-9, (
+        f"epsilon-negative dividend leaked as material: {nd['dividend_amount']} (< -1e-9)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 

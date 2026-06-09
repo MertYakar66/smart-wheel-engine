@@ -576,6 +576,270 @@ def test_real_earnings_event_lockout_fires(runner, frontier):
 
 
 # ---------------------------------------------------------------------------
+# W20 — real dividend_yield (eqy_dvd_yld_12m, PERCENT) flows into the BSM carry q.
+# 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W20).
+# ---------------------------------------------------------------------------
+
+
+def test_dividend_yield_reaches_bsm_carry(tmp_path):
+    """W20: the real ``eqy_dvd_yld_12m`` (PERCENT) reaches the BSM carry term.
+
+    (a) real-data: ``get_fundamentals`` returns a high-yield name's yield in percent.
+    (b) controlled: two synthetic fixtures identical EXCEPT ``dividend_yield`` (0% vs
+        8%) produce a carry-correct difference — higher q lowers the forward, so the
+        25-delta short-put strike is strictly LOWER. A *sane* ~80.5 strike at 8% also
+        proves the unconditional percent->decimal ``/100`` fired (8.0 read as 800%
+        would collapse the forward). Routes through ``rank_candidates_by_ev`` — no §2
+        bypass; all other inputs (OHLCV, IV, rate fallback) are byte-identical."""
+    # (a) real-data — the carry input is in percent
+    f = WheelRunner().connector.get_fundamentals("CAG")
+    assert f is not None and f["dividend_yield"] is not None and float(f["dividend_yield"]) > 3.0, (
+        f"expected CAG dividend_yield in percent (>3), got "
+        f"{None if f is None else f.get('dividend_yield')}"
+    )
+
+    # (b) controlled synthetic — identical except dividend_yield
+    def _build(dirpath: Path, yld: float) -> None:
+        n = 600
+        dates = pd.bdate_range(end=FRONTIER, periods=n)
+        rng = np.random.default_rng(0)
+        price = 100.0 * np.exp(np.cumsum(rng.normal(0, 0.012, n)))
+        pd.DataFrame(
+            [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "ticker": "FBT",
+                    "open": p,
+                    "high": p,
+                    "low": p,
+                    "close": p,
+                    "volume": 1_000_000,
+                }
+                for d, p in zip(dates, price, strict=False)
+            ]
+        ).to_csv(dirpath / "sp500_ohlcv.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "ticker": "FBT",
+                    "hist_put_imp_vol": 25.0,
+                    "hist_call_imp_vol": 25.0,
+                    "volatility_30d": 25.0,
+                    "volatility_60d": 25.0,
+                    "volatility_90d": 25.0,
+                    "volatility_260d": 25.0,
+                }
+                for d in dates
+            ]
+        ).to_csv(dirpath / "sp500_vol_iv_full.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "ticker": "FBT",
+                    "30day_impvol_100.0%mny_df": 25.0,
+                    "volatility_30d": 25.0,
+                    "eqy_dvd_yld_12m": yld,
+                    "gics_sector_name": "Information Technology",
+                }
+            ]
+        ).to_csv(dirpath / "sp500_fundamentals.csv", index=False)
+
+    def _strike(yld: float) -> float:
+        d = tmp_path / f"y{int(yld)}"
+        d.mkdir()
+        _build(d, yld)
+        frame = WheelRunner(data_dir=d).rank_candidates_by_ev(
+            tickers=["FBT"],
+            as_of=FRONTIER,
+            top_n=5,
+            min_ev_dollars=-1e9,
+            include_diagnostic_fields=True,
+        )
+        assert len(frame) == 1, f"FBT(yld={yld}) produced no row"
+        return float(frame.iloc[0]["strike"])
+
+    strike_zero = _strike(0.0)
+    strike_high = _strike(8.0)
+    assert strike_high < strike_zero, (
+        "higher dividend yield should LOWER the carry-adjusted short-put strike "
+        f"(real q reaches BSM): yld=8% strike {strike_high} not < yld=0% strike {strike_zero}"
+    )
+    # percent->decimal PIN (not just probed): a correct 8% carry leaves a sane
+    # strike (~80.5). If the unconditional /100 were dropped, 8.0 would read as
+    # 800%, collapsing the forward (F ~ 0.47*S) and crushing the 25-delta strike to
+    # ~37 — which is ALSO < strike_zero, so the direction assert alone can't catch
+    # it. The absolute floor distinguishes correct-8% from the percent/decimal bug.
+    assert strike_high > 70.0, (
+        f"8% carry should leave a sane strike (~80); got {strike_high} — the "
+        "unconditional percent->decimal /100 may have been dropped (8.0 read as 800%)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# W25 — dividend epsilon-negatives stay immaterial through the connector path.
+# 2026-06-09 data-test audit (W25); the producer clamp-to-0 is tracked as (D) #357.
+# ---------------------------------------------------------------------------
+
+
+def test_dividend_epsilon_negative_is_immaterial(tmp_path):
+    """W25: the real file carries 82 epsilon-negative ``dividend_amount`` values
+    (~-2.4e-14 float noise on Discontinued/Omitted rows). ``get_next_dividend`` does
+    NOT clamp, so confirm the epsilon stays IMMATERIAL (>= -1e-9) and cannot surface
+    as a spurious negative carry. The producer clamp-to-0 is (D) #357; this passes
+    whether the value is the epsilon today or a clamped 0 after the fix."""
+    pd.DataFrame(
+        [
+            {
+                "ticker": "ZZZ",
+                "declared_date": "2026-06-01",
+                "ex_date": "2026-07-01",
+                "record_date": "2026-07-02",
+                "payable_date": "2026-07-15",
+                "dividend_amount": -2.4245362661989844e-14,
+                "dividend_frequency": "Quarterly",
+                "dividend_type": "Discontinued",
+            }
+        ]
+    ).to_csv(tmp_path / "sp500_dividends.csv", index=False)
+    nd = MarketDataConnector(data_dir=tmp_path).get_next_dividend("ZZZ", as_of="2026-06-04")
+    assert nd is not None, "synthetic upcoming dividend not found"
+    assert float(nd["dividend_amount"]) >= -1e-9, (
+        f"epsilon-negative dividend leaked as material: {nd['dividend_amount']} (< -1e-9)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Covered-call ranker real-data coverage (the wheel's 2nd leg) — W29/W30/W31/W32
+# (2026-06-09 data-test audit round 2; docs/DATA_TEST_AUDIT_2026-06-09.md). The CC
+# ranker was real-data-starved vs the put side (its only real-data assertion was the
+# single DIS ex-div row); these mirror the put-side well-formed/W15/W16 coverage.
+# ---------------------------------------------------------------------------
+
+
+def _rank_cc(runner, ticker, **kw):
+    kw.setdefault("shares_held", 100)
+    kw.setdefault("target_dtes", (DTE,))
+    kw.setdefault("target_deltas", (DELTA,))
+    kw.setdefault("top_n", 10)
+    kw.setdefault("min_ev_dollars", -1e9)
+    kw.setdefault("include_diagnostic_fields", True)
+    return runner.rank_covered_calls_by_ev(ticker=ticker, as_of=FRONTIER, **kw)
+
+
+def test_cc_clean_universe_output_is_well_formed(runner, frontier):
+    """W29: every produced covered-call row on real data is finite (R1a), banded, and
+    coherent — the CC analogue of test_clean_universe_output_is_well_formed. The CC
+    ranker's only prior real-data assertion was the single DIS ex-div row."""
+    frames = []
+    for t in UNIVERSE_24:
+        cc = _rank_cc(runner, t)
+        if len(cc):
+            frames.append(cc)
+    assert frames, "no covered-call rows produced across the clean control set"
+    frame = pd.concat(frames, ignore_index=True)
+    for _, row in frame.iterrows():
+        t = row["ticker"]
+        assert math.isfinite(float(row["ev_dollars"])), f"{t}: non-finite ev_dollars"
+        assert math.isfinite(float(row["ev_per_day"])), f"{t}: non-finite ev_per_day"
+        assert float(row["premium"]) > 0, f"{t}: premium not > 0"
+        iv = float(row["iv"])
+        assert 0.0 < iv < 3.0, f"{t}: iv {iv} implausible (expected decimal in (0,3))"
+        pp = float(row["prob_profit"])
+        assert 0.0 <= pp <= 1.0, f"{t}: prob_profit {pp} out of [0,1]"
+        assert 0.0 <= float(row["prob_assignment"]) <= 1.0, f"{t}: prob_assignment out of [0,1]"
+        # Covered call: strike ABOVE spot (OTM call) — the mirror of the short put.
+        assert float(row["strike"]) > float(row["spot"]) > 0, (
+            f"{t}: CC strike {row['strike']} not above spot {row['spot']}"
+        )
+        lo, hi, n = row["prob_profit_ci_low"], row["prob_profit_ci_high"], row["n_scenarios"]
+        if pd.notna(lo) and pd.notna(hi):
+            assert float(lo) <= pp <= float(hi), f"{t}: prob_profit outside its Wilson CI"
+            assert pd.notna(n) and int(n) > 0, f"{t}: CI present but n_scenarios not > 0"
+        assert row["distribution_source"] in VALID_TIERS, (
+            f"{t}: bad tier {row['distribution_source']}"
+        )
+
+
+def test_cc_real_earnings_event_lockout_fires(runner, frontier):
+    """W30: the CC analogue of W16. JPM has a real earnings date inside the 49/63-DTE
+    CC window at FRONTIER; with the event gate ON it is locked out (0 rows, every drop
+    gate=='event'), with it OFF it produces. Pins the real sp500_earnings.csv ->
+    get_next_earnings -> EventGate -> evaluate wire on the CC leg (CC event-gate tests
+    use synthetic dates only)."""
+    on = _rank_cc(runner, "JPM", target_dtes=(49, 63), use_event_gate=True)
+    produced_on = set(on["ticker"].astype(str)) if len(on) else set()
+    gates_on = [d.get("gate") for d in on.attrs.get("drops", [])]
+    assert "JPM" not in produced_on, "JPM CC should be event-locked at the frontier"
+    assert gates_on and all(g == "event" for g in gates_on), (
+        f"JPM CC expected only event-gate drops, got {gates_on}"
+    )
+    off = _rank_cc(runner, "JPM", target_dtes=(49, 63), use_event_gate=False)
+    assert len(off) > 0, "JPM CC should produce with the event gate off"
+    off_event = [d for d in off.attrs.get("drops", []) if d.get("gate") == "event"]
+    assert not off_event, f"no event-gate drops expected with the gate off: {off_event}"
+
+
+def test_cc_exdiv_penalty_lowers_ev(runner, frontier):
+    """W31: the in-window ex-dividend early-assignment penalty (call-only) LOWERS
+    ev_dollars. The DIS real-data test pins only that expected_dividend reaches the
+    row, not that it BITES — a regression dropping the penalty subtraction would pass
+    it. Toggle the REAL DIS ex-div (from get_next_dividend) on a controlled call
+    evaluation over the SAME forward distribution and assert the penalty is
+    negative-signed. Calls EVEngine.evaluate directly (the ranker can't suppress the
+    ex-div for an A/B) — no §2 bypass; evaluate is the authoritative EV path."""
+    from engine.ev_engine import EVEngine, ShortOptionTrade
+
+    nd = runner.connector.get_next_dividend("DIS", as_of=FRONTIER)
+    assert nd is not None and float(nd["dividend_amount"]) > 0, "DIS upcoming dividend missing"
+    div = float(nd["dividend_amount"])
+    # 35-day log-returns with enough spread that some calls finish ITM (penalty bites).
+    fwd = np.random.default_rng(0).normal(0.0, 0.10, 500)
+    base = {
+        "option_type": "call",
+        "underlying": "DIS",
+        "spot": 100.0,
+        "strike": 105.0,
+        "premium": 1.20,
+        "dte": 35,
+        "iv": 0.25,
+        "risk_free_rate": 0.05,
+        "dividend_yield": 0.0,
+    }
+    eng = EVEngine()
+    ev_no = eng.evaluate(
+        ShortOptionTrade(**base, days_to_ex_div=None, expected_dividend=0.0),
+        forward_log_returns=fwd,
+    ).ev_dollars
+    ev_div = eng.evaluate(
+        ShortOptionTrade(**base, days_to_ex_div=20, expected_dividend=div),
+        forward_log_returns=fwd,
+    ).ev_dollars
+    assert ev_div < ev_no, (
+        "in-window ex-div should LOWER CC ev (early-assignment penalty): "
+        f"with-exdiv {ev_div} not < without {ev_no}"
+    )
+
+
+def test_cc_ev_dollars_sign_controls(runner, frontier):
+    """W32: the CC analogue of W15 — pin ev_dollars SIGN on real CC data. HD is a
+    clean +EV covered call at FRONTIER; UNH and AAPL are -EV. Sign only (FRONTIER-tied)
+    so the pending ev_mean re-baseline moves magnitudes in lockstep but a CC sign
+    inversion fails. Gate off so earnings lockout doesn't suppress the controls."""
+    hd = _rank_cc(runner, "HD", target_deltas=(0.20, 0.25, 0.30), use_event_gate=False)
+    assert len(hd) > 0, "HD CC produced no rows"
+    assert float(hd["ev_dollars"].max()) > 0, (
+        f"HD expected a +EV covered call at the frontier, got max {hd['ev_dollars'].max()}"
+    )
+    for name in ("UNH", "AAPL"):
+        neg = _rank_cc(runner, name, target_deltas=(0.20, 0.25, 0.30), use_event_gate=False)
+        assert len(neg) > 0, f"{name} CC produced no rows"
+        assert float(neg["ev_dollars"].max()) < 0, (
+            f"{name} expected all -EV covered calls, got max {neg['ev_dollars'].max()}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 
@@ -602,3 +866,21 @@ def test_full_universe_no_silent_drops_and_split(runner, frontier):
         "non-finite ev_dollars at scale"
     )
     assert np.isfinite(pd.to_numeric(frame["ev_raw"], errors="coerce")).all(), "non-finite ev_raw"
+    # W33: full BANDING at scale (extends the finite-only pin above) — every produced
+    # row satisfies the same bands the UNIVERSE_24 well-formed test checks. Catches an
+    # out-of-band tail/post-seam/fallback-tier row the 24-name control never exercises.
+    # (2026-06-09 data-test audit round 2; probe at FRONTIER: 480 produced / 0 viol.)
+    for _, row in frame.iterrows():
+        t = row["ticker"]
+        iv = float(row["iv"])
+        assert 0.0 < iv < 3.0, f"{t}: iv {iv} out of (0,3) at scale"
+        pp = float(row["prob_profit"])
+        assert 0.0 <= pp <= 1.0, f"{t}: prob_profit {pp} out of [0,1] at scale"
+        assert 0.0 <= float(row["prob_assignment"]) <= 1.0, (
+            f"{t}: prob_assignment out of [0,1] at scale"
+        )
+        assert float(row["premium"]) > 0, f"{t}: premium not > 0 at scale"
+        assert 0 < float(row["strike"]) < float(row["spot"]), f"{t}: strike not below spot at scale"
+        assert row["distribution_source"] in VALID_TIERS, (
+            f"{t}: bad tier {row['distribution_source']} at scale"
+        )

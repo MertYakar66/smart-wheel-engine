@@ -3,6 +3,18 @@
 The full suite is `pytest tests/ -v` (run `pytest --collect-only -q | tail -1`
 for the live count — pinned numbers drift within a day).
 
+> **The per-PR / launch-blocker gate is `pytest tests/ -m "not backtest_regression"`**
+> — that is the exact command CI runs (`.github/workflows/ci.yml`), and the
+> ~11-minute run that gates merges. A *bare* `pytest tests/` does **not**
+> auto-deselect the `backtest_regression` marker: `conftest.py` only *registers*
+> it and `addopts` is just `-v`, so with the S27/S32/S34/S35 snapshots present
+> locally a bare run pulls the **~4–5 h slow lane inline** (the reproducers
+> `skip` only when their snapshot JSON is absent — and all four are committed).
+> Use the `-m "not backtest_regression"` form for the fast gate; run the slow
+> lane deliberately via `.claude/commands/backtest-regression.md`. The data-drift
+> guards (`test_snapshot_*fingerprint*`) are *not* behind the marker, so they run
+> in the fast gate and pre-flag snapshot drift before any multi-hour run.
+
 Markers and hypothesis profiles are wired in `conftest.py`.
 
 ## Two-axis verification

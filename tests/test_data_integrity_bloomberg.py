@@ -511,3 +511,101 @@ def test_r9_sector_map_ignores_pulled_gics_characterization():
         f"got {len(ignored)} — if near 0, R9 may now read GICS: update this "
         "characterization to assert the GICS-grouped behaviour"
     )
+
+
+# ---------------------------------------------------------------------------
+# OHLCV depth + NaN-price pins + treasury rate_1m residual — W22 / W23 / W10
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+# 17 names below the 504-bar survivorship gate at the 2026-06-04 frontier:
+# W6 backfill defects (#355) + legit-recent joiners. A NEW name dropping below the
+# gate (outside this set) is the silent truncation W22 catches.
+KNOWN_THIN = {
+    "WMT",
+    "KMB",
+    "CPB",
+    "DPZ",
+    "PLTR",
+    "VEEV",
+    "COHR",
+    "CASY",
+    "LITE",
+    "SATS",
+    "VRT",
+    "BNY",
+    "FDXF",
+    "SNDK",
+    "SW",
+    "PSKY",
+    "Q",
+}
+
+# The 4 vendor-glitch NaN-price rows (price NaN, volume present) — #357.
+_KNOWN_NAN_PRICE_ROWS = {
+    ("BIIB", "2020-11-06"),
+    ("BIIB", "2023-06-09"),
+    ("TPL", "2019-05-16"),
+    ("TPL", "2019-07-09"),
+}
+
+
+def test_ohlcv_per_name_depth_invariant():
+    """W22: every name with < 504 OHLCV bars (the survivorship gate) is a KNOWN
+    thin name. A NEW blue-chip silently truncated < 504 — outside the known set —
+    fails here, instead of being invisible (the only other depth check is the
+    per-name W6 xfail in test_data_to_engine.py, which skips off-frontier and only
+    covers 11 named tickers)."""
+    prof = _ohlcv_history_profile()
+    thin = {t for t in prof.index if int(prof.loc[t, "ndays"]) < GATE_DAYS}
+    unexpected = thin - KNOWN_THIN
+    assert not unexpected, (
+        f"NEW <504-bar OHLCV names outside the known thin set: {sorted(unexpected)} "
+        "(a silent blue-chip truncation — investigate before it reaches the gate)"
+    )
+
+
+def test_ohlcv_nan_price_rows_are_the_known_four():
+    """W23: pin the 4 vendor-glitch NaN-price rows two-sidedly. The xfail
+    test_ohlcv_no_nan_prices flips when they are FIXED (count -> 0); THIS catches
+    the count GROWING — a 5th NaN row from a future refresh fails here (the
+    one-directional xfail would stay green). Pins the exact (ticker,date) keys."""
+    df = _ohlcv_canonical()
+    nan_mask = df[["open", "high", "low", "close"]].isna().any(axis=1)
+    sub = df.loc[nan_mask]
+    found = {
+        (normalize_ticker(str(t)), str(d)[:10])
+        for t, d in zip(sub["ticker"], sub["date"], strict=False)
+    }
+    assert found == _KNOWN_NAN_PRICE_ROWS, (
+        f"OHLCV NaN-price rows changed: {sorted(found)} != known "
+        f"{sorted(_KNOWN_NAN_PRICE_ROWS)} — a 5th vendor-glitch NaN would slip past "
+        "the one-directional xfail; investigate + update the pin"
+    )
+
+
+def test_treasury_rate_1m_coverage_gap_and_nan_before():
+    """W10 residual: rate_1m has a documented coverage GAP — it starts LATER than
+    rate_3m (the audit found 2001-07 vs 1994) — and, crucially, an as_of BEFORE its
+    coverage returns NaN (never a spurious 0% rate); values sit in a plausible band
+    that ALLOWS the brief negative-bill episodes. (test_treasury_band_and_coverage
+    pins rate_3m; this closes the rate_1m gap the audit flagged.) The 'before' as_of
+    is derived from the actual coverage start, so a future backfill can't false-fail
+    it — the safety property (NaN, not 0) is what's pinned, not a hard date."""
+    df = _load("treasury_yields.csv")
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    r1 = pd.to_numeric(df["rate_1m"], errors="coerce")
+    r3 = pd.to_numeric(df["rate_3m"], errors="coerce")
+    first_1m = df.loc[r1.notna(), "date"].min()
+    first_3m = df.loc[r3.notna(), "date"].min()
+    assert first_1m > first_3m, (
+        f"rate_1m first non-null {first_1m} not later than rate_3m {first_3m} "
+        "(the documented W10 coverage gap closed — update the pin)"
+    )
+    nn = r1.dropna()
+    assert nn.min() >= -0.5, f"rate_1m min {nn.min()} below plausible floor (-0.5%)"
+    assert nn.max() <= 25.0, f"rate_1m max {nn.max()} above plausible ceiling (25%)"
+    # the safety property: an as_of BEFORE rate_1m coverage -> NaN, never a spurious 0
+    before = str((first_1m - pd.Timedelta(days=30)).date())
+    early = MarketDataConnector().get_risk_free_rate(before, tenor="rate_1m")
+    assert pd.isna(early), f"rate_1m before coverage ({before}) should be NaN, got {early}"

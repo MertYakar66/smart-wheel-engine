@@ -1297,7 +1297,10 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 payload = adapter.account_summary(snapshot, ledger)
                 source = adapter.provenance(snapshot)
             elif sub == "positions":
-                payload = {"holdings": adapter.build_holdings_view(snapshot)}
+                payload = {
+                    "holdings": adapter.build_holdings_view(snapshot),
+                    "legs": adapter.build_positions_flat(snapshot),
+                }
                 source = adapter.provenance(snapshot)
             elif sub == "returns":
                 history = adapter.load_history()

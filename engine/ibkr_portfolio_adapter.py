@@ -342,6 +342,65 @@ def build_holdings_view(snapshot: dict) -> list[dict]:
     return rows
 
 
+def build_positions_flat(snapshot: dict) -> list[dict]:
+    """One row per RAW leg (stock + each option) — the flat "all positions"
+    view, with NO per-underlying aggregation. A companion to
+    :func:`build_holdings_view` (the wheel-aggregated view), not a replacement.
+    Read-only / observational.
+
+    ``state`` classifies each leg: ``shares`` (stock), ``short_put`` /
+    ``short_call`` (written options — the CSP and covered-call legs), and
+    ``long_put`` / ``long_call``. Values are FX-normalized to the base
+    currency. ``mktValue`` is signed (short option legs are negative).
+    ``pctNav`` is the leg's *absolute market value* as a share of NAV
+    (IBKR-style), so a written-premium leg reads small and the underlying
+    stock reads large. The R10 single-name breach is an underlying-level
+    concept surfaced on the risk radar, so per-leg ``breach`` is always False.
+    """
+    nav = _num(snapshot["account"]["net_liquidation"])
+    rows: list[dict] = []
+    for pos in snapshot.get("positions", []):
+        qty = int(_num(pos.get("qty")))
+        if qty == 0:
+            continue  # closed today → not part of the current book
+        sym = str(pos.get("symbol", "")).upper()
+        currency = str(pos.get("currency", "USD")).upper()
+        fx = _fx_rate(snapshot, currency)
+        mark = _num(pos.get("mark")) * fx
+        upnl = _num(pos.get("unrealized_pnl")) * fx
+
+        if _is_option(pos):
+            is_put = _option_type(pos) == "put"
+            if qty < 0:
+                state = "short_put" if is_put else "short_call"
+            else:
+                state = "long_put" if is_put else "long_call"
+            mkt_value = qty * mark * 100.0
+        else:
+            state = "shares"
+            mkt_value = qty * mark
+
+        pct_nav = (abs(mkt_value) / nav * 100.0) if nav else 0.0
+        rows.append(
+            {
+                "sym": sym,
+                "name": pos.get("name") or sym,
+                "state": state,
+                "qty": qty,
+                "mark": round(mark, 2),
+                "mktValue": round(mkt_value),
+                "uPnl": round(upnl),
+                "pctNav": round(pct_nav),
+                "pctNavExact": pct_nav,
+                "breach": False,
+                "sector": pos.get("sector", "Unknown"),
+                "currency": currency,
+                "inUniverse": bool(pos.get("in_universe", True)),
+            }
+        )
+    return rows
+
+
 # ----------------------------------------------------------------------
 # Engine type: PortfolioContext + held_option_positions + nav
 # ----------------------------------------------------------------------
@@ -803,7 +862,10 @@ def build_all(data_dir: str | Path | None = None) -> dict[str, Any]:
     ledger = load_ledger(data_dir)
     return {
         "summary": account_summary(snapshot, ledger),
-        "positions": {"holdings": build_holdings_view(snapshot)},
+        "positions": {
+            "holdings": build_holdings_view(snapshot),
+            "legs": build_positions_flat(snapshot),
+        },
         "returns": returns_view(history, snapshot),
         "income": income_view(ledger, snapshot=snapshot),
         "risk": risk_view(snapshot),

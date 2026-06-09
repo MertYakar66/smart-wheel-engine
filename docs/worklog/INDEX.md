@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**108 records.**
+**109 records.**
 
 ## Features (12)
 
@@ -150,11 +150,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
 | [unattended-run-2026-06-06](unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md) | complete |  | End-of-run summary of the ~9h unattended data-layer activation queue — 6 PRs opened (none merged), all CI green except the one known pre-existing f4 smoke. Deep-read ships DEFAULT-OFF; the trio is untouched beyond R0a; R1 (data merge + re-baseline + flip-on) is left for the architect-reviewed session. | `unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md` |
 
-## Research records (4)
+## Research records (5)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [data-layer-activation](data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md) | in-flight |  | Verified the campaign's survivorship-free 1990-2026 data on the bytes (refresh 6bb3399 / deep e7818f4), confirmed the engine still reads only 2018+ monoliths, and produced a prioritized activation roadmap + a connector deep-read / survivorship-harness design — executing only the safe prep (the credit-rating dead-read fix), deferring every decision-layer-touching step (merge, re-baseline, connector change) for operator review. | `data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md` |
+| [data-test-audit](data-test-audit-data-layer-test-audit-phase-1-coverage-register.md) | in-flight |  | Deeper, test-coverage-focused data-layer audit on origin/main @ d0cdcde. Found Phase 2 (A)+(B) already shipped (#358/#366) so all of W1-W13 are closed/tracked; registered 15 NEW weaknesses W14-W28 (13 (T) landable, 1 (E)/1 (D) tracked) led by the untested #363 served-IV gate + the missing real-data EV sign control; corrected two precedent capability-map claims (credit is OFF the EV path; R9 sector uses a hardcoded DEFAULT_SECTOR_MAP). Phase 1 = doc + reproducible probe; HOLD before Phase 2. | `data-test-audit-data-layer-test-audit-phase-1-coverage-register.md` |
 | [F4_TAIL_RISK_DIAGNOSTIC](../F4_TAIL_RISK_DIAGNOSTIC.md) | legacy |  | F4 tail-risk gap — diagnostic + fix plan (2026-05-26) | `../F4_TAIL_RISK_DIAGNOSTIC.md` |
 | [PROB_PROFIT_CALIBRATION_2026-05-28](../PROB_PROFIT_CALIBRATION_2026-05-28.md) | legacy |  | prob_profit calibration — multi-backtest analysis (2026-05-28) | `../PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | [r11-onset-aware-trigger](r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md) | proposed |  | PROPOSED (not started). R11's VIX-level trigger fires post-spike and forgoes V-recoveries (2020). Hypothesis: a PERSISTENCE condition — fire only when VIX>25 has held N consecutive trading days — keeps the 2022 grind-down protection while skipping the 2020 spike, sidestepping the I10 rv_ratio detection problem. Backtest-able with the existing r11_dollar_impact driver. | `r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md` |

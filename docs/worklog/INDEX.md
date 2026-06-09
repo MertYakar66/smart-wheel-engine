@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**114 records.**
+**115 records.**
 
 ## Features (12)
 
@@ -74,12 +74,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (21)
+## Verification & realism (22)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [audit-data-engine](audit-data-engine-phase-1-data-engine-audit-discovery.md) | in-flight |  | Reusable data+engine audit pass — 13 ranked findings; data spine sound, frontier-pinned probe clean (480/511 produced, 0 silent drops); 3 HIGH (conditional IV /100 heuristic in-trio, dateless fundamentals/credit lookahead, OHLCV-only fingerprint blind-spot) | `audit-data-engine-phase-1-data-engine-audit-discovery.md` |
 | [data-phase2-tests](data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md) | in-flight |  | Phase-2 of the data audit — 2 real-CSV test suites (integrity + data→engine) turning the Phase-1 findings into strong assertions; confirmed defects tracked as xfail(strict)+issue; trio byte-identical | `data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md` |
+| [data-tests-covered-call](data-tests-covered-call-data-test-pr-6-covered-call-real-data-coverage-w.md) | in-flight |  | Phase-2 round-2 PR-6 of the data-layer test audit. The covered-call ranker (the wheel's 2nd leg) was real-data-starved vs the put side — its only real-data assertion was the single DIS ex-div row. Adds W29 (CC banded/finite on real data, mirror of the put well-formed test), W30 (CC real earnings event-lockout, mirror W16), W31 (CC ex-div penalty SIGN lowers ev, controlled A/B grounded in the real DIS ex-div), W32 (CC EV-sign control HD +/UNH,AAPL -, mirror W15). Gaps found by the round-2 recon workflow. Test-only; trio/data untouched. | `data-tests-covered-call-data-test-pr-6-covered-call-real-data-coverage-w.md` |
 | [data-tests-credit](data-tests-credit-data-test-pr-5-credit-ladder-and-altman-z-band-w.md) | in-flight |  | Phase-2 PR-5 (final register PR) of the data-layer test audit. Adds W24 — sp_rating ladder validity after stripping the CreditWatch suffix (' *-'/' *+'), and an Altman-Z plausibility band. Credit is OFF the EV-authoritative path (capability C1: feeds the legacy heuristic + display only, never EVEngine.evaluate), so these are display-severity. Completes the W14-W27 (T) register items; W28 (D) stays tracked. Test-only; trio/data untouched. | `data-tests-credit-data-test-pr-5-credit-ladder-and-altman-z-band-w.md` |
 | [data-tests-ev-sign-earnings](data-tests-ev-sign-earnings-data-test-pr-2-ev-sign-controls-real-earnings-lo.md) | in-flight |  | Phase-2 PR-2 of the data-layer test audit. Adds the two HIGH data→engine gaps — W15 the real-data EV SIGN controls (XOM +EV / UNH -EV through rank_candidates_by_ev at the FRONTIER, sign pinned not magnitude — catches a transform sign inversion that finite+banded tests miss), and W16 the real earnings→event-lockout wire (JPM dropped gate=='event' with the gate on, produces with it off — asserts the existing §2 first-gate on the real sp500_earnings.csv). Test-only; trio/data untouched. | `data-tests-ev-sign-earnings-data-test-pr-2-ev-sign-controls-real-earnings-lo.md` |
 | [data-tests-fundamentals-sector](data-tests-fundamentals-sector-data-test-pr-3-fundamentals-and-sector-w19-w20-w.md) | in-flight |  | Phase-2 PR-3 of the data-layer test audit. Adds W19 (eqy_dvd_yld_12m band + GICS-11 set on the real file), W20 (real dividend_yield flows into the BSM carry q — controlled synthetic + real percent assertion), and W17 (characterization that R9's DEFAULT_SECTOR_MAP ignores the pulled GICS — 379/511 names collapse to 'Unknown'). Opened issue #372 (E) for the R9→GICS rewire; W17 is a passing characterization that flips when #372 lands. Test-only; trio/data untouched. | `data-tests-fundamentals-sector-data-test-pr-3-fundamentals-and-sector-w19-w20-w.md` |

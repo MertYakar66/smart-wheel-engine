@@ -209,7 +209,7 @@ new strategy / new broker integration)
 These are the gates beyond the per-PR checklist. Reach for this
 list when shipping something genuinely user-facing:
 
-- [ ] `audit.py` smoke tests pass against a running `engine_api.py`.
+- [ ] `scripts/audit_api_smoke.py` smoke tests pass against a running `engine_api.py`.
       Default `localhost:8787`; both server and client now honour
       `SWE_API_PORT` (closed D15 Unresolved). Set the env to bind a
       non-default port for multi-instance launches.
@@ -296,7 +296,7 @@ or `. .\scripts\setup-terminal.ps1 <letter>` (PowerShell). The loader
 sets six env vars per terminal letter — `SWE_API_PORT`,
 `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `COVERAGE_FILE`,
 `PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `SWE_API_PORT` (PR #158,
-honoured by `engine_api.py._resolve_port()` and `audit.py`'s `BASE`),
+honoured by `engine_api.py._resolve_port()` and `scripts/audit_api_smoke.py`'s `BASE`),
 `COVERAGE_FILE` (coverage.py), `PYTEST_CACHE_DIR` (pytest), and
 `SWE_DATA_PROVIDER` (`WheelRunner.connector`) are real today —
 each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` and

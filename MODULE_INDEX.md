@@ -32,7 +32,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|---|---|
 | `engine_api.py` | HTTP API on `:8787` (34 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
-| `audit.py` | Smoke-test client that hits `localhost:8787` and runs domain-grouped checks; used historically by audit-i through audit-viii. | live | infra |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
 | `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
@@ -195,6 +194,7 @@ Key scripts:
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
 | `probe_theta_capabilities.py` | Regenerates `data_processed/theta_capabilities.json`. |
 | `quant_benchmark_gate.py` | Gate run for benchmark suite. |
+| `audit_api_smoke.py` | Smoke-test client that hits a running `engine_api.py` (`SWE_API_PORT`, default `:8787`) and runs domain-grouped checks; used historically by audit-i through audit-viii (was repo-root `audit.py`). |
 | `validate_environment.py` | Local environment sanity (wired into CI). |
 | `check_manifest_coverage.py` | CI guard — fails the build if any tracked file is absent from `FILE_MANIFEST.md` or vice versa (the gate behind `DECISIONS.md` D14's tiered layout). |
 | `setup-terminal.{sh,ps1}` | Parallel-session env loader (bash / PowerShell) — sources per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, and three more vars. See `DECISIONS.md` D15. |

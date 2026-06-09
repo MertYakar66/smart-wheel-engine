@@ -39,7 +39,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `LICENSE` | MIT license. |
 | `engine_api.py` | Interface-layer entry point — the stdlib HTTP API server on `:8787` serving the Next.js dashboard. |
 | `morning_run.py` | Entry point for the browser-driven, zero-API-cost multi-LLM morning news pipeline. |
-| `audit.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks. |
 | `conftest.py` | pytest configuration — hypothesis profiles, shared fixtures, custom markers. |
 | `pyproject.toml` | Packaging and tooling configuration (ruff, mypy, pytest, coverage). |
 | `requirements.txt` | Runtime dependency list. |
@@ -589,6 +588,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 
 | File | Purpose |
 |---|---|
+| `scripts/audit_api_smoke.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks (was repo-root `audit.py`; renamed at the D27 move — it is an API smoke client, not the audit-cycle framework). |
 | `scripts/pull_all.py` | Orchestrates every puller in dependency order, skipping steps whose upstream is unavailable. |
 | `scripts/ibkr_ev_calibration.py` | Phase 3: PIT EV calibration — replays the operator's real short puts AND covered calls through `EVEngine.evaluate` at each trade's exact strike (reusing the ranker's PIT machinery) and compares `prob_profit`/`prob_assignment`/`ev_raw` to the realized hold-to-expiry outcome; per-leg + combined reliability/Brier/ECE + Wilson CIs + EV-sign split + a moneyness scale gate. Observational (§2/§3); never bypasses the engine. |
 | `scripts/ibkr_flex_ledger.py` | Phase 4: re-keys `wheel_ledger.json` from the exact IBKR Flex 'Trades' export (two CSVs) — Open/Close-driven long/short average-cost stock + per-contract option realized with real dates; refreshes history `premium`; reconciles to the p6 book + MTM. Read-only/observational (§2/§3). |

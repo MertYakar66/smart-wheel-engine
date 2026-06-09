@@ -579,7 +579,11 @@ known-stale facts were left in place *on purpose*, not missed.
   navigability gain once `FILE_MANIFEST.md` + `AGENTS.md` index `docs/`.
 - *Move `audit.py` into `scripts/`.* Would pull it into CI's ruff scope
   and mix a lint-scope change into a structural PR while CI lint is
-  already red. Left at the repo root.
+  already red. Left at the repo root. **SUPERSEDED by D27 (2026-06-09):**
+  the blocking reason dissolved when Track F closed the lint debt
+  (PR #79); the file was verified ruff-clean and moved as
+  `scripts/audit_api_smoke.py`, the name making clear it is an API
+  smoke client, not the audit-cycle framework.
 - *Delete the empty `src/` subpackages or `models/`.* `src/` is still
   imported by live modules (see D2); `models/` is `ml/wheel_model.py`'s
   default output directory. Only the genuinely dead, zero-reference
@@ -587,8 +591,9 @@ known-stale facts were left in place *on purpose*, not missed.
 
 **Migration path:** No compatibility shims — no moved file is an
 imported Python module, and `audit.py` (the one root script with a
-module name) was deliberately not moved. All inbound references were
-updated in the same commit as each move. External bookmarks to
+module name) was deliberately not moved at D14 time (later moved by
+D27 once the lint-scope objection dissolved). All inbound references
+were updated in the same commit as each move. External bookmarks to
 repo-root doc URLs should repoint to `docs/<name>.md`, or to
 `archive/2026-05/<name>` for the three archived docs. **Shim expiry:**
 n/a — no shims were created.
@@ -679,9 +684,10 @@ explicitly.
 - *Wire `SWE_API_PORT` into `engine_api.py` in the same PR.* Out of
   scope for the docs/coordination PR D15 shipped in. The promotion
   was the natural follow-on and **landed as the C7 fix from audit
-  issue #154** — `engine_api.py._resolve_port()` and `audit.py`'s
-  `BASE` both now honour `SWE_API_PORT` with 8787 as the default
-  fallback. Pinned by `tests/test_engine_api_port.py`.
+  issue #154** — `engine_api.py._resolve_port()` and the smoke
+  client's `BASE` (now `scripts/audit_api_smoke.py`, post-D27) both
+  honour `SWE_API_PORT` with 8787 as the default fallback. Pinned by
+  `tests/test_engine_api_port.py`.
 - *Hardcode Terminal C in the doc.* The whole point of the rewrite
   is N-generic; the moment a third terminal is needed, it claims on
   the board, sources `setup-terminal.sh c`, and starts. The doc

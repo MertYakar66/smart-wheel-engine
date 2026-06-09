@@ -749,6 +749,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_explore_ticker.py` | `WheelRunner.explore_ticker` — single-ticker (delta × DTE) grid surfacing for short-put EV exploration via the production EV path. |
 | `tests/test_option_pricer.py` | Quant-correctness — Black-Scholes pricing/Greeks, put-call parity, vectorized pricing. |
 | `tests/test_binomial_tree.py` | Quant-correctness — CRR binomial pricing and cross-model validation. |
+| `tests/test_pricing_evaluate_invariants.py` | Quant audit round 2 (W63-W64): behaviour-pins the binomial tree's vega/theta/rho UNITS against analytic BSM (q=0 calls, American==European — a 100x unit slip would be invisible; only delta/gamma were validated) and EVEngine.evaluate finiteness at degenerate dte (<=0 → intrinsic + ev_per_day floor, no div-by-zero). Gamma left loose (tree-noise). §2 only asserted. |
 | `tests/test_monte_carlo.py` | Quant-correctness — block bootstrap, jump diffusion, Longstaff-Schwartz. |
 | `tests/test_advanced_quant.py` | Quant-correctness — third-order Greeks, BAW American pricing, multi-asset VaR. |
 | `tests/test_quant_fixtures.py` | Quant-correctness — textbook-value regression for pricing and volatility estimators. |

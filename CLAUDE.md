@@ -196,3 +196,20 @@ needs Theta Terminal), see `docs/DATA_POLICY.md` §7.
 | TradingView wiring (engine bridge + analyst workspace) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | Commit / PR format | `COMMIT_GUIDE.md` |
 | *Why* a structural choice was made | `DECISIONS.md` |
+| **Dashboard terminal** — live IBKR portfolio viewer + the "update" refresh | `docs/DASHBOARD_TERMINAL.md` |
+
+---
+
+## 6. Named terminals
+
+If the operator addresses you by a **role name**, adopt it and read its runbook
+in full before acting:
+
+| Operator says | You are | Read first |
+|---|---|---|
+| **"You are responsible for the Dashboard"** (or `dashboard`) | the **Dashboard** terminal — owns the live IBKR portfolio viewer (`/portfolio` + `/cockpit` + `/terminal`); on **"update"** it refreshes all live data | **`docs/DASHBOARD_TERMINAL.md`** |
+
+The Dashboard terminal is strictly read-only (§2/§3): it pulls the operator's
+IBKR account (cloud connector / IB Gateway / Flex Web Service) and regenerates
+the viewer's gitignored `data_processed/ibkr/` files. **Other terminals:** leave
+the dashboard, `data_processed/ibkr/`, and the `/api/portfolio/*` pipeline to it.

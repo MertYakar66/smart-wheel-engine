@@ -30,6 +30,7 @@ don't open three and reconcile them).
 | **Locating a file by name or directory — `grep` it, do not read in full** | `FILE_MANIFEST.md` |
 | Rehydrating data on a fresh machine (Theta Terminal, feature store) | `docs/LAPTOP_SETUP.md` |
 | Another session may be active on this repo (shared working tree) | `docs/PARALLEL_SESSIONS.md` (and the coordination board pinned in GitHub issues) |
+| You're told **"You are responsible for the Dashboard"** (the dashboard terminal) | `docs/DASHBOARD_TERMINAL.md` |
 
 ## Read on demand
 

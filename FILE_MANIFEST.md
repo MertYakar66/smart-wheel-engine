@@ -781,6 +781,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_observability.py` | `engine.observability` trace context, decision journal, audit logger. |
 | `tests/test_event_calendar.py` | `engine.event_calendar` queries, builder, ingestion manager. |
 | `tests/test_event_gate.py` | `EventGate` lockout, buffer windows, candidate filtering. |
+| `tests/test_reviewer_eventgate_invariants.py` | Quant audit round 2 (W65-W67): behaviour-pins the EXACT boundaries of the §2 downgrade-only reviewer rules — R5 inclusive `ev_dollars >= min_proceed_ev` (==threshold→proceed), R3 strict `diff > tol` (==tol→not-skip) + the `engine_spot>0` guard — and EventGate.is_blocked returning the EARLIEST in-window event across mixed wildcard-macro/ticker-specific. Asserts the §2 contract (downgrade-only), never weakens it. |
 | `tests/test_event_gate_back_buffer.py` | Pin S23 F1 fix — `MarketDataConnector.get_recent_earnings` complements `get_next_earnings`; the three rankers register past earnings on the gate so the symmetric back-buffer fires. |
 | `tests/test_earnings_drift.py` | `EarningsDriftAnalyzer` post-earnings drift statistics. |
 | `tests/test_signals.py` | The signal-generation framework and aggregator. |

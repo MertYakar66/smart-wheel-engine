@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**122 records.**
+**123 records.**
 
 ## Features (12)
 
@@ -74,7 +74,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (27)
+## Verification & realism (28)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -97,6 +97,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
 | [quant-tests-forward-dist](quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md) | in-flight |  | Behaviour-pins the EV integrand's cascade tier-SELECTION (not membership), sampler determinism, empirical boundary, and realized-vol guards; probe exposed an incomplete _log guard (+inf leak) tracked as (E) #382 via xfail(strict) | `quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md` |
 | [quant-tests-hmm-regime](quant-tests-hmm-regime-quant-audit-round-2-pr-3-hmm-regime-multiplier-i.md) | in-flight |  | Pins the HMM multiplier envelope sup/inf (0.2..1.25), same-seed determinism, the unfit-guard RuntimeError, and the RegimeDetector degenerate fallback; fit's missing non-finite guard (NaN multiplier) tracked as (E) #386 via xfail; the crisis over-firing left UNPINNED as a known limitation | `quant-tests-hmm-regime-quant-audit-round-2-pr-3-hmm-regime-multiplier-i.md` |
+| [quant-tests-skew-dynamics](quant-tests-skew-dynamics-quant-audit-round-2-pr-4-skew-dynamics-invariant.md) | in-flight |  | Pins the standalone skew-math (NS fail-fast + degenerate fit, skew_momentum degenerate history, ivs_dislocation [-1,1] bound); the live skew_mult clamp is dormant-on-Bloomberg + trio so not re-pinned, and skew-boost-cant-rescue is already covered generically | `quant-tests-skew-dynamics-quant-audit-round-2-pr-4-skew-dynamics-invariant.md` |
 | [quant-tests-tail-copula](quant-tests-tail-copula-quant-audit-round-2-pr-2-tail-risk-copula-cvar-a.md) | in-flight |  | Pins CVaR>=VaR on the gpd xi<0 branch + the REAL copula simulators (the existing copula tests monkeypatch the math away), MC-stress seed reproducibility (#366 false-green) + cvar95<=var95, and run_scenario's expired-intrinsic branch; t-copula df-bound guard tracked as (E) #384 | `quant-tests-tail-copula-quant-audit-round-2-pr-2-tail-risk-copula-cvar-a.md` |
 | [r11-vix-failsafe](r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md) | in-flight |  | Pinned the best-effort VIX-threading fail-safe on the live R11 ranking path (build_candidate_dossiers) — 5 connector-degradation cases + 2 anti-vacuity teeth, mutation-tested both directions. Closes backlog theme ② from the #308 worklog. | `r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |

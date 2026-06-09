@@ -781,6 +781,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_event_gate_back_buffer.py` | Pin S23 F1 fix — `MarketDataConnector.get_recent_earnings` complements `get_next_earnings`; the three rankers register past earnings on the gate so the symmetric back-buffer fires. |
 | `tests/test_earnings_drift.py` | `EarningsDriftAnalyzer` post-earnings drift statistics. |
 | `tests/test_signals.py` | The signal-generation framework and aggregator. |
+| `tests/test_skew_dynamics_invariants.py` | Quant audit round 2 (W56-W59): behaviour-pins the standalone skew-math in `skew_dynamics.py` — Nelson-Siegel fail-fast (iv_at/factor_loadings RuntimeError before fit) + degenerate-fit branches (n==1 level-only, n==0 → 0.20 sentinel), skew_momentum degenerate-history (empty→NaN, short→0 momentum), and the ivs_dislocation composite [-1,1] bound. (The live `skew_mult` clamp is dormant on Bloomberg + in the trio; not re-pinned.) |
 | `tests/test_strangle_timing.py` | The strangle-timing engine — regime classification, entry scoring, IV overlay. |
 | `tests/test_strangle_recommendation_gate.py` | The strangle phase/confidence downgrade-only recommendation gate. |
 | `tests/test_data_connector.py` | `MarketDataConnector` query methods against synthetic CSVs. |

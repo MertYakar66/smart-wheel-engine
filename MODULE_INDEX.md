@@ -105,6 +105,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `risk_manager.py` | Position sizing (Kelly, fractional Kelly), sector exposure manager, hierarchical risk parity, portfolio Greeks. |
 | `stress_testing.py` | Historical + hypothetical scenarios; `StressTester`, `StressTestReport`. |
+| `portfolio_risk_gates.py` | D17 pure-function gate library — `check_sector_cap`, `check_single_name_cap`, `check_portfolio_delta`, `check_kelly_size`, `check_var`, `check_stress_scenario`, `check_dealer_regime`, `PortfolioContext`, locked defaults. Consumed by the tracker hard-blocks and the R7–R10 dossier soft-warns (see `DECISIONS.md` D17/D22). (**reviewer input**) |
 
 ### Trackers
 
@@ -114,6 +115,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
 | `portfolio_intelligence.py` | SEC / 13F portfolio context. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
+| `ibkr_portfolio_adapter.py` | D24 read-only IBKR snapshot → engine types (`PortfolioContext`, held positions, USD NAV) + the D26 `/api/portfolio/*` payload builders. Outside the CI-gated trio; imports nothing from it. (**tracker / input**) |
 
 ### Infra / config / display
 
@@ -230,7 +232,8 @@ updated. See `PROJECT_STATE.md` §5.
 | `news_pipeline/` | Browser-agent news pipeline that drives `morning_run.py`: scrapers, browser_agents, local_llm, orchestrator, publisher, recovery, security, slo. | live (operational), but not on the EV path |
 | `local_agent/` | Local AI agent + Streamlit UI; agents, browser, mcp_server, memory, ui. | experimental |
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
-| `backtests/` | `simulator.py`, `walk_forward.py`. | research |
+| `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
+| `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |

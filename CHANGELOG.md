@@ -14,6 +14,68 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-06 (early) — W-series verification campaign + IBKR live book + data refresh R1
+
+~58 commits, 2026-06-03 → 2026-06-09 (PRs #317–#394). Four themes.
+
+### Added
+- **IBKR read-only live-book surface (D24 + D26).** `engine/ibkr_portfolio_adapter.py`
+  + six `GET /api/portfolio/*` endpoints + the `/portfolio` Next.js viewer
+  (**#344**); real IBKR history import + exact-fill wheel ledger (**#359**);
+  PIT EV calibration vs the operator's real CSPs (**#362**); live morning
+  refresh via cloud transform + headless Gateway puller (**#368**); flat
+  per-leg positions (**#390**); unified Cockpit/Terminal design + honest KPI
+  provenance (**#391**). Runbook: `docs/DASHBOARD_TERMINAL.md` (**#388**).
+- **Armed production rank→book entry path.** `WheelRunner.consume_into_live_book`
+  builds its tracker via `make_live_book_tracker` (R9 sector + R10 single-name
+  caps ON), closing the "canonical armed constructor has zero non-test callers"
+  gap from the 2026-06-01 reliability sweep (**#343**). R9/R10 also wired onto
+  `GET /api/concentration_preview` (**#351**).
+- **prob_profit small-sample honesty** — Wilson CI + `n_scenarios`, tier-gated
+  to the IID forward path (**#317**), rendered in the cockpit (**#318**).
+- Defensive (debit) rolls surfaced on `suggest_rolls` / `suggest_call_rolls` (**#342**).
+- Deep-read assembly + survivorship harness, default-OFF (**#335**).
+
+### Changed
+- **Bloomberg data refresh R1** — 16 monolith CSVs refreshed + S27/S32/S34/S35
+  snapshots re-baselined (**#338**); backtest-regression fingerprint now pins
+  vol_iv + treasury SHAs (**#334**) and the **full connector input set**
+  (`connector_data_sha256`, **#346**) so any data drift fails fast in the
+  per-PR lane.
+
+### Fixed
+- `wheel_runner` credit_rating dead-read — reads the `sp_rating` key (**#333**).
+- `data_connector` gates implausible vol_iv IV at the source — sub-3% floor +
+  monolith sentinel (**#363**); deep-IV `134217.7` sentinel nulled on the
+  assembled vol_iv read (**#336**).
+- `mcp_client` classifies a live CDP-down `tv`-CLI error as `mcp_unavailable` (**#341**).
+- Dashboard: `/terminal` per-panel crash isolation (**#349**), recharts
+  first-paint + a11y fixes (**#352**), in-app ChartPanel handed off to
+  TradingView (**#350**), honest disabled state on the unwired Ask bar (**#348**).
+
+### Tests — the W-series campaign (W10–W67)
+Two-phase data + engine audit (**#353** discovery → **#358** integrity suites),
+then eight data-test PRs (**#370–#379**: IV-surface coverage, EV sign controls,
+fundamentals/GICS, OHLCV/dividends hygiene, credit ladder, covered-call
+real-data coverage, realism-at-scale + VIX-R11, cross-file date consistency)
+and six quant-invariant PRs (**#383–#394**: forward-distribution cascade,
+tail-risk/copula/stress, HMM regime multiplier, skew dynamics,
+dealer-positioning clamp, binomial Greek units, reviewer R3/R5 boundaries).
+Register: `docs/DATA_TEST_AUDIT_2026-06-09.md` (**#380**). Plus an
+environment-invariant preflight guard (**#364**).
+
+### Docs
+- Data layer: activation roadmap + deep-read/survivorship design (**#332**),
+  verified `docs/DATA_INVENTORY.md`, `docs/DATA_ACQUISITION_ROADMAP.md`,
+  `docs/BLOOMBERG_PULL_LIST.md`, CASY backfill spec (**#347**), fresh lab-box
+  bring-up (`docs/FRESH_LAB_BOX_SETUP.md`, **#345**).
+- **`docs/NEXT_DATA_SESSION_RUNBOOK.md` (#381)** — the single authoritative
+  re-baseline-session runbook (data queue + three (E) fixes + re-baseline).
+- `TESTING.md` flags the bare-`pytest tests/` backtest_regression slow-lane
+  trap (**#367**).
+
+---
+
 ## 2026-05-30 — full-codebase code-review remediation (branch `claude/code-review-fixes`)
 
 A multi-agent read-only review of the whole repo, then a fix pass on `main` for

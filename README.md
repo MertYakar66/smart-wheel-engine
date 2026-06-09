@@ -145,7 +145,8 @@ smart-wheel-engine/
 ├── news_pipeline/   # browser-agent pipeline driving morning_run.py
 ├── local_agent/     # experimental local agent + UI
 ├── ml/              # research ML models
-├── backtests/       # research backtesting
+├── backtests/       # research backtesting + pinned regression reproducers
+├── studies/         # one-off research studies (premium-correction pilot)
 ├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
 ├── config/          # configuration
 ├── utils/           # shared utilities

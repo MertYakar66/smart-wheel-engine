@@ -236,6 +236,74 @@ def test_vol_iv_keys_unique_no_future():
 
 
 # ---------------------------------------------------------------------------
+# Served vol_iv band gate (#363) + realized-vol sanity — W14 / W21 / W26
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+#
+# The tests above read the RAW CSV via pd.read_csv. These read through the
+# CONNECTOR — the IV the engine actually sees, AFTER #363's gate.
+# ---------------------------------------------------------------------------
+
+_IV_LEGS = ("hist_put_imp_vol", "hist_call_imp_vol")
+
+
+def test_connector_iv_band_constants_are_authoritative():
+    """W26: the #363 band is the AUTHORITATIVE Bloomberg-served IV rule. Pinning
+    the constants means a silent floor/ceiling change fails CI. (A second,
+    DIFFERENT IV-sanity heuristic lives in ``utils.data_validation`` but applies
+    only to the Theta option-chain path — never the connector-served path here.)"""
+    assert MarketDataConnector._IV_LOW_FLOOR == 3.0
+    assert MarketDataConnector._DEEP_IV_SENTINEL_FLOOR == 10000.0
+
+
+def test_served_vol_iv_band_via_connector():
+    """W14: every IV the engine SEES (post-#363 ``_clean_vol_iv_inplace``) is in
+    ``(3.0, 10000]``. Asserted on the connector's SERVED read of the bundled file
+    — not the raw CSV (``test_vol_iv_unit_consistency_and_band`` covers the raw
+    file, which still carries the sub-3.0 garbage the gate removes at read time).
+    A regression in the gate (floor flipped, helper skipped on the monolith)
+    fails here even though the raw file is unchanged."""
+    served = MarketDataConnector()._load("vol_iv")
+    for col in _IV_LEGS:
+        s = pd.to_numeric(served[col], errors="coerce").dropna()
+        assert len(s) > 0, f"{col}: no served IV present"
+        assert (s <= 3.0).sum() == 0, f"{col}: served IV <= 3.0 present (low-floor gate breached)"
+        assert (s > 10000.0).sum() == 0, f"{col}: served IV > 10000 present (sentinel leaked)"
+        assert s.min() > 3.0
+
+
+def test_served_vol_iv_gate_removes_raw_sub3():
+    """W14: the GATE (not the file) is what removes the sub-3.0 garbage — the raw
+    file still carries it, the served read does not. Robust to a future clean
+    refresh: the delta is only asserted while the raw file still has sub-3.0 rows
+    (the served==0 invariant holds either way)."""
+    raw = _load("sp500_vol_iv_full.csv")
+    served = MarketDataConnector()._load("vol_iv")
+    for col in _IV_LEGS:
+        raw_num = pd.to_numeric(raw[col], errors="coerce")
+        served_num = pd.to_numeric(served[col], errors="coerce")
+        raw_sub3 = int(((raw_num > 0) & (raw_num <= 3.0)).sum())
+        assert (served_num <= 3.0).sum() == 0, f"{col}: served still has sub-3.0 IV"
+        if raw_sub3 > 0:
+            assert served_num.notna().sum() < raw_num.notna().sum(), (
+                f"{col}: raw has {raw_sub3} sub-3.0 cells but the served read nulled none"
+            )
+
+
+def test_vol_iv_realized_vol_columns_positive_finite():
+    """W21: the realized-vol columns (``volatility_30d/60d/90d/260d``, which feed
+    the F4 RV-widening signal) are positive + finite where present on the real
+    file. A corrupt/zero/negative realized vol would otherwise reach the
+    forward-distribution tail with no failing test."""
+    df = _load("sp500_vol_iv_full.csv")
+    inf = float("inf")
+    for col in ("volatility_30d", "volatility_60d", "volatility_90d", "volatility_260d"):
+        s = pd.to_numeric(df[col], errors="coerce").dropna()
+        assert len(s) > 0, f"{col}: no values present"
+        assert ((s != inf) & (s != -inf)).all(), f"{col}: non-finite realized vol present"
+        assert (s > 0).all(), f"{col}: non-positive realized vol present (min={s.min()})"
+
+
+# ---------------------------------------------------------------------------
 # Dividends (W11)
 # ---------------------------------------------------------------------------
 

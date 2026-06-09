@@ -434,6 +434,95 @@ def test_five_ticker_smoke_stays_green(runner, frontier):
 
 
 # ---------------------------------------------------------------------------
+# W18 — the ranker's iv column IS the as-of PIT IV from the REAL connector
+# (existing PIT tests use stub connectors with hand-fed IV dicts; this pins the
+# wiring end-to-end on the bundled vol_iv file). 2026-06-09 data-test audit.
+# ---------------------------------------------------------------------------
+
+
+def test_ranker_iv_equals_real_pit_iv(runner, frontier):
+    """W18: ``rank_candidates_by_ev(as_of=FRONTIER).iv`` for AAPL equals the PIT
+    IV computed independently from the bundled file — ``mean(put,call)`` of the
+    last ``get_iv_history(end_date=FRONTIER)`` row, ``/100``. Mirrors
+    ``_resolve_pit_atm_iv`` exactly, so a connector-side PIT regression (wrong
+    ``iloc[-1]`` row, snapshot instead of as-of) fails here. Tied to FRONTIER so
+    a data refresh re-baselines the expectation in lockstep."""
+    frame = _rank(runner, ["AAPL"])
+    assert len(frame) == 1, "AAPL should produce exactly one row at the frontier"
+    hist = runner.connector.get_iv_history("AAPL", end_date=FRONTIER)
+    assert not hist.empty, "AAPL has no PIT IV history at the frontier"
+    last = hist.iloc[-1]
+    expected = (float(last["hist_put_imp_vol"]) + float(last["hist_call_imp_vol"])) / 2.0 / 100.0
+    assert float(frame.iloc[0]["iv"]) == pytest.approx(expected, rel=1e-3), (
+        f"ranker iv {float(frame.iloc[0]['iv'])} is not the as-of PIT IV {expected} "
+        "(a snapshot-vs-PIT divergence would be ~10%+)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# W27 — the fundamentals-FALLBACK IV path is NOT cleaned by #363; its only
+# normaliser is the ranker's inline ``if iv>3.0: iv/=100`` heuristic.
+# Characterisation of CURRENT behaviour (passing). The connector-side fix is an
+# (E) engine change tracked in issue #369, behind the §2 ceremony — NOT grabbed
+# here. 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W27).
+# ---------------------------------------------------------------------------
+
+
+def test_fundamentals_fallback_iv_input_is_percent(runner, frontier):
+    """W27a: the fallback IV input — ``get_fundamentals(...)['implied_vol_atm']``
+    (Bloomberg ``30day_impvol_100.0%mny_df``) — is in PERCENT on the real file
+    (so the ranker's inline ``/100`` is required to make it a decimal)."""
+    f = runner.connector.get_fundamentals("AAPL")
+    assert f is not None and f["implied_vol_atm"] is not None
+    assert float(f["implied_vol_atm"]) > 3.0, (
+        f"implied_vol_atm {f['implied_vol_atm']} not in percent units (expected tens)"
+    )
+
+
+def test_363_gate_does_not_clean_fundamentals_iv(tmp_path):
+    """W27b: ``_clean_vol_iv_inplace`` is keyed to ``'vol_iv'`` ONLY. The same
+    sub-3.0 value the gate NULLs on a served ``vol_iv`` read survives UNCLEANED
+    through ``get_fundamentals`` — so the fundamentals-fallback IV path relies
+    solely on the ranker's inline percent->decimal heuristic, never the connector
+    gate. The connector-side clean is tracked as (E) in issue #369."""
+    pd.DataFrame(
+        [
+            {
+                "date": "2025-01-02",
+                "ticker": "ZZZ",
+                "hist_put_imp_vol": 2.0,
+                "hist_call_imp_vol": 2.0,
+                "volatility_30d": 2.0,
+                "volatility_60d": 2.0,
+                "volatility_90d": 2.0,
+                "volatility_260d": 2.0,
+            }
+        ]
+    ).to_csv(tmp_path / "sp500_vol_iv_full.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "ticker": "ZZZ",
+                "30day_impvol_100.0%mny_df": 2.0,
+                "volatility_30d": 2.0,
+                "eqy_dvd_yld_12m": 0.0,
+                "gics_sector_name": "Information Technology",
+            }
+        ]
+    ).to_csv(tmp_path / "sp500_fundamentals.csv", index=False)
+    conn = MarketDataConnector(data_dir=tmp_path)
+
+    # The gate NULLs the 2.0 IV on the served vol_iv read...
+    served = conn._load("vol_iv")
+    assert pd.isna(served.iloc[0]["hist_put_imp_vol"]), "vol_iv gate should NULL the 2.0 IV"
+    # ...but the SAME 2.0 survives untouched through the fundamentals path.
+    f = conn.get_fundamentals("ZZZ")
+    assert f is not None and float(f["implied_vol_atm"]) == 2.0, (
+        "get_fundamentals must pass implied_vol_atm through UNCLEANED (no #363 gate) — see #369"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 

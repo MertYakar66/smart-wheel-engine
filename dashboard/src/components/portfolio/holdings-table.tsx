@@ -52,9 +52,12 @@ export function HoldingsTable({
   holdings?: Holding[];
   source?: SliceSource;
 }) {
+  // Default to grouping by underlying (each leg of a name sits together);
+  // the flat view lists every stock + option leg, so symbol-grouping reads
+  // more naturally than a pure size sort. Columns remain click-sortable.
   const [sort, setSort] = useState<Sort>({
-    key: "pctNav",
-    dir: -1,
+    key: "sym",
+    dir: 1,
   });
 
   const rows = [...holdings].sort((a, b) => {
@@ -91,7 +94,7 @@ export function HoldingsTable({
           </thead>
           <tbody>
             {rows.map((h) => (
-              <Row key={h.sym} h={h} />
+              <Row key={`${h.sym}|${h.name}|${h.qty}`} h={h} />
             ))}
           </tbody>
         </table>

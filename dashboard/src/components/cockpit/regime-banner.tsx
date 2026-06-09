@@ -28,7 +28,7 @@ export function RegimeBanner({
   const r11 = r11Active(vix);
 
   return (
-    <div className="border border-terminal-border bg-terminal-header px-3 py-2">
+    <div className="rounded-xl border border-white/[0.08] bg-pf-panel px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-terminal-dim">

@@ -47,7 +47,7 @@ export function ConcentrationMeters({
   const maxPct = rows.length ? Math.max(rows[0].pct, R10_CAP * 1.4) : R10_CAP * 1.4;
 
   return (
-    <div className="border border-terminal-border bg-terminal-panel p-2">
+    <div className="rounded-xl border border-white/[0.08] bg-pf-panel p-2">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-terminal-blue">
           Single-name concentration (R10 · 10% cap)
@@ -59,7 +59,7 @@ export function ConcentrationMeters({
               type="number"
               value={nav}
               onChange={(e) => setNav(Math.max(1, Number(e.target.value) || 0))}
-              className="w-[90px] border border-terminal-border bg-terminal-bg px-1 py-0.5 text-[10px] text-terminal-text"
+              className="w-[90px] rounded-md border border-white/[0.08] bg-pf-panel2 px-1.5 py-1 text-[10px] text-terminal-text"
             />
           </label>
           <label className="flex items-center gap-1">
@@ -69,7 +69,7 @@ export function ConcentrationMeters({
               value={contracts}
               min={1}
               onChange={(e) => setContracts(Math.max(1, Number(e.target.value) || 1))}
-              className="w-[48px] border border-terminal-border bg-terminal-bg px-1 py-0.5 text-[10px] text-terminal-text"
+              className="w-[48px] rounded-md border border-white/[0.08] bg-pf-panel2 px-1.5 py-1 text-[10px] text-terminal-text"
             />
           </label>
         </div>

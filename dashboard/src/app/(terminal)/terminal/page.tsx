@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 import { TradingViewLinkPanel } from "@/components/terminal/tradingview-link-panel";
 import { PanelErrorBoundary } from "@/components/terminal/panel-error-boundary";
+import { CrossPageNav, WheelhouseHeader } from "@/components/shell/wheelhouse-header";
 import { useEngineData } from "@/hooks/useEngineData";
 
 // ─── Placeholder data for systems not yet connected ────────────────────
@@ -357,7 +358,41 @@ export default function TerminalPage() {
   // ─── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen flex-col bg-terminal-bg font-mono">
+    <div className="flex h-screen flex-col bg-pf-bg font-mono">
+      {/* Shared Wheelhouse chrome — branding + cross-page tabs */}
+      <WheelhouseHeader
+        page="Terminal"
+        maxW="max-w-none"
+        right={
+          <>
+            {engineData.regime.regime && engineData.regime.regime !== "---" && (
+              <span className="text-xs uppercase tracking-wider text-terminal-dim">
+                {engineData.regime.regime}
+              </span>
+            )}
+            {engineData.regime.vix > 0 && (
+              <span className="text-sm font-semibold tabular-nums text-terminal-text">
+                VIX {engineData.regime.vix.toFixed(1)}
+              </span>
+            )}
+          </>
+        }
+        status={
+          <>
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                engineData.connected ? "bg-pf-ok" : "bg-terminal-dim"
+              }`}
+            />
+            <span className={engineData.connected ? "text-pf-ok" : "text-terminal-dim"}>
+              {engineData.connected ? "Engine live" : "Engine offline"}
+            </span>
+          </>
+        }
+      >
+        <CrossPageNav active="Terminal" />
+      </WheelhouseHeader>
+
       {/* Status Bar */}
       <PanelErrorBoundary label="Status Bar">
         <StatusBar

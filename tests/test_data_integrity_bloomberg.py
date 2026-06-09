@@ -40,6 +40,22 @@ GATE_DAYS = 504  # ranker survivorship/history gate
 # Files keyed by connector _FILES key.
 _F = MarketDataConnector._FILES
 
+# Canonical GICS 11 sectors — the only valid values of gics_sector_name and the
+# grouping keys a GICS-aware R9 would use (see W17 / issue #372).
+GICS_11 = {
+    "Energy",
+    "Materials",
+    "Industrials",
+    "Consumer Discretionary",
+    "Consumer Staples",
+    "Health Care",
+    "Financials",
+    "Information Technology",
+    "Communication Services",
+    "Utilities",
+    "Real Estate",
+}
+
 
 @cache
 def _load(fname: str) -> pd.DataFrame:
@@ -236,6 +252,74 @@ def test_vol_iv_keys_unique_no_future():
 
 
 # ---------------------------------------------------------------------------
+# Served vol_iv band gate (#363) + realized-vol sanity — W14 / W21 / W26
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+#
+# The tests above read the RAW CSV via pd.read_csv. These read through the
+# CONNECTOR — the IV the engine actually sees, AFTER #363's gate.
+# ---------------------------------------------------------------------------
+
+_IV_LEGS = ("hist_put_imp_vol", "hist_call_imp_vol")
+
+
+def test_connector_iv_band_constants_are_authoritative():
+    """W26: the #363 band is the AUTHORITATIVE Bloomberg-served IV rule. Pinning
+    the constants means a silent floor/ceiling change fails CI. (A second,
+    DIFFERENT IV-sanity heuristic lives in ``utils.data_validation`` but applies
+    only to the Theta option-chain path — never the connector-served path here.)"""
+    assert MarketDataConnector._IV_LOW_FLOOR == 3.0
+    assert MarketDataConnector._DEEP_IV_SENTINEL_FLOOR == 10000.0
+
+
+def test_served_vol_iv_band_via_connector():
+    """W14: every IV the engine SEES (post-#363 ``_clean_vol_iv_inplace``) is in
+    ``(3.0, 10000]``. Asserted on the connector's SERVED read of the bundled file
+    — not the raw CSV (``test_vol_iv_unit_consistency_and_band`` covers the raw
+    file, which still carries the sub-3.0 garbage the gate removes at read time).
+    A regression in the gate (floor flipped, helper skipped on the monolith)
+    fails here even though the raw file is unchanged."""
+    served = MarketDataConnector()._load("vol_iv")
+    for col in _IV_LEGS:
+        s = pd.to_numeric(served[col], errors="coerce").dropna()
+        assert len(s) > 0, f"{col}: no served IV present"
+        assert (s <= 3.0).sum() == 0, f"{col}: served IV <= 3.0 present (low-floor gate breached)"
+        assert (s > 10000.0).sum() == 0, f"{col}: served IV > 10000 present (sentinel leaked)"
+        assert s.min() > 3.0
+
+
+def test_served_vol_iv_gate_removes_raw_sub3():
+    """W14: the GATE (not the file) is what removes the sub-3.0 garbage — the raw
+    file still carries it, the served read does not. Robust to a future clean
+    refresh: the delta is only asserted while the raw file still has sub-3.0 rows
+    (the served==0 invariant holds either way)."""
+    raw = _load("sp500_vol_iv_full.csv")
+    served = MarketDataConnector()._load("vol_iv")
+    for col in _IV_LEGS:
+        raw_num = pd.to_numeric(raw[col], errors="coerce")
+        served_num = pd.to_numeric(served[col], errors="coerce")
+        raw_sub3 = int(((raw_num > 0) & (raw_num <= 3.0)).sum())
+        assert (served_num <= 3.0).sum() == 0, f"{col}: served still has sub-3.0 IV"
+        if raw_sub3 > 0:
+            assert served_num.notna().sum() < raw_num.notna().sum(), (
+                f"{col}: raw has {raw_sub3} sub-3.0 cells but the served read nulled none"
+            )
+
+
+def test_vol_iv_realized_vol_columns_positive_finite():
+    """W21: the realized-vol columns (``volatility_30d/60d/90d/260d``, which feed
+    the F4 RV-widening signal) are positive + finite where present on the real
+    file. A corrupt/zero/negative realized vol would otherwise reach the
+    forward-distribution tail with no failing test."""
+    df = _load("sp500_vol_iv_full.csv")
+    inf = float("inf")
+    for col in ("volatility_30d", "volatility_60d", "volatility_90d", "volatility_260d"):
+        s = pd.to_numeric(df[col], errors="coerce").dropna()
+        assert len(s) > 0, f"{col}: no values present"
+        assert ((s != inf) & (s != -inf)).all(), f"{col}: non-finite realized vol present"
+        assert (s > 0).all(), f"{col}: non-positive realized vol present (min={s.min()})"
+
+
+# ---------------------------------------------------------------------------
 # Dividends (W11)
 # ---------------------------------------------------------------------------
 
@@ -378,3 +462,315 @@ def test_fingerprint_pins_every_connector_file():
     assert pinned == expected, (
         f"fingerprint pins {pinned} but connector reads {expected}; unpinned: {expected - pinned}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Fundamentals content + R9 sector-map coverage — W19 / W17
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+
+def test_fundamentals_dividend_yield_in_band():
+    """W19: eqy_dvd_yld_12m (the BSM carry-q source, PERCENT units) is non-negative
+    and within a plausible band on the real file. A negative or absurd yield would
+    corrupt the BSM carry. NaN is allowed — ~95 names lack a trailing 12m yield."""
+    df = _load("sp500_fundamentals.csv")
+    y = pd.to_numeric(df["eqy_dvd_yld_12m"], errors="coerce").dropna()
+    assert len(y) > 0, "no dividend-yield values present"
+    assert (y >= 0).all(), f"negative dividend yield present (min={y.min()})"
+    assert (y <= 30).all(), f"implausible dividend yield > 30% present (max={y.max()})"
+
+
+def test_fundamentals_gics_sector_is_canonical_11():
+    """W19: gics_sector_name is a subset of the canonical GICS 11. A 12th/typo'd
+    sector would silently mis-bucket screen_universe (and any future GICS-grouped
+    R9 — see W17 / #372)."""
+    df = _load("sp500_fundamentals.csv")
+    sec = {s for s in df["gics_sector_name"].dropna().astype(str).unique() if s != "nan"}
+    extra = sec - GICS_11
+    assert not extra, f"non-canonical GICS sector(s) present: {sorted(extra)}"
+
+
+def test_r9_sector_map_ignores_pulled_gics_characterization():
+    """W17 (#372): R9's sector cap groups by the HARDCODED ``DEFAULT_SECTOR_MAP``,
+    NOT the pulled ``gics_sector_name``. Characterise the gap on real data: many
+    names carry a real GICS sector in fundamentals yet
+    ``SectorExposureManager.get_sector`` returns ``'Unknown'`` (so R9 lumps them
+    into one phantom bucket). PASSING today — it flips when #372 wires GICS into
+    R9, at which point update it to assert the GICS-grouped behaviour. Quantifies
+    the coverage gap so a map drift is noticed."""
+    from engine.risk_manager import SectorExposureManager
+
+    fu = _load("sp500_fundamentals.csv")
+    fu = fu.assign(nt=fu["ticker"].map(normalize_ticker))
+    has_gics = fu[fu["gics_sector_name"].notna() & fu["gics_sector_name"].astype(str).ne("nan")]
+    mgr = SectorExposureManager()
+    ignored = [t for t in has_gics["nt"] if mgr.get_sector(t) == "Unknown"]
+    assert len(ignored) > 50, (
+        f"expected many GICS-known names bucketed as 'Unknown' by R9 (the #372 gap); "
+        f"got {len(ignored)} — if near 0, R9 may now read GICS: update this "
+        "characterization to assert the GICS-grouped behaviour"
+    )
+
+
+# ---------------------------------------------------------------------------
+# OHLCV depth + NaN-price pins + treasury rate_1m residual — W22 / W23 / W10
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+# 17 names below the 504-bar survivorship gate at the 2026-06-04 frontier:
+# W6 backfill defects (#355) + legit-recent joiners. A NEW name dropping below the
+# gate (outside this set) is the silent truncation W22 catches.
+KNOWN_THIN = {
+    "WMT",
+    "KMB",
+    "CPB",
+    "DPZ",
+    "PLTR",
+    "VEEV",
+    "COHR",
+    "CASY",
+    "LITE",
+    "SATS",
+    "VRT",
+    "BNY",
+    "FDXF",
+    "SNDK",
+    "SW",
+    "PSKY",
+    "Q",
+}
+
+# The 4 vendor-glitch NaN-price rows (price NaN, volume present) — #357.
+_KNOWN_NAN_PRICE_ROWS = {
+    ("BIIB", "2020-11-06"),
+    ("BIIB", "2023-06-09"),
+    ("TPL", "2019-05-16"),
+    ("TPL", "2019-07-09"),
+}
+
+
+def test_ohlcv_per_name_depth_invariant():
+    """W22: every name with < 504 OHLCV bars (the survivorship gate) is a KNOWN
+    thin name. A NEW blue-chip silently truncated < 504 — outside the known set —
+    fails here, instead of being invisible (the only other depth check is the
+    per-name W6 xfail in test_data_to_engine.py, which skips off-frontier and only
+    covers 11 named tickers)."""
+    prof = _ohlcv_history_profile()
+    thin = {t for t in prof.index if int(prof.loc[t, "ndays"]) < GATE_DAYS}
+    unexpected = thin - KNOWN_THIN
+    assert not unexpected, (
+        f"NEW <504-bar OHLCV names outside the known thin set: {sorted(unexpected)} "
+        "(a silent blue-chip truncation — investigate before it reaches the gate)"
+    )
+
+
+def test_ohlcv_nan_price_rows_are_the_known_four():
+    """W23: pin the 4 vendor-glitch NaN-price rows two-sidedly. The xfail
+    test_ohlcv_no_nan_prices flips when they are FIXED (count -> 0); THIS catches
+    the count GROWING — a 5th NaN row from a future refresh fails here (the
+    one-directional xfail would stay green). Pins the exact (ticker,date) keys."""
+    df = _ohlcv_canonical()
+    nan_mask = df[["open", "high", "low", "close"]].isna().any(axis=1)
+    sub = df.loc[nan_mask]
+    found = {
+        (normalize_ticker(str(t)), str(d)[:10])
+        for t, d in zip(sub["ticker"], sub["date"], strict=False)
+    }
+    assert found == _KNOWN_NAN_PRICE_ROWS, (
+        f"OHLCV NaN-price rows changed: {sorted(found)} != known "
+        f"{sorted(_KNOWN_NAN_PRICE_ROWS)} — a 5th vendor-glitch NaN would slip past "
+        "the one-directional xfail; investigate + update the pin"
+    )
+
+
+def test_treasury_rate_1m_coverage_gap_and_nan_before():
+    """W10 residual: rate_1m has a documented coverage GAP — it starts LATER than
+    rate_3m (the audit found 2001-07 vs 1994) — and, crucially, an as_of BEFORE its
+    coverage returns NaN (never a spurious 0% rate); values sit in a plausible band
+    that ALLOWS the brief negative-bill episodes. (test_treasury_band_and_coverage
+    pins rate_3m; this closes the rate_1m gap the audit flagged.) The 'before' as_of
+    is derived from the actual coverage start, so a future backfill can't false-fail
+    it — the safety property (NaN, not 0) is what's pinned, not a hard date."""
+    df = _load("treasury_yields.csv")
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    r1 = pd.to_numeric(df["rate_1m"], errors="coerce")
+    r3 = pd.to_numeric(df["rate_3m"], errors="coerce")
+    first_1m = df.loc[r1.notna(), "date"].min()
+    first_3m = df.loc[r3.notna(), "date"].min()
+    assert first_1m > first_3m, (
+        f"rate_1m first non-null {first_1m} not later than rate_3m {first_3m} "
+        "(the documented W10 coverage gap closed — update the pin)"
+    )
+    nn = r1.dropna()
+    assert nn.min() >= -0.5, f"rate_1m min {nn.min()} below plausible floor (-0.5%)"
+    assert nn.max() <= 25.0, f"rate_1m max {nn.max()} above plausible ceiling (25%)"
+    # the safety property: an as_of BEFORE rate_1m coverage -> NaN, never a spurious 0
+    before = str((first_1m - pd.Timedelta(days=30)).date())
+    early = MarketDataConnector().get_risk_free_rate(before, tenor="rate_1m")
+    assert pd.isna(early), f"rate_1m before coverage ({before}) should be NaN, got {early}"
+
+
+# ---------------------------------------------------------------------------
+# Credit content (OFF the EV path — display/legacy heuristic only, capability C1) — W24
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+# S&P long-term issuer credit ladder. The raw field carries CreditWatch/outlook
+# suffixes (' *-' negative watch, ' *+' positive watch) that a naive parse rejects.
+_SP_LADDER = {
+    "AAA",
+    "AA+",
+    "AA",
+    "AA-",
+    "A+",
+    "A",
+    "A-",
+    "BBB+",
+    "BBB",
+    "BBB-",
+    "BB+",
+    "BB",
+    "BB-",
+    "B+",
+    "B",
+    "B-",
+    "CCC+",
+    "CCC",
+    "CCC-",
+    "CC",
+    "C",
+    "RD",
+    "SD",
+    "D",
+}
+_SP_NONRATED = {"NR", "N.A.", "NA", "NONE", ""}
+
+
+def test_credit_sp_rating_is_valid_ladder():
+    """W24: every sp_rating, after stripping the CreditWatch suffix (' *-'/' *+'),
+    is a member of the S&P long-term ladder (AAA..D) or a non-rated sentinel (NR).
+    The raw field carries suffixed values ('A *-', 'CCC+ *+') a naive parse would
+    reject — pins they normalise cleanly and that a future malformed rating is
+    noticed. NOTE: credit is OFF the EV-authoritative path (feeds the legacy
+    heuristic + display only, capability C1) — display-severity, not an EV gate."""
+    df = _load("sp500_credit_risk.csv")
+    rt = df["rtg_sp_lt_lc_issuer_credit"].dropna().astype(str).str.strip()
+    base = rt.str.replace(r"\s*\*[-+]$", "", regex=True).str.strip().str.upper()
+    ladder = {s.upper() for s in _SP_LADDER}
+    nonrated = {s.upper() for s in _SP_NONRATED} | {"NAN"}
+    bad = sorted({b for b in base.unique() if b not in ladder and b not in nonrated})
+    assert not bad, f"sp_rating values outside the S&P ladder after suffix-strip: {bad}"
+
+
+def test_credit_altman_z_plausible_band():
+    """W24: altman_z_score sits in a wide plausibility band and its negative count is
+    bounded. (2 values >100 are known off-EV-path artifacts — financials/REITs where
+    Altman-Z is not meaningful; the band accepts them while catching a producer
+    regression that floods negatives or absurd magnitudes.) Off-EV path → LOW."""
+    df = _load("sp500_credit_risk.csv")
+    z = pd.to_numeric(df["altman_z_score"], errors="coerce").dropna()
+    assert len(z) > 0, "no altman_z values present"
+    assert z.min() >= -10.0, f"altman_z min {z.min()} below plausible floor (-10)"
+    assert z.max() <= 200.0, f"altman_z max {z.max()} above plausible ceiling (200)"
+    assert int((z < 0).sum()) <= 10, (
+        f"too many negative altman_z ({int((z < 0).sum())}) — possible producer regression"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Peripheral / EV-adjacent content — VIX (R11) + liquidity — W35 / W34
+# (2026-06-09 data-test audit round 2; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+
+def test_vix_content_band_protects_r11():
+    """W35: the VIX *level* is EV-decision-relevant via R11 — the elevated-vol
+    downgrade reviewer (candidate_dossier R11) downgrades proceed->review when
+    vix_level > 25.0 (a POINTS threshold, fed by connector.get_vix_regime). So vix
+    must be in POINTS (not decimal) and plausibly banded: a decimal-scale flip (0.20
+    vs 20) silently DISABLES R11 in a crisis; a sentinel fires it on every top-bin
+    pick. (Round-1's 'vix off the EV verdict' is true for ev_dollars, but vix drives
+    the R11 reviewer downgrade — capability correction C3.)"""
+    df = _load("vix_term_structure.csv")
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    v = pd.to_numeric(df["vix"], errors="coerce")
+    inf = float("inf")
+    assert v.notna().all(), "vix has null values"
+    assert (v > 0).all(), "vix has non-positive values"
+    assert ((v != inf) & (v != -inf)).all(), "vix has non-finite values"
+    assert v.min() >= 5.0 and v.max() <= 150.0, f"vix out of plausible band [{v.min()}, {v.max()}]"
+    # median in the tens catches a percent/decimal scale flip vs the R11=25 threshold
+    assert 10.0 < float(v.median()) < 40.0, (
+        f"vix median {v.median()} not in the tens — possible percent/decimal scale flip "
+        "that would silently break the R11 'vix_level > 25' downgrade"
+    )
+    assert df.duplicated(subset=["date"]).sum() == 0, "duplicate vix dates"
+    assert (df["date"] > FRONTIER + pd.Timedelta(days=3)).sum() == 0, "vix bars beyond the frontier"
+
+
+def test_liquidity_avg_vol_nonneg_and_finite():
+    """W34: avg_vol_30d (sp500_liquidity.csv) is non-negative and finite on the real
+    file. OFF the EV-authoritative path (the ranker's liquidity_score derives from
+    OHLCV volume, not this accessor — get_liquidity has no EV consumer) so LOW; but a
+    negative/inf avg_vol would be a producer defect. The ~1,123 legitimate zeros + 10
+    nulls (illiquid/halted/pre-listing windows) are allowed: non-negative + finite,
+    NOT strictly > 0."""
+    df = _load("sp500_liquidity.csv")
+    v = pd.to_numeric(df["avg_vol_30d"], errors="coerce").dropna()
+    inf = float("inf")
+    assert len(v) > 0, "no avg_vol_30d values present"
+    assert (v >= 0).all(), f"negative avg_vol_30d present (min={v.min()})"
+    assert ((v != inf) & (v != -inf)).all(), "non-finite avg_vol_30d present"
+
+
+# ---------------------------------------------------------------------------
+# Cross-file date consistency + EV-path rate accessor — W36 / W37
+# (2026-06-09 data-test audit round 2; engine-side fixes tracked as (E) #378)
+# ---------------------------------------------------------------------------
+
+
+def test_vol_iv_ohlcv_last_date_consistency():
+    """W36: for every name in BOTH ohlcv and vol_iv (non-null IV), the last OHLCV bar
+    and last IV bar are within 5 days. The ranker's PIT IV (_resolve_pit_atm_iv) takes
+    get_iv_history(end_date=as_of).iloc[-1] with NO staleness gate (the spot path has a
+    30-day gate), so a refresh shipping IV staler than OHLCV for a name would silently
+    price BSM against stale IV. Data-side cross-file pin; the engine-side IV-staleness
+    gate is (E) #378. (Max gap today: 1 day across 509 common names.)"""
+    ohlast = _ohlcv_history_profile()["last"]
+    iv = _load("sp500_vol_iv_full.csv")
+    iv = iv.assign(
+        nt=iv["ticker"].map(normalize_ticker),
+        d=pd.to_datetime(iv["date"], errors="coerce"),
+    )
+    ivnn = iv[pd.to_numeric(iv["hist_put_imp_vol"], errors="coerce").notna()]
+    ivlast = ivnn.groupby("nt")["d"].max()
+    common = ohlast.index.intersection(ivlast.index)
+    assert len(common) > 0, "no names common to ohlcv and vol_iv"
+    gap = (ohlast.loc[common] - ivlast.loc[common]).abs().dt.days
+    bad = sorted(gap[gap > 5].index)
+    assert not bad, (
+        "names whose vol_iv last bar is >5d from the OHLCV last bar (IV staleness — the "
+        f"un-gated _resolve_pit_atm_iv would price BSM against stale IV; (E) #378): {bad[:20]}"
+    )
+
+
+def test_data_integration_rate_before_coverage_divergence():
+    """W37: the EV-path rate accessor engine.data_integration.get_current_risk_free_rate
+    (wired into the ranker at wheel_runner.py:588-590, feeding BSM) returns a SILENT
+    0.05 for an as_of BEFORE treasury coverage, diverging from the connector's NaN
+    (which W10 pins). Pin the documented divergence so a future alignment (the (E) #378
+    fix) is noticed. Latent today: the 504-bar OHLCV gate + 1994 treasury coverage
+    preclude a pre-coverage tradeable on the monolith; live under deep_history. The
+    'before' as_of is derived from the actual coverage start (refresh-robust)."""
+    from engine.data_integration import get_current_risk_free_rate
+
+    tr = _load("treasury_yields.csv")
+    first_3m = pd.to_datetime(
+        tr.loc[pd.to_numeric(tr["rate_3m"], errors="coerce").notna(), "date"], errors="coerce"
+    ).min()
+    before = str((first_3m - pd.Timedelta(days=30)).date())
+    gi = get_current_risk_free_rate(before)
+    conn = MarketDataConnector().get_risk_free_rate(before)
+    assert gi == 0.05, f"data_integration before-coverage rate changed from 0.05 to {gi} (see #378)"
+    assert pd.isna(conn), f"connector before-coverage rate should be NaN, got {conn}"

@@ -110,6 +110,16 @@ export default function PortfolioPage() {
       <main className="mx-auto max-w-[1400px] space-y-4 px-5 py-5">
         <KpiCards period={period} onPeriod={setPeriod} account={account} returns={data.returns} />
 
+        {/* Live-NAV / as-of-curve honesty: the NAV in the header is live from
+            the snapshot, but the period returns are computed off the equity
+            curve, whose last point lags the live NAV until the next history
+            append. Surface that explicitly so it is never silent. */}
+        {data.equity.length > 0 && (
+          <p className="-mt-2 text-[11px] text-terminal-dim">
+            Returns as of {data.equity[data.equity.length - 1].m} · NAV live
+          </p>
+        )}
+
         {/* Hero chart + allocation */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">

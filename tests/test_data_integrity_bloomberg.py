@@ -722,3 +722,55 @@ def test_liquidity_avg_vol_nonneg_and_finite():
     assert len(v) > 0, "no avg_vol_30d values present"
     assert (v >= 0).all(), f"negative avg_vol_30d present (min={v.min()})"
     assert ((v != inf) & (v != -inf)).all(), "non-finite avg_vol_30d present"
+
+
+# ---------------------------------------------------------------------------
+# Cross-file date consistency + EV-path rate accessor — W36 / W37
+# (2026-06-09 data-test audit round 2; engine-side fixes tracked as (E) #378)
+# ---------------------------------------------------------------------------
+
+
+def test_vol_iv_ohlcv_last_date_consistency():
+    """W36: for every name in BOTH ohlcv and vol_iv (non-null IV), the last OHLCV bar
+    and last IV bar are within 5 days. The ranker's PIT IV (_resolve_pit_atm_iv) takes
+    get_iv_history(end_date=as_of).iloc[-1] with NO staleness gate (the spot path has a
+    30-day gate), so a refresh shipping IV staler than OHLCV for a name would silently
+    price BSM against stale IV. Data-side cross-file pin; the engine-side IV-staleness
+    gate is (E) #378. (Max gap today: 1 day across 509 common names.)"""
+    ohlast = _ohlcv_history_profile()["last"]
+    iv = _load("sp500_vol_iv_full.csv")
+    iv = iv.assign(
+        nt=iv["ticker"].map(normalize_ticker),
+        d=pd.to_datetime(iv["date"], errors="coerce"),
+    )
+    ivnn = iv[pd.to_numeric(iv["hist_put_imp_vol"], errors="coerce").notna()]
+    ivlast = ivnn.groupby("nt")["d"].max()
+    common = ohlast.index.intersection(ivlast.index)
+    assert len(common) > 0, "no names common to ohlcv and vol_iv"
+    gap = (ohlast.loc[common] - ivlast.loc[common]).abs().dt.days
+    bad = sorted(gap[gap > 5].index)
+    assert not bad, (
+        "names whose vol_iv last bar is >5d from the OHLCV last bar (IV staleness — the "
+        f"un-gated _resolve_pit_atm_iv would price BSM against stale IV; (E) #378): {bad[:20]}"
+    )
+
+
+def test_data_integration_rate_before_coverage_divergence():
+    """W37: the EV-path rate accessor engine.data_integration.get_current_risk_free_rate
+    (wired into the ranker at wheel_runner.py:588-590, feeding BSM) returns a SILENT
+    0.05 for an as_of BEFORE treasury coverage, diverging from the connector's NaN
+    (which W10 pins). Pin the documented divergence so a future alignment (the (E) #378
+    fix) is noticed. Latent today: the 504-bar OHLCV gate + 1994 treasury coverage
+    preclude a pre-coverage tradeable on the monolith; live under deep_history. The
+    'before' as_of is derived from the actual coverage start (refresh-robust)."""
+    from engine.data_integration import get_current_risk_free_rate
+
+    tr = _load("treasury_yields.csv")
+    first_3m = pd.to_datetime(
+        tr.loc[pd.to_numeric(tr["rate_3m"], errors="coerce").notna(), "date"], errors="coerce"
+    ).min()
+    before = str((first_3m - pd.Timedelta(days=30)).date())
+    gi = get_current_risk_free_rate(before)
+    conn = MarketDataConnector().get_risk_free_rate(before)
+    assert gi == 0.05, f"data_integration before-coverage rate changed from 0.05 to {gi} (see #378)"
+    assert pd.isna(conn), f"connector before-coverage rate should be NaN, got {conn}"

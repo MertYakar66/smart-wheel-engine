@@ -40,6 +40,22 @@ GATE_DAYS = 504  # ranker survivorship/history gate
 # Files keyed by connector _FILES key.
 _F = MarketDataConnector._FILES
 
+# Canonical GICS 11 sectors — the only valid values of gics_sector_name and the
+# grouping keys a GICS-aware R9 would use (see W17 / issue #372).
+GICS_11 = {
+    "Energy",
+    "Materials",
+    "Industrials",
+    "Consumer Discretionary",
+    "Consumer Staples",
+    "Health Care",
+    "Financials",
+    "Information Technology",
+    "Communication Services",
+    "Utilities",
+    "Real Estate",
+}
+
 
 @cache
 def _load(fname: str) -> pd.DataFrame:
@@ -445,4 +461,53 @@ def test_fingerprint_pins_every_connector_file():
     expected = set(MarketDataConnector._FILES.keys())
     assert pinned == expected, (
         f"fingerprint pins {pinned} but connector reads {expected}; unpinned: {expected - pinned}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fundamentals content + R9 sector-map coverage — W19 / W17
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+
+def test_fundamentals_dividend_yield_in_band():
+    """W19: eqy_dvd_yld_12m (the BSM carry-q source, PERCENT units) is non-negative
+    and within a plausible band on the real file. A negative or absurd yield would
+    corrupt the BSM carry. NaN is allowed — ~95 names lack a trailing 12m yield."""
+    df = _load("sp500_fundamentals.csv")
+    y = pd.to_numeric(df["eqy_dvd_yld_12m"], errors="coerce").dropna()
+    assert len(y) > 0, "no dividend-yield values present"
+    assert (y >= 0).all(), f"negative dividend yield present (min={y.min()})"
+    assert (y <= 30).all(), f"implausible dividend yield > 30% present (max={y.max()})"
+
+
+def test_fundamentals_gics_sector_is_canonical_11():
+    """W19: gics_sector_name is a subset of the canonical GICS 11. A 12th/typo'd
+    sector would silently mis-bucket screen_universe (and any future GICS-grouped
+    R9 — see W17 / #372)."""
+    df = _load("sp500_fundamentals.csv")
+    sec = {s for s in df["gics_sector_name"].dropna().astype(str).unique() if s != "nan"}
+    extra = sec - GICS_11
+    assert not extra, f"non-canonical GICS sector(s) present: {sorted(extra)}"
+
+
+def test_r9_sector_map_ignores_pulled_gics_characterization():
+    """W17 (#372): R9's sector cap groups by the HARDCODED ``DEFAULT_SECTOR_MAP``,
+    NOT the pulled ``gics_sector_name``. Characterise the gap on real data: many
+    names carry a real GICS sector in fundamentals yet
+    ``SectorExposureManager.get_sector`` returns ``'Unknown'`` (so R9 lumps them
+    into one phantom bucket). PASSING today — it flips when #372 wires GICS into
+    R9, at which point update it to assert the GICS-grouped behaviour. Quantifies
+    the coverage gap so a map drift is noticed."""
+    from engine.risk_manager import SectorExposureManager
+
+    fu = _load("sp500_fundamentals.csv")
+    fu = fu.assign(nt=fu["ticker"].map(normalize_ticker))
+    has_gics = fu[fu["gics_sector_name"].notna() & fu["gics_sector_name"].astype(str).ne("nan")]
+    mgr = SectorExposureManager()
+    ignored = [t for t in has_gics["nt"] if mgr.get_sector(t) == "Unknown"]
+    assert len(ignored) > 50, (
+        f"expected many GICS-known names bucketed as 'Unknown' by R9 (the #372 gap); "
+        f"got {len(ignored)} — if near 0, R9 may now read GICS: update this "
+        "characterization to assert the GICS-grouped behaviour"
     )

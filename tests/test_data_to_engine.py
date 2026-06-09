@@ -576,6 +576,107 @@ def test_real_earnings_event_lockout_fires(runner, frontier):
 
 
 # ---------------------------------------------------------------------------
+# W20 — real dividend_yield (eqy_dvd_yld_12m, PERCENT) flows into the BSM carry q.
+# 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W20).
+# ---------------------------------------------------------------------------
+
+
+def test_dividend_yield_reaches_bsm_carry(tmp_path):
+    """W20: the real ``eqy_dvd_yld_12m`` (PERCENT) reaches the BSM carry term.
+
+    (a) real-data: ``get_fundamentals`` returns a high-yield name's yield in percent.
+    (b) controlled: two synthetic fixtures identical EXCEPT ``dividend_yield`` (0% vs
+        8%) produce a carry-correct difference — higher q lowers the forward, so the
+        25-delta short-put strike is strictly LOWER. A *sane* ~80.5 strike at 8% also
+        proves the unconditional percent->decimal ``/100`` fired (8.0 read as 800%
+        would collapse the forward). Routes through ``rank_candidates_by_ev`` — no §2
+        bypass; all other inputs (OHLCV, IV, rate fallback) are byte-identical."""
+    # (a) real-data — the carry input is in percent
+    f = WheelRunner().connector.get_fundamentals("CAG")
+    assert f is not None and f["dividend_yield"] is not None and float(f["dividend_yield"]) > 3.0, (
+        f"expected CAG dividend_yield in percent (>3), got "
+        f"{None if f is None else f.get('dividend_yield')}"
+    )
+
+    # (b) controlled synthetic — identical except dividend_yield
+    def _build(dirpath: Path, yld: float) -> None:
+        n = 600
+        dates = pd.bdate_range(end=FRONTIER, periods=n)
+        rng = np.random.default_rng(0)
+        price = 100.0 * np.exp(np.cumsum(rng.normal(0, 0.012, n)))
+        pd.DataFrame(
+            [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "ticker": "FBT",
+                    "open": p,
+                    "high": p,
+                    "low": p,
+                    "close": p,
+                    "volume": 1_000_000,
+                }
+                for d, p in zip(dates, price, strict=False)
+            ]
+        ).to_csv(dirpath / "sp500_ohlcv.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "ticker": "FBT",
+                    "hist_put_imp_vol": 25.0,
+                    "hist_call_imp_vol": 25.0,
+                    "volatility_30d": 25.0,
+                    "volatility_60d": 25.0,
+                    "volatility_90d": 25.0,
+                    "volatility_260d": 25.0,
+                }
+                for d in dates
+            ]
+        ).to_csv(dirpath / "sp500_vol_iv_full.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "ticker": "FBT",
+                    "30day_impvol_100.0%mny_df": 25.0,
+                    "volatility_30d": 25.0,
+                    "eqy_dvd_yld_12m": yld,
+                    "gics_sector_name": "Information Technology",
+                }
+            ]
+        ).to_csv(dirpath / "sp500_fundamentals.csv", index=False)
+
+    def _strike(yld: float) -> float:
+        d = tmp_path / f"y{int(yld)}"
+        d.mkdir()
+        _build(d, yld)
+        frame = WheelRunner(data_dir=d).rank_candidates_by_ev(
+            tickers=["FBT"],
+            as_of=FRONTIER,
+            top_n=5,
+            min_ev_dollars=-1e9,
+            include_diagnostic_fields=True,
+        )
+        assert len(frame) == 1, f"FBT(yld={yld}) produced no row"
+        return float(frame.iloc[0]["strike"])
+
+    strike_zero = _strike(0.0)
+    strike_high = _strike(8.0)
+    assert strike_high < strike_zero, (
+        "higher dividend yield should LOWER the carry-adjusted short-put strike "
+        f"(real q reaches BSM): yld=8% strike {strike_high} not < yld=0% strike {strike_zero}"
+    )
+    # percent->decimal PIN (not just probed): a correct 8% carry leaves a sane
+    # strike (~80.5). If the unconditional /100 were dropped, 8.0 would read as
+    # 800%, collapsing the forward (F ~ 0.47*S) and crushing the 25-delta strike to
+    # ~37 — which is ALSO < strike_zero, so the direction assert alone can't catch
+    # it. The absolute floor distinguishes correct-8% from the percent/decimal bug.
+    assert strike_high > 70.0, (
+        f"8% carry should leave a sane strike (~80); got {strike_high} — the "
+        "unconditional percent->decimal /100 may have been dropped (8.0 read as 800%)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Full-universe sweep (slow) — pins the produced/dropped split
 # ---------------------------------------------------------------------------
 

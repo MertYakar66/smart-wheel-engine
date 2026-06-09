@@ -762,6 +762,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_stress_testing.py` | `StressTester` — scenarios, sensitivity, Greeks stress ladder. |
 | `tests/test_payoff_engine.py` | `PayoffEngine` — payoff diagrams, expected-move bands, strike recommendations. |
 | `tests/test_regime_detector.py` | The rule-based regime classifier. |
+| `tests/test_regime_hmm_invariants.py` | Quant audit round 2 (W50-W55): behaviour-pins the HMM regime-multiplier envelope sup/inf (0.2 crisis … 1.25 bull_quiet — existing test only checks a diffuse band), same-seed fit determinism (the cache + fingerprint depend on it), the unfit-guard RuntimeError, and the RegimeDetector degenerate realized-vol fallback. §2: the multiplier only scales a >=0 envelope. `fit`'s missing non-finite guard (returns NaN multiplier) tracked as (E) #386 via xfail. |
 | `tests/test_dealer_positioning.py` | Dealer positioning — analyzer math, the clamped multiplier, reviewer rule R6. |
 | `tests/test_dealer_multiplier_evengine_integration.py` | Dealer-multiplier integration boundaries — pins that `[0.70, 1.05]` survives `EVEngine.evaluate` to `EVResult.dealer_multiplier`, the asymmetric-by-design clamp at the EVResult level, the `regime_mult *= dealer_mult` compounding, and the §2 "scales ev_dollars only" claim as proportionality. Companion to PR #185's blocked-path test. |
 | `tests/test_extreme_numerics.py` | Numerical stability under near-expiry / near-zero-vol / deep-moneyness extremes. |

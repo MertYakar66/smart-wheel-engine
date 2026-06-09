@@ -609,3 +609,70 @@ def test_treasury_rate_1m_coverage_gap_and_nan_before():
     before = str((first_1m - pd.Timedelta(days=30)).date())
     early = MarketDataConnector().get_risk_free_rate(before, tenor="rate_1m")
     assert pd.isna(early), f"rate_1m before coverage ({before}) should be NaN, got {early}"
+
+
+# ---------------------------------------------------------------------------
+# Credit content (OFF the EV path — display/legacy heuristic only, capability C1) — W24
+# (2026-06-09 data-test audit; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+# S&P long-term issuer credit ladder. The raw field carries CreditWatch/outlook
+# suffixes (' *-' negative watch, ' *+' positive watch) that a naive parse rejects.
+_SP_LADDER = {
+    "AAA",
+    "AA+",
+    "AA",
+    "AA-",
+    "A+",
+    "A",
+    "A-",
+    "BBB+",
+    "BBB",
+    "BBB-",
+    "BB+",
+    "BB",
+    "BB-",
+    "B+",
+    "B",
+    "B-",
+    "CCC+",
+    "CCC",
+    "CCC-",
+    "CC",
+    "C",
+    "RD",
+    "SD",
+    "D",
+}
+_SP_NONRATED = {"NR", "N.A.", "NA", "NONE", ""}
+
+
+def test_credit_sp_rating_is_valid_ladder():
+    """W24: every sp_rating, after stripping the CreditWatch suffix (' *-'/' *+'),
+    is a member of the S&P long-term ladder (AAA..D) or a non-rated sentinel (NR).
+    The raw field carries suffixed values ('A *-', 'CCC+ *+') a naive parse would
+    reject — pins they normalise cleanly and that a future malformed rating is
+    noticed. NOTE: credit is OFF the EV-authoritative path (feeds the legacy
+    heuristic + display only, capability C1) — display-severity, not an EV gate."""
+    df = _load("sp500_credit_risk.csv")
+    rt = df["rtg_sp_lt_lc_issuer_credit"].dropna().astype(str).str.strip()
+    base = rt.str.replace(r"\s*\*[-+]$", "", regex=True).str.strip().str.upper()
+    ladder = {s.upper() for s in _SP_LADDER}
+    nonrated = {s.upper() for s in _SP_NONRATED} | {"NAN"}
+    bad = sorted({b for b in base.unique() if b not in ladder and b not in nonrated})
+    assert not bad, f"sp_rating values outside the S&P ladder after suffix-strip: {bad}"
+
+
+def test_credit_altman_z_plausible_band():
+    """W24: altman_z_score sits in a wide plausibility band and its negative count is
+    bounded. (2 values >100 are known off-EV-path artifacts — financials/REITs where
+    Altman-Z is not meaningful; the band accepts them while catching a producer
+    regression that floods negatives or absurd magnitudes.) Off-EV path → LOW."""
+    df = _load("sp500_credit_risk.csv")
+    z = pd.to_numeric(df["altman_z_score"], errors="coerce").dropna()
+    assert len(z) > 0, "no altman_z values present"
+    assert z.min() >= -10.0, f"altman_z min {z.min()} below plausible floor (-10)"
+    assert z.max() <= 200.0, f"altman_z max {z.max()} above plausible ceiling (200)"
+    assert int((z < 0).sum()) <= 10, (
+        f"too many negative altman_z ({int((z < 0).sum())}) — possible producer regression"
+    )

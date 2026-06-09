@@ -39,7 +39,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-AS_OF = "20260605"
+AS_OF = date.today().strftime("%Y%m%d")  # default: today; override with --as-of (re-runnable)
 _PDF_EXTRACT = Path(r"C:\Users\merty\AppData\Local\Temp\ibkr_inception_extract.txt")
 _UNREALIZED_END = -41597.26  # p6 marks (FX-normalized) — from the snapshot artifact
 _MTM_TARGET = 32637.69
@@ -287,7 +287,7 @@ def build(path_a, path_b, out_dir):
         json.dumps(
             {
                 "schema_version": 1,
-                "as_of": "2026-06-05T21:36:00Z",
+                "as_of": f"{AS_OF[:4]}-{AS_OF[4:6]}-{AS_OF[6:8]}T21:36:00Z",
                 "source": "ibkr_flex_import",
                 "note": (
                     "Closed wheel legs re-keyed to EXACT IBKR Flex fills (per option contract "
@@ -445,5 +445,8 @@ if __name__ == "__main__":
     ap.add_argument("csv_a")
     ap.add_argument("csv_b")
     ap.add_argument("--out", default="data_processed/ibkr")
+    ap.add_argument("--as-of", default=None, help="ledger AS_OF as YYYYMMDD (default: today)")
     a = ap.parse_args()
+    if a.as_of:
+        AS_OF = a.as_of  # rebinds the module global that build() reads
     build(a.csv_a, a.csv_b, a.out)

@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**125 records.**
+**126 records.**
 
 ## Features (12)
 
@@ -74,7 +74,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (30)
+## Verification & realism (31)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -99,6 +99,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [quant-tests-forward-dist](quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md) | in-flight |  | Behaviour-pins the EV integrand's cascade tier-SELECTION (not membership), sampler determinism, empirical boundary, and realized-vol guards; probe exposed an incomplete _log guard (+inf leak) tracked as (E) #382 via xfail(strict) | `quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md` |
 | [quant-tests-hmm-regime](quant-tests-hmm-regime-quant-audit-round-2-pr-3-hmm-regime-multiplier-i.md) | in-flight |  | Pins the HMM multiplier envelope sup/inf (0.2..1.25), same-seed determinism, the unfit-guard RuntimeError, and the RegimeDetector degenerate fallback; fit's missing non-finite guard (NaN multiplier) tracked as (E) #386 via xfail; the crisis over-firing left UNPINNED as a known limitation | `quant-tests-hmm-regime-quant-audit-round-2-pr-3-hmm-regime-multiplier-i.md` |
 | [quant-tests-pricing](quant-tests-pricing-quant-audit-round-2-pr-6-binomial-greek-units-ev.md) | in-flight |  | Cross-checks the binomial tree's vega/theta/rho UNITS vs analytic BSM on q=0 calls (American==European) to <5% — a 100x unit slip would otherwise be invisible; pins EVEngine.evaluate finiteness at degenerate dte (<=0); gamma left loose (tree-noise) | `quant-tests-pricing-quant-audit-round-2-pr-6-binomial-greek-units-ev.md` |
+| [quant-tests-reviewers](quant-tests-reviewers-quant-audit-round-2-pr-7-reviewer-r3-r5-boundari.md) | in-flight |  | Pins the EXACT §2 downgrade-only boundaries — R5 inclusive ev>=threshold (==→proceed), R3 strict diff>tol (==→not-skip) + engine_spot>0 guard, and EventGate earliest-in-window hit across mixed wildcard/ticker events; closes the planned 7-PR round | `quant-tests-reviewers-quant-audit-round-2-pr-7-reviewer-r3-r5-boundari.md` |
 | [quant-tests-skew-dynamics](quant-tests-skew-dynamics-quant-audit-round-2-pr-4-skew-dynamics-invariant.md) | in-flight |  | Pins the standalone skew-math (NS fail-fast + degenerate fit, skew_momentum degenerate history, ivs_dislocation [-1,1] bound); the live skew_mult clamp is dormant-on-Bloomberg + trio so not re-pinned, and skew-boost-cant-rescue is already covered generically | `quant-tests-skew-dynamics-quant-audit-round-2-pr-4-skew-dynamics-invariant.md` |
 | [quant-tests-tail-copula](quant-tests-tail-copula-quant-audit-round-2-pr-2-tail-risk-copula-cvar-a.md) | in-flight |  | Pins CVaR>=VaR on the gpd xi<0 branch + the REAL copula simulators (the existing copula tests monkeypatch the math away), MC-stress seed reproducibility (#366 false-green) + cvar95<=var95, and run_scenario's expired-intrinsic branch; t-copula df-bound guard tracked as (E) #384 | `quant-tests-tail-copula-quant-audit-round-2-pr-2-tail-risk-copula-cvar-a.md` |
 | [r11-vix-failsafe](r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md) | in-flight |  | Pinned the best-effort VIX-threading fail-safe on the live R11 ranking path (build_candidate_dossiers) — 5 connector-degradation cases + 2 anti-vacuity teeth, mutation-tested both directions. Closes backlog theme ② from the #308 worklog. | `r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md` |

@@ -63,7 +63,7 @@ Most of the **data** queue is **NOT** Bloomberg-gated. Only the items in
 | Truly Bloomberg-gated (Phase 1A / 5) | Git-reconstructable / local (Phase 1B) | Code, §2-gated (Phase 2) |
 |---|---|---|
 | CASY pre-2026 `ohlcv`/`vol_iv`/`liquidity`/`earnings` (#339, #355) | BK↔BNY entity collapse (#339) | #372 R9 sector cap → real GICS |
-| 10 other blue-chip OHLCV backfills (#355) | `sp500_dividends.csv` union: refresh ∪ main's `CTRA/LW/MTCH/PAYC` (#339) | #369 #363 IV-gate fundamentals-fallback clean |
+| 10 other blue-chip OHLCV backfills (#355) | `sp500_dividends.csv` union (`CTRA/LW/MTCH/PAYC`, #339) **+ epsilon-clamp** (W25/#357) | #369 #363 IV-gate fundamentals-fallback clean |
 | Refresh of the 3 script-producible files to the new frontier (optional) | Fragment integration + de-dup into the monoliths | #378 IV-staleness gate + rate-fallback divergence |
 | #354 dated (PIT) fundamentals panel — larger data-model change | `UNIVERSE_100` re-derivation (#339) | |
 | #357 W10 `rate_1m` pre-2001 coverage — optional, low-pri | | |
@@ -146,10 +146,22 @@ Per `docs/CASY_BACKFILL_SPEC.md` §"After you push/send the fragments":
    connector sees **one** entity (BK OHLCV runs full `2018→2026-03-20`; `BNY`
    re-tickers the rest; `BNY UN` dividends already carry BK's full history). This
    frees the phantom universe slot. *(Pure git — no Bloomberg.)*
-3. **Dividends union** — `sp500_dividends.csv` = refresh ∪ main's
-   `CTRA UN / LW UN / MTCH UW / PAYC UN` rows (the refresh dropped their
-   2018–2024 history; `MTCH` was the one #339 originally missed). Current **and**
-   complete. *(Pure git.)*
+3. **Dividends file — union + epsilon-clamp (both pure-git byte rewrites of the
+   same file; do them together, *before* the re-pin).**
+   - **Union** — `sp500_dividends.csv` = refresh ∪ main's
+     `CTRA UN / LW UN / MTCH UW / PAYC UN` rows (the refresh dropped their
+     2018–2024 history; `MTCH` was the one #339 originally missed). Current
+     **and** complete.
+   - **Epsilon-clamp (W25 / #357 — moved here from Phase 5).** Clamp the 82
+     epsilon-negative `dividend_amount` rows (~−2.4e-14 float noise on
+     Discontinued/Omitted rows) to 0. It rewrites `sp500_dividends.csv` bytes, so
+     by the **#340 raw-byte fingerprint rule** (Phase 3 step 5) it **must** land
+     here with the union — deferring it to Phase 5 would re-trip the fingerprint
+     guard *after* the Phase-3 re-baseline and force a second ~4 h re-pin. The
+     W11/W25 `xfail` flips green on this clamp. *(The other half of #357 —
+     `rate_1m` pre-2001 coverage — is genuinely producer-gated + pre-window, so it
+     correctly stays in Phase 5.)*
+   *(Both pure git — no Bloomberg.)*
 4. **Re-derive `UNIVERSE_100`** — after B2/B3, regenerate the constant in
    `backtests/regression/universes.py` from
    `MarketDataConnector().get_universe()[:100]` (expect `CMG`/`CMI` to **return**
@@ -327,10 +339,13 @@ producer/data changes tracked behind behaviour-pinning `xfail(strict)`:
   `wheel_runner` (a decision-layer change, §2 review). The W2 PIT xfail
   (`test_fundamentals_credit_are_point_in_time`, #366) flips only when that
   accessor lands.
-- **#357 — W10/W11 producer hygiene.** `treasury_yields.csv` `rate_1m` is NaN
-  pre-2001 (23.4%); pull only if pre-2001 1-month coverage is actually wanted
-  (the integrity band-pin already passes). Producer **clamp-to-0** of the 82
-  epsilon-negative `dividend_amount` rows (W11/W25) is the other half.
+- **#357 — W10 `rate_1m` pre-2001 coverage (producer-gated half only).**
+  `treasury_yields.csv` `rate_1m` is NaN pre-2001 (23.4%); pull only if pre-2001
+  1-month coverage is actually wanted (the integrity band-pin already passes).
+  This half is genuinely producer-gated and pre-window, so it stays here. **The
+  other half of #357 — the dividend epsilon-clamp (W11/W25) — moved to Phase 1B
+  step 3**: it is a pure-git byte rewrite of `sp500_dividends.csv` and must land
+  before the re-pin, not after it (else it re-trips the #340 fingerprint).
 - **W28 — `edge_vs_fair` ≡ 0 (D, BLOCKED here).** This needs a **market-mid
   option-premium producer** that the Bloomberg connector **does not have** (C4 —
   premium and BSM fair are computed from identical inputs, so the VRP signal is

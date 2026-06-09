@@ -54,6 +54,14 @@ lacks (C4). Flagged as BLOCKED rather than implying it's a simple pull.
 - Phase 3 notes the single re-pin absorbs three things at once: Phase-1 data, the
   #363 `ev_mean` serving-logic re-pricing (raw-byte fingerprint stays silent by
   design — caught by W14), and the Phase-2 (E) fixes.
+- **Review-vetted sequencing fix (2026-06-09):** the operator's runbook vet caught
+  that the dividend **epsilon-clamp (W25/#357)** was mis-placed in Phase 5 — it is
+  a pure-git **byte rewrite** of `sp500_dividends.csv`, so by the doc's own #340
+  fingerprint rule it must land in **Phase 1B (with the dividends union, before the
+  re-pin)**, else it re-trips the guard after the Phase-3 re-baseline and forces a
+  second ~4 h re-pin. Split #357: epsilon-clamp → Phase 1B; `rate_1m` pre-2001
+  (genuinely producer-gated + pre-window) → stays Phase 5. Section-0 table + both
+  bullets updated to match.
 
 ## Evidence
 - Verified `origin/main @ 9847edc` is the live HEAD with all audit PRs (#370–#380)

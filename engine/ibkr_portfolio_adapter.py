@@ -240,6 +240,17 @@ def build_holdings_view(snapshot: dict) -> list[dict]:
     for CSPs and the stock market value for shares; ``breach`` flags a CSP
     **or an assigned name** over the single-name cap (covered-call stock is
     a defined leg and never breaches) — the R10-style concentration meter.
+
+    **Put-leg meter vs. R10 gate (both-legs) — expected divergence.** For a
+    ``csp`` row this meter reports only the *short-put* notional. The R10 gate
+    (:func:`engine.portfolio_risk_gates.check_single_name_cap`, run in
+    :func:`_run_gates`) instead sums **every short-option leg** for the name.
+    So a short *strangle* (short put + short call on the same underlying, no
+    stock) reads higher in the gate's ``pctNav`` than in this meter — e.g. a
+    name with a short 970 put and a short 1070 call shows the put leg here but
+    put+call in the gate. This is intentional: the meter tracks the assignment-
+    risk leg the wheel is built around; the gate bounds total single-name
+    short-option exposure. Neither is wrong — they answer different questions.
     """
     nav = _num(snapshot["account"]["net_liquidation"])
     # Preserve first-appearance order so the table matches the snapshot.

@@ -3,7 +3,17 @@
 // stresses the way the live data will. NO real fetching here — functionality
 // (the /api/portfolio/* endpoints + IBKR snapshot feed) lands in a later round.
 
-export type WheelState = "csp" | "assigned" | "cc";
+export type WheelState =
+  // Wheel-aggregated states (per-underlying view)
+  | "csp"
+  | "assigned"
+  | "cc"
+  // Flat per-leg states (one row per raw position)
+  | "shares"
+  | "short_put"
+  | "short_call"
+  | "long_put"
+  | "long_call";
 export type Period = "1D" | "1W" | "1M" | "3M" | "YTD" | "1Y" | "All";
 
 export const PERIODS: Period[] = ["1D", "1W", "1M", "3M", "YTD", "1Y", "All"];
@@ -118,6 +128,12 @@ export const WHEEL_LABEL: Record<WheelState, { full: string; short: string; colo
   csp: { full: "Cash-Secured Put", short: "CSP", color: "#56b6f5" },
   assigned: { full: "Assigned Stock", short: "ASSIGNED", color: "#b79cfb" },
   cc: { full: "Covered Call", short: "COV CALL", color: "#f5b544" },
+  // Flat per-leg states (build_positions_flat) — one row per raw position.
+  shares: { full: "Shares", short: "SHARES", color: "#b79cfb" },
+  short_put: { full: "Short Put", short: "SHORT PUT", color: "#56b6f5" },
+  short_call: { full: "Short Call", short: "SHORT CALL", color: "#f5b544" },
+  long_put: { full: "Long Put", short: "LONG PUT", color: "#fb7185" },
+  long_call: { full: "Long Call", short: "LONG CALL", color: "#4ade80" },
 };
 
 // Allocation donut — share of gross exposure by sector.

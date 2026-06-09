@@ -6,13 +6,13 @@
 // Every number comes from the engine via /api/engine (no engine logic here).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 import { CockpitTable } from "@/components/cockpit/cockpit-table";
 import { ConcentrationMeters } from "@/components/cockpit/concentration-meters";
 import { DossierDrawer } from "@/components/cockpit/dossier-drawer";
 import { Funnel } from "@/components/cockpit/funnel";
 import { RegimeBanner } from "@/components/cockpit/regime-banner";
+import { CrossPageNav, WheelhouseHeader } from "@/components/shell/wheelhouse-header";
 import type {
   CandidatesResponse,
   EngineCandidate,
@@ -96,139 +96,139 @@ export default function CockpitPage() {
   const candidates = useMemo(() => data?.trades ?? [], [data]);
 
   return (
-    <div className="min-h-screen bg-terminal-bg p-3 font-mono text-terminal-text">
-      {/* Title + controls */}
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-[15px] font-bold uppercase tracking-wider text-terminal-amber">
-            Decision Cockpit
-          </h1>
-          <p className="text-[10px] text-terminal-dim">
-            short-put EV ranking · read the distribution, not the point estimate
-          </p>
-          <nav className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wider">
-            <span className="text-terminal-amber">Cockpit</span>
-            <span className="text-terminal-dim">·</span>
-            <Link href="/portfolio" className="text-terminal-dim hover:text-terminal-text">
-              Portfolio
-            </Link>
-            <span className="text-terminal-dim">·</span>
-            <Link href="/terminal" className="text-terminal-dim hover:text-terminal-text">
-              Terminal
-            </Link>
-            <span className="text-terminal-dim">·</span>
-            <Link href="/top" className="text-terminal-dim hover:text-terminal-text">
-              News
-            </Link>
-          </nav>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <Field label="as_of">
-            <input
-              type="date"
-              value={params.asOf}
-              onChange={(e) => setParams((p) => ({ ...p, asOf: e.target.value }))}
-              className="w-[120px] border border-terminal-border bg-terminal-panel px-1 py-0.5 text-[11px] text-terminal-text"
-            />
-          </Field>
-          <Field label="DTE">
-            <NumInput
-              value={params.dte}
-              onChange={(v) => setParams((p) => ({ ...p, dte: v }))}
-            />
-          </Field>
-          <Field label="delta">
-            <NumInput
-              value={params.delta}
-              step="0.05"
-              onChange={(v) => setParams((p) => ({ ...p, delta: v }))}
-            />
-          </Field>
-          <Field label="scan">
-            <NumInput
-              value={params.universeLimit}
-              onChange={(v) => setParams((p) => ({ ...p, universeLimit: v }))}
-            />
-          </Field>
-          <Field label="top-N">
-            <NumInput
-              value={params.limit}
-              onChange={(v) => setParams((p) => ({ ...p, limit: v }))}
-            />
-          </Field>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-1 text-[11px] font-semibold uppercase text-terminal-amber hover:bg-terminal-amber/20 disabled:opacity-50"
-          >
-            {loading ? "ranking…" : "rank"}
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-pf-bg font-mono text-terminal-text">
+      <WheelhouseHeader
+        page="Cockpit"
+        right={
+          <>
+            <span className="text-[11px] uppercase tracking-wider text-terminal-dim">as of</span>
+            <span className="text-sm font-semibold tabular-nums text-terminal-text">
+              {params.asOf}
+            </span>
+            {staleDays != null && staleDays > 0 && (
+              <span className="text-xs tabular-nums text-pf-caution">· {staleDays}d stale</span>
+            )}
+          </>
+        }
+        status={
+          data?.count != null ? (
+            <span className="tabular-nums">
+              {data.count} ranked · {candidates.length} shown
+            </span>
+          ) : undefined
+        }
+      >
+        <CrossPageNav active="Cockpit" />
+      </WheelhouseHeader>
 
-      <RegimeBanner
-        vix={vix}
-        asOf={params.asOf}
-        staleDays={staleDays}
-        universeScanned={data?.universe_scanned}
-        universeTotal={data?.universe_total}
-        candidateCount={data?.count}
-      />
-
-      {error && (
-        <div className="mt-2 border border-terminal-red/60 bg-terminal-red/10 px-3 py-2 text-[11px] text-terminal-red">
-          Engine error: {error}
-          <div className="mt-0.5 text-[10px] text-terminal-dim">
-            Start the API: <code>python engine_api.py</code> (port 8787). Full
-            503-name scans are slow — lower “scan”.
+      <main className="mx-auto max-w-[1400px] space-y-3 px-5 py-4">
+        {/* Controls toolbar */}
+        <div className="rounded-xl border border-white/[0.08] bg-pf-panel p-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="font-sans">
+              <h1 className="text-sm font-semibold tracking-tight text-terminal-text">
+                Decision Cockpit
+              </h1>
+              <p className="text-[11px] text-terminal-dim">
+                short-put EV ranking · read the distribution, not the point estimate
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="as_of">
+                <input
+                  type="date"
+                  value={params.asOf}
+                  onChange={(e) => setParams((p) => ({ ...p, asOf: e.target.value }))}
+                  className="w-[120px] rounded-md border border-white/[0.08] bg-pf-panel2 px-1.5 py-1 text-[11px] text-terminal-text"
+                />
+              </Field>
+              <Field label="DTE">
+                <NumInput value={params.dte} onChange={(v) => setParams((p) => ({ ...p, dte: v }))} />
+              </Field>
+              <Field label="delta">
+                <NumInput
+                  value={params.delta}
+                  step="0.05"
+                  onChange={(v) => setParams((p) => ({ ...p, delta: v }))}
+                />
+              </Field>
+              <Field label="scan">
+                <NumInput
+                  value={params.universeLimit}
+                  onChange={(v) => setParams((p) => ({ ...p, universeLimit: v }))}
+                />
+              </Field>
+              <Field label="top-N">
+                <NumInput
+                  value={params.limit}
+                  onChange={(v) => setParams((p) => ({ ...p, limit: v }))}
+                />
+              </Field>
+              <button
+                onClick={load}
+                disabled={loading}
+                className="rounded-md border border-pf-accent/50 bg-pf-accent/15 px-3 py-1 text-[11px] font-semibold uppercase text-pf-accent hover:bg-pf-accent/25 disabled:opacity-50"
+              >
+                {loading ? "ranking…" : "rank"}
+              </button>
+            </div>
           </div>
         </div>
-      )}
 
-      <div className="mt-2 flex gap-2">
-        {/* Main column */}
-        <div className="min-w-0 flex-1">
-          <div className="mb-2">
+        <RegimeBanner
+          vix={vix}
+          asOf={params.asOf}
+          staleDays={staleDays}
+          universeScanned={data?.universe_scanned}
+          universeTotal={data?.universe_total}
+          candidateCount={data?.count}
+        />
+
+        {error && (
+          <div className="rounded-xl border border-pf-loss/40 bg-pf-loss/10 px-3 py-2 text-[11px] text-pf-loss">
+            Engine error: {error}
+            <div className="mt-0.5 text-[10px] text-terminal-dim">
+              Start the API: <code>python engine_api.py</code> (port 8787). Full 503-name scans
+              are slow — lower “scan”.
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          {/* Main column */}
+          <div className="min-w-0 flex-1 space-y-3">
             <Funnel
               universeTotal={data?.universe_total}
               universeScanned={data?.universe_scanned}
               ranked={data?.count}
               shown={candidates.length}
             />
+            <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-pf-panel">
+              {loading && !candidates.length ? (
+                <div className="py-10 text-center text-[12px] text-terminal-dim">
+                  Ranking {params.universeLimit} names as of {params.asOf}…
+                </div>
+              ) : (
+                <CockpitTable
+                  candidates={candidates}
+                  vix={vix}
+                  selectedTicker={selected?.ticker}
+                  onSelect={setSelected}
+                />
+              )}
+            </div>
+            {candidates.length > 0 && <ConcentrationMeters candidates={candidates} />}
+            <TrustLegend />
           </div>
-          <div className="border border-terminal-border bg-terminal-panel">
-            {loading && !candidates.length ? (
-              <div className="py-10 text-center text-[12px] text-terminal-dim">
-                Ranking {params.universeLimit} names as of {params.asOf}…
-              </div>
-            ) : (
-              <CockpitTable
-                candidates={candidates}
-                vix={vix}
-                selectedTicker={selected?.ticker}
-                onSelect={setSelected}
-              />
-            )}
-          </div>
-          {candidates.length > 0 && (
-            <div className="mt-2">
-              <ConcentrationMeters candidates={candidates} />
+
+          {/* Drawer column — desktop side panel (lg+) */}
+          {selected && (
+            <div className="hidden w-[360px] shrink-0 lg:block" style={{ minHeight: 480 }}>
+              <DossierDrawer candidate={selected} vix={vix} onClose={() => setSelected(null)} />
             </div>
           )}
-          <TrustLegend />
         </div>
-
-        {/* Drawer column — desktop side panel (lg+) */}
-        {selected && (
-          <div className="hidden w-[360px] shrink-0 lg:block" style={{ minHeight: 480 }}>
-            <DossierDrawer
-              candidate={selected}
-              vix={vix}
-              onClose={() => setSelected(null)}
-            />
-          </div>
-        )}
-      </div>
+      </main>
 
       {/* Drawer — mobile/tablet bottom sheet (below lg, where the side column
           is hidden so a row click would otherwise do nothing visible). */}
@@ -279,15 +279,15 @@ function NumInput({
       step={step}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-[64px] border border-terminal-border bg-terminal-panel px-1 py-0.5 text-[11px] text-terminal-text"
+      className="w-[64px] rounded-md border border-white/[0.08] bg-pf-panel2 px-1.5 py-1 text-[11px] text-terminal-text"
     />
   );
 }
 
 function TrustLegend() {
   return (
-    <div className="mt-2 border border-terminal-border bg-terminal-panel p-2 text-[10px] leading-snug text-terminal-dim">
-      <span className="font-bold uppercase tracking-wider text-terminal-blue">
+    <div className="rounded-xl border border-white/[0.08] bg-pf-panel p-3 text-[10px] leading-snug text-terminal-dim">
+      <span className="font-bold uppercase tracking-wider text-pf-accent">
         How to read this
       </span>
       <ul className="mt-1 space-y-0.5">

@@ -37,7 +37,7 @@ export function Funnel({ universeTotal, universeScanned, ranked, shown }: Funnel
   const max = universeTotal || universeScanned || ranked || 1;
 
   return (
-    <div className="border border-terminal-border bg-terminal-panel p-2">
+    <div className="rounded-xl border border-white/[0.08] bg-pf-panel p-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-terminal-blue">
           Selection funnel

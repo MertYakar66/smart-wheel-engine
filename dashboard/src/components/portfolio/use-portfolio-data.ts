@@ -106,7 +106,7 @@ export function usePortfolioData(): PortfolioState {
       // each falls back to its mock counterpart.
       const [summary, positions, returns, risk, history] = await Promise.allSettled([
         fetchView<PortfolioData["account"]>("summary"),
-        fetchView<{ holdings: Holding[] }>("positions"),
+        fetchView<{ holdings: Holding[]; legs?: Holding[] }>("positions"),
         fetchView<{ returns: PortfolioData["returns"] }>("returns"),
         fetchView<{
           singleName: PortfolioData["singleName"];
@@ -127,8 +127,15 @@ export function usePortfolioData(): PortfolioState {
         account: ok(summary)
           ? (summary as PromiseFulfilledResult<PortfolioData["account"]>).value
           : MOCK_DATA.account,
+        // Prefer the flat per-leg view (every stock + option leg); fall back to
+        // the wheel-aggregated holdings if an older engine omits `legs`.
         holdings: ok(positions)
-          ? (positions as PromiseFulfilledResult<{ holdings: Holding[] }>).value.holdings
+          ? (() => {
+              const v = (
+                positions as PromiseFulfilledResult<{ holdings: Holding[]; legs?: Holding[] }>
+              ).value;
+              return v.legs ?? v.holdings;
+            })()
           : MOCK_DATA.holdings,
         returns: ok(returns)
           ? (returns as PromiseFulfilledResult<{ returns: PortfolioData["returns"] }>).value.returns

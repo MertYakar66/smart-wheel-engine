@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**119 records.**
+**120 records.**
 
 ## Features (12)
 
@@ -74,7 +74,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (24)
+## Verification & realism (25)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -95,6 +95,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [heavy-verify-2026-05-31](heavy-verify-2026-05-31-heavy-verification-campaign-calibration-net-of-r.md) | complete |  | prob_profit calibrated in the middle / over-confident at the top (esp. crisis, -27pp); wheel beats passive by +27pp in 2022 bear / -26pp in bulls; §2 firewall held; risk caps dormant by default; engine procyclical at crash entry. | `heavy-verify-2026-05-31-heavy-verification-campaign-calibration-net-of-r.md` |
 | [ht-a](ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md) | in-flight |  | Bloomberg-default path is HMM-overlay-only; 316 positive-EV survivors trimmed silently by top_n; P25=P50=P75 collapses; §2 invariants observed upheld (D16 + D17 + R1/R1a + reviewer-never-upgrades). | `ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md` |
 | [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
+| [quant-tests-forward-dist](quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md) | in-flight |  | Behaviour-pins the EV integrand's cascade tier-SELECTION (not membership), sampler determinism, empirical boundary, and realized-vol guards; probe exposed an incomplete _log guard (+inf leak) tracked as (E) #382 via xfail(strict) | `quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md` |
 | [r11-vix-failsafe](r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md) | in-flight |  | Pinned the best-effort VIX-threading fail-safe on the live R11 ranking path (build_candidate_dossiers) — 5 connector-degradation cases + 2 anti-vacuity teeth, mutation-tested both directions. Closes backlog theme ② from the #308 worklog. | `r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |

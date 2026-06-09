@@ -866,3 +866,21 @@ def test_full_universe_no_silent_drops_and_split(runner, frontier):
         "non-finite ev_dollars at scale"
     )
     assert np.isfinite(pd.to_numeric(frame["ev_raw"], errors="coerce")).all(), "non-finite ev_raw"
+    # W33: full BANDING at scale (extends the finite-only pin above) — every produced
+    # row satisfies the same bands the UNIVERSE_24 well-formed test checks. Catches an
+    # out-of-band tail/post-seam/fallback-tier row the 24-name control never exercises.
+    # (2026-06-09 data-test audit round 2; probe at FRONTIER: 480 produced / 0 viol.)
+    for _, row in frame.iterrows():
+        t = row["ticker"]
+        iv = float(row["iv"])
+        assert 0.0 < iv < 3.0, f"{t}: iv {iv} out of (0,3) at scale"
+        pp = float(row["prob_profit"])
+        assert 0.0 <= pp <= 1.0, f"{t}: prob_profit {pp} out of [0,1] at scale"
+        assert 0.0 <= float(row["prob_assignment"]) <= 1.0, (
+            f"{t}: prob_assignment out of [0,1] at scale"
+        )
+        assert float(row["premium"]) > 0, f"{t}: premium not > 0 at scale"
+        assert 0 < float(row["strike"]) < float(row["spot"]), f"{t}: strike not below spot at scale"
+        assert row["distribution_source"] in VALID_TIERS, (
+            f"{t}: bad tier {row['distribution_source']} at scale"
+        )

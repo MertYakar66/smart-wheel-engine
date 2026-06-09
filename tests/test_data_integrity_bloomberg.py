@@ -676,3 +676,49 @@ def test_credit_altman_z_plausible_band():
     assert int((z < 0).sum()) <= 10, (
         f"too many negative altman_z ({int((z < 0).sum())}) — possible producer regression"
     )
+
+
+# ---------------------------------------------------------------------------
+# Peripheral / EV-adjacent content — VIX (R11) + liquidity — W35 / W34
+# (2026-06-09 data-test audit round 2; docs/DATA_TEST_AUDIT_2026-06-09.md)
+# ---------------------------------------------------------------------------
+
+
+def test_vix_content_band_protects_r11():
+    """W35: the VIX *level* is EV-decision-relevant via R11 — the elevated-vol
+    downgrade reviewer (candidate_dossier R11) downgrades proceed->review when
+    vix_level > 25.0 (a POINTS threshold, fed by connector.get_vix_regime). So vix
+    must be in POINTS (not decimal) and plausibly banded: a decimal-scale flip (0.20
+    vs 20) silently DISABLES R11 in a crisis; a sentinel fires it on every top-bin
+    pick. (Round-1's 'vix off the EV verdict' is true for ev_dollars, but vix drives
+    the R11 reviewer downgrade — capability correction C3.)"""
+    df = _load("vix_term_structure.csv")
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    v = pd.to_numeric(df["vix"], errors="coerce")
+    inf = float("inf")
+    assert v.notna().all(), "vix has null values"
+    assert (v > 0).all(), "vix has non-positive values"
+    assert ((v != inf) & (v != -inf)).all(), "vix has non-finite values"
+    assert v.min() >= 5.0 and v.max() <= 150.0, f"vix out of plausible band [{v.min()}, {v.max()}]"
+    # median in the tens catches a percent/decimal scale flip vs the R11=25 threshold
+    assert 10.0 < float(v.median()) < 40.0, (
+        f"vix median {v.median()} not in the tens — possible percent/decimal scale flip "
+        "that would silently break the R11 'vix_level > 25' downgrade"
+    )
+    assert df.duplicated(subset=["date"]).sum() == 0, "duplicate vix dates"
+    assert (df["date"] > FRONTIER + pd.Timedelta(days=3)).sum() == 0, "vix bars beyond the frontier"
+
+
+def test_liquidity_avg_vol_nonneg_and_finite():
+    """W34: avg_vol_30d (sp500_liquidity.csv) is non-negative and finite on the real
+    file. OFF the EV-authoritative path (the ranker's liquidity_score derives from
+    OHLCV volume, not this accessor — get_liquidity has no EV consumer) so LOW; but a
+    negative/inf avg_vol would be a producer defect. The ~1,123 legitimate zeros + 10
+    nulls (illiquid/halted/pre-listing windows) are allowed: non-negative + finite,
+    NOT strictly > 0."""
+    df = _load("sp500_liquidity.csv")
+    v = pd.to_numeric(df["avg_vol_30d"], errors="coerce").dropna()
+    inf = float("inf")
+    assert len(v) > 0, "no avg_vol_30d values present"
+    assert (v >= 0).all(), f"negative avg_vol_30d present (min={v.min()})"
+    assert ((v != inf) & (v != -inf)).all(), "non-finite avg_vol_30d present"

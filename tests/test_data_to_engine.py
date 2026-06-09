@@ -663,8 +663,16 @@ def test_dividend_yield_reaches_bsm_carry(tmp_path):
     strike_high = _strike(8.0)
     assert strike_high < strike_zero, (
         "higher dividend yield should LOWER the carry-adjusted short-put strike "
-        f"(real q reaches BSM, percent->decimal): yld=8% strike {strike_high} "
-        f"not < yld=0% strike {strike_zero}"
+        f"(real q reaches BSM): yld=8% strike {strike_high} not < yld=0% strike {strike_zero}"
+    )
+    # percent->decimal PIN (not just probed): a correct 8% carry leaves a sane
+    # strike (~80.5). If the unconditional /100 were dropped, 8.0 would read as
+    # 800%, collapsing the forward (F ~ 0.47*S) and crushing the 25-delta strike to
+    # ~37 — which is ALSO < strike_zero, so the direction assert alone can't catch
+    # it. The absolute floor distinguishes correct-8% from the percent/decimal bug.
+    assert strike_high > 70.0, (
+        f"8% carry should leave a sane strike (~80); got {strike_high} — the "
+        "unconditional percent->decimal /100 may have been dropped (8.0 read as 800%)"
     )
 
 

@@ -42,3 +42,13 @@ engine SHA they were captured against.
 | `2026-05/ENGINE_REALISM_VERIFICATION_2026-05-26.md` | `docs/` | 2026-05-26 realism + reliability battery against `origin/main` @ 9f0afaf. Pre-#260 / pre-#262 engine snapshot; superseded on the live surface by `docs/REALISM_VERIFICATION_2026-05-28.md` (post-F4 + R9 + R10). |
 | `2026-05/optionsengine_audit_2026-05-17.md` | `docs/` | Accuracy audit of the (also-archived) `OptionsEngine.txt` walkthrough. Point-in-time, paired with `2026-05/OptionsEngine.txt`. |
 | `2026-05/data_inventory_2026-05-17.md` | `docs/` | Point-in-time data-inventory analysis report. |
+
+## 2026-06 — D27 repo restructure (docs/ pass)
+
+| Archived file | Original path | Reason |
+|---|---|---|
+| `2026-06/SESSION_HANDOFF.md` | `docs/` | Point-in-time session handoff (2026-05-18) carrying its own SUPERSEDED banner since 2026-05-22; every claim it makes is now owned by `PROJECT_STATE.md` / `DECISIONS.md` / `docs/TRADINGVIEW_MCP_INTEGRATION.md`. Unique residue (the 13-script `sys.stdout` reassignment anti-pattern list) preserved here. |
+| `2026-06/Claude_Prompting_Master_Guide.md` | `docs/` | Generic Claude prompt-engineering reference with zero inbound references; not about this repository. Repo-specific agent conventions live in `CLAUDE.md` / `AGENTS.md`. |
+| `2026-06/DATA_SPECIFICATION.md` | `docs/` | Aspirational partitioned-Parquet data-layer design (2026-03-19) that self-declares it does not match on-disk reality. The current authorities are `docs/DATA_POLICY.md` (procedures + tiers) and `docs/DATA_INVENTORY.md` (verified census). |
+
+See `DECISIONS.md` D27 for the restructure rationale.

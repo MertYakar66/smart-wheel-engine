@@ -4,9 +4,12 @@
 (S27, S32, S34, S35) from human-curated Markdown into executable
 pytest assertions against the current engine.
 
-**Status (2026-05-26)**: PR1, PR2, PR3 pushed. PR4 in progress (S35
-re-baseline). All four reproducers run end-to-end; three snapshots
-locked; S35 re-baseline pending.
+**Status (updated 2026-06-09)**: COMPLETE — all four PRs merged; the four
+reproducers + locked snapshots live under `backtests/regression/` behind the
+`backtest_regression` pytest marker (the ~4-5 h slow lane; see `TESTING.md`).
+Snapshots were last re-baselined 2026-06-07 with the R1 Bloomberg data
+refresh (#338); the fingerprint now pins every connector input (#346).
+The campaign narrative below is the original report (2026-05-26).
 
 **Why this campaign exists**: the S22 → S27 episode proved historical
 backtests can drift silently when the engine's methodology changes —

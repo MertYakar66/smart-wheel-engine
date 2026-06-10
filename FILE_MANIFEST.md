@@ -39,7 +39,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `LICENSE` | MIT license. |
 | `engine_api.py` | Interface-layer entry point — the stdlib HTTP API server on `:8787` serving the Next.js dashboard. |
 | `morning_run.py` | Entry point for the browser-driven, zero-API-cost multi-LLM morning news pipeline. |
-| `audit.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks. |
 | `conftest.py` | pytest configuration — hypothesis profiles, shared fixtures, custom markers. |
 | `pyproject.toml` | Packaging and tooling configuration (ruff, mypy, pytest, coverage). |
 | `requirements.txt` | Runtime dependency list. |
@@ -82,6 +81,9 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-05/DATA_COLLECTION_REPORT.md` | Archived dated data-collection phase report. |
 | `archive/2026-05/bloomberg_excel_extractor.bas` | Archived V1 of the Bloomberg Excel VBA extractor — superseded by `scripts/bloomberg_excel_extractor_v2.bas` ("fixed version with longer wait times"). |
 | `archive/2026-05/download_ohlcv.py` | Archived early yfinance OHLCV downloader — superseded by `scripts/download_yf_ohlcv.py` (adds multi-index header cleanup). |
+| `archive/2026-06/SESSION_HANDOFF.md` | Archived point-in-time session handoff (2026-05-18); carried a SUPERSEDED banner — live state is `PROJECT_STATE.md` / `DECISIONS.md`. |
+| `archive/2026-06/Claude_Prompting_Master_Guide.md` | Archived generic Claude prompt-engineering reference (not project-specific; zero inbound refs). |
+| `archive/2026-06/DATA_SPECIFICATION.md` | Archived aspirational Parquet data-layer design that never matched on-disk reality — superseded by `docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md`. |
 | `archive/2026-05/END_TO_END_REVIEW_2026_05_25.md` | Archived four-pass end-to-end product review against `origin/main` @ `e83eaca`. Point-in-time snapshot; superseded by `docs/VERIFICATION_INDEX_2026-05-28.md` as the canonical verification index. |
 | `archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | Archived 2026-05-26 launch-readiness analysis. Point-in-time review of S22/S27/S32/S34/S35 pre-#260 engine; superseded by `docs/PRODUCTION_READINESS.md` (live deployment gate) and `docs/VERIFICATION_INDEX_2026-05-28.md`. |
 | `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | Archived second-pass critical re-verification of S22/S27/S32/S34/S35 conclusions. Surfaced the equity-beta-dominance and BKNG-concentration findings now folded into `docs/PRODUCTION_READINESS.md`. Point-in-time. |
@@ -118,7 +120,6 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `backtests/simulator.py` | `WheelBacktester` — a simplified placeholder backtester (constant-IV approximation). |
 | `backtests/walk_forward.py` | Walk-forward validation framework (anchored / rolling / purged k-fold, parameter-stability analysis, out-of-sample tracking). |
 | `backtests/survivorship.py` | R3 survivorship-aware harness — PIT universe via `consolidated_loader.get_universe_as_of` (membership presence; `min_weight` is the dead all-zeros sentinel), a `deep_history=True` connector, delisting-aware `terminal_spot` (last close on/before expiry, else 0 — never NaN-drop), and `run_survivorship_backtest` routing 100% through `rank_candidates_by_ev`. Not on the decision-layer path. |
-| `backtests/.gitkeep` | Directory placeholder. |
 
 ## `backtests/regression/` — backtest regression harness
 
@@ -147,7 +148,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | File | Purpose |
 |---|---|
 | `config/__init__.py` | Re-exports `Config`, `ConfigManager`, the sub-config dataclasses and preset factories. |
-| `config/settings.py` | Centralized config — strategy / risk / execution / data / regime / edge / backtest dataclasses with YAML/JSON/env loading. |
+| `config/settings.py` | Centralized config dataclasses with YAML/JSON/env (`WHEEL_*`) loading. **Dormant** — zero importers; the live runtime config is `engine/policy_config.py`. (`ml/wheel_model.py` reads the `WHEEL_*` env vars directly, not through this module.) |
 
 ## `dashboard/` — Next.js dashboard + legacy Python CLI
 
@@ -287,7 +288,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `data_raw/sp500_constituents_current.csv` | The canonical S&P 500 constituent universe list. |
 | `data_raw/ohlcv/*.csv` | Sample per-ticker yfinance OHLCV fixtures (5 tickers). |
 | `data_raw/yfinance/options/*.csv` | Sample dated yfinance option-chain fixtures (5 tickers). |
-| `data_raw/.gitkeep` | Directory placeholder. |
 
 ## `docs/` — documentation set
 
@@ -298,7 +298,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_ACQUISITION_ROADMAP.md` | Bloomberg "pull-broadly" data-acquisition catalog (compiled 2026-06-09) for the wheel EV engine: a Tier-0 critical-gap list (skew reactivation, PIT dividend-yield, macro calendar, deep UST curve, corp actions) plus a 6-category exhaustive catalog (volatility/options, equity pricing & microstructure, fundamentals & estimates, credit/ownership/positioning, macro/rates/FX/cross-asset, sentiment/ESG/news/events) — 141 items with Bloomberg vehicle (FLDS-verify), engine consumer, benefit tier, feasibility, and §2 role — plus the no-pull wiring/implementation list. Companion to `docs/DATA_INVENTORY.md`. |
 | `docs/DATA_INVENTORY.md` | Verified inventory (2026-06-08) of every dataset on disk — Bloomberg monolith CSVs (`data/bloomberg/`), the gitignored deep-history archive (`data/bloomberg/deep/`), Theta option/market data (`data_processed/theta/`), and derived stores — with type/title, file-read date ranges, and row/file/ticker counts. Regenerate via `scripts/inventory_data.py`. Records where the Google Drive `swe-deep-history/` archive maps on disk. |
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
-| `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/DATA_TEST_AUDIT_2026-06-09.md` | Phase-1 data-layer TEST-coverage audit (discovery; asserts nothing). Deeper round building on `DATA_ENGINE_AUDIT_2026-06-07` (W1–W13) + the #358/#366 Phase-2 suites: confirms the capability map (corrects two precedent claims — credit is OFF the EV path, R9's sector cap uses a hardcoded `DEFAULT_SECTOR_MAP` not `gics_sector_name`), maps real-data vs synthetic test coverage per data→engine path, reconciles W1–W13 (all closed/tracked), and registers 15 new weaknesses W14–W28 (13 (T) landable, 1 (E) / 1 (D) tracked) ranked into 5 surface-grouped test PRs. Evidence reproducible via `scripts/audit_data_engine.py` + `scripts/audit_data_tests.py`. |
 | `docs/IBKR_IMPORT.md` | IBKR PortfolioAnalyst PDF → read-only viewer artifacts (Phase 1): `scripts/ibkr_import.py` mapping, run-time reconciliation, and honest limitations (no per-fill dates, TWR-index monthly NAV, gross premium, null margin), plus scope/FX tagging. |
 | `docs/DASHBOARD_TERMINAL.md` | Runbook for the role-dedicated **Dashboard** terminal (activated by "You are responsible for the Dashboard"): live IBKR portfolio-viewer ownership, command vocabulary ("update"/"update prices"/"update trades"/"status"/"show"/"probe"), the three read-only IBKR channels (cloud connector / IB Gateway Pro API / Flex Web Service incl. the query id), the refresh pipeline, guardrails, and gotchas. |
@@ -329,7 +328,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/worklog/*.md` | Per-task **worklog fragments** (doc redesign, D14 extension): one file per task/scenario with front-matter + a fixed *what-we-tried / worked / didn't / fixed* body. Includes `README.md` (format spec), `_template.md`, the migrated `sNN-*.md` scenario records, and the generated `INDEX.md`. Generated/validated by `scripts/gen_worklog_index.py`. |
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by N parallel Claude Code terminals — roles, lanes, coordination board. |
 | `docs/MAJOR_SESSION_PROMPT.md` | Reusable handoff prompt for a fresh Major Session (the allocator/coordinator role) — durable role contract + how to recover live state from board #113 / `git log`; pins no decaying snapshot. Companion to `docs/PARALLEL_SESSIONS.md`. |
-| `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` | S27 follow-up to PR #178's `ENGINE_BACKTEST_2022_2024.md`: re-runs the same 2022-2024 backtest against the post-fix engine (`claude/fix-ranker-iv-pit-aware` `d26a8d6`). Side-by-side ρ / quartile / per-year / tail-episode comparison. Verdict: signal preserved at ρ=0.22 (halved); 2022 bear actually stronger; F4 tail-risk gap confirmed real. |
 | `docs/ENGINE_BACKTEST_S32_FRICTION.md` | S32 — $1M friction-modeled simulation closing S22 Caveat 3. Same window / universe / engine as S27 but 10× capital with three-layer friction overlay (bid/ask + commission + assignment slippage). Three parallel WheelTracker instances per friction level. Headline: friction drag is 0.27% NAV (much smaller than S22's "2-5% per leg" worst case); but capital deployment averages 10.8% at $1M, so engine returns +1.85% vs SPY +24% — the +27pp-over-SPY narrative inverts at scale. |
 | `docs/ENGINE_BACKTEST_S34_UNIVERSE.md` | S34 — Universe expansion to 100 SP500 tickers at $1M (closes PRODUCTION_READINESS Blocker B3). Tests S32 F3's hypothesis: expand universe 24→100, leave everything else identical. Result: engine +35.61% NAV (full friction) vs SPY ~+24% = **+11.6pp OVER SPY** (vs S32's −22pp UNDER SPY). 34pp swing on universe size alone. ρ = 0.33 (higher than S32's 0.19); 22.1% capital deployment (2× S32); zero BP rejections. Universe expansion materially closes the capacity gap; multi-contract / strategy-stack remain candidates for further deployment but are not required. |
@@ -404,7 +402,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/NEXT_DATA_SESSION_RUNBOOK.md` | **The single authoritative checklist for the supervised Bloomberg re-baseline session.** Strict ordered scope: Phase 1 universe data (CASY + 10 blue-chip backfills → BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive), Phase 2 the three (E) trio/risk-gate fixes (#372 R9→GICS HIGH, #369 #363 IV-gate fallback clean, #378 IV-staleness gate + rate-fallback) each lane-claimed + held for §2 review, Phase 3 re-baseline-all-4 (captures #363 ev_mean + the (E) frontier impact in one pass) + EXPECTED_FRONTIER/FRONTIER bumps + xfail flips + S34 provisional clear, Phase 4 frontier-coupled test re-picks (full-universe 480/31, W16/W30 JPM), Phase 5 fold the (D) producer pulls (#354/#355/#357/W28) into the same session. Governing rule: everything that moves the frontier/EV output lands before the snapshot re-pin. Companions: `CASY_BACKFILL_SPEC.md`, `DATA_TEST_AUDIT_2026-06-09.md`. |
 | `docs/CONTRIBUTING.md` | Contributor workflow guide. |
 | `docs/SECURITY.md` | Security policy and best practices. |
-| `docs/Claude_Prompting_Master_Guide.md` | General Claude prompt-engineering reference (not project-specific). |
 
 ## `engine/` — quant + decision layer
 
@@ -462,7 +459,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
-| `engine/.gitkeep` | Directory placeholder. |
 
 ## `financial_news/` — standalone news platform (off the EV path)
 
@@ -589,6 +585,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 
 | File | Purpose |
 |---|---|
+| `scripts/audit_api_smoke.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks (was repo-root `audit.py`; renamed at the D27 move — it is an API smoke client, not the audit-cycle framework). |
 | `scripts/pull_all.py` | Orchestrates every puller in dependency order, skipping steps whose upstream is unavailable. |
 | `scripts/ibkr_ev_calibration.py` | Phase 3: PIT EV calibration — replays the operator's real short puts AND covered calls through `EVEngine.evaluate` at each trade's exact strike (reusing the ranker's PIT machinery) and compares `prob_profit`/`prob_assignment`/`ev_raw` to the realized hold-to-expiry outcome; per-leg + combined reliability/Brier/ECE + Wilson CIs + EV-sign split + a moneyness scale gate. Observational (§2/§3); never bypasses the engine. |
 | `scripts/ibkr_flex_ledger.py` | Phase 4: re-keys `wheel_ledger.json` from the exact IBKR Flex 'Trades' export (two CSVs) — Open/Close-driven long/short average-cost stock + per-contract option realized with real dates; refreshes history `premium`; reconciles to the p6 book + MTM. Read-only/observational (§2/§3). |
@@ -651,7 +648,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/export_sheets_to_csv.vba` | Excel VBA macro exporting ticker worksheets to CSV. |
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
 | `scripts/*_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste (ohlcv / iv / earnings / dividends, plus the combined `bloomberg_formulas.txt`). |
-| `scripts/.gitkeep` | Directory placeholder. |
 
 ## `src/` — feature-engineering / schema / backtest modules
 
@@ -731,6 +727,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_dossier_downgrade_property.py` | §2 downgrade-only lattice property — states the severity invariant (`proceed`<`review`<`skip`<`blocked`) ONCE over `EnginePhaseReviewer.review()`'s full R1–R11 chain instead of per-rule examples: 8 overlay firing scenarios × 6 `ev_dollars` probes assert `severity(with_overlay) ≥ severity(without)`, plus firing-cell teeth, a cannot-rescue-blocked check, a Hypothesis ev-fuzz, and five source-introspection meta-tripwires that force any future rule (R12+) into the matrix (overlay-guard count, no hard-returned `proceed`, verdict vocabulary, overlay-reason coverage, downgrade-to-`review`). Read-only against §2 (test-only). |
 | `tests/test_r11_elevated_vol.py` | Pins R11 — the elevated-vol top-bin size-down reviewer (heavy-verify 2026-05-31 I11). Eight tests: fires (top-bin `prob_profit>0.90` + `vix_level>25` → review / `elevated_vol_top_bin`), no-ops (VIX≤25, not-top-bin, `vix_level` absent), never-rescues (negative-EV stays blocked by R1), strictly-greater-than boundaries, computed-not-hardcoded payload (candidate's own `cvar_5`), and `build_dossiers(vix_level=…)` threading. Read-only against §2 (downgrade-only). |
 | `tests/test_dossier_r9_r10_audit.py` | S42 — systematic audit of R9 (sector_cap, PR #255) and R10 (single-name cap, PR #262). Six probe families (32 tests): R9 fires correctly, R10 fires correctly, downgrade-only invariant, fail-closed on missing context, cross-rule short-circuit ordering (R7 → R8 → R9 → R10), and edge cases (boundary semantics + four pinned sharp-edge findings — see `docs/USAGE_TEST_LEDGER.md` S42). Read-only against §2. |
+| `tests/test_testing_md_taxonomy.py` | Taxonomy completeness gate — every `tests/test_*.py` must be named in `TESTING.md` (and every literal `tests/test_*.py` path there must exist). Mirrors the FILE_MANIFEST coverage gate; added at D27 after 89/144 files had drifted out of the taxonomy. |
 | `tests/test_decision_layer_wiring.py` | Launch-blocker invariant — the production wire `rank_candidates_by_ev` → `WheelTracker.consume_ranker_row` → `open_short_put(current_ev_dollars=…)` and `PortfolioContext` through `build_dossiers` so D16 / D17 hardening fires live for the ranker chain operators run (closes the prior-audit cross-cutting #4 gap). |
 | `tests/test_consume_ranker_row_anchor.py` | Real-input anchor for the production chain — pulls rows from a live `WheelRunner.rank_candidates_by_ev` against the Bloomberg CSVs and feeds them unmodified through `WheelTracker.consume_ranker_row`. Schema-drift inoculation between the ranker tail and `consume_ranker_row`'s key reads. Complements `test_decision_layer_wiring.py`'s hand-built `_ev_row` coverage. |
 | `tests/test_diagnostic_column_honesty.py` | Pin two diagnostic-column honesty contracts in the ranker output: `rank_covered_calls_by_ev`'s `expected_dividend` reads 0.0 when the EVEngine dividend gate would not fire (S28 Fix #1); `rank_candidates_by_ev`'s `skew_source` provenance reads `"unavailable"` when the skew block did not execute (S29 Fix #1). |
@@ -859,12 +856,12 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `utils/__init__.py` | Re-exports the validation, dates, logging and metadata helpers. |
-| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. |
-| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. |
-| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. |
-| `utils/logging_config.py` | Logging setup helpers. |
-| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. |
-| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. |
+| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. Live — consumed by `data/bloomberg_loader.py`. |
+| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. Dormant — no importers. |
+| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. Test-only consumer (`tests/test_infrastructure.py`). |
+| `utils/logging_config.py` | Logging setup helpers. Dormant — imported only by `utils/health.py`. |
+| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. Dormant — no importers. |
+| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. Dormant — no importers. |
 
 ## Untriaged additions (auto-appended by `scripts/sync_manifest.py`)
 

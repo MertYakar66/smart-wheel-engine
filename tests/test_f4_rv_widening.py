@@ -284,3 +284,42 @@ class TestF4CasesRanker:
         assert (df["tail_widening_factor"] == 1.0).all(), (
             f"unexpected widening on 5-ticker smoke: {df[['ticker', 'tail_widening_factor']].to_dict()}"
         )
+
+
+# ======================================================================
+# 5. Corrupt-input neutrality — a non-finite ratio never widens
+# ======================================================================
+class TestNonFiniteRatioNeutralGuard:
+    """A non-positive close inside the trailing window poisons np.log ->
+    nan std -> non-finite ratio. The guard returns the documented no-fire
+    1.0 instead of letting ``min(max_widening, nan)`` silently hit the
+    cap (heavy-verify 2026-06-09 finding #2). Red on pre-guard main
+    (ratio=nan, factor=1.15); green with the guard."""
+
+    @staticmethod
+    def _frame_with_bad_close(bad: float) -> pd.DataFrame:
+        rng = np.random.default_rng(0)
+        n = 400
+        idx = pd.date_range("2020-01-01", periods=n, freq="B")
+        close = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.012, n)))
+        df = pd.DataFrame({"close": close}, index=idx)
+        df.iloc[-50, 0] = bad  # inside the trailing long window
+        return df
+
+    def test_zero_close_returns_neutral(self):
+        df = self._frame_with_bad_close(0.0)
+        assert realized_vol_ratio(df) == 1.0
+        assert realized_vol_widening_factor(df) == 1.0
+
+    def test_negative_close_returns_neutral(self):
+        df = self._frame_with_bad_close(-5.0)
+        assert realized_vol_ratio(df) == 1.0
+        assert realized_vol_widening_factor(df) == 1.0
+
+    def test_corrupt_close_widened_log_returns_passthrough(self):
+        # End-to-end no-op: the forward distribution fed to EVEngine.evaluate
+        # must be provably un-widened on corrupt evidence.
+        df = self._frame_with_bad_close(0.0)
+        rets = np.asarray([0.01, -0.02, 0.005])
+        out = realized_vol_widened_log_returns(rets, df)
+        assert np.array_equal(out, rets)

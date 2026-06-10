@@ -189,6 +189,49 @@ class TestEmpiricalBoundary:
             "isfinite filter must drop the inf returns the zero price induced"
         )
 
+    def test_negative_price_filtered_like_zero(self):
+        # np.log(negative) -> NaN log-price (vs -inf for zero); both routes land
+        # in the same isfinite filter. Pins the previously-unpinned negative
+        # branch: same survivor count as the zero-bar case. A pre-log price
+        # filter would splice a return across the bad bar and change the count.
+        zero_df = _series(300)
+        zero_df.iloc[150, _CLOSE] = 0.0
+        neg_df = _series(300)
+        neg_df.iloc[150, _CLOSE] = -5.0
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "min_samples": 1, "non_overlapping": False}
+        zero_rets = empirical_forward_log_returns(zero_df, **kw)
+        neg_rets = empirical_forward_log_returns(neg_df, **kw)
+        assert len(neg_rets) > 0
+        assert np.all(np.isfinite(neg_rets))
+        assert len(neg_rets) == len(zero_rets) == 293
+
+    def test_nan_close_dropped_pre_log_splice_semantics(self):
+        # The dropna consumes a NaN close BEFORE np.log, shortening the series
+        # by one: overlapping return count drops by exactly 1 vs clean. This is
+        # the LIVE real-data path (BIIB 2020-11-06 / 2023-06-09 NaN bars) — a
+        # well-meaning ffill "hygiene" change would keep the full count and
+        # silently alter shipped EV on those windows.
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "min_samples": 1, "non_overlapping": False}
+        clean = empirical_forward_log_returns(_series(300), **kw)
+        nan_df = _series(300)
+        nan_df.iloc[150, _CLOSE] = np.nan
+        dirty = empirical_forward_log_returns(nan_df, **kw)
+        assert len(clean) == 295
+        assert len(dirty) == 294
+        assert np.all(np.isfinite(dirty))
+
+    def test_zero_bar_min_samples_cascade(self):
+        # A corrupt bar that pushes the post-filter count below min_samples must
+        # return EMPTY so best_available_forward_distribution demotes to the
+        # next tier instead of serving a thin distribution.
+        zero_df = _series(300)
+        zero_df.iloc[150, _CLOSE] = 0.0
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "non_overlapping": False}
+        at = empirical_forward_log_returns(zero_df, min_samples=293, **kw)
+        assert len(at) == 293
+        below = empirical_forward_log_returns(zero_df, min_samples=294, **kw)
+        assert len(below) == 0
+
 
 # ---------------------------------------------------------------------------
 # W40 — realized_vol._log non-positive guard. CLEAN cases are (T) and pinned here;

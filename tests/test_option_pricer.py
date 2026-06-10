@@ -319,3 +319,41 @@ class TestEstimateOptionPrice:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestNonFiniteSigmaTContract:
+    """Pins the DELIBERATE non-finite pass-through (heavy-verify 2026-06-09
+    Site C): non-finite sigma/T pass _validate_inputs by design and price to
+    an honest NaN without raising; the NaN EV is hard-blocked downstream by
+    R1a (verdict_reason="ev_non_finite", PR #204). A raise here would abort
+    whole rank runs (no per-candidate try/except at the decision-layer call
+    sites). Pins behavior, not signature."""
+
+    NONFINITE_CASES = [
+        (float("nan"), 30 / 365),
+        (float("inf"), 30 / 365),
+        (0.25, float("nan")),
+        (0.25, float("inf")),
+        (float("nan"), float("nan")),
+    ]
+
+    @pytest.mark.parametrize("sigma,T", NONFINITE_CASES)
+    def test_scalar_entry_points_nan_no_raise(self, sigma, T):
+        price = black_scholes_price(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma, option_type="put")
+        delta = black_scholes_delta(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma, option_type="put")
+        vega = black_scholes_vega(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma)
+        assert np.isnan(price) and np.isnan(delta) and np.isnan(vega)
+
+    def test_all_greeks_all_nan_no_raise(self):
+        greeks = black_scholes_all_greeks(
+            S=100.0, K=95.0, T=float("nan"), r=0.04, sigma=0.25, option_type="put"
+        )
+        assert len(greeks) == 12
+        assert all(np.isnan(v) for v in greeks.values()), greeks
+
+    @pytest.mark.parametrize("sigma", [-0.5, float("-inf")])
+    def test_negative_sigma_still_raises(self, sigma):
+        # The finite-impossible fail-loud contract is untouched; -inf is caught
+        # by the existing sigma < 0 check.
+        with pytest.raises(ValueError, match="non-negative"):
+            black_scholes_price(S=100.0, K=95.0, T=0.1, r=0.04, sigma=sigma, option_type="put")

@@ -2,7 +2,7 @@
 id: d27-repo-restructure
 title: Repo restructure for zero-memory agent navigability (D27)
 kind: refactor
-status: in-flight
+status: shipped
 terminal: X
 pr:
 decisions: [D27]
@@ -106,12 +106,34 @@ pinned: 3086 passed / 0 failed / 32 skipped / 19 xfailed in 6:49
   (deliberate unit/integration/property layers; fresh W-series PRs
   mapped to the DATA_TEST_AUDIT register).
 
+## Stage 2 — scripts/, engine/, periphery (completed 2026-06-09)
+- scripts/ (53 .py + assets read): healthy; only action was the four
+  populated-dir `.gitkeep` removals (`24c1d9a`, closes ROADMAP C3).
+  An auditor's dead-code flags on five xbbg pullers were REFUTED —
+  they are the documented Bloomberg producers
+  (NEXT_DATA_SESSION_RUNBOOK:129-130; bloomberg_refresh_runbook rows
+  #1/#9; tracked outputs).
+- engine/ (52 modules read, claims re-verified): zero code changes;
+  MODULE_INDEX truth restored (`55dabdb`) — stale A3 re-export
+  section, four dormancy reclassifications (signals, signal_context,
+  portfolio_intelligence, dependency_check); PROJECT_STATE's pinned
+  stale-comment line number un-pinned.
+- Periphery (src/, ml/, backtests/, config/, utils/, studies/,
+  advisors/, both news trees, local_agent/, tradingview/, data/,
+  dashboard/): structure sound everywhere (`ba8fe70`);
+  config/settings.py + five utils modules status-noted; REPO_MAP
+  src/ table precision fix. A second auditor's "FILE_MANIFEST lacks
+  news-tree sections" claim was refuted (rows exist; CI gate
+  enforces coverage).
+
 ## Unresolved / handoff
-- Stage 2 remaining: scripts/, engine/, then periphery (src/, ml/,
-  local_agent/, financial_news/, news_pipeline/, notebooks/, config/,
-  utils/, studies/, backtests/, tradingview/, archive/).
 - Use `python3 -m pytest` in this sandbox (bare `pytest` resolves to
   an interpreter without the installed deps).
+- Deferred with reasons recorded in D27: test renumbering, doc
+  merges, src/ stub deletion, the VERIFICATION_INDEX
+  engine-vs-passive span table, the trio-file stale comment
+  (operator-greenlit touch), and the requirements.txt/pyproject
+  dependency divergence (behavioral; flagged only).
 - Follow-up idea from the docs audit: one engine-vs-passive span
   table in VERIFICATION_INDEX_2026-05-28.md consolidating the
   S32/S38/S40/S43/S44 numbers (currently stated across 5 reports).

@@ -1420,6 +1420,86 @@ EV-authority field), `dashboard/src/app/(terminal)/portfolio/` +
 
 ---
 
+## D27. Repository restructure for zero-memory-agent navigability (2026-06-09)
+
+**Decision:** A full-repo structural pass optimizing one metric — how fast a
+fresh agent builds a correct mental model from a cold start. Every folder was
+read (every root file; all 83 docs; all 144 test files; all 53 scripts; all 52
+engine modules; the full periphery), then changed only where the structure or
+its documentation lied:
+
+- **Root**: index docs reconciled to the 2026-06 state (CHANGELOG gained the
+  missing 2026-06 section; PROJECT_STATE a dated wave summary + the PR-#343
+  supersession note; MODULE_INDEX the missing `portfolio_risk_gates` /
+  `ibkr_portfolio_adapter` / `studies/` rows; ROADMAP compressed its done
+  tracks per its own contract and gained an "Open work" router).
+  `.env.example` rewritten around the verified-real env surface (every var
+  now has a named reader; phantom broker vars dropped). `audit.py` →
+  `scripts/audit_api_smoke.py` (the one move — see Migration path).
+- **docs/**: three superseded docs archived to `archive/2026-06/`
+  (SESSION_HANDOFF, the generic prompting guide, DATA_SPECIFICATION); four
+  status banners truth-synced (IBKR design doc claimed "none adopted" while
+  D24/D26 are implemented; BACKTEST_REGRESSION_CAMPAIGN; F4 diagnostic's
+  three-fix narrative; CODE_REVIEW); two router bugs fixed (REPO_MAP pinned
+  test count; verification_artifacts broken archive link); reading-order
+  headers added to the data-doc cluster naming NEXT_DATA_SESSION_RUNBOOK as
+  the single execution authority.
+- **tests/**: TESTING.md taxonomy completed 55 → 144 files (five new
+  sections) and drift-proofed by `tests/test_testing_md_taxonomy.py` (the
+  manifest-gate pattern applied to the test map); README's launch-blocker
+  command regained the missing `test_r11_elevated_vol.py`.
+- **scripts/ + hygiene**: four `.gitkeep`s removed from populated dirs
+  (closing parked ROADMAP C3); empty-by-design placeholders retained.
+- **engine/ + periphery**: zero code changes; index truth restored —
+  MODULE_INDEX's stale `engine/__init__.py` section (A3 shipped), four
+  dormancy reclassifications (`signals`, `signal_context`,
+  `portfolio_intelligence`, `dependency_check`), `config/settings.py` and
+  five `utils/` modules status-noted, REPO_MAP's src/ table re-verified
+  (one precision fix).
+
+**Why:** This repo is operated by memoryless agents; its index docs are the
+working memory. The audit found the *layout* (D14's tiers, the worklog system,
+the flat test suite) fundamentally sound but the *truth layer* drifted wherever
+no gate enforced it: the CI-gated FILE_MANIFEST never drifted while the
+ungated TESTING.md taxonomy lost 89 of 144 files, and "live" status rows
+survived their modules' last caller. The pass therefore biased toward
+truth-restoration plus one new gate over relocation — the navigability defect
+was rarely *where* things were, almost always *what the maps said about them*.
+
+**Tried but rejected:**
+- *Renaming/renumbering test files for discoverability.* Filenames here are
+  load-bearing decision anchors (DECISIONS pins ~50; REPO_MAP's INVARIANT-PIN
+  set forbids moves without §2-owner sign-off; the audit-i…viii vocabulary is
+  the history). The completed taxonomy delivers the same discoverability for
+  zero broken references.
+- *Merging near-duplicate docs/tests.* Every suspected cluster (Theta quartet,
+  setup duo, data roadmaps, IBKR trio, dossier/dealer invariant tests) proved
+  a deliberate audience or layer partition; merging would lose the split.
+- *Deleting "orphan" scripts/modules flagged by auditors.* Two waves of
+  dead-code claims were refuted by deeper greps (the xbbg pullers are the
+  documented Bloomberg producers; data/ "orphans" are CLI one-shots): the
+  campaign's rule became *status-note beats delete* absent airtight evidence.
+- *Deleting the empty `src/` stubs.* D2/D14 considered and rejected; REPO_MAP
+  documents them truthfully — re-litigation adds risk for no gain.
+
+**Migration path:** One file moved with a rename: `audit.py` →
+`scripts/audit_api_smoke.py` (`git mv`, 100% similarity; zero importers
+existed, so no compatibility shim; all nine inbound references updated in the
+same commit; D14's rejected-alternative bullet annotated SUPERSEDED on this
+point — its blocking reason, red CI lint, dissolved when Track F closed).
+Three docs moved to `archive/2026-06/` with `archive/README.md` entries and
+the single live inbound reference (DATA_POLICY → DATA_SPECIFICATION)
+repointed in the same commit. **Shim expiry:** n/a — no shims were created.
+
+**Pinned by:** `tests/test_testing_md_taxonomy.py` (the new taxonomy gate),
+`scripts/check_manifest_coverage.py` + `scripts/check_doc_currency.py` +
+`scripts/gen_worklog_index.py --check` (the pre-existing gates this pass kept
+green throughout), `archive/README.md` (the 2026-06 section),
+`docs/worklog/d27-repo-restructure-for-agent-navigability.md` (the full
+task record with per-stage evidence).
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

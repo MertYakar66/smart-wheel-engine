@@ -154,7 +154,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
-| [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | in-flight |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
+| [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
 ## Docs / process (6)

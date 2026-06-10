@@ -14,6 +14,41 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-06-09 — D27 repository restructure for agent navigability
+
+Full-repo structural pass (`DECISIONS.md` D27;
+`docs/worklog/d27-repo-restructure-for-agent-navigability.md` is the task
+record). Every folder read; changes were truth-restoration, not relocation.
+
+### Docs
+- Root index docs reconciled to the 2026-06 state; ROADMAP gained the
+  "Open work" router; `.env.example` rewritten around the verified-real
+  env surface; three superseded docs archived to `archive/2026-06/`;
+  four doc status banners truth-synced (the IBKR design doc had claimed
+  "none adopted" while D24/D26 shipped); REPO_MAP + verification-artifacts
+  router bugs fixed; data-doc cluster gained reading-order headers.
+- TESTING.md taxonomy completed 55 → 144 test files (five new sections);
+  README's launch-blocker command regained `test_r11_elevated_vol.py`.
+- MODULE_INDEX truth pass: the stale `engine/__init__.py` section (A3
+  shipped), four engine dormancy reclassifications, `config/` + `utils/`
+  status notes.
+
+### Added
+- `tests/test_testing_md_taxonomy.py` — two-way taxonomy gate (suite ⊆
+  TESTING.md; literal taxonomy paths exist), the manifest-gate pattern
+  applied to the test map.
+
+### Changed
+- `audit.py` → `scripts/audit_api_smoke.py` (git mv; nine refs updated;
+  D14's rejected-alternative annotated — its lint-debt reason dissolved
+  with Track F).
+
+### Infra
+- Four `.gitkeep`s removed from populated dirs (closes parked ROADMAP C3);
+  empty-by-design placeholders retained.
+
+---
+
 ## 2026-06 (early) — W-series verification campaign + IBKR live book + data refresh R1
 
 ~58 commits, 2026-06-03 → 2026-06-09 (PRs #317–#394). Four themes.

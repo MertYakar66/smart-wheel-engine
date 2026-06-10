@@ -134,6 +134,13 @@ pinned: 3086 passed / 0 failed / 32 skipped / 19 xfailed in 6:49
   engine-vs-passive span table, the trio-file stale comment
   (operator-greenlit touch), and the requirements.txt/pyproject
   dependency divergence (behavioral; flagged only).
+- Post-merge follow-up (2026-06-10): the root .bat launcher trio was
+  archived to archive/2026-06/ once the operator confirmed it is not
+  part of the live workflow — the Stage-1 keep was evidence-correct
+  at the time (a double-click consumer is grep-invisible); the
+  operator's confirmation was the missing fact. studies/ kept as-is
+  on review (single occupant, but correctly labeled, growing, and
+  cheap to fold into backtests/ later if it never does).
 - Follow-up idea from the docs audit: one engine-vs-passive span
   table in VERIFICATION_INDEX_2026-05-28.md consolidating the
   S32/S38/S40/S43/S44 numbers (currently stated across 5 reports).

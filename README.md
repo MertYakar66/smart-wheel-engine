@@ -145,7 +145,8 @@ smart-wheel-engine/
 ├── news_pipeline/   # browser-agent pipeline driving morning_run.py
 ├── local_agent/     # experimental local agent + UI
 ├── ml/              # research ML models
-├── backtests/       # research backtesting
+├── backtests/       # research backtesting + pinned regression reproducers
+├── studies/         # one-off research studies (premium-correction pilot)
 ├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
 ├── config/          # configuration
 ├── utils/           # shared utilities
@@ -174,8 +175,8 @@ pytest tests/ -v
 /launch-blockers          # slash command, wraps the subset
 # or directly:
 pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
-       tests/test_authority_hardening.py tests/test_audit_viii_*.py \
-       tests/test_launch_blockers.py -v
+       tests/test_r11_elevated_vol.py tests/test_authority_hardening.py \
+       tests/test_audit_viii_*.py tests/test_launch_blockers.py -v
 ```
 
 Any change touching `engine/ev_engine.py`, `engine/wheel_runner.py`, or

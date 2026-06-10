@@ -14,7 +14,7 @@
 #
 #   SWE_API_PORT                — 8787 + (letter - 'a'). Honoured today
 #                                 by engine_api.py's `_resolve_port()` and
-#                                 audit.py's `BASE` (PR #158 / D15);
+#                                 scripts/audit_api_smoke.py's `BASE` (PR #158 / D15);
 #                                 default 8787 falls through when unset.
 #   SWE_DATA_PROCESSED_DIR      — shared `data_processed/` by default.
 #   SWE_MODELS_DIR              — shared `models/` by default.

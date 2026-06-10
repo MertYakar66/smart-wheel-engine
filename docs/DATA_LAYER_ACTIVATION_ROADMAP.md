@@ -1,5 +1,12 @@
 # Data-Layer Activation Roadmap — survivorship-free 1990–2026 → live engine
 
+> **Reading order:** this is the *design* for activating the deep-history
+> archives (R0a–R7). The executable session plan that orchestrates it —
+> together with the Bloomberg pull queue and the (E) fixes — is
+> **`docs/NEXT_DATA_SESSION_RUNBOOK.md`** (the single operator-facing
+> runbook). Architectural detail for R2/R3 lives in the companion
+> `docs/DATA_LAYER_DEEP_READ_DESIGN.md`.
+
 > **Status: PLAN (2026-06-05).** This is the deliverable of STEP 2 of the
 > data-layer activation task. **This branch is DOCS-ONLY** (the verified
 > inventory below + the companion design doc + this roadmap); the R0a

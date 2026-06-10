@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-05-31.
+**Last updated:** 2026-06-09.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -124,6 +124,60 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
 > historical record. Newest-first additions for the 2026-05 late
 > campaign appear above them.
 
+### D27 repo restructure merged — orientation note for agents (2026-06-10)
+
+The navigation layer was reconciled and gate-hardened. If your clone or
+worktree predates this merge, `git pull` before orienting — you were
+reading stale maps. What changed for you:
+
+- **The maps are true again.** `TESTING.md`'s taxonomy covers all 144
+  test files (new gate: `tests/test_testing_md_taxonomy.py` — when you
+  add a test file, add its one-line taxonomy row or the suite fails);
+  `MODULE_INDEX.md` statuses are grep-verified (dormant means dormant);
+  this file + `CHANGELOG.md` now cover the 2026-06 wave.
+- **`audit.py` moved** → `scripts/audit_api_smoke.py` (it is the API
+  smoke client, not the audit-cycle framework). The root path is gone.
+- **Use `TESTING.md` for the launch-blocker subset** — README's inline
+  copy had drifted (it omitted `test_r11_elevated_vol.py`; fixed, but
+  TESTING.md remains the canonical list).
+- **Three docs archived** to `archive/2026-06/`: `SESSION_HANDOFF.md`
+  (superseded), the generic prompting guide, and `DATA_SPECIFICATION.md`
+  (`docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md` own that topic now).
+- Full record: `DECISIONS.md` D27 +
+  `docs/worklog/d27-repo-restructure-for-agent-navigability.md`
+  (including what was deliberately NOT changed, and why).
+
+### 2026-06 campaign wave — W-series verification + IBKR live book + data refresh R1 (2026-06-03 → 2026-06-09)
+
+Headlines only — per-PR detail is `CHANGELOG.md` "2026-06 (early)";
+worklog fragments carry the evidence.
+
+- **W-series test campaign (W10–W67).** A two-phase data + engine audit
+  (#353 discovery → #358 suites) promoted ~60 real-data findings into
+  pinned tests across 14 PRs (#370–#379 data, #383–#394 quant
+  invariants). Coverage register: `docs/DATA_TEST_AUDIT_2026-06-09.md`.
+- **IBKR read-only live book (D24 + D26) is live.**
+  `engine/ibkr_portfolio_adapter.py` + `GET /api/portfolio/*` + the
+  `/portfolio` / `/cockpit` / `/terminal` dashboard surfaces, with real
+  IBKR history import, PIT EV calibration vs the operator's real CSPs
+  (#362 — confirms the top-bin over-confidence finding on real fills),
+  and a one-command morning refresh (`docs/DASHBOARD_TERMINAL.md`).
+  Strictly observational; no EV authority on the viewer path.
+- **Armed production entry path exists** —
+  `WheelRunner.consume_into_live_book` (#343) routes rank→book through
+  `make_live_book_tracker` (R9/R10 ON). Supersedes the 2026-06-01
+  "zero non-test callers" note below (see the update inside that
+  section).
+- **Bloomberg data refresh R1 + re-baseline** (#338) — 16 monolith CSVs
+  refreshed; S27/S32/S34/S35 snapshots re-pinned; the regression
+  fingerprint now pins every connector input
+  (`connector_data_sha256`, #346), so data drift fails fast per-PR.
+- **Open data queue is consolidated** in
+  `docs/NEXT_DATA_SESSION_RUNBOOK.md` (#381 — the single authoritative
+  re-baseline-session runbook; bundles the D19 + D21 deferred fixes),
+  with `docs/DATA_ACQUISITION_ROADMAP.md` + `docs/BLOOMBERG_PULL_LIST.md`
+  as the pull-side plan.
+
 ### D17 portfolio-risk-gates closure — 2026-05-26 → 2026-05-27
 
 - **B2 part 1** (PR `#233`, `b55a59a`) — D17 portfolio-context live
@@ -184,13 +238,22 @@ Source-verified specifics:
   `require_ev_authority=True`" framing in the B2 / R10 bullets above, which
   predates the D22 decoupling.
 
-> **Known stale code comment (flagged, not fixed — trio files).** The inline
-> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)` at
-> `wheel_tracker.py:1923` reads "default on", but the bare-constructor default
-> is OFF — accurate only inside `make_live_book_tracker()`. Likewise that
-> factory's docstring says production "MUST be constructed through this
-> factory" though no production caller exists yet. Both are trio-file edits
-> deferred to an operator-greenlit decision-layer touch.
+> **Update (2026-06-07, PR #343):** the "zero non-test callers" gap above is
+> closed — `WheelRunner.consume_into_live_book` is the armed production
+> rank→book entry and constructs its tracker via `make_live_book_tracker()`
+> (R9 + R10 ON), refusing over-concentrated opens end-to-end. The library
+> default (`WheelTracker(...)` bare constructor) remains OFF by design (D22);
+> backtest / reproduction / demo paths are unchanged.
+
+> **Known stale code comment (flagged, not fixed — trio file).** The inline
+> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)`
+> comment in `wheel_tracker.py` (in `_evaluate_d17_hard_blocks`; line drifts —
+> grep for it) reads "default on", but the bare-constructor default is OFF —
+> accurate only inside `make_live_book_tracker()`. A trio-file edit deferred
+> to an operator-greenlit decision-layer touch. (The companion complaint about
+> the factory docstring — "MUST be constructed through this factory" with no
+> production caller — resolved itself when PR #343's `consume_into_live_book`
+> became that caller; the docstring is now true.)
 
 ### F4 tail-risk widening v2 — 2026-05-27
 

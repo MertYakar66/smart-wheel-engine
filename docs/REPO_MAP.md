@@ -87,7 +87,7 @@ freeze. Per-file import reality (grounded by importer grep):
 | `features/volatility.py` | research ETL + scripts + tests | not live engine |
 | `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | `data/feature_pipeline.py` + tests | research/test only |
 | `data/validators.py` | self only | dead (coverage-omitted) |
-| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` only | test-only |
+| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` + `ml/wheel_model.py` (research) | research/test-only |
 | `risk/`, `models/`, `execution/` | none (empty `__init__` stubs) | zero importers |
 
 ## Tests — find them without globbing

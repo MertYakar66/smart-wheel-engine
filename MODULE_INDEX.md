@@ -236,8 +236,8 @@ updated. See `PROJECT_STATE.md` §5.
 | `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |
 | `docs/` | The documentation set — operational, reference and design-contract docs. See `FILE_MANIFEST.md` for the full per-file listing. | live |
-| `config/` | `settings.py`. | live |
-| `utils/` | `data_validation.py`, `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py`. | live |
+| `config/` | `settings.py` — dormant config dataclass layer (zero importers; the live runtime config is `engine/policy_config.py`). | dormant |
+| `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
 | `src/` | **Phantom scaffold.** Empty `execution/`, `models/`, `risk/` packages; partial `data/` and `features/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
 | `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |

@@ -148,7 +148,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | File | Purpose |
 |---|---|
 | `config/__init__.py` | Re-exports `Config`, `ConfigManager`, the sub-config dataclasses and preset factories. |
-| `config/settings.py` | Centralized config — strategy / risk / execution / data / regime / edge / backtest dataclasses with YAML/JSON/env loading. |
+| `config/settings.py` | Centralized config dataclasses with YAML/JSON/env (`WHEEL_*`) loading. **Dormant** — zero importers; the live runtime config is `engine/policy_config.py`. (`ml/wheel_model.py` reads the `WHEEL_*` env vars directly, not through this module.) |
 
 ## `dashboard/` — Next.js dashboard + legacy Python CLI
 
@@ -856,12 +856,12 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `utils/__init__.py` | Re-exports the validation, dates, logging and metadata helpers. |
-| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. |
-| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. |
-| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. |
-| `utils/logging_config.py` | Logging setup helpers. |
-| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. |
-| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. |
+| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. Live — consumed by `data/bloomberg_loader.py`. |
+| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. Dormant — no importers. |
+| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. Test-only consumer (`tests/test_infrastructure.py`). |
+| `utils/logging_config.py` | Logging setup helpers. Dormant — imported only by `utils/health.py`. |
+| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. Dormant — no importers. |
+| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. Dormant — no importers. |
 
 ## Untriaged additions (auto-appended by `scripts/sync_manifest.py`)
 

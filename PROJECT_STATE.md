@@ -222,13 +222,15 @@ Source-verified specifics:
 > default (`WheelTracker(...)` bare constructor) remains OFF by design (D22);
 > backtest / reproduction / demo paths are unchanged.
 
-> **Known stale code comment (flagged, not fixed — trio files).** The inline
-> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)` at
-> `wheel_tracker.py:1923` reads "default on", but the bare-constructor default
-> is OFF — accurate only inside `make_live_book_tracker()`. Likewise that
-> factory's docstring says production "MUST be constructed through this
-> factory" though no production caller exists yet. Both are trio-file edits
-> deferred to an operator-greenlit decision-layer touch.
+> **Known stale code comment (flagged, not fixed — trio file).** The inline
+> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)`
+> comment in `wheel_tracker.py` (in `_evaluate_d17_hard_blocks`; line drifts —
+> grep for it) reads "default on", but the bare-constructor default is OFF —
+> accurate only inside `make_live_book_tracker()`. A trio-file edit deferred
+> to an operator-greenlit decision-layer touch. (The companion complaint about
+> the factory docstring — "MUST be constructed through this factory" with no
+> production caller — resolved itself when PR #343's `consume_into_live_book`
+> became that caller; the docstring is now true.)
 
 ### F4 tail-risk widening v2 — 2026-05-27
 

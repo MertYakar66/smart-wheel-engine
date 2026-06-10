@@ -74,8 +74,8 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
 | `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
-| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). |
-| `signals.py` | Composite signal aggregator (legacy framework — `IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). |
+| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). **Dormant** — re-exported but no live consumer (`engine_api` / `wheel_runner` / `tv_signals` do not call it). |
+| `signals.py` | Composite signal aggregator (`IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). **Dormant** — re-exported by `engine/__init__.py` but zero production callers (tests, the frozen `src/` scaffold, and the smoke harness only); wire-up requires an explicit decision. |
 | `news_sentiment.py` | Operator-facing sentiment reader. **Severed from the EV path by D18** — `sentiment_multiplier()` returns constant 1.0. `get_ticker_sentiment` is preserved so the dashboard / row dict / morning brief still surface the underlying score for transparency, but the engine ignores it. |
 
 ### Data layer
@@ -112,7 +112,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `wheel_tracker.py` | Position-lifecycle bookkeeping: `WheelPosition`, `PositionState`. Audit-VIII fixed P&L double-count and orthogonalised the three ledgers (realized_pnl, transaction_costs, stock_basis). |
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
-| `portfolio_intelligence.py` | SEC / 13F portfolio context. |
+| `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
 | `ibkr_portfolio_adapter.py` | D24 read-only IBKR snapshot → engine types (`PortfolioContext`, held positions, USD NAV) + the D26 `/api/portfolio/*` payload builders. Outside the CI-gated trio; imports nothing from it. (**tracker / input**) |
 
@@ -123,34 +123,32 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
 | `observability.py` | Structured logging. |
-| `dependency_check.py` | Bootstrap utility. |
+| `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
 | `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |
 
 ### `engine/__init__.py` re-exports
 
-Currently exports the *legacy* quant layer (option_pricer, monte_carlo,
-risk_manager, regime_detector, signals, stress_testing, transaction_costs,
-volatility_surface, wheel_tracker, portfolio_tracker, etc.) but **does
-not re-export the modern decision-layer entry points**.
-
-To use the authoritative layer, import via full submodule paths:
+Exports the legacy quant layer (option_pricer, monte_carlo,
+risk_manager, regime_detector, signals, stress_testing,
+transaction_costs, volatility_surface, wheel_tracker,
+portfolio_tracker, etc.) **plus, since ROADMAP A3, the seven modern
+decision-layer symbols**: `EVEngine`, `EVResult`, `ShortOptionTrade`,
+`WheelRunner`, `EnginePhaseReviewer`, `CandidateDossier`,
+`MarketStructure`. Both import styles work:
 
 ```python
-from engine.ev_engine import EVEngine
-from engine.wheel_runner import WheelRunner
-from engine.candidate_dossier import EnginePhaseReviewer
-from engine.dealer_positioning import MarketStructure
-from engine.tradingview_bridge import (
-    FilesystemChartProvider,
-    PlaywrightChartProvider,
-    ChainedChartProvider,
+from engine import EVEngine, WheelRunner            # package re-export (A3)
+from engine.ev_engine import EVEngine               # full submodule path
+from engine.tradingview_bridge import (             # chart providers are
+    FilesystemChartProvider,                        # NOT package-level —
+    PlaywrightChartProvider,                        # import from the
+    ChainedChartProvider,                           # submodule
 )
 ```
 
-Recommendation: extend the package `__all__` to include these modern
-symbols. Held back from this review pass because touching
-`engine/__init__.py` ripples through every import site.
+Existing code predominantly uses the full submodule paths; both are
+sanctioned.
 
 ---
 

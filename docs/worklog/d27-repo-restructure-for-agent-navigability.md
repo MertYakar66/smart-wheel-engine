@@ -87,11 +87,31 @@ Verdict: the D14-extension architecture works — defects were narrow.
   consolidation table (content authoring needing number re-verify
   across 5 reports — flagged as a follow-up, not structural work).
 
+## Stage 2 — tests/ (completed 2026-06-09)
+All 144 test files read (three parallel sub-audits) + green baseline
+pinned: 3086 passed / 0 failed / 32 skipped / 19 xfailed in 6:49
+(`python3 -m pytest tests/ -m "not backtest_regression"`).
+- TESTING.md taxonomy completed 55 → 144 files (`0b1ef38`): 90 rows
+  across existing tables + five new sections (Ranker/EV-path, W-series
+  W38-W67, External-data adapters, Theta pullers, IBKR live book).
+- New gate `tests/test_testing_md_taxonomy.py` (two-way: suite ⊆
+  taxonomy, literal taxonomy paths ⊆ suite) — the manifest/worklog
+  CI-gate pattern applied to the test map; it caught a 90th missing
+  row pre-commit.
+- README launch-blocker command gained the missing
+  test_r11_elevated_vol.py (gate-drift vs TESTING/REPO_MAP/skill).
+- Deliberately NOT done: renames/renumbering (filenames are decision
+  anchors — DECISIONS.md pins ~50; REPO_MAP INVARIANT-PIN set forbids
+  moves without §2 sign-off); merges of near-neighbour files
+  (deliberate unit/integration/property layers; fresh W-series PRs
+  mapped to the DATA_TEST_AUDIT register).
+
 ## Unresolved / handoff
-- Stage 2 remaining: tests/ (naming/coverage map), scripts/,
-  engine/, then periphery (src/, ml/, local_agent/, financial_news/,
-  news_pipeline/, notebooks/, config/, utils/, studies/, backtests/,
-  tradingview/, archive/).
+- Stage 2 remaining: scripts/, engine/, then periphery (src/, ml/,
+  local_agent/, financial_news/, news_pipeline/, notebooks/, config/,
+  utils/, studies/, backtests/, tradingview/, archive/).
+- Use `python3 -m pytest` in this sandbox (bare `pytest` resolves to
+  an interpreter without the installed deps).
 - Follow-up idea from the docs audit: one engine-vs-passive span
   table in VERIFICATION_INDEX_2026-05-28.md consolidating the
   S32/S38/S40/S43/S44 numbers (currently stated across 5 reports).

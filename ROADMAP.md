@@ -27,7 +27,6 @@ router, not the spec.
 | **Bloomberg data acquisition** — pull-broadly plan + the no-code pull checklist | `next` (needs operator Terminal access) | `docs/DATA_ACQUISITION_ROADMAP.md`, `docs/BLOOMBERG_PULL_LIST.md` |
 | **prob_profit top-bin over-confidence** — wire the POT-GPD tail machinery (`engine/tail_risk.py`) into the `prob_profit` computation path | `open question` (research) | `PROJECT_STATE.md` §3 "prob_profit calibration", `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | **R11 onset-aware trigger** — persistence-based VIX trigger (fire after N consecutive days >25: catch the 2022 grind, skip the 2020 spike) | `parked` (research card) | `DECISIONS.md` D23 post-ship validation; the r11-onset-aware card in `docs/worklog/` |
-| C3 placeholder cleanup | `parked` (low value) | Track C below |
 
 ---
 
@@ -66,15 +65,16 @@ All six one-shot doc repairs landed; detail in `CHANGELOG.md` 2026-05.
 - ~~**C2. Stage the `tradingview/` analyst-workspace files**~~ —
   `done` (PR #78, `4e9c3f3`, 2026-05-15).
 
-### C3. Drop `engine/.gitkeep` and the empty `models/` placeholder
-**Status:** `parked` (low value)
-**Issue:** `engine/` is fully populated, so its `.gitkeep` is harmless
-noise. `models/` is an empty referenced-path placeholder
-(`ml/wheel_model.py`'s default output directory — see
-`PROJECT_STATE.md` §4). The third placeholder originally named here,
-`validation/`, was already removed in D14.
-**Why parked:** removing empty placeholders is rarely worth a PR;
-bundle into a future cleanup.
+### ~~C3. Drop `engine/.gitkeep` and the empty `models/` placeholder~~
+**Status:** `done` (2026-06-09, D27 scripts/ pass) — with a scope
+correction. The four `.gitkeep`s in **populated** directories
+(`scripts/` 67 files, `engine/` 52, `backtests/` 19, `data_raw/` 11)
+were removed. The placeholders in **empty-by-design** directories
+were deliberately retained as load-bearing: `models/` (the
+`ml/wheel_model.py` referenced output path), `notebooks/`,
+`data_processed/` (gitignored tree), and
+`tradingview/{models,pine,research}` (C2 workspace dirs) — removing
+those would remove the directories from git.
 
 ## Track E — Coverage push (closed)
 

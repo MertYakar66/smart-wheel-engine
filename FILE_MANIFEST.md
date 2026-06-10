@@ -120,7 +120,6 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `backtests/simulator.py` | `WheelBacktester` — a simplified placeholder backtester (constant-IV approximation). |
 | `backtests/walk_forward.py` | Walk-forward validation framework (anchored / rolling / purged k-fold, parameter-stability analysis, out-of-sample tracking). |
 | `backtests/survivorship.py` | R3 survivorship-aware harness — PIT universe via `consolidated_loader.get_universe_as_of` (membership presence; `min_weight` is the dead all-zeros sentinel), a `deep_history=True` connector, delisting-aware `terminal_spot` (last close on/before expiry, else 0 — never NaN-drop), and `run_survivorship_backtest` routing 100% through `rank_candidates_by_ev`. Not on the decision-layer path. |
-| `backtests/.gitkeep` | Directory placeholder. |
 
 ## `backtests/regression/` — backtest regression harness
 
@@ -289,7 +288,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `data_raw/sp500_constituents_current.csv` | The canonical S&P 500 constituent universe list. |
 | `data_raw/ohlcv/*.csv` | Sample per-ticker yfinance OHLCV fixtures (5 tickers). |
 | `data_raw/yfinance/options/*.csv` | Sample dated yfinance option-chain fixtures (5 tickers). |
-| `data_raw/.gitkeep` | Directory placeholder. |
 
 ## `docs/` — documentation set
 
@@ -461,7 +459,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
-| `engine/.gitkeep` | Directory placeholder. |
 
 ## `financial_news/` — standalone news platform (off the EV path)
 
@@ -651,7 +648,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/export_sheets_to_csv.vba` | Excel VBA macro exporting ticker worksheets to CSV. |
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
 | `scripts/*_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste (ohlcv / iv / earnings / dividends, plus the combined `bloomberg_formulas.txt`). |
-| `scripts/.gitkeep` | Directory placeholder. |
 
 ## `src/` — feature-engineering / schema / backtest modules
 

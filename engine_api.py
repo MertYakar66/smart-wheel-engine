@@ -60,6 +60,7 @@ from datetime import (  # noqa: F401  # timezone re-exported for audit-VIII P0.3
     UTC,
     date,
     datetime,
+    timedelta,
     timezone,
 )
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -510,6 +511,30 @@ def _sanitize_nans(obj):
     return obj
 
 
+_data_frontier_cache: str | None = None
+
+
+def _data_frontier(conn) -> str | None:
+    """Max OHLCV date the connector actually serves, as ``YYYY-MM-DD``.
+
+    Probes AAPL (trades every session, always in the universe) so the answer
+    reflects the frames the connector really loads — not a raw file read that
+    could diverge from what ``get_ohlcv`` filters. Cached for the process
+    lifetime: the OHLCV monolith loads once per process, so the frontier
+    cannot move without a restart. Returns None (never raises) when the data
+    layer is unavailable — status must stay a cheap, robust health check.
+    """
+    global _data_frontier_cache
+    if _data_frontier_cache is None:
+        try:
+            df = conn.get_ohlcv("AAPL")
+            if df is not None and not df.empty:
+                _data_frontier_cache = df.index.max().date().isoformat()
+        except Exception:
+            return None
+    return _data_frontier_cache
+
+
 def _nan_to_none(v):
     """Scalar NaN/Inf → None; everything else passes through unchanged.
 
@@ -909,6 +934,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "universe_size": len(universe),
                 "vix": vix.get("vix", 0) if vix else 0,
                 "data_dir": str(conn._data_dir),
+                # CLAUDE.md §4.1: always surface which provider was actually
+                # selected — silent provider selection is a recurring bug.
+                "provider": type(conn).__name__,
+                # Max OHLCV date the connector serves. The dashboard derives
+                # its default as_of from this instead of hardcoding a date
+                # that rots between data refreshes (review 2026-06-10).
+                "data_frontier": _data_frontier(conn),
             }
         )
 
@@ -991,6 +1023,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+
+        # Modeled expiry: the ranker evaluates a synthetic contract at exactly
+        # dte_target days from the PIT cutoff (Bloomberg path has no listed
+        # chain), so as_of + dte IS the contract date the EV math priced — not
+        # a guess at a listed expiration. Labeled "modeled" dashboard-side.
+        try:
+            _exp_base = date.fromisoformat(as_of) if as_of else date.today()
+        except (TypeError, ValueError):
+            _exp_base = date.today()
+        expiration_iso = (_exp_base + timedelta(days=dte_int)).isoformat()
 
         trades = []
         for _, row in df.iterrows():
@@ -1084,7 +1126,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                         if (math.isfinite(ev_dollars) and ev_dollars > 0)
                         else "skip"
                     ),
-                    "expiration": "",
+                    "expiration": expiration_iso,
+                    # The delta the strike was SELECTED at (ranker's
+                    # delta_target) — not a per-strike measured Greek. The
+                    # old payload omitted delta entirely and the dashboard's
+                    # ``?? 0`` fallback fabricated "Delta 0.000" (review
+                    # 2026-06-10 F4/F5). Named to stay honest about what it is.
+                    "targetDelta": delta_f,
                 }
             )
 
@@ -1330,9 +1378,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         self._send_json(payload)
 
     def _handle_regime(self, ticker):
+        # NB: ``ticker`` is accepted for URL compatibility but the payload is
+        # market-wide (VIX bucket + term structure). The old handler also made
+        # a per-ticker ``get_iv_history`` call whose result was discarded —
+        # removed (review 2026-06-10).
+        del ticker
         conn = get_connector()
         vix_data = conn.get_vix_regime()
-        conn.get_iv_history(ticker)
 
         regime = "NEUTRAL"
         vix = 0
@@ -1345,14 +1397,23 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif vix < 15:
                 regime = "LOW_VOL"
 
+        term_structure = (vix_data or {}).get("term_structure")
         self._send_json(
             {
                 "regime": regime,
                 "vix": vix,
                 "vixPercentile": vix_data.get("vix_percentile", 0) if vix_data else 0,
-                "contango": vix_data.get("contango", False) if vix_data else False,
-                "trendScore": 0,
-                "confidence": 0.7,
+                # Derived from the connector's real key. The old read
+                # (``vix_data.get("contango")``) targeted a key the connector
+                # never emits, so the field was permanently False (review F3).
+                "contango": term_structure == "contango",
+                "termStructure": term_structure,
+                "vix3m": _nan_to_none((vix_data or {}).get("vix_3m")),
+                "vix6m": _nan_to_none((vix_data or {}).get("vix_6m")),
+                # ``trendScore: 0`` and ``confidence: 0.7`` were hardcoded
+                # constants the terminal rendered as live diagnostics
+                # (review F2/F6). An honest payload omits what the engine
+                # does not measure on this endpoint.
             }
         )
 

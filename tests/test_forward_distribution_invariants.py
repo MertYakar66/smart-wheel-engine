@@ -228,20 +228,33 @@ class TestRealizedVolNonPositiveGuard:
         df.iloc[20, _CLOSE] = -1.0
         assert np.isnan(close_to_close_vol(df, window=20))
 
-    @pytest.mark.xfail(
-        reason="(E) #382 incomplete _log guard: zero DENOMINATOR leaks +inf through the OHLC-ratio estimators; should be NaN. Tracked as an engine fix.",
-        strict=True,
-    )
     @pytest.mark.parametrize("est", [parkinson_vol, garman_klass_vol], ids=lambda f: f.__name__)
     def test_zero_low_should_not_leak_inf(self, est):
-        # DESIRED contract: a non-positive price anywhere (here low=0, a denominator)
-        # yields NaN, never +inf. TODAY parkinson/garman_klass return +inf because the
-        # guard sits on the post-division ratio, not the raw price. Flips green when
-        # the (E) guard hardening lands.
+        # CONTRACT (closed by #382): a non-positive price anywhere (here low=0, a
+        # denominator) yields NaN, never +inf. Before the fix parkinson/garman_klass
+        # returned +inf because the guard sat on the post-division ratio (high/0 ==
+        # +inf -> log(+inf) == +inf); _log_ratio now guards the raw operands before
+        # the division, so the bad bar propagates NaN through np.mean.
         df = _series(40)
         df.iloc[20, _LOW] = 0.0
         v = est(df, window=20)
         assert not np.isinf(v), f"{est.__name__} leaked inf on a zero-low bar"
+        assert np.isnan(v), f"{est.__name__} should be NaN on a zero-low bar, got {v}"
+
+    @pytest.mark.parametrize(
+        "est", [parkinson_vol, garman_klass_vol, rogers_satchell_vol], ids=lambda f: f.__name__
+    )
+    def test_all_negative_bar_not_swallowed(self, est):
+        # CONTRACT (closed by #382): an all-negative OHLC bar must NOT be silently
+        # swallowed. Before the fix the ratios -1/-1 == 1 -> log(1) == 0 contributed
+        # a benign 0 term, so the estimator returned a normal-looking vol ~indistinct
+        # from the clean value (parkinson 0.0759 vs clean 0.0763) — the bad bar was
+        # invisible. _log_ratio guards the raw operands, so any non-positive price
+        # poisons the bar to NaN.
+        df = _series(40)
+        df.iloc[20, [_OPEN, _HIGH, _LOW, _CLOSE]] = -1.0
+        v = est(df, window=20)
+        assert np.isnan(v), f"{est.__name__} swallowed an all-negative bar, got {v}"
 
 
 # ---------------------------------------------------------------------------

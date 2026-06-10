@@ -4,6 +4,12 @@ _Compiled from a 6-category specialist sweep + the prior gap analysis; field mne
 
 **Compiled: 2026-06-09** · field mnemonics are best-effort — confirm each via Bloomberg `FLDS` before scripting a pull.
 
+> **Reading order:** this is the *rationale* catalog (field → engine consumer →
+> benefit tier). The no-code terminal checklist extracted from it is
+> `docs/BLOOMBERG_PULL_LIST.md`; session execution is orchestrated by
+> `docs/NEXT_DATA_SESSION_RUNBOOK.md`; the authoritative census of what is
+> already on disk is `docs/DATA_INVENTORY.md`.
+
 ---
 
 ## 1. Mandate, invariant, and honest limits

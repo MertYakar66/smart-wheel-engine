@@ -70,7 +70,7 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
 | `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
 | `utils/`, `config/`, `local_agent/` | helpers / config / experimental agent | `FILE_MANIFEST.md` |
-| `tests/` | 111 flat `test_*.py` (+ `tests/fixtures/`); root `conftest.py` | `TESTING.md` |
+| `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
 | `docs/` | reference + design-contract docs | `FILE_MANIFEST.md` |
 
 ## `src/` per-file truth (kills the recurring "is src/ dead?" grep)

@@ -1,5 +1,10 @@
 # Code-Correctness Review & Remediation — 2026-05-30
 
+> **Status: COMPLETE.** The remediation branch merged to `main` (see
+> `CHANGELOG.md` "2026-05-30 — full-codebase code-review remediation"); D20
+> shipped, D19/D21 remain DEFERRED to the coordinated re-baseline
+> (`docs/NEXT_DATA_SESSION_RUNBOOK.md`). Point-in-time record below.
+
 > Multi-agent read-only review of the full Smart Wheel Engine, followed by a
 > remediation pass on the **authoritative codebase (`main`)**. This document
 > records what was found, how each finding was verified, and the fixes applied.

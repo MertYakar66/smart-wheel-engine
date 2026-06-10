@@ -1,11 +1,13 @@
-# IBKR Live-Book Integration — Design Doc (DRAFT, no code yet)
+# IBKR Live-Book Integration — Design Doc
 
-**Status:** DESIGN ONLY — nothing in this document is implemented. It proposes
-three `DECISIONS.md` entries: a **D24** that is in-scope under CLAUDE.md §2/§3, a
-**D25** that is an explicit, consent-gated *scope expansion* (the exit-evaluator),
-and a **D26** read-only personal **performance viewer** (in-scope, observational).
-None is adopted. This is the written output of a brainstorming session; it exists
-so the design is on the record before any branch touches code.
+**Status (updated 2026-06-09):** of the three `DECISIONS.md` entries this design
+proposed, **D24 (snapshot feed + portfolio adapter) and D26 (read-only
+performance viewer) are IMPLEMENTED** — shipped via PRs #344/#359/#362/#368 and
+recorded in `DECISIONS.md` D24/D26; `docs/DASHBOARD_TERMINAL.md` is the live
+runbook. **D25 (the exit-evaluator, Part 3) remains PROPOSED, NOT ADOPTED** —
+it is a consent-gated scope expansion awaiting explicit operator greenlight.
+The design text below is the original record (written pre-implementation);
+read Parts 1–2 as "as designed, now shipped" and Part 3 as still-unadopted.
 
 **Author context:** written against `main` @ the HEAD that shipped the
 prob_profit Wilson-CI work (#317/#318) and the D17 cap-adoption status note

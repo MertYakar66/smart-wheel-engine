@@ -50,5 +50,8 @@ engine SHA they were captured against.
 | `2026-06/SESSION_HANDOFF.md` | `docs/` | Point-in-time session handoff (2026-05-18) carrying its own SUPERSEDED banner since 2026-05-22; every claim it makes is now owned by `PROJECT_STATE.md` / `DECISIONS.md` / `docs/TRADINGVIEW_MCP_INTEGRATION.md`. Unique residue (the 13-script `sys.stdout` reassignment anti-pattern list) preserved here. |
 | `2026-06/Claude_Prompting_Master_Guide.md` | `docs/` | Generic Claude prompt-engineering reference with zero inbound references; not about this repository. Repo-specific agent conventions live in `CLAUDE.md` / `AGENTS.md`. |
 | `2026-06/DATA_SPECIFICATION.md` | `docs/` | Aspirational partitioned-Parquet data-layer design (2026-03-19) that self-declares it does not match on-disk reality. The current authorities are `docs/DATA_POLICY.md` (procedures + tiers) and `docs/DATA_INVENTORY.md` (verified census). |
+| `2026-06/pull.bat` | repo root | Windows double-click launcher (stash → pull `origin/main` → restore). Zero code or doc references; the operator confirmed it is not part of the live workflow (agent sessions + the documented Python entry points are). |
+| `2026-06/pull_branch.bat` | repo root | Windows double-click launcher for checking out a feature branch (edit-in-file branch name; its default pointed at a long-dead branch). Same non-use rationale as `pull.bat`. |
+| `2026-06/fetch_data.bat` | repo root | Windows double-click launcher wrapping `theta_health_check` + `theta_backfill`. The documented Theta workflow (`docs/THETA_INSTRUCTIONS.md`) invokes the Python scripts directly. |
 
 See `DECISIONS.md` D27 for the restructure rationale.

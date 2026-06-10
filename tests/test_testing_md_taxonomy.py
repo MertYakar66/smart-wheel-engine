@@ -20,11 +20,7 @@ TESTS_DIR = REPO_ROOT / "tests"
 
 def test_every_test_file_is_named_in_testing_md():
     taxonomy = TESTING_MD.read_text(encoding="utf-8")
-    missing = sorted(
-        p.name
-        for p in TESTS_DIR.glob("test_*.py")
-        if p.name not in taxonomy
-    )
+    missing = sorted(p.name for p in TESTS_DIR.glob("test_*.py") if p.name not in taxonomy)
     assert not missing, (
         f"{len(missing)} test file(s) are missing from the TESTING.md "
         f"taxonomy — add a one-line row for each: {missing}"
@@ -42,10 +38,7 @@ def test_taxonomy_names_no_phantom_test_files():
 
     taxonomy = TESTING_MD.read_text(encoding="utf-8")
     referenced = set(re.findall(r"tests/(test_[a-z0-9_]+\.py)", taxonomy))
-    phantoms = sorted(
-        name for name in referenced if not (TESTS_DIR / name).exists()
-    )
+    phantoms = sorted(name for name in referenced if not (TESTS_DIR / name).exists())
     assert not phantoms, (
-        f"TESTING.md names {len(phantoms)} test file(s) that do not exist: "
-        f"{phantoms}"
+        f"TESTING.md names {len(phantoms)} test file(s) that do not exist: {phantoms}"
     )

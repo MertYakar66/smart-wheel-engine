@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**128 records.**
+**130 records.**
 
 ## Features (12)
 
@@ -28,11 +28,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (14)
+## Fixes (16)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [engine-api-hardening](engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md) | in-flight |  | Loopback bind by default, 400 on bad params, 404 on unknown tickers, no exception leak, and verdict-label parity — all NON-§2. | `engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md` |
+| [fix-382-realized-vol-log-guard](fix-382-realized-vol-log-guard-close-e-382-log-ratio-guards-raw-ohlc-operands-s.md) | in-flight |  | The OHLC-ratio realised-vol estimators applied _log to a ratio computed BEFORE the non-negativity guard, so a zero denominator leaked +inf and an all-negative bar was swallowed to a normal-looking vol. New _log_ratio guards the RAW operands before the division — byte-identical on valid bars, NaN on any non-positive/non-finite input. | `fix-382-realized-vol-log-guard-close-e-382-log-ratio-guards-raw-ohlc-operands-s.md` |
+| [fix-384-copula-df-bounds](fix-384-copula-df-bounds-close-e-384-validate-t-copula-df-valueerror-on-d.md) | in-flight |  | student_t_copula_simulation / portfolio_cvar_copula took t_copula_df and fed it straight to rng.chisquare(df) and stats.t.cdf(df) with no bound check. _validate_t_copula_df now raises a clear domain ValueError on df<=0 (and non-finite df) and warns on the infinite-variance 0<df<=2 band; df>2 unchanged. | `fix-384-copula-df-bounds-close-e-384-validate-t-copula-df-valueerror-on-d.md` |
 | [fix-386-hmm-nonfinite-guard](fix-386-hmm-nonfinite-guard-close-e-386-gaussianhmm-fit-raises-on-non-finite.md) | in-flight |  | GaussianHMM.fit guarded T<K*3 and near-constant returns but NOT non-finite input — np.nanstd ignores NaN, so a NaN/inf observation passed the gates and produced a NaN position_multiplier. fit now raises ValueError on non-finite input (like the other degenerate guards) so wheel_runner's neutral-1.0 fallback engages instead of leaking NaN into the multiplier/diagnostic/cache. | `fix-386-hmm-nonfinite-guard-close-e-386-gaussianhmm-fit-raises-on-non-finite.md` |
 | [fix-credit-rating-deadread](fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md) | complete |  | Re-shipped the R0a credit-rating dead-read one-liner as its own PR (split out of the docs-only #332) with the decision-layer lane ceremony + a regression unit test pinning that analyze_ticker reads the get_credit_risk "sp_rating" key, not the raw Bloomberg field name. | `fix-credit-rating-deadread-r0a-credit-rating-dead-read-fix-re-shipped-with.md` |
 | [harden-354-pit-xfail](harden-354-pit-xfail-strengthen-the-354-pit-xfail-to-assert-behaviour.md) | in-flight |  | test_fundamentals_credit_are_point_in_time now asserts PIT row-SELECTION (synthetic 2-snapshot fixture, 2024 row ordered first + latest so a no-op as_of returns it) instead of just `"as_of" in signature` — so a future no-op as_of param can no longer false-green the xfail(strict) while the dateless-snapshot lookahead persists | `harden-354-pit-xfail-strengthen-the-354-pit-xfail-to-assert-behaviour.md` |

@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from engine.portfolio_copula import portfolio_cvar_copula
+from engine.portfolio_copula import portfolio_cvar_copula, student_t_copula_simulation
 from engine.stress_testing import Scenario, ScenarioType, StressTester
 from engine.tail_risk import GPDTailFit, gpd_var_cvar
 
@@ -169,3 +169,52 @@ class TestRunScenarioIntrinsic:
         pnl = self._expire(0.20)
         assert np.isfinite(pnl), "expired-OTM intrinsic P&L must be finite"
         assert pnl > 0, f"a worthless (OTM) short put at expiry is a gain, got {pnl}"
+
+
+# ---------------------------------------------------------------------------
+# t_copula_df bound guard (closes (E) #384). The t-copula df parameter fed
+# rng.chisquare(df) and stats.t.cdf(df) with NO bound check: df<=0 hit numpy's
+# terse "df <= 0" ValueError, and 0<df<=2 ran with INFINITE variance (a fragile
+# CVaR) silently. _validate_t_copula_df now raises a clear domain error on df<=0
+# (and on non-finite df) and warns on 0<df<=2; df>2 is unchanged. Pinned on the
+# real simulator AND through portfolio_cvar_copula (which delegates to it).
+# ---------------------------------------------------------------------------
+
+_MARGINALS = [np.linspace(-0.1, 0.1, 200) for _ in range(3)]
+_CORR = np.array([[1.0, 0.3, 0.2], [0.3, 1.0, 0.25], [0.2, 0.25, 1.0]])
+_WEIGHTS = np.array([1.0, 1.0, 1.0])
+
+
+class TestTCopulaDfGuard:
+    @pytest.mark.parametrize("bad_df", [0.0, -1.0, np.nan, np.inf])
+    def test_non_positive_or_nonfinite_df_raises(self, bad_df):
+        # df<=0 is invalid (Student-t requires positive dof); non-finite is invalid.
+        # Raised BEFORE rng.chisquare, so the message is the clear domain one.
+        with pytest.raises(ValueError, match="t_copula_df"):
+            student_t_copula_simulation(_MARGINALS, _CORR, df=bad_df, n_samples=500, seed=1)
+
+    def test_non_positive_df_raises_through_portfolio_cvar(self):
+        # portfolio_cvar_copula delegates to the simulator, so the guard fires there too.
+        with pytest.raises(ValueError, match="t_copula_df"):
+            portfolio_cvar_copula(
+                _MARGINALS, _CORR, _WEIGHTS, t_copula_df=0.0, n_samples=500, seed=1
+            )
+
+    @pytest.mark.parametrize("frag_df", [1.0, 2.0])
+    def test_infinite_variance_df_warns_but_runs(self, frag_df):
+        # 0<df<=2 is mathematically valid (infinite variance) -> warn, don't block;
+        # the simulation still returns a well-shaped, finite draw.
+        with pytest.warns(RuntimeWarning, match="infinite variance"):
+            out = student_t_copula_simulation(_MARGINALS, _CORR, df=frag_df, n_samples=500, seed=1)
+        assert out.shape == (500, 3)
+        assert np.isfinite(out).all()
+
+    def test_safe_df_does_not_warn(self):
+        # df=5 (the default, moderate tail dependence) must NOT emit the fragility
+        # warning. simplefilter("error") turns any RuntimeWarning into a failure.
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = student_t_copula_simulation(_MARGINALS, _CORR, df=5.0, n_samples=500, seed=1)
+        assert out.shape == (500, 3)

@@ -1,9 +1,14 @@
 # F4 tail-risk gap — diagnostic + fix plan (2026-05-26)
 
-**Status:** diagnostic complete. Three hypotheses tested against the
-COST April 2022 case live. **Root cause identified.** Fix is scoped
-but NOT shipped in this doc — it is a quant-layer change that
-warrants its own PR with full regression coverage.
+**Status (updated 2026-06-09):** diagnostic complete (§1–§8, still the
+authoritative root-cause record). Of the fixes explored: **Fix A
+(lookback shortening, §9) failed and was abandoned; Fix B v1 (HMM
+regime-conditioned widening, §10) shipped and was ROLLED BACK** (PR
+#253 — over-fired on calm-bull labels, inverted S27 ρ); **Fix B v2
+(RV30/RV252 realized-vol-ratio widening, §11) is the SHIPPED, LIVE
+fix** (PR #260), bundled with the R10 single-name cap (PR #262) as
+the B1 closure. §9–§10 are preserved as the failed-attempt research
+record — see `DECISIONS.md` D17/D22 and `PROJECT_STATE.md` §3.
 
 **Reviewer:** Terminal B, fresh session.
 **Scope:** characterise mechanically why `prob_profit = 0.8333`

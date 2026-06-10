@@ -16,7 +16,7 @@ the artifact files here are the raw observable data.
 
 | Doc | Driver | Raw output | Captured on commit |
 |---|---|---|---|
-| [`ENGINE_REALISM_VERIFICATION_2026-05-26.md`](../ENGINE_REALISM_VERIFICATION_2026-05-26.md) | [`realism_verify_driver.py`](realism_verify_driver.py) | [`realism_2026-05-26_raw_output.txt`](realism_2026-05-26_raw_output.txt) | `9f0afaf` (pre-#260) |
+| [`ENGINE_REALISM_VERIFICATION_2026-05-26.md`](../../archive/2026-05/ENGINE_REALISM_VERIFICATION_2026-05-26.md) (archived) | [`realism_verify_driver.py`](realism_verify_driver.py) | [`realism_2026-05-26_raw_output.txt`](realism_2026-05-26_raw_output.txt) | `9f0afaf` (pre-#260) |
 | [`ENGINE_REVERIFY_S46_POST_F4_R10.md`](../ENGINE_REVERIFY_S46_POST_F4_R10.md) §2 | (same driver, re-run) | [`realism_2026-05-28_raw_output.txt`](realism_2026-05-28_raw_output.txt) | `56d8e5c` (post-#260+#262) |
 | **F4 pre-fix baseline** (companion to [`F4_TAIL_RISK_DIAGNOSTIC.md`](../F4_TAIL_RISK_DIAGNOSTIC.md)) | [`f4_baseline_driver.py`](f4_baseline_driver.py) | [`f4_baseline_2026-05-26_raw_output.txt`](f4_baseline_2026-05-26_raw_output.txt) | `70fdb78` (pre-#260) |
 | **F4 post-fix re-run** ([`ENGINE_REVERIFY_S46_POST_F4_R10.md`](../ENGINE_REVERIFY_S46_POST_F4_R10.md) §3) | (same driver, re-run) | [`f4_baseline_2026-05-28_raw_output.txt`](f4_baseline_2026-05-28_raw_output.txt) | `56d8e5c` (post-#260+#262) |

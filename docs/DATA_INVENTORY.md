@@ -2,6 +2,11 @@
 
 _Title (type) · date range · counts for every dataset on disk._
 
+> **This is the authoritative on-disk census** — every "already on disk /
+> do-not-re-pull" claim elsewhere should defer here. What to pull next:
+> `docs/DATA_ACQUISITION_ROADMAP.md`; session execution:
+> `docs/NEXT_DATA_SESSION_RUNBOOK.md`.
+
 **How this was verified.** First pass: `scripts/inventory_data.py` read every file directly
 (CSV date columns; parquet footers/filenames). Second pass (2026-06-08): an independent 6-agent
 re-derivation recomputed every number by a **different method** (pandas / `pyarrow.dataset`) and an

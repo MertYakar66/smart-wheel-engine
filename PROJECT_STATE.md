@@ -124,6 +124,29 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
 > historical record. Newest-first additions for the 2026-05 late
 > campaign appear above them.
 
+### D27 repo restructure merged — orientation note for agents (2026-06-10)
+
+The navigation layer was reconciled and gate-hardened. If your clone or
+worktree predates this merge, `git pull` before orienting — you were
+reading stale maps. What changed for you:
+
+- **The maps are true again.** `TESTING.md`'s taxonomy covers all 144
+  test files (new gate: `tests/test_testing_md_taxonomy.py` — when you
+  add a test file, add its one-line taxonomy row or the suite fails);
+  `MODULE_INDEX.md` statuses are grep-verified (dormant means dormant);
+  this file + `CHANGELOG.md` now cover the 2026-06 wave.
+- **`audit.py` moved** → `scripts/audit_api_smoke.py` (it is the API
+  smoke client, not the audit-cycle framework). The root path is gone.
+- **Use `TESTING.md` for the launch-blocker subset** — README's inline
+  copy had drifted (it omitted `test_r11_elevated_vol.py`; fixed, but
+  TESTING.md remains the canonical list).
+- **Three docs archived** to `archive/2026-06/`: `SESSION_HANDOFF.md`
+  (superseded), the generic prompting guide, and `DATA_SPECIFICATION.md`
+  (`docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md` own that topic now).
+- Full record: `DECISIONS.md` D27 +
+  `docs/worklog/d27-repo-restructure-for-agent-navigability.md`
+  (including what was deliberately NOT changed, and why).
+
 ### 2026-06 campaign wave — W-series verification + IBKR live book + data refresh R1 (2026-06-03 → 2026-06-09)
 
 Headlines only — per-PR detail is `CHANGELOG.md` "2026-06 (early)";

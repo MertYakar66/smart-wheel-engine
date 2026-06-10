@@ -175,8 +175,8 @@ pytest tests/ -v
 /launch-blockers          # slash command, wraps the subset
 # or directly:
 pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
-       tests/test_authority_hardening.py tests/test_audit_viii_*.py \
-       tests/test_launch_blockers.py -v
+       tests/test_r11_elevated_vol.py tests/test_authority_hardening.py \
+       tests/test_audit_viii_*.py tests/test_launch_blockers.py -v
 ```
 
 Any change touching `engine/ev_engine.py`, `engine/wheel_runner.py`, or

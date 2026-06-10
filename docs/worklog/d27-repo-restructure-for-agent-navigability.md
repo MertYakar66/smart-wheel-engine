@@ -68,11 +68,33 @@ Three clean commits on `claude/sleepy-noether-l9jlfa`:
   documented in the old template; `MAX_POSITION_SIZE`/TDA/Alpaca → 0
   readers.
 
+## Stage 2 — docs/ (completed 2026-06-09)
+83 top-level docs read line-by-line via four parallel sub-audits.
+Verdict: the D14-extension architecture works — defects were narrow.
+- Archived 3 (`f5fdfb1`): SESSION_HANDOFF (superseded banner since
+  05-22), Claude_Prompting_Master_Guide (generic, zero refs),
+  DATA_SPECIFICATION (self-declared aspirational; DATA_POLICY header
+  repointed to DATA_INVENTORY).
+- Truth-synced 4 banners + 2 routers + 3 reading-order headers
+  (`eeb0666`): the IBKR design doc claimed "none adopted" while
+  D24/D26 are IMPLEMENTED — the worst find of the audit.
+- Deliberately NOT done: REVERIFICATION_REPORT_2026-05-26 archive
+  (it is a generated legacy row in worklog/INDEX.md — generator
+  churn for no gain); TESTED_SURFACE_MAP archive (live generator
+  targets that path); doc merges (every suspected cluster — Theta
+  quartet, setup duo, data roadmaps, IBKR trio — is a deliberate
+  audience partition); VERIFICATION_INDEX engine-vs-passive span
+  consolidation table (content authoring needing number re-verify
+  across 5 reports — flagged as a follow-up, not structural work).
+
 ## Unresolved / handoff
-- Stage 2 pending: docs/ (largest redundancy surface), tests/ (naming/
-  coverage map), scripts/, engine/, then periphery (src/, ml/,
-  local_agent/, financial_news/, news_pipeline/, notebooks/, config/,
-  utils/, studies/, backtests/, tradingview/, archive/).
+- Stage 2 remaining: tests/ (naming/coverage map), scripts/,
+  engine/, then periphery (src/, ml/, local_agent/, financial_news/,
+  news_pipeline/, notebooks/, config/, utils/, studies/, backtests/,
+  tradingview/, archive/).
+- Follow-up idea from the docs audit: one engine-vs-passive span
+  table in VERIFICATION_INDEX_2026-05-28.md consolidating the
+  S32/S38/S40/S43/S44 numbers (currently stated across 5 reports).
 - D27 entry to be appended to DECISIONS.md at campaign close (number
   re-checked at merge per PARALLEL_SESSIONS rule 9).
 - Dependency divergence flagged, deliberately untouched: pyproject deps

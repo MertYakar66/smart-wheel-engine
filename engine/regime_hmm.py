@@ -125,6 +125,20 @@ class GaussianHMM:
         if T < K * 3:
             raise ValueError(f"Need at least {K * 3} observations to fit a {K}-state HMM, got {T}")
 
+        # Non-finite-input guard. A NaN/inf observation silently poisons the
+        # Baum-Welch M-step (means/stds/gamma all become NaN -> a NaN posterior ->
+        # a NaN position_multiplier), and the near-constant guard below CANNOT catch
+        # it because np.nanstd IGNORES NaN. Refuse to fit so the caller's
+        # fit-failure fallback (e.g. wheel_runner's HMM try/except -> neutral 1.0
+        # multiplier) engages cleanly, instead of leaking NaN into the regime
+        # multiplier, the diagnostic row, and the per-ticker regime cache. Mirrors
+        # the other degenerate guards (raise ValueError). (E) #386.
+        if not np.isfinite(obs).all():
+            raise ValueError(
+                "Non-finite observations (NaN/inf): HMM regime is undefined — "
+                "use a neutral multiplier."
+            )
+
         # Degenerate-input guard. A (near-)constant return series carries no
         # regime information: percentile seeding produces K near-identical
         # states and a confident-but-MEANINGLESS posterior, which would drive a

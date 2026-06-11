@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**132 records.**
+**133 records.**
 
 ## Features (13)
 
@@ -79,11 +79,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 
-## Verification & realism (31)
+## Verification & realism (32)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [audit-data-engine](audit-data-engine-phase-1-data-engine-audit-discovery.md) | in-flight |  | Reusable data+engine audit pass — 13 ranked findings; data spine sound, frontier-pinned probe clean (480/511 produced, 0 silent drops); 3 HIGH (conditional IV /100 heuristic in-trio, dateless fundamentals/credit lookahead, OHLCV-only fingerprint blind-spot) | `audit-data-engine-phase-1-data-engine-audit-discovery.md` |
+| [brain-audit-2026-06-11](brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md) | in-flight |  | 8/8 dimensions SOUND_WITH_CAVEATS, zero new HIGH/CRITICAL; EV integral exact to <5e-9; §2 verified fresh (560 launch-blocker tests); suite 3,126 green; 4 new MEDIUMs dispositioned. | `brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md` |
 | [data-phase2-tests](data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md) | in-flight |  | Phase-2 of the data audit — 2 real-CSV test suites (integrity + data→engine) turning the Phase-1 findings into strong assertions; confirmed defects tracked as xfail(strict)+issue; trio byte-identical | `data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md` |
 | [data-tests-covered-call](data-tests-covered-call-data-test-pr-6-covered-call-real-data-coverage-w.md) | in-flight |  | Phase-2 round-2 PR-6 of the data-layer test audit. The covered-call ranker (the wheel's 2nd leg) was real-data-starved vs the put side — its only real-data assertion was the single DIS ex-div row. Adds W29 (CC banded/finite on real data, mirror of the put well-formed test), W30 (CC real earnings event-lockout, mirror W16), W31 (CC ex-div penalty SIGN lowers ev, controlled A/B grounded in the real DIS ex-div), W32 (CC EV-sign control HD +/UNH,AAPL -, mirror W15). Gaps found by the round-2 recon workflow. Test-only; trio/data untouched. | `data-tests-covered-call-data-test-pr-6-covered-call-real-data-coverage-w.md` |
 | [data-tests-credit](data-tests-credit-data-test-pr-5-credit-ladder-and-altman-z-band-w.md) | in-flight |  | Phase-2 PR-5 (final register PR) of the data-layer test audit. Adds W24 — sp_rating ladder validity after stripping the CreditWatch suffix (' *-'/' *+'), and an Altman-Z plausibility band. Credit is OFF the EV-authoritative path (capability C1: feeds the legacy heuristic + display only, never EVEngine.evaluate), so these are display-severity. Completes the W14-W27 (T) register items; W28 (D) stays tracked. Test-only; trio/data untouched. | `data-tests-credit-data-test-pr-5-credit-ladder-and-altman-z-band-w.md` |

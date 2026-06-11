@@ -74,6 +74,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `tests/test_dossier_cp1252.py` | Reviewer notes are cp1252-safe (ASCII-only) across every note-producing branch — Windows-console regression |
 | `tests/test_ev_non_finite_defense.py` | R1a: non-finite (`±inf`/`NaN`) EV → blocked, in the reviewer AND the webhook `_enrich_alert` parity path |
 | `tests/test_ev_authority_log_schema.py` | D16/D17 audit-log shape closure — the issue/refuse/revoke/consume + five D17 hard-block reject shapes in `_VALID_SHAPES` |
+| `tests/test_token_param_binding.py` | brain-audit M1 parameter binding — cross-ticker/strike/dte/side mismatch refused; unbound-token fail-closed; legacy snapshot rebuild; escape-hatch (explicit expiration) preserved |
 | `tests/test_portfolio_risk_gates.py` | D17 gate library — per-gate unit tests (VaR/Kelly/delta/sector/single-name/stress/dealer-regime) against the locked defaults + Q3 missing-data semantics |
 | `tests/test_decision_layer_wiring.py` | Production-caller chain: `rank_candidates_by_ev` → token → `open_short_put`; `PortfolioContext` → R7/R8 firing |
 | `tests/test_ranker_tracker_wire.py` | C3/C4 wires — `consume_into_tracker` with EV-authority + D17 caps; `consume_into_live_book` armed (R9/R10) end-to-end |

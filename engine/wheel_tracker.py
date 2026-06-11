@@ -393,13 +393,14 @@ class WheelTracker:
         self.enforce_kelly_cap = enforce_kelly_cap
         self._ev_authority_tokens: set[str] = set()
         self._ev_authority_log: list[dict] = []
+        self._ev_authority_payloads: dict[str, dict] = {}
         self.connector = connector
         self.min_nav_for_trading = min_nav_for_trading
 
     # ------------------------------------------------------------------
     # EV authority token issuance (audit launch-gate)
     # ------------------------------------------------------------------
-    def issue_ev_authority_token(self, ev_row: dict) -> str:
+    def issue_ev_authority_token(self, ev_row: dict, *, side: str | None = None) -> str:
         """Issue a one-time token proving a candidate passed EV ranking.
 
         The token is a SHA-256 hex digest of the canonicalised EV row
@@ -421,6 +422,16 @@ class WheelTracker:
         :class:`EVAuthorityRefused` — issuing a token for a
         non-tradeable row would let the consume gate accept what R1
         explicitly blocks.
+
+        Binding (brain-audit M1): the token is additionally bound to
+        the issuing candidate's ticker, strike, dte, and side at
+        issuance time via ``_ev_authority_payloads``. The hash is NOT
+        changed — token strings are byte-identical across versions. Side
+        resolution precedence: ``side`` kwarg wins, then
+        ``ev_row.get('option_type')``, then ``ev_row.get('side')``,
+        else ``''`` (empty = side-unbound, legacy-compatible). The
+        consume gate enforces these bindings before the existing EV
+        freshness checks.
         """
         import hashlib
         import json as _json
@@ -448,7 +459,12 @@ class WheelTracker:
                 f"{canonical['ev_dollars']} is non-positive; R1 would block."
             )
         token = hashlib.sha256(_json.dumps(canonical, sort_keys=True).encode()).hexdigest()
+        # Resolve side: kwarg > ev_row['option_type'] > ev_row['side'] > ''
+        side_resolved = str(side or ev_row.get("option_type") or ev_row.get("side") or "").lower()
         self._ev_authority_tokens.add(token)
+        # Store the binding payload (canonical + side) for consume-side verification.
+        # The hashed canonical is NOT extended — token strings stay byte-identical.
+        self._ev_authority_payloads[token] = {**canonical, "side": side_resolved}
         self._ev_authority_log.append({"action": "issue", "token": token, "row": canonical})
         return token
 
@@ -457,6 +473,11 @@ class WheelTracker:
         token: str | None,
         ticker: str,
         current_ev_dollars: float | None = None,
+        *,
+        strike: float | None = None,
+        entry_date: "date | None" = None,
+        expiration_date: "date | None" = None,
+        side: str | None = None,
     ) -> bool:
         """Verify and consume an EV authority token.
 
@@ -465,13 +486,22 @@ class WheelTracker:
 
         - ``unknown_token`` — no token, or token not in the accepted
           set.
+        - ``unbound_token`` — token is in the set but has no payload
+          (fail-closed; genuine old snapshots are rebindable via the
+          from_dict legacy-rebuild path).
+        - ``token_param_mismatch`` — ticker, strike, derived dte
+          (``(expiration_date - entry_date).days``), or side do not
+          match the issuing candidate payload. Token is RETAINED
+          (mirrors stale_ev semantics — a mismatch attempt must not
+          burn the genuine candidate's single-use authority).
         - ``missing_current_ev_dollars`` — caller did not supply a
           current EV value (only when ``require_ev_authority=True``).
         - ``stale_ev`` — supplied ``current_ev_dollars <= 0``;
           R1-equivalent, token is retained for retry.
 
-        On success the token is discarded and an action="consume"
-        entry is appended to the audit log.
+        On success the token is discarded, its payload entry is
+        removed, and an action="consume" entry is appended to the
+        audit log.
         """
         if not token:
             self._ev_authority_log.append(
@@ -483,6 +513,74 @@ class WheelTracker:
                 {"action": "reject", "reason": "unknown_token", "ticker": ticker}
             )
             return False
+
+        # --- Parameter binding (brain-audit M1) ---
+        payload = self._ev_authority_payloads.get(token)
+        if payload is None:
+            # Token in set but no payload: fail-closed. Genuine old snapshots
+            # are handled by from_dict's legacy-rebuild path; only synthetic
+            # hand-injected token sets with no log ever reach here.
+            self._ev_authority_log.append(
+                {
+                    "action": "reject",
+                    "reason": "unbound_token",
+                    "ticker": ticker,
+                    "token": token,
+                }
+            )
+            return False
+
+        # Compute the set of mismatched fields (identity-first, before EV checks).
+        mismatched_fields: list[str] = []
+
+        # Ticker must match exactly.
+        if str(ticker) != payload["ticker"]:
+            mismatched_fields.append("ticker")
+
+        # Strike: None at consume side is a mismatch (fail-closed).
+        if strike is None or abs(float(strike) - payload["strike"]) > 1e-9:
+            mismatched_fields.append("strike")
+
+        # DTE: derived from the open's dates; None at consume side is a mismatch.
+        if entry_date is not None and expiration_date is not None:
+            requested_dte = (expiration_date - entry_date).days
+        else:
+            requested_dte = None
+        if requested_dte is None or requested_dte != payload["dte"]:
+            mismatched_fields.append("dte")
+
+        # Side: only bind when the payload has a non-empty side (legacy tokens
+        # with side='' are side-unbound; ticker/strike/dte still bind).
+        if payload["side"]:
+            requested_side = (side or "").lower()
+            if requested_side != payload["side"]:
+                mismatched_fields.append("side")
+
+        if mismatched_fields:
+            self._ev_authority_log.append(
+                {
+                    "action": "reject",
+                    "reason": "token_param_mismatch",
+                    "ticker": ticker,
+                    "token": token,
+                    "mismatched_fields": mismatched_fields,
+                    "expected": {
+                        "ticker": payload["ticker"],
+                        "strike": payload["strike"],
+                        "dte": payload["dte"],
+                        "side": payload["side"],
+                    },
+                    "requested": {
+                        "ticker": str(ticker),
+                        "strike": float(strike) if strike is not None else None,
+                        "dte": requested_dte,
+                        "side": (side or "").lower(),
+                    },
+                }
+            )
+            return False
+        # --- End parameter binding ---
+
         if current_ev_dollars is None:
             self._ev_authority_log.append(
                 {
@@ -505,6 +603,7 @@ class WheelTracker:
             )
             return False
         self._ev_authority_tokens.discard(token)
+        self._ev_authority_payloads.pop(token, None)
         self._ev_authority_log.append(
             {
                 "action": "consume",
@@ -567,7 +666,13 @@ class WheelTracker:
         # Launch-gate: reject trades without EV authority in strict mode.
         if self.require_ev_authority:
             if not self._consume_ev_authority_token(
-                ev_authority_token, ticker, current_ev_dollars=current_ev_dollars
+                ev_authority_token,
+                ticker,
+                current_ev_dollars=current_ev_dollars,
+                strike=strike,
+                entry_date=entry_date,
+                expiration_date=expiration_date,
+                side="put",
             ):
                 return False
 
@@ -726,7 +831,17 @@ class WheelTracker:
             dte = int(row.get("dte", 0) or 0)
             expiration_date = entry_date + timedelta(days=dte)
 
-        token = self.issue_ev_authority_token(row)
+        # BLOCKER resolution (brain-audit M1 validator): bind the token's dte to
+        # the ACTUAL derived dte from the resolved expiration_date, not the raw
+        # row['dte'].  When the caller passes an explicit expiration_date (the
+        # documented calendar-exact control escape hatch), the derived dte may
+        # differ from row['dte'].  Using a row copy with the overwritten dte keeps
+        # issue == consume exact on every call-site, including the escape hatch,
+        # without changing the hash composition (the dte in the canonical payload
+        # IS the binding dte, and we're setting it to the value we'll open with).
+        derived_dte = (expiration_date - entry_date).days
+        row_for_token = {**row, "dte": derived_dte}
+        token = self.issue_ev_authority_token(row_for_token, side="put")
         prob_profit_raw = row.get("prob_profit")
         prob_profit = float(prob_profit_raw) if prob_profit_raw is not None else None
         return self.open_short_put(
@@ -1269,7 +1384,13 @@ class WheelTracker:
         # the constructor docstring has always claimed was closed.
         if self.require_ev_authority:
             if not self._consume_ev_authority_token(
-                ev_authority_token, ticker, current_ev_dollars=current_ev_dollars
+                ev_authority_token,
+                ticker,
+                current_ev_dollars=current_ev_dollars,
+                strike=strike,
+                entry_date=entry_date,
+                expiration_date=expiration_date,
+                side="call",
             ):
                 return False
 
@@ -2086,6 +2207,9 @@ class WheelTracker:
             ],
             "ev_authority_tokens": sorted(self._ev_authority_tokens),
             "ev_authority_log": [dict(entry) for entry in self._ev_authority_log],
+            "ev_authority_payloads": {
+                tok: dict(p) for tok, p in self._ev_authority_payloads.items()
+            },
         }
 
     @classmethod
@@ -2117,6 +2241,26 @@ class WheelTracker:
         ]
         tracker._ev_authority_tokens = set(data.get("ev_authority_tokens", []))
         tracker._ev_authority_log = [dict(entry) for entry in data.get("ev_authority_log", [])]
+        # Restore payload bindings. For snapshots that pre-date this fix
+        # (legacy snapshots: 'ev_authority_payloads' key absent), rebuild
+        # bindings from the audit log's issue entries. The log has always
+        # carried the canonical row (dict(entry) at to_dict time), so
+        # every genuine old snapshot can be rebound. Only synthetic
+        # hand-injected token sets with no matching log entry will later
+        # refuse with 'unbound_token' (fail-closed by design).
+        raw_payloads: dict[str, dict] = data.get("ev_authority_payloads", {})
+        if raw_payloads:
+            tracker._ev_authority_payloads = {tok: dict(p) for tok, p in raw_payloads.items()}
+        else:
+            # Legacy rebuild: scan restored log for issue entries.
+            rebuilt: dict[str, dict] = {}
+            for entry in tracker._ev_authority_log:
+                if entry.get("action") == "issue":
+                    tok = entry.get("token")
+                    row = entry.get("row")
+                    if tok and row and tok in tracker._ev_authority_tokens:
+                        rebuilt[tok] = {**dict(row), "side": ""}
+            tracker._ev_authority_payloads = rebuilt
         return tracker
 
     def save(self, path: str | Path) -> None:

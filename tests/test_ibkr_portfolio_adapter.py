@@ -233,6 +233,69 @@ def test_equity_view_dates_and_premium_month_dedup():
     assert next(p for p in eq if p["m"] == "May")["premium"] == 1500
 
 
+def test_equity_view_dedup_no_cross_year_collision():
+    """Two 'Feb' points from different years must NOT collapse to one dedup key;
+    both months must retain their own premium bar (idx 6 fix).
+
+    Prior to the fix, _mkey fell back to label[:7] which gave 'Feb' for both
+    2025-02-28 and 2026-02-27 → the later index won and the earlier premium
+    was silently dropped."""
+    history = {
+        "schema_version": 1,
+        "inception_capital": 100000.0,
+        "points": [
+            {
+                "label": "Feb '25",
+                "date": "2025-02-28",
+                "port": 110000.0,
+                "spy": 100.0,
+                "premium": 800.0,
+            },
+            {
+                "label": "Mar '25",
+                "date": "2025-03-31",
+                "port": 112000.0,
+                "spy": 101.0,
+                "premium": 900.0,
+            },
+            {
+                "label": "Feb '26",
+                "date": "2026-02-27",
+                "port": 120000.0,
+                "spy": 105.0,
+                "premium": 1200.0,
+            },
+        ],
+    }
+    eq = adapter.equity_view(history)["equity"]
+    premiums = {p["date"]: p["premium"] for p in eq}
+    assert premiums["2025-02-28"] == 800, "Feb 2025 premium must not be dropped"
+    assert premiums["2025-03-31"] == 900
+    assert premiums["2026-02-27"] == 1200, "Feb 2026 premium must not be dropped"
+
+
+def test_equity_view_null_premium_stays_null():
+    """An emitting point whose premium field is null must surface None, not a
+    fabricated $0 bar (idx 6 fix — _num(None)=0.0 was the wrong path)."""
+    history = {
+        "schema_version": 1,
+        "inception_capital": 100000.0,
+        "points": [
+            {"label": "Jan", "date": "2026-01-31", "port": 110000.0, "spy": 100.0, "premium": None},
+            {
+                "label": "Feb",
+                "date": "2026-02-28",
+                "port": 112000.0,
+                "spy": 101.0,
+                "premium": 500.0,
+            },
+        ],
+    }
+    eq = adapter.equity_view(history)["equity"]
+    jan = next(p for p in eq if p["date"] == "2026-01-31")
+    assert jan["premium"] is None, "null premium must stay None, not become 0"
+
+
 def test_summary_account_fields(snapshot, ledger):
     s = adapter.account_summary(snapshot, ledger)
     assert s["netLiq"] == 144507
@@ -281,6 +344,26 @@ def test_flat_legs_carry_option_fields(snapshot):
     assert tsm_call["moneyness"] == pytest.approx((412.5 - 430.0) / 430.0, abs=1e-3)
     stock = legs[("TSM", "shares")]
     assert stock["strike"] is None and stock["dte"] is None and stock["moneyness"] is None
+
+
+def test_moneyness_is_fx_invariant(snapshot):
+    """Moneyness for a CAD-listed covered call must compare local-currency
+    spot vs local-currency strike (both in CAD) — NOT FX-normalised spot vs
+    local strike.  With ENB: stock mark C$77.18, call strike C$80.0 →
+    moneyness = (77.18 − 80.0) / 80.0 ≈ −0.0353 (slightly OTM).
+
+    Before the fix, spots was stored as mark * fx_rate (CAD→USD: 77.18 * 0.73
+    = 56.34 USD) while strike stayed at raw C$80.0, giving a wrong −29.6%
+    (deep OTM) instead of −3.5%.  The fix: compare pre-FX mark vs pre-FX
+    strike so moneyness is dimensionless and FX-invariant (idx 22)."""
+    legs = {(r["sym"], r["state"]): r for r in adapter.build_positions_flat(snapshot)}
+    enb_call = legs[("ENB", "short_call")]
+    # Correct: local-currency comparison (C$77.18 stock vs C$80 strike)
+    expected = (77.18 - 80.0) / 80.0
+    assert enb_call["moneyness"] == pytest.approx(expected, abs=1e-3)
+    # Sanity: the wrong FX-mixed value would be ≈ −0.296; assert we are NOT there
+    wrong = (77.18 * 0.73 - 80.0) / 80.0  # pre-fix value ≈ −0.296
+    assert abs(enb_call["moneyness"] - wrong) > 0.1, "moneyness still uses FX-mixed spot"
 
 
 def test_csp_row_named_after_put_leg():

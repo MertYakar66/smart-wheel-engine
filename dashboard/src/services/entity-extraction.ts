@@ -117,8 +117,21 @@ export async function extractEntitiesForNewStories(): Promise<number> {
   // Engine universe + held-book symbols. The all-caps regex (and even the
   // LLM) emits junk like "TRUMP"/"NATO" as tickers; only symbols the engine
   // can actually trade (or the book actually holds) may become entityType=
-  // ticker. Null = engine unreachable -> cannot validate, demote nothing.
-  const universe = await getValidationUniverse();
+  // ticker.
+  //
+  // universe===null  → engine entirely unreachable; hold all candidates as
+  //   'topic' so no junk ticker links are created.  backfillTickerEntities
+  //   re-promotes them to 'ticker' once a complete universe is available.
+  // !complete        → positions leg failed (e.g. 503 on fresh deploy); the
+  //   set is universe-only and does not include off-universe held names.
+  //   Treat membership as a positive signal (promote if present) but do NOT
+  //   reject symbols absent from the partial set — hold them as 'topic'
+  //   pending a complete fetch and re-promotion by backfillTickerEntities.
+  //
+  // Casing: candidate tickers are stored in uppercase regardless of
+  // entityType so the backfill re-promotion path can match on .toUpperCase()
+  // and round-trip losslessly.
+  const universeResult = await getValidationUniverse();
   let processed = 0;
 
   for (const story of unprocessed) {
@@ -126,18 +139,23 @@ export async function extractEntitiesForNewStories(): Promise<number> {
       ? await extractWithOllama(story.canonicalTitle)
       : extractWithRegex(story.canonicalTitle);
 
-    // Save entities — tickers validated against the universe; non-matching
-    // all-caps tokens are demoted to topics so the story keeps its context
-    // without polluting the story->ticker->engine linkage.
+    // Save entities — tickers validated against the universe; unvalidated
+    // candidates are stored as 'topic' (with original uppercase value intact
+    // so backfillTickerEntities can match and re-promote them later).
     const candidateTickers = [
       ...new Set(entities.tickers.map((t) => t.toUpperCase())),
     ];
     for (const ticker of candidateTickers) {
-      const isValid = universe === null || universe.has(ticker);
+      // Promote to 'ticker' only when the universe is available AND the
+      // symbol is confirmed as a member.  Any other state → hold as 'topic'.
+      const isValid =
+        universeResult !== null && universeResult.set.has(ticker);
       await db.insert(storyEntities).values({
         storyId: story.storyId,
         entityType: isValid ? "ticker" : "topic",
-        entityValue: isValid ? ticker : ticker.toLowerCase(),
+        // Always store the uppercase value so the backfill re-promotion can
+        // match via .toUpperCase() without casing loss.
+        entityValue: ticker,
       }).onConflictDoNothing();
     }
     for (const person of entities.people) {

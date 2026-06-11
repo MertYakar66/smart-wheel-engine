@@ -20,6 +20,31 @@ function compositeScore(s: StoryRow, nowMs: number): number {
   return substance / (1 + ageHours / 12);
 }
 
+/**
+ * Apply universe filter, composite-score sort, and slice — the pipeline
+ * shared by the sector branch and the default (all-stories) branch.
+ * The sector branch differs only in the drizzle `where` clause used to
+ * fetch `candidates`; once fetched, both branches process identically.
+ */
+function scoreAndSlice(
+  candidates: StoryRow[],
+  universeStoryIds: Set<string> | null,
+  nowMs: number,
+  limit: number
+): StoryRow[] {
+  return (
+    universeStoryIds
+      ? candidates.filter((s) => universeStoryIds.has(s.storyId))
+      : candidates
+  )
+    .sort(
+      (a, b) =>
+        compositeScore(b, nowMs) - compositeScore(a, nowMs) ||
+        b.createdAt.localeCompare(a.createdAt)
+    )
+    .slice(0, limit);
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get("limit") || "50");
@@ -42,7 +67,7 @@ export async function GET(request: Request) {
       });
       universeStoryIds = new Set(
         tickerRows
-          .filter((r) => r.storyId && universe.has(r.entityValue.toUpperCase()))
+          .filter((r) => r.storyId && universe.set.has(r.entityValue.toUpperCase()))
           .map((r) => r.storyId as string)
       );
       universeFilterState = "applied";
@@ -79,33 +104,13 @@ export async function GET(request: Request) {
       orderBy: [desc(stories.createdAt)],
       limit: windowLimit,
     });
-    storyList = (
-      universeStoryIds
-        ? candidates.filter((s) => universeStoryIds.has(s.storyId))
-        : candidates
-    )
-      .sort(
-        (a, b) =>
-          compositeScore(b, nowMs) - compositeScore(a, nowMs) ||
-          b.createdAt.localeCompare(a.createdAt)
-      )
-      .slice(0, limit);
+    storyList = scoreAndSlice(candidates, universeStoryIds, nowMs, limit);
   } else {
     const candidates = await db.query.stories.findMany({
       orderBy: [desc(stories.createdAt)],
       limit: windowLimit,
     });
-    storyList = (
-      universeStoryIds
-        ? candidates.filter((s) => universeStoryIds.has(s.storyId))
-        : candidates
-    )
-      .sort(
-        (a, b) =>
-          compositeScore(b, nowMs) - compositeScore(a, nowMs) ||
-          b.createdAt.localeCompare(a.createdAt)
-      )
-      .slice(0, limit);
+    storyList = scoreAndSlice(candidates, universeStoryIds, nowMs, limit);
   }
 
   // Enrich with entities, sources, and new intelligence fields

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CockpitTable } from "@/components/cockpit/cockpit-table";
 import { ConcentrationMeters } from "@/components/cockpit/concentration-meters";
 import { DossierDrawer, type DossierFetchState } from "@/components/cockpit/dossier-drawer";
+import { FrontierChip } from "@/components/cockpit/frontier-chip";
 import { Funnel } from "@/components/cockpit/funnel";
 import { RegimeBanner } from "@/components/cockpit/regime-banner";
 import { CrossPageNav, WheelhouseHeader } from "@/components/shell/wheelhouse-header";
@@ -92,7 +93,15 @@ export default function CockpitPage() {
   const [dossierKey, setDossierKey] = useState<string | null>(null);
   const [dossierState, setDossierState] = useState<DossierFetchState>("idle");
   const [bookAttached, setBookAttached] = useState(false);
+  // positionsUnavailable: summary succeeded but positions endpoint failed.
+  // Surfaces explicit "live book unavailable — R7-R10 not engaged" in the drawer.
+  const [positionsUnavailable, setPositionsUnavailable] = useState(false);
   const [bookLabel, setBookLabel] = useState<string | null>(null);
+  // Pre-fetched summary nav/source — passed down to ConcentrationMeters so the
+  // cockpit page does not issue two separate /api/portfolio/summary requests
+  // on the same load (one from fetchDossiers, one from the component mount).
+  const [summaryNav, setSummaryNav] = useState<number | null>(null);
+  const [summaryNavSource, setSummaryNavSource] = useState<string | null>(null);
 
   const rankAbort = useRef<AbortController | null>(null);
   const rankSeq = useRef(0);
@@ -225,6 +234,7 @@ export default function CockpitPage() {
     setDossierState("loading");
     setDossierMap({});
     setBookAttached(false);
+    setPositionsUnavailable(false);
     setBookLabel(null);
     try {
       // Live book (best-effort): nav + share holdings + short puts. This is
@@ -235,6 +245,10 @@ export default function CockpitPage() {
       let holdings = "";
       let putsHeld = "";
       let label: string | null = null;
+      // positionsOk tracks whether the positions endpoint succeeded; bookAttached
+      // requires BOTH summary AND positions to avoid evaluating R9/R10 against
+      // a nav-only zero-position book (half-book verdicts are misleading — idx 3/7).
+      let positionsOk = false;
       try {
         const [sRes, pRes] = await Promise.all([
           fetch("/api/portfolio/summary", { cache: "no-store", signal: ctrl.signal }),
@@ -244,9 +258,14 @@ export default function CockpitPage() {
           const s: PortfolioSummaryLite = await sRes.json();
           if (typeof s.netLiq === "number" && isFinite(s.netLiq) && s.netLiq > 0) {
             nav = s.netLiq;
+            // Store summary nav for ConcentrationMeters prop-passing (avoids
+            // a duplicate /api/portfolio/summary request on the same cockpit load).
+            setSummaryNav(Math.round(s.netLiq));
+            setSummaryNavSource(s.source ?? null);
             let nHoldings = 0;
             let nPuts = 0;
             if (pRes.ok) {
+              positionsOk = true;
               const pos: PortfolioPositionsLite = await pRes.json();
               const hl: string[] = [];
               const ph: string[] = [];
@@ -255,10 +274,23 @@ export default function CockpitPage() {
                 if (leg.state === "shares" && typeof leg.qty === "number" && leg.qty !== 0) {
                   hl.push(`${leg.sym}:${Math.trunc(leg.qty)}`);
                 } else if (leg.state === "short_put") {
-                  const parsed = parseOptionLegName(leg.name ?? "");
-                  if (parsed) {
+                  // Prefer server-computed strike/expiry fields (added in D26 build_positions_flat)
+                  // over regex-parsed name strings — more robust for non-standard IBKR formats.
+                  // Fall back to regex only when the structured fields are absent.
+                  let strike: number | null = null;
+                  let expiry: string | null = null;
+                  if (typeof leg.strike === "number" && isFinite(leg.strike) && leg.strike > 0
+                      && typeof leg.expiry === "string" && leg.expiry) {
+                    strike = leg.strike;
+                    expiry = leg.expiry;
+                  } else {
+                    // Labeled fallback: name-parse only for legs missing structured fields.
+                    const parsed = parseOptionLegName(leg.name ?? "");
+                    if (parsed) { strike = parsed.strike; expiry = parsed.expiry; }
+                  }
+                  if (strike !== null && expiry !== null) {
                     const contracts = Math.abs(Math.trunc(leg.qty ?? 1)) || 1;
-                    ph.push(`${leg.sym}:${parsed.strike}:${contracts}:${parsed.expiry}`);
+                    ph.push(`${leg.sym}:${strike}:${contracts}:${expiry}`);
                   }
                 }
               }
@@ -267,7 +299,9 @@ export default function CockpitPage() {
               nHoldings = hl.length;
               nPuts = ph.length;
             }
-            label = `NAV ${fmtUsd(nav)} · ${nHoldings} holding${nHoldings === 1 ? "" : "s"} · ${nPuts} short put${nPuts === 1 ? "" : "s"} (${s.source ?? "unknown source"})`;
+            label = positionsOk
+              ? `NAV ${fmtUsd(nav)} · ${nHoldings} holding${nHoldings === 1 ? "" : "s"} · ${nPuts} short put${nPuts === 1 ? "" : "s"} (${s.source ?? "unknown source"})`
+              : `NAV ${fmtUsd(nav)} (${s.source ?? "unknown source"}) — positions unavailable`;
           }
         }
       } catch {
@@ -300,7 +334,13 @@ export default function CockpitPage() {
         if (d?.ticker) map[d.ticker] = d;
       }
       setDossierMap(map);
-      setBookAttached(nav != null);
+      // bookAttached = true ONLY when summary AND positions both succeeded;
+      // nav-alone (positions failed) degrades to bookless — R7-R10 then skip
+      // silently on absent evidence rather than evaluating against an empty book.
+      setBookAttached(nav != null && positionsOk);
+      // Surface an explicit warning in the drawer when summary succeeded but
+      // positions specifically failed (distinguishable from "no portfolio at all").
+      setPositionsUnavailable(nav != null && !positionsOk);
       setBookLabel(label);
       setDossierState("ready");
     } catch {
@@ -339,6 +379,7 @@ export default function CockpitPage() {
     dossier: selectedDossier,
     dossierState: effectiveDossierState,
     bookAttached: bookAttached && dossierFresh,
+    positionsUnavailable: positionsUnavailable && dossierFresh,
     bookLabel: dossierFresh ? bookLabel : null,
     asOf: loadedParams?.asOf ?? params.asOf,
     engineVersion: data?.engine_version ?? null,
@@ -355,27 +396,13 @@ export default function CockpitPage() {
             <span className="text-sm font-semibold tabular-nums text-terminal-text">
               {params.asOf || "latest"}
             </span>
-            {behindFrontier !== null && behindFrontier === 0 && (
-              <span className="text-xs text-terminal-dim" title={`as_of equals the engine data frontier (${frontier}).`}>
-                · frontier
-              </span>
-            )}
-            {behindFrontier !== null && behindFrontier > 0 && (
-              <span className="text-xs tabular-nums text-pf-caution">
-                · {behindFrontier}d behind frontier
-              </span>
-            )}
-            {behindFrontier !== null && behindFrontier < 0 && (
-              <span className="text-xs text-pf-caution">· beyond frontier</span>
-            )}
-            {behindFrontier === null && staleDays != null && staleDays > 0 && (
-              <span
-                className="text-xs tabular-nums text-pf-caution"
-                title="Engine frontier unknown — age vs today."
-              >
-                · {staleDays}d old
-              </span>
-            )}
+            <FrontierChip
+              frontier={frontier}
+              asOf={params.asOf}
+              behindFrontier={behindFrontier}
+              staleDays={staleDays}
+              size="sm"
+            />
           </>
         }
         status={
@@ -503,6 +530,8 @@ export default function CockpitPage() {
               <ConcentrationMeters
                 candidates={candidates}
                 rankParams={loadedParams ?? params}
+                preloadedNav={summaryNav}
+                preloadedNavSource={summaryNavSource}
               />
             )}
             <TrustLegend />

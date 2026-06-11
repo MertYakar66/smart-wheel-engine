@@ -377,13 +377,15 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
     nav = _num(snapshot["account"]["net_liquidation"])
     as_of = _as_of_date(snapshot)
 
-    # Spot per underlying from the same-symbol stock leg (FX-normalized).
-    spots: dict[str, float] = {}
+    # Spot per underlying, stored in LOCAL currency (pre-FX) so that moneyness
+    # (spot − strike) / strike compares like-for-like units (both in the same
+    # currency).  FX-normalised spots are wrong for non-USD legs: e.g. a CAD
+    # stock at C$77.18 → C$56.34 USD versus a C$80 strike yields −29.6% instead
+    # of the correct −3.5% (idx 22 FX-invariant moneyness fix).
+    raw_spots: dict[str, float] = {}
     for pos in snapshot.get("positions", []):
         if _is_stock(pos) and int(_num(pos.get("qty"))) != 0:
-            spots[str(pos.get("symbol", "")).upper()] = _num(pos.get("mark")) * _fx_rate(
-                snapshot, pos.get("currency", "USD")
-            )
+            raw_spots[str(pos.get("symbol", "")).upper()] = _num(pos.get("mark"))
 
     rows: list[dict] = []
     for pos in snapshot.get("positions", []):
@@ -414,7 +416,9 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
                 dte = max(0, (expiry - as_of).days)
             except ValueError:
                 pass  # malformed/absent expiry → null (never a guessed date)
-            spot = spots.get(sym)
+            # Use raw (local-currency) spot so both sides of (spot − strike) / strike
+            # are in the same currency — moneyness is dimensionless (idx 22).
+            spot = raw_spots.get(sym)
             if spot is not None and strike:
                 moneyness = round((spot - strike) / strike, 4)
         else:
@@ -651,19 +655,45 @@ def equity_view(history: dict) -> dict:
     triple-count the current month."""
     points = history["points"]
 
-    # Month key per point (YYYY-MM); the label fallback keeps a dateless
-    # legacy artifact rendering one bar per point (no dedup possible).
-    def _mkey(p: dict) -> str:
-        return str(p.get("date") or p.get("label", ""))[:7]
+    # Month key per point (YYYY-MM when the date field is present; dateless
+    # fallback only for a true legacy artifact that carries no date at all).
+    # Dedup is only meaningful when dates exist: label[:7] collides across
+    # years (two "Feb" labels → earlier month's premium bar silently dropped).
+    # For dateless points, dedup is skipped entirely — every point keeps its
+    # own premium, matching the "one bar per point (no dedup possible)" intent
+    # that the dateless comment documents.  Also, _num(None)→0.0 is wrong on
+    # an emitting point whose premium field is genuinely null; emit None
+    # directly so the bar renders as absent, not as a fabricated $0 (idx 6).
+    def _mkey(p: dict, idx: int) -> str | None:
+        d = p.get("date")
+        if d:
+            return str(d)[:7]  # YYYY-MM — unique across years, no cross-year collision
+        return None  # dateless: no dedup key → always treat as last-of-month
 
-    last_of_month = {_mkey(p): i for i, p in enumerate(points)}  # later index wins
+    last_of_month: dict[str, int] = {}
+    for i, p in enumerate(points):
+        k = _mkey(p, i)
+        if k is not None:
+            last_of_month[k] = i  # later index wins
+
+    def _premium(p: dict, i: int) -> int | None:
+        k = _mkey(p, i)
+        if k is None:
+            # Dateless point: no dedup possible — emit as-is (may be None)
+            raw = p.get("premium")
+            return round(_num(raw)) if raw is not None else None
+        if last_of_month.get(k) != i:
+            return None  # not the last point in this calendar month
+        raw = p.get("premium")
+        return round(_num(raw)) if raw is not None else None
+
     equity = [
         {
             "m": p["label"],
             "date": p.get("date"),
             "port": round(float(p["port"])),
             "spy": round(float(p["spy"])),
-            "premium": round(_num(p.get("premium"))) if last_of_month[_mkey(p)] == i else None,
+            "premium": _premium(p, i),
         }
         for i, p in enumerate(points)
     ]

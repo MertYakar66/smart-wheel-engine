@@ -36,11 +36,6 @@ interface EodQuote {
   changePct: number | null;
 }
 
-interface OhlcvRow {
-  date?: string;
-  close?: number;
-}
-
 function fmt2(v: number | null | undefined): string {
   return typeof v === "number" && Number.isFinite(v)
     ? v.toLocaleString("en-US", {
@@ -63,22 +58,23 @@ export function MarketOverview({
     let cancelled = false;
     async function fetchEod() {
       setEodLoading(true);
+      // Route through /api/market so the last-two-closes derivation and
+      // null-honest changePct contract live in one place (fetchEngineEodQuote
+      // via the server route). changePct is null when only one close exists —
+      // never fabricated 0.
       const results = await Promise.all(
         EOD_TICKERS.map(async (ticker): Promise<EodQuote> => {
           try {
-            const res = await fetch(
-              `/api/engine?action=chart&chart_type=ohlcv&ticker=${ticker}&days=2`
-            );
+            const res = await fetch(`/api/market?ticker=${encodeURIComponent(ticker)}`);
             if (!res.ok) return { ticker, close: null, changePct: null };
             const body = await res.json();
-            const rows: OhlcvRow[] = Array.isArray(body?.data) ? body.data : [];
-            const last = rows[rows.length - 1]?.close;
-            const prev = rows[rows.length - 2]?.close;
             const close =
-              typeof last === "number" && Number.isFinite(last) ? last : null;
+              typeof body?.price === "number" && Number.isFinite(body.price)
+                ? body.price
+                : null;
             const changePct =
-              close !== null && typeof prev === "number" && prev > 0
-                ? ((close - prev) / prev) * 100
+              typeof body?.changePct === "number" && Number.isFinite(body.changePct)
+                ? body.changePct
                 : null;
             return { ticker, close, changePct };
           } catch {
@@ -98,6 +94,9 @@ export function MarketOverview({
   }, []);
 
   const hasVol = regime.vix > 0;
+  // contango === null means unknown/flat — never render it as backwardation.
+  // Only confirmed contango === false is backwardation (stress-red badge).
+  const contangoKnown = regime.contango !== null;
   const backwardation = regime.contango === false;
 
   return (
@@ -149,9 +148,16 @@ export function MarketOverview({
           <div className="flex items-center justify-between py-[2px]">
             <span className="text-terminal-dim">Term structure</span>
             {regime.termStructure ? (
-              // Backwardation is the regime where the R11 trust haircut
-              // matters — draw it loud.
-              <TerminalBadge variant={backwardation ? "red" : "green"}>
+              // Only confirmed backwardation (contango===false) is stress-red.
+              // contango===null means the server could not determine structure
+              // (unknown/flat) — render neutral, never loss-red.
+              <TerminalBadge
+                variant={
+                  contangoKnown
+                    ? backwardation ? "red" : "green"
+                    : "default"
+                }
+              >
                 {regime.termStructure}
               </TerminalBadge>
             ) : (

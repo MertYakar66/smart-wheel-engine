@@ -2,34 +2,22 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { watchlists } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { fetchQuoteFromFinnhub, getLatestSnapshot } from "@/services/market-data";
+import {
+  fetchQuoteFromFinnhub,
+  getLatestSnapshot,
+  fetchEngineEodQuote,
+} from "@/services/market-data";
 
-const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
-
+// getEnginePrice delegates to the shared fetchEngineEodQuote helper so
+// the last-two-closes derivation is not duplicated and the null-honest
+// changePct contract (null when only one close, never fabricated 0) is
+// enforced in one place.
 async function getEnginePrice(
   ticker: string
-): Promise<{ price: number; changePct: number } | null> {
-  try {
-    // ONE cheap engine call per ticker: the last two OHLCV closes give both
-    // the EOD spot and the 1-day change. (This used to also hit /api/analyze
-    // — a full per-ticker analysis — per watchlist row, doubling the calls
-    // for a number the ohlcv read already contains.)
-    const res = await fetch(
-      `${ENGINE_API}/api/chart/ohlcv?ticker=${ticker}&days=2`,
-      { cache: "no-store", signal: AbortSignal.timeout(5000) }
-    );
-    if (!res.ok) return null;
-    const body = await res.json();
-    const rows = body?.data || [];
-    const curr = rows[rows.length - 1]?.close;
-    if (typeof curr !== "number" || curr <= 0) return null;
-    const prev = rows[rows.length - 2]?.close;
-    const changePct =
-      typeof prev === "number" && prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-    return { price: curr, changePct };
-  } catch {
-    return null;
-  }
+): Promise<{ price: number; changePct: number | null } | null> {
+  const eod = await fetchEngineEodQuote(ticker);
+  if (!eod) return null;
+  return { price: eod.price, changePct: eod.changePct };
 }
 
 export async function GET() {

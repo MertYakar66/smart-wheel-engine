@@ -34,8 +34,13 @@ interface DossierDrawerProps {
   /** Engine dossier for this ticker (joined by the page), null when absent. */
   dossier: Dossier | null;
   dossierState: DossierFetchState;
-  /** Was a live nav/holdings book sent with the dossier fetch? */
+  /** Was a live nav/holdings/puts book sent with the dossier fetch?
+   *  True ONLY when BOTH /api/portfolio/summary AND /api/portfolio/positions
+   *  succeeded — nav alone (positions failed) must not claim book-attached. */
   bookAttached: boolean;
+  /** True when summary succeeded but positions specifically failed — surfaces
+   *  an explicit warning rather than a silent "no book" state. */
+  positionsUnavailable?: boolean;
   /** e.g. "NAV $152,381 · 3 holdings · 2 short puts (live)". */
   bookLabel?: string | null;
   /** as_of the shown rank was loaded with (for the copy-out ticket). */
@@ -208,6 +213,7 @@ export function DossierDrawer({
   dossier,
   dossierState,
   bookAttached,
+  positionsUnavailable,
   bookLabel,
   asOf,
   engineVersion,
@@ -288,14 +294,26 @@ export function DossierDrawer({
             </span>
             {engineLoaded && (
               <span
-                className={`text-[9px] ${bookAttached ? "text-terminal-green" : "text-terminal-dim"}`}
+                className={`text-[9px] ${
+                  bookAttached
+                    ? "text-terminal-green"
+                    : positionsUnavailable
+                      ? "text-terminal-amber"
+                      : "text-terminal-dim"
+                }`}
                 title={
                   bookAttached
                     ? "nav + holdings + short puts from /api/portfolio were attached — R7-R10 evaluated against the real book."
-                    : "No portfolio context attached — R7-R10 skip silently (missing-evidence semantics)."
+                    : positionsUnavailable
+                      ? "NAV was retrieved but /api/portfolio/positions failed — dossier ran bookless. R7-R10 not engaged against holdings."
+                      : "No portfolio context attached — R7-R10 skip silently (missing-evidence semantics)."
                 }
               >
-                {bookAttached ? "live book attached" : "no book attached"}
+                {bookAttached
+                  ? "live book attached"
+                  : positionsUnavailable
+                    ? "live book unavailable — R7-R10 not engaged against holdings"
+                    : "no book attached"}
               </span>
             )}
           </div>

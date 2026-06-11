@@ -6,6 +6,7 @@ import {
   TerminalRow,
   TerminalBadge,
 } from "./panel";
+import { fmtUsd, fmtUsdSigned, pnlToneClass } from "@/lib/cockpit-trust";
 import type { LiveBookSummary, LiveBookLeg } from "@/types";
 
 /**
@@ -24,42 +25,11 @@ interface LiveBookPanelProps {
   flash?: boolean;
 }
 
-const MONTHS: Record<string, number> = {
-  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
-};
-
-/** Parse "MU 12JUN26 970 P"-style leg names → days to expiry, or null. */
-function legDte(name: string): number | null {
-  const m = name.match(/\b(\d{1,2})([A-Z]{3})(\d{2})\b/);
-  if (!m) return null;
-  const month = MONTHS[m[2]];
-  if (month === undefined) return null;
-  const expiry = new Date(2000 + parseInt(m[3], 10), month, parseInt(m[1], 10));
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((expiry.getTime() - today.getTime()) / 86_400_000);
-}
-
-function usd(v: number | null, digits = 0): string {
-  if (v === null) return "—";
-  return `$${v.toLocaleString("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })}`;
-}
-
-function signedUsd(v: number | null): string {
-  if (v === null) return "—";
-  return `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  })}`;
-}
-
-function pnlColor(v: number | null): string {
-  if (v === null) return "text-terminal-dim";
-  return v >= 0 ? "text-terminal-green" : "text-terminal-red";
-}
+// legDte and the MONTHS lookup are removed: the adapter now supplies a
+// server-computed dte (expiry − snapshot as_of, clamped >= 0) so clients
+// never need to re-parse name strings against browser-local time. The field
+// is consumed directly from leg.dte; a labeled fallback ("—") is kept only
+// when the adapter did not populate the field (old engine version).
 
 const LEG_STATE_LABEL: Record<string, string> = {
   short_put: "SP",
@@ -78,10 +48,11 @@ export function LiveBookPanel({
   const isLive = summary?.source === "live";
 
   // Option legs only, soonest expiry first (assignment proximity is the
-  // number that should never leave the screen).
+  // number that should never leave the screen). DTE comes from the adapter's
+  // server-computed field (snapshot as_of - anchored, clamped >= 0) so it
+  // stays consistent with the holdings table even when viewing a past snapshot.
   const optionLegs = legs
     .filter((l) => l.state !== "shares")
-    .map((l) => ({ ...l, dte: legDte(l.name) }))
     .sort((a, b) => (a.dte ?? Infinity) - (b.dte ?? Infinity));
   const soonestDte = optionLegs.length > 0 ? optionLegs[0].dte : null;
 
@@ -130,30 +101,26 @@ export function LiveBookPanel({
           <div className="mb-1 text-[10px] font-bold text-terminal-blue">
             ─ ACCOUNT
           </div>
-          <TerminalRow label="NAV" value={usd(summary.netLiq)} />
+          <TerminalRow label="NAV" value={fmtUsd(summary.netLiq)} />
           <TerminalRow
             label="Day change"
-            value={
-              summary.dayChangeUsd !== null
-                ? signedUsd(summary.dayChangeUsd)
-                : "—"
-            }
-            valueColor={pnlColor(summary.dayChangeUsd)}
+            value={fmtUsdSigned(summary.dayChangeUsd)}
+            valueColor={pnlToneClass(summary.dayChangeUsd)}
           />
-          <TerminalRow label="Cash" value={usd(summary.cash)} />
+          <TerminalRow label="Cash" value={fmtUsd(summary.cash)} />
           <TerminalRow
             label="Unrealized P&L"
-            value={signedUsd(summary.unrealizedPnl)}
-            valueColor={pnlColor(summary.unrealizedPnl)}
+            value={fmtUsdSigned(summary.unrealizedPnl)}
+            valueColor={pnlToneClass(summary.unrealizedPnl)}
           />
           <TerminalRow
             label="Realized YTD"
-            value={signedUsd(summary.realizedYtd)}
-            valueColor={pnlColor(summary.realizedYtd)}
+            value={fmtUsdSigned(summary.realizedYtd)}
+            valueColor={pnlToneClass(summary.realizedYtd)}
           />
           <TerminalRow
             label="Premium 30d"
-            value={usd(summary.premium30d)}
+            value={fmtUsd(summary.premium30d)}
             valueColor="text-terminal-green"
           />
           <TerminalRow
@@ -173,7 +140,7 @@ export function LiveBookPanel({
           </div>
           <TerminalRow
             label="Excess liquidity"
-            value={usd(summary.excessLiquidity)}
+            value={fmtUsd(summary.excessLiquidity)}
             valueColor={
               cushionPct === null
                 ? "text-terminal-dim"
@@ -184,11 +151,11 @@ export function LiveBookPanel({
                     : "text-terminal-green"
             }
           />
-          <TerminalRow label="Maint margin" value={usd(summary.maintMargin)} />
+          <TerminalRow label="Maint margin" value={fmtUsd(summary.maintMargin)} />
           <TerminalRow
             label="Avail funds"
-            value={usd(summary.availableFunds)}
-            valueColor={pnlColor(summary.availableFunds)}
+            value={fmtUsd(summary.availableFunds)}
+            valueColor={pnlToneClass(summary.availableFunds)}
           />
           {cushionPct !== null && cushionPct < 10 && (
             <div className="py-[2px] text-[10px] text-terminal-red">
@@ -224,8 +191,8 @@ export function LiveBookPanel({
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className={`tabular-nums ${pnlColor(leg.uPnl)}`}>
-                    {signedUsd(leg.uPnl)}
+                  <span className={`tabular-nums ${pnlToneClass(leg.uPnl)}`}>
+                    {fmtUsdSigned(leg.uPnl)}
                   </span>
                   {leg.dte !== null ? (
                     <TerminalBadge

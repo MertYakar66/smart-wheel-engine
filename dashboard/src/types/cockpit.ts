@@ -228,6 +228,11 @@ export interface PortfolioLegLite {
   /** "shares" | "short_put" | "short_call" | "long_call" | … */
   state?: string;
   qty?: number;
+  /** Server-computed option fields from build_positions_flat (D26 PR #403).
+   *  Consume these first; fall back to regex-parsed name strings only when absent. */
+  strike?: number | null;
+  expiry?: string | null;
+  dte?: number | null;
 }
 
 export interface PortfolioPositionsLite {

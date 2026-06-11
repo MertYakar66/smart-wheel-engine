@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**135 records.**
+**136 records.**
 
 ## Features (13)
 
@@ -165,7 +165,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (6)
+## Docs / process (7)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -175,6 +175,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
 | [rebaseline-runbook](rebaseline-runbook-consolidate-the-re-baseline-runbook-into-the-sin.md) | in-flight |  | NEXT_DATA_SESSION_RUNBOOK elevated from data-queue plan to the one ordered checklist for the supervised re-baseline session — universe data → 3 (E) trio/risk-gate fixes → re-baseline → frontier re-picks → (D) pulls | `rebaseline-runbook-consolidate-the-re-baseline-runbook-into-the-sin.md` |
 | [unattended-run-2026-06-06](unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md) | complete |  | End-of-run summary of the ~9h unattended data-layer activation queue — 6 PRs opened (none merged), all CI green except the one known pre-existing f4 smoke. Deep-read ships DEFAULT-OFF; the trio is untouched beyond R0a; R1 (data merge + re-baseline + flip-on) is left for the architect-reviewed session. | `unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md` |
+| [zero-skew-ev-asymmetry](zero-skew-ev-asymmetry-zero-skew-iv-ev-asymmetry-documentation-brain-au.md) | shipped |  | docs(skew): document the zero-skew EV asymmetry — short-put conservative (25Δ premium understated 13–41%), covered-call optimistic (~6–12% overstated) — brain-audit M-dim3 follow-up in DECISIONS.md D9 and docs/DATA_ACQUISITION_ROADMAP.md §1 | `zero-skew-ev-asymmetry-zero-skew-iv-ev-asymmetry-documentation-brain-au.md` |
 
 ## Research records (5)
 

@@ -10,37 +10,23 @@ async function getEnginePrice(
   ticker: string
 ): Promise<{ price: number; changePct: number } | null> {
   try {
-    // Pull spot + 1-day change from the engine's analyze endpoint.
-    const res = await fetch(`${ENGINE_API}/api/analyze/${ticker}`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
+    // ONE cheap engine call per ticker: the last two OHLCV closes give both
+    // the EOD spot and the 1-day change. (This used to also hit /api/analyze
+    // — a full per-ticker analysis — per watchlist row, doubling the calls
+    // for a number the ohlcv read already contains.)
+    const res = await fetch(
+      `${ENGINE_API}/api/chart/ohlcv?ticker=${ticker}&days=2`,
+      { cache: "no-store", signal: AbortSignal.timeout(5000) }
+    );
     if (!res.ok) return null;
-    const data = await res.json();
-    if (data.spotPrice && data.spotPrice > 0) {
-      // Try to compute a real change% from the last two OHLCV closes so the
-      // watchlist can show green/red instead of a flat 0.
-      let changePct = 0;
-      try {
-        const bbRes = await fetch(
-          `${ENGINE_API}/api/chart/ohlcv?ticker=${ticker}&days=2`,
-          { cache: "no-store", signal: AbortSignal.timeout(5000) },
-        );
-        if (bbRes.ok) {
-          const bb = await bbRes.json();
-          const rows = bb?.data || [];
-          if (rows.length >= 2) {
-            const prev = rows[rows.length - 2].close;
-            const curr = rows[rows.length - 1].close;
-            if (prev && curr) changePct = ((curr - prev) / prev) * 100;
-          }
-        }
-      } catch {
-        // Fall through with changePct = 0
-      }
-      return { price: data.spotPrice, changePct };
-    }
-    return null;
+    const body = await res.json();
+    const rows = body?.data || [];
+    const curr = rows[rows.length - 1]?.close;
+    if (typeof curr !== "number" || curr <= 0) return null;
+    const prev = rows[rows.length - 2]?.close;
+    const changePct =
+      typeof prev === "number" && prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+    return { price: curr, changePct };
   } catch {
     return null;
   }

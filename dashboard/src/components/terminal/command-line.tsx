@@ -7,17 +7,22 @@ interface CommandLineProps {
   history: string[];
 }
 
+// Every command advertised here has a real handler in the terminal page —
+// HELP must never promise behavior that silently no-ops or misfires.
 const COMMANDS = [
-  { cmd: "NEWS", desc: "Open news panel" },
-  { cmd: "OPTIONS", desc: "Open options engine" },
-  { cmd: "AGENT", desc: "Open AI agent panel" },
+  { cmd: "NEWS", desc: "Highlight the news panel" },
+  { cmd: "OPTIONS", desc: "Highlight the options engine" },
+  { cmd: "BOOK", desc: "Highlight the live IBKR book" },
+  { cmd: "MARKET", desc: "Highlight the market/vol panel" },
+  { cmd: "CALENDAR", desc: "Highlight the events panel" },
   { cmd: "WATCH <SYM>", desc: "Add ticker to watchlist" },
   { cmd: "UNWATCH <SYM>", desc: "Remove from watchlist" },
-  { cmd: "QUOTE <SYM>", desc: "Get stock quote" },
+  { cmd: "QUOTE <SYM>", desc: "Open symbol workbench (EOD engine read)" },
+  { cmd: "CHART <SYM>", desc: "Open symbol workbench + TradingView link" },
   { cmd: "REFRESH", desc: "Ingest RSS feeds" },
   { cmd: "ENGINE", desc: "Refresh options engine data" },
-  { cmd: "CALENDAR", desc: "Show macro calendar" },
-  { cmd: "RESEARCH <Q>", desc: "Ask AI a question" },
+  { cmd: "RESEARCH <Q>", desc: "Ask the research panel a question" },
+  { cmd: "BACK", desc: "Close the symbol workbench" },
   { cmd: "CLEAR", desc: "Clear command history" },
   { cmd: "HELP", desc: "Show available commands" },
 ];
@@ -31,6 +36,28 @@ export function CommandLine({ onCommand, history }: CommandLineProps) {
   // Focus on mount
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // Keyboard-first surface: F1 toggles help from anywhere (the "[F1 HELP]"
+  // hint used to be click-only), and "/" or Ctrl+K refocuses the prompt
+  // after a click-away.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F1") {
+        e.preventDefault();
+        setShowHelp((prev) => !prev);
+        return;
+      }
+      const inField =
+        e.target instanceof HTMLElement &&
+        (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
+      if ((e.key === "/" && !inField) || (e.key === "k" && e.ctrlKey)) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const handleSubmit = () => {

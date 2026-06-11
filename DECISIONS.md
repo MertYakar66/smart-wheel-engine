@@ -237,6 +237,19 @@ raise directly is a documented follow-up. Contract pinned by
 `tests/test_iv_surface_failloud.py`, `PROJECT_STATE.md` §3,
 `MODULE_INDEX.md` (`volatility_surface.py` now **live**).
 
+**Brain-audit annotation (2026-06-11, dimension 3 — Pricing & Greeks).**
+The zero-skew limitation is *asymmetric* in its EV impact and was previously
+underdocumented as "uniformly conservative." The correct framing per the
+audit probes: **short-put EV is conservative** (25Δ put premium understated
+13–41% vs a real volatility smile — real markets price puts richer than ATM
+IV implies, so the engine under-prices the premium it would collect);
+**covered-call EV is optimistic** (~6–12% overstated — real call IV sits
+below ATM on most names, so the engine overstates collectible call premium).
+Operators should apply a corresponding haircut when interpreting `ev_dollars`
+on the CC ranker leg until T0-1/T0-2 in `docs/DATA_ACQUISITION_ROADMAP.md`
+land. See `docs/BRAIN_AUDIT_2026-06-11.md` §3 (dimension 3) for the probe
+methodology.
+
 ---
 
 ## D10. Invariants first, then 80% line coverage as a forcing function

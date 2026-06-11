@@ -856,7 +856,9 @@ class WheelRunner:
             top_n: Number of top candidates to return.
             min_ev_dollars: Hard filter — drop any trade with ``ev_dollars``
                 below this threshold.
-            as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now.
+            as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now;
+                the staleness gate resolves ``None`` to the connector's
+                global data frontier (drop-only, brain-audit M3).
             include_diagnostic_fields: Include CVaR, Omega, fair value, etc.
             universe_limit: When ``tickers`` is ``None``, cap the scanned
                 universe to the first N names. ``None`` (default) ranks
@@ -963,6 +965,23 @@ class WheelRunner:
         drops: list[dict] = []
         T = max(dte_target, 1) / 365.0
 
+        # M3 staleness gate: resolve the staleness reference once before the
+        # loop.  When as_of is explicit it equals as_of (the existing gate).
+        # When as_of is None, resolve to the connector's global data frontier
+        # (the max trade date across the whole OHLCV table, clamped to today)
+        # so each ticker's last bar is compared against a shared reference
+        # rather than its own latest row — which silently admitted index
+        # leavers (CTRA, last bar 2026-03-20, gap 76d, ranked +$40 EV).
+        # hasattr guard: connectors without get_data_frontier (ThetaConnector,
+        # test stubs) keep today's legacy behavior (staleness_ref stays None
+        # -> gate skipped) via the same Q3 absent-evidence semantics as R7–R10.
+        staleness_ref = as_of
+        if staleness_ref is None and hasattr(conn, "get_data_frontier"):
+            try:
+                staleness_ref = conn.get_data_frontier()
+            except Exception:
+                staleness_ref = None
+
         for ticker in tickers:
             try:
                 ohlcv = conn.get_ohlcv(ticker)
@@ -1002,30 +1021,56 @@ class WheelRunner:
                 )
                 continue
 
-            # S32 F3 closer: refuse a future as_of when the actual data
-            # ends more than `max_as_of_staleness_days` before. Before
-            # this gate the engine silently used the latest available
-            # close as the "current spot" for any future as_of (e.g.
-            # querying as_of=2030-01-01 against 2026-03-20 data returned
-            # a row with 2026 spot, NO warning) -- a D11 "no silent
-            # substitution" violation. The default 30-day tolerance
-            # allows the normal weekend/holiday/refresh-cycle gap; a
-            # year-out as_of correctly drops.
-            if as_of is not None:
+            # S32 F3 / M3: refuse when the ticker's data lags the staleness
+            # reference by more than max_as_of_staleness_days.
+            #
+            # Explicit-as_of path (staleness_ref == as_of): original S32 F3
+            # gate — refuses a future as_of when data ends >30d before it.
+            # Before this gate the engine silently used the latest available
+            # close as "current spot" for any future as_of (D11 violation).
+            #
+            # as_of=None path (M3, brain-audit finding): staleness_ref is the
+            # connector's global data frontier (clamped to today).  Each
+            # ticker's last bar is compared against that shared reference so
+            # index leavers (CTRA: last bar 2026-03-20, gap 76d, frontier
+            # 2026-06-04) are dropped rather than ranked at a stale spot.
+            # PIT truncation, spot, IV, risk-free rate, event today_date
+            # (line below: date.fromisoformat(as_of) if as_of else date.today())
+            # and forward distribution are all UNTOUCHED — survivor EV is
+            # byte-identical.  `cutoff` is (re)assigned inside this block
+            # because the PIT-truncation block above (lines 1006-1012) is
+            # skipped at as_of=None and never binds `cutoff`.
+            if staleness_ref is not None:
                 try:
-                    cutoff = pd.Timestamp(as_of)
+                    cutoff = pd.Timestamp(staleness_ref)
                     actual_last = ohlcv.index.max()
                     gap_days = (cutoff - actual_last).days
                     if gap_days > max_as_of_staleness_days:
+                        if as_of is not None:
+                            # Explicit-as_of path — preserve the byte-identical
+                            # pinned reason string (test_pit_leaks asserts it).
+                            reason = (
+                                f"as_of {as_of} is {gap_days} days beyond "
+                                f"latest data ({actual_last.date().isoformat()}); "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            )
+                        else:
+                            # as_of=None path — distinct string so audit trails
+                            # distinguish the two triggers; does NOT contain
+                            # 'beyond latest data' so test_pit_leaks pins stay
+                            # unambiguous.
+                            reason = (
+                                f"stale at as_of=None: last bar "
+                                f"{actual_last.date().isoformat()} is {gap_days} days "
+                                f"behind universe data frontier "
+                                f"{cutoff.date().isoformat()}; "
+                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                            )
                         drops.append(
                             {
                                 "ticker": ticker,
                                 "gate": "data",
-                                "reason": (
-                                    f"as_of {as_of} is {gap_days} days beyond "
-                                    f"latest data ({actual_last.date().isoformat()}); "
-                                    f"max_as_of_staleness_days={max_as_of_staleness_days}"
-                                ),
+                                "reason": reason,
                             }
                         )
                         continue
@@ -2354,28 +2399,39 @@ class WheelRunner:
             )
             return _empty()
 
-        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
-        # rank_candidates_by_ev (PR #215). Without it the CC ranker
-        # silently substituted the latest available close as "current
-        # spot" for any future as_of — same D11 violation, same fix
-        # shape.
-        if as_of is not None:
+        # S33 F3 / M3: mirror the staleness gate from rank_candidates_by_ev.
+        # Resolve staleness_ref inline (single-ticker function, no loop):
+        # = as_of when explicit; else the connector's global data frontier
+        # when available (hasattr guard for Theta/stubs).
+        # `cutoff` is assigned inside this block — the PIT-trunc block above
+        # is skipped at as_of=None so it never binds `cutoff`.
+        _cc_staleness_ref = as_of
+        if _cc_staleness_ref is None and hasattr(conn, "get_data_frontier"):
             try:
-                cutoff = pd.Timestamp(as_of)
+                _cc_staleness_ref = conn.get_data_frontier()
+            except Exception:
+                _cc_staleness_ref = None
+        if _cc_staleness_ref is not None:
+            try:
+                cutoff = pd.Timestamp(_cc_staleness_ref)
                 actual_last = ohlcv.index.max()
                 gap_days = (cutoff - actual_last).days
                 if gap_days > max_as_of_staleness_days:
-                    drops.append(
-                        {
-                            "ticker": ticker,
-                            "gate": "data",
-                            "reason": (
-                                f"as_of {as_of} is {gap_days} days beyond "
-                                f"latest data ({actual_last.date().isoformat()}); "
-                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
-                            ),
-                        }
-                    )
+                    if as_of is not None:
+                        reason = (
+                            f"as_of {as_of} is {gap_days} days beyond "
+                            f"latest data ({actual_last.date().isoformat()}); "
+                            f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                        )
+                    else:
+                        reason = (
+                            f"stale at as_of=None: last bar "
+                            f"{actual_last.date().isoformat()} is {gap_days} days "
+                            f"behind universe data frontier "
+                            f"{cutoff.date().isoformat()}; "
+                            f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                        )
+                    drops.append({"ticker": ticker, "gate": "data", "reason": reason})
                     return _empty()
             except Exception:
                 pass
@@ -2919,28 +2975,39 @@ class WheelRunner:
             )
             return _empty()
 
-        # S33 F3 follow-up: mirror the as_of-beyond-data gate from
-        # rank_candidates_by_ev (PR #215). Without it the strangle
-        # ranker silently substituted the latest available close as
-        # "current spot" for any future as_of — same D11 violation,
-        # same fix shape.
-        if as_of is not None:
+        # S33 F3 / M3: mirror the staleness gate from rank_candidates_by_ev.
+        # Resolve staleness_ref inline (single-ticker function, no loop):
+        # = as_of when explicit; else the connector's global data frontier
+        # when available (hasattr guard for Theta/stubs).
+        # `cutoff` is assigned inside this block — the PIT-trunc block above
+        # is skipped at as_of=None so it never binds `cutoff`.
+        _stg_staleness_ref = as_of
+        if _stg_staleness_ref is None and hasattr(conn, "get_data_frontier"):
             try:
-                cutoff = pd.Timestamp(as_of)
+                _stg_staleness_ref = conn.get_data_frontier()
+            except Exception:
+                _stg_staleness_ref = None
+        if _stg_staleness_ref is not None:
+            try:
+                cutoff = pd.Timestamp(_stg_staleness_ref)
                 actual_last = ohlcv.index.max()
                 gap_days = (cutoff - actual_last).days
                 if gap_days > max_as_of_staleness_days:
-                    drops.append(
-                        {
-                            "ticker": ticker,
-                            "gate": "data",
-                            "reason": (
-                                f"as_of {as_of} is {gap_days} days beyond "
-                                f"latest data ({actual_last.date().isoformat()}); "
-                                f"max_as_of_staleness_days={max_as_of_staleness_days}"
-                            ),
-                        }
-                    )
+                    if as_of is not None:
+                        reason = (
+                            f"as_of {as_of} is {gap_days} days beyond "
+                            f"latest data ({actual_last.date().isoformat()}); "
+                            f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                        )
+                    else:
+                        reason = (
+                            f"stale at as_of=None: last bar "
+                            f"{actual_last.date().isoformat()} is {gap_days} days "
+                            f"behind universe data frontier "
+                            f"{cutoff.date().isoformat()}; "
+                            f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                        )
+                    drops.append({"ticker": ticker, "gate": "data", "reason": reason})
                     return _empty()
             except Exception:
                 pass

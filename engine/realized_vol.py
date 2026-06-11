@@ -35,6 +35,26 @@ def _log(x):
         return np.log(arr)
 
 
+def _log_ratio(num, den):
+    # ln(num/den) with the non-negativity guard applied to the RAW operands,
+    # BEFORE the division. The OHLC-ratio estimators must NaN out a bad bar (any
+    # non-positive / non-finite open/high/low/close) rather than (a) leaking +inf
+    # when a zero denominator makes high/low == +inf -> log(+inf) == +inf, or
+    # (b) silently swallowing an all-negative bar where -1/-1 == 1 -> log(1) == 0.
+    # Applying _log to the post-division ratio (the old code) saw neither failure
+    # mode because the guard ran after the division. For a valid bar the result is
+    # bit-for-bit log(num/den), so no legitimate input is perturbed. (E) #382.
+    num = np.asarray(num, dtype=float)
+    den = np.asarray(den, dtype=float)
+    good = np.isfinite(num) & np.isfinite(den) & (num > 0.0) & (den > 0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        # The placeholder 1.0 denominator only fires where good is False (so the
+        # value is discarded by the outer np.where); it must be positive nonzero
+        # so the not-taken branch never itself divides by zero.
+        ratio = np.where(good, num / np.where(good, den, 1.0), np.nan)
+        return np.log(ratio)
+
+
 def close_to_close_vol(df: pd.DataFrame, window: int = 20) -> float:
     """Classic close-to-close volatility over the last `window` bars."""
     if df is None or df.empty or len(df) < window + 1:
@@ -52,7 +72,7 @@ def parkinson_vol(df: pd.DataFrame, window: int = 20) -> float:
     if df is None or df.empty or len(df) < window:
         return float("nan")
     tail = df.tail(window)
-    hl = _log(tail["high"].values / tail["low"].values) ** 2
+    hl = _log_ratio(tail["high"].values, tail["low"].values) ** 2
     var = (1.0 / (4.0 * np.log(2.0))) * np.mean(hl)
     return float(np.sqrt(var * _TRADING_DAYS))
 
@@ -66,8 +86,8 @@ def garman_klass_vol(df: pd.DataFrame, window: int = 20) -> float:
         return float("nan")
     tail = df.tail(window)
     o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
-    hl = _log(h / lo) ** 2
-    co = _log(c / o) ** 2
+    hl = _log_ratio(h, lo) ** 2
+    co = _log_ratio(c, o) ** 2
     var = np.mean(0.5 * hl - (2.0 * np.log(2.0) - 1.0) * co)
     return float(np.sqrt(max(var, 0.0) * _TRADING_DAYS))
 
@@ -81,7 +101,7 @@ def rogers_satchell_vol(df: pd.DataFrame, window: int = 20) -> float:
         return float("nan")
     tail = df.tail(window)
     o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
-    term = _log(h / c) * _log(h / o) + _log(lo / c) * _log(lo / o)
+    term = _log_ratio(h, c) * _log_ratio(h, o) + _log_ratio(lo, c) * _log_ratio(lo, o)
     var = np.mean(term)
     return float(np.sqrt(max(var, 0.0) * _TRADING_DAYS))
 
@@ -99,11 +119,13 @@ def yang_zhang_vol(df: pd.DataFrame, window: int = 20, k: float | None = None) -
     o, h, lo, c = (tail[col].values for col in ("open", "high", "low", "close"))
 
     # Overnight returns: ln(O_t / C_{t-1})
-    over = _log(o[1:] / c[:-1])
+    over = _log_ratio(o[1:], c[:-1])
     # Open-to-close: ln(C_t / O_t)
-    otc = _log(c[1:] / o[1:])
+    otc = _log_ratio(c[1:], o[1:])
     # RS component on the same window
-    rs = _log(h[1:] / c[1:]) * _log(h[1:] / o[1:]) + _log(lo[1:] / c[1:]) * _log(lo[1:] / o[1:])
+    rs = _log_ratio(h[1:], c[1:]) * _log_ratio(h[1:], o[1:]) + _log_ratio(
+        lo[1:], c[1:]
+    ) * _log_ratio(lo[1:], o[1:])
 
     var_over = np.var(over, ddof=1)
     var_otc = np.var(otc, ddof=1)

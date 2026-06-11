@@ -189,6 +189,49 @@ class TestEmpiricalBoundary:
             "isfinite filter must drop the inf returns the zero price induced"
         )
 
+    def test_negative_price_filtered_like_zero(self):
+        # np.log(negative) -> NaN log-price (vs -inf for zero); both routes land
+        # in the same isfinite filter. Pins the previously-unpinned negative
+        # branch: same survivor count as the zero-bar case. A pre-log price
+        # filter would splice a return across the bad bar and change the count.
+        zero_df = _series(300)
+        zero_df.iloc[150, _CLOSE] = 0.0
+        neg_df = _series(300)
+        neg_df.iloc[150, _CLOSE] = -5.0
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "min_samples": 1, "non_overlapping": False}
+        zero_rets = empirical_forward_log_returns(zero_df, **kw)
+        neg_rets = empirical_forward_log_returns(neg_df, **kw)
+        assert len(neg_rets) > 0
+        assert np.all(np.isfinite(neg_rets))
+        assert len(neg_rets) == len(zero_rets) == 293
+
+    def test_nan_close_dropped_pre_log_splice_semantics(self):
+        # The dropna consumes a NaN close BEFORE np.log, shortening the series
+        # by one: overlapping return count drops by exactly 1 vs clean. This is
+        # the LIVE real-data path (BIIB 2020-11-06 / 2023-06-09 NaN bars) — a
+        # well-meaning ffill "hygiene" change would keep the full count and
+        # silently alter shipped EV on those windows.
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "min_samples": 1, "non_overlapping": False}
+        clean = empirical_forward_log_returns(_series(300), **kw)
+        nan_df = _series(300)
+        nan_df.iloc[150, _CLOSE] = np.nan
+        dirty = empirical_forward_log_returns(nan_df, **kw)
+        assert len(clean) == 295
+        assert len(dirty) == 294
+        assert np.all(np.isfinite(dirty))
+
+    def test_zero_bar_min_samples_cascade(self):
+        # A corrupt bar that pushes the post-filter count below min_samples must
+        # return EMPTY so best_available_forward_distribution demotes to the
+        # next tier instead of serving a thin distribution.
+        zero_df = _series(300)
+        zero_df.iloc[150, _CLOSE] = 0.0
+        kw = {"horizon_days": 5, "as_of": FRONTIER, "non_overlapping": False}
+        at = empirical_forward_log_returns(zero_df, min_samples=293, **kw)
+        assert len(at) == 293
+        below = empirical_forward_log_returns(zero_df, min_samples=294, **kw)
+        assert len(below) == 0
+
 
 # ---------------------------------------------------------------------------
 # W40 — realized_vol._log non-positive guard. CLEAN cases are (T) and pinned here;
@@ -228,20 +271,33 @@ class TestRealizedVolNonPositiveGuard:
         df.iloc[20, _CLOSE] = -1.0
         assert np.isnan(close_to_close_vol(df, window=20))
 
-    @pytest.mark.xfail(
-        reason="(E) #382 incomplete _log guard: zero DENOMINATOR leaks +inf through the OHLC-ratio estimators; should be NaN. Tracked as an engine fix.",
-        strict=True,
-    )
     @pytest.mark.parametrize("est", [parkinson_vol, garman_klass_vol], ids=lambda f: f.__name__)
     def test_zero_low_should_not_leak_inf(self, est):
-        # DESIRED contract: a non-positive price anywhere (here low=0, a denominator)
-        # yields NaN, never +inf. TODAY parkinson/garman_klass return +inf because the
-        # guard sits on the post-division ratio, not the raw price. Flips green when
-        # the (E) guard hardening lands.
+        # CONTRACT (closed by #382): a non-positive price anywhere (here low=0, a
+        # denominator) yields NaN, never +inf. Before the fix parkinson/garman_klass
+        # returned +inf because the guard sat on the post-division ratio (high/0 ==
+        # +inf -> log(+inf) == +inf); _log_ratio now guards the raw operands before
+        # the division, so the bad bar propagates NaN through np.mean.
         df = _series(40)
         df.iloc[20, _LOW] = 0.0
         v = est(df, window=20)
         assert not np.isinf(v), f"{est.__name__} leaked inf on a zero-low bar"
+        assert np.isnan(v), f"{est.__name__} should be NaN on a zero-low bar, got {v}"
+
+    @pytest.mark.parametrize(
+        "est", [parkinson_vol, garman_klass_vol, rogers_satchell_vol], ids=lambda f: f.__name__
+    )
+    def test_all_negative_bar_not_swallowed(self, est):
+        # CONTRACT (closed by #382): an all-negative OHLC bar must NOT be silently
+        # swallowed. Before the fix the ratios -1/-1 == 1 -> log(1) == 0 contributed
+        # a benign 0 term, so the estimator returned a normal-looking vol ~indistinct
+        # from the clean value (parkinson 0.0759 vs clean 0.0763) — the bad bar was
+        # invisible. _log_ratio guards the raw operands, so any non-positive price
+        # poisons the bar to NaN.
+        df = _series(40)
+        df.iloc[20, [_OPEN, _HIGH, _LOW, _CLOSE]] = -1.0
+        v = est(df, window=20)
+        assert np.isnan(v), f"{est.__name__} swallowed an all-negative bar, got {v}"
 
 
 # ---------------------------------------------------------------------------

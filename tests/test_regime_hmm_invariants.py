@@ -142,13 +142,13 @@ class TestRegimeDetectorDegenerate:
 
 
 class TestHmmNonFiniteInput:
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
-    @pytest.mark.xfail(
-        reason="(E) #386: fit does not guard non-finite input; returns NaN multiplier instead of raising",
-        strict=True,
-    )
     @pytest.mark.parametrize("bad", [np.nan, np.inf])
     def test_nonfinite_input_should_raise(self, bad):
+        # CONTRACT (closed by #386): a NaN/inf observation makes fit RAISE (like the
+        # T<K*3 and near-constant guards), so the caller's neutral-1.0 fallback
+        # engages. Before the fix fit returned a NaN multiplier (np.nanstd ignores
+        # NaN, so the near-constant guard could not catch it) and only the downstream
+        # ev_engine non-finite clamp saved EV.
         rng = np.random.default_rng(0)
         x = rng.normal(0.0, 0.01, 200)
         x[50] = bad

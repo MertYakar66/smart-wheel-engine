@@ -56,6 +56,15 @@ def _validate_inputs(
         raise ValueError(f"Strike price K must be positive, got {K}")
     if not validate_positive_only and sigma < 0:
         raise ValueError(f"Volatility sigma must be non-negative, got {sigma}")
+    # DELIBERATE: non-finite sigma (NaN/+inf) passes the check above (NaN < 0
+    # is False) and T is not validated here. Non-finite sigma/T price to an
+    # honest NaN in every scalar entry point, and a NaN EV is hard-blocked
+    # downstream by R1a (verdict_reason="ev_non_finite", PR #204). Do NOT add
+    # a raise: the decision-layer call sites (wheel_runner put/CC/strangle
+    # rankers -> ev_engine.evaluate; wheel_tracker roll suggesters) have no
+    # per-candidate try/except, so a raise would abort the entire rank run
+    # and erase the funnel audit trail. Non-finite defence belongs upstream
+    # in the data layer (IV gate) — pinned by TestNonFiniteSigmaTContract.
     if option_type is not None and option_type not in _VALID_OPTION_TYPES:
         raise ValueError(f"option_type must be 'call' or 'put', got '{option_type}'")
 

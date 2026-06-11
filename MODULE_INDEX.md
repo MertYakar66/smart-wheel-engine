@@ -35,7 +35,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
 | `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
-| `pull_branch.bat` / `pull.bat` / `fetch_data.bat` | Windows one-click launchers. | live | infra |
 
 ## `engine/` — quant + decision layer
 

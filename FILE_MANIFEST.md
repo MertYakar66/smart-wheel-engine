@@ -47,9 +47,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `.gitattributes` | Pins LF line endings and marks binary types; prevents CRLF churn from the Drive mount. |
 | `.python-version` | Pins the Python version for version managers. |
 | `.env.example` | Template for the gitignored `.env` secrets file; lists the optional API keys. |
-| `fetch_data.bat` | Windows double-click launcher — Theta health check then Theta backfill. |
-| `pull.bat` | Windows double-click launcher — stash edits, pull `origin/main`, restore stash. |
-| `pull_branch.bat` | Windows double-click launcher — stash edits and check out a feature branch (branch name edited in-file). |
 
 ## `.claude/`
 
@@ -84,6 +81,9 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-06/SESSION_HANDOFF.md` | Archived point-in-time session handoff (2026-05-18); carried a SUPERSEDED banner — live state is `PROJECT_STATE.md` / `DECISIONS.md`. |
 | `archive/2026-06/Claude_Prompting_Master_Guide.md` | Archived generic Claude prompt-engineering reference (not project-specific; zero inbound refs). |
 | `archive/2026-06/DATA_SPECIFICATION.md` | Archived aspirational Parquet data-layer design that never matched on-disk reality — superseded by `docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md`. |
+| `archive/2026-06/pull.bat` | Archived Windows pull launcher — zero refs; not part of the live (agent-session) workflow. |
+| `archive/2026-06/pull_branch.bat` | Archived Windows branch-checkout launcher — same rationale; default branch name was long dead. |
+| `archive/2026-06/fetch_data.bat` | Archived Windows Theta-backfill launcher — the documented workflow invokes the Python scripts directly. |
 | `archive/2026-05/END_TO_END_REVIEW_2026_05_25.md` | Archived four-pass end-to-end product review against `origin/main` @ `e83eaca`. Point-in-time snapshot; superseded by `docs/VERIFICATION_INDEX_2026-05-28.md` as the canonical verification index. |
 | `archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | Archived 2026-05-26 launch-readiness analysis. Point-in-time review of S22/S27/S32/S34/S35 pre-#260 engine; superseded by `docs/PRODUCTION_READINESS.md` (live deployment gate) and `docs/VERIFICATION_INDEX_2026-05-28.md`. |
 | `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | Archived second-pass critical re-verification of S22/S27/S32/S34/S35 conclusions. Surfaced the equity-beta-dominance and BKNG-concentration findings now folded into `docs/PRODUCTION_READINESS.md`. Point-in-time. |

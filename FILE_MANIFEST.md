@@ -778,6 +778,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_properties.py` | Hypothesis property-based invariants for pricing, RSI, IV-rank, Kelly. |
 | `tests/test_point_in_time.py` | Anti-lookahead — rolling features and labels use only past data. |
 | `tests/test_pit_leaks.py` | Launch-blocker invariant — news and credit-regime overlays honour a historical `as_of`. |
+| `tests/test_asof_none_staleness.py` | M3 regression — `as_of=None` resolves to the universe data frontier so the staleness gate engages; index leavers dropped; fresh names byte-identical; drop-only invariant; explicit path untouched; CC + strangle siblings covered. |
 | `tests/test_preflight_environment.py` | Preflight environment-invariant guard (automates CLAUDE.md §4 session-start checks): pins + logs that the default/`bloomberg` provider resolves to `MarketDataConnector` (silent provider selection is a recurring bug, §4.1) and that the bundled OHLCV reaches the pinned `EXPECTED_FRONTIER` — a loud, *diagnosing* failure ("OHLCV ends … expected ≥ … you may be on a STALE tree / wrong clone") that catches the stale-clone class (the "79-days-stale" premise + fingerprint false-positive from reading an older clone instead of main). Fast (date column only), deterministic (pinned frontier, not `today()`), self-skipping (skips on `SWE_DATA_PROVIDER=theta` or absent data). |
 | `tests/test_contracts.py` | `engine.contracts` interface-validation helpers. |
 | `tests/test_policy_config.py` | `TradingPolicyConfig` load/save/validate. |

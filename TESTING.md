@@ -127,6 +127,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_edge_cases.py` | Edge cases across modules |
 | `test_point_in_time.py` | No lookahead bias (PIT) |
 | `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated news/credit data |
+| `test_asof_none_staleness.py` | M3 — `as_of=None` resolves to the universe data frontier; index leavers dropped; fresh names byte-identical; drop-only; explicit path untouched; CC+strangle siblings covered |
 
 ### Ranker & EV-path surface
 

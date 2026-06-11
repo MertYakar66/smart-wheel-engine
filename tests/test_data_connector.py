@@ -737,3 +737,110 @@ class TestLiquidity:
     def test_get_liquidity_unknown_ticker_empty(self, data_dir):
         conn = MarketDataConnector(data_dir=str(data_dir))
         assert conn.get_liquidity("NOSUCH").empty
+
+
+# =====================================================================
+# 11. Data frontier (M3 — as_of=None staleness gate helper)
+# =====================================================================
+class TestDataFrontier:
+    """MarketDataConnector.get_data_frontier() — the M3 staleness-gate helper.
+
+    Pins that the method (a) equals the underlying _load max-date,
+    (b) is >= EXPECTED_FRONTIER on the committed Bloomberg CSVs,
+    (c) works for the vol_iv dataset,
+    (d) returns None on an empty/missing table,
+    (e) clamps a future-dated corrupt row to at most today.
+    """
+
+    # Mirror the bump-on-refresh constant from test_preflight_environment.py.
+    # When the OHLCV CSVs are refreshed, this constant must be bumped too.
+    EXPECTED_FRONTIER = pd.Timestamp("2026-06-04")
+
+    def test_frontier_returns_ohlcv_date_max(self, data_dir):
+        """get_data_frontier() equals _load('ohlcv')['date'].max() (clamped)."""
+        conn = MarketDataConnector(data_dir=str(data_dir))
+        frontier = conn.get_data_frontier()
+        assert frontier is not None
+        # The synthetic data_dir fixture has dates up to 2024-01-04 (MSFT row).
+        assert isinstance(frontier, pd.Timestamp)
+        assert frontier == pd.Timestamp("2024-01-04")
+
+    def test_real_frontier_ge_expected(self):
+        """Real Bloomberg CSVs: frontier >= EXPECTED_FRONTIER (2026-06-04).
+
+        Skips when the real data dir is unavailable (e.g. CI sandbox).
+        """
+        import os
+
+        data_dir_real = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg")
+        if not os.path.isdir(data_dir_real):
+            pytest.skip("Real bloomberg data_dir unavailable")
+        conn = MarketDataConnector(data_dir=data_dir_real)
+        frontier = conn.get_data_frontier()
+        assert frontier is not None, "Frontier must not be None on real data"
+        assert frontier >= self.EXPECTED_FRONTIER, (
+            f"OHLCV frontier {frontier.date()} is before EXPECTED_FRONTIER "
+            f"{self.EXPECTED_FRONTIER.date()} — bump EXPECTED_FRONTIER if "
+            "you refreshed the Bloomberg CSVs"
+        )
+
+    def test_vol_iv_dataset_returns_nonnone(self, data_dir):
+        """get_data_frontier('vol_iv') returns a non-None timestamp."""
+        conn = MarketDataConnector(data_dir=str(data_dir))
+        frontier = conn.get_data_frontier(dataset="vol_iv")
+        assert frontier is not None
+        assert isinstance(frontier, pd.Timestamp)
+
+    def test_empty_table_returns_none(self, tmp_path):
+        """Empty OHLCV table -> None (gate skips gracefully)."""
+        d = tmp_path / "bloomberg"
+        d.mkdir()
+        # Write an empty CSV (header only).
+        pd.DataFrame(columns=["date", "ticker", "close"]).to_csv(d / "sp500_ohlcv.csv", index=False)
+        conn = MarketDataConnector(data_dir=str(d))
+        assert conn.get_data_frontier() is None
+
+    def test_missing_table_returns_none(self, tmp_path):
+        """Missing dataset table -> None (no crash)."""
+        d = tmp_path / "bloomberg"
+        d.mkdir()
+        conn = MarketDataConnector(data_dir=str(d))
+        assert conn.get_data_frontier() is None
+
+    def test_future_dated_corrupt_row_clamped_to_today(self, tmp_path):
+        """A future-dated corrupt row is clamped to today, not inflated."""
+        import datetime as _dt
+
+        d = tmp_path / "bloomberg"
+        d.mkdir()
+        _csv(
+            d / "sp500_ohlcv.csv",
+            [
+                {
+                    "date": "2024-01-02",
+                    "ticker": "AAPL UW Equity",
+                    "open": 106,
+                    "high": 103,
+                    "low": 97,
+                    "close": 100,
+                    "volume": 1_000_000,
+                },
+                {
+                    "date": "2099-01-01",  # corrupt future row
+                    "ticker": "CORRUPT UW Equity",
+                    "open": 999,
+                    "high": 999,
+                    "low": 999,
+                    "close": 999,
+                    "volume": 1,
+                },
+            ],
+        )
+        conn = MarketDataConnector(data_dir=str(d))
+        frontier = conn.get_data_frontier()
+        assert frontier is not None
+        today_ts = pd.Timestamp(_dt.date.today())
+        assert frontier <= today_ts, (
+            f"Frontier {frontier.date()} must not exceed today {today_ts.date()} "
+            "even when a corrupt future-dated row is present"
+        )

@@ -933,6 +933,57 @@ class MarketDataConnector:
                 tickers.update(df["ticker"].dropna().unique())
         return sorted(tickers)
 
+    def get_data_frontier(self, dataset: str = "ohlcv") -> pd.Timestamp | None:
+        """Global data frontier — the max trade date across the whole table.
+
+        Used by the EV rankers to resolve an ``as_of=None`` scan to a
+        staleness reference: rather than letting each ticker independently
+        resolve to its own latest bar (which silently admits index leavers
+        like CTRA whose data ended 76+ days ago), the ranker compares each
+        ticker's last bar against this global frontier and drops any ticker
+        that is ``max_as_of_staleness_days`` behind.
+
+        Clamps the raw ``_load`` max against ``date.today()`` so that a
+        single future-dated corrupt row in any ticker cannot inflate the
+        frontier and black out the entire universe at ``as_of=None``.  A
+        corrupt-row frontier jump would make the failure mode "fewer
+        candidates" (drop-only, never a rescue), and the clamp turns that
+        into a no-op.  The clamped value is the correct semantic answer: the
+        frontier cannot be later than today.
+
+        Dataset-parameterized so a future supervised session can reuse the
+        same helper for an IV frontier (``dataset='vol_iv'``, verified
+        = 2026-06-04) without redesign.
+
+        Note: ``engine_api._data_frontier`` probes AAPL via ``get_ohlcv``
+        instead of reading ``_load`` directly so the HTTP status endpoint
+        reflects what the connector actually filters.  Both return the same
+        date today (2026-06-04), but they may diverge if a future OHLCV
+        refresh lands a corrupt row that ``_load`` passes through but
+        ``get_ohlcv``'s per-ticker filter would skip.  The clamp here
+        mitigates the divergence risk for the staleness-gate use case.
+
+        Returns ``None`` on any error or when the table is absent/empty —
+        callers fall back to legacy (no staleness gate) via hasattr-guard.
+        """
+        import datetime as _dt
+
+        try:
+            df = self._load(dataset)
+            if df.empty or "date" not in df.columns:
+                return None
+            raw_max = df["date"].max()
+            if pd.isna(raw_max):
+                return None
+            frontier = pd.Timestamp(raw_max)
+            # Clamp: the frontier cannot be later than today (corrupt future rows).
+            today_ts = pd.Timestamp(_dt.date.today())
+            if frontier > today_ts:
+                frontier = today_ts
+            return frontier
+        except Exception:
+            return None
+
     def screen_universe(
         self,
         min_market_cap: float = 0,

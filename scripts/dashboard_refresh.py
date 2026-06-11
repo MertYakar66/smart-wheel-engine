@@ -237,9 +237,7 @@ def do_spy_repair(closes_file: str | None = None) -> None:
         raise SystemExit(f"[spy-repair] no history at {hp}")
     if closes_file:
         raw = _read(closes_file)
-        closes = {
-            str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float)) and v > 0
-        }
+        closes = {str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float)) and v > 0}
     else:
         closes = _spy_closes()
     if not closes:

@@ -317,10 +317,6 @@ class TestEstimateOptionPrice:
         assert put_otm == 0
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
-
-
 class TestNonFiniteSigmaTContract:
     """Pins the DELIBERATE non-finite pass-through (heavy-verify 2026-06-09
     Site C): non-finite sigma/T pass _validate_inputs by design and price to
@@ -329,12 +325,18 @@ class TestNonFiniteSigmaTContract:
     whole rank runs (no per-candidate try/except at the decision-layer call
     sites). Pins behavior, not signature."""
 
+    # Full mixed matrix {nan, +inf, finite} x {nan, +inf, finite} minus the
+    # finite-finite cell. The production-relevant cell is non-finite sigma x
+    # FINITE T (T comes from an int dte; the realistic corruption is the IV).
     NONFINITE_CASES = [
         (float("nan"), 30 / 365),
         (float("inf"), 30 / 365),
         (0.25, float("nan")),
         (0.25, float("inf")),
         (float("nan"), float("nan")),
+        (float("nan"), float("inf")),
+        (float("inf"), float("nan")),
+        (float("inf"), float("inf")),
     ]
 
     @pytest.mark.parametrize("sigma,T", NONFINITE_CASES)
@@ -357,3 +359,7 @@ class TestNonFiniteSigmaTContract:
         # by the existing sigma < 0 check.
         with pytest.raises(ValueError, match="non-negative"):
             black_scholes_price(S=100.0, K=95.0, T=0.1, r=0.04, sigma=sigma, option_type="put")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

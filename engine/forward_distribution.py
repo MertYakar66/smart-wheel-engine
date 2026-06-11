@@ -123,7 +123,12 @@ def empirical_forward_log_returns(
     if n <= horizon_days:
         return np.asarray([], dtype=float)
 
-    # Forward log-returns at every trading-day index
+    # Forward log-returns at every trading-day index. np.log is DELIBERATELY
+    # unguarded: NaN closes are removed by the dropna above; a zero/negative
+    # close yields non-finite returns that the isfinite filter below removes
+    # (pinned: test_forward_distribution_invariants.py::TestEmpiricalBoundary).
+    # Do NOT clamp/ffill/eps-floor here — it changes shipped EV (the dropna
+    # splice sets the non-overlapping sampling phase).
     log_prices = np.log(prices)
     log_rets = log_prices[horizon_days:] - log_prices[:-horizon_days]
 

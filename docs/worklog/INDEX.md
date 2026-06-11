@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**130 records.**
+**131 records.**
 
 ## Features (12)
 
@@ -28,7 +28,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (16)
+## Fixes (17)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -47,6 +47,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |
 | [r7-deep-iv-sentinel](r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md) | complete |  | On the assembled (deep) vol_iv read, null the corrupt implied-vol sentinel (~134217.7) above a 10,000 floor while keeping the row — chosen over the early "IV>500%" note because on-bytes inspection of the delisted panel showed real distressed-name IVs of 500-1196% that a 500 cut would wrongly discard. Stacked on the deep-read branch. Other R7 items (drop .xlsx, shard bid_ask, deprecate vol_dvd) are R1-merge-time data ops — NOTED, not executed. | `r7-deep-iv-sentinel-r7-null-the-deep-iv-134217-7-sentinel-on-the-ass.md` |
 | [r7-iv-gate](r7-iv-gate-r7-w8-connector-iv-cleaning-gate-sub-3-floor-mon.md) | in-flight |  | Non-trio data-layer fix for the IV unit bug — connector NULLs implausible vol_iv implied-vol (sub-3.0 low floor + ~134217.7 high sentinel) on the monolith read; obviates #356 (W1) + #360 with ZERO trio edit; snapshot-neutral by enumeration | `r7-iv-gate-r7-w8-connector-iv-cleaning-gate-sub-3-floor-mon.md` |
+| [rec2-onpath-failloud](rec2-onpath-failloud-heavy-verify-rec-2-closure-widening-neutral-guar.md) | in-flight |  | realized_vol_ratio returns the documented no-fire 1.0 on a non-finite ratio (was: NaN silently hit max widening 1.15); Sites A/C adjudicated NO_CHANGE/EXPLICIT_KEEP and pinned. | `rec2-onpath-failloud-heavy-verify-rec-2-closure-widening-neutral-guar.md` |
 | [suggest-rolls-defensive](suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md) | in-flight |  | suggest_rolls / suggest_call_rolls no longer go silent on a challenged position — an opt-in include_defensive surfaces credit-gate-failing (debit) rolls flagged defensive=True (each scored through EVEngine.evaluate), and .attrs["defensive"] always reports how many defensive rolls exist so the credit-only default is never a silent zero. | `suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md` |
 
 ## Backtests (23)

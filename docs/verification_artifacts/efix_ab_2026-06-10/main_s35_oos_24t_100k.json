@@ -1,0 +1,266 @@
+{
+  "snapshot_id": "s35_oos_24t_100k",
+  "doc": "docs/ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md",
+  "aggregate": {
+    "row_count": 2003,
+    "spearman_rho": 0.5120496983660244,
+    "spearman_p": 2.6119788393571954e-134,
+    "mean_realized": -182.4896874687968,
+    "hit_rate": 0.8202695956065901,
+    "iv_mean": 0.3475273589615577,
+    "ev_mean": 36.2028007988018,
+    "final_cash": 62809.662939999995,
+    "final_nav": 112604.58088116646,
+    "executed_trades": 33,
+    "put_assignments": 8,
+    "open_at_end": 6
+  },
+  "per_year": {
+    "2020": {
+      "n": 2003,
+      "rho": 0.5120496983660244,
+      "p": 2.6119788393571954e-134,
+      "mean_realized": -182.4896874687968,
+      "hit_rate": 0.8202695956065901,
+      "iv_mean": 0.3475273589615577
+    }
+  },
+  "per_quartile": {
+    "Q0": {
+      "n": 501,
+      "ev_mean": -23.933033932135725,
+      "pnl_mean": -150.47026347305385,
+      "hit": 0.7504990019960079
+    },
+    "Q1": {
+      "n": 501,
+      "ev_mean": 6.0534730538922155,
+      "pnl_mean": -223.50723752495014,
+      "hit": 0.8083832335329342
+    },
+    "Q2": {
+      "n": 500,
+      "ev_mean": 30.28526,
+      "pnl_mean": -233.61920800000001,
+      "hit": 0.836
+    },
+    "Q3": {
+      "n": 501,
+      "ev_mean": 132.39369261477046,
+      "pnl_mean": -122.46409580838323,
+      "hit": 0.8862275449101796
+    }
+  },
+  "per_friction_level": {
+    "none": {
+      "aggregate": {
+        "row_count": 2003,
+        "spearman_rho": 0.5146589526787808,
+        "spearman_p": 6.826578890852246e-136,
+        "mean_realized": -165.21350973539697,
+        "hit_rate": 0.8237643534697953,
+        "iv_mean": 0.3475273589615577,
+        "ev_mean": 36.2028007988018,
+        "final_cash": 64186.93349999999,
+        "final_nav": 113981.85144116645,
+        "executed_trades": 35,
+        "put_assignments": 8,
+        "open_at_end": 6
+      },
+      "per_year": {
+        "2020": {
+          "n": 2003,
+          "rho": 0.5146589526787808,
+          "p": 6.826578890852246e-136,
+          "mean_realized": -165.21350973539697,
+          "hit_rate": 0.8237643534697953,
+          "iv_mean": 0.3475273589615577
+        }
+      },
+      "per_quartile": {
+        "Q0": {
+          "n": 501,
+          "ev_mean": -23.933033932135725,
+          "pnl_mean": -140.89998003992017,
+          "hit": 0.7524950099800399
+        },
+        "Q1": {
+          "n": 501,
+          "ev_mean": 6.0534730538922155,
+          "pnl_mean": -213.39942115768463,
+          "hit": 0.812375249500998
+        },
+        "Q2": {
+          "n": 500,
+          "ev_mean": 30.28526,
+          "pnl_mean": -217.46851999999998,
+          "hit": 0.842
+        },
+        "Q3": {
+          "n": 501,
+          "ev_mean": 132.39369261477046,
+          "pnl_mean": -89.19041916167663,
+          "hit": 0.8882235528942116
+        }
+      }
+    },
+    "bid_ask": {
+      "aggregate": {
+        "row_count": 2003,
+        "spearman_rho": 0.5120496983660244,
+        "spearman_p": 2.6119788393571954e-134,
+        "mean_realized": -182.4896874687968,
+        "hit_rate": 0.8202695956065901,
+        "iv_mean": 0.3475273589615577,
+        "ev_mean": 36.2028007988018,
+        "final_cash": 63218.3042,
+        "final_nav": 113013.22214116647,
+        "executed_trades": 35,
+        "put_assignments": 8,
+        "open_at_end": 6
+      },
+      "per_year": {
+        "2020": {
+          "n": 2003,
+          "rho": 0.5120496983660244,
+          "p": 2.6119788393571954e-134,
+          "mean_realized": -182.4896874687968,
+          "hit_rate": 0.8202695956065901,
+          "iv_mean": 0.3475273589615577
+        }
+      },
+      "per_quartile": {
+        "Q0": {
+          "n": 501,
+          "ev_mean": -23.933033932135725,
+          "pnl_mean": -150.47026347305385,
+          "hit": 0.7504990019960079
+        },
+        "Q1": {
+          "n": 501,
+          "ev_mean": 6.0534730538922155,
+          "pnl_mean": -223.50723752495014,
+          "hit": 0.8083832335329342
+        },
+        "Q2": {
+          "n": 500,
+          "ev_mean": 30.28526,
+          "pnl_mean": -233.61920800000001,
+          "hit": 0.836
+        },
+        "Q3": {
+          "n": 501,
+          "ev_mean": 132.39369261477046,
+          "pnl_mean": -122.46409580838323,
+          "hit": 0.8862275449101796
+        }
+      }
+    },
+    "full": {
+      "aggregate": {
+        "row_count": 2003,
+        "spearman_rho": 0.5120496983660244,
+        "spearman_p": 2.6119788393571954e-134,
+        "mean_realized": -182.4896874687968,
+        "hit_rate": 0.8202695956065901,
+        "iv_mean": 0.3475273589615577,
+        "ev_mean": 36.2028007988018,
+        "final_cash": 62809.662939999995,
+        "final_nav": 112604.58088116646,
+        "executed_trades": 33,
+        "put_assignments": 8,
+        "open_at_end": 6
+      },
+      "per_year": {
+        "2020": {
+          "n": 2003,
+          "rho": 0.5120496983660244,
+          "p": 2.6119788393571954e-134,
+          "mean_realized": -182.4896874687968,
+          "hit_rate": 0.8202695956065901,
+          "iv_mean": 0.3475273589615577
+        }
+      },
+      "per_quartile": {
+        "Q0": {
+          "n": 501,
+          "ev_mean": -23.933033932135725,
+          "pnl_mean": -150.47026347305385,
+          "hit": 0.7504990019960079
+        },
+        "Q1": {
+          "n": 501,
+          "ev_mean": 6.0534730538922155,
+          "pnl_mean": -223.50723752495014,
+          "hit": 0.8083832335329342
+        },
+        "Q2": {
+          "n": 500,
+          "ev_mean": 30.28526,
+          "pnl_mean": -233.61920800000001,
+          "hit": 0.836
+        },
+        "Q3": {
+          "n": 501,
+          "ev_mean": 132.39369261477046,
+          "pnl_mean": -122.46409580838323,
+          "hit": 0.8862275449101796
+        }
+      }
+    }
+  },
+  "fingerprint": {
+    "capital": 100000.0,
+    "tickers": [
+      "AAPL",
+      "MSFT",
+      "GOOGL",
+      "NVDA",
+      "ORCL",
+      "JPM",
+      "BAC",
+      "GS",
+      "WFC",
+      "XOM",
+      "CVX",
+      "UNH",
+      "JNJ",
+      "PFE",
+      "MRK",
+      "PG",
+      "KO",
+      "COST",
+      "CAT",
+      "BA",
+      "GE",
+      "HON",
+      "AMZN",
+      "HD"
+    ],
+    "universe_size": 24,
+    "start": "2018-01-02",
+    "end": "2020-12-31",
+    "seed": 42,
+    "friction_level": "full",
+    "top_n": 10,
+    "max_new_per_day": 3,
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "data_csv_sha256": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961",
+    "vol_iv_sha256": "aab4eada1af5c9aa70699e669115663d9a45e5fa6c4523b1275170ed5baadaca",
+    "treasury_sha256": "48a20a883580b038e7c34ecc07d90c21ab43294b7c0be3a823ac5e2dfa0d00ce",
+    "connector_data_sha256": {
+      "credit_risk": "6a3e31e0c94b6ba6c403748f76d0fe94f0d50b9b406b60c0124216668f6c813d",
+      "dividends": "317e56c69615fdd8110280588cff4bccce4f151a56991cb1e03fec7c954e3143",
+      "earnings": "a3548da18a31c8488876ac6e603e707370767085e07eefadf7948d18c3896c47",
+      "fundamentals": "2509f94da9b7da38d3531411820291982028d58c32f82d876c2f5956ae21c563",
+      "liquidity": "08ca8f7ec7a641514a54cb8ffef2be5df0c1c654e3420e0a02d1d23abf94d40f",
+      "ohlcv": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961",
+      "treasury": "48a20a883580b038e7c34ecc07d90c21ab43294b7c0be3a823ac5e2dfa0d00ce",
+      "vix": "8054b746f5110d49e8910242c28a05652f0b79039f8c3886f0967b0a13fbd743",
+      "vol_iv": "aab4eada1af5c9aa70699e669115663d9a45e5fa6c4523b1275170ed5baadaca"
+    },
+    "generated_at": "2026-06-10T15:31:20.461012+00:00"
+  }
+}

@@ -579,7 +579,11 @@ known-stale facts were left in place *on purpose*, not missed.
   navigability gain once `FILE_MANIFEST.md` + `AGENTS.md` index `docs/`.
 - *Move `audit.py` into `scripts/`.* Would pull it into CI's ruff scope
   and mix a lint-scope change into a structural PR while CI lint is
-  already red. Left at the repo root.
+  already red. Left at the repo root. **SUPERSEDED by D27 (2026-06-09):**
+  the blocking reason dissolved when Track F closed the lint debt
+  (PR #79); the file was verified ruff-clean and moved as
+  `scripts/audit_api_smoke.py`, the name making clear it is an API
+  smoke client, not the audit-cycle framework.
 - *Delete the empty `src/` subpackages or `models/`.* `src/` is still
   imported by live modules (see D2); `models/` is `ml/wheel_model.py`'s
   default output directory. Only the genuinely dead, zero-reference
@@ -587,8 +591,9 @@ known-stale facts were left in place *on purpose*, not missed.
 
 **Migration path:** No compatibility shims — no moved file is an
 imported Python module, and `audit.py` (the one root script with a
-module name) was deliberately not moved. All inbound references were
-updated in the same commit as each move. External bookmarks to
+module name) was deliberately not moved at D14 time (later moved by
+D27 once the lint-scope objection dissolved). All inbound references
+were updated in the same commit as each move. External bookmarks to
 repo-root doc URLs should repoint to `docs/<name>.md`, or to
 `archive/2026-05/<name>` for the three archived docs. **Shim expiry:**
 n/a — no shims were created.
@@ -679,9 +684,10 @@ explicitly.
 - *Wire `SWE_API_PORT` into `engine_api.py` in the same PR.* Out of
   scope for the docs/coordination PR D15 shipped in. The promotion
   was the natural follow-on and **landed as the C7 fix from audit
-  issue #154** — `engine_api.py._resolve_port()` and `audit.py`'s
-  `BASE` both now honour `SWE_API_PORT` with 8787 as the default
-  fallback. Pinned by `tests/test_engine_api_port.py`.
+  issue #154** — `engine_api.py._resolve_port()` and the smoke
+  client's `BASE` (now `scripts/audit_api_smoke.py`, post-D27) both
+  honour `SWE_API_PORT` with 8787 as the default fallback. Pinned by
+  `tests/test_engine_api_port.py`.
 - *Hardcode Terminal C in the doc.* The whole point of the rewrite
   is N-generic; the moment a third terminal is needed, it claims on
   the board, sources `setup-terminal.sh c`, and starts. The doc
@@ -1332,6 +1338,165 @@ card (`docs/worklog/r11-onset-aware-trigger-*.md`). Evidence:
 `docs/verification_artifacts/r11_dollar_impact_2026-06-01/` (driver, findings,
 per-window summaries). No code change — R11's behaviour is unchanged; this
 annotation corrects the record only.
+
+---
+
+## D24 — IBKR read-only snapshot feed + portfolio adapter (gate-arming foundation)
+
+**Decision.** Introduce a point-in-time, schema-versioned IBKR artifact on disk
+(`data_processed/ibkr/portfolio_snapshot.json` — gitignored runtime; a frozen
+demo copy lives in `tests/fixtures/ibkr/`, and the directory is overridable via
+`SWE_IBKR_DATA_DIR`) and a new `engine/ibkr_portfolio_adapter.py` — **outside**
+the CI-gated trio, importing nothing from `ev_engine` / `wheel_runner` /
+`candidate_dossier` — that turns the snapshot into the engine's existing types: a
+`portfolio_risk_gates.PortfolioContext` + `held_option_positions` (notional =
+`strike × 100 × |qty|`, gate-shape with `symbol` + `is_short`) + `nav`
+(= `net_liquidation`, FX-normalized to USD via the snapshot `fx_rates`).
+Out-of-universe names (CNQ/ENB on the TSX) are **exposure-only**: counted in the
+NAV / sector / single-name denominators, never placed in the rankable set.
+
+**Why.** Closes the #319 "documented protection ≠ active protection" gap by
+giving the dormant D17 R7–R11 gates a real book to evaluate against, via the
+same file-on-disk point-in-time discipline as the Bloomberg CSVs — broker out of
+the hot decision path, fixtures are just JSON (design-doc §1/§2).
+
+**Rejected alternatives.** (1) In-process live IBKR API during a scan — breaks
+point-in-time auditability, harder to test, closer to the §3 line; deferred to an
+optional puller. (2) Feeding the book straight into the trio reviewers — would
+edit CI-gated files; the `PortfolioContext` parameter is the sanctioned
+downgrade-only seam. (3) The `ticker`-keyed dict
+`engine_api._build_portfolio_context_from_params` emits — omits `is_short`,
+which zeroes the single-name aggregation; the adapter emits the gate-correct
+`symbol` / `is_short` shape.
+
+**Scope shipped here.** The read-only adapter + snapshot schema (v1) + the D26
+viewer's risk overlay. Wiring the context into `build_candidate_dossiers`
+(Track A — arming R7–R11 on every live scan) is deliberately **not** in this
+change; it touches the dossier path and lands separately.
+
+**Pinned by.** `engine/ibkr_portfolio_adapter.py`,
+`tests/test_ibkr_portfolio_adapter.py` (snapshot→context fidelity, universe
+filter, FX normalization, R9/R10 firing on the adapter-built context, the
+no-trio-import guard), `tests/fixtures/ibkr/*.json`.
+
+## D25 — Position-management (exit) EV evaluator. STATUS: PROPOSED, NOT ADOPTED.
+
+Reserved for the advisory roll / close / assign evaluator sketched in
+`docs/IBKR_LIVE_BOOK_INTEGRATION.md` §3. It expands the engine's scope from
+entry-ranking to position management and requires explicit operator greenlight.
+Nothing in this change implements it.
+
+## D26 — Read-only personal performance viewer (IMPLEMENTED, observational)
+
+**Decision.** Wire the existing `portfolio_tracker` (period returns / TWR),
+`wheel_tracker` (win-rate, realized P&L), `performance_metrics` (Sharpe /
+Sortino / drawdown), and `portfolio_risk_gates` (the live R7–R11 overlay) + the
+D24 snapshot into six read-only `engine_api` endpoints
+(`GET /api/portfolio/{summary,positions,returns,income,risk,history}`) and the
+`/(terminal)/portfolio` Next.js surface — fetched through a
+`/api/portfolio/[sub]` proxy and a `usePortfolioData` hook with `mock.ts` as the
+typed per-slice fallback. Strictly **observational**: read-only, single-user, no
+EV authority, no order routing. Realized P&L is presented distinctly from
+`ev_dollars`, which (finding I1) does not forecast realized P&L and is never
+produced by the viewer path.
+
+**Why.** ~60–70% already existed unwired (design-doc §6.1); this gives the
+operator the broker-style performance view *plus* the wheel-native premium-income
+view, the live R9/R10 concentration read against the real book, and the realized
+outcome — all on the same D24 feed, with the engine API as the single source of
+truth.
+
+**Rejected alternatives.** (1) Recompute analytics in React/TS — shadows the
+Python logic and drifts; the engine API stays authoritative. (2) A third-party
+tracker (Sharesight / IBKR PortfolioAnalyst) — no wheel-state, no premium income,
+no R7–R11 overlay. (3) Block on since-inception TWR — deferred; period returns
+are snapshot-deltas (§6.4) until the Flex `CashTransactions` ingest lands.
+
+**Pinned by.** `engine/ibkr_portfolio_adapter.py` (payload builders),
+`engine_api.py::_handle_portfolio_view`, `tests/test_portfolio_api_endpoints.py`
+(endpoint shapes + the observational guard that no endpoint emits a verdict /
+EV-authority field), `dashboard/src/app/(terminal)/portfolio/` +
+`dashboard/src/components/portfolio/`.
+
+---
+
+## D27. Repository restructure for zero-memory-agent navigability (2026-06-09)
+
+**Decision:** A full-repo structural pass optimizing one metric — how fast a
+fresh agent builds a correct mental model from a cold start. Every folder was
+read (every root file; all 83 docs; all 144 test files; all 53 scripts; all 52
+engine modules; the full periphery), then changed only where the structure or
+its documentation lied:
+
+- **Root**: index docs reconciled to the 2026-06 state (CHANGELOG gained the
+  missing 2026-06 section; PROJECT_STATE a dated wave summary + the PR-#343
+  supersession note; MODULE_INDEX the missing `portfolio_risk_gates` /
+  `ibkr_portfolio_adapter` / `studies/` rows; ROADMAP compressed its done
+  tracks per its own contract and gained an "Open work" router).
+  `.env.example` rewritten around the verified-real env surface (every var
+  now has a named reader; phantom broker vars dropped). `audit.py` →
+  `scripts/audit_api_smoke.py` (the one move — see Migration path).
+- **docs/**: three superseded docs archived to `archive/2026-06/`
+  (SESSION_HANDOFF, the generic prompting guide, DATA_SPECIFICATION); four
+  status banners truth-synced (IBKR design doc claimed "none adopted" while
+  D24/D26 are implemented; BACKTEST_REGRESSION_CAMPAIGN; F4 diagnostic's
+  three-fix narrative; CODE_REVIEW); two router bugs fixed (REPO_MAP pinned
+  test count; verification_artifacts broken archive link); reading-order
+  headers added to the data-doc cluster naming NEXT_DATA_SESSION_RUNBOOK as
+  the single execution authority.
+- **tests/**: TESTING.md taxonomy completed 55 → 144 files (five new
+  sections) and drift-proofed by `tests/test_testing_md_taxonomy.py` (the
+  manifest-gate pattern applied to the test map); README's launch-blocker
+  command regained the missing `test_r11_elevated_vol.py`.
+- **scripts/ + hygiene**: four `.gitkeep`s removed from populated dirs
+  (closing parked ROADMAP C3); empty-by-design placeholders retained.
+- **engine/ + periphery**: zero code changes; index truth restored —
+  MODULE_INDEX's stale `engine/__init__.py` section (A3 shipped), four
+  dormancy reclassifications (`signals`, `signal_context`,
+  `portfolio_intelligence`, `dependency_check`), `config/settings.py` and
+  five `utils/` modules status-noted, REPO_MAP's src/ table re-verified
+  (one precision fix).
+
+**Why:** This repo is operated by memoryless agents; its index docs are the
+working memory. The audit found the *layout* (D14's tiers, the worklog system,
+the flat test suite) fundamentally sound but the *truth layer* drifted wherever
+no gate enforced it: the CI-gated FILE_MANIFEST never drifted while the
+ungated TESTING.md taxonomy lost 89 of 144 files, and "live" status rows
+survived their modules' last caller. The pass therefore biased toward
+truth-restoration plus one new gate over relocation — the navigability defect
+was rarely *where* things were, almost always *what the maps said about them*.
+
+**Tried but rejected:**
+- *Renaming/renumbering test files for discoverability.* Filenames here are
+  load-bearing decision anchors (DECISIONS pins ~50; REPO_MAP's INVARIANT-PIN
+  set forbids moves without §2-owner sign-off; the audit-i…viii vocabulary is
+  the history). The completed taxonomy delivers the same discoverability for
+  zero broken references.
+- *Merging near-duplicate docs/tests.* Every suspected cluster (Theta quartet,
+  setup duo, data roadmaps, IBKR trio, dossier/dealer invariant tests) proved
+  a deliberate audience or layer partition; merging would lose the split.
+- *Deleting "orphan" scripts/modules flagged by auditors.* Two waves of
+  dead-code claims were refuted by deeper greps (the xbbg pullers are the
+  documented Bloomberg producers; data/ "orphans" are CLI one-shots): the
+  campaign's rule became *status-note beats delete* absent airtight evidence.
+- *Deleting the empty `src/` stubs.* D2/D14 considered and rejected; REPO_MAP
+  documents them truthfully — re-litigation adds risk for no gain.
+
+**Migration path:** One file moved with a rename: `audit.py` →
+`scripts/audit_api_smoke.py` (`git mv`, 100% similarity; zero importers
+existed, so no compatibility shim; all nine inbound references updated in the
+same commit; D14's rejected-alternative bullet annotated SUPERSEDED on this
+point — its blocking reason, red CI lint, dissolved when Track F closed).
+Three docs moved to `archive/2026-06/` with `archive/README.md` entries and
+the single live inbound reference (DATA_POLICY → DATA_SPECIFICATION)
+repointed in the same commit. **Shim expiry:** n/a — no shims were created.
+
+**Pinned by:** `tests/test_testing_md_taxonomy.py` (the new taxonomy gate),
+`scripts/check_manifest_coverage.py` + `scripts/check_doc_currency.py` +
+`scripts/gen_worklog_index.py --check` (the pre-existing gates this pass kept
+green throughout), `archive/README.md` (the 2026-06 section),
+`docs/worklog/d27-repo-restructure-for-agent-navigability.md` (the full
+task record with per-stage evidence).
 
 ---
 

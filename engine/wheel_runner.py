@@ -228,6 +228,14 @@ _CC_RANK_CORE_COLUMNS = [
     "pnl_p50",
     "pnl_p75",
     "prob_profit",
+    # Small-sample honesty: prob_profit is a k/N frequency over
+    # n_scenarios forward windows; the Wilson 95% CI travels alongside it
+    # so the 4-dp figure is not read as exact. Mirrors the put ranker
+    # (rank_candidates_by_ev). Pinned right after prob_profit so a column
+    # reindex never separates the estimate from its uncertainty.
+    "n_scenarios",
+    "prob_profit_ci_low",
+    "prob_profit_ci_high",
     "prob_assignment",
     "days_to_earnings",
     "days_to_ex_div",
@@ -286,6 +294,19 @@ _STRANGLE_RANK_CORE_COLUMNS = [
 _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
     "put_prob_profit",
     "call_prob_profit",
+    # Small-sample honesty: per-leg prob_profit is a k/N frequency over
+    # the same n_scenarios forward windows shared by both legs (one
+    # forward path); surface N + each leg's Wilson 95% CI so neither
+    # 4-dp figure is read as exact. Mirrors the put ranker
+    # (rank_candidates_by_ev). Pinned right after the per-leg
+    # prob_profit so a column reindex never separates an estimate from
+    # its uncertainty. The leg prob_profit values themselves are
+    # unchanged — this annotates PRECISION, not a recalibration.
+    "n_scenarios",
+    "put_prob_profit_ci_low",
+    "put_prob_profit_ci_high",
+    "call_prob_profit_ci_low",
+    "call_prob_profit_ci_high",
     "put_prob_assignment",
     "call_prob_assignment",
     "put_cvar_5",
@@ -331,6 +352,14 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
         "by_gate": dict(Counter(d["gate"] for d in drops)),
     }
     return frame
+
+
+# Sentinel for ``WheelRunner.consume_into_live_book(connector=...)``: lets the
+# method distinguish "caller did not specify" (→ use the runner's own
+# connector) from an explicit ``connector=None`` (→ a connector-less tracker,
+# e.g. the data-free cap tests). The R9/R10 caps are notional/NAV-based and
+# fire without a connector (see ``tests/test_production_tracker_caps.py``).
+_USE_RUNNER_CONNECTOR = object()
 
 
 def make_live_book_tracker(
@@ -479,7 +508,15 @@ class WheelRunner:
         # Credit risk
         credit = conn.get_credit_risk(ticker)
         if credit:
-            analysis.credit_rating = credit.get("rtg_sp_lt_lc_issuer_credit", "")
+            # get_credit_risk() returns the S&P rating under the friendly key
+            # "sp_rating" (it maps the raw Bloomberg field
+            # rtg_sp_lt_lc_issuer_credit -> sp_rating). Reading the raw field
+            # name here always missed -> credit_rating was silently "" for
+            # every ticker (dead read; sp500_credit_risk.csv wasted). This is
+            # off the EV-authoritative path: credit_rating feeds only the
+            # legacy heuristic _compute_wheel_score()/screen_candidates() and
+            # the memo / API display, never rank_candidates_by_ev / EVEngine.
+            analysis.credit_rating = credit.get("sp_rating", "")
 
         # --- Spot price (PIT + staleness gate; S33 audit holdover) ---
         ohlcv = conn.get_ohlcv(ticker)
@@ -854,6 +891,7 @@ class WheelRunner:
         from engine.event_gate import EventGate, ScheduledEvent
         from engine.forward_distribution import (
             best_available_forward_distribution,
+            is_iid_forward_source,
             realized_vol_widened_log_returns,
             realized_vol_widening_factor,
         )
@@ -1675,6 +1713,15 @@ class WheelRunner:
             collateral = strike * 100.0 * contracts
             roc = (res.ev_dollars / collateral) if collateral > 0 else 0.0
 
+            # Sampling-honesty gate (2026-06-01): prob_profit's Wilson CI is an
+            # honest binomial interval only when n_scenarios is an
+            # independent-trial count — i.e. the empirical non-overlapping
+            # forward tier. On the overlapping / block_bootstrap / har_rv /
+            # lognormal_fallback tiers ``method`` reports a non-IID N, so the CI
+            # is false precision and is suppressed (None) below. See
+            # engine.forward_distribution.is_iid_forward_source.
+            ci_ok = is_iid_forward_source(method)
+
             row: dict = {
                 "ticker": ticker,
                 "spot": spot,
@@ -1696,6 +1743,24 @@ class WheelRunner:
                 "collateral": round(collateral, 2),
                 "roc": round(roc, 6),
                 "prob_profit": round(res.prob_profit, 4),
+                # Small-sample honesty (2026-06-01): prob_profit is a k/N
+                # frequency over n_scenarios forward windows (often ~30-35);
+                # surface N + the Wilson 95% CI so the 4-dp figure is not read
+                # as exact (the interval is ~20pp wide at N=35). None when no
+                # scenarios were evaluated. prob_profit itself is unchanged —
+                # this annotates PRECISION, not a recalibration. See
+                # engine.ev_engine._wilson_score_interval.
+                "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
+                "prob_profit_ci_low": (
+                    round(res.prob_profit_ci_low, 4)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_low)
+                    else None
+                ),
+                "prob_profit_ci_high": (
+                    round(res.prob_profit_ci_high, 4)
+                    if ci_ok and not np.isnan(res.prob_profit_ci_high)
+                    else None
+                ),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
                 "distribution_source": method,
@@ -2231,7 +2296,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike
 
@@ -2580,6 +2648,12 @@ class WheelRunner:
                     )
                     continue
 
+                # Sampling-honesty gate — see rank_candidates_by_ev for the
+                # rationale: the Wilson CI is honest only on the IID
+                # (empirical non-overlapping) forward tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
+
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -2598,6 +2672,22 @@ class WheelRunner:
                     "pnl_p50": (round(res.pnl_p50, 2) if not np.isnan(res.pnl_p50) else None),
                     "pnl_p75": (round(res.pnl_p75, 2) if not np.isnan(res.pnl_p75) else None),
                     "prob_profit": round(res.prob_profit, 4),
+                    # Small-sample honesty: N + the Wilson 95% CI of
+                    # prob_profit (see rank_candidates_by_ev for rationale).
+                    # prob_profit itself is unchanged — this annotates
+                    # PRECISION, not a recalibration. None when no scenarios
+                    # were evaluated / the CI is NaN.
+                    "n_scenarios": (int(res.n_scenarios) if (ci_ok and res.n_scenarios) else None),
+                    "prob_profit_ci_low": (
+                        round(res.prob_profit_ci_low, 4)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_low)
+                        else None
+                    ),
+                    "prob_profit_ci_high": (
+                        round(res.prob_profit_ci_high, 4)
+                        if ci_ok and not np.isnan(res.prob_profit_ci_high)
+                        else None
+                    ),
                     "prob_assignment": round(res.prob_assignment, 4),
                     "days_to_earnings": days_to_earn,
                     "days_to_ex_div": days_to_ex_div,
@@ -2781,7 +2871,10 @@ class WheelRunner:
 
         from engine.ev_engine import EVEngine, ShortOptionTrade
         from engine.event_gate import EventGate, ScheduledEvent
-        from engine.forward_distribution import best_available_forward_distribution
+        from engine.forward_distribution import (
+            best_available_forward_distribution,
+            is_iid_forward_source,
+        )
         from engine.option_pricer import black_scholes_price
         from engine.wheel_tracker import _solve_call_strike, _solve_put_strike
 
@@ -3186,6 +3279,12 @@ class WheelRunner:
                     continue
 
                 total_premium = put_premium + call_premium
+                # Sampling-honesty gate — see rank_candidates_by_ev: both legs
+                # walk the same forward path, so one ``method`` governs the
+                # shared n_scenarios + both legs' Wilson CIs. Honest only on the
+                # IID (empirical non-overlapping) tier; suppressed (None)
+                # otherwise. engine.forward_distribution.is_iid_forward_source.
+                ci_ok = is_iid_forward_source(method)
                 row: dict = {
                     "ticker": ticker,
                     "spot": round(spot, 2),
@@ -3219,6 +3318,37 @@ class WheelRunner:
                         {
                             "put_prob_profit": round(put_res.prob_profit, 4),
                             "call_prob_profit": round(call_res.prob_profit, 4),
+                            # Small-sample honesty: N (shared — both legs
+                            # walk the same forward path) + each leg's
+                            # Wilson 95% CI of prob_profit. Mirrors the put
+                            # ranker idiom; None when the res value is NaN /
+                            # no scenarios were evaluated. The leg
+                            # prob_profit values themselves are unchanged.
+                            "n_scenarios": (
+                                int(put_res.n_scenarios)
+                                if (ci_ok and put_res.n_scenarios)
+                                else None
+                            ),
+                            "put_prob_profit_ci_low": (
+                                round(put_res.prob_profit_ci_low, 4)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_low)
+                                else None
+                            ),
+                            "put_prob_profit_ci_high": (
+                                round(put_res.prob_profit_ci_high, 4)
+                                if ci_ok and not np.isnan(put_res.prob_profit_ci_high)
+                                else None
+                            ),
+                            "call_prob_profit_ci_low": (
+                                round(call_res.prob_profit_ci_low, 4)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_low)
+                                else None
+                            ),
+                            "call_prob_profit_ci_high": (
+                                round(call_res.prob_profit_ci_high, 4)
+                                if ci_ok and not np.isnan(call_res.prob_profit_ci_high)
+                                else None
+                            ),
                             "put_prob_assignment": round(put_res.prob_assignment, 4),
                             "call_prob_assignment": round(call_res.prob_assignment, 4),
                             "put_cvar_5": round(put_res.cvar_5, 2),
@@ -3511,6 +3641,74 @@ class WheelRunner:
             outcomes.append(outcome)
 
         return outcomes
+
+    def consume_into_live_book(
+        self,
+        *,
+        entry_date: date,
+        initial_capital: float = 100_000.0,
+        connector: Any = _USE_RUNNER_CONNECTOR,
+        rank_kwargs: dict[str, Any] | None = None,
+        top_n_to_consume: int | None = None,
+        expiration_date: date | None = None,
+        **tracker_kwargs: Any,
+    ) -> tuple["WheelTracker", list[dict[str, Any]]]:
+        """Production rank→book entry with the R9/R10 concentration caps ARMED.
+
+        The library default ``WheelTracker(...)`` leaves the D17
+        concentration caps OFF (research-safe, matching the
+        ``require_ev_authority`` convention). This is the one-call
+        production wire that closes the "``make_live_book_tracker`` has
+        zero callers" gap (heavy-verify 2026-05-31 Category A): it builds
+        the tracker via :func:`make_live_book_tracker` (so
+        ``enforce_sector_cap`` + ``enforce_single_name_cap`` are on) and
+        runs :meth:`consume_into_tracker` through it, so an
+        over-concentrated open is **refused** on the live path — R9
+        (sector > 25% NAV) and R10 (single-name > 10% NAV) fire at
+        :meth:`~engine.wheel_tracker.WheelTracker.open_short_put` time,
+        token-free.
+
+        §2: the caps only REFUSE an over-concentrated open; they never
+        touch ``ev_raw`` / ``ev_dollars`` / ``prob_profit`` and never
+        rescue a negative-EV candidate (the D16 launch gate inside
+        :meth:`~engine.wheel_tracker.WheelTracker.consume_ranker_row`
+        still refuses ``ev_dollars <= 0`` at token issuance). This method
+        adds no EV path of its own — it composes the already-§2-safe
+        factory + :meth:`consume_into_tracker` wire.
+
+        Args:
+            entry_date: Trade entry date, forwarded to
+                :meth:`consume_into_tracker`.
+            initial_capital: Starting NAV for the live book.
+            connector: Data connector for the tracker. Defaults to the
+                runner's own connector (:attr:`connector`). Pass
+                ``connector=None`` for a connector-less book — the caps
+                are notional/NAV-based and fire without one.
+            rank_kwargs / top_n_to_consume / expiration_date: Forwarded
+                verbatim to :meth:`consume_into_tracker`.
+            **tracker_kwargs: Extra :class:`~engine.wheel_tracker.WheelTracker`
+                kwargs — e.g. ``require_ev_authority=True`` to additionally
+                arm the D16 token gate + delta / Kelly caps.
+
+        Returns:
+            ``(tracker, outcomes)`` — the armed
+            :class:`~engine.wheel_tracker.WheelTracker` the positions
+            landed in (inspect ``.positions`` / ``._ev_authority_log``
+            for what fired and what refused) and the per-row outcome list
+            from :meth:`consume_into_tracker`.
+        """
+        conn = self.connector if connector is _USE_RUNNER_CONNECTOR else connector
+        tracker = make_live_book_tracker(
+            initial_capital=initial_capital, connector=conn, **tracker_kwargs
+        )
+        outcomes = self.consume_into_tracker(
+            tracker,
+            entry_date,
+            rank_kwargs=rank_kwargs,
+            top_n_to_consume=top_n_to_consume,
+            expiration_date=expiration_date,
+        )
+        return tracker, outcomes
 
     def portfolio_report(
         self,

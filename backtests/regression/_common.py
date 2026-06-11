@@ -96,14 +96,30 @@ def friction_assignment_cost(strike: float, contracts: int, friction_level: str)
 # ---------------------------------------------------------------------------
 
 _OHLCV_PATH = Path("data/bloomberg/sp500_ohlcv.csv")
+_VOL_IV_PATH = Path("data/bloomberg/sp500_vol_iv_full.csv")
+_TREASURY_PATH = Path("data/bloomberg/treasury_yields.csv")
 _REFRESH_COMMAND = "python scripts/pull_ohlcv.py  # first edit hardcoded end_date"
 
 
-def assert_data_window_available(start: str, end: str, ohlcv_path: Path | None = None) -> None:
-    """Raise if the Bloomberg OHLCV CSV doesn't cover ``[start, end]``.
+def assert_data_window_available(
+    start: str,
+    end: str,
+    ohlcv_path: Path | None = None,
+    *,
+    extra_floor_paths: list[Path] | None = None,
+) -> None:
+    """Raise if the Bloomberg OHLCV data doesn't cover ``[start, end]``.
 
     Caller passes ISO date strings. Reads only the ``date`` column for
     head/tail efficiency on the 59 MB file.
+
+    ``extra_floor_paths`` (R3): additional OHLCV files (e.g. the deep +
+    delisted gz slices) whose earliest date EXTENDS the available floor. When a
+    deep-history backtest runs, the connector assembles monolith ∪ deep ∪
+    delisted, so the real floor is 1994/1990, not the monolith's 2018 — pass the
+    deep slice paths here so the assertion reflects the ASSEMBLED span instead of
+    rejecting every pre-2018 start. Default ``None`` preserves the exact
+    monolith-only behaviour the regression backtests rely on.
     """
     path = ohlcv_path or _OHLCV_PATH
     if not path.exists():
@@ -112,23 +128,71 @@ def assert_data_window_available(start: str, end: str, ohlcv_path: Path | None =
         )
     dates = pd.read_csv(path, usecols=["date"], parse_dates=["date"])["date"]
     earliest, latest = dates.min().date(), dates.max().date()
+    for fp in extra_floor_paths or []:
+        fp = Path(fp)
+        if not fp.exists():
+            continue
+        comp = "gzip" if fp.suffix == ".gz" else None
+        d = pd.read_csv(fp, usecols=["date"], parse_dates=["date"], compression=comp)["date"]
+        if not d.empty:
+            earliest = min(earliest, d.min().date())
     req_start, req_end = date.fromisoformat(start), date.fromisoformat(end)
     if req_start < earliest or req_end > latest:
         raise RuntimeError(
-            f"OHLCV CSV covers {earliest} → {latest}; backtest needs {req_start} → {req_end}. "
+            f"OHLCV data covers {earliest} → {latest}; backtest needs {req_start} → {req_end}. "
             f"Refresh: {_REFRESH_COMMAND}"
         )
 
 
-def ohlcv_sha256(ohlcv_path: Path | None = None) -> str:
-    """SHA-256 of the OHLCV CSV — pinned in snapshot fingerprints so a
-    CSV refresh forces an explicit re-baseline."""
-    path = ohlcv_path or _OHLCV_PATH
+def _file_sha256(path: Path) -> str:
+    """SHA-256 of a file, streamed in 1 MB chunks."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def ohlcv_sha256(ohlcv_path: Path | None = None) -> str:
+    """SHA-256 of the OHLCV CSV — pinned in snapshot fingerprints so a
+    CSV refresh forces an explicit re-baseline."""
+    return _file_sha256(ohlcv_path or _OHLCV_PATH)
+
+
+def vol_iv_sha256(path: Path | None = None) -> str:
+    """SHA-256 of the vol/IV CSV. Pinned alongside the OHLCV hash so a vol_iv
+    refresh also trips the re-baseline guard — it feeds the EV path (IV rank /
+    VRP / BSM premium) but was previously unfingerprinted (the blind-spot the
+    2026-06-05 data-layer QA flagged: the fingerprint pinned OHLCV only)."""
+    return _file_sha256(path or _VOL_IV_PATH)
+
+
+def treasury_sha256(path: Path | None = None) -> str:
+    """SHA-256 of the treasury-yields CSV (risk-free curve). Pinned for the same
+    reason as vol_iv: it feeds the backtests' rate-dependent math and was
+    previously unfingerprinted."""
+    return _file_sha256(path or _TREASURY_PATH)
+
+
+def connector_data_sha256() -> dict[str, str]:
+    """SHA-256 of *every* connector input CSV, keyed by connector file-key.
+
+    Pins the FULL connector data set — not just OHLCV/vol_iv/treasury — so drift
+    in an otherwise-unpinned input between snapshot generation and the committed
+    tree is recorded and auditable. Closes the 2026-06-06 blind-spot: a
+    ``sp500_dividends.csv`` revert *after* snapshot generation silently shifted
+    the covered-call ex-div early-assignment realized cash (the CC EV input via
+    ``wheel_runner.get_next_dividend``), and the fingerprint — which pinned only
+    OHLCV/vol_iv/treasury — did not record it. Files absent on disk are skipped."""
+    from engine.data_connector import MarketDataConnector
+
+    bloomberg_dir = _OHLCV_PATH.parent
+    shas: dict[str, str] = {}
+    for key, fname in sorted(MarketDataConnector._FILES.items()):
+        path = bloomberg_dir / fname
+        if path.exists():
+            shas[key] = _file_sha256(path)
+    return shas
 
 
 # ---------------------------------------------------------------------------
@@ -357,7 +421,6 @@ def run_backtest(
         )
 
     assert_data_window_available(start, end)
-    np.random.default_rng(seed)  # placeholder for any downstream seed consumers
 
     runner = WheelRunner()
     conn = runner.connector
@@ -568,6 +631,9 @@ def run_backtest(
         "delta_target": delta_target,
         "contracts": contracts,
         "data_csv_sha256": ohlcv_sha256(),
+        "vol_iv_sha256": vol_iv_sha256(),
+        "treasury_sha256": treasury_sha256(),
+        "connector_data_sha256": connector_data_sha256(),
         "generated_at": datetime.now(UTC).isoformat(),
     }
 
@@ -788,7 +854,6 @@ def run_backtest_multi_friction(
             raise ValueError(f"friction_level must be one of {_FRICTION_LEVELS}, got {level!r}")
 
     assert_data_window_available(start, end)
-    np.random.default_rng(seed)
 
     runner = WheelRunner()
     conn = runner.connector
@@ -917,6 +982,9 @@ def run_backtest_multi_friction(
             "delta_target": delta_target,
             "contracts": contracts,
             "data_csv_sha256": ohlcv_sha256(),
+            "vol_iv_sha256": vol_iv_sha256(),
+            "treasury_sha256": treasury_sha256(),
+            "connector_data_sha256": connector_data_sha256(),
             "generated_at": datetime.now(UTC).isoformat(),
         }
 

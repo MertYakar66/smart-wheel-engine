@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
   Zap,
   TrendingUp,
   BarChart3,
+  X,
 } from "lucide-react";
 import type { StoryCard } from "@/types";
 
@@ -51,32 +53,120 @@ const STATUS_BADGE: Record<string, { icon: typeof Clock; label: string; classNam
   resolved: { icon: CheckCircle, label: "Resolved", className: "border-green-300 text-green-600" },
 };
 
-export default function FeedPage() {
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+interface LastRunInfo {
+  startedAt: string;
+  headlinesIngested: number | null;
+  status: string | null;
+}
+
+function FeedPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Category filter arrives via /feed?category=<id> (the /top "View All"
+  // links); it is served by the categories endpoint, not the stories one.
+  const categoryId = searchParams.get("category");
+
   const [stories, setStories] = useState<StoryCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [ingesting, setIngesting] = useState(false);
   const [selectedSector, setSelectedSector] = useState("All");
+  const [universeOnly, setUniverseOnly] = useState(false);
+  const [universeUnavailable, setUniverseUnavailable] = useState(false);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<LastRunInfo | null>(null);
+  const [streamLive, setStreamLive] = useState(false);
 
-  const fetchStories = useCallback(async () => {
-    setLoading(true);
+  const fetchLastRun = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (selectedSector !== "All") {
-        params.set("sector", selectedSector);
-      }
-      const res = await fetch(`/api/stories?${params}`);
+      const res = await fetch("/api/schedule");
+      if (!res.ok) return;
       const data = await res.json();
-      setStories(data);
-    } catch (err) {
-      console.error("Failed to fetch stories:", err);
-    } finally {
-      setLoading(false);
+      if (data?.startedAt) {
+        setLastRun({
+          startedAt: data.startedAt,
+          headlinesIngested: data.headlinesIngested ?? null,
+          status: data.status ?? null,
+        });
+      } else {
+        setLastRun(null);
+      }
+    } catch {
+      /* schedule info is decorative — leave whatever we had */
     }
-  }, [selectedSector]);
+  }, []);
+
+  const fetchStories = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        if (categoryId) {
+          const res = await fetch(
+            `/api/categories?id=${encodeURIComponent(categoryId)}&stories=true`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            setStories(data.stories || []);
+            setCategoryName(data.category?.name || categoryId);
+          } else {
+            setStories([]);
+            setCategoryName(null);
+          }
+          setUniverseUnavailable(false);
+        } else {
+          const params = new URLSearchParams({ limit: "50" });
+          if (selectedSector !== "All") {
+            params.set("sector", selectedSector);
+          }
+          if (universeOnly) {
+            params.set("universe", "true");
+          }
+          const res = await fetch(`/api/stories?${params}`);
+          const data = await res.json();
+          setStories(data);
+          setUniverseUnavailable(
+            universeOnly &&
+              res.headers.get("x-universe-filter") === "unavailable"
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch stories:", err);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [selectedSector, universeOnly, categoryId]
+  );
 
   useEffect(() => {
     fetchStories();
-  }, [fetchStories]);
+    fetchLastRun();
+  }, [fetchStories, fetchLastRun]);
+
+  // Live headline stream (SSE): silently refresh when new stories land so
+  // scheduled ingestion shows up without a manual reload.
+  const fetchStoriesRef = useRef(fetchStories);
+  fetchStoriesRef.current = fetchStories;
+  useEffect(() => {
+    const es = new EventSource("/api/stream");
+    const onStory = () => fetchStoriesRef.current(true);
+    es.addEventListener("story", onStory);
+    es.onopen = () => setStreamLive(true);
+    es.onerror = () => setStreamLive(false);
+    return () => {
+      es.removeEventListener("story", onStory);
+      es.close();
+    };
+  }, []);
 
   const handleIngest = async () => {
     setIngesting(true);
@@ -84,7 +174,7 @@ export default function FeedPage() {
       const res = await fetch("/api/ingest", { method: "POST" });
       const data = await res.json();
       console.log("Ingestion result:", data);
-      await fetchStories();
+      await Promise.all([fetchStories(), fetchLastRun()]);
     } catch (err) {
       console.error("Ingestion failed:", err);
     } finally {
@@ -92,28 +182,46 @@ export default function FeedPage() {
     }
   };
 
-  function timeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }
+  const clearCategory = () => {
+    setCategoryName(null);
+    router.replace("/feed");
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
             News Feed
+            {streamLive && (
+              <span
+                className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-green-600"
+                title="Live headline stream connected"
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+                live
+              </span>
+            )}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {stories.length} stories from financial news sources
             {stories.some((s) => s.exposureRelevance !== undefined && s.exposureRelevance! > 0) && (
               <span className="ml-1 text-blue-600">(ranked by your exposures)</span>
+            )}
+            {" · "}
+            {lastRun ? (
+              <>
+                last ingest {timeAgo(lastRun.startedAt)}
+                {lastRun.headlinesIngested != null && (
+                  <> · {lastRun.headlinesIngested} headlines</>
+                )}
+                {lastRun.status === "failed" && (
+                  <span className="text-red-500"> · failed</span>
+                )}
+              </>
+            ) : (
+              <span className="text-amber-600">no ingestion has run yet</span>
             )}
           </p>
         </div>
@@ -126,25 +234,57 @@ export default function FeedPage() {
           <RefreshCw
             className={`mr-2 h-4 w-4 ${ingesting ? "animate-spin" : ""}`}
           />
-          {ingesting ? "Ingesting..." : "Refresh Feeds"}
+          {ingesting ? "Ingesting..." : "Ingest Now"}
         </Button>
       </div>
 
-      {/* Sector Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2">
-        <Filter className="h-4 w-4 text-zinc-400" />
-        {SECTORS.map((sector) => (
+      {/* Category filter chip (from /top "View All") */}
+      {categoryId ? (
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-zinc-400" />
+          <Badge variant="secondary" className="flex items-center gap-1.5 pr-1">
+            Category: {categoryName || categoryId}
+            <button
+              onClick={clearCategory}
+              aria-label="Clear category filter"
+              className="rounded-full p-0.5 hover:bg-zinc-300/50 dark:hover:bg-zinc-600/50"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          <Filter className="h-4 w-4 text-zinc-400" />
+          {SECTORS.map((sector) => (
+            <Button
+              key={sector}
+              variant={selectedSector === sector ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedSector(sector)}
+              className="whitespace-nowrap"
+            >
+              {sector}
+            </Button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
           <Button
-            key={sector}
-            variant={selectedSector === sector ? "default" : "outline"}
+            variant={universeOnly ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedSector(sector)}
+            aria-pressed={universeOnly}
+            onClick={() => setUniverseOnly((v) => !v)}
             className="whitespace-nowrap"
+            title="Only stories tagged with a validated S&P 500 (or held-book) ticker"
           >
-            {sector}
+            S&amp;P universe only
           </Button>
-        ))}
-      </div>
+          {universeUnavailable && (
+            <span className="whitespace-nowrap text-xs text-amber-600">
+              filter unavailable — engine offline
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Story Cards */}
       {loading ? (
@@ -163,11 +303,20 @@ export default function FeedPage() {
         </div>
       ) : stories.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <p className="text-zinc-500 dark:text-zinc-400">
-              No stories yet. Click &quot;Refresh Feeds&quot; to ingest news from
-              RSS sources.
+              {categoryId
+                ? "No stories matched this category yet."
+                : universeOnly
+                  ? "No stories with validated S&P-universe tickers yet. Disable the universe filter or ingest more headlines."
+                  : "No stories yet. Scheduled ingestion runs at 06:30/18:30 ET (plus market-hours refreshes), or click \"Ingest Now\"."}
             </p>
+            <Button onClick={handleIngest} disabled={ingesting} size="sm">
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${ingesting ? "animate-spin" : ""}`}
+              />
+              {ingesting ? "Ingesting..." : "Ingest Now"}
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -322,5 +471,22 @@ export default function FeedPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams requires a Suspense boundary for prerendering.
+export default function FeedPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      }
+    >
+      <FeedPageInner />
+    </Suspense>
   );
 }

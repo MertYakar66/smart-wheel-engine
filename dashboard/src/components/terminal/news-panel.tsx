@@ -9,6 +9,8 @@ interface NewsPanelProps {
   onRefresh: () => void;
   refreshing: boolean;
   onSelectStory: (story: StoryCard) => void;
+  /** One-shot highlight when the command line targets this panel. */
+  flash?: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -40,11 +42,13 @@ export function NewsPanel({
   onRefresh,
   refreshing,
   onSelectStory,
+  flash,
 }: NewsPanelProps) {
   return (
     <TerminalPanel
       title="Story Intelligence"
       tag="GRAPH"
+      flash={flash}
       headerRight={
         <button
           onClick={onRefresh}

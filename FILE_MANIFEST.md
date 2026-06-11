@@ -39,7 +39,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `LICENSE` | MIT license. |
 | `engine_api.py` | Interface-layer entry point — the stdlib HTTP API server on `:8787` serving the Next.js dashboard. |
 | `morning_run.py` | Entry point for the browser-driven, zero-API-cost multi-LLM morning news pipeline. |
-| `audit.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks. |
 | `conftest.py` | pytest configuration — hypothesis profiles, shared fixtures, custom markers. |
 | `pyproject.toml` | Packaging and tooling configuration (ruff, mypy, pytest, coverage). |
 | `requirements.txt` | Runtime dependency list. |
@@ -48,9 +47,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `.gitattributes` | Pins LF line endings and marks binary types; prevents CRLF churn from the Drive mount. |
 | `.python-version` | Pins the Python version for version managers. |
 | `.env.example` | Template for the gitignored `.env` secrets file; lists the optional API keys. |
-| `fetch_data.bat` | Windows double-click launcher — Theta health check then Theta backfill. |
-| `pull.bat` | Windows double-click launcher — stash edits, pull `origin/main`, restore stash. |
-| `pull_branch.bat` | Windows double-click launcher — stash edits and check out a feature branch (branch name edited in-file). |
 
 ## `.claude/`
 
@@ -82,6 +78,12 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-05/DATA_COLLECTION_REPORT.md` | Archived dated data-collection phase report. |
 | `archive/2026-05/bloomberg_excel_extractor.bas` | Archived V1 of the Bloomberg Excel VBA extractor — superseded by `scripts/bloomberg_excel_extractor_v2.bas` ("fixed version with longer wait times"). |
 | `archive/2026-05/download_ohlcv.py` | Archived early yfinance OHLCV downloader — superseded by `scripts/download_yf_ohlcv.py` (adds multi-index header cleanup). |
+| `archive/2026-06/SESSION_HANDOFF.md` | Archived point-in-time session handoff (2026-05-18); carried a SUPERSEDED banner — live state is `PROJECT_STATE.md` / `DECISIONS.md`. |
+| `archive/2026-06/Claude_Prompting_Master_Guide.md` | Archived generic Claude prompt-engineering reference (not project-specific; zero inbound refs). |
+| `archive/2026-06/DATA_SPECIFICATION.md` | Archived aspirational Parquet data-layer design that never matched on-disk reality — superseded by `docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md`. |
+| `archive/2026-06/pull.bat` | Archived Windows pull launcher — zero refs; not part of the live (agent-session) workflow. |
+| `archive/2026-06/pull_branch.bat` | Archived Windows branch-checkout launcher — same rationale; default branch name was long dead. |
+| `archive/2026-06/fetch_data.bat` | Archived Windows Theta-backfill launcher — the documented workflow invokes the Python scripts directly. |
 | `archive/2026-05/END_TO_END_REVIEW_2026_05_25.md` | Archived four-pass end-to-end product review against `origin/main` @ `e83eaca`. Point-in-time snapshot; superseded by `docs/VERIFICATION_INDEX_2026-05-28.md` as the canonical verification index. |
 | `archive/2026-05/LAUNCH_READINESS_ANALYSIS_2026-05-26.md` | Archived 2026-05-26 launch-readiness analysis. Point-in-time review of S22/S27/S32/S34/S35 pre-#260 engine; superseded by `docs/PRODUCTION_READINESS.md` (live deployment gate) and `docs/VERIFICATION_INDEX_2026-05-28.md`. |
 | `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` | Archived second-pass critical re-verification of S22/S27/S32/S34/S35 conclusions. Surfaced the equity-beta-dominance and BKNG-concentration findings now folded into `docs/PRODUCTION_READINESS.md`. Point-in-time. |
@@ -117,7 +119,7 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `backtests/__init__.py` | Re-exports the simulator and walk-forward classes. |
 | `backtests/simulator.py` | `WheelBacktester` — a simplified placeholder backtester (constant-IV approximation). |
 | `backtests/walk_forward.py` | Walk-forward validation framework (anchored / rolling / purged k-fold, parameter-stability analysis, out-of-sample tracking). |
-| `backtests/.gitkeep` | Directory placeholder. |
+| `backtests/survivorship.py` | R3 survivorship-aware harness — PIT universe via `consolidated_loader.get_universe_as_of` (membership presence; `min_weight` is the dead all-zeros sentinel), a `deep_history=True` connector, delisting-aware `terminal_spot` (last close on/before expiry, else 0 — never NaN-drop), and `run_survivorship_backtest` routing 100% through `rank_candidates_by_ev`. Not on the decision-layer path. |
 
 ## `backtests/regression/` — backtest regression harness
 
@@ -146,7 +148,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | File | Purpose |
 |---|---|
 | `config/__init__.py` | Re-exports `Config`, `ConfigManager`, the sub-config dataclasses and preset factories. |
-| `config/settings.py` | Centralized config — strategy / risk / execution / data / regime / edge / backtest dataclasses with YAML/JSON/env loading. |
+| `config/settings.py` | Centralized config dataclasses with YAML/JSON/env (`WHEEL_*`) loading. **Dormant** — zero importers; the live runtime config is `engine/policy_config.py`. (`ml/wheel_model.py` reads the `WHEEL_*` env vars directly, not through this module.) |
 
 ## `dashboard/` — Next.js dashboard + legacy Python CLI
 
@@ -171,7 +173,11 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/layout.tsx` | Root Next.js layout — global metadata and CSS. |
 | `dashboard/src/app/page.tsx` | Root index — redirects to `/top`. |
 | `dashboard/src/app/globals.css` | Global Tailwind styles and terminal color palette. |
+| `dashboard/src/app/not-found.tsx` | Global 404 page — branded, links back to the Cockpit / TOP. |
+| `dashboard/src/app/global-error.tsx` | Root-level error boundary (catches root-layout errors; renders its own html/body) with a retry. |
 | `dashboard/src/app/(main)/layout.tsx` | Layout for the standard web app — nav plus centered container. |
+| `dashboard/src/app/(main)/loading.tsx` | Suspense fallback for the news-app routes — skeleton list under the nav. |
+| `dashboard/src/app/(main)/error.tsx` | Error boundary for the news-app routes — retry, nav stays usable. |
 | `dashboard/src/app/(main)/top/page.tsx` | "TOP" command-center page — breaking strip, top stories, category sections. |
 | `dashboard/src/app/(main)/feed/page.tsx` | News feed page — story cards with sector filter and RSS refresh. |
 | `dashboard/src/app/(main)/calendar/page.tsx` | Macro calendar page. |
@@ -180,6 +186,8 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/(main)/ticker/[symbol]/page.tsx` | Per-ticker page — quote, price chart, related news. |
 | `dashboard/src/app/(main)/watchlist/page.tsx` | Watchlist page — add/remove tickers, prices, alerts. |
 | `dashboard/src/app/(terminal)/layout.tsx` | Layout for the terminal route. |
+| `dashboard/src/app/(terminal)/loading.tsx` | Suspense fallback for the terminal/cockpit routes — monospace skeleton. |
+| `dashboard/src/app/(terminal)/error.tsx` | Error boundary for the terminal/cockpit routes — monospace, retry, engine-down hint. |
 | `dashboard/src/app/(terminal)/terminal/page.tsx` | Bloomberg-style terminal dashboard — 6-panel grid, command line, engine data. |
 | `dashboard/src/app/api/engine/route.ts` | Server-side proxy bridge to the Python engine API on `:8787`. Forwards the full PIT parameter set for `candidates` (as_of/dte/delta/min_ev/universe_limit) and adds a `dossier` action proxying `/api/tv/dossier` (top_n/timeframe/screenshots_dir + optional nav/holdings/puts_held/regime_map for the D17 portfolio gates). |
 | `dashboard/src/app/(terminal)/cockpit/page.tsx` | Decision-cockpit page — read top-to-bottom and act. Regime banner → selection funnel → candidate cockpit table → one-click dossier drawer. Client component; fetches `/api/engine?action=candidates` + `?action=vix`; PIT controls (as_of/dte/delta/scan/top-N). All numbers from the engine; no decision logic here. |
@@ -193,9 +201,22 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/cockpit/funnel.tsx` | Selection funnel — universe → scanned → ranked → shown. Flags that per-gate drop reasons (`frame.attrs["drops_summary"]`) are not serialized by `/api/candidates` (API follow-up), rather than inventing numbers. |
 | `dashboard/src/components/cockpit/verdict-card.tsx` | Glanceable verdict card (quant-card FORMAT) — verdict + calibration-flagged confidence + distribution sparkline + top reasons. Used in the dossier drawer header. |
 | `dashboard/src/components/cockpit/concentration-meters.tsx` | Single-name concentration meter (R10 · 10% cap) — bars per actionable candidate's collateral as % of an adjustable book NAV, with the cap line. Flags R9 sector bars (need the engine sector map) + live R9/R10 verdicts as a `/api/tv/dossier` follow-up rather than guessing sectors. |
+| `dashboard/src/app/(terminal)/portfolio/page.tsx` | Portfolio performance viewer (design D26) — read-only, observational. Client component; fetches the read-only `/api/portfolio/*` endpoints via `usePortfolioData` with `mock.ts` as the typed fallback; shows a live/mock data-source indicator. No EV authority, no order routing. |
+| `dashboard/src/app/api/portfolio/[sub]/route.ts` | Proxy bridge to the engine's read-only performance-viewer endpoints — forwards `GET /api/portfolio/{summary,positions,returns,income,risk,history}` to `:8787` (no-store), whitelisting the sub-path. Mirrors `api/engine/route.ts`. |
+| `dashboard/src/components/portfolio/use-portfolio-data.ts` | Client data layer for the viewer — fetches the six `/api/portfolio/*` slices in parallel via the proxy, returns the SAME shapes the components consume with per-slice `mock.ts` fallback + a `live` flag. |
+| `dashboard/src/components/portfolio/mock.ts` | Typed shapes + UI constants for the viewer (ACCOUNT/RETURNS/EQUITY/HOLDINGS/SECTORS/CURRENCY/SINGLE_NAME/SECTOR_EXPOSURE, WheelState/Period); doubles as the typed fallback when the engine is unreachable. |
+| `dashboard/src/components/portfolio/parts.tsx` | Shared presentational primitives — `PfCard`, `WheelBadge`, `PeriodToggle`, signed-USD/pct formatters, `pnlColor`. |
+| `dashboard/src/components/shell/wheelhouse-header.tsx` | Shared "Wheelhouse" page chrome — sticky branding header (accent dot + page label + key-stat / status slots) and `CrossPageNav` cross-page tabs (Cockpit/Portfolio/Terminal/News). Presentational only; lifted from the /portfolio design (D26) so Cockpit + Terminal share one visual language. No EV authority, no data fetching. |
+| `dashboard/src/components/portfolio/kpi-cards.tsx` | Six KPI cards (net-liq, period total-return, unrealized / realized-YTD P&L, 30-day premium, win-rate); prop-driven with mock defaults. |
+| `dashboard/src/components/portfolio/equity-curve.tsx` | Portfolio-vs-SPY equity area chart + premium-income bar chart (Recharts); period-windowed; prop-driven. |
+| `dashboard/src/components/portfolio/allocation.tsx` | Sector-allocation donut + currency split; stable per-sector palette so live + mock render identically; prop-driven. |
+| `dashboard/src/components/portfolio/holdings-table.tsx` | Sortable per-symbol holdings table with wheel-state badges, %-NAV bars, and the single-name breach flag; prop-driven. |
+| `dashboard/src/components/portfolio/risk-radar.tsx` | Concentration meters (single-name R10 / sector R9 caps) + margin-health gauge fed by the real excess-liquidity cushion; prop-driven. |
+| `dashboard/src/components/portfolio/ask-bar.tsx` | Conversational ask-bar affordance (suggestion chips) — visual only; the engine-backed query layer is a later phase (design D26 §6.2 Phase B). |
+| `dashboard/src/components/portfolio/income-panel.tsx` | Real Income section from `/api/portfolio/income` (previously served-but-never-fetched): realized/premium/win-rate chips, monthly realized P&L bars, ranked per-ticker league table; honest empty-ledger state. |
+| `dashboard/src/components/portfolio/margin-panel.tsx` | Margin & leverage panel — loan balance, maintenance margin, excess-liquidity cushion, leverage from served summary fields; prop-driven, null-honest. |
 | `dashboard/src/app/api/stories/route.ts` | Stories list API — query by sector/ticker, exposure-ranked. |
 | `dashboard/src/app/api/stories/[id]/route.ts` | Single-story detail API. |
-| `dashboard/src/app/api/stories/[id]/impact/route.ts` | Story impact API — quotes plus event-study templates. |
 | `dashboard/src/app/api/chat/route.ts` | Chat API — streams from Ollama via the AI SDK. |
 | `dashboard/src/app/api/market/route.ts` | Market quote API — Finnhub with cached fallback. |
 | `dashboard/src/app/api/ingest/route.ts` | POST trigger for the RSS ingestion pipeline. |
@@ -204,20 +225,19 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/api/events/route.ts` | Calendar-events CRUD API. |
 | `dashboard/src/app/api/categories/route.ts` | News-categories CRUD API. |
 | `dashboard/src/app/api/briefings/route.ts` | Briefings API — generate/get morning/evening digests. |
-| `dashboard/src/app/api/execute/route.ts` | Code-execution API — Daytona or template executor. |
 | `dashboard/src/app/api/exposure/route.ts` | User-exposure CRUD API. |
 | `dashboard/src/app/api/schedule/route.ts` | Ingestion-schedule API — status/history/trigger. |
 | `dashboard/src/app/api/stream/route.ts` | Server-Sent-Events endpoint pushing new headlines. |
 | `dashboard/src/components/nav.tsx` | Top navigation bar for the web app. |
 | `dashboard/src/components/ui/*.tsx` | shadcn/ui base primitives (badge, button, card, input, scroll-area, skeleton). |
-| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/chart/agent/news/watchlist/macro/chat panels, command-line). |
+| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/news/watchlist/macro/chat panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
 | `dashboard/src/db/index.ts` | SQLite/Drizzle connection — lazy init, table creation, idempotent migrations. |
 | `dashboard/src/db/schema.ts` | Drizzle ORM schema — the news/story tables. |
 | `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine data, ticker analysis, committee review. |
 | `dashboard/src/lib/utils.ts` | `cn()` Tailwind class-merge helper. |
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |
+| `dashboard/src/instrumentation.ts` | Next.js instrumentation hook — boots the news ingestion cron (nodejs runtime only, double-start guarded) and seeds default categories. |
 | `dashboard/src/services/briefing-generator.ts` | Generates/persists morning/evening/breaking briefings. |
-| `dashboard/src/services/code-execution.ts` | Code-execution abstraction — Daytona plus local template executor. |
 | `dashboard/src/services/edgar.ts` | SEC EDGAR client — ticker-to-CIK and recent filings. |
 | `dashboard/src/services/entity-extraction.ts` | Entity extraction — Ollama NLP with regex fallback. |
 | `dashboard/src/services/exposure-ranking.ts` | Exposure-first story ranking against holdings/watchlist/factors. |
@@ -226,6 +246,9 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/services/market-data.ts` | Finnhub quote client and market-snapshot cache. |
 | `dashboard/src/services/news-categories.ts` | News-category taxonomy and keyword/ticker matching. |
 | `dashboard/src/services/rss-feeds.ts` | Static config of financial RSS feed sources. |
+| `dashboard/src/services/news-alerts.ts` | Ingest-time news-trigger alert evaluator (watchlist symbol match) — writes alert rows; no price-alert claims. |
+| `dashboard/src/services/news-cron.ts` | node-cron schedule for the ingestion pipeline — started once from `instrumentation.ts`, module-guarded, `NEWS_CRON=0` opt-out. |
+| `dashboard/src/services/universe-cache.ts` | Server-side cache of the engine's S&P-500 universe (+ held-book symbols) used to validate extracted ticker entities. |
 | `dashboard/src/services/rss-ingestion.ts` | RSS feed parser/ingester with ticker extraction. |
 | `dashboard/src/services/scheduled-ingestion.ts` | Orchestrates the multi-step ingestion pipeline. |
 | `dashboard/src/services/story-clustering.ts` | Story-graph clustering — Jaccard dedup, contradiction detection. |
@@ -268,24 +291,37 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `data_raw/sp500_constituents_current.csv` | The canonical S&P 500 constituent universe list. |
 | `data_raw/ohlcv/*.csv` | Sample per-ticker yfinance OHLCV fixtures (5 tickers). |
 | `data_raw/yfinance/options/*.csv` | Sample dated yfinance option-chain fixtures (5 tickers). |
-| `data_raw/.gitkeep` | Directory placeholder. |
 
 ## `docs/` — documentation set
 
 | File | Purpose |
 |---|---|
+| `docs/DATA_ENGINE_AUDIT_2026-06-07.md` | Phase-1 data + engine audit findings (discovery; asserts nothing). Generated by `scripts/audit_data_engine.py` on `origin/main` @ frontier 2026-06-04: connector inventory, capability map, coverage matrix (referential gaps / 2026-03-23 reconstitution seam / survivorship / BK→BNY re-ticker), the frontier-pinned ranker probe (511→480 produced, 31 dropped, 0 silent), and the ranked weakness report (3 HIGH / 5 MEDIUM / 5 INFO-LOW). The Phase-1 checkpoint before tests. |
+| `docs/BLOOMBERG_PULL_LIST.md` | No-code "what data we need" acquisition checklist for the Bloomberg terminal (compiled 2026-06-09): per-dataset universe, fields (FLDS-verify), history/frequency, and target file under `data/bloomberg/`, grouped Tier-0 (correctness blockers) then by category (volatility/options, equity pricing & microstructure, fundamentals & estimates, credit/ownership/positioning, macro/rates/FX/cross-asset, sentiment/ESG/news/events). Execution-spec companion to `docs/DATA_ACQUISITION_ROADMAP.md` (rationale + §2) and `docs/DATA_INVENTORY.md` (what we already hold). |
+| `docs/DATA_ACQUISITION_ROADMAP.md` | Bloomberg "pull-broadly" data-acquisition catalog (compiled 2026-06-09) for the wheel EV engine: a Tier-0 critical-gap list (skew reactivation, PIT dividend-yield, macro calendar, deep UST curve, corp actions) plus a 6-category exhaustive catalog (volatility/options, equity pricing & microstructure, fundamentals & estimates, credit/ownership/positioning, macro/rates/FX/cross-asset, sentiment/ESG/news/events) — 141 items with Bloomberg vehicle (FLDS-verify), engine consumer, benefit tier, feasibility, and §2 role — plus the no-pull wiring/implementation list. Companion to `docs/DATA_INVENTORY.md`. |
+| `docs/DATA_INVENTORY.md` | Verified inventory (2026-06-08) of every dataset on disk — Bloomberg monolith CSVs (`data/bloomberg/`), the gitignored deep-history archive (`data/bloomberg/deep/`), Theta option/market data (`data_processed/theta/`), and derived stores — with type/title, file-read date ranges, and row/file/ticker counts. Regenerate via `scripts/inventory_data.py`. Records where the Google Drive `swe-deep-history/` archive maps on disk. |
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
-| `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
+| `docs/DATA_TEST_AUDIT_2026-06-09.md` | Phase-1 data-layer TEST-coverage audit (discovery; asserts nothing). Deeper round building on `DATA_ENGINE_AUDIT_2026-06-07` (W1–W13) + the #358/#366 Phase-2 suites: confirms the capability map (corrects two precedent claims — credit is OFF the EV path, R9's sector cap uses a hardcoded `DEFAULT_SECTOR_MAP` not `gics_sector_name`), maps real-data vs synthetic test coverage per data→engine path, reconciles W1–W13 (all closed/tracked), and registers 15 new weaknesses W14–W28 (13 (T) landable, 1 (E) / 1 (D) tracked) ranked into 5 surface-grouped test PRs. Evidence reproducible via `scripts/audit_data_engine.py` + `scripts/audit_data_tests.py`. |
+| `docs/IBKR_IMPORT.md` | IBKR PortfolioAnalyst PDF → read-only viewer artifacts (Phase 1): `scripts/ibkr_import.py` mapping, run-time reconciliation, and honest limitations (no per-fill dates, TWR-index monthly NAV, gross premium, null margin), plus scope/FX tagging. |
+| `docs/DASHBOARD_TERMINAL.md` | Runbook for the role-dedicated **Dashboard** terminal (activated by "You are responsible for the Dashboard"): live IBKR portfolio-viewer ownership, command vocabulary ("update"/"update prices"/"update trades"/"status"/"show"/"probe"), the three read-only IBKR channels (cloud connector / IB Gateway Pro API / Flex Web Service incl. the query id), the refresh pipeline, guardrails, and gotchas. |
+| `docs/IBKR_EV_CALIBRATION.md` | Phase 3: PIT, strike-matched, hold-to-expiry calibration of the engine's `prob_profit`/`prob_assignment`/`ev_raw` against the operator's 456 real S&P-500 wheel legs (175 puts + 281 covered calls) — per-leg + combined reliability + Brier/ECE + Wilson CIs; two opposite weaknesses (put top-bin over-confidence, call broad under-confidence); the Bloomberg-NFLX scale data-quality finding. Observational (§2/§3). |
+| `docs/DATA_LAYER_ACTIVATION_ROADMAP.md` | Plan (2026-06-05) for activating the campaign's survivorship-free 1990–2026 layer: the on-the-bytes verified inventory (33 refresh CSVs + 13 deep panels @ refresh `6bb3399` / deep `e7818f4`), the gap (connector reads only 2018+ monoliths), and the prioritized R0–R7 roadmap with effort/risk/§2-touch/re-baseline + the R1 merge hazard. Safe prep done; merge/re-baseline/connector deferred. |
+| `docs/DATA_LAYER_DEEP_READ_DESIGN.md` | Design (2026-06-05) for the connector deep-read (`_load` assembly of monolith ∪ deep ∪ delisted via a slice manifest, ticker/dedup precedence, memory/perf, opt-in flag) + the survivorship-aware backtest harness (PIT membership reuse) + Theta-chain cost-model fallback + the two audit code fixes. §2-safe by construction (assembly below `get_*`; trio untouched). Companion to the activation roadmap. |
+| `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
+| `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` | Planning-only scope for the coordinated **D19** (exit-cost netting) + **D21** (forward-distribution horizon-units) + **probability-recalibration** re-baseline. Covers the entanglement (D21's over-long horizon deflates `prob_profit`, masking top-bin over-confidence; fixing it makes the measured gap worse), the dependency order, the full `prob_assignment`/`prob_profit` blast radius (backtests, calibration band, S-claims, premium-correction pilot risk axis, R1/R5/R11), the LOCO recalibration re-run on D21-corrected probabilities, and the decision-trio test + §2 plan. Draft for operator review; not yet executed. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
+| `docs/FRESH_LAB_BOX_SETUP.md` | Fresh/transient lab-box bring-up runbook for pulling Bloomberg from a machine that has a Terminal — the Bloomberg-pull counterpart to `LAPTOP_SETUP.md` (clone-before-orient ordering, the worked 2026-06-02 lab-box example, no-recall steps). |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
 | `docs/TESTED_SURFACE_MAP.md` | Per-module tested-surface map + top-N coverage-gap ranking, generated from `coverage.json` by `scripts/generate_tested_surface_map.py`. Answers "what is and isn't covered by the test suite" in one file. `coverage.json` is regenerated locally / in CI (gitignored, not committed); regenerate this doc after a meaningful coverage shift. |
 | `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
+| `docs/THETA_LARDER_SCOPE.md` | Scope + caveats for the `pull_theta_option_history.py` larder: top-150 by 2018→now turnover, 2018→now, all-strikes, 90-day lookback, SPY/QQQ reference-only. Documents the **survivor-bias caveat** (ranked on current 503 → backtests inherit survivor bias; delisted once-liquid names excluded until a PIT-membership source lands) and the deferred extensions (2016–17, >90d lookback, delisted backfill, IV/Greeks/tick phases). |
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
+| `docs/IBKR_LIVE_BOOK_INTEGRATION.md` | Design doc for the read-only IBKR live-book feed (D24, gate-arming), the un-adopted exit-evaluator scope frontier (D25), and the read-only performance viewer (D26). Defines the point-in-time snapshot schema (§2.2), universe discipline (§2.3), and the viewer architecture (§6). |
 | `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
 | `docs/CODE_REVIEW_2026-05-30.md` | Full-codebase code-review remediation ledger (2026-05-30): verified findings, fixes shipped vs deferred (D19/D21), and the per-item remediation log. |
@@ -295,7 +331,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/worklog/*.md` | Per-task **worklog fragments** (doc redesign, D14 extension): one file per task/scenario with front-matter + a fixed *what-we-tried / worked / didn't / fixed* body. Includes `README.md` (format spec), `_template.md`, the migrated `sNN-*.md` scenario records, and the generated `INDEX.md`. Generated/validated by `scripts/gen_worklog_index.py`. |
 | `docs/PARALLEL_SESSIONS.md` | How the repo is worked by N parallel Claude Code terminals — roles, lanes, coordination board. |
 | `docs/MAJOR_SESSION_PROMPT.md` | Reusable handoff prompt for a fresh Major Session (the allocator/coordinator role) — durable role contract + how to recover live state from board #113 / `git log`; pins no decaying snapshot. Companion to `docs/PARALLEL_SESSIONS.md`. |
-| `docs/SESSION_HANDOFF.md` | A point-in-time snapshot of in-flight work for a session handoff. |
 | `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` | S27 follow-up to PR #178's `ENGINE_BACKTEST_2022_2024.md`: re-runs the same 2022-2024 backtest against the post-fix engine (`claude/fix-ranker-iv-pit-aware` `d26a8d6`). Side-by-side ρ / quartile / per-year / tail-episode comparison. Verdict: signal preserved at ρ=0.22 (halved); 2022 bear actually stronger; F4 tail-risk gap confirmed real. |
 | `docs/ENGINE_BACKTEST_S32_FRICTION.md` | S32 — $1M friction-modeled simulation closing S22 Caveat 3. Same window / universe / engine as S27 but 10× capital with three-layer friction overlay (bid/ask + commission + assignment slippage). Three parallel WheelTracker instances per friction level. Headline: friction drag is 0.27% NAV (much smaller than S22's "2-5% per leg" worst case); but capital deployment averages 10.8% at $1M, so engine returns +1.85% vs SPY +24% — the +27pp-over-SPY narrative inverts at scale. |
 | `docs/ENGINE_BACKTEST_S34_UNIVERSE.md` | S34 — Universe expansion to 100 SP500 tickers at $1M (closes PRODUCTION_READINESS Blocker B3). Tests S32 F3's hypothesis: expand universe 24→100, leave everything else identical. Result: engine +35.61% NAV (full friction) vs SPY ~+24% = **+11.6pp OVER SPY** (vs S32's −22pp UNDER SPY). 34pp swing on universe size alone. ρ = 0.33 (higher than S32's 0.19); 22.1% capital deployment (2× S32); zero BP rejections. Universe expansion materially closes the capacity gap; multi-contract / strategy-stack remain candidates for further deployment but are not required. |
@@ -317,6 +352,10 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/HEAVY_R10_STRICT_SCALE.md` | HT-D — R10 strict-mode at $1M / 100t scale (2020-2024). First-ever backtest with `require_ev_authority=True` + attached `PortfolioContext`. A/B harness: loose tracker (S38/S44 baseline) vs strict tracker (D17 hard-blocks ON) sharing one daily SP rank call. Measures actual R10 / R9 / portfolio-delta / Kelly binding rates + NAV/return delta vs loose. Pilot finding: `portfolio_delta_breach` is the dominant binding gate (96.7% of refusals); R10 fires exactly on BKNG / AZO as S44 predicted (single-contract entry > 10% NAV). |
 | `docs/F4_TAIL_RISK_DIAGNOSTIC.md` | Mechanical characterisation of why `prob_profit = 0.8333` stayed constant across COST's 31.5% drop in April-May 2022 (the F4 finding from S22 / S27 / S32). Verified live: at the engine's default `lookback_years=5.0` with `non_overlapping=True` at 35-day horizon, only ~30 samples populate the empirical forward distribution; advancing `as_of` by 14 days does not add new sample points. Proposes Fix A + B1 (shorter lookback + regime-conditioned distribution widening) with a definition-of-done checklist for closing `PRODUCTION_READINESS.md` §3 Blocker B1. |
 | `docs/verification_artifacts/README.md` | Conventions + index for the verification-artifact directory. Captures the doc → driver → raw-output relationship so future agents can re-run any verification and diff against the historically-captured output. |
+| `docs/verification_artifacts/data_engine_audit_2026-06-07/audit.json` | Machine-readable sidecar for `docs/DATA_ENGINE_AUDIT_2026-06-07.md` — full inventory, capability map, coverage matrix, the raw per-ticker ranker drops (`{ticker,gate,reason}`), distribution-tier histogram, hygiene probes, and the ranked weaknesses. Re-emit with `python scripts/audit_data_engine.py --universe full`. |
+| `docs/verification_artifacts/vnv_2026-06-01/funnel_2026-03-20.json` | Captured full-universe funnel + tier-distribution at as_of=2026-03-20 (503→423 survivors; drops event:68/history:11/premium:1; Wilson-CI coverage 98.6%). Companion observable for `docs/VNV_CAMPAIGN_2026-06-01.md` §1–2. |
+| `docs/verification_artifacts/vnv_2026-06-01/calibration_full.json` | Captured full-universe prob_profit-calibration + ev_dollars-realism sweep (n=9,612 over 35 regime-spanning as_of dates). Companion observable for `docs/VNV_CAMPAIGN_2026-06-01.md` §3–4. |
+| `docs/verification_artifacts/vnv_2026-06-01/profile_150ticker_2026-03-20.txt` | Captured cProfile (tottime) of a 150-ticker scan — connector `comp_method_OBJECT_ARRAY` 10.1s / 742 calls + `normalize_ticker` 2.4M calls + HMM E-step 7.9s. Companion observable for `docs/VNV_CAMPAIGN_2026-06-01.md` §6. |
 | `docs/verification_artifacts/realism_verify_driver.py` | Driver for ENGINE_REALISM_VERIFICATION_2026-05-26: 5-ticker smoke + IV PIT match vs Bloomberg file + EV magnitude + F4 reproducibility + 3-anchor refusal check. Read-only client of the production ranker. Re-runnable from any worktree (edit `WORKTREE` constant). |
 | `docs/verification_artifacts/realism_2026-05-26_raw_output.txt` | Captured stdout from `realism_verify_driver.py` against `origin/main` @ 9f0afaf. Companion observable for `docs/ENGINE_REALISM_VERIFICATION_2026-05-26.md`. |
 | `docs/verification_artifacts/realism_2026-05-28_raw_output.txt` | Captured stdout from `realism_verify_driver.py` re-run against the post-#260 / post-#262 engine (`origin/main` @ `56d8e5c`). Byte-identical to the 2026-05-26 baseline on every probe (5-ticker smoke, IV PIT match, EV-sign, COST 2022-04-25 F4, refusal-behaviour 3-anchor). Companion observable for `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md`. |
@@ -355,15 +394,17 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/REAL_DATA_VERIFICATION_2026-05-28.md` | Real-data accuracy verification against raw Bloomberg historical data (PR #273). Five pre-declared external-anchor checks: (A) rv30/rv252 from raw OHLCV bit-identical to engine API (3/3 test cases, delta 0.0000); (B) prob_profit calibration on S38 17k rows — MIXED, top 2 bins (>0.90) MISCALIBRATED >10pp delta; (C) BSM put pricing within 5% of hand-coded textbook BSM (3.37% delta); (D) engine IV bit-identical to raw `sp500_vol_iv_full.csv` `hist_put_imp_vol`; (E) backtest regression S27/S32/S34/S35 reproducible byte-for-byte per A's PR #267. Documents the Bloomberg CSV column-rename quirk (CSV ships `open=HIGH, high=CLOSE, close=OPEN, low=LOW`; connector renames; external reproducers must use CSV `high` as true close). |
 | `docs/REVERIFICATION_REPORT_2026-05-26.md` | Terminal A's executive read of the S1–S27 re-verification pass (engine SHA `8a17b0b`, rebased onto `46ddbd4`). Headlines: §2 invariant GREEN across 24 active scenarios; two §2 closures since the original entries (S19 C7b and one other) under PR #204's R1a guard. Persisted in-repo so future agents can recover the exact results and reasoning of the session. Companion sub-notes live inline under each `### Sn` entry in `docs/USAGE_TEST_LEDGER.md`. |
 | `docs/VERIFICATION_INDEX_2026-05-28.md` | Master index for the 2026-05 verification campaign (PR #273). Three-section structure: (1) Tested surfaces table (15 rows mapping every verified claim to verification + status + artifact); (2) Campaign arc narrative (7 numbered steps S1→S44 + review PRs); (3) Repeat-the-verification appendix (concrete commands for each anchor check + drift indicator + launch-blocker subset). Plus known limitations + open recommendations + one-paragraph "is the engine real" summary. Built as the single reference for any future agent asking "what verification has been done on this engine?". |
+| `docs/VNV_CAMPAIGN_2026-06-01.md` | Engine V&V campaign (efficiency / realism / reliability) on `origin/main` `1c69062`: funnel transparency (503→423, all drops auditable), Wilson-CI coverage 98.6% on the put ranker, prob_profit top-bin over-confidence (mild unconditionally, −0.345 in the 2022 rate-bear regime — reproduces the cockpit's 0.57 crisis ghost), `ev_dollars` ~0 linear corr but valid ranking/sign signal (confirms the cockpit), IV zero-skew (100%), connector ticker-filter efficiency hot spot. Drivers `scripts/vnv_*.py`; raw in `docs/verification_artifacts/vnv_2026-06-01/`. Read-only; no §2 issues. Independently reproduces `PROB_PROFIT_CALIBRATION_2026-05-28.md`'s top-bin finding + adds the regime split, EV-realism, and funnel/coverage. |
 | `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md` | Multi-backtest prob_profit calibration analysis extending PR #273's S38-only check across 10 configurations (S22, S27, S32, S34, S35, S38 pre/post-F4, S40 W1/W2/W3). Pre-declared standard: ≤5pp = calibrated, 5-10pp = slightly miscalibrated, >10pp = MISCALIBRATED. **Headline: 10 of 10 configs have ≥1 MISCAL bin; the top bin (0.95, 1.0] is MISCAL in 9 of 10 (Δ −5pp to −18pp); mean weighted MAD 6.16pp consistent with PR #197's 7.6%; F4 fix (PR #260) does NOT improve calibration.** Establishes top-bin miscalibration as structural to the empirical-distribution method, not S38-specific. Strengthens the F4 + R10 deployment-bundle framing (R10 is the load-bearing magnitude guard because the engine cannot self-correct top-bin over-confidence). |
 | `docs/HEAVY_PIT_REALISM.md` | HT-B (heavy-verify cycle 2026-05-30) — fresh PIT-correct calibration test on the post-#249 / post-#260 / post-#262 engine across 3 sub-windows: in-sample 2022-2024 (matches S27/S32/S34 comparability) + OOS 2020 crisis + OOS fresh 2024-09→2026-02. Tests three competing hypotheses (H1 structural defect / H2 in-sample tuning / H3 post-#249 shift) and reports calibration tables using BOTH the OTM convention (matches `PROB_PROFIT_CALIBRATION_2026-05-28.md`) and the engine's exact prob_profit definition (P[spot ≥ strike − premium]). Companion driver `docs/verification_artifacts/pit_realism_driver.py`. |
 | `docs/BACKTEST_REGRESSION_CAMPAIGN.md` | Campaign report for the backtest regression harness (4-PR series: scaffolding → snapshots → CI split → S35 re-baseline). Architecture, methodology, snapshot-vs-doc comparison tables for S27/S32/S34/S35, on-fail re-baseline workflow, compute profile, and known limitations. Reference doc for other agents picking up or auditing this work. |
 | `docs/NEWS_REDESIGN_CAMPAIGN.md` | Campaign tracking doc for the 9-PR effort that severs verbal news from the EV decision path and replaces it with structured quantitative layers (earnings calendar, fundamentals, macro). Branch prefix `claude/lucid-davinci-pm15H`; coordination on board #113. Temporal doc — status table updated as each PR lands; structural decisions are in `DECISIONS.md` D18+. |
 | `docs/EDGAR_EARNINGS.md` | Rationale + operational notes for the EDGAR earnings layer (campaign PR3/9). PIT story (8-K Item 2.02 is immutable; yfinance leaks lookahead), projection heuristic (median inter-filing delta), SEC User-Agent + 10 req/sec rate-limit, integration preview for follow-up PR3.5. Companion to `scripts/pull_edgar_earnings.py`. |
 | `docs/bloomberg_refresh_runbook.md` | Point-in-time runbook for refreshing the Bloomberg connector CSVs. |
+| `docs/CASY_BACKFILL_SPEC.md` | Exact Bloomberg pull spec for CASY's pre-2026 OHLCV/vol_iv/liquidity/earnings — the one Bloomberg-gated piece of #339 (everything else reconstructs from git); plus the post-pull integration + re-baseline plan. |
+| `docs/NEXT_DATA_SESSION_RUNBOOK.md` | **The single authoritative checklist for the supervised Bloomberg re-baseline session.** Strict ordered scope: Phase 1 universe data (CASY + 10 blue-chip backfills → BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive), Phase 2 the three (E) trio/risk-gate fixes (#372 R9→GICS HIGH, #369 #363 IV-gate fallback clean, #378 IV-staleness gate + rate-fallback) each lane-claimed + held for §2 review, Phase 3 re-baseline-all-4 (captures #363 ev_mean + the (E) frontier impact in one pass) + EXPECTED_FRONTIER/FRONTIER bumps + xfail flips + S34 provisional clear, Phase 4 frontier-coupled test re-picks (full-universe 480/31, W16/W30 JPM), Phase 5 fold the (D) producer pulls (#354/#355/#357/W28) into the same session. Governing rule: everything that moves the frontier/EV output lands before the snapshot re-pin. Companions: `CASY_BACKFILL_SPEC.md`, `DATA_TEST_AUDIT_2026-06-09.md`. |
 | `docs/CONTRIBUTING.md` | Contributor workflow guide. |
 | `docs/SECURITY.md` | Security policy and best practices. |
-| `docs/Claude_Prompting_Master_Guide.md` | General Claude prompt-engineering reference (not project-specific). |
 
 ## `engine/` — quant + decision layer
 
@@ -372,7 +413,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/__init__.py` | Package init re-exporting the legacy quant-layer symbols (pricing, risk, regime, signals, Monte Carlo, portfolio). |
 | `engine/ev_engine.py` | `EVEngine.evaluate` — the authoritative probabilistic expected-value computation for short-option trades. |
 | `engine/wheel_runner.py` | `WheelRunner` — the orchestrator and authoritative ranker (`rank_candidates_by_ev`, covered-call/strangle rankers, `select_book`, dossier builder); provider selection. |
-| `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R6 rules). |
+| `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R11 rules). |
 | `engine/chart_context.py` | `ChartContext` dataclass and the `ChartContextProvider` protocol. |
 | `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, MCP, chained) and the default-provider factory. |
 | `engine/mcp_client.py` | `MCPCLIClient` — the `tv`-CLI subprocess client backing the MCP chart provider. |
@@ -404,6 +445,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/wheel_tracker.py` | `WheelTracker` — wheel position lifecycle (short put → assignment → covered call → exit) with EV-scored roll suggestions. |
 | `engine/portfolio_risk_gates.py` | D17 / #154 C4 — pure-function library of portfolio-risk gates (sector cap, portfolio delta, Kelly size, VaR, stress scenario, dealer regime) shared by the tracker hard-blocks (Phase 2) and the dossier soft-warns R7+R8 (Phase 3). Wires the existing `risk_manager.py` + `stress_testing.py` + `dealer_positioning.py` machinery that S15 found unimported by the decision-layer trio. |
 | `engine/portfolio_tracker.py` | `PortfolioTracker` — portfolio bookkeeping: tax lots, time-weighted returns, allocation, dividends. |
+| `engine/ibkr_portfolio_adapter.py` | D24/D26 read-only adapter (OUTSIDE the trio — imports nothing from `ev_engine`/`wheel_runner`/`candidate_dossier`). Turns the point-in-time IBKR artifacts on disk (`data_processed/ibkr/portfolio_snapshot.json` + `portfolio_history.json` + `wheel_ledger.json`; dir overridable via `SWE_IBKR_DATA_DIR`) into the engine types + every performance-viewer payload, reusing `portfolio_tracker`/`wheel_tracker`/`performance_metrics` for analytics and `portfolio_risk_gates` for the live R7–R11 overlay. Observational only — never ranks, never issues EV authority; out-of-universe names are exposure-only; CAD normalized to USD via the snapshot `fx_rates`. |
 | `engine/portfolio_intelligence.py` | Congressional and institutional (13F) trading trackers cross-referenced against a watchlist. |
 | `engine/performance_metrics.py` | Backtest performance reports — return, Sharpe/Sortino, drawdown, profit factor. |
 | `engine/payoff_engine.py` | Payoff-diagram grids, IV expected-move bands, BSM-delta strike recommendations. |
@@ -420,7 +462,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
-| `engine/.gitkeep` | Directory placeholder. |
 
 ## `financial_news/` — standalone news platform (off the EV path)
 
@@ -547,7 +588,14 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 
 | File | Purpose |
 |---|---|
+| `scripts/audit_api_smoke.py` | Standalone smoke-test client that hits a running `engine_api.py` and runs domain-grouped backend checks (was repo-root `audit.py`; renamed at the D27 move — it is an API smoke client, not the audit-cycle framework). |
 | `scripts/pull_all.py` | Orchestrates every puller in dependency order, skipping steps whose upstream is unavailable. |
+| `scripts/ibkr_ev_calibration.py` | Phase 3: PIT EV calibration — replays the operator's real short puts AND covered calls through `EVEngine.evaluate` at each trade's exact strike (reusing the ranker's PIT machinery) and compares `prob_profit`/`prob_assignment`/`ev_raw` to the realized hold-to-expiry outcome; per-leg + combined reliability/Brier/ECE + Wilson CIs + EV-sign split + a moneyness scale gate. Observational (§2/§3); never bypasses the engine. |
+| `scripts/ibkr_flex_ledger.py` | Phase 4: re-keys `wheel_ledger.json` from the exact IBKR Flex 'Trades' export (two CSVs) — Open/Close-driven long/short average-cost stock + per-contract option realized with real dates; refreshes history `premium`; reconciles to the p6 book + MTM. Read-only/observational (§2/§3). |
+| `scripts/ibkr_gateway_pull.py` | Headless read-only IB Gateway puller (morning-refresh Mode 2): connects `readonly=True`, reads `accountSummary` + `portfolio` + a Forex FX snapshot (no flaky account-update subscription), and feeds the SAME `ibkr_live_snapshot.build_snapshot` transform → `portfolio_snapshot.json`. For a Windows Task Scheduler pre-open run. Read-only/observational (§2/§3); never references an order method; day-change gated null. |
+| `scripts/ibkr_import.py` | Read-only importer: IBKR PortfolioAnalyst since-inception PDF → `portfolio_snapshot`/`portfolio_history`/`wheel_ledger` JSON for `engine.ibkr_portfolio_adapter`. Observational (§2/§3); dedups the hidden 2× text layer; reconciles to Ending NAV / deposits / dividends at run time. |
+| `scripts/ibkr_live_snapshot.py` | Morning-refresh core: builds the `schema_version:1` `portfolio_snapshot.json` straight from the live IBKR read-only connector (`get_account_summary` + `get_account_balances` + `get_account_positions`) — no PDF/Flex. Parses option `contract_description`, FX-normalizes, derives day-change from per-position `daily_pnl`, joins sector/name/in-universe from the constituents file. Shared by the agent (Mode 1) and headless puller (Mode 2). Read-only/observational (§2/§3). |
+| `scripts/dashboard_refresh.py` | Dashboard-terminal one-command live refresh: regenerate the snapshot (from saved connector JSON via `ibkr_live_snapshot`), rebuild the Flex ledger incl. option expiries (via `ibkr_flex_ledger` + the gitignored Flex creds), sync the equity-curve live point, and verify. Backs up before overwriting; never writes the Flex token; READ-ONLY (§2/§3). See `docs/DASHBOARD_TERMINAL.md`. |
 | `scripts/pull_ohlcv.py` | xbbg/Bloomberg pull of daily OHLCV for all constituents. |
 | `scripts/pull_liquidity.py` | xbbg/Bloomberg pull of daily liquidity metrics. |
 | `scripts/pull_options_greeks.py` | xbbg/Bloomberg pull of IV term structure / skew. |
@@ -561,6 +609,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/pull_edgar_earnings.py` | SEC EDGAR pull of Form 8-K Item 2.02 (earnings-release) filings → `data_processed/edgar/earnings_history.parquet`. Append-only by default; `--refresh` merges with the prior parquet so partial-refresh runs never silently drop prior data. Campaign PR3/9 — see `docs/EDGAR_EARNINGS.md`. |
 | `scripts/pull_theta_indices_history.py` | Theta pull of VIX-family index OHLC history. |
 | `scripts/pull_theta_iv_surface_history.py` | Theta pull of historical IV surfaces with strict partial-coverage rejection. |
+| `scripts/pull_theta_option_history.py` | Per-(ticker,expiration) EOD + Open Interest option-history puller (STANDARD tier). `--all-strikes` uses the bulk per-expiration EOD endpoint (~100x fewer calls, all strikes in one request); `--lookback-days` sets the per-contract window (90 = the 0–90 DTE cross-section a wheel/skew fit reads); `--cadence weekly` keeps Friday expirations only (drops 0DTE bloat); `--out-dir` for a reference dir (index ETFs kept out of the ranker). Clamps `start_date` to the 2016-01-01 tier floor (below-floor → silent empty-range bug) and writes partitions atomically (tmp+rename, resume-safe). Scope + survivor-bias caveat in `docs/THETA_LARDER_SCOPE.md`; pinned by `tests/test_option_history_puller.py`. |
 | `scripts/pull_theta_options_flow.py` | Theta pull of daily per-ticker options-flow aggregates. |
 | `scripts/pull_theta_corp_actions.py` | Theta pull of stock splits and dividends. |
 | `scripts/pull_theta_option_tape.py` | Theta pull of intraday option trade+quote tape. |
@@ -576,6 +625,9 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/orchestrate.py` | Unified daily orchestrator (morning / intraday / evening / full). |
 | `scripts/run_pipeline.py` | CLI front-end to the data `PipelineOrchestrator`. |
 | `scripts/validate_environment.py` | Environment validation for CI — Python version, dependencies, env vars, directory structure. |
+| `scripts/inventory_data.py` | Verified data-inventory scan: streams every Bloomberg CSV (incl. gzipped deep slices) for date-column min/max + row/ticker counts, and reads Theta parquet footers/filenames for per-dataset date coverage + totals. Writes `data_processed/_inventory_scan.json`; backs `docs/DATA_INVENTORY.md`. Reads files directly — no values from docs. |
+| `scripts/audit_data_engine.py` | Reusable Phase-1 data + engine audit (discovery; read-only, additive). Logs the provider, auto-detects the data-supported frontier (not `date.today()`), inventories every connector CSV, builds the capability map + coverage matrix (referential / seam / survivorship / re-ticker), probes the production `WheelRunner.rank_candidates_by_ev` at the frontier (records produced/dropped/vanished via `frame.attrs["drops"]`, the `distribution_source` tier, non-finite outputs), runs data-hygiene checks, and emits the markdown findings doc + JSON sidecar. No §2 bypass; decision trio untouched. Produces `docs/DATA_ENGINE_AUDIT_*.md`. |
+| `scripts/audit_data_tests.py` | Phase-1 data-layer TEST-coverage audit probes (discovery; read-only, additive). Companion to `audit_data_engine.py`: computes the deeper byte-evidence the 2026-06-09 round needs — #363 served-vs-raw IV band reconciliation, IV `(date,ticker)` uniqueness + no-tenor schema fact, OHLCV per-name depth + exact NaN-price rows + monotone dates, fundamentals `eqy_dvd_yld_12m` band + GICS-11 validity, credit `sp_rating` ladder + Altman-Z plausibility, dividend epsilon-negatives, treasury per-tenor coverage, and the data→`WheelRunner.rank_candidates_by_ev`→EVResult finite+sign check (no §2 bypass; decision trio untouched). Emits a JSON sidecar. |
 | `scripts/check_manifest_coverage.py` | CI guard — fails the build when a tracked file is absent from FILE_MANIFEST.md (or vice versa), and ALSO when any tracked `.md` contains a committed git merge-conflict marker (`<<<<<<<`, `=======`, `>>>>>>>` at column 0, exact 7-char tokens — visual separators with more `=`/`<`/`>` are NOT flagged). Wired into the `FILE_MANIFEST Coverage` job in `.github/workflows/ci.yml`. |
 | `scripts/sync_manifest.py` | Local sync helper — same scan as `check_manifest_coverage.py`, with `--fix` to append rows for missing files into a marked "Untriaged additions" section at the tail of `FILE_MANIFEST.md`. Orphans are flagged but never auto-deleted. Smooths the recurring CI failure where docs PRs forget manifest rows. |
 | `scripts/check_doc_currency.py` | CI + hook guard against temporal-doc drift — checks `PROJECT_STATE.md`'s `Last updated` date and `CHANGELOG.md`'s newest month section; WARNs on mild staleness, FAILs only on egregious staleness / structural breakage (so normal PRs aren't blocked). Stdlib only (runs on Linux / Windows / CI); wired into the `FILE_MANIFEST Coverage` CI job and surfaced by the SessionStart hook. |
@@ -592,12 +644,13 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/download_yf_options.py` | yfinance option-chain downloader. |
 | `scripts/bloomberg_smoke.py` | Bloomberg connectivity tester (a CLI tool, not a pytest file). |
 | `scripts/transaction_costs_demo.py` | `print()`-driven walkthrough of the `engine.transaction_costs` round-trip (commissions, slippage, assignment) on a synthetic Wheel cycle — a demo, not a pytest file. |
+| `scripts/vnv_funnel_tier_report.py` | Read-only V&V diagnostic — runs `rank_candidates_by_ev` over the universe at a fixed `as_of` and reports the candidate funnel (drops-by-gate from `df.attrs["drops"]`) + the `distribution_source` distribution (prob_profit Wilson-CI coverage). Companion to `docs/VNV_CAMPAIGN_2026-06-01.md` §1–2. Never modifies `engine/`. |
+| `scripts/vnv_prob_profit_calibration.py` | Read-only V&V diagnostic — bins predicted `prob_profit` vs realized hold-to-expiry outcome (engine-EXACT breakeven) over a regime-spanning `as_of` grid, and measures `ev_dollars` predictive power (Pearson + quintile lift + sign gate). Companion to `docs/VNV_CAMPAIGN_2026-06-01.md` §3–4. Never modifies `engine/`. |
 | `scripts/bloomberg_excel_extractor_v2.bas` | Bloomberg Excel VBA extractor — "fixed version with longer wait times" (V1 archived). |
 | `scripts/bloomberg_export.vba` | Simplified Bloomberg VBA export macro. |
 | `scripts/export_sheets_to_csv.vba` | Excel VBA macro exporting ticker worksheets to CSV. |
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
 | `scripts/*_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste (ohlcv / iv / earnings / dividends, plus the combined `bloomberg_formulas.txt`). |
-| `scripts/.gitkeep` | Directory placeholder. |
 
 ## `src/` — feature-engineering / schema / backtest modules
 
@@ -625,13 +678,29 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/models/__init__.py` | Empty package stub. |
 | `src/risk/__init__.py` | Empty package stub. |
 
+## `studies/` — observe-only research studies (read-only over the engine)
+
+| File | Purpose |
+|---|---|
+| `studies/premium_correction/__init__.py` | Package marker + study summary (real-mid vs synthetic-BSM premium correction). |
+| `studies/premium_correction/splits.py` | Split-adjustment layer joining engine (split-adjusted) strikes to larder (raw) strikes; cumulative-factor table + adjusted↔raw strike/premium conversions. |
+| `studies/premium_correction/pilot.py` | Observe-only harness: drives `WheelRunner.explore_ticker` (authoritative EV path) per (ticker, as_of), joins the real Theta EOD mid, computes the premium correction and the market-vs-engine calibration gap, emits records + summary + cross-plot. |
+
 ## `tests/` — test suite
 
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_deep_read_connector.py` | R2 deep-read connector tests — flag plumbing (default-OFF, `SWE_DEEP_HISTORY`), graceful degrade when deep slices absent (ON==OFF), and (local-only, gated on `SWE_DEEP_TEST_DATA`) assembly reaches 1994, default-OFF ignores deep when present, delisted Lehman returns its last bar, rotation invariant post-assembly, schema parity. |
+| `tests/test_deep_read_assembly_synthetic.py` | R2 deep-read assembly unit tests on synthetic gz fixtures (CI-runnable, no committed data) — dedup precedence recent > deep-current > delisted, multi-slice span, delisted-only name presence, default-OFF monolith-only, missing-slice degrade, non-`_DEEP_SLICES` key not assembled. |
+| `tests/test_survivorship_harness.py` | R3 survivorship harness tests (gated on `SWE_DEEP_TEST_DATA`) — PIT 2008 universe includes Lehman/WaMu + excludes post-2008 names + size ~500; `terminal_spot` delisting-aware; the `assert_data_window_available` deep-floor extension accepts a pre-2018 start. |
+| `tests/test_survivorship_r6_lehman.py` | R6 survivorship proof (gated on `SWE_DEEP_TEST_DATA`) — a 2008 deep-history backtest where Lehman (LEHMQ) flows through the EV ranker and its post-delisting put loss is realized (non-NaN, < -$500), not silently dropped. |
+| `tests/test_deep_iv_sentinel.py` | R7 deep-IV sentinel test (gated on `SWE_DEEP_TEST_DATA`) — the assembled vol_iv read nulls implied-vol values above the ~134217.7 sentinel floor (keeping the row, NaN IV) while preserving real distressed-name extremes (500-1000%). |
+| `tests/test_credit_rating_population.py` | R0a regression guard — `analyze_ticker` populates `credit_rating` from the `get_credit_risk()` `sp_rating` key (not the raw `rtg_sp_lt_lc_issuer_credit` field). Pins the dead-read fix; documents the field is off the EV path. |
+| `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |
+| `tests/fixtures/ibkr/*.json` | Frozen demo IBKR artifacts (snapshot + monthly history + closed-trade ledger) for the D26 performance-viewer tests; reproduce the design-doc Appendix A / `mock.ts` numbers. Also the out-of-box demo source the engine viewer reads via `SWE_IBKR_DATA_DIR`. |
 | `tests/test_audit_invariants.py` | Launch-blocker invariants — Greeks unit contract, PIT safety, TV webhook HMAC, EV-engine invariants. |
 | `tests/test_check_manifest_coverage.py` | Unit tests for the conflict-marker guard in `scripts/check_manifest_coverage.py` — pins exact 7-char marker shapes (with/without ref, separator alone) and the negative cases that drove the precision (visual `=========` separators, pytest section dividers, indented occurrences, prose substrings). |
 | `tests/test_check_lane_claim.py` | Unit tests for `scripts/check_lane_claim.py` — the decision-layer lane gate's behaviour matrix (no-touch passes, unclaimed edit fails, claimed passes, partial claim fails on the remainder, no-claim-source skips as not-a-PR-context). |
@@ -643,13 +712,25 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_backtest_regression.py` | Backtest-regression harness — runs S27/S32/S34/S35 reproducers against the current engine and compares to committed snapshots in `backtests/regression/snapshots/`. Gated behind the `backtest_regression` marker (long-running). |
 | `tests/test_ev_authority_log_schema.py` | Schema-closure regression for `WheelTracker._ev_authority_log` — pins the five D16 entry shapes (`issue`, `refuse_issue`, `consume`, `reject` × {unknown_token, missing_current_ev_dollars, stale_ev}) and detects drift (unknown action, missing required key, accidental extra key). |
 | `tests/test_engine_api_port.py` | Unit tests for `engine_api._resolve_port()` — pins the `SWE_API_PORT` contract (default 8787, env override, loud failure on malformed / out-of-range). Closes D15 Unresolved per #154 C7. |
+| `tests/test_engine_api_concentration.py` | Live-path proof for the `/api/concentration_preview` endpoint (`engine_api.build_concentration_preview`) — drives a synthetic concentrated batch through the REAL `consume_into_live_book` / `make_live_book_tracker` / `portfolio_risk_gates` and pins that R9 (sector) + R10 (single-name) caps refuse over-concentration on the operator path, that a non-positive-EV row is refused at the D16 token gate (no rescue), and that the response surfaces the armed cap %s + §2/§3 framing. Closes the "armed caps have zero live callers" gap (#154 / #343). |
 | `tests/test_tv_nonce_register_lock.py` | Regression tests pinning the explicit `_TV_SEEN_NONCES_LOCK` around `_tv_seen_register` (S20 C3). Asserts lock existence + 64-worker contention behavior (exactly 1 worker accepts a duplicate digest, all 64 distinct digests accepted). |
 | `tests/test_portfolio_risk_gates.py` | Unit tests for `engine/portfolio_risk_gates.py` (D17 / #154 C4 Phase 1) — pins the adapter (`take_snapshot`) per `WheelPosition` state plus the five gate functions' pass/fail/skip semantics against the locked D17 defaults. |
+| `tests/test_ibkr_ev_calibration.py` | Phase-3 calibration-stats tests: Wilson CIs + reliability/Brier/ECE on synthetic inputs, and the S&P-500 universe loader. |
+| `tests/test_ibkr_flex_ledger.py` | Phase-4 ledger tests on synthetic fills: Open/Close-driven long & short `StockBook` (round-trip realized, ACAT seed), helpers, and the two-file boundary dedup. |
+| `tests/test_ibkr_gateway_pull.py` | Gateway-puller tests on pure helpers (ib_insync imported lazily, so no install needed): structured-contract → `contract_description` synthesis and its lossless round-trip back through the shared parser, the account-tag map, and §2/§3 guards (no trio import, no order method referenced). |
+| `tests/test_ibkr_import.py` | Importer parser/helper tests (OCC parse, p6 open-position parse + FX/cash derivation, dividend dedup+net) on synthetic page text, plus adapter null-safety regression (`returns_view`/`risk_view` tolerate the present-but-null day-change/margin a real import carries). |
+| `tests/test_ibkr_live_snapshot.py` | Live-connector snapshot-builder tests on synthetic IBKR payloads — `contract_description` parsing (incl. interposed venue token), FX normalization, closed-position exclusion, FX-normalized day-change, sector/name/in-universe joins, the `schema_version:1` contract, and the §2/§3 guard that the module imports nothing from the trio. |
+| `tests/test_ibkr_portfolio_adapter.py` | D24/D26 adapter tests — snapshot→`PortfolioContext` fidelity, universe filter (CNQ/ENB exposure-only, never rankable), CAD→USD FX normalization, R9/R10 firing on the adapter-built context, the viewer payloads matching the approved numbers, and the guard that the adapter imports nothing from the trio + emits no tradeable verdict / EV-authority token. |
+| `tests/test_portfolio_api_endpoints.py` | D26 endpoint tests — spins the stdlib server in-process and asserts each `GET /api/portfolio/{summary,positions,returns,income,risk,history}` returns the dashboard shape, plus the observational guard that no response carries a verdict / EV-authority field and an unknown sub-path 404s. |
+| `tests/test_prob_profit_ci.py` | Small-sample honesty for `prob_profit` (2026-06-01) — pins the `_wilson_score_interval` math (known cells, edge/clamp cases, narrower interval at larger N) and that `EVResult` + the ranker core frame surface `n_scenarios` + `prob_profit_ci_low/high` bracketing `prob_profit`; additive, `prob_profit` itself unchanged. |
+| `tests/test_trade_memo_ci.py` | Pins the Ollama trade memo's `_format_prob_profit_line` — renders `prob_profit` with its Wilson 95% interval + N and a small-sample caveat; omits the line when not evaluated; emits a clean point estimate (no false caveat) when CI/N absent; the prob block carries no EV/verdict/multiplier wording and the interval round-trips verbatim (display-only, additive). |
 | `tests/test_production_tracker_caps.py` | Invariant pins for the production-armed concentration caps (heavy-verify 2026-05-31 Cat-A / #154 follow-up). Pins that `engine.wheel_runner.make_live_book_tracker` ARMS R9 sector + R10 single-name (refuses >25% sector / >10% single-name, token-free, reject-audit shape unchanged), that the library-default `WheelTracker` is unchanged (caps off), and that strict mode still arms all four D17 gates. Guards the decoupled `enforce_*` flags so production-arming can't be silently dropped. |
+| `tests/test_data_connector_ticker_filter.py` | Output-equivalence pins for the connector ticker-filter speed-up: the cached-groupby `_filter_ticker` returns byte-identical frames to the prior `df[df["ticker"]==t]` mask (present / multi-occurrence / absent tickers; cache reuse; empty/tickerless passthrough), and `_load`'s unique-map normalization equals the prior `.apply(normalize_ticker)`. Guards that the perf change is §2-neutral (engine sees identical data). Synthetic data — no large-CSV dependency. |
 | `tests/test_dossier_invariant.py` | Launch-blocker invariant — the downgrade-only `EnginePhaseReviewer` contract. |
 | `tests/test_dossier_downgrade_property.py` | §2 downgrade-only lattice property — states the severity invariant (`proceed`<`review`<`skip`<`blocked`) ONCE over `EnginePhaseReviewer.review()`'s full R1–R11 chain instead of per-rule examples: 8 overlay firing scenarios × 6 `ev_dollars` probes assert `severity(with_overlay) ≥ severity(without)`, plus firing-cell teeth, a cannot-rescue-blocked check, a Hypothesis ev-fuzz, and five source-introspection meta-tripwires that force any future rule (R12+) into the matrix (overlay-guard count, no hard-returned `proceed`, verdict vocabulary, overlay-reason coverage, downgrade-to-`review`). Read-only against §2 (test-only). |
 | `tests/test_r11_elevated_vol.py` | Pins R11 — the elevated-vol top-bin size-down reviewer (heavy-verify 2026-05-31 I11). Eight tests: fires (top-bin `prob_profit>0.90` + `vix_level>25` → review / `elevated_vol_top_bin`), no-ops (VIX≤25, not-top-bin, `vix_level` absent), never-rescues (negative-EV stays blocked by R1), strictly-greater-than boundaries, computed-not-hardcoded payload (candidate's own `cvar_5`), and `build_dossiers(vix_level=…)` threading. Read-only against §2 (downgrade-only). |
 | `tests/test_dossier_r9_r10_audit.py` | S42 — systematic audit of R9 (sector_cap, PR #255) and R10 (single-name cap, PR #262). Six probe families (32 tests): R9 fires correctly, R10 fires correctly, downgrade-only invariant, fail-closed on missing context, cross-rule short-circuit ordering (R7 → R8 → R9 → R10), and edge cases (boundary semantics + four pinned sharp-edge findings — see `docs/USAGE_TEST_LEDGER.md` S42). Read-only against §2. |
+| `tests/test_testing_md_taxonomy.py` | Taxonomy completeness gate — every `tests/test_*.py` must be named in `TESTING.md` (and every literal `tests/test_*.py` path there must exist). Mirrors the FILE_MANIFEST coverage gate; added at D27 after 89/144 files had drifted out of the taxonomy. |
 | `tests/test_decision_layer_wiring.py` | Launch-blocker invariant — the production wire `rank_candidates_by_ev` → `WheelTracker.consume_ranker_row` → `open_short_put(current_ev_dollars=…)` and `PortfolioContext` through `build_dossiers` so D16 / D17 hardening fires live for the ranker chain operators run (closes the prior-audit cross-cutting #4 gap). |
 | `tests/test_consume_ranker_row_anchor.py` | Real-input anchor for the production chain — pulls rows from a live `WheelRunner.rank_candidates_by_ev` against the Bloomberg CSVs and feeds them unmodified through `WheelTracker.consume_ranker_row`. Schema-drift inoculation between the ranker tail and `consume_ranker_row`'s key reads. Complements `test_decision_layer_wiring.py`'s hand-built `_ev_row` coverage. |
 | `tests/test_diagnostic_column_honesty.py` | Pin two diagnostic-column honesty contracts in the ranker output: `rank_covered_calls_by_ev`'s `expected_dividend` reads 0.0 when the EVEngine dividend gate would not fire (S28 Fix #1); `rank_candidates_by_ev`'s `skew_source` provenance reads `"unavailable"` when the skew block did not execute (S29 Fix #1). |
@@ -669,12 +750,15 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_explore_ticker.py` | `WheelRunner.explore_ticker` — single-ticker (delta × DTE) grid surfacing for short-put EV exploration via the production EV path. |
 | `tests/test_option_pricer.py` | Quant-correctness — Black-Scholes pricing/Greeks, put-call parity, vectorized pricing. |
 | `tests/test_binomial_tree.py` | Quant-correctness — CRR binomial pricing and cross-model validation. |
+| `tests/test_pricing_evaluate_invariants.py` | Quant audit round 2 (W63-W64): behaviour-pins the binomial tree's vega/theta/rho UNITS against analytic BSM (q=0 calls, American==European — a 100x unit slip would be invisible; only delta/gamma were validated) and EVEngine.evaluate finiteness at degenerate dte (<=0 → intrinsic + ev_per_day floor, no div-by-zero). Gamma left loose (tree-noise). §2 only asserted. |
 | `tests/test_monte_carlo.py` | Quant-correctness — block bootstrap, jump diffusion, Longstaff-Schwartz. |
 | `tests/test_advanced_quant.py` | Quant-correctness — third-order Greeks, BAW American pricing, multi-asset VaR. |
 | `tests/test_quant_fixtures.py` | Quant-correctness — textbook-value regression for pricing and volatility estimators. |
 | `tests/test_greeks_unit_invariants.py` | Launch-blocker invariant — the Greeks unit contract. |
 | `tests/test_realized_vol.py` | Quant-correctness — the realised-volatility estimators. |
+| `tests/test_forward_distribution_invariants.py` | Quant-layer test audit round 2 (W38-W43): behaviour-pins the forward-distribution cascade tier-SELECTION (exact tier per history depth, not membership), block-bootstrap/HAR-RV sampler determinism, the empirical min_samples/horizon/isfinite boundary, and the realized-vol non-positive/variance-floor guards (incomplete `_log` guard tracked as (E) #382 via xfail). The EV integrand's contracts; no §2 surface touched. |
 | `tests/test_tail_risk.py` | Quant-correctness — POT-GPD tail estimation. |
+| `tests/test_tail_copula_stress_invariants.py` | Quant audit round 2 (W44-W49): behaviour-pins CVaR>=VaR on the gpd xi<0 branch + the REAL copula simulators (existing copula tests monkeypatch the math away), `monte_carlo_stress` seed reproducibility + cvar95<=var95, and `run_scenario`'s expired-intrinsic branch. Risk-math feeding the EV heavy-tail penalty + reviewer R8; no §2 surface touched (t-copula df guard tracked as (E) #384). |
 | `tests/test_f4_tail_risk_gap.py` | F4 regression-watch from PR #178 / #184 — pins that today's forward-distribution + POT-GPD pipeline does NOT widen tail metrics for the COST 2022-04 / UNH 2024-11 19-24% realized drops. Synthetic two-regime tests isolate the 504-day-lookback-dilution mechanism (H1) and demonstrate the fix direction. Two `xfail(strict=False)` tests track the `heavy_tail` flag until the gap is fixed. |
 | `tests/test_f4_rv_widening.py` | F4 Fix B2 (post-rollback) — pins `realized_vol_ratio` / `realized_vol_widening_factor` / `realized_vol_widened_log_returns` in `engine/forward_distribution.py`. 18 tests: PIT-safety + edges on the ratio helper, calibration pins on the factor (threshold 1.30, slope 0.20, cap 1.15), sign-/mean-preserving invariants on the widened-returns transform, end-to-end ranker pins on COST/UNH/AAPL F4 cases. Documents the honest scope: rv-widening makes the engine ~2x more cautious on empirically-elevated-vol regimes but does NOT close named F4 cases (those are R10's job). See `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §11. |
 | `tests/test_portfolio_copula_coverage.py` | Quant-correctness — copula edge paths (PSD repair, Cholesky fallback, CVaR ladder). |
@@ -682,21 +766,26 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_stress_testing.py` | `StressTester` — scenarios, sensitivity, Greeks stress ladder. |
 | `tests/test_payoff_engine.py` | `PayoffEngine` — payoff diagrams, expected-move bands, strike recommendations. |
 | `tests/test_regime_detector.py` | The rule-based regime classifier. |
+| `tests/test_regime_hmm_invariants.py` | Quant audit round 2 (W50-W55): behaviour-pins the HMM regime-multiplier envelope sup/inf (0.2 crisis … 1.25 bull_quiet — existing test only checks a diffuse band), same-seed fit determinism (the cache + fingerprint depend on it), the unfit-guard RuntimeError, and the RegimeDetector degenerate realized-vol fallback. §2: the multiplier only scales a >=0 envelope. `fit`'s missing non-finite guard (returns NaN multiplier) tracked as (E) #386 via xfail. |
 | `tests/test_dealer_positioning.py` | Dealer positioning — analyzer math, the clamped multiplier, reviewer rule R6. |
+| `tests/test_dealer_positioning_invariants.py` | Quant audit round 2 (W60-W62): behaviour-pins the §2-critical `dealer_regime_multiplier` [0.70,1.05] clamp under ANY confidence (negative/>1/inf/nan) + the asymmetry (boost ≤+0.05, cut to 0.70), the `_classify_regime` boundaries (gex==0→neutral, sign branches, near-flip override), and `analyze()` flip-distance consistency. Asserts the clamp, never weakens it (wall-ordering needs a wall-fixture → deferred). |
 | `tests/test_dealer_multiplier_evengine_integration.py` | Dealer-multiplier integration boundaries — pins that `[0.70, 1.05]` survives `EVEngine.evaluate` to `EVResult.dealer_multiplier`, the asymmetric-by-design clamp at the EVResult level, the `regime_mult *= dealer_mult` compounding, and the §2 "scales ev_dollars only" claim as proportionality. Companion to PR #185's blocked-path test. |
 | `tests/test_extreme_numerics.py` | Numerical stability under near-expiry / near-zero-vol / deep-moneyness extremes. |
 | `tests/test_edge_cases.py` | Engine edge cases across pricing, costs and the tracker state machine. |
 | `tests/test_properties.py` | Hypothesis property-based invariants for pricing, RSI, IV-rank, Kelly. |
 | `tests/test_point_in_time.py` | Anti-lookahead — rolling features and labels use only past data. |
 | `tests/test_pit_leaks.py` | Launch-blocker invariant — news and credit-regime overlays honour a historical `as_of`. |
+| `tests/test_preflight_environment.py` | Preflight environment-invariant guard (automates CLAUDE.md §4 session-start checks): pins + logs that the default/`bloomberg` provider resolves to `MarketDataConnector` (silent provider selection is a recurring bug, §4.1) and that the bundled OHLCV reaches the pinned `EXPECTED_FRONTIER` — a loud, *diagnosing* failure ("OHLCV ends … expected ≥ … you may be on a STALE tree / wrong clone") that catches the stale-clone class (the "79-days-stale" premise + fingerprint false-positive from reading an older clone instead of main). Fast (date column only), deterministic (pinned frontier, not `today()`), self-skipping (skips on `SWE_DATA_PROVIDER=theta` or absent data). |
 | `tests/test_contracts.py` | `engine.contracts` interface-validation helpers. |
 | `tests/test_policy_config.py` | `TradingPolicyConfig` load/save/validate. |
 | `tests/test_observability.py` | `engine.observability` trace context, decision journal, audit logger. |
 | `tests/test_event_calendar.py` | `engine.event_calendar` queries, builder, ingestion manager. |
 | `tests/test_event_gate.py` | `EventGate` lockout, buffer windows, candidate filtering. |
+| `tests/test_reviewer_eventgate_invariants.py` | Quant audit round 2 (W65-W67): behaviour-pins the EXACT boundaries of the §2 downgrade-only reviewer rules — R5 inclusive `ev_dollars >= min_proceed_ev` (==threshold→proceed), R3 strict `diff > tol` (==tol→not-skip) + the `engine_spot>0` guard — and EventGate.is_blocked returning the EARLIEST in-window event across mixed wildcard-macro/ticker-specific. Asserts the §2 contract (downgrade-only), never weakens it. |
 | `tests/test_event_gate_back_buffer.py` | Pin S23 F1 fix — `MarketDataConnector.get_recent_earnings` complements `get_next_earnings`; the three rankers register past earnings on the gate so the symmetric back-buffer fires. |
 | `tests/test_earnings_drift.py` | `EarningsDriftAnalyzer` post-earnings drift statistics. |
 | `tests/test_signals.py` | The signal-generation framework and aggregator. |
+| `tests/test_skew_dynamics_invariants.py` | Quant audit round 2 (W56-W59): behaviour-pins the standalone skew-math in `skew_dynamics.py` — Nelson-Siegel fail-fast (iv_at/factor_loadings RuntimeError before fit) + degenerate-fit branches (n==1 level-only, n==0 → 0.20 sentinel), skew_momentum degenerate-history (empty→NaN, short→0 momentum), and the ivs_dislocation composite [-1,1] bound. (The live `skew_mult` clamp is dormant on Bloomberg + in the trio; not re-pinned.) |
 | `tests/test_strangle_timing.py` | The strangle-timing engine — regime classification, entry scoring, IV overlay. |
 | `tests/test_strangle_recommendation_gate.py` | The strangle phase/confidence downgrade-only recommendation gate. |
 | `tests/test_data_connector.py` | `MarketDataConnector` query methods against synthetic CSVs. |
@@ -704,6 +793,8 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_theta_connector_v3.py` | HTTP-mocked `ThetaConnector` v3 endpoints and the per-endpoint failure contract. |
 | `tests/test_theta_connector_coverage.py` | HTTP-mocked `ThetaConnector` edge-branch coverage. |
 | `tests/test_data_integration.py` | `engine.data_integration` Bloomberg calendar/rate loaders. |
+| `tests/test_data_integrity_bloomberg.py` | Phase-2(A) database-integrity contracts on the REAL bundled `data/bloomberg/*.csv` (distinct from the synthetic-fixture `test_data_connector.py`): per-file schema, OHLC positivity + the load-bearing rename invariant (0 viol/1.01M), vol_iv unit-consistency + sane band + zero-skew (W1/W8/W9), dividends `>= -1e-9` (W11), date hygiene + no-future bars, cross-file referential integrity with the 2026-03-23 seam membership split encoded structurally (W4), seam continuity + BK→BNY re-ticker, treasury band allowing brief negatives (W10), and the fast-CI fingerprint-completeness guard `set(connector_data_sha256().keys()) == set(_FILES)` (durable W3). `HAS_BLOOMBERG_DATA` skipif; 1 `xfail(strict)` for the 4 NaN-price rows (#357). |
+| `tests/test_data_to_engine.py` | Phase-2(B) data→engine-output tests routed through `WheelRunner.rank_candidates_by_ev` / `rank_covered_calls_by_ev` (no §2 bypass), pinned to the frontier `2026-06-04`: output sanity (finite ev_dollars/ev_raw R1a, premium>0, decimal IV band, prob_profit∈[0,1], OTM strike<spot, Wilson-CI coherence), cascade-tier correctness (AAPL=empirical_non_overlapping), no-silent-drops accounting, thin/garbage graceful degradation, determinism, the dividends→CC ex-div mechanism (DIS, R1), a corrupt/truncated negative control via an injected fixture connector, and the 5-ticker smoke. `xfail(strict)` for W2 dateless-lookahead (#354) + the 11 W6 blue-chip backfills (#355). Full-universe produced/dropped pin behind `@pytest.mark.slow`. |
 | `tests/test_bloomberg_loader.py` | Bloomberg CSV ingestion and the data pipeline. |
 | `tests/test_data_pipeline.py` | The data-engineering pipeline — feature store, quality, observability. |
 | `tests/test_data_quality.py` | `data.quality` — the options-consistency gate regression. |
@@ -725,6 +816,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_portfolio_tracker.py` | `PortfolioTracker` transactions, holdings, returns, snapshots. |
 | `tests/test_transaction_costs.py` | `engine.transaction_costs` coverage — slippage tiers, OI penalties, sqrt-impact participation, round-trip cost composition. |
 | `tests/test_tv_api.py` | The TradingView bridge HTTP endpoints in `engine_api.py`. |
+| `tests/test_engine_api_hardening.py` | Error-path + security hardening for the `engine_api.py` network surface — loopback-bind/CORS helpers (R3), malformed-param → 400 (R18), generic-500 + correlation-id no-leak (R19), unknown-ticker → 404 on payoff/expected_move/strikes (R20), 4xx instead of 200 on no-data bodies (R21), unknown-path/oversized-body/invalid-JSON routing, and the R27 §2-adjacent negative/non-finite-EV verdict-LABEL alignment (`blocked`). |
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
 | `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |
@@ -745,6 +837,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_dashboard.py` | The legacy `QuantDashboard` CLI surface. |
 | `tests/test_infrastructure.py` | Repo-level infrastructure components — env validation, benchmarks, health, SLO. |
 | `tests/test_iv_surface_history_puller.py` | Regression for the IV-surface-history puller. |
+| `tests/test_option_history_puller.py` | Pins the option-history puller's correctness fixes: the 2016-01-01 history-floor clamp (below-floor start → empty whole range), the `--lookback-days` window, and atomic partition writes (no partial file a resume skips as "done"). |
 | `tests/test_theta_indices_puller.py` | Regression for the Theta indices-history puller. |
 
 ## `tradingview/` — Pine indicator + analyst-workspace assets
@@ -766,12 +859,12 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | File | Purpose |
 |---|---|
 | `utils/__init__.py` | Re-exports the validation, dates, logging and metadata helpers. |
-| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. |
-| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. |
-| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. |
-| `utils/logging_config.py` | Logging setup helpers. |
-| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. |
-| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. |
+| `utils/data_validation.py` | Option/OHLCV validation, IV normalization, liquidity filtering. Live — consumed by `data/bloomberg_loader.py`. |
+| `utils/dates.py` | Trading-day calendar, date normalization, DTE conversions. Dormant — no importers. |
+| `utils/health.py` | `HealthChecker` — Kubernetes-style liveness/readiness checks. Test-only consumer (`tests/test_infrastructure.py`). |
+| `utils/logging_config.py` | Logging setup helpers. Dormant — imported only by `utils/health.py`. |
+| `utils/metadata.py` | Git-fingerprint and metadata-sidecar helpers for reproducibility. Dormant — no importers. |
+| `utils/security.py` | Audit logging, input validation, secrets management, rate limiting. Dormant — no importers. |
 
 ## Untriaged additions (auto-appended by `scripts/sync_manifest.py`)
 
@@ -782,3 +875,37 @@ Rows below were added automatically because the file was tracked but absent from
 | `docs/HEAVY_NEWS_CALIBRATION_REVERIFY.md` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
 | `docs/verification_artifacts/heavy_news_calibration_2026-05-30_raw_output.txt` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
 | `docs/verification_artifacts/news_calibration_driver.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
+| `docs/BRAIN_AUDIT_2026-06-11.md` | Overnight brain-audit campaign report (2026-06-11): 8-dimension probe-backed soundness review of the decision logic on 7f9dc10 — verdict, 4 new MEDIUMs, calibration truth table, full-suite 3,126-green evidence. Probe sidecars under docs/verification_artifacts/brain_audit_2026-06-11/. |
+| `docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md` | Heavy-verify (E)-fix validation register (2026-06-09/10): 26-agent verification of #382/#384/#386, BIIB real-data determinism proof, 17-finding sweep, full backtest A/B PASS (580/580 leaves) + snapshot-drift evidence (issue #402). Payload sidecars under docs/verification_artifacts/efix_ab_2026-06-10/. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/main_s27_ivpit_24t_100k.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/main_s32_friction_24t_1m.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/main_s34_universe_100t_1m.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/main_s35_oos_24t_100k.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/integ_s27_ivpit_24t_100k.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/integ_s32_friction_24t_1m.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/integ_s34_universe_100t_1m.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/integ_s35_oos_24t_100k.json` | Raw build_payload(run()) backtest payload for the (E)-fix A/B (baseline origin/main@1985547 arm `main_*`, integration +#382/#384/#386 arm `integ_*`). Evidence for docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md §9 + issue #402 drift. |
+| `docs/verification_artifacts/efix_ab_2026-06-10/efix_compare.py` | Stdlib A/B comparator: strict NaN-aware metric-leaf diff of the two arms + tolerance-banded drift check vs the committed snapshots. Re-runnable against the sibling payloads. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d5_costs_probe.py` | Brain-audit probe — cost-model parameter extraction + cost-as-%-of-premium computation (dim 5). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d6_probe1.py` | Brain-audit probe — §2 candidate-path enumeration — every ranker/API emission routes through evaluate (dim 6). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d6_probe2.py` | Brain-audit probe — D16 token-binding gap reproduction — cross-ticker consume in strict mode (dim 6 MEDIUM). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d8_probe1_connector.py` | Brain-audit probe — live IV-sentinel-gate verification on served connector reads (dim 8). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d8_probe2_pit_fundamentals.py` | Brain-audit probe — #354 dateless-fundamentals lookahead live confirmation on the evaluate path (dim 8). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/d8_probe3_stale_leaver.py` | Brain-audit probe — as_of=None staleness-gate bypass reproduction — CTRA/LW rank on stale spots (dim 8 MEDIUM). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/dim4_msft_rv.py` | Brain-audit probe — MSFT realized-vol / widening spot probe (dim 4). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/dim4_ranker_probe.py` | Brain-audit probe — 20-ticker live-rank overlay-envelope probe — HMM/widening/dealer bounds + label mix (dim 4). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/dim4_unit_probe.py` | Brain-audit probe — unit-level GPD/HMM/dealer clamp + degenerate-input checks (dim 4). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/honesty_fields_smoke.py` | Brain-audit probe — Wilson-CI honesty stack live smoke on ranker output (dim 7). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p1_bsm_textbook.py` | Brain-audit probe — BSM put-call parity / Hull closed-form / Greek finite-difference cross-checks (dim 3). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p1_cascade_moments.py` | Brain-audit probe — forward-dist tier selection + distribution-moment sanity at the data frontier (dim 2). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p1_ev_hand_replication.py` | Brain-audit probe — EV integral hand replication — 21 EVResult fields match to <5e-9 incl. crash path (dim 1). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p2_iv_units_realism.py` | Brain-audit probe — IV percent->decimal contract proof + premium realism reconstruction (dim 3). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p2_multipliers_lockout_degenerates.py` | Brain-audit probe — multiplier order/clamps/anomaly tags + event lockout + degenerate inputs (dim 1). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p2_pit_cascade_jitter.py` | Brain-audit probe — PIT differential byte-identity probes + NOS re-phasing jitter measurement (dim 2). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p3_baw_sanity.py` | Brain-audit probe — BAW early-exercise premium sanity grid vs CRR binomial (dim 3). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p3_heavy_tail_fallback.py` | Brain-audit probe — GPD heavy-tail flag suppression on bounded short-put P&L + lognormal fallback behavior (dim 1/4). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p4_production_path.py` | Brain-audit probe — production ranker-path probe — ev_dollars == ev_raw x regime_mult per row, dealer neutral (dim 1). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/p4_smile_bias.py` | Brain-audit probe — zero-skew bias quantification — short-put conservative vs covered-call optimistic (dim 3). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/scale_corruption_check.py` | Brain-audit probe — NFLX/BKNG/CVNA OHLCV scale-corruption live check (dim 7/8). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/vnv_rederive.py` | Brain-audit probe — V&V calibration artifact re-derivation spot-check (dim 7). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |
+| `docs/verification_artifacts/brain_audit_2026-06-11/wilson_rederive.py` | Brain-audit probe — Wilson-CI committed-artifact re-derivation (dim 7). Executable evidence for docs/BRAIN_AUDIT_2026-06-11.md. |

@@ -123,7 +123,12 @@ def empirical_forward_log_returns(
     if n <= horizon_days:
         return np.asarray([], dtype=float)
 
-    # Forward log-returns at every trading-day index
+    # Forward log-returns at every trading-day index. np.log is DELIBERATELY
+    # unguarded: NaN closes are removed by the dropna above; a zero/negative
+    # close yields non-finite returns that the isfinite filter below removes
+    # (pinned: test_forward_distribution_invariants.py::TestEmpiricalBoundary).
+    # Do NOT clamp/ffill/eps-floor here — it changes shipped EV (the dropna
+    # splice sets the non-overlapping sampling phase).
     log_prices = np.log(prices)
     log_rets = log_prices[horizon_days:] - log_prices[:-horizon_days]
 
@@ -387,6 +392,48 @@ def best_available_forward_distribution(
 
 
 # ----------------------------------------------------------------------
+# Sampling-honesty predicate for prob_profit's Wilson CI
+# ----------------------------------------------------------------------
+#
+# prob_profit is a k/N binomial frequency over the forward-scenario set, and
+# ev_engine surfaces a Wilson 95% CI for it (engine.ev_engine._wilson_score_interval).
+# A Wilson binomial interval is only an honest *sampling* spread when N is a
+# count of INDEPENDENT Bernoulli trials. That holds for exactly one tier:
+#
+#   * empirical_non_overlapping — disjoint, ~IID forward windows (N ~ 30-35).
+#     The Wilson CI is honest here.
+#
+# It does NOT hold for the other tiers, all of which report an ``n_scenarios``
+# that is not an independent-trial count, so a Wilson CI over it is deceptively
+# TIGHT (false precision — the opposite of the honesty goal):
+#
+#   * empirical_overlapping — autocorrelated windows; effective N << count.
+#   * block_bootstrap / har_rv — large synthetic resample counts (n ~ 5000).
+#   * lognormal_fallback — parametric draws (n ~ 20000; ev_engine's own label).
+#   * none — no scenarios evaluated.
+#
+# Callers (the wheel_runner rankers) gate CI emission on this predicate so the
+# only interval a trader ever sees is a genuine sampling spread. This is the
+# Python source of truth mirrored by the dashboard's ``samplingCiHonest``
+# (dashboard/src/lib/cockpit-trust.ts).
+_IID_FORWARD_SOURCES: frozenset[str] = frozenset({"empirical_non_overlapping"})
+
+
+def is_iid_forward_source(source: str | None) -> bool:
+    """True iff ``source`` is a forward tier whose ``n_scenarios`` is a count
+    of INDEPENDENT trials — i.e. prob_profit's Wilson 95% CI is statistically
+    honest for it.
+
+    Only ``"empirical_non_overlapping"`` qualifies (see ``_IID_FORWARD_SOURCES``).
+    Every other tier label (``empirical_overlapping``, ``block_bootstrap``,
+    ``har_rv``, ``lognormal_fallback``, ``none``, or ``None``) reports an N that
+    is not an independent-trial count, so a binomial CI over it is false
+    precision and must be suppressed by the caller.
+    """
+    return source in _IID_FORWARD_SOURCES
+
+
+# ----------------------------------------------------------------------
 # 5. F4 follow-up — realized-vol-ratio widening
 # ----------------------------------------------------------------------
 #
@@ -441,6 +488,8 @@ def realized_vol_ratio(
         - OHLCV is empty
         - Less than ``long_window + 1`` log-returns available after PIT filter
         - Long-window vol is ~zero (degenerate constant-price history)
+        - The ratio is non-finite (a non-positive close inside the window
+          poisons the log-returns — absent evidence never widens)
     """
     if ohlcv is None or ohlcv.empty or price_col not in ohlcv.columns:
         return 1.0
@@ -460,7 +509,17 @@ def realized_vol_ratio(
     rv_long = float(np.std(log_rets[-long_window:]))
     if rv_long <= 1e-9:
         return 1.0
-    return rv_short / rv_long
+    ratio = rv_short / rv_long
+    if not np.isfinite(ratio):
+        # A non-positive close (corrupt input — the data layer pins these
+        # away, see test_ohlcv_prices_positive) survives the dropna above and
+        # poisons np.log -> non-finite log-returns -> nan std -> nan ratio.
+        # A nan returned here would skip every downstream threshold guard
+        # (nan comparisons are False) and silently hit max_widening via
+        # min(max_widening, nan). Same no-fire 1.0 as the other degenerate
+        # routes: absent evidence never widens.
+        return 1.0
+    return ratio
 
 
 def realized_vol_widening_factor(

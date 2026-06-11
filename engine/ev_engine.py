@@ -160,6 +160,11 @@ class EVResult:
     # Pareto fit to losses beyond the 95th percentile; ``tail_xi`` is
     # the fitted shape parameter (>0.3 ⇒ heavy tail); ``heavy_tail``
     # is the convenience flag consumed by the runner/ranker.
+    # NOTE: the EVT fit only runs at ``n_scenarios >= 200``; on the
+    # empirical non-overlapping path (``n_scenarios ~ 30-35``) it never
+    # fires, so ``heavy_tail=False`` / NaN ``tail_xi`` mean "not
+    # evaluated", NOT "thin tail confirmed" — read them together with
+    # ``n_scenarios``.
     cvar_99_evt: float = float("nan")
     tail_xi: float = float("nan")
     heavy_tail: bool = False
@@ -172,6 +177,16 @@ class EVResult:
     pnl_p25: float = float("nan")
     pnl_p50: float = float("nan")
     pnl_p75: float = float("nan")
+    # Small-sample honesty for prob_profit (2026-06-01). prob_profit is a
+    # k/N binomial frequency over the forward-scenario set; ``n_scenarios``
+    # is that N (often ~30-35 on the empirical non-overlapping path) and
+    # ``(prob_profit_ci_low, prob_profit_ci_high)`` is its Wilson 95% CI.
+    # NaN CI / ``n_scenarios=0`` on the event-lockout short-circuit (no
+    # scenarios evaluated). ``prob_profit`` itself is unchanged — these
+    # annotate the estimate's PRECISION, not a recalibration of its value.
+    n_scenarios: int = 0
+    prob_profit_ci_low: float = float("nan")
+    prob_profit_ci_high: float = float("nan")
     # Event lockout gate (quant upgrade 2026-04-14). When non-empty
     # the candidate was blocked by a pre-EV event gate and the
     # ``ev_dollars`` field was zeroed to prevent ranking.
@@ -188,6 +203,29 @@ class EVResult:
     nearest_call_wall_strike: float = float("nan")
     pinning_zones: list = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+
+
+def _wilson_score_interval(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score confidence interval for a binomial proportion ``k / n``.
+
+    Returns ``(low, high)`` clamped to ``[0, 1]``; ``(nan, nan)`` when
+    ``n <= 0``. Used to surface the small-sample uncertainty of
+    :attr:`EVResult.prob_profit`, which is a ``k / N`` frequency over the
+    forward-scenario set (often ``N ~ 30-35`` on the empirical
+    non-overlapping path). The Wilson interval is chosen over the normal
+    (Wald) approximation because it stays inside ``[0, 1]`` and is
+    well-behaved at small ``N`` and the extreme proportions (``p`` near 0/1)
+    the engine routinely sees. ``z=1.96`` ⇒ a 95% interval. This is honesty
+    about the estimate's PRECISION — it never changes ``prob_profit``.
+    """
+    if n <= 0:
+        return float("nan"), float("nan")
+    p = k / n
+    z2 = z * z
+    denom = 1.0 + z2 / n
+    centre = (p + z2 / (2.0 * n)) / denom
+    half = (z * np.sqrt(p * (1.0 - p) / n + z2 / (4.0 * n * n))) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
 
 
 class EVEngine:
@@ -391,6 +429,15 @@ class EVEngine:
             skew_pnl = 0.0
 
         prob_profit = float(np.mean(pnls > 0))
+        # Small-sample honesty: prob_profit is a k/N binomial frequency over
+        # the forward-scenario set (often N ~ 30-35 on the empirical
+        # non-overlapping path). Surface N + a Wilson 95% CI so a 4-dp point
+        # estimate is not read as exact precision (the interval is ~20pp wide
+        # at N=35). Annotates uncertainty; does NOT alter prob_profit.
+        n_scenarios = int(len(pnls))
+        prob_profit_ci_low, prob_profit_ci_high = _wilson_score_interval(
+            int(np.count_nonzero(pnls > 0)), n_scenarios
+        )
 
         # CVaR_5 (expected shortfall of worst 5%)
         if len(pnls) >= 20:
@@ -541,6 +588,9 @@ class EVEngine:
             ev_dollars=ev_dollars,
             ev_per_day=ev_dollars / expected_days_held,
             prob_profit=prob_profit,
+            n_scenarios=n_scenarios,
+            prob_profit_ci_low=prob_profit_ci_low,
+            prob_profit_ci_high=prob_profit_ci_high,
             prob_assignment=prob_itm,
             prob_touch=prob_touch,
             cvar_5=cvar_5,

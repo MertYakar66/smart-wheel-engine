@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-06-05T21:36:00Z",
+  "base_currency": "USD",
+  "inception_capital": 100000.0,
+  "benchmark": "SPY",
+  "source": "fixture",
+  "note": "Accumulated point-in-time equity snapshots (design-doc §6.4/§6.5 'portfolio_snapshots accumulates -> equity curve'). One row per month-end; `port` = portfolio net-liq, `spy` = same-dollars-in-SPY benchmark, `premium` = option premium income that month. Period returns are computed as snapshot deltas over this series (§6.4: 'period returns from snapshot deltas', not a since-inception TWR). `inception_capital` anchors the All-time return; YTD anchors to the first 2026 row.",
+  "points": [
+    {"label": "Jun '25", "date": "2025-06-30", "port": 128000.0, "spy": 128000.0, "premium": 7200.0},
+    {"label": "Jul",     "date": "2025-07-31", "port": 131500.0, "spy": 130200.0, "premium": 9100.0},
+    {"label": "Aug",     "date": "2025-08-29", "port": 129800.0, "spy": 129000.0, "premium": 6800.0},
+    {"label": "Sep",     "date": "2025-09-30", "port": 134200.0, "spy": 132500.0, "premium": 8400.0},
+    {"label": "Oct",     "date": "2025-10-31", "port": 139000.0, "spy": 135800.0, "premium": 10250.0},
+    {"label": "Nov",     "date": "2025-11-28", "port": 143600.0, "spy": 138000.0, "premium": 9700.0},
+    {"label": "Dec",     "date": "2025-12-31", "port": 148900.0, "spy": 141200.0, "premium": 11200.0},
+    {"label": "Jan '26", "date": "2026-01-30", "port": 153100.0, "spy": 144000.0, "premium": 8900.0},
+    {"label": "Feb",     "date": "2026-02-27", "port": 156200.0, "spy": 146800.0, "premium": 12600.0},
+    {"label": "Mar",     "date": "2026-03-31", "port": 151800.0, "spy": 148100.0, "premium": 10800.0},
+    {"label": "Apr",     "date": "2026-04-30", "port": 149000.0, "spy": 149500.0, "premium": 9400.0},
+    {"label": "May",     "date": "2026-05-29", "port": 147200.0, "spy": 151000.0, "premium": 13100.0},
+    {"label": "Jun",     "date": "2026-06-05", "port": 144507.0, "spy": 152300.0, "premium": 12400.0}
+  ]
+}

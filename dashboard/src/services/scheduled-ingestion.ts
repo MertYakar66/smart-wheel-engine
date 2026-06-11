@@ -7,6 +7,7 @@ import { extractEntitiesForNewStories } from "./entity-extraction";
 import { clusterStories } from "./story-clustering";
 import { analyzeImpactForNewStories } from "./impact-analysis";
 import { matchStoriesToCategories } from "./news-categories";
+import { raiseNewsAlerts } from "./news-alerts";
 
 // ─── Scheduled Ingestion Service ──────────────────────────────────────
 // Runs the full pipeline: fetch → extract → cluster → impact → categorize
@@ -27,6 +28,7 @@ export interface IngestionResult {
   impactAnalyzed: number;
   storiesClustered: number;
   categoriesMatched: number;
+  alertsRaised: number;
   durationMs: number;
   status: "completed" | "failed";
   error?: string;
@@ -63,6 +65,10 @@ export async function runIngestionPipeline(
     // Step 5: Match stories to news categories
     const categoriesMatched = await matchStoriesToCategories();
 
+    // Step 6: Raise news alerts for watchlist symbols mentioned by stories
+    // created in this run (validated ticker entities only).
+    const alertsRaised = await raiseNewsAlerts(startedAt);
+
     const durationMs = Date.now() - startMs;
 
     // Update run record
@@ -86,6 +92,7 @@ export async function runIngestionPipeline(
       impactAnalyzed,
       storiesClustered,
       categoriesMatched,
+      alertsRaised,
       durationMs,
       status: "completed",
     };
@@ -109,6 +116,7 @@ export async function runIngestionPipeline(
       impactAnalyzed: 0,
       storiesClustered: 0,
       categoriesMatched: 0,
+      alertsRaised: 0,
       durationMs: Date.now() - startMs,
       status: "failed",
       error: errMsg,

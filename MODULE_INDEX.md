@@ -30,13 +30,11 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | File | Purpose | Status | Role |
 |---|---|---|---|
-| `engine_api.py` | HTTP API on `:8787` (32 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
+| `engine_api.py` | HTTP API on `:8787` (34 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
-| `audit.py` | Smoke-test client that hits `localhost:8787` and runs domain-grouped checks; used historically by audit-i through audit-viii. | live | infra |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
 | `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
-| `pull_branch.bat` / `pull.bat` / `fetch_data.bat` | Windows one-click launchers. | live | infra |
 
 ## `engine/` — quant + decision layer
 
@@ -46,7 +44,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `ev_engine.py` | `EVEngine.evaluate`. THE ranker. Runs event lockout → forward distribution → cost model → regime + dealer multipliers → returns `EVResult`. (**authority**) |
 | `wheel_runner.py` | `WheelRunner.rank_candidates_by_ev`. The one public route into the EV path. Provider selection (`SWE_DATA_PROVIDER`) lives here. (**runner**) |
-| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R10; R7-R10 are the D17 portfolio soft-warns). Reviewers downgrade only. (**reviewer**) |
+| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R11; R7-R10 are the D17 portfolio soft-warns, R11 is the elevated-vol top-bin size-down). Reviewers downgrade only. (**reviewer**) |
 
 ### EV-path participants
 
@@ -75,8 +73,8 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
 | `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
-| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). |
-| `signals.py` | Composite signal aggregator (legacy framework — `IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). |
+| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). **Dormant** — re-exported but no live consumer (`engine_api` / `wheel_runner` / `tv_signals` do not call it). |
+| `signals.py` | Composite signal aggregator (`IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). **Dormant** — re-exported by `engine/__init__.py` but zero production callers (tests, the frozen `src/` scaffold, and the smoke harness only); wire-up requires an explicit decision. |
 | `news_sentiment.py` | Operator-facing sentiment reader. **Severed from the EV path by D18** — `sentiment_multiplier()` returns constant 1.0. `get_ticker_sentiment` is preserved so the dashboard / row dict / morning brief still surface the underlying score for transparency, but the engine ignores it. |
 
 ### Data layer
@@ -105,6 +103,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `risk_manager.py` | Position sizing (Kelly, fractional Kelly), sector exposure manager, hierarchical risk parity, portfolio Greeks. |
 | `stress_testing.py` | Historical + hypothetical scenarios; `StressTester`, `StressTestReport`. |
+| `portfolio_risk_gates.py` | D17 pure-function gate library — `check_sector_cap`, `check_single_name_cap`, `check_portfolio_delta`, `check_kelly_size`, `check_var`, `check_stress_scenario`, `check_dealer_regime`, `PortfolioContext`, locked defaults. Consumed by the tracker hard-blocks and the R7–R10 dossier soft-warns (see `DECISIONS.md` D17/D22). (**reviewer input**) |
 
 ### Trackers
 
@@ -112,8 +111,9 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `wheel_tracker.py` | Position-lifecycle bookkeeping: `WheelPosition`, `PositionState`. Audit-VIII fixed P&L double-count and orthogonalised the three ledgers (realized_pnl, transaction_costs, stock_basis). |
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
-| `portfolio_intelligence.py` | SEC / 13F portfolio context. |
+| `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
+| `ibkr_portfolio_adapter.py` | D24 read-only IBKR snapshot → engine types (`PortfolioContext`, held positions, USD NAV) + the D26 `/api/portfolio/*` payload builders. Outside the CI-gated trio; imports nothing from it. (**tracker / input**) |
 
 ### Infra / config / display
 
@@ -122,34 +122,32 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
 | `observability.py` | Structured logging. |
-| `dependency_check.py` | Bootstrap utility. |
+| `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
 | `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |
 
 ### `engine/__init__.py` re-exports
 
-Currently exports the *legacy* quant layer (option_pricer, monte_carlo,
-risk_manager, regime_detector, signals, stress_testing, transaction_costs,
-volatility_surface, wheel_tracker, portfolio_tracker, etc.) but **does
-not re-export the modern decision-layer entry points**.
-
-To use the authoritative layer, import via full submodule paths:
+Exports the legacy quant layer (option_pricer, monte_carlo,
+risk_manager, regime_detector, signals, stress_testing,
+transaction_costs, volatility_surface, wheel_tracker,
+portfolio_tracker, etc.) **plus, since ROADMAP A3, the seven modern
+decision-layer symbols**: `EVEngine`, `EVResult`, `ShortOptionTrade`,
+`WheelRunner`, `EnginePhaseReviewer`, `CandidateDossier`,
+`MarketStructure`. Both import styles work:
 
 ```python
-from engine.ev_engine import EVEngine
-from engine.wheel_runner import WheelRunner
-from engine.candidate_dossier import EnginePhaseReviewer
-from engine.dealer_positioning import MarketStructure
-from engine.tradingview_bridge import (
-    FilesystemChartProvider,
-    PlaywrightChartProvider,
-    ChainedChartProvider,
+from engine import EVEngine, WheelRunner            # package re-export (A3)
+from engine.ev_engine import EVEngine               # full submodule path
+from engine.tradingview_bridge import (             # chart providers are
+    FilesystemChartProvider,                        # NOT package-level —
+    PlaywrightChartProvider,                        # import from the
+    ChainedChartProvider,                           # submodule
 )
 ```
 
-Recommendation: extend the package `__all__` to include these modern
-symbols. Held back from this review pass because touching
-`engine/__init__.py` ripples through every import site.
+Existing code predominantly uses the full submodule paths; both are
+sanctioned.
 
 ---
 
@@ -188,11 +186,12 @@ Key scripts:
 | `pull_all.py` | Orchestrates every `pull_*.py` step; respects `--skip` for tier-blocked endpoints. |
 | `backfill_features.py` | Rebuilds the `data/features/**` shards (1.2 GB total; AAPL is the in-git sample). |
 | `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `CLAUDE.md`'s fresh-session bring-up. |
-| `feature_smoke_test.py` | 127 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
+| `feature_smoke_test.py` | 108 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
 | `theta_backfill.py` | Tier-aware bulk backfill with circuit breakers. |
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
 | `probe_theta_capabilities.py` | Regenerates `data_processed/theta_capabilities.json`. |
 | `quant_benchmark_gate.py` | Gate run for benchmark suite. |
+| `audit_api_smoke.py` | Smoke-test client that hits a running `engine_api.py` (`SWE_API_PORT`, default `:8787`) and runs domain-grouped checks; used historically by audit-i through audit-viii (was repo-root `audit.py`). |
 | `validate_environment.py` | Local environment sanity (wired into CI). |
 | `check_manifest_coverage.py` | CI guard — fails the build if any tracked file is absent from `FILE_MANIFEST.md` or vice versa (the gate behind `DECISIONS.md` D14's tiered layout). |
 | `setup-terminal.{sh,ps1}` | Parallel-session env loader (bash / PowerShell) — sources per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, and three more vars. See `DECISIONS.md` D15. |
@@ -230,13 +229,14 @@ updated. See `PROJECT_STATE.md` §5.
 | `news_pipeline/` | Browser-agent news pipeline that drives `morning_run.py`: scrapers, browser_agents, local_llm, orchestrator, publisher, recovery, security, slo. | live (operational), but not on the EV path |
 | `local_agent/` | Local AI agent + Streamlit UI; agents, browser, mcp_server, memory, ui. | experimental |
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
-| `backtests/` | `simulator.py`, `walk_forward.py`. | research |
+| `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
+| `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |
 | `docs/` | The documentation set — operational, reference and design-contract docs. See `FILE_MANIFEST.md` for the full per-file listing. | live |
-| `config/` | `settings.py`. | live |
-| `utils/` | `data_validation.py`, `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py`. | live |
+| `config/` | `settings.py` — dormant config dataclass layer (zero importers; the live runtime config is `engine/policy_config.py`). | dormant |
+| `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
 | `src/` | **Phantom scaffold.** Empty `execution/`, `models/`, `risk/` packages; partial `data/` and `features/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
 | `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |

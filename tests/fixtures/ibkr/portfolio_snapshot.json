@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-06-05T21:36:00Z",
+  "base_currency": "USD",
+  "fx_rates": { "USD": 1.0, "CAD": 0.73 },
+  "source": "fixture",
+  "note": "Point-in-time read-only IBKR book (D24 schema §2.2). Numbers reproduce the 2026-06-05 live probe (design-doc Appendix A) and dashboard mock.ts so the live viewer matches the approved aesthetics. Per-position unrealized_pnl is stored in each row's native `currency`; account.unrealized_pnl is the IBKR BASE (USD) account-level figure and may differ from a naive position sum by FX + mark timing.",
+  "account": {
+    "net_liquidation": 144507.08,
+    "total_cash": 105122.78,
+    "available_funds": -9256.99,
+    "excess_liquidity": 4746.71,
+    "maintenance_margin": 184250.73,
+    "buying_power": 0.0,
+    "unrealized_pnl": -37014.0,
+    "realized_pnl_ytd": 8900.0,
+    "day_change_usd": -1240.0,
+    "day_change_pct": -0.0085,
+    "week_change_usd": -2790.0,
+    "week_change_pct": -0.019
+  },
+  "positions": [
+    {"symbol": "CLS",  "name": "Celestica",                "sec_type": "OPT", "right": "P", "strike": 425.0,  "expiry": "2026-06-12", "qty": -5,  "mark": 53.0,   "avg_price": 4.4,    "unrealized_pnl": -24300.0, "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+    {"symbol": "MU",   "name": "Micron",                   "sec_type": "OPT", "right": "P", "strike": 970.0,  "expiry": "2026-06-12", "qty": -1,  "mark": 116.62, "avg_price": 35.69,  "unrealized_pnl": -8093.0,  "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+    {"symbol": "AMD",  "name": "Advanced Micro Devices",   "sec_type": "OPT", "right": "P", "strike": 500.0,  "expiry": "2026-06-19", "qty": -1,  "mark": 31.73,  "avg_price": 3.11,   "unrealized_pnl": -2862.0,  "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+    {"symbol": "MRVL", "name": "Marvell Technology",       "sec_type": "OPT", "right": "P", "strike": 297.5,  "expiry": "2026-06-19", "qty": -1,  "mark": 48.62,  "avg_price": 35.32,  "unrealized_pnl": -1330.0,  "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+
+    {"symbol": "TSM",  "name": "Taiwan Semi (ADR)",        "sec_type": "STK",              "qty": 100, "mark": 412.5,  "avg_price": 426.4,  "unrealized_pnl": -1390.0,  "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+    {"symbol": "TSM",  "name": "Taiwan Semi (ADR)",        "sec_type": "OPT", "right": "C", "strike": 430.0,  "expiry": "2026-06-19", "qty": -1,  "mark": 5.0,    "avg_price": 5.0,    "unrealized_pnl": 0.0,      "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+
+    {"symbol": "NVDA", "name": "NVIDIA",                   "sec_type": "STK",              "qty": 100, "mark": 205.39, "avg_price": 212.18, "unrealized_pnl": -679.0,   "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+    {"symbol": "NVDA", "name": "NVIDIA",                   "sec_type": "OPT", "right": "C", "strike": 220.0,  "expiry": "2026-06-19", "qty": -1,  "mark": 3.0,    "avg_price": 3.0,    "unrealized_pnl": 0.0,      "currency": "USD", "sector": "Semiconductors",   "in_universe": true},
+
+    {"symbol": "WMT",  "name": "Walmart",                  "sec_type": "STK",              "qty": 100, "mark": 118.3,  "avg_price": 120.45, "unrealized_pnl": -215.0,   "currency": "USD", "sector": "Consumer Staples", "in_universe": true},
+    {"symbol": "WMT",  "name": "Walmart",                  "sec_type": "OPT", "right": "C", "strike": 125.0,  "expiry": "2026-06-19", "qty": -1,  "mark": 1.5,    "avg_price": 1.5,    "unrealized_pnl": 0.0,      "currency": "USD", "sector": "Consumer Staples", "in_universe": true},
+
+    {"symbol": "ENB",  "name": "Enbridge",                 "sec_type": "STK",              "qty": 100, "mark": 77.18,  "avg_price": 77.45,  "unrealized_pnl": -27.4,    "currency": "CAD", "sector": "Energy",           "in_universe": false},
+    {"symbol": "ENB",  "name": "Enbridge",                 "sec_type": "OPT", "right": "C", "strike": 80.0,   "expiry": "2026-06-19", "qty": -1,  "mark": 1.0,    "avg_price": 1.0,    "unrealized_pnl": 0.0,      "currency": "CAD", "sector": "Energy",           "in_universe": false},
+
+    {"symbol": "CNQ",  "name": "Canadian Natural Res.",    "sec_type": "STK",              "qty": 100, "mark": 62.74,  "avg_price": 64.69,  "unrealized_pnl": -194.5,   "currency": "CAD", "sector": "Energy",           "in_universe": false}
+  ]
+}

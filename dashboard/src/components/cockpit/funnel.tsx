@@ -1,11 +1,16 @@
 // The funnel — makes the silent filtering visible: how many names the engine
-// started from, how many it scanned, how many it ranked, how many you see.
+// started from, how many it scanned, how many came back.
 //
-// HONESTY NOTE: the engine computes a per-gate drop breakdown
-// (`frame.attrs["drops_summary"]`: chain-quality / event-gate / ev-threshold)
-// but `/api/candidates` does NOT serialize `.attrs`, so the per-gate reasons
-// are not available to the dashboard. We show the stages the API DOES expose
-// and flag the missing breakdown as a follow-up rather than inventing numbers.
+// HONESTY NOTES:
+//   * `/api/candidates` counts the ALREADY-top-N-capped array it serves, so
+//     "ranked" == "shown" by construction — plotting the same number twice
+//     implied a distinction the API does not expose. The stages collapse to
+//     one "returned (top-N)" bar; the pre-cap ranked row count is an API
+//     follow-up. (Defensive: if the payload ever disagrees, both render.)
+//   * The engine computes a per-gate drop breakdown
+//     (`frame.attrs["drops_summary"]`: chain-quality / event-gate /
+//     ev-threshold) but `/api/candidates` does NOT serialize `.attrs`, so the
+//     per-gate reasons are flagged as a follow-up rather than invented.
 
 interface FunnelProps {
   universeTotal?: number;
@@ -15,6 +20,8 @@ interface FunnelProps {
 }
 
 export function Funnel({ universeTotal, universeScanned, ranked, shown }: FunnelProps) {
+  const collapsed = ranked == null || shown == null || ranked === shown;
+
   const stages: { label: string; value: number | undefined; hint: string }[] = [
     {
       label: "S&P universe",
@@ -26,18 +33,28 @@ export function Funnel({ universeTotal, universeScanned, ranked, shown }: Funnel
       value: universeScanned,
       hint: "names the ranker evaluated this run (universe_limit cap)",
     },
-    {
-      label: "ranked (EV)",
-      value: ranked,
-      hint: "passed chain-quality + event-gate + EV floor → got an EV row",
-    },
-    { label: "shown", value: shown, hint: "top-N returned to the cockpit" },
+    ...(collapsed
+      ? [
+          {
+            label: "returned (top-N)",
+            value: shown ?? ranked,
+            hint: "ranked rows returned after the engine's top-N cap. The API counts the capped array, so 'ranked' == 'returned' by construction — the pre-cap ranked count is not exposed (follow-up).",
+          },
+        ]
+      : [
+          {
+            label: "ranked (EV)",
+            value: ranked,
+            hint: "passed chain-quality + event-gate + EV floor → got an EV row",
+          },
+          { label: "shown", value: shown, hint: "top-N returned to the cockpit" },
+        ]),
   ];
 
   const max = universeTotal || universeScanned || ranked || 1;
 
   return (
-    <div className="border border-terminal-border bg-terminal-panel p-2">
+    <div className="rounded-xl border border-white/[0.08] bg-pf-panel p-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-terminal-blue">
           Selection funnel

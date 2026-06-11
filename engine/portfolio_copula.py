@@ -34,8 +34,43 @@ Pure-numpy + scipy. No external dependencies.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from scipy import stats
+
+
+def _validate_t_copula_df(df: float) -> float:
+    """Validate the Student-t copula degrees-of-freedom parameter.
+
+    The t-copula tail dependence is driven by a shared chi-square scaling
+    variable ``rng.chisquare(df)`` (requires ``df > 0``) and ``stats.t.cdf(df)``.
+    Two operator-supplied degeneracies are guarded here, BEFORE either is called:
+
+    * ``df <= 0`` is invalid — ``rng.chisquare`` rejects it (numpy raises a terse
+      ``ValueError: df <= 0``). Raise a clear domain-specific error instead, and
+      do it before ``portfolio_cvar_copula`` wastes a full Gaussian simulation.
+    * ``0 < df <= 2`` is mathematically valid (the simulation runs) but the
+      t-distribution has **infinite variance**, so the resulting CVaR /
+      tail-amplification numbers are statistically fragile. Warn, don't block —
+      a heavy-tailed-but-valid draw is the caller's prerogative.
+
+    Returns ``float(df)`` unchanged so callers can use the coerced value. (E) #384.
+    """
+    df = float(df)
+    if not np.isfinite(df) or df <= 0:
+        raise ValueError(
+            f"t_copula_df must be a finite value > 0 (Student-t requires positive "
+            f"degrees of freedom), got {df}"
+        )
+    if df <= 2:
+        warnings.warn(
+            f"t_copula_df={df} <= 2 implies infinite variance; the t-copula "
+            "CVaR / tail-amplification estimates are statistically fragile.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return df
 
 
 def _correlation_psd_repair(corr: np.ndarray, min_eig: float = 1e-8) -> np.ndarray:
@@ -133,6 +168,7 @@ def student_t_copula_simulation(
     scaling variable. df=5 gives a realistic amount of joint-crash
     probability for equity portfolios.
     """
+    df = _validate_t_copula_df(df)
     N = len(marginals)
     if N == 0:
         return np.zeros((n_samples, 0))

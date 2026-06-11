@@ -291,6 +291,12 @@ data/features/_backfill_log.csv
 # Theta / yfinance bulk pulls (regeneratable)
 data_processed/
 
+# Bloomberg deep-history archive (~365MB of gz slices, 1994→2026). Buffer-only:
+# lives on git branch deep-history/bloomberg-raw + Google Drive swe-deep-history/,
+# NOT on main. Mirror locally via:
+#   git checkout origin/deep-history/bloomberg-raw -- data/bloomberg/deep
+data/bloomberg/deep/
+
 # =============================================================================
 # Theta Terminal — installed software, NOT project code
 # =============================================================================
@@ -316,3 +322,6 @@ tradingview/research/*.pdf
 tradingview/models/*.xlsx
 tradingview/models/*.csv
 tradingview/screenshots/
+
+# premium-correction pilot regenerable outputs (CSVs/PNG move with larder coverage)
+studies/premium_correction/output/

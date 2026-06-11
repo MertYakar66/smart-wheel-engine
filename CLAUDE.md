@@ -29,7 +29,7 @@ block at the bottom routes you to the right on-demand document.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev`. The
      one ranker every tradeable path routes through.
    - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the
-     downgrade rules R1–R10 (see §2).
+     downgrade rules R1–R11 (see §2).
 4. **Interface layer** — `engine_api.py` (HTTP on `:8787`), `dashboard/`
    (Next.js), `engine/tradingview_bridge.py` (chart providers — sanity
    check, not a decider), `advisors/` (Buffett / Munger / Simons / Taleb
@@ -107,6 +107,21 @@ The `EnginePhaseReviewer` rules, for reference:
   Bounds F4-style idiosyncratic-drawdown damage that no market-wide
   regime detector can predict (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
   §10). Same Q3 missing-data semantics as R7-R9.
+- R11: *(heavy-verify 2026-05-31 I11 — conditional on an attached
+  `vix_level`.)* Elevated-vol top-bin size-down. When the market-wide
+  `vix_level` > `R11_VIX_THRESHOLD` (25.0) AND the candidate is a
+  high-confidence top-bin pick (`prob_profit` > `R11_TOP_BIN_PROB`,
+  0.90), downgrade proceed → review with
+  `verdict_reason="elevated_vol_top_bin"`. Rationale: the top
+  `prob_profit` bin is materially over-confident in the regime that
+  *follows* an elevated-vol reading (~0.57 realized vs ~0.96 forecast
+  in crisis) — a miss neither forecastable nor cleanly detectable from
+  a single onset signal; sizing down is favorably asymmetric and the
+  VIX>25 cut survives leave-one-crisis-out. Counterpart to R10: R10
+  bounds idiosyncratic single-name size, R11 bounds market-wide vol
+  exposure on the over-confident top bin. `wheel_runner` threads
+  `vix_level` into `build_dossiers`; no-op when `vix_level` is absent
+  (missing-evidence semantics, like R6-R10). See `DECISIONS.md` D23.
 
 ---
 
@@ -181,3 +196,20 @@ needs Theta Terminal), see `docs/DATA_POLICY.md` §7.
 | TradingView wiring (engine bridge + analyst workspace) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | Commit / PR format | `COMMIT_GUIDE.md` |
 | *Why* a structural choice was made | `DECISIONS.md` |
+| **Dashboard terminal** — live IBKR portfolio viewer + the "update" refresh | `docs/DASHBOARD_TERMINAL.md` |
+
+---
+
+## 6. Named terminals
+
+If the operator addresses you by a **role name**, adopt it and read its runbook
+in full before acting:
+
+| Operator says | You are | Read first |
+|---|---|---|
+| **"You are responsible for the Dashboard"** (or `dashboard`) | the **Dashboard** terminal — owns the live IBKR portfolio viewer (`/portfolio` + `/cockpit` + `/terminal`); on **"update"** it refreshes all live data | **`docs/DASHBOARD_TERMINAL.md`** |
+
+The Dashboard terminal is strictly read-only (§2/§3): it pulls the operator's
+IBKR account (cloud connector / IB Gateway / Flex Web Service) and regenerates
+the viewer's gitignored `data_processed/ibkr/` files. **Other terminals:** leave
+the dashboard, `data_processed/ibkr/`, and the `/api/portfolio/*` pipeline to it.

@@ -60,6 +60,7 @@ from datetime import (  # noqa: F401  # timezone re-exported for audit-VIII P0.3
     UTC,
     date,
     datetime,
+    timedelta,
     timezone,
 )
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -245,6 +246,155 @@ def _resolve_universe_scope(conn, tickers, universe_limit_param):
     return limit, scanned, universe_total
 
 
+def build_concentration_preview(
+    runner,
+    *,
+    entry_date,
+    initial_capital,
+    rank_kwargs,
+    top_n_to_consume,
+    universe_scanned=None,
+    universe_total=None,
+):
+    """Pure builder for the ``/api/concentration_preview`` payload — the
+    concentration-cap preview that wires the armed R9/R10 caps onto an
+    operator surface.
+
+    Runs the EV-authoritative ranker and feeds its top-N rows through the
+    canonical production live-book wire
+    (:meth:`engine.wheel_runner.WheelRunner.consume_into_live_book`, which
+    builds the tracker via ``make_live_book_tracker`` so **R9 sector
+    (25% NAV)** + **R10 single-name (10% NAV)** are armed), then reports —
+    per candidate — whether the armed caps ADMIT or REFUSE it, with the
+    structured refusal reason from the tracker's audit log.
+
+    This closes the "the armed R9/R10 caps have no live caller" gap
+    (heavy-verify 2026-05-31 Category A; #154 / #343): until an operator
+    surface invoked the armed wire, the caps protected nothing in
+    production — they were exercised only in ``tests/``. This is that
+    surface.
+
+    §2 / §3 contract (why this is safe):
+
+    * **No EV bypass.** Candidates come *only* from
+      :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`,
+      which routes every row through ``EVEngine.evaluate``. This builder
+      adds no EV path of its own.
+    * **Refuse-only.** The caps REFUSE over-concentration; they never
+      touch ``ev_raw`` / ``ev_dollars`` / ``prob_profit`` / the dealer
+      multiplier, and never rescue a non-positive-EV candidate — the D16
+      launch gate inside
+      :meth:`~engine.wheel_tracker.WheelTracker.consume_ranker_row`
+      still refuses ``ev_dollars <= 0`` at token issuance (token-free
+      path included).
+    * **No order surface (§3).** The book is an EPHEMERAL in-memory
+      :class:`~engine.wheel_tracker.WheelTracker` built per call and
+      discarded on return — nothing is persisted and no orders are
+      routed. This is a risk preview over ranked candidates, not a
+      broker / OMS surface.
+
+    Pure: takes a ``runner`` and returns the JSON-able response dict.
+    Kept module-level (not a handler method) so it is unit-testable
+    without booting the HTTP server — same pattern as ``_resolve_port``.
+
+    Args:
+        runner: A :class:`~engine.wheel_runner.WheelRunner` (or test
+            double) exposing ``consume_into_live_book``.
+        entry_date: ``datetime.date`` trade-entry date forwarded to the
+            wire.
+        initial_capital: Starting NAV for the ephemeral book.
+        rank_kwargs: Forwarded verbatim to
+            :meth:`~engine.wheel_runner.WheelRunner.rank_candidates_by_ev`
+            (``dte_target`` / ``delta_target`` / ``top_n`` /
+            ``min_ev_dollars`` / ``as_of`` / ``universe_limit`` /
+            ``tickers``).
+        top_n_to_consume: How many of the ranker's top rows to feed into
+            the caps.
+        universe_scanned / universe_total: Pass-through scope metadata for
+            the response (resolved by the caller).
+
+    Returns:
+        A JSON-able dict with ``outcomes`` (per-row admit/refuse),
+        ``refusals`` (structured cap-breach audit), ``book`` (opened
+        positions + cash), and the armed ``caps`` percentages.
+    """
+    from engine.portfolio_risk_gates import (
+        _DEFAULT_MAX_SECTOR_PCT,
+        _DEFAULT_MAX_SINGLE_NAME_PCT,
+    )
+
+    tracker, outcomes = runner.consume_into_live_book(
+        entry_date=entry_date,
+        initial_capital=initial_capital,
+        rank_kwargs=rank_kwargs,
+        top_n_to_consume=top_n_to_consume,
+    )
+
+    # Structured refusals from the armed caps. Each over-concentrated open
+    # appends one ``action="reject"`` entry to ``_ev_authority_log`` with
+    # the cap-specific ``reason`` (sector_cap_breach / single_name_breach /
+    # nav_exhausted) plus detail fields (see portfolio_risk_gates).
+    refusals = []
+    for entry in getattr(tracker, "_ev_authority_log", []):
+        if entry.get("action") != "reject":
+            continue
+        refusals.append(
+            {
+                "ticker": entry.get("ticker"),
+                "reason": entry.get("reason"),
+                "nav": entry.get("nav"),
+                "navSource": entry.get("nav_source"),
+                "sector": entry.get("sector"),
+                "postOpenSectorPct": entry.get("post_open_sector_pct"),
+                "sectorLimit": entry.get("sector_limit"),
+                "postOpenNamePct": entry.get("post_open_name_pct"),
+                "nameLimitPct": entry.get("name_limit_pct"),
+            }
+        )
+
+    out_rows = [
+        {
+            "ticker": o.get("ticker"),
+            "evDollars": round(float(o.get("ev_dollars", 0) or 0), 2),
+            "opened": bool(o.get("opened")),
+            "refusalReason": o.get("refusal_reason"),
+        }
+        for o in outcomes
+    ]
+    n_opened = sum(1 for o in outcomes if o.get("opened"))
+
+    return {
+        "authority": "ev_ranked_concentration_gated",
+        "engine_version": "ev_engine_2026_04_14",
+        "surface": "concentration_preview",
+        "note": (
+            "Ephemeral in-memory evaluation of the armed R9 (sector) / "
+            "R10 (single-name) production concentration caps over the "
+            "EV-ranked batch. Candidates come only from the EV ranker; the "
+            "caps refuse over-concentration and never rescue a negative-EV "
+            "trade. No positions are persisted and no orders are routed "
+            "(CLAUDE.md §2/§3)."
+        ),
+        "entry_date": str(entry_date),
+        "initial_capital": round(float(initial_capital), 2),
+        "caps": {
+            "sector_cap_pct": _DEFAULT_MAX_SECTOR_PCT,
+            "single_name_cap_pct": _DEFAULT_MAX_SINGLE_NAME_PCT,
+        },
+        "consumed": len(outcomes),
+        "opened": n_opened,
+        "refused": len(outcomes) - n_opened,
+        "outcomes": out_rows,
+        "refusals": refusals,
+        "book": {
+            "positions": sorted(tracker.positions.keys()),
+            "cash": round(float(tracker.cash), 2),
+        },
+        "universe_scanned": universe_scanned,
+        "universe_total": universe_total,
+    }
+
+
 def _build_portfolio_context_from_params(
     nav: float | None,
     holdings_csv: str | None,
@@ -361,13 +511,149 @@ def _sanitize_nans(obj):
     return obj
 
 
+_data_frontier_cache: str | None = None
+
+
+def _data_frontier(conn) -> str | None:
+    """Max OHLCV date the connector actually serves, as ``YYYY-MM-DD``.
+
+    Probes AAPL (trades every session, always in the universe) so the answer
+    reflects the frames the connector really loads — not a raw file read that
+    could diverge from what ``get_ohlcv`` filters. Cached for the process
+    lifetime: the OHLCV monolith loads once per process, so the frontier
+    cannot move without a restart. Returns None (never raises) when the data
+    layer is unavailable — status must stay a cheap, robust health check.
+    """
+    global _data_frontier_cache
+    if _data_frontier_cache is None:
+        try:
+            df = conn.get_ohlcv("AAPL")
+            if df is not None and not df.empty:
+                _data_frontier_cache = df.index.max().date().isoformat()
+        except Exception:
+            return None
+    return _data_frontier_cache
+
+
+def _nan_to_none(v):
+    """Scalar NaN/Inf → None; everything else passes through unchanged.
+
+    A per-field counterpart to :func:`_sanitize_nans` for values lifted
+    straight out of a pandas row, where a Python ``None`` placed in a
+    column that also holds numerics resurfaces as ``numpy.float64('nan')``
+    (numpy floats subclass ``float``, so the ``isinstance`` guard catches
+    both ``float`` and ``numpy.floating``). Keeps the additive prob_profit
+    CI fields JSON-null (not the invalid ``NaN`` literal) before they enter
+    the response dict.
+    """
+    if v is None:
+        return None
+    if isinstance(v, float) and (np.isnan(v) or np.isinf(v)):
+        return None
+    return v
+
+
+class BadParam(ValueError):
+    """Raised by :func:`_parse_param` when a query param can't be coerced.
+
+    Carries a clean, client-safe message so the GET dispatcher can turn it
+    into an HTTP 400 instead of letting the bare ``int()`` / ``float()``
+    ``ValueError`` fall through to the catch-all 500 (R18). The message names
+    the offending param and value but never leaks an exception traceback.
+    """
+
+
+def _parse_param(name, raw, kind, default=None):
+    """Coerce a single query param to ``int`` / ``float``, or raise BadParam.
+
+    R18 hardening: GET handlers previously called bare ``int(param(...))`` /
+    ``float(param(...))`` inline, so a value like ``?dte=abc`` raised a
+    ``ValueError`` that fell through to the ``do_GET`` catch-all and was
+    served as an opaque HTTP 500. This helper turns malformed input into a
+    clean HTTP 400 with a message naming the param. ``None`` / empty string
+    fall back to ``default`` (the param simply wasn't supplied).
+
+    Mirrors the existing forgiving try/except in ``_handle_candidates``
+    (which clamps to documented defaults) but for the dispatch-site params
+    a 400 is more honest than silently substituting a default — the caller
+    sent something they expected to be honoured.
+    """
+    if raw is None or raw == "":
+        return default
+    try:
+        if kind is int:
+            return int(raw)
+        if kind is float:
+            return float(raw)
+    except (TypeError, ValueError):
+        type_label = "an integer" if kind is int else "a number"
+        raise BadParam(f"query param '{name}' must be {type_label}; got {raw!r}") from None
+    raise BadParam(f"unsupported param kind for '{name}'")
+
+
+# CORS allow-list. The dashboard reaches this server through a *server-side*
+# Next.js proxy (server-to-server fetch sends no ``Origin`` header), so CORS
+# is not on that path at all. CORS only matters if a browser tab on some
+# other origin tries to read this API directly. R3 hardening replaces the
+# unconditional ``*`` with a localhost allow-list (echoing the request's
+# Origin when it is a localhost/loopback origin), plus an optional explicit
+# extra origin via ``SWE_API_CORS_ORIGIN``. Requests with no Origin header
+# (the proxy, curl, server-to-server) are unaffected.
+_LOCALHOST_ORIGIN_PREFIXES = (
+    "http://localhost",
+    "https://localhost",
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "http://[::1]",
+    "https://[::1]",
+)
+
+
+def _resolve_cors_origin(request_origin, env=None):
+    """Return the value to echo in ``Access-Control-Allow-Origin``, or None.
+
+    R3 hardening. Allows any localhost/loopback origin by default (so the
+    local dashboard keeps working if it ever calls the API from the browser)
+    and one optional configured origin from ``SWE_API_CORS_ORIGIN``. Returns
+    ``None`` when the origin is not allowed — the caller then simply omits
+    the CORS header, which is the correct default-deny behaviour for a
+    cross-origin browser request. A missing/empty ``request_origin`` also
+    yields ``None`` (non-browser callers don't need the header).
+    """
+    if not request_origin:
+        return None
+    origin = request_origin.strip()
+    if any(origin.startswith(p) for p in _LOCALHOST_ORIGIN_PREFIXES):
+        return origin
+    source = os.environ if env is None else env
+    configured = (source.get("SWE_API_CORS_ORIGIN", "") or "").strip()
+    if configured and origin == configured:
+        return origin
+    return None
+
+
 class EngineAPIHandler(BaseHTTPRequestHandler):
     """Handle HTTP requests for the engine API."""
+
+    def _cors_origin_header(self):
+        """Resolve the CORS origin to echo for the current request (R3)."""
+        try:
+            request_origin = self.headers.get("Origin")
+        except Exception:
+            request_origin = None
+        return _resolve_cors_origin(request_origin)
 
     def _send_json(self, data, status=200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # R3: echo a localhost/configured Origin instead of unconditional '*'.
+        # Omit the header entirely when the origin isn't allowed (default-deny
+        # for cross-origin browsers); the server-side dashboard proxy sends no
+        # Origin so it is unaffected.
+        cors = self._cors_origin_header()
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", cors)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -376,10 +662,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
     def _send_error(self, message, status=500):
         self._send_json({"error": message}, status)
 
+    def _send_internal_error(self, exc, context=""):
+        """Send a generic 500 with a correlation id; log full detail server-side.
+
+        R19 hardening: client-facing error bodies must not leak file paths,
+        pandas internals, or any other exception text. We generate a short
+        hex id, log the full traceback (and ``context``) against that id
+        server-side, and return only the id to the client so an operator can
+        correlate a user report with the server log line.
+        """
+        import uuid
+
+        error_id = uuid.uuid4().hex[:8]
+        # Full detail goes to the server log / stderr only — never the client.
+        logger.error("error_id=%s context=%s exc=%r", error_id, context, exc)
+        traceback.print_exc()
+        print(f"[Engine API] error_id={error_id} context={context!r} exc={exc!r}", file=sys.stderr)
+        self._send_json(
+            {"error": "internal server error", "error_id": error_id},
+            500,
+        )
+
     def do_OPTIONS(self):
         """Handle CORS preflight."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        cors = self._cors_origin_header()
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", cors)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -406,6 +716,18 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     as_of=param("as_of"),
                     universe_limit=param("universe_limit"),
                 )
+            elif path == "/api/concentration_preview":
+                self._handle_concentration(
+                    dte=param("dte", "35"),
+                    delta=param("delta", "0.25"),
+                    min_ev=param("min_ev", "0"),
+                    as_of=param("as_of"),
+                    universe_limit=param("universe_limit"),
+                    initial_capital=param("initial_capital", "100000"),
+                    top_n=param("top_n", "20"),
+                    entry_date=param("entry_date"),
+                    tickers=param("tickers"),
+                )
             elif path == "/api/analyze" or path.startswith("/api/analyze/"):
                 ticker = path.split("/")[-1].upper() if "/" in path[len("/api/analyze") :] else ""
                 if not ticker:
@@ -414,6 +736,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/portfolio":
                 tickers = param("tickers", "AAPL,MSFT,JPM")
                 self._handle_portfolio(tickers.split(","), param("as_of"))
+            elif path.startswith("/api/portfolio/"):
+                # D26 read-only performance viewer. Observational only —
+                # served from the point-in-time IBKR snapshot via
+                # engine.ibkr_portfolio_adapter (outside the trio). No EV
+                # authority, no order routing (CLAUDE.md §2/§3).
+                self._handle_portfolio_view(path[len("/api/portfolio/") :])
             elif path == "/api/regime":
                 self._handle_regime(param("ticker", "SPY"))
             elif path == "/api/calendar":
@@ -432,30 +760,32 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/chart/"):
                 chart_type = path.split("/")[-1]
                 ticker = param("ticker", "AAPL")
-                days = param("days", "120")
-                self._handle_chart(chart_type, ticker, int(days))
+                days = _parse_param("days", param("days"), int, 120)
+                self._handle_chart(chart_type, ticker, days)
             elif path == "/api/payoff":
                 ticker = param("ticker", "AAPL")
                 self._handle_payoff(
                     ticker,
                     param("strategy", "csp"),
-                    param("strike"),
-                    param("premium"),
-                    param("dte", "45"),
+                    _parse_param("strike", param("strike"), float),
+                    _parse_param("premium", param("premium"), float),
+                    _parse_param("dte", param("dte"), int, 45),
                 )
             elif path == "/api/expected_move":
                 ticker = param("ticker", "AAPL")
-                self._handle_expected_move(ticker, param("dte", "45"))
+                self._handle_expected_move(ticker, _parse_param("dte", param("dte"), int, 45))
             elif path == "/api/strikes":
                 ticker = param("ticker", "AAPL")
-                self._handle_strikes(ticker, param("strategy", "csp"), param("dte", "45"))
+                self._handle_strikes(
+                    ticker, param("strategy", "csp"), _parse_param("dte", param("dte"), int, 45)
+                )
             elif path == "/api/strangle":
                 ticker = param("ticker", "AAPL")
                 self._handle_strangle(ticker)
             elif path == "/api/iv_history":
                 ticker = param("ticker", "AAPL")
-                days = param("days", "252")
-                self._handle_iv_history(ticker, int(days))
+                days = _parse_param("days", param("days"), int, 252)
+                self._handle_iv_history(ticker, days)
             elif path == "/api/memo":
                 ticker = param("ticker", "AAPL")
                 self._handle_memo(ticker, param("as_of"))
@@ -480,24 +810,23 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # stress soft-warns. When omitted, behaviour is
                 # unchanged (no D17 firing).
                 ticker = (param("ticker", "") or "").upper()
-                _nav_raw = param("nav")
                 self._handle_tv_enrich(
                     ticker,
                     param("signal", "wheel_put_zone"),
                     param("as_of"),
-                    nav=float(_nav_raw) if _nav_raw not in (None, "") else None,
+                    nav=_parse_param("nav", param("nav"), float),
                     holdings_csv=param("holdings"),
                     puts_held_csv=param("puts_held"),
                     regime_map_csv=param("regime_map"),
                 )
             elif path == "/api/tv/alerts":
-                self._handle_tv_alerts(int(param("limit", "50")))
+                self._handle_tv_alerts(_parse_param("limit", param("limit"), int, 50))
             elif path == "/api/tv/ranked":
                 self._handle_tv_ranked(
-                    limit=int(param("limit", "20")),
-                    dte_target=int(param("dte", "35")),
-                    delta_target=float(param("delta", "0.25")),
-                    min_ev_dollars=float(param("min_ev", "0")),
+                    limit=_parse_param("limit", param("limit"), int, 20),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
+                    delta_target=_parse_param("delta", param("delta"), float, 0.25),
+                    min_ev_dollars=_parse_param("min_ev", param("min_ev"), float, 0.0),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
                     universe_limit=param("universe_limit"),
@@ -513,18 +842,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # pre-D17-wire (R7/R8 are no-ops per Q3 missing-data
                 # semantics). Opt-in by design so existing GET callers
                 # remain compatible.
-                _nav_raw = param("nav")
                 self._handle_tv_dossier(
-                    top_n=int(param("top_n", "10")),
-                    dte_target=int(param("dte", "35")),
-                    delta_target=float(param("delta", "0.25")),
-                    min_ev_dollars=float(param("min_ev", "0")),
+                    top_n=_parse_param("top_n", param("top_n"), int, 10),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
+                    delta_target=_parse_param("delta", param("delta"), float, 0.25),
+                    min_ev_dollars=_parse_param("min_ev", param("min_ev"), float, 0.0),
                     as_of=param("as_of"),
                     tickers_csv=param("tickers"),
                     timeframe=param("timeframe", "1D") or "1D",
                     screenshots_dir=param("screenshots_dir", "screenshots") or "screenshots",
                     universe_limit=param("universe_limit"),
-                    nav=float(_nav_raw) if _nav_raw else None,
+                    nav=_parse_param("nav", param("nav"), float),
                     holdings_csv=param("holdings"),
                     puts_held_csv=param("puts_held"),
                     regime_map_csv=param("regime_map"),
@@ -532,24 +860,34 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/tv/dealer_positioning":
                 self._handle_tv_dealer_positioning(
                     ticker=(param("ticker", "") or "").upper(),
-                    dte_target=int(param("dte", "35")),
+                    dte_target=_parse_param("dte", param("dte"), int, 35),
                     assumption=param("assumption", "long_calls_short_puts")
                     or "long_calls_short_puts",
                 )
             elif path == "/api/news":
-                self._handle_news(limit=int(param("limit", "20")))
+                self._handle_news(limit=_parse_param("limit", param("limit"), int, 20))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
+        except BadParam as bp:
+            # R18: malformed query param → clean 400 instead of opaque 500.
+            self._send_error(str(bp), 400)
         except Exception as e:
-            traceback.print_exc()
-            self._send_error(str(e))
+            # R19: never leak exception detail to the client; log + correlation id.
+            self._send_internal_error(e, context=f"GET {path}")
 
     def do_POST(self):
         """Handle POST requests — currently only TradingView webhook alerts."""
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         try:
-            length = int(self.headers.get("Content-Length", "0") or 0)
+            try:
+                length = int(self.headers.get("Content-Length", "0") or 0)
+            except (TypeError, ValueError):
+                self._send_error("invalid Content-Length header", 400)
+                return
+            if length < 0:
+                self._send_error("invalid Content-Length header", 400)
+                return
             # Hard cap body size to prevent memory-exhaustion DoS. TradingView
             # alert bodies are <1 KB in practice; 16 KB is generous.
             if length > 16 * 1024:
@@ -581,8 +919,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
-            traceback.print_exc()
-            self._send_error(str(e))
+            # R19: never leak exception detail to the client; log + correlation id.
+            self._send_internal_error(e, context=f"POST {path}")
 
     def _handle_status(self):
         conn = get_connector()
@@ -596,6 +934,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "universe_size": len(universe),
                 "vix": vix.get("vix", 0) if vix else 0,
                 "data_dir": str(conn._data_dir),
+                # CLAUDE.md §4.1: always surface which provider was actually
+                # selected — silent provider selection is a recurring bug.
+                "provider": type(conn).__name__,
+                # Max OHLCV date the connector serves. The dashboard derives
+                # its default as_of from this instead of hardcoding a date
+                # that rots between data refreshes (review 2026-06-10).
+                "data_frontier": _data_frontier(conn),
             }
         )
 
@@ -662,8 +1007,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 universe_limit=ulimit,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="candidates:rank_candidates_by_ev")
             return
 
         if df is None or df.empty:
@@ -678,6 +1023,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+
+        # Modeled expiry: the ranker evaluates a synthetic contract at exactly
+        # dte_target days from the PIT cutoff (Bloomberg path has no listed
+        # chain), so as_of + dte IS the contract date the EV math priced — not
+        # a guess at a listed expiration. Labeled "modeled" dashboard-side.
+        try:
+            _exp_base = date.fromisoformat(as_of) if as_of else date.today()
+        except (TypeError, ValueError):
+            _exp_base = date.today()
+        expiration_iso = (_exp_base + timedelta(days=dte_int)).isoformat()
 
         trades = []
         for _, row in df.iterrows():
@@ -714,6 +1069,21 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "pnlP50": row.get("pnl_p50"),
                     "pnlP75": row.get("pnl_p75"),
                     "probProfit": round(prob_profit, 4),
+                    # Small-sample honesty (2026-06-01): probProfit is a k/N
+                    # frequency over nScenarios forward windows (often ~30-35).
+                    # Surface N + the Wilson 95% CI so the 4-dp figure is not
+                    # read as exact (the interval is ~20pp wide at N=35). These
+                    # are pass-throughs of the ranker frame's n_scenarios /
+                    # prob_profit_ci_low / prob_profit_ci_high columns; None
+                    # when no scenarios were evaluated (the ranker NaN-safes the
+                    # event-lockout short-circuit, and a None alongside numeric
+                    # rows resurfaces as NaN once pandas coerces the column —
+                    # _nan_to_none normalizes both back to JSON null). probProfit
+                    # itself is unchanged — this annotates PRECISION, not a
+                    # recalibration.
+                    "nScenarios": _nan_to_none(row.get("n_scenarios")),
+                    "probProfitCiLow": _nan_to_none(row.get("prob_profit_ci_low")),
+                    "probProfitCiHigh": _nan_to_none(row.get("prob_profit_ci_high")),
                     "probAssignment": round(float(row.get("prob_assignment", 0) or 0), 4),
                     "cvar5": row.get("cvar_5"),
                     "cvar99Evt": row.get("cvar_99_evt"),
@@ -756,7 +1126,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                         if (math.isfinite(ev_dollars) and ev_dollars > 0)
                         else "skip"
                     ),
-                    "expiration": "",
+                    "expiration": expiration_iso,
+                    # The delta the strike was SELECTED at (ranker's
+                    # delta_target) — not a per-strike measured Greek. The
+                    # old payload omitted delta entirely and the dashboard's
+                    # ``?? 0`` fallback fabricated "Delta 0.000" (review
+                    # 2026-06-10 F4/F5). Named to stay honest about what it is.
+                    "targetDelta": delta_f,
                 }
             )
 
@@ -779,6 +1155,101 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 },
             }
         )
+
+    def _handle_concentration(
+        self,
+        dte="35",
+        delta="0.25",
+        min_ev="0",
+        as_of=None,
+        universe_limit=None,
+        initial_capital="100000",
+        top_n="20",
+        entry_date=None,
+        tickers=None,
+    ):
+        """Concentration-cap preview — wires the armed R9/R10 caps onto the
+        operator HTTP surface.
+
+        Thin HTTP adapter over :func:`build_concentration_preview`: parses query
+        params, resolves the universe scope, runs the EV ranker through the
+        armed production live-book wire, and returns the per-candidate
+        admit/refuse verdict with the structured cap-breach reasons. This is
+        the operator surface that makes the armed R9/R10 caps fire on a live
+        path (they were exercised only in ``tests/`` before — #154 / #343).
+
+        §2 / §3: see :func:`build_concentration_preview`. Candidates come only
+        from the EV ranker; the caps refuse-only (never rescue, never touch
+        ev_raw / ev_dollars / prob_profit / the dealer multiplier); the book
+        is ephemeral (no persistence, no order routing).
+
+        Query params (all optional):
+            dte / delta / min_ev / as_of / universe_limit
+                       forwarded to the ranker (same as /api/candidates)
+            initial_capital  starting NAV for the ephemeral book (default 100000)
+            top_n            how many top-ranked rows to evaluate (default 20)
+            entry_date       YYYY-MM-DD trade-entry date (default today)
+            tickers          optional comma-separated subset; overrides the
+                             universe scan
+        """
+        try:
+            dte_int = int(dte or 35)
+            delta_f = float(delta or 0.25)
+            min_ev_f = float(min_ev or 0)
+            capital_f = float(initial_capital or 100_000)
+            top_n_int = max(1, int(top_n or 20))
+        except (TypeError, ValueError):
+            self._send_error("invalid numeric parameter", 400)
+            return
+        if capital_f <= 0:
+            self._send_error("initial_capital must be positive", 400)
+            return
+
+        if entry_date:
+            try:
+                entry_d = datetime.strptime(entry_date, "%Y-%m-%d").date()
+            except ValueError:
+                self._send_error("entry_date must be YYYY-MM-DD", 400)
+                return
+        else:
+            entry_d = date.today()
+
+        runner = get_runner()
+        conn = runner.connector
+
+        rank_kwargs = {
+            "dte_target": dte_int,
+            "delta_target": delta_f,
+            "top_n": top_n_int,
+            "min_ev_dollars": min_ev_f,
+            "as_of": as_of,
+        }
+        ticker_list = None
+        if tickers:
+            ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+        ulimit, universe_scanned, universe_total = _resolve_universe_scope(
+            conn, ticker_list, universe_limit
+        )
+        if ticker_list:
+            rank_kwargs["tickers"] = ticker_list
+        else:
+            rank_kwargs["universe_limit"] = ulimit
+
+        try:
+            payload = build_concentration_preview(
+                runner,
+                entry_date=entry_d,
+                initial_capital=capital_f,
+                rank_kwargs=rank_kwargs,
+                top_n_to_consume=top_n_int,
+                universe_scanned=universe_scanned,
+                universe_total=universe_total,
+            )
+        except Exception as exc:
+            self._send_internal_error(exc, context="concentration_preview:consume_into_live_book")
+            return
+
+        self._send_json(payload)
 
     def _handle_analyze(self, ticker, as_of):
         if not ticker or not ticker.strip():
@@ -840,10 +1311,80 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         report = runner.portfolio_report([t.strip().upper() for t in tickers], as_of)
         self._send_json(report)
 
+    def _handle_portfolio_view(self, sub):
+        """D26 read-only performance-viewer endpoints.
+
+        ``GET /api/portfolio/{summary,positions,returns,income,risk,history}``
+        — served from the point-in-time IBKR artifacts on disk via
+        ``engine.ibkr_portfolio_adapter`` (outside the CI-gated trio).
+
+        Strictly **observational** (CLAUDE.md §2/§3, design-doc D26): these
+        endpoints report the held book + realized history; they never rank a
+        candidate, never call ``EVEngine.evaluate``, never issue an EV
+        authority token, and never route an order. Realized P&L is reported
+        distinctly from any forward ``ev_dollars`` score (finding I1).
+        """
+        from engine import ibkr_portfolio_adapter as adapter
+
+        sub = (sub or "").strip("/").lower()
+        known = {"summary", "positions", "returns", "income", "risk", "history"}
+        if sub not in known:
+            self._send_error(f"Unknown portfolio view: {sub!r}", 404)
+            return
+
+        try:
+            snapshot = adapter.load_snapshot()
+            if sub == "summary":
+                # The ledger is optional: a snapshot-only live drop (no Flex
+                # trade export yet) still serves the real balance sheet —
+                # realized/premium/win-rate then come back null ("—").
+                try:
+                    ledger = adapter.load_ledger()
+                except adapter.SnapshotSchemaError:
+                    ledger = None
+                payload = adapter.account_summary(snapshot, ledger)
+                source = adapter.provenance(snapshot)
+            elif sub == "positions":
+                payload = {
+                    "holdings": adapter.build_holdings_view(snapshot),
+                    "legs": adapter.build_positions_flat(snapshot),
+                }
+                source = adapter.provenance(snapshot)
+            elif sub == "returns":
+                history = adapter.load_history()
+                payload = adapter.returns_view(history, snapshot)
+                source = adapter.provenance(history)
+            elif sub == "income":
+                ledger = adapter.load_ledger()
+                payload = adapter.income_view(ledger, snapshot=snapshot)
+                source = adapter.provenance(ledger)
+            elif sub == "risk":
+                payload = adapter.risk_view(snapshot)
+                source = adapter.provenance(snapshot)
+            else:  # history
+                history = adapter.load_history()
+                payload = adapter.equity_view(history)
+                source = adapter.provenance(history)
+        except adapter.SnapshotSchemaError as exc:
+            # Missing / unversioned fixture → clean 503 so the dashboard can
+            # fall back to its typed mock rather than crash.
+            self._send_error(f"portfolio snapshot unavailable: {exc}", 503)
+            return
+
+        # Honest per-slice provenance for the dashboard's live/demo badge
+        # (browser-QA §D): "demo" when served from the committed fixtures,
+        # "live" from a real IBKR drop. Metadata only — never a verdict/EV field.
+        payload["source"] = source
+        self._send_json(payload)
+
     def _handle_regime(self, ticker):
+        # NB: ``ticker`` is accepted for URL compatibility but the payload is
+        # market-wide (VIX bucket + term structure). The old handler also made
+        # a per-ticker ``get_iv_history`` call whose result was discarded —
+        # removed (review 2026-06-10).
+        del ticker
         conn = get_connector()
         vix_data = conn.get_vix_regime()
-        conn.get_iv_history(ticker)
 
         regime = "NEUTRAL"
         vix = 0
@@ -856,14 +1397,23 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif vix < 15:
                 regime = "LOW_VOL"
 
+        term_structure = (vix_data or {}).get("term_structure")
         self._send_json(
             {
                 "regime": regime,
                 "vix": vix,
                 "vixPercentile": vix_data.get("vix_percentile", 0) if vix_data else 0,
-                "contango": vix_data.get("contango", False) if vix_data else False,
-                "trendScore": 0,
-                "confidence": 0.7,
+                # Derived from the connector's real key. The old read
+                # (``vix_data.get("contango")``) targeted a key the connector
+                # never emits, so the field was permanently False (review F3).
+                "contango": term_structure == "contango",
+                "termStructure": term_structure,
+                "vix3m": _nan_to_none((vix_data or {}).get("vix_3m")),
+                "vix6m": _nan_to_none((vix_data or {}).get("vix_6m")),
+                # ``trendScore: 0`` and ``confidence: 0.7`` were hardcoded
+                # constants the terminal rendered as live diagnostics
+                # (review F2/F6). An honest payload omits what the engine
+                # does not measure on this endpoint.
             }
         )
 
@@ -1248,36 +1798,51 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
     def _handle_fundamentals(self, ticker):
         conn = get_connector()
         fund = conn.get_fundamentals(ticker.upper())
-        self._send_json(fund or {"error": "Not found"})
+        if not fund:
+            # R21: not-found is a 404, not a 200 with an {error} body.
+            self._send_error(f"Fundamentals not found for '{ticker.upper()}'", 404)
+            return
+        self._send_json(fund)
 
     def _handle_universe(self):
         conn = get_connector()
         universe = conn.get_universe()
         self._send_json({"tickers": universe, "count": len(universe)})
 
-    def _handle_payoff(self, ticker, strategy, strike_str, premium_str, dte_str):
-        """Generate payoff diagram data."""
+    def _handle_payoff(self, ticker, strategy, strike, premium, dte):
+        """Generate payoff diagram data.
+
+        ``strike`` / ``premium`` are pre-coerced floats (or None to
+        auto-estimate); ``dte`` is a pre-coerced int (R18 — coercion +
+        400-on-bad-input happens at the GET dispatch site).
+        """
         from engine.payoff_engine import compute_payoff
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: an unknown ticker must not return a 200 computed against a
+        # fake $100 spot. Guard like _handle_analyze (404 not-found).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         # Auto-estimate strike and premium if not provided
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
 
-        if strike_str and strike_str != "None":
-            strike = float(strike_str)
+        if strike is not None:
+            strike = float(strike)
         else:
             strike = round(spot * 0.95 if strategy == "csp" else spot * 1.05, 0)
 
-        if premium_str and premium_str != "None":
-            premium = float(premium_str)
+        if premium is not None:
+            premium = float(premium)
         else:
             # Rough BSM estimate
             iv_dec = iv / 100 if iv > 1 else iv
-            T = int(dte_str) / 365
+            T = int(dte) / 365
             from scipy.stats import norm as _norm
 
             d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_dec**2) * T) / (iv_dec * np.sqrt(T))
@@ -1308,34 +1873,44 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_expected_move(self, ticker, dte_str):
-        """Compute expected move bands."""
+    def _handle_expected_move(self, ticker, dte):
+        """Compute expected move bands. ``dte`` is a pre-coerced int (R18)."""
         from engine.payoff_engine import compute_expected_move
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: unknown ticker → 404 (no fake $100 spot).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
 
-        result = compute_expected_move(spot, iv, int(dte_str))
+        result = compute_expected_move(spot, iv, int(dte))
         self._send_json(result)
 
-    def _handle_strikes(self, ticker, strategy, dte_str):
-        """Recommend optimal strikes."""
+    def _handle_strikes(self, ticker, strategy, dte):
+        """Recommend optimal strikes. ``dte`` is a pre-coerced int (R18)."""
         from engine.data_integration import get_current_risk_free_rate
         from engine.payoff_engine import recommend_strikes
 
+        ticker = (ticker or "").strip().upper()
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
-        spot = float(ohlcv["close"].iloc[-1]) if not ohlcv.empty else 100.0
+        # R20: unknown ticker → 404 (no fake $100 spot).
+        if ohlcv.empty:
+            self._send_error(f"Ticker '{ticker}' not found in data universe", 404)
+            return
+        spot = float(ohlcv["close"].iloc[-1])
 
         fund = conn.get_fundamentals(ticker)
         iv = fund.get("implied_vol_atm", 25) if fund else 25
         rf = get_current_risk_free_rate()
 
-        candidates = recommend_strikes(ticker, spot, iv, int(dte_str), rf, strategy)
+        candidates = recommend_strikes(ticker, spot, iv, int(dte), rf, strategy)
         # AUDIT FIX: recommend_strikes uses BSM payoff math (delta/OTM
         # probability), NOT EV. These are diagnostic strike ranges — they
         # do not represent a ranked tradeable recommendation.
@@ -1351,7 +1926,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "strategy": strategy,
                 "spot": round(spot, 2),
                 "iv": round(iv, 1),
-                "dte": int(dte_str),
+                "dte": int(dte),
                 "riskFreeRate": round(rf, 4),
                 "recommendations": candidates,
             }
@@ -1365,7 +1940,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         ohlcv = conn.get_ohlcv(ticker)
 
         if ohlcv.empty:
-            self._send_json({"error": f"No OHLCV data for {ticker}", "data": []})
+            # R21: no data is a 404, not a 200. Keep the {error, data:[]} body
+            # shape so existing chart clients that read .data don't break.
+            self._send_json({"error": f"No OHLCV data for {ticker}", "data": []}, 404)
             return
 
         tech = TechnicalFeatures()
@@ -1516,7 +2093,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
         if ohlcv.empty or len(ohlcv) < 100:
-            self._send_json({"error": "Insufficient data", "ticker": ticker})
+            # R21: insufficient data is a 422 (unprocessable), not a 200.
+            # Keep the {error, ticker} body shape for existing clients.
+            self._send_json({"error": "Insufficient data", "ticker": ticker}, 422)
             return
 
         engine = StrangleTimingEngine()
@@ -1582,7 +2161,9 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         conn = get_connector()
         iv_df = conn.get_iv_history(ticker)
         if iv_df.empty:
-            self._send_json({"error": "No IV data", "ticker": ticker, "data": []})
+            # R21: no IV data is a 404, not a 200. Keep the {error, ticker,
+            # data:[]} body shape so chart clients that read .data don't break.
+            self._send_json({"error": "No IV data", "ticker": ticker, "data": []}, 404)
             return
 
         data = []
@@ -1816,8 +2397,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
            within the freshness window to be accepted.
 
         When none of the env vars above are set the handler accepts all
-        alerts (the intended behaviour for local development on a
-        loopback-only socket).
+        alerts. This is safe *only* because the server binds loopback
+        (``127.0.0.1``) by default — see ``_resolve_host`` / the
+        ``SWE_API_HOST`` env var (R3 hardening). An operator who flips
+        ``SWE_API_HOST=0.0.0.0`` to expose the port on a LAN MUST also set
+        ``TV_WEBHOOK_HMAC_SECRET`` (or at minimum ``TV_WEBHOOK_SECRET``),
+        or these write endpoints become unauthenticated writes reachable
+        from any host on the network.
         """
         import os
         from datetime import datetime
@@ -1985,8 +2571,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif hasattr(conn, "get_option_chain"):
                 chain_df = conn.get_option_chain(ticker)
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"chain fetch failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="dealer_positioning:chain_fetch")
             return
 
         if chain_df is None or len(chain_df) == 0:
@@ -2132,8 +2718,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 portfolio_context=portfolio_context,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"build_candidate_dossiers failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="dossier:build_candidate_dossiers")
             return
 
         records = [d.to_dict() for d in dossiers]
@@ -2214,8 +2800,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 universe_limit=ulimit,
             )
         except Exception as exc:
-            traceback.print_exc()
-            self._send_error(f"rank_candidates_by_ev failed: {exc}", 500)
+            # R19: generic body + correlation id; full detail to server log.
+            self._send_internal_error(exc, context="tv_ranked:rank_candidates_by_ev")
             return
 
         records = df.to_dict(orient="records") if hasattr(df, "to_dict") else []
@@ -2365,16 +2951,24 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         # ``_MIN_PROCEED_EV_DOLLARS`` threshold and the non-finite /
         # negative-EV hard-blocks.
         #
-        # The non-finite branch mirrors
-        # ``EnginePhaseReviewer.review`` R1a (closes C1 from
-        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without it,
-        # ``+inf`` ``ev_dollars`` would slip past the ``ev_dollars < 0``
-        # check (False) and could land in the ``>= 10`` proceed branch;
-        # ``NaN`` would fall all the way through to the final
-        # ``"ev_zero_or_below"`` skip with a misleading reason. No
+        # The non-finite + negative-EV hard-stops mirror
+        # ``EnginePhaseReviewer.review`` R1a / R1 (closes C1 from
+        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without the non-finite
+        # branch, ``+inf`` ``ev_dollars`` would slip past the
+        # ``ev_dollars < 0`` check (False) and could land in the ``>= 10``
+        # proceed branch; ``NaN`` would fall all the way through to the final
+        # ``"ev_zero_or_below"`` branch with a misleading reason. No
         # production code path injects non-finite ev_dollars today —
         # the ranker server-computes it — but the defense-in-depth gap
         # is closed here for symmetry with the dossier path.
+        #
+        # R27 (§2-adjacent, label-only): both hard-stops emit the verdict
+        # LABEL ``"blocked"`` to match the dossier reviewer (R1/R1a), rather
+        # than the historical ``"skip"``. This is a pure audit-trail
+        # consistency fix — ``"blocked"`` and ``"skip"`` are both
+        # non-tradeable and neither rescues a candidate, so the §2 invariant
+        # is untouched. The earnings-lockout and zero-EV branches keep
+        # ``"skip"`` (those are not the dossier's R1/R1a hard-stops).
         if days_to_earnings is not None and 0 <= days_to_earnings < 5:
             verdict = "skip"
             verdict_reason = "earnings_within_5d"
@@ -2382,10 +2976,19 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             verdict = "review"
             verdict_reason = verdict_reason or "ev_engine_unreachable"
         elif not math.isfinite(ev_dollars):
-            verdict = "skip"
+            # R27 (§2-adjacent, label-only): align the hard-stop LABEL to the
+            # dossier reviewer's R1a, which emits "blocked" (not "skip") for
+            # non-finite EV. Same verdict_reason ("ev_non_finite"), same
+            # non-tradeable outcome — only the label is reconciled so the
+            # webhook and dossier audit trails read consistently. No behaviour
+            # / EV-math change: both "blocked" and "skip" are non-tradeable and
+            # neither rescues the candidate (§2 holds).
+            verdict = "blocked"
             verdict_reason = "ev_non_finite"
         elif ev_dollars < 0:
-            verdict = "skip"
+            # R27 (§2-adjacent, label-only): mirror dossier R1 — negative EV is
+            # "blocked", not "skip". Reason unchanged ("negative_ev").
+            verdict = "blocked"
             verdict_reason = "negative_ev"
         elif ev_dollars >= _MIN_PROCEED_EV_DOLLARS and prob_profit >= 0.65 and agrees:
             verdict = "proceed"
@@ -2628,6 +3231,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
 _DEFAULT_API_PORT = 8787
 
+# Default bind host. Loopback-only (R3 hardening): the dashboard reaches this
+# server through a server-side Next.js proxy, so the raw port never needs to
+# be reachable from a browser or another LAN host. Override with the
+# ``SWE_API_HOST`` env var (e.g. ``0.0.0.0``) to expose the port explicitly.
+_DEFAULT_API_HOST = "127.0.0.1"
+
 # Listen-queue depth. ``socketserver.TCPServer.request_queue_size`` defaults
 # to 5, which gets exceeded during a realistic dashboard hard-reload
 # (5–10 simultaneous fetches) or a CI smoke pile-up. The S20 reliability
@@ -2687,8 +3296,28 @@ def _resolve_port(env: dict[str, str] | None = None) -> int:
     return port
 
 
+def _resolve_host(env: dict[str, str] | None = None) -> str:
+    """Resolve the bind host from ``SWE_API_HOST`` (default ``127.0.0.1``).
+
+    Hardening (R3): the server historically bound ``0.0.0.0``, which made
+    the unauthenticated-by-default write endpoints (``POST /api/tv/webhook``,
+    ``POST /api/news/ingest``) reachable from any host on the LAN. The
+    dashboard talks to this server through a *server-side* Next.js proxy,
+    so the raw port never needs to be reachable from a browser or another
+    machine — a loopback bind is the safe default. An operator who really
+    wants to expose the port (e.g. a trusted private subnet behind a
+    firewall) can opt back in explicitly with ``SWE_API_HOST=0.0.0.0``.
+    The value is passed straight through to ``socket.bind`` so any address
+    the host resolves is accepted; we only default it.
+    """
+    source = os.environ if env is None else env
+    raw = source.get("SWE_API_HOST", "").strip()
+    return raw or _DEFAULT_API_HOST
+
+
 def main():
     port = _resolve_port()
+    host = _resolve_host()
     # ThreadingHTTPServer spawns one thread per request so a slow committee
     # or memo call can't block the 5+ parallel fetches the dashboard fires
     # when a trader switches tickers. The local ``_EngineHTTPServer``
@@ -2696,9 +3325,13 @@ def main():
     # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
     # realistic dashboard / CI bursts without ``ECONNREFUSED`` drops —
     # see the S20 reliability arc for the measurement.
-    server = _EngineHTTPServer(("0.0.0.0", port), EngineAPIHandler)
+    #
+    # R3 hardening: bind ``host`` (default 127.0.0.1) instead of the old
+    # hard-coded 0.0.0.0. The unauthenticated-by-default write endpoints
+    # are now loopback-only unless an operator sets SWE_API_HOST.
+    server = _EngineHTTPServer((host, port), EngineAPIHandler)
     server.daemon_threads = True
-    print(f"Smart Wheel Engine API running on http://localhost:{port}")
+    print(f"Smart Wheel Engine API running on http://{host}:{port}")
     print("Endpoints:")
     print("  GET /api/status")
     print("  GET /api/candidates?limit=15&min_score=50")
@@ -2728,7 +3361,12 @@ def main():
     print("  GET  /api/tv/scan?limit=25&zone=wheel_put")
     print("  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone")
     print("  GET  /api/tv/alerts?limit=50")
+    print("  GET  /api/tv/ranked?limit=20&dte=35&delta=0.25")
+    print("  GET  /api/tv/dossier?top_n=10&timeframe=1D")
+    print("  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35")
     print("  POST /api/tv/webhook")
+    print("  GET  /api/news?limit=20")
+    print("  POST /api/news/ingest")
     print()
     try:
         server.serve_forever()

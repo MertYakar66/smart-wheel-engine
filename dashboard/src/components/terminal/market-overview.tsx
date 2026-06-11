@@ -1,103 +1,244 @@
 "use client";
 
-import { TerminalPanel, TerminalDivider, TerminalBadge } from "./panel";
-import type { MarketIndex } from "@/types";
+import { useState, useEffect } from "react";
+import {
+  TerminalPanel,
+  TerminalDivider,
+  TerminalRow,
+  TerminalBadge,
+} from "./panel";
+import type { MarketRegime } from "@/types";
+
+/**
+ * Honest market/vol panel. Every number here is a real engine read:
+ * VIX complex + term structure from action=regime, EOD last closes for a few
+ * liquid universe names from action=chart (chart_type=ohlcv). No placeholder
+ * index/futures/commodities quotes — absent data renders as an explicit
+ * empty state, never a static number dressed up as live.
+ */
 
 interface MarketOverviewProps {
-  indices: MarketIndex[];
-  futures: MarketIndex[];
-  commodities: MarketIndex[];
-  loading: boolean;
+  regime: MarketRegime;
+  /** Freshest OHLCV date served by the engine (action=status). */
+  dataFrontier: string | null;
+  connected: boolean;
+  /** One-shot highlight when the command line targets this panel. */
+  flash?: boolean;
 }
 
-function PriceRow({ item }: { item: MarketIndex }) {
-  const isPositive = item.changePct >= 0;
-  return (
-    <div className="flex items-center justify-between py-[1px]">
-      <span className="w-16 text-terminal-amber">{item.symbol}</span>
-      <span className="w-24 text-right text-terminal-text">
-        {item.price.toLocaleString("en-US", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
-      </span>
-      <span
-        className={`w-16 text-right ${
-          isPositive ? "text-terminal-green" : "text-terminal-red"
-        }`}
-      >
-        {isPositive ? "+" : ""}
-        {item.change.toFixed(2)}
-      </span>
-      <span
-        className={`w-16 text-right ${
-          isPositive ? "text-terminal-green" : "text-terminal-red"
-        }`}
-      >
-        {isPositive ? "+" : ""}
-        {item.changePct.toFixed(2)}%
-      </span>
-    </div>
-  );
+// Liquid wheel-universe names for the EOD strip. EOD closes only — this is
+// not a realtime tape and is labeled with the data frontier date.
+const EOD_TICKERS = ["AAPL", "MSFT", "JPM"];
+
+interface EodQuote {
+  ticker: string;
+  close: number | null;
+  changePct: number | null;
+}
+
+interface OhlcvRow {
+  date?: string;
+  close?: number;
+}
+
+function fmt2(v: number | null | undefined): string {
+  return typeof v === "number" && Number.isFinite(v)
+    ? v.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "—";
 }
 
 export function MarketOverview({
-  indices,
-  futures,
-  commodities,
-  loading,
+  regime,
+  dataFrontier,
+  connected,
+  flash,
 }: MarketOverviewProps) {
+  const [eod, setEod] = useState<EodQuote[]>([]);
+  const [eodLoading, setEodLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchEod() {
+      setEodLoading(true);
+      const results = await Promise.all(
+        EOD_TICKERS.map(async (ticker): Promise<EodQuote> => {
+          try {
+            const res = await fetch(
+              `/api/engine?action=chart&chart_type=ohlcv&ticker=${ticker}&days=2`
+            );
+            if (!res.ok) return { ticker, close: null, changePct: null };
+            const body = await res.json();
+            const rows: OhlcvRow[] = Array.isArray(body?.data) ? body.data : [];
+            const last = rows[rows.length - 1]?.close;
+            const prev = rows[rows.length - 2]?.close;
+            const close =
+              typeof last === "number" && Number.isFinite(last) ? last : null;
+            const changePct =
+              close !== null && typeof prev === "number" && prev > 0
+                ? ((close - prev) / prev) * 100
+                : null;
+            return { ticker, close, changePct };
+          } catch {
+            return { ticker, close: null, changePct: null };
+          }
+        })
+      );
+      if (!cancelled) {
+        setEod(results);
+        setEodLoading(false);
+      }
+    }
+    fetchEod();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hasVol = regime.vix > 0;
+  const backwardation = regime.contango === false;
+
   return (
     <TerminalPanel
-      title="Market Overview"
-      tag="INDICES"
+      title="Market / Vol"
+      tag="ENGINE"
+      flash={flash}
       headerRight={
-        <TerminalBadge variant="green">LIVE</TerminalBadge>
+        connected ? (
+          dataFrontier ? (
+            <span className="text-[10px] text-terminal-dim">
+              EOD · as of {dataFrontier}
+            </span>
+          ) : (
+            <TerminalBadge variant="green">LIVE</TerminalBadge>
+          )
+        ) : (
+          <TerminalBadge variant="amber">OFFLINE</TerminalBadge>
+        )
       }
     >
-      {loading ? (
-        <div className="flex h-full items-center justify-center text-terminal-dim">
-          Loading market data...
+      {/* VIX complex + term structure — the premium seller's first read */}
+      <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+        ─ VOL COMPLEX
+      </div>
+      {hasVol ? (
+        <>
+          <TerminalRow
+            label="VIX"
+            value={fmt2(regime.vix)}
+            valueColor={
+              regime.vix >= 25
+                ? "text-terminal-red"
+                : regime.vix >= 20
+                  ? "text-terminal-amber"
+                  : "text-terminal-green"
+            }
+          />
+          <TerminalRow label="VIX 3M" value={fmt2(regime.vix3m)} />
+          <TerminalRow label="VIX 6M" value={fmt2(regime.vix6m)} />
+          <TerminalRow
+            label="1Y percentile"
+            value={
+              regime.vixPercentile !== null
+                ? `${(regime.vixPercentile * 100).toFixed(0)}%`
+                : "—"
+            }
+          />
+          <div className="flex items-center justify-between py-[2px]">
+            <span className="text-terminal-dim">Term structure</span>
+            {regime.termStructure ? (
+              // Backwardation is the regime where the R11 trust haircut
+              // matters — draw it loud.
+              <TerminalBadge variant={backwardation ? "red" : "green"}>
+                {regime.termStructure}
+              </TerminalBadge>
+            ) : (
+              <span className="text-terminal-dim">—</span>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="py-1 text-[10px] italic text-terminal-dim">
+          No vol data — engine offline or VIX feed absent
+        </div>
+      )}
+
+      <TerminalDivider />
+
+      {/* Regime bucket — honest label: this endpoint is a VIX-band heuristic,
+          not the engine's 4-state HMM regime layer. */}
+      <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+        ─ REGIME (VIX BAND)
+      </div>
+      <div className="flex items-center gap-2 py-[2px]">
+        {regime.regime !== "---" ? (
+          <TerminalBadge
+            variant={
+              regime.regime === "HIGH_VOL" || regime.regime === "ELEVATED"
+                ? "amber"
+                : regime.regime === "BEAR"
+                  ? "red"
+                  : regime.regime === "LOW_VOL"
+                    ? "green"
+                    : "blue"
+            }
+          >
+            {regime.regime}
+          </TerminalBadge>
+        ) : (
+          <span className="text-terminal-dim">—</span>
+        )}
+        <span className="text-[10px] text-terminal-dim">
+          VIX-band heuristic, not the HMM
+        </span>
+      </div>
+
+      <TerminalDivider />
+
+      {/* EOD closes for liquid universe names — explicitly dated, never
+          presented as a realtime tape. */}
+      <div className="mb-1 text-[10px] font-bold text-terminal-blue">
+        ─ EOD CLOSES{dataFrontier ? ` · ${dataFrontier}` : ""}
+      </div>
+      <div className="flex items-center justify-between py-[1px] text-[10px] text-terminal-dim">
+        <span className="w-14">SYM</span>
+        <span className="w-24 text-right">CLOSE</span>
+        <span className="w-16 text-right">1D CHG%</span>
+      </div>
+      {eodLoading ? (
+        <div className="py-1 text-[10px] text-terminal-dim">
+          Loading EOD closes…
         </div>
       ) : (
-        <>
-          {/* Header row */}
-          <div className="flex items-center justify-between py-[1px] text-[10px] text-terminal-dim">
-            <span className="w-16">SYM</span>
-            <span className="w-24 text-right">LAST</span>
-            <span className="w-16 text-right">CHG</span>
-            <span className="w-16 text-right">CHG%</span>
-          </div>
-          <TerminalDivider />
-
-          {/* Indices */}
-          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-            ─ INDICES
-          </div>
-          {indices.map((item) => (
-            <PriceRow key={item.symbol} item={item} />
-          ))}
-
-          <TerminalDivider />
-
-          {/* Futures */}
-          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-            ─ FUTURES
-          </div>
-          {futures.map((item) => (
-            <PriceRow key={item.symbol} item={item} />
-          ))}
-
-          <TerminalDivider />
-
-          {/* Commodities */}
-          <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-            ─ COMMODITIES
-          </div>
-          {commodities.map((item) => (
-            <PriceRow key={item.symbol} item={item} />
-          ))}
-        </>
+        eod.map((q) => {
+          const up = (q.changePct ?? 0) >= 0;
+          return (
+            <div
+              key={q.ticker}
+              className="flex items-center justify-between py-[1px]"
+            >
+              <span className="w-14 text-terminal-amber">{q.ticker}</span>
+              <span className="w-24 text-right tabular-nums text-terminal-text">
+                {q.close !== null ? fmt2(q.close) : "—"}
+              </span>
+              <span
+                className={`w-16 text-right tabular-nums ${
+                  q.changePct === null
+                    ? "text-terminal-dim"
+                    : up
+                      ? "text-terminal-green"
+                      : "text-terminal-red"
+                }`}
+              >
+                {q.changePct !== null
+                  ? `${up ? "+" : ""}${q.changePct.toFixed(2)}%`
+                  : "—"}
+              </span>
+            </div>
+          );
+        })
       )}
     </TerminalPanel>
   );

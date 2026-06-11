@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { newsCategories, storyCategories, stories, storyEntities, storySources } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { initializeDefaultCategories, getStoriesByCategory } from "@/services/news-categories";
+import { getStoriesByCategory } from "@/services/news-categories";
 import type { StoryCard, ImpactFactor, ExposureMechanism } from "@/types";
 
 export async function GET(request: Request) {
@@ -31,9 +31,15 @@ export async function GET(request: Request) {
         });
         if (!story) continue;
 
-        const entities = await db.query.storyEntities.findMany({
+        const entityRows = await db.query.storyEntities.findMany({
           where: eq(storyEntities.storyId, sid),
         });
+        // Dedupe (type,value) pairs — cluster merges duplicate entity rows.
+        const entities = [
+          ...new Map(
+            entityRows.map((e) => [`${e.entityType}:${e.entityValue}`, e])
+          ).values(),
+        ];
         const sources = await db.query.storySources.findMany({
           where: eq(storySources.storyId, sid),
         });
@@ -76,18 +82,12 @@ export async function GET(request: Request) {
     return NextResponse.json(cat);
   }
 
-  // Get all categories
-  let categories = await db.query.newsCategories.findMany({
+  // Get all categories. Seeding happens at server boot (news-cron) or on
+  // the first ingestion run — never inside a GET. An unseeded DB returns
+  // [] honestly.
+  const categories = await db.query.newsCategories.findMany({
     orderBy: [desc(newsCategories.sortOrder)],
   });
-
-  // Initialize defaults if empty
-  if (categories.length === 0) {
-    await initializeDefaultCategories();
-    categories = await db.query.newsCategories.findMany({
-      orderBy: [desc(newsCategories.sortOrder)],
-    });
-  }
 
   // Count stories per category
   const result = await Promise.all(

@@ -23,44 +23,161 @@ const EVENT_TYPE_CONFIG: Record<
   gdp: { label: "GDP", icon: TrendingUp, color: "text-red-500" },
 };
 
-// Static calendar events (Fed schedule + known releases)
-const STATIC_EVENTS: CalendarEvent[] = [
-  // 2026 FOMC meetings (projected schedule)
-  { eventId: "fomc-1", eventType: "fomc", ticker: null, eventDate: "2026-01-28", description: "FOMC Meeting Day 2 - Rate Decision" },
-  { eventId: "fomc-2", eventType: "fomc", ticker: null, eventDate: "2026-03-18", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
-  { eventId: "fomc-3", eventType: "fomc", ticker: null, eventDate: "2026-05-06", description: "FOMC Meeting Day 2 - Rate Decision" },
-  { eventId: "fomc-4", eventType: "fomc", ticker: null, eventDate: "2026-06-17", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
-  { eventId: "fomc-5", eventType: "fomc", ticker: null, eventDate: "2026-07-29", description: "FOMC Meeting Day 2 - Rate Decision" },
-  { eventId: "fomc-6", eventType: "fomc", ticker: null, eventDate: "2026-09-16", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
-  { eventId: "fomc-7", eventType: "fomc", ticker: null, eventDate: "2026-11-04", description: "FOMC Meeting Day 2 - Rate Decision" },
-  { eventId: "fomc-8", eventType: "fomc", ticker: null, eventDate: "2026-12-16", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
-  // CPI releases (approximate)
-  { eventId: "cpi-1", eventType: "cpi", ticker: null, eventDate: "2026-01-14", description: "December 2025 CPI Report" },
-  { eventId: "cpi-2", eventType: "cpi", ticker: null, eventDate: "2026-02-12", description: "January 2026 CPI Report" },
-  { eventId: "cpi-3", eventType: "cpi", ticker: null, eventDate: "2026-03-12", description: "February 2026 CPI Report" },
-  { eventId: "cpi-4", eventType: "cpi", ticker: null, eventDate: "2026-04-14", description: "March 2026 CPI Report" },
-  { eventId: "cpi-5", eventType: "cpi", ticker: null, eventDate: "2026-05-13", description: "April 2026 CPI Report" },
-  { eventId: "cpi-6", eventType: "cpi", ticker: null, eventDate: "2026-06-10", description: "May 2026 CPI Report" },
-  // Jobs reports
-  { eventId: "jobs-1", eventType: "jobs", ticker: null, eventDate: "2026-01-09", description: "December 2025 Employment Situation" },
-  { eventId: "jobs-2", eventType: "jobs", ticker: null, eventDate: "2026-02-06", description: "January 2026 Employment Situation" },
-  { eventId: "jobs-3", eventType: "jobs", ticker: null, eventDate: "2026-03-06", description: "February 2026 Employment Situation" },
-  { eventId: "jobs-4", eventType: "jobs", ticker: null, eventDate: "2026-04-03", description: "March 2026 Employment Situation" },
-  // GDP releases
-  { eventId: "gdp-1", eventType: "gdp", ticker: null, eventDate: "2026-01-30", description: "Q4 2025 GDP Advance Estimate" },
-  { eventId: "gdp-2", eventType: "gdp", ticker: null, eventDate: "2026-04-29", description: "Q1 2026 GDP Advance Estimate" },
+const MACRO_TYPES = new Set(["fomc", "cpi", "jobs", "gdp"]);
+
+// Events carry their provenance so projected fallback dates are never
+// presented as engine truth.
+type SourcedEvent = CalendarEvent & { source: "engine" | "db" | "projected" };
+
+// Static FOMC schedule — used ONLY when the engine calendar is
+// unreachable, always badged "Projected". (The old page rendered a full
+// hardcoded macro list as primary data; its CPI/jobs dates had already
+// gone stale.)
+const FALLBACK_EVENTS: CalendarEvent[] = [
+  { eventId: "fomc-proj-4", eventType: "fomc", ticker: null, eventDate: "2026-06-17", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
+  { eventId: "fomc-proj-5", eventType: "fomc", ticker: null, eventDate: "2026-07-29", description: "FOMC Meeting Day 2 - Rate Decision" },
+  { eventId: "fomc-proj-6", eventType: "fomc", ticker: null, eventDate: "2026-09-16", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
+  { eventId: "fomc-proj-7", eventType: "fomc", ticker: null, eventDate: "2026-11-04", description: "FOMC Meeting Day 2 - Rate Decision" },
+  { eventId: "fomc-proj-8", eventType: "fomc", ticker: null, eventDate: "2026-12-16", description: "FOMC Meeting Day 2 - Rate Decision + SEP" },
 ];
 
-export default function CalendarPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>(STATIC_EVENTS);
+interface EngineCalendarEvent {
+  eventId: string;
+  eventType: string;
+  ticker: string | null;
+  eventDate: string;
+  description: string | null;
+}
 
-  // Sort events by date, filter to upcoming
-  const upcomingEvents = events
-    .filter((e) => new Date(e.eventDate) >= new Date(new Date().toISOString().split("T")[0]))
+export default function CalendarPage() {
+  const [events, setEvents] = useState<SourcedEvent[]>([]);
+  const [heldSymbols, setHeldSymbols] = useState<string[]>([]);
+  const [engineUp, setEngineUp] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const collected: SourcedEvent[] = [];
+      let engineOk = false;
+
+      const [dbRes, engineRes, posRes] = await Promise.allSettled([
+        fetch("/api/events"),
+        fetch("/api/engine?action=calendar&days=180"),
+        fetch("/api/portfolio/positions"),
+      ]);
+
+      if (dbRes.status === "fulfilled" && dbRes.value.ok) {
+        try {
+          const data: CalendarEvent[] = await dbRes.value.json();
+          collected.push(...data.map((e) => ({ ...e, source: "db" as const })));
+        } catch {
+          /* malformed DB payload — skip */
+        }
+      }
+
+      if (engineRes.status === "fulfilled" && engineRes.value.ok) {
+        try {
+          const data = await engineRes.value.json();
+          const engineEvents: EngineCalendarEvent[] = Array.isArray(data?.events)
+            ? data.events
+            : [];
+          collected.push(
+            ...engineEvents.map((e) => ({
+              eventId: e.eventId,
+              eventType: e.eventType as CalendarEvent["eventType"],
+              ticker: e.ticker,
+              eventDate: e.eventDate,
+              description: e.description,
+              source: "engine" as const,
+            }))
+          );
+          engineOk = true;
+        } catch {
+          /* fall through to projected fallback */
+        }
+      }
+
+      // Per-held-ticker earnings from the engine calendar. Returns nothing
+      // while the engine's earnings CSV frontier is stale — the section
+      // below states that explicitly instead of pretending a clear week.
+      let held: string[] = [];
+      if (posRes.status === "fulfilled" && posRes.value.ok) {
+        try {
+          const data = await posRes.value.json();
+          const holdings: { sym?: string }[] = Array.isArray(data?.holdings)
+            ? data.holdings
+            : [];
+          held = [...new Set(holdings.map((h) => h.sym).filter(Boolean))] as string[];
+        } catch {
+          /* no held book — earnings section shows its empty state */
+        }
+      }
+      setHeldSymbols(held);
+
+      if (engineOk && held.length > 0) {
+        const perTicker = await Promise.allSettled(
+          held.map((sym) =>
+            fetch(`/api/engine?action=calendar&ticker=${encodeURIComponent(sym)}&days=120`)
+          )
+        );
+        for (const res of perTicker) {
+          if (res.status !== "fulfilled" || !res.value.ok) continue;
+          try {
+            const data = await res.value.json();
+            const evts: EngineCalendarEvent[] = Array.isArray(data?.events)
+              ? data.events
+              : [];
+            collected.push(
+              ...evts
+                .filter((e) => e.eventType === "earnings")
+                .map((e) => ({
+                  eventId: e.eventId,
+                  eventType: e.eventType as CalendarEvent["eventType"],
+                  ticker: e.ticker,
+                  eventDate: e.eventDate,
+                  description: e.description,
+                  source: "engine" as const,
+                }))
+            );
+          } catch {
+            /* skip this ticker */
+          }
+        }
+      }
+
+      if (!engineOk) {
+        collected.push(
+          ...FALLBACK_EVENTS.map((e) => ({ ...e, source: "projected" as const }))
+        );
+      }
+
+      // Dedup by eventId (engine macro events can repeat across the
+      // per-ticker calls; DB rows may mirror engine rows).
+      const seen = new Set<string>();
+      const unique = collected.filter((e) => {
+        if (seen.has(e.eventId)) return false;
+        seen.add(e.eventId);
+        return true;
+      });
+
+      setEvents(unique);
+      setEngineUp(engineOk);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const upcoming = events
+    .filter((e) => e.eventDate >= todayStr)
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  const macroEvents = upcoming.filter((e) => MACRO_TYPES.has(e.eventType));
+  const earningsEvents = upcoming.filter((e) => e.eventType === "earnings");
 
   const pastEvents = events
-    .filter((e) => new Date(e.eventDate) < new Date(new Date().toISOString().split("T")[0]))
+    .filter((e) => e.eventDate < todayStr)
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate))
     .slice(0, 10);
 
@@ -75,75 +192,148 @@ export default function CalendarPage() {
 
   function daysUntil(dateStr: string): number {
     const target = new Date(dateStr + "T00:00:00");
-    const today = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
+    const today = new Date(todayStr + "T00:00:00");
     return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+  }
+
+  function sourceBadge(source: SourcedEvent["source"]) {
+    if (source === "engine") {
+      return (
+        <Badge variant="outline" className="border-green-300 text-green-600 text-[10px] uppercase">
+          Engine
+        </Badge>
+      );
+    }
+    if (source === "projected") {
+      return (
+        <Badge variant="outline" className="border-amber-300 text-amber-600 text-[10px] uppercase">
+          Projected
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] uppercase">
+        Manual
+      </Badge>
+    );
+  }
+
+  function EventRow({ event }: { event: SourcedEvent }) {
+    const config = EVENT_TYPE_CONFIG[event.eventType];
+    const Icon = config?.icon || Calendar;
+    const days = daysUntil(event.eventDate);
+
+    return (
+      <div className="flex items-center gap-4 rounded-lg border border-zinc-100 p-3 dark:border-zinc-800">
+        <div className={`${config?.color || "text-zinc-400"}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">
+              {event.ticker ? `${event.ticker} — ` : ""}
+              {event.description || config?.label || event.eventType}
+            </p>
+            {sourceBadge(event.source)}
+          </div>
+          <p className="text-xs text-zinc-400">{formatDate(event.eventDate)}</p>
+        </div>
+        <div className="text-right">
+          <Badge variant={days <= 7 ? "destructive" : "secondary"}>
+            {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`}
+          </Badge>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            Event Calendar
+          </h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading events…</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          Macro Calendar
+          Event Calendar
         </h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          FOMC meetings, CPI releases, jobs reports, GDP estimates
+          Macro events from the engine calendar
+          {heldSymbols.length > 0 && <> · earnings checked for held names ({heldSymbols.join(", ")})</>}
+          {!engineUp && (
+            <span className="ml-1 text-amber-600 dark:text-amber-500">
+              · engine offline — showing projected FOMC schedule only
+            </span>
+          )}
         </p>
       </div>
 
-      {/* Upcoming Events */}
+      {/* Macro & Policy */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Upcoming Events
+            Macro &amp; Policy
           </CardTitle>
           <CardDescription>
-            {upcomingEvents.length} events scheduled
+            {macroEvents.length > 0
+              ? `${macroEvents.length} upcoming events`
+              : "No upcoming macro events"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {upcomingEvents.map((event) => {
-              const config = EVENT_TYPE_CONFIG[event.eventType];
-              const Icon = config?.icon || Calendar;
-              const days = daysUntil(event.eventDate);
+          {macroEvents.length > 0 ? (
+            <div className="space-y-3">
+              {macroEvents.map((event) => (
+                <EventRow key={event.eventId} event={event} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              {engineUp
+                ? "The engine calendar returned no macro events for the next 180 days."
+                : "Engine offline and no projected dates in range."}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-              return (
-                <div
-                  key={event.eventId}
-                  className="flex items-center gap-4 rounded-lg border border-zinc-100 p-3 dark:border-zinc-800"
-                >
-                  <div className={`${config?.color || "text-zinc-400"}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {event.description}
-                    </p>
-                    <p className="text-xs text-zinc-400">
-                      {formatDate(event.eventDate)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <Badge
-                      variant={days <= 7 ? "destructive" : "secondary"}
-                    >
-                      {days === 0
-                        ? "Today"
-                        : days === 1
-                          ? "Tomorrow"
-                          : `${days} days`}
-                    </Badge>
-                    {event.ticker && (
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {event.ticker}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* Earnings — held book */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Earnings — Held Book
+          </CardTitle>
+          <CardDescription>
+            Engine earnings dates for symbols in the live book
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {earningsEvents.length > 0 ? (
+            <div className="space-y-3">
+              {earningsEvents.map((event) => (
+                <EventRow key={event.eventId} event={event} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">
+              {!engineUp
+                ? "Engine offline — earnings dates unavailable."
+                : heldSymbols.length === 0
+                  ? "No held positions found, so no earnings to check."
+                  : "No earnings dates returned for held names within 120 days. Note: this may reflect the engine's earnings-data frontier rather than a clear calendar."}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -165,10 +355,11 @@ export default function CalendarPage() {
                     <Badge variant="outline" className="text-xs">
                       {config?.label || event.eventType}
                     </Badge>
-                    <span className="text-sm">{event.description}</span>
-                    <span className="ml-auto text-xs">
-                      {formatDate(event.eventDate)}
+                    <span className="text-sm">
+                      {event.ticker ? `${event.ticker} — ` : ""}
+                      {event.description}
                     </span>
+                    <span className="ml-auto text-xs">{formatDate(event.eventDate)}</span>
                   </div>
                 );
               })}

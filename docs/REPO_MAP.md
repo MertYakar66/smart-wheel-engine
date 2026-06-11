@@ -15,7 +15,7 @@
 | What is **authoritative** for a trade decision? | the **Authority block** below → then `CLAUDE.md` §2 for the rule text | re-deriving from 4 docs |
 | What **tests** cover area Y / what must I run? | `TESTING.md` (taxonomy + per-module "what to run") | — |
 | What is the **current state / WIP**? | `PROJECT_STATE.md` (now) · `ROADMAP.md` (next) · `docs/worklog/INDEX.md` (per-task) | pinned counts (run `pytest --collect-only -q`) |
-| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…D21) | — |
+| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…) | — |
 
 ## Authority block — the §2 firewall (do not bypass)
 
@@ -26,25 +26,27 @@ The four sanctioned routes from raw inputs to a tradeable verdict (full contract
 |---|---|---|---|
 | Ranker authority | `engine/ev_engine.py` | `EVEngine.evaluate` | **authority** — the only place a candidate becomes tradeable |
 | Runner | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | the one route every tradeable path takes |
-| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R10) | downgrade-only |
+| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R11) | downgrade-only |
 | Interface | `engine_api.py` | HTTP API on `:8787` | serves verdicts; never re-ranks |
 
 **Invariant:** no tradeable candidate bypasses `EVEngine.evaluate`; reviewers can
 **downgrade** (proceed→review→skip→blocked) but never upgrade; the dealer
 multiplier is clamped `[0.70, 1.05]` and scales `ev_dollars` only, never `ev_raw`.
 
-**Reviewer rules (the canonical count is R1–R10; rule *text* lives in `CLAUDE.md`
+**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `CLAUDE.md`
 §2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
 missing/errored→review · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
 (*dormant*) · R5 EV ≥ `min_proceed_ev` (10.0)→proceed else review · R6 short-gamma
 + strike ≥ put wall / near gamma flip→review · **R7–R10 = D17 portfolio
 soft-warns** (require an attached `PortfolioContext`): R7 VaR breach · R8
-stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach. All
+stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach · R11
+elevated-vol top-bin size-down (VIX level >25 + top-bin `prob_profit` >0.90). All
 downgrade-only.
 
 **Pinned by** (the INVARIANT-PIN test set — never move/merge without §2 owner
 sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_data_smoke}`,
-`test_dossier_invariant` (R1–R10), `test_dossier_r9_r10_audit` (R9/R10 structural),
+`test_dossier_invariant` (R1–R10), `test_r11_elevated_vol` (R11),
+`test_dossier_r9_r10_audit` (R9/R10 structural),
 `test_authority_hardening` + `test_ev_authority_log_schema` (D16 token gate),
 `test_decision_layer_wiring` + `test_consume_ranker_row_anchor` + `test_ranker_tracker_wire`
 (D16/D17 wire), `test_ev_non_finite_defense` (R1a), `test_evengine_event_lockout`
@@ -68,7 +70,7 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
 | `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
 | `utils/`, `config/`, `local_agent/` | helpers / config / experimental agent | `FILE_MANIFEST.md` |
-| `tests/` | 111 flat `test_*.py` (+ `tests/fixtures/`); root `conftest.py` | `TESTING.md` |
+| `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
 | `docs/` | reference + design-contract docs | `FILE_MANIFEST.md` |
 
 ## `src/` per-file truth (kills the recurring "is src/ dead?" grep)
@@ -85,7 +87,7 @@ freeze. Per-file import reality (grounded by importer grep):
 | `features/volatility.py` | research ETL + scripts + tests | not live engine |
 | `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | `data/feature_pipeline.py` + tests | research/test only |
 | `data/validators.py` | self only | dead (coverage-omitted) |
-| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` only | test-only |
+| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` + `ml/wheel_model.py` (research) | research/test-only |
 | `risk/`, `models/`, `execution/` | none (empty `__init__` stubs) | zero importers |
 
 ## Tests — find them without globbing
@@ -113,6 +115,7 @@ point here):
 
 ```
 pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
+       tests/test_r11_elevated_vol.py \
        tests/test_authority_hardening.py tests/test_audit_viii_unit_invariants.py \
        tests/test_audit_viii_e2e.py tests/test_audit_viii_real_data_smoke.py \
        tests/test_launch_blockers.py -v

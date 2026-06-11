@@ -27,7 +27,7 @@ rescue a negative-EV trade.
 |---|---|---|
 | **Data** | `data/`, `data_processed/`, `scripts/pull_*.py` | OHLCV, IV history, option chains, fundamentals, macro, news. Two providers selected by `SWE_DATA_PROVIDER` (default `bloomberg`). |
 | **Quant** | `engine/` | Black-Scholes-Merton + Greeks to 3rd order, empirical forward distributions, POT-GPD tails, 4-state Gaussian HMM regime, Nelson-Siegel skew, Student-t copula CVaR, dealer GEX / walls / gamma flip. |
-| **Decision** | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py` | `EVEngine.evaluate` (the authoritative ranker), `WheelRunner.rank_candidates_by_ev` (the one ranker every tradeable path routes through), `EnginePhaseReviewer` (rules R1–R10, downgrade-only). |
+| **Decision** | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py` | `EVEngine.evaluate` (the authoritative ranker), `WheelRunner.rank_candidates_by_ev` (the one ranker every tradeable path routes through), `EnginePhaseReviewer` (rules R1–R11, downgrade-only). |
 | **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py`, `advisors/` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider), Buffett/Munger/Simons/Taleb advisor committee (advisory only). |
 
 See [`CLAUDE.md`](CLAUDE.md) for the full four-layer model and the hard EV
@@ -92,7 +92,7 @@ python engine_api.py
 cd dashboard && npm install && npm run dev
 ```
 
-`engine_api.py` serves 32 endpoints — see the file header for the catalog.
+`engine_api.py` serves 34 endpoints — see the file header for the catalog.
 
 ### Daily news pipeline (optional, no API cost)
 
@@ -145,7 +145,8 @@ smart-wheel-engine/
 ├── news_pipeline/   # browser-agent pipeline driving morning_run.py
 ├── local_agent/     # experimental local agent + UI
 ├── ml/              # research ML models
-├── backtests/       # research backtesting
+├── backtests/       # research backtesting + pinned regression reproducers
+├── studies/         # one-off research studies (premium-correction pilot)
 ├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
 ├── config/          # configuration
 ├── utils/           # shared utilities
@@ -174,8 +175,8 @@ pytest tests/ -v
 /launch-blockers          # slash command, wraps the subset
 # or directly:
 pytest tests/test_audit_invariants.py tests/test_dossier_invariant.py \
-       tests/test_authority_hardening.py tests/test_audit_viii_*.py \
-       tests/test_launch_blockers.py -v
+       tests/test_r11_elevated_vol.py tests/test_authority_hardening.py \
+       tests/test_audit_viii_*.py tests/test_launch_blockers.py -v
 ```
 
 Any change touching `engine/ev_engine.py`, `engine/wheel_runner.py`, or

@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-05-31.
+**Last updated:** 2026-06-09.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -56,7 +56,7 @@ described here is no longer accurate.
 |---|---|---|
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*`, `tests/test_evengine_event_lockout.py`, `tests/test_dealer_multiplier_evengine_integration.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_f4_tail_risk_gap.py`, `tests/test_consume_ranker_row_anchor.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R10** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R11** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**; **R11 elevated-vol top-bin**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py`, `tests/test_r11_elevated_vol.py` |
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
@@ -70,6 +70,14 @@ transparency. R1 (negative or non-finite EV →
 blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
+
+> **Data currency (point-in-time).** The committed Bloomberg CSVs are
+> point-in-time as of **2026-03-20** (the freshest cut the `xbbg`
+> pullers' hardcoded `end_date` reaches). A full refresh is **partially
+> blocked**: only 3 of the 9 connector CSVs have a reproducible in-repo
+> producer; the other 6 — including the core IV file
+> `sp500_vol_iv_full.csv` — have no repo producer. See
+> `docs/DATA_POLICY.md` §5 and `docs/bloomberg_refresh_runbook.md`.
 
 ## 2. Recent decision-layer audits
 
@@ -116,6 +124,60 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
 > historical record. Newest-first additions for the 2026-05 late
 > campaign appear above them.
 
+### D27 repo restructure merged — orientation note for agents (2026-06-10)
+
+The navigation layer was reconciled and gate-hardened. If your clone or
+worktree predates this merge, `git pull` before orienting — you were
+reading stale maps. What changed for you:
+
+- **The maps are true again.** `TESTING.md`'s taxonomy covers all 144
+  test files (new gate: `tests/test_testing_md_taxonomy.py` — when you
+  add a test file, add its one-line taxonomy row or the suite fails);
+  `MODULE_INDEX.md` statuses are grep-verified (dormant means dormant);
+  this file + `CHANGELOG.md` now cover the 2026-06 wave.
+- **`audit.py` moved** → `scripts/audit_api_smoke.py` (it is the API
+  smoke client, not the audit-cycle framework). The root path is gone.
+- **Use `TESTING.md` for the launch-blocker subset** — README's inline
+  copy had drifted (it omitted `test_r11_elevated_vol.py`; fixed, but
+  TESTING.md remains the canonical list).
+- **Three docs archived** to `archive/2026-06/`: `SESSION_HANDOFF.md`
+  (superseded), the generic prompting guide, and `DATA_SPECIFICATION.md`
+  (`docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md` own that topic now).
+- Full record: `DECISIONS.md` D27 +
+  `docs/worklog/d27-repo-restructure-for-agent-navigability.md`
+  (including what was deliberately NOT changed, and why).
+
+### 2026-06 campaign wave — W-series verification + IBKR live book + data refresh R1 (2026-06-03 → 2026-06-09)
+
+Headlines only — per-PR detail is `CHANGELOG.md` "2026-06 (early)";
+worklog fragments carry the evidence.
+
+- **W-series test campaign (W10–W67).** A two-phase data + engine audit
+  (#353 discovery → #358 suites) promoted ~60 real-data findings into
+  pinned tests across 14 PRs (#370–#379 data, #383–#394 quant
+  invariants). Coverage register: `docs/DATA_TEST_AUDIT_2026-06-09.md`.
+- **IBKR read-only live book (D24 + D26) is live.**
+  `engine/ibkr_portfolio_adapter.py` + `GET /api/portfolio/*` + the
+  `/portfolio` / `/cockpit` / `/terminal` dashboard surfaces, with real
+  IBKR history import, PIT EV calibration vs the operator's real CSPs
+  (#362 — confirms the top-bin over-confidence finding on real fills),
+  and a one-command morning refresh (`docs/DASHBOARD_TERMINAL.md`).
+  Strictly observational; no EV authority on the viewer path.
+- **Armed production entry path exists** —
+  `WheelRunner.consume_into_live_book` (#343) routes rank→book through
+  `make_live_book_tracker` (R9/R10 ON). Supersedes the 2026-06-01
+  "zero non-test callers" note below (see the update inside that
+  section).
+- **Bloomberg data refresh R1 + re-baseline** (#338) — 16 monolith CSVs
+  refreshed; S27/S32/S34/S35 snapshots re-pinned; the regression
+  fingerprint now pins every connector input
+  (`connector_data_sha256`, #346), so data drift fails fast per-PR.
+- **Open data queue is consolidated** in
+  `docs/NEXT_DATA_SESSION_RUNBOOK.md` (#381 — the single authoritative
+  re-baseline-session runbook; bundles the D19 + D21 deferred fixes),
+  with `docs/DATA_ACQUISITION_ROADMAP.md` + `docs/BLOOMBERG_PULL_LIST.md`
+  as the pull-side plan.
+
 ### D17 portfolio-risk-gates closure — 2026-05-26 → 2026-05-27
 
 - **B2 part 1** (PR `#233`, `b55a59a`) — D17 portfolio-context live
@@ -136,6 +198,62 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
   §10 for the F4 motivation.
 - `DECISIONS.md` D17 documents the full design (gates, defaults,
   Q3 missing-data semantics, rejected alternatives).
+
+### D17 cap adoption status — verified 2026-06-01
+
+A reliability sweep against `origin/main` found the R9/R10 concentration
+caps are correctly **implemented and unit-tested** but **not active on any
+default operator path** — "documented protection ≠ active protection".
+Source-verified specifics:
+
+- **Hard refusals (tracker, at `open_short_put`):** armed when
+  `enforce_sector_cap` / `enforce_single_name_cap` is `True` (decoupled
+  from `require_ev_authority` since D22 / PR #303 —
+  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1805`), or
+  when `require_ev_authority=True`. All three default `False`
+  (`WheelTracker.__init__`, `wheel_tracker.py:278-280`). The canonical
+  armed constructor `engine.wheel_runner.make_live_book_tracker()` (sets
+  both `enforce_*_cap=True`) has **zero non-test callers** — every non-test
+  `WheelTracker(...)` site uses the bare default (`backtests/simulator.py`,
+  `backtests/regression/_common.py`, `scripts/s47_trader_session_2026_03_20.py`,
+  `scripts/transaction_costs_demo.py`). The hard refusals are therefore
+  dormant on every backtest / reproduction / demo path. (Arming them on the
+  regression baselines is intentionally avoided — D22 rejected flipping the
+  library default because it moves pinned snapshots + mechanics tests.)
+- **Soft-warns (dossier R7-R10, downgrade proceed→review):** fire only when
+  a populated `PortfolioContext` is attached to `build_candidate_dossiers()`.
+  On the network surface that happens on `/api/tv/dossier` + `/api/tv/enrich`
+  **only when the caller supplies `nav`** — `_build_portfolio_context_from_params`
+  returns `None` otherwise (`engine_api.py:284-285`, the Q3 "don't fire on
+  absent evidence" rule). The default `rank_candidates_by_ev` attaches no
+  context, and the tracker's own `portfolio_context_snapshot()` is never
+  auto-fed to the reviewer (only test + S47 + verification-artifact callers).
+- **Net:** the caps guard correctly *when armed*, but there is **no
+  default-armed live path today** — consistent with the §3 design that the
+  engine has no broker / OMS / execution surface. Closing the gap is a
+  forward step: route a future live path (or the S47-style operator harness)
+  through `make_live_book_tracker()`, and/or have the tracker auto-feed its
+  book to the dossier reviewer (an engine behaviour change that needs a
+  backtest re-baseline). This note supersedes the "HARD refusal … when
+  `require_ev_authority=True`" framing in the B2 / R10 bullets above, which
+  predates the D22 decoupling.
+
+> **Update (2026-06-07, PR #343):** the "zero non-test callers" gap above is
+> closed — `WheelRunner.consume_into_live_book` is the armed production
+> rank→book entry and constructs its tracker via `make_live_book_tracker()`
+> (R9 + R10 ON), refusing over-concentrated opens end-to-end. The library
+> default (`WheelTracker(...)` bare constructor) remains OFF by design (D22);
+> backtest / reproduction / demo paths are unchanged.
+
+> **Known stale code comment (flagged, not fixed — trio file).** The inline
+> `# Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on)`
+> comment in `wheel_tracker.py` (in `_evaluate_d17_hard_blocks`; line drifts —
+> grep for it) reads "default on", but the bare-constructor default is OFF —
+> accurate only inside `make_live_book_tracker()`. A trio-file edit deferred
+> to an operator-greenlit decision-layer touch. (The companion complaint about
+> the factory docstring — "MUST be constructed through this factory" with no
+> production caller — resolved itself when PR #343's `consume_into_live_book`
+> became that caller; the docstring is now true.)
 
 ### F4 tail-risk widening v2 — 2026-05-27
 
@@ -173,7 +291,12 @@ Backtest evidence sequence at $1M / 100t scale (deployment matrix in
 | S41 | 2022-2024 (F4 fix probe) | $100k / 24t | F4 fix signal-preserving (ρ +0.188 → +0.182), value-neutral | `docs/ENGINE_BACKTEST_S41_F4_FIX_VALIDATION.md` (PR #267) |
 | S43 | rolling 4-window | $1M / 100t post-#260 | **−51pp to −104pp**; ρ window-invariant | `docs/ENGINE_BACKTEST_S43_ROLLING_MULTIWINDOW.md` (PR #270) |
 | S44 | S38 re-run post-F4 | $1M / 100t | **F4 hypothesis FALSIFIED** — +0.56pp delta | `docs/ENGINE_BACKTEST_S44_S38_POSTF4_RERUN.md` (PR #271) |
-| S46 | re-verify closed tests post-F4 + R10 | various | in flight as PR #278 | `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| S46 | re-verify closed tests post-F4 + R10 | various | completed | `docs/ENGINE_REVERIFY_S46_POST_F4_R10.md` |
+| S47 | live wheel session trust-audit (`as_of=2026-03-20`, VIX 28.97, HMM bear) | $- / 5t | TRUST entry, DISTRUST management; R11 size-down behaves correctly | `docs/worklog/s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
+
+The current usage-test high-water is **S47** (the worklog ledger
+`docs/worklog/INDEX.md` is the source of truth — don't hardcode a count;
+it drifts every session).
 
 Verification campaign wrap-up artifacts (all merged to `origin/main`
 during the 2026-05-28 → 2026-05-29 wave; see `CHANGELOG.md`):
@@ -344,7 +467,7 @@ start; fast-forwarded cleanly to `433231f`.
 | `ROADMAP.md` | Tracks A (decision-layer correctness), B (documentation drift to repair), C (hygiene + governance follow-ups), D (out of scope). |
 | `DATA_POLICY.md` | Three data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures, drive-mount caveats. |
 | `TRADINGVIEW_INTEGRATION.md` | Parent guide covering both engine bridge (Pine indicator + webhook → EV) and analyst workspace (Claude-driven TradingView Desktop via MCP). |
-| `LAUNCH_READINESS.md` | Consolidated launch-blocker checklist: hard EV invariant, four authoritative routes, dossier R1–R6, pre-merge checklist. |
+| `LAUNCH_READINESS.md` | Consolidated launch-blocker checklist: hard EV invariant, four authoritative routes, dossier R1–R11, pre-merge checklist. |
 | `COMMIT_GUIDE.md` | `type(scope):` + `Changed/Why/Tested/Tried-but-rejected/Unresolved/AI-handoff` body format with worked example. |
 
 **Existing docs touched (cross-refs / drift):**

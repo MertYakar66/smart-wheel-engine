@@ -233,32 +233,46 @@ export interface RSSFeedConfig {
   publisher: string;
 }
 
-// ─── Terminal Types ───────────────────────────────────────────────────
-
-export interface MarketIndex {
-  symbol: string;
-  name: string;
-  price: number;
-  changePct: number;
-  change: number;
-}
-
 // ─── Options Engine Types (smart-wheel-engine) ────────────────────────
 
+/**
+ * One EV-ranked candidate row from /api/engine?action=candidates.
+ *
+ * Every numeric is nullable: the engine omits fields on degraded payloads and
+ * the terminal renders "—" for absent values rather than fabricating a 0.
+ * Unit notes (they differ per field — see runtime audit):
+ *   premium      per-SHARE dollars
+ *   evDollars / evPerDay / maxLoss   per-CONTRACT dollars
+ *   probProfit / CI bounds           0-1
+ *   targetDelta  the delta the strike was SELECTED at — an input, not a
+ *                measured Greek
+ *   expiration   modeled as as_of + dte, not an exchange listing — show "~"
+ */
 export interface WheelTrade {
   ticker: string;
   strategy: "short_put" | "covered_call";
-  strike: number;
-  expiration: string;
-  premium: number;
-  probability: number;
-  expectedPnL: number;
-  maxLoss: number;
-  iv: number;
-  delta: number;
-  score: number;
+  strike: number | null;
+  expiration: string | null;
+  dte: number | null;
+  premium: number | null;
+  probProfit: number | null;
+  probProfitCiLow: number | null;
+  probProfitCiHigh: number | null;
+  nScenarios: number | null;
+  evDollars: number | null;
+  evPerDay: number | null;
+  maxLoss: number | null;
+  iv: number | null;
+  targetDelta: number | null;
+  recommendation: string | null;
+  distributionSource: string | null;
 }
 
+/**
+ * /api/engine?action=regime payload. This endpoint is a VIX-band heuristic
+ * (NOT the engine's 4-state HMM) — label it as such wherever rendered.
+ * trendScore/confidence were fabricated server constants and no longer exist.
+ */
 export interface MarketRegime {
   regime:
     | "BULL"
@@ -269,36 +283,42 @@ export interface MarketRegime {
     | "LOW_VOL"
     | "---";
   vix: number;
-  trendScore: number;
-  confidence: number;
+  vixPercentile: number | null;
+  contango: boolean | null;
+  termStructure: string | null;
+  vix3m: number | null;
+  vix6m: number | null;
 }
 
-export interface OptionsPortfolio {
-  openPositions: number;
-  totalPremiumCollected: number;
-  winRate: number;
-  avgDaysHeld: number;
+// ─── Live IBKR Book Types (read-only viewer over /api/portfolio/*) ────
+
+export interface LiveBookSummary {
+  asOf: string | null;
+  netLiq: number | null;
+  dayChangeUsd: number | null;
+  dayChangePct: number | null;
+  cash: number | null;
+  unrealizedPnl: number | null;
+  realizedYtd: number | null;
+  premium30d: number | null;
+  winRate: number | null;
+  availableFunds: number | null;
+  excessLiquidity: number | null;
+  maintMargin: number | null;
+  source: string | null;
 }
 
-// ─── Local Agent Types ────────────────────────────────────────────────
-
-export interface AgentTask {
-  id: string;
-  description: string;
-  status: "queued" | "running" | "completed" | "failed";
-  startedAt?: string;
-  completedAt?: string;
-}
-
-export interface AgentStatus {
-  online: boolean;
-  model: string;
-  vramUsage: number;
-  vramTotal: number;
-  ramUsage: number;
-  activeTabs: number;
-  tasksCompleted: number;
-  uptime: string;
+export interface LiveBookLeg {
+  sym: string;
+  name: string;
+  state: string;
+  qty: number | null;
+  mark: number | null;
+  mktValue: number | null;
+  uPnl: number | null;
+  pctNavExact: number | null;
+  breach: boolean;
+  sector: string | null;
 }
 
 // ─── Terminal Command Types ───────────────────────────────────────────

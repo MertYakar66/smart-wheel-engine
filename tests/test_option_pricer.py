@@ -20,6 +20,7 @@ from engine.option_pricer import (
     black_scholes_vega,
     estimate_option_price_from_iv,
     vectorized_bs_all_greeks,
+    vectorized_bs_delta,
     vectorized_bs_price,
 )
 
@@ -205,6 +206,90 @@ class TestVectorizedPricing:
         assert set(greeks_df.columns) == {"price", "delta", "gamma", "theta", "vega", "rho"}
 
 
+class TestVectorizedFailLoud:
+    """R8: vectorized pricers must fail loud on S<=0 / K<=0 (no silent NaN).
+
+    A single bad strike or spot from a data gap would otherwise flow through as
+    log(<=0) -> NaN into batch Greek/exposure computation. The guard mirrors the
+    scalar _validate_inputs positivity contract: raise ValueError if ANY element
+    is non-positive. These tests also prove the guard changes NOTHING for valid
+    inputs by equality-checking against the scalar pricer.
+    """
+
+    # Valid base arrays (no element violates positivity).
+    S = np.array([100.0, 110.0, 90.0])
+    K = np.array([100.0, 105.0, 95.0])
+    T = np.array([0.25, 0.50, 0.10])
+    sigma = np.array([0.20, 0.25, 0.18])
+    is_call = np.array([True, False, True])
+    r = 0.05
+
+    def test_price_raises_on_negative_strike(self):
+        K_bad = np.array([100.0, -5.0, 95.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_price(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_price_raises_on_zero_spot(self):
+        S_bad = np.array([100.0, 0.0, 90.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_price(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_delta_raises_on_negative_strike(self):
+        K_bad = np.array([100.0, 105.0, -1.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_delta(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_delta_raises_on_zero_spot(self):
+        S_bad = np.array([0.0, 110.0, 90.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_delta(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_all_greeks_raises_on_negative_strike(self):
+        K_bad = np.array([-100.0, 105.0, 95.0])
+        with pytest.raises(ValueError, match="Strike price K must be positive"):
+            vectorized_bs_all_greeks(self.S, K_bad, self.T, self.r, self.sigma, self.is_call)
+
+    def test_all_greeks_raises_on_zero_spot(self):
+        S_bad = np.array([100.0, 110.0, 0.0])
+        with pytest.raises(ValueError, match="Spot price S must be positive"):
+            vectorized_bs_all_greeks(S_bad, self.K, self.T, self.r, self.sigma, self.is_call)
+
+    def test_valid_arrays_unchanged_price(self):
+        """Guard must not alter valid-input behavior: match scalar pricer exactly."""
+        prices = vectorized_bs_price(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert np.all(np.isfinite(prices))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_price(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            assert abs(prices[i] - scalar) < 1e-9
+
+    def test_valid_arrays_unchanged_delta(self):
+        """Guard must not alter valid-input behavior: match scalar delta exactly."""
+        deltas = vectorized_bs_delta(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert np.all(np.isfinite(deltas))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_delta(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            assert abs(deltas[i] - scalar) < 1e-9
+
+    def test_valid_arrays_unchanged_all_greeks(self):
+        """Guard must not alter valid-input behavior: match scalar all-greeks exactly."""
+        df = vectorized_bs_all_greeks(self.S, self.K, self.T, self.r, self.sigma, self.is_call)
+        assert df.to_numpy().shape[0] == len(self.S)
+        assert np.all(np.isfinite(df.to_numpy()))
+        for i in range(len(self.S)):
+            opt = "call" if self.is_call[i] else "put"
+            scalar = black_scholes_all_greeks(
+                self.S[i], self.K[i], self.T[i], self.r, self.sigma[i], opt
+            )
+            for col in ["price", "delta", "gamma", "theta", "vega", "rho"]:
+                assert abs(df.iloc[i][col] - scalar[col]) < 1e-9, f"mismatch in {col} at row {i}"
+
+
 class TestEstimateOptionPrice:
     """Tests for convenience wrapper function."""
 
@@ -230,6 +315,50 @@ class TestEstimateOptionPrice:
 
         put_otm = estimate_option_price_from_iv(110, 100, 0, 0.20, 0.05, "put")
         assert put_otm == 0
+
+
+class TestNonFiniteSigmaTContract:
+    """Pins the DELIBERATE non-finite pass-through (heavy-verify 2026-06-09
+    Site C): non-finite sigma/T pass _validate_inputs by design and price to
+    an honest NaN without raising; the NaN EV is hard-blocked downstream by
+    R1a (verdict_reason="ev_non_finite", PR #204). A raise here would abort
+    whole rank runs (no per-candidate try/except at the decision-layer call
+    sites). Pins behavior, not signature."""
+
+    # Full mixed matrix {nan, +inf, finite} x {nan, +inf, finite} minus the
+    # finite-finite cell. The production-relevant cell is non-finite sigma x
+    # FINITE T (T comes from an int dte; the realistic corruption is the IV).
+    NONFINITE_CASES = [
+        (float("nan"), 30 / 365),
+        (float("inf"), 30 / 365),
+        (0.25, float("nan")),
+        (0.25, float("inf")),
+        (float("nan"), float("nan")),
+        (float("nan"), float("inf")),
+        (float("inf"), float("nan")),
+        (float("inf"), float("inf")),
+    ]
+
+    @pytest.mark.parametrize("sigma,T", NONFINITE_CASES)
+    def test_scalar_entry_points_nan_no_raise(self, sigma, T):
+        price = black_scholes_price(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma, option_type="put")
+        delta = black_scholes_delta(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma, option_type="put")
+        vega = black_scholes_vega(S=100.0, K=95.0, T=T, r=0.04, sigma=sigma)
+        assert np.isnan(price) and np.isnan(delta) and np.isnan(vega)
+
+    def test_all_greeks_all_nan_no_raise(self):
+        greeks = black_scholes_all_greeks(
+            S=100.0, K=95.0, T=float("nan"), r=0.04, sigma=0.25, option_type="put"
+        )
+        assert len(greeks) == 12
+        assert all(np.isnan(v) for v in greeks.values()), greeks
+
+    @pytest.mark.parametrize("sigma", [-0.5, float("-inf")])
+    def test_negative_sigma_still_raises(self, sigma):
+        # The finite-impossible fail-loud contract is untouched; -inf is caught
+        # by the existing sigma < 0 check.
+        with pytest.raises(ValueError, match="non-negative"):
+            black_scholes_price(S=100.0, K=95.0, T=0.1, r=0.04, sigma=sigma, option_type="put")
 
 
 if __name__ == "__main__":

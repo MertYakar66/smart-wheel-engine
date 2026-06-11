@@ -32,7 +32,11 @@ export interface EngineCandidate {
   pnlP25: number | null;
   pnlP50: number | null;
   pnlP75: number | null;
-  cvar5: number | null; // 5% conditional tail loss (negative dollars)
+  /** MEAN P&L of the worst-5% scenarios (dollars per contract). Usually
+   *  negative (the modeled crash tail) but CAN be positive — observed live
+   *  (ADI +922.37): even the worst-5% mean keeps a profit. Never render a
+   *  positive cvar5 as a loss. */
+  cvar5: number | null;
   cvar99Evt: number | null;
   tailXi: number | null;
   heavyTail: boolean;
@@ -42,6 +46,17 @@ export interface EngineCandidate {
   // (~0.6-0.85) and OVER-confident in the top bin (>0.90): crisis-realized
   // ~0.57 vs ~0.96 forecast (heavy-verify I1).
   probProfit: number;
+  /**
+   * Wilson 95% SAMPLING CI for prob_profit and the scenario count it rests on
+   * (engine `n_scenarios` / `prob_profit_ci_low` / `prob_profit_ci_high`). This
+   * is the sampling uncertainty of the k/N forward-scenario frequency — a wide
+   * band (N is small, ~30-35 on the empirical path) means the point estimate
+   * must not be read to 2 dp. Orthogonal to the top-bin calibration bias noted
+   * above. Optional: absent on older engine payloads, null when N <= 0.
+   */
+  nScenarios?: number;
+  probProfitCiLow?: number | null;
+  probProfitCiHigh?: number | null;
   probAssignment: number;
 
   fairValue: number | null;
@@ -67,9 +82,17 @@ export interface EngineCandidate {
   score: number | null;
   wheelScore: number | null;
 
-  /** Engine recommendation label: proceed | review | skip. */
+  /** Engine recommendation label: proceed | review | skip. NOTE: this is the
+   *  API's EV-floor + prob_profit ≥ 0.65 label, NOT the EnginePhaseReviewer
+   *  verdict — the authoritative verdict comes from `/api/tv/dossier`. */
   recommendation: "proceed" | "review" | "skip";
+  /** MODELED contract date: as_of + dte (the synthetic contract the EV math
+   *  priced — the Bloomberg provider has no listed chain). Label "~"/"modeled";
+   *  never present it as a listed expiration. */
   expiration: string;
+  /** The delta the strike was SELECTED at (ranker delta_target) — a selection
+   *  target, not a measured per-strike Greek. Absent on older payloads. */
+  targetDelta?: number;
 }
 
 export interface CandidatesResponse {
@@ -124,5 +147,91 @@ export interface VixRegime {
   term_structure?: string;
   vix_3m?: number;
   vix_6m?: number;
+  error?: string;
+}
+
+// ─── Engine status (`/api/status`) ────────────────────────────────────────
+
+export interface EngineStatus {
+  status?: string;
+  provider?: string;
+  /** Freshest bar in the engine's data files (YYYY-MM-DD) — the honest
+   *  "latest available" reference for as_of, never hardcode it. */
+  data_frontier?: string;
+  universe_size?: number;
+  vix?: number;
+  error?: string;
+}
+
+// ─── Concentration preview (`/api/concentration_preview`) ────────────────
+//
+// The operator surface where the ARMED R9/R10 production caps fire over the
+// EV-ranked batch (engine PR #351). Sequential consume in EV-rank order:
+// each admit changes the ephemeral book the next candidate is checked
+// against. Display-only — refuse-only gates, no order routing.
+
+export interface ConcentrationOutcome {
+  ticker: string;
+  evDollars: number | null;
+  opened: boolean;
+  /** Coarse ("tracker_rejected"); the structured reason lives in refusals[]. */
+  refusalReason: string | null;
+}
+
+export interface ConcentrationRefusal {
+  ticker: string;
+  /** e.g. "single_name_breach" (R10) | "sector_cap_breach" (R9). */
+  reason: string;
+  nav?: number | null;
+  navSource?: string | null;
+  sector?: string | null;
+  postOpenSectorPct?: number | null;
+  sectorLimit?: number | null;
+  postOpenNamePct?: number | null;
+  nameLimitPct?: number | null;
+}
+
+export interface ConcentrationPreview {
+  authority?: string;
+  engine_version?: string;
+  entry_date?: string;
+  initial_capital?: number;
+  caps?: { sector_cap_pct?: number; single_name_cap_pct?: number };
+  consumed?: number;
+  opened?: number;
+  refused?: number;
+  outcomes?: ConcentrationOutcome[];
+  refusals?: ConcentrationRefusal[];
+  universe_scanned?: number;
+  universe_total?: number;
+  error?: string;
+  detail?: string;
+}
+
+// ─── Live-book lite shapes (`/api/portfolio/{summary,positions}`) ─────────
+//
+// Minimal slices of the D26 read-only viewer payloads the cockpit consumes
+// to attach the REAL book to the dossier call (nav/holdings/puts_held) and
+// to seed the concentration NAV. Observational only.
+
+export interface PortfolioSummaryLite {
+  netLiq?: number | null;
+  /** Provenance: "live" | "demo" | … — always label it. */
+  source?: string;
+  error?: string;
+}
+
+export interface PortfolioLegLite {
+  sym?: string;
+  /** IBKR local symbol, e.g. "MRVL 10JUL26 297.5 P" for options. */
+  name?: string;
+  /** "shares" | "short_put" | "short_call" | "long_call" | … */
+  state?: string;
+  qty?: number;
+}
+
+export interface PortfolioPositionsLite {
+  legs?: PortfolioLegLite[];
+  source?: string;
   error?: string;
 }

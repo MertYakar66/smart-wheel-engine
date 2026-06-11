@@ -1,0 +1,938 @@
+"""IBKR snapshot → engine types for the read-only performance viewer (D24/D26).
+
+Single responsibility: turn the point-in-time IBKR artifacts on disk
+(``data_processed/ibkr/portfolio_snapshot.json`` + the accumulated
+``portfolio_history.json`` + the ``wheel_ledger.json`` trade export)
+into the shapes the dashboard and the existing engine analytics expect.
+
+**Scope contract (CLAUDE.md §2/§3, design-doc IBKR_LIVE_BOOK_INTEGRATION
+§2.1/§6.7).** This module is *outside* the CI-gated decision trio and
+imports **nothing** from ``ev_engine`` / ``wheel_runner`` /
+``candidate_dossier``. It is purely **observational**: it reads the book
+and reports. It never ranks a candidate, never calls ``EVEngine.evaluate``,
+never issues an EV-authority token, and never converts data into a
+tradeable verdict. ``ev_dollars`` is not produced or forecast here —
+realized P&L (what happened) is reported distinctly from any forward
+score (finding I1).
+
+It *does* reuse the non-trio analytics libraries the viewer is built to
+surface — ``wheel_tracker`` (win-rate, realized P&L),
+``performance_metrics`` (Sharpe / Sortino / drawdown), and
+``portfolio_risk_gates`` (the D17 R7–R11 concentration / VaR / stress
+gates) — to power a live risk overlay against the real book. Period
+returns are date-anchored in-module (:func:`returns_view`): the replayed
+history carries no external cash flows, so the anchored simple return IS
+the TWR — and ``portfolio_tracker._calculate_twr`` anchors at the first
+point *inside* the window, which drops January from YTD and mislabels
+windows once daily history appends landed.
+
+**Universe discipline.** In-S&P-500 names get full treatment. Out-of-
+universe names (e.g. CNQ, ENB on the TSX) are **exposure-only**: they
+count toward NAV, sector, and currency denominators (real risk), but are
+flagged ``in_universe=False`` and are never placed in the rankable set
+(:func:`rankable_symbols`). The viewer never claims authority over them.
+
+**FX.** ``base_currency`` (USD) is the reporting currency. Per-position
+``mark`` / ``avg_price`` / ``unrealized_pnl`` are stored in each row's
+native ``currency`` and normalized to base via the snapshot's
+``fx_rates`` map before any NAV / concentration math.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+# Non-trio analytics the observational viewer reuses. (ev_engine /
+# wheel_runner / candidate_dossier are deliberately NOT imported — see
+# the module docstring + the guard test in
+# tests/test_ibkr_portfolio_adapter.py.)
+from engine.performance_metrics import (
+    calculate_max_drawdown,
+    calculate_sharpe_ratio,
+    calculate_sortino_ratio,
+)
+from engine.portfolio_risk_gates import (
+    PortfolioContext,
+    check_sector_cap,
+    check_single_name_cap,
+    check_stress_scenario,
+    check_var,
+)
+from engine.wheel_tracker import WheelTracker
+
+# ----------------------------------------------------------------------
+# Locations + constants
+# ----------------------------------------------------------------------
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_DATA_DIR = _REPO_ROOT / "data_processed" / "ibkr"
+
+
+def _default_dir() -> Path:
+    """Resolve the IBKR-artifact directory.
+
+    ``SWE_IBKR_DATA_DIR`` (if set) wins — this is how a deployment points the
+    viewer at a live snapshot dir, and how the test suite / a fresh-clone demo
+    points it at the frozen ``tests/fixtures/ibkr`` artifacts. Otherwise the
+    gitignored runtime location ``data_processed/ibkr`` is used (same
+    point-in-time, on-disk discipline as the Bloomberg CSVs).
+    """
+    env = os.environ.get("SWE_IBKR_DATA_DIR")
+    return Path(env) if env else _DEFAULT_DATA_DIR
+
+
+SNAPSHOT_FILE = "portfolio_snapshot.json"
+HISTORY_FILE = "portfolio_history.json"
+LEDGER_FILE = "wheel_ledger.json"
+
+# Cap thresholds surfaced to the viewer. These mirror the D17 locked
+# defaults in portfolio_risk_gates (_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10,
+# _DEFAULT_MAX_SECTOR_PCT = 0.25); the gate functions remain the source
+# of truth for the actual pass/fail decisions.
+SINGLE_NAME_CAP_PCT = 0.10
+SECTOR_CAP_PCT = 0.25
+
+# Implied-vol assumption for the VaR/stress overlay when the snapshot
+# carries no live option greeks (Track C — live IV freshness — is a
+# separate, later concern). Documented, not silent: the risk overlay
+# reports this assumption. R9/R10 (sector + single-name) do not use IV.
+_DEFAULT_IV = 0.50
+
+_PERIODS = ["1D", "1W", "1M", "3M", "YTD", "1Y", "All"]
+
+
+class SnapshotSchemaError(ValueError):
+    """Raised when an artifact is missing or carries an unsupported
+    ``schema_version``."""
+
+
+# ----------------------------------------------------------------------
+# Loaders
+# ----------------------------------------------------------------------
+def _load_json(path: Path) -> dict:
+    if not path.exists():
+        raise SnapshotSchemaError(f"artifact not found: {path}")
+    with path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def load_snapshot(data_dir: str | Path | None = None) -> dict:
+    """Load + validate the point-in-time IBKR snapshot (design-doc §2.2)."""
+    base = Path(data_dir) if data_dir else _default_dir()
+    snap = _load_json(base / SNAPSHOT_FILE)
+    if snap.get("schema_version") != 1:
+        raise SnapshotSchemaError(
+            f"unsupported snapshot schema_version: {snap.get('schema_version')!r}"
+        )
+    if "account" not in snap or "positions" not in snap:
+        raise SnapshotSchemaError("snapshot missing 'account' or 'positions'")
+    return snap
+
+
+def load_history(data_dir: str | Path | None = None) -> dict:
+    """Load the accumulated monthly equity series (design-doc §6.4/§6.5)."""
+    base = Path(data_dir) if data_dir else _default_dir()
+    hist = _load_json(base / HISTORY_FILE)
+    if hist.get("schema_version") != 1:
+        raise SnapshotSchemaError(
+            f"unsupported history schema_version: {hist.get('schema_version')!r}"
+        )
+    return hist
+
+
+def load_ledger(data_dir: str | Path | None = None) -> dict:
+    """Load the closed-wheel-trade ledger (the Flex/trades export, §6.4)."""
+    base = Path(data_dir) if data_dir else _default_dir()
+    led = _load_json(base / LEDGER_FILE)
+    if led.get("schema_version") != 1:
+        raise SnapshotSchemaError(
+            f"unsupported ledger schema_version: {led.get('schema_version')!r}"
+        )
+    return led
+
+
+def provenance(artifact: dict) -> str:
+    """Honest data-source tag for the viewer's live/demo badge.
+
+    The committed demo fixtures carry a top-level ``"source": "fixture"``
+    marker; a real point-in-time IBKR drop does not. Returns ``"demo"`` for a
+    fixture (or an explicit ``demo`` / ``mock`` marker), else ``"live"``. The
+    engine_api attaches this per slice and the dashboard renders an honest
+    header + per-card badge from it, so committed demo data can never
+    masquerade as a live IBKR pull (browser-QA §D finding). The viewer-offline
+    case ("mock") is decided client-side when a slice fetch fails.
+    """
+    marker = str(artifact.get("source", "")).strip().lower()
+    return "demo" if marker in ("fixture", "demo", "mock") else "live"
+
+
+# ----------------------------------------------------------------------
+# Small helpers
+# ----------------------------------------------------------------------
+def _as_of_date(snapshot: dict) -> date:
+    raw = snapshot.get("as_of", "")
+    # Tolerate trailing 'Z' (UTC) which datetime.fromisoformat rejects on
+    # older interpreters; we only need the calendar date.
+    raw = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        return datetime.fromisoformat(raw).date()
+    except ValueError:
+        return date.today()
+
+
+def _fx_rate(snapshot: dict, currency: str) -> float:
+    rates = snapshot.get("fx_rates") or {}
+    return _num(rates.get(currency, 1.0), 1.0)
+
+
+def _num(value, default: float = 0.0) -> float:
+    """``float()`` that treats ``None`` / unparseable / non-finite as the
+    default. Real IBKR snapshots carry JSON ``null`` for fields the MCP can't
+    derive (day/week deltas, realized-YTD) — a naive ``float(None)`` would
+    crash the summary endpoint on a live book."""
+    if value is None:
+        return default
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return default
+    return f if math.isfinite(f) else default
+
+
+def _opt_num(value) -> float | None:
+    """Like :func:`_num` but returns ``None`` (not a default) when the value
+    is absent / null / unparseable — so a non-derivable KPI surfaces as JSON
+    ``null`` (the dashboard renders it as "—") instead of a misleading 0."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _is_option(pos: dict) -> bool:
+    return str(pos.get("sec_type", "")).upper() == "OPT"
+
+
+def _is_stock(pos: dict) -> bool:
+    return str(pos.get("sec_type", "")).upper() == "STK"
+
+
+def _option_type(pos: dict) -> str:
+    return "put" if str(pos.get("right", "")).upper() == "P" else "call"
+
+
+# ----------------------------------------------------------------------
+# Holdings view — per-symbol, wheel-aware rows matching the dashboard
+# Holding shape (sym, name, state, qty, mark, mktValue, uPnl, pctNav,
+# breach, sector, currency, in_universe).
+# ----------------------------------------------------------------------
+def build_holdings_view(snapshot: dict) -> list[dict]:
+    """Aggregate the per-instrument snapshot into per-symbol wheel rows.
+
+    A short put (OPT/P, qty<0) → ``csp``. Stock + a short call (OPT/C) →
+    ``cc``. Stock alone → ``assigned``. Values are FX-normalized to the
+    base currency. ``pctNav`` is the short-put notional (strike×100×|qty|)
+    for CSPs and the stock market value for shares; ``breach`` flags a CSP
+    **or an assigned name** over the single-name cap (covered-call stock is
+    a defined leg and never breaches) — the R10-style concentration meter.
+
+    **Put-leg meter vs. R10 gate (both-legs) — expected divergence.** For a
+    ``csp`` row this meter reports only the *short-put* notional. The R10 gate
+    (:func:`engine.portfolio_risk_gates.check_single_name_cap`, run in
+    :func:`_run_gates`) instead sums **every short-option leg** for the name.
+    So a short *strangle* (short put + short call on the same underlying, no
+    stock) reads higher in the gate's ``pctNav`` than in this meter — e.g. a
+    name with a short 970 put and a short 1070 call shows the put leg here but
+    put+call in the gate. This is intentional: the meter tracks the assignment-
+    risk leg the wheel is built around; the gate bounds total single-name
+    short-option exposure. Neither is wrong — they answer different questions.
+    """
+    nav = _num(snapshot["account"]["net_liquidation"])
+    # Preserve first-appearance order so the table matches the snapshot.
+    order: list[str] = []
+    by_symbol: dict[str, list[dict]] = {}
+    for pos in snapshot["positions"]:
+        sym = str(pos["symbol"]).upper()
+        if sym not in by_symbol:
+            by_symbol[sym] = []
+            order.append(sym)
+        by_symbol[sym].append(pos)
+
+    rows: list[dict] = []
+    for sym in order:
+        legs = by_symbol[sym]
+        fx = _fx_rate(snapshot, legs[0].get("currency", "USD"))
+        name = legs[0].get("name", sym)
+        sector = legs[0].get("sector", "Unknown")
+        currency = legs[0].get("currency", "USD")
+        in_universe = bool(legs[0].get("in_universe", True))
+
+        short_puts = [
+            p for p in legs if _is_option(p) and _option_type(p) == "put" and p["qty"] < 0
+        ]
+        short_calls = [
+            p for p in legs if _is_option(p) and _option_type(p) == "call" and p["qty"] < 0
+        ]
+        stocks = [p for p in legs if _is_stock(p)]
+
+        # Unrealized P&L is the sum across every leg, FX-normalized.
+        upnl = sum(
+            _num(p.get("unrealized_pnl")) * _fx_rate(snapshot, p.get("currency", "USD"))
+            for p in legs
+        )
+
+        if short_puts and not stocks:
+            state = "csp"
+            put = short_puts[0]
+            # Name the row after the leg it prices (the short put) — legs[0]
+            # in snapshot order can be a different leg (e.g. the short CALL of
+            # a strangle), which mislabeled the row's contract name.
+            name = put.get("name", sym)
+            qty = int(_num(put.get("qty")))
+            mark = _num(put.get("mark")) * fx
+            mkt_value = -(mark * abs(qty) * 100.0)
+            notional = _num(put.get("strike")) * 100.0 * abs(qty) * fx
+            pct_nav = (notional / nav * 100.0) if nav else 0.0
+            # CSP single-name (R10) concentration: short-put notional vs cap.
+            breach = pct_nav > SINGLE_NAME_CAP_PCT * 100.0
+        elif stocks:
+            name = stocks[0].get("name", sym)  # row is priced off the stock leg
+            shares = sum(int(_num(s.get("qty"))) for s in stocks)
+            mark = _num(stocks[0].get("mark")) * fx
+            mkt_value = shares * mark
+            pct_nav = (mkt_value / nav * 100.0) if nav else 0.0
+            qty = shares
+            state = "cc" if short_calls else "assigned"
+            # Covered-call stock is a DEFINED/intended leg → never a breach.
+            # ASSIGNED stock (a CSP that went ITM) is a *realized* single-name
+            # concentration — flag it on the same 10%-NAV floor as a CSP, so
+            # the live book's biggest risk (e.g. an assigned name at >100% NAV)
+            # surfaces. Demo is unaffected (its only assigned name is <cap).
+            breach = state == "assigned" and pct_nav > SINGLE_NAME_CAP_PCT * 100.0
+        else:
+            # Defensive: an option-only row that isn't a short put
+            # (e.g. a naked short call) — surface it without crashing.
+            opt = legs[0]
+            qty = int(_num(opt.get("qty")))
+            mark = _num(opt.get("mark")) * fx
+            mkt_value = -(mark * abs(qty) * 100.0)
+            pct_nav = (
+                (_num(opt.get("strike")) * 100.0 * abs(qty) * fx / nav * 100.0) if nav else 0.0
+            )
+            state = "cc" if _option_type(opt) == "call" else "csp"
+            breach = state == "csp" and pct_nav > SINGLE_NAME_CAP_PCT * 100.0
+
+        rows.append(
+            {
+                "sym": sym,
+                "name": name,
+                "state": state,
+                "qty": qty,
+                "mark": round(mark, 2),
+                "mktValue": round(mkt_value),
+                "uPnl": round(upnl),
+                "pctNav": round(pct_nav),
+                "pctNavExact": pct_nav,
+                "breach": bool(breach),
+                "sector": sector,
+                "currency": currency,
+                "inUniverse": in_universe,
+            }
+        )
+    return rows
+
+
+def build_positions_flat(snapshot: dict) -> list[dict]:
+    """One row per RAW leg (stock + each option) — the flat "all positions"
+    view, with NO per-underlying aggregation. A companion to
+    :func:`build_holdings_view` (the wheel-aggregated view), not a replacement.
+    Read-only / observational.
+
+    ``state`` classifies each leg: ``shares`` (stock), ``short_put`` /
+    ``short_call`` (written options — the CSP and covered-call legs), and
+    ``long_put`` / ``long_call``. Values are FX-normalized to the base
+    currency. ``mktValue`` is signed (short option legs are negative).
+    ``pctNav`` is the leg's *absolute market value* as a share of NAV
+    (IBKR-style), so a written-premium leg reads small and the underlying
+    stock reads large. The R10 single-name breach is an underlying-level
+    concept surfaced on the risk radar, so per-leg ``breach`` is always False.
+
+    Option legs additionally carry ``strike`` / ``expiry`` / ``dte`` /
+    ``moneyness`` (the trader's every-morning numbers, otherwise buried in
+    name strings like "MU 12JUN26 970 P"). ``moneyness`` is
+    ``(spot − strike) / strike`` using the same-symbol stock leg's
+    FX-normalized mark as spot; names with no stock leg in the book have no
+    spot in the snapshot, so moneyness surfaces ``null`` (honest, not
+    fabricated). Stock legs carry ``null`` for all four.
+    """
+    nav = _num(snapshot["account"]["net_liquidation"])
+    as_of = _as_of_date(snapshot)
+
+    # Spot per underlying from the same-symbol stock leg (FX-normalized).
+    spots: dict[str, float] = {}
+    for pos in snapshot.get("positions", []):
+        if _is_stock(pos) and int(_num(pos.get("qty"))) != 0:
+            spots[str(pos.get("symbol", "")).upper()] = _num(pos.get("mark")) * _fx_rate(
+                snapshot, pos.get("currency", "USD")
+            )
+
+    rows: list[dict] = []
+    for pos in snapshot.get("positions", []):
+        qty = int(_num(pos.get("qty")))
+        if qty == 0:
+            continue  # closed today → not part of the current book
+        sym = str(pos.get("symbol", "")).upper()
+        currency = str(pos.get("currency", "USD")).upper()
+        fx = _fx_rate(snapshot, currency)
+        mark = _num(pos.get("mark")) * fx
+        upnl = _num(pos.get("unrealized_pnl")) * fx
+
+        strike: float | None = None
+        expiry_iso: str | None = None
+        dte: int | None = None
+        moneyness: float | None = None
+        if _is_option(pos):
+            is_put = _option_type(pos) == "put"
+            if qty < 0:
+                state = "short_put" if is_put else "short_call"
+            else:
+                state = "long_put" if is_put else "long_call"
+            mkt_value = qty * mark * 100.0
+            strike = _opt_num(pos.get("strike"))
+            try:
+                expiry = date.fromisoformat(str(pos.get("expiry", "")))
+                expiry_iso = expiry.isoformat()
+                dte = max(0, (expiry - as_of).days)
+            except ValueError:
+                pass  # malformed/absent expiry → null (never a guessed date)
+            spot = spots.get(sym)
+            if spot is not None and strike:
+                moneyness = round((spot - strike) / strike, 4)
+        else:
+            state = "shares"
+            mkt_value = qty * mark
+
+        pct_nav = (abs(mkt_value) / nav * 100.0) if nav else 0.0
+        rows.append(
+            {
+                "sym": sym,
+                "name": pos.get("name") or sym,
+                "state": state,
+                "qty": qty,
+                "mark": round(mark, 2),
+                "mktValue": round(mkt_value),
+                "uPnl": round(upnl),
+                "pctNav": round(pct_nav),
+                "pctNavExact": pct_nav,
+                "breach": False,
+                "sector": pos.get("sector", "Unknown"),
+                "currency": currency,
+                "inUniverse": bool(pos.get("in_universe", True)),
+                "strike": strike,
+                "expiry": expiry_iso,
+                "dte": dte,
+                "moneyness": moneyness,
+            }
+        )
+    return rows
+
+
+# ----------------------------------------------------------------------
+# Engine type: PortfolioContext + held_option_positions + nav
+# ----------------------------------------------------------------------
+def build_portfolio_context(
+    snapshot: dict,
+    *,
+    default_iv: float = _DEFAULT_IV,
+) -> PortfolioContext:
+    """Build a :class:`engine.portfolio_risk_gates.PortfolioContext`.
+
+    ``held_option_positions`` are emitted in the exact shape the gate
+    functions read — ``symbol`` / ``option_type`` / ``strike`` / ``dte``
+    / ``iv`` / ``contracts`` / ``is_short`` — NOT the ``ticker``-keyed
+    shape ``engine_api._build_portfolio_context_from_params`` produces
+    (which omits ``is_short`` and would zero-out the single-name
+    aggregation). Both in- and out-of-universe positions are included:
+    out-of-universe names are exposure-only but are *real* risk and must
+    count toward the concentration denominators (design-doc §2.3).
+    """
+    as_of = _as_of_date(snapshot)
+    nav = _num(snapshot["account"]["net_liquidation"])
+
+    held_option_positions: list[dict] = []
+    stock_holdings: list[tuple[str, int]] = []
+    spot_prices: dict[str, float] = {}
+
+    for pos in snapshot["positions"]:
+        sym = str(pos["symbol"]).upper()
+        fx = _fx_rate(snapshot, pos.get("currency", "USD"))
+        if _is_option(pos):
+            try:
+                expiry = date.fromisoformat(str(pos.get("expiry", "")))
+                dte = max(0, (expiry - as_of).days)
+            except ValueError:
+                dte = 35
+            qty = int(_num(pos.get("qty")))
+            held_option_positions.append(
+                {
+                    "symbol": sym,
+                    "option_type": _option_type(pos),
+                    "strike": _num(pos.get("strike")),
+                    "dte": dte,
+                    "iv": _num(pos.get("iv"), default_iv),
+                    "contracts": abs(qty),
+                    "is_short": qty < 0,
+                }
+            )
+        elif _is_stock(pos):
+            stock_holdings.append((sym, int(_num(pos.get("qty")))))
+            spot_prices[sym] = _num(pos.get("mark")) * fx
+
+    return PortfolioContext(
+        held_option_positions=held_option_positions,
+        stock_holdings=stock_holdings,
+        nav=nav,
+        spot_prices=spot_prices,
+    )
+
+
+def rankable_symbols(snapshot: dict) -> list[str]:
+    """In-universe symbols only — the set the engine could ever rank.
+
+    Out-of-universe names (CNQ/ENB) are intentionally excluded: the
+    viewer counts them as exposure but never ranks or claims authority
+    over them (universe discipline, design-doc §2.3 / §6.7).
+    """
+    seen: list[str] = []
+    for pos in snapshot["positions"]:
+        if bool(pos.get("in_universe", True)):
+            sym = str(pos["symbol"]).upper()
+            if sym not in seen:
+                seen.append(sym)
+    return seen
+
+
+# ----------------------------------------------------------------------
+# /summary — account-level KPIs (ACCOUNT shape)
+# ----------------------------------------------------------------------
+def account_summary(snapshot: dict, ledger: dict | None = None) -> dict:
+    """ACCOUNT shape for the KPI header + cards.
+
+    Balance-sheet fields (net-liq, cash, available funds, excess liquidity,
+    maintenance margin, unrealized P&L) are always live from the snapshot.
+    The KPIs the IBKR MCP cannot derive on a live pull — ``dayChangeUsd`` /
+    ``dayChangePct`` (the snapshot tools expose no deltas) and, when no
+    ``ledger`` is attached, ``realizedYtd`` / ``premium30d`` / ``winRate`` —
+    surface as JSON ``null`` (the dashboard renders "—") rather than a
+    misleading 0. ``unrealizedPnl`` is the IBKR account-level BASE figure
+    (authoritative; differs from a naive sum of MCP marks by FX + timing).
+    Realized history is shown distinctly from any forward score (finding I1).
+    """
+    acct = snapshot["account"]
+    income = income_view(ledger, snapshot=snapshot) if ledger else {}
+
+    def _r(value):
+        n = _opt_num(value)
+        return round(n) if n is not None else None
+
+    return {
+        "asOf": snapshot.get("as_of"),
+        "netLiq": round(_num(acct.get("net_liquidation"))),
+        "dayChangeUsd": _r(acct.get("day_change_usd")),
+        "dayChangePct": _opt_num(acct.get("day_change_pct")),
+        "cash": round(_num(acct.get("total_cash"))),
+        "unrealizedPnl": _r(acct.get("unrealized_pnl")),
+        "realizedYtd": income.get("realizedYtd") if income else _r(acct.get("realized_pnl_ytd")),
+        "premium30d": income.get("premium30d") if income else None,
+        "winRate": income.get("winRate") if income else None,
+        "availableFunds": round(_num(acct.get("available_funds"))),
+        "excessLiquidity": round(_num(acct.get("excess_liquidity"))),
+        "maintMargin": round(_num(acct.get("maintenance_margin"))),
+        "baseCurrency": snapshot.get("base_currency", "USD"),
+    }
+
+
+# ----------------------------------------------------------------------
+# /returns — period returns (RETURNS shape: {period: {pct, usd}})
+# ----------------------------------------------------------------------
+def _anchor_index(dates: list[date], window_start: date) -> int:
+    """Index of the last curve point STRICTLY BEFORE ``window_start`` —
+    the period baseline (YTD anchors at the prior year-end NAV, so January
+    is included). Falls back to the first point when the curve begins
+    inside the window (the window truncates to data availability, e.g. a
+    1Y window on an 11-month-old book)."""
+    idx = 0
+    for i, d in enumerate(dates):
+        if d < window_start:
+            idx = i
+        else:
+            break
+    return idx
+
+
+def returns_view(history: dict, snapshot: dict | None = None) -> dict:
+    """RETURNS shape, date-anchored.
+
+    Every window anchors at the last curve point STRICTLY BEFORE the
+    window start, and ``pct`` and ``usd`` are computed off that SAME
+    anchor — so the pair can never contradict (the old point-count
+    ``_back(n)`` offsets broke the day daily history appends landed,
+    rendering "1M −14.85%" beside "+$10,105"). The replayed history
+    carries no external cash flows, so the anchored simple return equals
+    the GIPS TWR over the window; ``PortfolioTracker._calculate_twr``
+    is NOT reused because it anchors at the first point *inside* the
+    window (YTD was missing January; "1M" was a 12-day return).
+
+    1D/1W come from the live account deltas and surface as JSON ``null``
+    when the source can't derive them (the UI renders "—", never +0.00%).
+    All-time anchors to ``inception_capital`` (§6.4 snapshot-delta method).
+    """
+    points = history["points"]
+    dates = [date.fromisoformat(p["date"]) for p in points]
+    ports = [float(p["port"]) for p in points]
+    inception = float(history.get("inception_capital", ports[0]))
+    last = ports[-1]
+    as_of = dates[-1]
+
+    def _window(window_start: date) -> dict:
+        base = ports[_anchor_index(dates, window_start)]
+        return {
+            "pct": (last - base) / base if base else 0.0,
+            "usd": round(last - base),
+        }
+
+    # Null-honest: a real IBKR snapshot (and the PDF-imported book) carries
+    # JSON null for the day/week deltas the source can't derive — propagate
+    # null (UI renders "—") instead of coercing unknown to a misleading 0.
+    acct = (snapshot or {}).get("account", {})
+    day_pct = _opt_num(acct.get("day_change_pct"))
+    day_usd = _opt_num(acct.get("day_change_usd"))
+    week_pct = _opt_num(acct.get("week_change_pct"))
+    week_usd = _opt_num(acct.get("week_change_usd"))
+
+    returns = {
+        "1D": {"pct": day_pct, "usd": round(day_usd) if day_usd is not None else None},
+        "1W": {"pct": week_pct, "usd": round(week_usd) if week_usd is not None else None},
+        "1M": _window(as_of - timedelta(days=30)),
+        "3M": _window(as_of - timedelta(days=90)),
+        "YTD": _window(date(as_of.year, 1, 1)),
+        "1Y": _window(as_of - timedelta(days=365)),
+        "All": {
+            "pct": (last - inception) / inception if inception else 0.0,
+            "usd": round(last - inception),
+        },
+    }
+    return {"returns": returns}
+
+
+# ----------------------------------------------------------------------
+# /history — equity curve (EQUITY shape) + reused risk stats
+# ----------------------------------------------------------------------
+def equity_view(history: dict) -> dict:
+    """EQUITY shape ([{m, date, port, spy, premium}]) plus reused Sharpe /
+    Sortino / max-drawdown over the ``port`` series (monthly periodicity →
+    periods_per_year=12; the daily tail appends make the annualization
+    approximate — the UI captions the grain).
+
+    ``date`` is the point's ISO date so the client windows by calendar
+    date — point-count windows broke when daily appends landed.
+    ``premium`` is a MONTHLY aggregate that the refresh script replicates
+    onto every daily append; it is emitted only on the LAST point of each
+    calendar month (``null`` elsewhere) so the premium bars don't
+    triple-count the current month."""
+    points = history["points"]
+
+    # Month key per point (YYYY-MM); the label fallback keeps a dateless
+    # legacy artifact rendering one bar per point (no dedup possible).
+    def _mkey(p: dict) -> str:
+        return str(p.get("date") or p.get("label", ""))[:7]
+
+    last_of_month = {_mkey(p): i for i, p in enumerate(points)}  # later index wins
+    equity = [
+        {
+            "m": p["label"],
+            "date": p.get("date"),
+            "port": round(float(p["port"])),
+            "spy": round(float(p["spy"])),
+            "premium": round(_num(p.get("premium"))) if last_of_month[_mkey(p)] == i else None,
+        }
+        for i, p in enumerate(points)
+    ]
+
+    eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
+    rets = eq_df["portfolio_value"].pct_change().dropna()
+    max_dd, dd_days = calculate_max_drawdown(eq_df)
+    stats = {
+        "sharpe": _finite(calculate_sharpe_ratio(rets, periods_per_year=12)),
+        "sortino": _finite(calculate_sortino_ratio(rets, periods_per_year=12)),
+        "maxDrawdown": _finite(max_dd),
+        "maxDrawdownPeriods": int(dd_days),
+    }
+    return {"equity": equity, "stats": stats}
+
+
+def _finite(v: float) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+# ----------------------------------------------------------------------
+# /income — realized P&L / premium / win-rate (reuses wheel_tracker)
+# ----------------------------------------------------------------------
+def income_view(ledger: dict, *, snapshot: dict | None = None) -> dict:
+    """Realized P&L, premium income, and win-rate from the closed-trade
+    ledger. Win-rate is computed by ``WheelTracker.get_performance_summary``
+    (genuine reuse). Realized P&L is reported distinctly from any forward
+    EV score (finding I1 — the viewer never presents ev_dollars as a
+    realized-P&L forecast)."""
+    closed = list(ledger.get("closed_positions", []))
+    as_of = _as_of_date(snapshot) if snapshot else date.today()
+
+    tracker = WheelTracker()
+    tracker.closed_positions = closed
+    summary = tracker.get_performance_summary()
+    win_rate = float(summary.iloc[0]["win_rate"]) if not summary.empty else 0.0
+    total_realized = float(summary.iloc[0]["total_pnl"]) if not summary.empty else 0.0
+
+    if not closed:
+        return {
+            "realizedYtd": 0,
+            "premium30d": 0,
+            "winRate": 0.0,
+            "totalRealized": 0,
+            "byName": [],
+            "byMonth": [],
+        }
+
+    df = pd.DataFrame(closed)
+    df["exit"] = pd.to_datetime(df["exit_date"])
+    df["premium"] = df.get("put_premium", 0.0).fillna(0.0) + df.get("call_premium", 0.0).fillna(0.0)
+
+    as_of_ts = pd.Timestamp(as_of)
+    realized_ytd = float(df.loc[df["exit"].dt.year == as_of.year, "net_pnl"].sum())
+    premium_30d = float(df.loc[df["exit"] >= as_of_ts - pd.Timedelta(days=30), "premium"].sum())
+
+    by_name = [
+        {"sym": str(sym), "pnl": round(float(v))}
+        for sym, v in df.groupby("ticker")["net_pnl"].sum().sort_values(ascending=False).items()
+    ]
+    by_month_series = df.set_index("exit")["net_pnl"].groupby(pd.Grouper(freq="MS")).sum().dropna()
+    by_month = [
+        {"m": ts.strftime("%b '%y").replace("'20", "'"), "pnl": round(float(v))}
+        for ts, v in by_month_series.items()
+    ]
+
+    return {
+        "realizedYtd": round(realized_ytd),
+        "premium30d": round(premium_30d),
+        "winRate": round(win_rate, 4),
+        "totalRealized": round(total_realized),
+        "byName": by_name,
+        "byMonth": by_month,
+    }
+
+
+# ----------------------------------------------------------------------
+# /risk — concentration meters + live R7–R11 overlay (reuses risk gates)
+# ----------------------------------------------------------------------
+def risk_view(snapshot: dict, *, default_iv: float = _DEFAULT_IV) -> dict:
+    """Concentration meters (single-name + sector), allocation donut,
+    currency split, margin health, and the live R9/R10/R7/R8 gate
+    overlay run against the real book — the D24 'arm the dormant gates'
+    payoff. R9 (sector) and R10 (single-name) are the headline meters;
+    R7 (VaR) skips with ``missing_data`` absent a correlation/returns
+    matrix (honest, per D11); R8 (stress) runs under the documented IV
+    assumption."""
+    acct = snapshot["account"]
+    nav = float(acct["net_liquidation"])
+    holdings = build_holdings_view(snapshot)
+
+    # Single-name meter: the CSP (short-put) names — what R10 bounds.
+    # Single-name concentration meter: open CSPs (assignment risk to monitor)
+    # plus any ASSIGNED name that breaches the cap (a CSP that went ITM is now
+    # realized single-name concentration). Covered-call stock is excluded
+    # (defined/intended). Demo is unchanged (its only assigned name is <cap);
+    # on a live book this is what surfaces an assigned name at >100% NAV.
+    single_name = sorted(
+        (
+            {"sym": h["sym"], "pct": h["pctNav"]}
+            for h in holdings
+            if h["state"] == "csp" or (h["state"] == "assigned" and h["breach"])
+        ),
+        key=lambda d: d["pct"],
+        reverse=True,
+    )
+
+    # All-exposure concentration per underlying — stock market value for
+    # stock-bearing names, short-put notional for CSPs (the holdings-view
+    # pctNav). Complements `singleName` (the R10 assignment-risk meter),
+    # which by design excludes covered-call stock and so hid the book's
+    # biggest exposure (e.g. CC stock at >100% NAV).
+    concentration = sorted(
+        ({"sym": h["sym"], "pct": h["pctNav"], "state": h["state"]} for h in holdings),
+        key=lambda d: d["pct"],
+        reverse=True,
+    )
+
+    # Sector + currency from FX-normalized gross market value / notional.
+    sector_notional: dict[str, float] = {}
+    sector_gross: dict[str, float] = {}
+    currency_gross: dict[str, float] = {}
+    for h in holdings:
+        # Sum the *exact* (unrounded) FX-normalized notional share so the
+        # sector total matches the approved meter (rounding per-name first
+        # would drift the sum by ~1pp).
+        sector_notional[h["sector"]] = sector_notional.get(h["sector"], 0.0) + abs(h["pctNavExact"])
+        sector_gross[h["sector"]] = sector_gross.get(h["sector"], 0.0) + abs(h["mktValue"])
+        currency_gross[h["currency"]] = currency_gross.get(h["currency"], 0.0) + abs(h["mktValue"])
+
+    sector_exposure = sorted(
+        ({"name": k, "pct": round(v)} for k, v in sector_notional.items()),
+        key=lambda d: d["pct"],
+        reverse=True,
+    )
+    total_gross = sum(sector_gross.values()) or 1.0
+    sectors = sorted(
+        ({"name": k, "val": round(v / total_gross * 100.0, 1)} for k, v in sector_gross.items()),
+        key=lambda d: d["val"],
+        reverse=True,
+    )
+    total_ccy = sum(currency_gross.values()) or 1.0
+    currency = sorted(
+        ({"name": k, "val": round(v / total_ccy * 100.0, 1)} for k, v in currency_gross.items()),
+        key=lambda d: d["val"],
+        reverse=True,
+    )
+
+    # Live gate overlay against the real book.
+    ctx = build_portfolio_context(snapshot, default_iv=default_iv)
+    gates = _run_gates(ctx, holdings, nav)
+
+    # Null-safe: a performance-report import has no balance-sheet margin
+    # fields (only a live IBKR snapshot does) — _num maps present-but-null to
+    # 0.0 so the margin card renders an honest "unknown" instead of crashing.
+    excess = _num(acct.get("excess_liquidity"))
+    maint = _num(acct.get("maintenance_margin"))
+    avail = _num(acct.get("available_funds"))
+    margin = {
+        "availableFunds": round(avail),
+        "excessLiquidity": round(excess),
+        "maintMargin": round(maint),
+        # Cushion ratio in [0,1]: how much excess liquidity covers the
+        # maintenance requirement. A stressed book reads low.
+        "cushionPct": round(max(0.0, excess) / maint, 4) if maint else 0.0,
+        "stressed": avail < 0,
+    }
+
+    return {
+        "singleNameCap": round(SINGLE_NAME_CAP_PCT * 100),
+        "sectorCap": round(SECTOR_CAP_PCT * 100),
+        "singleName": single_name,
+        "concentration": concentration,
+        "sectorExposure": sector_exposure,
+        "sectors": sectors,
+        "currency": currency,
+        "margin": margin,
+        "gates": gates,
+        "ivAssumption": default_iv,
+    }
+
+
+def _run_gates(ctx: PortfolioContext, holdings: list[dict], nav: float) -> dict:
+    """Run R9/R10/R7/R8 against the held book (no candidate — exposure
+    of the *current* portfolio). Returns a JSON-safe summary per gate."""
+    held = ctx.held_option_positions
+
+    # R10 single-name: one check per CSP name (proposed_notional=0 → pure
+    # current exposure of the held book).
+    single_name_gates = []
+    for h in holdings:
+        if h["state"] != "csp":
+            continue
+        res = check_single_name_cap(h["sym"], 0.0, held, nav)
+        single_name_gates.append(
+            {
+                "sym": h["sym"],
+                "passed": res.passed,
+                "reason": res.reason,
+                "pctNav": round(res.details.get("post_open_name_pct", 0.0) * 100, 1),
+            }
+        )
+
+    # R9 sector: run check_sector_cap per option-bearing name and dedupe
+    # on the GICS sector the GATE itself derives (DEFAULT_SECTOR_MAP) —
+    # NOT the display sector — so two display sectors that the gate maps
+    # to the same GICS bucket don't double-report the same exposure.
+    sector_gates = []
+    seen_gics: set[str] = set()
+    for h in holdings:
+        if h["state"] not in ("csp", "cc"):
+            continue
+        res = check_sector_cap(h["sym"], 0.0, held, nav)
+        gics = str(res.details.get("sector", "Unknown"))
+        if gics in seen_gics:
+            continue
+        seen_gics.add(gics)
+        sector_gates.append(
+            {
+                "sector": gics,
+                "passed": res.passed,
+                "reason": res.reason,
+                "pctNav": round(res.details.get("post_open_sector_pct", 0.0) * 100, 1),
+            }
+        )
+
+    # R7 VaR — no correlation/returns matrix in the snapshot → honest skip.
+    var_res = check_var(held, ctx.spot_prices, {}, nav)
+    # R8 stress — C4 vol-spike under the documented IV assumption.
+    stress_res = check_stress_scenario(held, ctx.spot_prices, {}, nav)
+
+    return {
+        "singleName": single_name_gates,
+        "sector": sector_gates,
+        "var": {
+            "passed": var_res.passed,
+            "reason": var_res.reason,
+            "varPct": _finite(var_res.details.get("var_pct")),
+        },
+        "stress": {
+            "passed": stress_res.passed,
+            "reason": stress_res.reason,
+            "drawdownPct": _finite(stress_res.details.get("drawdown_pct")),
+            "scenario": stress_res.details.get("scenario_name"),
+        },
+    }
+
+
+# ----------------------------------------------------------------------
+# Convenience: load everything + emit every viewer shape in one call.
+# ----------------------------------------------------------------------
+def build_all(data_dir: str | Path | None = None) -> dict[str, Any]:
+    """Load all three artifacts and return every endpoint payload. Used
+    by the engine_api handlers and the adapter tests."""
+    snapshot = load_snapshot(data_dir)
+    history = load_history(data_dir)
+    ledger = load_ledger(data_dir)
+    return {
+        "summary": account_summary(snapshot, ledger),
+        "positions": {
+            "holdings": build_holdings_view(snapshot),
+            "legs": build_positions_flat(snapshot),
+        },
+        "returns": returns_view(history, snapshot),
+        "income": income_view(ledger, snapshot=snapshot),
+        "risk": risk_view(snapshot),
+        "history": equity_view(history),
+    }

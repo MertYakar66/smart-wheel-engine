@@ -83,10 +83,17 @@ export function CalibratedProb({
   const ciTitle = showBand
     ? ` · Wilson 95% sampling CI [${ci}]${nStr ? ` from ${nStr} windows` : ""}`
     : "";
+  // With the VIX unknown, the R11 (elevated-vol) leg of the trust read cannot
+  // resolve — say so instead of implying calm vol was confirmed.
+  const vixUnknown = typeof vix !== "number";
   const title =
     (trust === "trust"
       ? `prob_profit ${probProfit.toFixed(3)} — mid-range, well-calibrated (trust).`
-      : `${note}`) + ciTitle;
+      : `${note}`) +
+    (vixUnknown && trust !== "trust"
+      ? " · VIX unavailable — R11 state unknown, treat as at-least-cautious"
+      : "") +
+    ciTitle;
 
   return (
     <div className="flex flex-col gap-0.5" title={title}>

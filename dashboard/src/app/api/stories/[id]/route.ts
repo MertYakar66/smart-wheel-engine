@@ -18,10 +18,16 @@ export async function GET(
     return NextResponse.json({ error: "Story not found" }, { status: 404 });
   }
 
-  // Get entities
-  const entities = await db.query.storyEntities.findMany({
+  // Get entities — dedupe (type,value): cluster merges re-point the merged
+  // story's entity rows onto the survivor, duplicating shared tickers.
+  const entityRows = await db.query.storyEntities.findMany({
     where: eq(storyEntities.storyId, id),
   });
+  const entities = [
+    ...new Map(
+      entityRows.map((e) => [`${e.entityType}:${e.entityValue}`, e])
+    ).values(),
+  ];
 
   // Get all sources with detailed fields
   const sources = await db.query.storySources.findMany({

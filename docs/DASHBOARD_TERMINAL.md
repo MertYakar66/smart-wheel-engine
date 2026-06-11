@@ -258,14 +258,22 @@ logged out; the connector is the reliable path).
 - **Branch + PR for code changes; never commit to `main`.** Data changes aren't
   commits (gitignored).
 
-## 9. Current state (as of 2026-06-09 — update this line when it drifts)
-- The dashboard runs the **flat 14-leg** holdings view. That engine code
-  (`build_positions_flat` in `ibkr_portfolio_adapter.py` + `engine_api.py`) and
-  the dashboard's **design-unify** + **all-legs** + **provenance-caveat** edits
-  are **LIVE on the rig but still UNCOMMITTED** (gated for clean PRs) in
-  `swe-main` / `swe-view`. Don't assume they're on `main` yet.
-- Account was in a sharp selloff (NAV ~$142k, margin cushion thin) — always
-  surface margin health after an update.
+## 9. Current state (as of 2026-06-10 — update this line when it drifts)
+- The flat-leg holdings view + design-unify + provenance-caveat edits **landed
+  on `main`** via PR #391 (`aec90be`). The old swe-main/swe-view rig (:8811 /
+  :3030) is retired; the live rig now runs from the **`swe-dash` worktree**
+  (engine `:8787` + Next dev `:3000`), with `SWE_IBKR_DATA_DIR` pointed at the
+  primary clone's `data_processed/ibkr` (the canonical artifact store).
+- Branch `claude/dashboard-pro-overhaul` (2026-06-10, this worktree) carries
+  the professional overhaul: **date-anchored period returns** (YTD was
+  misstated ~10pp by in-window anchoring; pct/usd now share one anchor),
+  income/margin/engine-gates surfaces on `/portfolio`, frontier-derived
+  cockpit `as_of` + authoritative dossier verdicts, a de-fabricated terminal
+  (no placeholder quotes/Greeks/agent panel), and news ingestion actually
+  scheduled via `instrumentation.ts`.
+- Account NAV ~$152k (recovering from the April drawdown); margin cushion is
+  STILL thin (excess liquidity ~$9k at 1.76× leverage) — always surface margin
+  health after an update.
 
 ## 10. Gotchas (hard-won)
 - **Connector trades miss option expiries + lack contract detail** → Flex only

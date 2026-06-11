@@ -10,17 +10,26 @@ import { useEffect, useState } from "react";
 
 import {
   ACCOUNT,
+  CONCENTRATION,
   CURRENCY,
   EQUITY,
+  EQUITY_STATS,
+  GATES,
   HOLDINGS,
+  INCOME,
+  IV_ASSUMPTION,
   RETURNS,
   SECTOR_CAP,
   SECTOR_EXPOSURE,
   SECTORS,
   SINGLE_NAME,
   SINGLE_NAME_CAP,
+  type ConcentrationRow,
   type EquityPoint,
+  type EquityStats,
+  type Gates,
   type Holding,
+  type IncomeView,
 } from "./mock";
 import { type SliceSource } from "./parts";
 
@@ -36,13 +45,21 @@ export interface PortfolioData {
   account: typeof ACCOUNT;
   returns: typeof RETURNS;
   equity: EquityPoint[];
+  /** Sharpe/Sortino/MaxDD served on /history — null until that slice lands */
+  stats: EquityStats | null;
   holdings: Holding[];
+  income: IncomeView;
   sectors: { name: string; val: number; color?: string }[];
   currency: { name: string; val: number }[];
   singleName: { sym: string; pct: number }[];
+  /** all-exposure per-underlying rows — null on an older engine payload */
+  concentration: ConcentrationRow[] | null;
   sectorExposure: { name: string; pct: number }[];
   caps: { singleName: number; sector: number };
   margin: Margin;
+  /** live R7–R10 gate overlay — null on an older engine payload */
+  gates: Gates | null;
+  ivAssumption: number | null;
 }
 
 /** Typed fallback assembled from mock.ts — used until/unless live data lands. */
@@ -50,10 +67,13 @@ export const MOCK_DATA: PortfolioData = {
   account: ACCOUNT,
   returns: RETURNS,
   equity: EQUITY,
+  stats: EQUITY_STATS,
   holdings: HOLDINGS,
+  income: INCOME,
   sectors: SECTORS,
   currency: CURRENCY,
   singleName: SINGLE_NAME,
+  concentration: CONCENTRATION,
   sectorExposure: SECTOR_EXPOSURE,
   caps: { singleName: SINGLE_NAME_CAP, sector: SECTOR_CAP },
   margin: {
@@ -63,6 +83,8 @@ export const MOCK_DATA: PortfolioData = {
     cushionPct: 0.12,
     stressed: ACCOUNT.availableFunds < 0,
   },
+  gates: GATES,
+  ivAssumption: IV_ASSUMPTION,
 };
 
 async function fetchView<T>(sub: string): Promise<T> {
@@ -71,7 +93,7 @@ async function fetchView<T>(sub: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export type SliceName = "summary" | "positions" | "returns" | "risk" | "history";
+export type SliceName = "summary" | "positions" | "returns" | "income" | "risk" | "history";
 
 export interface PortfolioState {
   data: PortfolioData;
@@ -86,9 +108,25 @@ const ALL_MOCK: Record<SliceName, SliceSource> = {
   summary: "mock",
   positions: "mock",
   returns: "mock",
+  income: "mock",
   risk: "mock",
   history: "mock",
 };
+
+/** Shape of the /risk slice — gates/ivAssumption/concentration are optional
+ * so the hook stays null-safe against an older engine payload. */
+interface RiskSlice {
+  singleName: PortfolioData["singleName"];
+  concentration?: ConcentrationRow[];
+  sectorExposure: PortfolioData["sectorExposure"];
+  sectors: PortfolioData["sectors"];
+  currency: PortfolioData["currency"];
+  singleNameCap: number;
+  sectorCap: number;
+  margin: Margin;
+  gates?: Gates;
+  ivAssumption?: number;
+}
 
 export function usePortfolioData(): PortfolioState {
   const [state, setState] = useState<PortfolioState>({
@@ -104,20 +142,13 @@ export function usePortfolioData(): PortfolioState {
     (async () => {
       // Fetch independently so one failing slice doesn't blank the page —
       // each falls back to its mock counterpart.
-      const [summary, positions, returns, risk, history] = await Promise.allSettled([
+      const [summary, positions, returns, income, risk, history] = await Promise.allSettled([
         fetchView<PortfolioData["account"]>("summary"),
         fetchView<{ holdings: Holding[]; legs?: Holding[] }>("positions"),
         fetchView<{ returns: PortfolioData["returns"] }>("returns"),
-        fetchView<{
-          singleName: PortfolioData["singleName"];
-          sectorExposure: PortfolioData["sectorExposure"];
-          sectors: PortfolioData["sectors"];
-          currency: PortfolioData["currency"];
-          singleNameCap: number;
-          sectorCap: number;
-          margin: Margin;
-        }>("risk"),
-        fetchView<{ equity: EquityPoint[] }>("history"),
+        fetchView<IncomeView>("income"),
+        fetchView<RiskSlice>("risk"),
+        fetchView<{ equity: EquityPoint[]; stats?: EquityStats }>("history"),
       ]);
 
       if (cancelled) return;
@@ -140,29 +171,30 @@ export function usePortfolioData(): PortfolioState {
         returns: ok(returns)
           ? (returns as PromiseFulfilledResult<{ returns: PortfolioData["returns"] }>).value.returns
           : MOCK_DATA.returns,
+        income: ok(income)
+          ? (income as PromiseFulfilledResult<IncomeView>).value
+          : MOCK_DATA.income,
         equity: ok(history)
           ? (history as PromiseFulfilledResult<{ equity: EquityPoint[] }>).value.equity
           : MOCK_DATA.equity,
+        // stats is null (not mock) when the live history omits it — the strip
+        // hides rather than decorate live data with fabricated mock stats.
+        stats: ok(history)
+          ? ((history as PromiseFulfilledResult<{ stats?: EquityStats }>).value.stats ?? null)
+          : MOCK_DATA.stats,
         sectors: MOCK_DATA.sectors,
         currency: MOCK_DATA.currency,
         singleName: MOCK_DATA.singleName,
+        concentration: MOCK_DATA.concentration,
         sectorExposure: MOCK_DATA.sectorExposure,
         caps: MOCK_DATA.caps,
         margin: MOCK_DATA.margin,
+        gates: MOCK_DATA.gates,
+        ivAssumption: MOCK_DATA.ivAssumption,
       };
 
       if (ok(risk)) {
-        const r = (
-          risk as PromiseFulfilledResult<{
-            singleName: PortfolioData["singleName"];
-            sectorExposure: PortfolioData["sectorExposure"];
-            sectors: PortfolioData["sectors"];
-            currency: PortfolioData["currency"];
-            singleNameCap: number;
-            sectorCap: number;
-            margin: Margin;
-          }>
-        ).value;
+        const r = (risk as PromiseFulfilledResult<RiskSlice>).value;
         next.sectors = r.sectors ?? MOCK_DATA.sectors;
         next.currency = r.currency ?? MOCK_DATA.currency;
         next.singleName = r.singleName ?? MOCK_DATA.singleName;
@@ -172,6 +204,11 @@ export function usePortfolioData(): PortfolioState {
           sector: r.sectorCap ?? MOCK_DATA.caps.sector,
         };
         next.margin = r.margin ?? MOCK_DATA.margin;
+        // Live payload wins even when a field is absent (older engine): null
+        // hides the board rather than blending mock rows into live data.
+        next.concentration = r.concentration ?? null;
+        next.gates = r.gates ?? null;
+        next.ivAssumption = r.ivAssumption ?? null;
       }
 
       // Per-slice provenance: a fetched slice reports source "live"/"demo"
@@ -186,6 +223,7 @@ export function usePortfolioData(): PortfolioState {
         summary: srcOf(summary),
         positions: srcOf(positions),
         returns: srcOf(returns),
+        income: srcOf(income),
         risk: srcOf(risk),
         history: srcOf(history),
       };

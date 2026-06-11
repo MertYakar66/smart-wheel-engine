@@ -92,36 +92,72 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
       }
 
+      case "concentration": {
+        // Concentration-cap preview — the operator surface where the ARMED
+        // R9 (sector, 25% NAV) / R10 (single-name, 10% NAV) production caps
+        // actually fire against an EV-ranked batch (engine PR #351).
+        // Display-only: the engine reports ADMIT/REFUSE per candidate with
+        // the tracker's structured refusal reason; nothing here re-ranks.
+        const qs = new URLSearchParams({
+          dte: searchParams.get("dte") || "35",
+          delta: searchParams.get("delta") || "0.25",
+          min_ev: searchParams.get("min_ev") || "0",
+          initial_capital: searchParams.get("initial_capital") || "100000",
+          top_n: searchParams.get("top_n") || "20",
+        });
+        for (const k of ["as_of", "universe_limit", "entry_date", "tickers"]) {
+          const v = searchParams.get(k);
+          if (v) qs.set(k, v);
+        }
+        const data = await fetchEngine(`/api/concentration_preview?${qs.toString()}`);
+        return NextResponse.json(data);
+      }
+
+      case "dealer_positioning": {
+        // Dealer GEX / put-call walls / gamma-flip read for one underlying
+        // (audit V surface). Display-only context — the dealer multiplier
+        // itself is applied engine-side and is clamped there.
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          dte: searchParams.get("dte") || "35",
+        });
+        const data = await fetchEngine(`/api/tv/dealer_positioning?${qs.toString()}`);
+        return NextResponse.json(data);
+      }
+
       case "analyze": {
         const ticker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/analyze/${ticker}`);
+        const data = await fetchEngine(`/api/analyze/${encodeURIComponent(ticker)}`);
         return NextResponse.json(data);
       }
 
       case "regime": {
         const ticker = searchParams.get("ticker") || "SPY";
-        const data = await fetchEngine(`/api/regime?ticker=${ticker}`);
+        const qs = new URLSearchParams({ ticker });
+        const data = await fetchEngine(`/api/regime?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "committee": {
         const ticker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/committee?ticker=${ticker}`);
+        const qs = new URLSearchParams({ ticker });
+        const data = await fetchEngine(`/api/committee?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "calendar": {
         const ticker = searchParams.get("ticker") || "";
         const days = searchParams.get("days") || "30";
-        const data = await fetchEngine(
-          `/api/calendar?ticker=${ticker}&days=${days}`
-        );
+        const qs = new URLSearchParams({ days });
+        if (ticker) qs.set("ticker", ticker);
+        const data = await fetchEngine(`/api/calendar?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "portfolio": {
         const tickers = searchParams.get("tickers") || "AAPL,MSFT,JPM";
-        const data = await fetchEngine(`/api/portfolio?tickers=${tickers}`);
+        const qs = new URLSearchParams({ tickers });
+        const data = await fetchEngine(`/api/portfolio?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
@@ -131,85 +167,87 @@ export async function GET(request: Request) {
       }
 
       case "fundamentals": {
-        const ticker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/fundamentals?ticker=${ticker}`);
+        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
+        const data = await fetchEngine(`/api/fundamentals?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "screen": {
-        const limit = searchParams.get("limit") || "20";
-        const minScore = searchParams.get("min_score") || "50";
-        const data = await fetchEngine(
-          `/api/screen?min_score=${minScore}&limit=${limit}`
-        );
+        const qs = new URLSearchParams({
+          min_score: searchParams.get("min_score") || "50",
+          limit: searchParams.get("limit") || "20",
+        });
+        const data = await fetchEngine(`/api/screen?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "chart": {
         const chartType = searchParams.get("chart_type") || "bollinger";
-        const chartTicker = searchParams.get("ticker") || "AAPL";
-        const chartDays = searchParams.get("days") || "120";
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          days: searchParams.get("days") || "120",
+        });
         const data = await fetchEngine(
-          `/api/chart/${chartType}?ticker=${chartTicker}&days=${chartDays}`
+          `/api/chart/${encodeURIComponent(chartType)}?${qs.toString()}`
         );
         return NextResponse.json(data);
       }
 
       case "strangle": {
-        const stTicker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/strangle?ticker=${stTicker}`);
+        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
+        const data = await fetchEngine(`/api/strangle?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "payoff": {
-        const payTicker = searchParams.get("ticker") || "AAPL";
-        const payStrategy = searchParams.get("strategy") || "csp";
-        const payStrike = searchParams.get("strike") || "";
-        const payPremium = searchParams.get("premium") || "";
-        const payDte = searchParams.get("dte") || "45";
-        const data = await fetchEngine(
-          `/api/payoff?ticker=${payTicker}&strategy=${payStrategy}&strike=${payStrike}&premium=${payPremium}&dte=${payDte}`
-        );
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          strategy: searchParams.get("strategy") || "csp",
+          strike: searchParams.get("strike") || "",
+          premium: searchParams.get("premium") || "",
+          dte: searchParams.get("dte") || "45",
+        });
+        const data = await fetchEngine(`/api/payoff?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "expected_move": {
-        const emTicker = searchParams.get("ticker") || "AAPL";
-        const emDte = searchParams.get("dte") || "45";
-        const data = await fetchEngine(
-          `/api/expected_move?ticker=${emTicker}&dte=${emDte}`
-        );
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          dte: searchParams.get("dte") || "45",
+        });
+        const data = await fetchEngine(`/api/expected_move?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "strikes": {
-        const stTicker = searchParams.get("ticker") || "AAPL";
-        const stStrategy = searchParams.get("strategy") || "csp";
-        const stDte = searchParams.get("dte") || "45";
-        const data = await fetchEngine(
-          `/api/strikes?ticker=${stTicker}&strategy=${stStrategy}&dte=${stDte}`
-        );
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          strategy: searchParams.get("strategy") || "csp",
+          dte: searchParams.get("dte") || "45",
+        });
+        const data = await fetchEngine(`/api/strikes?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "iv_history": {
-        const ivTicker = searchParams.get("ticker") || "AAPL";
-        const ivDays = searchParams.get("days") || "252";
-        const data = await fetchEngine(
-          `/api/iv_history?ticker=${ivTicker}&days=${ivDays}`
-        );
+        const qs = new URLSearchParams({
+          ticker: searchParams.get("ticker") || "AAPL",
+          days: searchParams.get("days") || "252",
+        });
+        const data = await fetchEngine(`/api/iv_history?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "memo": {
-        const memoTicker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/memo?ticker=${memoTicker}`);
+        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
+        const data = await fetchEngine(`/api/memo?${qs.toString()}`);
         return NextResponse.json(data);
       }
 
       case "summary": {
-        const sumTicker = searchParams.get("ticker") || "AAPL";
-        const data = await fetchEngine(`/api/summary?ticker=${sumTicker}`);
+        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
+        const data = await fetchEngine(`/api/summary?${qs.toString()}`);
         return NextResponse.json(data);
       }
 

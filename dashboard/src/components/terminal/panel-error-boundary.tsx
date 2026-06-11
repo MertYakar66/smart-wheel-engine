@@ -5,6 +5,12 @@ import { Component, type ReactNode } from "react";
 interface PanelErrorBoundaryProps {
   /** Short panel name shown in the fallback header (e.g. "Options Engine"). */
   label?: string;
+  /**
+   * Data epoch for auto-recovery. When this changes (e.g. the poll's
+   * lastUpdated timestamp) a latched error state resets, so one transient
+   * malformed payload doesn't kill the panel until a manual Retry click.
+   */
+  resetKey?: unknown;
   children: ReactNode;
 }
 
@@ -42,6 +48,14 @@ export class PanelErrorBoundary extends Component<
     // Keep the diagnostic in the console; do not rethrow (that would bubble to
     // the whole-route error.tsx and defeat the per-panel isolation).
     console.error(`[${this.props.label ?? "panel"}] render error:`, error);
+  }
+
+  componentDidUpdate(prevProps: PanelErrorBoundaryProps) {
+    // Auto-reset on a new data epoch: the next healthy poll un-latches the
+    // fallback and re-attempts the children render.
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, message: undefined });
+    }
   }
 
   private handleRetry = () => {

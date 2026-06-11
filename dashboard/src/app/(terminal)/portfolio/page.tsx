@@ -13,7 +13,9 @@ import { Allocation } from "@/components/portfolio/allocation";
 import { AskBar } from "@/components/portfolio/ask-bar";
 import { EquityCurve } from "@/components/portfolio/equity-curve";
 import { HoldingsTable } from "@/components/portfolio/holdings-table";
+import { IncomePanel } from "@/components/portfolio/income-panel";
 import { KpiCards } from "@/components/portfolio/kpi-cards";
+import { MarginPanel } from "@/components/portfolio/margin-panel";
 import { RiskRadar } from "@/components/portfolio/risk-radar";
 import { usePortfolioData } from "@/components/portfolio/use-portfolio-data";
 import { WheelhouseHeader } from "@/components/shell/wheelhouse-header";
@@ -31,6 +33,7 @@ import {
 // observer and the `goTo` click handler below.
 const SECTIONS = [
   { label: "Overview", id: "pf-overview" },
+  { label: "Performance", id: "pf-performance" },
   { label: "Income", id: "pf-income" },
   { label: "Holdings", id: "pf-holdings" },
   { label: "Risk", id: "pf-risk" },
@@ -153,34 +156,55 @@ export default function PortfolioPage() {
         {/* Live-NAV / as-of-curve honesty: the NAV in the header is live from
             the snapshot, but the period returns are computed off the equity
             curve, whose last point lags the live NAV until the next history
-            append. Surface that explicitly so it is never silent. */}
+            append. Surface that explicitly so it is never silent. The ledger
+            claim is DERIVED, not hardcoded: it only renders when the summary
+            actually carries ledger-backed KPIs (snapshot-only drops null them). */}
         {data.equity.length > 0 && (
           <p className="-mt-2 text-[11px] text-terminal-dim">
-            Returns as of {data.equity[data.equity.length - 1].m} · NAV live ·
-            Realized, Premium &amp; Win-Rate from IBKR Flex (latest import)
+            Returns as of {data.equity[data.equity.length - 1].m} · NAV live
+            {(account.realizedYtd != null || account.winRate != null) &&
+              " · Realized, Premium & Win-Rate from the trade ledger"}
           </p>
         )}
 
-        {/* Hero chart + allocation (Income) */}
-        <div id="pf-income" className="scroll-mt-28 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Hero chart + allocation (Performance) */}
+        <div id="pf-performance" className="scroll-mt-28 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <EquityCurve period={period} onPeriod={setPeriod} equity={data.equity} source={sources.history} />
+            <EquityCurve
+              period={period}
+              onPeriod={setPeriod}
+              equity={data.equity}
+              stats={data.stats}
+              source={sources.history}
+            />
           </div>
           <Allocation sectors={data.sectors} currency={data.currency} source={sources.risk} />
         </div>
 
-        {/* Holdings + risk radar */}
+        {/* Realized income (per-name league table + monthly bars) */}
+        <section id="pf-income" className="scroll-mt-28">
+          <IncomePanel income={data.income} source={sources.income} />
+        </section>
+
+        {/* Holdings + risk radar + margin */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div id="pf-holdings" className="scroll-mt-28 lg:col-span-2">
             <HoldingsTable holdings={data.holdings} source={sources.positions} />
           </div>
-          <div id="pf-risk" className="scroll-mt-28">
+          <div id="pf-risk" className="scroll-mt-28 space-y-4">
             <RiskRadar
-              account={account}
               singleName={data.singleName}
+              concentration={data.concentration}
               sectorExposure={data.sectorExposure}
               caps={data.caps}
-              marginHealth={data.margin.cushionPct}
+              gates={data.gates}
+              ivAssumption={data.ivAssumption}
+              source={sources.risk}
+            />
+            <MarginPanel
+              account={account}
+              margin={data.margin}
+              holdings={data.holdings}
               source={sources.risk}
             />
           </div>

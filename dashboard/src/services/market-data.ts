@@ -5,6 +5,7 @@ import type { Quote } from "@/types";
 import { eq, desc } from "drizzle-orm";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
+const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
 
 // Finnhub free tier: 60 calls/min, no API key required for basic quotes
 // If you have a key, set FINNHUB_API_KEY env var
@@ -84,6 +85,52 @@ export async function getLatestSnapshot(
     volume: result.volume || 0,
     capturedAt: result.capturedAt,
   };
+}
+
+// ─── Engine EOD fallback ──────────────────────────────────────────────
+// Last close + 1-day change from the engine's OHLCV feed. EOD data, not a
+// live quote — callers must surface `asOf` so it is never presented as
+// realtime. changePct is null when only one close is available (an honest
+// "—" beats a fabricated 0.00%).
+
+export interface EodQuote {
+  ticker: string;
+  price: number;
+  changePct: number | null;
+  volume: number;
+  /** Date of the close (the engine's OHLCV frontier for this ticker). */
+  asOf: string;
+}
+
+export async function fetchEngineEodQuote(
+  ticker: string
+): Promise<EodQuote | null> {
+  try {
+    const res = await fetch(
+      `${ENGINE_API}/api/chart/ohlcv?ticker=${encodeURIComponent(ticker)}&days=2`,
+      { cache: "no-store", signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const rows: { date?: string; close?: number; volume?: number }[] =
+      Array.isArray(json?.data) ? json.data : [];
+    const last = rows[rows.length - 1];
+    if (!last?.close || !last.date) return null;
+    const prev = rows.length >= 2 ? rows[rows.length - 2] : null;
+    const changePct =
+      prev?.close && prev.close > 0
+        ? ((last.close - prev.close) / prev.close) * 100
+        : null;
+    return {
+      ticker,
+      price: last.close,
+      changePct,
+      volume: last.volume ?? 0,
+      asOf: last.date,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchQuotesForWatchlist(): Promise<Quote[]> {

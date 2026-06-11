@@ -13,14 +13,12 @@ interface WatchlistPanelProps {
   items: WatchlistItem[];
   loading: boolean;
   onRefresh: () => void;
-  onAddTicker: (ticker: string) => void;
 }
 
 export function WatchlistPanel({
   items,
   loading,
   onRefresh,
-  onAddTicker,
 }: WatchlistPanelProps) {
   return (
     <TerminalPanel

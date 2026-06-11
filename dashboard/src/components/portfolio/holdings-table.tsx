@@ -6,8 +6,11 @@ import { fmtUsd } from "@/lib/cockpit-trust";
 import { HOLDINGS as MOCK_HOLDINGS, type Holding } from "./mock";
 import { PfCard, ProvenanceBadge, WheelBadge, fmtSignedUsd, pnlColor, type SliceSource } from "./parts";
 
-type SortKey = "sym" | "mktValue" | "uPnl" | "pctNav";
+type SortKey = "sym" | "dte" | "mktValue" | "uPnl" | "pctNav";
 type Sort = { key: SortKey; dir: 1 | -1 };
+
+const CAUTION = "#f5a524";
+const LOSS = "#f2495e";
 
 // Module-scope so the sortable header isn't a component created during the
 // parent's render (react-hooks/cannot-create-components-during-render); sort
@@ -45,6 +48,16 @@ function Th({
   );
 }
 
+/** Whether an option leg is in the money, from its signed moneyness
+ * ((spot−strike)/strike) and direction. Null when no spot was available. */
+function isItm(h: Holding): boolean | null {
+  if (h.moneyness == null) return null;
+  if (h.state === "short_put" || h.state === "long_put" || h.state === "csp")
+    return h.moneyness < 0;
+  if (h.state === "short_call" || h.state === "long_call") return h.moneyness > 0;
+  return null;
+}
+
 export function HoldingsTable({
   holdings = MOCK_HOLDINGS,
   source,
@@ -62,6 +75,13 @@ export function HoldingsTable({
 
   const rows = [...holdings].sort((a, b) => {
     if (sort.key === "sym") return a.sym.localeCompare(b.sym) * sort.dir;
+    if (sort.key === "dte") {
+      // Stock rows (dte null) always sort to the end regardless of direction.
+      if (a.dte == null && b.dte == null) return 0;
+      if (a.dte == null) return 1;
+      if (b.dte == null) return -1;
+      return (a.dte - b.dte) * sort.dir;
+    }
     return (a[sort.key] - b[sort.key]) * sort.dir;
   });
 
@@ -86,6 +106,8 @@ export function HoldingsTable({
               <Th label="Symbol" k="sym" align="left" sort={sort} toggle={toggle} />
               <th className="px-3 py-2 text-left">State</th>
               <th className="px-3 py-2 text-right">Qty</th>
+              <th className="px-3 py-2 text-right">Strike</th>
+              <Th label="DTE" k="dte" sort={sort} toggle={toggle} />
               <th className="px-3 py-2 text-right">Mark</th>
               <Th label="Value" k="mktValue" sort={sort} toggle={toggle} />
               <Th label="Unreal. P&L" k="uPnl" sort={sort} toggle={toggle} />
@@ -106,6 +128,7 @@ export function HoldingsTable({
 function Row({ h }: { h: Holding }) {
   const [hover, setHover] = useState(false);
   const barColor = h.breach ? "#f2495e" : "var(--color-pf-accent)";
+  const itm = isItm(h);
   return (
     <tr
       onMouseEnter={() => setHover(true)}
@@ -126,6 +149,29 @@ function Row({ h }: { h: Holding }) {
         <WheelBadge state={h.state} compact />
       </td>
       <td className="px-3 py-2 text-right font-mono tabular-nums text-terminal-text">{h.qty}</td>
+      <td className="px-3 py-2 text-right font-mono tabular-nums text-terminal-text">
+        {h.strike == null ? (
+          <span className="text-terminal-dim">—</span>
+        ) : (
+          <>
+            {fmtUsd(h.strike, { decimals: h.strike % 1 ? 2 : 0 })}
+            {/* moneyness null = no spot in the snapshot (no same-name stock
+                leg) — render nothing rather than a fabricated distance. */}
+            {h.moneyness != null && itm != null && (
+              <div className="text-[9px]" style={{ color: itm ? LOSS : "#64748b" }}>
+                {Math.abs(h.moneyness * 100).toFixed(1)}% {itm ? "ITM" : "OTM"}
+              </div>
+            )}
+          </>
+        )}
+      </td>
+      <td
+        className="px-3 py-2 text-right font-mono tabular-nums"
+        style={{ color: h.dte != null && h.dte < 5 ? CAUTION : undefined }}
+        title={h.expiry ?? undefined}
+      >
+        {h.dte == null ? <span className="text-terminal-dim">—</span> : h.dte}
+      </td>
       <td className="px-3 py-2 text-right font-mono tabular-nums text-terminal-text">
         {fmtUsd(h.mark, { decimals: 2 })}
       </td>

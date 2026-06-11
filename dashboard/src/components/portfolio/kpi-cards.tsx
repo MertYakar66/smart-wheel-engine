@@ -65,6 +65,9 @@ export function KpiCards({
   returns?: typeof MOCK_RETURNS;
 }) {
   const r = returns[period];
+  // Periods with no underlying delta (live 1D/1W snapshots carry null) render
+  // "—" and dim their toggle button — never a misleading +0.00%.
+  const dimmed = (Object.keys(returns) as Period[]).filter((p) => returns[p].pct == null);
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
       <Kpi
@@ -81,14 +84,14 @@ export function KpiCards({
       />
       <Kpi
         label={`Total Return · ${period}`}
-        value={fmtSignedPct(r.pct)}
-        sub={`${fmtSignedUsd(r.usd)}`}
-        subColor={pnlColor(r.usd)}
-        icon={r.pct >= 0 ? Sparkles : TrendingDown}
+        value={orDash(r.pct, (v) => fmtSignedPct(v))}
+        sub={r.usd == null ? "no live delta for this window" : fmtSignedUsd(r.usd)}
+        subColor={pnlColor(r.usd ?? 0)}
+        icon={(r.pct ?? 0) >= 0 ? Sparkles : TrendingDown}
         accentTop
       >
         <div className="mt-3">
-          <PeriodToggle value={period} onChange={onPeriod} size="xs" />
+          <PeriodToggle value={period} onChange={onPeriod} size="xs" dimmed={dimmed} />
         </div>
       </Kpi>
       <Kpi

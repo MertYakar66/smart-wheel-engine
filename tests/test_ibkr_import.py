@@ -175,12 +175,14 @@ def _history():
 
 
 def test_adapter_returns_view_null_safe():
-    """returns_view must not crash on present-but-null day/week deltas."""
+    """returns_view must not crash on present-but-null day/week deltas — and
+    must propagate null (UI renders "—"), not coerce unknown to a misleading
+    +0.00% (the F8 null-honesty contract)."""
     from engine import ibkr_portfolio_adapter as ad
 
     out = ad.returns_view(_history(), _null_field_snapshot())
-    assert out["returns"]["1D"] == {"pct": 0.0, "usd": 0}
-    assert out["returns"]["1W"] == {"pct": 0.0, "usd": 0}
+    assert out["returns"]["1D"] == {"pct": None, "usd": None}
+    assert out["returns"]["1W"] == {"pct": None, "usd": None}
 
 
 def test_adapter_risk_view_null_safe_margin():

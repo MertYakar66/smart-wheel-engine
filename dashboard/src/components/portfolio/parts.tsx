@@ -61,15 +61,20 @@ export function WheelBadge({ state, compact }: { state: WheelState; compact?: bo
   );
 }
 
-/** Segmented period control (drives Total-Return KPI + the equity chart). */
+/** Segmented period control (drives Total-Return KPI + the equity chart).
+ * `dimmed` periods have no underlying return data (live 1D/1W deltas are
+ * often null) — still clickable (the chart can window), but visually muted
+ * with an explanatory tooltip so "—" never reads like a glitch. */
 export function PeriodToggle({
   value,
   onChange,
   size = "sm",
+  dimmed,
 }: {
   value: Period;
   onChange: (p: Period) => void;
   size?: "sm" | "xs";
+  dimmed?: Period[];
 }) {
   return (
     <div className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-white/[0.08] bg-pf-bg p-0.5">
@@ -77,12 +82,14 @@ export function PeriodToggle({
         <button
           key={p}
           onClick={() => onChange(p)}
+          title={dimmed?.includes(p) ? "no live return data for this window" : undefined}
           className={cn(
             "rounded-md font-medium tabular-nums transition-colors",
             size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[11px]",
             value === p
               ? "bg-pf-accent/15 text-pf-accent"
-              : "text-terminal-dim hover:text-terminal-text"
+              : "text-terminal-dim hover:text-terminal-text",
+            dimmed?.includes(p) && value !== p && "opacity-40"
           )}
         >
           {p}

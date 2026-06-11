@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { stories, storySources, storyEntities, storyTimeline } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { analyzeSentiment } from "./impact-analysis";
 
 // ─── Story Graph Clustering ──────────────────────────────────────────
 // Clusters articles into "story objects" representing evolving events.
@@ -93,9 +92,15 @@ export async function clusterStories(): Promise<number> {
   });
 
   let mergeCount = 0;
+  // recentStories is a point-in-time snapshot: once B merges into A, B is
+  // deleted from the DB but still sits in the array. Without this set the
+  // outer loop later treats B as a live merge target and re-points C's
+  // sources/entities at a deleted storyId, orphaning them.
+  const deleted = new Set<string>();
 
   for (let i = 0; i < recentStories.length; i++) {
     const storyA = recentStories[i];
+    if (deleted.has(storyA.storyId)) continue;
     if (!storyA.canonicalTitle) continue;
 
     const tokensA = tokenize(storyA.canonicalTitle);
@@ -103,6 +108,7 @@ export async function clusterStories(): Promise<number> {
 
     for (let j = i + 1; j < recentStories.length; j++) {
       const storyB = recentStories[j];
+      if (deleted.has(storyB.storyId)) continue;
       if (!storyB.canonicalTitle) continue;
 
       const timeB = new Date(storyB.createdAt).getTime();
@@ -186,6 +192,7 @@ export async function clusterStories(): Promise<number> {
         await db
           .delete(stories)
           .where(eq(stories.storyId, storyB.storyId));
+        deleted.add(storyB.storyId);
 
         mergeCount++;
       }

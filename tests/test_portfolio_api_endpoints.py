@@ -76,7 +76,10 @@ def test_positions_shape(server):
 def test_returns_shape(server):
     _, data = _get(server, "/api/portfolio/returns")
     assert set(data["returns"]) == {"1D", "1W", "1M", "3M", "YTD", "1Y", "All"}
-    assert data["returns"]["YTD"]["usd"] == -8593
+    # Date-anchored YTD: last point (144,507) vs the prior year-end point
+    # (Dec-31 148,900) — the old first-point-inside-the-year anchor (-8593
+    # vs Jan-30) dropped January from the window.
+    assert data["returns"]["YTD"]["usd"] == -4393
 
 
 def test_risk_shape(server):

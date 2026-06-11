@@ -2,16 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   RefreshCw,
-  ExternalLink,
-  Clock,
   Zap,
-  AlertTriangle,
   Layers,
   TrendingUp,
   BarChart3,
@@ -28,17 +25,6 @@ import type { StoryCard } from "@/types";
 //  - Top stories (ranked by impact + exposure)
 //  - Category spotlight sections
 //  - Morning/Evening briefing link
-
-interface CategoryWithStories {
-  category: {
-    categoryId: string;
-    name: string;
-    color: string;
-    icon: string;
-    storyCount: number;
-  };
-  stories: StoryCard[];
-}
 
 interface BriefingSummary {
   briefingId: string;
@@ -222,12 +208,6 @@ export default function TopPage() {
     );
   }
 
-  const isMarketHours = (() => {
-    const now = new Date();
-    const hour = now.getHours();
-    return hour >= 9 && hour < 16;
-  })();
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -236,9 +216,10 @@ export default function TopPage() {
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
             TOP
           </h1>
+          {/* No market-open badge: the old local-wall-clock check showed
+              "Market Open" on weekends in any timezone. */}
           <p className="text-sm text-zinc-500">
             {topStories.length} stories · {categories.length} categories
-            {isMarketHours && <span className="ml-2 text-green-600">Market Open</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -322,11 +303,28 @@ export default function TopPage() {
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-3">
           Top Stories
         </h2>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {topStories.slice(0, 9).map((story) => (
-            <MiniStoryCard key={story.storyId} story={story} />
-          ))}
-        </div>
+        {topStories.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+              <p className="text-zinc-500 dark:text-zinc-400">
+                No stories yet. Scheduled ingestion runs at 06:30/18:30 ET
+                (plus market-hours refreshes), or trigger one now.
+              </p>
+              <Button onClick={handleRefresh} disabled={refreshing} size="sm">
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                {refreshing ? "Ingesting..." : "Ingest Now"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {topStories.slice(0, 9).map((story) => (
+              <MiniStoryCard key={story.storyId} story={story} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Category Sections (Bloomberg MYN-style) */}

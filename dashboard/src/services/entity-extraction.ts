@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { storyEntities, stories } from "@/db/schema";
-import { eq, sql, isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
+import { getValidationUniverse } from "./universe-cache";
 
 // Ollama-based entity extraction for richer NLP when available
 // Falls back to regex-based extraction
@@ -113,6 +114,11 @@ export async function extractEntitiesForNewStories(): Promise<number> {
   });
 
   const useOllama = await isOllamaAvailable();
+  // Engine universe + held-book symbols. The all-caps regex (and even the
+  // LLM) emits junk like "TRUMP"/"NATO" as tickers; only symbols the engine
+  // can actually trade (or the book actually holds) may become entityType=
+  // ticker. Null = engine unreachable -> cannot validate, demote nothing.
+  const universe = await getValidationUniverse();
   let processed = 0;
 
   for (const story of unprocessed) {
@@ -120,12 +126,18 @@ export async function extractEntitiesForNewStories(): Promise<number> {
       ? await extractWithOllama(story.canonicalTitle)
       : extractWithRegex(story.canonicalTitle);
 
-    // Save entities
-    for (const ticker of entities.tickers) {
+    // Save entities — tickers validated against the universe; non-matching
+    // all-caps tokens are demoted to topics so the story keeps its context
+    // without polluting the story->ticker->engine linkage.
+    const candidateTickers = [
+      ...new Set(entities.tickers.map((t) => t.toUpperCase())),
+    ];
+    for (const ticker of candidateTickers) {
+      const isValid = universe === null || universe.has(ticker);
       await db.insert(storyEntities).values({
         storyId: story.storyId,
-        entityType: "ticker",
-        entityValue: ticker.toUpperCase(),
+        entityType: isValid ? "ticker" : "topic",
+        entityValue: isValid ? ticker : ticker.toLowerCase(),
       }).onConflictDoNothing();
     }
     for (const person of entities.people) {

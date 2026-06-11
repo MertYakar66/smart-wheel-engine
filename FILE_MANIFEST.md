@@ -213,9 +213,10 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/portfolio/holdings-table.tsx` | Sortable per-symbol holdings table with wheel-state badges, %-NAV bars, and the single-name breach flag; prop-driven. |
 | `dashboard/src/components/portfolio/risk-radar.tsx` | Concentration meters (single-name R10 / sector R9 caps) + margin-health gauge fed by the real excess-liquidity cushion; prop-driven. |
 | `dashboard/src/components/portfolio/ask-bar.tsx` | Conversational ask-bar affordance (suggestion chips) — visual only; the engine-backed query layer is a later phase (design D26 §6.2 Phase B). |
+| `dashboard/src/components/portfolio/income-panel.tsx` | Real Income section from `/api/portfolio/income` (previously served-but-never-fetched): realized/premium/win-rate chips, monthly realized P&L bars, ranked per-ticker league table; honest empty-ledger state. |
+| `dashboard/src/components/portfolio/margin-panel.tsx` | Margin & leverage panel — loan balance, maintenance margin, excess-liquidity cushion, leverage from served summary fields; prop-driven, null-honest. |
 | `dashboard/src/app/api/stories/route.ts` | Stories list API — query by sector/ticker, exposure-ranked. |
 | `dashboard/src/app/api/stories/[id]/route.ts` | Single-story detail API. |
-| `dashboard/src/app/api/stories/[id]/impact/route.ts` | Story impact API — quotes plus event-study templates. |
 | `dashboard/src/app/api/chat/route.ts` | Chat API — streams from Ollama via the AI SDK. |
 | `dashboard/src/app/api/market/route.ts` | Market quote API — Finnhub with cached fallback. |
 | `dashboard/src/app/api/ingest/route.ts` | POST trigger for the RSS ingestion pipeline. |
@@ -224,20 +225,19 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/api/events/route.ts` | Calendar-events CRUD API. |
 | `dashboard/src/app/api/categories/route.ts` | News-categories CRUD API. |
 | `dashboard/src/app/api/briefings/route.ts` | Briefings API — generate/get morning/evening digests. |
-| `dashboard/src/app/api/execute/route.ts` | Code-execution API — Daytona or template executor. |
 | `dashboard/src/app/api/exposure/route.ts` | User-exposure CRUD API. |
 | `dashboard/src/app/api/schedule/route.ts` | Ingestion-schedule API — status/history/trigger. |
 | `dashboard/src/app/api/stream/route.ts` | Server-Sent-Events endpoint pushing new headlines. |
 | `dashboard/src/components/nav.tsx` | Top navigation bar for the web app. |
 | `dashboard/src/components/ui/*.tsx` | shadcn/ui base primitives (badge, button, card, input, scroll-area, skeleton). |
-| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/chart/agent/news/watchlist/macro/chat panels, command-line). |
+| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/news/watchlist/macro/chat panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
 | `dashboard/src/db/index.ts` | SQLite/Drizzle connection — lazy init, table creation, idempotent migrations. |
 | `dashboard/src/db/schema.ts` | Drizzle ORM schema — the news/story tables. |
 | `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine data, ticker analysis, committee review. |
 | `dashboard/src/lib/utils.ts` | `cn()` Tailwind class-merge helper. |
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |
+| `dashboard/src/instrumentation.ts` | Next.js instrumentation hook — boots the news ingestion cron (nodejs runtime only, double-start guarded) and seeds default categories. |
 | `dashboard/src/services/briefing-generator.ts` | Generates/persists morning/evening/breaking briefings. |
-| `dashboard/src/services/code-execution.ts` | Code-execution abstraction — Daytona plus local template executor. |
 | `dashboard/src/services/edgar.ts` | SEC EDGAR client — ticker-to-CIK and recent filings. |
 | `dashboard/src/services/entity-extraction.ts` | Entity extraction — Ollama NLP with regex fallback. |
 | `dashboard/src/services/exposure-ranking.ts` | Exposure-first story ranking against holdings/watchlist/factors. |
@@ -246,6 +246,9 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/services/market-data.ts` | Finnhub quote client and market-snapshot cache. |
 | `dashboard/src/services/news-categories.ts` | News-category taxonomy and keyword/ticker matching. |
 | `dashboard/src/services/rss-feeds.ts` | Static config of financial RSS feed sources. |
+| `dashboard/src/services/news-alerts.ts` | Ingest-time news-trigger alert evaluator (watchlist symbol match) — writes alert rows; no price-alert claims. |
+| `dashboard/src/services/news-cron.ts` | node-cron schedule for the ingestion pipeline — started once from `instrumentation.ts`, module-guarded, `NEWS_CRON=0` opt-out. |
+| `dashboard/src/services/universe-cache.ts` | Server-side cache of the engine's S&P-500 universe (+ held-book symbols) used to validate extracted ticker entities. |
 | `dashboard/src/services/rss-ingestion.ts` | RSS feed parser/ingester with ticker extraction. |
 | `dashboard/src/services/scheduled-ingestion.ts` | Orchestrates the multi-step ingestion pipeline. |
 | `dashboard/src/services/story-clustering.ts` | Story-graph clustering — Jaccard dedup, contradiction detection. |

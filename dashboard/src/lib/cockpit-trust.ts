@@ -113,6 +113,29 @@ export function fmtUsd(
   })}`;
 }
 
+/** Signed dollar formatter: "+$922" / "-$1,234" (sign BEFORE the $ — fmtUsd
+ *  with {signed:true} renders a negative as "$-1,234"). For tail/P&L cells
+ *  where the sign IS the message (cvar5 can legitimately be positive). */
+export function fmtUsdSigned(
+  v: number | null | undefined,
+  decimals = 0
+): string {
+  if (typeof v !== "number" || !isFinite(v)) return "—";
+  const sign = v < 0 ? "-" : "+";
+  return `${sign}$${Math.abs(v).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
+}
+
+/** Sign-aware P&L tone class: loss-red ONLY for negative values, green for
+ *  >= 0, dim for absent. cvar5 is the MEAN tail P&L in dollars — a positive
+ *  value is a profitable tail and must never render in loss-red (cockpit F2). */
+export function pnlToneClass(v: number | null | undefined): string {
+  if (typeof v !== "number" || !isFinite(v)) return "text-terminal-dim";
+  return v < 0 ? "text-terminal-red" : "text-terminal-green";
+}
+
 export function fmtPct(
   v: number | null | undefined,
   decimals = 0,

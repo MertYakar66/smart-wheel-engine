@@ -13,11 +13,14 @@ import {
   Zap,
   Monitor,
   Gauge,
+  Wallet,
 } from "lucide-react";
 
 const navItems = [
-  // The Decision Cockpit is the flagship engine surface — list it first.
+  // The Decision Cockpit is the flagship engine surface — list it first,
+  // then the live-book viewer; the news surfaces follow.
   { href: "/cockpit", label: "Cockpit", icon: Gauge, accent: true },
+  { href: "/portfolio", label: "Portfolio", icon: Wallet },
   { href: "/top", label: "TOP", icon: Zap },
   { href: "/feed", label: "Feed", icon: Newspaper },
   { href: "/watchlist", label: "Watchlist", icon: Star },

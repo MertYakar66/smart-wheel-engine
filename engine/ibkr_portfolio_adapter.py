@@ -16,10 +16,15 @@ realized P&L (what happened) is reported distinctly from any forward
 score (finding I1).
 
 It *does* reuse the non-trio analytics libraries the viewer is built to
-surface — ``portfolio_tracker`` (period returns / TWR), ``wheel_tracker``
-(win-rate, realized P&L), ``performance_metrics`` (Sharpe / Sortino /
-drawdown), and ``portfolio_risk_gates`` (the D17 R7–R11 concentration /
-VaR / stress gates) — to power a live risk overlay against the real book.
+surface — ``wheel_tracker`` (win-rate, realized P&L),
+``performance_metrics`` (Sharpe / Sortino / drawdown), and
+``portfolio_risk_gates`` (the D17 R7–R11 concentration / VaR / stress
+gates) — to power a live risk overlay against the real book. Period
+returns are date-anchored in-module (:func:`returns_view`): the replayed
+history carries no external cash flows, so the anchored simple return IS
+the TWR — and ``portfolio_tracker._calculate_twr`` anchors at the first
+point *inside* the window, which drops January from YTD and mislabels
+windows once daily history appends landed.
 
 **Universe discipline.** In-S&P-500 names get full treatment. Out-of-
 universe names (e.g. CNQ, ENB on the TSX) are **exposure-only**: they
@@ -38,7 +43,7 @@ from __future__ import annotations
 import json
 import math
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +65,6 @@ from engine.portfolio_risk_gates import (
     check_stress_scenario,
     check_var,
 )
-from engine.portfolio_tracker import PortfolioSnapshot, PortfolioTracker
 from engine.wheel_tracker import WheelTracker
 
 # ----------------------------------------------------------------------
@@ -289,6 +293,10 @@ def build_holdings_view(snapshot: dict) -> list[dict]:
         if short_puts and not stocks:
             state = "csp"
             put = short_puts[0]
+            # Name the row after the leg it prices (the short put) — legs[0]
+            # in snapshot order can be a different leg (e.g. the short CALL of
+            # a strangle), which mislabeled the row's contract name.
+            name = put.get("name", sym)
             qty = int(_num(put.get("qty")))
             mark = _num(put.get("mark")) * fx
             mkt_value = -(mark * abs(qty) * 100.0)
@@ -297,6 +305,7 @@ def build_holdings_view(snapshot: dict) -> list[dict]:
             # CSP single-name (R10) concentration: short-put notional vs cap.
             breach = pct_nav > SINGLE_NAME_CAP_PCT * 100.0
         elif stocks:
+            name = stocks[0].get("name", sym)  # row is priced off the stock leg
             shares = sum(int(_num(s.get("qty"))) for s in stocks)
             mark = _num(stocks[0].get("mark")) * fx
             mkt_value = shares * mark
@@ -356,8 +365,26 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
     (IBKR-style), so a written-premium leg reads small and the underlying
     stock reads large. The R10 single-name breach is an underlying-level
     concept surfaced on the risk radar, so per-leg ``breach`` is always False.
+
+    Option legs additionally carry ``strike`` / ``expiry`` / ``dte`` /
+    ``moneyness`` (the trader's every-morning numbers, otherwise buried in
+    name strings like "MU 12JUN26 970 P"). ``moneyness`` is
+    ``(spot − strike) / strike`` using the same-symbol stock leg's
+    FX-normalized mark as spot; names with no stock leg in the book have no
+    spot in the snapshot, so moneyness surfaces ``null`` (honest, not
+    fabricated). Stock legs carry ``null`` for all four.
     """
     nav = _num(snapshot["account"]["net_liquidation"])
+    as_of = _as_of_date(snapshot)
+
+    # Spot per underlying from the same-symbol stock leg (FX-normalized).
+    spots: dict[str, float] = {}
+    for pos in snapshot.get("positions", []):
+        if _is_stock(pos) and int(_num(pos.get("qty"))) != 0:
+            spots[str(pos.get("symbol", "")).upper()] = _num(pos.get("mark")) * _fx_rate(
+                snapshot, pos.get("currency", "USD")
+            )
+
     rows: list[dict] = []
     for pos in snapshot.get("positions", []):
         qty = int(_num(pos.get("qty")))
@@ -369,6 +396,10 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
         mark = _num(pos.get("mark")) * fx
         upnl = _num(pos.get("unrealized_pnl")) * fx
 
+        strike: float | None = None
+        expiry_iso: str | None = None
+        dte: int | None = None
+        moneyness: float | None = None
         if _is_option(pos):
             is_put = _option_type(pos) == "put"
             if qty < 0:
@@ -376,6 +407,16 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
             else:
                 state = "long_put" if is_put else "long_call"
             mkt_value = qty * mark * 100.0
+            strike = _opt_num(pos.get("strike"))
+            try:
+                expiry = date.fromisoformat(str(pos.get("expiry", "")))
+                expiry_iso = expiry.isoformat()
+                dte = max(0, (expiry - as_of).days)
+            except ValueError:
+                pass  # malformed/absent expiry → null (never a guessed date)
+            spot = spots.get(sym)
+            if spot is not None and strike:
+                moneyness = round((spot - strike) / strike, 4)
         else:
             state = "shares"
             mkt_value = qty * mark
@@ -396,6 +437,10 @@ def build_positions_flat(snapshot: dict) -> list[dict]:
                 "sector": pos.get("sector", "Unknown"),
                 "currency": currency,
                 "inUniverse": bool(pos.get("in_universe", True)),
+                "strike": strike,
+                "expiry": expiry_iso,
+                "dte": dte,
+                "moneyness": moneyness,
             }
         )
     return rows
@@ -519,76 +564,68 @@ def account_summary(snapshot: dict, ledger: dict | None = None) -> dict:
 # ----------------------------------------------------------------------
 # /returns — period returns (RETURNS shape: {period: {pct, usd}})
 # ----------------------------------------------------------------------
-def _history_tracker(history: dict) -> PortfolioTracker:
-    """Replay the monthly equity series into a PortfolioTracker so the
-    library's TWR ``get_returns`` powers the period percentages (genuine
-    reuse; validated to reproduce the approved 1M/3M/YTD/1Y figures)."""
-    inception = float(history.get("inception_capital", history["points"][0]["port"]))
-    tracker = PortfolioTracker(initial_cash=inception)
-    tracker.snapshots = []
-    for p in history["points"]:
-        d = date.fromisoformat(p["date"])
-        tracker.snapshots.append(
-            PortfolioSnapshot(
-                date=d,
-                total_value=float(p["port"]),
-                cash=0.0,
-                invested_value=float(p["port"]),
-                unrealized_pnl=0.0,
-                realized_pnl_cumulative=0.0,
-                dividends_cumulative=0.0,
-                deposits_cumulative=inception,
-                withdrawals_cumulative=0.0,
-                holdings_count=0,
-            )
-        )
-    tracker.benchmark_snapshots = [
-        (date.fromisoformat(p["date"]), float(p["spy"])) for p in history["points"]
-    ]
-    return tracker
+def _anchor_index(dates: list[date], window_start: date) -> int:
+    """Index of the last curve point STRICTLY BEFORE ``window_start`` —
+    the period baseline (YTD anchors at the prior year-end NAV, so January
+    is included). Falls back to the first point when the curve begins
+    inside the window (the window truncates to data availability, e.g. a
+    1Y window on an 11-month-old book)."""
+    idx = 0
+    for i, d in enumerate(dates):
+        if d < window_start:
+            idx = i
+        else:
+            break
+    return idx
 
 
 def returns_view(history: dict, snapshot: dict | None = None) -> dict:
-    """RETURNS shape. 1M/3M/YTD/1Y percentages come from
-    ``PortfolioTracker.get_returns`` (TWR); the dollar deltas come from
-    the snapshot series; 1D/1W come from the live account deltas; All-time
-    anchors to ``inception_capital`` (the TWR 'all_time' window only spans
-    the curve, so it is computed explicitly — §6.4 snapshot-delta method).
+    """RETURNS shape, date-anchored.
+
+    Every window anchors at the last curve point STRICTLY BEFORE the
+    window start, and ``pct`` and ``usd`` are computed off that SAME
+    anchor — so the pair can never contradict (the old point-count
+    ``_back(n)`` offsets broke the day daily history appends landed,
+    rendering "1M −14.85%" beside "+$10,105"). The replayed history
+    carries no external cash flows, so the anchored simple return equals
+    the GIPS TWR over the window; ``PortfolioTracker._calculate_twr``
+    is NOT reused because it anchors at the first point *inside* the
+    window (YTD was missing January; "1M" was a 12-day return).
+
+    1D/1W come from the live account deltas and surface as JSON ``null``
+    when the source can't derive them (the UI renders "—", never +0.00%).
+    All-time anchors to ``inception_capital`` (§6.4 snapshot-delta method).
     """
     points = history["points"]
-    inception = float(history.get("inception_capital", points[0]["port"]))
-    last = float(points[-1]["port"])
-    tracker = _history_tracker(history)
-    m = tracker.get_returns(as_of=date.fromisoformat(points[-1]["date"]))
+    dates = [date.fromisoformat(p["date"]) for p in points]
+    ports = [float(p["port"]) for p in points]
+    inception = float(history.get("inception_capital", ports[0]))
+    last = ports[-1]
+    as_of = dates[-1]
 
-    # Dollar baselines straight off the monthly series (matches the
-    # approved view exactly): 1M = prev month, 3M = 3 months back,
-    # YTD = first row of the current year, 1Y = ~12 months back / first.
-    def _back(n: int) -> float:
-        return float(points[-1 - n]["port"]) if len(points) > n else float(points[0]["port"])
+    def _window(window_start: date) -> dict:
+        base = ports[_anchor_index(dates, window_start)]
+        return {
+            "pct": (last - base) / base if base else 0.0,
+            "usd": round(last - base),
+        }
 
-    last_year = date.fromisoformat(points[-1]["date"]).year
-    ytd_base = next(
-        (float(p["port"]) for p in points if date.fromisoformat(p["date"]).year == last_year),
-        float(points[0]["port"]),
-    )
-
-    # Null-safe: a real IBKR snapshot (and the PDF-imported book) carries JSON
-    # null for the day/week deltas the source can't derive — use _num so a
-    # present-but-null value falls back to 0.0 instead of crashing float(None).
+    # Null-honest: a real IBKR snapshot (and the PDF-imported book) carries
+    # JSON null for the day/week deltas the source can't derive — propagate
+    # null (UI renders "—") instead of coercing unknown to a misleading 0.
     acct = (snapshot or {}).get("account", {})
-    day_pct = _num(acct.get("day_change_pct"))
-    day_usd = _num(acct.get("day_change_usd"))
-    week_pct = _num(acct.get("week_change_pct"))
-    week_usd = _num(acct.get("week_change_usd"))
+    day_pct = _opt_num(acct.get("day_change_pct"))
+    day_usd = _opt_num(acct.get("day_change_usd"))
+    week_pct = _opt_num(acct.get("week_change_pct"))
+    week_usd = _opt_num(acct.get("week_change_usd"))
 
     returns = {
-        "1D": {"pct": day_pct, "usd": round(day_usd)},
-        "1W": {"pct": week_pct, "usd": round(week_usd)},
-        "1M": {"pct": float(m.return_1m), "usd": round(last - _back(1))},
-        "3M": {"pct": float(m.return_3m), "usd": round(last - _back(3))},
-        "YTD": {"pct": float(m.return_ytd), "usd": round(last - ytd_base)},
-        "1Y": {"pct": float(m.return_1y), "usd": round(last - _back(12))},
+        "1D": {"pct": day_pct, "usd": round(day_usd) if day_usd is not None else None},
+        "1W": {"pct": week_pct, "usd": round(week_usd) if week_usd is not None else None},
+        "1M": _window(as_of - timedelta(days=30)),
+        "3M": _window(as_of - timedelta(days=90)),
+        "YTD": _window(date(as_of.year, 1, 1)),
+        "1Y": _window(as_of - timedelta(days=365)),
         "All": {
             "pct": (last - inception) / inception if inception else 0.0,
             "usd": round(last - inception),
@@ -601,18 +638,34 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
 # /history — equity curve (EQUITY shape) + reused risk stats
 # ----------------------------------------------------------------------
 def equity_view(history: dict) -> dict:
-    """EQUITY shape ([{m, port, spy, premium}]) plus reused Sharpe /
-    Sortino / max-drawdown over the monthly ``port`` series (monthly
-    periodicity → periods_per_year=12)."""
+    """EQUITY shape ([{m, date, port, spy, premium}]) plus reused Sharpe /
+    Sortino / max-drawdown over the ``port`` series (monthly periodicity →
+    periods_per_year=12; the daily tail appends make the annualization
+    approximate — the UI captions the grain).
+
+    ``date`` is the point's ISO date so the client windows by calendar
+    date — point-count windows broke when daily appends landed.
+    ``premium`` is a MONTHLY aggregate that the refresh script replicates
+    onto every daily append; it is emitted only on the LAST point of each
+    calendar month (``null`` elsewhere) so the premium bars don't
+    triple-count the current month."""
     points = history["points"]
+
+    # Month key per point (YYYY-MM); the label fallback keeps a dateless
+    # legacy artifact rendering one bar per point (no dedup possible).
+    def _mkey(p: dict) -> str:
+        return str(p.get("date") or p.get("label", ""))[:7]
+
+    last_of_month = {_mkey(p): i for i, p in enumerate(points)}  # later index wins
     equity = [
         {
             "m": p["label"],
+            "date": p.get("date"),
             "port": round(float(p["port"])),
             "spy": round(float(p["spy"])),
-            "premium": round(float(p["premium"])),
+            "premium": round(_num(p.get("premium"))) if last_of_month[_mkey(p)] == i else None,
         }
-        for p in points
+        for i, p in enumerate(points)
     ]
 
     eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
@@ -722,6 +775,17 @@ def risk_view(snapshot: dict, *, default_iv: float = _DEFAULT_IV) -> dict:
         reverse=True,
     )
 
+    # All-exposure concentration per underlying — stock market value for
+    # stock-bearing names, short-put notional for CSPs (the holdings-view
+    # pctNav). Complements `singleName` (the R10 assignment-risk meter),
+    # which by design excludes covered-call stock and so hid the book's
+    # biggest exposure (e.g. CC stock at >100% NAV).
+    concentration = sorted(
+        ({"sym": h["sym"], "pct": h["pctNav"], "state": h["state"]} for h in holdings),
+        key=lambda d: d["pct"],
+        reverse=True,
+    )
+
     # Sector + currency from FX-normalized gross market value / notional.
     sector_notional: dict[str, float] = {}
     sector_gross: dict[str, float] = {}
@@ -776,6 +840,7 @@ def risk_view(snapshot: dict, *, default_iv: float = _DEFAULT_IV) -> dict:
         "singleNameCap": round(SINGLE_NAME_CAP_PCT * 100),
         "sectorCap": round(SECTOR_CAP_PCT * 100),
         "singleName": single_name,
+        "concentration": concentration,
         "sectorExposure": sector_exposure,
         "sectors": sectors,
         "currency": currency,

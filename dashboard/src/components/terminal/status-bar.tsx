@@ -3,24 +3,38 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+/**
+ * Top status strip. Everything rendered here is a real observed value:
+ * VIX/term-structure from the engine regime read, NAV from the live IBKR
+ * book, the data-frontier date from action=status, and the feed badge from
+ * the actual stories count. The old hardcoded index tape (fake SPX/NDX
+ * quotes with no DEMO label) is gone — no realtime quote feed exists.
+ */
 interface StatusBarProps {
-  indices: { symbol: string; price: number; changePct: number }[];
   alertCount: number;
   ollamaStatus: "connected" | "disconnected" | "checking";
-  agentStatus: "online" | "offline";
-  retrievalProviders?: string[];
+  /** Real stories count from /api/stories (null while loading). */
+  storyCount: number | null;
   vix?: number;
+  vix3m?: number | null;
+  contango?: boolean | null;
   regime?: string;
+  /** Freshest OHLCV date the engine serves (action=status data_frontier). */
+  dataFrontier?: string | null;
+  /** Live book NAV — only shown when the book source is actually live. */
+  nav?: number | null;
 }
 
 export function StatusBar({
-  indices,
   alertCount,
   ollamaStatus,
-  agentStatus,
-  retrievalProviders,
+  storyCount,
   vix,
+  vix3m,
+  contango,
   regime,
+  dataFrontier,
+  nav,
 }: StatusBarProps) {
   const [time, setTime] = useState("");
 
@@ -67,7 +81,7 @@ export function StatusBar({
 
   return (
     <div className="flex h-8 shrink-0 items-center justify-between border-b border-terminal-border bg-terminal-header px-3 font-mono text-[11px]">
-      {/* Left: Brand + Ticker tape */}
+      {/* Left: Brand + real engine/book reads */}
       <div className="flex min-w-0 items-center gap-4">
         <Link
           href="/cockpit"
@@ -77,33 +91,27 @@ export function StatusBar({
           ■ YAKAR TERMINAL
         </Link>
         <div className="flex min-w-0 items-center gap-3">
-          {indices.map((idx) => (
-            <span key={idx.symbol} className="flex shrink items-center gap-1">
-              <span className="text-terminal-dim">{idx.symbol}</span>
-              <span className="text-terminal-text">
-                {idx.price.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-              <span
-                className={
-                  idx.changePct >= 0
-                    ? "text-terminal-green"
-                    : "text-terminal-red"
-                }
-              >
-                {idx.changePct >= 0 ? "+" : ""}
-                {idx.changePct.toFixed(2)}%
-              </span>
-            </span>
-          ))}
           {/* VIX is always visible — the single most critical number for options */}
           {vix != null && vix > 0 && (
             <span className="flex shrink-0 items-center gap-1">
               <span className="text-terminal-dim">VIX</span>
               <span className={vixColor}>{vix.toFixed(2)}</span>
               {vix >= 20 && <span className={vixColor}>⚡</span>}
+            </span>
+          )}
+          {vix3m != null && vix3m > 0 && (
+            <span className="flex shrink-0 items-center gap-1">
+              <span className="text-terminal-dim">3M</span>
+              <span className="text-terminal-text">{vix3m.toFixed(2)}</span>
+              {contango != null && (
+                <span
+                  className={
+                    contango ? "text-terminal-green" : "text-terminal-red"
+                  }
+                >
+                  {contango ? "CONT" : "BACKWD"}
+                </span>
+              )}
             </span>
           )}
           {regime && regime !== "---" && (
@@ -113,17 +121,37 @@ export function StatusBar({
               {regime}
             </span>
           )}
+          {nav != null && (
+            <span className="flex shrink-0 items-center gap-1">
+              <span className="text-terminal-dim">NAV</span>
+              <span className="text-terminal-text tabular-nums">
+                ${nav.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              </span>
+            </span>
+          )}
+          {dataFrontier && (
+            <span className="hidden shrink-0 items-center gap-1 sm:flex">
+              <span className="text-terminal-dim">EOD</span>
+              <span className="text-terminal-dim">{dataFrontier}</span>
+            </span>
+          )}
         </div>
       </div>
 
       {/* Right: Status indicators */}
       <div className="flex shrink-0 items-center gap-4">
-        {retrievalProviders && retrievalProviders.length > 0 && (
-          <span className="flex items-center gap-1">
-            <span className="text-terminal-dim">FEED:</span>
-            <span className="text-terminal-green">LIVE</span>
-          </span>
-        )}
+        {/* Feed badge derives from real state: the actual stories count, not
+            a hardcoded LIVE off a static provider list. */}
+        <span className="flex items-center gap-1">
+          <span className="text-terminal-dim">FEED:</span>
+          {storyCount === null ? (
+            <span className="text-terminal-dim">…</span>
+          ) : storyCount > 0 ? (
+            <span className="text-terminal-green">{storyCount}</span>
+          ) : (
+            <span className="text-terminal-amber">EMPTY</span>
+          )}
+        </span>
         <span className="flex items-center gap-1">
           <span className="text-terminal-dim">AI:</span>
           <span
@@ -140,18 +168,6 @@ export function StatusBar({
               : ollamaStatus === "checking"
                 ? "…"
                 : "OFFLINE"}
-          </span>
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="text-terminal-dim">AGENT:</span>
-          <span
-            className={
-              agentStatus === "online"
-                ? "text-terminal-green"
-                : "text-terminal-red"
-            }
-          >
-            {agentStatus === "online" ? "●" : "○"}
           </span>
         </span>
         {alertCount > 0 && (

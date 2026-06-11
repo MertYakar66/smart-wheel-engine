@@ -1,17 +1,21 @@
 "use client";
 
 import { AlertTriangle, Check, ShieldAlert } from "lucide-react";
-import { fmtUsd } from "@/lib/cockpit-trust";
 import {
-  ACCOUNT as MOCK_ACCOUNT,
+  CONCENTRATION as MOCK_CONCENTRATION,
+  GATES as MOCK_GATES,
+  IV_ASSUMPTION as MOCK_IV,
   SECTOR_CAP as MOCK_SECTOR_CAP,
   SECTOR_EXPOSURE as MOCK_SECTOR_EXPOSURE,
   SINGLE_NAME as MOCK_SINGLE_NAME,
   SINGLE_NAME_CAP as MOCK_SINGLE_NAME_CAP,
+  WHEEL_LABEL,
+  type ConcentrationRow,
+  type Gates,
 } from "./mock";
 import { PfCard, ProvenanceBadge, type SliceSource } from "./parts";
 
-const C = { ok: "#34d399", caution: "#f5a524", breach: "#f2495e" };
+const C = { ok: "#34d399", caution: "#f5a524", breach: "#f2495e", dim: "#7c8696" };
 type Status = keyof typeof C;
 
 function statusFor(pct: number, cap: number): Status {
@@ -43,10 +47,12 @@ function Rule({
   title,
   cap,
   rows,
+  caption,
 }: {
   title: string;
   cap: number;
-  rows: { label: string; pct: number }[];
+  rows: { label: string; pct: number; tag?: string; tagColor?: string }[];
+  caption?: string;
 }) {
   const breaches = rows.filter((r) => r.pct > cap).length;
   return (
@@ -79,6 +85,14 @@ function Rule({
               <span className="w-14 shrink-0 text-[11px] font-medium text-terminal-text">
                 {r.label}
               </span>
+              {r.tag && (
+                <span
+                  className="w-16 shrink-0 text-[9px] font-semibold uppercase tracking-wide"
+                  style={{ color: r.tagColor ?? C.dim }}
+                >
+                  {r.tag}
+                </span>
+              )}
               <CapBar pct={r.pct} cap={cap} />
               <span
                 className="w-20 shrink-0 text-right text-[11px] tabular-nums"
@@ -90,59 +104,74 @@ function Rule({
           );
         })}
       </div>
+      {caption && <p className="mt-2 text-[10px] leading-snug text-terminal-dim">{caption}</p>}
     </div>
   );
 }
 
-/** Semicircular margin-health gauge (SVG, sampled arc — no flag ambiguity). */
-function MarginGauge({ health }: { health: number }) {
-  const cx = 100;
-  const cy = 96;
-  const r = 78;
-  const arc = (v0: number, v1: number, rr = r) => {
-    const pts: string[] = [];
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      const v = v0 + ((v1 - v0) * i) / steps;
-      const deg = 180 * (1 - v);
-      const rad = (deg * Math.PI) / 180;
-      pts.push(`${(cx + rr * Math.cos(rad)).toFixed(2)} ${(cy - rr * Math.sin(rad)).toFixed(2)}`);
-    }
-    return "M" + pts.join(" L");
-  };
-  const needleDeg = 180 * (1 - health);
-  const needleRad = (needleDeg * Math.PI) / 180;
-  const nx = cx + (r - 10) * Math.cos(needleRad);
-  const ny = cy - (r - 10) * Math.sin(needleRad);
-
+/** Pass/fail/skip pill for an engine gate verdict. A gate that returned
+ * passed=true with reason "missing_data" did NOT evaluate — render an honest
+ * SKIPPED, never a green PASS on absent evidence. */
+function GatePill({ passed, reason }: { passed: boolean; reason: string | null }) {
+  const skipped = passed && reason === "missing_data";
+  const color = skipped ? C.dim : passed ? C.ok : C.breach;
   return (
-    <svg viewBox="0 0 200 112" className="w-full" style={{ maxWidth: 220 }}>
-      <path d={arc(0, 1)} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={9} strokeLinecap="round" />
-      <path d={arc(0, 0.34)} fill="none" stroke={C.breach} strokeWidth={9} strokeLinecap="round" />
-      <path d={arc(0.34, 0.66)} fill="none" stroke={C.caution} strokeWidth={9} />
-      <path d={arc(0.66, 1)} fill="none" stroke={C.ok} strokeWidth={9} strokeLinecap="round" />
-      <line x1={cx} y1={cy} x2={nx.toFixed(2)} y2={ny.toFixed(2)} stroke="#e2e8f0" strokeWidth={2.5} strokeLinecap="round" />
-      <circle cx={cx} cy={cy} r={4} fill="#e2e8f0" />
-    </svg>
+    <span
+      className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+      style={{ background: `${color}24`, color }}
+    >
+      {skipped ? "skipped" : passed ? "pass" : "fail"}
+    </span>
+  );
+}
+
+function GateRow({
+  tag,
+  label,
+  detail,
+  passed,
+  reason,
+}: {
+  tag: string;
+  label: string;
+  detail?: string;
+  passed: boolean;
+  reason: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <span className="w-7 shrink-0 font-mono text-[10px] text-terminal-dim">{tag}</span>
+      <span className="min-w-0 flex-1 truncate text-[11px] text-terminal-text">
+        {label}
+        {detail && <span className="ml-1.5 tabular-nums text-terminal-dim">{detail}</span>}
+      </span>
+      {/* The engine's structured reason, verbatim (single_name_breach /
+          sector_cap_breach / missing_data) — the audit-trail vocabulary. */}
+      {reason && (
+        <span className="hidden font-mono text-[9px] text-terminal-dim md:inline">{reason}</span>
+      )}
+      <GatePill passed={passed} reason={reason} />
+    </div>
   );
 }
 
 export function RiskRadar({
-  account = MOCK_ACCOUNT,
   singleName = MOCK_SINGLE_NAME,
+  concentration = MOCK_CONCENTRATION,
   sectorExposure = MOCK_SECTOR_EXPOSURE,
   caps = { singleName: MOCK_SINGLE_NAME_CAP, sector: MOCK_SECTOR_CAP },
-  marginHealth = 0.12,
+  gates = MOCK_GATES,
+  ivAssumption = MOCK_IV,
   source,
 }: {
-  account?: typeof MOCK_ACCOUNT;
   singleName?: { sym: string; pct: number }[];
+  concentration?: ConcentrationRow[] | null;
   sectorExposure?: { name: string; pct: number }[];
   caps?: { singleName: number; sector: number };
-  marginHealth?: number;
+  gates?: Gates | null;
+  ivAssumption?: number | null;
   source?: SliceSource;
 }) {
-  const stressed = account.availableFunds < 0;
   return (
     <PfCard
       pad={false}
@@ -151,51 +180,91 @@ export function RiskRadar({
         <span className="flex items-center gap-1.5 text-[10px] text-terminal-dim">
           <ProvenanceBadge source={source} />
           <ShieldAlert className="h-3.5 w-3.5" style={{ color: C.breach }} />
-          concentration · margin
+          concentration · engine gates
         </span>
       }
     >
-      <div className="px-4 pb-2 pt-2">
-        <Rule title="Single-name" cap={caps.singleName} rows={singleName.map((s) => ({ label: s.sym, pct: s.pct }))} />
-        <Rule title="Sector" cap={caps.sector} rows={sectorExposure.map((s) => ({ label: s.name.slice(0, 6), pct: s.pct }))} />
+      <div className="px-4 pb-3 pt-2">
+        {/* All-exposure rows: stock value for CC/assigned names + short-put
+            notional for CSPs — keeps CC stock at >100% NAV from hiding. The
+            10% line is the R10 reference; the gate itself only caps
+            short-option notional (covered-call stock never "breaches"). */}
+        {concentration && concentration.length > 0 && (
+          <Rule
+            title="Concentration · all exposure"
+            cap={caps.singleName}
+            rows={concentration.map((c) => ({
+              label: c.sym,
+              pct: c.pct,
+              tag: WHEEL_LABEL[c.state]?.short ?? c.state,
+              tagColor: WHEEL_LABEL[c.state]?.color,
+            }))}
+            caption="Stock market value (CC/assigned) + short-put notional (CSP), % of NAV. Cap line is the R10 reference — the gate itself bounds short-option notional only."
+          />
+        )}
+        <Rule
+          title="Single-name · R10 put notional"
+          cap={caps.singleName}
+          rows={singleName.map((s) => ({ label: s.sym, pct: s.pct }))}
+        />
+        <Rule
+          title="Sector"
+          cap={caps.sector}
+          rows={sectorExposure.map((s) => ({ label: s.name.slice(0, 6), pct: s.pct }))}
+        />
 
-        <div className="border-t border-white/[0.08] pt-3">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-medium text-terminal-text">Margin health</span>
-            <span
-              className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              style={{
-                background: stressed ? `${C.breach}24` : `${C.ok}24`,
-                color: stressed ? C.breach : C.ok,
-              }}
-            >
-              {stressed ? "Stressed" : "Healthy"}
-            </span>
-          </div>
-          <div className="flex items-center justify-center">
-            <MarginGauge health={marginHealth} />
-          </div>
-          <div className="mt-1 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Avail. funds</div>
-              <div className="text-xs font-semibold tabular-nums text-pf-loss">
-                {fmtUsd(account.availableFunds, { signed: true })}
-              </div>
+        {gates && (
+          <div className="border-t border-white/[0.08] pt-3">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium text-terminal-text">Risk gates (engine)</span>
+              <span className="text-[10px] text-terminal-dim">held book · portfolio_risk_gates</span>
             </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Excess liq.</div>
-              <div className="text-xs font-semibold tabular-nums text-terminal-text">
-                {fmtUsd(account.excessLiquidity)}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-terminal-dim">Maint. margin</div>
-              <div className="text-xs font-semibold tabular-nums text-terminal-text">
-                {fmtUsd(account.maintMargin)}
-              </div>
-            </div>
+            {gates.singleName.map((g) => (
+              <GateRow
+                key={`r10-${g.sym}`}
+                tag="R10"
+                label={g.sym}
+                detail={`${g.pctNav.toFixed(1)}% NAV all short legs`}
+                passed={g.passed}
+                reason={g.reason}
+              />
+            ))}
+            {gates.sector.map((g) => (
+              <GateRow
+                key={`r9-${g.sector}`}
+                tag="R9"
+                label={g.sector}
+                detail={`${g.pctNav.toFixed(1)}% NAV`}
+                passed={g.passed}
+                reason={g.reason}
+              />
+            ))}
+            <GateRow
+              tag="R7"
+              label="Portfolio VaR 95"
+              detail={gates.var.varPct != null ? `${(gates.var.varPct * 100).toFixed(1)}% NAV` : "—"}
+              passed={gates.var.passed}
+              reason={gates.var.reason}
+            />
+            <GateRow
+              tag="R8"
+              label={gates.stress.scenario ?? "Stress scenario"}
+              detail={
+                gates.stress.drawdownPct != null
+                  ? `drawdown ${(gates.stress.drawdownPct * 100).toFixed(1)}% NAV`
+                  : "—"
+              }
+              passed={gates.stress.passed}
+              reason={gates.stress.reason}
+            />
+            <p className="mt-1.5 text-[10px] leading-snug text-terminal-dim">
+              R10 sums every short-option leg (put + call), so a strangle reads higher here than
+              in the put-notional meter — both are correct.
+              {ivAssumption != null &&
+                ` VaR/stress assume IV ${ivAssumption.toFixed(2)} (no live greeks in the snapshot).`}
+            </p>
           </div>
-        </div>
+        )}
       </div>
     </PfCard>
   );

@@ -32,11 +32,19 @@ import {
 } from "recharts";
 import type { Quote, StoryCard, FilingSummary } from "@/types";
 
+// /api/market labels each quote with its provenance; EOD quotes carry the
+// close date and may lack a change% (single close available).
+type LabeledQuote = Omit<Quote, "changePct"> & {
+  changePct: number | null;
+  source?: "live" | "snapshot" | "eod";
+  asOf?: string;
+};
+
 export default function TickerPage() {
   const params = useParams();
   const symbol = (params.symbol as string).toUpperCase();
 
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quote, setQuote] = useState<LabeledQuote | null>(null);
   const [stories, setStories] = useState<StoryCard[]>([]);
   // EDGAR filing data is fetched on demand (not yet wired); the SEC card shows
   // an honest empty state until then.
@@ -136,24 +144,42 @@ export default function TickerPage() {
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
             {symbol}
           </h1>
-          {quote && (
+          {quote ? (
             <div className="mt-1 flex items-center gap-3">
               <span className="text-3xl font-semibold">
                 ${quote.price.toFixed(2)}
               </span>
-              <Badge
-                variant={quote.changePct >= 0 ? "positive" : "negative"}
-                className="flex items-center gap-1"
-              >
-                {quote.changePct >= 0 ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                {quote.changePct >= 0 ? "+" : ""}
-                {quote.changePct.toFixed(2)}%
-              </Badge>
+              {quote.changePct != null && (
+                <Badge
+                  variant={quote.changePct >= 0 ? "positive" : "negative"}
+                  className="flex items-center gap-1"
+                >
+                  {quote.changePct >= 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  {quote.changePct >= 0 ? "+" : ""}
+                  {quote.changePct.toFixed(2)}%
+                </Badge>
+              )}
+              {/* Provenance: EOD closes and cached snapshots must never
+                  pass as a live quote. */}
+              {quote.source === "eod" && (
+                <Badge variant="outline" className="border-amber-300 text-amber-600">
+                  EOD · as of {quote.asOf}
+                </Badge>
+              )}
+              {quote.source === "snapshot" && (
+                <Badge variant="outline" className="border-zinc-300 text-zinc-500">
+                  cached quote
+                </Badge>
+              )}
             </div>
+          ) : (
+            <p className="mt-1 text-sm text-zinc-500">
+              No price available — engine and quote providers unreachable.
+            </p>
           )}
         </div>
         <Button

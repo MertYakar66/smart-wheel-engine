@@ -319,6 +319,15 @@ export interface LiveBookLeg {
   pctNavExact: number | null;
   breach: boolean;
   sector: string | null;
+  /** Server-computed DTE (expiry minus snapshot as_of, clamped >=0).
+   *  Null when the adapter did not supply the field. */
+  dte: number | null;
+  /** ISO expiry date (YYYY-MM-DD) from the adapter. Null if absent. */
+  expiry: string | null;
+  /** Option strike in local currency. Null if absent or not an option leg. */
+  strike: number | null;
+  /** Moneyness in local currency: (mark - strike) / strike. Null if absent. */
+  moneyness: number | null;
 }
 
 // ─── Terminal Command Types ───────────────────────────────────────────

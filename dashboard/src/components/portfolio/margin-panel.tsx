@@ -7,7 +7,7 @@
 
 import { Scale } from "lucide-react";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { ACCOUNT as MOCK_ACCOUNT, HOLDINGS as MOCK_HOLDINGS, type Holding } from "./mock";
+import { type Account, type Holding } from "./mock";
 import { type Margin } from "./use-portfolio-data";
 import { PfCard, ProvenanceBadge, fmtSignedUsd, type SliceSource } from "./parts";
 
@@ -58,15 +58,19 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
+// Props are required — no mock defaults. The only caller (portfolio/page.tsx)
+// always passes live-or-mock data; optional props with mock defaults are a
+// fabrication hazard: an omitted prop renders MOCK data with no provenance
+// badge (idx 20).
 export function MarginPanel({
-  account = MOCK_ACCOUNT,
+  account,
   margin,
-  holdings = MOCK_HOLDINGS,
+  holdings,
   source,
 }: {
-  account?: typeof MOCK_ACCOUNT;
+  account: Account;
   margin?: Margin;
-  holdings?: Holding[];
+  holdings: Holding[];
   source?: SliceSource;
 }) {
   const stressed = account.availableFunds < 0;

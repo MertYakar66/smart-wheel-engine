@@ -6,7 +6,7 @@ import {
   TerminalRow,
   TerminalBadge,
 } from "./panel";
-import { confidenceTrust, calibrationNote } from "@/lib/cockpit-trust";
+import { confidenceTrust, calibrationNote, fmtUsd } from "@/lib/cockpit-trust";
 import type { WheelTrade, MarketRegime } from "@/types";
 
 interface OptionsPanelProps {
@@ -15,6 +15,10 @@ interface OptionsPanelProps {
   connected: boolean;
   /** One-shot highlight when the command line targets this panel. */
   flash?: boolean;
+  /** How many tickers were evaluated (after the universe_limit cap). */
+  universeScanned?: number | null;
+  /** Full universe size before the cap. */
+  universeTotal?: number | null;
 }
 
 const REGIME_COLORS: Record<string, "green" | "red" | "amber" | "blue"> = {
@@ -29,11 +33,6 @@ const REGIME_COLORS: Record<string, "green" | "red" | "amber" | "blue"> = {
 
 const SCANNER_COLS =
   "minmax(42px,1fr) 28px minmax(52px,1fr) minmax(42px,1fr) minmax(52px,1fr) minmax(48px,1fr)";
-
-function fmtUsd0(v: number | null): string {
-  if (v === null) return "—";
-  return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-}
 
 /**
  * Calibration-aware prob_profit color, mirroring the cockpit's trust
@@ -53,6 +52,8 @@ export function OptionsPanel({
   regime,
   connected,
   flash,
+  universeScanned,
+  universeTotal,
 }: OptionsPanelProps) {
   const top = trades.length > 0 ? trades[0] : null;
   const topTrust = top?.probProfit
@@ -85,11 +86,18 @@ export function OptionsPanel({
           <span
             className={`text-[10px] ${
               regime.contango === false
-                ? "text-terminal-red"
-                : "text-terminal-dim"
+                ? "text-terminal-red"   // confirmed backwardation
+                : regime.contango === true
+                  ? "text-terminal-dim" // contango — normal/neutral
+                  : "text-terminal-dim" // null = unknown/flat — neutral dim, not stress-red
             }`}
           >
-            {regime.termStructure}
+            {/* contango null: server could not determine structure — show
+                label + "term: unknown" note so it is never mistaken for
+                confirmed backwardation. */}
+            {regime.contango === null && regime.termStructure
+              ? `term: ${regime.termStructure}`
+              : regime.termStructure}
           </span>
         )}
       </div>
@@ -113,6 +121,13 @@ export function OptionsPanel({
       <div className="mb-1 text-[10px] font-bold text-terminal-blue">
         ─ WHEEL SCANNER (EV-RANKED)
       </div>
+      {/* Partial-scan caption: honest disclosure that universe_limit caps the
+          scan. Never shown when both fields are absent (older engine). */}
+      {universeScanned != null && universeTotal != null && (
+        <div className="mb-1 text-[10px] text-terminal-dim">
+          scanned first {universeScanned} of {universeTotal} names
+        </div>
+      )}
       <div
         className="grid gap-x-1 py-[1px] text-[10px] text-terminal-dim"
         style={{ gridTemplateColumns: SCANNER_COLS }}
@@ -221,7 +236,7 @@ export function OptionsPanel({
             />
             <TerminalRow
               label="Max loss /ct"
-              value={fmtUsd0(top.maxLoss)}
+              value={fmtUsd(top.maxLoss)}
               valueColor="text-terminal-red"
             />
             <TerminalRow

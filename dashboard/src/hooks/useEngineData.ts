@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { num } from "@/lib/cockpit-trust";
 import type {
   WheelTrade,
   MarketRegime,
@@ -34,6 +35,10 @@ interface RawCandidate {
 interface CandidatesResponse {
   trades: RawCandidate[];
   count: number;
+  /** How many tickers were actually evaluated (after the universe_limit cap). */
+  universe_scanned?: number;
+  /** Full universe size before the cap. */
+  universe_total?: number;
 }
 
 interface RegimeResponse {
@@ -56,11 +61,6 @@ interface StatusResponse {
   error?: string;
 }
 
-/** Finite-number-or-null: never coerce an absent engine field to 0. */
-function num(v: unknown): number | null {
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-
 // ─── Hook Return Type ──────────────────────────────────────────────────
 
 interface EngineData {
@@ -73,6 +73,11 @@ interface EngineData {
   /** Freshest OHLCV date served by the engine (action=status data_frontier). */
   dataFrontier: string | null;
   provider: string | null;
+  /** How many tickers were evaluated (after the universe_limit cap). Null when
+   *  the payload did not include the field (older engine or failed fetch). */
+  universeScanned: number | null;
+  /** Full universe size before the cap. Null when unavailable. */
+  universeTotal: number | null;
   refresh: () => Promise<void>;
 }
 
@@ -102,6 +107,8 @@ export function useEngineData(): EngineData {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [dataFrontier, setDataFrontier] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
+  const [universeScanned, setUniverseScanned] = useState<number | null>(null);
+  const [universeTotal, setUniverseTotal] = useState<number | null>(null);
 
   // A candidates scan can outlast the poll interval; never overlap requests.
   const inFlight = useRef(false);
@@ -129,9 +136,14 @@ export function useEngineData(): EngineData {
         throw new Error(status.error);
       }
       setConnected(status.status === "connected");
+      // Guard: only a bare YYYY-MM-DD date string is a valid frontier.
+      // An ISO timestamp leaking from pandas (e.g. "2026-06-04T00:00:00")
+      // would be forwarded as-of to /api/candidates and may error downstream.
+      const rawFrontier = status.data_frontier;
       const frontier =
-        typeof status.data_frontier === "string" && status.data_frontier
-          ? status.data_frontier
+        typeof rawFrontier === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(rawFrontier)
+          ? rawFrontier
           : null;
       setDataFrontier(frontier);
       setProvider(typeof status.provider === "string" ? status.provider : null);
@@ -156,6 +168,18 @@ export function useEngineData(): EngineData {
         const rawTrades = Array.isArray(candidateData.trades)
           ? candidateData.trades
           : [];
+        // Universe scope: surface how many tickers were scanned vs the full
+        // universe so the options panel can render an honest partial-scan note.
+        setUniverseScanned(
+          typeof candidateData.universe_scanned === "number"
+            ? candidateData.universe_scanned
+            : null
+        );
+        setUniverseTotal(
+          typeof candidateData.universe_total === "number"
+            ? candidateData.universe_total
+            : null
+        );
         setTrades(
           rawTrades.map(
             (t): WheelTrade => ({
@@ -238,6 +262,8 @@ export function useEngineData(): EngineData {
     lastUpdated,
     dataFrontier,
     provider,
+    universeScanned,
+    universeTotal,
     refresh: fetchData,
   };
 }
@@ -267,6 +293,14 @@ interface RawLeg {
   pctNavExact?: number;
   breach?: boolean;
   sector?: string;
+  /** Adapter-computed DTE: (expiry − snapshot as_of).days, clamped >= 0. */
+  dte?: number;
+  /** ISO expiry date (YYYY-MM-DD). */
+  expiry?: string;
+  /** Option strike in local currency. */
+  strike?: number;
+  /** (mark − strike) / strike in local-currency terms. */
+  moneyness?: number;
 }
 
 export function useLiveBook(): LiveBook {
@@ -324,6 +358,11 @@ export function useLiveBook(): LiveBook {
             pctNavExact: num(l.pctNavExact),
             breach: l.breach === true,
             sector: typeof l.sector === "string" ? l.sector : null,
+            // Adapter-computed fields — pass through; null when absent.
+            dte: num(l.dte),
+            expiry: typeof l.expiry === "string" ? l.expiry : null,
+            strike: num(l.strike),
+            moneyness: num(l.moneyness),
           })
         );
       setLegs(parsed);

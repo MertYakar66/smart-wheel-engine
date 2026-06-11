@@ -21,12 +21,24 @@ const EVENT_ICONS: Record<string, string> = {
   earnings: "💰",
 };
 
+// Local-day string "YYYY-MM-DD" for today, used as a stable string
+// comparison baseline — avoids UTC/local-time skew in filter and daysUntil.
+function localTodayStr(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Days until a date-only string, using a consistent local-day baseline. */
 function daysUntil(dateStr: string): number {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  // Parse as local noon to avoid UTC-midnight→local-day-shift in negative-UTC
+  // offsets (e.g. "2026-06-17" → Jun 16 20:00 EDT). Same pattern as
+  // calendar/page.tsx formatDate.
+  const target = new Date(dateStr + "T12:00:00");
+  const today = new Date(localTodayStr() + "T12:00:00");
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function EventRow({ event }: { event: CalendarEvent }) {
@@ -44,7 +56,8 @@ function EventRow({ event }: { event: CalendarEvent }) {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-[10px] text-terminal-dim">
-          {new Date(event.eventDate).toLocaleDateString("en-US", {
+          {/* Local noon: avoids the UTC-midnight one-day-early shift. */}
+          {new Date(event.eventDate + "T12:00:00").toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
           })}
@@ -65,7 +78,9 @@ export function MacroPanel({
   heldTickers = [],
   flash,
 }: MacroPanelProps) {
-  const now = new Date().toISOString().split("T")[0];
+  // Use the same local-day baseline as daysUntil so today-local events are
+  // never filtered into 'past' before local midnight.
+  const now = localTodayStr();
   const upcoming = events
     .filter((e) => e.eventDate >= now)
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate));

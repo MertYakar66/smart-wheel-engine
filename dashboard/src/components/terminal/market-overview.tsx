@@ -34,11 +34,12 @@ interface EodQuote {
   ticker: string;
   close: number | null;
   changePct: number | null;
-}
-
-interface OhlcvRow {
-  date?: string;
-  close?: number;
+  // /api/market resolution provenance: "live" (Finnhub realtime), "snapshot"
+  // (<24h cached), or "eod" (engine close at the data frontier). The strip
+  // may only claim "EOD · <frontier>" when every quote is actually
+  // eod-sourced — a realtime quote labeled as a frontier-dated close is
+  // fabricated provenance (PR #406 audit).
+  source: string | null;
 }
 
 function fmt2(v: number | null | undefined): string {
@@ -63,26 +64,28 @@ export function MarketOverview({
     let cancelled = false;
     async function fetchEod() {
       setEodLoading(true);
+      // Route through /api/market so the last-two-closes derivation and
+      // null-honest changePct contract live in one place (fetchEngineEodQuote
+      // via the server route). changePct is null when only one close exists —
+      // never fabricated 0.
       const results = await Promise.all(
         EOD_TICKERS.map(async (ticker): Promise<EodQuote> => {
           try {
-            const res = await fetch(
-              `/api/engine?action=chart&chart_type=ohlcv&ticker=${ticker}&days=2`
-            );
-            if (!res.ok) return { ticker, close: null, changePct: null };
+            const res = await fetch(`/api/market?ticker=${encodeURIComponent(ticker)}`);
+            if (!res.ok) return { ticker, close: null, changePct: null, source: null };
             const body = await res.json();
-            const rows: OhlcvRow[] = Array.isArray(body?.data) ? body.data : [];
-            const last = rows[rows.length - 1]?.close;
-            const prev = rows[rows.length - 2]?.close;
             const close =
-              typeof last === "number" && Number.isFinite(last) ? last : null;
-            const changePct =
-              close !== null && typeof prev === "number" && prev > 0
-                ? ((close - prev) / prev) * 100
+              typeof body?.price === "number" && Number.isFinite(body.price)
+                ? body.price
                 : null;
-            return { ticker, close, changePct };
+            const changePct =
+              typeof body?.changePct === "number" && Number.isFinite(body.changePct)
+                ? body.changePct
+                : null;
+            const source = typeof body?.source === "string" ? body.source : null;
+            return { ticker, close, changePct, source };
           } catch {
-            return { ticker, close: null, changePct: null };
+            return { ticker, close: null, changePct: null, source: null };
           }
         })
       );
@@ -98,6 +101,9 @@ export function MarketOverview({
   }, []);
 
   const hasVol = regime.vix > 0;
+  // contango === null means unknown/flat — never render it as backwardation.
+  // Only confirmed contango === false is backwardation (stress-red badge).
+  const contangoKnown = regime.contango !== null;
   const backwardation = regime.contango === false;
 
   return (
@@ -149,9 +155,16 @@ export function MarketOverview({
           <div className="flex items-center justify-between py-[2px]">
             <span className="text-terminal-dim">Term structure</span>
             {regime.termStructure ? (
-              // Backwardation is the regime where the R11 trust haircut
-              // matters — draw it loud.
-              <TerminalBadge variant={backwardation ? "red" : "green"}>
+              // Only confirmed backwardation (contango===false) is stress-red.
+              // contango===null means the server could not determine structure
+              // (unknown/flat) — render neutral, never loss-red.
+              <TerminalBadge
+                variant={
+                  contangoKnown
+                    ? backwardation ? "red" : "green"
+                    : "default"
+                }
+              >
                 {regime.termStructure}
               </TerminalBadge>
             ) : (
@@ -197,10 +210,17 @@ export function MarketOverview({
 
       <TerminalDivider />
 
-      {/* EOD closes for liquid universe names — explicitly dated, never
-          presented as a realtime tape. */}
+      {/* Closes for liquid universe names — header claims "EOD · <frontier>"
+          ONLY when every quote actually resolved from the engine's EOD path;
+          /api/market prefers Finnhub realtime / <24h snapshots when available,
+          and labeling those as frontier-dated closes would fabricate
+          provenance. */}
       <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-        ─ EOD CLOSES{dataFrontier ? ` · ${dataFrontier}` : ""}
+        {eodLoading || eod.length === 0
+          ? "─ CLOSES …"
+          : eod.every((q) => q.source === "eod" || q.close === null)
+            ? `─ EOD CLOSES${dataFrontier ? ` · ${dataFrontier}` : ""}`
+            : `─ LAST QUOTES · ${[...new Set(eod.filter((q) => q.source).map((q) => q.source))].join("/") || "unknown source"}`}
       </div>
       <div className="flex items-center justify-between py-[1px] text-[10px] text-terminal-dim">
         <span className="w-14">SYM</span>

@@ -29,6 +29,12 @@ const tipStyle = {
 };
 
 const DAY_MS = 86_400_000;
+// WINDOW_DAYS mirrors engine/ibkr_portfolio_adapter.py::_anchor_index timedelta
+// constants (30/90/365) and the YTD date(year,1,1) anchor.  Both sides must
+// stay in lockstep so the chart's first→last move matches the displayed return
+// KPI — a one-sided tune would silently desync them.
+// TODO: add a lockstep integration test that pins these constants against the
+// Python adapter's _anchor_index to enforce parity at CI time.
 const WINDOW_DAYS: Partial<Record<Period, number>> = { "1D": 1, "1W": 7, "1M": 30, "3M": 90, "1Y": 365 };
 
 type ChartPoint = EquityPoint & { spyPlot: number | null; dd: number };

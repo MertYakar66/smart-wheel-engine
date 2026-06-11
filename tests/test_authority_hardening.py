@@ -331,7 +331,7 @@ class TestWheelTrackerEVAuthorityGate:
             stock_basis=180.0,
         )
         token = t.issue_ev_authority_token(
-            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0)
+            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0, dte=32)
         )
         ok = t.open_covered_call(
             ticker="AAPL",
@@ -962,7 +962,7 @@ class TestD17HardBlocks:
             stock_basis=180.0,
         )
         token = t.issue_ev_authority_token(
-            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0)
+            self._ev_row(ticker="AAPL", strike=190.0, premium=1.50, ev_dollars=18.0, dte=32)
         )
         ok = t.open_covered_call(
             ticker="AAPL",

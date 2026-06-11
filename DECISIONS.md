@@ -814,6 +814,25 @@ landed.
 (`test_persisted_token_consume_round_trip_d16`),
 `docs/USAGE_TEST_LEDGER.md` S8 (the originating finding).
 
+**Addendum (brain-audit 2026-06-11 MEDIUM #1 — parameter binding):**
+The original D16 token was an *unbound bearer token*: a token issued for
+AAPL/strike=180/dte=32 would gate any `open_short_put` or `open_covered_call`
+regardless of ticker, strike, expiration, or side (put vs. call). The consume
+log recorded the caller's `ticker` but never compared it to the issuing
+candidate. Fix: `_ev_authority_payloads: dict[str, dict]` stores the
+canonical issuing payload (ticker, strike, dte, side) alongside each token
+hash; `_consume_ev_authority_token` refuses with `reason='token_param_mismatch'`
+when any bound field diverges (token **retained** — mirrors stale_ev), and
+with `reason='unbound_token'` (fail-closed) when no payload is recoverable.
+The SHA-256 hash is NOT changed — token strings are byte-identical across
+versions. `consume_ranker_row` mints tokens with `side='put'` and overwrites
+`dte` with the derived dte from the resolved `expiration_date`, preserving the
+documented calendar-exact control escape hatch. Persistence: `to_dict` adds
+`ev_authority_payloads`; `from_dict` legacy-rebuilds payloads from the audit
+log's issue entries for pre-fix snapshots. New test file
+`tests/test_token_param_binding.py` (15 tests). §2 preserved: change is
+refusal-only, no trio file touched, non-strict path unreachable.
+
 ---
 
 ## D17. Portfolio-level risk gates are wired on both surfaces — hard-block on entry, soft-warn on review

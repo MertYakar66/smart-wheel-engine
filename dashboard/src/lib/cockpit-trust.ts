@@ -146,6 +146,12 @@ export function fmtPct(
 }
 
 export function num(v: unknown): number | null {
+  // null/undefined/"" must map to null, not 0: Number(null) === 0, so the
+  // bare coercion fabricated a 0 for fields the engine deliberately serves
+  // as JSON null (dayChangeUsd, leg dte, CI bounds — "absent renders as
+  // em-dash, never 0"). Every caller already handles null per the return
+  // type. PR #406 audit, critical finding.
+  if (v == null || v === "") return null;
   const n = typeof v === "number" ? v : Number(v);
   return isFinite(n) ? n : null;
 }

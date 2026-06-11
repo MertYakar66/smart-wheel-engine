@@ -191,6 +191,30 @@ _SHAPE_REJECT_SINGLE_NAME = (
     set(),
 )
 
+# Shape 6a: action="reject", reason="unbound_token" — token in set but
+# no issuing-payload found (fail-closed; genuine old snapshots are
+# rebindable via from_dict's legacy log-scan path).
+_SHAPE_REJECT_UNBOUND_TOKEN = (
+    {_ACTION, "reason", "ticker", "token"},
+    set(),
+)
+
+# Shape 6b: action="reject", reason="token_param_mismatch" — requested
+# ticker/strike/derived-dte/side do not match the issuing candidate
+# payload. Token is RETAINED (mirrors stale_ev semantics).
+_SHAPE_REJECT_TOKEN_PARAM_MISMATCH = (
+    {
+        _ACTION,
+        "reason",
+        "ticker",
+        "token",
+        "mismatched_fields",
+        "expected",
+        "requested",
+    },
+    set(),
+)
+
 _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("issue", None): _SHAPE_ISSUE,
     ("refuse_issue", "non_positive_ev"): _SHAPE_REFUSE_ISSUE,
@@ -205,6 +229,9 @@ _VALID_SHAPES: dict[tuple[str, str | None], tuple[set[str], set[str]]] = {
     ("reject", "kelly_size_exceeded"): _SHAPE_REJECT_KELLY,
     # F4 damage-bounding addition
     ("reject", "single_name_breach"): _SHAPE_REJECT_SINGLE_NAME,
+    # brain-audit M1 parameter-binding shapes
+    ("reject", "unbound_token"): _SHAPE_REJECT_UNBOUND_TOKEN,
+    ("reject", "token_param_mismatch"): _SHAPE_REJECT_TOKEN_PARAM_MISMATCH,
 }
 
 
@@ -480,7 +507,7 @@ class TestLogClosure:
 
         # Valid token + positive EV → successful call-leg consume.
         token = t.issue_ev_authority_token(
-            _ev_row(ticker="AAA", strike=190.0, premium=1.50, ev_dollars=18.0)
+            _ev_row(ticker="AAA", strike=190.0, premium=1.50, ev_dollars=18.0, dte=32)
         )
         ok = t.open_covered_call(
             ticker="AAA",

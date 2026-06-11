@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**133 records.**
+**134 records.**
 
 ## Features (13)
 
@@ -29,10 +29,11 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (17)
+## Fixes (18)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [d16-token-param-binding](d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md) | merged |  | D16 EV-authority token was an unbound bearer token — a token issued for AAPL/180/dte32 would gate any open_short_put/open_covered_call regardless of ticker/strike/expiration/side. Fix adds consume-side parameter binding (ticker, strike, derived-dte, side) via _ev_authority_payloads; hash and single-use semantics unchanged; two new refusal reasons token_param_mismatch + unbound_token; legacy snapshot rebind from audit log. | `d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md` |
 | [engine-api-hardening](engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md) | in-flight |  | Loopback bind by default, 400 on bad params, 404 on unknown tickers, no exception leak, and verdict-label parity — all NON-§2. | `engine-api-hardening-engine-api-network-surface-hardening-r3-r18-r19.md` |
 | [fix-382-realized-vol-log-guard](fix-382-realized-vol-log-guard-close-e-382-log-ratio-guards-raw-ohlc-operands-s.md) | in-flight |  | The OHLC-ratio realised-vol estimators applied _log to a ratio computed BEFORE the non-negativity guard, so a zero denominator leaked +inf and an all-negative bar was swallowed to a normal-looking vol. New _log_ratio guards the RAW operands before the division — byte-identical on valid bars, NaN on any non-positive/non-finite input. | `fix-382-realized-vol-log-guard-close-e-382-log-ratio-guards-raw-ohlc-operands-s.md` |
 | [fix-384-copula-df-bounds](fix-384-copula-df-bounds-close-e-384-validate-t-copula-df-valueerror-on-d.md) | in-flight |  | student_t_copula_simulation / portfolio_cvar_copula took t_copula_df and fed it straight to rng.chisquare(df) and stats.t.cdf(df) with no bound check. _validate_t_copula_df now raises a clear domain ValueError on df<=0 (and non-finite df) and warns on the infinite-variance 0<df<=2 band; df>2 unchanged. | `fix-384-copula-df-bounds-close-e-384-validate-t-copula-df-valueerror-on-d.md` |

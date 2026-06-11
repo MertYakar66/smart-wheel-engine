@@ -1,28 +1,56 @@
 // The funnel — makes the silent filtering visible: how many names the engine
-// started from, how many it scanned, how many came back.
+// started from, how many it scanned, how many survived the gates, how many
+// came back after the top-N cap.
 //
 // HONESTY NOTES:
-//   * `/api/candidates` counts the ALREADY-top-N-capped array it serves, so
-//     "ranked" == "shown" by construction — plotting the same number twice
-//     implied a distinction the API does not expose. The stages collapse to
-//     one "returned (top-N)" bar; the pre-cap ranked row count is an API
-//     follow-up. (Defensive: if the payload ever disagrees, both render.)
-//   * The engine computes a per-gate drop breakdown
-//     (`frame.attrs["drops_summary"]`: chain-quality / event-gate /
-//     ev-threshold) but `/api/candidates` does NOT serialize `.attrs`, so the
-//     per-gate reasons are flagged as a follow-up rather than invented.
+//   * `/api/candidates` now serializes the ranker's `attrs["drops_summary"]`
+//     ({ total_dropped, by_gate }), so "passed gates" is the engine's own
+//     number (scanned − gate-dropped), not a client invention. With an older
+//     engine payload (no drops_summary) the funnel falls back to the single
+//     collapsed "returned (top-N)" stage rather than implying a distinction
+//     the API did not expose.
+//   * `count` still counts the already-top-N-capped array, so it renders as
+//     the final "returned (top-N)" stage, never as a separate "ranked" bar.
+
+export interface DropsSummary {
+  total_dropped: number;
+  by_gate: Record<string, number>;
+}
 
 interface FunnelProps {
   universeTotal?: number;
   universeScanned?: number;
   ranked?: number;
   shown?: number;
+  dropsSummary?: DropsSummary | null;
 }
 
-export function Funnel({ universeTotal, universeScanned, ranked, shown }: FunnelProps) {
-  const collapsed = ranked == null || shown == null || ranked === shown;
+export function Funnel({
+  universeTotal,
+  universeScanned,
+  ranked,
+  shown,
+  dropsSummary,
+}: FunnelProps) {
+  const dropped =
+    dropsSummary && typeof dropsSummary.total_dropped === "number"
+      ? dropsSummary.total_dropped
+      : null;
+  // Engine semantics: drops accumulate over the scanned names (chain-quality /
+  // event-gate / EV-floor); survivors received an EV row, then the top-N cap
+  // applies. Guard against payload skew rather than rendering a negative bar.
+  const passedGates =
+    dropped !== null && typeof universeScanned === "number"
+      ? Math.max(0, universeScanned - dropped)
+      : null;
 
-  const stages: { label: string; value: number | undefined; hint: string }[] = [
+  const gateBits = dropsSummary
+    ? Object.entries(dropsSummary.by_gate)
+        .sort((a, b) => b[1] - a[1])
+        .map(([gate, n]) => `${gate} ${n}`)
+    : [];
+
+  const stages: { label: string; value: number | undefined | null; hint: string }[] = [
     {
       label: "S&P universe",
       value: universeTotal,
@@ -33,21 +61,27 @@ export function Funnel({ universeTotal, universeScanned, ranked, shown }: Funnel
       value: universeScanned,
       hint: "names the ranker evaluated this run (universe_limit cap)",
     },
-    ...(collapsed
+    ...(passedGates !== null
       ? [
+          {
+            label: "passed gates",
+            value: passedGates,
+            hint: `scanned − gate-dropped (engine drops_summary: ${
+              gateBits.join(", ") || "0 drops"
+            }) — before the top-N cap`,
+          },
           {
             label: "returned (top-N)",
             value: shown ?? ranked,
-            hint: "ranked rows returned after the engine's top-N cap. The API counts the capped array, so 'ranked' == 'returned' by construction — the pre-cap ranked count is not exposed (follow-up).",
+            hint: "rows returned after the engine's top-N cap",
           },
         ]
       : [
           {
-            label: "ranked (EV)",
-            value: ranked,
-            hint: "passed chain-quality + event-gate + EV floor → got an EV row",
+            label: "returned (top-N)",
+            value: shown ?? ranked,
+            hint: "ranked rows returned after the engine's top-N cap. This engine payload carries no drops_summary, so the pre-cap gate funnel is not shown rather than invented.",
           },
-          { label: "shown", value: shown, hint: "top-N returned to the cockpit" },
         ]),
   ];
 
@@ -59,12 +93,22 @@ export function Funnel({ universeTotal, universeScanned, ranked, shown }: Funnel
         <span className="text-[10px] font-bold uppercase tracking-wider text-terminal-blue">
           Selection funnel
         </span>
-        <span
-          className="text-[9px] text-terminal-dim"
-          title="The engine computes per-gate drop reasons (chain-quality / event-gate / EV-threshold) on the DataFrame's .attrs, but /api/candidates does not serialize them. Per-gate breakdown is a follow-up."
-        >
-          per-gate drops: API follow-up ⓘ
-        </span>
+        {dropsSummary ? (
+          <span
+            className="text-[9px] text-terminal-dim"
+            title={`Engine per-gate drops this run: ${gateBits.join(" · ") || "none"}`}
+          >
+            drops: {dropped?.toLocaleString()}
+            {gateBits.length > 0 ? ` (${gateBits.slice(0, 3).join(" · ")}${gateBits.length > 3 ? " · …" : ""})` : ""}
+          </span>
+        ) : (
+          <span
+            className="text-[9px] text-terminal-dim"
+            title="This payload carries no drops_summary (older engine) — per-gate breakdown unavailable."
+          >
+            per-gate drops: unavailable ⓘ
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1">
         {stages.map((s) => {

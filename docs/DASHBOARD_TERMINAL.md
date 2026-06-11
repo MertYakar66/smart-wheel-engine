@@ -197,7 +197,18 @@ curl -s :8811/api/portfolio/returns    # Total Return YTD reflects live NAV
 curl -s :8811/api/portfolio/positions  # legs == 14 (or current count)
 ```
 
-### 4.4 Clean up the temp account-data files (keep `_backup/`).
+### 4.4 SPY benchmark — `spy-repair` / automatic on snapshot sync
+`_sync_curve` derives each new point's indexed SPY value from REAL closes
+(IB Gateway historical read, read-only) and heals any frozen carried-forward
+tail; with no Gateway it writes `spy: null` (chart gap), never a copy. When
+the Gateway is logged out, pull SPY daily history agent-time via the
+connector (`get_price_history`, conid 756733 ARCA), save `{date: close}`
+JSON, then:
+```powershell
+python scripts/dashboard_refresh.py spy-repair --closes <closes.json>
+```
+
+### 4.5 Clean up the temp account-data files (keep `_backup/`).
 
 ---
 
@@ -264,13 +275,16 @@ logged out; the connector is the reliable path).
   :3030) is retired; the live rig now runs from the **`swe-dash` worktree**
   (engine `:8787` + Next dev `:3000`), with `SWE_IBKR_DATA_DIR` pointed at the
   primary clone's `data_processed/ibkr` (the canonical artifact store).
-- Branch `claude/dashboard-pro-overhaul` (2026-06-10, this worktree) carries
-  the professional overhaul: **date-anchored period returns** (YTD was
-  misstated ~10pp by in-window anchoring; pct/usd now share one anchor),
-  income/margin/engine-gates surfaces on `/portfolio`, frontier-derived
-  cockpit `as_of` + authoritative dossier verdicts, a de-fabricated terminal
-  (no placeholder quotes/Greeks/agent panel), and news ingestion actually
-  scheduled via `instrumentation.ts`.
+- The professional overhaul is **MERGED to main** (PR #403 + review-fix
+  PR #406, 2026-06-11): date-anchored period returns (YTD was misstated
+  ~10pp), income/margin/engine-gates surfaces on `/portfolio`,
+  frontier-derived cockpit `as_of` + authoritative dossier verdicts, a
+  de-fabricated terminal, scheduled news ingestion, null-preserving `num`.
+  Follow-ups also merged: real SPY benchmark derivation + `spy-repair`
+  (§4.4; canonical history healed 2026-06-11) and `/api/candidates`
+  `drops_summary` serialization (real cockpit funnel). The `swe-dash`
+  session worktree was retired after the merge — launch the rig from any
+  current checkout per §2.
 - Account NAV ~$152k (recovering from the April drawdown); margin cushion is
   STILL thin (excess liquidity ~$9k at 1.76× leverage) — always surface margin
   health after an update.

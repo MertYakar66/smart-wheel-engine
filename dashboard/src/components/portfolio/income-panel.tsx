@@ -17,7 +17,7 @@ import {
   YAxis,
 } from "recharts";
 import { fmtUsd } from "@/lib/cockpit-trust";
-import { INCOME as MOCK_INCOME, type IncomeView } from "./mock";
+import { type IncomeView } from "./mock";
 import { PfCard, ProvenanceBadge, fmtSignedUsd, pnlColor, type SliceSource } from "./parts";
 
 const GAIN = "#34d399";
@@ -43,11 +43,15 @@ function Chip({ label, value, color }: { label: string; value: string; color?: s
 
 const TOP_N = 8;
 
+// Props are required — no mock defaults. The only caller (portfolio/page.tsx)
+// always passes live-or-mock data; optional props with mock defaults are a
+// fabrication hazard: an omitted prop renders MOCK data with no provenance
+// badge (idx 20).
 export function IncomePanel({
-  income = MOCK_INCOME,
+  income,
   source,
 }: {
-  income?: IncomeView;
+  income: IncomeView;
   source?: SliceSource;
 }) {
   const [showAll, setShowAll] = useState(false);

@@ -34,8 +34,13 @@ interface DossierDrawerProps {
   /** Engine dossier for this ticker (joined by the page), null when absent. */
   dossier: Dossier | null;
   dossierState: DossierFetchState;
-  /** Was a live nav/holdings book sent with the dossier fetch? */
+  /** Was a live nav/holdings/puts book sent with the dossier fetch?
+   *  True ONLY when BOTH /api/portfolio/summary AND /api/portfolio/positions
+   *  succeeded — nav alone (positions failed) must not claim book-attached. */
   bookAttached: boolean;
+  /** True when summary succeeded but positions specifically failed — surfaces
+   *  an explicit warning rather than a silent "no book" state. */
+  positionsUnavailable?: boolean;
   /** e.g. "NAV $152,381 · 3 holdings · 2 short puts (live)". */
   bookLabel?: string | null;
   /** as_of the shown rank was loaded with (for the copy-out ticket). */
@@ -208,6 +213,7 @@ export function DossierDrawer({
   dossier,
   dossierState,
   bookAttached,
+  positionsUnavailable,
   bookLabel,
   asOf,
   engineVersion,
@@ -288,14 +294,26 @@ export function DossierDrawer({
             </span>
             {engineLoaded && (
               <span
-                className={`text-[9px] ${bookAttached ? "text-terminal-green" : "text-terminal-dim"}`}
+                className={`text-[9px] ${
+                  bookAttached
+                    ? "text-terminal-green"
+                    : positionsUnavailable
+                      ? "text-terminal-amber"
+                      : "text-terminal-dim"
+                }`}
                 title={
                   bookAttached
                     ? "nav + holdings + short puts from /api/portfolio were attached — R7-R10 evaluated against the real book."
-                    : "No portfolio context attached — R7-R10 skip silently (missing-evidence semantics)."
+                    : positionsUnavailable
+                      ? "Live NAV was attached but /api/portfolio/positions failed, so the dossier ran with NAV only: R9/R10 checked this candidate's OWN notional against the live NAV (a real downgrade-only gate), but nothing was aggregated against held positions and R7/R8 had no holdings to assess. A cap-breach note below reflects the candidate alone, not your book."
+                      : "No portfolio context attached — R7-R10 skip silently (missing-evidence semantics)."
                 }
               >
-                {bookAttached ? "live book attached" : "no book attached"}
+                {bookAttached
+                  ? "live book attached"
+                  : positionsUnavailable
+                    ? "book partial: NAV only — caps checked candidate-own notional, not held positions"
+                    : "no book attached"}
               </span>
             )}
           </div>

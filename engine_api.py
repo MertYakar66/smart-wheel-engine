@@ -1406,7 +1406,11 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # Derived from the connector's real key. The old read
                 # (``vix_data.get("contango")``) targeted a key the connector
                 # never emits, so the field was permanently False (review F3).
-                "contango": term_structure == "contango",
+                # None (not False) when the connector reports "unknown"/"flat"
+                # — a bare ``== "contango"`` conflated those states with
+                # backwardation and panels rendered a fabricated stress
+                # signal (PR #403 review finding 1).
+                "contango": {"contango": True, "backwardation": False}.get(term_structure),
                 "termStructure": term_structure,
                 "vix3m": _nan_to_none((vix_data or {}).get("vix_3m")),
                 "vix6m": _nan_to_none((vix_data or {}).get("vix_6m")),

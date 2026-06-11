@@ -44,6 +44,13 @@ interface ConcentrationMetersProps {
   rankParams: ConcentrationRankParams;
   /** Only "proceed"/"review" rows form a hypothetical 1-contract book. */
   defaultNav?: number;
+  /** Pre-fetched NAV from the parent page — avoids a duplicate
+   *  /api/portfolio/summary request on cockpit load (idx 18). When supplied,
+   *  the component skips its own fetch. Pass null to force the fallback fetch
+   *  (e.g. when the component is used standalone outside the cockpit page). */
+  preloadedNav?: number | null;
+  /** Provenance label matching preloadedNav ("live" | "snapshot" | …). */
+  preloadedNavSource?: string | null;
 }
 
 type NavSource = "live" | "snapshot" | "manual" | "default";
@@ -62,6 +69,8 @@ export function ConcentrationMeters({
   candidates,
   rankParams,
   defaultNav = 250000,
+  preloadedNav,
+  preloadedNavSource,
 }: ConcentrationMetersProps) {
   const [nav, setNav] = useState(defaultNav);
   const [navSource, setNavSource] = useState<NavSource>("default");
@@ -75,9 +84,22 @@ export function ConcentrationMeters({
   const gateAbort = useRef<AbortController | null>(null);
   const gateSeq = useRef(0);
 
-  // Prefill NAV from the live book (labelled by provenance); keep the manual
-  // input as an override. Failure falls back to the editable default.
+  // If the parent page already fetched /api/portfolio/summary, consume that
+  // value directly to avoid a duplicate request on cockpit load (idx 18).
+  // Fall back to an independent fetch only when no preloaded value is provided
+  // (e.g. when the component is used standalone outside the cockpit page).
   useEffect(() => {
+    // A manual operator override always wins: preloadedNav can transition
+    // AFTER the user typed a NAV (e.g. the dossier drawer's lazy summary
+    // fetch lands later) and must not silently clobber it (PR #406 audit).
+    if (navSource === "manual") return;
+    if (preloadedNav != null && preloadedNav > 0) {
+      setNav(Math.round(preloadedNav));
+      setNavSource(preloadedNavSource === "live" ? "live" : "snapshot");
+      setNavProvenance(preloadedNavSource ?? null);
+      return;
+    }
+    // Fallback: own fetch when parent did not supply a pre-fetched value.
     const ctrl = new AbortController();
     (async () => {
       try {
@@ -97,7 +119,9 @@ export function ConcentrationMeters({
       }
     })();
     return () => ctrl.abort();
-  }, []);
+    // navSource intentionally in deps: setting it inside converges (same-value
+    // sets bail), and the manual guard must see the current value.
+  }, [preloadedNav, preloadedNavSource, navSource]);
 
   useEffect(() => () => gateAbort.current?.abort(), []);
 

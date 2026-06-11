@@ -446,6 +446,8 @@ export default function TerminalPage() {
                 trades={engineData.trades}
                 regime={engineData.regime}
                 connected={engineData.connected}
+                universeScanned={engineData.universeScanned}
+                universeTotal={engineData.universeTotal}
               />
             </PanelErrorBoundary>
             <PanelErrorBoundary label="Research" resetKey={dataEpoch}>
@@ -471,6 +473,8 @@ export default function TerminalPage() {
               regime={engineData.regime}
               connected={engineData.connected}
               flash={flashPanel === "options"}
+              universeScanned={engineData.universeScanned}
+              universeTotal={engineData.universeTotal}
             />
           </PanelErrorBoundary>
           <PanelErrorBoundary label="Live Book" resetKey={dataEpoch}>

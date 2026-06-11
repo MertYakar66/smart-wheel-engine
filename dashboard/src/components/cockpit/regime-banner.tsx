@@ -14,6 +14,7 @@
 import { TerminalBadge } from "@/components/terminal/panel";
 import { r11Active, vixRegimeLabel } from "@/lib/cockpit-trust";
 import type { VixRegime } from "@/types/cockpit";
+import { FrontierChip } from "./frontier-chip";
 
 interface RegimeBannerProps {
   vixData: VixRegime | null;
@@ -127,43 +128,12 @@ export function RegimeBanner({
           <span className="text-[12px] font-semibold tabular-nums text-terminal-text">
             {asOf || "latest"}
           </span>
-          {frontier && asOf && behindFrontier !== null ? (
-            behindFrontier === 0 ? (
-              <span
-                className="text-[10px] text-terminal-dim"
-                title={`as_of equals the engine's data frontier (${frontier}) — the freshest bar in its data files, not necessarily today.`}
-              >
-                (engine frontier)
-              </span>
-            ) : behindFrontier > 0 ? (
-              <span
-                className={`text-[10px] tabular-nums ${
-                  behindFrontier > 30 ? "text-terminal-red" : "text-terminal-amber"
-                }`}
-                title={`The engine has data through ${frontier}; this view ranks point-in-time as of ${asOf}.`}
-              >
-                ({behindFrontier}d behind frontier)
-              </span>
-            ) : (
-              <span
-                className="text-[10px] text-terminal-amber"
-                title={`as_of is past the engine's data frontier (${frontier}) — no data exists beyond it.`}
-              >
-                (beyond frontier — no data past {frontier})
-              </span>
-            )
-          ) : (
-            !frontier &&
-            typeof staleDays === "number" &&
-            staleDays > 0 && (
-              <span
-                className="text-[10px] tabular-nums text-terminal-dim"
-                title="Engine frontier unknown (status unavailable); age shown vs today instead."
-              >
-                ({staleDays}d old vs today)
-              </span>
-            )
-          )}
+          <FrontierChip
+            frontier={frontier}
+            asOf={asOf}
+            behindFrontier={behindFrontier}
+            staleDays={staleDays}
+          />
         </div>
 
         {typeof universeTotal === "number" && (

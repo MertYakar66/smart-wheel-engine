@@ -319,6 +319,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
+| `docs/THETA_PULL_DATA_LOG.md` | Running prepend-only log of what the `pull_theta_option_history.py` larder has pulled — names, titles, and date spans only (no option data). One snapshot prepended ~4-hourly by the session-only Theta health-monitor loop. |
 | `docs/THETA_LARDER_SCOPE.md` | Scope + caveats for the `pull_theta_option_history.py` larder: top-150 by 2018→now turnover, 2018→now, all-strikes, 90-day lookback, SPY/QQQ reference-only. Documents the **survivor-bias caveat** (ranked on current 503 → backtests inherit survivor bias; delisted once-liquid names excluded until a PIT-membership source lands) and the deferred extensions (2016–17, >90d lookback, delisted backfill, IV/Greeks/tick phases). |
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
 | `docs/IBKR_LIVE_BOOK_INTEGRATION.md` | Design doc for the read-only IBKR live-book feed (D24, gate-arming), the un-adopted exit-evaluator scope frontier (D25), and the read-only performance viewer (D26). Defines the point-in-time snapshot schema (§2.2), universe discipline (§2.3), and the viewer architecture (§6). |

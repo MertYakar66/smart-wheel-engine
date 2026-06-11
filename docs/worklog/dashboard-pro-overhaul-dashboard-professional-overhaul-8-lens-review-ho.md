@@ -88,14 +88,18 @@ Six commits on claude/dashboard-pro-overhaul (40b0a83..bec65db):
 - check_manifest_coverage: OK (715 entries, 0 uncovered, 0 dangling).
 
 ## Unresolved / handoff
-- scripts/dashboard_refresh.py _sync_curve still APPENDS carried-forward SPY
-  values (display side now cuts the line at the last real move; the data fix
-  needs a SPY source decision - engine OHLCV ends at the frontier, IBKR
-  Gateway could serve a live quote).
+- ~~scripts/dashboard_refresh.py _sync_curve SPY carry-forward~~ **CLOSED
+  2026-06-11** (follow-up PR): _sync_curve now derives each point from real
+  SPY closes (Gateway Mode 2, or agent-time connector closes via
+  `spy-repair --closes` Mode 1) and heals frozen tails; canonical history
+  repaired (3 points re-derived; benchmark had hidden a ~4% SPY decline).
+- ~~Funnel "ranked == shown by construction"~~ **CLOSED 2026-06-11**
+  (follow-up PR): /api/candidates serializes frame.attrs["drops_summary"];
+  the cockpit funnel renders scanned -> passed gates -> top-N with the
+  per-gate breakdown.
 - Engine earnings CSV frontier is 2026-01-29 -> held-name earnings panels are
-  honest but empty until the Terminal-gated data pull lands.
-- Funnel "ranked == shown by construction": engine_api could emit the
-  pre-top-N ranked count (one-line addition) to make the funnel a real funnel.
+  honest but empty until the Terminal-gated data pull lands (batched into the
+  data-queue Terminal session; NOT closable from the Dashboard session).
 - Dealer panels render their empty state on Bloomberg (no option chains) -
   they light up when a chain-bearing provider lands.
 - 3 test pins updated because they froze the defective returns behavior

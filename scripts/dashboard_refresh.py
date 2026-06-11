@@ -85,6 +85,94 @@ def do_snapshot(inputs: Path) -> dict:
     return snap
 
 
+def _spy_closes(days: int = 120) -> dict[str, float] | None:
+    """EOD SPY closes keyed ``YYYY-MM-DD`` via the local read-only IB Gateway.
+
+    Best-effort: returns None (never raises) when the Gateway is down/logged
+    out — the curve sync then writes ``spy: null`` for new days instead of
+    carrying a stale value forward (PR #403 review F9: the old carry-forward
+    drew a fake flat benchmark for as long as the freeze lasted).
+    Read-only contract: ``readonly=True`` + a historical-data read only.
+    """
+    try:
+        from ib_insync import IB, Stock
+
+        ib = IB()
+        ib.connect("127.0.0.1", 4001, clientId=23, readonly=True, timeout=10)
+        try:
+            c = Stock("SPY", "SMART", "USD")
+            ib.qualifyContracts(c)
+            bars = ib.reqHistoricalData(
+                c,
+                endDateTime="",
+                durationStr=f"{days} D",
+                barSizeSetting="1 day",
+                whatToShow="TRADES",
+                useRTH=True,
+            )
+            out = {b.date.isoformat(): float(b.close) for b in bars if b.close and b.close > 0}
+            return out or None
+        finally:
+            ib.disconnect()
+    except Exception:
+        return None
+
+
+def _close_on_or_before(closes: dict[str, float], iso: str) -> float | None:
+    """Nearest trading-day close at or before *iso* (point dates can be
+    non-trading days only in pathological data; normally exact hits)."""
+    if iso in closes:
+        return closes[iso]
+    prior = [d for d in closes if d <= iso]
+    return closes[max(prior)] if prior else None
+
+
+def _derive_spy(pts: list[dict], iso: str, closes: dict[str, float]) -> int | None:
+    """Indexed-benchmark value for *iso*: walk back to the last point holding
+    a real numeric ``spy`` + a date covered by the closes window, then scale
+    by the SPY close ratio. None when the chain cannot be derived honestly."""
+    for p in reversed(pts):
+        v, d = p.get("spy"), p.get("date")
+        if isinstance(v, (int, float)) and v > 0 and isinstance(d, str):
+            px_anchor = _close_on_or_before(closes, d)
+            px_t = _close_on_or_before(closes, iso)
+            if px_anchor and px_t:
+                return round(v * px_t / px_anchor)
+            return None
+    return None
+
+
+def _repair_spy_tail(pts: list[dict], closes: dict[str, float]) -> int:
+    """Re-derive the trailing run of carried-forward (byte-identical) ``spy``
+    values from real SPY closes, anchored at the run's first point (the last
+    REAL value). Heals the freeze the old ``_sync_curve`` carry-forward wrote;
+    idempotent once values differ day to day. Returns points repaired."""
+    if len(pts) < 2:
+        return 0
+    r = len(pts) - 1
+    while r > 0 and pts[r].get("spy") is not None and pts[r].get("spy") == pts[r - 1].get("spy"):
+        r -= 1
+    repaired = 0
+    anchor = pts[r]
+    av, ad = anchor.get("spy"), anchor.get("date")
+    if not (isinstance(av, (int, float)) and av > 0 and isinstance(ad, str)):
+        return 0
+    px_a = _close_on_or_before(closes, ad)
+    if not px_a:
+        return 0
+    for p in pts[r + 1 :]:
+        d = p.get("date")
+        if not isinstance(d, str):
+            continue
+        px = _close_on_or_before(closes, d)
+        if px:
+            new_v = round(av * px / px_a)
+            if p.get("spy") != new_v:
+                p["spy"] = new_v
+                repaired += 1
+    return repaired
+
+
 def _sync_curve(D: Path, snap: dict) -> None:
     hp = D / "portfolio_history.json"
     if not hp.exists():
@@ -98,11 +186,26 @@ def _sync_curve(D: Path, snap: dict) -> None:
     dt = datetime.fromisoformat(iso)
     label = f"{dt.strftime('%b')} {dt.day}"  # cross-platform "Mon D"
     same_day = pts[-1].get("date") == iso
+
+    # Real benchmark extension: derive today's indexed SPY value from actual
+    # closes (and heal any previously-frozen tail) instead of copying the
+    # prior point forever. No Gateway -> spy is null for a NEW day (the chart
+    # renders a gap), and a same-day refresh keeps the morning's real value.
+    closes = _spy_closes()
+    healed = _repair_spy_tail(pts, closes) if closes else 0
+    if closes:
+        spy_val = _derive_spy(pts[:-1] if same_day else pts, iso, closes)
+    else:
+        spy_val = None
+    if spy_val is None and same_day:
+        prev_v = pts[-1].get("spy")
+        spy_val = prev_v if isinstance(prev_v, (int, float)) else None
+
     new = {
         "label": label,
         "date": iso,
         "port": nav,
-        "spy": pts[-1].get("spy"),
+        "spy": spy_val,
         "premium": pts[-1].get("premium", 0) if same_day else 0,
     }
     pts[-1] = new if same_day else pts[-1]
@@ -111,7 +214,46 @@ def _sync_curve(D: Path, snap: dict) -> None:
     hist["as_of"] = snap["as_of"]
     _backup(hp)
     hp.write_text(json.dumps(hist, indent=2), encoding="utf-8")
-    print(f"[curve] live point {label} port={nav}")
+    print(
+        f"[curve] live point {label} port={nav} spy={spy_val if spy_val is not None else 'null'}"
+        f"{f' (healed {healed} frozen benchmark points)' if healed else ''}"
+        f"{' [no Gateway - benchmark gap]' if closes is None and not same_day else ''}"
+    )
+
+
+def do_spy_repair(closes_file: str | None = None) -> None:
+    """Standalone benchmark repair: heal the frozen carried-forward SPY tail
+    in the canonical history from real closes, without touching the
+    snapshot/ledger. Backs up first; engine re-reads the file per request.
+
+    Closes come from the local IB Gateway (Mode 2) or, when the Gateway is
+    logged out (its daily habit — runbook §3.2), from ``--closes <file>``: a
+    ``{"YYYY-MM-DD": close}`` JSON saved agent-time from the cloud connector's
+    ``get_price_history`` (Mode 1) — the same two-mode split as the snapshot.
+    """
+    D = data_dir()
+    hp = D / "portfolio_history.json"
+    if not hp.exists():
+        raise SystemExit(f"[spy-repair] no history at {hp}")
+    if closes_file:
+        raw = _read(closes_file)
+        closes = {
+            str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float)) and v > 0
+        }
+    else:
+        closes = _spy_closes()
+    if not closes:
+        raise SystemExit(
+            "[spy-repair] no closes available - IB Gateway down and no --closes file "
+            "(pull SPY daily history via the connector and pass it)"
+        )
+    hist = _read(hp)
+    pts = hist.get("points") or []
+    healed = _repair_spy_tail(pts, closes)
+    if healed:
+        _backup(hp)
+        hp.write_text(json.dumps(hist, indent=2), encoding="utf-8")
+    print(f"[spy-repair] healed {healed} frozen benchmark points ({len(closes)} closes loaded)")
 
 
 # ---------------------------------------------------------------- ledger (Flex)
@@ -224,9 +366,16 @@ def do_verify() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("cmd", choices=["all", "snapshot", "ledger", "verify"])
+    ap.add_argument("cmd", choices=["all", "snapshot", "ledger", "verify", "spy-repair"])
     ap.add_argument("--inputs", help="dir with summary.json / balances.json / positions.json")
+    ap.add_argument(
+        "--closes",
+        help="spy-repair only: JSON file {YYYY-MM-DD: close} from an agent-time connector pull (fallback when the Gateway is logged out)",
+    )
     a = ap.parse_args(argv)
+    if a.cmd == "spy-repair":
+        do_spy_repair(a.closes)
+        return 0
     if a.cmd in ("all", "snapshot"):
         if not a.inputs:
             ap.error("--inputs is required for 'all' / 'snapshot'")

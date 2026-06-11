@@ -102,6 +102,9 @@ export interface CandidatesResponse {
   engine_version: string;
   universe_scanned: number;
   universe_total: number;
+  /** Ranker gate diagnostics serialized from frame.attrs["drops_summary"]
+   *  ({ total_dropped, by_gate }) — null/absent on older engine payloads. */
+  drops_summary?: { total_dropped: number; by_gate: Record<string, number> } | null;
   params?: Record<string, unknown>;
   error?: string;
   detail?: string;

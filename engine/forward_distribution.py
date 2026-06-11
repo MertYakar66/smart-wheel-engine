@@ -123,7 +123,12 @@ def empirical_forward_log_returns(
     if n <= horizon_days:
         return np.asarray([], dtype=float)
 
-    # Forward log-returns at every trading-day index
+    # Forward log-returns at every trading-day index. np.log is DELIBERATELY
+    # unguarded: NaN closes are removed by the dropna above; a zero/negative
+    # close yields non-finite returns that the isfinite filter below removes
+    # (pinned: test_forward_distribution_invariants.py::TestEmpiricalBoundary).
+    # Do NOT clamp/ffill/eps-floor here — it changes shipped EV (the dropna
+    # splice sets the non-overlapping sampling phase).
     log_prices = np.log(prices)
     log_rets = log_prices[horizon_days:] - log_prices[:-horizon_days]
 
@@ -483,6 +488,8 @@ def realized_vol_ratio(
         - OHLCV is empty
         - Less than ``long_window + 1`` log-returns available after PIT filter
         - Long-window vol is ~zero (degenerate constant-price history)
+        - The ratio is non-finite (a non-positive close inside the window
+          poisons the log-returns — absent evidence never widens)
     """
     if ohlcv is None or ohlcv.empty or price_col not in ohlcv.columns:
         return 1.0
@@ -502,7 +509,17 @@ def realized_vol_ratio(
     rv_long = float(np.std(log_rets[-long_window:]))
     if rv_long <= 1e-9:
         return 1.0
-    return rv_short / rv_long
+    ratio = rv_short / rv_long
+    if not np.isfinite(ratio):
+        # A non-positive close (corrupt input — the data layer pins these
+        # away, see test_ohlcv_prices_positive) survives the dropna above and
+        # poisons np.log -> non-finite log-returns -> nan std -> nan ratio.
+        # A nan returned here would skip every downstream threshold guard
+        # (nan comparisons are False) and silently hit max_widening via
+        # min(max_widening, nan). Same no-fire 1.0 as the other degenerate
+        # routes: absent evidence never widens.
+        return 1.0
+    return ratio
 
 
 def realized_vol_widening_factor(

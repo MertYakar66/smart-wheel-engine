@@ -1020,6 +1020,11 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "engine_version": "ev_engine_2026_04_14",
                     "universe_scanned": universe_scanned,
                     "universe_total": universe_total,
+                    # Most informative on the empty path: "0 candidates"
+                    # usually means everything was gate-dropped — say which.
+                    "drops_summary": _sanitize_nans(
+                        getattr(df, "attrs", {}).get("drops_summary") if df is not None else None
+                    ),
                 }
             )
             return
@@ -1144,6 +1149,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 "engine_version": "ev_engine_2026_04_14",
                 "universe_scanned": universe_scanned,
                 "universe_total": universe_total,
+                # Ranker gate diagnostics (frame.attrs ride-along — survivor
+                # rows untouched, CLAUDE.md §2). Serialized so the cockpit
+                # funnel can show a REAL funnel (scanned → passed gates →
+                # top-N) instead of two stages equal by construction
+                # (PR #403 review F8 / funnel.tsx API follow-up).
+                "drops_summary": _sanitize_nans(getattr(df, "attrs", {}).get("drops_summary")),
                 "params": {
                     "limit": limit_int,
                     "dte": dte_int,

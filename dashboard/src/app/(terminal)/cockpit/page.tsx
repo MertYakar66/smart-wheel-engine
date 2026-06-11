@@ -511,6 +511,7 @@ export default function CockpitPage() {
               universeScanned={data?.universe_scanned}
               ranked={data?.count}
               shown={candidates.length}
+              dropsSummary={data?.drops_summary}
             />
             <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-pf-panel">
               {loading && !candidates.length ? (

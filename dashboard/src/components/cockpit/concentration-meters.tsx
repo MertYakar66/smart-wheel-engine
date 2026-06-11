@@ -89,6 +89,10 @@ export function ConcentrationMeters({
   // Fall back to an independent fetch only when no preloaded value is provided
   // (e.g. when the component is used standalone outside the cockpit page).
   useEffect(() => {
+    // A manual operator override always wins: preloadedNav can transition
+    // AFTER the user typed a NAV (e.g. the dossier drawer's lazy summary
+    // fetch lands later) and must not silently clobber it (PR #406 audit).
+    if (navSource === "manual") return;
     if (preloadedNav != null && preloadedNav > 0) {
       setNav(Math.round(preloadedNav));
       setNavSource(preloadedNavSource === "live" ? "live" : "snapshot");
@@ -115,7 +119,9 @@ export function ConcentrationMeters({
       }
     })();
     return () => ctrl.abort();
-  }, [preloadedNav, preloadedNavSource]);
+    // navSource intentionally in deps: setting it inside converges (same-value
+    // sets bail), and the manual guard must see the current value.
+  }, [preloadedNav, preloadedNavSource, navSource]);
 
   useEffect(() => () => gateAbort.current?.abort(), []);
 

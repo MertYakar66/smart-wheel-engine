@@ -34,6 +34,12 @@ interface EodQuote {
   ticker: string;
   close: number | null;
   changePct: number | null;
+  // /api/market resolution provenance: "live" (Finnhub realtime), "snapshot"
+  // (<24h cached), or "eod" (engine close at the data frontier). The strip
+  // may only claim "EOD · <frontier>" when every quote is actually
+  // eod-sourced — a realtime quote labeled as a frontier-dated close is
+  // fabricated provenance (PR #406 audit).
+  source: string | null;
 }
 
 function fmt2(v: number | null | undefined): string {
@@ -66,7 +72,7 @@ export function MarketOverview({
         EOD_TICKERS.map(async (ticker): Promise<EodQuote> => {
           try {
             const res = await fetch(`/api/market?ticker=${encodeURIComponent(ticker)}`);
-            if (!res.ok) return { ticker, close: null, changePct: null };
+            if (!res.ok) return { ticker, close: null, changePct: null, source: null };
             const body = await res.json();
             const close =
               typeof body?.price === "number" && Number.isFinite(body.price)
@@ -76,9 +82,10 @@ export function MarketOverview({
               typeof body?.changePct === "number" && Number.isFinite(body.changePct)
                 ? body.changePct
                 : null;
-            return { ticker, close, changePct };
+            const source = typeof body?.source === "string" ? body.source : null;
+            return { ticker, close, changePct, source };
           } catch {
-            return { ticker, close: null, changePct: null };
+            return { ticker, close: null, changePct: null, source: null };
           }
         })
       );
@@ -203,10 +210,17 @@ export function MarketOverview({
 
       <TerminalDivider />
 
-      {/* EOD closes for liquid universe names — explicitly dated, never
-          presented as a realtime tape. */}
+      {/* Closes for liquid universe names — header claims "EOD · <frontier>"
+          ONLY when every quote actually resolved from the engine's EOD path;
+          /api/market prefers Finnhub realtime / <24h snapshots when available,
+          and labeling those as frontier-dated closes would fabricate
+          provenance. */}
       <div className="mb-1 text-[10px] font-bold text-terminal-blue">
-        ─ EOD CLOSES{dataFrontier ? ` · ${dataFrontier}` : ""}
+        {eodLoading || eod.length === 0
+          ? "─ CLOSES …"
+          : eod.every((q) => q.source === "eod" || q.close === null)
+            ? `─ EOD CLOSES${dataFrontier ? ` · ${dataFrontier}` : ""}`
+            : `─ LAST QUOTES · ${[...new Set(eod.filter((q) => q.source).map((q) => q.source))].join("/") || "unknown source"}`}
       </div>
       <div className="flex items-center justify-between py-[1px] text-[10px] text-terminal-dim">
         <span className="w-14">SYM</span>

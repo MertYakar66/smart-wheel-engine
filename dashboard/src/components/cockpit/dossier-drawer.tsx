@@ -305,14 +305,14 @@ export function DossierDrawer({
                   bookAttached
                     ? "nav + holdings + short puts from /api/portfolio were attached — R7-R10 evaluated against the real book."
                     : positionsUnavailable
-                      ? "NAV was retrieved but /api/portfolio/positions failed — dossier ran bookless. R7-R10 not engaged against holdings."
+                      ? "Live NAV was attached but /api/portfolio/positions failed, so the dossier ran with NAV only: R9/R10 checked this candidate's OWN notional against the live NAV (a real downgrade-only gate), but nothing was aggregated against held positions and R7/R8 had no holdings to assess. A cap-breach note below reflects the candidate alone, not your book."
                       : "No portfolio context attached — R7-R10 skip silently (missing-evidence semantics)."
                 }
               >
                 {bookAttached
                   ? "live book attached"
                   : positionsUnavailable
-                    ? "live book unavailable — R7-R10 not engaged against holdings"
+                    ? "book partial: NAV only — caps checked candidate-own notional, not held positions"
                     : "no book attached"}
               </span>
             )}

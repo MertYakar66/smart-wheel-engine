@@ -790,8 +790,21 @@ def _tracker_try_opens(
     contracts: int,
     expiration_default: date,
     PositionState: Any,
+    enforce_single_name_cap: bool = False,
 ) -> None:
-    """Mirrors run_backtest's inline 'open new positions' step."""
+    """Mirrors run_backtest's inline 'open new positions' step.
+
+    ``enforce_single_name_cap=True`` emulates the production R10 gate
+    (``make_live_book_tracker``) at the HARNESS layer: the same
+    ``check_single_name_cap`` production function, but evaluated against
+    the harness's point-in-time NAV (last equity-curve mark) instead of
+    the tracker's ``_compute_live_nav`` — which marks at the connector's
+    LATEST closes (``date.today()``) and therefore leaks future prices
+    into cap decisions when used inside a historical simulation. Default
+    False preserves the canonical caps-off behaviour byte-for-byte.
+    Refused candidates do not consume a ``max_new_per_day`` slot;
+    refusal count accumulates on ``tracker._sim_r10_refusals``.
+    """
     opens_today = 0
     for _, row in frame.iterrows():
         if opens_today >= max_new_per_day:
@@ -807,6 +820,23 @@ def _tracker_try_opens(
             continue
         if tracker.available_buying_power() < strike * 100 * contracts:
             continue
+        if enforce_single_name_cap:
+            from engine.portfolio_risk_gates import check_single_name_cap, take_snapshot
+
+            pit_nav = (
+                float(tracker.equity_curve[-1]["portfolio_value"])
+                if getattr(tracker, "equity_curve", None)
+                else float(tracker.cash)
+            )
+            gate = check_single_name_cap(
+                symbol=t,
+                proposed_notional=strike * 100 * contracts,
+                held_option_positions=take_snapshot(tracker.positions).option_positions,
+                nav=pit_nav,
+            )
+            if not gate.passed:
+                tracker._sim_r10_refusals = getattr(tracker, "_sim_r10_refusals", 0) + 1
+                continue
         opened = tracker.open_short_put(
             ticker=t,
             strike=strike,
@@ -835,6 +865,7 @@ def run_backtest_multi_friction(
     delta_target: float = 0.25,
     contracts: int = 1,
     output_dir: Path | str | None = None,
+    enforce_single_name_cap: bool = False,
 ) -> dict[str, BacktestResult]:
     """Run N friction levels with one shared SP rank call per day.
 
@@ -941,6 +972,7 @@ def run_backtest_multi_friction(
                 contracts=contracts,
                 expiration_default=expiration_default,
                 PositionState=PositionState,
+                enforce_single_name_cap=enforce_single_name_cap,
             )
 
     # Forward-replay + metrics per tracker. Spot lookups for the same
@@ -968,6 +1000,10 @@ def run_backtest_multi_friction(
             rank_log["realized_pnl"] = realized
 
         metrics = _compute_metrics(rank_log, tracker)
+        if enforce_single_name_cap:
+            # Additive: only present when the harness-layer R10 emulation is
+            # armed, so default-config snapshot payloads are byte-identical.
+            metrics["aggregate"]["r10_refusals"] = int(getattr(tracker, "_sim_r10_refusals", 0))
         fingerprint = {
             "capital": capital,
             "tickers": list(tickers),
@@ -981,6 +1017,7 @@ def run_backtest_multi_friction(
             "dte_target": dte_target,
             "delta_target": delta_target,
             "contracts": contracts,
+            "enforce_single_name_cap": enforce_single_name_cap,
             "data_csv_sha256": ohlcv_sha256(),
             "vol_iv_sha256": vol_iv_sha256(),
             "treasury_sha256": treasury_sha256(),

@@ -102,3 +102,10 @@ supports (cross-regime shape, not absolute alpha vs buy-and-hold).
   BKNG (×0.041) and CVNA (×0.212) with unadjusted split jumps in
   sp500_ohlcv.csv — the only two such seams since 2020 (verifier-scanned).
   Fix split-adjustment continuity when refreshing.
+- NEW engineering finding (route with #372): `WheelTracker._compute_live_nav`
+  marks D17 cap NAV at `date.today()` / dataset-latest closes — correct
+  live, LOOKAHEAD if `make_live_book_tracker` is ever backtested directly.
+  The §11 armed companion therefore emulated R10 at the harness layer
+  (same production gate fn, PIT NAV); default path regression-checked to
+  8 decimals. Armed result: mean +10.0%, 7/8 positive, σ 9.4pp vs 14.3pp
+  caps-off — the deployable config keeps the reliability shape.

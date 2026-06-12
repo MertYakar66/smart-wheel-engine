@@ -134,24 +134,30 @@ CANONICAL: dict = {
 }
 
 
-def _work_dir() -> Path:
+def _work_dir(armed: bool = False) -> Path:
     """Per-window output directory. Uses ``$TEMP`` so the large CSVs
     don't accidentally land in git."""
     temp = os.environ.get("TEMP") or os.environ.get("TMPDIR") or "/tmp"
-    return Path(temp) / "sim200k_backtest"
+    return Path(temp) / ("sim200k_backtest_armed" if armed else "sim200k_backtest")
 
 
-def _window_dir(window_id: str) -> Path:
-    return _work_dir() / window_id
+def _window_dir(window_id: str, armed: bool = False) -> Path:
+    return _work_dir(armed) / window_id
 
 
-def _run_window(window_id: str, start: str, end: str, note: str) -> dict:
-    """Run a single window and dump rank_log + metrics to disk."""
-    out_dir = _window_dir(window_id)
+def _run_window(window_id: str, start: str, end: str, note: str, armed: bool = False) -> dict:
+    """Run a single window and dump rank_log + metrics to disk.
+
+    ``armed=True`` runs the harness-layer R10 single-name cap emulation
+    (production ``check_single_name_cap`` at PIT NAV — see
+    ``_tracker_try_opens``); the R9 sector cap is deliberately NOT
+    emulated while #372 (DEFAULT_SECTOR_MAP coverage) is open.
+    """
+    out_dir = _window_dir(window_id, armed)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"\n{'=' * 70}\nWindow {window_id}\n  start={start}  end={end}\n  note: {note}\n  output: {out_dir}\n{'=' * 70}",
+        f"\n{'=' * 70}\nWindow {window_id}{' [ARMED R10]' if armed else ''}\n  start={start}  end={end}\n  note: {note}\n  output: {out_dir}\n{'=' * 70}",
         flush=True,
     )
     t0 = time.time()
@@ -161,6 +167,7 @@ def _run_window(window_id: str, start: str, end: str, note: str) -> dict:
         start=start,
         end=end,
         output_dir=out_dir,
+        enforce_single_name_cap=armed,
         **CANONICAL,
     )
 
@@ -220,7 +227,7 @@ def all() -> None:
 
 
 @app.command()
-def one(window: str) -> None:
+def one(window: str, armed: bool = False) -> None:
     """Run a single window by ``window_id`` (checkpoint-friendly)."""
     spec = next((w for w in WINDOWS if w[0] == window), None)
     if spec is None:
@@ -228,7 +235,7 @@ def one(window: str) -> None:
         print(f"Unknown window {window!r}. Valid: {ids}", file=sys.stderr)
         raise typer.Exit(2)
     window_id, start, end, note = spec
-    _run_window(window_id, start, end, note)
+    _run_window(window_id, start, end, note, armed=armed)
 
 
 @app.command()

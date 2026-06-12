@@ -363,12 +363,70 @@ What this campaign establishes:
 
 Follow-ups routed to existing queues: BKNG/CVNA split-seam repair →
 Block A (data session); recalibration evidence → Block B (already
-scoped); optional armed-caps re-run of this campaign → operator's call
-(cheap: ~2h compute).
+scoped). The armed-caps companion was run the same night — §11: the
+deployable R10-armed config stays 7-of-8 positive at mean +10.0% with a
+one-third tighter distribution, and surfaced a new engineering finding
+(`_compute_live_nav` uses dataset-latest closes — correct live, lookahead
+if the armed tracker is ever backtested directly; route with #372 to the
+supervised queue).
+
+## 11. Companion campaign — production-armed R10 (same 8 windows)
+
+§7 claimed an armed book "would have been materially smaller and
+differently composed." Rather than leave that as speculation, the entire
+campaign was re-run with the **R10 single-name cap (10% NAV) enforced at
+every open** — the `make_live_book_tracker` production policy.
+
+**Implementation honesty note (new engineering finding):** the armed cap
+could NOT be backtested through the tracker itself — `WheelTracker.
+_compute_live_nav` (the NAV the D17 gates divide by) marks positions at
+`date.today()` using the connector's **latest** closes. Correct live;
+**lookahead inside any historical simulation** (2026 prices would set
+historical cap decisions). The companion therefore emulates the cap at
+the harness layer: the *same production gate function*
+(`engine.portfolio_risk_gates.check_single_name_cap`, same notional and
+snapshot semantics) evaluated against the harness's point-in-time NAV.
+R9 (sector) was deliberately NOT emulated: armed-R9 today reflects the
+`DEFAULT_SECTOR_MAP` coverage defect (#372, Block-A item A6), so its
+backtest would measure a known bug. Default-path regression: the
+caps-off smoke reproduces to 8 decimals with the new code path off.
+
+| Window | Caps-off | Armed R10 | Δ return | Armed DD (vs off) | R10 refusals | Armed vs EW B&H |
+|---|---|---|---|---|---|---|
+| w1 crash entry | +2.1% | **+3.9%** | +1.7pp | −29.3% (−34.4%) | 127 | −9.3pp |
+| w2 recovery | +14.2% | **+15.6%** | +1.4pp | −4.3% (−5.9%) | 188 | −29.5pp |
+| w3 calm bull | +20.9% | +18.1% | −2.8pp | −4.1% (−8.0%) | 118 | −13.2pp |
+| w4 bear | −3.2% | −4.8% | −1.6pp | −18.5% (−15.6%) | 44 | **+7.3pp** |
+| w5 bottom entry | +13.9% | +2.9% | −11.0pp | −6.0% (−8.1%) | 55 | −15.5pp |
+| w6 chop | +11.9% | **+14.0%** | +2.1pp | −8.2% (−7.9%) | 25 | −2.0pp |
+| w7 late cycle | +10.2% | +6.5% | −3.6pp | −18.0% (−15.5%) | 89 | −6.6pp |
+| w8 recent | +44.5% | +23.8% | −20.7pp | −11.5% (−9.2%) | 52 | **+6.6pp** |
+
+(Armed-vs-benchmark uses the §4 true-close EW basis. Hit rates and ρ are
+shared with §4 — the cap changes the BOOK, not the ranking.)
+
+**Read:** armed mean **+10.0%**, median +10.3%, σ ≈ 9.4pp, range
+−4.8% … +23.8%, positive **7 of 8** — versus caps-off mean +14.3%,
+σ ≈ 14.3pp, range −3.2% … +44.5%. The production cap gives up ~4.3pp of
+mean return — almost all of it the concentration luck in w5 and w8 (w8's
+armed book could not ride three names to +$73k unrealized; +23.8% still
+beat the benchmark by +6.6pp) — and buys a one-third tighter outcome
+distribution. It *improved* returns in three windows (w1/w2/w6:
+refusals recycled capital into more, smaller names). Max single-name
+exposure at entry held ≤10% by construction; running peaks of 10–19%
+remain because NAV can fall after entry (denominator effect) and the
+production gate counts short-option notional only — both properties of
+the production policy itself, reported as-is. Drawdowns improved in 4
+windows, worsened modestly in 3 (more capital deployed across more
+names). **The deployable configuration is reliably positive at the same
+7-of-8 rate, with materially tighter dispersion — the §10 verdict's
+shape claims hold for the armed config too.**
 
 ---
 
 *Artifacts: `%TEMP%\sim200k_backtest\<window_id>\{none,bid_ask,full}\
 {rank_log.csv, metrics.json, tracker_state.json}` + `summary.json` +
-`analysis.json` per window; `campaign_table.md` at the root. Analysis tool:
-`scripts/sim200k_analysis.py`.*
+`analysis.json` per window; `campaign_table.md` at the root; armed
+companion under `%TEMP%\sim200k_backtest_armed\`. Analysis tool:
+`scripts/sim200k_analysis.py`. Driver: `python -m
+backtests.regression.sim200k_reliability one <window_id> [--armed]`.*

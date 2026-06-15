@@ -82,7 +82,7 @@ These are the already-approved baseline pulls. **Do not re-propose any of these 
 ### P0 — critical correctness (do first; batch into ONE re-baseline session)
 
 - [ ] **(1) Refresh `sp500_vol_dvd`** — `EQY_DVD_YLD_12M` / `EQY_DVD_YLD_IND`, range **2026-03-21 → now**, all 503 names · `BDH` → append to `data/bloomberg/sp500_vol_dvd.csv` · *live BSM `q` consumer (`ev_engine.py:378,678`).*
-- [ ] **(2) Re-pull dividend history** — `DVD_HIST` for **CTRA, BK, LW, PAYC + all 76 missing names** · `BDS` → `data/bloomberg/sp500_dividends.csv` · *fixes 427/503 coverage; keep `dividend_amount` + `dividend_type`.*
+- [ ] **(2) Re-pull dividend history** — `DVD_HIST` for **CTRA, LW, MTCH, PAYC** (the source-regression payers; per #339's 2026-06-08 spec + `docs/NEXT_DATA_SESSION_RUNBOOK.md` this is a **git-local union restore, NOT a Bloomberg pull** — `BK`/`BNY`'s 0 rows are the separate BK↔BNY re-ticker thread; the broader 427/503 gap is mostly legitimate non-payers) · `BDS` → `data/bloomberg/sp500_dividends.csv` · *fixes 427/503 coverage; keep `dividend_amount` + `dividend_type`.*
 - [ ] **(3) Dated/PIT fundamentals** — `EQY_DVD_YLD_12M`, `GICS_SECTOR_NAME`, `CUR_MKT_CAP`, `PE_RATIO`, `BEST_EPS` **+ `BEST_PERIOD_END_DT`** · `BDH` (dated) → new dated fundamentals file · *⚠ FLDS-verify; existing fundamentals file is dateless — this is the PIT fix.*
 - [ ] **(4) Macro-event calendar** — `ECO_RELEASE_*` for **`FDTR`, `CPI YOY`, `NFP TCH`, `PCE`, `GDP CQOQ`, `NAPMPMI`** · `BQL eco_release_dt` (roadmap T0-5; §1 of `bloomberg_bql_pulls.md` — see footnote) → new `sp500_macro_events.csv` · *the event gate's headline input — currently NO data source on disk.*
 - [ ] **(5) Skew/moneyness grid** — `30/60/90/180/365DAY_IMPVOL_{80..120}%MNY_DF` **put + call** · `BDH` → `data/bloomberg/sp500_iv_surface.csv` (ABSENT today) · *⚠⚠ ENTITLEMENT-TEST FIRST — same ATM-only ceiling that gives zero-skew; likely tier-blocked.*
@@ -335,10 +335,15 @@ The CASY-4 / 11-truncated / 10-blue-chip backfill lists live in the data-queue i
 gh issue view 339   # CASY 4-file Bloomberg blocker
 gh issue view 355   # 11-truncated names
 gh issue view 354   # PIT fundamentals (dated pull — the as_of fix)
-gh issue view 357   # 10 blue-chip backfills
+gh issue view 357   # treasury rate_1m note + dividend epsilon-clamp (low-pri)
 ```
 
 ⚠ Per the data-queue decision: #339/#355/#354/#357 are all **Terminal-gated and re-baseline-coupled** → **BATCH them into ONE Terminal session.** Peeling them apart pays the ~4h re-baseline tax twice.
+
+**Authoritative runbook + corrected scope (2026-06-15, verified vs current `main`):** the single ordered execution plan for #339/#355/#354/#357 is **`docs/NEXT_DATA_SESSION_RUNBOOK.md`** (phases 1A Bloomberg / 1B git-local / 2 (E)-fixes / 3 re-baseline / 5 producer). Most of the data queue is **NOT** Bloomberg-gated:
+- **Bloomberg-gated (Terminal):** CASY 4 files (`ohlcv`/`vol_iv`/`liquidity`/`earnings`, spec `docs/CASY_BACKFILL_SPEC.md`) + pre-seam OHLCV for the **10 other truncated names** — WMT, KMB, CPB, DPZ, PLTR, VEEV, COHR, LITE, SATS, VRT (#355, verified 52–450 bars today) + #354 dated/PIT fundamentals.
+- **Git-local (desk, NOT terminal):** BK↔BNY collapse, `sp500_dividends.csv` union (**CTRA/LW/MTCH/PAYC**, not BK), `UNIVERSE_100` re-derive (CMG/CMI return).
+- **Genuinely-recent — do NOT backfill:** BNY, FDXF, SNDK, SW, PSKY, Q.
 
 ### G.2 FLDS discipline (mandatory)
 

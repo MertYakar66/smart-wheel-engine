@@ -6,7 +6,7 @@
 
 ## Executive summary
 
-The data layer is in far better shape than the last roadmap snapshot implied. **Treasury (full 1m–30y + SOFR, 1994→) and corporate actions (52k rows, populated) are DONE** — earlier "treasury starts 2021" / "corp-actions 2-byte empty" claims are stale. The remaining *true* Bloomberg pulls are narrow: **(1) refresh the stale `sp500_vol_dvd` dividend-yield panel** (stuck 2026-03-20, the one input that biases every live BSM valuation), **(2) the never-pulled skew/moneyness IV grid** (the single largest net-new correctness gap; entitlement-doubtful at university tier), **(3) dated/PIT fundamentals** (the current fundamentals/credit files are dateless snapshots — every "PIT" claim is net-new dated-pull work), **(4) the macro-event calendar** (FOMC/CPI/NFP — the event gate's headline motivation, with NO data source and NO live wiring today), and **(5) dividend-history completeness** (427/503 names; CTRA/BK/LW/PAYC = 0 rows).
+The data layer is in far better shape than the last roadmap snapshot implied. **Treasury (full 1m–30y + SOFR, 1994→) and corporate actions (52k rows, populated) are DONE** — earlier "treasury starts 2021" / "corp-actions 2-byte empty" claims are stale. The remaining *true* Bloomberg pulls are narrow: **(1) refresh the stale `sp500_vol_dvd` dividend-yield panel** (stuck 2026-03-20, the one input that biases every live BSM valuation), **(2) the never-pulled skew/moneyness IV grid** (the single largest net-new correctness gap; entitlement-doubtful at university tier), **(3) dated/PIT fundamentals** (the current fundamentals/credit files are dateless snapshots — every "PIT" claim is net-new dated-pull work), **(4) the macro-event calendar** (FOMC/CPI/NFP — the event gate's headline motivation, with NO data source and NO live wiring today), and **(5) dividend-history completeness** (427/503 names; CTRA/LW/MTCH/PAYC = 0 rows (the source-regression payers; BK/BNY=0 too but that's the re-ticker thread)).
 
 The adversarial expansion sweep across all twelve subsystems produced a blunt finding: **most "new" ideas are NOT new Bloomberg pulls.** They are either (a) already on disk in the gitignored deep-history archive, (b) derivable from served OHLCV at zero pull cost, (c) already free via FRED / CBOE / the existing `vol_indices` puller, or (d) per-strike data that only Theta can supply. The genuinely-new Bloomberg pulls worth queuing are a short list; everything else is **wiring/code** (Part E) or **do-not-pull** (Part F).
 
@@ -29,7 +29,7 @@ The adversarial expansion sweep across all twelve subsystems produced a blunt fi
 | `sp500_historical_fundamentals` | 1990→ | CURRENT | columns ONLY `pe_ratio,eps,revenue,ebitda,book_value_per_share` — **no GICS, no Z-score, no cash-flow** |
 | `treasury_yields` | 1994→2026-06-05 | **DONE (flip)** | full `rate_1m,3m,6m,2y,5y,10y,30y,sofr` — earlier "starts 2021" claim was stale |
 | `sp500_corporate_actions` | 52k rows | **DONE (flip)** | POPULATED — earlier "2-byte empty" claim was stale |
-| `sp500_dividends` | 427/503 names | **PARTIAL** | **CTRA/BK/LW/PAYC = 0 rows** + 72 other names missing; carries real `dividend_amount` + `dividend_type` incl. 375 "Special Cash" rows |
+| `sp500_dividends` | 427/503 names | **PARTIAL** | **CTRA/LW/MTCH/PAYC = 0 rows (the source-regression payers; BK/BNY=0 too but that's the re-ticker thread)** + 72 other names missing; carries real `dividend_amount` + `dividend_type` incl. 375 "Special Cash" rows |
 | `sp500_earnings` | →2028-01-19 forward | CURRENT | `announcement_time` populated 43,293/49,379 (6,086 NaN); only **110 forward rows** |
 | `sp500_index_membership` | current only | **NO PIT HISTORY** | has `percentage_weight` + `as_of_date` (current membership only) |
 | `sp500_fundamentals` (snapshot) | as-of snapshot | **DATELESS** | has `gics_sector_name` (503/503), `gics_industry_group_name` (503/503), `beta_raw_overridable` (502/503), `volatility_30d`, `free_cash_flow_yield`, `tot_debt_to_tot_eqy` |
@@ -44,7 +44,7 @@ The adversarial expansion sweep across all twelve subsystems produced a blunt fi
 - ✅ **Corporate actions — DONE.** 52k rows populated. Do **not** "restore from off-main" or re-pull the whole file.
 - ⚠️ **`sp500_vol_dvd` — STALE at 2026-03-20.** This is now the #1 real pull (live BSM `q` consumer).
 - ⚠️ **`sp500_iv_surface.csv` — ABSENT.** The skew grid is genuinely net-new; entitlement-doubtful (same ceiling as the ATM-only IV file).
-- ⚠️ **Dividends — 427/503.** CTRA/BK/LW/PAYC = 0 rows + 72 others.
+- ⚠️ **Dividends — 427/503.** CTRA/LW/MTCH/PAYC = 0 rows (the source-regression payers; BK/BNY=0 too but that's the re-ticker thread) + 72 others.
 - ✅ **NFLX ~10× mis-scale — FIXED** (data-layer).
 - ⚠️ **BKNG/CVNA 2026-03-23 split seam — REAL.** Unadjusted-split rows; targeted re-pull required (P1).
 - ⚠️ **Fundamentals/credit files are DATELESS snapshots.** Every "PIT" item in Parts C/D is a net-new dated `BDH` pull, not a wire-in.

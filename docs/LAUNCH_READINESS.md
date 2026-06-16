@@ -234,8 +234,12 @@ list when shipping something genuinely user-facing:
 - [ ] `python scripts/probe_theta_capabilities.py` regenerates
       `data_processed/theta_capabilities.json` and the persistent
       failure set matches the documented tier ceiling
-      (currently: BF.B / BRK.B / NVR / DAY — upstream-data gap, not
-      a code bug).
+      (currently: NVR / DAY plus class-A names BRK.A / LEN.B —
+      genuine upstream-data gap, not a code bug). NOTE: **BRK.B and BF.B
+      are NOT vendor gaps** — they were a symbol-format bug. ThetaData v3
+      serves them under the *concatenated* symbol (BRKB / BFB); the dotted
+      form returns HTTP 472. Fixed in `_normalise_theta_symbol`
+      (verified live 2026-06-15). Re-probe should now show them serving.
 - [ ] **MCP chart provider mode is explicit, not implicit (D13).**
       The MCP path is opt-in via `SWE_USE_MCP_CHART=1`; default off.
       If you intend to go live with MCP charts on, set the env var

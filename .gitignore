@@ -325,3 +325,6 @@ tradingview/screenshots/
 
 # premium-correction pilot regenerable outputs (CSVs/PNG move with larder coverage)
 studies/premium_correction/output/
+
+# Broad-pull: large raw IV surface CSV — commit the gzipped copy only (GitHub 100MB limit)
+staging/iv_surface/*.csv

@@ -26,8 +26,15 @@ Currency-refresh delta is therefore **2026-06-05 → 06-17** (~9 trading days), 
 | Vol-index complex | `macro_vol/sp500_vol_indices.csv` | PX_LAST: VIX/VVIX/SKEW/VXN/RVX/OVX/GVZ/MOVE/VXEEM/CVIX | 2004→2026-06-17 · D | 5847 | sane bands (VIX 9.1–82.7, MOVE 36–265); 2008/COVID spikes present | ✅ |
 | Implied correlation | `macro_vol/spx_correlation.csv` | PX_LAST: COR1M/3M/6M | 2006→2026-06-17 · D | 5146 | corr-index 3–96 | ✅ |
 | Credit OAS (IG/HY) | `macro_vol/credit_spreads.csv` | PX_LAST: LUACOAS, LF98OAS | 2004→2026-06-17 · D | 5647 | IG 0.71–6.18%, HY 2.33–19.71% | ✅ |
+| **T0-2 moneyness IV skew surface** | `iv_surface/sp500_iv_surface.csv.gz` | 5×5: `{30DAY,60DAY,3MTH,6MTH,12MTH}_IMPVOL_{90,95,100,105,110}.0%MNY_DF` | 2010→2026-06-17 · D | **1,944,699** (509 names) | 96–98% grid coverage; skew put-rich (AAPL 30d 90%=28.7>ATM 24.8), upward term structure; **100%MNY col = current ATM IV** | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
+
+**T0-2 field-family lessons (FLDS by non-null VALUE count, not field echo):** the populated equity
+surface is the documented **5×5** — long tenors use **MTH** naming (`90/180/365DAY` return all-NaN;
+use `3MTH/6MTH/12MTH`), and only moneyness **{90,95,100,105,110}** populate (wings `{80,120}` empty).
+**Storage:** raw CSV is 318 MB (float IV) → exceeds GitHub's 100 MB limit; committed **gzipped**
+(round IV to 2 dp → 93 MB `.gz`), raw `.csv` gitignored. Future large pulls follow the same pattern.
 
 ## Remaining catalog (priority order)
 - **Currency refresh** (frontier 06-05→06-17): ohlcv + liquidity + vol_iv + vix_term_structure recent tail — fragments to extend monoliths.

@@ -34,7 +34,10 @@ def native(x):
 
 if __name__ == "__main__":
     syms = sys.argv[1].split(",")
-    days = [d.strftime("%Y-%m-%d") for d in pd.bdate_range(sys.argv[2], sys.argv[3])]
+    # RECENT-FIRST: the pull is slow (~12 min/symbol-day) and may not finish in one session.
+    # The day-bot needs recent days most (current-spread calibration); the oldest (lowest-value)
+    # days backfill last and can be extended by a future re-run. Resumable, so order is free to change.
+    days = [d.strftime("%Y-%m-%d") for d in pd.bdate_range(sys.argv[2], sys.argv[3])][::-1]
     os.makedirs(OUT, exist_ok=True)
     for dstr in days:
         a, b = rth_utc(dstr)

@@ -136,6 +136,15 @@ constants, and Phase 4 re-picks W16/W30.**
 
 ### Phase 1B — git-reconstructable integration (no Bloomberg, reviewed branch)
 
+> **Phase 1A is DONE (2026-06-17 supervised session).** The CASY + 10 blue-chip
+> fragments **and** the #354 PIT panel are pulled, validated, and pushed —
+> staged-only — on branch **`claude/phase1a-casy-bloomberg-pull` @ `bbc9c91`**
+> (`staging/casy/`, `staging/blue_chips/`, `staging/fundamentals_pit/`).
+> **Fetch that branch** to get the fragments; manifest + validation/vintage +
+> per-file notes in `docs/worklog/phase1a-bloomberg-fragments-handoff.md` and the
+> `staging/*/PULL_NOTES.md`. The raw fragments are intentionally **not** PR'd to
+> `main` — *this* integration is their merge vehicle.
+
 Per `docs/CASY_BACKFILL_SPEC.md` §"After you push/send the fragments":
 
 1. **Integrate fragments** — fold the CASY + 10 blue-chip fragments into the
@@ -331,21 +340,30 @@ producer/data changes tracked behind behaviour-pinning `xfail(strict)`:
 
 - **#355** — the 11 blue-chip backfills (already executed in Phase 1A; listed
   here only so the operator confirms all producer-gated pulls are done together).
-- **#354 — PIT fundamentals.** Pull a **dated** fundamentals panel (today's
-  `sp500_fundamentals.csv` is a single dateless 2026 snapshot, so every historical
-  backtest reads 2026 values — lookahead). This is a larger data-model change
-  (a per-date fundamentals history) **and** unlocks a **separate trio PR** to add
-  `as_of` to `get_fundamentals`/`get_credit_risk` and thread it from
-  `wheel_runner` (a decision-layer change, §2 review). The W2 PIT xfail
+- **#354 — PIT fundamentals. DATA PULLED (2026-06-17) — accessor still pending.**
+  The dated panel is done: `staging/fundamentals_pit/sp500_fundamentals_pit.csv`
+  (monthly, 2015-01-02→2026-05-31, 503 names, 72,937 rows) carries the EV-consumed
+  fields incl. `eqy_dvd_yld_12m` → BSM carry `q`, on branch
+  `claude/phase1a-casy-bloomberg-pull @ bbc9c91`. It closes the lookahead in the
+  single dateless `sp500_fundamentals.csv`. **Still to do (no Bloomberg):** the
+  **separate trio PR** adding `as_of` to `get_fundamentals`/`get_credit_risk`,
+  threaded from `wheel_runner` (decision-layer, §2 review); the W2 PIT xfail
   (`test_fundamentals_credit_are_point_in_time`, #366) flips only when that
-  accessor lands.
-- **#357 — W10 `rate_1m` pre-2001 coverage (producer-gated half only).**
-  `treasury_yields.csv` `rate_1m` is NaN pre-2001 (23.4%); pull only if pre-2001
-  1-month coverage is actually wanted (the integrity band-pin already passes).
-  This half is genuinely producer-gated and pre-window, so it stays here. **The
-  other half of #357 — the dividend epsilon-clamp (W11/W25) — moved to Phase 1B
-  step 3**: it is a pure-git byte rewrite of `sp500_dividends.csv` and must land
-  before the re-pin, not after it (else it re-trips the #340 fingerprint).
+  accessor lands. **Before that accessor lands, confirm the panel's ~31%
+  `eqy_dvd_yld_12m` NaN is "legitimately no-dividend / not-yet-listed" vs "missing
+  data"** (coverage is 69.2%; that field feeds carry `q`, so silent-missing would
+  distort EV — expected to be non-payers + early-window unlisted names, but verify).
+- **#357 — W10 `rate_1m` pre-2001 coverage → WON'T-FIX (closed 2026-06-17, not a gap).**
+  `treasury_yields.csv` `rate_1m` is non-null from exactly **2001-07-31**, which is
+  the genuine inception of the US Treasury 1-month constant-maturity series — it did
+  **not exist** before then. So the pre-2001 NaN (23.4%) is **correct**, not missing
+  data; "filling" it would mean splicing in a *different* proxy series (e.g. 4-week
+  bill), it is entirely pre-backtest-window, and it has no engine consumer (the
+  integrity band-pin already passes). **Do not re-attempt this pull.** *(This closes
+  only the `rate_1m` half of #357. The other half — the dividend epsilon-clamp
+  (W11/W25) — is still live and **moved to Phase 1B step 3**: a pure-git byte rewrite
+  of `sp500_dividends.csv` that must land before the re-pin, else it re-trips the
+  #340 fingerprint.)*
 - **W28 — `edge_vs_fair` ≡ 0 (D, BLOCKED here).** This needs a **market-mid
   option-premium producer** that the Bloomberg connector **does not have** (C4 —
   premium and BSM fair are computed from identical inputs, so the VRP signal is

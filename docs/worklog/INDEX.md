@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**137 records.**
+**138 records.**
 
 ## Features (13)
 
@@ -187,3 +187,9 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [F4_TAIL_RISK_DIAGNOSTIC](../F4_TAIL_RISK_DIAGNOSTIC.md) | legacy |  | F4 tail-risk gap — diagnostic + fix plan (2026-05-26) | `../F4_TAIL_RISK_DIAGNOSTIC.md` |
 | [PROB_PROFIT_CALIBRATION_2026-05-28](../PROB_PROFIT_CALIBRATION_2026-05-28.md) | legacy |  | prob_profit calibration — multi-backtest analysis (2026-05-28) | `../PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | [r11-onset-aware-trigger](r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md) | proposed |  | PROPOSED (not started). R11's VIX-level trigger fires post-spike and forgoes V-recoveries (2020). Hypothesis: a PERSISTENCE condition — fire only when VIX>25 has held N consecutive trading days — keeps the 2022 grind-down protection while skipping the 2020 spike, sidestepping the I10 rv_ratio detection problem. Backtest-able with the existing r11_dollar_impact driver. | `r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md` |
+
+## Other (1)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [phase1b-integration](phase1b-fragment-integration.md) | completed |  | Phase-1B fragment integration — CASY + blue-chips into the monoliths + BK↔BNY collapse + dividends clamp + UNIVERSE_100 | `phase1b-fragment-integration.md` |

@@ -7,10 +7,11 @@ because snapshots locked to this list must remain reproducible even
 if the connector's universe changes.
 
 ``UNIVERSE_100`` is the first 100 tickers from
-``MarketDataConnector().get_universe()[:100]`` snapshotted at
-``origin/main`` commit ``8a17b0b``. ``test_universes_match_connector``
-(landing in PR2) asserts the derivation still holds on the current
-connector.
+``MarketDataConnector().get_universe()[:100]``. Re-derived 2026-06-17 in the
+Phase-1B fragment integration (#339): the BK↔BNY entity collapse removed the
+phantom ``BNY`` slot, so ``CMG`` re-enters the first 100 (net delta: −BNY, +CMG).
+``test_universes_match_connector`` asserts the derivation still holds on the
+current connector.
 
 Both are ``tuple[str, ...]`` (immutable) and importable without
 touching disk — the connector is not called at module-load time.
@@ -118,7 +119,6 @@ UNIVERSE_100: tuple[str, ...] = (
     "BLDR",
     "BLK",
     "BMY",
-    "BNY",
     "BR",
     "BRK/B",
     "BRO",
@@ -151,6 +151,7 @@ UNIVERSE_100: tuple[str, ...] = (
     "CLX",
     "CMCSA",
     "CME",
+    "CMG",
 )
 
 assert len(UNIVERSE_24) == 24, f"UNIVERSE_24 must be 24 tickers, got {len(UNIVERSE_24)}"

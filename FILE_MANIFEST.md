@@ -603,6 +603,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/pull_liquidity.py` | xbbg/Bloomberg pull of daily liquidity metrics. |
 | `scripts/pull_options_greeks.py` | xbbg/Bloomberg pull of IV term structure / skew. |
 | `scripts/pull_short_interest.py` | xbbg/Bloomberg pull of short-interest data. |
+| `staging/integrate_phase1b.py` | Phase-1B fragment integration tool (#339): folds the Phase-1A CASY/blue-chip fragments into the monoliths + BK↔BNY collapse + dividend epsilon-clamp, byte-preserving unchanged rows. Held-for-review provenance; not part of the production pipeline. |
 | `scripts/pull_historical_fundamentals.py` | xbbg/Bloomberg pull of quarterly fundamentals. |
 | `scripts/pull_fundamentals_yf.py` | yfinance pull of a per-ticker fundamentals snapshot. |
 | `scripts/pull_earnings_yf.py` | yfinance pull of past and upcoming earnings dates. |

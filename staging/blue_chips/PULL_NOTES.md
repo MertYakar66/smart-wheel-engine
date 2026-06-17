@@ -4,6 +4,19 @@ Supervised Bloomberg session, branch `claude/phase1a-casy-bloomberg-pull`. Phase
 Same validated method as `staging/casy/` (see `staging/casy/PULL_NOTES.md`). **Fragments only —
 monoliths + trio byte-untouched; Phase 1B integration + re-baseline deferred to a no-Bloomberg clone.**
 
+> **⚠️ CORRECTION (2026-06-17, found during Phase-1B integration; see `pull_batch1_un.py`).**
+> The first batch-1 pull used the committed `<NAME> UW` (NASDAQ) tickers for **WMT/KMB/CPB/DPZ/PLTR**,
+> which return only the truncated recent rows for these **NYSE** names — i.e. it re-pulled the same thin
+> data (WMT 122→122 etc.) and did **not** backfill history. The wrong `UW` code is exactly *why* they
+> were thin on `main`. The original "open/close exact" validation gave false confidence (it compared
+> UW-to-UW); the tell was the row count not growing. **Confirmed:** `WMT UW Equity` has 0 rows in
+> Jan-2018; `WMT UN Equity` has the full 2018→2026 history. **Fixed:** the five `*_ohlcv.csv` fragments
+> were re-pulled as `<NAME> UN Equity` (WMT/KMB/CPB/DPZ 2117 rows from 2018; PLTR 1426 from its
+> 2020-09-30 IPO; OHLC integrity verified). Stored ticker = `<NAME> UN Equity`; Phase-1B integration
+> drops the old wrong `<NAME> UW Equity` rows. *(Batch-1 vol_iv was already full on `main` and is
+> untouched — note the pre-existing oddity that `<NAME> UW` vol_iv carries full history while `UW`
+> ohlcv did not; out of scope here, flagged for the record.)*
+
 ## Scope (runbook A2)
 10 names with truncated OHLCV history on `main`; all get an OHLCV backfill (2018-01-02→2026-06-04).
 5 are also IV-thin (committed vol_iv == 52 rows) and get a vol_iv backfill too.

@@ -28,6 +28,9 @@ Currency-refresh delta is therefore **2026-06-05 → 06-17** (~9 trading days), 
 | Credit OAS (IG/HY) | `macro_vol/credit_spreads.csv` | PX_LAST: LUACOAS, LF98OAS | 2004→2026-06-17 · D | 5647 | IG 0.71–6.18%, HY 2.33–19.71% | ✅ |
 | **T0-2 moneyness IV skew surface** | `iv_surface/sp500_iv_surface.csv.gz` | 5×5: `{30DAY,60DAY,3MTH,6MTH,12MTH}_IMPVOL_{90,95,100,105,110}.0%MNY_DF` | 2010→2026-06-17 · D | **1,944,699** (509 names) | 96–98% grid coverage; skew put-rich (AAPL 30d 90%=28.7>ATM 24.8), upward term structure; **100%MNY col = current ATM IV** | ✅ |
 
+| **T0-5 macro-event calendar** | `macro_calendar/sp500_macro_calendar.csv` | bds `ECO_FUTURE_RELEASE_DATE_LIST` (date+time) + bdp NAME/COUNTRY, 11 events (FOMC/CPI/coreCPI/PCE/NFP/unemp/claims/GDP/ISM-mfg/ISM-svc/retail) | 2025→2027-12 · E | 352 sched | release times 08:30/10:00/14:00; forward through 2027 | ✅ |
+| T0-5 macro release history | `macro_calendar/sp500_macro_releases.csv` | bdh PX_LAST, same 11 events | 2015→2026-06-17 · E | 4724 prints | actuals | ✅ |
+
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
 **T0-2 field-family lessons (FLDS by non-null VALUE count, not field echo):** the populated equity

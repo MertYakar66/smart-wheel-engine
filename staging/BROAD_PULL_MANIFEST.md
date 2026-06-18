@@ -60,6 +60,7 @@ not from 03-20.
 | **D · commodities** | `macro_rates/commodities.csv` | CL1/GC1/HG1/NG1 | 2000→2026-06-18 · D | 6652 | WTI −37.6 (Apr-2020) → 145 captured | ✅ |
 | **D · global vol + CDX** | `macro_rates/global_vol.csv` | V2X/VHSI/VNKY/VKOSPI + CDX IG/HY (IBOXUMAE/HYSE) | 2000→2026-06-18 · D | 6880 | vol 10–104; IG 44–152bp HY 269–871bp | ✅ |
 | **D · sector/factor ETFs** | `macro_rates/sector_factor_etfs_ohlcv.csv` | OHLCV, 15 ETFs (natural map) | 1998→2026-06-18 · D | 94,646 | high==max 1.0; XLRE 2015 XLC 2018 inception ✓ | ✅ |
+| **C · total-return + EOD bid/ask** | `per_name/returns_micro.csv` | TOT_RETURN_INDEX_NET_DVDS, PX_BID, PX_ASK | 2010→2026-06-18 · D | 1,874,882 (511 nm) | 70MB; tot_return 100%, bid/ask 99.5%; px_bid>px_ask 0.0000% | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -92,20 +93,17 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] **T0-3 #354 dividend PIT** — `dividend_pit/sp500_dividend_yield_pit.csv` (72,461 rows, 421 nm, dated monthly). **Investigation: gap is "no dividend" not "missing"** (89/90 non-payers confirmed via DVD_HIST; BK 1-name field anomaly flagged). Fixes the lookahead. ✅
 
 ### C · P1 per-name catalog (the bulk — recent-first, resumable, commit-per-chunk)
-- [ ] ATM IV term structure — `7/14/30/60/90/180/365/730DAY_IMPVOL_100.0%MNY_DF` · BDH
-- [ ] realized-vol family — `10/20/30/60/90/120/180/260DAY_HV` · BDH
-- [ ] total-return series — `TOT_RETURN_INDEX_NET_DVDS` · BDH
-- [ ] EOD bid/ask history — `PX_BID`/`PX_ASK` · BDH
-- [ ] beta history — `BETA_RAW_OVERRIDABLE`/`BETA_ADJUSTED_OVERRIDABLE` (1Y/2Y/5Y) · BDH
-- [ ] shares-out PIT — `EQY_SH_OUT` (monthly) · BDH
-- [ ] PIT financial statements — `IS_/BS_/CF_` line items + `BEST_PERIOD_END_DT`, `BEST_FISPD_SHEET_DT` · BDH
-- [ ] estimates — `BEST_EPS/REVENUE/EBITDA/TARGET_PRICE` + revisions/dispersion · BDH
+- [ ] ATM IV term + realized vol — `{30/60DAY,3/6/12/24MTH}_IMPVOL_100%MNY_DF` + `VOLATILITY_{10..260}D` (in progress → `per_name/vol_term_rv.csv`); `nDAY_HV` all-NaN, `VOLATILITY_nD` used; 7/14d & 90/180/365/730DAY all-NaN (MTH naming)
+- [x] total-return series — `per_name/returns_micro.csv` ✅
+- [x] EOD bid/ask history — `per_name/returns_micro.csv` (PX_BID/PX_ASK) ✅
+- [ ] beta history — `BETA_RAW_OVERRIDABLE` (adjusted all-NaN) + shares-out `EQY_SH_OUT` (monthly) · BDH
+- [ ] PIT financial statements + estimates — entitled IS_/BS_/CF_ + BEST_* (revenue→`SALES_REV_TURN`; `BEST_PERIOD_END_DT` all-NaN → BDH-Q date as period proxy) · BDH
 - [ ] valuation / profitability / leverage / FCF / growth families · BDH
-- [ ] credit ratings + watch + outlook — `RTG_SP_LT_LC_ISSUER_CREDIT`, `RATING_WATCH`, `RATING_OUTLOOK` · BDP
-- [ ] CDS spreads — `CDS_SPREAD_5Y` (1Y/10Y) · BDH
-- [ ] GICS full + institutional/insider/float — `GICS_*`, `EQY_INST_PCT_SH_OUT`, etc. · BDP
-- [ ] analyst history — `BEST_ANALYST_RATING`/`BEST_TARGET_PRICE`/`REC_*_CNT` · BDH/BDS
-- [ ] earnings surprise + special-div + earnings timing — `EARN_EST_EPS_SURPRISE_PCT`, `DVD_*`, `EARNING_ANNOUNCEMENT_TIMING` · BDH/BDS
+- [ ] credit ratings + watch + outlook — `RTG_SP_LT_LC_ISSUER_CREDIT`/`RTG_MOODY_LONG_TERM` + `RATING_WATCH`/`RATING_OUTLOOK` · BDP
+- [ ] GICS full + institutional/float — `GICS_*`, `EQY_INST_PCT_SH_OUT`, `EQY_FREE_FLOAT_PCT` · BDP
+- [ ] analyst history — `BEST_ANALYST_RATING`/`BEST_TARGET_PRICE`/`TOT_ANALYST_REC` · BDH-M
+- [ ] earnings timing — `EXPECTED_REPORT_DT` (BDP); surprise via IS_EPS vs BEST_EPS (compute)
+- ⛔ CDS spreads — `CDS_SPREAD_5Y/1Y/10Y` all-NaN, not entitled → bucket F
 
 ### D · P2/P3 macro & cross-asset single-series (roadmap §7–§8) — ✅ DONE (8 files in `macro_rates/`)
 - [x] sector/factor ETFs OHLCV — `sector_factor_etfs_ohlcv.csv` (15 ETFs, 1998→06-18)

@@ -49,6 +49,7 @@ not from 03-20.
 | **A · ohlcv refresh** | `currency_refresh/sp500_ohlcv__2026-06-05_2026-06-18.csv` | rotated O/H/L/C/V | 06-05→06-18 · D | 5075 (508 nm) | rotation gate 1.0000; KLAC 10:1 split seam flagged (see VALIDATION.md) | ✅ |
 | **A · liquidity refresh** | `currency_refresh/sp500_liquidity__2026-06-05_2026-06-18.csv` | avg_vol_30d/turnover/shares_out | 06-05→06-18 · D | 5080 (508 nm) | overlap-to-cent (ex-KLAC + benign vol finalization <2%) | ✅ |
 | **A · vix_term refresh** | `currency_refresh/vix_term_structure__2026-06-05_2026-06-18.csv` | vix/vix_3m/vix_6m | 06-05→06-18 · D | 10 | overlap 06-04 Δ=0 exact; contango held | ✅ |
+| **B · VIX futures UX1–UX7** | `macro_vol/vix_futures_curve.csv` | PX_LAST: UX1..UX7 Index | 2006→2026-06-18 · D | 5150 | bands ux1 9.6–72.6 (2008/2020 spikes); contango 82% of days; upward tail | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -76,7 +77,7 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] `vol_iv` — N/A (current via skew-surface 100%MNY col)
 
 ### B · Quick single-series pulls
-- [ ] **VIX futures UX1–UX7** — `PX_LAST` `UX1…UX7 Index` → `vix_futures_curve.csv` (+ extend vix_term_structure) · BDH
+- [x] **VIX futures UX1–UX7** — `macro_vol/vix_futures_curve.csv`, 5150 rows 2006→06-18, contango 82% ✅
 - [ ] **T0-12 short interest** — `EQY_SHORT_INTEREST`, `EQY_SHORT_INTEREST_PCT_OF_FLOAT`, `EQUITY_SHORT_BORROW_RATE_NET` · BDH
 - [ ] **T0-3 #354 dividend PIT** — investigate the 69% carry coverage: confirm the 31% is "no dividend" not "missing"; dated `EQY_DVD_YLD_12M`/`EQY_DVD_YLD_IND` to fill if missing · BDH
 

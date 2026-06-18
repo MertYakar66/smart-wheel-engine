@@ -328,3 +328,6 @@ studies/premium_correction/output/
 
 # Broad-pull: large raw IV surface CSV — commit the gzipped copy only (GitHub 100MB limit)
 staging/iv_surface/*.csv
+
+# large per-name raw panel (committed gzipped)
+staging/per_name/vol_term_rv.csv

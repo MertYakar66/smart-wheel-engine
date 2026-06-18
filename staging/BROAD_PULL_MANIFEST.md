@@ -65,6 +65,7 @@ not from 03-20.
 | **C · beta + shares-out** | `per_name/beta_shares.csv` | BETA_RAW_OVERRIDABLE + EQY_SH_OUT | 2010→2026-05-29 · M | 93,605 (510 nm) | beta median 1.004; adjusted-beta not entitled; outliers flagged | ✅ |
 | **C · PIT fundamentals (Q)** | `per_name/fundamentals_q.csv` | revenue/oper_inc/net_income/ebitda/eps/assets/liab/fcf/cfo/roe/nd_ebitda/gross_margin | 2010→2026-05-31 · Q | 31,479 (511 nm) | 79–100% cov; period-end dated (filing-lag PIT not captured) | ✅ |
 | **C · estimates + analyst (M)** | `per_name/estimates_m.csv` | best_eps/sales/ebitda/target/pe + best_rating + analyst_count | 2010→2026-05-29 · M | 92,680 (511 nm) | target/rating/count 99–100%; est levels ~21% (FPERIOD override re-pull queued) | ✅ |
+| **C · ratings/GICS/ownership snapshot** | `per_name/sp500_snapshot_bdp.csv` | RTG_SP/MOODY/FITCH + full GICS + inst/float + next-earnings | 2026-06-18 snapshot | 511 nm | SP 89%/Moody 75%/Fitch 65%; GICS+ownership 100%; **watch/outlook all-NaN** (not entitled) | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -104,9 +105,9 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] PIT financial statements — `per_name/fundamentals_q.csv` (12 entitled IS_/BS_/CF_/ratio fields; period-end dated) ✅
 - [x] estimates + analyst — `per_name/estimates_m.csv` (best_eps/sales/ebitda/target/pe/rating/count) ✅; est-levels re-pull w/ FPERIOD override queued
 - [ ] valuation / profitability / leverage / FCF / growth — partly in fundamentals_q (roe/nd_ebitda/gross_margin) + estimates_m (best_pe); extend w/ more ratio fields
-- [ ] credit ratings + watch + outlook — `RTG_SP_LT_LC_ISSUER_CREDIT`/`RTG_MOODY_LONG_TERM` + `RATING_WATCH`/`RATING_OUTLOOK` · BDP
-- [ ] GICS full + institutional/float — `GICS_*`, `EQY_INST_PCT_SH_OUT`, `EQY_FREE_FLOAT_PCT` · BDP
-- [ ] earnings timing — `EXPECTED_REPORT_DT` (BDP); surprise via IS_EPS vs BEST_EPS (compute)
+- [x] credit ratings (SP/Moody/Fitch) — `per_name/sp500_snapshot_bdp.csv` ✅ (watch/outlook all-NaN → bucket F)
+- [x] GICS full + institutional/float — `per_name/sp500_snapshot_bdp.csv` ✅
+- [x] earnings timing — `EXPECTED_REPORT_DT` in snapshot ✅ (surprise computable from IS_EPS vs BEST_EPS downstream)
 - ⛔ CDS spreads — `CDS_SPREAD_5Y/1Y/10Y` all-NaN, not entitled → bucket F
 
 ### D · P2/P3 macro & cross-asset single-series (roadmap §7–§8) — ✅ DONE (8 files in `macro_rates/`)

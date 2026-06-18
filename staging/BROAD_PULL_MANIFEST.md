@@ -51,6 +51,7 @@ not from 03-20.
 | **A · vix_term refresh** | `currency_refresh/vix_term_structure__2026-06-05_2026-06-18.csv` | vix/vix_3m/vix_6m | 06-05→06-18 · D | 10 | overlap 06-04 Δ=0 exact; contango held | ✅ |
 | **B · VIX futures UX1–UX7** | `macro_vol/vix_futures_curve.csv` | PX_LAST: UX1..UX7 Index | 2006→2026-06-18 · D | 5150 | bands ux1 9.6–72.6 (2008/2020 spikes); contango 82% of days; upward tail | ✅ |
 | **B · T0-12 short interest** | `short_interest/sp500_short_interest.csv` | `SHORT_INTEREST` (shares) + `SHORT_INT_RATIO` (days-to-cover); biweekly | 2015→2026-05-29 · biweekly | 134,035 (509 nm) | SI median 7.4M sh; DTC median 2.92; pct-of-float + borrow **entitlement-blocked** (all-NaN) → bucket F | ✅ |
+| **B · T0-3 dividend-yield PIT** | `dividend_pit/sp500_dividend_yield_pit.csv` | EQY_DVD_YLD_12M / _IND / DVD_SH_12M; monthly | 2010→2026-05-29 · M | 72,461 (421 nm) | #354 gap = "no dividend" not missing (89/90 non-payers confirmed; BK 1-name anomaly). Fixes lookahead | ✅ |
 | **D · OIS/SOFR curve** | `macro_rates/ois_sofr_curve.csv` | USSO 1m–30y + SOFRRATE + USOSFR 1–10y | 2001→2026-06-18 · D | 6393 | 0–5.7%; SOFR from 2018 | ✅ |
 | **D · real yields/TIPS** | `macro_rates/real_yields.csv` | USGGT 2/5/10/30y + USSWIT infl-swap 2/5/10 | 2000→2026-06-18 · D | 6900 | real −3..7.4%; infl-swap 0.8–4.8% | ✅ |
 | **D · fed funds** | `macro_rates/fed_funds.csv` | FDTR + FF1 | 2000→2026-06-18 · D | 6850 | target 0.25–6.5% | ✅ |
@@ -88,7 +89,7 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 ### B · Quick single-series pulls
 - [x] **VIX futures UX1–UX7** — `macro_vol/vix_futures_curve.csv`, 5150 rows 2006→06-18, contango 82% ✅
 - [x] **T0-12 short interest** — `short_interest/sp500_short_interest.csv`: `SHORT_INTEREST`+`SHORT_INT_RATIO` 134k rows ✅. pct-of-float + borrow **not entitled** (→ bucket F)
-- [ ] **T0-3 #354 dividend PIT** — investigate the 69% carry coverage: confirm the 31% is "no dividend" not "missing"; dated `EQY_DVD_YLD_12M`/`EQY_DVD_YLD_IND` to fill if missing · BDH
+- [x] **T0-3 #354 dividend PIT** — `dividend_pit/sp500_dividend_yield_pit.csv` (72,461 rows, 421 nm, dated monthly). **Investigation: gap is "no dividend" not "missing"** (89/90 non-payers confirmed via DVD_HIST; BK 1-name field anomaly flagged). Fixes the lookahead. ✅
 
 ### C · P1 per-name catalog (the bulk — recent-first, resumable, commit-per-chunk)
 - [ ] ATM IV term structure — `7/14/30/60/90/180/365/730DAY_IMPVOL_100.0%MNY_DF` · BDH

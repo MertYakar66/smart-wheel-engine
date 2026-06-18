@@ -125,12 +125,13 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] FX majors — `fx.csv`
 - [x] commodities — `commodities.csv`
 - [x] global vol + CDX — `global_vol.csv` (V2X/VHSI/VNKY/VKOSPI + IBOXUMAE/IBOXHYSE)
-- [ ] ESG scores/controversies, news/social sentiment — FLDS-verify entitlement first · BDP/BDH (pending — likely blocked)
+- [x] news sentiment — `NEWS_SENTIMENT_DAILY_AVG` pulled in `per_name/options_sentiment.csv` ✅
+- ⛔ ESG scores/controversies — `ESG_DISCLOSURE_SCORE`/E/S/G/`SUSTAINALYTICS_RANK` all-NaN, not entitled → bucket F
 
-### E · Verify-only (Step 0 found present — no pull)
-- [ ] corp-actions **needs a 06-06→06-18 tail** — KLAC 10:1 split (06-05<x≤06-18) post-dates the 06-05 frontier (caught by bucket-A overlap); else verify completeness, do NOT restore the 52,442-row body
-- [~] treasury tenor completeness (1994+ full curve; rate_1m from 2001-07)
-- [~] index-membership history present (verify/extend)
+### E · Verify-only (Step 0 found present) — ✅ DONE
+- [x] corp-actions **verified complete** — KLAC 10:1 split IS present (announced 05-07, effective 06-12); also CRWD 4:1, DD. 52,442 rows, do NOT restore. (Corrected the bucket-A worry.)
+- [x] treasury tenor completeness verified (1994+ full curve, 3m–30y ~8,455 rows, 1m from 2001, sofr from 2018) **+ tail refresh** `currency_refresh/treasury_yields__2026-06-06_2026-06-18.csv` (overlap 06-05 Δ=0 exact)
+- [x] index-membership history verified present (72,696 rows w/ weights)
 
 ### F · Can't-pull / out-of-scope
 - ⛔ `NFCI Index` — not entitled (BlpRequestError)

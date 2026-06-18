@@ -22,10 +22,11 @@ replicate each monolith's exact column set + ticker form (append-compatible). **
   The monolith captured preliminary 06-04 volume; now final. Expected; not a seam.
 - avg_vol_30d (11) / turnover (82) / shares_out (2): rolling/derived revisions, same benign cause.
 
-## Side-effect catch for bucket E
-The KLAC split is a **post-2026-06-05 corporate action**, but `sp500_corporate_actions.csv` ends
-2026-06-05 → corp-actions is **not merely verify-only**; it needs a 06-06→06-18 tail (the split is
-missing). Tracked in the manifest's bucket E.
+## Side-effect catch for bucket E — RESOLVED
+Initial worry: the KLAC split might be missing from `sp500_corporate_actions.csv` (frontier 06-05).
+**Verified false** — the split is **already captured**: KLAC Stock Split announced 2026-05-07,
+effective 2026-06-12, ratio 10.0 (splits are announced ahead of the price-seam date). Also present:
+CRWD (4:1, eff 07-02) and DD (eff 06-24). corp-actions is **complete**; no tail needed.
 
 ## Sanity bands
 VIX 06-05..06-18: 16.2–22.2 (vix), term structure in contango (vix < vix_3m < vix_6m every day) ✓.

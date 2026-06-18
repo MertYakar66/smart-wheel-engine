@@ -46,6 +46,9 @@ not from 03-20.
 | **T0-2 moneyness IV skew surface** | `iv_surface/sp500_iv_surface.csv.gz` | 5×5: `{30DAY,60DAY,3MTH,6MTH,12MTH}_IMPVOL_{90,95,100,105,110}.0%MNY_DF` | 2010→2026-06-17 · D | **1,944,699** (509 names) | 96–98% grid coverage; skew put-rich (AAPL 30d 90%=28.7>ATM 24.8), upward term structure; **100%MNY col = current ATM IV** | ✅ |
 | **T0-5 macro-event calendar** | `macro_calendar/sp500_macro_calendar.csv` | bds `ECO_FUTURE_RELEASE_DATE_LIST` (date+time) + bdp NAME/COUNTRY, 11 events (FOMC/CPI/coreCPI/PCE/NFP/unemp/claims/GDP/ISM-mfg/ISM-svc/retail) | 2025→2027-12 · E | 352 sched | release times 08:30/10:00/14:00; forward through 2027 | ✅ |
 | T0-5 macro release history | `macro_calendar/sp500_macro_releases.csv` | bdh PX_LAST, same 11 events | 2015→2026-06-17 · E | 4724 prints | actuals | ✅ |
+| **A · ohlcv refresh** | `currency_refresh/sp500_ohlcv__2026-06-05_2026-06-18.csv` | rotated O/H/L/C/V | 06-05→06-18 · D | 5075 (508 nm) | rotation gate 1.0000; KLAC 10:1 split seam flagged (see VALIDATION.md) | ✅ |
+| **A · liquidity refresh** | `currency_refresh/sp500_liquidity__2026-06-05_2026-06-18.csv` | avg_vol_30d/turnover/shares_out | 06-05→06-18 · D | 5080 (508 nm) | overlap-to-cent (ex-KLAC + benign vol finalization <2%) | ✅ |
+| **A · vix_term refresh** | `currency_refresh/vix_term_structure__2026-06-05_2026-06-18.csv` | vix/vix_3m/vix_6m | 06-05→06-18 · D | 10 | overlap 06-04 Δ=0 exact; contango held | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -66,10 +69,10 @@ Universe A (~503 SPX members from `INDX_MWEIGHT`). Long pulls: recent-first, res
 calendar are **DONE** (✅ above) — removed from remaining. `vol_iv` ATM refresh **not needed** —
 current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 
-### A · Currency refresh 06-05 → 06-18 (staged fragments; monoliths byte-untouched)
-- [ ] `ohlcv` tail — ROTATED FIELD_MAP `{PX_HIGH→open,PX_LAST→high,PX_LOW→low,PX_OPEN→close,PX_VOLUME→volume}` + per-row `open==max & low==min` gate · BDH
-- [ ] `liquidity` tail — `avg_vol_30d / turnover / shares_out` (+ add EOD `PX_BID/PX_ASK`) · BDH
-- [ ] `vix_term_structure` tail — `vix / vix_3m / vix_6m` · BDH
+### A · Currency refresh 06-05 → 06-18 (staged fragments; monoliths byte-untouched) — ✅ DONE
+- [x] `ohlcv` tail — rotated FIELD_MAP + gate (1.0000); **KLAC 10:1 split seam flagged** · `currency_refresh/`
+- [x] `liquidity` tail — `avg_vol_30d / turnover / shares_out` (EOD `PX_BID/PX_ASK` → bucket C item) · `currency_refresh/`
+- [x] `vix_term_structure` tail — `vix / vix_3m / vix_6m` (overlap Δ=0) · `currency_refresh/`
 - [x] `vol_iv` — N/A (current via skew-surface 100%MNY col)
 
 ### B · Quick single-series pulls
@@ -105,7 +108,7 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [ ] ESG scores/controversies, news/social sentiment — FLDS-verify entitlement first · BDP/BDH
 
 ### E · Verify-only (Step 0 found present — no pull)
-- [~] corp-actions completeness (52,442 rows → 2026-06-05; do NOT restore)
+- [ ] corp-actions **needs a 06-06→06-18 tail** — KLAC 10:1 split (06-05<x≤06-18) post-dates the 06-05 frontier (caught by bucket-A overlap); else verify completeness, do NOT restore the 52,442-row body
 - [~] treasury tenor completeness (1994+ full curve; rate_1m from 2001-07)
 - [~] index-membership history present (verify/extend)
 

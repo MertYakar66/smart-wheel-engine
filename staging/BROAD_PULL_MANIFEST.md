@@ -51,6 +51,14 @@ not from 03-20.
 | **A · vix_term refresh** | `currency_refresh/vix_term_structure__2026-06-05_2026-06-18.csv` | vix/vix_3m/vix_6m | 06-05→06-18 · D | 10 | overlap 06-04 Δ=0 exact; contango held | ✅ |
 | **B · VIX futures UX1–UX7** | `macro_vol/vix_futures_curve.csv` | PX_LAST: UX1..UX7 Index | 2006→2026-06-18 · D | 5150 | bands ux1 9.6–72.6 (2008/2020 spikes); contango 82% of days; upward tail | ✅ |
 | **B · T0-12 short interest** | `short_interest/sp500_short_interest.csv` | `SHORT_INTEREST` (shares) + `SHORT_INT_RATIO` (days-to-cover); biweekly | 2015→2026-05-29 · biweekly | 134,035 (509 nm) | SI median 7.4M sh; DTC median 2.92; pct-of-float + borrow **entitlement-blocked** (all-NaN) → bucket F | ✅ |
+| **D · OIS/SOFR curve** | `macro_rates/ois_sofr_curve.csv` | USSO 1m–30y + SOFRRATE + USOSFR 1–10y | 2001→2026-06-18 · D | 6393 | 0–5.7%; SOFR from 2018 | ✅ |
+| **D · real yields/TIPS** | `macro_rates/real_yields.csv` | USGGT 2/5/10/30y + USSWIT infl-swap 2/5/10 | 2000→2026-06-18 · D | 6900 | real −3..7.4%; infl-swap 0.8–4.8% | ✅ |
+| **D · fed funds** | `macro_rates/fed_funds.csv` | FDTR + FF1 | 2000→2026-06-18 · D | 6850 | target 0.25–6.5% | ✅ |
+| **D · macro surprise** | `macro_rates/macro_surprise.csv` | CESIUSD + CESIG10 (Citi; BESIUSD not entitled) | 2003→2026-06-18 · D | 6044 | −145..271 | ✅ |
+| **D · FX majors** | `macro_rates/fx.csv` | DXY/EURUSD/USDJPY/GBPUSD | 2000→2026-06-18 · D | 6904 | correct hist ranges | ✅ |
+| **D · commodities** | `macro_rates/commodities.csv` | CL1/GC1/HG1/NG1 | 2000→2026-06-18 · D | 6652 | WTI −37.6 (Apr-2020) → 145 captured | ✅ |
+| **D · global vol + CDX** | `macro_rates/global_vol.csv` | V2X/VHSI/VNKY/VKOSPI + CDX IG/HY (IBOXUMAE/HYSE) | 2000→2026-06-18 · D | 6880 | vol 10–104; IG 44–152bp HY 269–871bp | ✅ |
+| **D · sector/factor ETFs** | `macro_rates/sector_factor_etfs_ohlcv.csv` | OHLCV, 15 ETFs (natural map) | 1998→2026-06-18 · D | 94,646 | high==max 1.0; XLRE 2015 XLC 2018 inception ✓ | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -98,16 +106,16 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [ ] analyst history — `BEST_ANALYST_RATING`/`BEST_TARGET_PRICE`/`REC_*_CNT` · BDH/BDS
 - [ ] earnings surprise + special-div + earnings timing — `EARN_EST_EPS_SURPRISE_PCT`, `DVD_*`, `EARNING_ANNOUNCEMENT_TIMING` · BDH/BDS
 
-### D · P2/P3 macro & cross-asset single-series (roadmap §7–§8)
-- [ ] sector/factor ETFs OHLCV (extend `sp500_sector_etfs.csv`) · BDH
-- [ ] OIS/SOFR — `USSO{tenor} Index` · BDH
-- [ ] real yields/TIPS — `USGGT{tenor}`/`USSWIT{tenor}` · BDH
-- [ ] fed funds path — `FDTR Index`, `ZQ{contract}` · BDH
-- [ ] macro surprise — `CESIUSD`/`BESIUSD Index` · BDH
-- [ ] FX majors — `DXY`, `EURUSD`/`USDJPY`/`GBPUSD Curncy` · BDH
-- [ ] commodities — `CL1/GC1/HG1/NG1 Comdty` · BDH
-- [ ] global vol + CDX — `V2X/VHSI/VNKY/VKOSPI Index`, `CDXIG/CDXHY US5Y` · BDH
-- [ ] ESG scores/controversies, news/social sentiment — FLDS-verify entitlement first · BDP/BDH
+### D · P2/P3 macro & cross-asset single-series (roadmap §7–§8) — ✅ DONE (8 files in `macro_rates/`)
+- [x] sector/factor ETFs OHLCV — `sector_factor_etfs_ohlcv.csv` (15 ETFs, 1998→06-18)
+- [x] OIS/SOFR — `ois_sofr_curve.csv` (USSO + SOFRRATE + USOSFR)
+- [x] real yields/TIPS — `real_yields.csv` (USGGT + USSWIT)
+- [x] fed funds path — `fed_funds.csv` (FDTR + FF1; ZQ not entitled)
+- [x] macro surprise — `macro_surprise.csv` (CESIUSD/CESIG10; BESIUSD not entitled)
+- [x] FX majors — `fx.csv`
+- [x] commodities — `commodities.csv`
+- [x] global vol + CDX — `global_vol.csv` (V2X/VHSI/VNKY/VKOSPI + IBOXUMAE/IBOXHYSE)
+- [ ] ESG scores/controversies, news/social sentiment — FLDS-verify entitlement first · BDP/BDH (pending — likely blocked)
 
 ### E · Verify-only (Step 0 found present — no pull)
 - [ ] corp-actions **needs a 06-06→06-18 tail** — KLAC 10:1 split (06-05<x≤06-18) post-dates the 06-05 frontier (caught by bucket-A overlap); else verify completeness, do NOT restore the 52,442-row body

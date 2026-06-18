@@ -66,6 +66,10 @@ not from 03-20.
 | **C · PIT fundamentals (Q)** | `per_name/fundamentals_q.csv` | revenue/oper_inc/net_income/ebitda/eps/assets/liab/fcf/cfo/roe/nd_ebitda/gross_margin | 2010→2026-05-31 · Q | 31,479 (511 nm) | 79–100% cov; period-end dated (filing-lag PIT not captured) | ✅ |
 | **C · estimates + analyst (M)** | `per_name/estimates_m.csv` | best_eps/sales/ebitda/target/pe + best_rating + analyst_count | 2010→2026-05-29 · M | 92,680 (511 nm) | target/rating/count 99–100%; est levels ~21% (FPERIOD override re-pull queued) | ✅ |
 | **C · ratings/GICS/ownership snapshot** | `per_name/sp500_snapshot_bdp.csv` | RTG_SP/MOODY/FITCH + full GICS + inst/float + next-earnings | 2026-06-18 snapshot | 511 nm | SP 89%/Moody 75%/Fitch 65%; GICS+ownership 100%; **watch/outlook all-NaN** (not entitled) | ✅ |
+| **C · valuation multiples (M)** | `per_name/valuation_m.csv` | px_to_book/ev_to_ebitda/px_to_sales/pe/peg | 2010→2026-05-29 · M | 89,079 | medians P/B 3.3, EV/EBITDA 13.6, P/E 20.8; peg 21%; outliers flagged | ✅ |
+| **C · profitability/leverage/payout/growth (Q)** | `per_name/fundamentals_ext_q.csv` | roic/oper&net&ebitda margin/debt_to_equity/int_coverage/dvd_payout/sales_growth/trail_fcf | 2010→2026-05-31 · Q | 31,470 | ROIC 9.5%, margins/leverage sane | ✅ |
+| **C · forward estimates (FPERIOD)** | `per_name/estimates_fwd.csv` | best_eps/sales/ebitda × 1BF + 2BF | 2010→2026-05-29 · M | 93,169 | 1BF eps/sales 100% — fixes the est-level coverage gap | ✅ |
+| **C · options structure + news sentiment** | `per_name/options_sentiment.csv` | pc_oi_ratio(derived), pc_vol_ratio, oi_call, oi_put, news_sent | 2010→2026-06-18 · D | 1,998,083 | 88MB; pc_oi derived oi_put/oi_call; pc_vol & news_sent outliers flagged for winsorization | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -104,7 +108,9 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] beta + shares-out — `per_name/beta_shares.csv` (BETA_RAW_OVERRIDABLE + EQY_SH_OUT) ✅
 - [x] PIT financial statements — `per_name/fundamentals_q.csv` (12 entitled IS_/BS_/CF_/ratio fields; period-end dated) ✅
 - [x] estimates + analyst — `per_name/estimates_m.csv` (best_eps/sales/ebitda/target/pe/rating/count) ✅; est-levels re-pull w/ FPERIOD override queued
-- [ ] valuation / profitability / leverage / FCF / growth — partly in fundamentals_q (roe/nd_ebitda/gross_margin) + estimates_m (best_pe); extend w/ more ratio fields
+- [x] valuation / profitability / leverage / FCF / growth — `per_name/valuation_m.csv` (px_to_book/ev_ebitda/px_to_sales/pe/peg) + `per_name/fundamentals_ext_q.csv` (roic/margins/debt_to_equity/int_coverage/dvd_payout/sales_growth/trail_fcf) ✅
+- [x] options market structure — `per_name/options_sentiment.csv` (put/call OI & vol ratios, total call/put OI) + news sentiment ✅ (see below)
+- [x] forward estimates (FPERIOD 1BF/2BF) — `per_name/estimates_fwd.csv` ✅ (fixes the ~21% level coverage)
 - [x] credit ratings (SP/Moody/Fitch) — `per_name/sp500_snapshot_bdp.csv` ✅ (watch/outlook all-NaN → bucket F)
 - [x] GICS full + institutional/float — `per_name/sp500_snapshot_bdp.csv` ✅
 - [x] earnings timing — `EXPECTED_REPORT_DT` in snapshot ✅ (surprise computable from IS_EPS vs BEST_EPS downstream)

@@ -31,6 +31,14 @@ DATASETS = {
                 **{f"VOLATILITY_{n}D": f"rv_{n}d" for n in [10, 20, 30, 60, 90, 120, 180, 260]}},
         "round": None,  # 2dp for all vol cols, applied below
     },
+    "options_sentiment": {
+        "fields": ["PUT_CALL_OPEN_INTEREST_RATIO", "PUT_CALL_VOLUME_RATIO_CUR_DAY",
+                   "OPEN_INT_TOTAL_CALL", "OPEN_INT_TOTAL_PUT", "NEWS_SENTIMENT_DAILY_AVG"],
+        "map": {"PUT_CALL_OPEN_INTEREST_RATIO": "pc_oi_ratio", "PUT_CALL_VOLUME_RATIO_CUR_DAY": "pc_vol_ratio",
+                "OPEN_INT_TOTAL_CALL": "oi_call", "OPEN_INT_TOTAL_PUT": "oi_put",
+                "NEWS_SENTIMENT_DAILY_AVG": "news_sent"},
+        "round": {"pc_oi_ratio": 4, "pc_vol_ratio": 4, "oi_call": 0, "oi_put": 0, "news_sent": 4},
+    },
 }
 
 

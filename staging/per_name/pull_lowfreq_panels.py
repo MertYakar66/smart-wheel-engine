@@ -27,6 +27,14 @@ DATASETS = {
         "BEST_EPS": "best_eps", "BEST_SALES": "best_sales", "BEST_EBITDA": "best_ebitda",
         "BEST_TARGET_PRICE": "best_target", "BEST_PE_RATIO": "best_pe",
         "BEST_ANALYST_RATING": "best_rating", "TOT_ANALYST_REC": "analyst_count"}},
+    "valuation_m": {"per": "M", "map": {
+        "PX_TO_BOOK_RATIO": "px_to_book", "CURRENT_EV_TO_T12M_EBITDA": "ev_to_ebitda",
+        "PX_TO_SALES_RATIO": "px_to_sales", "PE_RATIO": "pe", "BEST_PEG_RATIO": "peg"}},
+    "fundamentals_ext_q": {"per": "Q", "map": {
+        "RETURN_ON_INV_CAPITAL": "roic", "OPER_MARGIN": "oper_margin", "PROF_MARGIN": "net_margin",
+        "EBITDA_MARGIN": "ebitda_margin", "TOT_DEBT_TO_TOT_EQY": "debt_to_equity",
+        "INTEREST_COVERAGE_RATIO": "int_coverage", "DVD_PAYOUT_RATIO": "dvd_payout",
+        "SALES_GROWTH": "sales_growth", "TRAIL_12M_FREE_CASH_FLOW": "trail_fcf"}},
 }
 
 

@@ -1,5 +1,17 @@
 # Broad Bloomberg pull — running manifest (lab session 2026-06-17, resumed 2026-06-18)
 
+> ## ✅ WHEEL BROAD-PULL COMPLETE — manifest remaining list = ZERO (2026-06-18)
+> Every catalog item is `[x]` pulled, `[~]` verified, or `⛔` can't-pull. Session 2026-06-18 added
+> (all committed + pushed, commit+push-per-dataset): bucket A currency refresh (ohlcv/liquidity/
+> vix_term), B (VIX futures UX1–7, short interest, T0-3 dividend-PIT), D (8 macro/rates/FX/commodity/
+> global-vol + sector ETFs), C per-name (returns+bid/ask, IV-term+realized-vol [gz], beta+shares,
+> PIT fundamentals Q, estimates M+forward FPERIOD, ratings/GICS/ownership snapshot, valuation,
+> profitability/leverage/payout/growth, options structure + news sentiment), E (treasury tail + verify).
+> **Can't-pull (entitlement, bucket F):** NFCI; short-interest pct-of-float + borrow; CDS_SPREAD_*;
+> rating watch/outlook; ESG scores; per-strike OI/greeks (use-theta); 7/14d & DAY-named long IV tenors;
+> nDAY_HV (used VOLATILITY_nD); BEST_PERIOD_END_DT; ZQ/BESIUSD/SOFR-Index (substitutes used).
+> Raw >100MB gitignored, committed gzipped (vol_term_rv). GDrive overflow folder ready (unused — all fit GitHub).
+
 Branch `claude/bloomberg-broad-pull-2026-06-17` off main @ 83eacdd. Per
 `docs/BLOOMBERG_PULL_LIST.md` + `docs/DATA_ACQUISITION_ROADMAP.md`. **Bloomberg pulls only —
 staged, monoliths + trio byte-untouched, held for review. No integration / engine / §9 wiring.**

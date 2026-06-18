@@ -61,6 +61,10 @@ not from 03-20.
 | **D · global vol + CDX** | `macro_rates/global_vol.csv` | V2X/VHSI/VNKY/VKOSPI + CDX IG/HY (IBOXUMAE/HYSE) | 2000→2026-06-18 · D | 6880 | vol 10–104; IG 44–152bp HY 269–871bp | ✅ |
 | **D · sector/factor ETFs** | `macro_rates/sector_factor_etfs_ohlcv.csv` | OHLCV, 15 ETFs (natural map) | 1998→2026-06-18 · D | 94,646 | high==max 1.0; XLRE 2015 XLC 2018 inception ✓ | ✅ |
 | **C · total-return + EOD bid/ask** | `per_name/returns_micro.csv` | TOT_RETURN_INDEX_NET_DVDS, PX_BID, PX_ASK | 2010→2026-06-18 · D | 1,874,882 (511 nm) | 70MB; tot_return 100%, bid/ask 99.5%; px_bid>px_ask 0.0000% | ✅ |
+| **C · ATM IV term + realized vol** | `per_name/vol_term_rv.csv.gz` | atm_iv_{30,60,90,180,365,730}d + rv_{10..260}d | 2010→2026-06-18 · D | 1,963,364 (510 nm) | 55MB gz (raw 183MB gitignored); cov 95–99%; 2y IV 79%; outliers flagged | ✅ |
+| **C · beta + shares-out** | `per_name/beta_shares.csv` | BETA_RAW_OVERRIDABLE + EQY_SH_OUT | 2010→2026-05-29 · M | 93,605 (510 nm) | beta median 1.004; adjusted-beta not entitled; outliers flagged | ✅ |
+| **C · PIT fundamentals (Q)** | `per_name/fundamentals_q.csv` | revenue/oper_inc/net_income/ebitda/eps/assets/liab/fcf/cfo/roe/nd_ebitda/gross_margin | 2010→2026-05-31 · Q | 31,479 (511 nm) | 79–100% cov; period-end dated (filing-lag PIT not captured) | ✅ |
+| **C · estimates + analyst (M)** | `per_name/estimates_m.csv` | best_eps/sales/ebitda/target/pe + best_rating + analyst_count | 2010→2026-05-29 · M | 92,680 (511 nm) | target/rating/count 99–100%; est levels ~21% (FPERIOD override re-pull queued) | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -93,15 +97,15 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 - [x] **T0-3 #354 dividend PIT** — `dividend_pit/sp500_dividend_yield_pit.csv` (72,461 rows, 421 nm, dated monthly). **Investigation: gap is "no dividend" not "missing"** (89/90 non-payers confirmed via DVD_HIST; BK 1-name field anomaly flagged). Fixes the lookahead. ✅
 
 ### C · P1 per-name catalog (the bulk — recent-first, resumable, commit-per-chunk)
-- [ ] ATM IV term + realized vol — `{30/60DAY,3/6/12/24MTH}_IMPVOL_100%MNY_DF` + `VOLATILITY_{10..260}D` (in progress → `per_name/vol_term_rv.csv`); `nDAY_HV` all-NaN, `VOLATILITY_nD` used; 7/14d & 90/180/365/730DAY all-NaN (MTH naming)
+- [x] ATM IV term + realized vol — `per_name/vol_term_rv.csv.gz` (1.96M rows) ✅
 - [x] total-return series — `per_name/returns_micro.csv` ✅
 - [x] EOD bid/ask history — `per_name/returns_micro.csv` (PX_BID/PX_ASK) ✅
-- [ ] beta history — `BETA_RAW_OVERRIDABLE` (adjusted all-NaN) + shares-out `EQY_SH_OUT` (monthly) · BDH
-- [ ] PIT financial statements + estimates — entitled IS_/BS_/CF_ + BEST_* (revenue→`SALES_REV_TURN`; `BEST_PERIOD_END_DT` all-NaN → BDH-Q date as period proxy) · BDH
-- [ ] valuation / profitability / leverage / FCF / growth families · BDH
+- [x] beta + shares-out — `per_name/beta_shares.csv` (BETA_RAW_OVERRIDABLE + EQY_SH_OUT) ✅
+- [x] PIT financial statements — `per_name/fundamentals_q.csv` (12 entitled IS_/BS_/CF_/ratio fields; period-end dated) ✅
+- [x] estimates + analyst — `per_name/estimates_m.csv` (best_eps/sales/ebitda/target/pe/rating/count) ✅; est-levels re-pull w/ FPERIOD override queued
+- [ ] valuation / profitability / leverage / FCF / growth — partly in fundamentals_q (roe/nd_ebitda/gross_margin) + estimates_m (best_pe); extend w/ more ratio fields
 - [ ] credit ratings + watch + outlook — `RTG_SP_LT_LC_ISSUER_CREDIT`/`RTG_MOODY_LONG_TERM` + `RATING_WATCH`/`RATING_OUTLOOK` · BDP
 - [ ] GICS full + institutional/float — `GICS_*`, `EQY_INST_PCT_SH_OUT`, `EQY_FREE_FLOAT_PCT` · BDP
-- [ ] analyst history — `BEST_ANALYST_RATING`/`BEST_TARGET_PRICE`/`TOT_ANALYST_REC` · BDH-M
 - [ ] earnings timing — `EXPECTED_REPORT_DT` (BDP); surprise via IS_EPS vs BEST_EPS (compute)
 - ⛔ CDS spreads — `CDS_SPREAD_5Y/1Y/10Y` all-NaN, not entitled → bucket F
 

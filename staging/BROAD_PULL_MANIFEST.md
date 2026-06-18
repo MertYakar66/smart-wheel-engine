@@ -50,6 +50,7 @@ not from 03-20.
 | **A · liquidity refresh** | `currency_refresh/sp500_liquidity__2026-06-05_2026-06-18.csv` | avg_vol_30d/turnover/shares_out | 06-05→06-18 · D | 5080 (508 nm) | overlap-to-cent (ex-KLAC + benign vol finalization <2%) | ✅ |
 | **A · vix_term refresh** | `currency_refresh/vix_term_structure__2026-06-05_2026-06-18.csv` | vix/vix_3m/vix_6m | 06-05→06-18 · D | 10 | overlap 06-04 Δ=0 exact; contango held | ✅ |
 | **B · VIX futures UX1–UX7** | `macro_vol/vix_futures_curve.csv` | PX_LAST: UX1..UX7 Index | 2006→2026-06-18 · D | 5150 | bands ux1 9.6–72.6 (2008/2020 spikes); contango 82% of days; upward tail | ✅ |
+| **B · T0-12 short interest** | `short_interest/sp500_short_interest.csv` | `SHORT_INTEREST` (shares) + `SHORT_INT_RATIO` (days-to-cover); biweekly | 2015→2026-05-29 · biweekly | 134,035 (509 nm) | SI median 7.4M sh; DTC median 2.92; pct-of-float + borrow **entitlement-blocked** (all-NaN) → bucket F | ✅ |
 
 Omitted: `NFCI Index` (BlpRequestError — not entitled).
 
@@ -78,7 +79,7 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 
 ### B · Quick single-series pulls
 - [x] **VIX futures UX1–UX7** — `macro_vol/vix_futures_curve.csv`, 5150 rows 2006→06-18, contango 82% ✅
-- [ ] **T0-12 short interest** — `EQY_SHORT_INTEREST`, `EQY_SHORT_INTEREST_PCT_OF_FLOAT`, `EQUITY_SHORT_BORROW_RATE_NET` · BDH
+- [x] **T0-12 short interest** — `short_interest/sp500_short_interest.csv`: `SHORT_INTEREST`+`SHORT_INT_RATIO` 134k rows ✅. pct-of-float + borrow **not entitled** (→ bucket F)
 - [ ] **T0-3 #354 dividend PIT** — investigate the 69% carry coverage: confirm the 31% is "no dividend" not "missing"; dated `EQY_DVD_YLD_12M`/`EQY_DVD_YLD_IND` to fill if missing · BDH
 
 ### C · P1 per-name catalog (the bulk — recent-first, resumable, commit-per-chunk)
@@ -115,6 +116,7 @@ current ATM IV rides the skew surface's `100%MNY_DF` column (06-17).
 
 ### F · Can't-pull / out-of-scope
 - ⛔ `NFCI Index` — not entitled (BlpRequestError)
+- ⛔ short-interest **pct-of-float** (`EQY_SHORT_INTEREST_PCT_OF_FLOAT`/`SI_PERCENT_FLOAT`/all variants) & **borrow rate** (`EQUITY_SHORT_BORROW_RATE_NET`/`COST_OF_BORROW`/`GC_RATE`/…) — all-NaN, no SLB entitlement at this tier (FLDS-by-value-count confirmed). `SHORT_INTEREST`+`SHORT_INT_RATIO` pulled instead; pct-of-shares-out derivable later from `EQY_SH_OUT`.
 - ⛔ per-strike OI / greeks / smile, intraday/tick tape — `use-theta` (OMON not mass-pullable)
 - ⛔ 13F / insider Form-4 / supply-chain / litigation, vol cones, Amihud λ — manual-OMON / EDGAR / client-side compute
 - ⛔ §9 wiring & FIX items (T0-1/4/8/10/11, W-1…W-6) — code work, **out of scope** (pulls-only rail)

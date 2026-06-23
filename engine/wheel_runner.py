@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from engine.risk_manager import DEFAULT_SECTOR_MAP
+from engine.risk_manager import resolve_sector
 
 if TYPE_CHECKING:
     from engine.wheel_tracker import WheelTracker
@@ -240,7 +240,7 @@ _CC_RANK_CORE_COLUMNS = [
     "days_to_earnings",
     "days_to_ex_div",
     "distribution_source",
-    "sector",  # S31 F2 / F6 closer — GICS sector per DEFAULT_SECTOR_MAP
+    "sector",  # S31 F2 / F6 closer — real gics_sector_name, DEFAULT_SECTOR_MAP fallback (#372)
 ]
 _CC_RANK_DIAGNOSTIC_COLUMNS = [
     "cvar_5",
@@ -289,7 +289,7 @@ _STRANGLE_RANK_CORE_COLUMNS = [
     "timing_score",
     "timing_recommendation",
     "distribution_source",
-    "sector",  # S31 F2 / F6 closer — GICS sector per DEFAULT_SECTOR_MAP
+    "sector",  # S31 F2 / F6 closer — real gics_sector_name, DEFAULT_SECTOR_MAP fallback (#372)
 ]
 _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
     "put_prob_profit",
@@ -1819,7 +1819,7 @@ class WheelRunner:
                 # (Info Tech / Cons Disc / Comm Svcs) and the ranker
                 # output offered no per-row sector tag for
                 # post-hoc verification.
-                "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
+                "sector": resolve_sector(ticker, fundamentals.get("sector")),
             }
             if include_diagnostic_fields:
                 row.update(
@@ -2748,7 +2748,7 @@ class WheelRunner:
                     "days_to_earnings": days_to_earn,
                     "days_to_ex_div": days_to_ex_div,
                     "distribution_source": method,
-                    "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
+                    "sector": resolve_sector(ticker, fundamentals.get("sector")),
                 }
                 if include_diagnostic_fields:
                     # Mirror the EVEngine dividend gate at
@@ -3376,7 +3376,7 @@ class WheelRunner:
                     "timing_score": timing_score,
                     "timing_recommendation": timing_recommendation,
                     "distribution_source": method,
-                    "sector": DEFAULT_SECTOR_MAP.get(ticker, "Unknown"),
+                    "sector": resolve_sector(ticker, fundamentals.get("sector")),
                 }
                 if include_diagnostic_fields:
                     # Per-leg risk — explicitly labelled, NOT summed (the

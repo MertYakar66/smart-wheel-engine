@@ -480,11 +480,21 @@ class EnginePhaseReviewer:
 
             nav = float(getattr(ctx, "nav", 0.0) or 0.0)
             if nav > 0 and proposed_notional > 0:
+                # #372: aggregate by the real GICS sector. ``ctx.sector_map``
+                # (built from the connector by the tracker) covers held names;
+                # merge the candidate's own GICS from its ranker row so the
+                # gate buckets it correctly even when it is not yet held.
+                # None → ``DEFAULT_SECTOR_MAP`` fallback (legacy behaviour).
+                gics_map = dict(getattr(ctx, "sector_map", None) or {})
+                cand_sector = ev_row.get("sector")
+                if cand_sector:
+                    gics_map.setdefault(dossier.ticker, cand_sector)
                 sector_result = check_sector_cap(
                     symbol=dossier.ticker,
                     proposed_notional=proposed_notional,
                     held_option_positions=getattr(ctx, "held_option_positions", []),
                     nav=nav,
+                    sector_map=gics_map or None,
                 )
                 if not sector_result.passed:
                     sector = sector_result.details.get("sector", "Unknown")

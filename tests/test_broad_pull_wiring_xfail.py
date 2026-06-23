@@ -94,40 +94,47 @@ def test_get_credit_risk_is_point_in_time():
 
 
 @needs_data
-@pytest.mark.xfail(
-    strict=True, reason="#372/C2: R9 sector grouping still uses DEFAULT_SECTOR_MAP, not real GICS"
-)
 def test_r9_sector_grouping_uses_real_gics():
-    """ACCEPTANCE (#372): the R9 sector manager resolves a served name's real
-    GICS sector instead of collapsing it to `'Unknown'`.
+    """ACCEPTANCE (#372, LANDED): R9 resolves a served name's real GICS sector
+    via the call-site ``sector_map`` (``resolve_sector`` / ``build_gics_sector_map``),
+    instead of collapsing off-``DEFAULT_SECTOR_MAP`` names to ``'Unknown'``.
 
-    Today `SectorExposureManager` binds `DEFAULT_SECTOR_MAP` (132/511 names), so
-    a name outside the map -> `'Unknown'` (audit C2). We pick such a name that
-    *does* carry a real GICS sector in the broad-pull snapshot and assert the
-    grouping equals it. Fails today (`'Unknown'` != real) -> xfail; flips when
-    #372 wires `gics_sector_name` as the R9 sector source.
-
-    If #372 lands the GICS map at the `check_sector_cap` call site rather than in
-    the default `SectorExposureManager()` construction, update this test to query
-    that path when removing the marker (see `docs/WIRING_CAMPAIGN.md` Phase 1).
+    #372 wired GICS at the ``check_sector_cap`` call site (not the default
+    ``SectorExposureManager()`` construction), so this queries that path — per
+    the marker-removal note this scaffold carried. The bare manager remains the
+    documented legacy fallback.
     """
-    from engine.risk_manager import DEFAULT_SECTOR_MAP, SectorExposureManager
+    from engine.risk_manager import (
+        DEFAULT_SECTOR_MAP,
+        GICS_11,
+        SectorExposureManager,
+        build_gics_sector_map,
+        resolve_sector,
+    )
 
     snap = BroadPullLoader().load("snapshot_bdp")
     assert snap is not None
-    # served names with a real GICS sector but absent from DEFAULT_SECTOR_MAP
+    # served names with a real (canonical) GICS sector but absent from DEFAULT_SECTOR_MAP
     cand = snap[snap["gics_sector"].notna()]
     gap = cand[~cand["ticker_normalized"].isin(DEFAULT_SECTOR_MAP.keys())]
-    assert not gap.empty, "expected names outside DEFAULT_SECTOR_MAP (the C2 gap)"
+    gap = gap[gap["gics_sector"].astype(str).str.strip().isin(GICS_11)]
+    assert not gap.empty, "expected canonical-GICS names outside DEFAULT_SECTOR_MAP (the C2 gap)"
     row = gap.iloc[0]
     name = str(row["ticker_normalized"])
     real_gics = str(row["gics_sector"]).strip()
 
-    mgr = SectorExposureManager()
-    resolved = str(mgr.get_sector(name)).strip()
-    assert resolved == real_gics, (
-        f"{name}: R9 sector {resolved!r} should be the real GICS {real_gics!r}, not 'Unknown'"
-    )
+    # resolver: GICS-primary beats the bare-map 'Unknown'
+    assert resolve_sector(name, real_gics) == real_gics
+
+    # call-site path: a connector-built sector_map threads the real GICS into the
+    # gate's SectorExposureManager (the seam #372 uses).
+    class _Stub:
+        def get_fundamentals(self, t):
+            return {"sector": real_gics} if t == name else None
+
+    sector_map = build_gics_sector_map(_Stub(), [name])
+    assert sector_map[name] == real_gics
+    assert SectorExposureManager(sector_map=sector_map).get_sector(name) == real_gics
 
 
 def test_scaffolds_are_xfail_not_skipped_when_data_present():

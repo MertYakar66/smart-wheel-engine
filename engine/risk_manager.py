@@ -10,6 +10,7 @@ Institutional-grade risk controls:
 - Correlation-aware diversification
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import UTC
 from enum import Enum
@@ -19,6 +20,8 @@ import pandas as pd
 from scipy import stats
 
 from .option_pricer import black_scholes_all_greeks
+
+logger = logging.getLogger(__name__)
 
 
 class PositionSizingMethod(Enum):
@@ -1721,6 +1724,79 @@ DEFAULT_SECTOR_MAP: dict[str, str] = {
     "DOW": "Materials",
     "NUE": "Materials",
 }
+
+
+# Canonical GICS 11 sectors — the only valid values of ``gics_sector_name``
+# and the grouping keys the GICS-aware R9 uses (W17 / #372). Vocabulary-
+# aligned with ``DEFAULT_SECTOR_MAP`` above and the set asserted by
+# ``tests/test_data_integrity_bloomberg.py``.
+GICS_11: frozenset[str] = frozenset(
+    {
+        "Energy",
+        "Materials",
+        "Industrials",
+        "Consumer Discretionary",
+        "Consumer Staples",
+        "Health Care",
+        "Financials",
+        "Information Technology",
+        "Communication Services",
+        "Utilities",
+        "Real Estate",
+    }
+)
+
+
+def resolve_sector(symbol: str, gics_value: object) -> str:
+    """Resolve a symbol's GICS sector for the R9 cap (#372).
+
+    Prefer the real ``gics_sector_name`` served by
+    ``MarketDataConnector.get_fundamentals(...)["sector"]`` when it is a
+    canonical GICS-11 value; fall back to the static ``DEFAULT_SECTOR_MAP``
+    (vocabulary-aligned to GICS-11) for names the feed omits; only then
+    ``"Unknown"``. ``"Unknown"`` is a *counted* miss (see
+    :func:`build_gics_sector_map`), never a silent default.
+    """
+    if gics_value is not None:
+        gics = str(gics_value).strip()
+        if gics in GICS_11:
+            return gics
+    return DEFAULT_SECTOR_MAP.get(symbol, "Unknown")
+
+
+def build_gics_sector_map(connector: object, symbols: list[str]) -> dict[str, str]:
+    """Build a ``{symbol: sector}`` map from the connector's real GICS (#372).
+
+    The per-run sector source the R9 gate / soft-warn and the ranker
+    ``sector`` column share, so the trader-facing label always matches the
+    bucket the gate aggregates by. Each symbol resolves via
+    :func:`resolve_sector` (GICS-11 primary → ``DEFAULT_SECTOR_MAP`` →
+    counted ``"Unknown"``). The count of ``"Unknown"`` fallbacks is logged,
+    never swallowed. ``connector`` is duck-typed: any object exposing
+    ``get_fundamentals(symbol) -> dict | None``.
+    """
+    sector_map: dict[str, str] = {}
+    unknown: list[str] = []
+    for symbol in dict.fromkeys(symbols):  # de-dupe, preserve order
+        gics: object = None
+        try:
+            fundamentals = connector.get_fundamentals(symbol)
+            if fundamentals:
+                gics = fundamentals.get("sector")
+        except Exception:
+            gics = None
+        sector = resolve_sector(symbol, gics)
+        sector_map[symbol] = sector
+        if sector == "Unknown":
+            unknown.append(symbol)
+    if unknown:
+        logger.info(
+            "build_gics_sector_map: %d/%d symbols have no GICS sector (counted Unknown): %s",
+            len(unknown),
+            len(sector_map),
+            ", ".join(sorted(unknown)),
+        )
+    return sector_map
 
 
 @dataclass

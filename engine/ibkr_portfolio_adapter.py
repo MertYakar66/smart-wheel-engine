@@ -65,6 +65,7 @@ from engine.portfolio_risk_gates import (
     check_stress_scenario,
     check_var,
 )
+from engine.risk_manager import resolve_sector
 from engine.wheel_tracker import WheelTracker
 
 # ----------------------------------------------------------------------
@@ -902,15 +903,18 @@ def _run_gates(ctx: PortfolioContext, holdings: list[dict], nav: float) -> dict:
         )
 
     # R9 sector: run check_sector_cap per option-bearing name and dedupe
-    # on the GICS sector the GATE itself derives (DEFAULT_SECTOR_MAP) —
-    # NOT the display sector — so two display sectors that the gate maps
-    # to the same GICS bucket don't double-report the same exposure.
+    # on the real GICS sector (#372). The gate aggregates by the holdings'
+    # display sector — validated to GICS-11 with the DEFAULT_SECTOR_MAP
+    # fallback — so the viewer's display sector and the gate's bucket agree
+    # (no DEFAULT_SECTOR_MAP-only re-derivation), and two names sharing a
+    # GICS bucket don't double-report exposure.
+    sector_map = {h["sym"]: resolve_sector(h["sym"], h.get("sector")) for h in holdings}
     sector_gates = []
     seen_gics: set[str] = set()
     for h in holdings:
         if h["state"] not in ("csp", "cc"):
             continue
-        res = check_sector_cap(h["sym"], 0.0, held, nav)
+        res = check_sector_cap(h["sym"], 0.0, held, nav, sector_map=sector_map)
         gics = str(res.details.get("sector", "Unknown"))
         if gics in seen_gics:
             continue

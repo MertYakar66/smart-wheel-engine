@@ -160,6 +160,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_data_quality.py` | `data/quality.py` chain gate — IV substring-match false-positive regression + real invalid-IV detection |
 | `test_data_integrity_bloomberg.py` | Phase-2A contract on the committed Bloomberg CSVs — NaN/duplicate/GICS/frontier checks |
 | `test_data_to_engine.py` | Phase-2B — real CSVs through both rankers; cascade source, drop accounting, thin/garbage degradation |
+| `test_broad_pull_loaders.py` | Phase-0B broad-pull loaders (`data/broad_pull_loaders.py`) — gz/winsorize/downcast/normalize units + real-data pins to the byte census (rows/range/tickers/schema per dataset, bid/ask ordering, no-consumer §2 guard) |
+| `test_broad_pull_wiring_xfail.py` | Phase 1-3 wiring acceptance scaffolds — `xfail(strict)` behaviour pins (#354 PIT `as_of`, #372 R9→GICS) that flip when the supervised wiring lands |
 | `test_deep_iv_sentinel.py` | R7 — deep-IV `134217.7` corruption sentinel nulled above floor; real distressed extremes preserved |
 | `test_deep_read_assembly_synthetic.py` | R2 deep-read assembly on synthetic gz fixtures — dedup precedence, multi-slice concat, default-OFF gate (CI-runnable) |
 | `test_deep_read_connector.py` | R2 deep-read flag plumbing + graceful degrade; 1994-assembly/delisted checks local-only (`SWE_DEEP_TEST_DATA`) |

@@ -14,6 +14,32 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-06-22 — Phase 0B broad-pull loaders (additive, dormant)
+
+The §2-safe plumbing slice of the wiring campaign (`docs/WIRING_CAMPAIGN.md`
+Phase 0B; branch `claude/phase0b-broad-pull-loaders-2026-06-22`). Makes the
+broad-pull data *loadable* but wires it into **no** consumer — anything that
+moves `EVEngine.evaluate` (Phase 1-3) is supervised, re-baseline-coupled, and
+out of scope here.
+
+### Added
+- `data/broad_pull_loaders.py` — `BroadPullLoader`, read-only loaders for the
+  27 net-new broad-pull datasets (gz handling, float32 downcast, logged
+  winsorization of the manifest's outlier-flagged columns, lazy per-ticker
+  access via normalized symbols). Dormant: not imported by the decision trio,
+  any risk gate/reviewer, or `ConsolidatedBloombergLoader.load_all`.
+- `data/bloomberg/broad_pull/` — the 27 net-new datasets integrated to their
+  connector-read location (byte-identical to `staging/` on the broad-pull
+  branch; the 0A frontier-refresh tails are deliberately excluded as EV-moving).
+- `tests/test_broad_pull_loaders.py` — 53 tests: synthetic units for the loader
+  logic + real-data tests pinning every dataset to the byte-verified manifest,
+  plus a structural guard that no decision-path module consumes the loader.
+
+### Docs
+- `docs/DATA_INVENTORY.md` §6 is the byte census; `FILE_MANIFEST.md` +
+  `docs/worklog/` updated. Coverage-omit adds the new loader (D10: research-tier
+  ETL off the decision path).
+
 ## 2026-06-09 — D27 repository restructure for agent navigability
 
 Full-repo structural pass (`DECISIONS.md` D27;

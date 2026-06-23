@@ -9,9 +9,9 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**139 records.**
+**140 records.**
 
-## Features (15)
+## Features (16)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -25,6 +25,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [ibkr-portfolio-viewer-functionality](ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md) | in-flight |  | Wired /portfolio to real data via a point-in-time IBKR snapshot → ibkr_portfolio_adapter (outside the trio) → six read-only /api/portfolio/* endpoints → the existing Next.js viewer; observational only, mock kept as typed fallback. | `ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md` |
 | [Phase-0B](phase0b-broad-pull-loaders.md) | held |  | 27 net-new broad-pull datasets integrated under data/bloomberg/broad_pull/ with a dormant BroadPullLoader + 53 tests; nothing consumes it (EV-moving wiring is Phase 1-3, supervised) | `phase0b-broad-pull-loaders.md` |
 | [Phase-1-spec](phase1-e-trio-spec.md) | held |  | docs-only turnkey spec for the supervised (E) trio (#372 R9→GICS, #369 IV-fallback clean, #378 IV-staleness+rate) verified vs origin/main; no engine code | `phase1-e-trio-spec.md` |
+| [Phase-2-spec](phase2-skew-spec.md) | held |  | docs-only turnkey spec for the supervised, EV-moving Phase 2 (moneyness IV skew surface → connector accessor → skew_dynamics sizing + option_pricer/ev_engine BSM-IV seam) verified vs origin/main @ 21e489d; no engine code | `phase2-skew-spec.md` |
 | [preflight-env-guard](preflight-env-guard-preflight-environment-invariant-guard-provider-d.md) | in-flight |  | New tests/test_preflight_environment.py — automates the two CLAUDE.md §4 session-start checks (provider is MarketDataConnector + logged; bundled OHLCV reaches the pinned frontier) so a stale tree / wrong clone / silent provider fails loud & diagnostically instead of poisoning a whole task | `preflight-env-guard-preflight-environment-invariant-guard-provider-d.md` |
 | [prob-profit-ci](prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md) | in-flight |  | prob_profit is a k/N binomial frequency over a small forward-scenario set (N~30-35 on the empirical non-overlapping path) but was reported to 4 decimals with no N and no interval — false precision (true 95% CI ~20pp wide; 30/35=0.857 -> Wilson [0.706,0.937]). Added ADDITIVE EVResult fields n_scenarios + prob_profit_ci_low/high (Wilson 95%) and ranker columns; prob_profit is unchanged. Reliability-honesty about PRECISION, not the gated recalibration. Trio (ev_engine + wheel_runner), additive -> lane-claim + independent §2 read. | `prob-profit-ci-surface-prob-profit-small-sample-uncertainty-n-s.md` |
 | [prob-profit-ci-propagate](prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md) | in-flight |  | Follow-up to the prob_profit Wilson-CI honesty fix — extends n_scenarios + the Wilson 95% CI from the put ranker to ALL consumers a trader actually reads: the covered-call + strangle rankers, the engine_api HTTP surface (/api/candidates camelCase + /api/tv/dossier ev_row pass-through), and the Ollama trade memo. Strictly additive; prob_profit/EV/verdict unchanged. Built by 3 file-disjoint agents in one shared worktree; verified by 207 passing tests on the integrated diff. | `prob-profit-ci-propagate-propagate-prob-profit-n-scenarios-wilson-ci-to-c.md` |

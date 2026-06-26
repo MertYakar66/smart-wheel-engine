@@ -352,12 +352,15 @@ the engine has the machinery but does not apply it to `prob_profit`.
 
 ### iv_surface integration decision
 
-- Theta `iv_surface/` (snapshot dir) coverage is **28/503 tickers**
-  (5.6% — mega-caps + sector ETFs only). Unchanged.
-- `iv_surface_history/` (history dir, distinct from the snapshot)
-  is now **381/503 tickers** on disk after the 2026-05-04 pull (see
-  §3.4). 122 tickers were rejected by strict mode (partial-coverage
-  per PR #58 design — prefer loud failure to silent partial data).
+- Theta `iv_surface/` (snapshot dir) coverage is **~502/503 symbols**
+  (Universe A + 8 ETFs) across 3 snapshot dates (2026-04-23 / 05-24 /
+  06-01) — 558 files / 364,192 rows _(disk-verified 2026-06-25; the older
+  "28/503 mega-caps only" figure was stale)_.
+- `iv_surface_history/` (daily history dir, distinct from the snapshot)
+  is a **stalled 4-name back-solve pilot** (A, AAPL, ABBV, ABNB) —
+  108 files / 53,725 rows. The earlier "381/503 tickers" claim never
+  reflected on-disk reality; per-strike IV history is 404/not-entitled
+  from Theta. Canonical counts: `docs/DATA_INVENTORY.md`.
 - The SVI tools in `engine/volatility_surface.py`
   (`VolatilitySurfaceBuilder`, `create_empirical_surface`,
   `SVICalibrator`) are exported but **have zero non-test callers as of
@@ -387,6 +390,12 @@ was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
 / 16 SKIP** (all expected per the `docs/DATA_POLICY.md` §2 tier matrix).
 
 **On-disk state of `data_processed/theta/` (new vs. prior session):**
+
+> ⚠️ **Superseded point-in-time snapshot (2026-05-04).** The table below records that pull
+> session and is now stale (e.g. `iv_surface` is 502 symbols not 28; `iv_surface_history` is a
+> 4-name pilot not 381; `options_flow` is no longer on disk; the 2026-06 enrichment added
+> `option_history`/`_deep365`/`_delisted`/`index_reference`). For the current disk-verified
+> inventory see **`docs/DATA_INVENTORY.md`**.
 
 | Directory | Tickers / Files | Δ vs 2026-04-23 manifest |
 |---|---|---|

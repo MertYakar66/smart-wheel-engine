@@ -46,16 +46,19 @@ prints a warning when the variable is unset and defaults to
 | Capability | `bloomberg` (CSVs in git) | `theta` (live Terminal) |
 |---|---|---|
 | Historical OHLCV | ✅ `data/bloomberg/sp500_ohlcv.csv` | ✅ stock EOD |
-| IV history | ✅ `sp500_vol_iv_full.csv` | ✅ |
+| IV history | ✅ `sp500_vol_iv_full.csv` (ATM) | ⚠ snapshot only — v3 IV/greeks **history is 404/not-entitled**; the `theta/iv_history` series we hold is `source=bloomberg` |
 | Liquidity | ✅ `sp500_liquidity.csv` | ⚠ derived |
 | Fundamentals | ✅ `sp500_fundamentals*.csv` | ❌ (not in v3) |
 | Option chains (live) | ❌ | ✅ requires Terminal @ `127.0.0.1:25503` |
-| First-order greeks | ❌ | ✅ |
+| First-order greeks | ❌ | ✅ live snapshot only (no greeks **history** — 404) |
 | VIX / SKEW EOD | ✅ | ✅ (EOD only — snapshots blocked) |
 | VIX futures (UX1–UX8) | ❌ | ❌ (tier-blocked) |
 | Corporate actions | ✅ | ❌ (not in v3) |
 
 Read this matrix before assuming a feature works on both providers.
+Per-strike greeks/IV exist on disk only as the 2026 `theta/chains` + `iv_surface`
+snapshots; the `theta/iv_history` series is ATM-only with `source=bloomberg` (not
+Theta-native), so there is **no** Theta greeks/IV history time series.
 
 ---
 

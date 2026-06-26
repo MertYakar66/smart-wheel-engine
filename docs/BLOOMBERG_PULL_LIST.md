@@ -23,13 +23,19 @@ you don't re-pull), see [`DATA_INVENTORY.md`](DATA_INVENTORY.md)._
 
 ## Tier 0 — pull these first (correctness blockers)
 
+> **⚠️ Many of these already landed (2026-06-26).** The 2026-06-17 broad pull is now **on `main`**
+> at `data/bloomberg/broad_pull/` (skew IV-surface, dated dividend-yield, macro calendar, short
+> interest, …) and corp-actions + the UST curve are populated on `main`. Several ☐ rows below are
+> therefore **already satisfied — wire, don't re-pull**. Check `DATA_INVENTORY.md` §6 (broad-pull
+> census) before pulling anything here.
+
 | ☐ | Dataset | Universe | Fields (FLDS-verify) | History · freq | Target file |
 |---|---|---|---|---|---|
 | ☐ | **Moneyness-IV grid (skew)** | Universe A | `30/60/90/180/365DAY_IMPVOL_{80,90,95,100,105,110,120}%MNY_DF` — **put & call legs** | 2005→now · D *(extend; deep 5×5 surface already on disk 2005-2026 — wire it, this adds breadth + recent)* | `sp500_iv_surface.csv` |
 | ☐ | **Dividend yield (dated/PIT)** | Universe A | `EQY_DVD_YLD_12M`, `EQY_DVD_YLD_IND` | 2015→now · D | `sp500_dividend_yield.csv` |
 | ☐ | **Macro-event calendar** | `FDTR`, `CPI YOY`, `NFP TCH`, `PCE`, `GDP CQOQ`, `NAPMPMI` Index | `ECO_RELEASE_DT`, `_EVENT`, `_ACTUAL`, `_SURVEY`, `_IMPORTANCE`, `_COUNTRY` | 2015→now + forward · E | `sp500_macro_calendar.csv` |
-| ☐ | **UST yield curve** | `USGG3M/6M/2YR/5YR/10YR/30YR` Index | `PX_LAST` | 1994→now · D *(file starts 2021-05 — backfill)* | `treasury_yields.csv` *(extend)* |
-| ☐ | **Corporate actions** | members(`SPX Index`) | `CAC_ANNOUNCEMENT_DATE`, `CAC_EFFECTIVE_DATE`, `CAC_TYPE`, `CAC_RATIO`, `CAC_AMOUNT` | 2015→now · E *(populated copy exists off-main — restore first, then top up)* | `sp500_corporate_actions.csv` *(empty)* |
+| ☑ | **UST yield curve** | `USGG3M/6M/2YR/5YR/10YR/30YR` Index | `PX_LAST` | **✅ DONE — `treasury_yields.csv` now 1994→2026 (R1/#338); no backfill needed** | `treasury_yields.csv` |
+| ☑ | **Corporate actions** | members(`SPX Index`) | `CAC_ANNOUNCEMENT_DATE`, `CAC_EFFECTIVE_DATE`, `CAC_TYPE`, `CAC_RATIO`, `CAC_AMOUNT` | **✅ on `main` — 52,442 rows (no pull/restore; wire the gate, Phase 3A)** | `sp500_corporate_actions.csv` *(populated)* |
 
 ---
 
@@ -131,11 +137,11 @@ you don't re-pull), see [`DATA_INVENTORY.md`](DATA_INVENTORY.md)._
 - **Deep OHLCV / vol-IV / liquidity / 5×5 IV surface, 1994/2005→2026** — in `data/bloomberg/deep/` (gitignored); wire into the connector.
 - **VVIX / SKEW / MOVE / GVZ / OVX / VXN, 2011→2026** — in `data_processed/vol_indices.parquet`.
 - **Per-strike option OI + OHLC, 2016→2026** — in Theta (`data_processed/theta/option_history*`, ~390M rows); **greeks/IV not held in history** (404/not-entitled — back-solve, or use the 2026 `chains`/`iv_surface` snapshots); wire into the dealer path.
-- **Corporate actions (873 KB populated)** — on branch `deep-history/bloomberg-raw`; restore rather than re-pull.
+- **Corporate actions — already on `main` (52,442 rows)** in `data/bloomberg/sp500_corporate_actions.csv` (the "off-main, restore" note is stale); only the `event_gate` wiring remains (`WIRING_CAMPAIGN.md` Phase 3A).
 
 ## No-pull implementation work (code, not data)
 
 See `DATA_ACQUISITION_ROADMAP.md` §9: wire the deep IV-surface archive → skew; add `as_of` to
 `get_fundamentals` (PIT dividend fix); wire Theta per-strike OI → `DealerPositioningAnalyzer`; land
-D19 (exit cost) + D21 (DTE→trading-bars) + recalibration together; restore corporate actions;
-backfill pre-2018 OHLCV from the deep archive.
+D19 (exit cost) + D21 (DTE→trading-bars) + recalibration together; wire corporate actions into the
+event gate (already on `main`); backfill pre-2018 OHLCV from the deep archive.

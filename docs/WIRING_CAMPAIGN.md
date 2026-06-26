@@ -14,11 +14,21 @@ engine code, touches no decision trio, and runs no re-baseline._
 - `docs/DATA_INVENTORY.md` — the census (regenerated alongside this doc; the staged datasets are its §6).
 - `CLAUDE.md` §2 — the invariant every step below obeys.
 
-> **What "banked" means here.** The ~25 datasets (31 staged files) are **staged on branch
-> `claude/bloomberg-broad-pull-2026-06-17`** under `staging/` — committed and pushed,
-> monoliths byte-untouched, **held for review, not on `main`**. Per-dataset bytes,
-> ranges, and row counts are in `docs/DATA_INVENTORY.md` §6 (byte-verified 2026-06-22).
-> Nothing below is wired today; this is the order in which to wire it.
+> **What "banked" means here — UPDATED 2026-06-26 (Phase 0B has landed).** The net-new
+> datasets are now **on `main`** at **`data/bloomberg/broad_pull/<bucket>/`** (27 files,
+> **byte-identical** to the `staging/<bucket>/` paths cited in the rows below), merged via
+> **PR #417** alongside `data/broad_pull_loaders.py` (`BroadPullLoader` — a read-only,
+> **dormant** loader; imported only by its tests, **not yet wired into the connector
+> accessors** the engine reads). So **read `data/bloomberg/broad_pull/…` wherever a row
+> below says `staging/…`**.
+>
+> **Two exceptions still branch-only** (`claude/bloomberg-broad-pull-2026-06-17` under
+> `staging/`, **not on `main`**): the **Phase 0A `currency_refresh/` tails** (OHLCV /
+> liquidity / vix-term / treasury, 2026-06-05→06-18) and **`staging/BROAD_PULL_MANIFEST.md`**.
+> Per-dataset bytes/ranges/counts are in `docs/DATA_INVENTORY.md` §6 (byte-verified
+> 2026-06-22). The data is now visible; **nothing below is *wired* yet** — this is the order
+> in which to wire it (Phase 0B = loaders, substantially landed; the EV move is each
+> later step that connects a loader to its consumer).
 
 ---
 
@@ -137,6 +147,14 @@ EV-moving** — the EV shift happens when a loader is *connected to a consumer* 
 > the spot/IV frontiers diverge — pin the 06-04→06-18 overlap.
 
 ### 0B — Net-new connector loaders (plumbing → not EV-moving until wired)
+
+> **Status 2026-06-26: substantially LANDED (PR #417).** `data/broad_pull_loaders.py`
+> (`BroadPullLoader`) now reads every net-new file below from `data/bloomberg/broad_pull/`
+> (gz-aware, winsorization-aware, lazy per-ticker series). It is **dormant** — imported only
+> by `tests/test_broad_pull_loaders.py` + `tests/test_broad_pull_wiring_xfail.py`, **0
+> callers in `engine/`**, and **not yet wired into `MarketDataConnector`'s `get_*` accessors**.
+> So the remaining 0B gap is exposing these loaders through the connector path each Phase-2/3
+> consumer reads; the rows below stand as the per-file consumer map.
 
 Each net-new staged file needs a connector loader before any Phase-2/3 step can consume
 it. Adding the loader is **PLAIN** and **not re-baseline-coupled** (nothing reads it yet);
@@ -358,7 +376,7 @@ and **every Phase-2/3 `ev_raw` shift**. Procedure (runbook Phase 3/4):
 | **W-2** | Fix PIT dividend lookahead | **Data ready** — Phase 3G wires the dated `dividend_pit` panel + `as_of` (the #354 unlock). |
 | **W-3** | Wire Theta per-strike OI → `DealerPositioningAnalyzer` | **Out of broad-pull** (Theta-sourced). The BBG P/C ratios (3I) are a coarse cross-check only. |
 | **W-4** | Land D19 exit-cost + D21 DTE→bars + recal | **Independent** decision change, **out of scope** for this data-wiring campaign. It is re-baseline-coupled too: to "ride the same Phase-R re-baseline" it must be given its **own pre-Phase-R CEREMONY landing** alongside the (E) trio; otherwise defer it to a **separate** re-baseline (do not assume it rides Phase R implicitly). |
-| **W-5** | Restore corporate-actions | **Data already present** on `main` (**52,442 rows** — not the 2-byte stub the stale inventory claimed); no restore/pull. The `event_gate` wiring is **scheduled as a Phase 3A row** above (EV-moving → re-baseline-coupled). |
+| **W-5** | Wire corporate-actions into the event gate | **Data already present** on `main` (**52,442 rows** — not the 2-byte stub the stale inventory claimed); no restore/pull. The `event_gate` wiring is **scheduled as a Phase 3A row** above (EV-moving → re-baseline-coupled). |
 | **W-6** | Pre-2018 OHLCV backfill from deep archive | **Out of broad-pull** (deep archive, gitignored). Separate effort; also re-baseline-coupled. |
 
 ---

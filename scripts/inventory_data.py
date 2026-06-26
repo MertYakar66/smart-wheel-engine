@@ -234,10 +234,25 @@ print(
     f"{theta['iv_surface_history']['date_min']}->{theta['iv_surface_history']['date_max']}"
 )
 
-# option_history (+ banded backup): expiration span from partitions, observation
-# span from 'created' column stats, totals from footers.
-for ds in ["option_history", "option_history_banded_backup_2026-06-01"]:
-    files = glob.glob(f"{THETA}/{ds}/ticker=*/expiration=*/*.parquet")
+# option_history-style partitioned trees: expiration span from partitions,
+# observation span from 'created' column stats, totals from footers.
+# index_reference nests under an extra option_history/ path segment; the
+# *_deep365 / *_delisted siblings use the same ticker=/expiration= layout.
+partitioned = [
+    ("option_history", f"{THETA}/option_history/ticker=*/expiration=*/*.parquet"),
+    (
+        "option_history_banded_backup_2026-06-01",
+        f"{THETA}/option_history_banded_backup_2026-06-01/ticker=*/expiration=*/*.parquet",
+    ),
+    ("option_history_deep365", f"{THETA}/option_history_deep365/ticker=*/expiration=*/*.parquet"),
+    ("option_history_delisted", f"{THETA}/option_history_delisted/ticker=*/expiration=*/*.parquet"),
+    (
+        "index_reference",
+        f"{THETA}/index_reference/option_history/ticker=*/expiration=*/*.parquet",
+    ),
+]
+for ds, pattern in partitioned:
+    files = glob.glob(pattern)
     tk = set()
     exps = set()
     for p in files:
@@ -263,6 +278,8 @@ for ds in ["option_history", "option_history_banded_backup_2026-06-01"]:
     theta[ds] = {
         "files": len(files),
         "tickers": len(tk),
+        # name the tickers explicitly when the set is small (curated subsets)
+        "ticker_list": sorted(tk) if 0 < len(tk) <= 20 else None,
         "expiration_min": min(exps) if exps else None,
         "expiration_max": max(exps) if exps else None,
         "obs_min_sampled": obs_lo,

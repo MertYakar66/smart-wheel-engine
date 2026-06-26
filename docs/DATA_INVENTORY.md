@@ -135,6 +135,9 @@ raw (unadjusted). `option_history` is a **LIVE pull and still growing**.
 |---|---|---|---|---|
 | `option_history/` | **Full-depth EOD option chains** — all strikes, C+P, OI; no greeks/IV. **LIVE, growing.** | expirations 2016-01-08 → 2026-08-21; obs 2016-01-04 → 2026-06-17 | **390,119,692** (71,027 files) | 154 |
 | `option_history_banded_backup_2026-06-01/` | EOD option chains, **Δ-banded** strikes + OI (static backup) | expirations 2016-01-15 → 2026-05-22; obs 2017-06-23 → 2026-05-22 (sampled) | 66,574,386 (51,729 files) | 503 |
+| `option_history_deep365/` | **Top-mega-cap term-structure depth** (0–365 DTE; Phase B). **Staging — out-of-ranker.** | expirations 2016-01-08 → 2026-06-18; obs 2016-01-04 → 2026-06-17 | 17,528,832 (1,682 files) | 8 |
+| `option_history_delisted/` | **Delisted/acquired-name survivor-bias chains** (Phase D). **Staging — out-of-ranker.** | expirations 2016-01-08 → 2024-02-16; obs 2016-01-04 → 2023-12-13 | 9,707,709 (1,834 files) | 10 |
+| `index_reference/option_history/` | **Index/ETF GEX-reference chains** (Phase C roots + SPY/QQQ Phase-2). **Out-of-ranker.** | expirations 2016-01-08 → 2026-07-31; obs 2016-01-04 → 2026-06-18 | 38,854,575 (1,853 files) | 6 |
 | `chains/` | Full-chain **snapshots** w/ greeks+IV+quotes+OI | snapshots 2026-04-23 → 2026-06-05 | 116,214 (1,521 files) | 495 |
 | `iv_surface/` | Per-name **IV-surface snapshots** (strike×right×δ×iv×mid×dte) | snapshots 2026-04-23 → 2026-06-01 | 364,192 (558 files) | 502 |
 | `iv_surface_history/` | **IV-surface daily time series** (pilot) | 2026-04-13 → 2026-06-03 | 53,725 (108 files) | 4 (A, AAPL, ABBV, ABNB) |
@@ -150,9 +153,16 @@ SPY, QQQ, DIA, IWM, XLE, XLF, XLK, XLV.
 
 > **`option_history` grew sharply** since the 2026-06-08 pass (≈185M rows / 70 names →
 > **390M rows / 154 names**) — the live puller has been running. `iv_history` is static at the
-> prior numbers (still ends 2026-03-20). `corporate_actions/` and `index_reference/` hold no
-> data (empty / manifest-only). **No Theta API was hit to produce this — only local parquet
-> footers were read.**
+> prior numbers (still ends 2026-03-20). The **three staging trees** `option_history_deep365`,
+> `option_history_delisted`, and `index_reference/option_history` were added by the 2026-06-17
+> enrichment run (`docs/THETA_ENRICH_RUNBOOK_2026-06-17.md`) — survivor-bias / term-structure /
+> index-GEX inputs that feed dormant subsystems and **never enter `rank_candidates_by_ev`**.
+> On-disk rosters are partial vs plan: deep365 8/20 (AAPL, AMZN, AVGO, GOOG, GOOGL, META, MSFT,
+> NVDA), delisted 10/45 (ABMD, ATVI, FRC, PXD, RE, SBNY, SGEN, SIVB, SPLK, TWTR), index_reference
+> 6 roots (NDX, QQQ, RUT, SPX, SPY, XSP — VIX root not yet present). Greeks/IV history is
+> **404 / not-entitled** (`docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md`), so every `option_history*`
+> tree carries EOD OHLC + bid/ask + OI only. Only `corporate_actions/` holds no data (Theta
+> corp-actions 404). **No Theta API was hit to produce this — only local parquet footers were read.**
 
 ---
 
@@ -251,6 +261,70 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 - **Entitlement-blocked (manifest bucket F, all-NaN — NOT pulled):** short-interest `pct_of_float` + borrow rate; `CDS_SPREAD_*`; rating `WATCH`/`OUTLOOK`; ESG scores; per-strike OI/greeks (use-Theta); `NFCI`; long IV tenors `7/14d` & DAY-named; `BEST_PERIOD_END_DT`. Substitutes used where noted (e.g. `SHORT_INTEREST`+`SHORT_INT_RATIO` for SI; `VOLATILITY_nD` for `nDAY_HV`).
 - **PIT shape:** per-name fundamentals/estimates are **period-end dated** (filing-lag PIT not captured); `snapshot_bdp` is a **single as-of (2026-06-18)** (ratings/GICS/ownership are current values, not history).
 - **Skew surface:** only moneyness `{90,95,100,105,110}` populate (wings `{80,120}` empty); the `100%MNY` column **is** current ATM IV.
+
+---
+
+## 7. Column schemas & dtypes (every dataset)
+
+Verified 2026-06-25 from the on-disk parquet **arrow schemas** and **pandas CSV dtype inference**.
+CSV dates are stored as strings; `volume` is `float64` in the Bloomberg/Theta-EOD CSVs (not int).
+Theta `option_history*` trees share one 22-column schema and carry **no greeks/IV**.
+
+### 7.1 Bloomberg monolith CSVs
+
+| File | Columns (dtype) |
+|---|---|
+| `sp500_ohlcv.csv` | `date`(str), `ticker`(str), `open` `high` `low` `close`(f64), `volume`(f64) |
+| `sp500_vol_iv_full.csv` | `date`(str), `hist_put_imp_vol` `hist_call_imp_vol`(f64), `volatility_30d` `_60d` `_90d` `_260d`(f64), `ticker`(str) |
+| `sp500_vol_dvd.csv` | `date`(str), `ticker`(str), `vol_30d` `dvd_yld` `turnover`(f64) |
+| `sp500_liquidity.csv` | `date`(str), `avg_vol_30d` `turnover` `shares_out`(f64), `ticker`(str) |
+| `sp500_historical_fundamentals.csv` | `date`(str), `ticker`(str), `pe_ratio` `eps` `revenue` `ebitda` `book_value_per_share`(f64) |
+| `sp500_macro.csv` | `date`(str), `open` `high` `low` `close`(f64), `instrument`(str) |
+| `sp500_sector_etfs.csv` | `date`(str), `open` `high` `low` `close`(f64), `volume`(f64), `etf`(str) |
+| `sp500_vix_full.csv` | `date`(str), `close`(f64), `instrument`(str) |
+| `vix_term_structure.csv` | `date`(str), `vix` `vix_3m` `vix_6m`(f64) |
+| `treasury_yields.csv` | `date`(str), `rate_1m` `rate_3m` `rate_6m` `rate_2y` `rate_5y` `rate_10y` `rate_30y` `sofr`(f64) |
+| `sp500_dividends.csv` | `declared_date` `ex_date` `record_date` `payable_date`(str), `dividend_amount`(f64), `dividend_frequency` `dividend_type`(str), `ticker`(str) |
+| `sp500_earnings.csv` / `_yf.csv` | `year/period`(str), `announcement_date` `announcement_time`(str), `earnings_eps` `comparable_eps` `estimate_eps`(f64), `ticker`(str) |
+| `sp500_corporate_actions.csv` | `announcement_date` `effective_date` `action_type`(str), `ratio` `amount`(f64), `ticker`(str) — _populated on `origin/main` (was an empty stub on the stale branch)_ |
+| `sp500_index_membership.csv` | `member_ticker_and_exchange_code`(str), `percentage_weight`(f64), `as_of_date`(str) |
+| `sp500_analyst.csv` | `best_analyst_rating` `best_eps` `best_sales` `best_target_price` `tot_analyst_rec`(f64), `ticker`(str) |
+| `sp500_credit_risk.csv` | `altman_z_score` `interest_coverage_ratio`(f64), `rtg_sp_lt_lc_issuer_credit`(str), `ticker`(str) |
+| `sp500_fundamentals.csv` / `_yf.csv` | `ticker`(str), `30day_impvol_100.0%mny_df` `best_pe_ratio` `beta_raw_overridable` `cur_mkt_cap` `eqy_dvd_yld_12m` `free_cash_flow_yield` `pe_ratio` `return_com_eqy` `tot_debt_to_tot_eqy` `volatility_30d`(f64), `gics_industry_group_name` `gics_sector_name`(str) |
+| `sp500_institutional.csv` | `eqy_free_float_pct` `eqy_inst_pct_sh_out` `eqy_sh_out`(f64), `ticker`(str) |
+| `sp500_iv_snapshot_today.csv` | `ticker`(str), `30day_impvol_100.0%mny_df` `60day_impvol_100.0%mny_df` `volatility_30d`(f64) |
+
+### 7.2 Bloomberg deep-history gz
+
+| File group | Columns (dtype) |
+|---|---|
+| `sp500_ohlcv__*.csv.gz` | `date`(str), `ticker`(str), `open` `high` `low` `close` `volume`(f64) |
+| `sp500_vol_iv*__*.csv.gz` | `date`(str), `hist_put_imp_vol` `hist_call_imp_vol` `volatility_30d` `_60d` `_90d` `_260d`(f64), `ticker`(str) |
+| `sp500_liquidity__*.csv.gz` | `date`(str), `avg_vol_30d` `turnover` `shares_out`(f64), `ticker`(str) |
+| `sp500_iv_surface__*.csv.gz` | `date`(str), `iv_{30,60,90,180,360}d_{90,95,100,105,110}`(f64) — 25 tenor×moneyness cols, `ticker`(str) |
+| `delisted_status.csv` | `ticker` `name` `window`(str), `ohlcv_rows` `voliv_rows` `liq_rows` `dropped`(i64), `status`(str) |
+| `ohlcv_dropped_ticks*.csv` | `date` `ticker`(str), `open` `high` `low` `close` `volume`(f64), `check_failed`/`which` `window`(str) |
+
+### 7.3 Theta parquet
+
+| Dataset | n | Columns (arrow type) |
+|---|---|---|
+| `option_history` / `_deep365` / `_delisted` / `index_reference` / banded backup | 22 | `symbol`(str), `expiration`(str), `strike`(f64), `right`(str), `created`(str), `last_trade`(str), `open` `high` `low` `close`(f64), `volume`(i64), `count`(i64), `bid_size`(i64), `bid_exchange`(i64), `bid`(f64), `bid_condition`(i64), `ask_size`(i64), `ask_exchange`(i64), `ask`(f64), `ask_condition`(i64), `open_interest`(f64), `ticker`(str) — **no greeks / IV** |
+| `chains` | 23 | `symbol` `expiration`(ts) `strike` `right` `delta` `theta` `vega` `rho` `epsilon` `lambda` `iv` `iv_error` `underlying_timestamp` `underlying_price` `bid` `ask` `bid_size` `ask_size` `open_interest` `mid` `ticker` `snapshot_date` (+ `__index_level_0__`) |
+| `index_options_chains` | 21 | as `chains` minus `iv_error`, `underlying_timestamp` |
+| `iv_surface` / `index_options_surfaces` | 10 | `strike`(f64) `right`(str) `delta`(f64) `iv`(f64) `mid`(f64) `expiration`(ts) `dte`(i64) `ticker`(str) `snapshot_date`(str) (+ `__index_level_0__`) |
+| `iv_surface_history` | 8 | `date`(ts) `ticker`(str) `expiration`(ts) `dte`(i64) `strike`(f64) `right`(str) `iv`(f64) `mid`(f64) |
+| `iv_history` | 4 | `iv_atm`(f64) `ticker`(str) `source`(str) `date`(ts) |
+| `option_ohlc` | 12 | `open` `high` `low` `close`(f64) `volume`(i64) `bid` `ask`(f64) `ticker`(str) `expiration`(str) `strike`(f64) `right`(str) `date`(ts) |
+| `stocks_eod` | 7 | `open` `high` `low` `close`(f64) `volume`(f64) `ticker`(str) `date`(ts) |
+| `vix_family` | 7 | `open` `high` `low` `close`(f64) `symbol`(str) `source`(str) `date`(ts) |
+
+### 7.4 Derived parquet
+
+| File | Columns (arrow type) |
+|---|---|
+| `vol_indices.parquet` | `date`(ts) `open` `high` `low` `close`(f64) `symbol`(str) `source`(str) |
+| `vol_indices_wide.parquet` | `date`(ts) + per-index closes: `gvz_close` `move_close` `ovx_close` `skew_close` `vix_close` `vix3m_close` `vix6m_close` `vix9d_close` `vvix_close` `vxn_close`(f64) |
 
 ---
 

@@ -1,9 +1,21 @@
 # Smart Wheel Engine - Data Specification
 
+> ⚠️ **STATUS: forward-looking design spec (v1.0), NOT current holdings.** Many datasets
+> below are **unbuilt** — `sp500_options_flow`, `sp500_realized_vol`, `sp500_earnings_enriched`,
+> `sp500_news_sentiment`, `sp500_factor_exposure`, `sp500_correlations`, `sp500_borrow_rates`,
+> `macro_events`, `etf_flows`, `sp500_intraday_5min`, `sp500_membership_history` do not exist on
+> disk. The datasets that *do* exist (Bloomberg CSVs, Theta parquet trees) differ in format and
+> columns from the partitioned Parquet layout drawn below (e.g. the real `sp500_ohlcv` is a single
+> split-adjusted CSV with no `vwap`/`adj_factor`). **For what is actually on disk — counts, date
+> ranges, real column schemas + dtypes — see `docs/DATA_INVENTORY.md`** (disk-verified). The
+> storage-architecture diagram and storage-estimate table below describe the *intended* layout, not
+> the current one.
+
 ## Overview
 
-This document defines the complete data architecture for the Smart Wheel Trading System.
-All data is stored in **Parquet format** with partitioning by ticker and date for scalability.
+This document defines the complete *target* data architecture for the Smart Wheel Trading System.
+The design stores data in **Parquet format** partitioned by ticker and date for scalability. (Current
+on-disk reality is a mix of Bloomberg CSVs + a Theta parquet tree — see the banner above.)
 
 ---
 

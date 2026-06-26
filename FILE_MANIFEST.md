@@ -285,6 +285,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
+| `docs/THETA_PULL_DATA_LOG.md` | Running prepend-log of Theta option-history pulls (names / titles / expiration spans only, no option data) maintained by the 30-min health-monitor loop; opens with a Theta-only FULL-INVENTORY quick-reference table (canonical inventory is `docs/DATA_INVENTORY.md`). |
+| `docs/DATA_INVENTORY.md` | Disk-verified inventory of every dataset held (Bloomberg monolith CSVs + deep gz history, Theta parquet trees, derived vol indices) — per-dataset title, date range, row/file/ticker counts, and full column schemas + dtypes. Regenerated from `scripts/inventory_data.py`. |
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
 | `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
@@ -568,6 +570,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/theta_backfill.py` | Tier-aware Theta bulk-backfill CLI with subcommands. |
 | `scripts/theta_health_check.py` | Theta Terminal health probe across every v3 endpoint the engine uses. |
 | `scripts/probe_theta_capabilities.py` | Probes the Theta tier and writes the capability map. |
+| `scripts/inventory_data.py` | One-off verified data-inventory pass over the Bloomberg + Theta corpora — reads actual CSV date columns and parquet footer/row-group stats (no value taken from any doc) and writes `data_processed/_inventory_scan.json`, the ground truth behind `docs/DATA_INVENTORY.md`. |
 | `scripts/backfill_features.py` | Recomputes the feature store for every universe ticker in parallel. |
 | `scripts/diagnose_candidates.py` | Read-only EV-ranker funnel report for zero-trade debugging. |
 | `scripts/diagnose_iv_surface.py` | Fail-loud SVI IV-surface diagnostic (ROADMAP A2 / `DECISIONS.md` D9) — first production caller of `engine/volatility_surface.py`; reports per-expiry skew / term-structure and exits non-zero on any uncovered ticker. Pure core unit-tested in `tests/test_iv_surface_failloud.py`; connector path operator-first-run-verified. |

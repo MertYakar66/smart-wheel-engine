@@ -56,7 +56,7 @@ described here is no longer accurate.
 |---|---|---|
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*`, `tests/test_evengine_event_lockout.py`, `tests/test_dealer_multiplier_evengine_integration.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_f4_tail_risk_gap.py`, `tests/test_consume_ranker_row_anchor.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R10** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R11** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**; **R11 elevated-vol top-bin size-down** — D23, VIX>25 + prob_profit>0.90 → review) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py`, `tests/test_r11_elevated_vol.py` |
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
@@ -229,12 +229,17 @@ the engine has the machinery but does not apply it to `prob_profit`.
 
 ### iv_surface integration decision
 
-- Theta `iv_surface/` (snapshot dir) coverage is **28/503 tickers**
-  (5.6% — mega-caps + sector ETFs only). Unchanged.
-- `iv_surface_history/` (history dir, distinct from the snapshot)
-  is now **381/503 tickers** on disk after the 2026-05-04 pull (see
-  §3.4). 122 tickers were rejected by strict mode (partial-coverage
-  per PR #58 design — prefer loud failure to silent partial data).
+- Theta `iv_surface/` (snapshot dir) coverage is **~502/503 symbols**
+  (Universe A + 8 ETFs) across 3 snapshot dates (2026-04-23 / 05-24 /
+  06-01) — 558 files / 364,192 rows _(disk-verified 2026-06-25; the older
+  "28/503 mega-caps only" figure was stale)_.
+- `iv_surface_history/` (daily history dir, distinct from the snapshot)
+  is a **stalled 4-name back-solve pilot** (A, AAPL, ABBV, ABNB) —
+  108 files / 53,725 rows, 2026-04-13 → 2026-06-03. The earlier
+  "381/503 tickers" claim never reflected on-disk reality; per-strike IV
+  history is 404/not-entitled from Theta (see
+  `docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md`). Canonical counts:
+  `docs/DATA_INVENTORY.md`.
 - The SVI tools in `engine/volatility_surface.py`
   (`VolatilitySurfaceBuilder`, `create_empirical_surface`,
   `SVICalibrator`) are exported but **have zero non-test callers as of
@@ -264,6 +269,12 @@ was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
 / 16 SKIP** (all expected per the `docs/DATA_POLICY.md` §2 tier matrix).
 
 **On-disk state of `data_processed/theta/` (new vs. prior session):**
+
+> ⚠️ **Superseded point-in-time snapshot (2026-05-04).** The table below records that pull
+> session and is now stale (e.g. `iv_surface` is 502 symbols not 28; `iv_surface_history` is a
+> 4-name pilot not 381; `options_flow` is no longer on disk; the 2026-06 enrichment added
+> `option_history`/`_deep365`/`_delisted`/`index_reference`). For the current disk-verified
+> inventory see **`docs/DATA_INVENTORY.md`**.
 
 | Directory | Tickers / Files | Δ vs 2026-04-23 manifest |
 |---|---|---|

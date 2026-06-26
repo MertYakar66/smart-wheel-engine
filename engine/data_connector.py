@@ -860,7 +860,7 @@ class MarketDataConnector:
     # Fundamentals
     # ------------------------------------------------------------------
 
-    def get_fundamentals(self, ticker: str) -> dict | None:
+    def get_fundamentals(self, ticker: str, as_of: str | pd.Timestamp | None = None) -> dict | None:
         """Get a fundamentals snapshot for *ticker*.
 
         Returns a dict with keys such as ``pe_ratio``, ``beta``,
@@ -876,6 +876,20 @@ class MarketDataConnector:
         convert to decimals first — and must divide UNCONDITIONALLY,
         since a value below 1.0 is an ordinary sub-1% reading, not an
         already-decimal value.
+
+        Point-in-time (``as_of``): when an ``as_of`` date is supplied, the
+        ``dividend_yield`` (the BSM carry-``q`` source) is resolved
+        **point-in-time** — the latest ``dvd_yld_12m`` on/before ``as_of``
+        from the dated ``broad_pull/dividend_pit`` panel — instead of the
+        current snapshot, closing the #354 / W-2 carry-``q`` lookahead. This
+        is the connector half of Phase 3G; ONLY ``dividend_yield`` is made
+        PIT here (the other fields remain the current snapshot pending broader
+        PIT wiring). ``as_of=None`` (the default — and the ranked path today,
+        since no consumer threads ``as_of`` yet) returns the snapshot unchanged,
+        so the change is backward-compatible and **not EV-moving** until the
+        supervised step threads ``as_of`` from ``wheel_runner``. The dated
+        panel falls back to the snapshot when absent / NaN at ``as_of`` (never
+        worse than today).
         """
         df = self._load("fundamentals")
         if df.empty:
@@ -884,7 +898,7 @@ class MarketDataConnector:
         if row.empty:
             return None
         r = row.iloc[0]
-        return {
+        out = {
             "ticker": ticker,
             "pe_ratio": r.get("pe_ratio"),
             "best_pe_ratio": r.get("best_pe_ratio"),
@@ -899,6 +913,44 @@ class MarketDataConnector:
             "volatility_30d": r.get("volatility_30d"),
             "implied_vol_atm": r.get("30day_impvol_100.0%mny_df"),
         }
+        if as_of is not None:
+            pit_yield = self._pit_dividend_yield(ticker, as_of)
+            if pit_yield is not None:
+                out["dividend_yield"] = pit_yield
+        return out
+
+    def _load_dividend_pit_panel(self) -> pd.DataFrame | None:
+        """The dated dividend-yield PIT panel (``broad_pull/dividend_pit``),
+        loaded lazily and cached on the instance. ``None`` when the broad-pull
+        data is absent (e.g. a fresh clone) — callers fall back to the snapshot.
+        Loaded via ``BroadPullLoader`` (the canonical broad-pull reader; the
+        same lazy ``engine -> data`` import pattern used in ``signal_context`` /
+        ``wheel_runner``)."""
+        if not hasattr(self, "_dividend_pit_panel"):
+            try:
+                from data.broad_pull_loaders import BroadPullLoader
+
+                self._dividend_pit_panel = BroadPullLoader().load("dividend_pit")
+            except Exception:
+                self._dividend_pit_panel = None
+        return self._dividend_pit_panel
+
+    def _pit_dividend_yield(self, ticker: str, as_of: str | pd.Timestamp) -> float | None:
+        """Latest dated ``dvd_yld_12m`` (PERCENT) on/before *as_of* for *ticker*
+        from the dividend-PIT panel, or ``None`` if unavailable. Same PERCENT
+        unit contract as the snapshot ``dividend_yield`` it overrides."""
+        panel = self._load_dividend_pit_panel()
+        if panel is None or panel.empty:
+            return None
+        key = normalize_ticker(ticker)
+        sub = panel[
+            (panel["ticker_normalized"] == key)
+            & (panel["date"] <= pd.Timestamp(as_of))
+            & (panel["dvd_yld_12m"].notna())
+        ]
+        if sub.empty:
+            return None
+        return float(sub.sort_values("date")["dvd_yld_12m"].iloc[-1])
 
     def get_credit_risk(self, ticker: str) -> dict | None:
         """Get credit risk metrics for *ticker*.

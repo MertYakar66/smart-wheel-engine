@@ -1121,7 +1121,26 @@ class WheelRunner:
             # to be dropped — the EV ranker silently returned zero rows.
             # We normalize to a decimal by dividing by 100 when the raw
             # value is clearly a percentage (>3) and guard NaN/None.
-            fundamentals = conn.get_fundamentals(ticker) or {}
+            # #354 / W-2 / Phase 3G: thread the ranker's ``as_of`` so the BSM
+            # carry-``q`` (dividend_yield, below) is point-in-time — the dated
+            # ``dividend_pit`` value as-of the backtest date, not the 2026
+            # snapshot. ``as_of=None`` (live ranking) keeps the snapshot, so
+            # live behaviour is unchanged; only historical backtests stop
+            # pricing ``q`` with hindsight. evaluate-input-correctness: a more
+            # correct input to EVEngine.evaluate, not a rescue path.
+            #
+            # Backward-compatible: connectors/stubs whose ``get_fundamentals``
+            # predates the ``as_of`` kwarg (ThetaConnector, ~15 test stubs)
+            # raise TypeError -> fall back to the snapshot signature, exactly
+            # as the IV-PIT helper degrades for connectors without
+            # ``get_iv_history``.
+            if as_of is None:
+                fundamentals = conn.get_fundamentals(ticker) or {}
+            else:
+                try:
+                    fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
+                except TypeError:
+                    fundamentals = conn.get_fundamentals(ticker) or {}
             iv = _resolve_pit_atm_iv(conn, ticker, as_of)
             if iv is None:
                 iv_raw = fundamentals.get("implied_vol_atm")

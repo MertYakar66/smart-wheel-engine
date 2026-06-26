@@ -15,6 +15,15 @@ here (not speculation):
   `as_of` so historical backtests read point-in-time values, not the 2026
   snapshot. (Runbook Phase 5 #354: "add `as_of` to `get_fundamentals` /
   `get_credit_risk` and thread it from `wheel_runner`.")
+  - **Status:** the `get_fundamentals` connector half **LANDED 2026-06-26** —
+    `as_of` resolves the dividend yield PIT from the dated `dividend_pit` panel
+    (backward-compatible: `as_of=None` is unchanged, so the ranked path and the
+    S27/S32/S34/S35 baselines do not move). Its xfail is dropped and the test is
+    a live gate. STILL PENDING (supervised): (a) threading `as_of` from
+    `wheel_runner` into the ranked path — the EV-moving / re-baseline-coupled
+    half; (b) `get_credit_risk` `as_of` — there is **no dated credit source**
+    (ratings are a single 2026 `snapshot_bdp` as-of), so its xfail stays put
+    rather than be flipped by a signature-only no-op (the false-green trap).
 * **#372 / W-17 / C2 / Phase 1** — the R9 sector grouping resolves a served
   name's **real GICS sector**, not the hardcoded `DEFAULT_SECTOR_MAP` `'Unknown'`
   bucket. (Audit C2; runbook 2A.)
@@ -47,14 +56,15 @@ needs_data = pytest.mark.skipif(
 
 
 @needs_data
-@pytest.mark.xfail(strict=True, reason="#354/Phase-3G: get_fundamentals not yet as_of-aware (PIT)")
 def test_get_fundamentals_is_point_in_time():
-    """ACCEPTANCE (#354): `get_fundamentals(ticker, as_of=...)` returns a
-    point-in-time dividend yield — historical != current snapshot.
+    """ACCEPTANCE (#354 connector half — LANDED 2026-06-26): `get_fundamentals(
+    ticker, as_of=...)` returns a point-in-time dividend yield — historical !=
+    current snapshot — sourced from the dated `broad_pull/dividend_pit` panel.
 
-    Today the accessor has no `as_of` (the lookahead, audit W2): the call raises
-    TypeError -> xfail. When #354 wires the dated dividend-yield panel (Phase 3G)
-    + threads `as_of`, the two dates differ -> XPASS -> drop the marker.
+    The connector PIT capability landed (xfail dropped); this is now a live
+    behaviour gate. The EV-moving step that *threads* `as_of` from `wheel_runner`
+    into the ranked path (so historical backtests price BSM `q` PIT) remains the
+    supervised Phase-3G change; the connector contract this test pins is met.
     """
     from engine.data_connector import MarketDataConnector
 

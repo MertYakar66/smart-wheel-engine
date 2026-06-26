@@ -380,12 +380,22 @@ def test_module_not_consumed_by_production():
     """§2 boundary, enforced structurally: no decision-path module imports the
     broad-pull loader. If a future wiring step adds such an import it is
     EV-moving (supervised) and this test must be updated deliberately.
+
+    DELIBERATE UPDATE 2026-06-26 (#354 connector half): `engine/data_connector.py`
+    is removed from the forbidden set because `get_fundamentals(as_of=...)` now
+    sources the PIT dividend yield from the `dividend_pit` panel via
+    `BroadPullLoader`. This consumption is **backward-compatible and not
+    EV-moving**: `as_of=None` (the only call the ranked path makes today) returns
+    the snapshot unchanged, so no S27/S32/S34/S35 baseline moves. The remaining
+    forbidden modules stay forbidden — threading `as_of` from `wheel_runner`
+    (the EV-moving half) and the skew/event-gate/regime/pricer/risk consumers are
+    still supervised Phase 1-3 wiring.
     """
     forbidden = [
         Path("engine/ev_engine.py"),
         Path("engine/wheel_runner.py"),
         Path("engine/candidate_dossier.py"),
-        Path("engine/data_connector.py"),
+        # engine/data_connector.py — removed 2026-06-26 (#354 connector PIT, see docstring)
         Path("engine/skew_dynamics.py"),
         Path("engine/event_gate.py"),
         Path("engine/regime_detector.py"),

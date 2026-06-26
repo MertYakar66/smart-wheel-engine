@@ -53,7 +53,7 @@ Corrected deltas (all byte-verified 2026-06-22):
 | `vix_term_structure.csv` | 2,094 · 2018→2026-03-20 | **9,200 · 1990-01-02→2026-06-04** |
 | `sp500_vix_full.csv` | 16,955 · →2026-03-20 | **17,274 · 2015-01-02→2026-06-05** |
 | `sp500_vol_dvd.csv` | 988,837 · →2026-03-20 | **988,837 · →2026-03-20 — UNCHANGED (laggard; not refreshed)** |
-| Theta `option_history/` | ≈185.2M rows · 70 nm | **390,119,692 rows · 154 nm** (live pull grew) |
+| Theta `option_history/` | ≈185.2M rows · 70 nm | **390,119,692 rows · 154 nm** (pull grew to completion) |
 
 > The broad-pull **currency refresh** (§6) carries each refreshed daily series further to
 > **2026-06-18** (latest bar = today, gate-confirmed) — staged, not yet integrated.
@@ -129,11 +129,12 @@ names, back to 1990). Byte-confirmed 2026-06-22 (unchanged from the prior pass).
 ## 3. Theta — option/market data (`data_processed/theta/`, gitignored, local-only)
 
 The unit is a directory of parquet shards; counts are byte-true as-of **2026-06-22**. All
-raw (unadjusted). `option_history` is a **LIVE pull and still growing**.
+raw (unadjusted). The `option_history` larder pull is **complete and static** (DONE flag
+2026-06-17; see `docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md`) — counts are a static snapshot.
 
 | File / path | Type / title | Date coverage (verified) | Rows | Names |
 |---|---|---|---|---|
-| `option_history/` | **Full-depth EOD option chains** — all strikes, C+P, OI; no greeks/IV. **LIVE, growing.** | expirations 2016-01-08 → 2026-08-21; obs 2016-01-04 → 2026-06-17 | **390,119,692** (71,027 files) | 154 |
+| `option_history/` | **Full-depth EOD option chains** — all strikes, C+P, OI; no greeks/IV. **Complete** (larder pull, DONE 2026-06-17). | expirations 2016-01-08 → 2026-08-21; obs 2016-01-04 → 2026-06-17 | **390,119,692** (71,027 files) | 154 |
 | `option_history_banded_backup_2026-06-01/` | EOD option chains, **Δ-banded** strikes + OI (static backup) | expirations 2016-01-15 → 2026-05-22; obs 2017-06-23 → 2026-05-22 (sampled) | 66,574,386 (51,729 files) | 503 |
 | `option_history_deep365/` | **Top-mega-cap term-structure depth** (0–365 DTE; Phase B). **Staging — out-of-ranker.** | expirations 2016-01-08 → 2026-06-18; obs 2016-01-04 → 2026-06-17 | 17,528,832 (1,682 files) | 8 |
 | `option_history_delisted/` | **Delisted/acquired-name survivor-bias chains** (Phase D). **Staging — out-of-ranker.** | expirations 2016-01-08 → 2024-02-16; obs 2016-01-04 → 2023-12-13 | 9,707,709 (1,834 files) | 10 |
@@ -152,7 +153,7 @@ raw (unadjusted). `option_history` is a **LIVE pull and still growing**.
 SPY, QQQ, DIA, IWM, XLE, XLF, XLK, XLV.
 
 > **`option_history` grew sharply** since the 2026-06-08 pass (≈185M rows / 70 names →
-> **390M rows / 154 names**) — the live puller has been running. `iv_history` is static at the
+> **390M rows / 154 names**) — the larder puller ran to completion (DONE flag 2026-06-17). `iv_history` is static at the
 > prior numbers (still ends 2026-03-20). The **three staging trees** `option_history_deep365`,
 > `option_history_delisted`, and `index_reference/option_history` were added by the 2026-06-17
 > enrichment run (`docs/THETA_ENRICH_RUNBOOK_2026-06-17.md`) — survivor-bias / term-structure /

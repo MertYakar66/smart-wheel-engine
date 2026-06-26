@@ -275,6 +275,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | File | Purpose |
 |---|---|
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
+| `docs/DATA_ACQUISITION_ROADMAP.md` | Forward-looking Bloomberg + Theta data-acquisition roadmap — what to pull, priority/feasibility tier, and the engine consumer for each field; tags present holdings as have-already / use-theta. |
+| `docs/BLOOMBERG_PULL_LIST.md` | Concrete Bloomberg pull checklist (BQL/BDH/BDP field lists by category) plus an "already on disk — do not re-pull" section. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
@@ -284,6 +286,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
 | `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
+| `docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md` | Live Theta v3 entitlement re-probe (2026-06-17) confirming greeks/IV history is 404/not-entitled, and the ranked next-pull decision; companion to the enrichment runbook. |
+| `docs/THETA_ENRICH_RUNBOOK_2026-06-17.md` | Operational runbook for the 5-phase 2026-06-17 Theta enrichment (BRKB / deep365 / index-reference / delisted / universe expansion) with the verified on-disk outcome. |
 | `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
 | `docs/THETA_PULL_DATA_LOG.md` | Running prepend-log of Theta option-history pulls (names / titles / expiration spans only, no option data) maintained by the 30-min health-monitor loop; opens with a Theta-only FULL-INVENTORY quick-reference table (canonical inventory is `docs/DATA_INVENTORY.md`). |
 | `docs/DATA_INVENTORY.md` | Disk-verified inventory of every dataset held (Bloomberg monolith CSVs + deep gz history, Theta parquet trees, derived vol indices) — per-dataset title, date range, row/file/ticker counts, and full column schemas + dtypes. Regenerated from `scripts/inventory_data.py`. |

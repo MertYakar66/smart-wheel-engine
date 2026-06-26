@@ -20,37 +20,49 @@ directly below the marker line.
 
 # THETA DATA — FULL INVENTORY (everything we have on disk, for Bloomberg matching)
 
-_Generated 2026-06-03. Total Theta footprint **3.4 GB** local-only (git-ignored, not on GitHub).
-This is a static reference (distinct from the rolling 4-hourly log below). Use it tomorrow to see
-which Theta datasets/names/dates you already hold so you can match/avoid re-pulling on Bloomberg._
+> **Canonical inventory is now `docs/DATA_INVENTORY.md`** (Bloomberg + Theta + derived, with
+> per-dataset column schemas/dtypes). This table is the Theta-only quick reference; keep it in sync
+> with that doc. **Refreshed 2026-06-25** from `scripts/inventory_data.py` (footer/row-group stats).
+
+_Total Theta footprint **≈ 12 GB** local-only (git-ignored, not on GitHub). This is a static reference
+(distinct from the rolling 4-hourly log below). Use it to see which Theta datasets/names/dates you
+already hold so you can match/avoid re-pulling on Bloomberg._
 
 **Shared universe:** unless noted, a dataset covers the **S&P 500 (~500 names)** = *Universe A* (listed
 once at the bottom). Small/special universes are spelled out inline.
 
-| # | Dataset (`data_processed/theta/…`) | Type / title | Symbols | Date coverage | Granularity | Files / size | Status |
+| # | Dataset (`data_processed/theta/…`) | Type / title | Symbols | Date coverage | Granularity | Files / size / rows | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | `option_history/` | **Full-depth EOD option chains** (ALL strikes, C+P) + open interest | 20 → 150 (Mag7-first) | exp **2016-01-08 … 2026-06-01** | one (ticker,expiration) = full chain EOD | 4,621 / 1.1 GB | **LIVE — in progress** (see rolling log) |
-| 2 | `option_history_banded_backup_2026-06-01/` | **EOD option chains, Δ-BANDED strikes** (not full depth) + OI | **503** (Universe A) | exp **2016-01-15 … 2026-05-22** | one (ticker,expiration) | 51,729 / **2.2 GB** | COMPLETE (prior pull, backed up 06-01) |
-| 3 | `chains/` | Full option-chain **snapshots** w/ greeks+IV+quotes+OI | 495 | snaps **2026-04-23, 05-24, 06-01** | point-in-time chain | 1,482 / 32 MB | COMPLETE (3 snapshots) |
-| 4 | `iv_surface/` | Per-name **IV surface snapshots** (strike×right×δ×iv×mid×dte) | 502 (Univ A + 8 ETFs) | snaps **04-23, 05-24, 06-01** | point-in-time surface | 558 / 14 MB | COMPLETE |
-| 5 | `iv_surface_history/` | **IV surface TIME-SERIES** (daily) | **4 only** (A, AAPL, ABBV, ABNB) | **2026-04-13 … 05-22** | daily, ticker/year/date | 107 / 1.5 MB | PILOT (4 names) |
-| 6 | `iv_history/` | **ATM-IV TIME-SERIES** (daily `iv_atm`) | 497 (Universe A) | **2015-01-02 … 2026-03-20** (~11 yr) | daily per name | 497 / 25 MB | COMPLETE — long history |
-| 7 | `index_options_chains/` | Index-option full-chain snapshots (greeks+IV+OI) | 8 indices* | snaps **04-23, 05-24, 06-01** | point-in-time | 21 / 964 KB | COMPLETE |
-| 8 | `index_options_surfaces/` | Index-option IV surfaces | 8 indices* | snaps **04-23, 05-24, 06-01** | point-in-time | 21 / 1.6 MB | COMPLETE |
-| 9 | `option_ohlc/` | **Per-contract daily OHLC + bid/ask** (selected contracts) | 502 | bars **~2026-05-07 … 05-22**; 4 expirations | per-contract daily | 1,507 / 15 MB | COMPLETE — narrow window |
-| 10 | `stocks_eod/` | **Equity EOD OHLCV** (underlying stock bars) | 493 (Universe A) | **2024-04-23 … 2026-03-20** (~2 yr) | daily per name | 493 / 12 MB | COMPLETE |
-| 11 | `vix_family/` | VIX term-structure index OHLC | VIX, VIX3M, VIX6M, VIX9D | **2023-04-24 … 2026-04-22** | daily | 1 / 52 KB | COMPLETE |
+| 1 | `option_history/` | **Full-depth EOD option chains** (ALL strikes, C+P) + open interest | **154** (149 larder + BRKB + 4 orphans) | exp **2016-01-08 … 2026-08-21**; bars ~2016 → 2026-06-17 | one (ticker,expiration) = full chain EOD | 71,027 files / 7.7 GB / **390,119,692** | **COMPLETE** (larder pull, DONE flag 2026-06-17) |
+| 2 | `option_history_banded_backup_2026-06-01/` | **EOD option chains, Δ-BANDED strikes** (not full depth) + OI | **503** (Universe A) | exp **2016-01-15 … 2026-05-22** | one (ticker,expiration) | 51,729 files / 2.2 GB / 66,574,386 | COMPLETE (prior pull, backed up 06-01) |
+| 2a | `option_history_deep365/` ⭑NEW | EOD chains, **0–365 DTE term-structure depth** (Phase B); **staging, out-of-ranker** | **8** (AAPL, AMZN, AVGO, GOOG, GOOGL, META, MSFT, NVDA) | exp **2016-01-08 … 2026-06-18** | one (ticker,expiration) | 1,682 files / 368 MB / 17,528,832 | COMPLETE (staging) |
+| 2b | `option_history_delisted/` ⭑NEW | EOD chains for **delisted / acquired names** (Phase D survivor-bias); **staging, out-of-ranker** | **10** (ABMD, ATVI, FRC, PXD, RE, SBNY, SGEN, SIVB, SPLK, TWTR) | exp **2016-01-08 … 2024-02-16** | one (ticker,expiration) | 1,834 files / 164 MB / 9,707,709 | COMPLETE (staging) |
+| 2c | `index_reference/option_history/` ⭑NEW | **Index / ETF GEX-reference chains** (Phase C + SPY/QQQ Phase-2); **out-of-ranker** | **6** (NDX, QQQ, RUT, SPX, SPY, XSP) | exp **2016-01-08 … 2026-07-31** | one (ticker,expiration) | 1,853 files / 737 MB / 38,854,575 | COMPLETE |
+| 3 | `chains/` | Full option-chain **snapshots** w/ greeks+IV+quotes+OI | 495 | snaps **2026-04-23, 05-24, 06-01, 06-05** | point-in-time chain | 1,521 files / 32 MB / 116,214 | COMPLETE (4 snapshots) |
+| 4 | `iv_surface/` | Per-name **IV surface snapshots** (strike×right×δ×iv×mid×dte) | 502 (Univ A + 8 ETFs) | snaps **04-23, 05-24, 06-01** | point-in-time surface | 558 files / 14 MB / 364,192 | COMPLETE |
+| 5 | `iv_surface_history/` | **IV surface TIME-SERIES** (daily, back-solve) | **4 only** (A, AAPL, ABBV, ABNB) | **2026-04-13 … 2026-06-03** | daily, ticker/year/date | 108 files / 1.5 MB / 53,725 | PILOT (4 names) |
+| 6 | `iv_history/` | **ATM-IV TIME-SERIES** (daily `iv_atm`) | 497 (Universe A) | **2015-01-02 … 2026-03-20** (~11 yr) | daily per name | 497 files / 25 MB / 1,291,775 | COMPLETE — long history |
+| 7 | `index_options_chains/` | Index-option full-chain snapshots (greeks+IV+OI) | 8 indices* | snaps **04-23, 05-24, 06-01** | point-in-time | 21 files / 964 KB / 8,508 | COMPLETE |
+| 8 | `index_options_surfaces/` | Index-option IV surfaces | 8 indices* | snaps **04-23, 05-24, 06-01** | point-in-time | 21 files / 1.6 MB / 66,230 | COMPLETE |
+| 9 | `option_ohlc/` | **Per-contract daily OHLC + bid/ask** (selected contracts) | 502 | bars **~2026-02-23 … 05-22**; 4 expirations | per-contract daily | 1,507 files / 15 MB / 46,886 | COMPLETE — narrow window |
+| 10 | `stocks_eod/` | **Equity EOD OHLCV** (underlying stock bars) | 493 (Universe A) | **2024-04-23 … 2026-03-20** (~2 yr) | daily per name | 493 files / 12 MB / 233,912 | COMPLETE |
+| 11 | `vix_family/` | VIX term-structure index OHLC | VIX, VIX3M, VIX6M, VIX9D | **2023-04-24 … 2026-04-22** | daily | 1 file / 52 KB / 3,030 | COMPLETE |
 | 12 | `../vol_indices.parquet` (+ `_wide`) | **Vol-index time series** (long + wide) | VIX, VVIX, SKEW, MOVE, GVZ, OVX, VXN, VIX3M/6M/9D | daily (35,062 long / 3,783 wide rows) | daily | 548 KB | COMPLETE |
 
 \* **Index universe (8):** SPX, SPXW, NDX, RUT, DJX, VIX, XSP, AAPL.  
 **iv_surface ETF add-ons (8):** SPY, QQQ, DIA, IWM, XLE, XLF, XLK, XLV.  
-**Empty / not pulled:** `data_processed/corporate_actions/` is an empty dir (Theta corp-actions never produced output).
+**⭑NEW staging trees (2a/2b/2c)** were added by the 2026-06-17 enrichment run
+(`docs/THETA_ENRICH_RUNBOOK_2026-06-17.md`); they feed dormant subsystems (skew / tail-calibration /
+dealer-GEX) and **never enter `rank_candidates_by_ev`**. On-disk rosters are partial vs plan
+(deep365 8/20, delisted 10/45, index_reference 6 roots; VIX root not yet present).  
+**Empty / not pulled:** Theta corp-actions never produced output (404); there is **no**
+`corporate_actions/` dir under `data_processed/theta/`.
 
 ### Field schemas (so you know which Bloomberg fields to match)
 
-- **option_history & banded_backup** (22): `symbol, expiration, strike, right, created, last_trade, open, high, low, close, volume, count, bid_size, bid_exchange, bid, bid_condition, ask_size, ask_exchange, ask, ask_condition, open_interest, ticker` — EOD OHLC + quote (bid/ask w/ size, exchange, condition) + volume/count + OI. **No greeks/IV** in these.
-- **chains** (23): `symbol, expiration, strike, right, delta, theta, vega, rho, epsilon, lambda, iv, iv_error, underlying_timestamp, underlying_price, bid, ask, bid_size, ask_size, open_interest, mid, ticker, snapshot_date` — greeks (Δ,Θ,V,ρ,ε,λ) + IV + quotes + OI. **Snapshot only** (3 dates).
-- **iv_surface / index_options_surfaces** (10): `strike, right, delta, iv, mid, expiration, dte, ticker, snapshot_date`.
+- **option_history, banded_backup, deep365, delisted, index_reference** (22, identical schema): `symbol, expiration, strike, right, created, last_trade, open, high, low, close, volume, count, bid_size, bid_exchange, bid, bid_condition, ask_size, ask_exchange, ask, ask_condition, open_interest, ticker` — EOD OHLC + quote (bid/ask w/ size, exchange, condition) + volume/count + OI. **No greeks/IV** in these (greeks/IV history is 404/not-entitled at this tier).
+- **chains** (22 data fields + 1 `__index_level_0__` pandas index = 23 cols on disk): `symbol, expiration, strike, right, delta, theta, vega, rho, epsilon, lambda, iv, iv_error, underlying_timestamp, underlying_price, bid, ask, bid_size, ask_size, open_interest, mid, ticker, snapshot_date` — greeks (Δ,Θ,V,ρ,ε,λ) + IV + quotes + OI. **Snapshot only** (4 dates).
+- **iv_surface / index_options_surfaces** (9 data fields + 1 `__index_level_0__` pandas index = 10 cols on disk): `strike, right, delta, iv, mid, expiration, dte, ticker, snapshot_date`.
 - **iv_surface_history** (8): `date, ticker, expiration, dte, strike, right, iv, mid`.
 - **iv_history** (4): `iv_atm, ticker, source, date` — single ATM-IV per day, **11-yr history**.
 - **option_ohlc** (12): `open, high, low, close, volume, bid, ask, ticker, expiration, strike, right, date`.
@@ -58,7 +70,7 @@ once at the bottom). Small/special universes are spelled out inline.
 - **vix_family / vol_indices** (7): `open, high, low, close, symbol, source, date`; `vol_indices_wide` has per-index close columns (`vix_close, vvix_close, skew_close, move_close, gvz_close, ovx_close, vxn_close, vix3m_close, vix6m_close, vix9d_close`).
 
 ### Quick read for Bloomberg matching
-- **Deepest historical asset:** the **Δ-banded option backup (#2)** — 503 names, 2016→2026, EOD OHLC+quotes+OI but **no greeks/IV**. The **live pull (#1)** is re-doing a 150-name subset at *full* strike depth (same fields).
+- **Deepest historical asset:** the **full-depth larder (#1)** — 154 names, 2016→2026, all-strikes EOD OHLC+quotes+OI (390.1M rows), **no greeks/IV**; the **Δ-banded backup (#2)** covers all 503 names at banded strike depth (same fields). Both pulls are **complete** (larder DONE 2026-06-17).
 - **Greeks/IV exist only as recent snapshots** (#3,#4,#7,#8 — three dates Apr–Jun 2026) plus the **11-yr ATM-IV series (#6)** and a **4-name daily IV-surface pilot (#5)**. If you need historical greeks/IV across the universe, Bloomberg is the gap-filler.
 - **Equity OHLCV (#10)** only goes back ~2 yr (2024-04→2026-03); **ATM-IV (#6)** and **vol indices (#12)** go back to 2015.
 

@@ -45,7 +45,7 @@ you don't re-pull), see [`DATA_INVENTORY.md`](DATA_INVENTORY.md)._
 | ☐ | IV rank / percentile | Universe A | `IMPVOL_RANK` ⚠ or derive 252d pct of ATM IV | 2010→now · D | `sp500_iv_rank.csv` |
 | ☐ | Single-name IV indices (P3) | mega-caps | `AAPLV/NVDAV/TSLAV…` Index ⚠ | as avail · D | `sp500_singlename_ivx.csv` |
 
-> Per-strike OI / greeks / smile is **not on Bloomberg** (OMON manual only) — source from **Theta** (we already hold ~185M EOD-chain rows, 2016-2026).
+> Per-strike OI / greeks / smile is **not on Bloomberg** (OMON manual only) — source from **Theta** (we already hold **~390M** EOD-chain rows, 2016-2026). Note: Theta's EOD history is **OI + OHLC only, no greeks/IV** (404/not-entitled); greeks are back-solved.
 
 ## B · Equity pricing & microstructure
 
@@ -130,7 +130,7 @@ you don't re-pull), see [`DATA_INVENTORY.md`](DATA_INVENTORY.md)._
 
 - **Deep OHLCV / vol-IV / liquidity / 5×5 IV surface, 1994/2005→2026** — in `data/bloomberg/deep/` (gitignored); wire into the connector.
 - **VVIX / SKEW / MOVE / GVZ / OVX / VXN, 2011→2026** — in `data_processed/vol_indices.parquet`.
-- **Per-strike option OI / greeks / IV, 2016→2026** — in Theta (`data_processed/theta/`, ~185M rows); wire into the dealer path.
+- **Per-strike option OI + OHLC, 2016→2026** — in Theta (`data_processed/theta/option_history*`, ~390M rows); **greeks/IV not held in history** (404/not-entitled — back-solve, or use the 2026 `chains`/`iv_surface` snapshots); wire into the dealer path.
 - **Corporate actions (873 KB populated)** — on branch `deep-history/bloomberg-raw`; restore rather than re-pull.
 
 ## No-pull implementation work (code, not data)

@@ -445,6 +445,107 @@ def test_seam_continuity_and_reticker():
 
 
 # ---------------------------------------------------------------------------
+# OHLCV scale-corruption (split-adjustment seam misalignment) — A8
+# (supervised-block A8 / docs/IBKR_EV_CALIBRATION.md §; IBKR Phase-3 finding)
+#
+# A split-ADJUSTED series should be continuous. Two names carry a split-sized
+# jump at the 2026-03-23 reconstitution seam because the post-seam tail is
+# split-adjusted while the pre-seam history was left UNADJUSTED — the split
+# shows at the seam instead of being back-adjusted across the full history:
+#   BKNG — 25:1 split (announced 2026-02-18, effective 2026-04-06): seam ratio
+#          ~1/24.4 (4286.81 -> 175.87 on the canonical close).
+#   CVNA — 5:1 split (effective 2026-05-08):                         seam ratio
+#          ~1/4.7  (283.28 -> 59.92).
+# The engine mis-ranks both in the affected window: pre-seam spot is 25x/5x the
+# post-seam scale, so moneyness/prob_profit are garbage (IBKR calibration found
+# the same 3 names; its moneyness gate drops them). Fix is at the PULL (re-pull
+# with continuous split adjustment), then lift the exclusions.
+#
+# NFLX is a DIFFERENT defect and is deliberately NOT covered here: Bloomberg AND
+# Theta both price it ~$91 (the two vendors agree); only the IBKR broker strikes
+# (~$1075) disagree. It is a vendor<->broker scale-convention mismatch invisible
+# to any vendor-data integrity test, already gated by the moneyness check in
+# scripts/ibkr_ev_calibration.py (`0.5 <= strike/spot <= 1.5`). A vendor-data
+# scale test cannot and should not claim to catch it.
+#
+# Coverage boundary (honest): this catches WITHIN-series breaks > ~4x only.
+#   - A UNIFORM whole-series mis-scale (NFLX-class) has no internal jump -> not
+#     here. A Bloomberg-vs-Theta cross-check on their common 2026-03-20 bar found
+#     0 vendor disagreements >10% across 493 names, so no such name hides today.
+#   - A SMALL-ratio (<=3:1) split misalignment is indistinguishable by magnitude
+#     from an ordinary daily move (a 1.25:1 target of 0.8 matches any -20% day),
+#     so it cannot be caught from the price series alone. The band is the only
+#     clean discriminator; the two-sided pin below catches the catchable growth.
+# ---------------------------------------------------------------------------
+
+# Adjacent-trading-day close-ratio band that separates a SCALE break from the
+# worst REAL single-day equity move. Below 0.25 / above 4.0 is not a price move
+# any S&P 500 name makes in a day — the real -53% blowups (GL 2024-04-11,
+# OXY + TRGP 2020-03-09 oil crash, PCG 2019-01-14 bankruptcy) all sit at ~0.47,
+# comfortably inside the band; the split-seam misalignments (~0.04 / ~0.21) sit
+# below it. gap<=7d excludes delisting re-entry gaps (e.g. SMCI 2018->2020).
+_SCALE_BREAK_LO = 0.25
+_SCALE_BREAK_HI = 4.0
+_SCALE_BREAK_MAX_GAP_DAYS = 7
+
+# Confirmed scale-corrupted (ticker, date-of-break). Re-pull fix = supervised A8.
+KNOWN_SCALE_BREAKS = {("BKNG", "2026-03-23"), ("CVNA", "2026-03-23")}
+
+
+@cache
+def _intraseries_scale_breaks() -> frozenset[tuple[str, str]]:
+    """(normalized ticker, break-date) for every adjacent-trading-day close jump
+    outside ``[_SCALE_BREAK_LO, _SCALE_BREAK_HI]`` with the prior bar within
+    ``_SCALE_BREAK_MAX_GAP_DAYS``. Uses the connector-canonical close (CSV
+    ``high`` column post-rename) — the spot the engine actually ranks on."""
+    df = _ohlcv_canonical()[["ticker", "close"]].copy()
+    df["nt"] = df["ticker"].map(normalize_ticker)
+    df["d"] = pd.to_datetime(_ohlcv_canonical()["date"], errors="coerce")
+    df = df.dropna(subset=["close", "d"]).sort_values(["nt", "d"])
+    prev_c = df.groupby("nt", sort=False)["close"].shift()
+    prev_d = df.groupby("nt", sort=False)["d"].shift()
+    gap = (df["d"] - prev_d).dt.days
+    ratio = df["close"] / prev_c
+    mask = (
+        prev_c.gt(0)
+        & df["close"].gt(0)
+        & gap.le(_SCALE_BREAK_MAX_GAP_DAYS)
+        & ((ratio < _SCALE_BREAK_LO) | (ratio > _SCALE_BREAK_HI))
+    )
+    return frozenset(
+        (nt, str(d)[:10]) for nt, d in zip(df.loc[mask, "nt"], df.loc[mask, "d"], strict=False)
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="A8 (docs/IBKR_EV_CALIBRATION.md): BKNG 25:1 (eff 2026-04-06) + CVNA 5:1 "
+    "(eff 2026-05-08) splits appear as a scale break at the 2026-03-23 seam "
+    "instead of being back-adjusted (pre-seam unadjusted, post-seam adjusted). "
+    "Fix at the re-pull; this flips green when the series is continuous.",
+)
+def test_ohlcv_no_split_adjustment_scale_breaks():
+    """No name carries an adjacent-trading-day close jump beyond a plausible
+    single-day move (the scale-corruption screen). Currently fails on the
+    BKNG/CVNA split-seam misalignment (A8); flips when the re-pull lands."""
+    breaks = _intraseries_scale_breaks()
+    assert not breaks, f"OHLCV scale breaks (split-adjustment misalignment?): {sorted(breaks)}"
+
+
+def test_ohlcv_scale_breaks_are_the_known_two():
+    """Two-sided pin on the scale-break set. The xfail above is one-directional
+    (it flips when the known breaks are FIXED); THIS catches the set GROWING — a
+    3rd corrupted name (or a future unadjusted split landing at any seam) fails
+    here instead of slipping past the xfail. Mirrors the NaN-row pin (W23)."""
+    breaks = _intraseries_scale_breaks()
+    assert breaks == frozenset(KNOWN_SCALE_BREAKS), (
+        f"OHLCV scale-break set changed: {sorted(breaks)} != known "
+        f"{sorted(KNOWN_SCALE_BREAKS)} — a new scale corruption (or a re-pull "
+        "fix) the one-directional xfail would miss; investigate + update the pin"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Fingerprint completeness (durable W3 replacement) — fast-CI guard
 # ---------------------------------------------------------------------------
 

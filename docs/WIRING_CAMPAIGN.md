@@ -217,15 +217,19 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > which still needs a market-mid option-premium producer. Do not let a
 > coverage agent treat skew wiring as turning VRP live.
 >
-> **Update — the market-mid producer rail now exists (data half).**
+> **Update — the market-mid producer rail + ranker wiring have both landed.**
 > `scripts/produce_option_premiums.py` + `MarketDataConnector.get_option_premium*` serve the
-> real EOD `mid` from the Theta larder (`data_processed/option_premium/`, gitignored ⇒ **no
-> re-baseline**; coverage 2016→2026-06). This is the producer the connector "lacked," but it is
-> **EV-inert until the ranker is wired**: VRP/`edge_vs_fair` go live only when
-> `wheel_runner` swaps `ShortOptionTrade.premium` from synthetic-BSM to the served mid at the
-> three ranker sites — a **separate CEREMONY-tier (trio + lane-claim + §2-panel) change that
-> owns the re-baseline**, sequenced *with* (not before) Phase 2 so fair-value skew and the real
-> premium land together. The rail alone keeps the C4/W28 invariant green.
+> real EOD `mid` from the Theta larder (`data_processed/option_premium/`, gitignored; coverage
+> 2016→2026-06), split-adjusted on load to the engine frame. `wheel_runner`'s three rankers now
+> swap `ShortOptionTrade.premium`/`bid`/`ask` from synthetic-BSM to the served mid via
+> `_resolve_real_premium` — so `edge_vs_fair` / VRP is **live where the rail is present**.
+> **No re-baseline:** the rail is gitignored, so CI/regression fall back to synthetic
+> (byte-identical) — committed snapshots stay synthetic and the real-premium path is local-only,
+> like all Theta-dependent behaviour. The **double-count concern is moot**: the production
+> forward distribution is empirical (realized returns), not IV-scaled, so skew premium is not
+> counted twice. Independent of fair-value skew (Phase 2) — the two compose but neither blocks
+> the other. The synthetic-path C4/W28 invariant stays green (the wiring touches the caller, not
+> `ev_engine`).
 
 ---
 

@@ -78,6 +78,31 @@ def normalize_ticker(bbg_ticker: str) -> str:
     return ticker
 
 
+def _cumulative_split_factor(dates, eff_dates, ratios: np.ndarray | list) -> np.ndarray:
+    """Per-date cumulative forward-split factor for back-adjusting raw prices.
+
+    ``factor(d) = product of ratios[i] for every split whose effective date is
+    STRICTLY AFTER d`` (a quote ON the effective date already reflects the new,
+    post-split strikes). Dividing a RAW strike / premium by this factor maps it
+    into the split-adjusted frame Bloomberg OHLCV uses, so the option-premium
+    rail and the engine's spot/strike live in the same scale. Returns all-ones
+    when there are no splits. Vectorized (suffix-product + searchsorted).
+    """
+    d = pd.to_datetime(pd.Series(dates), errors="coerce").to_numpy("datetime64[ns]")
+    if eff_dates is None or len(eff_dates) == 0:
+        return np.ones(len(d))
+    eff = pd.to_datetime(pd.Series(eff_dates), errors="coerce").to_numpy("datetime64[ns]")
+    rat = np.asarray(ratios, dtype=float)
+    order = np.argsort(eff)
+    eff = eff[order]
+    rat = rat[order]
+    # suffix[i] = product(rat[i:]); suffix[len] = 1.0
+    suffix = np.ones(len(rat) + 1)
+    suffix[:-1] = np.cumprod(rat[::-1])[::-1]
+    idx = np.searchsorted(eff, d, side="right")  # count of eff_dates <= d
+    return suffix[idx]
+
+
 class MarketDataConnector:
     """Unified data layer for Smart Wheel Engine.
 
@@ -871,8 +896,50 @@ class MarketDataConnector:
         for _dc in ("date", "expiration"):
             if _dc in df.columns and not pd.api.types.is_datetime64_any_dtype(df[_dc]):
                 df[_dc] = pd.to_datetime(df[_dc], errors="coerce")
+        # Back-adjust RAW larder strikes/premiums into the engine's split-adjusted
+        # frame (the larder is unadjusted; Bloomberg OHLCV is split-adjusted).
+        df = self._split_adjust_option_premium(df, t)
         self._option_premium_cache[t] = df
         logger.info("Loaded option-premium: %d rows from %s", len(df), path)
+        return df
+
+    def _split_adjust_option_premium(self, df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """Back-adjust raw larder strikes/premiums into the split-adjusted frame.
+
+        The Theta larder ships RAW (unadjusted) strikes and prices; the engine's
+        OHLCV is Bloomberg SPLIT-adjusted. Without this, a name that split
+        between the quote date and now (e.g. NVDA 10:1, eff 2024-06-10) would
+        carry ~10x-off strikes vs the engine's spot, so the ranker's solved
+        strike never matches a listed one (silent fallback) — or worse, matches a
+        wrong one. Divide strike/bid/ask/mid/close by the cumulative forward
+        ``Stock Split`` factor (``get_corporate_actions`` ratios). Degrades to
+        unchanged when there is no split data or no split affects the window.
+        Mutates the freshly-read (uncached) frame in place — safe, pre-cache.
+        """
+        if df.empty or "date" not in df.columns:
+            return df
+        try:
+            ca = self.get_corporate_actions(ticker)
+        except Exception:
+            return df
+        if ca.empty or "action_type" not in ca.columns or "effective_date" not in ca.columns:
+            return df
+        sp = ca[ca["action_type"].astype(str).str.strip() == "Stock Split"]
+        if sp.empty or "ratio" not in sp.columns:
+            return df
+        ratios = pd.to_numeric(sp["ratio"], errors="coerce")
+        keep = ratios.notna() & (ratios > 0)
+        if not keep.any():
+            return df
+        factor = _cumulative_split_factor(
+            df["date"], sp.loc[keep, "effective_date"].to_numpy(), ratios[keep].to_numpy()
+        )
+        # Keep the (common) no-split-in-window path numerically identical.
+        if np.allclose(factor, 1.0):
+            return df
+        for col in ("strike", "bid", "ask", "mid", "close"):
+            if col in df.columns:
+                df[col] = df[col] / factor
         return df
 
     def get_option_premium_chain(

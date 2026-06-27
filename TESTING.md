@@ -190,6 +190,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_option_history_puller.py` | Option-history puller — 2016 history-floor clamp, atomic tmp→rename partition writes |
 | `test_theta_indices_puller.py` | Indices puller — 365-day chunking, in-order concat, tier-gate messages, incremental up-to-date reporting |
 | `test_option_premium_accessor.py` | Real EOD option-premium rail — `distill_expiration_frame` transform + `produce_ticker` writer + connector `get_option_premium*` accessors (PIT snapshot, staleness window, nearest-strike snap, missing-data fallback) |
+| `test_real_premium_wiring.py` | Real-premium ranker wiring — split-factor math + split-adjust-on-load, `_resolve_real_premium` snap helper, end-to-end puts ranker uses `market_mid` (rail present) / synthetic fallback (rail absent) |
 
 ### Wheel lifecycle
 

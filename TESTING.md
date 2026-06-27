@@ -189,6 +189,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_iv_surface_history_puller.py` | IV-surface history puller — historical endpoint, shared connector + expirations cache, per-bucket 472 fallback (#55/#58/#59) |
 | `test_option_history_puller.py` | Option-history puller — 2016 history-floor clamp, atomic tmp→rename partition writes |
 | `test_theta_indices_puller.py` | Indices puller — 365-day chunking, in-order concat, tier-gate messages, incremental up-to-date reporting |
+| `test_option_premium_accessor.py` | Real EOD option-premium rail — `distill_expiration_frame` transform + `produce_ticker` writer + connector `get_option_premium*` accessors (PIT snapshot, staleness window, nearest-strike snap, missing-data fallback) |
 
 ### Wheel lifecycle
 

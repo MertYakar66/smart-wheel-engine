@@ -69,6 +69,14 @@ by **engine ROI**, highest first.
   skew-aware fair value against is what creates VRP edge.
 - **Source:** Theta EOD option chains (already held: `data_processed/theta/option_history*`, ~390M rows, OI + OHLC). The EOD **mid** (from option OHLC) is the real premium; greeks/IV are 404/not-entitled → back-solve. No new pull needed if the larder covers the window — **this is wiring work, not a Terminal pull** (see §3).
 - Per-strike OI/greeks/smile is **not on Bloomberg** (OMON manual only) — always Theta.
+- **Status — data half DONE (no Terminal needed):** `scripts/produce_option_premiums.py`
+  distils the larder → gitignored `data_processed/option_premium/<T>.parquet` (real EOD `mid`,
+  PIT date axis, DTE belt), served by `MarketDataConnector.get_option_premium*`. Validated on
+  AAPL/MSFT/NVDA: coverage **2016 → 2026-06**, ~12 s/ticker. Regenerate locally with
+  `python scripts/produce_option_premiums.py --tickers all --workers 4` (gitignored ⇒ no
+  re-baseline). **Remaining = the EV-moving ranker wiring** (swap `ShortOptionTrade.premium`
+  from synthetic-BSM to the served mid at the three ranker sites): CEREMONY-tier (trio +
+  lane-claim + §2-panel), owns the re-baseline. That is the actual "skew/VRP unlock," not this rail.
 
 ### 2b. Macro-event calendar — **already on `main`** (`broad_pull/macro_calendar`)
 - FDTR/CPI/NFP/PCE/GDP/ISM release dates + actual/survey/importance. **No pull** — wire it into a market-wide `event_gate` lockout (remove-only). High value for a vol-selling book around FOMC/CPI.

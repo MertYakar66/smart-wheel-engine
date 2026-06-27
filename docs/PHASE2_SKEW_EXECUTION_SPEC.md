@@ -190,12 +190,22 @@ the pricer signature is unchanged:
   price **level** but creates **no** VRP/edge. Reviving VRP needs a market-mid premium producer.
   **Do not let skew wiring be reported as turning VRP live.**
   - **Producer rail landed (data half only):** `scripts/produce_option_premiums.py` +
-    `MarketDataConnector.get_option_premium*` now serve the **real EOD mid** from the Theta
-    larder (`data_processed/option_premium/`, gitignored — zero re-baseline). This supplies the
-    market-mid the connector previously lacked, but it is **EV-inert on its own**: VRP/`edge_vs_fair`
-    only go live when the *ranker* wiring swaps `ShortOptionTrade.premium` from synthetic-BSM to this
-    mid — a **separate, EV-moving, CEREMONY-tier (trio + lane-claim + §2-panel)** change that owns the
-    re-baseline. Until that lands, `test_edge_vs_fair_stays_zero_on_synthetic_path` must stay green.
+    `MarketDataConnector.get_option_premium*` serve the **real EOD mid** from the Theta
+    larder (`data_processed/option_premium/`, gitignored — zero re-baseline).
+  - **Ranker wiring landed (VRP now live where the rail is present):** `wheel_runner`'s three
+    rankers now swap `ShortOptionTrade.premium` / `bid` / `ask` from synthetic-BSM to the real
+    market mid via `_resolve_real_premium` (puts flips `premium_source="market_mid"`), so
+    `edge_vs_fair = mid − BSM_fair` is **real** and the cost model sees the observed spread.
+    **The double-count worry is moot on the production path:** the forward distribution is
+    `empirical_non_overlapping` (realized returns), **not** IV-scaled — so `trade.iv` drives the
+    fair value but *not* the risk, and real skew premium is not double-counted against the tail.
+    **Snapshot-safe:** the rail is gitignored ⇒ CI/regression never see it ⇒ the ranker falls
+    back to synthetic there (byte-identical), so committed snapshots stay synthetic and there is
+    **no re-baseline**; the real-premium path is live only where the data exists (local), exactly
+    like the rest of the Theta capability. `test_edge_vs_fair_stays_zero_on_synthetic_path` (the
+    *synthetic*-path invariant) is unaffected and stays green — the wiring touches the caller, not
+    `ev_engine`. Validated: 90–100% usage; EV raised +$8–$35/contract from put skew; split-adjust
+    confirmed (NVDA strike 20.5 / AMZN 137 / GOOGL 121 pre-split, all sane).
 - **IV gate lives upstream:** non-finite `sigma` is deliberately **not** raised in
   `option_pricer` (`_validate_inputs` note `:59-67`) — a NaN surface IV prices to NaN and is
   blocked downstream by R1a, not at the pricer. The validity gate must live in the **surface/

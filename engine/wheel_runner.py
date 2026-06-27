@@ -233,6 +233,65 @@ def _resolve_pit_atm_iv(
     return iv
 
 
+def _resolve_real_premium(
+    conn,
+    ticker: str,
+    target_expiry,
+    strike: float,
+    right: str,
+    as_of: str | None,
+    *,
+    expiry_tol_days: int = 7,
+    strike_tol_frac: float = 0.03,
+) -> dict | None:
+    """Best-effort REAL EOD market mid for a candidate leg, or ``None``.
+
+    Snaps the synthetic candidate to the nearest LISTED expiry (within
+    ``expiry_tol_days`` of ``target_expiry``) and the nearest listed strike
+    (within ``strike_tol_frac * strike``), point-in-time as of ``as_of``, from
+    the option-premium rail (``MarketDataConnector.get_option_premium``). Returns
+    the quote dict (``mid`` / ``bid`` / ``ask`` / …) or ``None``.
+
+    ``None`` means "no real quote" → the caller keeps its synthetic-BSM premium,
+    so behaviour is byte-identical wherever the rail is absent (CI, fresh clones,
+    ``ThetaConnector``). **evaluate-input-correctness:** this only swaps the
+    *premium input* to ``EVEngine.evaluate`` (which re-evaluates from scratch) for
+    the real market mid; it never bypasses evaluate, never rescues a candidate,
+    and leaves the engine's strike and DTE unchanged — the accepted listed strike
+    is within ``strike_tol_frac`` of the solved strike, a small bounded residual.
+    Never raises: any failure degrades to ``None``.
+    """
+    if conn is None or not hasattr(conn, "list_option_expirations"):
+        return None
+    try:
+        tgt = pd.Timestamp(target_expiry).normalize()
+        exps = conn.list_option_expirations(ticker, as_of)
+        if not exps:
+            return None
+        best = min(exps, key=lambda e: abs((pd.Timestamp(e) - tgt).days))
+        if abs((pd.Timestamp(best) - tgt).days) > expiry_tol_days:
+            return None
+        q = conn.get_option_premium(
+            ticker,
+            best,
+            float(strike),
+            right,
+            as_of=as_of,
+            strike_tol=strike_tol_frac * float(strike),
+        )
+    except Exception:
+        return None
+    if not q:
+        return None
+    mid = q.get("mid")
+    try:
+        if mid is None or not (float(mid) > 0):
+            return None
+    except (TypeError, ValueError):
+        return None
+    return q
+
+
 def _register_corp_action_events(
     event_gate,
     conn,
@@ -1454,7 +1513,8 @@ class WheelRunner:
                 )
                 continue
 
-            # Synthetic fair-value premium (mid). Real chains will differ.
+            # Synthetic fair-value premium (mid) + a bid/ask proxy — the FALLBACK
+            # used wherever the real-premium rail does not cover this contract.
             premium = black_scholes_price(
                 S=spot,
                 K=strike,
@@ -1464,26 +1524,43 @@ class WheelRunner:
                 option_type="put",
                 q=dividend_yield,
             )
-            # Provenance: this branch is the only one that constructs `premium`
-            # today; a future market-mid path would set `"market_mid"` instead.
-            # Consumers use this to tell a real quote from a synthetic one --
-            # and, consequently, to know that ``edge_vs_fair`` is structurally
-            # zero on the synthetic path (premium and fair both come from the
-            # same BSM call in ev_engine.evaluate).
+            bid = premium * 0.95
+            ask = premium * 1.05
             premium_source = "synthetic_bsm"
+
+            # Real EOD market mid (Phase-2 wiring): where the option-premium rail
+            # covers this (ticker, ~expiry, ~strike) point-in-time, swap the
+            # synthetic premium + bid/ask for the OBSERVED market values, so
+            # ``edge_vs_fair`` (premium - BSM fair) becomes real and the cost
+            # model sees the real spread. The engine re-evaluates from scratch;
+            # the empirical forward distribution (realized returns) is unchanged,
+            # so skew premium is not double-counted. Absent rail -> synthetic
+            # path unchanged (byte-identical). The accepted listed strike is
+            # within 3% of ``strike`` (a small bounded residual; ``strike`` and
+            # ``dte_target`` themselves are unchanged).
+            _real_q = _resolve_real_premium(
+                conn,
+                ticker,
+                trade_start_d + timedelta(days=dte_target),
+                strike,
+                "put",
+                as_of,
+            )
+            if _real_q is not None:
+                premium = float(_real_q["mid"])
+                bid = float(_real_q["bid"])
+                ask = float(_real_q["ask"])
+                premium_source = "market_mid"
+
             if premium <= 0.05:
                 drops.append(
                     {
                         "ticker": ticker,
                         "gate": "premium",
-                        "reason": "synthetic premium too thin (<=$0.05)",
+                        "reason": "premium too thin (<=$0.05)",
                     }
                 )
                 continue  # premium too thin to trade
-
-            # Approximate a bid/ask from the synthetic mid (10% spread proxy).
-            bid = premium * 0.95
-            ask = premium * 1.05
 
             # Pull the PIT-safe forward distribution
             fwd_rets, method = best_available_forward_distribution(
@@ -2759,14 +2836,22 @@ class WheelRunner:
                 premium = black_scholes_price(
                     S=spot, K=strike, T=T, r=rf, sigma=iv, option_type="call", q=div_q
                 )
+                bid = premium * 0.95
+                ask = premium * 1.05
+                # Real EOD market mid (Phase-2 wiring) — see the puts ranker for
+                # the full rationale. Absent rail -> synthetic path unchanged.
+                _real_q = _resolve_real_premium(conn, ticker, new_expiry, strike, "call", as_of)
+                if _real_q is not None:
+                    premium = float(_real_q["mid"])
+                    bid = float(_real_q["bid"])
+                    ask = float(_real_q["ask"])
                 if premium <= 0.05:
                     drops.append(
                         {
                             "ticker": ticker,
                             "gate": "premium",
                             "reason": (
-                                f"synthetic premium too thin (<=$0.05) "
-                                f"(dte={new_dte}, delta={tgt_delta})"
+                                f"premium too thin (<=$0.05) (dte={new_dte}, delta={tgt_delta})"
                             ),
                         }
                     )
@@ -2784,8 +2869,8 @@ class WheelRunner:
                     risk_free_rate=rf,
                     dividend_yield=div_q,
                     contracts=contracts,
-                    bid=premium * 0.95,
-                    ask=premium * 1.05,
+                    bid=bid,
+                    ask=ask,
                     open_interest=1000,
                     regime_multiplier=1.0,
                     days_to_ex_div=days_to_ex_div,
@@ -3367,6 +3452,15 @@ class WheelRunner:
                 put_premium = black_scholes_price(
                     S=spot, K=put_strike, T=T, r=rf, sigma=iv, option_type="put", q=div_q
                 )
+                put_bid = put_premium * 0.95
+                put_ask = put_premium * 1.05
+                # Real EOD market mid (Phase-2 wiring) — per-leg, same listed
+                # expiry so the two legs stay contemporaneous. See puts ranker.
+                _rq_put = _resolve_real_premium(conn, ticker, expiry, put_strike, "put", as_of)
+                if _rq_put is not None:
+                    put_premium = float(_rq_put["mid"])
+                    put_bid = float(_rq_put["bid"])
+                    put_ask = float(_rq_put["ask"])
                 if put_premium <= 0.05:
                     drops.append(
                         {
@@ -3381,6 +3475,13 @@ class WheelRunner:
                 call_premium = black_scholes_price(
                     S=spot, K=call_strike, T=T, r=rf, sigma=iv, option_type="call", q=div_q
                 )
+                call_bid = call_premium * 0.95
+                call_ask = call_premium * 1.05
+                _rq_call = _resolve_real_premium(conn, ticker, expiry, call_strike, "call", as_of)
+                if _rq_call is not None:
+                    call_premium = float(_rq_call["mid"])
+                    call_bid = float(_rq_call["bid"])
+                    call_ask = float(_rq_call["ask"])
                 if call_premium <= 0.05:
                     drops.append(
                         {
@@ -3406,8 +3507,8 @@ class WheelRunner:
                     risk_free_rate=rf,
                     dividend_yield=div_q,
                     contracts=contracts,
-                    bid=put_premium * 0.95,
-                    ask=put_premium * 1.05,
+                    bid=put_bid,
+                    ask=put_ask,
                     open_interest=1000,
                     regime_multiplier=1.0,
                 )
@@ -3422,8 +3523,8 @@ class WheelRunner:
                     risk_free_rate=rf,
                     dividend_yield=div_q,
                     contracts=contracts,
-                    bid=call_premium * 0.95,
-                    ask=call_premium * 1.05,
+                    bid=call_bid,
+                    ask=call_ask,
                     open_interest=1000,
                     regime_multiplier=1.0,
                 )

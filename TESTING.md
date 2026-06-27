@@ -206,6 +206,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_event_calendar.py` | `event_calendar` — MarketEvent queries, FOMC/CPI/NFP loaders, risk filter, JSON ingestion + staleness |
 | `test_event_gate.py` | `event_gate` hard lockouts — earnings/macro/dividend buffers, ticker matching, Bloomberg-calendar ingestion (NaT regression) |
 | `test_event_gate_back_buffer.py` | S23 F1 — symmetric post-earnings back-buffer block via `get_recent_earnings` |
+| `test_corp_action_gate.py` | #3A — corporate-action lockout (`kind="corp_action"`): `get_corporate_actions` (excludes Regular Cash, PIT announcement filter), `wheel_runner._register_corp_action_events` (no-op safety, PIT), data-backed GE-spinoff / COST-special-cash end-to-end block |
 
 ### IBKR live book (D24/D26 — read-only, observational)
 

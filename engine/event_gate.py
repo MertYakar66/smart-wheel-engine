@@ -53,6 +53,7 @@ EventKind = Literal[
     "boe",
     "dividend",
     "split",
+    "corp_action",
     "custom",
 ]
 
@@ -80,6 +81,7 @@ class EventGate:
     macro_buffer_days: int = 1
     dividend_buffer_days: int = 1
     split_buffer_days: int = 3
+    corp_action_buffer_days: int = 3
     events: list[ScheduledEvent] = field(default_factory=list)
 
     # ------------------------------------------------------------------
@@ -102,6 +104,8 @@ class EventGate:
             return self.dividend_buffer_days
         if kind == "split":
             return self.split_buffer_days
+        if kind == "corp_action":
+            return self.corp_action_buffer_days
         return 0
 
     def _event_applies_to(self, event: ScheduledEvent, ticker: str) -> bool:

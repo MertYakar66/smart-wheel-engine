@@ -859,14 +859,17 @@ def test_vol_iv_ohlcv_last_date_consistency():
     )
 
 
-def test_data_integration_rate_before_coverage_divergence():
-    """W37: the EV-path rate accessor engine.data_integration.get_current_risk_free_rate
-    (wired into the ranker at wheel_runner.py:588-590, feeding BSM) returns a SILENT
-    0.05 for an as_of BEFORE treasury coverage, diverging from the connector's NaN
-    (which W10 pins). Pin the documented divergence so a future alignment (the (E) #378
-    fix) is noticed. Latent today: the 504-bar OHLCV gate + 1994 treasury coverage
-    preclude a pre-coverage tradeable on the monolith; live under deep_history. The
-    'before' as_of is derived from the actual coverage start (refresh-robust)."""
+def test_data_integration_rate_before_coverage_matches_connector():
+    """W37 (#378, LANDED): the EV-path rate accessor
+    ``engine.data_integration.get_current_risk_free_rate`` now MATCHES the
+    connector's NaN-on-missing contract for an as_of BEFORE treasury coverage —
+    the silent 0.05 divergence (which W10 pinned against the connector's NaN) is
+    resolved. The shared accessor defaults to ``fallback=nan``; a caller that
+    wants a numeric default opts in explicitly (``fallback=0.05``). Was the W37
+    characterisation of the divergence; flipped — not deleted — when #378 aligned
+    the two. Latent: the 504-bar OHLCV gate + 1994 coverage preclude a
+    pre-coverage tradeable on the monolith; the 'before' as_of is derived from
+    the actual coverage start (refresh-robust)."""
     from engine.data_integration import get_current_risk_free_rate
 
     tr = _load("treasury_yields.csv")
@@ -876,5 +879,10 @@ def test_data_integration_rate_before_coverage_divergence():
     before = str((first_3m - pd.Timedelta(days=30)).date())
     gi = get_current_risk_free_rate(before)
     conn = MarketDataConnector().get_risk_free_rate(before)
-    assert gi == 0.05, f"data_integration before-coverage rate changed from 0.05 to {gi} (see #378)"
+    assert pd.isna(gi), (
+        f"#378: data_integration before-coverage rate should now be NaN "
+        f"(matching the connector), got {gi}"
+    )
     assert pd.isna(conn), f"connector before-coverage rate should be NaN, got {conn}"
+    # The numeric default is still available, now as an EXPLICIT opt-in.
+    assert get_current_risk_free_rate(before, fallback=0.05) == 0.05

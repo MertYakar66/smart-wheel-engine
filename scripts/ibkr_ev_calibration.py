@@ -242,7 +242,9 @@ def main(csv_a, csv_b, out_dir):
         if iv > 3.0:  # stored as percent
             iv = iv / 100.0
         try:
-            rf = float(get_current_risk_free_rate(entry, data_dir=str(_REPO / "data")))
+            rf = float(
+                get_current_risk_free_rate(entry, data_dir=str(_REPO / "data"), fallback=0.05)
+            )
         except Exception:
             rf = 0.05
         try:

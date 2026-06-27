@@ -333,6 +333,34 @@ class MarketDataConnector:
                     (numeric > self._IV_LOW_FLOOR) & (numeric <= self._DEEP_IV_SENTINEL_FLOOR)
                 )
 
+    def _clean_served_iv(self, value: object) -> float | None:
+        """Apply the #363 IV band to a single served implied-vol cell.
+
+        #369 / W27: the frame-level #363 gate (:meth:`_clean_vol_iv_inplace`)
+        runs ONLY for ``key=='vol_iv'`` — i.e. the PIT ``get_iv_history`` path.
+        The fundamentals snapshot IV (``implied_vol_atm``, which the put / CC /
+        strangle rankers use as their fallback when ``get_iv_history`` is empty
+        or absent) bypassed it and relied solely on the consumers' inline
+        ``if iv > 3.0: iv /= 100`` heuristic. That heuristic silently accepted a
+        sub-3 garbage reading (e.g. ``2.0``) as a 200 % *decimal* IV instead of
+        rejecting it. Cleaning the served value here NULLs exactly the
+        out-of-band cells the vol_iv gate would (``(_IV_LOW_FLOOR,
+        _DEEP_IV_SENTINEL_FLOOR]``), so the fallback IV is unambiguously PERCENT
+        (> 3.0) for every consumer and the downstream percent->decimal
+        conversion is always correct — with no decision-trio edit (the #363
+        precedent). Returns the value as a float when in-band, ``None`` when the
+        cell is ``None``, else ``nan`` (NULL — degenerate/sentinel).
+        """
+        if value is None:
+            return None
+        try:
+            iv = float(value)
+        except (TypeError, ValueError):
+            return float("nan")
+        if not (self._IV_LOW_FLOOR < iv <= self._DEEP_IV_SENTINEL_FLOOR):
+            return float("nan")
+        return iv
+
     @staticmethod
     def _to_ts(value: str | None) -> pd.Timestamp | None:
         """Convert an optional date string to Timestamp."""
@@ -911,7 +939,7 @@ class MarketDataConnector:
             "sector": r.get("gics_sector_name"),
             "industry_group": r.get("gics_industry_group_name"),
             "volatility_30d": r.get("volatility_30d"),
-            "implied_vol_atm": r.get("30day_impvol_100.0%mny_df"),
+            "implied_vol_atm": self._clean_served_iv(r.get("30day_impvol_100.0%mny_df")),
         }
         if as_of is not None:
             pit_yield = self._pit_dividend_yield(ticker, as_of)

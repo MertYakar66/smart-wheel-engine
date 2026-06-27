@@ -460,11 +460,13 @@ def test_ranker_iv_equals_real_pit_iv(runner, frontier):
 
 
 # ---------------------------------------------------------------------------
-# W27 — the fundamentals-FALLBACK IV path is NOT cleaned by #363; its only
-# normaliser is the ranker's inline ``if iv>3.0: iv/=100`` heuristic.
-# Characterisation of CURRENT behaviour (passing). The connector-side fix is an
-# (E) engine change tracked in issue #369, behind the §2 ceremony — NOT grabbed
-# here. 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W27).
+# W27 / #369 (LANDED 2026-06-27) — the fundamentals-FALLBACK IV path is now
+# cleaned by the #363 IV band via ``get_fundamentals`` -> ``_clean_served_iv``,
+# so the put/CC/strangle rankers' fallback IV is unambiguously PERCENT and the
+# inline ``if iv>3.0: iv/=100`` conversion is always correct (a sub-3 garbage
+# reading is NULLed, not accepted as a 200% decimal). The connector-side clean
+# adds no decision-trio logic (the #363 / PANEL precedent).
+# 2026-06-09 data-test audit (docs/DATA_TEST_AUDIT_2026-06-09.md, W27).
 # ---------------------------------------------------------------------------
 
 
@@ -479,12 +481,14 @@ def test_fundamentals_fallback_iv_input_is_percent(runner, frontier):
     )
 
 
-def test_363_gate_does_not_clean_fundamentals_iv(tmp_path):
-    """W27b: ``_clean_vol_iv_inplace`` is keyed to ``'vol_iv'`` ONLY. The same
-    sub-3.0 value the gate NULLs on a served ``vol_iv`` read survives UNCLEANED
-    through ``get_fundamentals`` — so the fundamentals-fallback IV path relies
-    solely on the ranker's inline percent->decimal heuristic, never the connector
-    gate. The connector-side clean is tracked as (E) in issue #369."""
+def test_369_gate_cleans_fundamentals_iv(tmp_path):
+    """W27b (#369, LANDED): the #363 IV band now ALSO cleans the
+    fundamentals-fallback IV. ``get_fundamentals`` runs ``_clean_served_iv`` on
+    ``implied_vol_atm``, so the same sub-3.0 value the vol_iv gate NULLs on a
+    served ``vol_iv`` read is NULLed here too — the fallback IV is no longer
+    accepted as a 200 % *decimal* by the rankers' inline heuristic. An in-band
+    percent value passes through unchanged. (Was the W27b characterisation of the
+    gap; flipped — not deleted — when #369 landed the connector-side clean.)"""
     pd.DataFrame(
         [
             {
@@ -502,12 +506,19 @@ def test_363_gate_does_not_clean_fundamentals_iv(tmp_path):
     pd.DataFrame(
         [
             {
-                "ticker": "ZZZ",
+                "ticker": "ZZZ",  # sub-3.0 garbage -> NULLed
                 "30day_impvol_100.0%mny_df": 2.0,
                 "volatility_30d": 2.0,
                 "eqy_dvd_yld_12m": 0.0,
                 "gics_sector_name": "Information Technology",
-            }
+            },
+            {
+                "ticker": "YYY",  # valid percent -> passes through unchanged
+                "30day_impvol_100.0%mny_df": 26.0,
+                "volatility_30d": 25.0,
+                "eqy_dvd_yld_12m": 0.0,
+                "gics_sector_name": "Information Technology",
+            },
         ]
     ).to_csv(tmp_path / "sp500_fundamentals.csv", index=False)
     conn = MarketDataConnector(data_dir=tmp_path)
@@ -515,10 +526,15 @@ def test_363_gate_does_not_clean_fundamentals_iv(tmp_path):
     # The gate NULLs the 2.0 IV on the served vol_iv read...
     served = conn._load("vol_iv")
     assert pd.isna(served.iloc[0]["hist_put_imp_vol"]), "vol_iv gate should NULL the 2.0 IV"
-    # ...but the SAME 2.0 survives untouched through the fundamentals path.
+    # ...and #369 now NULLs the SAME 2.0 through the fundamentals path too.
     f = conn.get_fundamentals("ZZZ")
-    assert f is not None and float(f["implied_vol_atm"]) == 2.0, (
-        "get_fundamentals must pass implied_vol_atm through UNCLEANED (no #363 gate) — see #369"
+    assert f is not None and pd.isna(f["implied_vol_atm"]), (
+        f"#369: get_fundamentals must NULL the sub-3.0 fallback IV (got {f['implied_vol_atm']!r})"
+    )
+    # An in-band percent reading is preserved unchanged.
+    g = conn.get_fundamentals("YYY")
+    assert g is not None and float(g["implied_vol_atm"]) == 26.0, (
+        f"#369: in-band percent IV must pass through (got {g['implied_vol_atm']!r})"
     )
 
 

@@ -400,6 +400,18 @@ class TestOptionPremiumAccessor:
         assert c.get_option_premium_chain("AAA", "2024-02-16").empty
         assert c.list_option_expirations("AAA") == []
 
+    def test_malformed_parquet_degrades_not_raises(self, premium_dir):
+        # A present-but-malformed file (missing a contract column) must degrade
+        # like an absent one — the accessors filter on expiration/right/date, so
+        # an unvalidated frame would KeyError and crash the ranker. Connector
+        # contract: missing data degrades, never crashes.
+        bad = pd.DataFrame({"date": ["2024-01-03"], "strike": [100.0], "mid": [2.2]})
+        bad.to_parquet(premium_dir / "BAD.parquet", index=False)  # no expiration/right
+        c = MarketDataConnector()
+        assert c.get_option_premium_chain("BAD", "2024-02-16", as_of="2024-01-05").empty
+        assert c.get_option_premium("BAD", "2024-02-16", 100.0, "put") is None
+        assert c.list_option_expirations("BAD", as_of="2024-01-05") == []
+
 
 # ---------------------------------------------------------------------------
 # Data-backed: the distiller works on a real larder partition (guarded)

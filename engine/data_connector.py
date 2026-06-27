@@ -850,6 +850,22 @@ class MarketDataConnector:
             self._option_premium_cache[t] = pd.DataFrame(columns=OPTION_PREMIUM_COLUMNS)
             return self._option_premium_cache[t]
 
+        # A present-but-malformed file (missing a contract column) must degrade
+        # like an absent one — the accessors below filter on ``expiration`` /
+        # ``right`` / ``date``, so a parquet lacking any of them would KeyError
+        # and crash the ranker, breaking the connector's "missing data degrades,
+        # never crashes" contract. Validate the full column contract once here so
+        # all three accessors stay raise-free.
+        missing = [c for c in OPTION_PREMIUM_COLUMNS if c not in df.columns]
+        if missing:
+            logger.warning(
+                "option-premium parquet %s missing columns %s — ignoring file",
+                path,
+                missing,
+            )
+            self._option_premium_cache[t] = pd.DataFrame(columns=OPTION_PREMIUM_COLUMNS)
+            return self._option_premium_cache[t]
+
         # Defensive: ensure the PIT date axes are datetime (parquet usually
         # round-trips them, but a hand-built / re-exported file may not).
         for _dc in ("date", "expiration"):

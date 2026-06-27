@@ -18,6 +18,28 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Canonical column contract for the option-premium rail (the produced per-ticker
+# parquet AND the connector accessors below). Single source of truth — the
+# producer (``scripts/produce_option_premiums.py``) imports this so the two
+# never drift. ``mid = (bid + ask) / 2`` is the *real* EOD option premium that
+# the (separate, EV-moving) ranker wiring will feed into
+# ``ShortOptionTrade.premium`` so ``edge_vs_fair`` becomes non-zero — today the
+# premium is synthetic-BSM and skew/VRP are EV-inert
+# (docs/PHASE2_SKEW_EXECUTION_SPEC.md).
+OPTION_PREMIUM_COLUMNS: tuple[str, ...] = (
+    "date",  # EOD snapshot date (point-in-time axis)
+    "expiration",
+    "dte",
+    "strike",
+    "right",  # normalized to "put" / "call"
+    "bid",
+    "ask",
+    "mid",
+    "close",
+    "volume",
+    "open_interest",
+)
+
 # Bloomberg exchange suffixes to strip (exchange codes for US equities)
 _EXCHANGE_SUFFIXES = {
     "UW",  # NASDAQ Global Select
@@ -168,6 +190,22 @@ class MarketDataConnector:
         # ``self._cache`` for the connector's lifetime, so their identity is
         # stable and they are never GC'd out from under the key.
         self._ticker_groups: dict[int, dict[str, pd.DataFrame]] = {}
+        # Option-premium rail (Phase-2 prep). Per-ticker EOD-mid parquets
+        # produced by ``scripts/produce_option_premiums.py`` from the Theta
+        # option-history larder, served by ``get_option_premium*`` below.
+        # Resolved from the module path (override with ``SWE_OPTION_PREMIUM_DIR``
+        # in tests) and NOT under ``data_dir`` / ``_FILES`` — the files live in
+        # the gitignored ``data_processed/`` tree, so they never enter
+        # ``connector_data_sha256`` (no re-baseline) and the accessor degrades to
+        # an empty frame (→ synthetic-BSM fallback) wherever they are absent
+        # (CI, fresh clones). Cached per ticker for the connector's lifetime.
+        _optprem_env = os.environ.get("SWE_OPTION_PREMIUM_DIR", "").strip()
+        self._option_premium_dir = (
+            Path(_optprem_env)
+            if _optprem_env
+            else Path(__file__).resolve().parent.parent / "data_processed" / "option_premium"
+        )
+        self._option_premium_cache: dict[str, pd.DataFrame] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -781,6 +819,163 @@ class MarketDataConnector:
             if c in df.columns
         ]
         return df[cols].sort_values("effective_date").reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # Options – real EOD premiums (Phase-2 prep rail)
+    # ------------------------------------------------------------------
+
+    def _load_option_premium(self, ticker: str) -> pd.DataFrame:
+        """Lazy-load the per-ticker option-premium parquet, cached.
+
+        Reads ``<option_premium_dir>/<TICKER>.parquet`` (produced by
+        ``scripts/produce_option_premiums.py`` from the Theta option-history
+        larder). Returns an EMPTY frame — never raises — when the file is
+        absent or unreadable, so every accessor below degrades to "no real
+        premium" and callers fall back to the synthetic-BSM path. The frame is
+        cached for the connector's lifetime and never mutated after load (the
+        accessors filter/copy), matching the ``_load`` cache invariant.
+        """
+        t = normalize_ticker(ticker)
+        if t in self._option_premium_cache:
+            return self._option_premium_cache[t]
+
+        path = self._option_premium_dir / f"{t}.parquet"
+        if not path.exists():
+            self._option_premium_cache[t] = pd.DataFrame(columns=OPTION_PREMIUM_COLUMNS)
+            return self._option_premium_cache[t]
+        try:
+            df = pd.read_parquet(path)
+        except Exception:
+            logger.exception("Failed to read option-premium parquet %s", path)
+            self._option_premium_cache[t] = pd.DataFrame(columns=OPTION_PREMIUM_COLUMNS)
+            return self._option_premium_cache[t]
+
+        # Defensive: ensure the PIT date axes are datetime (parquet usually
+        # round-trips them, but a hand-built / re-exported file may not).
+        for _dc in ("date", "expiration"):
+            if _dc in df.columns and not pd.api.types.is_datetime64_any_dtype(df[_dc]):
+                df[_dc] = pd.to_datetime(df[_dc], errors="coerce")
+        self._option_premium_cache[t] = df
+        logger.info("Loaded option-premium: %d rows from %s", len(df), path)
+        return df
+
+    def get_option_premium_chain(
+        self,
+        ticker: str,
+        expiry: str,
+        as_of: str | None = None,
+        *,
+        max_staleness_days: int = 7,
+    ) -> pd.DataFrame:
+        """Real EOD option-premium chain for *ticker*'s ``expiry``, point-in-time.
+
+        Returns one row per ``(strike, right)`` — columns
+        :data:`OPTION_PREMIUM_COLUMNS` — for the single most-recent EOD snapshot
+        whose ``date`` is ``<= as_of`` and within ``max_staleness_days`` of it
+        (so a backtest at ``as_of`` never sees a future quote, and a long market
+        holiday gap does not silently serve a stale market). With ``as_of=None``
+        the latest available snapshot for that expiry is used.
+
+        ``mid = (bid + ask) / 2`` is the real premium. Returns an EMPTY frame
+        (same columns) when no produced data exists / no PIT snapshot qualifies
+        — callers fall back to the synthetic-BSM premium. Never raises.
+        """
+        df = self._load_option_premium(ticker)
+        if df.empty:
+            return df
+        exp = pd.Timestamp(expiry).normalize()
+        sub = df[df["expiration"] == exp]
+        if sub.empty:
+            return df.iloc[0:0]
+        if as_of is not None:
+            ref = pd.Timestamp(as_of).normalize()
+            sub = sub[sub["date"] <= ref]
+            if sub.empty:
+                return df.iloc[0:0]
+            snap = sub["date"].max()
+            if (ref - snap).days > max_staleness_days:
+                return df.iloc[0:0]
+        else:
+            snap = sub["date"].max()
+        sub = sub[sub["date"] == snap]
+        return sub.sort_values(["right", "strike"]).reset_index(drop=True)
+
+    def get_option_premium(
+        self,
+        ticker: str,
+        expiry: str,
+        strike: float,
+        right: str,
+        as_of: str | None = None,
+        *,
+        strike_tol: float | None = None,
+        max_staleness_days: int = 7,
+    ) -> dict | None:
+        """One real EOD option premium for the listed strike nearest *strike*.
+
+        ``right`` is ``"put"``/``"call"`` (``"p"``/``"c"`` accepted). Returns a
+        dict of :data:`OPTION_PREMIUM_COLUMNS` for the nearest listed strike on
+        the requested side as of ``as_of`` (PIT), or ``None`` when no produced
+        data / PIT snapshot / matching side exists, or when the nearest strike is
+        farther than ``strike_tol`` (when given). ``None`` is the caller's signal
+        to use the synthetic-BSM premium — the wheel rankers delta-solve a
+        continuous strike, so they snap to the nearest *listed* strike here.
+        """
+        chain = self.get_option_premium_chain(
+            ticker, expiry, as_of, max_staleness_days=max_staleness_days
+        )
+        if chain.empty:
+            return None
+        r = str(right).strip().lower()
+        r = {"p": "put", "c": "call"}.get(r, r)
+        side = chain[chain["right"] == r]
+        if side.empty:
+            return None
+        diffs = (side["strike"] - float(strike)).abs()
+        idx = diffs.idxmin()
+        if strike_tol is not None and float(diffs.loc[idx]) > float(strike_tol):
+            return None
+        row = side.loc[idx]
+        return {c: row[c] for c in OPTION_PREMIUM_COLUMNS if c in side.columns}
+
+    def list_option_expirations(
+        self,
+        ticker: str,
+        as_of: str | None = None,
+        *,
+        min_dte: int | None = None,
+        max_dte: int | None = None,
+    ) -> list[pd.Timestamp]:
+        """Sorted listed expirations with a real EOD snapshot available PIT.
+
+        Only expirations that have at least one snapshot ``date <= as_of`` are
+        returned (a backtest at ``as_of`` must not "see" a contract that had not
+        yet quoted). ``min_dte`` / ``max_dte`` (relative to ``as_of``, or to the
+        latest snapshot date when ``as_of`` is None) narrow to the wheel's DTE
+        belt so the ranker can snap a DTE target to a listed expiry. Empty list
+        when no produced data exists.
+        """
+        df = self._load_option_premium(ticker)
+        if df.empty:
+            return []
+        sub = df
+        ref = pd.Timestamp(as_of).normalize() if as_of is not None else None
+        if ref is not None:
+            sub = sub[sub["date"] <= ref]
+        if sub.empty:
+            return []
+        if ref is None:
+            ref = sub["date"].max()
+        exps = sorted(pd.Timestamp(e) for e in sub["expiration"].dropna().unique())
+        out: list[pd.Timestamp] = []
+        for e in exps:
+            dte = (e - ref).days
+            if min_dte is not None and dte < min_dte:
+                continue
+            if max_dte is not None and dte > max_dte:
+                continue
+            out.append(e)
+        return out
 
     # ------------------------------------------------------------------
     # Events – Dividends

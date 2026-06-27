@@ -187,8 +187,15 @@ the pricer signature is unchanged:
 - **`edge_vs_fair` stays structurally 0 (C4 / W28):** on the synthetic path the premium
   (`wheel_runner` synthetic-premium sites) and `fair` (`ev_engine.py:376`) derive from the
   **same** `black_scholes_price` with the **same** sigma, so a sharper surface IV improves the
-  price **level** but creates **no** VRP/edge. Reviving VRP needs a market-mid premium producer
-  the connector lacks. **Do not let skew wiring be reported as turning VRP live.**
+  price **level** but creates **no** VRP/edge. Reviving VRP needs a market-mid premium producer.
+  **Do not let skew wiring be reported as turning VRP live.**
+  - **Producer rail landed (data half only):** `scripts/produce_option_premiums.py` +
+    `MarketDataConnector.get_option_premium*` now serve the **real EOD mid** from the Theta
+    larder (`data_processed/option_premium/`, gitignored — zero re-baseline). This supplies the
+    market-mid the connector previously lacked, but it is **EV-inert on its own**: VRP/`edge_vs_fair`
+    only go live when the *ranker* wiring swaps `ShortOptionTrade.premium` from synthetic-BSM to this
+    mid — a **separate, EV-moving, CEREMONY-tier (trio + lane-claim + §2-panel)** change that owns the
+    re-baseline. Until that lands, `test_edge_vs_fair_stays_zero_on_synthetic_path` must stay green.
 - **IV gate lives upstream:** non-finite `sigma` is deliberately **not** raised in
   `option_pricer` (`_validate_inputs` note `:59-67`) — a NaN surface IV prices to NaN and is
   blocked downstream by R1a, not at the pricer. The validity gate must live in the **surface/

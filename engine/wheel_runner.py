@@ -150,7 +150,9 @@ def _solve_book_knapsack(weights: list[int], values: list[float], capacity: int)
     return selected
 
 
-def _resolve_pit_atm_iv(conn, ticker: str, as_of: str | None) -> float | None:
+def _resolve_pit_atm_iv(
+    conn, ticker: str, as_of: str | None, max_staleness_days: int = 30
+) -> float | None:
     """Best-effort point-in-time ATM IV from the connector, normalised to decimal.
 
     Mirrors :meth:`engine.wheel_tracker.WheelTracker._connector_atm_iv`
@@ -171,6 +173,17 @@ def _resolve_pit_atm_iv(conn, ticker: str, as_of: str | None) -> float | None:
     the caller to fall back to the legacy snapshot fundamentals path —
     which preserves connectors and tests that stub only
     ``get_fundamentals``.
+
+    #378 / W36: an **IV-staleness gate** mirrors the spot path's
+    ``max_as_of_staleness_days`` rule. If the most-recent IV row lags the
+    staleness reference (``as_of`` when explicit, else the connector's data
+    frontier via ``get_data_frontier``) by more than ``max_staleness_days``
+    days, return ``None`` so the caller falls back to the (cleaned, #369)
+    fundamentals IV instead of silently pricing BSM against stale IV. Latent on
+    today's ``main`` (max IV↔OHLCV gap = 1 day across the served universe);
+    bites under a staggered / deep_history refresh that ships IV staler than
+    OHLCV. evaluate-input-correctness — strictly conservative (a stale IV is
+    dropped, never rescued).
     """
     if conn is None or not hasattr(conn, "get_iv_history"):
         return None
@@ -180,6 +193,24 @@ def _resolve_pit_atm_iv(conn, ticker: str, as_of: str | None) -> float | None:
         return None
     if hist is None or len(hist) == 0:
         return None
+    # #378 / W36: IV-staleness gate (mirrors the spot path's 30-day rule). The
+    # reference is the explicit ``as_of``, else the connector's global data
+    # frontier (hasattr-guarded for Theta / stubs). A NULL or pre-reference
+    # row date never trips it; only a positive gap beyond the threshold does.
+    try:
+        iv_last = hist.index.max()
+        staleness_ref = as_of
+        if staleness_ref is None and hasattr(conn, "get_data_frontier"):
+            try:
+                staleness_ref = conn.get_data_frontier()
+            except Exception:
+                staleness_ref = None
+        if staleness_ref is not None and pd.notna(iv_last):
+            gap_days = (pd.Timestamp(staleness_ref) - pd.Timestamp(iv_last)).days
+            if gap_days > max_staleness_days:
+                return None
+    except Exception:
+        pass
     cols = [c for c in ("hist_put_imp_vol", "hist_call_imp_vol") if c in hist.columns]
     if not cols:
         return None
@@ -587,7 +618,11 @@ class WheelRunner:
         try:
             from engine.data_integration import get_current_risk_free_rate
 
-            analysis.risk_free_rate = get_current_risk_free_rate(as_of, data_dir=str(self.data_dir))
+            # #378/W37: this analysis surface keeps the 0.05 default — now
+            # passed EXPLICITLY (the shared accessor defaults to NaN).
+            analysis.risk_free_rate = get_current_risk_free_rate(
+                as_of, data_dir=str(self.data_dir), fallback=0.05
+            )
         except Exception:
             analysis.risk_free_rate = 0.05
 
@@ -1141,7 +1176,9 @@ class WheelRunner:
                     fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
                 except TypeError:
                     fundamentals = conn.get_fundamentals(ticker) or {}
-            iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+            iv = _resolve_pit_atm_iv(
+                conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days
+            )
             if iv is None:
                 iv_raw = fundamentals.get("implied_vol_atm")
                 if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
@@ -2476,7 +2513,7 @@ class WheelRunner:
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
         fundamentals = conn.get_fundamentals(ticker) or {}
-        iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+        iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")
             if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
@@ -3049,7 +3086,7 @@ class WheelRunner:
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
         fundamentals = conn.get_fundamentals(ticker) or {}
-        iv = _resolve_pit_atm_iv(conn, ticker, as_of)
+        iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")
             if iv_raw is None or (isinstance(iv_raw, float) and np.isnan(iv_raw)):
@@ -3860,7 +3897,8 @@ class WheelRunner:
 
         upcoming_events.sort(key=lambda x: x["days"])
 
-        risk_free = get_current_risk_free_rate(as_of, data_dir=str(self.data_dir))
+        # #378/W37: portfolio summary keeps 0.05 — passed explicitly now.
+        risk_free = get_current_risk_free_rate(as_of, data_dir=str(self.data_dir), fallback=0.05)
 
         return {
             "as_of": as_of or str(date.today()),

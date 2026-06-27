@@ -510,3 +510,69 @@ class TestFundamentalsAsOfThreading:
         conn = _PitIVConn(_TICKERS, snapshot_iv=25.0, iv_by_date={"2026-03-15": 30.0})
         df = _rank(_runner_with(conn), as_of="2026-03-15")
         assert not df.empty, "ranker crashed on a connector without as_of support"
+
+
+# ======================================================================
+# 3. #378 / W36 — IV-staleness gate on _resolve_pit_atm_iv
+# ======================================================================
+class _StaleIVConn:
+    """A connector whose ``get_iv_history`` returns a single in-band IV row at a
+    fixed ``last_date`` (date-indexed), optionally exposing a ``get_data_frontier``
+    so the as_of=None path can resolve a staleness reference."""
+
+    def __init__(self, last_date: str, frontier: str | None = None):
+        self._last = pd.Timestamp(last_date)
+        self._frontier = pd.Timestamp(frontier) if frontier else None
+
+    def get_iv_history(self, ticker, start_date=None, end_date=None):
+        return pd.DataFrame(
+            {"hist_put_imp_vol": [30.0], "hist_call_imp_vol": [30.0]},
+            index=pd.DatetimeIndex([self._last], name="date"),
+        )
+
+    def get_data_frontier(self, dataset="ohlcv"):
+        return self._frontier
+
+
+class TestIvStalenessGate:
+    """#378 / W36: ``_resolve_pit_atm_iv`` drops a PIT IV whose most-recent row
+    lags the staleness reference by > ``max_staleness_days`` — mirroring the spot
+    path's 30-day rule. Strictly conservative: a stale IV → ``None`` → the caller
+    falls back to the (cleaned, #369) fundamentals IV rather than pricing BSM
+    against stale IV. Latent on today's ``main`` (max IV↔OHLCV gap = 1 day)."""
+
+    def test_fresh_iv_passes(self):
+        # last IV row 3 days before as_of → in-band → 0.30 decimal.
+        conn = _StaleIVConn("2024-06-14")
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") == pytest.approx(0.30)
+
+    def test_stale_iv_dropped_explicit_as_of(self):
+        # last IV row 63 days before as_of → gate fires → None (fall back).
+        conn = _StaleIVConn("2024-04-15")
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") is None
+
+    def test_boundary_30d_kept_31d_dropped(self):
+        kept = _StaleIVConn("2024-05-18")  # exactly 30 days before 2024-06-17
+        assert _resolve_pit_atm_iv(kept, "AAA", "2024-06-17") == pytest.approx(0.30)
+        dropped = _StaleIVConn("2024-05-17")  # 31 days
+        assert _resolve_pit_atm_iv(dropped, "AAA", "2024-06-17") is None
+
+    def test_as_of_none_uses_data_frontier(self):
+        # as_of=None → staleness reference is the connector's data frontier.
+        stale = _StaleIVConn("2024-04-15", frontier="2024-06-17")
+        assert _resolve_pit_atm_iv(stale, "AAA", None) is None
+        fresh = _StaleIVConn("2024-06-14", frontier="2024-06-17")
+        assert _resolve_pit_atm_iv(fresh, "AAA", None) == pytest.approx(0.30)
+
+    def test_no_frontier_no_gate_at_as_of_none(self):
+        # as_of=None with no frontier → no reference → gate cannot fire (the IV
+        # is still returned; the spot path's own staleness gate guards the rank).
+        conn = _StaleIVConn("2020-01-02", frontier=None)
+        assert _resolve_pit_atm_iv(conn, "AAA", None) == pytest.approx(0.30)
+
+    def test_custom_threshold_honoured(self):
+        conn = _StaleIVConn("2024-04-15")  # 63 days before 2024-06-17
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") is None  # default 30
+        assert _resolve_pit_atm_iv(
+            conn, "AAA", "2024-06-17", max_staleness_days=90
+        ) == pytest.approx(0.30)

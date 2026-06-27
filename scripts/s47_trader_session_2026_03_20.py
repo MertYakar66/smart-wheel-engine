@@ -216,7 +216,9 @@ def step1_market_context(runner: WheelRunner) -> None:
     try:
         from engine.data_integration import get_current_risk_free_rate
 
-        ctx["risk_free_rate"] = get_current_risk_free_rate(AS_OF, data_dir="data/bloomberg")
+        ctx["risk_free_rate"] = get_current_risk_free_rate(
+            AS_OF, data_dir="data/bloomberg", fallback=0.05
+        )
         print(f"  risk-free rate: {ctx['risk_free_rate']:.4f}")
     except Exception as e:  # noqa: BLE001
         ctx["risk_free_rate"] = f"err: {e}"

@@ -233,6 +233,61 @@ def _resolve_pit_atm_iv(
     return iv
 
 
+def _register_corp_action_events(
+    event_gate,
+    conn,
+    ticker: str,
+    today_date,
+    as_of: str | None = None,
+    horizon_days: int = 400,
+) -> None:
+    """#3A: register disruptive corporate actions on the per-run event gate.
+
+    Pulls the ticker's non-``Regular Cash`` corporate actions (splits, spinoffs,
+    split-offs, special cash, rights, return-of-capital, …) whose
+    ``effective_date`` falls within the candidate horizon and registers each as
+    a ``kind="corp_action"`` :class:`~engine.event_gate.ScheduledEvent`, so
+    ``EVEngine.evaluate`` hard-blocks a wheel whose holding window touches one —
+    events the empirical forward distribution cannot price (a 20:1 split seam, a
+    GE-style spinoff, a large special dividend). The per-candidate window check
+    inside the gate (``_event_touches_window`` ± ``corp_action_buffer_days``)
+    decides which actually block, so over-registering across the horizon is
+    safe. Point-in-time via ``as_of`` (only actions announced by then).
+
+    Remove-only (§2): this can only drop a candidate, never rescue one. No-op
+    for connectors / stubs without ``get_corporate_actions`` (ThetaConnector,
+    test stubs) and on any read/parse error — never crashes the ranker.
+    """
+    if event_gate is None or not hasattr(conn, "get_corporate_actions"):
+        return
+    from datetime import timedelta
+
+    from engine.event_gate import ScheduledEvent
+
+    buf = int(getattr(event_gate, "corp_action_buffer_days", 3))
+    # PIT: in a backtest use the explicit as_of; live (as_of=None) anchor the
+    # announcement filter to the decision date so an action announced *after*
+    # today is never registered.
+    announce_asof = as_of if as_of is not None else today_date.isoformat()
+    try:
+        start = (today_date - timedelta(days=buf)).isoformat()
+        end = (today_date + timedelta(days=horizon_days + buf)).isoformat()
+        ca = conn.get_corporate_actions(ticker, start_date=start, end_date=end, as_of=announce_asof)
+    except Exception:
+        return
+    if ca is None or len(ca) == 0:
+        return
+    for _, row in ca.iterrows():
+        eff = row.get("effective_date")
+        if eff is None:
+            continue
+        try:
+            eff_d = eff.date() if hasattr(eff, "date") else pd.Timestamp(eff).date()
+        except (ValueError, TypeError):
+            continue
+        event_gate.add_event(ScheduledEvent(ticker=ticker, kind="corp_action", event_date=eff_d))
+
+
 # ----------------------------------------------------------------------
 # Column schema for WheelRunner.rank_covered_calls_by_ev
 # ----------------------------------------------------------------------
@@ -1314,6 +1369,9 @@ class WheelRunner:
                                     event_date=recent_d,
                                 )
                             )
+                # #3A: hard-block disruptive corporate actions (split/spinoff/
+                # special-cash/rights) in the holding window — remove-only.
+                _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
                 if event_gate is None:
                     # Soft fallback (use_event_gate=False) — also
                     # symmetric. Forward branch was the original
@@ -2615,6 +2673,8 @@ class WheelRunner:
                         event_gate.add_event(
                             ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
                         )
+            # #3A: hard-block disruptive corporate actions — remove-only.
+            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
         except Exception:
             days_to_earn = None
 
@@ -3212,6 +3272,8 @@ class WheelRunner:
                         event_gate.add_event(
                             ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
                         )
+            # #3A: hard-block disruptive corporate actions — remove-only.
+            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
         except Exception:
             days_to_earn = None
 

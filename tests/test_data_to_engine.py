@@ -875,9 +875,22 @@ def test_full_universe_no_silent_drops_and_split(runner, frontier):
     assert not vanished, f"silent vanish: {sorted(vanished)}"
     gates = {d["gate"] for d in drops}
     assert {"event", "data", "history"} <= gates, f"expected gate set; got {gates}"
+    # #3A: the corporate-action event lockout is DATE-SENSITIVE on the live
+    # (as_of=None) path — the holding window is wall-clock, so which names have an
+    # upcoming split/spinoff/special-cash in-window slides with the calendar.
+    # Isolate it: the conserved, deterministic invariant is
+    #   produced + corp-action-gated == 480  (the frontier tradeable count), and
+    #   non-corp drops == 31  (the data/history/earnings baseline).
     # Pinned at frontier 2026-06-04 (see docs/DATA_ENGINE_AUDIT_2026-06-07.md).
-    assert len(produced) == 480, f"produced {len(produced)} != 480 (re-baseline if data refreshed)"
-    assert len(drops) == 31, f"dropped {len(drops)} != 31 (re-baseline if data refreshed)"
+    corp_drops = [d for d in drops if "corp_action" in str(d.get("reason", ""))]
+    non_corp_drops = [d for d in drops if "corp_action" not in str(d.get("reason", ""))]
+    assert len(produced) + len(corp_drops) == 480, (
+        f"produced {len(produced)} + corp-gated {len(corp_drops)} != 480 "
+        "(re-baseline if data refreshed)"
+    )
+    assert len(non_corp_drops) == 31, (
+        f"non-corp drops {len(non_corp_drops)} != 31 (re-baseline if data refreshed)"
+    )
     assert all(math.isfinite(float(v)) for v in frame["ev_dollars"]), (
         "non-finite ev_dollars at scale"
     )

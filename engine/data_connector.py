@@ -82,6 +82,7 @@ class MarketDataConnector:
         "fundamentals": "sp500_fundamentals.csv",
         "credit_risk": "sp500_credit_risk.csv",
         "liquidity": "sp500_liquidity.csv",
+        "corporate_actions": "sp500_corporate_actions.csv",
     }
 
     # Deep-history slice manifest (R2 / docs/DATA_LAYER_DEEP_READ_DESIGN.md §A1).
@@ -715,6 +716,71 @@ class MarketDataConnector:
             "estimate_eps": row.get("estimate_eps"),
             "year_period": row.get("year/period", row.get("year_period")),
         }
+
+    # ------------------------------------------------------------------
+    # Events – Corporate actions
+    # ------------------------------------------------------------------
+
+    def get_corporate_actions(
+        self,
+        ticker: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        as_of: str | None = None,
+        include_regular_cash: bool = False,
+    ) -> pd.DataFrame:
+        """Corporate actions for *ticker*, filtered on ``effective_date``.
+
+        Columns: ``announcement_date, effective_date, action_type, ratio,
+        amount`` (subset present). Sorted by ``effective_date``.
+
+        By default the ~94 %-majority ``"Regular Cash"`` rows (ordinary
+        dividends — already handled by the dividend / ex-div path, and far too
+        frequent to gate on) are **excluded**, so what remains is the set of
+        *disruptive* actions (splits, spinoffs, split-offs, special cash, rights,
+        return of capital, …) the wheel's empirical forward distribution does
+        not model. This is the data source for the #3A corporate-action event
+        lockout (``engine.event_gate``, ``kind="corp_action"``). Pass
+        ``include_regular_cash=True`` for the raw set.
+
+        Point-in-time: when ``as_of`` is supplied, rows whose
+        ``announcement_date`` is **after** ``as_of`` are dropped — a backtest at
+        ``as_of`` must only see corporate actions that were already *announced*
+        by then, even if their ``effective_date`` is still in the future. This
+        keeps the event-gate registration lookahead-free.
+        """
+        df = self._load("corporate_actions")
+        df = self._filter_ticker(df, ticker)
+        if df.empty:
+            return df
+        # The corporate-actions CSV ships its date columns as strings (unlike
+        # the date-parsed monoliths); parse on a COPY so the cached frame is not
+        # mutated, then range/PIT-filter.
+        df = df.copy()
+        for _dc in ("effective_date", "announcement_date"):
+            if _dc in df.columns:
+                df[_dc] = pd.to_datetime(df[_dc], errors="coerce")
+        df = self._filter_dates(df, "effective_date", start_date, end_date)
+        if df.empty:
+            return df
+        if as_of is not None and "announcement_date" in df.columns:
+            df = df[df["announcement_date"] <= pd.Timestamp(as_of)]
+            if df.empty:
+                return df
+        if not include_regular_cash and "action_type" in df.columns:
+            df = df[df["action_type"].astype(str).str.strip() != "Regular Cash"]
+        cols = [
+            c
+            for c in [
+                "announcement_date",
+                "effective_date",
+                "action_type",
+                "ratio",
+                "amount",
+            ]
+            if c in df.columns
+        ]
+        return df[cols].sort_values("effective_date").reset_index(drop=True)
 
     # ------------------------------------------------------------------
     # Events – Dividends

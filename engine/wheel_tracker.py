@@ -1878,6 +1878,19 @@ class WheelTracker:
         snap = take_snapshot(self.positions, today=today)
         nav = self.mark_to_market(today, prices=dict(spot_prices), risk_free_rate=risk_free_rate)
 
+        # #372: resolve the held book's real GICS sectors once (connector
+        # get_fundamentals → gics_sector_name) so the dossier R9 soft-warn
+        # aggregates by the same buckets as the ranker. None when no
+        # connector is attached → the gate's DEFAULT_SECTOR_MAP fallback.
+        sector_map = None
+        if self.connector is not None:
+            from .risk_manager import build_gics_sector_map
+
+            symbols = [p["symbol"] for p in snap.option_positions if p.get("symbol")]
+            symbols += [s for s, _ in snap.stock_holdings]
+            if symbols:
+                sector_map = build_gics_sector_map(self.connector, symbols)
+
         return PortfolioContext(
             held_option_positions=list(snap.option_positions),
             spot_prices=dict(spot_prices),
@@ -1887,6 +1900,7 @@ class WheelTracker:
             returns_data=returns_data,
             correlation_matrix=correlation_matrix,
             volatilities=volatilities,
+            sector_map=sector_map,
         )
 
     # ------------------------------------------------------------------
@@ -2022,6 +2036,7 @@ class WheelTracker:
             check_single_name_cap,
             take_snapshot,
         )
+        from .risk_manager import build_gics_sector_map
 
         nav, nav_source = self._compute_live_nav()
         common_audit = {
@@ -2066,11 +2081,19 @@ class WheelTracker:
 
         # Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on).
         if self._d17_gate_enabled("sector"):
+            # #372: aggregate by real GICS when a connector is attached;
+            # None → DEFAULT_SECTOR_MAP fallback (token-free default path).
+            sector_map = None
+            if self.connector is not None:
+                syms = [ticker]
+                syms += [p["symbol"] for p in snapshot.option_positions if p.get("symbol")]
+                sector_map = build_gics_sector_map(self.connector, syms)
             sector = check_sector_cap(
                 symbol=ticker,
                 proposed_notional=proposed_notional,
                 held_option_positions=snapshot.option_positions,
                 nav=nav,
+                sector_map=sector_map,
             )
             if not sector.passed:
                 return {**common_audit, "reason": sector.reason, **sector.details}

@@ -592,25 +592,28 @@ def test_fundamentals_gics_sector_is_canonical_11():
     assert not extra, f"non-canonical GICS sector(s) present: {sorted(extra)}"
 
 
-def test_r9_sector_map_ignores_pulled_gics_characterization():
-    """W17 (#372): R9's sector cap groups by the HARDCODED ``DEFAULT_SECTOR_MAP``,
-    NOT the pulled ``gics_sector_name``. Characterise the gap on real data: many
-    names carry a real GICS sector in fundamentals yet
-    ``SectorExposureManager.get_sector`` returns ``'Unknown'`` (so R9 lumps them
-    into one phantom bucket). PASSING today — it flips when #372 wires GICS into
-    R9, at which point update it to assert the GICS-grouped behaviour. Quantifies
-    the coverage gap so a map drift is noticed."""
-    from engine.risk_manager import SectorExposureManager
+def test_r9_resolver_groups_by_real_gics():
+    """W17 (#372, LANDED): R9's GICS resolver groups names by their real
+    ``gics_sector_name`` (the call-site ``sector_map`` via ``resolve_sector``),
+    not the hardcoded ``DEFAULT_SECTOR_MAP``. Was the characterization of the C2
+    gap (bare ``SectorExposureManager`` returned ``'Unknown'`` for >50 GICS-known
+    names off the static map); flipped when #372 wired GICS at the gate call
+    sites. The bare manager remains the documented legacy fallback."""
+    from engine.risk_manager import GICS_11, resolve_sector
 
     fu = _load("sp500_fundamentals.csv")
     fu = fu.assign(nt=fu["ticker"].map(normalize_ticker))
     has_gics = fu[fu["gics_sector_name"].notna() & fu["gics_sector_name"].astype(str).ne("nan")]
-    mgr = SectorExposureManager()
-    ignored = [t for t in has_gics["nt"] if mgr.get_sector(t) == "Unknown"]
-    assert len(ignored) > 50, (
-        f"expected many GICS-known names bucketed as 'Unknown' by R9 (the #372 gap); "
-        f"got {len(ignored)} — if near 0, R9 may now read GICS: update this "
-        "characterization to assert the GICS-grouped behaviour"
+    resolved = sum(
+        1
+        for _, r in has_gics.iterrows()
+        if str(r["gics_sector_name"]).strip() in GICS_11
+        and resolve_sector(str(r["nt"]), str(r["gics_sector_name"]).strip())
+        == str(r["gics_sector_name"]).strip()
+    )
+    assert resolved > 50, (
+        f"#372: expected many GICS-known names to resolve to their real GICS via "
+        f"the resolver; got {resolved}"
     )
 
 

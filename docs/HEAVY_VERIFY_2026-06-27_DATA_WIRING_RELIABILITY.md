@@ -165,4 +165,86 @@ realism properties are pinned green in `tests/test_w2_output_realism.py`.
 
 ---
 
-<!-- W3–W5 sections appended by their respective PRs -->
+## §W3 — `prob_profit` calibration (realized vs forecast, by VIX regime)
+
+**Driver:** `scripts/audit_prob_profit_calibration.py` → `w3_prob_profit_calibration.json`.
+Reuses the canonical harness (`scripts/vnv_prob_profit_calibration.py`) verbatim — same
+35-date feasible grid (2020-06 → 2026-02), same realized hold-to-expiry rule
+(`S_expiry > strike − premium`), same `DATA_END = 2026-03-20` (which **pre-dates the W1
+2026-03-23 OHLCV splice**, so realized prices are never contaminated by D-W1-1) — and adds
+the **VIX-regime stratification** W3 asks for. **n = 9,564** candidate-outcomes.
+
+> **Honesty / independence caveat.** Candidates are *not* independent (names recur, windows
+> overlap), so each bin's `n` counts candidates, not trials, and the Wilson interval is
+> **optimistically tight**. Cells with `n < 30` are flagged *not conclusive* and never quoted
+> as support. §2: strictly read-only — every candidate is the authoritative ranker's output.
+
+### Pooled calibration (all regimes, n = 9,564)
+
+| `prob_profit` bin | n | forecast | realized | gap | Wilson 95% | conclusive |
+|---|---:|---:|---:|---:|---|:--:|
+| (0.5, 0.6] | 49 | 0.562 | 0.653 | **+0.091** | [0.513, 0.771] | ✓ |
+| (0.6, 0.7] | 929 | 0.665 | 0.736 | **+0.071** | [0.707, 0.764] | ✓ |
+| (0.7, 0.8] | 3405 | 0.749 | 0.752 | +0.003 | [0.737, 0.766] | ✓ |
+| (0.8, 0.9] | 4345 | 0.836 | 0.792 | **−0.045** | [0.779, 0.803] | ✓ |
+| (0.9, 0.95] | 767 | 0.915 | 0.818 | **−0.097** | [0.789, 0.843] | ✓ |
+| (0.95, 1.0] | 68 | 0.962 | 0.824 | **−0.138** | [0.716, 0.896] | ✓ |
+
+The miscalibration is **monotone**: the engine is *under*-confident in the low/mid bins
+(realized exceeds forecast) and *over*-confident in the top two bins — the top bin forecasts
+0.962 but realizes 0.824 (**−13.8 pp**, conclusive). This is the documented top-bin
+over-confidence, confirmed.
+
+### Top bin (`prob_profit > 0.90`) by VIX regime *at entry* — the headline
+
+| VIX regime at entry | n | forecast | realized | gap | Wilson 95% | conclusive |
+|---|---:|---:|---:|---:|---|:--:|
+| **calm (<20)** | 150 | 0.925 | 0.767 | **−0.158** | [0.693, 0.827] | ✓ |
+| **elevated (20–30)** | 420 | 0.921 | 0.764 | **−0.157** | [0.721, 0.802] | ✓ |
+| **crisis (≥30)** | 108 | 0.927 | **0.935** | **+0.008** | [0.872, 0.968] | ✓ |
+
+**The top-bin over-confidence is conclusive and ~equal in calm and elevated-vol entries
+(≈ −16 pp) but VANISHES in crisis entries** — at VIX ≥ 30 the top bin is essentially
+well-calibrated (realized 0.935 vs forecast 0.927, +0.008). In fact **every** bin in the
+crisis-entry stratum is *under*-confident (e.g. (0.8, 0.9]: realized 0.975 vs 0.855, +0.119;
+(0.7, 0.8]: 0.967 vs 0.773, +0.194). Mechanism: a crisis entry carries very high IV → fat
+premium → wide breakeven, so the put is genuinely safer than the recent-vol-fit forward
+distribution credits; a calm/elevated entry's forward distribution is fit on calm history and
+under-prices the chance of a vol spike during the hold, so top-bin picks get blindsided.
+
+### Is the over-confidence regime-dependent? — Yes, and *opposite* to the documented prior
+
+The prior studies that motivate **R11/R11b** report *realized ~0.57 vs ~0.96 forecast in
+crisis*. **W3 does not reproduce a 0.57 crisis realized** — under **VIX-at-entry**
+classification the crisis-entry top bin realizes **0.935**. The reconciliation is a
+**regime-definition difference**, not a contradiction:
+
+- **W3 conditions on VIX *at entry*** (what a live ranker actually knows on `as_of`).
+- The **prior/R11 conditions on the regime that *follows*** an elevated-vol reading
+  (CLAUDE.md §2 R11: *"the regime that follows an elevated-vol reading … ~0.57 realized vs
+  ~0.96 forecast in crisis"*) — i.e. entries (typically calm/elevated *at entry*) whose
+  **hold period contains** a crisis. That forward-looking subset is exactly the calm/elevated
+  entries that got blindsided — consistent with W3's −16 pp calm/elevated over-confidence.
+
+Both are true; they slice different conditionings of the same phenomenon.
+
+### Implication for R11 / R11b thresholds (report-only — no trio edit)
+
+R11 fires on **VIX > 25 at entry** + top-bin → size-down. Mapping that onto the W3 strata:
+
+- **Elevated (20–30, straddling the 25 cut):** top bin over-confident **−15.7 pp** (conclusive)
+  → R11's size-down on elevated-vol-at-entry top-bin picks **is supported**.
+- **Crisis (≥30):** top bin **well-calibrated (+0.008)** → R11 firing here sizes down
+  genuinely-safe picks (a mild false-positive / forgone-premium cost).
+- **Calm (<20):** top bin **equally over-confident (−15.8 pp)** but R11 **does not fire**
+  (VIX < 25) → an unaddressed over-confidence the gate misses.
+
+So the VIX > 25-at-entry cut catches the over-confident *elevated* band but over-fires into the
+well-calibrated *crisis* band and misses the *calm* band. This is decision-relevant input for
+the R11a/R11b thresholds — **reported only**; the trio is untouched and this is flagged to the
+Windows terminal (which owns R11b this cycle). Methodology pinned green in
+`tests/test_w3_calibration.py`; the headline numbers are reproducible via the driver.
+
+---
+
+<!-- W4–W5 sections appended by their respective PRs -->

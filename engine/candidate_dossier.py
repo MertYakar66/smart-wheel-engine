@@ -72,10 +72,12 @@ R11_VIX_THRESHOLD: float = 25.0
 # went negative (−3.4%) — the same procyclical over-confidence R11a guards on the
 # top bin. R11b bounds it: in elevated vol, a candidate whose EV rests on a
 # positive REAL-premium skew edge is sized down (proceed→review). ``> 0.0`` means
-# "the real mid is richer than fair" (edge_vs_fair is rounded to cents upstream, so
-# this fires on any ≥ $0.01/sh skew lift); tunable. No-op on the synthetic path
-# (``premium_source != "market_mid"``) → byte-identical when the rail is absent
-# (CI/regression), so no re-baseline. See DECISIONS.md D23.
+# "the real mid is richer than fair" — the test is sign-based, so it is unaffected
+# by ``edge_vs_fair``'s units (the ranker reports it PER CONTRACT = per-share edge ×
+# 100, unlike ``premium``/``fair_value`` which are per-share); any positive skew lift
+# fires. Tunable. No-op on the synthetic path (``premium_source != "market_mid"``) →
+# byte-identical when the rail is absent (CI/regression), so no re-baseline. See
+# DECISIONS.md D23.
 R11_SKEW_EDGE_MIN: float = 0.0
 
 
@@ -632,7 +634,7 @@ class EnginePhaseReviewer:
                 if premium_source == "market_mid" and edge > R11_SKEW_EDGE_MIN:
                     notes.append(
                         f"R11b: VIX={vix_f:.1f} > {R11_VIX_THRESHOLD} and a real-premium "
-                        f"skew edge edge_vs_fair=${edge:.2f}/sh > ${R11_SKEW_EDGE_MIN:.2f} "
+                        f"skew edge edge_vs_fair=${edge:.2f}/contract > ${R11_SKEW_EDGE_MIN:.2f} "
                         f"(premium_source=market_mid) is lifting EV — the trade is one the "
                         f"real (skew-rich) mid unlocks in the crisis regime where realized "
                         f"impact went negative (OOS S35). This candidate's modeled tail "

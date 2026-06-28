@@ -227,23 +227,24 @@ class TestNormaliseSymbol:
         assert _normalise_theta_symbol("aapl") == "AAPL"
 
     def test_explicit_alias_brk_b(self):
-        assert _normalise_theta_symbol("BRK-B") == "BRK.B"
+        # ThetaData v3 wants the concatenated form; BRK.B returns HTTP 472.
+        assert _normalise_theta_symbol("BRK-B") == "BRKB"
 
     def test_explicit_alias_bf_b(self):
-        assert _normalise_theta_symbol("BF-B") == "BF.B"
+        assert _normalise_theta_symbol("BF-B") == "BFB"
 
     def test_explicit_alias_googl(self):
         assert _normalise_theta_symbol("GOOG-L") == "GOOGL"
 
     def test_generic_hyphen_class_letter(self):
         # Not in the alias map but still has the pattern
-        assert _normalise_theta_symbol("XYZ-A") == "XYZ.A"
+        assert _normalise_theta_symbol("XYZ-A") == "XYZA"
 
     def test_generic_slash(self):
-        assert _normalise_theta_symbol("BRK/B") == "BRK.B"
+        assert _normalise_theta_symbol("BRK/B") == "BRKB"
 
     def test_generic_space(self):
-        assert _normalise_theta_symbol("BRK B") == "BRK.B"
+        assert _normalise_theta_symbol("BRK B") == "BRKB"
 
     def test_strips_bloomberg_uw_equity(self):
         assert _normalise_theta_symbol("AAPL UW Equity") == "AAPL"
@@ -318,9 +319,11 @@ class TestFetch:
     def test_symbol_normalised_in_request(self, mock: rm_module.Mocker, connector: ThetaConnector):
         mock.get(THETA_RE, text="a\n1\n")
         connector._fetch("/v3/some/path", {"symbol": "BRK-B"})
-        # The mock request URL should contain BRK.B, not BRK-B
+        # The mock request URL should carry the concatenated ThetaData v3
+        # symbol BRKB, not the SP500-format BRK-B (and never the 472-ing BRK.B).
         url = mock.last_request.url
-        assert "BRK.B" in url or "BRK%2EB" in url or "BRK." in url
+        assert "BRKB" in url
+        assert "BRK-B" not in url and "BRK.B" not in url and "BRK%2EB" not in url
 
 
 # ---------------------------------------------------------------------------

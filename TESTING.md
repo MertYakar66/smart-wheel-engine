@@ -285,6 +285,16 @@ Validation-only pins from the #436 campaign (drivers `scripts/audit_data_wiring.
 | `test_w4_risk_free_pit.py` | W4 — served RFR is real PIT decimal (fallback 0.05 only pre-1994); ranker IV is point-in-time (no lookahead, moves with as_of) |
 | `test_w5_tail_cvar.py` | W5 — VIX-regime + CVaR breach helpers; engine tail-ordering contract `cvar_5` ≤ `pnl_p25` |
 
+### Heavy-verify 2026-06-28 (#446) — top-bin net-cost (Mac terminal)
+
+Follow-up to W3/#442. Validation/measurement-only pin (driver
+`scripts/audit_topbin_netcost.py`; findings
+`docs/HEAVY_VERIFY_2026-06-28_TOPBIN_NETCOST.md`).
+
+| File | Pins |
+|---|---|
+| `test_w6_topbin_netcost.py` | W6 — entry-VIX bands (calm ≤15 / elevated 15-25 / crisis >25); friction-overlay realized P&L reuses the canonical `_forward_replay_realized_pnl` and is non-increasing none ≥ bid_ask ≥ full (assignment-slip only when ITM); cluster-bootstrap CI; the window-agreeing net-cost verdict logic (INSUFFICIENT at n<30 / NET-COSTLY / NET-POSITIVE / DRAG); live rank→replay integration smoke |
+
 ## Running tests
 
 ```bash

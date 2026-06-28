@@ -1,0 +1,214 @@
+{
+  "rail_dir": "C:/Users/merty/Desktop/smart-wheel-engine/data_processed/option_premium",
+  "c1_coverage": {
+    "2020-03-16": {
+      "n_candidates": 69,
+      "market_mid": 17,
+      "synthetic_bsm": 52,
+      "market_mid_pct": 24.6,
+      "n_tickers": 69
+    },
+    "2021-06-15": {
+      "n_candidates": 76,
+      "market_mid": 20,
+      "synthetic_bsm": 56,
+      "market_mid_pct": 26.3,
+      "n_tickers": 76
+    },
+    "2022-10-14": {
+      "n_candidates": 8,
+      "market_mid": 3,
+      "synthetic_bsm": 5,
+      "market_mid_pct": 37.5,
+      "n_tickers": 8
+    },
+    "2023-06-15": {
+      "n_candidates": 76,
+      "market_mid": 21,
+      "synthetic_bsm": 55,
+      "market_mid_pct": 27.6,
+      "n_tickers": 76
+    },
+    "2024-06-14": {
+      "n_candidates": 70,
+      "market_mid": 17,
+      "synthetic_bsm": 53,
+      "market_mid_pct": 24.3,
+      "n_tickers": 70
+    }
+  },
+  "c2_split_adjust": {
+    "AAPL": {
+      "splits_in_window": 1,
+      "checks": [
+        {
+          "eff": "2020-07-30",
+          "ratio": 4.0,
+          "asof": "2020-07-09",
+          "n": 0
+        }
+      ]
+    },
+    "TSLA": {
+      "splits_in_window": 2,
+      "checks": [
+        {
+          "eff": "2020-08-11",
+          "ratio": 5.0,
+          "asof": "2020-07-21",
+          "n": 0
+        },
+        {
+          "eff": "2022-08-05",
+          "ratio": 3.0,
+          "asof": "2022-07-15",
+          "n": 0
+        }
+      ]
+    },
+    "NVDA": {
+      "splits_in_window": 1,
+      "checks": [
+        {
+          "eff": "2024-05-22",
+          "ratio": 10.0,
+          "asof": "2024-05-01",
+          "n": 0
+        }
+      ]
+    },
+    "AMZN": {
+      "splits_in_window": 1,
+      "checks": [
+        {
+          "eff": "2022-03-09",
+          "ratio": 20.0,
+          "asof": "2022-02-16",
+          "spot": 158.1,
+          "strike": 149.5,
+          "premium": 2.93,
+          "premium_source": "market_mid",
+          "strike_over_spot": 0.946,
+          "scale_sane": true
+        }
+      ]
+    },
+    "GOOGL": {
+      "splits_in_window": 1,
+      "checks": [
+        {
+          "eff": "2021-12-27",
+          "ratio": 20.0,
+          "asof": "2021-12-06",
+          "spot": 143.16,
+          "strike": 135.5,
+          "premium": 2.26,
+          "premium_source": "market_mid",
+          "strike_over_spot": 0.947,
+          "scale_sane": true
+        }
+      ]
+    }
+  },
+  "c3_units": {
+    "market_mid_rows": 17,
+    "max_abs_diff_per_contract_vs_edge": 0.05,
+    "median_abs_diff": 0.02,
+    "interpretation": "edge_vs_fair == (premium - fair_value)*100 (per-contract) confirmed"
+  },
+  "c4_edge_by_vix": {
+    "15-25": {
+      "n": 20,
+      "edge_mean_per_contract": 63.18,
+      "edge_median": 48.16,
+      "pct_positive": 100.0
+    },
+    "25-35": {
+      "n": 3,
+      "edge_mean_per_contract": 34.35,
+      "edge_median": 14.71,
+      "pct_positive": 100.0
+    },
+    "vix<=15": {
+      "n": 38,
+      "edge_mean_per_contract": 16.17,
+      "edge_median": 12.34,
+      "pct_positive": 68.4
+    },
+    "vix>35": {
+      "n": 17,
+      "edge_mean_per_contract": 45.55,
+      "edge_median": 42.09,
+      "pct_positive": 70.6
+    }
+  },
+  "c5_quote_sanity": {
+    "sampled_files": 8,
+    "per_file": {
+      "AAPL": {
+        "rows": 2299861,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ABBV": {
+        "rows": 1660521,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ABNB": {
+        "rows": 1044450,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ABT": {
+        "rows": 1524653,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ACN": {
+        "rows": 1918153,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ADBE": {
+        "rows": 2579734,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ADI": {
+        "rows": 1396136,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      },
+      "ADP": {
+        "rows": 1414545,
+        "crossed_bid_gt_ask": 0,
+        "nonpositive_mid": 0,
+        "mid_not_midpoint": 0,
+        "dte_out_of_belt": 0,
+        "bad_right": 0
+      }
+    }
+  }
+}

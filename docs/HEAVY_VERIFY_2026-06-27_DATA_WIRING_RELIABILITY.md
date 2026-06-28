@@ -247,4 +247,59 @@ Windows terminal (which owns R11b this cycle). Methodology pinned green in
 
 ---
 
-<!-- W4–W5 sections appended by their respective PRs -->
+## §W4 — Risk-free-rate + point-in-time correctness
+
+**Driver:** `scripts/audit_risk_free_pit.py` → `w4_risk_free_pit.json`.
+
+### Risk-free-rate "spurious 5%" defect — **REFUTED on current data (latent, not active)**
+
+`get_current_risk_free_rate` (`engine/data_integration.py`) returns `fallback` (the EV-path
+caller `wheel_runner.py:4064` passes `fallback=0.05`) when `as_of` precedes treasury coverage.
+The committed `treasury_yields.csv` now covers **rate_3m from 1994-01-03 → 2026-06-05**, which
+**precedes the OHLCV start (2018-01-02)**, so the fallback path is **unreachable for any
+feasible `as_of`**. Served rates are the real PIT decimal each day:
+
+| as_of | served rate_3m (decimal) | regime |
+|---|---:|---|
+| 2018-06-01 | 0.01905 | normalization |
+| 2020-03-15 | 0.00244 | COVID ZIRP |
+| 2021-05-01 | 0.000025 | ZIRP trough |
+| 2024-01-02 | 0.05363 | hiking cycle |
+| 1990-01-01 (pre-coverage) | **0.05** | fallback fires (no feasible OHLCV here) |
+
+The spurious 0.05 only appears for an `as_of` before 1994 — outside any feasible window.
+**Verdict: the historical defect is resolved by the treasury back-extension; it is now latent.**
+
+### Latent EV impact (quantified, own-driver shim — no trio edit)
+
+To quantify what the defect *would* cost if coverage ever regressed, the driver ranks
+`as_of=2021-06-15` (real rate **0.000127**) twice: once with the real PIT rate, once with both
+rate sources **monkeypatched to 0.05** (in this driver's process only — never the trio), and
+diffs `ev_dollars` per common ticker (n=90):
+
+| metric | ev_dollars(forced 5%) − ev_dollars(real ~0%) |
+|---|---:|
+| mean | **−15.20** |
+| median | −10.37 |
+| max (least negative) | −1.48 |
+
+Forcing 5% **lowers** `ev_dollars` by ~$10–15/contract (the lower BSM put premium at higher `r`
+dominates any collateral-carry credit). So had the spurious 5% been live in the ZIRP era, a
+2020–2021 backtest would have **understated** EV by ~$15/contract — material against typical
+`ev_dollars` of $50–300. (Moot today; quantifies the latent risk.)
+
+### Point-in-time IV — **CONFIRMED**
+
+The ranker resolves ATM IV via `_resolve_pit_atm_iv` → `get_iv_history(ticker, end_date=as_of)`
+(the S23 F3 / #378 fix), not a present-day snapshot. Verified:
+
+- **No lookahead:** for every sampled (ticker, as_of), the served IV history's max row date is
+  `≤ as_of` (0 violations).
+- **Moves with as_of:** the resolved IV differs across two as_of dates and matches each date's
+  PIT value **exactly** — e.g. AAPL 0.2129 (2021-06-15) vs 0.2261 (2024-01-16); MSFT 0.1819 vs
+  0.2554; NVDA likewise. A frozen-snapshot regression would show identical IV across dates — it
+  does not. Pinned green in `tests/test_w4_risk_free_pit.py`.
+
+---
+
+<!-- W5 section appended by its PR -->

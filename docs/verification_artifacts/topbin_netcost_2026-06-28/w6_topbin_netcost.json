@@ -1,0 +1,1493 @@
+{
+  "meta": {
+    "question": "Is the calm/elevated-ENTRY top-bin (prob_profit>0.90) over-confidence net-dollar-COSTLY, or still net-positive premium (R11b lesson)?",
+    "follow_up_to": "#442 (W3); R11b precedent #437 (CLOSED, net-costly)",
+    "windows": {
+      "A": "2020-2024",
+      "B": "2021-2025",
+      "union_grid_dates": 71
+    },
+    "entry_vix_bands": "calm<=15, elevated 15-25, crisis>25 (VIX-at-entry, #446)",
+    "top_bin_prob": 0.9,
+    "headline_friction": "full",
+    "realized_rule": "_forward_replay_realized_pnl + _spot_on_or_after (backtests/regression/_common.py); (premium_adj - max(0,strike-spot))*100 - open_commission - assignment_slip(if ITM)",
+    "ranker": "rank_candidates_by_ev (authoritative, rail-independent; top_n=10000, min_ev=-1e9, full evaluated population)",
+    "universe_limit": null,
+    "data_caveats": [
+      "Both windows end before the 2026-03-23 OHLCV splice (W1/#439) \u2014 no contamination.",
+      "premium_source is mostly synthetic_bsm on the Bloomberg-CSV path; edge_vs_fair ~0 there, so this measures the engine's own modeled premium vs realized moves.",
+      "Wilson/cluster-bootstrap CIs are optimistically tight \u2014 candidates are not i.i.d. (recurring names, overlapping forward windows).",
+      "Named windows 2020-2024 / 2021-2025 overlap ~80% \u2014 see disjoint_2020-2022 / disjoint_2023-2025 for the genuinely-independent regime split.",
+      "Calm-entry (VIX<=15) occurred only in 2023-07..2024-12; the calm sub-bucket is therefore both small (n<30) and temporally concentrated in one low-vol regime.",
+      "Realized spot uses the close on-or-after expiry (_spot_on_or_after, 7-day window) \u2014 Friday-close settlement convention; ~0.5-1% gap risk, immaterial to the verdict."
+    ],
+    "n_total": 15642,
+    "band_counts": {
+      "elevated (15-25)": 8993,
+      "crisis (>25)": 3849,
+      "calm (<=15)": 2800
+    },
+    "collection_diag": {
+      "n_ranked": 15643,
+      "n_no_fwd_spot": 1,
+      "no_fwd_spot_by_band": {
+        "elevated (15-25)": 1
+      },
+      "ranker_drops_total": 21149,
+      "no_fwd_spot_rate": 6e-05
+    }
+  },
+  "by_window": {
+    "2020-2024": {
+      "calm_elevated (VIX<=25)": {
+        "all": {
+          "n": 9053,
+          "mean_pnl_full": -25.67,
+          "mean_pnl_full_ci95": [
+            -127.87,
+            60.74
+          ],
+          "total_pnl_full": -232392.53,
+          "mean_pnl_bidask": -20.24,
+          "mean_pnl_gross": -1.92,
+          "win_rate_full": 0.7658,
+          "win_rate_full_ci95": [
+            0.757,
+            0.7744
+          ],
+          "win_rate_gross": 0.7748,
+          "mean_forecast_prob_profit": 0.7806,
+          "calibration_gap_pp": -0.58,
+          "itm_rate": 0.2721,
+          "mean_premium": 2.247
+        },
+        "top_bin": {
+          "n": 376,
+          "mean_pnl_full": 115.34,
+          "mean_pnl_full_ci95": [
+            -13.41,
+            222.94
+          ],
+          "total_pnl_full": 43366.32,
+          "mean_pnl_bidask": 118.82,
+          "mean_pnl_gross": 140.49,
+          "win_rate_full": 0.8404,
+          "win_rate_full_ci95": [
+            0.8,
+            0.874
+          ],
+          "win_rate_gross": 0.8484,
+          "mean_forecast_prob_profit": 0.9203,
+          "calibration_gap_pp": -7.19,
+          "itm_rate": 0.1941,
+          "mean_premium": 2.689
+        },
+        "non_top_bin": {
+          "n": 8677,
+          "mean_pnl_full": -31.78,
+          "mean_pnl_full_ci95": [
+            -134.58,
+            55.99
+          ],
+          "total_pnl_full": -275758.85,
+          "mean_pnl_bidask": -26.26,
+          "mean_pnl_gross": -8.09,
+          "win_rate_full": 0.7626,
+          "win_rate_full_ci95": [
+            0.7535,
+            0.7714
+          ],
+          "win_rate_gross": 0.7716,
+          "mean_forecast_prob_profit": 0.7746,
+          "calibration_gap_pp": -0.3,
+          "itm_rate": 0.2754,
+          "mean_premium": 2.228
+        },
+        "top_bin_would_trade": {
+          "n": 211,
+          "mean_pnl_full": 150.82,
+          "mean_pnl_full_ci95": [
+            -42.15,
+            314.67
+          ],
+          "total_pnl_full": 31822.64,
+          "mean_pnl_bidask": 154.6,
+          "mean_pnl_gross": 182.48,
+          "win_rate_full": 0.8483,
+          "win_rate_full_ci95": [
+            0.7937,
+            0.8905
+          ],
+          "win_rate_gross": 0.8531,
+          "mean_forecast_prob_profit": 0.922,
+          "calibration_gap_pp": -6.89,
+          "itm_rate": 0.1801,
+          "mean_premium": 3.474
+        }
+      },
+      "calm (<=15)": {
+        "all": {
+          "n": 2800,
+          "mean_pnl_full": -124.91,
+          "mean_pnl_full_ci95": [
+            -345.48,
+            73.94
+          ],
+          "total_pnl_full": -349735.42,
+          "mean_pnl_bidask": -117.36,
+          "mean_pnl_gross": -99.15,
+          "win_rate_full": 0.6793,
+          "win_rate_full_ci95": [
+            0.6618,
+            0.6963
+          ],
+          "win_rate_gross": 0.6886,
+          "mean_forecast_prob_profit": 0.7545,
+          "calibration_gap_pp": -6.59,
+          "itm_rate": 0.3607,
+          "mean_premium": 2.227
+        },
+        "top_bin": {
+          "n": 28,
+          "mean_pnl_full": 266.02,
+          "mean_pnl_full_ci95": [
+            50.35,
+            525.79
+          ],
+          "total_pnl_full": 7448.53,
+          "mean_pnl_bidask": 268.06,
+          "mean_pnl_gross": 297.93,
+          "win_rate_full": 0.8929,
+          "win_rate_full_ci95": [
+            0.728,
+            0.9629
+          ],
+          "win_rate_gross": 0.8929,
+          "mean_forecast_prob_profit": 0.9201,
+          "calibration_gap_pp": -2.72,
+          "itm_rate": 0.1429,
+          "mean_premium": 3.729
+        },
+        "non_top_bin": {
+          "n": 2772,
+          "mean_pnl_full": -128.85,
+          "mean_pnl_full_ci95": [
+            -352.66,
+            71.53
+          ],
+          "total_pnl_full": -357183.95,
+          "mean_pnl_bidask": -121.25,
+          "mean_pnl_gross": -103.16,
+          "win_rate_full": 0.6771,
+          "win_rate_full_ci95": [
+            0.6595,
+            0.6943
+          ],
+          "win_rate_gross": 0.6865,
+          "mean_forecast_prob_profit": 0.7528,
+          "calibration_gap_pp": -6.63,
+          "itm_rate": 0.3629,
+          "mean_premium": 2.212
+        },
+        "top_bin_would_trade": {
+          "n": 20,
+          "mean_pnl_full": 178.3,
+          "mean_pnl_full_ci95": [
+            -32.54,
+            332.34
+          ],
+          "total_pnl_full": 3566.02,
+          "mean_pnl_bidask": 179.91,
+          "mean_pnl_gross": 202.49,
+          "win_rate_full": 0.9,
+          "win_rate_full_ci95": [
+            0.699,
+            0.9721
+          ],
+          "win_rate_gross": 0.9,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -1.96,
+          "itm_rate": 0.1,
+          "mean_premium": 2.818
+        }
+      },
+      "elevated (15-25)": {
+        "all": {
+          "n": 6253,
+          "mean_pnl_full": 18.77,
+          "mean_pnl_full_ci95": [
+            -76.89,
+            98.25
+          ],
+          "total_pnl_full": 117342.89,
+          "mean_pnl_bidask": 23.25,
+          "mean_pnl_gross": 41.62,
+          "win_rate_full": 0.8046,
+          "win_rate_full_ci95": [
+            0.7946,
+            0.8142
+          ],
+          "win_rate_gross": 0.8134,
+          "mean_forecast_prob_profit": 0.7923,
+          "calibration_gap_pp": 2.11,
+          "itm_rate": 0.2324,
+          "mean_premium": 2.256
+        },
+        "top_bin": {
+          "n": 348,
+          "mean_pnl_full": 103.21,
+          "mean_pnl_full_ci95": [
+            -35.19,
+            207.62
+          ],
+          "total_pnl_full": 35917.78,
+          "mean_pnl_bidask": 106.81,
+          "mean_pnl_gross": 127.82,
+          "win_rate_full": 0.8362,
+          "win_rate_full_ci95": [
+            0.7937,
+            0.8714
+          ],
+          "win_rate_gross": 0.8448,
+          "mean_forecast_prob_profit": 0.9204,
+          "calibration_gap_pp": -7.55,
+          "itm_rate": 0.1983,
+          "mean_premium": 2.605
+        },
+        "non_top_bin": {
+          "n": 5905,
+          "mean_pnl_full": 13.79,
+          "mean_pnl_full_ci95": [
+            -83.34,
+            94.64
+          ],
+          "total_pnl_full": 81425.11,
+          "mean_pnl_bidask": 18.33,
+          "mean_pnl_gross": 36.54,
+          "win_rate_full": 0.8027,
+          "win_rate_full_ci95": [
+            0.7924,
+            0.8127
+          ],
+          "win_rate_gross": 0.8115,
+          "mean_forecast_prob_profit": 0.7848,
+          "calibration_gap_pp": 2.67,
+          "itm_rate": 0.2344,
+          "mean_premium": 2.236
+        },
+        "top_bin_would_trade": {
+          "n": 191,
+          "mean_pnl_full": 147.94,
+          "mean_pnl_full_ci95": [
+            -65.64,
+            327.53
+          ],
+          "total_pnl_full": 28256.62,
+          "mean_pnl_bidask": 151.95,
+          "mean_pnl_gross": 180.38,
+          "win_rate_full": 0.8429,
+          "win_rate_full_ci95": [
+            0.7846,
+            0.8877
+          ],
+          "win_rate_gross": 0.8482,
+          "mean_forecast_prob_profit": 0.9223,
+          "calibration_gap_pp": -7.41,
+          "itm_rate": 0.1885,
+          "mean_premium": 3.543
+        }
+      },
+      "crisis (>25)": {
+        "all": {
+          "n": 3849,
+          "mean_pnl_full": -38.47,
+          "mean_pnl_full_ci95": [
+            -317.83,
+            169.79
+          ],
+          "total_pnl_full": -148070.82,
+          "mean_pnl_bidask": -34.64,
+          "mean_pnl_gross": -14.71,
+          "win_rate_full": 0.7971,
+          "win_rate_full_ci95": [
+            0.7841,
+            0.8095
+          ],
+          "win_rate_gross": 0.802,
+          "mean_forecast_prob_profit": 0.8431,
+          "calibration_gap_pp": -4.11,
+          "itm_rate": 0.2406,
+          "mean_premium": 2.465
+        },
+        "top_bin": {
+          "n": 704,
+          "mean_pnl_full": -157.88,
+          "mean_pnl_full_ci95": [
+            -571.29,
+            187.88
+          ],
+          "total_pnl_full": -111144.82,
+          "mean_pnl_bidask": -153.5,
+          "mean_pnl_gross": -133.27,
+          "win_rate_full": 0.7756,
+          "win_rate_full_ci95": [
+            0.7433,
+            0.8048
+          ],
+          "win_rate_gross": 0.7798,
+          "mean_forecast_prob_profit": 0.9261,
+          "calibration_gap_pp": -14.62,
+          "itm_rate": 0.2599,
+          "mean_premium": 2.516
+        }
+      }
+    },
+    "2021-2025": {
+      "calm_elevated (VIX<=25)": {
+        "all": {
+          "n": 11112,
+          "mean_pnl_full": -38.29,
+          "mean_pnl_full_ci95": [
+            -174.24,
+            66.59
+          ],
+          "total_pnl_full": -425489.15,
+          "mean_pnl_bidask": -32.54,
+          "mean_pnl_gross": -12.61,
+          "win_rate_full": 0.7628,
+          "win_rate_full_ci95": [
+            0.7548,
+            0.7706
+          ],
+          "win_rate_gross": 0.7712,
+          "mean_forecast_prob_profit": 0.7785,
+          "calibration_gap_pp": -0.73,
+          "itm_rate": 0.2754,
+          "mean_premium": 2.451
+        },
+        "top_bin": {
+          "n": 443,
+          "mean_pnl_full": 147.11,
+          "mean_pnl_full_ci95": [
+            27.56,
+            256.31
+          ],
+          "total_pnl_full": 65168.69,
+          "mean_pnl_bidask": 150.8,
+          "mean_pnl_gross": 177.17,
+          "win_rate_full": 0.8397,
+          "win_rate_full_ci95": [
+            0.8027,
+            0.8709
+          ],
+          "win_rate_gross": 0.8465,
+          "mean_forecast_prob_profit": 0.9197,
+          "calibration_gap_pp": -7.32,
+          "itm_rate": 0.1874,
+          "mean_premium": 3.279
+        },
+        "non_top_bin": {
+          "n": 10669,
+          "mean_pnl_full": -45.99,
+          "mean_pnl_full_ci95": [
+            -183.93,
+            62.17
+          ],
+          "total_pnl_full": -490657.85,
+          "mean_pnl_bidask": -40.15,
+          "mean_pnl_gross": -20.49,
+          "win_rate_full": 0.7596,
+          "win_rate_full_ci95": [
+            0.7514,
+            0.7676
+          ],
+          "win_rate_gross": 0.7681,
+          "mean_forecast_prob_profit": 0.7727,
+          "calibration_gap_pp": -0.46,
+          "itm_rate": 0.279,
+          "mean_premium": 2.417
+        },
+        "top_bin_would_trade": {
+          "n": 280,
+          "mean_pnl_full": 203.02,
+          "mean_pnl_full_ci95": [
+            32.85,
+            350.96
+          ],
+          "total_pnl_full": 56845.77,
+          "mean_pnl_bidask": 206.92,
+          "mean_pnl_gross": 240.73,
+          "win_rate_full": 0.8536,
+          "win_rate_full_ci95": [
+            0.8074,
+            0.8902
+          ],
+          "win_rate_gross": 0.8571,
+          "mean_forecast_prob_profit": 0.921,
+          "calibration_gap_pp": -6.38,
+          "itm_rate": 0.1679,
+          "mean_premium": 4.22
+        }
+      },
+      "calm (<=15)": {
+        "all": {
+          "n": 2800,
+          "mean_pnl_full": -124.91,
+          "mean_pnl_full_ci95": [
+            -345.48,
+            73.94
+          ],
+          "total_pnl_full": -349735.42,
+          "mean_pnl_bidask": -117.36,
+          "mean_pnl_gross": -99.15,
+          "win_rate_full": 0.6793,
+          "win_rate_full_ci95": [
+            0.6618,
+            0.6963
+          ],
+          "win_rate_gross": 0.6886,
+          "mean_forecast_prob_profit": 0.7545,
+          "calibration_gap_pp": -6.59,
+          "itm_rate": 0.3607,
+          "mean_premium": 2.227
+        },
+        "top_bin": {
+          "n": 28,
+          "mean_pnl_full": 266.02,
+          "mean_pnl_full_ci95": [
+            50.35,
+            525.79
+          ],
+          "total_pnl_full": 7448.53,
+          "mean_pnl_bidask": 268.06,
+          "mean_pnl_gross": 297.93,
+          "win_rate_full": 0.8929,
+          "win_rate_full_ci95": [
+            0.728,
+            0.9629
+          ],
+          "win_rate_gross": 0.8929,
+          "mean_forecast_prob_profit": 0.9201,
+          "calibration_gap_pp": -2.72,
+          "itm_rate": 0.1429,
+          "mean_premium": 3.729
+        },
+        "non_top_bin": {
+          "n": 2772,
+          "mean_pnl_full": -128.85,
+          "mean_pnl_full_ci95": [
+            -352.66,
+            71.53
+          ],
+          "total_pnl_full": -357183.95,
+          "mean_pnl_bidask": -121.25,
+          "mean_pnl_gross": -103.16,
+          "win_rate_full": 0.6771,
+          "win_rate_full_ci95": [
+            0.6595,
+            0.6943
+          ],
+          "win_rate_gross": 0.6865,
+          "mean_forecast_prob_profit": 0.7528,
+          "calibration_gap_pp": -6.63,
+          "itm_rate": 0.3629,
+          "mean_premium": 2.212
+        },
+        "top_bin_would_trade": {
+          "n": 20,
+          "mean_pnl_full": 178.3,
+          "mean_pnl_full_ci95": [
+            -32.54,
+            332.34
+          ],
+          "total_pnl_full": 3566.02,
+          "mean_pnl_bidask": 179.91,
+          "mean_pnl_gross": 202.49,
+          "win_rate_full": 0.9,
+          "win_rate_full_ci95": [
+            0.699,
+            0.9721
+          ],
+          "win_rate_gross": 0.9,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -1.96,
+          "itm_rate": 0.1,
+          "mean_premium": 2.818
+        }
+      },
+      "elevated (15-25)": {
+        "all": {
+          "n": 8312,
+          "mean_pnl_full": -9.11,
+          "mean_pnl_full_ci95": [
+            -166.92,
+            109.1
+          ],
+          "total_pnl_full": -75753.73,
+          "mean_pnl_bidask": -3.97,
+          "mean_pnl_gross": 16.54,
+          "win_rate_full": 0.7909,
+          "win_rate_full_ci95": [
+            0.782,
+            0.7995
+          ],
+          "win_rate_gross": 0.7991,
+          "mean_forecast_prob_profit": 0.7867,
+          "calibration_gap_pp": 1.24,
+          "itm_rate": 0.2466,
+          "mean_premium": 2.527
+        },
+        "top_bin": {
+          "n": 415,
+          "mean_pnl_full": 139.08,
+          "mean_pnl_full_ci95": [
+            8.83,
+            258.64
+          ],
+          "total_pnl_full": 57720.16,
+          "mean_pnl_bidask": 142.89,
+          "mean_pnl_gross": 169.02,
+          "win_rate_full": 0.8361,
+          "win_rate_full_ci95": [
+            0.7975,
+            0.8686
+          ],
+          "win_rate_gross": 0.8434,
+          "mean_forecast_prob_profit": 0.9197,
+          "calibration_gap_pp": -7.63,
+          "itm_rate": 0.1904,
+          "mean_premium": 3.249
+        },
+        "non_top_bin": {
+          "n": 7897,
+          "mean_pnl_full": -16.9,
+          "mean_pnl_full_ci95": [
+            -178.07,
+            102.11
+          ],
+          "total_pnl_full": -133473.9,
+          "mean_pnl_bidask": -11.68,
+          "mean_pnl_gross": 8.53,
+          "win_rate_full": 0.7885,
+          "win_rate_full_ci95": [
+            0.7794,
+            0.7974
+          ],
+          "win_rate_gross": 0.7968,
+          "mean_forecast_prob_profit": 0.7797,
+          "calibration_gap_pp": 1.71,
+          "itm_rate": 0.2496,
+          "mean_premium": 2.489
+        },
+        "top_bin_would_trade": {
+          "n": 260,
+          "mean_pnl_full": 204.92,
+          "mean_pnl_full_ci95": [
+            16.42,
+            367.24
+          ],
+          "total_pnl_full": 53279.75,
+          "mean_pnl_bidask": 209.0,
+          "mean_pnl_gross": 243.67,
+          "win_rate_full": 0.85,
+          "win_rate_full_ci95": [
+            0.8015,
+            0.8883
+          ],
+          "win_rate_gross": 0.8538,
+          "mean_forecast_prob_profit": 0.9211,
+          "calibration_gap_pp": -6.72,
+          "itm_rate": 0.1731,
+          "mean_premium": 4.328
+        }
+      },
+      "crisis (>25)": {
+        "all": {
+          "n": 2208,
+          "mean_pnl_full": 43.65,
+          "mean_pnl_full_ci95": [
+            -85.23,
+            182.09
+          ],
+          "total_pnl_full": 96383.01,
+          "mean_pnl_bidask": 47.64,
+          "mean_pnl_gross": 69.0,
+          "win_rate_full": 0.8093,
+          "win_rate_full_ci95": [
+            0.7924,
+            0.8252
+          ],
+          "win_rate_gross": 0.813,
+          "mean_forecast_prob_profit": 0.8351,
+          "calibration_gap_pp": -2.22,
+          "itm_rate": 0.231,
+          "mean_premium": 2.647
+        },
+        "top_bin": {
+          "n": 327,
+          "mean_pnl_full": -11.18,
+          "mean_pnl_full_ci95": [
+            -311.53,
+            218.09
+          ],
+          "total_pnl_full": -3656.99,
+          "mean_pnl_bidask": -7.27,
+          "mean_pnl_gross": 15.15,
+          "win_rate_full": 0.844,
+          "win_rate_full_ci95": [
+            0.8007,
+            0.8793
+          ],
+          "win_rate_gross": 0.8471,
+          "mean_forecast_prob_profit": 0.9227,
+          "calibration_gap_pp": -7.56,
+          "itm_rate": 0.1896,
+          "mean_premium": 2.786
+        }
+      }
+    },
+    "disjoint_2020-2022": {
+      "calm_elevated (VIX<=25)": {
+        "all": {
+          "n": 3584,
+          "mean_pnl_full": -46.59,
+          "mean_pnl_full_ci95": [
+            -219.26,
+            72.71
+          ],
+          "total_pnl_full": -166975.79,
+          "mean_pnl_bidask": -41.19,
+          "mean_pnl_gross": -23.32,
+          "win_rate_full": 0.7626,
+          "win_rate_full_ci95": [
+            0.7483,
+            0.7762
+          ],
+          "win_rate_gross": 0.7729,
+          "mean_forecast_prob_profit": 0.8093,
+          "calibration_gap_pp": -3.64,
+          "itm_rate": 0.2799,
+          "mean_premium": 2.198
+        },
+        "top_bin": {
+          "n": 294,
+          "mean_pnl_full": 66.91,
+          "mean_pnl_full_ci95": [
+            -77.86,
+            149.35
+          ],
+          "total_pnl_full": 19672.28,
+          "mean_pnl_bidask": 70.39,
+          "mean_pnl_gross": 87.24,
+          "win_rate_full": 0.8401,
+          "win_rate_full_ci95": [
+            0.7939,
+            0.8776
+          ],
+          "win_rate_gross": 0.8469,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -7.27,
+          "itm_rate": 0.1973,
+          "mean_premium": 2.087
+        },
+        "non_top_bin": {
+          "n": 3290,
+          "mean_pnl_full": -56.73,
+          "mean_pnl_full_ci95": [
+            -227.37,
+            66.46
+          ],
+          "total_pnl_full": -186648.07,
+          "mean_pnl_bidask": -51.16,
+          "mean_pnl_gross": -33.2,
+          "win_rate_full": 0.7556,
+          "win_rate_full_ci95": [
+            0.7406,
+            0.77
+          ],
+          "win_rate_gross": 0.7663,
+          "mean_forecast_prob_profit": 0.7994,
+          "calibration_gap_pp": -3.32,
+          "itm_rate": 0.2872,
+          "mean_premium": 2.207
+        },
+        "top_bin_would_trade": {
+          "n": 147,
+          "mean_pnl_full": 88.39,
+          "mean_pnl_full_ci95": [
+            -178.02,
+            212.65
+          ],
+          "total_pnl_full": 12992.97,
+          "mean_pnl_bidask": 92.14,
+          "mean_pnl_gross": 113.78,
+          "win_rate_full": 0.8503,
+          "win_rate_full_ci95": [
+            0.7838,
+            0.899
+          ],
+          "win_rate_gross": 0.8503,
+          "mean_forecast_prob_profit": 0.9211,
+          "calibration_gap_pp": -7.08,
+          "itm_rate": 0.1837,
+          "mean_premium": 2.698
+        }
+      },
+      "calm (<=15)": {
+        "all": {
+          "n": 0
+        },
+        "top_bin": {
+          "n": 0
+        },
+        "non_top_bin": {
+          "n": 0
+        },
+        "top_bin_would_trade": {
+          "n": 0
+        }
+      },
+      "elevated (15-25)": {
+        "all": {
+          "n": 3584,
+          "mean_pnl_full": -46.59,
+          "mean_pnl_full_ci95": [
+            -219.26,
+            72.71
+          ],
+          "total_pnl_full": -166975.79,
+          "mean_pnl_bidask": -41.19,
+          "mean_pnl_gross": -23.32,
+          "win_rate_full": 0.7626,
+          "win_rate_full_ci95": [
+            0.7483,
+            0.7762
+          ],
+          "win_rate_gross": 0.7729,
+          "mean_forecast_prob_profit": 0.8093,
+          "calibration_gap_pp": -3.64,
+          "itm_rate": 0.2799,
+          "mean_premium": 2.198
+        },
+        "top_bin": {
+          "n": 294,
+          "mean_pnl_full": 66.91,
+          "mean_pnl_full_ci95": [
+            -77.86,
+            149.35
+          ],
+          "total_pnl_full": 19672.28,
+          "mean_pnl_bidask": 70.39,
+          "mean_pnl_gross": 87.24,
+          "win_rate_full": 0.8401,
+          "win_rate_full_ci95": [
+            0.7939,
+            0.8776
+          ],
+          "win_rate_gross": 0.8469,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -7.27,
+          "itm_rate": 0.1973,
+          "mean_premium": 2.087
+        },
+        "non_top_bin": {
+          "n": 3290,
+          "mean_pnl_full": -56.73,
+          "mean_pnl_full_ci95": [
+            -227.37,
+            66.46
+          ],
+          "total_pnl_full": -186648.07,
+          "mean_pnl_bidask": -51.16,
+          "mean_pnl_gross": -33.2,
+          "win_rate_full": 0.7556,
+          "win_rate_full_ci95": [
+            0.7406,
+            0.77
+          ],
+          "win_rate_gross": 0.7663,
+          "mean_forecast_prob_profit": 0.7994,
+          "calibration_gap_pp": -3.32,
+          "itm_rate": 0.2872,
+          "mean_premium": 2.207
+        },
+        "top_bin_would_trade": {
+          "n": 147,
+          "mean_pnl_full": 88.39,
+          "mean_pnl_full_ci95": [
+            -178.02,
+            212.65
+          ],
+          "total_pnl_full": 12992.97,
+          "mean_pnl_bidask": 92.14,
+          "mean_pnl_gross": 113.78,
+          "win_rate_full": 0.8503,
+          "win_rate_full_ci95": [
+            0.7838,
+            0.899
+          ],
+          "win_rate_gross": 0.8503,
+          "mean_forecast_prob_profit": 0.9211,
+          "calibration_gap_pp": -7.08,
+          "itm_rate": 0.1837,
+          "mean_premium": 2.698
+        }
+      },
+      "crisis (>25)": {
+        "all": {
+          "n": 3849,
+          "mean_pnl_full": -38.47,
+          "mean_pnl_full_ci95": [
+            -317.83,
+            169.79
+          ],
+          "total_pnl_full": -148070.82,
+          "mean_pnl_bidask": -34.64,
+          "mean_pnl_gross": -14.71,
+          "win_rate_full": 0.7971,
+          "win_rate_full_ci95": [
+            0.7841,
+            0.8095
+          ],
+          "win_rate_gross": 0.802,
+          "mean_forecast_prob_profit": 0.8431,
+          "calibration_gap_pp": -4.11,
+          "itm_rate": 0.2406,
+          "mean_premium": 2.465
+        },
+        "top_bin": {
+          "n": 704,
+          "mean_pnl_full": -157.88,
+          "mean_pnl_full_ci95": [
+            -571.29,
+            187.88
+          ],
+          "total_pnl_full": -111144.82,
+          "mean_pnl_bidask": -153.5,
+          "mean_pnl_gross": -133.27,
+          "win_rate_full": 0.7756,
+          "win_rate_full_ci95": [
+            0.7433,
+            0.8048
+          ],
+          "win_rate_gross": 0.7798,
+          "mean_forecast_prob_profit": 0.9261,
+          "calibration_gap_pp": -14.62,
+          "itm_rate": 0.2599,
+          "mean_premium": 2.516
+        }
+      }
+    },
+    "disjoint_2023-2025": {
+      "calm_elevated (VIX<=25)": {
+        "all": {
+          "n": 8209,
+          "mean_pnl_full": -34.53,
+          "mean_pnl_full_ci95": [
+            -205.54,
+            98.7
+          ],
+          "total_pnl_full": -283481.04,
+          "mean_pnl_bidask": -28.86,
+          "mean_pnl_gross": -8.27,
+          "win_rate_full": 0.7673,
+          "win_rate_full_ci95": [
+            0.7581,
+            0.7763
+          ],
+          "win_rate_gross": 0.7749,
+          "mean_forecast_prob_profit": 0.7686,
+          "calibration_gap_pp": 0.62,
+          "itm_rate": 0.2671,
+          "mean_premium": 2.533
+        },
+        "top_bin": {
+          "n": 194,
+          "mean_pnl_full": 232.62,
+          "mean_pnl_full_ci95": [
+            0.47,
+            449.37
+          ],
+          "total_pnl_full": 45127.66,
+          "mean_pnl_bidask": 236.96,
+          "mean_pnl_gross": 275.64,
+          "win_rate_full": 0.8247,
+          "win_rate_full_ci95": [
+            0.7651,
+            0.8718
+          ],
+          "win_rate_gross": 0.8299,
+          "mean_forecast_prob_profit": 0.9227,
+          "calibration_gap_pp": -9.28,
+          "itm_rate": 0.1959,
+          "mean_premium": 4.822
+        },
+        "non_top_bin": {
+          "n": 8015,
+          "mean_pnl_full": -41.0,
+          "mean_pnl_full_ci95": [
+            -214.52,
+            93.2
+          ],
+          "total_pnl_full": -328608.7,
+          "mean_pnl_bidask": -35.3,
+          "mean_pnl_gross": -15.14,
+          "win_rate_full": 0.7659,
+          "win_rate_full_ci95": [
+            0.7565,
+            0.7751
+          ],
+          "win_rate_gross": 0.7735,
+          "mean_forecast_prob_profit": 0.7649,
+          "calibration_gap_pp": 0.86,
+          "itm_rate": 0.2689,
+          "mean_premium": 2.477
+        },
+        "top_bin_would_trade": {
+          "n": 171,
+          "mean_pnl_full": 246.11,
+          "mean_pnl_full_ci95": [
+            4.24,
+            464.49
+          ],
+          "total_pnl_full": 42084.82,
+          "mean_pnl_bidask": 250.51,
+          "mean_pnl_gross": 291.08,
+          "win_rate_full": 0.8304,
+          "win_rate_full_ci95": [
+            0.7671,
+            0.8792
+          ],
+          "win_rate_gross": 0.8363,
+          "mean_forecast_prob_profit": 0.923,
+          "calibration_gap_pp": -8.68,
+          "itm_rate": 0.1871,
+          "mean_premium": 5.062
+        }
+      },
+      "calm (<=15)": {
+        "all": {
+          "n": 2800,
+          "mean_pnl_full": -124.91,
+          "mean_pnl_full_ci95": [
+            -345.48,
+            73.94
+          ],
+          "total_pnl_full": -349735.42,
+          "mean_pnl_bidask": -117.36,
+          "mean_pnl_gross": -99.15,
+          "win_rate_full": 0.6793,
+          "win_rate_full_ci95": [
+            0.6618,
+            0.6963
+          ],
+          "win_rate_gross": 0.6886,
+          "mean_forecast_prob_profit": 0.7545,
+          "calibration_gap_pp": -6.59,
+          "itm_rate": 0.3607,
+          "mean_premium": 2.227
+        },
+        "top_bin": {
+          "n": 28,
+          "mean_pnl_full": 266.02,
+          "mean_pnl_full_ci95": [
+            50.35,
+            525.79
+          ],
+          "total_pnl_full": 7448.53,
+          "mean_pnl_bidask": 268.06,
+          "mean_pnl_gross": 297.93,
+          "win_rate_full": 0.8929,
+          "win_rate_full_ci95": [
+            0.728,
+            0.9629
+          ],
+          "win_rate_gross": 0.8929,
+          "mean_forecast_prob_profit": 0.9201,
+          "calibration_gap_pp": -2.72,
+          "itm_rate": 0.1429,
+          "mean_premium": 3.729
+        },
+        "non_top_bin": {
+          "n": 2772,
+          "mean_pnl_full": -128.85,
+          "mean_pnl_full_ci95": [
+            -352.66,
+            71.53
+          ],
+          "total_pnl_full": -357183.95,
+          "mean_pnl_bidask": -121.25,
+          "mean_pnl_gross": -103.16,
+          "win_rate_full": 0.6771,
+          "win_rate_full_ci95": [
+            0.6595,
+            0.6943
+          ],
+          "win_rate_gross": 0.6865,
+          "mean_forecast_prob_profit": 0.7528,
+          "calibration_gap_pp": -6.63,
+          "itm_rate": 0.3629,
+          "mean_premium": 2.212
+        },
+        "top_bin_would_trade": {
+          "n": 20,
+          "mean_pnl_full": 178.3,
+          "mean_pnl_full_ci95": [
+            -32.54,
+            332.34
+          ],
+          "total_pnl_full": 3566.02,
+          "mean_pnl_bidask": 179.91,
+          "mean_pnl_gross": 202.49,
+          "win_rate_full": 0.9,
+          "win_rate_full_ci95": [
+            0.699,
+            0.9721
+          ],
+          "win_rate_gross": 0.9,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -1.96,
+          "itm_rate": 0.1,
+          "mean_premium": 2.818
+        }
+      },
+      "elevated (15-25)": {
+        "all": {
+          "n": 5409,
+          "mean_pnl_full": 12.25,
+          "mean_pnl_full_ci95": [
+            -229.08,
+            160.65
+          ],
+          "total_pnl_full": 66254.38,
+          "mean_pnl_bidask": 16.95,
+          "mean_pnl_gross": 38.77,
+          "win_rate_full": 0.8129,
+          "win_rate_full_ci95": [
+            0.8023,
+            0.8231
+          ],
+          "win_rate_gross": 0.8196,
+          "mean_forecast_prob_profit": 0.776,
+          "calibration_gap_pp": 4.36,
+          "itm_rate": 0.2187,
+          "mean_premium": 2.691
+        },
+        "top_bin": {
+          "n": 166,
+          "mean_pnl_full": 226.98,
+          "mean_pnl_full_ci95": [
+            -26.64,
+            467.22
+          ],
+          "total_pnl_full": 37679.12,
+          "mean_pnl_bidask": 231.72,
+          "mean_pnl_gross": 271.88,
+          "win_rate_full": 0.8133,
+          "win_rate_full_ci95": [
+            0.7471,
+            0.8652
+          ],
+          "win_rate_gross": 0.8193,
+          "mean_forecast_prob_profit": 0.9232,
+          "calibration_gap_pp": -10.39,
+          "itm_rate": 0.2048,
+          "mean_premium": 5.007
+        },
+        "non_top_bin": {
+          "n": 5243,
+          "mean_pnl_full": 5.45,
+          "mean_pnl_full_ci95": [
+            -240.03,
+            151.53
+          ],
+          "total_pnl_full": 28575.25,
+          "mean_pnl_bidask": 10.15,
+          "mean_pnl_gross": 31.39,
+          "win_rate_full": 0.8129,
+          "win_rate_full_ci95": [
+            0.8021,
+            0.8232
+          ],
+          "win_rate_gross": 0.8196,
+          "mean_forecast_prob_profit": 0.7713,
+          "calibration_gap_pp": 4.83,
+          "itm_rate": 0.2191,
+          "mean_premium": 2.617
+        },
+        "top_bin_would_trade": {
+          "n": 151,
+          "mean_pnl_full": 255.09,
+          "mean_pnl_full_ci95": [
+            -0.34,
+            500.48
+          ],
+          "total_pnl_full": 38518.8,
+          "mean_pnl_bidask": 259.87,
+          "mean_pnl_gross": 302.81,
+          "win_rate_full": 0.8212,
+          "win_rate_full_ci95": [
+            0.7523,
+            0.8741
+          ],
+          "win_rate_gross": 0.8278,
+          "mean_forecast_prob_profit": 0.9235,
+          "calibration_gap_pp": -9.57,
+          "itm_rate": 0.1987,
+          "mean_premium": 5.36
+        }
+      },
+      "crisis (>25)": {
+        "all": {
+          "n": 0
+        },
+        "top_bin": {
+          "n": 0
+        }
+      }
+    },
+    "pooled_2020-2025": {
+      "calm_elevated (VIX<=25)": {
+        "all": {
+          "n": 11793,
+          "mean_pnl_full": -38.2,
+          "mean_pnl_full_ci95": [
+            -167.32,
+            67.84
+          ],
+          "total_pnl_full": -450456.83,
+          "mean_pnl_bidask": -32.61,
+          "mean_pnl_gross": -12.85,
+          "win_rate_full": 0.7659,
+          "win_rate_full_ci95": [
+            0.7581,
+            0.7734
+          ],
+          "win_rate_gross": 0.7743,
+          "mean_forecast_prob_profit": 0.781,
+          "calibration_gap_pp": -0.67,
+          "itm_rate": 0.271,
+          "mean_premium": 2.431
+        },
+        "top_bin": {
+          "n": 488,
+          "mean_pnl_full": 132.79,
+          "mean_pnl_full_ci95": [
+            15.83,
+            233.17
+          ],
+          "total_pnl_full": 64799.94,
+          "mean_pnl_bidask": 136.61,
+          "mean_pnl_gross": 162.14,
+          "win_rate_full": 0.834,
+          "win_rate_full_ci95": [
+            0.7984,
+            0.8644
+          ],
+          "win_rate_gross": 0.8402,
+          "mean_forecast_prob_profit": 0.9209,
+          "calibration_gap_pp": -8.07,
+          "itm_rate": 0.1967,
+          "mean_premium": 3.174
+        },
+        "non_top_bin": {
+          "n": 11305,
+          "mean_pnl_full": -45.58,
+          "mean_pnl_full_ci95": [
+            -176.81,
+            62.21
+          ],
+          "total_pnl_full": -515256.77,
+          "mean_pnl_bidask": -39.92,
+          "mean_pnl_gross": -20.4,
+          "win_rate_full": 0.7629,
+          "win_rate_full_ci95": [
+            0.755,
+            0.7707
+          ],
+          "win_rate_gross": 0.7714,
+          "mean_forecast_prob_profit": 0.7749,
+          "calibration_gap_pp": -0.35,
+          "itm_rate": 0.2742,
+          "mean_premium": 2.399
+        },
+        "top_bin_would_trade": {
+          "n": 318,
+          "mean_pnl_full": 173.2,
+          "mean_pnl_full_ci95": [
+            16.79,
+            312.05
+          ],
+          "total_pnl_full": 55077.79,
+          "mean_pnl_bidask": 177.3,
+          "mean_pnl_gross": 209.12,
+          "win_rate_full": 0.8396,
+          "win_rate_full_ci95": [
+            0.7953,
+            0.8759
+          ],
+          "win_rate_gross": 0.8428,
+          "mean_forecast_prob_profit": 0.9222,
+          "calibration_gap_pp": -7.94,
+          "itm_rate": 0.1855,
+          "mean_premium": 3.969
+        }
+      },
+      "calm (<=15)": {
+        "all": {
+          "n": 2800,
+          "mean_pnl_full": -124.91,
+          "mean_pnl_full_ci95": [
+            -345.48,
+            73.94
+          ],
+          "total_pnl_full": -349735.42,
+          "mean_pnl_bidask": -117.36,
+          "mean_pnl_gross": -99.15,
+          "win_rate_full": 0.6793,
+          "win_rate_full_ci95": [
+            0.6618,
+            0.6963
+          ],
+          "win_rate_gross": 0.6886,
+          "mean_forecast_prob_profit": 0.7545,
+          "calibration_gap_pp": -6.59,
+          "itm_rate": 0.3607,
+          "mean_premium": 2.227
+        },
+        "top_bin": {
+          "n": 28,
+          "mean_pnl_full": 266.02,
+          "mean_pnl_full_ci95": [
+            50.35,
+            525.79
+          ],
+          "total_pnl_full": 7448.53,
+          "mean_pnl_bidask": 268.06,
+          "mean_pnl_gross": 297.93,
+          "win_rate_full": 0.8929,
+          "win_rate_full_ci95": [
+            0.728,
+            0.9629
+          ],
+          "win_rate_gross": 0.8929,
+          "mean_forecast_prob_profit": 0.9201,
+          "calibration_gap_pp": -2.72,
+          "itm_rate": 0.1429,
+          "mean_premium": 3.729
+        },
+        "non_top_bin": {
+          "n": 2772,
+          "mean_pnl_full": -128.85,
+          "mean_pnl_full_ci95": [
+            -352.66,
+            71.53
+          ],
+          "total_pnl_full": -357183.95,
+          "mean_pnl_bidask": -121.25,
+          "mean_pnl_gross": -103.16,
+          "win_rate_full": 0.6771,
+          "win_rate_full_ci95": [
+            0.6595,
+            0.6943
+          ],
+          "win_rate_gross": 0.6865,
+          "mean_forecast_prob_profit": 0.7528,
+          "calibration_gap_pp": -6.63,
+          "itm_rate": 0.3629,
+          "mean_premium": 2.212
+        },
+        "top_bin_would_trade": {
+          "n": 20,
+          "mean_pnl_full": 178.3,
+          "mean_pnl_full_ci95": [
+            -32.54,
+            332.34
+          ],
+          "total_pnl_full": 3566.02,
+          "mean_pnl_bidask": 179.91,
+          "mean_pnl_gross": 202.49,
+          "win_rate_full": 0.9,
+          "win_rate_full_ci95": [
+            0.699,
+            0.9721
+          ],
+          "win_rate_gross": 0.9,
+          "mean_forecast_prob_profit": 0.9196,
+          "calibration_gap_pp": -1.96,
+          "itm_rate": 0.1,
+          "mean_premium": 2.818
+        }
+      },
+      "elevated (15-25)": {
+        "all": {
+          "n": 8993,
+          "mean_pnl_full": -11.2,
+          "mean_pnl_full_ci95": [
+            -165.84,
+            103.03
+          ],
+          "total_pnl_full": -100721.41,
+          "mean_pnl_bidask": -6.22,
+          "mean_pnl_gross": 14.02,
+          "win_rate_full": 0.7928,
+          "win_rate_full_ci95": [
+            0.7843,
+            0.8011
+          ],
+          "win_rate_gross": 0.801,
+          "mean_forecast_prob_profit": 0.7892,
+          "calibration_gap_pp": 1.17,
+          "itm_rate": 0.2431,
+          "mean_premium": 2.494
+        },
+        "top_bin": {
+          "n": 460,
+          "mean_pnl_full": 124.68,
+          "mean_pnl_full_ci95": [
+            -8.95,
+            232.79
+          ],
+          "total_pnl_full": 57351.41,
+          "mean_pnl_bidask": 128.61,
+          "mean_pnl_gross": 153.87,
+          "win_rate_full": 0.8304,
+          "win_rate_full_ci95": [
+            0.7934,
+            0.862
+          ],
+          "win_rate_gross": 0.837,
+          "mean_forecast_prob_profit": 0.9209,
+          "calibration_gap_pp": -8.39,
+          "itm_rate": 0.2,
+          "mean_premium": 3.141
+        },
+        "non_top_bin": {
+          "n": 8533,
+          "mean_pnl_full": -18.52,
+          "mean_pnl_full_ci95": [
+            -179.3,
+            97.31
+          ],
+          "total_pnl_full": -158072.81,
+          "mean_pnl_bidask": -13.49,
+          "mean_pnl_gross": 6.49,
+          "win_rate_full": 0.7908,
+          "win_rate_full_ci95": [
+            0.7821,
+            0.7993
+          ],
+          "win_rate_gross": 0.799,
+          "mean_forecast_prob_profit": 0.7821,
+          "calibration_gap_pp": 1.69,
+          "itm_rate": 0.2454,
+          "mean_premium": 2.459
+        },
+        "top_bin_would_trade": {
+          "n": 298,
+          "mean_pnl_full": 172.86,
+          "mean_pnl_full_ci95": [
+            5.41,
+            317.99
+          ],
+          "total_pnl_full": 51511.77,
+          "mean_pnl_bidask": 177.13,
+          "mean_pnl_gross": 209.56,
+          "win_rate_full": 0.8356,
+          "win_rate_full_ci95": [
+            0.7893,
+            0.8733
+          ],
+          "win_rate_gross": 0.8389,
+          "mean_forecast_prob_profit": 0.9223,
+          "calibration_gap_pp": -8.34,
+          "itm_rate": 0.1913,
+          "mean_premium": 4.046
+        }
+      },
+      "crisis (>25)": {
+        "all": {
+          "n": 3849,
+          "mean_pnl_full": -38.47,
+          "mean_pnl_full_ci95": [
+            -317.83,
+            169.79
+          ],
+          "total_pnl_full": -148070.82,
+          "mean_pnl_bidask": -34.64,
+          "mean_pnl_gross": -14.71,
+          "win_rate_full": 0.7971,
+          "win_rate_full_ci95": [
+            0.7841,
+            0.8095
+          ],
+          "win_rate_gross": 0.802,
+          "mean_forecast_prob_profit": 0.8431,
+          "calibration_gap_pp": -4.11,
+          "itm_rate": 0.2406,
+          "mean_premium": 2.465
+        },
+        "top_bin": {
+          "n": 704,
+          "mean_pnl_full": -157.88,
+          "mean_pnl_full_ci95": [
+            -571.29,
+            187.88
+          ],
+          "total_pnl_full": -111144.82,
+          "mean_pnl_bidask": -153.5,
+          "mean_pnl_gross": -133.27,
+          "win_rate_full": 0.7756,
+          "win_rate_full_ci95": [
+            0.7433,
+            0.8048
+          ],
+          "win_rate_gross": 0.7798,
+          "mean_forecast_prob_profit": 0.9261,
+          "calibration_gap_pp": -14.62,
+          "itm_rate": 0.2599,
+          "mean_premium": 2.516
+        }
+      }
+    }
+  },
+  "verdict": {
+    "label": "NOT NET-COSTLY \u2014 top-bin net-POSITIVE on every independent cut (min +$67/contract across calm/elevated, both disjoint regime halves, and the would-trade subset), far above the negative baseline. The over-confidence is a level-miscalibration, not a rank inversion \u2192 NO rule (R11b precedent #437). CI note: pooled mean CI excludes 0; some sub-cuts (elevated-only, the COVID-era disjoint half) have wider near-0-lower-bound CIs \u2014 the conclusion rests on point-estimate positivity across independent regimes + the large margin over baseline, not on any single CI.",
+    "pooled_calm_elevated_top_bin": {
+      "n": 488,
+      "mean_pnl_full": 132.79,
+      "mean_pnl_full_ci95": [
+        15.83,
+        233.17
+      ],
+      "baseline_all_mean_pnl_full": -38.2,
+      "baseline_non_top_bin_mean_pnl_full": -45.58,
+      "delta_vs_all_baseline": 170.99,
+      "delta_vs_non_top_bin": 178.37
+    },
+    "top_bin_mean_pnl_full_by_cut": {
+      "pooled_2020-2025": 132.79,
+      "overlap_2020-2024": 115.34,
+      "overlap_2021-2025": 147.11,
+      "disjoint_2020-2022": 66.91,
+      "disjoint_2023-2025": 232.62,
+      "calm_only": 266.02,
+      "elevated_only": 124.68,
+      "would_trade": 173.2
+    },
+    "ci_status_by_cut": {
+      "pooled_2020-2025": "excludes_0_above",
+      "overlap_2020-2024": "straddles_0",
+      "overlap_2021-2025": "excludes_0_above",
+      "disjoint_2020-2022": "straddles_0",
+      "disjoint_2023-2025": "excludes_0_above",
+      "calm_only": "excludes_0_above",
+      "elevated_only": "straddles_0",
+      "would_trade": "excludes_0_above"
+    },
+    "all_cuts_point_estimate_positive": true,
+    "disjoint_halves_both_positive": true,
+    "min_cut_mean_pnl_full": 66.91,
+    "decision_rule": "NET-COSTLY on an independent cut -> spec a targeted size-down for the Windows terminal; otherwise (top-bin not losing money, and above baseline) -> document the calibration caveat, build NOTHING (R11b precedent #437: a calibration gap is not a reason to gate profitable premium)."
+  }
+}

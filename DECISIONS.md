@@ -1411,7 +1411,7 @@ branch under the shared outer guard, the rule-11 docstring), `tests/test_r11_ele
 (R11b pins: fires, synthetic no-op, non-positive-edge no-op, low-VIX no-op, absent-VIX
 no-op, absent-diagnostics no-op, never-rescues, R11a-precedence, boundary,
 computed-payload, `build_dossiers` end-to-end), `tests/test_dossier_downgrade_property.py`
-(`R11b:skew_edge` firing scenario in the downgrade-only matrix). PR #TBD; opened
+(`R11b:skew_edge` firing scenario in the downgrade-only matrix). PR #437; opened
 review-then-merge per the verdict-moving gravity of the real-premium channel.
 
 ---

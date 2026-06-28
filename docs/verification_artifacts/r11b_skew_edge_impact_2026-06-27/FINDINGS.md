@@ -59,18 +59,39 @@ directly.
   synthetic path → CI/regression byte-identical). Those properties hold; the
   problem is purely that the intervention is net-costly.
 
+## Persistence post-hoc — the redesign option is also rejected (W3 blocked set)
+
+The natural rescue for R11b is a **persistence-gated trigger** (fire only when
+VIX>25 has *held* N consecutive days — catch sustained crashes, skip transient
+spikes; the D23 R11a research card). Tested cheaply on the W3 blocked set by VIX
+persistence-at-entry (no re-run needed):
+
+| min consecutive VIX>25 days | n blocked | counterfactual total | mean/contract | assignment % |
+|---|---|---|---|---|
+| ≥1 | 251 | +$91,181 | +$363 | 12.7% |
+| ≥3 | 228 | +$86,015 | +$377 | 11.8% |
+| ≥5 | 210 | +$82,389 | +$392 | 10.5% |
+| ≥8 | 194 | +$86,447 | +$446 | 6.2% |
+| ≥12 | 173 | +$80,140 | +$463 | 3.5% |
+| ≥20 | 128 | +$69,557 | +$543 | 1.6% |
+
+**The blocked set stays net-positive at every persistence threshold and gets
+*more* positive (and lower-assignment) the longer the high-VIX persists.** Even
+20+-day sustained crises: +$543/contract, 1.6% assignment (premium kept). So
+persistence-gating shrinks R11b's footprint but **does not flip its sign** — it
+would still forgo winners, just fewer. Over 2020-2024 the put-selling VRP harvest
+is *more* profitable the deeper/longer the elevated vol — the opposite of R11b's
+premise. *(Caveat: 2020-2024 contains no multi-month never-recovering crash beyond
+the acute 2020 Feb-Mar; a 2008-style prolonged drawdown is out-of-sample.)*
+
 ## Recommendation
 
-1. **Do not merge #437 as-is.** Validation shows it costs −12.7 to −14.9pp over a
-   cycle for protection that only pays in a sustained crash.
-2. **Preferred:** close #437; the skew/VRP premium is earned compensation — handle
-   crash exposure via the existing concentration caps (R9/R10) + position sizing +
-   R11a, not a premium-gating rule.
-3. **Alternative (if the crash protection is still wanted):** redesign R11b with a
-   **persistence-gated trigger** (fire only when VIX>25 has held N consecutive
-   days — catches sustained 2020/2022 stress, skips transient spikes) and
-   re-validate against this exact A/B. This is the same path D23 filed as a
-   research card for R11a; payoff is unproven and must clear this A/B before merge.
+1. **Do not merge #437.** Validation shows R11b costs −12.7 to −14.9pp over a cycle.
+2. **Close it.** The skew/VRP premium is earned compensation, and the persistence
+   redesign is data-rejected above — handle crash exposure via the existing
+   concentration caps (R9/R10) + position sizing + R11a, not a premium-gating rule.
+3. The real-premium **wiring (#435) stays** — it's correct (rail audit) and its
+   calibration win is robust; only the R11b *gate* on top of it is the misstep.
 
 Decision deferred to the operator (verdict-moving / strategy call). PR #437 marked
 draft to prevent accidental merge.

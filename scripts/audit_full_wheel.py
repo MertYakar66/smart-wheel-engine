@@ -52,8 +52,10 @@ Cites — does not re-derive — I7 roll economics
 (``docs/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md``: rolling beats holding
 +$195/contract, CSP-leg-only) and the R11 dollar-impact caveat that put-leg
 "averted loss" largely disappears once assignments wheel into covered-call
-recovery — which W7 **confirms**: the recovery edge is strongly regime-dependent
-(positive when the market subsequently rises, negative in a sustained bear).
+recovery — which W7 **refines**: the recovery edge's *magnitude* is
+regime-dependent (larger when the market subsequently rises) but its *sign* stays
+positive across regimes here (incl. the 2022 bear), so the recovery is net-additive,
+not net-costly, in this 2020-2025 (net-rising) sample.
 
 Honesty: per-bucket n reported; no SUPPORTED at n<~30; cluster-bootstrap +
 Wilson CIs flagged optimistically tight (cycles are not i.i.d.); assignment-rate
@@ -191,9 +193,13 @@ def simulate_cycle(runner, conn, cand: dict) -> dict:
         _attach_bh(rec, conn, tk, put_expiry)
         return rec
 
-    # ITM -> assigned at strike (basis = strike; premium already in put_leg).
+    # ITM -> assigned. The canonical put leg ALREADY marked the shares
+    # strike -> spot_put_exp (it includes -(strike-spot)*100), so the stock leg must
+    # continue from spot_put_exp, NOT from strike — using strike would double-count the
+    # put intrinsic. (Equivalent to WheelTracker's basis=strike WITH a premium-only put
+    # leg; here the put leg carries the intrinsic, so the basis is the post-mark spot.)
     rec["assigned"] = True
-    basis = strike
+    basis = spot_put_exp
     cc_total = 0.0
     cur = put_expiry
     resolution = None
@@ -404,12 +410,21 @@ def _econ(rows: list[dict]) -> dict:
         "median_full_cycle": round(float(np.median(full)), 2),  # robust to the heavy tail
         "p05_full_cycle": round(float(np.percentile(full, 5)), 2),
         "p25_full_cycle": round(float(np.percentile(full, 25)), 2),
+        "p95_full_cycle": round(float(np.percentile(full, 95)), 2),
+        "min_full_cycle": round(float(full.min()), 2),
+        "max_full_cycle": round(float(full.max()), 2),
         "total_full_cycle": round(float(full.sum()), 2),
         "win_rate_full_cycle": round(win / n, 4),
         "win_rate_ci95": [round(lo_w, 4), round(hi_w, 4)],
         # short-volatility profile: frequent small wins vs rare large losses
         "mean_when_win": round(float(full[full > 0].mean()), 2) if (full > 0).any() else None,
         "mean_when_loss": round(float(full[full <= 0].mean()), 2) if (full <= 0).any() else None,
+        # how often an assignment is managed by HOLDING (engine blocked the covered call)
+        "zero_cc_fraction_of_assigned": round(
+            float(np.mean([r["n_cc_cycles"] == 0 for r in rows if r["assigned"]])), 4
+        )
+        if assigned.any()
+        else None,
         "n_resolved": len(resolved),
         "mean_full_cycle_resolved_only": round(float(rfull.mean()), 2) if len(rfull) else None,
         "mean_put_leg_only": round(float(putleg.mean()), 2),
@@ -529,7 +544,7 @@ def make_verdict(by_window: dict) -> dict:
     mean_ci_straddles_zero = bool(ci[0] == ci[0] and ci[0] < 0 < ci[1])
 
     # recovery edge (full − put-leg) by VIX-band (pooled) and bear vs bull elevated —
-    # the headline +$148 is strongly regime-dependent, not a robust wheel property.
+    # the pooled recovery edge is regime-dependent, not a robust wheel property.
     def fmp(win_key, band):
         b = by_window.get(win_key, {}).get("by_band", {}).get(band, {})
         return b.get("full_minus_putleg") if b.get("n") else None
@@ -542,7 +557,36 @@ def make_verdict(by_window: dict) -> dict:
         "elevated_2023-2025_bull": fmp("disjoint_2023-2025", "elevated (15-25)"),
     }
     edges = [v for v in recovery_edge_by_regime.values() if v is not None]
-    recovery_edge_regime_dependent = bool(edges and min(edges) < 0 < max(edges))
+    edges_all_positive = bool(edges) and all(e > 0 for e in edges)
+    recovery_edge_regime_dependent = bool(edges and min(edges) < 0 < max(edges))  # SIGN flips?
+    edge_min_regime = (
+        min(
+            ((k, v) for k, v in recovery_edge_by_regime.items() if v is not None),
+            key=lambda x: x[1],
+        )
+        if edges
+        else (None, None)
+    )
+    edge_max_regime = (
+        max(
+            ((k, v) for k, v in recovery_edge_by_regime.items() if v is not None),
+            key=lambda x: x[1],
+        )
+        if edges
+        else (None, None)
+    )
+
+    # per-cut mean-CI status (which cuts exclude 0 vs straddle) — data-driven, not asserted.
+    cut_ci = {
+        k: (
+            "excludes_0_above"
+            if (v.get("mean_full_cycle_ci95") or [0, 0])[0] > 0
+            else "straddles_0"
+        )
+        for k, v in cuts.items()
+        if v.get("n")
+    }
+    n_excl = sum(1 for s in cut_ci.values() if s == "excludes_0_above")
 
     # put-leg EV calibration (the fair, same-leg comparison) — NOT "engine conservatism".
     ev_exante = pooled.get("mean_ev_dollars_exante")
@@ -551,28 +595,50 @@ def make_verdict(by_window: dict) -> dict:
         round(ev_exante - putleg, 2) if (ev_exante is not None and putleg is not None) else None
     )
 
+    # ----- data-driven sub-clauses (no hardcoded directional claims) -----
+    mean_clause = (
+        f"the full-cycle DOLLAR MEAN is positive on every cut (pooled +${mean}, "
+        f"CI {ci} EXCLUDES 0); {n_excl}/{len(cut_ci)} cuts have a mean CI excluding 0"
+        + ("" if not mean_ci_straddles_zero else ", though the pooled CI straddles 0")
+        if not mean_ci_straddles_zero
+        else (
+            f"the full-cycle DOLLAR MEAN is positive on every cut (pooled +${mean}) but the pooled "
+            f"CI straddles 0 (CI {ci}); only {n_excl}/{len(cut_ci)} cuts have a mean CI excluding 0"
+        )
+    )
+    if edges_all_positive:
+        recovery_clause = (
+            f"The recovery leg adds +${pooled.get('full_minus_putleg')}/cycle vs put-leg-only and is "
+            f"POSITIVE IN EVERY REGIME (min +${edge_min_regime[1]} in {edge_min_regime[0]}, max "
+            f"+${edge_max_regime[1]} in {edge_max_regime[0]}); its MAGNITUDE is regime-dependent "
+            f"(larger when the market subsequently rises) but it does NOT turn net-negative even in "
+            f"the 2022 bear — REFINING (not simply confirming) the R11 caveat: the recovery leg's "
+            f"value scales with post-assignment direction but stays positive here"
+        )
+    else:
+        recovery_clause = (
+            f"The recovery leg adds +${pooled.get('full_minus_putleg')}/cycle on average but is "
+            f"STRONGLY REGIME-DEPENDENT in sign (min +${edge_min_regime[1]} in {edge_min_regime[0]}, "
+            f"max +${edge_max_regime[1]} in {edge_max_regime[0]}), confirming the R11 caveat"
+        )
+
     if n < 30:
         label = "INSUFFICIENT (n<30) — not SUPPORTED"
     elif all_positive and ranking_holds and win_robust:
         label = (
             f"ENGINE STAYS REALISTIC THROUGH THE FULL WHEEL (modal economics viable; short-vol "
             f"tail). {round(win * 100, 1)}% of cycles are net-positive (win-rate CI {win_ci}), "
-            f"median +${median}/cycle; the full-cycle DOLLAR MEAN is positive on every cut "
-            f"(pooled +${mean}) but NOT CI-distinguishable from 0 (CI {ci}) — full-cycle P&L is a "
-            f"classic short-volatility distribution (frequent ~${pooled.get('mean_when_win')} wins, "
-            f"rare ~${pooled.get('mean_when_loss')} losses on the {round((1 - win) * 100, 1)}% that "
-            f"lose). The engine's EV ranking HOLDS at MODERATE strength (Spearman rho={rho}, "
-            f"rho^2~{rho2} ⇒ ~{round((rho2 or 0) * 100)}% of full-cycle variance; permutation p "
-            f"optimistic under clustering) — present, not authoritative; the rest is "
-            f"post-assignment market direction. The recovery leg adds +${pooled.get('full_minus_putleg')} "
-            f"vs put-leg-only but is STRONGLY REGIME-DEPENDENT (positive when the market subsequently "
-            f"rises — crisis/bull — negative in the 2022 bear and ~0 in calm), confirming the R11 "
-            f"caveat. CAVEAT: the wheel materially UNDERPERFORMS a capital-matched buy-and-hold "
-            f"(+${bh} vs +${mean}/cycle) — it is an income / capped-upside strategy, not a "
-            f"return-maximizer. Closes the put-leg-only caveat for the campaign. No engine rule "
-            f"warranted (the engine selects realistically and ranks; this is strategy economics, "
-            f"not a calibration defect) — the regime-dependence of the recovery leg is flagged for "
-            f"the Windows terminal as a measurement, not a spec."
+            f"median +${median}/cycle; {mean_clause} — full-cycle P&L is a classic short-volatility "
+            f"distribution (frequent ~${pooled.get('mean_when_win')} wins, rare "
+            f"~${pooled.get('mean_when_loss')} losses on the {round((1 - win) * 100, 1)}% that lose). "
+            f"The engine's EV ranking HOLDS at MODERATE strength (Spearman rho={rho}, rho^2~{rho2} ⇒ "
+            f"~{round((rho2 or 0) * 100)}% of full-cycle variance; permutation p optimistic under "
+            f"clustering) — present, not authoritative; the rest is post-assignment market direction. "
+            f"{recovery_clause}. CAVEAT: the wheel materially UNDERPERFORMS a capital-matched "
+            f"buy-and-hold (+${bh} vs +${mean}/cycle) — it is an income / capped-upside strategy, not "
+            f"a return-maximizer. Closes the put-leg-only caveat for the campaign. No engine rule "
+            f"warranted (the engine selects realistically and ranks; this is strategy economics, not "
+            f"a calibration defect)."
         )
     elif not all_positive:
         label = "FULL-WHEEL MATERIALLY WORSE on some cut — quantify the assignment/recovery drag"
@@ -614,12 +680,15 @@ def make_verdict(by_window: dict) -> dict:
             "mean_cc_cycles_if_assigned": pooled.get("mean_cc_cycles_if_assigned"),
         },
         "full_cycle_mean_by_cut": {k: round(v, 2) for k, v in cut_means.items()},
+        "mean_ci_status_by_cut": cut_ci,
+        "n_cuts_mean_ci_excludes_zero": n_excl,
         "all_cuts_mean_positive": all_positive,
         "min_cut_mean_full_cycle": min_cut,
         "win_rate_majority_robust": win_robust,
         "mean_ci_straddles_zero": mean_ci_straddles_zero,
         "recovery_edge_by_regime": recovery_edge_by_regime,
-        "recovery_edge_regime_dependent": recovery_edge_regime_dependent,
+        "recovery_edge_all_regimes_positive": edges_all_positive,
+        "recovery_edge_sign_regime_dependent": recovery_edge_regime_dependent,
         "spearman_ev_vs_full_cycle": sp_out,
         "ranking_authority_holds_moderate": ranking_holds,
         "buy_and_hold_outperforms_wheel": bool(bh is not None and mean is not None and bh > mean),

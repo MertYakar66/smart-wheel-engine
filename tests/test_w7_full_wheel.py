@@ -155,6 +155,77 @@ def test_verdict_insufficient_below_30(w7) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# VALUE-ASSERT — assigned→called-away cycle pinned to hand-computed ground truth.
+# This is the pin that would have caught the assignment-leg double-count (#451 review):
+# the stock leg must continue from spot_at_put_expiry (where the canonical put leg's
+# mark left off), NOT from the strike.
+# --------------------------------------------------------------------------- #
+class _StubConn:
+    """Returns a controlled close for a queried target date (mirrors _spot_on_or_after)."""
+
+    def __init__(self, prices):
+        self._p = prices  # {start_date_iso: close}
+
+    def get_ohlcv(self, ticker, start_date=None, end_date=None):
+        import pandas as pd
+
+        if start_date in self._p:
+            return pd.DataFrame({"close": [self._p[start_date]]})
+        return pd.DataFrame({"close": []})
+
+
+class _StubRunner:
+    """Returns one engine covered call (strike/premium/dte)."""
+
+    def __init__(self, conn, cc):
+        self.connector = conn
+        self._cc = cc
+
+    def rank_covered_calls_by_ev(self, **kwargs):
+        import pandas as pd
+
+        return pd.DataFrame([self._cc])
+
+
+def test_value_assert_assigned_called_away_ground_truth(w7) -> None:
+    from backtests.regression._common import (
+        friction_adjusted_premium,
+        friction_assignment_cost,
+        friction_open_cost,
+    )
+
+    # Put: strike 100, premium 3.00, 35 DTE entered 2022-01-03 -> expiry 2022-02-07.
+    # ITM at 90 (assigned). CC: strike 105, premium 2.00, 35 DTE -> expiry 2022-03-14.
+    # Called away at 110 (> 105).
+    conn = _StubConn({"2022-02-07": 90.0, "2022-03-14": 110.0})
+    runner = _StubRunner(conn, {"strike": 105.0, "premium": 2.00, "dte": 35})
+    cand = {
+        "ticker": "TEST",
+        "strike": 100.0,
+        "premium": 3.00,
+        "dte": 35,
+        "spot": 95.0,
+        "ev_dollars": 50.0,
+        "as_of": "2022-01-03",
+        "vix": 20.0,
+        "band": "elevated (15-25)",
+    }
+    rec = w7.simulate_cycle(runner, conn, cand)
+
+    # Ground truth, built from the canonical helpers (no double-count of the intrinsic):
+    put_leg = w7.realized_put_leg(100.0, 3.00, 90.0)  # premium − intrinsic − frictions
+    cc_leg = friction_adjusted_premium(2.00, "full") * 100 - friction_open_cost(1, "full")
+    stock_leg = (105.0 - 90.0) * 100 - friction_assignment_cost(105.0, 1, "full")  # basis=spot@exp
+    expected = put_leg + cc_leg + stock_leg
+
+    assert rec["resolution"] == "called_away"
+    assert rec["assigned"] is True
+    assert rec["full_cycle_realized"] == pytest.approx(round(expected, 2), abs=0.01)
+    # the bug reported full=0 on the canonical strike=100/spot=90/.. example; guard the sign too
+    assert rec["full_cycle_realized"] > 0
+
+
+# --------------------------------------------------------------------------- #
 # Live-integration pins — the cycle accountant on real engine output
 # --------------------------------------------------------------------------- #
 def test_live_cycle_accounting(w7) -> None:

@@ -39,35 +39,39 @@
     "pooled_2020-2025": {
       "all": {
         "n": 2009,
-        "mean_full_cycle": 289.61,
+        "mean_full_cycle": 651.01,
         "mean_full_cycle_ci95": [
-          -197.16,
-          763.24
+          179.52,
+          1195.42
         ],
-        "median_full_cycle": 256.49,
-        "p05_full_cycle": -3714.19,
-        "p25_full_cycle": 114.44,
-        "total_full_cycle": 581827.18,
-        "win_rate_full_cycle": 0.891,
+        "median_full_cycle": 268.17,
+        "p05_full_cycle": -2054.44,
+        "p25_full_cycle": 127.78,
+        "p95_full_cycle": 4423.54,
+        "min_full_cycle": -75024.97,
+        "max_full_cycle": 116901.36,
+        "total_full_cycle": 1307887.04,
+        "win_rate_full_cycle": 0.9069,
         "win_rate_ci95": [
-          0.8766,
-          0.9039
+          0.8934,
+          0.9189
         ],
-        "mean_when_win": 1138.56,
-        "mean_when_loss": -6649.29,
+        "mean_when_win": 1285.3,
+        "mean_when_loss": -5529.04,
+        "zero_cc_fraction_of_assigned": 0.5785,
         "n_resolved": 1659,
-        "mean_full_cycle_resolved_only": 213.42,
+        "mean_full_cycle_resolved_only": 313.86,
         "mean_put_leg_only": 59.05,
         "mean_buy_and_hold": 925.48,
         "mean_ev_dollars_exante": 105.42,
-        "full_minus_putleg": 230.56,
-        "full_minus_ev": 184.19,
+        "full_minus_putleg": 591.96,
+        "full_minus_ev": 545.6,
         "assignment_rate": 0.2125,
         "mean_cc_cycles_if_assigned": 0.66,
         "open_mark_rate": 0.1742,
         "spearman_ev_vs_full": {
           "n": 2009,
-          "rho": 0.4937,
+          "rho": 0.4921,
           "p": 0.0005
         },
         "spearman_ev_vs_putleg": {
@@ -79,35 +83,39 @@
       "by_band": {
         "calm (<=15)": {
           "n": 154,
-          "mean_full_cycle": -106.59,
+          "mean_full_cycle": 231.98,
           "mean_full_cycle_ci95": [
-            -1020.77,
-            412.07
+            -329.09,
+            503.0
           ],
-          "median_full_cycle": 195.03,
-          "p05_full_cycle": -5714.68,
-          "p25_full_cycle": 74.51,
-          "total_full_cycle": -16415.37,
-          "win_rate_full_cycle": 0.8247,
+          "median_full_cycle": 205.89,
+          "p05_full_cycle": -3987.74,
+          "p25_full_cycle": 81.87,
+          "p95_full_cycle": 2322.95,
+          "min_full_cycle": -30461.13,
+          "max_full_cycle": 39625.26,
+          "total_full_cycle": 35724.33,
+          "win_rate_full_cycle": 0.8506,
           "win_rate_ci95": [
-            0.7569,
-            0.8766
+            0.7859,
+            0.8984
           ],
-          "mean_when_win": 1004.14,
-          "mean_when_loss": -5331.16,
+          "mean_when_win": 1042.43,
+          "mean_when_loss": -4384.08,
+          "zero_cc_fraction_of_assigned": 0.6429,
           "n_resolved": 120,
-          "mean_full_cycle_resolved_only": -278.23,
+          "mean_full_cycle_resolved_only": -101.98,
           "mean_put_leg_only": 9.67,
           "mean_buy_and_hold": 527.87,
           "mean_ev_dollars_exante": 74.58,
-          "full_minus_putleg": -116.26,
-          "full_minus_ev": -181.17,
+          "full_minus_putleg": 222.3,
+          "full_minus_ev": 157.4,
           "assignment_rate": 0.2727,
           "mean_cc_cycles_if_assigned": 0.48,
           "open_mark_rate": 0.2208,
           "spearman_ev_vs_full": {
             "n": 154,
-            "rho": 0.3437,
+            "rho": 0.3389,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -118,35 +126,39 @@
         },
         "elevated (15-25)": {
           "n": 1197,
-          "mean_full_cycle": 167.44,
+          "mean_full_cycle": 557.09,
           "mean_full_cycle_ci95": [
-            -638.6,
-            902.74
+            -158.84,
+            1382.75
           ],
-          "median_full_cycle": 237.81,
-          "p05_full_cycle": -4584.23,
-          "p25_full_cycle": 97.61,
-          "total_full_cycle": 200419.99,
-          "win_rate_full_cycle": 0.868,
+          "median_full_cycle": 251.8,
+          "p05_full_cycle": -2799.02,
+          "p25_full_cycle": 107.91,
+          "p95_full_cycle": 4639.75,
+          "min_full_cycle": -75024.97,
+          "max_full_cycle": 80094.9,
+          "total_full_cycle": 666838.97,
+          "win_rate_full_cycle": 0.8847,
           "win_rate_ci95": [
-            0.8476,
-            0.886
+            0.8654,
+            0.9016
           ],
-          "mean_when_win": 1162.68,
-          "mean_when_loss": -6377.23,
+          "mean_when_win": 1316.19,
+          "mean_when_loss": -5268.13,
+          "zero_cc_fraction_of_assigned": 0.5933,
           "n_resolved": 948,
-          "mean_full_cycle_resolved_only": 222.06,
+          "mean_full_cycle_resolved_only": 316.74,
           "mean_put_leg_only": 39.34,
           "mean_buy_and_hold": 826.45,
           "mean_ev_dollars_exante": 101.22,
-          "full_minus_putleg": 128.09,
-          "full_minus_ev": 66.22,
+          "full_minus_putleg": 517.75,
+          "full_minus_ev": 455.87,
           "assignment_rate": 0.2506,
           "mean_cc_cycles_if_assigned": 0.62,
           "open_mark_rate": 0.208,
           "spearman_ev_vs_full": {
             "n": 1197,
-            "rho": 0.4355,
+            "rho": 0.4276,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -157,35 +169,39 @@
         },
         "crisis (>25)": {
           "n": 658,
-          "mean_full_cycle": 604.59,
+          "mean_full_cycle": 919.94,
           "mean_full_cycle_ci95": [
-            19.0,
-            1200.38
+            300.25,
+            1609.86
           ],
-          "median_full_cycle": 316.11,
-          "p05_full_cycle": -64.56,
-          "p25_full_cycle": 169.38,
-          "total_full_cycle": 397822.56,
-          "win_rate_full_cycle": 0.9483,
+          "median_full_cycle": 319.78,
+          "p05_full_cycle": 35.7,
+          "p25_full_cycle": 171.94,
+          "p95_full_cycle": 4264.97,
+          "min_full_cycle": -22146.12,
+          "max_full_cycle": 116901.36,
+          "total_full_cycle": 605323.74,
+          "win_rate_full_cycle": 0.9605,
           "win_rate_ci95": [
-            0.9287,
-            0.9628
+            0.9427,
+            0.9729
           ],
-          "mean_when_win": 1125.76,
-          "mean_when_loss": -8960.33,
+          "mean_when_win": 1283.89,
+          "mean_when_loss": -7926.77,
+          "zero_cc_fraction_of_assigned": 0.4941,
           "n_resolved": 591,
-          "mean_full_cycle_resolved_only": 299.38,
+          "mean_full_cycle_resolved_only": 393.68,
           "mean_put_leg_only": 106.46,
           "mean_buy_and_hold": 1198.7,
           "mean_ev_dollars_exante": 120.28,
-          "full_minus_putleg": 498.13,
-          "full_minus_ev": 484.31,
+          "full_minus_putleg": 813.48,
+          "full_minus_ev": 799.67,
           "assignment_rate": 0.1292,
           "mean_cc_cycles_if_assigned": 0.88,
           "open_mark_rate": 0.1018,
           "spearman_ev_vs_full": {
             "n": 658,
-            "rho": 0.5988,
+            "rho": 0.6175,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -199,35 +215,39 @@
     "named_2020-2024": {
       "all": {
         "n": 1595,
-        "mean_full_cycle": 165.32,
+        "mean_full_cycle": 497.22,
         "mean_full_cycle_ci95": [
-          -321.64,
-          586.68
+          81.85,
+          882.47
         ],
-        "median_full_cycle": 239.65,
-        "p05_full_cycle": -3764.96,
-        "p25_full_cycle": 102.16,
-        "total_full_cycle": 263684.6,
-        "win_rate_full_cycle": 0.8828,
+        "median_full_cycle": 248.95,
+        "p05_full_cycle": -2249.57,
+        "p25_full_cycle": 112.09,
+        "p95_full_cycle": 3898.56,
+        "min_full_cycle": -30716.48,
+        "max_full_cycle": 116901.36,
+        "total_full_cycle": 793063.46,
+        "win_rate_full_cycle": 0.9016,
         "win_rate_ci95": [
-          0.866,
-          0.8976
+          0.886,
+          0.9152
         ],
-        "mean_when_win": 979.25,
-        "mean_when_loss": -5963.07,
+        "mean_when_win": 1101.13,
+        "mean_when_loss": -5034.17,
+        "zero_cc_fraction_of_assigned": 0.571,
         "n_resolved": 1309,
-        "mean_full_cycle_resolved_only": 147.85,
+        "mean_full_cycle_resolved_only": 252.15,
         "mean_put_leg_only": 42.34,
         "mean_buy_and_hold": 644.13,
         "mean_ev_dollars_exante": 90.83,
-        "full_minus_putleg": 122.98,
-        "full_minus_ev": 74.49,
+        "full_minus_putleg": 454.88,
+        "full_minus_ev": 406.39,
         "assignment_rate": 0.2207,
         "mean_cc_cycles_if_assigned": 0.67,
         "open_mark_rate": 0.1793,
         "spearman_ev_vs_full": {
           "n": 1595,
-          "rho": 0.4871,
+          "rho": 0.4901,
           "p": 0.0005
         },
         "spearman_ev_vs_putleg": {
@@ -239,35 +259,39 @@
       "by_band": {
         "calm (<=15)": {
           "n": 154,
-          "mean_full_cycle": -106.59,
+          "mean_full_cycle": 231.98,
           "mean_full_cycle_ci95": [
-            -1020.77,
-            412.07
+            -329.09,
+            503.0
           ],
-          "median_full_cycle": 195.03,
-          "p05_full_cycle": -5714.68,
-          "p25_full_cycle": 74.51,
-          "total_full_cycle": -16415.37,
-          "win_rate_full_cycle": 0.8247,
+          "median_full_cycle": 205.89,
+          "p05_full_cycle": -3987.74,
+          "p25_full_cycle": 81.87,
+          "p95_full_cycle": 2322.95,
+          "min_full_cycle": -30461.13,
+          "max_full_cycle": 39625.26,
+          "total_full_cycle": 35724.33,
+          "win_rate_full_cycle": 0.8506,
           "win_rate_ci95": [
-            0.7569,
-            0.8766
+            0.7859,
+            0.8984
           ],
-          "mean_when_win": 1004.14,
-          "mean_when_loss": -5331.16,
+          "mean_when_win": 1042.43,
+          "mean_when_loss": -4384.08,
+          "zero_cc_fraction_of_assigned": 0.6429,
           "n_resolved": 120,
-          "mean_full_cycle_resolved_only": -278.23,
+          "mean_full_cycle_resolved_only": -101.98,
           "mean_put_leg_only": 9.67,
           "mean_buy_and_hold": 527.87,
           "mean_ev_dollars_exante": 74.58,
-          "full_minus_putleg": -116.26,
-          "full_minus_ev": -181.17,
+          "full_minus_putleg": 222.3,
+          "full_minus_ev": 157.4,
           "assignment_rate": 0.2727,
           "mean_cc_cycles_if_assigned": 0.48,
           "open_mark_rate": 0.2208,
           "spearman_ev_vs_full": {
             "n": 154,
-            "rho": 0.3437,
+            "rho": 0.3389,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -278,35 +302,39 @@
         },
         "elevated (15-25)": {
           "n": 783,
-          "mean_full_cycle": -150.35,
+          "mean_full_cycle": 194.14,
           "mean_full_cycle_ci95": [
-            -967.2,
-            480.96
+            -406.29,
+            694.7
           ],
-          "median_full_cycle": 205.8,
-          "p05_full_cycle": -5049.17,
-          "p25_full_cycle": 75.98,
-          "total_full_cycle": -117722.59,
-          "win_rate_full_cycle": 0.8391,
+          "median_full_cycle": 217.39,
+          "p05_full_cycle": -3025.86,
+          "p25_full_cycle": 85.0,
+          "p95_full_cycle": 3729.22,
+          "min_full_cycle": -30716.48,
+          "max_full_cycle": 26930.3,
+          "total_full_cycle": 152015.39,
+          "win_rate_full_cycle": 0.8621,
           "win_rate_ci95": [
-            0.8117,
-            0.8632
+            0.8361,
+            0.8845
           ],
-          "mean_when_win": 835.28,
-          "mean_when_loss": -5289.69,
+          "mean_when_win": 941.41,
+          "mean_when_loss": -4476.24,
+          "zero_cc_fraction_of_assigned": 0.5867,
           "n_resolved": 598,
-          "mean_full_cycle_resolved_only": 83.6,
+          "mean_full_cycle_resolved_only": 183.33,
           "mean_put_leg_only": -5.13,
           "mean_buy_and_hold": 200.97,
           "mean_ev_dollars_exante": 69.27,
-          "full_minus_putleg": -145.22,
-          "full_minus_ev": -219.62,
+          "full_minus_putleg": 199.27,
+          "full_minus_ev": 124.88,
           "assignment_rate": 0.2874,
           "mean_cc_cycles_if_assigned": 0.63,
           "open_mark_rate": 0.2363,
           "spearman_ev_vs_full": {
             "n": 783,
-            "rho": 0.3697,
+            "rho": 0.3752,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -317,35 +345,39 @@
         },
         "crisis (>25)": {
           "n": 658,
-          "mean_full_cycle": 604.59,
+          "mean_full_cycle": 919.94,
           "mean_full_cycle_ci95": [
-            19.0,
-            1200.38
+            300.25,
+            1609.86
           ],
-          "median_full_cycle": 316.11,
-          "p05_full_cycle": -64.56,
-          "p25_full_cycle": 169.38,
-          "total_full_cycle": 397822.56,
-          "win_rate_full_cycle": 0.9483,
+          "median_full_cycle": 319.78,
+          "p05_full_cycle": 35.7,
+          "p25_full_cycle": 171.94,
+          "p95_full_cycle": 4264.97,
+          "min_full_cycle": -22146.12,
+          "max_full_cycle": 116901.36,
+          "total_full_cycle": 605323.74,
+          "win_rate_full_cycle": 0.9605,
           "win_rate_ci95": [
-            0.9287,
-            0.9628
+            0.9427,
+            0.9729
           ],
-          "mean_when_win": 1125.76,
-          "mean_when_loss": -8960.33,
+          "mean_when_win": 1283.89,
+          "mean_when_loss": -7926.77,
+          "zero_cc_fraction_of_assigned": 0.4941,
           "n_resolved": 591,
-          "mean_full_cycle_resolved_only": 299.38,
+          "mean_full_cycle_resolved_only": 393.68,
           "mean_put_leg_only": 106.46,
           "mean_buy_and_hold": 1198.7,
           "mean_ev_dollars_exante": 120.28,
-          "full_minus_putleg": 498.13,
-          "full_minus_ev": 484.31,
+          "full_minus_putleg": 813.48,
+          "full_minus_ev": 799.67,
           "assignment_rate": 0.1292,
           "mean_cc_cycles_if_assigned": 0.88,
           "open_mark_rate": 0.1018,
           "spearman_ev_vs_full": {
             "n": 658,
-            "rho": 0.5988,
+            "rho": 0.6175,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -359,35 +391,39 @@
     "named_2021-2025": {
       "all": {
         "n": 1579,
-        "mean_full_cycle": 195.69,
+        "mean_full_cycle": 550.02,
         "mean_full_cycle_ci95": [
-          -405.18,
-          825.48
+          -31.93,
+          1267.16
         ],
-        "median_full_cycle": 245.08,
-        "p05_full_cycle": -4902.58,
-        "p25_full_cycle": 101.06,
-        "total_full_cycle": 308994.46,
-        "win_rate_full_cycle": 0.8835,
+        "median_full_cycle": 254.01,
+        "p05_full_cycle": -2979.66,
+        "p25_full_cycle": 111.04,
+        "p95_full_cycle": 4039.3,
+        "min_full_cycle": -75024.97,
+        "max_full_cycle": 116901.36,
+        "total_full_cycle": 868477.63,
+        "win_rate_full_cycle": 0.8968,
         "win_rate_ci95": [
-          0.8667,
-          0.8984
+          0.8808,
+          0.9108
         ],
-        "mean_when_win": 1164.87,
-        "mean_when_loss": -7152.14,
+        "mean_when_win": 1306.02,
+        "mean_when_loss": -6017.51,
+        "zero_cc_fraction_of_assigned": 0.6559,
         "n_resolved": 1289,
-        "mean_full_cycle_resolved_only": 244.34,
+        "mean_full_cycle_resolved_only": 316.07,
         "mean_put_leg_only": 87.95,
         "mean_buy_and_hold": 833.24,
         "mean_ev_dollars_exante": 103.99,
-        "full_minus_putleg": 107.74,
-        "full_minus_ev": 91.7,
+        "full_minus_putleg": 462.07,
+        "full_minus_ev": 446.03,
         "assignment_rate": 0.2153,
         "mean_cc_cycles_if_assigned": 0.52,
         "open_mark_rate": 0.1837,
         "spearman_ev_vs_full": {
           "n": 1579,
-          "rho": 0.4708,
+          "rho": 0.4625,
           "p": 0.0005
         },
         "spearman_ev_vs_putleg": {
@@ -399,35 +435,39 @@
       "by_band": {
         "calm (<=15)": {
           "n": 154,
-          "mean_full_cycle": -106.59,
+          "mean_full_cycle": 231.98,
           "mean_full_cycle_ci95": [
-            -1020.77,
-            412.07
+            -329.09,
+            503.0
           ],
-          "median_full_cycle": 195.03,
-          "p05_full_cycle": -5714.68,
-          "p25_full_cycle": 74.51,
-          "total_full_cycle": -16415.37,
-          "win_rate_full_cycle": 0.8247,
+          "median_full_cycle": 205.89,
+          "p05_full_cycle": -3987.74,
+          "p25_full_cycle": 81.87,
+          "p95_full_cycle": 2322.95,
+          "min_full_cycle": -30461.13,
+          "max_full_cycle": 39625.26,
+          "total_full_cycle": 35724.33,
+          "win_rate_full_cycle": 0.8506,
           "win_rate_ci95": [
-            0.7569,
-            0.8766
+            0.7859,
+            0.8984
           ],
-          "mean_when_win": 1004.14,
-          "mean_when_loss": -5331.16,
+          "mean_when_win": 1042.43,
+          "mean_when_loss": -4384.08,
+          "zero_cc_fraction_of_assigned": 0.6429,
           "n_resolved": 120,
-          "mean_full_cycle_resolved_only": -278.23,
+          "mean_full_cycle_resolved_only": -101.98,
           "mean_put_leg_only": 9.67,
           "mean_buy_and_hold": 527.87,
           "mean_ev_dollars_exante": 74.58,
-          "full_minus_putleg": -116.26,
-          "full_minus_ev": -181.17,
+          "full_minus_putleg": 222.3,
+          "full_minus_ev": 157.4,
           "assignment_rate": 0.2727,
           "mean_cc_cycles_if_assigned": 0.48,
           "open_mark_rate": 0.2208,
           "spearman_ev_vs_full": {
             "n": 154,
-            "rho": 0.3437,
+            "rho": 0.3389,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -438,35 +478,39 @@
         },
         "elevated (15-25)": {
           "n": 1083,
-          "mean_full_cycle": 135.68,
+          "mean_full_cycle": 510.81,
           "mean_full_cycle_ci95": [
-            -681.95,
-            908.33
+            -259.68,
+            1395.25
           ],
-          "median_full_cycle": 236.25,
-          "p05_full_cycle": -5002.61,
-          "p25_full_cycle": 97.15,
-          "total_full_cycle": 146942.64,
-          "win_rate_full_cycle": 0.8753,
+          "median_full_cycle": 248.85,
+          "p05_full_cycle": -2966.35,
+          "p25_full_cycle": 105.8,
+          "p95_full_cycle": 4582.18,
+          "min_full_cycle": -75024.97,
+          "max_full_cycle": 80094.9,
+          "total_full_cycle": 553205.91,
+          "win_rate_full_cycle": 0.8883,
           "win_rate_ci95": [
-            0.8543,
-            0.8937
+            0.8681,
+            0.9057
           ],
-          "mean_when_win": 1160.02,
-          "mean_when_loss": -7057.49,
+          "mean_when_win": 1304.9,
+          "mean_when_loss": -5802.57,
+          "zero_cc_fraction_of_assigned": 0.6575,
           "n_resolved": 865,
-          "mean_full_cycle_resolved_only": 260.6,
+          "mean_full_cycle_resolved_only": 338.3,
           "mean_put_leg_only": 70.24,
           "mean_buy_and_hold": 836.8,
           "mean_ev_dollars_exante": 102.95,
-          "full_minus_putleg": 65.44,
-          "full_minus_ev": 32.73,
+          "full_minus_putleg": 440.56,
+          "full_minus_ev": 407.86,
           "assignment_rate": 0.2345,
           "mean_cc_cycles_if_assigned": 0.51,
           "open_mark_rate": 0.2013,
           "spearman_ev_vs_full": {
             "n": 1083,
-            "rho": 0.4334,
+            "rho": 0.4218,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -477,35 +521,39 @@
         },
         "crisis (>25)": {
           "n": 342,
-          "mean_full_cycle": 521.83,
+          "mean_full_cycle": 817.39,
           "mean_full_cycle_ci95": [
-            -438.62,
-            1440.82
+            -193.2,
+            1820.14
           ],
-          "median_full_cycle": 325.81,
-          "p05_full_cycle": -1825.46,
-          "p25_full_cycle": 163.59,
-          "total_full_cycle": 178467.19,
-          "win_rate_full_cycle": 0.9357,
+          "median_full_cycle": 327.56,
+          "p05_full_cycle": -1716.16,
+          "p25_full_cycle": 165.95,
+          "p95_full_cycle": 3446.05,
+          "min_full_cycle": -22146.12,
+          "max_full_cycle": 116901.36,
+          "total_full_cycle": 279547.39,
+          "win_rate_full_cycle": 0.9444,
           "win_rate_ci95": [
-            0.9045,
-            0.9571
+            0.9149,
+            0.9641
           ],
-          "mean_when_win": 1242.99,
-          "mean_when_loss": -9967.78,
+          "mean_when_win": 1416.27,
+          "mean_when_loss": -9363.59,
+          "zero_cc_fraction_of_assigned": 0.6591,
           "n_resolved": 304,
-          "mean_full_cycle_resolved_only": 404.36,
+          "mean_full_cycle_resolved_only": 417.84,
           "mean_put_leg_only": 179.27,
           "mean_buy_and_hold": 959.46,
           "mean_ev_dollars_exante": 120.53,
-          "full_minus_putleg": 342.56,
-          "full_minus_ev": 401.31,
+          "full_minus_putleg": 638.12,
+          "full_minus_ev": 696.86,
           "assignment_rate": 0.1287,
           "mean_cc_cycles_if_assigned": 0.64,
           "open_mark_rate": 0.1111,
           "spearman_ev_vs_full": {
             "n": 342,
-            "rho": 0.5865,
+            "rho": 0.5906,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -519,35 +567,39 @@
     "disjoint_2020-2022": {
       "all": {
         "n": 1127,
-        "mean_full_cycle": 141.47,
+        "mean_full_cycle": 533.09,
         "mean_full_cycle_ci95": [
-          -532.98,
-          688.47
+          -46.57,
+          1057.19
         ],
-        "median_full_cycle": 261.78,
-        "p05_full_cycle": -4134.6,
-        "p25_full_cycle": 114.03,
-        "total_full_cycle": 159432.92,
-        "win_rate_full_cycle": 0.8767,
+        "median_full_cycle": 277.01,
+        "p05_full_cycle": -2350.41,
+        "p25_full_cycle": 128.2,
+        "p95_full_cycle": 4185.87,
+        "min_full_cycle": -30716.48,
+        "max_full_cycle": 116901.36,
+        "total_full_cycle": 600795.45,
+        "win_rate_full_cycle": 0.8962,
         "win_rate_ci95": [
-          0.8562,
-          0.8946
+          0.877,
+          0.9127
         ],
-        "mean_when_win": 1037.7,
-        "mean_when_loss": -6228.86,
+        "mean_when_win": 1190.2,
+        "mean_when_loss": -5139.4,
+        "zero_cc_fraction_of_assigned": 0.5465,
         "n_resolved": 917,
-        "mean_full_cycle_resolved_only": 189.12,
+        "mean_full_cycle_resolved_only": 305.46,
         "mean_put_leg_only": -20.03,
         "mean_buy_and_hold": 589.9,
         "mean_ev_dollars_exante": 98.03,
-        "full_minus_putleg": 161.49,
-        "full_minus_ev": 43.44,
+        "full_minus_putleg": 553.12,
+        "full_minus_ev": 435.06,
         "assignment_rate": 0.2289,
         "mean_cc_cycles_if_assigned": 0.73,
         "open_mark_rate": 0.1863,
         "spearman_ev_vs_full": {
           "n": 1127,
-          "rho": 0.5025,
+          "rho": 0.5037,
           "p": 0.0005
         },
         "spearman_ev_vs_putleg": {
@@ -562,35 +614,39 @@
         },
         "elevated (15-25)": {
           "n": 469,
-          "mean_full_cycle": -508.29,
+          "mean_full_cycle": -9.66,
           "mean_full_cycle_ci95": [
-            -1795.08,
-            393.78
+            -996.5,
+            729.33
           ],
-          "median_full_cycle": 196.87,
-          "p05_full_cycle": -6528.44,
-          "p25_full_cycle": 45.95,
-          "total_full_cycle": -238389.64,
-          "win_rate_full_cycle": 0.7761,
+          "median_full_cycle": 219.97,
+          "p05_full_cycle": -4031.75,
+          "p25_full_cycle": 76.08,
+          "p95_full_cycle": 3902.6,
+          "min_full_cycle": -30716.48,
+          "max_full_cycle": 15983.67,
+          "total_full_cycle": -4528.29,
+          "win_rate_full_cycle": 0.806,
           "win_rate_ci95": [
-            0.7362,
-            0.8115
+            0.7678,
+            0.8392
           ],
-          "mean_when_win": 886.73,
-          "mean_when_loss": -5344.38,
+          "mean_when_win": 1033.56,
+          "mean_when_loss": -4343.01,
+          "zero_cc_fraction_of_assigned": 0.5723,
           "n_resolved": 326,
-          "mean_full_cycle_resolved_only": -10.76,
+          "mean_full_cycle_resolved_only": 145.53,
           "mean_put_leg_only": -197.49,
           "mean_buy_and_hold": -264.25,
           "mean_ev_dollars_exante": 66.81,
-          "full_minus_putleg": -310.81,
-          "full_minus_ev": -575.1,
+          "full_minus_putleg": 187.83,
+          "full_minus_ev": -76.47,
           "assignment_rate": 0.3689,
           "mean_cc_cycles_if_assigned": 0.65,
           "open_mark_rate": 0.3049,
           "spearman_ev_vs_full": {
             "n": 469,
-            "rho": 0.3174,
+            "rho": 0.3206,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -601,35 +657,39 @@
         },
         "crisis (>25)": {
           "n": 658,
-          "mean_full_cycle": 604.59,
+          "mean_full_cycle": 919.94,
           "mean_full_cycle_ci95": [
-            19.0,
-            1200.38
+            300.25,
+            1609.86
           ],
-          "median_full_cycle": 316.11,
-          "p05_full_cycle": -64.56,
-          "p25_full_cycle": 169.38,
-          "total_full_cycle": 397822.56,
-          "win_rate_full_cycle": 0.9483,
+          "median_full_cycle": 319.78,
+          "p05_full_cycle": 35.7,
+          "p25_full_cycle": 171.94,
+          "p95_full_cycle": 4264.97,
+          "min_full_cycle": -22146.12,
+          "max_full_cycle": 116901.36,
+          "total_full_cycle": 605323.74,
+          "win_rate_full_cycle": 0.9605,
           "win_rate_ci95": [
-            0.9287,
-            0.9628
+            0.9427,
+            0.9729
           ],
-          "mean_when_win": 1125.76,
-          "mean_when_loss": -8960.33,
+          "mean_when_win": 1283.89,
+          "mean_when_loss": -7926.77,
+          "zero_cc_fraction_of_assigned": 0.4941,
           "n_resolved": 591,
-          "mean_full_cycle_resolved_only": 299.38,
+          "mean_full_cycle_resolved_only": 393.68,
           "mean_put_leg_only": 106.46,
           "mean_buy_and_hold": 1198.7,
           "mean_ev_dollars_exante": 120.28,
-          "full_minus_putleg": 498.13,
-          "full_minus_ev": 484.31,
+          "full_minus_putleg": 813.48,
+          "full_minus_ev": 799.67,
           "assignment_rate": 0.1292,
           "mean_cc_cycles_if_assigned": 0.88,
           "open_mark_rate": 0.1018,
           "spearman_ev_vs_full": {
             "n": 658,
-            "rho": 0.5988,
+            "rho": 0.6175,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -643,35 +703,39 @@
     "disjoint_2023-2025": {
       "all": {
         "n": 882,
-        "mean_full_cycle": 478.91,
+        "mean_full_cycle": 801.69,
         "mean_full_cycle_ci95": [
-          -189.17,
-          1312.9
+          112.95,
+          1868.47
         ],
-        "median_full_cycle": 253.73,
-        "p05_full_cycle": -2945.15,
-        "p25_full_cycle": 114.65,
-        "total_full_cycle": 422394.26,
-        "win_rate_full_cycle": 0.9093,
+        "median_full_cycle": 262.11,
+        "p05_full_cycle": -1426.44,
+        "p25_full_cycle": 127.8,
+        "p95_full_cycle": 4928.17,
+        "min_full_cycle": -75024.97,
+        "max_full_cycle": 80094.9,
+        "total_full_cycle": 707091.59,
+        "win_rate_full_cycle": 0.9206,
         "win_rate_ci95": [
-          0.8885,
-          0.9265
+          0.9009,
+          0.9367
         ],
-        "mean_when_win": 1262.82,
-        "mean_when_loss": -7379.79,
+        "mean_when_win": 1403.59,
+        "mean_when_loss": -6180.3,
+        "zero_cc_fraction_of_assigned": 0.6272,
         "n_resolved": 742,
-        "mean_full_cycle_resolved_only": 243.44,
+        "mean_full_cycle_resolved_only": 324.24,
         "mean_put_leg_only": 160.1,
         "mean_buy_and_hold": 1354.29,
         "mean_ev_dollars_exante": 114.86,
-        "full_minus_putleg": 318.81,
-        "full_minus_ev": 364.04,
+        "full_minus_putleg": 641.59,
+        "full_minus_ev": 686.83,
         "assignment_rate": 0.1916,
         "mean_cc_cycles_if_assigned": 0.56,
         "open_mark_rate": 0.1587,
         "spearman_ev_vs_full": {
           "n": 882,
-          "rho": 0.4838,
+          "rho": 0.4769,
           "p": 0.0005
         },
         "spearman_ev_vs_putleg": {
@@ -683,35 +747,39 @@
       "by_band": {
         "calm (<=15)": {
           "n": 154,
-          "mean_full_cycle": -106.59,
+          "mean_full_cycle": 231.98,
           "mean_full_cycle_ci95": [
-            -1020.77,
-            412.07
+            -329.09,
+            503.0
           ],
-          "median_full_cycle": 195.03,
-          "p05_full_cycle": -5714.68,
-          "p25_full_cycle": 74.51,
-          "total_full_cycle": -16415.37,
-          "win_rate_full_cycle": 0.8247,
+          "median_full_cycle": 205.89,
+          "p05_full_cycle": -3987.74,
+          "p25_full_cycle": 81.87,
+          "p95_full_cycle": 2322.95,
+          "min_full_cycle": -30461.13,
+          "max_full_cycle": 39625.26,
+          "total_full_cycle": 35724.33,
+          "win_rate_full_cycle": 0.8506,
           "win_rate_ci95": [
-            0.7569,
-            0.8766
+            0.7859,
+            0.8984
           ],
-          "mean_when_win": 1004.14,
-          "mean_when_loss": -5331.16,
+          "mean_when_win": 1042.43,
+          "mean_when_loss": -4384.08,
+          "zero_cc_fraction_of_assigned": 0.6429,
           "n_resolved": 120,
-          "mean_full_cycle_resolved_only": -278.23,
+          "mean_full_cycle_resolved_only": -101.98,
           "mean_put_leg_only": 9.67,
           "mean_buy_and_hold": 527.87,
           "mean_ev_dollars_exante": 74.58,
-          "full_minus_putleg": -116.26,
-          "full_minus_ev": -181.17,
+          "full_minus_putleg": 222.3,
+          "full_minus_ev": 157.4,
           "assignment_rate": 0.2727,
           "mean_cc_cycles_if_assigned": 0.48,
           "open_mark_rate": 0.2208,
           "spearman_ev_vs_full": {
             "n": 154,
-            "rho": 0.3437,
+            "rho": 0.3389,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -722,35 +790,39 @@
         },
         "elevated (15-25)": {
           "n": 728,
-          "mean_full_cycle": 602.76,
+          "mean_full_cycle": 922.21,
           "mean_full_cycle_ci95": [
-            -176.52,
-            1637.73
+            104.95,
+            2201.22
           ],
-          "median_full_cycle": 265.92,
-          "p05_full_cycle": -1508.08,
-          "p25_full_cycle": 135.05,
-          "total_full_cycle": 438809.63,
-          "win_rate_full_cycle": 0.9272,
+          "median_full_cycle": 274.75,
+          "p05_full_cycle": -746.29,
+          "p25_full_cycle": 142.37,
+          "p95_full_cycle": 6492.5,
+          "min_full_cycle": -75024.97,
+          "max_full_cycle": 80094.9,
+          "total_full_cycle": 671367.26,
+          "win_rate_full_cycle": 0.9354,
           "win_rate_ci95": [
-            0.906,
-            0.9439
+            0.9152,
+            0.9511
           ],
-          "mean_when_win": 1311.48,
-          "mean_when_loss": -8423.44,
+          "mean_when_win": 1473.06,
+          "mean_when_loss": -7059.31,
+          "zero_cc_fraction_of_assigned": 0.622,
           "n_resolved": 622,
-          "mean_full_cycle_resolved_only": 344.09,
+          "mean_full_cycle_resolved_only": 406.47,
           "mean_put_leg_only": 191.92,
           "mean_buy_and_hold": 1529.11,
           "mean_ev_dollars_exante": 123.38,
-          "full_minus_putleg": 410.84,
-          "full_minus_ev": 479.38,
+          "full_minus_putleg": 730.29,
+          "full_minus_ev": 798.82,
           "assignment_rate": 0.1745,
           "mean_cc_cycles_if_assigned": 0.58,
           "open_mark_rate": 0.1456,
           "spearman_ev_vs_full": {
             "n": 728,
-            "rho": 0.4971,
+            "rho": 0.4881,
             "p": 0.0005
           },
           "spearman_ev_vs_putleg": {
@@ -766,57 +838,66 @@
     }
   },
   "verdict": {
-    "label": "ENGINE STAYS REALISTIC THROUGH THE FULL WHEEL (modal economics viable; short-vol tail). 89.1% of cycles are net-positive (win-rate CI [0.8766, 0.9039]), median +$256.49/cycle; the full-cycle DOLLAR MEAN is positive on every cut (pooled +$289.61) but NOT CI-distinguishable from 0 (CI [-197.16, 763.24]) \u2014 full-cycle P&L is a classic short-volatility distribution (frequent ~$1138.56 wins, rare ~$-6649.29 losses on the 10.9% that lose). The engine's EV ranking HOLDS at MODERATE strength (Spearman rho=0.4937, rho^2~0.2437 \u21d2 ~24% of full-cycle variance; permutation p optimistic under clustering) \u2014 present, not authoritative; the rest is post-assignment market direction. The recovery leg adds +$230.56 vs put-leg-only but is STRONGLY REGIME-DEPENDENT (positive when the market subsequently rises \u2014 crisis/bull \u2014 negative in the 2022 bear and ~0 in calm), confirming the R11 caveat. CAVEAT: the wheel materially UNDERPERFORMS a capital-matched buy-and-hold (+$925.48 vs +$289.61/cycle) \u2014 it is an income / capped-upside strategy, not a return-maximizer. Closes the put-leg-only caveat for the campaign. No engine rule warranted (the engine selects realistically and ranks; this is strategy economics, not a calibration defect) \u2014 the regime-dependence of the recovery leg is flagged for the Windows terminal as a measurement, not a spec.",
+    "label": "ENGINE STAYS REALISTIC THROUGH THE FULL WHEEL (modal economics viable; short-vol tail). 90.7% of cycles are net-positive (win-rate CI [0.8934, 0.9189]), median +$268.17/cycle; the full-cycle DOLLAR MEAN is positive on every cut (pooled +$651.01, CI [179.52, 1195.42] EXCLUDES 0); 3/5 cuts have a mean CI excluding 0 \u2014 full-cycle P&L is a classic short-volatility distribution (frequent ~$1285.3 wins, rare ~$-5529.04 losses on the 9.3% that lose). The engine's EV ranking HOLDS at MODERATE strength (Spearman rho=0.4921, rho^2~0.2422 \u21d2 ~24% of full-cycle variance; permutation p optimistic under clustering) \u2014 present, not authoritative; the rest is post-assignment market direction. The recovery leg adds +$591.96/cycle vs put-leg-only and is POSITIVE IN EVERY REGIME (min +$187.83 in elevated_2020-2022_bear, max +$813.48 in pooled_crisis); its MAGNITUDE is regime-dependent (larger when the market subsequently rises) but it does NOT turn net-negative even in the 2022 bear \u2014 REFINING (not simply confirming) the R11 caveat: the recovery leg's value scales with post-assignment direction but stays positive here. CAVEAT: the wheel materially UNDERPERFORMS a capital-matched buy-and-hold (+$925.48 vs +$651.01/cycle) \u2014 it is an income / capped-upside strategy, not a return-maximizer. Closes the put-leg-only caveat for the campaign. No engine rule warranted (the engine selects realistically and ranks; this is strategy economics, not a calibration defect).",
     "pooled_full_cycle": {
       "n": 2009,
-      "mean_full_cycle": 289.61,
+      "mean_full_cycle": 651.01,
       "mean_full_cycle_ci95": [
-        -197.16,
-        763.24
+        179.52,
+        1195.42
       ],
-      "mean_ci_straddles_zero": true,
-      "median_full_cycle": 256.49,
-      "mean_full_cycle_resolved_only": 213.42,
+      "mean_ci_straddles_zero": false,
+      "median_full_cycle": 268.17,
+      "mean_full_cycle_resolved_only": 313.86,
       "open_mark_rate": 0.1742,
-      "win_rate_full_cycle": 0.891,
+      "win_rate_full_cycle": 0.9069,
       "win_rate_ci95": [
-        0.8766,
-        0.9039
+        0.8934,
+        0.9189
       ],
-      "mean_when_win": 1138.56,
-      "mean_when_loss": -6649.29,
+      "mean_when_win": 1285.3,
+      "mean_when_loss": -5529.04,
       "mean_put_leg_only": 59.05,
       "mean_buy_and_hold": 925.48,
       "mean_ev_dollars_exante": 105.42,
       "put_ev_minus_put_realized": 46.37,
-      "full_minus_putleg": 230.56,
+      "full_minus_putleg": 591.96,
       "assignment_rate": 0.2125,
       "mean_cc_cycles_if_assigned": 0.66
     },
     "full_cycle_mean_by_cut": {
-      "pooled_2020-2025": 289.61,
-      "disjoint_2020-2022": 141.47,
-      "disjoint_2023-2025": 478.91,
-      "named_2020-2024": 165.32,
-      "named_2021-2025": 195.69
+      "pooled_2020-2025": 651.01,
+      "disjoint_2020-2022": 533.09,
+      "disjoint_2023-2025": 801.69,
+      "named_2020-2024": 497.22,
+      "named_2021-2025": 550.02
     },
+    "mean_ci_status_by_cut": {
+      "pooled_2020-2025": "excludes_0_above",
+      "disjoint_2020-2022": "straddles_0",
+      "disjoint_2023-2025": "excludes_0_above",
+      "named_2020-2024": "excludes_0_above",
+      "named_2021-2025": "straddles_0"
+    },
+    "n_cuts_mean_ci_excludes_zero": 3,
     "all_cuts_mean_positive": true,
-    "min_cut_mean_full_cycle": 141.47,
+    "min_cut_mean_full_cycle": 497.22,
     "win_rate_majority_robust": true,
-    "mean_ci_straddles_zero": true,
+    "mean_ci_straddles_zero": false,
     "recovery_edge_by_regime": {
-      "pooled_calm": -116.26,
-      "pooled_elevated": 128.09,
-      "pooled_crisis": 498.13,
-      "elevated_2020-2022_bear": -310.81,
-      "elevated_2023-2025_bull": 410.84
+      "pooled_calm": 222.3,
+      "pooled_elevated": 517.75,
+      "pooled_crisis": 813.48,
+      "elevated_2020-2022_bear": 187.83,
+      "elevated_2023-2025_bull": 730.29
     },
-    "recovery_edge_regime_dependent": true,
+    "recovery_edge_all_regimes_positive": true,
+    "recovery_edge_sign_regime_dependent": false,
     "spearman_ev_vs_full_cycle": {
       "n": 2009,
-      "rho": 0.4937,
+      "rho": 0.4921,
       "p": 0.0005,
-      "rho_squared_variance_explained": 0.2437,
+      "rho_squared_variance_explained": 0.2422,
       "caveat": "permutation p assumes i.i.d.; data is non-i.i.d. (recurring names, overlapping cycles) so the true p is higher and rho is optimistic \u2014 read as a MODERATE signal, not authoritative."
     },
     "ranking_authority_holds_moderate": true,

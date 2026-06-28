@@ -271,6 +271,20 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_policy_config.py` | `engine/policy_config` — load/save/validate, default sanity, section schema |
 | `test_trade_memo_ci.py` | Memo honesty — prob_profit rendered with Wilson CI + N + small-sample caveat |
 
+### Heavy-verify 2026-06-27 (#436) — data-wiring + output-realism reliability (Mac terminal)
+
+Validation-only pins from the #436 campaign (drivers `scripts/audit_data_wiring.py`,
+`audit_output_realism.py`, `audit_prob_profit_calibration.py`, `audit_risk_free_pit.py`,
+`audit_tail_cvar.py`; findings `docs/HEAVY_VERIFY_2026-06-27_DATA_WIRING_RELIABILITY.md`).
+
+| File | Pins |
+|---|---|
+| `test_w1_data_wiring.py` | W1 — served IV band (3.0, 10000]; no deep-IV sentinel leak; OHLC invariant; monotone+positive OHLCV; treasury covers feasible window; strict-xfail pin of the BKNG/CVNA 2026-03-23 split-scale defect (#439) |
+| `test_w2_output_realism.py` | W2 — ranker outputs finite; `prob_profit`/`prob_assignment` ∈ [0,1]; served IV decimal band; premium sane fraction of spot; 25Δ short-put Greeks honour `docs/GREEKS_UNIT_CONTRACT.md` |
+| `test_w3_calibration.py` | W3 — calibration methodology: Wilson helper, VIX-regime bucketing, bin/gap/conclusiveness (n<30 not conclusive; over-confidence ⇒ negative gap) |
+| `test_w4_risk_free_pit.py` | W4 — served RFR is real PIT decimal (fallback 0.05 only pre-1994); ranker IV is point-in-time (no lookahead, moves with as_of) |
+| `test_w5_tail_cvar.py` | W5 — VIX-regime + CVaR breach helpers; engine tail-ordering contract `cvar_5` ≤ `pnl_p25` |
+
 ## Running tests
 
 ```bash

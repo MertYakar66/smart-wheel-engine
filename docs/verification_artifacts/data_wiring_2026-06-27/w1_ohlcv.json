@@ -1,0 +1,229 @@
+{
+  "universe_size": 511,
+  "per_ticker": {
+    "AAPL": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "MSFT": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "JPM": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "XOM": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "UNH": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "NFLX": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "BKNG": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "CVNA": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "KO": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    },
+    "PG": {
+      "rows": 2117,
+      "date_min": "2018-01-02",
+      "date_max": "2026-06-04",
+      "monotonic": true,
+      "dup_dates": 0,
+      "ohlc_invariant_violations": 0,
+      "nan_close": 0,
+      "nonpositive_close": 0
+    }
+  },
+  "discontinuity_count": 6,
+  "discontinuities": {
+    "BKNG": {
+      "splits": [
+        {
+          "eff_date": "2003-06-16",
+          "ratio": 0.166667
+        },
+        {
+          "eff_date": "2026-04-06",
+          "ratio": 25.0
+        }
+      ],
+      "jumps": [
+        {
+          "date": "2026-03-23",
+          "prev_close": 4286.81,
+          "close": 175.872,
+          "ratio": 0.041,
+          "implied_factor": 24.375
+        }
+      ]
+    },
+    "CVNA": {
+      "splits": [
+        {
+          "eff_date": "2026-05-08",
+          "ratio": 5.0
+        }
+      ],
+      "jumps": [
+        {
+          "date": "2026-03-23",
+          "prev_close": 283.28,
+          "close": 59.92,
+          "ratio": 0.2115,
+          "implied_factor": 4.728
+        }
+      ]
+    },
+    "GL": {
+      "splits": [
+        {
+          "eff_date": "1984-05-30",
+          "ratio": 2.0
+        },
+        {
+          "eff_date": "1985-09-17",
+          "ratio": 2.0
+        },
+        {
+          "eff_date": "1992-08-20",
+          "ratio": 1.5
+        },
+        {
+          "eff_date": "1997-08-04",
+          "ratio": 2.0
+        },
+        {
+          "eff_date": "2011-07-05",
+          "ratio": 1.5
+        },
+        {
+          "eff_date": "2014-07-02",
+          "ratio": 1.5
+        }
+      ],
+      "jumps": [
+        {
+          "date": "2024-04-11",
+          "prev_close": 104.93,
+          "close": 49.17,
+          "ratio": 0.4686,
+          "implied_factor": 2.134
+        }
+      ]
+    },
+    "OXY": {
+      "splits": [
+        {
+          "eff_date": "2006-08-16",
+          "ratio": 2.0
+        }
+      ],
+      "jumps": [
+        {
+          "date": "2020-03-09",
+          "prev_close": 26.86,
+          "close": 12.51,
+          "ratio": 0.4657,
+          "implied_factor": 2.147
+        }
+      ]
+    },
+    "PCG": {
+      "splits": [
+        {
+          "eff_date": "1983-07-18",
+          "ratio": 2.0
+        }
+      ],
+      "jumps": [
+        {
+          "date": "2019-01-14",
+          "prev_close": 17.59,
+          "close": 8.38,
+          "ratio": 0.4764,
+          "implied_factor": 2.099
+        }
+      ]
+    },
+    "TRGP": {
+      "splits": [],
+      "jumps": [
+        {
+          "date": "2020-03-09",
+          "prev_close": 27.86,
+          "close": 13.12,
+          "ratio": 0.4709,
+          "implied_factor": 2.123
+        }
+      ]
+    }
+  }
+}

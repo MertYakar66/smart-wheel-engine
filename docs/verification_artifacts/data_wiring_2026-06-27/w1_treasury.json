@@ -1,0 +1,68 @@
+{
+  "coverage": {
+    "rate_1m": {
+      "coverage_start": "2001-07-31",
+      "coverage_end": "2026-06-05",
+      "rows": 6482,
+      "min_pct": -0.1728,
+      "max_pct": 5.6267
+    },
+    "rate_3m": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8455,
+      "min_pct": -0.1372,
+      "max_pct": 6.435
+    },
+    "rate_6m": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8455,
+      "min_pct": -0.0279,
+      "max_pct": 6.678
+    },
+    "rate_2y": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8453,
+      "min_pct": 0.1013,
+      "max_pct": 7.733
+    },
+    "rate_5y": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8453,
+      "min_pct": 0.1902,
+      "max_pct": 7.9
+    },
+    "rate_10y": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8454,
+      "min_pct": 0.5069,
+      "max_pct": 8.03
+    },
+    "rate_30y": {
+      "coverage_start": "1994-01-03",
+      "coverage_end": "2026-06-05",
+      "rows": 8453,
+      "min_pct": 0.9953,
+      "max_pct": 8.164
+    },
+    "sofr": {
+      "coverage_start": "2018-04-02",
+      "coverage_end": "2026-06-04",
+      "rows": 2042,
+      "min_pct": 0.01,
+      "max_pct": 5.4
+    }
+  },
+  "served_rate_3m_decimal": {
+    "2018-06-01": 0.019046,
+    "2020-03-15": 0.002441,
+    "2021-05-01": 2.5e-05,
+    "2024-01-02": 0.053628,
+    "2026-06-01": 0.036952
+  },
+  "monotonic_dates": true
+}

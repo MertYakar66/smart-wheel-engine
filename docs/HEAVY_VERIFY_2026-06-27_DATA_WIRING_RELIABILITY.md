@@ -120,4 +120,49 @@ ex-div lockout / carry, not a hard EV gate), recorded for the data owner; not pi
 
 ---
 
-<!-- W2–W5 sections appended by their respective PRs -->
+## §W2 — Engine output realism
+
+**Driver:** `scripts/audit_output_realism.py` → `w2_output_realism.json`.
+Full-universe `rank_candidates_by_ev` at 5 historical `as_of` dates spanning regimes;
+Greeks recomputed per candidate via `engine.option_pricer.black_scholes_all_greeks`
+against `docs/GREEKS_UNIT_CONTRACT.md`.
+
+### Realism table (per regime)
+
+| Regime | as_of | VIX | RFR 3m | ranked | prem/spot med | IV decimal (min–max) | prob_profit max | non-finite | greek violations |
+|---|---|---:|---:|---:|---:|---|---:|---:|---:|
+| calm | 2021-06-15 | 17.0 | 0.01% | 358 | 1.07% | 0.134–0.548 | 0.958 | **0** | **0** |
+| calm | 2024-01-16 | 13.8 | 5.36% | 71 | 1.09% | 0.146–0.463 | 0.886 | **0** | **0** |
+| crisis | 2020-03-23 | 61.6 | −0.04% | 191 | 3.70% | 0.478–2.737 | 0.998 | **0** | **0** |
+| bear | 2022-06-16 | 33.0 | 1.49% | 329 | 1.94% | 0.231–1.412 | **1.000** | **0** | **0** |
+| bear | 2022-10-14 | 32.0 | — | 37 | 1.79% | 0.246–0.921 | 0.941 | **0** | **0** |
+
+**Verdict: outputs are realistic.** Across all 5 regimes and ~986 ranked candidates:
+**0** non-finite values, **0** Greek-contract violations (every 25-delta short put solves to
+`delta ∈ [-1,0]`, `gamma ≥ 0`, `vega ≥ 0`), **0** `prob_profit`/`prob_assignment` outside `[0,1]`,
+**0** served IV outside the decimal band `(0.03, 5.0]`, **0** `premium/spot` ≥ 0.5, **0** `spot < 1`.
+Magnitudes track the regime correctly: `premium/spot` rises 1.1% (calm) → 1.9% (bear) → **3.7%
+(crisis)**, and IV ceilings rise 0.55 (calm) → 1.41 (bear) → **2.74 (crisis)** — exactly the
+direction option-seller economics predict. RFR is the real PIT rate each day (0.01% ZIRP 2021,
+5.36% in 2024, slightly negative at the COVID trough). Drops bucket cleanly into
+`event` / `history` / `data` (no silent vanishing — `frame.attrs["drops_summary"]`).
+
+### Outlier list (the only two realism caveats — both calibration, not corruption)
+
+1. **`prob_profit == 1.000`** — 1 candidate at `as_of=2022-06-16`. A forecast of *certain* profit is
+   unrealistic for any short put; it arises when the empirical forward distribution contains zero loss
+   scenarios. This is the documented top-bin over-confidence and is examined quantitatively in **W3**.
+2. **Thin `prob_profit` samples (`n_scenarios < 30`)** — strongly regime/as_of dependent:
+   **346/358 (97%)** at calm 2021-06-15, but only 1, 0, 14, 1 at the other four dates. With the default
+   5-year lookback + 35-day **non-overlapping** sampling, the empirical forward distribution can carry
+   `< 30` points (the F4 finding, `docs/F4_TAIL_RISK_DIAGNOSTIC.md`). Per the honesty rule, any
+   `prob_profit` from such a bin must be reported with its Wilson/bootstrap CI and not treated as a
+   point estimate — **W3** stratifies accordingly.
+
+Neither caveat is a non-finite/absurd-value defect (values stay in `[0,1]`); both are calibration
+weaknesses, so they are *reported* here and *measured* in W3 — not pinned as defects. The verified
+realism properties are pinned green in `tests/test_w2_output_realism.py`.
+
+---
+
+<!-- W3–W5 sections appended by their respective PRs -->

@@ -1371,6 +1371,49 @@ card (`docs/worklog/r11-onset-aware-trigger-*.md`). Evidence:
 per-window summaries). No code change — R11's behaviour is unchanged; this
 annotation corrects the record only.
 
+**Extension — R11b real-premium skew-edge size-down (2026-06-27).** R11 gains a
+**second trigger under the same elevated-vol outer guard** (`vix_level >
+R11_VIX_THRESHOLD`). The original rule is now **R11a** (top-bin over-confidence,
+`verdict_reason="elevated_vol_top_bin"`, unchanged). **R11b**
+(`verdict_reason="elevated_vol_skew_edge"`) downgrades proceed → review when a
+candidate's EV rests on a positive **real-premium skew edge** — `premium_source ==
+"market_mid"` AND `edge_vs_fair > R11_SKEW_EDGE_MIN` (0.0).
+
+*Why:* the Phase-2 real-premium rail (D-/PR #435) swaps the synthetic BSM premium
+for the observed skew-rich market mid, which lifts `edge_vs_fair` above zero and
+raises EV. The **with/without robustness sweep** that motivated this (S27
+in-sample, S32 friction, S35 OOS — all rail-off runs reproduced their committed
+snapshots to full precision) found the calibration win is robust (`spearman_rho`
+↑ every window; `ev_mean` −20→−2; `mean_realized` +$ over the identical pool) but
+the **realized NAV impact is regime-dependent and procyclical**: frictionless
+in-sample +42.78% collapsed to **+4.39% with realistic friction** and went
+**−3.43% out-of-sample in the 2020 crash**, where the fat crisis skew premium made
+MORE candidates clear the EV bar (executed trades **26→40**) — adding put exposure
+precisely in the regime that hurt. That is the same procyclical over-confidence
+R11a guards, now arriving through the real-premium channel, so R11b bounds it the
+same way: size down in elevated vol. Gating only above VIX 25 **preserves the
+calibration win** (which is dominated by the calm regime, where R11b never fires).
+
+*§2-clean and no re-baseline:* R11b is downgrade-only (shares R11a's
+`verdict == "proceed"` guard — the overlay-guard count is unchanged at 6, so the
+`test_dossier_downgrade_property` count-pin is untouched) and **no-ops on the
+synthetic path** (`premium_source != "market_mid"`). Because the rail is gitignored
+(local-only), CI/regression always see the synthetic path → byte-identical →
+**zero re-baseline**, the same property as the wiring itself.
+
+*Rejected alternative:* the `min(real, synthetic)` conservative-premium variant
+(cap EV inflation at the engine boundary) was considered and declined — it would
+blunt the calibration win in ALL regimes, whereas R11b is surgical (crisis-only)
+and downgrade-only, keeping the real mid as the evaluate input everywhere.
+
+*Pinned by:* `engine/candidate_dossier.py` (`R11_SKEW_EDGE_MIN` constant, the R11b
+branch under the shared outer guard, the rule-11 docstring), `tests/test_r11_elevated_vol.py`
+(R11b pins: fires, synthetic no-op, non-positive-edge no-op, low-VIX no-op, absent-VIX
+no-op, absent-diagnostics no-op, never-rescues, R11a-precedence, boundary,
+computed-payload, `build_dossiers` end-to-end), `tests/test_dossier_downgrade_property.py`
+(`R11b:skew_edge` firing scenario in the downgrade-only matrix). PR #TBD; opened
+review-then-merge per the verdict-moving gravity of the real-premium channel.
+
 ---
 
 ## D24 — IBKR read-only snapshot feed + portfolio adapter (gate-arming foundation)

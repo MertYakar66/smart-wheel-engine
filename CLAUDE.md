@@ -107,21 +107,33 @@ The `EnginePhaseReviewer` rules, for reference:
   Bounds F4-style idiosyncratic-drawdown damage that no market-wide
   regime detector can predict (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
   §10). Same Q3 missing-data semantics as R7-R9.
-- R11: *(heavy-verify 2026-05-31 I11 — conditional on an attached
-  `vix_level`.)* Elevated-vol top-bin size-down. When the market-wide
-  `vix_level` > `R11_VIX_THRESHOLD` (25.0) AND the candidate is a
-  high-confidence top-bin pick (`prob_profit` > `R11_TOP_BIN_PROB`,
-  0.90), downgrade proceed → review with
-  `verdict_reason="elevated_vol_top_bin"`. Rationale: the top
-  `prob_profit` bin is materially over-confident in the regime that
-  *follows* an elevated-vol reading (~0.57 realized vs ~0.96 forecast
-  in crisis) — a miss neither forecastable nor cleanly detectable from
-  a single onset signal; sizing down is favorably asymmetric and the
-  VIX>25 cut survives leave-one-crisis-out. Counterpart to R10: R10
-  bounds idiosyncratic single-name size, R11 bounds market-wide vol
-  exposure on the over-confident top bin. `wheel_runner` threads
-  `vix_level` into `build_dossiers`; no-op when `vix_level` is absent
-  (missing-evidence semantics, like R6-R10). See `DECISIONS.md` D23.
+- R11: *(heavy-verify 2026-05-31 I11 + robustness sweep 2026-06-27 —
+  conditional on an attached `vix_level`.)* Elevated-vol size-down. Two
+  downgrade-only triggers share one outer guard (`vix_level` >
+  `R11_VIX_THRESHOLD`, 25.0):
+  - **R11a** (`verdict_reason="elevated_vol_top_bin"`): a high-confidence
+    top-bin pick (`prob_profit` > `R11_TOP_BIN_PROB`, 0.90). The top
+    `prob_profit` bin is materially over-confident in the regime that
+    *follows* an elevated-vol reading (~0.57 realized vs ~0.96 forecast in
+    crisis) — a miss neither forecastable nor cleanly detectable from a
+    single onset signal; sizing down is favorably asymmetric and the VIX>25
+    cut survives leave-one-crisis-out.
+  - **R11b** (`verdict_reason="elevated_vol_skew_edge"`): a candidate whose
+    EV rests on a positive real-premium skew edge (`premium_source ==
+    "market_mid"` AND `edge_vs_fair` > `R11_SKEW_EDGE_MIN`, 0.0). The
+    Phase-2 real-premium rail (#435) swaps synthetic BSM premium for the
+    skew-rich market mid, which lifts EV; the OOS robustness sweep (S35,
+    2020 crash) showed this fires MORE trades in the high-vol regime
+    (26→40) and dragged realized NAV −3.4% — the same procyclical bias as
+    R11a, on the trades the real premium unlocks. **No-op on the synthetic
+    path** (`premium_source != "market_mid"`), so a rail-absent
+    CI/regression run is byte-identical (no re-baseline).
+
+  Counterpart to R10: R10 bounds idiosyncratic single-name size, R11 bounds
+  market-wide vol exposure (R11a the over-confident top bin, R11b the
+  real-premium-unlocked trades). `wheel_runner` threads `vix_level` into
+  `build_dossiers`; both no-op when `vix_level` is absent (missing-evidence
+  semantics, like R6-R10). See `DECISIONS.md` D23.
 
 ---
 

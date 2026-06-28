@@ -248,6 +248,15 @@ def _apply_r11_vix(d: CandidateDossier) -> None:
     d.vix_level = 30.0  # > R11_VIX_THRESHOLD (25.0); ev_row carries prob_profit=0.95
 
 
+def _apply_r11b_skew_edge(d: CandidateDossier) -> None:
+    # R11b: elevated vol + a positive REAL-premium skew edge (premium_source ==
+    # "market_mid", edge_vs_fair > 0) lifting EV. prob_profit stays below the top
+    # bin (set on the scenario), so R11a does NOT pre-empt — this isolates R11b.
+    d.vix_level = 30.0  # > R11_VIX_THRESHOLD (25.0)
+    d.ev_row["premium_source"] = "market_mid"
+    d.ev_row["edge_vs_fair"] = 0.20  # > R11_SKEW_EDGE_MIN (0.0)
+
+
 @dataclass
 class _OverlayScenario:
     """A single overlay's firing configuration."""
@@ -279,6 +288,14 @@ OVERLAY_SCENARIOS: list[_OverlayScenario] = [
     _OverlayScenario("R10:single_name", "single_name_breach", "AAPL", 50.0, _apply_r10_single_name),
     _OverlayScenario(
         "R11:vix", "elevated_vol_top_bin", "AAPL", 100.0, _apply_r11_vix, prob_profit=0.95
+    ),
+    _OverlayScenario(
+        "R11b:skew_edge",
+        "elevated_vol_skew_edge",
+        "AAPL",
+        100.0,
+        _apply_r11b_skew_edge,
+        prob_profit=0.85,  # below the top bin → R11a silent, R11b is what fires
     ),
 ]
 

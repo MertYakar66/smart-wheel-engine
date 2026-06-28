@@ -63,6 +63,20 @@ MIN_PROCEED_EV_DOLLARS: float = 10.0
 # fails the 2022 fold). prob_profit>0.90 is the inherited top-bin cutoff (I1/I9/I10).
 R11_TOP_BIN_PROB: float = 0.90
 R11_VIX_THRESHOLD: float = 25.0
+# R11b (elevated-vol real-premium skew-edge size-down) — robustness sweep
+# 2026-06-27. The Phase-2 real-premium rail (PR #435) swaps synthetic BSM premium
+# for the observed market mid, so the skew-rich OTM put mid lifts ``edge_vs_fair``
+# (premium − BSM fair) above zero and raises EV. The OOS sweep (S35, 2020 crash)
+# showed this makes MORE candidates clear the EV bar precisely in the high-vol
+# regime (26→40 trades), adding crash exposure exactly when realized NAV impact
+# went negative (−3.4%) — the same procyclical over-confidence R11a guards on the
+# top bin. R11b bounds it: in elevated vol, a candidate whose EV rests on a
+# positive REAL-premium skew edge is sized down (proceed→review). ``> 0.0`` means
+# "the real mid is richer than fair" (edge_vs_fair is rounded to cents upstream, so
+# this fires on any ≥ $0.01/sh skew lift); tunable. No-op on the synthetic path
+# (``premium_source != "market_mid"``) → byte-identical when the rail is absent
+# (CI/regression), so no re-baseline. See DECISIONS.md D23.
+R11_SKEW_EDGE_MIN: float = 0.0
 
 
 @dataclass
@@ -92,10 +106,11 @@ class CandidateDossier:
     portfolio_context: Any = None
     # Optional market-wide VIX *level* on the candidate's as_of (NOT a ratio —
     # I10 showed ratios invert onset/recovery). When present the reviewer
-    # applies R11: an elevated-vol size-down of the top bin (downgrade-only).
-    # When absent (the default) R11 is a no-op — same missing-evidence semantics
-    # as R6/R7. Typically threaded in by the ranker from the connector's
-    # get_vix_regime(as_of). See heavy-verify 2026-05-31 I11.
+    # applies R11's elevated-vol size-down (downgrade-only): R11a on the
+    # over-confident top bin, R11b on trades unlocked by a positive real-premium
+    # skew edge. When absent (the default) R11 is a no-op — same missing-evidence
+    # semantics as R6/R7. Typically threaded in by the ranker from the connector's
+    # get_vix_regime(as_of). See heavy-verify 2026-05-31 I11 + sweep 2026-06-27.
     vix_level: float | None = None
     verdict: Verdict = "review"
     verdict_reason: str = ""
@@ -250,24 +265,41 @@ class EnginePhaseReviewer:
         regime detector can predict. Downgrade-only; no-op when
         ``nav == 0`` or context is absent.
 
-    11. *(Conditional — heavy-verify 2026-05-31 I11.)* If a
-        market-wide ``vix_level`` is attached and the candidate is a
-        high-confidence top-bin pick (``prob_profit > R11_TOP_BIN_PROB``,
-        0.90) while ``vix_level > R11_VIX_THRESHOLD`` (25.0), the verdict
-        is **review** with ``verdict_reason="elevated_vol_top_bin"``.
-        Rationale: I1 found the top ``prob_profit`` bin is materially
-        over-confident in the regime that *follows* an elevated-vol
-        reading (~0.57 realized vs ~0.96 forecast in crisis), a miss
-        that is neither forecastable (I9) nor cleanly detectable from a
-        single onset signal (I10). I11 showed SIZING DOWN is favorably
-        asymmetric in every well-powered crisis fold and the VIX>25 cut
-        survives leave-one-crisis-out (θ≥27.5 fails the 2022 fold; 25 is
-        the robust-not-optimal floor). Counterpart to R10: R10 bounds
-        idiosyncratic single-name size, R11 bounds market-wide vol
-        exposure on the over-confident top bin. Downgrade-only — never
-        rescues a negative-EV trade (R1) and never upgrades; no-op when
-        ``vix_level`` is absent (missing-evidence semantics, like
-        R6–R10). The warning payload carries the candidate's OWN modeled
+    11. *(Conditional — heavy-verify 2026-05-31 I11 + robustness sweep
+        2026-06-27.)* Two elevated-vol size-down triggers share one
+        outer guard: a market-wide ``vix_level`` is attached and
+        ``vix_level > R11_VIX_THRESHOLD`` (25.0). Both downgrade
+        **proceed → review** and never upgrade.
+
+        **R11a** (``verdict_reason="elevated_vol_top_bin"``) — the
+        candidate is a high-confidence top-bin pick
+        (``prob_profit > R11_TOP_BIN_PROB``, 0.90). I1 found the top
+        ``prob_profit`` bin is materially over-confident in the regime
+        that *follows* an elevated-vol reading (~0.57 realized vs ~0.96
+        forecast in crisis), a miss neither forecastable (I9) nor
+        cleanly detectable from a single onset signal (I10). I11 showed
+        SIZING DOWN is favorably asymmetric in every well-powered crisis
+        fold and the VIX>25 cut survives leave-one-crisis-out (θ≥27.5
+        fails the 2022 fold; 25 is the robust-not-optimal floor).
+
+        **R11b** (``verdict_reason="elevated_vol_skew_edge"``) — the
+        candidate's EV rests on a positive real-premium skew edge
+        (``premium_source == "market_mid"`` AND
+        ``edge_vs_fair > R11_SKEW_EDGE_MIN``, 0.0). The Phase-2 rail
+        (#435) swaps synthetic BSM premium for the skew-rich market mid,
+        which lifts EV; the OOS sweep (S35, 2020 crash) showed this fires
+        MORE trades in the high-vol regime (26→40) and dragged realized
+        NAV −3.4% — the same procyclical bias as R11a, on the trades the
+        real premium unlocks. No-op on the synthetic path
+        (``premium_source != "market_mid"``), so a rail-absent
+        CI/regression run is byte-identical (no re-baseline).
+
+        Counterpart to R10: R10 bounds idiosyncratic single-name size,
+        R11 bounds market-wide vol exposure (R11a on the over-confident
+        top bin, R11b on the real-premium-unlocked trades). Both are
+        downgrade-only — never rescue a negative-EV trade (R1); no-op
+        when ``vix_level`` is absent (missing-evidence semantics, like
+        R6–R10). Each warning payload carries the candidate's OWN modeled
         tail (``cvar_5`` from ``ev_row``) — computed/regime-matched, not
         a hardcoded constant. See ``docs/HEAVY_VERIFY_2026-05-31_I11.md``.
 
@@ -541,18 +573,33 @@ class EnginePhaseReviewer:
                     )
                     return "review", "single_name_breach", notes
 
-        # Rule 11: elevated-vol top-bin size-down (heavy-verify 2026-05-31 I11).
-        # When market-wide VIX *level* is elevated (> R11_VIX_THRESHOLD) AND this
-        # is a high-confidence candidate (prob_profit > R11_TOP_BIN_PROB), the
-        # engine's top-bin prob_profit is materially over-confident in the regime
-        # that follows (I1: ~0.57 realized vs ~0.96 forecast in crisis) — a miss
-        # that is neither forecastable (I9) nor cleanly detectable (I10). I11
-        # showed the robust response is to SIZE DOWN regardless; the VIX>25 cut
-        # survived leave-one-crisis-out (2020 +$86k / 2022 +$3.5k averted-vs-
-        # forgone). Downgrade-only, never upgrades; no-op when vix_level is absent
-        # (missing-evidence semantics, like R6-R10). The warning carries THIS
-        # candidate's own modeled tail (cvar_5) — computed/regime-matched, not a
-        # hardcoded constant, so it stays honest as data updates.
+        # Rule 11: elevated-vol size-down (heavy-verify 2026-05-31 I11 + robustness
+        # sweep 2026-06-27). Two downgrade-only triggers share one outer guard —
+        # the market is in an elevated-vol regime (VIX *level* > R11_VIX_THRESHOLD):
+        #
+        #   R11a (top-bin over-confidence): a high-confidence candidate
+        #     (prob_profit > R11_TOP_BIN_PROB) — the engine's top-bin prob_profit is
+        #     materially over-confident in the regime that follows (I1: ~0.57
+        #     realized vs ~0.96 forecast in crisis), a miss neither forecastable (I9)
+        #     nor cleanly detectable (I10); I11 showed SIZING DOWN is the robust
+        #     response and the VIX>25 cut survived leave-one-crisis-out (2020 +$86k /
+        #     2022 +$3.5k averted-vs-forgone).
+        #
+        #   R11b (real-premium skew-edge over-aggressiveness): a candidate whose EV
+        #     rests on a positive REAL-premium skew edge (premium_source ==
+        #     "market_mid" AND edge_vs_fair > R11_SKEW_EDGE_MIN). The Phase-2 rail
+        #     (#435) lets the skew-rich market mid lift EV above where synthetic BSM
+        #     would put it; the OOS sweep (S35, 2020) showed this fires MORE trades
+        #     in crisis (26→40) and dragged realized NAV −3.4% — the same procyclical
+        #     bias as R11a, on the trades the real premium unlocks. Bounds it.
+        #
+        # Both are downgrade-only (never upgrade / rescue), gated on verdict ==
+        # "proceed" so R1 hard-stops negative EV first, and no-op on absent evidence:
+        # no vix_level (missing-evidence semantics, like R6-R10), or — for R11b — the
+        # synthetic path (premium_source != "market_mid"), so the rail-absent
+        # CI/regression run is byte-identical (no re-baseline). Each trigger carries
+        # THIS candidate's own modeled tail (cvar_5) — computed/regime-matched, not a
+        # hardcoded constant — and a distinct verdict_reason for the audit trail.
         vix_level = getattr(dossier, "vix_level", None)
         if vix_level is not None and verdict == "proceed":
             try:
@@ -560,20 +607,38 @@ class EnginePhaseReviewer:
                 vix_f = float(vix_level)
             except (TypeError, ValueError):
                 pp, vix_f = 0.0, 0.0
-            if pp > R11_TOP_BIN_PROB and vix_f > R11_VIX_THRESHOLD:
+            if vix_f > R11_VIX_THRESHOLD:
                 cvar = dossier.ev_row.get("cvar_5")
                 try:
                     cvar_s = f"${float(cvar):,.0f}" if cvar is not None else "n/a"
                 except (TypeError, ValueError):
                     cvar_s = "n/a"
-                notes.append(
-                    f"R11: VIX={vix_f:.1f} > {R11_VIX_THRESHOLD} and prob_profit="
-                    f"{pp:.3f} > {R11_TOP_BIN_PROB} — elevated-vol top bin. The crisis "
-                    f"top bin historically realized ~0.57 vs the ~{pp:.0%} forecast "
-                    f"(heavy-verify I1/I11); this candidate's modeled tail cvar_5="
-                    f"{cvar_s}. Size down — downgrade to review."
-                )
-                return "review", "elevated_vol_top_bin", notes
+                # R11a: top-bin prob_profit over-confidence.
+                if pp > R11_TOP_BIN_PROB:
+                    notes.append(
+                        f"R11a: VIX={vix_f:.1f} > {R11_VIX_THRESHOLD} and prob_profit="
+                        f"{pp:.3f} > {R11_TOP_BIN_PROB} — elevated-vol top bin. The crisis "
+                        f"top bin historically realized ~0.57 vs the ~{pp:.0%} forecast "
+                        f"(heavy-verify I1/I11); this candidate's modeled tail cvar_5="
+                        f"{cvar_s}. Size down — downgrade to review."
+                    )
+                    return "review", "elevated_vol_top_bin", notes
+                # R11b: positive real-premium skew edge lifting EV in elevated vol.
+                premium_source = str(dossier.ev_row.get("premium_source", "") or "")
+                try:
+                    edge = float(dossier.ev_row.get("edge_vs_fair", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    edge = 0.0
+                if premium_source == "market_mid" and edge > R11_SKEW_EDGE_MIN:
+                    notes.append(
+                        f"R11b: VIX={vix_f:.1f} > {R11_VIX_THRESHOLD} and a real-premium "
+                        f"skew edge edge_vs_fair=${edge:.2f}/sh > ${R11_SKEW_EDGE_MIN:.2f} "
+                        f"(premium_source=market_mid) is lifting EV — the trade is one the "
+                        f"real (skew-rich) mid unlocks in the crisis regime where realized "
+                        f"impact went negative (OOS S35). This candidate's modeled tail "
+                        f"cvar_5={cvar_s}. Size down — downgrade to review."
+                    )
+                    return "review", "elevated_vol_skew_edge", notes
 
         return verdict, reason, notes
 

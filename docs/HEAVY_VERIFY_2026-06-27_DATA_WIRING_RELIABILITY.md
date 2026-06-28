@@ -302,4 +302,77 @@ The ranker resolves ATM IV via `_resolve_pit_atm_iv` → `get_iv_history(ticker,
 
 ---
 
-<!-- W5 section appended by its PR -->
+## §W5 — Tail-fit / CVaR reliability (stretch)
+
+**Driver:** `scripts/audit_tail_cvar.py` → `w5_tail_cvar.json`. Same harness/grid/realized
+rule/DATA_END as W3 (n = 9,564 candidate-outcomes).
+
+### POT-GPD tail-fit status
+
+| metric | value |
+|---|---:|
+| GPD (POT) fit fired | 795 / 9,564 = **8.3%** |
+| heavy-tail flag rate | **0.13%** |
+| fitted `tail_xi` median | **−0.632** |
+| fitted `tail_xi` p90 | −0.130 |
+
+The EVT/GPD tail layer **engages sparingly** (8.3%) and, where it fits, returns a **negative
+shape** (`xi` median −0.63, p90 still −0.13) ⇒ **bounded / short tails**, not heavy — so the
+heavy-tail penalty almost never fires (0.13%). The 795 GPD fits coincide exactly with the
+`empirical_overlapping` distribution tier (below): the EVT fit is wired into the thin-sample
+overlapping path.
+
+### Empirical CVaR breach frequency vs nominal — by VIX regime *at entry*
+
+A "breach" = realized P&L worse than the forecast `cvar_5` (the **mean of the worst 5%** of
+modelled paths). Because `cvar_5` sits *deeper* than VaR₅, a well-calibrated model breaches it
+only **~2.5%** of the time (the part of the 5% tail below its own mean), not 5%.
+
+| VIX regime at entry | n | breaches | breach rate |
+|---|---:|---:|---:|
+| calm (<20) | 5,511 | 36 | **0.65%** |
+| elevated (20–30) | 3,714 | 82 | **2.21%** |
+| crisis (≥30) | 339 | 0 | **0.00%** |
+| **overall** | 9,564 | 118 | **1.23%** |
+
+**Every regime breaches *below* the ~2.5% a calibrated worst-5%-mean implies ⇒ `cvar_5` is
+conservative (it over-states tail loss).** The ordering is elevated (2.21%) > calm (0.65%) >
+crisis (**0%**). **W5 does not reproduce the prior "~3.5× CVaR breach in crisis"** — crisis-entry
+candidates breach *zero* times (high IV → fat premium cushion). This is the **same regime-
+definition reconciliation as W3**: the prior conditions on a crisis that arrives *during the
+hold*; W5 conditions on VIX *at entry*, where a crisis entry is the safest, not the riskiest.
+(`crisis/calm` multiple is reported `None` — a 0/0.0065 ratio — rather than a misleading 0×.)
+
+### Forward-distribution cascade — graceful degradation **confirmed**
+
+| tier | overall | n < 30 (thin) | n ≥ 30 |
+|---|---:|---:|---:|
+| `empirical_non_overlapping` (default) | 8,769 | 2,200 | 6,569 |
+| `empirical_overlapping` (thin fallback) | 795 | **795** | **0** |
+
+The cascade degrades **cleanly**: `empirical_overlapping` fires **only** for thin candidates
+(795/795 have `n_scenarios < 30`; every `n ≥ 30` candidate stays on `empirical_non_overlapping`).
+**Crisis-entry candidates are 100% on the overlapping tier** (339/339) — high-vol entries have
+few non-overlapping windows in recent history, so the engine densifies via overlapping windows
++ the GPD tail fit, which is exactly why their `cvar_5` is conservative and never breached. The
+deeper `block_bootstrap` / HAR-RV tiers did **not** trigger on this universe — the empirical
+overlapping tier absorbed every thin case. No silent failure: every candidate carries a named
+`distribution_source`. Methodology pinned green in `tests/test_w5_tail_cvar.py`.
+
+---
+
+## Campaign summary
+
+| Item | Verdict |
+|---|---|
+| **W1 data-wiring** | PASS except **D-W1-1** (BKNG/CVNA 2026-03-23 split-scale splice → #439); NFLX ~10× **refuted**; IV band + treasury clean. |
+| **W2 output realism** | **PASS** — 0 non-finite, 0 Greek violations, 0 out-of-band across 5 regimes / ~986 candidates; magnitudes scale with regime. |
+| **W3 prob_profit calibration** | Top-bin over-confidence is **calm/elevated-entry (~−16pp), absent in crisis-entry (+0.008)**; reconciles the R11 prior as a VIX-at-entry vs followed-by-crisis difference (→ #442). |
+| **W4 RFR + PIT** | Spurious-5% RFR **refuted** (treasury 1994→2026); latent impact −$15/contract; **PIT IV confirmed** (no lookahead, moves with as_of). |
+| **W5 tail/CVaR** | `cvar_5` **conservative** (breach ≤2.21%, crisis 0%); GPD fits sparsely, bounded tails; forward-distribution cascade **degrades gracefully**. |
+
+**The engine is trustworthy on the data it has** — outputs are finite, realistic, PIT-correct,
+and tail-conservative. The one committed-data defect (the 2026-03-23 OHLCV splice, #439) is a
+data-regeneration fix that does not reach live/frontier rankings. The clearest *engine* signal
+is the **regime-shape of top-bin over-confidence** (calm/elevated, not crisis) — decision-relevant
+input handed to the R11b owner (#442), report-only per the W3 mandate.

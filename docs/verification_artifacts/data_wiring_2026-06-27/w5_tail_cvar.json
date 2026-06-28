@@ -1,0 +1,64 @@
+{
+  "total": 9564,
+  "data_end": "2026-03-20",
+  "tail_fit": {
+    "gpd_fit_fired": 795,
+    "gpd_fit_rate": 0.0831,
+    "heavy_tail_rate": 0.0013,
+    "tail_xi_median": -0.6321,
+    "tail_xi_p90": -0.1297
+  },
+  "cvar_breach": {
+    "overall": {
+      "n": 9564,
+      "breaches": 118,
+      "breach_rate": 0.0123
+    },
+    "by_regime": {
+      "calm (<20)": {
+        "n": 5511,
+        "breaches": 36,
+        "breach_rate": 0.0065
+      },
+      "elevated (20-30)": {
+        "n": 3714,
+        "breaches": 82,
+        "breach_rate": 0.0221
+      },
+      "crisis (>=30)": {
+        "n": 339,
+        "breaches": 0,
+        "breach_rate": 0.0
+      }
+    },
+    "crisis_over_calm_multiple": null
+  },
+  "distribution_source": {
+    "overall": {
+      "empirical_overlapping": 795,
+      "empirical_non_overlapping": 8769
+    },
+    "by_regime": {
+      "calm (<20)": {
+        "empirical_non_overlapping": 5435,
+        "empirical_overlapping": 76
+      },
+      "elevated (20-30)": {
+        "empirical_overlapping": 380,
+        "empirical_non_overlapping": 3334
+      },
+      "crisis (>=30)": {
+        "empirical_overlapping": 339
+      }
+    },
+    "by_thinness": {
+      "n_lt_30": {
+        "empirical_overlapping": 795,
+        "empirical_non_overlapping": 2200
+      },
+      "n_ge_30": {
+        "empirical_non_overlapping": 6569
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "raw_csv": {
+    "hist_put_imp_vol": {
+      "rows": 1037278,
+      "nan": 5910,
+      "le_3 (sub-floor)": 17,
+      "gt_10000 (sentinel)": 0,
+      "near_134217_sentinel": 0,
+      "min": 0.01,
+      "max": 769.273
+    },
+    "hist_call_imp_vol": {
+      "rows": 1037278,
+      "nan": 5910,
+      "le_3 (sub-floor)": 17,
+      "gt_10000 (sentinel)": 0,
+      "near_134217_sentinel": 0,
+      "min": 0.01,
+      "max": 769.273
+    }
+  },
+  "served_iv_cells_checked": 2062702,
+  "served_band_violations": [],
+  "served_band_clean": true,
+  "note": "connector NULLs IV outside (3.0, 10000] on every read (_clean_vol_iv_inplace); served band should be clean even though the raw CSV carries sub-3 + sentinel cells."
+}

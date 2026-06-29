@@ -488,8 +488,11 @@ _SCALE_BREAK_LO = 0.25
 _SCALE_BREAK_HI = 4.0
 _SCALE_BREAK_MAX_GAP_DAYS = 7
 
-# Confirmed scale-corrupted (ticker, date-of-break). Re-pull fix = supervised A8.
-KNOWN_SCALE_BREAKS = {("BKNG", "2026-03-23"), ("CVNA", "2026-03-23")}
+# Scale-break set — now EMPTY. The BKNG 25:1 / CVNA 5:1 split-seam misalignment
+# at 2026-03-23 was back-adjusted onto the split-adjusted scale (#439, D-W1-1/A8),
+# so no name carries an intra-series scale break. The two-sided pin below keeps
+# this empty: any NEW (ticker, date) scale corruption fails the test.
+KNOWN_SCALE_BREAKS: set[tuple[str, str]] = set()
 
 
 @cache
@@ -517,17 +520,11 @@ def _intraseries_scale_breaks() -> frozenset[tuple[str, str]]:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="A8 (docs/IBKR_EV_CALIBRATION.md): BKNG 25:1 (eff 2026-04-06) + CVNA 5:1 "
-    "(eff 2026-05-08) splits appear as a scale break at the 2026-03-23 seam "
-    "instead of being back-adjusted (pre-seam unadjusted, post-seam adjusted). "
-    "Fix at the re-pull; this flips green when the series is continuous.",
-)
 def test_ohlcv_no_split_adjustment_scale_breaks():
     """No name carries an adjacent-trading-day close jump beyond a plausible
-    single-day move (the scale-corruption screen). Currently fails on the
-    BKNG/CVNA split-seam misalignment (A8); flips when the re-pull lands."""
+    single-day move (the scale-corruption screen). A8 (#439): the BKNG 25:1 /
+    CVNA 5:1 split-seam misalignment at 2026-03-23 was back-adjusted onto the
+    split scale, so the series is continuous. Was strict-xfail until the fix."""
     breaks = _intraseries_scale_breaks()
     assert not breaks, f"OHLCV scale breaks (split-adjustment misalignment?): {sorted(breaks)}"
 

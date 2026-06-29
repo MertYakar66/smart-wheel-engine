@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-06-09.
+**Last updated:** 2026-06-25.
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -130,8 +130,8 @@ The navigation layer was reconciled and gate-hardened. If your clone or
 worktree predates this merge, `git pull` before orienting — you were
 reading stale maps. What changed for you:
 
-- **The maps are true again.** `TESTING.md`'s taxonomy covers all 144
-  test files (new gate: `tests/test_testing_md_taxonomy.py` — when you
+- **The maps are true again.** `TESTING.md`'s taxonomy covers every
+  `tests/test_*.py` file (new gate: `tests/test_testing_md_taxonomy.py` — when you
   add a test file, add its one-line taxonomy row or the suite fails);
   `MODULE_INDEX.md` statuses are grep-verified (dormant means dormant);
   this file + `CHANGELOG.md` now cover the 2026-06 wave.
@@ -209,9 +209,9 @@ Source-verified specifics:
 - **Hard refusals (tracker, at `open_short_put`):** armed when
   `enforce_sector_cap` / `enforce_single_name_cap` is `True` (decoupled
   from `require_ev_authority` since D22 / PR #303 —
-  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1805`), or
+  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1963`), or
   when `require_ev_authority=True`. All three default `False`
-  (`WheelTracker.__init__`, `wheel_tracker.py:278-280`). The canonical
+  (`WheelTracker.__init__`, `wheel_tracker.py:301-303`). The canonical
   armed constructor `engine.wheel_runner.make_live_book_tracker()` (sets
   both `enforce_*_cap=True`) has **zero non-test callers** — every non-test
   `WheelTracker(...)` site uses the bare default (`backtests/simulator.py`,
@@ -224,7 +224,7 @@ Source-verified specifics:
   a populated `PortfolioContext` is attached to `build_candidate_dossiers()`.
   On the network surface that happens on `/api/tv/dossier` + `/api/tv/enrich`
   **only when the caller supplies `nav`** — `_build_portfolio_context_from_params`
-  returns `None` otherwise (`engine_api.py:284-285`, the Q3 "don't fire on
+  returns `None` otherwise (`engine_api.py:434-435`, the Q3 "don't fire on
   absent evidence" rule). The default `rank_candidates_by_ev` attaches no
   context, and the tracker's own `portfolio_context_snapshot()` is never
   auto-fed to the reviewer (only test + S47 + verification-artifact callers).
@@ -605,7 +605,7 @@ rewritten.**
   `src/data/` (only `schemas.py`, `validators.py`),
   `src/features/` (`technical.py` is **live** — imported by
   `engine/strangle_timing.py:31`, `engine/tv_signals.py:48`, and
-  `engine_api.py:1161`; other modules dormant), and
+  `engine_api.py:1952`; other modules dormant), and
   `src/backtest/` (`wheel_backtest.py` is a **heuristic** wheel
   backtester — explicitly §2-non-compliant per its top-of-file
   banner — distinct from the EV-driven path under

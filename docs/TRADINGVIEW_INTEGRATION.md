@@ -21,7 +21,7 @@ returns a proceed/review/skip verdict.
 
 | File | Purpose |
 |---|---|
-| `engine/tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`. Future home of `MCPChartProvider` (see roadmap). |
+| `engine/tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider` (opt-in via `SWE_USE_MCP_CHART`; ROADMAP A1 done, PR #95). |
 | `engine/tv_signals.py` | Engine-side parity re-check of the Pine signal logic. Pin the constants in the Pine file. |
 | `engine/chart_context.py` | `ChartContext` dataclass + `ChartContextProvider` Protocol. |
 | `tradingview/smart_wheel_signals.pine` | Pine v5 indicator. Mirrors `engine/tv_signals.py`. |
@@ -84,7 +84,7 @@ Outputs are filed deliverables: research notes, models, Pine source.
 | `tradingview/pine/` | `<strategy-name>.pine` Pine sources from analyst work. `.gitkeep` preserves the dir. |
 | `tradingview/tradingview-mcp-jackson/` | **Vendored MCP server (separate git repo + node_modules).** Gitignored. Clone-it-yourself. |
 
-**The MCP server** exposes ~70 tools across chart control, market
+**The MCP server** exposes ~78 tools across chart control, market
 data, Pine Script, strategy tester, watchlist, alerts, and bar
 replay. Full tool catalog and decision tree live at
 `tradingview/tradingview-mcp-jackson/CLAUDE.md` (vendored, not in this
@@ -196,10 +196,11 @@ filings + events), **MT Newswires** (real-time news), **LSEG**
 
 ## Open work
 
-See `ROADMAP.md` Track A:
-
-- **A1** `MCPChartProvider` implementation (design contract is
-  locked in `TRADINGVIEW_MCP_INTEGRATION.md`).
+`ROADMAP.md` Track A (Decision-layer correctness) is closed — A1
+`MCPChartProvider` shipped (PR #95, opt-in via `SWE_USE_MCP_CHART`;
+`DECISIONS.md` D12/D13). The only residual is the `TODO(live-verify)`
+markers in `engine/mcp_client.py`, which need a live TradingView
+Desktop + tradingview-mcp server to confirm.
 
 ---
 

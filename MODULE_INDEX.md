@@ -30,7 +30,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | File | Purpose | Status | Role |
 |---|---|---|---|
-| `engine_api.py` | HTTP API on `:8787` (34 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
+| `engine_api.py` | HTTP API on `:8787` serving the Next.js dashboard. The top-of-file docstring lists most endpoints but is not exhaustive — e.g. `/api/concentration_preview` and the D26 `/api/portfolio/*` read-only performance-viewer prefix are served by the handler but undocumented there. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |

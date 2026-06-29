@@ -1,0 +1,22 @@
+{
+  "tickers_checked": 510,
+  "implied_iv": {
+    "served_finite_cells": 2062702,
+    "band": "(3.0, 10000.0]",
+    "band_violations": 0,
+    "sentinel_134217_hits": 0,
+    "examples": [],
+    "verdict": "PASS (100% clean)"
+  },
+  "realized_vol": {
+    "served_finite_cells": 4046654,
+    "below_3pct_count": 157,
+    "negative_count": 0,
+    "range": [
+      1.945,
+      328.464
+    ],
+    "note": "realized vol legitimately < 3% for calm names; NOT subject to the implied-IV gate. 0 negatives confirms correct serving.",
+    "verdict": "PASS (correctly NOT gated; 0 negative)"
+  }
+}

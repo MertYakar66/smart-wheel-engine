@@ -1,0 +1,16 @@
+{
+  "raw_rows": 8458,
+  "raw_span": [
+    "1994-01-03",
+    "2026-06-05"
+  ],
+  "precedes_ohlcv_start_2018": true,
+  "served_rate_3m_decimal_probes": {
+    "covid_zirp": 0.001526,
+    "hiking_2024": 0.05355,
+    "calm_2021": 0.000127,
+    "none_latest": 0.037056
+  },
+  "all_probes_decimal_lt_0.20": true,
+  "verdict": "PASS (coverage precedes OHLCV; decimal; fallback unreachable)"
+}

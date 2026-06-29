@@ -158,7 +158,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_data_connector.py` | `MarketDataConnector` full query surface on synthetic tmp_path CSVs — present/absent/edge branches |
 | `test_data_connector_ticker_filter.py` | `_filter_ticker` cache equivalence vs naive mask — build/reuse verified |
 | `test_data_quality.py` | `data/quality.py` chain gate — IV substring-match false-positive regression + real invalid-IV detection |
-| `test_data_integrity_bloomberg.py` | Phase-2A contract on the committed Bloomberg CSVs — NaN/duplicate/GICS/frontier checks |
+| `test_data_integrity_bloomberg.py` | Phase-2A contract on the committed Bloomberg CSVs — NaN/duplicate/GICS/frontier checks + corp-action-derived split-splice classifier (#456 B: auto-catches the next pull's split-splices, no allowlist) |
 | `test_data_to_engine.py` | Phase-2B — real CSVs through both rankers; cascade source, drop accounting, thin/garbage degradation |
 | `test_broad_pull_loaders.py` | Phase-0B broad-pull loaders (`data/broad_pull_loaders.py`) — gz/winsorize/downcast/normalize units + real-data pins to the byte census (rows/range/tickers/schema per dataset, bid/ask ordering, no-consumer §2 guard) |
 | `test_broad_pull_wiring_xfail.py` | Phase 1-3 wiring acceptance scaffolds — `xfail(strict)` behaviour pins (#354 PIT `as_of`, #372 R9→GICS) that flip when the supervised wiring lands |

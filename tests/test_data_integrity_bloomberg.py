@@ -543,6 +543,203 @@ def test_ohlcv_scale_breaks_are_the_known_two():
 
 
 # ---------------------------------------------------------------------------
+# Corp-action-DERIVED split-splice classifier (#456 item B). Supersedes the
+# manual KNOWN_SCALE_BREAKS allowlist: a scale break's legitimacy is derived
+# from sp500_corporate_actions.csv instead of being hand-listed, so the NEXT
+# data pull's split-splices (KLAC 10:1, CRWD 4:1, …) are caught with no edit.
+#
+# Signature of a split-SPLICE (the #439 bug class): the split adjustment is
+# applied only to the recent pull slice, so a clean ~1/ratio price jump lands at
+# the PULL BOUNDARY, weeks away from the split's effective date. We classify a
+# break as a splice artifact iff all three hold:
+#   1. its close ratio ≈ a MATERIAL split factor (1/ratio) for that ticker,
+#   2. O/H/L/C all rescale by ~that one factor (uniform = mechanical rescale;
+#      a genuine crash's O/H/L/C diverge — validated: real splices CV ≤ 2.1%,
+#      genuine crashes CV ≥ 12.8%), and
+#   3. the break is NOT at the split's effective date (the splice lands early).
+# Genuine crashes (no matching split, or non-uniform) and correctly
+# back-adjusted splits (no jump at all) are left alone.
+# ---------------------------------------------------------------------------
+
+_SPLICE_MIN_MOVE = 0.40  # |1 - factor| > 0.40  → split ≥ 2:1 (or reverse ≤ 1:2): unambiguous
+_SPLICE_FACTOR_RTOL = 0.08  # break close-ratio within 8% of 1/split_ratio
+_SPLICE_OHLC_CV_MAX = 0.05  # O/H/L/C ratio coeff-of-variation < 5% = mechanical rescale
+_SPLICE_EFF_TOL_DAYS = 5  # a break within ±5d of the eff date is "applied at eff" (not a splice)
+
+
+@cache
+def _corp_actions() -> pd.DataFrame:
+    return pd.read_csv(DATA_DIR / "sp500_corporate_actions.csv")
+
+
+def _split_factors(corp_actions: pd.DataFrame) -> pd.DataFrame:
+    """Per-(normalized ticker) Stock-Split price-break factors (= 1/ratio) with
+    effective dates, restricted to MATERIAL splits (|1 - factor| > _SPLICE_MIN_MOVE)
+    where a splice is unambiguous. Pure (operates on the passed frame)."""
+    ca = corp_actions[corp_actions["action_type"] == "Stock Split"].copy()
+    ca["ratio"] = pd.to_numeric(ca["ratio"], errors="coerce")
+    ca = ca[ca["ratio"] > 0]
+    ca["nt"] = ca["ticker"].map(normalize_ticker)
+    ca["effd"] = pd.to_datetime(ca["effective_date"], errors="coerce")
+    ca["factor"] = 1.0 / ca["ratio"]
+    ca = ca.dropna(subset=["effd", "factor"])
+    ca = ca[(ca["factor"] - 1.0).abs() > _SPLICE_MIN_MOVE]
+    return ca[["nt", "effd", "factor", "ratio"]].reset_index(drop=True)
+
+
+def _splice_artifacts(ohlcv_canon: pd.DataFrame, corp_actions: pd.DataFrame) -> list[tuple]:
+    """Split-splice artifacts in ``ohlcv_canon`` (columns ticker, date, open,
+    high, low, close — connector-canonical orientation). PURE: pass the real
+    frames or synthetic ones. Returns (nt, break_date, close_ratio, factor,
+    detail) for every adjacent break that matches a material split factor with a
+    uniform O/H/L/C rescale away from the split's effective date."""
+    facs = _split_factors(corp_actions)
+    if facs.empty:
+        return []
+    df = ohlcv_canon.copy()
+    df["nt"] = df["ticker"].map(normalize_ticker)
+    df = df[df["nt"].isin(set(facs["nt"]))]
+    if df.empty:
+        return []
+    df["d"] = pd.to_datetime(df["date"], errors="coerce")
+    for c in ("open", "high", "low", "close"):
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna(subset=["open", "high", "low", "close", "d"]).sort_values(["nt", "d"])
+    g = df.groupby("nt", sort=False)
+    prevc = g["close"].shift()
+    prev_d = g["d"].shift()
+    gap = (df["d"] - prev_d).dt.days
+    rr = pd.DataFrame({c: df[c] / g[c].shift() for c in ("open", "high", "low", "close")})
+    cv = rr.std(axis=1, ddof=0) / rr.mean(axis=1)
+    # candidate = a clean uniform jump far from 1.0 within a 7-day gap
+    cand = (
+        gap.le(_SCALE_BREAK_MAX_GAP_DAYS)
+        & prevc.gt(0)
+        & df["close"].gt(0)
+        & cv.lt(_SPLICE_OHLC_CV_MAX)
+        & (rr["close"] - 1.0).abs().gt(_SPLICE_MIN_MOVE - 0.05)
+    )
+    out = []
+    for idx in df.index[cand]:
+        nt = df.at[idx, "nt"]
+        cr = float(rr["close"].at[idx])
+        bd = df.at[idx, "d"]
+        for _, f in facs[facs["nt"] == nt].iterrows():
+            if abs(cr - f["factor"]) / f["factor"] < _SPLICE_FACTOR_RTOL:
+                if abs((bd - f["effd"]).days) > _SPLICE_EFF_TOL_DAYS:
+                    out.append(
+                        (
+                            nt,
+                            str(bd)[:10],
+                            round(cr, 4),
+                            round(float(f["factor"]), 4),
+                            f"{f['ratio']}:1 eff {str(f['effd'])[:10]}",
+                        )
+                    )
+                break
+    return out
+
+
+def _synth_ohlcv(rows: list[tuple]) -> pd.DataFrame:
+    """Build a canonical-orientation OHLCV frame from (ticker, date, o, h, l, c)."""
+    return pd.DataFrame(rows, columns=["ticker", "date", "open", "high", "low", "close"])
+
+
+def test_split_factor_derivation_value_assert():
+    """Ground-truth: a split's price-break factor is exactly 1/ratio, and only
+    material splits survive the |1-factor|>0.40 gate."""
+    ca = pd.DataFrame(
+        {
+            "action_type": ["Stock Split", "Stock Split", "Stock Split", "Stock Split"],
+            "ratio": [25.0, 4.0, 0.2, 1.25],  # 25:1, 4:1, 1:5 reverse, 5:4 (immaterial)
+            "effective_date": ["2026-04-06", "2024-06-01", "2026-01-15", "2018-03-01"],
+            "ticker": ["BKNG UW", "CRWD UW", "AMCR UN", "BFB UN"],
+        }
+    )
+    f = _split_factors(ca).set_index("nt")["factor"].to_dict()
+    assert f["BKNG"] == pytest.approx(0.04)  # 1/25
+    assert f["CRWD"] == pytest.approx(0.25)  # 1/4
+    assert f["AMCR"] == pytest.approx(5.0)  # 1/0.2 (reverse split → 5× price)
+    assert "BFB" not in f, "5:4 split (factor 0.8) is immaterial — must be excluded"
+
+
+@pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg CSVs not available")
+def test_no_unexplained_split_scale_breaks():
+    """REAL DATA: no ticker carries a material split-scale break away from its
+    split's effective date. Derived from corp actions — supersedes the
+    KNOWN_SCALE_BREAKS allowlist and auto-catches the next pull's split-splices.
+    Passes once the #439/#455 BKNG/CVNA back-adjust lands (spinoff-splices
+    FDX/APTV are tracked separately in #454 and out of this split-scoped gate)."""
+    artifacts = _splice_artifacts(_ohlcv_canonical(), _corp_actions())
+    assert artifacts == [], (
+        "unexplained split-scale breaks (split applied only to the recent pull "
+        f"slice → splice at a pull boundary, not the eff date): {artifacts}"
+    )
+
+
+def test_splice_classifier_flags_unexplained_split():
+    """RED direction: a 4:1 split applied as a clean uniform jump at a date away
+    from its effective date IS flagged (the #439 splice signature)."""
+    rows = [
+        ("ZZ UN", "2022-06-13", 100.0, 101.0, 99.0, 100.0),
+        ("ZZ UN", "2022-06-14", 100.0, 100.5, 99.5, 100.0),
+        ("ZZ UN", "2022-06-15", 25.0, 25.1, 24.9, 25.0),  # clean ÷4 jump (uniform)
+        ("ZZ UN", "2022-06-16", 25.0, 25.2, 24.8, 25.1),
+    ]
+    ca = pd.DataFrame(
+        {
+            "action_type": ["Stock Split"],
+            "ratio": [4.0],
+            "effective_date": ["2022-09-01"],
+            "ticker": ["ZZ UN"],
+        }  # eff date FAR from the jump
+    )
+    art = _splice_artifacts(_synth_ohlcv(rows), ca)
+    assert len(art) == 1 and art[0][0] == "ZZ" and art[0][1] == "2022-06-15"
+    assert art[0][2] == pytest.approx(0.25, abs=0.01)  # value-assert the matched ratio
+
+
+def test_splice_classifier_clean_when_applied_at_effective_date():
+    """GREEN direction: the same uniform ÷4 jump AT the split's effective date is
+    NOT a splice (legitimately applied) — no artifact."""
+    rows = [
+        ("ZZ UN", "2022-08-30", 100.0, 101.0, 99.0, 100.0),
+        ("ZZ UN", "2022-08-31", 100.0, 100.5, 99.5, 100.0),
+        ("ZZ UN", "2022-09-01", 25.0, 25.1, 24.9, 25.0),  # jump lands ON the eff date
+        ("ZZ UN", "2022-09-02", 25.0, 25.2, 24.8, 25.1),
+    ]
+    ca = pd.DataFrame(
+        {
+            "action_type": ["Stock Split"],
+            "ratio": [4.0],
+            "effective_date": ["2022-09-01"],
+            "ticker": ["ZZ UN"],
+        }
+    )
+    assert _splice_artifacts(_synth_ohlcv(rows), ca) == []
+
+
+def test_splice_classifier_ignores_genuine_crash():
+    """A real −75% crash (O/H/L/C DIVERGE) is NOT flagged even though the ticker
+    has a 4:1 split on a non-eff date — the uniform-rescale gate excludes it."""
+    rows = [
+        ("ZZ UN", "2022-06-13", 100.0, 101.0, 99.0, 100.0),
+        ("ZZ UN", "2022-06-14", 100.0, 100.5, 99.5, 100.0),
+        ("ZZ UN", "2022-06-15", 90.0, 95.0, 24.0, 25.0),  # close ÷4 but open/high barely moved
+        ("ZZ UN", "2022-06-16", 25.0, 26.0, 23.0, 24.0),
+    ]
+    ca = pd.DataFrame(
+        {
+            "action_type": ["Stock Split"],
+            "ratio": [4.0],
+            "effective_date": ["2022-09-01"],
+            "ticker": ["ZZ UN"],
+        }
+    )
+    assert _splice_artifacts(_synth_ohlcv(rows), ca) == []
+
+
+# ---------------------------------------------------------------------------
 # Fingerprint completeness (durable W3 replacement) — fast-CI guard
 # ---------------------------------------------------------------------------
 

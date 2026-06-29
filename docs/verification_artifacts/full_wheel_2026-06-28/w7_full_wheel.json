@@ -4,7 +4,7 @@
     "follow_up_to": "#436 campaign capstone; closes the put-leg-only caveat",
     "cites": "I7 roll economics (HEAVY_VERIFY_2026-05-31; +$195/contract CSP-leg-only) + R11 dollar-impact caveat (put-leg 'averted loss' shrinks once assignments wheel into covered-call recovery).",
     "selection": "engine selects every put (rank_candidates_by_ev, positive-EV top_n) AND every covered call (rank_covered_calls_by_ev) -> EVEngine.evaluate; accounting only.",
-    "realized_rule": "canonical _forward_replay_realized_pnl + _spot_on_or_after at full friction; assignment basis = strike (premium already in put leg); called-away when spot>cc_strike; residual shares marked to market (open mark, reported).",
+    "realized_rule": "canonical _forward_replay_realized_pnl + _spot_on_or_after at full friction; assignment basis = spot_at_put_expiry (the canonical put leg already marks shares strike->spot, carrying the intrinsic, so basis=strike would double-count it); called-away when spot>cc_strike; residual shares marked to market (open mark, reported).",
     "entry_vix_bands": "calm<=15, elevated 15-25, crisis>25 (VIX-at-entry)",
     "grid_dates": 71,
     "universe_limit": null,

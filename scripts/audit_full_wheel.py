@@ -26,9 +26,12 @@ W7 runs the **complete cycle** and answers:
 Per-cycle accounting (mirrors WheelTracker's documented conventions, uses the
 canonical ``backtests/regression/_common`` helpers for every leg's P&L):
   - Put OTM at expiry -> keep premium; cycle done (this equals the W6 put-leg #).
-  - Put ITM -> **assigned at strike** (share basis = strike; the put premium is
-    already in the put-leg P&L, so it is NOT re-credited — the AUDIT-VIII P1.2
-    convention). Then repeatedly sell an engine-ranked covered call and hold to
+  - Put ITM -> **assigned at strike**, but the stock leg's accounting basis is
+    spot_at_put_expiry, NOT strike: the canonical put leg already marks the shares
+    strike->spot (it carries the intrinsic), and the put premium is already in the
+    put-leg P&L, so neither is re-credited (the AUDIT-VIII P1.2 convention; using
+    basis=strike here would double-count the put intrinsic). Then repeatedly sell
+    an engine-ranked covered call and hold to
     its expiry: spot > cc_strike -> **called away** (stock sold at cc_strike),
     cycle resolved; else keep the CC premium and keep holding (re-wheel), bounded
     by ``CAP_CC_CYCLES`` and the pre-splice data frontier.
@@ -479,8 +482,9 @@ def analyze(recs: list[dict], grid_dates: int, limit: int, top_n: int, diag: dic
             "selection": "engine selects every put (rank_candidates_by_ev, positive-EV top_n) AND "
             "every covered call (rank_covered_calls_by_ev) -> EVEngine.evaluate; accounting only.",
             "realized_rule": "canonical _forward_replay_realized_pnl + _spot_on_or_after at full "
-            "friction; assignment basis = strike (premium already in put leg); called-away when "
-            "spot>cc_strike; residual shares marked to market (open mark, reported).",
+            "friction; assignment basis = spot_at_put_expiry (the canonical put leg already marks "
+            "shares strike->spot, carrying the intrinsic, so basis=strike would double-count it); "
+            "called-away when spot>cc_strike; residual shares marked to market (open mark, reported).",
             "entry_vix_bands": "calm<=15, elevated 15-25, crisis>25 (VIX-at-entry)",
             "grid_dates": grid_dates,
             "universe_limit": limit,

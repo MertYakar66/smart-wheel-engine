@@ -198,6 +198,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 |---|---|
 | `test_wheel_lifecycle.py` | State transitions + cycle accounting |
 | `test_wheel_backtest.py` | Backtest harness |
+| `test_common_realized_pnl.py` | Ground-truth dollar value-asserts for `backtests/regression/_common.py` realized-P&L + friction helpers (#456 C — hand-computed values, not shape; the W7-double-count bug class) |
 | `test_portfolio_tracker.py` | Portfolio bookkeeping |
 | `test_available_buying_power.py` | `available_buying_power` — CSP collateral reservation across the SHORT_PUT→STOCK_OWNED→COVERED_CALL lifecycle |
 | `test_wheel_tracker_persistence.py` | Tracker save/load round-trip incl. the D16 persisted-token consume |

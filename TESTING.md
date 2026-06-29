@@ -295,6 +295,16 @@ Follow-up to W3/#442. Validation/measurement-only pin (driver
 |---|---|
 | `test_w6_topbin_netcost.py` | W6 — entry-VIX bands (calm ≤15 / elevated 15-25 / crisis >25); friction-overlay realized P&L reuses the canonical `_forward_replay_realized_pnl` and is non-increasing none ≥ bid_ask ≥ full (assignment-slip only when ITM); cluster-bootstrap CI; the window-agreeing net-cost verdict logic (INSUFFICIENT at n<30 / NET-COSTLY / NET-POSITIVE / DRAG); live rank→replay integration smoke |
 
+### Heavy-verify 2026-06-28 (#450) — full-wheel realized P&L (Mac terminal, capstone)
+
+Closes the put-leg-only caveat. Validation/measurement-only pin (driver
+`scripts/audit_full_wheel.py`; findings
+`docs/HEAVY_VERIFY_2026-06-28_FULL_WHEEL_REALISM.md`).
+
+| File | Pins |
+|---|---|
+| `test_w7_full_wheel.py` | W7 — entry-VIX bands; canonical put-leg reuse (`_forward_replay_realized_pnl`) at full friction; the rank-correlation helper; the end-to-end verdict logic (VALIDATED END-TO-END when all cuts net-positive AND Spearman(EV, full-cycle) significant; positive-but-weak-ranking; MATERIALLY WORSE; INSUFFICIENT n<30); two live pins on the assignment→covered-call→recovery accounting (OTM ⟹ full==put-leg; assigned ⟹ recovery legs added; forward resolution dates) |
+
 ## Running tests
 
 ```bash

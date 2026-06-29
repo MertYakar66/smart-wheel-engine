@@ -305,6 +305,18 @@ Closes the put-leg-only caveat. Validation/measurement-only pin (driver
 |---|---|
 | `test_w7_full_wheel.py` | W7 — entry-VIX bands; canonical put-leg reuse (`_forward_replay_realized_pnl`) at full friction; the rank-correlation helper; the end-to-end verdict logic (VALIDATED END-TO-END when all cuts net-positive AND Spearman(EV, full-cycle) significant; positive-but-weak-ranking; MATERIALLY WORSE; INSUFFICIENT n<30); two live pins on the assignment→covered-call→recovery accounting (OTM ⟹ full==put-leg; assigned ⟹ recovery legs added; forward resolution dates) |
 
+### Heavy-verify 2026-06-29 — independent re-verification of #436 W1–W2 (Mac terminal)
+
+Report-only reproduction of the merged W1/W2 findings on current `main`
+(drivers `scripts/audit_w1_data_wiring_reverify.py`,
+`scripts/audit_w2_output_realism_reverify.py`; findings
+`docs/HEAVY_VERIFY_2026-06-29_DATA_WIRING_RELIABILITY.md`). Adds two durable
+properties not covered by the W1/W2 pins above.
+
+| File | Pins |
+|---|---|
+| `test_w1w2_reverify.py` | Corp-action split ground-truth (`get_corporate_actions` serves BKNG 25:1 eff 2026-04-06, CVNA 5:1 eff 2026-05-08, NFLX 10:1 eff 2025-11-17 — the root-cause data behind D-W1-1, durable after PR #455); split effective dates postdate the 2026-03-23 splice (pull-boundary diagnosis); IV-validity gate `(3.0, 10000]` is scoped to *implied* vol only — realized-vol columns correctly served below 3% (EA, HOLX), never floored or negative |
+
 ## Running tests
 
 ```bash

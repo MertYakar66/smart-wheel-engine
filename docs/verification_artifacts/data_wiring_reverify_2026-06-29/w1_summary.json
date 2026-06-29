@@ -1,0 +1,154 @@
+{
+  "provider": "bloomberg",
+  "connector": "MarketDataConnector",
+  "ohlcv": {
+    "n_tickers": 511,
+    "total_rows": 1014920,
+    "coverage": [
+      "2018-01-02",
+      "2026-06-04"
+    ],
+    "nan_ohlc_tickers": 2,
+    "nonpositive_close_tickers": 0,
+    "invariant_violation_tickers": 0,
+    "nonmonotonic_tickers": 0,
+    "n_split_scale_suspects": 6,
+    "splice_artifacts": [
+      "BKNG",
+      "CVNA"
+    ],
+    "real_or_other": [
+      "GL",
+      "OXY",
+      "PCG",
+      "TRGP"
+    ]
+  },
+  "corp_action_crosscheck": {
+    "BKNG": {
+      "split_ratio_authoritative": 25.0,
+      "split_effective_date": "2026-04-06",
+      "discontinuity_date": "2026-03-23",
+      "discontinuity_ret": -0.958974,
+      "implied_factor_from_boundary": 24.3746,
+      "boundary_before_effective_date": true,
+      "gap_days": 14,
+      "factor_consistent_with_split": true
+    },
+    "CVNA": {
+      "split_ratio_authoritative": 5.0,
+      "split_effective_date": "2026-05-08",
+      "discontinuity_date": "2026-03-23",
+      "discontinuity_ret": -0.788478,
+      "implied_factor_from_boundary": 4.7276,
+      "boundary_before_effective_date": true,
+      "gap_days": 46,
+      "factor_consistent_with_split": true
+    }
+  },
+  "nflx": {
+    "n_over_2x_jumps": 0,
+    "jump_dates": [],
+    "served_close_2018_first": 20.107,
+    "served_close_latest": 81.56,
+    "stock_splits": [
+      {
+        "ratio": 2.0,
+        "eff": "2004-02-12"
+      },
+      {
+        "ratio": 7.0,
+        "eff": "2015-07-15"
+      },
+      {
+        "ratio": 10.0,
+        "eff": "2025-11-17"
+      }
+    ],
+    "verdict": "REFUTED (uniform back-adjustment, no discontinuity)"
+  },
+  "vol_iv": {
+    "tickers_checked": 510,
+    "implied_iv": {
+      "served_finite_cells": 2062702,
+      "band": "(3.0, 10000.0]",
+      "band_violations": 0,
+      "sentinel_134217_hits": 0,
+      "examples": [],
+      "verdict": "PASS (100% clean)"
+    },
+    "realized_vol": {
+      "served_finite_cells": 4046654,
+      "below_3pct_count": 157,
+      "negative_count": 0,
+      "range": [
+        1.945,
+        328.464
+      ],
+      "note": "realized vol legitimately < 3% for calm names; NOT subject to the implied-IV gate. 0 negatives confirms correct serving.",
+      "verdict": "PASS (correctly NOT gated; 0 negative)"
+    }
+  },
+  "treasury": {
+    "raw_rows": 8458,
+    "raw_span": [
+      "1994-01-03",
+      "2026-06-05"
+    ],
+    "precedes_ohlcv_start_2018": true,
+    "served_rate_3m_decimal_probes": {
+      "covid_zirp": 0.001526,
+      "hiking_2024": 0.05355,
+      "calm_2021": 0.000127,
+      "none_latest": 0.037056
+    },
+    "all_probes_decimal_lt_0.20": true,
+    "verdict": "PASS (coverage precedes OHLCV; decimal; fallback unreachable)"
+  },
+  "generic_sources": {
+    "dividends_AAPL": {
+      "rows": 91,
+      "ex_date_monotonic": true,
+      "negative_dividend_count": 1,
+      "verdict": "PASS (1+ negative dividend flagged, low-severity: ex-div lockout only)"
+    },
+    "fundamentals_AAPL": {
+      "is_dict": true,
+      "keys": [
+        "best_pe_ratio",
+        "beta",
+        "debt_to_equity",
+        "dividend_yield",
+        "fcf_yield",
+        "implied_vol_atm",
+        "industry_group",
+        "market_cap",
+        "pe_ratio",
+        "roe",
+        "sector",
+        "ticker",
+        "volatility_30d"
+      ],
+      "verdict": "PASS"
+    },
+    "credit_risk_AAPL": {
+      "is_dict": true,
+      "keys": [
+        "altman_z_score",
+        "interest_coverage_ratio",
+        "sp_rating",
+        "ticker"
+      ],
+      "verdict": "PASS"
+    },
+    "corp_actions_AAPL": {
+      "rows": 6,
+      "action_types": [
+        "Discontinued",
+        "Stock Split"
+      ],
+      "eff_date_monotonic": true,
+      "verdict": "PASS"
+    }
+  }
+}

@@ -100,24 +100,17 @@ def test_treasury_covers_feasible_window(conn: MarketDataConnector) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Confirmed defect — pinned to behaviour via strict xfail
+# Verified property — the 2026-03-23 split-scale splice is repaired (#439)
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-W1-1: OHLCV split-scale splice at 2026-03-23 — BKNG 25:1 (eff "
-    "2026-04-06) and CVNA 5:1 (eff 2026-05-08) carry the adjustment only on the "
-    "recent (>=2026-03-23) slice, so the close ratio across 2026-03-23 is ~1/25 "
-    "(BKNG) / ~1/4.7 (CVNA) instead of in [0.5, 2.0]. Fix = regenerate OHLCV with "
-    "consistent full-history adjustment (data fix, not a trio fix). Remove this "
-    "xfail when the splice is repaired.",
-)
 @pytest.mark.parametrize("ticker", ["BKNG", "CVNA"])
 def test_ohlcv_has_no_split_scale_discontinuity(conn: MarketDataConnector, ticker: str) -> None:
     """No >2x single-day close move around the 2026-03-23 splice.
 
     Behaviour-pinned (not signature): computes the actual served close ratio and
-    asserts continuity. Currently fails on the real ÷25 / ÷4.7 break, so it
-    xfails; it will only pass when the committed data is regenerated cleanly.
+    asserts continuity. D-W1-1 (#439) — the BKNG 25:1 / CVNA 5:1 split-seam
+    misalignment — was repaired by back-adjusting the full pre-splice history
+    onto the split-adjusted scale, so the seam ratio is now the genuine weekend
+    move (~1.03 / ~1.06), in band. Was strict-xfail until the fix landed.
     """
     s = conn.get_ohlcv(ticker, "2026-03-10", "2026-04-10")["close"].dropna()
     ratios = (s / s.shift(1)).dropna()

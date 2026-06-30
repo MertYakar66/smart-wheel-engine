@@ -347,6 +347,86 @@ def _register_corp_action_events(
         event_gate.add_event(ScheduledEvent(ticker=ticker, kind="corp_action", event_date=eff_d))
 
 
+# #3A: market-wide macro releases that warrant a HARD event lockout, mapping the
+# broad_pull macro-calendar ``event`` identifier to the EventGate ``kind``. Only
+# the four highest-impact, distribution-breaking releases are gated — FOMC rate
+# decision, CPI, NFP, PCE (``core_cpi`` shares the CPI release slot). Lower-tier
+# prints on the same calendar (ISM, initial jobless claims, retail sales, GDP,
+# unemployment rate) are intentionally LEFT UNREGISTERED: they move the tape but
+# do not mis-specify the wheel's forward distribution the way these four do, so
+# gating them would over-block with little tail-risk payoff. Extend THIS map (not
+# EventGate's ``EventKind``) to gate additional releases — every value here must
+# already be a macro ``EventKind`` so ``_buffer_for`` applies ``macro_buffer_days``.
+_MACRO_EVENT_KIND: dict[str, str] = {
+    "fed_funds_target": "fomc",
+    "cpi_yoy": "cpi",
+    "core_cpi_yoy": "cpi",
+    "nonfarm_payrolls": "nfp",
+    "pce_yoy": "pce",
+}
+
+
+def _register_macro_events(
+    event_gate,
+    conn,
+    as_of: str | None = None,
+    horizon_days: int = 400,
+) -> None:
+    """#3A: register market-wide macro releases on the per-run event gate.
+
+    Pulls the scheduled macro-release calendar (``conn.get_macro_events`` →
+    ``broad_pull/macro_calendar``) and registers the four highest-impact,
+    distribution-breaking releases — FOMC rate decision, CPI, NFP, PCE
+    (:data:`_MACRO_EVENT_KIND`) — as wildcard ``ticker="*"``
+    :class:`~engine.event_gate.ScheduledEvent`\\ s, so ``EVEngine.evaluate``
+    hard-blocks any wheel whose holding window touches one. These events affect
+    *every* candidate (unlike per-ticker earnings / corporate actions), so they
+    are registered **once per run**, not per ticker. The gate's per-candidate
+    ``_event_touches_window`` (± ``macro_buffer_days``) decides which actually
+    block, so over-registering across the horizon is safe.
+
+    Scheduled releases are published far in advance, so there is no PIT
+    *announcement* question (cf. ``_register_corp_action_events``): a release
+    date is known months ahead. The window is anchored at ``as_of`` (backtest)
+    or today (live) and bounded to the candidate horizon so we never register
+    the whole multi-year calendar.
+
+    Remove-only (§2): this can only drop a candidate, never rescue one. No-op for
+    connectors / stubs without ``get_macro_events`` (ThetaConnector, test stubs),
+    when the broad-pull calendar is absent (fresh clone), and on any read/parse
+    error — never crashes the ranker. Lower-tier prints (ISM, jobless claims,
+    retail sales, GDP, unemployment) are deliberately NOT gated.
+    """
+    if event_gate is None or not hasattr(conn, "get_macro_events"):
+        return
+    from datetime import timedelta
+
+    from engine.event_gate import ScheduledEvent
+
+    today_date = date.fromisoformat(as_of) if as_of else date.today()
+    buf = int(getattr(event_gate, "macro_buffer_days", 1))
+    try:
+        start = (today_date - timedelta(days=buf)).isoformat()
+        end = (today_date + timedelta(days=horizon_days + buf)).isoformat()
+        me = conn.get_macro_events(start_date=start, end_date=end)
+    except Exception:
+        return
+    if me is None or len(me) == 0:
+        return
+    for _, row in me.iterrows():
+        kind = _MACRO_EVENT_KIND.get(str(row.get("event", "")).strip().lower())
+        if kind is None:
+            continue
+        rel = row.get("release_date")
+        if rel is None:
+            continue
+        try:
+            rel_d = rel.date() if hasattr(rel, "date") else pd.Timestamp(rel).date()
+        except (ValueError, TypeError):
+            continue
+        event_gate.add_event(ScheduledEvent(ticker="*", kind=kind, event_date=rel_d))
+
+
 # ----------------------------------------------------------------------
 # Column schema for WheelRunner.rank_covered_calls_by_ev
 # ----------------------------------------------------------------------
@@ -955,6 +1035,7 @@ class WheelRunner:
         as_of: str | None = None,
         include_diagnostic_fields: bool = True,
         use_event_gate: bool = True,
+        use_macro_event_gate: bool = False,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
         use_dealer_positioning: bool = True,
@@ -1058,6 +1139,20 @@ class WheelRunner:
                 earnings_buffer_days=earnings_buffer_days,
                 macro_buffer_days=macro_buffer_days,
             )
+            # #3A: register market-wide macro lockout events (FOMC/CPI/NFP/PCE)
+            # ONCE per run — they apply to every candidate (ticker="*"), unlike
+            # the per-ticker earnings / corp-action registration below. Remove-
+            # only; no-op when the broad-pull macro calendar is absent.
+            #
+            # DEFAULT OFF (``use_macro_event_gate=False``): with the EventGate's
+            # whole-holding-window lockout semantic — correct for *quarterly*
+            # earnings — gating ~*monthly* macro prints (CPI/NFP/PCE) blocks
+            # essentially every 21-63 DTE wheel, since any such window contains a
+            # print. Activating this as-is empties the book. The capability is
+            # wired and tested; turning it on usefully needs entry-proximity (not
+            # whole-window) macro semantics — see docs/WIRING_CAMPAIGN.md §3A.
+            if use_macro_event_gate:
+                _register_macro_events(event_gate, conn, as_of=as_of)
         ev_eng = EVEngine(event_gate=event_gate)
 
         # Optional dealer positioning analyzer. Off by default; when
@@ -2432,6 +2527,7 @@ class WheelRunner:
         top_n: int = 20,
         include_diagnostic_fields: bool = True,
         use_event_gate: bool = True,
+        use_macro_event_gate: bool = False,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
         min_history_days: int = 504,
@@ -2722,6 +2818,20 @@ class WheelRunner:
                 earnings_buffer_days=earnings_buffer_days,
                 macro_buffer_days=macro_buffer_days,
             )
+            # #3A: register market-wide macro lockout events (FOMC/CPI/NFP/PCE)
+            # ONCE per run — they apply to every candidate (ticker="*"), unlike
+            # the per-ticker earnings / corp-action registration below. Remove-
+            # only; no-op when the broad-pull macro calendar is absent.
+            #
+            # DEFAULT OFF (``use_macro_event_gate=False``): with the EventGate's
+            # whole-holding-window lockout semantic — correct for *quarterly*
+            # earnings — gating ~*monthly* macro prints (CPI/NFP/PCE) blocks
+            # essentially every 21-63 DTE wheel, since any such window contains a
+            # print. Activating this as-is empties the book. The capability is
+            # wired and tested; turning it on usefully needs entry-proximity (not
+            # whole-window) macro semantics — see docs/WIRING_CAMPAIGN.md §3A.
+            if use_macro_event_gate:
+                _register_macro_events(event_gate, conn, as_of=as_of)
         days_to_earn: int | None = None
         try:
             next_earn = conn.get_next_earnings(ticker, as_of)
@@ -3018,6 +3128,7 @@ class WheelRunner:
         top_n: int = 20,
         include_diagnostic_fields: bool = True,
         use_event_gate: bool = True,
+        use_macro_event_gate: bool = False,
         use_timing_gate: bool = True,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
@@ -3329,6 +3440,20 @@ class WheelRunner:
                 earnings_buffer_days=earnings_buffer_days,
                 macro_buffer_days=macro_buffer_days,
             )
+            # #3A: register market-wide macro lockout events (FOMC/CPI/NFP/PCE)
+            # ONCE per run — they apply to every candidate (ticker="*"), unlike
+            # the per-ticker earnings / corp-action registration below. Remove-
+            # only; no-op when the broad-pull macro calendar is absent.
+            #
+            # DEFAULT OFF (``use_macro_event_gate=False``): with the EventGate's
+            # whole-holding-window lockout semantic — correct for *quarterly*
+            # earnings — gating ~*monthly* macro prints (CPI/NFP/PCE) blocks
+            # essentially every 21-63 DTE wheel, since any such window contains a
+            # print. Activating this as-is empties the book. The capability is
+            # wired and tested; turning it on usefully needs entry-proximity (not
+            # whole-window) macro semantics — see docs/WIRING_CAMPAIGN.md §3A.
+            if use_macro_event_gate:
+                _register_macro_events(event_gate, conn, as_of=as_of)
         days_to_earn: int | None = None
         try:
             next_earn = conn.get_next_earnings(ticker, as_of)
@@ -3677,6 +3802,7 @@ class WheelRunner:
         chart_timeframe: str = "1D",
         reviewer=None,
         use_event_gate: bool = True,
+        use_macro_event_gate: bool = False,
         earnings_buffer_days: int = 5,
         macro_buffer_days: int = 1,
         universe_limit: int | None = None,
@@ -3755,6 +3881,7 @@ class WheelRunner:
             as_of=as_of,
             include_diagnostic_fields=True,
             use_event_gate=use_event_gate,
+            use_macro_event_gate=use_macro_event_gate,
             earnings_buffer_days=earnings_buffer_days,
             macro_buffer_days=macro_buffer_days,
             universe_limit=universe_limit,

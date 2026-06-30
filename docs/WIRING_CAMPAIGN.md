@@ -250,6 +250,33 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > unplaced it would force a second re-baseline. Both feed `evaluate`'s first short-circuit, so
 > the operator may elevate either **PANEL** to a full panel.
 
+> **3A-macro — landed as a default-OFF capability (2026-06-29).** The macro half is
+> wired: `MarketDataConnector.get_macro_events` (reads `broad_pull/macro_calendar`
+> via `BroadPullLoader`; `None` on a fresh clone) + the once-per-run ranker helper
+> `wheel_runner._register_macro_events` (registers FOMC/CPI/NFP/PCE — `_MACRO_EVENT_KIND`,
+> `core_cpi`→`cpi` — as wildcard `ticker="*"` events; lower-tier prints intentionally
+> ungated; remove-only §2; mirrors the corp-action pattern). It is gated behind the
+> new ranker flag **`use_macro_event_gate` (default `False`)**, threaded through
+> `build_candidate_dossiers`.
+>
+> **Why default-off — the finding:** the `EventGate` lockout semantic blocks any
+> candidate whose *whole holding window* (± buffer) touches a registered event. That
+> is correct for **quarterly** earnings, but macro prints (CPI/NFP/PCE) are **monthly**,
+> so **every** 21-63 DTE wheel window contains one — turning the flag on **empties the
+> book** (verified: 5-ticker smoke → 4 rows default, **0 rows** with the flag on; pinned
+> in `tests/test_macro_event_gate_wiring.py`). Because the flag is off, the **default
+> ranked path is byte-identical** and this PR is **NOT re-baseline-coupled** (unlike the
+> table row above, written before the finding).
+>
+> **To activate usefully (follow-up, operator decision):** macro lockout needs
+> **entry-proximity** semantics — block only when a print is within a small buffer of
+> the *entry* (and optionally *expiration*), not anywhere in the middle of the hold —
+> which is a kind-specific change to `engine/event_gate.py` (a real semantic commitment,
+> still re-baseline-coupled). The capability shipped here is the prerequisite; the
+> semantic is the gate decision. (The earlier "fix the hardcoded FOMC / silent CPI/NFP/PCE
+> miss" framing is satisfied data-wise by `get_macro_events`; the lockout *application*
+> is what awaits entry-proximity.)
+
 ### 3B — Vol indices / correlation / OAS / cross-asset → regime detector · tail risk · copula
 
 | Dataset | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Banked at | Ref |

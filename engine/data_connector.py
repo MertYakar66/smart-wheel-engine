@@ -845,6 +845,55 @@ class MarketDataConnector:
         ]
         return df[cols].sort_values("effective_date").reset_index(drop=True)
 
+    def _load_macro_calendar_panel(self) -> pd.DataFrame | None:
+        """The market-wide scheduled macro-release calendar
+        (``broad_pull/macro_calendar``), loaded lazily and cached on the
+        instance. ``None`` when the broad-pull data is absent (e.g. a fresh
+        clone) — the #3A macro event lockout then silently no-ops. Loaded via
+        ``BroadPullLoader`` (the canonical broad-pull reader; the same lazy
+        ``engine -> data`` import pattern as ``_load_dividend_pit_panel``)."""
+        if not hasattr(self, "_macro_calendar_panel"):
+            try:
+                from data.broad_pull_loaders import BroadPullLoader
+
+                self._macro_calendar_panel = BroadPullLoader().load("macro_calendar")
+            except Exception:
+                self._macro_calendar_panel = None
+        return self._macro_calendar_panel
+
+    def get_macro_events(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> pd.DataFrame | None:
+        """Market-wide scheduled macro releases, filtered on ``release_date``.
+
+        Columns: ``event`` (the release identifier, e.g. ``"fed_funds_target"``,
+        ``"cpi_yoy"``, ``"nonfarm_payrolls"``, ``"pce_yoy"``) and ``release_date``
+        (datetime). Sourced from the ``broad_pull/macro_calendar`` panel via
+        :class:`~data.broad_pull_loaders.BroadPullLoader`. Returns ``None`` when
+        that data is absent (fresh clone) so the #3A macro event lockout
+        (:mod:`engine.event_gate`) silently no-ops.
+
+        Unlike the per-ticker corporate-action calendar these events affect every
+        candidate; :mod:`engine.wheel_runner` registers the lockout-relevant
+        subset (FOMC / CPI / NFP / PCE) once per run with ``ticker="*"``.
+
+        Unlike ``get_corporate_actions`` there is **no point-in-time announcement
+        question**: macro releases are *scheduled* and published far in advance, so
+        a release date visible today was on the calendar months ago. The caller
+        bounds the registration window to the candidate horizon (so we don't
+        register the whole multi-year calendar).
+        """
+        panel = self._load_macro_calendar_panel()
+        if panel is None or panel.empty or "release_date" not in panel.columns:
+            return None
+        df = self._filter_dates(panel, "release_date", start_date, end_date)
+        cols = [c for c in ("event", "release_date") if c in df.columns]
+        if not cols:
+            return None
+        return df[cols].reset_index(drop=True)
+
     # ------------------------------------------------------------------
     # Options – real EOD premiums (Phase-2 prep rail)
     # ------------------------------------------------------------------

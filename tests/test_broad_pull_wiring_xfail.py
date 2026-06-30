@@ -28,8 +28,18 @@ here (not speculation):
   name's **real GICS sector**, not the hardcoded `DEFAULT_SECTOR_MAP` `'Unknown'`
   bucket. (Audit C2; runbook 2A.)
 
-The remaining steps (skew→pricer, macro-calendar→event_gate, #369/#378 IV gates,
-ratings reviewer, short-interest R10) have their acceptance criteria recorded in
+* **macro-calendar→event_gate / Phase 3A (macro half)** — the connector
+  `get_macro_events` accessor and the `wheel_runner._register_macro_events`
+  helper LANDED 2026-06-29, with the FOMC/CPI/NFP/PCE lockout gated behind
+  `use_macro_event_gate` (**default OFF**). Its acceptance is pinned as a *live*
+  gate in `tests/test_macro_event_gate_wiring.py` (not an xfail here) — including
+  the finding that activating it under the EventGate whole-window semantic empties
+  the book (monthly prints fall in every 21-63 DTE window), which is WHY it ships
+  default-off pending entry-proximity macro semantics (`docs/WIRING_CAMPAIGN.md`
+  §3A). The default ranked path is byte-identical, so the baselines do not move.
+
+The remaining steps (skew→pricer, #369/#378 IV gates, ratings reviewer,
+short-interest R10) have their acceptance criteria recorded in
 `docs/worklog/phase0b-broad-pull-loaders.md` — their consumer contracts are
 decided during the supervised design, so committing a concrete behaviour test
 now would risk encoding the wrong contract.

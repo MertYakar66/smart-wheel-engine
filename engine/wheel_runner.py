@@ -389,7 +389,7 @@ class WheelRunner:
         # invalidates automatically when new bars arrive or when the
         # PIT cutoff changes (different history → different hash). The
         # cached value is ``(regime_multiplier, regime_label)``.
-        self._hmm_regime_cache: dict[tuple[str, int], tuple[float, str]] = {}
+        self._hmm_regime_cache: dict[tuple[str, int], tuple[float, str, bool]] = {}
 
     @property
     def connector(self):
@@ -781,6 +781,7 @@ class WheelRunner:
         enforce_chain_quality_gate: bool = True,
         universe_limit: int | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool = False,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -820,6 +821,20 @@ class WheelRunner:
             min_ev_dollars: Hard filter — drop any trade with ``ev_dollars``
                 below this threshold.
             as_of: PIT cutoff date string (YYYY-MM-DD). ``None`` means now.
+                When ``None`` the spot is the latest available close. If that
+                close lags ``date.today()`` by more than
+                ``max_as_of_staleness_days`` (e.g. a stale data cache or a
+                missed refresh), the engine logs a one-time warning rather than
+                silently pricing off a back-dated spot (D-2 fix, 2026-06-15);
+                set ``refuse_stale_live=True`` to hard-drop such candidates.
+                Every row carries ``spot_date`` — the trading date the spot is
+                actually priced from — so the staleness is never silent.
+            refuse_stale_live: When ``as_of is None`` and the latest close is
+                more than ``max_as_of_staleness_days`` behind ``date.today()``,
+                drop the candidate with a ``gate="data"`` reason instead of
+                warning-and-ranking. Default ``False`` so backtests that run
+                ``as_of=None`` against committed (necessarily back-dated) data
+                are unaffected; arm it for real-money live operation.
             include_diagnostic_fields: Include CVaR, Omega, fair value, etc.
             universe_limit: When ``tickers`` is ``None``, cap the scanned
                 universe to the first N names. ``None`` (default) ranks
@@ -924,6 +939,9 @@ class WheelRunner:
         # already being discarded; see CLAUDE.md section 2.
         drops: list[dict] = []
         T = max(dte_target, 1) / 365.0
+        # Warn at most once per call when the live (as_of=None) spot is stale —
+        # avoids per-ticker log spam across a 100-name universe.
+        warned_stale_live = False
 
         for ticker in tickers:
             try:
@@ -1011,6 +1029,53 @@ class WheelRunner:
                     }
                 )
                 continue
+
+            # spot_date is the actual trading date the spot is priced from
+            # (iloc[-1] after any as_of PIT trim). Surfaced on every row so an
+            # operator never has to assume "spot == today".
+            spot_date = ohlcv.index[-1]
+
+            # Live-mode spot staleness (as_of is None). The as_of-provided gate
+            # above only fires when as_of is set, so on the live path the engine
+            # would otherwise price off the latest close as "today's" spot even
+            # when that close is months old (stale cache / missed refresh) — the
+            # same D11 "no silent substitution" the as_of gate prevents, but
+            # live (adversarial-review D-2, 2026-06-15). Default: warn once and
+            # rank (non-breaking — backtests run as_of=None against committed
+            # data). refuse_stale_live=True hard-drops stale-live candidates for
+            # real trading, where pricing off a back-dated spot is unacceptable.
+            if as_of is None:
+                try:
+                    live_gap_days = (pd.Timestamp(date.today()) - pd.Timestamp(spot_date)).days
+                except Exception:
+                    live_gap_days = 0
+                if live_gap_days > max_as_of_staleness_days:
+                    if refuse_stale_live:
+                        drops.append(
+                            {
+                                "ticker": ticker,
+                                "gate": "data",
+                                "reason": (
+                                    f"live spot is {live_gap_days} days stale "
+                                    f"(latest data {spot_date.date().isoformat()}, "
+                                    f"today {date.today().isoformat()}); "
+                                    f"refuse_stale_live=True, "
+                                    f"max_as_of_staleness_days={max_as_of_staleness_days}"
+                                ),
+                            }
+                        )
+                        continue
+                    if not warned_stale_live:
+                        logger.warning(
+                            "rank_candidates_by_ev: live spot is %d days stale "
+                            "(latest OHLCV %s vs today %s) — pricing off a back-dated "
+                            "close. Refresh data, pass an explicit as_of, or set "
+                            "refuse_stale_live=True to drop stale-live candidates.",
+                            live_gap_days,
+                            spot_date.date().isoformat(),
+                            date.today().isoformat(),
+                        )
+                        warned_stale_live = True
 
             spot = float(ohlcv["close"].iloc[-1])
             if spot <= 0:
@@ -1310,6 +1375,15 @@ class WheelRunner:
             # the HMM does not run (short history) or fails -- never a
             # fabricated regime; mirrors credit_regime's "unknown".
             hmm_regime = "unknown"
+            # Audit flag: True when the regime multiplier is trustworthy — a
+            # clean EM convergence, or the neutral no-fit path (short history →
+            # multiplier stays 1.0, no adjustment). False when the HMM WAS
+            # fitted but did NOT converge within n_iter, or the fit errored:
+            # the multiplier is still applied (changing that would shift
+            # baselines) but should be read as low-confidence. Closes the
+            # "silent non-convergence" gap (adversarial-review Dim-2, 2026-06-15)
+            # — converged was computed in HMMFit and then discarded here.
+            hmm_converged = True
             # S33 F4 closer: realized vol / mean over the 252d window
             # the HMM saw at fit time. The "crisis" label by itself means
             # "high-vol regime" regardless of return direction (S33
@@ -1343,10 +1417,11 @@ class WheelRunner:
                     cache_key = (ticker, hash(fp))
                     cached = self._hmm_regime_cache.get(cache_key)
                     if cached is not None:
-                        hmm_regime_mult, hmm_regime = cached
+                        hmm_regime_mult, hmm_regime, hmm_converged = cached
                     else:
                         hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
                         hmm.fit(tail)
+                        hmm_converged = bool(getattr(hmm.fit_result, "converged", False))
                         probs = hmm.predict_proba(tail)
                         hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
                         # Label is the argmax state -- a pure read of the
@@ -1356,10 +1431,15 @@ class WheelRunner:
                             hmm_regime = hmm.fit_result.state_labels[int(np.argmax(probs[-1]))]
                         except Exception:
                             hmm_regime = "unknown"
-                        self._hmm_regime_cache[cache_key] = (hmm_regime_mult, hmm_regime)
+                        self._hmm_regime_cache[cache_key] = (
+                            hmm_regime_mult,
+                            hmm_regime,
+                            hmm_converged,
+                        )
             except Exception:
                 hmm_regime_mult = 1.0
                 hmm_regime = "unknown"
+                hmm_converged = False
 
             # Fetch the chain once and use it for (a) open interest at our
             # strike, (b) 25Δ put / ATM / 25Δ call for skew signals, and
@@ -1698,7 +1778,25 @@ class WheelRunner:
                 "prob_profit": round(res.prob_profit, 4),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
-                "distribution_source": method,
+                # Provenance: the trading date the spot (and thus the strike
+                # solve, synthetic premium, and EV) is priced from. On an
+                # as_of run this is the last bar <= as_of; on a live (as_of=
+                # None) run it is the latest available close, which may lag
+                # "today" — see the live-staleness gate above (D-2 fix).
+                "spot_date": spot_date.date().isoformat(),
+                # Provenance must match what the engine ACTUALLY computed EV
+                # from. The engine reports the generic "empirical" when it
+                # consumed our forward returns — surface the specific sampler
+                # (`method`) in that case for detail. But when the cascade
+                # returned "none" and the engine fell back to the IV lognormal,
+                # report the engine's real source ("lognormal_fallback"), never
+                # the stale "none" the cascade label would otherwise leak into
+                # the row and the EV-authority token hash.
+                "distribution_source": (
+                    method
+                    if res.metadata.get("distribution_source") == "empirical"
+                    else res.metadata.get("distribution_source", method)
+                ),
                 # S31 F2 / F6 closer: GICS sector for the underlying.
                 # Same source the sector_cap gate uses
                 # (engine.portfolio_risk_gates.check_sector_cap →
@@ -1774,6 +1872,11 @@ class WheelRunner:
                         "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
+                        # False ⇒ the HMM was fitted but did not converge (or
+                        # the fit errored) — hmm_multiplier was still applied
+                        # but is low-confidence. True on clean fit or the
+                        # neutral no-fit path. Audit-only; does not gate.
+                        "hmm_converged": hmm_converged,
                         # F4 follow-up: realized-vol-ratio widening
                         # factor (1.00 = no widening, > 1.0 = vol-
                         # cluster regime fired). Audit signal for the

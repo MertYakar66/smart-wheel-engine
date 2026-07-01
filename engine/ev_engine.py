@@ -518,9 +518,18 @@ class EVEngine:
         nearest_call_wall_strike = float("nan")
         pinning_zones_list: list = []
         if market_structure is not None:
-            from .dealer_positioning import dealer_regime_multiplier
+            from .dealer_positioning import (
+                DEALER_MULT_CEIL,
+                DEALER_MULT_FLOOR,
+                dealer_regime_multiplier,
+            )
 
             dealer_mult = float(dealer_regime_multiplier(market_structure))
+            # §2 invariant: clamped at the source, but re-assert at the point of
+            # application so the [0.70, 1.05] bound is defended even if the
+            # source contract ever changes. Applies ONLY to ev_dollars (via
+            # regime_mult) — ev_raw is never touched.
+            dealer_mult = min(DEALER_MULT_CEIL, max(DEALER_MULT_FLOOR, dealer_mult))
             regime_mult *= dealer_mult
             dealer_regime_label = str(getattr(market_structure, "regime", ""))
             gex_total = float(getattr(market_structure, "gex_total", float("nan")))

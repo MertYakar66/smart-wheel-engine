@@ -279,6 +279,78 @@ def _runner_for_single_ranker(last_date_iso: str):
     return r
 
 
+# ── live (as_of=None) spot staleness (D-2 closer, 2026-06-15) ───────
+class TestLiveSpotStaleness:
+    """The as_of-provided staleness gate (TestRankerAsOfBeyondData) does NOT
+    fire when as_of is None — so on the live path the engine silently priced
+    off the latest close as 'today's' spot even when that close was months old
+    (stale cache / missed refresh): the same D11 'no silent substitution'
+    violation, but live. The fix surfaces spot_date on every row, warns once,
+    and (opt-in) refuses. Uses a synthetic connector ending at a FIXED old date
+    so the test is robust to data refreshes."""
+
+    _STALE = "2020-01-01"  # always > 30 days before any realistic test clock
+
+    def _kw(self, **extra):
+        kw = {
+            "tickers": ["TEST"],
+            "as_of": None,
+            "top_n": 10,
+            "min_ev_dollars": -1e9,
+            "use_dealer_positioning": False,
+            "use_news_sentiment": False,
+            "use_credit_regime": False,
+            "use_skew_dynamics": False,
+            "use_event_gate": False,
+        }
+        kw.update(extra)
+        return kw
+
+    def test_stale_live_spot_refused_when_opted_in(self):
+        r = _runner_for_single_ranker(self._STALE)
+        df = r.rank_candidates_by_ev(**self._kw(refuse_stale_live=True))
+        assert df.empty, "stale live spot must be refused when refuse_stale_live=True"
+        drops = df.attrs.get("drops", [])
+        assert len(drops) == 1
+        assert drops[0]["gate"] == "data"
+        assert "stale" in drops[0]["reason"]
+        assert self._STALE in drops[0]["reason"]  # surfaces the real spot date
+
+    def test_stale_live_spot_warns_but_ranks_by_default(self, caplog):
+        import logging
+
+        r = _runner_for_single_ranker(self._STALE)
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            df = r.rank_candidates_by_ev(**self._kw())
+        # Default path does NOT refuse — backtests run as_of=None against
+        # committed (back-dated) data and must keep ranking.
+        for d in df.attrs.get("drops", []):
+            assert "refuse_stale_live" not in d["reason"]
+        # ...but it is no longer SILENT: a warning fired and spot_date is exposed.
+        assert any("live spot is" in rec.message for rec in caplog.records)
+        if not df.empty:
+            assert df["spot_date"].iloc[0] == self._STALE
+
+    def test_fresh_live_spot_not_flagged(self):
+        from datetime import date
+
+        r = _runner_for_single_ranker(date.today().isoformat())
+        df = r.rank_candidates_by_ev(**self._kw(refuse_stale_live=True))
+        # Fresh data: the staleness gate must NOT fire (no over-refusal).
+        for d in df.attrs.get("drops", []):
+            assert "live spot is" not in d["reason"]
+
+    def test_spot_date_provenance_on_as_of_path_unchanged(self):
+        """An explicit (historical) as_of is unaffected by the live gate and
+        still carries spot_date = the last bar <= as_of."""
+        r = _runner_for_single_ranker("2026-03-20")
+        df = r.rank_candidates_by_ev(**self._kw(as_of="2025-06-15"))
+        for d in df.attrs.get("drops", []):
+            assert "live spot is" not in d["reason"]  # live gate dormant when as_of set
+        if not df.empty:
+            assert df["spot_date"].iloc[0] <= "2025-06-15"
+
+
 class TestCoveredCallRankerAsOfBeyondData:
     """S33 F3 follow-up: rank_covered_calls_by_ev had the same
     silent-substitution surface as rank_candidates_by_ev. This

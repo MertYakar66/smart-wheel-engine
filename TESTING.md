@@ -50,7 +50,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | File | Pins |
 |---|---|
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
-| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R11; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_r11_elevated_vol.py` | R11 elevated-vol top-bin size-down (D23): VIX>25 + prob_profit>0.90 → review; downgrade-only |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |

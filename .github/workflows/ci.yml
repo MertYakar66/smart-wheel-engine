@@ -140,6 +140,20 @@ jobs:
             -v \
             --tb=short
 
+      - name: Decision-layer coverage floor (the §2 trio)
+        # The aggregate --cov-fail-under=80 above spans ~63k LOC, so the
+        # decision-layer trio (~8% of it) could regress badly without tripping
+        # it — a large untested branch in ev_engine/wheel_runner/candidate_dossier
+        # would still clear 80 (adversarial-review Dim-5 F1, 2026-06-15). Re-use
+        # the .coverage the step above already wrote (no second test run) and
+        # enforce a per-file floor on the trio. Floors are the earned 2026-06-15
+        # full-suite numbers minus a ~3pp buffer (dossier 91 / ev_engine 95 /
+        # wheel_runner 57); ratchet up as coverage improves.
+        run: |
+          coverage report --include="*/candidate_dossier.py" --fail-under=88
+          coverage report --include="*/ev_engine.py" --fail-under=90
+          coverage report --include="*/wheel_runner.py" --fail-under=54
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

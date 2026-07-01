@@ -1,0 +1,117 @@
+=== prob_profit in tests ===
+test_audit_invariants.py:301: assert 0.0 <= res.prob_profit <= 1.0
+test_audit_viii_real_data_smoke.py:56: assert "prob_profit" in row
+test_audit_viii_unit_invariants.py:120: assert 0.0 <= float(row["prob_profit"]) <= 1.0
+test_authority_hardening.py:45: "prob_profit": 0.72,
+test_authority_hardening.py:164: the enriched response reflects ev_dollars + prob_profit rather
+test_authority_hardening.py:195: "prob_profit": 0.78,
+test_authority_hardening.py:244: assert enriched["prob_profit"] == pytest.approx(0.78)
+test_authority_hardening.py:281: "prob_profit": 0.50,
+test_covered_call_ranker.py:246: assert 0.0 <= r["prob_profit"] <= 1.0
+test_launch_blockers.py:69: "prob_profit": 0.75,
+test_launch_blockers.py:99: "prob_profit": 0.68,
+test_strangle_ev_ranker.py:15: columns only; no blended ``cvar_5`` / ``prob_profit``.
+test_strangle_ev_ranker.py:402: "put_prob_profit",
+test_strangle_ev_ranker.py:403: "call_prob_profit",
+test_strangle_ev_ranker.py:411: """There is no single summed cvar_5 / prob_profit / prob_assignment
+test_strangle_ev_ranker.py:414: for forbidden in ("cvar_5", "prob_profit", "prob_assignment", "cvar_99_evt"):
+test_tv_dossier.py:331: "prob_profit": 0.75,
+test_tv_dossier.py:339: "prob_profit": 0.55,
+
+=== calibration-family terms in tests ===
+test_audit_improvements.py:3: early-assignment-on-dividend, survivorship-bias guard, calibration gate,
+test_audit_improvements.py:288: # 5. Brier-score calibration gate
+test_audit_improvements.py:290: class TestCalibrationGate:
+test_audit_improvements.py:291: def test_perfectly_calibrated_passes(self):
+test_audit_improvements.py:296: result = DriftDetector.check_calibration(preds, obs)
+test_audit_improvements.py:300: def test_miscalibrated_model_fails(self):
+test_audit_improvements.py:304: result = DriftDetector.check_calibration(preds, obs, max_brier_score=0.20)
+test_audit_improvements.py:308: def test_reliability_diagram_returned(self):
+test_audit_improvements.py:311: result = DriftDetector.check_calibration(preds, obs)
+test_audit_improvements.py:312: assert len(result["reliability"]) > 0
+test_audit_improvements.py:313: for bin_row in result["reliability"]:
+test_audit_improvements.py:319: DriftDetector.check_calibration([0.5, 0.5], [0])
+test_infrastructure.py:851: def test_calibration_curve(self):
+test_infrastructure.py:852: """Should calculate calibration curve."""
+test_infrastructure.py:891: buckets = scorecard.get_calibration_curve("test_advisor")
+test_monte_carlo.py:214: def test_calibrate_from_historical(self):
+test_monte_carlo.py:215: """Calibration from returns should produce valid params."""
+test_policy_config.py:142: def test_calibration_drift_out_of_range(self):
+test_policy_config.py:144: cfg.advisor.calibration_drift_threshold = 1.5
+test_policy_config.py:146: assert any("calibration_drift_threshold" in e for e in errs)
+
+=== crash/procyclic/2020-03 in tests ===
+test_advanced_quant.py:535: assert "crash_20pct" in stress_results
+test_adversarial_news.py:179: headline="Bitcoin Crashes Below $30,000",
+test_binomial_tree.py:189: """Very large dividend shouldn't cause negative stock prices or crashes."""
+test_bloomberg_loader.py:343: # but the function should not crash
+test_contracts.py:200: # Empty dict should not crash; values default to 0 → no violations
+test_dashboard.py:343: # Just verify it doesn't crash
+test_dashboard.py:473: assert any("crash" in s for s in scenarios)
+test_dashboard.py:486: {"spot_move": -0.15, "vol_move": 0.25, "description": "Custom crash"},
+test_dossier_cp1252.py:101: raising. A non-cp1252 char crashes a Windows console on print/log."""
+test_event_gate.py:209: # filtered at ingest, not admitted to the gate (which would crash
+test_event_gate.py:221: # is_blocked must not crash on any subsequent query
+test_extreme_numerics.py:205: def _crash_scenario(self) -> Scenario:
+test_extreme_numerics.py:207: name="test_crash",
+test_extreme_numerics.py:209: description="Test crash scenario",
+test_extreme_numerics.py:223: scenario=self._crash_scenario(),
+test_extreme_numerics.py:240: scenario=self._crash_scenario(),
+test_monte_carlo.py:38: returns[50] = -0.05  # Flash crash day
+test_new_modules.py:232: # Should not crash, just return empty
+test_news_processing.py:337: # May or may not have a match - just check it doesn't crash
+test_news_processing.py:486: # Should not crash
+test_properties.py:303: # Should not crash and should produce mostly NaN due to contamination
+test_properties.py:313: # Should not crash
+test_risk_manager.py:947: # Just verify no crash for zero-loss edge case
+test_strangle_timing.py:344: # Every iteration raises → empty frame, no crash
+test_strangle_timing.py:915: falls back to neutral defaults rather than crashing."""
+test_stress_testing.py:89: def test_crash_scenario_loss(self):
+test_stress_testing.py:90: """Crash scenario should show significant loss."""
+test_stress_testing.py:93: name="Crash",
+test_stress_testing.py:95: description="20% crash",
+test_stress_testing.py:107: # Short puts lose big on crash
+test_stress_testing.py:374: assert "covid_crash_2020" in results
+test_stress_testing.py:375: assert "flash_crash" in results
+test_theta_connector_coverage.py:503: # we just check we got a dict back without crashing.)
+test_theta_connector_coverage.py:760: # Either empty dict or a partial — what matters is no crash.
+test_theta_connector_coverage.py:780: def test_per_symbol_exception_does_not_crash_loop(self, connector: ThetaConnector):
+test_theta_connector_v3.py:650: # the path executed without crashing
+test_tv_dossier.py:17: never crashing.
+test_tv_dossier.py:679: # A non-MCPClientError leaking out of the client must not crash
+test_wheel_runner_select_book.py:280: # collateral_unit is a divisor — zero crashes, negatives produce
+test_wheel_tracker_suggest_call_rolls.py:5: produces valid output, no candidates is empty-not-crash, recommend
+test_wheel_tracker_suggest_rolls.py:4: produces valid output, no candidates is empty-not-crash, recommend
+test_wheel_tracker_suggest_rolls.py:180: # No crash, schema is right
+test_wheel_tracker_suggest_rolls.py:261: crashing, and any roll it recommends still satisfies the
+test_wheel_tracker_suggest_rolls.py:291: it does not crash."""
+
+=== xfail/skip/deferred/D19/D21 in tests ===
+test_audit_viii_real_data_smoke.py:27: pytestmark = pytest.mark.skipif(
+test_data_integration.py:25: @pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg data not available")
+test_data_integration.py:53: @pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg data not available")
+test_data_integration.py:75: @pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg data not available")
+test_data_integration.py:103: @pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg data not available")
+test_data_integration.py:119: @pytest.mark.skipif(not HAS_BLOOMBERG_DATA, reason="Bloomberg data not available")
+test_data_pipeline.py:30: @pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
+test_data_pipeline.py:352: @pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
+test_dossier_invariant.py:125: @pytest.mark.skipif(
+test_dossier_invariant.py:166: @pytest.mark.skipif(
+test_news_pipeline.py:200: @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="playwright not installed")
+test_news_pipeline.py:238: @pytest.mark.skipif(not HAS_PLAYWRIGHT, reason="playwright not installed")
+test_properties.py:80: pytestmark = pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+test_transaction_costs_coverage.py:184: # calculate_total_exit_cost — covers line 283 (auto-spread fallback)
+test_transaction_costs_coverage.py:188: class TestExitCostSpreadFallback:
+test_transaction_costs_coverage.py:189: def test_exit_cost_without_spread_computes_one(self):
+test_transaction_costs_coverage.py:191: result = tc.calculate_total_exit_cost(
+test_transaction_costs_coverage.py:219: assert result["exit_costs"] > 0
+test_transaction_costs_coverage.py:220: assert result["total_costs"] == pytest.approx(result["entry_costs"] + result["exit_costs"])
+test_transaction_costs.py:8: calculate_total_exit_cost,
+test_transaction_costs.py:32: print("\n3. Testing exit cost calculation:")
+test_transaction_costs.py:33: exit_costs = calculate_total_exit_cost(buyback_price_per_share=1.00, bid_ask_spread=0.10)
+test_transaction_costs.py:34: print(f"   Gross buyback: ${exit_costs['gross_buyback_cost']:.2f}")
+test_transaction_costs.py:35: print(f"   Slippage: ${exit_costs['slippage']:.2f}")
+test_transaction_costs.py:36: print(f"   Commission: ${exit_costs['commission']:.2f}")
+test_transaction_costs.py:37: print(f"   Total cost: ${exit_costs['total_cost']:.2f}")
+test_transaction_costs.py:38: print(f"   Total buyback cost: ${exit_costs['total_buyback_cost']:.2f}")
+test_wheel_tracker_suggest_rolls.py:470: costs, the calculate_total_exit_cost "total_buyback_cost" key.

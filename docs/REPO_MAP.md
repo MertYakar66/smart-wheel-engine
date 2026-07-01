@@ -15,7 +15,7 @@
 | What is **authoritative** for a trade decision? | the **Authority block** below → then `CLAUDE.md` §2 for the rule text | re-deriving from 4 docs |
 | What **tests** cover area Y / what must I run? | `TESTING.md` (taxonomy + per-module "what to run") | — |
 | What is the **current state / WIP**? | `PROJECT_STATE.md` (now) · `ROADMAP.md` (next) · `docs/worklog/INDEX.md` (per-task) | pinned counts (run `pytest --collect-only -q`) |
-| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…D21) | — |
+| **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…D23) | — |
 
 ## Authority block — the §2 firewall (do not bypass)
 
@@ -26,25 +26,27 @@ The four sanctioned routes from raw inputs to a tradeable verdict (full contract
 |---|---|---|---|
 | Ranker authority | `engine/ev_engine.py` | `EVEngine.evaluate` | **authority** — the only place a candidate becomes tradeable |
 | Runner | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | the one route every tradeable path takes |
-| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R10) | downgrade-only |
+| Reviewer | `engine/candidate_dossier.py` | `EnginePhaseReviewer` (R1–R11) | downgrade-only |
 | Interface | `engine_api.py` | HTTP API on `:8787` | serves verdicts; never re-ranks |
 
 **Invariant:** no tradeable candidate bypasses `EVEngine.evaluate`; reviewers can
 **downgrade** (proceed→review→skip→blocked) but never upgrade; the dealer
 multiplier is clamped `[0.70, 1.05]` and scales `ev_dollars` only, never `ev_raw`.
 
-**Reviewer rules (the canonical count is R1–R10; rule *text* lives in `CLAUDE.md`
+**Reviewer rules (the canonical count is R1–R11; rule *text* lives in `CLAUDE.md`
 §2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
 missing/errored→review · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
 (*dormant*) · R5 EV ≥ `min_proceed_ev` (10.0)→proceed else review · R6 short-gamma
 + strike ≥ put wall / near gamma flip→review · **R7–R10 = D17 portfolio
 soft-warns** (require an attached `PortfolioContext`): R7 VaR breach · R8
-stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach. All
-downgrade-only.
+stress/dealer-regime · R9 sector-cap breach · R10 single-name-cap breach · **R11
+elevated-vol top-bin size-down** (D23 — VIX level > 25 AND prob_profit > 0.90 →
+review; the crisis top bin is over-confident). All downgrade-only.
 
 **Pinned by** (the INVARIANT-PIN test set — never move/merge without §2 owner
 sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_data_smoke}`,
-`test_dossier_invariant` (R1–R10), `test_dossier_r9_r10_audit` (R9/R10 structural),
+`test_dossier_invariant` (R1–R11), `test_dossier_r9_r10_audit` (R9/R10 structural),
+`test_r11_elevated_vol` (R11 elevated-vol size-down),
 `test_authority_hardening` + `test_ev_authority_log_schema` (D16 token gate),
 `test_decision_layer_wiring` + `test_consume_ranker_row_anchor` + `test_ranker_tracker_wire`
 (D16/D17 wire), `test_ev_non_finite_defense` (R1a), `test_evengine_event_lockout`

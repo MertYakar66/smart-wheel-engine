@@ -46,7 +46,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `ev_engine.py` | `EVEngine.evaluate`. THE ranker. Runs event lockout → forward distribution → cost model → regime + dealer multipliers → returns `EVResult`. (**authority**) |
 | `wheel_runner.py` | `WheelRunner.rank_candidates_by_ev`. The one public route into the EV path. Provider selection (`SWE_DATA_PROVIDER`) lives here. (**runner**) |
-| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R10; R7-R10 are the D17 portfolio soft-warns). Reviewers downgrade only. (**reviewer**) |
+| `candidate_dossier.py` | EV + chart bundle + `EnginePhaseReviewer` (rules R1–R11; R7-R10 are the D17 portfolio soft-warns, R11 is the D23 elevated-vol top-bin size-down). Reviewers downgrade only. (**reviewer**) |
 
 ### EV-path participants
 

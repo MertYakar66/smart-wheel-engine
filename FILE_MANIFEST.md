@@ -278,6 +278,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/DATA_ACQUISITION_ROADMAP.md` | Forward-looking Bloomberg + Theta data-acquisition roadmap — what to pull, priority/feasibility tier, and the engine consumer for each field; tags present holdings as have-already / use-theta. |
 | `docs/BLOOMBERG_PULL_LIST.md` | Concrete Bloomberg pull checklist (BQL/BDH/BDP field lists by category) plus an "already on disk — do not re-pull" section. |
 | `docs/DATA_SPECIFICATION.md` | Data architecture and schemas. |
+| `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
 | `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/REPO_EFFICIENCY_AUDIT.md` | Repo structure & reading-efficiency audit (2026-05-31): the evidence behind `REPO_MAP.md`, the tests/ dedup verdicts, and the phased execution plan. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
@@ -295,6 +296,9 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
 | `docs/CODE_REVIEW_2026-05-30.md` | Full-codebase code-review remediation ledger (2026-05-30): verified findings, fixes shipped vs deferred (D19/D21), and the per-item remediation log. |
+| `docs/ENGINE_TOP20_VALIDATION_2026-06-17.md` | Top-20-by-market-cap validation (2026-06-17): full wheel sim (CSP→CC, bid-exec, R10 cap, T-bills on cash) + calibration + per-name, ALL independently reproduced + adversarially audited by a 5-agent verification workflow (lookahead/accounting/realism/reproduction; accounting reconciled to the penny, no invalidating defect). Verdict: genuinely but modestly profitable — ~+24% option-PREMIUM alpha over T-bills on 2021-26 full (~4-5%/yr, net of realistic exec; NOT disguised beta — assignment is a −$72k drag); never beats mega-cap B&H (−140..−184pp); pure-bear option leg −0.5% (42% assigned eats premium); crisis prob_profit over-confident −12pp + cvar_5 breached 9.9% (COST 3.5×); 15/19 names profitable to wheel (LLY +$852/97% best; COST/MA/ORCL/JPM lose on tails), WMT untradeable (split history-gate artifact). Applied corrections: ZIRP-clean pre-2021-05 rf + cap-respecting multi-contract sizing. |
+| `docs/ENGINE_TRADER_STRESS_TEST_2026-06-15.md` | Trader-persona heavy stress test (2026-06-15): independent BSM re-derivation (exact), determinism (perfect/order-invariant), out-of-sample prob_profit calibration — GOOD in calm 2023-26 (n=747) but −14 to −38pp OVER-confident in 2020/2022 crisis (n=399); cvar_5 breached in 10% of crisis trades (UNH −$6035 vs −$1989 modeled 3×; BA −$13571 vs −$3016 4.5×); crisis +EV trades mean −$81/contract despite 81% win-rate; mid-vs-bid execution eats ~24% of edge; select_book concentrates 44.8% NAV on one name with R9/R10 dormant; dte=400→prob_profit=1.0+positive CVaR. Composite failure mode + trader mitigations. |
+| `docs/ADVERSARIAL_WEAKNESS_REVIEW_2026-06-15.md` | Read-only adversarial weakness review (2026-06-15) across 9 dimensions: decision-layer correctness, quant models, data integrity, backtest/validity, test suite, architecture, multi-agent ops, doc-drift, repo structure. Headline findings: live `as_of=None` 87-day-stale-spot path (`wheel_runner.py:976,1015`), HMM crisis-label decoupled from fit (`regime_hmm.py:349`), prob_profit top-bin over-confidence with POT-GPD un-wired, survivorship in `get_universe()`, R11 absent from CLAUDE.md §2 + nav docs + its named pin test. §2 plumbing verified sound. Point-in-time; severity-ordered findings + risk map + hardening priorities. |
 | `docs/GOVERNANCE.md` | Model governance framework. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
 | `docs/USAGE_TEST_LEDGER.md` | **FROZEN** (2026-05-29, D14 extension) — its S1–S46 entries were split verbatim into per-task fragments under `docs/worklog/`; now a banner + scenario→fragment map. New usage records are worklog fragments (`scripts/new_worklog.py`), indexed by `docs/worklog/INDEX.md`. |
@@ -632,11 +636,20 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/models/__init__.py` | Empty package stub. |
 | `src/risk/__init__.py` | Empty package stub. |
 
+## `studies/` — observe-only research studies (read-only over the engine)
+
+| File | Purpose |
+|---|---|
+| `studies/premium_correction/__init__.py` | Package marker + study summary (real-mid vs synthetic-BSM premium correction). |
+| `studies/premium_correction/splits.py` | Split-adjustment layer joining engine (split-adjusted) strikes to larder (raw) strikes; cumulative-factor table + adjusted↔raw strike/premium conversions. |
+| `studies/premium_correction/pilot.py` | Observe-only harness: drives `WheelRunner.explore_ticker` (authoritative EV path) per (ticker, as_of), joins the real Theta EOD mid, computes the premium correction and the market-vs-engine calibration gap, emits records + summary + cross-plot. |
+
 ## `tests/` — test suite
 
 | File | Purpose |
 |---|---|
 | `tests/__init__.py` | Test-package marker. |
+| `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |
 | `tests/test_audit_invariants.py` | Launch-blocker invariants — Greeks unit contract, PIT safety, TV webhook HMAC, EV-engine invariants. |

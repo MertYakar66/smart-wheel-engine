@@ -105,6 +105,63 @@ def test_custom_provider_pristine_chart_cannot_upgrade_negative_ev():
     assert d.verdict_reason == "negative_ev"
 
 
+def test_custom_provider_r11_elevated_vol_routes_through_reviewer():
+    """R11 (D23): a top-bin candidate (prob_profit > 0.90) at elevated VIX
+    (> 25) downgrades proceed→review/elevated_vol_top_bin even through a
+    pristine custom provider.
+
+    Companion to the dedicated suite in ``tests/test_r11_elevated_vol.py`` —
+    this pin proves the *named invariant file* (the one REPO_MAP/TESTING route
+    agents to as the reviewer pin) actually exercises R11, so the rule set the
+    docs advertise (R1–R11) matches what this file covers. Closes the
+    adversarial-review B2 gap (2026-06-15).
+    """
+    ev_df = pd.DataFrame(
+        [
+            {
+                "ticker": "FAKE",
+                "spot": 100.0,
+                "strike": 95.0,
+                "premium": 2.0,
+                "ev_dollars": 50.0,  # > min_proceed_ev → R5 proceed
+                "prob_profit": 0.95,  # top bin (> R11_TOP_BIN_PROB 0.90)
+                "cvar_5": -5000.0,
+                # no "phase" key → R4 dormant; no other downgrade fires
+            }
+        ]
+    )
+    # Pristine chart, spot matches (no R2/R3); vix_level elevated → R11 fires.
+    provider = _FakeMCPProvider(chart_context=_chart(phase="post_expansion", spot=100.0))
+    dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5, vix_level=30.0)
+    assert len(dossiers) == 1
+    d = dossiers[0]
+    assert d.verdict == "review", (
+        f"R11 elevated-vol top-bin did not downgrade (verdict={d.verdict!r})"
+    )
+    assert d.verdict_reason == "elevated_vol_top_bin"
+
+
+def test_custom_provider_r11_noop_when_vix_normal():
+    """R11 missing/normal-evidence: identical top-bin candidate at VIX 18 is
+    NOT downgraded — the rule fires on elevated VIX only, never spuriously."""
+    ev_df = pd.DataFrame(
+        [
+            {
+                "ticker": "FAKE",
+                "spot": 100.0,
+                "strike": 95.0,
+                "premium": 2.0,
+                "ev_dollars": 50.0,
+                "prob_profit": 0.95,
+                "cvar_5": -5000.0,
+            }
+        ]
+    )
+    provider = _FakeMCPProvider(chart_context=_chart(phase="post_expansion", spot=100.0))
+    dossiers = build_dossiers(ev_frame=ev_df, provider=provider, top_n=5, vix_level=18.0)
+    assert dossiers[0].verdict == "proceed"
+
+
 # ----------------------------------------------------------------------
 # MCP provider contract tests (pending implementation)
 # ----------------------------------------------------------------------

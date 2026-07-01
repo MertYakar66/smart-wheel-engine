@@ -307,9 +307,13 @@ class TestEVEngineInvariants:
         trade_cold = self._base_trade(regime_multiplier=0.5)
         res_hot = EVEngine().evaluate(trade_hot)
         res_cold = EVEngine().evaluate(trade_cold)
-        # ev_dollars should scale linearly with regime_multiplier (other
-        # inputs identical), modulo RNG noise in the fall-through sampler.
-        assert res_hot.ev_dollars * 0.5 == pytest.approx(res_cold.ev_dollars, rel=0.05)
+        # ev_dollars scales linearly with regime_multiplier. The fall-through
+        # sampler is seeded deterministically from (underlying, strike, dte,
+        # option_type) — identical across both trades — so the two evaluations
+        # draw the SAME scenarios and the relationship is exact, not noisy.
+        # rel=1e-9 (was 0.05, ~1000x too loose: it would have passed a 5%
+        # non-linearity regression — adversarial-review Dim-5 F2, 2026-06-15).
+        assert res_hot.ev_dollars * 0.5 == pytest.approx(res_cold.ev_dollars, rel=1e-9)
 
     def test_transaction_costs_reduce_ev(self):
         """Adding a wider bid/ask spread (i.e. more slippage) must not

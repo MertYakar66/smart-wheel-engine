@@ -29,7 +29,7 @@ block at the bottom routes you to the right on-demand document.
    - `engine/wheel_runner.py` — `WheelRunner.rank_candidates_by_ev`. The
      one ranker every tradeable path routes through.
    - `engine/candidate_dossier.py` — `EnginePhaseReviewer` applies the
-     downgrade rules R1–R10 (see §2).
+     downgrade rules R1–R11 (see §2).
 4. **Interface layer** — `engine_api.py` (HTTP on `:8787`), `dashboard/`
    (Next.js), `engine/tradingview_bridge.py` (chart providers — sanity
    check, not a decider), `advisors/` (Buffett / Munger / Simons / Taleb
@@ -107,6 +107,19 @@ The `EnginePhaseReviewer` rules, for reference:
   Bounds F4-style idiosyncratic-drawdown damage that no market-wide
   regime detector can predict (see `docs/F4_TAIL_RISK_DIAGNOSTIC.md`
   §10). Same Q3 missing-data semantics as R7-R9.
+
+- R11: *(D23 — elevated-vol top-bin size-down, heavy-verify I11.)*
+  When market-wide VIX *level* exceeds `R11_VIX_THRESHOLD` (25.0) AND
+  the candidate is high-confidence (`prob_profit > R11_TOP_BIN_PROB`,
+  0.90), downgrade proceed → review with
+  `verdict_reason="elevated_vol_top_bin"`. The engine's top-bin
+  `prob_profit` is materially over-confident in the regime that
+  follows a VIX spike (~0.57 realized vs ~0.96 forecast in crisis;
+  I1) — a miss that is neither forecastable (I9) nor cleanly
+  detectable (I10), so the robust response is to size down. Requires
+  an attached `vix_level`; no-op when absent (missing-evidence
+  semantics, like R6-R10). Downgrade-only — never rescues. Pinned by
+  `tests/test_r11_elevated_vol.py` and `tests/test_dossier_invariant.py`.
 
 ---
 

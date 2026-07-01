@@ -957,7 +957,13 @@ class MarketDataConnector:
         whose ``date`` is ``<= as_of`` and within ``max_staleness_days`` of it
         (so a backtest at ``as_of`` never sees a future quote, and a long market
         holiday gap does not silently serve a stale market). With ``as_of=None``
-        the latest available snapshot for that expiry is used.
+        the latest available snapshot for that expiry is used, **bounded by the
+        same ``max_staleness_days`` against today's wall clock** — ``as_of=None``
+        means "the current market state", not "whatever the larder last saw", so
+        a stale larder degrades to the synthetic-BSM fallback instead of pairing
+        a weeks-old quote with a live caller (adversarial review 2026-07-01
+        D1-1/AB-4: an unbounded latest-quote paired with a different-frontier
+        spot inflated live EV 4-18x).
 
         ``mid = (bid + ask) / 2`` is the real premium. Returns an EMPTY frame
         (same columns) when no produced data exists / no PIT snapshot qualifies
@@ -980,6 +986,11 @@ class MarketDataConnector:
                 return df.iloc[0:0]
         else:
             snap = sub["date"].max()
+            # D1-1/AB-4 hardening: bound the "latest" branch against today's
+            # wall clock. Refuse-only — a quote this stale can only be replaced
+            # by the synthetic-BSM fallback, never the other way around.
+            if (pd.Timestamp.now().normalize() - snap).days > max_staleness_days:
+                return df.iloc[0:0]
         sub = sub[sub["date"] == snap]
         return sub.sort_values(["right", "strike"]).reset_index(drop=True)
 

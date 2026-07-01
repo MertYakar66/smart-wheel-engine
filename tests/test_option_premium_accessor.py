@@ -412,6 +412,24 @@ class TestOptionPremiumAccessor:
         assert c.get_option_premium("BAD", "2024-02-16", 100.0, "put") is None
         assert c.list_option_expirations("BAD", as_of="2024-01-05") == []
 
+    def test_as_of_none_bounded_by_wall_clock(self, premium_dir):
+        # D1-1/AB-4 (adversarial review 2026-07-01): ``as_of=None`` means "the
+        # current market state" — a larder whose freshest quote is staler than
+        # ``max_staleness_days`` against TODAY degrades to empty/None instead
+        # of silently serving its own frontier (which a live caller would then
+        # pair with a spot from a different frontier).
+        today = pd.Timestamp.now().normalize()
+        stale_d = (today - pd.Timedelta(days=30)).date().isoformat()
+        fresh_d = today.date().isoformat()
+        exp = (today + pd.Timedelta(days=35)).date().isoformat()
+        _write_produced(premium_dir, "OLD", _grid([stale_d], exp, [100]))
+        _write_produced(premium_dir, "NEW", _grid([fresh_d], exp, [100]))
+        c = MarketDataConnector()
+        assert c.get_option_premium_chain("OLD", exp).empty
+        assert c.get_option_premium("OLD", exp, 100.0, "put") is None
+        assert not c.get_option_premium_chain("NEW", exp).empty
+        assert c.get_option_premium("NEW", exp, 100.0, "put") is not None
+
 
 # ---------------------------------------------------------------------------
 # Data-backed: the distiller works on a real larder partition (guarded)

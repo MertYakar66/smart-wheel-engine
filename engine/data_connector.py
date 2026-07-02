@@ -1047,7 +1047,10 @@ class MarketDataConnector:
         yet quoted). ``min_dte`` / ``max_dte`` (relative to ``as_of``, or to the
         latest snapshot date when ``as_of`` is None) narrow to the wheel's DTE
         belt so the ranker can snap a DTE target to a listed expiry. Empty list
-        when no produced data exists.
+        when no produced data exists, or — mirroring
+        :meth:`get_option_premium_chain` — when ``as_of`` is ``None`` and the
+        larder's freshest snapshot is more than 7 days behind today's wall
+        clock (``as_of=None`` means "the current market state"; D1-1/AB-4).
         """
         df = self._load_option_premium(ticker)
         if df.empty:
@@ -1060,6 +1063,10 @@ class MarketDataConnector:
             return []
         if ref is None:
             ref = sub["date"].max()
+            # D1-1/AB-4 hardening — same wall-clock bound as
+            # get_option_premium_chain's as_of=None branch (refuse-only).
+            if (pd.Timestamp.now().normalize() - ref).days > 7:
+                return []
         exps = sorted(pd.Timestamp(e) for e in sub["expiration"].dropna().unique())
         out: list[pd.Timestamp] = []
         for e in exps:

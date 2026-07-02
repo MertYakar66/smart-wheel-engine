@@ -267,18 +267,20 @@ class TestQuoteSpotCoherence:
 
     def test_rejects_dte_skew(self):
         # same-session-but-both-stale case: quote's market time (62d) vs the
-        # engine's modeled horizon (35d) — date-matching alone cannot catch it
+        # engine's modeled horizon (35d) — date-matching alone cannot catch
+        # it. spot_date matches the quote so the DTE guard (not the
+        # no-anchor refusal) is what fires here.
         q = self._q(dte=62)
-        assert self._resolve(q, dte_target=35) is None
+        assert self._resolve(q, spot_date=pd.Timestamp("2024-01-10"), dte_target=35) is None
 
     def test_accepts_weekend_lag_dte(self):
         # Monday as_of pricing off Friday's bar: |44 - 35| = 9 <= tol 10
         q = self._q(dte=44)
-        assert self._resolve(q, dte_target=35) is q
+        assert self._resolve(q, spot_date=pd.Timestamp("2024-01-10"), dte_target=35) is q
 
     def test_rejects_beyond_dte_tol(self):
         q = self._q(dte=46)
-        assert self._resolve(q, dte_target=35) is None
+        assert self._resolve(q, spot_date=pd.Timestamp("2024-01-10"), dte_target=35) is None
 
     def test_dte_derived_from_expiration_when_missing(self):
         # 2024-02-16 - 2024-01-10 = 37 days; |37 - 35| <= 10 -> accepted
@@ -299,6 +301,36 @@ class TestQuoteSpotCoherence:
         out = self._resolve(q, conn=conn, spot_date=pd.Timestamp("2024-01-10"))
         assert out is q
         assert conn.seen_as_of == ["2024-01-10", "2024-01-10"]
+
+    def test_refuses_rail_at_as_of_none_without_spot_anchor(self):
+        # production-shape call (dte_target supplied) at as_of=None whose
+        # spot-bar date could not be established: no date anchor -> no
+        # coherence guarantee -> the rail is refused outright, even for a
+        # perfectly valid quote (refuter-panel hardening, 2026-07-01)
+        q = self._q(date="2024-01-10", dte=35)
+        assert self._resolve(q, dte_target=35, spot_date=None) is None
+
+    def test_reselection_serves_coherent_quote_where_frontier_quote_broken(self):
+        # Documents the ONE intended vs-old widening cell (refuter panel,
+        # §2 lens): at as_of=None the old code fetched the larder-frontier
+        # quote (here: broken, mid=0 -> refused -> synthetic); the new code
+        # re-aims the query at the spot bar and may serve THAT session's
+        # coherent quote instead. Evaluate-input-correctness, not a rescue:
+        # the served quote is date-matched + DTE-bounded and flows through
+        # EVEngine.evaluate.
+        good = self._q(date="2024-01-10", dte=37)
+
+        class _PerAsOf(_CoherenceStub):
+            def get_option_premium(self, ticker, expiry, strike, right, as_of=None, **k):
+                self.seen_as_of.append(as_of)
+                return good if as_of == "2024-01-10" else {"mid": 0.0}
+
+        conn = _PerAsOf([self.EXP], None)
+        # old-shape call (no coherence kwargs) -> frontier quote -> mid 0 -> None
+        assert self._resolve({"mid": 0.0}, conn=conn) is None
+        # production-shape call -> spot-dated coherent quote served
+        out = self._resolve(good, conn=conn, spot_date=pd.Timestamp("2024-01-10"), dte_target=35)
+        assert out is good
 
 
 # ---------------------------------------------------------------------------

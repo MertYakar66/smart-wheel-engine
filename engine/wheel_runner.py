@@ -291,10 +291,21 @@ def _resolve_real_premium(
     """
     if conn is None or not hasattr(conn, "list_option_expirations"):
         return None
+    # A production call (dte_target supplied) at as_of=None with no spot-bar
+    # date anchor: the date-coherence guard cannot hold, and the DTE guard
+    # alone would admit up to dte_tol_days of frontier skew — refuse the rail
+    # outright rather than serve "latest". (Legacy callers that supply
+    # neither kwarg are unaffected.)
+    if as_of is None and spot_date is None and dte_target is not None:
+        return None
     # Query the market as of the spot bar when the caller has no explicit
-    # as_of — never "whatever the larder last saw" (refuse-only: this can
-    # only narrow which quote is considered, and the date-match below still
-    # applies to whatever comes back).
+    # as_of — never "whatever the larder last saw". NOTE this is a
+    # RE-SELECTION, not a pure refusal: the spot-dated snapshot can serve a
+    # coherent quote in a cell where the old latest-frontier quote failed
+    # mid>0/strike_tol and fell back to synthetic. That quote is
+    # date-matched to the spot session, DTE-bounded, and flows through
+    # EVEngine.evaluate — evaluate-input-correctness, not a rescue. The two
+    # guards BELOW are strictly refuse-only.
     as_of_eff = as_of
     if as_of_eff is None and spot_date is not None:
         try:
@@ -1317,8 +1328,11 @@ class WheelRunner:
                 continue
             # D1-1: the spot bar's own date — threaded into the real-premium
             # rail so a served market quote must come from the SAME EOD session
-            # as this spot (None → the rail skips the check, e.g. non-datetime
-            # test-stub indexes; the synthetic path is unaffected either way).
+            # as this spot. Failure shapes are all refuse-only: an exotic
+            # non-datetime index normalizes to a wrong-but-harmless date that
+            # simply mismatches every quote (synthetic fallback), and a parse
+            # failure leaves None, which the rail refuses outright at
+            # as_of=None (no date anchor → no coherence guarantee).
             try:
                 spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
             except (TypeError, ValueError):

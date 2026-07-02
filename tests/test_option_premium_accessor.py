@@ -429,6 +429,9 @@ class TestOptionPremiumAccessor:
         assert c.get_option_premium("OLD", exp, 100.0, "put") is None
         assert not c.get_option_premium_chain("NEW", exp).empty
         assert c.get_option_premium("NEW", exp, 100.0, "put") is not None
+        # list_option_expirations mirrors the same wall-clock bound
+        assert c.list_option_expirations("OLD") == []
+        assert c.list_option_expirations("NEW") != []
 
 
 # ---------------------------------------------------------------------------

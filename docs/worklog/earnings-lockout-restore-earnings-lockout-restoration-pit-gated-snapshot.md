@@ -95,9 +95,30 @@ column — the overlay participates only when `as_of >= asof`.
   rail):** three layers — (1) deterministic
   `EXPECTED_EARNINGS_CALENDAR_ASOF` pin in the preflight (bump on every
   snapshot refresh, catches stale tree/clone); (2) once-per-connector
-  runtime `logger.warning` when the overlay is > 90 days older than the
-  query date; (3) opt-in `SWE_LIVE_PREFLIGHT=1` wall-clock age check
-  for live bring-up.
+  runtime `logger.warning` when the overlay is > **45** days older than
+  the query date (panel-corrected from 90: per-name forward-lockout
+  decay becomes material at snapshot age ~51d — quarterly cadence 91d
+  minus the 40d gate lookahead — so a 90d alarm would sit silent through
+  ~40 days of un-armed names); (3) opt-in `SWE_LIVE_PREFLIGHT=1`
+  wall-clock age check for live bring-up.
+- **Refuter-panel round (PANEL ceremony per the WIRING_CAMPAIGN row;
+  verdicts §2 CONCERN / regression SAFE / ops CONCERN, zero blockers)**
+  — three should-fixes, all addressed in the hardening commit:
+  (1) `_load_snapshot_bdp_panel`'s bare except silently un-armed the
+  lockout on import/loader failure (the D6-1 class one seam higher;
+  proven live via a tree missing `src/`) → now logs
+  "earnings-calendar overlay unavailable"; (2) **BRK/B + BF/B fell
+  through** a normalize mismatch (connector keeps `/`, loader's
+  `ticker_normalized` uses `.`) — BRK/B ranked TRADEABLE at as_of=None
+  despite 2026-08-03 earnings in-window → both sides now compared in
+  dot-form (the sibling `_pit_dividend_yield` has the same latent
+  mismatch; left to its own lane — fixing it moves served dividend
+  yields, i.e. EV-moving); (3) the 90d threshold (above). Plus two
+  hardenings from panel notes: multi-asof panels serve the NEWEST
+  snapshot knowable at ref (a future appending refresh would otherwise
+  silently serve the decayed calendar under a green preflight), and
+  `_earnings_event_date` now degrades-with-log on truthy non-dict
+  returns (DataFrame/list) instead of crashing the run.
 
 ## Evidence
 
@@ -121,7 +142,18 @@ column — the overlay participates only when `as_of >= asof`.
   2026-07-31 `snapshot_bdp`; JPM @ 2026-06-20 → 2026-07-14
   `earnings_csv` (base still wins where it has data); TSLA
   back-buffer @ 2026-07-03 → 2026-07-02.
-- Full fast suite + launch blockers green (see PR #464 body for
+- Refuter-panel deep A/B (§2 lens, clean same-tree archive method):
+  ranked books at as_of=2026-06-10/-17 `DataFrame.equals == True` vs
+  merge-base (byte-identical pre-asof); at 2026-06-25 strict SUBSET
+  (18→1, zero added, survivor EV byte-equal) — remove-only proven at
+  book level, with determinism controls. Ops lens 40-name live run at
+  as_of=None: 15 rows / 23 event-locks / 2 pre-existing drops; all 8
+  just-reported names >5d out CLEARED (no back-buffer over-blocking),
+  Sep reporters produced rows — per-name behavior exactly per spec,
+  NOT a #462-style blackout. Regression lens: the @slow full-universe
+  480/31 pin passed (81s), fingerprint tests 8/8, ~800 targeted tests
+  green across the three lenses.
+- Full fast suite + launch blockers green (see the PR body for
   counts); fingerprint guards untouched (`_FILES` unchanged; the
   snapshot is read outside it — same precedent as `dividend_pit`,
   with the pinning gap folded into campaign item 3).

@@ -851,7 +851,13 @@ class MarketDataConnector:
     # which fails SAFE by refusing into the synthetic-BSM fallback — so
     # instead of refusing, a decayed overlay LOGS loudly (once per
     # connector) and the preflight guard pins the snapshot's asof.
-    _SNAPSHOT_EARNINGS_STALE_DAYS: int = 90
+    # 45, not 90: with quarterly reporting, a name whose snapshot date D1
+    # has passed reports next at ~D1+91d, which ENTERS the default gate
+    # lookahead (dte 35 + buffer 5 = 40d) at snapshot age ~51d — so
+    # missed forward locks begin around day 51, and a 90-day alarm would
+    # stay silent through ~40 days of silently un-armed names (2026-07-02
+    # refuter panel, ops lens).
+    _SNAPSHOT_EARNINGS_STALE_DAYS: int = 45
 
     def _load_snapshot_bdp_panel(self) -> pd.DataFrame | None:
         """The broad-pull per-name snapshot (``broad_pull/per_name/
@@ -873,7 +879,19 @@ class MarketDataConnector:
                 self._snapshot_bdp_panel = BroadPullLoader(self._data_dir / "broad_pull").load(
                     "snapshot_bdp"
                 )
-            except Exception:
+            except Exception as exc:
+                # Fail-open (absent broad-pull data degrades to the base
+                # calendar, matching every other missing-CSV path) but
+                # NEVER silently: an import/loader failure here un-arms
+                # the restored earnings lockout — the D6-1 failure class
+                # one seam higher. File-absence is warned inside
+                # BroadPullLoader._read; this catches the rest.
+                logger.warning(
+                    "earnings-calendar overlay unavailable — broad-pull loader "
+                    "failed (%r); the earnings lockout falls back to the thin "
+                    "historical calendar (D3-1 baseline)",
+                    exc,
+                )
                 self._snapshot_bdp_panel = None
         return self._snapshot_bdp_panel
 
@@ -894,20 +912,43 @@ class MarketDataConnector:
         panel = self._load_snapshot_bdp_panel()
         if panel is None or panel.empty or "next_earnings_dt" not in panel.columns:
             return None
-        key = normalize_ticker(ticker)
+        # Share-class bridge: this module's ``normalize_ticker`` keeps the
+        # slash ("BRK/B UN" -> "BRK/B") while the loader's precomputed
+        # ``ticker_normalized`` column (data/consolidated_loader.py) maps
+        # slash -> dot ("BRK.B"). Compare in dot-form on BOTH sides or the
+        # two slash names in the snapshot (BRK/B, BF/B) silently miss —
+        # exactly the D3-1 no-op this overlay exists to close (2026-07-02
+        # refuter panel, ops lens). NB the sibling ``_pit_dividend_yield``
+        # has the same latent mismatch; fixing it moves served dividend
+        # yields (EV-moving) so it is deliberately left to its own lane.
+        key = normalize_ticker(ticker).replace("/", ".")
         if "ticker_normalized" in panel.columns:
-            sub = panel[panel["ticker_normalized"] == key]
+            sub = panel[panel["ticker_normalized"].astype(str).str.replace("/", ".") == key]
         elif "ticker" in panel.columns:
-            sub = panel[panel["ticker"].map(normalize_ticker) == key]
+            sub = panel[
+                panel["ticker"].map(lambda t: normalize_ticker(str(t)).replace("/", ".")) == key
+            ]
         else:
             return None
         if sub.empty:
             return None
-        row = sub.iloc[0]
-        asof_raw = row.get("asof")
-        asof = pd.to_datetime(asof_raw, errors="coerce") if asof_raw is not None else pd.NaT
-        if pd.isna(asof) or ref.normalize() < asof.normalize():
+        # Among rows already knowable at ``ref`` (asof <= ref), serve the
+        # NEWEST snapshot. Today the panel is a single asof; if a future
+        # broad-pull refresh APPENDS a new asof instead of replacing rows,
+        # iloc[0] on the (ticker, asof)-ascending panel would silently
+        # serve the decayed calendar while the preflight pin (which checks
+        # max(asof)) stayed green (2026-07-02 refuter panel, §2 lens).
+        asof_series = (
+            pd.to_datetime(sub["asof"], errors="coerce") if "asof" in sub.columns else None
+        )
+        if asof_series is None:
+            return None  # unstamped snapshot: no PIT gate possible -> refuse
+        eligible = asof_series.notna() & (asof_series.dt.normalize() <= ref.normalize())
+        if not eligible.any():
             return None  # PIT gate: snapshot not knowable at ref (or unstamped)
+        idx = asof_series[eligible].idxmax()
+        row = sub.loc[idx]
+        asof = asof_series.loc[idx]
         dt = pd.to_datetime(row.get("next_earnings_dt"), errors="coerce")
         if pd.isna(dt):
             return None

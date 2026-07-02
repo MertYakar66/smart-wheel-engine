@@ -250,6 +250,93 @@ class TestSnapshotOverlayUnit:
         conn = MarketDataConnector(data_dir=str(tmp_path))
         assert conn.get_next_earnings("AAA", as_of="2026-06-20") is None
 
+    def test_share_class_slash_ticker_bridged(self, tmp_path):
+        """2026-07-02 refuter panel (ops): the connector's normalize_ticker
+        keeps the slash ('BRK/B') while the loader's ticker_normalized
+        column uses dots ('BRK.B') — unbridged, the two slash names in the
+        snapshot silently stayed in the D3-1 no-op state. Both sides must
+        compare in dot-form."""
+        _write_base_earnings(
+            tmp_path,
+            [{"ticker": "BRK/B", "announcement_date": "2026-01-05", "year/period": "2025 Q4"}],
+        )
+        _write_snapshot_bdp(tmp_path, asof="2026-06-01", next_by_ticker={"BRK/B": "2026-08-03"})
+        conn = MarketDataConnector(data_dir=str(tmp_path))
+        nxt = conn.get_next_earnings("BRK/B", as_of="2026-06-20")
+        assert nxt is not None
+        assert nxt["announcement_date"] == pd.Timestamp("2026-08-03")
+        assert nxt["source"] == "snapshot_bdp"
+
+    def test_multi_asof_panel_serves_newest_eligible(self, tmp_path):
+        """2026-07-02 refuter panel (§2): if a future broad-pull refresh
+        APPENDS a new asof instead of replacing rows, the overlay must serve
+        the NEWEST snapshot knowable at ref — iloc[0] on the asof-ascending
+        panel would silently serve the decayed calendar while the preflight
+        pin (max asof) stayed green."""
+        _write_base_earnings(
+            tmp_path,
+            [{"ticker": "AAA", "announcement_date": "2026-01-05", "year/period": "2025 Q4"}],
+        )
+        per_name = tmp_path / "broad_pull" / "per_name"
+        per_name.mkdir(parents=True)
+        pd.DataFrame(
+            {
+                "asof": ["2026-03-01", "2026-06-01"],
+                "ticker": ["AAA UW", "AAA UW"],
+                "next_earnings_dt": ["2026-04-20", "2026-07-05"],
+            }
+        ).to_csv(per_name / "sp500_snapshot_bdp.csv", index=False)
+        conn = MarketDataConnector(data_dir=str(tmp_path))
+        # Both snapshots knowable -> the newer one's date.
+        nxt = conn.get_next_earnings("AAA", as_of="2026-06-20")
+        assert nxt is not None
+        assert nxt["announcement_date"] == pd.Timestamp("2026-07-05")
+        # Only the older snapshot knowable -> its date (PIT-correct).
+        nxt_old = conn.get_next_earnings("AAA", as_of="2026-03-15")
+        assert nxt_old is not None
+        assert nxt_old["announcement_date"] == pd.Timestamp("2026-04-20")
+
+    def test_loader_failure_is_logged_not_silent(self, overlay_dir, monkeypatch, caplog):
+        """2026-07-02 refuter panel (§2): a broad-pull import/loader failure
+        silently un-armed the restored lockout (the D6-1 class one seam
+        higher). It must degrade to the base calendar WITH a warning."""
+        import data.broad_pull_loaders as bpl
+
+        class _Boom:
+            def __init__(self, *a, **k):
+                raise RuntimeError("simulated loader failure")
+
+        monkeypatch.setattr(bpl, "BroadPullLoader", _Boom)
+        conn = MarketDataConnector(data_dir=str(overlay_dir))
+        with caplog.at_level(logging.WARNING, logger="engine.data_connector"):
+            nxt = conn.get_next_earnings("AAA", as_of="2026-06-20")
+        assert nxt is None  # degraded to the (empty-forward) base calendar
+        assert any("earnings-calendar overlay unavailable" in r.message for r in caplog.records)
+
+    def test_stale_overlay_warns_once_per_connector(self, tmp_path, caplog):
+        """Runtime staleness alarm: a snapshot >45d older than the query
+        date warns ONCE per connector (no per-ticker spam) — the threshold
+        is 45d because per-name forward-lockout decay becomes material at
+        snapshot age ~51d (quarterly cadence minus the 40d gate lookahead),
+        so a 90d alarm would sit silent through ~40 days of un-armed names."""
+        _write_base_earnings(
+            tmp_path,
+            [{"ticker": "AAA", "announcement_date": "2026-01-05", "year/period": "2025 Q4"}],
+        )
+        _write_snapshot_bdp(tmp_path, asof="2026-05-01", next_by_ticker={"AAA": "2026-08-01"})
+        conn = MarketDataConnector(data_dir=str(tmp_path))
+        with caplog.at_level(logging.WARNING, logger="engine.data_connector"):
+            conn.get_next_earnings("AAA", as_of="2026-06-20")  # age 50d > 45d
+            conn.get_next_earnings("AAA", as_of="2026-06-21")
+        stale = [r for r in caplog.records if "days older than the query date" in r.message]
+        assert len(stale) == 1
+        # Fresh snapshot: no warning.
+        caplog.clear()
+        conn2 = MarketDataConnector(data_dir=str(tmp_path))
+        with caplog.at_level(logging.WARNING, logger="engine.data_connector"):
+            conn2.get_next_earnings("AAA", as_of="2026-05-20")  # age 19d
+        assert not [r for r in caplog.records if "days older" in r.message]
+
 
 # ----------------------------------------------------------------------
 # 2. Real-data pins (dated as_of — deterministic, no wall clock)
@@ -290,6 +377,14 @@ class TestSnapshotOverlayRealData:
         assert recent is not None
         assert recent["announcement_date"] == pd.Timestamp("2026-07-02")
         assert recent["source"] == "snapshot_bdp"
+
+    def test_brk_b_share_class_served(self, conn):
+        """The slash mega-cap the 2026-07-02 refuter panel caught falling
+        through the normalize mismatch — pinned on the real snapshot."""
+        nxt = conn.get_next_earnings("BRK/B", as_of="2026-06-20")
+        assert nxt is not None
+        assert nxt["announcement_date"] == pd.Timestamp("2026-08-03")
+        assert nxt["source"] == "snapshot_bdp"
 
 
 # ----------------------------------------------------------------------
@@ -443,6 +538,30 @@ class TestEventGateRegistrationErrors:
                 return None
 
         conn = _GarbageDate(_TICKERS)
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            df = _rank(_runner(conn), as_of="2026-03-15")
+        assert any("unparseable earnings announcement_date" in r.message for r in caplog.records)
+        assert set(df["ticker"]) == set(_TICKERS)
+
+    def test_truthy_non_dict_return_is_logged_not_fatal(self, caplog):
+        """2026-07-02 refuter panel (§2 note): a connector returning a
+        truthy non-dict (a DataFrame -> ValueError on truthiness, a list ->
+        AttributeError on .get) must degrade with a log, not crash the
+        ranking run — the old blanket except handled these silently."""
+
+        class _WeirdReturn(_MarketStub):
+            def __init__(self, tickers):
+                super().__init__(tickers, earnings_conn=None)
+
+            def get_next_earnings(self, ticker, as_of=None):
+                if ticker == "AAA":
+                    return pd.DataFrame({"announcement_date": ["2026-03-18"]})
+                return ["2026-03-18"]
+
+            def get_recent_earnings(self, ticker, as_of=None, lookback_days=7):
+                return None
+
+        conn = _WeirdReturn(_TICKERS)
         with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
             df = _rank(_runner(conn), as_of="2026-03-15")
         assert any("unparseable earnings announcement_date" in r.message for r in caplog.records)

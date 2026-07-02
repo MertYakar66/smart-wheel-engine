@@ -475,17 +475,21 @@ def _fetch_recent_earnings(conn, ticker: str, as_of: str | None, lookback_days: 
 def _earnings_event_date(earn: dict | None, ticker: str) -> "date | None":
     """Extract the announcement date from an earnings dict as a ``date``.
 
-    Malformed dates (a stub returning a string, schema drift) are logged and
-    yield ``None`` instead of being silently swallowed by a blanket except —
-    the D6-1 failure mode where an unparseable calendar row un-armed the
-    whole event gate for the ticker.
+    Malformed inputs (a stub returning a string date, a non-dict truthy
+    value, schema drift) are logged and yield ``None`` instead of being
+    silently swallowed by a blanket except — the D6-1 failure mode where an
+    unparseable calendar row un-armed the whole event gate for the ticker.
+    The truthiness/lookup lines sit INSIDE the try: a connector returning
+    e.g. a DataFrame (ValueError on truthiness) or a list (AttributeError
+    on .get) must degrade with a log, not crash the ranking run.
     """
-    if not earn:
-        return None
-    ts = earn.get("announcement_date")
-    if ts is None:
-        return None
+    ts: object = None
     try:
+        if not earn:
+            return None
+        ts = earn.get("announcement_date")
+        if ts is None:
+            return None
         d = ts.date() if hasattr(ts, "date") else ts
         # Probe the exact arithmetic the callers rely on ((d - date).days)
         # so a non-date sentinel (a raw string, NaT, np.datetime64) is

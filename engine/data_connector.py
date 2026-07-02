@@ -713,24 +713,63 @@ class MarketDataConnector:
         """Return the next upcoming earnings event after *as_of*.
 
         Returns a dict with keys ``announcement_date``,
-        ``announcement_time``, ``estimate_eps``, and ``year_period``
-        or ``None`` if no future earnings are found.
+        ``announcement_time``, ``estimate_eps``, ``year_period`` and
+        ``source`` or ``None`` if no future earnings are found.
+
+        Sources (D3-1 fix). Two sources are consulted and the EARLIER
+        future date wins:
+
+        1. ``sp500_earnings.csv`` (``source="earnings_csv"``) — the
+           historical announcement record. Its *forward* coverage is thin
+           (~39/511 names as of 2026-07: mostly banks that pre-schedule),
+           which silently no-op'ed the live earnings lockout for ~92 % of
+           the universe (adversarial-review finding D3-1).
+        2. The broad-pull per-name snapshot's ``next_earnings_dt`` column
+           (``source="snapshot_bdp"``) — 100 % forward coverage, stamped
+           with its own ``asof`` knowledge date and gated point-in-time on
+           it (see :meth:`_snapshot_bdp_next_earnings`): for any ``as_of``
+           BEFORE the snapshot's ``asof`` the overlay never participates,
+           so every dated backtest at or before the snapshot date is
+           byte-identical to the pre-overlay behaviour. Consuming the
+           overlay can only ADD earnings events to the event gate —
+           remove-only w.r.t. the ranked book (§2-safe direction).
+
+        The yfinance parallel file (``sp500_earnings_yf.csv``) is
+        deliberately NOT consulted: it carries no knowledge-date stamp, its
+        18-year history diverges from the Bloomberg record inside pinned
+        backtest windows (a naive union rewrites history), and its forward
+        rows decay without an in-band signal. The snapshot overlay
+        dominates it on coverage (100 % vs ~70 %).
         """
         ref = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
+        base: dict | None = None
         df = self._load("earnings")
         df = self._filter_ticker(df, ticker)
-        if df.empty or "announcement_date" not in df.columns:
-            return None
-        future = df[df["announcement_date"] > ref].sort_values("announcement_date")
-        if future.empty:
-            return None
-        row = future.iloc[0]
-        return {
-            "announcement_date": row["announcement_date"],
-            "announcement_time": row.get("announcement_time"),
-            "estimate_eps": row.get("estimate_eps"),
-            "year_period": row.get("year/period", row.get("year_period")),
-        }
+        if not df.empty and "announcement_date" in df.columns:
+            future = df[df["announcement_date"] > ref].sort_values("announcement_date")
+            if not future.empty:
+                row = future.iloc[0]
+                base = {
+                    "announcement_date": row["announcement_date"],
+                    "announcement_time": row.get("announcement_time"),
+                    "estimate_eps": row.get("estimate_eps"),
+                    "year_period": row.get("year/period", row.get("year_period")),
+                    "source": "earnings_csv",
+                }
+        overlay: dict | None = None
+        snap = self._snapshot_bdp_next_earnings(ticker, ref)
+        if snap is not None and snap["announcement_date"] > ref:
+            overlay = {
+                "announcement_date": snap["announcement_date"],
+                "announcement_time": None,
+                "estimate_eps": None,
+                "year_period": None,
+                "source": "snapshot_bdp",
+            }
+        if base is not None and overlay is not None:
+            # Earlier future date wins; on a tie the richer base row does.
+            return base if base["announcement_date"] <= overlay["announcement_date"] else overlay
+        return base if base is not None else overlay
 
     def get_recent_earnings(
         self,
@@ -755,30 +794,139 @@ class MarketDataConnector:
 
         Returns a dict with the same keys as :meth:`get_next_earnings`
         (``announcement_date``, ``announcement_time``, ``estimate_eps``,
-        ``year_period``) or ``None`` if no past earnings are found in
-        the window. The two methods are *complementary* — the
+        ``year_period``, ``source``) or ``None`` if no past earnings are
+        found in the window. The two methods are *complementary* — the
         ``> ref`` / ``<= ref`` cutoff is set so an event ON ``as_of``
         is treated as past (returned by this method, not by
         ``get_next_earnings``).
+
+        Consults the same snapshot overlay as :meth:`get_next_earnings`
+        (D3-1): a snapshot ``next_earnings_dt`` that has *passed* by
+        ``as_of`` but sits inside the lookback window is exactly the
+        just-reported / IV-crush case the back-buffer exists for, and the
+        historical file misses it for the ~92 % of names without current
+        rows. Same PIT gate (overlay only participates when
+        ``as_of >= asof``), same remove-only direction.
         """
         ref = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
         lookback_start = ref - pd.Timedelta(days=int(lookback_days))
+        base: dict | None = None
         df = self._load("earnings")
         df = self._filter_ticker(df, ticker)
-        if df.empty or "announcement_date" not in df.columns:
+        if not df.empty and "announcement_date" in df.columns:
+            past = df[
+                (df["announcement_date"] >= lookback_start) & (df["announcement_date"] <= ref)
+            ].sort_values("announcement_date")
+            if not past.empty:
+                row = past.iloc[-1]  # most recent within the lookback
+                base = {
+                    "announcement_date": row["announcement_date"],
+                    "announcement_time": row.get("announcement_time"),
+                    "estimate_eps": row.get("estimate_eps"),
+                    "year_period": row.get("year/period", row.get("year_period")),
+                    "source": "earnings_csv",
+                }
+        overlay: dict | None = None
+        snap = self._snapshot_bdp_next_earnings(ticker, ref)
+        if snap is not None and lookback_start <= snap["announcement_date"] <= ref:
+            overlay = {
+                "announcement_date": snap["announcement_date"],
+                "announcement_time": None,
+                "estimate_eps": None,
+                "year_period": None,
+                "source": "snapshot_bdp",
+            }
+        if base is not None and overlay is not None:
+            # Most recent past date wins; on a tie the richer base row does.
+            return base if base["announcement_date"] >= overlay["announcement_date"] else overlay
+        return base if base is not None else overlay
+
+    # -- D3-1 forward-calendar overlay (broad_pull snapshot) ------------
+
+    # Runtime staleness alarm threshold for the snapshot overlay. The
+    # overlay FAILS OPEN as it ages (dates fall behind ``ref`` and simply
+    # stop registering — the lockout silently reverts toward the ~8 %
+    # baseline coverage), the exact failure class of D3-1. Opposite
+    # polarity to the option-premium rail's wall-clock bound (#463),
+    # which fails SAFE by refusing into the synthetic-BSM fallback — so
+    # instead of refusing, a decayed overlay LOGS loudly (once per
+    # connector) and the preflight guard pins the snapshot's asof.
+    _SNAPSHOT_EARNINGS_STALE_DAYS: int = 90
+
+    def _load_snapshot_bdp_panel(self) -> pd.DataFrame | None:
+        """The broad-pull per-name snapshot (``broad_pull/per_name/
+        sp500_snapshot_bdp.csv``), loaded lazily via ``BroadPullLoader``
+        and cached on the instance — same lazy ``engine -> data`` import
+        pattern as :meth:`_load_dividend_pit_panel`. ``None`` when the
+        broad-pull data is absent (fresh clone, tmp-dir test connectors).
+
+        Scoped to THIS connector's ``data_dir`` (``<data_dir>/broad_pull``)
+        rather than the repo-default loader path: a connector pointed at a
+        tmp dir must NOT bleed the repo's real calendar into hermetic
+        tests (several pin ``get_next_earnings(...) is None`` on empty
+        dirs).
+        """
+        if not hasattr(self, "_snapshot_bdp_panel"):
+            try:
+                from data.broad_pull_loaders import BroadPullLoader
+
+                self._snapshot_bdp_panel = BroadPullLoader(self._data_dir / "broad_pull").load(
+                    "snapshot_bdp"
+                )
+            except Exception:
+                self._snapshot_bdp_panel = None
+        return self._snapshot_bdp_panel
+
+    def _snapshot_bdp_next_earnings(self, ticker: str, ref: pd.Timestamp) -> dict | None:
+        """*ticker*'s scheduled earnings date from the broad-pull snapshot,
+        or ``None``. Returns ``{"announcement_date": Timestamp, "asof":
+        Timestamp}`` — the caller decides whether the date is forward
+        (:meth:`get_next_earnings`) or recent (:meth:`get_recent_earnings`).
+
+        Point-in-time gate: the snapshot participates only when
+        ``ref >= asof`` (its knowledge date). A query dated before the
+        snapshot was taken must not see it — this is what keeps every
+        dated backtest at ``as_of < asof`` byte-identical to the
+        pre-overlay engine, and it is genuinely PIT-correct (not merely
+        refuse-safe) for ``as_of >= asof``: the schedule *was* knowable
+        then.
+        """
+        panel = self._load_snapshot_bdp_panel()
+        if panel is None or panel.empty or "next_earnings_dt" not in panel.columns:
             return None
-        past = df[
-            (df["announcement_date"] >= lookback_start) & (df["announcement_date"] <= ref)
-        ].sort_values("announcement_date")
-        if past.empty:
+        key = normalize_ticker(ticker)
+        if "ticker_normalized" in panel.columns:
+            sub = panel[panel["ticker_normalized"] == key]
+        elif "ticker" in panel.columns:
+            sub = panel[panel["ticker"].map(normalize_ticker) == key]
+        else:
             return None
-        row = past.iloc[-1]  # most recent within the lookback
-        return {
-            "announcement_date": row["announcement_date"],
-            "announcement_time": row.get("announcement_time"),
-            "estimate_eps": row.get("estimate_eps"),
-            "year_period": row.get("year/period", row.get("year_period")),
-        }
+        if sub.empty:
+            return None
+        row = sub.iloc[0]
+        asof_raw = row.get("asof")
+        asof = pd.to_datetime(asof_raw, errors="coerce") if asof_raw is not None else pd.NaT
+        if pd.isna(asof) or ref.normalize() < asof.normalize():
+            return None  # PIT gate: snapshot not knowable at ref (or unstamped)
+        dt = pd.to_datetime(row.get("next_earnings_dt"), errors="coerce")
+        if pd.isna(dt):
+            return None
+        age_days = int((ref.normalize() - asof.normalize()).days)
+        if age_days > self._SNAPSHOT_EARNINGS_STALE_DAYS and not getattr(
+            self, "_warned_stale_earnings_snapshot", False
+        ):
+            logger.warning(
+                "earnings-calendar overlay is %d days older than the query date "
+                "(snapshot asof=%s): its forward dates have largely passed, so the "
+                "earnings lockout is decaying back toward the ~8%% historical-file "
+                "coverage (D3-1). Refresh data/bloomberg/broad_pull/per_name/"
+                "sp500_snapshot_bdp.csv and bump EXPECTED_EARNINGS_CALENDAR_ASOF "
+                "(tests/test_preflight_environment.py).",
+                age_days,
+                asof.date(),
+            )
+            self._warned_stale_earnings_snapshot = True
+        return {"announcement_date": pd.Timestamp(dt).normalize(), "asof": asof}
 
     # ------------------------------------------------------------------
     # Events – Corporate actions

@@ -404,7 +404,15 @@ def _register_corp_action_events(
         start = (today_date - timedelta(days=buf)).isoformat()
         end = (today_date + timedelta(days=horizon_days + buf)).isoformat()
         ca = conn.get_corporate_actions(ticker, start_date=start, end_date=end, as_of=announce_asof)
-    except Exception:
+    except Exception as exc:
+        # D6-1: still fail-open (an error is not evidence of an action),
+        # but never silently — the lockout being un-armed must be visible.
+        logger.warning(
+            "event-gate: get_corporate_actions failed for %s — corp-action "
+            "lockout NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
         return
     if ca is None or len(ca) == 0:
         return
@@ -417,6 +425,82 @@ def _register_corp_action_events(
         except (ValueError, TypeError):
             continue
         event_gate.add_event(ScheduledEvent(ticker=ticker, kind="corp_action", event_date=eff_d))
+
+
+def _fetch_next_earnings(conn, ticker: str, as_of: str | None) -> dict | None:
+    """Narrowly-guarded forward-earnings lookup for event-gate registration.
+
+    D6-1: the three rankers used to wrap their ENTIRE event-exclusion block
+    (forward lookup + back-buffer + corp-action registration + the
+    ``use_event_gate=False`` soft skip) in one bare ``except Exception``, so
+    a single raising stage silently disabled the hard lockout AND the soft
+    skip for that ticker — indistinguishable from "no earnings scheduled".
+    Each connector call now carries its own guard and LOGS when it fails.
+    Fail-open is deliberate (an error is not evidence of an event — the same
+    missing-data semantics as R6-R11 soft-warns); the change is that it is
+    no longer fail-*silent*. ``hasattr`` gate mirrors the existing
+    ``get_recent_earnings`` treatment: a connector without the method is a
+    legitimate configuration, not an error — no warning for it.
+    """
+    if not hasattr(conn, "get_next_earnings"):
+        return None
+    try:
+        return conn.get_next_earnings(ticker, as_of)
+    except Exception as exc:
+        logger.warning(
+            "event-gate: get_next_earnings failed for %s — forward earnings "
+            "lockout NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
+        return None
+
+
+def _fetch_recent_earnings(conn, ticker: str, as_of: str | None, lookback_days: int) -> dict | None:
+    """Narrowly-guarded back-buffer earnings lookup (see ``_fetch_next_earnings``)."""
+    if not hasattr(conn, "get_recent_earnings"):
+        return None
+    try:
+        return conn.get_recent_earnings(ticker, as_of, lookback_days=lookback_days)
+    except Exception as exc:
+        logger.warning(
+            "event-gate: get_recent_earnings failed for %s — post-earnings "
+            "back-buffer NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
+        return None
+
+
+def _earnings_event_date(earn: dict | None, ticker: str) -> "date | None":
+    """Extract the announcement date from an earnings dict as a ``date``.
+
+    Malformed dates (a stub returning a string, schema drift) are logged and
+    yield ``None`` instead of being silently swallowed by a blanket except —
+    the D6-1 failure mode where an unparseable calendar row un-armed the
+    whole event gate for the ticker.
+    """
+    if not earn:
+        return None
+    ts = earn.get("announcement_date")
+    if ts is None:
+        return None
+    try:
+        d = ts.date() if hasattr(ts, "date") else ts
+        # Probe the exact arithmetic the callers rely on ((d - date).days)
+        # so a non-date sentinel (a raw string, NaT, np.datetime64) is
+        # rejected HERE, with a log, not downstream.
+        _ = (d - date(2000, 1, 1)).days
+        return d
+    except (TypeError, ValueError, AttributeError) as exc:
+        logger.warning(
+            "event-gate: unparseable earnings announcement_date %r for %s — "
+            "event NOT registered (%r)",
+            ts,
+            ticker,
+            exc,
+        )
+        return None
 
 
 # ----------------------------------------------------------------------
@@ -1468,90 +1552,80 @@ class WheelRunner:
             today_date = date.fromisoformat(as_of) if as_of else date.today()
             trade_start_d = today_date
             trade_end_d = today_date + timedelta(days=dte_target)
-            try:
-                next_earn = conn.get_next_earnings(ticker, as_of)
-                days_to_earn = None
-                if next_earn:
-                    earn_ts = next_earn.get("announcement_date")
-                    if earn_ts is not None:
-                        earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                        days_to_earn = (earn_d - today_date).days
-                        # Register on the per-run event gate so the EV
-                        # engine can pre-emptively block.
-                        if event_gate is not None and earn_d is not None:
-                            event_gate.add_event(
-                                ScheduledEvent(
-                                    ticker=ticker,
-                                    kind="earnings",
-                                    event_date=earn_d,
-                                )
-                            )
-                # S23 F1 — symmetric back-buffer. The gate's
-                # _event_touches_window arithmetic is symmetric and its
-                # reason string says ±{buf}d, but get_next_earnings only
-                # ever returns future events. Also pull the most recent
-                # PAST earnings within the back-buffer and register it
-                # so the gate can fire on a trade opened immediately
-                # post-earnings (the IV-crush window the gate's
-                # docstring explicitly cites as motivation). Defensive
-                # hasattr() so connectors / test stubs without the new
-                # method continue working with the legacy behavior.
-                if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                    recent_earn = conn.get_recent_earnings(
-                        ticker, as_of, lookback_days=earnings_buffer_days
+            # D6-1: every stage below is guarded INDIVIDUALLY (each connector
+            # call has its own logged try inside _fetch_next_earnings /
+            # _fetch_recent_earnings) instead of the old blanket try/except
+            # that silently disabled the hard lockout AND the soft skip
+            # whenever any stage raised. A raising forward lookup no longer
+            # kills the back-buffer / corp-action stages, and the soft-skip
+            # control flow now sits OUTSIDE any try — a bug there fails loud.
+            next_earn = _fetch_next_earnings(conn, ticker, as_of)
+            earn_d = _earnings_event_date(next_earn, ticker)
+            days_to_earn = (earn_d - today_date).days if earn_d is not None else None
+            # Register on the per-run event gate so the EV engine can
+            # pre-emptively block.
+            if event_gate is not None and earn_d is not None:
+                event_gate.add_event(
+                    ScheduledEvent(
+                        ticker=ticker,
+                        kind="earnings",
+                        event_date=earn_d,
                     )
-                    if recent_earn:
-                        recent_ts = recent_earn.get("announcement_date")
-                        if recent_ts is not None:
-                            recent_d = recent_ts.date() if hasattr(recent_ts, "date") else recent_ts
-                            event_gate.add_event(
-                                ScheduledEvent(
-                                    ticker=ticker,
-                                    kind="earnings",
-                                    event_date=recent_d,
-                                )
-                            )
-                # #3A: hard-block disruptive corporate actions (split/spinoff/
-                # special-cash/rights) in the holding window — remove-only.
-                _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-                if event_gate is None:
-                    # Soft fallback (use_event_gate=False) — also
-                    # symmetric. Forward branch was the original
-                    # behavior; back branch is the S23 F1 fix.
-                    if days_to_earn is not None and 0 <= days_to_earn < earnings_buffer_days:
+                )
+            # S23 F1 — symmetric back-buffer. The gate's
+            # _event_touches_window arithmetic is symmetric and its
+            # reason string says ±{buf}d, but get_next_earnings only
+            # ever returns future events. Also pull the most recent
+            # PAST earnings within the back-buffer and register it
+            # so the gate can fire on a trade opened immediately
+            # post-earnings (the IV-crush window the gate's
+            # docstring explicitly cites as motivation). The hasattr
+            # gate (inside _fetch_recent_earnings) keeps connectors /
+            # test stubs without the method on the legacy behavior.
+            if event_gate is not None:
+                recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+                recent_d = _earnings_event_date(recent_earn, ticker)
+                if recent_d is not None:
+                    event_gate.add_event(
+                        ScheduledEvent(
+                            ticker=ticker,
+                            kind="earnings",
+                            event_date=recent_d,
+                        )
+                    )
+            # #3A: hard-block disruptive corporate actions (split/spinoff/
+            # special-cash/rights) in the holding window — remove-only.
+            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
+            if event_gate is None:
+                # Soft fallback (use_event_gate=False) — also
+                # symmetric. Forward branch was the original
+                # behavior; back branch is the S23 F1 fix.
+                if days_to_earn is not None and 0 <= days_to_earn < earnings_buffer_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "event",
+                            "reason": (
+                                f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                            ),
+                        }
+                    )
+                    continue
+                recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+                r_d = _earnings_event_date(recent_earn, ticker)
+                if r_d is not None:
+                    d_since = (today_date - r_d).days
+                    if 0 <= d_since < earnings_buffer_days:
                         drops.append(
                             {
                                 "ticker": ticker,
                                 "gate": "event",
                                 "reason": (
-                                    f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                                    f"earnings was {d_since}d ago < buffer {earnings_buffer_days}d"
                                 ),
                             }
                         )
                         continue
-                    if hasattr(conn, "get_recent_earnings"):
-                        recent_earn = conn.get_recent_earnings(
-                            ticker, as_of, lookback_days=earnings_buffer_days
-                        )
-                        if recent_earn:
-                            r_ts = recent_earn.get("announcement_date")
-                            if r_ts is not None:
-                                r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                                d_since = (today_date - r_d).days
-                                if 0 <= d_since < earnings_buffer_days:
-                                    drops.append(
-                                        {
-                                            "ticker": ticker,
-                                            "gate": "event",
-                                            "reason": (
-                                                f"earnings was {d_since}d ago "
-                                                f"< buffer {earnings_buffer_days}d"
-                                            ),
-                                        }
-                                    )
-                                    continue
-            except Exception:
-                days_to_earn = None
 
             # Solve for the strike that gives the target put delta
             # Put delta = e^{-qT} * (N(d1) - 1); target is -delta_target.
@@ -2813,38 +2887,26 @@ class WheelRunner:
                 earnings_buffer_days=earnings_buffer_days,
                 macro_buffer_days=macro_buffer_days,
             )
-        days_to_earn: int | None = None
-        try:
-            next_earn = conn.get_next_earnings(ticker, as_of)
-            if next_earn:
-                earn_ts = next_earn.get("announcement_date")
-                if earn_ts is not None:
-                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                    days_to_earn = (earn_d - today_date).days
-                    if event_gate is not None:
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
-                        )
-            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
-            # Pull the most recent past earnings within the back-buffer
-            # so the gate can fire on a trade opened immediately
-            # post-earnings (IV-crush window). Defensive hasattr() for
-            # legacy connectors.
-            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                recent_earn = conn.get_recent_earnings(
-                    ticker, as_of, lookback_days=earnings_buffer_days
-                )
-                if recent_earn:
-                    r_ts = recent_earn.get("announcement_date")
-                    if r_ts is not None:
-                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
-                        )
-            # #3A: hard-block disruptive corporate actions — remove-only.
-            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-        except Exception:
-            days_to_earn = None
+        # D6-1: stages guarded individually with logged failures (see
+        # _fetch_next_earnings / _fetch_recent_earnings) — a raising lookup
+        # no longer silently un-arms the whole event gate for this name.
+        next_earn = _fetch_next_earnings(conn, ticker, as_of)
+        earn_d = _earnings_event_date(next_earn, ticker)
+        days_to_earn: int | None = (earn_d - today_date).days if earn_d is not None else None
+        if event_gate is not None and earn_d is not None:
+            event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d))
+        # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+        # Pull the most recent past earnings within the back-buffer
+        # so the gate can fire on a trade opened immediately
+        # post-earnings (IV-crush window). hasattr gate (inside
+        # _fetch_recent_earnings) for legacy connectors.
+        if event_gate is not None:
+            recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+            r_d = _earnings_event_date(recent_earn, ticker)
+            if r_d is not None:
+                event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d))
+        # #3A: hard-block disruptive corporate actions — remove-only.
+        _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
 
         ev_eng = EVEngine(event_gate=event_gate)
 
@@ -3435,38 +3497,26 @@ class WheelRunner:
                 earnings_buffer_days=earnings_buffer_days,
                 macro_buffer_days=macro_buffer_days,
             )
-        days_to_earn: int | None = None
-        try:
-            next_earn = conn.get_next_earnings(ticker, as_of)
-            if next_earn:
-                earn_ts = next_earn.get("announcement_date")
-                if earn_ts is not None:
-                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                    days_to_earn = (earn_d - today_date).days
-                    if event_gate is not None:
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
-                        )
-            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
-            # Pull the most recent past earnings within the back-buffer
-            # so the gate can fire on a trade opened immediately
-            # post-earnings (IV-crush window). Defensive hasattr() for
-            # legacy connectors.
-            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                recent_earn = conn.get_recent_earnings(
-                    ticker, as_of, lookback_days=earnings_buffer_days
-                )
-                if recent_earn:
-                    r_ts = recent_earn.get("announcement_date")
-                    if r_ts is not None:
-                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
-                        )
-            # #3A: hard-block disruptive corporate actions — remove-only.
-            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-        except Exception:
-            days_to_earn = None
+        # D6-1: stages guarded individually with logged failures (see
+        # _fetch_next_earnings / _fetch_recent_earnings) — a raising lookup
+        # no longer silently un-arms the whole event gate for this name.
+        next_earn = _fetch_next_earnings(conn, ticker, as_of)
+        earn_d = _earnings_event_date(next_earn, ticker)
+        days_to_earn: int | None = (earn_d - today_date).days if earn_d is not None else None
+        if event_gate is not None and earn_d is not None:
+            event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d))
+        # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+        # Pull the most recent past earnings within the back-buffer
+        # so the gate can fire on a trade opened immediately
+        # post-earnings (IV-crush window). hasattr gate (inside
+        # _fetch_recent_earnings) for legacy connectors.
+        if event_gate is not None:
+            recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+            r_d = _earnings_event_date(recent_earn, ticker)
+            if r_d is not None:
+                event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d))
+        # #3A: hard-block disruptive corporate actions — remove-only.
+        _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
 
         ev_eng = EVEngine(event_gate=event_gate)
 

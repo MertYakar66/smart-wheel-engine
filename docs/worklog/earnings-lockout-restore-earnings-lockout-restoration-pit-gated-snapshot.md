@@ -4,7 +4,7 @@ title: "Earnings-lockout restoration: PIT-gated snapshot overlay + de-silenced g
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 464
 decisions: []
 date: 2026-07-02
 headline: "Live earnings lockout restored from ~8% to 100% forward coverage via a PIT-gated broad_pull snapshot overlay; event-gate registration failures now logged per stage instead of one silent blanket swallow"

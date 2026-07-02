@@ -243,6 +243,9 @@ def _resolve_real_premium(
     *,
     expiry_tol_days: int = 7,
     strike_tol_frac: float = 0.03,
+    spot_date=None,
+    dte_target: int | None = None,
+    dte_tol_days: int = 10,
 ) -> dict | None:
     """Best-effort REAL EOD market mid for a candidate leg, or ``None``.
 
@@ -251,6 +254,31 @@ def _resolve_real_premium(
     (within ``strike_tol_frac * strike``), point-in-time as of ``as_of``, from
     the option-premium rail (``MarketDataConnector.get_option_premium``). Returns
     the quote dict (``mid`` / ``bid`` / ``ask`` / …) or ``None``.
+
+    **Date/DTE coherence (adversarial review 2026-07-01, D1-1).** The rail's
+    larder and the OHLCV table are pulled on independent schedules, so their
+    frontiers diverge; pairing a quote from one market day with a spot from
+    another books the intervening market move as phantom edge (observed live:
+    a 13-day frontier skew inflated ``ev_dollars`` 4-18x and pushed
+    ``prob_profit`` into the R11 top bin). Two guards, both refuse-only:
+
+    - ``spot_date`` (the date of the OHLCV bar the caller priced ``spot``
+      from): the served quote's ``date`` must equal it exactly — mid and spot
+      must come from the same EOD session. When ``as_of`` is ``None`` the
+      connector is queried *as of the spot bar* rather than "latest", so the
+      candidate quote is the coherent one, not the larder frontier.
+    - ``dte_target`` (the horizon the engine models): the quote's own market
+      ``dte`` must sit within ``dte_tol_days`` of it. This catches the
+      same-session-but-both-stale case date-matching cannot: at a stale
+      ``as_of=None`` frontier the coherent quote's time value spans
+      (today + dte_target) - frontier days, not dte_target days.
+      ``dte_tol_days`` defaults to 10 = ``expiry_tol_days`` (7, the listed-
+      expiry snap) + 3 (spot-bar weekend/holiday lag at an explicit
+      ``as_of``) — tight enough to reject a two-week skew, loose enough for
+      a Monday ``as_of`` pricing off Friday's bar.
+
+    Both default to ``None`` = check skipped (legacy callers, test stubs whose
+    quotes carry no ``date``/``dte``); every ranker call site supplies both.
 
     ``None`` means "no real quote" → the caller keeps its synthetic-BSM premium,
     so behaviour is byte-identical wherever the rail is absent (CI, fresh clones,
@@ -263,9 +291,30 @@ def _resolve_real_premium(
     """
     if conn is None or not hasattr(conn, "list_option_expirations"):
         return None
+    # A production call (dte_target supplied) at as_of=None with no spot-bar
+    # date anchor: the date-coherence guard cannot hold, and the DTE guard
+    # alone would admit up to dte_tol_days of frontier skew — refuse the rail
+    # outright rather than serve "latest". (Legacy callers that supply
+    # neither kwarg are unaffected.)
+    if as_of is None and spot_date is None and dte_target is not None:
+        return None
+    # Query the market as of the spot bar when the caller has no explicit
+    # as_of — never "whatever the larder last saw". NOTE this is a
+    # RE-SELECTION, not a pure refusal: the spot-dated snapshot can serve a
+    # coherent quote in a cell where the old latest-frontier quote failed
+    # mid>0/strike_tol and fell back to synthetic. That quote is
+    # date-matched to the spot session, DTE-bounded, and flows through
+    # EVEngine.evaluate — evaluate-input-correctness, not a rescue. The two
+    # guards BELOW are strictly refuse-only.
+    as_of_eff = as_of
+    if as_of_eff is None and spot_date is not None:
+        try:
+            as_of_eff = pd.Timestamp(spot_date).date().isoformat()
+        except (TypeError, ValueError):
+            as_of_eff = None
     try:
         tgt = pd.Timestamp(target_expiry).normalize()
-        exps = conn.list_option_expirations(ticker, as_of)
+        exps = conn.list_option_expirations(ticker, as_of_eff)
         if not exps:
             return None
         best = min(exps, key=lambda e: abs((pd.Timestamp(e) - tgt).days))
@@ -276,7 +325,7 @@ def _resolve_real_premium(
             best,
             float(strike),
             right,
-            as_of=as_of,
+            as_of=as_of_eff,
             strike_tol=strike_tol_frac * float(strike),
         )
     except Exception:
@@ -289,6 +338,29 @@ def _resolve_real_premium(
             return None
     except (TypeError, ValueError):
         return None
+    if spot_date is not None:
+        q_date = q.get("date")
+        if q_date is None:
+            return None
+        try:
+            if pd.Timestamp(q_date).normalize() != pd.Timestamp(spot_date).normalize():
+                return None
+        except (TypeError, ValueError):
+            return None
+    if dte_target is not None:
+        q_dte = q.get("dte")
+        if q_dte is None and q.get("expiration") is not None and q.get("date") is not None:
+            try:
+                q_dte = (pd.Timestamp(q["expiration"]) - pd.Timestamp(q["date"])).days
+            except (TypeError, ValueError):
+                q_dte = None
+        if q_dte is None:
+            return None
+        try:
+            if abs(int(q_dte) - int(dte_target)) > int(dte_tol_days):
+                return None
+        except (TypeError, ValueError):
+            return None
     return q
 
 
@@ -1254,6 +1326,17 @@ class WheelRunner:
                     }
                 )
                 continue
+            # D1-1: the spot bar's own date — threaded into the real-premium
+            # rail so a served market quote must come from the SAME EOD session
+            # as this spot. Failure shapes are all refuse-only: an exotic
+            # non-datetime index normalizes to a wrong-but-harmless date that
+            # simply mismatches every quote (synthetic fallback), and a parse
+            # failure leaves None, which the rail refuses outright at
+            # as_of=None (no date anchor → no coherence guarantee).
+            try:
+                spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+            except (TypeError, ValueError):
+                spot_bar_date = None
 
             # Get ATM IV and fundamentals.
             # S23 F3 fix: prefer the connector's as-of IV via
@@ -1545,6 +1628,8 @@ class WheelRunner:
                 strike,
                 "put",
                 as_of,
+                spot_date=spot_bar_date,
+                dte_target=int(dte_target),
             )
             if _real_q is not None:
                 premium = float(_real_q["mid"])
@@ -2644,6 +2729,12 @@ class WheelRunner:
         if spot <= 0:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
+        # D1-1: spot-bar date for real-premium rail date-coherence (see the
+        # puts ranker + _resolve_real_premium docstring).
+        try:
+            spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+        except (TypeError, ValueError):
+            spot_bar_date = None
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
@@ -2840,7 +2931,16 @@ class WheelRunner:
                 ask = premium * 1.05
                 # Real EOD market mid (Phase-2 wiring) — see the puts ranker for
                 # the full rationale. Absent rail -> synthetic path unchanged.
-                _real_q = _resolve_real_premium(conn, ticker, new_expiry, strike, "call", as_of)
+                _real_q = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    new_expiry,
+                    strike,
+                    "call",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _real_q is not None:
                     premium = float(_real_q["mid"])
                     bid = float(_real_q["bid"])
@@ -3227,6 +3327,12 @@ class WheelRunner:
         if spot <= 0:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
+        # D1-1: spot-bar date for real-premium rail date-coherence (see the
+        # puts ranker + _resolve_real_premium docstring).
+        try:
+            spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+        except (TypeError, ValueError):
+            spot_bar_date = None
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
@@ -3456,7 +3562,16 @@ class WheelRunner:
                 put_ask = put_premium * 1.05
                 # Real EOD market mid (Phase-2 wiring) — per-leg, same listed
                 # expiry so the two legs stay contemporaneous. See puts ranker.
-                _rq_put = _resolve_real_premium(conn, ticker, expiry, put_strike, "put", as_of)
+                _rq_put = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    expiry,
+                    put_strike,
+                    "put",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _rq_put is not None:
                     put_premium = float(_rq_put["mid"])
                     put_bid = float(_rq_put["bid"])
@@ -3477,7 +3592,16 @@ class WheelRunner:
                 )
                 call_bid = call_premium * 0.95
                 call_ask = call_premium * 1.05
-                _rq_call = _resolve_real_premium(conn, ticker, expiry, call_strike, "call", as_of)
+                _rq_call = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    expiry,
+                    call_strike,
+                    "call",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _rq_call is not None:
                     call_premium = float(_rq_call["mid"])
                     call_bid = float(_rq_call["bid"])

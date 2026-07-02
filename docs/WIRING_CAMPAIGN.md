@@ -332,7 +332,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 | `rtg_sp/rtg_moody/rtg_fitch` → **new credit reviewer** (junk-grade → **0.85× `ev_dollars`**, no hard refusal; final multiplier set in the §2 panel) | `candidate_dossier.py` reviewer (today credit CSV is **off the EV path**, audit C1) | downgrade-only *(mechanism = `ev_dollars` scaling)* | **Yes → coupled** (wiring builds a live reviewer) | **CEREMONY** | roadmap §6 ratings, §8, audit C1 |
 | `gics_sector`/group/industry/sub | informs **#372** R9 — but **#372 sources GICS from main `fundamentals`**, not this snapshot (lookahead) | downgrade-only | Yes → coupled (via #372) | (see #372) | roadmap §5 GICS |
 | `inst_pct`/`free_float_pct`/`float_shares` → R9/R10 concentration context | `portfolio_risk_gates` | advisory-sizing | No (context only) | PLAIN | roadmap §6 institutional/float |
-| `next_earnings_dt` (`EXPECTED_REPORT_DT`) → earnings lockout refresh | `event_gate` (earnings) | remove-only-gate | **Yes → coupled** | PANEL | roadmap §8 earnings timing |
+| `next_earnings_dt` (`EXPECTED_REPORT_DT`) → earnings lockout refresh | **WIRED 2026-07-02 (D3-1 fix)**: PIT-gated overlay in `data_connector.get_next_earnings`/`get_recent_earnings` → `event_gate` (earnings) | remove-only-gate | **No — decoupled by the PIT gate** (overlay participates only for `as_of >= asof` 2026-06-18; every dated backtest at or before the data frontier is byte-identical) | PANEL (run at wiring) | roadmap §8 earnings timing |
 
 > **Snapshot caveat (load-bearing):** this is a **single as-of (2026-06-18)**, not history —
 > ratings and GICS carry **current** values, so feeding them into a historical backtest is a

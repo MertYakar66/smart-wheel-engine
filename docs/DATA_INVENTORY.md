@@ -250,7 +250,7 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 | `per_name/estimates_m.csv` | best_eps,best_sales,best_ebitda,best_target,best_pe,best_rating,analyst_count | 2010-01-29→2026-05-29 (M) | 92,680 | 511 |
 | `per_name/estimates_fwd.csv` | best_{ebitda,eps,sales}_{1bf,2bf} | 2010-01-29→2026-05-29 (M) | 93,169 | 511 |
 | `per_name/valuation_m.csv` | px_to_book,ev_to_ebitda,px_to_sales,pe,peg | 2010-01-29→2026-05-29 (M) | 89,079 | 509 |
-| `per_name/sp500_snapshot_bdp.csv` | rtg_sp/moody/fitch,gics_sector/ind_grp/industry/sub_ind,inst_pct,free_float_pct,float_shares,next_earnings_dt | as-of 2026-06-18 | 511 | 511 |
+| `per_name/sp500_snapshot_bdp.csv` | rtg_sp/moody/fitch,gics_sector/ind_grp/industry/sub_ind,inst_pct,free_float_pct,float_shares,next_earnings_dt (**`next_earnings_dt` CONSUMED**: PIT-gated forward-calendar overlay in `get_next_earnings`/`get_recent_earnings` — the D3-1 earnings-lockout fix; participates only for `as_of >= asof`) | as-of 2026-06-18 | 511 | 511 |
 | `dividend_pit/sp500_dividend_yield_pit.csv` | dvd_yld_12m,dvd_yld_ind,dvd_sh_12m (**DATED**) | 2010-01-29→2026-05-29 (M) | 72,461 | 421 |
 | `short_interest/sp500_short_interest.csv` | short_interest,short_int_ratio (biweekly) | 2015-01-15→2026-05-29 | 134,035 | 509 |
 

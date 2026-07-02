@@ -9,11 +9,15 @@ campaign feeds into the existing ``EventGate``.
 
 Why EDGAR for earnings dates?
 -----------------------------
-The current ``MarketDataConnector.get_next_earnings`` reads from
-``data/bloomberg/sp500_earnings_yf.csv`` — a yfinance snapshot of the
-*current* next-earnings date. For live use it's fine; for historical
-backtests it leaks lookahead because yfinance always returns the most
-recent known schedule, not what was known on the as-of date.
+The current ``MarketDataConnector.get_next_earnings`` reads
+``data/bloomberg/sp500_earnings.csv`` plus (since the D3-1 fix) a
+point-in-time-gated overlay of the broad-pull snapshot's
+``next_earnings_dt`` — NOT the yfinance file, whose snapshot-of-current
+shape would leak lookahead into historical backtests (it always returns
+the most recent known schedule, not what was known on the as-of date;
+the overlay avoids this by refusing to serve for ``as_of`` before its
+own ``asof`` stamp). That covers live and near-frontier use; deep
+HISTORICAL earnings-date backfill is still the open problem.
 
 EDGAR 8-K filings are immutable historical records: the ``filing_date``
 of an Item-2.02 filing IS the date the earnings release was made

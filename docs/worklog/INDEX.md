@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**148 records.**
+**150 records.**
 
 ## Features (16)
 
@@ -32,7 +32,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (25)
+## Fixes (27)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -62,6 +62,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [rec2-onpath-failloud](rec2-onpath-failloud-heavy-verify-rec-2-closure-widening-neutral-guar.md) | in-flight |  | realized_vol_ratio returns the documented no-fire 1.0 on a non-finite ratio (was: NaN silently hit max widening 1.15); Sites A/C adjudicated NO_CHANGE/EXPLICIT_KEEP and pinned. | `rec2-onpath-failloud-heavy-verify-rec-2-closure-widening-neutral-guar.md` |
 | [regression-lock-honesty](regression-lock-honesty-regression-lock-honesty-rail-neutralization-broa.md) | shipped | #465 | Replays and exact-EV test pins are now rail-independent (local == CI == committed baselines by construction); the two broad_pull connector inputs are fingerprint-pinned; a truthy non-DataFrame corp-action payload no longer kills the whole ranking run | `regression-lock-honesty-regression-lock-honesty-rail-neutralization-broa.md` |
 | [suggest-rolls-defensive](suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md) | in-flight |  | suggest_rolls / suggest_call_rolls no longer go silent on a challenged position — an opt-in include_defensive surfaces credit-gate-failing (debit) rolls flagged defensive=True (each scored through EVEngine.evaluate), and .attrs["defensive"] always reports how many defensive rolls exist so the credit-only default is never a silent zero. | `suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md` |
+| [wallclock-staleness](wallclock-staleness-universe-wallclock-frontier-staleness-layers.md) | shipped | #470 | A 27-day-stale OHLCV frontier was runtime-invisible (the only gate was frontier-relative, reading 0 when the whole universe is stale, while the event gate used the real wall clock); now: once-per-connector warn at >7d, structured attrs['staleness'] on all three rankers + API surfacing, and an opt-in universe-wide refusal — default byte-identical | `wallclock-staleness-universe-wallclock-frontier-staleness-layers.md` |
 
 ## Backtests (23)
 

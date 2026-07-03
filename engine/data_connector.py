@@ -859,6 +859,23 @@ class MarketDataConnector:
     # refuter panel, ops lens).
     _SNAPSHOT_EARNINGS_STALE_DAYS: int = 45
 
+    # Runtime staleness alarm for the OHLCV frontier itself (D1-2/D3-2,
+    # adversarial review 2026-07-01: "27-day frontier staleness invisible
+    # at runtime"). At ``as_of=None`` the rankers price spots off the
+    # frontier bar while the event gate uses the REAL wall clock — a stale
+    # tree served month-old spots with no runtime signal anywhere. 7, not
+    # 30: (i) parity with the option-premium rail's 7d wall-clock bound
+    # (#463) — both answer "is this the current market state?"; (ii) the
+    # longest legitimate market-closed gap is ~4-5 calendar days (holiday
+    # long weekend), so 7 has zero false positives on a maintained box;
+    # (iii) the ranker's ``max_as_of_staleness_days`` default (30) would
+    # have stayed silent through the motivating 27-day live case. WARN
+    # only (once per connector) — never refuses; the deterministic
+    # EXPECTED_FRONTIER preflight pin catches stale TREES, this catches a
+    # current tree with old data at runtime. Opt-in hard refuse lives in
+    # the rankers (``refuse_stale_live`` / SWE_REFUSE_STALE_LIVE).
+    _OHLCV_FRONTIER_STALE_DAYS: int = 7
+
     def _load_snapshot_bdp_panel(self) -> pd.DataFrame | None:
         """The broad-pull per-name snapshot (``broad_pull/per_name/
         sp500_snapshot_bdp.csv``), loaded lazily via ``BroadPullLoader``
@@ -1617,6 +1634,33 @@ class MarketDataConnector:
             today_ts = pd.Timestamp(_dt.date.today())
             if frontier > today_ts:
                 frontier = today_ts
+            # D1-2/D3-2 runtime staleness alarm (warn-only, once per
+            # connector; see _OHLCV_FRONTIER_STALE_DAYS for the threshold
+            # rationale). NEVER changes the return value — a stale frontier
+            # is still the correct frontier; refusing here would blank every
+            # as_of=None consumer (the #462 lesson). get_data_frontier is
+            # only reached at as_of=None (pinned by
+            # test_asof_none_staleness), so dated backtests never hit this.
+            age_days = int((today_ts - frontier).days)
+            _warned: set = getattr(self, "_warned_stale_frontier_datasets", set())
+            if age_days > self._OHLCV_FRONTIER_STALE_DAYS and dataset not in _warned:
+                # Per-DATASET warn-once (2026-07-03 refuter panel): a stale
+                # vol_iv probe must neither mislabel itself "OHLCV" nor
+                # consume the alarm slot of a later genuine OHLCV warn.
+                logger.warning(
+                    "%s data frontier %s is %d days behind the wall clock "
+                    "(threshold %dd): live as_of=None ranks price spots off a "
+                    "back-dated close while the event gate uses today's date. "
+                    "Refresh the Bloomberg monoliths (docs/"
+                    "BLOOMBERG_TERMINAL_NEXT_SESSION.md §1) or pass an explicit "
+                    "as_of; arm SWE_REFUSE_STALE_LIVE=1 to hard-refuse instead.",
+                    dataset,
+                    frontier.date(),
+                    age_days,
+                    self._OHLCV_FRONTIER_STALE_DAYS,
+                )
+                _warned.add(dataset)
+                self._warned_stale_frontier_datasets = _warned
             return frontier
         except Exception:
             return None

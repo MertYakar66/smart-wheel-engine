@@ -1,7 +1,7 @@
 """Regression tests for ranker diagnostic-column honesty.
 
 Two findings from the 2026-05-25 end-to-end review
-(``docs/END_TO_END_REVIEW_2026_05_25.md``) pinned diagnostic columns
+(``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``) pinned diagnostic columns
 that surfaced upstream values regardless of whether the corresponding
 engine signal was actually live, misleading anyone reading the row:
 

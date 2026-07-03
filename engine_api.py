@@ -150,7 +150,7 @@ _TV_SEEN_NONCES_LOCK = threading.Lock()
 # **by design** in their overlay rules (Pine chart agreement,
 # ``prob_profit`` floor) — only the bare EV floor is unified here.
 # Closes the threshold-drift half of C2 from
-# ``docs/END_TO_END_REVIEW_2026_05_25.md``.
+# ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``.
 _MIN_PROCEED_EV_DOLLARS: float = MIN_PROCEED_EV_DOLLARS
 
 
@@ -2968,7 +2968,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         #
         # The non-finite + negative-EV hard-stops mirror
         # ``EnginePhaseReviewer.review`` R1a / R1 (closes C1 from
-        # ``docs/END_TO_END_REVIEW_2026_05_25.md``). Without the non-finite
+        # ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``). Without the non-finite
         # branch, ``+inf`` ``ev_dollars`` would slip past the
         # ``ev_dollars < 0`` check (False) and could land in the ``>= 10``
         # proceed branch; ``NaN`` would fall all the way through to the final

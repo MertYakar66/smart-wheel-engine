@@ -1,7 +1,7 @@
 """Regression tests for the ranker→tracker production wire.
 
 Closes **C3** and **C4** from
-``docs/END_TO_END_REVIEW_2026_05_25.md`` and TERMINAL_A_AUDIT.md
+``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md`` and TERMINAL_A_AUDIT.md
 cross-cutting #4:
 
 * **C3** — :meth:`engine.wheel_runner.WheelRunner.build_candidate_dossiers`

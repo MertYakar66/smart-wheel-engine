@@ -139,3 +139,31 @@ def sample_portfolio():
         'gamma': [0.02, 0.015, 0.025, 0.018, 0.022],
         'vega': [0.12, 0.15, 0.10, 0.14, 0.11],
     })
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _neutralize_option_premium_rail(tmp_path_factory):
+    """Pin SWE_OPTION_PREMIUM_DIR to an empty dir for the whole suite (D4-2).
+
+    The option-premium rail (gitignored ``data_processed/option_premium/``,
+    absent in CI) is otherwise picked up via the DEFAULT-path fallback in
+    ``MarketDataConnector.__init__`` — unset/empty env means "use the repo
+    default dir", NOT "rail off" — and swaps the ranker's synthetic-BSM
+    premium for real market mids, breaking exact-EV pins locally that are
+    green in CI (the AAPL $5.35 F4 control was the live instance).
+
+    Session scope is load-bearing: module/class-scoped runner fixtures
+    (``test_w2_output_realism.ranked``, ``TestF4CasesRanker.runner``)
+    construct the connector during fixture setup, before any function-scoped
+    autouse fixture would run. Rail tests opt in by ``monkeypatch.setenv``-ing
+    their own dir (function scope overrides this baseline and restores it on
+    teardown). The env var is read once per connector construction — keep it
+    that way; an import-time read would defeat this fixture.
+    """
+    mp = pytest.MonkeyPatch()
+    mp.setenv(
+        "SWE_OPTION_PREMIUM_DIR",
+        str(tmp_path_factory.mktemp("no_option_premium_rail")),
+    )
+    yield
+    mp.undo()

@@ -1228,6 +1228,7 @@ class MarketDataConnector:
         *,
         min_dte: int | None = None,
         max_dte: int | None = None,
+        max_staleness_days: int = 7,
     ) -> list[pd.Timestamp]:
         """Sorted listed expirations with a real EOD snapshot available PIT.
 
@@ -1238,8 +1239,12 @@ class MarketDataConnector:
         belt so the ranker can snap a DTE target to a listed expiry. Empty list
         when no produced data exists, or — mirroring
         :meth:`get_option_premium_chain` — when ``as_of`` is ``None`` and the
-        larder's freshest snapshot is more than 7 days behind today's wall
-        clock (``as_of=None`` means "the current market state"; D1-1/AB-4).
+        larder's freshest snapshot is more than ``max_staleness_days``
+        (default 7, matching :meth:`get_option_premium_chain`) behind today's
+        wall clock (``as_of=None`` means "the current market state";
+        D1-1/AB-4). Deliberate asymmetry vs the chain accessor: an explicit
+        ``as_of`` here has NO staleness bound — a PIT backtest may see any
+        snapshot ``<= as_of``, however old.
         """
         df = self._load_option_premium(ticker)
         if df.empty:
@@ -1254,7 +1259,7 @@ class MarketDataConnector:
             ref = sub["date"].max()
             # D1-1/AB-4 hardening — same wall-clock bound as
             # get_option_premium_chain's as_of=None branch (refuse-only).
-            if (pd.Timestamp.now().normalize() - ref).days > 7:
+            if (pd.Timestamp.now().normalize() - ref).days > max_staleness_days:
                 return []
         exps = sorted(pd.Timestamp(e) for e in sub["expiration"].dropna().unique())
         out: list[pd.Timestamp] = []

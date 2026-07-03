@@ -251,6 +251,8 @@
     "vol_iv_sha256": "aab4eada1af5c9aa70699e669115663d9a45e5fa6c4523b1275170ed5baadaca",
     "treasury_sha256": "48a20a883580b038e7c34ecc07d90c21ab43294b7c0be3a823ac5e2dfa0d00ce",
     "connector_data_sha256": {
+      "broad_pull_dividend_pit": "1d5908f901d9228c51c1c90ede53c78c8f102ee4311dddc9b2fb601055458f50",
+      "broad_pull_snapshot_bdp": "e96bb4209f4c0bc38c99ce3069638fe7276e32aaab4a46f5252a1164cf3c9be6",
       "corporate_actions": "cbda1d599a22254014cc124eb6936730880911285288f56ff5fc4c9210a6d272",
       "credit_risk": "6a3e31e0c94b6ba6c403748f76d0fe94f0d50b9b406b60c0124216668f6c813d",
       "dividends": "317e56c69615fdd8110280588cff4bccce4f151a56991cb1e03fec7c954e3143",

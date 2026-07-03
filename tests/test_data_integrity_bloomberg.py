@@ -553,13 +553,16 @@ def test_ohlcv_scale_breaks_are_the_known_two():
 def test_fingerprint_pins_every_connector_file():
     """The snapshot fingerprint must pin EXACTLY the files the connector reads,
     so no un-pinned read path can silently slip a refresh past re-baseline (the
-    2026-06-06 dividends-incident class). This is the FAST-CI completeness guard;
+    2026-06-06 dividends-incident class). Since 2026-07-02 (campaign item 3)
+    that includes the two broad_pull files consumed OUTSIDE ``_FILES`` — the
+    PIT dividend-yield panel and the #464 earnings-calendar overlay, which
+    were unpinned reads before. This is the FAST-CI completeness guard;
     the drift COMPARE (test_snapshot_data_fingerprint_matches_current) lives on
     the slow backtest_regression lane."""
-    from backtests.regression._common import connector_data_sha256
+    from backtests.regression._common import _BROAD_PULL_PINNED, connector_data_sha256
 
     pinned = set(connector_data_sha256().keys())
-    expected = set(MarketDataConnector._FILES.keys())
+    expected = set(MarketDataConnector._FILES.keys()) | set(_BROAD_PULL_PINNED.keys())
     assert pinned == expected, (
         f"fingerprint pins {pinned} but connector reads {expected}; unpinned: {expected - pinned}"
     )

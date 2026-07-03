@@ -387,7 +387,8 @@ def _register_corp_action_events(
 
     Remove-only (§2): this can only drop a candidate, never rescue one. No-op
     for connectors / stubs without ``get_corporate_actions`` (ThetaConnector,
-    test stubs) and on any read/parse error — never crashes the ranker.
+    test stubs) and on any read/parse error or unusable payload shape (a
+    truthy non-DataFrame return) — never crashes the ranker.
     """
     if event_gate is None or not hasattr(conn, "get_corporate_actions"):
         return
@@ -414,15 +415,34 @@ def _register_corp_action_events(
             exc,
         )
         return
-    if ca is None or len(ca) == 0:
+    if ca is None:
         return
-    for _, row in ca.iterrows():
-        eff = row.get("effective_date")
+    # #464 verdict nit v1: probe the payload shape INSIDE a guard — a truthy
+    # non-DataFrame return (list/dict → AttributeError on .iterrows, scalar →
+    # TypeError on len) previously escaped every handler here and killed the
+    # ENTIRE multi-ticker ranking run, the one case the old blanket except
+    # caught that the #464 per-stage guards did not. Same fail-open-but-loud
+    # semantics and catch tuple as _earnings_event_date.
+    try:
+        if len(ca) == 0:
+            return
+        ca_rows = list(ca.iterrows())
+    except (TypeError, ValueError, AttributeError) as exc:
+        logger.warning(
+            "event-gate: unusable get_corporate_actions payload (%s) for %s — "
+            "corp-action lockout NOT armed for this name (%r)",
+            type(ca).__name__,
+            ticker,
+            exc,
+        )
+        return
+    for _, row in ca_rows:
+        eff = row.get("effective_date") if hasattr(row, "get") else None
         if eff is None:
             continue
         try:
             eff_d = eff.date() if hasattr(eff, "date") else pd.Timestamp(eff).date()
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             continue
         event_gate.add_event(ScheduledEvent(ticker=ticker, kind="corp_action", event_date=eff_d))
 

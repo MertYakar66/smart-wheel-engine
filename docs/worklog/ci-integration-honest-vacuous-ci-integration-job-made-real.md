@@ -4,7 +4,7 @@ title: "Vacuous CI Integration Tests job made real (item 5b)"
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 468
 decisions: []
 date: 2026-07-02
 headline: "The Integration Tests CI job ran ZERO tests behind continue-on-error since its creation (exit 5 masked, reported green); it now runs 26 real cross-boundary tests with --strict-markers and fails on exit 5, so the lane can never silently regress to vacuous"

@@ -144,5 +144,20 @@ load-bearing claim verified first-hand before design.
   by design; the synthetic-parquet tests in
   `tests/test_real_premium_wiring.py` remain the rail-ON coverage. A
   future deliberate rail-ON regression lane needs its own baselines.
+- **Verification-artifact drivers stay env-dependent** (panel residual):
+  `docs/verification_artifacts/r10_strict_driver.py` and the R11
+  dollar-impact driver build their own `WheelRunner` outside any pin,
+  so their re-runs on a rail-bearing box still follow the shell env.
+  (The 2026-06-28 skew study is fine — it hard-refuses when the env
+  var is unset, rail-ON by explicit contract.)
+- The four committed snapshots do NOT carry the new
+  `option_premium_rail: "pinned_off"` fingerprint key (they predate
+  the pin; retro-writing provenance would be dishonest — the rail was
+  off at lock time because #435 postdates b3aa236, not because of a
+  pin). Nothing compares the key; the next re-baseline adds it
+  naturally.
+- If the HELD #462 macro-calendar branch ever merges, its
+  `macro_calendar` broad_pull read becomes a NEW unpinned connector
+  input — extend `_BROAD_PULL_PINNED` in the same PR.
 - #464 verdict nit v2 (overlay-served names show `estimate_eps=None`
   on advisory surfaces) remains backlog — cosmetic, memo-side.

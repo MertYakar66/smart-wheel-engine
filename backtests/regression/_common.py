@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 from collections.abc import Sequence
@@ -49,6 +50,8 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 _FRICTION_LEVELS = ("none", "bid_ask", "full")
+
+logger = logging.getLogger(__name__)
 
 
 def friction_adjusted_premium(premium: float, friction_level: str) -> float:
@@ -235,6 +238,16 @@ def _option_premium_rail_pinned_off():
     """
     key = "SWE_OPTION_PREMIUM_DIR"
     prev = os.environ.get(key)
+    if prev and any(Path(prev).glob("*.parquet")):
+        # Disclose at runtime, not just in the fingerprint: the operator
+        # exported a REAL populated rail and the lane is overriding it by
+        # design. (The pytest session pin — an empty tmp dir — stays quiet.)
+        logger.warning(
+            "regression lane: overriding %s=%r — replays run rail-off by design "
+            "(D4-2); rail-ON studies belong in the verification-artifact drivers",
+            key,
+            prev,
+        )
     os.environ[key] = str(Path(__file__).resolve().parent / "_no_option_premium_rail")
     try:
         yield
@@ -248,14 +261,20 @@ def _option_premium_rail_pinned_off():
 def _assert_rail_neutralized(conn) -> None:
     """Fail loud if a future refactor moves connector construction outside
     the ``_option_premium_rail_pinned_off`` scope — on a rail-bearing box
-    the default premium dir EXISTS, so this trips before hours of replay
-    quietly diverge from the committed rail-off baselines."""
+    the default premium dir contains produced parquets, so this trips before
+    hours of replay quietly diverge from the committed rail-off baselines.
+
+    ``RuntimeError``, not ``assert`` (must survive ``python -O``); probes for
+    actual parquet CONTENT, not directory existence — the pytest session pin
+    is an existing-but-empty dir, which is a valid rail-off configuration,
+    not a violation (2026-07-02 refuter panel)."""
     rail_dir = getattr(conn, "_option_premium_dir", None)
-    assert rail_dir is None or not Path(rail_dir).exists(), (
-        f"replay connector sees a populated option-premium rail at {rail_dir}; "
-        "the regression lane must run rail-off (D4-2) — construct the connector "
-        "inside _option_premium_rail_pinned_off()"
-    )
+    if rail_dir is not None and any(Path(rail_dir).glob("*.parquet")):
+        raise RuntimeError(
+            f"replay connector sees a populated option-premium rail at {rail_dir}; "
+            "the regression lane must run rail-off (D4-2) — construct the connector "
+            "inside _option_premium_rail_pinned_off()"
+        )
 
 
 # ---------------------------------------------------------------------------

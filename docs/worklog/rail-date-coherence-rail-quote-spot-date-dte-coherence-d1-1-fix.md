@@ -91,7 +91,8 @@ by construction: every new branch can only turn `market_mid` into
 - Adversarial 3-refuter panel on the diff (§2 / correctness / blast-radius
   lenses): CONCERN / SAFE / SAFE, zero blockers; both should-fixes (comment
   accuracy, the `list_option_expirations` wall-clock bound) and the
-  structural-hinge note (no-anchor refusal) addressed in `afcb483`. Panel
+  structural-hinge note (no-anchor refusal) addressed pre-merge (branch
+  head `afcb483`, squashed into #463 = `81fc2c5` on main). Panel
   mutation-checked every new pin red on origin/main and hunk-verified the
   rail-absent path byte-identical. *(This round postdated the original
   fragment; recorded 2026-07-02 per the #463 verdict's n1 note.)*

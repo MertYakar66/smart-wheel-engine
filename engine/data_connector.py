@@ -1485,10 +1485,11 @@ class MarketDataConnector:
         current snapshot, closing the #354 / W-2 carry-``q`` lookahead. This
         is the connector half of Phase 3G; ONLY ``dividend_yield`` is made
         PIT here (the other fields remain the current snapshot pending broader
-        PIT wiring). ``as_of=None`` (the default — and the ranked path today,
-        since no consumer threads ``as_of`` yet) returns the snapshot unchanged,
-        so the change is backward-compatible and **not EV-moving** until the
-        supervised step threads ``as_of`` from ``wheel_runner``. The dated
+        PIT wiring). The supervised step LANDED: the puts ranker
+        (``rank_candidates_by_ev``) threads ``as_of`` into this method since
+        #428 (EV-moving; S27/S32/S34/S35 re-baselined in #429); the
+        covered-call and strangle rankers still call the snapshot form (no
+        ``as_of``). ``as_of=None`` returns the snapshot unchanged. The dated
         panel falls back to the snapshot when absent / NaN at ``as_of`` (never
         worse than today).
         """

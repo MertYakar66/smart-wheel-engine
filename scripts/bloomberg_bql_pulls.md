@@ -31,8 +31,9 @@ Expected columns:
 
 ## 2. Corporate actions (splits, specials, M&A)  → `sp500_corporate_actions.csv`
 
-Currently the file on disk is 2 bytes. Required by the event gate to avoid
-early-assignment on short calls around specials / splits.
+Populated 2026-07 (~2.6 MB, 52,442 rows, announce 1962→2026-06; re-run this
+recipe to refresh). Required by the event gate to avoid early-assignment on
+short calls around specials / splits.
 
 ```bql
 =BQL.QUERY("get(cac_announcement_date, cac_effective_date, cac_type, cac_ratio, cac_amount) for(members('SPX Index')) with(dates=range(2015-01-01, 2026-12-31))")

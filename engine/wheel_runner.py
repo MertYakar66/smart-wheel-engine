@@ -3931,7 +3931,7 @@ class WheelRunner:
                 design.
 
                 Closes C3 from
-                ``docs/END_TO_END_REVIEW_2026_05_25.md`` by exposing
+                ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md`` by exposing
                 the parameter the underlying
                 :func:`~engine.candidate_dossier.build_dossiers`
                 already accepted.
@@ -4019,7 +4019,7 @@ class WheelRunner:
         Callers inspect the returned outcomes to know what fired and
         what refused.
 
-        Closes C4 from ``docs/END_TO_END_REVIEW_2026_05_25.md`` and
+        Closes C4 from ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md`` and
         TERMINAL_A_AUDIT.md cross-cutting #4: until this method
         landed, the rank-to-tracker chain was the operator's
         responsibility to wire row-by-row. D16 / D17 hardening was a

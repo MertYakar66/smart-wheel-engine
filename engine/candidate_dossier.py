@@ -50,7 +50,7 @@ Verdict = Literal["proceed", "review", "skip", "blocked"]
 # and cannot drift on threshold value. The two ladders are divergent
 # **by design** in their overlay rules (chart agreement, ``prob_profit``
 # floor) but the bare EV floor should be one number. Closes the
-# threshold-drift half of C2 from ``docs/END_TO_END_REVIEW_2026_05_25.md``.
+# threshold-drift half of C2 from ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``.
 MIN_PROCEED_EV_DOLLARS: float = 10.0
 
 # R11 (elevated-vol top-bin size-down) parameters — heavy-verify 2026-05-31 I11.
@@ -160,7 +160,7 @@ class EnginePhaseReviewer:
        "engine produced an unparseable value — investigate the
        upstream computation" apart from "engine evaluated the trade
        as a loss". Closes C1 from
-       ``docs/END_TO_END_REVIEW_2026_05_25.md``: without the
+       ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``: without the
        non-finite block, ``+inf`` slid through both R1 (``+inf < 0``
        is False) and R5 (``+inf >= threshold`` is True) and was
        reported as ``"proceed"``; ``NaN`` silently degraded to

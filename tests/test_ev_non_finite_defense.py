@@ -1,7 +1,7 @@
 """Regression tests for the non-finite EV defense across verdict paths.
 
 Closes **C1** and **C2** from
-``docs/END_TO_END_REVIEW_2026_05_25.md``:
+``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``:
 
 * **C1** — :class:`engine.candidate_dossier.EnginePhaseReviewer` R1
   previously had no ``math.isfinite`` guard. ``+inf`` ``ev_dollars``

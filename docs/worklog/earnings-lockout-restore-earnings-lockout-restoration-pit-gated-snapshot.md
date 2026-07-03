@@ -163,7 +163,9 @@ column — the overlay participates only when `as_of >= asof`.
 - **Item 3 must add broad-pull consumed files to
   `connector_data_sha256`** (`dividend_pit` + now `snapshot_bdp`) — the
   overlay is currently an unpinned read, the exact blind spot item 3
-  (regression-lock honesty) exists to close.
+  (regression-lock honesty) exists to close. *(CLOSED 2026-07-02 by
+  #465 — both files now pinned as `broad_pull_dividend_pit` /
+  `broad_pull_snapshot_bdp`.)*
 - The snapshot decays ~1 name/day in earnings season; 15/511 dates had
   already passed at wiring (those names now serve via the back-buffer
   instead). Next broad-pull re-pull refreshes; the three staleness

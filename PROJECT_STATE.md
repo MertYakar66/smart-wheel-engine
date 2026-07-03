@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-06-25.
+**Last updated:** 2026-07-02 (deployment-truth doc pass: data-currency
+blockquote refreshed to the 2026-06-04 frontier + 10-file/3-producer
+counts; fingerprint note extended for the #465 broad_pull pins).
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -72,12 +74,18 @@ soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
 > **Data currency (point-in-time).** The committed Bloomberg CSVs are
-> point-in-time as of **2026-03-20** (the freshest cut the `xbbg`
-> pullers' hardcoded `end_date` reaches). A full refresh is **partially
-> blocked**: only 3 of the 9 connector CSVs have a reproducible in-repo
-> producer; the other 6 — including the core IV file
-> `sp500_vol_iv_full.csv` — have no repo producer. See
-> `docs/DATA_POLICY.md` §5 and `docs/bloomberg_refresh_runbook.md`.
+> point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
+> pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
+> the committed pullers' hardcoded `end_date` still reads 2026-03-20,
+> so re-running them unedited would *regress* the frontier). A full
+> refresh remains **partially blocked**: of the **10** connector CSVs
+> (`engine/data_connector.py::_FILES`), only **3** have a reproducible
+> in-repo producer; the other **7** — including the core IV file
+> `sp500_vol_iv_full.csv` and the now-consumed
+> `sp500_corporate_actions.csv` (populated by the operator's manual
+> BQL pull; Theta's corp-actions endpoints 404 at this tier) — have no
+> repo producer. See `docs/DATA_POLICY.md` §5 and
+> `docs/bloomberg_refresh_runbook.md`.
 
 ## 2. Recent decision-layer audits
 
@@ -171,7 +179,11 @@ worklog fragments carry the evidence.
 - **Bloomberg data refresh R1 + re-baseline** (#338) — 16 monolith CSVs
   refreshed; S27/S32/S34/S35 snapshots re-pinned; the regression
   fingerprint now pins every connector input
-  (`connector_data_sha256`, #346), so data drift fails fast per-PR.
+  (`connector_data_sha256`, #346 — extended by #465 to the two
+  broad_pull panels consumed outside `_FILES`: `dividend_pit`
+  (#426/#428 BSM carry-q) and `snapshot_bdp` (#464 earnings-calendar
+  overlay), which were otherwise-unpinned reads), so data drift fails
+  fast per-PR.
 - **Open data queue is consolidated** in
   `docs/NEXT_DATA_SESSION_RUNBOOK.md` (#381 — the single authoritative
   re-baseline-session runbook; bundles the D19 + D21 deferred fixes),

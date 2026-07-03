@@ -248,5 +248,9 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run integration tests
-        run: pytest tests/ -v -m "integration" --tb=short
-        continue-on-error: true  # Integration tests may need external services
+        # Real cross-boundary tests (loopback HTTP server, subprocess spawns).
+        # NO continue-on-error: pytest exit 5 (zero tests selected) must FAIL
+        # the job so this lane can never silently regress to vacuous again —
+        # it ran 0 tests behind continue-on-error from its creation until
+        # 2026-07-02 (adversarial review 2026-07-01, "vacuous CI job").
+        run: pytest tests/ -v -m "integration" --strict-markers --tb=short

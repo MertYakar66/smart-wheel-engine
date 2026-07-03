@@ -1,47 +1,33 @@
 """
-#14 - Liquidity Metrics (critical for execution)
-BQL: get(avg_volume_30d, bid_ask_spread, turnover) for(members('SPX Index'))
-     with(dates=range(2015-01-01, 2026-03-17), fill=prev)
+#14 - Liquidity metrics (critical for execution)
+Pull S&P 500 liquidity metrics from Bloomberg -> data/bloomberg/sp500_liquidity.csv
+
+Contiguous-backfill aware (see scripts/_bbg_panel.py): fills the forward gap to
+END_DATE and walks backward to the 1994 floor newest-first, rewriting the CSV
+after every window so a metered-API cap never loses contiguous coverage.
+
+Columns (committed schema, preserved EXACTLY): date,avg_vol_30d,turnover,shares_out,ticker
+  - shares_out comes from EQY_SH_OUT and MUST NOT be dropped.
+Ticker format: "AAPL UW" (exchange code, no " Equity" suffix).
+Fill="P" carries the previous value across non-print days.
+
+Env knobs: see scripts/_bbg_panel.py.
 """
 
-import os
+from _bbg_panel import PanelConfig, run
 
-import pandas as pd
-from xbbg import blp
-
-print("Getting S&P 500 members...")
-members = blp.bds("SPX Index", "INDX_MWEIGHT")
-tickers = [t + " Equity" for t in members["member_ticker_and_exchange_code"].tolist()]
-print(f"Found {len(tickers)} tickers")
-
-FIELDS = ["VOLUME_AVG_30D", "BID_ASK_SPREAD", "TURNOVER"]
-CHUNK_SIZE = 30
-all_chunks = []
-
-for i in range(0, len(tickers), CHUNK_SIZE):
-    chunk = tickers[i : i + CHUNK_SIZE]
-    print(f"Pulling {i + 1} to {min(i + CHUNK_SIZE, len(tickers))} of {len(tickers)}...")
-    try:
-        df = blp.bdh(
-            tickers=chunk, flds=FIELDS, start_date="2015-01-01", end_date="2026-03-20", Fill="P"
-        )
-        df.columns.names = ["ticker", "field"]
-        long = df.stack(level=0).reset_index()
-        long.columns = ["date", "ticker", "avg_vol_30d", "bid_ask_spread", "turnover"]
-        long["ticker"] = long["ticker"].str.replace(" Equity", "")
-        all_chunks.append(long)
-        print(f"  Got {len(long)} rows")
-    except Exception as e:
-        print(f"  Error on chunk {i}: {e}")
-
-print("Combining all chunks...")
-result = pd.concat(all_chunks, ignore_index=True)
-result["date"] = pd.to_datetime(result["date"])
-result = result.sort_values(["ticker", "date"]).reset_index(drop=True)
-
-out_path = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg", "sp500_liquidity.csv")
-os.makedirs(os.path.dirname(out_path), exist_ok=True)
-result.to_csv(out_path, index=False)
-
-print(f"\nDone! Saved {len(result):,} rows")
-print(f"Tickers: {result['ticker'].nunique()}")
+run(PanelConfig(
+    out_name="sp500_liquidity.csv",
+    fields=["VOLUME_AVG_30D", "TURNOVER", "EQY_SH_OUT"],
+    field_map={
+        "VOLUME_AVG_30D": "avg_vol_30d",
+        "TURNOVER": "turnover",
+        "EQY_SH_OUT": "shares_out",
+    },
+    out_cols=["date", "avg_vol_30d", "turnover", "shares_out", "ticker"],
+    start_date_full="2015-01-01",
+    end_date="2026-06-04",
+    floor="1994-01-01",
+    strip_equity_suffix=True,
+    bdh_kwargs={"Fill": "P"},
+))

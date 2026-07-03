@@ -4,7 +4,7 @@ title: "Code-comment truth sweep: dead doc paths + stale docstrings (item 5a)"
 kind: docs
 status: shipped
 terminal: X
-pr:
+pr: 467
 decisions: []
 date: 2026-07-02
 headline: "Nine dead END_TO_END_REVIEW paths repointed to archive/; four falsified docstrings (get_fundamentals 'no consumer threads as_of', produce_option_premiums 'premium is synthetic today', pull_theta_corp_actions 'fills the empty 2-byte CSV', bql_pulls '2 bytes') brought to truth; walk_forward wording airtightened"

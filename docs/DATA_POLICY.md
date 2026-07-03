@@ -145,7 +145,26 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > and `sp500_earnings.csv` (the Bloomberg files) — NOT their `_yf`
 > counterparts. Running `pull_fundamentals_yf.py` / `pull_earnings_yf.py`
 > refreshes the parallel files but does not change engine behaviour until
-> a merge/consume step is wired (not yet done).
+> a merge/consume step is wired (not yet done). **Forward earnings dates**
+> are instead served by the broad-pull snapshot overlay (below): the
+> `_yf` earnings file was deliberately passed over for that role — no
+> knowledge-date stamp, ~70 % forward coverage vs the snapshot's 100 %,
+> and its 18-year history diverges from the Bloomberg record inside
+> pinned backtest windows (a naive union rewrites history).
+
+> **⚠ Earnings-calendar overlay — refresh + bump on every broad-pull
+> snapshot re-pull.** `get_next_earnings` / `get_recent_earnings` overlay
+> `broad_pull/per_name/sp500_snapshot_bdp.csv::next_earnings_dt` (PIT-gated
+> on its `asof` column) to feed the live earnings lockout — this is the fix
+> for the D3-1 collapse (the Bloomberg earnings file carries forward dates
+> for only ~39/511 names). The overlay **fails OPEN as it ages**: its dates
+> fall behind the wall clock and simply stop registering, so the lockout
+> silently decays back toward ~8 % coverage roughly one quarter after the
+> snapshot date (the current 2026-06-18 snapshot covers announcements
+> through 2026-09-25). On **every broad-pull snapshot refresh**, bump
+> `EXPECTED_EARNINGS_CALENDAR_ASOF` in `tests/test_preflight_environment.py`
+> in the same commit; before any live `as_of=None` use, run the opt-in
+> age check: `SWE_LIVE_PREFLIGHT=1 pytest tests/test_earnings_calendar_overlay.py`.
 
 > **⚠ Not every connector CSV is refreshable from a repo script.** Of the
 > **9 files** `engine/data_connector.py` reads, only **3** have a

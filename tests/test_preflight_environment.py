@@ -39,12 +39,23 @@ import pytest
 DATA_DIR = Path("data/bloomberg")
 _OHLCV = DATA_DIR / "sp500_ohlcv.csv"
 HAS_BLOOMBERG_DATA = _OHLCV.exists()
+_SNAPSHOT_BDP = DATA_DIR / "broad_pull" / "per_name" / "sp500_snapshot_bdp.csv"
 
 # Pinned data frontier — the most-recent OHLCV bar current ``main`` is expected
 # to carry. BUMP THIS in the same commit as every data refresh
 # (docs/DATA_POLICY.md §5). A tree whose OHLCV ends before this is almost
 # certainly stale or the wrong clone — which is exactly what this guard catches.
 EXPECTED_FRONTIER = pd.Timestamp("2026-06-04")
+
+# Pinned knowledge date of the broad-pull per-name snapshot whose
+# ``next_earnings_dt`` column feeds the live earnings lockout (the D3-1
+# forward-calendar overlay in ``engine/data_connector.py``). BUMP THIS in the
+# same commit as every broad-pull snapshot refresh. Deterministic on purpose
+# (this file's contract forbids ``date.today()``): it catches a stale tree /
+# wrong clone, while wall-clock DECAY of the calendar is covered by the
+# opt-in live preflight (``SWE_LIVE_PREFLIGHT=1`` in
+# tests/test_earnings_calendar_overlay.py) and a runtime connector warning.
+EXPECTED_EARNINGS_CALENDAR_ASOF = pd.Timestamp("2026-06-18")
 
 
 @pytest.mark.skipif(
@@ -90,4 +101,30 @@ def test_bundled_ohlcv_reaches_expected_frontier():
         "on a STALE tree or the wrong clone. Verify current main (`git fetch`; `git log -1`). "
         "If this is an intentional refresh that moved the frontier, BUMP EXPECTED_FRONTIER in "
         "this file in the same commit (docs/DATA_POLICY.md §5)."
+    )
+
+
+@pytest.mark.skipif(
+    not _SNAPSHOT_BDP.exists(),
+    reason="no bundled broad_pull snapshot — nothing to date-check",
+)
+def test_bundled_earnings_calendar_reaches_expected_asof():
+    """The broad-pull snapshot feeding the live earnings lockout must carry
+    the pinned knowledge date.
+
+    An earlier ``asof`` means a stale tree / wrong clone — and unlike most
+    stale data, a stale earnings calendar fails OPEN: its forward dates fall
+    behind the query date and simply stop registering on the event gate, so
+    the lockout silently reverts to the ~8 % coverage that was finding D3-1.
+    """
+    asof = pd.to_datetime(pd.read_csv(_SNAPSHOT_BDP, usecols=["asof"])["asof"], errors="coerce")
+    asof_max = asof.max()
+    assert pd.notna(asof_max), f"{_SNAPSHOT_BDP} has no parseable asof — corrupt or wrong file."
+    assert asof_max >= EXPECTED_EARNINGS_CALENDAR_ASOF, (
+        f"broad-pull snapshot asof is {str(asof_max)[:10]}, expected >= "
+        f"{EXPECTED_EARNINGS_CALENDAR_ASOF.date()} — stale tree or wrong clone. If this is an "
+        "intentional refresh, BUMP EXPECTED_EARNINGS_CALENDAR_ASOF in this file in the same "
+        "commit. NOTE: this pin cannot catch wall-clock decay — before live use, run the "
+        "opt-in preflight (SWE_LIVE_PREFLIGHT=1 pytest "
+        "tests/test_earnings_calendar_overlay.py) which bounds the snapshot's age."
     )

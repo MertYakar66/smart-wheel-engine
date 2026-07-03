@@ -129,6 +129,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated news/credit data |
 | `test_asof_none_staleness.py` | M3 — `as_of=None` resolves to the universe data frontier; index leavers dropped; fresh names byte-identical; drop-only; explicit path untouched; CC+strangle siblings covered |
 | `test_wallclock_staleness.py` | D1-2/D3-2 — wall-clock frontier staleness: connector warn-once at >7d, structured `attrs["staleness"]` on all three rankers, opt-in `refuse_stale_live`/`SWE_REFUSE_STALE_LIVE` universe-wide refusal; dated paths sentinel `{checked: False}`; default fail-open |
+| `test_coverage_floors_script.py` | Per-file coverage-floor ratchet script pins (pass/below-floor/missing-file-loud/exit codes) — the CI step lives in the Test Suite job |
 
 ### Ranker & EV-path surface
 

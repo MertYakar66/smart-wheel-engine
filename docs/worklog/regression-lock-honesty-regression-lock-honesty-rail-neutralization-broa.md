@@ -4,7 +4,7 @@ title: "Regression-lock honesty: rail neutralization, broad_pull fingerprint, co
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 465
 decisions: []
 date: 2026-07-02
 headline: "Replays and exact-EV test pins are now rail-independent (local == CI == committed baselines by construction); the two broad_pull connector inputs are fingerprint-pinned; a truthy non-DataFrame corp-action payload no longer kills the whole ranking run"

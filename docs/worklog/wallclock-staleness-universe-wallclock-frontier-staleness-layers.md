@@ -4,7 +4,7 @@ title: "Universe wall-clock frontier staleness: connector warn + ranker attrs + 
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 470
 decisions: []
 date: 2026-07-03
 headline: "A 27-day-stale OHLCV frontier was runtime-invisible (the only gate was frontier-relative, reading 0 when the whole universe is stale, while the event gate used the real wall clock); now: once-per-connector warn at >7d, structured attrs['staleness'] on all three rankers + API surfacing, and an opt-in universe-wide refusal — default byte-identical"

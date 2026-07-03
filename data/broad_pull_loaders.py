@@ -21,7 +21,9 @@ The loaders mirror ``data/consolidated_loader.py``'s idiom (lowercase columns,
 parse the date column, per-ticker access) with three additions the broad-pull
 data needs:
 
-* **gzip handling** — ``.csv.gz`` panels (``iv_surface``, ``vol_term_rv``) are
+* **gzip handling** — ``.csv.gz`` panels (``iv_surface``, ``vol_term_rv``,
+  ``options_sentiment`` — the latter gzipped 2026-07-02 when its raw CSV hit
+  97.5 % of GitHub's 100 MiB per-blob push limit) are
   read directly (pandas ``compression='infer'``);
 * **float32 downcast** — the large numeric panels (millions of rows) are
   downcast to keep memory flat alongside other processes;
@@ -189,7 +191,10 @@ SPECS: dict[str, DatasetSpec] = {
     ),
     "options_sentiment": DatasetSpec(
         "options_sentiment",
-        "per_name/options_sentiment.csv",
+        # Committed gzipped since 2026-07-02: the raw CSV reached 102.3 MB =
+        # 97.5% of GitHub's 100 MiB per-blob limit (~4.5 months of growth
+        # headroom). Refresh sessions must stage .csv.gz, never raw .csv.
+        "per_name/options_sentiment.csv.gz",
         KIND_TICKER_TS,
         "date",
         "ticker",

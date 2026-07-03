@@ -163,12 +163,14 @@ the EV move is attributed to the wiring step that connects it. The files:
 `iv_surface/sp500_iv_surface.csv.gz`, `macro_calendar/{sp500_macro_calendar,sp500_macro_releases}.csv`,
 `macro_vol/{sp500_vol_indices,spx_correlation,credit_spreads,vix_futures_curve}.csv`,
 `macro_rates/{ois_sofr_curve,real_yields,fed_funds,macro_surprise,fx,commodities,global_vol,sector_factor_etfs_ohlcv}.csv`,
-`per_name/{returns_micro,vol_term_rv.csv.gz,beta_shares,fundamentals_q,fundamentals_ext_q,estimates_m,estimates_fwd,valuation_m,options_sentiment,sp500_snapshot_bdp}.csv`,
+`per_name/{returns_micro,vol_term_rv.csv.gz,beta_shares,fundamentals_q,fundamentals_ext_q,estimates_m,estimates_fwd,valuation_m,options_sentiment.csv.gz,sp500_snapshot_bdp}.csv`,
 `dividend_pit/sp500_dividend_yield_pit.csv`, `short_interest/sp500_short_interest.csv`.
 
-> **Storage gotcha** (manifest): two files are committed **gzipped** (`iv_surface` 96.8 MB
-> `.gz`, `vol_term_rv` 58.7 MB `.gz`) because the raw CSVs exceed GitHub's 100 MB limit;
-> the loader must read `.gz` directly. **Winsorization flags** (manifest): `options_sentiment`
+> **Storage gotcha** (manifest): three files are committed **gzipped** (`iv_surface` 96.8 MB
+> `.gz`, `vol_term_rv` 58.7 MB `.gz`, and — since 2026-07-02 — `options_sentiment` 32.0 MB
+> `.gz`, whose raw CSV had reached 97.5% of GitHub's 100 MiB per-blob limit) because the raw
+> CSVs exceed or approach GitHub's 100 MB limit;
+> the loader must read `.gz` directly. Refresh sessions must stage `.csv.gz` for all three. **Winsorization flags** (manifest): `options_sentiment`
 > `pc_vol`/`news_sent` and several per-name level series carry outliers flagged for
 > winsorization — clamp at load, not silently.
 
@@ -359,7 +361,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 
 ### 3I — Options structure + news sentiment (mixed: advisory + display-only)
 
-| Slice of `per_name/options_sentiment.csv` (1,998,083 rows, 511 nm, 2010→06-18, **102.3 MB**) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
+| Slice of `per_name/options_sentiment.csv.gz` (1,998,083 rows, 511 nm, 2010→06-18, **32.0 MB gzipped** since 2026-07-02) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
 |---|---|---|---|---|---|
 | `pc_oi_ratio`/`pc_vol_ratio`/`oi_call`/`oi_put` → dealer/skew advisory | `dealer_positioning` / `skew_dynamics` | advisory-sizing | **Yes⁶ → coupled⁶** (only if wired into the dealer multiplier `[0.70,1.05]`) | **CEREMONY** (dealer mult) — PLAIN if not wired | roadmap §6 options flow |
 | `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |

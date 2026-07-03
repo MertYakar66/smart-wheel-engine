@@ -468,6 +468,15 @@ needs an explicit 5-ticker list in Cowork) live in
 `.github/workflows/ci.yml` runs on push to `main` / `develop` and on
 PRs (it `pip install -e ".[dev]"`). CI jobs include the lane-claim gate,
 FILE_MANIFEST coverage, lint, security scan, the 3.11/3.12 test suites,
-quantitative validation, and integration tests. (The old broken
+quantitative validation, and integration tests. The **Integration Tests**
+job runs `-m integration` (real cross-boundary tests: the
+`test_portfolio_api_endpoints.py` loopback HTTP server + the
+cross-process EV-determinism subprocess test) with `--strict-markers`
+and **no** `continue-on-error` — before 2026-07-02 it selected zero
+tests and masked its own exit code (the adversarial review's "vacuous
+CI job"); exit 5 now fails the job so the lane cannot silently regress.
+The marked tests ALSO run inside the coverage-gated 3.11/3.12 Test
+Suite matrix — the double-run is intentional (keeps the coverage gate
+and the integration lane independent). (The old broken
 `wheel = "src.cli:app"` console-script was removed under ROADMAP B5 — no
 `[project.scripts]` table exists today.)

@@ -243,7 +243,7 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 |---|---|---|---|---|
 | `per_name/returns_micro.csv` | tot_return,px_bid,px_ask | 2010-01-04→2026-06-18 | 1,874,882 | 511 |
 | `per_name/vol_term_rv.csv.gz` | atm_iv_{30,60,90,180,365,730}d, rv_{10,20,30,60,90,120,180,260}d | 2010-01-04→2026-06-18 | 1,963,364 | 510 |
-| `per_name/options_sentiment.csv` | pc_oi_ratio,pc_vol_ratio,oi_call,oi_put,news_sent (**102.3 MB**) | 2010-01-01→2026-06-18 | 1,998,083 | 511 |
+| `per_name/options_sentiment.csv.gz` | pc_oi_ratio,pc_vol_ratio,oi_call,oi_put,news_sent (**32.0 MB gzipped**; raw was 102.3 MB = 97.5% of GitHub's 100 MiB per-blob limit — gzipped 2026-07-02, refreshes must stage `.csv.gz`) | 2010-01-01→2026-06-18 | 1,998,083 | 511 |
 | `per_name/beta_shares.csv` | beta_raw,shares_out | 2010-01-29→2026-05-29 (M) | 93,605 | 510 |
 | `per_name/fundamentals_q.csv` | revenue,oper_inc,net_income,ebitda,eps,tot_asset,tot_liab,fcf,cfo,roe,nd_to_ebitda,gross_margin | 2010-01-01→2026-05-31 (Q) | 31,479 | 511 |
 | `per_name/fundamentals_ext_q.csv` | roic,oper/net/ebitda_margin,debt_to_equity,int_coverage,dvd_payout,sales_growth,trail_fcf | 2010-01-01→2026-05-31 (Q) | 31,470 | 511 |
@@ -256,7 +256,7 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 
 ### 6E. Coverage / entitlement caveats (from `BROAD_PULL_MANIFEST.md`)
 
-- **Storage:** `iv_surface` (96.8 MB) and `vol_term_rv` (58.7 MB) committed **gzipped** (raw CSVs exceed GitHub's 100 MB limit; round IV to 2 dp). Loaders must read `.gz`. *(Byte sizes here and in §6 are decimal MB = 10⁶ B, not MiB.)*
+- **Storage:** `iv_surface` (96.8 MB), `vol_term_rv` (58.7 MB), and — since 2026-07-02 — `options_sentiment` (32.0 MB) committed **gzipped** (raw CSVs exceed or approach GitHub's 100 MB limit; round IV to 2 dp). Loaders must read `.gz`. *(Byte sizes here and in §6 are decimal MB = 10⁶ B, not MiB.)*
 - **Manifest vs bytes:** the manifest reports `credit_spreads` ending `2026-06-17`; the actual staged bytes end **2026-06-16** (one trading day earlier) — the §6B value is byte-true; do not "correct" it to the manifest.
 - **Winsorization flags:** `options_sentiment` `pc_vol`/`news_sent` and several per-name level series carry outliers flagged for winsorization — clamp at load.
 - **Entitlement-blocked (manifest bucket F, all-NaN — NOT pulled):** short-interest `pct_of_float` + borrow rate; `CDS_SPREAD_*`; rating `WATCH`/`OUTLOOK`; ESG scores; per-strike OI/greeks (use-Theta); `NFCI`; long IV tenors `7/14d` & DAY-named; `BEST_PERIOD_END_DT`. Substitutes used where noted (e.g. `SHORT_INTEREST`+`SHORT_INT_RATIO` for SI; `VOLATILITY_nD` for `nDAY_HV`).

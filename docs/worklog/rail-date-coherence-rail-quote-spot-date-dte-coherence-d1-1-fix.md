@@ -108,6 +108,11 @@ by construction: every new branch can only turn `market_mid` into
   invisible at runtime) is deliberately NOT fixed here; next PR (the rescued
   2026-06-15 stash design, branch `claude/rescue-2026-06-15-fixes`, is input).
 - Regression-harness rail neutralization + larder fingerprint (D4-2/D5a-1)
-  after that.
+  after that. *(Shipped 2026-07-02 as #465.)*
 - Docs that describe the old `as_of=None` = "latest larder snapshot" accessor
   semantics should be reconciled when the campaign's doc pass lands.
+  *(Discharged 2026-07-02 by the item-4 doc pass — sweep found the code
+  docstrings already accurate post-#463; the only stale statements were
+  the "live where the rail is present" claims in `WIRING_CAMPAIGN.md` /
+  `PHASE2_SKEW_EXECUTION_SPEC.md`, both now carrying the
+  frontier-coherence caveat.)*

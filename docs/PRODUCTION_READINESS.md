@@ -1,6 +1,10 @@
 # Production readiness — real-money deployment gate
 
-**Last updated:** 2026-05-28 (post-S34/S38/S40 multi-window evidence,
+**Last updated:** 2026-07-02 (deployment-truth pass: headline ρ cell
+rewritten with the overlap-inflation caveat + I1/I6/W7 honest evidence
+base + the no-true-OOS disclosure; §3 Blocker-2 recast to its shipped
+status — the body previously still described the gap as open while
+four other sections said shipped. Prior:) 2026-05-28 (post-S34/S38/S40 multi-window evidence,
 post-PR #255 B2 closure, post-PR #260 F4 realized-vol-ratio widening
 + PR #262 R10 single-name cap = the F4 deployment bundle that closes
 §3 B1, post-S41 (PR #267) + S44 (PR #271) honest scope-limits validation;
@@ -27,8 +31,8 @@ operate?".
 
 | Question | Honest answer |
 |---|---|
-| Does the engine produce **realistic, EV-correct outputs**? | **Yes.** Spearman ρ ranges 0.19–0.50 across (capital × universe × window) configurations; the ranking quality is scale-invariant AND universe-invariant AND window-invariant. Statistically overwhelming across every measurement (p < 1e-48 in all cases). |
-| Does it **survive operational stress** (load, chaos, concurrency)? | **Yes.** 2,374 of 2,378 tests pass; the 2 failing tests are documented Windows-local Theta-tier flakes, not engine defects. S18 / S19 / S20 reliability arc (PR #194) verified. |
+| Does the engine produce **realistic, EV-correct outputs**? | **Yes as a selector; no as a dollar forecaster — and the historical correlation headline is overlap-inflated.** Backtest rank-log Spearman ρ spans 0.19–0.50 across (capital × universe × window) configurations, but those p-values (p < 1e-48) treat overlapping per-trade rows as independent observations and must not be read as significance (the same clustering caveat W7 applies to its own permutation p). Dollar-EV magnitude does **not** rank realized dollars: `Spearman(ev_raw, realized $)` = **−0.002** over the full 503-name grid (I1, `docs/HEAVY_VERIFY_2026-05-31_I1_CALIBRATION.md` — the value lives in win-frequency and ROC, not the tail-dominated dollar mean). The strongest ranking evidence is *selection*: monthly top-K by any engine signal beats random/all (+$166–206 vs −$26 mean; I6, `docs/HEAVY_VERIFY_2026-05-31_I6_DEEPENING.md`) and full-cycle Spearman(`ev_dollars`, realized) = 0.49 (n=2,009; W7, `docs/HEAVY_VERIFY_2026-06-28_FULL_WHEEL_REALISM.md`) — real but **in-sample**; no true out-of-sample run exists (`backtests/walk_forward.py` has zero callers; the C1 parameter-freeze infrastructure was never built). |
+| Does it **survive operational stress** (load, chaos, concurrency)? | **Yes.** 3,400+ tests pass in the per-PR fast lane (as of 2026-07-02; the only local-only failure is a documented box artifact — see `TESTING.md`). S18 / S19 / S20 reliability arc (PR #194) verified. |
 | Is its **§2 invariant** intact ("no tradeable candidate bypasses EVEngine.evaluate")? | **Yes.** Verified across S18 load, S19 chaos, S20 concurrency, S22 / S27 / S32 / S34 / S35 backtests, and the audit-of-audit review (PR #195). |
 | Does it **beat SPY at meaningful capital scales**? | **Window-dependent across the entire range.** Measured (capital × universe × window) engine-vs-SPY deltas span **−52pp (S38: $1M / 100t / 2020-2024) to +27pp (S22/S27: $100k / 24t / 2022-2024)**. S34's "+11.6pp at $1M/100t" was 2022-2024-window-specific; **the subsequent S38 multi-window result demonstrates window-specificity** — same universe / capital over the longer 2020-2024 window (which includes COVID + 2021 mega-bull + 2022 bear + 2023-2024 recovery) returned **−52pp**. **No single number represents the engine's forward edge.** |
 | **Where does the dollar alpha come from?** (post-soundness-review) | **Mostly from equity beta on assigned stocks, not put-selection skill.** S34 backtest: of $356,128 NAV gain at $1M, only $28,571 (8%) came from realized put trades; the other $327,557 (92%) came from STOCK APPRECIATION on assigned positions during the 2023-2024 bull market. S27 was even more pronounced: realized executed P&L was −$3,421 (NEGATIVE); all $51,444 NAV gain came from equity beta. **S38 reinforced and intensified this pattern**: realized executed P&L over 305 puts + 168 CCs across 2020-2024 was **−$28,647** (also NEGATIVE); all NAV growth (+$331,764) came from equity-beta-on-assignments (108.6% attributable). **The "engine beats SPY" framing is largely a levered SPY-subset bet via wheel assignments**, not a pure put-premium edge claim. See `archive/2026-05/SOUNDNESS_REVIEW_2026-05-26.md` and `docs/ENGINE_BACKTEST_S38_MULTIWINDOW.md` §"Alpha decomposition". |
@@ -124,12 +128,13 @@ outperformance of SPY at scale. Detail and remediation in §3 and §4.
 ## 3. Production-readiness blockers (must be resolved before real money)
 
 These three items are the difference between "research tool" and
-"autonomous deployment." **Status as of 2026-05-27:** B2 shipped
-(PR #255), B3 structurally shipped via S34 (window-favored dollar
-alpha caveat per S38), B1 rolled back after S27 ρ inversion (the
-naive Fix B1+C attempt destroyed the broader signal — see
-`docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10). The new R1+
-single-name exposure cap (PR #256) is the orthogonal-by-design
+"autonomous deployment." **Status as of 2026-05-28:** B2 shipped
+(PR #233 + #255), B3 structurally shipped via S34 (window-favored
+dollar alpha caveat per S38), B1 initially rolled back after the S27
+ρ inversion (the naive Fix B1+C attempt destroyed the broader signal
+— see `docs/F4_TAIL_RISK_DIAGNOSTIC.md` §10), then shipped
+2026-05-27/28 as the #260 + #262 deployment bundle (see Blocker 1).
+The R10 single-name exposure cap (PR #262) is the orthogonal-by-design
 damage-bounding response to B1's remaining gap.
 
 ### Blocker 1 — F4 tail-risk widening — **SHIPPED 2026-05-27/28 as the #260 + #262 deployment bundle**
@@ -215,18 +220,27 @@ position with R9 still passing has R10 firing `single_name_breach`.
   structural to limited deployment, not a missing widening
   mechanism.
 
-### Blocker 2 — D17 hard-blocks are not wired to the live HTTP endpoint
+### Blocker 2 — D17 hard-blocks wired to the live HTTP endpoint — **SHIPPED 2026-05-26/27 via PR #233 + #255**
 
-**What:** `engine/portfolio_risk_gates.py` ships six pure-function gates
+**Status:** ✅ **Closed.** PR #233 wired the dossier path
+(`_handle_tv_dossier` builds a `PortfolioContext` from the
+operator-supplied `nav`/`holdings`/`puts_held`/`regime_map` query
+params via `_build_portfolio_context_from_params` and threads it into
+`build_candidate_dossiers`); PR #255 added the R9 sector-cap soft-warn
+and mirrored the D17 wire onto the pull-enrichment `_enrich_alert` /
+`/api/tv/enrich` path. The `sector_cap_breach` integration test is
+live. What follows is the historical record of the gap.
+
+**What (as opened):** `engine/portfolio_risk_gates.py` ships six pure-function gates
 (sector cap, portfolio delta, Kelly per-trade NAV, parametric VaR,
 stress drawdown, dealer regime). `WheelTracker._evaluate_d17_hard_blocks`
 consumes them in strict mode (`require_ev_authority=True` +
 `PortfolioContext` attached). PR #205 wired this on the *ranker* side
-(`consume_ranker_row` + `portfolio_context_snapshot`). **But the HTTP
-endpoint at `engine_api.py` does not yet call `consume_ranker_row` or
-attach a `PortfolioContext` to the dossier path.** The live API
-endpoint a real trader or dashboard hits today routes through `EVEngine.evaluate`
-but not through the D17 surface.
+(`consume_ranker_row` + `portfolio_context_snapshot`). **When this
+blocker was opened, the HTTP endpoint at `engine_api.py` did not yet
+attach a `PortfolioContext` to the dossier path** — the live API
+routed through `EVEngine.evaluate` but not through the D17 surface.
+PR #233 + #255 closed exactly this gap.
 
 **Why it matters:** S22 reported `+200/trade` mean executed; S27
 reported `−72/trade` under the same backtest. The difference was
@@ -238,23 +252,24 @@ WILL fire.
 
 **Evidence:** `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` §F5,
 `archive/2026-05/PREDICTIVE_VALIDITY_REVIEW.md` P6, `docs/ENGINE_BACKTEST_S32_FRICTION.md`
-§F5. PR #205 added the helpers; the HTTP-endpoint hookup is open.
+§F5. PR #205 added the helpers; PR #233 + #255 completed the
+HTTP-endpoint hookup.
 
-**Required fix:** Modify `engine_api.py._handle_tv_dossier` (and the
-TradingView webhook `_enrich_alert` path) to:
-1. Call `WheelTracker.portfolio_context_snapshot(...)` for the current
-   account state.
-2. Attach the resulting `PortfolioContext` to the `build_candidate_dossiers`
-   call.
-3. Default `require_ev_authority=True` for any execution-routing
-   endpoint.
+**Shipped fix (PR #233 + #255)** — `engine_api.py._handle_tv_dossier`
+and the pull-enrichment `_enrich_alert` / `/api/tv/enrich` path now:
+1. Build a `PortfolioContext` from the operator-supplied book params
+   (`_build_portfolio_context_from_params`).
+2. Attach it to the `build_candidate_dossiers` call.
+3. Apply the D17 verdicts on the response. (The push-webhook
+   intentionally takes no book params — Pine cannot know the
+   operator's book; see §6 B2.)
 
-Regression test: drive the API with a payload that should trigger
-`sector_cap_breach` and assert the endpoint returns the refused
-verdict with `action="reject"` + `reason="sector_cap_breach"`.
+Regression test (live): drive the API with a payload that triggers
+`sector_cap_breach` and assert the refused verdict.
 
-**Without this fix:** D17 protection exists only in tests, not in the
-production code path.
+**Before this fix** D17 protection existed only in tests; since
+PR #233 + #255 it is live on both the dossier and pull-enrichment
+production paths.
 
 ### Blocker 3 — Strategy capacity at $1M — **STRUCTURALLY CLOSED by S34; dollar alpha window-dependent per S38**
 

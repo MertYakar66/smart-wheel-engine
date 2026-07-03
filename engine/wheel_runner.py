@@ -704,19 +704,30 @@ def _frontier_staleness_info(as_of, staleness_ref, conn) -> dict:
     """
     if as_of is not None or staleness_ref is None:
         return {"checked": False}
-    from datetime import date as _date
+    # Guarded end-to-end (2026-07-03 refuter panel): an exotic stub frontier
+    # (MagicMock, tz-aware Timestamp, unparseable str) must degrade to the
+    # unchecked sentinel — Q3 absent-evidence semantics — not kill a rank
+    # that survived on the pre-staleness code. (A stub returning a raw int
+    # still parses — pd.Timestamp(5) is the 1970 epoch → absurd age,
+    # stale=True; misleading but harmless unless the refusal is armed,
+    # which no stub-based deployment should do.)
+    try:
+        from datetime import date as _date
 
-    threshold = int(getattr(conn, "_OHLCV_FRONTIER_STALE_DAYS", 7))
-    frontier = pd.Timestamp(staleness_ref).normalize()
-    age = int((pd.Timestamp(_date.today()) - frontier).days)
-    return {
-        "checked": True,
-        "data_frontier": frontier.date().isoformat(),
-        "wall_clock_date": _date.today().isoformat(),
-        "frontier_age_days": age,
-        "threshold_days": threshold,
-        "stale": age > threshold,
-    }
+        today = pd.Timestamp(_date.today())
+        threshold = int(getattr(conn, "_OHLCV_FRONTIER_STALE_DAYS", 7))
+        frontier = pd.Timestamp(staleness_ref).normalize()
+        age = int((today - frontier).days)
+        return {
+            "checked": True,
+            "data_frontier": frontier.date().isoformat(),
+            "wall_clock_date": today.date().isoformat(),
+            "frontier_age_days": age,
+            "threshold_days": threshold,
+            "stale": age > threshold,
+        }
+    except Exception:
+        return {"checked": False}
 
 
 def _resolve_refuse_stale_live(param: bool | None) -> bool:
@@ -2822,9 +2833,14 @@ class WheelRunner:
         if include_diagnostic_fields:
             cols = cols + _CC_RANK_DIAGNOSTIC_COLUMNS
 
+        # Rebound by the D1-2 staleness block below; the closure reads the
+        # CURRENT value at call time, so pre-resolution early returns carry
+        # no staleness (None) and post-resolution ones carry the dict.
+        staleness_info: dict | None = None
+
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            return _attach_drops_summary(df, drops)
+            return _attach_drops_summary(df, drops, staleness=staleness_info)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -2881,7 +2897,7 @@ class WheelRunner:
                     ),
                 }
             )
-            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
+            return _empty()  # columns + staleness attrs, consistent with every other empty exit
         if _cc_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_cc_staleness_ref)
@@ -3430,9 +3446,14 @@ class WheelRunner:
         if include_diagnostic_fields:
             cols = cols + _STRANGLE_RANK_DIAGNOSTIC_COLUMNS
 
+        # Rebound by the D1-2 staleness block below; the closure reads the
+        # CURRENT value at call time, so pre-resolution early returns carry
+        # no staleness (None) and post-resolution ones carry the dict.
+        staleness_info: dict | None = None
+
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            return _attach_drops_summary(df, drops)
+            return _attach_drops_summary(df, drops, staleness=staleness_info)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -3489,7 +3510,7 @@ class WheelRunner:
                     ),
                 }
             )
-            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
+            return _empty()  # columns + staleness attrs, consistent with every other empty exit
         if _stg_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_stg_staleness_ref)

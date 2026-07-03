@@ -39,8 +39,18 @@ from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from engine.wheel_runner import WheelRunner, _frontier_staleness_info
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_refusal_env(monkeypatch):
+    """An operator box that has armed SWE_REFUSE_STALE_LIVE (exactly what
+    the feature invites) must not flip the default-path tests — the arm is
+    exercised explicitly via setenv where intended."""
+    monkeypatch.delenv("SWE_REFUSE_STALE_LIVE", raising=False)
+
 
 # ── synthetic OHLCV ──────────────────────────────────────────────────────────
 

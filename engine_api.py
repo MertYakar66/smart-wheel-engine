@@ -955,12 +955,15 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # Max OHLCV date the connector serves. The dashboard derives
                 # its default as_of from this instead of hardcoding a date
                 # that rots between data refreshes (review 2026-06-10).
-                "data_frontier": _data_frontier(conn),
+                # Bound once: when the data layer is down the cache never
+                # populates and a second call would re-probe (status must
+                # stay a cheap health check — 2026-07-03 panel).
+                "data_frontier": (_frontier := _data_frontier(conn)),
                 # D1-2/D3-2: age of that frontier vs the wall clock, computed
                 # per-request (the frontier string is process-cached but the
                 # clock moves) so the dashboard chip can show SEVERITY
                 # instead of a dim date. None when the frontier is unknown.
-                "frontier_age_days": _frontier_age_days(_data_frontier(conn)),
+                "frontier_age_days": _frontier_age_days(_frontier),
             }
         )
 

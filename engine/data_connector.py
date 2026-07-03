@@ -1641,21 +1641,25 @@ class MarketDataConnector:
             # only reached at as_of=None (pinned by
             # test_asof_none_staleness), so dated backtests never hit this.
             age_days = int((today_ts - frontier).days)
-            if age_days > self._OHLCV_FRONTIER_STALE_DAYS and not getattr(
-                self, "_warned_stale_frontier", False
-            ):
+            _warned: set = getattr(self, "_warned_stale_frontier_datasets", set())
+            if age_days > self._OHLCV_FRONTIER_STALE_DAYS and dataset not in _warned:
+                # Per-DATASET warn-once (2026-07-03 refuter panel): a stale
+                # vol_iv probe must neither mislabel itself "OHLCV" nor
+                # consume the alarm slot of a later genuine OHLCV warn.
                 logger.warning(
-                    "OHLCV data frontier %s is %d days behind the wall clock "
+                    "%s data frontier %s is %d days behind the wall clock "
                     "(threshold %dd): live as_of=None ranks price spots off a "
                     "back-dated close while the event gate uses today's date. "
                     "Refresh the Bloomberg monoliths (docs/"
                     "BLOOMBERG_TERMINAL_NEXT_SESSION.md §1) or pass an explicit "
                     "as_of; arm SWE_REFUSE_STALE_LIVE=1 to hard-refuse instead.",
+                    dataset,
                     frontier.date(),
                     age_days,
                     self._OHLCV_FRONTIER_STALE_DAYS,
                 )
-                self._warned_stale_frontier = True
+                _warned.add(dataset)
+                self._warned_stale_frontier_datasets = _warned
             return frontier
         except Exception:
             return None

@@ -197,6 +197,17 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > mistake. Keep the two in lockstep: refresh-without-bump lets the guard rot
 > (it passes on stale data); bump-without-refresh makes it false-fail.
 
+> **⚠ Runtime frontier staleness (D1-2/D3-2, 2026-07-03).** The pin above
+> catches stale TREES; a current tree with old data is caught at RUNTIME:
+> `get_data_frontier` warns once per connector when the frontier is > 7
+> days behind the wall clock, the three rankers attach a structured
+> `attrs["staleness"]` (surfaced on `/api/candidates` and as
+> `frontier_age_days` on `/api/status`), and a live deployment can arm
+> **`SWE_REFUSE_STALE_LIVE=1`** (or `refuse_stale_live=True`) to
+> hard-refuse `as_of=None` ranks on a stale frontier — default OFF
+> (warn-and-rank; a default refuse would blank the book, the #462 lesson).
+> Dated backtests are untouched (wall-clock reads gate on `as_of=None`).
+
 ---
 
 ## 6. Drive-mount caveats

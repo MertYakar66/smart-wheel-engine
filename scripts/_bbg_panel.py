@@ -29,6 +29,13 @@ Env knobs (all optional; defaults preserve prior behaviour):
   SWE_PULL_MODE             forward | backfill | both     (default both).
   SWE_BACKFILL_CHUNK_MONTHS months per backward window     (default 30).
   SWE_BACKFILL_MAX_WINDOWS  cap # BACKWARD windows this run (0/unset = all).
+  SWE_PULL_CHUNK            tickers per bdh request (default 250). Bigger = fewer
+                            round-trips = faster; data is chunk-invariant so
+                            quality is unchanged (verified: 30/250/503 all return
+                            274,096 identical rows on a 30-mo window, 26.6s/11.0s/
+                            9.4s). Bloomberg caps response size, so for a FRESH
+                            single multi-year window use 60; 250 is the safe
+                            default for the forward/backward incremental windows.
   SWE_OUT_PATH              write to this path instead of data/bloomberg/<out_name>
                             (used to grow a deep-history scratch off the frozen
                             connector monolith).
@@ -65,7 +72,10 @@ class PanelConfig:
     floor: str = "1994-01-01"           # backfill floor (per-name panels)
     strip_equity_suffix: bool = False   # "AAPL UW Equity" -> "AAPL UW"
     bdh_kwargs: dict = field(default_factory=dict)  # e.g. {"Fill": "P"}
-    chunk_size: int = 30                # tickers per bdh call
+    chunk_size: int = 250               # tickers per bdh call (benchmarked 2.4x
+                                        # vs 30 on a 30-mo window, byte-identical
+                                        # output; drop to 60 for a fresh single
+                                        # multi-year window to avoid size limits)
     chunk_months: int = 30              # months per backward window
     validate: object = None             # optional callable(combined_df) -> None
 
@@ -162,6 +172,7 @@ def run(cfg: PanelConfig):
     mode = _env("SWE_PULL_MODE", "both")
     chunk_months = int(_env("SWE_BACKFILL_CHUNK_MONTHS", str(cfg.chunk_months)))
     max_windows = int(_env("SWE_BACKFILL_MAX_WINDOWS", "0") or "0")
+    cfg.chunk_size = int(_env("SWE_PULL_CHUNK", str(cfg.chunk_size)))
 
     # SWE_OUT_PATH lets the deep-history backfill grow a scratch file off the
     # connector monolith (which stays frozen <100 MB on the refresh branch).

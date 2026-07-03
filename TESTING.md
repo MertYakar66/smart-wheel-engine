@@ -429,6 +429,13 @@ The legacy scalar `data_csv_sha256` / `vol_iv_sha256` / `treasury_sha256`
 fields remain for back-compat; `connector_data_sha256` supersedes them by
 pinning the full connector set.
 
+**Known local-only failure (box artifact):** on boxes with materialized
+gitignored `data/bloomberg/deep/` slices,
+`tests/test_deep_read_connector.py::test_deep_on_without_slices_degrades_to_monolith`
+fails — its "no `deep/` present" premise is falsified by the local
+slices. Green in CI (no slices there); pre-existing, proven
+not-diff-related by clean-worktree A/B in PRs #463–#465.
+
 **Option-premium rail neutralization (D4-2, 2026-07-02):** the replay drivers
 in `backtests/regression/_common.py` pin `SWE_OPTION_PREMIUM_DIR` to a
 nonexistent dir around connector construction (recorded in the fingerprint as

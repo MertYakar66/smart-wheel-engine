@@ -6,8 +6,8 @@ Phase 2 schedules as **supervised, EV-moving, PANEL, re-baseline-coupled**. Ever
 reference was verified against **`origin/main` @ `21e489d`** (2026-06-23, post #416/#417/#418)
 and adversarially re-checked. This doc changes no engine code._
 
-**Read with:** `docs/WIRING_CAMPAIGN.md` Phase 2 (the "iv_surface deep history" section —
-surface row + honest limits; line numbers drift, grep the heading), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/DATA_TEST_AUDIT_2026-06-09.md`
+**Read with:** `docs/WIRING_CAMPAIGN.md` Phase 2 (heading "Phase 2 — Wire the skew surface
+(the prize)" — surface row + honest limits; line numbers drift, grep that heading), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/DATA_TEST_AUDIT_2026-06-09.md`
 (C4 / W28 — the `edge_vs_fair`-stays-0 fact), `CLAUDE.md` §2/§3, `data/broad_pull_loaders.py`
 (the dormant surface loader this wires).
 

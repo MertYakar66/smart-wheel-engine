@@ -100,7 +100,8 @@ of these §2-safe roles:
 >   `EXPECTED_FRONTIER` bump + W16/W30 re-pick.
 > - **#378 must land before 0A's spot-frontier bump** (a sequencing exception to the
 >   "data-before-trio" default). 0A advances OHLCV/spot to 06-18, but the legacy ATM-IV
->   monolith (`sp500_vol_iv_full.csv`) has **no in-repo producer** (runbook line 132) and
+>   monolith (`sp500_vol_iv_full.csv`) has **no in-repo producer** (see
+>   `docs/bloomberg_refresh_runbook.md` / `docs/DATA_POLICY.md` §5) and
 >   stays at ~06-04 — so 0A *itself* opens the ~10-trading-day IV↔spot staleness gap that
 >   #378 guards (audit W36). Either land #378 ahead of 0A, **or** re-pin the served ATM IV
 >   in the same step as 0A so spot and IV frontiers advance together. #378 must also land

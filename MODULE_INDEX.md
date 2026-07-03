@@ -81,7 +81,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | Module | Purpose |
 |---|---|
-| `data_connector.py` | `MarketDataConnector` — Bloomberg-CSV provider. Default when `SWE_DATA_PROVIDER` is unset. Also hosts the #464 PIT-gated `snapshot_bdp` earnings-calendar overlay (`get_next_earnings` / `get_recent_earnings`) and the gitignored EOD option-premium rail accessors (`get_option_premium*`, `SWE_OPTION_PREMIUM_DIR`; date-coherent post-#463 — quote date must equal the spot-bar date, DTE bounded to horizon ±10d). |
+| `data_connector.py` | `MarketDataConnector` — Bloomberg-CSV provider. Default when `SWE_DATA_PROVIDER` is unset. Also hosts the #464 PIT-gated `snapshot_bdp` earnings-calendar overlay (`get_next_earnings` / `get_recent_earnings`) and the gitignored EOD option-premium rail accessors (`get_option_premium*`, `SWE_OPTION_PREMIUM_DIR`; wall-clock-bounded at `as_of=None` post-#463 — the quote-date == spot-bar-date and DTE ±10d coherence guards are enforced at the ranker call site, `wheel_runner._resolve_real_premium`). |
 | `theta_connector.py` | Theta Terminal v3 connector. Tier-aware fallbacks; chunked history; EOD endpoint for unlimited windows. |
 | `data_integration.py` | Provider-selection helpers; `get_current_risk_free_rate`. |
 | `external_data/` | External data connector subpackage. |

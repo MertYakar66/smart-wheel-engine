@@ -4,7 +4,7 @@ title: "Deployment-truth doc pass: honest headline, Blocker-2 recast, R-number c
 kind: docs
 status: shipped
 terminal: X
-pr:
+pr: 466
 decisions: []
 date: 2026-07-02
 headline: "PRODUCTION_READINESS now tells the honest evidence story (overlap-inflated rho caveat, I1 -0.002, no-true-OOS) and Blocker-2 no longer contradicts itself; the news-redesign R9 collision, the rail docs' missing #463 frontier-coherence caveat, and the deferred data-doc count deltas are all reconciled"

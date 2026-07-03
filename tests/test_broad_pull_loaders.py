@@ -461,9 +461,11 @@ def test_real_dataset_matches_manifest(name):
 
 
 @pytestmark_real
-@pytest.mark.parametrize("name", ["iv_surface", "vol_term_rv"])
+@pytest.mark.parametrize("name", ["iv_surface", "vol_term_rv", "options_sentiment"])
 def test_real_gz_panels_load(name):
-    """The two gzipped panels read correctly through compression='infer'."""
+    """The gzipped panels read correctly through compression='infer'
+    (options_sentiment joined 2026-07-02 — its raw CSV hit 97.5% of
+    GitHub's 100 MiB per-blob limit)."""
     df = _fresh().load(name)
     assert df is not None and len(df) == EXPECTED[name]["rows"]
     assert SPECS[name].relpath.endswith(".gz")

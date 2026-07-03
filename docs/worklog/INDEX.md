@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**147 records.**
+**148 records.**
 
 ## Features (16)
 
@@ -32,7 +32,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (24)
+## Fixes (25)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -51,6 +51,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [MP-A](mp-a-close-s42-dossier-defensive-guards-findings-1-4.md) | in-flight | #275 | Close S42 Findings #1-4 with defensive guards in the R7-R10 path (skip malformed rows; honour explicit contracts=0); §2 invariant preserved — reviewers stay downgrade-only. | `mp-a-close-s42-dossier-defensive-guards-findings-1-4.md` |
 | [MP-B](MP-B.md) | ready-for-merge | #251 | EDGAR earnings PR rebased onto main@482bc79; codex P1 (manifest) + 2× P2 (project loop, refresh overwrite) closed. | `MP-B.md` |
 | [MP-C](mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md) | in-flight | #248, 249 | Rebased the §2 stacked pair onto post-#285 main; closed the CC schema drop that silently lost pnl_p25/50/75 on covered-call rows. | `mp-c-rebase-2-pair-pr-248-249-cc-schema-fix.md` |
+| [options-sentiment-gzip](options-sentiment-gzip-options-sentiment-panel-gzipped-before-github-limit.md) | shipped | #469 | The 102.3 MB options_sentiment.csv sat at 97.5% of GitHub's per-blob push limit with ~4.5 months of growth headroom (next refresh past ~Oct 2026 = hard push reject); committed gzipped at 32.0 MB (3.20:1), loader spec flipped, ~30 years of headroom | `options-sentiment-gzip-options-sentiment-panel-gzipped-before-github-limit.md` |
 | [pricer-failloud-guards](pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md) | in-flight |  | Two input-validation hardenings to engine/option_pricer.py — the three vectorized BS pricers now raise on any S<=0/K<=0 element (mirroring the scalar contract) instead of silently emitting NaN, and the BAW American-call branch short-circuits to European for r<=0 (was a div-by-zero NaN at r=0). Behaviour on valid inputs is byte-for-byte unchanged; §2-adjacent guard only. | `pricer-failloud-guards-engine-pricer-fail-loud-guards-r8-vectorized-s-0.md` |
 | [prob-profit-ci-tier-gate](prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md) | in-flight |  | prob_profit's Wilson CI is now emitted only on the IID empirical_non_overlapping forward tier; suppressed (null) on the overlapping/bootstrap/har_rv/lognormal tiers where N is not an independent-trial count and the interval would be false precision. | `prob-profit-ci-tier-gate-gate-prob-profit-wilson-ci-to-the-iid-forward-ti.md` |
 | [r5-fingerprint](r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md) | complete |  | Closed the snapshot-fingerprint blind-spot — the regression fingerprint pinned OHLCV only, so a vol_iv or treasury refresh could silently move S27/S32/S34/S35 results. Now also captures vol_iv + treasury sha256; backfilled the 4 pinned snapshots with the current (main) provenance, claim numbers untouched. | `r5-fingerprint-r5-pin-vol-iv-treasury-sha-in-the-backtest-snaps.md` |

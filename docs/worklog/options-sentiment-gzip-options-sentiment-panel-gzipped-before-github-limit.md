@@ -4,10 +4,10 @@ title: "options_sentiment panel gzipped before the GitHub 100 MiB ceiling (item 
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 469
 decisions: []
 date: 2026-07-02
-headline: "The 102.3 MB options_sentiment.csv sat at 97.5% of GitHub's per-blob push limit with ~4.5 months of growth headroom (next refresh past ~Oct 2026 = hard push reject); committed gzipped at 32.0 MB (3.17:1), loader spec flipped, ~30 years of headroom"
+headline: "The 102.3 MB options_sentiment.csv sat at 97.5% of GitHub's per-blob push limit with ~4.5 months of growth headroom (next refresh past ~Oct 2026 = hard push reject); committed gzipped at 32.0 MB (3.20:1), loader spec flipped, ~30 years of headroom"
 surface:
   - data/broad_pull_loaders.py
   - tests/test_broad_pull_loaders.py
@@ -25,7 +25,7 @@ mentioned the file — a refresh operator had nothing warning them.
 
 ## What we tried / worked
 
-gzip in place — measured 3.17:1 (102.3 MB → 32.0 MB, 30.5 % of limit,
+gzip in place — measured 3.20:1 (102.3 MB → 32.0 MB, 30.5 % of limit,
 ~30 years of headroom at observed growth). Chosen over split-by-year
 (the `DatasetSpec` holds one relpath; splitting needs loader surgery)
 and truncate-and-archive (loses the dormant panel's history for no

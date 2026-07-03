@@ -643,9 +643,17 @@ _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
 ]
 
 
-def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFrame:
+def _attach_drops_summary(
+    frame: pd.DataFrame, drops: list[dict], staleness: dict | None = None
+) -> pd.DataFrame:
     """Attach the drops list AND a trader-facing roll-up summary to a
     ranker output frame.
+
+    ``staleness`` (optional, D1-2/D3-2): the structured wall-clock
+    frontier-staleness dict from :func:`_frontier_staleness_info`, attached
+    as ``attrs["staleness"]`` so the API/dashboard can SHOW data currency
+    instead of the operator assuming "spot == today". attrs-only — survivor
+    rows are untouched, like the drops themselves.
 
     Both attributes ride on ``frame.attrs`` so survivor rows are
     untouched (CLAUDE.md §2). The summary closes S31 F1/F4
@@ -676,7 +684,53 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
         "total_dropped": len(drops),
         "by_gate": dict(Counter(d["gate"] for d in drops)),
     }
+    if staleness is not None:
+        frame.attrs["staleness"] = staleness
     return frame
+
+
+def _frontier_staleness_info(as_of, staleness_ref, conn) -> dict:
+    """Structured wall-clock staleness of the universe data frontier
+    (D1-2/D3-2 — adversarial review 2026-07-01: a 27-day-stale frontier was
+    invisible at runtime; the only gate was frontier-RELATIVE, so when the
+    whole universe is stale every per-ticker gap is 0).
+
+    Meaningful only at ``as_of=None`` — a dated backtest's frontier is the
+    as_of itself, and wall-clock reads there would break byte-identity, so
+    dated queries return ``{"checked": False}`` (an explicit audit sentinel,
+    not an omission). Threshold ownership: the connector's
+    ``_OHLCV_FRONTIER_STALE_DAYS`` (7 — see its rationale comment), read via
+    ``getattr`` so method-less stubs default sanely.
+    """
+    if as_of is not None or staleness_ref is None:
+        return {"checked": False}
+    from datetime import date as _date
+
+    threshold = int(getattr(conn, "_OHLCV_FRONTIER_STALE_DAYS", 7))
+    frontier = pd.Timestamp(staleness_ref).normalize()
+    age = int((pd.Timestamp(_date.today()) - frontier).days)
+    return {
+        "checked": True,
+        "data_frontier": frontier.date().isoformat(),
+        "wall_clock_date": _date.today().isoformat(),
+        "frontier_age_days": age,
+        "threshold_days": threshold,
+        "stale": age > threshold,
+    }
+
+
+def _resolve_refuse_stale_live(param: bool | None) -> bool:
+    """Resolve the D1-2 opt-in hard-refuse switch: an explicit param wins;
+    ``None`` (the default) reads the ``SWE_REFUSE_STALE_LIVE`` env arm so a
+    live deployment can arm the refusal without code changes (pattern:
+    ``SWE_DEEP_HISTORY``). Default OFF — a default refuse at a stale
+    frontier would blank every ``as_of=None`` book (the #462 lesson); the
+    default path stays warn-and-rank (fail-open, loudly)."""
+    if param is not None:
+        return bool(param)
+    import os
+
+    return os.environ.get("SWE_REFUSE_STALE_LIVE", "").strip().lower() in ("1", "true", "yes")
 
 
 # Sentinel for ``WheelRunner.consume_into_live_book(connector=...)``: lets the
@@ -1147,6 +1201,7 @@ class WheelRunner:
         enforce_chain_quality_gate: bool = True,
         universe_limit: int | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -1310,6 +1365,29 @@ class WheelRunner:
                 staleness_ref = conn.get_data_frontier()
             except Exception:
                 staleness_ref = None
+
+        # D1-2/D3-2: structured wall-clock staleness of the frontier itself
+        # (the per-ticker gate below is frontier-RELATIVE and reads 0 when
+        # the whole universe is stale). Rides on df.attrs; opt-in hard
+        # refuse (refuse_stale_live / SWE_REFUSE_STALE_LIVE) short-circuits
+        # ONCE, universe-wide, BEFORE the per-ticker loop — never a
+        # per-ticker drop spam, and drop-only (§2: a refusal cannot rescue).
+        staleness_info = _frontier_staleness_info(as_of, staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": "*",
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
 
         for ticker in tickers:
             try:
@@ -2322,7 +2400,7 @@ class WheelRunner:
         # attached after the sort/head so it rides on the exact frame
         # returned (empty or not). Survivor rows are untouched; see
         # CLAUDE.md section 2.
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Single-ticker surface exploration (investor-scenario 2 follow-up)
@@ -2622,6 +2700,7 @@ class WheelRunner:
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank covered-call **entry** candidates for a held stock by forward EV.
 
@@ -2785,6 +2864,24 @@ class WheelRunner:
                 _cc_staleness_ref = conn.get_data_frontier()
             except Exception:
                 _cc_staleness_ref = None
+        # D1-2/D3-2 wall-clock staleness (see rank_candidates_by_ev): attrs
+        # + opt-in universe-wide refusal, drop-only.
+        staleness_info = _frontier_staleness_info(as_of, _cc_staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
         if _cc_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_cc_staleness_ref)
@@ -3187,7 +3284,7 @@ class WheelRunner:
         # Drop log + S31 F1/F4 summary attached after sort/head so it
         # rides on the exact frame returned; survivor rows are
         # untouched (CLAUDE.md §2).
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Strangle EV ranking (issue #118 P1 — S14 follow-up)
@@ -3212,6 +3309,7 @@ class WheelRunner:
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank short-strangle candidates for a ticker by composed forward EV.
 
@@ -3374,6 +3472,24 @@ class WheelRunner:
                 _stg_staleness_ref = conn.get_data_frontier()
             except Exception:
                 _stg_staleness_ref = None
+        # D1-2/D3-2 wall-clock staleness (see rank_candidates_by_ev): attrs
+        # + opt-in universe-wide refusal, drop-only.
+        staleness_info = _frontier_staleness_info(as_of, _stg_staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
         if _stg_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_stg_staleness_ref)
@@ -3857,7 +3973,7 @@ class WheelRunner:
         # Drop log + S31 F1/F4 summary attached after sort/head so it
         # rides on the exact frame returned; survivor rows are
         # untouched (CLAUDE.md §2).
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier

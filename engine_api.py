@@ -535,6 +535,21 @@ def _data_frontier(conn) -> str | None:
     return _data_frontier_cache
 
 
+def _frontier_age_days(frontier_iso: str | None) -> int | None:
+    """Calendar days between the served data frontier and today's wall
+    clock (D1-2/D3-2). Computed per-request — the frontier is process-cached
+    but the clock moves. None when the frontier is unknown (never raises:
+    status must stay a cheap, robust health check)."""
+    if not frontier_iso:
+        return None
+    try:
+        from datetime import date as _date
+
+        return (_date.today() - _date.fromisoformat(frontier_iso)).days
+    except Exception:
+        return None
+
+
 def _nan_to_none(v):
     """Scalar NaN/Inf → None; everything else passes through unchanged.
 
@@ -941,6 +956,11 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # its default as_of from this instead of hardcoding a date
                 # that rots between data refreshes (review 2026-06-10).
                 "data_frontier": _data_frontier(conn),
+                # D1-2/D3-2: age of that frontier vs the wall clock, computed
+                # per-request (the frontier string is process-cached but the
+                # clock moves) so the dashboard chip can show SEVERITY
+                # instead of a dim date. None when the frontier is unknown.
+                "frontier_age_days": _frontier_age_days(_data_frontier(conn)),
             }
         )
 
@@ -1024,6 +1044,12 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     # usually means everything was gate-dropped — say which.
                     "drops_summary": _sanitize_nans(
                         getattr(df, "attrs", {}).get("drops_summary") if df is not None else None
+                    ),
+                    # D1-2/D3-2: wall-clock frontier staleness (attrs
+                    # ride-along) so a stale live rank is VISIBLE, not
+                    # assumed fresh.
+                    "staleness": _sanitize_nans(
+                        getattr(df, "attrs", {}).get("staleness") if df is not None else None
                     ),
                 }
             )
@@ -1155,6 +1181,8 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 # top-N) instead of two stages equal by construction
                 # (PR #403 review F8 / funnel.tsx API follow-up).
                 "drops_summary": _sanitize_nans(getattr(df, "attrs", {}).get("drops_summary")),
+                # D1-2/D3-2: wall-clock frontier staleness (attrs ride-along).
+                "staleness": _sanitize_nans(getattr(df, "attrs", {}).get("staleness")),
                 "params": {
                     "limit": limit_int,
                     "dte": dte_int,

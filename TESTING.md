@@ -416,9 +416,36 @@ fails, the response is **diagnose first, re-baseline second**:
   that is the signal to regenerate the four snapshots (step 4 above) and
   re-pin, not a regression to investigate.
 
+- Since 2026-07-02 (campaign item 3) `connector_data_sha256` additionally pins
+  the two **broad_pull** files the connector consumes *outside* its `_FILES`
+  map — `broad_pull/dividend_pit/sp500_dividend_yield_pit.csv` (PIT dividend
+  yields → BSM carry-q, #426/#428) and
+  `broad_pull/per_name/sp500_snapshot_bdp.csv` (the #464 earnings-calendar
+  overlay) — as `broad_pull_dividend_pit` / `broad_pull_snapshot_bdp`. Before
+  that they were **unpinned reads**: a broad_pull re-pull could move engine
+  inputs without tripping the drift guard.
+
 The legacy scalar `data_csv_sha256` / `vol_iv_sha256` / `treasury_sha256`
 fields remain for back-compat; `connector_data_sha256` supersedes them by
 pinning the full connector set.
+
+**Option-premium rail neutralization (D4-2, 2026-07-02):** the replay drivers
+in `backtests/regression/_common.py` pin `SWE_OPTION_PREMIUM_DIR` to a
+nonexistent dir around connector construction (recorded in the fingerprint as
+`option_premium_rail: "pinned_off"`), and the root `conftest.py` pins it to an
+empty dir for the whole pytest session — so replays and exact-EV test pins are
+**rail-independent**: a box with a produced (gitignored)
+`data_processed/option_premium/` larder now reproduces CI and the committed
+baselines (locked rail-off at b3aa236) instead of silently diverging. Note the
+polarity: unset/EMPTY env means "use the repo default dir", *not* "rail off" —
+the pin must be a nonexistent/empty directory. Post-#463 the rail is also
+date-coherent on its own terms: dated backtest paths refuse a quote from any
+session other than the spot bar's exact date (a one-session-stale quote books
+real market movement as phantom edge) and bound quote DTE to the modeled
+horizon ±10d, so even a future deliberate rail-ON regression lane could not
+pair frontier-skewed quotes with spots. Rail-ON behavior stays covered by the
+synthetic-parquet tests in `tests/test_real_premium_wiring.py` /
+`tests/test_option_premium_accessor.py`, which opt in with their own env pin.
 
 ## Sandbox notes
 

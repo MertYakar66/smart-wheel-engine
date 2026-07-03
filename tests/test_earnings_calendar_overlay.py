@@ -567,6 +567,88 @@ class TestEventGateRegistrationErrors:
         assert any("unparseable earnings announcement_date" in r.message for r in caplog.records)
         assert set(df["ticker"]) == set(_TICKERS)
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            [{"effective_date": "2026-08-01", "action_type": "Stock Split"}],
+            {"effective_date": "2026-08-01", "action_type": "Stock Split"},
+            1,
+        ],
+        ids=["list", "dict", "scalar"],
+    )
+    def test_corp_actions_truthy_non_dataframe_is_logged_not_fatal(self, caplog, payload):
+        """#464 verdict nit v1: a truthy non-DataFrame get_corporate_actions
+        payload (list/dict -> AttributeError on .iterrows, scalar -> TypeError
+        on len) was the one case the old blanket except caught that the #464
+        per-stage guards did not — pre-fix it escaped every handler and killed
+        the ENTIRE multi-ticker ranking run, not just that ticker's lockout."""
+
+        class _BadCorpActions(_MarketStub):
+            def __init__(self, tickers):
+                super().__init__(tickers, earnings_conn=None)
+
+            def get_next_earnings(self, ticker, as_of=None):
+                # AAA carries a real forward earnings date: proves the
+                # earnings stage stays ARMED alongside the bad corp stage.
+                if ticker == "AAA":
+                    return {"announcement_date": pd.Timestamp("2026-03-20")}
+                return None
+
+            def get_recent_earnings(self, ticker, as_of=None, lookback_days=7):
+                return None
+
+            def get_corporate_actions(self, ticker, start_date=None, end_date=None, as_of=None):
+                return payload
+
+        conn = _BadCorpActions(_TICKERS)
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            df = _rank(_runner(conn), as_of="2026-03-15", dte_target=30)
+        # logged, not crashed
+        assert any("unusable get_corporate_actions payload" in r.message for r in caplog.records)
+        # the run survived: the clean ticker still ranks
+        assert "BBB" in set(df["ticker"])
+        # the earnings lockout still armed for AAA (an event drop, not a
+        # crash casualty)
+        aaa = [d for d in df.attrs["drops"] if d["ticker"] == "AAA" and d["gate"] == "event"]
+        assert aaa and "earnings@2026-03-20" in aaa[0]["reason"]
+
+    def test_corp_actions_wellformed_dataframe_still_registers(self, caplog):
+        """Control for the payload guard: a legitimate single-row DataFrame
+        must still register and lock — the new guard is shape-probing, not
+        payload-swallowing."""
+
+        class _GoodCorpActions(_MarketStub):
+            def __init__(self, tickers):
+                super().__init__(tickers, earnings_conn=None)
+
+            def get_next_earnings(self, ticker, as_of=None):
+                return None
+
+            def get_recent_earnings(self, ticker, as_of=None, lookback_days=7):
+                return None
+
+            def get_corporate_actions(self, ticker, start_date=None, end_date=None, as_of=None):
+                if ticker == "AAA":
+                    return pd.DataFrame(
+                        [
+                            {
+                                "effective_date": pd.Timestamp("2026-03-25"),
+                                "action_type": "Stock Split",
+                            }
+                        ]
+                    )
+                return pd.DataFrame()
+
+        conn = _GoodCorpActions(_TICKERS)
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            df = _rank(_runner(conn), as_of="2026-03-15", dte_target=30)
+        assert not any(
+            "unusable get_corporate_actions payload" in r.message for r in caplog.records
+        )
+        aaa = [d for d in df.attrs["drops"] if d["ticker"] == "AAA" and d["gate"] == "event"]
+        assert aaa and "corp_action@2026-03-25" in aaa[0]["reason"]
+        assert "BBB" in set(df["ticker"])
+
 
 # ----------------------------------------------------------------------
 # 5. Live-deployment preflight (opt-in; wall-clock dependent BY DESIGN)

@@ -2,9 +2,9 @@
 id: rail-date-coherence
 title: Rail quote/spot date + DTE coherence (D1-1 fix)
 kind: fix
-status: in-flight
+status: shipped
 terminal: X
-pr:
+pr: 463
 decisions: []
 date: 2026-07-01
 headline: >-
@@ -83,10 +83,19 @@ by construction: every new branch can only turn `market_mid` into
   (frontier-consistent) still serves `market_mid` (MSFT $76.50); historical
   `as_of='2023-06-15'` still serves `market_mid`. No over-refusal.
 - `tests/test_real_premium_wiring.py` + `tests/test_option_premium_accessor.py`
-  44/44 green: 9 new unit pins (`TestQuoteSpotCoherence`), 2 e2e pins of the
+  46/46 green: 11 new unit pins (`TestQuoteSpotCoherence`, incl. the
+  no-anchor refusal and the disclosed re-selection cell), 2 e2e pins of the
   two live defect shapes (`TestRankerQuoteSpotCoherenceE2E` — prior-session
   quote at dated as_of; skewed larder frontier at as_of=None), 1 connector
-  wall-clock pin.
+  wall-clock pin covering both accessors.
+- Adversarial 3-refuter panel on the diff (§2 / correctness / blast-radius
+  lenses): CONCERN / SAFE / SAFE, zero blockers; both should-fixes (comment
+  accuracy, the `list_option_expirations` wall-clock bound) and the
+  structural-hinge note (no-anchor refusal) addressed pre-merge (branch
+  head `afcb483`, squashed into #463 = `81fc2c5` on main). Panel
+  mutation-checked every new pin red on origin/main and hunk-verified the
+  rail-absent path byte-identical. *(This round postdated the original
+  fragment; recorded 2026-07-02 per the #463 verdict's n1 note.)*
 - `test_f4_rv_widening.py`: 21/21 green under the CI condition
   (`SWE_OPTION_PREMIUM_DIR` → empty). The one with-rail local failure
   ($5.35 AAPL pin) is **pre-existing at origin/main** (stash A/B proven,

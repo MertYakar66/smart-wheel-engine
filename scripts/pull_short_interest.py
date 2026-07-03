@@ -11,6 +11,7 @@ keep true PIT settlement dates.
 APPEND-BY-DESIGN: pulls [SWE_PULL_START, SWE_PULL_END] (default a recent tail), folds into the
 existing panel, dedup (date,ticker) keep-last, sort (ticker,date). Full rebuild: SWE_PULL_START=2015-01-01.
 """
+
 import os
 
 import pandas as pd
@@ -32,16 +33,24 @@ def native(nw):
 
 
 def main():
-    uni = sorted(pd.read_csv(os.path.join(MONO, "sp500_ohlcv.csv"), usecols=["ticker"])["ticker"].unique())
+    uni = sorted(
+        pd.read_csv(os.path.join(MONO, "sp500_ohlcv.csv"), usecols=["ticker"])["ticker"].unique()
+    )
     parts = []
     for i in range(0, len(uni), CHUNK):
-        ch = uni[i:i + CHUNK]
-        print(f"  bdh {i}-{min(i+CHUNK,len(uni))}/{len(uni)}", flush=True)
+        ch = uni[i : i + CHUNK]
+        print(f"  bdh {i}-{min(i + CHUNK, len(uni))}/{len(uni)}", flush=True)
         d = native(blp.bdh(ch, FIELDS, START, END))
         if {"ticker", "date", "field", "value"}.issubset(d.columns):
             parts.append(d[d["value"].notna()])
-    long = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["ticker", "date", "field", "value"])
-    w = long.pivot_table(index=["date", "ticker"], columns="field", values="value", aggfunc="first").reset_index()
+    long = (
+        pd.concat(parts, ignore_index=True)
+        if parts
+        else pd.DataFrame(columns=["ticker", "date", "field", "value"])
+    )
+    w = long.pivot_table(
+        index=["date", "ticker"], columns="field", values="value", aggfunc="first"
+    ).reset_index()
     w["ticker"] = w["ticker"].str.replace(" Equity", "", regex=False)
     w["date"] = pd.to_datetime(w["date"]).dt.strftime("%Y-%m-%d")
     w = w.rename(columns=FMAP)
@@ -51,12 +60,17 @@ def main():
     w = w[COLS]
     prev = pd.read_csv(OUT, dtype=str) if os.path.exists(OUT) else None
     combined = pd.concat([prev, w], ignore_index=True) if prev is not None else w
-    combined = (combined.drop_duplicates(["date", "ticker"], keep="last")
-                .sort_values(["ticker", "date"]).reset_index(drop=True)[COLS])
+    combined = (
+        combined.drop_duplicates(["date", "ticker"], keep="last")
+        .sort_values(["ticker", "date"])
+        .reset_index(drop=True)[COLS]
+    )
     combined.to_csv(OUT, index=False)
-    print(f"short_interest: pulled {START}..{END}; +{len(w)} rows (settle dates "
-          f"{sorted(w['date'].unique())}); panel now {len(combined)} rows, "
-          f"{combined['date'].min()}..{combined['date'].max()}")
+    print(
+        f"short_interest: pulled {START}..{END}; +{len(w)} rows (settle dates "
+        f"{sorted(w['date'].unique())}); panel now {len(combined)} rows, "
+        f"{combined['date'].min()}..{combined['date'].max()}"
+    )
 
 
 if __name__ == "__main__":

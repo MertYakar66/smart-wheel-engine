@@ -9,6 +9,7 @@ the existing panel, dedup (date,ticker) keep-last, sort (ticker,date). Origin:
 staging/dividend_pit/pull_dividend_yield_pit.py on the broad-pull branch, promoted to a
 live-path append producer. For a full rebuild set SWE_PULL_START=2010-01-01.
 """
+
 import os
 
 import pandas as pd
@@ -20,7 +21,11 @@ OUT = os.path.join(MONO, "broad_pull", "dividend_pit", "sp500_dividend_yield_pit
 START = os.environ.get("SWE_PULL_START", "2026-06-01")
 END = os.environ.get("SWE_PULL_END", "2026-07-02")
 FIELDS = ["EQY_DVD_YLD_12M", "EQY_DVD_YLD_IND", "DVD_SH_12M"]
-FMAP = {"EQY_DVD_YLD_12M": "dvd_yld_12m", "EQY_DVD_YLD_IND": "dvd_yld_ind", "DVD_SH_12M": "dvd_sh_12m"}
+FMAP = {
+    "EQY_DVD_YLD_12M": "dvd_yld_12m",
+    "EQY_DVD_YLD_IND": "dvd_yld_ind",
+    "DVD_SH_12M": "dvd_sh_12m",
+}
 COLS = ["date", "ticker", "dvd_yld_12m", "dvd_yld_ind", "dvd_sh_12m"]
 CHUNK = 250
 
@@ -30,16 +35,20 @@ def native(nw):
 
 
 def main():
-    uni = sorted(pd.read_csv(os.path.join(MONO, "sp500_ohlcv.csv"), usecols=["ticker"])["ticker"].unique())
+    uni = sorted(
+        pd.read_csv(os.path.join(MONO, "sp500_ohlcv.csv"), usecols=["ticker"])["ticker"].unique()
+    )
     parts = []
     for i in range(0, len(uni), CHUNK):
-        ch = uni[i:i + CHUNK]
-        print(f"  bdh(M) {i}-{min(i+CHUNK,len(uni))}/{len(uni)}", flush=True)
+        ch = uni[i : i + CHUNK]
+        print(f"  bdh(M) {i}-{min(i + CHUNK, len(uni))}/{len(uni)}", flush=True)
         d = native(blp.bdh(ch, FIELDS, START, END, Per="M"))
         if {"ticker", "date", "field", "value"}.issubset(d.columns):
             parts.append(d[d["value"].notna()])
     long = pd.concat(parts, ignore_index=True)
-    w = long.pivot_table(index=["date", "ticker"], columns="field", values="value", aggfunc="first").reset_index()
+    w = long.pivot_table(
+        index=["date", "ticker"], columns="field", values="value", aggfunc="first"
+    ).reset_index()
     w["ticker"] = w["ticker"].str.replace(" Equity", "", regex=False)
     w["date"] = pd.to_datetime(w["date"]).dt.strftime("%Y-%m-%d")
     w = w.rename(columns=FMAP)
@@ -49,12 +58,17 @@ def main():
     w = w[COLS]
     prev = pd.read_csv(OUT, dtype=str) if os.path.exists(OUT) else None
     combined = pd.concat([prev, w], ignore_index=True) if prev is not None else w
-    combined = (combined.drop_duplicates(["date", "ticker"], keep="last")
-                .sort_values(["ticker", "date"]).reset_index(drop=True)[COLS])
+    combined = (
+        combined.drop_duplicates(["date", "ticker"], keep="last")
+        .sort_values(["ticker", "date"])
+        .reset_index(drop=True)[COLS]
+    )
     combined.to_csv(OUT, index=False)
     new = w["date"].max()
-    print(f"dividend_pit: pulled {START}..{END}; +{len(w)} rows; panel now "
-          f"{len(combined)} rows, {combined['date'].min()}..{combined['date'].max()}; newest {new}")
+    print(
+        f"dividend_pit: pulled {START}..{END}; +{len(w)} rows; panel now "
+        f"{len(combined)} rows, {combined['date'].min()}..{combined['date'].max()}; newest {new}"
+    )
 
 
 if __name__ == "__main__":

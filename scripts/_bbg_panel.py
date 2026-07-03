@@ -63,21 +63,21 @@ MEMBERS_TICKER_DEFAULT = "Member Ticker and Exchange Code"
 
 @dataclass
 class PanelConfig:
-    out_name: str                       # csv filename under data/bloomberg/
-    fields: list                        # Bloomberg fields to request
-    field_map: dict                     # bbg field -> output column name
-    out_cols: list                      # final column order (must incl. ticker)
-    start_date_full: str                # used ONLY when no existing CSV
-    end_date: str                       # default forward end
-    floor: str = "1994-01-01"           # backfill floor (per-name panels)
-    strip_equity_suffix: bool = False   # "AAPL UW Equity" -> "AAPL UW"
+    out_name: str  # csv filename under data/bloomberg/
+    fields: list  # Bloomberg fields to request
+    field_map: dict  # bbg field -> output column name
+    out_cols: list  # final column order (must incl. ticker)
+    start_date_full: str  # used ONLY when no existing CSV
+    end_date: str  # default forward end
+    floor: str = "1994-01-01"  # backfill floor (per-name panels)
+    strip_equity_suffix: bool = False  # "AAPL UW Equity" -> "AAPL UW"
     bdh_kwargs: dict = field(default_factory=dict)  # e.g. {"Fill": "P"}
-    chunk_size: int = 250               # tickers per bdh call (benchmarked 2.4x
-                                        # vs 30 on a 30-mo window, byte-identical
-                                        # output; drop to 60 for a fresh single
-                                        # multi-year window to avoid size limits)
-    chunk_months: int = 30              # months per backward window
-    validate: object = None             # optional callable(combined_df) -> None
+    chunk_size: int = 250  # tickers per bdh call (benchmarked 2.4x
+    # vs 30 on a 30-mo window, byte-identical
+    # output; drop to 60 for a fresh single
+    # multi-year window to avoid size limits)
+    chunk_months: int = 30  # months per backward window
+    validate: object = None  # optional callable(combined_df) -> None
 
 
 def to_native(obj):
@@ -138,10 +138,15 @@ def _pull_window(cfg: PanelConfig, tickers, ws, we):
     chunks = []
     for i in range(0, len(tickers), cfg.chunk_size):
         chunk = tickers[i : i + cfg.chunk_size]
-        print(f"    tickers {i + 1}-{min(i + cfg.chunk_size, len(tickers))}/{len(tickers)}", flush=True)
+        print(
+            f"    tickers {i + 1}-{min(i + cfg.chunk_size, len(tickers))}/{len(tickers)}",
+            flush=True,
+        )
         try:
             raw = to_native(
-                blp.bdh(tickers=chunk, flds=cfg.fields, start_date=ws, end_date=we, **cfg.bdh_kwargs)
+                blp.bdh(
+                    tickers=chunk, flds=cfg.fields, start_date=ws, end_date=we, **cfg.bdh_kwargs
+                )
             )
             if raw is None or len(raw) == 0:
                 continue
@@ -183,14 +188,20 @@ def run(cfg: PanelConfig):
     existing = None
     if os.path.exists(out_path) and os.path.getsize(out_path) > 100:
         existing = pd.read_csv(out_path, dtype={"date": str})
-        print(f"Existing {cfg.out_name}: {len(existing):,} rows, "
-              f"{existing['date'].min()} -> {existing['date'].max()}")
+        print(
+            f"Existing {cfg.out_name}: {len(existing):,} rows, "
+            f"{existing['date'].min()} -> {existing['date'].max()}"
+        )
     else:
         print(f"No existing {cfg.out_name}; fresh pull from {cfg.start_date_full}.")
 
-    windows = plan_windows(existing, cfg.start_date_full, end_date, floor, mode, chunk_months, max_windows)
-    print(f"END={end_date} FLOOR={floor} MODE={mode} CHUNK_MONTHS={chunk_months} "
-          f"MAX_WINDOWS={max_windows or 'all'}")
+    windows = plan_windows(
+        existing, cfg.start_date_full, end_date, floor, mode, chunk_months, max_windows
+    )
+    print(
+        f"END={end_date} FLOOR={floor} MODE={mode} CHUNK_MONTHS={chunk_months} "
+        f"MAX_WINDOWS={max_windows or 'all'}"
+    )
     if not windows:
         print("Nothing to pull (already contiguous floor->end for this mode).")
         return
@@ -206,7 +217,9 @@ def run(cfg: PanelConfig):
     if limit:
         tickers = tickers[:limit]
         print(f"SWE_PULL_LIMIT active -> {len(tickers)} tickers")
-    print(f"{len(tickers)} tickers (current SPX members; historical windows use today's constituents)")
+    print(
+        f"{len(tickers)} tickers (current SPX members; historical windows use today's constituents)"
+    )
 
     combined = existing[cfg.out_cols].copy() if existing is not None else None
     total_added = 0
@@ -217,26 +230,35 @@ def run(cfg: PanelConfig):
         if delta is None or len(delta) == 0:
             print("  (no data in window)")
             continue
-        print(f"  pulled {len(delta):,} rows ({delta['date'].min()} -> {delta['date'].max()}, "
-              f"{delta['ticker'].nunique()} tickers)")
+        print(
+            f"  pulled {len(delta):,} rows ({delta['date'].min()} -> {delta['date'].max()}, "
+            f"{delta['ticker'].nunique()} tickers)"
+        )
         if no_write:
             print("  SWE_PULL_NO_WRITE set -> not merging. sample:")
             print(delta.head(6).to_string())
             continue
-        combined = pd.concat([combined, delta], ignore_index=True) if combined is not None else delta
+        combined = (
+            pd.concat([combined, delta], ignore_index=True) if combined is not None else delta
+        )
         combined = combined.drop_duplicates(subset=["date", "ticker"], keep="last")
         combined = combined.sort_values(["ticker", "date"]).reset_index(drop=True)
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         combined.to_csv(out_path, index=False)
         total_added += len(delta)
-        print(f"  WROTE {cfg.out_name}: {len(combined):,} rows, "
-              f"{combined['date'].min()} -> {combined['date'].max()}", flush=True)
+        print(
+            f"  WROTE {cfg.out_name}: {len(combined):,} rows, "
+            f"{combined['date'].min()} -> {combined['date'].max()}",
+            flush=True,
+        )
         if cfg.validate is not None:
             cfg.validate(combined)
 
     if no_write:
         print("\nNO_WRITE run complete (nothing written).")
     elif combined is not None:
-        print(f"\nDONE {cfg.out_name}: {len(combined):,} rows x {len(combined.columns)} cols, "
-              f"{combined['ticker'].nunique()} tickers, "
-              f"{combined['date'].min()} -> {combined['date'].max()} (+{total_added:,} rows this run)")
+        print(
+            f"\nDONE {cfg.out_name}: {len(combined):,} rows x {len(combined.columns)} cols, "
+            f"{combined['ticker'].nunique()} tickers, "
+            f"{combined['date'].min()} -> {combined['date'].max()} (+{total_added:,} rows this run)"
+        )

@@ -29,7 +29,9 @@ FLOOR = os.environ.get("SWE_PULL_FLOOR") or "1990-01-01"
 NO_WRITE = bool(os.environ.get("SWE_PULL_NO_WRITE"))
 SERIES = [("VIX Index", "vix"), ("VIX3M Index", "vix_3m"), ("VIX6M Index", "vix_6m")]
 OUT_COLS = ["date", "vix", "vix_3m", "vix_6m"]
-out_path = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg", "vix_term_structure.csv")
+out_path = os.path.join(
+    os.path.dirname(__file__), "..", "data", "bloomberg", "vix_term_structure.csv"
+)
 
 
 def to_native(obj):
@@ -44,7 +46,11 @@ for tkr, label in SERIES:
         if raw is None or len(raw) == 0:
             print(f"  (no data for {tkr})")
             continue
-        df = raw.rename(columns={"value": label})[["date", label]] if "value" in raw.columns else None
+        df = (
+            raw.rename(columns={"value": label})[["date", label]]
+            if "value" in raw.columns
+            else None
+        )
         if df is None:
             # already-wide fallback
             df = raw.copy()
@@ -82,4 +88,6 @@ else:
     combined = wide
 combined = combined.sort_values("date").reset_index(drop=True)
 combined.to_csv(out_path, index=False)
-print(f"WROTE vix_term_structure.csv: {len(combined)} rows ({combined['date'].min()} -> {combined['date'].max()})")
+print(
+    f"WROTE vix_term_structure.csv: {len(combined)} rows ({combined['date'].min()} -> {combined['date'].max()})"
+)

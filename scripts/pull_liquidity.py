@@ -16,18 +16,20 @@ Env knobs: see scripts/_bbg_panel.py.
 
 from _bbg_panel import PanelConfig, run
 
-run(PanelConfig(
-    out_name="sp500_liquidity.csv",
-    fields=["VOLUME_AVG_30D", "TURNOVER", "EQY_SH_OUT"],
-    field_map={
-        "VOLUME_AVG_30D": "avg_vol_30d",
-        "TURNOVER": "turnover",
-        "EQY_SH_OUT": "shares_out",
-    },
-    out_cols=["date", "avg_vol_30d", "turnover", "shares_out", "ticker"],
-    start_date_full="2015-01-01",
-    end_date="2026-06-04",
-    floor="1994-01-01",
-    strip_equity_suffix=True,
-    bdh_kwargs={"Fill": "P"},
-))
+run(
+    PanelConfig(
+        out_name="sp500_liquidity.csv",
+        fields=["VOLUME_AVG_30D", "TURNOVER", "EQY_SH_OUT"],
+        field_map={
+            "VOLUME_AVG_30D": "avg_vol_30d",
+            "TURNOVER": "turnover",
+            "EQY_SH_OUT": "shares_out",
+        },
+        out_cols=["date", "avg_vol_30d", "turnover", "shares_out", "ticker"],
+        start_date_full="2015-01-01",
+        end_date="2026-06-04",
+        floor="1994-01-01",
+        strip_equity_suffix=True,
+        bdh_kwargs={"Fill": "P"},
+    )
+)

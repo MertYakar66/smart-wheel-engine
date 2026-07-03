@@ -51,21 +51,23 @@ def ohlcv_rotation_gate(df):
         )
 
 
-run(PanelConfig(
-    out_name="sp500_ohlcv.csv",
-    fields=["PX_OPEN", "PX_HIGH", "PX_LOW", "PX_LAST", "PX_VOLUME"],
-    field_map={
-        "PX_HIGH": "open",     # rotated: stored 'open' holds the true HIGH
-        "PX_LAST": "high",     # rotated: stored 'high' holds the true CLOSE
-        "PX_LOW": "low",       # stored 'low' holds the true LOW
-        "PX_OPEN": "close",    # rotated: stored 'close' holds the true OPEN
-        "PX_VOLUME": "volume",
-    },
-    out_cols=["date", "ticker", "open", "high", "low", "close", "volume"],
-    start_date_full="2018-01-01",
-    end_date="2026-06-04",
-    floor="1994-01-01",
-    strip_equity_suffix=False,
-    bdh_kwargs={},
-    validate=ohlcv_rotation_gate,
-))
+run(
+    PanelConfig(
+        out_name="sp500_ohlcv.csv",
+        fields=["PX_OPEN", "PX_HIGH", "PX_LOW", "PX_LAST", "PX_VOLUME"],
+        field_map={
+            "PX_HIGH": "open",  # rotated: stored 'open' holds the true HIGH
+            "PX_LAST": "high",  # rotated: stored 'high' holds the true CLOSE
+            "PX_LOW": "low",  # stored 'low' holds the true LOW
+            "PX_OPEN": "close",  # rotated: stored 'close' holds the true OPEN
+            "PX_VOLUME": "volume",
+        },
+        out_cols=["date", "ticker", "open", "high", "low", "close", "volume"],
+        start_date_full="2018-01-01",
+        end_date="2026-06-04",
+        floor="1994-01-01",
+        strip_equity_suffix=False,
+        bdh_kwargs={},
+        validate=ohlcv_rotation_gate,
+    )
+)

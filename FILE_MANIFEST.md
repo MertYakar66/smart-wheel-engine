@@ -630,6 +630,13 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/dashboard_refresh.py` | Dashboard-terminal one-command live refresh: regenerate the snapshot (from saved connector JSON via `ibkr_live_snapshot`), rebuild the Flex ledger incl. option expiries (via `ibkr_flex_ledger` + the gitignored Flex creds), sync the equity-curve live point, and verify. Backs up before overwriting; never writes the Flex token; READ-ONLY (§2/§3). See `docs/DASHBOARD_TERMINAL.md`. |
 | `scripts/pull_ohlcv.py` | xbbg/Bloomberg pull of daily OHLCV for all constituents. |
 | `scripts/pull_liquidity.py` | xbbg/Bloomberg pull of daily liquidity metrics. |
+| `scripts/_bbg_panel.py` | Shared Bloomberg per-name panel-pull engine backing pull_ohlcv/vol_iv/liquidity: contiguous forward+backward window planning, durable per-window rewrite, env knobs (SWE_PULL_MODE/END/CHUNK/FLOOR/LIMIT), optional validate gate (OHLCV rotation). |
+| `scripts/pull_vol_iv.py` | xbbg/Bloomberg pull of the implied/realized-vol monolith (HIST_PUT/CALL_IMP_VOL + VOLATILITY_30/60/90/260D) into sp500_vol_iv_full.csv; the W36 producer that was absent on main pre-sweep. |
+| `scripts/pull_vix_term_structure.py` | xbbg/Bloomberg pull of the VIX/VIX3M/VIX6M term structure into vix_term_structure.csv. |
+| `scripts/pull_dividends.py` | xbbg/Bloomberg pull of full declared dividend history (bds EQY_DVD_HIST_ALL) into sp500_dividends.csv; union-restores index leavers so survivorship is preserved. |
+| `scripts/pull_corporate_actions.py` | xbbg/Bloomberg pull of corporate actions (splits/specials, reshaped from EQY_DVD_HIST_ALL) into sp500_corporate_actions.csv; leaver-union-restored. |
+| `scripts/pull_snapshot_bdp.py` | xbbg/Bloomberg per-name BDP snapshot (next_earnings_dt/GICS/ratings/ownership) as append-only PIT vintages into broad_pull/per_name/sp500_snapshot_bdp.csv. |
+| `scripts/pull_dividend_yield_pit.py` | xbbg/Bloomberg dated PIT dividend-yield panel (EQY_DVD_YLD_12M/IND, monthly) into broad_pull/dividend_pit/sp500_dividend_yield_pit.csv; feeds BSM carry-q. |
 | `scripts/pull_options_greeks.py` | xbbg/Bloomberg pull of IV term structure / skew. |
 | `scripts/pull_short_interest.py` | xbbg/Bloomberg pull of short-interest data. |
 | `scripts/pull_historical_fundamentals.py` | xbbg/Bloomberg pull of quarterly fundamentals. |

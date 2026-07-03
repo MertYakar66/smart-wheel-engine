@@ -22,6 +22,7 @@ Env knobs:
   SWE_CA_SMOKE=1    pull 5 tickers, print, NO write.
   SWE_PULL_NO_WRITE pull+print, skip write.
 """
+
 from __future__ import annotations
 
 import io
@@ -61,10 +62,14 @@ def pull_one(member: str) -> pd.DataFrame | None:
     df = to_native(blp.bds(member + " Equity", "EQY_DVD_HIST_ALL"))
     if df is None or len(df) == 0:
         return None
-    df = df.rename(columns={
-        "Declared Date": "announcement_date", "Ex-Date": "effective_date",
-        "Dividend Type": "action_type", "Dividend Amount": "_val",
-    })
+    df = df.rename(
+        columns={
+            "Declared Date": "announcement_date",
+            "Ex-Date": "effective_date",
+            "Dividend Type": "action_type",
+            "Dividend Amount": "_val",
+        }
+    )
     for c in ("announcement_date", "effective_date"):
         df[c] = pd.to_datetime(df[c], errors="coerce").dt.strftime("%Y-%m-%d")
     val = pd.to_numeric(df.get("_val"), errors="coerce")
@@ -99,16 +104,23 @@ def main():
     df = df.drop_duplicates(subset=OUT_COLS, keep="first")  # exact-dup removal only
     df = df.sort_values(["ticker", "effective_date"]).reset_index(drop=True)
     eff = df["effective_date"].dropna()
-    print(f"\nrows={len(df):,}  tickers={df['ticker'].nunique()}  "
-          f"effective_date {eff.min()} -> {eff.max()}")
+    print(
+        f"\nrows={len(df):,}  tickers={df['ticker'].nunique()}  "
+        f"effective_date {eff.min()} -> {eff.max()}"
+    )
     print("action_type breakdown:")
     print(df["action_type"].value_counts().head(20).to_string())
 
     if smoke:
-        print(df[df.action_type.isin(['Stock Split','Spinoff','Special Cash'])].head(8).to_string(index=False))
+        print(
+            df[df.action_type.isin(["Stock Split", "Spinoff", "Special Cash"])]
+            .head(8)
+            .to_string(index=False)
+        )
         return
     if no_write:
-        print("SWE_PULL_NO_WRITE -> not written."); return
+        print("SWE_PULL_NO_WRITE -> not written.")
+        return
     df.to_csv(OUT, index=False)
     print(f"WROTE {os.path.normpath(OUT)} ({len(df):,} rows)")
 

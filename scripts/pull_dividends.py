@@ -21,6 +21,7 @@ Env knobs:
   SWE_DVD_SMOKE=1   pull 5 tickers, print, NO write.
   SWE_PULL_NO_WRITE pull+print, skip the write.
 """
+
 from __future__ import annotations
 
 import io
@@ -48,8 +49,14 @@ COLMAP = {
 }
 DATE_COLS = ["declared_date", "ex_date", "record_date", "payable_date"]
 OUT_COLS = [
-    "declared_date", "ex_date", "record_date", "payable_date",
-    "dividend_amount", "dividend_frequency", "dividend_type", "ticker",
+    "declared_date",
+    "ex_date",
+    "record_date",
+    "payable_date",
+    "dividend_amount",
+    "dividend_frequency",
+    "dividend_type",
+    "ticker",
 ]
 
 
@@ -71,7 +78,6 @@ def pull_one(member: str) -> pd.DataFrame | None:
     for c in DATE_COLS:
         df[c] = pd.to_datetime(df[c], errors="coerce").dt.strftime("%Y-%m-%d")
     df["ticker"] = member
-    keep = [c for c in OUT_COLS if c in df.columns]
     for c in OUT_COLS:
         if c not in df.columns:
             df[c] = pd.NA
@@ -102,9 +108,11 @@ def main():
 
     today = pd.Timestamp.today().strftime("%Y-%m-%d")
     fwd = (alld["ex_date"] > today).sum()
-    print(f"\nrows={len(alld):,}  payers={payers}  "
-          f"ex_date {alld['ex_date'].min()} -> {alld['ex_date'].max()}  "
-          f"declared_date max={alld['declared_date'].max()}  forward_ex(>{today})={fwd}")
+    print(
+        f"\nrows={len(alld):,}  payers={payers}  "
+        f"ex_date {alld['ex_date'].min()} -> {alld['ex_date'].max()}  "
+        f"declared_date max={alld['declared_date'].max()}  forward_ex(>{today})={fwd}"
+    )
 
     if smoke:
         print(alld.groupby("ticker")["ex_date"].agg(["min", "max", "count"]).to_string())

@@ -60,7 +60,7 @@ def main():
     fields = list(FMAP)
     parts = []
     for i in range(0, len(tickers), CHUNK):
-        ch = tickers[i:i + CHUNK]
+        ch = tickers[i : i + CHUNK]
         print(f"  bdp {i + 1}-{min(i + CHUNK, len(tickers))}/{len(tickers)}", flush=True)
         parts.append(native(blp.bdp(ch, fields)))
     raw = pd.concat(parts, ignore_index=True)
@@ -91,10 +91,14 @@ def main():
     )
     combined.to_csv(OUT, index=False)
     cur = combined[combined["asof"] == ASOF]
-    print(f"sp500_snapshot_bdp.csv: +{len(cur)} names @ asof {ASOF}; "
-          f"{combined['asof'].nunique()} vintage(s), {len(combined)} rows total")
-    print(f"  new-vintage next_earnings_dt cov {cur['next_earnings_dt'].notna().mean():.0%}, "
-          f"max {pd.to_datetime(cur['next_earnings_dt'], errors='coerce').max()}")
+    print(
+        f"sp500_snapshot_bdp.csv: +{len(cur)} names @ asof {ASOF}; "
+        f"{combined['asof'].nunique()} vintage(s), {len(combined)} rows total"
+    )
+    print(
+        f"  new-vintage next_earnings_dt cov {cur['next_earnings_dt'].notna().mean():.0%}, "
+        f"max {pd.to_datetime(cur['next_earnings_dt'], errors='coerce').max()}"
+    )
 
 
 if __name__ == "__main__":

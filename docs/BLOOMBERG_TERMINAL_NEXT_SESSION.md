@@ -29,6 +29,15 @@ Authored 2026-06-27, after Phase 1 of the wiring campaign landed (#354 carry-q,
 **Goal:** advance the served price/spot frontier `2026-06-04 → <today>` so the
 engine ranks against current data, and pay the coupled re-baseline once.
 
+> **⚠ Staging rule for the big per-name panels (added 2026-07-02):**
+> `broad_pull/per_name/options_sentiment` is now committed **gzipped**
+> (`options_sentiment.csv.gz`, 32.0 MB) — its raw CSV had reached **97.5 % of
+> GitHub's 100 MiB per-blob push limit** and any refresh extending it past
+> ~2026-10 would have been hard-rejected at push (GH001). Any re-pull of this
+> panel (and of `iv_surface` / `vol_term_rv`, gzipped since staging) must
+> stage `.csv.gz`, never a raw `.csv` — `df.to_csv("....csv.gz")` compresses
+> by extension, and the loader reads `.gz` transparently.
+
 > **Sequencing (already satisfied):** #378 (IV-staleness gate) is **on `main`**,
 > so the moment OHLCV advances past the IV monolith, stale-IV names fail closed
 > to the fundamentals fallback instead of mispricing BSM. You may bump the

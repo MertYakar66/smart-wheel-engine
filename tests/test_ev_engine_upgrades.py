@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 import numpy as np
+import pytest
 
 from engine.ev_engine import EVEngine, ShortOptionTrade
 
@@ -42,6 +43,7 @@ def _trade(**overrides) -> ShortOptionTrade:
 # ----------------------------------------------------------------------
 # Deterministic seeding
 # ----------------------------------------------------------------------
+@pytest.mark.integration  # spawns real subprocesses: cross-process EV determinism
 def test_fallback_distribution_seed_is_process_independent():
     """The lognormal fallback must give identical EV across separate Python
     processes. Before the fix this used hash(str) which is randomised per

@@ -46,7 +46,9 @@ except ImportError:
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (require external services)"
+        "markers",
+        "integration: cross-boundary tests (loopback HTTP server / subprocess spawns) — "
+        "headless-CI-runnable; anchors the CI Integration Tests lane",
     )
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"

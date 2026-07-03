@@ -4,7 +4,7 @@ title: "Per-file coverage-floor ratchet for the decision trio + engine core"
 kind: fix
 status: shipped
 terminal: X
-pr:
+pr: 471
 decisions: []
 date: 2026-07-03
 headline: "The aggregate --cov-fail-under=80 spans ~15,320 statements, so wheel_runner could shed 20pp of coverage without tripping it; a stdlib script now floors 7 engine-core files at measured-on-main minus 2pp — green on day one, red only on decay, missing-file fails loud"

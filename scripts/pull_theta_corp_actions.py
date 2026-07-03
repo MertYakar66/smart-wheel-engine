@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """
-Pull stock splits + dividends from Theta — fills the empty
-``data/bloomberg/sp500_corporate_actions.csv`` (it's literally 2 bytes on
-disk today, so the event gate is blind to splits and specials).
+Pull stock splits + dividends from Theta — an alternative/backup
+corporate-actions source. NOTE (2026-07): ``data/bloomberg/
+sp500_corporate_actions.csv`` is POPULATED (~2.6 MB / 52,442 rows from the
+operator's manual BQL pull, ``scripts/bloomberg_bql_pulls.md`` §2) and the
+event gate consumes it live (``MarketDataConnector.get_corporate_actions``
+→ ``wheel_runner._register_corp_action_events``, ``kind="corp_action"``).
+This script does NOT write that CSV — it writes the parquet side-files
+below plus a Theta-sourced dividends view. Theta's corp-actions endpoints
+404 at the current tier, so this script is dormant until the tier changes.
 
 Theta endpoints tried (per ticker):
     /v3/stock/history/split      symbol=<X>, start_date, end_date
@@ -18,10 +24,10 @@ Outputs
     dividend_amount, dividend_frequency, dividend_type
 
 Both write fresh copies (not append) so running twice does not duplicate
-rows. The engine's event gate currently reads ``sp500_dividends.csv`` —
-this script also writes a compatible view at
-``data/bloomberg/sp500_dividends_theta.csv`` so the loader can consume it
-alongside the Bloomberg file.
+rows. The engine's dividends loader reads ``sp500_dividends.csv``; this
+script also writes a compatible view at
+``data/bloomberg/sp500_dividends_theta.csv`` (no engine code path reads it
+today — a manual-merge convenience, not a wired input).
 
 Usage
 -----

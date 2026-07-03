@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**145 records.**
+**146 records.**
 
 ## Features (16)
 
@@ -172,11 +172,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (9)
+## Docs / process (10)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [clarify-full-suite-slow-lane](clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md) | in-flight |  | TESTING.md called the full suite a bare `pytest tests/ -v`, but that does NOT auto-deselect the `backtest_regression` marker — with the S27/S32/S34/S35 snapshots committed locally a bare run pulls the ~4–5h slow lane inline. Added a callout pinning the per-PR gate to `-m "not backtest_regression"` (what CI runs) and naming the trap. | `clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md` |
+| [comment-truth-sweep](comment-truth-sweep-code-comment-truth-sweep-dead-paths-stale-docstrings.md) | shipped | #467 | Nine dead END_TO_END_REVIEW paths repointed to archive/; four falsified docstrings (get_fundamentals 'no consumer threads as_of', produce_option_premiums 'premium is synthetic today', pull_theta_corp_actions 'fills the empty 2-byte CSV', bql_pulls '2 bytes') brought to truth; walk_forward wording airtightened | `comment-truth-sweep-code-comment-truth-sweep-dead-paths-stale-docstrings.md` |
 | [doc-truth-pass](doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md) | shipped | #466 | PRODUCTION_READINESS now tells the honest evidence story (overlap-inflated rho caveat, I1 -0.002, no-true-OOS) and Blocker-2 no longer contradicts itself; the news-redesign R9 collision, the rail docs' missing #463 frontier-coherence caveat, and the deferred data-doc count deltas are all reconciled | `doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md` |
 | [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
 | [next-data-session-runbook](next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md) | in-flight |  | One ordered, doc-only execution plan (docs/NEXT_DATA_SESSION_RUNBOOK.md) so a single logged-in Bloomberg Terminal session clears the whole open data queue in one pass — draws the Bloomberg-gated (CASY + 10 blue-chip backfills) vs. git-reconstructable (BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive, 4-snapshot re-baseline) line explicitly | `next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md` |

@@ -36,7 +36,7 @@ DATA_DIR = Path("data/bloomberg")
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_ohlcv.csv").exists()
 
 # Pinned, data-supported frontier (most-recent bar common to OHLCV & IV on main).
-FRONTIER = "2026-06-04"
+FRONTIER = "2026-07-02"
 DTE = 35
 DELTA = 0.25
 

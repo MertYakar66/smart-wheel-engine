@@ -45,7 +45,7 @@ _SNAPSHOT_BDP = DATA_DIR / "broad_pull" / "per_name" / "sp500_snapshot_bdp.csv"
 # to carry. BUMP THIS in the same commit as every data refresh
 # (docs/DATA_POLICY.md §5). A tree whose OHLCV ends before this is almost
 # certainly stale or the wrong clone — which is exactly what this guard catches.
-EXPECTED_FRONTIER = pd.Timestamp("2026-06-04")
+EXPECTED_FRONTIER = pd.Timestamp("2026-07-02")
 
 # Pinned knowledge date of the broad-pull per-name snapshot whose
 # ``next_earnings_dt`` column feeds the live earnings lockout (the D3-1
@@ -55,7 +55,7 @@ EXPECTED_FRONTIER = pd.Timestamp("2026-06-04")
 # wrong clone, while wall-clock DECAY of the calendar is covered by the
 # opt-in live preflight (``SWE_LIVE_PREFLIGHT=1`` in
 # tests/test_earnings_calendar_overlay.py) and a runtime connector warning.
-EXPECTED_EARNINGS_CALENDAR_ASOF = pd.Timestamp("2026-06-18")
+EXPECTED_EARNINGS_CALENDAR_ASOF = pd.Timestamp("2026-07-03")
 
 
 @pytest.mark.skipif(

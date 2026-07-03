@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 # Data-supported frontier (the most-recent bar common to OHLCV & IV on main;
 # see the audit). Used to assert realized daily series carry no future bars.
-FRONTIER = pd.Timestamp("2026-06-04")
+FRONTIER = pd.Timestamp("2026-07-02")
 SEAM = pd.Timestamp("2026-03-23")  # 2026-03-23 index-reconstitution seam
 GATE_DAYS = 504  # ranker survivorship/history gate
 

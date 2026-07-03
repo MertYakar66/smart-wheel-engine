@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**146 records.**
+**147 records.**
 
 ## Features (16)
 
@@ -32,10 +32,11 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (23)
+## Fixes (24)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [ci-integration-honest](ci-integration-honest-vacuous-ci-integration-job-made-real.md) | shipped | #468 | The Integration Tests CI job ran ZERO tests behind continue-on-error since its creation (exit 5 masked, reported green); it now runs 26 real cross-boundary tests with --strict-markers and fails on exit 5, so the lane can never silently regress to vacuous | `ci-integration-honest-vacuous-ci-integration-job-made-real.md` |
 | [d16-token-param-binding](d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md) | merged |  | D16 EV-authority token was an unbound bearer token — a token issued for AAPL/180/dte32 would gate any open_short_put/open_covered_call regardless of ticker/strike/expiration/side. Fix adds consume-side parameter binding (ticker, strike, derived-dte, side) via _ev_authority_payloads; hash and single-use semantics unchanged; two new refusal reasons token_param_mismatch + unbound_token; legacy snapshot rebind from audit log. | `d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md` |
 | [e-trio-372](e-trio-372-sector-gics.md) | held |  | R9 sector cap + ranker sector column route off the static DEFAULT_SECTOR_MAP onto the connector's real gics_sector_name via a counted resolver threaded through the existing sector_map= param; EV-moving, held for §2 review | `e-trio-372-sector-gics.md` |
 | [earnings-lockout-restore](earnings-lockout-restore-earnings-lockout-restoration-pit-gated-snapshot.md) | shipped | #464 | Live earnings lockout restored from ~8% to 100% forward coverage via a PIT-gated broad_pull snapshot overlay; event-gate registration failures now logged per stage instead of one silent blanket swallow | `earnings-lockout-restore-earnings-lockout-restoration-pit-gated-snapshot.md` |

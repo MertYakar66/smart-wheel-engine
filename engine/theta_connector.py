@@ -116,31 +116,36 @@ class PerEndpointFailure(Exception):
         self.record = record
 
 
-# Ticker translation: SP500 CSVs store class-B shares with hyphens
-# (BRK-B, BF-B) but ThetaData uses dots (BRK.B, BF.B). Extend this map
-# as we discover more cases.
+# Ticker translation: SP500 CSVs store class-share tickers with a separator
+# (BRK-B, BF-B, and slash/space variants), but ThetaData v3 wants them
+# CONCATENATED with no separator (BRK.B -> BRKB, BF.B -> BFB, HEI.A -> HEIA).
+# The dotted form (BRK.B) returns HTTP 472 from the v3 option endpoints —
+# verified live against the Terminal 2026-06-15 (BRKB/BFB/HEIA/MOGA serve,
+# BRK.B/BF.B/HEI.A/MOG.A all 472). Extend this map as we discover more cases.
 _TICKER_ALIASES: dict[str, str] = {
-    "BRK-B": "BRK.B",
-    "BF-B": "BF.B",
-    "BRK-A": "BRK.A",
-    "BF-A": "BF.A",
-    "HEI-A": "HEI.A",
-    "LEN-B": "LEN.B",
-    "MOG-A": "MOG.A",
+    "BRK-B": "BRKB",
+    "BF-B": "BFB",
+    "BRK-A": "BRKA",
+    "BF-A": "BFA",
+    "HEI-A": "HEIA",
+    "LEN-B": "LENB",
+    "MOG-A": "MOGA",
     "GOOG-L": "GOOGL",
 }
 
 
 def _normalise_theta_symbol(sym: str) -> str:
-    """Translate an SP500-format ticker to ThetaData's symbol.
+    """Translate an SP500-format ticker to ThetaData's v3 symbol.
 
-    Handles three different ticker formats seen in the S&P 500 universe:
-      - ``BRK-B`` (hyphen, most common CSV format)      -> ``BRK.B``
-      - ``BRK/B`` (slash, Bloomberg composite format)   -> ``BRK.B``
-      - ``BRK B``  (space, some Bloomberg exports)      -> ``BRK.B``
+    ThetaData v3 wants class-share tickers CONCATENATED (no separator):
+      - ``BRK-B`` (hyphen, most common CSV format)      -> ``BRKB``
+      - ``BRK/B`` (slash, Bloomberg composite format)   -> ``BRKB``
+      - ``BRK B``  (space, some Bloomberg exports)      -> ``BRKB``
       - ``AAPL UW Equity`` (full Bloomberg ticker)      -> ``AAPL``
 
-    Also strips Bloomberg suffixes (``UW``, ``UN``, ``US``, ``Equity``).
+    The dotted form (``BRK.B``) returns HTTP 472 from the v3 option
+    endpoints (verified live 2026-06-15). Also strips Bloomberg suffixes
+    (``UW``, ``UN``, ``US``, ``Equity``).
     """
     s = sym.strip().upper()
     # Strip Bloomberg suffixes
@@ -150,13 +155,13 @@ def _normalise_theta_symbol(sym: str) -> str:
     # Explicit alias first (handles any special cases)
     if s in _TICKER_ALIASES:
         return _TICKER_ALIASES[s]
-    # Generic: any non-dot separator between root and a single letter
-    # becomes a dot (BRK/B, BRK-B, BRK B  ->  BRK.B).
+    # Generic: a single trailing share-class letter after any separator is
+    # concatenated onto the root (BRK/B, BRK-B, BRK B  ->  BRKB).
     for sep in ("/", "-", " "):
         if sep in s:
             parts = s.split(sep)
             if len(parts) == 2 and len(parts[1]) == 1:
-                return f"{parts[0]}.{parts[1]}"
+                return f"{parts[0]}{parts[1]}"
     return s
 
 
@@ -224,7 +229,7 @@ class ThetaConnector(MarketDataConnector):
         Other exceptions (CSV parse errors etc.) log at warning level and
         return empty.
         """
-        # Translate any SP500-format symbol (BRK-B) to ThetaData's (BRK.B)
+        # Translate any SP500-format symbol (BRK-B / BRK.B) to ThetaData's (BRKB)
         if "symbol" in params and isinstance(params["symbol"], str):
             params = {**params, "symbol": _normalise_theta_symbol(params["symbol"])}
         params = {**params, "format": "csv"}

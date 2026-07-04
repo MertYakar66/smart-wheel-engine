@@ -373,11 +373,17 @@ class TestConsumeRankerRowEscapeHatch:
         from engine.wheel_runner import WheelRunner
 
         runner = WheelRunner()
+        # Dated as_of: on the LIVE path this test self-skipped whenever AAPL was
+        # seasonally event-locked (e.g. July earnings inside the 35-DTE window
+        # locks it from late June — surfaced by the 2026-07-04 skip census, same
+        # silent-self-skip class as the #472 probe-window bug). 2026-06-04 ranks
+        # AAPL deterministically; the escape hatch under test is date-agnostic.
         ev_df = runner.rank_candidates_by_ev(
             tickers=["AAPL"],
             top_n=1,
             min_ev_dollars=-1e9,
             include_diagnostic_fields=True,
+            as_of="2026-06-04",
         )
         if ev_df.empty:
             pytest.skip("No AAPL row from connector — skipping escape-hatch test")

@@ -705,6 +705,17 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/bloomberg_bql_pulls.md` | Copy/paste BQL query reference for pulling Bloomberg datasets. |
 | `scripts/*_formulas.txt` | Generated per-ticker Bloomberg `=BDH(...)` formula lists for Excel paste (ohlcv / iv / earnings / dividends, plus the combined `bloomberg_formulas.txt`). |
 
+## `staging/` — Bloomberg-lab pull tooling + not-yet-integrated fragments
+
+Nothing under `staging/` is read by the engine or connector.
+
+| File | Purpose |
+|---|---|
+| `staging/blue_chips/` | Phase-1A (#355) OHLCV(+vol_iv) backfill fragments, pulled 2026-06-17: batch 1 WMT/KMB/CPB/DPZ/PLTR re-pulled under the correct NYSE `UN` code (the monolith's copies were truncated under a wrong `UW` code — still true on main: WMT 141 rows, KMB 274, CPB 450, DPZ 375, PLTR 399); batch 2 VEEV/COHR/LITE/SATS/VRT (2026-03-23 reconstitution entrants with only ~71 monolith rows). Plus `pull_backfill.py` / `pull_batch1_un.py` producers + `PULL_NOTES.md`. **Carrier only — NOT integrated into the monoliths**; integration is re-baseline-coupled and stays with the operator-gated data batch. |
+| `staging/casy/` | Phase-1A CASY fragment set (ohlcv / vol_iv / liquidity / partial earnings + `pull_casy.py` + `PULL_NOTES.md`), pulled 2026-06-17 for the newest S&P entrant. Same carrier-only status as `staging/blue_chips/`. |
+| `staging/fundamentals_pit/` | #354 PIT fundamentals panel — monthly dated EV-field history (`sp500_fundamentals_pit.csv`, 4.7 MB) + `pull_fundamentals_pit.py` + `PULL_NOTES.md`. Dated point-in-time alternative to the snapshot-style `sp500_fundamentals.csv`; unwired, carrier-only. |
+| `staging/integrate_phase1b.py` | The Phase-1B integration recipe (from the retired `claude/phase1b-fragment-integration` branch): merges Phase-1A fragments into the monoliths with BK↔BNY ticker collapse + dividend clamp + UNIVERSE_100 wiring. Written against the pre-#472 monoliths — treat as the integration *recipe*, re-validate against the fresh monolith before running. |
+
 ## `src/` — feature-engineering / schema / backtest modules
 
 See `DECISIONS.md` D2 for `src/`'s status.

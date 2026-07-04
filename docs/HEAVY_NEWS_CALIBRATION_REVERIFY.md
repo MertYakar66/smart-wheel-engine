@@ -54,7 +54,7 @@ def pre_d18_sentiment_multiplier(sentiment, n_articles):
 
 ### §A Verdict
 
-**Pre-D18 `news_multiplier` on Bloomberg was CONSTANT 1.0.** D18 changes 1.0 → 1.0 — a true no-op for the EV path's regime multiplier composition. The "re-baseline mandatory" claim in `NEWS_REDESIGN_CAMPAIGN.md` §3 is wrong for D18 alone on this Bloomberg-only environment. (R9 + EDGAR + FRED, when shipped, would substantively change inputs and would warrant a re-baseline; D18 alone does not.)
+**Pre-D18 `news_multiplier` on Bloomberg was CONSTANT 1.0.** D18 changes 1.0 → 1.0 — a true no-op for the EV path's regime multiplier composition. The "re-baseline mandatory" claim in `NEWS_REDESIGN_CAMPAIGN.md` §3 is wrong for D18 alone on this Bloomberg-only environment. (R9 + EDGAR + FRED, when shipped, would substantively change inputs and would warrant a re-baseline; D18 alone does not.) *[Editor's note 2026-07-02: "R9" here means the planned news-quality reviewer — that R-number has since been taken by the D17 sector cap; the quality reviewer is R12+ per `NEWS_REDESIGN_CAMPAIGN.md` §3.]*
 
 ### Why the store is empty
 
@@ -250,6 +250,8 @@ The "every prior `S<N>` scenario result becomes obsolete after this campaign" fr
 Suggested edit (next cycle, magnet-doc owner): replace §3's "Backtest re-baseline is mandatory" subsection with:
 
 > Re-baseline is mandatory after R9 (PR 5) and the EDGAR event-gate replacement (PR 3.5) ship. D18 alone is a no-op on the Bloomberg-only environment (`docs/HEAVY_NEWS_CALIBRATION_REVERIFY.md` §A: news_mult = 1.0 in 1300/1300 probes); the FRED rewrite (PR 6) substitutes one signal for another. Until R9 and EDGAR-gate change the candidate set, the published `S<N>` numbers remain the engine baseline.
+
+*[Editor's note 2026-07-02: same R-number caveat — the PR-5 quality reviewer is R12+, not R9 (taken by the D17 sector cap). Also, #464 has since changed the event-gate incumbent: the live forward calendar is now the Bloomberg base file ∪ the PIT-gated `snapshot_bdp` overlay, so the "EDGAR event-gate replacement" framing above should be read as the historical-backtest PIT source, not the live-coverage fix.]*
 
 ### F2 — News pipeline outputs nothing operationally
 

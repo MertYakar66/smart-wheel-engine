@@ -1,9 +1,10 @@
 """W1 — data-wiring accuracy pins (heavy-verify 2026-06-27, #436, Mac terminal).
 
-Validation-only. These tests pin what the audit *verified* (green) and pin the
-*confirmed* OHLCV split-scale defect to its behaviour via ``xfail(strict)`` —
-so the day the committed OHLCV is regenerated cleanly, the strict-xfail flips to
-XPASS and CI flags the pin for removal (it can never silently false-green).
+Validation-only. These tests pin what the audit *verified* (green). The
+OHLCV split-scale defect that was pinned here via ``xfail(strict)`` was
+repaired (#439, back-adjustment onto the split scale; re-applied to the
+2026-07-02 re-pull) — the pin is now a plain behaviour test of the repaired
+property.
 
 See ``docs/HEAVY_VERIFY_2026-06-27_DATA_WIRING_RELIABILITY.md`` §W1 and
 ``scripts/audit_data_wiring.py``.
@@ -109,8 +110,9 @@ def test_ohlcv_has_no_split_scale_discontinuity(conn: MarketDataConnector, ticke
     Behaviour-pinned (not signature): computes the actual served close ratio and
     asserts continuity. D-W1-1 (#439) — the BKNG 25:1 / CVNA 5:1 split-seam
     misalignment — was repaired by back-adjusting the full pre-splice history
-    onto the split-adjusted scale, so the seam ratio is now the genuine weekend
-    move (~1.03 / ~1.06), in band. Was strict-xfail until the fix landed.
+    onto the split-adjusted scale (re-applied to the 2026-07-02 re-pull), so the
+    seam ratio is now the genuine weekend move, in band. Was strict-xfail until
+    the fix landed.
     """
     s = conn.get_ohlcv(ticker, "2026-03-10", "2026-04-10")["close"].dropna()
     ratios = (s / s.shift(1)).dropna()

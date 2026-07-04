@@ -20,8 +20,9 @@ block at the bottom routes you to the right on-demand document.
    3rd order, empirical forward distributions (non-overlapping → block
    bootstrap → HAR-RV cascade), POT-GPD tail risk, 4-state Gaussian HMM
    regime, Nelson-Siegel skew, Student-t copula CVaR, dealer GEX / walls /
-   gamma-flip. SVI surface tooling exists but is dormant — see
-   `DECISIONS.md` D9.
+   gamma-flip. SVI surface tooling is wired in fail-loud (live as of
+   A2, 2026-05-30, via `SurfaceDataUnavailable` / `require_surface`)
+   but off the EV ranking path — see `DECISIONS.md` D9.
 3. **Decision layer — the authoritative ranker.**
    - `engine/ev_engine.py` — `EVEngine.evaluate`. Runs event lockout →
      forward distribution → cost model → regime & dealer multipliers →

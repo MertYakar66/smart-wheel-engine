@@ -1,0 +1,21 @@
+{
+  "n_over_2x_jumps": 0,
+  "jump_dates": [],
+  "served_close_2018_first": 20.107,
+  "served_close_latest": 81.56,
+  "stock_splits": [
+    {
+      "ratio": 2.0,
+      "eff": "2004-02-12"
+    },
+    {
+      "ratio": 7.0,
+      "eff": "2015-07-15"
+    },
+    {
+      "ratio": 10.0,
+      "eff": "2025-11-17"
+    }
+  ],
+  "verdict": "REFUTED (uniform back-adjustment, no discontinuity)"
+}

@@ -30,7 +30,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | File | Purpose | Status | Role |
 |---|---|---|---|
-| `engine_api.py` | HTTP API on `:8787` (34 endpoints) serving the Next.js dashboard. Top-of-file docstring lists every endpoint. | live | runner / display |
+| `engine_api.py` | HTTP API on `:8787` serving the Next.js dashboard. The top-of-file docstring lists most endpoints but is not exhaustive — e.g. `/api/concentration_preview` and the D26 `/api/portfolio/*` read-only performance-viewer prefix are served by the handler but undocumented there. | live | runner / display |
 | `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
@@ -81,7 +81,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 
 | Module | Purpose |
 |---|---|
-| `data_connector.py` | `MarketDataConnector` — Bloomberg-CSV provider. Default when `SWE_DATA_PROVIDER` is unset. |
+| `data_connector.py` | `MarketDataConnector` — Bloomberg-CSV provider. Default when `SWE_DATA_PROVIDER` is unset. Also hosts the #464 PIT-gated `snapshot_bdp` earnings-calendar overlay (`get_next_earnings` / `get_recent_earnings`) and the gitignored EOD option-premium rail accessors (`get_option_premium*`, `SWE_OPTION_PREMIUM_DIR`; wall-clock-bounded at `as_of=None` post-#463 — the quote-date == spot-bar-date and DTE ±10d coherence guards are enforced at the ranker call site, `wheel_runner._resolve_real_premium`). |
 | `theta_connector.py` | Theta Terminal v3 connector. Tier-aware fallbacks; chunked history; EOD endpoint for unlimited windows. |
 | `data_integration.py` | Provider-selection helpers; `get_current_risk_free_rate`. |
 | `external_data/` | External data connector subpackage. |

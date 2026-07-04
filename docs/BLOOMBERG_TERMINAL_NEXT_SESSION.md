@@ -29,6 +29,15 @@ Authored 2026-06-27, after Phase 1 of the wiring campaign landed (#354 carry-q,
 **Goal:** advance the served price/spot frontier `2026-06-04 → <today>` so the
 engine ranks against current data, and pay the coupled re-baseline once.
 
+> **⚠ Staging rule for the big per-name panels (added 2026-07-02):**
+> `broad_pull/per_name/options_sentiment` is now committed **gzipped**
+> (`options_sentiment.csv.gz`, 32.0 MB) — its raw CSV had reached **97.5 % of
+> GitHub's 100 MiB per-blob push limit** and any refresh extending it past
+> ~2026-10 would have been hard-rejected at push (GH001). Any re-pull of this
+> panel (and of `iv_surface` / `vol_term_rv`, gzipped since staging) must
+> stage `.csv.gz`, never a raw `.csv` — `df.to_csv("....csv.gz")` compresses
+> by extension, and the loader reads `.gz` transparently.
+
 > **Sequencing (already satisfied):** #378 (IV-staleness gate) is **on `main`**,
 > so the moment OHLCV advances past the IV monolith, stale-IV names fail closed
 > to the fundamentals fallback instead of mispricing BSM. You may bump the
@@ -77,6 +86,9 @@ by **engine ROI**, highest first.
   re-baseline). **Remaining = the EV-moving ranker wiring** (swap `ShortOptionTrade.premium`
   from synthetic-BSM to the served mid at the three ranker sites): CEREMONY-tier (trio +
   lane-claim + §2-panel), owns the re-baseline. That is the actual "skew/VRP unlock," not this rail.
+  *(Superseded 2026-07-02: the ranker wiring landed as #435, was date-coherence-hardened by
+  #463, and regression-neutralized by #465 — see `docs/WIRING_CAMPAIGN.md`'s Phase-2 update
+  blockquote for current semantics. This snapshot predates all three.)*
 
 ### 2b. Macro-event calendar — **already on `main`** (`broad_pull/macro_calendar`)
 - FDTR/CPI/NFP/PCE/GDP/ISM release dates + actual/survey/importance. **No pull** — wire it into a market-wide `event_gate` lockout (remove-only). High value for a vol-selling book around FOMC/CPI.

@@ -40,17 +40,17 @@ HAS_BROAD_PULL_DATA = (BROAD_PULL_DIR / "macro_vol" / "sp500_vol_indices.csv").e
 # columns. tickers=None for market-level (wide/long) series.
 EXPECTED: dict[str, dict] = {
     "iv_surface": {
-        "rows": 1_944_699,
+        "rows": 1_949_796,
         "dmin": "2010-01-04",
-        "dmax": "2026-06-17",
-        "tickers": 509,
+        "dmax": "2026-07-02",
+        "tickers": 514,
         "cols": ("date", "ticker", "iv_30d_100", "iv_365d_110"),
     },
     "vol_term_rv": {
-        "rows": 1_963_364,
+        "rows": 1_967_985,
         "dmin": "2010-01-04",
-        "dmax": "2026-06-18",
-        "tickers": 510,
+        "dmax": "2026-07-02",
+        "tickers": 515,
         "cols": ("date", "ticker", "atm_iv_30d", "atm_iv_730d", "rv_10d", "rv_260d"),
     },
     "macro_calendar": {
@@ -162,10 +162,10 @@ EXPECTED: dict[str, dict] = {
         "cols": ("date", "ticker", "tot_return", "px_bid", "px_ask"),
     },
     "beta_shares": {
-        "rows": 93_605,
+        "rows": 94_117,
         "dmin": "2010-01-29",
-        "dmax": "2026-05-29",
-        "tickers": 510,
+        "dmax": "2026-06-30",
+        "tickers": 515,
         "cols": ("date", "ticker", "beta_raw", "shares_out"),
     },
     "fundamentals_q": {
@@ -183,24 +183,24 @@ EXPECTED: dict[str, dict] = {
         "cols": ("date", "ticker", "roic", "net_margin", "debt_to_equity"),
     },
     "estimates_m": {
-        "rows": 92_680,
+        "rows": 93_195,
         "dmin": "2010-01-29",
-        "dmax": "2026-05-29",
-        "tickers": 511,
+        "dmax": "2026-06-30",
+        "tickers": 516,
         "cols": ("date", "ticker", "best_eps", "best_target", "analyst_count"),
     },
     "estimates_fwd": {
-        "rows": 93_169,
+        "rows": 93_683,
         "dmin": "2010-01-29",
-        "dmax": "2026-05-29",
-        "tickers": 511,
+        "dmax": "2026-06-30",
+        "tickers": 516,
         "cols": ("date", "ticker", "best_eps_1bf", "best_eps_2bf"),
     },
     "valuation_m": {
-        "rows": 89_079,
+        "rows": 89_588,
         "dmin": "2010-01-29",
-        "dmax": "2026-05-29",
-        "tickers": 509,
+        "dmax": "2026-06-30",
+        "tickers": 513,
         "cols": ("date", "ticker", "px_to_book", "ev_to_ebitda", "pe", "peg"),
     },
     "options_sentiment": {
@@ -211,24 +211,24 @@ EXPECTED: dict[str, dict] = {
         "cols": ("date", "ticker", "pc_oi_ratio", "pc_vol_ratio", "oi_call", "oi_put", "news_sent"),
     },
     "dividend_pit": {
-        "rows": 72_461,
+        "rows": 72_875,
         "dmin": "2010-01-29",
-        "dmax": "2026-05-29",
-        "tickers": 421,
+        "dmax": "2026-06-30",
+        "tickers": 423,
         "cols": ("date", "ticker", "dvd_yld_12m", "dvd_yld_ind", "dvd_sh_12m"),
     },
     "short_interest": {
-        "rows": 134_035,
+        "rows": 134_546,
         "dmin": "2015-01-15",
-        "dmax": "2026-05-29",
-        "tickers": 509,
+        "dmax": "2026-06-15",
+        "tickers": 515,
         "cols": ("date", "ticker", "short_interest", "short_int_ratio"),
     },
     "snapshot_bdp": {
-        "rows": 511,
+        "rows": 1_027,
         "dmin": "2026-06-18",
-        "dmax": "2026-06-18",
-        "tickers": 511,
+        "dmax": "2026-07-03",
+        "tickers": 516,
         "cols": ("asof", "ticker", "rtg_sp", "gics_sector", "next_earnings_dt"),
     },
 }
@@ -461,9 +461,11 @@ def test_real_dataset_matches_manifest(name):
 
 
 @pytestmark_real
-@pytest.mark.parametrize("name", ["iv_surface", "vol_term_rv"])
+@pytest.mark.parametrize("name", ["iv_surface", "vol_term_rv", "options_sentiment"])
 def test_real_gz_panels_load(name):
-    """The two gzipped panels read correctly through compression='infer'."""
+    """The gzipped panels read correctly through compression='infer'
+    (options_sentiment joined 2026-07-02 — its raw CSV hit 97.5% of
+    GitHub's 100 MiB per-blob limit)."""
     df = _fresh().load(name)
     assert df is not None and len(df) == EXPECTED[name]["rows"]
     assert SPECS[name].relpath.endswith(".gz")

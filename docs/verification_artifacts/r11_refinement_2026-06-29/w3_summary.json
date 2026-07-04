@@ -1,0 +1,157 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2020-01-02",
+    "end": "2024-12-31",
+    "friction_level": "full",
+    "r11_vix_threshold": 25.0,
+    "r11_top_bin_prob": 0.9,
+    "persist_N": {
+      "persist5": 5,
+      "persist10": 10,
+      "persist20": 20
+    },
+    "ohlcv_csv_sha256": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961"
+  },
+  "arms": {
+    "suppressed": {
+      "final_nav": 1345074.5472758808,
+      "return_pct": 0.3450745472758808,
+      "delta_nav_vs_suppressed": 0.0,
+      "sharpe": 0.46726803920423526,
+      "n_opened": 585,
+      "n_blocked": 0,
+      "blocked_realized_total": 0.0,
+      "blocked_realized_mean": null,
+      "blocked_by_regime": {}
+    },
+    "active": {
+      "final_nav": 1389374.6446491168,
+      "return_pct": 0.3893746446491168,
+      "delta_nav_vs_suppressed": 44300.09737323597,
+      "sharpe": 0.5165606819155937,
+      "n_opened": 525,
+      "n_blocked": 429,
+      "blocked_realized_total": -121049.96000000004,
+      "blocked_realized_mean": -282.16773892773904,
+      "blocked_by_regime": {
+        "bear_2022": {
+          "n": 114,
+          "realized_total": -268104.416,
+          "realized_mean": -2351.793122807018,
+          "assignment_rate": 0.4649122807017544
+        },
+        "bull_2021": {
+          "n": 4,
+          "realized_total": 1075.94,
+          "realized_mean": 268.985,
+          "assignment_rate": 0.0
+        },
+        "calm": {
+          "n": 190,
+          "realized_total": 98247.99200000001,
+          "realized_mean": 517.0946947368421,
+          "assignment_rate": 0.015789473684210527
+        },
+        "crash_2020": {
+          "n": 121,
+          "realized_total": 47730.524,
+          "realized_mean": 394.46714049586774,
+          "assignment_rate": 0.08264462809917356
+        }
+      }
+    },
+    "persist5": {
+      "final_nav": 1333309.2673970237,
+      "return_pct": 0.3333092673970237,
+      "delta_nav_vs_suppressed": -11765.27987885708,
+      "sharpe": 0.44196244121341766,
+      "n_opened": 534,
+      "n_blocked": 348,
+      "blocked_realized_total": -36705.26799999998,
+      "blocked_realized_mean": -105.47490804597696,
+      "blocked_by_regime": {
+        "bear_2022": {
+          "n": 96,
+          "realized_total": -167679.76400000002,
+          "realized_mean": -1746.6642083333336,
+          "assignment_rate": 0.4895833333333333
+        },
+        "calm": {
+          "n": 152,
+          "realized_total": 82521.41999999998,
+          "realized_mean": 542.9040789473684,
+          "assignment_rate": 0.019736842105263157
+        },
+        "crash_2020": {
+          "n": 100,
+          "realized_total": 48453.076,
+          "realized_mean": 484.53076,
+          "assignment_rate": 0.04
+        }
+      }
+    },
+    "persist10": {
+      "final_nav": 1331343.1070958802,
+      "return_pct": 0.3313431070958802,
+      "delta_nav_vs_suppressed": -13731.440180000616,
+      "sharpe": 0.45704964800559006,
+      "n_opened": 558,
+      "n_blocked": 259,
+      "blocked_realized_total": -93156.41999999997,
+      "blocked_realized_mean": -359.6772972972972,
+      "blocked_by_regime": {
+        "bear_2022": {
+          "n": 70,
+          "realized_total": -174115.03199999998,
+          "realized_mean": -2487.3576,
+          "assignment_rate": 0.6142857142857143
+        },
+        "calm": {
+          "n": 117,
+          "realized_total": 45857.268,
+          "realized_mean": 391.9424615384615,
+          "assignment_rate": 0.008547008547008548
+        },
+        "crash_2020": {
+          "n": 72,
+          "realized_total": 35101.344,
+          "realized_mean": 487.5186666666666,
+          "assignment_rate": 0.027777777777777776
+        }
+      }
+    },
+    "persist20": {
+      "final_nav": 1345119.7131158812,
+      "return_pct": 0.3451197131158812,
+      "delta_nav_vs_suppressed": 45.16584000037983,
+      "sharpe": 0.46865785201892857,
+      "n_opened": 578,
+      "n_blocked": 118,
+      "blocked_realized_total": 33643.184,
+      "blocked_realized_mean": 285.11172881355935,
+      "blocked_by_regime": {
+        "bear_2022": {
+          "n": 3,
+          "realized_total": -1837.1479999999992,
+          "realized_mean": -612.3826666666664,
+          "assignment_rate": 0.3333333333333333
+        },
+        "calm": {
+          "n": 71,
+          "realized_total": 21617.147999999997,
+          "realized_mean": 304.4668732394366,
+          "assignment_rate": 0.0
+        },
+        "crash_2020": {
+          "n": 44,
+          "realized_total": 13863.184,
+          "realized_mean": 315.0723636363636,
+          "assignment_rate": 0.022727272727272728
+        }
+      }
+    }
+  },
+  "blocked": {}
+}

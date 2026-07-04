@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**152 records.**
+**156 records.**
 
 ## Features (16)
 
@@ -178,10 +178,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (10)
+## Docs / process (12)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [bloomberg-deep-history-2026-06-04](bloomberg-deep-history-2026-06-04.md) | in-flight |  | Fixed the OHLCV column-rotation defect, made all Tier-1 + context data current to 2026-06-04, deepened all single-series context to inception, generalized the pullers to contiguous backfill, COMPLETED the vol_iv deep-history backfill to the 1994 floor (captures the 2000-2002 and 2008 crises), and routed deep data to a gz buffer branch (rclone/Drive staged) to keep the connector monoliths <100 MB. | `bloomberg-deep-history-2026-06-04.md` |
+| [bloomberg-refresh-2026-06-02](bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md) | in-flight |  | Delta-refreshed OHLCV/IV/liquidity to 2026-06-02 and added 7 context datasets via the Bloomberg Desktop API (xbbg); deep historical backfill deferred (metered cap) | `bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md` |
 | [clarify-full-suite-slow-lane](clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md) | in-flight |  | TESTING.md called the full suite a bare `pytest tests/ -v`, but that does NOT auto-deselect the `backtest_regression` marker — with the S27/S32/S34/S35 snapshots committed locally a bare run pulls the ~4–5h slow lane inline. Added a callout pinning the per-PR gate to `-m "not backtest_regression"` (what CI runs) and naming the trap. | `clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md` |
 | [comment-truth-sweep](comment-truth-sweep-code-comment-truth-sweep-dead-paths-stale-docstrings.md) | shipped | #467 | Nine dead END_TO_END_REVIEW paths repointed to archive/; four falsified docstrings (get_fundamentals 'no consumer threads as_of', produce_option_premiums 'premium is synthetic today', pull_theta_corp_actions 'fills the empty 2-byte CSV', bql_pulls '2 bytes') brought to truth; walk_forward wording airtightened | `comment-truth-sweep-code-comment-truth-sweep-dead-paths-stale-docstrings.md` |
 | [doc-truth-pass](doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md) | shipped | #466 | PRODUCTION_READINESS now tells the honest evidence story (overlap-inflated rho caveat, I1 -0.002, no-true-OOS) and Blocker-2 no longer contradicts itself; the news-redesign R9 collision, the rail docs' missing #463 frontier-coherence caveat, and the deferred data-doc count deltas are all reconciled | `doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md` |
@@ -202,3 +204,10 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [F4_TAIL_RISK_DIAGNOSTIC](../F4_TAIL_RISK_DIAGNOSTIC.md) | legacy |  | F4 tail-risk gap — diagnostic + fix plan (2026-05-26) | `../F4_TAIL_RISK_DIAGNOSTIC.md` |
 | [PROB_PROFIT_CALIBRATION_2026-05-28](../PROB_PROFIT_CALIBRATION_2026-05-28.md) | legacy |  | prob_profit calibration — multi-backtest analysis (2026-05-28) | `../PROB_PROFIT_CALIBRATION_2026-05-28.md` |
 | [r11-onset-aware-trigger](r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md) | done |  | DONE 2026-06-29 — hypothesis REFUTED. Persistence-N (VIX>25 for N consecutive days) does NOT beat the level trigger: all whole-book diffs within noise (paired daily-return \|t\|≤0.5, both windows), and consecutive-N retains only 63-65% of the 2022 averted loss (never ≥80%) because 2022's elevation was choppy (run≥20 covers 24% of its >25 days) vs 2020 sustained (61%) — it fires backwards from the premise. KEEP R11 as-is. Evidence: docs/HEAVY_VERIFY_2026-06-29_R11_REFINEMENT.md. Only untested variant = "≥N of last M days" (non-consecutive), but whole-book is noise-dominated so unlikely material. | `r11-onset-aware-trigger-r11-onset-aware-trigger-research-card-persistenc.md` |
+
+## Other (2)
+
+| ID | Status | PR | Headline | Record |
+|---|---|---|---|---|
+| [phase1a-bloomberg-fragments](phase1a-bloomberg-fragments-handoff.md) | completed |  | Phase-1A Bloomberg fragments handoff — CASY + blue-chip backfills + #354 PIT panel (staged on branch) | `phase1a-bloomberg-fragments-handoff.md` |
+| [phase1b-integration](phase1b-fragment-integration.md) | completed |  | Phase-1B fragment integration — CASY + blue-chips into the monoliths + BK↔BNY collapse + dividends clamp + UNIVERSE_100 | `phase1b-fragment-integration.md` |

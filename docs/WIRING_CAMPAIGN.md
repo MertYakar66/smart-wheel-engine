@@ -275,8 +275,11 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > candidate whose *whole holding window* (± buffer) touches a registered event. That
 > is correct for **quarterly** earnings, but macro prints (CPI/NFP/PCE) are **monthly**,
 > so **every** 21-63 DTE wheel window contains one — turning the flag on **empties the
-> book** (verified: 5-ticker smoke → 4 rows default, **0 rows** with the flag on; pinned
-> in `tests/test_macro_event_gate_wiring.py`). Because the flag is off, the **default
+> book** (verified at dated `as_of=2026-06-04`: 5-ticker smoke → 4 rows default, **0 rows**
+> with the flag on; pinned at that dated `as_of` in `tests/test_macro_event_gate_wiring.py`.
+> The pin is dated deliberately — at the live 2026-07-02 frontier the July earnings
+> season locks all five smoke names on the *default* path already, so only a dated
+> as_of isolates the macro flag's own effect). Because the flag is off, the **default
 > ranked path is byte-identical** and this PR is **NOT re-baseline-coupled** (unlike the
 > table row above, written before the finding).
 >

@@ -250,6 +250,15 @@ needs_ranker_data = pytest.mark.skipif(
 )
 _SMOKE = ["AAPL", "MSFT", "JPM", "XOM", "UNH"]
 
+# The flag pair below runs at a DATED as_of, not live. At a live frontier the
+# default book is seasonal — e.g. at 2026-07-02 the July earnings season locks
+# all five smoke names on the DEFAULT path (restored #464 lockout), so a live
+# `len > 0` assert fails for earnings reasons and the flag-on `== 0` becomes
+# vacuous (0 vs 0). Pinning as_of=2026-06-04 (the measurement date of the
+# WIRING_CAMPAIGN §3A finding) keeps the pair deterministic and isolates the
+# MACRO flag as the only difference between the two runs.
+_FLAG_PAIR_AS_OF = "2026-06-04"
+
 
 @needs_ranker_data
 def test_macro_gate_is_off_by_default():
@@ -258,7 +267,11 @@ def test_macro_gate_is_off_by_default():
     from engine.wheel_runner import WheelRunner
 
     df = WheelRunner().rank_candidates_by_ev(
-        tickers=_SMOKE, top_n=10, min_ev_dollars=-1e9, include_diagnostic_fields=True
+        tickers=_SMOKE,
+        top_n=10,
+        min_ev_dollars=-1e9,
+        include_diagnostic_fields=True,
+        as_of=_FLAG_PAIR_AS_OF,
     )
     assert len(df) > 0
 
@@ -268,7 +281,8 @@ def test_macro_gate_on_empties_the_book_monthly_print_infeasibility():
     # The documented finding (docs/WIRING_CAMPAIGN.md §3A): with the EventGate's
     # whole-holding-window semantic, gating ~monthly macro prints blocks every
     # 21-63 DTE wheel (any such window contains a CPI/NFP/PCE). This pins WHY the
-    # flag ships default-off — activating it as-is empties the book.
+    # flag ships default-off — activating it as-is empties the book. Same dated
+    # as_of as the default-path test above: the ONLY delta is the macro flag.
     from engine.wheel_runner import WheelRunner
 
     df = WheelRunner().rank_candidates_by_ev(
@@ -276,6 +290,7 @@ def test_macro_gate_on_empties_the_book_monthly_print_infeasibility():
         top_n=10,
         min_ev_dollars=-1e9,
         include_diagnostic_fields=True,
+        as_of=_FLAG_PAIR_AS_OF,
         use_macro_event_gate=True,
     )
     assert len(df) == 0

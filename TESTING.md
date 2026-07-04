@@ -211,6 +211,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_event_calendar.py` | `event_calendar` — MarketEvent queries, FOMC/CPI/NFP loaders, risk filter, JSON ingestion + staleness |
 | `test_event_gate.py` | `event_gate` hard lockouts — earnings/macro/dividend buffers, ticker matching, Bloomberg-calendar ingestion (NaT regression) |
 | `test_event_gate_back_buffer.py` | S23 F1 — symmetric post-earnings back-buffer block via `get_recent_earnings` |
+| `test_macro_event_gate_wiring.py` | #3A macro — `_MACRO_EVENT_KIND` mapping, `_register_macro_events` (wildcard `*` registration, horizon bounds, no-op degrades), `get_macro_events` accessor on the real broad-pull calendar, and the `use_macro_event_gate` flag pair at dated `as_of` 2026-06-04 (default OFF → book non-empty; ON → whole-window monthly-print lockout empties it) |
 | `test_earnings_calendar_overlay.py` | D3-1 + D6-1 — PIT-gated `snapshot_bdp.next_earnings_dt` forward-calendar overlay (serve/PIT-refuse/merge/back-buffer/hermeticity/share-class/multi-asof + dated real-data pins + ranker e2e) and de-silenced per-stage event-gate registration (logged fail-open; back-buffer survives a raising forward lookup); opt-in `SWE_LIVE_PREFLIGHT=1` snapshot-age check |
 | `test_corp_action_gate.py` | #3A — corporate-action lockout (`kind="corp_action"`): `get_corporate_actions` (excludes Regular Cash, PIT announcement filter), `wheel_runner._register_corp_action_events` (no-op safety, PIT), data-backed GE-spinoff / COST-special-cash end-to-end block |
 

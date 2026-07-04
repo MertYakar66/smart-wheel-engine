@@ -412,6 +412,57 @@ class TestOptionPremiumAccessor:
         assert c.get_option_premium("BAD", "2024-02-16", 100.0, "put") is None
         assert c.list_option_expirations("BAD", as_of="2024-01-05") == []
 
+    def test_as_of_none_bounded_by_wall_clock(self, premium_dir):
+        # D1-1/AB-4 (adversarial review 2026-07-01): ``as_of=None`` means "the
+        # current market state" — a larder whose freshest quote is staler than
+        # ``max_staleness_days`` against TODAY degrades to empty/None instead
+        # of silently serving its own frontier (which a live caller would then
+        # pair with a spot from a different frontier).
+        today = pd.Timestamp.now().normalize()
+        stale_d = (today - pd.Timedelta(days=30)).date().isoformat()
+        fresh_d = today.date().isoformat()
+        exp = (today + pd.Timedelta(days=35)).date().isoformat()
+        _write_produced(premium_dir, "OLD", _grid([stale_d], exp, [100]))
+        _write_produced(premium_dir, "NEW", _grid([fresh_d], exp, [100]))
+        c = MarketDataConnector()
+        assert c.get_option_premium_chain("OLD", exp).empty
+        assert c.get_option_premium("OLD", exp, 100.0, "put") is None
+        assert not c.get_option_premium_chain("NEW", exp).empty
+        assert c.get_option_premium("NEW", exp, 100.0, "put") is not None
+        # list_option_expirations mirrors the same wall-clock bound
+        assert c.list_option_expirations("OLD") == []
+        assert c.list_option_expirations("NEW") != []
+
+    def test_list_expirations_staleness_parameterized(self, premium_dir):
+        # #463 cosmetic n2: the as_of=None wall-clock bound is parameterized
+        # like get_option_premium_chain's (same name, same default 7) instead
+        # of a hardcoded literal. Default behavior unchanged.
+        today = pd.Timestamp.now().normalize()
+        stale_d = (today - pd.Timedelta(days=10)).date().isoformat()
+        exp = (today + pd.Timedelta(days=35)).date().isoformat()
+        _write_produced(premium_dir, "OLD", _grid([stale_d], exp, [100]))
+        c = MarketDataConnector()
+        assert c.list_option_expirations("OLD") == []  # default 7 refuses 10d
+        assert c.list_option_expirations("OLD", max_staleness_days=14) != []
+        # Deliberate asymmetry vs the chain accessor, pinned: an explicit
+        # as_of has NO staleness bound (a PIT backtest may see any snapshot
+        # <= as_of, however old).
+        assert c.list_option_expirations("OLD", as_of=today.date().isoformat()) != []
+
+    def test_suite_runs_rail_neutralized(self):
+        # D4-2 regression-lock: the conftest session fixture pins
+        # SWE_OPTION_PREMIUM_DIR to an empty tmp dir so exact-EV pins (e.g.
+        # the AAPL $5.35 F4 control) match CI on boxes where the gitignored
+        # local rail (data_processed/option_premium/) is populated. This
+        # test fails on such a box if the fixture is removed or a refactor
+        # moves the env read to import time.
+        c = MarketDataConnector()
+        assert not any(c._option_premium_dir.glob("*.parquet")), (
+            f"suite sees a populated option-premium rail at {c._option_premium_dir}; "
+            "the conftest _neutralize_option_premium_rail fixture should have "
+            "pinned SWE_OPTION_PREMIUM_DIR to an empty dir"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Data-backed: the distiller works on a real larder partition (guarded)

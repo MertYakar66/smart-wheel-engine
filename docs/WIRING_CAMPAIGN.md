@@ -100,7 +100,8 @@ of these §2-safe roles:
 >   `EXPECTED_FRONTIER` bump + W16/W30 re-pick.
 > - **#378 must land before 0A's spot-frontier bump** (a sequencing exception to the
 >   "data-before-trio" default). 0A advances OHLCV/spot to 06-18, but the legacy ATM-IV
->   monolith (`sp500_vol_iv_full.csv`) has **no in-repo producer** (runbook line 132) and
+>   monolith (`sp500_vol_iv_full.csv`) has **no in-repo producer** (see
+>   `docs/bloomberg_refresh_runbook.md` / `docs/DATA_POLICY.md` §5) and
 >   stays at ~06-04 — so 0A *itself* opens the ~10-trading-day IV↔spot staleness gap that
 >   #378 guards (audit W36). Either land #378 ahead of 0A, **or** re-pin the served ATM IV
 >   in the same step as 0A so spot and IV frontiers advance together. #378 must also land
@@ -162,12 +163,14 @@ the EV move is attributed to the wiring step that connects it. The files:
 `iv_surface/sp500_iv_surface.csv.gz`, `macro_calendar/{sp500_macro_calendar,sp500_macro_releases}.csv`,
 `macro_vol/{sp500_vol_indices,spx_correlation,credit_spreads,vix_futures_curve}.csv`,
 `macro_rates/{ois_sofr_curve,real_yields,fed_funds,macro_surprise,fx,commodities,global_vol,sector_factor_etfs_ohlcv}.csv`,
-`per_name/{returns_micro,vol_term_rv.csv.gz,beta_shares,fundamentals_q,fundamentals_ext_q,estimates_m,estimates_fwd,valuation_m,options_sentiment,sp500_snapshot_bdp}.csv`,
+`per_name/{returns_micro,vol_term_rv.csv.gz,beta_shares,fundamentals_q,fundamentals_ext_q,estimates_m,estimates_fwd,valuation_m,options_sentiment.csv.gz,sp500_snapshot_bdp}.csv`,
 `dividend_pit/sp500_dividend_yield_pit.csv`, `short_interest/sp500_short_interest.csv`.
 
-> **Storage gotcha** (manifest): two files are committed **gzipped** (`iv_surface` 96.8 MB
-> `.gz`, `vol_term_rv` 58.7 MB `.gz`) because the raw CSVs exceed GitHub's 100 MB limit;
-> the loader must read `.gz` directly. **Winsorization flags** (manifest): `options_sentiment`
+> **Storage gotcha** (manifest): three files are committed **gzipped** (`iv_surface` 96.8 MB
+> `.gz`, `vol_term_rv` 58.7 MB `.gz`, and — since 2026-07-02 — `options_sentiment` 32.0 MB
+> `.gz`, whose raw CSV had reached 97.5% of GitHub's 100 MiB per-blob limit) because the raw
+> CSVs exceed or approach GitHub's 100 MB limit;
+> the loader must read `.gz` directly. Refresh sessions must stage `.csv.gz` for all three. **Winsorization flags** (manifest): `options_sentiment`
 > `pc_vol`/`news_sent` and several per-name level series carry outliers flagged for
 > winsorization — clamp at load, not silently.
 
@@ -222,10 +225,19 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > real EOD `mid` from the Theta larder (`data_processed/option_premium/`, gitignored; coverage
 > 2016→2026-06), split-adjusted on load to the engine frame. `wheel_runner`'s three rankers now
 > swap `ShortOptionTrade.premium`/`bid`/`ask` from synthetic-BSM to the served mid via
-> `_resolve_real_premium` — so `edge_vs_fair` / VRP is **live where the rail is present**.
-> **No re-baseline:** the rail is gitignored, so CI/regression fall back to synthetic
-> (byte-identical) — committed snapshots stay synthetic and the real-premium path is local-only,
-> like all Theta-dependent behaviour. The **double-count concern is moot**: the production
+> `_resolve_real_premium` — so `edge_vs_fair` / VRP is **live where the rail is present AND
+> the quote is frontier-coherent (#463)**: the served quote's `date` must equal the spot-bar
+> date exactly, its market DTE must sit within ±10d of the modeled horizon, and `as_of=None`
+> resolves to the spot bar's date (never the larder's latest snapshot; a production call with
+> no date anchor refuses the rail outright). Incoherent cells — e.g. a larder frontier ahead
+> of the OHLCV frontier, the 2026-07-01 D1-1 defect that booked a 13-day market move as
+> phantom edge and inflated live EV 4–18× — degrade refuse-only to synthetic-BSM.
+> **No re-baseline:** the rail is gitignored and — since #465 — actively neutralized in the
+> regression lane and the pytest suite (`SWE_OPTION_PREMIUM_DIR` pinned to a
+> nonexistent/empty dir in `backtests/regression/_common.py` + root `conftest.py`; replay
+> fingerprints record `option_premium_rail: "pinned_off"`), so CI, replays, and exact-EV pins
+> are rail-independent by construction — committed snapshots stay synthetic and the
+> real-premium path is local-only, like all Theta-dependent behaviour. The **double-count concern is moot**: the production
 > forward distribution is empirical (realized returns), not IV-scaled, so skew premium is not
 > counted twice. Independent of fair-value skew (Phase 2) — the two compose but neither blocks
 > the other. The synthetic-path C4/W28 invariant stays green (the wiring touches the caller, not
@@ -351,6 +363,12 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > #354 needed. Wiring it = the separate trio PR that adds `as_of` to `get_fundamentals` /
 > `get_credit_risk` and threads it from `wheel_runner` → **CEREMONY**. The W2 PIT `xfail`
 > (`test_fundamentals_credit_are_point_in_time`) flips when this lands.
+> **Update (2026-07-02) — the dividend-yield carry-`q` half is LANDED:** #426 (connector
+> `get_fundamentals(as_of)` + `_pit_dividend_yield`) → #428 (puts ranker threads `as_of`) →
+> #429 (S27/S32/S34/S35 re-baseline; the AAPL F4 pin moved $5.27→$5.35 on it), and the panel
+> read is fingerprint-pinned as `broad_pull_dividend_pit` since #465. Remaining 3G scope =
+> `get_credit_risk` PIT + dated fundamentals SELECTION — which is why the W2 `xfail` (it
+> asserts fundamentals+credit dated selection, broader than carry-`q`) still stands.
 
 ### 3H — Ratings / GICS / ownership / earnings-timing snapshot → multiple consumers
 
@@ -359,7 +377,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 | `rtg_sp/rtg_moody/rtg_fitch` → **new credit reviewer** (junk-grade → **0.85× `ev_dollars`**, no hard refusal; final multiplier set in the §2 panel) | `candidate_dossier.py` reviewer (today credit CSV is **off the EV path**, audit C1) | downgrade-only *(mechanism = `ev_dollars` scaling)* | **Yes → coupled** (wiring builds a live reviewer) | **CEREMONY** | roadmap §6 ratings, §8, audit C1 |
 | `gics_sector`/group/industry/sub | informs **#372** R9 — but **#372 sources GICS from main `fundamentals`**, not this snapshot (lookahead) | downgrade-only | Yes → coupled (via #372) | (see #372) | roadmap §5 GICS |
 | `inst_pct`/`free_float_pct`/`float_shares` → R9/R10 concentration context | `portfolio_risk_gates` | advisory-sizing | No (context only) | PLAIN | roadmap §6 institutional/float |
-| `next_earnings_dt` (`EXPECTED_REPORT_DT`) → earnings lockout refresh | `event_gate` (earnings) | remove-only-gate | **Yes → coupled** | PANEL | roadmap §8 earnings timing |
+| `next_earnings_dt` (`EXPECTED_REPORT_DT`) → earnings lockout refresh | **WIRED 2026-07-02 (D3-1 fix)**: PIT-gated overlay in `data_connector.get_next_earnings`/`get_recent_earnings` → `event_gate` (earnings) | remove-only-gate | **No — decoupled by the PIT gate** (overlay participates only for `as_of >= asof` 2026-06-18; every dated backtest at or before the data frontier is byte-identical; overlay read fingerprint-pinned as `broad_pull_snapshot_bdp` since #465) | PANEL (run at wiring) | roadmap §8 earnings timing |
 
 > **Snapshot caveat (load-bearing):** this is a **single as-of (2026-06-18)**, not history —
 > ratings and GICS carry **current** values, so feeding them into a historical backtest is a
@@ -370,7 +388,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 
 ### 3I — Options structure + news sentiment (mixed: advisory + display-only)
 
-| Slice of `per_name/options_sentiment.csv` (1,998,083 rows, 511 nm, 2010→06-18, **102.3 MB**) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
+| Slice of `per_name/options_sentiment.csv.gz` (1,998,083 rows, 511 nm, 2010→06-18, **32.0 MB gzipped** since 2026-07-02) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
 |---|---|---|---|---|---|
 | `pc_oi_ratio`/`pc_vol_ratio`/`oi_call`/`oi_put` → dealer/skew advisory | `dealer_positioning` / `skew_dynamics` | advisory-sizing | **Yes⁶ → coupled⁶** (only if wired into the dealer multiplier `[0.70,1.05]`) | **CEREMONY** (dealer mult) — PLAIN if not wired | roadmap §6 options flow |
 | `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |
@@ -414,7 +432,7 @@ and **every Phase-2/3 `ev_raw` shift**. Procedure (runbook Phase 3/4):
 | §9 | Item | Status after broad-pull |
 |---|---|---|
 | **W-1** | Wire deep 5×5 IV-surface archive → connector | **Superseded** — Phase 2 wires the *fresh committed* surface (`staging/iv_surface/`), no gitignored-archive dependency. |
-| **W-2** | Fix PIT dividend lookahead | **Data ready** — Phase 3G wires the dated `dividend_pit` panel + `as_of` (the #354 unlock). |
+| **W-2** | Fix PIT dividend lookahead | **Carry-`q` half DONE** (#426/#428/#429, fingerprint-pinned #465); credit/fundamentals PIT selection remains (the W2 `xfail` still stands — it asserts the broader dated-selection contract). |
 | **W-3** | Wire Theta per-strike OI → `DealerPositioningAnalyzer` | **Out of broad-pull** (Theta-sourced). The BBG P/C ratios (3I) are a coarse cross-check only. |
 | **W-4** | Land D19 exit-cost + D21 DTE→bars + recal | **Independent** decision change, **out of scope** for this data-wiring campaign. It is re-baseline-coupled too: to "ride the same Phase-R re-baseline" it must be given its **own pre-Phase-R CEREMONY landing** alongside the (E) trio; otherwise defer it to a **separate** re-baseline (do not assume it rides Phase R implicitly). |
 | **W-5** | Wire corporate-actions into the event gate | **Data already present** on `main` (**52,442 rows** — not the 2-byte stub the stale inventory claimed); no restore/pull. The `event_gate` wiring is **scheduled as a Phase 3A row** above (EV-moving → re-baseline-coupled). |

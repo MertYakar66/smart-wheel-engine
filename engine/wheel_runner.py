@@ -243,6 +243,9 @@ def _resolve_real_premium(
     *,
     expiry_tol_days: int = 7,
     strike_tol_frac: float = 0.03,
+    spot_date=None,
+    dte_target: int | None = None,
+    dte_tol_days: int = 10,
 ) -> dict | None:
     """Best-effort REAL EOD market mid for a candidate leg, or ``None``.
 
@@ -251,6 +254,31 @@ def _resolve_real_premium(
     (within ``strike_tol_frac * strike``), point-in-time as of ``as_of``, from
     the option-premium rail (``MarketDataConnector.get_option_premium``). Returns
     the quote dict (``mid`` / ``bid`` / ``ask`` / …) or ``None``.
+
+    **Date/DTE coherence (adversarial review 2026-07-01, D1-1).** The rail's
+    larder and the OHLCV table are pulled on independent schedules, so their
+    frontiers diverge; pairing a quote from one market day with a spot from
+    another books the intervening market move as phantom edge (observed live:
+    a 13-day frontier skew inflated ``ev_dollars`` 4-18x and pushed
+    ``prob_profit`` into the R11 top bin). Two guards, both refuse-only:
+
+    - ``spot_date`` (the date of the OHLCV bar the caller priced ``spot``
+      from): the served quote's ``date`` must equal it exactly — mid and spot
+      must come from the same EOD session. When ``as_of`` is ``None`` the
+      connector is queried *as of the spot bar* rather than "latest", so the
+      candidate quote is the coherent one, not the larder frontier.
+    - ``dte_target`` (the horizon the engine models): the quote's own market
+      ``dte`` must sit within ``dte_tol_days`` of it. This catches the
+      same-session-but-both-stale case date-matching cannot: at a stale
+      ``as_of=None`` frontier the coherent quote's time value spans
+      (today + dte_target) - frontier days, not dte_target days.
+      ``dte_tol_days`` defaults to 10 = ``expiry_tol_days`` (7, the listed-
+      expiry snap) + 3 (spot-bar weekend/holiday lag at an explicit
+      ``as_of``) — tight enough to reject a two-week skew, loose enough for
+      a Monday ``as_of`` pricing off Friday's bar.
+
+    Both default to ``None`` = check skipped (legacy callers, test stubs whose
+    quotes carry no ``date``/``dte``); every ranker call site supplies both.
 
     ``None`` means "no real quote" → the caller keeps its synthetic-BSM premium,
     so behaviour is byte-identical wherever the rail is absent (CI, fresh clones,
@@ -263,9 +291,30 @@ def _resolve_real_premium(
     """
     if conn is None or not hasattr(conn, "list_option_expirations"):
         return None
+    # A production call (dte_target supplied) at as_of=None with no spot-bar
+    # date anchor: the date-coherence guard cannot hold, and the DTE guard
+    # alone would admit up to dte_tol_days of frontier skew — refuse the rail
+    # outright rather than serve "latest". (Legacy callers that supply
+    # neither kwarg are unaffected.)
+    if as_of is None and spot_date is None and dte_target is not None:
+        return None
+    # Query the market as of the spot bar when the caller has no explicit
+    # as_of — never "whatever the larder last saw". NOTE this is a
+    # RE-SELECTION, not a pure refusal: the spot-dated snapshot can serve a
+    # coherent quote in a cell where the old latest-frontier quote failed
+    # mid>0/strike_tol and fell back to synthetic. That quote is
+    # date-matched to the spot session, DTE-bounded, and flows through
+    # EVEngine.evaluate — evaluate-input-correctness, not a rescue. The two
+    # guards BELOW are strictly refuse-only.
+    as_of_eff = as_of
+    if as_of_eff is None and spot_date is not None:
+        try:
+            as_of_eff = pd.Timestamp(spot_date).date().isoformat()
+        except (TypeError, ValueError):
+            as_of_eff = None
     try:
         tgt = pd.Timestamp(target_expiry).normalize()
-        exps = conn.list_option_expirations(ticker, as_of)
+        exps = conn.list_option_expirations(ticker, as_of_eff)
         if not exps:
             return None
         best = min(exps, key=lambda e: abs((pd.Timestamp(e) - tgt).days))
@@ -276,7 +325,7 @@ def _resolve_real_premium(
             best,
             float(strike),
             right,
-            as_of=as_of,
+            as_of=as_of_eff,
             strike_tol=strike_tol_frac * float(strike),
         )
     except Exception:
@@ -289,6 +338,29 @@ def _resolve_real_premium(
             return None
     except (TypeError, ValueError):
         return None
+    if spot_date is not None:
+        q_date = q.get("date")
+        if q_date is None:
+            return None
+        try:
+            if pd.Timestamp(q_date).normalize() != pd.Timestamp(spot_date).normalize():
+                return None
+        except (TypeError, ValueError):
+            return None
+    if dte_target is not None:
+        q_dte = q.get("dte")
+        if q_dte is None and q.get("expiration") is not None and q.get("date") is not None:
+            try:
+                q_dte = (pd.Timestamp(q["expiration"]) - pd.Timestamp(q["date"])).days
+            except (TypeError, ValueError):
+                q_dte = None
+        if q_dte is None:
+            return None
+        try:
+            if abs(int(q_dte) - int(dte_target)) > int(dte_tol_days):
+                return None
+        except (TypeError, ValueError):
+            return None
     return q
 
 
@@ -315,7 +387,8 @@ def _register_corp_action_events(
 
     Remove-only (§2): this can only drop a candidate, never rescue one. No-op
     for connectors / stubs without ``get_corporate_actions`` (ThetaConnector,
-    test stubs) and on any read/parse error — never crashes the ranker.
+    test stubs) and on any read/parse error or unusable payload shape (a
+    truthy non-DataFrame return) — never crashes the ranker.
     """
     if event_gate is None or not hasattr(conn, "get_corporate_actions"):
         return
@@ -332,17 +405,44 @@ def _register_corp_action_events(
         start = (today_date - timedelta(days=buf)).isoformat()
         end = (today_date + timedelta(days=horizon_days + buf)).isoformat()
         ca = conn.get_corporate_actions(ticker, start_date=start, end_date=end, as_of=announce_asof)
-    except Exception:
+    except Exception as exc:
+        # D6-1: still fail-open (an error is not evidence of an action),
+        # but never silently — the lockout being un-armed must be visible.
+        logger.warning(
+            "event-gate: get_corporate_actions failed for %s — corp-action "
+            "lockout NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
         return
-    if ca is None or len(ca) == 0:
+    if ca is None:
         return
-    for _, row in ca.iterrows():
-        eff = row.get("effective_date")
+    # #464 verdict nit v1: probe the payload shape INSIDE a guard — a truthy
+    # non-DataFrame return (list/dict → AttributeError on .iterrows, scalar →
+    # TypeError on len) previously escaped every handler here and killed the
+    # ENTIRE multi-ticker ranking run, the one case the old blanket except
+    # caught that the #464 per-stage guards did not. Same fail-open-but-loud
+    # semantics and catch tuple as _earnings_event_date.
+    try:
+        if len(ca) == 0:
+            return
+        ca_rows = list(ca.iterrows())
+    except (TypeError, ValueError, AttributeError) as exc:
+        logger.warning(
+            "event-gate: unusable get_corporate_actions payload (%s) for %s — "
+            "corp-action lockout NOT armed for this name (%r)",
+            type(ca).__name__,
+            ticker,
+            exc,
+        )
+        return
+    for _, row in ca_rows:
+        eff = row.get("effective_date") if hasattr(row, "get") else None
         if eff is None:
             continue
         try:
             eff_d = eff.date() if hasattr(eff, "date") else pd.Timestamp(eff).date()
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             continue
         event_gate.add_event(ScheduledEvent(ticker=ticker, kind="corp_action", event_date=eff_d))
 
@@ -425,6 +525,86 @@ def _register_macro_events(
         except (ValueError, TypeError):
             continue
         event_gate.add_event(ScheduledEvent(ticker="*", kind=kind, event_date=rel_d))
+
+
+def _fetch_next_earnings(conn, ticker: str, as_of: str | None) -> dict | None:
+    """Narrowly-guarded forward-earnings lookup for event-gate registration.
+
+    D6-1: the three rankers used to wrap their ENTIRE event-exclusion block
+    (forward lookup + back-buffer + corp-action registration + the
+    ``use_event_gate=False`` soft skip) in one bare ``except Exception``, so
+    a single raising stage silently disabled the hard lockout AND the soft
+    skip for that ticker — indistinguishable from "no earnings scheduled".
+    Each connector call now carries its own guard and LOGS when it fails.
+    Fail-open is deliberate (an error is not evidence of an event — the same
+    missing-data semantics as R6-R11 soft-warns); the change is that it is
+    no longer fail-*silent*. ``hasattr`` gate mirrors the existing
+    ``get_recent_earnings`` treatment: a connector without the method is a
+    legitimate configuration, not an error — no warning for it.
+    """
+    if not hasattr(conn, "get_next_earnings"):
+        return None
+    try:
+        return conn.get_next_earnings(ticker, as_of)
+    except Exception as exc:
+        logger.warning(
+            "event-gate: get_next_earnings failed for %s — forward earnings "
+            "lockout NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
+        return None
+
+
+def _fetch_recent_earnings(conn, ticker: str, as_of: str | None, lookback_days: int) -> dict | None:
+    """Narrowly-guarded back-buffer earnings lookup (see ``_fetch_next_earnings``)."""
+    if not hasattr(conn, "get_recent_earnings"):
+        return None
+    try:
+        return conn.get_recent_earnings(ticker, as_of, lookback_days=lookback_days)
+    except Exception as exc:
+        logger.warning(
+            "event-gate: get_recent_earnings failed for %s — post-earnings "
+            "back-buffer NOT armed for this name (%r)",
+            ticker,
+            exc,
+        )
+        return None
+
+
+def _earnings_event_date(earn: dict | None, ticker: str) -> "date | None":
+    """Extract the announcement date from an earnings dict as a ``date``.
+
+    Malformed inputs (a stub returning a string date, a non-dict truthy
+    value, schema drift) are logged and yield ``None`` instead of being
+    silently swallowed by a blanket except — the D6-1 failure mode where an
+    unparseable calendar row un-armed the whole event gate for the ticker.
+    The truthiness/lookup lines sit INSIDE the try: a connector returning
+    e.g. a DataFrame (ValueError on truthiness) or a list (AttributeError
+    on .get) must degrade with a log, not crash the ranking run.
+    """
+    ts: object = None
+    try:
+        if not earn:
+            return None
+        ts = earn.get("announcement_date")
+        if ts is None:
+            return None
+        d = ts.date() if hasattr(ts, "date") else ts
+        # Probe the exact arithmetic the callers rely on ((d - date).days)
+        # so a non-date sentinel (a raw string, NaT, np.datetime64) is
+        # rejected HERE, with a log, not downstream.
+        _ = (d - date(2000, 1, 1)).days
+        return d
+    except (TypeError, ValueError, AttributeError) as exc:
+        logger.warning(
+            "event-gate: unparseable earnings announcement_date %r for %s — "
+            "event NOT registered (%r)",
+            ts,
+            ticker,
+            exc,
+        )
+        return None
 
 
 # ----------------------------------------------------------------------
@@ -543,9 +723,17 @@ _STRANGLE_RANK_DIAGNOSTIC_COLUMNS = [
 ]
 
 
-def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFrame:
+def _attach_drops_summary(
+    frame: pd.DataFrame, drops: list[dict], staleness: dict | None = None
+) -> pd.DataFrame:
     """Attach the drops list AND a trader-facing roll-up summary to a
     ranker output frame.
+
+    ``staleness`` (optional, D1-2/D3-2): the structured wall-clock
+    frontier-staleness dict from :func:`_frontier_staleness_info`, attached
+    as ``attrs["staleness"]`` so the API/dashboard can SHOW data currency
+    instead of the operator assuming "spot == today". attrs-only — survivor
+    rows are untouched, like the drops themselves.
 
     Both attributes ride on ``frame.attrs`` so survivor rows are
     untouched (CLAUDE.md §2). The summary closes S31 F1/F4
@@ -576,7 +764,64 @@ def _attach_drops_summary(frame: pd.DataFrame, drops: list[dict]) -> pd.DataFram
         "total_dropped": len(drops),
         "by_gate": dict(Counter(d["gate"] for d in drops)),
     }
+    if staleness is not None:
+        frame.attrs["staleness"] = staleness
     return frame
+
+
+def _frontier_staleness_info(as_of, staleness_ref, conn) -> dict:
+    """Structured wall-clock staleness of the universe data frontier
+    (D1-2/D3-2 — adversarial review 2026-07-01: a 27-day-stale frontier was
+    invisible at runtime; the only gate was frontier-RELATIVE, so when the
+    whole universe is stale every per-ticker gap is 0).
+
+    Meaningful only at ``as_of=None`` — a dated backtest's frontier is the
+    as_of itself, and wall-clock reads there would break byte-identity, so
+    dated queries return ``{"checked": False}`` (an explicit audit sentinel,
+    not an omission). Threshold ownership: the connector's
+    ``_OHLCV_FRONTIER_STALE_DAYS`` (7 — see its rationale comment), read via
+    ``getattr`` so method-less stubs default sanely.
+    """
+    if as_of is not None or staleness_ref is None:
+        return {"checked": False}
+    # Guarded end-to-end (2026-07-03 refuter panel): an exotic stub frontier
+    # (MagicMock, tz-aware Timestamp, unparseable str) must degrade to the
+    # unchecked sentinel — Q3 absent-evidence semantics — not kill a rank
+    # that survived on the pre-staleness code. (A stub returning a raw int
+    # still parses — pd.Timestamp(5) is the 1970 epoch → absurd age,
+    # stale=True; misleading but harmless unless the refusal is armed,
+    # which no stub-based deployment should do.)
+    try:
+        from datetime import date as _date
+
+        today = pd.Timestamp(_date.today())
+        threshold = int(getattr(conn, "_OHLCV_FRONTIER_STALE_DAYS", 7))
+        frontier = pd.Timestamp(staleness_ref).normalize()
+        age = int((today - frontier).days)
+        return {
+            "checked": True,
+            "data_frontier": frontier.date().isoformat(),
+            "wall_clock_date": today.date().isoformat(),
+            "frontier_age_days": age,
+            "threshold_days": threshold,
+            "stale": age > threshold,
+        }
+    except Exception:
+        return {"checked": False}
+
+
+def _resolve_refuse_stale_live(param: bool | None) -> bool:
+    """Resolve the D1-2 opt-in hard-refuse switch: an explicit param wins;
+    ``None`` (the default) reads the ``SWE_REFUSE_STALE_LIVE`` env arm so a
+    live deployment can arm the refusal without code changes (pattern:
+    ``SWE_DEEP_HISTORY``). Default OFF — a default refuse at a stale
+    frontier would blank every ``as_of=None`` book (the #462 lesson); the
+    default path stays warn-and-rank (fail-open, loudly)."""
+    if param is not None:
+        return bool(param)
+    import os
+
+    return os.environ.get("SWE_REFUSE_STALE_LIVE", "").strip().lower() in ("1", "true", "yes")
 
 
 # Sentinel for ``WheelRunner.consume_into_live_book(connector=...)``: lets the
@@ -1048,6 +1293,7 @@ class WheelRunner:
         enforce_chain_quality_gate: bool = True,
         universe_limit: int | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank tickers by **probabilistic expected value** for a short-put wheel entry.
 
@@ -1226,6 +1472,29 @@ class WheelRunner:
             except Exception:
                 staleness_ref = None
 
+        # D1-2/D3-2: structured wall-clock staleness of the frontier itself
+        # (the per-ticker gate below is frontier-RELATIVE and reads 0 when
+        # the whole universe is stale). Rides on df.attrs; opt-in hard
+        # refuse (refuse_stale_live / SWE_REFUSE_STALE_LIVE) short-circuits
+        # ONCE, universe-wide, BEFORE the per-ticker loop — never a
+        # per-ticker drop spam, and drop-only (§2: a refusal cannot rescue).
+        staleness_info = _frontier_staleness_info(as_of, staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": "*",
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _attach_drops_summary(pd.DataFrame(), drops, staleness=staleness_info)
+
         for ticker in tickers:
             try:
                 ohlcv = conn.get_ohlcv(ticker)
@@ -1349,6 +1618,17 @@ class WheelRunner:
                     }
                 )
                 continue
+            # D1-1: the spot bar's own date — threaded into the real-premium
+            # rail so a served market quote must come from the SAME EOD session
+            # as this spot. Failure shapes are all refuse-only: an exotic
+            # non-datetime index normalizes to a wrong-but-harmless date that
+            # simply mismatches every quote (synthetic fallback), and a parse
+            # failure leaves None, which the rail refuses outright at
+            # as_of=None (no date anchor → no coherence guarantee).
+            try:
+                spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+            except (TypeError, ValueError):
+                spot_bar_date = None
 
             # Get ATM IV and fundamentals.
             # S23 F3 fix: prefer the connector's as-of IV via
@@ -1480,90 +1760,80 @@ class WheelRunner:
             today_date = date.fromisoformat(as_of) if as_of else date.today()
             trade_start_d = today_date
             trade_end_d = today_date + timedelta(days=dte_target)
-            try:
-                next_earn = conn.get_next_earnings(ticker, as_of)
-                days_to_earn = None
-                if next_earn:
-                    earn_ts = next_earn.get("announcement_date")
-                    if earn_ts is not None:
-                        earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                        days_to_earn = (earn_d - today_date).days
-                        # Register on the per-run event gate so the EV
-                        # engine can pre-emptively block.
-                        if event_gate is not None and earn_d is not None:
-                            event_gate.add_event(
-                                ScheduledEvent(
-                                    ticker=ticker,
-                                    kind="earnings",
-                                    event_date=earn_d,
-                                )
-                            )
-                # S23 F1 — symmetric back-buffer. The gate's
-                # _event_touches_window arithmetic is symmetric and its
-                # reason string says ±{buf}d, but get_next_earnings only
-                # ever returns future events. Also pull the most recent
-                # PAST earnings within the back-buffer and register it
-                # so the gate can fire on a trade opened immediately
-                # post-earnings (the IV-crush window the gate's
-                # docstring explicitly cites as motivation). Defensive
-                # hasattr() so connectors / test stubs without the new
-                # method continue working with the legacy behavior.
-                if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                    recent_earn = conn.get_recent_earnings(
-                        ticker, as_of, lookback_days=earnings_buffer_days
+            # D6-1: every stage below is guarded INDIVIDUALLY (each connector
+            # call has its own logged try inside _fetch_next_earnings /
+            # _fetch_recent_earnings) instead of the old blanket try/except
+            # that silently disabled the hard lockout AND the soft skip
+            # whenever any stage raised. A raising forward lookup no longer
+            # kills the back-buffer / corp-action stages, and the soft-skip
+            # control flow now sits OUTSIDE any try — a bug there fails loud.
+            next_earn = _fetch_next_earnings(conn, ticker, as_of)
+            earn_d = _earnings_event_date(next_earn, ticker)
+            days_to_earn = (earn_d - today_date).days if earn_d is not None else None
+            # Register on the per-run event gate so the EV engine can
+            # pre-emptively block.
+            if event_gate is not None and earn_d is not None:
+                event_gate.add_event(
+                    ScheduledEvent(
+                        ticker=ticker,
+                        kind="earnings",
+                        event_date=earn_d,
                     )
-                    if recent_earn:
-                        recent_ts = recent_earn.get("announcement_date")
-                        if recent_ts is not None:
-                            recent_d = recent_ts.date() if hasattr(recent_ts, "date") else recent_ts
-                            event_gate.add_event(
-                                ScheduledEvent(
-                                    ticker=ticker,
-                                    kind="earnings",
-                                    event_date=recent_d,
-                                )
-                            )
-                # #3A: hard-block disruptive corporate actions (split/spinoff/
-                # special-cash/rights) in the holding window — remove-only.
-                _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-                if event_gate is None:
-                    # Soft fallback (use_event_gate=False) — also
-                    # symmetric. Forward branch was the original
-                    # behavior; back branch is the S23 F1 fix.
-                    if days_to_earn is not None and 0 <= days_to_earn < earnings_buffer_days:
+                )
+            # S23 F1 — symmetric back-buffer. The gate's
+            # _event_touches_window arithmetic is symmetric and its
+            # reason string says ±{buf}d, but get_next_earnings only
+            # ever returns future events. Also pull the most recent
+            # PAST earnings within the back-buffer and register it
+            # so the gate can fire on a trade opened immediately
+            # post-earnings (the IV-crush window the gate's
+            # docstring explicitly cites as motivation). The hasattr
+            # gate (inside _fetch_recent_earnings) keeps connectors /
+            # test stubs without the method on the legacy behavior.
+            if event_gate is not None:
+                recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+                recent_d = _earnings_event_date(recent_earn, ticker)
+                if recent_d is not None:
+                    event_gate.add_event(
+                        ScheduledEvent(
+                            ticker=ticker,
+                            kind="earnings",
+                            event_date=recent_d,
+                        )
+                    )
+            # #3A: hard-block disruptive corporate actions (split/spinoff/
+            # special-cash/rights) in the holding window — remove-only.
+            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
+            if event_gate is None:
+                # Soft fallback (use_event_gate=False) — also
+                # symmetric. Forward branch was the original
+                # behavior; back branch is the S23 F1 fix.
+                if days_to_earn is not None and 0 <= days_to_earn < earnings_buffer_days:
+                    drops.append(
+                        {
+                            "ticker": ticker,
+                            "gate": "event",
+                            "reason": (
+                                f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                            ),
+                        }
+                    )
+                    continue
+                recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+                r_d = _earnings_event_date(recent_earn, ticker)
+                if r_d is not None:
+                    d_since = (today_date - r_d).days
+                    if 0 <= d_since < earnings_buffer_days:
                         drops.append(
                             {
                                 "ticker": ticker,
                                 "gate": "event",
                                 "reason": (
-                                    f"earnings in {days_to_earn}d < buffer {earnings_buffer_days}d"
+                                    f"earnings was {d_since}d ago < buffer {earnings_buffer_days}d"
                                 ),
                             }
                         )
                         continue
-                    if hasattr(conn, "get_recent_earnings"):
-                        recent_earn = conn.get_recent_earnings(
-                            ticker, as_of, lookback_days=earnings_buffer_days
-                        )
-                        if recent_earn:
-                            r_ts = recent_earn.get("announcement_date")
-                            if r_ts is not None:
-                                r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                                d_since = (today_date - r_d).days
-                                if 0 <= d_since < earnings_buffer_days:
-                                    drops.append(
-                                        {
-                                            "ticker": ticker,
-                                            "gate": "event",
-                                            "reason": (
-                                                f"earnings was {d_since}d ago "
-                                                f"< buffer {earnings_buffer_days}d"
-                                            ),
-                                        }
-                                    )
-                                    continue
-            except Exception:
-                days_to_earn = None
 
             # Solve for the strike that gives the target put delta
             # Put delta = e^{-qT} * (N(d1) - 1); target is -delta_target.
@@ -1640,6 +1910,8 @@ class WheelRunner:
                 strike,
                 "put",
                 as_of,
+                spot_date=spot_bar_date,
+                dte_target=int(dte_target),
             )
             if _real_q is not None:
                 premium = float(_real_q["mid"])
@@ -2234,7 +2506,7 @@ class WheelRunner:
         # attached after the sort/head so it rides on the exact frame
         # returned (empty or not). Survivor rows are untouched; see
         # CLAUDE.md section 2.
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Single-ticker surface exploration (investor-scenario 2 follow-up)
@@ -2535,6 +2807,7 @@ class WheelRunner:
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank covered-call **entry** candidates for a held stock by forward EV.
 
@@ -2656,9 +2929,14 @@ class WheelRunner:
         if include_diagnostic_fields:
             cols = cols + _CC_RANK_DIAGNOSTIC_COLUMNS
 
+        # Rebound by the D1-2 staleness block below; the closure reads the
+        # CURRENT value at call time, so pre-resolution early returns carry
+        # no staleness (None) and post-resolution ones carry the dict.
+        staleness_info: dict | None = None
+
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            return _attach_drops_summary(df, drops)
+            return _attach_drops_summary(df, drops, staleness=staleness_info)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -2698,6 +2976,24 @@ class WheelRunner:
                 _cc_staleness_ref = conn.get_data_frontier()
             except Exception:
                 _cc_staleness_ref = None
+        # D1-2/D3-2 wall-clock staleness (see rank_candidates_by_ev): attrs
+        # + opt-in universe-wide refusal, drop-only.
+        staleness_info = _frontier_staleness_info(as_of, _cc_staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _empty()  # columns + staleness attrs, consistent with every other empty exit
         if _cc_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_cc_staleness_ref)
@@ -2740,6 +3036,12 @@ class WheelRunner:
         if spot <= 0:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
+        # D1-1: spot-bar date for real-premium rail date-coherence (see the
+        # puts ranker + _resolve_real_premium docstring).
+        try:
+            spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+        except (TypeError, ValueError):
+            spot_bar_date = None
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
@@ -2832,38 +3134,26 @@ class WheelRunner:
             # whole-window) macro semantics — see docs/WIRING_CAMPAIGN.md §3A.
             if use_macro_event_gate:
                 _register_macro_events(event_gate, conn, as_of=as_of)
-        days_to_earn: int | None = None
-        try:
-            next_earn = conn.get_next_earnings(ticker, as_of)
-            if next_earn:
-                earn_ts = next_earn.get("announcement_date")
-                if earn_ts is not None:
-                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                    days_to_earn = (earn_d - today_date).days
-                    if event_gate is not None:
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
-                        )
-            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
-            # Pull the most recent past earnings within the back-buffer
-            # so the gate can fire on a trade opened immediately
-            # post-earnings (IV-crush window). Defensive hasattr() for
-            # legacy connectors.
-            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                recent_earn = conn.get_recent_earnings(
-                    ticker, as_of, lookback_days=earnings_buffer_days
-                )
-                if recent_earn:
-                    r_ts = recent_earn.get("announcement_date")
-                    if r_ts is not None:
-                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
-                        )
-            # #3A: hard-block disruptive corporate actions — remove-only.
-            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-        except Exception:
-            days_to_earn = None
+        # D6-1: stages guarded individually with logged failures (see
+        # _fetch_next_earnings / _fetch_recent_earnings) — a raising lookup
+        # no longer silently un-arms the whole event gate for this name.
+        next_earn = _fetch_next_earnings(conn, ticker, as_of)
+        earn_d = _earnings_event_date(next_earn, ticker)
+        days_to_earn: int | None = (earn_d - today_date).days if earn_d is not None else None
+        if event_gate is not None and earn_d is not None:
+            event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d))
+        # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+        # Pull the most recent past earnings within the back-buffer
+        # so the gate can fire on a trade opened immediately
+        # post-earnings (IV-crush window). hasattr gate (inside
+        # _fetch_recent_earnings) for legacy connectors.
+        if event_gate is not None:
+            recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+            r_d = _earnings_event_date(recent_earn, ticker)
+            if r_d is not None:
+                event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d))
+        # #3A: hard-block disruptive corporate actions — remove-only.
+        _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
 
         ev_eng = EVEngine(event_gate=event_gate)
 
@@ -2950,7 +3240,16 @@ class WheelRunner:
                 ask = premium * 1.05
                 # Real EOD market mid (Phase-2 wiring) — see the puts ranker for
                 # the full rationale. Absent rail -> synthetic path unchanged.
-                _real_q = _resolve_real_premium(conn, ticker, new_expiry, strike, "call", as_of)
+                _real_q = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    new_expiry,
+                    strike,
+                    "call",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _real_q is not None:
                     premium = float(_real_q["mid"])
                     bid = float(_real_q["bid"])
@@ -3111,7 +3410,7 @@ class WheelRunner:
         # Drop log + S31 F1/F4 summary attached after sort/head so it
         # rides on the exact frame returned; survivor rows are
         # untouched (CLAUDE.md §2).
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Strangle EV ranking (issue #118 P1 — S14 follow-up)
@@ -3137,6 +3436,7 @@ class WheelRunner:
         risk_free_rate: float | None = None,
         dividend_yield: float | None = None,
         max_as_of_staleness_days: int = 30,
+        refuse_stale_live: bool | None = None,
     ) -> pd.DataFrame:
         """Rank short-strangle candidates for a ticker by composed forward EV.
 
@@ -3257,9 +3557,14 @@ class WheelRunner:
         if include_diagnostic_fields:
             cols = cols + _STRANGLE_RANK_DIAGNOSTIC_COLUMNS
 
+        # Rebound by the D1-2 staleness block below; the closure reads the
+        # CURRENT value at call time, so pre-resolution early returns carry
+        # no staleness (None) and post-resolution ones carry the dict.
+        staleness_info: dict | None = None
+
         def _empty() -> pd.DataFrame:
             df = pd.DataFrame(columns=cols)
-            return _attach_drops_summary(df, drops)
+            return _attach_drops_summary(df, drops, staleness=staleness_info)
 
         # ---- OHLCV + PIT cutoff ----
         try:
@@ -3299,6 +3604,24 @@ class WheelRunner:
                 _stg_staleness_ref = conn.get_data_frontier()
             except Exception:
                 _stg_staleness_ref = None
+        # D1-2/D3-2 wall-clock staleness (see rank_candidates_by_ev): attrs
+        # + opt-in universe-wide refusal, drop-only.
+        staleness_info = _frontier_staleness_info(as_of, _stg_staleness_ref, conn)
+        if staleness_info.get("stale") and _resolve_refuse_stale_live(refuse_stale_live):
+            drops.append(
+                {
+                    "ticker": ticker,
+                    "gate": "data",
+                    "reason": (
+                        f"universe data frontier {staleness_info['data_frontier']} is "
+                        f"{staleness_info['frontier_age_days']}d behind the wall clock "
+                        f"(> {staleness_info['threshold_days']}d) — refuse_stale_live "
+                        "armed; refusing the live rank (refresh data or pass an "
+                        "explicit as_of)"
+                    ),
+                }
+            )
+            return _empty()  # columns + staleness attrs, consistent with every other empty exit
         if _stg_staleness_ref is not None:
             try:
                 cutoff = pd.Timestamp(_stg_staleness_ref)
@@ -3338,6 +3661,12 @@ class WheelRunner:
         if spot <= 0:
             drops.append({"ticker": ticker, "gate": "data", "reason": "non-positive spot price"})
             return _empty()
+        # D1-1: spot-bar date for real-premium rail date-coherence (see the
+        # puts ranker + _resolve_real_premium docstring).
+        try:
+            spot_bar_date = pd.Timestamp(ohlcv.index[-1]).normalize()
+        except (TypeError, ValueError):
+            spot_bar_date = None
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
@@ -3454,38 +3783,26 @@ class WheelRunner:
             # whole-window) macro semantics — see docs/WIRING_CAMPAIGN.md §3A.
             if use_macro_event_gate:
                 _register_macro_events(event_gate, conn, as_of=as_of)
-        days_to_earn: int | None = None
-        try:
-            next_earn = conn.get_next_earnings(ticker, as_of)
-            if next_earn:
-                earn_ts = next_earn.get("announcement_date")
-                if earn_ts is not None:
-                    earn_d = earn_ts.date() if hasattr(earn_ts, "date") else earn_ts
-                    days_to_earn = (earn_d - today_date).days
-                    if event_gate is not None:
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d)
-                        )
-            # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
-            # Pull the most recent past earnings within the back-buffer
-            # so the gate can fire on a trade opened immediately
-            # post-earnings (IV-crush window). Defensive hasattr() for
-            # legacy connectors.
-            if event_gate is not None and hasattr(conn, "get_recent_earnings"):
-                recent_earn = conn.get_recent_earnings(
-                    ticker, as_of, lookback_days=earnings_buffer_days
-                )
-                if recent_earn:
-                    r_ts = recent_earn.get("announcement_date")
-                    if r_ts is not None:
-                        r_d = r_ts.date() if hasattr(r_ts, "date") else r_ts
-                        event_gate.add_event(
-                            ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d)
-                        )
-            # #3A: hard-block disruptive corporate actions — remove-only.
-            _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
-        except Exception:
-            days_to_earn = None
+        # D6-1: stages guarded individually with logged failures (see
+        # _fetch_next_earnings / _fetch_recent_earnings) — a raising lookup
+        # no longer silently un-arms the whole event gate for this name.
+        next_earn = _fetch_next_earnings(conn, ticker, as_of)
+        earn_d = _earnings_event_date(next_earn, ticker)
+        days_to_earn: int | None = (earn_d - today_date).days if earn_d is not None else None
+        if event_gate is not None and earn_d is not None:
+            event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=earn_d))
+        # S23 F1 — symmetric back-buffer (matches rank_candidates_by_ev).
+        # Pull the most recent past earnings within the back-buffer
+        # so the gate can fire on a trade opened immediately
+        # post-earnings (IV-crush window). hasattr gate (inside
+        # _fetch_recent_earnings) for legacy connectors.
+        if event_gate is not None:
+            recent_earn = _fetch_recent_earnings(conn, ticker, as_of, earnings_buffer_days)
+            r_d = _earnings_event_date(recent_earn, ticker)
+            if r_d is not None:
+                event_gate.add_event(ScheduledEvent(ticker=ticker, kind="earnings", event_date=r_d))
+        # #3A: hard-block disruptive corporate actions — remove-only.
+        _register_corp_action_events(event_gate, conn, ticker, today_date, as_of)
 
         ev_eng = EVEngine(event_gate=event_gate)
 
@@ -3581,7 +3898,16 @@ class WheelRunner:
                 put_ask = put_premium * 1.05
                 # Real EOD market mid (Phase-2 wiring) — per-leg, same listed
                 # expiry so the two legs stay contemporaneous. See puts ranker.
-                _rq_put = _resolve_real_premium(conn, ticker, expiry, put_strike, "put", as_of)
+                _rq_put = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    expiry,
+                    put_strike,
+                    "put",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _rq_put is not None:
                     put_premium = float(_rq_put["mid"])
                     put_bid = float(_rq_put["bid"])
@@ -3602,7 +3928,16 @@ class WheelRunner:
                 )
                 call_bid = call_premium * 0.95
                 call_ask = call_premium * 1.05
-                _rq_call = _resolve_real_premium(conn, ticker, expiry, call_strike, "call", as_of)
+                _rq_call = _resolve_real_premium(
+                    conn,
+                    ticker,
+                    expiry,
+                    call_strike,
+                    "call",
+                    as_of,
+                    spot_date=spot_bar_date,
+                    dte_target=int(new_dte),
+                )
                 if _rq_call is not None:
                     call_premium = float(_rq_call["mid"])
                     call_bid = float(_rq_call["bid"])
@@ -3784,7 +4119,7 @@ class WheelRunner:
         # Drop log + S31 F1/F4 summary attached after sort/head so it
         # rides on the exact frame returned; survivor rows are
         # untouched (CLAUDE.md §2).
-        return _attach_drops_summary(df, drops)
+        return _attach_drops_summary(df, drops, staleness=staleness_info)
 
     # ------------------------------------------------------------------
     # Mode B: EV ranking + TradingView chart context dossier
@@ -3859,7 +4194,7 @@ class WheelRunner:
                 design.
 
                 Closes C3 from
-                ``docs/END_TO_END_REVIEW_2026_05_25.md`` by exposing
+                ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md`` by exposing
                 the parameter the underlying
                 :func:`~engine.candidate_dossier.build_dossiers`
                 already accepted.
@@ -3948,7 +4283,7 @@ class WheelRunner:
         Callers inspect the returned outcomes to know what fired and
         what refused.
 
-        Closes C4 from ``docs/END_TO_END_REVIEW_2026_05_25.md`` and
+        Closes C4 from ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md`` and
         TERMINAL_A_AUDIT.md cross-cutting #4: until this method
         landed, the rank-to-tracker chain was the operator's
         responsibility to wire row-by-row. D16 / D17 hardening was a

@@ -713,24 +713,63 @@ class MarketDataConnector:
         """Return the next upcoming earnings event after *as_of*.
 
         Returns a dict with keys ``announcement_date``,
-        ``announcement_time``, ``estimate_eps``, and ``year_period``
-        or ``None`` if no future earnings are found.
+        ``announcement_time``, ``estimate_eps``, ``year_period`` and
+        ``source`` or ``None`` if no future earnings are found.
+
+        Sources (D3-1 fix). Two sources are consulted and the EARLIER
+        future date wins:
+
+        1. ``sp500_earnings.csv`` (``source="earnings_csv"``) — the
+           historical announcement record. Its *forward* coverage is thin
+           (~39/511 names as of 2026-07: mostly banks that pre-schedule),
+           which silently no-op'ed the live earnings lockout for ~92 % of
+           the universe (adversarial-review finding D3-1).
+        2. The broad-pull per-name snapshot's ``next_earnings_dt`` column
+           (``source="snapshot_bdp"``) — 100 % forward coverage, stamped
+           with its own ``asof`` knowledge date and gated point-in-time on
+           it (see :meth:`_snapshot_bdp_next_earnings`): for any ``as_of``
+           BEFORE the snapshot's ``asof`` the overlay never participates,
+           so every dated backtest at or before the snapshot date is
+           byte-identical to the pre-overlay behaviour. Consuming the
+           overlay can only ADD earnings events to the event gate —
+           remove-only w.r.t. the ranked book (§2-safe direction).
+
+        The yfinance parallel file (``sp500_earnings_yf.csv``) is
+        deliberately NOT consulted: it carries no knowledge-date stamp, its
+        18-year history diverges from the Bloomberg record inside pinned
+        backtest windows (a naive union rewrites history), and its forward
+        rows decay without an in-band signal. The snapshot overlay
+        dominates it on coverage (100 % vs ~70 %).
         """
         ref = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
+        base: dict | None = None
         df = self._load("earnings")
         df = self._filter_ticker(df, ticker)
-        if df.empty or "announcement_date" not in df.columns:
-            return None
-        future = df[df["announcement_date"] > ref].sort_values("announcement_date")
-        if future.empty:
-            return None
-        row = future.iloc[0]
-        return {
-            "announcement_date": row["announcement_date"],
-            "announcement_time": row.get("announcement_time"),
-            "estimate_eps": row.get("estimate_eps"),
-            "year_period": row.get("year/period", row.get("year_period")),
-        }
+        if not df.empty and "announcement_date" in df.columns:
+            future = df[df["announcement_date"] > ref].sort_values("announcement_date")
+            if not future.empty:
+                row = future.iloc[0]
+                base = {
+                    "announcement_date": row["announcement_date"],
+                    "announcement_time": row.get("announcement_time"),
+                    "estimate_eps": row.get("estimate_eps"),
+                    "year_period": row.get("year/period", row.get("year_period")),
+                    "source": "earnings_csv",
+                }
+        overlay: dict | None = None
+        snap = self._snapshot_bdp_next_earnings(ticker, ref)
+        if snap is not None and snap["announcement_date"] > ref:
+            overlay = {
+                "announcement_date": snap["announcement_date"],
+                "announcement_time": None,
+                "estimate_eps": None,
+                "year_period": None,
+                "source": "snapshot_bdp",
+            }
+        if base is not None and overlay is not None:
+            # Earlier future date wins; on a tie the richer base row does.
+            return base if base["announcement_date"] <= overlay["announcement_date"] else overlay
+        return base if base is not None else overlay
 
     def get_recent_earnings(
         self,
@@ -755,30 +794,197 @@ class MarketDataConnector:
 
         Returns a dict with the same keys as :meth:`get_next_earnings`
         (``announcement_date``, ``announcement_time``, ``estimate_eps``,
-        ``year_period``) or ``None`` if no past earnings are found in
-        the window. The two methods are *complementary* — the
+        ``year_period``, ``source``) or ``None`` if no past earnings are
+        found in the window. The two methods are *complementary* — the
         ``> ref`` / ``<= ref`` cutoff is set so an event ON ``as_of``
         is treated as past (returned by this method, not by
         ``get_next_earnings``).
+
+        Consults the same snapshot overlay as :meth:`get_next_earnings`
+        (D3-1): a snapshot ``next_earnings_dt`` that has *passed* by
+        ``as_of`` but sits inside the lookback window is exactly the
+        just-reported / IV-crush case the back-buffer exists for, and the
+        historical file misses it for the ~92 % of names without current
+        rows. Same PIT gate (overlay only participates when
+        ``as_of >= asof``), same remove-only direction.
         """
         ref = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
         lookback_start = ref - pd.Timedelta(days=int(lookback_days))
+        base: dict | None = None
         df = self._load("earnings")
         df = self._filter_ticker(df, ticker)
-        if df.empty or "announcement_date" not in df.columns:
+        if not df.empty and "announcement_date" in df.columns:
+            past = df[
+                (df["announcement_date"] >= lookback_start) & (df["announcement_date"] <= ref)
+            ].sort_values("announcement_date")
+            if not past.empty:
+                row = past.iloc[-1]  # most recent within the lookback
+                base = {
+                    "announcement_date": row["announcement_date"],
+                    "announcement_time": row.get("announcement_time"),
+                    "estimate_eps": row.get("estimate_eps"),
+                    "year_period": row.get("year/period", row.get("year_period")),
+                    "source": "earnings_csv",
+                }
+        overlay: dict | None = None
+        snap = self._snapshot_bdp_next_earnings(ticker, ref)
+        if snap is not None and lookback_start <= snap["announcement_date"] <= ref:
+            overlay = {
+                "announcement_date": snap["announcement_date"],
+                "announcement_time": None,
+                "estimate_eps": None,
+                "year_period": None,
+                "source": "snapshot_bdp",
+            }
+        if base is not None and overlay is not None:
+            # Most recent past date wins; on a tie the richer base row does.
+            return base if base["announcement_date"] >= overlay["announcement_date"] else overlay
+        return base if base is not None else overlay
+
+    # -- D3-1 forward-calendar overlay (broad_pull snapshot) ------------
+
+    # Runtime staleness alarm threshold for the snapshot overlay. The
+    # overlay FAILS OPEN as it ages (dates fall behind ``ref`` and simply
+    # stop registering — the lockout silently reverts toward the ~8 %
+    # baseline coverage), the exact failure class of D3-1. Opposite
+    # polarity to the option-premium rail's wall-clock bound (#463),
+    # which fails SAFE by refusing into the synthetic-BSM fallback — so
+    # instead of refusing, a decayed overlay LOGS loudly (once per
+    # connector) and the preflight guard pins the snapshot's asof.
+    # 45, not 90: with quarterly reporting, a name whose snapshot date D1
+    # has passed reports next at ~D1+91d, which ENTERS the default gate
+    # lookahead (dte 35 + buffer 5 = 40d) at snapshot age ~51d — so
+    # missed forward locks begin around day 51, and a 90-day alarm would
+    # stay silent through ~40 days of silently un-armed names (2026-07-02
+    # refuter panel, ops lens).
+    _SNAPSHOT_EARNINGS_STALE_DAYS: int = 45
+
+    # Runtime staleness alarm for the OHLCV frontier itself (D1-2/D3-2,
+    # adversarial review 2026-07-01: "27-day frontier staleness invisible
+    # at runtime"). At ``as_of=None`` the rankers price spots off the
+    # frontier bar while the event gate uses the REAL wall clock — a stale
+    # tree served month-old spots with no runtime signal anywhere. 7, not
+    # 30: (i) parity with the option-premium rail's 7d wall-clock bound
+    # (#463) — both answer "is this the current market state?"; (ii) the
+    # longest legitimate market-closed gap is ~4-5 calendar days (holiday
+    # long weekend), so 7 has zero false positives on a maintained box;
+    # (iii) the ranker's ``max_as_of_staleness_days`` default (30) would
+    # have stayed silent through the motivating 27-day live case. WARN
+    # only (once per connector) — never refuses; the deterministic
+    # EXPECTED_FRONTIER preflight pin catches stale TREES, this catches a
+    # current tree with old data at runtime. Opt-in hard refuse lives in
+    # the rankers (``refuse_stale_live`` / SWE_REFUSE_STALE_LIVE).
+    _OHLCV_FRONTIER_STALE_DAYS: int = 7
+
+    def _load_snapshot_bdp_panel(self) -> pd.DataFrame | None:
+        """The broad-pull per-name snapshot (``broad_pull/per_name/
+        sp500_snapshot_bdp.csv``), loaded lazily via ``BroadPullLoader``
+        and cached on the instance — same lazy ``engine -> data`` import
+        pattern as :meth:`_load_dividend_pit_panel`. ``None`` when the
+        broad-pull data is absent (fresh clone, tmp-dir test connectors).
+
+        Scoped to THIS connector's ``data_dir`` (``<data_dir>/broad_pull``)
+        rather than the repo-default loader path: a connector pointed at a
+        tmp dir must NOT bleed the repo's real calendar into hermetic
+        tests (several pin ``get_next_earnings(...) is None`` on empty
+        dirs).
+        """
+        if not hasattr(self, "_snapshot_bdp_panel"):
+            try:
+                from data.broad_pull_loaders import BroadPullLoader
+
+                self._snapshot_bdp_panel = BroadPullLoader(self._data_dir / "broad_pull").load(
+                    "snapshot_bdp"
+                )
+            except Exception as exc:
+                # Fail-open (absent broad-pull data degrades to the base
+                # calendar, matching every other missing-CSV path) but
+                # NEVER silently: an import/loader failure here un-arms
+                # the restored earnings lockout — the D6-1 failure class
+                # one seam higher. File-absence is warned inside
+                # BroadPullLoader._read; this catches the rest.
+                logger.warning(
+                    "earnings-calendar overlay unavailable — broad-pull loader "
+                    "failed (%r); the earnings lockout falls back to the thin "
+                    "historical calendar (D3-1 baseline)",
+                    exc,
+                )
+                self._snapshot_bdp_panel = None
+        return self._snapshot_bdp_panel
+
+    def _snapshot_bdp_next_earnings(self, ticker: str, ref: pd.Timestamp) -> dict | None:
+        """*ticker*'s scheduled earnings date from the broad-pull snapshot,
+        or ``None``. Returns ``{"announcement_date": Timestamp, "asof":
+        Timestamp}`` — the caller decides whether the date is forward
+        (:meth:`get_next_earnings`) or recent (:meth:`get_recent_earnings`).
+
+        Point-in-time gate: the snapshot participates only when
+        ``ref >= asof`` (its knowledge date). A query dated before the
+        snapshot was taken must not see it — this is what keeps every
+        dated backtest at ``as_of < asof`` byte-identical to the
+        pre-overlay engine, and it is genuinely PIT-correct (not merely
+        refuse-safe) for ``as_of >= asof``: the schedule *was* knowable
+        then.
+        """
+        panel = self._load_snapshot_bdp_panel()
+        if panel is None or panel.empty or "next_earnings_dt" not in panel.columns:
             return None
-        past = df[
-            (df["announcement_date"] >= lookback_start) & (df["announcement_date"] <= ref)
-        ].sort_values("announcement_date")
-        if past.empty:
+        # Share-class bridge: this module's ``normalize_ticker`` keeps the
+        # slash ("BRK/B UN" -> "BRK/B") while the loader's precomputed
+        # ``ticker_normalized`` column (data/consolidated_loader.py) maps
+        # slash -> dot ("BRK.B"). Compare in dot-form on BOTH sides or the
+        # two slash names in the snapshot (BRK/B, BF/B) silently miss —
+        # exactly the D3-1 no-op this overlay exists to close (2026-07-02
+        # refuter panel, ops lens). NB the sibling ``_pit_dividend_yield``
+        # has the same latent mismatch; fixing it moves served dividend
+        # yields (EV-moving) so it is deliberately left to its own lane.
+        key = normalize_ticker(ticker).replace("/", ".")
+        if "ticker_normalized" in panel.columns:
+            sub = panel[panel["ticker_normalized"].astype(str).str.replace("/", ".") == key]
+        elif "ticker" in panel.columns:
+            sub = panel[
+                panel["ticker"].map(lambda t: normalize_ticker(str(t)).replace("/", ".")) == key
+            ]
+        else:
             return None
-        row = past.iloc[-1]  # most recent within the lookback
-        return {
-            "announcement_date": row["announcement_date"],
-            "announcement_time": row.get("announcement_time"),
-            "estimate_eps": row.get("estimate_eps"),
-            "year_period": row.get("year/period", row.get("year_period")),
-        }
+        if sub.empty:
+            return None
+        # Among rows already knowable at ``ref`` (asof <= ref), serve the
+        # NEWEST snapshot. Today the panel is a single asof; if a future
+        # broad-pull refresh APPENDS a new asof instead of replacing rows,
+        # iloc[0] on the (ticker, asof)-ascending panel would silently
+        # serve the decayed calendar while the preflight pin (which checks
+        # max(asof)) stayed green (2026-07-02 refuter panel, §2 lens).
+        asof_series = (
+            pd.to_datetime(sub["asof"], errors="coerce") if "asof" in sub.columns else None
+        )
+        if asof_series is None:
+            return None  # unstamped snapshot: no PIT gate possible -> refuse
+        eligible = asof_series.notna() & (asof_series.dt.normalize() <= ref.normalize())
+        if not eligible.any():
+            return None  # PIT gate: snapshot not knowable at ref (or unstamped)
+        idx = asof_series[eligible].idxmax()
+        row = sub.loc[idx]
+        asof = asof_series.loc[idx]
+        dt = pd.to_datetime(row.get("next_earnings_dt"), errors="coerce")
+        if pd.isna(dt):
+            return None
+        age_days = int((ref.normalize() - asof.normalize()).days)
+        if age_days > self._SNAPSHOT_EARNINGS_STALE_DAYS and not getattr(
+            self, "_warned_stale_earnings_snapshot", False
+        ):
+            logger.warning(
+                "earnings-calendar overlay is %d days older than the query date "
+                "(snapshot asof=%s): its forward dates have largely passed, so the "
+                "earnings lockout is decaying back toward the ~8%% historical-file "
+                "coverage (D3-1). Refresh data/bloomberg/broad_pull/per_name/"
+                "sp500_snapshot_bdp.csv and bump EXPECTED_EARNINGS_CALENDAR_ASOF "
+                "(tests/test_preflight_environment.py).",
+                age_days,
+                asof.date(),
+            )
+            self._warned_stale_earnings_snapshot = True
+        return {"announcement_date": pd.Timestamp(dt).normalize(), "asof": asof}
 
     # ------------------------------------------------------------------
     # Events – Corporate actions
@@ -1006,7 +1212,13 @@ class MarketDataConnector:
         whose ``date`` is ``<= as_of`` and within ``max_staleness_days`` of it
         (so a backtest at ``as_of`` never sees a future quote, and a long market
         holiday gap does not silently serve a stale market). With ``as_of=None``
-        the latest available snapshot for that expiry is used.
+        the latest available snapshot for that expiry is used, **bounded by the
+        same ``max_staleness_days`` against today's wall clock** — ``as_of=None``
+        means "the current market state", not "whatever the larder last saw", so
+        a stale larder degrades to the synthetic-BSM fallback instead of pairing
+        a weeks-old quote with a live caller (adversarial review 2026-07-01
+        D1-1/AB-4: an unbounded latest-quote paired with a different-frontier
+        spot inflated live EV 4-18x).
 
         ``mid = (bid + ask) / 2`` is the real premium. Returns an EMPTY frame
         (same columns) when no produced data exists / no PIT snapshot qualifies
@@ -1029,6 +1241,11 @@ class MarketDataConnector:
                 return df.iloc[0:0]
         else:
             snap = sub["date"].max()
+            # D1-1/AB-4 hardening: bound the "latest" branch against today's
+            # wall clock. Refuse-only — a quote this stale can only be replaced
+            # by the synthetic-BSM fallback, never the other way around.
+            if (pd.Timestamp.now().normalize() - snap).days > max_staleness_days:
+                return df.iloc[0:0]
         sub = sub[sub["date"] == snap]
         return sub.sort_values(["right", "strike"]).reset_index(drop=True)
 
@@ -1077,6 +1294,7 @@ class MarketDataConnector:
         *,
         min_dte: int | None = None,
         max_dte: int | None = None,
+        max_staleness_days: int = 7,
     ) -> list[pd.Timestamp]:
         """Sorted listed expirations with a real EOD snapshot available PIT.
 
@@ -1085,7 +1303,14 @@ class MarketDataConnector:
         yet quoted). ``min_dte`` / ``max_dte`` (relative to ``as_of``, or to the
         latest snapshot date when ``as_of`` is None) narrow to the wheel's DTE
         belt so the ranker can snap a DTE target to a listed expiry. Empty list
-        when no produced data exists.
+        when no produced data exists, or — mirroring
+        :meth:`get_option_premium_chain` — when ``as_of`` is ``None`` and the
+        larder's freshest snapshot is more than ``max_staleness_days``
+        (default 7, matching :meth:`get_option_premium_chain`) behind today's
+        wall clock (``as_of=None`` means "the current market state";
+        D1-1/AB-4). Deliberate asymmetry vs the chain accessor: an explicit
+        ``as_of`` here has NO staleness bound — a PIT backtest may see any
+        snapshot ``<= as_of``, however old.
         """
         df = self._load_option_premium(ticker)
         if df.empty:
@@ -1098,6 +1323,10 @@ class MarketDataConnector:
             return []
         if ref is None:
             ref = sub["date"].max()
+            # D1-1/AB-4 hardening — same wall-clock bound as
+            # get_option_premium_chain's as_of=None branch (refuse-only).
+            if (pd.Timestamp.now().normalize() - ref).days > max_staleness_days:
+                return []
         exps = sorted(pd.Timestamp(e) for e in sub["expiration"].dropna().unique())
         out: list[pd.Timestamp] = []
         for e in exps:
@@ -1305,10 +1534,11 @@ class MarketDataConnector:
         current snapshot, closing the #354 / W-2 carry-``q`` lookahead. This
         is the connector half of Phase 3G; ONLY ``dividend_yield`` is made
         PIT here (the other fields remain the current snapshot pending broader
-        PIT wiring). ``as_of=None`` (the default — and the ranked path today,
-        since no consumer threads ``as_of`` yet) returns the snapshot unchanged,
-        so the change is backward-compatible and **not EV-moving** until the
-        supervised step threads ``as_of`` from ``wheel_runner``. The dated
+        PIT wiring). The supervised step LANDED: the puts ranker
+        (``rank_candidates_by_ev``) threads ``as_of`` into this method since
+        #428 (EV-moving; S27/S32/S34/S35 re-baselined in #429); the
+        covered-call and strangle rankers still call the snapshot form (no
+        ``as_of``). ``as_of=None`` returns the snapshot unchanged. The dated
         panel falls back to the snapshot when absent / NaN at ``as_of`` (never
         worse than today).
         """
@@ -1453,6 +1683,33 @@ class MarketDataConnector:
             today_ts = pd.Timestamp(_dt.date.today())
             if frontier > today_ts:
                 frontier = today_ts
+            # D1-2/D3-2 runtime staleness alarm (warn-only, once per
+            # connector; see _OHLCV_FRONTIER_STALE_DAYS for the threshold
+            # rationale). NEVER changes the return value — a stale frontier
+            # is still the correct frontier; refusing here would blank every
+            # as_of=None consumer (the #462 lesson). get_data_frontier is
+            # only reached at as_of=None (pinned by
+            # test_asof_none_staleness), so dated backtests never hit this.
+            age_days = int((today_ts - frontier).days)
+            _warned: set = getattr(self, "_warned_stale_frontier_datasets", set())
+            if age_days > self._OHLCV_FRONTIER_STALE_DAYS and dataset not in _warned:
+                # Per-DATASET warn-once (2026-07-03 refuter panel): a stale
+                # vol_iv probe must neither mislabel itself "OHLCV" nor
+                # consume the alarm slot of a later genuine OHLCV warn.
+                logger.warning(
+                    "%s data frontier %s is %d days behind the wall clock "
+                    "(threshold %dd): live as_of=None ranks price spots off a "
+                    "back-dated close while the event gate uses today's date. "
+                    "Refresh the Bloomberg monoliths (docs/"
+                    "BLOOMBERG_TERMINAL_NEXT_SESSION.md §1) or pass an explicit "
+                    "as_of; arm SWE_REFUSE_STALE_LIVE=1 to hard-refuse instead.",
+                    dataset,
+                    frontier.date(),
+                    age_days,
+                    self._OHLCV_FRONTIER_STALE_DAYS,
+                )
+                _warned.add(dataset)
+                self._warned_stale_frontier_datasets = _warned
             return frontier
         except Exception:
             return None

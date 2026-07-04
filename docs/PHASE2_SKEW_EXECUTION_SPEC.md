@@ -6,8 +6,8 @@ Phase 2 schedules as **supervised, EV-moving, PANEL, re-baseline-coupled**. Ever
 reference was verified against **`origin/main` @ `21e489d`** (2026-06-23, post #416/#417/#418)
 and adversarially re-checked. This doc changes no engine code._
 
-**Read with:** `docs/WIRING_CAMPAIGN.md` Phase 2 (lines 182–200 — the surface row + honest
-limits), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/DATA_TEST_AUDIT_2026-06-09.md`
+**Read with:** `docs/WIRING_CAMPAIGN.md` Phase 2 (heading "Phase 2 — Wire the skew surface
+(the prize)" — surface row + honest limits; line numbers drift, grep that heading), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/DATA_TEST_AUDIT_2026-06-09.md`
 (C4 / W28 — the `edge_vs_fair`-stays-0 fact), `CLAUDE.md` §2/§3, `data/broad_pull_loaders.py`
 (the dormant surface loader this wires).
 
@@ -26,7 +26,8 @@ limits), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/
   **flipped, not deleted**. **No autonomous land.**
 - **EV-moving → re-baseline-coupled.** It lands **before** the single S27/S32/S34/S35 re-pin
   (Phase R), which absorbs its `ev_raw` shift in one pass. **Do NOT trigger a second
-  re-baseline** (don't pay the ~4–6.5h tax twice — `WIRING_CAMPAIGN.md` lines 33–37).
+  re-baseline** (don't pay the ~4–6.5h tax twice — `WIRING_CAMPAIGN.md`, the batching
+  rule near the top; line numbers drift).
 - **⚠️ `#378` (IV-staleness gate) must land first.** Phase 2 makes the served IV load-bearing
   for the BSM fair value; `#378` guards the IV↔spot staleness gap before the surface IV is
   consumed (`PHASE1_E_TRIO_EXECUTION_SPEC.md` §3 + `WIRING_CAMPAIGN.md` §0A note).
@@ -39,7 +40,7 @@ limits), `docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` (#378 must precede this), `docs/
 
 ### Three scope corrections vs the campaign doc (carry these in — do not re-derive)
 
-The `WIRING_CAMPAIGN.md` Phase-2 row (line 191) names "moneyness-aware IV; **vanna/charm/volga**"
+The `WIRING_CAMPAIGN.md` Phase-2 surface row names "moneyness-aware IV; **vanna/charm/volga**"
 and `skew_dynamics` "risk-reversals, **butterflies**". Adversarial code-reading found three of
 those are mis-scoped:
 
@@ -192,19 +193,30 @@ the pricer signature is unchanged:
   - **Producer rail landed (data half only):** `scripts/produce_option_premiums.py` +
     `MarketDataConnector.get_option_premium*` serve the **real EOD mid** from the Theta
     larder (`data_processed/option_premium/`, gitignored — zero re-baseline).
-  - **Ranker wiring landed (VRP now live where the rail is present):** `wheel_runner`'s three
+  - **Ranker wiring landed (VRP now live where the rail is present and frontier-coherent —
+    #463):** `wheel_runner`'s three
     rankers now swap `ShortOptionTrade.premium` / `bid` / `ask` from synthetic-BSM to the real
     market mid via `_resolve_real_premium` (puts flips `premium_source="market_mid"`), so
     `edge_vs_fair = mid − BSM_fair` is **real** and the cost model sees the observed spread.
+    Post-#463 the mid is served only when the quote's `date` equals the spot-bar date exactly
+    and its DTE sits within ±10d of the modeled horizon; `as_of=None` resolves to the spot bar
+    (refusing the rail outright when no date anchor exists), so a larder/OHLCV frontier skew
+    can no longer book the intervening market move as edge (the 2026-07-01 D1-1 4–18× live
+    inflation) — incoherent cells degrade refuse-only to synthetic-BSM.
     **The double-count worry is moot on the production path:** the forward distribution is
     `empirical_non_overlapping` (realized returns), **not** IV-scaled — so `trade.iv` drives the
     fair value but *not* the risk, and real skew premium is not double-counted against the tail.
-    **Snapshot-safe:** the rail is gitignored ⇒ CI/regression never see it ⇒ the ranker falls
-    back to synthetic there (byte-identical), so committed snapshots stay synthetic and there is
+    **Snapshot-safe:** since #465 the regression replays and the pytest suite pin the rail OFF
+    explicitly (`SWE_OPTION_PREMIUM_DIR` → nonexistent/empty dir; replay fingerprints record
+    `option_premium_rail: "pinned_off"`) — gitignored-alone was NOT sufficient (D4-2: a
+    rail-bearing box ran the replay lane and exact-EV pins against real mids for weeks) — so
+    committed snapshots stay synthetic and there is
     **no re-baseline**; the real-premium path is live only where the data exists (local), exactly
     like the rest of the Theta capability. `test_edge_vs_fair_stays_zero_on_synthetic_path` (the
     *synthetic*-path invariant) is unaffected and stays green — the wiring touches the caller, not
-    `ev_engine`. Validated: 90–100% usage; EV raised +$8–$35/contract from put skew; split-adjust
+    `ev_engine`. Validated (pre-#463, per-covered-name at frontier-consistent dated `as_of`;
+    universe-wide coverage is ~25% `market_mid` per the 2026-06-27 rail audit): 90–100% usage on
+    covered names; EV raised +$8–$35/contract from put skew; split-adjust
     confirmed (NVDA strike 20.5 / AMZN 137 / GOOGL 121 pre-split, all sane).
 - **IV gate lives upstream:** non-finite `sigma` is deliberately **not** raised in
   `option_pricer` (`_validate_inputs` note `:59-67`) — a NaN surface IV prices to NaN and is
@@ -240,7 +252,8 @@ The `100%MNY` column is **three potential ATM sources** that must agree:
 asserting equality at the 30d tenor), or the engine carries two divergent ATM IVs. And per the
 standing rule, **`#378` (IV-staleness gate) lands before this consume** — the surface frontier
 (06-17) leads the legacy ATM-IV monolith, so an ungated stale IV would silently feed the new
-fair value. (`PHASE1_E_TRIO_EXECUTION_SPEC.md` §3; `WIRING_CAMPAIGN.md` line 198.)
+fair value. (`PHASE1_E_TRIO_EXECUTION_SPEC.md` §3; `WIRING_CAMPAIGN.md` — the "#378
+before 0A" note; line numbers drift.)
 
 ---
 

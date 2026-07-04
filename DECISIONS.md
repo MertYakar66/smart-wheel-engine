@@ -211,6 +211,14 @@ it. Worse, Drive denies `unlink` on existing tracked files, so
 `get_iv_surface()` returns an empty DataFrame on missing data — never
 a flat-IV stub.
 
+*(Coverage annotation, 2026-07-02 doc pass — disk-verified: the 28/503
+figure was accurate at decision time (exactly 28 names — 20 mega-caps
++ 8 ETFs — carry the 2026-04-23 pilot snapshot), but the `iv_surface/`
+dir has since grown to **~502/503 symbols** across 3 snapshot dates
+(2026-04-23 / 05-24 / 06-01; 558 files / 364,192 rows). Canonical
+counts: `docs/DATA_INVENTORY.md`. The decision and its A2 fail-loud
+resolution below are unaffected.)*
+
 **Why:** Wiring SVI surfaces in before deciding the missing-data
 contract would create a silent fallback path. The choice was between
 (a) failing loudly on the uncovered tickers or (b) using a

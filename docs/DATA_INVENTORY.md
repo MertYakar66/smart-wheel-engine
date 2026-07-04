@@ -233,7 +233,7 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 
 | File | Columns | Range | Rows | Names |
 |---|---|---|---|---|
-| `iv_surface/sp500_iv_surface.csv.gz` | **5 tenor × 5 mny** `iv_{30,60,90,180,365}d_{90,95,100,105,110}` | 2010-01-04→2026-06-17 | **1,944,699** | 509 |
+| `iv_surface/sp500_iv_surface.csv.gz` | **5 tenor × 5 mny** `iv_{30,60,90,180,365}d_{90,95,100,105,110}` | 2010-01-04→2026-07-02 | **1,949,796** | 514 |
 | `macro_calendar/sp500_macro_calendar.csv` | event,ticker,name,country,release_datetime/date/time (11 events) | sched 2025-01-02→2027-12-08 | 352 | 11 |
 | `macro_calendar/sp500_macro_releases.csv` | event,ticker,date,actual (11 events) | 2015-01-01→2026-06-17 | 4,724 | 11 |
 
@@ -242,21 +242,21 @@ session. **Committed on the broad-pull branch only (held, not on `main`)**, unde
 | File | Columns | Range | Rows | Names |
 |---|---|---|---|---|
 | `per_name/returns_micro.csv` | tot_return,px_bid,px_ask | 2010-01-04→2026-06-18 | 1,874,882 | 511 |
-| `per_name/vol_term_rv.csv.gz` | atm_iv_{30,60,90,180,365,730}d, rv_{10,20,30,60,90,120,180,260}d | 2010-01-04→2026-06-18 | 1,963,364 | 510 |
-| `per_name/options_sentiment.csv` | pc_oi_ratio,pc_vol_ratio,oi_call,oi_put,news_sent (**102.3 MB**) | 2010-01-01→2026-06-18 | 1,998,083 | 511 |
-| `per_name/beta_shares.csv` | beta_raw,shares_out | 2010-01-29→2026-05-29 (M) | 93,605 | 510 |
+| `per_name/vol_term_rv.csv.gz` | atm_iv_{30,60,90,180,365,730}d, rv_{10,20,30,60,90,120,180,260}d | 2010-01-04→2026-07-02 | 1,967,985 | 515 |
+| `per_name/options_sentiment.csv.gz` | pc_oi_ratio,pc_vol_ratio,oi_call,oi_put,news_sent (**32.0 MB gzipped**; raw was 102.3 MB = 97.5% of GitHub's 100 MiB per-blob limit — gzipped 2026-07-02, refreshes must stage `.csv.gz`) | 2010-01-01→2026-06-18 | 1,998,083 | 511 |
+| `per_name/beta_shares.csv` | beta_raw,shares_out | 2010-01-29→2026-06-30 (M) | 94,117 | 515 |
 | `per_name/fundamentals_q.csv` | revenue,oper_inc,net_income,ebitda,eps,tot_asset,tot_liab,fcf,cfo,roe,nd_to_ebitda,gross_margin | 2010-01-01→2026-05-31 (Q) | 31,479 | 511 |
 | `per_name/fundamentals_ext_q.csv` | roic,oper/net/ebitda_margin,debt_to_equity,int_coverage,dvd_payout,sales_growth,trail_fcf | 2010-01-01→2026-05-31 (Q) | 31,470 | 511 |
-| `per_name/estimates_m.csv` | best_eps,best_sales,best_ebitda,best_target,best_pe,best_rating,analyst_count | 2010-01-29→2026-05-29 (M) | 92,680 | 511 |
-| `per_name/estimates_fwd.csv` | best_{ebitda,eps,sales}_{1bf,2bf} | 2010-01-29→2026-05-29 (M) | 93,169 | 511 |
-| `per_name/valuation_m.csv` | px_to_book,ev_to_ebitda,px_to_sales,pe,peg | 2010-01-29→2026-05-29 (M) | 89,079 | 509 |
-| `per_name/sp500_snapshot_bdp.csv` | rtg_sp/moody/fitch,gics_sector/ind_grp/industry/sub_ind,inst_pct,free_float_pct,float_shares,next_earnings_dt | as-of 2026-06-18 | 511 | 511 |
-| `dividend_pit/sp500_dividend_yield_pit.csv` | dvd_yld_12m,dvd_yld_ind,dvd_sh_12m (**DATED**) | 2010-01-29→2026-05-29 (M) | 72,461 | 421 |
-| `short_interest/sp500_short_interest.csv` | short_interest,short_int_ratio (biweekly) | 2015-01-15→2026-05-29 | 134,035 | 509 |
+| `per_name/estimates_m.csv` | best_eps,best_sales,best_ebitda,best_target,best_pe,best_rating,analyst_count | 2010-01-29→2026-06-30 (M) | 93,195 | 516 |
+| `per_name/estimates_fwd.csv` | best_{ebitda,eps,sales}_{1bf,2bf} | 2010-01-29→2026-06-30 (M) | 93,683 | 516 |
+| `per_name/valuation_m.csv` | px_to_book,ev_to_ebitda,px_to_sales,pe,peg | 2010-01-29→2026-06-30 (M) | 89,588 | 513 |
+| `per_name/sp500_snapshot_bdp.csv` | rtg_sp/moody/fitch,gics_sector/ind_grp/industry/sub_ind,inst_pct,free_float_pct,float_shares,next_earnings_dt (**`next_earnings_dt` CONSUMED**: PIT-gated forward-calendar overlay in `get_next_earnings`/`get_recent_earnings` — the D3-1 earnings-lockout fix; participates only for `as_of >= asof`; APPENDED vintages 2026-06-18 + 2026-07-03, newest-eligible-wins PIT) | as-of 2026-06-18→2026-07-03 | 1,027 | 516 |
+| `dividend_pit/sp500_dividend_yield_pit.csv` | dvd_yld_12m,dvd_yld_ind,dvd_sh_12m (**DATED**) | 2010-01-29→2026-06-30 (M) | 72,875 | 423 |
+| `short_interest/sp500_short_interest.csv` | short_interest,short_int_ratio (biweekly) | 2015-01-15→2026-06-15 | 134,546 | 515 |
 
 ### 6E. Coverage / entitlement caveats (from `BROAD_PULL_MANIFEST.md`)
 
-- **Storage:** `iv_surface` (96.8 MB) and `vol_term_rv` (58.7 MB) committed **gzipped** (raw CSVs exceed GitHub's 100 MB limit; round IV to 2 dp). Loaders must read `.gz`. *(Byte sizes here and in §6 are decimal MB = 10⁶ B, not MiB.)*
+- **Storage:** `iv_surface` (96.8 MB), `vol_term_rv` (58.7 MB), and — since 2026-07-02 — `options_sentiment` (32.0 MB) committed **gzipped** (raw CSVs exceed or approach GitHub's 100 MB limit; round IV to 2 dp). Loaders must read `.gz`. *(Byte sizes here and in §6 are decimal MB = 10⁶ B, not MiB.)*
 - **Manifest vs bytes:** the manifest reports `credit_spreads` ending `2026-06-17`; the actual staged bytes end **2026-06-16** (one trading day earlier) — the §6B value is byte-true; do not "correct" it to the manifest.
 - **Winsorization flags:** `options_sentiment` `pc_vol`/`news_sent` and several per-name level series carry outliers flagged for winsorization — clamp at load.
 - **Entitlement-blocked (manifest bucket F, all-NaN — NOT pulled):** short-interest `pct_of_float` + borrow rate; `CDS_SPREAD_*`; rating `WATCH`/`OUTLOOK`; ESG scores; per-strike OI/greeks (use-Theta); `NFCI`; long IV tenors `7/14d` & DAY-named; `BEST_PERIOD_END_DT`. Substitutes used where noted (e.g. `SHORT_INTEREST`+`SHORT_INT_RATIO` for SI; `VOLATILITY_nD` for `nDAY_HV`).

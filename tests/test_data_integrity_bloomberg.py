@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 # Data-supported frontier (the most-recent bar common to OHLCV & IV on main;
 # see the audit). Used to assert realized daily series carry no future bars.
-FRONTIER = pd.Timestamp("2026-06-04")
+FRONTIER = pd.Timestamp("2026-07-02")
 SEAM = pd.Timestamp("2026-03-23")  # 2026-03-23 index-reconstitution seam
 GATE_DAYS = 504  # ranker survivorship/history gate
 
@@ -409,7 +409,14 @@ def test_seam_membership_split_is_structural():
     prof = _ohlcv_history_profile()
     spine = _norm_tickers("sp500_ohlcv.csv")
 
-    joiners = sorted(spine - _norm_tickers("sp500_earnings.csv"))
+    # Names whose FULL OHLCV history was backfilled at the 2026-07-02 frontier
+    # bump (#472, commit 167d200) while the sp500_earnings.csv backfill was
+    # DEFERRED (box bds hung; #472 handoff item 5) — they legitimately sit in
+    # OHLCV-but-not-earnings with pre-seam bars until that backfill lands.
+    # Remove entries as the earnings backfill covers them.
+    earnings_backfill_pending = {"ECHO", "MRVL", "FLEX"}
+
+    joiners = sorted(spine - _norm_tickers("sp500_earnings.csv") - earnings_backfill_pending)
     for t in joiners:
         first = prof.loc[t, "first"]
         assert first >= SEAM, (
@@ -417,8 +424,15 @@ def test_seam_membership_split_is_structural():
             f"(first bar {first}) — unexpected referential gap"
         )
 
-    leavers = sorted(spine - _norm_tickers("sp500_fundamentals.csv"))
+    # Same pending set on the fundamentals side: the dateless snapshot predates
+    # the 2026-07-02 joiners/backfills; entries clear at its next refresh.
+    leavers = sorted(spine - _norm_tickers("sp500_fundamentals.csv") - earnings_backfill_pending)
     for t in leavers:
+        if prof.loc[t, "first"] >= SEAM:
+            # Post-seam JOINER (e.g. the HONA 2026 spin-off): the dateless
+            # fundamentals snapshot lags new listings until its next refresh —
+            # structurally not a leaver, so the departed-name check is vacuous.
+            continue
         last = prof.loc[t, "last"]
         assert last < FRONTIER - pd.Timedelta(days=30), (
             f"{t} is missing from fundamentals but is NOT a departed/leaver name "
@@ -488,8 +502,12 @@ _SCALE_BREAK_LO = 0.25
 _SCALE_BREAK_HI = 4.0
 _SCALE_BREAK_MAX_GAP_DAYS = 7
 
-# Confirmed scale-corrupted (ticker, date-of-break). Re-pull fix = supervised A8.
-KNOWN_SCALE_BREAKS = {("BKNG", "2026-03-23"), ("CVNA", "2026-03-23")}
+# Scale-break set — now EMPTY. The BKNG 25:1 / CVNA 5:1 split-seam misalignment
+# at 2026-03-23 was back-adjusted onto the split-adjusted scale (#439, D-W1-1/A8,
+# re-applied to the 2026-07-02 re-pull via scripts/fix_ohlcv_split_scale_439.py),
+# so no name carries an intra-series scale break. The two-sided pin below keeps
+# this empty: any NEW (ticker, date) scale corruption fails the test.
+KNOWN_SCALE_BREAKS: set[tuple[str, str]] = set()
 
 
 @cache
@@ -517,17 +535,11 @@ def _intraseries_scale_breaks() -> frozenset[tuple[str, str]]:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="A8 (docs/IBKR_EV_CALIBRATION.md): BKNG 25:1 (eff 2026-04-06) + CVNA 5:1 "
-    "(eff 2026-05-08) splits appear as a scale break at the 2026-03-23 seam "
-    "instead of being back-adjusted (pre-seam unadjusted, post-seam adjusted). "
-    "Fix at the re-pull; this flips green when the series is continuous.",
-)
 def test_ohlcv_no_split_adjustment_scale_breaks():
     """No name carries an adjacent-trading-day close jump beyond a plausible
-    single-day move (the scale-corruption screen). Currently fails on the
-    BKNG/CVNA split-seam misalignment (A8); flips when the re-pull lands."""
+    single-day move (the scale-corruption screen). A8 (#439): the BKNG 25:1 /
+    CVNA 5:1 split-seam misalignment at 2026-03-23 was back-adjusted onto the
+    split scale, so the series is continuous. Was strict-xfail until the fix."""
     breaks = _intraseries_scale_breaks()
     assert not breaks, f"OHLCV scale breaks (split-adjustment misalignment?): {sorted(breaks)}"
 
@@ -553,13 +565,16 @@ def test_ohlcv_scale_breaks_are_the_known_two():
 def test_fingerprint_pins_every_connector_file():
     """The snapshot fingerprint must pin EXACTLY the files the connector reads,
     so no un-pinned read path can silently slip a refresh past re-baseline (the
-    2026-06-06 dividends-incident class). This is the FAST-CI completeness guard;
+    2026-06-06 dividends-incident class). Since 2026-07-02 (campaign item 3)
+    that includes the two broad_pull files consumed OUTSIDE ``_FILES`` — the
+    PIT dividend-yield panel and the #464 earnings-calendar overlay, which
+    were unpinned reads before. This is the FAST-CI completeness guard;
     the drift COMPARE (test_snapshot_data_fingerprint_matches_current) lives on
     the slow backtest_regression lane."""
-    from backtests.regression._common import connector_data_sha256
+    from backtests.regression._common import _BROAD_PULL_PINNED, connector_data_sha256
 
     pinned = set(connector_data_sha256().keys())
-    expected = set(MarketDataConnector._FILES.keys())
+    expected = set(MarketDataConnector._FILES.keys()) | set(_BROAD_PULL_PINNED.keys())
     assert pinned == expected, (
         f"fingerprint pins {pinned} but connector reads {expected}; unpinned: {expected - pinned}"
     )
@@ -643,6 +658,9 @@ KNOWN_THIN = {
     "SW",
     "PSKY",
     "Q",
+    # 2026 spin-off, joined at the 2026-07-02 frontier bump with 13 bars —
+    # real new listing, not a truncation (#472 pull report, item d).
+    "HONA",
 }
 
 # The 4 vendor-glitch NaN-price rows (price NaN, volume present) — #357.

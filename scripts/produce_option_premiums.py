@@ -6,26 +6,34 @@ writes  ``data_processed/option_premium/<T>.parquet``  (+ ``_manifest.json``)
 
 Why this exists
 ---------------
-The wheel's candidate premium is *synthetic* today: ``wheel_runner`` sets
-``ShortOptionTrade.premium`` to ``black_scholes_price(sigma=iv)`` — the **same**
-BSM call the EV engine uses for the risk-neutral fair value — so
-``edge_vs_fair = premium - fair == 0`` and skew / variance-risk-premium are
-EV-inert (see ``docs/PHASE2_SKEW_EXECUTION_SPEC.md``). Letting the *real* market
-premium reach the engine is the prerequisite for skew to move EV.
+Historically the wheel's candidate premium was *synthetic*: ``wheel_runner``
+set ``ShortOptionTrade.premium`` to ``black_scholes_price(sigma=iv)`` — the
+**same** BSM call the EV engine uses for the risk-neutral fair value — so
+``edge_vs_fair == 0`` and skew / variance-risk-premium were EV-inert (see
+``docs/PHASE2_SKEW_EXECUTION_SPEC.md``).
 
 This producer distils the real EOD option **mid** ``((bid + ask) / 2)`` from the
 Theta option-history larder into the per-ticker parquet the connector accessor
-``MarketDataConnector.get_option_premium*`` serves. It is the data half of the
-"real-premium producer"; the (separate, EV-moving, §2-panel) ranker wiring that
-swaps the synthetic premium for this mid is intentionally NOT part of this rail.
+``MarketDataConnector.get_option_premium*`` serves. The ranker wiring LANDED:
+#435 wired all three rankers to swap the synthetic premium + bid/ask for the
+observed market values where the rail covers the (ticker, ~expiry, ~strike)
+point-in-time (``premium_source="market_mid"`` via
+``wheel_runner._resolve_real_premium``); #463 (D1-1) added quote/spot date +
+DTE coherence — a quote is served only when its ``date`` equals the spot-bar
+date and its DTE sits within ±10d of the modeled horizon. Absent rail coverage
+(or on any coherence refusal) the synthetic-BSM path is unchanged.
 
 Snapshot-safety
 ---------------
 Output lives under ``data_processed/`` which is ``.gitignore``-d, so it never
-enters ``connector_data_sha256`` (the regression fingerprint) — this is a pure
-additive rail with **zero re-baseline**. Wherever the produced files are absent
-(CI, a fresh clone), the accessor returns empty and callers fall back to the
-synthetic-BSM premium.
+enters ``connector_data_sha256`` (the regression fingerprint). Since #465
+(D4-2) the regression replays additionally pin the rail OFF
+(``backtests/regression/_common.py::_option_premium_rail_pinned_off``;
+fingerprints record ``"option_premium_rail": "pinned_off"``) and the pytest
+suite neutralizes it suite-wide (``conftest.py::_neutralize_option_premium_rail``)
+— replays and exact-EV pins are rail-independent even on rail-bearing boxes.
+Wherever the produced files are absent (CI, a fresh clone), the accessor
+returns empty and callers fall back to the synthetic-BSM premium.
 
 Usage
 -----

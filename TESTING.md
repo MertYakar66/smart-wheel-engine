@@ -128,6 +128,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_point_in_time.py` | No lookahead bias (PIT) |
 | `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated news/credit data |
 | `test_asof_none_staleness.py` | M3 — `as_of=None` resolves to the universe data frontier; index leavers dropped; fresh names byte-identical; drop-only; explicit path untouched; CC+strangle siblings covered |
+| `test_wallclock_staleness.py` | D1-2/D3-2 — wall-clock frontier staleness: connector warn-once at >7d, structured `attrs["staleness"]` on all three rankers, opt-in `refuse_stale_live`/`SWE_REFUSE_STALE_LIVE` universe-wide refusal; dated paths sentinel `{checked: False}`; default fail-open |
+| `test_coverage_floors_script.py` | Per-file coverage-floor ratchet script pins (pass/below-floor/missing-file-loud/exit codes) — the CI step lives in the Test Suite job |
 
 ### Ranker & EV-path surface
 
@@ -209,6 +211,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_event_calendar.py` | `event_calendar` — MarketEvent queries, FOMC/CPI/NFP loaders, risk filter, JSON ingestion + staleness |
 | `test_event_gate.py` | `event_gate` hard lockouts — earnings/macro/dividend buffers, ticker matching, Bloomberg-calendar ingestion (NaT regression) |
 | `test_event_gate_back_buffer.py` | S23 F1 — symmetric post-earnings back-buffer block via `get_recent_earnings` |
+| `test_earnings_calendar_overlay.py` | D3-1 + D6-1 — PIT-gated `snapshot_bdp.next_earnings_dt` forward-calendar overlay (serve/PIT-refuse/merge/back-buffer/hermeticity/share-class/multi-asof + dated real-data pins + ranker e2e) and de-silenced per-stage event-gate registration (logged fail-open; back-buffer survives a raising forward lookup); opt-in `SWE_LIVE_PREFLIGHT=1` snapshot-age check |
 | `test_corp_action_gate.py` | #3A — corporate-action lockout (`kind="corp_action"`): `get_corporate_actions` (excludes Regular Cash, PIT announcement filter), `wheel_runner._register_corp_action_events` (no-op safety, PIT), data-backed GE-spinoff / COST-special-cash end-to-end block |
 
 ### IBKR live book (D24/D26 — read-only, observational)
@@ -280,7 +283,7 @@ Validation-only pins from the #436 campaign (drivers `scripts/audit_data_wiring.
 
 | File | Pins |
 |---|---|
-| `test_w1_data_wiring.py` | W1 — served IV band (3.0, 10000]; no deep-IV sentinel leak; OHLC invariant; monotone+positive OHLCV; treasury covers feasible window; strict-xfail pin of the BKNG/CVNA 2026-03-23 split-scale defect (#439) |
+| `test_w1_data_wiring.py` | W1 — served IV band (3.0, 10000]; no deep-IV sentinel leak; OHLC invariant; monotone+positive OHLCV; treasury covers feasible window; behaviour pin that the BKNG/CVNA 2026-03-23 split-scale defect is repaired (#439; was strict-xfail) |
 | `test_w2_output_realism.py` | W2 — ranker outputs finite; `prob_profit`/`prob_assignment` ∈ [0,1]; served IV decimal band; premium sane fraction of spot; 25Δ short-put Greeks honour `docs/GREEKS_UNIT_CONTRACT.md` |
 | `test_w3_calibration.py` | W3 — calibration methodology: Wilson helper, VIX-regime bucketing, bin/gap/conclusiveness (n<30 not conclusive; over-confidence ⇒ negative gap) |
 | `test_w4_risk_free_pit.py` | W4 — served RFR is real PIT decimal (fallback 0.05 only pre-1994); ranker IV is point-in-time (no lookahead, moves with as_of) |
@@ -415,9 +418,43 @@ fails, the response is **diagnose first, re-baseline second**:
   that is the signal to regenerate the four snapshots (step 4 above) and
   re-pin, not a regression to investigate.
 
+- Since 2026-07-02 (campaign item 3) `connector_data_sha256` additionally pins
+  the two **broad_pull** files the connector consumes *outside* its `_FILES`
+  map — `broad_pull/dividend_pit/sp500_dividend_yield_pit.csv` (PIT dividend
+  yields → BSM carry-q, #426/#428) and
+  `broad_pull/per_name/sp500_snapshot_bdp.csv` (the #464 earnings-calendar
+  overlay) — as `broad_pull_dividend_pit` / `broad_pull_snapshot_bdp`. Before
+  that they were **unpinned reads**: a broad_pull re-pull could move engine
+  inputs without tripping the drift guard.
+
 The legacy scalar `data_csv_sha256` / `vol_iv_sha256` / `treasury_sha256`
 fields remain for back-compat; `connector_data_sha256` supersedes them by
 pinning the full connector set.
+
+**Known local-only failure (box artifact):** on boxes with materialized
+gitignored `data/bloomberg/deep/` slices,
+`tests/test_deep_read_connector.py::test_deep_on_without_slices_degrades_to_monolith`
+fails — its "no `deep/` present" premise is falsified by the local
+slices. Green in CI (no slices there); pre-existing, proven
+not-diff-related by clean-worktree A/B in PRs #463–#465.
+
+**Option-premium rail neutralization (D4-2, 2026-07-02):** the replay drivers
+in `backtests/regression/_common.py` pin `SWE_OPTION_PREMIUM_DIR` to a
+nonexistent dir around connector construction (recorded in the fingerprint as
+`option_premium_rail: "pinned_off"`), and the root `conftest.py` pins it to an
+empty dir for the whole pytest session — so replays and exact-EV test pins are
+**rail-independent**: a box with a produced (gitignored)
+`data_processed/option_premium/` larder now reproduces CI and the committed
+baselines (locked rail-off at b3aa236) instead of silently diverging. Note the
+polarity: unset/EMPTY env means "use the repo default dir", *not* "rail off" —
+the pin must be a nonexistent/empty directory. Post-#463 the rail is also
+date-coherent on its own terms: dated backtest paths refuse a quote from any
+session other than the spot bar's exact date (a one-session-stale quote books
+real market movement as phantom edge) and bound quote DTE to the modeled
+horizon ±10d, so even a future deliberate rail-ON regression lane could not
+pair frontier-skewed quotes with spots. Rail-ON behavior stays covered by the
+synthetic-parquet tests in `tests/test_real_premium_wiring.py` /
+`tests/test_option_premium_accessor.py`, which opt in with their own env pin.
 
 ## Sandbox notes
 
@@ -432,6 +469,15 @@ needs an explicit 5-ticker list in Cowork) live in
 `.github/workflows/ci.yml` runs on push to `main` / `develop` and on
 PRs (it `pip install -e ".[dev]"`). CI jobs include the lane-claim gate,
 FILE_MANIFEST coverage, lint, security scan, the 3.11/3.12 test suites,
-quantitative validation, and integration tests. (The old broken
+quantitative validation, and integration tests. The **Integration Tests**
+job runs `-m integration` (real cross-boundary tests: the
+`test_portfolio_api_endpoints.py` loopback HTTP server + the
+cross-process EV-determinism subprocess test) with `--strict-markers`
+and **no** `continue-on-error` — before 2026-07-02 it selected zero
+tests and masked its own exit code (the adversarial review's "vacuous
+CI job"); exit 5 now fails the job so the lane cannot silently regress.
+The marked tests ALSO run inside the coverage-gated 3.11/3.12 Test
+Suite matrix — the double-run is intentional (keeps the coverage gate
+and the integration lane independent). (The old broken
 `wheel = "src.cli:app"` console-script was removed under ROADMAP B5 — no
 `[project.scripts]` table exists today.)

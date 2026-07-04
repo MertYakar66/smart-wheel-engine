@@ -426,9 +426,7 @@ def test_seam_membership_split_is_structural():
 
     # Same pending set on the fundamentals side: the dateless snapshot predates
     # the 2026-07-02 joiners/backfills; entries clear at its next refresh.
-    leavers = sorted(
-        spine - _norm_tickers("sp500_fundamentals.csv") - earnings_backfill_pending
-    )
+    leavers = sorted(spine - _norm_tickers("sp500_fundamentals.csv") - earnings_backfill_pending)
     for t in leavers:
         if prof.loc[t, "first"] >= SEAM:
             # Post-seam JOINER (e.g. the HONA 2026 spin-off): the dateless

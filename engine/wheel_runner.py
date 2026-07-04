@@ -887,8 +887,8 @@ class WheelRunner:
         # cheap fingerprint of the last 504 log-returns — this
         # invalidates automatically when new bars arrive or when the
         # PIT cutoff changes (different history → different hash). The
-        # cached value is ``(regime_multiplier, regime_label)``.
-        self._hmm_regime_cache: dict[tuple[str, int], tuple[float, str]] = {}
+        # cached value is ``(regime_multiplier, regime_label, converged)``.
+        self._hmm_regime_cache: dict[tuple[str, int], tuple[float, str, bool]] = {}
 
     @property
     def connector(self):
@@ -1951,6 +1951,16 @@ class WheelRunner:
             # the HMM does not run (short history) or fails -- never a
             # fabricated regime; mirrors credit_regime's "unknown".
             hmm_regime = "unknown"
+            # Convergence flag for the HMM fit behind hmm_regime_mult.
+            # True on a clean fit AND on the neutral no-fit path (short
+            # history → mult 1.0, nothing to distrust); False when the
+            # fit ran but did not converge, or errored. The multiplier is
+            # still applied either way (changing that would shift
+            # baselines) but a False reading is low-confidence. Closes
+            # the "silent non-convergence" gap (adversarial review Dim-2,
+            # 2026-06-15) — converged was computed in HMMFit and then
+            # discarded here.
+            hmm_converged = True
             # S33 F4 closer: realized vol / mean over the 252d window
             # the HMM saw at fit time. The "crisis" label by itself means
             # "high-vol regime" regardless of return direction (S33
@@ -1984,10 +1994,11 @@ class WheelRunner:
                     cache_key = (ticker, hash(fp))
                     cached = self._hmm_regime_cache.get(cache_key)
                     if cached is not None:
-                        hmm_regime_mult, hmm_regime = cached
+                        hmm_regime_mult, hmm_regime, hmm_converged = cached
                     else:
                         hmm = GaussianHMM(n_states=4, n_iter=20, random_state=42)
                         hmm.fit(tail)
+                        hmm_converged = bool(getattr(hmm.fit_result, "converged", False))
                         probs = hmm.predict_proba(tail)
                         hmm_regime_mult = float(hmm.position_multiplier(probs[-1]))
                         # Label is the argmax state -- a pure read of the
@@ -1997,10 +2008,15 @@ class WheelRunner:
                             hmm_regime = hmm.fit_result.state_labels[int(np.argmax(probs[-1]))]
                         except Exception:
                             hmm_regime = "unknown"
-                        self._hmm_regime_cache[cache_key] = (hmm_regime_mult, hmm_regime)
+                        self._hmm_regime_cache[cache_key] = (
+                            hmm_regime_mult,
+                            hmm_regime,
+                            hmm_converged,
+                        )
             except Exception:
                 hmm_regime_mult = 1.0
                 hmm_regime = "unknown"
+                hmm_converged = False
 
             # Fetch the chain once and use it for (a) open interest at our
             # strike, (b) 25Δ put / ATM / 25Δ call for skew signals, and
@@ -2366,7 +2382,19 @@ class WheelRunner:
                 ),
                 "prob_assignment": round(res.prob_assignment, 4),
                 "days_to_earnings": days_to_earn,
-                "distribution_source": method,
+                # Provenance must match what the engine ACTUALLY computed EV
+                # from. The engine reports the generic "empirical" when it
+                # consumed our forward returns — surface the specific sampler
+                # (`method`) in that case for detail. But when the cascade
+                # returned "none" and the engine fell back to the IV lognormal,
+                # report the engine's real source ("lognormal_fallback"), never
+                # the stale "none" the cascade label would otherwise leak into
+                # the row and the EV-authority token hash.
+                "distribution_source": (
+                    method
+                    if res.metadata.get("distribution_source") == "empirical"
+                    else res.metadata.get("distribution_source", method)
+                ),
                 # S31 F2 / F6 closer: GICS sector for the underlying.
                 # Same source the sector_cap gate uses
                 # (engine.portfolio_risk_gates.check_sector_cap →
@@ -2442,6 +2470,12 @@ class WheelRunner:
                         "skew_source": skew_source,
                         "hmm_multiplier": round(hmm_regime_mult, 4),
                         "hmm_regime": hmm_regime,
+                        # False ⇒ the HMM was fitted but did not converge
+                        # (or the fit errored) — hmm_multiplier was still
+                        # applied but is low-confidence. True on a clean
+                        # fit or the neutral no-fit path. Audit-only;
+                        # does not gate.
+                        "hmm_converged": hmm_converged,
                         # F4 follow-up: realized-vol-ratio widening
                         # factor (1.00 = no widening, > 1.0 = vol-
                         # cluster regime fired). Audit signal for the
@@ -3357,7 +3391,15 @@ class WheelRunner:
                     "prob_assignment": round(res.prob_assignment, 4),
                     "days_to_earnings": days_to_earn,
                     "days_to_ex_div": days_to_ex_div,
-                    "distribution_source": method,
+                    # Same engine-truth provenance rule as the CSP ranker:
+                    # "empirical" → surface the granular sampler `method`;
+                    # a lognormal fallback is reported as itself, never as
+                    # the cascade's stale "none".
+                    "distribution_source": (
+                        method
+                        if res.metadata.get("distribution_source") == "empirical"
+                        else res.metadata.get("distribution_source", method)
+                    ),
                     "sector": resolve_sector(ticker, fundamentals.get("sector")),
                 }
                 if include_diagnostic_fields:
@@ -4054,7 +4096,14 @@ class WheelRunner:
                     "days_to_earnings": days_to_earn,
                     "timing_score": timing_score,
                     "timing_recommendation": timing_recommendation,
-                    "distribution_source": method,
+                    # Same engine-truth provenance rule as the CSP ranker;
+                    # both legs share the same forward returns, so the
+                    # put leg's engine metadata is the authoritative tag.
+                    "distribution_source": (
+                        method
+                        if put_res.metadata.get("distribution_source") == "empirical"
+                        else put_res.metadata.get("distribution_source", method)
+                    ),
                     "sector": resolve_sector(ticker, fundamentals.get("sector")),
                 }
                 if include_diagnostic_fields:

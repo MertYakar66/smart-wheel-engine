@@ -390,6 +390,22 @@ class TestHmmRegimeLabel:
         assert "hmm_regime" not in df.columns
         assert "hmm_multiplier" not in df.columns
 
+    def test_hmm_converged_column_present_and_boolean(self):
+        """Adversarial-review Dim-2 (2026-06-15) closer: HMMFit computes a
+        `converged` flag that the ranker used to discard. It must now ride
+        the diagnostic row as `hmm_converged` so an auditor can tell a
+        clean fit's multiplier from a non-converged one (the multiplier is
+        applied either way -- audit-only, never gates)."""
+        df = _rank(_runner())
+        assert not df.empty
+        assert "hmm_converged" in df.columns
+        assert df["hmm_converged"].map(lambda v: isinstance(v, bool | np.bool_)).all()
+
+    def test_hmm_converged_absent_without_diagnostic_fields(self):
+        """`hmm_converged` sits beside hmm_multiplier -- diagnostic-only."""
+        df = _rank(_runner(), include_diagnostic_fields=False)
+        assert "hmm_converged" not in df.columns
+
     def test_hmm_realized_vol_and_return_columns_present(self):
         """S33 F4 regression: alongside `hmm_regime` / `hmm_multiplier`,
         every surviving row carries `hmm_realized_vol_252d_ann` and

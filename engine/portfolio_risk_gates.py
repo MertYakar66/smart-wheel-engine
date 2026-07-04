@@ -87,6 +87,10 @@ class PortfolioContext:
             ``check_var`` covariance path.
         volatilities: Optional per-ticker vol overrides for the
             covariance path.
+        sector_map: Optional ``{symbol: GICS sector}`` for the R9 cap
+            (#372). When present, ``check_sector_cap`` aggregates by the
+            real ``gics_sector_name`` instead of ``DEFAULT_SECTOR_MAP``;
+            None → the gate's static-map fallback (legacy behaviour).
     """
 
     held_option_positions: list[dict] = field(default_factory=list)
@@ -97,6 +101,7 @@ class PortfolioContext:
     returns_data: object | None = None
     correlation_matrix: object | None = None
     volatilities: dict[str, float] | None = None
+    sector_map: dict[str, str] | None = None
 
 
 # ----------------------------------------------------------------------

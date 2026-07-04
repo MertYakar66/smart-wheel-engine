@@ -211,6 +211,14 @@ it. Worse, Drive denies `unlink` on existing tracked files, so
 `get_iv_surface()` returns an empty DataFrame on missing data — never
 a flat-IV stub.
 
+*(Coverage annotation, 2026-07-02 doc pass — disk-verified: the 28/503
+figure was accurate at decision time (exactly 28 names — 20 mega-caps
++ 8 ETFs — carry the 2026-04-23 pilot snapshot), but the `iv_surface/`
+dir has since grown to **~502/503 symbols** across 3 snapshot dates
+(2026-04-23 / 05-24 / 06-01; 558 files / 364,192 rows). Canonical
+counts: `docs/DATA_INVENTORY.md`. The decision and its A2 fail-loud
+resolution below are unaffected.)*
+
 **Why:** Wiring SVI surfaces in before deciding the missing-data
 contract would create a silent fallback path. The choice was between
 (a) failing loudly on the uncovered tickers or (b) using a
@@ -1341,7 +1349,7 @@ from the data; using the candidate's own computed `cvar_5` keeps the payload hon
 **Pinned by:** `engine/candidate_dossier.py` (`R11_TOP_BIN_PROB` / `R11_VIX_THRESHOLD`
 constants, `CandidateDossier.vix_level`, the R11 rule after R10, `build_dossiers(vix_level=…)`),
 `engine/wheel_runner.py` (the live VIX wiring), `tests/test_r11_elevated_vol.py` (8 pins:
-fires, four no-ops, never-rescues-negative-EV, strictly-greater-than boundaries,
+fires, three no-ops, never-rescues-negative-EV, strictly-greater-than boundaries,
 computed-not-hardcoded payload, `build_dossiers` threading). Study:
 `docs/HEAVY_VERIFY_2026-05-31_I11_RISK_BUDGET_STUDY.md`. PR #306 (squash `a9d3de5`);
 §2 second-read + operator merge recorded at issue #113.
@@ -1388,7 +1396,7 @@ Out-of-universe names (CNQ/ENB on the TSX) are **exposure-only**: counted in the
 NAV / sector / single-name denominators, never placed in the rankable set.
 
 **Why.** Closes the #319 "documented protection ≠ active protection" gap by
-giving the dormant D17 R7–R11 gates a real book to evaluate against, via the
+giving the dormant D17 R7–R10 gates a real book to evaluate against, via the
 same file-on-disk point-in-time discipline as the Bloomberg CSVs — broker out of
 the hot decision path, fixtures are just JSON (design-doc §1/§2).
 
@@ -1422,7 +1430,7 @@ Nothing in this change implements it.
 
 **Decision.** Wire the existing `portfolio_tracker` (period returns / TWR),
 `wheel_tracker` (win-rate, realized P&L), `performance_metrics` (Sharpe /
-Sortino / drawdown), and `portfolio_risk_gates` (the live R7–R11 overlay) + the
+Sortino / drawdown), and `portfolio_risk_gates` (the live R7–R10 overlay) + the
 D24 snapshot into six read-only `engine_api` endpoints
 (`GET /api/portfolio/{summary,positions,returns,income,risk,history}`) and the
 `/(terminal)/portfolio` Next.js surface — fetched through a

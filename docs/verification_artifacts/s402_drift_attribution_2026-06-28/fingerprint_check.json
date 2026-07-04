@@ -1,0 +1,27 @@
+{
+  "snapshots": {
+    "s27_ivpit_24t_100k": {
+      "data_csv_sha256": "MATCH",
+      "vol_iv_sha256": "MATCH",
+      "treasury_sha256": "MATCH",
+      "connector_data_sha256": "MATCH ALL",
+      "n_connector_files": 10
+    },
+    "s32_friction_24t_1m": {
+      "data_csv_sha256": "MATCH",
+      "vol_iv_sha256": "MATCH",
+      "treasury_sha256": "MATCH",
+      "connector_data_sha256": "MATCH ALL",
+      "n_connector_files": 10
+    },
+    "s34_universe_100t_1m": {
+      "data_csv_sha256": "MATCH",
+      "vol_iv_sha256": "MATCH",
+      "treasury_sha256": "MATCH",
+      "connector_data_sha256": "MATCH ALL",
+      "n_connector_files": 10
+    }
+  },
+  "all_match": true,
+  "verdict": "ALL-MATCH \u2014 reproducers produce committed metrics by construction; #402 stale"
+}

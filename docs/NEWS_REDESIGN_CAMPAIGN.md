@@ -32,9 +32,11 @@ The campaign reframes this around **verbal vs numbered** news:
 - **Numbered news**
   - **Price / IV** — already wired (Bloomberg / Theta).
   - **Fundamentals** — NEW: continuous quality score `[0, 1]` per
-    ticker, feeds a NEW reviewer rule (R9, since R7+R8 are taken by
-    D17). Threshold is regime-aware (tightens in stress, relaxes in
-    constructive).
+    ticker, feeds a NEW reviewer rule (next free R-number at
+    implementation time — **R12 as of 2026-07-02**; R9–R11 have since
+    been taken by the D17 sector cap, the R10 single-name cap, and the
+    R11 elevated-vol top-bin rule). Threshold is regime-aware (tightens
+    in stress, relaxes in constructive).
   - **Macro** — NEW: FRED rewrites the existing `credit_mult`.
 
 Plus operator-side UX improvements (EV percentile spread instead of
@@ -51,7 +53,8 @@ candidate.
 
 Order optimised for risk: lowest blast-radius warm-up first, §2-surface
 PRs surfaced for Session peer review per `docs/PARALLEL_SESSIONS.md`
-rule 4, infrastructure (EDGAR + FRED) before the consumer (R9).
+rule 4, infrastructure (EDGAR + FRED) before the consumer (the PR-5
+quality reviewer).
 
 | # | Scope | Branch | §2? | Status | PR | Decision |
 |---|---|---|---|---|---|---|
@@ -60,7 +63,7 @@ rule 4, infrastructure (EDGAR + FRED) before the consumer (R9).
 | 3 | EDGAR earnings history + projection (data layer; integration deferred) | `claude/lucid-davinci-pm15H-edgar` | no (data layer only) | **open** | [#251](https://github.com/MertYakar66/smart-wheel-engine/pull/251) | — |
 | 3.5 | Wire `EDGARAdapter.project_next_earnings` into `MarketDataConnector.get_next_earnings` | `claude/lucid-davinci-pm15H-edgar-wire` | likely yes (touches `wheel_runner.py` consumption) | not started | — | TBD |
 | 4 | Quality score computation (sector-relative z-scores from EDGAR XBRL) | `claude/lucid-davinci-pm15H-quality` | no | not started | — | — |
-| 5 | R9 reviewer rule (regime-aware threshold, abstain on missing) | `claude/lucid-davinci-pm15H-r9` | **yes** (new reviewer in `EnginePhaseReviewer`) | not started | — | TBD |
+| 5 | Quality reviewer rule (R12+ — see §3; regime-aware threshold, abstain on missing) | `claude/lucid-davinci-pm15H-r9` | **yes** (new reviewer in `EnginePhaseReviewer`) | not started | — | TBD |
 | 6 | FRED → `credit_mult` rewrite | `claude/lucid-davinci-pm15H-fred` | partial (changes a multiplier input source) | not started | — | TBD |
 | 7 | Backtest re-baseline + new `S<N>` ledger entry | `claude/lucid-davinci-pm15H-s-rebase` | no | not started | — | — |
 | 8 | Dashboard: candidates pane + portfolio pane + "no-signal" pane | `claude/lucid-davinci-pm15H-dashboard` | no | not started | — | — |
@@ -68,7 +71,7 @@ rule 4, infrastructure (EDGAR + FRED) before the consumer (R9).
 | meta | This tracking doc | `claude/lucid-davinci-pm15H-tracker` | no | **open** | [#250](https://github.com/MertYakar66/smart-wheel-engine/pull/250) | — |
 | meta | Descriptive-doc alignment sweep (`MODULE_INDEX`, `PROJECT_STATE`, `README`, `AGENTS`, `FILE_MANIFEST`, `ROADMAP`, `CHANGELOG`, `pull_news_sentiment.py` docstring) for D18 + EDGAR | `claude/lucid-davinci-pm15H-docs-align` | no | **open** | [#252](https://github.com/MertYakar66/smart-wheel-engine/pull/252) | — |
 
-PR 3.5 was inserted after PR 3 was implemented as a data-layer-only PR. The integration step (wiring EDGAR into the existing `conn.get_next_earnings` consumption pattern) deserves its own design decision (replace yfinance / preferred-with-fallback / surface-both) — see `docs/EDGAR_EARNINGS.md` §6 for the three integration shapes.
+PR 3.5 was inserted after PR 3 was implemented as a data-layer-only PR. The integration step (wiring EDGAR into the existing `conn.get_next_earnings` consumption pattern) deserves its own design decision — see `docs/EDGAR_EARNINGS.md` §6 for the three integration shapes. **Note (2026-07-02):** the incumbent PR 3.5 would replace has changed — #464 closed the live forward-coverage gap (D3-1) with a PIT-gated `snapshot_bdp` overlay on the Bloomberg base file; EDGAR remains the candidate *historical-backtest* PIT source.
 
 ---
 
@@ -76,10 +79,14 @@ PR 3.5 was inserted after PR 3 was implemented as a data-layer-only PR. The inte
 
 ### R-number reservation
 The earlier design review on board #113 said the quality reviewer would
-be **R7**. That was stale: D17 (merged 2026-05-26) already took **R7
-and R8** for portfolio-risk soft-warn reviewers. The quality reviewer
-in PR 5 must be **R9**. See `engine/candidate_dossier.py` for the
-current R1–R8 surface; `tests/test_dossier_invariant.py::TestD17DossierSoftWarns`
+be **R7**. That reservation has now gone stale twice: D17 (merged
+2026-05-26) took **R7 and R8**, and since then **R9** (D17 sector cap,
+PR #255), **R10** (single-name cap, PR #262) and **R11** (elevated-vol
+top-bin size-down, D23) have shipped. The quality reviewer in PR 5
+takes the **next free R-number at implementation time — R12 as of
+2026-07-02**; do not hard-claim a number in this doc again. See
+`engine/candidate_dossier.py` for the current R1–R11 surface;
+`tests/test_dossier_invariant.py::TestD17DossierSoftWarns`
 pins R7+R8.
 
 ### `combined_regime_mult` is a misnamed product
@@ -100,7 +107,7 @@ plugged in later; nothing in v1 depends on one.
 ### Quality score N/A handling
 For tickers where fundamentals are unavailable (recent IPOs, SPACs,
 foreign ADRs, data gaps), the quality score is **N/A** — not a default.
-R9 **abstains** when the score is N/A (no downgrade), symmetric with
+The quality reviewer (PR 5; R12+) **abstains** when the score is N/A (no downgrade), symmetric with
 how R6 (dealer) abstains when `market_structure=None`. Anything else
 creates a hidden gate that selects against new/rotated names without an
 audit trail.
@@ -120,7 +127,7 @@ marker. **A user-driven manual edit may want to add the SUPERSEDED tag
 to D3 to match the documented convention.**
 
 ### Backtest re-baseline is mandatory
-Severing news + adding R9 + extending the event gate via EDGAR
+Severing news + adding the quality reviewer + extending the event gate via EDGAR
 compounds the existing IV-PIT backtest invalidation (memory
 `ranker-iv-was-not-pit`, fix `d26a8d6`). Every prior `S<N>` scenario
 result becomes obsolete after this campaign. PR 7 is the re-baseline.
@@ -171,16 +178,19 @@ the user's plate), the engine is in a **safe intermediate state**:
 - Verbal news has no EV influence (D18). ✓
 - Operator transparency preserved (sentiment surfaces in row dict). ✓
 - Event gate continues to use the existing `conn.get_next_earnings`
-  (yfinance snapshot via Bloomberg connector). EDGAR upgrade deferred.
+  (Bloomberg `sp500_earnings.csv` ∪ the PIT-gated `snapshot_bdp`
+  forward-calendar overlay shipped 2026-07-02, #464 — NOT the
+  yfinance file, which is deliberately unconsumed). EDGAR upgrade
+  (PR 3.5) still deferred.
 - `credit_mult` continues to use the existing logic in
   `wheel_runner.py` (Bloomberg-based). FRED rewrite deferred.
-- Quality score is unused (PR 4/5 deferred). No quality data, no R9.
+- Quality score is unused (PR 4/5 deferred). No quality data, no quality reviewer.
 - Backtest results from PRs 1+2 reflect "engine without verbal news";
   PR 7 re-baseline produces the headline performance number for the
   fully-redesigned engine.
 
 The campaign **can** pause cleanly after PR 2. It **cannot** pause
-between PR 4 (quality score computation) and PR 5 (R9 consumer) without
+between PR 4 (quality score computation) and PR 5 (the quality-reviewer consumer) without
 leaving a dead-data artifact — those two should land in close
 sequence.
 

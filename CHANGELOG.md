@@ -14,6 +14,64 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
+
+The first (E)-trio fix (`docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` §1; branch
+`claude/e-trio-372-sector-gics`). Routes the R9 sector cap + the ranker
+`sector` column off the static `DEFAULT_SECTOR_MAP` onto the real
+`gics_sector_name` the connector already serves, so the gate aggregates by —
+and the trader sees — true GICS sectors. EV-moving on the S34
+portfolio-context snapshot; re-baseline-coupled (absorbed by the single
+Phase R re-pin). Held for §2 review.
+
+### Fixed
+- `engine/risk_manager.py` — new `GICS_11` constant + `resolve_sector`
+  (GICS-11 primary → `DEFAULT_SECTOR_MAP` fallback → counted `"Unknown"`) +
+  `build_gics_sector_map` (per-run `{symbol: sector}` from the connector;
+  the `"Unknown"` count is logged, not swallowed).
+- Ranker `sector` column (`engine/wheel_runner.py` puts / CCs / strangles)
+  now resolves real GICS, matching the bucket the gate aggregates by.
+- R9 soft-warn (`engine/candidate_dossier.py`) + the tracker hard gate
+  (`engine/wheel_tracker.py`) + the IBKR adapter
+  (`engine/ibkr_portfolio_adapter.py`) aggregate `check_sector_cap` by real
+  GICS via the existing `sector_map=` param (new optional
+  `PortfolioContext.sector_map`); no gate-signature change. Downgrade-only
+  and no-`EVEngine.evaluate`-bypass invariants intact.
+
+### Tests
+- Flipped the #372 acceptance scaffold
+  (`tests/test_broad_pull_wiring_xfail.py::test_r9_sector_grouping_uses_real_gics`;
+  `xfail` dropped → live), the W17 characterization
+  (`tests/test_data_integrity_bloomberg.py`), and the ranker-transparency pin
+  to assert GICS-primary; added `resolve_sector` / `build_gics_sector_map`
+  units in `tests/test_risk_manager.py`.
+
+## 2026-06-22 — Phase 0B broad-pull loaders (additive, dormant)
+
+The §2-safe plumbing slice of the wiring campaign (`docs/WIRING_CAMPAIGN.md`
+Phase 0B; branch `claude/phase0b-broad-pull-loaders-2026-06-22`). Makes the
+broad-pull data *loadable* but wires it into **no** consumer — anything that
+moves `EVEngine.evaluate` (Phase 1-3) is supervised, re-baseline-coupled, and
+out of scope here.
+
+### Added
+- `data/broad_pull_loaders.py` — `BroadPullLoader`, read-only loaders for the
+  27 net-new broad-pull datasets (gz handling, float32 downcast, logged
+  winsorization of the manifest's outlier-flagged columns, lazy per-ticker
+  access via normalized symbols). Dormant: not imported by the decision trio,
+  any risk gate/reviewer, or `ConsolidatedBloombergLoader.load_all`.
+- `data/bloomberg/broad_pull/` — the 27 net-new datasets integrated to their
+  connector-read location (byte-identical to `staging/` on the broad-pull
+  branch; the 0A frontier-refresh tails are deliberately excluded as EV-moving).
+- `tests/test_broad_pull_loaders.py` — 53 tests: synthetic units for the loader
+  logic + real-data tests pinning every dataset to the byte-verified manifest,
+  plus a structural guard that no decision-path module consumes the loader.
+
+### Docs
+- `docs/DATA_INVENTORY.md` §6 is the byte census; `FILE_MANIFEST.md` +
+  `docs/worklog/` updated. Coverage-omit adds the new loader (D10: research-tier
+  ETL off the decision path).
+
 ## 2026-06-09 — D27 repository restructure for agent navigability
 
 Full-repo structural pass (`DECISIONS.md` D27;

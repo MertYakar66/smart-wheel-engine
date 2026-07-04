@@ -46,16 +46,19 @@ prints a warning when the variable is unset and defaults to
 | Capability | `bloomberg` (CSVs in git) | `theta` (live Terminal) |
 |---|---|---|
 | Historical OHLCV | ✅ `data/bloomberg/sp500_ohlcv.csv` | ✅ stock EOD |
-| IV history | ✅ `sp500_vol_iv_full.csv` | ✅ |
+| IV history | ✅ `sp500_vol_iv_full.csv` (ATM) | ⚠ snapshot only — v3 IV/greeks **history is 404/not-entitled**; the `theta/iv_history` series we hold is `source=bloomberg` |
 | Liquidity | ✅ `sp500_liquidity.csv` | ⚠ derived |
 | Fundamentals | ✅ `sp500_fundamentals*.csv` | ❌ (not in v3) |
 | Option chains (live) | ❌ | ✅ requires Terminal @ `127.0.0.1:25503` |
-| First-order greeks | ❌ | ✅ |
+| First-order greeks | ❌ | ✅ live snapshot only (no greeks **history** — 404) |
 | VIX / SKEW EOD | ✅ | ✅ (EOD only — snapshots blocked) |
 | VIX futures (UX1–UX8) | ❌ | ❌ (tier-blocked) |
 | Corporate actions | ✅ | ❌ (not in v3) |
 
 Read this matrix before assuming a feature works on both providers.
+Per-strike greeks/IV exist on disk only as the 2026 `theta/chains` + `iv_surface`
+snapshots; the `theta/iv_history` series is ATM-only with `source=bloomberg` (not
+Theta-native), so there is **no** Theta greeks/IV history time series.
 
 ---
 
@@ -142,18 +145,46 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > and `sp500_earnings.csv` (the Bloomberg files) — NOT their `_yf`
 > counterparts. Running `pull_fundamentals_yf.py` / `pull_earnings_yf.py`
 > refreshes the parallel files but does not change engine behaviour until
-> a merge/consume step is wired (not yet done).
+> a merge/consume step is wired (not yet done). **Forward earnings dates**
+> are instead served by the broad-pull snapshot overlay (below): the
+> `_yf` earnings file was deliberately passed over for that role — no
+> knowledge-date stamp, ~70 % forward coverage vs the snapshot's 100 %,
+> and its 18-year history diverges from the Bloomberg record inside
+> pinned backtest windows (a naive union rewrites history).
+
+> **⚠ Earnings-calendar overlay — refresh + bump on every broad-pull
+> snapshot re-pull.** `get_next_earnings` / `get_recent_earnings` overlay
+> `broad_pull/per_name/sp500_snapshot_bdp.csv::next_earnings_dt` (PIT-gated
+> on its `asof` column) to feed the live earnings lockout — this is the fix
+> for the D3-1 collapse (the Bloomberg earnings file carries forward dates
+> for only ~39/511 names). The overlay **fails OPEN as it ages**: its dates
+> fall behind the wall clock and simply stop registering, so the lockout
+> silently decays back toward ~8 % coverage roughly one quarter after the
+> snapshot date (the current 2026-06-18 snapshot covers announcements
+> through 2026-09-25). On **every broad-pull snapshot refresh**, bump
+> `EXPECTED_EARNINGS_CALENDAR_ASOF` in `tests/test_preflight_environment.py`
+> in the same commit; before any live `as_of=None` use, run the opt-in
+> age check: `SWE_LIVE_PREFLIGHT=1 pytest tests/test_earnings_calendar_overlay.py`.
 
 > **⚠ Not every connector CSV is refreshable from a repo script.** Of the
-> **9 files** `engine/data_connector.py` reads, only **3** have a
+> **10 monolith files** in `engine/data_connector.py::_FILES` (plus the
+> two `broad_pull/` panels it reads outside `_FILES` — the PIT
+> dividend-yield panel and the #464 `sp500_snapshot_bdp.csv` earnings
+> overlay, both fingerprint-pinned since #465), only **3** have a
 > reproducible in-repo producer (`sp500_ohlcv.csv`, `sp500_liquidity.csv`
 > via `xbbg` after editing a hardcoded `end_date`; `treasury_yields.csv`
-> via `pull_treasury_yields_yf.py`). The other **6 — including the core
+> via `pull_treasury_yields_yf.py`). The other **7 — including the core
 > IV file `sp500_vol_iv_full.csv`** plus `sp500_dividends.csv`,
 > `sp500_earnings.csv`, `sp500_credit_risk.csv`, `vix_term_structure.csv`,
-> and the schema-correct `sp500_fundamentals.csv` — have **no script,
-> macro, or BQL producer in the repo** and cannot be refreshed by the
-> `pull_*` scripts. Refreshing them needs the operator's original
+> the schema-correct `sp500_fundamentals.csv`, and
+> `sp500_corporate_actions.csv` — have **no runnable producer in the
+> repo** and cannot be refreshed by the `pull_*` scripts.
+> (`sp500_corporate_actions.csv` is the near-miss: the operator's BQL
+> recipe is documented at `scripts/bloomberg_bql_pulls.md` §2 but is a
+> manual Terminal run, and `scripts/pull_theta_corp_actions.py` writes
+> only parquet side-files + `sp500_dividends_theta.csv` — never the
+> connector CSV — with Theta's corp-actions endpoints 404 at this
+> tier.) Refreshing them needs the operator's original
 > universe-wide BQL/BDH queries recovered or new pullers written. Full
 > per-file investigation: [`bloomberg_refresh_runbook.md`](bloomberg_refresh_runbook.md).
 
@@ -165,6 +196,17 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > fails loud on a tree ending earlier — the stale-clone / wrong-tree class of
 > mistake. Keep the two in lockstep: refresh-without-bump lets the guard rot
 > (it passes on stale data); bump-without-refresh makes it false-fail.
+
+> **⚠ Runtime frontier staleness (D1-2/D3-2, 2026-07-03).** The pin above
+> catches stale TREES; a current tree with old data is caught at RUNTIME:
+> `get_data_frontier` warns once per connector when the frontier is > 7
+> days behind the wall clock, the three rankers attach a structured
+> `attrs["staleness"]` (surfaced on `/api/candidates` and as
+> `frontier_age_days` on `/api/status`), and a live deployment can arm
+> **`SWE_REFUSE_STALE_LIVE=1`** (or `refuse_stale_live=True`) to
+> hard-refuse `as_of=None` ranks on a stale frontier — default OFF
+> (warn-and-rank; a default refuse would blank the book, the #462 lesson).
+> Dated backtests are untouched (wall-clock reads gate on `as_of=None`).
 
 ---
 

@@ -2212,11 +2212,11 @@ python scripts/pull_theta_iv_surface_history.py --universe sp500 \
 
 Output: `data_processed/theta/iv_surface_history/ticker=<X>/year=<Y>/date=<YYYY-MM-DD>.parquet`.
 
-> **Coverage caveat.** The current Drive snapshot has
-> `iv_surface_history/` absent on most tickers; only `iv_surface/`
-> (snapshot, 28/503 ticker coverage) is populated. See
-> `PROJECT_STATE.md` §3 for the open contract decision on missing-data
-> behaviour.
+> **Coverage caveat.** `iv_surface/` (snapshot) now covers ~502/503
+> symbols across 3 dates (2026-04-23/05-24/06-01); `iv_surface_history/`
+> is a stalled 4-name back-solve pilot (A, AAPL, ABBV, ABNB). See
+> `docs/DATA_INVENTORY.md` for current counts and `PROJECT_STATE.md` §3
+> for the missing-data contract decision.
 
 #### 18.2e Options flow
 
@@ -2356,9 +2356,10 @@ documentation:
 - **Capability cache.** `data_processed/theta_capabilities.json` is
   produced by `scripts/probe_theta_capabilities.py` and consumed by
   the connector to short-circuit calls to known-blocked endpoints.
-- **`iv_surface/` coverage.** Only 28/503 tickers covered (mega-caps
-  + sector ETFs). `iv_surface_history/` is absent on the current
-  Drive snapshot. `engine/volatility_surface.py` SVI tools have
+- **`iv_surface/` coverage.** ~502/503 symbols covered (Universe A +
+  8 ETFs) across 3 snapshot dates; `iv_surface_history/` is a stalled
+  4-name back-solve pilot (see `docs/DATA_INVENTORY.md`).
+  `engine/volatility_surface.py` SVI tools have
   zero non-test callers as of 2026-04-25 — see `PROJECT_STATE.md`
   §3 for the open contract decision.
 - **Sandbox without Terminal.** Cowork / CI runs default to

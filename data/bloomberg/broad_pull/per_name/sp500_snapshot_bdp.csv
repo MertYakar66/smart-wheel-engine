@@ -1,0 +1,1028 @@
+asof,ticker,rtg_sp,rtg_moody,rtg_fitch,gics_sector,gics_ind_grp,gics_industry,gics_sub_ind,inst_pct,free_float_pct,float_shares,next_earnings_dt,crncy
+2026-06-18,A UN,BBB+,Baa1,BBB+,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,105.54312468705007,99.71898,281.6382,2026-08-27,USD
+2026-06-18,AAPL UW,AA+,Aaa,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",77.11120577585943,97.99869,14393.42,2026-07-31,USD
+2026-06-18,ABBV UN,A-,A2,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,86.60708301001105,99.9051,1765.116,2026-07-31,USD
+2026-06-18,ABNB UW,A-,Baa1,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",94.71636606911751,96.17081,401.9269,2026-08-06,USD
+2026-06-18,ABT UN,A+,Aa3,WD,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,92.00247125564711,98.37403,1713.491,2026-07-17,USD
+2026-06-18,ACGL UW,A,A3,A,Financials,Insurance,Insurance,Property & Casualty Insurance,112.97577973543025,96.28079,336.3951,2026-07-29,USD
+2026-06-18,ACN UN,AA-,Aa3,WD,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,93.94668461342039,99.96403,613.7184,2026-06-18,USD
+2026-06-18,ADBE UW,A+,A1,,Information Technology,Software & Services,Software,Application Software,96.05954846543355,99.81293,396.7564,2026-09-11,USD
+2026-06-18,ADI UW,A,A2,A,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,103.02360905691556,99.74606,485.8502,2026-08-20,USD
+2026-06-18,ADM UN,A,A2,A,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Agricultural Products & Servic,98.20061124979908,99.25594,478.3705,2026-08-05,USD
+2026-06-18,ADP UW,AA-,Aa3,AA-,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,99.50570672628005,99.57098,398.0193,2026-07-30,USD
+2026-06-18,ADSK UW,BBB+,A3,,Information Technology,Software & Services,Software,Application Software,106.76630936458,99.72691,210.4238,2026-08-28,USD
+2026-06-18,AEE UN,BBB+,Baa1,WD,Utilities,Utilities,Multi-Utilities,Multi-Utilities,98.36840596620634,99.51527,275.3588,2026-07-31,USD
+2026-06-18,AEP UW,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,89.90531488201589,99.47241,564.6534,2026-07-30,USD
+2026-06-18,AES UN,BBB-,Baa3,BBB-,Utilities,Utilities,Independent Power and Renewabl,Independent Power Producers &,109.45520353079694,93.5603,667.2325,2026-07-31,USD
+2026-06-18,AFL UN,A-,A3,WD,Financials,Insurance,Insurance,Life & Health Insurance,77.94949902597149,99.2956,505.3996,2026-08-06,USD
+2026-06-18,AIG UN,A-,Baa1,A,Financials,Insurance,Insurance,Property & Casualty Insurance,113.19899222112323,99.53941,527.7642,2026-08-06,USD
+2026-06-18,AIZ UN,BBB,Baa2,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,111.25130807395468,99.13568,49.11939,2026-08-05,USD
+2026-06-18,AJG UN,BBB+,Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,111.91099569123392,99.00551,254.3451,2026-07-31,USD
+2026-06-18,AKAM UW,BBB-,Baa2,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,125.11157771958412,97.83071,142.2316,2026-08-07,USD
+2026-06-18,ALB UN,BBB-,Baa3,BBB-,Materials,Materials,Chemicals,Specialty Chemicals,112.43966245283872,99.65145,117.5236,2026-07-30,USD
+2026-06-18,ALGN UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,105.6343849992788,99.22058,71.05992,2026-07-29,USD
+2026-06-18,ALL UN,BBB+,A3,BBB+u,Financials,Insurance,Insurance,Property & Casualty Insurance,95.77045200319996,98.28134,252.9967,2026-08-05,USD
+2026-06-18,ALLE UN,BBB,Baa2,BBB,Industrials,Capital Goods,Building Products,Building Products,121.13966941971026,98.69771,84.81673,2026-07-24,USD
+2026-06-18,AMAT UW,A,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,93.81247845949093,99.63066,791.027,2026-08-13,USD
+2026-06-18,AMCR UN,BBB,Baa2,BBB+,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,84.04398563361944,99.7265,461.0812,2026-08-14,USD
+2026-06-18,AMD UW,A,A1,NR,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,78.56673843319479,99.61939,1624.394,2026-08-05,USD
+2026-06-18,AME UN,BBB+,A3,NR,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,103.2847849782611,99.55513,228.1833,2026-07-31,USD
+2026-06-18,AMGN UW,BBB+,Baa1,BBB+,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,98.21751209230192,99.79456,538.5995,2026-08-05,USD
+2026-06-18,AMP UN,A-,A3,A-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,101.8946794634901,99.74714,90.46035,2026-07-24,USD
+2026-06-18,AMT UN,BBB+,Baa2,BBB+,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,107.45611316010068,99.79424,464.9344,2026-07-29,USD
+2026-06-18,AMZN UW,AA,A1,AA-,Consumer Discretionary,Consumer Discretionary Distrib,Broadline Retail,Broadline Retail,76.24708264036603,91.75665,9870.363,2026-07-31,USD
+2026-06-18,ANET UN,,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,82.19063094138998,82.96541,1044.703,2026-08-05,USD
+2026-06-18,AON UN,A-,(P)Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,106.63862962415378,96.83992,206.8277,2026-07-24,USD
+2026-06-18,AOS UN,,,,Industrials,Capital Goods,Building Products,Building Products,121.80056555529066,99.21019,111.0811,2026-07-24,USD
+2026-06-18,APA UW,BBB-,Baa3,BBB-,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,110.11543188531367,99.38834,351.3082,2026-08-06,USD
+2026-06-18,APD UN,A,A3,,Materials,Materials,Chemicals,Industrial Gases,110.81706472608946,99.55985,221.7005,2026-07-31,USD
+2026-06-18,APH UN,A-,A3,,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,109.89222896180755,99.47189,1223.738,2026-07-29,USD
+2026-06-18,APO UN,A,A2,A,Financials,Financial Services,Financial Services,Diversified Financial Services,89.96882510956084,69.73112,402.0121,2026-08-05,USD
+2026-06-18,APP UW,BBB,Baa1,BBB,Information Technology,Software & Services,Software,Application Software,86.75752075240773,90.53236,276.7864,2026-08-06,USD
+2026-06-18,APTV UN,BBB,Baa2,BBB,Consumer Discretionary,Automobiles & Components,Automobile Components,Automotive Parts & Equipment,117.57638046999845,98.48482,208.4141,2026-07-31,USD
+2026-06-18,ARE UN,BBB+,Baa2,,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,118.68470701775018,98.27844,171.2693,2026-08-03,USD
+2026-06-18,ARES UN,BBB+,,A-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,122.96976810537257,93.28843,207.1268,2026-07-31,USD
+2026-06-18,ATO UN,A-,A2,WD,Utilities,Utilities,Gas Utilities,Gas Utilities,114.82627146001265,99.603,166.2571,2026-08-06,USD
+2026-06-18,AVB UN,A-,A3,,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,108.79412122190668,99.57195,138.5166,2026-07-30,USD
+2026-06-18,AVGO UW,A-,A3,A-,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,90.90699240491608,98.14597,4669.373,2026-09-04,USD
+2026-06-18,AVY UN,BBB,Baa2,,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,110.38994908885947,99.19729,75.87639,2026-07-22,USD
+2026-06-18,AWK UN,A,Baa1,,Utilities,Utilities,Water Utilities,Water Utilities,114.75029117997151,99.19647,193.7114,2026-07-29,USD
+2026-06-18,AXON UW,BB+,Ba2,,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,97.41619405733822,95.18894,76.72426,2026-08-04,USD
+2026-06-18,AXP UN,A-,,A,Financials,Financial Services,Consumer Finance,Consumer Finance,117.94774287000796,77.61497,529.5875,2026-07-24,USD
+2026-06-18,AZO UN,BBB,Baa1,BBB,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,106.64427124616012,99.7347,16.28204,2026-09-23,USD
+2026-06-18,BA UN,BBB-,Baa3,BBB-,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,86.81866331203574,99.87868,787.346,2026-07-29,USD
+2026-06-18,BAC UN,A-,,AA-,Financials,Banks,Banks,Diversified Banks,93.76884494058976,92.484,6563.211,2026-07-14,USD
+2026-06-18,BALL UN,BB+,Ba1,WD,Materials,Materials,Containers & Packaging,"Metal, Glass & Plastic Contain",106.76687973898511,99.71391,265.4848,2026-08-05,USD
+2026-06-18,BAX UN,BBB-,Baa3,WD,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,111.71475196895067,99.52174,513.7835,2026-07-31,USD
+2026-06-18,BBY UN,BBB+,A3,WD,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Computer & Electronics Retail,109.31779404374926,93.28082,196.6053,2026-08-28,USD
+2026-06-18,BDX UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,110.9750723430317,99.8145,275.0293,2026-08-07,USD
+2026-06-18,BEN UN,A,A2,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,61.900071270587844,58.83092,305.7073,2026-07-31,USD
+2026-06-18,BF/B UN,A-,A2,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Distillers & Vintners,79.1635404396925,96.99828,281.6669,2026-08-28,USD
+2026-06-18,BG UN,A-,,BBB+,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Agricultural Products & Servic,97.23948343809776,82.14157,159.3695,2026-07-30,USD
+2026-06-18,BIIB UW,BBB+,Baa2,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,108.31796107496497,99.78156,147.3146,2026-07-29,USD
+2026-06-18,BK UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,,,,2026-07-15,USD
+2026-06-18,BKNG UW,A-,A3,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",121.55244047805158,99.63976,772.087,2026-07-29,USD
+2026-06-18,BKR UW,A *-,,,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,109.26058237871932,99.87219,990.8008,2026-07-22,USD
+2026-06-18,BLDR UN,BB,Ba1,,Industrials,Capital Goods,Building Products,Building Products,112.46819771864229,96.92458,104.252,2026-07-31,USD
+2026-06-18,BLK UN,AA-,Aa3,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,88.38353483663566,90.32477,140.2148,2026-07-15,USD
+2026-06-18,BMY UN,A,A2,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,93.45872150646746,99.91106,2040.255,2026-07-30,USD
+2026-06-18,BNY UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,91.00910123495545,99.06327,679.9495,2026-07-15,USD
+2026-06-18,BR UN,BBB,Baa2,BBB+,Industrials,Commercial & Professional Serv,Professional Services,Data Processing & Outsourced S,111.55501796393605,99.56972,115.1606,2026-08-05,USD
+2026-06-18,BRK/B UN,AA,Aa2,AA-u,Financials,Financial Services,Financial Services,Multi-Sector Holdings,77.91108512057872,99.65481,1393.482,2026-08-03,USD
+2026-06-18,BRO UN,BBB-,Baa3,BBB,Financials,Insurance,Insurance,Insurance Brokers,98.47049845624754,86.76656,294.0934,2026-07-28,USD
+2026-06-18,BSX UN,A-,A3,A-,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,105.7647774986028,99.83391,1483.887,2026-07-29,USD
+2026-06-18,BX UN,A+,,A+,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,83.82879103562577,98.77051,733.7462,2026-07-24,USD
+2026-06-18,BXP UN,BBB,(P)Baa3,WD,Real Estate,Equity Real Estate Investment,Office REITs,Office REITs,119.25790091679069,99.24323,158.2705,2026-07-29,USD
+2026-06-18,C UN,BBB+,,A,Financials,Banks,Banks,Diversified Banks,93.09854490151518,99.65173,1699.637,2026-07-14,USD
+2026-06-18,CAG UN,BBB-,Baa3,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,98.47082781366458,99.2844,475.0135,2026-07-15,USD
+2026-06-18,CAH UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,91.9996754563554,99.75399,233.6297,2026-08-12,USD
+2026-06-18,CARR UN,BBB+,Baa1,WD,Industrials,Capital Goods,Building Products,Building Products,107.77646356052884,95.19775,790.6939,2026-07-29,USD
+2026-06-18,CASY UW,,,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Retail,98.42490927993775,99.31587,36.70618,2026-09-08,USD
+2026-06-18,CAT UN,A,A1,A+,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,82.48225397176114,99.79128,459.6306,2026-08-04,USD
+2026-06-18,CB UN,A,,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,111.62250591360664,90.07785,349.3761,2026-07-22,USD
+2026-06-18,CBOE UF,A-,A2,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,101.28335262284416,99.74334,104.3852,2026-07-31,USD
+2026-06-18,CBRE UN,BBB+,,BBB+,Real Estate,Real Estate Management & Devel,Real Estate Management & Devel,Real Estate Services,111.2837458498378,99.12954,290.2677,2026-07-29,USD
+2026-06-18,CCI UN,BBB,Baa3,BBB,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,111.1537080579215,99.6014,434.7123,2026-07-23,USD
+2026-06-18,CCL UN,BB+,Ba1,BBB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",74.42908941983379,98.76164,1368.413,2026-06-23,USD
+2026-06-18,CDNS UW,A-,A3,A-,Information Technology,Software & Services,Software,Application Software,100.42784474156971,99.65158,274.855,2026-07-28,USD
+2026-06-18,CDW UW,BBB-,,BBB-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Technology Distributors,114.74489166639424,99.44578,127.0454,2026-08-06,USD
+2026-06-18,CEG UW,,,,Utilities,Utilities,Electric Utilities,Electric Utilities,103.62413418287018,85.96896,311.4609,2026-08-07,USD
+2026-06-18,CF UN,BBB,,BBB,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,115.32375727703057,99.41871,152.7362,2026-08-05,USD
+2026-06-18,CFG UN,BBB+,,BBB+,Financials,Banks,Banks,Regional Banks,120.91376878762794,93.27631,394.4486,2026-07-16,USD
+2026-06-18,CHD UN,BBB+,A2,,Consumer Staples,Household & Personal Products,Household Products,Household Products,104.00451720548729,99.7614,236.3783,2026-07-31,USD
+2026-06-18,CHRW UW,BBB+,Baa2,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,118.82672261095686,97.48586,114.8875,2026-07-30,USD
+2026-06-18,CHTR UW,BB+,Ba2,BB+ *+,Communication Services,Media & Entertainment,Media,Cable & Satellite,90.71840671050907,64.7527,79.6358,2026-07-24,USD
+2026-06-18,CI UN,A-,Baa1,BBB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,103.33760455447003,99.61135,263.5043,2026-07-31,USD
+2026-06-18,CIEN UN,BB+,Ba1,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,106.30002556476971,98.97888,140.1075,2026-09-04,USD
+2026-06-18,CINF UW,BBB+,A3,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,80.48209363682327,98.1292,152.7736,2026-07-28,USD
+2026-06-18,CL UN,A+,Aa3,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,99.11224799358432,99.74055,798.1133,2026-07-31,USD
+2026-06-18,CLX UN,BBB,Baa1,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,94.66716915346493,99.54742,120.3741,2026-07-31,USD
+2026-06-18,CMCSA UW,A-,A3,A-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,106.06568174846971,99.33694,3539.161,2026-07-23,USD
+2026-06-18,CME UW,AA-,Aa3,AA-u,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,102.88082014620095,99.70211,361.2768,2026-07-22,USD
+2026-06-18,CMG UN,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,109.29091268579893,99.30278,1273.791,2026-07-29,USD
+2026-06-18,CMI UN,A,A2,WD,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,98.84878970945901,99.70318,137.5795,2026-08-05,USD
+2026-06-18,CMS UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,109.74953002389046,98.6048,304.6096,2026-07-31,USD
+2026-06-18,CNC UN,BB+,Ba1,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,110.32630799174103,99.15671,489.6328,2026-07-28,USD
+2026-06-18,CNP UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,131.76174199984675,99.41544,649.0552,2026-07-24,USD
+2026-06-18,COF UN,BBB,,A-,Financials,Financial Services,Consumer Finance,Consumer Finance,99.45413065165832,97.99643,609.8247,2026-07-22,USD
+2026-06-18,COHR UN,BB,Ba2,BB,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,98.0560468315461,99.44154,194.5468,2026-08-13,USD
+2026-06-18,COIN UW,BB-,B1,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,81.33852785130577,97.10196,215.9809,2026-07-31,USD
+2026-06-18,COO UW,NR,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,123.98216722703421,98.94779,192.9785,2026-08-27,USD
+2026-06-18,COP UN,A-,A2,A,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,102.04935068848884,99.92004,1217.879,2026-08-07,USD
+2026-06-18,COR UN,BBB+,Baa1,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,101.02929103221653,95.80644,186.402,2026-08-06,USD
+2026-06-18,COST UW,AA,Aa3,AA,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,80.75848082800889,99.7668,442.4446,2026-09-24,USD
+2026-06-18,CPAY UN,BB+,,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,113.84346940853347,96.06719,62.79136,2026-08-06,USD
+2026-06-18,CPB UW,BBB-,Baa2,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,68.79394545116334,72.48558,216.1565,2026-09-03,USD
+2026-06-18,CPRT UW,,,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Diversified Support Services,93.18911342188424,91.12123,843.6108,2026-09-04,USD
+2026-06-18,CPT UN,A-,A3,A-,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,116.89714005894574,98.42152,98.93304,2026-07-31,USD
+2026-06-18,CRH UN,BBB+,Baa1,BBB+,Materials,Materials,Construction Materials,Construction Materials,105.40868505715102,99.82026,666.9992,2026-08-06,USD
+2026-06-18,CRL UN,BB+,Ba1,BBB-,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,130.78117115059806,98.58522,47.48626,2026-08-06,USD
+2026-06-18,CRM UN,A+,A2,,Information Technology,Software & Services,Software,Application Software,105.63120011906126,96.6598,791.6437,2026-09-03,USD
+2026-06-18,CRWD UW,BBB-,Baa2,,Information Technology,Software & Services,Software,Systems Software,84.07313321318468,97.06685,247.0981,2026-08-27,USD
+2026-06-18,CSCO UW,AA-,A1,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,90.45348149675472,90.67825,3574.024,2026-08-13,USD
+2026-06-18,CSGP UW,BB+,Baa3,BBB,Real Estate,Real Estate Management & Devel,Real Estate Management & Devel,Real Estate Services,115.65063702481895,99.23228,405.2207,2026-07-22,USD
+2026-06-18,CSX UW,BBB+,A3,A-,Industrials,Transportation,Ground Transportation,Rail Transportation,89.76324523034431,99.67549,1852.109,2026-07-23,USD
+2026-06-18,CTAS UW,A-,,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Diversified Support Services,90.67494644286083,85.55769,342.3053,2026-07-17,USD
+2026-06-18,CTRA UN,BBB+,Baa2,BBB+ *+,,,,,96.88994353073141,97.15496,737.7543,2026-08-04,USD
+2026-06-18,CTSH UW,,,,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,119.18581272139521,99.63581,472.1437,2026-07-30,USD
+2026-06-18,CTVA UN,A- *-,,A *-,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,107.28167356527607,99.47047,667.8015,2026-07-30,USD
+2026-06-18,CVNA UN,BB-,B2,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,128.7689247688559,93.7998,671.877,2026-07-30,USD
+2026-06-18,CVS UN,BBB,Baa3,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,106.29758880578927,98.88831,1261.743,2026-07-31,USD
+2026-06-18,CVX UN,AA-,Aa2,WD,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,89.68129053541024,95.32844,1898.559,2026-07-31,USD
+2026-06-18,D UN,BBB+,Baa2,BBB+ *+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,97.64860960608229,99.85683,878.1962,2026-07-31,USD
+2026-06-18,DAL UN,BBB-,Baa2,BBB-,Industrials,Transportation,Passenger Airlines,Passenger Airlines,99.43823338194797,93.41488,613.7305,2026-07-10,USD
+2026-06-18,DASH UW,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,100.51465347849748,91.53267,376.5074,2026-08-06,USD
+2026-06-18,DD UN,BBB+,Baa1,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,89.70717567825487,99.61745,408.3531,2026-08-05,USD
+2026-06-18,DDOG UW,,,,Information Technology,Software & Services,Software,Application Software,100.99072894786234,98.10244,324.5482,2026-08-07,USD
+2026-06-18,DE UN,A,A1,A+,Industrials,Capital Goods,Machinery,Agricultural & Farm Machinery,91.730676116866,92.52024,249.7468,2026-08-20,USD
+2026-06-18,DECK UN,,,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo",Footwear,110.91301444797688,99.1907,137.757,2026-07-24,USD
+2026-06-18,DELL UN,BBB+,,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",90.41818153768584,91.46819,297.3143,2026-09-03,USD
+2026-06-18,DG UN,BBB,Baa3,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,115.54043009688988,99.52892,219.5475,2026-08-28,USD
+2026-06-18,DGX UN,BBB+,Baa1,BBB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,107.39804514494136,99.36421,109.9926,2026-07-23,USD
+2026-06-18,DHI UN,BBB+,A3,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,104.70927486697332,91.27851,258.8473,2026-07-21,USD
+2026-06-18,DHR UN,A-,A2,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,94.4886109316624,91.27457,646.0146,2026-07-22,USD
+2026-06-18,DIS UN,A,A2,WD,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,89.42180641567649,99.95528,1735.735,2026-08-06,USD
+2026-06-18,DLR UN,BBB+,Baa2,BBB,Real Estate,Equity Real Estate Investment,Specialized REITs,Data Center REITs,110.1602949260089,99.99075,351.3735,2026-07-24,USD
+2026-06-18,DLTR UW,BBB,Baa2,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,122.9458611654002,93.43657,179.5613,2026-09-03,USD
+2026-06-18,DOC UN,BBB+,,WD,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,113.32142729033686,99.66383,687.1021,2026-08-04,USD
+2026-06-18,DOV UN,BBB+,Baa1,WD,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,105.07467818273663,99.29736,133.7152,2026-07-23,USD
+2026-06-18,DOW UN,,,BBB,Materials,Materials,Chemicals,Commodity Chemicals,83.48979791538986,99.74194,718.8815,2026-07-23,USD
+2026-06-18,DPZ UW,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,136.3300028376936,99.37801,33.05499,2026-07-21,USD
+2026-06-18,DRI UN,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,120.74310134974901,99.69193,114.1822,2026-06-25,USD
+2026-06-18,DTE UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,97.63436643456295,99.57208,207.1379,2026-07-29,USD
+2026-06-18,DUK UN,BBB+,Baa2,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,81.10526177021394,99.70441,775.9164,2026-08-05,USD
+2026-06-18,DVA UN,BB,Ba2,NR,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,126.53216379977883,52.9555,33.99743,2026-08-05,USD
+2026-06-18,DVN UN,BBB+,Baa2,BBB+ *+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,55.66512038936607,99.26875,1144.969,2026-08-05,USD
+2026-06-18,DXCM UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,112.692538949057,99.45071,383.7534,2026-07-30,USD
+2026-06-18,EA UW,BBB+ *-,Baa1 *-,A- *-,Communication Services,Media & Entertainment,Entertainment,Interactive Home Entertainment,102.8236830623868,99.8019,250.2547,2026-07-29,USD
+2026-06-18,EBAY UW,BBB+,Baa1,WD,Consumer Discretionary,Consumer Discretionary Distrib,Broadline Retail,Broadline Retail,111.8219372288498,99.49364,441.7518,2026-07-30,USD
+2026-06-18,ECL UN,A-,,A-,Materials,Materials,Chemicals,Specialty Chemicals,104.1862337865509,89.48288,251.8384,2026-07-28,USD
+2026-06-18,ED UN,A-,Baa1,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,83.61052633706926,99.79188,367.7627,2026-08-07,USD
+2026-06-18,EFX UN,BBB,Baa2,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,119.0493698934144,98.96944,117.8453,2026-07-22,USD
+2026-06-18,EG UN,BBB+,,,Financials,Insurance,Insurance,Reinsurance,112.70794188261273,98.57656,39.00832,2026-07-30,USD
+2026-06-18,EIX UN,BBB-,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,105.909251619363,99.81654,384.088,2026-07-31,USD
+2026-06-18,EL UN,A-,A3,,Consumer Staples,Household & Personal Products,Personal Care Products,Personal Care Products,110.53801530879919,98.357,243.2246,2026-08-19,USD
+2026-06-18,ELV UN,A-,Baa2,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,108.49424118872193,99.69182,216.4931,2026-07-17,USD
+2026-06-18,EME UN,BBB-,,,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,108.25362453810837,98.75746,43.88809,2026-07-31,USD
+2026-06-18,EMR UN,A,A2,,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,94.82568447971421,99.73167,558.597,2026-08-06,USD
+2026-06-18,EOG UN,A-,A3,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,122.6763219879356,99.74043,531.246,2026-08-07,USD
+2026-06-18,EPAM UN,,,,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,147.8762685194063,96.84393,50.59557,2026-08-07,USD
+2026-06-18,EQIX UW,BBB+,Baa1,BBB+,Real Estate,Equity Real Estate Investment,Specialized REITs,Data Center REITs,110.11516562048271,99.71623,98.34438,2026-07-30,USD
+2026-06-18,EQR UN,A-,Baa1,WD,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,107.03117208874006,99.84027,374.0733,2026-08-04,USD
+2026-06-18,EQT UN,BBB-,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,106.08913571662264,99.24323,620.7446,2026-07-22,USD
+2026-06-18,ERIE UW,,,,Financials,Insurance,Insurance,Property & Casualty Insurance,84.80468962123076,54.48454,25.1659,2026-08-07,USD
+2026-06-18,ES UN,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,97.49889188376241,99.84779,375.5076,2026-07-31,USD
+2026-06-18,ESS UN,BBB+,,WD,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,113.56543177705281,99.26729,63.792,2026-07-29,USD
+2026-06-18,ETN UN,A-,,WD,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,99.24504767821938,99.80131,387.5285,2026-08-05,USD
+2026-06-18,ETR UN,BBB+,Baa2,NR,Utilities,Utilities,Electric Utilities,Electric Utilities,105.32690806327956,99.7423,475.9051,2026-07-30,USD
+2026-06-18,EVRG UW,BBB+,Baa2,,Utilities,Utilities,Electric Utilities,Electric Utilities,105.87045090660108,97.45795,223.9057,2026-08-07,USD
+2026-06-18,EW UN,BBB,Baa1,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,91.00833947687838,99.74906,574.3551,2026-08-19,USD
+2026-06-18,EXC UW,A-,Baa2,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,104.05874236143922,99.91808,1022.337,2026-07-31,USD
+2026-06-18,EXE UW,BBB-,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,106.45971084945589,99.70818,238.5307,2026-07-29,USD
+2026-06-18,EXPD UN,,,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,112.5658965486055,99.27908,129.8482,2026-08-04,USD
+2026-06-18,EXPE UW,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",117.2127256642597,98.79166,113.1151,2026-08-07,USD
+2026-06-18,EXR UN,BBB+,,,Real Estate,Equity Real Estate Investment,Specialized REITs,Self-Storage REITs,117.82012577432543,99.03278,209.2176,2026-07-30,USD
+2026-06-18,F UN,BBB-,Ba1,BBB-,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,76.8694263004912,99.60896,3898.536,2026-07-30,USD
+2026-06-18,FANG UW,BBB,Baa2,BBB+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,77.54646794146137,73.05212,205.5053,2026-08-04,USD
+2026-06-18,FAST UW,,,,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,95.78989877656797,99.91219,1147.027,2026-07-13,USD
+2026-06-18,FCX UN,BBB-,Baa2,BBB,Materials,Materials,Metals & Mining,Copper,104.47364419904986,99.40303,1428.978,2026-07-23,USD
+2026-06-18,FDS UN,,Baa3,BBB+,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,116.79530192246308,99.54806,36.26648,2026-07-01,USD
+2026-06-18,FDX UN,BBB,Baa2,WD,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,90.40784394055589,91.50104,218.3277,2026-06-23,USD
+2026-06-18,FDXF UN,BBB-,Baa3,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,7.072953072052071,79.77227,118.7858,2026-06-25,USD
+2026-06-18,FE UN,BBB+,Baa3,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,124.04710282334884,94.81031,548.4124,2026-07-30,USD
+2026-06-18,FFIV UW,,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,111.5228365263842,99.24479,55.99316,2026-07-30,USD
+2026-06-18,FICO UN,BB+,Ba1,,Information Technology,Software & Services,Software,Application Software,104.65621456984661,96.93011,22.47897,2026-07-30,USD
+2026-06-18,FIS UN,BBB,Baa2,BBB,Financials,Financial Services,Financial Services,Transaction & Payment Processi,113.20884200262549,99.364,513.5918,2026-08-05,USD
+2026-06-18,FISV UW,BBB,Baa2,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,100.8314655915888,91.73014,489.1546,2026-07-23,USD
+2026-06-18,FITB UW,BBB+,,A-,Financials,Banks,Banks,Diversified Banks,104.07901779453643,99.43614,901.2012,2026-07-17,USD
+2026-06-18,FIX UN,,,,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,109.55140265501933,98.84425,34.79557,2026-07-24,USD
+2026-06-18,FOX UW,BBB,Baa2,,Communication Services,Media & Entertainment,Media,Broadcasting,109.80848495793762,55.62623,122.7699,2026-08-05,USD
+2026-06-18,FOXA UW,BBB,Baa2,,Communication Services,Media & Entertainment,Media,Broadcasting,136.9220076030197,88.89606,177.3309,2026-08-05,USD
+2026-06-18,FRT UN,BBB+,Baa1,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,109.88501070008851,99.06381,85.58044,2026-07-31,USD
+2026-06-18,FSLR UW,,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,108.5281049621539,94.69408,101.752,2026-07-31,USD
+2026-06-18,FTNT UW,BBB+,Baa1,,Information Technology,Software & Services,Software,Systems Software,69.65098668914655,84.3576,618.0446,2026-08-06,USD
+2026-06-18,FTV UN,BBB,Baa1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,122.58733511997985,99.39125,303.0052,2026-07-30,USD
+2026-06-18,GD UN,A,A1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,96.50442488858272,93.92647,254.0055,2026-07-23,USD
+2026-06-18,GDDY UN,,,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,114.15018354994801,99.11034,131.2319,2026-08-07,USD
+2026-06-18,GE UN,A-,A2,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,90.82328474789354,99.70445,1040.254,2026-07-16,USD
+2026-06-18,GEHC UW,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,103.97201116038406,99.68464,453.4572,2026-07-30,USD
+2026-06-18,GEN UW,BB,Ba2,BB+,Information Technology,Software & Services,Software,Systems Software,102.22607469756788,90.11521,542.8845,2026-08-07,USD
+2026-06-18,GEV UN,BBB,,BBB+,Industrials,Capital Goods,Electrical Equipment,Heavy Electrical Equipment,89.37569652685696,99.79618,268.1723,2026-07-23,USD
+2026-06-18,GILD UW,A-,A3,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,105.07831285159821,99.49675,1235.322,2026-08-07,USD
+2026-06-18,GIS UN,BBB,Baa2,WD,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,98.99221699572468,99.56236,531.3456,2026-07-01,USD
+2026-06-18,GL UN,A,Baa1,A,Financials,Insurance,Insurance,Life & Health Insurance,102.78366163045007,99.18398,77.01116,2026-07-23,USD
+2026-06-18,GLW UN,BBB+,Baa1,WD,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,83.40362298212334,91.84425,788.9557,2026-07-29,USD
+2026-06-18,GM UN,BBB,Baa2,BBB,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,99.40852139996413,99.8355,900.182,2026-07-21,USD
+2026-06-18,GNRC UN,,,,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,102.00815026810177,98.1773,57.79568,2026-07-30,USD
+2026-06-18,GOOG UW,AA+,Aa2,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,68.24967554341833,85.78278,4705.424,2026-07-23,USD
+2026-06-18,GOOGL UW,AA+,Aa2,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,91.09870029537507,98.7777,5781.734,2026-07-23,USD
+2026-06-18,GPC UN,BBB-,Baa1 *-,BBB- *-,Consumer Discretionary,Consumer Discretionary Distrib,Distributors,Distributors,100.40359687763083,99.57439,137.0388,2026-07-22,USD
+2026-06-18,GPN UN,BBB-,Baa3,BBB,Financials,Financial Services,Financial Services,Transaction & Payment Processi,110.1210407623892,99.23457,271.4497,2026-08-06,USD
+2026-06-18,GRMN UN,,,,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Consumer Electronics,66.98686313532465,85.35853,164.6192,2026-07-30,USD
+2026-06-18,GS UN,BBB+,,A,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,85.23509604377317,99.53936,293.6485,2026-07-14,USD
+2026-06-18,GWW UN,A+,A1,,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,86.467602479794,93.7603,44.26716,2026-08-04,USD
+2026-06-18,HAL UN,BBB+,A3,WD,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,107.77882738237142,89.79227,750.1226,2026-07-21,USD
+2026-06-18,HAS UW,BBB,Baa2,WD,Consumer Discretionary,Consumer Durables & Apparel,Leisure Products,Leisure Products,103.04579160837636,99.3223,140.5318,2026-07-23,USD
+2026-06-18,HBAN UW,BBB+,,A-,Financials,Banks,Banks,Regional Banks,99.83724173887282,99.06247,2008.126,2026-07-23,USD
+2026-06-18,HCA UN,BBB-,,WD,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Facilities,101.77474500675436,67.8295,150.4728,2026-07-24,USD
+2026-06-18,HD UN,A,A2,A,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Home Improvement Retail,85.44225545315514,99.9379,996.4975,2026-08-18,USD
+2026-06-18,HIG UN,A-,A3,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,108.39364488817733,99.58044,272.9807,2026-07-28,USD
+2026-06-18,HII UN,BBB-,Baa3,BBB,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,100.5999833031317,99.1697,39.07686,2026-07-31,USD
+2026-06-18,HLT UN,BB+,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",110.22916612890185,98.09893,223.3206,2026-07-23,USD
+2026-06-18,HOLX UW,B+,B1,,,,,,109.56858910906587,98.35622,219.5752,2026-06-30,USD
+2026-06-18,HON UW,A,A2 *-,A,Industrials,Capital Goods,Industrial Conglomerates,Industrial Conglomerates,89.35410166331536,99.94239,633.2881,2026-07-24,USD
+2026-06-18,HOOD UW,,,,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,81.64347236164315,98.79983,781.6891,2026-07-30,USD
+2026-06-18,HPE UN,BBB,Baa2,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",102.48793425536383,99.62542,1319.243,2026-09-03,USD
+2026-06-18,HPQ UN,BBB,Baa2,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",105.9285945105218,99.69392,911.7236,2026-08-27,USD
+2026-06-18,HRL UN,A-,A2,NR,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,97.92572122011836,52.89291,291.0776,2026-08-28,USD
+2026-06-18,HSIC UW,,,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,120.93164819282806,84.67227,96.88598,2026-08-05,USD
+2026-06-18,HST UW,BBB-,,BBB,Real Estate,Equity Real Estate Investment,Hotel & Resort REITs,Hotel & Resort REITs,115.99077421552136,98.4012,673.9294,2026-07-30,USD
+2026-06-18,HSY UN,A,A1,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,96.58706003093384,98.53149,146.0531,2026-07-30,USD
+2026-06-18,HUBB UN,BBB+,Baa1,A-,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,117.05694373684426,99.59505,52.6278,2026-07-29,USD
+2026-06-18,HUM UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,110.35691196733094,98.6625,118.4557,2026-07-29,USD
+2026-06-18,HWM UN,BBB+,Baa1,A-,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,104.54909669434416,98.96781,395.9776,2026-07-31,USD
+2026-06-18,IBKR UW,,,,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,97.45605071693511,97.04269,432.31,2026-07-17,USD
+2026-06-18,IBM UN,A-,A3,A-,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,66.99143243393142,99.1155,931.572,2026-07-22,USD
+2026-06-18,ICE UN,A-,A3,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,107.14696146704532,99.38527,562.0361,2026-07-30,USD
+2026-06-18,IDXX UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,105.44032018993201,99.70276,78.64852,2026-08-04,USD
+2026-06-18,IEX UN,BBB,Baa2,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,118.09623858608751,99.71469,73.80388,2026-07-30,USD
+2026-06-18,IFF UN,BBB,Baa3,BBB,Materials,Materials,Chemicals,Specialty Chemicals,113.52328768125462,96.14863,245.4708,2026-08-05,USD
+2026-06-18,INCY UW,NR,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,112.8324754076154,84.78546,169.3862,2026-07-29,USD
+2026-06-18,INTC UW,BBB,Baa2,BBB,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,74.72714811173454,81.58519,4100.472,2026-07-24,USD
+2026-06-18,INTU UW,A,A3,,Information Technology,Software & Services,Software,Application Software,102.18048785053962,97.83928,267.6266,2026-08-21,USD
+2026-06-18,INVH UN,BBB,,BBB+,Real Estate,Equity Real Estate Investment,Residential REITs,Single-Family Residential REIT,113.6706798003701,99.4754,590.9256,2026-07-30,USD
+2026-06-18,IP UN,BBB,Baa2,NR,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,100.56538922215393,99.62134,527.5119,2026-07-30,USD
+2026-06-18,IQV UN,BB+,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,112.34314888535832,97.81873,163.2595,2026-07-22,USD
+2026-06-18,IR UN,BBB,Baa2,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,144.59333996347274,99.77522,390.4572,2026-07-31,USD
+2026-06-18,IRM UN,BB-,Ba3,,Real Estate,Equity Real Estate Investment,Specialized REITs,Other Specialized REITs,97.88022419879528,93.25518,277.4572,2026-08-06,USD
+2026-06-18,ISRG UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,97.25838193962585,99.18085,351.2617,2026-07-22,USD
+2026-06-18,IT UN,BBB-,Baa3,BBB,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,129.2171184544378,97.40768,65.21629,2026-08-05,USD
+2026-06-18,ITW UN,A+,A1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,96.16513774337598,95.73284,275.4234,2026-07-30,USD
+2026-06-18,IVZ UN,BBB+,Baa2,A,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,105.11546401302554,96.0079,425.5998,2026-07-22,USD
+2026-06-18,J UN,BBB-,,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,100.35530748049175,99.37189,117.3392,2026-08-05,USD
+2026-06-18,JBHT UW,BBB+,Baa1,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,92.21804364943176,78.09332,73.64137,2026-07-15,USD
+2026-06-18,JBL UN,BBB-,Baa3,BBB-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Manufacturing Servi,109.37432079940488,98.08105,103.4781,2026-09-25,USD
+2026-06-18,JCI UN,BBB+,Baa1,WD,Industrials,Capital Goods,Building Products,Building Products,105.49649189930209,99.75737,608.6353,2026-07-29,USD
+2026-06-18,JKHY UW,,,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,121.0700768994851,99.44675,70.65769,2026-08-19,USD
+2026-06-18,JNJ UN,AAA,Aaa,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,87.19264935121404,99.85208,2403.656,2026-07-15,USD
+2026-06-18,JPM UN,A,,AA-,Financials,Banks,Banks,Diversified Banks,85.85808077703363,98.73456,2645.604,2026-07-14,USD
+2026-06-18,KDP UW,BBB-,Baa3,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,120.39220576968164,95.30363,1296.662,2026-07-24,USD
+2026-06-18,KEY UN,BBB,Baa2,A-,Financials,Banks,Banks,Diversified Banks,97.00122343861453,99.6631,1075.732,2026-07-21,USD
+2026-06-18,KEYS UN,BBB+,Baa1,BBB+,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,102.6652546895241,99.27117,169.6498,2026-08-19,USD
+2026-06-18,KHC UW,BBB,,BBB,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,96.01545982523099,72.0438,854.2792,2026-07-30,USD
+2026-06-18,KIM UN,A-,Baa1,A-,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,112.71333020890779,97.71858,659.0172,2026-08-04,USD
+2026-06-18,KKR UN,A,,A,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,69.54703129764387,76.93258,690.7568,2026-07-31,USD
+2026-06-18,KLAC UW,A-,A2,A,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,103.92352857968403,99.8317,1304.077,2026-07-31,USD
+2026-06-18,KMB UW,A,A2,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,103.51893386157747,99.74025,331.0782,2026-07-31,USD
+2026-06-18,KMI UN,BBB+,Baa1,BBB+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,79.67874377458138,87.06146,1936.966,2026-07-16,USD
+2026-06-18,KO UN,A+,A1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,94.23784365602896,90.47733,3892.771,2026-07-27,USD
+2026-06-18,KR UN,BBB,Baa1,WD,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Retail,105.02494255350226,91.09546,558.0319,2026-06-18,USD
+2026-06-18,KVUE UN,A,A2,,Consumer Staples,Household & Personal Products,Personal Care Products,Personal Care Products,104.05758261333342,98.52367,1891.663,2026-08-07,USD
+2026-06-18,L UN,A,A3,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,71.94424095134983,82.14935,169.0378,2026-08-04,USD
+2026-06-18,LDOS UN,BBB,Baa2,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,89.54200353823374,99.06123,124.6046,2026-08-05,USD
+2026-06-18,LEN UN,BBB,Baa2,BBB+,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,112.6658173827918,93.51407,201.2838,2026-09-18,USD
+2026-06-18,LH UN,BBB,,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,112.30739758482436,99.60639,81.67724,2026-07-24,USD
+2026-06-18,LHX UN,BBB,Baa2,BBB+,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,100.22442592984613,99.68851,185.7147,2026-07-24,USD
+2026-06-18,LII UN,BBB,Baa1,,Industrials,Capital Goods,Building Products,Building Products,95.21397700012093,89.50454,31.14755,2026-07-23,USD
+2026-06-18,LIN UW,A,,,Materials,Materials,Chemicals,Industrial Gases,98.05240131244337,99.79935,461.6713,2026-07-31,USD
+2026-06-18,LITE UW,B+,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,108.05542833756157,98.1619,76.36996,2026-08-12,USD
+2026-06-18,LLY UN,AA-,Aa3,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,94.16901445764786,90.07221,848.2473,2026-08-05,USD
+2026-06-18,LMT UN,A-,A2,A,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,84.85714175130335,99.92879,230.3994,2026-07-22,USD
+2026-06-18,LNT UW,BBB+,Baa2,,Utilities,Utilities,Electric Utilities,Electric Utilities,107.83138316718679,99.6278,257.3157,2026-08-07,USD
+2026-06-18,LOW UN,BBB+,Baa1,WD,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Home Improvement Retail,91.51872172691668,99.88026,560.0356,2026-08-19,USD
+2026-06-18,LRCX UW,A-,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,97.65228371650171,99.70641,1246.9,2026-07-30,USD
+2026-06-18,LULU UW,,,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",98.48236640373487,94.08547,102.0244,2026-09-04,USD
+2026-06-18,LUV UN,BBB,Baa2,BBB+,Industrials,Transportation,Passenger Airlines,Passenger Airlines,105.88567510932978,98.84911,483.1484,2026-07-22,USD
+2026-06-18,LVS UN,BBB,Baa3,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,58.24411891400996,42.64184,282.5607,2026-07-23,USD
+2026-06-18,LW UN,BB+,Ba2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,103.27246049270164,96.66354,133.466,2026-07-23,USD
+2026-06-18,LYB UN,BBB-,Baa3,BBB,Materials,Materials,Chemicals,Commodity Chemicals,86.02636910370218,79.67964,257.1937,2026-07-31,USD
+2026-06-18,LYV UN,BB-,Ba2,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,124.25840347938487,67.89342,159.921,2026-08-07,USD
+2026-06-18,MA UN,A+,Aa3,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,102.42480944393624,91.86131,805.6569,2026-07-31,USD
+2026-06-18,MAA UN,A-,,A-,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,107.14530588478222,99.30111,115.5714,2026-07-30,USD
+2026-06-18,MAR UW,BBB,Baa2,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",70.59299445650512,79.29816,209.1002,2026-08-05,USD
+2026-06-18,MAS UN,BBB,Baa1,BBB,Industrials,Capital Goods,Building Products,Building Products,117.10239327814492,99.67568,201.0802,2026-07-31,USD
+2026-06-18,MCD UN,BBB+,Baa1,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,86.71780704046365,99.97259,710.3111,2026-08-06,USD
+2026-06-18,MCHP UW,NR,Baa2,BBB,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,109.63622840642182,98.22119,532.4367,2026-08-07,USD
+2026-06-18,MCK UN,BBB+,A3,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,108.21432823918813,99.9432,117.0112,2026-08-06,USD
+2026-06-18,MCO UN,A-,,BBB+,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,118.40549449943067,84.40165,147.4497,2026-07-23,USD
+2026-06-18,MDLZ UW,BBB,Baa1,WD,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,107.55302223412868,99.6972,1279.763,2026-07-29,USD
+2026-06-18,MDT UN,A,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,101.20091811379814,99.91717,1282.822,2026-08-19,USD
+2026-06-18,MET UN,A-,A3,A,Financials,Insurance,Insurance,Life & Health Insurance,104.6543242655567,83.3258,536.1488,2026-08-06,USD
+2026-06-18,META UW,AA-,Aa3,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,88.24240216800605,99.92052,2194.3,2026-07-30,USD
+2026-06-18,MGM UN,B+,B1,BB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,75.39386521631246,68.40886,175.0249,2026-07-30,USD
+2026-06-18,MKC UN,BBB,Baa2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,102.54869977405774,99.81514,253.4737,2026-06-25,USD
+2026-06-18,MLM UN,BBB+,Baa2,BBB,Materials,Materials,Construction Materials,Construction Materials,112.43039317652077,99.14354,59.74014,2026-08-07,USD
+2026-06-18,MMM UN,BBB+,A3,A-,Industrials,Capital Goods,Industrial Conglomerates,Industrial Conglomerates,85.79297556852165,99.8912,520.9998,2026-07-17,USD
+2026-06-18,MNST UW,,,,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,77.51750649565199,71.70198,701.2512,2026-08-07,USD
+2026-06-18,MO UN,BBB+,A3,BBB+,Consumer Staples,"Food, Beverage & Tobacco",Tobacco,Tobacco,72.69126797546905,99.85123,1667.407,2026-07-30,USD
+2026-06-18,MOH UN,BB-,Ba2,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,119.13430228435702,98.61157,51.37663,2026-07-23,USD
+2026-06-18,MOS UN,BBB,Baa2,BBB,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,103.9042583693722,99.67596,316.8167,2026-08-05,USD
+2026-06-18,MPC UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,87.55473112090667,99.63583,290.8735,2026-08-04,USD
+2026-06-18,MPWR UW,,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,106.277218071673,96.42132,47.3718,2026-07-31,USD
+2026-06-18,MRK UN,A+,Aa3,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,92.39813432702549,99.94717,2468.52,2026-08-04,USD
+2026-06-18,MRNA UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,89.59802445901359,92.13936,365.5963,2026-07-31,USD
+2026-06-18,MRSH UN,A-,A3,A-,Financials,Insurance,Insurance,Insurance Brokers,106.09554954825808,99.9006,481.3156,2026-07-17,USD
+2026-06-18,MS UN,A-,,A+,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,95.07827161359057,74.78764,1179.614,2026-07-15,USD
+2026-06-18,MSCI UN,BBB-,Baa3,BBB-,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,102.71272747404451,96.40635,70.49252,2026-07-21,USD
+2026-06-18,MSFT UW,AAA,Aaa,WD,Information Technology,Software & Services,Software,Systems Software,84.88853474189793,99.96609,7425.915,2026-07-30,USD
+2026-06-18,MSI UN,BBB,Baa2,BBB,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,100.27395860317998,99.59547,165.3241,2026-08-07,USD
+2026-06-18,MTB UN,BBB+,,A,Financials,Banks,Banks,Regional Banks,105.04016230211116,99.19691,145.269,2026-07-15,USD
+2026-06-18,MTCH UW,BB,,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,124.2853003159502,99.30396,231.6429,2026-08-05,USD
+2026-06-18,MTD UN,NR,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,114.76795475288515,99.65277,20.13744,2026-07-31,USD
+2026-06-18,MU UW,BBB,Baa2,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,92.4640094252322,99.74971,1124.911,2026-06-24,USD
+2026-06-18,NCLH UN,NR,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",106.19353407872076,98.76591,453.4443,2026-07-31,USD
+2026-06-18,NDAQ UW,BBB+,Baa1,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,105.31784603212448,88.60259,501.0838,2026-07-24,USD
+2026-06-18,NDSN UW,BBB,Baa2,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,85.42745672587745,94.24831,52.51323,2026-08-20,USD
+2026-06-18,NEE UN,A-,Baa1,A-,Utilities,Utilities,Electric Utilities,Electric Utilities,97.41908797843928,99.9084,2083.431,2026-07-23,USD
+2026-06-18,NEM UN,BBB+,A3,A-,Materials,Materials,Metals & Mining,Gold,91.01451056866684,99.8889,1066.367,2026-07-24,USD
+2026-06-18,NFLX UW,A,A2,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,93.00404513813751,99.40762,4185.854,2026-07-16,USD
+2026-06-18,NI UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,110.7707462074722,99.64996,477.761,2026-08-06,USD
+2026-06-18,NKE UN,A+,A2,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo",Footwear,91.96905839941482,97.82536,1173.415,2026-06-30,USD
+2026-06-18,NOC UN,BBB+,A3,BBB+,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,99.00393359041215,99.75792,141.6896,2026-07-22,USD
+2026-06-18,NOW UN,A,A2,,Information Technology,Software & Services,Software,Systems Software,99.70114671121493,99.81438,1029.086,2026-07-23,USD
+2026-06-18,NRG UN,BB,Ba1,BB+,Utilities,Utilities,Electric Utilities,Electric Utilities,109.62618382910657,99.39111,209.7018,2026-08-06,USD
+2026-06-18,NSC UN,BBB+,Baa1 *+,WD,Industrials,Transportation,Ground Transportation,Rail Transportation,87.07942955726914,99.9568,224.497,2026-07-29,USD
+2026-06-18,NTAP UW,BBB+,Baa2,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",118.59250092292616,99.52158,194.9826,2026-09-02,USD
+2026-06-18,NTRS UW,A+,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,96.73258540153613,95.03847,175.8661,2026-07-22,USD
+2026-06-18,NUE UN,A-,A3,A-,Materials,Materials,Metals & Mining,Steel,93.28847511062921,97.68036,222.4582,2026-07-27,USD
+2026-06-18,NVDA UW,AA,Aa1,WD,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,79.6248955554445,96.17508,23274.37,2026-08-27,USD
+2026-06-18,NVR UN,BBB+,A3,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,105.67148426534392,94.49505,2.550697,2026-07-23,USD
+2026-06-18,NWS UW,BBB-,Baa3,BBB,Communication Services,Media & Entertainment,Media,Publishing,94.69229154370147,65.56387,120.8606,2026-08-05,USD
+2026-06-18,NWSA UW,BBB-,Baa3,BBB,Communication Services,Media & Entertainment,Media,Publishing,125.7763098935192,99.81775,364.2299,2026-08-05,USD
+2026-06-18,NXPI UW,BBB+,,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,104.37316090524263,99.86605,252.1329,2026-07-28,USD
+2026-06-18,O UN,A-,A3,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,91.14048388632982,99.86046,931.1913,2026-08-06,USD
+2026-06-18,ODFL UW,,,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,92.9037211869563,91.97639,191.2817,2026-07-30,USD
+2026-06-18,OKE UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,95.29187677550732,99.81154,628.8455,2026-08-04,USD
+2026-06-18,OMC UN,BBB+,Baa1,NR,Communication Services,Media & Entertainment,Media,Advertising,122.48787712419129,99.05635,282.3167,2026-07-15,USD
+2026-06-18,ON UW,BB+,Ba1,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,122.34836486150178,99.42969,389.6681,2026-08-04,USD
+2026-06-18,ORCL UN,BBB,Baa2,BBB,Information Technology,Software & Services,Software,Systems Software,49.99242506974989,59.47612,1710.561,2026-09-09,USD
+2026-06-18,ORLY UW,BBB,Baa1,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,97.73888714607378,99.20184,822.1006,2026-07-23,USD
+2026-06-18,OTIS UN,BBB,Baa1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,106.55484145195673,99.86114,383.1832,2026-07-23,USD
+2026-06-18,OXY UN,BB+,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,114.89502731607182,72.98412,725.9254,2026-08-06,USD
+2026-06-18,PANW UW,,,,Information Technology,Software & Services,Software,Systems Software,85.30415864740658,99.25446,808.9239,2026-08-18,USD
+2026-06-18,PAYC UN,,,,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,106.30063661968924,85.47977,40.71525,2026-08-06,USD
+2026-06-18,PAYX UW,BBB+,Baa1,,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,100.89182858224268,89.76231,321.6102,2026-06-24,USD
+2026-06-18,PCAR UW,A+,A1,,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,82.9040771651041,98.11066,516.3429,2026-07-22,USD
+2026-06-18,PCG UN,BB+,Ba3,BBB-,Utilities,Utilities,Electric Utilities,Electric Utilities,114.0164262623526,99.7317,2196.316,2026-07-31,USD
+2026-06-18,PEG UN,BBB+,Baa2,WD,Utilities,Utilities,Multi-Utilities,Multi-Utilities,88.60728676081958,99.80738,497.3615,2026-08-05,USD
+2026-06-18,PEP UW,A+,A1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,88.40379382932595,99.78072,1363.771,2026-07-09,USD
+2026-06-18,PFE UN,A,A2,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,78.78320760994296,99.02675,5643.975,2026-08-05,USD
+2026-06-18,PFG UW,A-,Baa1,A,Financials,Insurance,Insurance,Life & Health Insurance,90.11226254841944,98.8516,213.5317,2026-07-28,USD
+2026-06-18,PG UN,AA-,Aa3,,Consumer Staples,Household & Personal Products,Household Products,Household Products,81.57201897487141,99.9232,2326.811,2026-07-29,USD
+2026-06-18,PGR UN,A,A2,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,100.99371423789773,99.74541,582.0145,2026-07-16,USD
+2026-06-18,PH UN,BBB+,A3,A-,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,105.72652819533192,99.79576,125.8289,2026-08-06,USD
+2026-06-18,PHM UN,BBB+,Baa1,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,106.94562441270403,99.34091,189.2309,2026-07-22,USD
+2026-06-18,PKG UN,BBB,Baa1,,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,111.4818568234928,98.29531,87.5798,2026-07-23,USD
+2026-06-18,PLD UN,A,A3,WD,Real Estate,Equity Real Estate Investment,Industrial REITs,Industrial REITs,108.53037865778813,99.74412,929.8452,2026-07-16,USD
+2026-06-18,PLTR UW,,,,Information Technology,Software & Services,Software,Application Software,69.70061047362552,96.52051,2216.18,2026-08-04,USD
+2026-06-18,PM UN,A-,A2,A,Consumer Staples,"Food, Beverage & Tobacco",Tobacco,Tobacco,112.62304752175729,99.82903,1555.894,2026-07-22,USD
+2026-06-18,PNC UN,A-,,A+,Financials,Banks,Banks,Diversified Banks,96.1742579750058,99.3372,398.9031,2026-07-15,USD
+2026-06-18,PNR UN,BBB-,,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,111.15859361017098,99.07015,160.1029,2026-07-22,USD
+2026-06-18,PNW UN,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,130.51730714042404,99.66223,120.7778,2026-08-06,USD
+2026-06-18,PODD UW,BB,Ba2,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,117.77096483663598,99.52145,68.9332,2026-08-07,USD
+2026-06-18,POOL UW,,,,Consumer Discretionary,Consumer Discretionary Distrib,Distributors,Distributors,126.6586491566253,96.53041,35.17858,2026-07-24,USD
+2026-06-18,PPG UN,BBB+,A3,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,103.7442024509869,99.85404,222.5746,2026-07-29,USD
+2026-06-18,PPL UN,A-,Baa1,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,99.1891652699691,95.9816,722.1179,2026-07-31,USD
+2026-06-18,PRU UN,A,A3,A *-,Financials,Insurance,Insurance,Life & Health Insurance,73.68060996868103,99.69806,345.9523,2026-07-30,USD
+2026-06-18,PSA UN,A,A3,,Real Estate,Equity Real Estate Investment,Specialized REITs,Self-Storage REITs,96.84834548330784,89.7093,157.4809,2026-07-30,USD
+2026-06-18,PSKY UW,BB+ *-,B1,BB+ *-,Communication Services,Media & Entertainment,Media,Broadcasting,34.13901432315937,83.0763,903.5985,2026-07-30,USD
+2026-06-18,PSX UN,BBB+,Baa1,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,90.17807442023287,99.76165,399.9794,2026-07-24,USD
+2026-06-18,PTC UW,BB+,Ba1,,Information Technology,Software & Services,Software,Application Software,118.97412029774446,99.67454,115.1299,2026-07-29,USD
+2026-06-18,PWR UN,BBB,Baa2,BBB,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,98.81397225029238,99.31243,149.0284,2026-07-31,USD
+2026-06-18,PYPL UW,A-,A3,A-,Financials,Financial Services,Financial Services,Transaction & Payment Processi,87.55888542644736,99.62841,878.8276,2026-07-29,USD
+2026-06-18,Q UN,BB+,,BB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,85.94100795579767,99.86372,209.0539,2026-08-14,USD
+2026-06-18,QCOM UW,A,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,96.41941178760051,99.89187,1052.86,2026-07-30,USD
+2026-06-18,RCL UN,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",82.03066327600703,88.2832,236.7711,2026-07-29,USD
+2026-06-18,REG UW,A-,WR,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,116.73923662517471,99.48434,182.1526,2026-07-29,USD
+2026-06-18,REGN UW,BBB+,Baa1,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,100.25819840097401,97.85725,100.8144,2026-08-14,USD
+2026-06-18,RF UN,BBB+,,A-,Financials,Banks,Banks,Regional Banks,96.54655661510246,99.47697,848.9161,2026-07-17,USD
+2026-06-18,RJF UN,A-,A3,A-,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,90.49773478387601,99.0743,193.079,2026-07-22,USD
+2026-06-18,RL UN,A-,A3,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",117.74017569282593,97.36265,36.6425,2026-08-07,USD
+2026-06-18,RMD UN,NR,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,86.72275213261949,99.46775,144.2843,2026-07-31,USD
+2026-06-18,ROK UN,A-,A3,A,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,98.99640986480489,99.79662,111.0477,2026-08-06,USD
+2026-06-18,ROL UN,BBB,,BBB+,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,69.92420278591162,64.75325,311.7633,2026-07-23,USD
+2026-06-18,ROP UW,BBB+,Baa2,,Information Technology,Software & Services,Software,Application Software,112.35298912225144,99.62582,100.5397,2026-07-21,USD
+2026-06-18,ROST UW,A-,A2,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Apparel Retail,102.38227217337435,97.74963,313.5623,2026-08-21,USD
+2026-06-18,RSG UN,A-,A3,A-,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,103.45523824868627,63.8697,196.5042,2026-07-29,USD
+2026-06-18,RTX UN,BBB+,Baa1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,85.54634278598525,99.93372,1345.791,2026-07-22,USD
+2026-06-18,RVTY UN,BBB,Baa3,BBB,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,125.17658188498987,99.52332,111.028,2026-07-28,USD
+2026-06-18,SATS UW,CCC+ *+,B3,,Communication Services,Media & Entertainment,Media,Cable & Satellite,126.1501703272085,83.78361,132.7677,2026-07-31,USD
+2026-06-18,SBAC UW,BBB- *+,Ba2,BBB-,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,111.55165639971061,99.08857,105.0963,2026-08-04,USD
+2026-06-18,SBUX UW,BBB+,Baa1,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,112.22119282890336,99.84431,1137.926,2026-07-29,USD
+2026-06-18,SCHW UN,A-,A2,A,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,94.84864275138354,93.70171,1629.6,2026-07-17,USD
+2026-06-18,SHW UN,BBB,Baa2,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,99.13742481550149,92.86897,229.0479,2026-07-22,USD
+2026-06-18,SJM UN,BBB,Baa2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,101.09126794738326,96.99725,103.4593,2026-08-27,USD
+2026-06-18,SLB UN,A,A1,,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,106.959343356922,99.80477,1492.139,2026-07-24,USD
+2026-06-18,SMCI UW,,,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",68.94541622294935,86.84675,561.7529,2026-08-05,USD
+2026-06-18,SNA UN,A-,A2,A,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,109.18935299387181,97.66254,50.59107,2026-07-17,USD
+2026-06-18,SNDK UW,BB+,Ba2,BB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",86.37187374252375,98.72063,146.1951,2026-08-14,USD
+2026-06-18,SNPS UW,BBB,Baa1,,Information Technology,Software & Services,Software,Application Software,103.53745633528904,99.56555,190.6474,2026-09-09,USD
+2026-06-18,SO UN,A-,Baa1,BBB+,Utilities,Utilities,Electric Utilities,Electric Utilities,86.44496421204401,99.38424,1121.372,2026-07-31,USD
+2026-06-18,SOLV UN,BBB,Baa3,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,85.00977219796894,85.00432,147.206,2026-08-07,USD
+2026-06-18,SPG UN,A,,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,106.16137082738628,95.5496,309.8501,2026-08-04,USD
+2026-06-18,SPGI UN,,A3,A-,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,101.54097316915384,96.50507,292.6034,2026-07-31,USD
+2026-06-18,SRE UN,BBB+,Baa2,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,103.23977306461953,99.95535,653.3982,2026-08-05,USD
+2026-06-18,STE UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,114.12077089916973,99.66635,97.13251,2026-08-06,USD
+2026-06-18,STLD UW,BBB,Baa2,BBB+,Materials,Materials,Metals & Mining,Steel,97.30647361363835,93.29291,134.5403,2026-07-20,USD
+2026-06-18,STT UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,105.69368636747987,93.84789,259.74,2026-07-16,USD
+2026-06-18,STX UW,BB+,,BBB-,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",101.42780435948741,99.77306,223.7201,2026-07-29,USD
+2026-06-18,STZ UN,BBB,Baa2,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Distillers & Vintners,124.05648356709513,87.20217,150.1382,2026-06-30,USD
+2026-06-18,SW UN,BBB,Baa2,BBB+,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,114.20208409888566,99.46523,521.7101,2026-07-30,USD
+2026-06-18,SWK UN,BBB+,Baa3,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,105.5860327265329,99.71773,155.0168,2026-07-29,USD
+2026-06-18,SWKS UW,BBB-,Ba1,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,126.89183704574947,99.60183,149.8071,2026-08-05,USD
+2026-06-18,SYF UN,BBB-,,BBB,Financials,Financial Services,Consumer Finance,Consumer Finance,128.66076828493902,99.47976,335.1984,2026-07-22,USD
+2026-06-18,SYK UN,BBB+,A3,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,90.82867002385201,91.82643,352.0265,2026-07-31,USD
+2026-06-18,SYY UN,BBB,Baa2 *-,BBB *-,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Distributors,100.20612309263552,99.76636,477.0654,2026-07-29,USD
+2026-06-18,T UN,BBB,Baa2,BBB+ *-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,79.46656376804407,99.88512,6940.356,2026-07-22,USD
+2026-06-18,TAP UN,BBB,Baa1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Brewers,110.96555606471287,88.28178,154.6833,2026-08-05,USD
+2026-06-18,TDG UN,,,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,132.02881445835763,98.84874,55.28964,2026-08-05,USD
+2026-06-18,TDY UN,BBB,Baa1,BBB,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,111.89622839893,98.98251,45.85775,2026-07-23,USD
+2026-06-18,TECH UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,130.2406880283499,99.69543,156.0919,2026-08-06,USD
+2026-06-18,TEL UN,A-,,A-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Manufacturing Servi,107.41318287966872,99.889,291.5718,2026-07-23,USD
+2026-06-18,TER UW,NR,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,108.74246175518036,99.73878,156.1333,2026-07-29,USD
+2026-06-18,TFC UN,A-,,A,Financials,Banks,Banks,Regional Banks,94.02622123982701,99.07899,1234.405,2026-07-17,USD
+2026-06-18,TGT UN,A,A2,WD,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,84.62913192011008,99.71783,452.9095,2026-08-20,USD
+2026-06-18,TJX UN,A,A2,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Apparel Retail,104.42028184105865,99.70489,1101.444,2026-08-19,USD
+2026-06-18,TKO UN,,,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,129.1406892145588,79.874,59.87968,2026-08-06,USD
+2026-06-18,TMO UN,A-,A2,A-,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,104.63466680936051,99.86227,371.1096,2026-07-23,USD
+2026-06-18,TMUS UW,BBB+,,BBB+,Communication Services,Telecommunication Services,Wireless Telecommunication Ser,Wireless Telecommunication Ser,46.31911430538069,40.96831,443.361,2026-07-23,USD
+2026-06-18,TPL UN,,,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,80.22145701958249,93.96029,64.80857,2026-08-06,USD
+2026-06-18,TPR UN,BBB,Baa2,WD,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",106.86241734188218,99.23735,200.5038,2026-08-13,USD
+2026-06-18,TRGP UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,107.58934695530648,98.4961,211.4159,2026-08-07,USD
+2026-06-18,TRMB UW,BBB-,Baa3,,Information Technology,Software & Services,Software,Application Software,115.28523368765676,99.57679,232.125,2026-08-06,USD
+2026-06-18,TROW UW,,,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,98.74146685288183,97.93877,209.8501,2026-07-31,USD
+2026-06-18,TRV UN,A,A2,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,88.15766695206425,98.65855,209.7922,2026-07-17,USD
+2026-06-18,TSCO UW,BBB,Baa1,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Other Specialty Retail,107.75773790179409,99.67155,522.7271,2026-07-24,USD
+2026-06-18,TSLA UW,BBB,Baa3,,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,50.58829384500838,88.91059,3339.236,2026-07-02,USD
+2026-06-18,TSN UN,BBB,Baa2,BBB,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,105.64751470117582,98.01691,276.5257,2026-08-04,USD
+2026-06-18,TT UN,A-,A3,NR,Industrials,Capital Goods,Building Products,Building Products,103.72257917756811,99.7654,220.5369,2026-07-30,USD
+2026-06-18,TTD UQ,,,,Communication Services,Media & Entertainment,Media,Advertising,98.54589080871338,97.75367,417.4079,2026-08-07,USD
+2026-06-18,TTWO UW,BBB,Baa2,,Communication Services,Media & Entertainment,Entertainment,Interactive Home Entertainment,103.42428073175745,96.21751,178.6438,2026-08-07,USD
+2026-06-18,TXN UW,A+,Aa3,WD,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,101.32872805447435,99.83996,908.6363,2026-07-22,USD
+2026-06-18,TXT UN,BBB,Baa1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,102.15360515396709,99.04906,172.2354,2026-07-24,USD
+2026-06-18,TYL UN,,,,Information Technology,Software & Services,Software,Application Software,115.23712404502417,99.51098,41.96125,2026-07-30,USD
+2026-06-18,UAL UW,BB+,Ba1,BB+,Industrials,Transportation,Passenger Airlines,Passenger Airlines,94.98278553997848,99.37172,322.6097,2026-07-16,USD
+2026-06-18,UBER UN,BBB+,Baa1,A-,Industrials,Transportation,Ground Transportation,Passenger Ground Transportatio,101.18500834256514,99.57317,2026.911,2026-08-06,USD
+2026-06-18,UDR UN,BBB+,Baa1,,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,129.6190782558707,99.53841,323.4159,2026-07-30,USD
+2026-06-18,UHS UN,BB+,Baa3,BB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Facilities,111.92442634296984,93.96315,50.07071,2026-07-28,USD
+2026-06-18,ULTA UW,,,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Other Specialty Retail,115.94871360656174,99.595,42.8152,2026-08-26,USD
+2026-06-18,UNH UN,A+,A2,A,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,96.24667937870359,99.26541,901.4733,2026-07-16,USD
+2026-06-18,UNP UN,A-,A3,A- *+,Industrials,Transportation,Ground Transportation,Rail Transportation,101.68185487962766,99.8692,592.9366,2026-07-24,USD
+2026-06-18,UPS UN,A,A2,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,79.88718930149841,99.96269,746.3033,2026-07-28,USD
+2026-06-18,URI UN,BB+,,NR,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,112.80187146081298,99.46906,62.31394,2026-07-23,USD
+2026-06-18,USB UN,A,,A+,Financials,Banks,Banks,Diversified Banks,94.13487726702131,99.0899,1543.555,2026-07-16,USD
+2026-06-18,V UN,AA-,Aa3,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,103.48960687530906,99.44018,1650.419,2026-07-29,USD
+2026-06-18,VEEV UN,,,,Health Care,Health Care Equipment & Servic,Health Care Technology,Health Care Technology,96.90228848183355,90.97109,147.7764,2026-08-27,USD
+2026-06-18,VICI UN,BBB-,,BBB-,Real Estate,Equity Real Estate Investment,Specialized REITs,Other Specialized REITs,115.27725014182131,99.70917,1089.664,2026-07-30,USD
+2026-06-18,VLO UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,97.66305652404141,99.58262,295.6934,2026-07-30,USD
+2026-06-18,VLTO UN,BBB,Baa1,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,110.39790015812865,99.84375,245.2155,2026-07-28,USD
+2026-06-18,VMC UN,BBB+,Baa2,BBB+,Materials,Materials,Construction Materials,Construction Materials,114.59487659862712,99.8111,129.5098,2026-07-31,USD
+2026-06-18,VRSK UW,BBB,Baa1,WD,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,114.24463017481983,99.66585,130.584,2026-07-30,USD
+2026-06-18,VRSN UW,BBB,Baa2,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,106.71423072535488,89.23416,81.20309,2026-07-24,USD
+2026-06-18,VRT UN,BBB-,,BBB-,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,95.02608680577764,98.4764,378.2566,2026-07-30,USD
+2026-06-18,VRTX UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,125.30558173236157,99.7798,253.2465,2026-08-04,USD
+2026-06-18,VST UN,BBB-,Ba1,BBB-,Utilities,Utilities,Independent Power and Renewabl,Independent Power Producers &,101.17021886157818,98.9952,333.7945,2026-08-07,USD
+2026-06-18,VTR UN,BBB+,(P)Baa2,WD,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,116.13981129044721,98.4858,478.8081,2026-07-30,USD
+2026-06-18,VTRS UW,BB+,Baa3,BBB,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,102.66475802619777,99.22724,1155.553,2026-08-07,USD
+2026-06-18,VZ UN,BBB+,Baa1,A-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,79.67955428720627,91.1095,3804.331,2026-07-24,USD
+2026-06-18,WAB UN,BBB,Baa2,BBB,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,107.98424209695641,98.88587,167.7869,2026-07-24,USD
+2026-06-18,WAT UN,BBB,Baa2,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,110.23123738135479,99.90369,98.09129,2026-08-04,USD
+2026-06-18,WBD UW,BB+ *-,Ba1 *-,BB+ *-,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,82.52516655287377,94.70238,2374.318,2026-08-07,USD
+2026-06-18,WDAY UW,BBB+,Baa1,,Information Technology,Software & Services,Software,Application Software,114.35897431740956,98.31268,197.6085,2026-08-21,USD
+2026-06-18,WDC UW,BBB-,,BBB-,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",106.22200696715116,99.30598,363.4322,2026-07-30,USD
+2026-06-18,WEC UN,A-,Baa1,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,96.73684580671444,99.82737,325.1634,2026-07-29,USD
+2026-06-18,WELL UN,A-,A3,,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,113.39808361106687,99.95851,705.6215,2026-07-28,USD
+2026-06-18,WFC UN,BBB+,,A+,Financials,Banks,Banks,Diversified Banks,88.85857894396152,99.70242,3051.083,2026-07-14,USD
+2026-06-18,WM UN,A-,A3,A-,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,95.32507731998926,99.78757,400.7227,2026-07-28,USD
+2026-06-18,WMB UN,BBB+,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,100.08462396959112,99.50488,1216.802,2026-08-04,USD
+2026-06-18,WMT UW,AA,Aa2,AA,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,85.65419601674526,54.43486,4331.97,2026-08-20,USD
+2026-06-18,WRB UN,A-,Baa1,A,Financials,Insurance,Insurance,Property & Casualty Insurance,111.78720499346291,73.61246,274.0421,2026-07-21,USD
+2026-06-18,WSM UN,,,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Homefurnishing Retail,109.12969933330649,98.8418,116.3829,2026-08-27,USD
+2026-06-18,WST UN,,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,115.37645050454222,99.36575,70.19952,2026-07-24,USD
+2026-06-18,WTW UW,BBB+,(P)Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,111.0573629693563,99.42337,93.90336,2026-07-31,USD
+2026-06-18,WY UN,BBB,Baa2,WD,Real Estate,Equity Real Estate Investment,Specialized REITs,Timber REITs,98.19286896764116,99.5593,717.8654,2026-07-24,USD
+2026-06-18,WYNN UW,BB-,,BB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,99.4379089581353,72.10168,74.83198,2026-08-07,USD
+2026-06-18,XEL UW,BBB+,Baa1,BBB+,Utilities,Utilities,Electric Utilities,Electric Utilities,102.33985197413983,99.77018,622.8348,2026-07-31,USD
+2026-06-18,XOM UN,AA-,Aa2,WD,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,78.2052748003661,99.66106,4130.408,2026-07-31,USD
+2026-06-18,XYL UN,BBB,Baa2,WD,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,110.81482271692407,99.35651,236.164,2026-07-31,USD
+2026-06-18,XYZ UN,BB+,Ba1,BBB-,Financials,Financial Services,Financial Services,Transaction & Payment Processi,93.5580742270767,98.47684,527.0432,2026-08-07,USD
+2026-06-18,YUM UN,BB+,Ba2,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,101.11930555054411,99.84512,275.1943,2026-08-05,USD
+2026-06-18,ZBH UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,114.31565114213188,99.80119,193.0779,2026-08-07,USD
+2026-06-18,ZBRA UW,BB+,Ba1,,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,111.86411929834719,98.99599,47.15515,2026-08-04,USD
+2026-06-18,ZTS UN,BBB+,A3,,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,114.28233684723385,91.41644,383.2434,2026-08-05,USD
+2026-07-03,A UN,BBB+,Baa1,BBB+,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,105.10372071402547,99.71899,281.6383,2026-08-27,USD
+2026-07-03,AAPL UW,AA+,Aaa,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",76.86647475599304,97.99869,14393.42,2026-07-30,USD
+2026-07-03,ABBV UN,A-,A2,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,86.3428096933351,99.9051,1765.116,2026-07-31,USD
+2026-07-03,ABNB UW,A-,Baa1,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",94.66349788053725,96.22577,402.1566,2026-08-06,USD
+2026-07-03,ABT UN,A+,Aa3,WD,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,91.59128413233427,98.37396,1713.49,2026-07-16,USD
+2026-07-03,ACGL UW,A,A3,A,Financials,Insurance,Insurance,Property & Casualty Insurance,112.64643016345384,96.28079,336.3951,2026-07-28,USD
+2026-07-03,ACN UN,AA-,Aa3,WD,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,93.7499354638029,99.96403,613.7184,2026-09-25,USD
+2026-07-03,ADBE UW,A+,A1,,Information Technology,Software & Services,Software,Application Software,95.77937813480767,99.81042,396.7464,2026-09-10,USD
+2026-07-03,ADI UW,A,A2,A,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,102.72326837575454,99.74606,485.8502,2026-08-20,USD
+2026-07-03,ADM UN,A,A2,A,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Agricultural Products & Servic,97.46753839876217,99.29546,478.561,2026-08-05,USD
+2026-07-03,ADP UW,AA-,Aa3,AA-,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,98.9931908252703,99.57094,398.0192,2026-07-29,USD
+2026-07-03,ADSK UW,BBB+,A3,,Information Technology,Software & Services,Software,Application Software,106.9168728626757,99.71711,210.4031,2026-08-28,USD
+2026-07-03,AEE UN,BBB+,Baa1,WD,Utilities,Utilities,Multi-Utilities,Multi-Utilities,98.00541349378862,99.57024,275.5109,2026-07-31,USD
+2026-07-03,AEP UW,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,89.75764932889841,99.47241,564.6534,2026-07-30,USD
+2026-07-03,AES UN,BBB-,Baa3,BBB-,Utilities,Utilities,Independent Power and Renewabl,Independent Power Producers &,109.31183612657863,93.5603,667.2325,2026-07-31,USD
+2026-07-03,AFL UN,A-,A3,WD,Financials,Insurance,Insurance,Life & Health Insurance,77.55368327837998,99.29405,505.3917,2026-08-06,USD
+2026-07-03,AIG UN,A-,Baa1,A,Financials,Insurance,Insurance,Property & Casualty Insurance,113.20666079557967,99.53941,527.7642,2026-08-06,USD
+2026-07-03,AIZ UN,BBB,Baa2,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,110.92967162510664,99.21352,49.15796,2026-08-05,USD
+2026-07-03,AJG UN,BBB+,Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,111.51860366331373,99.00547,254.345,2026-07-31,USD
+2026-07-03,AKAM UW,BBB-,Baa2,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,123.82769664051709,97.83208,142.2336,2026-08-06,USD
+2026-07-03,ALB UN,BBB-,Baa3,BBB-,Materials,Materials,Chemicals,Specialty Chemicals,111.76561088996874,99.65145,117.5236,2026-07-30,USD
+2026-07-03,ALGN UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,104.93388123074143,99.24151,71.07491,2026-07-29,USD
+2026-07-03,ALL UN,BBB+,A3,BBB+u,Financials,Insurance,Insurance,Property & Casualty Insurance,95.32718923027596,98.28058,252.9948,2026-08-05,USD
+2026-07-03,ALLE UN,BBB,Baa2,BBB,Industrials,Capital Goods,Building Products,Building Products,121.18469795635612,98.69771,84.81673,2026-07-24,USD
+2026-07-03,AMAT UW,A,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,93.5341141796878,99.64178,791.1153,2026-08-13,USD
+2026-07-03,AMCR UN,BBB,Baa2,BBB+,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,83.98192466635255,99.72803,461.0883,2026-08-14,USD
+2026-07-03,AMD UW,A,A1,NR,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,78.62473587321588,99.63318,1624.619,2026-08-05,USD
+2026-07-03,AME UN,BBB+,A3,NR,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,102.99635292074352,99.60133,228.2892,2026-07-31,USD
+2026-07-03,AMGN UW,BBB+,Baa1,BBB+,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,97.5972064067501,99.79456,538.5995,2026-08-05,USD
+2026-07-03,AMP UN,A-,A3,A-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,101.37555414560993,99.74714,90.46035,2026-07-23,USD
+2026-07-03,AMT UN,BBB+,Baa2,BBB+,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,106.70814968692261,99.79424,464.9344,2026-07-28,USD
+2026-07-03,AMZN UW,AA,A1,AA-,Consumer Discretionary,Consumer Discretionary Distrib,Broadline Retail,Broadline Retail,76.11852301203737,91.75666,9870.364,2026-07-31,USD
+2026-07-03,ANET UN,,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,82.49396338632367,82.96748,1044.729,2026-08-05,USD
+2026-07-03,AON UN,A-,(P)Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,104.84730017211092,98.52335,210.4232,2026-07-24,USD
+2026-07-03,AOS UN,,,,Industrials,Capital Goods,Building Products,Building Products,121.25827844458512,99.54665,111.4579,2026-07-30,USD
+2026-07-03,APA UW,BBB-,Baa3,BBB-,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,109.6981556999054,99.35492,351.19,2026-08-06,USD
+2026-07-03,APD UN,A,A3,,Materials,Materials,Chemicals,Industrial Gases,110.49313665398711,99.55985,221.7005,2026-07-31,USD
+2026-07-03,APH UN,A-,A3,,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,109.4612968235748,99.47189,1223.738,2026-07-29,USD
+2026-07-03,APO UN,A,A2,A,Financials,Financial Services,Financial Services,Diversified Financial Services,89.83325495035494,69.73112,402.0121,2026-08-04,USD
+2026-07-03,APP UW,BBB+,Baa1,BBB+,Information Technology,Software & Services,Software,Application Software,86.76648946237266,90.58597,276.9503,2026-08-05,USD
+2026-07-03,APTV UN,BBB,Baa2,BBB,Consumer Discretionary,Automobiles & Components,Automobile Components,Automotive Parts & Equipment,115.5158728181249,98.50413,208.455,2026-07-31,USD
+2026-07-03,ARE UN,BBB+,Baa2,,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,103.4724683415429,98.32038,171.3424,2026-08-03,USD
+2026-07-03,ARES UN,BBB+,,A-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,122.27305319184613,93.36432,207.2953,2026-07-31,USD
+2026-07-03,ATO UN,A-,A2,WD,Utilities,Utilities,Gas Utilities,Gas Utilities,114.5566756713824,99.60296,166.2571,2026-08-06,USD
+2026-07-03,AVB UN,A-,A3,,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,108.43389024700589,99.57191,138.5166,2026-07-30,USD
+2026-07-03,AVGO UW,A-,A3,A-,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,90.73925553347904,98.16745,4670.395,2026-09-04,USD
+2026-07-03,AVY UN,BBB,Baa2,,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,110.14508033786738,99.19729,75.87639,2026-07-30,USD
+2026-07-03,AWK UN,A,Baa1,,Utilities,Utilities,Water Utilities,Water Utilities,114.69093929467067,99.19647,193.7114,2026-07-29,USD
+2026-07-03,AXON UW,BB+,Ba2,,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,97.16200242266446,95.20135,76.73426,2026-08-04,USD
+2026-07-03,AXP UN,A-,,A,Financials,Financial Services,Consumer Finance,Consumer Finance,117.6867834137637,77.61497,529.5875,2026-07-24,USD
+2026-07-03,AZO UN,BBB,Baa1,BBB,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,106.2423080817686,99.7347,16.28204,2026-09-23,USD
+2026-07-03,BA UN,BBB-,Baa3,BBB-,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,86.76676069758523,99.87698,787.3325,2026-07-28,USD
+2026-07-03,BAC UN,A-,,AA-,Financials,Banks,Banks,Diversified Banks,93.4515390819869,92.484,6563.211,2026-07-14,USD
+2026-07-03,BALL UN,BB+,Ba1,WD,Materials,Materials,Containers & Packaging,"Metal, Glass & Plastic Contain",106.39425249807081,99.70589,265.4635,2026-08-05,USD
+2026-07-03,BAX UN,BBB-,Baa3,WD,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,111.63773407486283,99.52174,513.7835,2026-07-31,USD
+2026-07-03,BBY UN,BBB+,A3,WD,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Computer & Electronics Retail,108.73593406797933,93.47945,197.0239,2026-08-28,USD
+2026-07-03,BDX UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,110.23747813498596,99.81173,275.0217,2026-08-07,USD
+2026-07-03,BEN UN,A,A2,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,61.67843884603757,58.93002,306.2223,2026-07-31,USD
+2026-07-03,BF/B UN,A-,A2,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Distillers & Vintners,78.97971590458339,96.99828,281.6669,2026-08-28,USD
+2026-07-03,BG UN,A-,,BBB+,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Agricultural Products & Servic,97.13420254832305,82.14157,159.3695,2026-07-29,USD
+2026-07-03,BIIB UW,BBB+,Baa2,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,108.14697068446957,99.78156,147.3146,2026-07-29,USD
+2026-07-03,BK UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,,,,2026-07-15,USD
+2026-07-03,BKNG UW,A-,A3,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",120.85731509672542,99.63976,772.087,2026-07-29,USD
+2026-07-03,BKR UW,A *-,,,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,108.93059834429175,99.88376,990.9155,2026-07-26,USD
+2026-07-03,BLDR UN,BB,Ba1,,Industrials,Capital Goods,Building Products,Building Products,112.03983667635984,96.92458,104.252,2026-07-31,USD
+2026-07-03,BLK UN,AA-,Aa3,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,88.03093766595848,90.32454,140.2144,2026-07-15,USD
+2026-07-03,BMY UN,A,A2,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,92.95946228518578,99.93195,2040.682,2026-07-30,USD
+2026-07-03,BNY UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,90.70096923091776,99.06327,679.9495,2026-07-15,USD
+2026-07-03,BR UN,BBB,Baa2,BBB+,Industrials,Commercial & Professional Serv,Professional Services,Data Processing & Outsourced S,110.4984942483056,99.56833,115.159,2026-08-05,USD
+2026-07-03,BRK/B UN,AA,Aa2,AA-u,Financials,Financial Services,Financial Services,Multi-Sector Holdings,77.79740347341013,99.65481,1393.482,2026-08-03,USD
+2026-07-03,BRO UN,BBB-,Baa3,BBB,Financials,Insurance,Insurance,Insurance Brokers,98.58593050760386,86.76656,294.0934,2026-07-27,USD
+2026-07-03,BSX UN,A-,A3,A-,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,105.48045517825093,99.83391,1483.887,2026-07-28,USD
+2026-07-03,BX UN,A+,,A+,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,82.96487681321331,98.77789,733.801,2026-07-23,USD
+2026-07-03,BXP UN,BBB,(P)Baa3,WD,Real Estate,Equity Real Estate Investment,Office REITs,Office REITs,119.54338336375999,99.24323,158.2705,2026-07-28,USD
+2026-07-03,C UN,BBB+,,A,Financials,Banks,Banks,Diversified Banks,92.59360782823386,99.65748,1699.735,2026-07-14,USD
+2026-07-03,CAG UN,BBB-,Baa3,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,96.35391649997284,99.2844,475.0135,2026-07-15,USD
+2026-07-03,CAH UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,92.35910976716696,99.75399,233.6297,2026-08-12,USD
+2026-07-03,CARR UN,BBB+,Baa1,WD,Industrials,Capital Goods,Building Products,Building Products,105.98494206162894,95.19718,790.6892,2026-07-29,USD
+2026-07-03,CASY UW,,,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Retail,97.65740585489318,99.33904,36.76033,2026-09-08,USD
+2026-07-03,CAT UN,A,A1,A+,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,82.39746873477631,99.79117,459.6301,2026-08-04,USD
+2026-07-03,CB UN,A,,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,111.49068928315641,90.07984,349.3838,2026-07-21,USD
+2026-07-03,CBOE UF,A-,A2,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,100.81953043355429,99.73925,104.3809,2026-07-31,USD
+2026-07-03,CBRE UN,BBB+,,BBB+,Real Estate,Real Estate Management & Devel,Real Estate Management & Devel,Real Estate Services,111.08669610597313,99.22822,290.5567,2026-07-29,USD
+2026-07-03,CCI UN,BBB,Baa3,BBB,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,111.12148634768873,99.61919,434.7899,2026-07-22,USD
+2026-07-03,CCL UN,BBB-,Ba1,BBB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",74.65521515133996,98.74724,1352.491,2026-09-29,USD
+2026-07-03,CDNS UW,A-,A3,A-,Information Technology,Software & Services,Software,Application Software,99.99063685645214,99.65284,274.8585,2026-07-28,USD
+2026-07-03,CDW UW,BBB-,,BBB-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Technology Distributors,114.93600113221243,99.44578,127.0454,2026-08-06,USD
+2026-07-03,CEG UW,,,,Utilities,Utilities,Electric Utilities,Electric Utilities,96.66749022689854,92.86757,336.4543,2026-08-06,USD
+2026-07-03,CF UN,BBB,,BBB,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,114.6269385170466,99.41871,152.7362,2026-08-05,USD
+2026-07-03,CFG UN,BBB+,,BBB+,Financials,Banks,Banks,Regional Banks,120.86146601143794,93.27631,394.4486,2026-07-16,USD
+2026-07-03,CHD UN,BBB+,A2,,Consumer Staples,Household & Personal Products,Household Products,Household Products,103.95482145002737,99.76084,236.3769,2026-07-31,USD
+2026-07-03,CHRW UW,BBB+,Baa2,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,118.51785801362493,97.55327,114.9669,2026-07-30,USD
+2026-07-03,CHTR UW,BB+,Ba2,BB+ *+,Communication Services,Media & Entertainment,Media,Cable & Satellite,90.60869768245104,64.7527,79.6358,2026-07-24,USD
+2026-07-03,CI UN,A-,Baa1,BBB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,103.1567664759254,99.61667,263.5184,2026-07-31,USD
+2026-07-03,CIEN UN,BB+,Baa3,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,105.90795945606826,98.99062,140.1241,2026-09-04,USD
+2026-07-03,CINF UW,BBB+,A3,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,80.29252052817459,98.1292,152.7736,2026-07-28,USD
+2026-07-03,CL UN,A+,Aa3,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,99.07220625928326,99.74052,798.113,2026-07-31,USD
+2026-07-03,CLX UN,BBB,Baa1,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,94.58476947022196,99.43419,120.2372,2026-07-31,USD
+2026-07-03,CMCSA UW,A- *-,A3 *-,A- *-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,105.81017230656637,99.3365,3539.145,2026-07-23,USD
+2026-07-03,CME UW,AA-,Aa3,AA-u,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,102.18321504338088,99.69822,361.2627,2026-07-22,USD
+2026-07-03,CMG UN,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,109.02779328751957,99.30278,1273.791,2026-07-29,USD
+2026-07-03,CMI UN,A,A2,WD,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,98.12537838184114,99.73539,137.6239,2026-08-05,USD
+2026-07-03,CMS UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,109.66988415545056,98.60163,304.5998,2026-07-31,USD
+2026-07-03,CNC UN,BB+,Ba1,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,109.771635746792,99.18352,489.7652,2026-07-28,USD
+2026-07-03,CNP UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,132.03789553007093,99.41544,649.0552,2026-07-24,USD
+2026-07-03,COF UN,BBB,,A-,Financials,Financial Services,Consumer Finance,Consumer Finance,99.42674582669284,97.99643,609.8247,2026-07-21,USD
+2026-07-03,COHR UN,BB,Ba2,BB,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,97.99640922699831,99.44154,194.5468,2026-08-13,USD
+2026-07-03,COIN UW,BB-,B1,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,81.19290006082498,97.09682,215.9694,2026-07-31,USD
+2026-07-03,COO UW,NR,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,124.3022504486661,98.94779,192.9785,2026-08-27,USD
+2026-07-03,COP UN,A-,A2,A,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,97.26265150494939,99.91985,1217.876,2026-08-06,USD
+2026-07-03,COR UN,BBB+,Baa1,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,100.7438038249547,95.80411,186.3975,2026-08-05,USD
+2026-07-03,COST UW,AA,Aa3,AA,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,80.60701180380843,99.90816,443.0715,2026-09-24,USD
+2026-07-03,CPAY UN,BB+,,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,113.38053427929917,96.06719,62.79136,2026-08-06,USD
+2026-07-03,CPB UW,BBB-,Baa2,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,68.59706518625168,70.85493,211.2938,2026-09-03,USD
+2026-07-03,CPRT UW,,,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Diversified Support Services,92.99678787582523,91.12123,843.6108,2026-09-04,USD
+2026-07-03,CPT UN,A-,A3,A-,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,116.84446963912751,98.51582,99.02783,2026-07-31,USD
+2026-07-03,CRH UN,BBB+,Baa1,BBB+,Materials,Materials,Construction Materials,Construction Materials,104.86141238585698,99.84205,667.1448,2026-08-06,USD
+2026-07-03,CRL UN,BB+,Ba1,BBB-,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,128.7362016340628,98.8725,47.62464,2026-08-06,USD
+2026-07-03,CRM UN,A+,A2,,Information Technology,Software & Services,Software,Application Software,105.17053270208162,96.65902,791.6374,2026-09-03,USD
+2026-07-03,CRWD UW,BBB-,Baa2,,Information Technology,Software & Services,Software,Systems Software,84.20998102813574,97.23039,990.0575,2026-08-27,USD
+2026-07-03,CSCO UW,AA-,A1,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,90.16666521256532,90.67825,3574.024,2026-08-13,USD
+2026-07-03,CSGP UW,BB+,Baa3,BBB,Real Estate,Real Estate Management & Devel,Real Estate Management & Devel,Real Estate Services,115.11294424602487,99.21811,405.1628,2026-07-28,USD
+2026-07-03,CSX UW,BBB+,A3,A-,Industrials,Transportation,Ground Transportation,Rail Transportation,89.89444882474703,99.70924,1852.736,2026-07-22,USD
+2026-07-03,CTAS UW,A-,,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Diversified Support Services,90.64138795505006,85.55769,342.3053,2026-07-15,USD
+2026-07-03,CTRA UN,BBB+,Baa2,BBB+ *+,,,,,96.20852257178385,97.15496,737.7543,2026-08-04,USD
+2026-07-03,CTSH UW,,,,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,118.04505982321851,99.63581,472.1437,2026-07-29,USD
+2026-07-03,CTVA UN,A- *-,,A *-,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,107.03266188356734,99.47047,667.8015,2026-07-30,USD
+2026-07-03,CVNA UN,BB-,B1,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,128.4836155917797,93.81349,671.9752,2026-07-29,USD
+2026-07-03,CVS UN,BBB,Baa3,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,106.30869463783195,98.90041,1261.897,2026-07-31,USD
+2026-07-03,CVX UN,AA-,Aa2,WD,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,89.29092546886964,95.32844,1898.559,2026-07-31,USD
+2026-07-03,D UN,BBB+,Baa2,BBB+ *+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,97.56500347975991,99.85661,878.1944,2026-07-31,USD
+2026-07-03,DAL UN,BBB-,Baa2,BBB-,Industrials,Transportation,Passenger Airlines,Passenger Airlines,99.34667576374933,93.41051,613.7017,2026-07-10,USD
+2026-07-03,DASH UW,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,100.43022824743926,91.52072,376.4582,2026-08-06,USD
+2026-07-03,DD UN,BBB+,Baa1,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,89.69831307183188,99.61744,136.1177,2026-08-05,USD
+2026-07-03,DDOG UW,,,,Information Technology,Software & Services,Software,Application Software,100.25820900876599,98.10244,324.5482,2026-08-07,USD
+2026-07-03,DE UN,A,A1,A+,Industrials,Capital Goods,Machinery,Agricultural & Farm Machinery,91.58382629581267,92.52024,249.7468,2026-08-20,USD
+2026-07-03,DECK UN,,,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo",Footwear,110.70058943217278,99.1907,137.757,2026-07-24,USD
+2026-07-03,DELL UN,BBB+,,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",89.82884104325561,91.46835,297.3148,2026-09-03,USD
+2026-07-03,DG UN,BBB,Baa3,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,114.67457197013562,99.52892,219.5475,2026-08-28,USD
+2026-07-03,DGX UN,BBB+,Baa1,BBB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,107.04100365872316,99.36421,109.9926,2026-07-23,USD
+2026-07-03,DHI UN,BBB+,A3,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,104.5552022726153,91.27851,258.8473,2026-07-21,USD
+2026-07-03,DHR UN,A-,A2,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,94.27358586314939,91.27457,646.0146,2026-07-21,USD
+2026-07-03,DIS UN,A,A2,WD,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,88.74666884710128,99.95453,1735.722,2026-08-06,USD
+2026-07-03,DLR UN,BBB+,Baa2,BBB,Real Estate,Equity Real Estate Investment,Specialized REITs,Data Center REITs,104.5391330844181,99.99123,369.9435,2026-07-23,USD
+2026-07-03,DLTR UW,BBB,Baa2,,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,123.06776233193627,93.23247,179.1691,2026-09-03,USD
+2026-07-03,DOC UN,BBB+,,WD,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,112.35113411866176,99.67957,687.2106,2026-08-04,USD
+2026-07-03,DOV UN,BBB+,Baa1,WD,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,104.72805061820003,99.29736,133.7152,2026-07-23,USD
+2026-07-03,DOW UN,,,BBB,Materials,Materials,Chemicals,Commodity Chemicals,83.46361127290935,99.74194,718.8815,2026-07-23,USD
+2026-07-03,DPZ UW,,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,136.20290364852298,99.40572,33.0642,2026-07-20,USD
+2026-07-03,DRI UN,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,121.46987065237442,99.69113,114.1812,2026-09-18,USD
+2026-07-03,DTE UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,97.5035665739023,99.5619,207.1167,2026-07-29,USD
+2026-07-03,DUK UN,BBB+,Baa2,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,80.73760265521992,99.74473,776.2301,2026-08-05,USD
+2026-07-03,DVA UN,BB,Ba2,NR,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,126.30858246670094,52.9555,33.99743,2026-08-05,USD
+2026-07-03,DVN UN,BBB+,Baa2,BBB+ *+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,54.38577668701843,99.2491,1144.742,2026-08-04,USD
+2026-07-03,DXCM UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,111.34186064199152,99.45071,383.7534,2026-07-30,USD
+2026-07-03,EA UW,BBB+ *-,Baa1 *-,A- *-,Communication Services,Media & Entertainment,Entertainment,Interactive Home Entertainment,102.22991763048552,99.80126,250.2531,2026-07-29,USD
+2026-07-03,EBAY UW,BBB+,Baa1,WD,Consumer Discretionary,Consumer Discretionary Distrib,Broadline Retail,Broadline Retail,111.43494553509596,99.48622,441.7188,2026-07-30,USD
+2026-07-03,ECHO UW,CCC+ *+,B3,,Communication Services,Media & Entertainment,Media,Cable & Satellite,125.7793798971085,82.79729,131.2047,2026-07-31,USD
+2026-07-03,ECL UN,A-,,A-,Materials,Materials,Chemicals,Specialty Chemicals,103.9625652452549,89.48225,251.8366,2026-07-28,USD
+2026-07-03,ED UN,A-,Baa1,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,83.46687269880074,99.8028,367.803,2026-08-07,USD
+2026-07-03,EFX UN,BBB,Baa2,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,118.66504075801609,98.96936,117.8452,2026-07-22,USD
+2026-07-03,EG UN,BBB+,,,Financials,Insurance,Insurance,Reinsurance,112.69166918713407,98.5759,39.00806,2026-07-29,USD
+2026-07-03,EIX UN,BBB-,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,105.34774037164176,99.81654,384.088,2026-07-30,USD
+2026-07-03,EL UN,A-,A3,,Consumer Staples,Household & Personal Products,Personal Care Products,Personal Care Products,110.21793297630416,98.357,243.2246,2026-08-19,USD
+2026-07-03,ELV UN,A-,Baa2,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,107.83589103408329,99.69182,216.4931,2026-07-17,USD
+2026-07-03,EME UN,BBB-,,,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,107.60302155653171,98.7596,43.88904,2026-07-31,USD
+2026-07-03,EMR UN,A,A2,,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,94.62333139997989,99.73167,558.597,2026-08-06,USD
+2026-07-03,EOG UN,A-,A3,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,123.10843092212755,99.74031,531.2454,2026-08-05,USD
+2026-07-03,EPAM UN,,,,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,150.86725170495038,96.84393,50.59557,2026-08-07,USD
+2026-07-03,EQIX UW,BBB+,Baa1,BBB+,Real Estate,Equity Real Estate Investment,Specialized REITs,Data Center REITs,110.14253888750991,99.73422,98.36212,2026-07-29,USD
+2026-07-03,EQR UN,A-,Baa1,WD,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,107.03801975070391,99.83677,374.0602,2026-08-04,USD
+2026-07-03,EQT UN,BBB-,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,106.30244658569137,99.24323,620.7446,2026-07-21,USD
+2026-07-03,ERIE UW,,,,Financials,Insurance,Insurance,Property & Casualty Insurance,84.8808664842786,54.48452,25.16589,2026-08-07,USD
+2026-07-03,ES UN,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,97.15502410762826,99.84779,375.5076,2026-07-31,USD
+2026-07-03,ESS UN,BBB+,,WD,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,111.77986720787621,99.26729,63.792,2026-07-29,USD
+2026-07-03,ETN UN,A-,,WD,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,99.13683860173622,99.92657,388.0149,2026-08-05,USD
+2026-07-03,ETR UN,BBB+,Baa2,NR,Utilities,Utilities,Electric Utilities,Electric Utilities,104.87777844969206,99.75189,475.9508,2026-07-30,USD
+2026-07-03,EVRG UW,BBB+,Baa2,,Utilities,Utilities,Electric Utilities,Electric Utilities,105.18762246312986,97.49171,223.9832,2026-08-07,USD
+2026-07-03,EW UN,BBB,Baa1,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,90.83903132920784,99.74906,574.3551,2026-08-19,USD
+2026-07-03,EXC UW,A-,Baa2,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,104.00075988160926,99.92109,1022.368,2026-07-31,USD
+2026-07-03,EXE UW,BBB-,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,106.18670762846033,99.70818,238.5307,2026-07-29,USD
+2026-07-03,EXPD UN,,,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,112.18479984102294,99.27908,129.8482,2026-08-04,USD
+2026-07-03,EXPE UW,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",117.62046807261746,98.79166,113.1151,2026-08-07,USD
+2026-07-03,EXR UN,BBB+,,,Real Estate,Equity Real Estate Investment,Specialized REITs,Self-Storage REITs,117.66231912824843,98.7646,208.651,2026-07-28,USD
+2026-07-03,F UN,BBB-,Ba1,BBB-,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,76.82092698694841,99.58737,3897.691,2026-07-28,USD
+2026-07-03,FANG UW,BBB,Baa2,BBB+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,76.0209976774813,73.05307,205.508,2026-08-03,USD
+2026-07-03,FAST UW,,,,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,95.47221225805745,99.91219,1147.027,2026-07-13,USD
+2026-07-03,FCX UN,BBB-,Baa2,BBB,Materials,Materials,Metals & Mining,Copper,104.39431955834486,99.40297,1428.977,2026-07-23,USD
+2026-07-03,FDS UN,,Baa3,BBB+,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,119.63101466375883,99.53706,35.4009,2026-09-18,USD
+2026-07-03,FDX UN,BBB,Baa2,WD,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,89.97702386662546,91.47662,218.2694,2026-10-28,USD
+2026-07-03,FDXF UN,BBB-,Baa3,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,7.67410405212879,79.7354,118.7309,2026-10-28,USD
+2026-07-03,FE UN,BBB+,Baa3,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,123.64181304384113,94.81031,548.4124,2026-07-28,USD
+2026-07-03,FFIV UW,,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,112.69042984945743,99.4624,56.11594,2026-07-30,USD
+2026-07-03,FICO UN,BB+,Ba1,,Information Technology,Software & Services,Software,Application Software,104.56265687850549,96.93011,22.47897,2026-07-30,USD
+2026-07-03,FIS UN,BBB,Baa2,BBB,Financials,Financial Services,Financial Services,Transaction & Payment Processi,112.5036749100782,99.364,513.5918,2026-08-05,USD
+2026-07-03,FISV UW,BBB,Baa2,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,99.95097425762857,91.70645,489.0283,2026-07-23,USD
+2026-07-03,FITB UN,BBB+,,A-,Financials,Banks,Banks,Diversified Banks,104.35227522810015,99.43614,901.2012,2026-07-17,USD
+2026-07-03,FITB UW,BBB+,,A-,Financials,Banks,Banks,Diversified Banks,104.35227522810015,99.43614,901.2012,2026-07-17,USD
+2026-07-03,FIX UN,,,,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,109.5386776292143,98.86329,34.80227,2026-07-24,USD
+2026-07-03,FLEX UW,BBB-,Baa3,BBB-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Manufacturing Servi,110.23090376934597,99.2442,363.6204,2026-07-24,USD
+2026-07-03,FOX UW,BBB,Baa2,,Communication Services,Media & Entertainment,Media,Broadcasting,108.8497109726278,55.61882,122.7536,2026-08-05,USD
+2026-07-03,FOXA UW,BBB,Baa2,,Communication Services,Media & Entertainment,Media,Broadcasting,136.0658515616709,88.89606,177.3309,2026-08-05,USD
+2026-07-03,FRT UN,BBB+,Baa1,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,109.5926154479401,99.10728,85.61799,2026-07-31,USD
+2026-07-03,FSLR UW,,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,108.53479978891876,94.69219,101.7499,2026-07-31,USD
+2026-07-03,FTNT UW,BBB+,Baa1,,Information Technology,Software & Services,Software,Systems Software,68.93894769808122,84.35869,618.0526,2026-07-29,USD
+2026-07-03,FTV UN,BBB,Baa1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,122.62501112763802,99.39125,303.0052,2026-07-29,USD
+2026-07-03,GD UN,A,A1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,95.97394285630821,93.92628,254.005,2026-07-23,USD
+2026-07-03,GDDY UN,,,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,115.04972296012082,99.11034,131.2319,2026-08-07,USD
+2026-07-03,GE UN,A-,A2,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,90.67053791766338,99.73564,1040.579,2026-07-16,USD
+2026-07-03,GEHC UW,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,104.15122708282694,99.68464,453.4572,2026-07-30,USD
+2026-07-03,GEN UW,BB,Ba2,BB+,Information Technology,Software & Services,Software,Systems Software,101.56212472190475,90.11521,542.8845,2026-08-07,USD
+2026-07-03,GEV UN,BBB,,BBB+,Industrials,Capital Goods,Electrical Equipment,Heavy Electrical Equipment,89.33166191105461,99.79143,268.1595,2026-07-23,USD
+2026-07-03,GILD UW,A-,A3,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,104.64449765178996,99.49796,1235.337,2026-08-07,USD
+2026-07-03,GIS UN,BBB,Baa2,WD,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,98.83990589206773,99.56149,531.368,2026-09-17,USD
+2026-07-03,GL UN,A,Baa1,A,Financials,Insurance,Insurance,Life & Health Insurance,102.51026387099402,99.17652,77.00537,2026-07-23,USD
+2026-07-03,GLW UN,BBB+,Baa1,WD,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Components,82.80962566219438,91.85773,789.0715,2026-07-28,USD
+2026-07-03,GM UN,BBB,Baa2,BBB,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,99.05317896597771,99.8355,900.182,2026-07-21,USD
+2026-07-03,GNRC UN,,,,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,102.00884880577749,98.1858,57.80069,2026-07-30,USD
+2026-07-03,GOOG UW,AA+,Aa2,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,68.116638085846,85.77728,4705.123,2026-07-23,USD
+2026-07-03,GOOGL UW,AA+,Aa2,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,90.88368406899507,98.7692,5781.237,2026-07-23,USD
+2026-07-03,GPC UN,BBB-,Baa1 *-,BBB- *-,Consumer Discretionary,Consumer Discretionary Distrib,Distributors,Distributors,100.34661976293835,99.57608,137.0411,2026-07-21,USD
+2026-07-03,GPN UN,BBB-,Baa3,BBB,Financials,Financial Services,Financial Services,Transaction & Payment Processi,109.01655044553098,99.23457,271.4497,2026-08-06,USD
+2026-07-03,GRMN UN,,,,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Consumer Electronics,66.88751877614301,85.35853,164.6192,2026-07-29,USD
+2026-07-03,GS UN,BBB+,,A,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,85.99125102172628,99.53529,293.6365,2026-07-14,USD
+2026-07-03,GWW UN,A+,A1,,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,86.25884479361694,93.7603,44.26716,2026-08-04,USD
+2026-07-03,HAL UN,BBB+,A3,WD,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,107.5663242236913,89.80085,750.1942,2026-07-21,USD
+2026-07-03,HAS UW,BBB,Baa2,WD,Consumer Discretionary,Consumer Durables & Apparel,Leisure Products,Leisure Products,102.89084289843287,99.3223,140.5318,2026-07-21,USD
+2026-07-03,HBAN UW,BBB+,,A-,Financials,Banks,Banks,Regional Banks,99.89789626898268,99.06299,2008.136,2026-07-23,USD
+2026-07-03,HCA UN,BBB,,WD,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Facilities,101.53703525299424,67.91778,150.6687,2026-07-24,USD
+2026-07-03,HD UN,A,A2,A,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Home Improvement Retail,85.14928132217321,99.93578,996.4764,2026-08-18,USD
+2026-07-03,HIG UN,A-,A3,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,107.50246050452222,99.58044,272.9807,2026-07-24,USD
+2026-07-03,HII UN,BBB-,Baa3,BBB,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,100.40017022361165,99.18475,39.08279,2026-07-31,USD
+2026-07-03,HLT UN,BB+,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",110.10945557007781,98.09891,223.3206,2026-07-28,USD
+2026-07-03,HOLX UW,B+,B1,,,,,,107.7950199469224,98.35622,219.5752,2026-07-15,USD
+2026-07-03,HON UW,A,A2,A,Industrials,Capital Goods,Industrial Conglomerates,Industrial Conglomerates,88.76968353573207,99.94552,316.7671,2026-07-23,USD
+2026-07-03,HONA UW,BBB+,A3,A-,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,11.44995326394634,99.99845,316.9348,2026-08-17,USD
+2026-07-03,HOOD UW,,,,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,81.90590703338235,98.80169,781.7039,2026-07-29,USD
+2026-07-03,HPE UN,BBB,Baa2,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",102.53267807144712,99.62665,1319.26,2026-09-03,USD
+2026-07-03,HPQ UN,BBB,Baa2,BBB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",106.38134920671325,99.69392,911.7236,2026-08-27,USD
+2026-07-03,HRL UN,A-,A2,NR,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,97.95021491134611,52.89291,291.0776,2026-08-28,USD
+2026-07-03,HSIC UW,,,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,120.31554418273065,84.67227,96.88598,2026-08-05,USD
+2026-07-03,HST UW,BBB-,,BBB,Real Estate,Equity Real Estate Investment,Hotel & Resort REITs,Hotel & Resort REITs,114.84522238077967,98.40408,673.9492,2026-08-05,USD
+2026-07-03,HSY UN,A,A1,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,95.98587977547585,98.68006,146.2733,2026-07-30,USD
+2026-07-03,HUBB UN,BBB+,Baa1,A-,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,116.24585799865943,99.59505,52.6278,2026-07-29,USD
+2026-07-03,HUM UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,109.768902301558,98.74612,118.5561,2026-07-29,USD
+2026-07-03,HWM UN,BBB+,Baa1,A-,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,103.72214241816869,98.98069,396.0291,2026-07-31,USD
+2026-07-03,IBKR UW,,,,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,97.63423325669653,97.04269,432.31,2026-07-21,USD
+2026-07-03,IBM UN,A-,A3,A-,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,66.70799707888308,99.11516,931.5687,2026-07-22,USD
+2026-07-03,ICE UN,A-,A3,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,106.10192150292657,99.38527,562.0361,2026-07-30,USD
+2026-07-03,IDXX UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,104.86848622340943,99.73822,78.67649,2026-08-04,USD
+2026-07-03,IEX UN,BBB,Baa2,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,119.33412036835749,99.76297,73.83961,2026-07-29,USD
+2026-07-03,IFF UN,BBB,Baa3,BBB,Materials,Materials,Chemicals,Specialty Chemicals,113.67783319892786,96.11698,245.39,2026-08-05,USD
+2026-07-03,INCY UW,NR,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,111.97649444680312,84.785,169.3853,2026-07-29,USD
+2026-07-03,INTC UW,BBB,Baa2,BBB,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,74.94328925928558,81.58551,4100.488,2026-07-23,USD
+2026-07-03,INTU UW,A,A3,,Information Technology,Software & Services,Software,Application Software,101.29378570603231,97.83938,267.6269,2026-08-21,USD
+2026-07-03,INVH UN,BBB,,BBB+,Real Estate,Equity Real Estate Investment,Residential REITs,Single-Family Residential REIT,112.30349183738753,99.4754,590.9256,2026-07-30,USD
+2026-07-03,IP UN,BBB,Baa2,NR,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,100.32871103085559,99.78231,528.3643,2026-07-30,USD
+2026-07-03,IQV UN,BB+,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,112.27987873798861,97.81873,163.2595,2026-07-22,USD
+2026-07-03,IR UN,BBB,Baa1,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,144.7479381845169,99.77522,390.4572,2026-07-30,USD
+2026-07-03,IRM UN,BB-,Ba3,,Real Estate,Equity Real Estate Investment,Specialized REITs,Other Specialized REITs,97.560588883248,93.2595,277.47,2026-08-06,USD
+2026-07-03,ISRG UW,,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,96.9749848526083,99.18085,351.2617,2026-07-16,USD
+2026-07-03,IT UN,BBB-,Baa3,BBB,Information Technology,Software & Services,IT Services,IT Consulting & Other Services,128.90814160620243,97.4076,65.21623,2026-08-05,USD
+2026-07-03,ITW UN,A+,A1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,95.97712807014236,95.73284,275.4234,2026-07-30,USD
+2026-07-03,IVZ UN,BBB+,Baa2,A,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,104.9136656008726,96.0079,425.5998,2026-07-28,USD
+2026-07-03,J UN,BBB-,,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,100.46638220244171,99.37189,117.3392,2026-08-05,USD
+2026-07-03,JBHT UW,BBB+,Baa1,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,91.71361721114492,78.15444,73.69902,2026-07-15,USD
+2026-07-03,JBL UN,BBB-,Baa3,BBB-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Manufacturing Servi,109.68518755520662,98.06795,102.7626,2026-09-25,USD
+2026-07-03,JCI UN,BBB+,Baa1,WD,Industrials,Capital Goods,Building Products,Building Products,105.25314133702648,99.75737,608.6353,2026-07-29,USD
+2026-07-03,JKHY UW,,,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,117.61294729802543,99.44675,70.65769,2026-08-19,USD
+2026-07-03,JNJ UN,AAA,Aaa,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,86.85836016909948,99.85253,2403.667,2026-07-15,USD
+2026-07-03,JPM UN,A,,AA-,Financials,Banks,Banks,Diversified Banks,85.0503748107076,99.38663,2663.076,2026-07-14,USD
+2026-07-03,KDP UW,BBB-,Baa3,BBB-,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,120.52770016563792,95.30363,1296.662,2026-08-06,USD
+2026-07-03,KEY UN,BBB,Baa2,A-,Financials,Banks,Banks,Diversified Banks,96.76479680188038,99.6631,1075.732,2026-07-21,USD
+2026-07-03,KEYS UN,BBB+,Baa1,BBB+,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,102.67088561614874,99.27264,169.6523,2026-08-19,USD
+2026-07-03,KHC UW,BBB,,BBB,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,96.3196235991447,72.06441,854.5236,2026-07-30,USD
+2026-07-03,KIM UN,A-,Baa1,A-,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,112.47614482787442,97.71858,659.0172,2026-08-04,USD
+2026-07-03,KKR UN,A,,A,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,69.20005242667212,76.93258,690.7568,2026-07-30,USD
+2026-07-03,KLAC UW,A-,A2,A,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,103.48969169439744,99.84265,1304.22,2026-07-28,USD
+2026-07-03,KMB UW,A,A2,WD,Consumer Staples,Household & Personal Products,Household Products,Household Products,103.13335394061262,99.70649,330.9661,2026-07-31,USD
+2026-07-03,KMI UN,BBB+,Baa1,BBB+,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,79.36349399010318,87.06823,1937.116,2026-07-16,USD
+2026-07-03,KO UN,A+,A1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,94.1211249424796,90.47733,3892.771,2026-07-28,USD
+2026-07-03,KR UN,BBB,Baa1,WD,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Retail,104.23107851320863,91.09641,558.0996,2026-09-11,USD
+2026-07-03,KVUE UN,A,A2,,Consumer Staples,Household & Personal Products,Personal Care Products,Personal Care Products,103.43056809337186,98.52367,1891.663,2026-08-07,USD
+2026-07-03,L UN,A,A3,WD,Financials,Insurance,Insurance,Property & Casualty Insurance,71.7736105018212,82.14845,169.0359,2026-08-04,USD
+2026-07-03,LDOS UN,BBB,Baa2,,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,89.53831726918445,99.06067,124.6039,2026-08-05,USD
+2026-07-03,LEN UN,BBB,Baa2,BBB+,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,114.90539723957936,93.36807,196.5454,2026-09-18,USD
+2026-07-03,LH UN,BBB,,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Services,111.95564166040973,99.60639,81.67724,2026-07-30,USD
+2026-07-03,LHX UN,BBB,Baa2,BBB+,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,100.14549112518634,99.69325,185.7235,2026-07-24,USD
+2026-07-03,LII UN,BBB,Baa1,,Industrials,Capital Goods,Building Products,Building Products,94.9573841121903,89.50454,31.14755,2026-07-23,USD
+2026-07-03,LIN UW,A,,,Materials,Materials,Chemicals,Industrial Gases,97.83464724092468,99.79935,461.6713,2026-07-31,USD
+2026-07-03,LITE UW,B+,,,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,108.81482608966186,98.1619,76.36996,2026-08-12,USD
+2026-07-03,LLY UN,AA-,Aa3,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,93.83558852850608,90.07288,848.2536,2026-08-05,USD
+2026-07-03,LMT UN,A-,A2,A,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,84.28487648017293,99.93587,230.4158,2026-07-23,USD
+2026-07-03,LNT UW,BBB+,Baa2,,Utilities,Utilities,Electric Utilities,Electric Utilities,107.41359156810206,99.61874,257.2923,2026-08-07,USD
+2026-07-03,LOW UN,BBB+,Baa1,WD,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Home Improvement Retail,91.30529695131196,99.88248,560.0481,2026-08-19,USD
+2026-07-03,LRCX UW,A-,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,97.11629896807207,99.70641,1246.9,2026-07-30,USD
+2026-07-03,LULU UW,,,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",97.9110760440187,94.06827,102.0057,2026-09-03,USD
+2026-07-03,LUV UN,BBB,Baa2,BBB+,Industrials,Transportation,Passenger Airlines,Passenger Airlines,105.75859827559772,98.89692,483.3821,2026-07-22,USD
+2026-07-03,LVS UN,BBB,Baa3,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,58.07591542336493,42.64243,282.5647,2026-07-23,USD
+2026-07-03,LW UN,BB+,Ba2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,103.50133722953902,96.66354,133.466,2026-07-24,USD
+2026-07-03,LYB UN,BBB-,Baa3,BBB,Materials,Materials,Chemicals,Commodity Chemicals,85.8777025553827,79.67933,257.1927,2026-07-31,USD
+2026-07-03,LYV UN,BB-,Ba2,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,123.70628113454806,67.89342,159.921,2026-08-07,USD
+2026-07-03,MA UN,A+,Aa3,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,102.08235046725922,91.86005,805.6459,2026-07-31,USD
+2026-07-03,MAA UN,A-,,A-,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,106.78129587743932,99.41694,115.7062,2026-07-29,USD
+2026-07-03,MAR UW,BBB,Baa2,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",70.50566704470765,79.29814,209.1002,2026-08-05,USD
+2026-07-03,MAS UN,BBB,Baa1,BBB,Industrials,Capital Goods,Building Products,Building Products,116.8282142025336,99.67568,201.0802,2026-07-29,USD
+2026-07-03,MCD UN,BBB+,Baa1,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,86.4880914058119,99.9737,710.319,2026-08-06,USD
+2026-07-03,MCHP UW,NR,Baa2,BBB,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,109.39017163099886,98.22119,532.4367,2026-08-07,USD
+2026-07-03,MCK UN,BBB+,A3,A-,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Distributors,107.93038188205601,99.95042,117.0197,2026-08-05,USD
+2026-07-03,MCO UN,A-,,BBB+,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,118.33766669175922,84.38958,147.4286,2026-07-23,USD
+2026-07-03,MDLZ UW,BBB,Baa1,WD,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,106.25040276544533,99.69949,1279.792,2026-07-29,USD
+2026-07-03,MDT UN,A,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,101.05312650508922,99.92609,1279.099,2026-08-19,USD
+2026-07-03,MET UN,A-,A3,A,Financials,Insurance,Insurance,Life & Health Insurance,104.36925824635308,83.32482,536.1425,2026-08-06,USD
+2026-07-03,META UW,AA-,Aa3,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,88.03673484404989,99.92052,2194.3,2026-07-30,USD
+2026-07-03,MGM UN,B+,B1,BB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,75.30027766255037,68.41412,175.0384,2026-07-29,USD
+2026-07-03,MKC UN,BBB,Baa2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,102.40371211878248,99.81508,253.5853,2026-10-07,USD
+2026-07-03,MLM UN,BBB+ *-,Baa2 *-,BBB+,Materials,Materials,Construction Materials,Construction Materials,111.61941793858266,99.14354,59.74014,2026-08-07,USD
+2026-07-03,MMM UN,BBB+,A3,A-,Industrials,Capital Goods,Industrial Conglomerates,Industrial Conglomerates,85.48304422292657,99.89037,520.9954,2026-07-17,USD
+2026-07-03,MNST UW,,,,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,76.997808951665,71.70198,701.2512,2026-08-07,USD
+2026-07-03,MO UN,BBB+,A3,BBB+,Consumer Staples,"Food, Beverage & Tobacco",Tobacco,Tobacco,72.33963310812159,99.85123,1667.407,2026-07-30,USD
+2026-07-03,MOH UN,BB-,Ba2,,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,116.7997844983148,98.6086,51.37508,2026-07-23,USD
+2026-07-03,MOS UN,BBB,Baa2,BBB,Materials,Materials,Chemicals,Fertilizers & Agricultural Che,104.08804673402076,99.67596,316.8167,2026-08-05,USD
+2026-07-03,MPC UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,87.42240316253115,99.63686,290.8765,2026-08-04,USD
+2026-07-03,MPWR UW,,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,105.97552239421526,96.42132,47.3718,2026-07-31,USD
+2026-07-03,MRK UN,A+,Aa3,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,91.9971996755533,99.94717,2468.52,2026-08-04,USD
+2026-07-03,MRNA UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,89.53370805510143,92.13936,365.5963,2026-07-31,USD
+2026-07-03,MRSH UN,A-,A3,A-,Financials,Insurance,Insurance,Insurance Brokers,106.17376877046199,99.9006,481.3156,2026-07-21,USD
+2026-07-03,MRVL UW,BBB,Baa2,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,85.17337730726325,99.71228,872.283,2026-08-28,USD
+2026-07-03,MS UN,A-,,A+,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,94.89455222925287,74.79967,1179.804,2026-07-15,USD
+2026-07-03,MSCI UN,BBB-,Baa3,BBB-,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,102.50108674737525,96.41901,70.50179,2026-07-21,USD
+2026-07-03,MSFT UW,AAA,Aaa,WD,Information Technology,Software & Services,Software,Systems Software,84.61313513644951,99.96609,7425.915,2026-07-29,USD
+2026-07-03,MSI UN,BBB,Baa2,BBB,Information Technology,Technology Hardware & Equipmen,Communications Equipment,Communications Equipment,100.54635340683733,99.62524,165.3735,2026-08-07,USD
+2026-07-03,MTB UN,BBB+,,A,Financials,Banks,Banks,Regional Banks,104.46522964467842,99.22211,145.3059,2026-07-15,USD
+2026-07-03,MTCH UW,BB,,,Communication Services,Media & Entertainment,Interactive Media & Services,Interactive Media & Services,124.80211134539508,99.27851,231.5835,2026-08-05,USD
+2026-07-03,MTD UN,NR,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,114.45413421140557,99.65277,20.13744,2026-07-31,USD
+2026-07-03,MU UW,BBB,Baa2,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,92.4213507159289,99.75378,1126.612,2026-09-23,USD
+2026-07-03,NCLH UN,NR,,,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",105.13359154774659,98.76591,453.4443,2026-07-31,USD
+2026-07-03,NDAQ UW,BBB+,Baa1,,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,105.27501637116725,88.60307,501.0865,2026-07-23,USD
+2026-07-03,NDSN UW,BBB,Baa2,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,85.57560257474842,94.24831,52.51323,2026-08-20,USD
+2026-07-03,NEE UN,A-,Baa1,A-,Utilities,Utilities,Electric Utilities,Electric Utilities,96.90648450758337,99.9084,2083.431,2026-07-23,USD
+2026-07-03,NEM UN,BBB+,A3,A-,Materials,Materials,Metals & Mining,Gold,90.88236735423085,99.89165,1066.396,2026-07-23,USD
+2026-07-03,NFLX UW,A,A2,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,92.90353062719747,99.40762,4185.854,2026-07-16,USD
+2026-07-03,NI UN,BBB+,Baa2,BBB,Utilities,Utilities,Multi-Utilities,Multi-Utilities,110.71202450545907,99.65321,477.7766,2026-08-06,USD
+2026-07-03,NKE UN,A+,A2,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo",Footwear,91.32726866211614,97.82536,1173.415,2026-09-30,USD
+2026-07-03,NOC UN,BBB+,A3,BBB+,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,98.92955145176524,99.77459,141.7133,2026-07-21,USD
+2026-07-03,NOW UN,A,A2,,Information Technology,Software & Services,Software,Systems Software,99.6722433523349,99.83739,1029.323,2026-07-22,USD
+2026-07-03,NRG UN,BB,Ba1,BB+,Utilities,Utilities,Electric Utilities,Electric Utilities,109.3842712890208,99.39111,209.7018,2026-08-06,USD
+2026-07-03,NSC UN,BBB+,Baa1 *+,WD,Industrials,Transportation,Ground Transportation,Rail Transportation,86.70773214044499,99.96672,224.5193,2026-07-23,USD
+2026-07-03,NTAP UW,BBB+,Baa2,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",117.63060776384029,99.5467,195.0318,2026-09-02,USD
+2026-07-03,NTRS UW,A+,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,95.99251144913585,95.03779,175.8648,2026-07-22,USD
+2026-07-03,NUE UN,A-,A3,A-,Materials,Materials,Metals & Mining,Steel,93.14811308959521,97.68036,222.4582,2026-07-27,USD
+2026-07-03,NVDA UW,AA,Aa1,WD,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,79.47891974112358,96.18114,23275.84,2026-08-26,USD
+2026-07-03,NVR UN,BBB+,A3,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,105.14250284600767,94.49505,2.550697,2026-07-23,USD
+2026-07-03,NWS UW,BBB-,Baa3,BBB,Communication Services,Media & Entertainment,Media,Publishing,94.65129336917367,65.56387,120.8606,2026-08-05,USD
+2026-07-03,NWSA UW,BBB-,Baa3,BBB,Communication Services,Media & Entertainment,Media,Publishing,125.60305889319365,99.81775,364.2299,2026-08-05,USD
+2026-07-03,NXPI UW,BBB+,,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,103.96477527128896,99.86558,252.1317,2026-07-28,USD
+2026-07-03,O UN,A-,A3,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,88.20824099464289,99.86224,931.2079,2026-08-05,USD
+2026-07-03,ODFL UW,,,,Industrials,Transportation,Ground Transportation,Cargo Ground Transportation,90.68643876071445,91.97639,191.2817,2026-07-29,USD
+2026-07-03,OKE UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,92.60547627466522,99.82203,628.9116,2026-08-04,USD
+2026-07-03,OMC UN,BBB+,Baa1,NR,Communication Services,Media & Entertainment,Media,Advertising,122.78259075257137,99.05635,282.3167,2026-07-15,USD
+2026-07-03,ON UW,BB+,Ba1,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,121.71671928248355,99.43085,389.6727,2026-08-04,USD
+2026-07-03,ORCL UN,BBB,Baa2,BBB,Information Technology,Software & Services,Software,Systems Software,49.791208492484564,59.53838,1714.986,2026-09-09,USD
+2026-07-03,ORLY UW,BBB,Baa1,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Automotive Retail,97.62830594939797,99.20184,822.1006,2026-07-29,USD
+2026-07-03,OTIS UN,BBB,Baa1,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,105.8167731784438,99.86114,383.1832,2026-07-22,USD
+2026-07-03,OXY UN,BB+,Baa3,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,114.94978397881945,72.98364,725.9207,2026-08-05,USD
+2026-07-03,PANW UW,,,,Information Technology,Software & Services,Software,Systems Software,85.06569288605455,99.25533,808.931,2026-08-18,USD
+2026-07-03,PAYC UN,,,,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,105.64905982954109,85.667,40.80443,2026-08-06,USD
+2026-07-03,PAYX UW,BBB+,Baa1,,Industrials,Commercial & Professional Serv,Professional Services,Human Resource & Employment Se,101.83938839049733,89.68619,318.9241,2026-09-30,USD
+2026-07-03,PCAR UW,A+,A1,,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,82.1106707828898,98.11066,516.3429,2026-07-28,USD
+2026-07-03,PCG UN,BB+,Ba3,BBB-,Utilities,Utilities,Electric Utilities,Electric Utilities,110.02035392931452,99.7317,2196.316,2026-07-23,USD
+2026-07-03,PEG UN,BBB+,Baa2,WD,Utilities,Utilities,Multi-Utilities,Multi-Utilities,88.27694242754028,99.79871,497.3183,2026-08-05,USD
+2026-07-03,PEP UW,A+,A1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Soft Drinks & Non-alcoholic Be,88.17686762042594,99.78062,1363.77,2026-07-09,USD
+2026-07-03,PFE UN,A,A2,WD,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,78.64664141771942,99.03237,5644.295,2026-08-04,USD
+2026-07-03,PFG UW,A-,Baa1,A,Financials,Insurance,Insurance,Life & Health Insurance,89.76199646034206,98.84842,213.5248,2026-07-27,USD
+2026-07-03,PG UN,AA-,Aa3,,Consumer Staples,Household & Personal Products,Household Products,Household Products,81.3136076949203,99.9232,2326.811,2026-07-29,USD
+2026-07-03,PGR UN,A,A2,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,100.60090444005311,99.74681,582.0226,2026-07-15,USD
+2026-07-03,PH UN,BBB+,A3,A-,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,105.11902486134743,99.79576,125.8289,2026-08-06,USD
+2026-07-03,PHM UN,BBB+,Baa1,A-,Consumer Discretionary,Consumer Durables & Apparel,Household Durables,Homebuilding,106.50399315331909,99.35674,189.261,2026-07-22,USD
+2026-07-03,PKG UN,BBB,Baa1,,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,111.10598273495054,98.28937,87.5745,2026-07-22,USD
+2026-07-03,PLD UN,A,A3,WD,Real Estate,Equity Real Estate Investment,Industrial REITs,Industrial REITs,107.37293280569651,99.74412,929.8452,2026-07-16,USD
+2026-07-03,PLTR UW,,,,Information Technology,Software & Services,Software,Application Software,69.60870622734639,96.52051,2216.18,2026-08-04,USD
+2026-07-03,PM UN,A-,A2,A,Consumer Staples,"Food, Beverage & Tobacco",Tobacco,Tobacco,112.66883099934905,99.83145,1555.932,2026-07-22,USD
+2026-07-03,PNC UN,A-,,A+,Financials,Banks,Banks,Diversified Banks,95.56829156774033,99.34163,398.9209,2026-07-15,USD
+2026-07-03,PNR UN,BBB-,,,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,111.66170113266429,99.07015,160.1029,2026-07-22,USD
+2026-07-03,PNW UN,BBB+,Baa2,BBB,Utilities,Utilities,Electric Utilities,Electric Utilities,130.4464071923355,99.66901,120.786,2026-08-06,USD
+2026-07-03,PODD UW,BB,Ba2,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,117.77865361809555,99.59566,68.98461,2026-08-05,USD
+2026-07-03,POOL UW,,,,Consumer Discretionary,Consumer Discretionary Distrib,Distributors,Distributors,126.2976317489476,96.53041,35.17858,2026-07-24,USD
+2026-07-03,PPG UN,BBB+,A3,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,103.2940993327913,99.85404,222.5746,2026-07-28,USD
+2026-07-03,PPL UN,A-,Baa1,WD,Utilities,Utilities,Electric Utilities,Electric Utilities,98.80222992841455,95.97815,722.0919,2026-07-31,USD
+2026-07-03,PRU UN,A,A3,A *-,Financials,Insurance,Insurance,Life & Health Insurance,73.44246479476229,99.74242,346.1062,2026-07-30,USD
+2026-07-03,PSA UN,A,A3,,Real Estate,Equity Real Estate Investment,Specialized REITs,Self-Storage REITs,96.74396935612212,89.70911,157.4805,2026-07-30,USD
+2026-07-03,PSKY UW,BB+ *-,B1,BB+ *-,Communication Services,Media & Entertainment,Media,Broadcasting,33.58482094690961,83.0763,903.5985,2026-07-30,USD
+2026-07-03,PSX UN,BBB+,Baa1,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,89.9472850407861,99.76165,399.9794,2026-08-05,USD
+2026-07-03,PTC UW,BB+,Ba1,,Information Technology,Software & Services,Software,Application Software,118.74530628848686,99.67454,115.1299,2026-07-29,USD
+2026-07-03,PWR UN,BBB,Baa2,BBB,Industrials,Capital Goods,Construction & Engineering,Construction & Engineering,98.07956258287057,99.31243,149.0284,2026-07-31,USD
+2026-07-03,PYPL UW,A-,A3,A-,Financials,Financial Services,Financial Services,Transaction & Payment Processi,87.34190941782605,99.63191,878.8585,2026-07-29,USD
+2026-07-03,Q UN,BB+,,BB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,85.59128107000944,99.86372,209.0539,2026-07-21,USD
+2026-07-03,QCOM UW,A,A2,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,95.55930206780607,99.89181,1052.86,2026-07-30,USD
+2026-07-03,RCL UN,BBB,Baa2,BBB,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure","Hotels, Resorts & Cruise Lines",82.0048384409948,88.2832,236.7711,2026-07-29,USD
+2026-07-03,REG UW,A-,WR,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,116.64176132218851,99.48434,182.1526,2026-07-29,USD
+2026-07-03,REGN UW,BBB+,Baa1,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,100.02684813497713,97.85725,100.8144,2026-07-30,USD
+2026-07-03,RF UN,BBB+,,A-,Financials,Banks,Banks,Regional Banks,96.203648211681,99.47485,848.8979,2026-07-17,USD
+2026-07-03,RJF UN,A-,A3,A-,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,90.10920937473358,89.23597,173.9058,2026-07-22,USD
+2026-07-03,RL UN,A-,A3,,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",116.74205976192953,97.36265,36.6425,2026-08-07,USD
+2026-07-03,RMD UN,NR,,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,86.44269105452297,99.46775,144.2843,2026-08-06,USD
+2026-07-03,ROK UN,A-,A3,A,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,98.8886145768158,99.79662,111.0477,2026-08-06,USD
+2026-07-03,ROL UN,BBB,,BBB+,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,69.38570593205282,64.75325,311.7633,2026-07-23,USD
+2026-07-03,ROP UW,BBB+,Baa2,,Information Technology,Software & Services,Software,Application Software,111.63948664232133,99.62582,100.5397,2026-07-23,USD
+2026-07-03,ROST UW,A-,A2,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Apparel Retail,102.51251898639669,97.8624,313.9241,2026-08-21,USD
+2026-07-03,RSG UN,A-,A3,A-,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,103.33934169992092,63.86946,196.5034,2026-08-06,USD
+2026-07-03,RTX UN,BBB+,Baa1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,85.0670633612712,99.93372,1345.791,2026-07-23,USD
+2026-07-03,RVTY UN,BBB,Baa3,BBB,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,125.28128920752897,99.52332,111.028,2026-07-28,USD
+2026-07-03,SATS UW,CCC+ *+,B3,,Communication Services,Media & Entertainment,Media,Cable & Satellite,,,,2026-07-31,USD
+2026-07-03,SBAC UW,BBB,Ba2,BBB-,Real Estate,Equity Real Estate Investment,Specialized REITs,Telecom Tower REITs,111.0068009207273,99.08857,105.0963,2026-08-04,USD
+2026-07-03,SBUX UW,BBB+,Baa1,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,111.95349921963724,99.84422,1137.925,2026-07-29,USD
+2026-07-03,SCHW UN,A-,A2,A,Financials,Financial Services,Capital Markets,Investment Banking & Brokerage,94.64412006484525,93.75061,1630.45,2026-07-21,USD
+2026-07-03,SHW UN,BBB,Baa2,BBB+,Materials,Materials,Chemicals,Specialty Chemicals,98.96440794817462,93.04861,229.491,2026-07-28,USD
+2026-07-03,SJM UN,BBB,Baa2,,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,101.27788683522272,97.02769,103.7039,2026-08-27,USD
+2026-07-03,SLB UN,A,A1,,Energy,Energy,Energy Equipment & Services,Oil & Gas Equipment & Services,107.29546860231194,99.80895,1492.201,2026-07-24,USD
+2026-07-03,SMCI UW,,,,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",71.66566784997812,84.1067,544.0294,2026-08-05,USD
+2026-07-03,SNA UN,A-,A2,A,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,107.94408760803668,97.66254,50.59107,2026-07-17,USD
+2026-07-03,SNDK UW,BB+,Ba2,BB+,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",86.84424620076872,98.72111,146.1958,2026-08-14,USD
+2026-07-03,SNPS UW,BBB,Baa1,,Information Technology,Software & Services,Software,Application Software,103.42172507281046,99.56555,190.6474,2026-09-09,USD
+2026-07-03,SO UN,A-,Baa1,BBB+,Utilities,Utilities,Electric Utilities,Electric Utilities,86.33810394177547,99.38305,1121.359,2026-07-30,USD
+2026-07-03,SOLV UN,BBB,Baa3,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Supplies,85.01143650786061,85.00432,147.206,2026-08-07,USD
+2026-07-03,SPG UN,A,,WD,Real Estate,Equity Real Estate Investment,Retail REITs,Retail REITs,105.64384966229348,95.54886,309.8477,2026-08-10,USD
+2026-07-03,SPGI UN,,A3,A-,Financials,Financial Services,Capital Markets,Financial Exchanges & Data,103.82604762171648,96.41068,284.2393,2026-07-31,USD
+2026-07-03,SRE UN,BBB+,Baa2,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,102.902180358611,99.95535,653.3982,2026-08-05,USD
+2026-07-03,STE UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,114.0868099812226,99.66435,97.13057,2026-08-06,USD
+2026-07-03,STLD UW,BBB,Baa2,BBB+,Materials,Materials,Metals & Mining,Steel,97.16145959491953,93.29291,134.5403,2026-07-20,USD
+2026-07-03,STT UN,A,,AA-,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,105.15602653285441,93.8556,259.7614,2026-07-16,USD
+2026-07-03,STX UW,BB+,,BBB-,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",102.20556987049439,99.7802,223.7361,2026-07-29,USD
+2026-07-03,STZ UN,BBB,Baa2,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Distillers & Vintners,125.81452954105676,87.09574,148.7182,2026-10-06,USD
+2026-07-03,SW UN,BBB,Baa2,BBB+,Materials,Materials,Containers & Packaging,Paper & Plastic Packaging Prod,113.35677484958691,99.46523,521.7101,2026-07-30,USD
+2026-07-03,SWK UN,BBB+,Baa3,BBB+,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,106.14920064589508,99.70904,155.0033,2026-07-29,USD
+2026-07-03,SWKS UW,BBB-,Ba1,BBB+,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,126.93615926596944,99.60142,149.8065,2026-08-05,USD
+2026-07-03,SYF UN,BBB-,,BBB,Financials,Financial Services,Consumer Finance,Consumer Finance,127.70338615767673,99.47706,335.1893,2026-07-21,USD
+2026-07-03,SYK UN,BBB+,A3,,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,90.53121811820095,91.82643,352.0265,2026-07-30,USD
+2026-07-03,SYY UN,BBB,Baa2 *-,BBB *-,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Food Distributors,99.60427727898237,99.76585,477.063,2026-07-29,USD
+2026-07-03,T UN,BBB,Baa2,BBB+ *-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,79.12085199071572,99.88921,6940.641,2026-07-22,USD
+2026-07-03,TAP UN,BBB,Baa1,WD,Consumer Staples,"Food, Beverage & Tobacco",Beverages,Brewers,111.01601375905766,88.42124,154.9277,2026-08-05,USD
+2026-07-03,TDG UN,,,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,131.5307264398185,98.84874,55.28964,2026-08-05,USD
+2026-07-03,TDY UN,BBB,Baa1,BBB,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,112.34014148096432,98.98251,45.85775,2026-07-23,USD
+2026-07-03,TECH UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,129.36847494824835,99.69543,156.0919,2026-08-06,USD
+2026-07-03,TEL UN,A-,,A-,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Manufacturing Servi,107.19238046383808,99.889,291.5718,2026-07-22,USD
+2026-07-03,TER UW,NR,,,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductor Materials & Equi,107.45895244096286,99.73875,156.1332,2026-07-29,USD
+2026-07-03,TFC UN,A-,,A,Financials,Banks,Banks,Regional Banks,93.69827058827883,99.04973,1234.04,2026-07-17,USD
+2026-07-03,TGT UN,A,A2,WD,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,84.79470998768758,99.71503,452.8968,2026-08-20,USD
+2026-07-03,TJX UN,A,A2,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Apparel Retail,104.14594632072898,99.70489,1101.444,2026-08-19,USD
+2026-07-03,TKO UN,,,,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,128.95037366667796,79.87388,59.87959,2026-08-06,USD
+2026-07-03,TMO UN,A-,A2,A-,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,104.29133158561595,99.86241,371.1102,2026-07-23,USD
+2026-07-03,TMUS UW,BBB+,,BBB+,Communication Services,Telecommunication Services,Wireless Telecommunication Ser,Wireless Telecommunication Ser,46.401192592836615,40.96752,443.3524,2026-07-23,USD
+2026-07-03,TPL UN,,,,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Exploration & Produc,72.08822389894343,94.1486,64.93845,2026-08-06,USD
+2026-07-03,TPR UN,BBB,Baa2,WD,Consumer Discretionary,Consumer Durables & Apparel,"Textiles, Apparel & Luxury Goo","Apparel, Accessories & Luxury",107.01345493027677,99.23735,200.5038,2026-08-13,USD
+2026-07-03,TRGP UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,107.22866987311632,98.4961,211.4159,2026-08-07,USD
+2026-07-03,TRMB UW,BBB-,Baa3,,Information Technology,Software & Services,Software,Application Software,115.54951077127814,99.56496,232.0974,2026-08-06,USD
+2026-07-03,TROW UW,,,,Financials,Financial Services,Capital Markets,Asset Management & Custody Ban,98.29227783729654,97.93567,209.8434,2026-07-31,USD
+2026-07-03,TRV UN,A,A2,A+,Financials,Insurance,Insurance,Property & Casualty Insurance,87.65683019781551,98.65839,209.7918,2026-07-17,USD
+2026-07-03,TSCO UW,BBB,Baa1,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Other Specialty Retail,107.24923030980797,99.67155,522.7271,2026-07-23,USD
+2026-07-03,TSLA UW,BBB,Baa3,,Consumer Discretionary,Automobiles & Components,Automobiles,Automobile Manufacturers,50.507918969365804,88.91142,3339.268,2026-07-22,USD
+2026-07-03,TSN UN,BBB,Baa2,BBB,Consumer Staples,"Food, Beverage & Tobacco",Food Products,Packaged Foods & Meats,105.48024620548537,98.06567,276.6633,2026-08-03,USD
+2026-07-03,TT UN,A-,A3,NR,Industrials,Capital Goods,Building Products,Building Products,110.33272914243346,99.76704,220.5405,2026-07-30,USD
+2026-07-03,TTD UQ,,,,Communication Services,Media & Entertainment,Media,Advertising,98.34919607444264,97.80921,417.6451,2026-08-07,USD
+2026-07-03,TTWO UW,BBB,Baa2,,Communication Services,Media & Entertainment,Entertainment,Interactive Home Entertainment,103.28163900397098,96.22016,178.6488,2026-08-07,USD
+2026-07-03,TXN UW,A+,Aa3,WD,Information Technology,Semiconductors & Semiconductor,Semiconductors & Semiconductor,Semiconductors,101.07211374762721,99.83996,908.6363,2026-07-22,USD
+2026-07-03,TXT UN,BBB,Baa1,WD,Industrials,Capital Goods,Aerospace & Defense,Aerospace & Defense,101.58671920467361,99.04906,172.2354,2026-07-28,USD
+2026-07-03,TYL UN,,,,Information Technology,Software & Services,Software,Application Software,114.9176813752807,99.51094,41.96123,2026-07-30,USD
+2026-07-03,UAL UW,BB+,Ba1,BB+,Industrials,Transportation,Passenger Airlines,Passenger Airlines,94.16496635611706,99.37172,322.6097,2026-07-15,USD
+2026-07-03,UBER UN,BBB+,Baa1,A-,Industrials,Transportation,Ground Transportation,Passenger Ground Transportatio,100.97273580961902,99.57228,2026.892,2026-08-06,USD
+2026-07-03,UDR UN,BBB+,Baa1,,Real Estate,Equity Real Estate Investment,Residential REITs,Multi-Family Residential REITs,129.39608007952376,99.53841,323.4159,2026-07-30,USD
+2026-07-03,UHS UN,BB+,Baa3,BB+,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Health Care Facilities,110.87011793743056,93.96315,50.07071,2026-07-28,USD
+2026-07-03,ULTA UW,,,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Other Specialty Retail,115.17584710861841,99.595,42.8152,2026-08-26,USD
+2026-07-03,UNH UN,A+,A2,A,Health Care,Health Care Equipment & Servic,Health Care Providers & Servic,Managed Health Care,96.17176151228915,99.26534,901.4726,2026-07-16,USD
+2026-07-03,UNP UN,A-,A3,A- *+,Industrials,Transportation,Ground Transportation,Rail Transportation,101.21347541733887,99.86936,592.9376,2026-07-23,USD
+2026-07-03,UPS UN,A,A2,,Industrials,Transportation,Air Freight & Logistics,Air Freight & Logistics,79.50483754839055,99.96269,746.3033,2026-07-28,USD
+2026-07-03,URI UN,BB+,,NR,Industrials,Capital Goods,Trading Companies & Distributo,Trading Companies & Distributo,112.64612754280694,99.469,62.3139,2026-07-23,USD
+2026-07-03,USB UN,A,,A+,Financials,Banks,Banks,Diversified Banks,94.00152368520058,99.0899,1543.555,2026-07-16,USD
+2026-07-03,V UN,AA-,Aa3,,Financials,Financial Services,Financial Services,Transaction & Payment Processi,102.9822494447088,99.44018,1650.419,2026-07-29,USD
+2026-07-03,VEEV UN,,,,Health Care,Health Care Equipment & Servic,Health Care Technology,Health Care Technology,97.05377932405173,90.97109,147.7764,2026-08-27,USD
+2026-07-03,VICI UN,BBB-,,BBB-,Real Estate,Equity Real Estate Investment,Specialized REITs,Other Specialized REITs,114.5944833046366,99.70892,1089.661,2026-07-29,USD
+2026-07-03,VLO UN,BBB,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Refining & Marketing,97.80896216812013,99.59756,295.7378,2026-07-30,USD
+2026-07-03,VLTO UN,BBB,Baa1,,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,110.19298379722946,99.79015,245.0839,2026-07-28,USD
+2026-07-03,VMC UN,BBB+,Baa2,BBB+,Materials,Materials,Construction Materials,Construction Materials,114.47330610686224,99.81176,129.5106,2026-07-31,USD
+2026-07-03,VRSK UW,BBB,Baa1,WD,Industrials,Commercial & Professional Serv,Professional Services,Research & Consulting Services,113.69791658239699,99.67223,130.5924,2026-07-30,USD
+2026-07-03,VRSN UW,BBB,Baa2,,Information Technology,Software & Services,IT Services,Internet Services & Infrastruc,106.05677240375928,89.24169,81.20994,2026-07-23,USD
+2026-07-03,VRT UN,BBB-,,BBB-,Industrials,Capital Goods,Electrical Equipment,Electrical Components & Equipm,94.97382230955031,98.47766,378.2614,2026-07-30,USD
+2026-07-03,VRTX UW,,,,Health Care,"Pharmaceuticals, Biotechnology",Biotechnology,Biotechnology,125.24851528989649,99.77846,253.2431,2026-08-04,USD
+2026-07-03,VST UN,BBB-,Ba1,BBB-,Utilities,Utilities,Independent Power and Renewabl,Independent Power Producers &,101.16524302622756,99.009,333.841,2026-08-07,USD
+2026-07-03,VTR UN,BBB+,(P)Baa2,WD,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,117.17707146127385,98.48544,478.8063,2026-07-29,USD
+2026-07-03,VTRS UW,BB+,Baa3,BBB,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,102.07357946428948,99.36827,1157.196,2026-08-06,USD
+2026-07-03,VZ UN,BBB+,Baa1,A-,Communication Services,Telecommunication Services,Diversified Telecommunication,Integrated Telecommunication S,79.4080915514689,91.10665,3804.212,2026-07-24,USD
+2026-07-03,WAB UN,BBB,Baa2,BBB,Industrials,Capital Goods,Machinery,Construction Machinery & Heavy,108.16522863733155,95.67341,162.3361,2026-07-22,USD
+2026-07-03,WAT UN,BBB,Baa2,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,110.80402520120154,99.90374,98.09134,2026-08-04,USD
+2026-07-03,WBD UW,BB+ *-,Ba1 *-,BB+ *-,Communication Services,Media & Entertainment,Entertainment,Movies & Entertainment,81.40643671495094,94.70234,2374.317,2026-08-07,USD
+2026-07-03,WDAY UW,BBB+,Baa1,,Information Technology,Software & Services,Software,Application Software,113.91765392929216,98.29956,197.5821,2026-08-21,USD
+2026-07-03,WDC UW,BBB-,,BBB-,Information Technology,Technology Hardware & Equipmen,"Technology Hardware, Storage &","Technology Hardware, Storage &",106.18386375005453,99.30779,363.4388,2026-07-30,USD
+2026-07-03,WEC UN,A-,Baa1,BBB+,Utilities,Utilities,Multi-Utilities,Multi-Utilities,96.65702219847017,99.82737,325.1634,2026-07-29,USD
+2026-07-03,WELL UN,A-,A3,,Real Estate,Equity Real Estate Investment,Health Care REITs,Health Care REITs,113.25195932314772,99.95905,705.6254,2026-07-27,USD
+2026-07-03,WFC UN,BBB+,,A+,Financials,Banks,Banks,Diversified Banks,88.41171357663417,99.70242,3051.083,2026-07-14,USD
+2026-07-03,WM UN,A-,A3,A-,Industrials,Commercial & Professional Serv,Commercial Services & Supplies,Environmental & Facilities Ser,95.42430720911183,99.79928,400.7697,2026-07-29,USD
+2026-07-03,WMB UN,BBB+,Baa2,BBB,Energy,Energy,"Oil, Gas & Consumable Fuels",Oil & Gas Storage & Transporta,99.8227865161234,99.50497,1216.803,2026-08-04,USD
+2026-07-03,WMT UW,AA,Aa2,AA,Consumer Staples,Consumer Staples Distribution,Consumer Staples Distribution,Consumer Staples Merchandise R,85.45656791679089,55.27151,4398.551,2026-08-20,USD
+2026-07-03,WRB UN,A-,Baa1,A,Financials,Insurance,Insurance,Property & Casualty Insurance,111.11970371793612,73.61246,274.0421,2026-07-20,USD
+2026-07-03,WSM UN,,,,Consumer Discretionary,Consumer Discretionary Distrib,Specialty Retail,Homefurnishing Retail,108.40836186168865,98.84129,116.3823,2026-08-27,USD
+2026-07-03,WST UN,,,,Health Care,"Pharmaceuticals, Biotechnology",Life Sciences Tools & Services,Life Sciences Tools & Services,115.45578952402337,99.36771,70.2009,2026-07-24,USD
+2026-07-03,WTW UW,BBB+,(P)Baa2,BBB+,Financials,Insurance,Insurance,Insurance Brokers,110.70560352668643,99.42337,93.90336,2026-07-31,USD
+2026-07-03,WY UN,BBB,Baa2,WD,Real Estate,Equity Real Estate Investment,Specialized REITs,Timber REITs,97.87737597250332,99.5593,717.8654,2026-07-30,USD
+2026-07-03,WYNN UW,BB-,,BB-,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Casinos & Gaming,99.3688020758758,72.10168,74.83198,2026-08-07,USD
+2026-07-03,XEL UW,BBB+,Baa1,BBB+,Utilities,Utilities,Electric Utilities,Electric Utilities,101.9368799054022,99.79004,622.9588,2026-07-31,USD
+2026-07-03,XOM UN,AA-,Aa2,,Energy,Energy,"Oil, Gas & Consumable Fuels",Integrated Oil & Gas,31.617154944561392,100.0,4144.456,2026-07-31,USD
+2026-07-03,XYL UN,BBB,Baa2,WD,Industrials,Capital Goods,Machinery,Industrial Machinery & Supplie,110.40873951296813,99.35958,236.1712,2026-07-28,USD
+2026-07-03,XYZ UN,BB+,Ba1,BBB-,Financials,Financial Services,Financial Services,Transaction & Payment Processi,93.54788494172858,98.49142,527.1212,2026-08-05,USD
+2026-07-03,YUM UN,BB+,Ba2,WD,Consumer Discretionary,Consumer Services,"Hotels, Restaurants & Leisure",Restaurants,100.71100463058913,99.85743,275.2283,2026-08-05,USD
+2026-07-03,ZBH UN,BBB,Baa2,BBB,Health Care,Health Care Equipment & Servic,Health Care Equipment & Suppli,Health Care Equipment,113.05346421165858,99.73265,192.9453,2026-08-07,USD
+2026-07-03,ZBRA UW,BB+,Ba1,,Information Technology,Technology Hardware & Equipmen,"Electronic Equipment, Instrume",Electronic Equipment & Instrum,111.3780331941123,99.00241,47.15821,2026-08-04,USD
+2026-07-03,ZTS UN,BBB+,A3,,Health Care,"Pharmaceuticals, Biotechnology",Pharmaceuticals,Pharmaceuticals,113.26193731851455,91.41644,383.2434,2026-08-06,USD

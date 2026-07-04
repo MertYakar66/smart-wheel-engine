@@ -1,0 +1,60 @@
+{
+  "dividends": {
+    "sample_ticker": "AAPL",
+    "rows": 91,
+    "ex_date_monotonic": true,
+    "neg_amount": 1
+  },
+  "corporate_actions": {
+    "sample_ticker": "AAPL",
+    "rows_disruptive": 6,
+    "eff_date_monotonic": true,
+    "action_types": [
+      "Discontinued",
+      "Stock Split"
+    ]
+  },
+  "fundamentals": {
+    "sample_ticker": "AAPL",
+    "present": true,
+    "keys": [
+      "best_pe_ratio",
+      "beta",
+      "debt_to_equity",
+      "dividend_yield",
+      "fcf_yield",
+      "implied_vol_atm",
+      "industry_group",
+      "market_cap",
+      "pe_ratio",
+      "roe",
+      "sector",
+      "ticker",
+      "volatility_30d"
+    ],
+    "implied_vol_atm": 25.5701,
+    "beta": 1.0966307164775355
+  },
+  "credit_risk": {
+    "sample_ticker": "AAPL",
+    "present": true,
+    "keys": [
+      "altman_z_score",
+      "interest_coverage_ratio",
+      "sp_rating",
+      "ticker"
+    ]
+  },
+  "vix": {
+    "rows": 9200,
+    "date_min": "1990-01-02",
+    "date_max": "2026-06-04",
+    "vix_min": 9.14,
+    "vix_max": 82.69,
+    "monotonic": true
+  },
+  "earnings": {
+    "sample_ticker": "AAPL",
+    "recent_rows": null
+  }
+}

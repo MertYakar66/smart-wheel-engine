@@ -1,0 +1,278 @@
+{
+  "calm_2021": {
+    "as_of": "2021-06-15",
+    "vix_level": 17.02,
+    "vix_percentile": 0.472,
+    "rfr_3m_decimal": 0.000127,
+    "ranked_candidates": 358,
+    "drops_summary": {
+      "total_dropped": 153,
+      "by_gate": {
+        "history": 14,
+        "event": 107,
+        "data": 32
+      }
+    },
+    "premium_spot_ratio": {
+      "min": 0.00629,
+      "median": 0.01071,
+      "max": 0.04091
+    },
+    "iv_decimal": {
+      "min": 0.1337,
+      "max": 0.5477
+    },
+    "ev_dollars": {
+      "min": -1367.52,
+      "max": 364.82,
+      "n_negative": 336
+    },
+    "prob_profit": {
+      "min": 0.5833,
+      "max": 0.9583
+    },
+    "non_finite_by_column": {},
+    "outlier_counts": {
+      "prem_spot_gt_max": 0,
+      "spot_lt_min": 0,
+      "iv_outside_band": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "prob_profit_eq_1": 0,
+      "prob_profit_thin_n_lt_30": 346
+    },
+    "outlier_tickers": {
+      "prob_profit_thin_n_lt_30": [
+        "GNRC",
+        "SBAC",
+        "WTW",
+        "PODD",
+        "MPWR",
+        "CRL",
+        "MSCI",
+        "EXPD",
+        "EW",
+        "TMUS",
+        "BF/B",
+        "CRH",
+        "CDNS",
+        "ADI",
+        "ICE"
+      ]
+    },
+    "greek_violation_count": 0,
+    "greek_violations": []
+  },
+  "calm_2024": {
+    "as_of": "2024-01-16",
+    "vix_level": 13.84,
+    "vix_percentile": 0.248,
+    "rfr_3m_decimal": 0.05355,
+    "ranked_candidates": 71,
+    "drops_summary": {
+      "total_dropped": 440,
+      "by_gate": {
+        "event": 410,
+        "data": 20,
+        "history": 10
+      }
+    },
+    "premium_spot_ratio": {
+      "min": 0.00695,
+      "median": 0.01085,
+      "max": 0.0247
+    },
+    "iv_decimal": {
+      "min": 0.1461,
+      "max": 0.4626
+    },
+    "ev_dollars": {
+      "min": -866.81,
+      "max": 259.18,
+      "n_negative": 66
+    },
+    "prob_profit": {
+      "min": 0.6286,
+      "max": 0.8857
+    },
+    "non_finite_by_column": {},
+    "outlier_counts": {
+      "prem_spot_gt_max": 0,
+      "spot_lt_min": 0,
+      "iv_outside_band": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "prob_profit_eq_1": 0,
+      "prob_profit_thin_n_lt_30": 1
+    },
+    "outlier_tickers": {
+      "prob_profit_thin_n_lt_30": [
+        "AEP"
+      ]
+    },
+    "greek_violation_count": 0,
+    "greek_violations": []
+  },
+  "covid_2020": {
+    "as_of": "2020-03-23",
+    "vix_level": 61.59,
+    "vix_percentile": 0.996,
+    "rfr_3m_decimal": -0.000356,
+    "ranked_candidates": 191,
+    "drops_summary": {
+      "total_dropped": 320,
+      "by_gate": {
+        "event": 256,
+        "data": 42,
+        "history": 22
+      }
+    },
+    "premium_spot_ratio": {
+      "min": 0.02257,
+      "median": 0.03697,
+      "max": 0.20246
+    },
+    "iv_decimal": {
+      "min": 0.4778,
+      "max": 2.7372
+    },
+    "ev_dollars": {
+      "min": -0.77,
+      "max": 3859.09,
+      "n_negative": 1
+    },
+    "prob_profit": {
+      "min": 0.771,
+      "max": 0.9981
+    },
+    "non_finite_by_column": {},
+    "outlier_counts": {
+      "prem_spot_gt_max": 0,
+      "spot_lt_min": 0,
+      "iv_outside_band": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "prob_profit_eq_1": 0,
+      "prob_profit_thin_n_lt_30": 0
+    },
+    "outlier_tickers": {},
+    "greek_violation_count": 0,
+    "greek_violations": []
+  },
+  "bear_2022_jun": {
+    "as_of": "2022-06-16",
+    "vix_level": 32.95,
+    "vix_percentile": 0.945,
+    "rfr_3m_decimal": 0.014908,
+    "ranked_candidates": 329,
+    "drops_summary": {
+      "total_dropped": 182,
+      "by_gate": {
+        "history": 14,
+        "event": 141,
+        "data": 27
+      }
+    },
+    "premium_spot_ratio": {
+      "min": 0.01126,
+      "median": 0.01939,
+      "max": 0.08178
+    },
+    "iv_decimal": {
+      "min": 0.2308,
+      "max": 1.4123
+    },
+    "ev_dollars": {
+      "min": -83.51,
+      "max": 926.16,
+      "n_negative": 86
+    },
+    "prob_profit": {
+      "min": 0.6875,
+      "max": 1.0
+    },
+    "non_finite_by_column": {},
+    "outlier_counts": {
+      "prem_spot_gt_max": 0,
+      "spot_lt_min": 0,
+      "iv_outside_band": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "prob_profit_eq_1": 1,
+      "prob_profit_thin_n_lt_30": 14
+    },
+    "outlier_tickers": {
+      "prob_profit_eq_1": [
+        "AMCR"
+      ],
+      "prob_profit_thin_n_lt_30": [
+        "AMCR",
+        "EXPD",
+        "BLDR",
+        "MRNA",
+        "GRMN",
+        "CTVA",
+        "UBER",
+        "LNT",
+        "SMCI",
+        "DELL",
+        "FOX",
+        "FOXA",
+        "REG",
+        "CRWD"
+      ]
+    },
+    "greek_violation_count": 0,
+    "greek_violations": []
+  },
+  "bear_2022_oct": {
+    "as_of": "2022-10-14",
+    "vix_level": 32.02,
+    "vix_percentile": 0.938,
+    "rfr_3m_decimal": 0.036975,
+    "ranked_candidates": 37,
+    "drops_summary": {
+      "total_dropped": 474,
+      "by_gate": {
+        "event": 436,
+        "history": 11,
+        "data": 27
+      }
+    },
+    "premium_spot_ratio": {
+      "min": 0.01076,
+      "median": 0.01792,
+      "max": 0.04292
+    },
+    "iv_decimal": {
+      "min": 0.2457,
+      "max": 0.9206
+    },
+    "ev_dollars": {
+      "min": -222.08,
+      "max": 656.49,
+      "n_negative": 15
+    },
+    "prob_profit": {
+      "min": 0.7059,
+      "max": 0.9412
+    },
+    "non_finite_by_column": {},
+    "outlier_counts": {
+      "prem_spot_gt_max": 0,
+      "spot_lt_min": 0,
+      "iv_outside_band": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "prob_profit_eq_1": 0,
+      "prob_profit_thin_n_lt_30": 1
+    },
+    "outlier_tickers": {
+      "prob_profit_thin_n_lt_30": [
+        "CRWD"
+      ]
+    },
+    "greek_violation_count": 0,
+    "greek_violations": []
+  }
+}

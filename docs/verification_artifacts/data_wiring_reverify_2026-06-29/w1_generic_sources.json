@@ -1,0 +1,46 @@
+{
+  "dividends_AAPL": {
+    "rows": 91,
+    "ex_date_monotonic": true,
+    "negative_dividend_count": 1,
+    "verdict": "PASS (1+ negative dividend flagged, low-severity: ex-div lockout only)"
+  },
+  "fundamentals_AAPL": {
+    "is_dict": true,
+    "keys": [
+      "best_pe_ratio",
+      "beta",
+      "debt_to_equity",
+      "dividend_yield",
+      "fcf_yield",
+      "implied_vol_atm",
+      "industry_group",
+      "market_cap",
+      "pe_ratio",
+      "roe",
+      "sector",
+      "ticker",
+      "volatility_30d"
+    ],
+    "verdict": "PASS"
+  },
+  "credit_risk_AAPL": {
+    "is_dict": true,
+    "keys": [
+      "altman_z_score",
+      "interest_coverage_ratio",
+      "sp_rating",
+      "ticker"
+    ],
+    "verdict": "PASS"
+  },
+  "corp_actions_AAPL": {
+    "rows": 6,
+    "action_types": [
+      "Discontinued",
+      "Stock Split"
+    ],
+    "eff_date_monotonic": true,
+    "verdict": "PASS"
+  }
+}

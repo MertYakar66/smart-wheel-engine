@@ -1,0 +1,88 @@
+{
+  "rfr_defect": {
+    "treasury_rate_3m_coverage_start": "1994-01-03",
+    "ohlcv_start": "2018-01-02",
+    "defect_active": false,
+    "served_rate_3m_decimal_by_asof": {
+      "2018-06-01": {
+        "connector": 0.019046,
+        "data_integration_fallback0.05": 0.019046
+      },
+      "2020-03-15": {
+        "connector": 0.002441,
+        "data_integration_fallback0.05": 0.002441
+      },
+      "2021-05-01": {
+        "connector": 2.5e-05,
+        "data_integration_fallback0.05": 2.5e-05
+      },
+      "2024-01-02": {
+        "connector": 0.053628,
+        "data_integration_fallback0.05": 0.053628
+      }
+    },
+    "fallback_value_for_pre_coverage_asof_1990": 0.05,
+    "verdict": "REFUTED on current data \u2014 treasury coverage starts 1994-01-03 (<= OHLCV 2018-01-02), so the spurious-0.05 fallback path is unreachable for any feasible as_of; it only fires before 1994."
+  },
+  "latent_ev_impact": {
+    "as_of": "2021-06-15",
+    "real_pit_rate_decimal": 0.000127,
+    "forced_rate_decimal": 0.05,
+    "n_common": 90,
+    "ev_delta_mean": -15.2,
+    "ev_delta_median": -10.37,
+    "ev_delta_min": -131.77,
+    "ev_delta_max": -1.48,
+    "interpretation": "ev_delta = ev_dollars(forced 5%) - ev_dollars(real ~0% PIT). A positive delta is phantom carry income the spurious rate would have injected per contract \u2014 the magnitude the latent defect would cost if treasury coverage ever regressed to start after the as_of.",
+    "examples": {
+      "AIG": -1.48,
+      "ANET": -1.65,
+      "ACGL": -2.14,
+      "AME": -3.22,
+      "BLDR": -3.31,
+      "ADM": -3.32,
+      "CNP": -3.36,
+      "CPRT": -3.44
+    }
+  },
+  "pit_iv": {
+    "lookahead_violations": [],
+    "no_lookahead": true,
+    "per_ticker_pit": {
+      "AAPL": {
+        "2021-06-15": {
+          "resolved_iv_decimal": 0.2129,
+          "connector_pit_iv_decimal": 0.2129
+        },
+        "2024-01-16": {
+          "resolved_iv_decimal": 0.2261,
+          "connector_pit_iv_decimal": 0.2261
+        },
+        "differs_across_asof": true
+      },
+      "MSFT": {
+        "2021-06-15": {
+          "resolved_iv_decimal": 0.1819,
+          "connector_pit_iv_decimal": 0.1819
+        },
+        "2024-01-16": {
+          "resolved_iv_decimal": 0.2554,
+          "connector_pit_iv_decimal": 0.2554
+        },
+        "differs_across_asof": true
+      },
+      "NVDA": {
+        "2021-06-15": {
+          "resolved_iv_decimal": 0.3194,
+          "connector_pit_iv_decimal": 0.3194
+        },
+        "2024-01-16": {
+          "resolved_iv_decimal": 0.3398,
+          "connector_pit_iv_decimal": 0.3398
+        },
+        "differs_across_asof": true
+      }
+    },
+    "verdict": "PIT IV confirmed \u2014 _resolve_pit_atm_iv serves the as-of IV (get_iv_history(end_date=as_of)), no lookahead, and the value moves with as_of (not a fixed present-day snapshot)."
+  }
+}

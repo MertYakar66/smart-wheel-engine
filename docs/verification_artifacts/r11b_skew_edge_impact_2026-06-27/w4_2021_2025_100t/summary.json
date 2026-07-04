@@ -1,0 +1,105 @@
+{
+  "setup": {
+    "capital": 1000000.0,
+    "universe_size": 100,
+    "start": "2021-01-02",
+    "end": "2025-12-31",
+    "friction_level": "full",
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "contracts": 1,
+    "r11_vix_threshold": 25.0,
+    "r11_top_bin_prob": 0.9,
+    "r11_skew_edge_min": 0.0,
+    "min_proceed_ev_dollars": 10.0,
+    "option_premium_dir": "C:/Users/merty/Desktop/smart-wheel-engine/data_processed/option_premium",
+    "ohlcv_csv_sha256": "7a3e77a4fab07f8581da680c0d67d2cb9fc50e16f4e8d4150496cad2e386e961"
+  },
+  "suppressed": {
+    "final_nav": 1489878.415342993,
+    "final_cash": 170673.6765399928,
+    "return_pct": 0.4898784153429931,
+    "sharpe": 0.6725729971276224,
+    "n_put_opened": 467,
+    "n_r11b_blocked": 0,
+    "n_put_assignments": 103,
+    "executed_realized_total": 132468.992,
+    "executed_realized_mean": 323.0951024390244,
+    "n_closed_positions": 410,
+    "n_open_at_end": 57
+  },
+  "active": {
+    "final_nav": 1362738.2947855263,
+    "final_cash": 271227.6413999879,
+    "return_pct": 0.3627382947855263,
+    "sharpe": 0.52606026435828,
+    "n_put_opened": 474,
+    "n_r11b_blocked": 55,
+    "n_put_assignments": 104,
+    "executed_realized_total": 105541.8,
+    "executed_realized_mean": 255.5491525423729,
+    "n_closed_positions": 413,
+    "n_open_at_end": 61
+  },
+  "delta": {
+    "final_nav": -127140.12055746675,
+    "return_pp": -12.714012055746677,
+    "sharpe": -0.1465127327693424,
+    "n_put_opened": 7,
+    "n_put_assignments": 1,
+    "executed_realized_total": -26927.191999999995
+  },
+  "r11b_blocked": {
+    "n": 55,
+    "n_with_realized": 55,
+    "realized_total": 20184.279999999995,
+    "realized_mean": 366.986909090909,
+    "assignment_rate": 0.2,
+    "premium_forgone_total": 35681.28,
+    "edge_vs_fair_mean": 169.0518181818182
+  },
+  "r11b_blocked_by_regime": {
+    "bear_2022": {
+      "n": 34,
+      "realized_total": 3260.8799999999956,
+      "realized_mean": 95.90823529411752,
+      "assignment_rate": 0.3235294117647059
+    },
+    "bull_2021": {
+      "n": 19,
+      "realized_total": 16281.7,
+      "realized_mean": 856.9315789473685,
+      "assignment_rate": 0.0
+    },
+    "calm": {
+      "n": 2,
+      "realized_total": 641.7,
+      "realized_mean": 320.85,
+      "assignment_rate": 0.0
+    }
+  },
+  "r11b_blocked_by_vix_bucket": {
+    "25-35": {
+      "n": 54,
+      "realized_total": 18937.679999999997,
+      "realized_mean": 350.69777777777773,
+      "assignment_rate": 0.2037037037037037
+    },
+    "vix>35": {
+      "n": 1,
+      "realized_total": 1246.6000000000001,
+      "realized_mean": 1246.6000000000001,
+      "assignment_rate": 0.0
+    }
+  },
+  "section2_scan": {
+    "suppressed": {
+      "n_opened": 467,
+      "n_opened_nonpositive_ev": 0
+    },
+    "active": {
+      "n_opened": 474,
+      "n_opened_nonpositive_ev": 0
+    }
+  }
+}

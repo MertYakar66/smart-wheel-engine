@@ -82,8 +82,17 @@ def runner():
 @pytest.fixture(scope="module")
 def frontier(runner):
     """Confirm the bundled data actually covers the pinned frontier; skip on a
-    stale branch (e.g. data ending 2026-03-20) so the probe stays deterministic."""
-    df = runner.connector.get_ohlcv("AAPL", start_date="2026-05-20", end_date="2026-06-30")
+    stale branch (e.g. data ending 2026-03-20) so the probe stays deterministic.
+
+    The probe window is DERIVED from ``FRONTIER`` (frontier + 7d): the
+    2026-07-02 pin bump left the old hardcoded ``end_date="2026-06-30"`` in
+    place, so the probe's max bar could never reach the new frontier and all
+    16 dependent tests silently self-skipped while reading as "did not fail"
+    (the xfail-false-green class; caught by the branch-vs-main skip census,
+    2026-07-04)."""
+    probe_end = (pd.Timestamp(FRONTIER) + pd.Timedelta(days=7)).date().isoformat()
+    probe_start = (pd.Timestamp(FRONTIER) - pd.Timedelta(days=45)).date().isoformat()
+    df = runner.connector.get_ohlcv("AAPL", start_date=probe_start, end_date=probe_end)
     if df.empty or str(df.index.max())[:10] < FRONTIER:
         pytest.skip(f"bundled data does not cover frontier {FRONTIER}")
     return FRONTIER
@@ -141,7 +150,10 @@ def test_clean_universe_output_is_well_formed(runner, frontier):
 def test_distribution_cascade_picks_expected_tier(runner, frontier):
     """A full-history liquid name uses the richest empirical tier; every produced
     row reports a valid, non-null cascade tier (distribution_source correct)."""
-    frame = _rank(runner, ["AAPL", "MSFT", "JPM", "XOM", "UNH"])
+    # Gate off: this pins the CASCADE TIER mechanics, not event gating (which
+    # has its own W16/W30 pins) — at the 2026-07-02 frontier all five names
+    # event-lock on July earnings and would produce no rows to inspect.
+    frame = _rank(runner, ["AAPL", "MSFT", "JPM", "XOM", "UNH"], use_event_gate=False)
     src = dict(zip(frame["ticker"], frame["distribution_source"], strict=False))
     assert src.get("AAPL") == "empirical_non_overlapping", f"AAPL tier {src.get('AAPL')}"
     assert frame["distribution_source"].notna().all()
@@ -226,12 +238,15 @@ def test_determinism_same_as_of_twice(runner, frontier):
 
 def test_in_window_exdiv_flows_into_cc_selection(runner, frontier):
     """R1 mechanism: an ex-dividend inside the CC window feeds the covered-call
-    ex-div early-assignment EV. DIS has a 2026-06-30 ex-div ($0.75), 26 days out
-    (< 35 DTE) — the CC ranker's expected_dividend must equal it."""
-    nd = runner.connector.get_next_dividend("DIS", as_of=FRONTIER)
-    assert nd is not None and nd["dividend_amount"] > 0, "DIS upcoming dividend missing"
+    ex-div early-assignment EV. JPM has a declared 2026-07-06 ex-div ($1.50),
+    4 days past the 2026-07-02 frontier (< 35 DTE) — the CC ranker's
+    expected_dividend must equal it. (Was DIS at the 06-04 frontier; DIS's
+    next declaration postdates 07-02.) Gate off: pins the ex-div wire, not
+    event gating — JPM's 07-14 earnings would otherwise lock the frame."""
+    nd = runner.connector.get_next_dividend("JPM", as_of=FRONTIER)
+    assert nd is not None and nd["dividend_amount"] > 0, "JPM upcoming dividend missing"
     cc = runner.rank_covered_calls_by_ev(
-        ticker="DIS",
+        ticker="JPM",
         shares_held=100,
         as_of=FRONTIER,
         target_dtes=(DTE,),
@@ -239,8 +254,9 @@ def test_in_window_exdiv_flows_into_cc_selection(runner, frontier):
         top_n=5,
         min_ev_dollars=-1e9,
         include_diagnostic_fields=True,
+        use_event_gate=False,
     )
-    assert cc is not None and len(cc) > 0, "DIS produced no covered-call candidate"
+    assert cc is not None and len(cc) > 0, "JPM produced no covered-call candidate"
     row = cc.iloc[0]
     assert int(row["days_to_ex_div"]) < DTE, "ex-div should fall inside the CC window"
     assert float(row["expected_dividend"]) == pytest.approx(
@@ -427,10 +443,21 @@ def test_negative_control_corrupt_data_is_rejected(tmp_path):
 
 
 def test_five_ticker_smoke_stays_green(runner, frontier):
-    frame = _rank(runner, ["AAPL", "MSFT", "JPM", "XOM", "UNH"])
-    assert len(frame) >= 1
+    """#464 oracle: healthy = rows + structured drops account for all five
+    names. Around earnings season (frontier 2026-07-02: all five report in
+    July inside the 35-DTE window) 0 rows + 5 event drops is the CORRECT
+    answer; 0 rows with an empty drops list is what signals a broken path."""
+    tickers = ["AAPL", "MSFT", "JPM", "XOM", "UNH"]
+    frame = _rank(runner, tickers)
+    drops = frame.attrs.get("drops", [])
+    produced = set(frame["ticker"].astype(str)) if len(frame) else set()
+    accounted = produced | {d["ticker"] for d in drops}
+    assert accounted >= set(tickers), f"unaccounted names: {set(tickers) - accounted}"
     for col in ("ev_dollars", "iv", "premium"):
-        assert frame[col].notna().all(), f"{col} has nulls in the 5-ticker smoke"
+        if len(frame):
+            assert frame[col].notna().all(), f"{col} has nulls in the 5-ticker smoke"
+    if not len(frame):
+        assert all(d.get("reason") for d in drops), "empty book must carry real drop reasons"
 
 
 # ---------------------------------------------------------------------------
@@ -447,7 +474,9 @@ def test_ranker_iv_equals_real_pit_iv(runner, frontier):
     ``_resolve_pit_atm_iv`` exactly, so a connector-side PIT regression (wrong
     ``iloc[-1]`` row, snapshot instead of as-of) fails here. Tied to FRONTIER so
     a data refresh re-baselines the expectation in lockstep."""
-    frame = _rank(runner, ["AAPL"])
+    # Gate off: pins the IV WIRING, not event gating — AAPL event-locks on its
+    # July earnings at the 2026-07-02 frontier (W16 pins the gate itself).
+    frame = _rank(runner, ["AAPL"], use_event_gate=False)
     assert len(frame) == 1, "AAPL should produce exactly one row at the frontier"
     hist = runner.connector.get_iv_history("AAPL", end_date=FRONTIER)
     assert not hist.empty, "AAPL has no PIT IV history at the frontier"
@@ -557,7 +586,9 @@ def test_ev_dollars_sign_controls(runner, frontier):
 
     Pins only the sign, so the pending ev_mean re-baseline moves the numbers but a
     sign INVERSION (the scariest silent failure for a decision engine) fails."""
-    frame = _rank(runner, ["XOM", "UNH"])
+    # Gate off: pins the data->EV SIGN transform, not event gating — both
+    # names event-lock on July earnings at the 2026-07-02 frontier.
+    frame = _rank(runner, ["XOM", "UNH"], use_event_gate=False)
     ev = dict(zip(frame["ticker"].astype(str), frame["ev_dollars"].astype(float), strict=False))
     assert "XOM" in ev and "UNH" in ev, f"sign controls did not both produce: {sorted(ev)}"
     assert ev["XOM"] > 0, f"XOM expected +EV at the frontier, got {ev['XOM']}"
@@ -798,22 +829,22 @@ def test_cc_real_earnings_event_lockout_fires(runner, frontier):
 
 def test_cc_exdiv_penalty_lowers_ev(runner, frontier):
     """W31: the in-window ex-dividend early-assignment penalty (call-only) LOWERS
-    ev_dollars. The DIS real-data test pins only that expected_dividend reaches the
+    ev_dollars. The JPM real-data test pins only that expected_dividend reaches the
     row, not that it BITES — a regression dropping the penalty subtraction would pass
-    it. Toggle the REAL DIS ex-div (from get_next_dividend) on a controlled call
+    it. Toggle the REAL JPM ex-div (from get_next_dividend) on a controlled call
     evaluation over the SAME forward distribution and assert the penalty is
     negative-signed. Calls EVEngine.evaluate directly (the ranker can't suppress the
     ex-div for an A/B) — no §2 bypass; evaluate is the authoritative EV path."""
     from engine.ev_engine import EVEngine, ShortOptionTrade
 
-    nd = runner.connector.get_next_dividend("DIS", as_of=FRONTIER)
-    assert nd is not None and float(nd["dividend_amount"]) > 0, "DIS upcoming dividend missing"
+    nd = runner.connector.get_next_dividend("JPM", as_of=FRONTIER)
+    assert nd is not None and float(nd["dividend_amount"]) > 0, "JPM upcoming dividend missing"
     div = float(nd["dividend_amount"])
     # 35-day log-returns with enough spread that some calls finish ITM (penalty bites).
     fwd = np.random.default_rng(0).normal(0.0, 0.10, 500)
     base = {
         "option_type": "call",
-        "underlying": "DIS",
+        "underlying": "JPM",
         "spot": 100.0,
         "strike": 105.0,
         "premium": 1.20,
@@ -863,7 +894,7 @@ def test_cc_ev_dollars_sign_controls(runner, frontier):
 @pytest.mark.slow
 def test_full_universe_no_silent_drops_and_split(runner, frontier):
     """Full connector universe: the accounting invariant holds and the
-    produced/dropped split is pinned to the 2026-06-04 frontier (re-baseline on
+    produced/dropped split is pinned to the 2026-07-02 frontier (re-baseline on
     a data refresh — the pin going red is the signal, by design)."""
     universe = sorted(set(MarketDataConnector(str(runner.data_dir)).get_universe()))
     frame = _rank(runner, universe)
@@ -879,17 +910,21 @@ def test_full_universe_no_silent_drops_and_split(runner, frontier):
     # (as_of=None) path — the holding window is wall-clock, so which names have an
     # upcoming split/spinoff/special-cash in-window slides with the calendar.
     # Isolate it: the conserved, deterministic invariant is
-    #   produced + corp-action-gated == 480  (the frontier tradeable count), and
-    #   non-corp drops == 31  (the data/history/earnings baseline).
-    # Pinned at frontier 2026-06-04 (see docs/DATA_ENGINE_AUDIT_2026-06-07.md).
+    #   produced + corp-action-gated == 66  (the frontier tradeable count), and
+    #   non-corp drops == 449 (421 event + 18 history + 8 data + 1 premium + 1 strike).
+    # Pinned at frontier 2026-07-02 (#472 re-pin; was 480/31 at 2026-06-04).
+    # The 421 event locks are JULY EARNINGS SEASON under the restored
+    # 100%-coverage lockout (#464): ~82% of the index reports inside the
+    # 35-DTE+buffer window from early July — the honest seasonal book, not a
+    # defect (the old 7.6%-coverage file silently admitted these names).
     corp_drops = [d for d in drops if "corp_action" in str(d.get("reason", ""))]
     non_corp_drops = [d for d in drops if "corp_action" not in str(d.get("reason", ""))]
-    assert len(produced) + len(corp_drops) == 480, (
-        f"produced {len(produced)} + corp-gated {len(corp_drops)} != 480 "
+    assert len(produced) + len(corp_drops) == 66, (
+        f"produced {len(produced)} + corp-gated {len(corp_drops)} != 66 "
         "(re-baseline if data refreshed)"
     )
-    assert len(non_corp_drops) == 31, (
-        f"non-corp drops {len(non_corp_drops)} != 31 (re-baseline if data refreshed)"
+    assert len(non_corp_drops) == 449, (
+        f"non-corp drops {len(non_corp_drops)} != 449 (re-baseline if data refreshed)"
     )
     assert all(math.isfinite(float(v)) for v in frame["ev_dollars"]), (
         "non-finite ev_dollars at scale"

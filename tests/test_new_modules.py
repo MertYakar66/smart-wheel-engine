@@ -247,5 +247,7 @@ class TestDataIntegrationImport:
     def test_missing_data_fallbacks(self):
         from engine.data_integration import get_current_risk_free_rate
 
-        rate = get_current_risk_free_rate(data_dir="/tmp/nonexistent")
-        assert rate == 0.05
+        # #378/W37: default fallback is NaN (connector-consistent); a caller
+        # opts into a numeric default explicitly.
+        assert pd.isna(get_current_risk_free_rate(data_dir="/tmp/nonexistent"))
+        assert get_current_risk_free_rate(data_dir="/tmp/nonexistent", fallback=0.05) == 0.05

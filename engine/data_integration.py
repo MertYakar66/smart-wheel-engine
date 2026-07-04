@@ -301,6 +301,7 @@ def get_current_risk_free_rate(
     as_of: str | date | None = None,
     tenor: str = "rate_3m",
     data_dir: str | Path = "data/bloomberg",
+    fallback: float = float("nan"),
 ) -> float:
     """
     Get risk-free rate from treasury yield data.
@@ -309,25 +310,37 @@ def get_current_risk_free_rate(
         as_of: Date to look up (None = latest available)
         tenor: Which tenor ("rate_3m", "rate_6m", "rate_2y", "rate_10y")
         data_dir: Bloomberg data directory
+        fallback: Value returned when no rate is available (file/tenor missing,
+            ``as_of`` before treasury coverage, or a NaN cell). Defaults to
+            ``nan`` to MATCH the connector's NaN-on-missing contract
+            (:meth:`MarketDataConnector.get_risk_free_rate`).
 
     Returns:
-        Annual risk-free rate as decimal (e.g. 0.0435)
+        Annual risk-free rate as decimal (e.g. 0.0435), or ``fallback`` when no
+        rate is available.
 
     The treasury CSV is authoritatively in percent (see DECISIONS D20), so the
     value is divided by 100 unconditionally. The previous heuristic
     (``/100 only if > 1``) mis-read sub-1% percent rates (e.g. a 0.04% ZIRP-era
     T-bill) as already-decimal — a 100x error across the 2011-2022 low-rate era.
+
+    #378 / W37: the missing-data fallback was a **silent 0.05**, diverging from
+    the connector's NaN-on-missing contract — a future EV-path caller would get
+    a guessed 5 % rate instead of a fail-closed NaN. The fallback is now an
+    explicit parameter defaulting to ``nan`` (connector-consistent); callers
+    that genuinely want a numeric default pass ``fallback=0.05`` at the call
+    site, so the 5 % is never injected silently by the shared accessor.
     """
     filepath = Path(data_dir) / "treasury_yields.csv"
     if not filepath.exists():
-        return 0.05  # Fallback
+        return fallback
 
     df = pd.read_csv(filepath)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"]).sort_values("date")
 
     if tenor not in df.columns:
-        return 0.05
+        return fallback
 
     if as_of is not None:
         if isinstance(as_of, str):
@@ -335,9 +348,9 @@ def get_current_risk_free_rate(
         df = df[df["date"] <= as_of]
 
     if df.empty:
-        return 0.05
+        return fallback
 
     rate = float(df[tenor].iloc[-1])
     if pd.isna(rate):
-        return 0.05
+        return fallback
     return rate / 100.0  # CSV is authoritatively percent (D20)

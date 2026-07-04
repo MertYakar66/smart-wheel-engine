@@ -2,12 +2,12 @@
 id: r11-onset-aware-trigger
 title: R11 onset-aware trigger — research card (persistence vs VIX-level)
 kind: research
-status: proposed
+status: done
 terminal: ultracode
 pr:
 decisions: [D23]
 date: 2026-06-01
-headline: PROPOSED (not started). R11's VIX-level trigger fires post-spike and forgoes V-recoveries (2020). Hypothesis: a PERSISTENCE condition — fire only when VIX>25 has held N consecutive trading days — keeps the 2022 grind-down protection while skipping the 2020 spike, sidestepping the I10 rv_ratio detection problem. Backtest-able with the existing r11_dollar_impact driver.
+headline: DONE 2026-06-29 — hypothesis REFUTED. Persistence-N (VIX>25 for N consecutive days) does NOT beat the level trigger: all whole-book diffs within noise (paired daily-return |t|≤0.5, both windows), and consecutive-N retains only 63-65% of the 2022 averted loss (never ≥80%) because 2022's elevation was choppy (run≥20 covers 24% of its >25 days) vs 2020 sustained (61%) — it fires backwards from the premise. KEEP R11 as-is. Evidence: docs/HEAVY_VERIFY_2026-06-29_R11_REFINEMENT.md. Only untested variant = "≥N of last M days" (non-consecutive), but whole-book is noise-dominated so unlikely material.
 surface: []
 ---
 
@@ -72,5 +72,30 @@ This is a pure look-back on the VIX series (PIT-safe, no look-ahead), so it's
   dominates regardless). The backtest's null whole-book result leaves this open.
 - This is two overlapping windows; a real answer wants a walk-forward incl.
   2018-2022 and any future elevated-vol episode.
-- Status: **proposed, not scheduled.** Pick up here if/when R11 refinement is
-  prioritised over leaving it as net-neutral §2-safe insurance.
+- Status: **DONE 2026-06-29 — hypothesis refuted.** (Was: proposed.)
+
+## Result (2026-06-29)
+
+Ran the test plan exactly (`r11_persist_driver.py`, arms suppressed/active/
+persist{5,10,20}, W3 + W4, $1M/100t, full friction). **No persistence N clears
+the bar; keep R11 as-is.**
+
+- **Whole-book Δ is within noise for every arm** — paired daily-return |t| ≤ 0.5
+  (vs ~2 for significance), both windows. persist10's nominal W4 win (+$70.8k vs
+  active +$62.8k) is t = +0.14 vs active and *negative* in W3 (sign-flips). The
+  card's success criterion (c) — a persistence N whose whole-book Δ is no worse
+  than active, ideally distinguishable-positive — is **not met by any N**, and
+  the "Unresolved" question above resolves to: **the null whole-book result is
+  structural** (the wheel recovery leg dominates).
+- **Criterion (a) fails in both windows:** consecutive-N retains only **63-65%**
+  of the 2022 averted loss (persist5/10), or 0.7% (persist20) — never ≥80%.
+- **Mechanism:** 2022's VIX>25 was *choppy* (run≥20 covers 24% of its 135
+  elevated days) vs 2020 *sustained* (61% of 91). So "VIX>25 for N consecutive
+  days" fires *backwards* from the premise (more in 2020, less in 2022).
+- **Only untested variant:** a **non-consecutive** condition ("VIX>25 on ≥N of
+  the last M days") would target choppy-2022 better — but since the whole book is
+  noise-dominated, it is unlikely to be material. Not pursued.
+
+Full write-up + artifacts: `docs/HEAVY_VERIFY_2026-06-29_R11_REFINEMENT.md`,
+`docs/verification_artifacts/r11_refinement_2026-06-29/`. R11 unchanged (no §2
+surface touched). Reconciles #442 (no static band carve-out either).

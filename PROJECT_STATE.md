@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-06-09.
+**Last updated:** 2026-07-02 (deployment-truth doc pass: data-currency
+blockquote refreshed to the 2026-06-04 frontier + 10-file/3-producer
+counts; fingerprint note extended for the #465 broad_pull pins).
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -72,12 +74,18 @@ soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
 > **Data currency (point-in-time).** The committed Bloomberg CSVs are
-> point-in-time as of **2026-03-20** (the freshest cut the `xbbg`
-> pullers' hardcoded `end_date` reaches). A full refresh is **partially
-> blocked**: only 3 of the 9 connector CSVs have a reproducible in-repo
-> producer; the other 6 — including the core IV file
-> `sp500_vol_iv_full.csv` — have no repo producer. See
-> `docs/DATA_POLICY.md` §5 and `docs/bloomberg_refresh_runbook.md`.
+> point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
+> pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
+> the committed pullers' hardcoded `end_date` still reads 2026-03-20,
+> so re-running them unedited would *regress* the frontier). A full
+> refresh remains **partially blocked**: of the **10** connector CSVs
+> (`engine/data_connector.py::_FILES`), only **3** have a reproducible
+> in-repo producer; the other **7** — including the core IV file
+> `sp500_vol_iv_full.csv` and the now-consumed
+> `sp500_corporate_actions.csv` (populated by the operator's manual
+> BQL pull; Theta's corp-actions endpoints 404 at this tier) — have no
+> repo producer. See `docs/DATA_POLICY.md` §5 and
+> `docs/bloomberg_refresh_runbook.md`.
 
 ## 2. Recent decision-layer audits
 
@@ -130,8 +138,8 @@ The navigation layer was reconciled and gate-hardened. If your clone or
 worktree predates this merge, `git pull` before orienting — you were
 reading stale maps. What changed for you:
 
-- **The maps are true again.** `TESTING.md`'s taxonomy covers all 144
-  test files (new gate: `tests/test_testing_md_taxonomy.py` — when you
+- **The maps are true again.** `TESTING.md`'s taxonomy covers every
+  `tests/test_*.py` file (new gate: `tests/test_testing_md_taxonomy.py` — when you
   add a test file, add its one-line taxonomy row or the suite fails);
   `MODULE_INDEX.md` statuses are grep-verified (dormant means dormant);
   this file + `CHANGELOG.md` now cover the 2026-06 wave.
@@ -171,7 +179,11 @@ worklog fragments carry the evidence.
 - **Bloomberg data refresh R1 + re-baseline** (#338) — 16 monolith CSVs
   refreshed; S27/S32/S34/S35 snapshots re-pinned; the regression
   fingerprint now pins every connector input
-  (`connector_data_sha256`, #346), so data drift fails fast per-PR.
+  (`connector_data_sha256`, #346 — extended by #465 to the two
+  broad_pull panels consumed outside `_FILES`: `dividend_pit`
+  (#426/#428 BSM carry-q) and `snapshot_bdp` (#464 earnings-calendar
+  overlay), which were otherwise-unpinned reads), so data drift fails
+  fast per-PR.
 - **Open data queue is consolidated** in
   `docs/NEXT_DATA_SESSION_RUNBOOK.md` (#381 — the single authoritative
   re-baseline-session runbook; bundles the D19 + D21 deferred fixes),
@@ -209,9 +221,9 @@ Source-verified specifics:
 - **Hard refusals (tracker, at `open_short_put`):** armed when
   `enforce_sector_cap` / `enforce_single_name_cap` is `True` (decoupled
   from `require_ev_authority` since D22 / PR #303 —
-  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1805`), or
+  `engine.wheel_tracker._d17_gate_enabled`, `wheel_tracker.py:1963`), or
   when `require_ev_authority=True`. All three default `False`
-  (`WheelTracker.__init__`, `wheel_tracker.py:278-280`). The canonical
+  (`WheelTracker.__init__`, `wheel_tracker.py:301-303`). The canonical
   armed constructor `engine.wheel_runner.make_live_book_tracker()` (sets
   both `enforce_*_cap=True`) has **zero non-test callers** — every non-test
   `WheelTracker(...)` site uses the bare default (`backtests/simulator.py`,
@@ -224,7 +236,7 @@ Source-verified specifics:
   a populated `PortfolioContext` is attached to `build_candidate_dossiers()`.
   On the network surface that happens on `/api/tv/dossier` + `/api/tv/enrich`
   **only when the caller supplies `nav`** — `_build_portfolio_context_from_params`
-  returns `None` otherwise (`engine_api.py:284-285`, the Q3 "don't fire on
+  returns `None` otherwise (`engine_api.py:434-435`, the Q3 "don't fire on
   absent evidence" rule). The default `rank_candidates_by_ev` attaches no
   context, and the tracker's own `portfolio_context_snapshot()` is never
   auto-fed to the reviewer (only test + S47 + verification-artifact callers).
@@ -352,12 +364,15 @@ the engine has the machinery but does not apply it to `prob_profit`.
 
 ### iv_surface integration decision
 
-- Theta `iv_surface/` (snapshot dir) coverage is **28/503 tickers**
-  (5.6% — mega-caps + sector ETFs only). Unchanged.
-- `iv_surface_history/` (history dir, distinct from the snapshot)
-  is now **381/503 tickers** on disk after the 2026-05-04 pull (see
-  §3.4). 122 tickers were rejected by strict mode (partial-coverage
-  per PR #58 design — prefer loud failure to silent partial data).
+- Theta `iv_surface/` (snapshot dir) coverage is **~502/503 symbols**
+  (Universe A + 8 ETFs) across 3 snapshot dates (2026-04-23 / 05-24 /
+  06-01) — 558 files / 364,192 rows _(disk-verified 2026-06-25; the older
+  "28/503 mega-caps only" figure was stale)_.
+- `iv_surface_history/` (daily history dir, distinct from the snapshot)
+  is a **stalled 4-name back-solve pilot** (A, AAPL, ABBV, ABNB) —
+  108 files / 53,725 rows. The earlier "381/503 tickers" claim never
+  reflected on-disk reality; per-strike IV history is 404/not-entitled
+  from Theta. Canonical counts: `docs/DATA_INVENTORY.md`.
 - The SVI tools in `engine/volatility_surface.py`
   (`VolatilitySurfaceBuilder`, `create_empirical_surface`,
   `SVICalibrator`) are exported but **have zero non-test callers as of
@@ -387,6 +402,12 @@ was raised. Smoke test after the pull: 127 total / **111 PASS / 0 FAIL
 / 16 SKIP** (all expected per the `docs/DATA_POLICY.md` §2 tier matrix).
 
 **On-disk state of `data_processed/theta/` (new vs. prior session):**
+
+> ⚠️ **Superseded point-in-time snapshot (2026-05-04).** The table below records that pull
+> session and is now stale (e.g. `iv_surface` is 502 symbols not 28; `iv_surface_history` is a
+> 4-name pilot not 381; `options_flow` is no longer on disk; the 2026-06 enrichment added
+> `option_history`/`_deep365`/`_delisted`/`index_reference`). For the current disk-verified
+> inventory see **`docs/DATA_INVENTORY.md`**.
 
 | Directory | Tickers / Files | Δ vs 2026-04-23 manifest |
 |---|---|---|
@@ -596,7 +617,7 @@ rewritten.**
   `src/data/` (only `schemas.py`, `validators.py`),
   `src/features/` (`technical.py` is **live** — imported by
   `engine/strangle_timing.py:31`, `engine/tv_signals.py:48`, and
-  `engine_api.py:1161`; other modules dormant), and
+  `engine_api.py:1952`; other modules dormant), and
   `src/backtest/` (`wheel_backtest.py` is a **heuristic** wheel
   backtester — explicitly §2-non-compliant per its top-of-file
   banner — distinct from the EV-driven path under

@@ -166,6 +166,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Enforce per-file coverage floors (decision trio + engine core)
+        # Ratchet against DECAY: the aggregate --cov-fail-under=80 spans
+        # ~15,320 statements, so wheel_runner (1,361 stmts, ~9%) could shed
+        # 20pp without tripping it (adversarial review 2026-07-01). Floors =
+        # measured-on-main minus 2pp (scripts/check_coverage_floors.py) —
+        # green on day one, red only on decay. Runs on both matrix legs:
+        # measured per-file delta 3.11 vs 3.12 was exactly 0.00pp
+        # (2026-07-03), so no cross-version flakiness; a future
+        # version-conditional branch trips only the leg that decays.
+        # Deliberately NOT `if: always()` — a floor report on a partial run
+        # after a failed pytest step is noise on an already-red job.
+        run: python scripts/check_coverage_floors.py coverage.json
+
   quant-tests:
     name: Quantitative Validation
     runs-on: ubuntu-latest
@@ -248,5 +261,9 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run integration tests
-        run: pytest tests/ -v -m "integration" --tb=short
-        continue-on-error: true  # Integration tests may need external services
+        # Real cross-boundary tests (loopback HTTP server, subprocess spawns).
+        # NO continue-on-error: pytest exit 5 (zero tests selected) must FAIL
+        # the job so this lane can never silently regress to vacuous again —
+        # it ran 0 tests behind continue-on-error from its creation until
+        # 2026-07-02 (adversarial review 2026-07-01, "vacuous CI job").
+        run: pytest tests/ -v -m "integration" --strict-markers --tb=short

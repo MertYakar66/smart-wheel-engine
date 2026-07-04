@@ -1,0 +1,22 @@
+{
+  "BKNG": {
+    "split_ratio_authoritative": 25.0,
+    "split_effective_date": "2026-04-06",
+    "discontinuity_date": "2026-03-23",
+    "discontinuity_ret": -0.958974,
+    "implied_factor_from_boundary": 24.3746,
+    "boundary_before_effective_date": true,
+    "gap_days": 14,
+    "factor_consistent_with_split": true
+  },
+  "CVNA": {
+    "split_ratio_authoritative": 5.0,
+    "split_effective_date": "2026-05-08",
+    "discontinuity_date": "2026-03-23",
+    "discontinuity_ret": -0.788478,
+    "implied_factor_from_boundary": 4.7276,
+    "boundary_before_effective_date": true,
+    "gap_days": 46,
+    "factor_consistent_with_split": true
+  }
+}

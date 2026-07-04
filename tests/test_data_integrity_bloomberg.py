@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 # Data-supported frontier (the most-recent bar common to OHLCV & IV on main;
 # see the audit). Used to assert realized daily series carry no future bars.
-FRONTIER = pd.Timestamp("2026-06-04")
+FRONTIER = pd.Timestamp("2026-07-02")
 SEAM = pd.Timestamp("2026-03-23")  # 2026-03-23 index-reconstitution seam
 GATE_DAYS = 504  # ranker survivorship/history gate
 
@@ -409,7 +409,14 @@ def test_seam_membership_split_is_structural():
     prof = _ohlcv_history_profile()
     spine = _norm_tickers("sp500_ohlcv.csv")
 
-    joiners = sorted(spine - _norm_tickers("sp500_earnings.csv"))
+    # Names whose FULL OHLCV history was backfilled at the 2026-07-02 frontier
+    # bump (#472, commit 167d200) while the sp500_earnings.csv backfill was
+    # DEFERRED (box bds hung; #472 handoff item 5) — they legitimately sit in
+    # OHLCV-but-not-earnings with pre-seam bars until that backfill lands.
+    # Remove entries as the earnings backfill covers them.
+    earnings_backfill_pending = {"ECHO", "MRVL", "FLEX"}
+
+    joiners = sorted(spine - _norm_tickers("sp500_earnings.csv") - earnings_backfill_pending)
     for t in joiners:
         first = prof.loc[t, "first"]
         assert first >= SEAM, (
@@ -417,8 +424,15 @@ def test_seam_membership_split_is_structural():
             f"(first bar {first}) — unexpected referential gap"
         )
 
-    leavers = sorted(spine - _norm_tickers("sp500_fundamentals.csv"))
+    # Same pending set on the fundamentals side: the dateless snapshot predates
+    # the 2026-07-02 joiners/backfills; entries clear at its next refresh.
+    leavers = sorted(spine - _norm_tickers("sp500_fundamentals.csv") - earnings_backfill_pending)
     for t in leavers:
+        if prof.loc[t, "first"] >= SEAM:
+            # Post-seam JOINER (e.g. the HONA 2026 spin-off): the dateless
+            # fundamentals snapshot lags new listings until its next refresh —
+            # structurally not a leaver, so the departed-name check is vacuous.
+            continue
         last = prof.loc[t, "last"]
         assert last < FRONTIER - pd.Timedelta(days=30), (
             f"{t} is missing from fundamentals but is NOT a departed/leaver name "
@@ -445,6 +459,105 @@ def test_seam_continuity_and_reticker():
 
 
 # ---------------------------------------------------------------------------
+# OHLCV scale-corruption (split-adjustment seam misalignment) — A8
+# (supervised-block A8 / docs/IBKR_EV_CALIBRATION.md §; IBKR Phase-3 finding)
+#
+# A split-ADJUSTED series should be continuous. Two names carry a split-sized
+# jump at the 2026-03-23 reconstitution seam because the post-seam tail is
+# split-adjusted while the pre-seam history was left UNADJUSTED — the split
+# shows at the seam instead of being back-adjusted across the full history:
+#   BKNG — 25:1 split (announced 2026-02-18, effective 2026-04-06): seam ratio
+#          ~1/24.4 (4286.81 -> 175.87 on the canonical close).
+#   CVNA — 5:1 split (effective 2026-05-08):                         seam ratio
+#          ~1/4.7  (283.28 -> 59.92).
+# The engine mis-ranks both in the affected window: pre-seam spot is 25x/5x the
+# post-seam scale, so moneyness/prob_profit are garbage (IBKR calibration found
+# the same 3 names; its moneyness gate drops them). Fix is at the PULL (re-pull
+# with continuous split adjustment), then lift the exclusions.
+#
+# NFLX is a DIFFERENT defect and is deliberately NOT covered here: Bloomberg AND
+# Theta both price it ~$91 (the two vendors agree); only the IBKR broker strikes
+# (~$1075) disagree. It is a vendor<->broker scale-convention mismatch invisible
+# to any vendor-data integrity test, already gated by the moneyness check in
+# scripts/ibkr_ev_calibration.py (`0.5 <= strike/spot <= 1.5`). A vendor-data
+# scale test cannot and should not claim to catch it.
+#
+# Coverage boundary (honest): this catches WITHIN-series breaks > ~4x only.
+#   - A UNIFORM whole-series mis-scale (NFLX-class) has no internal jump -> not
+#     here. A Bloomberg-vs-Theta cross-check on their common 2026-03-20 bar found
+#     0 vendor disagreements >10% across 493 names, so no such name hides today.
+#   - A SMALL-ratio (<=3:1) split misalignment is indistinguishable by magnitude
+#     from an ordinary daily move (a 1.25:1 target of 0.8 matches any -20% day),
+#     so it cannot be caught from the price series alone. The band is the only
+#     clean discriminator; the two-sided pin below catches the catchable growth.
+# ---------------------------------------------------------------------------
+
+# Adjacent-trading-day close-ratio band that separates a SCALE break from the
+# worst REAL single-day equity move. Below 0.25 / above 4.0 is not a price move
+# any S&P 500 name makes in a day — the real -53% blowups (GL 2024-04-11,
+# OXY + TRGP 2020-03-09 oil crash, PCG 2019-01-14 bankruptcy) all sit at ~0.47,
+# comfortably inside the band; the split-seam misalignments (~0.04 / ~0.21) sit
+# below it. gap<=7d excludes delisting re-entry gaps (e.g. SMCI 2018->2020).
+_SCALE_BREAK_LO = 0.25
+_SCALE_BREAK_HI = 4.0
+_SCALE_BREAK_MAX_GAP_DAYS = 7
+
+# Scale-break set — now EMPTY. The BKNG 25:1 / CVNA 5:1 split-seam misalignment
+# at 2026-03-23 was back-adjusted onto the split-adjusted scale (#439, D-W1-1/A8,
+# re-applied to the 2026-07-02 re-pull via scripts/fix_ohlcv_split_scale_439.py),
+# so no name carries an intra-series scale break. The two-sided pin below keeps
+# this empty: any NEW (ticker, date) scale corruption fails the test.
+KNOWN_SCALE_BREAKS: set[tuple[str, str]] = set()
+
+
+@cache
+def _intraseries_scale_breaks() -> frozenset[tuple[str, str]]:
+    """(normalized ticker, break-date) for every adjacent-trading-day close jump
+    outside ``[_SCALE_BREAK_LO, _SCALE_BREAK_HI]`` with the prior bar within
+    ``_SCALE_BREAK_MAX_GAP_DAYS``. Uses the connector-canonical close (CSV
+    ``high`` column post-rename) — the spot the engine actually ranks on."""
+    df = _ohlcv_canonical()[["ticker", "close"]].copy()
+    df["nt"] = df["ticker"].map(normalize_ticker)
+    df["d"] = pd.to_datetime(_ohlcv_canonical()["date"], errors="coerce")
+    df = df.dropna(subset=["close", "d"]).sort_values(["nt", "d"])
+    prev_c = df.groupby("nt", sort=False)["close"].shift()
+    prev_d = df.groupby("nt", sort=False)["d"].shift()
+    gap = (df["d"] - prev_d).dt.days
+    ratio = df["close"] / prev_c
+    mask = (
+        prev_c.gt(0)
+        & df["close"].gt(0)
+        & gap.le(_SCALE_BREAK_MAX_GAP_DAYS)
+        & ((ratio < _SCALE_BREAK_LO) | (ratio > _SCALE_BREAK_HI))
+    )
+    return frozenset(
+        (nt, str(d)[:10]) for nt, d in zip(df.loc[mask, "nt"], df.loc[mask, "d"], strict=False)
+    )
+
+
+def test_ohlcv_no_split_adjustment_scale_breaks():
+    """No name carries an adjacent-trading-day close jump beyond a plausible
+    single-day move (the scale-corruption screen). A8 (#439): the BKNG 25:1 /
+    CVNA 5:1 split-seam misalignment at 2026-03-23 was back-adjusted onto the
+    split scale, so the series is continuous. Was strict-xfail until the fix."""
+    breaks = _intraseries_scale_breaks()
+    assert not breaks, f"OHLCV scale breaks (split-adjustment misalignment?): {sorted(breaks)}"
+
+
+def test_ohlcv_scale_breaks_are_the_known_two():
+    """Two-sided pin on the scale-break set. The xfail above is one-directional
+    (it flips when the known breaks are FIXED); THIS catches the set GROWING — a
+    3rd corrupted name (or a future unadjusted split landing at any seam) fails
+    here instead of slipping past the xfail. Mirrors the NaN-row pin (W23)."""
+    breaks = _intraseries_scale_breaks()
+    assert breaks == frozenset(KNOWN_SCALE_BREAKS), (
+        f"OHLCV scale-break set changed: {sorted(breaks)} != known "
+        f"{sorted(KNOWN_SCALE_BREAKS)} — a new scale corruption (or a re-pull "
+        "fix) the one-directional xfail would miss; investigate + update the pin"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Fingerprint completeness (durable W3 replacement) — fast-CI guard
 # ---------------------------------------------------------------------------
 
@@ -452,13 +565,16 @@ def test_seam_continuity_and_reticker():
 def test_fingerprint_pins_every_connector_file():
     """The snapshot fingerprint must pin EXACTLY the files the connector reads,
     so no un-pinned read path can silently slip a refresh past re-baseline (the
-    2026-06-06 dividends-incident class). This is the FAST-CI completeness guard;
+    2026-06-06 dividends-incident class). Since 2026-07-02 (campaign item 3)
+    that includes the two broad_pull files consumed OUTSIDE ``_FILES`` — the
+    PIT dividend-yield panel and the #464 earnings-calendar overlay, which
+    were unpinned reads before. This is the FAST-CI completeness guard;
     the drift COMPARE (test_snapshot_data_fingerprint_matches_current) lives on
     the slow backtest_regression lane."""
-    from backtests.regression._common import connector_data_sha256
+    from backtests.regression._common import _BROAD_PULL_PINNED, connector_data_sha256
 
     pinned = set(connector_data_sha256().keys())
-    expected = set(MarketDataConnector._FILES.keys())
+    expected = set(MarketDataConnector._FILES.keys()) | set(_BROAD_PULL_PINNED.keys())
     assert pinned == expected, (
         f"fingerprint pins {pinned} but connector reads {expected}; unpinned: {expected - pinned}"
     )
@@ -491,25 +607,28 @@ def test_fundamentals_gics_sector_is_canonical_11():
     assert not extra, f"non-canonical GICS sector(s) present: {sorted(extra)}"
 
 
-def test_r9_sector_map_ignores_pulled_gics_characterization():
-    """W17 (#372): R9's sector cap groups by the HARDCODED ``DEFAULT_SECTOR_MAP``,
-    NOT the pulled ``gics_sector_name``. Characterise the gap on real data: many
-    names carry a real GICS sector in fundamentals yet
-    ``SectorExposureManager.get_sector`` returns ``'Unknown'`` (so R9 lumps them
-    into one phantom bucket). PASSING today — it flips when #372 wires GICS into
-    R9, at which point update it to assert the GICS-grouped behaviour. Quantifies
-    the coverage gap so a map drift is noticed."""
-    from engine.risk_manager import SectorExposureManager
+def test_r9_resolver_groups_by_real_gics():
+    """W17 (#372, LANDED): R9's GICS resolver groups names by their real
+    ``gics_sector_name`` (the call-site ``sector_map`` via ``resolve_sector``),
+    not the hardcoded ``DEFAULT_SECTOR_MAP``. Was the characterization of the C2
+    gap (bare ``SectorExposureManager`` returned ``'Unknown'`` for >50 GICS-known
+    names off the static map); flipped when #372 wired GICS at the gate call
+    sites. The bare manager remains the documented legacy fallback."""
+    from engine.risk_manager import GICS_11, resolve_sector
 
     fu = _load("sp500_fundamentals.csv")
     fu = fu.assign(nt=fu["ticker"].map(normalize_ticker))
     has_gics = fu[fu["gics_sector_name"].notna() & fu["gics_sector_name"].astype(str).ne("nan")]
-    mgr = SectorExposureManager()
-    ignored = [t for t in has_gics["nt"] if mgr.get_sector(t) == "Unknown"]
-    assert len(ignored) > 50, (
-        f"expected many GICS-known names bucketed as 'Unknown' by R9 (the #372 gap); "
-        f"got {len(ignored)} — if near 0, R9 may now read GICS: update this "
-        "characterization to assert the GICS-grouped behaviour"
+    resolved = sum(
+        1
+        for _, r in has_gics.iterrows()
+        if str(r["gics_sector_name"]).strip() in GICS_11
+        and resolve_sector(str(r["nt"]), str(r["gics_sector_name"]).strip())
+        == str(r["gics_sector_name"]).strip()
+    )
+    assert resolved > 50, (
+        f"#372: expected many GICS-known names to resolve to their real GICS via "
+        f"the resolver; got {resolved}"
     )
 
 
@@ -539,6 +658,9 @@ KNOWN_THIN = {
     "SW",
     "PSKY",
     "Q",
+    # 2026 spin-off, joined at the 2026-07-02 frontier bump with 13 bars —
+    # real new listing, not a truncation (#472 pull report, item d).
+    "HONA",
 }
 
 # The 4 vendor-glitch NaN-price rows (price NaN, volume present) — #357.
@@ -755,14 +877,17 @@ def test_vol_iv_ohlcv_last_date_consistency():
     )
 
 
-def test_data_integration_rate_before_coverage_divergence():
-    """W37: the EV-path rate accessor engine.data_integration.get_current_risk_free_rate
-    (wired into the ranker at wheel_runner.py:588-590, feeding BSM) returns a SILENT
-    0.05 for an as_of BEFORE treasury coverage, diverging from the connector's NaN
-    (which W10 pins). Pin the documented divergence so a future alignment (the (E) #378
-    fix) is noticed. Latent today: the 504-bar OHLCV gate + 1994 treasury coverage
-    preclude a pre-coverage tradeable on the monolith; live under deep_history. The
-    'before' as_of is derived from the actual coverage start (refresh-robust)."""
+def test_data_integration_rate_before_coverage_matches_connector():
+    """W37 (#378, LANDED): the EV-path rate accessor
+    ``engine.data_integration.get_current_risk_free_rate`` now MATCHES the
+    connector's NaN-on-missing contract for an as_of BEFORE treasury coverage —
+    the silent 0.05 divergence (which W10 pinned against the connector's NaN) is
+    resolved. The shared accessor defaults to ``fallback=nan``; a caller that
+    wants a numeric default opts in explicitly (``fallback=0.05``). Was the W37
+    characterisation of the divergence; flipped — not deleted — when #378 aligned
+    the two. Latent: the 504-bar OHLCV gate + 1994 coverage preclude a
+    pre-coverage tradeable on the monolith; the 'before' as_of is derived from
+    the actual coverage start (refresh-robust)."""
     from engine.data_integration import get_current_risk_free_rate
 
     tr = _load("treasury_yields.csv")
@@ -772,5 +897,10 @@ def test_data_integration_rate_before_coverage_divergence():
     before = str((first_3m - pd.Timedelta(days=30)).date())
     gi = get_current_risk_free_rate(before)
     conn = MarketDataConnector().get_risk_free_rate(before)
-    assert gi == 0.05, f"data_integration before-coverage rate changed from 0.05 to {gi} (see #378)"
+    assert pd.isna(gi), (
+        f"#378: data_integration before-coverage rate should now be NaN "
+        f"(matching the connector), got {gi}"
+    )
     assert pd.isna(conn), f"connector before-coverage rate should be NaN, got {conn}"
+    # The numeric default is still available, now as an EXPLICIT opt-in.
+    assert get_current_risk_free_rate(before, fallback=0.05) == 0.05

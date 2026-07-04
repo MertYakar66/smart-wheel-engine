@@ -131,16 +131,19 @@ class TestRiskFreeRate:
         assert 0 < rate < 0.20
 
     def test_fallback_on_missing_file(self):
-        rate = get_current_risk_free_rate(data_dir="/nonexistent")
-        assert rate == 0.05  # Default fallback
+        # #378/W37: the shared accessor now defaults to NaN (connector-consistent
+        # fail-closed); a caller opts into a numeric default explicitly.
+        assert pd.isna(get_current_risk_free_rate(data_dir="/nonexistent"))
+        assert get_current_risk_free_rate(data_dir="/nonexistent", fallback=0.05) == 0.05
 
 
 class TestRiskFreeRateFallback:
     """Test fallback behavior without Bloomberg data."""
 
     def test_missing_file_returns_default(self):
-        rate = get_current_risk_free_rate(data_dir="/tmp/nonexistent_dir")
-        assert rate == 0.05
+        # #378/W37: default fallback is NaN; explicit fallback is honoured.
+        assert pd.isna(get_current_risk_free_rate(data_dir="/tmp/nonexistent_dir"))
+        assert get_current_risk_free_rate(data_dir="/tmp/nonexistent_dir", fallback=0.05) == 0.05
 
     def test_low_rate_era_percent_normalised(self, tmp_path):
         # D20 regression: the treasury CSV is authoritatively percent, so a

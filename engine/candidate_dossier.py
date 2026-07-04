@@ -50,7 +50,7 @@ Verdict = Literal["proceed", "review", "skip", "blocked"]
 # and cannot drift on threshold value. The two ladders are divergent
 # **by design** in their overlay rules (chart agreement, ``prob_profit``
 # floor) but the bare EV floor should be one number. Closes the
-# threshold-drift half of C2 from ``docs/END_TO_END_REVIEW_2026_05_25.md``.
+# threshold-drift half of C2 from ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``.
 MIN_PROCEED_EV_DOLLARS: float = 10.0
 
 # R11 (elevated-vol top-bin size-down) parameters — heavy-verify 2026-05-31 I11.
@@ -160,7 +160,7 @@ class EnginePhaseReviewer:
        "engine produced an unparseable value — investigate the
        upstream computation" apart from "engine evaluated the trade
        as a loss". Closes C1 from
-       ``docs/END_TO_END_REVIEW_2026_05_25.md``: without the
+       ``archive/2026-05/END_TO_END_REVIEW_2026_05_25.md``: without the
        non-finite block, ``+inf`` slid through both R1 (``+inf < 0``
        is False) and R5 (``+inf >= threshold`` is True) and was
        reported as ``"proceed"``; ``NaN`` silently degraded to
@@ -480,11 +480,21 @@ class EnginePhaseReviewer:
 
             nav = float(getattr(ctx, "nav", 0.0) or 0.0)
             if nav > 0 and proposed_notional > 0:
+                # #372: aggregate by the real GICS sector. ``ctx.sector_map``
+                # (built from the connector by the tracker) covers held names;
+                # merge the candidate's own GICS from its ranker row so the
+                # gate buckets it correctly even when it is not yet held.
+                # None → ``DEFAULT_SECTOR_MAP`` fallback (legacy behaviour).
+                gics_map = dict(getattr(ctx, "sector_map", None) or {})
+                cand_sector = ev_row.get("sector")
+                if cand_sector:
+                    gics_map.setdefault(dossier.ticker, cand_sector)
                 sector_result = check_sector_cap(
                     symbol=dossier.ticker,
                     proposed_notional=proposed_notional,
                     held_option_positions=getattr(ctx, "held_option_positions", []),
                     nav=nav,
+                    sector_map=gics_map or None,
                 )
                 if not sector_result.passed:
                     sector = sector_result.details.get("sector", "Unknown")

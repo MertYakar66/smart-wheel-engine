@@ -1,0 +1,56 @@
+{
+  "gate_band": {
+    "low_floor": 3.0,
+    "high_floor": 10000.0
+  },
+  "vol_iv_rows": 1037278,
+  "vol_iv_cols": [
+    "hist_put_imp_vol",
+    "hist_call_imp_vol"
+  ],
+  "date_range": [
+    "2018-01-02",
+    "2026-06-04"
+  ],
+  "windows": {
+    "s27/s32 (UNIVERSE_24, 2022-2024)": {
+      "rows": 18072,
+      "tickers_matched": 24,
+      "tickers_total": 24,
+      "hist_put_imp_vol": {
+        "nonnull": 18070,
+        "gated": 0,
+        "gated_pct": 0.0,
+        "low_le_floor": 0,
+        "high_gt_floor": 0
+      },
+      "hist_call_imp_vol": {
+        "nonnull": 18070,
+        "gated": 0,
+        "gated_pct": 0.0,
+        "low_le_floor": 0,
+        "high_gt_floor": 0
+      }
+    },
+    "s34 (UNIVERSE_100, 2024)": {
+      "rows": 24696,
+      "tickers_matched": 98,
+      "tickers_total": 100,
+      "hist_put_imp_vol": {
+        "nonnull": 24696,
+        "gated": 0,
+        "gated_pct": 0.0,
+        "low_le_floor": 0,
+        "high_gt_floor": 0
+      },
+      "hist_call_imp_vol": {
+        "nonnull": 24696,
+        "gated": 0,
+        "gated_pct": 0.0,
+        "low_le_floor": 0,
+        "high_gt_floor": 0
+      }
+    }
+  },
+  "verdict": "REFUTED \u2014 #363 gate NULLs zero in-window vol_iv cells; it cannot move s27/s32/s34 metrics via the PIT path"
+}

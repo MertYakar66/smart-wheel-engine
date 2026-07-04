@@ -648,6 +648,53 @@ class TestSectorExposure:
         assert ex.is_concentrated is False
 
 
+class TestGicsResolver:
+    """#372: GICS-primary sector resolution for the R9 cap (``resolve_sector`` /
+    ``build_gics_sector_map``)."""
+
+    def test_resolve_sector_prefers_canonical_gics(self):
+        from engine.risk_manager import resolve_sector
+
+        # AAPL is Information Technology in DEFAULT_SECTOR_MAP; a served canonical
+        # GICS value overrides the static map.
+        assert resolve_sector("AAPL", "Energy") == "Energy"
+
+    def test_resolve_sector_falls_back_to_default_map(self):
+        from engine.risk_manager import resolve_sector
+
+        # Non-canonical or absent served value → DEFAULT_SECTOR_MAP by symbol.
+        assert resolve_sector("AAPL", "Tech (non-GICS)") == "Information Technology"
+        assert resolve_sector("AAPL", None) == "Information Technology"
+
+    def test_resolve_sector_unknown_is_not_silent(self):
+        from engine.risk_manager import resolve_sector
+
+        assert resolve_sector("ZZZZ", None) == "Unknown"
+        assert resolve_sector("ZZZZ", "not a gics") == "Unknown"
+
+    def test_build_gics_sector_map_resolves_dedupes_counts(self):
+        from engine.risk_manager import build_gics_sector_map
+
+        class _Stub:
+            def get_fundamentals(self, t):
+                return {"AAPL": {"sector": "Energy"}, "MSFT": {"sector": None}}.get(t)
+
+        m = build_gics_sector_map(_Stub(), ["AAPL", "MSFT", "ZZZZ", "AAPL"])
+        assert m["AAPL"] == "Energy"  # canonical GICS kept
+        assert m["MSFT"] == "Information Technology"  # DEFAULT fallback
+        assert m["ZZZZ"] == "Unknown"  # counted miss
+        assert len(m) == 3  # de-duped
+
+    def test_build_gics_sector_map_survives_connector_errors(self):
+        from engine.risk_manager import build_gics_sector_map
+
+        class _Boom:
+            def get_fundamentals(self, t):
+                raise RuntimeError("connector down")
+
+        assert build_gics_sector_map(_Boom(), ["AAPL"])["AAPL"] == "Information Technology"
+
+
 class TestSectorExposureManager:
     @pytest.fixture
     def mgr(self) -> SectorExposureManager:

@@ -1,0 +1,104 @@
+{
+  "provider": "bloomberg",
+  "connector": "MarketDataConnector",
+  "per_regime": [
+    {
+      "label": "calm_2021",
+      "as_of": "2021-06-15",
+      "n_candidates": 358,
+      "nonfinite_total": 0,
+      "greek_violation_count": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "iv_below_floor_count": 0,
+      "iv_above_ceiling_count": 0,
+      "iv_ceiling_decimal": 0.5477,
+      "premium_spot_pct_median": 1.071,
+      "prob_profit_eq_1_count": 0,
+      "thin_n_scenarios_lt_30_count": 346
+    },
+    {
+      "label": "calm_2024",
+      "as_of": "2024-01-16",
+      "n_candidates": 71,
+      "nonfinite_total": 0,
+      "greek_violation_count": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "iv_below_floor_count": 0,
+      "iv_above_ceiling_count": 0,
+      "iv_ceiling_decimal": 0.4626,
+      "premium_spot_pct_median": 1.085,
+      "prob_profit_eq_1_count": 0,
+      "thin_n_scenarios_lt_30_count": 1
+    },
+    {
+      "label": "crisis_2020",
+      "as_of": "2020-03-23",
+      "n_candidates": 191,
+      "nonfinite_total": 0,
+      "greek_violation_count": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "iv_below_floor_count": 0,
+      "iv_above_ceiling_count": 0,
+      "iv_ceiling_decimal": 2.7372,
+      "premium_spot_pct_median": 3.697,
+      "prob_profit_eq_1_count": 0,
+      "thin_n_scenarios_lt_30_count": 0
+    },
+    {
+      "label": "bear_2022_jun",
+      "as_of": "2022-06-16",
+      "n_candidates": 329,
+      "nonfinite_total": 0,
+      "greek_violation_count": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "iv_below_floor_count": 0,
+      "iv_above_ceiling_count": 0,
+      "iv_ceiling_decimal": 1.4123,
+      "premium_spot_pct_median": 1.939,
+      "prob_profit_eq_1_count": 1,
+      "thin_n_scenarios_lt_30_count": 14
+    },
+    {
+      "label": "bear_2022_oct",
+      "as_of": "2022-10-14",
+      "n_candidates": 37,
+      "nonfinite_total": 0,
+      "greek_violation_count": 0,
+      "prob_profit_outside_01": 0,
+      "prob_assignment_outside_01": 0,
+      "iv_below_floor_count": 0,
+      "iv_above_ceiling_count": 0,
+      "iv_ceiling_decimal": 0.9206,
+      "premium_spot_pct_median": 1.792,
+      "prob_profit_eq_1_count": 0,
+      "thin_n_scenarios_lt_30_count": 1
+    }
+  ],
+  "totals": {
+    "n_candidates": 986,
+    "nonfinite_total": 0,
+    "greek_violation_total": 0,
+    "prob_outside_01_total": 0,
+    "iv_below_floor_total": 0,
+    "iv_above_ceiling_total": 0,
+    "premium_nonpositive_total": 0
+  },
+  "magnitude_scaling": {
+    "premium_spot_pct_median": {
+      "calm": 1.078,
+      "bear": 1.865,
+      "crisis": 3.697
+    },
+    "iv_ceiling_decimal": {
+      "calm": 0.505,
+      "bear": 1.166,
+      "crisis": 2.737
+    },
+    "monotone_calm_lt_bear_lt_crisis": true
+  },
+  "verdict": "REALISTIC"
+}

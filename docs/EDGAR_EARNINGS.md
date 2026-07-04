@@ -18,9 +18,20 @@ This doc covers the EDGAR earnings layer added in this PR:
 ## 1. Why EDGAR for earnings dates
 
 The current `MarketDataConnector.get_next_earnings` reads from
-`data/bloomberg/sp500_earnings_yf.csv` — a yfinance snapshot of the
-*current* next-earnings date. For live use it works fine; for
-historical backtests it silently leaks lookahead.
+`data/bloomberg/sp500_earnings.csv` (the Bloomberg base file — NOT the
+yfinance `_yf` parallel file, which is deliberately unconsumed).
+
+**Update 2026-07-02 (#464):** the live-lockout coverage gap this doc
+motivates was closed EDGAR-independently — `get_next_earnings` /
+`get_recent_earnings` now union the base file with the PIT-gated
+`broad_pull` `snapshot_bdp.next_earnings_dt` overlay (511/511 forward
+coverage, knowledge-stamped `asof`, participates only when
+`as_of >= asof`). "For live use it works fine" was false pre-#464
+(7.6 % forward coverage, finding D3-1). The EDGAR projection below
+remains the candidate *historical-backtest* PIT source (PR 3.5, still
+unwired): dated backtests before the snapshot's `asof` still see only
+the thin base file — exactly the gap EDGAR's filing-history projection
+can close without lookahead.
 
 **The leak:** yfinance only returns the most-recent-known schedule. If
 you query "as of 2023-06-15, what's the next earnings date for AAPL?",

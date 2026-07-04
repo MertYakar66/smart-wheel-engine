@@ -1,0 +1,149 @@
+{
+  "integrity": {
+    "n_tickers": 511,
+    "total_rows": 1014920,
+    "date_min": "2018-01-02",
+    "date_max": "2026-06-04",
+    "tickers_with_nan_ohlc": [
+      {
+        "ticker": "BIIB",
+        "n_nan_price_rows": 2,
+        "dates": [
+          "2020-11-06",
+          "2023-06-09"
+        ],
+        "volume_present_on_nan": true
+      },
+      {
+        "ticker": "TPL",
+        "n_nan_price_rows": 2,
+        "dates": [
+          "2019-05-16",
+          "2019-07-09"
+        ],
+        "volume_present_on_nan": true
+      }
+    ],
+    "tickers_with_nonpositive_close": [],
+    "tickers_with_invariant_violation": [],
+    "tickers_with_nonmonotonic_dates": []
+  },
+  "split_scale_suspects": [
+    {
+      "ticker": "BKNG",
+      "date": "2026-03-23",
+      "ret_close": -0.958974,
+      "close_ratio_prev_over_cur": 24.3746,
+      "ohlc_boundary_factors": {
+        "open": 24.3513,
+        "high": 24.3168,
+        "low": 24.3756,
+        "close": 24.3746
+      },
+      "ohlc_factor_cv": 0.00098,
+      "has_stock_split": true,
+      "nearest_split_ratio": 25.0,
+      "nearest_split_eff_date": "2026-04-06",
+      "gap_days_disc_to_eff": 14,
+      "classification": "SPLICE_ARTIFACT"
+    },
+    {
+      "ticker": "CVNA",
+      "date": "2026-03-23",
+      "ret_close": -0.788478,
+      "close_ratio_prev_over_cur": 4.7276,
+      "ohlc_boundary_factors": {
+        "open": 4.989,
+        "high": 4.7546,
+        "low": 4.8556,
+        "close": 4.7276
+      },
+      "ohlc_factor_cv": 0.02123,
+      "has_stock_split": true,
+      "nearest_split_ratio": 5.0,
+      "nearest_split_eff_date": "2026-05-08",
+      "gap_days_disc_to_eff": 46,
+      "classification": "SPLICE_ARTIFACT"
+    },
+    {
+      "ticker": "GL",
+      "date": "2024-04-11",
+      "ret_close": -0.531402,
+      "close_ratio_prev_over_cur": 2.134,
+      "ohlc_boundary_factors": {
+        "open": 1.103,
+        "high": 1.1069,
+        "low": 2.6858,
+        "close": 2.134
+      },
+      "ohlc_factor_cv": 0.38751,
+      "has_stock_split": true,
+      "nearest_split_ratio": 1.5,
+      "nearest_split_eff_date": "2014-07-02",
+      "gap_days_disc_to_eff": 3571,
+      "classification": "REAL_CRASH_OR_OTHER"
+    },
+    {
+      "ticker": "OXY",
+      "date": "2020-03-09",
+      "ret_close": -0.534252,
+      "close_ratio_prev_over_cur": 2.1471,
+      "ohlc_boundary_factors": {
+        "open": 1.7681,
+        "high": 1.569,
+        "low": 2.1819,
+        "close": 2.1471
+      },
+      "ohlc_factor_cv": 0.13465,
+      "has_stock_split": true,
+      "nearest_split_ratio": 2.0,
+      "nearest_split_eff_date": "2006-08-16",
+      "gap_days_disc_to_eff": 4954,
+      "classification": "REAL_CRASH_OR_OTHER"
+    },
+    {
+      "ticker": "PCG",
+      "date": "2019-01-14",
+      "ret_close": -0.523593,
+      "close_ratio_prev_over_cur": 2.099,
+      "ohlc_boundary_factors": {
+        "open": 1.8423,
+        "high": 1.8448,
+        "low": 2.1504,
+        "close": 2.099
+      },
+      "ohlc_factor_cv": 0.07144,
+      "has_stock_split": true,
+      "nearest_split_ratio": 2.0,
+      "nearest_split_eff_date": "1983-07-18",
+      "gap_days_disc_to_eff": 12964,
+      "classification": "REAL_CRASH_OR_OTHER"
+    },
+    {
+      "ticker": "TRGP",
+      "date": "2020-03-09",
+      "ret_close": -0.529074,
+      "close_ratio_prev_over_cur": 2.1235,
+      "ohlc_boundary_factors": {
+        "open": 1.4772,
+        "high": 1.4791,
+        "low": 2.1509,
+        "close": 2.1235
+      },
+      "ohlc_factor_cv": 0.18237,
+      "has_stock_split": false,
+      "classification": "REAL_CRASH_OR_OTHER"
+    }
+  ],
+  "n_suspects": 6,
+  "splice_artifacts": [
+    "BKNG",
+    "CVNA"
+  ],
+  "real_or_other": [
+    "GL",
+    "OXY",
+    "PCG",
+    "TRGP"
+  ]
+}

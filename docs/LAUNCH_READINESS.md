@@ -92,7 +92,7 @@ The corresponding **hard-block** half of D17 lives on the tracker —
 `engine/wheel_tracker.py._evaluate_d17_hard_blocks` refuses
 position-opening on sector / portfolio-delta / Kelly-size breaches
 when `require_ev_authority=True`. The hard-block surface is what
-guarantees a book-level cap; R7–R11 surface the same kind of
+guarantees a book-level cap; R7–R10 surface the same kind of
 evidence on the dossier so an operator reviewing candidates sees the
 warning at ranking time, not at firing time.
 
@@ -262,15 +262,16 @@ Useful to be explicit so reviewers don't over-block:
 - **Coverage threshold drift** is informational, not blocking. The
   invariants matter; the line count doesn't (`DECISIONS.md` D10).
 - **Doc drift** in `README.md`, `docs/ARCHITECTURE.md`, etc. is
-  tracked in `ROADMAP.md` Track B — known and being repaired.
+  tracked in `ROADMAP.md` Track B — repaired and closed (all six one-shot doc repairs landed).
 - **Deprecation warnings** in the test output are not blockers;
   they're a known cleanup queue. Treat any large delta as worth a
   look (the suite report total drifts with every audit); raw count
   doesn't gate merge.
-- **The `iv_surface` integration decision** is open
-  (`ROADMAP.md` A2) — shipping any code path that *uses* the SVI
-  tooling does require resolving that decision first; everything
-  else is unaffected.
+- **The `iv_surface` integration decision** was resolved
+  (2026-05-30; `ROADMAP.md` A2 `done`, `DECISIONS.md` D9): the SVI
+  tooling is wired in behind a fail-loud guard (`SurfaceDataUnavailable`
+  + `require_surface`), with `scripts/diagnose_iv_surface.py` as the
+  first production caller — it is not gated on any further decision.
 
 ---
 
@@ -340,20 +341,23 @@ the launch-readiness contract should make visible:
 - **`trace_operation`** — instrumentation helper used by the runner
   and the dossier reviewer.
 - **`WheelTracker._ev_authority_log`** — the D16 + D17 audit log.
-  Nine entry shapes total, all pinned by
+  Thirteen entry shapes total, all pinned by
   `tests/test_ev_authority_log_schema.py` and persisted via
   `to_dict` / `from_dict` (PR #128):
-  - **D16 (five shapes):** `action="issue"`, `action="refuse_issue"`
+  - **D16 (six shapes):** `action="issue"`, `action="refuse_issue"`
     with `reason="non_positive_ev"`, `action="consume"`, and three
     `action="reject"` variants — `reason="unknown_token"` /
     `"missing_current_ev_dollars"` / `"stale_ev"`.
-  - **D17 hard-block (four shapes):** `action="reject"` with
+  - **D17 hard-block (five shapes):** `action="reject"` with
     `reason="nav_exhausted"` (pre-gate floor),
     `reason="sector_cap_breach"`, `reason="portfolio_delta_breach"`,
-    `reason="kelly_size_exceeded"`. All four carry the live-NAV
+    `reason="kelly_size_exceeded"`, and the F4 damage-bounding
+    `reason="single_name_breach"`. All carry the live-NAV
     fingerprint (`nav` + `nav_source`) so an audit consumer can
     grep `nav_source="static_fallback"` to spot gate runs that
     landed on the static cap rather than live mark-to-market.
+  - **brain-audit M1 token-binding (two shapes):** `action="reject"`
+    with `reason="unbound_token"` / `reason="token_param_mismatch"`.
 
 Pre-launch: confirm the launch environment writes both surfaces
 (`DecisionJournal` and `_ev_authority_log`) somewhere recoverable —

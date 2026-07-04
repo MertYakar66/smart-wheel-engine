@@ -252,9 +252,12 @@ class TestF4CasesRanker:
         assert r is not None
         assert r["tail_widening_factor"] == 1.0
         # ev re-pinned $5.50 -> $5.27 by the R1 Bloomberg data refresh
-        # (the 2026-02-13 risk-free curve / treasury moved); prob_profit
-        # unchanged. The widening-no-op property is what this guards.
-        assert r["ev_dollars"] == pytest.approx(5.27, abs=0.01)
+        # (the 2026-02-13 risk-free curve / treasury moved), then
+        # $5.27 -> $5.35 by #354 (PIT BSM carry-q: AAPL dividend 0.397%
+        # as-of 2026-02-13 from the dated dividend_pit panel vs the 0.342%
+        # snapshot). prob_profit (below) and the widening-no-op factor (the
+        # property this guards) are unchanged.
+        assert r["ev_dollars"] == pytest.approx(5.35, abs=0.01)
         assert r["prob_profit"] == pytest.approx(0.8571, abs=0.001)
 
     def test_calm_regime_5_ticker_smoke_preserves_main_baseline(self, runner):

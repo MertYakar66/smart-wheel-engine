@@ -148,6 +148,7 @@ omit = [
     "data/bloomberg.py",
     "data/bloomberg_import.py",
     "data/bloomberg_loader.py",
+    "data/broad_pull_loaders.py",
     "data/consolidated_loader.py",
     "data/feature_pipeline.py",
     "data/feature_provenance.py",

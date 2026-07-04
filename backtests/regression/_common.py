@@ -32,8 +32,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import time
 from collections.abc import Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -47,6 +50,8 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 
 _FRICTION_LEVELS = ("none", "bid_ask", "full")
+
+logger = logging.getLogger(__name__)
 
 
 def friction_adjusted_premium(premium: float, friction_level: str) -> float:
@@ -174,6 +179,22 @@ def treasury_sha256(path: Path | None = None) -> str:
     return _file_sha256(path or _TREASURY_PATH)
 
 
+#: broad_pull files the connector CONSUMES outside its ``_FILES`` map (they
+#: are read via ``data.broad_pull_loaders``, not ``_load()``): the PIT
+#: dividend-yield panel (``_load_dividend_pit_panel``, #426/#428 — feeds BSM
+#: carry-q) and the #464 earnings-calendar overlay
+#: (``_load_snapshot_bdp_panel`` — arms the live earnings lockout). Kept OUT
+#: of ``MarketDataConnector._FILES`` deliberately: adding them there would
+#: drag them through ``_load()``'s generic CSV normalization and the data
+#: audits' core-CSV loops. Without these entries a broad_pull re-pull was an
+#: UNPINNED read — the exact blind-spot class ``connector_data_sha256``
+#: exists to close (campaign item 3, 2026-07-02).
+_BROAD_PULL_PINNED = {
+    "broad_pull_dividend_pit": "broad_pull/dividend_pit/sp500_dividend_yield_pit.csv",
+    "broad_pull_snapshot_bdp": "broad_pull/per_name/sp500_snapshot_bdp.csv",
+}
+
+
 def connector_data_sha256() -> dict[str, str]:
     """SHA-256 of *every* connector input CSV, keyed by connector file-key.
 
@@ -183,16 +204,77 @@ def connector_data_sha256() -> dict[str, str]:
     ``sp500_dividends.csv`` revert *after* snapshot generation silently shifted
     the covered-call ex-div early-assignment realized cash (the CC EV input via
     ``wheel_runner.get_next_dividend``), and the fingerprint — which pinned only
-    OHLCV/vol_iv/treasury — did not record it. Files absent on disk are skipped."""
+    OHLCV/vol_iv/treasury — did not record it. Also pins the two
+    ``_BROAD_PULL_PINNED`` files consumed outside ``_FILES``. Files absent on
+    disk are skipped (all are git-tracked, so a missing file surfaces as
+    "drifted" in the union-compare drift guard rather than passing silently)."""
     from engine.data_connector import MarketDataConnector
 
     bloomberg_dir = _OHLCV_PATH.parent
     shas: dict[str, str] = {}
-    for key, fname in sorted(MarketDataConnector._FILES.items()):
+    for key, fname in sorted({**MarketDataConnector._FILES, **_BROAD_PULL_PINNED}.items()):
         path = bloomberg_dir / fname
         if path.exists():
             shas[key] = _file_sha256(path)
     return shas
+
+
+@contextmanager
+def _option_premium_rail_pinned_off():
+    """Pin SWE_OPTION_PREMIUM_DIR to a nonexistent dir while the driver
+    constructs its connector (D4-2, regression-lock rail neutralization).
+
+    The option-premium rail (gitignored ``data_processed/option_premium/``,
+    absent in CI) is otherwise picked up via the connector's DEFAULT-path
+    fallback — unset/EMPTY env means "use the repo default dir", not "rail
+    off" — and swaps synthetic-BSM premiums for real market mids on any box
+    that has produced it, so a replay would diverge from the committed
+    snapshots (locked rail-off at b3aa236, pre-#435) and from CI. The env
+    var is read exactly once, in ``MarketDataConnector.__init__``, and every
+    rail read in a replay flows through the single connector built here
+    (``WheelRunner.connector`` is cached; the tracker and forward-replay
+    lookups reuse ``conn``) — so scoping the pin to connector construction
+    is sufficient and restores the operator's shell state afterwards.
+    """
+    key = "SWE_OPTION_PREMIUM_DIR"
+    prev = os.environ.get(key)
+    if prev and any(Path(prev).glob("*.parquet")):
+        # Disclose at runtime, not just in the fingerprint: the operator
+        # exported a REAL populated rail and the lane is overriding it by
+        # design. (The pytest session pin — an empty tmp dir — stays quiet.)
+        logger.warning(
+            "regression lane: overriding %s=%r — replays run rail-off by design "
+            "(D4-2); rail-ON studies belong in the verification-artifact drivers",
+            key,
+            prev,
+        )
+    os.environ[key] = str(Path(__file__).resolve().parent / "_no_option_premium_rail")
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = prev
+
+
+def _assert_rail_neutralized(conn) -> None:
+    """Fail loud if a future refactor moves connector construction outside
+    the ``_option_premium_rail_pinned_off`` scope — on a rail-bearing box
+    the default premium dir contains produced parquets, so this trips before
+    hours of replay quietly diverge from the committed rail-off baselines.
+
+    ``RuntimeError``, not ``assert`` (must survive ``python -O``); probes for
+    actual parquet CONTENT, not directory existence — the pytest session pin
+    is an existing-but-empty dir, which is a valid rail-off configuration,
+    not a violation (2026-07-02 refuter panel)."""
+    rail_dir = getattr(conn, "_option_premium_dir", None)
+    if rail_dir is not None and any(Path(rail_dir).glob("*.parquet")):
+        raise RuntimeError(
+            f"replay connector sees a populated option-premium rail at {rail_dir}; "
+            "the regression lane must run rail-off (D4-2) — construct the connector "
+            "inside _option_premium_rail_pinned_off()"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -422,8 +504,10 @@ def run_backtest(
 
     assert_data_window_available(start, end)
 
-    runner = WheelRunner()
-    conn = runner.connector
+    with _option_premium_rail_pinned_off():
+        runner = WheelRunner()
+        conn = runner.connector
+    _assert_rail_neutralized(conn)
     tracker = WheelTracker(initial_capital=capital, connector=conn)
 
     trading_days = [d.date() for d in pd.bdate_range(start, end)]
@@ -634,6 +718,10 @@ def run_backtest(
         "vol_iv_sha256": vol_iv_sha256(),
         "treasury_sha256": treasury_sha256(),
         "connector_data_sha256": connector_data_sha256(),
+        # D4-2: replays run with the option-premium rail pinned OFF (see
+        # _option_premium_rail_pinned_off) — recorded so a snapshot's
+        # provenance is explicit about which premium source it locked.
+        "option_premium_rail": "pinned_off",
         "generated_at": datetime.now(UTC).isoformat(),
     }
 
@@ -855,8 +943,10 @@ def run_backtest_multi_friction(
 
     assert_data_window_available(start, end)
 
-    runner = WheelRunner()
-    conn = runner.connector
+    with _option_premium_rail_pinned_off():
+        runner = WheelRunner()
+        conn = runner.connector
+    _assert_rail_neutralized(conn)
     trackers = {
         level: WheelTracker(initial_capital=capital, connector=conn) for level in friction_levels
     }
@@ -985,6 +1075,8 @@ def run_backtest_multi_friction(
             "vol_iv_sha256": vol_iv_sha256(),
             "treasury_sha256": treasury_sha256(),
             "connector_data_sha256": connector_data_sha256(),
+            # D4-2: see _option_premium_rail_pinned_off.
+            "option_premium_rail": "pinned_off",
             "generated_at": datetime.now(UTC).isoformat(),
         }
 

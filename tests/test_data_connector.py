@@ -754,7 +754,7 @@ class TestDataFrontier:
 
     # Mirror the bump-on-refresh constant from test_preflight_environment.py.
     # When the OHLCV CSVs are refreshed, this constant must be bumped too.
-    EXPECTED_FRONTIER = pd.Timestamp("2026-06-04")
+    EXPECTED_FRONTIER = pd.Timestamp("2026-07-02")
 
     def test_frontier_returns_ohlcv_date_max(self, data_dir):
         """get_data_frontier() equals _load('ohlcv')['date'].max() (clamped)."""
@@ -766,7 +766,7 @@ class TestDataFrontier:
         assert frontier == pd.Timestamp("2024-01-04")
 
     def test_real_frontier_ge_expected(self):
-        """Real Bloomberg CSVs: frontier >= EXPECTED_FRONTIER (2026-06-04).
+        """Real Bloomberg CSVs: frontier >= EXPECTED_FRONTIER (2026-07-02).
 
         Skips when the real data dir is unavailable (e.g. CI sandbox).
         """

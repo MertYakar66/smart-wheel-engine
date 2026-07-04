@@ -21,6 +21,13 @@ import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ibkr"
 
+# Real-socket integration: spins engine_api's stdlib handler on an ephemeral
+# loopback port and exercises it over HTTP. CI-runnable headless (fixture
+# data, no external services) — this file anchors the CI "Integration Tests"
+# lane; if this mark is ever removed, that lane fails on exit 5 rather than
+# silently going vacuous (its pytest call has no continue-on-error).
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def server():

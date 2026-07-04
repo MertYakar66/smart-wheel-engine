@@ -452,3 +452,127 @@ class TestRealismGapVisible:
             assert iv == pytest.approx(0.36)
         # And NONE of them used the snapshot value.
         assert all(abs(iv - 0.18) > 0.05 for iv in ivs)
+
+
+# ======================================================================
+# 5. #354 / Phase 3G — get_fundamentals as_of threading (dividend carry-q PIT)
+# ======================================================================
+class TestFundamentalsAsOfThreading:
+    """#354: ``rank_candidates_by_ev`` threads its ``as_of`` into
+    ``conn.get_fundamentals`` so the BSM carry-``q`` (dividend_yield) is
+    point-in-time, not the 2026 snapshot. The connector-level PIT *behaviour*
+    is pinned in ``tests/test_broad_pull_wiring_xfail.py``; this pins the
+    *wire* (the ranker passes as_of) and its backward-compatibility fallback.
+    """
+
+    class _AsOfSpyConn(_PitIVConn):
+        """``get_fundamentals`` accepts + records the ``as_of`` it is called
+        with (the real MarketDataConnector signature post-#354)."""
+
+        def __init__(self, *a, **k) -> None:
+            super().__init__(*a, **k)
+            self.fundamentals_as_of_calls: list = []
+
+        def get_fundamentals(self, ticker: str, as_of=None) -> dict:
+            self.fundamentals_as_of_calls.append(as_of)
+            return {
+                "implied_vol_atm": self._snapshot_iv,
+                "volatility_30d": self._snapshot_iv,
+                "dividend_yield": 0.0,
+            }
+
+    def test_rank_threads_as_of_into_get_fundamentals(self):
+        conn = self._AsOfSpyConn(_TICKERS, iv_by_date={"2026-03-15": 30.0})
+        df = _rank(_runner_with(conn), as_of="2026-03-15")
+        assert not df.empty
+        carried = [a for a in conn.fundamentals_as_of_calls if a is not None]
+        assert carried, "get_fundamentals never received as_of — threading absent"
+        assert all(a == "2026-03-15" for a in carried), (
+            f"get_fundamentals as_of calls = {conn.fundamentals_as_of_calls}; "
+            "expected the ranker to thread as_of=2026-03-15"
+        )
+
+    def test_as_of_none_keeps_snapshot_signature(self):
+        """Live ranking (``as_of=None``) must call the plain snapshot
+        signature — never the as_of form — so live behaviour is unchanged."""
+        conn = self._AsOfSpyConn(_TICKERS, iv_by_date={})
+        df = _rank(_runner_with(conn))  # no as_of
+        assert not df.empty
+        assert conn.fundamentals_as_of_calls, "get_fundamentals was not called"
+        assert all(a is None for a in conn.fundamentals_as_of_calls), (
+            "as_of=None ranking must not pass a non-None as_of to get_fundamentals"
+        )
+
+    def test_legacy_connector_without_as_of_still_ranks(self):
+        """A stub whose ``get_fundamentals`` predates the ``as_of`` kwarg
+        (raises TypeError) must still rank via the snapshot fallback —
+        backward compatibility for ThetaConnector and the existing stubs."""
+        conn = _PitIVConn(_TICKERS, snapshot_iv=25.0, iv_by_date={"2026-03-15": 30.0})
+        df = _rank(_runner_with(conn), as_of="2026-03-15")
+        assert not df.empty, "ranker crashed on a connector without as_of support"
+
+
+# ======================================================================
+# 3. #378 / W36 — IV-staleness gate on _resolve_pit_atm_iv
+# ======================================================================
+class _StaleIVConn:
+    """A connector whose ``get_iv_history`` returns a single in-band IV row at a
+    fixed ``last_date`` (date-indexed), optionally exposing a ``get_data_frontier``
+    so the as_of=None path can resolve a staleness reference."""
+
+    def __init__(self, last_date: str, frontier: str | None = None):
+        self._last = pd.Timestamp(last_date)
+        self._frontier = pd.Timestamp(frontier) if frontier else None
+
+    def get_iv_history(self, ticker, start_date=None, end_date=None):
+        return pd.DataFrame(
+            {"hist_put_imp_vol": [30.0], "hist_call_imp_vol": [30.0]},
+            index=pd.DatetimeIndex([self._last], name="date"),
+        )
+
+    def get_data_frontier(self, dataset="ohlcv"):
+        return self._frontier
+
+
+class TestIvStalenessGate:
+    """#378 / W36: ``_resolve_pit_atm_iv`` drops a PIT IV whose most-recent row
+    lags the staleness reference by > ``max_staleness_days`` — mirroring the spot
+    path's 30-day rule. Strictly conservative: a stale IV → ``None`` → the caller
+    falls back to the (cleaned, #369) fundamentals IV rather than pricing BSM
+    against stale IV. Latent on today's ``main`` (max IV↔OHLCV gap = 1 day)."""
+
+    def test_fresh_iv_passes(self):
+        # last IV row 3 days before as_of → in-band → 0.30 decimal.
+        conn = _StaleIVConn("2024-06-14")
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") == pytest.approx(0.30)
+
+    def test_stale_iv_dropped_explicit_as_of(self):
+        # last IV row 63 days before as_of → gate fires → None (fall back).
+        conn = _StaleIVConn("2024-04-15")
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") is None
+
+    def test_boundary_30d_kept_31d_dropped(self):
+        kept = _StaleIVConn("2024-05-18")  # exactly 30 days before 2024-06-17
+        assert _resolve_pit_atm_iv(kept, "AAA", "2024-06-17") == pytest.approx(0.30)
+        dropped = _StaleIVConn("2024-05-17")  # 31 days
+        assert _resolve_pit_atm_iv(dropped, "AAA", "2024-06-17") is None
+
+    def test_as_of_none_uses_data_frontier(self):
+        # as_of=None → staleness reference is the connector's data frontier.
+        stale = _StaleIVConn("2024-04-15", frontier="2024-06-17")
+        assert _resolve_pit_atm_iv(stale, "AAA", None) is None
+        fresh = _StaleIVConn("2024-06-14", frontier="2024-06-17")
+        assert _resolve_pit_atm_iv(fresh, "AAA", None) == pytest.approx(0.30)
+
+    def test_no_frontier_no_gate_at_as_of_none(self):
+        # as_of=None with no frontier → no reference → gate cannot fire (the IV
+        # is still returned; the spot path's own staleness gate guards the rank).
+        conn = _StaleIVConn("2020-01-02", frontier=None)
+        assert _resolve_pit_atm_iv(conn, "AAA", None) == pytest.approx(0.30)
+
+    def test_custom_threshold_honoured(self):
+        conn = _StaleIVConn("2024-04-15")  # 63 days before 2024-06-17
+        assert _resolve_pit_atm_iv(conn, "AAA", "2024-06-17") is None  # default 30
+        assert _resolve_pit_atm_iv(
+            conn, "AAA", "2024-06-17", max_staleness_days=90
+        ) == pytest.approx(0.30)

@@ -446,19 +446,23 @@ class TestHmmRegimeLabel:
         assert df["sector"].notna().all()
         assert df["sector"].apply(lambda s: isinstance(s, str) and len(s) > 0).all()
 
-    def test_sector_column_uses_default_sector_map(self):
-        """The sector lookup must use DEFAULT_SECTOR_MAP — same source as
-        check_sector_cap — so the trader sees the GICS sector the gate
-        would aggregate by. Using a known ticker ('AAPL' is GICS
-        Information Technology) verifies the wiring."""
-        from engine.risk_manager import DEFAULT_SECTOR_MAP
+    def test_sector_column_uses_real_gics_when_served(self):
+        """#372: the ranker's `sector` column uses the real `gics_sector_name`
+        served by the connector (primary), not `DEFAULT_SECTOR_MAP`. Serve a
+        canonical GICS that DIFFERS from AAPL's DEFAULT bucket (Information
+        Technology) and assert the row reflects the served value — the same
+        source check_sector_cap now aggregates by, so ranker and gate agree."""
+
+        class _GICSConn(_GBMConn):
+            def get_fundamentals(self, ticker):
+                return {**super().get_fundamentals(ticker), "sector": "Energy"}
 
         runner = _runner(tickers=["AAPL"])
+        runner._connector = _GICSConn(["AAPL"])
         df = _rank(runner, tickers=["AAPL"])
         if df.empty:
             return  # _GBMConn synth path may yield no survivor for AAPL alone
-        expected = DEFAULT_SECTOR_MAP.get("AAPL", "Unknown")
-        assert (df["sector"] == expected).all()
+        assert (df["sector"] == "Energy").all()
 
     def test_sector_column_is_present_even_without_diagnostic_fields(self):
         """sector is a CORE column (per-ticker fact, useful for

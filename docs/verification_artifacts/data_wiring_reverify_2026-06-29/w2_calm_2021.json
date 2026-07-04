@@ -1,0 +1,23 @@
+{
+  "label": "calm_2021",
+  "as_of": "2021-06-15",
+  "rfr_decimal": 0.000127,
+  "n_candidates": 358,
+  "nonfinite_counts": {},
+  "nonfinite_total": 0,
+  "prob_profit_outside_01": 0,
+  "prob_assignment_outside_01": 0,
+  "iv_below_floor_count": 0,
+  "iv_above_ceiling_count": 0,
+  "iv_ceiling_decimal": 0.5477,
+  "iv_floor_decimal": 0.1337,
+  "premium_spot_pct_median": 1.071,
+  "premium_spot_pct_max": 4.091,
+  "premium_nonpositive_count": 0,
+  "spot_nonpositive_count": 0,
+  "greek_violation_count": 0,
+  "greek_violation_examples": [],
+  "prob_profit_eq_1_count": 0,
+  "prob_profit_eq_1_tickers": [],
+  "thin_n_scenarios_lt_30_count": 346
+}

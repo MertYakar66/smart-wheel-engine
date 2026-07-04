@@ -372,11 +372,23 @@ class TestSnapshotOverlayRealData:
         assert nxt["announcement_date"] == pd.Timestamp("2026-07-14")
         assert nxt["source"] == "earnings_csv"
 
-    def test_tsla_just_reported_back_buffer(self, conn):
-        recent = conn.get_recent_earnings("TSLA", as_of="2026-07-03", lookback_days=5)
-        assert recent is not None
-        assert recent["announcement_date"] == pd.Timestamp("2026-07-02")
-        assert recent["source"] == "snapshot_bdp"
+    def test_tsla_vintage_supersession_pit(self, conn):
+        """Two appended snapshot vintages (asof 2026-06-18 + 2026-07-03,
+        the #472 refresh): the NEWEST eligible vintage wins, and the newer
+        one never leaks backward. At 07-01 the 06-18 vintage still serves
+        TSLA's then-forward 07-02 (the lock stays armed through the report);
+        at 07-03 the fresh vintage supersedes with the next quarter's 07-22.
+        (Replaces the single-vintage back-buffer pin: with an appended
+        current vintage the just-reported date is superseded by the new
+        FORWARD date, which the event gate locks on anyway.)"""
+        old = conn.get_next_earnings("TSLA", as_of="2026-07-01")
+        assert old is not None
+        assert old["announcement_date"] == pd.Timestamp("2026-07-02")
+        assert old["source"] == "snapshot_bdp"
+        new = conn.get_next_earnings("TSLA", as_of="2026-07-03")
+        assert new is not None
+        assert new["announcement_date"] == pd.Timestamp("2026-07-22")
+        assert new["source"] == "snapshot_bdp"
 
     def test_brk_b_share_class_served(self, conn):
         """The slash mega-cap the 2026-07-02 refuter panel caught falling

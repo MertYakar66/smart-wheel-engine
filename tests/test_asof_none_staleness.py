@@ -291,9 +291,22 @@ class TestFutureCorruptRow:
     """A corrupt future-dated row must not inflate the frontier and black out healthy names."""
 
     def test_future_dated_corrupt_row_does_not_blackout_universe(self):
-        """get_data_frontier clamps to today so a 2099 row doesn't kill as_of=None scans."""
+        """get_data_frontier clamps to today so a 2099 row doesn't kill as_of=None scans.
 
-        class _CorruptFrontierConn(_base_methods({"FRESH": _FRESH_OHLCV})):
+        The name's own bars must end AT today (wall-clock), not at the pinned
+        module FRONTIER: this test's connector clamps the corrupt frontier to
+        ``date.today()``, so a FRONTIER-pinned fixture silently became a
+        calendar time-bomb — it passed only while ``today - FRONTIER <= 30d``
+        (max_as_of_staleness_days) and started failing on every CI run on
+        2026-07-05. Building the bars fresh-to-today keeps the assertion
+        pointed at the intended property (the 2099 row does not inflate the
+        frontier) instead of at the wall-clock distance to a dated fixture.
+        """
+        import datetime as _dt
+
+        fresh_to_today = _ohlcv(pd.Timestamp(_dt.date.today()), seed=1)
+
+        class _CorruptFrontierConn(_base_methods({"FRESH": fresh_to_today})):
             def get_data_frontier(self, dataset="ohlcv"):
                 # Simulate a connector that would return a future-dated frontier
                 # WITHOUT the clamp.  With the clamp this returns today.

@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**157 records.**
+**158 records.**
 
 ## Features (16)
 
@@ -32,10 +32,11 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r9r10-live-book-wire](r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md) | in-flight |  | New WheelRunner.consume_into_live_book pairs the make_live_book_tracker factory (R9 sector 25% + R10 single-name 10%, refusal-only) with the consume_into_tracker rank->book wire, so an over-concentrated open is REFUSED end-to-end on a live path — closing the "factory has zero callers" gap (heavy-verify Category A). Additive, §2-safe (refusal-only; D16 launch gate still refuses negative-EV); touches the wheel_runner trio so it carries a lane-claim + needs the independent §2 second-read. | `r9r10-live-book-wire-armed-production-rank-book-entry-consume-into-li.md` |
 | [wire-r9-r10-concentration-preview](wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md) | in-flight |  | New GET /api/concentration_preview makes the armed R9/R10 caps fire on an operator path — closes the "zero live callers" dormancy gap. | `wire-r9-r10-concentration-preview-wire-r9-r10-concentration-caps-onto-a-live-opera.md` |
 
-## Fixes (29)
+## Fixes (30)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [branch-merge-down-2026-07-04](branch-merge-down-2026-07-04.md) | shipped | #482 | Operator-directed merge-down of the 14-branch backlog: every branch's unlanded value extracted onto main (campaign docs, producer scripts, lab tooling, backfill fragments, R11b evidence, 3 mined engine items), 12 branches deleted with SHAs recorded, 2 data carriers kept | `branch-merge-down-2026-07-04.md` |
 | [ci-integration-honest](ci-integration-honest-vacuous-ci-integration-job-made-real.md) | shipped | #468 | The Integration Tests CI job ran ZERO tests behind continue-on-error since its creation (exit 5 masked, reported green); it now runs 26 real cross-boundary tests with --strict-markers and fails on exit 5, so the lane can never silently regress to vacuous | `ci-integration-honest-vacuous-ci-integration-job-made-real.md` |
 | [coverage-floors](coverage-floors-per-file-coverage-floor-ratchet.md) | shipped | #471 | The aggregate --cov-fail-under=80 spans ~15,320 statements, so wheel_runner could shed 20pp of coverage without tripping it; a stdlib script now floors 7 engine-core files at measured-on-main minus 2pp — green on day one, red only on decay, missing-file fails loud | `coverage-floors-per-file-coverage-floor-ratchet.md` |
 | [d16-token-param-binding](d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md) | merged |  | D16 EV-authority token was an unbound bearer token — a token issued for AAPL/180/dte32 would gate any open_short_put/open_covered_call regardless of ticker/strike/expiration/side. Fix adds consume-side parameter binding (ticker, strike, derived-dte, side) via _ev_authority_payloads; hash and single-use semantics unchanged; two new refusal reasons token_param_mismatch + unbound_token; legacy snapshot rebind from audit log. | `d16-token-param-binding-ev-authority-token-parameter-binding-brain-audit.md` |

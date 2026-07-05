@@ -279,3 +279,59 @@ class TestEvDollarsScalesProportionallyWithDealerMultiplier:
             f"multiplier is touching something beyond ev_dollars "
             f"(CLAUDE.md §2 'scales ev_dollars only' violated)"
         )
+
+
+# ======================================================================
+# 8. Named clamp constants + unconditional source-level bound
+# ======================================================================
+class TestDealerMultClampConstants:
+    """The §2 clamp band is now named (DEALER_MULT_FLOOR / DEALER_MULT_CEIL)
+    and asserted both at the source (dealer_regime_multiplier's unconditional
+    defense-in-depth clamp) and at the application site in EVEngine.evaluate.
+    These pins hold the constants to the CLAUDE.md §2 literals and prove the
+    source clamp bounds every regime x confidence combination — including
+    out-of-range confidences a future caller might pass."""
+
+    def test_constants_equal_the_section2_literals(self):
+        from engine.dealer_positioning import DEALER_MULT_CEIL, DEALER_MULT_FLOOR
+
+        assert DEALER_MULT_FLOOR == 0.70
+        assert DEALER_MULT_CEIL == 1.05
+
+    def test_multiplier_bounded_for_every_regime_and_confidence(self):
+        from engine.dealer_positioning import (
+            DEALER_MULT_CEIL,
+            DEALER_MULT_FLOOR,
+            dealer_regime_multiplier,
+        )
+
+        regimes = [
+            "long_gamma_dampening",
+            "short_gamma_amplifying",
+            "near_flip",
+            "neutral",
+            "some_future_regime",
+        ]
+        confidences = [-1.0, 0.0, 0.25, 0.5, 0.75, 1.0, 2.0, 100.0]
+        for regime in regimes:
+            for conf in confidences:
+                mult = dealer_regime_multiplier(_market_structure(regime, conf))
+                assert DEALER_MULT_FLOOR <= mult <= DEALER_MULT_CEIL, (
+                    f"dealer_regime_multiplier breached the §2 band for "
+                    f"regime={regime!r} confidence={conf}: {mult}"
+                )
+
+    def test_endpoint_values_unchanged_by_the_refactor(self):
+        """The single-return -> clamped-variable refactor must be a no-op on
+        every documented output value."""
+        from engine.dealer_positioning import dealer_regime_multiplier
+
+        assert dealer_regime_multiplier(None) == 1.0
+        assert dealer_regime_multiplier(
+            _market_structure("long_gamma_dampening", 1.0)
+        ) == pytest.approx(1.05)
+        assert dealer_regime_multiplier(
+            _market_structure("short_gamma_amplifying", 1.0)
+        ) == pytest.approx(0.70)
+        assert dealer_regime_multiplier(_market_structure("near_flip", 0.3)) == pytest.approx(0.85)
+        assert dealer_regime_multiplier(_market_structure("neutral", 1.0)) == 1.0

@@ -731,8 +731,16 @@ class DealerPositioningAnalyzer:
 # ----------------------------------------------------------------------
 # Regime → multiplier
 # ----------------------------------------------------------------------
+# CLAUDE.md §2 invariant — the dealer multiplier is clamped to this band,
+# asymmetric by design (small upside boost, larger downside cut). Named here
+# so both the source (below) and the application site (EVEngine.evaluate) can
+# assert the same bound; "Never alter the dealer multiplier clamp [0.70, 1.05]".
+DEALER_MULT_FLOOR = 0.70
+DEALER_MULT_CEIL = 1.05
+
+
 def dealer_regime_multiplier(ms: MarketStructure | None) -> float:
-    """Return a scalar in [0.70, 1.05] for the EV engine.
+    """Return a scalar in [DEALER_MULT_FLOOR, DEALER_MULT_CEIL] for the EV engine.
 
     Asymmetric by design:
       * long_gamma_dampening: up to 1.05 (small boost — dealers dampen
@@ -750,11 +758,17 @@ def dealer_regime_multiplier(ms: MarketStructure | None) -> float:
     conf = max(0.0, min(1.0, float(ms.confidence)))
     if ms.regime == "long_gamma_dampening":
         # 1.00 → 1.05 linearly in confidence
-        return 1.0 + 0.05 * conf
-    if ms.regime == "short_gamma_amplifying":
+        mult = 1.0 + 0.05 * conf
+    elif ms.regime == "short_gamma_amplifying":
         # 1.00 → 0.70 linearly in confidence (30% cut at full confidence)
-        return 1.0 - 0.30 * conf
-    if ms.regime == "near_flip":
+        mult = 1.0 - 0.30 * conf
+    elif ms.regime == "near_flip":
         # Flat 0.85 — near-flip is a warning regardless of confidence
-        return 0.85
-    return 1.0
+        mult = 0.85
+    else:
+        mult = 1.0
+    # Defense-in-depth: the branches above are bounded by construction, but
+    # clamp unconditionally so any future regime branch or confidence formula
+    # cannot silently breach the §2 [0.70, 1.05] invariant. No-op on the
+    # values above (output unchanged).
+    return float(min(DEALER_MULT_CEIL, max(DEALER_MULT_FLOOR, mult)))

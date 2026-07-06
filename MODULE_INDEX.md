@@ -113,6 +113,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
 | `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
+| `sim_portfolio.py` | Distributional simulated-portfolio reporting overlay: a WheelTracker forward book's equity curve → block-bootstrap MC equity fan (p5–p95) + terminal/drawdown distributions + a correlation-to-1 Student-t copula tail, reconciled against the deterministic backtest NAV. Reuses `monte_carlo` / `portfolio_copula` / `performance_metrics`; driven by `scripts/run_forward_sim.py`. Outside the CI-gated trio; imports nothing from it; every output labelled `model` vs `engine-measured`, copula tail `feeds_ev=False`. (**display**) |
 | `ibkr_portfolio_adapter.py` | D24 read-only IBKR snapshot → engine types (`PortfolioContext`, held positions, USD NAV) + the D26 `/api/portfolio/*` payload builders. Outside the CI-gated trio; imports nothing from it. (**tracker / input**) |
 
 ### Infra / config / display

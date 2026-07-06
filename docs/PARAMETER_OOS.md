@@ -329,40 +329,81 @@ Two corrections, both in the shared library:
 * **Per-date cross-sectional ρ** — Spearman(`ev_dollars`, realized) *within* each
   as_of's candidate menu, then aggregated across dates. This answers "did the
   signal rank *today's* menu?" on genuinely date-level draws.
-* **Date-clustered bootstrap** — every CI resamples whole as_of **dates** (blocks),
-  never individual rows, so the interval carries the date-level dependence. The
-  effective number of independent clusters is the distinct as_of date count, not
-  the row count.
+* **Moving-block bootstrap** — every CI resamples whole as_of **dates**, never
+  individual rows (so same-day cross-sectional dependence is carried by
+  construction), AND resamples them in **contiguous blocks of ~25 chronological
+  dates** (`block_len` ≈ the 35-DTE horizon in trading days). Individual-date
+  resampling (`block_len=1`) still treats serially-correlated nearby dates as
+  independent and reports optimistically-tight intervals; the block breaks that
+  serial dependence. The effective independent-unit count is therefore
+  `n_dates / block_len` — e.g. ~53 blocks over ~1326 daily dates, **not** ~90k
+  rows. The snapshot records both the block CI and the naive `block_len=1` CI for
+  the holdout so the widening is explicit.
 
 ### 7.1 Sampling actually used
 
-<!-- FILLED FROM SNAPSHOT -->
-_Pending — `fingerprint.actual_sample_dates` / `actual_first_date..actual_last_date`._
+**Daily** — 1326 distinct as_of dates, 2020-06-01 → 2025-06-30, 63,187 ranked
+rows (all resolved). No sub-sampling. (Finest cadence; the full daily pass took
+~2.9 h, checkpointed per 6-month batch.)
 
-### 7.2 The decisive number — 100-name OOS ρ vs S34 in-sample 0.313
+### 7.2 The decisive result — the null does NOT blanket-generalize; a top-tier edge SURVIVES
 
-| Metric | 100-name | 24-name (#484) | S34 in-sample |
-|---|---|---|---|
-| pooled ρ (full span), date-clustered CI95 | _tbd_ | +0.005 | — |
-| **holdout pooled ρ**, date-clustered CI95 | _tbd_ | −0.024 | — |
-| per-date cross-sectional mean ρ, CI95 | _tbd_ | −0.053 | — |
-| ρ on the S34 window (2022–2024) | _tbd_ | — | **0.313** |
-| optimism gap (regime overlay re-fit) | _tbd_ | +0.096 | — |
+**Verdict.** Measured across **all** ~48 candidates/day, the 100-name pooled ρ is
+≈ 0 (holdout −0.077, block-CI95 [−0.19, +0.02]) — the 24-name null *does* hold for
+the full cross-section. **But that all-candidate number hides a real,
+out-of-window rank edge at the tradeable top tier.** The engine only ever *opens*
+its highest-EV candidates, and there ρ is strongly positive and survives into the
+holdout with honest block-bootstrap CIs that **exclude zero:**
 
-**Verdict:** _tbd — did the null generalize, or did an edge appear?_
+| Segment | top-5 ρ [block-CI95] | top-15 ρ [block-CI95] | top-50 ρ | all (~48) ρ |
+|---|---|---|---|---|
+| TRAIN (2020-06 → 2023-06) | +0.560 [0.46, 0.64] | +0.354 [0.25, 0.45] | +0.221 | +0.022 |
+| **HOLDOUT (2023-08 → 2025-06)** | **+0.597 [0.48, 0.70]** | **+0.371 [0.25, 0.49]** | +0.102 [−0.02, 0.23] | −0.077 [−0.19, 0.02] |
+| S34 window (2022–2024) | +0.525 [0.43, 0.62] | **+0.316 [0.22, 0.41]** | +0.102 | −0.062 |
 
-### 7.3 E3 breadth — is any edge breadth, or one name?
+Four things make this a *first-class surviving edge*, not an artifact:
 
-Caveat E3: S34's *dollar* story is dominated by BKNG (net of BKNG = −$3,004).
-Here we test whether the *rank* ρ is breadth or concentration.
+1. **It reproduces S34 exactly.** On the S34 window at top-15, ρ = **+0.316**
+   (S34 reported **+0.313**, identical n=10,896) — the pipeline is faithful.
+2. **It survives out-of-window.** HOLDOUT top-15 = **+0.371** (block-CI [0.25,
+   0.49], ~20 effective blocks) — *higher* than TRAIN (+0.354), i.e. **stable, not
+   decaying**. The block bootstrap is the honest interval (individual-date
+   resampling would be ~3× tighter — see §7.0).
+3. **It is BREADTH, not one name (E3).** HOLDOUT top-15: dropping BKNG is a no-op
+   (0.371 → 0.370); leave-one-name-out range **[0.351, 0.404]** across **97
+   distinct names**; BKNG P&L share 0.1%. Removing *any* single name leaves ρ ≈
+   0.37. (On the *all-candidate* set the ρ is ≈ 0 and E3 is likewise flat — LOO
+   [−0.024, +0.000] — so there is no hidden single-name edge there either.)
+4. **It lives in `ev_raw`, not the tuned overlay — so it is robust to the entire
+   E5 parameter surface.** Ranking the holdout top-15 by the *untuned, PIT-clean
+   core* `ev_raw` gives ρ **+0.378** — essentially identical to `ev_dollars`
+   +0.371. The regime overlay that §1–§6 showed does **not** generalize (optimism
+   gap on 100t is +0.066, same story) is simply **not where the edge is**. The
+   edge is the block-bootstrap/forward-distribution EV picking the best ~15 of ~48
+   names — a parameter-light, online-fit signal with no static-constant overfit
+   surface.
 
-| Check | ρ |
-|---|---|
-| full-sample pooled ρ | _tbd_ |
-| drop BKNG | _tbd_ |
-| leave-one-name-out range [min, max] | _tbd_ |
-| most-influential single name (removal) | _tbd_ |
+**Why the edge decays with `top_n` and why 24 names couldn't see it.** ρ falls
+monotonically as the menu widens: +0.60 (top-5) → +0.37 (top-15) → +0.10 (top-50)
+→ ≈ 0 (all). The engine's EV discriminates its *best* picks from a broad field
+but cannot rank the low-EV tail it would never trade. The 24-name universe only
+surfaces ~15 candidates/day — there is **no broad field to select the best 15
+from**, so its "all-candidate" ρ (#484: +0.005) *is* its top tier, and it is ≈ 0.
+The 100-name universe is what makes the selective top-tier edge measurable. The
+two results are fully consistent: **different subsets of the same monotone curve.**
 
-_BKNG P&L share of net / abs: tbd._
+### 7.3 What is / isn't established (100-name)
 
-**Reading:** _tbd — breadth or one/two names?_
+* **Established (leakage-clean, honestly powered):** a breadth, out-of-window,
+  block-CI-excludes-zero rank edge at the tradeable top tier (holdout top-15
+  +0.37 [0.25, 0.49]), located in the parameter-light core EV. Every OOS number
+  carries the per-row leakage certificate (§3) and a moving-block CI (§7.0).
+* **Not a profitability claim.** ρ measures *rank ordering* of held-to-expiry P&L,
+  not dollar edge; caveats E1 (equity-beta dominance) and E3 (dollar story) are
+  unchanged — this is skill at *ranking* the top tier, not a return guarantee.
+* **Out-of-window, not fully out-of-parameter.** The static constants saw all
+  history (E5). This is mitigated for *this* edge because it sits in `ev_raw`
+  (online-fit, not the static overlay), but a strict per-fold parameter re-fit of
+  the forward-distribution knobs was not run — labelled, not claimed.
+* **Regime overlay still adds no OOS value** on 100 names either (optimism gap
+  +0.066; the re-fit collapses out-of-parameter exactly as in §5).

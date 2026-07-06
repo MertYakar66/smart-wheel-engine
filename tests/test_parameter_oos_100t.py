@@ -209,6 +209,39 @@ def test_snapshot_deterministic_stats_match_fixture():
         assert e3[k] == pytest.approx(snap["e3_robustness"][k], abs=_TOL)
 
 
+@pytest.mark.skipif(
+    not (_FIXTURE.exists() and _SNAPSHOT.exists()), reason="fixture/snapshot not committed yet"
+)
+def test_top_n_tiers_deterministic_and_holdout_edge_survives():
+    """Lock the DECISIVE result: the tradeable top-tier rank edge survives
+    out-of-window. Recompute the deterministic per-tier ρ from the fixture
+    (exact) and assert the committed holdout top-5 / top-15 block-bootstrap CIs
+    EXCLUDE zero, while the all-candidate CI includes zero (the reconciliation
+    with the #484 24-name null). The top-15 edge is breadth (leave-one-out stays
+    positive)."""
+    from datetime import date
+
+    from scripts.run_parameter_oos_100t import CONFIG
+
+    snap = _load_snapshot()
+    t = pd.read_csv(_FIXTURE)
+    d = pd.to_datetime(t["date"]).dt.date
+    holdout = t[d >= date.fromisoformat(CONFIG["holdout_start"])]
+    exp = snap["top_n_tiers"]["holdout"]
+    for n, key in [(5, "5"), (15, "15"), (None, "all")]:
+        top = poos.restrict_top_n_per_date(holdout, n)
+        assert poos._pooled_rho(top, "ev_dollars") == pytest.approx(exp[key]["pooled_rho"], abs=_TOL)
+    # surviving-edge: committed holdout top-5 / top-15 block CIs exclude zero
+    assert exp["5"]["block_ci95"][0] > 0, "holdout top-5 block-CI must exclude zero"
+    assert exp["15"]["block_ci95"][0] > 0, "holdout top-15 block-CI must exclude zero"
+    # reconciliation with #484: the all-candidate holdout CI includes zero
+    assert exp["all"]["block_ci95"][0] < 0 < exp["all"]["block_ci95"][1] or exp["all"]["pooled_rho"] <= 0
+    # breadth: the holdout top-15 edge is not one name
+    et = snap["e3_holdout_top15"]
+    assert et["loo_min_rho"] > 0.2, "holdout top-15 edge collapses when one name dropped"
+    assert abs(et["full_rho"] - et["drop_dominant_rho"]) < 0.02
+
+
 @pytest.mark.skipif(not _SNAPSHOT.exists(), reason="snapshot not committed yet")
 def test_snapshot_leakage_certificate_is_clean():
     snap = _load_snapshot()

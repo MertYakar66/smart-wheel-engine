@@ -248,6 +248,39 @@ def analyze() -> dict:
         signal_col="ev_dollars",
     )
 
+    # --- top-N tier analysis (THE decisive result) ---
+    # The rank edge lives in the tradeable top tier and decays to ~0 across the
+    # full cross-section — so the all-candidate ρ hides the surviving OOS signal.
+    tiers = [5, 10, 15, 30, 50, None]
+    seg = {
+        "full": table,
+        "train": table[d <= date.fromisoformat(CONFIG["train_end"])],
+        "holdout": holdout_tbl,
+        "s34_window": s34_sub,
+    }
+    top_n_tiers = {
+        name: poos.top_n_tier_scores(
+            sub, tiers, n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl
+        )
+        for name, sub in seg.items()
+    }
+    # E3 breadth on the HOLDOUT top-15 (the decisive tradeable tier).
+    holdout_top15 = poos.restrict_top_n_per_date(holdout_tbl, 15)
+    e3_holdout_top15 = poos.dominant_name_robustness(
+        holdout_top15, holdout_top15, dominant=CONFIG["e3_dominant_name"]
+    )
+    # Where does the top-tier edge live — the tuned regime overlay or the
+    # parameter-light PIT-clean core EV (ev_raw)? If ev_raw ≈ ev_dollars, the
+    # edge is robust to the entire E5 static-parameter surface (the overlay #484
+    # showed does not generalize is simply not where the edge is).
+    top_tier_edge_source = {
+        sig: poos.top_n_tier_scores(
+            holdout_tbl, [5, 15, 50], signal_col=sig,
+            n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+        )
+        for sig in ("ev_dollars", "ev_raw")
+    }
+
     payload = {
         "snapshot_id": SNAPSHOT_ID,
         "fingerprint": _fingerprint(table),
@@ -270,6 +303,9 @@ def analyze() -> dict:
         "split_robustness": robustness,
         "s34_reconciliation": s34_recon,
         "e3_robustness": e3,
+        "top_n_tiers": top_n_tiers,
+        "e3_holdout_top15": e3_holdout_top15,
+        "top_tier_edge_source": top_tier_edge_source,
     }
 
     SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -296,8 +332,19 @@ def _summary(payload: dict) -> None:
     print(f"  optimism_gap(scalars)={pr['optimism_gap_regime_scalars']:+.4f}", flush=True)
     print(f"  S34 recon: in-sample {s34['s34_in_sample_rho']:+.3f} vs our 2022-2024 pooled "
           f"{s34['our_pooled_rho']:+.4f} (CI95 {s34['our_pooled_ci']['ci95']})", flush=True)
-    print(f"  E3: full rho={e3['full_rho']:+.4f}  drop-{e3['dominant']} rho={e3['drop_dominant_rho']:+.4f}  "
+    print(f"  E3 (all cand): full rho={e3['full_rho']:+.4f}  drop-{e3['dominant']} rho={e3['drop_dominant_rho']:+.4f}  "
           f"LOO rho range=[{e3['loo_min_rho']:+.4f},{e3['loo_max_rho']:+.4f}]", flush=True)
+    print("\n=== TOP-N TIER (pooled rho, block-CI95) — the decisive result ===", flush=True)
+    tt = payload["top_n_tiers"]
+    for seg in ("train", "holdout", "s34_window"):
+        row = f"  {seg:<11s} "
+        for tk in ("5", "15", "50", "all"):
+            c = tt[seg][tk]
+            row += f"| top{tk}: {c['pooled_rho']:+.3f}[{c['block_ci95'][0]:+.2f},{c['block_ci95'][1]:+.2f}] "
+        print(row, flush=True)
+    et = payload["e3_holdout_top15"]
+    print(f"  E3 holdout top-15 breadth: full={et['full_rho']:+.3f} drop-BKNG={et['drop_dominant_rho']:+.3f} "
+          f"LOO=[{et['loo_min_rho']:+.3f},{et['loo_max_rho']:+.3f}] n_names={et['n_names']}", flush=True)
 
 
 def main(argv: list[str]) -> int:

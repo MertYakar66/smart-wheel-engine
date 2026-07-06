@@ -766,6 +766,52 @@ def _pooled_rho(table: pd.DataFrame, signal_col: str) -> float:
     )
 
 
+def restrict_top_n_per_date(
+    table: pd.DataFrame, n: int | None, *, signal_col: str = "ev_dollars"
+) -> pd.DataFrame:
+    """The top ``n`` rows by ``signal_col`` within each as_of date (the
+    tradeable tier the engine would actually open). ``n=None`` → the whole
+    cross-section. PIT-clean: selection is on ``signal_col`` (known at as_of),
+    never on the realized outcome."""
+    if n is None:
+        return table
+    return table.sort_values(signal_col, ascending=False).groupby("date", sort=False).head(n)
+
+
+def top_n_tier_scores(
+    table: pd.DataFrame,
+    tiers: Sequence[int | None],
+    *,
+    signal_col: str = "ev_dollars",
+    n_boot: int = 800,
+    seed: int = 12345,
+    block_len: int = 25,
+) -> dict[str, Any]:
+    """Pooled ρ + moving-block CI + cross-sectional ρ at each top-``n`` tier.
+
+    The rank edge is concentrated in the top of the EV distribution (the names
+    the engine actually trades) and decays toward zero across the full
+    cross-section — so a single all-candidate ρ hides the tradeable-tier signal.
+    This reports ρ per tier so the concentration is explicit and locked.
+    """
+    out: dict[str, Any] = {}
+    for n in tiers:
+        top = restrict_top_n_per_date(table, n, signal_col=signal_col)
+        ci = cluster_bootstrap_ci(
+            top, stat="pooled", signal_col=signal_col,
+            n_boot=n_boot, seed=seed, block_len=block_len,
+        )
+        xs = per_date_cross_sectional_rho(top, signal_col)
+        out["all" if n is None else str(n)] = {
+            "n_rows": int(top.dropna(subset=["realized_pnl"]).shape[0]),
+            "pooled_rho": _pooled_rho(top, signal_col),
+            "block_ci95": ci["ci95"],
+            "n_eff_blocks": ci["n_eff_blocks"],
+            "xsec_mean_rho": xs["mean_rho"],
+        }
+    return out
+
+
 def dominant_name_robustness(
     full_table: pd.DataFrame,
     holdout_table: pd.DataFrame,

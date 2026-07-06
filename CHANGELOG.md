@@ -20,12 +20,19 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 cadence (`scripts/run_parameter_oos_100t.py`, `tests/test_parameter_oos_100t.py`,
 `backtests/regression/snapshots/param_oos_regime_100t.json`,
 `tests/fixtures/param_oos/rank_table_100t.csv`, new functions in
-`backtests/parameter_oos.py`, `docs/PARAMETER_OOS.md` §7). Decides whether the
-24-name OOS null generalizes to the S34 universe (in-sample ρ 0.313). Adds the
-independence correction daily sampling demands: a per-date **cross-sectional**
-rank-ρ and a **date-clustered bootstrap** (resamples whole as_of dates, never
-rows) for every CI — no naive z on the inflated pooled N. Plus the S34 (2022-2024)
-reconciliation and the E3 BKNG-drop / leave-one-name-out breadth check.
+`backtests/parameter_oos.py`, `docs/PARAMETER_OOS.md` §7). **Finding: the 24-name null does
+NOT blanket-generalize.** Across *all* ~48 candidates/day the pooled ρ ≈ 0
+(holdout −0.077), but the tradeable **top tier** carries a real, out-of-window
+rank edge that survives: HOLDOUT top-15 ρ **+0.371** (moving-block CI95 [0.25,
+0.49], excludes zero), top-5 +0.597 — *higher* than train (stable, not decaying),
+**breadth** (leave-one-out [0.35, 0.40] across 97 names, drop-BKNG a no-op), and
+located in the parameter-light core `ev_raw` (+0.378 ≈ ev_dollars) so it is robust
+to the E5 overlay surface. Reproduces S34 exactly at top-15 (+0.316 vs 0.313); the
+edge decays monotonically to ≈0 across the full menu, which is why the 24-name
+all-candidate measurement (#484) read null. Adds the independence correction daily
+sampling demands: per-date **cross-sectional** ρ + a **moving-block bootstrap**
+(resamples ~25-date blocks, never rows) for every CI — no naive z on the inflated
+~63k pooled N. Plus the S34 reconciliation and E3 BKNG-drop / leave-one-name-out.
 Reporting-only, off §2; **no engine default changed**, trio + all `engine/`
 untouched. Reuses the #484 harness verbatim (shared analysis code → directly
 comparable). Stacks on `claude/parameter-oos-gate` — **review-only, do not merge.**

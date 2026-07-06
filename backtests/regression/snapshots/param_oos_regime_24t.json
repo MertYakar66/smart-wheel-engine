@@ -12,6 +12,24 @@
     "train_end": "2023-06-30",
     "holdout_start": "2023-08-20",
     "n_walk_forward_folds": 5,
+    "robustness_splits": [
+      [
+        "2022-12-30",
+        "2023-02-20"
+      ],
+      [
+        "2023-06-30",
+        "2023-08-20"
+      ],
+      [
+        "2023-12-29",
+        "2024-02-20"
+      ],
+      [
+        "2024-06-28",
+        "2024-08-19"
+      ]
+    ],
     "data_csv_sha256": "23c1dd8beb40383caebfeb816b469d4ee4b14ce24a27f599239d4872dbf441e9",
     "vol_iv_sha256": "f94576dcf41be61ada88c4bad9382cd8121fa0e9891caf9a73741b22092cefb4",
     "treasury_sha256": "5c6c8fa753901ea4b6b20b81ff970968ead9df8fb68cf4575177cb76c57ddc70",
@@ -30,7 +48,7 @@
       "vol_iv": "f94576dcf41be61ada88c4bad9382cd8121fa0e9891caf9a73741b22092cefb4"
     },
     "option_premium_rail": "pinned_off",
-    "generated_at": "2026-07-06T12:12:18.699921+00:00"
+    "generated_at": "2026-07-06T12:26:44.436751+00:00"
   },
   "overall": {
     "ev_dollars": {
@@ -186,5 +204,51 @@
     "optimism_gap_tilt_exponent": 0.06265558112104797,
     "refit_beats_shipped_on_holdout": true,
     "overlay_adds_oos_value": true
-  }
+  },
+  "split_robustness": [
+    {
+      "train_end": "2022-12-30",
+      "holdout_start": "2023-02-20",
+      "train_n": 978,
+      "holdout_n": 941,
+      "leakage_free": true,
+      "refit_train_rho": 0.1121284012408304,
+      "refit_holdout_rho": 0.007795903813720045,
+      "shipped_holdout_rho": -0.0373229689753167,
+      "optimism_gap": 0.10433249742711036
+    },
+    {
+      "train_end": "2023-06-30",
+      "holdout_start": "2023-08-20",
+      "train_n": 1170,
+      "holdout_n": 753,
+      "leakage_free": true,
+      "refit_train_rho": 0.11173792460169622,
+      "refit_holdout_rho": 0.015784551715495542,
+      "shipped_holdout_rho": -0.02370745377813516,
+      "optimism_gap": 0.09595337288620068
+    },
+    {
+      "train_end": "2023-12-29",
+      "holdout_start": "2024-02-20",
+      "train_n": 1371,
+      "holdout_n": 542,
+      "leakage_free": true,
+      "refit_train_rho": 0.0941291483201377,
+      "refit_holdout_rho": 0.035452914001441536,
+      "shipped_holdout_rho": -0.01388430820916859,
+      "optimism_gap": 0.05867623431869617
+    },
+    {
+      "train_end": "2024-06-28",
+      "holdout_start": "2024-08-19",
+      "train_n": 1565,
+      "holdout_n": 350,
+      "leakage_free": true,
+      "refit_train_rho": 0.0590306333289406,
+      "refit_holdout_rho": 0.0910870474542669,
+      "shipped_holdout_rho": 0.03670325755004009,
+      "optimism_gap": -0.0320564141253263
+    }
+  ]
 }

@@ -587,3 +587,34 @@ def parameter_holdout_report(part: Partition) -> dict[str, Any]:
         v["shipped"]["holdout_rho"] > v["ev_raw_no_overlay"]["holdout_rho"]
     )
     return rep
+
+
+def split_robustness_report(
+    table: pd.DataFrame, splits: Sequence[tuple[str, str]]
+) -> list[dict[str, Any]]:
+    """The optimism gap across several leakage-certified train/holdout splits.
+
+    Guards against the "you cherry-picked the split date" critique: re-runs the
+    regime-overlay re-fit at each ``(train_end, holdout_start)`` and reports the
+    gap.  A finding that only holds at one split is not robust; a finding that
+    holds across most splits is.  Every split is independently leakage-certified.
+    """
+    out: list[dict[str, Any]] = []
+    for train_end, holdout_start in splits:
+        part = make_partition(table, train_end=train_end, holdout_start=holdout_start)
+        rep = parameter_holdout_report(part)
+        v = rep["variants"]
+        out.append(
+            {
+                "train_end": train_end,
+                "holdout_start": holdout_start,
+                "train_n": rep["train_n"],
+                "holdout_n": rep["holdout_n"],
+                "leakage_free": part.certificate["leakage_free"],
+                "refit_train_rho": v["refit_regime_scalars"]["train_rho"],
+                "refit_holdout_rho": v["refit_regime_scalars"]["holdout_rho"],
+                "shipped_holdout_rho": v["shipped"]["holdout_rho"],
+                "optimism_gap": rep["optimism_gap_regime_scalars"],
+            }
+        )
+    return out

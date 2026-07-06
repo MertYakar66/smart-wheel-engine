@@ -258,6 +258,27 @@ realized rate is unstable across crises — the overlay cannot be relied on to
 order outcomes precisely in the regimes that matter. (Per-bin n is small; treat
 signs as directional, magnitudes as noisy.)
 
+### 5d. Split-robustness of the optimism gap
+
+Guards against a cherry-picked split date — the re-fit is repeated at four
+leakage-certified splits (`split_robustness` in the snapshot; every row
+`leakage_free`).
+
+| train ≤ | holdout ≥ | n (train/hold) | refit train ρ | refit holdout ρ | **gap** | shipped holdout ρ |
+|---|---|---|---|---|---|---|
+| 2022-12-30 | 2023-02-20 | 978 / 941 | +0.112 | +0.008 | **+0.104** | −0.037 |
+| 2023-06-30 | 2023-08-20 | 1170 / 753 | +0.112 | +0.016 | **+0.096** | −0.024 |
+| 2023-12-29 | 2024-02-20 | 1371 / 542 | +0.094 | +0.035 | **+0.059** | −0.014 |
+| 2024-06-28 | 2024-08-19 | 1565 / 350 | +0.059 | +0.091 | −0.032 | +0.037 |
+
+The optimism gap is **positive and material for 3 of 4 splits** (+0.06 … +0.10):
+a train re-fit consistently manufactures ρ ≈ +0.1 that does not survive OOS, and
+the **shipped constant is ≤ 0 out-of-sample in all three**. The exception is the
+last split, whose holdout is the smallest (n=350, SE ≈ 0.053) and latest — there
+the (already weak, +0.059) train re-fit happens to generalize; within noise, and
+not evidence against the pattern. **The finding is not an artifact of the
+canonical split.**
+
 ---
 
 ## 6. What is NOT established (and the spec to establish it)

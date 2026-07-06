@@ -232,6 +232,14 @@ def test_snapshot_matches_fixture_recompute():
         exp_rep["optimism_gap_regime_scalars"], abs=_RHO_TOL
     )
 
+    # split-robustness recompute + every split leakage-certified
+    robo = poos.split_robustness_report(table, [tuple(s) for s in CONFIG["robustness_splits"]])
+    exp_robo = snap["split_robustness"]
+    assert len(robo) == len(exp_robo)
+    for got, exp in zip(robo, exp_robo, strict=True):
+        assert got["leakage_free"] is True
+        assert got["optimism_gap"] == pytest.approx(exp["optimism_gap"], abs=_RHO_TOL)
+
 
 @pytest.mark.skipif(not _SNAPSHOT.exists(), reason="snapshot not committed yet")
 def test_snapshot_leakage_certificate_is_clean():

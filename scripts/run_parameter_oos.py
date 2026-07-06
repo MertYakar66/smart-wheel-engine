@@ -57,6 +57,14 @@ CONFIG = {
     "train_end": "2023-06-30",
     "holdout_start": "2023-08-20",
     "n_walk_forward_folds": 5,
+    # Split-robustness sweep (each embargo > the 35-DTE horizon) — guards the
+    # optimism-gap finding against a cherry-picked split date.
+    "robustness_splits": [
+        ["2022-12-30", "2023-02-20"],
+        ["2023-06-30", "2023-08-20"],
+        ["2023-12-29", "2024-02-20"],
+        ["2024-06-28", "2024-08-19"],
+    ],
 }
 
 
@@ -128,6 +136,11 @@ def analyze() -> dict:
     )
     holdout_report = poos.parameter_holdout_report(part)
 
+    # Phase 2b — split-robustness of the optimism gap.
+    robustness = poos.split_robustness_report(
+        table, [tuple(s) for s in CONFIG["robustness_splits"]]
+    )
+
     # Overall fixed-parameter scorecard (all resolved rows) for context.
     overall = poos.scorecard(table, signal_col="ev_dollars")
     overall_ev_raw = poos.scorecard(table, signal_col="ev_raw")
@@ -138,6 +151,7 @@ def analyze() -> dict:
         "overall": {"ev_dollars": overall, "ev_raw": overall_ev_raw},
         "walk_forward_folds": folds,
         "parameter_holdout": holdout_report,
+        "split_robustness": robustness,
     }
 
     SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -175,6 +189,15 @@ def main(argv: list[str]) -> int:
             f"overlay_adds_oos_value={pr['overlay_adds_oos_value']}",
             flush=True,
         )
+        print("\n=== Split-robustness of the optimism gap ===", flush=True)
+        for s in payload["split_robustness"]:
+            print(
+                f"  train<= {s['train_end']} hold>= {s['holdout_start']} "
+                f"(n={s['train_n']}/{s['holdout_n']}): refit {s['refit_train_rho']:+.3f}"
+                f"->{s['refit_holdout_rho']:+.3f}  gap={s['optimism_gap']:+.3f}  "
+                f"shipped_hold={s['shipped_holdout_rho']:+.3f}",
+                flush=True,
+            )
     elif mode == "both":
         build()
         analyze()

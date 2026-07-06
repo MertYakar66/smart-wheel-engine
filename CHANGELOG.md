@@ -14,6 +14,25 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-07-06 — parameter-OOS validation gate (E5), review-only
+
+`Added` — a committed, snapshot-locked **parameter-OOS** gate
+(`backtests/parameter_oos.py`, `scripts/run_parameter_oos.py`,
+`tests/test_parameter_oos.py`, `backtests/regression/snapshots/param_oos_regime_24t.json`,
+`tests/fixtures/param_oos/rank_table_24t.csv`, `docs/PARAMETER_OOS.md`). Measures
+how much of the reported rank edge survives **out-of-parameter** — the E5 gap
+that S35 (out-of-*window*) does not close. One production ranker pass captures a
+per-row rank table with `ev_raw`/`hmm_regime` diagnostics; the regime overlay is
+then re-selected offline on a leakage-certified train/holdout split.
+**Finding:** re-fitting the regime overlay on train manufactures ρ +0.11 that
+collapses to +0.02 out-of-parameter (optimism gap +0.096; train-optimal weights
+invert the shipped prior), and 24-name rank-ρ is unstable out-of-window (per-fold
+−0.14..+0.12, pooled ≈0) — consistent with E1/E5/i9. Reporting-only, off the §2
+decision path; **no production parameter default changed** and the decision-layer
+trio is untouched (a re-selected value differing from shipped is a *finding*, not
+a change to ship). Branch `claude/parameter-oos-gate` — **review-only, do not
+merge**.
+
 ## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
 
 The first (E)-trio fix (`docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` §1; branch

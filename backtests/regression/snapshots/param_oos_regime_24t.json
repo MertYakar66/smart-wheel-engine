@@ -1,0 +1,190 @@
+{
+  "snapshot_id": "param_oos_regime_24t",
+  "fingerprint": {
+    "universe": "UNIVERSE_24",
+    "sample_start": "2020-06-01",
+    "sample_end": "2025-06-30",
+    "every_n_bdays": 8,
+    "dte_target": 35,
+    "delta_target": 0.25,
+    "top_n": 100,
+    "seed": 42,
+    "train_end": "2023-06-30",
+    "holdout_start": "2023-08-20",
+    "n_walk_forward_folds": 5,
+    "data_csv_sha256": "23c1dd8beb40383caebfeb816b469d4ee4b14ce24a27f599239d4872dbf441e9",
+    "vol_iv_sha256": "f94576dcf41be61ada88c4bad9382cd8121fa0e9891caf9a73741b22092cefb4",
+    "treasury_sha256": "5c6c8fa753901ea4b6b20b81ff970968ead9df8fb68cf4575177cb76c57ddc70",
+    "connector_data_sha256": {
+      "broad_pull_dividend_pit": "8e356c852cfc4441c351e63cb80bbc38c357d12df62128ca05b83cf885ce1040",
+      "broad_pull_snapshot_bdp": "f10dae3274a0a8c6a79cf7c040963942217001215f6ec24fcfb3ec91208b985f",
+      "corporate_actions": "3bd214eb7f8df2537ce12747d4a6135ed66c41efa52a8a7a15611e27774995cd",
+      "credit_risk": "6a3e31e0c94b6ba6c403748f76d0fe94f0d50b9b406b60c0124216668f6c813d",
+      "dividends": "b4ef56ef792e6e3675acde9dd7780d0a9622c5eb10fd3a26e75297e2049f1a24",
+      "earnings": "a3548da18a31c8488876ac6e603e707370767085e07eefadf7948d18c3896c47",
+      "fundamentals": "2509f94da9b7da38d3531411820291982028d58c32f82d876c2f5956ae21c563",
+      "liquidity": "838552590b7a9d5e47e093a7330cc7ec55cdee78edc47d0955a33ff4bd315450",
+      "ohlcv": "23c1dd8beb40383caebfeb816b469d4ee4b14ce24a27f599239d4872dbf441e9",
+      "treasury": "5c6c8fa753901ea4b6b20b81ff970968ead9df8fb68cf4575177cb76c57ddc70",
+      "vix": "8ecdc4e0645ac84527ee555206ba2f54be57bd26dfc960db5ad931a6a86d5f46",
+      "vol_iv": "f94576dcf41be61ada88c4bad9382cd8121fa0e9891caf9a73741b22092cefb4"
+    },
+    "option_premium_rail": "pinned_off",
+    "generated_at": "2026-07-06T12:12:18.699921+00:00"
+  },
+  "overall": {
+    "ev_dollars": {
+      "n": 1957,
+      "rho": 0.004825538145301667,
+      "hit_rate": 0.8124680633622893,
+      "mean_realized": 15.603525804803247,
+      "brier": 0.1558282262698007,
+      "ece": 0.04791839550332144
+    },
+    "ev_raw": {
+      "n": 1957,
+      "rho": -0.007293999115984044,
+      "hit_rate": 0.8124680633622893,
+      "mean_realized": 15.603525804803247,
+      "brier": 0.1558282262698007,
+      "ece": 0.04791839550332144
+    }
+  },
+  "walk_forward_folds": [
+    {
+      "fold": 1,
+      "start": "2020-06-01",
+      "end": "2021-06-05",
+      "n": 398,
+      "rho": -0.013453490092924259,
+      "hit_rate": 0.9346733668341709,
+      "mean_realized": 153.6529899497487,
+      "brier": 0.07690807133165829,
+      "ece": 0.10450829145728646
+    },
+    {
+      "fold": 2,
+      "start": "2021-06-05",
+      "end": "2022-06-09",
+      "n": 381,
+      "rho": 0.04469168134411627,
+      "hit_rate": 0.7742782152230971,
+      "mean_realized": -31.567900262467198,
+      "brier": 0.17698622719160106,
+      "ece": 0.05887926509186346
+    },
+    {
+      "fold": 3,
+      "start": "2022-06-09",
+      "end": "2023-06-13",
+      "n": 385,
+      "rho": 0.11591905947545918,
+      "hit_rate": 0.7298701298701299,
+      "mean_realized": -27.52246753246756,
+      "brier": 0.20339826937662336,
+      "ece": 0.09010207792207797
+    },
+    {
+      "fold": 4,
+      "start": "2023-06-13",
+      "end": "2024-06-16",
+      "n": 398,
+      "rho": -0.1382521876859743,
+      "hit_rate": 0.8241206030150754,
+      "mean_realized": 38.85590452261304,
+      "brier": 0.15199684834170857,
+      "ece": 0.07247085427135685
+    },
+    {
+      "fold": 5,
+      "start": "2024-06-16",
+      "end": "2025-06-23",
+      "n": 410,
+      "rho": 0.01982596045925375,
+      "hit_rate": 0.7902439024390244,
+      "mean_realized": -70.70660975609755,
+      "brier": 0.17398376573170732,
+      "ece": 0.08507439024390241
+    }
+  ],
+  "parameter_holdout": {
+    "leakage_certificate": {
+      "max_train_ranking_date": "2023-06-26",
+      "max_train_expiration_date": "2023-07-31",
+      "min_holdout_ranking_date": "2023-08-21",
+      "gap_days_expiry_to_holdout": 21,
+      "leakage_free": true
+    },
+    "train_n": 1170,
+    "holdout_n": 753,
+    "refit_regime_weights": {
+      "normal": 1.0,
+      "crisis": 2.0,
+      "bear": 0.1,
+      "bull_quiet": 2.0
+    },
+    "refit_tilt_exponent": 3.0,
+    "shipped_regime_weights": {
+      "crisis": 0.2,
+      "bear": 0.5,
+      "normal": 1.0,
+      "bull_quiet": 1.25
+    },
+    "variants": {
+      "ev_raw_no_overlay": {
+        "train_rho": 0.020362802610153975,
+        "holdout_rho": -0.02601344985985958
+      },
+      "shipped": {
+        "train_rho": 0.03704402590129498,
+        "holdout_rho": -0.02370745377813516
+      },
+      "refit_regime_scalars": {
+        "train_rho": 0.11173792460169622,
+        "holdout_rho": 0.015784551715495542
+      },
+      "refit_tilt_exponent": {
+        "train_rho": 0.06415022381673265,
+        "holdout_rho": 0.0014946426956846746
+      }
+    },
+    "holdout_by_regime": {
+      "crisis": {
+        "n": 112,
+        "rho": -0.06717064941227688,
+        "hit_rate": 0.7678571428571429,
+        "mean_realized": -129.58660714285705,
+        "brier": 0.18978734419642856,
+        "ece": 0.08845267857142863
+      },
+      "bear": {
+        "n": 221,
+        "rho": 0.026165452153148826,
+        "hit_rate": 0.7647058823529411,
+        "mean_realized": -146.55031674208152,
+        "brier": 0.18427106542986424,
+        "ece": 0.054932126696832576
+      },
+      "normal": {
+        "n": 243,
+        "rho": 0.0907707757016505,
+        "hit_rate": 0.823045267489712,
+        "mean_realized": 42.81366255144032,
+        "brier": 0.15330403769547327,
+        "ece": 0.07613086419753089
+      },
+      "bull_quiet": {
+        "n": 177,
+        "rho": -0.22179108741192155,
+        "hit_rate": 0.8870056497175142,
+        "mean_realized": 114.4307344632768,
+        "brier": 0.12758350169491525,
+        "ece": 0.13067570621468927
+      }
+    },
+    "optimism_gap_regime_scalars": 0.09595337288620068,
+    "optimism_gap_tilt_exponent": 0.06265558112104797,
+    "refit_beats_shipped_on_holdout": true,
+    "overlay_adds_oos_value": true
+  }
+}

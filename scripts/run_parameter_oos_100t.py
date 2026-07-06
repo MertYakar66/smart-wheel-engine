@@ -67,6 +67,12 @@ CONFIG = {
     "e3_dominant_name": "BKNG",
     "bootstrap_n": 2000,
     "bootstrap_seed": 12345,
+    # Moving-block bootstrap block length (chronological dates). The 35-DTE
+    # option horizon is ~25 trading days, so daily rank dates within ~25 days
+    # share most of their forward path — the block breaks that serial dependence
+    # and widens the CI to what the data actually support (vs the tighter,
+    # optimistic block_len=1). ~25 trading days ≈ round(35 × 252/365).
+    "bootstrap_block_len": 25,
 }
 
 
@@ -191,30 +197,30 @@ def analyze() -> dict:
     # --- independence-corrected significance (the daily-sampling upgrade) ---
     # Per-date cross-sectional rank-rho: "does ev_dollars order TODAY's menu?"
     # aggregated over genuinely independent date-level draws.
+    bl = CONFIG["bootstrap_block_len"]
     xsec = poos.per_date_cross_sectional_rho(table, signal_col="ev_dollars")
     xsec_ci = poos.cluster_bootstrap_ci(
-        table,
-        stat="cross_sectional",
-        signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"],
-        seed=CONFIG["bootstrap_seed"],
+        table, stat="cross_sectional", signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
     )
     pooled_ci = poos.cluster_bootstrap_ci(
-        table,
-        stat="pooled",
-        signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"],
-        seed=CONFIG["bootstrap_seed"],
+        table, stat="pooled", signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
     )
-    # Holdout pooled + cross-sectional with date-clustered CI (the decisive OOS #).
+    # Holdout pooled + cross-sectional with moving-BLOCK CI (the decisive OOS #),
+    # plus a naive block_len=1 contrast to show how much the block widens it.
     holdout_tbl = part.holdout
     holdout_pooled_ci = poos.cluster_bootstrap_ci(
         holdout_tbl, stat="pooled", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"],
+        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+    )
+    holdout_pooled_ci_naive = poos.cluster_bootstrap_ci(
+        holdout_tbl, stat="pooled", signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=1,
     )
     holdout_xsec_ci = poos.cluster_bootstrap_ci(
         holdout_tbl, stat="cross_sectional", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"],
+        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
     )
 
     # --- S34 reconciliation: rho on the in-sample S34 window (2022-2024) ---
@@ -229,7 +235,7 @@ def analyze() -> dict:
         "our_cross_sectional": poos.per_date_cross_sectional_rho(s34_sub, "ev_dollars"),
         "our_pooled_ci": poos.cluster_bootstrap_ci(
             s34_sub, stat="pooled", signal_col="ev_dollars",
-            n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"],
+            n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
         ),
         "n": int(s34_sub["realized_pnl"].notna().sum()),
     }
@@ -255,7 +261,9 @@ def analyze() -> dict:
             "cross_sectional_rho_ci": xsec_ci,
             "holdout_pooled_rho": holdout_report["variants"]["shipped"]["holdout_rho"],
             "holdout_pooled_ci": holdout_pooled_ci,
+            "holdout_pooled_ci_naive_block1": holdout_pooled_ci_naive,
             "holdout_cross_sectional_ci": holdout_xsec_ci,
+            "block_len": bl,
         },
         "walk_forward_folds": folds,
         "parameter_holdout": holdout_report,

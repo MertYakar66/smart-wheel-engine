@@ -688,22 +688,34 @@ def cluster_bootstrap_ci(
     n_boot: int = 2000,
     seed: int = 12345,
     min_rows: int = 3,
+    block_len: int = 1,
 ) -> dict[str, Any]:
-    """Date-CLUSTERED bootstrap CI for a rank statistic.
+    """Date-clustered / moving-BLOCK bootstrap CI for a rank statistic.
 
-    Resamples whole as_of dates with replacement (the block), never individual
-    rows, so overlapping-window / recurring-name dependence is honestly carried
-    into the interval. ``stat``:
+    Resamples whole as_of dates (never individual rows), so cross-sectional
+    same-day dependence is carried by construction. With ``block_len > 1`` it
+    resamples CONTIGUOUS blocks of ``block_len`` chronological dates — the honest
+    treatment for DAILY sampling, where a rank opened on day *t* and day *t+k*
+    (k < the ~25-trading-day option horizon) share most of their forward path, so
+    nearby per-date rhos are serially correlated. Individual-date resampling
+    (``block_len=1``) ignores that and yields optimistically-tight intervals; a
+    moving-block of ~the horizon breaks the serial dependence and widens the CI
+    to what the data actually support. ``stat``:
       * ``"pooled"``          — Spearman over all rows of the resampled dates;
       * ``"cross_sectional"`` — mean of the resampled dates' per-date rho.
-    Returns the point estimate (on the original dates), the percentile 95% CI,
-    the bootstrap SE, and the effective number of independent date-clusters.
+    Returns the point estimate (on the original ordered dates), the percentile
+    95% CI, the bootstrap SE, the block length, and the effective number of
+    independent blocks (``n_dates / block_len``).
     """
+    if stat not in ("pooled", "cross_sectional"):
+        raise ValueError(f"stat must be 'pooled' or 'cross_sectional', got {stat!r}")
     groups = _date_groups(table, signal_col=signal_col, min_rows=min_rows)
     n_dates = len(groups)
+    block_len = max(1, int(block_len))
     if n_dates < 2:
         return {"point": float("nan"), "ci95": [float("nan"), float("nan")],
-                "se": float("nan"), "n_boot": 0, "n_dates": n_dates}
+                "se": float("nan"), "n_boot": 0, "n_dates": n_dates,
+                "block_len": block_len, "n_eff_blocks": 0}
 
     def _pooled(idx: np.ndarray) -> float:
         s = np.concatenate([groups[i][0] for i in idx])
@@ -718,14 +730,20 @@ def cluster_bootstrap_ci(
         return float(np.mean(v)) if v.size else float("nan")
 
     fn = _pooled if stat == "pooled" else _xsec
-    if stat not in ("pooled", "cross_sectional"):
-        raise ValueError(f"stat must be 'pooled' or 'cross_sectional', got {stat!r}")
 
     point = fn(np.arange(n_dates))
     rng = np.random.default_rng(seed)
+    n_blocks = -(-n_dates // block_len)  # ceil
     boots = np.empty(n_boot, dtype=float)
     for b in range(n_boot):
-        idx = rng.integers(0, n_dates, size=n_dates)
+        if block_len == 1:
+            idx = rng.integers(0, n_dates, size=n_dates)
+        else:
+            # moving-block: draw block starts, take contiguous (circular) runs
+            starts = rng.integers(0, n_dates, size=n_blocks)
+            idx = np.concatenate(
+                [(np.arange(s, s + block_len) % n_dates) for s in starts]
+            )[:n_dates]
         boots[b] = fn(idx)
     boots = boots[np.isfinite(boots)]
     lo, hi = np.percentile(boots, [2.5, 97.5])
@@ -735,6 +753,8 @@ def cluster_bootstrap_ci(
         "se": float(np.std(boots, ddof=1)),
         "n_boot": int(boots.size),
         "n_dates": int(n_dates),
+        "block_len": block_len,
+        "n_eff_blocks": int(n_blocks),
     }
 
 

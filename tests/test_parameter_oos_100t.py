@@ -92,6 +92,29 @@ def test_cluster_bootstrap_is_deterministic_and_brackets_point():
     assert ci3["point"] == pytest.approx(ci1["point"])
 
 
+def test_moving_block_bootstrap_effective_n():
+    """The moving-block bootstrap reports the reduced effective independent-unit
+    count: n_eff_blocks = ceil(n_dates / block_len). (The interval WIDENING it
+    produces on serially-correlated real data is shown in the snapshot's
+    naive-vs-block contrast, not asserted here — it is empirical, not a hard
+    inequality on arbitrary synthetic data.)"""
+    dates, tk, ev, realized = [], [], [], []
+    for d in range(60):
+        day = f"2022-{1 + d % 12:02d}-{1 + d % 27:02d}"
+        for i in range(6):
+            dates.append(day)
+            tk.append(f"T{i}")
+            ev.append(float(i))
+            realized.append(float(i) + (d % 3))
+    t = _daily_table(dates, tk, ev, realized)
+    ci1 = poos.cluster_bootstrap_ci(t, stat="pooled", n_boot=200, seed=5, block_len=1)
+    ci10 = poos.cluster_bootstrap_ci(t, stat="pooled", n_boot=200, seed=5, block_len=10)
+    assert ci1["n_eff_blocks"] == 60 and ci1["block_len"] == 1
+    assert ci10["n_eff_blocks"] == 6 and ci10["block_len"] == 10  # ceil(60/10)
+    assert ci1["ci95"][0] <= ci1["point"] <= ci1["ci95"][1]
+    assert ci10["ci95"][0] <= ci10["point"] <= ci10["ci95"][1]
+
+
 def test_dominant_name_robustness_flags_concentration():
     # A "breadth-less" edge: rho is driven entirely by one name's rows.
     dates, tk, ev, realized = [], [], [], []

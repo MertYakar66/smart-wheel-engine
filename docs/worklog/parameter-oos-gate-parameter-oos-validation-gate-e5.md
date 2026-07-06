@@ -4,7 +4,7 @@ title: Parameter-OOS validation gate (E5)
 kind: verification
 status: complete
 terminal: builder
-pr:
+pr: 484
 decisions: []
 date: 2026-07-06
 headline: Built a committed, snapshot-locked parameter-OOS gate that re-selects the engine's regime overlay on a leakage-certified training partition and measures the in-sample→out-of-parameter optimism gap. Finding — the re-fittable regime edge is ~86% in-sample optimism (train ρ +0.11 → holdout ρ +0.02), and 24-name rank-ρ is unstable out-of-window (per-fold −0.14..+0.12, pooled ≈0). Reporting-only, off §2; production defaults unchanged.

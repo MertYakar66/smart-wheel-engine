@@ -14,6 +14,22 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-07-06 — parameter-OOS 100-name replication (daily), review-only
+
+`Added` — replicates the #484 parameter-OOS rank test on `UNIVERSE_100` at daily
+cadence (`scripts/run_parameter_oos_100t.py`, `tests/test_parameter_oos_100t.py`,
+`backtests/regression/snapshots/param_oos_regime_100t.json`,
+`tests/fixtures/param_oos/rank_table_100t.csv`, new functions in
+`backtests/parameter_oos.py`, `docs/PARAMETER_OOS.md` §7). Decides whether the
+24-name OOS null generalizes to the S34 universe (in-sample ρ 0.313). Adds the
+independence correction daily sampling demands: a per-date **cross-sectional**
+rank-ρ and a **date-clustered bootstrap** (resamples whole as_of dates, never
+rows) for every CI — no naive z on the inflated pooled N. Plus the S34 (2022-2024)
+reconciliation and the E3 BKNG-drop / leave-one-name-out breadth check.
+Reporting-only, off §2; **no engine default changed**, trio + all `engine/`
+untouched. Reuses the #484 harness verbatim (shared analysis code → directly
+comparable). Stacks on `claude/parameter-oos-gate` — **review-only, do not merge.**
+
 ## 2026-07-06 — parameter-OOS validation gate (E5), review-only
 
 `Added` — a committed, snapshot-locked **parameter-OOS** gate

@@ -618,3 +618,187 @@ def split_robustness_report(
             }
         )
     return out
+
+
+# ---------------------------------------------------------------------------
+# Independence-corrected significance (the daily-sampling upgrade)
+# ---------------------------------------------------------------------------
+#
+# Daily sampling creates heavily OVERLAPPING forward windows and recurs the same
+# names every day, so the pooled row count massively OVERSTATES independent
+# trials — a naive z on pooled N is dishonestly tight. Two corrections:
+#   * a per-date CROSS-SECTIONAL rank-rho ("did ev_dollars order TODAY's menu?"),
+#     one number per as_of, aggregated across dates; and
+#   * every CI via a date-CLUSTERED bootstrap that resamples whole as_of dates
+#     (blocks), never individual rows — so the date-level dependence is carried.
+
+
+def _date_groups(
+    table: pd.DataFrame, *, signal_col: str, min_rows: int
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Per-as_of ``(signal, realized)`` arrays for dates with >= ``min_rows``
+    jointly-finite rows. The unit of resampling for the cluster bootstrap."""
+    replayed = table.dropna(subset=["realized_pnl"])
+    groups: list[tuple[np.ndarray, np.ndarray]] = []
+    for _, g in replayed.groupby("date"):
+        sig = g[signal_col].to_numpy(dtype=float)
+        pnl = g["realized_pnl"].to_numpy(dtype=float)
+        m = np.isfinite(sig) & np.isfinite(pnl)
+        if m.sum() >= min_rows:
+            groups.append((sig[m], pnl[m]))
+    return groups
+
+
+def per_date_cross_sectional_rho(
+    table: pd.DataFrame, signal_col: str = "ev_dollars", *, min_rows: int = 3
+) -> dict[str, Any]:
+    """Cross-sectional Spearman(signal, realized) WITHIN each as_of date, then
+    aggregated across dates.
+
+    Each per-date rho asks "did the signal rank *this day's* candidate menu?" —
+    the honest unit for the "does it rank" question. Dates with < ``min_rows``
+    jointly-finite rows are skipped (rho undefined). Aggregates across genuinely
+    date-level draws (still autocorrelated → pair with ``cluster_bootstrap_ci``).
+    """
+    groups = _date_groups(table, signal_col=signal_col, min_rows=min_rows)
+    rhos = np.array([spearman_rho(s, p) for s, p in groups], dtype=float)
+    rhos = rhos[np.isfinite(rhos)]
+    if rhos.size == 0:
+        return {
+            "mean_rho": float("nan"),
+            "median_rho": float("nan"),
+            "std_rho": float("nan"),
+            "frac_positive": float("nan"),
+            "n_dates": 0,
+        }
+    return {
+        "mean_rho": float(np.mean(rhos)),
+        "median_rho": float(np.median(rhos)),
+        "std_rho": float(np.std(rhos, ddof=1)) if rhos.size > 1 else float("nan"),
+        "frac_positive": float(np.mean(rhos > 0)),
+        "n_dates": int(rhos.size),
+    }
+
+
+def cluster_bootstrap_ci(
+    table: pd.DataFrame,
+    *,
+    stat: str,
+    signal_col: str = "ev_dollars",
+    n_boot: int = 2000,
+    seed: int = 12345,
+    min_rows: int = 3,
+) -> dict[str, Any]:
+    """Date-CLUSTERED bootstrap CI for a rank statistic.
+
+    Resamples whole as_of dates with replacement (the block), never individual
+    rows, so overlapping-window / recurring-name dependence is honestly carried
+    into the interval. ``stat``:
+      * ``"pooled"``          — Spearman over all rows of the resampled dates;
+      * ``"cross_sectional"`` — mean of the resampled dates' per-date rho.
+    Returns the point estimate (on the original dates), the percentile 95% CI,
+    the bootstrap SE, and the effective number of independent date-clusters.
+    """
+    groups = _date_groups(table, signal_col=signal_col, min_rows=min_rows)
+    n_dates = len(groups)
+    if n_dates < 2:
+        return {"point": float("nan"), "ci95": [float("nan"), float("nan")],
+                "se": float("nan"), "n_boot": 0, "n_dates": n_dates}
+
+    def _pooled(idx: np.ndarray) -> float:
+        s = np.concatenate([groups[i][0] for i in idx])
+        p = np.concatenate([groups[i][1] for i in idx])
+        return spearman_rho(s, p)
+
+    per_date = np.array([spearman_rho(s, p) for s, p in groups], dtype=float)
+
+    def _xsec(idx: np.ndarray) -> float:
+        v = per_date[idx]
+        v = v[np.isfinite(v)]
+        return float(np.mean(v)) if v.size else float("nan")
+
+    fn = _pooled if stat == "pooled" else _xsec
+    if stat not in ("pooled", "cross_sectional"):
+        raise ValueError(f"stat must be 'pooled' or 'cross_sectional', got {stat!r}")
+
+    point = fn(np.arange(n_dates))
+    rng = np.random.default_rng(seed)
+    boots = np.empty(n_boot, dtype=float)
+    for b in range(n_boot):
+        idx = rng.integers(0, n_dates, size=n_dates)
+        boots[b] = fn(idx)
+    boots = boots[np.isfinite(boots)]
+    lo, hi = np.percentile(boots, [2.5, 97.5])
+    return {
+        "point": float(point),
+        "ci95": [float(lo), float(hi)],
+        "se": float(np.std(boots, ddof=1)),
+        "n_boot": int(boots.size),
+        "n_dates": int(n_dates),
+    }
+
+
+def _pooled_rho(table: pd.DataFrame, signal_col: str) -> float:
+    replayed = table.dropna(subset=["realized_pnl"])
+    return spearman_rho(
+        replayed[signal_col].to_numpy(dtype=float),
+        replayed["realized_pnl"].to_numpy(dtype=float),
+    )
+
+
+def dominant_name_robustness(
+    full_table: pd.DataFrame,
+    holdout_table: pd.DataFrame,
+    *,
+    dominant: str,
+    signal_col: str = "ev_dollars",
+) -> dict[str, Any]:
+    """E3 breadth check — is the rank edge breadth, or one/two names?
+
+    Recomputes the pooled rho with the named ``dominant`` P&L contributor
+    dropped, and does a per-name leave-one-out (drop each ticker, recompute).
+    A rho that survives dropping any single name is breadth; a rho that a single
+    name's removal collapses is concentration (caveat E3: S34's dollar story is
+    BKNG). Also identifies the EMPIRICAL largest-|P&L| name and its P&L share.
+    """
+    replayed = full_table.dropna(subset=["realized_pnl"])
+    by_name = replayed.groupby("ticker")["realized_pnl"].sum()
+    total_net = float(replayed["realized_pnl"].sum())
+    total_abs = float(replayed["realized_pnl"].abs().sum())
+    emp_dominant = str(by_name.abs().idxmax()) if len(by_name) else ""
+
+    full_rho = _pooled_rho(full_table, signal_col)
+    drop_dom_rho = _pooled_rho(replayed[replayed["ticker"] != dominant], signal_col)
+    hold_rho = _pooled_rho(holdout_table, signal_col)
+    hold_replayed = holdout_table.dropna(subset=["realized_pnl"])
+    hold_drop_rho = _pooled_rho(hold_replayed[hold_replayed["ticker"] != dominant], signal_col)
+
+    # Leave-one-name-out on the full sample.
+    loo: dict[str, float] = {}
+    for name in by_name.index:
+        loo[str(name)] = _pooled_rho(replayed[replayed["ticker"] != name], signal_col)
+    loo_vals = np.array(list(loo.values()), dtype=float)
+    loo_vals = loo_vals[np.isfinite(loo_vals)]
+    # Most-influential names: removal that drops rho most / raises rho most.
+    ordered = sorted(loo.items(), key=lambda kv: kv[1])
+    return {
+        "dominant": dominant,
+        "empirical_dominant": emp_dominant,
+        "dominant_net_pnl": float(by_name.get(dominant, float("nan"))),
+        "dominant_pnl_share_of_net": (
+            float(by_name.get(dominant, 0.0)) / total_net if total_net else float("nan")
+        ),
+        "dominant_pnl_share_of_abs": (
+            float(abs(by_name.get(dominant, 0.0))) / total_abs if total_abs else float("nan")
+        ),
+        "full_rho": full_rho,
+        "drop_dominant_rho": drop_dom_rho,
+        "holdout_rho": hold_rho,
+        "holdout_drop_dominant_rho": hold_drop_rho,
+        "loo_min_rho": float(loo_vals.min()) if loo_vals.size else float("nan"),
+        "loo_max_rho": float(loo_vals.max()) if loo_vals.size else float("nan"),
+        "loo_mean_rho": float(loo_vals.mean()) if loo_vals.size else float("nan"),
+        "loo_most_influential_drop": ordered[0][0] if ordered else "",
+        "loo_most_influential_drop_rho": ordered[0][1] if ordered else float("nan"),
+        "n_names": int(len(by_name)),
+    }

@@ -303,3 +303,66 @@ canonical split.**
 * **Portfolio NAV per fold** is a per-contract-P&L *proxy* here (`mean_realized`);
   true capital-constrained NAV needs the full `_common.run_backtest` tracker per
   fold (expensive) and is deferred.
+
+---
+
+## 7. 100-name replication (daily sampling) — does the 24-name null generalize?
+
+The §1–§6 gate ran on `UNIVERSE_24`. This section replicates it on
+`UNIVERSE_100` — the universe where the strongest *in-sample* signal lived
+(**S34: in-sample ρ 0.313**, 2022–2024) — at **daily** cadence, to decide whether
+the 24-name null (pooled OOS ρ ≈ 0) generalizes or an out-of-parameter edge
+appears on the wider, S34 universe. Same shared harness
+(`backtests/parameter_oos.py`), same leakage-certified split (`train ≤ 2023-06-30`,
+`holdout ≥ 2023-08-20`) — only the universe, cadence, and significance treatment
+differ. Snapshot `param_oos_regime_100t.json`; fixture `rank_table_100t.csv`;
+locks `tests/test_parameter_oos_100t.py`; driver `scripts/run_parameter_oos_100t.py`.
+
+### 7.0 The independence correction (why daily N is not more evidence)
+
+Daily sampling creates heavily **overlapping** forward windows (a 35-DTE option
+opened today and tomorrow share ~34 days of the same price path) and recurs the
+**same 100 names** every day. So the pooled row count (~90k) massively
+**overstates independent trials** — a naive z on that N is dishonestly tight.
+Two corrections, both in the shared library:
+
+* **Per-date cross-sectional ρ** — Spearman(`ev_dollars`, realized) *within* each
+  as_of's candidate menu, then aggregated across dates. This answers "did the
+  signal rank *today's* menu?" on genuinely date-level draws.
+* **Date-clustered bootstrap** — every CI resamples whole as_of **dates** (blocks),
+  never individual rows, so the interval carries the date-level dependence. The
+  effective number of independent clusters is the distinct as_of date count, not
+  the row count.
+
+### 7.1 Sampling actually used
+
+<!-- FILLED FROM SNAPSHOT -->
+_Pending — `fingerprint.actual_sample_dates` / `actual_first_date..actual_last_date`._
+
+### 7.2 The decisive number — 100-name OOS ρ vs S34 in-sample 0.313
+
+| Metric | 100-name | 24-name (#484) | S34 in-sample |
+|---|---|---|---|
+| pooled ρ (full span), date-clustered CI95 | _tbd_ | +0.005 | — |
+| **holdout pooled ρ**, date-clustered CI95 | _tbd_ | −0.024 | — |
+| per-date cross-sectional mean ρ, CI95 | _tbd_ | −0.053 | — |
+| ρ on the S34 window (2022–2024) | _tbd_ | — | **0.313** |
+| optimism gap (regime overlay re-fit) | _tbd_ | +0.096 | — |
+
+**Verdict:** _tbd — did the null generalize, or did an edge appear?_
+
+### 7.3 E3 breadth — is any edge breadth, or one name?
+
+Caveat E3: S34's *dollar* story is dominated by BKNG (net of BKNG = −$3,004).
+Here we test whether the *rank* ρ is breadth or concentration.
+
+| Check | ρ |
+|---|---|
+| full-sample pooled ρ | _tbd_ |
+| drop BKNG | _tbd_ |
+| leave-one-name-out range [min, max] | _tbd_ |
+| most-influential single name (removal) | _tbd_ |
+
+_BKNG P&L share of net / abs: tbd._
+
+**Reading:** _tbd — breadth or one/two names?_

@@ -57,7 +57,9 @@ rank edge SURVIVES at the tradeable top tier, and it is breadth.**
   ~48 candidates/day, the null holds.
 - **Top-tier edge survives OOS.** HOLDOUT top-5 ρ **+0.597** [0.48, 0.70], top-15
   **+0.371** [0.25, 0.49] — block-bootstrap CIs (~20 effective blocks) EXCLUDE
-  zero, and *higher* than TRAIN (+0.560 / +0.354) → stable, not decaying.
+  zero, and *statistically indistinguishable* from TRAIN (+0.560 / +0.354; CIs
+  overlap heavily) → **stable OOS**, neither decaying nor improving (do not read
+  +0.371 vs +0.354 as holdout > train).
 - **Reproduces S34 exactly:** S34-window top-15 ρ +0.316 vs S34's reported +0.313
   (identical n=10,896) — the pipeline is faithful, so the discrepancy with the
   all-candidate number is real signal, not a bug.

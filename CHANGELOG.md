@@ -24,7 +24,8 @@ cadence (`scripts/run_parameter_oos_100t.py`, `tests/test_parameter_oos_100t.py`
 NOT blanket-generalize.** Across *all* ~48 candidates/day the pooled ρ ≈ 0
 (holdout −0.077), but the tradeable **top tier** carries a real, out-of-window
 rank edge that survives: HOLDOUT top-15 ρ **+0.371** (moving-block CI95 [0.25,
-0.49], excludes zero), top-5 +0.597 — *higher* than train (stable, not decaying),
+0.49], excludes zero), top-5 +0.597 — **stable out-of-sample** (train top-15
++0.354; CIs overlap heavily → no decay, and *not* an improvement),
 **breadth** (leave-one-out [0.35, 0.40] across 97 names, drop-BKNG a no-op), and
 located in the parameter-light core `ev_raw` (+0.378 ≈ ev_dollars) so it is robust
 to the E5 overlay surface. Reproduces S34 exactly at top-15 (+0.316 vs 0.313); the

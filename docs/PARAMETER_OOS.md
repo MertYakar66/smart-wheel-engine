@@ -365,9 +365,12 @@ Four things make this a *first-class surviving edge*, not an artifact:
 
 1. **It reproduces S34 exactly.** On the S34 window at top-15, ρ = **+0.316**
    (S34 reported **+0.313**, identical n=10,896) — the pipeline is faithful.
-2. **It survives out-of-window.** HOLDOUT top-15 = **+0.371** (block-CI [0.25,
-   0.49], ~20 effective blocks) — *higher* than TRAIN (+0.354), i.e. **stable, not
-   decaying**. The block bootstrap is the honest interval (individual-date
+2. **It survives out-of-window — stable, neither decaying nor improving.** HOLDOUT
+   top-15 = **+0.371** (block-CI [0.25, 0.49], ~20 effective blocks) is
+   *statistically indistinguishable* from TRAIN (+0.354, block-CI [0.25, 0.45]):
+   the intervals overlap almost entirely, so the near-equal point estimates are
+   **not** evidence of an OOS *improvement* — only that the edge does **not decay**
+   out-of-window. The block bootstrap is the honest interval (individual-date
    resampling would be ~3× tighter — see §7.0).
 3. **It is BREADTH, not one name (E3).** HOLDOUT top-15: dropping BKNG is a no-op
    (0.371 → 0.370); leave-one-name-out range **[0.351, 0.404]** across **97

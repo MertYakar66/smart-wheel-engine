@@ -4,7 +4,7 @@ title: Parameter-OOS on 100 names (daily) — does the 24t null generalize?
 kind: verification
 status: in-flight
 terminal: builder
-pr:
+pr: 485
 decisions: []
 date: 2026-07-06
 headline: Replicated the #484 parameter-OOS rank test on UNIVERSE_100 at daily cadence with date-clustered bootstrap significance, to decide whether the 24-name OOS null generalizes or an out-of-parameter edge appears on the S34 universe (in-sample rho 0.313). Reporting-only, off §2; reuses the shared harness verbatim.

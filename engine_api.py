@@ -129,6 +129,11 @@ _TV_WEBHOOK_MAX_AGE_SEC = 300  # 5 minutes
 _TV_SEEN_NONCES: "OrderedDict[str, float]" = OrderedDict()
 _TV_SEEN_NONCES_MAX = 1024
 
+# Forward paper-trading SIM sub-views under /api/portfolio/* — served from the
+# SIM namespace (engine.paper_book), never the real IBKR data (task Phase 3 /
+# CLAUDE.md §2 + §6). Kept distinct from the Dashboard-owned real-data views.
+_PAPER_SIM_VIEWS = frozenset({"papertrade", "montecarlo", "calibration"})
+
 # Explicit mutex around _TV_SEEN_NONCES check-then-set. The S20 reliability
 # arc (PR #194 reliability-arc-review C3 + USAGE_TEST_LEDGER.md §S20)
 # observed clean nonce-dedup behaviour at workers=4 because CPython's GIL
@@ -1366,9 +1371,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         authority token, and never route an order. Realized P&L is reported
         distinctly from any forward ``ev_dollars`` score (finding I1).
         """
+        sub = (sub or "").strip("/").lower()
+
+        # Forward paper-trading SIM slices — SIM namespace ONLY, never real IBKR
+        # data (task invariant 4 / CLAUDE.md §6). Intercepted BEFORE the real-data
+        # path so the existing live slices below are byte-identical.
+        if sub in _PAPER_SIM_VIEWS:
+            self._handle_paper_view(sub)
+            return
+
         from engine import ibkr_portfolio_adapter as adapter
 
-        sub = (sub or "").strip("/").lower()
         known = {"summary", "positions", "returns", "income", "risk", "history"}
         if sub not in known:
             self._send_error(f"Unknown portfolio view: {sub!r}", 404)
@@ -1417,6 +1430,103 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
         # (browser-QA §D): "demo" when served from the committed fixtures,
         # "live" from a real IBKR drop. Metadata only — never a verdict/EV field.
         payload["source"] = source
+        self._send_json(payload)
+
+    def _handle_paper_view(self, sub):
+        """Forward paper-trading SIM slices (task Phase 3 / CLAUDE.md §2 + §6).
+
+        ``GET /api/portfolio/{papertrade,montecarlo,calibration}`` — served from
+        the SIM namespace (``$SWE_SIM_DATA_DIR`` or ``data_processed/sim/``) via
+        :mod:`engine.paper_book`. Reads a SIMULATED paper book ONLY: it never
+        touches ``data_processed/ibkr/`` (owned by the Dashboard terminal, §6),
+        never ranks a candidate, never calls ``EVEngine.evaluate``, never issues
+        an EV-authority token, and never routes an order. The book name is
+        ``$SWE_PAPER_BOOK_NAME`` (default ``live_forward``). Every payload is
+        tagged ``source='simulated'`` so a paper book can never masquerade as a
+        live IBKR pull on the viewer's provenance badge.
+        """
+        import os
+
+        from engine import paper_book as pb
+
+        book = os.environ.get("SWE_PAPER_BOOK_NAME", "live_forward")
+        try:
+            store = pb.PaperBookStore(book)
+        except ValueError as exc:
+            self._send_error(f"invalid paper book name: {exc}", 400)
+            return
+        if not store.dir.exists():
+            self._send_error(
+                f"paper book {book!r} not seeded — run scripts/run_paper_book.py seed", 503
+            )
+            return
+
+        meta = store.load_meta() or {}
+        if sub == "papertrade":
+            history = store.load_history()
+            if history is None:
+                self._send_error("paper book has no history yet", 503)
+                return
+            pts = history.get("points") or []
+            payload = {
+                "book": book,
+                "label": history.get("label"),
+                "as_of": history.get("as_of"),
+                "initial_capital": history.get("initial_capital"),
+                "final_nav": history.get("final_nav"),
+                "backfill_end_date": history.get("backfill_end_date"),
+                # [{label, date, port, spy, premium, phase}] — the honest boundary
+                # is the phase field ("backfill" in-sample-ish vs "forward" OOS).
+                "points": pts,
+                "n_backfill": sum(1 for p in pts if p.get("phase") == "backfill"),
+                "n_forward": sum(1 for p in pts if p.get("phase") == "forward"),
+                "caps_armed": meta.get("caps_armed"),
+                # caps_detail clarifies that the backfill seed was opened caps-OFF
+                # and only forward points are R9/R10-gated — don't let a bare
+                # caps_armed=true imply the whole shown curve was gated.
+                "caps_detail": meta.get("caps_detail"),
+                # Fall back to the authoritative constant so the honesty text
+                # never silently drops when meta.json is absent/partial.
+                "caveats": meta.get("caveats") or pb.PAPER_CAVEATS,
+                "provenance": {
+                    "backfill_vs_forward": "boundary at backfill_end_date; only "
+                    "forward points are true out-of-sample",
+                    "synthetic_fills": "synthetic BSM premiums, not real fills — "
+                    "paper edge is optimistic vs reality",
+                    "model_vs_measured": "history=engine-measured; MC bands=model",
+                },
+            }
+        elif sub == "montecarlo":
+            bands = store.load_mc_bands()
+            report = store.load(pb.MC_REPORT_FILE) or {}
+            if bands is None:
+                self._send_error("paper book has no MC bands yet", 503)
+                return
+            model = report.get("model") or {}
+            payload = {
+                "book": book,
+                "status": report.get("status", bands.get("status")),
+                # {kind:"model", band_days, equity_bands:{p5..p95}, quantiles}
+                "bands": bands,
+                "terminal_return_quantiles": model.get("terminal_return_quantiles"),
+                "max_drawdown_quantiles": model.get("max_drawdown_quantiles"),
+                "reconciliation": report.get("reconciliation"),
+                "correlation_tail": report.get("correlation_tail"),
+                # Fall back to the authoritative constant so the "MC is a model /
+                # copula tail is reporting-only" honesty text is never dropped
+                # when meta.json is absent/partial.
+                "caveats": meta.get("caveats") or pb.PAPER_CAVEATS,
+            }
+        else:  # calibration
+            calib = store.load_calibration()
+            if calib is None:
+                self._send_error("paper book has no calibration yet", 503)
+                return
+            payload = calib
+
+        # Provenance: ALWAYS 'simulated' (never 'live'/'demo'). Metadata only —
+        # never a verdict / EV field.
+        payload["source"] = "simulated"
         self._send_json(payload)
 
     def _handle_regime(self, ticker):

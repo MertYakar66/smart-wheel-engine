@@ -458,9 +458,10 @@ the freshness signal — compare directory mtimes instead.
   — saw `[ 250/503] INTC OK rows=20`-style lines stream live, caught
   the `DAY` upstream miss within 2 minutes instead of 2 hours.
 - **No throughput change.**
-- See also `docs/THETA_PULL_SESSION_NOTES.md` (PR #60, `cf92578`) —
-  operational checklist for the laptop bring-up, captures HTTP 478
-  / dotted-ticker / probe-timeout gotchas surfaced during this work.
+- See also `docs/THETA_USAGE.md` §20 (the laptop bring-up checklist,
+  originally `THETA_PULL_SESSION_NOTES.md`, PR #60 `cf92578`; merged into
+  THETA_USAGE 2026-07) — captures the HTTP 478 / dotted-ticker /
+  probe-timeout gotchas surfaced during this work.
 
 ### Foundation pass — 2026-05-05
 

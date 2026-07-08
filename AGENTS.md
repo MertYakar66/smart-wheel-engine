@@ -47,7 +47,7 @@ purpose-built; they don't overlap.
 | Know the launch-blocker invariants before merging | `docs/LAUNCH_READINESS.md` |
 | Write a commit message or PR | `COMMIT_GUIDE.md` |
 | Wire anything to TradingView (engine bridge or analyst workspace) | `docs/TRADINGVIEW_INTEGRATION.md`, then `docs/TRADINGVIEW_MCP_INTEGRATION.md` for MCP design |
-| Run a Theta data refresh | `docs/THETA_PULL_SESSION_NOTES.md`, then `docs/THETA_USAGE.md` |
+| Run a Theta data refresh | `docs/THETA_USAGE.md` §20 (laptop bring-up checklist) + the §18 pipeline |
 | Touch Greek calculations | `docs/GREEKS_UNIT_CONTRACT.md` (canonical) |
 
 ## The hard rule

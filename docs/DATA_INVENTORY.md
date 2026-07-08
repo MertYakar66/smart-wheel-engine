@@ -88,7 +88,6 @@ from (event tables key on ex/announce/as-of dates, not a daily `date`).
 | `sp500_fundamentals_yf.csv` | Fundamentals snapshot (yfinance) | snapshot | 503 | 503 | — |
 | `sp500_institutional.csv` | **Institutional / float** snapshot | snapshot | 503 | 503 | — |
 | `sp500_iv_snapshot_today.csv` | Single-day **IV snapshot** (30/60d ATM) | snapshot | 503 | 503 | — |
-| `sp500_iv_history.csv` | (legacy) | **EMPTY** (20 bytes) — superseded by `sp500_vol_iv_full.csv` | 0 | 0 | — |
 
 > **Laggard flag:** `sp500_vol_dvd.csv` alone still ends **2026-03-20** — every other daily
 > panel was refreshed to 06-04/06-05. The broad-pull currency refresh does **not** include a
@@ -96,15 +95,16 @@ from (event tables key on ex/announce/as-of dates, not a daily `date`).
 > so this remains the one un-refreshed daily monolith. Wiring/refresh consumers should treat it
 > as the stale series.
 
-> **Non-canonical larder assets (7).** Seven of the tracked CSVs above are read by
+> **Non-canonical larder assets (6).** Six of the tracked CSVs above are read by
 > **neither** the connector's `_FILES` map (`engine/data_connector.py:122-132`)
 > **nor** `data/consolidated_loader.py` — they are regeneratable side-panels,
 > yfinance parallels, or point-in-time snapshots kept as a local larder, not live
 > engine inputs: `sp500_historical_fundamentals.csv`, `sp500_sector_etfs.csv`,
 > `sp500_earnings_yf.csv`, `sp500_fundamentals_yf.csv`, `sp500_institutional.csv`,
-> `sp500_iv_snapshot_today.csv`, and the empty legacy `sp500_iv_history.csv`
-> (20 bytes, superseded by `sp500_vol_iv_full.csv`). Each has a `scripts/pull_*`
-> producer but **no live consumer**; treat them as reference / backfill stock,
+> and `sp500_iv_snapshot_today.csv`. (The empty legacy `sp500_iv_history.csv` was
+> a 7th until it was retired in the 2026-07 D28 dead-code pass.) Each has a
+> `scripts/pull_*` producer but **no live consumer**; treat them as reference /
+> backfill stock,
 > not part of the EV data path. (By contrast `sp500_vol_dvd`, `sp500_macro`,
 > `sp500_vix_full`, `sp500_index_membership` and `sp500_analyst` *are* consumed
 > by `consolidated_loader.py`, so they are canonical for the consolidated / deep

@@ -12,6 +12,14 @@ it changes no engine code._
 rule), `docs/DATA_TEST_AUDIT_2026-06-09.md` (W17/W27/W36/W37 + C1–C4), `docs/WIRING_CAMPAIGN.md`
 (the campaign + the #378-before-0A ordering), `CLAUDE.md` §2.
 
+> **Status update (2026-07): all three (E) fixes have LANDED** — this spec is now
+> the implementation record, not pending work. #372 (GICS-aware R9 —
+> `engine/risk_manager.py:1751` `get_sector`, `GICS_11` `:1729`; ranker `sector`
+> column `wheel_runner.py:648/697`); #369 (the #363 IV gate extended to the
+> fundamentals-fallback path — `data_connector.py:403`, `wheel_runner.py:181`);
+> #378 (IV-staleness gate + rate-fallback divergence — `wheel_runner.py:177/196`,
+> `data_integration.py:327`). All are in `origin/main`.
+
 ---
 
 ## 0. Standing rules (do not relax)

@@ -9,9 +9,9 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**163 records.**
+**164 records.**
 
-## Features (17)
+## Features (18)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -24,6 +24,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [deep-read-activation](deep-read-activation-deep-read-connector-survivorship-harness-r2-r3-r.md) | complete |  | Implemented docs/DATA_LAYER_DEEP_READ_DESIGN.md — the connector assembles monolith ∪ deep ∪ delisted below the get_* accessors (R2, default-OFF), a backtests/ survivorship harness selects the PIT universe and values delisted names at their delisting price (R3), and a 2008 backtest proves Lehman's loss is realized not silently dropped (R6). Trio untouched; default-OFF byte-identical; deep path gated on SWE_DEEP_HISTORY / deep_history=True. | `deep-read-activation-deep-read-connector-survivorship-harness-r2-r3-r.md` |
 | [ibkr-portfolio-viewer-functionality](ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md) | in-flight |  | Wired /portfolio to real data via a point-in-time IBKR snapshot → ibkr_portfolio_adapter (outside the trio) → six read-only /api/portfolio/* endpoints → the existing Next.js viewer; observational only, mock kept as typed fallback. | `ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md` |
 | [mc-forward-sim](mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md) | complete |  | Wired the dormant Monte-Carlo + copula machinery into a live distributional forward simulated-portfolio track — equity fan, terminal/drawdown distributions, and a correlation-to-1 tail — reconciled against the deterministic backtest NAV. Reporting-only, off the §2 decision path. | `mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md` |
+| [paper-trading-sim](paper-trading-sim-forward-paper-trading-book-simulated-wheel-loop.md) | in-flight |  | A simulated wheel book the real engine ranks + manages day-by-day, accumulating a zero-risk live equity curve + calibration accumulator + SIM API slices, honestly split into backfill (in-sample-ish) vs live-forward (true OOS). | `paper-trading-sim-forward-paper-trading-book-simulated-wheel-loop.md` |
 | [Phase-0B](phase0b-broad-pull-loaders.md) | held |  | 27 net-new broad-pull datasets integrated under data/bloomberg/broad_pull/ with a dormant BroadPullLoader + 53 tests; nothing consumes it (EV-moving wiring is Phase 1-3, supervised) | `phase0b-broad-pull-loaders.md` |
 | [Phase-1-spec](phase1-e-trio-spec.md) | held |  | docs-only turnkey spec for the supervised (E) trio (#372 R9→GICS, #369 IV-fallback clean, #378 IV-staleness+rate) verified vs origin/main; no engine code | `phase1-e-trio-spec.md` |
 | [Phase-2-spec](phase2-skew-spec.md) | held |  | docs-only turnkey spec for the supervised, EV-moving Phase 2 (moneyness IV skew surface → connector accessor → skew_dynamics sizing + option_pricer/ev_engine BSM-IV seam) verified vs origin/main @ 21e489d; no engine code | `phase2-skew-spec.md` |

@@ -90,6 +90,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_binomial_tree.py` | Binomial-tree pricing |
 | `test_monte_carlo.py` | Block bootstrap, jump diffusion, LSM |
 | `test_sim_portfolio.py` | MC forward-sim reporting overlay — fan monotonicity + determinism, median-reconciles-with-backtest, corr-to-1 copula tail, §2 no-trio-import guard |
+| `test_paper_book.py` | Forward paper-trading book (`engine/paper_book.py` + `scripts/run_paper_book.py`) — §2 no-trio-import AST guard, SIM-namespace isolation (never writes `data_processed/ibkr/`), calibration wilson/reliability byte-match vs `ibkr_ev_calibration`, MC determinism (seed 42), caps-armed refusal after save/load round-trip, idempotent forward-append, held-to-expiry outcome, driver join helpers; one slow-lane engine-driven seed+forward integration (`backtest_regression`) |
 | `test_greeks_unit_invariants.py` | Greek units (see `docs/GREEKS_UNIT_CONTRACT.md`) |
 | `test_realized_vol.py` | Close-to-close, Parkinson, Garman-Klass estimators |
 | `test_advanced_quant.py` | Advanced quant building blocks |

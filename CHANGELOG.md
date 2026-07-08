@@ -40,6 +40,37 @@ carried-forward parked list: `DECISIONS.md` D28.
 
 ---
 
+## 2026-07-06 — Forward paper-trading book (simulated wheel loop)
+
+**Added** — `engine/paper_book.py` + `scripts/run_paper_book.py` +
+`tests/test_paper_book.py` (21 tests). Stands up the "simulation world": a
+simulated wheel book the **real** engine ranks and manages day-by-day,
+accumulating a live equity curve with **zero money at risk**, plus a continuous
+calibration accumulator and SIM-only dashboard API slices. `seed` reuses the
+caps-off, PIT-correct `_common.run_backtest` for a `backfill` (in-sample-ish)
+curve; the idempotent daily `forward` append re-ranks `as_of` (clamped to the
+data frontier) through the real ranker and opens up to N EV>0 positions on a
+**caps-armed** `make_live_book_tracker` (R9 sector + R10 single-name), settling
+due trades and appending exactly one genuinely-out-of-sample `forward` point.
+The MC equity bands reuse `engine/sim_portfolio.py` (#483); the calibration
+accumulator reuses `wilson`/`reliability` from `scripts/ibkr_ev_calibration`
+(byte-match pinned). **Reporting-only and off the §2 decision path**:
+`engine/paper_book.py` never imports the trio (AST-guarded), consumes ranker
+output and never ranks, never mutates `ev_dollars`/`ev_raw`/`prob_profit`/a
+verdict. All artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), **never** `data_processed/ibkr/`
+(Dashboard terminal, §6). New engine API slices
+`/api/portfolio/{papertrade,montecarlo,calibration}` serve the SIM data
+(`source: "simulated"`); the real-portfolio slices are byte-identical. Honesty
+guards (synthetic BSM fills, backfill-vs-forward boundary, W3 top-bin
+over-confidence, E1/E3/E5/D19/D21) carried on every report + the panel.
+Frontend `(terminal)/paper/page.tsx` handed off to the Dashboard terminal
+(`docs/PAPER_TRADING_PANEL_HANDOFF.md`). Runbook:
+`docs/PAPER_TRADING_RUNBOOK.md`. Branch `claude/paper-trading-sim`, stacked on
+#483. (SHA at merge.)
+
+---
+
 ## 2026-07-05 — Distributional MC forward simulated-portfolio track
 
 **Added** — `engine/sim_portfolio.py` + `scripts/run_forward_sim.py` +

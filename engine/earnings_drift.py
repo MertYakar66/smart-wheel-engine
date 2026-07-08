@@ -15,9 +15,10 @@ And aggregates:
 - Sector-level PED distributions (median, 5th/95th percentile, skew)
 - Surprise-conditional PED (splits sample on earnings beat / miss / inline)
 
-Primary consumer: the event gate can look up expected move magnitude
-for the upcoming earnings and size the buffer dynamically; the EV engine
-can penalise candidates in sectors with heavy-tailed earnings drift.
+Status: analytics-only — NOT wired into the EV path. No production caller
+consumes these outputs (`tests/test_earnings_drift.py` is the only importer).
+The event-gate buffer sizing and EV-engine sector penalty sketched here are
+possible future wiring, not current behaviour.
 """
 
 from __future__ import annotations

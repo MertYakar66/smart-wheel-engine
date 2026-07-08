@@ -1,5 +1,16 @@
 # Parallel sessions — how this repo is worked
 
+> **Status (2026-07): the 4-terminal rig described below is RETIRED.** As of
+> 2026-06-01 the repo is worked from a **single primary clone** (with occasional
+> throwaway worktrees for isolated work), not a Major Session + Terminal A–D
+> star. Sections 1–4, 6 and 7 (roles, the allocation cycle, the worked example,
+> the ripple channel, per-terminal env) are retained as **historical design**,
+> not current practice. **Exception — §5 is still LIVE and must not be weakened:**
+> the decision-layer lane-claim CI gate (`scripts/check_lane_claim.py`, the
+> `decision-layer-claim` job in `.github/workflows/ci.yml`) runs on **every** PR
+> today; any PR that edits the `ev_engine` / `wheel_runner` / `candidate_dossier`
+> trio must still carry a `lane-claim` block in its description naming the file.
+
 This repo is developed by **up to 4 Claude Code terminals at once**. Running
 four agents against one project only stays fast if collisions are *designed
 out* rather than negotiated away comment-by-comment. This doc is the pattern;

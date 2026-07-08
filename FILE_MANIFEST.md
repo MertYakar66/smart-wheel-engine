@@ -58,6 +58,19 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `.claude/commands/ev-smoke.md` | Tier-3 slash command — runs the 5-ticker EV-ranker smoke check. |
 | `.claude/commands/backtest-regression.md` | Tier-3 slash command — runs the four ledger-backtest reproducers (S27/S32/S34/S35) against the current engine. Long-running (~4–5 h); excluded from per-PR CI. |
 
+## `.agents/` + `.codex/` — non-Claude agent-tool mirrors
+
+Per-AI-tool config trees (tracked with the paper-trading wave, #483–#486)
+mirroring the `.claude/` skills/hooks for other agent harnesses.
+
+| File | Purpose |
+|---|---|
+| `.agents/skills/source-command-backtest-regression/SKILL.md` | Agent-skill mirror of `.claude/commands/backtest-regression.md`. |
+| `.agents/skills/source-command-ev-smoke/SKILL.md` | Agent-skill mirror of `.claude/commands/ev-smoke.md`. |
+| `.agents/skills/source-command-launch-blockers/SKILL.md` | Agent-skill mirror of `.claude/commands/launch-blockers.md`. |
+| `.codex/hooks.json` | OpenAI Codex harness config — registers the session-start hook. |
+| `.codex/hooks/session_start.sh` | Codex session-start hook (mirror of the `.claude/` hook). |
+
 ## `.github/`
 
 | File | Purpose |
@@ -772,9 +785,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
 | `src/backtest/__init__.py` | Re-exports the wheel backtester. |
 | `src/backtest/wheel_backtest.py` | Event-driven wheel backtester (research/simulation only). |
-| `src/execution/__init__.py` | Empty package stub. |
-| `src/models/__init__.py` | Empty package stub. |
-| `src/risk/__init__.py` | Empty package stub. |
 
 ## `studies/` — observe-only research studies (read-only over the engine)
 

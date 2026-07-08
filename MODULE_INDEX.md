@@ -56,7 +56,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `transaction_costs.py` | Commissions, slippage, assignment fees, sqrt impact, Reg-T margin. |
 | `tail_risk.py` | POT-GPD tail estimation. |
 | `portfolio_copula.py` | Student-t copula portfolio CVaR. **Dormant** — no production consumer; the smoke harness (`scripts/feature_smoke_test.py`) and the copula/stress coverage tests are the only callers. |
-| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. **Dormant** — superseded on the live path by `regime_hmm.py` (`wheel_runner.py:1975`); re-exported by `engine/__init__.py` and imported by the smoke harness only, with no live EV consumer (the `EVEngine` input comment at `ev_engine.py:123` still names it, but the multiplier is caller-supplied from the HMM). |
+| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. **Dormant** — superseded on the live path by `regime_hmm.py` (`wheel_runner.py:1975`); re-exported by `engine/__init__.py` and imported by the smoke harness only, with no live EV consumer (the `EVEngine` `regime_multiplier` field comment now names the HMM as the live caller-supplied source — fixed in the D28 close-out). |
 | `regime_hmm.py` | 4-state Gaussian HMM regime detector. Cached per-ticker by `WheelRunner._hmm_regime_cache` (audit-VIII P2). (**multiplier input**) |
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
@@ -234,6 +234,6 @@ that the root README still references — it is not the primary UI.
 | `config/` | `settings.py` — dormant config dataclass layer (zero importers; the live runtime config is `engine/policy_config.py`). | dormant |
 | `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
-| `src/` | **Phantom scaffold.** Empty `execution/`, `models/`, `risk/` packages; partial `data/` and `features/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
+| `src/` | **Phantom scaffold (shrinking).** The empty `execution/`/`models/`/`risk/` stubs were removed (D28 close-out, 2026-07-08); remaining: partial `data/` and `features/` (live members — `features/technical.py` + the feature-pipeline consumers) and `backtest/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
 | `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |
 | `archive/` | Superseded / point-in-time artifacts; see `archive/README.md`. | reference |

@@ -1,3 +1,10 @@
+# Laptop / operator quick-install runtime set (used by the SessionStart hook
+# and docs' two-path install). NOT what CI installs — CI uses
+# `pip install -e ".[dev]"` from pyproject.toml, the canonical
+# packaging/CI dependency list. Divergence is deliberate: this file carries
+# the runtime extras (yfinance, arch, matplotlib, …) whose tests skip in CI.
+# See DECISIONS.md D28 parked-list close-out (2026-07-08).
+
 # Core data processing
 pandas
 numpy

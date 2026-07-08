@@ -202,9 +202,7 @@ def test_snapshot_deterministic_stats_match_fixture():
         assert math.isfinite(ci["se"])
 
     # E3 deterministic point estimates
-    e3 = poos.dominant_name_robustness(
-        t, part.holdout, dominant=CONFIG["e3_dominant_name"]
-    )
+    e3 = poos.dominant_name_robustness(t, part.holdout, dominant=CONFIG["e3_dominant_name"])
     for k in ("full_rho", "drop_dominant_rho", "loo_min_rho", "loo_max_rho"):
         assert e3[k] == pytest.approx(snap["e3_robustness"][k], abs=_TOL)
 
@@ -230,12 +228,17 @@ def test_top_n_tiers_deterministic_and_holdout_edge_survives():
     exp = snap["top_n_tiers"]["holdout"]
     for n, key in [(5, "5"), (15, "15"), (None, "all")]:
         top = poos.restrict_top_n_per_date(holdout, n)
-        assert poos._pooled_rho(top, "ev_dollars") == pytest.approx(exp[key]["pooled_rho"], abs=_TOL)
+        assert poos._pooled_rho(top, "ev_dollars") == pytest.approx(
+            exp[key]["pooled_rho"], abs=_TOL
+        )
     # surviving-edge: committed holdout top-5 / top-15 block CIs exclude zero
     assert exp["5"]["block_ci95"][0] > 0, "holdout top-5 block-CI must exclude zero"
     assert exp["15"]["block_ci95"][0] > 0, "holdout top-15 block-CI must exclude zero"
     # reconciliation with #484: the all-candidate holdout CI includes zero
-    assert exp["all"]["block_ci95"][0] < 0 < exp["all"]["block_ci95"][1] or exp["all"]["pooled_rho"] <= 0
+    assert (
+        exp["all"]["block_ci95"][0] < 0 < exp["all"]["block_ci95"][1]
+        or exp["all"]["pooled_rho"] <= 0
+    )
     # breadth: the holdout top-15 edge is not one name
     et = snap["e3_holdout_top15"]
     assert et["loo_min_rho"] > 0.2, "holdout top-15 edge collapses when one name dropped"
@@ -256,8 +259,14 @@ def test_snapshot_leakage_certificate_is_clean():
 def test_snapshot_fingerprint_and_sampling_labelled():
     snap = _load_snapshot()
     fp = snap["fingerprint"]
-    for k in ("universe", "every_n_bdays", "actual_sample_dates", "actual_first_date",
-              "actual_last_date", "connector_data_sha256"):
+    for k in (
+        "universe",
+        "every_n_bdays",
+        "actual_sample_dates",
+        "actual_first_date",
+        "actual_last_date",
+        "connector_data_sha256",
+    ):
         assert k in fp, f"fingerprint missing {k}"
     assert fp["universe"] == "UNIVERSE_100"
 

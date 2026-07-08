@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**158 records.**
+**159 records.**
 
 ## Features (16)
 
@@ -180,10 +180,11 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (12)
+## Docs / process (13)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [audit-trio-docstrings](audit-trio-docstrings-2026-07-repo-audit-batch-b-trio-docstring-commen.md) | in-flight |  | Three comment/docstring truth-fixes on decision-layer files — broken link, a phantom API in the ev_engine example, and a stale "(default on)" R9 comment. Zero executable change; full suite green. | `audit-trio-docstrings-2026-07-repo-audit-batch-b-trio-docstring-commen.md` |
 | [bloomberg-deep-history-2026-06-04](bloomberg-deep-history-2026-06-04.md) | in-flight |  | Fixed the OHLCV column-rotation defect, made all Tier-1 + context data current to 2026-06-04, deepened all single-series context to inception, generalized the pullers to contiguous backfill, COMPLETED the vol_iv deep-history backfill to the 1994 floor (captures the 2000-2002 and 2008 crises), and routed deep data to a gz buffer branch (rclone/Drive staged) to keep the connector monoliths <100 MB. | `bloomberg-deep-history-2026-06-04.md` |
 | [bloomberg-refresh-2026-06-02](bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md) | in-flight |  | Delta-refreshed OHLCV/IV/liquidity to 2026-06-02 and added 7 context datasets via the Bloomberg Desktop API (xbbg); deep historical backfill deferred (metered cap) | `bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md` |
 | [clarify-full-suite-slow-lane](clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md) | in-flight |  | TESTING.md called the full suite a bare `pytest tests/ -v`, but that does NOT auto-deselect the `backtest_regression` marker — with the S27/S32/S34/S35 snapshots committed locally a bare run pulls the ~4–5h slow lane inline. Added a callout pinning the per-PR gate to `-m "not backtest_regression"` (what CI runs) and naming the trap. | `clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md` |

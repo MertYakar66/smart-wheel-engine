@@ -132,6 +132,19 @@ Theta-tier tests skip/flake off the laptop; they are not engine defects.
 > historical record. Newest-first additions for the 2026-05 late
 > campaign appear above them.
 
+### D28 repository efficiency audit — 4 PRs merged (2026-07-08)
+
+A folder-by-folder, evidence-based audit ("observe accurately, dispose
+conservatively") shipped in four review-gated PRs: #487 + #488 (doc/comment
+truth-pass + trio docstrings), a test-hygiene PR (retired `test_new_modules.py`
+by folding its unique Taleb/committee coverage into `test_advisors.py`), and a
+dead-code PR that retired nine verified-dead files (observability /
+earnings_drift / feature_provenance / web_vitals / grok_agent / efficiency /
+validators + the empty `sp500_iv_history.csv` + five scaffold SVGs), each with
+its manifest / index / taxonomy rows removed in-commit. No folder moves; no
+subsystem or only-copy-carrier deletions. **Full record + the carried-forward
+parked list: `DECISIONS.md` D28.**
+
 ### D27 repo restructure merged — orientation note for agents (2026-06-10)
 
 The navigation layer was reconciled and gate-hardened. If your clone or

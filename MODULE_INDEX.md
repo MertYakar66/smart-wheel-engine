@@ -61,7 +61,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang). |
-| `earnings_drift.py` | Post-earnings drift (PED) analytics. **Test-only** — not wired to the EV path; the module docstring's event-gate / EV-penalty consumers are aspirational, and `tests/test_earnings_drift.py` is the only caller. |
 | `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
 | `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |
 
@@ -121,7 +120,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
-| `observability.py` | Trace contexts, decision journal, audit logger. **Test-only** — zero non-test callers (`tests/test_observability.py` only) and not re-exported by `engine/__init__.py`; the live observability layer is `data/observability.py` (`data/__init__.py:109`), a distinct API (`logger` / `metrics` / `setup_logging`). |
 | `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
 | `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |

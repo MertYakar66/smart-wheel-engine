@@ -89,6 +89,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_option_pricer.py` | BSM, BAW, IV solver vs textbook references |
 | `test_binomial_tree.py` | Binomial-tree pricing |
 | `test_monte_carlo.py` | Block bootstrap, jump diffusion, LSM |
+| `test_sim_portfolio.py` | MC forward-sim reporting overlay — fan monotonicity + determinism, median-reconciles-with-backtest, corr-to-1 copula tail, §2 no-trio-import guard |
+| `test_paper_book.py` | Forward paper-trading book (`engine/paper_book.py` + `scripts/run_paper_book.py`) — §2 no-trio-import AST guard, SIM-namespace isolation (never writes `data_processed/ibkr/`), calibration wilson/reliability byte-match vs `ibkr_ev_calibration`, MC determinism (seed 42), caps-armed refusal after save/load round-trip, idempotent forward-append, held-to-expiry outcome, driver join helpers; one slow-lane engine-driven seed+forward integration (`backtest_regression`) |
 | `test_greeks_unit_invariants.py` | Greek units (see `docs/GREEKS_UNIT_CONTRACT.md`) |
 | `test_realized_vol.py` | Close-to-close, Parkinson, Garman-Klass estimators |
 | `test_advanced_quant.py` | Advanced quant building blocks |
@@ -101,7 +103,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_quant_fixtures.py` | Shared fixtures |
 | `test_tail_risk.py` | POT-GPD tail estimation — threshold selection, GPD fit, `gpd_var_cvar`, `pot_gpd_cvar`, tail-regime flag |
 | `test_transaction_costs.py` | Spread + slippage edge branches — bid/ask fallback order, OI liquidity tiers, direction impact (D10 F7) |
-| `test_earnings_drift.py` | Post-earnings-drift analytics — lazy loaders, per-sector drift, temporal filtering |
 | `test_portfolio_copula_coverage.py` | `portfolio_copula` edge paths — PSD repair, Cholesky→eigen fallback, empty arrays, verdict ladder |
 | `test_pricing_evaluate_invariants.py` | W63–W64 — BSM Greek units vs binomial cross-check; `EVEngine.evaluate` stays finite on degenerate DTE |
 | `test_f4_rv_widening.py` | F4 fix v2 (#260) — RV30/RV252 widening factor calibration pins (1.30 threshold, 1.5× cap), PIT safety, sign/mean preservation |
@@ -252,7 +253,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_news_processing.py` | News processing primitives |
 | `test_adversarial_news.py` | Adversarial robustness |
 | `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
-| `test_new_modules.py` | Modules added in recent audits |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
 | `test_news_sentiment.py` | `NewsSentimentReader` — store reads, staleness, neutral default; `sentiment_multiplier` constant-1.0 parity |
@@ -273,7 +273,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_check_lane_claim.py` | The decision-layer lane-claim CI gate (`scripts/check_lane_claim.py`) |
 | `test_check_manifest_coverage.py` | The FILE_MANIFEST coverage gate's conflict-marker detection |
 | `test_testing_md_taxonomy.py` | This file's taxonomy stays complete — every `tests/test_*.py` must be named in TESTING.md |
-| `test_observability.py` | `engine/observability` — TraceContext, DecisionJournal, AuditLogger, trace decorator |
 | `test_policy_config.py` | `engine/policy_config` — load/save/validate, default sanity, section schema |
 | `test_trade_memo_ci.py` | Memo honesty — prob_profit rendered with Wilson CI + N + small-sample caveat |
 

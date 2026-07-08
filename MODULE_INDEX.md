@@ -55,13 +55,12 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `forward_distribution.py` | Empirical, block-bootstrap, and HAR-RV cascade forward distributions. |
 | `transaction_costs.py` | Commissions, slippage, assignment fees, sqrt impact, Reg-T margin. |
 | `tail_risk.py` | POT-GPD tail estimation. |
-| `portfolio_copula.py` | Student-t copula portfolio CVaR. |
-| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. (**multiplier input**) |
+| `portfolio_copula.py` | Student-t copula portfolio CVaR. **Dormant** — no production consumer; the smoke harness (`scripts/feature_smoke_test.py`) and the copula/stress coverage tests are the only callers. |
+| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. **Dormant** — superseded on the live path by `regime_hmm.py` (`wheel_runner.py:1975`); re-exported by `engine/__init__.py` and imported by the smoke harness only, with no live EV consumer (the `EVEngine` input comment at `ev_engine.py:123` still names it, but the multiplier is caller-supplied from the HMM). |
 | `regime_hmm.py` | 4-state Gaussian HMM regime detector. Cached per-ticker by `WheelRunner._hmm_regime_cache` (audit-VIII P2). (**multiplier input**) |
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang). |
-| `earnings_drift.py` | Post-earnings drift adjustment. |
 | `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
 | `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |
 
@@ -113,6 +112,8 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
 | `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
+| `sim_portfolio.py` | Distributional simulated-portfolio reporting overlay: a WheelTracker forward book's equity curve → block-bootstrap MC equity fan (p5–p95) + terminal/drawdown distributions + a correlation-to-1 Student-t copula tail, reconciled against the deterministic backtest NAV. Reuses `monte_carlo` / `portfolio_copula` / `performance_metrics`; driven by `scripts/run_forward_sim.py`. Outside the CI-gated trio; imports nothing from it; every output labelled `model` vs `engine-measured`, copula tail `feeds_ev=False`. (**display**) |
+| `paper_book.py` | Forward paper-trading book — trio-free reporting/state library for a simulated wheel book the real engine drives day-by-day (zero money at risk). SIM-namespace I/O + guard, phase-labelled equity history (`backfill` in-sample-ish vs `forward` true-OOS), a forecast ledger + held-to-expiry outcome, the rolling calibration accumulator (wilson/reliability mirroring `scripts/ibkr_ev_calibration`), and the MC bands (soft-reuses `sim_portfolio`). Driven by `scripts/run_paper_book.py`. Outside the CI-gated trio; **AST-guarded** to never import it; consumes ranker output, never ranks. (**display**) |
 | `ibkr_portfolio_adapter.py` | D24 read-only IBKR snapshot → engine types (`PortfolioContext`, held positions, USD NAV) + the D26 `/api/portfolio/*` payload builders. Outside the CI-gated trio; imports nothing from it. (**tracker / input**) |
 
 ### Infra / config / display
@@ -121,7 +122,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
-| `observability.py` | Structured logging. |
 | `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
 | `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |
@@ -198,16 +198,12 @@ Key scripts:
 
 ---
 
-## `dashboard/` — Next.js v15
+## `dashboard/` — Next.js v16
 
 Live UI consumed by `engine_api.py`. Source under `dashboard/src/`;
 `node_modules/` and built `.next/` are gitignored. The repo also
 keeps a legacy Python CLI dashboard at `dashboard/quant_dashboard.py`
 that the root README still references — it is not the primary UI.
-
-Note: `dashboard/README.md` describes a "FinanceNews — AI Financial
-News Platform". The directory was reused; the README was never
-updated. See `PROJECT_STATE.md` §5.
 
 ---
 

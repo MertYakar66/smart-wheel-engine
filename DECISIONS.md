@@ -1540,6 +1540,101 @@ task record with per-stage evidence).
 
 ---
 
+## D28. Repository efficiency audit — evidence-based dead-code retirement + doc truth-pass (2026-07)
+
+**Decision.** A senior-staff, folder-by-folder repo audit (2026-07-06 → 08) ran
+under one rule — **observe accurately, dispose conservatively**: read every
+tracked file, verify every reachability claim with a dual-form caller grep
+(absolute + relative import, watching the same-basename collision), and default
+to the smallest safe in-place fix. It shipped in four review-gated PRs, each
+squash-merged only after the full `-m "not backtest_regression"` suite went
+green:
+
+- **#487** (`docs(audit)`, Batch A) — doc/comment **truth-pass**: 5 MODULE_INDEX
+  drift entries corrected, 6 dated docs refreshed with additive banners (the
+  §5 lane-claim CI contract explicitly preserved), GOVERNANCE trimmed to
+  single-operator practice, `THETA_PULL_SESSION_NOTES` merged into
+  `THETA_USAGE.md` §20, the 7 non-canonical larder assets annotated,
+  `TESTED_SURFACE_MAP` regenerated.
+- **#488** (`docs(engine)`, Batch B) — three trio comment/docstring truth-fixes
+  (a broken R11 link, a phantom `feature_store` API in the `ev_engine` example,
+  an inverted `enforce_sector_cap` default comment). Carried a lane-claim block.
+- **PR3** (`test`, Batch C) — test-suite hygiene: deleted two bare-pass no-op
+  tests; retired `tests/test_new_modules.py` by **folding** its unique coverage
+  (the Taleb advisor — its only direct unit tests — plus the committee
+  review-portfolio / post-mortem modes) into `tests/test_advisors.py` and
+  **dropping** the genuinely-duplicated cases (normalize_ticker, WheelRunner
+  import, and the risk-free-rate NaN-fallback already pinned in
+  `tests/test_data_integration.py`); added a parametric `make_gbm_ohlcv` helper
+  to `conftest.py` and dropped two zero-consumer fixtures.
+- **PR4** (`chore`, Batch D — this entry) — **nine verified-dead retirements**,
+  each with its co-edits: `engine/observability.py` + `tests/test_observability.py`;
+  `engine/earnings_drift.py` + `tests/test_earnings_drift.py`;
+  `data/feature_provenance.py`; `dashboard/web_vitals.py` (+ its
+  `tests/test_infrastructure.py::TestWebVitals` class — a §6 Dashboard-terminal
+  *scaffold* file, not the portfolio pipeline); `data/bloomberg/sp500_iv_history.csv`
+  (20-byte empty stub); the five `dashboard/public/*.svg` Next.js scaffold icons
+  (the app `favicon.ico` kept); `news_pipeline/browser_agents/grok_agent.py`
+  (the `GROK` enum in `types.py` left as the smallest cut);
+  `local_agent/utils/efficiency.py`; and `src/data/validators.py` (its two
+  `src/data/__init__.py` export lines trimmed — the sibling `schemas.py` stays
+  LIVE via `data/quality.py` ← `wheel_runner.py:2043`). Every deletion removed
+  its FILE_MANIFEST / MODULE_INDEX / TESTING.md rows in the same commit so the
+  coverage + taxonomy gates stay green; `engine` imports cleanly after.
+
+**Why.** The repo is operated by memoryless agents; its index docs are the
+working memory, and the audit found drift accumulates wherever no gate enforces
+truth (D27's lesson). The four PRs bias toward truth-restoration and the removal
+of only **verified-dead-undefended** code — never a subsystem, never an
+only-copy data carrier, never a doc-defended-dormant module.
+
+**Rejected alternatives.** (1) *Folder moves / restructure* — rejected: the
+layout is sound (D14/D27) and every candidate move trips a gate (lane-claim,
+FILE_MANIFEST, `--cov=src`, `_FILES` paths, TESTING taxonomy) for no benefit.
+(2) *Excising the `financial_news` / `local_agent` / news subsystems* — rejected
+as an audit action: these are operator/subsystem calls, and the news stack is
+governed by the in-flight `NEWS_REDESIGN_CAMPAIGN` (reframe, not consolidate).
+(3) *Deleting doc-defended-dormant modules* (signals/signal_context/
+portfolio_intelligence/dependency_check per D27; news_sentiment per D18;
+volatility_surface per D9; the D2 `wheel_backtest`) — kept.
+
+**Parked (carried forward so nothing is lost — each an operator decision):**
+- `financial_news/` legacy track (models.py-based) is fully superseded by the
+  canonical schema.py track — internal dedup, **but verify no cron/deploy invokes
+  `pipeline.py` first**.
+- `local_agent/` (30-file orphaned browser-agent sub-project) — keep-as-subproject
+  vs extract-to-its-own-repo.
+- `staging/` ONLY-COPY carriers (`blue_chips/`, `casy/`, `fundamentals_pit/`) —
+  deletion = data loss; the only safe action is the operator-gated
+  `staging/integrate_phase1b.py` Phase-1B integration.
+- `docs/DATA_POLICY.md` §5 (~lines 169-189) producer census is stale post the
+  xbbg-puller salvage (still says "7 no producer").
+- `pyproject.toml` ↔ `requirements.txt` dependency divergence — consolidate to
+  pyproject `[project].dependencies`.
+- `engine/ev_engine.py:123` comment still names `engine.regime_detector` for the
+  `regime_multiplier` field though the live source is the HMM — next trio PR.
+- `src/execution/`, `src/models/`, `src/risk/` empty `__init__` stubs —
+  remove-or-repopulate plan.
+- `news_pipeline/{publisher,slo,robustness}.py` — wire-or-retire (publisher is
+  bypassed by the orchestrator's inline `_publish`; slo/robustness are test-only).
+- `backtests/{simulator,walk_forward}.py` — retire-or-wire (re-exported by
+  `backtests/__init__.py` only; `simulator.py` self-labels PLACEHOLDER).
+- The ~8 one-off `scripts/` (`fix_*`, one-shot backfills) — archive question.
+- `data/features/` gitignore-vs-track call.
+- `dashboard/src/services/{edgar,macro-data}.ts` numbered-news rails (§6
+  Dashboard-terminal territory).
+- `dashboard/package.json` still names the app "finance-news" — rename.
+- **`docs/TESTED_SURFACE_MAP.md`** references the retired `test_new_modules.py` /
+  `test_observability.py` / `test_earnings_drift.py`; regenerate it once after
+  this wave lands (it is a generated snapshot — do not hand-edit).
+
+**Pinned by.** PRs #487, #488, PR3, PR4 (squash commits on `main`); the
+per-batch worklog fragments under `docs/worklog/`; the FILE_MANIFEST coverage
+gate + `tests/test_testing_md_taxonomy.py` (which now pass with every retired
+file's row removed); and the full audit evidence in the batch worklogs.
+
+---
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

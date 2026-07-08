@@ -2,6 +2,9 @@
 ' Bloomberg Historical Data Export Macro - SIMPLIFIED VERSION
 ' ============================================================================
 '
+' SUPERSEDED by scripts/bloomberg_excel_extractor_v2.bas — retained for
+' reference only. Use the v2 extractor for new Bloomberg exports.
+'
 ' This version uses Windows Sleep API to truly yield control to Bloomberg
 '
 ' USAGE:

@@ -14,6 +14,63 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-07-08 — repository efficiency audit (D28): dead-code retirement + doc truth-pass
+
+Four review-gated PRs (each squash-merged after the full `-m "not
+backtest_regression"` suite went green) from a folder-by-folder, evidence-based
+audit run under *observe accurately, dispose conservatively*. Full record + the
+carried-forward parked list: `DECISIONS.md` D28.
+
+- **Docs** — #487 (`93923a1`): doc/comment truth-pass — MODULE_INDEX dormancy
+  fixes, 6 dated docs refreshed (the §5 lane-claim CI contract preserved),
+  GOVERNANCE solo-trim, `THETA_PULL_SESSION_NOTES` folded into `THETA_USAGE.md`
+  §20, `TESTED_SURFACE_MAP` regenerated. #488 (`f391b62`): three trio
+  docstring/comment truth-fixes (lane-claimed).
+- **Changed** — Batch C: retired `tests/test_new_modules.py` (Taleb + committee
+  review/post-mortem coverage folded into `tests/test_advisors.py`; the
+  duplicated cases dropped), removed two bare-pass no-op tests, added a
+  parametric `make_gbm_ohlcv` conftest helper, dropped two zero-consumer fixtures.
+- **Deprecated** — Batch D: nine verified-dead retirements —
+  `engine/observability.py`, `engine/earnings_drift.py`,
+  `data/feature_provenance.py`, `dashboard/web_vitals.py`,
+  `data/bloomberg/sp500_iv_history.csv`, five `dashboard/public/*.svg` scaffold
+  icons, `news_pipeline/browser_agents/grok_agent.py`,
+  `local_agent/utils/efficiency.py`, `src/data/validators.py` — each with its
+  FILE_MANIFEST / MODULE_INDEX / TESTING rows removed in the same commit.
+
+---
+
+## 2026-07-06 — Forward paper-trading book (simulated wheel loop)
+
+**Added** — `engine/paper_book.py` + `scripts/run_paper_book.py` +
+`tests/test_paper_book.py` (21 tests). Stands up the "simulation world": a
+simulated wheel book the **real** engine ranks and manages day-by-day,
+accumulating a live equity curve with **zero money at risk**, plus a continuous
+calibration accumulator and SIM-only dashboard API slices. `seed` reuses the
+caps-off, PIT-correct `_common.run_backtest` for a `backfill` (in-sample-ish)
+curve; the idempotent daily `forward` append re-ranks `as_of` (clamped to the
+data frontier) through the real ranker and opens up to N EV>0 positions on a
+**caps-armed** `make_live_book_tracker` (R9 sector + R10 single-name), settling
+due trades and appending exactly one genuinely-out-of-sample `forward` point.
+The MC equity bands reuse `engine/sim_portfolio.py` (#483); the calibration
+accumulator reuses `wilson`/`reliability` from `scripts/ibkr_ev_calibration`
+(byte-match pinned). **Reporting-only and off the §2 decision path**:
+`engine/paper_book.py` never imports the trio (AST-guarded), consumes ranker
+output and never ranks, never mutates `ev_dollars`/`ev_raw`/`prob_profit`/a
+verdict. All artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), **never** `data_processed/ibkr/`
+(Dashboard terminal, §6). New engine API slices
+`/api/portfolio/{papertrade,montecarlo,calibration}` serve the SIM data
+(`source: "simulated"`); the real-portfolio slices are byte-identical. Honesty
+guards (synthetic BSM fills, backfill-vs-forward boundary, W3 top-bin
+over-confidence, E1/E3/E5/D19/D21) carried on every report + the panel.
+Frontend `(terminal)/paper/page.tsx` handed off to the Dashboard terminal
+(`docs/PAPER_TRADING_PANEL_HANDOFF.md`). Runbook:
+`docs/PAPER_TRADING_RUNBOOK.md`. Branch `claude/paper-trading-sim`, stacked on
+#483. (SHA at merge.)
+
+---
+
 ## 2026-07-06 — parameter-OOS validation gate (E5), review-only
 
 `Added` — a committed, snapshot-locked **parameter-OOS** gate
@@ -30,8 +87,28 @@ invert the shipped prior), and 24-name rank-ρ is unstable out-of-window (per-fo
 −0.14..+0.12, pooled ≈0) — consistent with E1/E5/i9. Reporting-only, off the §2
 decision path; **no production parameter default changed** and the decision-layer
 trio is untouched (a re-selected value differing from shipped is a *finding*, not
-a change to ship). Branch `claude/parameter-oos-gate` — **review-only, do not
-merge**.
+a change to ship).
+
+---
+
+## 2026-07-05 — Distributional MC forward simulated-portfolio track
+
+**Added** — `engine/sim_portfolio.py` + `scripts/run_forward_sim.py` +
+`tests/test_sim_portfolio.py` (16 tests). Wires the previously-dormant Monte
+Carlo (`monte_carlo.BlockBootstrap`) + copula (`portfolio_copula`) machinery
+into a live distributional view of a WheelTracker forward book: a p5–p95
+equity fan, terminal-return + drawdown distributions, and a correlation-to-1
+copula tail — reconciled against the deterministic backtest NAV (median gap
+1.92% on 2024, 0.62% out-of-window on the 2022 bear). **Reporting-only and
+off the §2 decision path**: the module never imports the trio (AST-guarded),
+every output is labelled `model` vs `engine-measured`, and the copula tail is
+`feeds_ev=False` — it never touches `ev_dollars`, a verdict, or the R7/R8 gate
+thresholds. Simulated artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), never to real IBKR data. Trio
+untouched; dashboard view deferred to coordinate with the Dashboard terminal.
+Worklog: `docs/worklog/mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md`.
+
+---
 
 ## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
 

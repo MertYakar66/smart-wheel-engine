@@ -1,5 +1,12 @@
 # Major Session — role prompt
 
+> **Status (2026-07): RETIRED role.** The Major-Session + Terminal A–D rig this
+> prompt bootstraps was retired 2026-06-01; the repo is now worked from a single
+> primary clone. This prompt is retained as **historical design** (and for the
+> record of how the allocator model worked). The one piece of that model still
+> enforced in CI is the decision-layer lane-claim gate — see
+> `docs/PARALLEL_SESSIONS.md` §5, which remains live.
+
 Paste this into a fresh Major-Session chat when handing off (or `/clear`-ing) the
 allocator role. It is **durable**: it describes the role and how to recover live
 state, and deliberately pins **no** decaying snapshot (current cycle, open PRs,

@@ -935,7 +935,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |
-| `tests/test_new_modules.py` | Coverage backfill — Taleb advisor, committee modes, runner import smoke. |
 | `tests/test_financial_news.py` | The `financial_news` platform — schema, macro calendar, verification engine. |
 | `tests/test_news_processing.py` | `financial_news` article classification. |
 | `tests/test_news_pipeline.py` | The `news_pipeline` package — models, security, recovery, publisher. |

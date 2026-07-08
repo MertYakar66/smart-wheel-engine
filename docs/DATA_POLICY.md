@@ -127,7 +127,7 @@ panels keyed by `(ticker, period, announcement_date)`. The
 
 | Refresh | Command | Frequency | Notes |
 |---|---|---|---|
-| Theta full pull | `python scripts/pull_all.py` | daily on laptop | requires Terminal up; ~8 hours wall clock; see `THETA_PULL_SESSION_NOTES.md` |
+| Theta full pull | `python scripts/pull_all.py` | daily on laptop | requires Terminal up; ~8 hours wall clock; see `THETA_USAGE.md` §20 |
 | yfinance fundamentals + earnings | `python scripts/pull_fundamentals_yf.py`, `pull_earnings_yf.py` | weekly | refreshes the committed CSVs |
 | Treasury yields | `python scripts/pull_treasury_yields_yf.py` | weekly | refreshes `treasury_yields.csv` |
 | Feature shards | `python scripts/backfill_features.py` | when feature def changes | regenerates `data/features/`; AAPL stays as sample |

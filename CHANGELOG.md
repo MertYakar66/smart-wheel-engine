@@ -14,6 +14,32 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-07-08 — repository efficiency audit (D28): dead-code retirement + doc truth-pass
+
+Four review-gated PRs (each squash-merged after the full `-m "not
+backtest_regression"` suite went green) from a folder-by-folder, evidence-based
+audit run under *observe accurately, dispose conservatively*. Full record + the
+carried-forward parked list: `DECISIONS.md` D28.
+
+- **Docs** — #487 (`93923a1`): doc/comment truth-pass — MODULE_INDEX dormancy
+  fixes, 6 dated docs refreshed (the §5 lane-claim CI contract preserved),
+  GOVERNANCE solo-trim, `THETA_PULL_SESSION_NOTES` folded into `THETA_USAGE.md`
+  §20, `TESTED_SURFACE_MAP` regenerated. #488 (`f391b62`): three trio
+  docstring/comment truth-fixes (lane-claimed).
+- **Changed** — Batch C: retired `tests/test_new_modules.py` (Taleb + committee
+  review/post-mortem coverage folded into `tests/test_advisors.py`; the
+  duplicated cases dropped), removed two bare-pass no-op tests, added a
+  parametric `make_gbm_ohlcv` conftest helper, dropped two zero-consumer fixtures.
+- **Deprecated** — Batch D: nine verified-dead retirements —
+  `engine/observability.py`, `engine/earnings_drift.py`,
+  `data/feature_provenance.py`, `dashboard/web_vitals.py`,
+  `data/bloomberg/sp500_iv_history.csv`, five `dashboard/public/*.svg` scaffold
+  icons, `news_pipeline/browser_agents/grok_agent.py`,
+  `local_agent/utils/efficiency.py`, `src/data/validators.py` — each with its
+  FILE_MANIFEST / MODULE_INDEX / TESTING rows removed in the same commit.
+
+---
+
 ## 2026-07-06 — Forward paper-trading book (simulated wheel loop)
 
 **Added** — `engine/paper_book.py` + `scripts/run_paper_book.py` +
@@ -61,6 +87,8 @@ thresholds. Simulated artifacts persist to the gitignored SIM namespace
 (`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), never to real IBKR data. Trio
 untouched; dashboard view deferred to coordinate with the Dashboard terminal.
 Worklog: `docs/worklog/mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md`.
+
+---
 
 ## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
 

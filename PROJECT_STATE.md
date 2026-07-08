@@ -76,15 +76,15 @@ soft-warns that fire only when a `PortfolioContext` is attached.
 > **Data currency (point-in-time).** The committed Bloomberg CSVs are
 > point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
 > pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
-> the committed pullers' hardcoded `end_date` still reads 2026-03-20,
-> so re-running them unedited would *regress* the frontier). A full
-> refresh remains **partially blocked**: of the **10** connector CSVs
-> (`engine/data_connector.py::_FILES`), only **3** have a reproducible
-> in-repo producer; the other **7** — including the core IV file
-> `sp500_vol_iv_full.csv` and the now-consumed
-> `sp500_corporate_actions.csv` (populated by the operator's manual
-> BQL pull; Theta's corp-actions endpoints 404 at this tier) — have no
-> repo producer. See `docs/DATA_POLICY.md` §5 and
+> the legacy `pull_ohlcv.py` / `pull_liquidity.py` hardcode
+> `end_date="2026-03-20"`, so re-running those two unedited would
+> *regress* the frontier). Post the #477 xbbg-puller salvage (census
+> refreshed 2026-07-08, D28 close-out), **9 of the 10** connector CSVs
+> (`engine/data_connector.py::_FILES`) have a runnable in-repo
+> producer (xbbg ones need a logged-in Bloomberg Terminal; the salvaged
+> `pull_vol_iv.py` pins the current 2026-06-04 frontier). The one
+> remaining gap is `sp500_earnings.csv` (BDS backfill — deferred).
+> Current census: `docs/DATA_POLICY.md` §5; pre-salvage history:
 > `docs/bloomberg_refresh_runbook.md`.
 
 ## 2. Recent decision-layer audits
@@ -626,8 +626,9 @@ rewritten.**
   ROADMAP B5 (no `[project.scripts]` section today); `src/` remains
   a build target via `[tool.hatch.build.targets.wheel] packages = ["src"]`
   and a coverage source via `[tool.coverage.run] source = ["src", …]`
-  (`pyproject.toml:68-72, 109`). Empty subpackages: `src/execution/`,
-  `src/models/`, `src/risk/`. Partially populated:
+  (`pyproject.toml:68-72, 109`). The empty `src/execution/`,
+  `src/models/`, `src/risk/` stubs were removed 2026-07-08 (D28
+  close-out — zero references repo-wide). Partially populated:
   `src/data/` (only `schemas.py`, `validators.py`),
   `src/features/` (`technical.py` is **live** — imported by
   `engine/strangle_timing.py:31`, `engine/tv_signals.py:48`, and

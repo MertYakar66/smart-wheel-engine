@@ -1608,25 +1608,50 @@ volatility_surface per D9; the D2 `wheel_backtest`) — kept.
   deletion = data loss; the only safe action is the operator-gated
   `staging/integrate_phase1b.py` Phase-1B integration.
 - `docs/DATA_POLICY.md` §5 (~lines 169-189) producer census is stale post the
-  xbbg-puller salvage (still says "7 no producer").
+  xbbg-puller salvage (still says "7 no producer"). *(CLOSED 2026-07-08,
+  D28 close-out PR — census rewritten: 9 of 10 with in-repo producers,
+  only `sp500_earnings.csv` deferred.)*
 - `pyproject.toml` ↔ `requirements.txt` dependency divergence — consolidate to
-  pyproject `[project].dependencies`.
+  pyproject `[project].dependencies`. *(PARTIALLY CLOSED 2026-07-08, D28
+  close-out PR — six zero-import declared deps pruned from
+  `[project].dependencies` (polars, duckdb, optuna, plotly, rich,
+  python-dotenv; verified no import repo-wide incl. tests) and both files
+  now carry role headers (pyproject = CI/packaging canonical;
+  requirements.txt = laptop/hook runtime set). The full "move the laptop
+  runtime deps into pyproject" step was deliberately REJECTED for now:
+  CI installs only `-e ".[dev]"`, so adding yfinance/arch/matplotlib
+  would newly activate currently-skipped tests in CI — a CI-behaviour
+  change that needs its own reviewed PR, not a hygiene edit.)*
 - `engine/ev_engine.py:123` comment still names `engine.regime_detector` for the
   `regime_multiplier` field though the live source is the HMM — next trio PR.
+  *(CLOSED 2026-07-08, D28 close-out PR — comment now names the HMM as the
+  live caller-supplied source and regime_detector as the dormant
+  alternative.)*
 - `src/execution/`, `src/models/`, `src/risk/` empty `__init__` stubs —
-  remove-or-repopulate plan.
+  remove-or-repopulate plan. *(CLOSED 2026-07-08, D28 close-out PR —
+  removed; zero references repo-wide (code, pyproject, coverage config).
+  `src/` now carries only the partially-live `data/`, `features/`,
+  `backtest/` subtrees.)*
 - `news_pipeline/{publisher,slo,robustness}.py` — wire-or-retire (publisher is
   bypassed by the orchestrator's inline `_publish`; slo/robustness are test-only).
 - `backtests/{simulator,walk_forward}.py` — retire-or-wire (re-exported by
   `backtests/__init__.py` only; `simulator.py` self-labels PLACEHOLDER).
 - The ~8 one-off `scripts/` (`fix_*`, one-shot backfills) — archive question.
-- `data/features/` gitignore-vs-track call.
+  *(RESOLVED 2026-07-08: keep in place. They are doc-mapped reproducers
+  (each maps to a dated report/worklog); FILE_MANIFEST-covered; archiving
+  buys nothing and risks dangling refs — same logic as index-in-place.)*
+- `data/features/` gitignore-vs-track call. *(RESOLVED 2026-07-08: keep
+  tracked. The AAPL shards are the documented in-git sample of the
+  feature-store layout (`MODULE_INDEX` — `backfill_features.py`);
+  gitignoring would remove the only committed example.)*
 - `dashboard/src/services/{edgar,macro-data}.ts` numbered-news rails (§6
   Dashboard-terminal territory).
 - `dashboard/package.json` still names the app "finance-news" — rename.
 - **`docs/TESTED_SURFACE_MAP.md`** references the retired `test_new_modules.py` /
   `test_observability.py` / `test_earnings_drift.py`; regenerate it once after
   this wave lands (it is a generated snapshot — do not hand-edit).
+  *(CLOSED 2026-07-08, D28 close-out PR — regenerated from a fresh
+  full-suite coverage run on the merged tree.)*
 
 **Pinned by.** PRs #487, #488, PR3, PR4 (squash commits on `main`); the
 per-batch worklog fragments under `docs/worklog/`; the FILE_MANIFEST coverage

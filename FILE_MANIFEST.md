@@ -760,9 +760,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
 | `src/backtest/__init__.py` | Re-exports the wheel backtester. |
 | `src/backtest/wheel_backtest.py` | Event-driven wheel backtester (research/simulation only). |
-| `src/execution/__init__.py` | Empty package stub. |
-| `src/models/__init__.py` | Empty package stub. |
-| `src/risk/__init__.py` | Empty package stub. |
 
 ## `studies/` — observe-only research studies (read-only over the engine)
 

@@ -12,30 +12,32 @@ authors = [
 dependencies = [
     # Data handling
     "pandas>=2.0.0",
-    "polars>=0.20.0",
     "pyarrow>=14.0.0",
-    "duckdb>=0.9.0",
 
     # ML / Statistics
     "numpy>=1.24.0",
     "scipy>=1.11.0",
     "scikit-learn>=1.3.0",
     "lightgbm>=4.0.0",
-    "optuna>=3.4.0",
     "statsmodels>=0.14.0",
 
     # Visualization
-    "plotly>=5.18.0",
     "streamlit>=1.29.0",
 
     # Utilities
     "pydantic>=2.5.0",
-    "python-dotenv>=1.0.0",
     "loguru>=0.7.0",
-    "rich>=13.7.0",
     "typer>=0.9.0",
     "aiohttp>=3.9.0",
 ]
+# NOTE (D28 close-out, 2026-07-08): this list is the CI/packaging canonical
+# set (CI installs `-e ".[dev]"` only). Six zero-import entries were pruned
+# (polars, duckdb, optuna, plotly, rich, python-dotenv — no import
+# repo-wide incl. tests). The laptop/runtime extras that live only in
+# requirements.txt (yfinance, arch, matplotlib, seaborn, joblib, tqdm,
+# requests) are deliberately NOT added here: CI's suite currently skips
+# the tests that need them, and adding them would newly activate those
+# tests in CI — a CI-behaviour change needing its own reviewed PR.
 
 [project.optional-dependencies]
 dev = [

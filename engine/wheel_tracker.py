@@ -2079,7 +2079,9 @@ class WheelTracker:
                     if not pd.isna(close):
                         spot_prices[sym] = float(close)
 
-        # Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on).
+        # Gate 1 (R9): sector cap — gated on enforce_sector_cap (library default
+        # OFF; armed =True by wheel_runner.make_live_book_tracker() for
+        # production / live books).
         if self._d17_gate_enabled("sector"):
             # #372: aggregate by real GICS when a connector is attached;
             # None → DEFAULT_SECTOR_MAP fallback (token-free default path).

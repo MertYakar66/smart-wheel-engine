@@ -105,32 +105,6 @@ def sample_ohlcv():
 
 
 @pytest.fixture
-def sample_iv_series():
-    """Generate sample IV series for testing."""
-    np.random.seed(42)
-    n = 252
-    dates = pd.date_range('2024-01-01', periods=n, freq='B')
-
-    # IV mean-reverts around 0.20 (20%)
-    iv = 0.20 + 0.05 * np.sin(np.linspace(0, 4 * np.pi, n)) + np.random.normal(0, 0.02, n)
-    iv = np.clip(iv, 0.05, 0.80)  # Keep in realistic range
-
-    return pd.Series(iv, index=dates, name='iv')
-
-
-@pytest.fixture
-def sample_greeks():
-    """Generate sample Greeks for portfolio testing."""
-    return {
-        'delta': 0.45,
-        'gamma': 0.02,
-        'theta': -0.05,
-        'vega': 0.15,
-        'rho': 0.08,
-    }
-
-
-@pytest.fixture
 def sample_portfolio():
     """Generate sample portfolio for risk testing."""
     return pd.DataFrame({
@@ -169,3 +143,35 @@ def _neutralize_option_premium_rail(tmp_path_factory):
     )
     yield
     mp.undo()
+
+
+def make_gbm_ohlcv(n=252, seed=42, start="2024-01-01", close_only=False):
+    """Deterministic GBM OHLCV generator — a parametric HELPER, not a fixture.
+
+    Mirrors the ``sample_ohlcv`` fixture's geometric-brownian process but takes
+    explicit ``n`` / ``seed`` / ``start`` so a test can request its own series
+    without a dedicated fixture. Self-contained (its own ``default_rng`` — never
+    mutates the global numpy RNG). Returns the ``close`` Series when
+    ``close_only=True``, else a full open/high/low/close/volume DataFrame indexed
+    by business days. Provided for opt-in use; no existing test is migrated.
+    """
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range(start, periods=n, freq="B")
+    close = 100 * np.cumprod(1 + rng.normal(0.0005, 0.02, n))
+    if close_only:
+        return pd.Series(close, index=dates, name="close")
+    high = close * (1 + np.abs(rng.normal(0, 0.01, n)))
+    low = close * (1 - np.abs(rng.normal(0, 0.01, n)))
+    open_prices = np.roll(close, 1) * (1 + rng.normal(0, 0.002, n))
+    open_prices[0] = 100.0
+    volume = rng.lognormal(15, 0.5, n)
+    return pd.DataFrame(
+        {
+            "open": open_prices,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )

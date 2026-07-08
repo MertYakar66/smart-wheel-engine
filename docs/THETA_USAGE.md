@@ -54,6 +54,7 @@ the parts the engine cares about plus repo-specific integration notes.
   - §18.6 Coverage matrix — what's wired and what isn't
   - §18.7 Daily production routine
 - §19 Smart Wheel Engine integration notes
+- §20 Laptop bring-up checklist (Theta pull session notes)
 
 Find sections by section number (e.g. `§17.5`) — every heading carries
 its number verbatim, so Ctrl-F lands you precisely.
@@ -2389,3 +2390,118 @@ documentation:
   pin the Python version per use. The current engine doesn't depend
   on either path — it consumes the REST API via `httpx` from
   `engine/theta_connector.py`, which works on any modern 3.x.
+
+---
+
+## 20. Laptop bring-up checklist (Theta pull session notes)
+
+_Merged in 2026-07 from the former `docs/THETA_PULL_SESSION_NOTES.md` — the
+operational, step-by-step checklist for running a clean Theta refresh on the
+laptop. Complements `docs/LAPTOP_SETUP.md` (machine bring-up) and the
+per-endpoint reference in §§1–19 above._
+
+**Goal:** run a full daily Theta refresh on the laptop and verify the v3 path is
+healthy end-to-end (`pull_all.py` ready, IV-surface puller verified against AAPL,
+dry-run plan clean).
+
+### Step 1 — Verify the Terminal is up
+
+The Theta Terminal serves a local HTTP API on port 25503. Confirm the socket is
+open before anything else:
+
+```bash
+python -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 25503)); print('UP')"
+```
+
+Expected: `UP`. On `Connection refused` the Terminal isn't running — launch the
+`ThetaTerminalv3.jar` (from Spotlight or directly) and wait ~10s for it to
+connect upstream before re-checking.
+
+### Step 2 — Make sure exactly ONE Terminal instance is running
+
+Multiple Terminal processes step on each other's session and every API call
+starts returning **HTTP 478 ("Invalid session ID")** — the most common cause of
+cryptic auth-style failures. Check with `ps aux | grep -i theta | grep -v grep`;
+if you see two distinct `java -jar ThetaTerminalv3.jar` process sets, or leftover
+`pull_theta_*.py` scripts from a prior session, kill them all, wait, and relaunch
+one Terminal cleanly (`kill -9` only if a graceful kill fails).
+
+### Step 3 — Skip the v2-style probe
+
+`scripts/probe_theta_capabilities.py` hits the Terminal sequentially with a
+10-second per-request timeout; the four heavy chain-aggregate option endpoints
+(`option/history_eod`, `.../history_open_interest`, `.../history_greeks_iv`,
+`.../history_greeks_first`) legitimately exceed 10s on first hit and get
+falsely reported as errors — the connector itself uses `timeout=30` + chunked
+retries, so they work in practice. The capability matrix you need is already
+pinned in `docs/DATA_POLICY.md` §2 and §2 above. **Do not gate daily runs on the
+probe;** validate with a real puller (Step 4). If you must run the probe, raise
+its timeout from `10.0` to `30.0` in `run_probe()` (~line 188).
+
+### Step 4 — Smoke-test the v3 path with one real puller
+
+AAPL is the in-git sample, so a resume-mode no-op success means the connector is
+happy:
+
+```bash
+python scripts/pull_theta_iv_surface_history.py --tickers AAPL --days 7 --workers 1
+```
+
+Then verify Hive-style partitions under
+`data_processed/theta/iv_surface_history/ticker=AAPL/` (`year=2024/2025/2026`).
+
+### Step 5 — Dry-run the orchestrator
+
+```bash
+python scripts/pull_all.py --dry-run
+```
+
+Prints the 11-step plan. The `news` step SKIPs without a
+`POLYGON_API_KEY` / `FINNHUB_API_KEY` / `BENZINGA_API_KEY` (normal — news isn't
+on the EV path). Expect `theta_vix_futures` (tier-blocked) and
+`theta_corp_actions` (not in v3) to write little/nothing — both non-fatal.
+
+### Step 6 — Run the full refresh
+
+Keep `caffeinate` alive (`caffeinate -dimsu -t 3600 &`), then
+`python scripts/pull_all.py`. Wall-clock is typically 15–25 min (most of the
+second half is the feature-store backfill). Watch for FAIL rows, not silence.
+Useful flags: `--skip theta_vix_futures news`, `--only theta`,
+`--years 2 --workers 8`.
+
+### Step 7 — Verify
+
+```bash
+python scripts/feature_smoke_test.py --section theta --verbose
+```
+
+Sections 15 (connector), 22 (history pulls), 26 (outputs) should PASS.
+Persistent SKIP rows are tier-blocked endpoints (VIX futures, snapshots) and are
+expected per `docs/DATA_POLICY.md` §2. `--fast` gives a quicker sanity check.
+
+### Things to remember
+
+- The codebase is fully on Theta **v3** — `engine/theta_connector.py` and every
+  `scripts/pull_theta_*.py` use `/v3/...` paths. An HTTP 410 "We have upgraded to
+  API v3" means a stray `/v2/...` URL (usually a curl test).
+- Drive mounts are eventually-consistent mirrors and deny `unlink` on tracked
+  files, so `git pull` against a Drive worktree fetches refs but can't update the
+  working tree. To read a newer revision from Drive without checkout, use
+  `git show origin/<branch>:<path>`. Treat `~/Desktop/smart-wheel-engine` as the
+  source-of-truth checkout on the laptop.
+- The `.claude/SessionStart` hook validates dataset presence, Theta manifest
+  recency, and connector class on every fresh session — the first place to look
+  on an unexpected provider class or stale-manifest warning.
+
+### Quick-reference: the canonical bring-up
+
+```bash
+cd ~/Desktop/smart-wheel-engine
+caffeinate -dimsu -t 3600 &
+python -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 25503)); print('UP')"
+ps aux | grep -i theta | grep -v grep
+python scripts/pull_theta_iv_surface_history.py --tickers AAPL --days 7 --workers 1
+python scripts/pull_all.py --dry-run
+python scripts/pull_all.py
+python scripts/feature_smoke_test.py --section theta --verbose
+```

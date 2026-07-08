@@ -169,8 +169,6 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/README.md` | Dashboard project README. |
 | `dashboard/__init__.py` | Python package init — re-exports the legacy `QuantDashboard` and helpers. |
 | `dashboard/quant_dashboard.py` | Legacy standalone Python CLI dashboard — option pricing, Greeks, VaR, stress, sizing (imports only `engine/`). |
-| `dashboard/web_vitals.py` | `WebVitalsTracker` — records Core Web Vitals and checks per-page budgets. |
-| `dashboard/public/*.svg` | Default Next.js scaffold icon assets. |
 | `dashboard/src/app/favicon.ico` | Browser favicon. |
 | `dashboard/src/app/layout.tsx` | Root Next.js layout — global metadata and CSS. |
 | `dashboard/src/app/page.tsx` | Root index — redirects to `/top`. |
@@ -267,7 +265,6 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `data/consolidated_loader.py` | `ConsolidatedBloombergLoader` — loads the consolidated `sp500_*.csv` panels. |
 | `data/broad_pull_loaders.py` | `BroadPullLoader` — read-only Phase-0B loaders for the integrated broad-pull datasets under `data/bloomberg/broad_pull/` (gz handling, float32 downcast, logged winsorization of the manifest's outlier-flagged columns, lazy per-ticker access via normalized symbols). **Dormant — nothing consumes it (§2-safe)**; see `docs/WIRING_CAMPAIGN.md` Phase 0B. |
 | `data/feature_pipeline.py` | `FeaturePipeline` — wires the `src/features/` modules into a layered compute DAG. |
-| `data/feature_provenance.py` | Feature lineage / lag-audit registry (`ProvenanceRegistry`, `FeatureProvenance`). |
 | `data/feature_store.py` | `FeatureStore` — Parquet-backed feature persistence with atomic writes, locking, TTL cache. |
 | `data/observability.py` | Structured logging, metrics collection, tracing and alerting for the data pipeline. |
 | `data/orchestrator.py` | `PipelineOrchestrator` — DAG executor with retry and checkpoint/resume. |
@@ -330,8 +327,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/TESTED_SURFACE_MAP.md` | Per-module tested-surface map + top-N coverage-gap ranking, generated from `coverage.json` by `scripts/generate_tested_surface_map.py`. Answers "what is and isn't covered by the test suite" in one file. `coverage.json` is regenerated locally / in CI (gitignored, not committed); regenerate this doc after a meaningful coverage shift. |
 | `docs/PRODUCTION_READINESS.md` | The real-money deployment gate. Consolidates findings from the S22 / S27 / S32 backtests + the four review docs (#194 / #195 / #197 + S32) into one answer to "should we deploy this engine against a real brokerage account?" Names three blockers (F4 tail-risk widening, D17 live-wire to `engine_api.py`, strategy capacity at >$100k), four caveats, and a deployment decision matrix. Complementary to `LAUNCH_READINESS.md` (code-quality merge gates). |
 | `docs/THETA_INSTRUCTIONS.md` | Quick reference for refreshing every Theta-sourced dataset. |
-| `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. |
-| `docs/THETA_PULL_SESSION_NOTES.md` | Operational checklist and gotchas for a laptop Theta pull. |
+| `docs/THETA_USAGE.md` | Theta Terminal v3 per-endpoint reference, tier behaviour, wire-format codes. §20 folds in the former laptop bring-up checklist. |
 | `docs/THETA_PULL_DATA_LOG.md` | Running prepend-only log of what the `pull_theta_option_history.py` larder has pulled — names, titles, and date spans only (no option data). One snapshot prepended ~4-hourly by the session-only Theta health-monitor loop. |
 | `docs/THETA_PULL_AUDIT_2026-06-15.md` | Independent audit (2026-06-15, mid-pull) of the Theta option-history larder run: verified the monitoring loop, reconciled documented-vs-actual scope against the live terminal, confirmed the pull parameters (2016 floor / all-strikes / 90d lookback / EOD+OI / 150 names) as entitlement-bounded or defensible, and surfaced three discrepancies incl. one real silent data loss (larder-orphan dirs) — all next-pull follow-ups, none run-interrupting. Salvaged 2026-07-04 from the retired `claude/rescue-2026-06-15-fixes` branch. |
 | `docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md` | Live ThetaData v3 entitlement re-probe (2026-06-17) confirming greeks/IV history is 404/not-entitled, with the ranked next-pull decision (delisted survivor-bias, index GEX, universe expansion, BRKB). |
@@ -471,7 +467,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/dealer_positioning.py` | `DealerPositioningAnalyzer` — GEX/DEX/walls/gamma-flip/regime; the clamped dealer EV multiplier. |
 | `engine/skew_dynamics.py` | Nelson-Siegel IV term-structure fitting and skew-slope/momentum signals. |
 | `engine/realized_vol.py` | OHLC realised-volatility estimators (Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang) and the vol-risk-premium bundle. |
-| `engine/earnings_drift.py` | `EarningsDriftAnalyzer` — post-earnings drift and move distributions per ticker and sector. |
 | `engine/strangle_timing.py` | Volatility-lifecycle timing engine for short-strangle entry scoring and phase classification. |
 | `engine/option_pricer.py` | Black-Scholes-Merton pricing, full first/second/third-order Greeks, an IV solver, BAW American approximation. |
 | `engine/binomial_tree.py` | Cox-Ross-Rubinstein binomial-lattice pricer for American options with discrete dividends. |
@@ -494,7 +489,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/data_integration.py` | Loads Bloomberg earnings/dividend/treasury CSVs into calendar objects; resolves the risk-free rate. |
 | `engine/contracts.py` | Protocol/contract definitions and validators for the pricer/risk/stress interfaces. |
 | `engine/policy_config.py` | `TradingPolicyConfig` — centralized runtime policy knobs with JSON load/save. |
-| `engine/observability.py` | Audit-trail tooling — trace context, decision journal, JSON audit logger. |
 | `engine/dependency_check.py` | Environment-parity gate — checks installed packages with a require-dependencies decorator. |
 | `engine/trade_memo.py` | `MemoGenerator` — institutional trade memos combining engine analysis, the committee, and a local Ollama model. |
 | `engine/external_data/__init__.py` | Subpackage init re-exporting the four free-data adapters. |
@@ -564,7 +558,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `local_agent/ui/streamlit_app.py` | Streamlit dashboard for the browser agent. |
 | `local_agent/utils/__init__.py` | Re-exports config and retry/error helpers. |
 | `local_agent/utils/config.py` | `AgentConfig` — env-driven pydantic config. |
-| `local_agent/utils/efficiency.py` | Caching and performance utilities (LRU/action caches, batching, monitors). |
 | `local_agent/utils/error_handling.py` | Agent exception hierarchy and retry/recovery helpers. |
 | `local_agent/utils/security.py` | Security hardening — SSRF validation, sanitization, rate limiting, emergency stop. |
 | `local_agent/tests/*` | Pytest tests for the agent, memory, Ollama, Playwright, security, and end-to-end flows. |
@@ -599,7 +592,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `news_pipeline/browser_agents/chatgpt_agent.py` | Browser automation for ChatGPT. |
 | `news_pipeline/browser_agents/claude_agent.py` | Browser automation for Claude (verification and editorial). |
 | `news_pipeline/browser_agents/gemini_agent.py` | Browser automation for Gemini (verification with search). |
-| `news_pipeline/browser_agents/grok_agent.py` | Browser automation for Grok (X/Twitter market sentiment). |
 | `news_pipeline/browser_agents/robustness.py` | CSS-selector success-rate tracking and DOM-drift detection. |
 | `news_pipeline/browser_agents/types.py` | Playwright-free enums and dataclasses. |
 | `news_pipeline/local_llm/__init__.py` | Re-exports the local preprocessor. |
@@ -768,7 +760,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/features/assignment.py` | `AssignmentFeatures` — probability-of-touch and roll-vs-assignment scoring. |
 | `src/data/__init__.py` | Re-exports the data schemas and validator. |
 | `src/data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
-| `src/data/validators.py` | `DataValidator` — pandas-based data validation. |
 | `src/backtest/__init__.py` | Re-exports the wheel backtester. |
 | `src/backtest/wheel_backtest.py` | Event-driven wheel backtester (research/simulation only). |
 | `src/execution/__init__.py` | Empty package stub. |
@@ -889,7 +880,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_preflight_environment.py` | Preflight environment-invariant guard (automates CLAUDE.md §4 session-start checks): pins + logs that the default/`bloomberg` provider resolves to `MarketDataConnector` (silent provider selection is a recurring bug, §4.1) and that the bundled OHLCV reaches the pinned `EXPECTED_FRONTIER` — a loud, *diagnosing* failure ("OHLCV ends … expected ≥ … you may be on a STALE tree / wrong clone") that catches the stale-clone class (the "79-days-stale" premise + fingerprint false-positive from reading an older clone instead of main). Also pins `EXPECTED_EARNINGS_CALENDAR_ASOF` — the broad-pull snapshot's knowledge date feeding the D3-1 earnings-lockout overlay (a stale calendar fails OPEN, so the pin is load-bearing). Fast (date column only), deterministic (pinned frontier, not `today()`), self-skipping (skips on `SWE_DATA_PROVIDER=theta` or absent data). |
 | `tests/test_contracts.py` | `engine.contracts` interface-validation helpers. |
 | `tests/test_policy_config.py` | `TradingPolicyConfig` load/save/validate. |
-| `tests/test_observability.py` | `engine.observability` trace context, decision journal, audit logger. |
 | `tests/test_event_calendar.py` | `engine.event_calendar` queries, builder, ingestion manager. |
 | `tests/test_event_gate.py` | `EventGate` lockout, buffer windows, candidate filtering. |
 | `tests/test_reviewer_eventgate_invariants.py` | Quant audit round 2 (W65-W67): behaviour-pins the EXACT boundaries of the §2 downgrade-only reviewer rules — R5 inclusive `ev_dollars >= min_proceed_ev` (==threshold→proceed), R3 strict `diff > tol` (==tol→not-skip) + the `engine_spot>0` guard — and EventGate.is_blocked returning the EARLIEST in-window event across mixed wildcard-macro/ticker-specific. Asserts the §2 contract (downgrade-only), never weakens it. |
@@ -897,7 +887,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_earnings_calendar_overlay.py` | Pin the D3-1 + D6-1 earnings-lockout restoration — the PIT-gated `snapshot_bdp.next_earnings_dt` forward-calendar overlay in `get_next_earnings`/`get_recent_earnings` (serve/PIT-refuse/merge-precedence/back-buffer/hermeticity on tmp fixtures + dated real-data pins + ranker e2e with PIT control) and the de-silenced per-stage event-gate registration (raising forward lookup is logged, fail-open, and no longer kills the back-buffer lockout; malformed dates logged; method-less connectors quiet). Includes the opt-in `SWE_LIVE_PREFLIGHT=1` wall-clock snapshot-age check. |
 | `tests/test_corp_action_gate.py` | Pin #3A — the `engine.event_gate` `kind="corp_action"` lockout wired to `sp500_corporate_actions.csv` via `MarketDataConnector.get_corporate_actions` (excludes the 94% `Regular Cash` rows; PIT announcement filter) + the ranker helper `wheel_runner._register_corp_action_events` (registers disruptive splits/spinoffs/special-cash; no-op without the accessor / on error / gate=None; remove-only §2). Data-backed GE-spinoff / COST-special-cash end-to-end block. |
 | `tests/test_macro_event_gate_wiring.py` | Pin #3A (macro half) — the `engine.event_gate` macro lockout (`fomc`/`cpi`/`nfp`/`pce`) wired to `broad_pull/macro_calendar` via `MarketDataConnector.get_macro_events` + the ranker helper `wheel_runner._register_macro_events` (`_MACRO_EVENT_KIND` map: FOMC/CPI/NFP/PCE only, `core_cpi`→`cpi`; wildcard `ticker="*"`, once-per-run; lower-tier prints NOT gated; no-op without the accessor / on error / gate=None / fresh clone; remove-only §2). Gated behind `use_macro_event_gate` (**default OFF**): pins that the default path is non-empty AND that flag-on empties the book under whole-window semantics (monthly prints in every 21-63 DTE window) — the finding documented in `docs/WIRING_CAMPAIGN.md` §3A. |
-| `tests/test_earnings_drift.py` | `EarningsDriftAnalyzer` post-earnings drift statistics. |
 | `tests/test_signals.py` | The signal-generation framework and aggregator. |
 | `tests/test_skew_dynamics_invariants.py` | Quant audit round 2 (W56-W59): behaviour-pins the standalone skew-math in `skew_dynamics.py` — Nelson-Siegel fail-fast (iv_at/factor_loadings RuntimeError before fit) + degenerate-fit branches (n==1 level-only, n==0 → 0.20 sentinel), skew_momentum degenerate-history (empty→NaN, short→0 momentum), and the ivs_dislocation composite [-1,1] bound. (The live `skew_mult` clamp is dormant on Bloomberg + in the trio; not re-pinned.) |
 | `tests/test_strangle_timing.py` | The strangle-timing engine — regime classification, entry scoring, IV overlay. |
@@ -939,7 +928,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |
-| `tests/test_new_modules.py` | Coverage backfill — Taleb advisor, committee modes, runner import smoke. |
 | `tests/test_financial_news.py` | The `financial_news` platform — schema, macro calendar, verification engine. |
 | `tests/test_news_processing.py` | `financial_news` article classification. |
 | `tests/test_news_pipeline.py` | The `news_pipeline` package — models, security, recovery, publisher. |

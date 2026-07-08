@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**159 records.**
+**163 records.**
 
 ## Features (17)
 
@@ -173,18 +173,22 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
 | [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
-## Refactors (3)
+## Refactors (5)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [audit-dead-code-d28](audit-dead-code-d28-2026-07-repo-audit-batch-d-d28-dead-code-retirem.md) | in-flight |  | Nine verified-dead retirements (each with its manifest/index/taxonomy rows) + the D28 DECISIONS record and PROJECT_STATE/CHANGELOG sync. engine imports clean; suite green. | `audit-dead-code-d28-2026-07-repo-audit-batch-d-d28-dead-code-retirem.md` |
+| [audit-test-hygiene](audit-test-hygiene-2026-07-repo-audit-batch-c-test-suite-hygiene.md) | in-flight |  | Retired test_new_modules.py (folded unique coverage, dropped duplicates), removed two bare-pass no-ops, added make_gbm_ohlcv conftest helper, dropped two zero-consumer fixtures. Suite green. | `audit-test-hygiene-2026-07-repo-audit-batch-c-test-suite-hygiene.md` |
 | [connector-ticker-filter-perf](connector-ticker-filter-perf-cache-the-per-ticker-filter.md) | in-flight |  | A full-universe scan was dominated by the connector re-scanning each data file's object 'ticker' column once per ticker; a lazily-built id(df)-keyed groupby index + a unique-map normalization cut a full scan 62.3s -> 39.1s (~37%) with byte-identical output. | `connector-ticker-filter-perf-cache-the-per-ticker-filter.md` |
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (12)
+## Docs / process (14)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
+| [audit-doc-truth-pass](audit-doc-truth-pass-2026-07-repo-audit-batch-a-doc-comment-truth-pas.md) | in-flight |  | Truth-pass fixing 5 MODULE_INDEX drift entries, 6 stale docs, GOVERNANCE solo-trim, and a THETA_PULL_SESSION_NOTES→THETA_USAGE merge; docs/comment-only, suite green. | `audit-doc-truth-pass-2026-07-repo-audit-batch-a-doc-comment-truth-pas.md` |
+| [audit-trio-docstrings](audit-trio-docstrings-2026-07-repo-audit-batch-b-trio-docstring-commen.md) | in-flight |  | Three comment/docstring truth-fixes on decision-layer files — broken link, a phantom API in the ev_engine example, and a stale "(default on)" R9 comment. Zero executable change; full suite green. | `audit-trio-docstrings-2026-07-repo-audit-batch-b-trio-docstring-commen.md` |
 | [bloomberg-deep-history-2026-06-04](bloomberg-deep-history-2026-06-04.md) | in-flight |  | Fixed the OHLCV column-rotation defect, made all Tier-1 + context data current to 2026-06-04, deepened all single-series context to inception, generalized the pullers to contiguous backfill, COMPLETED the vol_iv deep-history backfill to the 1994 floor (captures the 2000-2002 and 2008 crises), and routed deep data to a gz buffer branch (rclone/Drive staged) to keep the connector monoliths <100 MB. | `bloomberg-deep-history-2026-06-04.md` |
 | [bloomberg-refresh-2026-06-02](bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md) | in-flight |  | Delta-refreshed OHLCV/IV/liquidity to 2026-06-02 and added 7 context datasets via the Bloomberg Desktop API (xbbg); deep historical backfill deferred (metered cap) | `bloomberg-refresh-2026-06-02-tier1-tier2-data-pull.md` |
 | [clarify-full-suite-slow-lane](clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md) | in-flight |  | TESTING.md called the full suite a bare `pytest tests/ -v`, but that does NOT auto-deselect the `backtest_regression` marker — with the S27/S32/S34/S35 snapshots committed locally a bare run pulls the ~4–5h slow lane inline. Added a callout pinning the per-PR gate to `-m "not backtest_regression"` (what CI runs) and naming the trap. | `clarify-full-suite-slow-lane-clarify-the-full-suite-vs-backtest-regression-sl.md` |

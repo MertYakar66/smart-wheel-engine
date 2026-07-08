@@ -328,22 +328,14 @@ particular is a recurring bug source — `CLAUDE.md` §4 emphasises
 
 ## 9. Observability surface
 
-`engine/observability.py` ships structured-logging machinery that
-the launch-readiness contract should make visible:
+The live launch-time audit surface is **`WheelTracker._ev_authority_log`** — the
+D16 + D17 audit log. (An earlier `engine/observability.py` scaffold —
+`TraceContext` / `DecisionEntry` / `DecisionJournal` / `AuditLogger` /
+`trace_operation` — was **retired in the 2026-07 D28 dead-code pass**: it was
+test-only and never wired into the decision path. If a structured decision
+journal is wanted at launch it must be built fresh and actually consumed, not
+resurrected from that scaffold.)
 
-- **`TraceContext`** — per-evaluation context carrying the EV row,
-  the reviewer's verdict, the multipliers applied, and the final
-  `ev_dollars`. The compliance audit identity
-  (`ev_dollars = ev_raw × Π(multipliers)`, see PR #149 / S16) is
-  reconstructable from a `TraceContext`.
-- **`DecisionEntry` + `DecisionJournal`** — append-only journal of
-  decision-layer outcomes. The journal is the upstream of any
-  external audit / dashboard / compliance consumer.
-- **`AuditLogger`** — file-or-stream sink for the journal. Pre-launch
-  checks should confirm the sink is configured for the launch
-  environment.
-- **`trace_operation`** — instrumentation helper used by the runner
-  and the dossier reviewer.
 - **`WheelTracker._ev_authority_log`** — the D16 + D17 audit log.
   Thirteen entry shapes total, all pinned by
   `tests/test_ev_authority_log_schema.py` and persisted via
@@ -363,8 +355,8 @@ the launch-readiness contract should make visible:
   - **brain-audit M1 token-binding (two shapes):** `action="reject"`
     with `reason="unbound_token"` / `reason="token_param_mismatch"`.
 
-Pre-launch: confirm the launch environment writes both surfaces
-(`DecisionJournal` and `_ev_authority_log`) somewhere recoverable —
+Pre-launch: confirm the launch environment writes the `_ev_authority_log`
+surface somewhere recoverable —
 S16's compliance walkthrough verdict was **partial**, so the audit
 trail is verifiable for survivor rows but the structured-log
 operator-facing story is incomplete. Tracked in audit issue #154

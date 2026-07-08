@@ -69,11 +69,18 @@ Typical caller
         dividend_yield=0.004,
     )
 
-    # Empirical 35-day log-return distribution for AAPL from the feature
-    # pipeline, rescaled/centered as required (PIT-safe).
-    empirical_log_returns = feature_store.get_forward_distribution("AAPL", horizon_days=35)
+    # Physical-measure forward log-returns for the horizon, supplied by the
+    # caller (principle #2 — the caller owns PIT safety). In production the
+    # empirical forward-distribution cascade builds them from OHLCV history:
+    from engine.forward_distribution import best_available_forward_distribution
 
-    ev = EVEngine().evaluate(trade, forward_log_returns=empirical_log_returns)
+    forward_log_returns, method = best_available_forward_distribution(
+        ohlcv_history,          # pandas DataFrame with a "close" column
+        horizon_days=35,
+        as_of="2026-03-20",     # PIT cut-off — no bar after this date is used
+    )
+
+    ev = EVEngine().evaluate(trade, forward_log_returns=forward_log_returns)
     print(ev.ev_dollars, ev.prob_profit, ev.cvar_5, ev.edge_vs_fair)
 """
 

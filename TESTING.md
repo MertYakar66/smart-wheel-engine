@@ -251,7 +251,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_news_processing.py` | News processing primitives |
 | `test_adversarial_news.py` | Adversarial robustness |
 | `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
-| `test_new_modules.py` | Modules added in recent audits |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
 | `test_news_sentiment.py` | `NewsSentimentReader` — store reads, staleness, neutral default; `sentiment_multiplier` constant-1.0 parity |

@@ -200,27 +200,47 @@ def analyze() -> dict:
     bl = CONFIG["bootstrap_block_len"]
     xsec = poos.per_date_cross_sectional_rho(table, signal_col="ev_dollars")
     xsec_ci = poos.cluster_bootstrap_ci(
-        table, stat="cross_sectional", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+        table,
+        stat="cross_sectional",
+        signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"],
+        seed=CONFIG["bootstrap_seed"],
+        block_len=bl,
     )
     pooled_ci = poos.cluster_bootstrap_ci(
-        table, stat="pooled", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+        table,
+        stat="pooled",
+        signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"],
+        seed=CONFIG["bootstrap_seed"],
+        block_len=bl,
     )
     # Holdout pooled + cross-sectional with moving-BLOCK CI (the decisive OOS #),
     # plus a naive block_len=1 contrast to show how much the block widens it.
     holdout_tbl = part.holdout
     holdout_pooled_ci = poos.cluster_bootstrap_ci(
-        holdout_tbl, stat="pooled", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+        holdout_tbl,
+        stat="pooled",
+        signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"],
+        seed=CONFIG["bootstrap_seed"],
+        block_len=bl,
     )
     holdout_pooled_ci_naive = poos.cluster_bootstrap_ci(
-        holdout_tbl, stat="pooled", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=1,
+        holdout_tbl,
+        stat="pooled",
+        signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"],
+        seed=CONFIG["bootstrap_seed"],
+        block_len=1,
     )
     holdout_xsec_ci = poos.cluster_bootstrap_ci(
-        holdout_tbl, stat="cross_sectional", signal_col="ev_dollars",
-        n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+        holdout_tbl,
+        stat="cross_sectional",
+        signal_col="ev_dollars",
+        n_boot=CONFIG["bootstrap_n"],
+        seed=CONFIG["bootstrap_seed"],
+        block_len=bl,
     )
 
     # --- S34 reconciliation: rho on the in-sample S34 window (2022-2024) ---
@@ -234,8 +254,12 @@ def analyze() -> dict:
         "our_pooled_rho": poos.scorecard(s34_sub, signal_col="ev_dollars")["rho"],
         "our_cross_sectional": poos.per_date_cross_sectional_rho(s34_sub, "ev_dollars"),
         "our_pooled_ci": poos.cluster_bootstrap_ci(
-            s34_sub, stat="pooled", signal_col="ev_dollars",
-            n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+            s34_sub,
+            stat="pooled",
+            signal_col="ev_dollars",
+            n_boot=CONFIG["bootstrap_n"],
+            seed=CONFIG["bootstrap_seed"],
+            block_len=bl,
         ),
         "n": int(s34_sub["realized_pnl"].notna().sum()),
     }
@@ -275,8 +299,12 @@ def analyze() -> dict:
     # showed does not generalize is simply not where the edge is).
     top_tier_edge_source = {
         sig: poos.top_n_tier_scores(
-            holdout_tbl, [5, 15, 50], signal_col=sig,
-            n_boot=CONFIG["bootstrap_n"], seed=CONFIG["bootstrap_seed"], block_len=bl,
+            holdout_tbl,
+            [5, 15, 50],
+            signal_col=sig,
+            n_boot=CONFIG["bootstrap_n"],
+            seed=CONFIG["bootstrap_seed"],
+            block_len=bl,
         )
         for sig in ("ev_dollars", "ev_raw")
     }
@@ -322,18 +350,33 @@ def _summary(payload: dict) -> None:
     s34 = payload["s34_reconciliation"]
     e3 = payload["e3_robustness"]
     print("\n=== 100-name parameter-OOS ===", flush=True)
-    print(f"  sampling: {payload['fingerprint']['actual_sample_dates']} daily as_of dates "
-          f"{payload['fingerprint']['actual_first_date']}..{payload['fingerprint']['actual_last_date']}", flush=True)
+    print(
+        f"  sampling: {payload['fingerprint']['actual_sample_dates']} daily as_of dates "
+        f"{payload['fingerprint']['actual_first_date']}..{payload['fingerprint']['actual_last_date']}",
+        flush=True,
+    )
     print(f"  pooled rho={ic['pooled_rho']:+.4f}  CI95={ic['pooled_rho_ci']['ci95']}", flush=True)
-    print(f"  cross-sectional mean rho={ic['cross_sectional_mean_rho']:+.4f} "
-          f"(n_dates={ic['cross_sectional_n_dates']})  CI95={ic['cross_sectional_rho_ci']['ci95']}", flush=True)
-    print(f"  HOLDOUT pooled rho={ic['holdout_pooled_rho']:+.4f}  CI95={ic['holdout_pooled_ci']['ci95']}", flush=True)
+    print(
+        f"  cross-sectional mean rho={ic['cross_sectional_mean_rho']:+.4f} "
+        f"(n_dates={ic['cross_sectional_n_dates']})  CI95={ic['cross_sectional_rho_ci']['ci95']}",
+        flush=True,
+    )
+    print(
+        f"  HOLDOUT pooled rho={ic['holdout_pooled_rho']:+.4f}  CI95={ic['holdout_pooled_ci']['ci95']}",
+        flush=True,
+    )
     print(f"  HOLDOUT x-sec CI95={ic['holdout_cross_sectional_ci']['ci95']}", flush=True)
     print(f"  optimism_gap(scalars)={pr['optimism_gap_regime_scalars']:+.4f}", flush=True)
-    print(f"  S34 recon: in-sample {s34['s34_in_sample_rho']:+.3f} vs our 2022-2024 pooled "
-          f"{s34['our_pooled_rho']:+.4f} (CI95 {s34['our_pooled_ci']['ci95']})", flush=True)
-    print(f"  E3 (all cand): full rho={e3['full_rho']:+.4f}  drop-{e3['dominant']} rho={e3['drop_dominant_rho']:+.4f}  "
-          f"LOO rho range=[{e3['loo_min_rho']:+.4f},{e3['loo_max_rho']:+.4f}]", flush=True)
+    print(
+        f"  S34 recon: in-sample {s34['s34_in_sample_rho']:+.3f} vs our 2022-2024 pooled "
+        f"{s34['our_pooled_rho']:+.4f} (CI95 {s34['our_pooled_ci']['ci95']})",
+        flush=True,
+    )
+    print(
+        f"  E3 (all cand): full rho={e3['full_rho']:+.4f}  drop-{e3['dominant']} rho={e3['drop_dominant_rho']:+.4f}  "
+        f"LOO rho range=[{e3['loo_min_rho']:+.4f},{e3['loo_max_rho']:+.4f}]",
+        flush=True,
+    )
     print("\n=== TOP-N TIER (pooled rho, block-CI95) — the decisive result ===", flush=True)
     tt = payload["top_n_tiers"]
     for seg in ("train", "holdout", "s34_window"):
@@ -343,8 +386,11 @@ def _summary(payload: dict) -> None:
             row += f"| top{tk}: {c['pooled_rho']:+.3f}[{c['block_ci95'][0]:+.2f},{c['block_ci95'][1]:+.2f}] "
         print(row, flush=True)
     et = payload["e3_holdout_top15"]
-    print(f"  E3 holdout top-15 breadth: full={et['full_rho']:+.3f} drop-BKNG={et['drop_dominant_rho']:+.3f} "
-          f"LOO=[{et['loo_min_rho']:+.3f},{et['loo_max_rho']:+.3f}] n_names={et['n_names']}", flush=True)
+    print(
+        f"  E3 holdout top-15 breadth: full={et['full_rho']:+.3f} drop-BKNG={et['drop_dominant_rho']:+.3f} "
+        f"LOO=[{et['loo_min_rho']:+.3f},{et['loo_max_rho']:+.3f}] n_names={et['n_names']}",
+        flush=True,
+    )
 
 
 def main(argv: list[str]) -> int:

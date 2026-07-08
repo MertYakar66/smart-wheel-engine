@@ -269,7 +269,8 @@ class EnginePhaseReviewer:
         ``vix_level`` is absent (missing-evidence semantics, like
         R6–R10). The warning payload carries the candidate's OWN modeled
         tail (``cvar_5`` from ``ev_row``) — computed/regime-matched, not
-        a hardcoded constant. See ``docs/HEAVY_VERIFY_2026-05-31_I11.md``.
+        a hardcoded constant. See
+        ``docs/HEAVY_VERIFY_2026-05-31_I11_RISK_BUDGET_STUDY.md``.
 
     Notes:
       * The reviewer is pure — no I/O, no network, no LLM. It only

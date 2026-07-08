@@ -170,6 +170,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_deep_read_connector.py` | R2 deep-read flag plumbing + graceful degrade; 1994-assembly/delisted checks local-only (`SWE_DEEP_TEST_DATA`) |
 | `test_survivorship_harness.py` | R3+R6 PIT universe — delisted names included/excluded correctly (deep-data gated) |
 | `test_survivorship_r6_lehman.py` | R6 proof — Lehman delisting realizes the loss at delisting price in a 2008 backtest (deep-data gated) |
+| `test_parameter_oos.py` | Parameter-OOS gate (E5) — per-row no-leakage certificate + offline re-weighting identities (fixture-independent, fast); fixture↔snapshot recompute lock (fast); engine-regeneration lock (`backtest_regression` marker, slow) |
 | `test_mark_to_market_iv.py` | #118 P4 — MTM IV staleness fallback chain (explicit → connector as-of ATM → entry IV) |
 | `test_iv_surface_failloud.py` | D9/A2 — `SurfaceDataUnavailable` + `require_surface` fail-loud SVI contract; no silent flat IV |
 | `test_preflight_environment.py` | Environment-invariant guard — silent provider selection + stale-tree OHLCV frontier (`EXPECTED_FRONTIER`) (#364) |

@@ -71,6 +71,26 @@ Frontend `(terminal)/paper/page.tsx` handed off to the Dashboard terminal
 
 ---
 
+## 2026-07-06 — parameter-OOS validation gate (E5), review-only
+
+`Added` — a committed, snapshot-locked **parameter-OOS** gate
+(`backtests/parameter_oos.py`, `scripts/run_parameter_oos.py`,
+`tests/test_parameter_oos.py`, `backtests/regression/snapshots/param_oos_regime_24t.json`,
+`tests/fixtures/param_oos/rank_table_24t.csv`, `docs/PARAMETER_OOS.md`). Measures
+how much of the reported rank edge survives **out-of-parameter** — the E5 gap
+that S35 (out-of-*window*) does not close. One production ranker pass captures a
+per-row rank table with `ev_raw`/`hmm_regime` diagnostics; the regime overlay is
+then re-selected offline on a leakage-certified train/holdout split.
+**Finding:** re-fitting the regime overlay on train manufactures ρ +0.11 that
+collapses to +0.02 out-of-parameter (optimism gap +0.096; train-optimal weights
+invert the shipped prior), and 24-name rank-ρ is unstable out-of-window (per-fold
+−0.14..+0.12, pooled ≈0) — consistent with E1/E5/i9. Reporting-only, off the §2
+decision path; **no production parameter default changed** and the decision-layer
+trio is untouched (a re-selected value differing from shipped is a *finding*, not
+a change to ship).
+
+---
+
 ## 2026-07-05 — Distributional MC forward simulated-portfolio track
 
 **Added** — `engine/sim_portfolio.py` + `scripts/run_forward_sim.py` +

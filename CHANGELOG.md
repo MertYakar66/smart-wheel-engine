@@ -40,6 +40,102 @@ carried-forward parked list: `DECISIONS.md` D28.
 
 ---
 
+## 2026-07-06 — Forward paper-trading book (simulated wheel loop)
+
+**Added** — `engine/paper_book.py` + `scripts/run_paper_book.py` +
+`tests/test_paper_book.py` (21 tests). Stands up the "simulation world": a
+simulated wheel book the **real** engine ranks and manages day-by-day,
+accumulating a live equity curve with **zero money at risk**, plus a continuous
+calibration accumulator and SIM-only dashboard API slices. `seed` reuses the
+caps-off, PIT-correct `_common.run_backtest` for a `backfill` (in-sample-ish)
+curve; the idempotent daily `forward` append re-ranks `as_of` (clamped to the
+data frontier) through the real ranker and opens up to N EV>0 positions on a
+**caps-armed** `make_live_book_tracker` (R9 sector + R10 single-name), settling
+due trades and appending exactly one genuinely-out-of-sample `forward` point.
+The MC equity bands reuse `engine/sim_portfolio.py` (#483); the calibration
+accumulator reuses `wilson`/`reliability` from `scripts/ibkr_ev_calibration`
+(byte-match pinned). **Reporting-only and off the §2 decision path**:
+`engine/paper_book.py` never imports the trio (AST-guarded), consumes ranker
+output and never ranks, never mutates `ev_dollars`/`ev_raw`/`prob_profit`/a
+verdict. All artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), **never** `data_processed/ibkr/`
+(Dashboard terminal, §6). New engine API slices
+`/api/portfolio/{papertrade,montecarlo,calibration}` serve the SIM data
+(`source: "simulated"`); the real-portfolio slices are byte-identical. Honesty
+guards (synthetic BSM fills, backfill-vs-forward boundary, W3 top-bin
+over-confidence, E1/E3/E5/D19/D21) carried on every report + the panel.
+Frontend `(terminal)/paper/page.tsx` handed off to the Dashboard terminal
+(`docs/PAPER_TRADING_PANEL_HANDOFF.md`). Runbook:
+`docs/PAPER_TRADING_RUNBOOK.md`. Branch `claude/paper-trading-sim`, stacked on
+#483. (SHA at merge.)
+
+---
+
+## 2026-07-06 — parameter-OOS validation gate (E5), review-only
+
+`Added` — a committed, snapshot-locked **parameter-OOS** gate
+(`backtests/parameter_oos.py`, `scripts/run_parameter_oos.py`,
+`tests/test_parameter_oos.py`, `backtests/regression/snapshots/param_oos_regime_24t.json`,
+`tests/fixtures/param_oos/rank_table_24t.csv`, `docs/PARAMETER_OOS.md`). Measures
+how much of the reported rank edge survives **out-of-parameter** — the E5 gap
+that S35 (out-of-*window*) does not close. One production ranker pass captures a
+per-row rank table with `ev_raw`/`hmm_regime` diagnostics; the regime overlay is
+then re-selected offline on a leakage-certified train/holdout split.
+**Finding:** re-fitting the regime overlay on train manufactures ρ +0.11 that
+collapses to +0.02 out-of-parameter (optimism gap +0.096; train-optimal weights
+invert the shipped prior), and 24-name rank-ρ is unstable out-of-window (per-fold
+−0.14..+0.12, pooled ≈0) — consistent with E1/E5/i9. Reporting-only, off the §2
+decision path; **no production parameter default changed** and the decision-layer
+trio is untouched (a re-selected value differing from shipped is a *finding*, not
+a change to ship).
+
+---
+
+## 2026-07-06 — parameter-OOS 100-name replication (daily), review-only
+
+`Added` — replicates the #484 parameter-OOS rank test on `UNIVERSE_100` at daily
+cadence (`scripts/run_parameter_oos_100t.py`, `tests/test_parameter_oos_100t.py`,
+`backtests/regression/snapshots/param_oos_regime_100t.json`,
+`tests/fixtures/param_oos/rank_table_100t.csv`, new functions in
+`backtests/parameter_oos.py`, `docs/PARAMETER_OOS.md` §7). **Finding: the 24-name null does
+NOT blanket-generalize.** Across *all* ~48 candidates/day the pooled ρ ≈ 0
+(holdout −0.077), but the tradeable **top tier** carries a real, out-of-window
+rank edge that survives: HOLDOUT top-15 ρ **+0.371** (moving-block CI95 [0.25,
+0.49], excludes zero), top-5 +0.597 — **stable out-of-sample** (train top-15
++0.354; CIs overlap heavily → no decay, and *not* an improvement),
+**breadth** (leave-one-out [0.35, 0.40] across 97 names, drop-BKNG a no-op), and
+located in the parameter-light core `ev_raw` (+0.378 ≈ ev_dollars) so it is robust
+to the E5 overlay surface. Reproduces S34 exactly at top-15 (+0.316 vs 0.313); the
+edge decays monotonically to ≈0 across the full menu, which is why the 24-name
+all-candidate measurement (#484) read null. Adds the independence correction daily
+sampling demands: per-date **cross-sectional** ρ + a **moving-block bootstrap**
+(resamples ~25-date blocks, never rows) for every CI — no naive z on the inflated
+~63k pooled N. Plus the S34 reconciliation and E3 BKNG-drop / leave-one-name-out.
+Reporting-only, off §2; **no engine default changed**, trio + all `engine/`
+untouched. Reuses the #484 harness verbatim (shared analysis code → directly
+comparable).
+
+---
+
+## 2026-07-05 — Distributional MC forward simulated-portfolio track
+
+**Added** — `engine/sim_portfolio.py` + `scripts/run_forward_sim.py` +
+`tests/test_sim_portfolio.py` (16 tests). Wires the previously-dormant Monte
+Carlo (`monte_carlo.BlockBootstrap`) + copula (`portfolio_copula`) machinery
+into a live distributional view of a WheelTracker forward book: a p5–p95
+equity fan, terminal-return + drawdown distributions, and a correlation-to-1
+copula tail — reconciled against the deterministic backtest NAV (median gap
+1.92% on 2024, 0.62% out-of-window on the 2022 bear). **Reporting-only and
+off the §2 decision path**: the module never imports the trio (AST-guarded),
+every output is labelled `model` vs `engine-measured`, and the copula tail is
+`feeds_ev=False` — it never touches `ev_dollars`, a verdict, or the R7/R8 gate
+thresholds. Simulated artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), never to real IBKR data. Trio
+untouched; dashboard view deferred to coordinate with the Dashboard terminal.
+Worklog: `docs/worklog/mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md`.
+
+---
+
 ## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
 
 The first (E)-trio fix (`docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` §1; branch

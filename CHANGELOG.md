@@ -40,6 +40,25 @@ carried-forward parked list: `DECISIONS.md` D28.
 
 ---
 
+## 2026-07-05 — Distributional MC forward simulated-portfolio track
+
+**Added** — `engine/sim_portfolio.py` + `scripts/run_forward_sim.py` +
+`tests/test_sim_portfolio.py` (16 tests). Wires the previously-dormant Monte
+Carlo (`monte_carlo.BlockBootstrap`) + copula (`portfolio_copula`) machinery
+into a live distributional view of a WheelTracker forward book: a p5–p95
+equity fan, terminal-return + drawdown distributions, and a correlation-to-1
+copula tail — reconciled against the deterministic backtest NAV (median gap
+1.92% on 2024, 0.62% out-of-window on the 2022 bear). **Reporting-only and
+off the §2 decision path**: the module never imports the trio (AST-guarded),
+every output is labelled `model` vs `engine-measured`, and the copula tail is
+`feeds_ev=False` — it never touches `ev_dollars`, a verdict, or the R7/R8 gate
+thresholds. Simulated artifacts persist to the gitignored SIM namespace
+(`$SWE_SIM_DATA_DIR` / `data_processed/sim/`), never to real IBKR data. Trio
+untouched; dashboard view deferred to coordinate with the Dashboard terminal.
+Worklog: `docs/worklog/mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md`.
+
+---
+
 ## 2026-06-23 — #372 R9 sector cap → real GICS (E-trio, supervised)
 
 The first (E)-trio fix (`docs/PHASE1_E_TRIO_EXECUTION_SPEC.md` §1; branch

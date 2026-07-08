@@ -89,6 +89,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_option_pricer.py` | BSM, BAW, IV solver vs textbook references |
 | `test_binomial_tree.py` | Binomial-tree pricing |
 | `test_monte_carlo.py` | Block bootstrap, jump diffusion, LSM |
+| `test_sim_portfolio.py` | MC forward-sim reporting overlay — fan monotonicity + determinism, median-reconciles-with-backtest, corr-to-1 copula tail, §2 no-trio-import guard |
 | `test_greeks_unit_invariants.py` | Greek units (see `docs/GREEKS_UNIT_CONTRACT.md`) |
 | `test_realized_vol.py` | Close-to-close, Parkinson, Garman-Klass estimators |
 | `test_advanced_quant.py` | Advanced quant building blocks |

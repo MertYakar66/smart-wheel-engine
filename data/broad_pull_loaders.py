@@ -10,10 +10,14 @@ Read-only loaders for the ~25 net-new Bloomberg datasets pulled in the
 
 * It is **not** imported or called by the decision trio (``ev_engine`` /
   ``wheel_runner`` / ``candidate_dossier``), any risk gate, any reviewer, or the
-  production ``ConsolidatedBloombergLoader.load_all`` path. **Nothing consumes
-  it.** Wiring any of these into a consumer (``skew_dynamics``, ``event_gate``,
-  ``regime_detector``, ``option_pricer``, ``cost_model``, …) is the supervised,
-  re-baseline-coupled Phase 1-3 work and is **out of scope** here.
+  production ``ConsolidatedBloombergLoader.load_all`` path. Its
+  ``BroadPullLoader`` *is* now consumed — the connector's PIT overlays read whole
+  panels through it (``engine/data_connector.py`` :894 forward-calendar,
+  :1063 macro_calendar, :1582 dividend_pit) — but those read committed CSV bytes
+  only and change no ``EVEngine.evaluate`` output. Wiring the *bucket* datasets
+  into a quant consumer (``skew_dynamics``, ``event_gate``, ``regime_detector``,
+  ``option_pricer``, ``cost_model``, …) is the supervised, re-baseline-coupled
+  Phase 1-3 work and is **out of scope** here.
 * It only READS committed CSV/gz bytes into DataFrames; it changes no
   ``EVEngine.evaluate`` output.
 
@@ -221,7 +225,12 @@ SPECS: dict[str, DatasetSpec] = {
 
 
 class BroadPullLoader:
-    """Loader for the integrated broad-pull datasets (dormant; nothing consumes it)."""
+    """Loader for the integrated broad-pull datasets.
+
+    Consumed by the connector's PIT overlays (``engine/data_connector.py``
+    :894/:1063/:1582); the broad-pull *bucket* wiring into quant modules
+    remains dormant.
+    """
 
     def __init__(self, data_dir: str | Path = BROAD_PULL_DIR) -> None:
         self.data_dir = Path(data_dir)
@@ -360,8 +369,9 @@ class BroadPullLoader:
         """Per-ticker time series for a ``ticker_ts`` dataset, optionally PIT-filtered.
 
         Lazy: filters the cached panel rather than holding per-ticker copies.
-        ``as_of`` keeps only rows on/before that date (no-look-ahead helper for
-        the future wiring; this loader itself feeds no consumer).
+        ``as_of`` keeps only rows on/before that date (no-look-ahead helper).
+        The connector reads whole panels via ``load`` / ``panel``; this ``series``
+        PIT path has no live caller yet (retained for the bucket wiring).
         """
         spec = SPECS[name]
         if spec.kind != KIND_TICKER_TS or spec.ticker_col is None:

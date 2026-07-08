@@ -18,6 +18,18 @@
 > `engine/wheel_runner.py`, or `engine/candidate_dossier.py` is changed by this
 > docs-only branch.
 
+> **Update (2026-07): the connector deep-read shipped.**
+> `engine/data_connector.py` now assembles monolith + deep + delisted panels
+> behind the `deep_history` flag (constructor kwarg `:191`; env
+> `SWE_DEEP_HISTORY`, **default OFF** `:201`), with the
+> `recent > deep-current > delisted` precedence this roadmap specifies
+> (`:136-142`). The "**None of it is live** / consequential steps **NOT executed
+> here**" framing above is the 2026-06-05 plan snapshot and is superseded **for
+> the connector-assembly step**. Because the flag defaults OFF, the default read
+> path — and therefore `EVEngine.evaluate` output — is unchanged. The
+> point-in-time backtest-universe selection and the single S27/S32/S34/S35
+> re-baseline remain the operator-gated follow-ons scoped below.
+
 ## 0. The one-paragraph problem
 
 The multi-day Bloomberg campaign produced a **survivorship-bias-free 1990→2026

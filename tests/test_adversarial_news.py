@@ -517,16 +517,6 @@ class TestVerificationResilience:
         assert story.source_name == "Reuters"  # High credibility source
         assert story.category == "macro"
 
-    def test_slow_provider_timeout(self):
-        """Verification with slow provider timing out."""
-        # Verification should continue even if one provider is slow
-        pass
-
-    def test_rate_limited_provider(self):
-        """Verification when provider is rate limited."""
-        # Should fallback gracefully
-        pass
-
 
 # =============================================================================
 # FIXTURES

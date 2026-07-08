@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**165 records.**
+**166 records.**
 
 ## Features (18)
 
@@ -98,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 
-## Verification & realism (33)
+## Verification & realism (34)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -120,6 +120,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [heavy-verify-2026-05-31](heavy-verify-2026-05-31-heavy-verification-campaign-calibration-net-of-r.md) | complete |  | prob_profit calibrated in the middle / over-confident at the top (esp. crisis, -27pp); wheel beats passive by +27pp in 2022 bear / -26pp in bulls; §2 firewall held; risk caps dormant by default; engine procyclical at crash entry. | `heavy-verify-2026-05-31-heavy-verification-campaign-calibration-net-of-r.md` |
 | [ht-a](ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md) | in-flight |  | Bloomberg-default path is HMM-overlay-only; 316 positive-EV survivors trimmed silently by top_n; P25=P50=P75 collapses; §2 invariants observed upheld (D16 + D17 + R1/R1a + reviewer-never-upgrades). | `ht-a-persona-walkthrough-quant-drives-engine-end-to-e.md` |
 | [HT-B](HT-B.md) | completed |  | Robust finding — mid-high bins (0.85,0.95] uniformly miscalibrated −11 to −17pp across 3 windows (n=68-552 per bin). Top-bin (0.95,1.0] sample-poor (n=8-67); apparent regime-dependence is hypothesis-generating only. Engine-exact pnl definition flips in-sample top bin to OK; ~12pp of headline OTM-convention "over-confidence" is methodology artifact. H3 verdict CORRECTED post-review from SUPPORTED → INCONCLUSIVE (sampling variance + HT-C cross-validation). | `HT-B.md` |
+| [parameter-oos-100t](parameter-oos-100t-parameter-oos-on-100-names-daily-does-the-24t-nu.md) | in-flight | #485 | Replicated the #484 parameter-OOS rank test on UNIVERSE_100 at daily cadence with date-clustered bootstrap significance, to decide whether the 24-name OOS null generalizes or an out-of-parameter edge appears on the S34 universe (in-sample rho 0.313). Reporting-only, off §2; reuses the shared harness verbatim. | `parameter-oos-100t-parameter-oos-on-100-names-daily-does-the-24t-nu.md` |
 | [parameter-oos-gate](parameter-oos-gate-parameter-oos-validation-gate-e5.md) | complete | #484 | Built a committed, snapshot-locked parameter-OOS gate that re-selects the engine's regime overlay on a leakage-certified training partition and measures the in-sample→out-of-parameter optimism gap. Finding — the re-fittable regime edge is ~86% in-sample optimism (train ρ +0.11 → holdout ρ +0.02), and 24-name rank-ρ is unstable out-of-window (per-fold −0.14..+0.12, pooled ≈0). Reporting-only, off §2; production defaults unchanged. | `parameter-oos-gate-parameter-oos-validation-gate-e5.md` |
 | [quant-tests-dealer](quant-tests-dealer-quant-audit-round-2-pr-5-dealer-positioning-clam.md) | in-flight |  | Pins the §2-critical dealer [0.70,1.05] clamp under ANY confidence (incl inf/nan — they resolve to 1.0, no leak) + asymmetry, the _classify_regime boundaries (gex==0 neutral, near-flip override), and analyze() flip-distance consistency | `quant-tests-dealer-quant-audit-round-2-pr-5-dealer-positioning-clam.md` |
 | [quant-tests-forward-dist](quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md) | in-flight |  | Behaviour-pins the EV integrand's cascade tier-SELECTION (not membership), sampler determinism, empirical boundary, and realized-vol guards; probe exposed an incomplete _log guard (+inf leak) tracked as (E) #382 via xfail(strict) | `quant-tests-forward-dist-quant-layer-test-audit-round-2-pr-1-forward-dist.md` |

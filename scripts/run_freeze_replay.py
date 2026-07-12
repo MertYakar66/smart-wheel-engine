@@ -240,7 +240,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     )
     print(f"  rank (per-date cross-sectional rho, mean [block-{cfg['block_len']} CI95]):")
     for name, entry in report["rank"].items():
-        for tier in ("all", "top5"):
+        for tier in ("all", "top15", "top5"):
             x, c = entry[tier]["xsec"], entry[tier]["ci_block"]
             print(
                 f"    {name:>28} {tier:>5}: {x['mean_rho']:+.3f} "

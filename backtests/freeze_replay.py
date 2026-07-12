@@ -794,7 +794,9 @@ def compare_frozen_vs_production(
     rank: dict[str, Any] = {}
     for name, (tbl, col) in signals.items():
         entry: dict[str, Any] = {}
-        for tier_name, tier_n in (("all", None), ("top5", 5)):
+        # top15 is the parameter_oos section-7.2 headline tier (the S34-class
+        # tradeable menu at 100 names); on 24t it nearly equals "all".
+        for tier_name, tier_n in (("all", None), ("top15", 15), ("top5", 5)):
             sub = restrict_top_n_per_date(tbl, tier_n, signal_col=col)
             entry[tier_name] = {
                 "xsec": per_date_cross_sectional_rho(sub, col),

@@ -386,7 +386,7 @@ def test_compare_frozen_vs_production_report_shape():
         "frozen_ev_frozen_hmm",
     }
     for entry in report["rank"].values():
-        assert set(entry) == {"all", "top5"}
+        assert set(entry) == {"all", "top15", "top5"}
         assert "mean_rho" in entry["all"]["xsec"]
         assert "ci95" in entry["all"]["ci_block"]
         assert entry["all"]["ci_block"]["block_len"] == 7  # default cadence scaling

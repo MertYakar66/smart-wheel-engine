@@ -175,24 +175,31 @@ def cmd_frozen_build(args: argparse.Namespace) -> int:
     cfg = CONFIGS[args.config]
     tickers = _universe(cfg["universe"])
     grid = _holdout_grid(cfg)
-    print(
-        f"[freeze_replay] frozen build: config={args.config} cutoff={args.cutoff} "
-        f"grid={grid[0]}..{grid[-1]} ({len(grid)} dates, every {cfg['every_n_bdays']} bdays)",
-        flush=True,
-    )
-    table = fz.build_frozen_tail_table(
-        tickers=tickers,
-        sample_dates=grid,
-        cutoff=args.cutoff,
-        dte_target=DTE_TARGET,
-        delta_target=DELTA_TARGET,
-        top_n=100,
-    )
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"frozen_tail_table_{args.config}.csv"
-    table.to_csv(out, index=False)
-    print(f"[freeze_replay] wrote {len(table)} rows -> {out}", flush=True)
+    if out.exists():
+        # Resume path: the engine pass is deterministic given the pinned
+        # config, so an existing table is reused rather than re-spent (~46
+        # min at 100t). Delete the CSV to force a rebuild.
+        table = pd.read_csv(out)
+        print(f"[freeze_replay] reusing existing {out} ({len(table)} rows)", flush=True)
+    else:
+        print(
+            f"[freeze_replay] frozen build: config={args.config} cutoff={args.cutoff} "
+            f"grid={grid[0]}..{grid[-1]} ({len(grid)} dates, every {cfg['every_n_bdays']} bdays)",
+            flush=True,
+        )
+        table = fz.build_frozen_tail_table(
+            tickers=tickers,
+            sample_dates=grid,
+            cutoff=args.cutoff,
+            dte_target=DTE_TARGET,
+            delta_target=DELTA_TARGET,
+            top_n=100,
+        )
+        table.to_csv(out, index=False)
+        print(f"[freeze_replay] wrote {len(table)} rows -> {out}", flush=True)
 
     dates = sorted({str(d) for d in table["date"]})
     mults = fz.frozen_hmm_multipliers(args.data_dir, tickers, dates, cutoff=args.cutoff)

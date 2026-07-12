@@ -393,9 +393,13 @@ def hmm_snapshot_at(conn: Any, ticker: str, as_of: str) -> dict[str, Any] | None
     tail = _hmm_tail(ohlcv)
     if tail is None:
         return None
-    hmm = GaussianHMM(n_states=HMM_N_STATES, n_iter=HMM_N_ITER, random_state=HMM_SEED)
-    hmm.fit(tail)
-    probs = hmm.predict_proba(tail)
+    try:
+        hmm = GaussianHMM(n_states=HMM_N_STATES, n_iter=HMM_N_ITER, random_state=HMM_SEED)
+        hmm.fit(tail)
+        probs = hmm.predict_proba(tail)
+    except Exception as exc:  # noqa: BLE001 — e.g. the #386 non-finite guard on halt-day NaN closes
+        logger.warning("snapshot HMM fit failed for %s @ %s: %s", ticker, as_of, exc)
+        return None
     fr = hmm.fit_result
     return {
         "n_obs": int(len(tail)),
@@ -428,9 +432,13 @@ def gpd_snapshot_at(
     ohlcv = _pit_ohlcv(conn, ticker, as_of)
     if ohlcv is None:
         return None
-    fwd_rets, method = best_available_forward_distribution(
-        ohlcv, horizon_days=horizon_days, as_of=as_of
-    )
+    try:
+        fwd_rets, method = best_available_forward_distribution(
+            ohlcv, horizon_days=horizon_days, as_of=as_of
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade, never abort a snapshot build
+        logger.warning("snapshot forward distribution failed for %s @ %s: %s", ticker, as_of, exc)
+        return None
     arr = np.asarray(fwd_rets, dtype=float)
     if arr.size == 0:
         return None
@@ -662,8 +670,18 @@ def frozen_hmm_multipliers(
         tail0 = _hmm_tail(ohlcv_cut) if ohlcv_cut is not None else None
         hmm = None
         if tail0 is not None:
-            hmm = GaussianHMM(n_states=HMM_N_STATES, n_iter=HMM_N_ITER, random_state=HMM_SEED)
-            hmm.fit(tail0)
+            # Guarded like wheel_runner's own fit site: the engine's #386
+            # non-finite guard (regime_hmm) deliberately RAISES on NaN
+            # observations (e.g. BIIB's 2023-06-09 halt-day close, inside the
+            # 504-return tail at the canonical cutoff) and callers degrade to
+            # the neutral multiplier. Found by the V2-c-100t run — the fit was
+            # the one unguarded call in this function.
+            try:
+                hmm = GaussianHMM(n_states=HMM_N_STATES, n_iter=HMM_N_ITER, random_state=HMM_SEED)
+                hmm.fit(tail0)
+            except Exception as exc:  # noqa: BLE001 — degrade like the engine does
+                logger.warning("frozen HMM fit failed for %s @ %s: %s", ticker, cutoff, exc)
+                hmm = None
         for d in dates:
             mult, regime = 1.0, "unknown"
             if hmm is not None:

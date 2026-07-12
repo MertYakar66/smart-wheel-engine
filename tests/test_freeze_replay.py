@@ -397,6 +397,65 @@ def test_compare_frozen_vs_production_report_shape():
     assert set(report["distribution_source_mix"]) == {"production", "frozen"}
 
 
+def _write_ohlcv_monolith(dirpath: Path, specs: dict[str, int | None], n_days: int = 650) -> None:
+    """Minimal sp500_ohlcv.csv monolith. ``specs`` maps ticker -> row index
+    (from the end of the pre-cutoff window) to poison with a NaN close, or
+    None for a clean series."""
+    idx = pd.bdate_range("2021-06-01", periods=n_days)
+    frames = []
+    for i, (ticker, nan_from_cutoff) in enumerate(specs.items()):
+        rng = np.random.default_rng(10 + i)
+        close = 100.0 * np.exp(np.cumsum(rng.normal(0.0003, 0.015, size=n_days)))
+        df = pd.DataFrame(
+            {
+                "date": idx.strftime("%Y-%m-%d"),
+                "ticker": ticker,
+                "open": close,
+                "high": close,
+                "low": close,
+                "close": close,
+                "volume": 1_000_000,
+            }
+        )
+        if nan_from_cutoff is not None:
+            pos = int((idx <= pd.Timestamp("2023-06-30")).sum()) - nan_from_cutoff
+            # NaN every price field, as a real halt-day row is. (The raw CSV's
+            # labels are rotated — the connector serves close from the CSV's
+            # "high" column, AUDIT-VIII P1.5 — so poisoning one named column
+            # would test the wrong served field.)
+            df.loc[pos, ["open", "high", "low", "close"]] = np.nan
+        frames.append(df)
+    pd.concat(frames).to_csv(dirpath / "sp500_ohlcv.csv", index=False)
+
+
+def test_frozen_hmm_multipliers_degrades_on_nan_close(tmp_path):
+    """The V2-c-100t crash, pinned: a NaN close inside the 504-return tail at
+    the cutoff (BIIB's halt-day rows) trips the engine's #386 non-finite
+    guard; the harness must degrade that ticker to the neutral 1.0/'unknown'
+    — the documented contract — instead of aborting the whole pass."""
+    _write_ohlcv_monolith(tmp_path, {"NANT": 15, "CLNT": None})
+    mults = fz.frozen_hmm_multipliers(
+        tmp_path, ["NANT", "CLNT"], ["2023-09-15", "2023-12-15"], cutoff="2023-06-30"
+    )
+    assert len(mults) == 4
+    nant = mults[mults["ticker"] == "NANT"]
+    assert (nant["frozen_hmm_multiplier"] == 1.0).all()
+    assert (nant["frozen_hmm_regime"] == "unknown").all()
+    clnt = mults[mults["ticker"] == "CLNT"]
+    assert np.isfinite(clnt["frozen_hmm_multiplier"].to_numpy(dtype=float)).all()
+    assert (clnt["frozen_hmm_regime"] != "unknown").all()
+
+
+def test_hmm_snapshot_at_returns_none_on_nan_close(tmp_path):
+    from engine.data_connector import MarketDataConnector
+
+    _write_ohlcv_monolith(tmp_path, {"NANT": 15, "CLNT": None})
+    conn = MarketDataConnector(str(tmp_path))
+    assert fz.hmm_snapshot_at(conn, "NANT", "2023-06-30") is None
+    clean = fz.hmm_snapshot_at(conn, "CLNT", "2023-06-30")
+    assert clean is not None and np.isfinite(clean["multiplier"])
+
+
 def test_months_since_cutoff_is_monotone():
     s = pd.Series(["2023-07-30", "2023-12-30", "2024-06-30", "2025-07-01"])
     m = fz._months_since(s, "2023-06-30")

@@ -70,12 +70,32 @@ tests + the slow-lane C1 refit lock.
   and the original section 5.3 text lumped the F4 vol-ratio into the
   freeze (it is a market-state reading and stays live at T). The 5.4
   expectations were never touched.
+- **Harness artifact found by the V2-c-100t run (terminal, died twice per
+  protocol):** `frozen_hmm_multipliers` guarded the per-date
+  `predict_proba` but left the one-time `hmm.fit(tail0)` unguarded —
+  contradicting its own docstring. BIIB carries NaN closes on halt days
+  (2020-11-06, 2023-06-09); the 2023-06-09 one sits inside the
+  504-return tail at the canonical cutoff and trips the engine's
+  deliberate #386 non-finite guard, which `wheel_runner` catches but the
+  harness did not. Never surfaced at 24t (BIIB not in UNIVERSE_24).
+  The expensive 46-min 100t engine pass had already completed and its
+  table is valid; only the cheap multiplier step crashed.
 
 ## How we fixed it
 
-See above — scope corrections recorded in
-`docs/VALIDATION_PHASE_PLAN.md` sections 5.1/5.3 with explicit
-"pre-run correction" markers.
+Scope corrections recorded in `docs/VALIDATION_PHASE_PLAN.md` 5.1/5.3
+with explicit "pre-run correction" markers. The BIIB crash: the fit is
+now guarded exactly like wheel_runner's own fit site (degrade to the
+neutral 1.0/"unknown"); the same latent gap in `hmm_snapshot_at` /
+`gpd_snapshot_at` is guarded too (degrade to no-entry); pinned by two
+regression tests using a poisoned mini-monolith (which also had to learn
+the AUDIT-VIII P1.5 rotated-column fact — the served close is the CSV's
+"high"). `frozen-build` now reuses an existing frozen table so the
+terminal's resume costs minutes, not 46. C1 lock re-verified after the
+change (fixture reproduces; UNIVERSE_24 has no poisoned tails).
+Interpretation note for the 100t compare: BIIB's ~198 frozen rows carry
+the neutral multiplier in `frozen_ev_frozen_hmm` — symmetric with
+production, where the engine's own catch degraded BIIB the same way.
 
 ## Evidence
 

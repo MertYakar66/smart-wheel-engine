@@ -1601,9 +1601,15 @@ volatility_surface per D9; the D2 `wheel_backtest`) — kept.
 **Parked (carried forward so nothing is lost — each an operator decision):**
 - `financial_news/` legacy track (models.py-based) is fully superseded by the
   canonical schema.py track — internal dedup, **but verify no cron/deploy invokes
-  `pipeline.py` first**.
+  `pipeline.py` first**. *(RESOLVED 2026-07-09: leave in place, no dedup.
+  Operator confirms the subsystem is never run standalone (no Streamlit /
+  scheduler / cron); it has zero external importers (tests only). Deduping an
+  unrun subsystem is low-value, and the news stack is governed by the in-flight
+  `NEWS_REDESIGN_CAMPAIGN` (reframe, not consolidate) — internal tidying waits
+  for that.)*
 - `local_agent/` (30-file orphaned browser-agent sub-project) — keep-as-subproject
-  vs extract-to-its-own-repo.
+  vs extract-to-its-own-repo. *(RESOLVED 2026-07-09: keep in place. Operator
+  decision — doc-defended experimental; harmless where it sits; no extraction.)*
 - `staging/` ONLY-COPY carriers (`blue_chips/`, `casy/`, `fundamentals_pit/`) —
   deletion = data loss; the only safe action is the operator-gated
   `staging/integrate_phase1b.py` Phase-1B integration.
@@ -1634,8 +1640,14 @@ volatility_surface per D9; the D2 `wheel_backtest`) — kept.
   `backtest/` subtrees.)*
 - `news_pipeline/{publisher,slo,robustness}.py` — wire-or-retire (publisher is
   bypassed by the orchestrator's inline `_publish`; slo/robustness are test-only).
+  *(RESOLVED 2026-07-09: keep as planned scaffolding. Operator elects to retain
+  the runway — `publisher` may still be wired; `slo`/`robustness` are cheap
+  test-covered infra.)*
 - `backtests/{simulator,walk_forward}.py` — retire-or-wire (re-exported by
   `backtests/__init__.py` only; `simulator.py` self-labels PLACEHOLDER).
+  *(RESOLVED 2026-07-09: keep as planned scaffolding. Operator decision —
+  `simulator.py`'s PLACEHOLDER banner names a real future (daily option
+  prices); `walk_forward` retained alongside it.)*
 - The ~8 one-off `scripts/` (`fix_*`, one-shot backfills) — archive question.
   *(RESOLVED 2026-07-08: keep in place. They are doc-mapped reproducers
   (each maps to a dated report/worklog); FILE_MANIFEST-covered; archiving

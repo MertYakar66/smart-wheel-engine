@@ -125,10 +125,24 @@ production, where the engine's own catch degraded BIIB the same way.
   freeze; tail honesty needs a forward-looking input). Expectations 4/5
   falsified in their pre-registered pooled forms; scorecard in the plan
   doc section 5.6.
-- Full numbers: `docs/VALIDATION_PHASE_PLAN.md` section 5.6.
+- **V2-c-100t DONE (2026-07-12, terminal)**: 18,837 rows joined
+  row-for-row over 359 dates. THE decisive answer: the S34-class
+  top-tier edge survives the freeze — top15 production +0.294 [0.205,
+  0.379] vs frozen +0.366 [0.290, 0.442], both consistent with the
+  committed +0.371 [0.25, 0.49]. Top-bin inflation replicates (755 ->
+  1,205 rows, breach 7.15% -> 7.80%); traded-region crosses the bound
+  (3.42% -> 5.20%); the 24t all-candidate inversion does NOT replicate
+  (retro-flagged small-menu noise); clustering already at the floor on
+  the dense grid (cadence caveat recorded). Full numbers:
+  `docs/VALIDATION_PHASE_PLAN.md` section 5.7.
+- Full numbers: `docs/VALIDATION_PHASE_PLAN.md` sections 5.6-5.7.
 
 ## Unresolved / handoff
 
-- V2-a/b runs in-sandbox; V2-c 24t frozen replay in-sandbox; the 100t
-  frozen replay is terminal-scale, go/no-go at the V1-b debrief.
-- V1-b (100t tail exceedance) runs on the operator's terminal in parallel.
+- **V2 CLOSED 2026-07-12** — all four runs done (V2-a PASS, V2-b
+  REPRODUCED, V2-c 24t + 100t); C1 closed in full. Workstream verdict:
+  the reported top-tier edge does not depend on refit recency; refit
+  recency's value is selection discipline + (sparse-grid) violation
+  independence; freezing's cost lands exactly in V1's weakest strata
+  (top-bin / traded-region tails).
+- Next: V3 (parameter-plateau sweep) design + pre-registration.

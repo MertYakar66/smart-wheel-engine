@@ -24,7 +24,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | # | Workstream | Question it answers | Status | Artifacts |
 |---|---|---|---|---|
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
-| V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **designed + pre-registered (§5)** | `backtests/freeze_replay.py` (planned) |
+| V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | queued | (extends `backtests/parameter_oos.py`) |
 | V4 | **Capacity curve** — re-run S34-class backtests at 5/10/25 contracts with the Almgren-Chriss impact term armed and OI-capped fills | Where is the knee of edge-vs-deployed-dollars? | queued | (extends `backtests/regression/_common.py` friction overlay) |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
@@ -397,7 +397,7 @@ V2-b failures indict the engine as shipped.
 | V2-a | amnesia (5 dates × 24 names, tier-1) | sandbox (brain) | **DONE 2026-07-12 — PASS** |
 | V2-b | freeze snapshot @ 2023-06-30 + lock | sandbox (brain) | **DONE 2026-07-12 — REPRODUCED** |
 | V2-c | frozen replay, 24t holdout grid | sandbox (brain) | **DONE 2026-07-12** |
-| V2-c-100t | frozen replay, 100t (`--config 100t`; production side = the V1-b `tail_table_100t.csv`; block-13 CIs) | terminal | **task card issued 2026-07-12** — decisive question: does the S34-class top-tier edge (the real one, ~48 candidates/day) survive the freeze? |
+| V2-c-100t | frozen replay, 100t (`--config 100t`; production side = the V1-b `tail_table_100t.csv`; block-13 CIs) | terminal | **DONE 2026-07-12** (after one harness fix — the BIIB halt-day NaN guard, `20a9f3f`) |
 
 ### 5.6 Results
 
@@ -502,3 +502,66 @@ concentration, (6) confirmed (small). No V2 finding indicts the shipped
 engine (V2-a and V2-b both clean); the V2-c findings characterize the
 *value of refit recency*: it buys violation independence and selection
 discipline, not pooled tail-frequency accuracy.
+
+### 5.7 V2-c-100t results (2026-07-12; terminal) + V2 closure
+
+18,837 frozen rows joined the V1-b production capture row-for-row (zero
+asymmetric drops) over 359 holdout dates (2023-08-22 -> 2026-05-20,
+every 2 bdays; scenario knowledge frozen at 2023-06-30, up to ~2.9y
+stale; block-13 moving-block CIs for the every-2-bday overlap). One
+harness artifact en route: the BIIB halt-day NaN close tripped the
+engine's #386 non-finite guard at the harness's one unguarded fit call —
+fixed + regression-pinned (`20a9f3f`); BIIB carries the neutral
+multiplier in the frozen-HMM signal, symmetric with the engine's own
+degrade on those dates. Headlines:
+
+- **THE decisive answer: the S34-class top-tier edge survives the
+  freeze at the real menu scale.** top15 per-date rho: production
+  +0.294 [0.205, 0.379] vs frozen +0.366 [0.290, 0.442] (top5 +0.394 ->
+  +0.437) — heavily overlapping CIs; the correct statement is *stable
+  under the freeze*, not "improved". Both consistent with the committed
+  §7.2 holdout top-15 edge (+0.371 [0.25, 0.49]). Refit recency is NOT
+  where the tradeable-tier edge comes from — now established with ~48
+  candidates/day and up to ~2.9 years of scenario staleness. The
+  frozen-HMM recombination (+0.348) sits on the live-HMM variant
+  (+0.339): the overlay is inert at 100t too.
+- **The 24t all-candidate inversion does NOT replicate** — frozen "all"
+  is +0.034 [-0.050, +0.122], statistically zero like production's. The
+  24t tail-ordering inversion is retro-flagged as likely small-menu
+  noise, not a real freeze effect.
+- **Top-bin inflation replicates directionally:** the freeze mints 755
+  -> 1,205 top-bin rows (1.60x; 24t: 2.25x) breaching at 7.15% -> 7.80%
+  (both already above the 5% bound on this holdout window — F-V1-2
+  corroborated on a third window cut). Traded-region breach rises 3.42%
+  -> 5.20%, crossing the bound (24t: 3.89% -> 5.42%, near-identical).
+  Pooled 1.55% -> 2.02%, both PASS. Severity mean multiple 1.82x ->
+  3.43x (deep tail dragged; medians 1.38x -> 1.46x). Staleness drift
+  widens with time-since-cutoff, largest at 24m+ (2.27% -> 3.12%).
+- **The 24t clustering contrast does not reproduce — with a cadence
+  caveat.** Production is already at the permutation floor on this
+  dense grid (ac1 0.749) and frozen is marginally higher (0.776). The
+  every-2-bday cadence mechanically raises date-level autocorrelation
+  vs 24t's every-5-bday grid (adjacent dates share most of their option
+  life), so cross-run ac1 LEVELS are not comparable; the within-run
+  statement stands — freezing adds little clustering where production
+  violations are already bursty.
+- p25 frozen slightly MORE conservative (17.3% -> 15.8%), replicating
+  24t; prob_profit pooled strongly conservative on this calm-heavy
+  holdout in BOTH variants (z ~ +10.7 / +10.4; un-clustered-z caveat);
+  54.3% of rows move > 5pp in prob_profit with medians exactly 0.0 and
+  per-date ev_raw ordering agreement rho 0.673 — symmetric churn under
+  a preserved head, same as 24t. distribution_source down-tier 0.73% ->
+  4.94% (expectation 6, same magnitude as 24t).
+
+**V2 closure.** All four runs done (V2-a PASS, V2-b REPRODUCED, V2-c
+24t + 100t). C1 is closed in full: freeze + replay infrastructure
+shipped with a committed reproduction lock, and the held-out frozen
+backtest run at both scales. The workstream's verdict, stated once:
+**the engine's reported top-tier edge does not depend on refit recency
+or on any parameter the past could not have had** (the online fits are
+leakage-clean by experiment, V2-a; the fitted state is reproducible,
+V2-b; the frozen replay preserves the tradeable-tier edge, V2-c) —
+while refit recency's real value is selection discipline (top-bin
+population control) and, on sparse calm grids, violation independence.
+What freezing costs shows up exactly where V1 said the engine is
+weakest: the top-bin and traded-region tail strata.

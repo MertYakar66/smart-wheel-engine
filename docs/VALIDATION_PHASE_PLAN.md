@@ -24,7 +24,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | # | Workstream | Question it answers | Status | Artifacts |
 |---|---|---|---|---|
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **harness shipped; 24t run in flight** | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
-| V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | next | (to be designed) |
+| V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **designed + pre-registered (§5)** | `backtests/freeze_replay.py` (planned) |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | queued | (extends `backtests/parameter_oos.py`) |
 | V4 | **Capacity curve** — re-run S34-class backtests at 5/10/25 contracts with the Almgren-Chriss impact term armed and OI-capped fills | Where is the knee of edge-vs-deployed-dollars? | queued | (extends `backtests/regression/_common.py` friction overlay) |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
@@ -172,3 +172,192 @@ Acceptance for V1 closure: both reports generated; findings doc written with
 per-stratum verdicts; any FAIL triaged into (a) engine finding -> candidate
 for the D19/D21-style re-baseline queue, or (b) harness artifact -> fix and
 re-run. No engine change ships from this workstream directly.
+
+---
+
+## 5. V2 — parameter freeze-replay (C1): design + pre-registration
+
+**Written 2026-07-12, before any V2 code or run exists.** The expectations in
+§5.4 are the falsifiable part; they must not be edited after the first run.
+
+### 5.0 What C1 asks, and what surface this actually tests
+
+`docs/PRODUCTION_READINESS.md` C1: *"Out-of-sample parameter freeze.
+Implement HMM / POT-GPD parameter freeze + replay infrastructure — snapshot
+parameters at a cutoff date, run a held-out backtest; new test that asserts
+the frozen parameters reproduce the snapshot's classifier output."*
+
+The engine's parameter surface splits three ways, and freeze-replay only
+applies to one of them:
+
+1. **Static hand-set constants** (regime weights, F4 trigger, R11 cutoffs,
+   heavy-tail penalty, POT threshold — the `docs/PARAMETER_OOS.md` §1
+   inventory). These cannot be "frozen as of a past cutoff" — they did not
+   exist then and the hand-tuning procedure is not reproducible. Their
+   honest treatment is the train-only re-fit (done for the regime overlay —
+   optimism gap +0.096) and the plateau sweep (**V3**), not V2.
+2. **Online-fit artifacts** — refit per `as_of` from trailing data: the
+   4-state HMM (means/stds/trans_mat/labels, `wheel_runner.py` ~L1999), the
+   POT-GPD tail fit (ξ/β on scenario losses, `ev_engine.py` ~L507), the
+   empirical forward-distribution cascade itself (the scenario set IS the
+   fitted object), and the F4 vol-ratio. **This is V2's surface.** The
+   record calls these "PIT-clean / leakage-free *by construction*"
+   (`docs/PARAMETER_OOS.md` §1) and the §7.2 surviving top-15 edge rests
+   on exactly that claim ("the edge lives in `ev_raw`, an online-fit,
+   PIT-clean signal") — an *assertion*, never yet an *experiment*.
+3. **Market-state readings** — spot, premium, IV, VIX, HY OAS at `as_of`.
+   Never frozen: freeze-replay freezes fitted *knowledge*, not the market.
+
+Three sub-workstreams:
+
+### 5.1 V2-a — the amnesia test (full-pipeline PIT proof by data truncation)
+
+**Claim under test:** the ranker's output at `as_of = T` depends on no
+market-data row dated after `T`.
+
+**Method.** Build a truncated copy of the data directory in which each
+unambiguous market time-series CSV is physically cut to `date <= T`
+(tier-1 set: `ohlcv`, `vol_iv`, `treasury`, `vix`, `credit_risk`,
+`liquidity`). Schedule-type files are copied intact (`earnings` — the
+event-lockout gate legitimately needs the *future* earnings calendar;
+`dividends`, `fundamentals`, `corporate_actions`, `broad_pull/` — mixed
+semantics, identical in both runs so they cannot create false diffs; a
+stricter tier-2 pass that truncates these too and *triages* diffs is a
+noted follow-up, not part of the tier-1 assertion). Then:
+
+1. **A/A determinism control** — two fresh `WheelRunner(data_dir=<full>)`
+   instances, same `as_of`, full diagnostic fields, option-premium rail
+   pinned off: outputs must be identical. (Without this, A/B diffs are
+   uninterpretable.)
+2. **A/B** — `WheelRunner(data_dir=<full>)` vs
+   `WheelRunner(data_dir=<truncated@T>)` at `as_of = T`: the full ranked
+   frame (every diagnostic column, exact float equality) and the drops
+   list (gate + reason per ticker) must be identical.
+
+Grid: ~5 regime-spanning `as_of` dates (calm / elevated / crisis-adjacent /
+near-frontier) × `UNIVERSE_24`. Runtime is minutes; runs in-sandbox.
+
+**Why this test is load-bearing:** it covers every leak vector at once —
+including the ones code review rates "clean": the PIT slice in
+`wheel_runner` sits inside a swallowed-exception block (`except: pass`),
+the HMM fits on the sliced frame rather than taking `as_of` itself, and
+any connector-level cache or fallback that quietly serves unsliced data
+would be invisible to per-function unit tests but cannot survive a
+physical truncation diff.
+
+### 5.2 V2-b — the C1 freeze snapshot + reproducibility lock
+
+**Claim under test:** the fitted classifier state at a cutoff is a stable,
+reproducible artifact — not an accident of environment, seed, or silently
+restated data.
+
+At cutoff **T0 = 2023-06-30** (the parameter_oos canonical split date, for
+coherence), per `UNIVERSE_24` ticker, snapshot to a committed fixture
+(`tests/fixtures/freeze_replay/`):
+
+- **HMM**: `start_prob`, `trans_mat`, `means`, `stds`, `state_labels`,
+  `converged`, the posterior at T0, and the resulting
+  `position_multiplier` — fit with the production recipe
+  (`GaussianHMM(n_states=4, n_iter=20, random_state=42)` on the last 504
+  log-returns `<= T0`).
+- **POT-GPD**: `fit_gpd_tail` on the *return-space* losses of
+  `best_available_forward_distribution(<=T0)` — ξ, β, threshold,
+  `n_exceedances`, `converged` — plus the source array's method, length,
+  and endpoint fingerprint. (The engine's own GPD fits on trade-space
+  scenario *P&L*, which is strike/premium-dependent; the return-space fit
+  is the canonical per-ticker lock, and the trade-space fit inherits its
+  determinism from the frozen scenario array. Stated so nobody mistakes
+  the fixture for the engine's exact in-situ numbers.)
+
+A test refits both from the committed CSVs and asserts reproduction within
+tight tolerance. This is C1's literal definition of done, and it converts
+"seed=42 so it's deterministic" into a regression lock that fires on data
+restatement, numpy/scipy behavior drift, or a refactor that changes the
+classifier.
+
+### 5.3 V2-c — the freeze-replay study (held-out backtest with frozen knowledge)
+
+**Question:** how much of the engine's rank quality and risk honesty
+depends on the *recency* of the online fits? Freeze all fitted knowledge
+at T0 and replay the leakage-certified holdout.
+
+**Mechanics (measurement-only, one lever).** The single engine-level
+freeze lever is `best_available_forward_distribution`: a harness-scoped
+monkeypatch (the `docs/PARAMETER_OOS.md` §6 invariant-3-sanctioned
+pattern, applied inside a context manager) substitutes `as_of = T0` while
+the ranker runs at `as_of = T`. Because the frame passed in is already
+sliced `<= T`, the internal `<= T0` slice yields exactly the scenario set
+the past could have had. Everything downstream inherits the freeze with
+no further surgery: `ev_raw`, `prob_profit`, `pnl_p25/p50/p75`, `cvar_5`,
+the trade-space GPD fit (`cvar_99_evt`, ξ, heavy-tail penalty), and the
+F4 factor. The HMM freeze is applied **offline** (the parameter_oos
+rederivation convention): fit on returns `<= T0`, posterior on the tail
+`<= T`, `frozen_ev_dollars = frozen_ev_raw × clamp(frozen_mult)` —
+recombined in numpy on the captured columns. Spot, premium, IV, strike
+selection stay at `T` (market state, §5.0). Credit-regime de-rank stays
+at `T` for the same reason.
+
+**Grid:** the parameter_oos-canonical holdout (`as_of >= 2023-08-20`,
+every 5 bdays, `UNIVERSE_24`, 35-DTE/25-Δ), T0 = 2023-06-30, leakage
+certificate conventions carried over. The frozen pass emits the same
+`TAIL_TABLE_COLUMNS` schema as V1, so `tail_exceedance.full_report` runs
+unchanged on the frozen table.
+
+**Comparison (frozen vs production, identical dates, rows joined on
+(date, ticker), asymmetric drops reported):** per-date cross-sectional
+rank ρ (all candidates + top-tier, the §7 parameter_oos convention);
+p25 coverage; cvar_5 breach rate + strata + severity; violation
+clustering; pooled prob_profit z; `distribution_source` tier mix; and the
+drift of each gap as a function of time-since-cutoff (bucketed by months
+since T0).
+
+**Scale:** 24t in-sandbox (~10-20 min build). A 100t frozen replay is
+terminal-scale; go/no-go decided at the V1-b debrief.
+
+### 5.4 Pre-registered expectations (falsifiable; do not edit after first run)
+
+1. **V2-a: zero A/B diffs.** Falsifier: *any* row/column/drop difference.
+   A diff is market-data leakage into the rank path — the
+   highest-severity possible finding of this phase; every reported edge
+   (S27/S34/S35, parameter_oos §7.2) is quarantined pending triage.
+2. **V2-b: exact reproduction** (allclose, rtol ≤ 1e-7) of the HMM and
+   GPD snapshot from committed data. Falsifier: drift — an
+   environment/data-restatement finding (not an engine finding), but it
+   invalidates "seed-pinned ⇒ stable" until explained.
+3. **V2-c-i: rank ordering survives the freeze.** Holdout per-date ρ
+   (frozen) ≈ ρ (production), difference within date-clustered CI noise —
+   because the surviving edge lives in `ev_raw`'s cross-sectional
+   ordering, and a stale scenario set shifts *levels* more than
+   *orderings*. Falsifier: frozen ρ collapses toward 0 → the reported
+   edge depends on refit recency; material operational finding (a week
+   of stale data would degrade live ranking).
+4. **V2-c-ii: risk coverage degrades under the freeze, asymmetrically.**
+   Frozen cvar_5 breach rate > production breach rate, concentrated in
+   elevated/crisis entry-VIX strata, and widening with time-since-cutoff.
+   This is the I3-E mechanism made explicit — the trailing window can no
+   longer catch up at all. Falsifier: frozen ≈ production on risk
+   coverage → continuous refitting adds almost no tail protection, which
+   *sharpens* I3-E (the lag dominates even a two-year freeze) and makes
+   the case that tail honesty needs a forward-looking input (IV), not a
+   faster rear-view mirror.
+5. **V2-c-iii: frozen prob_profit turns optimistic** (pooled z
+   significantly > 0) in windows whose realized vol regime sits above the
+   T0 regime, and pessimistic below it.
+6. **V2-c-iv: `distribution_source` mix shifts down-tier** in the frozen
+   pass (less usable history at T0 for the same ticker).
+
+**Interpretation guard, stated up front:** V2-c degradation under the
+freeze is NOT an engine defect — production refits every `as_of`, so the
+frozen configuration is not the shipped one. What V2-c bounds is (a) the
+*value added by refit recency* (the honest content of "our fits are
+online"), and (b) the risk of operating on stale data. Only V2-a and
+V2-b failures indict the engine as shipped.
+
+### 5.5 Runs
+
+| Run | Sub-workstream | Where | Status |
+|---|---|---|---|
+| V2-a | amnesia (5 dates × 24 names, tier-1) | sandbox (brain) | pre-registered |
+| V2-b | freeze snapshot @ 2023-06-30 + lock | sandbox (brain) | pre-registered |
+| V2-c | frozen replay, 24t holdout grid | sandbox (brain) | pre-registered |
+| V2-c-100t | frozen replay, 100t | terminal | gated on V1-b debrief |

@@ -680,3 +680,36 @@ Acceptance for V3 closure: disposition table honored; sweep tables +
 per-axis plateau verdicts recorded; activation rates recorded; any PEAK
 verdict triaged to the re-baseline queue. No engine change ships from
 this workstream.
+
+### 6.6 Results
+
+**Activation diagnostic (2026-07-12; 8 spot dates x 24 names, 87 rows):**
+`gpd_fit_rate` 2.30% (exactly the 2 overlapping-tier rows),
+`heavy_tail` fires **0.00%**, `n_scenarios >= 200` 0.00%. Read together
+with the full captures (V1-a mix: 0.73% overlapping at 24t; V1-b: 11.4%
+at 100t), activation is **scale-dependent**: effectively NOT POWERED at
+24t, potentially powered at 100t — a 100t activation spot-check rides
+the next terminal card. The ξ-gate/penalty pair is unpowered everywhere
+observed (the heavy-tail flag never fired), so expectation 4 is
+CONFIRMED in substance at 24t with the 100t caveat recorded; the POT /
+ξ / penalty / block-length sweeps stay deferred per §6.0.
+
+**V3-a R11 sweep, 24t (2026-07-12; n=2,735):** the shipped cell (25.0,
+0.90) sits on a SHELF — no cell in the 5x3 grid is special — but the
+shelf's content is the finding: **breach lift <= 1 across the entire
+grid** (shipped cell: flagged rows breach 0.0% vs 7.1% for the calm
+unflagged top-bin), flagged mean realized BEATS unflagged (+$368/row at
+the shipped cell), and the D23 over-confidence gap is SMALLER in the
+flagged region (+0.067) than in what R11 leaves untouched (+0.108). On
+a window with no crisis onset, the danger R11 guards against lives
+BELOW its VIX threshold — the F-V1-1 onset-blindness seen from the
+reviewer's side. Expectation 3's shelf/spike framing got a third
+outcome (a shelf of INVERTED lift). NOT a verdict on R11 yet: D23/i11
+validated it on onset windows this capture does not contain; **V3-a-100t
+(2020-02 start) arbitrates** — if the flagged region shows lift > 1 and
+a larger over-confidence gap there, R11 is doing its documented job on
+the windows it was built for and is simply inert on calm regimes; if
+the inversion persists even with 2020 in-sample, R11's conditioning is
+mis-aimed and that goes to the re-baseline queue.
+
+*(F4 threshold/cap sweep results: pending — 9 engine passes in flight.)*

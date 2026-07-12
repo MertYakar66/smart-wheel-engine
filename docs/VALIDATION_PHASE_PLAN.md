@@ -112,8 +112,52 @@ procyclicality). If instead everything PASSes flat across strata, that is
 
 | Run | Config | Grid | Where | Status |
 |---|---|---|---|---|
-| V1-a | `24t` (UNIVERSE_24) | 2022-01-03 -> frontier-capped, every 5 bdays | sandbox (brain) | in flight |
-| V1-b | `100t` (UNIVERSE_100) | 2020-06-01 -> frontier-capped, every 2 bdays | terminal | task card issued |
+| V1-a | `24t` (UNIVERSE_24) | 2022-01-03 -> 2026-05-21, every 5 bdays | sandbox (brain) | **DONE 2026-07-12** |
+| V1-b | `100t` (UNIVERSE_100) | 2020-02-03 (COVID entry) -> frontier-capped, every 2 bdays | terminal | task card issued |
+
+### V1-a results (2026-07-12; 2,735 rows / 229 dates / 2,735 resolved)
+
+Console + `report_24t.json` (gitignored run dir). Headlines:
+
+- **Harness finding first:** the initial analyze produced byte-identical
+  p50/p75 violation rates (0.245) — the short-put **win point mass**: with
+  `prob_profit >= 1 - nominal` the modeled quantile sits ON max profit and
+  continuous coverage is vacuous. Fixed same-day: quantile tests now
+  restrict to informative rows (`prob_profit < 1 - nominal`, an entry-time
+  stratum, PIT-clean) and report exclusions loudly. Post-fix: p50/p75 are
+  honestly INSUFFICIENT on this book (every row has prob_profit >= 0.5 —
+  25-delta puts); p25 runs on 808 informative rows.
+- **p25 coverage: PASS, conservative** — violations 17.1% vs nominal 25%
+  (clustered CI [0.136, 0.208]).
+- **cvar_5 breach: PASS pooled** — 1.28% vs the 5% ES bound (35/2,735;
+  clustered CI [0.75%, 1.86%]). Note the *model-implied* breach ceiling at
+  N=35 scenarios is ~1/35 ~ 2.9%, tighter than the generic 5% bound —
+  against that tighter yardstick the strata below are less comfortable.
+- **The strata tell the real story:** calm 0.55% / elevated 1.64% / crisis
+  1.18% — but **top_bin (prob_profit > 0.90): 3.55%** and **traded region
+  (ev_dollars > 0): 2.81%** — the engine's highest-confidence and actually-
+  tradeable rows breach their modeled tails at 2-3x the pooled rate, at or
+  above the ~2.9% model-implied ceiling. Selection concentrates tail
+  optimism exactly where the money goes (consistent with the W3/I1 top-bin
+  record; a winner's-curse signature).
+- **Breach severity:** median realized/cvar_5 = **1.36x**, mean excess
+  **-$1,462** per breach — real losses run well past the modeled expected
+  shortfall when they breach, though the median multiple is far below the
+  stress-test's 3-4.5x single-name anecdotes (those live in the worst
+  cases, which the report lists).
+- **Violation clustering: confirmed, strongly** — date-level lag-1
+  autocorr 0.40-0.67 with permutation p < 0.001 on every test. Violations
+  arrive in bursts (the pre-registered I3-E procyclicality signature),
+  formally established. Frequency PASSes; *independence* does not — the
+  risk numbers are regime-blind in exactly the documented way.
+- **prob_profit pooled: honest** (z = 0.94, p = 0.35) — miscalibration is
+  bin-local, cancels pooled, as the record predicted.
+- **Pre-registration scorecard:** clustering + severity + pooled-honesty
+  expectations confirmed; the "crisis stratum WARN/FAIL" expectation was
+  NOT borne out on this window — note the 24t grid starts 2022-01 and so
+  contains no crisis *onset* (the 2022 grind's vol was already in the
+  trailing distributions, and F4 widening fires there). V1-b starts
+  2020-02-03 specifically to arbitrate this.
 
 Terminal command for V1-b (~2-4 h expected; write access only to the
 gitignored `data_processed/validation/`):

@@ -54,9 +54,13 @@ CONFIGS = {
         "top_n": 100,
     },
     # Terminal full-scale: 100-name universe, every 2nd business day.
+    # Starts 2020-02-03 (COVID crash entry, the SIM-200K w1 convention) so the
+    # crisis-onset stratum — where I3-E procyclicality lives — is in-sample
+    # for the exceedance tests; the 504-day history gate holds (OHLCV starts
+    # 2018-01-02).
     "100t": {
         "universe": "UNIVERSE_100",
-        "sample_start": "2020-06-01",
+        "sample_start": "2020-02-03",
         "every_n_bdays": 2,
         "dte_target": 35,
         "delta_target": 0.25,
@@ -111,13 +115,14 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def _fmt_quantile(name: str, q: dict) -> str:
+    excl = q.get("n_excluded_point_mass", 0)
     if q.get("n", 0) == 0:
-        return f"  {name}: INSUFFICIENT (0 rows)"
+        return f"  {name}: INSUFFICIENT (0 informative rows; {excl} excluded at the win point mass)"
     k, c = q["kupiec"], q["clustered"]
     cl = q["clustering"]
     return (
         f"  {name}: viol {k['rate']:.3f} vs nominal {q['nominal']:.2f} "
-        f"(n={q['n']}, kupiec p={k['p_value']:.2e}, "
+        f"(n={q['n']}, {excl} point-mass-excluded, kupiec p={k['p_value']:.2e}, "
         f"clustered CI [{c['ci_low']:.3f}, {c['ci_high']:.3f}], "
         f"clustering ac1={cl['autocorr']:.2f} p={cl['p_value']:.3f}) "
         f"-> {q['verdict']}"

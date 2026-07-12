@@ -471,11 +471,30 @@ def quantile_coverage_report(
 
     A violation is ``realized_pnl < quantile`` — expected with probability
     ``nominal`` when the modeled distribution is correct.
+
+    **Point-mass restriction (V1-a finding).** A short-put P&L distribution
+    carries a point mass at max profit: with ``prob_profit >= 1 - nominal``
+    the ``nominal``-quantile sits ON the win value, ``realized < quantile``
+    degenerates to "any loss", and the continuous-coverage nominal no longer
+    applies (the first 24t run showed p50 and p75 with byte-identical 0.245
+    violation rates — vacuous, not conservative).  The test is therefore
+    restricted to rows where the quantile is in the loss region:
+    ``prob_profit < 1 - nominal`` — an entry-time-modeled stratum, so the
+    conditioning is PIT-clean.  Excluded counts are reported so vacuity is
+    visible, never silent.
     """
     t = _resolved(table)
     t = t[np.isfinite(t[quantile_col].to_numpy(dtype=float))]
+    n_candidates = len(t)
+    informative = t["prob_profit"].to_numpy(dtype=float) < (1.0 - nominal)
+    t = t[informative]
     n = len(t)
-    out: dict[str, Any] = {"quantile_col": quantile_col, "nominal": nominal, "n": n}
+    out: dict[str, Any] = {
+        "quantile_col": quantile_col,
+        "nominal": nominal,
+        "n": n,
+        "n_excluded_point_mass": int(n_candidates - n),
+    }
     if n == 0:
         out["verdict"] = "INSUFFICIENT"
         return out

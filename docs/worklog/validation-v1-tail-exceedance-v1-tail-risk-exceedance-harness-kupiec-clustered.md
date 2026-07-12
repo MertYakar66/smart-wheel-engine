@@ -2,7 +2,7 @@
 id: validation-v1-tail-exceedance
 title: V1 tail-risk exceedance harness — Kupiec/clustered-CI/severity backtesting of pnl quartiles + cvar_5
 kind: verification
-status: in-flight
+status: complete
 terminal:
 pr:
 decisions: []
@@ -59,6 +59,12 @@ must FAIL, conservative model must never FAIL.
   cannot pass but an honest one can.
 - A stray non-ASCII character slipped into a test comment; scrubbed
   (Windows-console/cp1252 discipline).
+- The first analyze emitted byte-identical p50/p75 violation rates (0.245)
+  — the short-put WIN POINT MASS makes continuous quantile coverage vacuous
+  when prob_profit >= 1 - nominal. Fixed: quantile tests restrict to
+  informative rows (prob_profit < 1 - nominal, PIT-clean entry-time
+  stratum) and report exclusions loudly; pinned by
+  test_point_mass_rows_excluded + test_mixed_point_mass_partial_exclusion.
 
 ## How we fixed it
 
@@ -73,10 +79,12 @@ evidence.
 ## Evidence
 
 - `python3 -m pytest tests/test_tail_exceedance.py -q` -> 30 passed.
-- 24t capture/analysis (V1-a): `python scripts/run_tail_exceedance.py full
-  --config 24t` (UNIVERSE_24, 2022-01-03 -> frontier-capped, every 5
-  bdays); results recorded in docs/VALIDATION_PHASE_PLAN.md section 4 once
-  both runs land.
+- V1-a DONE (2,735 rows / 229 dates): p25 PASS-conservative (17.1% vs 25%);
+  p50/p75 honestly INSUFFICIENT (win point mass — see below); cvar_5 PASS
+  pooled (1.28% vs 5% bound) but top_bin 3.55% / traded_region 2.81% breach
+  at 2-3x pooled; severity median 1.36x / mean excess -$1,462; violation
+  clustering ac1 0.40-0.67 p<0.001 (I3-E confirmed formally); prob_profit
+  pooled honest (z=0.94). Full numbers: docs/VALIDATION_PHASE_PLAN.md §4.
 - Pre-registered expectations (falsifiable, written before the first
   analyze): p50/p75 roughly honest; cvar_5 PASS pooled but WARN/FAIL in the
   crisis stratum; breach severity well above 1x; strong violation

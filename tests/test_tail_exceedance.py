@@ -192,6 +192,7 @@ def _synthetic_table(
     n_dates: int = 60,
     per_date: int = 12,
     tail_scale: float = 1.0,
+    win_rate: float = 0.20,
     seed: int = 42,
 ) -> pd.DataFrame:
     """Build a synthetic tail table whose modeled quantiles/cvar_5 come from a
@@ -201,6 +202,12 @@ def _synthetic_table(
     ``tail_scale=1.0`` -> perfectly specified model (harness must PASS);
     ``tail_scale>1``   -> true losses run ``tail_scale``x the modeled ones
     (harness must FAIL the lower-tail tests).
+
+    Default ``win_rate=0.20`` keeps all three quartiles in the loss region
+    (``prob_profit < 1 - nominal`` for p25/p50/p75) so every coverage test
+    is informative; ``win_rate=0.80`` reproduces the realistic short-put
+    point mass where p25/p50/p75 all sit on the win value and the harness
+    must EXCLUDE them (see ``test_point_mass_rows_excluded``).
     """
     rng = np.random.default_rng(seed)
     rows = []
@@ -208,7 +215,7 @@ def _synthetic_table(
     # left tail): win = +premium, loss = premium - lognormal drawdown.
     premium = 200.0
     model_pop = np.where(
-        rng.random(200_000) < 0.80,
+        rng.random(200_000) < win_rate,
         premium,
         premium - rng.lognormal(mean=6.0, sigma=0.8, size=200_000),
     )
@@ -220,7 +227,7 @@ def _synthetic_table(
         for k in range(per_date):
             r = float(
                 premium
-                if rng.random() < 0.80
+                if rng.random() < win_rate
                 else premium - tail_scale * rng.lognormal(mean=6.0, sigma=0.8)
             )
             rows.append(
@@ -229,7 +236,7 @@ def _synthetic_table(
                     "ticker": f"T{k:02d}",
                     "ev_raw": 10.0,
                     "ev_dollars": 10.0,
-                    "prob_profit": 0.80,
+                    "prob_profit": win_rate,
                     "n_scenarios": 35,
                     "distribution_source": "empirical_non_overlapping",
                     "hmm_regime": "normal",
@@ -289,3 +296,31 @@ class TestEndToEnd:
         table = _synthetic_table(tail_scale=0.4)
         report = tex.full_report(table, meta={"case": "conservative"})
         assert report["overall_verdict"] in ("PASS", "WARN")
+
+    def test_point_mass_rows_excluded(self):
+        # Realistic short-put shape (80% wins): all three quartiles sit ON
+        # the max-profit point mass, so continuous-coverage nominals do not
+        # apply.  The V1-a 24t run exposed this as byte-identical p50/p75
+        # violation rates; the harness must EXCLUDE such rows loudly rather
+        # than emit a vacuous PASS.
+        table = _synthetic_table(tail_scale=1.0, win_rate=0.80)
+        report = tex.full_report(table, meta={"case": "point_mass"})
+        for k in ("p25", "p50", "p75"):
+            q = report["quantiles"][k]
+            assert q["n"] == 0
+            assert q["n_excluded_point_mass"] == len(table)
+            assert q["verdict"] == "INSUFFICIENT"
+        # cvar_5 sits deep in the loss region — unaffected by the point mass.
+        assert report["cvar_5"]["n"] == len(table)
+        assert report["cvar_5"]["verdict"] != "INSUFFICIENT"
+
+    def test_mixed_point_mass_partial_exclusion(self):
+        # Half the rows have prob_profit 0.20 (all quartiles informative),
+        # half 0.80 (none informative): the p25 test must run on exactly the
+        # informative half.
+        low = _synthetic_table(n_dates=40, per_date=6, win_rate=0.20, seed=1)
+        high = _synthetic_table(n_dates=40, per_date=6, win_rate=0.80, seed=2)
+        table = pd.concat([low, high], ignore_index=True)
+        q = tex.quantile_coverage_report(table, quantile_col="pnl_p25", nominal=0.25)
+        assert q["n"] == len(low)
+        assert q["n_excluded_point_mass"] == len(high)

@@ -25,7 +25,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 |---|---|---|---|---|
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
-| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | queued | (extends `backtests/parameter_oos.py`) |
+| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **designed + pre-registered (§6)** | `backtests/param_plateau.py` (planned) |
 | V4 | **Capacity curve** — re-run S34-class backtests at 5/10/25 contracts with the Almgren-Chriss impact term armed and OI-capped fills | Where is the knee of edge-vs-deployed-dollars? | queued | (extends `backtests/regression/_common.py` friction overlay) |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
@@ -565,3 +565,118 @@ while refit recency's real value is selection discipline (top-bin
 population control) and, on sparse calm grids, violation independence.
 What freezing costs shows up exactly where V1 said the engine is
 weakest: the top-bin and traded-region tail strata.
+
+---
+
+## 6. V3 — parameter-plateau sweep: design + pre-registration
+
+**Written 2026-07-12, before any V3 code or run exists.** The §6.4
+expectations and plateau criteria are the falsifiable part; do not edit
+after the first run. Measurement-only: every swept value enters via the
+§6-sanctioned harness monkeypatch pattern (`docs/PARAMETER_OOS.md` §6,
+context-manager-scoped) and no production default changes.
+
+### 6.0 Disposition of the Phase-0 inventory
+
+The sweep question ("plateau or fitted peak?") only applies to constants
+that (a) were hand-set with full-history visibility AND (b) actually act
+on the ranked path on the Bloomberg provider. Verified against source:
+
+| Constant (shipped) | Disposition |
+|---|---|
+| Regime weights `{0.2, 0.5, 1.0, 1.25}` | **already out-of-parameter tested** — parameter_oos §5: refit collapses OOS, overlay adds no OOS value; V2-c: overlay inert under freeze. Not re-swept. |
+| Regime clamp `[0.0, 1.25]`, dealer clamp `[0.70, 1.05]` | **safety rails, not fitted optima** (and the dealer surface is inert on Bloomberg — PARAMETER_OOS §6). Not swept. |
+| HMM recipe (4 states, 20 iters, seed 42) | **online-fit machinery** — V2-b locks its reproducibility; state-count sensitivity deferred (a different study, not a plateau sweep). |
+| **F4 widening: threshold 1.30, slope 0.20, cap 1.15** | **SWEPT (engine passes)** — the marquee in-sample-tuned constant ("chosen to not invert S27 ρ"). Fires on ~14% of dates; acts on every scenario-derived output. |
+| **R11 cutoffs: VIX 25.0, top-bin prob 0.90** | **SWEPT (offline)** — a pure function of captured columns (`vix_entry`, `prob_profit`); realized outcomes already in the V1 tables at both scales. Complements the committed D23/i11 leave-one-crisis-out. |
+| POT-GPD threshold 95.0 / min-exceedances 15 / heavy-tail ξ-gate 0.3 / penalty 0.5 | **ACTIVATION-GATED** — the GPD only runs at >= 200 scenarios, but ~99% of Bloomberg rows ride the N~35 non-overlapping tier. §6.2 first *measures* activation (the ranker emits `tail_xi`/`heavy_tail`); if < 2% of ranked rows carry a converged GPD fit, the POT/ξ/penalty sweeps are recorded **NOT POWERED on this provider** (the PARAMETER_OOS §6 dealer-clamp treatment) and deferred to a Theta-window follow-up. The ξ-gate/penalty halves are offline-recomputable from a capture carrying `tail_xi` when activation permits. |
+| Block-bootstrap block 5 / MC block 21 / n_sims 10000 | Bootstrap tier: same activation gate (tier fired on 0% of V1-a rows). MC constants: reporting layer, off the EV path. Not swept unless activation shows otherwise. |
+| (Scoping remark) profit-target 0.50 / stop 2.0 / slippage 0.20 | Not in the Phase-0 inventory; they belong to the D19 exit-cost re-baseline discussion, recorded here so the omission is explicit, not accidental. |
+
+### 6.1 V3-a — R11 cutoff sweep (offline, both scales)
+
+Grid: `vix_threshold` x `top_bin_prob` over {20.0, 22.5, 25.0*, 27.5,
+30.0} x {0.85, 0.90*, 0.95} (* = shipped). For each cell, on a V1 tail
+table (24t sandbox; 100t on the terminal, seconds): flagged-set size,
+flagged cvar_5 breach rate + mean realized P&L vs the unflagged
+remainder of the top bin, lift, and date-clustered CIs. R11's value
+claim is that the flagged region is materially WORSE than what it
+leaves behind — the sweep asks whether that lift sits on a shelf around
+(25.0, 0.90) or on a spike.
+
+### 6.2 V3-b — activation diagnostic + F4 engine sweeps (sandbox)
+
+**Activation diagnostic first** (one cheap unpatched pass, ~20 dates x
+24 names, reading `tail_xi` / `heavy_tail` / `n_scenarios` /
+`distribution_source` / `cvar_99_evt` off the ranked frame): records the
+GPD/bootstrap activation rates that decide the §6.0 gates.
+
+**F4 sweeps** — one axis at a time, engine pass per value (grid: 24t
+universe, 2020-02-03 -> frontier-capped, every 10 bdays — breach-rich,
+onset-inclusive, ~13 min/pass; V1's TAIL_TABLE schema so V1 statistics
+run unchanged; `tail_widening_factor` in the table gives the fire rate
+directly):
+
+- axis `threshold`: {1.10, 1.20, **1.30**, 1.40, 1.50} (slope/cap pinned)
+- axis `cap`: {1.00 = F4 OFF (the control), 1.075, **1.15**, 1.225, 1.30}
+  (threshold/slope pinned)
+
+Primary metric per value: cvar_5 breach rate in the elevated+crisis
+entry-VIX strata (the strata F4 exists to protect), pooled breach as
+secondary, p25 coverage as the conservatism check, fire rate for
+mechanism visibility. **Guard metric:** top-5/top-15 per-date rho with
+block-clustered CIs — the original calibration constraint was "do not
+invert rank quality"; a swept value that improves tails by destroying
+rank is not an improvement.
+
+### 6.3 Plateau criteria (pre-registered, per axis)
+
+Let SE be the date-clustered bootstrap SE of the primary metric.
+Comparing the shipped value against its +/-1-step neighbors:
+
+- **PLATEAU** — both neighbors' primary metric within 2 SE of shipped,
+  and no swept value beats shipped by > 2 SE on the primary metric
+  while keeping the guard metric inside its shipped CI.
+- **CLIFF** — exactly one neighbor degrades by > 2 SE (report which
+  side; a cliff at the edge of a shelf is a documented sensitivity, not
+  automatically a fitted artifact).
+- **PEAK / FITTED-ARTIFACT** (the falsifier) — shipped is a strict
+  local optimum: BOTH neighbors degrade the primary metric by > 2 SE.
+  This is the signature that the constant was tuned to the sample.
+
+### 6.4 Pre-registered expectations (falsifiable)
+
+1. **F4 threshold and cap sit on plateaus, not peaks.** The published
+   calibration rationale is "gentle by design", not "optimal" — if
+   either axis shows the PEAK signature, the F4 calibration is a fitted
+   artifact and goes to the re-baseline queue.
+2. **The F4-OFF control (cap 1.00) degrades tail coverage measurably**
+   in the elevated/crisis strata (F4 earns its keep) — falsifier: OFF
+   is indistinguishable from shipped, in which case F4 is ornamental on
+   this grid and that is recorded (consistent with the V2-c finding
+   that trailing-window recency buys little pooled frequency).
+3. **R11's lift surface is a shelf**: the flagged region is worse than
+   the unflagged top bin across a broad neighborhood of (25.0, 0.90),
+   not just at the shipped point. Falsifier: lift concentrates at the
+   shipped cell only. (Context, already known and not contradicted: V1
+   F-V1-1 showed onset rows enter at CALM VIX — R11's lift can only
+   exist for elevated-entry rows; the sweep measures what R11 CAN see,
+   it cannot fix what it structurally cannot.)
+4. **GPD/bootstrap activation on Bloomberg is < 2%** of ranked rows —
+   in which case POT threshold / ξ-gate / penalty / block-length are
+   recorded NOT POWERED here (an honest scope statement, not a pass).
+
+### 6.5 Runs
+
+| Run | What | Where | Status |
+|---|---|---|---|
+| V3-act | activation diagnostic | sandbox (brain) | pre-registered |
+| V3-a-24t | R11 sweep on `tail_table_24t.csv` | sandbox (brain) | pre-registered |
+| V3-a-100t | R11 sweep on `tail_table_100t.csv` | terminal (seconds) | pre-registered |
+| V3-b-thr | F4 threshold axis (4 passes + shared baseline) | sandbox (brain), ~1 h | pre-registered |
+| V3-b-cap | F4 cap axis (4 passes) | sandbox (brain), ~1 h | pre-registered |
+
+Acceptance for V3 closure: disposition table honored; sweep tables +
+per-axis plateau verdicts recorded; activation rates recorded; any PEAK
+verdict triaged to the re-baseline queue. No engine change ships from
+this workstream.

@@ -23,7 +23,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 
 | # | Workstream | Question it answers | Status | Artifacts |
 |---|---|---|---|---|
-| V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **harness shipped; 24t run in flight** | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
+| V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **designed + pre-registered (§5)** | `backtests/freeze_replay.py` (planned) |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | queued | (extends `backtests/parameter_oos.py`) |
 | V4 | **Capacity curve** — re-run S34-class backtests at 5/10/25 contracts with the Almgren-Chriss impact term armed and OI-capped fills | Where is the knee of edge-vs-deployed-dollars? | queued | (extends `backtests/regression/_common.py` friction overlay) |
@@ -113,7 +113,7 @@ procyclicality). If instead everything PASSes flat across strata, that is
 | Run | Config | Grid | Where | Status |
 |---|---|---|---|---|
 | V1-a | `24t` (UNIVERSE_24) | 2022-01-03 -> 2026-05-21, every 5 bdays | sandbox (brain) | **DONE 2026-07-12** |
-| V1-b | `100t` (UNIVERSE_100) | 2020-02-03 (COVID entry) -> frontier-capped, every 2 bdays | terminal | task card issued |
+| V1-b | `100t` (UNIVERSE_100) | 2020-02-03 (COVID entry) -> 2026-05-21, every 2 bdays | terminal | **DONE 2026-07-12** |
 
 ### V1-a results (2026-07-12; 2,735 rows / 229 dates / 2,735 resolved)
 
@@ -159,19 +159,38 @@ Console + `report_24t.json` (gitignored run dir). Headlines:
   trailing distributions, and F4 widening fires there). V1-b starts
   2020-02-03 specifically to arbitrate this.
 
-Terminal command for V1-b (~2-4 h expected; write access only to the
-gitignored `data_processed/validation/`):
+### V1-b results (2026-07-12; 40,201 rows / 822 dates / 100 names; 101.9-min build on the operator terminal, zero rank failures)
 
-```bash
-export SWE_DATA_PROVIDER=bloomberg
-python scripts/run_tail_exceedance.py full --config 100t
-# then report back: data_processed/validation/tail_exceedance/report_100t.json
-```
+Full findings + per-stratum verdicts + triage:
+**`docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md`** (the V1
+closure doc). One-paragraph summary: official verdict `OVERALL: PASS`
+(p25 17.75% vs 25% conservative; cvar_5 pooled 2.32% vs the 5% bound, CI
+[1.65%, 3.10%]) — and the PASS decomposes into the phase's sharpest
+findings so far: (F-V1-1) entry-VIX conditioning is structurally blind
+to crisis onset — Feb-Apr 2020 calm-entry rows breach 84.4% at ~3.4x
+severity (BA entered at VIX 14 realized 7.8x modeled cvar), landing in
+the calm/elevated strata by construction, so the pre-registered "crisis
+stratum WARN/FAIL" was falsified *as stratified* while its underlying
+hypothesis was confirmed sharper — no entry-time VIX rule (incl. R11)
+can see these rows, only damage-bounders (R10) act on them; (F-V1-2)
+winner's-curse concentration replicates at 100 names with top_bin 6.32%
+now exceeding the 5% bound point-wise (supplementary clustered CI
+[4.15%, 8.72%] straddles -> WARN), traded_region 4.92%, ratios to pooled
+matching 24t (2.7x/2.1x), AZO-robust, 94/98 names; (F-V1-3) violation
+clustering at the permutation floor (ac1 0.966 cvar / 0.761 p25,
+p=0.0005) — I3-E formal at both scales; (F-V1-4) severity: median 1.87x,
+mean 2.93x, 29.8% of breaches >= 3x — the 2026-06-15 anecdote is now a
+statistic. Benign anomalies (BK->BNY seam, BNY/CASY history gate,
+AZO worst-case dollar-ranking mechanic) verified and recorded. Every
+headline number independently recomputed from the captured table by the
+executor session.
 
-Acceptance for V1 closure: both reports generated; findings doc written with
-per-stratum verdicts; any FAIL triaged into (a) engine finding -> candidate
-for the D19/D21-style re-baseline queue, or (b) harness artifact -> fix and
-re-run. No engine change ships from this workstream directly.
+**Acceptance for V1 closure: MET (2026-07-12).** Both reports generated;
+findings doc written with per-stratum verdicts; every WARN/finding
+triaged (all engine findings; the workstream's one harness artifact —
+the win point mass — was fixed during V1-a before V1-b ran). No engine
+change ships from this workstream directly; F-V1-1/2/4 are queued as
+re-baseline inputs and the forward-looking-tail research question.
 
 ---
 
@@ -378,7 +397,7 @@ V2-b failures indict the engine as shipped.
 | V2-a | amnesia (5 dates × 24 names, tier-1) | sandbox (brain) | **DONE 2026-07-12 — PASS** |
 | V2-b | freeze snapshot @ 2023-06-30 + lock | sandbox (brain) | **DONE 2026-07-12 — REPRODUCED** |
 | V2-c | frozen replay, 24t holdout grid | sandbox (brain) | **DONE 2026-07-12** |
-| V2-c-100t | frozen replay, 100t | terminal | gated on V1-b debrief |
+| V2-c-100t | frozen replay, 100t (`--config 100t`; production side = the V1-b `tail_table_100t.csv`; block-13 CIs) | terminal | **task card issued 2026-07-12** — decisive question: does the S34-class top-tier edge (the real one, ~48 candidates/day) survive the freeze? |
 
 ### 5.6 Results
 

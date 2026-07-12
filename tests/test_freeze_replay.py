@@ -388,7 +388,8 @@ def test_compare_frozen_vs_production_report_shape():
     for entry in report["rank"].values():
         assert set(entry) == {"all", "top5"}
         assert "mean_rho" in entry["all"]["xsec"]
-        assert "ci95" in entry["all"]["ci_block7"]
+        assert "ci95" in entry["all"]["ci_block"]
+        assert entry["all"]["ci_block"]["block_len"] == 7  # default cadence scaling
     assert set(report["risk"]) == {"production", "frozen"}
     assert report["risk"]["frozen"]["cvar_5"]["verdict"] in {"PASS", "WARN", "FAIL", "INSUFFICIENT"}
     assert "paired" in report

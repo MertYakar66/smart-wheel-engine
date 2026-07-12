@@ -643,7 +643,22 @@ def frozen_hmm_multipliers(
     conn = MarketDataConnector(str(data_dir))
     rows: list[dict] = []
     for ticker in tickers:
-        ohlcv_cut = _pit_ohlcv(conn, ticker, cutoff)
+        # One OHLCV fetch per ticker (35k per-date fetches at 100t would
+        # dominate the runtime); per-date slicing is identical to
+        # _pit_ohlcv's cut.
+        try:
+            ohlcv_full = conn.get_ohlcv(ticker)
+        except Exception:  # noqa: BLE001 — a bad ticker degrades, never aborts
+            ohlcv_full = None
+        if ohlcv_full is not None and (ohlcv_full.empty or "close" not in ohlcv_full.columns):
+            ohlcv_full = None
+        ohlcv_cut = (
+            ohlcv_full.loc[ohlcv_full.index <= pd.Timestamp(cutoff)]
+            if ohlcv_full is not None
+            else None
+        )
+        if ohlcv_cut is not None and ohlcv_cut.empty:
+            ohlcv_cut = None
         tail0 = _hmm_tail(ohlcv_cut) if ohlcv_cut is not None else None
         hmm = None
         if tail0 is not None:
@@ -652,8 +667,8 @@ def frozen_hmm_multipliers(
         for d in dates:
             mult, regime = 1.0, "unknown"
             if hmm is not None:
-                ohlcv_d = _pit_ohlcv(conn, ticker, d)
-                tail_d = _hmm_tail(ohlcv_d) if ohlcv_d is not None else None
+                ohlcv_d = ohlcv_full.loc[ohlcv_full.index <= pd.Timestamp(d)]
+                tail_d = _hmm_tail(ohlcv_d) if not ohlcv_d.empty else None
                 if tail_d is not None:
                     try:
                         probs = hmm.predict_proba(tail_d)
@@ -737,12 +752,15 @@ def compare_frozen_vs_production(
     cutoff: str = FREEZE_CUTOFF_DEFAULT,
     n_boot: int = 800,
     seed: int = 12345,
+    block_len: int = 7,
 ) -> dict[str, Any]:
     """The V2-c report: rank, risk, drift, and identity blocks.
 
     ``production`` is the standard capture restricted to the frozen grid's
     dates (the V1 table subset); ``frozen`` is ``build_frozen_tail_table``'s
-    output; ``mults`` is ``frozen_hmm_multipliers``'s output.
+    output; ``mults`` is ``frozen_hmm_multipliers``'s output.  ``block_len``
+    scales the moving-block CI to the option-horizon overlap at the grid's
+    cadence (~25 trading days / cadence: every-5-bday -> 7, every-2 -> 13).
     """
     from backtests import tail_exceedance as tex
     from backtests.parameter_oos import (
@@ -765,8 +783,7 @@ def compare_frozen_vs_production(
         "rows_frozen": int(len(froz)),
     }
 
-    # --- rank block: five signals, all + top-5 tiers, block-7 clustered CI
-    # (block 7 x every-5-bday cadence ~ the 35-DTE overlap horizon).
+    # --- rank block: five signals, all + top-5 tiers, moving-block clustered CI
     signals = {
         "production_ev_dollars": (prod, "ev_dollars"),
         "production_ev_raw": (prod, "ev_raw"),
@@ -781,13 +798,13 @@ def compare_frozen_vs_production(
             sub = restrict_top_n_per_date(tbl, tier_n, signal_col=col)
             entry[tier_name] = {
                 "xsec": per_date_cross_sectional_rho(sub, col),
-                "ci_block7": cluster_bootstrap_ci(
+                "ci_block": cluster_bootstrap_ci(
                     sub,
                     stat="cross_sectional",
                     signal_col=col,
                     n_boot=n_boot,
                     seed=seed,
-                    block_len=7,
+                    block_len=block_len,
                 ),
             }
         rank[name] = entry

@@ -92,9 +92,21 @@ evidence.
 
 ## Unresolved / handoff
 
-- V1-b: the 100t run is the terminal's task card (docs/VALIDATION_PHASE_PLAN.md
-  section 4) — `python scripts/run_tail_exceedance.py full --config 100t`.
-- Findings doc once both runs are in; any FAIL triaged to engine-finding
-  (re-baseline queue) vs harness artifact.
-- Follow-on workstreams V2 (parameter freeze-replay) and V3 (plateau sweep)
-  are queued in the plan doc.
+- ~~V1-b: the 100t run~~ **DONE 2026-07-12 on the operator terminal**
+  (40,201 rows / 822 dates / 100 names, 101.9-min build, zero failures;
+  headline numbers independently recomputed from the captured table).
+  Key results: cvar_5 pooled 2.32% PASS but top_bin 6.32% (> the 5%
+  bound point-wise, WARN) / traded_region 4.92%; violation clustering at
+  the permutation floor (ac1 0.966, p=0.0005); severity median 1.87x /
+  mean 2.93x / 29.8% of breaches >= 3x; and the headline F-V1-1 —
+  entry-VIX conditioning is structurally blind to crisis onset
+  (Feb-Apr 2020 calm-entry rows breach 84.4%; BA at VIX 14 realized
+  7.8x modeled cvar). Full closure:
+  `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md`.
+- **V1 CLOSED 2026-07-12** — acceptance met; all WARNs/findings triaged
+  as engine findings (queued as re-baseline inputs), none as harness
+  artifacts. Harness follow-ups (stratum verdicts in cvar_breach_report,
+  diagnostic onset slice) queued non-blocking.
+- Follow-on workstreams: V2 complete same day (see
+  validation-v2-freeze-replay fragment); V3 (plateau sweep) next in
+  queue; V2-c-100t frozen replay = next terminal card.

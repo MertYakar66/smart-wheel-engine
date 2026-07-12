@@ -51,20 +51,40 @@ FIXTURE_PATH = _REPO_ROOT / "tests" / "fixtures" / "freeze_replay" / "freeze_sna
 #: crisis-adjacent / post-spike / near-frontier).
 AMNESIA_DATES = ("2022-06-15", "2023-11-15", "2024-08-06", "2025-04-15", "2026-05-01")
 
-#: V2-c grid — the V1-a 24t grid (same phase: start 2022-01-03, every 5
-#: bdays) restricted to the parameter_oos-canonical holdout, so the frozen
-#: table joins the production V1-a capture date-for-date.
-GRID_START = "2022-01-03"
-GRID_EVERY_N = 5
+#: V2-c configs — each reuses ITS V1 capture's grid phase (same start /
+#: cadence as the corresponding run_tail_exceedance config) restricted to
+#: the parameter_oos-canonical holdout, so the frozen table joins the
+#: production V1 capture date-for-date.  ``block_len`` scales the
+#: moving-block clustered CI to the ~25-trading-day option-horizon overlap
+#: at each cadence (every-5-bday -> 7 dates; every-2-bday -> 13).
 HOLDOUT_START = "2023-08-20"
 DTE_TARGET = 35
 DELTA_TARGET = 0.25
 
+CONFIGS = {
+    "24t": {
+        "universe": "UNIVERSE_24",
+        "grid_start": "2022-01-03",
+        "every_n_bdays": 5,
+        "block_len": 7,
+    },
+    "100t": {
+        "universe": "UNIVERSE_100",
+        "grid_start": "2020-02-03",
+        "every_n_bdays": 2,
+        "block_len": 13,
+    },
+}
+
+
+def _universe(name: str) -> list[str]:
+    from backtests.regression.universes import UNIVERSE_24, UNIVERSE_100
+
+    return list(UNIVERSE_24 if name == "UNIVERSE_24" else UNIVERSE_100)
+
 
 def _universe_24() -> list[str]:
-    from backtests.regression.universes import UNIVERSE_24
-
-    return list(UNIVERSE_24)
+    return _universe("UNIVERSE_24")
 
 
 def _resolve_sample_end(dte_target: int) -> str:
@@ -77,10 +97,20 @@ def _resolve_sample_end(dte_target: int) -> str:
     return (pd.Timestamp(frontier).date() - timedelta(days=dte_target + 7)).isoformat()
 
 
-def _holdout_grid() -> list[date]:
+def _holdout_grid(cfg: dict) -> list[date]:
     end = _resolve_sample_end(DTE_TARGET)
-    dates = sample_business_days(GRID_START, end, GRID_EVERY_N)
+    dates = sample_business_days(cfg["grid_start"], end, cfg["every_n_bdays"])
     return [d for d in dates if d.isoformat() >= HOLDOUT_START]
+
+
+def _default_production_table(config: str) -> str:
+    return str(
+        Path(
+            os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation"))
+        )
+        / "tail_exceedance"
+        / f"tail_table_{config}.csv"
+    )
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -142,14 +172,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_frozen_build(args: argparse.Namespace) -> int:
-    grid = _holdout_grid()
+    cfg = CONFIGS[args.config]
+    tickers = _universe(cfg["universe"])
+    grid = _holdout_grid(cfg)
     print(
-        f"[freeze_replay] frozen build: cutoff={args.cutoff} grid={grid[0]}..{grid[-1]} "
-        f"({len(grid)} dates, every {GRID_EVERY_N} bdays)",
+        f"[freeze_replay] frozen build: config={args.config} cutoff={args.cutoff} "
+        f"grid={grid[0]}..{grid[-1]} ({len(grid)} dates, every {cfg['every_n_bdays']} bdays)",
         flush=True,
     )
     table = fz.build_frozen_tail_table(
-        tickers=_universe_24(),
+        tickers=tickers,
         sample_dates=grid,
         cutoff=args.cutoff,
         dte_target=DTE_TARGET,
@@ -158,23 +190,24 @@ def cmd_frozen_build(args: argparse.Namespace) -> int:
     )
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / "frozen_tail_table_24t.csv"
+    out = out_dir / f"frozen_tail_table_{args.config}.csv"
     table.to_csv(out, index=False)
     print(f"[freeze_replay] wrote {len(table)} rows -> {out}", flush=True)
 
     dates = sorted({str(d) for d in table["date"]})
-    mults = fz.frozen_hmm_multipliers(args.data_dir, _universe_24(), dates, cutoff=args.cutoff)
-    mout = out_dir / "frozen_hmm_multipliers_24t.csv"
+    mults = fz.frozen_hmm_multipliers(args.data_dir, tickers, dates, cutoff=args.cutoff)
+    mout = out_dir / f"frozen_hmm_multipliers_{args.config}.csv"
     mults.to_csv(mout, index=False)
     print(f"[freeze_replay] wrote {len(mults)} multiplier rows -> {mout}", flush=True)
     return 0
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
+    cfg = CONFIGS[args.config]
     out_dir = Path(args.out_dir)
-    frozen_path = out_dir / "frozen_tail_table_24t.csv"
-    mults_path = out_dir / "frozen_hmm_multipliers_24t.csv"
-    prod_path = Path(args.production_table)
+    frozen_path = out_dir / f"frozen_tail_table_{args.config}.csv"
+    mults_path = out_dir / f"frozen_hmm_multipliers_{args.config}.csv"
+    prod_path = Path(args.production_table or _default_production_table(args.config))
     for p in (frozen_path, mults_path, prod_path):
         if not p.exists():
             print(
@@ -187,24 +220,28 @@ def cmd_compare(args: argparse.Namespace) -> int:
     production = pd.read_csv(prod_path)
     production = production[production["date"] >= HOLDOUT_START]
 
-    report = fz.compare_frozen_vs_production(production, frozen, mults, cutoff=args.cutoff)
+    report = fz.compare_frozen_vs_production(
+        production, frozen, mults, cutoff=args.cutoff, block_len=cfg["block_len"]
+    )
     report["meta"] = {
+        "config": args.config,
         "cutoff": args.cutoff,
+        "block_len": cfg["block_len"],
         "production_table": str(prod_path),
         "frozen_table": str(frozen_path),
         "generated_at": datetime.now(UTC).isoformat(),
     }
-    _write_json(out_dir / "freeze_replay_report_24t.json", report)
+    _write_json(out_dir / f"freeze_replay_report_{args.config}.json", report)
 
     print(f"\n=== V2-c frozen replay vs production (cutoff {args.cutoff}) ===")
     print(
         f"rows: production {report['rows_production']}, frozen {report['rows_frozen']}, "
         f"joined {report['rows_joined']} over {report['n_common_dates']} dates"
     )
-    print("  rank (per-date cross-sectional rho, mean [block-7 CI95]):")
+    print(f"  rank (per-date cross-sectional rho, mean [block-{cfg['block_len']} CI95]):")
     for name, entry in report["rank"].items():
         for tier in ("all", "top5"):
-            x, c = entry[tier]["xsec"], entry[tier]["ci_block7"]
+            x, c = entry[tier]["xsec"], entry[tier]["ci_block"]
             print(
                 f"    {name:>28} {tier:>5}: {x['mean_rho']:+.3f} "
                 f"[{c['ci95'][0]:+.3f}, {c['ci95'][1]:+.3f}] (n_dates={x['n_dates']})"
@@ -237,22 +274,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("phase", choices=["amnesia", "snapshot", "verify", "frozen-build", "compare"])
+    p.add_argument("--config", choices=sorted(CONFIGS), default="24t")
     p.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
     p.add_argument("--cutoff", default=fz.FREEZE_CUTOFF_DEFAULT)
     p.add_argument("--dates", nargs="+", default=list(AMNESIA_DATES), help="amnesia as_of dates")
     p.add_argument(
         "--production-table",
-        default=str(
-            Path(
-                os.environ.get(
-                    "SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")
-                )
-            )
-            / "tail_exceedance"
-            / "tail_table_24t.csv"
-        ),
-        help="V1 production capture used as the compare baseline",
+        default=None,
+        help="V1 production capture used as the compare baseline "
+        "(default: tail_table_<config>.csv in the V1 out dir)",
     )
     args = p.parse_args(argv)
     return {

@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**168 records.**
+**169 records.**
 
 ## Features (18)
 
@@ -98,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 
-## Verification & realism (35)
+## Verification & realism (36)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -136,6 +136,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
 | [validation-v1-tail-exceedance](validation-v1-tail-exceedance-v1-tail-risk-exceedance-harness-kupiec-clustered.md) | complete |  | The engine's own risk quantiles (pnl_p25/p50/p75) and cvar_5 are now formally backtestable — Kupiec POF + date-clustered bootstrap CIs + violation-clustering permutation test + ES-bound breach severity, with a synthetic calibrated-PASS/understated-FAIL contract pinning the harness itself. | `validation-v1-tail-exceedance-v1-tail-risk-exceedance-harness-kupiec-clustered.md` |
+| [validation-v2-freeze-replay](validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md) | complete |  | The "PIT-clean by construction" assertion behind every reported edge becomes an experiment — physical data truncation must reproduce the ranker byte-for-byte, the C1 HMM/GPD freeze snapshot gets a committed refit lock, and a frozen-at-cutoff replay bounds how much rank quality and risk honesty depend on refit recency. | `validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md` |
 | [vnv-campaign-2026-06-01](vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md) | in-flight |  | Read-only V&V sweep of origin/main — funnel is transparent (423/503 survive, all drops auditable), Wilson-CI coverage 98.6% on the put ranker, prob_profit top-bin over-confidence is real + regime-dependent, ev_dollars SIGN predicts realized direction, IV has zero skew (100%), and connector ticker-filtering dominates a universe scan. | `vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md` |
 
 ## Usage-test scenarios (34)

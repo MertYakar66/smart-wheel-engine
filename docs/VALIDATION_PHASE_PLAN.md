@@ -217,13 +217,24 @@ market-data row dated after `T`.
 
 **Method.** Build a truncated copy of the data directory in which each
 unambiguous market time-series CSV is physically cut to `date <= T`
-(tier-1 set: `ohlcv`, `vol_iv`, `treasury`, `vix`, `credit_risk`,
-`liquidity`). Schedule-type files are copied intact (`earnings` — the
-event-lockout gate legitimately needs the *future* earnings calendar;
-`dividends`, `fundamentals`, `corporate_actions`, `broad_pull/` — mixed
-semantics, identical in both runs so they cannot create false diffs; a
-stricter tier-2 pass that truncates these too and *triages* diffs is a
-noted follow-up, not part of the tier-1 assertion). Then:
+(tier-1 set: `ohlcv`, `vol_iv`, `treasury`, `vix`, `liquidity`).
+Everything else is copied intact (`earnings` — the event-lockout gate
+legitimately needs the *future* earnings calendar; `dividends`,
+`fundamentals`, `corporate_actions`, `broad_pull/` — mixed semantics,
+identical in both runs so they cannot create false diffs; a stricter
+tier-2 pass that truncates these too and *triages* diffs is a noted
+follow-up, not part of the tier-1 assertion).
+
+*Pre-run mechanics corrections (2026-07-12, before any run):*
+(i) `credit_risk` was listed tier-1 at pre-registration but turned out to
+be a **dateless snapshot file** (no date column exists to truncate) — it
+is copied intact and recorded as an inherent PIT limitation of that
+dataset, not a truncation target. (ii) The credit-regime de-rank reads
+FRED **network** series (`fred_adapter.credit_regime`), which file
+truncation cannot cover and whose availability could differ between runs;
+the amnesia harness therefore passes `use_credit_regime=False` on BOTH
+sides — its PIT slice is code-enforced and unit-tested separately — and
+records the exclusion. Then:
 
 1. **A/A determinism control** — two fresh `WheelRunner(data_dir=<full>)`
    instances, same `as_of`, full diagnostic fields, option-premium rail
@@ -289,8 +300,15 @@ the ranker runs at `as_of = T`. Because the frame passed in is already
 sliced `<= T`, the internal `<= T0` slice yields exactly the scenario set
 the past could have had. Everything downstream inherits the freeze with
 no further surgery: `ev_raw`, `prob_profit`, `pnl_p25/p50/p75`, `cvar_5`,
-the trade-space GPD fit (`cvar_99_evt`, ξ, heavy-tail penalty), and the
-F4 factor. The HMM freeze is applied **offline** (the parameter_oos
+the trade-space GPD fit (`cvar_99_evt`, ξ, heavy-tail penalty).
+*Pre-run mechanics correction (2026-07-12, before any run):* the F4
+vol-ratio widening (`realized_vol_widening_factor` /
+`realized_vol_widened_log_returns`) is a separate call and stays **live
+at `T`** — rv30/rv252 is a market-state reading (§5.0 category 3), like
+spot and IV, not fitted knowledge; the realistic stale-operation scenario
+is "current market readings, stale fitted models." The pre-registered
+sentence above originally lumped F4 into the freeze; corrected before any
+run. The HMM freeze is applied **offline** (the parameter_oos
 rederivation convention): fit on returns `<= T0`, posterior on the tail
 `<= T`, `frozen_ev_dollars = frozen_ev_raw × clamp(frozen_mult)` —
 recombined in numpy on the captured columns. Spot, premium, IV, strike
@@ -357,7 +375,111 @@ V2-b failures indict the engine as shipped.
 
 | Run | Sub-workstream | Where | Status |
 |---|---|---|---|
-| V2-a | amnesia (5 dates × 24 names, tier-1) | sandbox (brain) | pre-registered |
-| V2-b | freeze snapshot @ 2023-06-30 + lock | sandbox (brain) | pre-registered |
-| V2-c | frozen replay, 24t holdout grid | sandbox (brain) | pre-registered |
+| V2-a | amnesia (5 dates × 24 names, tier-1) | sandbox (brain) | **DONE 2026-07-12 — PASS** |
+| V2-b | freeze snapshot @ 2023-06-30 + lock | sandbox (brain) | **DONE 2026-07-12 — REPRODUCED** |
+| V2-c | frozen replay, 24t holdout grid | sandbox (brain) | **DONE 2026-07-12** |
 | V2-c-100t | frozen replay, 100t | terminal | gated on V1-b debrief |
+
+### 5.6 Results
+
+**V2-a (2026-07-12): PASS — zero diffs on every date.** The A/A
+determinism control was clean at all five dates (the ranker is exactly
+reproducible given a data directory), and the A/B full-vs-truncated
+outputs were identical on every diagnostic column and every drop:
+
+| as_of | regime flavor | ranked rows | drops | A/A | A/B |
+|---|---|---|---|---|---|
+| 2022-06-15 | crisis-adjacent | 15 | 9 | identical | identical |
+| 2023-11-15 | calm | 20 | 4 | identical | identical |
+| 2024-08-06 | post vol-spike | 16 | 8 | identical | identical |
+| 2025-04-15 | tariff-crisis window | 3 | 21 | identical | identical |
+| 2026-05-01 | near-frontier | 22 | 2 | identical | identical |
+
+Pre-registered expectation 1 confirmed: **no market-data row dated after
+`as_of` influences the rank path** through any tier-1 series (OHLCV,
+vol/IV, treasury, VIX term structure, liquidity). This converts
+`docs/PARAMETER_OOS.md` §1's "leakage-free by construction" from an
+assertion into an experiment for those paths. Scope limits stand as
+documented in §5.1: schedule-type files and the FRED credit series are
+outside the tier-1 assertion (the latter disabled on both sides), and a
+tier-2 triage pass remains the noted follow-up. (Incidental: 2025-04-15
+ranks only 3 names — 21 dropped, dominated by the April earnings-season
+event lockout; correct behavior, noted so nobody mistakes it for a data
+problem.)
+
+**V2-b (2026-07-12): REPRODUCED — 24/24 tickers.** The committed fixture
+(`tests/fixtures/freeze_replay/freeze_snapshot_24t.json`, 56 KB) holds
+every UNIVERSE_24 ticker's fitted HMM (production recipe) and canonical
+return-space GPD fit at 2023-06-30; a full refit from the committed CSVs
+matches at rtol 1e-7. Pre-registered expectation 2 confirmed. The lock now
+runs in the slow lane (`test_c1_lock_refit_reproduces_committed_snapshot`,
+`backtest_regression` marker) and will fire on silent data restatement,
+numpy/scipy behavior drift, or a classifier refactor. C1's
+"snapshot + assert reproduction" definition of done is met; the
+"held-out backtest" half is V2-c.
+
+**V2-c (2026-07-12): the freeze barely hurts — and where it does hurt is
+diagnostic.** 1,793 frozen rows joined the production (V1-a) capture
+row-for-row over 144 holdout dates (2023-08 -> 2026-05, every 5 bdays;
+scenario knowledge frozen at 2023-06-30, i.e. up to ~2.9 years stale).
+Report: gitignored `freeze_replay_report_24t.json`. Headlines:
+
+- **Rank: the tradeable-tier edge fully survives a multi-year freeze**
+  (expectation 3 CONFIRMED). Per-date cross-sectional rho, top-5 tier:
+  production +0.174 [block-7 CI +0.054, +0.283] vs frozen +0.188-0.207
+  across the three frozen variants — statistically indistinguishable,
+  nominally *higher* frozen. The frozen-HMM variant matches the live-HMM
+  variant to the third decimal (the overlay is as inert as parameter_oos
+  found). Refit recency is NOT where the top-tier edge comes from —
+  consistent with the "edge lives in the parameter-light `ev_raw`" story,
+  and operationally: a stale-fit week would not degrade live top-tier
+  ranking. New wrinkle: the ALL-candidate cross-section goes from
+  statistically zero (production -0.058 [-0.165, +0.039]) to
+  significantly negative frozen (-0.142 to -0.150, CI excluding 0) — the
+  freeze corrupts the ordering of the *untradeable tail*, not the head.
+- **Risk frequency: pooled coverage is freeze-insensitive** (expectation
+  4's pre-registered form largely FALSIFIED, and that is the finding).
+  cvar_5 breach 1.51% -> 1.78% pooled (both PASS); p25 violations 14.7%
+  -> 11.9% (frozen *more* conservative); drift by time-since-cutoff is
+  minimal (12-24m: 2.76% -> 2.92%; 24m+: 1.61% -> 2.25%). A ~3-year-stale
+  scenario set produces nearly the same pooled tail-breach frequency as a
+  daily-refit one. Per the pre-registered interpretation: the trailing
+  window's lag dominates — refitting daily buys almost no *pooled*
+  frequency protection, sharpening I3-E and the case that tail honesty
+  needs a forward-looking input (IV), not a faster rear-view mirror.
+- **Where refit recency DOES protect: violation independence.**
+  Production violation clustering on this (crisis-onset-free) holdout:
+  ac1 0.10, permutation p = 0.079 — not significant. Frozen: **ac1 0.56,
+  p = 0.0005** — strongly clustered. The live refit absorbs slow regime
+  drift well enough to de-cluster violations on a calm-to-elevated
+  window; the frozen model's violations arrive in bursts. (Reconciles
+  with V1-a full-window clustering ac1 0.40-0.67: refitting de-clusters
+  slow drift but cannot de-cluster crisis *onsets* — the two results
+  bracket exactly what the rear-view mirror can and cannot do.)
+- **The freeze redistributes confidence INTO the over-confident bin**
+  (expectation 5 falsified in its pooled form, confirmed in a sharper
+  one). Median prob_profit shift is 0.0000 and pooled z is identical
+  (+4.88 vs +4.84 — both *conservative* on this window: 1,488 wins
+  observed vs ~1,404 expected), but 55.6% of joined rows move by > 5pp
+  symmetrically, and the top bin (prob_profit > 0.90) more than doubles
+  in population: 79 production rows -> 178 frozen, with breach rate
+  7.6% -> 8.4% — stale calm-vintage distributions mint more
+  high-confidence picks in exactly the bin the record shows is
+  over-confident. Traded-region breach rises 3.89% -> 5.42%. Selection
+  concentration, not mean drift, is how staleness expresses itself.
+- **Distribution-source mix** (expectation 6): confirmed, small — 0.7% ->
+  4.2% of cells fall to the overlapping tier under the freeze.
+- Corroboration for V1: on this holdout subwindow the PRODUCTION capture
+  itself shows top_bin breach 7.6% (n=79) and traded_region 3.9% (n=540)
+  vs 1.5% pooled — the V1-a winner's-curse concentration replicates on a
+  different window cut, before V1-b even reports.
+
+**Scorecard against §5.4 (unedited):** (1) CONFIRMED, (2) CONFIRMED,
+(3) CONFIRMED, (4) largely falsified in its pooled-frequency form — the
+degradation channel is violation clustering + top-bin population, not
+pooled breach rate; the pre-registered falsifier interpretation applies,
+(5) falsified as a mean shift; the effect is symmetric churn plus top-bin
+concentration, (6) confirmed (small). No V2 finding indicts the shipped
+engine (V2-a and V2-b both clean); the V2-c findings characterize the
+*value of refit recency*: it buys violation independence and selection
+discipline, not pooled tail-frequency accuracy.

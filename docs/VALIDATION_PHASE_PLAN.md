@@ -25,8 +25,8 @@ and (d) execution/capacity realism beyond one contract at mid.
 |---|---|---|---|---|
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
-| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **designed + pre-registered (§6)** | `backtests/param_plateau.py` (planned) |
-| V4 | **Capacity curve** — re-run S34-class backtests at 5/10/25 contracts with the Almgren-Chriss impact term armed and OI-capped fills | Where is the knee of edge-vs-deployed-dollars? | queued | (extends `backtests/regression/_common.py` friction overlay) |
+| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **sandbox half DONE (§6.6: F4 PLATEAU x2, R11-24t inverted-lift shelf, activation gates); 100t overnight bundle on the terminal** | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
+| V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **designed + pre-registered (§7)** | `backtests/capacity_curve.py` (planned) |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
 
@@ -842,10 +842,17 @@ argmax over N of net capture at each r.
 
 ### 7.2 Pre-registered expectations (falsifiable)
 
-1. **Linearity control:** with the overlay disabled, all ladder points
-   produce identical returns (%) and identical trade sequences — the
-   straight line by construction. Any deviation is a harness bug, not a
-   finding (the A/A of this study).
+1. **Linearity control:** with the overlay disabled, `return_pct` is
+   exactly PROPORTIONAL to N while no BP refusal has fired (the same
+   1-contract book on 1/N the capital — the linear segment of the curve
+   by construction), and any deviation from proportionality coincides
+   exactly with the first BP refusal. A deviation WITHOUT a BP refusal
+   is a harness bug, not a finding (the A/A of this study).
+   *Pre-run correction (2026-07-13, before any run):* originally
+   written as "identical returns at every N", which contradicted
+   expectation 5 — identical returns hold only per-position, not at the
+   portfolio level where deployment scales with N. Corrected to the
+   proportionality form; expectation 5 unchanged.
 2. **Impact bends the curve monotonically:** per-contract net capture
    declines in N at every r; impact share of premium grows ~sqrt(N).
 3. **The knee location is proxy-dominated:** N*(r) shifts by at least

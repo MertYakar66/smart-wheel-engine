@@ -1162,3 +1162,52 @@ gate-permission statement written up; any "gates insufficient" finding
 triaged to the re-baseline queue alongside F-V1-1/2/4 and F-V3-1; the
 CSP-mandate statement (structural absence of the margin spiral)
 recorded as a documented design fact. No engine change ships.
+
+### 8.5 V5-a results (2026-07-13; Windows executor, ~1 min, first attempt)
+
+Provenance: `reverse_stress_search_100t.json` (gitignored) over the
+untouched V1-b capture (40,201 rows / 822 entry dates; 429 dates carried
+an admissible adversary book); HEAD-honest at `1f3a2ba`.
+
+**Expectation 1 CONFIRMED — the falsifier is rejected: ruin-class
+composition damage IS admissible through the R10 + R9 + collateral gate
+stack.** 8 ruin dates (>= 25% NAV in one cycle), every one a COVID-onset
+entry (2020-02-11 -> 2020-03-02); nothing from the 2022 bear or any
+other window reaches ruin. Depth and per-date ruin rate concentrate in
+the CALM band exactly as F-V1-1 predicts — the two deepest books lose
+**36.5% / 36.4% of NAV from entries at VIX 13.7 / 14.2**, and the calm
+band's ruin rate (3/59 = 5.1%) exceeds elevated (0.7%) and crisis
+(3.6%). Honest nuance, recorded: 3 of 8 ruin dates sit in the crisis
+band (VIX 27.9-39.2, the late-Feb escalation) — "concentrated in
+calm/elevated" holds for depth and rate, not as an exclusive location
+claim. The worst book is diversified-LOOKING: 12-14 names across 6+
+sectors, Financials exactly at the R9 25% cap, every name within R10 —
+**sector diversification inside one short-vol strategy does not
+diversify a market-wide onset.**
+
+**Expectation 2 CONFIRMED 8/8:** realized loss exceeded the modeled book
+CVaR by 3.18-7.07x on every ruin date, largest on the calm entries
+(7.07x / 6.25x) — F-V1-4's per-row severity composes at book level; the
+thin tails stack, they do not diversify away.
+
+**Expectation 3 CONFIRMED, with the bound recorded:** the top-bin-only
+adversary reaches >= 15% NAV on three onset dates (19.2% / 16.5% /
+15.1%) — the engine's highest confidence composes into ~1/5-of-NAV
+damage — but NEVER ruin-class (max 19.2%, q99 15.3%): `prob_profit >
+0.90` does bound worst-case composition below 25% in this history,
+even while those picks stay severely mis-modeled (x CVaR up to 7.40,
+the highest multiple of the run).
+
+Recorded observations: (i) the greedy fills residual budget with
+profitable names once losers are exhausted — a concrete mechanism behind
+the pre-registered "greedy = conservative lower bound" (true permitted
+damage >= reported; immaterial on ruin dates, where losers saturate the
+budget). (ii) The R9 unknown-sector exemption was live but immaterial
+(one ticker, BK; never in a worst book). (iii) Connective tissue with
+F-V3-1: the top-bin worst dates at VIX 27.9-39.2 sit ABOVE R11's
+measured lift>1 crossover (~27.5) — R11 is not part of the V5-a
+admissibility stack, and where it CAN see, it would have flagged exactly
+those books; the calm ruin books (36.5% at VIX 13.7) remain unreachable
+by any VIX rule — the two findings tell one story.
+
+*(V5-b: pending — Mac executor.)*

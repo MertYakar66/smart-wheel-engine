@@ -36,7 +36,7 @@ CONFIGS = {
     "24t": {"universe": "UNIVERSE_24", "top_n": 10},
     "100t": {"universe": "UNIVERSE_100", "top_n": 15},
 }
-BASE_CAPITAL = 1_000_000.0
+DEFAULT_BASE_CAPITAL = 1_000_000.0
 START, END = "2022-01-03", "2024-12-31"
 MAX_NEW_PER_DAY = 3
 
@@ -49,14 +49,16 @@ def _universe(name: str) -> list[str]:
 
 def cmd_run(args: argparse.Namespace) -> int:
     cfg = CONFIGS[args.config]
+    base = float(args.base_capital)
+    tag = "" if base == DEFAULT_BASE_CAPITAL else f"_{base / 1_000_000:g}m"
     print(
-        f"[capacity_curve] config={args.config} base=${BASE_CAPITAL:,.0f} "
+        f"[capacity_curve] config={args.config} base=${base:,.0f} "
         f"window={START}..{END} ladder={list(cc.LADDER)} ratios={list(cc.PROXY_RATIOS)} "
         f"+ control",
         flush=True,
     )
     result = cc.run_capacity_ladder(
-        base_capital=BASE_CAPITAL,
+        base_capital=base,
         tickers=_universe(cfg["universe"]),
         start=START,
         end=END,
@@ -67,7 +69,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     report = {
         "meta": {
             "config": args.config,
-            "base_capital": BASE_CAPITAL,
+            "base_capital": base,
             "window": [START, END],
             "ladder": list(cc.LADDER),
             "ratios": list(cc.PROXY_RATIOS),
@@ -81,7 +83,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     }
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"capacity_report_{args.config}.json"
+    out = out_dir / f"capacity_report_{args.config}{tag}.json"
     out.write_text(json.dumps(report, indent=2, default=str))
     print(f"[capacity_curve] wrote {out}", flush=True)
 
@@ -111,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("phase", choices=["run"])
     p.add_argument("--config", choices=sorted(CONFIGS), default="24t")
+    p.add_argument("--base-capital", type=float, default=DEFAULT_BASE_CAPITAL)
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
     args = p.parse_args(argv)
     return cmd_run(args)

@@ -871,6 +871,7 @@ argmax over N of net capture at each r.
 |---|---|---|---|
 | V4-pilot | 24t ladder {1,5,10,25} x r {1e-5,1e-4,1e-3} + linearity control | sandbox (brain) | pre-registered |
 | V4-100t | 100t replication (decided on pilot results) | terminal | gated on pilot |
+| V4-100t-10m | supplementary NAV arm at BASE $10M (added 2026-07-13 after the pilot, BEFORE either 100t run): at $1M the BP gate confounds the impact knee — the pilot showed BP refusals from N=5 — so a $10M arm lets the impact/participation knee show clean. Expectation 6 (pre-registered with this row): the BP knee scales out ~proportionally with BASE while the impact share of premium does NOT move (impact depends on N and ADV, not NAV), so at $10M the binding constraint at high N becomes participation/impact; falsifier: returns stay BP-dominated at $10M, meaning capacity is tighter than the deployment arithmetic suggests. Connects to the R10 admissibility arithmetic (25 contracts of a $200-strike needs ~$5M NAV). | terminal | pre-registered |
 
 Acceptance for V4 closure: linearity control clean; the knee-vs-r table
 + per-(N,r) metrics recorded; constraint 7.0(1) (tracker

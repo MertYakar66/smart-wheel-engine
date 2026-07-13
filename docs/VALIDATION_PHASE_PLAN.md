@@ -712,4 +712,30 @@ the windows it was built for and is simply inert on calm regimes; if
 the inversion persists even with 2020 in-sample, R11's conditioning is
 mis-aimed and that goes to the re-baseline queue.
 
-*(F4 threshold/cap sweep results: pending — 9 engine passes in flight.)*
+**V3-b F4 sweeps, 24t grid (2026-07-13; 9 passes, 1,971 rows each,
+2020-02 -> 2026-05 every 10 bdays; elev+crisis stratum n=1,596):**
+
+| threshold | fire rate | elev+crisis breach | | cap | fire rate | elev+crisis breach |
+|---|---|---|---|---|---|---|
+| 1.10 | 28.8% | 1.63% | | 1.00 (OFF) | 0.0% | 1.75% |
+| 1.20 | 20.0% | 1.63% | | 1.075 | 13.5% | 1.75% |
+| **1.30*** | 13.5% | 1.63% | | **1.15*** | 13.5% | 1.63% |
+| 1.40 | 9.1% | 1.63% | | 1.225 | 13.5% | 1.63% |
+| 1.50 | 6.0% | 1.75% | | 1.30 | 13.5% | 1.63% |
+
+**Verdicts: PLATEAU on both axes** (guard rho ok everywhere; no
+DOMINATED value). Expectation 1 CONFIRMED — the F4 calibration is not a
+fitted artifact; the shipped values sit on broad shelves. Expectation 2
+**falsified in substance**: the F4-OFF control differs from shipped by
+0.12pp of breach rate — TWO breaches in 1,596 rows — nowhere near 2 SE.
+The sharper reading of the flat rows: the threshold axis moves the fire
+rate by ~5x (28.8% -> 6.0%) with ZERO change in measured tail coverage,
+and the cap effect saturates immediately (1.075 ~ OFF; >= 1.15 all
+identical). **F4 is a plateau because it is barely load-bearing** — the
+gentle 1.15x widening rarely flips a breach, whichever rows it fires on.
+This is the third independent arrival at the same conclusion (V2-c:
+freezing the trailing window barely moves pooled coverage; F-V1-1: the
+misses live where trailing/entry-time signals can't see): the
+trailing-vol reaction channel is not where tail honesty comes from.
+Recorded as a finding, not a defect — F4's design goal ("gentle, never
+invert rho") is met, and nothing here motivates touching it.

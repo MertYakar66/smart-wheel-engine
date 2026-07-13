@@ -84,13 +84,22 @@ any run.
   onset-blindness seen from the reviewer's side. NOT a verdict on R11
   yet: D23/i11 validated it on onset windows; the 100t sweep (2020-02
   start) arbitrates.
-- F4 threshold/cap sweeps: 9 engine passes in flight (sandbox
-  background); results recorded on completion.
+- **F4 sweeps DONE (2026-07-13, 9 passes x 1,971 rows): PLATEAU on both
+  axes** — and barely load-bearing: threshold moves the fire rate 5x
+  (28.8% -> 6.0%) with ZERO change in elev+crisis breach (1.63% flat
+  for 1.1-1.4); the F4-OFF control differs from shipped by 2 breaches
+  in 1,596 rows; cap effect saturates at 1.15. Expectation 1 confirmed
+  (not a fitted artifact), expectation 2 falsified in substance (OFF ~
+  shipped). Third independent arrival at "the trailing-vol reaction
+  channel is not where tail honesty comes from" (with V2-c and F-V1-1).
+  Full tables: plan doc section 6.6.
 
 ## Unresolved / handoff
 
-- F4 axis verdicts pending the background passes.
-- V3-a-100t (R11 sweep on `tail_table_100t.csv`) + 100t activation
-  spot-check: terminal one-liners, card to be issued with the F4 results.
+- V3-a-100t (R11 arbitration with 2020 in-sample) + activation-100t +
+  F4-100t replication: the OVERNIGHT terminal bundle (card issued
+  2026-07-13; self-contained, rebuilds the V1-b capture from the branch).
+- V3 closure after the overnight results: per-axis verdicts at both
+  scales + the R11 triage decision.
 - POT / ξ-gate / penalty / block-length: activation-gated per section
   6.0; revisit on a Theta window or if 100t activation clears the floor.

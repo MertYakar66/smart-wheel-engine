@@ -84,3 +84,67 @@ def test_h_metrics_insufficient_paths():
     assert v6.h3_assignment_wave(empty)["verdict"] == "INSUFFICIENT"
     only_2007 = _rank_log().query("date < '2008'")
     assert v6.h1_refusal_grind(only_2007)["verdict"] == "INSUFFICIENT"
+
+
+# ---------------------------------------------------------------------------
+# Post-processing regressions — the 2026-07-13 attempt-1/2 crash class.
+# The engine pass completed and the driver died AFTER it, in shape handling;
+# these pin the reporting path against the vehicle's EXACT return shape.
+# ---------------------------------------------------------------------------
+
+
+def test_collect_entry_dates_tolerates_every_vehicle_shape():
+    closed = [
+        {"ticker": "AAPL", "entry_date": "2008-08-05", "realized_pnl": 1.0},
+        {"ticker": "XOM", "entry_date": "2008-09-10"},
+    ]
+    open_records = [{"ticker": "JPM", "state": "short_put", "entry_date": "2008-09-11"}]
+    legacy_state_map = {"JPM": "short_put", "GE": "stock_owned"}  # the crash shape
+
+    got = v6.collect_entry_dates(closed, open_records)
+    assert list(got) == ["2008-08-05", "2008-09-10", "2008-09-11"]
+    # The legacy {ticker: state_string} map must be skipped, never die.
+    assert list(v6.collect_entry_dates(closed, legacy_state_map)) == [
+        "2008-08-05",
+        "2008-09-10",
+    ]
+    assert list(v6.collect_entry_dates(None, pd.DataFrame(closed))) == [
+        "2008-08-05",
+        "2008-09-10",
+    ]
+    assert len(v6.collect_entry_dates(None, [])) == 0
+
+
+def test_safe_records_error_verdict_instead_of_dying():
+    def boom(_):
+        raise KeyError("was_assigned")
+
+    out = v6._safe(boom, pd.DataFrame())
+    assert out["verdict"] == "ERROR"
+    assert "was_assigned" in out["traceback"]
+
+
+def test_build_report_on_the_vehicle_exact_return_shape():
+    """The lock that would have caught the spend crash: a result dict shaped
+    byte-for-byte like run_survivorship_backtest's return (legacy state map
+    AND records) must post-process into a complete report."""
+    from datetime import date
+
+    result = {
+        "metrics": {"final_nav": 1_000_000.0},
+        "rank_log": _rank_log(),
+        "open_positions": {"JPM": "short_put", "GE": "stock_owned"},
+        "open_position_records": [
+            {"ticker": "JPM", "state": "short_put", "entry_date": "2008-09-11"},
+            {"ticker": "GE", "state": "stock_owned", "entry_date": "2008-10-02"},
+        ],
+        "closed_positions": [
+            {"ticker": "AAPL", "entry_date": date(2008, 8, 5), "exit_date": date(2008, 9, 20)}
+        ],
+    }
+    report = v6.build_report(result, [], elapsed_seconds=61.0)
+    for h in ("H1_refusal_grind", "H2_cliff_lag", "H3_assignment_wave", "H4_rank_rho"):
+        assert report[h].get("verdict") != "ERROR", report[h]
+    assert report["n_opens_counted"] == 3  # closed + BOTH still-open records
+    assert report["rows_ranked"] == len(result["rank_log"])
+    assert report["H2_cliff_lag"]["verdict"] != "INSUFFICIENT"

@@ -10,6 +10,13 @@ only — premiums are synthetic BSM from the deep IV panels; NAV and dollar
 P&L are NOT evidence (§2.4). The four H-verdicts are computed in code so
 the run is reported whatever it says. Deterministic; a crash may be
 restarted; the run is never re-parameterized.
+
+Reporting hardened after the 2026-07-13 attempt-1/2 post-processing crash
+(read NOT spent — no verdict computed, no report written): raw artifacts
+are dumped before verdict computation and each H-verdict is
+exception-captured, so the engine pass can no longer be lost to a
+reporting bug. SPEC and the H-verdict functions are byte-identical to the
+pinned pre-spend commit (1473857).
 """
 
 from __future__ import annotations
@@ -18,6 +25,8 @@ import argparse
 import json
 import os
 import sys
+import time
+import traceback
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -151,6 +160,75 @@ def h4_rank_rho(rank_log: pd.DataFrame) -> dict:
     }
 
 
+def collect_entry_dates(*sources) -> pd.Series:
+    """Entry dates across closed and still-open position records.
+
+    Defensive on shape — the 2026-07-13 attempt-1/2 crash was the vehicle's
+    legacy ``open_positions`` ``{ticker: state_string}`` map reaching a
+    ``.get("entry_date")`` path. Accepts lists of dicts, DataFrames, or the
+    legacy map (whose string values carry no dates and are skipped), and
+    ignores anything else rather than dying after the engine pass.
+    """
+    dates: list[str] = []
+    for source in sources:
+        if source is None:
+            continue
+        if isinstance(source, pd.DataFrame):
+            source = source.to_dict("records")
+        elif isinstance(source, dict):
+            source = list(source.values())
+        for p in source:
+            if isinstance(p, dict) and p.get("entry_date"):
+                dates.append(str(p.get("entry_date")))
+    return pd.Series(dates, dtype="object")
+
+
+def _safe(fn, *fn_args) -> dict:
+    """One H-verdict, crash-proof: a bug in a verdict function is recorded in
+    the report as ``verdict=ERROR`` with the traceback — the spend's report is
+    written whatever happens."""
+    try:
+        return fn(*fn_args)
+    except Exception:  # noqa: BLE001
+        return {"verdict": "ERROR", "traceback": traceback.format_exc()}
+
+
+def build_report(result: dict, delisted_participants: list, elapsed_seconds: float) -> dict:
+    """Pure post-processing of the vehicle's return value -> the report dict.
+
+    Kept separate from cmd_run (and exception-captured per H) so the verdict
+    path is testable against the vehicle's exact return shape without a
+    deep-history read.
+    """
+    rank_log = result["rank_log"]
+    if not isinstance(rank_log, pd.DataFrame):
+        rank_log = pd.DataFrame(rank_log)
+    # Opens = entry dates across closed AND still-open positions (assigned
+    # puts wheel onward, they do not close at expiry). Still-open entry dates
+    # come from open_position_records; the legacy open_positions state map
+    # carries no dates.
+    opens = collect_entry_dates(result.get("closed_positions"), result.get("open_position_records"))
+    return {
+        "meta": {
+            "spec": SPEC,
+            "generated_at": datetime.now(UTC).isoformat(),
+            "elapsed_seconds": round(elapsed_seconds, 1),
+        },
+        "rows_ranked": int(len(rank_log)),
+        "n_opens_counted": int(len(opens)),
+        "H1_refusal_grind": _safe(h1_refusal_grind, rank_log),
+        "H2_cliff_lag": (_safe(h2_cliff_lag, opens) if len(opens) else {"verdict": "INSUFFICIENT"}),
+        "H3_assignment_wave": _safe(h3_assignment_wave, rank_log),
+        "H3b_delisted_participants": {
+            "n": len(delisted_participants),
+            "tickers": delisted_participants[:20],
+            "note": "PIT-only names whose history ends in-window; 0 is a valid outcome",
+        },
+        "H4_rank_rho": _safe(h4_rank_rho, rank_log),
+        "metrics": result.get("metrics", {}),
+    }
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     from backtests.survivorship import run_survivorship_backtest
 
@@ -165,6 +243,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         f"[v6] LOCKBOX SPEND — spec frozen at plan §9: {json.dumps({k: v for k, v in SPEC.items() if not isinstance(v, list)})}",
         flush=True,
     )
+    t0 = time.monotonic()
     result = run_survivorship_backtest(
         capital=SPEC["capital"],
         start=SPEC["start"],
@@ -178,53 +257,55 @@ def cmd_run(args: argparse.Namespace) -> int:
         delta_target=SPEC["delta_target"],
         contracts=SPEC["contracts"],
     )
+    elapsed = time.monotonic() - t0
     rank_log = result["rank_log"]
     if not isinstance(rank_log, pd.DataFrame):
         rank_log = pd.DataFrame(rank_log)
-    # Opens = entry dates across closed AND still-open positions ("entry_date"
-    # exists on both record shapes; assigned puts wheel onward, they do not
-    # close at expiry — schema verified against _finalize_position).
-    closed = result.get("closed_positions", []) or []
-    if isinstance(closed, pd.DataFrame):
-        closed = closed.to_dict("records")
-    open_pos = result.get("open_positions", []) or []
-    if isinstance(open_pos, pd.DataFrame):
-        open_pos = open_pos.to_dict("records")
-    entry_dates = [
-        p.get("entry_date") for p in list(closed) + list(open_pos) if p.get("entry_date")
-    ]
-    opens = pd.Series(entry_dates, dtype="object")
+        result["rank_log"] = rank_log
+    print(
+        f"[v6] engine pass done: {len(rank_log)} ranked rows in {elapsed / 60:.1f} min", flush=True
+    )
+
+    # Raw spend artifacts FIRST — the engine pass must never again be lost to
+    # a post-processing crash; the H-verdicts are recomputable offline from
+    # these (gitignored, operator machine only).
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rank_log.to_csv(out_dir / "v6_rank_log.csv.gz", index=False, compression="gzip")
+    (out_dir / "v6_positions.json").write_text(
+        json.dumps(
+            {
+                "closed_positions": result.get("closed_positions", []),
+                "open_position_records": result.get("open_position_records", []),
+                "open_positions": result.get("open_positions", {}),
+                "metrics": result.get("metrics", {}),
+            },
+            indent=2,
+            default=str,
+        )
+    )
+    print(f"[v6] raw artifacts written to {out_dir}", flush=True)
 
     # Delisted-participant census (H3b, report-only): ranked tickers whose
     # deep-history OHLCV ends inside the window are PIT-only participants.
-    from backtests.survivorship import make_deep_connector
+    delisted_participants: list[dict] = []
+    try:
+        from backtests.survivorship import make_deep_connector
 
-    conn = make_deep_connector()
-    delisted_participants = []
-    for t in sorted(set(rank_log["ticker"].astype(str))):
-        try:
-            df_t = conn.get_ohlcv(t)
-            if df_t is not None and not df_t.empty and str(df_t.index.max())[:10] < SPEC["end"]:
-                delisted_participants.append({"ticker": t, "last_bar": str(df_t.index.max())[:10]})
-        except Exception:  # noqa: BLE001
-            continue
+        conn = make_deep_connector()
+        for t in sorted(set(rank_log["ticker"].astype(str))):
+            try:
+                df_t = conn.get_ohlcv(t)
+                if df_t is not None and not df_t.empty and str(df_t.index.max())[:10] < SPEC["end"]:
+                    delisted_participants.append(
+                        {"ticker": t, "last_bar": str(df_t.index.max())[:10]}
+                    )
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        delisted_participants = [{"census_error": traceback.format_exc()}]
 
-    report = {
-        "meta": {"spec": SPEC, "generated_at": datetime.now(UTC).isoformat()},
-        "rows_ranked": int(len(rank_log)),
-        "H1_refusal_grind": h1_refusal_grind(rank_log),
-        "H2_cliff_lag": h2_cliff_lag(opens) if len(opens) else {"verdict": "INSUFFICIENT"},
-        "H3_assignment_wave": h3_assignment_wave(rank_log),
-        "H3b_delisted_participants": {
-            "n": len(delisted_participants),
-            "tickers": delisted_participants[:20],
-            "note": "PIT-only names whose history ends in-window; 0 is a valid outcome",
-        },
-        "H4_rank_rho": h4_rank_rho(rank_log),
-        "metrics": result.get("metrics", {}),
-    }
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    report = build_report(result, delisted_participants, elapsed)
     out = out_dir / "v6_report.json"
     out.write_text(json.dumps(report, indent=2, default=str))
     print(f"[v6] wrote {out}", flush=True)

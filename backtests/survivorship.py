@@ -139,7 +139,11 @@ def run_survivorship_backtest(
     connector. Settlement + forward-replay use :func:`terminal_spot` so delisted
     names realize their loss.
 
-    Returns ``{"metrics", "rank_log", "open_positions", "closed_positions"}``.
+    Returns ``{"metrics", "rank_log", "open_positions", "open_position_records",
+    "closed_positions"}``. ``open_positions`` is the legacy ``{ticker: state}``
+    map; ``open_position_records`` carries per-position dict records
+    (``ticker``/``state``/``entry_date``) so consumers can count opens without
+    the tracker — closed records alone miss positions still open at window end.
     """
     from engine.wheel_runner import WheelRunner
     from engine.wheel_tracker import PositionState, WheelTracker
@@ -310,5 +314,14 @@ def run_survivorship_backtest(
             for t, p in tracker.positions.items()
             if p.state != PositionState.NO_POSITION
         },
+        "open_position_records": [
+            {
+                "ticker": t,
+                "state": p.state.value,
+                "entry_date": p.entry_date.isoformat() if p.entry_date else None,
+            }
+            for t, p in tracker.positions.items()
+            if p.state != PositionState.NO_POSITION
+        ],
         "closed_positions": list(tracker.closed_positions),
     }

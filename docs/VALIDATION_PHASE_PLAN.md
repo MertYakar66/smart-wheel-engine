@@ -1323,6 +1323,34 @@ only). Output: `data_processed/validation/v6_lockbox/v6_report.json`
 (gitignored) + the driver's console H-verdict block. One run; a crash
 may be restarted (deterministic); the run is never re-parameterized.
 
+**Run record (append-only):**
+
+- **2026-07-13, attempts 1+2 (operator terminal, HEAD `1473857`): both
+  crashed IDENTICALLY in driver post-processing — read NOT spent.** The
+  engine pass completed both times (~61 min wall-clock, much under the
+  3-5 h estimate); the driver then died at its opens-collection line
+  (`AttributeError: 'str' object has no attribute 'get'`) before any
+  H-verdict was computed, printed, or written —
+  `data_processed/validation/v6_lockbox/` was never created, so per the
+  §2 semantics (a read counts when results are surfaced) the spend
+  remains unspent and 1998/LTCM remains unread. Root cause: the vehicle
+  returns `open_positions` as a `{ticker: state_string}` map; the driver
+  guarded the DataFrame shape only, and the pre-spend tests never
+  exercised that shape (they pinned the H-verdict math, not the
+  transport). Fix (transport/reporting ONLY — SPEC and all four
+  H-verdict functions byte-identical to `1473857`): the vehicle gains a
+  non-breaking `open_position_records` key (ticker/state/entry_date —
+  closed records alone would miss positions still open at window end),
+  the driver's opens-collection became the shape-defensive
+  `collect_entry_dates`, raw artifacts (`v6_rank_log.csv.gz` +
+  `v6_positions.json`) are now written BEFORE verdict computation, and
+  each H-verdict is exception-captured (`verdict=ERROR` + traceback in
+  the report) so the engine pass can never again be lost to a reporting
+  bug. Regression locks added, including a test that post-processes the
+  vehicle's exact return shape end-to-end (it fails on the `1473857`
+  driver). The identical frozen command is re-authorized on the fixed
+  HEAD; this note is committed before that run.
+
 Acceptance for V6 closure: the four H-verdicts recorded verbatim in
 §9.3; the §2 ledger row completed; the phase-closing findings summary
 written. No engine change ships.

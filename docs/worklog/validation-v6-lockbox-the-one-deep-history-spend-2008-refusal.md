@@ -49,11 +49,42 @@ not be fixed by re-reading). Sandbox smoke: precondition refusal path +
 
 ## What didn't
 
-*(slot — filled at closure from the executor report)*
+- **Attempts 1+2 (2026-07-13) crashed identically in driver
+  post-processing — read NOT spent.** The engine pass completed both
+  times (~61 min, well under the 3-5 h estimate); the driver then died
+  at its opens-collection line before any verdict was computed or
+  written. The schema recon that saved H3 missed the OTHER half of the
+  vehicle's return: `open_positions` is a `{ticker: state_string}` map,
+  and the driver's shape guard handled only the DataFrame case —
+  `list(dict)` yields ticker strings and `.get("entry_date")` raises.
+  The pre-spend tests pinned the H-verdict MATH but not the TRANSPORT
+  (the vehicle's actual return shape), which is exactly why 4/4 passed
+  and the run died live. Deeper gap surfaced by the executor: the state
+  map carries no entry dates at all — still-open positions' opens were
+  unrecoverable from the return value as it stood.
 
 ## How we fixed it
 
-*(slot — filled at closure)*
+Transport/reporting only; SPEC and all four H-verdict functions are
+byte-identical to the pinned pre-spend commit (`1473857`):
+
+- `backtests/survivorship.py` gains a non-breaking
+  `open_position_records` key (ticker/state/entry_date from the
+  tracker's Position objects); the legacy `open_positions` map is
+  untouched (its only consumer was this driver).
+- The driver's opens-collection became the shape-defensive
+  `collect_entry_dates` (records/DataFrame/legacy-map/None all
+  tolerated); raw artifacts (`v6_rank_log.csv.gz` + `v6_positions.json`)
+  are written BEFORE verdict computation; each H-verdict is
+  exception-captured (`verdict=ERROR` + traceback recorded in the
+  report). The engine pass can no longer be lost to a reporting bug.
+- Regression locks added: `collect_entry_dates` vs every vehicle shape
+  including the exact crash shape, `_safe` capture, and `build_report`
+  post-processing the vehicle's byte-exact return shape end-to-end (the
+  test that would have caught this — it fails on the `1473857` driver).
+- The crash + fix are recorded in plan §9.2's run-record BEFORE the
+  restart; §2 semantics hold (no result surfaced → spend unspent;
+  1998/LTCM unread).
 
 ## Result
 

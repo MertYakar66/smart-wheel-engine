@@ -72,10 +72,18 @@ ACTIVATION_DATES = (
 )
 
 
-def _universe_24() -> list[str]:
-    from backtests.regression.universes import UNIVERSE_24
+#: Universe per config. Grid/cadence/block are shared (the 6.2 sweep grid).
+CONFIGS = {
+    "24t": {"universe": "UNIVERSE_24"},
+    "100t": {"universe": "UNIVERSE_100"},
+}
 
-    return list(UNIVERSE_24)
+
+def _universe(config: str) -> list[str]:
+    from backtests.regression.universes import UNIVERSE_24, UNIVERSE_100
+
+    name = CONFIGS[config]["universe"]
+    return list(UNIVERSE_24 if name == "UNIVERSE_24" else UNIVERSE_100)
 
 
 def _resolve_sample_end(dte_target: int) -> str:
@@ -97,11 +105,18 @@ def _write_json(path: Path, payload: dict) -> None:
     print(f"[param_plateau] wrote {path}", flush=True)
 
 
-def _table_path(out_dir: Path, axis: str, value: float) -> Path:
+def _table_path(out_dir: Path, axis: str, value: float, config: str) -> Path:
+    # 24t keeps the original un-prefixed names (artifacts from the first
+    # sweep run predate the config dimension); other configs are prefixed.
+    tag = "" if config == "24t" else f"{config}_"
     _param, _grid, shipped = pp.F4_AXES[axis]
     if value == shipped:
-        return out_dir / "f4_shipped.csv"  # one baseline shared by both axes
-    return out_dir / f"f4_{axis}_{value:g}.csv"
+        return out_dir / f"f4_{tag}shipped.csv"  # one baseline shared by both axes
+    return out_dir / f"f4_{tag}{axis}_{value:g}.csv"
+
+
+def _suffix(config: str) -> str:
+    return "" if config == "24t" else f"_{config}"
 
 
 def cmd_activation(args: argparse.Namespace) -> int:
@@ -116,7 +131,7 @@ def cmd_activation(args: argparse.Namespace) -> int:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             frame = runner.rank_candidates_by_ev(
-                tickers=_universe_24(),
+                tickers=_universe(args.config),
                 dte_target=DTE_TARGET,
                 delta_target=DELTA_TARGET,
                 top_n=100,
@@ -128,9 +143,10 @@ def cmd_activation(args: argparse.Namespace) -> int:
         print(f"[param_plateau] activation {as_of}: {0 if frame is None else len(frame)} rows")
     report = pp.activation_from_frames(frames)
     report["dates"] = list(ACTIVATION_DATES)
+    report["config"] = args.config
     report["generated_at"] = datetime.now(UTC).isoformat()
-    _write_json(Path(args.out_dir) / "activation_report.json", report)
-    print("\n=== V3 activation diagnostic ===")
+    _write_json(Path(args.out_dir) / f"activation_report{_suffix(args.config)}.json", report)
+    print(f"\n=== V3 activation diagnostic ({args.config}) ===")
     print(
         f"  rows={report['n_rows']}  gpd_fit_rate={report['gpd_fit_rate']:.4f}  "
         f"heavy_tail_rate={report['heavy_tail_rate']:.4f}  "
@@ -181,12 +197,12 @@ def cmd_f4_build(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     print(
-        f"[param_plateau] f4-build axis={axis} values={list(grid)} "
+        f"[param_plateau] f4-build config={args.config} axis={axis} values={list(grid)} "
         f"grid={grid_dates[0]}..{grid_dates[-1]} ({len(grid_dates)} dates)",
         flush=True,
     )
     for value in grid:
-        out = _table_path(out_dir, axis, value)
+        out = _table_path(out_dir, axis, value, args.config)
         if out.exists():
             print(f"[param_plateau] {axis}={value:g}: reusing {out.name}", flush=True)
             continue
@@ -194,7 +210,7 @@ def cmd_f4_build(args: argparse.Namespace) -> int:
         table = pp.build_f4_sweep_table(
             axis=axis,
             value=value,
-            tickers=_universe_24(),
+            tickers=_universe(args.config),
             sample_dates=grid_dates,
             dte_target=DTE_TARGET,
             delta_target=DELTA_TARGET,
@@ -210,15 +226,16 @@ def cmd_f4_analyze(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir)
     tables: dict[float, pd.DataFrame] = {}
     for value in grid:
-        p = _table_path(out_dir, axis, value)
+        p = _table_path(out_dir, axis, value, args.config)
         if not p.exists():
             print(f"[param_plateau] missing {p} — run f4-build first", file=sys.stderr)
             return 2
         tables[value] = pd.read_csv(p)
     report = pp.f4_axis_report(axis, tables, block_len=BLOCK_LEN)
+    report["config"] = args.config
     report["generated_at"] = datetime.now(UTC).isoformat()
-    _write_json(out_dir / f"f4_{axis}_report.json", report)
-    print(f"\n=== V3-b F4 {axis} sweep (shipped {report['shipped']:g}) ===")
+    _write_json(out_dir / f"f4_{axis}_report{_suffix(args.config)}.json", report)
+    print(f"\n=== V3-b F4 {axis} sweep ({args.config}; shipped {report['shipped']:g}) ===")
     print("   value  fire_rate  elev+crisis breach [n]      pooled   guard rho (top15)  ok")
     for val in report["verdict"]["values"]:
         e = report["per_value"][str(val)]
@@ -238,6 +255,7 @@ def cmd_f4_analyze(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("phase", choices=["activation", "r11", "f4-build", "f4-analyze"])
+    p.add_argument("--config", choices=sorted(CONFIGS), default="24t")
     p.add_argument("--axis", choices=sorted(pp.F4_AXES), default="threshold")
     p.add_argument("--data-dir", default=str(DEFAULT_DATA_DIR))
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))

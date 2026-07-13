@@ -27,7 +27,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
 | V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **CLOSED 2026-07-13** — pilot + both 100t NAV arms; $1M capital-bound at every rung, $10M proxy-bound with an interior impact knee; results §7.4-§7.5 | `backtests/capacity_curve.py`, `scripts/run_capacity_curve.py`, `tests/test_capacity_curve.py` |
-| V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
+| V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | **designed + pre-registered (§8)** | `backtests/reverse_stress.py` (planned) |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
 
 ## 2. The lockbox protocol (reserved-data discipline)
@@ -1052,3 +1052,113 @@ proxy/participation-bound with an interior knee at the thin proxy, and
 modeled impact stays <= ~2.5% of premium everywhere** — the knee's
 location is proxy-dominated, exactly why a data-free point claim was
 pre-registered as dishonest.
+
+---
+
+## 8. V5 — reverse stress: design + pre-registration
+
+**Written 2026-07-13, before any V5 code or run exists.** §8.3
+expectations are frozen after the first run. Measurement-only: pure
+offline computation over captured tables + OHLCV paths; no ranker
+re-runs, no engine changes; the adversary's findings are reported damage
+bounds, never sizing advice.
+
+### 8.0 What reverse stress means here
+
+Classical stress asks "given this scenario, what happens to the book?"
+Reverse stress asks "what is the cheapest path to unacceptable damage
+that the gate stack PERMITS?" The phase's closed workstreams hand V5 a
+measured blind-spot composite instead of hypotheticals: calm-VIX onset
+entries that no entry-time rule can see (F-V1-1), thinnest modeled
+tails exactly in the top-confidence/traded region (F-V1-2), breach
+severity ~30% >= 3x modeled ES (F-V1-4), sub-R10 per-name sizing as the
+only damage bounder, and V4's fact that a $1M book runs BP-saturated.
+**Ruin-class threshold (pre-registered): realized book loss >= 25% of
+NAV within one held-to-expiry cycle.** NAV = $1M throughout.
+
+**Interpretation guard, stated up front:** the V5-a adversary selects
+on REALIZED outcomes — deliberate hindsight. Reverse stress measures
+what the gate stack *permits*, an upper bound on composition damage;
+it is NOT a claim the strategy would assemble that book. Only
+gate-admissibility is entry-time-honest (every constraint checked uses
+entry-time quantities).
+
+### 8.1 V5-a — worst admissible book (offline search on the V1-b capture)
+
+For each entry date in `tail_table_100t.csv`: eligible rows = engine-
+tradeable (`ev_dollars > 0`, resolved outcome); per name the adversary
+may take up to `floor(0.10 x NAV / (strike x 100))` contracts (the R10
+cap — the sub-R10 concentration channel), subject to the R9 sector cap
+(25% NAV per GICS sector; sector from the connector's fundamentals
+snapshot — a documented current-labels approximation; unknown sector =
+counted loudly and exempted, mirroring Q3 missing-evidence semantics)
+and total collateral <= NAV (the cash-secured budget). The adversary
+greedily maximizes realized LOSS per collateral dollar (greedy is the
+pre-registered search — a documented lower bound on the true optimum,
+i.e. conservative). Two variants: unrestricted-tradeable, and TOP-BIN
+ONLY (`prob_profit > 0.90` — can the engine's highest confidence still
+be composed into ruin?). Outputs per date: worst-book loss (% NAV),
+modeled book CVaR (sum of `n_c x cvar_5`) for the model-vs-realized
+gap, names/sectors/VIX-band; plus the cross-date distribution,
+ruin-date list, and entry-VIX strata.
+
+### 8.2 V5-b — margin procyclicality, resolved honestly (replay on crisis windows)
+
+Recon fact first: the tracker's BP reserve is FULL collateral
+(`strike x 100` — cash-secured by construction), while its admission
+check uses Reg-T (~20%). Under the CSP mandate the classical margin
+spiral is therefore **structurally absent** — cash is reserved in full
+at entry and cannot be called away. V5-b decomposes the named blind
+spot into what remains:
+
+1. **Assignment-wave stress** — build the BP-saturated engine-chosen
+   book (rows ranked by `ev_dollars`, 1 contract per name until
+   collateral exhausts NAV) on four pre-registered crisis eves:
+   2020-02-19, 2022-01-03, 2024-07-31, 2025-04-01. Daily replay over
+   the 35-day cycle with **intrinsic-only marking** (put mark =
+   `max(0, K - S_t) x 100` — no time value, so trough damage is a
+   LOWER bound; conservative toward the engine, stated). Report: max
+   book drawdown (% NAV), assignment fraction at expiry, and the
+   **trough-liquidation counterfactual** (panic exit at the worst mark)
+   vs held-to-expiry.
+2. **Levered counterfactual** — the same book run at Reg-T initial
+   margin instead of full cash (what the CSP mandate protects
+   against): daily maintenance = Reg-T recomputed on the day's spot x
+   a stressed-margin multiplier swept over {1.0, 1.25, 1.5} (broker
+   tightening); record the first margin-call day and shortfall per
+   window x multiplier.
+
+### 8.3 Pre-registered expectations (falsifiable)
+
+1. **Ruin is admissible.** The V5-a worst admissible book reaches
+   ruin-class (>= 25% NAV) on at least the COVID-onset entry dates,
+   with those dates concentrated in the CALM/elevated entry-VIX bands
+   (the F-V1-1 composite). Falsifier: the gate stack caps worst-case
+   composition damage below 25% everywhere — the gates are sufficient
+   against historical single-cycle composition risk.
+2. **The model-vs-realized gap composes.** On ruin dates, worst-book
+   realized loss >= 3x the modeled book CVaR (F-V1-4 at book level).
+3. **Confidence does not protect.** The top-bin-only adversary still
+   reaches >= 15% NAV damage on onset dates.
+4. **The CSP mandate is the load-bearing safety feature.** Assignment
+   fraction >= 50% of the saturated book in the COVID window, with the
+   trough-liquidation counterfactual >= 20% NAV while held-to-expiry
+   damage is materially smaller — i.e. the book survives BECAUSE
+   nothing can force the exit. Falsifier: trough and terminal damage
+   are close — holding power is not what saves the book.
+5. **The levered counterfactual fires.** At stress multiplier 1.5, the
+   Reg-T book's first margin call arrives within ~15 trading days of
+   2020-02-19; at 1.0 it survives all windows except (at most) COVID.
+
+### 8.4 Runs
+
+| Run | What | Where | Status |
+|---|---|---|---|
+| V5-a | worst-admissible-book search, both variants, on `tail_table_100t.csv` | terminal (Windows; minutes) | pre-registered |
+| V5-b | assignment-wave + levered counterfactual, 4 windows x 3 multipliers | terminal (Mac; minutes) | pre-registered |
+
+Acceptance for V5 closure: both reports recorded; the ruin-date list +
+gate-permission statement written up; any "gates insufficient" finding
+triaged to the re-baseline queue alongside F-V1-1/2/4 and F-V3-1; the
+CSP-mandate statement (structural absence of the margin spiral)
+recorded as a documented design fact. No engine change ships.

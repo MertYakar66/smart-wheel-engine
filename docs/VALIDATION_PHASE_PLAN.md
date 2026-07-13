@@ -1029,6 +1029,17 @@ NAVs). (4) confirmed. (5) FALSIFIED at both scales — the knee arrives
 earlier than deployment arithmetic suggests; at $1M/100t there is no
 unthrottled rung at all. (6) confirmed 3/3.
 
+**Replication addendum (2026-07-13, after closure):** the Mac
+executor independently ran the $1M arm (1h34m, rc=0) — every reported
+cell matches the Windows arm byte-for-byte (control ladder, throttled
+points, knees, impact shares, refusal counts): a full cross-platform
+determinism replication of the 782-day 16-tracker run, on top of the
+aliased-cell check. The Mac report adds two mechanism details for the
+record: the $1M/N=1 book at 100 names holds ~47 concurrent positions
+(why BP binds from the first rung), the N=25 book only ~4 (why high-N
+cells are draws); and `priced_out` = `no_adv_fills` = 0 across all 16
+points (full ADV coverage; impact never consumed an entire premium).
+
 **V4 CLOSED 2026-07-13.** Acceptance met: linearity control clean
 (substantively at $10M); knee-vs-r recorded at two NAVs; constraint
 7.0(1) (tracker contract-blindness) triaged to the findings record (a

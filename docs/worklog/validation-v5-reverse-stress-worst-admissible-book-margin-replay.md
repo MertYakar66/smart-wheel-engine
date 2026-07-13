@@ -2,7 +2,7 @@
 id: validation-v5-reverse-stress
 title: V5 reverse stress — worst-admissible-book adversary + margin procyclicality resolved honestly
 kind: verification
-status: in_progress
+status: complete
 terminal:
 pr:
 decisions: []
@@ -45,22 +45,46 @@ stressed-margin sweep). Driver `scripts/run_reverse_stress.py`
 
 ## What didn't
 
-- (runs pending — the two terminal cards)
+- Expectation 4's >= 20% trough clause is NOT met on the measured book
+  (10.03% NAV) — but the number is biased low on two stacked axes
+  (intrinsic-only marking; the saturated book exhausted the 2-bday
+  capture menu at $321k of $1M). Disposition: not established on a
+  by-construction-conservative book; full-ranking time-value replay is
+  the optional follow-up.
+- The x1.25/x1.5 levered day-1 calls in ALL windows are
+  near-tautological (the twin is capitalized at exactly initial margin,
+  zero buffer) — recorded with the caveat so they are not over-read;
+  x1.0 is the regime-discriminating cell.
 
 ## How we fixed it
 
-- (pending)
+Nothing to fix — both harness runs were clean on first attempt; the
+caveats are dispositions, recorded in plan sections 8.5-8.6.
 
 ## Evidence
 
 - `python3 -m pytest tests/test_reverse_stress.py -q` -> 12 passed.
 - Pre-registration: plan doc section 8, committed before any V5 code;
   8.3 expectations frozen.
-- V5-a / V5-b terminal runs: pending (cards issued 2026-07-13).
+- **V5-a DONE** (Windows, ~1 min): ruin-class IS gate-admissible — 8
+  COVID-onset ruin dates, deepest 36.5%/36.4% NAV from CALM entries
+  (VIX 13.7/14.2); realized 3.18-7.07x modeled book CVaR on all 8;
+  top-bin-only bounded at 19.2% (never ruin). Expectations 1-3
+  confirmed; falsifier rejected.
+- **V5-b DONE** (Mac, ~2 s): COVID assignment wave 100% (27/27 ITM);
+  trough 10.03%/terminal 7.54% NAV on a doubly-conservative measured
+  book; Reg-T twin called bday 13 at x1.0 (COVID only) — expectation 5
+  confirmed both clauses; expectation 4 split (see What didn't).
 
 ## Unresolved / handoff
 
-- V5-a on the Windows terminal (search over tail_table_100t.csv);
-  V5-b on the Mac terminal (margin phase). Both minutes-scale, offline.
-- Closure after both reports: ruin-date list + gate-permission
-  statement; any "gates insufficient" finding to the re-baseline queue.
+- **V5 CLOSED 2026-07-13**: F-V5-1 (gate stack admits ruin-class
+  calm-onset composition) -> the re-baseline queue alongside
+  F-V1-1/2/4 + F-V3-1; the CSP mandate recorded as the load-bearing
+  protection (structural absence of the margin spiral; un-forceable
+  holding quantified by the levered twin's day-13 call). Full numbers:
+  plan sections 8.5-8.6.
+- Optional follow-up (non-blocking): full-ranking, time-value-marked
+  assignment-wave replay to establish/retire the >= 20% trough clause.
+- Next and last workstream: V6 — the single pre-registered lockbox
+  spend (deep history, 2008/1998, delisted names; refusal mechanism).

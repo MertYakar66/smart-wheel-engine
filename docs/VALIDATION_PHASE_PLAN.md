@@ -27,7 +27,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
 | V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **CLOSED 2026-07-13** — pilot + both 100t NAV arms; $1M capital-bound at every rung, $10M proxy-bound with an interior impact knee; results §7.4-§7.5 | `backtests/capacity_curve.py`, `scripts/run_capacity_curve.py`, `tests/test_capacity_curve.py` |
-| V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | **designed + pre-registered (§8)** | `backtests/reverse_stress.py` (planned) |
+| V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | **CLOSED 2026-07-13** — F-V5-1 (gate stack admits 36.5%-NAV calm-onset composition) to the re-baseline queue; CSP mandate = the load-bearing protection; results §8.5-§8.6 | `backtests/reverse_stress.py`, `scripts/run_reverse_stress.py`, `tests/test_reverse_stress.py` |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
 
 ## 2. The lockbox protocol (reserved-data discipline)
@@ -1211,3 +1211,54 @@ those books; the calm ruin books (36.5% at VIX 13.7) remain unreachable
 by any VIX rule — the two findings tell one story.
 
 *(V5-b: pending — Mac executor.)*
+
+### 8.6 V5-b results (2026-07-13; Mac executor, ~2 s offline) + V5 closure
+
+Provenance: `reverse_stress_margin_100t.json` (gitignored); all four
+crisis eves are themselves capture dates (no backdating); HEAD-honest at
+`1f3a2ba`. Sign convention: positive % = damage.
+
+**Expectation 4 — SPLIT, with the biases recorded.** The assignment
+clause is confirmed emphatically: **100% of the COVID book finished ITM**
+(27/27 puts — the assignment wave is unambiguous; 2022: 50%, 2024-08:
+0%, 2025-04: 12.5%). The trough clause (>= 20% NAV) is NOT met on the
+measured book — trough 10.03% NAV at bday 23, terminal 7.54% — but the
+number is a lower bound on two stacked axes, both documented before the
+run or surfaced honestly by the executor: (i) intrinsic-only marking
+omits the time-value blowout that is deepest exactly in COVID; (ii) the
+saturated book was CAPTURE-LIMITED — it exhausted the tail table's
+2-bday-sampled menu at $321k of the $1M budget (27 names vs ~47 on a
+full rank menu per V4), so %-NAV damage is scaled against a partial
+book. Disposition: the >= 20% clause is *not established on the measured
+book, which is biased low by construction* — a full-ranking,
+time-value-marked replay is the optional follow-up; not blocking
+closure. The holding-power clause is weak on the trough/terminal axis
+(10.03% vs 7.54%, only 1.33x) — the load-bearing protection shows up on
+the LEVERED axis instead.
+
+**Expectation 5 — CONFIRMED, both clauses.** The Reg-T twin (same book,
+capital = entry initial margin) is margin-called on **bday 13 of the
+COVID window at x1.0** and never in the three benign windows — the pure
+procyclical path, exactly as pre-registered. At x1.5 the COVID call
+arrives day 1 (within the ~15-day bound). **Recorded surprise, with the
+mechanical caveat attached:** at x1.25 and x1.5 the first call lands on
+DAY 1 in every window including the benign ones — but the levered twin
+is capitalized at EXACTLY initial margin (maximum leverage, zero
+buffer), so a maintenance multiplier > 1 breaches near-tautologically;
+the regime-discriminating cell is x1.0. The meaningful statement: a
+max-levered wheel book has zero tolerance to any broker tightening, and
+full-cash posting is what removes every one of these calls.
+
+**V5 CLOSED 2026-07-13.** Acceptance met: both reports recorded; the
+gate-permission statement stands as **F-V5-1 -> the re-baseline queue**
+(alongside F-V1-1/2/4 and F-V3-1): *the R10 + R9 + collateral gate
+stack admits ruin-class composition damage (up to 36.5% NAV in one
+cycle) assembled at calm-VIX onset entries, with realized loss 3.2-7.1x
+the modeled book CVaR — the measured blind spots compose; only the
+top-bin confidence filter bounds worst-case below ruin (19.2% max) in
+this history.* The CSP-mandate statement is recorded as a design fact:
+*the classical margin spiral is structurally absent (full-cash BP
+reserve); the residual COVID assignment wave costs ~7.5% NAV
+held-to-expiry on the measured book (survivable); the load-bearing
+protection is the inability to be forced out, quantified by the Reg-T
+twin's day-13 call.* No engine change ships from this workstream.

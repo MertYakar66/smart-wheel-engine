@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**171 records.**
+**172 records.**
 
 ## Features (18)
 
@@ -98,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 
-## Verification & realism (38)
+## Verification & realism (39)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -139,6 +139,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [validation-v2-freeze-replay](validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md) | complete |  | The "PIT-clean by construction" assertion behind every reported edge becomes an experiment — physical data truncation must reproduce the ranker byte-for-byte, the C1 HMM/GPD freeze snapshot gets a committed refit lock, and a frozen-at-cutoff replay bounds how much rank quality and risk honesty depend on refit recency. | `validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md` |
 | [validation-v3-param-plateau](validation-v3-param-plateau-f4-r11-plateau-sweep-activation-gates.md) | complete |  | The hand-set constants get perturbed for the first time — F4 threshold/cap swept with engine passes under the sanctioned patch lever (PLATEAU/CLIFF/PEAK/DOMINATED verdicts, rank-quality guard), R11 cutoffs swept offline on the V1 captures with both the breach and the D23 over-confidence lenses, and the POT/heavy-tail/bootstrap constants activation-gated instead of vacuously passed. | `validation-v3-param-plateau-f4-r11-plateau-sweep-activation-gates.md` |
 | [validation-v4-capacity-curve](validation-v4-capacity-curve-contract-ladder-impact-proxy-knee.md) | complete |  | The last desk-practice gap (execution/capacity realism beyond one contract at mid) gets its harness — a shared-rank contract ladder that sidesteps the tracker's contract-blindness exactly, arms the engine's dormant Almgren-Chriss term at true order size, and reports the capacity knee as a function of the undocumented option-ADV proxy rather than pretending a point estimate. | `validation-v4-capacity-curve-contract-ladder-impact-proxy-knee.md` |
+| [validation-v5-reverse-stress](validation-v5-reverse-stress-worst-admissible-book-margin-replay.md) | in_progress |  | The measured blind spots of V1-V4 compose into an explicit cheapest-path-to-ruin search — a hindsight adversary bounded by the entry-time gate stack (R10 contracts, R9 sectors, cash-secured budget) over the V1-b capture, plus the finding-shaped fact that the CSP mandate makes the classical margin spiral structurally absent, with the assignment-wave and Reg-T-levered counterfactuals quantifying what remains. | `validation-v5-reverse-stress-worst-admissible-book-margin-replay.md` |
 | [vnv-campaign-2026-06-01](vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md) | in-flight |  | Read-only V&V sweep of origin/main — funnel is transparent (423/503 survive, all drops auditable), Wilson-CI coverage 98.6% on the put ranker, prob_profit top-bin over-confidence is real + regime-dependent, ev_dollars SIGN predicts realized direction, IV has zero skew (100%), and connector ticker-filtering dominates a universe scan. | `vnv-campaign-2026-06-01-engine-efficiency-realism-reliability-sweep.md` |
 
 ## Usage-test scenarios (34)

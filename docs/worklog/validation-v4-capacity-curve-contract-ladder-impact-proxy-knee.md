@@ -2,7 +2,7 @@
 id: validation-v4-capacity-curve
 title: V4 capacity curve — capital-equivalent contract ladder, dormant impact term armed via swept ADV proxy
 kind: verification
-status: in_progress
+status: complete
 terminal:
 pr:
 decisions: []
@@ -86,9 +86,15 @@ deviation WITHOUT a BP refusal.
 
 ## Unresolved / handoff
 
-- V4-100t: GO recommended (next terminal card after the V3 overnight
-  bundle) — `python scripts/run_capacity_curve.py run --config 100t`,
-  ~4-5 h, one shared rank.
+- **V4 CLOSED 2026-07-13** (both 100t NAV arms, 133 min each): $1M is
+  BP-bound at EVERY rung (refusals from N=1; breadth accelerates
+  saturation — question (a) answered opposite); the $10M arm confirms
+  expectation 6 on all three prongs with a SUBSTANTIVE A/A (return/N
+  agreeing to 2e-12 on the unthrottled segment) and delivers the first
+  unconfounded impact knee (r=1e-5 column, zero BP refusals, interior
+  N*=10). Structural aliasing (($10M, N, r) == ($1M, N/10, r/10))
+  recorded + doubles as a cross-run determinism check. Full numbers:
+  plan sections 7.4-7.5.
 - The tracker contract-blindness constraint (7.0(1)) queued for the
   findings record; a real multi-contract tracker is a D-series decision.
 - The data-grounded knee stays deferred to the Theta option-volume pull

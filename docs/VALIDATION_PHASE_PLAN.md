@@ -26,7 +26,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
-| V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **designed + pre-registered (§7)** | `backtests/capacity_curve.py` (planned) |
+| V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **CLOSED 2026-07-13** — pilot + both 100t NAV arms; $1M capital-bound at every rung, $10M proxy-bound with an interior impact knee; results §7.4-§7.5 | `backtests/capacity_curve.py`, `scripts/run_capacity_curve.py`, `tests/test_capacity_curve.py` |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
 
@@ -974,3 +974,70 @@ that is either on plateaus (F4), inert on this provider (POT/ξ/penalty,
 dealer clamp), already-tested (regime overlay), or mis-aimed in a way
 no threshold tuning fixes (R11, whose target lives below its own
 conditioning variable).**
+
+### 7.5 V4-100t results (2026-07-13; both NAV arms, 133 min each, Windows executor) + V4 closure
+
+Provenance: `capacity_report_100t.json` + `capacity_report_100t_10m.json`
+(gitignored, executor machine); zero rank failures; meta pins the
+pre-registered constants; working tree HEAD-honest at `6897759`.
+
+**$1M arm — the BP gate is the whole story at this NAV.** BP refusals
+begin at N=1 (34 even on the 1-contract control; controls: N1 34 / N5
+3,035 / N10 3,883 / N25 4,799) — question (a) answered OPPOSITE to the
+card's framing: 100-name breadth does not delay the BP knee, the richer
+flow (top-15, 3/day) saturates a $1M book at EVERY rung. The linearity
+control passes only degenerately (0 unthrottled points). The knee table
+(N* = 10/10/25 across r) is BP-shaped, and the 24t concentration
+lottery persists at high N (two impact arms beat their own controls —
+possible only as a different-draw effect). Impact share <= 2.45% of
+premium in every cell.
+
+**$10M arm — expectation 6 CONFIRMED 3/3; the falsifier rejected; the
+A/A substantive.** (a) The BP knee scales out EXACTLY with BASE —
+first refusal moves from N=1 to between N=5 and N=10; structural
+identity makes it exact (the $10M/N=10 tracker IS the $1M/N=1 tracker;
+byte-identical outputs). (b) Impact share is NAV-invariant at matching
+cells — byte-identical where the executed book matches (e.g.
+0.02112103... in both reports); every cross-arm difference traces to
+book composition, never NAV in the impact formula. (c) At N=25 the
+binding constraint is participation, not BP (4,186-4,813 participation
+vs 0-28 BP refusals at r <= 1e-4); the control ladder turns monotone
+(+3.3 -> +16.7 -> +33.4 -> +42.7 — the lottery was a small-book
+artifact); per-contract capture declines monotonically up the ladder
+(r=1e-4: 2.02 -> 1.11 -> 0.85 -> 0.38 %-per-N), expectation 2 finally
+confirmed clean. Linearity A/A: N=1/N=5 unthrottled with return/N
+agreeing to 2.15e-12; every deviation above coincides with BP refusals.
+**First clean impact knee of the workstream:** the r=1e-5 column runs
+with ZERO BP refusals and still bends at an interior N* = 10
+(+0.85 -> +1.31 -> +1.90 -> +1.43) — a pure participation/impact knee,
+unconfounded.
+
+**Structural aliasing (recorded so evidence is not double-counted):**
+capital enters only as BASE/N and impact only as N/(r x ADV), so the
+$10M cell (N, r) equals the $1M cell (N/10, r/10) wherever both exist —
+confirmed byte-for-byte on three cells, which doubles as a
+determinism cross-check across two concurrent runs.
+
+**Scorecard (7.2 + expectation 6):** (1) PASS — substantive at $10M.
+(2) confirmed at $10M (monotone per-contract decline; sqrt(N)
+impact-share growth holds approximately where books are stable —
+1 : 2.08 : 2.63 : 3.65 vs sqrt-N's 1 : 2.24 : 3.16 : 5 at the cleanest
+column — and is censored from above elsewhere: the participation cap
+refuses exactly the highest-impact fills, truncating the law's own
+tail). (3) confirmed (knee monotone in r at both scales and both
+NAVs). (4) confirmed. (5) FALSIFIED at both scales — the knee arrives
+earlier than deployment arithmetic suggests; at $1M/100t there is no
+unthrottled rung at all. (6) confirmed 3/3.
+
+**V4 CLOSED 2026-07-13.** Acceptance met: linearity control clean
+(substantively at $10M); knee-vs-r recorded at two NAVs; constraint
+7.0(1) (tracker contract-blindness) triaged to the findings record (a
+real multi-contract tracker is a D-series decision); the data-grounded
+knee remains deferred to the Theta option-volume pull (E-13), with the
+capacity statement properly conditional: **at the S34-class
+configuration, $1M is capital-bound at every contract size (market
+impact is not the binding constraint); at $10M the book becomes
+proxy/participation-bound with an interior knee at the thin proxy, and
+modeled impact stays <= ~2.5% of premium everywhere** — the knee's
+location is proxy-dominated, exactly why a data-free point claim was
+pre-registered as dishonest.

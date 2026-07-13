@@ -25,7 +25,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 |---|---|---|---|---|
 | V1 | **Tail-risk exceedance validation** — Kupiec POF + date-clustered CIs + violation-clustering tests on the engine's own `pnl_p25/p50/p75`, plus the ES-bound breach test + severity on `cvar_5` | Are the engine's per-candidate risk numbers statistically honest, per regime? | **CLOSED 2026-07-12** — findings: `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md` | `backtests/tail_exceedance.py`, `scripts/run_tail_exceedance.py`, `tests/test_tail_exceedance.py` |
 | V2 | **Parameter freeze-replay (C1)** — snapshot every tuned artifact as-of a cutoff, replay forward touching nothing | Does any reported edge survive with parameters the past could actually have had? | **CLOSED 2026-07-12** — all four runs done; results §5.6-§5.7 | `backtests/freeze_replay.py`, `scripts/run_freeze_replay.py`, `tests/test_freeze_replay.py`, `tests/fixtures/freeze_replay/` |
-| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **sandbox half DONE (§6.6: F4 PLATEAU x2, R11-24t inverted-lift shelf, activation gates); 100t overnight bundle on the terminal** | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
+| V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
 | V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **designed + pre-registered (§7)** | `backtests/capacity_curve.py` (planned) |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | queued | (new) |
 | V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
@@ -918,3 +918,58 @@ question proper needs the 100-name breadth to average composition
 effects. **V4-100t: GO (recommended)** — next terminal card
 (`run --config 100t`, one shared rank, ~4-5 h), after the V3 overnight
 bundle lands.
+
+### 6.7 V3 100t results (2026-07-13; overnight executor, 4h40m chain, all rc=0) + V3 closure
+
+Provenance: the executor's `v3_overnight_report.md` (uncommitted, repo
+root on the overnight machine) — preflight at `6bbf756`, zero tracked
+modifications, all artifacts gitignored; capture rebuilt from the branch
++ committed CSVs alone.
+
+**(a) R11 arbitration — 2020 in-sample only PARTIALLY restores the
+premise; shipped cutoffs are mis-aimed.** At (25.0, 0.90): breach lift
+0.96 (parity — up from the 24t inversion's 0.0, still <= 1) and the
+over-confidence gap is STILL inverted (flagged +0.075 < unflagged
++0.111). Lift crosses 1 only ABOVE the shipped threshold (27.5 -> 1.43,
+30.0 -> 1.74); the gap half is inverted at every prob=0.90 cell. Per the
+pre-registered arbitration rule (§6.6), this goes to the **re-baseline
+queue as F-V3-1**: R11's VIX=25 cut sits below the crossover where
+elevated-vol top-bin picks actually degrade, and the over-confidence
+mass R11 exists for (D23) sits in CALM entries at both scales — the
+same structural fact as F-V1-1, now measured from the reviewer's side
+on 40k rows with a real onset in-sample. Interpretation guard: this
+does NOT contradict D23/i11 (different metric — forward-regime top-bin
+realized rate vs flagged-vs-unflagged held-to-expiry contrast; both can
+be true), and it is NOT a removal recommendation — R11 is downgrade-only
+and its mis-aim costs bounded sizing-down of some fine trades. It is a
+finding that any R11 recalibration discussion must start from: the
+threshold that would make its lift real is ~27.5+, and no VIX cut
+reaches the calm-entry over-confidence.
+
+**(b) Activation — POWERED at 100t for the POT diagnostic; the EV-path
+half stays unpowered.** gpd_fit_rate 4.12% >= the 2% floor (full-table
+overlapping tier 11.44%) — the scale-dependent flip §6.6 predicted.
+`heavy_tail` fired 0.00% everywhere observed, so the ξ-gate/penalty pair
+(the only part of the POT surface that touches EV) remains NOT POWERED
+at both scales. Disposition: the POT-threshold sweep is now *eligible*
+at 100t but would test the calibration of a diagnostic column
+(`cvar_99_evt`) on ~4-11% of rows, not a decision input — deferred with
+that rationale; revisit if heavy_tail ever activates (Theta window).
+
+**(c) F4 — PLATEAU on both axes at 100t.** The OFF-control (cap 1.00)
+worsens elev+crisis breach by 0.064pp (~4 breaches in 6,273, ~0.10 SE)
+vs shipped — directionally worse, not measurably. Replicates the 24t
+verdicts and re-falsifies expectation 2: F4 is not a fitted artifact
+AND is barely load-bearing, at both scales.
+
+**V3 CLOSED 2026-07-13.** Acceptance met: dispositions honored (§6.0);
+sweep tables + per-axis verdicts recorded at both scales (§6.6-§6.7);
+activation rates recorded with the powered/unpowered split; no PEAK
+verdict anywhere (no constant in the swept surface is a fitted
+artifact); one finding triaged to the re-baseline queue (F-V3-1, the
+R11 mis-aim). Workstream verdict, stated once: **the hand-set constants
+survive perturbation — the E5 anxiety was concentrated on a surface
+that is either on plateaus (F4), inert on this provider (POT/ξ/penalty,
+dealer clamp), already-tested (regime overlay), or mis-aimed in a way
+no threshold tuning fixes (R11, whose target lives below its own
+conditioning variable).**

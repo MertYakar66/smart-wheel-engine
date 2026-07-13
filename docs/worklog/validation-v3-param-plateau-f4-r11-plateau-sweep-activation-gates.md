@@ -2,7 +2,7 @@
 id: validation-v3-param-plateau
 title: V3 parameter-plateau sweep — F4/R11 plateau-or-peak verdicts + activation gates for the dormant surfaces
 kind: verification
-status: in_progress
+status: complete
 terminal:
 pr:
 decisions: []
@@ -96,10 +96,17 @@ any run.
 
 ## Unresolved / handoff
 
-- V3-a-100t (R11 arbitration with 2020 in-sample) + activation-100t +
-  F4-100t replication: the OVERNIGHT terminal bundle (card issued
-  2026-07-13; self-contained, rebuilds the V1-b capture from the branch).
-- V3 closure after the overnight results: per-axis verdicts at both
-  scales + the R11 triage decision.
-- POT / ξ-gate / penalty / block-length: activation-gated per section
-  6.0; revisit on a Theta window or if 100t activation clears the floor.
+- **V3 CLOSED 2026-07-13** (overnight 100t bundle, 4h40m, all clean):
+  (a) R11 arbitration — 2020 in-sample only partially restores the
+  premise; shipped (25.0, 0.90) shows lift 0.96 and a still-inverted
+  over-confidence gap (+0.075 vs +0.111); lift crosses 1 only above
+  VIX 27.5 -> F-V3-1 to the re-baseline queue (mis-aimed cutoffs; the
+  calm-entry over-confidence is unreachable by any VIX rule).
+  (b) Activation POWERED at 100t (gpd 4.12%) for the POT diagnostic;
+  heavy_tail 0.00% everywhere -> the EV-path half stays NOT POWERED;
+  POT sweep deferred with low-decision-relevance rationale.
+  (c) F4 PLATEAU on both axes at 100t; OFF-control worse by only
+  0.064pp (~0.10 SE) — barely load-bearing, replicated.
+  Full numbers: plan doc sections 6.6-6.7 + the executor's
+  v3_overnight_report.md.
+- No PEAK verdict anywhere: no swept constant is a fitted artifact.

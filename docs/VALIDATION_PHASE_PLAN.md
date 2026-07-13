@@ -28,7 +28,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
 | V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **CLOSED 2026-07-13** — pilot + both 100t NAV arms; $1M capital-bound at every rung, $10M proxy-bound with an interior impact knee; results §7.4-§7.5 | `backtests/capacity_curve.py`, `scripts/run_capacity_curve.py`, `tests/test_capacity_curve.py` |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | **CLOSED 2026-07-13** — F-V5-1 (gate stack admits 36.5%-NAV calm-onset composition) to the re-baseline queue; CSP mandate = the load-bearing protection; results §8.5-§8.6 | `backtests/reverse_stress.py`, `scripts/run_reverse_stress.py`, `tests/test_reverse_stress.py` |
-| V6 | **Lockbox spend** — one pre-registered deep-history run (1998/2008, delisted names included) of the refusal mechanism | Does crisis refusal generalize to regimes the tuning window never saw? | gated on V1-V3 + protocol below | `SWE_DEEP_HISTORY` panels |
+| V6 | **Lockbox spend** — one pre-registered deep-history run (2008 era, delisted names included) of the refusal mechanism; 1998 stays locked | Does crisis refusal generalize to regimes the tuning window never saw? | **spec committed (§9)** — gate satisfied (V1-V3 closed); run pending on the deep-data terminal | `backtests/survivorship.py`, `scripts/run_v6_lockbox.py` |
 
 ## 2. The lockbox protocol (reserved-data discipline)
 
@@ -59,7 +59,7 @@ validation data**, managed as a budget:
 
 | Date | Slice read | Spec committed at | Result doc |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-07-13 (spec) / read pending on terminal | deep 2007-01-03 -> 2009-06-30, PIT universe (max_universe=100), incl. delisted | this commit (§9) | pending (§9.3 on run completion) |
 
 ## 3. V1 — tail-risk exceedance: design summary
 
@@ -1262,3 +1262,67 @@ reserve); the residual COVID assignment wave costs ~7.5% NAV
 held-to-expiry on the measured book (survivable); the load-bearing
 protection is the inability to be forced out, quantified by the Reg-T
 twin's day-13 call.* No engine change ships from this workstream.
+
+---
+
+## 9. V6 — the lockbox spend: pre-registered spec
+
+**Written 2026-07-13, before any deep-history read. This is the ONE
+headline spend (§2 protocol); the hypotheses below are frozen at this
+commit and the run is reported whatever it says.**
+
+### 9.0 The slice, the vehicle, the limits
+
+**Slice read:** deep panels, **2007-01-03 -> 2009-06-30 only** — one
+window covering baseline (2007) -> grind (2007H2-2008H1) -> cliff
+(Lehman, 2008-09) -> trough/recovery (2009H1), PIT membership including
+the era's delisted names. **1998/LTCM stays in the lockbox, unread.**
+**Vehicle:** `backtests/survivorship.py::run_survivorship_backtest`
+(PIT universe via `get_universe_as_of`, `deep_history=True` connector,
+delisting-aware terminal valuation; every candidate through
+`rank_candidates_by_ev` — §2 intact), pinned by
+`scripts/run_v6_lockbox.py` (every parameter frozen in the driver:
+$1M, full friction, top_n=15, max_new_per_day=3, 35-DTE/25-delta,
+`max_universe=100` deterministic cap for tractability — ~3-5 h).
+**Known limits, restated:** no option-price quotes before ~2016 —
+premiums are synthetic BSM from the deep historical-IV panels
+(1994-floor), so this run validates **selection, refusal, and
+assignment behavior ONLY** — never premium realism, VRP capture, or
+dollar P&L; NAV is not evidence (§2.4).
+
+### 9.1 Pre-registered hypotheses (frozen; pass/fail exact)
+
+- **H1 — refusal engages in the grind.** Monthly mean EV-positive rate
+  (share of ranked rows with `ev_dollars > 0`) averaged over Oct-Dec
+  2008 is **<= 0.5x** its 2007 monthly average. PASS: ratio <= 0.5.
+  FAIL: the refusal mechanism does not generalize to a regime the
+  tuning window never saw.
+- **H2 — refusal lags the cliff (the F-V1-1 prediction, generalized).**
+  Over the 10 trading days ending 2008-09-12 (Lehman eve), tracker
+  opens/day are **>= 0.7x** the August-2008 rate — i.e. the trailing
+  machinery does NOT pull back ahead of the cliff. CONFIRMS onset
+  blindness generalizes; its falsifier (opens/day < 0.7x) would be
+  GOOD news for the engine and is reported as such.
+- **H3 — the mandate carries the book through the wave.** (a) In at
+  least one month of Sep-Dec 2008, >= 50% of expiring short puts are
+  assigned (the COVID assignment wave generalizes). (b) Any position
+  in a name that delists realizes its loss via the delisting price
+  (mechanism count reported; 0 openings in delisted names is a valid
+  outcome, reported not failed).
+- **H4 — selection sanity (report-only).** Per-date rank-vs-realized
+  rho with block-clustered CIs over the window — recorded with the
+  synthetic-premium caveat; NO pass/fail (dollar-adjacent).
+
+### 9.2 The exact command (the spec IS the driver)
+
+    export SWE_DATA_PROVIDER=bloomberg
+    python scripts/run_v6_lockbox.py run
+
+Precondition: `data/bloomberg/deep/` panels present (operator machines
+only). Output: `data_processed/validation/v6_lockbox/v6_report.json`
+(gitignored) + the driver's console H-verdict block. One run; a crash
+may be restarted (deterministic); the run is never re-parameterized.
+
+Acceptance for V6 closure: the four H-verdicts recorded verbatim in
+§9.3; the §2 ledger row completed; the phase-closing findings summary
+written. No engine change ships.

@@ -739,3 +739,133 @@ misses live where trailing/entry-time signals can't see): the
 trailing-vol reaction channel is not where tail honesty comes from.
 Recorded as a finding, not a defect — F4's design goal ("gentle, never
 invert rho") is met, and nothing here motivates touching it.
+
+---
+
+## 7. V4 — capacity curve: design + pre-registration
+
+**Written 2026-07-13, before any V4 code or run exists.** §7.4 expectations
+are frozen after the first run. Measurement-only: the harness is a sibling
+driver in the sanctioned `r10_strict_driver.py` copy-the-driver pattern
+(imports `_common` helpers, zero engine changes); any "better" sizing
+implied by the results is a reported finding, never shipped.
+
+### 7.0 Discovered constraints (recon 2026-07-13, recorded before design)
+
+1. **The tracker is contract-blind.** `WheelTracker` hardwires one
+   contract everywhere: premium credit (`open_short_put` books
+   per-100-shares), BP reserve (`available_buying_power` reserves
+   `strike*100`, no multiplier), assignment (flat 100 shares), and the
+   scored `_forward_replay_realized_pnl` (`x100`, never `x contracts`).
+   Consequently `run_backtest(contracts=N>1)` is **internally
+   inconsistent** (N-contract BP gate + N-contract friction debits against
+   a 1-contract book) — never exercised beyond 1 in any locked study
+   (S27/S32/S34/S35 all `contracts=1`). Recorded as a finding; no fix
+   ships from V4 (a real multi-contract tracker is a D-series decision).
+2. **A no-impact capacity curve is a straight line by construction:**
+   per-share premium/spread are contract-invariant and every dollar term
+   (commission, assignment slip, collateral, notional) is exactly linear
+   in N — if the same trades fire, total P&L is exactly N x the
+   1-contract P&L. The curve can only bend through (a) the BP gate
+   (loose mode) and (b) size-dependent impact, which the engine models
+   (`calculate_slippage`'s Almgren-Chriss sqrt term,
+   `transaction_costs.py:149-153`) but which is DORMANT — no production
+   caller supplies `adv_contracts` (BRAIN_AUDIT 2026-06-11 item 4).
+3. **Strict mode is excluded from V4** — HT-D established that
+   `portfolio_delta_breach` dominates refusals (92.1%) under a delta cap
+   that is documented as structurally miscalibrated for a wheel book
+   (`docs/HEAVY_R10_STRICT_SCALE.md` F6: assigned stock alone saturates
+   it and strict froze after 2020). Strict-mode capacity is bounded by
+   that miscalibration, not by market capacity; it is already
+   characterized by HT-D and would swamp the signal here. V4 runs LOOSE
+   (the S27/S32/S34 canonical mode). R10's NAV-relative admissibility
+   (N contracts of strike K needs NAV >= N*K*1000) is reported as
+   context arithmetic, not simulated.
+4. **No option-volume data exists in this checkout** — Bloomberg carries
+   no option OI/volume (manual-OMON tier); the Theta `option_history`
+   panels that would carry per-contract ADV are not materialized. Stock
+   ADV exists (`sp500_liquidity.csv` `avg_vol_30d`, shares, 100/100
+   UNIVERSE_100 coverage through 2026-07-02, served by `get_liquidity`
+   with caller-supplied `end_date` for PIT). Worklist A9 sanctions the
+   stock-ADV proxy but supplies NO option/stock ratio number — so V4's
+   deliverable is the knee **as a function of the proxy assumption**,
+   never a point estimate. The data-grounded knee is explicitly deferred
+   to the Theta option-volume pull (acquisition plan E-13).
+
+### 7.1 Method — capital-equivalent contract ladder, shared rank, engine-native impact overlay
+
+**Capital-equivalent scaling (exact).** For ladder point N, run a plain
+1-contract tracker at `capital = BASE/N`. Every cash flow in the
+1-contract book (premium, $0.65 commission, Reg-T margin, assignment
+cash, $5 ITM fee, BP reserve) is exactly 1/N of the N-contract world, so
+returns, gating sequence, and NAV path (x N) are identical to a true
+N-contract book under the linear cost model — the size-dependence enters
+ONLY through the overlay, which prices each fill at the TRUE order size
+N. This sidesteps constraint 7.0(1) without touching the tracker.
+
+**Shared rank.** One daily `rank_candidates_by_ev` serves every
+(N, proxy) tracker (the `run_backtest_multi_friction` /
+`r10_strict_driver` pattern) — the rank is capital- and
+impact-independent, so a 12-tracker ladder costs ~1x the dominant rank
+bill (~20 min for 24t x 2022-2024).
+
+**Impact overlay (engine-native, no double count).** On every option
+fill (short-put open, covered-call open), on top of `full` friction:
+`impact_per_share = calculate_slippage(mid=premium_raw, bid_ask_spread=0,
+"sell", num_contracts=N, adv_contracts=adv(ticker, date))` — passing
+spread 0 isolates the engine's own sqrt size term
+(`k * mid * sqrt(N/adv)`, shipped `k=0.10`), while the spread cost stays
+with the `full` overlay (composition stated; no double count).
+**Participation cap:** a fill is REFUSED when
+`N > p_cap * adv_contracts` (p_cap = 0.10, the desk convention);
+refusals are logged per (N, proxy). Assignment stock-leg impact is a
+documented second-order omission.
+
+**The proxy (pre-registered).** `adv_contracts(ticker, date) = r x
+avg_vol_30d(ticker, <= date)` with **r swept over {1e-5, 1e-4, 1e-3}**
+contracts per share of stock ADV — spanning thin (AZO-class: ~30
+contracts/day at r=1e-4 on ~300k shares) to liquid (AAPL-class: ~4,000
+at r=1e-4 on ~40M shares). Central case r=1e-4. `k` stays at the
+shipped 0.10 (its own calibration is worklist B5, needs fill data).
+
+**Ladder:** N in {1, 5, 10, 25}. **Pilot config:** UNIVERSE_24, BASE
+$1M, 2022-01-03 -> 2024-12-31 (the S32 window), `full` friction,
+top_n=10, max_new_per_day=3 — 12 trackers, one shared rank, ~25 min
+in-sandbox. 100t replication optional after the pilot (one shared rank,
+~4 h — terminal-scale).
+
+**Metrics per (N, r):** final NAV (rescaled x N) + total return; gross
+premium collected vs impact dollars (impact share); net premium capture
+in BASE-world dollars (the capacity curve proper); executed opens;
+BP-gate refusals; participation-cap refusals; mean deployment. Knee =
+argmax over N of net capture at each r.
+
+### 7.2 Pre-registered expectations (falsifiable)
+
+1. **Linearity control:** with the overlay disabled, all ladder points
+   produce identical returns (%) and identical trade sequences — the
+   straight line by construction. Any deviation is a harness bug, not a
+   finding (the A/A of this study).
+2. **Impact bends the curve monotonically:** per-contract net capture
+   declines in N at every r; impact share of premium grows ~sqrt(N).
+3. **The knee location is proxy-dominated:** N*(r) shifts by at least
+   one ladder step across the r grid — establishing that a data-free
+   capacity point-claim would be dishonest (the reason E-13 exists).
+4. **Thin names bind first:** participation-cap refusals concentrate in
+   the lowest-ADV names (AZO-class), echoing R10's role as the
+   damage-bounder on exactly those names.
+5. **BP refusals appear between N=5 and N=25 at 24t** (S32 baseline:
+   10.8% deployment at N=1 => ~9x headroom; max_new_per_day continues to
+   throttle below that).
+
+### 7.3 Runs
+
+| Run | What | Where | Status |
+|---|---|---|---|
+| V4-pilot | 24t ladder {1,5,10,25} x r {1e-5,1e-4,1e-3} + linearity control | sandbox (brain) | pre-registered |
+| V4-100t | 100t replication (decided on pilot results) | terminal | gated on pilot |
+
+Acceptance for V4 closure: linearity control clean; the knee-vs-r table
++ per-(N,r) metrics recorded; constraint 7.0(1) (tracker
+contract-blindness) triaged into the findings record; disposition of the
+deferred data-grounded knee (E-13) restated. No engine change ships.

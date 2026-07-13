@@ -876,3 +876,45 @@ Acceptance for V4 closure: linearity control clean; the knee-vs-r table
 + per-(N,r) metrics recorded; constraint 7.0(1) (tracker
 contract-blindness) triaged into the findings record; disposition of the
 deferred data-grounded knee (E-13) restated. No engine change ships.
+
+### 7.4 V4-pilot results (2026-07-13; 24t, $1M, 2022-2024, 16 grid points, 68-min run)
+
+Linearity control: **PASS** — formally trivial (only N=1 ran unthrottled)
+but the load-bearing half held: every deviation from proportionality
+coincides with BP refusals (none without). The control ladder:
+
+| N (control) | return% | opens | bp_refused |
+|---|---|---|---|
+| 1 | +7.03 | 99 | 0 |
+| 5 | +15.95 | 69 | 363 |
+| 10 | +11.86 | 42 | 978 |
+| 25 | +35.72 | 31 | 1,379 |
+
+**Scorecard against §7.2:** (1) PASS. (2) inconclusive at this scale —
+impact share runs only 0.25%-3% of premium and is swamped by composition
+noise (below). (3) CONFIRMED — knee shifts with r (r=1e-5 -> N*=10;
+r=1e-4 and 1e-3 -> N*=25, the ladder edge). (4) confirmed directionally
+(participation refusals: 155 -> 1,438 across N at the thin proxy).
+(5) **FALSIFIED in direction** — BP refusals begin already at N=5 (363),
+not between 5 and 25: the linear segment at $1M/24t ends before N=5
+(instantaneous concurrency binds long before the 10.8% average-deployment
+arithmetic suggested).
+
+**The emergent finding that matters most:** beyond the BP knee at 24
+names, the curve is a **concentration lottery, not a capacity signal**.
+The control ladder is non-monotone (+7.0 -> +16.0 -> +11.9 -> +35.7):
+at N=25 the scaled book holds 1-3 positions and the return is whichever
+names it happened to ride — consistent with the E1/E3 record (equity
+beta + single-name dominance). The same mechanism produces the apparent
+paradox of an impact arm BEATING its control (+43.3 vs +35.7 at N=25,
+r=1e-4): participation refusals redirect capital to a different draw
+(40 opens vs 31), and a different draw can luck out. **Reading the
+knee_n cells at high N as capacity evidence would be dishonest at this
+universe size.** What the pilot establishes: the harness mechanics are
+validated (proportionality, refusal accounting, sqrt-ish impact-share
+growth: 0.25 -> 0.50 -> 0.70 -> 0.86% at r=1e-3 vs sqrt-N 1:2.2:3.2:5),
+the BP knee at $1M/24t sits between N=1 and N=5, and the capacity
+question proper needs the 100-name breadth to average composition
+effects. **V4-100t: GO (recommended)** — next terminal card
+(`run --config 100t`, one shared rank, ~4-5 h), after the V3 overnight
+bundle lands.

@@ -72,12 +72,23 @@ deviation WITHOUT a BP refusal.
 - Pre-registration: plan doc section 7 (`0d4cee6`), committed before any
   V4 code; three-reader recon (tracker mechanics, S34/R10 scale
   conventions, sizing-data landscape) recorded in 7.0 before design.
-- V4-pilot (24t, $1M, 2022-2024, 16 grid points): in flight — results
-  recorded in plan section 7 on completion.
+- **V4-pilot DONE (2026-07-13, 68 min, 16 grid points)**: linearity
+  A/A PASS (every proportionality deviation coincides with BP refusals);
+  expectation 5 FALSIFIED in direction — BP refusals begin at N=5 (363),
+  the linear segment at $1M/24t ends before N=5; knee shifts with the
+  proxy ratio (expectation 3 confirmed); and the emergent headline:
+  beyond the BP knee at 24 names the curve is a CONCENTRATION LOTTERY
+  (control ladder non-monotone +7.0 -> +16.0 -> +11.9 -> +35.7; an
+  impact arm can even beat its control by luck-of-the-draw
+  redirection) — high-N knee cells are noise at this universe size;
+  the capacity question proper needs 100-name breadth. Full numbers:
+  plan section 7.4.
 
 ## Unresolved / handoff
 
-- Pilot results + knee-vs-r table; 100t replication gated on the pilot.
+- V4-100t: GO recommended (next terminal card after the V3 overnight
+  bundle) — `python scripts/run_capacity_curve.py run --config 100t`,
+  ~4-5 h, one shared rank.
 - The tracker contract-blindness constraint (7.0(1)) queued for the
   findings record; a real multi-contract tracker is a D-series decision.
 - The data-grounded knee stays deferred to the Theta option-volume pull

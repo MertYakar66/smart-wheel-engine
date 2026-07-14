@@ -92,6 +92,74 @@ def test_build_truncated_data_dir_tier1_vs_intact(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# §11 — tier-2 truncation
+# ---------------------------------------------------------------------------
+
+
+def test_truncate_set_composition():
+    # tier<=1 is exactly the V2-a set; tier>=2 is the union, disjoint keys.
+    assert fz._truncate_set(1) == fz.TIER1_TRUNCATE_FILES
+    assert fz._truncate_set(2) == {**fz.TIER1_TRUNCATE_FILES, **fz.TIER2_TRUNCATE_FILES}
+    assert set(fz.TIER1_TRUNCATE_FILES) & set(fz.TIER2_TRUNCATE_FILES) == set()
+    # The tier-2 files cut on their PIT *announcement* column, not effective/ex.
+    assert fz.TIER2_TRUNCATE_FILES["sp500_corporate_actions.csv"] == "announcement_date"
+    assert fz.TIER2_TRUNCATE_FILES["sp500_dividends.csv"] == "declared_date"
+
+
+def test_build_truncated_dir_tier2_cuts_tier2_but_tier1_leaves_them_intact(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _write_csv(src / "sp500_ohlcv.csv", "date,close\n2023-01-03,1\n2099-01-03,2")
+    _write_csv(
+        src / "sp500_corporate_actions.csv",
+        "announcement_date,effective_date,action_type\n"
+        "2023-01-10,2023-02-01,Split\n"
+        "2099-01-10,2099-02-01,Split",
+    )
+    _write_csv(
+        src / "sp500_dividends.csv",
+        "declared_date,ex_date,dividend_amount\n2023-01-05,2023-03-01,0.5\n2099-01-05,2099-03-01,0.9",
+    )
+    _write_csv(src / "sp500_earnings.csv", "announcement_date,x\n2099-01-01,future")
+
+    # tier=1: tier-2 files copied intact, future rows survive.
+    d1 = tmp_path / "t1"
+    m1 = fz.build_truncated_data_dir(src, d1, cutoff="2023-06-30", tier=1)
+    assert m1["tier"] == 1
+    assert "sp500_corporate_actions.csv" in m1["copied_intact"]
+    assert "sp500_dividends.csv" in m1["copied_intact"]
+    assert "2099-01-10" in (d1 / "sp500_corporate_actions.csv").read_text()
+
+    # tier=2: tier-2 dated files truncated on their announcement column.
+    d2 = tmp_path / "t2"
+    m2 = fz.build_truncated_data_dir(src, d2, cutoff="2023-06-30", tier=2)
+    assert m2["tier"] == 2
+    assert m2["truncated"]["sp500_corporate_actions.csv"]["rows_kept"] == 1
+    assert m2["truncated"]["sp500_dividends.csv"]["rows_kept"] == 1
+    ca = (d2 / "sp500_corporate_actions.csv").read_text()
+    assert "2099-01-10" not in ca and "2023-01-10" in ca
+    # earnings stays forward-by-design (never in any truncate set).
+    assert "sp500_earnings.csv" in m2["copied_intact"]
+    assert "2099-01-01" in (d2 / "sp500_earnings.csv").read_text()
+
+
+def test_tier2_cut_keeps_future_effective_row_announced_before_cutoff(tmp_path):
+    # The PIT semantic: a dividend DECLARED before T with an ex_date AFTER T
+    # is legitimately knowable at T and must be KEPT (cut on declared_date,
+    # not ex_date).
+    src = tmp_path / "src"
+    src.mkdir()
+    _write_csv(
+        src / "sp500_dividends.csv",
+        "declared_date,ex_date,dividend_amount\n2023-05-01,2023-08-15,0.5",
+    )
+    dst = tmp_path / "dst"
+    m = fz.build_truncated_data_dir(src, dst, cutoff="2023-06-30", tier=2)
+    assert m["truncated"]["sp500_dividends.csv"]["rows_kept"] == 1  # future ex_date kept
+    assert "2023-08-15" in (dst / "sp500_dividends.csv").read_text()
+
+
+# ---------------------------------------------------------------------------
 # V2-a — exact ranker comparison
 # ---------------------------------------------------------------------------
 

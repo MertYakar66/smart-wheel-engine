@@ -49,6 +49,16 @@ FRED network series, so the amnesia harness disables it on BOTH sides
 files (earnings calendar, dividends, corporate actions, fundamentals,
 broad_pull) are copied intact — identical in both runs, they cannot
 create false diffs.
+
+Tier-2 triage (pre-registered, section 11): ``amnesia_report(tier=2)``
+additionally truncates the dated tier-2 files
+(``sp500_corporate_actions.csv`` on ``announcement_date``,
+``sp500_dividends.csv`` on ``declared_date``) — a black-box confirmation
+that no cache/fallback serves post-cutoff tier-2 rows into the rank
+(corporate_actions is internally gated ``<= as_of``; dividends is off the
+short-put path). The dateless snapshots (fundamentals, credit_risk),
+FRED, and the forward-by-design earnings calendar remain un-truncatable
+and are recorded as standing PIT limitations, not fixed.
 """
 
 from __future__ import annotations
@@ -84,6 +94,30 @@ TIER1_TRUNCATE_FILES: dict[str, str] = {
     "vix_term_structure.csv": "date",
     "sp500_liquidity.csv": "date",
 }
+
+#: Tier-2 truncation set (plan §11): dated tier-2 CSVs cut on their
+#: PIT-*announcement* column, not the effective/ex column — keeping
+#: already-announced future-effective rows (legitimately knowable at T)
+#: and dropping only post-T announcements. ``corporate_actions`` is the
+#: one dated tier-2 source ON the short-put rank path (internally gated
+#: ``announcement_date <= as_of``; the truncation is a black-box
+#: confirmation). ``dividends`` is OFF the put path (feeds only
+#: analyze_ticker + the covered-call ranker) and is truncated for
+#: completeness — an expected no-op. Both columns are 100% ISO-dated, so
+#: no rows drop on missing dates (no false diffs).
+TIER2_TRUNCATE_FILES: dict[str, str] = {
+    "sp500_corporate_actions.csv": "announcement_date",
+    "sp500_dividends.csv": "declared_date",
+}
+
+
+def _truncate_set(tier: int) -> dict[str, str]:
+    """Files to date-truncate at a given tier. ``tier=1`` is the V2-a set
+    (byte-identical); ``tier>=2`` adds the tier-2 dated files."""
+    if tier <= 1:
+        return dict(TIER1_TRUNCATE_FILES)
+    return {**TIER1_TRUNCATE_FILES, **TIER2_TRUNCATE_FILES}
+
 
 #: HMM recipe — must match ``wheel_runner.rank_candidates_by_ev`` (~L1977-2003):
 #: log-returns of the PIT-sliced close, >= 200 required, last 504 used,
@@ -129,25 +163,38 @@ def truncate_csv(src: Path, dst: Path, *, cutoff: str, date_col: str) -> dict[st
     }
 
 
-def build_truncated_data_dir(src_dir: Path | str, dst_dir: Path | str, *, cutoff: str) -> dict:
+def build_truncated_data_dir(
+    src_dir: Path | str, dst_dir: Path | str, *, cutoff: str, tier: int = 1
+) -> dict:
     """Materialize a truncated copy of the data directory at ``cutoff``.
 
-    Tier-1 files are date-truncated (rewritten on every call — the cutoff
-    changes per amnesia date); everything else (files and subdirectories,
-    e.g. ``broad_pull/``) is copied intact once and reused across calls.
+    Files in the tier's truncate set are date-truncated (rewritten on every
+    call — the cutoff changes per amnesia date); everything else (files and
+    subdirectories, e.g. ``broad_pull/``) is copied intact once and reused
+    across calls. ``tier=1`` truncates the V2-a tier-1 set only (§5.1);
+    ``tier=2`` also truncates the dated tier-2 files (§11). Because the
+    tier-2 files change with the cutoff too, a truncated dir built at one
+    tier must not be silently reused at another — callers key the work dir
+    by tier (``amnesia_report``).
     """
     src_dir, dst_dir = Path(src_dir), Path(dst_dir)
     dst_dir.mkdir(parents=True, exist_ok=True)
-    manifest: dict[str, Any] = {"cutoff": cutoff, "truncated": {}, "copied_intact": []}
+    truncate_files = _truncate_set(tier)
+    manifest: dict[str, Any] = {
+        "cutoff": cutoff,
+        "tier": tier,
+        "truncated": {},
+        "copied_intact": [],
+    }
     for entry in sorted(src_dir.iterdir()):
         target = dst_dir / entry.name
         if entry.is_dir():
             if not target.exists():
                 shutil.copytree(entry, target)
             manifest["copied_intact"].append(entry.name + "/")
-        elif entry.name in TIER1_TRUNCATE_FILES:
+        elif entry.name in truncate_files:
             manifest["truncated"][entry.name] = truncate_csv(
-                entry, target, cutoff=cutoff, date_col=TIER1_TRUNCATE_FILES[entry.name]
+                entry, target, cutoff=cutoff, date_col=truncate_files[entry.name]
             )
         else:
             if not target.exists():
@@ -289,6 +336,26 @@ def compare_rank_outputs(
     return out
 
 
+#: Exclusions still standing after each tier's truncation (reported in
+#: the amnesia payload so the proof's boundary is explicit).
+_TIER_EXCLUSIONS: dict[int, dict[str, str]] = {
+    1: {
+        "sp500_credit_risk.csv": "dateless snapshot — inherent PIT limitation, nothing to truncate",
+        "fred_network_series": "credit-regime de-rank disabled on both sides (use_credit_regime=False)",
+        "schedule_type_files": "earnings/dividends/fundamentals/corporate_actions/broad_pull copied intact",
+    },
+    2: {
+        "sp500_corporate_actions.csv": "NOW TRUNCATED @announcement_date (was tier-1 exclusion)",
+        "sp500_dividends.csv": "NOW TRUNCATED @declared_date (off the put path; confirmatory)",
+        "sp500_credit_risk.csv": "dateless + off the put rank path — inherent PIT limitation",
+        "sp500_fundamentals.csv": "dateless snapshot — served whole; residual IV-fallback surface (T2-2)",
+        "fred_network_series": "credit-regime de-rank disabled on both sides (use_credit_regime=False)",
+        "earnings": "forward-by-design (event-lockout needs the announced future date); DATE-only, no outcome field",
+        "split_adjust_parquet_rail": "_split_adjust_option_premium reads corp_actions un-as_of'd; dormant without option_premium parquets (T2-2)",
+    },
+}
+
+
 def amnesia_report(
     *,
     data_dir: Path | str,
@@ -298,16 +365,22 @@ def amnesia_report(
     dte_target: int = 35,
     delta_target: float = 0.25,
     top_n: int = 100,
+    tier: int = 1,
     keep_truncated: bool = False,
 ) -> dict[str, Any]:
     """Run the full amnesia protocol: per date, A/A control then A/B.
 
-    Verdicts per date: ``PASS`` (A/A and A/B identical), ``NONDETERMINISTIC``
-    (A/A differs — the A/B comparison is uninterpretable and is still
-    reported), ``FAIL`` (A/A clean, A/B differs — market-data leakage).
+    ``tier=1`` truncates the V2-a tier-1 set (§5.1); ``tier=2`` also
+    truncates the dated tier-2 files (§11). Verdicts per date: ``PASS``
+    (A/A and A/B identical), ``NONDETERMINISTIC`` (A/A differs — the A/B
+    comparison is uninterpretable and is still reported), ``FAIL`` (A/A
+    clean, A/B differs — post-cutoff data leakage).
     """
     src = Path(data_dir)
-    trunc = Path(work_dir) / "truncated_data"
+    # Key the work dir by tier so tier-1 and tier-2 truncated copies never
+    # collide (a tier-1 run copies the tier-2 files intact; reusing that dir
+    # for tier-2 — or vice versa — could serve a stale copy).
+    trunc = Path(work_dir) / f"truncated_data_tier{tier}"
     per_date: list[dict] = []
     for as_of in dates:
         fa1, da1 = rank_pass(
@@ -317,7 +390,7 @@ def amnesia_report(
             src, tickers, as_of, dte_target=dte_target, delta_target=delta_target, top_n=top_n
         )
         aa = compare_rank_outputs(fa1, da1, fa2, da2)
-        manifest = build_truncated_data_dir(src, trunc, cutoff=as_of)
+        manifest = build_truncated_data_dir(src, trunc, cutoff=as_of, tier=tier)
         fb, db = rank_pass(
             trunc, tickers, as_of, dte_target=dte_target, delta_target=delta_target, top_n=top_n
         )
@@ -341,19 +414,16 @@ def amnesia_report(
                 "verdict": verdict,
             }
         )
-        logger.info("amnesia %s: %s (%d rows)", as_of, verdict, len(fa1))
+        logger.info("amnesia t%d %s: %s (%d rows)", tier, as_of, verdict, len(fa1))
     if not keep_truncated:
         shutil.rmtree(trunc, ignore_errors=True)
     verdicts = [d["verdict"] for d in per_date]
     return {
-        "tier": 1,
+        "tier": tier,
         "tickers": list(tickers),
         "dates": list(dates),
-        "excluded_from_tier1": {
-            "sp500_credit_risk.csv": "dateless snapshot — inherent PIT limitation, nothing to truncate",
-            "fred_network_series": "credit-regime de-rank disabled on both sides (use_credit_regime=False)",
-            "schedule_type_files": "earnings/dividends/fundamentals/corporate_actions/broad_pull copied intact",
-        },
+        "truncated_files": sorted(_truncate_set(tier)),
+        "still_excluded": _TIER_EXCLUSIONS.get(tier, {}),
         "per_date": per_date,
         "overall_verdict": "PASS" if all(v == "PASS" for v in verdicts) else "FAIL",
     }

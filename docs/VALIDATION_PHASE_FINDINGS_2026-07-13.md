@@ -235,9 +235,20 @@ harness-side; B5 owns calibration; E-13 owns the data-grounded ADV).
   the engine's own `ev_dollars > 0` gate, which fills only ~32% of NAV at
   the COVID eve — the pre-registered ≥80%-saturation expectation was
   falsified on all four windows, in the engine's favor.
-- **Tier-2 amnesia scope.** V2-a's PIT proof covers the tier-1 market
-  series; schedule-type files and the (disabled) FRED credit series
-  remain outside it (triage pass noted, non-blocking).
+- **Tier-2 amnesia scope — now TRIAGED (plan §11).** V2-a's PIT proof
+  covered the tier-1 market series; the tier-2 triage extended the
+  physical-truncation A/B to the dated tier-2 files
+  (`corporate_actions@announcement_date`, `dividends@declared_date`) on
+  the same 5×24 grid → `TIER2_PIT_CLEAN` (byte-identical at every date,
+  6,000+ post-T rows dropped, so not vacuous). A code trace confirmed
+  earnings is DATE-only (no outcome field on the EV path). Two non-PIT
+  reads survive as standing limitations — a dateless `get_fundamentals`
+  IV fallback (fires only when PIT IV history is empty) and
+  `_split_adjust_option_premium`'s un-`as_of`'d corp-action read (fires
+  only with option-premium parquets present) — both dormant on the
+  synthetic-BSM default, neither a numeric outcome-field leak. The
+  dateless snapshots and the (disabled) FRED credit series remain
+  un-truncatable by construction, as in V2-a.
 - **POT/ξ/penalty calibration.** Unpowered at both scales on this
   provider (heavy_tail never fired); sweeps deferred until the surface
   activates (Theta window), not validated.

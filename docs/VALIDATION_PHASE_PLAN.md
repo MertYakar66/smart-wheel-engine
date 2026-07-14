@@ -1712,3 +1712,60 @@ per-function review but cannot survive a physical-truncation diff).
 
 **Cost:** minutes, in-sandbox, committed modern CSVs only. No deep read,
 no ledger row.
+
+### 11.1 Results — recorded 2026-07-14
+
+Ran `python scripts/run_freeze_replay.py amnesia --tier 2` in-sandbox
+(3m04s, `MarketDataConnector`, `use_credit_regime=False`, rail pinned
+off). Report: `data_processed/validation/freeze_replay/amnesia_report_tier2.json`.
+
+**T2-1 = `TIER2_PIT_CLEAN`.** Overall `PASS`: A/A determinism control
+identical AND A/B (full vs tier-2-truncated) byte-identical at every date
+— the V2-a bar, now with `corporate_actions` and `dividends` physically
+truncated on top of the tier-1 set.
+
+| as_of | verdict | ranked rows | drops | corp_actions rows kept | dividends rows kept |
+|---|---|---|---|---|---|
+| 2022-06-15 | PASS | 15 | 9 | 46,240 | 46,178 |
+| 2023-11-15 | PASS | 20 | 4 | 48,497 | 48,452 |
+| 2024-08-06 | PASS | 16 | 8 | 49,678 | 49,640 |
+| 2025-04-15 | PASS | 3 | 21 | 50,713 | 50,683 |
+| 2026-05-01 | PASS | 22 | 2 | 52,513 | 52,494 |
+
+The cut was substantial and monotone (full files: corp_actions 52,760 /
+dividends 52,737) — 6,000+ post-T announcements dropped at the earliest
+date, down to a few hundred at the latest — so the identical A/B is
+load-bearing, not vacuous: no cache or fallback in `rank_candidates_by_ev`
+consumes a post-`as_of` corporate-action or dividend row. This confirms
+the code trace (corporate_actions internally gated `<= as_of`; dividends
+off the short-put path).
+
+**T2-2 — residual-surface audit (report-only, from the trace, recorded in
+the report payload's `still_excluded`).**
+- **Earnings: DATE-only, no leak.** The only field the rank path reads
+  from any earnings row is the announcement DATE (for the event-lockout
+  window): `get_next_earnings` returns the next announced date after
+  `as_of` by design, `get_recent_earnings` is filtered `<= as_of`, the
+  broad-pull snapshot overlay is PIT-gated on its own knowledge date, and
+  the yfinance parallel file is deliberately not consulted. No earnings
+  OUTCOME field (`earnings_eps` / `comparable_eps` / `estimate_eps` /
+  surprise) ever reaches EV. Legitimate forward-schedule use, not a leak.
+- **Two non-PIT reads survive on the EV path — both dormant on the
+  sandbox synthetic default, neither a numeric outcome-field leak, both
+  recorded as standing PIT limitations (measurement-only phase, not
+  fixed):** (i) the `get_fundamentals` dateless-snapshot **IV fallback**
+  (`implied_vol_atm` / `volatility_30d`), consumed only when the PIT
+  `get_iv_history` path returns empty — never fired on this liquid-name /
+  modern-date grid (the A/B stayed clean); (ii)
+  `_split_adjust_option_premium`'s un-`as_of`'d `get_corporate_actions`
+  read, active only when `data_processed/option_premium/*.parquet` exist
+  (absent in CI / sandbox, so not exercised by the synthetic-BSM path).
+  Both belong to the same class as V2-a's dateless-snapshot note and are
+  the natural targets if a future pass wants tier-2 PIT *by construction*
+  rather than by-grid.
+
+**Net.** The §6 tier-2 caveat is resolved: the dated tier-2 sources are
+amnesia-clean on the short-put rank path (T2-1 PASS), earnings is
+date-only (no outcome leak), and the only residual non-PIT reads are two
+dormant snapshot/parquet fallbacks scoped and recorded, not leaks. No
+engine change ships.

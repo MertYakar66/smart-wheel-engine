@@ -6,6 +6,9 @@ pre-registered design):
     # V2-a — amnesia test: A/A determinism control + full-vs-truncated A/B
     python scripts/run_freeze_replay.py amnesia
 
+    # §11 — tier-2 amnesia triage: also truncate the dated tier-2 files
+    python scripts/run_freeze_replay.py amnesia --tier 2
+
     # V2-b — build / verify the C1 freeze snapshot fixture (committed)
     python scripts/run_freeze_replay.py snapshot
     python scripts/run_freeze_replay.py verify
@@ -121,15 +124,20 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def cmd_amnesia(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir)
+    tier = int(args.tier)
     report = fz.amnesia_report(
         data_dir=args.data_dir,
         tickers=_universe_24(),
         dates=list(args.dates),
         work_dir=out_dir,
+        tier=tier,
     )
     report["generated_at"] = datetime.now(UTC).isoformat()
-    _write_json(out_dir / "amnesia_report.json", report)
-    print("\n=== V2-a amnesia test ===")
+    name = "amnesia_report.json" if tier == 1 else f"amnesia_report_tier{tier}.json"
+    _write_json(out_dir / name, report)
+    label = "V2-a amnesia test" if tier == 1 else f"tier-{tier} amnesia triage (plan §11)"
+    print(f"\n=== {label} ===")
+    print(f"  truncated: {', '.join(report['truncated_files'])}")
     for d in report["per_date"]:
         print(
             f"  {d['as_of']}: {d['verdict']} "
@@ -286,6 +294,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
     p.add_argument("--cutoff", default=fz.FREEZE_CUTOFF_DEFAULT)
     p.add_argument("--dates", nargs="+", default=list(AMNESIA_DATES), help="amnesia as_of dates")
+    p.add_argument(
+        "--tier",
+        type=int,
+        choices=(1, 2),
+        default=1,
+        help="amnesia truncation tier: 1 = V2-a market series (§5.1); "
+        "2 = also truncate dated tier-2 files (§11)",
+    )
     p.add_argument(
         "--production-table",
         default=None,

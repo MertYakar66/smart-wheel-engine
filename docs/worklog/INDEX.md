@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**174 records.**
+**175 records.**
 
 ## Features (18)
 
@@ -98,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 
-## Verification & realism (41)
+## Verification & realism (42)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -136,6 +136,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
 | [validation-followups](validation-followups-v6r-fullmenu-v5b-full-tv-marked.md) | completed |  | The two caveats the closed phase itself recorded, resolved by pre-registered runs (plan §10, committed before code) — §10.1 re-reads the spent 2007-2009 slice at top_n=100 to decide whether H1's FAIL was censored by top-of-book logging (CAVEAT_RETIRED vs CENSORING_LOAD_BEARING at the 0.5 cut, counted+discounted ledger read), and §10.2 replays the crisis-eve assignment wave on a FULL-ranking saturated book with entry-IV BSM time-value marking across a {1.0, 1.5, 2.0} IV bracket to dispose of V5-b's >= 20% trough clause (ESTABLISHED / RETIRED_PRACTICAL / OPEN, frozen rule). Both runs on operator terminals overnight. | `validation-followups-v6r-fullmenu-v5b-full-tv-marked.md` |
+| [validation-tier2-amnesia](validation-tier2-amnesia-tier-2-amnesia-triage-extend-the-truncation-a-b.md) | completed |  | The one non-blocking validation-phase leftover, closed. V2-a proved the tier-1 market series PIT-clean but copied every tier-2 source intact on both A/B sides, so it could not see a tier-2 leak. This triage (plan §11, pre-registered before code at fb755c6) traced every tier-2 source against the short-put rank path and extended V2-a's physical-truncation A/B to the two dated tier-2 files (corporate_actions@announcement_date, dividends@declared_date). Result TIER2_PIT_CLEAN — byte-identical rank at all 5 dates with 6,000+ post-T rows dropped. Earnings is DATE-only (no outcome leak); two dormant snapshot/parquet fallbacks recorded as standing PIT limitations. No engine change ships. | `validation-tier2-amnesia-tier-2-amnesia-triage-extend-the-truncation-a-b.md` |
 | [validation-v1-tail-exceedance](validation-v1-tail-exceedance-v1-tail-risk-exceedance-harness-kupiec-clustered.md) | complete |  | The engine's own risk quantiles (pnl_p25/p50/p75) and cvar_5 are now formally backtestable — Kupiec POF + date-clustered bootstrap CIs + violation-clustering permutation test + ES-bound breach severity, with a synthetic calibrated-PASS/understated-FAIL contract pinning the harness itself. | `validation-v1-tail-exceedance-v1-tail-risk-exceedance-harness-kupiec-clustered.md` |
 | [validation-v2-freeze-replay](validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md) | complete |  | The "PIT-clean by construction" assertion behind every reported edge becomes an experiment — physical data truncation must reproduce the ranker byte-for-byte, the C1 HMM/GPD freeze snapshot gets a committed refit lock, and a frozen-at-cutoff replay bounds how much rank quality and risk honesty depend on refit recency. | `validation-v2-freeze-replay-c1-amnesia-pit-proof-freeze-snapshot-frozen-replay.md` |
 | [validation-v3-param-plateau](validation-v3-param-plateau-f4-r11-plateau-sweep-activation-gates.md) | complete |  | The hand-set constants get perturbed for the first time — F4 threshold/cap swept with engine passes under the sanctioned patch lever (PLATEAU/CLIFF/PEAK/DOMINATED verdicts, rank-quality guard), R11 cutoffs swept offline on the V1 captures with both the breach and the D23 over-confidence lenses, and the POT/heavy-tail/bootstrap constants activation-gated instead of vacuously passed. | `validation-v3-param-plateau-f4-r11-plateau-sweep-activation-gates.md` |

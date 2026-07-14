@@ -2,12 +2,12 @@
 id: validation-v6-lockbox
 title: V6 lockbox spend — the one pre-registered deep-history read (2008 refusal generalization)
 kind: verification
-status: in-flight
+status: completed
 terminal:
 pr:
 decisions: []
-date: 2026-07-13
-headline: The phase's single reserved-data spend — spec frozen (plan §9, bc1446a) and the driver pinned with in-code H-verdicts + test-pinned verdict math (1473857) BEFORE the read; deep panels 2007-01-03 → 2009-06-30 with PIT/delisted membership through the survivorship harness, validating selection/refusal/assignment only (synthetic BSM premiums — NAV is not evidence); running on the operator's deep-data terminal.
+date: 2026-07-14
+headline: The phase's single reserved-data spend, spent 2026-07-14 on attempt 3 (attempts 1-2 crashed in driver post-processing before any result surfaced — read unspent, transport fixed, SPEC/H-functions byte-identical) — deep panels 2007-01-03 → 2009-06-30 with PIT/delisted membership through the survivorship harness. Verdicts: H1 FAIL (no EV-sign refusal in the grind), H2 CONFIRMED_BLIND (3.15× into the Lehman cliff), H3 PASS (93.3% peak assignment absorbed by the mandate), H4 +0.32 report-only → F-V6-1 to the re-baseline queue; phase CLOSED.
 surface: [scripts/run_v6_lockbox.py, tests/test_v6_lockbox.py, docs/VALIDATION_PHASE_PLAN.md, docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md]
 ---
 
@@ -88,6 +88,28 @@ byte-identical to the pinned pre-spend commit (`1473857`):
 
 ## Result
 
-*(PENDING — the executor's H-verdict block + `v6_report.json` land here
-verbatim; plan §9.3 + the §2 lockbox ledger row + findings-doc §7
-complete in the closing commit.)*
+Read spent 2026-07-14 (attempt 3, exit 0, HEAD `f0525a2`): 9,750 ranked
+rows / 650 dates (exactly top_n=15/date) / 245 opens / 73.6 min; raw
+artifacts + report written; no `verdict=ERROR` anywhere; 1998/LTCM
+unread on all three attempts.
+
+- **H1 FAIL** — grind/baseline EV-positive ratio 1.077 (bound ≤ 0.5);
+  the rate is exactly 1.0 every month from 2007-07 through window end.
+  Refusal-by-EV-sign did not happen in the grind. Post-hoc caveats
+  recorded in plan §9.3 (top-of-book censoring at top_n=15;
+  synthetic-premium coupling) — neither verdict-changing.
+- **H2 CONFIRMED_BLIND** — opens/day 3.15× the August rate into the
+  Lehman eve (2 vs 3 opens on a BP-saturated book; direction
+  unambiguous, magnitude noisy). The pre-registered F-V1-1
+  generalization confirmed.
+- **H3 PASS** — peak monthly ITM 93.3% (Oct 2008, n=345); wave
+  34.9% → 93.3% → 52.0% → 19.4% over Sep–Dec. H3b: 8 delisted
+  PIT-only participants ranked; the delisting-loss mechanism exercised.
+- **H4 REPORT_ONLY** — within-menu per-date rho +0.3154
+  [+0.2645, +0.3627], 83.5% of dates positive, through the crisis.
+
+Composite → **F-V6-1** (re-baseline queue): EV-sign refusal is not a
+crisis defense; survival is the mandate's absorb-and-hold. Recorded in
+plan §9.3 (verdicts verbatim + closure), the §2 ledger row (completed),
+and `docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md` (flipped to FINAL —
+the phase-closing record). The validation phase is CLOSED.

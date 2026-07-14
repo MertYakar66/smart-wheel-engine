@@ -1,6 +1,8 @@
 # Validation phase — formal reliability audit of engine outputs
 
-**Status:** ACTIVE (opened 2026-07-12). **Owner:** the operator; executed as a
+**Status:** CLOSED 2026-07-14 (opened 2026-07-12) — all six workstreams
+done; phase roll-up in `docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md`.
+**Owner:** the operator; executed as a
 brain/terminal split — one session designs harnesses and verifies results
 (the brain), the operator's terminal runs the expensive passes (the
 executor). **Scope discipline:** every workstream here is measurement-only
@@ -28,7 +30,7 @@ and (d) execution/capacity realism beyond one contract at mid.
 | V3 | **Parameter-plateau sweep** — perturb every static constant in the `docs/PARAMETER_OOS.md` Phase-0 inventory +/-20-50%; require plateaus, not peaks | Is the configuration a fitted artifact? | **CLOSED 2026-07-13** — no PEAK anywhere; F4 PLATEAU x2 at both scales; F-V3-1 (R11 mis-aim) to the re-baseline queue; results §6.6-§6.7 | `backtests/param_plateau.py`, `scripts/run_param_plateau.py`, `tests/test_param_plateau.py` |
 | V4 | **Capacity curve** — contract ladder with the (dormant) Almgren-Chriss impact term armed via a swept stock-ADV proxy; participation-capped fills | Where is the knee of edge-vs-deployed-dollars, as a function of the proxy assumption? | **CLOSED 2026-07-13** — pilot + both 100t NAV arms; $1M capital-bound at every rung, $10M proxy-bound with an interior impact knee; results §7.4-§7.5 | `backtests/capacity_curve.py`, `scripts/run_capacity_curve.py`, `tests/test_capacity_curve.py` |
 | V5 | **Reverse stress** — cheapest-path-to-ruin search, starting from the known blind spots (calm-VIX single-name gap on a top-bin name; margin procyclicality) | What breaks the book that no gate catches? | **CLOSED 2026-07-13** — F-V5-1 (gate stack admits 36.5%-NAV calm-onset composition) to the re-baseline queue; CSP mandate = the load-bearing protection; results §8.5-§8.6 | `backtests/reverse_stress.py`, `scripts/run_reverse_stress.py`, `tests/test_reverse_stress.py` |
-| V6 | **Lockbox spend** — one pre-registered deep-history run (2008 era, delisted names included) of the refusal mechanism; 1998 stays locked | Does crisis refusal generalize to regimes the tuning window never saw? | **spec committed (§9)** — gate satisfied (V1-V3 closed); run pending on the deep-data terminal | `backtests/survivorship.py`, `scripts/run_v6_lockbox.py` |
+| V6 | **Lockbox spend** — one pre-registered deep-history run (2008 era, delisted names included) of the refusal mechanism; 1998 stays locked | Does crisis refusal generalize to regimes the tuning window never saw? | **CLOSED 2026-07-14** — H1 **FAIL** (refusal did not engage in the grind, ratio 1.08 vs ≤0.5), H2 CONFIRMED_BLIND (3.15× into the Lehman cliff), H3 PASS (93.3% peak assignment), H4 +0.32 report-only; F-V6-1 to the re-baseline queue; results §9.3 | `backtests/survivorship.py`, `scripts/run_v6_lockbox.py`, `tests/test_v6_lockbox.py` |
 
 ## 2. The lockbox protocol (reserved-data discipline)
 
@@ -59,7 +61,7 @@ validation data**, managed as a budget:
 
 | Date | Slice read | Spec committed at | Result doc |
 |---|---|---|---|
-| 2026-07-13 (spec) / read pending on terminal | deep 2007-01-03 -> 2009-06-30, PIT universe (max_universe=100), incl. delisted | this commit (§9) | pending (§9.3 on run completion) |
+| 2026-07-13 (spec) / **2026-07-14 (read spent** — attempt 3 on the transport-fixed driver; attempts 1-2 crashed pre-report, nothing surfaced, see §9.2 run record**)** | deep 2007-01-03 -> 2009-06-30, PIT universe (max_universe=100), incl. delisted | `bc1446a` (§9) | §9.3 + `docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md` §7 |
 
 ## 3. V1 — tail-risk exceedance: design summary
 
@@ -1354,3 +1356,78 @@ may be restarted (deterministic); the run is never re-parameterized.
 Acceptance for V6 closure: the four H-verdicts recorded verbatim in
 §9.3; the §2 ledger row completed; the phase-closing findings summary
 written. No engine change ships.
+
+### 9.3 Results (2026-07-14; attempt 3 on the transport-fixed driver, exit 0) + V6 closure
+
+Provenance: operator terminal, HEAD `f0525a2` (SPEC + all four H-verdict
+functions byte-identical to the pre-spend pin `1473857`; only the
+reporting transport changed — §9.2 run record). 9,750 ranked rows over
+650 ranking dates (exactly `top_n=15`/date), 245 opens counted, engine
+pass 73.6 min. Artifacts gitignored on the operator machine
+(`v6_report.json`, `v6_rank_log.csv.gz`, `v6_positions.json`); tree
+clean; 1998/LTCM unread on all three attempts.
+
+**The four H-verdicts, verbatim from the frozen driver:**
+
+- **H1_refusal_grind: FAIL** — baseline_rate 0.92815, grind_rate 1.0,
+  ratio 1.07741 (bound: ≤ 0.5). The monthly EV-positive rate sits at
+  exactly 1.0 for EVERY month from 2007-07 through 2009-06; the only
+  sub-1.0 months are 2007-01..06 (0.5733–0.9485), so the entire baseline
+  discount is early-2007 and the Oct–Dec 2008 grind never dips at all.
+- **H2_cliff_lag: CONFIRMED_BLIND** — august_opens_per_day 0.09524,
+  cliff_window_opens_per_day 0.30, ratio 3.15 (threshold ≥ 0.7). The
+  machinery not only failed to pull back ahead of the Lehman eve — the
+  open rate TRIPLED into the cliff.
+- **H3_assignment_wave: PASS** — peak monthly ITM 0.9333 (2008-10,
+  n=345). Wave shape: 2008-09 0.3485 (n=330) → 2008-10 0.9333 (345) →
+  2008-11 0.5200 (300) → 2008-12 0.1942 (345). **H3b:** 8 delisted
+  PIT-only participants ranked (Bloomberg delisted codes; last bars
+  2007-03-30 → 2008-12-31) — the delisting-loss mechanism exercised,
+  not vacuous.
+- **H4_rank_rho: REPORT_ONLY** — per-date within-menu rho +0.3154,
+  block-7 CI [+0.2645, +0.3627], se 0.0262, frac_positive 0.8354,
+  n_dates 650; synthetic-premium caveat as frozen.
+
+**Post-hoc measurement notes (recorded; none verdict-changing — the
+frozen rules stand):**
+
+1. **Top-of-book censoring on H1.** The vehicle logs the ranker's
+   returned frame — exactly `top_n=15` of ~100 candidates/date
+   (`min_ev_dollars=-1e9`, so negative-EV rows DO reach the log when
+   fewer than 15 positives exist, which is visibly what early 2007
+   was). The metric therefore saturates at 1.0 whenever ≥ 15 names are
+   EV-positive and cannot distinguish "no refusal anywhere" from
+   "refusal below the top-15". What it DOES establish is book-relevant
+   and unambiguous: at no point in the grind was the engine's tradeable
+   menu thinner than its own 3-opens/day appetite — the book kept
+   trading at full allowance through Oct–Dec 2008.
+2. **Premium coupling on H1.** EV sign is premium-dependent, and
+   synthetic BSM premiums at 2008 IV levels are rich — the §2.4
+   discount (premium realism is not evidence) bites H1 harder than
+   H2/H3. Directionally this is a real mechanism, not just a
+   measurement artifact: elevated IV inflates the credit side of EV
+   while the trailing forward distributions lag the regime — the same
+   two-sided failure F-V1-1 measured at COVID onset.
+3. **Small counts on H2.** 0.0952 × 21 ≈ 2 August opens vs 0.30 × 10 =
+   3 cliff-window opens — the $1M book is BP-saturated (the V4 fact),
+   so opens are slot-gated and both windows sit below the 0.39/day
+   window average. Direction unambiguous (no pull-back; the falsifier
+   needed < 0.7×), magnitude noisy.
+
+**V6 CLOSED 2026-07-14.** Acceptance met: verdicts recorded verbatim;
+§2 ledger row completed; the phase-closing findings summary
+(`docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md`) finalized. Workstream
+verdict, stated once: **crisis refusal does NOT generalize by the
+pre-registered EV-sign metric (H1 FAIL — the top of the book stayed
+EV-positive through the entire 2008 grind); onset blindness generalizes
+exactly as F-V1-1 predicted (H2 — entries at 3.15× the August rate into
+the Lehman cliff); and the book survives the way the modern record said
+it survives — through the mandate, not avoidance (H3 — 93.3% peak
+monthly assignment, absorbed and held). Selection ordering stays
+positive through the crisis (H4 +0.32, synthetic caveat).** The
+composite goes to the re-baseline queue as **F-V6-1**: *EV-sign refusal
+is not a crisis defense — on a regime the tuning window never saw, the
+engine traded at full appetite through the grind and into the cliff,
+and survival was carried entirely by assignment-and-hold; the
+deep-history generalization of the F-V1-1 + F-V5-1 structure.* No
+engine change ships.

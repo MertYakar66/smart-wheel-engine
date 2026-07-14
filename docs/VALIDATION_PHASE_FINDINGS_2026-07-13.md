@@ -1,9 +1,9 @@
-# Validation phase — closing findings record (2026-07-12 → 2026-07)
+# Validation phase — closing findings record (2026-07-12 → 2026-07-14)
 
-**Status: DRAFT — V1–V5 CLOSED and final; V6 read in flight** (the one
-pre-registered lockbox spend, `scripts/run_v6_lockbox.py`, running on the
-deep-data terminal). §7 of this doc and the plan's §9.3 + §2 ledger row
-complete when the report lands. Everything above §7 is final.
+**Status: FINAL — all six workstreams CLOSED.** The lockbox read was
+spent 2026-07-14 (attempt 3; the first two attempts crashed in driver
+post-processing before any result surfaced — plan §9.2 run record — so
+the spend semantics held). Full V6 record: plan §9.3.
 
 This is the phase roll-up. The full per-workstream record — designs,
 pre-registered expectations, scorecards, and result tables — lives in
@@ -38,8 +38,13 @@ those measured blind spots COMPOSE — the gate stack admits ruin-class
 calm-onset books (F-V5-1). Capacity is capital-bound at $1M and
 proxy/participation-bound at $10M with impact ≤ ~2.5% of premium (V4).
 The load-bearing crisis protection is not a detector — it is the CSP
-mandate's inability to be forced out (V5-b). V6 tests whether the refusal
-mechanism generalizes to 2008; its verdicts drop into §7 verbatim.
+mandate's inability to be forced out (V5-b). And the lockbox spend (V6)
+sealed that conclusion on a regime the tuning window never saw: in
+2007–2009 the engine did NOT refuse in the grind (H1 FAIL), traded at
+3.15× the August rate INTO the Lehman cliff (H2 confirmed the
+onset-blindness prediction), and survived through 93.3% peak-month
+assignment absorbed and held (H3 PASS) — avoidance is not where survival
+comes from; the mandate is (F-V6-1).
 
 ## 2. Per-workstream verdicts (one block each; numbers final)
 
@@ -101,11 +106,21 @@ of COVID at ×1.0. **The classical margin spiral is structurally absent
 under the CSP mandate; the inability to be forced out is the quantified,
 load-bearing protection.**
 
-**V6 — lockbox spend (spec committed; read in flight).** See §7.
+**V6 — lockbox spend (CLOSED 2026-07-14).** One read, 2007-01-03 →
+2009-06-30, PIT universe including 8 ranked delisted names, everything
+through `rank_candidates_by_ev`, synthetic BSM premiums (selection/
+refusal/assignment evidence only — NAV is not evidence). H1 **FAIL**
+(refusal did not engage in the grind — EV-positive rate at the top of
+the book was exactly 1.0 every month from 2007-07 through window end;
+ratio 1.077 vs the ≤ 0.5 bound), H2 **CONFIRMED_BLIND** (3.15× August's
+open rate into the Lehman eve), H3 **PASS** (peak monthly assignment
+93.3%, Oct 2008, n=345; the delisting-loss mechanism exercised on 8
+names), H4 report-only (+0.315 [0.265, 0.363] within-menu rho through
+the crisis). Full verdicts + post-hoc measurement notes: plan §9.3.
 
-## 3. The through-line: three independent arrivals at one fact
+## 3. The through-line: now four independent arrivals at one fact
 
-The phase's central structural finding was reached three separate ways:
+The phase's central structural finding was reached four separate ways:
 
 1. **F-V1-1 (from the breach side):** Feb–Apr 2020 calm-entry rows breach
    84.4% at ~3.4× severity and land in the calm/elevated strata *by
@@ -116,10 +131,16 @@ The phase's central structural finding was reached three separate ways:
 3. **V2-c + V3-b (from the parameter side):** freezing the trailing
    window ~3 years barely moves pooled coverage, and F4's trailing-vol
    reaction channel fires 5× more or less with zero coverage change.
+4. **F-V6-1 (from deep history, pre-registered as a prediction):** on
+   2007–2009 — a regime no part of the configuration ever saw — the
+   engine traded at full appetite through the grind (H1 FAIL) and at
+   3.15× the August rate into the Lehman cliff (H2, whose CONFIRMED
+   outcome was the pre-registered generalization of F-V1-1).
 
 One sentence: **trailing/entry-time signals cannot buy tail honesty at
 crisis onset; only damage-bounders (R10-class) and the CSP mandate act
-there.** V6's H2 pre-registers this as a prediction for 2008.
+there** — and V6 showed the mandate doing exactly that job in 2008
+(H3: the assignment wave absorbed and held).
 
 ## 4. What the risk numbers are, precisely
 
@@ -160,6 +181,19 @@ Inputs to the next re-baseline discussion — measured facts, not patches:
   one short-vol strategy does not diversify a market-wide onset; only the
   top-bin confidence filter bounds worst-case below ruin (19.2%) in this
   history.
+- **F-V6-1 — EV-sign refusal is not a crisis defense.** On 2007–2009
+  (the one lockbox read; a regime the tuning window never saw) the top
+  of the book stayed EV-positive through the entire Oct–Dec 2008 grind
+  (H1 FAIL), entries continued into the Lehman cliff at 3.15× the
+  August rate (H2), and survival was carried entirely by
+  assignment-and-hold (H3: 93.3% peak monthly assignment) — the
+  deep-history generalization of the F-V1-1 + F-V5-1 structure.
+  Mechanism note: elevated IV inflates the credit side of EV while the
+  trailing forward distributions lag the regime — the same two-sided
+  failure F-V1-1 measured at COVID onset. Lever class: identical to
+  F-V1-1's (damage-bounders and forward-looking tail inputs, not EV
+  recalibration). Caveats bounding the claim: top-of-book censoring and
+  premium coupling (plan §9.3 notes 1–2).
 
 Documented structural constraints riding with the queue: the tracker is
 **contract-blind** (multi-contract accounting is internally inconsistent;
@@ -172,6 +206,13 @@ harness-side; B5 owns calibration; E-13 owns the data-grounded ADV).
 - **No premium realism before ~2016.** V6 premiums are synthetic BSM from
   deep IV panels — selection/refusal/assignment evidence only; NAV and
   dollar P&L from any pre-2016 run are not evidence (plan §2.4).
+- **H1's refusal metric is top-of-book-censored.** The V6 rank log holds
+  exactly the top 15 of ~100 candidates per date, so the EV-positive
+  rate saturates at 1.0 whenever ≥ 15 names clear zero — the FAIL
+  establishes that the tradeable menu never thinned below the engine's
+  own appetite, not that refusal was absent at every menu depth (plan
+  §9.3 note 1). And because EV sign is premium-dependent, the §2.4
+  synthetic-premium discount bites H1 harder than H2/H3.
 - **No data-grounded capacity knee.** V4's knee is conditional on the
   stock-ADV proxy ratio by design; the real number waits on E-13.
 - **The ≥ 20% assignment-wave trough clause is neither established nor
@@ -189,24 +230,51 @@ harness-side; B5 owns calibration; E-13 owns the data-grounded ADV).
   held-to-expiry); both can be true. The finding constrains
   recalibration, not the original decision record.
 
-## 7. V6 — the lockbox spend *(PENDING — completes on report landing)*
+## 7. V6 — the lockbox spend (CLOSED 2026-07-14)
 
 Spec frozen at plan §9 (commit `bc1446a`); driver pinned with in-code
 H-verdicts (`1473857`); the verdict math test-pinned before the spend
 (`tests/test_v6_lockbox.py`). Slice: deep panels 2007-01-03 → 2009-06-30,
-PIT universe incl. delisted, max_universe=100; 1998/LTCM stays locked.
-Hypotheses, frozen: **H1** refusal engages in the Oct–Dec 2008 grind
-(EV-positive rate ≤ 0.5× the 2007 baseline); **H2** refusal LAGS the
-Lehman cliff (opens/day in the 10 tdays ending 2008-09-12 ≥ 0.7× August's
-— CONFIRMS onset blindness generalizes; its falsifier is good news and
-will be reported as such); **H3** the mandate carries the book through
-the assignment wave (≥ 50% ITM in some Sep–Dec 2008 month; delisting
-mechanism census report-only); **H4** rank-vs-realized rho, report-only
-under the synthetic-premium caveat.
+PIT universe incl. delisted, max_universe=100; 1998/LTCM stays locked —
+and remained unread through all three attempts. The read was spent on
+attempt 3 (2026-07-14, driver transport fixed between attempts with SPEC
+and H-functions byte-identical — plan §9.2 run record): 9,750 ranked
+rows, 650 dates, 245 opens, 73.6 min.
 
-> **[SLOT — filled verbatim from the executor's H-verdict block +
-> `v6_report.json`; plan §9.3 and the §2 ledger row complete in the same
-> commit.]**
+**Verdicts (frozen rules, reported as computed):**
+
+- **H1 — refusal engages in the grind: FAIL.** Grind/baseline
+  EV-positive ratio 1.077 vs the ≤ 0.5 bound; the rate is exactly 1.0
+  every month from 2007-07 through 2009-06 (only early 2007 dips). The
+  refusal mechanism did not generalize by the pre-registered metric —
+  the engine's tradeable menu never thinned below its own 3-opens/day
+  appetite at any point in Oct–Dec 2008.
+- **H2 — refusal lags the cliff: CONFIRMED_BLIND** (the pre-registered
+  F-V1-1 generalization). Opens/day ran at **3.15×** the August-2008
+  rate over the 10 trading days into the Lehman eve (threshold ≥ 0.7;
+  small counts — 2 vs 3 opens on a BP-saturated book — direction
+  unambiguous, magnitude noisy).
+- **H3 — the mandate carries the book: PASS.** Peak monthly ITM 93.3%
+  (Oct 2008, n=345; Sep 34.9% → Oct 93.3% → Nov 52.0% → Dec 19.4%) —
+  the COVID assignment wave (100% of 27 puts) generalizes at 13× the
+  sample size. H3b: 8 delisted PIT-only names were ranked (last bars
+  2007-03 → 2008-12); the delisting-loss mechanism exercised, not
+  vacuous.
+- **H4 — selection sanity (report-only):** per-date within-menu rho
+  **+0.3154**, block-7 CI [+0.2645, +0.3627], 83.5% of 650 dates
+  positive — the ordering signal holds through the deepest regime in
+  the readable data, under the synthetic-premium caveat.
+
+**What V6 changes:** H1's FAIL retires any residual notion that the EV
+gate is a crisis detector — refusal-by-EV-sign did not happen in the
+grind, full stop (with the §9.3 censoring/premium caveats bounding how
+far that claim extends). H2+H3 land exactly where the modern-era record
+pointed: blind into the cliff, survived by the mandate. Together:
+**F-V6-1** (§5). The engine's honest crisis story after this phase is a
+composition of R10-class damage bounds, the top-bin confidence bound
+(V5-a's 19.2% ceiling), and the CSP mandate's absorb-and-hold — with
+selection ordering (H4) as the through-crisis alpha claim, and nothing
+in the stack pretending to see onset coming.
 
 ---
 

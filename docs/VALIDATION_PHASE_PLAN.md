@@ -62,7 +62,7 @@ validation data**, managed as a budget:
 | Date | Slice read | Spec committed at | Result doc |
 |---|---|---|---|
 | 2026-07-13 (spec) / **2026-07-14 (read spent** — attempt 3 on the transport-fixed driver; attempts 1-2 crashed pre-report, nothing surfaced, see §9.2 run record**)** | deep 2007-01-03 -> 2009-06-30, PIT universe (max_universe=100), incl. delisted | `bc1446a` (§9) | §9.3 + `docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md` §7 |
-| 2026-07-14 (spec §10.1) / read pending on terminal | deep 2007-01-03 -> 2009-06-30 — SECOND read of the spent slice (validation data per §2.2, counted + discounted), `top_n=100` full-menu logging | §10.1 commit | pending (§10.1 FM1/FM2 on run completion) |
+| 2026-07-14 (spec §10.1) / **2026-07-14 (read spent** — one clean pass, 62.4 min, 36,755 rows**)** | deep 2007-01-03 -> 2009-06-30 — SECOND read of the spent slice (validation data per §2.2, counted + discounted), `top_n=100` full-menu logging | §10.1 commit `43af59d` | §10.3 — FM1 `CAVEAT_RETIRED` (ratio 1.95), FM2 report-only |
 
 ## 3. V1 — tail-risk exceedance: design summary
 
@@ -1520,3 +1520,84 @@ vol spike; the x1.5/x2.0 legs bracket the blowout).
 
 Cost: minutes (4 ranker calls + offline replay); committed modern CSVs
 only — no deep read, no ledger row.
+
+### 10.3 Results — both runs recorded 2026-07-14
+
+Both follow-ups ran on operator terminals overnight; both completed
+clean. Recorded here whatever they said, per the discipline. No engine
+change ships; nothing about §1-§9 changes.
+
+**§10.1 V6-r1 — full-menu re-read (deep, counted SECOND read).** One
+clean engine pass, 62.4 min (`meta.elapsed_seconds` 3746.4), **36,755**
+ranked rows — ~3.8× V6's 9,750, the full ~100-name menu vs the top-15.
+Byte-identical slice (2007-01-03 -> 2009-06-30); 1998/LTCM untouched.
+The diagnostic tail block was carried onto the rank log
+(`v6r_rank_log.csv.gz`, gitignored, retained on disk):
+`cvar_5`, `n_scenarios`, `pnl_p25/p50/p75` — so any future offline
+analysis of this slice needs NO further deep read.
+
+- **FM1 = `CAVEAT_RETIRED`.** baseline_rate 0.5040, grind_rate 0.9828,
+  **ratio 1.95** (> 0.5 cut). Un-censored, the grind-period EV-positive
+  rate is STILL 0.98 — the top-15 logging hid no refusal below the top
+  of book. **H1's FAIL is unconditional; the §9.3 note-1 censoring
+  caveat is RETIRED; F-V6-1 stands as written.** The full-menu monthly
+  rate climbs 0.28 (2007-01) -> 0.98-0.99 (Oct-Dec 2008) and only falls
+  back at the 2009-06 tail (0.49) — refusal-by-EV-sign engaged nowhere
+  in the grind, at any menu depth. (The falsifier — genuine sub-top-15
+  refusal, `CENSORING_LOAD_BEARING` — did not fire; it would have been
+  GOOD news for the engine and is reported symmetrically either way.)
+- **FM2 = `REPORT_ONLY` (depth profile).** 650 dates; monthly median
+  EV-positive count 40-67/day through the 2008 grind (deep menu); global
+  min 4; only **64/650 dates below the saturation guard of 15** — all in
+  the early-2007 calm ramp (2007-01..06) and the 2009-06 tail, NONE in
+  the grind; **0 dates below the opens appetite of 3.** This is the
+  mechanism behind FM1: at the crisis the top-15 log censored ~2/3 of
+  the EV-positive names, yet the rate still read 0.98 — the censoring was
+  genuinely not load-bearing.
+
+**§10.2 V5-b-full — full-menu, TV-marked assignment wave (modern only,
+no deep read).** rc=0, `sanity_violations: []`. Four crisis eves × (1
+intrinsic control + 3 TV legs) = 16 legs. Preflight 16 tests passed.
+
+- **Expectation 1 (mechanical) HELD** — TV trough >= intrinsic trough on
+  every leg. `n_no_iv = 0` everywhere: entry IV was present for all
+  positions, so the TV marks are genuine BSM, not a degenerate intrinsic
+  fallback anywhere.
+- **Expectation 3 — clause disposition `RETIRED_PRACTICAL`.** COVID
+  (2020-02-19) troughs at **10.03% NAV on every leg including tv_x2** —
+  half the 20% threshold. Per the frozen rule (x1.0 >= 20% ESTABLISHED;
+  x2.0 < 20% RETIRED; else OPEN): **x2.0 < 20% -> RETIRED_PRACTICAL.**
+  V5-b's leftover >=20%-trough clause is disposed of: the engine's own
+  book, even doubled-IV TV-marked, does not reach a 20%-NAV
+  assignment-wave trough at any crisis eve. (COVID's four legs land on
+  intrinsic to the cent — -$100,257.70 — because the book is 100%
+  deep-ITM at the trough, where the BSM mark floors to intrinsic; TV
+  separation lives in the benign near-the-money windows: 2024-07-31
+  spreads intrinsic -0.3% -> tv_x2 +0.9%, 2025-04-01 1.7% -> 3.1%.)
+- **Expectation 2 (>=80% saturation) FALSIFIED — on all four windows**,
+  not just the two thin ones. Observed budget saturation 32% (COVID) /
+  13% / 31% / 46%. Mechanism: `build_saturated_book` fills only
+  `ev_dollars > 0` names, one contract each, until $1M; at COVID the
+  fresh full menu ranked 66 names but only **27 clear the engine's own
+  positive-EV gate** — the book stops at $321k because the positive-EV
+  menu is exhausted, not because the budget binds. This STRENGTHENS the
+  retire: the 20% trough is unreachable because the engine's EV filter
+  caps crisis-eve deployment at ~32% of NAV — the engine won't build a
+  book large enough to breach 20% through its own choices.
+- **§8.6 capture-limited caveat shown MOOT.** The full-menu books are
+  byte-identical to V5-b's capture-limited books (27/$321,050,
+  10/$133,450, 3/$313,950, 8/$463,600) — the tail-table capture had
+  already captured the entire positive-EV menu. The real limiter was
+  never the data capture; it is the engine's `ev_dollars > 0` filter.
+- **Expectation 4 HELD** — COVID assignment 100% replicates on the fresh
+  full menu; the three benign windows stay far below (0% / 12.5% / 50%,
+  the last on a trivial 1.0% trough).
+
+**Net.** Both self-recorded caveats resolve in the engine's favor.
+F-V6-1's top-of-book censoring caveat is retired — the crisis-grind FAIL
+is unconditional. V5-b's >=20% assignment-wave-trough clause is
+`RETIRED_PRACTICAL`, with the stronger reading that the EV gate — not
+lossy capture (moot) or conservative marking (TV=intrinsic when
+deep-ITM) — is what caps crisis-eve deployment. Premium coupling (§9.3
+note 2, §2.4) remains the standing bound on F-V6-1 and waits on real
+option marks (E-13 / Theta); it is not touched by either follow-up.

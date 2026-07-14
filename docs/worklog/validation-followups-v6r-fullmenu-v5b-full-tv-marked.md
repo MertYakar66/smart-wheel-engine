@@ -2,8 +2,8 @@
 id: validation-followups
 title: Post-phase follow-ups — V6-r1 full-menu H1 un-censoring + V5-b-full TV-marked wave
 kind: verification
-status: in-flight
-terminal:
+status: completed
+terminal: V6-r1 on the Windows deep-data machine (62.4 min, 36,755 rows); V5-b-full on the MacBook (minutes)
 pr:
 decisions: []
 date: 2026-07-14
@@ -57,15 +57,54 @@ frozen disposition rules) before any code, per the phase discipline.
 
 ## What didn't
 
-*(slot — filled from the executor reports)*
+- V5-b-full expectation 2 (>= 80% budget saturation) was FALSIFIED — and
+  on all four crisis eves, not just the two thin ones: observed 32%
+  (COVID) / 13% / 31% / 46%. Not a harness bug (expectation 1's
+  mechanical sanity held on all 16 legs, `sanity_violations: []`): the
+  fresh full menu ranks 66 names at COVID but only 27 clear the engine's
+  own `ev_dollars > 0` gate, so `build_saturated_book` stops at $321k
+  because the positive-EV menu is exhausted, not because the $1M budget
+  binds. The falsification strengthens the retire rather than weakening
+  it — recorded as-is, in the engine's favor.
 
 ## How we fixed it
 
-*(slot — filled from the executor reports)*
+- Nothing to fix (measurement-only; no engine change ships). The
+  falsified saturation expectation was interpreted, not patched: it
+  reframes §8.6's "capture-limited caveat" as MOOT — the full-menu books
+  came back byte-identical to V5-b's capture-limited books
+  (27/$321,050, 10/$133,450, 3/$313,950, 8/$463,600), so the tail-table
+  capture had already captured the entire positive-EV menu. The real
+  limiter was always the EV gate, never the data capture.
+- One executor-side false alarm, no run impact: a git-bash `kill -0`
+  watcher false-negatived on the native Windows PID and reported the
+  V6-r1 run "exited" at ~1.5 min; the run was healthy and never
+  restarted (re-verified via PowerShell, re-watched off log markers).
 
 ## Result
 
-*(PENDING — two terminal cards issued: V6-r1 on the deep-data machine
-(~75 min), V5-b-full on either machine (minutes). §10.1 verdict +
-ledger completion and the §10.2 disposition land here and in the plan
-on report.)*
+Both runs completed clean overnight; both caveats resolved in the
+engine's favor. Recorded in plan §10.3, the §2 ledger row, and findings
+§5/§6.
+
+- **§10.1 V6-r1** — one clean 62.4-min pass, 36,755 rows (~3.8× V6's
+  9,750). **FM1 = `CAVEAT_RETIRED`** (baseline 0.5040, grind 0.9828,
+  ratio 1.95 > 0.5): un-censored at `top_n=100` the grind EV-positive
+  rate is still 0.98 — top-15 logging hid no refusal; **H1's FAIL is
+  unconditional, F-V6-1 stands as written.** FM2 report-only: 64/650
+  dates below the saturation guard of 15 (all calm-ramp / 2009 tail,
+  none in the grind), 0 below the opens appetite of 3. Diagnostic tail
+  block carried onto the retained `v6r_rank_log.csv.gz` — no further deep
+  read needed for this slice. Counted + discounted SECOND ledger read;
+  1998/LTCM untouched.
+- **§10.2 V5-b-full** — rc=0, `sanity_violations: []`, `n_no_iv = 0`
+  everywhere (genuine BSM TV marks). **Trough clause = `RETIRED_PRACTICAL`**:
+  COVID troughs at 10.03% NAV on every leg including tv_x2 (< 20%). The
+  engine's own `ev_dollars > 0` gate caps crisis-eve deployment at ~32%
+  of NAV — the 20% trough is unreachable through the engine's choices.
+  Expectations 1 and 4 held; 2 falsified (above); 3 disposed
+  `RETIRED_PRACTICAL`. No deep read, no ledger row (modern CSVs only).
+
+Standing bound after both runs: premium coupling (§9.3 note 2, §2.4) on
+F-V6-1, which waits on real option marks (E-13 / Theta). Nothing
+committed by the executors; the brain recorded and pushed.

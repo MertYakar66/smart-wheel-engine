@@ -192,8 +192,12 @@ Inputs to the next re-baseline discussion — measured facts, not patches:
   trailing forward distributions lag the regime — the same two-sided
   failure F-V1-1 measured at COVID onset. Lever class: identical to
   F-V1-1's (damage-bounders and forward-looking tail inputs, not EV
-  recalibration). Caveats bounding the claim: top-of-book censoring and
-  premium coupling (plan §9.3 notes 1–2).
+  recalibration). Caveats bounding the claim: top-of-book censoring —
+  **now RETIRED** by the V6-r1 full-menu re-read (plan §10.3: un-censored
+  at `top_n=100`, the grind EV-positive rate is still 0.98, ratio 1.95;
+  the FAIL is unconditional) — and premium coupling (plan §9.3 note 2,
+  §2.4), which remains the sole standing bound and waits on real option
+  marks (E-13 / Theta).
 
 Documented structural constraints riding with the queue: the tracker is
 **contract-blind** (multi-contract accounting is internally inconsistent;
@@ -206,19 +210,31 @@ harness-side; B5 owns calibration; E-13 owns the data-grounded ADV).
 - **No premium realism before ~2016.** V6 premiums are synthetic BSM from
   deep IV panels — selection/refusal/assignment evidence only; NAV and
   dollar P&L from any pre-2016 run are not evidence (plan §2.4).
-- **H1's refusal metric is top-of-book-censored.** The V6 rank log holds
-  exactly the top 15 of ~100 candidates per date, so the EV-positive
-  rate saturates at 1.0 whenever ≥ 15 names clear zero — the FAIL
-  establishes that the tradeable menu never thinned below the engine's
-  own appetite, not that refusal was absent at every menu depth (plan
-  §9.3 note 1). And because EV sign is premium-dependent, the §2.4
-  synthetic-premium discount bites H1 harder than H2/H3.
+- **H1's refusal metric was top-of-book-censored — now RESOLVED.** The
+  V6 rank log held exactly the top 15 of ~100 candidates per date, so
+  the EV-positive rate saturated at 1.0 whenever ≥ 15 names cleared zero.
+  The V6-r1 full-menu re-read (`top_n=100`, plan §10.3) un-censors it:
+  the grind EV-positive rate is still **0.98** (ratio grind/baseline
+  1.95, verdict `CAVEAT_RETIRED`), and 0 of the 650 grind-and-surround
+  dates thinned below the opens appetite — so the FAIL is **unconditional
+  at every menu depth**, not an artifact of top-15 logging. What remains
+  is the premium bound: because EV sign is premium-dependent, the §2.4
+  synthetic-premium discount still bites H1 harder than H2/H3, and that
+  is the only standing caveat on F-V6-1.
 - **No data-grounded capacity knee.** V4's knee is conditional on the
   stock-ADV proxy ratio by design; the real number waits on E-13.
-- **The ≥ 20% assignment-wave trough clause is neither established nor
-  refuted** — the measured 10.03% NAV is biased low on two stacked axes
-  (intrinsic-only marking; capture-limited book). Optional follow-up: a
-  full-ranking, time-value-marked replay.
+- **The ≥ 20% assignment-wave trough clause is `RETIRED_PRACTICAL`** (was
+  "neither established nor refuted"). The V5-b-full follow-up (plan
+  §10.3) ran the promised full-ranking, time-value-marked replay: COVID
+  troughs at 10.03% NAV even on the doubled-IV (tv_x2) leg, so per the
+  frozen rule x2.0 < 20% → RETIRED. Both suspected low-biases are
+  disposed of, not merely bounded: the TV mark equals intrinsic when the
+  book is deep-ITM at the trough (so marking was not the limiter), and
+  the full-menu books are byte-identical to the capture-limited ones (so
+  capture was not the limiter). The real reason the trough stays small is
+  the engine's own `ev_dollars > 0` gate, which fills only ~32% of NAV at
+  the COVID eve — the pre-registered ≥80%-saturation expectation was
+  falsified on all four windows, in the engine's favor.
 - **Tier-2 amnesia scope.** V2-a's PIT proof covers the tier-1 market
   series; schedule-type files and the (disabled) FRED credit series
   remain outside it (triage pass noted, non-blocking).

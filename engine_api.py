@@ -395,6 +395,17 @@ def build_concentration_preview(
     }
 
 
+# Placeholder implied-vol for operator-supplied held puts on the dossier
+# endpoint. The ``puts_held`` CSV (TICKER:strike:contracts:expiry) cannot
+# carry per-position IV, but the greeks-based D17 gates (R7 VaR, R8 stress,
+# R9 sector) read ``pos["iv"]`` off every held position; omitting it makes
+# them skip the whole book. A single mildly-conservative constant is safe
+# here because R7-R10 are downgrade-only soft-warns — an approximate IV can
+# only ADD caution (proceed → review), never rescue a bad trade. A richer
+# operator integration should supply real per-name IV.
+_HELD_PUT_PLACEHOLDER_IV = 0.30
+
+
 def _build_portfolio_context_from_params(
     nav: float | None,
     holdings_csv: str | None,
@@ -467,13 +478,28 @@ def _build_portfolio_context_from_params(
                 expiration = parts[3] if len(parts) >= 4 and parts[3] else default_expiry
             except (TypeError, ValueError):
                 continue
+            # Derive DTE from the expiry so the row matches the canonical
+            # held-position schema the D17 gates read. A past / unparseable
+            # expiry clamps to 0 rather than dropping the position.
+            try:
+                dte = max((date.fromisoformat(expiration) - date.today()).days, 0)
+            except (TypeError, ValueError):
+                dte = 35
+            # Canonical schema (mirrors engine/wheel_tracker.py take_snapshot):
+            # engine/portfolio_risk_gates.py and engine/stress_testing.py read
+            # pos["symbol"], pos["dte"], pos["iv"], pos["is_short"]. The prior
+            # {"ticker": ...} shape made R7-R10 silently drop the held book, so
+            # the D17 soft-warns could never fire on /api/tv/dossier.
             held_option_positions.append(
                 {
-                    "ticker": ticker_part,
-                    "strike": strike,
-                    "contracts": contracts,
-                    "expiration": expiration,
+                    "symbol": ticker_part,
                     "option_type": "put",
+                    "strike": strike,
+                    "dte": dte,
+                    "iv": _HELD_PUT_PLACEHOLDER_IV,
+                    "contracts": contracts,
+                    "is_short": True,
+                    "expiration": expiration,
                 }
             )
 

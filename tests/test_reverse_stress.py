@@ -185,3 +185,49 @@ def test_replay_handles_missing_paths():
     book = [{"ticker": "ZZZ", "strike": 100.0, "premium": 2.5, "collateral": 10_000.0}]
     out = rs.replay_assignment_wave(book, _PathConn({}), eve="2020-02-19")
     assert out["error"] == "no price paths"
+
+
+# ---------------------------------------------------------------------------
+# §10.2 — time-value marking (V5-b-full)
+# ---------------------------------------------------------------------------
+
+
+def _tv_book(iv=0.5):
+    return [{"ticker": "BA", "strike": 100.0, "premium": 2.5, "collateral": 10_000.0, "iv": iv}]
+
+
+def test_tv_marking_never_shallower_than_intrinsic_and_monotone_in_iv():
+    conn = _PathConn({"BA": _path([100, 90, 80, 90, 95])})
+    base = rs.replay_assignment_wave(_tv_book(), conn, eve="2020-02-19", horizon_bdays=4)
+    tv1 = rs.replay_assignment_wave(
+        _tv_book(), conn, eve="2020-02-19", horizon_bdays=4, marking="time_value", iv_mult=1.0
+    )
+    tv2 = rs.replay_assignment_wave(
+        _tv_book(), conn, eve="2020-02-19", horizon_bdays=4, marking="time_value", iv_mult=2.0
+    )
+    # Expectation 1 (§10.2): TV trough damage >= intrinsic, and deeper IV -> deeper.
+    assert tv1["trough_liquidation_pct_nav"] >= base["trough_liquidation_pct_nav"]
+    assert tv2["trough_liquidation_pct_nav"] >= tv1["trough_liquidation_pct_nav"]
+    assert tv1["marking"] == "time_value" and tv1["n_no_iv"] == 0
+
+
+def test_tv_marking_without_iv_falls_back_to_intrinsic():
+    conn = _PathConn({"BA": _path([100, 90, 80, 90, 95])})
+    base = rs.replay_assignment_wave(_tv_book(iv=0.0), conn, eve="2020-02-19", horizon_bdays=4)
+    tv = rs.replay_assignment_wave(
+        _tv_book(iv=0.0), conn, eve="2020-02-19", horizon_bdays=4, marking="time_value"
+    )
+    assert tv["n_no_iv"] == 1
+    assert tv["trough_pnl_dollars"] == pytest.approx(base["trough_pnl_dollars"])
+
+
+def test_replay_rejects_unknown_marking():
+    with pytest.raises(ValueError, match="marking"):
+        rs.replay_assignment_wave(_tv_book(), _PathConn({}), eve="2020-02-19", marking="delta")
+
+
+def test_build_saturated_book_carries_iv():
+    rows = _rows([("A", 100.0, -1.0, 10.0, 0.9, -1.0)])
+    assert rs.build_saturated_book(rows)[0]["iv"] == 0.0  # column absent -> 0.0
+    rows["iv"] = 0.42
+    assert rs.build_saturated_book(rows)[0]["iv"] == pytest.approx(0.42)

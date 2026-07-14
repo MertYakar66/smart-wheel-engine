@@ -6,6 +6,10 @@
     # V5-b — assignment wave + levered counterfactual (minutes)
     python scripts/run_reverse_stress.py margin --table .../tail_table_100t.csv
 
+    # V5-b-full (plan §10.2) — fresh full-menu rank at each crisis eve,
+    # intrinsic A/A control + entry-IV BSM TV marking, IV bracket {1,1.5,2}
+    python scripts/run_reverse_stress.py margin-full --table .../tail_table_100t.csv
+
 Measurement-only (CLAUDE.md section 2). Outputs land under
 ``$SWE_VALIDATION_DIR`` or the gitignored
 ``data_processed/validation/reverse_stress/``.
@@ -109,13 +113,119 @@ def cmd_margin(args: argparse.Namespace) -> int:
     return 0
 
 
+#: §10.2 frozen constants — the IV bracket and the trough clause cut.
+IV_MULTS = (1.0, 1.5, 2.0)
+CLAUSE_PCT = 0.20
+COVID_EVE = "2020-02-19"
+
+
+def cmd_margin_full(args: argparse.Namespace) -> int:
+    """V5-b-full (plan §10.2): full-ranking book at each crisis eve, intrinsic
+    A/A control + entry-IV BSM time-value marking across the IV bracket."""
+    from engine.wheel_runner import WheelRunner
+
+    table = pd.read_csv(args.table)
+    tickers = sorted(table["ticker"].astype(str).unique())
+    runner = WheelRunner()
+    conn = runner.connector
+    print(
+        f"[reverse_stress] margin-full: {len(tickers)} tickers, "
+        f"connector={type(conn).__name__}, iv_mults={IV_MULTS}"
+    )
+    report: dict = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "spec": {
+            "iv_mults": list(IV_MULTS),
+            "clause_pct": CLAUSE_PCT,
+            "top_n": 100,
+            "min_ev_dollars": -1e9,
+            "dte_target": 35,
+            "delta_target": 0.25,
+        },
+        "windows": {},
+    }
+    sanity_violations: list[str] = []
+    print("\n=== V5-b-full: full-menu assignment wave, TV-marked (plan §10.2) ===")
+    for eve in rs.CRISIS_EVES:
+        frame = runner.rank_candidates_by_ev(
+            tickers=tickers,
+            dte_target=35,
+            delta_target=0.25,
+            contracts=1,
+            top_n=100,
+            min_ev_dollars=-1e9,
+            as_of=eve,
+            include_diagnostic_fields=True,
+        )
+        if frame is None or len(frame) == 0:
+            report["windows"][eve] = {"error": "empty rank frame"}
+            print(f"  {eve}: empty rank frame — skipped")
+            continue
+        book = rs.build_saturated_book(frame)
+        collateral = float(sum(p["collateral"] for p in book))
+        legs: dict = {"intrinsic": rs.replay_assignment_wave(book, conn, eve=eve)}
+        for m in IV_MULTS:
+            legs[f"tv_x{m:g}"] = rs.replay_assignment_wave(
+                book, conn, eve=eve, marking="time_value", iv_mult=m
+            )
+        # Expectation-1 sanity: TV trough damage >= intrinsic, every leg.
+        base = legs["intrinsic"].get("trough_liquidation_pct_nav")
+        for m in IV_MULTS:
+            tv = legs[f"tv_x{m:g}"].get("trough_liquidation_pct_nav")
+            if base is not None and tv is not None and tv < base - 1e-12:
+                sanity_violations.append(f"{eve} tv_x{m:g} {tv:.4f} < intrinsic {base:.4f}")
+        report["windows"][eve] = {
+            "n_ranked": int(len(frame)),
+            "n_book": len(book),
+            "collateral_used": collateral,
+            "budget_saturation": collateral / rs.NAV,
+            "legs": legs,
+        }
+        troughs = " ".join(
+            f"{k}={v.get('trough_liquidation_pct_nav', float('nan')):.1%}"
+            for k, v in legs.items()
+            if "error" not in v
+        )
+        print(
+            f"  {eve}: ranked {len(frame)}, book {len(book)} names "
+            f"({collateral / rs.NAV:.0%} budget) | troughs: {troughs} | "
+            f"assigned {legs['intrinsic'].get('assignment_fraction', float('nan')):.0%}"
+        )
+
+    # Frozen §10.2 expectation-3 disposition on the COVID window.
+    disposition = "INSUFFICIENT"
+    covid = report["windows"].get(COVID_EVE, {})
+    legs = covid.get("legs", {})
+    if legs and all("error" not in legs.get(k, {"error": 1}) for k in ("tv_x1", "tv_x2")):
+        t10 = legs["tv_x1"]["trough_liquidation_pct_nav"]
+        t20 = legs["tv_x2"]["trough_liquidation_pct_nav"]
+        if t10 >= CLAUSE_PCT:
+            disposition = "ESTABLISHED"
+        elif t20 < CLAUSE_PCT:
+            disposition = "RETIRED_PRACTICAL"
+        else:
+            disposition = "OPEN_BRACKET_STRADDLES"
+    report["clause_disposition"] = {
+        "rule": "x1.0 >= 20% -> ESTABLISHED; x2.0 < 20% -> RETIRED_PRACTICAL; else OPEN",
+        "verdict": disposition,
+    }
+    report["sanity_violations"] = sanity_violations
+    print(f"\n  trough-clause disposition (frozen rule): {disposition}")
+    if sanity_violations:
+        print(f"  !! SANITY VIOLATIONS (harness bug, do not record): {sanity_violations}")
+    _write(Path(args.out_dir), "reverse_stress_margin_full_100t.json", report)
+    return 0 if not sanity_violations else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("phase", choices=["search", "margin"])
+    p.add_argument("phase", choices=["search", "margin", "margin-full"])
     p.add_argument("--table", default=str(DEFAULT_TABLE))
     p.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
     args = p.parse_args(argv)
-    return {"search": cmd_search, "margin": cmd_margin}[args.phase](args)
+    return {"search": cmd_search, "margin": cmd_margin, "margin-full": cmd_margin_full}[args.phase](
+        args
+    )
 
 
 if __name__ == "__main__":

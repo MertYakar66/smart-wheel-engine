@@ -244,20 +244,32 @@ def run_survivorship_backtest(
 
         for _, row in frame.iterrows():
             premium_raw = float(row.get("premium", 0.0))
-            rank_log_rows.append(
-                {
-                    "date": today.isoformat(),
-                    "ticker": str(row.get("ticker", "")),
-                    "ev_dollars": float(row.get("ev_dollars", 0.0)),
-                    "premium": friction_adjusted_premium(premium_raw, friction_level),
-                    "premium_raw": premium_raw,
-                    "strike": float(row.get("strike", 0.0)),
-                    "iv": float(row.get("iv", 0.0)),
-                    "prob_profit": float(row.get("prob_profit", float("nan"))),
-                    "expiration_date": expiration_default.isoformat(),
-                    "friction_level": friction_level,
-                }
-            )
+            rec = {
+                "date": today.isoformat(),
+                "ticker": str(row.get("ticker", "")),
+                "ev_dollars": float(row.get("ev_dollars", 0.0)),
+                "premium": friction_adjusted_premium(premium_raw, friction_level),
+                "premium_raw": premium_raw,
+                "strike": float(row.get("strike", 0.0)),
+                "iv": float(row.get("iv", 0.0)),
+                "prob_profit": float(row.get("prob_profit", float("nan"))),
+                "expiration_date": expiration_default.isoformat(),
+                "friction_level": friction_level,
+            }
+            # Additive diagnostic carry (plan §10.1): the modeled tail block,
+            # logged when the ranker frame provides it, so offline risk
+            # analysis of a captured slice needs no further read.
+            for extra in (
+                "cvar_5",
+                "pnl_p25",
+                "pnl_p50",
+                "pnl_p75",
+                "n_scenarios",
+                "distribution_source",
+            ):
+                if extra in row.index:
+                    rec[extra] = row.get(extra)
+            rank_log_rows.append(rec)
 
         opens_today = 0
         for _, row in frame.iterrows():

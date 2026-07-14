@@ -251,6 +251,9 @@ def build_saturated_book(rows: pd.DataFrame, *, nav: float = NAV) -> list[dict[s
                 "strike": strike,
                 "premium": float(r.premium),
                 "collateral": collateral,
+                # Entry IV rides along when the rows carry it (§10.2 TV
+                # marking); 0.0 = unavailable, marking falls back to intrinsic.
+                "iv": float(getattr(r, "iv", 0.0) or 0.0),
             }
         )
     return book
@@ -266,6 +269,33 @@ def _closes(conn: Any, ticker: str, start: str, n_bdays: int) -> pd.Series | Non
     return df["close"].dropna().iloc[: n_bdays + 1]
 
 
+def _put_mark(
+    spot: float, strike: float, dte: int, iv: float, *, risk_free_rate: float = 0.04
+) -> float:
+    """Per-share liability mark of the short put: BSM time-value mark when a
+    positive IV is available, intrinsic otherwise (and never below intrinsic
+    — the European price of an American-exercisable liability is a floor)."""
+    intrinsic = max(0.0, strike - spot)
+    if iv <= 0.0 or dte <= 0:
+        return intrinsic
+    try:
+        from engine.option_pricer import estimate_option_price_from_iv
+
+        px = float(
+            estimate_option_price_from_iv(
+                underlying_price=spot,
+                strike=strike,
+                dte=dte,
+                iv=iv,
+                risk_free_rate=risk_free_rate,
+                option_type="put",
+            )
+        )
+    except Exception:  # noqa: BLE001
+        return intrinsic
+    return max(px, intrinsic)
+
+
 def replay_assignment_wave(
     book: Sequence[dict[str, Any]],
     conn: Any,
@@ -274,17 +304,29 @@ def replay_assignment_wave(
     nav: float = NAV,
     horizon_bdays: int = HORIZON_BDAYS,
     stress_mults: Sequence[float] = STRESS_MULTS,
+    marking: str = "intrinsic",
+    iv_mult: float = 1.0,
+    entry_dte: int = 35,
 ) -> dict[str, Any]:
-    """Daily intrinsic-only replay of a saturated book over one crisis window.
+    """Daily replay of a saturated book over one crisis window.
 
-    Cash-secured path: book mark_t = sum(premium - max(0, K - S_t)) x 100 —
-    intrinsic-only (no time value), so the trough is a LOWER bound on damage
-    (conservative toward the engine).  Levered counterfactual: capital =
-    entry Reg-T margin; daily maintenance = Reg-T recomputed at S_t x a
-    stressed multiplier; first day equity < maintenance = the margin call
-    the CSP mandate structurally cannot have.
+    Cash-secured path, two marking modes (§10.2): ``intrinsic`` (default,
+    the V5-b convention) — book mark_t = sum(premium - max(0, K - S_t)) x
+    100, a LOWER bound on damage; ``time_value`` — the put leg is marked
+    at its BSM price from each position's ENTRY iv x ``iv_mult``, dte
+    counting down from ``entry_dte`` (calendar approx 7/5 x elapsed
+    bdays). Entry-IV-constant TV is still a lower bound inside a vol
+    spike; sweeping ``iv_mult`` brackets the blowout. Positions without a
+    positive iv fall back to intrinsic (counted in ``n_no_iv``). Levered
+    counterfactual: capital = entry Reg-T margin; daily maintenance =
+    Reg-T recomputed at S_t x a stressed multiplier; first day equity <
+    maintenance = the margin call the CSP mandate structurally cannot
+    have.
     """
     from engine.transaction_costs import calculate_reg_t_margin_short_put
+
+    if marking not in ("intrinsic", "time_value"):
+        raise ValueError(f"unknown marking mode: {marking!r}")
 
     paths: dict[str, pd.Series] = {}
     for pos in book:
@@ -296,10 +338,21 @@ def replay_assignment_wave(
         return {"eve": eve, "error": "no price paths"}
     n_days = min(len(paths[p["ticker"]]) for p in live)
 
+    n_no_iv = sum(1 for p in live if float(p.get("iv", 0.0) or 0.0) <= 0.0)
     pnl_path = np.zeros(n_days)
     for p in live:
         s = paths[p["ticker"]].to_numpy(dtype=float)[:n_days]
-        pnl_path += (p["premium"] - np.maximum(0.0, p["strike"] - s)) * 100.0
+        if marking == "time_value":
+            iv = float(p.get("iv", 0.0) or 0.0) * iv_mult
+            marks = np.array(
+                [
+                    _put_mark(float(s[d]), p["strike"], max(0, entry_dte - round(d * 7 / 5)), iv)
+                    for d in range(n_days)
+                ]
+            )
+            pnl_path += (p["premium"] - marks) * 100.0
+        else:
+            pnl_path += (p["premium"] - np.maximum(0.0, p["strike"] - s)) * 100.0
     terminal_spots = {p["ticker"]: float(paths[p["ticker"]].iloc[n_days - 1]) for p in live}
     assigned = [p for p in live if terminal_spots[p["ticker"]] < p["strike"]]
 
@@ -334,6 +387,9 @@ def replay_assignment_wave(
     trough = int(np.argmin(pnl_path))
     return {
         "eve": eve,
+        "marking": marking,
+        "iv_mult": float(iv_mult),
+        "n_no_iv": n_no_iv,
         "n_positions": len(live),
         "collateral_used": float(sum(p["collateral"] for p in live)),
         "n_days_replayed": n_days,

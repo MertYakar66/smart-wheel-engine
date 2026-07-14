@@ -1601,3 +1601,114 @@ lossy capture (moot) or conservative marking (TV=intrinsic when
 deep-ITM) — is what caps crisis-eve deployment. Premium coupling (§9.3
 note 2, §2.4) remains the standing bound on F-V6-1 and waits on real
 option marks (E-13 / Theta); it is not touched by either follow-up.
+
+## 11. Tier-2 amnesia triage (follow-up to V2-a §5.1)
+
+**The phase verdicts (§1-§9) are FINAL; §10 and §11 change none of them.**
+Measurement-only (CLAUDE.md §2); no engine change ships. Written and
+committed BEFORE any code or run, per the phase discipline.
+
+**Question.** V2-a (§5.1) proved the rank at `as_of=T` ignores post-T
+rows from the *tier-1* set (`ohlcv, vol_iv, treasury, vix, liquidity`).
+It left every *tier-2* source copied intact on BOTH A/B sides — so V2-a
+says NOTHING about whether tier-2 could leak. §6 flagged this as a noted
+follow-up. Triage: enumerate every tier-2 source against the short-put EV
+rank path (`rank_candidates_by_ev` -> `EVEngine.evaluate`, a pure
+function — a source can only move a rank through a `ShortOptionTrade`
+field, the `EventGate`, or the regime multiplier), classify its amnesia
+exposure by code trace, and — where a source is dated and actually loaded
+— extend V2-a's physical-truncation A/B to it as a black-box
+confirmation.
+
+**Enumeration + classification (connector `_FILES` map + full code trace,
+`engine/data_connector.py` / `engine/wheel_runner.py`).** Four classes:
+
+- **OFF the rank path (connector never loads them; 0 engine refs).**
+  `sp500_macro`, `sp500_sector_etfs`, `sp500_vol_dvd`, `sp500_vix_full`,
+  `sp500_index_membership`, `sp500_analyst`, `sp500_historical_fundamentals`,
+  `sp500_iv_snapshot_today`, `sp500_short_interest.xlsx`,
+  `sp500_fundamentals_yf`, `sp500_earnings_yf` (deliberately not consulted
+  — `wheel_runner` docstring). A file the connector never loads cannot
+  move a rank. (`index_membership`'s PIT universe logic lives in
+  `backtests/survivorship`; V6 covered PIT membership separately.)
+  `sp500_dividends` also lands here for the SHORT-PUT ranker:
+  `get_next_dividend`/`get_dividends` feed only `analyze_ticker`
+  (display) and the COVERED-CALL ranker `rank_covered_calls_by_ev`, never
+  `rank_candidates_by_ev`; the put ranker's BSM carry-`q` comes from
+  `get_fundamentals`, not this CSV.
+- **Dateless snapshots ON the path — structurally un-truncatable.**
+  `sp500_fundamentals.csv` (no date column): served whole regardless of
+  `as_of` (case c) EXCEPT `dividend_yield`, which is PIT-overridden
+  (`<= as_of`) from a SEPARATE dated panel `broad_pull/dividend_pit`.
+  The one residual non-PIT surface it leaves on the EV path is the **IV
+  fallback** (`implied_vol_atm`/`volatility_30d` from the dateless
+  snapshot), consumed ONLY when the PIT `get_iv_history` path returns
+  empty. Recorded as an inherent PIT limitation of a snapshot file (same
+  class as V2-a's credit_risk note); no date column exists to cut, so
+  truncation is not the tool. `sp500_credit_risk.csv` is likewise
+  dateless AND off the put rank path (`get_credit_risk` feeds only
+  `analyze_ticker`); the put ranker's credit signal is the FRED
+  `credit_regime` HY-OAS series, PIT-filtered `<= as_of`
+  (`fred_adapter.py`), disabled on both sides in the harness
+  (`use_credit_regime=False`) exactly as in V2-a.
+- **Forward-by-design ON the path — must NOT be truncated.**
+  `sp500_earnings.csv`: `get_next_earnings` returns the next *announced*
+  earnings DATE after `as_of` by design (the event-lockout needs it —
+  companies publish earnings dates weeks ahead, knowable at T);
+  `get_recent_earnings` is filtered `<= as_of`; the broad-pull snapshot
+  overlay is PIT-gated on its own knowledge date. Truncating it would
+  break a correct forward-schedule use and manufacture a false leak.
+- **Dated, ON the path, ALREADY internally PIT-gated — TRUNCATION track
+  (black-box confirmation).** `sp500_corporate_actions.csv`:
+  `_register_corp_action_events` calls `get_corporate_actions(...,
+  as_of=T)`, which gates `announcement_date <= as_of` (case a) and
+  registers only `effective_date` as a `corp_action` event (ratio/amount
+  never reach EV). It is the one dated, loaded, should-be-PIT tier-2
+  source; physically truncating it on `announcement_date` confirms no
+  cache/fallback serves post-T rows into the rank. (We also truncate
+  `sp500_dividends.csv` on `declared_date` for completeness — expected
+  no-op, since it is off the put path.)
+
+**Method.** Add a `tier` parameter to `build_truncated_data_dir`:
+`tier=1` is byte-identical to V2-a; `tier=2` additionally truncates
+`{corporate_actions@announcement_date, dividends@declared_date}` (both
+100% ISO-dated — no rows dropped on missing dates, so no false diffs).
+Cutting on the ANNOUNCEMENT column keeps already-announced future-effective
+/ future-ex rows (legitimately known at T) and drops only post-T
+announcements. Re-run V2-a's amnesia protocol (A/A determinism control +
+full-vs-truncated A/B, exact float equality on every diagnostic column +
+the drops list) on the SAME grid — 5 regime-spanning `as_of` dates ×
+`UNIVERSE_24`, `use_credit_regime=False`, option-premium rail pinned off.
+
+**Frozen metrics + verdicts.**
+- **T2-1 — tier-2 truncation A/B.** `TIER2_PIT_CLEAN` iff A/A identical
+  AND A/B identical at every date (the V2-a bar). `TIER2_LEAK` if A/A
+  clean but A/B differs at any date — triage each diff to a genuine
+  post-T leak (a real finding: the §6 caveat becomes a finding) or a
+  legitimate-forward false positive (reclassify + re-run).
+  `NONDETERMINISTIC` if A/A differs (uninterpretable; reported).
+- **T2-2 — residual-surface audit (report-only, from the code trace).**
+  Two non-PIT reads survive on the EV path, neither a numeric
+  outcome-field leak and both dormant on the sandbox synthetic-BSM
+  default: (i) the `get_fundamentals` dateless IV fallback (fires only
+  when PIT `get_iv_history` is empty); (ii) `_split_adjust_option_premium`'s
+  un-`as_of`'d `get_corporate_actions` read (fires only when
+  `data_processed/option_premium/*.parquet` exist — absent in
+  CI/sandbox). Recorded as standing PIT limitations, scoped, not fixed
+  (measurement-only phase).
+
+**Pre-registered expectation (falsifiable).** Given the trace —
+corporate_actions internally gated `<= as_of`, dividends off the put
+path, earnings date-only, no outcome field on the EV formula — we EXPECT
+`TIER2_PIT_CLEAN` (zero diffs, exactly like tier-1), with the two
+residual surfaces dormant on this grid (liquid names / modern dates keep
+PIT IV populated; no option-premium parquets in-sandbox). The falsifier —
+ANY A/B diff — would mean a cache or fallback serves post-T tier-2 rows
+that the static trace missed, a real look-ahead finding, and is reported
+as such (same reporting symmetry as V2-a and the H-hypotheses). The
+truncation is the black-box check the code trace cannot self-certify —
+V2-a's own rationale (a quiet unsliced-data path is invisible to
+per-function review but cannot survive a physical-truncation diff).
+
+**Cost:** minutes, in-sandbox, committed modern CSVs only. No deep read,
+no ledger row.

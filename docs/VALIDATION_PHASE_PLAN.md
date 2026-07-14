@@ -62,6 +62,7 @@ validation data**, managed as a budget:
 | Date | Slice read | Spec committed at | Result doc |
 |---|---|---|---|
 | 2026-07-13 (spec) / **2026-07-14 (read spent** — attempt 3 on the transport-fixed driver; attempts 1-2 crashed pre-report, nothing surfaced, see §9.2 run record**)** | deep 2007-01-03 -> 2009-06-30, PIT universe (max_universe=100), incl. delisted | `bc1446a` (§9) | §9.3 + `docs/VALIDATION_PHASE_FINDINGS_2026-07-13.md` §7 |
+| 2026-07-14 (spec §10.1) / read pending on terminal | deep 2007-01-03 -> 2009-06-30 — SECOND read of the spent slice (validation data per §2.2, counted + discounted), `top_n=100` full-menu logging | §10.1 commit | pending (§10.1 FM1/FM2 on run completion) |
 
 ## 3. V1 — tail-risk exceedance: design summary
 
@@ -1431,3 +1432,91 @@ engine traded at full appetite through the grind and into the cliff,
 and survival was carried entirely by assignment-and-hold; the
 deep-history generalization of the F-V1-1 + F-V5-1 structure.* No
 engine change ships.
+
+---
+
+## 10. Post-phase follow-ups (pre-registered addendum, 2026-07-14)
+
+**The phase verdicts (§1-§9) are FINAL and none of what follows changes
+them.** These two follow-up runs are recorded here to keep
+pre-registration and the §2 ledger in one place. Both are
+measurement-only (CLAUDE.md §2); no engine change ships from these
+either. Written and committed BEFORE any code or run, per the phase
+discipline.
+
+### 10.1 V6-r1 — un-censoring H1: full-menu refusal depth (deep re-read, counted)
+
+**Question:** §9.3 note 1 — H1's FAIL is censored at `top_n=15`. Was
+there real refusal below the top of the book?
+
+**Vehicle:** `run_survivorship_backtest`, same frozen window and
+parameters as §9.0 EXCEPT `top_n=100` (the full ~100-name menu logged
+per date; `min_ev_dollars` is already -1e9) plus additive diagnostic
+logging (the modeled tail block — `cvar_5`, `pnl_p25/p50/p75`,
+`n_scenarios`, `distribution_source` — carried onto the rank log when
+present, so future offline analysis of this slice needs NO further
+read). Driver `scripts/run_v6r_fullmenu.py`, parameters frozen in the
+driver, no CLI overrides. Tracker behavior is expected to be
+approximately unchanged (opens gate on EV>0 within `max_new_per_day=3`
+from the top of the same ordering) but opens are NOT the object here —
+the rank log is.
+
+**Frozen metrics + verdicts:**
+
+- **FM1 — the un-censored H1.** Full-menu monthly EV-positive rate;
+  ratio grind (Oct-Dec 2008) / baseline (2007 monthly average).
+  Verdict `CAVEAT_RETIRED` if ratio > 0.5 — the top-15 censoring hid no
+  refusal; H1's FAIL becomes unconditional and F-V6-1 stands as
+  written. Verdict `CENSORING_LOAD_BEARING` if ratio <= 0.5 — real
+  refusal existed below the top-15; F-V6-1 must be rewritten and the
+  §9.3 caveat elevated to the finding itself. Reported either way.
+- **FM2 — depth profile (report-only).** Per-date EV-positive count:
+  monthly min/median, plus the two appetite lines — # dates with
+  count < 15 (the H1 saturation guard) and < 3 (the opens appetite).
+- **Pre-registered expectation (falsifiable):** given §9.3's mechanism
+  note (elevated IV inflates the EV credit side while trailing
+  distributions lag), we EXPECT `CAVEAT_RETIRED`. The falsifier —
+  genuine sub-top-15 refusal — would be GOOD news for the engine and
+  is reported as such (same reporting symmetry as H2).
+
+**Ledger:** SECOND read of the already-spent 2007-2009 slice —
+validation data per §2.2, counted and discounted; row appended to §2.
+The slice request is byte-identical (2007-01-03 -> 2009-06-30);
+**1998/LTCM stays locked.** Cost ~75 min (same engine pass).
+
+### 10.2 V5-b-full — full-ranking, time-value-marked assignment wave (modern data only)
+
+**Question:** V5-b's >= 20% trough clause was left "not established on
+a book biased low by construction" (§8.6): capture-limited menu +
+intrinsic-only marking. Resolve it to the extent resolvable without
+real option-price marks.
+
+**Vehicle:** new `margin-full` phase of
+`scripts/run_reverse_stress.py`: at each §8 crisis eve, rank the FULL
+100-name menu fresh (`rank_candidates_by_ev`, `top_n=100`,
+`min_ev_dollars=-1e9`, `as_of=eve`), build the engine-chosen saturated
+book from it (~$1M collateral; ~40+ names expected per V4), and replay
+the wave with (a) intrinsic marking — the A/A control against §8.6 —
+and (b) BSM time-value marking at entry IV with an IV-multiple bracket
+{1.0, 1.5, 2.0} (entry-IV-constant TV is still a lower bound inside a
+vol spike; the x1.5/x2.0 legs bracket the blowout).
+
+**Pre-registered expectations (falsifiable):**
+
+1. Mechanical sanity: the TV-marked trough >= the intrinsic-marked
+   trough at every eve and every IV leg (a violation is a harness bug —
+   fix before recording anything).
+2. The full-menu book saturates >= 80% of the $1M budget on every eve
+   (retiring §8.6's capture-limited caveat).
+3. **The clause itself — genuinely uncertain.** Disposition rule,
+   frozen now: if the x1.0 leg (a defensible lower bound) reaches
+   >= 20% NAV trough on the COVID window, the clause is ESTABLISHED a
+   fortiori; if even the x2.0 leg stays < 20%, the clause is RETIRED
+   for practical purposes (recorded as a bracket, not a measurement);
+   if the bracket straddles 20%, the clause stays OPEN pending real
+   option marks (E-13 / Theta) and the bracket is recorded.
+4. Assignment fraction ~100% replicates on the full COVID book; the
+   three benign windows stay far below every leg.
+
+Cost: minutes (4 ranker calls + offline replay); committed modern CSVs
+only — no deep read, no ledger row.

@@ -1082,33 +1082,53 @@ def load_bloomberg_rates(data_dir: Path | None = None) -> pd.DataFrame | None:
 
 
 def get_current_risk_free_rate(
-    rates_df: pd.DataFrame | None = None, tenor: str = "rate_3m"
+    rates_df: pd.DataFrame | None = None,
+    tenor: str = "rate_3m",
+    fallback: float = float("nan"),
 ) -> float:
     """
     Get the most recent risk-free rate.
 
-    Falls back to config default (0.05) if no data.
+    Returns ``fallback`` (NaN by default, matching the connector's
+    NaN-on-missing contract) when no usable rate is available. Callers that
+    want a numeric guess must pass it explicitly (e.g. ``fallback=0.05``).
 
     Args:
         rates_df: Rates DataFrame.
         tenor: Which tenor to use (rate_3m, rate_6m, rate_2y, rate_10y).
+        fallback: Value returned when no rate can be resolved (default NaN).
 
     Returns:
-        Risk-free rate as decimal (e.g., 0.0525).
+        Risk-free rate as decimal (e.g., 0.0525), or ``fallback`` on missing data.
     """
     if rates_df is None or rates_df.empty:
-        return 0.05  # Default
+        logger.warning(
+            "get_current_risk_free_rate: no rates data (empty/None frame); returning fallback=%s",
+            fallback,
+        )
+        return fallback
 
     if tenor not in rates_df.columns:
         # Try any rate column
         rate_cols = [c for c in rates_df.columns if c.startswith("rate_")]
         if not rate_cols:
-            return 0.05
+            logger.warning(
+                "get_current_risk_free_rate: no rate_* columns present "
+                "(columns=%s); returning fallback=%s",
+                list(rates_df.columns),
+                fallback,
+            )
+            return fallback
         tenor = rate_cols[0]
 
     latest = rates_df[tenor].dropna()
     if latest.empty:
-        return 0.05
+        logger.warning(
+            "get_current_risk_free_rate: tenor %r has no non-NaN values; returning fallback=%s",
+            tenor,
+            fallback,
+        )
+        return fallback
 
     return float(latest.iloc[-1])
 

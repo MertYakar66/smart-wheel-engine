@@ -503,6 +503,47 @@ class TestFundamentalsAsOfThreading:
             "as_of=None ranking must not pass a non-None as_of to get_fundamentals"
         )
 
+    def test_rank_covered_calls_threads_as_of_into_get_fundamentals(self):
+        conn = self._AsOfSpyConn(["AAA"], iv_by_date={"2026-03-15": 30.0})
+        df = _runner_with(conn).rank_covered_calls_by_ev(
+            ticker="AAA",
+            shares_held=100,
+            as_of="2026-03-15",
+            min_ev_dollars=-1e9,
+            target_dtes=(35,),
+            target_deltas=(0.25,),
+        )
+        assert not df.empty
+        carried = [a for a in conn.fundamentals_as_of_calls if a is not None]
+        assert carried, "covered-call ranker never threaded as_of into get_fundamentals"
+        assert all(a == "2026-03-15" for a in carried)
+
+    def test_rank_strangles_threads_as_of_into_get_fundamentals(self):
+        conn = self._AsOfSpyConn(["AAA"], iv_by_date={"2026-03-15": 30.0})
+        _runner_with(conn).rank_strangles_by_ev(
+            ticker="AAA",
+            contracts=1,
+            as_of="2026-03-15",
+            min_ev_dollars=-1e9,
+            target_dtes=(35,),
+            target_deltas=(0.25,),
+        )
+        carried = [a for a in conn.fundamentals_as_of_calls if a is not None]
+        assert carried, "strangle ranker never threaded as_of into get_fundamentals"
+        assert all(a == "2026-03-15" for a in carried)
+
+    def test_cc_strangle_legacy_connector_without_as_of_still_ranks(self):
+        conn = _PitIVConn(["AAA"], snapshot_iv=25.0, iv_by_date={"2026-03-15": 30.0})
+        cc = _runner_with(conn).rank_covered_calls_by_ev(
+            ticker="AAA",
+            shares_held=100,
+            as_of="2026-03-15",
+            min_ev_dollars=-1e9,
+            target_dtes=(35,),
+            target_deltas=(0.25,),
+        )
+        assert not cc.empty, "CC ranker crashed on a connector without as_of support"
+
     def test_legacy_connector_without_as_of_still_ranks(self):
         """A stub whose ``get_fundamentals`` predates the ``as_of`` kwarg
         (raises TypeError) must still rank via the snapshot fallback —

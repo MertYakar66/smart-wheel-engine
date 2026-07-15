@@ -465,7 +465,9 @@ class StressTester:
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
             z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
-            z *= np.sqrt((df - 2) / df)  # rescale t(5) to unit variance (mirrors forward_distribution.py:306)
+            z *= np.sqrt(
+                (df - 2) / df
+            )  # rescale t(5) to unit variance (mirrors forward_distribution.py:306)
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)

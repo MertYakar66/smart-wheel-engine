@@ -239,9 +239,7 @@ class TestMonteCarloStressUnitVarianceShock:
         standardized = raw * np.sqrt((df - 2) / df)  # the fix's rescale factor
 
         std = float(np.std(standardized))
-        assert 0.97 <= std <= 1.03, (
-            f"standardized t({df}) shock std {std:.4f} not in [0.97, 1.03]"
-        )
+        assert 0.97 <= std <= 1.03, f"standardized t({df}) shock std {std:.4f} not in [0.97, 1.03]"
 
         # excess kurtosis (Fisher) must stay heavy-tailed, not collapse to Gaussian
         centered = standardized - standardized.mean()

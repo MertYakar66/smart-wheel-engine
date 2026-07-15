@@ -465,6 +465,7 @@ class StressTester:
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
             z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
+            z *= np.sqrt((df - 2) / df)  # rescale t(5) to unit variance (mirrors forward_distribution.py:306)
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
@@ -788,7 +789,8 @@ class StressTester:
 
                 total_delta += greeks["delta"] * multiplier
                 total_gamma += greeks["gamma"] * multiplier * new_spot
-                total_theta += greeks["theta"] * multiplier
+                # pricer returns annual theta; convert to daily per GREEKS_UNIT_CONTRACT.md
+                total_theta += (greeks["theta"] / 365) * multiplier
                 total_vega += greeks["vega"] * multiplier
 
             greeks_rows.append(
@@ -845,7 +847,8 @@ class StressTester:
                 )
 
                 total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
-                total_theta += new_greeks["theta"] * multiplier
+                # pricer returns annual theta; convert to daily per GREEKS_UNIT_CONTRACT.md
+                total_theta += (new_greeks["theta"] / 365) * multiplier
 
             time_rows.append(
                 {

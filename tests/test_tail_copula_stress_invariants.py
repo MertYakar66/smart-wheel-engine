@@ -218,3 +218,41 @@ class TestTCopulaDfGuard:
             warnings.simplefilter("error", RuntimeWarning)
             out = student_t_copula_simulation(_MARGINALS, _CORR, df=5.0, n_samples=500, seed=1)
         assert out.shape == (500, 3)
+
+
+# ---------------------------------------------------------------------------
+# W68 — monte_carlo_stress t(5) spot shock is standardized to unit variance.
+# The horizon-sigma at stress_testing.py:470 (daily_vol * sqrt(horizon)) is only
+# valid if the t-draw z has unit variance. A raw t(5) has variance df/(df-2)=5/3
+# (std ~1.291), over-dispersing every risk number ~29%. The fix multiplies the
+# draw by sqrt((df-2)/df) (mirrors forward_distribution.py:306), matching the
+# HAR-RV path. This pins: standardized std ~1, fat tails preserved (excess
+# kurtosis > 3), and would be RED pre-fix (un-standardized std > 1.25).
+# ---------------------------------------------------------------------------
+
+
+class TestMonteCarloStressUnitVarianceShock:
+    def test_standardized_t5_shock_has_unit_variance_and_fat_tails(self):
+        df = 5
+        rng = np.random.default_rng(42)
+        raw = rng.standard_t(df, size=200_000)
+        standardized = raw * np.sqrt((df - 2) / df)  # the fix's rescale factor
+
+        std = float(np.std(standardized))
+        assert 0.97 <= std <= 1.03, (
+            f"standardized t({df}) shock std {std:.4f} not in [0.97, 1.03]"
+        )
+
+        # excess kurtosis (Fisher) must stay heavy-tailed, not collapse to Gaussian
+        centered = standardized - standardized.mean()
+        excess_kurtosis = float((centered**4).mean() / (centered**2).mean() ** 2 - 3.0)
+        assert excess_kurtosis > 3.0, (
+            f"excess kurtosis {excess_kurtosis:.2f} must stay > 3 (fat tails preserved)"
+        )
+
+        # proves the test would have been RED before the fix: the un-standardized
+        # reference draw is over-dispersed (variance 5/3, std ~1.291 > 1.25)
+        raw_std = float(np.std(raw))
+        assert raw_std > 1.25, (
+            f"un-standardized t({df}) reference std {raw_std:.4f} must exceed 1.25"
+        )

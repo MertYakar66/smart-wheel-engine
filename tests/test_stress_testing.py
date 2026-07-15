@@ -1,6 +1,7 @@
 """Tests for stress testing module."""
 
 import pandas as pd
+import pytest
 
 from engine.stress_testing import (
     HISTORICAL_SCENARIOS,
@@ -421,3 +422,97 @@ class TestGreeksStressTesting:
         # Theta burn should show theta decay profit for short options
         theta_burn = results["theta_burn"]
         assert theta_burn["greek_attribution"]["theta_pnl"] > 0
+
+
+class TestGreeksScenarioMatrixThetaUnits:
+    """Proposal #8 — greeks_scenario_matrix must emit DAILY theta (annual/365),
+    matching GREEKS_UNIT_CONTRACT.md and every other Greeks surface. Value-level
+    regression: the emitted theta equals the pricer's annual theta / 365, not the
+    raw annual value (which was ~365x too large pre-fix)."""
+
+    def _position(self):
+        return {
+            "symbol": "AAPL",
+            "option_type": "put",
+            "strike": 150,
+            "dte": 30,
+            "iv": 0.25,
+            "contracts": 5,
+            "is_short": True,
+        }
+
+    def test_greeks_surface_theta_is_daily(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        pos = self._position()
+        spot = 155.0
+        matrix = StressTester().greeks_scenario_matrix(
+            positions=[pos],
+            spot_prices={"AAPL": spot},
+            portfolio_value=100_000,
+            spot_shocks=[0.0],
+            iv_shocks=[0.0],
+            time_shocks=[0],
+        )
+        surface = matrix["greeks_surface"]
+        emitted = float(surface.loc[surface["spot_change"] == 0.0, "theta"].iloc[0])
+
+        # replicate the loop math at spot_chg == 0 (new_spot == spot)
+        multiplier = pos["contracts"] * 100 * -1  # is_short => direction -1
+        greeks = black_scholes_all_greeks(
+            S=spot,
+            K=pos["strike"],
+            T=max(0.001, pos["dte"] / 365),
+            r=pos.get("rate", 0.05),
+            sigma=pos["iv"],
+            option_type=pos["option_type"],
+            q=pos.get("dividend_yield", 0.0),
+        )
+        annual_theta = greeks["theta"]
+        expected_daily = (annual_theta / 365) * multiplier
+
+        assert emitted == pytest.approx(expected_daily, rel=1e-9), (
+            f"greeks_surface theta {emitted} must equal annual/365 * mult {expected_daily}"
+        )
+        # and NOT the ~365x-larger annual value (proves the /365 conversion is present)
+        assert emitted != pytest.approx(annual_theta * multiplier, rel=1e-2), (
+            "emitted theta must be daily, not the annual value"
+        )
+
+    def test_time_decay_remaining_theta_is_daily(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        pos = self._position()
+        spot = 155.0
+        days = 7
+        matrix = StressTester().greeks_scenario_matrix(
+            positions=[pos],
+            spot_prices={"AAPL": spot},
+            portfolio_value=100_000,
+            spot_shocks=[0.0],
+            iv_shocks=[0.0],
+            time_shocks=[days],
+        )
+        decay = matrix["time_decay"]
+        emitted = float(decay.loc[decay["days_elapsed"] == days, "remaining_theta"].iloc[0])
+
+        multiplier = pos["contracts"] * 100 * -1  # is_short => direction -1
+        dte_new = max(0.001, pos["dte"] - days)
+        new_greeks = black_scholes_all_greeks(
+            S=spot,
+            K=pos["strike"],
+            T=dte_new / 365,
+            r=pos.get("rate", 0.05),
+            sigma=pos["iv"],
+            option_type=pos["option_type"],
+            q=pos.get("dividend_yield", 0.0),
+        )
+        annual_theta = new_greeks["theta"]
+        expected_daily = (annual_theta / 365) * multiplier
+
+        assert emitted == pytest.approx(expected_daily, rel=1e-9), (
+            f"time_decay remaining_theta {emitted} must equal annual/365 * mult {expected_daily}"
+        )
+        assert emitted != pytest.approx(annual_theta * multiplier, rel=1e-2), (
+            "remaining_theta must be daily, not the annual value"
+        )

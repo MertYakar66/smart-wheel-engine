@@ -1,7 +1,22 @@
 # Codebase weakness audit — 2026-07-15 (register)
 
 **Status: COMPLETE (2026-07-15).** All three streams folded; consolidated
-ranking + pre-registered proposals written. Read-only audit; nothing applied to any engine code.
+ranking + pre-registered proposals written. The audit itself was read-only.
+
+**Implementation status (2026-07-15):** the four non-trio, no-consent-flag SAFE
+fixes are implemented on isolated review branches off `origin/main` — each
+touching only its named files, trio untouched, tests green (re-verified
+in-sandbox), **not merged**, awaiting human merge decision (evidence: #493):
+
+| Fix | Branch | Tests |
+|---|---|---|
+| #2 CORS (HIGH) | `claude/fix-cors-hostname-match` | 40 ✓ |
+| #6 risk-free NaN | `claude/fix-rates-fallback-nan` | 44 ✓ |
+| #7+#8 stress units | `claude/fix-stress-testing-units` | 35 ✓ |
+| #9 roll hold_ev | `claude/fix-roll-hold-ev-commission` | 32 ✓ |
+
+The consent-flagged / trio-touching proposals (#1 gamma, #3 R6, #4 carry-q,
+#5 provider-log, #10 contracts) remain HELD for human review — nothing applied.
 The decision-layer trio (`engine/ev_engine.py`, `engine/wheel_runner.py`,
 `engine/candidate_dossier.py`) is never edited by this audit. Coordination hub:
 **issue #493**. Fixes are a separate, governed, consented step — this document

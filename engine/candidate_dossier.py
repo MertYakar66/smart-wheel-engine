@@ -77,9 +77,11 @@ class CandidateDossier:
     ev_row: dict[str, Any]
     chart_context: ChartContext | None = None
     # Optional aggregated dealer positioning (engine/dealer_positioning.py).
-    # When present the EnginePhaseReviewer applies an extra rule (R6)
-    # that can downgrade — never upgrade — a candidate based on the
-    # market-structure regime relative to the trade strike.
+    # When present the EnginePhaseReviewer applies an extra rule (R6) that can
+    # downgrade — never upgrade — a candidate based on the market-structure
+    # regime relative to the trade strike. When absent, R6 falls back to the
+    # ranker's dealer_regime / nearest_put_wall_strike diagnostics on ev_row
+    # (audit #3), so it fires on the production build_dossiers path.
     market_structure: Any = None
     # Optional portfolio-wide context for the D17 dossier soft-warns
     # (R7 = VaR; R8 = stress + dealer regime). When attached, the
@@ -198,11 +200,13 @@ class EnginePhaseReviewer:
        **proceed**. Below that threshold it is **review** so the human
        opens the screenshot before firing.
 
-    6. *(Conditional — audit V.)* If a `MarketStructure` is attached
-       and the dealer regime is short-gamma amplifying with the
-       candidate strike at or above the nearest put wall — OR the
-       regime is near gamma flip — the verdict is **review**. Like
-       R4, downgrade-only.
+    6. *(Conditional — audit V; activated on the production path
+       2026-07-15, audit #3.)* If a `MarketStructure` is attached — OR
+       the ranker's `dealer_regime` / `nearest_put_wall_strike`
+       diagnostics are on `ev_row` — and the dealer regime is
+       short-gamma amplifying with the candidate strike at or above the
+       nearest put wall, OR the regime is near gamma flip, the verdict
+       is **review**. Downgrade-only.
 
     7. *(Conditional — new in D17.)* If a `PortfolioContext` is
        attached and ``check_var`` reports portfolio VaR_95 (30-day
@@ -363,24 +367,38 @@ class EnginePhaseReviewer:
         # than the raw EV suggests. Downgrade proceed → review.
         # Hard guardrail: this rule NEVER upgrades. It can only shift
         # "proceed" to "review" (never touches "blocked" or "skip").
+        # Source R6's inputs from the attached MarketStructure when present
+        # (preserves every existing R6 test), else fall back to the ranker's
+        # dealer diagnostics already on ev_row (dealer_regime,
+        # nearest_put_wall_strike) so R6 fires through build_dossiers
+        # (audit #3, 2026-07-15). Strictly downgrade-only.
         ms = getattr(dossier, "market_structure", None)
-        if ms is not None and verdict == "proceed":
-            regime = getattr(ms, "regime", "")
+        if verdict == "proceed":
+            if ms is not None:
+                regime = getattr(ms, "regime", "")
+                _npw = getattr(ms, "nearest_put_wall", None)
+                nearest_put_wall_strike = float(_npw.strike) if _npw is not None else None
+            else:
+                regime = dossier.ev_row.get("dealer_regime")
+                _npw_raw = dossier.ev_row.get("nearest_put_wall_strike")
+                try:
+                    nearest_put_wall_strike = float(_npw_raw) if _npw_raw is not None else None
+                except (TypeError, ValueError):
+                    nearest_put_wall_strike = None
             if regime == "short_gamma_amplifying":
-                nearest_put = getattr(ms, "nearest_put_wall", None)
                 strike = dossier.ev_row.get("strike")
                 try:
                     strike_f = float(strike) if strike is not None else None
                 except (TypeError, ValueError):
                     strike_f = None
                 if (
-                    nearest_put is not None
+                    nearest_put_wall_strike is not None
                     and strike_f is not None
-                    and strike_f >= float(nearest_put.strike)
+                    and strike_f >= nearest_put_wall_strike
                 ):
                     notes.append(
                         f"R6: short-gamma regime + strike {strike_f:.2f} "
-                        f"at/above put wall {float(nearest_put.strike):.2f} "
+                        f"at/above put wall {nearest_put_wall_strike:.2f} "
                         "- breach risk amplified, downgrade to review"
                     )
                     return "review", "dealer_short_gamma_above_put_wall", notes

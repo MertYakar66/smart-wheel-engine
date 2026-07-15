@@ -408,3 +408,60 @@ class TestSolveCallStrike:
         assert _solve_call_strike(spot=100, T=0.1, r=0.04, q=0, iv=0, target_delta=0.25) is None
         assert _solve_call_strike(spot=100, T=0.1, r=0.04, q=0, iv=0.25, target_delta=1.5) is None
         assert _solve_call_strike(spot=100, T=0.1, r=0.04, q=0, iv=0.25, target_delta=0.0) is None
+
+
+class TestSuggestCallRollsHoldEvTransactionCost:
+    """Proposal #9 — hold_ev must charge ZERO transaction cost. EVEngine.evaluate
+    charges the synthetic re-sell an entry commission+slippage that holding never
+    incurs; the fix adds that entry leg back. Verify hold_ev ==
+    ev_dollars - buyback*100 + (total_transaction_cost/2)*regime_multiplier."""
+
+    def test_hold_ev_charges_zero_transaction_cost(self):
+        t = _make_tracker_with_covered_call(
+            call_strike=105.0,
+            call_premium=2.0,
+            call_entry=date(2026, 1, 5),
+            call_expiry=date(2026, 2, 9),
+            iv=0.25,
+        )
+        as_of = date(2026, 1, 26)  # 21 days in, 14 DTE remaining
+
+        captured: dict = {}
+        original_evaluate = EVEngine.evaluate
+
+        def _capture(self, *args, **kwargs):
+            res = original_evaluate(self, *args, **kwargs)
+            if "hold" not in captured:  # first evaluate call is the hold trade
+                captured["hold"] = res
+                captured["trade"] = args[0] if args else kwargs.get("trade")
+            return res
+
+        with patch.object(EVEngine, "evaluate", autospec=True, side_effect=_capture):
+            df = t.suggest_call_rolls(
+                ticker="TEST",
+                as_of=as_of,
+                current_spot=112.0,
+                current_iv=0.25,
+                risk_free_rate=0.04,
+                min_net_credit=-1_500.0,
+            )
+
+        assert not df.empty, "challenged covered call should produce >= 1 candidate"
+        hold_result = captured["hold"]
+        buyback = captured["trade"].premium  # exact (unrounded) synthetic re-sell premium
+        multiplier = 100  # suggest_call_rolls is per-contract
+
+        # AC3: the phantom entry cost that holding never incurs is strictly positive.
+        entry_txn_cost = (hold_result.total_transaction_cost / 2.0) * hold_result.regime_multiplier
+        assert hold_result.regime_multiplier == pytest.approx(1.0)
+        assert entry_txn_cost > 0, f"entry_txn_cost {entry_txn_cost} must be > 0 (phantom removed)"
+
+        # AC2/AC1: hold_ev == ev_dollars - buyback*100 + entry_txn_cost, rebuilt from the
+        # exact EVResult the code used (compared at the row's 2dp precision).
+        expected_hold_ev = hold_result.ev_dollars - buyback * multiplier + entry_txn_cost
+        assert df["hold_ev"].iloc[0] == pytest.approx(round(expected_hold_ev, 2), abs=1e-6)
+
+        # AC3 (delta): the new hold_ev strictly exceeds the pre-fix value by entry_txn_cost.
+        pre_fix_hold_ev = hold_result.ev_dollars - buyback * multiplier
+        assert expected_hold_ev - pre_fix_hold_ev == pytest.approx(entry_txn_cost, abs=1e-9)
+        assert expected_hold_ev > pre_fix_hold_ev

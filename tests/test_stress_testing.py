@@ -1,7 +1,13 @@
 """Tests for stress testing module."""
 
-import pandas as pd
+from types import SimpleNamespace
 
+import numpy as np
+import pandas as pd
+import pytest
+
+import engine.stress_testing as st
+from engine.option_pricer import black_scholes_all_greeks
 from engine.stress_testing import (
     HISTORICAL_SCENARIOS,
     HYPOTHETICAL_SCENARIOS,
@@ -421,3 +427,92 @@ class TestGreeksStressTesting:
         # Theta burn should show theta decay profit for short options
         theta_burn = results["theta_burn"]
         assert theta_burn["greek_attribution"]["theta_pnl"] > 0
+
+
+# ----------------------------------------------------------------------
+# CMD 7 — stress_testing correctness fixes (risk-REPORTING module; not the
+# EV ranker/trio): t-dist variance normalization, per-name dollar-delta spot,
+# per-position rate in run_scenario.
+# ----------------------------------------------------------------------
+
+
+def test_monte_carlo_returns_are_variance_normalized(monkeypatch):
+    """Bug 1: the simulated returns' std must match the IV-implied target
+    (daily_vol * sqrt(horizon)), NOT the ~1.29x an un-normalized Student-t(5)
+    produced (t(5) std = sqrt(5/3) ≈ 1.29). We capture the spot_change_pct each
+    sim feeds run_scenario."""
+    tester = StressTester()
+    positions = [
+        {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
+         "iv": 0.30, "contracts": 1, "is_short": True}
+    ]
+    captured = []
+
+    def _spy(scenario, *a, **k):
+        captured.append(scenario.spot_change_pct)
+        return SimpleNamespace(portfolio_pnl=0.0)
+
+    monkeypatch.setattr(tester, "run_scenario", _spy)
+    tester.monte_carlo_stress(
+        positions=positions, spot_prices={"AAPL": 155},
+        portfolio_value=100000, n_simulations=20000, horizon_days=1,
+    )
+    sc = np.array(captured)
+    target = 0.30 / np.sqrt(252) * np.sqrt(1)  # daily_vol * sqrt(horizon_days)
+    assert sc.std() == pytest.approx(target, rel=0.08)
+    assert sc.std() < 1.15 * target  # explicitly rejects the ~1.29x inflation
+
+
+def test_greeks_matrix_dollar_delta_uses_each_names_spot():
+    """Bug 2: aggregate delta_dollars = sum_i(delta_i * mult_i * spot_i), each
+    name at its OWN spot — not pooled_delta * the FIRST symbol's spot."""
+    tester = StressTester()
+    positions = [
+        {"symbol": "AAPL", "option_type": "put", "strike": 100, "dte": 30,
+         "iv": 0.25, "contracts": 1, "is_short": True},
+        {"symbol": "BIGCO", "option_type": "put", "strike": 1000, "dte": 30,
+         "iv": 0.25, "contracts": 1, "is_short": True},
+    ]
+    spot_prices = {"AAPL": 100.0, "BIGCO": 1000.0}
+    res = tester.greeks_scenario_matrix(
+        positions=positions, spot_prices=spot_prices, portfolio_value=100000,
+        spot_shocks=[0.0], iv_shocks=[0.0], time_shocks=[0],
+    )
+    row = res["greeks_surface"].iloc[0]
+
+    expected = 0.0
+    for p in positions:
+        s = spot_prices[p["symbol"]]
+        g = black_scholes_all_greeks(
+            S=s, K=p["strike"], T=p["dte"] / 365, r=p.get("rate", 0.05),
+            sigma=p["iv"], option_type=p["option_type"], q=0.0,
+        )
+        mult = p["contracts"] * 100 * (-1 if p["is_short"] else 1)
+        expected += g["delta"] * mult * s
+    assert row["delta_dollars"] == pytest.approx(expected)
+    # ... and NOT the old pooled_delta * first-symbol spot (materially different
+    # here because BIGCO trades at 10x AAPL).
+    assert row["delta_dollars"] != pytest.approx(row["delta"] * spot_prices["AAPL"])
+
+
+def test_run_scenario_honors_per_position_rate(monkeypatch):
+    """Bug 3: run_scenario prices with the position's own rate, not the tester's
+    risk_free_rate. A pos with rate=0.03 must price both legs at r=0.03."""
+    tester = StressTester(risk_free_rate=0.05)
+    seen_r = []
+    orig = st.black_scholes_price
+
+    def _spy(**kw):
+        seen_r.append(round(kw.get("r"), 6))
+        return orig(**kw)
+
+    monkeypatch.setattr(st, "black_scholes_price", _spy)
+    pos = {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
+           "iv": 0.25, "contracts": 1, "is_short": True, "rate": 0.03}
+    scenario = Scenario(
+        name="flat", scenario_type=ScenarioType.HYPOTHETICAL, description="",
+        spot_change_pct=0.0,
+    )
+    tester.run_scenario(scenario, [pos], {"AAPL": 155}, 100000)
+    assert 0.03 in seen_r, f"expected the position rate 0.03 to price a leg; saw {seen_r}"
+    assert 0.05 not in seen_r, f"must not fall back to risk_free_rate; saw {seen_r}"

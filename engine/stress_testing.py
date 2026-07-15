@@ -287,6 +287,10 @@ class StressTester:
 
             # Apply scenario shocks
             new_spot = current_spot * (1 + scenario.spot_change_pct)
+            # Bug fix CMD 7: honor a per-position rate (matching every greeks_*
+            # method's pos.get("rate", ...)); run_scenario previously priced both
+            # legs off self.risk_free_rate, ignoring an explicit pos["rate"].
+            base_rate = pos.get("rate", self.risk_free_rate)
 
             current_iv = pos["iv"]
             if scenario.iv_change_abs != 0:
@@ -295,7 +299,7 @@ class StressTester:
                 new_iv = current_iv * (1 + scenario.iv_change_pct)
             new_iv = max(0.01, new_iv)  # Floor at 1%
 
-            new_rate = self.risk_free_rate + (scenario.rate_change_bps / 10000)
+            new_rate = base_rate + (scenario.rate_change_bps / 10000)
 
             # Adjust DTE for time decay
             new_dte = max(0, pos["dte"] - scenario.time_decay_days)
@@ -305,7 +309,7 @@ class StressTester:
                 S=current_spot,
                 K=pos["strike"],
                 T=pos["dte"] / 365,
-                r=self.risk_free_rate,
+                r=base_rate,
                 sigma=current_iv,
                 option_type=pos["option_type"],
                 q=pos.get("dividend_yield", 0.0),
@@ -464,7 +468,13 @@ class StressTester:
             # Simulate spot change (fat-tailed)
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
-            z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
+            # Variance-normalize the Student-t draw (Bug fix CMD 7): a t(df) has
+            # variance df/(df-2) (df=5 → std≈1.29), so every simulated return was
+            # ~29% wider than the IV-implied target, overstating std / var_95 /
+            # var_99 / cvar_95 / max_loss / prob_10pct_loss by the same factor.
+            # Scaling by sqrt((df-2)/df) keeps the fat tails but restores unit
+            # variance so the sim std matches daily_vol*sqrt(horizon).
+            z = float(stats.t.rvs(df, random_state=rng.integers(2**31))) * np.sqrt((df - 2) / df)
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
@@ -760,6 +770,7 @@ class StressTester:
         greeks_rows = []
         for spot_chg in spot_shocks:
             total_delta = 0.0
+            total_delta_dollars = 0.0  # Bug fix CMD 7: sum per-name delta$ (each own spot)
             total_gamma = 0.0
             total_theta = 0.0
             total_vega = 0.0
@@ -787,6 +798,7 @@ class StressTester:
                 )
 
                 total_delta += greeks["delta"] * multiplier
+                total_delta_dollars += greeks["delta"] * multiplier * new_spot
                 total_gamma += greeks["gamma"] * multiplier * new_spot
                 total_theta += greeks["theta"] * multiplier
                 total_vega += greeks["vega"] * multiplier
@@ -795,9 +807,11 @@ class StressTester:
                 {
                     "spot_change": spot_chg,
                     "delta": total_delta,
-                    "delta_dollars": total_delta * spot_prices.get(positions[0]["symbol"], 100)
-                    if positions
-                    else 0,
+                    # Bug fix CMD 7: dollar delta = sum_i(delta_i * multiplier_i *
+                    # new_spot_i), each name at its OWN spot. Was pooled_delta *
+                    # spot_prices[positions[0]] (or 100), which multiplied the whole
+                    # book's delta by only the FIRST symbol's spot.
+                    "delta_dollars": total_delta_dollars,
                     "gamma": total_gamma,
                     "theta": total_theta,
                     "vega": total_vega,

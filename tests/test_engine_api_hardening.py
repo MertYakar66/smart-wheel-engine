@@ -183,8 +183,7 @@ def test_cors_denies_localhost_prefix_spoofs(origin):
 
 def test_cors_allows_localhost_case_insensitive():
     assert (
-        engine_api._resolve_cors_origin("HTTP://LOCALHOST:3000", env={})
-        == "HTTP://LOCALHOST:3000"
+        engine_api._resolve_cors_origin("HTTP://LOCALHOST:3000", env={}) == "HTTP://LOCALHOST:3000"
     )
 
 

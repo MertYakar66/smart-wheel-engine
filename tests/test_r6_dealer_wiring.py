@@ -30,8 +30,15 @@ class _CleanProvider:
 
 def _frame(**extra):
     row = {
-        "ticker": "TEST", "strike": 100.0, "premium": 2.0, "ev_dollars": 50.0,
-        "iv": 0.25, "dte": 30, "spot": 100.0, "prob_profit": 0.80, "cvar_5": -5000.0,
+        "ticker": "TEST",
+        "strike": 100.0,
+        "premium": 2.0,
+        "ev_dollars": 50.0,
+        "iv": 0.25,
+        "dte": 30,
+        "spot": 100.0,
+        "prob_profit": 0.80,
+        "cvar_5": -5000.0,
     }
     row.update(extra)
     return pd.DataFrame([row])
@@ -42,7 +49,9 @@ def _one(ev):
 
 
 def test_r6_fires_short_gamma_above_put_wall_via_ev_row():
-    d = _one(_frame(dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=100.0, strike=100.0))
+    d = _one(
+        _frame(dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=100.0, strike=100.0)
+    )
     assert d.verdict == "review"
     assert d.verdict_reason == "dealer_short_gamma_above_put_wall"
 
@@ -58,11 +67,17 @@ def test_r6_noop_without_dealer_diagnostics():
 
 
 def test_r6_noop_when_strike_below_put_wall():
-    d = _one(_frame(dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=110.0, strike=100.0))
+    d = _one(
+        _frame(dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=110.0, strike=100.0)
+    )
     assert d.verdict == "proceed"
 
 
 def test_r6_never_rescues_blocked_negative_ev():
     # §2: R1 blocks negative EV; R6 runs only on proceed → can never upgrade.
-    d = _one(_frame(ev_dollars=-50.0, dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=100.0))
+    d = _one(
+        _frame(
+            ev_dollars=-50.0, dealer_regime="short_gamma_amplifying", nearest_put_wall_strike=100.0
+        )
+    )
     assert d.verdict == "blocked"

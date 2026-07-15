@@ -140,6 +140,25 @@ class _FakeRunner:
             ]
         )
 
+    def rank_candidates_by_ev(self, **_kwargs):
+        # /api/tv/scan switched from the legacy heuristic screen_candidates to
+        # the EV-authoritative ranker (audit-V P0.1b), so the scan requires
+        # this method. Mirrors rank_candidates_by_ev(include_diagnostic_fields=
+        # True) enough for the scan loop: ticker + iv_rank + the EV-native
+        # columns it surfaces. (Previously absent; a swallowed AttributeError
+        # made the scan silently return an empty-200 — the exact bug CMD 3
+        # fixes, which is why these tests now exercise the real path.)
+        return pd.DataFrame(
+            [
+                {"ticker": "MU", "iv_rank": 55.0, "ev_dollars": 45.0,
+                 "ev_per_day": 1.30, "prob_profit": 0.77,
+                 "distribution_source": "empirical_non_overlapping"},
+                {"ticker": "AAPL", "iv_rank": 48.0, "ev_dollars": 30.0,
+                 "ev_per_day": 0.90, "prob_profit": 0.71,
+                 "distribution_source": "empirical_non_overlapping"},
+            ]
+        )
+
     def analyze_ticker(self, ticker, as_of=None):  # noqa: ARG002
         self.analysis.ticker = ticker
         return self.analysis

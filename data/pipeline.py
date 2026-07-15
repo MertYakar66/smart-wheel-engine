@@ -328,7 +328,7 @@ class DataPipeline:
         rates_dir = self.data_dir / "rates"
         self._rates = load_bloomberg_rates(rates_dir)
         if self._rates is not None:
-            self._risk_free_rate = get_current_risk_free_rate(self._rates)
+            self._risk_free_rate = get_current_risk_free_rate(self._rates, fallback=0.05)
 
     def load_fundamentals(self) -> None:
         """Load company fundamentals."""

@@ -3079,7 +3079,17 @@ class WheelRunner:
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
-        fundamentals = conn.get_fundamentals(ticker) or {}
+        # Carry-q PIT (audit #4): thread as_of into the fundamentals snapshot so
+        # dated CC/strangle backtests price dividend_yield at as_of, not the 2026
+        # snapshot — mirrors the puts ranker. TypeError fallback preserves legacy
+        # get_fundamentals(ticker) stubs (ThetaConnector, consolidated_loader, ...).
+        if as_of is None:
+            fundamentals = conn.get_fundamentals(ticker) or {}
+        else:
+            try:
+                fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
+            except TypeError:
+                fundamentals = conn.get_fundamentals(ticker) or {}
         iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")
@@ -3712,7 +3722,17 @@ class WheelRunner:
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
-        fundamentals = conn.get_fundamentals(ticker) or {}
+        # Carry-q PIT (audit #4): thread as_of into the fundamentals snapshot so
+        # dated CC/strangle backtests price dividend_yield at as_of, not the 2026
+        # snapshot — mirrors the puts ranker. TypeError fallback preserves legacy
+        # get_fundamentals(ticker) stubs (ThetaConnector, consolidated_loader, ...).
+        if as_of is None:
+            fundamentals = conn.get_fundamentals(ticker) or {}
+        else:
+            try:
+                fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
+            except TypeError:
+                fundamentals = conn.get_fundamentals(ticker) or {}
         iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")

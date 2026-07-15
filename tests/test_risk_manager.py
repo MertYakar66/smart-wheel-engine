@@ -994,3 +994,52 @@ class TestKellyFractionEdgeCases:
         # Just verify no crash for zero-loss edge case
         result = calculate_kelly_fraction(0.6, 1.0, 0.0)
         assert isinstance(result, float)
+
+
+class TestGammaDollarsConvention:
+    """Audit 2026-07-15 #1: gamma_dollars must carry the contract multiplier
+    like delta_dollars (the stray /100 understated portfolio convexity 100x)."""
+
+    def _short_atm_put(self, spot=100.0, iv=0.30, dte=30):
+        pos = [{
+            "symbol": "TEST", "option_type": "put", "strike": spot,
+            "dte": dte, "iv": iv, "contracts": 1, "is_short": True,
+        }]
+        return pos, {"TEST": spot}
+
+    def test_gamma_dollars_carries_contract_multiplier(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        rm = RiskManager()
+        positions, spots = self._short_atm_put()
+        g = rm.calculate_portfolio_greeks(positions, spots)
+        spot = 100.0
+        pg = black_scholes_all_greeks(
+            S=spot, K=spot, T=30 / 365, r=rm.risk_free_rate,
+            sigma=0.30, option_type="put", q=0.0,
+        )
+        # multiplier = direction(-1) * contracts(1) * 100 ; NO /100.
+        expected = pg["gamma"] * (-1 * 1 * 100) * spot * spot
+        assert g.gamma_dollars == pytest.approx(expected, rel=1e-6)
+
+    def test_gamma_convexity_pnl_matches_reprice(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        rm = RiskManager()
+        positions, spots = self._short_atm_put()
+        g = rm.calculate_portfolio_greeks(positions, spots)
+        spot, r = 100.0, 0.05
+        kw = {"K": spot, "T": 30 / 365, "r": rm.risk_free_rate, "sigma": 0.30, "option_type": "put", "q": 0.0}
+        px0 = black_scholes_all_greeks(S=spot, **kw)
+        px1 = black_scholes_all_greeks(S=spot * (1 + r), **kw)
+        mult = -1 * 1 * 100  # short put
+        actual_pnl = (px1["price"] - px0["price"]) * mult
+        second_order = actual_pnl - g.delta_dollars * r
+        gamma_pnl = 0.5 * g.gamma_dollars * r * r
+        # 2nd-order Taylor term must match the reprice residual within ~10%.
+        assert gamma_pnl == pytest.approx(second_order, rel=0.10)
+
+    def test_gamma_limit_default_rescaled_x100(self):
+        # Behavior-preserving rescale so the check_risk_limits gate keeps its
+        # pass/fail semantics after gamma_dollars grows 100x. Risk-policy value.
+        assert RiskLimits().max_portfolio_gamma_dollars == 5_000_000

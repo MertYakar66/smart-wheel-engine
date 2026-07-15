@@ -46,7 +46,7 @@ class PortfolioGreeks:
 
     # Normalized metrics
     delta_dollars: float = 0.0  # Delta * underlying price * 100
-    gamma_dollars: float = 0.0  # Gamma * underlying price^2 * 100 / 100
+    gamma_dollars: float = 0.0  # Gamma * multiplier * underlying price^2 (dollar-gamma per unit fractional return)
 
     def __str__(self) -> str:
         return (
@@ -70,7 +70,7 @@ class RiskLimits:
 
     # Greeks limits (as % of portfolio)
     max_portfolio_delta: float = 0.50  # Max 50% net delta
-    max_portfolio_gamma_dollars: float = 50000  # Max gamma dollar exposure
+    max_portfolio_gamma_dollars: float = 5_000_000  # Max $-gamma exposure (rescaled x100 with the gamma_dollars /100 fix; risk-policy value — confirm)
     max_portfolio_vega: float = 10000  # Max vega exposure
 
     # Loss limits
@@ -360,7 +360,7 @@ class RiskManager:
 
             # Dollar-weighted metrics
             greeks.delta_dollars += pos_greeks["delta"] * multiplier * spot
-            greeks.gamma_dollars += pos_greeks["gamma"] * multiplier * spot * spot / 100
+            greeks.gamma_dollars += pos_greeks["gamma"] * multiplier * spot * spot
 
         return greeks
 
@@ -781,7 +781,7 @@ class RiskManager:
                 direction = -1 if pos.get("is_short", True) else 1
                 multiplier = direction * pos["contracts"] * 100
                 delta_d = pos_greeks["delta"] * multiplier * spot
-                gamma_d = pos_greeks["gamma"] * multiplier * spot * spot / 100
+                gamma_d = pos_greeks["gamma"] * multiplier * spot * spot
                 vega_d = pos_greeks["vega"] * multiplier
 
                 symbol_gammas[symbol] = symbol_gammas.get(symbol, 0.0) + gamma_d

@@ -10,13 +10,24 @@ in-sandbox), **not merged**, awaiting human merge decision (evidence: #493):
 
 | Fix | Branch | Tests |
 |---|---|---|
+| #1 gamma-VaR 100× (HIGH) | `claude/fix-gamma-var-convexity` | 3 new + 197/19 regression ✓ |
 | #2 CORS (HIGH) | `claude/fix-cors-hostname-match` | 40 ✓ |
 | #6 risk-free NaN | `claude/fix-rates-fallback-nan` | 44 ✓ |
 | #7+#8 stress units | `claude/fix-stress-testing-units` | 35 ✓ |
 | #9 roll hold_ev | `claude/fix-roll-hold-ev-commission` | 32 ✓ |
 
-The consent-flagged / trio-touching proposals (#1 gamma, #3 R6, #4 carry-q,
-#5 provider-log, #10 contracts) remain HELD for human review — nothing applied.
+**Both HIGH findings are now on review branches (not merged).** #1 (gamma) is
+non-trio (`risk_manager.py`), Option A; one embedded **risk-policy value to
+confirm** — `max_portfolio_gamma_dollars` rescaled 50k→5M to preserve the
+`check_risk_limits` gate semantics (you may want a different threshold now that
+$-gamma is measured correctly). The §2 invariant is preserved (R7 stays
+downgrade-only). Out-of-scope follow-up flagged: `engine/stress_testing.py`'s R8
+path may share the same gamma-convention bug — its own audit.
+
+The remaining HELD proposals are all **trio-touching** (edit the CI-gated
+decision layer), awaiting explicit per-item consent: **#3** R6-dead
+(`candidate_dossier.py`), **#4** carry-q (`wheel_runner.py`), **#5** provider-log
+(`wheel_runner.py`), **#10** contracts-emit (`wheel_runner.py`). Nothing applied.
 The decision-layer trio (`engine/ev_engine.py`, `engine/wheel_runner.py`,
 `engine/candidate_dossier.py`) is never edited by this audit. Coordination hub:
 **issue #493**. Fixes are a separate, governed, consented step — this document

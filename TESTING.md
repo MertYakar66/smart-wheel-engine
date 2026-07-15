@@ -64,6 +64,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
 | `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
 | `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
+| `tests/test_r6_dealer_wiring.py` | `EnginePhaseReviewer` rule R6 — dealer/regime downgrade wiring: short-gamma at/above put wall or dealer regime near gamma-flip → review; reads `market_structure` else `ev_row` dealer fields; downgrade-only; no-op on missing dealer data |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |

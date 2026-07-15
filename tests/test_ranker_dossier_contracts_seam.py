@@ -10,9 +10,7 @@ from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
 
 
 def _dict_for(ev_row):
-    return EnginePhaseReviewer._build_candidate_dict(
-        CandidateDossier(ticker="TEST", ev_row=ev_row)
-    )
+    return EnginePhaseReviewer._build_candidate_dict(CandidateDossier(ticker="TEST", ev_row=ev_row))
 
 
 class TestDossierReadsContracts:

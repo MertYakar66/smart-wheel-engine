@@ -1001,10 +1001,17 @@ class TestGammaDollarsConvention:
     like delta_dollars (the stray /100 understated portfolio convexity 100x)."""
 
     def _short_atm_put(self, spot=100.0, iv=0.30, dte=30):
-        pos = [{
-            "symbol": "TEST", "option_type": "put", "strike": spot,
-            "dte": dte, "iv": iv, "contracts": 1, "is_short": True,
-        }]
+        pos = [
+            {
+                "symbol": "TEST",
+                "option_type": "put",
+                "strike": spot,
+                "dte": dte,
+                "iv": iv,
+                "contracts": 1,
+                "is_short": True,
+            }
+        ]
         return pos, {"TEST": spot}
 
     def test_gamma_dollars_carries_contract_multiplier(self):
@@ -1015,8 +1022,13 @@ class TestGammaDollarsConvention:
         g = rm.calculate_portfolio_greeks(positions, spots)
         spot = 100.0
         pg = black_scholes_all_greeks(
-            S=spot, K=spot, T=30 / 365, r=rm.risk_free_rate,
-            sigma=0.30, option_type="put", q=0.0,
+            S=spot,
+            K=spot,
+            T=30 / 365,
+            r=rm.risk_free_rate,
+            sigma=0.30,
+            option_type="put",
+            q=0.0,
         )
         # multiplier = direction(-1) * contracts(1) * 100 ; NO /100.
         expected = pg["gamma"] * (-1 * 1 * 100) * spot * spot
@@ -1029,7 +1041,14 @@ class TestGammaDollarsConvention:
         positions, spots = self._short_atm_put()
         g = rm.calculate_portfolio_greeks(positions, spots)
         spot, r = 100.0, 0.05
-        kw = {"K": spot, "T": 30 / 365, "r": rm.risk_free_rate, "sigma": 0.30, "option_type": "put", "q": 0.0}
+        kw = {
+            "K": spot,
+            "T": 30 / 365,
+            "r": rm.risk_free_rate,
+            "sigma": 0.30,
+            "option_type": "put",
+            "q": 0.0,
+        }
         px0 = black_scholes_all_greeks(S=spot, **kw)
         px1 = black_scholes_all_greeks(S=spot * (1 + r), **kw)
         mult = -1 * 1 * 100  # short put

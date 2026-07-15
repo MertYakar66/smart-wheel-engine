@@ -46,7 +46,9 @@ class PortfolioGreeks:
 
     # Normalized metrics
     delta_dollars: float = 0.0  # Delta * underlying price * 100
-    gamma_dollars: float = 0.0  # Gamma * multiplier * underlying price^2 (dollar-gamma per unit fractional return)
+    gamma_dollars: float = (
+        0.0  # Gamma * multiplier * underlying price^2 (dollar-gamma per unit fractional return)
+    )
 
     def __str__(self) -> str:
         return (

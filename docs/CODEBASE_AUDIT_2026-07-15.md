@@ -1,6 +1,7 @@
 # Codebase weakness audit — 2026-07-15 (register)
 
-**Status: IN PROGRESS.** Read-only audit; nothing applied to any engine code.
+**Status: COMPLETE (2026-07-15).** All three streams folded; consolidated
+ranking + pre-registered proposals written. Read-only audit; nothing applied to any engine code.
 The decision-layer trio (`engine/ev_engine.py`, `engine/wheel_runner.py`,
 `engine/candidate_dossier.py`) is never edited by this audit. Coordination hub:
 **issue #493**. Fixes are a separate, governed, consented step — this document
@@ -12,7 +13,7 @@ Three parallel streams feed the register:
 |---|---|---|
 | **A — Structural** | Computer 1 · `codebase-memory-mcp` graph + grep | **DONE** (`RESULT C1-001`, #493) |
 | **B — Runtime** | Computer 2 · execution / coverage / fuzz | **DONE** (`RESULT C2-001`, #493) |
-| **C — Breadth** | in-session multi-agent workflow · ~12 dimensions, 3-skeptic adversarial verify | RUNNING |
+| **C — Breadth** | in-session multi-agent workflow · ~12 dimensions, 3-skeptic adversarial verify | **DONE** (237 agents; 70→46→43 ranked) |
 
 Method: every finding is grep- or verify-confirmed; the consolidated severity
 ranking is assembled once all three streams land.
@@ -121,17 +122,43 @@ passes here).
 
 ---
 
-## Stream C — Breadth (in-session workflow) — RUNNING
+## Stream C — Breadth (in-session workflow) — DONE
 
-*(Awaiting the multi-agent audit across ~12 dimensions — invariant integrity,
-decision-logic correctness, quant/numerical, PIT/look-ahead, silent failures,
-test-coverage, data-layer, doc/state drift, interface, secrets, performance —
-each finding adversarially verified by 3 refuting skeptics.)*
+237 agents, ~3.4h, 12.3M tokens across ~12 dimensions; **70 raw findings → 46
+survived 3-skeptic adversarial refutation → 43 ranked** (2 high / 22 medium / 19
+low; 11 touch the trio). Every survivor passed ≥2-of-3 refuting verifiers.
+
+**The EV-authority core held.** No finding shows a negative-EV trade being
+rescued; the dealer multiplier clamp is intact; R1–R11 remain downgrade-only.
+The two HIGH defects both live **outside** the protected trio, in the
+risk-metric and interface layers *around* the ranker. The trio-touching findings
+are integrity/quality gaps (a dead reviewer, PIT carry-q, sizing), not invariant
+breaks. Roughly a third of the register is backtest-only performance or doc
+drift with no runtime-correctness impact.
 
 ---
 
-## Consolidated ranking — PENDING
+## Consolidated ranking — top findings (all streams)
 
-*(Assembled once all three streams land: deduped, ranked by severity ×
-blast-radius, each with a ready-to-approve pre-registered proposal. Nothing is
-applied to the engine from this document.)*
+Full 43-row Stream-C list + the 10 pre-registered fix specs are in
+**`docs/CODEBASE_AUDIT_2026-07-15_PROPOSALS.md`**. The two HIGH items were
+spot-confirmed against source. **Nothing is applied to any code from this
+document** — fixes are the operator's to approve, one at a time.
+
+| Rank | Sev | Trio | File:line | Finding |
+|---|---|---|---|---|
+| **1** | **HIGH** | — | `engine/risk_manager.py:363` | `gamma_dollars` carries a stray `/100` while `delta_dollars` (`:362`) does not → portfolio convexity P&L understated ~100×, gutting short-gamma VaR/CVaR and defeating the R7/R8 soft-warns. **Confirmed in source.** |
+| **2** | **HIGH** | — | `engine_api.py:646` | CORS allow-list uses boundary-less `origin.startswith('http://localhost')`, so `http://localhost.evil.com` is echoed into `Access-Control-Allow-Origin` → a browser page can read live IBKR portfolio JSON. **Confirmed in source.** |
+| 3 | MED | ✓ | `engine/candidate_dossier.py:366` | R6 dealer-positioning downgrade is **dead in production**: `build_dossiers` never threads `market_structure`, so R6's guard is always False. The §2-documented short-gamma-at-put-wall review can't fire (only the residual dealer multiplier protects it). **Confirmed.** Fails toward less protection — not an invariant break. |
+| 4 | MED | ✓ | `engine/wheel_runner.py:3082` | CC + strangle rankers price BSM carry-`q` off the **dateless** fundamentals snapshot (no `as_of`), unlike the puts ranker — dated CC/strangle backtests use the 2026 dividend yield. |
+| 5 | MED | ✓ | `engine/wheel_runner.py:899` | Provider selected from `SWE_DATA_PROVIDER` with **no log**; an unrecognized value silently falls back to Bloomberg — the exact silent-provider class CLAUDE.md §4 warns about. |
+| 6 | MED | — | `data/bloomberg_loader.py:1100` | `get_current_risk_free_rate` silently returns hard-coded **0.05** on missing/empty rates (the unfixed data-twin of the engine's removed silent-5% bug). |
+| 7–9 | MED | — | `engine/stress_testing.py:467/791`, `engine/wheel_tracker.py:2624` | Stress MC t-draws over-dispersed ~29% (unnormalized Student-t); `greeks_scenario_matrix` reports **annual** theta vs the engine's daily; roll-suggester `hold_ev` carries a phantom entry commission. |
+| 10 | MED | ✓ | `engine/candidate_dossier.py:526` | Dossier soft-warns R7–R10 size every candidate as **1 contract** (put ranker doesn't emit `contracts`), understating multi-contract concentration. |
+| 11–24 | MED | mixed | data-layer / interface / perf | IV-rank PIT-vs-live window divergence, slash-share-class carry-q, several unauthenticated/fail-open API endpoints, path-traversal params, hot-path recompute. |
+| 25–43 | LOW | mixed | across | IV clamp/convergence quirks, ddof mix, sign bugs off the EV path, DoS/rate-limit gaps, doc/state drift, FRED key in logs, pickle load. |
+
+**Bottom line:** the ranking invariant is sound; the two most dangerous defects
+are in the **risk-metric (VaR gamma)** and **interface (CORS)** layers around it.
+Recommended first approvals: proposal #1 (gamma `/100`) and #2 (CORS) — both
+non-trio, both with drafted specs and tests.

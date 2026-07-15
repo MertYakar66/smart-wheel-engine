@@ -11,7 +11,7 @@ Three parallel streams feed the register:
 | Stream | Source | State |
 |---|---|---|
 | **A — Structural** | Computer 1 · `codebase-memory-mcp` graph + grep | **DONE** (`RESULT C1-001`, #493) |
-| **B — Runtime** | Computer 2 · execution / coverage / fuzz | PENDING (`COMMAND C2-001` open) |
+| **B — Runtime** | Computer 2 · execution / coverage / fuzz | **DONE** (`RESULT C2-001`, #493) |
 | **C — Breadth** | in-session multi-agent workflow · ~12 dimensions, 3-skeptic adversarial verify | RUNNING |
 
 Method: every finding is grep- or verify-confirmed; the consolidated severity
@@ -48,6 +48,21 @@ ranking is assembled once all three streams land.
    constructor receivers (`EVEngine().evaluate()`) unresolved; typed-local
    receivers (`reviewer.review(...)`) unresolved.)
 
+3. **Runtime confirms the engine is conservative, deterministic, and hardened
+   — with one cross-cutting theme: observability.** Stream B: engine coverage
+   **89%** (the authoritative `evaluate` path **96%**, every R1–R11
+   primary/downgrade branch test-covered); the 5-ticker A/A run is
+   **byte-identical across all 60 columns**; quant-primitive fuzzing found
+   **zero genuine defects** (every primitive fails loud on degenerate input or
+   propagates NaN by a test-pinned contract that R1a then catches). The
+   machine-checked §2 "no R-rule inverts severity" property — which the C2 host
+   could not run (`hypothesis` absent) — **was executed in-sandbox and PASSES
+   (79 property cases).** The only actionable runtime items are *observability*
+   (the ranker refuses via an empty frame with no per-ticker reason, so a
+   data-staleness/missing-earnings lockout is indistinguishable from a real
+   one — conservative, no bad-trade risk, but opaque) and *test-infra* (get
+   `hypothesis` onto the runtime host; one env-sensitive deep-read test).
+
 ---
 
 ## Stream A — Structural (Computer 1) — DONE
@@ -71,10 +86,38 @@ not of the engine — captured in Headline #2.
 
 ---
 
-## Stream B — Runtime (Computer 2) — PENDING
+## Stream B — Runtime (Computer 2) — DONE
 
-*(Awaiting `RESULT C2-001` on #493: decision-path coverage map, quant-primitive
-fuzz failures, engine stress-run NaN/warnings, determinism A/A.)*
+Ran on HEAD `e06e26a`, connector `MarketDataConnector`, provider `bloomberg`
+(logged — no silent switch). Suite: **3463 passed / 34 skipped / 1 failed**
+(minus 6 files: 2 need `hypothesis`, absent on that host; 4 slow data/e2e
+buckets), **engine total coverage 89%**. Read-only; nothing committed. Full
+detail: `RESULT C2-001` on #493.
+
+| # | Finding | File:line | Severity | Verdict |
+|---|---|---|---|---|
+| B1 | **Silent refusal opacity** — the ranker returns an empty frame with NO per-ticker reason, so a data-staleness / missing-forward-earnings fail-safe lockout is indistinguishable from a real event lockout (4 mega-caps refused at a near-frontier `as_of` because their earnings calendar ends Q1-2026 → `next_earnings=None`, refused with no warn/log) | `wheel_runner.rank_candidates_by_ev` return boundary; event gate | **MEDIUM** | conservative (fails toward not-trading; no bad-trade risk) but opaque |
+| B2 | §2 downgrade-lattice property test could not run on the C2 host (`hypothesis` absent) → the machine-checked "no R-rule inverts severity" invariant was unverified there. **RESOLVED in-sandbox: 79 property cases PASS** — invariant holds; residue is a host-env test-infra gap | `tests/test_dossier_downgrade_property.py`, `tests/test_properties.py` | LOW (was MED; host-env only) | verified elsewhere → PASS |
+| B3 | 1 failing test — `test_deep_read_connector::test_deep_on_without_slices_degrades_to_monolith`; data-state-dependent (deep slices present on host violate the "no slices" premise); theta/deep-read plumbing, **not** the decision layer | `tests/test_deep_read_connector.py` | MEDIUM (env-sensitive) | not a decision-path defect |
+| B4 | Silent refusals elsewhere — thin-history (<504d), missing-IV, bogus ticker all refuse with no warn/log (same opacity theme as B1) | ranker refusal paths | LOW | correct refusals, opaque |
+| B5 | `horizon_days=0` raises an incidental numpy "slice step cannot be zero" instead of a purpose-built "horizon ≥ 1" message; never occurs in prod (dte=35) | `forward_distribution.empirical_forward_log_returns` | LOW (cosmetic) | fail-loud but unpolished |
+
+**Reassuring (no defect):** the authoritative `evaluate` path is **96%** covered
+and every R1–R11 primary/downgrade branch has a covering test (only benign
+notes + defensive `except` handlers uncovered — none can flip a verdict); the
+A/A run is **byte-identical across all 60 columns**; quant-primitive fuzzing
+found **zero genuine defects** (fail-loud `ValueError` on degenerate
+HMM/pricing input, or the deliberate test-pinned NaN-propagation contract in
+the pricer that R1a catches downstream); coverage by module: `ev_engine` 96 /
+`candidate_dossier` 91 / `dealer_positioning` 90 / `wheel_tracker` 86 /
+`wheel_runner` 79 (the short-put path is exercised; the 79% gaps are the
+covered-call / strangle / roll / diagnostic branches).
+
+**Net for Stream B:** no correctness defect on the decision path; the engine is
+conservative and deterministic. The actionable items are **observability**
+(B1/B4 — refusals are opaque at the return boundary) and **test-infra** (B3, and
+getting `hypothesis` onto the runtime host — B2's invariant itself already
+passes here).
 
 ---
 

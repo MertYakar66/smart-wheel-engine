@@ -1103,8 +1103,7 @@ def get_current_risk_free_rate(
     """
     if rates_df is None or rates_df.empty:
         logger.warning(
-            "get_current_risk_free_rate: no rates data (empty/None frame); "
-            "returning fallback=%s",
+            "get_current_risk_free_rate: no rates data (empty/None frame); returning fallback=%s",
             fallback,
         )
         return fallback
@@ -1125,8 +1124,7 @@ def get_current_risk_free_rate(
     latest = rates_df[tenor].dropna()
     if latest.empty:
         logger.warning(
-            "get_current_risk_free_rate: tenor %r has no non-NaN values; "
-            "returning fallback=%s",
+            "get_current_risk_free_rate: tenor %r has no non-NaN values; returning fallback=%s",
             tenor,
             fallback,
         )

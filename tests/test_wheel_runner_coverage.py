@@ -84,6 +84,39 @@ class TestWheelRunnerConnector:
         monkeypatch.setenv("SWE_DATA_PROVIDER", "not-a-provider")
         assert type(WheelRunner(data_dir=tmp_path).connector).__name__ == "MarketDataConnector"
 
+    def test_connector_logs_resolved_provider_info(self, monkeypatch, tmp_path, caplog):
+        import logging
+
+        monkeypatch.delenv("SWE_DATA_PROVIDER", raising=False)
+        with caplog.at_level(logging.INFO, logger="engine.wheel_runner"):
+            _ = WheelRunner(data_dir=tmp_path).connector
+        infos = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.INFO and "resolved to" in r.getMessage()
+        ]
+        assert len(infos) == 1
+        assert "MarketDataConnector" in infos[0].getMessage()
+
+    def test_connector_warns_on_unrecognized_provider(self, monkeypatch, tmp_path, caplog):
+        import logging
+
+        monkeypatch.setenv("SWE_DATA_PROVIDER", "thetadata")
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            _ = WheelRunner(data_dir=tmp_path).connector
+        warns = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warns) == 1
+        msg = warns[0].getMessage()
+        assert "thetadata" in msg and "bloomberg" in msg.lower()
+
+    def test_connector_no_warn_on_default_provider(self, monkeypatch, tmp_path, caplog):
+        import logging
+
+        monkeypatch.delenv("SWE_DATA_PROVIDER", raising=False)
+        with caplog.at_level(logging.WARNING, logger="engine.wheel_runner"):
+            _ = WheelRunner(data_dir=tmp_path).connector
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
+
     def test_connector_is_cached(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SWE_DATA_PROVIDER", raising=False)
         runner = WheelRunner(data_dir=tmp_path)

@@ -896,15 +896,29 @@ class WheelRunner:
         if self._connector is None:
             import os
 
-            provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
+            provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").strip().lower()
             if provider == "theta":
                 from engine.theta_connector import ThetaConnector
 
                 self._connector = ThetaConnector(str(self.data_dir))
             else:
+                if provider not in ("", "bloomberg"):
+                    logger.warning(
+                        "SWE_DATA_PROVIDER=%r not recognized (expected one of "
+                        "{'theta', 'bloomberg'}); falling back to the Bloomberg "
+                        "MarketDataConnector.",
+                        provider,
+                    )
                 from engine.data_connector import MarketDataConnector
 
                 self._connector = MarketDataConnector(str(self.data_dir))
+            # Silent provider selection is a known recurring bug (CLAUDE.md §4):
+            # always record the resolved token + concrete connector class.
+            logger.info(
+                "SWE_DATA_PROVIDER=%r resolved to %s",
+                provider or "bloomberg",
+                type(self._connector).__name__,
+            )
         return self._connector
 
     @property

@@ -140,6 +140,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_strangle_ev_ranker.py` | `rank_strangles_by_ev` — two evaluate calls per candidate, additive EV composition, timing gate downgrade-only, never rescues |
 | `test_strangle_recommendation_gate.py` | S14 phase/confidence gate — downgrade-only `_apply_phase_gate` on both Layer-1 and IV paths |
 | `test_ranker_iv_pit.py` | S23 F3 — ranker uses PIT IV from `get_iv_history`, not snapshot fundamentals; symmetric on CC + strangle paths |
+| `test_ranker_dossier_contracts_seam.py` | `contracts` field emitted by the put ranker on `ev_row` and consumed by `EnginePhaseReviewer._build_candidate_dict` — the ranker→dossier seam carries real size, no `or 1` coercion |
 | `test_ranker_transparency.py` | Drop-reason `.attrs["drops"]`, `hmm_regime` label, `ev_raw` + `regime_multiplier` columns, GICS sector, zero-extra-evaluate invariant |
 | `test_explore_ticker.py` | `explore_ticker` delta×DTE grid sweep — shape, columns, sorting, drops |
 | `test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` — monotone, median match, pre-multiplier, NaN on small samples / lockout (#248) |

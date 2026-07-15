@@ -619,14 +619,8 @@ def _parse_param(name, raw, kind, default=None):
 # Origin when it is a localhost/loopback origin), plus an optional explicit
 # extra origin via ``SWE_API_CORS_ORIGIN``. Requests with no Origin header
 # (the proxy, curl, server-to-server) are unaffected.
-_LOCALHOST_ORIGIN_PREFIXES = (
-    "http://localhost",
-    "https://localhost",
-    "http://127.0.0.1",
-    "https://127.0.0.1",
-    "http://[::1]",
-    "https://[::1]",
-)
+_LOCALHOST_ORIGIN_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_LOCALHOST_ORIGIN_SCHEMES = frozenset({"http", "https"})
 
 
 def _resolve_cors_origin(request_origin, env=None):
@@ -643,8 +637,22 @@ def _resolve_cors_origin(request_origin, env=None):
     if not request_origin:
         return None
     origin = request_origin.strip()
-    if any(origin.startswith(p) for p in _LOCALHOST_ORIGIN_PREFIXES):
-        return origin
+    # Exact scheme+host match (not prefix). urlparse().hostname strips IPv6
+    # brackets and userinfo; we ALSO require the netloc to be exactly the
+    # loopback host (+ optional port), so spoofs whose hostname parses to a
+    # loopback but whose netloc carries a foreign suffix or userinfo
+    # (``localhost.evil.com``, ``127.0.0.1@evil.com``, ``[::1].evil.com``)
+    # are denied, while every real loopback origin (any port) still matches.
+    try:
+        parsed = urlparse(origin)
+        host = parsed.hostname
+        if host in _LOCALHOST_ORIGIN_HOSTS and parsed.scheme in _LOCALHOST_ORIGIN_SCHEMES:
+            hostpart = f"[{host}]" if ":" in host else host
+            expected = hostpart if parsed.port is None else f"{hostpart}:{parsed.port}"
+            if parsed.netloc.lower() == expected:
+                return origin
+    except ValueError:
+        pass
     source = os.environ if env is None else env
     configured = (source.get("SWE_API_CORS_ORIGIN", "") or "").strip()
     if configured and origin == configured:

@@ -163,6 +163,31 @@ def test_cors_allows_localhost_origins():
         assert engine_api._resolve_cors_origin(origin, env={}) == origin
 
 
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://localhost.evil.com",
+        "https://localhost.evil.com",
+        "http://127.0.0.1.evil.com",
+        "http://[::1].evil.com",
+        "http://127.0.0.1@evil.com",
+        "http://localhostx",
+        "file://localhost",
+        "null",
+    ],
+)
+def test_cors_denies_localhost_prefix_spoofs(origin):
+    # Boundary-less startswith() used to echo these as allowed origins.
+    assert engine_api._resolve_cors_origin(origin, env={}) is None
+
+
+def test_cors_allows_localhost_case_insensitive():
+    assert (
+        engine_api._resolve_cors_origin("HTTP://LOCALHOST:3000", env={})
+        == "HTTP://LOCALHOST:3000"
+    )
+
+
 def test_cors_denies_foreign_origin_by_default():
     assert engine_api._resolve_cors_origin("https://evil.example.com", env={}) is None
 

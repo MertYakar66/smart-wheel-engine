@@ -90,7 +90,11 @@ class TestWheelRunnerConnector:
         monkeypatch.delenv("SWE_DATA_PROVIDER", raising=False)
         with caplog.at_level(logging.INFO, logger="engine.wheel_runner"):
             _ = WheelRunner(data_dir=tmp_path).connector
-        infos = [r for r in caplog.records if r.levelno == logging.INFO and "resolved to" in r.getMessage()]
+        infos = [
+            r
+            for r in caplog.records
+            if r.levelno == logging.INFO and "resolved to" in r.getMessage()
+        ]
         assert len(infos) == 1
         assert "MarketDataConnector" in infos[0].getMessage()
 

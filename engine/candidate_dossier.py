@@ -602,13 +602,20 @@ class EnginePhaseReviewer:
             iv = float(ev_row.get("iv", 0) or 0)
         except (TypeError, ValueError):
             iv = 0.0
+        # Read the real contract count the ranker sized (audit #10). No
+        # ``or 1`` truthy-coercion: an explicit contracts=0 stays 0 (S42 #3);
+        # absent/None falls back to 1 so soft-warns never divide by zero.
+        try:
+            contracts = int(ev_row.get("contracts", 1))
+        except (TypeError, ValueError):
+            contracts = 1
         return {
             "symbol": dossier.ticker,
             "option_type": opt_type,
             "strike": strike,
             "dte": dte,
             "iv": iv,
-            "contracts": 1,
+            "contracts": contracts,
             "is_short": True,
         }
 

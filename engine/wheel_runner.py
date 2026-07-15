@@ -2347,6 +2347,7 @@ class WheelRunner:
                 "strike": strike,
                 "premium": round(premium, 3),
                 "dte": dte_target,
+                "contracts": contracts,
                 "iv": round(iv, 4),
                 "ev_dollars": round(res.ev_dollars, 2),
                 "ev_per_day": round(res.ev_per_day, 3),

@@ -3,33 +3,33 @@
 **Status: COMPLETE (2026-07-15).** All three streams folded; consolidated
 ranking + pre-registered proposals written. The audit itself was read-only.
 
-**Implementation status (2026-07-15):** the four non-trio, no-consent-flag SAFE
-fixes are implemented on isolated review branches off `origin/main` — each
-touching only its named files, trio untouched, tests green (re-verified
-in-sandbox), **not merged**, awaiting human merge decision (evidence: #493):
+**Implementation status (2026-07-15): ALL 10 proposals implemented on isolated
+review branches off `origin/main` — each touching only its named files, tests
+green (re-verified in-sandbox), NONE MERGED, awaiting human review (evidence: #493).**
 
-| Fix | Branch | Tests |
-|---|---|---|
-| #1 gamma-VaR 100× (HIGH) | `claude/fix-gamma-var-convexity` | 3 new + 197/19 regression ✓ |
-| #2 CORS (HIGH) | `claude/fix-cors-hostname-match` | 40 ✓ |
-| #6 risk-free NaN | `claude/fix-rates-fallback-nan` | 44 ✓ |
-| #7+#8 stress units | `claude/fix-stress-testing-units` | 35 ✓ |
-| #9 roll hold_ev | `claude/fix-roll-hold-ev-commission` | 32 ✓ |
+| # | Fix | Branch | Trio | Tests |
+|---|---|---|---|---|
+| 1 | gamma-VaR 100× (HIGH) | `claude/fix-gamma-var-convexity` | — | 3 new + 197/19 ✓ |
+| 2 | CORS (HIGH) | `claude/fix-cors-hostname-match` | — | 40 ✓ |
+| 3 | activate dead R6 | `claude/fix-activate-r6-dealer` | ✓ | 162 ✓ |
+| 4 | CC/strangle carry-q PIT | `claude/fix-cc-strangle-carry-q-pit` | ✓ | 97 ✓ |
+| 5 | provider-selection log | `claude/fix-provider-selection-log` | ✓ | 73 ✓ |
+| 6 | risk-free NaN | `claude/fix-rates-fallback-nan` | — | 44 ✓ |
+| 7+8 | stress units | `claude/fix-stress-testing-units` | — | 35 ✓ |
+| 9 | roll hold_ev | `claude/fix-roll-hold-ev-commission` | — | 32 ✓ |
+| 10 | emit/read contracts | `claude/fix-contracts-emit-seam` | ✓ | 100 ✓ |
 
-**Both HIGH findings are now on review branches (not merged).** #1 (gamma) is
-non-trio (`risk_manager.py`), Option A; one embedded **risk-policy value to
-confirm** — `max_portfolio_gamma_dollars` rescaled 50k→5M to preserve the
-`check_risk_limits` gate semantics (you may want a different threshold now that
-$-gamma is measured correctly). The §2 invariant is preserved (R7 stays
-downgrade-only). Out-of-scope follow-up flagged: `engine/stress_testing.py`'s R8
-path may share the same gamma-convention bug — its own audit.
+**Both HIGH findings on branches.** #1 (gamma, non-trio) carries one **risk-policy
+value to confirm** — `max_portfolio_gamma_dollars` rescaled 50k→5M to preserve
+the `check_risk_limits` gate; you may want a different threshold now that
+$-gamma is measured correctly. Out-of-scope follow-up flagged:
+`engine/stress_testing.py`'s R8 path may share the gamma-convention bug.
 
-The remaining HELD proposals are all **trio-touching** (edit the CI-gated
-decision layer), awaiting explicit per-item consent: **#3** R6-dead
-(`candidate_dossier.py`), **#4** carry-q (`wheel_runner.py`), **#5** provider-log
-(`wheel_runner.py`), **#10** contracts-emit (`wheel_runner.py`). Nothing applied.
-The decision-layer trio (`engine/ev_engine.py`, `engine/wheel_runner.py`,
-`engine/candidate_dossier.py`) is never edited by this audit. Coordination hub:
+**Trio branches (#3/#4/#5/#10) were implemented under explicit operator consent,
+one at a time, each full-suite verified; the §2 invariant is preserved
+throughout (R6 stays downgrade-only — its property test is green).** At MERGE
+time each trio PR will need the CI Decision-Layer Lane Claim block. CLAUDE.md
+was not edited (its §2 already presents R6 as live). Coordination hub:
 **issue #493**. Fixes are a separate, governed, consented step — this document
 is a findings register; ready-to-approve proposals are drafted separately.
 

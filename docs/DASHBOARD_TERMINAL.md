@@ -56,7 +56,19 @@ snapshot `as_of`.
 **`$DATA` contents:**
 - `portfolio_snapshot.json` — live NAV / cash / margin / positions / marks / FX (the **snapshot**).
 - `wheel_ledger.json` — closed wheel cycles → **Realized P&L / Premium / Win-Rate**.
-- `portfolio_history.json` — monthly equity curve + a live daily tail → **Total Return**.
+- `portfolio_history.json` — the Portfolio Value curve (`points[].port` = real
+  NAV) → **Total Return**. **Deposit-aware:** a live account takes deposits, so
+  raw NAV deltas overstate performance (~+$37k net deposits made a fake +44.6%
+  vs the true +3.4% TWR). Source it from **IBKR PortfolioAnalyst** — month-end
+  net-liq NAV = `long_total + short_total` from `get_pa_allocation(ASSET_CLASS,
+  date=…)` (cross-validates to the `get_pa_performance_all_periods` `nav`
+  series), plus a top-level `portfolio_measure:"TWR"` + `twr_returns` block
+  (per-window TWR `pct` + `start_nav`) taken verbatim from PA. The adapter
+  (`returns_view`) then reports **time-weighted** returns, not NAV deltas;
+  `equity_view` nulls the raw-NAV Sharpe/Sortino/MaxDD (deposit-distorted) and
+  the `spy` benchmark until a real pull lands (never fabricated). Legacy
+  no-TWR histories keep the old NAV-delta path. See `docs/DASHBOARD_TRADES.md`
+  for the sibling Trades pipeline.
 - `flex_credentials.json` — Flex token + query id (**gitignored secret**, §3.3).
 - `_backup/` — timestamped backups. **Always back up before overwriting.**
 

@@ -211,6 +211,7 @@ export function EquityCurve({
                 fill="url(#pfFill)"
                 dot={false}
                 activeDot={{ r: 3, fill: ACCENT }}
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
@@ -219,6 +220,7 @@ export function EquityCurve({
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
                 dot={false}
+                isAnimationActive={false}
               />
             </AreaChart>
           ) : tab === "premium" ? (
@@ -243,7 +245,7 @@ export function EquityCurve({
                 formatter={(v) => [fmtUsd(Number(v)), "Premium"]}
                 cursor={{ fill: "rgba(255,255,255,0.04)" }}
               />
-              <Bar dataKey="premium" fill={ACCENT} radius={[3, 3, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="premium" fill={ACCENT} radius={[3, 3, 0, 0]} maxBarSize={26} isAnimationActive={false} />
             </BarChart>
           ) : (
             <AreaChart data={data} margin={{ top: 6, right: 12, left: 4, bottom: 0 }}>
@@ -282,6 +284,7 @@ export function EquityCurve({
                 fill="url(#pfDdFill)"
                 dot={false}
                 activeDot={{ r: 3, fill: LOSS }}
+                isAnimationActive={false}
               />
             </AreaChart>
           )}

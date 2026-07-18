@@ -1390,7 +1390,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         from engine import ibkr_portfolio_adapter as adapter
 
-        known = {"summary", "positions", "returns", "income", "risk", "history"}
+        known = {"summary", "positions", "returns", "income", "risk", "history", "trades"}
         if sub not in known:
             self._send_error(f"Unknown portfolio view: {sub!r}", 404)
             return
@@ -1424,6 +1424,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif sub == "risk":
                 payload = adapter.risk_view(snapshot)
                 source = adapter.provenance(snapshot)
+            elif sub == "trades":
+                # Normalized IBKR Flex trade history (buys/sells/expiries/
+                # assignments) + per-ticker realized-P&L aggregates. Reuses the
+                # snapshot's fx_rates for USD-equivalent totals. Observational.
+                trades_doc = adapter.load_trades()
+                payload = adapter.trades_view(trades_doc, fx_rates=snapshot.get("fx_rates"))
+                source = adapter.provenance(trades_doc)
             else:  # history
                 history = adapter.load_history()
                 payload = adapter.equity_view(history)

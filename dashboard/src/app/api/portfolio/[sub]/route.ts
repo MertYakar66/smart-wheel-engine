@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
  * (design D26). Mirrors the /api/engine proxy pattern: forwards to the
  * Python engine on :8787 and never caches.
  *
- * GET /api/portfolio/{summary|positions|returns|income|risk|history}
+ * GET /api/portfolio/{summary|positions|returns|income|risk|history|trades}
  *   → ENGINE_API/api/portfolio/<sub>
  *
  * Read-only + observational: the engine endpoints behind this report the
@@ -21,6 +21,7 @@ const ALLOWED = new Set([
   "income",
   "risk",
   "history",
+  "trades",
 ]);
 
 export async function GET(

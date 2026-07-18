@@ -17,6 +17,7 @@ import { IncomePanel } from "@/components/portfolio/income-panel";
 import { KpiCards } from "@/components/portfolio/kpi-cards";
 import { MarginPanel } from "@/components/portfolio/margin-panel";
 import { RiskRadar } from "@/components/portfolio/risk-radar";
+import { TradesPanel } from "@/components/portfolio/trades-panel";
 import { usePortfolioData } from "@/components/portfolio/use-portfolio-data";
 import { WheelhouseHeader } from "@/components/shell/wheelhouse-header";
 import { fmtUsd } from "@/lib/cockpit-trust";
@@ -37,6 +38,7 @@ const SECTIONS = [
   { label: "Income", id: "pf-income" },
   { label: "Holdings", id: "pf-holdings" },
   { label: "Risk", id: "pf-risk" },
+  { label: "Trades", id: "pf-trades" },
   { label: "Ask", id: "pf-ask" },
 ] as const;
 
@@ -209,6 +211,12 @@ export default function PortfolioPage() {
             />
           </div>
         </div>
+
+        {/* Full trade history (Flex-sourced) — click a ticker to see its
+            per-asset-class realized P&L incl. expiries & assignments */}
+        <section id="pf-trades" className="scroll-mt-28">
+          <TradesPanel />
+        </section>
 
         <section id="pf-ask" className="scroll-mt-28">
           <AskBar />

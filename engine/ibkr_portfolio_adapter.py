@@ -616,6 +616,28 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
     when the source can't derive them (the UI renders "—", never +0.00%).
     All-time anchors to ``inception_capital`` (§6.4 snapshot-delta method).
     """
+    # Deposit-aware path (D-… live IBKR history): when the history carries a
+    # TIME-WEIGHTED return block (`twr_returns`, from PortfolioAnalyst), use it
+    # verbatim. Raw NAV deltas count deposits/withdrawals as performance — on
+    # this account ~+$37k net deposits turn the true +3.4% TWR into a fake
+    # +44.6% NAV return. `usd` is the TWR applied to the window's opening
+    # capital (performance dollars, decoupled from cash flows). Windows the
+    # source doesn't provide (e.g. 3M) come back null → the UI renders "—".
+    twr = history.get("twr_returns")
+    if twr:
+
+        def _twr_window(key: str) -> dict:
+            e = twr.get(key)
+            if not e or e.get("pct") is None:
+                return {"pct": None, "usd": None}
+            pct = float(e["pct"])
+            sn = e.get("start_nav")
+            return {"pct": pct, "usd": round(pct * float(sn)) if sn else None}
+
+        return {
+            "returns": {p: _twr_window(p) for p in ("1D", "1W", "1M", "3M", "YTD", "1Y", "All")}
+        }
+
     points = history["points"]
     dates = [date.fromisoformat(p["date"]) for p in points]
     ports = [float(p["port"]) for p in points]
@@ -708,21 +730,32 @@ def equity_view(history: dict) -> dict:
             "m": p["label"],
             "date": p.get("date"),
             "port": round(float(p["port"])),
-            "spy": round(float(p["spy"])),
+            # spy is null until a real benchmark pull lands (never fabricated) —
+            # the chart renders a gap rather than a copied line.
+            "spy": round(float(p["spy"])) if p.get("spy") is not None else None,
             "premium": _premium(p, i),
         }
         for i, p in enumerate(points)
     ]
 
-    eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
-    rets = eq_df["portfolio_value"].pct_change().dropna()
-    max_dd, dd_days = calculate_max_drawdown(eq_df)
-    stats = {
-        "sharpe": _finite(calculate_sharpe_ratio(rets, periods_per_year=12)),
-        "sortino": _finite(calculate_sortino_ratio(rets, periods_per_year=12)),
-        "maxDrawdown": _finite(max_dd),
-        "maxDrawdownPeriods": int(dd_days),
-    }
+    # Sharpe / Sortino / max-drawdown off the raw ``port`` (NAV) series are only
+    # valid with NO external cash flows: a deposit reads as a huge "return" spike
+    # and a withdrawal masks a drawdown. A TWR history (deposit-bearing live
+    # account) therefore emits null stats — the strip hides rather than present a
+    # deposit-distorted Sharpe. (A clean daily TWR-return series would let these
+    # be computed honestly; the monthly NAV curve cannot.)
+    if history.get("portfolio_measure") == "TWR":
+        stats = None
+    else:
+        eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
+        rets = eq_df["portfolio_value"].pct_change().dropna()
+        max_dd, dd_days = calculate_max_drawdown(eq_df)
+        stats = {
+            "sharpe": _finite(calculate_sharpe_ratio(rets, periods_per_year=12)),
+            "sortino": _finite(calculate_sortino_ratio(rets, periods_per_year=12)),
+            "maxDrawdown": _finite(max_dd),
+            "maxDrawdownPeriods": int(dd_days),
+        }
     return {"equity": equity, "stats": stats}
 
 

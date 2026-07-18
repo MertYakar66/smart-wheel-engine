@@ -68,8 +68,24 @@ Top level: `source` (`ibkr_flex`), `generated_at`, `coverage`
 ## 4. P&L semantics (read this before trusting a number)
 
 - **Realized, not mark-to-market.** `realized_pnl` is IBKR's FIFO realized P&L on
-  each closing execution (including expiries/assignments). Summed per ticker per
-  asset class = realized gain/loss over the covered period.
+  each closing execution. Summed per ticker per asset class = realized gain/loss
+  over the covered period. Unrealized P&L on still-open positions is **not** here
+  (it's on the KPI cards / Holdings).
+- **Net of commissions.** Verified: a short put opened for +$145.00 with −$1.50
+  commission expires with `fifoPnlRealized = +$143.50`. The realized figure is the
+  true bottom line, commissions included — do not subtract them again.
+- **Basis is true, not window-truncated.** For a position opened *before* the
+  365-day window and closed inside it, `fifoPnlRealized` uses the real historical
+  cost basis (IBKR knows the full history), so the realized P&L is correct even
+  though the opening trade isn't in the export.
+- **Assignment attribution (important).** An *assigned* option realizes `$0` on
+  the option row — IBKR folds its premium into the **stock** cost basis (puts) /
+  proceeds (calls). So per-ticker **Options P&L captures expired/closed-option
+  premium only; assigned-option premium lands in Stock P&L.** The per-ticker
+  *total* is correct; only the option-vs-stock split follows this broker
+  convention. (For a wheel whose puts get assigned, "options income" is therefore
+  split across both columns — e.g. CLS's assigned-put premium sits inside its
+  Stock figure.)
 - **Currency.** Realized P&L is native; the per-ticker cards and totals report a
   **USD-equivalent** using the live snapshot's FX (`fx_rates`). This applies the
   *current* rate to historical P&L — an approximation the tab labels, not a claim

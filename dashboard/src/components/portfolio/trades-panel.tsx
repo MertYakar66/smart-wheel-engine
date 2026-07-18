@@ -261,9 +261,13 @@ export function TradesPanel() {
                     value={fmtUsd(selected.premium_collected)}
                   />
                 </div>
-                <p className="mt-2 text-[10px] text-terminal-dim">
-                  {selected.opt_count} option · {selected.stk_count} stock trades. Options P&L
-                  includes expiries &amp; assignments (premium kept at expiry counts).
+                <p className="mt-2 text-[10px] leading-snug text-terminal-dim">
+                  Realized only, net of commissions ({selected.opt_count} option ·{" "}
+                  {selected.stk_count} stock trades). Expired-worthless premium counts under
+                  Options; premium from <span className="text-terminal-text">assigned</span>{" "}
+                  options is booked into stock cost basis by IBKR, so it falls under Stock (the
+                  total is unaffected). Unrealized P&L on still-open shares is separate — see
+                  Holdings.
                 </p>
               </div>
             )}
@@ -393,9 +397,13 @@ export function TradesPanel() {
               </table>
             </div>
             <p className="mt-2 text-[10px] leading-snug text-terminal-dim">
-              Realized column is each trade&apos;s FIFO P&L in its native currency; the summary
-              cards above convert to USD-equivalent (current FX) so cross-currency totals sum.
-              Includes expiries (kept premium) &amp; assignments — the accurate options view.
+              Realized column is each trade&apos;s FIFO P&L, <span className="text-terminal-text">net
+              of commissions</span>, in its native currency; the cards convert to USD-equivalent
+              (current FX) so cross-currency totals sum. <span className="text-terminal-text">Realized
+              only</span> — unrealized P&L on open positions is in Holdings. Expiries keep their
+              premium under Options; <span className="text-terminal-text">assigned</span>-option
+              premium is booked to stock cost basis by IBKR (FIFO), so a wheel&apos;s assigned-put
+              premium appears under Stock, not Options (per-ticker total is unaffected).
             </p>
           </>
         )}

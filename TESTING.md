@@ -229,6 +229,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_ibkr_import.py` | PortfolioAnalyst PDF importer — OCC parsing, p6 positions, FX derivation, null-safety |
 | `test_ibkr_flex_ledger.py` | Phase-4 exact-fill ledger — long/short stock round-trips, ACAT seed, dedup, FX builder |
 | `test_ibkr_live_snapshot.py` | Live-connector snapshot builder — contract-description parsing, FX normalization, `schema_version: 1` |
+| `test_ibkr_trades.py` | Trades-tab data path — Flex-XML ingest (identical-fill occurrence ordinal, option-field/underlying normalization, expiry P&L, merge idempotency) + `trades_view` currency-correct per-ticker aggregation |
 | `test_ibkr_gateway_pull.py` | Headless IB Gateway puller — description synthesis, shared-parser round-trip losslessness |
 | `test_ibkr_ev_calibration.py` | Phase-3 calibration stats — Wilson CI / Brier / ECE math + universe loader |
 

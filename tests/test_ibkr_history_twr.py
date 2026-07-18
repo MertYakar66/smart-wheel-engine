@@ -33,8 +33,20 @@ _LEGACY_HISTORY = {
     "schema_version": 1,
     "inception_capital": 100000.0,
     "points": [
-        {"label": "Jan", "date": "2026-01-31", "port": 100000.0, "spy": 100000.0, "premium": 1000.0},
-        {"label": "Jul", "date": "2026-07-17", "port": 110000.0, "spy": 105000.0, "premium": 1200.0},
+        {
+            "label": "Jan",
+            "date": "2026-01-31",
+            "port": 100000.0,
+            "spy": 100000.0,
+            "premium": 1000.0,
+        },
+        {
+            "label": "Jul",
+            "date": "2026-07-17",
+            "port": 110000.0,
+            "spy": 105000.0,
+            "premium": 1200.0,
+        },
     ],
 }
 

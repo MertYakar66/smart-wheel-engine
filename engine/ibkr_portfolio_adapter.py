@@ -625,6 +625,7 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
     # source doesn't provide (e.g. 3M) come back null → the UI renders "—".
     twr = history.get("twr_returns")
     if twr:
+
         def _twr_window(key: str) -> dict:
             e = twr.get(key)
             if not e or e.get("pct") is None:
@@ -634,10 +635,7 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
             return {"pct": pct, "usd": round(pct * float(sn)) if sn else None}
 
         return {
-            "returns": {
-                p: _twr_window(p)
-                for p in ("1D", "1W", "1M", "3M", "YTD", "1Y", "All")
-            }
+            "returns": {p: _twr_window(p) for p in ("1D", "1W", "1M", "3M", "YTD", "1Y", "All")}
         }
 
     points = history["points"]

@@ -12,7 +12,6 @@ read as current reference. Subdirectories are named by archive date
 |---|---|---|
 | `2026-05/OptionsEngine.txt` | repo root | A narrative end-to-end usage walkthrough. It is a point-in-time document, not maintained; a paired accuracy audit of it is preserved at `archive/2026-05/optionsengine_audit_2026-05-17.md`. Archived rather than kept at the orientation root. |
 | `2026-05/ARCHITECTURE.md` | `docs/` | Describes a planned `src/`-based module layout (`src/data`, `src/models`, `src/execution`, …) that does not match the actual repository tree. Superseded as the architecture reference by `MODULE_INDEX.md`. |
-| `2026-05/DATA_COLLECTION_REPORT.md` | `docs/` | A dated data-collection phase report (2026-03-22) describing the collection effort as in progress. The phase is complete; the report is no longer current. |
 | `2026-05/bloomberg_excel_extractor.bas` | `scripts/` | V1 of the Bloomberg Excel VBA extractor. V2 explicitly self-describes as a "FIXED VERSION with longer wait times"; `docs/bloomberg_refresh_runbook.md` is the live path. |
 | `2026-05/download_ohlcv.py` | `scripts/` | An early yfinance OHLCV downloader. Superseded by `scripts/download_yf_ohlcv.py`, which adds multi-index header cleanup. |
 
@@ -41,7 +40,6 @@ engine SHA they were captured against.
 | `2026-05/SESSION_REPORT_2026-05-26.md` | `docs/` | Machine-readable session ledger for the 2026-05-26 deployment-readiness campaign. Superseded by `docs/VERIFICATION_INDEX_2026-05-28.md` as the campaign-level reference. |
 | `2026-05/ENGINE_REALISM_VERIFICATION_2026-05-26.md` | `docs/` | 2026-05-26 realism + reliability battery against `origin/main` @ 9f0afaf. Pre-#260 / pre-#262 engine snapshot; superseded on the live surface by `docs/REALISM_VERIFICATION_2026-05-28.md` (post-F4 + R9 + R10). |
 | `2026-05/optionsengine_audit_2026-05-17.md` | `docs/` | Accuracy audit of the (also-archived) `OptionsEngine.txt` walkthrough. Point-in-time, paired with `2026-05/OptionsEngine.txt`. |
-| `2026-05/data_inventory_2026-05-17.md` | `docs/` | Point-in-time data-inventory analysis report. |
 
 ## 2026-06 — D27 repo restructure (docs/ pass)
 
@@ -49,7 +47,6 @@ engine SHA they were captured against.
 |---|---|---|
 | `2026-06/SESSION_HANDOFF.md` | `docs/` | Point-in-time session handoff (2026-05-18) carrying its own SUPERSEDED banner since 2026-05-22; every claim it makes is now owned by `PROJECT_STATE.md` / `DECISIONS.md` / `docs/TRADINGVIEW_MCP_INTEGRATION.md`. Unique residue (the 13-script `sys.stdout` reassignment anti-pattern list) preserved here. |
 | `2026-06/Claude_Prompting_Master_Guide.md` | `docs/` | Generic Claude prompt-engineering reference with zero inbound references; not about this repository. Repo-specific agent conventions live in `CLAUDE.md` / `AGENTS.md`. |
-| `2026-06/DATA_SPECIFICATION.md` | `docs/` | Aspirational partitioned-Parquet data-layer design (2026-03-19) that self-declares it does not match on-disk reality. The current authorities are `docs/DATA_POLICY.md` (procedures + tiers) and `docs/DATA_INVENTORY.md` (verified census). |
 | `2026-06/pull.bat` | repo root | Windows double-click launcher (stash → pull `origin/main` → restore). Zero code or doc references; the operator confirmed it is not part of the live workflow (agent sessions + the documented Python entry points are). |
 | `2026-06/pull_branch.bat` | repo root | Windows double-click launcher for checking out a feature branch (edit-in-file branch name; its default pointed at a long-dead branch). Same non-use rationale as `pull.bat`. |
 | `2026-06/fetch_data.bat` | repo root | Windows double-click launcher wrapping `theta_health_check` + `theta_backfill`. The documented Theta workflow (`docs/THETA_INSTRUCTIONS.md`) invokes the Python scripts directly. |

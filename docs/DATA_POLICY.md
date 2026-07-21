@@ -6,9 +6,9 @@ ignored, what is regenerable, and what must never leave the laptop.
 
 This file is the operational counterpart to the data-layer entry
 in `CLAUDE.md`. For the verified per-file census of what is actually
-on disk, see `DATA_INVENTORY.md`. (The old partitioned-Parquet schema
-design was aspirational, never matched on-disk reality, and is
-archived at `archive/2026-06/DATA_SPECIFICATION.md`.) The full
+on disk, see `DATA_INVENTORY.md`. (An earlier partitioned-Parquet
+schema design was aspirational and never matched on-disk reality; it
+has since been removed.) The full
 provider capability matrix lives in §2 below.
 
 ---

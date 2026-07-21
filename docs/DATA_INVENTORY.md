@@ -1,35 +1,59 @@
-# DATA INVENTORY — every dataset we hold (Bloomberg + Theta + derived + staged)
+# DATA INVENTORY — what data the engine uses, where it lives, how to fetch it
 
-_Title (type) · date range · counts for every dataset. **Regenerated 2026-06-22.**_
+_The single source of truth for the data layer. **§A–§C below are the current
+location/fetch map (updated 2026-07-21 for the Google Drive migration).** §0–§7
+that follow are the detailed dataset census (schemas, row/date counts) — as-of
+`2026-06-22`; the daily frontier has since advanced to **2026-07-02**, and
+per-file size/sha256 now live in the machine manifest. Trust the manifest for
+exact bytes, this census for structure/coverage._
 
-**How this was verified (2026-06-22).** The committed Bloomberg monoliths (§1) were
-read with `scripts/inventory_data.py`'s streaming reader against the **`origin/main`**
-bytes (CSV date columns, byte-true row/ticker counts). The gitignored deep archive (§2)
-and the Theta corpus (§3) were read from the **local desktop** parquet/gz (local-only,
-as-of 2026-06-22). The staged broad-pull data (§6) was byte-scanned on branch
-`claude/bloomberg-broad-pull-2026-06-17`. Numbers below are from the actual bytes, not
-from docs.
+> **Companion machine file:** [`data/data_manifest.json`](../data/data_manifest.json)
+> — exhaustive, machine-readable (every file → path · size · sha256 · Drive folder ·
+> engine role). Read by `scripts/fetch_data.py` and by agents. Regenerate with
+> `python scripts/gen_data_manifest.py` after any data change.
 
-> **⚠️ Trust note — the prior inventory was stale, and a naïve rescan reproduces the
-> staleness.** `scripts/inventory_data.py` has a hardcoded `ROOT` pointing at the local
-> desktop checkout. That checkout currently sits on branch
-> **`claude/weakness-review-fixes`**, whose `data/bloomberg/` is an **older snapshot**
-> (OHLCV → 2026-03-20, treasury 2021-05+, corporate-actions empty). Running the script
-> there **reproduces the old numbers** — the trap the previous version of this doc fell
-> into. The byte-true monolith census in §1 is therefore taken from **`origin/main`**
-> (blob-verified to differ from the local branch on `sp500_ohlcv`, `sp500_vol_iv_full`,
-> `treasury_yields`, `sp500_corporate_actions`, …); the broad-pull branch descends from
-> the same `origin/main`. **To rescan correctly, point `ROOT` at an `origin/main`
-> checkout, not the working branch.**
+## §A. Status — data lives on Google Drive, not in git
 
-**Provider note.** Bloomberg prices are **split-adjusted**; Theta prices are **raw**. Never mix them.
+The Bloomberg data (~535 MB, 48 files) is **being removed from GitHub** and kept
+on Google Drive. A **byte-identical copy of every git-tracked file is already on
+Drive** (verified 2026-07-21 at sha256 level — git == Drive). Migration is
+**phased**: *stop-tracking* first (`.gitignore` + `git rm --cached`, no history
+rewrite), optional history purge later. The engine reads the files from
+`data/bloomberg/` on local disk, so **a fresh checkout must fetch them first.**
 
-**Where each lives / what is on GitHub:**
-- `data/bloomberg/*.csv` — committed to the repo (`main`). §1.
-- `data/bloomberg/deep/` — **gitignored**, ~365 MB; restore from `origin/deep-history/bloomberg-raw`. §2.
-- `data_processed/` (all Theta + derived parquet) — **gitignored**, local-only (~several GB). §3–§4.
-- `staging/` — committed **on branch `claude/bloomberg-broad-pull-2026-06-17` only** (held, not on `main`). §6.
-- This inventory document **is** committed to GitHub.
+## §B. Get the data (30 seconds)
+
+```bash
+python scripts/fetch_data.py --check        # verify local vs manifest (no Drive, no network)
+python scripts/fetch_data.py --served-only  # the 10 _FILES the live engine needs
+python scripts/fetch_data.py                # all git-tracked data (served + broad_pull)
+python scripts/fetch_data.py --include-deep  # + the 1994-2018 / delisted archive
+```
+Drive read access = a service account (`GOOGLE_APPLICATION_CREDENTIALS`; share the
+folder with its email) **or** an OAuth token at `~/.config/swe/drive_token.json`
+(`pip install google-api-python-client google-auth`). `--check` needs neither.
+
+## §C. Where each dataset lives now
+
+| Tier | What | Location | In git? |
+|---|---|---|---|
+| **A — served** | 10 `_FILES` (`ohlcv, vol_iv, dividends, earnings, treasury, vix, fundamentals, credit_risk, liquidity, corporate_actions`) + `broad_pull/` panels | [Drive `data/bloomberg` mirror](https://drive.google.com/drive/folders/1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh) (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`) | being removed (phased) |
+| **B — deep** | 1994→2018 + `__delisted` survivorship (opt-in `deep_history`) | Drive `data/bloomberg/deep/` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`) | already gitignored |
+| **C — local-only** | Theta corpus (`data_processed/theta/`, ~390M rows), `vol_indices.parquet`, feature store | operator's machine ONLY — **not on the Drive mirror** | gitignored |
+
+> ⚠️ **Tier C is the real risk.** The Theta option corpus is gitignored *and* not in
+> the Drive mirror — it exists only locally and **cannot be re-pulled at a Bloomberg
+> terminal** (Theta-only). Back it up separately. Provider note: Bloomberg prices are
+> **split-adjusted**, Theta prices **raw** — never mix.
+
+The Drive subfolder ids (for `fetch_data.py`) are in the manifest's `drive_folders`.
+To refresh the data itself at a terminal, follow
+[`BLOOMBERG_TERMINAL_NEXT_SESSION.md`](BLOOMBERG_TERMINAL_NEXT_SESSION.md).
+
+---
+
+_The sections below (§0–§7) are the detailed census as-of 2026-06-22 — retained for
+structure/coverage/schemas. Exact current size + sha256 per file: see the manifest._
 
 ---
 

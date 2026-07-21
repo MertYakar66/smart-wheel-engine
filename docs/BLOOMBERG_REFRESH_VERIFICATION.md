@@ -42,19 +42,27 @@ PASS iff, in `_FILES`: `sp500_ohlcv`, `sp500_vol_iv_full`, `vix_term_structure`,
 `sp500_sector_etfs`, `sp500_short_interest`, `sp500_vol_dvd` are **absent**
 (labeled No). Flag any file whose label disagrees with `_FILES`.
 
-**C2 — The stale-end-date trap.** Runbook §Priority-1 says the pullers ship
-`end_date="2026-06-04"` hardcoded (ohlcv, vol_iv) and `"2026-03-20"`
-(historical_fundamentals), and that they are forward-gap-aware so a bare run
-appends nothing past the on-disk frontier unless `SWE_PULL_END` is set.
+**C2 — The stale-end-date trap AND the `SWE_PULL_MODE=both` backfill trap.**
+Runbook §Priority-1 says the `_bbg_panel` pullers ship `end_date="2026-06-04"`
+hardcoded, that you must set `SWE_PULL_END`, AND that a routine append **must** set
+`SWE_PULL_MODE=forward` because the default `mode=both` also backfills the backward
+gap to the 1994 floor.
 ```bash
 grep -n 'end_date' scripts/pull_ohlcv.py scripts/pull_vol_iv.py scripts/pull_historical_fundamentals.py
-grep -n 'SWE_PULL_END\|SWE_PULL_START' scripts/pull_ohlcv.py scripts/pull_vol_iv.py
-grep -n 'max\|existing\|last.*date\|>.*date' scripts/pull_ohlcv.py | head
+grep -n 'SWE_PULL_MODE\|SWE_PULL_END\|floor\|forward\|backfill\|both' scripts/_bbg_panel.py
+# and confirm the runbook actually sets the override:
+grep -n 'SWE_PULL_MODE=forward' docs/BLOOMBERG_TERMINAL_NEXT_SESSION.md
 ```
-PASS iff `pull_ohlcv.py` and `pull_vol_iv.py` carry `end_date="2026-06-04"` at (or
-near) the stated lines 67 / 53, `pull_historical_fundamentals.py` carries
-`"2026-03-20"` near line 29, AND the two monolith scripts read `SWE_PULL_END` and
-only pull the forward gap.
+PASS iff: (a) `pull_ohlcv.py:67` / `pull_vol_iv.py:53` carry `end_date="2026-06-04"`
+and `pull_historical_fundamentals.py:29` carries `"2026-03-20"`; (b)
+`_bbg_panel.py` defaults `SWE_PULL_MODE` to `both` and `plan_windows` emits a
+backward window to the 1994 floor when mode is `both`/`backfill`; **and (c) every
+runbook command for a `_bbg_panel` script (ohlcv, vol_iv, liquidity, macro,
+iv_surface) sets `SWE_PULL_MODE=forward`.** FAIL if any such command omits the
+`forward` override or the runbook still claims a bare/`SWE_PULL_END`-only run
+"appends nothing" (it would backfill 1994→2018). _(This was the DISCREPANCY the
+2026-07-21 audit found and the runbook was corrected for — re-confirm it stayed
+fixed.)_
 
 **C3 — Field mnemonics match what each script requests.**
 ```bash

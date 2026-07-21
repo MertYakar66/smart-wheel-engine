@@ -22,7 +22,22 @@ it** everywhere it appears. For the exhaustive field-level checklist see
 **Worked example run date (`PULL_DATE`):** `2026-07-21`. Replace with the day you actually run it, everywhere it appears.
 **Served connector:** `MarketDataConnector` (`engine/data_connector.py`), the only reader on the EV path. `bloomberg_loader.py` / `ConsolidatedBloombergLoader` are NOT served — ignore them.
 
-> **The one trap that ruins a refresh:** the panel pullers ship with `end_date="2026-06-04"` hardcoded, but the CSVs on disk already reach **2026-07-02**. The scripts are forward-gap-aware (they only pull `[existing_max+1 → END]`), so **a bare run with the stale hardcoded end appends nothing**. You MUST set `SWE_PULL_END=2026-07-21` (or edit the line) or the frontier will not move.
+> **Two traps that ruin a refresh** (both hit the `_bbg_panel`-based pullers:
+> `pull_ohlcv`, `pull_vol_iv`, `pull_liquidity`, `pull_macro`, `pull_iv_surface`):
+>
+> 1. **Stale end date → forward frontier won't move.** They ship
+>    `end_date="2026-06-04"` hardcoded while the CSVs already reach **2026-07-02**,
+>    so you MUST set `SWE_PULL_END=<run date>` (or edit the line) or the forward
+>    frontier stays put.
+> 2. **⚠ Default `SWE_PULL_MODE=both` backfills 1994→2018 into the LIVE monolith.**
+>    These scripts default to `mode=both` (`scripts/_bbg_panel.py:177`), which pulls
+>    the forward gap **and** a *backward* gap down to the 1994 floor. The live
+>    monoliths start 2018, so a bare run — or a `SWE_PULL_END`-only run — will
+>    silently begin a **24-year deep-history backfill** into `sp500_ohlcv.csv` /
+>    `sp500_vol_iv_full.csv`, contradicting §6 (do **NOT** acquire deep history) and
+>    §7's 2018-start rule. **For a routine frontier bump, always set
+>    `SWE_PULL_MODE=forward`.** Use `both`/`backfill` only when you *deliberately*
+>    want deep history.
 
 ---
 
@@ -32,8 +47,8 @@ Only three pulls actually move the EV ranker; do them first, in this order:
 
 | # | What | Command (from repo root, Terminal logged in) | Why it matters |
 |---|---|---|---|
-| 1 | **OHLCV frontier** | `SWE_PULL_END=2026-07-21 python scripts/pull_ohlcv.py` | spot + 5y forward distribution; the frontier `EXPECTED_FRONTIER` is pinned to |
-| 2 | **IV / vol monolith** | `SWE_PULL_END=2026-07-21 python scripts/pull_vol_iv.py` | IV rank / percentile / VRP; ATM IV fallback |
+| 1 | **OHLCV frontier** | `SWE_PULL_MODE=forward SWE_PULL_END=2026-07-21 python scripts/pull_ohlcv.py` | spot + 5y forward distribution; the frontier `EXPECTED_FRONTIER` is pinned to |
+| 2 | **IV / vol monolith** | `SWE_PULL_MODE=forward SWE_PULL_END=2026-07-21 python scripts/pull_vol_iv.py` | IV rank / percentile / VRP; ATM IV fallback |
 | 3 | **Earnings-calendar overlay** | `SWE_SNAPSHOT_ASOF=2026-07-21 python scripts/pull_snapshot_bdp.py` | primary forward earnings lockout (100% coverage) |
 | 4 | **Re-baseline + gate** | bump the 5 stale-clone pins + regen the 4 backtest fingerprints, then run the integrity + preflight + smoke tests (§7) | a data change is *expected* to trip these; that IS the signal |
 
@@ -67,24 +82,25 @@ Second-order (refresh if you have time): treasury, vix_term_structure, dividends
 
 ## 3. PRIORITY 1 — core frontier bump (CRITICAL daily monoliths)
 
-All three currently end **2026-07-02** (verified on disk). They are forward-gap-append; the START is only the historical origin and is irrelevant to a routine append (kept for a full rebuild — do **not** truncate; the backtest harness needs 2018 depth, see §7).
+All three currently end **2026-07-02** (verified on disk). With `SWE_PULL_MODE=forward` they append only `[existing_max+1 → END]`; the START column below is the historical origin, relevant only to a deliberate full rebuild (do **not** truncate — the backtest harness needs the 2018 depth, see §7). **Do not omit `SWE_PULL_MODE=forward`:** the scripts default to `mode=both`, which would also backfill the *backward* gap (2018→1994 floor) into the live monolith — see the two-traps note at the top.
 
 | File | Current last-date | Pull method (preferred) | Fields (mnemonics) | Range START → PULL_DATE | Output columns |
 |---|---|---|---|---|---|
-| `data/bloomberg/sp500_ohlcv.csv` | **2026-07-02** | **`scripts/pull_ohlcv.py`** — set `SWE_PULL_END`, or edit end at **line 67** (`end_date="2026-06-04"`) | `PX_OPEN, PX_HIGH, PX_LOW, PX_LAST, PX_VOLUME` | `2018-01-01` → `2026-07-21` | `ticker,date,open,high,low,close,volume` **(stored ROTATED: open←PX_HIGH, high←PX_LAST, close←PX_OPEN; the script does this so the connector's inverse rename at `:518-524` lands correct)** |
-| `data/bloomberg/sp500_vol_iv_full.csv` | **2026-07-02** | **`scripts/pull_vol_iv.py`** — set `SWE_PULL_END`, or edit **line 53** (`end_date="2026-06-04"`) | `HIST_PUT_IMP_VOL, HIST_CALL_IMP_VOL, VOLATILITY_30D, VOLATILITY_60D, VOLATILITY_90D, VOLATILITY_260D` (`Fill="P"`) | `2018-01-02` → `2026-07-21` | `ticker,date,hist_put_imp_vol,hist_call_imp_vol,volatility_30d,volatility_60d,volatility_90d,volatility_260d` |
-| `data/bloomberg/sp500_liquidity.csv` | **2026-07-02** | `scripts/pull_liquidity.py` — set `SWE_PULL_END` (**dormant/off-EV** — `liquidity_score` is derived from market_cap, not this file; refresh for parity, skippable) | `VOLUME_AVG_30D, TURNOVER, EQY_SH_OUT` (`Fill="P"`) | `2015-01-02` → `2026-07-21` | `ticker,date,avg_vol_30d,turnover,shares_out` |
+| `data/bloomberg/sp500_ohlcv.csv` | **2026-07-02** | **`scripts/pull_ohlcv.py`** — set `SWE_PULL_MODE=forward` + `SWE_PULL_END`, or edit end at **line 67** (`end_date="2026-06-04"`) | `PX_OPEN, PX_HIGH, PX_LOW, PX_LAST, PX_VOLUME` | `2018-01-01` → `2026-07-21` | `ticker,date,open,high,low,close,volume` **(stored ROTATED: open←PX_HIGH, high←PX_LAST, close←PX_OPEN; the script does this so the connector's inverse rename at `:518-524` lands correct)** |
+| `data/bloomberg/sp500_vol_iv_full.csv` | **2026-07-02** | **`scripts/pull_vol_iv.py`** — set `SWE_PULL_MODE=forward` + `SWE_PULL_END`, or edit **line 53** (`end_date="2026-06-04"`) | `HIST_PUT_IMP_VOL, HIST_CALL_IMP_VOL, VOLATILITY_30D, VOLATILITY_60D, VOLATILITY_90D, VOLATILITY_260D` (`Fill="P"`) | `2018-01-02` → `2026-07-21` | `ticker,date,hist_put_imp_vol,hist_call_imp_vol,volatility_30d,volatility_60d,volatility_90d,volatility_260d` |
+| `data/bloomberg/sp500_liquidity.csv` | **2026-07-02** | `scripts/pull_liquidity.py` — set `SWE_PULL_MODE=forward` + `SWE_PULL_END` (**dormant/off-EV** — `liquidity_score` is derived from market_cap, not this file; refresh for parity, skippable) | `VOLUME_AVG_30D, TURNOVER, EQY_SH_OUT` (`Fill="P"`) | `2015-01-02` → `2026-07-21` | `ticker,date,avg_vol_30d,turnover,shares_out` |
 
 **Copy-paste (preferred — env override, no file edit):**
 ```bash
-export SWE_PULL_END=2026-07-21          # <- your run date; MUST be > 2026-07-02 or nothing appends
+export SWE_PULL_MODE=forward            # REQUIRED — routine append only; default 'both' backfills 1994→2018 into the live file
+export SWE_PULL_END=2026-07-21          # <- your run date; MUST be > 2026-07-02 or the forward frontier won't move
 python scripts/pull_ohlcv.py            # writes data/bloomberg/sp500_ohlcv.csv (handles rotation + post-write rotation gate)
 python scripts/pull_vol_iv.py           # writes data/bloomberg/sp500_vol_iv_full.csv
 python scripts/pull_liquidity.py        # optional (dormant)
-unset SWE_PULL_END
+unset SWE_PULL_END SWE_PULL_MODE
 ```
 
-**Alternative (edit-in-place):** `pull_ohlcv.py` line 67 and `pull_vol_iv.py` line 53: change `end_date="2026-06-04",` → `end_date="2026-07-21",`, then run bare.
+**Alternative (edit-in-place):** `pull_ohlcv.py` line 67 and `pull_vol_iv.py` line 53: change `end_date="2026-06-04",` → `end_date="2026-07-21",`, then run with **`SWE_PULL_MODE=forward`** (editing the end date does **not** change the `mode=both` default — a bare run would still backfill 1994→2018 into the live monolith).
 
 **Runbook-myth correction (W36 "no producer"):** `sp500_vol_iv_full` is **not** producer-less — `pull_vol_iv.py` is the in-repo producer (its docstring even carries the exact BQL). The manual Excel/BQL routes below are only a Terminal fallback.
 
@@ -121,7 +137,7 @@ Equivalent BQL:
 | `treasury_yields.csv` | **Yes** (BSM `r`) | 2026-07-02 | `SWE_PULL_END=2026-07-21 python scripts/pull_treasury_yields.py` | `PX_LAST` for `USGG1M/3M/6M/2YR/5YR/10YR/30YR + SOFRRATE` | **OPTIONAL** — runbooks mark DONE; already current. `PX_LAST` is already PERCENT, write UNCHANGED (D20) |
 | `broad_pull/macro_calendar/sp500_macro_calendar.csv` | **Yes** (FOMC/CPI/NFP lockout) | release → 2027-12-08 | **No script** — BQL `scripts/bloomberg_bql_pulls.md §1` | `eco_release_dt, eco_release_event, eco_importance, eco_country` | **already forward-dated to 2027 — skip unless empty** |
 | `sp500_earnings.csv` | Yes (thin historical) | announce → 2028-01-19 | **NO producer.** Forward earnings served by `snapshot_bdp` (§5) — refresh that instead | — | do not chase this file |
-| `sp500_macro.csv` | **No** (ConsolidatedLoader only) | 2026-06-04 | `SWE_PULL_END=2026-07-21 python scripts/pull_macro.py` | `PX_OPEN/HIGH/LOW/LAST` × `USGG10YR, USGG2YR, SPX, DXY, XAU, CL1` | off served path — cosmetic |
+| `sp500_macro.csv` | **No** (ConsolidatedLoader only) | 2026-06-04 | `SWE_PULL_MODE=forward SWE_PULL_END=2026-07-21 python scripts/pull_macro.py` (`_bbg_panel` — same mode caveat; its 1990 start is already ≤ floor so backfill is a no-op, but keep `forward` for consistency) | `PX_OPEN/HIGH/LOW/LAST` × `USGG10YR, USGG2YR, SPX, DXY, XAU, CL1` | off served path — cosmetic |
 | `sp500_index_membership.csv` | **No** (ConsolidatedLoader only) | (quarterly, ~2026-04-01) | `SWE_MEM_END=2026-07-01 python scripts/pull_index_membership.py` | `INDX_MWEIGHT_HIST` (+`NAME`) | quarterly grid; off served path |
 | `sp500_sector_etfs.csv` | **No** | 2026-06-05 | `python scripts/pull_sector_etfs.py` — **bare run** (default end = today) | `PX_OPEN/HIGH/LOW/LAST/VOLUME` × 11 XL* ETFs | off served path |
 | `broad_pull/short_interest/sp500_short_interest.csv` | **No** (dormant) | 2026-06-15 | `SWE_PULL_START=2026-06-01 SWE_PULL_END=2026-07-21 python scripts/pull_short_interest.py` | `SHORT_INTEREST, SHORT_INT_RATIO` | append; off served path |

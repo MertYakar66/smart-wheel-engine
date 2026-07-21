@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**167 records.**
+**168 records.**
 
 ## Features (18)
 
@@ -206,11 +206,12 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [unattended-run-2026-06-06](unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md) | complete |  | End-of-run summary of the ~9h unattended data-layer activation queue — 6 PRs opened (none merged), all CI green except the one known pre-existing f4 smoke. Deep-read ships DEFAULT-OFF; the trio is untouched beyond R0a; R1 (data merge + re-baseline + flip-on) is left for the architect-reviewed session. | `unattended-run-2026-06-06-unattended-run-2026-06-06-data-layer-activation.md` |
 | [zero-skew-ev-asymmetry](zero-skew-ev-asymmetry-zero-skew-iv-ev-asymmetry-documentation-brain-au.md) | shipped |  | docs(skew): document the zero-skew EV asymmetry — short-put conservative (25Δ premium understated 13–41%), covered-call optimistic (~6–12% overstated) — brain-audit M-dim3 follow-up in DECISIONS.md D9 and docs/DATA_ACQUISITION_ROADMAP.md §1 | `zero-skew-ev-asymmetry-zero-skew-iv-ev-asymmetry-documentation-brain-au.md` |
 
-## Research records (5)
+## Research records (6)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [data-layer-activation](data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md) | in-flight |  | Verified the campaign's survivorship-free 1990-2026 data on the bytes (refresh 6bb3399 / deep e7818f4), confirmed the engine still reads only 2018+ monoliths, and produced a prioritized activation roadmap + a connector deep-read / survivorship-harness design — executing only the safe prep (the credit-rating dead-read fix), deferring every decision-layer-touching step (merge, re-baseline, connector change) for operator review. | `data-layer-activation-data-layer-activation-plan-deep-read-connector-s.md` |
+| [data-sufficiency-review](data-sufficiency-review-data-sufficiency-review-pull-vs-wire-vs-blocked.md) | done |  | Source-verified answer to 'do we need more data?': mostly no — refresh + backfill 18 truncated names, produce the premium parquets, wire what's already on disk. | `data-sufficiency-review-data-sufficiency-review-pull-vs-wire-vs-blocked.md` |
 | [data-test-audit](data-test-audit-data-layer-test-audit-phase-1-coverage-register.md) | in-flight |  | Deeper, test-coverage-focused data-layer audit on origin/main @ d0cdcde. Found Phase 2 (A)+(B) already shipped (#358/#366) so all of W1-W13 are closed/tracked; registered 15 NEW weaknesses W14-W28 (13 (T) landable, 1 (E)/1 (D) tracked) led by the untested #363 served-IV gate + the missing real-data EV sign control; corrected two precedent capability-map claims (credit is OFF the EV path; R9 sector uses a hardcoded DEFAULT_SECTOR_MAP). Phase 1 = doc + reproducible probe; HOLD before Phase 2. | `data-test-audit-data-layer-test-audit-phase-1-coverage-register.md` |
 | [F4_TAIL_RISK_DIAGNOSTIC](../F4_TAIL_RISK_DIAGNOSTIC.md) | legacy |  | F4 tail-risk gap — diagnostic + fix plan (2026-05-26) | `../F4_TAIL_RISK_DIAGNOSTIC.md` |
 | [PROB_PROFIT_CALIBRATION_2026-05-28](../PROB_PROFIT_CALIBRATION_2026-05-28.md) | legacy |  | prob_profit calibration — multi-backtest analysis (2026-05-28) | `../PROB_PROFIT_CALIBRATION_2026-05-28.md` |

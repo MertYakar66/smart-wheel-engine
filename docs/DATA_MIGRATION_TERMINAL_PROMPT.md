@@ -17,7 +17,23 @@ below and in the repo.
 Finish moving the ~535 MB of Bloomberg data **out of git** so it lives **only on
 Google Drive**, without losing anything and without breaking the engine. The
 tracking infrastructure is already built and committed on branch
-`claude/smart-wheel-engine-overview-0txgye`. **Read these four files first:**
+`claude/smart-wheel-engine-overview-0txgye` (at commit `637b9e1` or later).
+
+**PHASE 0 — SYNC FIRST (before anything else).** A stale local checkout will NOT
+have the tooling and will make you wrongly conclude it "was never built." Run:
+```bash
+git fetch origin claude/smart-wheel-engine-overview-0txgye
+git checkout claude/smart-wheel-engine-overview-0txgye
+git pull --ff-only origin claude/smart-wheel-engine-overview-0txgye
+git log --oneline -1          # MUST be 637b9e1 or LATER (e.g. dbc872b) — NOT 991a981 or earlier
+ls data/data_manifest.json scripts/fetch_data.py scripts/gen_data_manifest.py   # all must exist
+```
+These four files provably exist on `origin` (commit `637b9e1`), so if `ls` reports
+any missing AFTER this sync, the sync did not run — fix that, do not conclude the
+tooling is absent. **All Drive folder ids come from `data/data_manifest.json`
+(`drive_root_folder_id` + `drive_folders`) — read them from the file, NEVER
+hand-transcribe an id from prose (the root is
+`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`, 33 chars).** Then **read these four files:**
 - `docs/DATA_INVENTORY.md` — the single what/where doc (§A status, §B fetch, §C locations).
 - `data/data_manifest.json` — machine map of all data files (path · size · sha256 · Drive folder · role).
 - `scripts/fetch_data.py` — hydrate a checkout from Drive (`--check`, `--served-only`, `--include-deep`).

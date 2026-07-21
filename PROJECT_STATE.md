@@ -47,8 +47,8 @@ described here is no longer accurate.
 > rank-correlation with realized $ P&L (I1); its value is in *selection* (top-K
 > beats random, I6-B). Use `prob_profit` / `ev_roc` for ranking and read
 > `ev_dollars` only as a tail-aware score. Basis:
-> `docs/HEAVY_VERIFY_2026-05-31_INDEX.md` (Category C of
-> `docs/HEAVY_VERIFY_2026-05-31_REMEDIATION.md`).
+> `archive/2026-07/HEAVY_VERIFY_2026-05-31_INDEX.md` (Category C of
+> `archive/2026-07/HEAVY_VERIFY_2026-05-31_REMEDIATION.md`).
 
 ---
 

@@ -39,7 +39,7 @@ Three deferred decision-layer changes are **entangled and must re-base in one pa
 |---|---|---|---|
 | **D21** | calendar→trading-bar horizon conversion | **Confirmed, fix authored, NOT applied** (deferred 2026-05-30) | helper `calendar_days_to_trading_bars` `engine/forward_distribution.py:50-63`; deferral docstring `:334-340`; `DECISIONS.md:1179-1214`; arithmetic test `tests/test_audit_improvements.py:109-120` |
 | **D19** | net the expected exit-leg cost into `ev_raw` | **Confirmed, fix authored, NOT applied** (deferred 2026-05-30) | insertion-point note `engine/ev_engine.py:477-485`; `DECISIONS.md:1109-1145` |
-| **Recalibration** | close/quantify top-bin `prob_profit` over-confidence | **Researched, no decision entry yet**; prior map fails LOCO | `i1/i6/i9` under `docs/verification_artifacts/campaign_2026-05-31/`; `docs/HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md` |
+| **Recalibration** | close/quantify top-bin `prob_profit` over-confidence | **Researched, no decision entry yet**; prior map fails LOCO | `i1/i6/i9` under `docs/verification_artifacts/campaign_2026-05-31/`; `archive/2026-07/HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md` |
 
 ---
 

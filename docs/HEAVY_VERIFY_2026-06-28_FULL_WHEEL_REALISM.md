@@ -26,7 +26,7 @@ the FULL wheel cycle, or does the assignment→covered-call→recovery leg chang
 The R11 dollar-impact study already warned this matters: put-leg "averted loss" numbers largely
 *disappear* once assignments wheel into covered-call recovery
 (`docs/verification_artifacts/r11_dollar_impact_2026-06-01/`). And I7 roll economics
-(`docs/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md`) measured rolling beats holding **+$195/contract
+(`archive/2026-07/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md`) measured rolling beats holding **+$195/contract
 (CSP-leg-only)** — a reference, not a full-wheel number. W7 closes the gap.
 
 **Three questions (#450):**

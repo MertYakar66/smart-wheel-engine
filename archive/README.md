@@ -52,3 +52,32 @@ engine SHA they were captured against.
 | `2026-06/fetch_data.bat` | repo root | Windows double-click launcher wrapping `theta_health_check` + `theta_backfill`. The documented Theta workflow (`docs/THETA_INSTRUCTIONS.md`) invokes the Python scripts directly. |
 
 See `DECISIONS.md` D27 for the restructure rationale.
+
+## 2026-07 — docs/ heavy-verify campaign sweep
+
+The **2026-05-31 heavy-verification campaign** (Major Session; observe-and-document,
+`engine/` never modified) — 12 point-in-time finding reports plus their index and
+remediation plan, swept out of the live `docs/` set. Their headline findings live on in
+`PROJECT_STATE.md`, `docs/PRODUCTION_READINESS.md`, and the F4 / R10 / R11 decision
+bundle. **Kept in `docs/` (not swept):** `HEAVY_VERIFY_2026-05-31_I11_RISK_BUDGET_STUDY.md`
+and its `_SPEC` — they are the *live* rationale for the R11 reviewer and are cited from
+`engine/candidate_dossier.py`, so relocating them would break a decision-layer citation.
+
+| Archived file | Original path | Reason |
+|---|---|---|
+| `2026-07/HEAVY_VERIFY_2026-05-31_INDEX.md` | `docs/` | Campaign index — synthesis + I1–I10 trust/distrust tables. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_REMEDIATION.md` | `docs/` | Sequenced remediation plan derived from the campaign (no fix applied). |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I1_CALIBRATION.md` | `docs/` | I1 — PIT `prob_profit` calibration; top-bin over-confidence. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I2_NET_OF_REALITY_PNL.md` | `docs/` | I2 — capital-constrained multi-regime wheel P&L vs passive. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I3_STRESS_DISCIPLINE.md` | `docs/` | I3 — stress / discipline; dormant caps; crash-entry procyclicality. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I4_SECTION2_INVARIANT.md` | `docs/` | I4 — §2-invariant adversarial probe (HELD across 6 attacks). |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I5_PRIOR_CLAIMS.md` | `docs/` | I5 — re-verify three prior claims on the post-#294 engine. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I6_DEEPENING.md` | `docs/` | I6 — regime overlay / selection value / recalibratability. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md` | `docs/` | I7 — roll / management economics (+$195/contract when offered). |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I8_DAILY_RISK.md` | `docs/` | I8 — daily-marked NAV risk; corrects I2 drawdown magnitudes. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md` | `docs/` | I9 — calibration fix does NOT generalize to unseen crises. |
+| `2026-07/HEAVY_VERIFY_2026-05-31_I10_B1_VS_B2_SCOPING.md` | `docs/` | I10 — routes the over-confidence fix; no simple PIT onset signal. |
+
+The dated `ENGINE_BACKTEST_*` / `*VERIFICATION*` / reproduction reports are deliberately
+**not** swept — `scripts/gen_worklog_index.py` indexes them in place (DECISIONS D14
+extension) and the `backtests/regression/*.py` drivers reference them as reproduction lineage.

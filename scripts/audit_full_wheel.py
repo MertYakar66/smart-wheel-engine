@@ -52,7 +52,7 @@ realized 3-leg outcome to a 1-leg forecast — useful to *quantify the recovery
 leg's impact*, NOT to infer "engine conservatism".
 
 Cites — does not re-derive — I7 roll economics
-(``docs/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md``: rolling beats holding
+(``archive/2026-07/HEAVY_VERIFY_2026-05-31_I7_ROLL_ECONOMICS.md``: rolling beats holding
 +$195/contract, CSP-leg-only) and the R11 dollar-impact caveat that put-leg
 "averted loss" largely disappears once assignments wheel into covered-call
 recovery — which W7 **refines**: the recovery edge's *magnitude* is

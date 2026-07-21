@@ -228,7 +228,7 @@ replication is the natural robustness follow-up.
 ### 5c. Regime-conditional holdout (Phase 3, consistent with i9)
 
 The committed **leave-one-crisis-out** study
-(`docs/HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md`;
+(`archive/2026-07/HEAVY_VERIFY_2026-05-31_I9_FIX_GENERALIZATION.md`;
 driver `docs/verification_artifacts/campaign_2026-05-31/i9_calibration_generalization.py`)
 found the regime overlay's core failure mode: the **(crisis, top-bin) realized
 rate is wildly unstable across crises — 0.57 (2020) / 0.93 (2021) / 0.83 (2022)

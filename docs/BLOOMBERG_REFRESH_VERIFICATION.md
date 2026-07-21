@@ -30,17 +30,23 @@ claim you verify is a quote from it.
 ## Checks
 
 **C1 — Served-file contract (the "Served? Yes/No" labels).**
-The runbook labels each file Served/not by membership in
-`MarketDataConnector._FILES`.
+The runbook labels each file "Served?" = **read by `MarketDataConnector` on the EV
+path** — which is a SUPERSET of `_FILES` membership: the 10 `_FILES` monoliths PLUS
+files the connector reads via `BroadPullLoader` (e.g. `snapshot_bdp`,
+`dividend_yield_pit`). Do NOT treat `_FILES` membership as the whole definition of
+"served."
 ```bash
-grep -n "_FILES" engine/data_connector.py        # find the dict, then read it
+grep -n "_FILES" engine/data_connector.py         # the 10-key dict
+grep -n "BroadPullLoader\|snapshot_bdp\|dividend_yield_pit" engine/data_connector.py  # the extra served path
 ```
-PASS iff, in `_FILES`: `sp500_ohlcv`, `sp500_vol_iv_full`, `vix_term_structure`,
-`treasury_yields`, `sp500_fundamentals`, `sp500_snapshot_bdp`,
-`dividend_yield_pit`, `sp500_dividends`, `sp500_corporate_actions` are **present**
-(runbook labels them Yes); and `sp500_macro`, `sp500_index_membership`,
-`sp500_sector_etfs`, `sp500_short_interest`, `sp500_vol_dvd` are **absent**
-(labeled No). Flag any file whose label disagrees with `_FILES`.
+PASS iff: (a) `_FILES` contains exactly the 10 keys `ohlcv, vol_iv, dividends,
+earnings, treasury, vix, fundamentals, credit_risk, liquidity, corporate_actions`,
+all labeled served in the runbook; (b) `snapshot_bdp` and `dividend_yield_pit` are
+labeled served because the connector reads them via `BroadPullLoader` (they are
+**not** in `_FILES` — that is correct, not a defect); (c) `sp500_macro`,
+`sp500_index_membership`, `sp500_sector_etfs`, `sp500_short_interest`,
+`sp500_vol_dvd` are neither in `_FILES` nor read on the EV path and are labeled
+off-path. Flag only a genuine label↔code disagreement, not "not in `_FILES`."
 
 **C2 — The stale-end-date trap AND the `SWE_PULL_MODE=both` backfill trap.**
 Runbook §Priority-1 says the `_bbg_panel` pullers ship `end_date="2026-06-04"`

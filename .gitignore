@@ -325,3 +325,9 @@ tradingview/screenshots/
 
 # premium-correction pilot regenerable outputs (CSVs/PNG move with larder coverage)
 studies/premium_correction/output/
+
+# Bloomberg data — migrated to Google Drive (fetch via scripts/fetch_data.py)
+# Kept tracked: data/bloomberg/EXTRACTION_GUIDE.md, data/data_manifest.json
+data/bloomberg/*.csv
+data/bloomberg/*.xlsx
+data/bloomberg/broad_pull/**

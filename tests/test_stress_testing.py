@@ -443,8 +443,15 @@ def test_monte_carlo_returns_are_variance_normalized(monkeypatch):
     sim feeds run_scenario."""
     tester = StressTester()
     positions = [
-        {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
-         "iv": 0.30, "contracts": 1, "is_short": True}
+        {
+            "symbol": "AAPL",
+            "option_type": "put",
+            "strike": 150,
+            "dte": 30,
+            "iv": 0.30,
+            "contracts": 1,
+            "is_short": True,
+        }
     ]
     captured = []
 
@@ -454,8 +461,11 @@ def test_monte_carlo_returns_are_variance_normalized(monkeypatch):
 
     monkeypatch.setattr(tester, "run_scenario", _spy)
     tester.monte_carlo_stress(
-        positions=positions, spot_prices={"AAPL": 155},
-        portfolio_value=100000, n_simulations=20000, horizon_days=1,
+        positions=positions,
+        spot_prices={"AAPL": 155},
+        portfolio_value=100000,
+        n_simulations=20000,
+        horizon_days=1,
     )
     sc = np.array(captured)
     target = 0.30 / np.sqrt(252) * np.sqrt(1)  # daily_vol * sqrt(horizon_days)
@@ -468,15 +478,33 @@ def test_greeks_matrix_dollar_delta_uses_each_names_spot():
     name at its OWN spot — not pooled_delta * the FIRST symbol's spot."""
     tester = StressTester()
     positions = [
-        {"symbol": "AAPL", "option_type": "put", "strike": 100, "dte": 30,
-         "iv": 0.25, "contracts": 1, "is_short": True},
-        {"symbol": "BIGCO", "option_type": "put", "strike": 1000, "dte": 30,
-         "iv": 0.25, "contracts": 1, "is_short": True},
+        {
+            "symbol": "AAPL",
+            "option_type": "put",
+            "strike": 100,
+            "dte": 30,
+            "iv": 0.25,
+            "contracts": 1,
+            "is_short": True,
+        },
+        {
+            "symbol": "BIGCO",
+            "option_type": "put",
+            "strike": 1000,
+            "dte": 30,
+            "iv": 0.25,
+            "contracts": 1,
+            "is_short": True,
+        },
     ]
     spot_prices = {"AAPL": 100.0, "BIGCO": 1000.0}
     res = tester.greeks_scenario_matrix(
-        positions=positions, spot_prices=spot_prices, portfolio_value=100000,
-        spot_shocks=[0.0], iv_shocks=[0.0], time_shocks=[0],
+        positions=positions,
+        spot_prices=spot_prices,
+        portfolio_value=100000,
+        spot_shocks=[0.0],
+        iv_shocks=[0.0],
+        time_shocks=[0],
     )
     row = res["greeks_surface"].iloc[0]
 
@@ -484,8 +512,13 @@ def test_greeks_matrix_dollar_delta_uses_each_names_spot():
     for p in positions:
         s = spot_prices[p["symbol"]]
         g = black_scholes_all_greeks(
-            S=s, K=p["strike"], T=p["dte"] / 365, r=p.get("rate", 0.05),
-            sigma=p["iv"], option_type=p["option_type"], q=0.0,
+            S=s,
+            K=p["strike"],
+            T=p["dte"] / 365,
+            r=p.get("rate", 0.05),
+            sigma=p["iv"],
+            option_type=p["option_type"],
+            q=0.0,
         )
         mult = p["contracts"] * 100 * (-1 if p["is_short"] else 1)
         expected += g["delta"] * mult * s
@@ -507,12 +540,116 @@ def test_run_scenario_honors_per_position_rate(monkeypatch):
         return orig(**kw)
 
     monkeypatch.setattr(st, "black_scholes_price", _spy)
-    pos = {"symbol": "AAPL", "option_type": "put", "strike": 150, "dte": 30,
-           "iv": 0.25, "contracts": 1, "is_short": True, "rate": 0.03}
+    pos = {
+        "symbol": "AAPL",
+        "option_type": "put",
+        "strike": 150,
+        "dte": 30,
+        "iv": 0.25,
+        "contracts": 1,
+        "is_short": True,
+        "rate": 0.03,
+    }
     scenario = Scenario(
-        name="flat", scenario_type=ScenarioType.HYPOTHETICAL, description="",
+        name="flat",
+        scenario_type=ScenarioType.HYPOTHETICAL,
+        description="",
         spot_change_pct=0.0,
     )
     tester.run_scenario(scenario, [pos], {"AAPL": 155}, 100000)
     assert 0.03 in seen_r, f"expected the position rate 0.03 to price a leg; saw {seen_r}"
     assert 0.05 not in seen_r, f"must not fall back to risk_free_rate; saw {seen_r}"
+
+
+class TestGreeksScenarioMatrixThetaUnits:
+    """Proposal #8 — greeks_scenario_matrix must emit DAILY theta (annual/365),
+    matching GREEKS_UNIT_CONTRACT.md and every other Greeks surface. Value-level
+    regression: the emitted theta equals the pricer's annual theta / 365, not the
+    raw annual value (which was ~365x too large pre-fix)."""
+
+    def _position(self):
+        return {
+            "symbol": "AAPL",
+            "option_type": "put",
+            "strike": 150,
+            "dte": 30,
+            "iv": 0.25,
+            "contracts": 5,
+            "is_short": True,
+        }
+
+    def test_greeks_surface_theta_is_daily(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        pos = self._position()
+        spot = 155.0
+        matrix = StressTester().greeks_scenario_matrix(
+            positions=[pos],
+            spot_prices={"AAPL": spot},
+            portfolio_value=100_000,
+            spot_shocks=[0.0],
+            iv_shocks=[0.0],
+            time_shocks=[0],
+        )
+        surface = matrix["greeks_surface"]
+        emitted = float(surface.loc[surface["spot_change"] == 0.0, "theta"].iloc[0])
+
+        # replicate the loop math at spot_chg == 0 (new_spot == spot)
+        multiplier = pos["contracts"] * 100 * -1  # is_short => direction -1
+        greeks = black_scholes_all_greeks(
+            S=spot,
+            K=pos["strike"],
+            T=max(0.001, pos["dte"] / 365),
+            r=pos.get("rate", 0.05),
+            sigma=pos["iv"],
+            option_type=pos["option_type"],
+            q=pos.get("dividend_yield", 0.0),
+        )
+        annual_theta = greeks["theta"]
+        expected_daily = (annual_theta / 365) * multiplier
+
+        assert emitted == pytest.approx(expected_daily, rel=1e-9), (
+            f"greeks_surface theta {emitted} must equal annual/365 * mult {expected_daily}"
+        )
+        # and NOT the ~365x-larger annual value (proves the /365 conversion is present)
+        assert emitted != pytest.approx(annual_theta * multiplier, rel=1e-2), (
+            "emitted theta must be daily, not the annual value"
+        )
+
+    def test_time_decay_remaining_theta_is_daily(self):
+        from engine.option_pricer import black_scholes_all_greeks
+
+        pos = self._position()
+        spot = 155.0
+        days = 7
+        matrix = StressTester().greeks_scenario_matrix(
+            positions=[pos],
+            spot_prices={"AAPL": spot},
+            portfolio_value=100_000,
+            spot_shocks=[0.0],
+            iv_shocks=[0.0],
+            time_shocks=[days],
+        )
+        decay = matrix["time_decay"]
+        emitted = float(decay.loc[decay["days_elapsed"] == days, "remaining_theta"].iloc[0])
+
+        multiplier = pos["contracts"] * 100 * -1  # is_short => direction -1
+        dte_new = max(0.001, pos["dte"] - days)
+        new_greeks = black_scholes_all_greeks(
+            S=spot,
+            K=pos["strike"],
+            T=dte_new / 365,
+            r=pos.get("rate", 0.05),
+            sigma=pos["iv"],
+            option_type=pos["option_type"],
+            q=pos.get("dividend_yield", 0.0),
+        )
+        annual_theta = new_greeks["theta"]
+        expected_daily = (annual_theta / 365) * multiplier
+
+        assert emitted == pytest.approx(expected_daily, rel=1e-9), (
+            f"time_decay remaining_theta {emitted} must equal annual/365 * mult {expected_daily}"
+        )
+        assert emitted != pytest.approx(annual_theta * multiplier, rel=1e-2), (
+            "remaining_theta must be daily, not the annual value"
+        )

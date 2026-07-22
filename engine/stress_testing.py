@@ -468,13 +468,10 @@ class StressTester:
             # Simulate spot change (fat-tailed)
             # Use t-distribution for fatter tails
             df = 5  # degrees of freedom
-            # Variance-normalize the Student-t draw (Bug fix CMD 7): a t(df) has
-            # variance df/(df-2) (df=5 → std≈1.29), so every simulated return was
-            # ~29% wider than the IV-implied target, overstating std / var_95 /
-            # var_99 / cvar_95 / max_loss / prob_10pct_loss by the same factor.
-            # Scaling by sqrt((df-2)/df) keeps the fat tails but restores unit
-            # variance so the sim std matches daily_vol*sqrt(horizon).
-            z = float(stats.t.rvs(df, random_state=rng.integers(2**31))) * np.sqrt((df - 2) / df)
+            z = float(stats.t.rvs(df, random_state=rng.integers(2**31)))
+            z *= np.sqrt(
+                (df - 2) / df
+            )  # rescale t(5) to unit variance (mirrors forward_distribution.py:306)
             avg_iv = np.mean([p["iv"] for p in positions]) if positions else 0.20
             daily_vol = avg_iv / np.sqrt(252)
             spot_change = z * daily_vol * np.sqrt(horizon_days)
@@ -800,7 +797,8 @@ class StressTester:
                 total_delta += greeks["delta"] * multiplier
                 total_delta_dollars += greeks["delta"] * multiplier * new_spot
                 total_gamma += greeks["gamma"] * multiplier * new_spot
-                total_theta += greeks["theta"] * multiplier
+                # pricer returns annual theta; convert to daily per GREEKS_UNIT_CONTRACT.md
+                total_theta += (greeks["theta"] / 365) * multiplier
                 total_vega += greeks["vega"] * multiplier
 
             greeks_rows.append(
@@ -859,7 +857,8 @@ class StressTester:
                 )
 
                 total_pnl += (new_greeks["price"] - old_greeks["price"]) * multiplier
-                total_theta += new_greeks["theta"] * multiplier
+                # pricer returns annual theta; convert to daily per GREEKS_UNIT_CONTRACT.md
+                total_theta += (new_greeks["theta"] / 365) * multiplier
 
             time_rows.append(
                 {

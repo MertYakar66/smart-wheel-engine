@@ -91,6 +91,7 @@ def _default_dir() -> Path:
 SNAPSHOT_FILE = "portfolio_snapshot.json"
 HISTORY_FILE = "portfolio_history.json"
 LEDGER_FILE = "wheel_ledger.json"
+TRADES_FILE = "trades.json"
 
 # Cap thresholds surfaced to the viewer. These mirror the D17 locked
 # defaults in portfolio_risk_gates (_DEFAULT_MAX_SINGLE_NAME_PCT = 0.10,
@@ -156,6 +157,20 @@ def load_ledger(data_dir: str | Path | None = None) -> dict:
             f"unsupported ledger schema_version: {led.get('schema_version')!r}"
         )
     return led
+
+
+def load_trades(data_dir: str | Path | None = None) -> dict:
+    """Load the normalized trade history (``trades.json``, the IBKR Flex
+    Trades export processed by ``scripts/ibkr_trades_ingest.py``). Powers the
+    dashboard Trades tab — every buy/sell/expiry/assignment with FIFO realized
+    P&L. Observational only (CLAUDE.md §2/§3)."""
+    base = Path(data_dir) if data_dir else _default_dir()
+    doc = _load_json(base / TRADES_FILE)
+    if doc.get("schema_version") != 1:
+        raise SnapshotSchemaError(
+            f"unsupported trades schema_version: {doc.get('schema_version')!r}"
+        )
+    return doc
 
 
 def provenance(artifact: dict) -> str:
@@ -601,6 +616,28 @@ def returns_view(history: dict, snapshot: dict | None = None) -> dict:
     when the source can't derive them (the UI renders "—", never +0.00%).
     All-time anchors to ``inception_capital`` (§6.4 snapshot-delta method).
     """
+    # Deposit-aware path (D-… live IBKR history): when the history carries a
+    # TIME-WEIGHTED return block (`twr_returns`, from PortfolioAnalyst), use it
+    # verbatim. Raw NAV deltas count deposits/withdrawals as performance — on
+    # this account ~+$37k net deposits turn the true +3.4% TWR into a fake
+    # +44.6% NAV return. `usd` is the TWR applied to the window's opening
+    # capital (performance dollars, decoupled from cash flows). Windows the
+    # source doesn't provide (e.g. 3M) come back null → the UI renders "—".
+    twr = history.get("twr_returns")
+    if twr:
+
+        def _twr_window(key: str) -> dict:
+            e = twr.get(key)
+            if not e or e.get("pct") is None:
+                return {"pct": None, "usd": None}
+            pct = float(e["pct"])
+            sn = e.get("start_nav")
+            return {"pct": pct, "usd": round(pct * float(sn)) if sn else None}
+
+        return {
+            "returns": {p: _twr_window(p) for p in ("1D", "1W", "1M", "3M", "YTD", "1Y", "All")}
+        }
+
     points = history["points"]
     dates = [date.fromisoformat(p["date"]) for p in points]
     ports = [float(p["port"]) for p in points]
@@ -693,21 +730,32 @@ def equity_view(history: dict) -> dict:
             "m": p["label"],
             "date": p.get("date"),
             "port": round(float(p["port"])),
-            "spy": round(float(p["spy"])),
+            # spy is null until a real benchmark pull lands (never fabricated) —
+            # the chart renders a gap rather than a copied line.
+            "spy": round(float(p["spy"])) if p.get("spy") is not None else None,
             "premium": _premium(p, i),
         }
         for i, p in enumerate(points)
     ]
 
-    eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
-    rets = eq_df["portfolio_value"].pct_change().dropna()
-    max_dd, dd_days = calculate_max_drawdown(eq_df)
-    stats = {
-        "sharpe": _finite(calculate_sharpe_ratio(rets, periods_per_year=12)),
-        "sortino": _finite(calculate_sortino_ratio(rets, periods_per_year=12)),
-        "maxDrawdown": _finite(max_dd),
-        "maxDrawdownPeriods": int(dd_days),
-    }
+    # Sharpe / Sortino / max-drawdown off the raw ``port`` (NAV) series are only
+    # valid with NO external cash flows: a deposit reads as a huge "return" spike
+    # and a withdrawal masks a drawdown. A TWR history (deposit-bearing live
+    # account) therefore emits null stats — the strip hides rather than present a
+    # deposit-distorted Sharpe. (A clean daily TWR-return series would let these
+    # be computed honestly; the monthly NAV curve cannot.)
+    if history.get("portfolio_measure") == "TWR":
+        stats = None
+    else:
+        eq_df = pd.DataFrame({"portfolio_value": [float(p["port"]) for p in points]})
+        rets = eq_df["portfolio_value"].pct_change().dropna()
+        max_dd, dd_days = calculate_max_drawdown(eq_df)
+        stats = {
+            "sharpe": _finite(calculate_sharpe_ratio(rets, periods_per_year=12)),
+            "sortino": _finite(calculate_sortino_ratio(rets, periods_per_year=12)),
+            "maxDrawdown": _finite(max_dd),
+            "maxDrawdownPeriods": int(dd_days),
+        }
     return {"equity": equity, "stats": stats}
 
 
@@ -947,6 +995,116 @@ def _run_gates(ctx: PortfolioContext, holdings: list[dict], nav: float) -> dict:
             "drawdownPct": _finite(stress_res.details.get("drawdown_pct")),
             "scenario": stress_res.details.get("scenario_name"),
         },
+    }
+
+
+def trades_view(trades_doc: dict, *, fx_rates: dict[str, float] | None = None) -> dict:
+    """Trade-history view for the dashboard Trades tab: the normalized trade
+    list plus per-ticker realized-P&L aggregates (options vs stock), the whole
+    point being **accurate per-ticker options gain/loss** — every expiry (`Ep`)
+    and assignment (`A`) is included, so premium captured at expiry counts (the
+    connector feed misses it; the Flex export does not).
+
+    Realized P&L is stored in each trade's native ``currency``; a USD-equivalent
+    is derived via ``fx_rates`` (from the live snapshot) so per-ticker totals are
+    summable across currencies. FX is the *current* rate applied to historical
+    P&L — an approximation the viewer labels, not a claim of point-in-time FX.
+    Observational only (CLAUDE.md §2/§3) — realized history, never a forward score.
+    """
+    fx = {"USD": 1.0, **(fx_rates or {})}
+
+    def _usd(v: float, cur: str | None) -> float:
+        return (v or 0.0) * fx.get((cur or "USD").upper(), 1.0)
+
+    tickers: dict[str, dict] = {}
+    cur_counts: dict[str, dict[str, int]] = {}
+    for t in trades_doc.get("trades", []):
+        sym = t.get("symbol") or "?"
+        st = t.get("sec_type") or "OTHER"
+        cur = t.get("currency") or "USD"
+        rp = float(t.get("realized_pnl") or 0.0)
+        cc = cur_counts.setdefault(sym, {})
+        cc[cur] = cc.get(cur, 0) + 1
+        d = tickers.setdefault(
+            sym,
+            {
+                "symbol": sym,
+                "currency": cur,
+                "opt_pnl": 0.0,
+                "stk_pnl": 0.0,
+                "other_pnl": 0.0,
+                "total_pnl_usd": 0.0,
+                "opt_pnl_usd": 0.0,
+                "stk_pnl_usd": 0.0,
+                "premium_collected": 0.0,
+                "opt_count": 0,
+                "stk_count": 0,
+                "other_count": 0,
+                "first": t.get("date"),
+                "last": t.get("date"),
+            },
+        )
+        if st == "OPT":
+            d["opt_pnl"] += rp
+            d["opt_pnl_usd"] += _usd(rp, cur)
+            d["opt_count"] += 1
+            # premium collected = credit received opening a short option
+            if t.get("side") == "SELL" and t.get("open_close") == "O":
+                d["premium_collected"] += float(t.get("proceeds") or 0.0)
+        elif st == "STK":
+            d["stk_pnl"] += rp
+            d["stk_pnl_usd"] += _usd(rp, cur)
+            d["stk_count"] += 1
+        else:
+            d["other_pnl"] += rp
+            d["other_count"] += 1
+        d["total_pnl_usd"] += _usd(rp, cur)
+        if t.get("date"):
+            if not d["first"] or t["date"] < d["first"]:
+                d["first"] = t["date"]
+            if not d["last"] or t["date"] > d["last"]:
+                d["last"] = t["date"]
+
+    def _finalize(d: dict) -> dict:
+        # A ticker can trade in >1 currency (e.g. CLS is dual-listed NYSE-USD /
+        # TSX-CAD). The native ``*_pnl`` fields then mix currencies and are NOT
+        # a clean number — the USD-equivalent (``*_pnl_usd``) is authoritative.
+        counts = cur_counts.get(d["symbol"], {})
+        d["currency"] = max(counts, key=counts.get) if counts else "USD"
+        d["mixed_currency"] = len(counts) > 1
+        for k in (
+            "opt_pnl",
+            "stk_pnl",
+            "other_pnl",
+            "total_pnl_usd",
+            "opt_pnl_usd",
+            "stk_pnl_usd",
+            "premium_collected",
+        ):
+            d[k] = round(d[k], 2)
+        return d
+
+    ticker_list = sorted(
+        (_finalize(v) for v in tickers.values()),
+        key=lambda x: -abs(x["total_pnl_usd"]),
+    )
+    trades = trades_doc.get("trades", [])
+    totals = {
+        "trade_count": len(trades),
+        "ticker_count": len(ticker_list),
+        "realized_usd": round(sum(x["total_pnl_usd"] for x in ticker_list), 2),
+        "opt_realized_usd": round(sum(x["opt_pnl_usd"] for x in ticker_list), 2),
+        "stk_realized_usd": round(sum(x["stk_pnl_usd"] for x in ticker_list), 2),
+    }
+    return {
+        "schema_version": trades_doc.get("schema_version"),
+        "source": trades_doc.get("source", "ibkr_flex"),
+        "generated_at": trades_doc.get("generated_at"),
+        "coverage": trades_doc.get("coverage"),
+        "fx_rates": fx,
+        "totals": totals,
+        "tickers": ticker_list,
+        "trades": trades,
     }
 
 

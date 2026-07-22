@@ -4,7 +4,7 @@ title: TRADER-500K reliability campaign
 kind: backtest
 status: shipped
 terminal: MACBOOK
-pr: 518
+pr: 520
 decisions: []
 date: 2026-07-22
 headline: $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional

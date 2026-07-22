@@ -98,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
-| [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #518 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
+| [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #520 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
 ## Verification & realism (34)
 

@@ -144,15 +144,15 @@ def _load_bbg_panel():
 
 
 def _cfg(bbg, **over):
-    kw = dict(
-        out_name="x.csv",
-        fields=["PX_LAST"],
-        field_map={"PX_LAST": "v"},
-        out_cols=["date", "ticker", "v"],
-        start_date_full="2020-01-01",
-        end_date="2020-12-31",
-        chunk_size=2,
-    )
+    kw = {
+        "out_name": "x.csv",
+        "fields": ["PX_LAST"],
+        "field_map": {"PX_LAST": "v"},
+        "out_cols": ["date", "ticker", "v"],
+        "start_date_full": "2020-01-01",
+        "end_date": "2020-12-31",
+        "chunk_size": 2,
+    }
     kw.update(over)
     return bbg.PanelConfig(**kw)
 

@@ -501,3 +501,63 @@ class TestRollEvNetsBuybackPrincipal:
                 f"roll_ev gap {gap:.2f} < buyback principal {principal:.2f} -- "
                 f"roll_ev is not netting the full buyback cost"
             )
+
+
+class TestSuggestRollsHoldEvTransactionCost:
+    """Proposal #9 — hold_ev must charge ZERO transaction cost. EVEngine.evaluate
+    charges the synthetic re-sell an entry commission+slippage that holding never
+    incurs; the fix adds that entry leg back. Verify hold_ev ==
+    ev_dollars - buyback*100 + (total_transaction_cost/2)*regime_multiplier."""
+
+    def test_hold_ev_charges_zero_transaction_cost(self):
+        entry = date(2026, 1, 1)
+        expiry = entry + timedelta(days=35)
+        t = _make_tracker_with_position(
+            strike=95.0,
+            premium=2.0,
+            entry_date=entry,
+            expiration_date=expiry,
+            iv=0.25,
+        )
+        as_of = entry + timedelta(days=21)
+
+        captured: dict = {}
+        original_evaluate = EVEngine.evaluate
+
+        def _capture(self, *args, **kwargs):
+            res = original_evaluate(self, *args, **kwargs)
+            if "hold" not in captured:  # first evaluate call is the hold trade
+                captured["hold"] = res
+                captured["trade"] = args[0] if args else kwargs.get("trade")
+            return res
+
+        with patch.object(EVEngine, "evaluate", autospec=True, side_effect=_capture):
+            df = t.suggest_rolls(
+                ticker="TEST",
+                as_of=as_of,
+                current_spot=80.0,
+                current_iv=0.25,
+                risk_free_rate=0.04,
+                min_net_credit=-1_500.0,
+            )
+
+        assert not df.empty, "challenged short put should produce >= 1 candidate"
+        hold_result = captured["hold"]
+        buyback = captured["trade"].premium  # exact (unrounded) synthetic re-sell premium
+        multiplier = 100  # suggest_rolls is per-contract
+
+        # AC3: the phantom entry cost that holding never incurs is strictly positive.
+        entry_txn_cost = (hold_result.total_transaction_cost / 2.0) * hold_result.regime_multiplier
+        assert hold_result.regime_multiplier == pytest.approx(1.0)
+        assert entry_txn_cost > 0, f"entry_txn_cost {entry_txn_cost} must be > 0 (phantom removed)"
+
+        # AC1: hold_ev == ev_dollars - buyback*100 + entry_txn_cost, rebuilt from the exact
+        # EVResult the code used. The row rounds hold_ev to 2dp, so the reconstruction must
+        # match at that precision (an exact integer-cent match => identity holds to 1e-6).
+        expected_hold_ev = hold_result.ev_dollars - buyback * multiplier + entry_txn_cost
+        assert df["hold_ev"].iloc[0] == pytest.approx(round(expected_hold_ev, 2), abs=1e-6)
+
+        # AC3 (delta): the new hold_ev strictly exceeds the pre-fix value by entry_txn_cost.
+        pre_fix_hold_ev = hold_result.ev_dollars - buyback * multiplier
+        assert expected_hold_ev - pre_fix_hold_ev == pytest.approx(entry_txn_cost, abs=1e-9)
+        assert expected_hold_ev > pre_fix_hold_ev

@@ -2,6 +2,17 @@
 
 This document establishes the governance framework for quantitative models used in the Smart Wheel Engine trading system.
 
+> **Practice note (2026-07): this is a single-operator project.** The enterprise
+> governance roster referenced throughout — **Model Committee**, **Quant Team**,
+> **Risk Team**, **Quant Lead**, an on-call rotation, and the multi-level paging
+> escalation (§5.3) — is an **aspirational template**, not the operating reality.
+> In current practice **the operator performs every role**: "committee approval"
+> and "quant/risk review" mean the operator's own review plus the automated CI
+> gates (the test suite, the decision-layer lane-claim gate, and the `CLAUDE.md`
+> §2 invariant checks); there is no separate team, no paging, and no on-call.
+> Read the "Owner"/"Approval" columns below as *which hat the operator is
+> wearing*, not as distinct people. §9 records the actual solo mapping.
+
 ---
 
 ## 1. Model Risk Management Policy
@@ -249,23 +260,27 @@ Maintain ability to provide:
 
 ## 9. Roles & Responsibilities
 
-### 9.1 Quant Team
+**Single operator — every role below is performed by the same person**, backed
+by CI. The split is retained only to show *which concern* each activity serves,
+not to imply distinct teams (see the practice note at the top):
+
+### 9.1 Development & validation (the "Quant Team" hat)
 - Model development and testing
 - Initial validation
 - Performance optimization
 - Documentation maintenance
 
-### 9.2 Risk Team
+### 9.2 Risk & limits (the "Risk Team" hat)
 - Model risk assessment
-- Limit configuration
-- Monitoring and alerts
-- Escalation handling
+- Configuring the R7–R11 caps and their locked defaults
+- Reviewing monitoring / staleness output
 
-### 9.3 Model Committee
-- Material change approval
-- Annual model reviews
-- Policy updates
-- Exception handling
+### 9.3 Change approval (the "Model Committee" hat)
+- Sign-off on material changes (new model / formula change) — in practice the
+  operator's own decision, recorded in `DECISIONS.md` and the PR trail
+- Periodic review and policy updates
+- The decision-layer lane-claim gate and the §2 invariant are the automated
+  backstop; there is no separate committee, team, or on-call rotation.
 
 ---
 

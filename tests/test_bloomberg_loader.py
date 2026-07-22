@@ -4,6 +4,8 @@ Tests for Bloomberg Data Ingestion
 Tests use temporary CSV files that mimic Bloomberg Excel export formats.
 """
 
+import logging
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -463,9 +465,34 @@ class TestRatesLoader:
         assert 0 < rate < 0.15  # Reasonable range
 
     def test_default_rate_no_data(self):
-        """Should return 0.05 default with no data."""
-        rate = get_current_risk_free_rate(None)
-        assert rate == 0.05
+        """NaN-on-missing by default; an explicit fallback is still honored."""
+        assert pd.isna(get_current_risk_free_rate(None))
+        assert get_current_risk_free_rate(None, fallback=0.05) == 0.05
+
+    def test_tenorless_frame_returns_fallback(self):
+        """A frame with no rate_* columns returns the fallback (NaN by default)."""
+        df = pd.DataFrame({"not_a_rate": [1.0, 2.0]})
+        assert pd.isna(get_current_risk_free_rate(df))
+        assert get_current_risk_free_rate(df, fallback=0.05) == 0.05
+
+    def test_all_nan_tenor_returns_fallback(self):
+        """A tenor column that is entirely NaN returns the fallback."""
+        df = pd.DataFrame({"rate_3m": [float("nan"), float("nan")]})
+        assert pd.isna(get_current_risk_free_rate(df))
+        assert get_current_risk_free_rate(df, fallback=0.05) == 0.05
+
+    def test_missing_data_branches_warn(self, caplog):
+        """Each of the three missing-data branches logs a WARNING with its reason."""
+        with caplog.at_level(logging.WARNING, logger="data.bloomberg_loader"):
+            get_current_risk_free_rate(None)
+            get_current_risk_free_rate(pd.DataFrame({"not_a_rate": [1.0]}))
+            get_current_risk_free_rate(pd.DataFrame({"rate_3m": [float("nan")]}))
+        msgs = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert len(msgs) == 3
+        assert all("get_current_risk_free_rate" in m for m in msgs)
+        assert any("empty/None frame" in m for m in msgs)
+        assert any("no rate_* columns" in m for m in msgs)
+        assert any("no non-NaN values" in m for m in msgs)
 
 
 # ─────────────────────────────────────────────────────────────────────

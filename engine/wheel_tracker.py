@@ -2114,7 +2114,9 @@ class WheelTracker:
                     if not pd.isna(close):
                         spot_prices[sym] = float(close)
 
-        # Gate 1 (R9): sector cap — armed by enforce_sector_cap (default on).
+        # Gate 1 (R9): sector cap — gated on enforce_sector_cap (library default
+        # OFF; armed =True by wheel_runner.make_live_book_tracker() for
+        # production / live books).
         if self._d17_gate_enabled("sector"):
             # #372: aggregate by real GICS when a connector is attached;
             # None → DEFAULT_SECTOR_MAP fallback (token-free default path).
@@ -2483,12 +2485,17 @@ class WheelTracker:
                 iv=current_iv, ...)
             hold_ev = ev_dollars(synthetic_hold)
                       - buyback_value_per_share * 100
+                      + entry_txn_cost
 
         The synthetic re-sells the existing put at its current fair
         value, so we can pipe it through :meth:`EVEngine.evaluate` and
         reuse the engine's empirical forward distribution; we then
         subtract the notional re-sell premium (no premium is actually
         re-collected when holding) to recover the pure forward P&L.
+        The engine also charges that synthetic re-sell an entry
+        commission+slippage which holding never incurs, so we add the
+        entry leg (``total_transaction_cost / 2 × regime_multiplier``)
+        back — holding is charged zero transaction cost.
 
         ``roll_ev`` — close the old, open the new::
 
@@ -2654,7 +2661,13 @@ class WheelTracker:
             hold_trade,
             forward_log_returns=_fwd_for(int(dte_remaining)),
         )
-        hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier
+        # ev_dollars charged this synthetic re-sell an ENTRY commission+slippage
+        # (ev_engine.py:350-366 -> net_premium_in :375 -> scaled by regime_mult :604).
+        # Holding re-opens nothing, so that entry cost is phantom; add it back so hold
+        # is charged zero transaction cost. total_transaction_cost is the round-trip sum
+        # with entry==exit by construction (ev_engine.py:368-372), hence /2 for entry.
+        entry_txn_cost = (hold_result.total_transaction_cost / 2.0) * hold_result.regime_multiplier
+        hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier + entry_txn_cost
 
         # ---------------- enumerate roll candidates ----------------
         # S22 F1: drops accumulator mirrors the rank_candidates_by_ev /
@@ -2879,6 +2892,7 @@ class WheelTracker:
         dollar change in account value from this decision moment::
 
             hold_ev = ev_dollars(synthetic_hold) - buyback_per_share * 100
+                      + entry_txn_cost  # add back phantom entry cost; hold pays zero txn
             roll_ev = ev_dollars(new_trade)      - buyback_total_dollars
 
         ``ev_dollars(new_trade)`` already contains the new call premium
@@ -3028,7 +3042,13 @@ class WheelTracker:
             hold_trade,
             forward_log_returns=_fwd_for(int(dte_remaining)),
         )
-        hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier
+        # ev_dollars charged this synthetic re-sell an ENTRY commission+slippage
+        # (ev_engine.py:350-366 -> net_premium_in :375 -> scaled by regime_mult :604).
+        # Holding re-opens nothing, so that entry cost is phantom; add it back so hold
+        # is charged zero transaction cost. total_transaction_cost is the round-trip sum
+        # with entry==exit by construction (ev_engine.py:368-372), hence /2 for entry.
+        entry_txn_cost = (hold_result.total_transaction_cost / 2.0) * hold_result.regime_multiplier
+        hold_ev = hold_result.ev_dollars - buyback_value_per_share * multiplier + entry_txn_cost
 
         # ---------------- enumerate roll candidates ----------------
         # S22 F1: drops accumulator mirrors suggest_rolls and the ranker

@@ -64,6 +64,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
 | `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
 | `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
+| `tests/test_r6_dealer_wiring.py` | `EnginePhaseReviewer` rule R6 — dealer/regime downgrade wiring: short-gamma at/above put wall or dealer regime near gamma-flip → review; reads `market_structure` else `ev_row` dealer fields; downgrade-only; no-op on missing dealer data |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |
@@ -89,6 +90,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_option_pricer.py` | BSM, BAW, IV solver vs textbook references |
 | `test_binomial_tree.py` | Binomial-tree pricing |
 | `test_monte_carlo.py` | Block bootstrap, jump diffusion, LSM |
+| `test_sim_portfolio.py` | MC forward-sim reporting overlay — fan monotonicity + determinism, median-reconciles-with-backtest, corr-to-1 copula tail, §2 no-trio-import guard |
+| `test_paper_book.py` | Forward paper-trading book (`engine/paper_book.py` + `scripts/run_paper_book.py`) — §2 no-trio-import AST guard, SIM-namespace isolation (never writes `data_processed/ibkr/`), calibration wilson/reliability byte-match vs `ibkr_ev_calibration`, MC determinism (seed 42), caps-armed refusal after save/load round-trip, idempotent forward-append, held-to-expiry outcome, driver join helpers; one slow-lane engine-driven seed+forward integration (`backtest_regression`) |
 | `test_greeks_unit_invariants.py` | Greek units (see `docs/GREEKS_UNIT_CONTRACT.md`) |
 | `test_realized_vol.py` | Close-to-close, Parkinson, Garman-Klass estimators |
 | `test_advanced_quant.py` | Advanced quant building blocks |
@@ -101,7 +104,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_quant_fixtures.py` | Shared fixtures |
 | `test_tail_risk.py` | POT-GPD tail estimation — threshold selection, GPD fit, `gpd_var_cvar`, `pot_gpd_cvar`, tail-regime flag |
 | `test_transaction_costs.py` | Spread + slippage edge branches — bid/ask fallback order, OI liquidity tiers, direction impact (D10 F7) |
-| `test_earnings_drift.py` | Post-earnings-drift analytics — lazy loaders, per-sector drift, temporal filtering |
 | `test_portfolio_copula_coverage.py` | `portfolio_copula` edge paths — PSD repair, Cholesky→eigen fallback, empty arrays, verdict ladder |
 | `test_pricing_evaluate_invariants.py` | W63–W64 — BSM Greek units vs binomial cross-check; `EVEngine.evaluate` stays finite on degenerate DTE |
 | `test_f4_rv_widening.py` | F4 fix v2 (#260) — RV30/RV252 widening factor calibration pins (1.30 threshold, 1.5× cap), PIT safety, sign/mean preservation |
@@ -139,6 +141,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_strangle_ev_ranker.py` | `rank_strangles_by_ev` — two evaluate calls per candidate, additive EV composition, timing gate downgrade-only, never rescues |
 | `test_strangle_recommendation_gate.py` | S14 phase/confidence gate — downgrade-only `_apply_phase_gate` on both Layer-1 and IV paths |
 | `test_ranker_iv_pit.py` | S23 F3 — ranker uses PIT IV from `get_iv_history`, not snapshot fundamentals; symmetric on CC + strangle paths |
+| `test_ranker_dossier_contracts_seam.py` | `contracts` field emitted by the put ranker on `ev_row` and consumed by `EnginePhaseReviewer._build_candidate_dict` — the ranker→dossier seam carries real size, no `or 1` coercion |
 | `test_ranker_transparency.py` | Drop-reason `.attrs["drops"]`, `hmm_regime` label, `ev_raw` + `regime_multiplier` columns, GICS sector, zero-extra-evaluate invariant |
 | `test_explore_ticker.py` | `explore_ticker` delta×DTE grid sweep — shape, columns, sorting, drops |
 | `test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` — monotone, median match, pre-multiplier, NaN on small samples / lockout (#248) |
@@ -169,6 +172,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_deep_read_connector.py` | R2 deep-read flag plumbing + graceful degrade; 1994-assembly/delisted checks local-only (`SWE_DEEP_TEST_DATA`) |
 | `test_survivorship_harness.py` | R3+R6 PIT universe — delisted names included/excluded correctly (deep-data gated) |
 | `test_survivorship_r6_lehman.py` | R6 proof — Lehman delisting realizes the loss at delisting price in a 2008 backtest (deep-data gated) |
+| `test_parameter_oos.py` | Parameter-OOS gate (E5) — per-row no-leakage certificate + offline re-weighting identities (fixture-independent, fast); fixture↔snapshot recompute lock (fast); engine-regeneration lock (`backtest_regression` marker, slow) |
+| `test_parameter_oos_100t.py` | 100-name parameter-OOS replication — daily-sampling significance upgrades (per-date cross-sectional ρ, date-clustered bootstrap, E3 breadth) unit tests; fixture↔snapshot recompute lock (fast); engine spot-check regen (`backtest_regression`) |
 | `test_mark_to_market_iv.py` | #118 P4 — MTM IV staleness fallback chain (explicit → connector as-of ATM → entry IV) |
 | `test_iv_surface_failloud.py` | D9/A2 — `SurfaceDataUnavailable` + `require_surface` fail-loud SVI contract; no silent flat IV |
 | `test_preflight_environment.py` | Environment-invariant guard — silent provider selection + stale-tree OHLCV frontier (`EXPECTED_FRONTIER`) (#364) |
@@ -224,6 +229,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_ibkr_import.py` | PortfolioAnalyst PDF importer — OCC parsing, p6 positions, FX derivation, null-safety |
 | `test_ibkr_flex_ledger.py` | Phase-4 exact-fill ledger — long/short stock round-trips, ACAT seed, dedup, FX builder |
 | `test_ibkr_live_snapshot.py` | Live-connector snapshot builder — contract-description parsing, FX normalization, `schema_version: 1` |
+| `test_ibkr_trades.py` | Trades-tab data path — Flex-XML ingest (identical-fill occurrence ordinal, option-field/underlying normalization, expiry P&L, merge idempotency) + `trades_view` currency-correct per-ticker aggregation |
+| `test_ibkr_history_twr.py` | Deposit-aware Portfolio Value history — `returns_view` reports PortfolioAnalyst TWR verbatim (null for windows absent), `equity_view` nulls deposit-distorted Sharpe/Sortino/MaxDD + survives null `spy`; legacy no-TWR history still uses NAV-delta (backward compat) |
 | `test_ibkr_gateway_pull.py` | Headless IB Gateway puller — description synthesis, shared-parser round-trip losslessness |
 | `test_ibkr_ev_calibration.py` | Phase-3 calibration stats — Wilson CI / Brier / ECE math + universe loader |
 
@@ -251,7 +258,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_news_processing.py` | News processing primitives |
 | `test_adversarial_news.py` | Adversarial robustness |
 | `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
-| `test_new_modules.py` | Modules added in recent audits |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
 | `test_news_sentiment.py` | `NewsSentimentReader` — store reads, staleness, neutral default; `sentiment_multiplier` constant-1.0 parity |
@@ -272,7 +278,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_check_lane_claim.py` | The decision-layer lane-claim CI gate (`scripts/check_lane_claim.py`) |
 | `test_check_manifest_coverage.py` | The FILE_MANIFEST coverage gate's conflict-marker detection |
 | `test_testing_md_taxonomy.py` | This file's taxonomy stays complete — every `tests/test_*.py` must be named in TESTING.md |
-| `test_observability.py` | `engine/observability` — TraceContext, DecisionJournal, AuditLogger, trace decorator |
 | `test_policy_config.py` | `engine/policy_config` — load/save/validate, default sanity, section schema |
 | `test_trade_memo_ci.py` | Memo honesty — prob_profit rendered with Wilson CI + N + small-sample caveat |
 

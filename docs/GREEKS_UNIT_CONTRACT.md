@@ -21,7 +21,7 @@ This document defines the canonical unit conventions for all Greeks across the S
 
 ### Gamma
 - **Unit:** Dollar change in delta per $1 move in underlying
-- **Convention:** `gamma_dollars = gamma * spot^2 * contracts * multiplier / 100`
+- **Convention:** `gamma_dollars = gamma * spot^2 * contracts * multiplier`
 - **P&L:** `gamma_pnl = 0.5 * gamma_dollars * (spot_change_pct)^2`
 
 ### Theta

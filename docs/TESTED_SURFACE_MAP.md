@@ -1,6 +1,6 @@
 # Tested-surface map
 
-_Generated 2026-05-29 from `coverage.json` (suite timestamp `2026-05-28T23:51:11.986500`) by `scripts/generate_tested_surface_map.py`. Regenerate after a meaningful coverage shift._
+_Generated 2026-07-08 from `coverage.json` (suite timestamp `2026-07-08T15:29:32.037117`) by `scripts/generate_tested_surface_map.py`. Regenerate after a meaningful coverage shift._
 
 This file answers _what is and isn't covered by the test suite_ at a module granularity. The numbers come from coverage.py's branch-aware report; the module → test mapping is a static import grep of `tests/test_*.py` (not a runtime trace), so a test file is listed if it imports the module — not necessarily if it exercises every line.
 
@@ -12,16 +12,16 @@ Modules listed in `[tool.coverage.run] omit` (research-tier ETL, Ollama-dependen
 
 | Metric | Value |
 |---|---|
-| Total statements (CI scope) | 14,170 |
-| Covered statements | 12,239 |
-| Missing statements | 1,931 |
+| Total statements (CI scope) | 15,177 |
+| Covered statements | 13,202 |
+| Missing statements | 1,975 |
 | Excluded statements | 20 |
-| Total branches | 4,416 |
-| Covered branches | 3,343 |
-| Partial branches | 695 |
-| Missing branches | 1,073 |
-| **Suite % covered** | **83.8%** |
-| Files in scope | 82 |
+| Total branches | 4,796 |
+| Covered branches | 3,717 |
+| Partial branches | 721 |
+| Missing branches | 1,079 |
+| **Suite % covered** | **84.7%** |
+| Files in scope | 78 |
 
 ## Top 15 coverage gaps
 
@@ -29,21 +29,21 @@ Ranked by **uncovered statements** (raw count). These are where additional tests
 
 | Rank | Module | Stmts | Missed | % | Notable untested |
 |---:|---|---:|---:|---:|---|
-| 1 | `engine/wheel_runner.py` | 1,168 | 267 | 75.3% | `WheelRunner.rank_candidates_by_ev` (L719, 86/1069); `WheelRunner.rank_strangles_by_ev` (L2603, 50/585); `WheelRunner.rank_covered_calls_by_ev` (L2068, 48/531); … +4 more |
-| 2 | `engine/wheel_tracker.py` | 772 | 106 | 83.3% | `WheelTracker.suggest_rolls` (L2043, 19/423); `WheelTracker.suggest_call_rolls` (L2467, 19/359); `WheelTracker._compute_live_nav` (L1714, 14/53); … +2 more |
+| 1 | `engine/wheel_runner.py` | 1,431 | 278 | 80.0% | `WheelRunner.rank_candidates_by_ev` (L1272, 76/1272); `WheelRunner.rank_strangles_by_ev` (L3460, 56/712); `WheelRunner.rank_covered_calls_by_ev` (L2824, 47/632); … +5 more |
+| 2 | `engine/wheel_tracker.py` | 841 | 115 | 83.4% | `WheelTracker.suggest_rolls` (L2308, 19/453); `WheelTracker.suggest_call_rolls` (L2762, 19/369); `WheelTracker._evaluate_d17_hard_blocks` (L1991, 16/158); … +2 more |
 | 3 | `src/features/assignment.py` | 182 | 103 | 39.2% | `AssignmentFeatures.compute_for_chain` (L511, 26/80); `AssignmentFeatures._vectorized_prob_touch` (L403, 20/38); `AssignmentFeatures.roll_vs_assignment_score` (L238, 18/59); … +2 more |
 | 4 | `src/features/labels.py` | 152 | 92 | 33.7% | `LabelGenerator.csp_outcome` (L64, 25/68); `LabelGenerator.generate_training_labels` (L403, 20/60); `LabelGenerator.multi_class_outcome` (L360, 5/15) |
-| 5 | `engine/risk_manager.py` | 703 | 86 | 83.5% | `RiskManager.calculate_position_size` (L195, 16/104); `RiskManager.calculate_monte_carlo_var` (L898, 15/259); `RiskManager._get_drawdown_scalar` (L300, 9/19); … +1 more |
+| 5 | `engine/risk_manager.py` | 734 | 86 | 84.2% | `RiskManager.calculate_position_size` (L198, 16/104); `RiskManager.calculate_monte_carlo_var` (L907, 15/259); `RiskManager._get_drawdown_scalar` (L303, 9/19); … +1 more |
 | 6 | `src/features/regime.py` | 125 | 83 | 31.1% | `RegimeDetector.trend_regime` (L67, 15/47); `RegimeDetector.compute_all` (L384, 13/52); `RegimeDetector.vol_regime` (L140, 11/36); … +5 more |
 | 7 | `src/features/events.py` | 112 | 81 | 25.4% | `EventVolatility.surprise_direction_streak` (L285, 13/26); `EventVolatility.compute_earnings_features` (L330, 11/51); `EventVolatility.days_since_event` (L71, 10/40) |
 | 8 | `src/features/technical.py` | 171 | 76 | 50.2% | `TechnicalFeatures.hurst_exponent` (L308, 34/66); `TechnicalFeatures.calc_hurst` (L328, 32/44); `TechnicalFeatures.compute_all` (L375, 24/68) |
 | 9 | `data/quality.py` | 384 | 76 | 76.1% | `DataQualityFramework.check_freshness` (L861, 15/39); `DataQualityFramework.validate_contract` (L901, 4/12) |
-| 10 | `engine/portfolio_tracker.py` | 524 | 66 | 83.0% | `PortfolioTracker._process_option` (L720, 14/31); `PortfolioTracker._calculate_benchmark_return` (L1038, 13/21); `PortfolioTracker._process_sell` (L617, 11/77); … +1 more |
-| 11 | `engine/option_pricer.py` | 425 | 62 | 81.7% | `vectorized_bs_delta` (L1086, 25/48) |
-| 12 | `src/backtest/wheel_backtest.py` | 234 | 60 | 73.1% | `run_backtest` (L521, 28/49); `WheelBacktest._process_expirations` (L215, 10/48); `WheelBacktest._try_sell_covered_call` (L363, 10/31) |
-| 13 | `advisors/committee.py` | 435 | 56 | 82.3% | `CommitteeEngine._advisor_post_mortem` (L731, 18/104); `CommitteeEngine._advisor_portfolio_review` (L509, 14/120) |
-| 14 | `src/features/vol_edge.py` | 79 | 53 | 29.9% | `VolatilityEdge.compute_all` (L267, 16/52); `VolatilityEdge.percentile_rank` (L108, 6/7) |
-| 15 | `advisors/scorecard.py` | 267 | 53 | 74.2% | `AdvisorScorecard._calculate_metrics` (L462, 15/74); `AdvisorScorecard._load_data` (L574, 12/17); `AdvisorScorecard._save_data` (L592, 9/15) |
+| 10 | `src/backtest/wheel_backtest.py` | 234 | 60 | 73.1% | `run_backtest` (L521, 28/49); `WheelBacktest._process_expirations` (L215, 10/48); `WheelBacktest._try_sell_covered_call` (L363, 10/31) |
+| 11 | `advisors/committee.py` | 435 | 56 | 82.3% | `CommitteeEngine._advisor_post_mortem` (L731, 18/104); `CommitteeEngine._advisor_portfolio_review` (L509, 14/120) |
+| 12 | `src/features/vol_edge.py` | 79 | 53 | 29.9% | `VolatilityEdge.compute_all` (L267, 16/52); `VolatilityEdge.percentile_rank` (L108, 6/7) |
+| 13 | `advisors/scorecard.py` | 267 | 53 | 74.2% | `AdvisorScorecard._calculate_metrics` (L462, 15/74); `AdvisorScorecard._load_data` (L574, 12/17); `AdvisorScorecard._save_data` (L592, 9/15) |
+| 14 | `engine/portfolio_tracker.py` | 535 | 53 | 85.6% | `PortfolioTracker._calculate_benchmark_return` (L1070, 13/21); `PortfolioTracker._process_sell` (L617, 11/77); `PortfolioTracker.get_daily_values` (L1175, 4/7) |
+| 15 | `engine/data_connector.py` | 631 | 52 | 90.1% | `MarketDataConnector._to_ts` (L429, 3/5) |
 
 ## Per-module coverage
 
@@ -56,13 +56,13 @@ One row per CI-scope file. The **Tests** column lists `tests/` files that static
 | `advisors/__init__.py` | 12 | 83.3% | — | `tests/test_advisors.py` |
 | `advisors/base.py` | 98 | 80.3% | — | — |
 | `advisors/buffett.py` | 115 | 83.2% | `BuffettAdvisor._analyze` (L82, 16/214) | — |
-| `advisors/committee.py` | 435 | 82.3% | `CommitteeEngine._advisor_post_mortem` (L731, 18/104); `CommitteeEngine._advisor_portfolio_review` (L509, 14/120) | `tests/test_new_modules.py` |
+| `advisors/committee.py` | 435 | 82.3% | `CommitteeEngine._advisor_post_mortem` (L731, 18/104); `CommitteeEngine._advisor_portfolio_review` (L509, 14/120) | — |
 | `advisors/integration.py` | 48 | 78.3% | — | — |
 | `advisors/munger.py` | 102 | 88.2% | — | — |
-| `advisors/schema.py` | 237 | 100.0% | — | `tests/test_new_modules.py` |
+| `advisors/schema.py` | 237 | 100.0% | — | `tests/test_advisors.py` |
 | `advisors/scorecard.py` | 267 | 74.2% | `AdvisorScorecard._calculate_metrics` (L462, 15/74); `AdvisorScorecard._load_data` (L574, 12/17); … +1 more | `tests/test_infrastructure.py` |
 | `advisors/simons.py` | 134 | 83.2% | `SimonsAdvisor._analyze` (L85, 15/293) | — |
-| `advisors/taleb.py` | 116 | 83.3% | `TalebAdvisor._analyze` (L106, 14/311) | `tests/test_new_modules.py` |
+| `advisors/taleb.py` | 116 | 82.1% | `TalebAdvisor._analyze` (L106, 15/311) | `tests/test_advisors.py` |
 
 ### `data/`
 
@@ -74,50 +74,49 @@ One row per CI-scope file. The **Tests** column lists `tests/` files that static
 
 | Module | Stmts | % | Notable untested | Tests |
 |---|---:|---:|---|---|
-| `engine/__init__.py` | 19 | 100.0% | — | `tests/test_audit_improvements.py`, `tests/test_audit_invariants.py`, `tests/test_authority_hardening.py`, … +3 more |
-| `engine/binomial_tree.py` | 156 | 84.6% | — | `tests/test_binomial_tree.py` |
-| `engine/candidate_dossier.py` | 189 | 91.4% | — | `tests/test_dealer_positioning.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_cp1252.py`, … +4 more |
-| `engine/chart_context.py` | 24 | 96.2% | — | `tests/test_dealer_positioning.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_cp1252.py`, … +4 more |
-| `engine/contracts.py` | 75 | 93.6% | — | `tests/test_contracts.py` |
-| `engine/data_connector.py` | 299 | 93.1% | `MarketDataConnector._to_ts` (L134, 3/5) | `tests/test_audit_viii_e2e.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_backtest_regression.py`, … +4 more |
-| `engine/data_integration.py` | 127 | 92.0% | — | `tests/test_data_integration.py`, `tests/test_new_modules.py` |
-| `engine/dealer_positioning.py` | 266 | 89.4% | — | `tests/test_dealer_multiplier_evengine_integration.py`, `tests/test_dealer_positioning.py`, `tests/test_evengine_event_lockout.py` |
-| `engine/earnings_drift.py` | 141 | 88.1% | — | `tests/test_earnings_drift.py` |
-| `engine/ev_engine.py` | 214 | 96.2% | — | `tests/test_audit_invariants.py`, `tests/test_covered_call_ranker.py`, `tests/test_dealer_multiplier_evengine_integration.py`, … +9 more |
+| `engine/__init__.py` | 19 | 100.0% | — | `tests/test_audit_improvements.py`, `tests/test_audit_invariants.py`, `tests/test_authority_hardening.py`, … +8 more |
+| `engine/binomial_tree.py` | 156 | 84.6% | — | `tests/test_binomial_tree.py`, `tests/test_pricing_evaluate_invariants.py` |
+| `engine/candidate_dossier.py` | 211 | 91.2% | `EnginePhaseReviewer.review` (L292, 13/288) | `tests/test_dealer_positioning.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_cp1252.py`, … +8 more |
+| `engine/chart_context.py` | 24 | 96.2% | — | `tests/test_dealer_positioning.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_cp1252.py`, … +7 more |
+| `engine/contracts.py` | 79 | 92.2% | — | `tests/test_contracts.py` |
+| `engine/data_connector.py` | 631 | 90.1% | `MarketDataConnector._to_ts` (L429, 3/5) | `tests/test_audit_viii_e2e.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_backtest_regression.py`, … +19 more |
+| `engine/data_integration.py` | 129 | 92.2% | — | `tests/test_data_integration.py`, `tests/test_data_integrity_bloomberg.py`, `tests/test_w4_risk_free_pit.py` |
+| `engine/dealer_positioning.py` | 270 | 89.5% | — | `tests/test_dealer_multiplier_evengine_integration.py`, `tests/test_dealer_positioning.py`, `tests/test_dealer_positioning_invariants.py`, … +1 more |
+| `engine/ev_engine.py` | 238 | 95.5% | — | `tests/test_audit_invariants.py`, `tests/test_covered_call_ranker.py`, `tests/test_data_to_engine.py`, … +14 more |
 | `engine/event_calendar.py` | 368 | 87.9% | `build_default_calendar` (L947, 13/88) | `tests/test_event_calendar.py` |
-| `engine/event_gate.py` | 103 | 97.2% | — | `tests/test_evengine_event_lockout.py`, `tests/test_event_gate.py`, `tests/test_quant_upgrades.py` |
+| `engine/event_gate.py` | 106 | 97.3% | — | `tests/test_corp_action_gate.py`, `tests/test_ev_engine_percentiles.py`, `tests/test_evengine_event_lockout.py`, … +4 more |
 | `engine/external_data/__init__.py` | 5 | 100.0% | — | — |
 | `engine/external_data/cboe_adapter.py` | 59 | 97.0% | — | `tests/test_external_data_cboe.py` |
-| `engine/external_data/edgar_adapter.py` | 65 | 97.5% | — | `tests/test_external_data_edgar.py` |
+| `engine/external_data/edgar_adapter.py` | 134 | 94.5% | — | `tests/test_external_data_edgar.py` |
 | `engine/external_data/fred_adapter.py` | 87 | 98.2% | — | `tests/test_external_data_fred.py`, `tests/test_pit_leaks.py` |
 | `engine/external_data/yfinance_adapter.py` | 66 | 97.5% | — | `tests/test_external_data_yfinance.py` |
-| `engine/forward_distribution.py` | 156 | 88.2% | — | `tests/test_audit_improvements.py`, `tests/test_f4_rv_widening.py`, `tests/test_f4_tail_risk_gap.py` |
+| `engine/forward_distribution.py` | 167 | 90.5% | — | `tests/test_audit_improvements.py`, `tests/test_f4_rv_widening.py`, `tests/test_f4_tail_risk_gap.py`, … +2 more |
+| `engine/ibkr_portfolio_adapter.py` | 343 | 91.0% | — | — |
 | `engine/mcp_client.py` | 112 | 98.7% | — | `tests/test_mcp_client.py` |
-| `engine/model_validation.py` | 170 | 80.9% | `CrossModelValidator.validate` (L170, 10/114) | `tests/test_binomial_tree.py` |
+| `engine/model_validation.py` | 170 | 84.8% | — | `tests/test_binomial_tree.py` |
 | `engine/monte_carlo.py` | 331 | 95.0% | — | `tests/test_monte_carlo.py` |
-| `engine/news_sentiment.py` | 92 | 94.5% | — | `tests/test_news_sentiment.py`, `tests/test_pit_leaks.py` |
-| `engine/observability.py` | 99 | 98.3% | — | `tests/test_observability.py` |
-| `engine/option_pricer.py` | 425 | 81.7% | `vectorized_bs_delta` (L1086, 25/48) | `tests/test_advanced_quant.py`, `tests/test_binomial_tree.py`, `tests/test_edge_cases.py`, … +5 more |
-| `engine/payoff_engine.py` | 131 | 98.8% | — | `tests/test_payoff_engine.py` |
+| `engine/news_sentiment.py` | 86 | 94.0% | — | `tests/test_news_sentiment.py`, `tests/test_news_severance.py`, `tests/test_pit_leaks.py` |
+| `engine/option_pricer.py` | 437 | 86.7% | — | `tests/test_advanced_quant.py`, `tests/test_binomial_tree.py`, `tests/test_edge_cases.py`, … +7 more |
+| `engine/payoff_engine.py` | 137 | 98.9% | — | `tests/test_payoff_engine.py` |
 | `engine/policy_config.py` | 93 | 100.0% | — | `tests/test_policy_config.py` |
-| `engine/portfolio_copula.py` | 83 | 100.0% | — | `tests/test_portfolio_copula_coverage.py`, `tests/test_quant_upgrades.py` |
-| `engine/portfolio_risk_gates.py` | 179 | 98.0% | — | `tests/test_authority_hardening.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_invariant.py`, … +4 more |
-| `engine/portfolio_tracker.py` | 524 | 83.0% | `PortfolioTracker._process_option` (L720, 14/31); `PortfolioTracker._calculate_benchmark_return` (L1038, 13/21); … +2 more | `tests/test_portfolio_tracker.py` |
-| `engine/realized_vol.py` | 64 | 98.7% | — | `tests/test_realized_vol.py` |
-| `engine/regime_detector.py` | 212 | 84.2% | `RegimeDetector.get_strategy_adjustments` (L393, 17/55) | `tests/test_regime_detector.py` |
-| `engine/regime_hmm.py` | 157 | 92.9% | — | `tests/test_quant_upgrades.py`, `tests/test_ranker_transparency.py` |
-| `engine/risk_manager.py` | 703 | 83.5% | `RiskManager.calculate_position_size` (L195, 16/104); `RiskManager.calculate_monte_carlo_var` (L898, 15/259); … +2 more | `tests/test_advanced_quant.py`, `tests/test_properties.py`, `tests/test_quant_fixtures.py`, … +3 more |
+| `engine/portfolio_copula.py` | 92 | 100.0% | — | `tests/test_portfolio_copula_coverage.py`, `tests/test_quant_upgrades.py`, `tests/test_tail_copula_stress_invariants.py` |
+| `engine/portfolio_risk_gates.py` | 196 | 98.2% | — | `tests/test_authority_hardening.py`, `tests/test_decision_layer_wiring.py`, `tests/test_dossier_downgrade_property.py`, … +6 more |
+| `engine/portfolio_tracker.py` | 535 | 85.6% | `PortfolioTracker._calculate_benchmark_return` (L1070, 13/21); `PortfolioTracker._process_sell` (L617, 11/77); … +1 more | `tests/test_portfolio_tracker.py` |
+| `engine/realized_vol.py` | 73 | 98.8% | — | `tests/test_forward_distribution_invariants.py`, `tests/test_realized_vol.py` |
+| `engine/regime_detector.py` | 218 | 83.6% | `RegimeDetector.get_strategy_adjustments` (L402, 17/55) | `tests/test_regime_detector.py`, `tests/test_regime_hmm_invariants.py` |
+| `engine/regime_hmm.py` | 161 | 96.1% | — | `tests/test_quant_upgrades.py`, `tests/test_ranker_transparency.py`, `tests/test_regime_hmm_invariants.py` |
+| `engine/risk_manager.py` | 734 | 84.2% | `RiskManager.calculate_position_size` (L198, 16/104); `RiskManager.calculate_monte_carlo_var` (L907, 15/259); … +2 more | `tests/test_advanced_quant.py`, `tests/test_broad_pull_wiring_xfail.py`, `tests/test_data_integrity_bloomberg.py`, … +4 more |
 | `engine/signals.py` | 339 | 82.4% | — | `tests/test_signals.py`, `tests/test_strangle_timing.py` |
-| `engine/skew_dynamics.py` | 84 | 89.1% | — | `tests/test_quant_upgrades.py` |
+| `engine/skew_dynamics.py` | 84 | 95.7% | — | `tests/test_quant_upgrades.py`, `tests/test_skew_dynamics_invariants.py` |
 | `engine/strangle_timing.py` | 346 | 99.0% | — | `tests/test_strangle_ev_ranker.py`, `tests/test_strangle_recommendation_gate.py`, `tests/test_strangle_timing.py` |
-| `engine/stress_testing.py` | 341 | 93.8% | `StressTester.from_policy` (L254, 3/6) | `tests/test_extreme_numerics.py`, `tests/test_greeks_unit_invariants.py`, `tests/test_launch_blockers.py`, … +2 more |
-| `engine/tail_risk.py` | 86 | 87.7% | `fit_gpd_tail` (L82, 11/79) | `tests/test_quant_upgrades.py`, `tests/test_tail_risk.py` |
-| `engine/theta_connector.py` | 511 | 97.3% | — | `tests/test_theta_connector.py`, `tests/test_theta_connector_coverage.py`, `tests/test_theta_connector_v3.py` |
-| `engine/tradingview_bridge.py` | 148 | 92.1% | — | `tests/test_dossier_invariant.py`, `tests/test_mcp_client.py`, `tests/test_tv_dossier.py` |
+| `engine/stress_testing.py` | 341 | 93.8% | `StressTester.from_policy` (L254, 3/6) | `tests/test_extreme_numerics.py`, `tests/test_greeks_unit_invariants.py`, `tests/test_launch_blockers.py`, … +3 more |
+| `engine/tail_risk.py` | 86 | 87.7% | `fit_gpd_tail` (L82, 11/79) | `tests/test_quant_upgrades.py`, `tests/test_tail_copula_stress_invariants.py`, `tests/test_tail_risk.py` |
+| `engine/theta_connector.py` | 514 | 96.4% | — | `tests/test_theta_connector.py`, `tests/test_theta_connector_coverage.py`, `tests/test_theta_connector_v3.py` |
+| `engine/tradingview_bridge.py` | 148 | 88.8% | `PlaywrightChartProvider.fetch` (L265, 15/60) | `tests/test_dossier_invariant.py`, `tests/test_mcp_client.py`, `tests/test_tv_dossier.py` |
 | `engine/transaction_costs.py` | 79 | 100.0% | — | `tests/test_audit_improvements.py`, `tests/test_edge_cases.py` |
-| `engine/tv_signals.py` | 255 | 86.9% | `_rsi_state` (L193, 4/10) | `tests/test_audit_viii_e2e.py`, `tests/test_authority_hardening.py`, `tests/test_ev_non_finite_defense.py`, … +2 more |
-| `engine/wheel_runner.py` | 1,168 | 75.3% | `WheelRunner.rank_candidates_by_ev` (L719, 86/1069); `WheelRunner.rank_strangles_by_ev` (L2603, 50/585); … +5 more | `tests/test_audit_improvements.py`, `tests/test_audit_viii_e2e.py`, `tests/test_audit_viii_real_data_smoke.py`, … +24 more |
-| `engine/wheel_tracker.py` | 772 | 83.3% | `WheelTracker.suggest_rolls` (L2043, 19/423); `WheelTracker.suggest_call_rolls` (L2467, 19/359); … +3 more | `tests/test_audit_viii_e2e.py`, `tests/test_audit_viii_unit_invariants.py`, `tests/test_authority_hardening.py`, … +15 more |
+| `engine/tv_signals.py` | 255 | 86.9% | `_rsi_state` (L193, 4/10) | `tests/test_audit_viii_e2e.py`, `tests/test_authority_hardening.py`, `tests/test_engine_api_hardening.py`, … +3 more |
+| `engine/wheel_runner.py` | 1,431 | 80.0% | `WheelRunner.rank_candidates_by_ev` (L1272, 76/1272); `WheelRunner.rank_strangles_by_ev` (L3460, 56/712); … +6 more | `tests/test_asof_none_staleness.py`, `tests/test_audit_improvements.py`, `tests/test_audit_viii_e2e.py`, … +42 more |
+| `engine/wheel_tracker.py` | 841 | 83.4% | `WheelTracker.suggest_rolls` (L2308, 19/453); `WheelTracker.suggest_call_rolls` (L2762, 19/369); … +3 more | `tests/test_audit_viii_e2e.py`, `tests/test_audit_viii_unit_invariants.py`, `tests/test_authority_hardening.py`, … +17 more |
 
 ### `financial_news/`
 
@@ -140,9 +139,8 @@ One row per CI-scope file. The **Tests** column lists `tests/` files that static
 | `src/__init__.py` | 1 | 100.0% | — | — |
 | `src/backtest/__init__.py` | 2 | 100.0% | — | — |
 | `src/backtest/wheel_backtest.py` | 234 | 73.1% | `run_backtest` (L521, 28/49); `WheelBacktest._process_expirations` (L215, 10/48); … +1 more | `tests/test_wheel_backtest.py` |
-| `src/data/__init__.py` | 3 | 100.0% | — | — |
+| `src/data/__init__.py` | 2 | 100.0% | — | — |
 | `src/data/schemas.py` | 147 | 97.4% | — | — |
-| `src/execution/__init__.py` | 0 | 100.0% | — | — |
 | `src/features/__init__.py` | 10 | 100.0% | — | — |
 | `src/features/assignment.py` | 182 | 39.2% | `AssignmentFeatures.compute_for_chain` (L511, 26/80); `AssignmentFeatures._vectorized_prob_touch` (L403, 20/38); … +3 more | `tests/test_audit_invariants.py` |
 | `src/features/dynamics.py` | 73 | 49.4% | `OptionsDynamics.compute_all` (L166, 19/57) | `tests/test_features.py` |
@@ -153,8 +151,6 @@ One row per CI-scope file. The **Tests** column lists `tests/` files that static
 | `src/features/technical.py` | 171 | 50.2% | `TechnicalFeatures.hurst_exponent` (L308, 34/66); `TechnicalFeatures.calc_hurst` (L328, 32/44); … +1 more | `tests/test_features.py`, `tests/test_point_in_time.py`, `tests/test_properties.py`, … +2 more |
 | `src/features/vol_edge.py` | 79 | 29.9% | `VolatilityEdge.compute_all` (L267, 16/52); `VolatilityEdge.percentile_rank` (L108, 6/7) | — |
 | `src/features/volatility.py` | 82 | 74.5% | `VolatilityFeatures.compute_all` (L258, 12/46) | `tests/test_features.py`, `tests/test_point_in_time.py`, `tests/test_properties.py`, … +1 more |
-| `src/models/__init__.py` | 0 | 100.0% | — | — |
-| `src/risk/__init__.py` | 0 | 100.0% | — | — |
 
 ## Methodology notes
 

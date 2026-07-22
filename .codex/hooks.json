@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\merty\\Desktop\\smart-wheel-engine\\.codex\\hooks\\session_start.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

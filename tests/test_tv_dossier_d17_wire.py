@@ -439,7 +439,9 @@ class TestHeldBookIsConsumableByRiskGates:
         assert ctx is not None
         pos = ctx.held_option_positions[0]
         for key in ("symbol", "option_type", "strike", "dte", "iv", "contracts", "is_short"):
-            assert key in pos, f"canonical held-position key {key!r} missing — gates will skip this row"
+            assert key in pos, (
+                f"canonical held-position key {key!r} missing — gates will skip this row"
+            )
         assert pos["symbol"] == "AAPL"
         assert pos["is_short"] is True
         assert "ticker" not in pos

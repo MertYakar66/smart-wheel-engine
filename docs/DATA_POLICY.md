@@ -127,7 +127,7 @@ panels keyed by `(ticker, period, announcement_date)`. The
 
 | Refresh | Command | Frequency | Notes |
 |---|---|---|---|
-| Theta full pull | `python scripts/pull_all.py` | daily on laptop | requires Terminal up; ~8 hours wall clock; see `THETA_PULL_SESSION_NOTES.md` |
+| Theta full pull | `python scripts/pull_all.py` | daily on laptop | requires Terminal up; ~8 hours wall clock; see `THETA_USAGE.md` §20 |
 | yfinance fundamentals + earnings | `python scripts/pull_fundamentals_yf.py`, `pull_earnings_yf.py` | weekly | refreshes the committed CSVs |
 | Treasury yields | `python scripts/pull_treasury_yields_yf.py` | weekly | refreshes `treasury_yields.csv` |
 | Feature shards | `python scripts/backfill_features.py` | when feature def changes | regenerates `data/features/`; AAPL stays as sample |
@@ -166,27 +166,35 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 > in the same commit; before any live `as_of=None` use, run the opt-in
 > age check: `SWE_LIVE_PREFLIGHT=1 pytest tests/test_earnings_calendar_overlay.py`.
 
-> **⚠ Not every connector CSV is refreshable from a repo script.** Of the
-> **10 monolith files** in `engine/data_connector.py::_FILES` (plus the
-> two `broad_pull/` panels it reads outside `_FILES` — the PIT
-> dividend-yield panel and the #464 `sp500_snapshot_bdp.csv` earnings
-> overlay, both fingerprint-pinned since #465), only **3** have a
-> reproducible in-repo producer (`sp500_ohlcv.csv`, `sp500_liquidity.csv`
-> via `xbbg` after editing a hardcoded `end_date`; `treasury_yields.csv`
-> via `pull_treasury_yields_yf.py`). The other **7 — including the core
-> IV file `sp500_vol_iv_full.csv`** plus `sp500_dividends.csv`,
-> `sp500_earnings.csv`, `sp500_credit_risk.csv`, `vix_term_structure.csv`,
-> the schema-correct `sp500_fundamentals.csv`, and
-> `sp500_corporate_actions.csv` — have **no runnable producer in the
-> repo** and cannot be refreshed by the `pull_*` scripts.
-> (`sp500_corporate_actions.csv` is the near-miss: the operator's BQL
-> recipe is documented at `scripts/bloomberg_bql_pulls.md` §2 but is a
-> manual Terminal run, and `scripts/pull_theta_corp_actions.py` writes
-> only parquet side-files + `sp500_dividends_theta.csv` — never the
-> connector CSV — with Theta's corp-actions endpoints 404 at this
-> tier.) Refreshing them needs the operator's original
-> universe-wide BQL/BDH queries recovered or new pullers written. Full
-> per-file investigation: [`bloomberg_refresh_runbook.md`](bloomberg_refresh_runbook.md).
+> **⚠ Producer census (refreshed 2026-07-08, post the #477 xbbg-puller
+> salvage — closes the D28 parked item).** Of the **10 monolith files** in
+> `engine/data_connector.py::_FILES` (plus the two `broad_pull/` panels it
+> reads outside `_FILES` — the PIT dividend-yield panel and the #464
+> `sp500_snapshot_bdp.csv` earnings overlay, both fingerprint-pinned since
+> #465), **9 now have a runnable in-repo producer**; every `xbbg` puller
+> needs a logged-in Bloomberg Terminal:
+>
+> - `sp500_ohlcv.csv` / `sp500_liquidity.csv` — `pull_ohlcv.py` /
+>   `pull_liquidity.py` (⚠ legacy hardcoded `end_date="2026-03-20"`;
+>   edit before running or the frontier *regresses*).
+> - `treasury_yields.csv` — `pull_treasury_yields_yf.py` (yfinance,
+>   no Terminal needed).
+> - `sp500_vol_iv_full.csv` — `pull_vol_iv.py` (salvaged; pins
+>   `end_date="2026-06-04"`, the current frontier).
+> - `sp500_dividends.csv` — `pull_dividends.py`;
+>   `vix_term_structure.csv` — `pull_vix_term_structure.py`;
+>   `sp500_corporate_actions.csv` — `pull_corporate_actions.py` (the
+>   manual BQL recipe at `scripts/bloomberg_bql_pulls.md` §2 remains the
+>   documented historical alternative; Theta's corp-actions endpoints
+>   404 at this tier).
+> - `sp500_credit_risk.csv` / `sp500_fundamentals.csv` —
+>   `pull_snapshots.py` (snapshot-mode BDP fields).
+>
+> The one file still **without** a producer is `sp500_earnings.csv`
+> (the BDS earnings backfill — deferred; queue tracked in
+> `docs/NEXT_DATA_SESSION_RUNBOOK.md`). Pre-salvage per-file
+> investigation (historical):
+> [`bloomberg_refresh_runbook.md`](bloomberg_refresh_runbook.md).
 
 > **⚠ Preflight frontier guard — bump on every OHLCV refresh.** On **every
 > OHLCV refresh** (any change that moves `sp500_ohlcv.csv`'s most-recent bar),

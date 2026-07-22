@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**168 records.**
+**169 records.**
 
 ## Features (18)
 
@@ -70,7 +70,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [suggest-rolls-defensive](suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md) | in-flight |  | suggest_rolls / suggest_call_rolls no longer go silent on a challenged position — an opt-in include_defensive surfaces credit-gate-failing (debit) rolls flagged defensive=True (each scored through EVEngine.evaluate), and .attrs["defensive"] always reports how many defensive rolls exist so the credit-only default is never a silent zero. | `suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md` |
 | [wallclock-staleness](wallclock-staleness-universe-wallclock-frontier-staleness-layers.md) | shipped | #470 | A 27-day-stale OHLCV frontier was runtime-invisible (the only gate was frontier-relative, reading 0 when the whole universe is stale, while the event gate used the real wall clock); now: once-per-connector warn at >7d, structured attrs['staleness'] on all three rankers + API surfacing, and an opt-in universe-wide refusal — default byte-identical | `wallclock-staleness-universe-wallclock-frontier-staleness-layers.md` |
 
-## Backtests (24)
+## Backtests (25)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -98,6 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S43](s43-rolling-5-window-backtest-with-post-260-engine.md) | completed |  | Rolling 5-window backtest with post-#260 engine | `s43-rolling-5-window-backtest-with-post-260-engine.md` |
 | [S44](s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md) | completed |  | S38 re-run on post-F4 engine (PR #260 dollar-improvement test) | `s44-s38-re-run-on-post-f4-engine-pr-260-dollar-impro.md` |
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
+| [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #518 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
 ## Verification & realism (34)
 

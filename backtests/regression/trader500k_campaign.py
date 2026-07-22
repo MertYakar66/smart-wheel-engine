@@ -683,6 +683,11 @@ def run_window(
             trade_stats["spearman_ev_realized_executed"] = {"rho": rho_ev, "p": p_ev}
             trade_stats["spearman_prob_realized_executed"] = {"rho": rho_pp, "p": p_pp}
 
+        if not tdf.empty and "premium_source" in tdf.columns:
+            n_mid = int((tdf["premium_source"] == "market_mid").sum())
+            trade_stats["market_mid_fraction_executed"] = n_mid / max(len(tdf), 1)
+            trade_stats["n_market_mid_executed"] = n_mid
+
         deployed_days = int((nav_df["n_open_positions"] > 0).sum())
         per_friction[lvl] = {
             "curve": curve,
@@ -696,6 +701,10 @@ def run_window(
         }
 
     calib_stats: dict = {"n_rows": int(len(calib))}
+    if not calib.empty and "premium_source" in calib.columns:
+        n_mid_pool = int((calib["premium_source"] == "market_mid").sum())
+        calib_stats["market_mid_fraction_pool"] = n_mid_pool / max(len(calib), 1)
+        calib_stats["n_market_mid_pool"] = n_mid_pool
     if not calib.empty:
         rho_ev, p_ev = _spearman(calib["ev_dollars"], calib["realized_pnl_synth"])
         rho_pp, p_pp = _spearman(calib["prob_profit"], calib["realized_pnl_synth"])

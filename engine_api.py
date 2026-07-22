@@ -1018,14 +1018,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             {trades: [...], count: N, authority: "ev_ranked",
              engine_version: "ev_engine_2026_04_14"}
         """
-        try:
-            limit_int = max(1, int(limit or 15))
-            dte_int = int(dte or 35)
-            delta_f = float(delta or 0.25)
-            min_ev_f = float(min_ev or 0)
-            min_score_f = float(min_score or 0)
-        except (TypeError, ValueError):
-            limit_int, dte_int, delta_f, min_ev_f, min_score_f = 15, 35, 0.25, 0.0, 0.0
+        # Bug fix (CMD 3): parse each param INDEPENDENTLY via _parse_param. The
+        # old shared try/except reset ALL five to defaults on any single bad
+        # value, so e.g. delta=xyz silently dropped the operator's min_ev /
+        # min_score risk filters and returned the full unfiltered candidate
+        # list. Now one malformed value raises BadParam (caught by do_GET → a
+        # clean 400 naming that param) and never overrides a param that parsed.
+        limit_int = max(1, _parse_param("limit", limit, int, 15))
+        dte_int = _parse_param("dte", dte, int, 35)
+        delta_f = _parse_param("delta", delta, float, 0.25)
+        min_ev_f = _parse_param("min_ev", min_ev, float, 0.0)
+        min_score_f = _parse_param("min_score", min_score, float, 0.0)
 
         runner = get_runner()
         conn = runner.connector
@@ -2451,9 +2454,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 min_ev_dollars=0.0,  # strict: positive-EV only
                 include_diagnostic_fields=True,
             )
-        except Exception:
-            traceback.print_exc()
-            df = None
+        except Exception as exc:
+            # Bug fix (CMD 3): a ranker error must NOT collapse into the
+            # empty-200 "no setups" path below — that response is byte-identical
+            # to a genuine empty scan, so the operator sees "nothing today" and
+            # skips trading when the engine actually errored. Surface it as a
+            # 500 + correlation id (full detail to the server log), mirroring
+            # /api/candidates and /api/tv/ranked. The empty-200 branch is now
+            # reserved for a genuinely empty, non-error result only.
+            self._send_internal_error(exc, context="tv_scan:rank_candidates_by_ev")
+            return
 
         if df is None or df.empty:
             self._send_json(

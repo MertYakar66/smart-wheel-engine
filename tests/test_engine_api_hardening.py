@@ -464,3 +464,56 @@ def test_enrich_alert_non_finite_ev_label_is_blocked(monkeypatch):
 
     assert enriched["verdict"] == "blocked"
     assert enriched["verdict_reason"] == "ev_non_finite"
+
+
+# ---------------------------------------------------------------------------
+# CMD 3 — engine_api error-handling fixes
+# ---------------------------------------------------------------------------
+# Bug 1: _handle_tv_scan swallowed a ranker error into df=None → an empty-200
+# "no setups" response byte-identical to a genuine empty scan (so the operator
+# skips trading on a silent engine error). Now surfaced as a 500 + corr id.
+# Bug 2: _handle_candidates parsed limit/dte/delta/min_ev/min_score in one
+# shared try; the except reset ALL to defaults, so one bad value silently
+# dropped the operator's min_ev/min_score risk filters and returned the full
+# unfiltered list. Now each param parses independently → one bad value 400s.
+
+
+class _RaisingRunner:
+    """Runner whose EV ranker raises — simulates a genuine engine error."""
+
+    def __init__(self):
+        self.connector = _FakeConnector()
+
+    def rank_candidates_by_ev(self, *_a, **_k):
+        raise RuntimeError("boom: ranker exploded")
+
+
+def test_tv_scan_ranker_error_is_surfaced_not_empty_200(monkeypatch):
+    """Bug 1: a ranker error must surface as a 500 (+ correlation id), NOT
+    masquerade as an empty-200 'no setups' scan. Pre-fix it returned 200 with
+    {'signals': [], 'count': 0} — indistinguishable from a genuine empty scan."""
+    monkeypatch.setattr(engine_api, "get_runner", lambda: _RaisingRunner())
+    status, body = _drive("GET", "/api/tv/scan?limit=25")
+    assert status == 500, f"ranker error should surface as 500, got {status}: {body}"
+    # must NOT be the empty-signals success shape
+    assert not (isinstance(body, dict) and body.get("count") == 0 and body.get("signals") == []), (
+        "ranker error collapsed into the empty-200 no-setups response"
+    )
+
+
+def test_candidates_bad_delta_returns_400_not_unfiltered():
+    """Bug 2: one malformed param (delta=xyz) must 400 naming it, NOT reset
+    every param to defaults (which dropped the min_ev/min_score filters and
+    served the full unfiltered candidate list). Pre-fix delta=xyz was swallowed
+    → defaults → ranker ran (here → 500 via the stub), never a 400."""
+    status, body = _drive("GET", "/api/candidates?delta=xyz&min_ev=5&min_score=80")
+    assert status == 400, f"malformed delta should 400, got {status}: {body}"
+    assert "delta" in str(body).lower()
+
+
+def test_candidates_good_params_are_not_rejected(monkeypatch):
+    """Control: well-formed params must NOT 400 — the fix rejects only the
+    malformed value, it does not newly reject valid input."""
+    monkeypatch.setattr(engine_api, "get_runner", lambda: _RaisingRunner())
+    status, _body = _drive("GET", "/api/candidates?delta=0.30&min_ev=5&min_score=80")
+    assert status != 400  # params parsed cleanly (500 here is the stubbed ranker)

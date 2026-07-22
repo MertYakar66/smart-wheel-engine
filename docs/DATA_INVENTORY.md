@@ -60,7 +60,7 @@ independent). Backed up / verified **2026-07-22**.
 |---|---|---|
 | `theta` (`13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp`) | `data_processed/theta/` (~11 GB, ~132,862 files) | ⏳ **upload in progress** — file-by-file over a ~1 Mbps uplink; **verification PENDING** |
 | `option_premium` (`1s9ARxD8EDKUG_vRVdD4C-nGjGdkjNO9-`) | `data_processed/option_premium/` (1.8 GB) | ✅ 0 differences · 155 files |
-| `features` (`1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4`) | `data/features/` (~1.2 GB, 11,858 files; `_locks/`, `_backfill_log.csv`, `*.log` excluded) | ⏳ upload complete (rc=0); checksum verification in progress |
+| `features` (`1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4`) | `data/features/` (~1.2 GB, 11,858 files; `_locks/`, `_backfill_log.csv`, `*.log` excluded) | ✅ 0 differences · 11,858 files |
 | `vol_indices` (`1qHskhi0NOuwUuGHgQGAh6CKpbdzoE7us`) | `data_processed/vol_indices.parquet` + `_wide.parquet` | ✅ 0 differences · 2 files |
 | `validation` (`1DImzxUuXxXODIG3uldKBsLx-f1-TZxCT`) | `data_processed/validation/` (22 MB) | ✅ 0 differences · 23 files |
 | `data_processed_root` (`1spBVAgdZLyrLXZ7SgInrR2i7tMwhG62a`) | loose `data_processed/*.json` (incl. `_inventory_scan.json`) | ✅ 0 differences · 5 files |

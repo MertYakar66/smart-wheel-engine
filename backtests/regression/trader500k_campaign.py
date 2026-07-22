@@ -304,6 +304,7 @@ def run_window(
     friction_levels: tuple[str, ...] = FRICTION_LEVELS,
     out_root: Path | None = None,
     work_root: Path | None = None,
+    rail_on: bool = False,
     _smoke_universe_size: int | None = None,
     _smoke_window: tuple[str, str] | None = None,
 ) -> dict:
@@ -327,10 +328,26 @@ def run_window(
     assert_data_window_available(start, end)
 
     t0 = time.time()
-    with _option_premium_rail_pinned_off():
+    if rail_on:
+        # Phase C: the rail must be LIVE — real EOD mids served where the
+        # (ticker, expiry, date) point coheres, synthetic-BSM elsewhere,
+        # per-row premium_source provenance (#435/#463). Different premium
+        # provenance from Phase A/B: outputs land in Wnn_rail/, never mixed.
         runner = WheelRunner()
         conn = runner.connector
-    _assert_rail_neutralized(conn)
+        probe = conn._load_option_premium("AAPL")
+        if probe is None or len(probe) == 0:
+            raise RuntimeError(
+                "--rail-on requested but the option-premium rail is not serving data "
+                "(probe ticker AAPL returned empty)"
+            )
+    else:
+        with _option_premium_rail_pinned_off():
+            runner = WheelRunner()
+            conn = runner.connector
+        _assert_rail_neutralized(conn)
+    rail_label = "on" if rail_on else "pinned_off"
+    bundle_id = window_id + ("_rail" if rail_on else "")
 
     universe = list(conn.get_universe())
     if _smoke_universe_size is not None:
@@ -363,6 +380,7 @@ def run_window(
     calib_frames: list[pd.DataFrame] = []
     daily_nav: dict[str, list[dict]] = {lvl: [] for lvl in friction_levels}
     partial_mark_days: Counter = Counter()
+    premium_source_tally: Counter = Counter()
     drop_tally: Counter = Counter()
     drop_raw: list[dict] = []
     rank_errors: list[dict] = []
@@ -416,6 +434,8 @@ def run_window(
                 snap["as_of"] = today.isoformat()
                 snap["expiration_date"] = expiration_default.isoformat()
                 calib_frames.append(snap)
+                if "premium_source" in frame.columns:
+                    premium_source_tally.update(frame["premium_source"].astype(str))
 
         # #517 FIX-REQUEST: execution consumes head(execution_slice) ONLY;
         # the full frame above is capture-only (rows 21+ can never execute).
@@ -480,6 +500,7 @@ def run_window(
                                 "ev_dollars": float(src.get("ev_dollars", float("nan"))),
                                 "prob_profit": float(src.get("prob_profit", float("nan"))),
                                 "iv": float(src.get("iv", float("nan"))),
+                                "premium_source": str(src.get("premium_source", "")),
                                 "friction_level": lvl,
                             }
                         )
@@ -708,6 +729,7 @@ def run_window(
         "note": note,
         "entry_cutoff": cutoff.isoformat(),
         **{k: v for k, v in CONFIG.items()},
+        "option_premium_rail": rail_label,
         "capture_top_n_resolved": len(universe),
         "friction_levels": list(friction_levels),
         "universe_size": len(universe),
@@ -729,11 +751,12 @@ def run_window(
         "end": end,
         "note": note,
         "entry_cutoff": cutoff.isoformat(),
-        "config": {**CONFIG, "capture_top_n_resolved": len(universe)},
+        "config": {**CONFIG, "option_premium_rail": rail_label, "capture_top_n_resolved": len(universe)},
         "benchmarks": benchmarks,
         "per_friction": per_friction,
         "calibration": calib_stats,
         "drop_gate_tallies": dict(drop_tally),
+        "premium_source_counts": dict(premium_source_tally),
         "rank_errors": rank_errors,
         "caveats": [
             "Synthetic-BSM premiums (option-premium rail pinned OFF): absolute P&L "
@@ -758,7 +781,7 @@ def run_window(
     # ------------------------------------------------------------------
     # Persist
     # ------------------------------------------------------------------
-    out_dir = (out_root or ARTIFACT_ROOT) / window_id
+    out_dir = (out_root or ARTIFACT_ROOT) / bundle_id
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, default=str)
@@ -772,7 +795,7 @@ def run_window(
 
     work_dir = (
         work_root or Path(os.environ.get("TMPDIR", "/tmp")) / "trader500k_work"
-    ) / window_id
+    ) / bundle_id
     work_dir.mkdir(parents=True, exist_ok=True)
     for lvl, tracker in trackers.items():
         pd.DataFrame(rank_log_rows[lvl]).to_csv(work_dir / f"rank_log_{lvl}.csv", index=False)
@@ -810,9 +833,10 @@ def run_window(
 def one(
     window: str = typer.Argument(..., help="Window id, e.g. W05"),
     out_root: Path = typer.Option(None, help="Override bundle root (default: committed artifacts dir)"),
+    rail_on: bool = typer.Option(False, "--rail-on", help="Phase C: option-premium rail LIVE; bundle lands in Wnn_rail/"),
 ) -> None:
     """Run a single campaign window with all three friction levels."""
-    run_window(window.upper(), out_root=out_root)
+    run_window(window.upper(), out_root=out_root, rail_on=rail_on)
 
 
 @app.command()
@@ -820,6 +844,7 @@ def smoke(
     n_tickers: int = typer.Option(12, help="Universe subset size"),
     start: str = typer.Option("2022-01-03", help="Smoke window start"),
     end: str = typer.Option("2022-03-31", help="Smoke window end"),
+    rail_on: bool = typer.Option(False, "--rail-on", help="Smoke with the premium rail LIVE"),
 ) -> None:
     """Plumbing smoke: tiny universe, short window, output to a temp dir.
 
@@ -831,6 +856,7 @@ def smoke(
         "SMOKE",
         out_root=tmp / "bundle",
         work_root=tmp / "work",
+        rail_on=rail_on,
         _smoke_universe_size=n_tickers,
         _smoke_window=(start, end),
     )

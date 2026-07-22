@@ -88,20 +88,26 @@ class TestPortfolioContextConstruction:
         assert result.nav == 1_000_000.0
         assert result.stock_holdings == [("AAPL", 100), ("MSFT", 50)]
         assert len(result.held_option_positions) == 2
-        assert result.held_option_positions[0] == {
-            "ticker": "AAPL",
-            "strike": 180.0,
-            "contracts": 1,
-            "expiration": "2026-04-19",
-            "option_type": "put",
-        }
-        assert result.held_option_positions[1] == {
-            "ticker": "JPM",
-            "strike": 140.0,
-            "contracts": 2,
-            "expiration": "2026-04-19",
-            "option_type": "put",
-        }
+        # Canonical schema the D17 risk gates consume (pos["symbol"], dte,
+        # iv, is_short) — NOT the old {"ticker": ...} shape that silently
+        # dropped the held book. dte is derived from the expiry relative to
+        # today, so assert it structurally rather than pinning a literal.
+        aapl = result.held_option_positions[0]
+        assert aapl["symbol"] == "AAPL"
+        assert aapl["option_type"] == "put"
+        assert aapl["strike"] == 180.0
+        assert aapl["contracts"] == 1
+        assert aapl["is_short"] is True
+        assert aapl["iv"] == 0.30
+        assert aapl["expiration"] == "2026-04-19"
+        assert isinstance(aapl["dte"], int) and aapl["dte"] >= 0
+        assert "ticker" not in aapl
+        jpm = result.held_option_positions[1]
+        assert jpm["symbol"] == "JPM"
+        assert jpm["strike"] == 140.0
+        assert jpm["contracts"] == 2
+        assert jpm["is_short"] is True
+        assert "ticker" not in jpm
         assert result.dealer_regime_by_ticker == {
             "NVDA": "short_gamma_amplifying",
             "AAPL": "normal",
@@ -147,7 +153,7 @@ class TestPortfolioContextParsingIsForgiving:
         assert result is not None
         # Only the well-formed AAPL row parsed.
         assert len(result.held_option_positions) == 1
-        assert result.held_option_positions[0]["ticker"] == "AAPL"
+        assert result.held_option_positions[0]["symbol"] == "AAPL"
 
     def test_malformed_regime_drops(self):
         result = _build_portfolio_context_from_params(
@@ -404,3 +410,67 @@ class TestEnrichSectorCapBreachDowngrade:
             f"D17 reason set without portfolio_context: "
             f"verdict_reason={enriched.get('verdict_reason')!r}"
         )
+
+
+class TestHeldBookIsConsumableByRiskGates:
+    """Regression for the ticker-vs-symbol schema bug (2026-07-13 engine
+    audit, Finding C-3).
+
+    The dicts produced by ``_build_portfolio_context_from_params`` must be
+    consumable by the D17 risk gates, which universally read ``pos["symbol"]``
+    and ``pos["is_short"]`` (see engine/portfolio_risk_gates.py and
+    engine/stress_testing.py). The prior producer emitted ``{"ticker": ...}``
+    with no ``is_short``, so R7-R10 silently dropped the operator's held book
+    and the soft-warns could never fire on ``/api/tv/dossier``.
+
+    The two earlier tests never caught this because one only checks the
+    producer's dict shape and the other hand-builds a ``PortfolioContext``
+    with the correct ``symbol`` key — neither crosses the producer → gate
+    seam. This class does.
+    """
+
+    def test_produced_dict_uses_canonical_gate_schema(self):
+        ctx = _build_portfolio_context_from_params(
+            nav=100_000.0,
+            holdings_csv=None,
+            puts_held_csv="AAPL:180:2:2027-01-15",
+            regime_map_csv=None,
+        )
+        assert ctx is not None
+        pos = ctx.held_option_positions[0]
+        for key in ("symbol", "option_type", "strike", "dte", "iv", "contracts", "is_short"):
+            assert key in pos, (
+                f"canonical held-position key {key!r} missing — gates will skip this row"
+            )
+        assert pos["symbol"] == "AAPL"
+        assert pos["is_short"] is True
+        assert "ticker" not in pos
+
+    def test_single_name_cap_sees_the_held_book(self):
+        """End-to-end across the seam: feed the API-produced positions to
+        R10's single-name cap and confirm the book is SEEN. Held AAPL short
+        puts = 180 * 100 * 2 = $36,000 notional = 36% of a $100k NAV, well
+        over the 10% cap → breach. Before the fix the book was invisible
+        (current notional $0) and the gate passed."""
+        from engine.portfolio_risk_gates import check_single_name_cap
+
+        ctx = _build_portfolio_context_from_params(
+            nav=100_000.0,
+            holdings_csv=None,
+            puts_held_csv="AAPL:180:2:2027-01-15",
+            regime_map_csv=None,
+        )
+        assert ctx is not None
+        result = check_single_name_cap(
+            "AAPL",
+            0.0,
+            ctx.held_option_positions,
+            100_000.0,
+            max_single_name_pct=0.10,
+        )
+        assert result.passed is False, (
+            "R10 must SEE the held AAPL book (36% of NAV > 10% cap); a pass "
+            "means the ticker-vs-symbol drop regressed"
+        )
+        assert result.reason == "single_name_breach"
+        assert result.details["current_name_notional"] == 36_000.0

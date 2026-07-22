@@ -31,7 +31,7 @@ the threshold-drift surface re-opening.
 from __future__ import annotations
 
 import math
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -339,3 +339,91 @@ class TestSharedMinProceedEVDollarsConstant:
             f"MIN_PROCEED_EV_DOLLARS retuned to {MIN_PROCEED_EV_DOLLARS} — "
             "if intentional, update this test in the same PR"
         )
+
+
+# ======================================================================
+# Tracker EV-authority gate — non-finite defense (2026-07-13 audit C-2)
+# ======================================================================
+class TestTrackerEVAuthorityNonFinite:
+    """The production tracker's EV-authority gate is a THIRD non-finite
+    surface, independent of the dossier reviewer (C1) and the webhook
+    ladder (C2). Both legs used a bare ``ev_dollars <= 0`` check, which
+    ``NaN`` and ``+inf`` slip through (``nan <= 0`` and ``inf <= 0`` are
+    both False) — so a garbage EV could be issued a valid authority token
+    and, on consume, open a real position. The fix mirrors R1a: reject
+    non-finite EV with a distinct ``ev_non_finite`` reason before the
+    ``<= 0`` check, at BOTH issue and consume.
+    """
+
+    @staticmethod
+    def _ev_row(ev_dollars: float) -> dict:
+        return {
+            "ticker": "AAPL",
+            "strike": 95.0,
+            "premium": 1.5,
+            "dte": 35,
+            "ev_dollars": ev_dollars,
+            "prob_profit": 0.72,
+            "distribution_source": "empirical_non_overlapping",
+            "option_type": "put",
+        }
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_issue_refuses_non_finite_ev(self, bad):
+        from engine.wheel_tracker import EVAuthorityRefused, WheelTracker
+
+        tracker = WheelTracker()
+        with pytest.raises(EVAuthorityRefused):
+            tracker.issue_ev_authority_token(self._ev_row(bad))
+        # Distinct audit reason separates NaN/inf from an evaluated loss.
+        assert tracker._ev_authority_log[-1]["reason"] == "ev_non_finite", (
+            f"non-finite EV {bad} must log ev_non_finite (not non_positive_ev); "
+            f"got {tracker._ev_authority_log[-1]['reason']!r} — issue-gate guard reverted?"
+        )
+
+    def test_issue_still_allows_finite_positive(self):
+        from engine.wheel_tracker import WheelTracker
+
+        tracker = WheelTracker()
+        token = tracker.issue_ev_authority_token(self._ev_row(50.0), side="put")
+        assert isinstance(token, str) and token
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_consume_rejects_non_finite_current_ev(self, bad):
+        from engine.wheel_tracker import WheelTracker
+
+        tracker = WheelTracker()
+        entry, expiry = date(2026, 1, 1), date(2026, 2, 5)  # 35 DTE, matches row
+        token = tracker.issue_ev_authority_token(self._ev_row(50.0), side="put")
+        # Binding params all match the issued payload, so the ONLY thing
+        # that can reject is the non-finite current_ev_dollars.
+        ok = tracker._consume_ev_authority_token(
+            token,
+            "AAPL",
+            bad,
+            strike=95.0,
+            entry_date=entry,
+            expiration_date=expiry,
+            side="put",
+        )
+        assert ok is False, f"consume must reject non-finite current_ev={bad}"
+        assert tracker._ev_authority_log[-1]["reason"] == "ev_non_finite"
+
+    def test_consume_accepts_finite_positive_current_ev(self):
+        """Control: a matching token with a finite positive fresh EV is
+        consumed successfully — the guard doesn't over-reach."""
+        from engine.wheel_tracker import WheelTracker
+
+        tracker = WheelTracker()
+        entry, expiry = date(2026, 1, 1), date(2026, 2, 5)
+        token = tracker.issue_ev_authority_token(self._ev_row(50.0), side="put")
+        ok = tracker._consume_ev_authority_token(
+            token,
+            "AAPL",
+            50.0,
+            strike=95.0,
+            entry_date=entry,
+            expiration_date=expiry,
+            side="put",
+        )
+        assert ok is True

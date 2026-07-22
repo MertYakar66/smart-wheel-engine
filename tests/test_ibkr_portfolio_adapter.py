@@ -11,7 +11,9 @@ EV-authority token.
 from __future__ import annotations
 
 import ast
+import copy
 import json
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -565,3 +567,73 @@ def test_payloads_carry_no_tradeable_verdict():
     blob = json.dumps(adapter.build_all(FIXTURES)).lower()
     for forbidden in ("verdict", "ev_authority", "tradeable", "ev_dollars"):
         assert forbidden not in blob, f"viewer payload leaked '{forbidden}'"
+
+
+# ----------------------------------------------------------------------
+# CMD 2 robustness fixes — null net_liquidation + provenance staleness
+# ----------------------------------------------------------------------
+# Bug 1: risk_view read ``float(acct["net_liquidation"])`` raw, so a
+# schema-valid snapshot with ``net_liquidation: null`` raised TypeError → an
+# uncaught 500 in ``_handle_portfolio_view`` (only ``SnapshotSchemaError`` is
+# caught), silently swapping the live gates for MOCK.
+# Bug 2: provenance labelled any marker-less drop 'live' with no staleness
+# guard, so a stale / partially-regenerated drop read as live.
+# Both assertions FAIL on the pre-fix module and PASS after.
+
+
+def test_risk_view_survives_null_net_liquidation(snapshot):
+    """Null ``net_liquidation`` must yield a payload, not raise (pre-fix the
+    raw ``float(None)`` raised TypeError)."""
+    snap = copy.deepcopy(snapshot)
+    snap["account"]["net_liquidation"] = None
+
+    risk = adapter.risk_view(snap)  # pre-fix: raises TypeError
+
+    assert isinstance(risk, dict)
+    for key in ("singleName", "concentration", "sectors", "currency"):
+        assert key in risk, f"risk_view payload missing {key!r} under null NAV"
+    assert isinstance(risk["singleName"], list)
+
+
+def test_risk_view_matches_float_when_nav_present(snapshot):
+    """With a real NAV the null-tolerant accessor returns the same view (no
+    happy-path behaviour change)."""
+    risk = adapter.risk_view(snapshot)
+    assert isinstance(risk, dict)
+    assert "singleName" in risk
+
+
+def test_provenance_flags_stale_live_drop():
+    """A marker-less (or explicit ``source: live``) drop with an old ``as_of``
+    downgrades to 'stale' (pre-fix it was unconditionally 'live')."""
+    old = "2020-01-02T00:00:00Z"
+    assert adapter.provenance({"as_of": old}) == "stale"
+    assert adapter.provenance({"source": "live", "as_of": old}) == "stale"
+
+
+def test_provenance_fresh_drop_is_live():
+    """A drop dated today is fresh → 'live'."""
+    assert adapter.provenance({"as_of": date.today().isoformat()}) == "live"
+
+
+def test_provenance_weekend_tolerant():
+    """A drop one trading day old is still fresh (weekend-tolerant); a clearly
+    older drop is stale."""
+    d = date.today() - timedelta(days=1)
+    while d.weekday() >= 5:  # Sat/Sun → step back to Friday
+        d -= timedelta(days=1)
+    assert adapter.provenance({"as_of": d.isoformat()}) == "live"
+    week_ago = (date.today() - timedelta(days=10)).isoformat()
+    assert adapter.provenance({"as_of": week_ago}) == "stale"
+
+
+def test_provenance_contract_preserved():
+    """Pre-existing live/demo contract unchanged: no ``as_of`` → never stale;
+    demo/fixture/mock markers still win."""
+    assert adapter.provenance({}) == "live"
+    assert adapter.provenance({"source": "live"}) == "live"
+    assert adapter.provenance({"source": "fixture"}) == "demo"
+    assert adapter.provenance({"source": "demo"}) == "demo"
+    assert adapter.provenance({"source": "mock"}) == "demo"
+    assert adapter.provenance({"as_of": "not-a-date"}) == "live"
+    assert adapter.provenance({"source": "fixture", "as_of": "2020-01-02"}) == "demo"

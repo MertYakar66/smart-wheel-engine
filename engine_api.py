@@ -619,14 +619,8 @@ def _parse_param(name, raw, kind, default=None):
 # Origin when it is a localhost/loopback origin), plus an optional explicit
 # extra origin via ``SWE_API_CORS_ORIGIN``. Requests with no Origin header
 # (the proxy, curl, server-to-server) are unaffected.
-_LOCALHOST_ORIGIN_PREFIXES = (
-    "http://localhost",
-    "https://localhost",
-    "http://127.0.0.1",
-    "https://127.0.0.1",
-    "http://[::1]",
-    "https://[::1]",
-)
+_LOCALHOST_ORIGIN_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_LOCALHOST_ORIGIN_SCHEMES = frozenset({"http", "https"})
 
 
 def _resolve_cors_origin(request_origin, env=None):
@@ -643,8 +637,22 @@ def _resolve_cors_origin(request_origin, env=None):
     if not request_origin:
         return None
     origin = request_origin.strip()
-    if any(origin.startswith(p) for p in _LOCALHOST_ORIGIN_PREFIXES):
-        return origin
+    # Exact scheme+host match (not prefix). urlparse().hostname strips IPv6
+    # brackets and userinfo; we ALSO require the netloc to be exactly the
+    # loopback host (+ optional port), so spoofs whose hostname parses to a
+    # loopback but whose netloc carries a foreign suffix or userinfo
+    # (``localhost.evil.com``, ``127.0.0.1@evil.com``, ``[::1].evil.com``)
+    # are denied, while every real loopback origin (any port) still matches.
+    try:
+        parsed = urlparse(origin)
+        host = parsed.hostname
+        if host in _LOCALHOST_ORIGIN_HOSTS and parsed.scheme in _LOCALHOST_ORIGIN_SCHEMES:
+            hostpart = f"[{host}]" if ":" in host else host
+            expected = hostpart if parsed.port is None else f"{hostpart}:{parsed.port}"
+            if parsed.netloc.lower() == expected:
+                return origin
+    except ValueError:
+        pass
     source = os.environ if env is None else env
     configured = (source.get("SWE_API_CORS_ORIGIN", "") or "").strip()
     if configured and origin == configured:
@@ -1385,7 +1393,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
         from engine import ibkr_portfolio_adapter as adapter
 
-        known = {"summary", "positions", "returns", "income", "risk", "history"}
+        known = {"summary", "positions", "returns", "income", "risk", "history", "trades"}
         if sub not in known:
             self._send_error(f"Unknown portfolio view: {sub!r}", 404)
             return
@@ -1419,6 +1427,13 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             elif sub == "risk":
                 payload = adapter.risk_view(snapshot)
                 source = adapter.provenance(snapshot)
+            elif sub == "trades":
+                # Normalized IBKR Flex trade history (buys/sells/expiries/
+                # assignments) + per-ticker realized-P&L aggregates. Reuses the
+                # snapshot's fx_rates for USD-equivalent totals. Observational.
+                trades_doc = adapter.load_trades()
+                payload = adapter.trades_view(trades_doc, fx_rates=snapshot.get("fx_rates"))
+                source = adapter.provenance(trades_doc)
             else:  # history
                 history = adapter.load_history()
                 payload = adapter.equity_view(history)

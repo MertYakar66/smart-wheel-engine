@@ -896,15 +896,29 @@ class WheelRunner:
         if self._connector is None:
             import os
 
-            provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").lower()
+            provider = os.environ.get("SWE_DATA_PROVIDER", "bloomberg").strip().lower()
             if provider == "theta":
                 from engine.theta_connector import ThetaConnector
 
                 self._connector = ThetaConnector(str(self.data_dir))
             else:
+                if provider not in ("", "bloomberg"):
+                    logger.warning(
+                        "SWE_DATA_PROVIDER=%r not recognized (expected one of "
+                        "{'theta', 'bloomberg'}); falling back to the Bloomberg "
+                        "MarketDataConnector.",
+                        provider,
+                    )
                 from engine.data_connector import MarketDataConnector
 
                 self._connector = MarketDataConnector(str(self.data_dir))
+            # Silent provider selection is a known recurring bug (CLAUDE.md §4):
+            # always record the resolved token + concrete connector class.
+            logger.info(
+                "SWE_DATA_PROVIDER=%r resolved to %s",
+                provider or "bloomberg",
+                type(self._connector).__name__,
+            )
         return self._connector
 
     @property
@@ -2347,6 +2361,7 @@ class WheelRunner:
                 "strike": strike,
                 "premium": round(premium, 3),
                 "dte": dte_target,
+                "contracts": contracts,
                 "iv": round(iv, 4),
                 "ev_dollars": round(res.ev_dollars, 2),
                 "ev_per_day": round(res.ev_per_day, 3),
@@ -3079,7 +3094,17 @@ class WheelRunner:
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
-        fundamentals = conn.get_fundamentals(ticker) or {}
+        # Carry-q PIT (audit #4): thread as_of into the fundamentals snapshot so
+        # dated CC/strangle backtests price dividend_yield at as_of, not the 2026
+        # snapshot — mirrors the puts ranker. TypeError fallback preserves legacy
+        # get_fundamentals(ticker) stubs (ThetaConnector, consolidated_loader, ...).
+        if as_of is None:
+            fundamentals = conn.get_fundamentals(ticker) or {}
+        else:
+            try:
+                fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
+            except TypeError:
+                fundamentals = conn.get_fundamentals(ticker) or {}
         iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")
@@ -3712,7 +3737,17 @@ class WheelRunner:
 
         # ---- IV: PIT-first via get_iv_history, fallback to fundamentals snapshot ----
         # S23 F3 fix: same as rank_candidates_by_ev.
-        fundamentals = conn.get_fundamentals(ticker) or {}
+        # Carry-q PIT (audit #4): thread as_of into the fundamentals snapshot so
+        # dated CC/strangle backtests price dividend_yield at as_of, not the 2026
+        # snapshot — mirrors the puts ranker. TypeError fallback preserves legacy
+        # get_fundamentals(ticker) stubs (ThetaConnector, consolidated_loader, ...).
+        if as_of is None:
+            fundamentals = conn.get_fundamentals(ticker) or {}
+        else:
+            try:
+                fundamentals = conn.get_fundamentals(ticker, as_of=as_of) or {}
+            except TypeError:
+                fundamentals = conn.get_fundamentals(ticker) or {}
         iv = _resolve_pit_atm_iv(conn, ticker, as_of, max_staleness_days=max_as_of_staleness_days)
         if iv is None:
             iv_raw = fundamentals.get("implied_vol_atm")

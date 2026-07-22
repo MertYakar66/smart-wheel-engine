@@ -64,6 +64,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
 | `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
 | `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
+| `tests/test_r6_dealer_wiring.py` | `EnginePhaseReviewer` rule R6 — dealer/regime downgrade wiring: short-gamma at/above put wall or dealer regime near gamma-flip → review; reads `market_structure` else `ev_row` dealer fields; downgrade-only; no-op on missing dealer data |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
 | `tests/test_audit_viii_unit_invariants.py` | IV / risk-free-rate percent↔decimal normalisation; rolled-position P&L accumulator (audit-viii) |
 | `tests/test_audit_viii_e2e.py` | Webhook → HMAC → enrich → EV → token chain; HMM cache reuse; OHLCV invariant guard (11 e2e tests) |
@@ -140,6 +141,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_strangle_ev_ranker.py` | `rank_strangles_by_ev` — two evaluate calls per candidate, additive EV composition, timing gate downgrade-only, never rescues |
 | `test_strangle_recommendation_gate.py` | S14 phase/confidence gate — downgrade-only `_apply_phase_gate` on both Layer-1 and IV paths |
 | `test_ranker_iv_pit.py` | S23 F3 — ranker uses PIT IV from `get_iv_history`, not snapshot fundamentals; symmetric on CC + strangle paths |
+| `test_ranker_dossier_contracts_seam.py` | `contracts` field emitted by the put ranker on `ev_row` and consumed by `EnginePhaseReviewer._build_candidate_dict` — the ranker→dossier seam carries real size, no `or 1` coercion |
 | `test_ranker_transparency.py` | Drop-reason `.attrs["drops"]`, `hmm_regime` label, `ev_raw` + `regime_multiplier` columns, GICS sector, zero-extra-evaluate invariant |
 | `test_explore_ticker.py` | `explore_ticker` delta×DTE grid sweep — shape, columns, sorting, drops |
 | `test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` — monotone, median match, pre-multiplier, NaN on small samples / lockout (#248) |
@@ -227,6 +229,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_ibkr_import.py` | PortfolioAnalyst PDF importer — OCC parsing, p6 positions, FX derivation, null-safety |
 | `test_ibkr_flex_ledger.py` | Phase-4 exact-fill ledger — long/short stock round-trips, ACAT seed, dedup, FX builder |
 | `test_ibkr_live_snapshot.py` | Live-connector snapshot builder — contract-description parsing, FX normalization, `schema_version: 1` |
+| `test_ibkr_trades.py` | Trades-tab data path — Flex-XML ingest (identical-fill occurrence ordinal, option-field/underlying normalization, expiry P&L, merge idempotency) + `trades_view` currency-correct per-ticker aggregation |
+| `test_ibkr_history_twr.py` | Deposit-aware Portfolio Value history — `returns_view` reports PortfolioAnalyst TWR verbatim (null for windows absent), `equity_view` nulls deposit-distorted Sharpe/Sortino/MaxDD + survives null `spy`; legacy no-TWR history still uses NAV-delta (backward compat) |
 | `test_ibkr_gateway_pull.py` | Headless IB Gateway puller — description synthesis, shared-parser round-trip losslessness |
 | `test_ibkr_ev_calibration.py` | Phase-3 calibration stats — Wilson CI / Brier / ECE math + universe loader |
 

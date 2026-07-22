@@ -39,14 +39,40 @@ folder with its email) **or** an OAuth token at `~/.config/swe/drive_token.json`
 |---|---|---|---|
 | **A — served** | 10 `_FILES` (`ohlcv, vol_iv, dividends, earnings, treasury, vix, fundamentals, credit_risk, liquidity, corporate_actions`) + `broad_pull/` panels | [Drive `data/bloomberg` mirror](https://drive.google.com/drive/folders/1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh) (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`) | being removed (phased) |
 | **B — deep** | 1994→2018 + `__delisted` survivorship (opt-in `deep_history`) | Drive `data/bloomberg/deep/` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`) | already gitignored |
-| **C — local-only** | Theta corpus (`data_processed/theta/`, ~390M rows), `vol_indices.parquet`, feature store | operator's machine ONLY — **not on the Drive mirror** | gitignored |
+| **C — local-only** | Theta corpus (`data_processed/theta/`, ~390M rows), option-premium rail, feature store, vol_indices, validation, ibkr (credential-excluded), data_raw, trade_universe | **COPIED to Drive `swe-local-only/`** (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`) — see §C.1 | gitignored (a few git-tracked, copied anyway for Drive self-sufficiency) |
 
-> ⚠️ **Tier C is the real risk.** The Theta option corpus is gitignored *and* not in
-> the Drive mirror — it exists only locally and **cannot be re-pulled at a Bloomberg
-> terminal** (Theta-only). Back it up separately. Provider note: Bloomberg prices are
-> **split-adjusted**, Theta prices **raw** — never mix.
+> ✅ **Tier C is now backed up to Drive** as a COPY (2026-07-22, account
+> `mertyakar.my@gmail.com`). The Theta option corpus is Theta-only and **cannot be
+> re-pulled at a Bloomberg terminal**, so Drive `swe-local-only/` is its only off-machine
+> copy. Provider note: Bloomberg prices are **split-adjusted**, Theta prices **raw** —
+> never mix. This is a **COPY**: the engine still reads local disk. Untracking any
+> git-tracked data is the SEPARATE operator-gated `docs/DATA_MIGRATION_TERMINAL_PROMPT.md`
+> job — NOT done here.
 
-The Drive subfolder ids (for `fetch_data.py`) are in the manifest's `drive_folders`.
+### §C.1 — `swe-local-only/` Tier-C backup (root `1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`)
+
+Copied with `rclone copy … gdrive: --drive-root-folder-id <child-id> --checksum` (explicit-ID
+addressing, empty remote path) and verified with `rclone check … --checksum --one-way`
+(Drive-vs-local **MD5** byte-identity — this is NOT the manifest's sha256; both proofs are
+independent). Backed up / verified **2026-07-22**.
+
+| Child (folder id) | Local source | `rclone check --checksum` |
+|---|---|---|
+| `theta` (`13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp`) | `data_processed/theta/` (~11 GB, ~132,862 files) | ⏳ **upload in progress** — file-by-file over a ~1 Mbps uplink; **verification PENDING** |
+| `option_premium` (`1s9ARxD8EDKUG_vRVdD4C-nGjGdkjNO9-`) | `data_processed/option_premium/` (1.8 GB) | ✅ 0 differences · 155 files |
+| `features` (`1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4`) | `data/features/` (~1.2 GB, 11,858 files; `_locks/`, `_backfill_log.csv`, `*.log` excluded) | ⏳ upload complete (rc=0); checksum verification in progress |
+| `vol_indices` (`1qHskhi0NOuwUuGHgQGAh6CKpbdzoE7us`) | `data_processed/vol_indices.parquet` + `_wide.parquet` | ✅ 0 differences · 2 files |
+| `validation` (`1DImzxUuXxXODIG3uldKBsLx-f1-TZxCT`) | `data_processed/validation/` (22 MB) | ✅ 0 differences · 23 files |
+| `data_processed_root` (`1spBVAgdZLyrLXZ7SgInrR2i7tMwhG62a`) | loose `data_processed/*.json` (incl. `_inventory_scan.json`) | ✅ 0 differences · 5 files |
+| `data_raw` (`15ZGdTlLtMVr4ShIgpQq3bDw9tYrVme02`) | `data_raw/**` (git-tracked; incl. `sp500_constituents_current.csv`) | ✅ 0 differences · 11 files |
+| `trade_universe` (`10JMptvhJsau459DLCH0tnJgzhwjpxwt4`) | `data_processed/trade_universe/` (git-tracked) | ✅ 0 differences · 1 file |
+| `ibkr` (`1pr3fkf7zPWZxC8_sAtwdNOs8aGJujPDG`) | `data_processed/ibkr/` — **`flex_credentials.json` EXCLUDED (never uploaded)** | ✅ 0 differences · 19 files |
+
+**Skipped (stated):** `data_processed/sim/` (regenerable paper-book outputs), `data_processed/.gitkeep` (empty marker).
+**Absent on this laptop:** `financial_news/storage/sentiment.sqlite` (news-sentiment store — `financial_news/` holds only source code, no DB), `data_processed/{news_sentiment,corporate_actions,edgar}` (not present), `SWE_DEL_OUT`/`SWE_OUT_PATH` off-tree scratch (Windows defaults, absent on macOS).
+
+The Drive subfolder ids (for `fetch_data.py`) are in the manifest's `drive_folders`; the Tier-C
+`swe-local-only/` ids are in the manifest's `drive_local_only_folders`.
 To refresh the data itself at a terminal, follow
 [`BLOOMBERG_TERMINAL_NEXT_SESSION.md`](BLOOMBERG_TERMINAL_NEXT_SESSION.md).
 

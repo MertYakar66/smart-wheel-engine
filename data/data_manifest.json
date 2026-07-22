@@ -13,6 +13,19 @@
     "data/bloomberg/broad_pull/macro_calendar": "1X0zhgUyujmo7Z1Swl4vpc-liZUaxyGuk",
     "data/bloomberg/deep": "1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna"
   },
+  "drive_local_only_note": "Tier-C local-only data (gitignored + a few git-tracked kept for Drive self-sufficiency) backed up as a COPY to Drive folder swe-local-only/ on 2026-07-22 (account mertyakar.my@gmail.com). The engine STILL reads these from local disk; untracking git-tracked data is the separate operator-gated docs/DATA_MIGRATION_TERMINAL_PROMPT.md job and is NOT done here. Verified by rclone check --checksum (Drive-vs-local MD5 byte-identity), which is NOT the same as this manifest's sha256; sha256 is null because these are Drive-only, not manifest-tracked. NOTE: the theta child was still uploading (file-by-file, ~133k files over a ~1 Mbps uplink) at commit time — theta verification is PENDING; every other child is rclone-check verified with 0 differences. The ibkr child EXCLUDES flex_credentials.json (never uploaded).",
+  "drive_local_only_root": "1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn",
+  "drive_local_only_folders": {
+    "swe-local-only/theta": "13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp",
+    "swe-local-only/option_premium": "1s9ARxD8EDKUG_vRVdD4C-nGjGdkjNO9-",
+    "swe-local-only/features": "1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4",
+    "swe-local-only/vol_indices": "1qHskhi0NOuwUuGHgQGAh6CKpbdzoE7us",
+    "swe-local-only/validation": "1DImzxUuXxXODIG3uldKBsLx-f1-TZxCT",
+    "swe-local-only/data_processed_root": "1spBVAgdZLyrLXZ7SgInrR2i7tMwhG62a",
+    "swe-local-only/data_raw": "15ZGdTlLtMVr4ShIgpQq3bDw9tYrVme02",
+    "swe-local-only/trade_universe": "10JMptvhJsau459DLCH0tnJgzhwjpxwt4",
+    "swe-local-only/ibkr": "1pr3fkf7zPWZxC8_sAtwdNOs8aGJujPDG"
+  },
   "counts": {
     "git_tracked": 48,
     "deep_archive": 13

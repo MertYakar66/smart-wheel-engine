@@ -498,10 +498,15 @@ def run_window(
                 t for t, p in tracker.positions.items() if p.state != PositionState.NO_POSITION
             ]
             n_open = len(open_tickers_now)
-            fully_priced = all(t in remark_prices for t in open_tickers_now)
+            mark_ok = (
+                bool(eq)
+                and eq[-1]["date"] == today
+                and all(t in remark_prices for t in open_tickers_now)
+                and np.isfinite(float(eq[-1]["portfolio_value"]))
+            )
             if n_open == 0:
                 nav = float(tracker.cash)
-            elif eq and eq[-1]["date"] == today and fully_priced:
+            elif mark_ok:
                 nav = float(eq[-1]["portfolio_value"])
             elif daily_nav[lvl]:
                 nav = float(daily_nav[lvl][-1]["nav"])  # carry-forward guard

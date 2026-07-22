@@ -334,6 +334,16 @@ properties not covered by the W1/W2 pins above.
 |---|---|
 | `test_w1w2_reverify.py` | Corp-action split ground-truth (`get_corporate_actions` serves BKNG 25:1 eff 2026-04-06, CVNA 5:1 eff 2026-05-08, NFLX 10:1 eff 2025-11-17 — the root-cause data behind D-W1-1, durable after PR #455); split effective dates postdate the 2026-03-23 splice (pull-boundary diagnosis); IV-validity gate `(3.0, 10000]` is scoped to *implied* vol only — realized-vol columns correctly served below 3% (EA, HOLX), never floored or negative |
 
+### Held-findings repro (audit 2026-07-15, CMD 10) — `xfail(strict)` bug documentation
+
+Each pins the CORRECT behavior of a held audit finding (`docs/audits/HELD_FINDINGS_FIX_DESIGNS_2026-07-15.md`); currently `xfail(strict)` (green now, flips to a failure once the operator lands the fix — drop the marker then). No `engine/` code was modified.
+
+| File | Pins (held finding) |
+|---|---|
+| `test_held_finding_roll_ev_bypass.py` | F1 `[INV]`: `roll_put` on a `make_live_book_tracker` (enforce_single_name_cap) must enforce the 10% single-name cap on the rolled leg — currently the roll bypasses D17 + the EV-authority token (`engine/wheel_tracker.py` roll_put/roll_call) |
+| `test_held_finding_hmm_bull_quiet.py` | F3 `[INV]`: a fitted state with negative mean return must NOT be labeled `bull_quiet`/up-sized 1.25× purely by within-window rank — `engine/regime_hmm.py` `_label_states`/`position_multiplier` |
+| `test_held_finding_iv_fallback_lookahead.py` | F4 `[INV]`: at a historical `as_of` with no PIT IV, the puts ranker must NOT silently substitute today's snapshot IV — `engine/wheel_runner.py:1671-1701` (missing `as_of is not None` guard) |
+
 ## Running tests
 
 ```bash

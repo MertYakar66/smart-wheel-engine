@@ -137,8 +137,7 @@ def test_roll_put_must_enforce_single_name_cap_on_rolled_leg():
     # If the roll was correctly refused, the old under-cap leg must remain and
     # no over-cap leg should have been applied.
     assert effective_strike != ROLL_STRIKE, (
-        "roll_put applied the over-cap $190 strike (19% NAV) without a "
-        "single-name cap check."
+        "roll_put applied the over-cap $190 strike (19% NAV) without a single-name cap check."
     )
 
     # A correct refusal should also not have consumed the position count into a

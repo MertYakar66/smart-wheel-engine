@@ -41,9 +41,7 @@ from engine.regime_hmm import GaussianHMM
 # configuration that is a steady low-vol DECLINE (all means negative), laid out
 # in ascending-score order exactly as fit() would hand it to _label_states.
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(
-    reason="held finding F3-hmm-bull-quiet; drop xfail when fixed", strict=True
-)
+@pytest.mark.xfail(reason="held finding F3-hmm-bull-quiet; drop xfail when fixed", strict=True)
 def test_negative_mean_top_state_is_not_bull_quiet():
     K = 4
 
@@ -99,9 +97,7 @@ def test_negative_mean_top_state_is_not_bull_quiet():
 # check the position multiplier for the current (down) regime. It must be
 # <= 1.0, never the 1.25x up-size 'bull_quiet' produces.
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(
-    reason="held finding F3-hmm-bull-quiet; drop xfail when fixed", strict=True
-)
+@pytest.mark.xfail(reason="held finding F3-hmm-bull-quiet; drop xfail when fixed", strict=True)
 def test_down_regime_position_multiplier_not_upsized():
     # Build a steady low-volatility DECLINE with four distinct sub-regimes, all
     # DOWN, laid out so the tail (the "current" regime) is the least-negative,
@@ -133,9 +129,7 @@ def test_down_regime_position_multiplier_not_upsized():
     # Two features: (log_return, rolling realised vol) — matches how the engine
     # is fed in practice. Rolling std over a short window; fill the head.
     win = 10
-    rv = np.array(
-        [log_returns[max(0, i - win) : i + 1].std() for i in range(n)]
-    )
+    rv = np.array([log_returns[max(0, i - win) : i + 1].std() for i in range(n)])
     rv[:win] = rv[win]
     obs = np.column_stack([log_returns, rv])
 
@@ -145,8 +139,7 @@ def test_down_regime_position_multiplier_not_upsized():
     # Every fitted state's mean return should be negative on a pure decline —
     # confirm the fixture actually produced a down regime (not a knife-edge).
     assert np.all(fit.means[:, 0] < 0.0), (
-        f"test setup: expected all state means negative on a decline, got "
-        f"{fit.means[:, 0]}"
+        f"test setup: expected all state means negative on a decline, got {fit.means[:, 0]}"
     )
 
     # Current filtered posterior over states.

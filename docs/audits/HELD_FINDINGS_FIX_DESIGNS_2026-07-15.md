@@ -37,11 +37,16 @@ fails on current engine code). Drop the `xfail` marker when each fix lands.
   are unaffected. (The same hole exists in `roll_call` and the strict-mode token
   path; this repro isolates the production-default single-name bypass in `roll_put`.)
 
-## F2 — dollar-gamma P&L is 100× understated in VaR and stress  `[INV]`
+## F2 — dollar-gamma P&L is 100× understated in VaR and stress  `[INV]`  ✅ RESOLVED
+- **Status (2026-07-21):** FIXED on `main` via **PR #496** (audit #1) — the `/100`
+  was dropped, so `gamma_dollars = gamma*multiplier*spot*spot` (`engine/risk_manager.py:365`).
+  The held repro `test_held_finding_dollar_gamma_100x.py` was removed (it began
+  XPASS-ing under `xfail(strict)`); the corrected behavior is now pinned by
+  `tests/test_risk_manager.py::TestGammaDollarsConvention::test_gamma_dollars_carries_contract_multiplier`.
+  The design below is retained as the historical record of the finding.
 - **Where:** `engine/risk_manager.py` `calculate_portfolio_greeks` L363 (+ every
   gamma-P&L consumer: hist-VaR L651, parametric L542, stress L1259/1303/1349/1376,
   limit L1479).
-- **Repro:** `tests/test_held_finding_dollar_gamma_100x.py::test_dollar_gamma_pnl_not_understated_100x` (xfail).
 - **Root cause:** `gamma_dollars = gamma*multiplier*spot²/100` (L363, **WITH /100**)
   while `delta_dollars` (L362) has **no /100**. Every consumer then pairs
   `gamma_dollars` with a *fractional* move squared (e.g. `0.5*gamma_dollars*ret²`),

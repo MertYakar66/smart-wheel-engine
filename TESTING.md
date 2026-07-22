@@ -334,7 +334,6 @@ Each pins the CORRECT behavior of a held audit finding (`docs/audits/HELD_FINDIN
 | File | Pins (held finding) |
 |---|---|
 | `test_held_finding_roll_ev_bypass.py` | F1 `[INV]`: `roll_put` on a `make_live_book_tracker` (enforce_single_name_cap) must enforce the 10% single-name cap on the rolled leg — currently the roll bypasses D17 + the EV-authority token (`engine/wheel_tracker.py` roll_put/roll_call) |
-| `test_held_finding_dollar_gamma_100x.py` | F2 `[INV]`: `risk_manager.calculate_portfolio_greeks` `gamma_dollars` must not carry the `/100` (paired with fractional moves it makes gamma-P&L / VaR / stress 100× too small) — `engine/risk_manager.py:363` |
 | `test_held_finding_hmm_bull_quiet.py` | F3 `[INV]`: a fitted state with negative mean return must NOT be labeled `bull_quiet`/up-sized 1.25× purely by within-window rank — `engine/regime_hmm.py` `_label_states`/`position_multiplier` |
 | `test_held_finding_iv_fallback_lookahead.py` | F4 `[INV]`: at a historical `as_of` with no PIT IV, the puts ranker must NOT silently substitute today's snapshot IV — `engine/wheel_runner.py:1671-1701` (missing `as_of is not None` guard) |
 

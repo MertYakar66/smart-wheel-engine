@@ -496,9 +496,9 @@ def test_tv_scan_ranker_error_is_surfaced_not_empty_200(monkeypatch):
     status, body = _drive("GET", "/api/tv/scan?limit=25")
     assert status == 500, f"ranker error should surface as 500, got {status}: {body}"
     # must NOT be the empty-signals success shape
-    assert not (
-        isinstance(body, dict) and body.get("count") == 0 and body.get("signals") == []
-    ), "ranker error collapsed into the empty-200 no-setups response"
+    assert not (isinstance(body, dict) and body.get("count") == 0 and body.get("signals") == []), (
+        "ranker error collapsed into the empty-200 no-setups response"
+    )
 
 
 def test_candidates_bad_delta_returns_400_not_unfiltered():

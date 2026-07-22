@@ -150,12 +150,22 @@ class _FakeRunner:
         # fixes, which is why these tests now exercise the real path.)
         return pd.DataFrame(
             [
-                {"ticker": "MU", "iv_rank": 55.0, "ev_dollars": 45.0,
-                 "ev_per_day": 1.30, "prob_profit": 0.77,
-                 "distribution_source": "empirical_non_overlapping"},
-                {"ticker": "AAPL", "iv_rank": 48.0, "ev_dollars": 30.0,
-                 "ev_per_day": 0.90, "prob_profit": 0.71,
-                 "distribution_source": "empirical_non_overlapping"},
+                {
+                    "ticker": "MU",
+                    "iv_rank": 55.0,
+                    "ev_dollars": 45.0,
+                    "ev_per_day": 1.30,
+                    "prob_profit": 0.77,
+                    "distribution_source": "empirical_non_overlapping",
+                },
+                {
+                    "ticker": "AAPL",
+                    "iv_rank": 48.0,
+                    "ev_dollars": 30.0,
+                    "ev_per_day": 0.90,
+                    "prob_profit": 0.71,
+                    "distribution_source": "empirical_non_overlapping",
+                },
             ]
         )
 

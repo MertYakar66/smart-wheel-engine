@@ -174,6 +174,13 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_survivorship_r6_lehman.py` | R6 proof — Lehman delisting realizes the loss at delisting price in a 2008 backtest (deep-data gated) |
 | `test_parameter_oos.py` | Parameter-OOS gate (E5) — per-row no-leakage certificate + offline re-weighting identities (fixture-independent, fast); fixture↔snapshot recompute lock (fast); engine-regeneration lock (`backtest_regression` marker, slow) |
 | `test_parameter_oos_100t.py` | 100-name parameter-OOS replication — daily-sampling significance upgrades (per-date cross-sectional ρ, date-clustered bootstrap, E3 breadth) unit tests; fixture↔snapshot recompute lock (fast); engine spot-check regen (`backtest_regression`) |
+| `test_tail_exceedance.py` | V1 tail-exceedance harness (`backtests/tail_exceedance.py`) — Kupiec POF hand-computed values, date-clustered CI vs iid width, violation-clustering permutation test, heterogeneous-Bernoulli coverage z, VIX bands, calibrated-PASS / understated-tail-FAIL / conservative-never-FAIL synthetic end-to-end (engine-free, fast) |
+| `test_freeze_replay.py` | V2 freeze-replay harness (`backtests/freeze_replay.py`) — byte-preserving truncation, exact ranker-output differ, snapshot differ (rtol/NaN/labels), freeze context-manager substitute+restore on synthetic frames, frozen-HMM clamp/fallback, compare-report shape, §11 tier-2 truncation (tier composition, tier-2 cut vs tier-1-intact, future-effective-row-kept PIT semantic) (fast); C1 refit-reproducibility lock vs the committed fixture (`backtest_regression`, slow) |
+| `test_capacity_curve.py` | V4 capacity ladder (`backtests/capacity_curve.py`) — sqrt-impact isolation vs hand formula, decide_fill verdicts, PIT AdvLookup (stub connector), corrected proportionality A/A, knee-table argmax (engine-light, fast) |
+| `test_reverse_stress.py` | V5 reverse stress (`backtests/reverse_stress.py`) — adversary admissibility (R10/R9/budget/losers-only), search aggregation, saturated-book fill, assignment-wave replay + levered counterfactual on stub paths, §10.2 TV-marking locks (TV trough >= intrinsic + monotone in iv_mult, no-IV intrinsic fallback, unknown-marking rejection, book carries iv) (engine-light, fast) |
+| `test_v6r_fullmenu.py` | V6-r1 driver locks (plan §10.1, pinned before the counted re-read) — FM1 CAVEAT_RETIRED/CENSORING_LOAD_BEARING boundary at the 0.5 cut + INSUFFICIENT path, FM2 depth-profile appetite-line counts on synthetic frames (fast) |
+| `test_v6_lockbox.py` | V6 lockbox driver locks (pinned before the one deep-history spend) — H1/H2/H3 verdict math + INSUFFICIENT paths on synthetic frames, plus the post-processing regressions from the 2026-07-13 attempt-1/2 crash: `collect_entry_dates` vs every vehicle shape (incl. the legacy `{ticker: state}` map that killed the run), `_safe` ERROR-verdict capture, `build_report` against the vehicle's exact return shape end-to-end (fast) |
+| `test_param_plateau.py` | V3 plateau-sweep harness (`backtests/param_plateau.py`) — F4 patch lever (fires/binds/restores, loud on unknown kwargs), off-grid rejection, R11 sweep math (both lenses), §6.3 verdict ladder (PLATEAU/PEAK/CLIFF/DOMINATED + guard), activation gate boundaries, axis-report shape (engine-free/synthetic, fast) |
 | `test_mark_to_market_iv.py` | #118 P4 — MTM IV staleness fallback chain (explicit → connector as-of ATM → entry IV) |
 | `test_iv_surface_failloud.py` | D9/A2 — `SurfaceDataUnavailable` + `require_surface` fail-loud SVI contract; no silent flat IV |
 | `test_preflight_environment.py` | Environment-invariant guard — silent provider selection + stale-tree OHLCV frontier (`EXPECTED_FRONTIER`) (#364) |
@@ -326,6 +333,16 @@ properties not covered by the W1/W2 pins above.
 | File | Pins |
 |---|---|
 | `test_w1w2_reverify.py` | Corp-action split ground-truth (`get_corporate_actions` serves BKNG 25:1 eff 2026-04-06, CVNA 5:1 eff 2026-05-08, NFLX 10:1 eff 2025-11-17 — the root-cause data behind D-W1-1, durable after PR #455); split effective dates postdate the 2026-03-23 splice (pull-boundary diagnosis); IV-validity gate `(3.0, 10000]` is scoped to *implied* vol only — realized-vol columns correctly served below 3% (EA, HOLX), never floored or negative |
+
+### Held-findings repro (audit 2026-07-15, CMD 10) — `xfail(strict)` bug documentation
+
+Each pins the CORRECT behavior of a held audit finding (`docs/audits/HELD_FINDINGS_FIX_DESIGNS_2026-07-15.md`); currently `xfail(strict)` (green now, flips to a failure once the operator lands the fix — drop the marker then). No `engine/` code was modified.
+
+| File | Pins (held finding) |
+|---|---|
+| `test_held_finding_roll_ev_bypass.py` | F1 `[INV]`: `roll_put` on a `make_live_book_tracker` (enforce_single_name_cap) must enforce the 10% single-name cap on the rolled leg — currently the roll bypasses D17 + the EV-authority token (`engine/wheel_tracker.py` roll_put/roll_call) |
+| `test_held_finding_hmm_bull_quiet.py` | F3 `[INV]`: a fitted state with negative mean return must NOT be labeled `bull_quiet`/up-sized 1.25× purely by within-window rank — `engine/regime_hmm.py` `_label_states`/`position_multiplier` |
+| `test_held_finding_iv_fallback_lookahead.py` | F4 `[INV]`: at a historical `as_of` with no PIT IV, the puts ranker must NOT silently substitute today's snapshot IV — `engine/wheel_runner.py:1671-1701` (missing `as_of is not None` guard) |
 
 ## Running tests
 

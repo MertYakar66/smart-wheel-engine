@@ -421,6 +421,7 @@ section's monotone curve, where this campaign's own all-candidate ρ is likewise
 (+0.247..+0.707), matching the §7.2 top-tier edge. A 2026-07-28 read-only
 reconciliation judged the two campaigns **consistent — the same
 population-width curve measured at opposite ends** (matched pair: our fold-4
-all-candidate ρ −0.2315 vs its W08 full-menu −0.2332, same 2023-24 span). Full
+all-candidate ρ −0.2315, 2023-06→2024-06, vs its W08 full-menu −0.2332,
+2023-07→2024-12 — heavily overlapping spans). Full
 reconciliation, tier table, and reproduction script: that report's §7 and
 `scripts/analyze_trader500k_pool.py`.

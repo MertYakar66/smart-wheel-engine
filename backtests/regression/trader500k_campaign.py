@@ -462,9 +462,7 @@ def run_window(
                     )
             if exec_frame is not None:
                 held_before = {
-                    t
-                    for t, p in tracker.positions.items()
-                    if p.state == PositionState.SHORT_PUT
+                    t for t, p in tracker.positions.items() if p.state == PositionState.SHORT_PUT
                 }
                 _tracker_try_opens(
                     tracker=tracker,
@@ -548,9 +546,7 @@ def run_window(
             elapsed = time.time() - t0
             rate = (day_idx + 1) / elapsed if elapsed > 0 else 0.0
             eta_min = (len(trading_days) - day_idx - 1) / rate / 60 if rate > 0 else float("inf")
-            navs = " ".join(
-                f"{lvl}={daily_nav[lvl][-1]['nav']:,.0f}" for lvl in friction_levels
-            )
+            navs = " ".join(f"{lvl}={daily_nav[lvl][-1]['nav']:,.0f}" for lvl in friction_levels)
             print(
                 f"[trader500k] {window_id} day {day_idx + 1}/{len(trading_days)} {today} "
                 f"NAV {navs}  elapsed {elapsed / 60:.1f}min ETA {eta_min:.0f}min",
@@ -649,22 +645,16 @@ def run_window(
                 "per_year": {},
                 "per_quartile": {},
             }
-        harness_metrics["aggregate"]["r10_refusals"] = int(
-            getattr(tracker, "_sim_r10_refusals", 0)
-        )
+        harness_metrics["aggregate"]["r10_refusals"] = int(getattr(tracker, "_sim_r10_refusals", 0))
 
         nav_df = pd.DataFrame(daily_nav[lvl])
         curve = curve_metrics(nav_df["nav"], CONFIG["capital"])
 
         tdf = trades[trades["friction_level"] == lvl] if not trades.empty else pd.DataFrame()
-        resolved = (
-            tdf[tdf["outcome"].isin(["assigned", "expired_otm"])] if not tdf.empty else tdf
-        )
+        resolved = tdf[tdf["outcome"].isin(["assigned", "expired_otm"])] if not tdf.empty else tdf
         n_trades = int(len(tdf))
         n_assigned = int((tdf["outcome"] == "assigned").sum()) if not tdf.empty else 0
-        win_rate = (
-            float((resolved["realized_pnl"] > 0).mean()) if len(resolved) else float("nan")
-        )
+        win_rate = float((resolved["realized_pnl"] > 0).mean()) if len(resolved) else float("nan")
         trade_stats = {
             "n_trades": n_trades,
             "n_assignments": n_assigned,
@@ -737,7 +727,7 @@ def run_window(
         "end": end,
         "note": note,
         "entry_cutoff": cutoff.isoformat(),
-        **{k: v for k, v in CONFIG.items()},
+        **CONFIG,
         "option_premium_rail": rail_label,
         "capture_top_n_resolved": len(universe),
         "friction_levels": list(friction_levels),
@@ -760,7 +750,11 @@ def run_window(
         "end": end,
         "note": note,
         "entry_cutoff": cutoff.isoformat(),
-        "config": {**CONFIG, "option_premium_rail": rail_label, "capture_top_n_resolved": len(universe)},
+        "config": {
+            **CONFIG,
+            "option_premium_rail": rail_label,
+            "capture_top_n_resolved": len(universe),
+        },
         "benchmarks": benchmarks,
         "per_friction": per_friction,
         "calibration": calib_stats,
@@ -795,16 +789,12 @@ def run_window(
     with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, default=str)
         f.write("\n")
-    eq_all = pd.concat(
-        [pd.DataFrame(daily_nav[lvl]) for lvl in friction_levels], ignore_index=True
-    )
+    eq_all = pd.concat([pd.DataFrame(daily_nav[lvl]) for lvl in friction_levels], ignore_index=True)
     eq_all.to_csv(out_dir / "equity_curve.csv.gz", index=False, compression="gzip")
     trades.to_csv(out_dir / "trades.csv.gz", index=False, compression="gzip")
     calib.to_csv(out_dir / "calibration_rows.csv.gz", index=False, compression="gzip")
 
-    work_dir = (
-        work_root or Path(os.environ.get("TMPDIR", "/tmp")) / "trader500k_work"
-    ) / bundle_id
+    work_dir = (work_root or Path(os.environ.get("TMPDIR", "/tmp")) / "trader500k_work") / bundle_id
     work_dir.mkdir(parents=True, exist_ok=True)
     for lvl, tracker in trackers.items():
         pd.DataFrame(rank_log_rows[lvl]).to_csv(work_dir / f"rank_log_{lvl}.csv", index=False)
@@ -841,8 +831,12 @@ def run_window(
 @app.command()
 def one(
     window: str = typer.Argument(..., help="Window id, e.g. W05"),
-    out_root: Path = typer.Option(None, help="Override bundle root (default: committed artifacts dir)"),
-    rail_on: bool = typer.Option(False, "--rail-on", help="Phase C: option-premium rail LIVE; bundle lands in Wnn_rail/"),
+    out_root: Path = typer.Option(
+        None, help="Override bundle root (default: committed artifacts dir)"
+    ),
+    rail_on: bool = typer.Option(
+        False, "--rail-on", help="Phase C: option-premium rail LIVE; bundle lands in Wnn_rail/"
+    ),
 ) -> None:
     """Run a single campaign window with all three friction levels."""
     run_window(window.upper(), out_root=out_root, rail_on=rail_on)

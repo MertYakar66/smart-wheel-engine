@@ -1,0 +1,191 @@
+{
+  "script": "scripts/analyze_trader500k_pool.py",
+  "method": {
+    "pool": "plain concatenation of the 11 core Phase-A/B windows; overlapping calendar weeks are counted once per containing window (matches the report's construction)",
+    "signal_outcome": "spearman(<signal>, realized_pnl_synth) over jointly-finite rows",
+    "ci": "date-clustered bootstrap: resample whole as_of dates with replacement (block_len=1 \u2014 no contiguous-date blocking), percentile 95% CI",
+    "n_boot": 2000,
+    "seed": 12345,
+    "regime_key": "per-row hmm_regime label",
+    "rails_excluded_from_pool": [
+      "W05_rail",
+      "W09_rail"
+    ]
+  },
+  "inputs_sha256": {
+    "docs/verification_artifacts/trader500k/W01/calibration_rows.csv.gz": "52ab9031945ff487d1dd9c5dcf288cadf2aa7dfb2749e7cef5b6756ad8a533bd",
+    "docs/verification_artifacts/trader500k/W01/summary.json": "0a940bf349c6a4e48990775d4964bb970f0978b267f7dc1933853a35ba34e6bf",
+    "docs/verification_artifacts/trader500k/W02/calibration_rows.csv.gz": "c5c29124504e223d1542c8dab0046706ac33a536f1a48cc6553fcefed80d7c40",
+    "docs/verification_artifacts/trader500k/W02/summary.json": "2505ba32a9534dcad06ac77eea693e12364d9cf3620e87a410ab849e3e80a122",
+    "docs/verification_artifacts/trader500k/W03/calibration_rows.csv.gz": "a3c481edf1795a0b976e003c6ef2199323ffa6afdce77e39ce8ed03303a33b50",
+    "docs/verification_artifacts/trader500k/W03/summary.json": "51c87a67640b96db919b3f07f12c16df1643f76c4287a24feb2cc16f1aaf9a2b",
+    "docs/verification_artifacts/trader500k/W04/calibration_rows.csv.gz": "77b3122c3b5f749c48b50cfa63ed5d13f6e8ba5c2c49f411c73fea21fc4d1a3a",
+    "docs/verification_artifacts/trader500k/W04/summary.json": "bc4eb7318e5023b99e331a89064e3e212fd9323ecfcb9b648fcfef6b4e9fa423",
+    "docs/verification_artifacts/trader500k/W05/calibration_rows.csv.gz": "f4e2a73da1f6314460a1d7f2c9bbf67a1eec31fa38d7979302f640989d28a1be",
+    "docs/verification_artifacts/trader500k/W05/summary.json": "f4b9cf68ab6defc31c37b96e2db186f32a7cb0dc9ab8a6156b64963f9b930a49",
+    "docs/verification_artifacts/trader500k/W06/calibration_rows.csv.gz": "41a7f6f9ad6e80c46f7fce3b5e93622fd1e03f0846f40b363db1fe3b2be24214",
+    "docs/verification_artifacts/trader500k/W06/summary.json": "83e2685d8b14471eea37f86fc3007fbf7fbb7d5406ad7d95ca1d62255a8fda98",
+    "docs/verification_artifacts/trader500k/W07/calibration_rows.csv.gz": "04741f073f29b13b62e3b73638898cf217c7077794caf7c1320d8503701408ff",
+    "docs/verification_artifacts/trader500k/W07/summary.json": "c6e0c73bfb0084234f21ff8a7cbf03c236b35345e9672831adbdb52829e09375",
+    "docs/verification_artifacts/trader500k/W08/calibration_rows.csv.gz": "430bd3f9a65bd4cc86d88ba6534bcb0332c00911d595386b145a04ee7dd5243a",
+    "docs/verification_artifacts/trader500k/W08/summary.json": "1ae76a0fd1624454608fbbd010fe1f0dc1df2e4532a3a70548b5e4e18dbc0d45",
+    "docs/verification_artifacts/trader500k/W09/calibration_rows.csv.gz": "1d322e26a862e8a5dee8f5feb1888a9d5accf272d5b31c9b6db0e6016d3bfbcd",
+    "docs/verification_artifacts/trader500k/W09/summary.json": "afeffb75531ab6f7efe979f8ed7ca8b9e9b633a56dfa4227cc9b5a4122a66540",
+    "docs/verification_artifacts/trader500k/W10/calibration_rows.csv.gz": "5d36cc7565a6f459d9e8efa4f33b57e16417b0fcc407a3b4d42eccf1a9273a93",
+    "docs/verification_artifacts/trader500k/W10/summary.json": "876aa47c53b068fa9d08f8753465bf2ea755d53f8e2474b1b25c25ca226eb51c",
+    "docs/verification_artifacts/trader500k/W11/calibration_rows.csv.gz": "cbb7d97814ec92ad748041c365423ac5ca0bc4182f7b6bbe97bf23aecb9fd706",
+    "docs/verification_artifacts/trader500k/W11/summary.json": "f99d9bbf2b02346899b9f6fe22afc920cd4bf2be9bda3c8d7e1088ba3f7292e8",
+    "docs/verification_artifacts/trader500k/W05_rail/calibration_rows.csv.gz": "7cac8097b2f283a1f7c767f8479d7812f062e54ce208f12c2aff73aebc40df23",
+    "docs/verification_artifacts/trader500k/W05_rail/summary.json": "605449b338367f06e343784d3e82a620569c085412a3ee7c28147b1996b4c242",
+    "docs/verification_artifacts/trader500k/W09_rail/calibration_rows.csv.gz": "8f3d889c0aebebc553aac7252e03b37dda3649c94b73772f4dad036d0c9a37a2",
+    "docs/verification_artifacts/trader500k/W09_rail/summary.json": "0d3d1bbab9ea47a034679e73f6c7e7ad58057809223a037ccd22bed5cfb062a1"
+  },
+  "per_window": {
+    "W01": {
+      "n_rows": 15474,
+      "pool_rho_recomputed": 0.16671098486057853,
+      "pool_rho_committed": 0.16671097966459048,
+      "abs_delta": 5.195988056483358e-09
+    },
+    "W02": {
+      "n_rows": 15793,
+      "pool_rho_recomputed": 0.028840360677019845,
+      "pool_rho_committed": 0.02884034528230018,
+      "abs_delta": 1.5394719665717815e-08
+    },
+    "W03": {
+      "n_rows": 15619,
+      "pool_rho_recomputed": 0.025925815352716555,
+      "pool_rho_committed": 0.025925882067363248,
+      "abs_delta": 6.671464669247285e-08
+    },
+    "W04": {
+      "n_rows": 16129,
+      "pool_rho_recomputed": 0.10610450411074145,
+      "pool_rho_committed": 0.10610472631247532,
+      "abs_delta": 2.222017338737725e-07
+    },
+    "W05": {
+      "n_rows": 15888,
+      "pool_rho_recomputed": 0.12712544535127038,
+      "pool_rho_committed": 0.12712559496482187,
+      "abs_delta": 1.4961355149223365e-07
+    },
+    "W06": {
+      "n_rows": 16378,
+      "pool_rho_recomputed": -0.09434506745251249,
+      "pool_rho_committed": -0.09434503097380735,
+      "abs_delta": 3.647870513989737e-08
+    },
+    "W07": {
+      "n_rows": 16098,
+      "pool_rho_recomputed": -0.21446092422457327,
+      "pool_rho_committed": -0.2144608083489054,
+      "abs_delta": 1.1587566786652737e-07
+    },
+    "W08": {
+      "n_rows": 16831,
+      "pool_rho_recomputed": -0.2332116688562014,
+      "pool_rho_committed": -0.2332115473471297,
+      "abs_delta": 1.2150907169328207e-07
+    },
+    "W09": {
+      "n_rows": 16581,
+      "pool_rho_recomputed": -0.10119695960021344,
+      "pool_rho_committed": -0.10119696438585456,
+      "abs_delta": 4.785641119497974e-09
+    },
+    "W10": {
+      "n_rows": 16867,
+      "pool_rho_recomputed": 0.035230821529802135,
+      "pool_rho_committed": 0.035230799738513195,
+      "abs_delta": 2.1791288939976283e-08
+    },
+    "W11": {
+      "n_rows": 18793,
+      "pool_rho_recomputed": 0.1832468921940952,
+      "pool_rho_committed": 0.1832468190763608,
+      "abs_delta": 7.311773439488967e-08
+    },
+    "W05_rail": {
+      "n_rows": 15880,
+      "pool_rho_recomputed": 0.1567438078573299,
+      "pool_rho_committed": 0.15674385782066644,
+      "abs_delta": 4.9963336551384074e-08
+    },
+    "W09_rail": {
+      "n_rows": 16580,
+      "pool_rho_recomputed": -0.09219105570570142,
+      "pool_rho_committed": -0.09219119546982402,
+      "abs_delta": 1.3976412259475435e-07
+    }
+  },
+  "cross_window": {
+    "n_rows_concat": 180451,
+    "n_pool_pairs_finite": 180382,
+    "n_reliability_rows": 180382,
+    "n_reliability_prob_below_0p5": 22,
+    "n_regime_unknown": 332,
+    "pooled_spearman_ev": {
+      "point": 0.02047076001912291,
+      "ci95": [
+        -0.021498068396624166,
+        0.06312765328491358
+      ],
+      "se": 0.021692444843777605,
+      "n_boot": 2000,
+      "n_dates_clusters": 337
+    },
+    "pooled_spearman_prob": {
+      "point": 0.17264494333449656,
+      "ci95": [
+        0.14430655720627736,
+        0.19875036132002746
+      ],
+      "se": 0.013812704058981967,
+      "n_boot": 2000,
+      "n_dates_clusters": 337
+    },
+    "by_regime_ev": {
+      "crisis": {
+        "n": 27972,
+        "rho": 0.1469230899578913
+      },
+      "bear": {
+        "n": 65524,
+        "rho": 0.02784543558130533
+      },
+      "normal": {
+        "n": 58202,
+        "rho": -0.013275533451319403
+      },
+      "bull_quiet": {
+        "n": 28421,
+        "rho": -0.11474681659277643
+      }
+    },
+    "by_regime_prob": {
+      "crisis": {
+        "n": 27972,
+        "rho": 0.17289952395171065
+      },
+      "bear": {
+        "n": 65524,
+        "rho": 0.18376245679491818
+      },
+      "normal": {
+        "n": 58202,
+        "rho": 0.16367481265504435
+      },
+      "bull_quiet": {
+        "n": 28421,
+        "rho": 0.14946878965939323
+      }
+    }
+  },
+  "event_gate": {
+    "event_drops": 200188,
+    "universe_weeks": 411485,
+    "share": 0.4865013305466785
+  }
+}

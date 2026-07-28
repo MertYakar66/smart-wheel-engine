@@ -7,10 +7,10 @@ _A $500,000 simulated portfolio traded **only** on the engine's ranked output (f
 | Question | Verdict |
 |---|---|
 | Is `prob_profit` honest? | ⚠ **Compressed, regime-dependent**: pooled Brier 0.161 / ECE 4.3pp; low bins under-confident (+10 to +23pp), top bin over-confident (−6.8pp pooled). Worst NOT in labeled bears — see the transition finding. |
-| Does higher `ev_dollars` mean better outcomes? | ⚠ **Only in high-dispersion regimes.** Pooled Spearman +0.02 (cluster-bootstrap 95% CI −0.02..+0.06 — statistically zero). Crisis rows +0.15; quiet-bull rows **−0.12**. `prob_profit` ordering stays positive everywhere (+0.15..+0.18). |
+| Does higher `ev_dollars` mean better outcomes? | ⚠ **On the full weekly menu, only in high-dispersion regimes.** Pooled Spearman +0.02 (cluster-bootstrap 95% CI −0.02..+0.06 — statistically zero; reproducible, §3). Crisis rows +0.15; quiet-bull rows **−0.11** (correction — originally stated −0.12). This pools the FULL ~212–261-name weekly menu, **not** the top-20 execution slice: the *executed* top-of-book slice is positive in **all 11 windows** (+0.25..+0.71) — see §3/§7. `prob_profit` ordering stays positive everywhere (+0.15..+0.18). |
 | Does the $500k book make money? | ✅ 9/11 windows positive at full friction (mean +15.4%/18mo, median +15.0%). |
 | Does it beat the market? | ✗ Only 2/11 vs SPX (mean +23.0%): the 2022 mid-decline entry (W05, +12pp over) and W11. Structural bull lag, shallower drawdowns (mean maxDD 16.4% vs deeper index troughs). A defensive income profile, not a market-beater. |
-| Do the risk gates work? | ✅ R10 fired 2–46×/window, peaking exactly under 2025 concentration pressure; event gate filtered ~46% of name-weeks as designed; zero §2 violations. |
+| Do the risk gates work? | ✅ R10 fired 2–46×/window, peaking exactly under 2025 concentration pressure; event gate filtered 48.7% of name-weeks as designed (200,188 / 411,485 committed drop-gate tallies; correction — originally stated ~46%); zero §2 violations. |
 | Is the sim trustworthy? | ✅ Deterministic (byte-identical re-run verified), PIT-guarded, SHA-fingerprinted; one NaN-mark bug found and guarded mid-campaign (counted carry-forward, 3 window-days affected). |
 
 ## 1. Economics (full friction)
@@ -47,24 +47,30 @@ Pooled reliability (engine_exact attribution, Wilson 95% CIs):
 | [0.8,0.9) | 80,961 | 0.837 | 0.812 | −2.5pp |
 | [0.9,1.0] | 14,558 | 0.922 | 0.854 | **−6.8pp** over-confident |
 
+Row accounting (recomputed — `scripts/analyze_trader500k_pool.py` → `CROSS_WINDOW_SUMMARY.json`): the 11 committed core bundles hold **180,451** rows; **69** lack a resolvable expiry spot (NaN outcome), leaving the **180,382** analyzed here; the table above shows 180,360 of them — the remaining **22** rows carry forecasts below 0.5, under the first displayed bin.
+
 The engine's probabilities are **compressed**: realized outcomes cluster ~0.77–0.85 regardless of forecast. Ordering information is real; the *magnitudes* at both extremes are not to be taken literally.
 
 **The transition finding (revises the window-level story).** Window-level top-bin gaps looked monotone in bearishness (pure bull +0.6pp → sustained bear −13.5/−14.2pp). Conditioning on the per-row HMM regime label flips it: rows the HMM labels `bear` are nearly calibrated at the top (−3.1pp; the vol-widened forward distribution does its job), while rows labeled `normal`/`bull_quiet` show −9.4/−10.9pp and `crisis` −9.4pp. The bear-window damage comes from rows where the per-ticker HMM **still said benign inside a deteriorating market**. The miscalibration concentrates at **regime transitions the detector hasn't caught yet** — which is precisely why the external VIX trigger (R11) exists, and why it should not be replaced by an HMM-internal signal.
 
 ## 3. Rank quality — what the ordering is worth
 
-- Pooled Spearman(`ev_dollars`, realized): **+0.02**, cluster-bootstrap 95% CI **[−0.02, +0.06]** — zero overall.
-- By regime: crisis **+0.15**, bear +0.03, normal −0.01, quiet-bull **−0.12**. Per-window: positive in every high-vol window (+0.11..+0.18), negative in every calm-bull window (−0.09..−0.23).
-- Spearman(`prob_profit`, realized): **positive in every regime** (+0.15..+0.18).
-- On *executed* trades (top-of-book), per-window rho is healthier (e.g. W05 +0.27) — the top of the book is where the ordering signal lives; the deep tail dilutes it.
+_Every figure in this section is recomputed deterministically from the committed per-row bundles by `scripts/analyze_trader500k_pool.py` and locked in `docs/verification_artifacts/trader500k/CROSS_WINDOW_SUMMARY.json` (date-clustered bootstrap, seed 12345, n_boot 2000; the script's per-window recompute matches every committed `summary.json` to ≤2.2e-07). **These figures pool the FULL weekly menu — every candidate the ranker scored (~212–261 names/rank-week) — not the top-20 execution slice.** See §7 for why that distinction decides the headline._
 
-**Actionable interpretation**: `ev_dollars` earns its rank authority when dispersion is high and *inverts* in calm bulls (its top names are structurally the high-IV names that underperform quiet tapes). `prob_profit` is the more robust ordering signal across regimes. The ranker's value is real but conditional — selection, not sizing, and regime-aware.
+- Pooled Spearman(`ev_dollars`, realized): **+0.02** (recomputed +0.0205), cluster-bootstrap 95% CI **[−0.02, +0.06]** (recomputed [−0.0215, +0.0631]) — zero overall *on the full menu*.
+- By regime: crisis **+0.15**, bear +0.03, normal −0.01, quiet-bull **−0.11** *(correction: originally stated −0.12; the reproducible value is −0.1147)*. Per-window pool rho (each `Wnn/summary.json` → `calibration.spearman_ev_realized_pool`): positive in the high-vol windows W01/W04/W05/W11 (+0.11..+0.18), negative across the calm-bull stretch W06–W09 (−0.09..−0.23), near-zero in W02/W03/W10 (+0.03..+0.04).
+- Spearman(`prob_profit`, realized): **positive in every regime** (+0.15..+0.18; recomputed +0.1495..+0.1838).
+- On *executed* trades (top-of-book), rho is positive in **all 11 core windows** — +0.25 (W04) to +0.71 (W11), W05 +0.27 — and in both rail re-runs (+0.19 / +0.34): the top of the book is where the ordering signal lives; the deep tail dilutes it (`per_friction.full.trades.spearman_ev_realized_executed` in each `summary.json`).
+
+**Actionable interpretation**: on the full menu `ev_dollars` earns its rank authority when dispersion is high and *inverts* in calm bulls (its top names are structurally the high-IV names that underperform quiet tapes). `prob_profit` is the more robust ordering signal across regimes. The ranker's value is real but conditional — selection, not sizing, and regime-aware — and within the slice it actually trades, the ordering held in every window (§7).
 
 ## 4. Premium provenance (Phase C: real Theta mids vs synthetic BSM)
 
-- **Economics are provenance-sensitive, in both directions**: W05_rail roughly halved the bear-window return (+4.8% → +2.2%, still beating both benchmarks); W09_rail *raised* returns (+15.0% → +21.5%). Matched-pair premium deltas (real mid vs synthetic, market_mid rows): W05 mean +6.6% (IQR −2.4..+18.2%), W09 +2.3% (IQR −12.5..+14.7%) — name- and window-dependent with wide dispersion, so synthetic-BSM error does not cancel at book level and can flip either way.
+- **Economics are provenance-sensitive, in both directions**: W05_rail roughly halved the bear-window return (+4.8% → +2.1%; committed value 2.146%, correction — originally misrounded +2.2%; still beating both benchmarks); W09_rail *raised* returns (+15.0% → +21.5%). Matched-pair premium deltas (real mid vs synthetic, market_mid rows): W05 mean +6.6% (IQR −2.4..+18.2%), W09 +2.3% (IQR −12.5..+14.7%) — name- and window-dependent with wide dispersion, so synthetic-BSM error does not cancel at book level and can flip either way.
 - **Calibration is provenance-robust**: matched-pair top-bin realized 0.813 vs 0.803 (W05) and 0.762 vs 0.761 (W09); Brier identical to 3 decimals. **The probability miscalibration lives in the forward-distribution model, not the premium synthesis.**
 - Coverage: 32–44% of executed trades / ~27% of captured rows priced at real mids (154-ticker larder).
+
+_Provenance note: this section's matched-pair figures (premium deltas, matched top-bin/Brier) were derived by SANDBOX from the committed `calibration_rows.csv.gz` of the paired bundles, but the deriving script was **not committed** — they are labelled not-yet-independently-reproducible (§5 item 7), unlike §2 row accounting and all of §3, which `scripts/analyze_trader500k_pool.py` reproduces._
 
 ## 5. Limitations (standing register)
 
@@ -74,6 +80,7 @@ The engine's probabilities are **compressed**: realized outcomes cluster ~0.77�
 4. Hold-to-expiry, no profit-target/rolls — put-leg ledger attribution looks worse than full-cycle equity (documented split); profit-taking policies are untested follow-ups.
 5. Overlapping windows (6-month step) — cross-window stats are not 11 independent draws; pooled CIs cluster by as_of date.
 6. Three guarded carry-forward mark days (2020-11-06 ×3 books); W11 SPX benchmark truncated at 2026-06-04.
+7. **Reproducibility register.** Reproducible from committed artifacts: every §3 figure, the §2 row accounting, and the headline event-gate share (`scripts/analyze_trader500k_pool.py` → `CROSS_WINDOW_SUMMARY.json`); the §1 window table, R10 counts, and executed-slice rhos (each `Wnn/summary.json`). **Not yet independently reproducible** (SANDBOX-derived from committed per-row bundles; deriving scripts not committed): the §1 friction matched pairs (1,212 shared entry×ticker×strike pairs, −$27/−$33), the §2 pooled bin table, transition finding, and headline Brier 0.161 / ECE 4.3pp, and the §4 matched-pair figures. Committing those derivations is the standing follow-up.
 
 ## 6. What this means for using the engine
 
@@ -83,4 +90,20 @@ The engine's probabilities are **compressed**: realized outcomes cluster ~0.77�
 4. **Entry-timing dominates bear performance** — a deployment-pacing rule (scale-in after vol repricing rather than continuous full deployment) is the highest-value strategy-layer follow-up this data suggests.
 5. **Produce the full-universe premium rail** before treating absolute EV magnitudes as economically meaningful — provenance moves book results double-digit percent in both directions.
 
-_Method/audit: issue #517 (complete SANDBOX↔MACBOOK transcript), 13 fingerprinted bundles, driver at `backtests/regression/trader500k_campaign.py`, branch `claude/trader500k-campaign`. Analysis code: pooled reliability/Wilson/Brier/ECE + cluster bootstrap re-derived independently by SANDBOX from the committed bundles._
+## 7. Reconciliation with the parameter-OOS campaign (PR #485) — CONSISTENT
+
+A read-only reconciliation run (2026-07-28) compared this campaign's rank-quality result against the parameter-OOS 100-name campaign (`docs/PARAMETER_OOS.md` §7, snapshot `backtests/regression/snapshots/param_oos_regime_100t.json`, PR #485), which reports a strong surviving top-tier edge. **Verdict: the two campaigns are CONSISTENT — they measure the same monotone population-width curve of Spearman(`ev_dollars`, realized) at opposite ends.** Neither contradicts the other's data.
+
+- **This report's pooled ≈0 is the full weekly menu** — every candidate the ranker scored (~212–261 names/rank-week), *not* the top-20 execution slice. Campaign A's own all-candidate figure on its ~48-name daily menu is likewise ≈0: holdout pooled ρ **−0.077** (block-CI95 [−0.19, +0.02]).
+- **The executed top-of-book slice is positive in all 11 core windows** — +0.247 (W04) to +0.707 (W11), and in both rail re-runs — the same tradeable-tier skill Campaign A locks as holdout top-15 ρ **+0.371** (block-CI95 [0.25, 0.49]).
+- **Campaign A's tier curve** (`top_n_tiers.holdout` in the snapshot; pooled ρ by per-date menu slice):
+
+| top-5 | top-10 | top-15 | top-30 | top-50 | all (~48) |
+|---|---|---|---|---|---|
+| +0.597 | +0.473 | +0.371 | +0.228 | +0.102 | −0.077 |
+
+  This campaign's two headline statistics are the two ends of that same curve, extended further right (~212–261-name menu).
+- **The matched pair (the demonstration).** Campaign A's walk-forward fold 4 — all candidates, daily cadence, 2023-06-19 → 2024-06-24, n=12,976 — has ρ **−0.2315** (`walk_forward_folds[3]` in the snapshot). This campaign's W08 full-menu pool — weekly cadence, 2023-07 → 2024-12 — is **−0.2332** (`W08/summary.json`). Two independently built harnesses, same estimand, same span, agreeing to two decimals.
+- **What may be claimed**: rank skill at the tradeable top tier (both campaigns find it, independently); ≈zero full-menu ordering with quiet-bull inversion on wide menus (both campaigns find that too). Neither figure should ever be quoted without its population qualifier.
+
+_Method/audit: issue #517 (complete SANDBOX↔MACBOOK transcript), 13 fingerprinted bundles, driver at `backtests/regression/trader500k_campaign.py`, branch `claude/trader500k-campaign`. Analysis code: pooled reliability/Wilson/Brier/ECE + cluster bootstrap originally re-derived independently by SANDBOX from the committed bundles; the §2 row accounting and every §3 figure are now recomputed by the committed `scripts/analyze_trader500k_pool.py` → `docs/verification_artifacts/trader500k/CROSS_WINDOW_SUMMARY.json` (see §5 item 7 for what remains sandbox-only)._

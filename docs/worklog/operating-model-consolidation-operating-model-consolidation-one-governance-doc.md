@@ -82,6 +82,16 @@ before any deletion.
 - Disposition record: the 2026-07 "RETIRED" banners on the two
   parallel-session docs were NOT carried — the Operator confirmed the
   multi-terminal protocol is live again (C3 ruling at the gate).
+- Addendum (Operator, pre-merge): the doc-navigation layer was classified
+  live-vs-historical. REPOINTED: README.md (banner, doc table, contributing
+  section), PROJECT_STATE.md (live inventory row + root-inventory now-claim +
+  the D15 parallel-sessions pointer), ROADMAP.md (supersession annotation on
+  the closed Track B list), FILE_MANIFEST.md residual descriptive text (README
+  row, two Sn-provenance sentences). LEFT AS HISTORY: archive/**, the seven
+  dated docs/ reports, DECISIONS.md (append-only; D15's PARALLEL_SESSIONS
+  citation is a true past statement), CHANGELOG.md, worklog fragments, and
+  PROJECT_STATE's past-tense 2026-05 pass narrative (lines describing what
+  that pass touched) — rewriting those would falsify the record.
 
 ## Evidence
 
@@ -97,13 +107,11 @@ before any deletion.
 
 ## Unresolved / handoff
 
-- References to the deleted files remain in **out-of-scope historical
-  records** (docs/worklog fragments incl. `docs/worklog/README.md` lines
-  15/35, dated campaign/audit/backtest reports under docs/, `archive/`,
-  CHANGELOG/DECISIONS/PROJECT_STATE/ROADMAP) and in **README.md**, which the
-  card listed do-not-touch — README still routes newcomers to the deleted
-  AGENTS.md. A small follow-up run should repoint README.md (and optionally
-  docs/worklog/README.md) to OPERATING_MODEL.md.
+- Deliberately-retained historical mentions of the deleted files remain in:
+  `archive/**`, the seven dated docs/ reports, DECISIONS.md, CHANGELOG.md,
+  worklog fragments (incl. `docs/worklog/README.md` lines 15/35 — protected
+  by the card's docs/worklog/** scope), and PROJECT_STATE's 2026-05
+  past-tense narrative. All are records, not navigation.
 - `docs/REPO_MAP.md` never referenced the deleted files but should gain an
   OPERATING_MODEL.md route entry in a follow-up.
 - PROJECT_STATE.md is 26 days stale (doc-currency WARN, pre-existing).

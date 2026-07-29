@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**179 records.**
+**180 records.**
 
 ## Features (18)
 
@@ -196,7 +196,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (16)
+## Docs / process (17)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -211,6 +211,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
 | [next-data-session-runbook](next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md) | in-flight |  | One ordered, doc-only execution plan (docs/NEXT_DATA_SESSION_RUNBOOK.md) so a single logged-in Bloomberg Terminal session clears the whole open data queue in one pass — draws the Bloomberg-gated (CASY + 10 blue-chip backfills) vs. git-reconstructable (BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive, 4-snapshot re-baseline) line explicitly | `next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md` |
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
+| [operating-model-consolidation](operating-model-consolidation-operating-model-consolidation-one-governance-doc.md) | complete |  | Governance consolidated from seven scattered files into OPERATING_MODEL.md v2 (Operator-supplied skeleton + ten directed amendments + every still-valid source rule); CLAUDE.md reduced to the auto-loaded two-line pointer; six source files deleted and every live inbound reference repointed; 227 source rules enumerated by a 9-agent adversarial audit, 10 partial carries restored before deletion. | `operating-model-consolidation-operating-model-consolidation-one-governance-doc.md` |
 | [rebaseline-runbook](rebaseline-runbook-consolidate-the-re-baseline-runbook-into-the-sin.md) | in-flight |  | NEXT_DATA_SESSION_RUNBOOK elevated from data-queue plan to the one ordered checklist for the supervised re-baseline session — universe data → 3 (E) trio/risk-gate fixes → re-baseline → frontier re-picks → (D) pulls | `rebaseline-runbook-consolidate-the-re-baseline-runbook-into-the-sin.md` |
 | [supervised-block-worklist](supervised-block-worklist-supervised-block-worklist-consolidation-post-bra.md) | done |  | Single routing doc (docs/SUPERVISED_BLOCK_WORKLIST.md) consolidating every operator-gated item into Block A (Terminal/data) before Block B (coordinated EV re-baseline) | `supervised-block-worklist-supervised-block-worklist-consolidation-post-bra.md` |
 | [trader500k-traceability-2026-07-28](trader500k-traceability-2026-07-28-trader-500k-traceability-closure-parameter-oos-r.md) | complete |  | Committed scripts/analyze_trader500k_pool.py reproduces the report's §3 headline from the bundles (pooled +0.0205 [−0.0215,+0.0631]); three drifts corrected (~46%→48.7%, quiet-bull −0.12→−0.11, W05_rail +2.2%→+2.1%); §7 records the parameter-OOS reconciliation (CONSISTENT — same population-width curve at opposite ends, matched pair −0.2315 vs −0.2332). | `trader500k-traceability-2026-07-28-trader-500k-traceability-closure-parameter-oos-r.md` |

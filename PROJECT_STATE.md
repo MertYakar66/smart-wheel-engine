@@ -503,7 +503,7 @@ start; fast-forwarded cleanly to `433231f`.
 | `DATA_POLICY.md` | Three data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures, drive-mount caveats. |
 | `TRADINGVIEW_INTEGRATION.md` | Parent guide covering both engine bridge (Pine indicator + webhook → EV) and analyst workspace (Claude-driven TradingView Desktop via MCP). |
 | `LAUNCH_READINESS.md` | Consolidated launch-blocker checklist: hard EV invariant, four authoritative routes, dossier R1–R11, pre-merge checklist. |
-| `COMMIT_GUIDE.md` | `type(scope):` + `Changed/Why/Tested/Tried-but-rejected/Unresolved/AI-handoff` body format with worked example. |
+| `COMMIT_GUIDE.md` | `type(scope):` + `Changed/Why/Tested/Tried-but-rejected/Unresolved/AI-handoff` body format with worked example. **Superseded 2026-07-28:** consolidated into `OPERATING_MODEL.md` §9.7. |
 
 **Existing docs touched (cross-refs / drift):**
 
@@ -598,11 +598,12 @@ A structure-only documentation reorganisation (`DECISIONS.md` D14).
 **Zero code or behaviour changes; no doc's substantive content was
 rewritten.**
 
-- The repo root now holds only the Tier-1 entry docs (`AGENTS.md`,
-  `CLAUDE.md`, `README.md`) and the Tier-2 state/index docs
-  (`PROJECT_STATE.md`, `MODULE_INDEX.md`, `TESTING.md`, `DECISIONS.md`,
-  `COMMIT_GUIDE.md`, `FILE_MANIFEST.md`, plus `CHANGELOG.md` and
-  `ROADMAP.md`).
+- The repo root now holds only the Tier-1 entry docs (`OPERATING_MODEL.md`,
+  `CLAUDE.md` (auto-loaded pointer), `README.md`) and the Tier-2 state/index
+  docs (`PROJECT_STATE.md`, `MODULE_INDEX.md`, `TESTING.md`, `DECISIONS.md`,
+  `FILE_MANIFEST.md`, plus `CHANGELOG.md` and `ROADMAP.md`).
+  *(Updated 2026-07-28: `AGENTS.md` and `COMMIT_GUIDE.md` were consolidated
+  into `OPERATING_MODEL.md` §9.6 / §9.7.)*
 - Operational and reference docs moved into `docs/`: `DATA_POLICY.md`,
   `LAPTOP_SETUP.md`, `LAUNCH_READINESS.md`, `THETA_INSTRUCTIONS.md`,
   `TRADINGVIEW_INTEGRATION.md`, `USAGE_TEST_LEDGER.md`, `CONTRIBUTING.md`,
@@ -708,4 +709,4 @@ unchanged.
   is sourced from `scripts/setup-terminal.{sh,ps1}` or — preferred on
   Windows — from a per-worktree `.claude/settings.local.json` (gitignored)
   picked up by the Claude Code harness on launch. Coordination is via
-  GitHub issue #113. See `docs/PARALLEL_SESSIONS.md`.
+  GitHub issue #113. See `OPERATING_MODEL.md` §2.4 + §9.5.

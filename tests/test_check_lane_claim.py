@@ -4,7 +4,7 @@ The gate fails a PR that edits one of the three decision-layer files
 (``engine/ev_engine.py`` / ``engine/wheel_runner.py`` /
 ``engine/candidate_dossier.py``) without naming that file in a
 ``lane-claim`` block in the PR description. These tests pin the
-behaviour matrix the gate promises in ``docs/PARALLEL_SESSIONS.md``:
+behaviour matrix the gate promises in ``OPERATING_MODEL.md`` §9.5:
 no-decision-layer-touch passes, an unclaimed decision-layer edit fails,
 a claimed one passes, partial claims fail on the unclaimed remainder,
 and the absence of any claim source (not a PR context) skips rather

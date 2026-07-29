@@ -4,7 +4,7 @@
 The three decision-layer files are the highest-contention surface in the
 repo and the one place where two terminals editing concurrently silently
 corrupt each other's work (the `select_book` double-build, PR #107 vs #109,
-is the canonical near-miss). ``docs/PARALLEL_SESSIONS.md`` requires that
+is the canonical near-miss). ``OPERATING_MODEL.md`` §9.5 requires that
 decision-layer edits be **serialised** — one terminal at a time, claimed on
 the coordination board before branching.
 
@@ -15,7 +15,7 @@ not miss one is not an enforcement mechanism. This script turns the rule into
 a CI gate.
 
 What it enforces (the "hard gate on decision-layer only" from the 2026-05
-coordination redesign — see ``docs/PARALLEL_SESSIONS.md``):
+coordination redesign — see ``OPERATING_MODEL.md`` §9.5):
 
   * If a PR's diff touches NONE of the decision-layer files, it passes
     unconditionally. Non-decision-layer lane ownership stays advisory
@@ -76,7 +76,7 @@ import subprocess
 import sys
 
 # The decision-layer trio (CLAUDE.md §2 / PROJECT_STATE.md §1). Editing any of
-# these is serialised one-terminal-at-a-time per docs/PARALLEL_SESSIONS.md.
+# these is serialised one-terminal-at-a-time per OPERATING_MODEL.md §9.5.
 DECISION_LAYER_FILES: tuple[str, ...] = (
     "engine/ev_engine.py",
     "engine/wheel_runner.py",
@@ -178,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     print("  -->")
     print()
     print("Decision-layer edits are serialised one terminal at a time —")
-    print("see docs/PARALLEL_SESSIONS.md.")
+    print("see OPERATING_MODEL.md §9.5.")
     return 1
 
 

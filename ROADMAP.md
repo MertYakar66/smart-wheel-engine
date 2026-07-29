@@ -55,7 +55,8 @@ All six one-shot doc repairs landed; detail in `CHANGELOG.md` 2026-05.
   ~~B4 `dashboard/README.md` re-positioned~~ · ~~B5 `pyproject.toml`
   phantom entrypoint removed + package list fixed + phantom deps
   (`prefect`, `ib_insync`) dropped~~ · ~~B6 `tradingview/README.md`
-  dead link fixed~~ — all `done`.
+  dead link fixed~~ — all `done`. *(B2's `docs/CONTRIBUTING.md` was later
+  consolidated into `OPERATING_MODEL.md` §9.8, 2026-07-28.)*
 
 ## Track C — Hygiene + governance follow-ups
 

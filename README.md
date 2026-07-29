@@ -11,13 +11,13 @@ rescue a negative-EV trade.
 
 > **AI agent / fresh contributor — start here:**
 >
-> 1. [`AGENTS.md`](AGENTS.md) — read order for any agent (Claude, Codex, Cursor, Copilot, Aider).
-> 2. [`CLAUDE.md`](CLAUDE.md) — structural contract; the four-layer mental model and the hard EV invariant.
+> 1. [`OPERATING_MODEL.md`](OPERATING_MODEL.md) — the single authoritative operating document: roles, handoffs, Run Summary format (§4.4), concurrency (§2.4), invariants (§7), and the consolidated project reference (§9).
+> 2. [`CLAUDE.md`](CLAUDE.md) — auto-loaded two-line pointer to `OPERATING_MODEL.md`.
 > 3. [`PROJECT_STATE.md`](PROJECT_STATE.md) — what's authoritative right now, what's deprecated.
 > 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
 > 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
 >
-> Other entry points: [`DECISIONS.md`](DECISIONS.md), [`ROADMAP.md`](ROADMAP.md), [`CHANGELOG.md`](CHANGELOG.md), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md), [`FILE_MANIFEST.md`](FILE_MANIFEST.md), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md).
+> Other entry points: [`DECISIONS.md`](DECISIONS.md), [`ROADMAP.md`](ROADMAP.md), [`CHANGELOG.md`](CHANGELOG.md), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md), [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.7 (commit/PR format), [`FILE_MANIFEST.md`](FILE_MANIFEST.md), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md).
 
 ---
 
@@ -190,8 +190,8 @@ launch-blocker subset, and the "what to run when you touch X" map.
 
 | Document | Description |
 |---|---|
-| [AGENTS.md](AGENTS.md) | AI-agent onboarding contract — the canonical read order |
-| [CLAUDE.md](CLAUDE.md) | Structural contract — four-layer model + hard EV invariant + NEVER list |
+| [OPERATING_MODEL.md](OPERATING_MODEL.md) | The single authoritative operating document — roles, handoffs, verification, concurrency (§2.4), invariants (§7), consolidated project reference (§9) |
+| [CLAUDE.md](CLAUDE.md) | Auto-loaded two-line pointer to OPERATING_MODEL.md |
 | [PROJECT_STATE.md](PROJECT_STATE.md) | Temporal state — what's authoritative / in progress / deprecated |
 | [MODULE_INDEX.md](MODULE_INDEX.md) | Per-module purpose + decision-layer role classification |
 | [FILE_MANIFEST.md](FILE_MANIFEST.md) | Exhaustive per-file index (grep, don't read) |
@@ -199,13 +199,13 @@ launch-blocker subset, and the "what to run when you touch X" map.
 | [DECISIONS.md](DECISIONS.md) | Architectural decision log with rationale |
 | [ROADMAP.md](ROADMAP.md) | Intentional next work by track |
 | [CHANGELOG.md](CHANGELOG.md) | Recently-shipped, grouped by month |
-| [COMMIT_GUIDE.md](COMMIT_GUIDE.md) | Commit-message and PR format |
+| [OPERATING_MODEL.md §9.7](OPERATING_MODEL.md) | Commit-message and PR format |
 | [docs/DATA_POLICY.md](docs/DATA_POLICY.md) | Data tiers, provider matrix, refresh procedures, sandbox caveats |
 | [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md) | Launch-blocker invariants before merging |
 | [docs/LAPTOP_SETUP.md](docs/LAPTOP_SETUP.md) | Bring-up on a new machine (Theta Terminal, feature store) |
 | [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge + analyst workspace (MCP) |
 | [docs/GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
-| [docs/GOVERNANCE.md](docs/GOVERNANCE.md) | Model-governance framework |
+| [OPERATING_MODEL.md §9.9](OPERATING_MODEL.md) | Model-governance standards |
 | [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security policy |
 
@@ -213,9 +213,9 @@ launch-blocker subset, and the "what to run when you touch X" map.
 
 ## Contributing
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the human-side
-workflow and [`AGENTS.md`](AGENTS.md) + [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md)
-for the AI-agent handoff and commit-message standard.
+See [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.8 for the contributor
+workflow, §9.6 for the AI-agent onboarding contract, and §9.7 for the
+commit-message and PR standard.
 
 Hard rules in brief:
 

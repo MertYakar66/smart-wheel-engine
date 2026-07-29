@@ -8,7 +8,7 @@
 #     source scripts/setup-terminal.sh c      # Terminal C → port 8789, etc.
 #
 # Companion: scripts/setup-terminal.ps1 (native PowerShell).
-# Doc:        docs/PARALLEL_SESSIONS.md "Env vars per terminal".
+# Doc:        OPERATING_MODEL.md §9.5 (worktrees + per-terminal env).
 #
 # What this sets:
 #

@@ -2,7 +2,7 @@
 """Guard: FILE_MANIFEST.md must account for every tracked file.
 
 FILE_MANIFEST.md is the repo's exhaustive per-file index (see DECISIONS.md
-D14); AGENTS.md, README.md and MODULE_INDEX.md point agents at it as the
+D14); OPERATING_MODEL.md, README.md and MODULE_INDEX.md point agents at it as the
 canonical map. If a file is added, moved or removed without updating the
 manifest, that index silently rots. This script is the automatic check that
 prevents it.

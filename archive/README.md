@@ -86,3 +86,4 @@ in the same commit as each move.
 | `2026-06/THETA_PULL_DATA_LOG.md` | `docs/` | Theta pull log, complete 2026-06-17; canonical inventory is `docs/DATA_INVENTORY.md`. |
 | `2026-06/VNV_CAMPAIGN_2026-06-01.md` | `docs/` | Read-only V&V sweep report (2026-06-01), complete; worklog-only citations. |
 | `2026-06/bloomberg_refresh_runbook.md` | `docs/` | Pre-salvage Bloomberg refresh runbook (2026-06-08 batch decision); salvage completed 2026-07-04 (#477), data current census in `docs/DATA_POLICY.md` §5. |
+| `2026-07/DATA_SUFFICIENCY_REVIEW_2026-07-21.md` | `docs/` | Dated pull-vs-wire-vs-blocked data-sufficiency review (2026-07-21), complete; worklog-only citations. |

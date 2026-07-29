@@ -29,9 +29,9 @@ The owner and director of the project. The Operator understands the strategy and
 
 **The Operator does not:** serve as the mechanism that catches a technical mistake. If the Operator has to be the one who notices that an EV computation is wrong or that a merge broke an invariant, the system has already failed upstream.
 
-### Leg 2 — The Strategist (this session)
+### Leg 2 — The Strategist (a strategy session)
 
-The brain. A senior quantitative engineer and systems architect: deep expertise in options pricing and Greeks, stochastic modelling of returns, tail-risk and regime estimation, statistical calibration and out-of-sample validation, and — critically for this project — the design of codebases as retrieval systems for stateless LLM agents. Holds the project's accumulated context: the four-layer architecture, the invariants, the decision log, prior runs, and the state of the roadmap.
+The brain. A senior quantitative engineer and systems architect: deep expertise in options pricing and Greeks, stochastic modelling of returns, tail-risk and regime estimation, statistical calibration and out-of-sample validation, and — critically for this project — the design of codebases as retrieval systems for stateless LLM agents. Holds the project's accumulated context: the four-layer architecture, the invariants, the decision log, prior runs, and the state of the roadmap. Several Strategist sessions may run concurrently, each bound to the lane(s) allocated to it (§2.4).
 
 **The Strategist does:** discuss with the Operator in plain language, decide *what* should happen and *why*, write the Execution Prompt for the terminal, and evaluate the terminal's Run Summary when it comes back.
 
@@ -85,6 +85,8 @@ Multiple Strategists and Executors run at once. Three rules make that safe.
 1. **One prompt, one lane, one branch.** Every Execution Prompt names its branch and its `owns` file set, taken from the allocated task card.
 2. **Allocation is single-threaded.** No Strategist issues a prompt for a surface it did not receive from the allocator. A Strategist that wants a surface requests it; it does not claim it.
 3. **A Strategist evaluates only runs from prompts in its own lane.** It may verify facts about other lanes, but must not approve merges outside its allocation.
+
+The allocator is a hat one Strategist wears, not a fourth role. Exactly one session holds it at a time, and the Operator names the holder explicitly. When two Strategists disagree about a surface or a merge, the allocator decides — the Operator is never asked to tie-break between lanes.
 
 The operational detail behind this contract — the task-card schema, the board and its templates, worktrees and per-terminal environment, merge-time numbering, and the magnet-file rules — is in §9.5.
 
@@ -231,6 +233,8 @@ Required structure — every heading, every run, no omissions:
 **A truthful summary of a partially failed run is more valuable than a confident summary of an ambiguous one.**
 
 ### 4.5 Strategist → Operator (evaluation)
+
+A Run Summary is evaluated by the Strategist whose lane issued its Execution Prompt; other Strategists treat it as read-only context.
 
 On receiving a Run Summary, the Strategist **first checks GitHub itself** — the diff, the file contents, the git state, the branches, any open pull request — and only then writes:
 
@@ -536,22 +540,11 @@ AI handoff:
 
 **PR format:** same five-section body plus a header summary (`## Summary` / `## Changes` / `## Why` / `## Tests` / `## Tried but rejected` / `## Unresolved` / `## AI handoff`), per `.github/pull_request_template.md`. PR titles follow the same `type(scope): summary` format, under 70 characters. A PR touching the decision-layer trio must carry the `lane-claim` block (§9.5).
 
-**Branch naming:** kebab-case slugs, 2–4 words, descriptive.
-
-| Convention | Use |
-|---|---|
-| `claude/<short-slug>` | Default for Claude Code work |
-| `codex/<short-slug>` | OpenAI Codex / Cursor agent work |
-| `feat/<short-slug>` | Human-driven feature work |
-| `fix/<short-slug>` | Human-driven bug fix |
-
-> **[FLAGGED CONFLICT — carried unresolved.]** The superseded CONTRIBUTING doc additionally allowed `agent/<short-slug>` for AI-agent work and used `feature/<short-slug>` (not `feat/`) as the human convention. Both conventions are preserved here until the Operator picks one.
+**Branch naming:** the standard is `claude/<short-slug>` — kebab-case slug, 2–4 words, descriptive — matching the allocator protocol and actual practice (other agent prefixes such as `codex/` appear historically). Topical prefixes (`data/`, `research/`, and the like) exist historically and remain permitted for non-agent work. *(Operator ruling, 2026-07-28, resolving the superseded guides' `feat/` vs `feature/` vs `agent/` divergence.)*
 
 **Never edit `main` directly.** Even a one-line README typo fix gets a branch + PR. The audit trail is part of governance.
 
-**AI agent attribution.** When an AI agent commits, use a `Co-Authored-By` trailer in the commit body (e.g. `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`) so the history reflects who shipped what; the model name helps later debugging when a class of bugs traces to a model generation.
-
-> **[FLAGGED CONFLICT — carried unresolved.]** The Operator's standing instruction to Claude agents has been to **omit** the model Co-Authored-By trailer from commits and PRs, which contradicts the paragraph above. Both positions are preserved here until the Operator picks one.
+**AI agent attribution.** No model name or version appears in commits, PR bodies, or code comments. Generic co-authorship attribution is fine; model-identity trailers are not used. *(Operator ruling, 2026-07-28, superseding the earlier model-trailer guidance.)*
 
 **Anti-patterns:** "WIP"/"stuff" commit messages; seventeen "fix typo" commits (squash before opening the PR — each commit on `main` should stand alone); `--no-verify` to skip hooks (fix the underlying issue instead); force-pushing to a shared branch (branches with open PRs are shared — rebase locally and push as a new commit, or open a follow-up PR); committing files containing secrets (`git diff --staged` before commit catches anything `.gitignore` misses).
 

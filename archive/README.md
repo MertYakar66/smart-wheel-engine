@@ -75,3 +75,14 @@ in the same commit as each move.
 | `2026-05/HEAVY_PIT_REALISM.md` | `docs/` | HT-B PIT-realism report (2026-05-30), complete; its committed driver stays under `docs/verification_artifacts/`. |
 | `2026-05/REPO_EFFICIENCY_AUDIT.md` | `docs/` | Repo-efficiency audit whose executable output became `docs/REPO_MAP.md` (the live router); safe tier executed 2026-05-30. |
 | `2026-05/REVERIFICATION_REPORT_2026-05-26.md` | `docs/` | Dated re-verification report; durable content carried into `docs/USAGE_TEST_LEDGER.md` per its own text. |
+| `2026-06/ADVERSARIAL_WEAKNESS_REVIEW_2026-06-15.md` | `docs/` | Self-declared point-in-time 9-dimension adversarial review; fixes shipped separately (2026-06/07 remediation waves). |
+| `2026-06/DATA_ACQUISITION_PLAN_2026-06-14.md` | `docs/` | Dated Bloomberg-lab pull compilation; live pull-side plan is `docs/DATA_ACQUISITION_ROADMAP.md` + `docs/BLOOMBERG_PULL_LIST.md`. |
+| `2026-06/DATA_FIX_2026-06-28_OHLCV_SPLIT_SCALE_439.md` | `docs/` | Completed OHLCV split-scale fix record (#439); splice work closed by the 2026-07 remediation campaign (#472). |
+| `2026-06/DATA_LAYER_ACTIVATION_ROADMAP.md` | `docs/` | Data-layer activation plan; landed as PRs #332-#337. Design contract survives in `docs/DATA_LAYER_DEEP_READ_DESIGN.md`. |
+| `2026-06/ENGINE_TOP20_VALIDATION_2026-06-17.md` | `docs/` | Completed top-20 validation report ("all claims SURVIVED"); zero inbound references. |
+| `2026-06/ENGINE_TRADER_STRESS_TEST_2026-06-15.md` | `docs/` | Role-played trader stress test; crisis-overconfidence theme carried forward by later cited studies (W3/W6, R11/D23). |
+| `2026-06/HEAVY_VERIFY_2026-06-29_R11_REFINEMENT.md` | `docs/` | Verdict-negative R11 refinement study (#442 band-split — outcome: keep R11 unchanged, no static carve-out). |
+| `2026-06/HEAVY_VERIFY_FINDINGS_2026-06-09.md` | `docs/` | Dated heavy-verify findings register; fixes shipped in #405-#410 wave. |
+| `2026-06/THETA_PULL_DATA_LOG.md` | `docs/` | Theta pull log, complete 2026-06-17; canonical inventory is `docs/DATA_INVENTORY.md`. |
+| `2026-06/VNV_CAMPAIGN_2026-06-01.md` | `docs/` | Read-only V&V sweep report (2026-06-01), complete; worklog-only citations. |
+| `2026-06/bloomberg_refresh_runbook.md` | `docs/` | Pre-salvage Bloomberg refresh runbook (2026-06-08 batch decision); salvage completed 2026-07-04 (#477), data current census in `docs/DATA_POLICY.md` §5. |

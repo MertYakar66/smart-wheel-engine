@@ -85,7 +85,7 @@ soft-warns that fire only when a `PortfolioContext` is attached.
 > `pull_vol_iv.py` pins the current 2026-06-04 frontier). The one
 > remaining gap is `sp500_earnings.csv` (BDS backfill — deferred).
 > Current census: `docs/DATA_POLICY.md` §5; pre-salvage history:
-> `docs/bloomberg_refresh_runbook.md`.
+> `archive/2026-06/bloomberg_refresh_runbook.md`.
 
 ## 2. Recent decision-layer audits
 

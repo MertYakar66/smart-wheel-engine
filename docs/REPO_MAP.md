@@ -4,7 +4,7 @@
 > what is authoritative for Z" question to the **one** owning doc, so you don't
 > open three and reconcile them. It is mostly *pointers* (to avoid becoming a new
 > drift source) plus two net-new tables (`src/` per-file truth, launch-blocker
-> subset). Rationale + the full audit: `docs/REPO_EFFICIENCY_AUDIT.md`.
+> subset). Rationale + the full audit: `archive/2026-05/REPO_EFFICIENCY_AUDIT.md`.
 
 ## Question router — open ONE doc per question
 

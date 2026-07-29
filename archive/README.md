@@ -55,3 +55,23 @@ engine SHA they were captured against.
 | `2026-06/fetch_data.bat` | repo root | Windows double-click launcher wrapping `theta_health_check` + `theta_backfill`. The documented Theta workflow (`docs/THETA_INSTRUCTIONS.md`) invokes the Python scripts directly. |
 
 See `DECISIONS.md` D27 for the restructure rationale.
+
+## 2026-07-28 — docs/ top-level structure run (filed by artifact vintage per Operator ruling)
+
+Dated, completed campaign/audit/verification reports moved out of the
+`docs/` top level so a stateless agent can judge currency from location.
+Classification evidence: the 2026-07-28 docs-structure run (worklog
+fragment `docs/worklog/` `docs-structure`; 108-file classification table
+in the run record). Nothing deleted; live-surface references were updated
+in the same commit as each move.
+
+| Archived file | Original path | Reason |
+|---|---|---|
+| `2026-05/CODE_REVIEW_2026-05-30.md` | `docs/` | Dated code-review findings ledger; decisions it produced live in `DECISIONS.md` D20+. Sole citation was CHANGELOG narrative. |
+| `2026-05/ENGINE_BACKTEST_S32_REBASELINE_POST260.md` | `docs/` | Post-#260 snapshot re-baseline record; superseded as snapshot provenance by the 2026-06-06 re-pin (#338). |
+| `2026-05/ENGINE_BACKTEST_S34_REBASELINE_POST260.md` | `docs/` | Same wave as the S32 re-baseline; superseded as snapshot provenance by the 2026-06-06 re-pin (#338). |
+| `2026-05/HEAVY_NEWS_CALIBRATION_REVERIFY.md` | `docs/` | HT-C heavy-verify report (2026-05-30), complete; worklog-only citations. |
+| `2026-05/HEAVY_PERSONA_WALKTHROUGH.md` | `docs/` | HT-A persona walkthrough report (2026-05-30), complete; findings triaged at merge. |
+| `2026-05/HEAVY_PIT_REALISM.md` | `docs/` | HT-B PIT-realism report (2026-05-30), complete; its committed driver stays under `docs/verification_artifacts/`. |
+| `2026-05/REPO_EFFICIENCY_AUDIT.md` | `docs/` | Repo-efficiency audit whose executable output became `docs/REPO_MAP.md` (the live router); safe tier executed 2026-05-30. |
+| `2026-05/REVERIFICATION_REPORT_2026-05-26.md` | `docs/` | Dated re-verification report; durable content carried into `docs/USAGE_TEST_LEDGER.md` per its own text. |

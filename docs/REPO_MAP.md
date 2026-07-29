@@ -10,9 +10,10 @@
 
 | You're asking… | Open | Not |
 |---|---|---|
+| How is this project **worked** — roles, handoffs, Run Summary format, concurrency, invariants? | `OPERATING_MODEL.md` (the single authoritative operating document) | — |
 | Where does **module X** live + its role? | `MODULE_INDEX.md` | — |
 | Where does an **exact file** live (grep target)? | `FILE_MANIFEST.md` (CI-guarded, exhaustive) | — |
-| What is **authoritative** for a trade decision? | the **Authority block** below → then `CLAUDE.md` §2 for the rule text | re-deriving from 4 docs |
+| What is **authoritative** for a trade decision? | the **Authority block** below → then `OPERATING_MODEL.md` §9.2 and §7 for the rule text | re-deriving from 4 docs |
 | What **tests** cover area Y / what must I run? | `TESTING.md` (taxonomy + per-module "what to run") | — |
 | What is the **current state / WIP**? | `PROJECT_STATE.md` (now) · `ROADMAP.md` (next) · `docs/worklog/INDEX.md` (per-task) | pinned counts (run `pytest --collect-only -q`) |
 | **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…) | — |

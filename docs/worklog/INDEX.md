@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**180 records.**
+**178 records.**
 
 ## Features (18)
 
@@ -70,15 +70,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [suggest-rolls-defensive](suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md) | in-flight |  | suggest_rolls / suggest_call_rolls no longer go silent on a challenged position — an opt-in include_defensive surfaces credit-gate-failing (debit) rolls flagged defensive=True (each scored through EVEngine.evaluate), and .attrs["defensive"] always reports how many defensive rolls exist so the credit-only default is never a silent zero. | `suggest-rolls-defensive-defensive-roll-surfacing-on-suggest-rolls-sugges.md` |
 | [wallclock-staleness](wallclock-staleness-universe-wallclock-frontier-staleness-layers.md) | shipped | #470 | A 27-day-stale OHLCV frontier was runtime-invisible (the only gate was frontier-relative, reading 0 when the whole universe is stale, while the event gate used the real wall clock); now: once-per-connector warn at >7d, structured attrs['staleness'] on all three rankers + API surfacing, and an opt-in universe-wide refusal — default byte-identical | `wallclock-staleness-universe-wallclock-frontier-staleness-layers.md` |
 
-## Backtests (25)
+## Backtests (23)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [BACKTEST_REGRESSION_CAMPAIGN](../BACKTEST_REGRESSION_CAMPAIGN.md) | legacy |  | Backtest Regression Harness — Campaign Report | `../BACKTEST_REGRESSION_CAMPAIGN.md` |
 | [ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN](../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md) | legacy |  | Engine backtest — 2022-2024 IV-PIT re-run (S27, 2026-05-24) | `../ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md` |
 | [ENGINE_BACKTEST_S32_FRICTION](../ENGINE_BACKTEST_S32_FRICTION.md) | legacy |  | Engine backtest — S32: $1M with full friction (2026-05-25) | `../ENGINE_BACKTEST_S32_FRICTION.md` |
-| [ENGINE_BACKTEST_S32_REBASELINE_POST260](../ENGINE_BACKTEST_S32_REBASELINE_POST260.md) | legacy |  | Engine backtest — S32 snapshot re-baseline (post-#260) | `../ENGINE_BACKTEST_S32_REBASELINE_POST260.md` |
-| [ENGINE_BACKTEST_S34_REBASELINE_POST260](../ENGINE_BACKTEST_S34_REBASELINE_POST260.md) | legacy |  | Engine backtest — S34 snapshot re-baseline (post-#260) + R10 firing analysis | `../ENGINE_BACKTEST_S34_REBASELINE_POST260.md` |
 | [ENGINE_BACKTEST_S34_UNIVERSE](../ENGINE_BACKTEST_S34_UNIVERSE.md) | legacy |  | Engine backtest — S34: 100-ticker universe at $1M with full friction (2026-05-26) | `../ENGINE_BACKTEST_S34_UNIVERSE.md` |
 | [ENGINE_BACKTEST_S35_OUT_OF_WINDOW](../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md) | legacy |  | Engine backtest — S35: 2018-2020 out-of-window cross-validation (2026-05-26) | `../ENGINE_BACKTEST_S35_OUT_OF_WINDOW.md` |
 | [ENGINE_BACKTEST_S38_MULTIWINDOW](../ENGINE_BACKTEST_S38_MULTIWINDOW.md) | legacy |  | Engine backtest — S38: multi-window at 100 tickers + $1M (2026-05-26) | `../ENGINE_BACKTEST_S38_MULTIWINDOW.md` |
@@ -100,7 +98,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 | [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #520 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
-## Verification & realism (42)
+## Verification & realism (41)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -134,7 +132,6 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [r11-vix-failsafe](r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md) | in-flight |  | Pinned the best-effort VIX-threading fail-safe on the live R11 ranking path (build_candidate_dossiers) — 5 connector-degradation cases + 2 anti-vacuity teeth, mutation-tested both directions. Closes backlog theme ② from the #308 worklog. | `r11-vix-failsafe-r11-vix-threading-fail-safe-pins-build-candidate.md` |
 | [REAL_DATA_VERIFICATION_2026-05-28](../REAL_DATA_VERIFICATION_2026-05-28.md) | legacy |  | Real-data accuracy verification — 2026-05-28 | `../REAL_DATA_VERIFICATION_2026-05-28.md` |
 | [REALISM_VERIFICATION_2026-05-28](../REALISM_VERIFICATION_2026-05-28.md) | legacy |  | Realism + reliability verification — 2026-05-28 | `../REALISM_VERIFICATION_2026-05-28.md` |
-| [REVERIFICATION_REPORT_2026-05-26](../REVERIFICATION_REPORT_2026-05-26.md) | legacy |  | Re-verification S1–S27 against current engine — Terminal A | `../REVERIFICATION_REPORT_2026-05-26.md` |
 | [reverify-2026-05-26](reverify-2026-05-26-summary.md) | completed |  | Re-verification 2026-05-26 — S1-S27 summary | `reverify-2026-05-26-summary.md` |
 | [S46](s46-re-verify-closed-tests-on-post-260-262-engine.md) | completed |  | Re-verify closed tests on post-#260/#262 engine | `s46-re-verify-closed-tests-on-post-260-262-engine.md` |
 | [validation-followups](validation-followups-v6r-fullmenu-v5b-full-tv-marked.md) | completed |  | The two caveats the closed phase itself recorded, resolved by pre-registered runs (plan §10, committed before code) — §10.1 re-reads the spent 2007-2009 slice at top_n=100 to decide whether H1's FAIL was censored by top-of-book logging (CAVEAT_RETIRED vs CENSORING_LOAD_BEARING at the 0.5 cut, counted+discounted ledger read), and §10.2 replays the crisis-eve assignment wave on a FULL-ranking saturated book with entry-IV BSM time-value marking across a {1.0, 1.5, 2.0} IV bracket to dispose of V5-b's >= 20% trough clause (ESTABLISHED / RETIRED_PRACTICAL / OPEN, frozen rule). Both runs on operator terminals overnight. | `validation-followups-v6r-fullmenu-v5b-full-tv-marked.md` |
@@ -196,7 +193,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 
-## Docs / process (17)
+## Docs / process (18)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -209,6 +206,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d28-parked-closeout](d28-parked-closeout-d28-parked-list-close-out-producer-census-trio-c.md) | shipped | #TBD | Closed 5 of D28's 14 parked items + resolved 2 keep-decisions; 7 remain deferred with reasons | `d28-parked-closeout-d28-parked-list-close-out-producer-census-trio-c.md` |
 | [doc-truth-pass](doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md) | shipped | #466 | PRODUCTION_READINESS now tells the honest evidence story (overlap-inflated rho caveat, I1 -0.002, no-true-OOS) and Blocker-2 no longer contradicts itself; the news-redesign R9 collision, the rail docs' missing #463 frontier-coherence caveat, and the deferred data-doc count deltas are all reconciled | `doc-truth-pass-deployment-truth-doc-pass-honest-headline-blocke.md` |
 | [docs-freshness-rcount](docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md) | in-flight |  | Canonical orientation docs drifted behind the code (reviewer count stuck at R1-R10 / older R1-R6/R1-R8; engine_api 32 vs 34 endpoints; 25 vs 22 Bloomberg CSVs; 127 vs 108 smoke checks). Verified each against origin/main and corrected the live docs only. | `docs-freshness-rcount-docs-freshness-sweep-reviewer-rule-count-r1-r10.md` |
+| [docs-structure](docs-structure-docs-top-level-structure-run-classify-108-archiv.md) | complete |  | All 108 top-level docs/*.md classified with per-file evidence (LIVE 36 / EVIDENCE 48+ / HISTORICAL / UNCERTAIN-resolved); 20 completed dated reports archived to root archive/{2026-05,2026-06,2026-07}/ via git mv with live-surface references updated same-commit; 3 Theta docs deferred post-#507; zero deletions; worklog-README + REPO_MAP repoints landed. | `docs-structure-docs-top-level-structure-run-classify-108-archiv.md` |
 | [next-data-session-runbook](next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md) | in-flight |  | One ordered, doc-only execution plan (docs/NEXT_DATA_SESSION_RUNBOOK.md) so a single logged-in Bloomberg Terminal session clears the whole open data queue in one pass — draws the Bloomberg-gated (CASY + 10 blue-chip backfills) vs. git-reconstructable (BK↔BNY collapse, dividends union, UNIVERSE_100 re-derive, 4-snapshot re-baseline) line explicitly | `next-data-session-runbook-turnkey-runbook-consolidating-the-open-data-queu.md` |
 | [onboarding-launch-clarity](onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md) | complete |  | Docs-only onboarding/launch-doc clarity pass. Added the R11 test (test_r11_elevated_vol.py) to the launch-blocker pytest subset everywhere it's documented (the §2 merge gate had been pinning only R1-R10 via test_dossier_invariant), surfaced R11 in AGENTS.md and the REPO_MAP pin list, made the data docs honest (DATA_SPECIFICATION is aspirational; 6 of 9 connector CSVs have no in-repo producer; *_yf.csv files are unconsumed), refreshed tradingview/OVERVIEW.md to Windows-primary, and de-staled PROJECT_STATE + PRODUCTION_READINESS Sn high-water. Baselined against e1d7453 (post-#323); items already fixed by #323 were verified and skipped. | `onboarding-launch-clarity-onboarding-launch-doc-clarity-r11-merge-gate-age.md` |
 | [operating-model-consolidation](operating-model-consolidation-operating-model-consolidation-one-governance-doc.md) | complete |  | Governance consolidated from seven scattered files into OPERATING_MODEL.md v2 (Operator-supplied skeleton + ten directed amendments + every still-valid source rule); CLAUDE.md reduced to the auto-loaded two-line pointer; six source files deleted and every live inbound reference repointed; 227 source rules enumerated by a 9-agent adversarial audit, 10 partial carries restored before deletion. | `operating-model-consolidation-operating-model-consolidation-one-governance-doc.md` |

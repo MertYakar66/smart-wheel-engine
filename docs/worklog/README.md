@@ -12,7 +12,7 @@ Instead: **one fragment file per task or scenario**, written once, by the
 terminal doing the work. The index (`INDEX.md`) is **generated** from the
 fragments' front-matter — never hand-maintained.
 
-This is also a coordination win (see `docs/PARALLEL_SESSIONS.md`): because each
+This is also a coordination win (see `OPERATING_MODEL.md` §9.5): because each
 task writes its *own* file, there is no shared file to collide on. The old
 "one `USAGE_TEST_LEDGER.md` owner per cycle" rule goes away.
 
@@ -32,8 +32,8 @@ Each fragment is `docs/worklog/<id>-<slug>.md` with front-matter + a fixed body.
 ```yaml
 ---
 id: S31                 # REQUIRED. Canonical id: Sn for a usage/backtest
-                        #   scenario (assigned at MERGE, see PARALLEL_SESSIONS
-                        #   rule 9), else a short slug.
+                        #   scenario (assigned at MERGE, see OPERATING_MODEL.md
+                        #   §9.5), else a short slug.
 title: Sever verbal news from the EV path    # REQUIRED.
 kind: feature           # REQUIRED. feature|fix|backtest|verification|usage|
                         #   refactor|docs|research

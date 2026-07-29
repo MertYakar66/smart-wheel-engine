@@ -130,7 +130,7 @@ also want the frontier moved past `2026-06-04`:
 - `scripts/pull_liquidity.py` — **edit `end_date="2026-03-20"` at line 26** first.
 - `python scripts/pull_treasury_yields_yf.py --incremental` (already current; no Terminal).
 The other 6 connector files (incl. the core `sp500_vol_iv_full.csv`) have **no
-in-repo producer** — see `docs/bloomberg_refresh_runbook.md`. **If the frontier
+in-repo producer** — see `archive/2026-06/bloomberg_refresh_runbook.md`. **If the frontier
 moves, it cascades: Phase 3 bumps `EXPECTED_FRONTIER` + the data-test `FRONTIER`
 constants, and Phase 4 re-picks W16/W30.**
 
@@ -391,7 +391,7 @@ producer/data changes tracked behind behaviour-pinning `xfail(strict)`:
   `scripts/audit_data_tests.py`.
 - `docs/CASY_BACKFILL_SPEC.md` — authoritative CASY pull spec (Phase 1A) + the
   reconstructable-vs-Bloomberg breakdown.
-- `docs/bloomberg_refresh_runbook.md` — per-file producer reality (which of the 9
+- `archive/2026-06/bloomberg_refresh_runbook.md` — per-file producer reality (which of the 9
   connector files have a script vs. need recovered BQL).
 - `docs/DATA_POLICY.md` §5 — refresh procedures + the `EXPECTED_FRONTIER`
   bump-on-refresh rule.

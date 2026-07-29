@@ -296,7 +296,7 @@ environment-invariant preflight guard (**#364**).
 A multi-agent read-only review of the whole repo, then a fix pass on `main` for
 the findings verified to be live on `main` (15 findings were already fixed on
 main and skipped). Full detail + the verified-findings ledger:
-`docs/CODE_REVIEW_2026-05-30.md`. Decisions: **D20** (treasury rate is percent →
+`archive/2026-05/CODE_REVIEW_2026-05-30.md`. Decisions: **D20** (treasury rate is percent →
 ÷100 unconditionally) shipped; **D19** (EV nets expected exit costs) and **D21**
 (forward-distribution horizon calendar/trading-day mismatch) are confirmed +
 fix-ready but **DEFERRED** — both change the EV-authority output and trip the

@@ -293,7 +293,7 @@ declaring a launch ready.
 
 ### Per-terminal env (D15)
 
-Multi-terminal coordination (`docs/PARALLEL_SESSIONS.md`) is N-generic.
+Multi-terminal coordination (`OPERATING_MODEL.md` §2.4/§9.5) is N-generic.
 Each executor terminal runs from its own worktree
 (`../swe-terminal-<x>`) with env loaded by
 `source scripts/setup-terminal.sh <letter>` (bash / Git Bash / WSL)

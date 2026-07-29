@@ -125,7 +125,7 @@ PY
 
 # 6. Parallel-session coordination — surfaced every session so no terminal
 #    branches without seeing the contract + who's already working.
-echo "│  ─ Parallel sessions (docs/PARALLEL_SESSIONS.md) ─"
+echo "│  ─ Parallel sessions (OPERATING_MODEL.md §9.5) ─"
 echo "│    • Work the task card the Major Session allocated — don't self-select."
 echo "│    • Edit only your card's 'owns' files; decision-layer trio is CI-gated."
 echo "│    • Sn / D-numbers are assigned at MERGE, not work-start."

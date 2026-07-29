@@ -1,4 +1,4 @@
-<!-- PR body — see COMMIT_GUIDE.md §3. Omit any empty section (a missing
+<!-- PR body — see OPERATING_MODEL.md §9.7. Omit any empty section (a missing
      section is silence; "N/A" is noise). Name your task card id if allocated. -->
 
 <!-- DECISION-LAYER CLAIM — REQUIRED only if this PR edits

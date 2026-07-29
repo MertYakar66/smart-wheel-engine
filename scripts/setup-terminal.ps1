@@ -7,7 +7,7 @@
 #     . .\scripts\setup-terminal.ps1 c        # Terminal C → port 8789, etc.
 #
 # Companion: scripts/setup-terminal.sh (bash / Git Bash / WSL).
-# Doc:        docs/PARALLEL_SESSIONS.md "Env vars per terminal".
+# Doc:        OPERATING_MODEL.md §9.5 (worktrees + per-terminal env).
 #
 # Sets the same six vars as the bash companion; see that file's header for
 # what each one means and which are real-today (SWE_API_PORT,

@@ -125,6 +125,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Fetch Bloomberg data from Google Drive
+        # Bloomberg data is no longer committed (migrated to Drive; see
+        # data/data_manifest.json + scripts/fetch_data.py). Hydrate it before
+        # pytest. Requires the GDRIVE_SA_JSON repo secret (a Google service
+        # account with Viewer on the Drive data folder). The full tracked set
+        # is fetched because the unit suite reads broad_pull panels, not just
+        # the 10 served _FILES.
+        env:
+          GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+        run: |
+          if [ -z "$GDRIVE_SA_JSON" ]; then
+            echo "::error::GDRIVE_SA_JSON secret is not set — add it in repo Settings -> Secrets and variables -> Actions to hydrate Bloomberg data from Google Drive (see PR body)."
+            exit 1
+          fi
+          pip install google-api-python-client google-auth
+          printf '%s' "$GDRIVE_SA_JSON" > "$RUNNER_TEMP/gdrive_sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/gdrive_sa.json"
+          python scripts/fetch_data.py
+
       - name: Run unit tests with coverage
         run: |
           pytest tests/ \

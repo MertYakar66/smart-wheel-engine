@@ -107,14 +107,15 @@ durable repository memory, and repair the memory decay found on the way.
 - GitHub (2026-09-11): main protected=false, empty rulesets; #523 9/9 checks
   success, mergeable clean; #507 draft, Test Suite 3.11/3.12 failure by design.
 - Workflow usage: schema run 8 agents / 311 tool uses / ≈1.82M tokens / 50 min;
-  product run 12 agents scheduled / 11 completed / 623 tool uses / ≈2.6M tokens / 66 min.
+  product run 12 agents / 623 tool uses / ≈2.6M tokens / 66 min, plus a 15-min critic re-run.
 
 ## Unresolved / handoff
 
-- The product workflow's completeness critic did not run: the agent failed
-  with a session usage limit after 11 of 12 agents completed. Part 1 therefore
-  rests on the readers + verifiers + synthesizer only; a critic pass over Part 1
-  is a cheap follow-up (resume the workflow with `resumeFromRunId`).
+- The product workflow's completeness critic failed once on a session usage
+  limit (11 of 12 agents done); it was re-run via `resumeFromRunId` (cached
+  readers/verifiers/synthesizer, only the critic re-executed) and its 38
+  missing / 19 unverified / 17 contradiction / 35 clarity findings were
+  applied to Part 1 in the follow-up commit.
 - Not done (deliberately, outside a docs run): flipping the 60 stale
   `in-flight` worklog statuses, marking the audit register/worklist as shipped,
   refreshing `docs/PRODUCTION_READINESS.md`, closing evidence-complete issues,

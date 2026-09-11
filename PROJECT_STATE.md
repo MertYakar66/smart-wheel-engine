@@ -1,8 +1,10 @@
 # Project State
 
-**Last updated:** 2026-07-02 (deployment-truth doc pass: data-currency
-blockquote refreshed to the 2026-06-04 frontier + 10-file/3-producer
-counts; fingerprint note extended for the #465 broad_pull pins).
+**Last updated:** 2026-09-11 (restart after the summer break: §0 added
+below with the verified state at restart and a pointer to the restart brief;
+no other section rewritten. Prior: 2026-07-02 deployment-truth doc pass —
+data-currency blockquote refreshed to the 2026-06-04 frontier + 10-file/3-producer
+counts; fingerprint note extended for the #465 broad_pull pins.)
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
@@ -49,6 +51,54 @@ described here is no longer accurate.
 > `ev_dollars` only as a tail-aware score. Basis:
 > `docs/HEAVY_VERIFY_2026-05-31_INDEX.md` (Category C of
 > `docs/HEAVY_VERIFY_2026-05-31_REMEDIATION.md`).
+
+---
+
+## 0. Restart 2026-09-11 — read this first
+
+Work stopped on 2026-07-29 (UTC) with PR #522 merged (`ec1c5c5`, the
+OPERATING_MODEL.md consolidation) and PR #523 (docs restructure, CI green)
+left open. Nothing merged for six weeks. The full re-onboarding analysis is
+`docs/RESTART_BRIEF_2026-09-11.md` (Part 1 product, Part 2 working schema);
+this section is the durable summary.
+
+**Engine health at restart (sandbox, `SWE_DATA_PROVIDER=bloomberg`, run
+2026-09-11):** provider resolved to `MarketDataConnector`; the §9.4 5-ticker
+EV smoke returned 4 rows in 11.8 s with JPM correctly dropped by the event
+gate (`event_lockout:earnings@2026-10-13`) — the "five rows means healthy"
+wording is date-dependent; launch-blocker subset 118 passed / 0 failed;
+`pytest --collect-only` 3,720 tests; `check_manifest_coverage.py` 0/0;
+`gen_worklog_index.py --check` OK; `check_lane_claim.py` OK.
+
+**Data is stale.** Committed OHLCV frontier is **2026-07-02**
+(`EXPECTED_FRONTIER`, set by #472; the §1 "point-in-time as of 2026-06-04"
+blockquote below predates that bump). The earnings-calendar overlay snapshot is
+2026-07-03. The connector warns on every live (`as_of=None`) run and
+`SWE_REFUSE_STALE_LIVE=1` hard-refuses. Refresh needs a logged-in Bloomberg
+Terminal (`docs/BLOOMBERG_TERMINAL_NEXT_SESSION.md` §1, then bump
+`EXPECTED_FRONTIER` / `EXPECTED_EARNINGS_CALENDAR_ASOF` and re-baseline per
+`docs/DATA_POLICY.md` §5). Draft PR #507 (move Bloomberg CSVs to Google Drive)
+is undecided; until it is, the committed CSVs are the only sandbox/CI data path.
+
+**Memory decay found and partly repaired.** `check_doc_currency.py` was FAILing
+(this file 71 d, CHANGELOG 62 d; fail threshold 45 d), which blocked CI on any
+new PR — cleared by this pass (CHANGELOG reconciled with the 27 merges of
+2026-07-12 → 07-28). Still open: 60 worklog fragments marked `in-flight` whose
+PRs merged; board #113 body frozen at 2026-05-30 and silent since 2026-07-04;
+181 live-file references to "CLAUDE.md §" that now resolve to OPERATING_MODEL.md
+§9.2/§7; README still cites CLAUDE.md for the four-layer model and NEVER list.
+
+**Coordination reality.** July work ran on three ad-hoc Operator-away channels
+(#493 machine mailbox, #494 Control Tower, #517 SANDBOX↔MACBOOK), none described
+in OPERATING_MODEL.md v2; merge authority is stated three incompatible ways
+(§2 Leg 3 / §7 vs §9.5 vs #494); `main` has no branch protection. Proposals
+P1–P8 and 15 Operator decisions are in the brief, Part 2.
+
+**Decision-layer items carried across the break.** F1 (roll_put/roll_call
+bypass the D16 token + D17 caps), F3 (HMM `bull_quiet` positional label), F4
+(IV-fallback look-ahead at historical `as_of`) remain `xfail(strict)` on main
+(#516) — tracked, not fixed. The D19 / D21 / recalibration re-baseline block
+(`docs/SUPERVISED_BLOCK_WORKLIST.md` Block B) is still operator-gated.
 
 ---
 

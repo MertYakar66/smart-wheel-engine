@@ -14,6 +14,60 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-11 — restart brief after the summer break + reconciliation of 27 unrecorded merges
+
+**Docs** — `docs/RESTART_BRIEF_2026-09-11.md` (branch
+`claude/project-restart-ai-agents-kot5jr`): a two-part re-onboarding brief for
+the Operator — Part 1 the product (decision path, models, data state, operator
+surfaces, verified/refuted/open evidence, where work stopped, queue), Part 2 the
+working schema (OPERATING_MODEL.md as written vs. as practised on #113 / #493 /
+#494 / #517, drift table, remote-session assumptions, ranked proposals, Operator
+decisions). Evidence basis: 8 specialist readers + 8 adversarial verifiers +
+2 completeness critics over `origin/main` @ `ec1c5c5`, plus a sandbox runtime
+check (provider `MarketDataConnector`; 5-ticker EV smoke 4 rows + 1 event-gate
+drop; launch-blocker subset 118 passed; 3,720 tests collected). Worklog:
+`docs/worklog/restart-2026-09-11-*.md`. `PROJECT_STATE.md` header refreshed with a
+dated restart section; no code, data, or decision-layer change.
+
+**Reconciliation** — the following merges landed between the 2026-07-08 section
+above and the break, and had no CHANGELOG line (titles from `git log`; per-PR
+detail in the PR bodies and, where one exists, the worklog fragment):
+
+- 2026-07-12 `5e8fecf` docs(audit): record operator decisions closing the D28 parked list (#492)
+- 2026-07-15 — the codebase weakness-audit fix wave (issues #493 / #494; register `docs/CODEBASE_AUDIT_2026-07-15.md`, proposals `docs/CODEBASE_AUDIT_2026-07-15_PROPOSALS.md`):
+  `606af35` fix(api): exact-host CORS origin match (#495) ·
+  `baf7002` fix(risk): correct gamma-dollars convexity scaling, drop erroneous /100 (#496) ·
+  `98d1eeb` fix(rates): explicit fallback for get_current_risk_free_rate (#497) ·
+  `82074cb` fix(stress): Student-t variance scaling + per-day theta (#498) ·
+  `e8328ad` fix(rolls): remove phantom entry commission from roll-suggester hold_ev (#499) ·
+  `6d881e3` fix(runner): log resolved SWE_DATA_PROVIDER, warn on unknown value (#500) ·
+  `c981f63` fix(runner,dossier): emit + read real contract count so soft-warns size correctly (#501, trio) ·
+  `55904d0` fix(runner): thread point-in-time as_of into CC + strangle carry-q fundamentals (#502, trio) ·
+  `226933e` fix(dossier): activate R6 dealer/regime downgrade wiring in EnginePhaseReviewer (#503, trio)
+- 2026-07-17/18 — dashboard: `c39ff0c` feat(dashboard): Trades tab with full IBKR trade history (#504) ·
+  `51e80b6` fix(dashboard): Portfolio Value shows deposit-adjusted history, TWR (#505) ·
+  `d4431a4` docs(dashboard): correct Portfolio Value inception (#506)
+- 2026-07-21 — audit follow-ups (CMD-numbered on #494): `cf4b9fa` fix(data-pull): fail loudly on dropped chunk + advance stale end_date (#508) ·
+  `92c9902` fix(engine-api): surface tv_scan ranker errors + independent candidate param parse (#509) ·
+  `2a4d395` fix(portfolio-tracker): atomic export_to_json (#510) ·
+  `3caa823` test(survivorship): ungated CI coverage for terminal_spot + pit_universe (#511) ·
+  `444d672` docs(audit): survivorship-delta backtest — ~60% of pinned NAV edge is survivor bias (#512) ·
+  `2f2c3a2` fix(stress-testing): t-dist variance, per-name delta$, per-position rate (#513) ·
+  `90891cc` fix(safety): non-finite-EV authority guard + D17 dossier held-book schema (#514) ·
+  `ef7103b` docs(data): source-verified data-sufficiency review (#515) ·
+  `1b328a3` test(held-findings): F1/F3/F4 xfail(strict) repros + fix designs (#516) ·
+  `c75192e` feat(validation): V1–V6 validation-phase harnesses + findings (#518) ·
+  `93478ef` docs(audit): 2026-07-15 weakness-audit register + pre-registered proposals (#519)
+- 2026-07-28 — `3cdc0dc` docs(trader500k): $500k engine-reliability campaign, 11 windows + rail re-runs (#520) ·
+  `d7e7553` docs(trader500k): traceability closure (#521) ·
+  `ec1c5c5` docs(operating-model): consolidate governance into OPERATING_MODEL.md; CLAUDE.md becomes loader (#522)
+
+**Open at the break (not merged):** PR #523 docs(structure) — classify 108 docs,
+archive 20 (CI green 2026-07-29); draft PR #507 — migrate Bloomberg data off
+GitHub to Google Drive (CI red by design until the `GDRIVE_SA_JSON` secret exists).
+
+---
+
 ## 2026-07-08 — repository efficiency audit (D28): dead-code retirement + doc truth-pass
 
 Four review-gated PRs (each squash-merged after the full `-m "not

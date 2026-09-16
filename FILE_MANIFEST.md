@@ -173,7 +173,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 
 | File | Purpose |
 |---|---|
-| `dashboard/package.json` | npm manifest — Next.js, React, Drizzle/SQLite, Vercel AI SDK, recharts, rss-parser. |
+| `dashboard/package.json` | npm manifest — Next.js, React, Drizzle/SQLite (terminal watchlist / events / quote cache / chat persistence), Vercel AI SDK, recharts. News dependencies (rss-parser, node-cron) removed 2026-09-16. |
 | `dashboard/package-lock.json` | npm lockfile (committed dependency tree). |
 | `dashboard/next.config.ts` | Next.js config; marks `better-sqlite3` server-external. |
 | `dashboard/tsconfig.json` | TypeScript config; `@/*` path alias. |
@@ -192,16 +192,6 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/app/globals.css` | Global Tailwind styles and terminal color palette. |
 | `dashboard/src/app/not-found.tsx` | Global 404 page — branded, links back to the Cockpit / TOP. |
 | `dashboard/src/app/global-error.tsx` | Root-level error boundary (catches root-layout errors; renders its own html/body) with a retry. |
-| `dashboard/src/app/(main)/layout.tsx` | Layout for the standard web app — nav plus centered container. |
-| `dashboard/src/app/(main)/loading.tsx` | Suspense fallback for the news-app routes — skeleton list under the nav. |
-| `dashboard/src/app/(main)/error.tsx` | Error boundary for the news-app routes — retry, nav stays usable. |
-| `dashboard/src/app/(main)/top/page.tsx` | "TOP" command-center page — breaking strip, top stories, category sections. |
-| `dashboard/src/app/(main)/feed/page.tsx` | News feed page — story cards with sector filter and RSS refresh. |
-| `dashboard/src/app/(main)/calendar/page.tsx` | Macro calendar page. |
-| `dashboard/src/app/(main)/research/page.tsx` | AI research chat page streaming from `/api/chat`. |
-| `dashboard/src/app/(main)/story/[id]/page.tsx` | Story detail page — sources, timeline, exposure mechanisms. |
-| `dashboard/src/app/(main)/ticker/[symbol]/page.tsx` | Per-ticker page — quote, price chart, related news. |
-| `dashboard/src/app/(main)/watchlist/page.tsx` | Watchlist page — add/remove tickers, prices, alerts. |
 | `dashboard/src/app/(terminal)/layout.tsx` | Layout for the terminal route. |
 | `dashboard/src/app/(terminal)/loading.tsx` | Suspense fallback for the terminal/cockpit routes — monospace skeleton. |
 | `dashboard/src/app/(terminal)/error.tsx` | Error boundary for the terminal/cockpit routes — monospace, retry, engine-down hint. |
@@ -226,7 +216,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/portfolio/trades-panel.tsx` | Trades tab — full IBKR execution history (buys/sells/expiries/assignments) with per-ticker realized P&L by asset class. Click a ticker to filter, asset-class toggle (All/Stock/Options/Cash-FX), date range; USD-equivalent P&L (dual-listed names flagged). Prop-free, self-fetching; observational (§2/§3). See `docs/DASHBOARD_TRADES.md`. |
 | `dashboard/src/components/portfolio/mock.ts` | Typed shapes + UI constants for the viewer (ACCOUNT/RETURNS/EQUITY/HOLDINGS/SECTORS/CURRENCY/SINGLE_NAME/SECTOR_EXPOSURE, WheelState/Period); doubles as the typed fallback when the engine is unreachable. |
 | `dashboard/src/components/portfolio/parts.tsx` | Shared presentational primitives — `PfCard`, `WheelBadge`, `PeriodToggle`, signed-USD/pct formatters, `pnlColor`. |
-| `dashboard/src/components/shell/wheelhouse-header.tsx` | Shared "Wheelhouse" page chrome — sticky branding header (accent dot + page label + key-stat / status slots) and `CrossPageNav` cross-page tabs (Cockpit/Portfolio/Terminal/News). Presentational only; lifted from the /portfolio design (D26) so Cockpit + Terminal share one visual language. No EV authority, no data fetching. |
+| `dashboard/src/components/shell/wheelhouse-header.tsx` | Shared "Wheelhouse" page chrome — sticky branding header (accent dot + page label + key-stat / status slots) and `CrossPageNav` cross-page tabs (Cockpit/Portfolio/Terminal). Presentational only; lifted from the /portfolio design (D26) so Cockpit + Terminal share one visual language. No EV authority, no data fetching. |
 | `dashboard/src/components/portfolio/kpi-cards.tsx` | Six KPI cards (net-liq, period total-return, unrealized / realized-YTD P&L, 30-day premium, win-rate); prop-driven with mock defaults. |
 | `dashboard/src/components/portfolio/equity-curve.tsx` | Portfolio-vs-SPY equity area chart + premium-income bar chart (Recharts); period-windowed; prop-driven. |
 | `dashboard/src/components/portfolio/allocation.tsx` | Sector-allocation donut + currency split; stable per-sector palette so live + mock render identically; prop-driven. |
@@ -235,43 +225,18 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/portfolio/ask-bar.tsx` | Conversational ask-bar affordance (suggestion chips) — visual only; the engine-backed query layer is a later phase (design D26 §6.2 Phase B). |
 | `dashboard/src/components/portfolio/income-panel.tsx` | Real Income section from `/api/portfolio/income` (previously served-but-never-fetched): realized/premium/win-rate chips, monthly realized P&L bars, ranked per-ticker league table; honest empty-ledger state. |
 | `dashboard/src/components/portfolio/margin-panel.tsx` | Margin & leverage panel — loan balance, maintenance margin, excess-liquidity cushion, leverage from served summary fields; prop-driven, null-honest. |
-| `dashboard/src/app/api/stories/route.ts` | Stories list API — query by sector/ticker, exposure-ranked. |
-| `dashboard/src/app/api/stories/[id]/route.ts` | Single-story detail API. |
 | `dashboard/src/app/api/chat/route.ts` | Chat API — streams from Ollama via the AI SDK. |
 | `dashboard/src/app/api/market/route.ts` | Market quote API — Finnhub with cached fallback. |
-| `dashboard/src/app/api/ingest/route.ts` | POST trigger for the RSS ingestion pipeline. |
 | `dashboard/src/app/api/watchlist/route.ts` | Watchlist CRUD API — GET enriches with prices. |
-| `dashboard/src/app/api/alerts/route.ts` | Alerts API — list/dismiss. |
 | `dashboard/src/app/api/events/route.ts` | Calendar-events CRUD API. |
-| `dashboard/src/app/api/categories/route.ts` | News-categories CRUD API. |
-| `dashboard/src/app/api/briefings/route.ts` | Briefings API — generate/get morning/evening digests. |
-| `dashboard/src/app/api/exposure/route.ts` | User-exposure CRUD API. |
-| `dashboard/src/app/api/schedule/route.ts` | Ingestion-schedule API — status/history/trigger. |
-| `dashboard/src/app/api/stream/route.ts` | Server-Sent-Events endpoint pushing new headlines. |
-| `dashboard/src/components/nav.tsx` | Top navigation bar for the web app. |
 | `dashboard/src/components/ui/*.tsx` | shadcn/ui base primitives (badge, button, card, input, scroll-area, skeleton). |
-| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/news/watchlist/macro/chat panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
+| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/watchlist/macro/chat panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
 | `dashboard/src/db/index.ts` | SQLite/Drizzle connection — lazy init, table creation, idempotent migrations. |
-| `dashboard/src/db/schema.ts` | Drizzle ORM schema — the news/story tables. |
+| `dashboard/src/db/schema.ts` | Drizzle ORM schema for the terminal's SQLite store — `marketSnapshots` (quote cache), `watchlists`, `events`, `chatSessions`, `messages`. The news/story tables were dropped 2026-09-16 with the news removal (D29); old tables in an existing local DB file are never dropped. |
 | `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine data, ticker analysis, committee review. |
 | `dashboard/src/lib/utils.ts` | `cn()` Tailwind class-merge helper. |
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |
-| `dashboard/src/instrumentation.ts` | Next.js instrumentation hook — boots the news ingestion cron (nodejs runtime only, double-start guarded) and seeds default categories. |
-| `dashboard/src/services/briefing-generator.ts` | Generates/persists morning/evening/breaking briefings. |
-| `dashboard/src/services/edgar.ts` | SEC EDGAR client — ticker-to-CIK and recent filings. |
-| `dashboard/src/services/entity-extraction.ts` | Entity extraction — Ollama NLP with regex fallback. |
-| `dashboard/src/services/exposure-ranking.ts` | Exposure-first story ranking against holdings/watchlist/factors. |
-| `dashboard/src/services/impact-analysis.ts` | Impact analysis — factor/horizon/sentiment tagging. |
-| `dashboard/src/services/macro-data.ts` | FRED API client for macro time series. |
 | `dashboard/src/services/market-data.ts` | Finnhub quote client and market-snapshot cache. |
-| `dashboard/src/services/news-categories.ts` | News-category taxonomy and keyword/ticker matching. |
-| `dashboard/src/services/rss-feeds.ts` | Static config of financial RSS feed sources. |
-| `dashboard/src/services/news-alerts.ts` | Ingest-time news-trigger alert evaluator (watchlist symbol match) — writes alert rows; no price-alert claims. |
-| `dashboard/src/services/news-cron.ts` | node-cron schedule for the ingestion pipeline — started once from `instrumentation.ts`, module-guarded, `NEWS_CRON=0` opt-out. |
-| `dashboard/src/services/universe-cache.ts` | Server-side cache of the engine's S&P-500 universe (+ held-book symbols) used to validate extracted ticker entities. |
-| `dashboard/src/services/rss-ingestion.ts` | RSS feed parser/ingester with ticker extraction. |
-| `dashboard/src/services/scheduled-ingestion.ts` | Orchestrates the multi-step ingestion pipeline. |
-| `dashboard/src/services/story-clustering.ts` | Story-graph clustering — Jaccard dedup, contradiction detection. |
 
 ## `data/` — data layer (Bloomberg-CSV provider + feature pipeline)
 

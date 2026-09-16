@@ -146,7 +146,6 @@ export default function PortfolioPage() {
         <div className="ml-auto flex items-center gap-3 py-2 text-[11px] text-terminal-dim">
           <Link href="/cockpit" className="hover:text-terminal-text">Cockpit</Link>
           <Link href="/terminal" className="hover:text-terminal-text">Terminal</Link>
-          <Link href="/top" className="hover:text-terminal-text">News</Link>
         </div>
       </WheelhouseHeader>
 

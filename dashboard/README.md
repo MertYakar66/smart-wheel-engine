@@ -1,15 +1,22 @@
 # Smart Wheel Engine — Dashboard
 
-Next.js 16 dashboard for the Smart Wheel Engine. Consumes the engine HTTP
+Next.js 16 dashboard for the Smart Wheel Engine. It consumes the engine HTTP
 API at `:8787` (served by [`engine_api.py`](../engine_api.py)) and exposes
-two surfaces:
+three pages, all in the `(terminal)` route group:
 
-1. **Engine cockpit** — EV-ranked candidates, dossier (engine + chart),
-   strangle timing, dealer-positioning overlay, payoff diagrams, AI memos.
-2. **Financial-news component** — feed, ticker pages, watchlist, macro
-   calendar, research chat against local Ollama. This is the news-side UI
-   that piggybacks on the same Next.js app; it pre-dates the engine
-   integration and is kept alongside it.
+| Page | What it shows |
+|---|---|
+| `/cockpit` | Decision Cockpit — EV-ranked candidates, dossier and reviewer verdicts (R1–R11), regime banner, concentration meters, drop funnel. Read-only over `/api/engine`. |
+| `/portfolio` | Live IBKR book viewer (design D26) — KPIs, holdings, allocation, equity curve, income, margin, risk, trade history. Read-only over `/api/portfolio/*`; each slice is labelled with its source. |
+| `/terminal` | Options terminal — market/vol panel, options engine, live book, ticker watchlist, events calendar, Ollama research chat, command line, and a symbol workbench (engine read, dealer positioning, TradingView handoff). |
+
+`/` redirects to `/cockpit`. The three pages share the Wheelhouse header and
+its cross-page tabs.
+
+The dashboard renders what the engine returns and reimplements none of its
+quantitative logic. The hard EV invariant (`OPERATING_MODEL.md` §7 — no
+tradeable candidate bypasses `EVEngine.evaluate`) holds because the engine
+API enforces it; nothing here ranks, upgrades or executes.
 
 The repo root has an alternate legacy Python CLI dashboard at
 [`quant_dashboard.py`](quant_dashboard.py); it is **not** the primary UI
@@ -21,12 +28,17 @@ and is retained as a research-tier surface only (see
 ## Tech stack
 
 - **Framework**: Next.js 16 (App Router, TypeScript)
-- **UI**: Tailwind CSS v4 + shadcn/ui components
-- **Database**: SQLite via better-sqlite3 + Drizzle ORM
+- **UI**: Tailwind CSS v4 + shadcn/ui primitives
+- **Local store**: SQLite via better-sqlite3 + Drizzle ORM, holding only the
+  terminal's operator state — ticker watchlist, manually curated events,
+  cached quote snapshots, research-chat sessions. Lives at
+  `dashboard/data/finance-news.db` (gitignored; the legacy file name is kept
+  so an existing local watchlist is still found).
 - **Charts**: Recharts
-- **AI**: Local Ollama via Vercel AI SDK (research chat, memo summarisation)
-- **Data**: the engine API (`:8787`) for ranking + analysis; RSS feeds,
-  Finnhub free tier, SEC EDGAR, FRED for the news component
+- **AI**: local Ollama via the Vercel AI SDK (terminal research chat)
+- **Data**: the engine API (`:8787`) for ranking, analysis, regime, calendar
+  and the live book; Finnhub (optional key) for realtime quotes, falling back
+  to the engine's EOD close
 
 ---
 
@@ -35,12 +47,11 @@ and is retained as a research-tier surface only (see
 ### Prerequisites
 
 - Node.js 20+ (required by Next.js 16)
-- The engine API up at `:8787` for the engine cockpit
-  (`python engine_api.py` from the repo root — see the
-  [root README](../README.md))
-- Optional: [Ollama](https://ollama.ai) for memo / research-chat AI features
-- Optional: Finnhub free-tier API key for live quotes in the news component
-- Optional: FRED API key for macro indicators
+- The engine API up at `:8787` (`python engine_api.py` from the repo root —
+  see the [root README](../README.md)); without it the pages render their
+  explicit engine-offline states
+- Optional: [Ollama](https://ollama.ai) for the terminal research chat
+- Optional: Finnhub free-tier API key for realtime quotes
 
 ### Setup
 
@@ -51,19 +62,16 @@ cd dashboard
 # Install dependencies
 npm install
 
-# Environment template (Finnhub, FRED, Ollama, etc.)
+# Environment template (engine URL, Finnhub, Ollama)
 cp .env.example .env.local
 
 # Dev server at :3000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The engine cockpit
-pages assume `python engine_api.py` is running in another terminal.
+Open [http://localhost:3000](http://localhost:3000); it lands on `/cockpit`.
 
 ### Optional: Ollama
-
-For memo summarisation and the research chat:
 
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh   # macOS / Linux
@@ -73,7 +81,7 @@ ollama pull qwen2.5:7b
 
 The engine's own memo path (`engine/trade_memo.py`) uses Ollama 72B / 32B
 locally; the dashboard's research chat uses the same Ollama instance via
-the Vercel AI SDK.
+the Vercel AI SDK (`OLLAMA_URL` / `OLLAMA_MODEL`).
 
 ---
 
@@ -82,30 +90,29 @@ the Vercel AI SDK.
 ```
 dashboard/src/
 ├── app/
-│   ├── (main)/              # Financial-news app (feed, ticker, watchlist, calendar, research)
-│   ├── (terminal)/          # Engine surfaces — Decision Cockpit (/cockpit) + Terminal (/terminal)
-│   ├── api/                 # Next.js API routes
-│   │   ├── engine/         # Proxies / wrappers around engine_api.py :8787
-│   │   ├── execute/        # Trade-execution surfaces (committee verdicts)
-│   │   ├── exposure/       # Portfolio Greeks / exposure
-│   │   ├── briefings/      # AI briefings (Ollama-backed)
-│   │   ├── stories/        # News stories (financial-news component)
-│   │   ├── ingest/         # RSS ingestion trigger
-│   │   ├── market/         # Live quotes (Finnhub)
-│   │   ├── events/         # Macro-event calendar
-│   │   ├── watchlist/      # Ticker watchlist
-│   │   ├── alerts/         # Watchlist alerts
-│   │   ├── chat/           # Ollama research chat (streaming)
-│   │   ├── schedule/       # Scheduled tasks
-│   │   ├── stream/         # Server-sent events
-│   │   └── categories/     # News classification
-│   ├── layout.tsx
-│   └── page.tsx
-├── components/              # React components (incl. shadcn/ui)
-├── db/                      # Drizzle schema + connection
-├── services/                # Business logic (RSS, entity extraction, market data, EDGAR, FRED)
-├── types/                   # TypeScript types
-└── lib/                     # Utilities
+│   ├── (terminal)/          # /cockpit, /portfolio, /terminal (+ layout, error, loading)
+│   ├── api/
+│   │   ├── engine/          # GET ?action=… proxy to engine_api.py :8787 (never cached)
+│   │   ├── portfolio/[sub]/ # GET proxy to the engine's read-only /api/portfolio/<sub>
+│   │   ├── chat/            # POST — streaming Ollama research chat
+│   │   ├── market/          # GET ?ticker= — quote: Finnhub → <24h snapshot → engine EOD
+│   │   ├── watchlist/       # GET / POST / DELETE — SQLite ticker watchlist with quotes
+│   │   └── events/          # GET / POST — SQLite events merged with the engine calendar
+│   ├── layout.tsx           # Root layout + metadata
+│   ├── page.tsx             # Redirects to /cockpit
+│   ├── not-found.tsx, global-error.tsx
+│   └── globals.css
+├── components/
+│   ├── cockpit/             # Decision Cockpit panels
+│   ├── portfolio/           # Live-book viewer panels + data hooks
+│   ├── terminal/            # Terminal panels, command line, panel error boundary
+│   ├── shell/               # Wheelhouse header + cross-page tabs
+│   └── ui/                  # shadcn/ui primitives
+├── db/                      # Drizzle schema + SQLite connection (local store)
+├── hooks/                   # useEngineData / useLiveBook / useTickerAnalysis
+├── services/market-data.ts  # Quote resolution (Finnhub, snapshot cache, engine EOD)
+├── types/                   # Wire shapes (engine, cockpit, live book)
+└── lib/                     # cockpit-trust (null-honest formatting), cn()
 ```
 
 `node_modules/` and the built `.next/` directory are gitignored; everything
@@ -120,34 +127,31 @@ npm run dev          # Development server at :3000
 npm run build        # Production build
 npm run start        # Production server
 npm run lint         # ESLint
-npm run db:generate  # Generate Drizzle migrations
+npm run db:generate  # Generate Drizzle migrations for the local store
 npm run db:migrate   # Run Drizzle migrations
 ```
 
+The runtime creates the local store's tables itself (`src/db/index.ts`); the
+Drizzle Kit scripts are an optional migration workflow, not a startup step.
+
 ---
 
-## Data sources (zero cost)
+## Data sources
 
 | Source | Data | Cost |
 |---|---|---|
-| Engine API (`:8787`) | EV ranking, analysis, dossier, payoff, dealer positioning | Local |
-| RSS feeds (8 sources) | Financial headlines | Free |
-| Finnhub | Stock quotes | Free tier (60 calls / min) |
-| SEC EDGAR | Company filings | Free (public API) |
-| FRED | Macro indicators | Free (API key required) |
-| Ollama | Local AI inference | Free (local) |
+| Engine API (`:8787`) | EV ranking, dossier, regime / VIX, calendar, ticker analysis, dealer positioning, live IBKR book | Local |
+| Finnhub | Realtime stock quotes (optional key; engine EOD close otherwise) | Free tier |
+| Ollama | Local AI inference for the research chat | Free (local) |
 
 ---
 
-## How the engine cockpit talks to the engine
+## How the dashboard talks to the engine
 
-The Next.js API routes under `src/app/api/engine/` are thin proxies that
-forward to the Python HTTP API at `http://localhost:8787`. The engine
-endpoint catalog (34 endpoints — `/api/candidates`, `/api/dossier`,
-`/api/strangle`, `/api/dealer_positioning`, `/api/memo`, `/api/tv/*`,
-etc.) is documented in the [`engine_api.py`](../engine_api.py) header.
-
-The dashboard does **not** reimplement any of the engine's quantitative
-logic; it renders what the API returns. The hard EV invariant
-(`CLAUDE.md`'s "no tradeable candidate bypasses `EVEngine.evaluate`")
-holds because the API itself enforces it.
+`src/app/api/engine/route.ts` and `src/app/api/portfolio/[sub]/route.ts` are
+thin server-side proxies that forward to the Python HTTP API at
+`ENGINE_API_URL` (default `http://localhost:8787`) with `cache: "no-store"`.
+The engine endpoint catalog is documented in the
+[`engine_api.py`](../engine_api.py) header. When the engine is unreachable the
+proxies answer 503 with a hint and the panels render an explicit
+offline / unavailable state.

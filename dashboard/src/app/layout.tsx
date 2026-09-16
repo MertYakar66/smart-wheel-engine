@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "YAKAR TERMINAL",
   description:
-    "Bloomberg-style financial terminal combining news aggregation, options engine, and AI agent",
+    "Smart Wheel Engine dashboard — decision cockpit, live portfolio viewer, and options terminal",
 };
 
 export default function RootLayout({

@@ -37,7 +37,7 @@ test files (`test_financial_news`, `test_news_processing`, `test_news_pipeline`,
 `test_news_sentiment`, `test_news_severance`, `test_adversarial_news`,
 `test_recovery_{checkpoints,fallbacks,health}`) and the news-pipeline tests
 inside `test_infrastructure.py`; `pyproject.toml` / `ci.yml` scopes trimmed.
-The dashboard news surfaces are removed in the same PR series. Archived
+Dashboard: the `(main)` news route group (10 files), nine news-only API routes, 14 news services, the news panel, the nav and the news cron boot hook are deleted (36 files); 18 files trimmed (terminal page/status bar/command line, shared types, the Drizzle schema down to `marketSnapshots` / `watchlists` / `events` / `chatSessions` / `messages`, `/api/watchlist` without the alert threshold, README, `.env.example`); `rss-parser`, `node-cron` and `@types/node-cron` uninstalled. Three pages remain: `/cockpit`, `/portfolio`, `/terminal`. `npx next build` and `npx eslint src` exit 0. Archived
 old-protocol docs (`archive/2026-06/Claude_Prompting_Master_Guide.md`,
 `archive/2026-06/SESSION_HANDOFF.md`) deleted.
 

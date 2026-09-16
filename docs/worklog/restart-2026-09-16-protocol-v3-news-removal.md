@@ -64,11 +64,12 @@ lane-claim block.
 - Fast lane after the removal: `python -m pytest tests/ -m "not backtest_regression" -q -x --ignore=tests/test_backtest_regression.py` → `3393 passed, 28 skipped, 4 deselected, 20 xfailed, 30 warnings in 735.60s (0:12:15)`, exit 0.
 - Guards: `check_manifest_coverage.py` OK; `gen_worklog_index.py --check` OK;
   `check_doc_currency.py` OK; `ruff check` / `ruff format --check` clean on touched files.
-- Dashboard: `npx next build` exit 0 before and after the removal (subagent report in the PR).
+- Dashboard (subagent constrained to `dashboard/`, then re-verified by the orchestrator): 36 files deleted, 18 modified; `npm uninstall rss-parser node-cron @types/node-cron` → removed 7 packages; `rm -rf .next && npx next build` → "Compiled successfully", TypeScript pass, exit 0, route table `/`, `/_not-found`, `/api/chat`, `/api/engine`, `/api/events`, `/api/market`, `/api/portfolio/[sub]`, `/api/watchlist`, `/cockpit`, `/portfolio`, `/terminal`; `npx eslint src` → exit 0, 0 problems (baseline had 12 warnings, all in deleted files). Residual grep for news terms: 127 hits, every one accounted for (46 "history", 45 terminal watchlist, 22 engine calendar, 11 data-feed wording, 3 legacy DB-file comments/path, 1 chat persona sentence, 1 Finnhub User-Agent string).
 
 ## Unresolved / handoff
 
 - Operator: turn on branch protection for `main`; merge this PR then #523;
   confirm or decline the git-history rewrite as a separate action.
+- Dashboard judgement calls to ratify: `src/db/**`, `drizzle-orm`, `better-sqlite3`, `drizzle-kit` and the `db:*` scripts were TRIMMED, not deleted, because the terminal's watchlist, events, quote cache and chat persistence use them; `/api/watchlist` no longer returns or accepts `alertThresholdPct`; the local DB file name `data/finance-news.db` and the package name `finance-news` are unchanged so an existing local watchlist/chat history is still found; `ollama-ai-provider` was already unused before this run. Runtime was not exercised in the sandbox (no engine, Ollama, or local DB): evidence is build + lint.
 - Track A's first question (which data subscriptions exist) gates everything downstream.
 - Docs currency pass (stale worklog statuses; audit register / worklist; PRODUCTION_READINESS) is Track E.

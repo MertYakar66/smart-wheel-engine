@@ -22,9 +22,6 @@ export default function NotFound() {
           <LayoutDashboard className="mr-2 h-4 w-4" />
           Go to Cockpit
         </Link>
-        <Link href="/top" className={cn(buttonVariants({ variant: "outline" }))}>
-          Browse TOP news
-        </Link>
       </div>
     </div>
   );

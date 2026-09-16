@@ -10,7 +10,6 @@ interface CommandLineProps {
 // Every command advertised here has a real handler in the terminal page —
 // HELP must never promise behavior that silently no-ops or misfires.
 const COMMANDS = [
-  { cmd: "NEWS", desc: "Highlight the news panel" },
   { cmd: "OPTIONS", desc: "Highlight the options engine" },
   { cmd: "BOOK", desc: "Highlight the live IBKR book" },
   { cmd: "MARKET", desc: "Highlight the market/vol panel" },
@@ -19,7 +18,6 @@ const COMMANDS = [
   { cmd: "UNWATCH <SYM>", desc: "Remove from watchlist" },
   { cmd: "QUOTE <SYM>", desc: "Open symbol workbench (EOD engine read)" },
   { cmd: "CHART <SYM>", desc: "Open symbol workbench + TradingView link" },
-  { cmd: "REFRESH", desc: "Ingest RSS feeds" },
   { cmd: "ENGINE", desc: "Refresh options engine data" },
   { cmd: "RESEARCH <Q>", desc: "Ask the research panel a question" },
   { cmd: "BACK", desc: "Close the symbol workbench" },

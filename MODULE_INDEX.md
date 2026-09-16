@@ -31,7 +31,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | File | Purpose | Status | Role |
 |---|---|---|---|
 | `engine_api.py` | HTTP API on `:8787` serving the Next.js dashboard. The top-of-file docstring lists most endpoints but is not exhaustive — e.g. `/api/concentration_preview` and the D26 `/api/portfolio/*` read-only performance-viewer prefix are served by the handler but undocumented there. | live | runner / display |
-| `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
 | `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
@@ -74,7 +73,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
 | `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). **Dormant** — re-exported but no live consumer (`engine_api` / `wheel_runner` / `tv_signals` do not call it). |
 | `signals.py` | Composite signal aggregator (`IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). **Dormant** — re-exported by `engine/__init__.py` but zero production callers (tests, the frozen `src/` scaffold, and the smoke harness only); wire-up requires an explicit decision. |
-| `news_sentiment.py` | Operator-facing sentiment reader. **Severed from the EV path by D18** — `sentiment_multiplier()` returns constant 1.0. `get_ticker_sentiment` is preserved so the dashboard / row dict / morning brief still surface the underlying score for transparency, but the engine ignores it. |
 
 ### Data layer
 
@@ -221,8 +219,6 @@ that the root README still references — it is not the primary UI.
 
 | Dir | Purpose | Status |
 |---|---|---|
-| `financial_news/` | Standalone news platform — RSS connectors, clustering, processing, sources, storage, scheduler, UI. **Not on the EV path.** | research / parallel project |
-| `news_pipeline/` | Browser-agent news pipeline that drives `morning_run.py`: scrapers, browser_agents, local_llm, orchestrator, publisher, recovery, security, slo. | live (operational), but not on the EV path |
 | `local_agent/` | Local AI agent + Streamlit UI; agents, browser, mcp_server, memory, ui. | experimental |
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |

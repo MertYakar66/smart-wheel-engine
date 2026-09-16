@@ -128,7 +128,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_extreme_numerics.py` | Boundary-value behaviour |
 | `test_edge_cases.py` | Edge cases across modules |
 | `test_point_in_time.py` | No lookahead bias (PIT) |
-| `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated news/credit data |
+| `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated credit data |
 | `test_asof_none_staleness.py` | M3 — `as_of=None` resolves to the universe data frontier; index leavers dropped; fresh names byte-identical; drop-only; explicit path untouched; CC+strangle siblings covered |
 | `test_wallclock_staleness.py` | D1-2/D3-2 — wall-clock frontier staleness: connector warn-once at >7d, structured `attrs["staleness"]` on all three rankers, opt-in `refuse_stale_live`/`SWE_REFUSE_STALE_LIVE` universe-wide refusal; dated paths sentinel `{checked: False}`; default fail-open |
 | `test_coverage_floors_script.py` | Per-file coverage-floor ratchet script pins (pass/below-floor/missing-file-loud/exit codes) — the CI step lives in the Test Suite job |
@@ -256,22 +256,13 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_engine_api_concentration.py` | `/api/concentration_preview` — armed R9/R10 caps on the live path, refuse-only contract, unmocked gate math (#351) |
 | `test_mcp_client.py` | `MCPCLIClient` tv-CLI transport — five-call capture, canonical `MCP_ERROR_MODES`, no-retry-except-quote (D12; all subprocess-mocked) |
 
-### News / advisors / ML
+### Advisors / ML
 
 | File | Purpose |
 |---|---|
-| `test_financial_news.py` | `financial_news/` platform |
-| `test_news_pipeline.py` | `news_pipeline/` browser pipeline |
-| `test_news_processing.py` | News processing primitives |
-| `test_adversarial_news.py` | Adversarial robustness |
 | `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
-| `test_news_sentiment.py` | `NewsSentimentReader` — store reads, staleness, neutral default; `sentiment_multiplier` constant-1.0 parity |
-| `test_news_severance.py` | D18 invariant — `sentiment_multiplier` is a constant-1.0 stub across the full (sentiment, n_articles) grid |
-| `test_recovery_checkpoints.py` | news-pipeline checkpoints — stage ordering, progress tracking, serialization round-trip |
-| `test_recovery_fallbacks.py` | news-pipeline degraded modes — NORMAL/PARTIAL/LOCAL_ONLY/OFFLINE evaluation |
-| `test_recovery_health.py` | news-pipeline provider health — availability, rate-limit expiry, success-rate tracking |
 
 ### Infrastructure
 
@@ -364,8 +355,7 @@ pytest tests/test_audit_invariants.py \
 pytest tests/ -m "not integration and not slow" -v
 
 # Coverage (CI scope per .github/workflows/ci.yml; threshold 80%)
-pytest tests/ --cov=src --cov=engine --cov=advisors --cov=financial_news \
-       --cov=data --cov-fail-under=80
+pytest tests/ --cov=src --cov=engine --cov=advisors --cov=data --cov-fail-under=80
 
 # Hypothesis profiles (configured in conftest.py)
 pytest tests/ --hypothesis-profile=ci      # 200 examples (CI)
@@ -399,7 +389,6 @@ pytest tests/ -m quant -v
 | `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
 | `advisors/*` | `pytest tests/test_advisors.py tests/test_authority_hardening.py` |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python scripts/audit_api_smoke.py` against a running `engine_api.py` |
-| `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |
 | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/forward_distribution.py`, `engine/dealer_positioning.py`, `engine/tail_risk.py` | **Backtest regression** in addition to the launch blockers — run `.claude/commands/backtest-regression.md` (~4–5 h). The four S27/S32/S34/S35 backtests are downstream of all five files. |
 
 ## Backtest regression — re-baseline workflow

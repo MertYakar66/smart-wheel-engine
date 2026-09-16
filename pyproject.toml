@@ -71,7 +71,7 @@ build-backend = "hatchling.build"
 # `src/` is deprecated (DECISIONS.md D2) but kept here while six tests
 # and four production modules still import `src.features.*`. Drop only
 # after the D2 migration window closes.
-packages = ["engine", "advisors", "data", "financial_news", "news_pipeline", "src", "backtests"]
+packages = ["engine", "advisors", "data", "src", "backtests"]
 
 [tool.ruff]
 target-version = "py311"
@@ -108,26 +108,14 @@ addopts = "-v"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src", "engine", "advisors", "financial_news", "data"]
+source = ["src", "engine", "advisors", "data"]
 branch = true
 omit = [
     # External API connectors require live API calls or complex mocking
-    "financial_news/connectors/*",
-    "financial_news/sources/*",
     # UI code is tested through end-to-end tests
-    "financial_news/ui/*",
     # Pipeline and scheduler require external resources
-    "financial_news/pipeline.py",
-    "financial_news/scheduler.py",
     # Storage layer requires database setup
-    "financial_news/storage/*",
     # Processing modules with complex ML dependencies
-    "financial_news/processing/brief_generator.py",
-    "financial_news/processing/clusterer.py",
-    "financial_news/processing/story_clusterer.py",
-    "financial_news/processing/entity_extractor.py",
-    "financial_news/processing/impact_scorer.py",
-    "financial_news/processing/ranker.py",
     # Data validators are simple type checks
     "src/data/validators.py",
     # Complex engine modules requiring extensive setup

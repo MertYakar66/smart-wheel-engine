@@ -51,7 +51,6 @@ from engine.wheel_runner import WheelRunner
 
 _OFFLINE = {
     "use_dealer_positioning": False,
-    "use_news_sentiment": False,
     "use_credit_regime": False,
     "use_skew_dynamics": False,
 }

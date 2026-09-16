@@ -39,10 +39,6 @@ TradingView bridge:
   GET  /api/tv/dossier?top_n=10&timeframe=1D[&nav=250000&holdings=AAPL:100][&puts_held=AAPL:180:1][&regime_map=NVDA:short_gamma_amplifying] - EV + TV screenshot dossier (Mode B). Optional nav/holdings/puts_held/regime_map engage D17 R7+R8 soft-warns.
   GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
-
-News (dashboard-facing ring buffer; not on the EV decision path):
-  GET  /api/news?limit=20                 - Most recent ingested news stories
-  POST /api/news/ingest                   - Push stories from the news pipeline
 """
 
 import hashlib
@@ -56,7 +52,7 @@ import threading
 import time
 import traceback
 from collections import OrderedDict
-from datetime import (  # noqa: F401  # timezone re-exported for audit-VIII P0.3 (tests/test_audit_viii_unit_invariants.py::TestNewsIngestDatetimeImport)
+from datetime import (  # noqa: F401
     UTC,
     date,
     datetime,
@@ -113,12 +109,6 @@ _connector = None
 # and served back through /api/tv/alerts for the dashboard to display.
 _TV_ALERT_LOG: list[dict] = []
 _TV_ALERT_LOG_MAX = 200
-
-# In-memory news story buffer. Populated by the /api/news/ingest endpoint
-# which the orchestrator calls after running the news pipeline. Stories are
-# served back through /api/news for the dashboard and committee.
-_NEWS_BUFFER: list[dict] = []
-_NEWS_BUFFER_MAX = 100
 
 # AUDIT: replay-protection nonce cache. We key by the SHA-256 of the raw body
 # AND the incoming signature header so identical payloads with different
@@ -918,8 +908,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     assumption=param("assumption", "long_calls_short_puts")
                     or "long_calls_short_puts",
                 )
-            elif path == "/api/news":
-                self._handle_news(limit=_parse_param("limit", param("limit"), int, 20))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except BadParam as bp:
@@ -968,8 +956,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     or ""
                 )
                 self._handle_tv_webhook(payload, raw_body=raw, signature_header=sig_header)
-            elif path == "/api/news/ingest":
-                self._handle_news_ingest(payload)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -3357,57 +3343,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # News endpoints
-    # ------------------------------------------------------------------
-    def _handle_news(self, limit: int):
-        """Serve the most recent news stories from the in-memory buffer.
-
-        Stories are ingested by ``POST /api/news/ingest`` (called by
-        ``scripts/orchestrate.py`` after running the news pipeline)
-        and served back here for the dashboard + committee.
-        """
-        limit = max(1, min(limit, _NEWS_BUFFER_MAX))
-        items = list(reversed(_NEWS_BUFFER[-limit:]))
-        self._send_json({"stories": items, "count": len(items)})
-
-    def _handle_news_ingest(self, payload: dict):
-        """Ingest news stories from the orchestrator / news pipeline.
-
-        Expects ``{"stories": [...]}`` where each story is a dict with
-        at minimum ``title`` and ``summary``. Optional fields:
-        ``tickers``, ``impact``, ``source``, ``timestamp``, ``url``.
-
-        Stories are appended to the in-memory ring buffer
-        (``_NEWS_BUFFER``) and served back via ``GET /api/news``. The
-        buffer is dashboard-facing — it does **not** feed the EV
-        decision path (``engine/news_sentiment.py`` is the EV-path
-        news reviewer, consumed by ``WheelRunner.rank_candidates_by_ev``
-        from on-disk sentiment shards, not from this in-memory buffer).
-        No event-gate integration happens at this endpoint.
-        """
-        stories = payload.get("stories", [])
-        if not isinstance(stories, list):
-            self._send_error("stories must be a list", 400)
-            return
-
-        ingested = 0
-        for story in stories:
-            if not isinstance(story, dict):
-                continue
-            if not story.get("title") and not story.get("summary"):
-                continue
-            story.setdefault("ingested_at", datetime.now(UTC).isoformat())
-            story.setdefault("source", "pipeline")
-            _NEWS_BUFFER.append(story)
-            ingested += 1
-
-        # Trim buffer
-        while len(_NEWS_BUFFER) > _NEWS_BUFFER_MAX:
-            _NEWS_BUFFER.pop(0)
-
-        self._send_json({"ingested": ingested, "buffer_size": len(_NEWS_BUFFER)})
-
     def _handle_memo(self, ticker, as_of):
         """Generate AI trade memo for a ticker."""
         from engine.trade_memo import MemoGenerator
@@ -3507,8 +3442,8 @@ def _resolve_host(env: dict[str, str] | None = None) -> str:
     """Resolve the bind host from ``SWE_API_HOST`` (default ``127.0.0.1``).
 
     Hardening (R3): the server historically bound ``0.0.0.0``, which made
-    the unauthenticated-by-default write endpoints (``POST /api/tv/webhook``,
-    ``POST /api/news/ingest``) reachable from any host on the LAN. The
+    the unauthenticated-by-default write endpoint (``POST /api/tv/webhook``)
+    reachable from any host on the LAN. The
     dashboard talks to this server through a *server-side* Next.js proxy,
     so the raw port never needs to be reachable from a browser or another
     machine — a loopback bind is the safe default. An operator who really
@@ -3572,8 +3507,6 @@ def main():
     print("  GET  /api/tv/dossier?top_n=10&timeframe=1D")
     print("  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35")
     print("  POST /api/tv/webhook")
-    print("  GET  /api/news?limit=20")
-    print("  POST /api/news/ingest")
     print()
     try:
         server.serve_forever()

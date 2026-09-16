@@ -159,7 +159,6 @@ def main(argv: list[str] | None = None) -> int:
         enforce_history_gate=False,
         use_dealer_positioning=False,
         use_skew_dynamics=False,
-        use_news_sentiment=False,
         use_credit_regime=False,
     )
 

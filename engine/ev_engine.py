@@ -549,7 +549,7 @@ class EVEngine:
         # to [0.70, 1.05] — asymmetric by design.
         # Raw regime_multiplier is validated & clamped to the documented
         # [0.0, 1.25] envelope. NaN or out-of-range inputs are a signal
-        # that an upstream multiplier product (hmm × skew × news × credit)
+        # that an upstream multiplier product (hmm × skew × credit)
         # overflowed — silently clamping hides the bug, so we also log
         # an anomaly tag into metadata for audit replay.
         raw_regime = float(trade.regime_multiplier)

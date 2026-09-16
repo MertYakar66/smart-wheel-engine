@@ -26,7 +26,7 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Auto-loaded two-line pointer to `OPERATING_MODEL.md`; carries no rules of its own. |
-| `OPERATING_MODEL.md` | Tier-1 — THE single authoritative operating document: roles (Operator/Strategist/Executor), handoff contracts, Run Summary format (§4.4), verification tiers, concurrency/allocation (§2.4), project invariants (§7), and the consolidated project reference (§9). |
+| `OPERATING_MODEL.md` | **The one protocol (v3, 2026-09-16).** Roles (Operator; two equal Strategists — Claude Code and Codex; Executors, main one Claude Code in VS Code), the loop and §3.1 Operator-away mode, the five handoff contracts (§4.1 sharpening gate, §4.3 Execution Prompt via `docs/PROMPTING_STANDARD.md`, §4.4 Run Summary posted on the PR), the verification tiers and writer/checker split (§5), failure modes (§6), the §7 invariants, and the consolidated project reference (§9: system, decision authority R1–R11, out-of-scope, bring-up, concurrency mechanics, onboarding, commit/PR standard, engineering, model governance, named terminals, router). Operator-governed; agents propose changes. |
 | `README.md` | Tier-1 human entry point; routes agents to `OPERATING_MODEL.md` and the doc set. |
 | `PROJECT_STATE.md` | Tier-2 — temporal state: what is authoritative, in progress, or deprecated right now. |
 | `MODULE_INDEX.md` | Tier-2 — per-module purpose and decision-layer role classification. |
@@ -37,7 +37,6 @@ See `DECISIONS.md` D14 for the tiered layout this manifest reflects.
 | `ROADMAP.md` | Scoped-but-not-done work by track; forward companion to `PROJECT_STATE.md`. |
 | `LICENSE` | MIT license. |
 | `engine_api.py` | Interface-layer entry point — the stdlib HTTP API server on `:8787` serving the Next.js dashboard. |
-| `morning_run.py` | Entry point for the browser-driven, zero-API-cost multi-LLM morning news pipeline. |
 | `conftest.py` | pytest configuration — hypothesis profiles, shared fixtures, custom markers. |
 | `pyproject.toml` | Packaging and tooling configuration (ruff, mypy, pytest, coverage). |
 | `requirements.txt` | Runtime dependency list. |
@@ -90,8 +89,6 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-05/DATA_COLLECTION_REPORT.md` | Archived dated data-collection phase report. |
 | `archive/2026-05/bloomberg_excel_extractor.bas` | Archived V1 of the Bloomberg Excel VBA extractor — superseded by `scripts/bloomberg_excel_extractor_v2.bas` ("fixed version with longer wait times"). |
 | `archive/2026-05/download_ohlcv.py` | Archived early yfinance OHLCV downloader — superseded by `scripts/download_yf_ohlcv.py` (adds multi-index header cleanup). |
-| `archive/2026-06/SESSION_HANDOFF.md` | Archived point-in-time session handoff (2026-05-18); carried a SUPERSEDED banner — live state is `PROJECT_STATE.md` / `DECISIONS.md`. |
-| `archive/2026-06/Claude_Prompting_Master_Guide.md` | Archived generic Claude prompt-engineering reference (not project-specific; zero inbound refs). |
 | `archive/2026-06/DATA_SPECIFICATION.md` | Archived aspirational Parquet data-layer design that never matched on-disk reality — superseded by `docs/DATA_POLICY.md` + `docs/DATA_INVENTORY.md`. |
 | `archive/2026-06/pull.bat` | Archived Windows pull launcher — zero refs; not part of the live (agent-session) workflow. |
 | `archive/2026-06/pull_branch.bat` | Archived Windows branch-checkout launcher — same rationale; default branch name was long dead. |
@@ -331,6 +328,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/WIRING_CAMPAIGN.md` | Dependency-ordered plan to wire the ~27 staged broad-pull datasets into the EV engine: per-dataset rows (dataset · engine consumer · §2 role · EV-moving?→re-baseline-coupled · banked-at · roadmap/§9 ref) across Phase 0 (integration — 0A frontier-refresh tails EV-moving, 0B loaders plain), Phase 1 ((E) trio ceremony), Phase 2 (skew panel), Phase 3 (by-consumer), Phase R (single re-baseline). Flags the trio lane-claim ceremony / §2 panel / held gates. Grounded in `staging/BROAD_PULL_MANIFEST.md` + `docs/DATA_INVENTORY.md`. |
 | `docs/DATA_POLICY.md` | Data tiers, provider matrix, what never enters git, point-in-time discipline, refresh procedures. |
 | `docs/RESTART_BRIEF_2026-09-11.md` | Restart brief after the summer break (2026-09-11): Part 1 the product (decision path, live vs dormant models, data state, operator surfaces, verified / refuted / open evidence, where work stopped, queue); Part 2 the working schema (OPERATING_MODEL.md as written vs as practised on #113/#493/#494/#517, drift table, remote-session assumptions, ranked proposals P1–P8, Operator decisions). Evidence-labelled (read / run / reported / open); basis `origin/main` @ `ec1c5c5` + a 2026-09-11 sandbox runtime check. Companion worklog: `docs/worklog/restart-2026-09-11-*.md`. |
+| `docs/PROMPTING_STANDARD.md` | The project's prompting standard (OPERATING_MODEL.md §4.3): the sharpening gate and question bank, the Execution Prompt template (`<run-mode>` … `<constraints>`, incl. the mandatory `<request-as-sharpened>` block and `<owns>`/`<out-of-scope>`), run modes, the short-form Run Summary posted on the PR, and the Claude Code / Codex parity rule. |
+| `docs/RESTART_PLAN_2026-09-16.md` | Operator rulings of 2026-09-16 turned into work: the five product/protocol tracks (data without Bloomberg; 7/14/21/28-DTE menu + event-aware policy; exit evaluator + post-mortem loop; strategist commentary; protocol v3 adoption), each as a sharpened Execution Prompt per `docs/PROMPTING_STANDARD.md`, with the concerns raised and the questions only the Operator can answer. |
 | `docs/DATA_SUFFICIENCY_REVIEW_2026-07-21.md` | Source-verified (file:line) answer to "do we need more data / history / datasets?": per-method history adequacy (5y hardcoded forward window, HMM 504-bar slice, EVT scenario-count bound + the overlapping-tier inversion), EV-critical vs dormant classification of every on-disk dataset, built-but-starved capabilities with their distinct unblockers (premium parquets = laptop production; skew = wiring off the 5×5 surface; GEX = rail+IV chain adapter), the ROI-ordered Terminal pull list (frontier bump via `_bbg_panel.py` env knobs + 18 truncated-name backfill incl. WMT), the tier-blocked ceiling (with the `DATA_POLICY.md` §2 VIX-futures correction), and the code-only ceiling (D19/D21, R7 unfireable, FRED credit-mult fragility). Corrects stale `BLOOMBERG_TERMINAL_NEXT_SESSION.md` §1 and refutes the posited Drive-manifest migration. |
 | `docs/audits/WEAKNESS_AUDIT_2026-07-15.md` | Whole-codebase adversarial weakness audit (2026-07-15): 20-finder multi-agent sweep with 2-verifier refutation → 47 confirmed findings (8 high / 20 medium / 19 low), 20 touching the decision-trio/invariant. Source record for the parallel-terminal remediation campaign tracked in Issue #494. Point-in-time record — several HIGH findings have since been fixed independently on main (e.g. #496 gamma-$/100, #498 Student-t stress variance, #495 CORS, #501 contract count). |
 | `docs/CODEBASE_AUDIT_2026-07-15.md` | Ranked weakness-audit register (read-only; nothing applied to engine code). Consolidates three parallel streams — in-session multi-agent breadth audit, Computer-1 graph+grep structural audit (`RESULT C1-001`), Computer-2 runtime/coverage/fuzz audit — coordinated via issue #493. Records the independent §2-invariant re-confirmation (multipliers touch `ev_dollars` only; no `EVResult` without `evaluate`; dealer clamp [0.70,1.05]) and the actionable tooling finding that the `codebase-memory-mcp` graph has a systematic CALLS-recall gap (misses callers, never fabricates; flagged `EnginePhaseReviewer.review` + `calculate_assignment_costs` dead — both live) → graph=lead, grep=verdict. Consolidated ranking + pre-registered proposals live in the companion `docs/CODEBASE_AUDIT_2026-07-15_PROPOSALS.md`. |
@@ -484,7 +483,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
 | `engine/signal_context.py` | Builds the context dicts the signal framework consumes from the Bloomberg data loaders. |
 | `engine/signals.py` | Signal-generation framework — IV-rank / trend / profit-target / stop-loss / DTE / event signals and the aggregator. |
-| `engine/news_sentiment.py` | `NewsSentimentReader` — reads news-pipeline sentiment from disk. `sentiment_multiplier` is a constant-1.0 stub post-D18 (verbal news severed from the EV path); `get_ticker_sentiment` is preserved as an operator-transparency layer for the dashboard / row dict. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
 | `engine/forward_distribution.py` | PIT-safe forward-return distribution builder (empirical → block bootstrap → HAR-RV cascade). |
@@ -527,45 +525,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
 
-## `financial_news/` — standalone news platform (off the EV path)
-
-| File | Purpose |
-|---|---|
-| `financial_news/__init__.py` | Package root for the macro/SP500 event-intelligence platform. |
-| `financial_news/models.py` | Legacy "Bloomberg-style" data models — a parallel older model layer. |
-| `financial_news/schema.py` | Canonical v2 dataclass schema and enums plus default sources/categories/rules. |
-| `financial_news/pipeline.py` | Legacy async orchestrator (`NewsPipeline`, `PipelineScheduler`) with its own CLI. |
-| `financial_news/scheduler.py` | Event-aware scheduler running AM/PM batches off the macro calendar. |
-| `financial_news/verification_engine.py` | SQLite-backed candidate-verification workflow. |
-| `financial_news/calendar/__init__.py` | Re-exports the macro calendar. |
-| `financial_news/calendar/macro_calendar.py` | Hardcoded release schedules and the `MacroCalendar` lookup class. |
-| `financial_news/connectors/__init__.py` | Re-exports the official-source connectors. |
-| `financial_news/connectors/base.py` | `BaseConnector` — async HTTP base with rate limiting and retry. |
-| `financial_news/connectors/discovery.py` | Tier-3 RSS headline discovery plus a corroboration engine. |
-| `financial_news/connectors/eia.py` | `EIAConnector` — EIA petroleum-status and energy-news fetcher. |
-| `financial_news/connectors/fed.py` | `FedConnector` — Federal Reserve press-release / monetary-policy RSS fetcher. |
-| `financial_news/connectors/sec_edgar.py` | `SECEdgarConnector` — SEC EDGAR filings via the JSON/Atom API. |
-| `financial_news/processing/__init__.py` | Re-exports the new and legacy processing components. |
-| `financial_news/processing/brief_generator.py` | `BriefGenerator` — tiered AM/PM brief and story-summary generation. |
-| `financial_news/processing/classifier.py` | `ArticleClassifier` — deterministic rule-based category classification. |
-| `financial_news/processing/clusterer.py` | `StoryClustering` — clusters articles into stories. |
-| `financial_news/processing/entity_extractor.py` | Legacy regex/rule entity, ticker and topic extraction. |
-| `financial_news/processing/impact_scorer.py` | `ImpactScorer` — a market-impact score from source diversity and severity. |
-| `financial_news/processing/ranker.py` | `StoryRanker` — weighted macro/SP500 relevance ranking. |
-| `financial_news/processing/story_clusterer.py` | Legacy `StoryClusterer` clustering implementation. |
-| `financial_news/sources/__init__.py` | Re-exports the legacy source fetchers. |
-| `financial_news/sources/base.py` | Legacy `BaseSourceFetcher` ABC. |
-| `financial_news/sources/gdelt.py` | `GDELTFetcher` — GDELT DOC API news discovery. |
-| `financial_news/sources/rss_feeds.py` | `RSSFetcher` — official central-bank/government RSS fetcher. |
-| `financial_news/sources/sec_edgar.py` | Legacy SEC EDGAR fetcher built on `httpx`. |
-| `financial_news/storage/__init__.py` | Re-exports the canonical and legacy stores. |
-| `financial_news/storage/database.py` | `NewsDatabase` — the canonical SQLite store. |
-| `financial_news/storage/news_store.py` | Legacy `NewsStore` SQLite store. |
-| `financial_news/ui/__init__.py` | Re-exports the dashboard UI. |
-| `financial_news/ui/dashboard.py` | `NewsDashboard` — a Streamlit news UI. |
-| `financial_news/utils/__init__.py` | Empty utils-package marker. |
-| `financial_news/data/.gitignore` | Ignores the local SQLite database files in the news-platform data directory. |
-
 ## `local_agent/` — experimental autonomous browser agent
 
 | File | Purpose |
@@ -606,39 +565,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | File | Purpose |
 |---|---|
 | `models/.gitkeep` | Placeholder keeping the otherwise-empty `models/` directory tracked; `models/` is the default model-output path named by `ml/wheel_model.py`. |
-
-## `news_pipeline/` — browser-agent news pipeline (drives `morning_run.py`)
-
-| File | Purpose |
-|---|---|
-| `news_pipeline/__init__.py` | Package root; lazy-imports browser agents to avoid a hard Playwright dependency. |
-| `news_pipeline/orchestrator.py` | `NewsPipelineOrchestrator` — the multi-stage scrape → preprocess → verify → format → editorial → publish pipeline. |
-| `news_pipeline/publisher.py` | `NewsPublisher` — publishes finalized stories to API / SQLite / file. |
-| `news_pipeline/slo.py` | SLO definitions and the per-stage latency/availability tracker. |
-| `news_pipeline/models/__init__.py` | Re-exports the pipeline data models. |
-| `news_pipeline/models/schema.py` | Pipeline dataclasses with to/from-dict serialization. |
-| `news_pipeline/browser_agents/__init__.py` | Re-exports browser-agent types and session classes. |
-| `news_pipeline/browser_agents/base.py` | `BrowserModelSession` ABC and the session-pool manager. |
-| `news_pipeline/browser_agents/chatgpt_agent.py` | Browser automation for ChatGPT. |
-| `news_pipeline/browser_agents/claude_agent.py` | Browser automation for Claude (verification and editorial). |
-| `news_pipeline/browser_agents/gemini_agent.py` | Browser automation for Gemini (verification with search). |
-| `news_pipeline/browser_agents/robustness.py` | CSS-selector success-rate tracking and DOM-drift detection. |
-| `news_pipeline/browser_agents/types.py` | Playwright-free enums and dataclasses. |
-| `news_pipeline/local_llm/__init__.py` | Re-exports the local preprocessor. |
-| `news_pipeline/local_llm/preprocessor.py` | `LocalPreprocessor` — Ollama-based news filtering and categorization. |
-| `news_pipeline/recovery/__init__.py` | Re-exports the recovery components. |
-| `news_pipeline/recovery/checkpoints.py` | Atomic JSON stage checkpoints with resume support. |
-| `news_pipeline/recovery/fallbacks.py` | Provider fallback chains and degraded-mode configuration. |
-| `news_pipeline/recovery/health.py` | Provider health monitoring and availability tracking. |
-| `news_pipeline/scrapers/__init__.py` | Re-exports the scrapers. |
-| `news_pipeline/scrapers/aggregator.py` | `NewsAggregator` — runs all scrapers in parallel and deduplicates. |
-| `news_pipeline/scrapers/base.py` | `NewsScraper` ABC and the common item model. |
-| `news_pipeline/scrapers/browser_scraper.py` | Playwright scraper for RSS-less sites. |
-| `news_pipeline/scrapers/rss_scraper.py` | RSS/Atom feed scraper. |
-| `news_pipeline/security/__init__.py` | Re-exports the security components. |
-| `news_pipeline/security/classifier.py` | `SensitivityClassifier` — content sensitivity tiering. |
-| `news_pipeline/security/routing_policy.py` | `RoutingPolicy` — local-only / sanitize / external routing decisions. |
-| `news_pipeline/security/sanitizer.py` | `Sanitizer` — redacts PII and credentials before external transmission. |
 
 ## `notebooks/`
 
@@ -685,7 +611,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/pull_earnings_yf.py` | yfinance pull of past and upcoming earnings dates. |
 | `scripts/pull_treasury_yields_yf.py` | yfinance pull of Treasury yield indices. |
 | `scripts/pull_vol_indices.py` | Theta-then-yfinance pull of the volatility-index family. |
-| `scripts/pull_news_sentiment.py` | Pulls and scores per-ticker news from Polygon/Finnhub/Benzinga. |
 | `scripts/pull_edgar_earnings.py` | SEC EDGAR pull of Form 8-K Item 2.02 (earnings-release) filings → `data_processed/edgar/earnings_history.parquet`. Append-only by default; `--refresh` merges with the prior parquet so partial-refresh runs never silently drop prior data. Campaign PR3/9 — see `docs/EDGAR_EARNINGS.md`. |
 | `scripts/pull_theta_indices_history.py` | Theta pull of VIX-family index OHLC history. |
 | `scripts/pull_theta_iv_surface_history.py` | Theta pull of historical IV surfaces with strict partial-coverage rejection. |
@@ -979,16 +904,7 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |
-| `tests/test_financial_news.py` | The `financial_news` platform — schema, macro calendar, verification engine. |
-| `tests/test_news_processing.py` | `financial_news` article classification. |
-| `tests/test_news_pipeline.py` | The `news_pipeline` package — models, security, recovery, publisher. |
-| `tests/test_news_sentiment.py` | `NewsSentimentReader` — sentiment reading; the `TestSentimentMultiplier` class is rewritten post-D18 to assert the constant-1.0 contract across every band the old code derated/boosted. |
-| `tests/test_news_severance.py` | DECISIONS.md D18 invariant — `sentiment_multiplier` is 1.0 across every `(sentiment, n_articles)` combination plus a side-effect test pinning that `get_ticker_sentiment` still returns the underlying data after the stub is called. |
 | `tests/test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` invariants — monotone ordering, pre-multiplier invariance, `cvar_5 ≤ pnl_p25`, NaN guards on small distributions and event-lockout. |
-| `tests/test_adversarial_news.py` | Adversarial news-scenario smoke test. |
-| `tests/test_recovery_checkpoints.py` | `news_pipeline.recovery.checkpoints` save/load/resume. |
-| `tests/test_recovery_fallbacks.py` | `news_pipeline.recovery.fallbacks` degraded-mode and fallback chains. |
-| `tests/test_recovery_health.py` | `news_pipeline.recovery.health` provider health tracking. |
 | `tests/test_dashboard.py` | The legacy `QuantDashboard` CLI surface. |
 | `tests/test_infrastructure.py` | Repo-level infrastructure components — env validation, benchmarks, health, SLO. |
 | `tests/test_iv_surface_history_puller.py` | Regression for the IV-surface-history puller. |
@@ -1038,7 +954,6 @@ Rows below were added automatically because the file was tracked but absent from
 |---|---|
 | `docs/HEAVY_NEWS_CALIBRATION_REVERIFY.md` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
 | `docs/verification_artifacts/heavy_news_calibration_2026-05-30_raw_output.txt` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
-| `docs/verification_artifacts/news_calibration_driver.py` | _TODO: describe (auto-added by `scripts/sync_manifest.py --fix`)._ |
 | `docs/BRAIN_AUDIT_2026-06-11.md` | Overnight brain-audit campaign report (2026-06-11): 8-dimension probe-backed soundness review of the decision logic on 7f9dc10 — verdict, 4 new MEDIUMs, calibration truth table, full-suite 3,126-green evidence. Probe sidecars under docs/verification_artifacts/brain_audit_2026-06-11/. |
 | `docs/HEAVY_VERIFY_FINDINGS_2026-06-09.md` | Heavy-verify (E)-fix validation register (2026-06-09/10): 26-agent verification of #382/#384/#386, BIIB real-data determinism proof, 17-finding sweep, full backtest A/B PASS (580/580 leaves) + snapshot-drift evidence (issue #402). Payload sidecars under docs/verification_artifacts/efix_ab_2026-06-10/. |
 | `docs/ADVERSARIAL_WEAKNESS_REVIEW_2026-06-15.md` | Read-only 9-dimension adversarial weakness review (2026-06-15): decision-layer correctness, quant models, data integrity, backtest/validity, test suite, architecture, multi-agent ops, doc-drift, repo structure. Headline findings (proven/file:line): live `as_of=None` 87-day-stale-spot path, HMM crisis-label decoupled from the fit (sorted-position), prob_profit top-bin over-confidence with POT-GPD un-wired, survivorship in `get_universe()`, dealer-clamp single-point defense. §2 plumbing verified sound. Resolution log tracks the fix branch (code fixes pending re-base onto current main). Point-in-time; severity-ordered findings + risk map + hardening priorities. |

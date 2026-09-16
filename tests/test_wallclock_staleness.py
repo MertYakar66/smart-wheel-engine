@@ -71,7 +71,6 @@ def _run_kwargs(**extra) -> dict:
         "top_n": 10,
         "min_ev_dollars": -1e9,
         "use_dealer_positioning": False,
-        "use_news_sentiment": False,
         "use_credit_regime": False,
         "use_skew_dynamics": False,
         **extra,

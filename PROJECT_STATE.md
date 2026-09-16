@@ -8,8 +8,8 @@ counts; fingerprint note extended for the #465 broad_pull pins.)
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
 > current `main` HEAD and exact test count are in `git log origin/main` and
-> the latest CI run; in-flight work is on GitHub issue #113 (the
-> coordination board); per-PR history is in `CHANGELOG.md`; the canonical
+> the latest CI run; in-flight work is on the campaign issue named in each
+> Execution Prompt (the old board, issue #113, is closed — Operating Model v3 §9.5); per-PR history is in `CHANGELOG.md`; the canonical
 > verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`. This file
 > records *durable* temporal state (what's authoritative vs deprecated), not
 > a pinned commit SHA or test count — last time those were pinned here they
@@ -99,6 +99,16 @@ bypass the D16 token + D17 caps), F3 (HMM `bull_quiet` positional label), F4
 (IV-fallback look-ahead at historical `as_of`) remain `xfail(strict)` on main
 (#516) — tracked, not fixed. The D19 / D21 / recalibration re-baseline block
 (`docs/SUPERVISED_BLOCK_WORKLIST.md` Block B) is still operator-gated.
+
+**Rulings 2026-09-16 (`DECISIONS.md` D29; plan `docs/RESTART_PLAN_2026-09-16.md`).**
+`OPERATING_MODEL.md` v3 is the one protocol (two equal Strategists, Claude Code
+and Codex; main Executor Claude Code in VS Code; Operator-away mode §3.1; prompts
+per `docs/PROMPTING_STANDARD.md`). All news code is removed. Tradeable expiries
+become 7/14/21/28 days with an event-aware policy to be validated (Track B); an
+exit evaluator (Track C) and a strategist commentary layer (Track D) are to be
+built. **Bloomberg Terminal access is gone for good**: `data/bloomberg/` is a
+frozen 2018-01-02 → 2026-07-02 history and the live data path is rebuilt from
+online sources (Track A). Model-name commit trailers are allowed again.
 
 ---
 
@@ -701,18 +711,12 @@ rewritten.**
 - `dashboard/quant_dashboard.py` — legacy Python CLI dashboard. The
   primary dashboard is the Next.js app under `dashboard/src/`.
   README.md still describes the legacy CLI as the main entry point.
-- News-stack duplication — `financial_news/` (34 files,
-  RSS/scraping/clustering platform), `news_pipeline/` (29 files,
-  browser-agent pipeline driving `morning_run.py`),
-  `engine/news_sentiment.py` (operator-only transparency layer — was
-  a downgrade-only reviewer until D18 severed it from the EV path),
-  `scripts/pull_news_sentiment.py` (one-shot puller, still writes the
-  parquet that the dashboard consumes). Post-D18 (2026-05-26), **no
-  news subsystem feeds the EV authority** — verbal news is operator-
-  layer only. Replacement quantitative layers (EDGAR earnings dates,
-  FRED macro, EDGAR-XBRL fundamentals quality score) are in flight
-  via the news-architecture redesign campaign — see
-  `docs/NEWS_REDESIGN_CAMPAIGN.md`.
+- News stacks — **removed 2026-09-16** (Operator ruling, `DECISIONS.md` D29):
+  `financial_news/`, `news_pipeline/`, `morning_run.py`,
+  `engine/news_sentiment.py`, `scripts/pull_news_sentiment.py` and their tests
+  are deleted; `rank_candidates_by_ev` has no news multiplier and the
+  engine API has no news endpoints. A news layer will be redesigned later;
+  `docs/NEWS_REDESIGN_CAMPAIGN.md` is retained as history.
 
 ## 5. Documentation drift to repair
 
@@ -752,11 +756,9 @@ unchanged.
   `pre-commit install`.
 - `.claude/settings.json` SessionStart hook validates dataset presence,
   Theta manifest recency, and connector class on every fresh session.
-- **Parallel sessions (D15).** Each executor terminal runs in its own
-  git worktree (`../swe-terminal-<x>`); the primary clone
-  (`smart-wheel-engine/`) is reserved for Sessions and orchestration.
-  Per-terminal env (`SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`)
-  is sourced from `scripts/setup-terminal.{sh,ps1}` or — preferred on
-  Windows — from a per-worktree `.claude/settings.local.json` (gitignored)
-  picked up by the Claude Code harness on launch. Coordination is via
-  GitHub issue #113. See `OPERATING_MODEL.md` §2.4 + §9.5.
+- **Multiple executors (Operating Model v3, 2026-09-16).** Every executor
+  works in its own worktree or clone; one campaign issue per piece of work
+  replaces the retired board (#113), task cards and allocator; when several
+  executors share one machine, isolate them with
+  `scripts/setup-terminal.{sh,ps1}` (`SWE_API_PORT`, `COVERAGE_FILE`,
+  `PYTEST_CACHE_DIR`). See `OPERATING_MODEL.md` §2.4, §3.1 and §9.5.

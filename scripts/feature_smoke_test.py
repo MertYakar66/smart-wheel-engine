@@ -1198,7 +1198,6 @@ def register_checks(h: Harness) -> None:
             top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=False,  # dealer path exercised in own test
-            use_news_sentiment=False,
             use_credit_regime=False,
         )
         assert not df.empty
@@ -1251,7 +1250,6 @@ def register_checks(h: Harness) -> None:
             top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=True,
-            use_news_sentiment=False,
             use_credit_regime=False,
         )
         assert not df.empty
@@ -1365,32 +1363,6 @@ def register_checks(h: Harness) -> None:
 
     h.run("api_health_endpoint", engine_api_health)
     h.run("api_status_endpoint", engine_api_status)
-
-    # ------------------------------------------------------------------
-    # 17. News pipeline
-    # ------------------------------------------------------------------
-    h.section("17 news_pipeline")
-    from engine.news_sentiment import NewsSentimentReader
-
-    def news_reader_init():
-        try:
-            r = NewsSentimentReader()
-        except Exception as e:
-            raise Skip(f"news reader unavailable: {e}") from e
-        assert r is not None
-        return "reader constructed"
-
-    def news_sentiment_multiplier():
-        try:
-            r = NewsSentimentReader()
-            m = r.sentiment_multiplier("AAPL")
-        except Exception as e:
-            raise Skip(f"news unavailable: {e}") from e
-        assert np.isfinite(m)
-        return f"m={m:.3f}"
-
-    h.run("news_reader_init", news_reader_init)
-    h.run("news_sentiment_multiplier", news_sentiment_multiplier)
 
     # ------------------------------------------------------------------
     # 18. TradingView bridge
@@ -1539,35 +1511,6 @@ def register_checks(h: Harness) -> None:
 
     h.run("iv_surface_history_present", iv_surface_history_present)
     h.run("options_flow_present", options_flow_present)
-
-    # ------------------------------------------------------------------
-    # 23. News sentiment store (unblocks the EV news multiplier)
-    # ------------------------------------------------------------------
-    h.section("23 news_sentiment_store")
-
-    def news_parquet_present():
-        for rel in ("data_processed/news_sentiment.parquet", "data/news/sentiment.parquet"):
-            p = _P(rel)
-            if p.exists():
-                df = pd.read_parquet(p)
-                required = {"ticker", "as_of", "sentiment", "confidence", "n_articles"}
-                missing = required - set(df.columns)
-                assert not missing, f"schema missing {missing}"
-                return f"{len(df)} rows at {p}"
-        raise Skip("no news sentiment store found — run scripts/pull_news_sentiment.py")
-
-    def news_multiplier_non_trivial():
-        """Multiplier should vary across tickers once a real store is populated."""
-        from engine.news_sentiment import NewsSentimentReader
-
-        r = NewsSentimentReader()
-        mults = [r.sentiment_multiplier(t) for t in ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN")]
-        if all(m == 1.0 for m in mults):
-            raise Skip("news store empty or lookback stale — multiplier stuck at 1.0")
-        return f"sample multipliers={[f'{m:.2f}' for m in mults]}"
-
-    h.run("news_sentiment_parquet_present", news_parquet_present)
-    h.run("news_multiplier_non_trivial", news_multiplier_non_trivial)
 
     # ------------------------------------------------------------------
     # 24. Bloomberg data freshness (make sure new pulls land)

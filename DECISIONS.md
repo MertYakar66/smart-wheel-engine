@@ -62,6 +62,10 @@ divergence.
 
 ## D3. Two news subsystems coexist intentionally
 
+> **Update 2026-09-16 (D29):** superseded — every news subsystem was removed
+> from the tree by Operator ruling; a news layer will be redesigned later.
+> The text below is retained as history.
+
 **Decision:** `engine/news_sentiment.py` is the only news module on
 the EV path (downgrade-only reviewer). `news_pipeline/` (browser-agent
 multi-LLM pipeline driven by `morning_run.py`) and `financial_news/`
@@ -1066,6 +1070,10 @@ $1M pro-account NAV).
 
 ## D18. Verbal news is severed from the EV decision path
 
+> **Update 2026-09-16 (D29):** the stub module and its tests were removed with
+> the rest of the news code. The invariant that no news input reaches the EV
+> path is now structural (there is no news module) and is re-stated in D29.
+
 **Decision:** ``engine/news_sentiment.py::sentiment_multiplier`` is
 stubbed to always return ``1.0``. Verbal news (qualitative narrative
 from `news_pipeline/`, `financial_news/`, or the sentiment parquet
@@ -1671,6 +1679,30 @@ gate + `tests/test_testing_md_taxonomy.py` (which now pass with every retired
 file's row removed); and the full audit evidence in the batch worklogs.
 
 ---
+
+## D29. Restart rulings of 2026-09-16 — one protocol, no news code, short-dated menu, no Bloomberg
+
+**Status:** ADOPTED (Operator rulings given in the restart session of 2026-09-16, recorded by the Strategist at the Operator's direction). Analysis behind them: `docs/RESTART_BRIEF_2026-09-11.md`. Plan of record: `docs/RESTART_PLAN_2026-09-16.md`.
+
+**Decision.**
+
+1. **One protocol.** `OPERATING_MODEL.md` v3 is the single working scheme. The allocator / task-card / board machinery (v2 §9.5, issue #113), the July command-bus channels (#493, #494, #517) and the archived prompting guide are retired; their surviving rules are v3 §3.1 (Operator-away mode) and §5 (writer/checker split). The prompting standard is `docs/PROMPTING_STANDARD.md`. The archived old-protocol documents are deleted from the tree; the coordination issues are closed.
+2. **Roles.** The Strategist–Operator–Executor chain is kept. Two Strategist implementations are equally capable and equally authorised: Claude Code and ChatGPT Codex. The main Executor is Claude Code in the VS Code terminal on the Operator's machine; additional Executors are allowed. The Operator's normal away window is 8 to 10 hours overnight.
+3. **Merge authority and attribution.** `main` is to be branch-protected; the Operator merges; nothing on the §3.1 hard-blocked list happens while the Operator is away. The 2026-07-28 "no model name in commits" ruling is reversed: harness co-authorship trailers and session links are allowed (the Operator does not recall the reason for the ban; the trailer is the only per-session audit trail). History is left untouched.
+4. **News code removed.** `financial_news/`, `news_pipeline/`, `morning_run.py`, `engine/news_sentiment.py`, `scripts/pull_news_sentiment.py`, the `/api/news*` endpoints, the dashboard news surfaces and all their tests are deleted. The ranker has no news multiplier. A news layer will be redesigned later and may enter, if at all, as a downgrade-only reviewer under a fresh decision. Supersedes D3 and makes D18 structural.
+5. **Product direction.** Tradeable expiries are 7, 14, 21 and at most 28 days (the 35-day default is replaced); trading close to scheduled events to capture elevated premium is a goal, gated behind an event-conditioned forward distribution and a validation pass; an exit evaluator that scores open positions through `EVEngine.evaluate` and learns from closed trades is to be built (adopts the D25 reservation); a strategist commentary layer (macro and micro, engine-sourced figures only) is to be built.
+6. **Data.** Bloomberg Terminal access is gone for good. The committed `data/bloomberg/` CSVs are a frozen 2018-01-02 → 2026-07-02 history. The live path is rebuilt from online sources and subscriptions, writing the same connector schemas (Track A of the plan).
+7. **Held findings.** F1 (roll path bypasses caps and token) and F3 (HMM label by rank) are fixes to make now; F4 (IV-fallback look-ahead) rides the next re-baseline. The Operator does not recall whether carrying them as expected-failure tests was an acceptance; it is treated as a stopgap.
+
+**Why.** The Operator has never used the engine for live trading and wants it to work; the schema audit showed the written protocol was used for one day and replaced by three ad-hoc ones; the news stacks never reached the EV path and cost maintenance; 35-day contracts and a hard event lockout do not match how the Operator intends to trade; the data source the whole engine assumed is no longer available.
+
+**Rejected alternatives.**
+
+- *Rewriting git history to erase the old protocols.* Asked for by the Operator; declined by the Strategist pending an explicit, separate confirmation: it invalidates every clone and open PR, does not touch the GitHub issues where the protocols mostly live, and erases the record of why the rules exist. Tree deletion plus issue closure was done instead. The Operator may still confirm the rewrite as its own action.
+- *Keeping the news stubs "for later".* A stub with no producer is maintenance without value; the redesign starts from zero.
+- *Treating the DTE change as a parameter tweak.* Every locked result is a 35-day result and the event lockout is one of two crisis guards; the change is a re-validation, staged in `docs/RESTART_PLAN_2026-09-16.md` Track B.
+
+**Pinned by.** `OPERATING_MODEL.md` v3; `docs/PROMPTING_STANDARD.md`; the absence of any `news` module (a structural test may be added with the redesign); `ROADMAP.md` "Open work — refreshed 2026-09-16"; the launch-blocker suite for everything the tracks touch.
 
 ## How to add a decision
 

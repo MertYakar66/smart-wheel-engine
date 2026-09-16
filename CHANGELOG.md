@@ -14,6 +14,40 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-16 — Operating Model v3 (one protocol), news stacks removed, restart rulings recorded
+
+**Docs** — `OPERATING_MODEL.md` v3: the single working scheme (two equal
+Strategists, Claude Code + Codex; main Executor Claude Code in VS Code; §3.1
+Operator-away mode; writer/checker split; branch-protected `main`; §9.5
+concurrency by declaration; allocator/board/cards/`Sn` retired). New
+`docs/PROMPTING_STANDARD.md` (sharpening gate, Execution Prompt template,
+short-form Run Summary on the PR, Claude Code/Codex parity). New
+`docs/RESTART_PLAN_2026-09-16.md` (rulings → tracks A–E as Execution Prompts).
+`DECISIONS.md` D29 records the rulings; D3/D18 carry update notes; `ROADMAP.md`
+open-work table re-cut; `PROJECT_STATE.md` §0 addendum.
+
+**Deprecated / removed** (Operator ruling R6) — `financial_news/` (34 files),
+`news_pipeline/` (28), `morning_run.py`, `engine/news_sentiment.py`,
+`scripts/pull_news_sentiment.py`, the `GET /api/news` + `POST /api/news/ingest`
+endpoints and their in-memory buffer, the `use_news_sentiment` ranker parameter
+and the `news_multiplier` / `news_sentiment` / `news_n_articles` row fields
+(`combined_regime_mult` is now hmm × skew × credit), the news step of
+`scripts/pull_all.py`, the news stage of `scripts/orchestrate.py`, nine news
+test files (`test_financial_news`, `test_news_processing`, `test_news_pipeline`,
+`test_news_sentiment`, `test_news_severance`, `test_adversarial_news`,
+`test_recovery_{checkpoints,fallbacks,health}`) and the news-pipeline tests
+inside `test_infrastructure.py`; `pyproject.toml` / `ci.yml` scopes trimmed.
+The dashboard news surfaces are removed in the same PR series. Archived
+old-protocol docs (`archive/2026-06/Claude_Prompting_Master_Guide.md`,
+`archive/2026-06/SESSION_HANDOFF.md`) deleted.
+
+**Infra** — session-start hooks print the v3 protocol reminder instead of the
+board banner (no `gh issue view 113`); `.codex/hooks.json` uses a relative
+path; PR template lane-claim block gains a `campaign:` line and drops the board
+link.
+
+---
+
 ## 2026-09-11 — restart brief after the summer break + reconciliation of 27 unrecorded merges
 
 **Docs** — `docs/RESTART_BRIEF_2026-09-11.md` (branch

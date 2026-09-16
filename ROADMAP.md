@@ -16,17 +16,28 @@ Each item carries a **status**:
 
 ---
 
-## Open work — refreshed 2026-06-09
+## Open work — refreshed 2026-09-16
 
-The live queue. Each row points at its owning doc; this table is a
-router, not the spec.
+The live queue after the restart rulings (`DECISIONS.md` D29). Each row points
+at its owning doc; the Execution Prompts are in `docs/RESTART_PLAN_2026-09-16.md`.
+Order matters: A first, then B (A and B share one re-baseline), then C; D
+alongside once A is in; E is housekeeping.
 
-| Item | Status | Owning doc |
-|---|---|---|
-| **Re-baseline session** — the D19 (exit-cost netting) + D21 (calendar→trading-day horizon) deferred fixes + the open data queue + S-snapshot re-pin, executed as one coordinated session | `next` | `docs/NEXT_DATA_SESSION_RUNBOOK.md` (PR #381 — the single authoritative runbook) |
-| **Bloomberg data acquisition** — pull-broadly plan + the no-code pull checklist | `next` (needs operator Terminal access) | `docs/DATA_ACQUISITION_ROADMAP.md`, `docs/BLOOMBERG_PULL_LIST.md` |
-| **prob_profit top-bin over-confidence** — wire the POT-GPD tail machinery (`engine/tail_risk.py`) into the `prob_profit` computation path | `open question` (research) | `PROJECT_STATE.md` §3 "prob_profit calibration", `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md` |
-| **R11 onset-aware trigger** — persistence-based VIX trigger (fire after N consecutive days >25: catch the 2022 grind, skip the 2020 spike) | `parked` (research card) | `DECISIONS.md` D23 post-ship validation; the r11-onset-aware card in `docs/worklog/` |
+| Track | Item | Status | Owning doc |
+|---|---|---|---|
+| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `next` (design run first) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
+| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline | `next` after A | plan §4 |
+| **C** | **Exit evaluator + post-mortem loop** (D25 adopted; closes F1) | `next` after B | plan §5 |
+| **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures) | `next` alongside A | plan §6 |
+| **E** | **Protocol v3 adoption** — branch protection on `main`, merge this restart PR then #523, docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
+| — | **News layer redesign** | `parked` until A–C land | D29 |
+| — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |
+
+Superseded 2026-09-16: the "Re-baseline session" and "Bloomberg data acquisition"
+rows of the 2026-06-09 queue (no Terminal exists; Track A replaces the pull
+plan, Track B carries the re-baseline); the "R11 onset-aware trigger" research
+card was refuted 2026-06-29 and stays parked; the prob_profit top-bin item is now
+inside Track B's calibration gate.
 
 ---
 

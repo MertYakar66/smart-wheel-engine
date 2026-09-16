@@ -266,12 +266,12 @@ def test_handler_exception_returns_generic_500_with_error_id(monkeypatch):
 
 
 def test_post_handler_exception_returns_generic_500(monkeypatch):
-    def _boom(self, payload):
+    def _boom(self, payload, **kwargs):
         raise RuntimeError("pandas internals leak /var/data/x.parquet")
 
-    monkeypatch.setattr(engine_api.EngineAPIHandler, "_handle_news_ingest", _boom, raising=True)
-    payload = json.dumps({"stories": []}).encode()
-    status, body = _drive("POST", "/api/news/ingest", body=payload)
+    monkeypatch.setattr(engine_api.EngineAPIHandler, "_handle_tv_webhook", _boom, raising=True)
+    payload = json.dumps({"ticker": "AAPL"}).encode()
+    status, body = _drive("POST", "/api/tv/webhook", body=payload)
     assert status == 500
     assert body["error"] == "internal server error"
     assert "error_id" in body

@@ -13,14 +13,13 @@ Order (why it matters):
   4. Earnings calendar        (yfinance; activates event gate)
   5. Theta IV-surface history (requires Theta Terminal UP — skipped if down)
   6. Theta options flow       (requires Theta Terminal UP — skipped if down)
-  7. News sentiment           (needs POLYGON_API_KEY or FINNHUB_API_KEY — skipped if unset)
-  8. Feature pipeline backfill (uses all of the above)
+  7. Feature pipeline backfill (uses all of the above)
 
 Quick start
 -----------
     python scripts/pull_all.py               # full daily refresh, default settings
     python scripts/pull_all.py --dry-run     # print the plan without executing
-    python scripts/pull_all.py --skip theta news  # skip specific steps
+    python scripts/pull_all.py --skip theta  # skip specific steps
     python scripts/pull_all.py --only vol treasury  # run just these
     python scripts/pull_all.py --years 2 --workers 8
 
@@ -68,19 +67,11 @@ class Step:
     script: str
     description: str
     needs_theta: bool = False
-    needs_news_key: bool = False
     is_feature_backfill: bool = False
 
     def should_skip(self) -> tuple[bool, str]:
         if self.needs_theta and not _theta_up():
             return True, "Theta Terminal not reachable on 127.0.0.1:25503"
-        if self.needs_news_key:
-            has = any(
-                os.environ.get(k)
-                for k in ("POLYGON_API_KEY", "FINNHUB_API_KEY", "BENZINGA_API_KEY")
-            )
-            if not has:
-                return True, "no POLYGON/FINNHUB/BENZINGA API key in env"
         return False, ""
 
 
@@ -134,12 +125,6 @@ STEPS: list[Step] = [
         "pull_theta_options_flow.py",
         "Daily PCR/OI/unusual volume — requires Theta",
         needs_theta=True,
-    ),
-    Step(
-        "news",
-        "pull_news_sentiment.py",
-        "Per-ticker news sentiment — requires API key",
-        needs_news_key=True,
     ),
     Step(
         "features",

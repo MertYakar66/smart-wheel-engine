@@ -1,3 +1,7 @@
+> **Status 2026-09-16: SUPERSEDED / HISTORY.** All news implementations were
+> removed by Operator ruling (`DECISIONS.md` D29). This campaign plan is kept
+> as a record of what was tried; the news layer will be redesigned from scratch.
+
 # News-architecture redesign campaign
 
 Tracking doc for the 9-PR campaign that severs verbal news from the EV

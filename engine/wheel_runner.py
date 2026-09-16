@@ -1299,7 +1299,6 @@ class WheelRunner:
         macro_buffer_days: int = 1,
         use_dealer_positioning: bool = True,
         use_skew_dynamics: bool = True,
-        use_news_sentiment: bool = True,
         use_credit_regime: bool = True,
         dealer_assumption: str = "long_calls_short_puts",
         min_history_days: int = 504,
@@ -1427,16 +1426,6 @@ class WheelRunner:
             except ValueError:
                 assumption_enum = DealerAssumption.LONG_CALLS_SHORT_PUTS
             dealer_analyzer = DealerPositioningAnalyzer(assumption=assumption_enum)
-
-        # News sentiment reader — shared across tickers, cached for 5m.
-        news_reader = None
-        if use_news_sentiment:
-            try:
-                from engine.news_sentiment import NewsSentimentReader
-
-                news_reader = NewsSentimentReader()
-            except Exception:
-                news_reader = None
 
         # Credit-regime multiplier (HY OAS stressed/crisis → soft de-rank).
         # Fetched once per run, applied uniformly to every candidate.
@@ -2152,20 +2141,7 @@ class WheelRunner:
                     skew_mult = 1.0
                     # Leave skew_source = "unavailable"; the calc failed.
 
-            # News sentiment multiplier (per-ticker).
-            news_mult = 1.0
-            news_sentiment = 0.0
-            news_n_articles = 0
-            if news_reader is not None:
-                try:
-                    news_mult = float(news_reader.sentiment_multiplier(ticker, as_of=as_of))
-                    ns = news_reader.get_ticker_sentiment(ticker, as_of=as_of)
-                    news_sentiment = float(ns.get("sentiment", 0.0))
-                    news_n_articles = int(ns.get("n_articles", 0))
-                except Exception:
-                    news_mult = 1.0
-
-            combined_regime_mult = float(hmm_regime_mult * skew_mult * news_mult * credit_mult)
+            combined_regime_mult = float(hmm_regime_mult * skew_mult * credit_mult)
 
             trade = ShortOptionTrade(
                 option_type="put",
@@ -2515,15 +2491,12 @@ class WheelRunner:
                             if not np.isnan(hmm_realized_return_252d_ann)
                             else None
                         ),
-                        "news_multiplier": round(news_mult, 4),
-                        "news_sentiment": round(news_sentiment, 4),
-                        "news_n_articles": news_n_articles,
                         "credit_multiplier": round(credit_mult, 4),
                         "credit_regime": credit_regime,
                         # S31 F9 closer: surface the engine's FINAL regime
                         # multiplier (= ev_dollars / ev_raw), the scalar
                         # that actually scaled the EV. Differs from the
-                        # input combined_regime_mult (hmm × skew × news ×
+                        # input combined_regime_mult (hmm × skew ×
                         # credit) by the engine's clamp to [0.0, 1.25],
                         # heavy_tail_penalty if heavy_tail, and dealer_mult.
                         # Mirrors the pattern at line 2315 (the strangle

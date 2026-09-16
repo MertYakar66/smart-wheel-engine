@@ -47,7 +47,6 @@ MODULE_DEPENDENCIES = {
     "regime_detector": ["pandas", "numpy"],
     "signals": ["pandas", "numpy"],
     "data_pipeline": ["pandas", "numpy", "pydantic"],
-    "financial_news": ["pydantic", "requests"],
     "backtests": ["pandas", "numpy", "scipy"],
     "dashboard": ["pandas", "numpy", "streamlit"],
 }
@@ -139,7 +138,7 @@ def require_dependencies(
 
     Example:
         @require_dependencies(["pydantic", "requests"])
-        def fetch_news():
+        def fetch_data():
             ...
     """
 

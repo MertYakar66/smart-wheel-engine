@@ -60,7 +60,8 @@ lane-claim block.
 
 ## Evidence
 
-- Targeted tests and the fast lane: see the PR's Run Summary comment (pasted output).
+- Targeted tests: `python -m pytest tests/test_infrastructure.py tests/test_pit_leaks.py tests/test_audit_viii_unit_invariants.py tests/test_engine_api_hardening.py tests/test_check_lane_claim.py tests/test_testing_md_taxonomy.py tests/test_ranker_transparency.py tests/test_wheel_runner_select_book.py tests/test_asof_none_staleness.py -q` → `189 passed in 32.87s`.
+- Fast lane after the removal: `python -m pytest tests/ -m "not backtest_regression" -q -x --ignore=tests/test_backtest_regression.py` → `3393 passed, 28 skipped, 4 deselected, 20 xfailed, 30 warnings in 735.60s (0:12:15)`, exit 0.
 - Guards: `check_manifest_coverage.py` OK; `gen_worklog_index.py --check` OK;
   `check_doc_currency.py` OK; `ruff check` / `ruff format --check` clean on touched files.
 - Dashboard: `npx next build` exit 0 before and after the removal (subagent report in the PR).

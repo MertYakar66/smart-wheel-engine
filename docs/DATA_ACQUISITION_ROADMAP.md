@@ -112,7 +112,7 @@ Daily-bar enrichments (total-return, beta, ADV, shares-out, spreads) are cheap `
 
 ## 5. Fundamentals & estimates
 
-Financial statements and estimates are mostly `BDH`/`BQL` and feed the **advisor committee** (Buffett/Munger quality) — almost all `advisory-sizing`. PIT discipline matters: pull `BEST_PERIOD_END_DT` / `BEST_FISPD_SHEET_DT` alongside every statement field to timestamp filing vs period-end and prevent lookahead. GICS and dividend-yield are correctness inputs the engine consumes directly.
+Financial statements and estimates are mostly `BDH`/`BQL` and fed the **advisor committee** (Buffett/Munger quality; removed 2026-09-17, Track F) — almost all `advisory-sizing`. PIT discipline matters: pull `BEST_PERIOD_END_DT` / `BEST_FISPD_SHEET_DT` alongside every statement field to timestamp filing vs period-end and prevent lookahead. GICS and dividend-yield are correctness inputs the engine consumes directly.
 
 | Dataset | Bloomberg vehicle | Engine use | Benefit | Feasibility | §2 role |
 |---|---|---|---|---|---|

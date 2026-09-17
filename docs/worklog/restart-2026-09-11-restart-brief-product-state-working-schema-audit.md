@@ -4,7 +4,7 @@ title: Restart brief — product state + working-schema audit after the summer b
 kind: docs
 status: completed
 terminal: remote-sandbox
-pr:
+pr: 524
 decisions: []
 date: 2026-09-11
 headline: Two-part re-onboarding brief (docs/RESTART_BRIEF_2026-09-11.md) from 8 readers + 8 adversarial verifiers + 2 critics over main@ec1c5c5 plus a sandbox runtime check; found the doc-currency CI gate failing (71d/62d), reconciled 27 unrecorded merges into CHANGELOG, added PROJECT_STATE §0; no code/data/trio change.

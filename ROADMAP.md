@@ -25,7 +25,7 @@ Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
 
 | Track | Item | Status | Owning doc |
 |---|---|---|---|
-| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `next` (Operator picks the rows) | `docs/RESTART_PLAN_2026-09-16.md` §7a |
+| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `done` 2026-09-17 on PR #524 for every row except the `wheel_runner` unification (excluded by ruling; open as its own campaign). Follow-up candidates in plan §7a. | `docs/RESTART_PLAN_2026-09-16.md` §7a |
 | **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `parked` until a subscription is chosen (2026-09-17) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
 | **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A | plan §4 |
 | **C** | **Exit evaluator + post-mortem loop** (D25 adopted; advisory, confirmed 2026-09-17; closes F1) | `next` after B | plan §5 |

@@ -12,7 +12,7 @@ Conventions:
   described at the directory level, not enumerated.
 - Gitignored trees are out of scope: `dashboard/node_modules/`,
   `dashboard/.next/`, `data_processed/theta/**`, non-AAPL feature shards,
-  `tradingview/tradingview-mcp-jackson/`, the `Theta/` install.
+  the `Theta/` install.
 - Lines describe **purpose only**. Module status, staleness and
   doc-truth observations are out of scope for this file — see
   `PROJECT_STATE.md` and `ROADMAP.md`.
@@ -338,7 +338,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/THETA_ENTITLEMENT_RETEST_2026-06-17.md` | Live ThetaData v3 entitlement re-probe (2026-06-17) confirming greeks/IV history is 404/not-entitled, with the ranked next-pull decision (delisted survivor-bias, index GEX, universe expansion, BRKB). |
 | `docs/THETA_ENRICH_RUNBOOK_2026-06-17.md` | Operational runbook for the 5-phase 2026-06-17 Theta enrichment (BRKB / deep365 / index-reference / delisted / universe expansion) producing the `data_processed/theta/option_history*` staging trees, with the verified on-disk outcome. |
 | `docs/THETA_LARDER_SCOPE.md` | Scope + caveats for the `pull_theta_option_history.py` larder: top-150 by 2018→now turnover, 2018→now, all-strikes, 90-day lookback, SPY/QQQ reference-only. Documents the **survivor-bias caveat** (ranked on current 503 → backtests inherit survivor bias; delisted once-liquid names excluded until a PIT-membership source lands) and the deferred extensions (2016–17, >90d lookback, delisted backfill, IV/Greeks/tick phases). |
-| `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
+| `docs/TRADINGVIEW_INTEGRATION.md` | Engine-bridge guide (Pine indicator, webhook, chart providers); the analyst-workspace role was removed 2026-09-17 (D30). |
 | `docs/IBKR_LIVE_BOOK_INTEGRATION.md` | Design doc for the read-only IBKR live-book feed (D24, gate-arming), the un-adopted exit-evaluator scope frontier (D25), and the read-only performance viewer (D26). Defines the point-in-time snapshot schema (§2.2), universe discipline (§2.3), and the viewer architecture (§6). |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
@@ -807,7 +807,7 @@ Nothing under `staging/` is read by the engine or connector.
 | `tests/test_v6_lockbox.py` | H-metric locks for the V6 lockbox driver, pinned BEFORE the one spend (a verdict-math bug found after the read cannot be fixed by re-reading): H1 pass/fail ratios on synthetic monthly rates, H2 blind-vs-good-news branches, H3 ITM-from-forward-replay identity (realized < premium x 100) incl. all-OTM FAIL, INSUFFICIENT paths. Fast lane. |
 | `tests/test_v6r_fullmenu.py` | FM-verdict locks for the V6-r1 full-menu driver (plan §10.1), pinned BEFORE the counted re-read: FM1 CAVEAT_RETIRED vs CENSORING_LOAD_BEARING boundary at the 0.5 grind/baseline cut + INSUFFICIENT path, FM2 depth-profile appetite-line counts on synthetic frames. Fast lane. |
 
-## `tradingview/` — Pine indicator + analyst-workspace assets
+## `tradingview/` — Pine indicator + alert schema (engine bridge)
 
 | File | Purpose |
 |---|---|

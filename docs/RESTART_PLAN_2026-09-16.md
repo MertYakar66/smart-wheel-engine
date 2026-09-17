@@ -249,9 +249,26 @@ ruling. Sizes measured 2026-09-17 after the removals.
 | `staging/` | 19 files, 1,400 lines | inert data carriers (CASY, blue chips, PIT fundamentals) awaiting integration | data | keep until Track A integrates them |
 | `backtests/` research drivers (outside `backtests/regression/`) | part of 24 files, 9,357 lines | campaign drivers whose results are locked in docs | evidence | keep the regression harness; archive drivers whose docs are archived |
 | `scripts/` | 100 files, 30,581 lines | pullers (Bloomberg-era), diagnostics, campaign analyzers | mixed | Track A rewrites the pullers; audit the rest then |
-| `engine/wheel_runner.py` | 4,597 lines | three rankers (put, covered call, strangle) with duplicated stages; three verdict ladders across API and dashboard | YES (trio) | the real "direct" win: one ranking pipeline parameterised by leg, one verdict ladder; a Track B prerequisite, done under lane claim with the regression harness |
+| `engine/wheel_runner.py` | 4,597 lines | three rankers (put, covered call, strangle) with duplicated stages; three verdict ladders across API and dashboard | YES (trio) | **excluded by the Operator's ruling of 2026-09-17 — stays open as its own campaign.** The real "direct" win: one ranking pipeline parameterised by leg, one verdict ladder; a Track B prerequisite, done under lane claim with the regression harness |
 | `engine_api.py` | 3,482 lines | one file, one handler class, dozens of endpoints | interface | split by surface after the ladder unification |
 | documentation | 317 markdown files, 4.2 MB; 167 worklog fragments; `FILE_MANIFEST.md` 242 KB | | | the brief's P6: archive dated reports, split the mandatory read, cap manifest rows |
+
+**Executed 2026-09-17 (PR #524, one commit per row).** `advisors/` removed with
+`/api/committee`, the dashboard action and its tests; `ml/` + `models/` removed with
+the orchestrator's calibration stage; `studies/` removed (findings doc kept);
+`src/` collapsed — `src/features/` → `engine/features/`, `src/data/schemas.py` →
+`data/schemas.py`, the heuristic `src/backtest` deleted (D2 update); five dormant
+engine modules deleted (`regime_detector`, `signal_context`, `signals`,
+`portfolio_intelligence`, `dependency_check`; `model_validation.py` kept — the pricer
+cross-model tests use it); the TradingView MCP path and analyst workspace removed and
+R2 made a note (D30); documentation: #523 merged (docs → archive by vintage), the
+PROJECT_STATE §3 narrative and the superseded news campaign doc archived, a
+manifest-row policy added. The `wheel_runner` unification row is excluded by the
+same ruling. Follow-up candidates surfaced by the cuts, not ruled: the seven research
+feature modules + `data/feature_pipeline.py` + the committed `data/features/` sample
+shards (one decision); `engine/policy_config.py`'s advisor/signal knob sections (no
+consumer left); `utils/`, `staging/`, `backtests/` drivers, `scripts/` and
+`engine_api.py` rows above (untouched, as listed).
 
 ```
 <run-mode> change, one PR per row the Operator approves
@@ -267,8 +284,9 @@ ruling. Sizes measured 2026-09-17 after the removals.
   Must not break: the trio's behaviour; the frozen Bloomberg CSVs; the validation
     artifacts under docs/verification_artifacts and backtests/regression/snapshots.
   Scope of run: one row per PR; the wheel_runner unification is its own campaign.
-  Operator answers: WHICH ROWS — ANSWER NEEDED (the suggested defaults are the
-    Strategist's; the Operator rules row by row).
+  Operator answers (2026-09-17): "go ahead with all the cuts except wheel_runner;
+    we don't need the protection for the main" — executed on PR #524, one commit
+    per row, in the same branch as the restart run.
 <objective> see Success. <invariants> Engineering (import smoke; no gate lowered);
   Decision integrity; Validation honesty (nothing that feeds a locked result is deleted).
 <gates> before each deletion PR; lane claim for anything touching the trio.

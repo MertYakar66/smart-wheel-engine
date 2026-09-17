@@ -4,7 +4,7 @@ title: Operating Model v3 (one protocol), news-stack removal, restart rulings re
 kind: refactor
 status: completed
 terminal: remote-sandbox
-pr:
+pr: 524
 decisions: [D29]
 date: 2026-09-16
 headline: Recorded the Operator's restart rulings as D29; wrote OPERATING_MODEL v3 + docs/PROMPTING_STANDARD.md + docs/RESTART_PLAN_2026-09-16.md (tracks A–E as Execution Prompts); removed every news implementation (Python, API, tests, configs, registries; dashboard in the same PR series); retired the board/cards/July-channel machinery from hooks, template and archive; declined the history rewrite pending explicit confirmation.

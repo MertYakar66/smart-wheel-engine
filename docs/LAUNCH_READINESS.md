@@ -20,7 +20,7 @@ This file is the operational consolidation of:
 
 > **No tradeable candidate bypasses `EVEngine.evaluate`.**
 
-Reviewers (chart provider, news sentiment, advisor committee, dealer
+Reviewers (chart provider, dealer
 positioning, TradingView bridge) can downgrade a verdict
 (`proceed → review → skip → blocked`). None of them can rescue a
 negative-EV trade. The dealer multiplier is clamped to

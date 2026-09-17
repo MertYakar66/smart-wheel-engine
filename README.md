@@ -130,7 +130,7 @@ smart-wheel-engine/
 ├── backtests/       # research backtesting + pinned regression reproducers
 ├── config/          # configuration
 ├── utils/           # shared utilities
-├── tradingview/     # Pine indicator + analyst-workspace assets
+├── tradingview/     # Pine indicator + alert schema (engine bridge)
 ├── docs/            # documentation set (operational + reference)
 ├── archive/         # superseded / point-in-time artifacts
 ├── notebooks/       # exploratory notebooks

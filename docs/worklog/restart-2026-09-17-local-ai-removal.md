@@ -4,7 +4,7 @@ title: Local-AI integrations removed (browser agent, Ollama memo and chat); Oper
 kind: refactor
 status: completed
 terminal: remote-sandbox
-pr:
+pr: 524
 decisions: [D29]
 date: 2026-09-17
 headline: Removed local_agent/ (29 files, 8,273 lines), engine/trade_memo.py + /api/memo, /api/summary, /api/ollama_status, and the dashboard's Ollama chat panel, AI status indicator and chat tables (build-verified); recorded the Operator's answers of 2026-09-17 (subscriptions deferred, delta deferred, exit evaluator advisory, API prose) in D29; re-ordered the plan (Track F structure pass first, Track A parked) with a candidate table for the next deletions.

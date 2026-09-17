@@ -65,7 +65,7 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `data/`, `data_processed/`, `data_raw/` | market-data layer (tiers, providers) | `docs/DATA_POLICY.md` |
 | `scripts/` | data pullers + diagnostics | `FILE_MANIFEST.md` |
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |
-| `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
+| `tradingview/` | Pine indicator + alert schema, the engine bridge (D5; workspace removed 2026-09-17, D30) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | `backtests/` | research backtest harness + the regression reproducers | `FILE_MANIFEST.md` |
 | `engine/features/` | feature-engineering library (moved from `src/features/` 2026-09-17): `technical.py` + `volatility.py` engine/data-live, seven research modules behind `data/feature_pipeline.py` | `MODULE_INDEX.md`, `DECISIONS.md` D2 |
 | `utils/`, `config/` | helpers / config | `FILE_MANIFEST.md` |

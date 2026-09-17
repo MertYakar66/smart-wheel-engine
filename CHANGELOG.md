@@ -14,7 +14,37 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-17 — local-AI integrations removed (ruling R12); Operator answers recorded
+## 2026-09-17 — local-AI integrations removed (R12); Track F structure cuts (PR #524); R2 becomes a note (D30)
+
+**Deprecated / removed (Track F, Operator ruling "all the cuts except wheel_runner")** —
+`advisors/` (10 files) with `GET /api/committee`, the dashboard `committee` action,
+`tests/test_advisors.py`, the scorecard tests in `test_infrastructure.py` and the
+committee section of `test_audit_viii_e2e.py`; `ml/` + `models/` with the
+orchestrator's calibration stage, the DriftDetector tests and the `SWE_MODELS_DIR`
+convention; `studies/premium_correction/` + its test (findings doc kept);
+`src/backtest/wheel_backtest.py` + its test; `engine/regime_detector.py`,
+`engine/signal_context.py`, `engine/signals.py`, `engine/portfolio_intelligence.py`,
+`engine/dependency_check.py` + their tests and `engine/__init__.py` re-exports;
+`engine/mcp_client.py`, the `MCPChartProvider` family in `engine/tradingview_bridge.py`,
+`SWE_USE_MCP_CHART`, `tests/test_mcp_client.py` and the MCP tests in
+`test_tv_dossier.py` / `test_dossier_invariant.py`; the `tradingview/` analyst
+workspace (`CLAUDE.md`, `OVERVIEW.md`, the CDP launchers, the placeholders).
+
+**Changed** — `src/features/` → `engine/features/` and `src/data/schemas.py` →
+`data/schemas.py` with every importer repointed (`src/` is gone from the tree,
+`pyproject.toml` and CI; D2 update). `engine/candidate_dossier.py` R2: a missing
+or errored chart is a note, R3/R4 are skipped and the ladder continues to R5–R11
+(D30; the `chart_context_missing` reason is retired). `build_default_provider` is
+filesystem-first with optional Playwright. `main` stays unprotected (D29 ruling 13).
+
+**Docs** — PR #523 merged (docs → `archive/` by vintage); `PROJECT_STATE.md` §3
+narrative and the superseded news campaign doc archived under `archive/2026-09/`;
+`FILE_MANIFEST.md` row-length policy; `docs/TRADINGVIEW_INTEGRATION.md` rewritten as
+the single-role bridge guide (MCP contract archived); registries, READMEs,
+`OPERATING_MODEL.md` §5/§7 (no protection) and §9.1/§9.2 updated; D30 added, D12/D13
+superseded; `docs/TESTED_SURFACE_MAP.md` regenerated.
+
+Earlier the same day:
 
 **Deprecated / removed** — `local_agent/` (experimental browser agent: 29 files,
 8,273 lines; Streamlit UI, ChromaDB memory, MCP server, its own tests);

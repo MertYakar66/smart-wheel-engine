@@ -119,6 +119,15 @@ focus is repository structure and efficiency — Track F, the Operator picks the
 rows); delta target deferred and noted; exit evaluator advisory; the strategist
 brief's prose comes from an API model.
 
+**2026-09-17, later (PR #524).** Track F executed under the ruling "all the cuts
+except wheel_runner; no protection for main": `advisors/`, `ml/` + `models/`,
+`studies/`, the `src/` scaffold (features promoted to `engine/features/`, schemas
+to `data/`), five dormant engine modules, the TradingView MCP path and analyst
+workspace are gone; R2 (chart context) is a note, not a stop (D30); the dated
+docs are archived by vintage (#523 merged) and the pre-restart §3 narrative lives
+in `archive/2026-09/`. `main` is deliberately unprotected (D29 ruling 13). The
+`wheel_runner` ranker/ladder unification stays open as its own campaign.
+
 ---
 
 ## 1. Authoritative — do not bypass

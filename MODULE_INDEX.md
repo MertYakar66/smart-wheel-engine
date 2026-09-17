@@ -200,7 +200,6 @@ that the root README still references — it is not the primary UI.
 | Dir | Purpose | Status |
 |---|---|---|
 | `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
-| `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |

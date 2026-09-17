@@ -107,7 +107,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_portfolio_copula_coverage.py` | `portfolio_copula` edge paths — PSD repair, Cholesky→eigen fallback, empty arrays, verdict ladder |
 | `test_pricing_evaluate_invariants.py` | W63–W64 — BSM Greek units vs binomial cross-check; `EVEngine.evaluate` stays finite on degenerate DTE |
 | `test_f4_rv_widening.py` | F4 fix v2 (#260) — RV30/RV252 widening factor calibration pins (1.30 threshold, 1.5× cap), PIT safety, sign/mean preservation |
-| `test_premium_correction_pilot.py` | `studies/premium_correction` split-adjustment layer — AAPL 4:1 raw↔adjusted mapping, bogus-join prevention |
 
 ### W-series quant-invariant pins (2026-06 audit round 2; register: `docs/DATA_TEST_AUDIT_2026-06-09.md`)
 

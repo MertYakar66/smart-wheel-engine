@@ -647,14 +647,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `src/backtest/__init__.py` | Re-exports the wheel backtester. |
 | `src/backtest/wheel_backtest.py` | Event-driven wheel backtester (research/simulation only). |
 
-## `studies/` — observe-only research studies (read-only over the engine)
-
-| File | Purpose |
-|---|---|
-| `studies/premium_correction/__init__.py` | Package marker + study summary (real-mid vs synthetic-BSM premium correction). |
-| `studies/premium_correction/splits.py` | Split-adjustment layer joining engine (split-adjusted) strikes to larder (raw) strikes; cumulative-factor table + adjusted↔raw strike/premium conversions. |
-| `studies/premium_correction/pilot.py` | Observe-only harness: drives `WheelRunner.explore_ticker` (authoritative EV path) per (ticker, as_of), joins the real Theta EOD mid, computes the premium correction and the market-vs-engine calibration gap, emits records + summary + cross-plot. |
-
 ## `tests/` — test suite
 
 | File | Purpose |
@@ -674,7 +666,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_survivorship_r6_lehman.py` | R6 survivorship proof (gated on `SWE_DEEP_TEST_DATA`) — a 2008 deep-history backtest where Lehman (LEHMQ) flows through the EV ranker and its post-delisting put loss is realized (non-NaN, < -$500), not silently dropped. |
 | `tests/test_deep_iv_sentinel.py` | R7 deep-IV sentinel test (gated on `SWE_DEEP_TEST_DATA`) — the assembled vol_iv read nulls implied-vol values above the ~134217.7 sentinel floor (keeping the row, NaN IV) while preserving real distressed-name extremes (500-1000%). |
 | `tests/test_credit_rating_population.py` | R0a regression guard — `analyze_ticker` populates `credit_rating` from the `get_credit_risk()` `sp_rating` key (not the raw `rtg_sp_lt_lc_issuer_credit` field). Pins the dead-read fix; documents the field is off the EV path. |
-| `tests/test_premium_correction_pilot.py` | Validates the premium-correction pilot's split layer against known splits (AAPL 4:1, TSLA 5:1+3:1, NVDA 4:1+10:1) and pins the post-split pilot band as split-free — the guard against the raw↔adjusted strike mis-join. |
 | `tests/quant_benchmarks.py` | Non-test helper — the quantitative tolerance registry used as release gates. |
 | `tests/fixtures/theta_v3_*.csv` | Captured live Theta v3 SPY responses used as connector test fixtures. |
 | `tests/fixtures/ibkr/*.json` | Frozen demo IBKR artifacts (snapshot + monthly history + closed-trade ledger) for the D26 performance-viewer tests; reproduce the design-doc Appendix A / `mock.ts` numbers. Also the out-of-box demo source the engine viewer reads via `SWE_IBKR_DATA_DIR`. |

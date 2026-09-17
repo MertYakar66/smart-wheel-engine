@@ -1,0 +1,112 @@
+---
+id: validation-v1-tail-exceedance
+title: V1 tail-risk exceedance harness — Kupiec/clustered-CI/severity backtesting of pnl quartiles + cvar_5
+kind: verification
+status: complete
+terminal:
+pr:
+decisions: []
+date: 2026-07-12
+headline: The engine's own risk quantiles (pnl_p25/p50/p75) and cvar_5 are now formally backtestable — Kupiec POF + date-clustered bootstrap CIs + violation-clustering permutation test + ES-bound breach severity, with a synthetic calibrated-PASS/understated-FAIL contract pinning the harness itself.
+surface: [backtests/tail_exceedance.py, scripts/run_tail_exceedance.py, tests/test_tail_exceedance.py, docs/VALIDATION_PHASE_PLAN.md]
+---
+
+## Goal
+
+Open the formal validation phase (docs/VALIDATION_PHASE_PLAN.md) with its V1
+workstream: turn the engine's per-candidate risk outputs into formally
+backtested quantities. The record had strong *anecdotes* — the 2026-06-15
+trader stress test found cvar_5 understating single-name blowups 3-4.5x, and
+prob_profit top-bin over-confidence is established across 10 configs — but
+no exceedance statistics of the kind a desk risk team would demand (Kupiec
+proportion-of-failures, violation-independence, expected-shortfall breach
+severity). Measurement-only; trio untouched.
+
+## What we tried
+
+- Reusing the committed parameter-OOS fixtures directly: rejected — they
+  carry prob_profit/realized_pnl but not the tail block (pnl quartiles,
+  cvar_5), so a new capture column set was needed.
+- Extending `backtests/parameter_oos.py::build_rank_table` in place:
+  rejected — that module is fixture<->snapshot recompute-locked; a sibling
+  module with the same conventions is safer.
+- A literal Christoffersen (1998) independence test: rejected as
+  panel-dishonest — it assumes one P&L series; with ~20 trades per entry
+  date sharing one market path, transition counts are mechanically
+  clustered. Replaced with a permutation test on the lag-1 autocorrelation
+  of the *date-level* violation-rate series, plus date-clustered bootstrap
+  CIs on every coverage rate (the `cluster_bootstrap_ci` convention from
+  parameter_oos).
+
+## What worked
+
+`backtests/tail_exceedance.py` — capture (mirrors build_rank_table; adds
+pnl_p25/p50/p75, cvar_5, cvar_99_evt, tail_widening_factor, n_scenarios,
+distribution_source, entry-VIX) + pure-numpy statistics (kupiec_pof,
+date_clustered_rate_ci, date_rate_autocorr_test, heterogeneous_coverage_z,
+quantile_coverage_report, cvar_breach_report, full_report with a
+PASS/WARN/FAIL/INSUFFICIENT ladder). `scripts/run_tail_exceedance.py`
+build/analyze driver (24t and 100t canonical configs, frontier-capped end
+date). 30 unit tests, engine-free, incl. the load-bearing synthetic
+end-to-end pair: same-distribution generator must PASS, 3x-understated tail
+must FAIL, conservative model must never FAIL.
+
+## What didn't
+
+- First run of `test_iid_violations_not_flagged` failed at p=0.036 — a
+  textbook 5%-level Type-I on a single seeded draw. Fixed by asserting the
+  *median* p across five independent data seeds, which a biased statistic
+  cannot pass but an honest one can.
+- A stray non-ASCII character slipped into a test comment; scrubbed
+  (Windows-console/cp1252 discipline).
+- The first analyze emitted byte-identical p50/p75 violation rates (0.245)
+  — the short-put WIN POINT MASS makes continuous quantile coverage vacuous
+  when prob_profit >= 1 - nominal. Fixed: quantile tests restrict to
+  informative rows (prob_profit < 1 - nominal, PIT-clean entry-time
+  stratum) and report exclusions loudly; pinned by
+  test_point_mass_rows_excluded + test_mixed_point_mass_partial_exclusion.
+
+## How we fixed it
+
+See above; harness shipped with the two fixes. Verdict-ladder asymmetry is
+deliberate and documented: coverage *below* nominal (model too fat-tailed)
+reports but never FAILs — the safe direction for a short-vol book. Realized
+P&L keeps the locked `_forward_replay_realized_pnl` convention (gross of
+entry costs + $5 ITM fee) for cross-study comparability; the few-dollar
+offset favors the engine on lower-tail tests, so FAILs are conservative
+evidence.
+
+## Evidence
+
+- `python3 -m pytest tests/test_tail_exceedance.py -q` -> 30 passed.
+- V1-a DONE (2,735 rows / 229 dates): p25 PASS-conservative (17.1% vs 25%);
+  p50/p75 honestly INSUFFICIENT (win point mass — see below); cvar_5 PASS
+  pooled (1.28% vs 5% bound) but top_bin 3.55% / traded_region 2.81% breach
+  at 2-3x pooled; severity median 1.36x / mean excess -$1,462; violation
+  clustering ac1 0.40-0.67 p<0.001 (I3-E confirmed formally); prob_profit
+  pooled honest (z=0.94). Full numbers: docs/VALIDATION_PHASE_PLAN.md §4.
+- Pre-registered expectations (falsifiable, written before the first
+  analyze): p50/p75 roughly honest; cvar_5 PASS pooled but WARN/FAIL in the
+  crisis stratum; breach severity well above 1x; strong violation
+  clustering (I3-E procyclicality).
+
+## Unresolved / handoff
+
+- ~~V1-b: the 100t run~~ **DONE 2026-07-12 on the operator terminal**
+  (40,201 rows / 822 dates / 100 names, 101.9-min build, zero failures;
+  headline numbers independently recomputed from the captured table).
+  Key results: cvar_5 pooled 2.32% PASS but top_bin 6.32% (> the 5%
+  bound point-wise, WARN) / traded_region 4.92%; violation clustering at
+  the permutation floor (ac1 0.966, p=0.0005); severity median 1.87x /
+  mean 2.93x / 29.8% of breaches >= 3x; and the headline F-V1-1 —
+  entry-VIX conditioning is structurally blind to crisis onset
+  (Feb-Apr 2020 calm-entry rows breach 84.4%; BA at VIX 14 realized
+  7.8x modeled cvar). Full closure:
+  `docs/VALIDATION_V1_TAIL_EXCEEDANCE_FINDINGS_2026-07-12.md`.
+- **V1 CLOSED 2026-07-12** — acceptance met; all WARNs/findings triaged
+  as engine findings (queued as re-baseline inputs), none as harness
+  artifacts. Harness follow-ups (stratum verdicts in cvar_breach_report,
+  diagnostic onset slice) queued non-blocking.
+- Follow-on workstreams: V2 complete same day (see
+  validation-v2-freeze-replay fragment); V3 (plateau sweep) next in
+  queue; V2-c-100t frozen replay = next terminal card.

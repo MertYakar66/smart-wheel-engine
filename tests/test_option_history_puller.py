@@ -13,6 +13,10 @@ Two bugs found 2026-06-01 that these tests prevent from regressing:
    skips as "done". The write goes to a tmp file then atomically renames.
 """
 
+import sys
+import types
+from unittest.mock import MagicMock
+
 import pandas as pd
 import pytest
 
@@ -116,3 +120,82 @@ def test_cadence_filters():
     # weekly = all Friday expirations (weekday()==4); drops Mon-Thu 0DTE dailies.
     assert pd.Timestamp("2024-01-05").weekday() == 4  # kept (Friday)
     assert pd.Timestamp("2024-01-17").weekday() != 4  # dropped (Wed 0DTE)
+
+
+# ----------------------------------------------------------------------
+# CMD 6 — Bloomberg per-name panel puller (scripts/_bbg_panel.py) hardening.
+# Homed in this registered puller-correctness file: _bbg_panel.py has no
+# dedicated test, and the TESTING.md taxonomy gate (out of CMD ownership)
+# forbids a new unlisted test file. xbbg is not installed and the pull_*.py
+# scripts run a real pull at import, so we stub xbbg and load _bbg_panel alone.
+# ----------------------------------------------------------------------
+
+
+def _load_bbg_panel():
+    """Import scripts._bbg_panel with a stubbed xbbg (not installed in CI)."""
+    fake = sys.modules.get("xbbg")
+    if not isinstance(fake, types.ModuleType) or not hasattr(fake, "blp"):
+        fake = types.ModuleType("xbbg")
+        fake.blp = MagicMock()
+        sys.modules["xbbg"] = fake
+    import scripts._bbg_panel as bbg  # noqa: PLC0415
+
+    return bbg
+
+
+def _cfg(bbg, **over):
+    kw = {
+        "out_name": "x.csv",
+        "fields": ["PX_LAST"],
+        "field_map": {"PX_LAST": "v"},
+        "out_cols": ["date", "ticker", "v"],
+        "start_date_full": "2020-01-01",
+        "end_date": "2020-12-31",
+        "chunk_size": 2,
+    }
+    kw.update(over)
+    return bbg.PanelConfig(**kw)
+
+
+def test_bbg_pull_window_fails_loudly_on_chunk_error():
+    """Bug 1: a per-chunk bdh exception must NOT be silently dropped — a chunk
+    failure raises so a reduced universe can't masquerade as a clean pull.
+    Pre-fix _pull_window printed ERROR + returned survivors/None (no raise)."""
+    bbg = _load_bbg_panel()
+    bbg.blp.bdh = MagicMock(side_effect=RuntimeError("bad/renamed ticker"))
+    tickers = ["A Equity", "B Equity", "C Equity"]  # 2 chunks of size 2
+    with pytest.raises(RuntimeError, match="failed to pull"):
+        bbg._pull_window(_cfg(bbg), tickers, "2020-01-01", "2020-12-31")
+
+
+def test_bbg_pull_window_ok_when_all_chunks_succeed():
+    """Control: no chunk error → returns the concatenated frame, no raise."""
+    bbg = _load_bbg_panel()
+
+    def _bdh(tickers, flds, start_date, end_date, **kw):
+        return pd.DataFrame(
+            [
+                {"date": "2020-06-01", "ticker": t, "field": "PX_LAST", "value": 10.0}
+                for t in tickers
+            ]
+        )
+
+    bbg.blp.bdh = MagicMock(side_effect=_bdh)
+    out = bbg._pull_window(
+        _cfg(bbg), ["A Equity", "B Equity", "C Equity"], "2020-01-01", "2020-12-31"
+    )
+    assert out is not None
+    assert set(out["ticker"]) == {"A Equity", "B Equity", "C Equity"}
+
+
+def test_bbg_resolve_end_date_advances_stale_literal():
+    """Bug 2: a stale hardcoded end_date (no SWE_PULL_END override) advances to
+    today so a plain refresh always plans a forward window; an explicit override
+    wins; a fresh literal is unchanged. Pre-fix _resolve_end_date did not exist."""
+    bbg = _load_bbg_panel()
+    ed, advanced = bbg._resolve_end_date("2020-06-04", None, today="2026-07-15")
+    assert ed == "2026-07-15" and advanced is True
+    ed2, adv2 = bbg._resolve_end_date("2020-06-04", "2026-07-01", today="2026-07-15")
+    assert ed2 == "2026-07-01" and adv2 is False  # explicit override wins
+    ed3, adv3 = bbg._resolve_end_date("2026-07-20", None, today="2026-07-15")
+    assert ed3 == "2026-07-20" and adv3 is False  # fresh literal unchanged

@@ -89,6 +89,25 @@ def _env(name, default=None):
     return v if v else default
 
 
+def _resolve_end_date(cfg_end_date, env_override, today=None):
+    """Effective forward end_date. An explicit ``SWE_PULL_END`` override always
+    wins. Otherwise a STALE config literal (older than today) is advanced to
+    today so a plain refresh always plans a forward window to the current edge.
+
+    Bug fix (CMD 6): the pull scripts hardcode ``end_date`` (e.g. "2026-06-04").
+    Once real time passes that literal, ``plan_windows`` computes a forward-gap
+    start > end_date → NO forward window is planned; the backward backfill still
+    runs, so the operator sees a long "successful" pull while the recent edge
+    stays frozen and today's data never lands. Returns ``(end_date, advanced)``.
+    """
+    if env_override:
+        return env_override, False
+    today = today or pd.Timestamp.today().strftime("%Y-%m-%d")
+    if str(cfg_end_date) < today:
+        return today, True
+    return cfg_end_date, False
+
+
 def plan_windows(existing, start_date_full, end_date, floor, mode, chunk_months, max_windows):
     """Ordered (start, end) date-string windows to pull.
 
@@ -136,6 +155,7 @@ def plan_windows(existing, start_date_full, end_date, floor, mode, chunk_months,
 def _pull_window(cfg: PanelConfig, tickers, ws, we):
     """Pull every ticker for [ws, we] -> tidy wide frame in cfg.out_cols, or None."""
     chunks = []
+    failed_tickers = []  # tickers whose chunk raised — must NOT be silently dropped
     for i in range(0, len(tickers), cfg.chunk_size):
         chunk = tickers[i : i + cfg.chunk_size]
         print(
@@ -164,6 +184,21 @@ def _pull_window(cfg: PanelConfig, tickers, ws, we):
             chunks.append(wide[cfg.out_cols])
         except Exception as e:
             print(f"    ERROR chunk {i}: {e}", flush=True)
+            failed_tickers.extend(chunk)
+    if failed_tickers:
+        # Bug fix (CMD 6): a per-chunk bdh exception used to be swallowed with a
+        # print + continue, so one bad/renamed ticker (or a transient error)
+        # silently dropped its whole ~chunk_size-name chunk, yet run() still
+        # concatenated the survivors, wrote the CSV, and printed "DONE ... N
+        # tickers" with a reduced universe and a zero exit. Refuse: fail loudly
+        # so a partial universe can never masquerade as a clean pull (a
+        # transient error → re-run; a permanently bad member → fix the list).
+        n_chunks = -(-len(failed_tickers) // cfg.chunk_size)
+        raise RuntimeError(
+            f"_pull_window[{ws} -> {we}]: {len(failed_tickers)} ticker(s) in "
+            f"{n_chunks} chunk(s) failed to pull (e.g. {failed_tickers[:10]}); "
+            f"refusing to write a silently reduced universe"
+        )
     if not chunks:
         return None
     return pd.concat(chunks, ignore_index=True)
@@ -172,7 +207,14 @@ def _pull_window(cfg: PanelConfig, tickers, ws, we):
 def run(cfg: PanelConfig):
     limit = int(_env("SWE_PULL_LIMIT", "0") or "0")
     no_write = bool(_env("SWE_PULL_NO_WRITE"))
-    end_date = _env("SWE_PULL_END", cfg.end_date)
+    end_date, _end_advanced = _resolve_end_date(cfg.end_date, _env("SWE_PULL_END"))
+    if _end_advanced:
+        print(
+            f"WARNING: config end_date={cfg.end_date!r} is stale (< today); advancing "
+            f"to {end_date} so the forward window reaches the current edge. Set "
+            f"SWE_PULL_END to pin an explicit end.",
+            flush=True,
+        )
     floor = _env("SWE_PULL_FLOOR", cfg.floor)
     mode = _env("SWE_PULL_MODE", "both")
     chunk_months = int(_env("SWE_BACKFILL_CHUNK_MONTHS", str(cfg.chunk_months)))

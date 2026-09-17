@@ -4,7 +4,7 @@ Smart Wheel Engine — Unified Daily Orchestrator.
 
 One command to run the full daily workflow:
 
-    python scripts/orchestrate.py morning    # Pre-market: data + news + EV ranking
+    python scripts/orchestrate.py morning    # Pre-market: data + EV ranking
     python scripts/orchestrate.py intraday   # Market hours: refresh quotes + re-rank
     python scripts/orchestrate.py evening    # After close: journal + calibration check
     python scripts/orchestrate.py full       # All three in sequence
@@ -22,16 +22,13 @@ to stderr. Exit code 0 = success, 1 = partial failure, 2 = critical.
 Architecture:
   orchestrate.py
     ├── refresh_daily_data()    → yfinance + FRED (free sources)
-    ├── run_news_pipeline()     → morning_run.py subprocess
     ├── run_ev_ranking()        → WheelRunner.rank_candidates_by_ev
-    ├── run_regime_check()      → regime_detector + regime_hmm
-    ├── run_calibration_check() → DriftDetector.check_calibration
+    ├── run_regime_check()      → regime_hmm
     └── output_daily_brief()    → combined JSON summary
 """
 
 import argparse
 import json
-import subprocess
 import sys
 import time
 import traceback
@@ -155,60 +152,6 @@ def refresh_daily_data(tickers: list[str] | None = None) -> dict:
 
 
 # ======================================================================
-# Stage 2: Run news pipeline
-# ======================================================================
-def run_news_pipeline(
-    visible: bool = False,
-    scrape_only: bool = False,
-    output_json: bool = True,
-) -> dict:
-    """Run the news pipeline via morning_run.py subprocess."""
-    _log("Stage 2: Running news pipeline...")
-
-    morning_run = PROJECT_ROOT / "morning_run.py"
-    if not morning_run.exists():
-        return _result("news", "skip", error="morning_run.py not found")
-
-    cmd = [sys.executable, str(morning_run)]
-    if scrape_only:
-        cmd.append("--scrape-only")
-    if visible:
-        cmd.append("--visible")
-    if output_json:
-        cmd.append("--json")
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            cwd=str(PROJECT_ROOT),
-        )
-        if proc.returncode == 0:
-            try:
-                stories = json.loads(proc.stdout) if proc.stdout.strip() else []
-            except json.JSONDecodeError:
-                stories = []
-            _log(f"  Got {len(stories) if isinstance(stories, list) else '?'} stories")
-            return _result(
-                "news",
-                "ok",
-                {
-                    "story_count": len(stories) if isinstance(stories, list) else 0,
-                    "stories": stories,
-                },
-            )
-        else:
-            _log(f"  News pipeline returned {proc.returncode}")
-            return _result("news", "partial", error=proc.stderr[:500])
-    except subprocess.TimeoutExpired:
-        return _result("news", "timeout", error="News pipeline timed out (300s)")
-    except Exception as e:
-        return _result("news", "error", error=str(e)[:200])
-
-
-# ======================================================================
 # Stage 3: Run EV ranking
 # ======================================================================
 def run_ev_ranking(
@@ -310,56 +253,12 @@ def run_regime_check() -> dict:
 
 
 # ======================================================================
-# Stage 5: Calibration check (evening)
-# ======================================================================
-def run_calibration_check() -> dict:
-    """Run model calibration and drift checks."""
-    _log("Stage 5: Calibration check...")
-
-    try:
-        from ml.model_governance import DriftDetector
-
-        # Check if there's a recent predictions log to validate
-        pred_log = PROJECT_ROOT / "data" / "predictions_log.csv"
-        if not pred_log.exists():
-            _log("  No predictions log found — skip calibration")
-            return _result("calibration", "skip", error="No predictions_log.csv")
-
-        import pandas as pd
-
-        df = pd.read_csv(pred_log)
-        if len(df) < 30:
-            _log(f"  Only {len(df)} predictions logged — need 30+ for calibration")
-            return _result("calibration", "skip", error=f"Only {len(df)} rows")
-
-        preds = df["predicted_prob"].tolist()
-        actuals = df["actual_outcome"].astype(int).tolist()
-        result = DriftDetector.check_calibration(preds, actuals)
-
-        _log(
-            f"  Brier={result['brier_score']:.4f}  "
-            f"ECE={result['ece']:.4f}  "
-            f"{'PASS' if result['passed'] else 'FAIL'}"
-        )
-        return _result("calibration", "ok" if result["passed"] else "fail", result)
-
-    except Exception as e:
-        return _result("calibration", "error", error=str(e)[:200])
-
-
-# ======================================================================
 # Workflow runners
 # ======================================================================
 def run_morning(args: argparse.Namespace) -> list[dict]:
-    """Pre-market workflow: data + news + EV ranking + regime."""
+    """Pre-market workflow: data + EV ranking + regime."""
     results = []
     results.append(refresh_daily_data())
-    results.append(
-        run_news_pipeline(
-            visible=args.visible,
-            scrape_only=args.scrape_only,
-        )
-    )
     results.append(
         run_ev_ranking(
             top_n=args.top_n,
@@ -388,17 +287,16 @@ def run_intraday(args: argparse.Namespace) -> list[dict]:
 
 
 def run_evening(_args: argparse.Namespace) -> list[dict]:
-    """After-close: calibration + journal review."""
-    results = []
-    results.append(run_calibration_check())
-    return results
+    """After-close: no stage left since the calibration check was removed
+    with the research ML models (2026-09-17, Track F); kept as the hook for
+    the exit evaluator (ROADMAP Track C)."""
+    return []
 
 
 def run_full(args: argparse.Namespace) -> list[dict]:
     """Complete daily workflow — all stages."""
     results = []
     results.extend(run_morning(args))
-    results.append(run_calibration_check())
     return results
 
 
@@ -411,7 +309,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/orchestrate.py morning          # Pre-market: data + news + EV ranking
+  python scripts/orchestrate.py morning          # Pre-market: data + EV ranking
   python scripts/orchestrate.py morning --top-n 20 --dealer  # With dealer positioning
   python scripts/orchestrate.py intraday         # Quick refresh + re-rank
   python scripts/orchestrate.py evening          # Calibration check
@@ -429,8 +327,6 @@ Examples:
     parser.add_argument("--dte", type=int, default=35)
     parser.add_argument("--delta", type=float, default=0.25)
     parser.add_argument("--dealer", action="store_true", help="Enable dealer positioning")
-    parser.add_argument("--visible", action="store_true", help="Show browser windows")
-    parser.add_argument("--scrape-only", action="store_true", dest="scrape_only")
     parser.add_argument("--json", action="store_true", help="JSON output on stdout")
 
     args = parser.parse_args()

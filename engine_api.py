@@ -12,7 +12,6 @@ Endpoints:
   GET /api/regime?ticker=SPY              - Current market regime
   GET /api/calendar?ticker=AAPL&days=30   - Upcoming events
   GET /api/screen?min_score=60&limit=20   - Screen universe with filters
-  GET /api/committee?ticker=NVDA          - Run investment committee
   GET /api/vix                            - VIX regime
   GET /api/fundamentals?ticker=AAPL       - Fundamental data
   GET /api/universe                       - Universe of tracked tickers
@@ -26,9 +25,6 @@ Endpoints:
   GET /api/payoff?ticker=AAPL&strategy=csp - Payoff diagram
   GET /api/expected_move?ticker=AAPL&dte=45 - Expected move bands
   GET /api/strikes?ticker=AAPL&strategy=csp - Strike recommendations
-  GET /api/memo?ticker=AAPL               - AI trade memo (72B model)
-  GET /api/summary?ticker=AAPL            - Quick AI summary (32B model)
-  GET /api/ollama_status                  - Check Ollama/model availability
 
 TradingView bridge:
   GET  /api/tv/signal?ticker=AAPL         - Canonical TV-parity signal for ticker
@@ -39,10 +35,6 @@ TradingView bridge:
   GET  /api/tv/dossier?top_n=10&timeframe=1D[&nav=250000&holdings=AAPL:100][&puts_held=AAPL:180:1][&regime_map=NVDA:short_gamma_amplifying] - EV + TV screenshot dossier (Mode B). Optional nav/holdings/puts_held/regime_map engage D17 R7+R8 soft-warns.
   GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35 - Dealer GEX / walls / regime (audit V)
   POST /api/tv/webhook                    - Ingest TradingView Pine alert (JSON)
-
-News (dashboard-facing ring buffer; not on the EV decision path):
-  GET  /api/news?limit=20                 - Most recent ingested news stories
-  POST /api/news/ingest                   - Push stories from the news pipeline
 """
 
 import hashlib
@@ -56,7 +48,7 @@ import threading
 import time
 import traceback
 from collections import OrderedDict
-from datetime import (  # noqa: F401  # timezone re-exported for audit-VIII P0.3 (tests/test_audit_viii_unit_invariants.py::TestNewsIngestDatetimeImport)
+from datetime import (  # noqa: F401
     UTC,
     date,
     datetime,
@@ -113,12 +105,6 @@ _connector = None
 # and served back through /api/tv/alerts for the dashboard to display.
 _TV_ALERT_LOG: list[dict] = []
 _TV_ALERT_LOG_MAX = 200
-
-# In-memory news story buffer. Populated by the /api/news/ingest endpoint
-# which the orchestrator calls after running the news pipeline. Stories are
-# served back through /api/news for the dashboard and committee.
-_NEWS_BUFFER: list[dict] = []
-_NEWS_BUFFER_MAX = 100
 
 # AUDIT: replay-protection nonce cache. We key by the SHA-256 of the raw body
 # AND the incoming signature header so identical payloads with different
@@ -400,6 +386,17 @@ def build_concentration_preview(
     }
 
 
+# Placeholder implied-vol for operator-supplied held puts on the dossier
+# endpoint. The ``puts_held`` CSV (TICKER:strike:contracts:expiry) cannot
+# carry per-position IV, but the greeks-based D17 gates (R7 VaR, R8 stress,
+# R9 sector) read ``pos["iv"]`` off every held position; omitting it makes
+# them skip the whole book. A single mildly-conservative constant is safe
+# here because R7-R10 are downgrade-only soft-warns — an approximate IV can
+# only ADD caution (proceed → review), never rescue a bad trade. A richer
+# operator integration should supply real per-name IV.
+_HELD_PUT_PLACEHOLDER_IV = 0.30
+
+
 def _build_portfolio_context_from_params(
     nav: float | None,
     holdings_csv: str | None,
@@ -472,13 +469,28 @@ def _build_portfolio_context_from_params(
                 expiration = parts[3] if len(parts) >= 4 and parts[3] else default_expiry
             except (TypeError, ValueError):
                 continue
+            # Derive DTE from the expiry so the row matches the canonical
+            # held-position schema the D17 gates read. A past / unparseable
+            # expiry clamps to 0 rather than dropping the position.
+            try:
+                dte = max((date.fromisoformat(expiration) - date.today()).days, 0)
+            except (TypeError, ValueError):
+                dte = 35
+            # Canonical schema (mirrors engine/wheel_tracker.py take_snapshot):
+            # engine/portfolio_risk_gates.py and engine/stress_testing.py read
+            # pos["symbol"], pos["dte"], pos["iv"], pos["is_short"]. The prior
+            # {"ticker": ...} shape made R7-R10 silently drop the held book, so
+            # the D17 soft-warns could never fire on /api/tv/dossier.
             held_option_positions.append(
                 {
-                    "ticker": ticker_part,
-                    "strike": strike,
-                    "contracts": contracts,
-                    "expiration": expiration,
+                    "symbol": ticker_part,
                     "option_type": "put",
+                    "strike": strike,
+                    "dte": dte,
+                    "iv": _HELD_PUT_PLACEHOLDER_IV,
+                    "contracts": contracts,
+                    "is_short": True,
+                    "expiration": expiration,
                 }
             )
 
@@ -776,8 +788,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_calendar(param("ticker"), param("days", "30"))
             elif path == "/api/screen":
                 self._handle_screen(params)
-            elif path == "/api/committee":
-                self._handle_committee(param("ticker"))
             elif path == "/api/vix":
                 self._handle_vix()
             elif path == "/api/fundamentals":
@@ -814,14 +824,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 ticker = param("ticker", "AAPL")
                 days = _parse_param("days", param("days"), int, 252)
                 self._handle_iv_history(ticker, days)
-            elif path == "/api/memo":
-                ticker = param("ticker", "AAPL")
-                self._handle_memo(ticker, param("as_of"))
-            elif path == "/api/summary":
-                ticker = param("ticker", "AAPL")
-                self._handle_summary(ticker)
-            elif path == "/api/ollama_status":
-                self._handle_ollama_status()
             elif path == "/api/tv/signal":
                 ticker = (param("ticker", "") or "").upper()
                 self._handle_tv_signal(ticker, param("as_of"))
@@ -892,8 +894,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     assumption=param("assumption", "long_calls_short_puts")
                     or "long_calls_short_puts",
                 )
-            elif path == "/api/news":
-                self._handle_news(limit=_parse_param("limit", param("limit"), int, 20))
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except BadParam as bp:
@@ -942,8 +942,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     or ""
                 )
                 self._handle_tv_webhook(payload, raw_body=raw, signature_header=sig_header)
-            elif path == "/api/news/ingest":
-                self._handle_news_ingest(payload)
             else:
                 self._send_error(f"Unknown endpoint: {path}", 404)
         except Exception as e:
@@ -1018,14 +1016,17 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             {trades: [...], count: N, authority: "ev_ranked",
              engine_version: "ev_engine_2026_04_14"}
         """
-        try:
-            limit_int = max(1, int(limit or 15))
-            dte_int = int(dte or 35)
-            delta_f = float(delta or 0.25)
-            min_ev_f = float(min_ev or 0)
-            min_score_f = float(min_score or 0)
-        except (TypeError, ValueError):
-            limit_int, dte_int, delta_f, min_ev_f, min_score_f = 15, 35, 0.25, 0.0, 0.0
+        # Bug fix (CMD 3): parse each param INDEPENDENTLY via _parse_param. The
+        # old shared try/except reset ALL five to defaults on any single bad
+        # value, so e.g. delta=xyz silently dropped the operator's min_ev /
+        # min_score risk filters and returned the full unfiltered candidate
+        # list. Now one malformed value raises BadParam (caught by do_GET → a
+        # clean 400 naming that param) and never overrides a param that parsed.
+        limit_int = max(1, _parse_param("limit", limit, int, 15))
+        dte_int = _parse_param("dte", dte, int, 35)
+        delta_f = _parse_param("delta", delta, float, 0.25)
+        min_ev_f = _parse_param("min_ev", min_ev, float, 0.0)
+        min_score_f = _parse_param("min_score", min_score, float, 0.0)
 
         runner = get_runner()
         conn = runner.connector
@@ -1677,290 +1678,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def _handle_committee(self, ticker):
-        from advisors import CommitteeEngine, format_committee_report
-        from advisors.schema import (
-            AdvisorInput,
-            CandidateTrade,
-            MarketContext,
-            PortfolioContext,
-            RegimeType,
-            TradeType,
-        )
-
-        if not ticker or not ticker.strip():
-            self._send_error("ticker parameter is required", 400)
-            return
-        ticker = ticker.strip().upper()
-        conn = get_connector()
-        runner = get_runner()
-
-        # Get real data for this ticker
-        analysis = runner.analyze_ticker(ticker)
-        conn.get_fundamentals(ticker) or {}
-        vix_data = conn.get_vix_regime() or {}
-
-        spot = analysis.spot_price or 100
-        iv = analysis.iv_30d or 25
-        iv_decimal = iv / 100 if iv > 1 else iv
-
-        # AUDIT-VIII P1.4: anchor the committee's candidate trade on the
-        # EV ranker when available. Previously the handler constructed
-        # a synthetic short put with a hardcoded strike (spot * 0.92),
-        # hardcoded 0.04 risk-free rate, and an "expected_value" field
-        # computed as a return-over-capital ratio — none of which
-        # matched the EV engine's definitions. That produced a committee
-        # verdict completely disconnected from the authoritative path,
-        # which the UI could easily mistake for an EV-backed decision.
-        # Now: when the EV ranker returns a row for this ticker, we
-        # use its strike, premium, delta target, EV dollars, and
-        # assignment probability. The synthetic BSM fallback is kept
-        # only for tickers the EV ranker cannot price.
-        ev_row = None
-        ev_path_available = False
-        try:
-            ev_df = runner.rank_candidates_by_ev(
-                tickers=[ticker],
-                dte_target=45,
-                delta_target=0.30,
-                top_n=1,
-                min_ev_dollars=-1e9,
-                include_diagnostic_fields=True,
-                enforce_history_gate=False,
-            )
-            if ev_df is not None and len(ev_df) > 0:
-                ev_row = ev_df.iloc[0].to_dict()
-                ev_path_available = True
-        except Exception:
-            ev_row = None
-
-        dte = 45
-        if ev_row is not None:
-            strike = float(ev_row["strike"])
-            premium = float(ev_row["premium"])
-            dte = int(ev_row.get("dte", 45))
-            # p_otm = P(expire OTM) = 1 - P(assignment/ITM at expiry). The EV row
-            # carries prob_assignment (P ITM) and prob_profit (P net P&L > 0)
-            # SEPARATELY; the previous code put prob_profit into the p_otm slot
-            # and then synthesized p_profit = 0.95*p_otm, inverting the
-            # schema-documented ordering (p_profit > p_otm for short puts) and
-            # feeding every advisor contradictory probability inputs.
-            p_otm = 1.0 - float(ev_row.get("prob_assignment", 0.30))
-            p_profit = float(ev_row.get("prob_profit", p_otm))
-            # Put delta at the actual EV strike (signed negative).
-            from scipy.stats import norm as _norm
-
-            T = dte / 365
-            if iv_decimal > 0 and T > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                delta = float(-_norm.cdf(-d1))
-            else:
-                delta = -0.30
-            ev_dollars = float(ev_row.get("ev_dollars", premium * 100 * p_otm))
-        else:
-            # Fallback synthetic BSM trade — only fires when the EV
-            # ranker cannot price the ticker (e.g. missing OHLCV /
-            # fundamentals). The response is still labelled
-            # authority="heuristic_diagnostic" to prevent the UI from
-            # treating it as EV-backed.
-            from scipy.stats import norm as _norm
-
-            strike = round(spot * 0.92, 0)
-            T = dte / 365
-            if iv_decimal > 0 and T > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                d2 = d1 - iv_decimal * np.sqrt(T)
-                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
-                premium = max(0.01, premium)
-                delta = float(-_norm.cdf(-d1))
-                p_otm = float(_norm.cdf(d2))
-                # P(profit) for a short put = P(S_T > breakeven), breakeven =
-                # strike - premium < strike, so p_profit >= p_otm.
-                breakeven = max(strike - premium, 0.01)
-                d2_be = (np.log(spot / breakeven) + (0.04 - 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                p_profit = float(_norm.cdf(d2_be))
-            else:
-                premium = 1.0
-                delta = -0.30
-                p_otm = 0.70
-                p_profit = 0.74
-            ev_dollars = p_otm * premium * 100
-
-        # AUDIT: CandidateTrade.expected_value is schema-documented as a
-        # percentage and every advisor renders it with a "%" — feeding the
-        # raw dollar EV produced nonsense like "EV 6199%". Convert the
-        # dollar EV to return on capital-at-risk for the cash-secured put.
-        contracts = 1
-        capital_at_risk = strike * 100 * contracts
-        ev_pct = (ev_dollars / capital_at_risk * 100) if capital_at_risk > 0 else 0.0
-
-        # Build realistic AdvisorInput
-        trade = CandidateTrade(
-            ticker=ticker,
-            trade_type=TradeType.SHORT_PUT,
-            strike=strike,
-            expiration_date="",
-            dte=dte,
-            delta=delta,
-            premium=round(premium, 2),
-            contracts=contracts,
-            expected_value=round(ev_pct, 2),
-            p_otm=round(p_otm, 2),
-            p_profit=round(p_profit, 2),
-            iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
-            iv_percentile=analysis.iv_percentile * 100
-            if analysis.iv_percentile < 1
-            else analysis.iv_percentile,
-            theta=round(premium / dte, 4),
-            gamma=0.02,
-            vega=round(premium * 0.1, 4),
-            underlying_price=spot,
-            earnings_before_expiry=analysis.days_to_earnings is not None
-            and 0 < (analysis.days_to_earnings or 999) < dte,
-        )
-
-        # AUDIT: the API committee evaluates a single candidate trade in
-        # isolation — there is no connected brokerage account, so there is
-        # no real portfolio to measure concentration or correlation
-        # against. The previous hardcoded $150k book made every trade read
-        # as a fabricated XX% concentration (a $368k BKNG put showed as
-        # "245% of portfolio"). total_equity=0.0 is the standalone
-        # sentinel: advisors treat a non-positive total_equity as "no
-        # portfolio context" and report concentration / sizing as not
-        # assessed rather than dividing the notional by an invented book.
-        portfolio = PortfolioContext(
-            positions=[],
-            total_equity=0.0,
-            cash_available=0.0,
-            buying_power=0.0,
-            sector_allocation={},
-            top_5_concentration=0.0,
-            portfolio_beta=0.0,
-            portfolio_delta=0.0,
-            max_drawdown_30d=0.0,
-            var_95=0.0,
-            open_positions_count=0,
-            total_premium_at_risk=0.0,
-            total_margin_used=0.0,
-        )
-
-        vix_level = vix_data.get("vix", 20)
-        # AUDIT: the connector returns vix_percentile as a 0-1 fraction,
-        # but MarketContext.vix_percentile and every advisor expect 0-100
-        # (simons/taleb format it as "{:.0f}th percentile"). Without this,
-        # VIX 0.91 rendered as "1th percentile" and flipped Taleb's regime
-        # read from "stressed" to "complacency".
-        vix_pctile = vix_data.get("vix_percentile", 50.0)
-        if vix_pctile < 1:
-            vix_pctile *= 100
-        regime = RegimeType.HIGH_VOL if vix_level > 25 else RegimeType.NORMAL
-        market = MarketContext(
-            regime=regime,
-            vix=vix_level,
-            vix_percentile=vix_pctile,
-            spy_price=spot,
-            spy_50ma=spot * 0.98,
-            spy_200ma=spot * 0.95,
-            fed_funds_rate=0.045,
-            treasury_10y=0.042,
-        )
-
-        advisor_input = AdvisorInput(
-            candidate_trade=trade,
-            portfolio=portfolio,
-            market=market,
-            request_id=f"api_{ticker}",
-        )
-
-        committee = CommitteeEngine(parallel=False)
-        result = committee.evaluate(advisor_input)
-
-        # Deduplicate keyReasons across advisors so that boilerplate
-        # templates (e.g. "Probability profile: …") shared between advisors
-        # don't appear twice in the committee output. We keep the first
-        # advisor's copy and drop the duplicate from later advisors.
-        seen_reasons: set[str] = set()
-        advisor_summaries = []
-        for r in result.advisor_responses:
-            unique_reasons = []
-            for reason in r.key_reasons:
-                key = reason.strip().lower()
-                if key and key not in seen_reasons:
-                    seen_reasons.add(key)
-                    unique_reasons.append(reason)
-            # Guarantee each advisor keeps at least 2 reasons — if dedup
-            # stripped too many, fall back to a name-tagged fallback so the
-            # reason is still unique across the committee.
-            while len(unique_reasons) < 2:
-                fallback = (
-                    f"[{r.advisor_name}] {r.judgment.value.replace('_', ' ').title()} "
-                    f"based on {r.judgment_summary[:80]}"
-                )
-                if fallback.strip().lower() not in seen_reasons:
-                    seen_reasons.add(fallback.strip().lower())
-                    unique_reasons.append(fallback)
-                else:
-                    break
-            advisor_summaries.append(
-                {
-                    "name": r.advisor_name,
-                    "judgment": r.judgment.value,
-                    "summary": r.judgment_summary,
-                    "keyReasons": unique_reasons[:3],
-                    "criticalQuestions": r.critical_questions[:3],
-                    "hiddenRisks": r.hidden_risks[:3],
-                    "confidence": r.confidence.value,
-                }
-            )
-
-        self._send_json(
-            {
-                "ticker": ticker,
-                # AUDIT-VIII P1.4: explicit authority contract. The
-                # committee is a narrative / risk-overlay layer, not
-                # the tradeable authority. Callers that want a
-                # tradeable decision must route through the EV ranker
-                # at ``tradeable_endpoint``.
-                "authority": "heuristic_diagnostic",
-                "tradeable_endpoint": "/api/candidates",
-                "ev_anchored": bool(ev_path_available),
-                "judgment": result.committee_judgment.value,
-                "reasoning": result.committee_reasoning,
-                "confidence": result.committee_confidence.value,
-                "approvals": result.approval_count,
-                "rejections": result.rejection_count,
-                "neutrals": result.neutral_count,
-                "advisors": advisor_summaries,
-                "risksUnresolved": result.unresolved_risks[:4],
-                "requiredActions": result.required_before_trade[:4],
-                "report": format_committee_report(result),
-                "trade": {
-                    "ticker": trade.ticker,
-                    "strategy": "short_put",
-                    "strike": trade.strike,
-                    "spot": spot,
-                    "spotPrice": spot,
-                    "dte": trade.dte,
-                    "delta": trade.delta,
-                    "premium": trade.premium,
-                    "expectedValue": trade.expected_value,
-                    "pOtm": trade.p_otm,
-                    "ivRank": trade.iv_rank,
-                    "theta": trade.theta,
-                    "vega": trade.vega,
-                    "gamma": trade.gamma,
-                    "contracts": trade.contracts,
-                    "earningsBeforeExpiry": trade.earnings_before_expiry,
-                },
-            }
-        )
-
     def _handle_vix(self):
         conn = get_connector()
         vix = conn.get_vix_regime()
@@ -2105,7 +1822,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_chart(self, chart_type, ticker, days):
         """Serve chart data: OHLCV + technical indicators as JSON arrays."""
-        from src.features.technical import TechnicalFeatures
+        from engine.features.technical import TechnicalFeatures
 
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)
@@ -2451,9 +2168,16 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 min_ev_dollars=0.0,  # strict: positive-EV only
                 include_diagnostic_fields=True,
             )
-        except Exception:
-            traceback.print_exc()
-            df = None
+        except Exception as exc:
+            # Bug fix (CMD 3): a ranker error must NOT collapse into the
+            # empty-200 "no setups" path below — that response is byte-identical
+            # to a genuine empty scan, so the operator sees "nothing today" and
+            # skips trading when the engine actually errored. Surface it as a
+            # 500 + correlation id (full detail to the server log), mirroring
+            # /api/candidates and /api/tv/ranked. The empty-200 branch is now
+            # reserved for a genuinely empty, non-error result only.
+            self._send_internal_error(exc, context="tv_scan:rank_candidates_by_ev")
+            return
 
         if df is None or df.empty:
             self._send_json(
@@ -3321,80 +3045,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # News endpoints
-    # ------------------------------------------------------------------
-    def _handle_news(self, limit: int):
-        """Serve the most recent news stories from the in-memory buffer.
-
-        Stories are ingested by ``POST /api/news/ingest`` (called by
-        ``scripts/orchestrate.py`` after running the news pipeline)
-        and served back here for the dashboard + committee.
-        """
-        limit = max(1, min(limit, _NEWS_BUFFER_MAX))
-        items = list(reversed(_NEWS_BUFFER[-limit:]))
-        self._send_json({"stories": items, "count": len(items)})
-
-    def _handle_news_ingest(self, payload: dict):
-        """Ingest news stories from the orchestrator / news pipeline.
-
-        Expects ``{"stories": [...]}`` where each story is a dict with
-        at minimum ``title`` and ``summary``. Optional fields:
-        ``tickers``, ``impact``, ``source``, ``timestamp``, ``url``.
-
-        Stories are appended to the in-memory ring buffer
-        (``_NEWS_BUFFER``) and served back via ``GET /api/news``. The
-        buffer is dashboard-facing — it does **not** feed the EV
-        decision path (``engine/news_sentiment.py`` is the EV-path
-        news reviewer, consumed by ``WheelRunner.rank_candidates_by_ev``
-        from on-disk sentiment shards, not from this in-memory buffer).
-        No event-gate integration happens at this endpoint.
-        """
-        stories = payload.get("stories", [])
-        if not isinstance(stories, list):
-            self._send_error("stories must be a list", 400)
-            return
-
-        ingested = 0
-        for story in stories:
-            if not isinstance(story, dict):
-                continue
-            if not story.get("title") and not story.get("summary"):
-                continue
-            story.setdefault("ingested_at", datetime.now(UTC).isoformat())
-            story.setdefault("source", "pipeline")
-            _NEWS_BUFFER.append(story)
-            ingested += 1
-
-        # Trim buffer
-        while len(_NEWS_BUFFER) > _NEWS_BUFFER_MAX:
-            _NEWS_BUFFER.pop(0)
-
-        self._send_json({"ingested": ingested, "buffer_size": len(_NEWS_BUFFER)})
-
-    def _handle_memo(self, ticker, as_of):
-        """Generate AI trade memo for a ticker."""
-        from engine.trade_memo import MemoGenerator
-
-        gen = MemoGenerator()
-        result = gen.generate_memo(ticker, as_of)
-        self._send_json(result)
-
-    def _handle_summary(self, ticker):
-        """Generate quick AI summary for a ticker."""
-        from engine.trade_memo import MemoGenerator
-
-        gen = MemoGenerator()
-        summary = gen.generate_quick_summary(ticker)
-        self._send_json({"ticker": ticker, "summary": summary})
-
-    def _handle_ollama_status(self):
-        """Check Ollama availability and models."""
-        from engine.trade_memo import _check_ollama
-
-        status = _check_ollama()
-        self._send_json(status)
-
     def log_message(self, format, *args):
         """Custom log format."""
         print(f"[Engine API] {args[0]}")
@@ -3471,8 +3121,8 @@ def _resolve_host(env: dict[str, str] | None = None) -> str:
     """Resolve the bind host from ``SWE_API_HOST`` (default ``127.0.0.1``).
 
     Hardening (R3): the server historically bound ``0.0.0.0``, which made
-    the unauthenticated-by-default write endpoints (``POST /api/tv/webhook``,
-    ``POST /api/news/ingest``) reachable from any host on the LAN. The
+    the unauthenticated-by-default write endpoint (``POST /api/tv/webhook``)
+    reachable from any host on the LAN. The
     dashboard talks to this server through a *server-side* Next.js proxy,
     so the raw port never needs to be reachable from a browser or another
     machine — a loopback bind is the safe default. An operator who really
@@ -3489,8 +3139,8 @@ def _resolve_host(env: dict[str, str] | None = None) -> str:
 def main():
     port = _resolve_port()
     host = _resolve_host()
-    # ThreadingHTTPServer spawns one thread per request so a slow committee
-    # or memo call can't block the 5+ parallel fetches the dashboard fires
+    # ThreadingHTTPServer spawns one thread per request so one slow request
+    # can't block the 5+ parallel fetches the dashboard fires
     # when a trader switches tickers. The local ``_EngineHTTPServer``
     # subclass bumps ``request_queue_size`` from stdlib's 5 to
     # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
@@ -3511,7 +3161,6 @@ def main():
     print("  GET /api/regime")
     print("  GET /api/calendar?ticker=AAPL&days=30")
     print("  GET /api/screen?min_score=60&limit=20")
-    print("  GET /api/committee?ticker=NVDA")
     print("  GET /api/vix")
     print("  GET /api/fundamentals?ticker=AAPL")
     print("  GET /api/universe")
@@ -3525,9 +3174,6 @@ def main():
     print("  GET /api/payoff?ticker=AAPL&strategy=csp&dte=45")
     print("  GET /api/expected_move?ticker=AAPL&dte=45")
     print("  GET /api/strikes?ticker=AAPL&strategy=csp&dte=45")
-    print("  GET /api/memo?ticker=AAPL")
-    print("  GET /api/summary?ticker=AAPL")
-    print("  GET /api/ollama_status")
     print("  GET  /api/tv/signal?ticker=AAPL")
     print("  GET  /api/tv/scan?limit=25&zone=wheel_put")
     print("  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone")
@@ -3536,8 +3182,6 @@ def main():
     print("  GET  /api/tv/dossier?top_n=10&timeframe=1D")
     print("  GET  /api/tv/dealer_positioning?ticker=AAPL&dte=35")
     print("  POST /api/tv/webhook")
-    print("  GET  /api/news?limit=20")
-    print("  POST /api/news/ingest")
     print()
     try:
         server.serve_forever()

@@ -308,20 +308,8 @@ Theta/
 **/ThetaTerminal*.jar
 
 # =============================================================================
-# TradingView analyst workspace
+# TradingView chart screenshots (regenerable; the analyst workspace and its
+# vendored MCP server were removed 2026-09-17, DECISIONS.md D30)
 # =============================================================================
-# Vendored MCP server (separate git repo + node_modules, ~26MB). Treated as
-# a clone-it-yourself dependency; see docs/TRADINGVIEW_INTEGRATION.md.
-tradingview/tradingview-mcp-jackson/
-
-# Analyst deliverables — dated outputs that accumulate. Folder structure
-# (research/, models/, pine/) is preserved via .gitkeep; the artefacts are
-# regenerable from the analyst workflow.
-tradingview/research/*.docx
-tradingview/research/*.pdf
-tradingview/models/*.xlsx
-tradingview/models/*.csv
 tradingview/screenshots/
 
-# premium-correction pilot regenerable outputs (CSVs/PNG move with larder coverage)
-studies/premium_correction/output/

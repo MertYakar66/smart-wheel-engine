@@ -12,13 +12,12 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-/** The top-level surfaces, in canonical order. "News" lives in the (main)
- *  route group at /top. Order matches the cross-page tab row everywhere. */
+/** The top-level surfaces, in canonical order. Order matches the cross-page
+ *  tab row everywhere. */
 export const CROSS_PAGE_NAV: { label: string; href: string }[] = [
   { label: "Cockpit", href: "/cockpit" },
   { label: "Portfolio", href: "/portfolio" },
   { label: "Terminal", href: "/terminal" },
-  { label: "News", href: "/top" },
 ];
 
 /**

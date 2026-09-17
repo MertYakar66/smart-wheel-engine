@@ -23,7 +23,7 @@ Series we care about for the wheel engine
 - SOFR            Secured Overnight Financing Rate
 
 These feed:
-- regime_detector (rate regime + credit-stress gates)
+- (regime_detector, the former rate-regime consumer, was removed 2026-09-17; the credit multiplier lives in wheel_runner)
 - event_gate (CPI/NFP/FOMC dates)
 - risk_manager (HY/IG spread widening = de-risk)
 """

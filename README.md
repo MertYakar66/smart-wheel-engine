@@ -11,13 +11,14 @@ rescue a negative-EV trade.
 
 > **AI agent / fresh contributor — start here:**
 >
-> 1. [`AGENTS.md`](AGENTS.md) — read order for any agent (Claude, Codex, Cursor, Copilot, Aider).
-> 2. [`CLAUDE.md`](CLAUDE.md) — structural contract; the four-layer mental model and the hard EV invariant.
-> 3. [`PROJECT_STATE.md`](PROJECT_STATE.md) — what's authoritative right now, what's deprecated.
-> 4. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
-> 5. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
+> 1. [`OPERATING_MODEL.md`](OPERATING_MODEL.md) — the single authoritative operating document: roles, handoffs, Run Summary format (§4.4), concurrency (§2.4), invariants (§7), and the consolidated project reference (§9).
+> 2. [`docs/PROMPTING_STANDARD.md`](docs/PROMPTING_STANDARD.md) — the prompting standard: sharpening gate, Execution Prompt template, Run Summary short form.
+> 3. [`CLAUDE.md`](CLAUDE.md) — auto-loaded two-line pointer to `OPERATING_MODEL.md`.
+> 4. [`PROJECT_STATE.md`](PROJECT_STATE.md) — what's authoritative right now, what's deprecated.
+> 5. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
+> 6. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
 >
-> Other entry points: [`DECISIONS.md`](DECISIONS.md), [`ROADMAP.md`](ROADMAP.md), [`CHANGELOG.md`](CHANGELOG.md), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md), [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md), [`FILE_MANIFEST.md`](FILE_MANIFEST.md), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md).
+> Other entry points: [`DECISIONS.md`](DECISIONS.md), [`ROADMAP.md`](ROADMAP.md), [`CHANGELOG.md`](CHANGELOG.md), [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md), [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md), [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.7 (commit/PR format), [`FILE_MANIFEST.md`](FILE_MANIFEST.md), [`docs/TRADINGVIEW_INTEGRATION.md`](docs/TRADINGVIEW_INTEGRATION.md).
 
 ---
 
@@ -25,19 +26,19 @@ rescue a negative-EV trade.
 
 | Layer | Lives at | What it does |
 |---|---|---|
-| **Data** | `data/`, `data_processed/`, `scripts/pull_*.py` | OHLCV, IV history, option chains, fundamentals, macro, news. Two providers selected by `SWE_DATA_PROVIDER` (default `bloomberg`). |
+| **Data** | `data/`, `data_processed/`, `scripts/pull_*.py` | OHLCV, IV history, option chains, fundamentals, macro. Two providers selected by `SWE_DATA_PROVIDER` (default `bloomberg`). |
 | **Quant** | `engine/` | Black-Scholes-Merton + Greeks to 3rd order, empirical forward distributions, POT-GPD tails, 4-state Gaussian HMM regime, Nelson-Siegel skew, Student-t copula CVaR, dealer GEX / walls / gamma flip. |
 | **Decision** | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py` | `EVEngine.evaluate` (the authoritative ranker), `WheelRunner.rank_candidates_by_ev` (the one ranker every tradeable path routes through), `EnginePhaseReviewer` (rules R1–R11, downgrade-only). |
-| **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py`, `advisors/` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider), Buffett/Munger/Simons/Taleb advisor committee (advisory only). |
+| **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider). |
 
-See [`CLAUDE.md`](CLAUDE.md) for the full four-layer model and the hard EV
-invariant. See [`MODULE_INDEX.md`](MODULE_INDEX.md) for the per-module map.
+See [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.1 and §9.2 for the full
+four-layer model and the hard EV invariant. See [`MODULE_INDEX.md`](MODULE_INDEX.md) for the per-module map.
 
 ---
 
 ## What this is not
 
-Out of scope by design (see `CLAUDE.md`'s NEVER list):
+Out of scope by design (see `OPERATING_MODEL.md` §9.3):
 
 - **No auto-execution.** The engine produces ranked candidates and memos. No broker wiring, no OMS, no order routing.
 - **No tick-level order flow.** Theta v3 doesn't expose realtime stock quotes at this tier.
@@ -92,21 +93,7 @@ python engine_api.py
 cd dashboard && npm install && npm run dev
 ```
 
-`engine_api.py` serves 34 endpoints — see the file header for the catalog.
-
-### Daily news pipeline (optional, no API cost)
-
-```bash
-python morning_run.py
-```
-
-Browser-driven multi-LLM (Claude / ChatGPT / Gemini paid sessions); the
-output feeds the operator dashboard. As of D18 (2026-05-26), no news
-subsystem feeds the EV authority — `engine/news_sentiment.py` is now
-an operator-transparency layer with a constant-1.0 multiplier stub.
-See `DECISIONS.md` D18 and `docs/NEWS_REDESIGN_CAMPAIGN.md` for the
-in-flight quantitative replacements (EDGAR earnings, fundamentals
-quality score, FRED macro).
+`engine_api.py` serves the HTTP API — see the file header for the endpoint catalog.
 
 ---
 
@@ -134,30 +121,23 @@ unset and defaults to `bloomberg`.
 ```
 smart-wheel-engine/
 ├── engine/          # quant + decision layer (EVEngine, WheelRunner, dossier, dealer positioning, …)
-├── advisors/        # Buffett/Munger/Simons/Taleb committee (advisory only)
 ├── scripts/         # data pullers (pull_*.py) + diagnostics + Bloomberg-export assets
 ├── tests/           # test suite (taxonomy in TESTING.md)
 ├── dashboard/       # Next.js dashboard consuming engine_api.py (+ legacy Python CLI)
 ├── data/            # Bloomberg CSVs + feature store (AAPL committed as sample)
 ├── data_raw/        # universe list + raw fixtures
 ├── data_processed/  # regenerable Theta/yfinance pulls (gitignored)
-├── financial_news/  # standalone news platform (not on the EV path)
-├── news_pipeline/   # browser-agent pipeline driving morning_run.py
-├── local_agent/     # experimental local agent + UI
-├── ml/              # research ML models
 ├── backtests/       # research backtesting + pinned regression reproducers
-├── studies/         # one-off research studies (premium-correction pilot)
-├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
+├── staging/         # Bloomberg-lab pull tooling + not-yet-integrated data fragments
 ├── config/          # configuration
 ├── utils/           # shared utilities
-├── tradingview/     # Pine indicator + analyst-workspace assets
+├── tradingview/     # Pine indicator + alert schema (engine bridge)
 ├── docs/            # documentation set (operational + reference)
 ├── archive/         # superseded / point-in-time artifacts
 ├── notebooks/       # exploratory notebooks
-├── models/          # ML model output directory
 ├── engine_api.py    # HTTP API entry point (:8787)
-├── morning_run.py   # news-pipeline entry point
-└── *.md             # AGENTS / CLAUDE / README + the Tier-2 index docs
+├── conftest.py, pyproject.toml, requirements.txt
+└── *.md             # OPERATING_MODEL / CLAUDE (pointer) / README + the Tier-2 index docs
 ```
 
 The exhaustive per-file index is [`FILE_MANIFEST.md`](FILE_MANIFEST.md) —
@@ -190,8 +170,8 @@ launch-blocker subset, and the "what to run when you touch X" map.
 
 | Document | Description |
 |---|---|
-| [AGENTS.md](AGENTS.md) | AI-agent onboarding contract — the canonical read order |
-| [CLAUDE.md](CLAUDE.md) | Structural contract — four-layer model + hard EV invariant + NEVER list |
+| [OPERATING_MODEL.md](OPERATING_MODEL.md) | The single authoritative operating document — roles, handoffs, verification, concurrency (§2.4), invariants (§7), consolidated project reference (§9) |
+| [CLAUDE.md](CLAUDE.md) | Auto-loaded two-line pointer to OPERATING_MODEL.md |
 | [PROJECT_STATE.md](PROJECT_STATE.md) | Temporal state — what's authoritative / in progress / deprecated |
 | [MODULE_INDEX.md](MODULE_INDEX.md) | Per-module purpose + decision-layer role classification |
 | [FILE_MANIFEST.md](FILE_MANIFEST.md) | Exhaustive per-file index (grep, don't read) |
@@ -199,13 +179,13 @@ launch-blocker subset, and the "what to run when you touch X" map.
 | [DECISIONS.md](DECISIONS.md) | Architectural decision log with rationale |
 | [ROADMAP.md](ROADMAP.md) | Intentional next work by track |
 | [CHANGELOG.md](CHANGELOG.md) | Recently-shipped, grouped by month |
-| [COMMIT_GUIDE.md](COMMIT_GUIDE.md) | Commit-message and PR format |
+| [OPERATING_MODEL.md §9.7](OPERATING_MODEL.md) | Commit-message and PR format |
 | [docs/DATA_POLICY.md](docs/DATA_POLICY.md) | Data tiers, provider matrix, refresh procedures, sandbox caveats |
 | [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md) | Launch-blocker invariants before merging |
 | [docs/LAPTOP_SETUP.md](docs/LAPTOP_SETUP.md) | Bring-up on a new machine (Theta Terminal, feature store) |
-| [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge + analyst workspace (MCP) |
+| [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge: Pine indicator, webhook, chart providers |
 | [docs/GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
-| [docs/GOVERNANCE.md](docs/GOVERNANCE.md) | Model-governance framework |
+| [OPERATING_MODEL.md §9.9](OPERATING_MODEL.md) | Model-governance standards |
 | [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security policy |
 
@@ -213,9 +193,9 @@ launch-blocker subset, and the "what to run when you touch X" map.
 
 ## Contributing
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the human-side
-workflow and [`AGENTS.md`](AGENTS.md) + [`COMMIT_GUIDE.md`](COMMIT_GUIDE.md)
-for the AI-agent handoff and commit-message standard.
+See [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.8 for the contributor
+workflow, §9.6 for the AI-agent onboarding contract, and §9.7 for the
+commit-message and PR standard.
 
 Hard rules in brief:
 

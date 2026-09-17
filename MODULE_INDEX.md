@@ -5,7 +5,7 @@
 
 Per-module purpose and decision-layer relationship. The "Role" column
 classifies each module against the EV decision contract from
-`CLAUDE.md` §2:
+`OPERATING_MODEL.md` §9.2 / §7:
 
 | Role | Meaning |
 |---|---|
@@ -31,10 +31,9 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | File | Purpose | Status | Role |
 |---|---|---|---|
 | `engine_api.py` | HTTP API on `:8787` serving the Next.js dashboard. The top-of-file docstring lists most endpoints but is not exhaustive — e.g. `/api/concentration_preview` and the D26 `/api/portfolio/*` read-only performance-viewer prefix are served by the handler but undocumented there. | live | runner / display |
-| `morning_run.py` | Browser-driven multi-LLM news pipeline (Claude / ChatGPT / Gemini paid sessions). Zero-API-cost. | live | input (news) |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
-| `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
+| `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — no `[project.scripts]` table); `[tool.hatch.build.targets.wheel] packages = ["engine", "data", "backtests"]` since the `src/` scaffold was collapsed on 2026-09-17 (`DECISIONS.md` D2 update). | live | infra |
 
 ## `engine/` — quant + decision layer
 
@@ -56,12 +55,11 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `transaction_costs.py` | Commissions, slippage, assignment fees, sqrt impact, Reg-T margin. |
 | `tail_risk.py` | POT-GPD tail estimation. |
 | `portfolio_copula.py` | Student-t copula portfolio CVaR. **Dormant** — no production consumer; the smoke harness (`scripts/feature_smoke_test.py`) and the copula/stress coverage tests are the only callers. |
-| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. **Dormant** — superseded on the live path by `regime_hmm.py` (`wheel_runner.py:1975`); re-exported by `engine/__init__.py` and imported by the smoke harness only, with no live EV consumer (the `EVEngine` `regime_multiplier` field comment now names the HMM as the live caller-supplied source — fixed in the D28 close-out). |
 | `regime_hmm.py` | 4-state Gaussian HMM regime detector. Cached per-ticker by `WheelRunner._hmm_regime_cache` (audit-VIII P2). (**multiplier input**) |
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang). |
-| `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
+| `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `OPERATING_MODEL.md` §9.3's out-of-scope list). |
 | `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |
 
 ### Reviewers (downgrade-only)
@@ -69,12 +67,8 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | Module | Purpose |
 |---|---|
 | `chart_context.py` | `ChartContext` dataclass + `ChartContextProvider` Protocol. |
-| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
-| `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
+| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`; `build_default_provider` chains them (filesystem first, Playwright optional). The opt-in MCP provider was removed 2026-09-17 (D30). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
-| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). **Dormant** — re-exported but no live consumer (`engine_api` / `wheel_runner` / `tv_signals` do not call it). |
-| `signals.py` | Composite signal aggregator (`IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). **Dormant** — re-exported by `engine/__init__.py` but zero production callers (tests, the frozen `src/` scaffold, and the smoke harness only); wire-up requires an explicit decision. |
-| `news_sentiment.py` | Operator-facing sentiment reader. **Severed from the EV path by D18** — `sentiment_multiplier()` returns constant 1.0. `get_ticker_sentiment` is preserved so the dashboard / row dict / morning brief still surface the underlying score for transparency, but the engine ignores it. |
 
 ### Data layer
 
@@ -85,6 +79,14 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `data_integration.py` | Provider-selection helpers; `get_current_risk_free_rate`. |
 | `external_data/` | External data connector subpackage. |
 
+### Feature-engineering library (`engine/features/`, moved from `src/features/` 2026-09-17)
+
+| Module | Role | Status |
+|---|---|---|
+| `features/technical.py` | `TechnicalFeatures` — SMA/EMA/RSI/MACD/Bollinger/ATR; consumed by `tv_signals.py`, `strangle_timing.py`, `engine_api.py`, `data/bloomberg_import.py`. | live |
+| `features/volatility.py` | `VolatilityFeatures` — realised-vol estimators, IV rank/percentile; consumed by `data/bloomberg_import.py`, `scripts/quant_benchmark_gate.py`, the quant-fixture tests. | live (off the EV path) |
+| `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | Feature-store inputs; consumed only by `data/feature_pipeline.py` (research ETL) and tests. Deletion candidate with that pipeline — Operator ruling pending. | research |
+
 ### Core math
 
 | Module | Purpose |
@@ -93,7 +95,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `binomial_tree.py` | Binomial-tree pricer. |
 | `monte_carlo.py` | Block bootstrap, jump-diffusion, Longstaff-Schwartz American pricing. |
 | `volatility_surface.py` | SVI calibration, `VolatilitySurfaceBuilder`. **live** (A2, 2026-05-30) — wired in fail-loud via `SurfaceDataUnavailable` / `require_surface`; first caller `scripts/diagnose_iv_surface.py` (see `DECISIONS.md` D9). |
-| `model_validation.py` | Textbook + property tests for pricing models. |
+| `model_validation.py` | `CrossModelValidator` / `run_benchmark_grid` — cross-model pricing comparison with acceptance gates. **Test-only consumer** (`tests/test_binomial_tree.py`); kept in the 2026-09-17 dormant-module pass for that reason. |
 | `shared_valuation.py` | Unified labeling — `simulate_option_trade`, `simulate_wheel_cycle`, `TradeOutcome`. |
 
 ### Risk + sizing
@@ -110,7 +112,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `wheel_tracker.py` | Position-lifecycle bookkeeping: `WheelPosition`, `PositionState`. Audit-VIII fixed P&L double-count and orthogonalised the three ledgers (realized_pnl, transaction_costs, stock_basis). |
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
-| `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
 | `sim_portfolio.py` | Distributional simulated-portfolio reporting overlay: a WheelTracker forward book's equity curve → block-bootstrap MC equity fan (p5–p95) + terminal/drawdown distributions + a correlation-to-1 Student-t copula tail, reconciled against the deterministic backtest NAV. Reuses `monte_carlo` / `portfolio_copula` / `performance_metrics`; driven by `scripts/run_forward_sim.py`. Outside the CI-gated trio; imports nothing from it; every output labelled `model` vs `engine-measured`, copula tail `feeds_ev=False`. (**display**) |
 | `paper_book.py` | Forward paper-trading book — trio-free reporting/state library for a simulated wheel book the real engine drives day-by-day (zero money at risk). SIM-namespace I/O + guard, phase-labelled equity history (`backfill` in-sample-ish vs `forward` true-OOS), a forecast ledger + held-to-expiry outcome, the rolling calibration accumulator (wilson/reliability mirroring `scripts/ibkr_ev_calibration`), and the MC bands (soft-reuses `sim_portfolio`). Driven by `scripts/run_paper_book.py`. Outside the CI-gated trio; **AST-guarded** to never import it; consumes ranker output, never ranks. (**display**) |
@@ -122,14 +123,12 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
-| `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
-| `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |
 
 ### `engine/__init__.py` re-exports
 
 Exports the legacy quant layer (option_pricer, monte_carlo,
-risk_manager, regime_detector, signals, stress_testing,
+risk_manager, stress_testing,
 transaction_costs, volatility_surface, wheel_tracker,
 portfolio_tracker, etc.) **plus, since ROADMAP A3, the seven modern
 decision-layer symbols**: `EVEngine`, `EVResult`, `ShortOptionTrade`,
@@ -151,25 +150,6 @@ sanctioned.
 
 ---
 
-## `advisors/` — investment committee
-
-Status: live, advisory-only. Per CLAUDE.md §2 the committee cannot
-upgrade a negative-EV verdict; audit-VIII added a
-`tradeable_endpoint="/api/candidates"` and `ev_anchored: bool` to
-prevent shadow synthetic trades from leaking into the committee
-output.
-
-| Module | Role |
-|---|---|
-| `committee.py` | Runs members; aggregates verdicts. |
-| `buffett.py` / `munger.py` / `simons.py` / `taleb.py` | Per-investor heuristics. |
-| `base.py` | Abstract advisor base class. |
-| `schema.py` | Pydantic schemas for advisor I/O. |
-| `scorecard.py` | Scorecard structure. |
-| `integration.py` | Engine-side bridge. |
-
----
-
 ## `scripts/` — pulls + diagnostics
 
 Two flavours: data pullers (`pull_*.py`) and diagnostics
@@ -185,7 +165,7 @@ Key scripts:
 |---|---|
 | `pull_all.py` | Orchestrates every `pull_*.py` step; respects `--skip` for tier-blocked endpoints. |
 | `backfill_features.py` | Rebuilds the `data/features/**` shards (1.2 GB total; AAPL is the in-git sample). |
-| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `CLAUDE.md`'s fresh-session bring-up. |
+| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `OPERATING_MODEL.md` §9.4 (fresh-session bring-up). |
 | `feature_smoke_test.py` | 108 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
 | `theta_backfill.py` | Tier-aware bulk backfill with circuit breakers. |
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |
@@ -221,12 +201,7 @@ that the root README still references — it is not the primary UI.
 
 | Dir | Purpose | Status |
 |---|---|---|
-| `financial_news/` | Standalone news platform — RSS connectors, clustering, processing, sources, storage, scheduler, UI. **Not on the EV path.** | research / parallel project |
-| `news_pipeline/` | Browser-agent news pipeline that drives `morning_run.py`: scrapers, browser_agents, local_llm, orchestrator, publisher, recovery, security, slo. | live (operational), but not on the EV path |
-| `local_agent/` | Local AI agent + Streamlit UI; agents, browser, mcp_server, memory, ui. | experimental |
-| `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
-| `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
 | `tests/` | `test_*.py` files + `quant_benchmarks.py` shared fixtures. See `TESTING.md` for the taxonomy, launch-blocker subset, and live counts. | live |
 | `data/`, `data_processed/`, `data_raw/` | See `docs/DATA_POLICY.md` §2 for the provider matrix and what is committed vs. regenerable. | live |
@@ -234,6 +209,4 @@ that the root README still references — it is not the primary UI.
 | `config/` | `settings.py` — dormant config dataclass layer (zero importers; the live runtime config is `engine/policy_config.py`). | dormant |
 | `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
-| `src/` | **Phantom scaffold (shrinking).** The empty `execution/`/`models/`/`risk/` stubs were removed (D28 close-out, 2026-07-08); remaining: partial `data/` and `features/` (live members — `features/technical.py` + the feature-pipeline consumers) and `backtest/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
-| `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |
 | `archive/` | Superseded / point-in-time artifacts; see `archive/README.md`. | reference |

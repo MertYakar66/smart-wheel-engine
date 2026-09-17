@@ -66,6 +66,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from engine.features.technical import TechnicalFeatures
+from engine.features.volatility import VolatilityFeatures
 from engine.option_pricer import (
     black_scholes_delta,
     black_scholes_gamma,
@@ -73,8 +75,6 @@ from engine.option_pricer import (
     black_scholes_vega,
 )
 from engine.risk_manager import calculate_kelly_fraction
-from src.features.technical import TechnicalFeatures
-from src.features.volatility import VolatilityFeatures
 
 # Skip all tests in this module if hypothesis is not available
 pytestmark = pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")

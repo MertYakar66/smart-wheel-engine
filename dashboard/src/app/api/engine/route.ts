@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
  * API bridge to the smart-wheel-engine Python API server.
  *
  * The Python API runs on port 8787 (started via: python engine_api.py)
- * and serves all engine data: candidates, analysis, regime, committee, etc.
+ * and serves all engine data: candidates, analysis, regime, calendar, etc.
  *
- * GET /api/engine?action=STATUS|candidates|analyze|regime|committee|calendar
+ * GET /api/engine?action=STATUS|candidates|analyze|regime|calendar
  */
 
 const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
@@ -138,13 +138,6 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
       }
 
-      case "committee": {
-        const ticker = searchParams.get("ticker") || "AAPL";
-        const qs = new URLSearchParams({ ticker });
-        const data = await fetchEngine(`/api/committee?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
       case "calendar": {
         const ticker = searchParams.get("ticker") || "";
         const days = searchParams.get("days") || "30";
@@ -236,23 +229,6 @@ export async function GET(request: Request) {
           days: searchParams.get("days") || "252",
         });
         const data = await fetchEngine(`/api/iv_history?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "memo": {
-        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
-        const data = await fetchEngine(`/api/memo?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "summary": {
-        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
-        const data = await fetchEngine(`/api/summary?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "ollama_status": {
-        const data = await fetchEngine("/api/ollama_status");
         return NextResponse.json(data);
       }
 

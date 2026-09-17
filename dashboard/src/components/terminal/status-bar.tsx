@@ -6,15 +6,11 @@ import Link from "next/link";
 /**
  * Top status strip. Everything rendered here is a real observed value:
  * VIX/term-structure from the engine regime read, NAV from the live IBKR
- * book, the data-frontier date from action=status, and the feed badge from
- * the actual stories count. The old hardcoded index tape (fake SPX/NDX
- * quotes with no DEMO label) is gone — no realtime quote feed exists.
+ * book, and the data-frontier date from action=status. The old hardcoded
+ * index tape (fake SPX/NDX quotes with no DEMO label) is gone — no realtime
+ * quote tape exists.
  */
 interface StatusBarProps {
-  alertCount: number;
-  ollamaStatus: "connected" | "disconnected" | "checking";
-  /** Real stories count from /api/stories (null while loading). */
-  storyCount: number | null;
   vix?: number;
   vix3m?: number | null;
   contango?: boolean | null;
@@ -26,9 +22,6 @@ interface StatusBarProps {
 }
 
 export function StatusBar({
-  alertCount,
-  ollamaStatus,
-  storyCount,
   vix,
   vix3m,
   contango,
@@ -138,43 +131,8 @@ export function StatusBar({
         </div>
       </div>
 
-      {/* Right: Status indicators */}
+      {/* Right: wall clock */}
       <div className="flex shrink-0 items-center gap-4">
-        {/* Feed badge derives from real state: the actual stories count, not
-            a hardcoded LIVE off a static provider list. */}
-        <span className="flex items-center gap-1">
-          <span className="text-terminal-dim">FEED:</span>
-          {storyCount === null ? (
-            <span className="text-terminal-dim">…</span>
-          ) : storyCount > 0 ? (
-            <span className="text-terminal-green">{storyCount}</span>
-          ) : (
-            <span className="text-terminal-amber">EMPTY</span>
-          )}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="text-terminal-dim">AI:</span>
-          <span
-            className={
-              ollamaStatus === "connected"
-                ? "text-terminal-green"
-                : ollamaStatus === "checking"
-                  ? "text-terminal-amber"
-                  : "text-terminal-red"
-            }
-          >
-            {ollamaStatus === "connected"
-              ? "ONLINE"
-              : ollamaStatus === "checking"
-                ? "…"
-                : "OFFLINE"}
-          </span>
-        </span>
-        {alertCount > 0 && (
-          <span className="flex items-center gap-1">
-            <span className="text-terminal-amber">▲ {alertCount}</span>
-          </span>
-        )}
         <span className="text-terminal-dim">{time}</span>
       </div>
     </div>

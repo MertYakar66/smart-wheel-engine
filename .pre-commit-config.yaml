@@ -31,7 +31,7 @@ repos:
     rev: 1.7.7
     hooks:
       - id: bandit
-        args: ['-ll', '-r', 'src/', 'engine/', 'dashboard/']
+        args: ['-ll', '-r', 'engine/', 'dashboard/']
         exclude: tests/
 
   # Type checking (optional, non-blocking)
@@ -43,7 +43,7 @@ repos:
         additional_dependencies: ['types-all']
         exclude: tests/
         pass_filenames: false
-        entry: bash -c 'mypy src/ engine/ dashboard/ --ignore-missing-imports || true'
+        entry: bash -c 'mypy engine/ data/schemas.py dashboard/ --ignore-missing-imports || true'
 
   # Secrets detection
   - repo: https://github.com/Yelp/detect-secrets

@@ -18,6 +18,7 @@ import os
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 _DEEP = os.environ.get("SWE_DEEP_TEST_DATA")
@@ -105,3 +106,99 @@ def test_survivorship_window_assertion_accepts_pre_2018_start():
             base / "deep/sp500_ohlcv__delisted.csv.gz",
         ],
     )
+
+
+# --------------------------------------------------------------------------
+# CMD 5 — UNGATED synthetic-connector coverage for the survivorship guard.
+#
+# The @deep_data tests above skip in normal CI (they need the uncommitted deep +
+# delisted panels), so terminal_spot() / pit_universe() — which carry the
+# load-bearing survivorship guarantee — had ZERO CI coverage. These tests use
+# in-memory stubs (no SWE_DEEP_TEST_DATA, no deep data) so they run everywhere,
+# and they would FAIL if terminal_spot regressed to a plain on/after lookup
+# (which returns None past the delisting date, silently dropping the loss).
+# --------------------------------------------------------------------------
+
+
+class _StubConn:
+    """Connector stub: per-ticker ascending ``(iso_date, close)`` series, sliced
+    by ``start_date`` / ``end_date`` exactly like the ``get_ohlcv`` contract that
+    ``_spot_on_or_after`` (first row on/after) and ``terminal_spot``'s fallback
+    (last row on/before) rely on. ISO date strings compare lexicographically,
+    matching the ``.isoformat()`` bounds the harness passes."""
+
+    def __init__(self, series: dict[str, list[tuple[str, float]]]):
+        self._series = series
+
+    def get_ohlcv(self, ticker, start_date=None, end_date=None, **_kw):
+        rows = self._series.get(ticker, [])
+        if start_date is not None:
+            rows = [r for r in rows if r[0] >= start_date]
+        if end_date is not None:
+            rows = [r for r in rows if r[0] <= end_date]
+        return pd.DataFrame({"close": [c for _, c in rows]}, index=[d for d, _ in rows])
+
+
+def test_terminal_spot_live_name_resolves_on_or_after():
+    """A name trading on/after expiry resolves to that close, delisted=False."""
+    from backtests.survivorship import terminal_spot
+
+    conn = _StubConn({"LIVE": [("2023-03-10", 90.0), ("2023-03-16", 100.0)]})
+    spot, delisted = terminal_spot(conn, "LIVE", date(2023, 3, 15))
+    assert spot == pytest.approx(100.0)
+    assert delisted is False
+
+
+def test_terminal_spot_delisted_returns_last_close_never_none():
+    """A name whose history ENDS before expiry (no on/after bar) values at the
+    last close on/before expiry (the delisting price), flagged delisted — and
+    NEVER None. This is the survivorship guarantee."""
+    from backtests.regression._common import _spot_on_or_after
+    from backtests.survivorship import terminal_spot
+
+    conn = _StubConn({"SIVB": [("2023-02-01", 250.0), ("2023-03-10", 30.0)]})
+    spot, delisted = terminal_spot(conn, "SIVB", date(2023, 3, 15))
+    assert spot is not None, "terminal_spot must never return None for a name with history"
+    assert spot == pytest.approx(30.0)  # last close on/before expiry
+    assert delisted is True
+
+    # Guard has teeth: a PLAIN on/after lookup (what terminal_spot guards
+    # against) returns None for this exact input — so this test would fail if
+    # terminal_spot regressed to that behaviour.
+    assert _spot_on_or_after(conn, "SIVB", date(2023, 3, 15)) is None
+
+
+def test_terminal_spot_no_history_is_realized_total_loss():
+    """No history at all → (0.0, True): a total loss, still REALIZED not None."""
+    from backtests.survivorship import terminal_spot
+
+    conn = _StubConn({})  # unknown ticker → empty everywhere
+    spot, delisted = terminal_spot(conn, "GONE", date(2023, 3, 15))
+    assert spot == 0.0
+    assert delisted is True
+
+
+class _StubLoader:
+    """Loader stub exposing only ``get_universe_as_of`` — mirrors
+    ``ConsolidatedBloombergLoader``'s PIT accessor."""
+
+    def __init__(self, universe):
+        self._u = list(universe)
+
+    def get_universe_as_of(self, as_of):  # noqa: ARG002
+        return list(self._u)
+
+
+def test_pit_universe_returns_exact_pit_membership():
+    """pit_universe returns exactly the loader's PIT set — including a
+    since-delisted name and excluding a later joiner — with no survivor
+    filtering applied."""
+    from backtests.survivorship import pit_universe
+
+    # SIVB = a 2022 member that later delisted (must be INCLUDED); GEHC joined
+    # 2023 and is (by construction) absent from the 2022 snapshot.
+    pit = ["AAPL", "MSFT", "SIVB"]
+    result = pit_universe("2022-06-30", loader=_StubLoader(pit))
+    assert result == pit
+    assert "SIVB" in result  # since-delisted name preserved
+    assert "GEHC" not in result  # later joiner absent

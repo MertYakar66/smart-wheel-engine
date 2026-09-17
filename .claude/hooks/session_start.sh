@@ -123,30 +123,20 @@ except Exception as e:
     print(f"✗ connector smoke failed: {type(e).__name__}: {e}")
 PY
 
-# 6. Parallel-session coordination — surfaced every session so no terminal
-#    branches without seeing the contract + who's already working.
-echo "│  ─ Parallel sessions (docs/PARALLEL_SESSIONS.md) ─"
-echo "│    • Work the task card the Major Session allocated — don't self-select."
-echo "│    • Edit only your card's 'owns' files; decision-layer trio is CI-gated."
-echo "│    • Sn / D-numbers are assigned at MERGE, not work-start."
-echo "│    • Document your task in docs/worklog/ ('python scripts/new_worklog.py')."
-# 6b. Per-terminal env — parallel pytest / engine_api runs need isolation
-#     (separate port + coverage file + pytest cache). Warn if unset.
+# 6. Protocol reminder — Operating Model v3 (one protocol). Operator-away mode is
+#    OPERATING_MODEL.md §3.1; prompts follow docs/PROMPTING_STANDARD.md.
+echo "│  ─ Protocol (OPERATING_MODEL.md v3) ─"
+echo "│    • Every run starts from a sharpened request (docs/PROMPTING_STANDARD.md)."
+echo "│    • One branch, one PR per run; edit only the files your prompt <owns>."
+echo "│    • Decision-layer trio is CI-gated (lane-claim block in the PR body)."
+echo "│    • Document your run in docs/worklog/ ('python scripts/new_worklog.py')."
+# 6b. Per-machine env — several executors on one machine need isolation
+#     (separate port + coverage file + pytest cache). Informational.
 if [ -z "${SWE_API_PORT:-}" ] || [ -z "${COVERAGE_FILE:-}" ] || [ -z "${PYTEST_CACHE_DIR:-}" ]; then
-  echo "│    ⚠ per-terminal env unset — 'source scripts/setup-terminal.sh <letter>'"
-  echo "│      (isolates SWE_API_PORT / COVERAGE_FILE / PYTEST_CACHE_DIR)"
+  echo "│    ○ per-machine env unset — only needed when several executors share this machine"
+  echo "│      ('source scripts/setup-terminal.sh <id>' isolates SWE_API_PORT / COVERAGE_FILE / PYTEST_CACHE_DIR)"
 else
-  echo "│    ✓ per-terminal env: port=$SWE_API_PORT cov=$COVERAGE_FILE"
-fi
-# Live board claims — best-effort, only when gh is present + authed. Never
-# blocks the session: gh failures are swallowed, no network wait is forced.
-if command -v gh >/dev/null 2>&1; then
-  CLAIMS=$(gh issue view 113 --repo MertYakar66/smart-wheel-engine --json body --jq '.body' 2>/dev/null \
-           | sed -n '/Live state/,/^## /p' | grep '^|' | head -6)
-  if [ -n "$CLAIMS" ]; then
-    echo "│    Live board (#113):"
-    echo "$CLAIMS" | sed 's/^/│      /'
-  fi
+  echo "│    ✓ per-machine env: port=$SWE_API_PORT cov=$COVERAGE_FILE"
 fi
 
 # 7. Doc currency — warn when the temporal docs drift. Bash-native (awk/date/

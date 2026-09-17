@@ -11,6 +11,7 @@ Comprehensive tests for:
 """
 
 import json
+import os
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -952,3 +953,65 @@ def test_partial_option_close_books_pnl_on_closed_qty_only():
     # The remaining 3 contracts stay short.
     assert key in tracker.holdings
     assert tracker.holdings[key].shares == -3
+
+
+# ----------------------------------------------------------------------
+# CMD 4 — export_to_json atomic-write durability
+# ----------------------------------------------------------------------
+# export_to_json used open(filepath, "w") (truncate-on-open): an interrupt /
+# disk-full mid-dump, or a concurrent reader, could corrupt/empty the last good
+# portfolio.json → load_from_json JSONDecodeError → cash / holdings /
+# transactions / realized-P&L ledger (→ NAV → every %-of-NAV risk cap) lost.
+# Now atomic: dump to a sibling .tmp, flush + os.fsync, os.replace() into place.
+
+
+def test_export_atomic_preserves_last_good_file_on_write_failure(tmp_path, monkeypatch):
+    """A failure mid-dump must NOT corrupt the existing portfolio.json — the
+    last good export survives intact and still loads. Pre-fix, truncate-on-open
+    left the destination empty/partial and load_from_json then raised."""
+    fp = tmp_path / "portfolio.json"
+    PortfolioTracker(initial_cash=100_000).export_to_json(fp)  # first good export
+    good = fp.read_text()
+    assert json.loads(good)["cash"] == 100_000
+
+    def _boom(*_a, **_k):
+        raise OSError("simulated disk-full mid-write")
+
+    monkeypatch.setattr(json, "dump", _boom)  # fail mid-serialization
+    with pytest.raises(OSError):
+        PortfolioTracker(initial_cash=250_000).export_to_json(fp)
+
+    # The last good file is untouched and still parses.
+    assert fp.read_text() == good
+    back = PortfolioTracker(initial_cash=0)
+    back.load_from_json(fp)  # must not raise
+    assert back.cash == 100_000
+
+
+def test_export_uses_tmp_then_atomic_replace(tmp_path, monkeypatch):
+    """The write lands via a sibling .tmp swapped in with os.replace (an atomic
+    rename), leaving no .tmp behind. Pre-fix os.replace was never called."""
+    fp = tmp_path / "portfolio.json"
+    seen = {}
+    real_replace = os.replace
+
+    def _spy_replace(src, dst):
+        seen["src"], seen["dst"] = str(src), str(dst)
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", _spy_replace)  # stdlib os.replace (used via os.replace)
+    PortfolioTracker(initial_cash=100_000).export_to_json(fp)
+
+    assert seen.get("dst") == str(fp), "export did not os.replace into the destination"
+    assert seen.get("src", "").endswith(".tmp")
+    assert fp.exists()
+    assert not (tmp_path / "portfolio.json.tmp").exists()  # tmp consumed by replace
+
+
+def test_export_roundtrip_unchanged(tmp_path):
+    """Happy-path behaviour unchanged: export then load reproduces state."""
+    fp = tmp_path / "portfolio.json"
+    PortfolioTracker(initial_cash=123_456).export_to_json(fp)
+    back = PortfolioTracker(initial_cash=0)
+    back.load_from_json(fp)
+    assert back.cash == 123_456

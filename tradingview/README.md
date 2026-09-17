@@ -9,11 +9,10 @@ Visual cockpit for the Smart Wheel Engine. Ships three things:
 | `README.md` | This file — setup and operational notes |
 
 The underlying architecture is documented in
-[`docs/TRADINGVIEW_INTEGRATION.md`](../docs/TRADINGVIEW_INTEGRATION.md)
-(parent guide covering both this engine bridge and the
-analyst workspace), and [`docs/TRADINGVIEW_MCP_INTEGRATION.md`](../docs/TRADINGVIEW_MCP_INTEGRATION.md)
-(MCP chart provider design contract). This README is the hands-on
-checklist for the engine bridge.
+[`docs/TRADINGVIEW_INTEGRATION.md`](../docs/TRADINGVIEW_INTEGRATION.md).
+This README is the hands-on checklist for the engine bridge. (The MCP-driven
+analyst workspace that used to share this folder was removed on 2026-09-17,
+`DECISIONS.md` D30.)
 
 ---
 

@@ -132,17 +132,3 @@ export async function fetchEngineEodQuote(
     return null;
   }
 }
-
-export async function fetchQuotesForWatchlist(): Promise<Quote[]> {
-  const watchlistItems = await db.query.watchlists.findMany();
-  const quotes: Quote[] = [];
-
-  for (const item of watchlistItems) {
-    const quote = await fetchQuoteFromFinnhub(item.ticker);
-    if (quote) quotes.push(quote);
-    // Rate limit: small delay between calls
-    await new Promise((r) => setTimeout(r, 200));
-  }
-
-  return quotes;
-}

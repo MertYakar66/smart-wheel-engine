@@ -12,7 +12,7 @@ Instead: **one fragment file per task or scenario**, written once, by the
 terminal doing the work. The index (`INDEX.md`) is **generated** from the
 fragments' front-matter — never hand-maintained.
 
-This is also a coordination win (see `docs/PARALLEL_SESSIONS.md`): because each
+This is also a coordination win (see `OPERATING_MODEL.md` §9.5): because each
 task writes its *own* file, there is no shared file to collide on. The old
 "one `USAGE_TEST_LEDGER.md` owner per cycle" rule goes away.
 
@@ -31,21 +31,21 @@ Each fragment is `docs/worklog/<id>-<slug>.md` with front-matter + a fixed body.
 
 ```yaml
 ---
-id: S31                 # REQUIRED. Canonical id: Sn for a usage/backtest
-                        #   scenario (assigned at MERGE, see PARALLEL_SESSIONS
-                        #   rule 9), else a short slug.
-title: Sever verbal news from the EV path    # REQUIRED.
-kind: feature           # REQUIRED. feature|fix|backtest|verification|usage|
+id: restart-2026-09-16  # REQUIRED. Canonical id: Sn for a usage/backtest
+                        #   scenario (assigned at MERGE, see OPERATING_MODEL.md
+                        #   §9.5), else a short slug.
+title: Operating Model v3 + news-stack removal    # REQUIRED.
+kind: refactor          # REQUIRED. feature|fix|backtest|verification|usage|
                         #   refactor|docs|research
 status: merged          # REQUIRED. planned|in-flight|completed|merged|
                         #   abandoned|superseded
-terminal: A             # optional — which terminal worked it
-pr: 249                 # optional — the PR that shipped it
-decisions: [D18]        # optional — DECISIONS.md entries this established
-date: 2026-05-27        # optional
-headline: news_mult pinned to 1.0; verbal news has zero EV influence  # optional
+terminal: remote-sandbox # optional — which terminal worked it
+pr: 524                 # optional — the PR that shipped it
+decisions: [D29]        # optional — DECISIONS.md entries this established
+date: 2026-09-16        # optional
+headline: one protocol (v3); news stacks removed from the engine and the API  # optional
                         #   — the one-line takeaway shown in INDEX.md
-surface: [engine/news_sentiment.py, tests/test_news_severance.py]     # optional
+surface: [OPERATING_MODEL.md, engine/wheel_runner.py, engine_api.py]  # optional
 ---
 ```
 

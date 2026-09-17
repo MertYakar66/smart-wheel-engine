@@ -101,7 +101,7 @@ of these §2-safe roles:
 > - **#378 must land before 0A's spot-frontier bump** (a sequencing exception to the
 >   "data-before-trio" default). 0A advances OHLCV/spot to 06-18, but the legacy ATM-IV
 >   monolith (`sp500_vol_iv_full.csv`) has **no in-repo producer** (see
->   `docs/bloomberg_refresh_runbook.md` / `docs/DATA_POLICY.md` §5) and
+>   `archive/2026-06/bloomberg_refresh_runbook.md` / `docs/DATA_POLICY.md` §5) and
 >   stays at ~06-04 — so 0A *itself* opens the ~10-trading-day IV↔spot staleness gap that
 >   #378 guards (audit W36). Either land #378 ahead of 0A, **or** re-pin the served ATM IV
 >   in the same step as 0A so spot and IV frontiers advance together. #378 must also land
@@ -296,12 +296,12 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 
 | Dataset | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Banked at | Ref |
 |---|---|---|---|---|---|---|
-| Vol-index complex — VIX/VVIX/SKEW/VXN/RVX/OVX/GVZ/MOVE/VXEEM/CVIX (5,847 rows, 2004→) | `regime_detector` + `tail_risk` + **`candidate_dossier` R11** (VIX>25 & high-conf → downgrade) | advisory-sizing *(R11 mechanism = downgrade-only)* | **Yes → coupled** (VIX feeds R11, audit C3/W35) | **CEREMONY** (R11 reviewer) | `staging/macro_vol/sp500_vol_indices.csv` | roadmap §3 VIX family, §7 |
+| Vol-index complex — VIX/VVIX/SKEW/VXN/RVX/OVX/GVZ/MOVE/VXEEM/CVIX (5,847 rows, 2004→) | `regime_detector` *(removed 2026-09-17)* + `tail_risk` + **`candidate_dossier` R11** (VIX>25 & high-conf → downgrade) | advisory-sizing *(R11 mechanism = downgrade-only)* | **Yes → coupled** (VIX feeds R11, audit C3/W35) | **CEREMONY** (R11 reviewer) | `staging/macro_vol/sp500_vol_indices.csv` | roadmap §3 VIX family, §7 |
 | Implied correlation — COR1M/3M/6M (5,146 rows, 2006→) | `engine/portfolio_copula.py` (Student-t CVaR correlation regime → R7/R8) | evaluate-input-correctness *(copula → R7/R8 = downgrade)* | **Yes¹ → coupled¹** (R7/R8 on **S34** portfolio-context only) | **CEREMONY** (risk-gate) | `staging/macro_vol/spx_correlation.csv` | roadmap §7 COR |
-| Credit OAS — IG (`LUACOAS`) / HY (`LF98OAS`) (5,647 rows, 2004→2026-06-16) | `regime_detector` credit regime; ranker `credit_mult` (today FRED HY-OAS, audit C1) | advisory-sizing | **Yes² → coupled²** (only if it replaces/augments the ranker `credit_mult`) | **CEREMONY** (ranker `credit_mult`) | `staging/macro_vol/credit_spreads.csv` | roadmap §7 credit spreads |
-| VIX futures UX1–UX7 (5,150 rows, 2006→; contango 82%) | `regime_detector` contango/backwardation | advisory-sizing | No (regime context; the EV regime mult is the per-ticker OHLCV HMM, not VIX futures — C3) | PANEL/PLAIN | `staging/macro_vol/vix_futures_curve.csv` | roadmap §3/§7 UX1-7 |
-| OIS/SOFR curve · real yields/TIPS · fed funds · macro surprise (Citi) · FX · commodities · global vol+CDX | `regime_detector` rate/inflation/cross-asset regime; OIS/SOFR optionally BSM discount curve | advisory-sizing (OIS/SOFR optionally evaluate-input-correctness) | No (regime context) — **Yes only if** OIS/SOFR wired as the discount curve | PANEL/PLAIN (PANEL if OIS/SOFR→discount) | `staging/macro_rates/{ois_sofr_curve,real_yields,fed_funds,macro_surprise,fx,commodities,global_vol}.csv` | roadmap §7 |
-| Sector/factor ETFs OHLCV — 15 ETFs (94,646 rows, 1998→) | `portfolio_risk_gates` R9 sector context + `regime_detector` defensive-sector | downgrade-only *(per the R9-gate consumer, roadmap §6 line 168; not the §7 advisory-sizing row)* | **Yes³ → coupled³** (only if wired into R9) | **CEREMONY** (R9 risk-gate) — PLAIN if regime-display only | `staging/macro_rates/sector_factor_etfs_ohlcv.csv` | roadmap §7 (augments `sp500_sector_etfs.csv`) |
+| Credit OAS — IG (`LUACOAS`) / HY (`LF98OAS`) (5,647 rows, 2004→2026-06-16) | `regime_detector` *(removed 2026-09-17)* credit regime; ranker `credit_mult` (today FRED HY-OAS, audit C1) | advisory-sizing | **Yes² → coupled²** (only if it replaces/augments the ranker `credit_mult`) | **CEREMONY** (ranker `credit_mult`) | `staging/macro_vol/credit_spreads.csv` | roadmap §7 credit spreads |
+| VIX futures UX1–UX7 (5,150 rows, 2006→; contango 82%) | `regime_detector` *(removed 2026-09-17)* contango/backwardation | advisory-sizing | No (regime context; the EV regime mult is the per-ticker OHLCV HMM, not VIX futures — C3) | PANEL/PLAIN | `staging/macro_vol/vix_futures_curve.csv` | roadmap §3/§7 UX1-7 |
+| OIS/SOFR curve · real yields/TIPS · fed funds · macro surprise (Citi) · FX · commodities · global vol+CDX | `regime_detector` *(removed 2026-09-17)* rate/inflation/cross-asset regime; OIS/SOFR optionally BSM discount curve | advisory-sizing (OIS/SOFR optionally evaluate-input-correctness) | No (regime context) — **Yes only if** OIS/SOFR wired as the discount curve | PANEL/PLAIN (PANEL if OIS/SOFR→discount) | `staging/macro_rates/{ois_sofr_curve,real_yields,fed_funds,macro_surprise,fx,commodities,global_vol}.csv` | roadmap §7 |
+| Sector/factor ETFs OHLCV — 15 ETFs (94,646 rows, 1998→) | `portfolio_risk_gates` R9 sector context + `regime_detector` *(removed 2026-09-17)* defensive-sector | downgrade-only *(per the R9-gate consumer, roadmap §6 line 168; not the §7 advisory-sizing row)* | **Yes³ → coupled³** (only if wired into R9) | **CEREMONY** (R9 risk-gate) — PLAIN if regime-display only | `staging/macro_rates/sector_factor_etfs_ohlcv.csv` | roadmap §7 (augments `sp500_sector_etfs.csv`) |
 
 > **VIX file disambiguation (resolves the 0A↔3B asymmetry):** R11 reads the VIX *level* via
 > `get_vix_regime`. If that accessor reads `macro_vol/sp500_vol_indices.csv` (this 3B row),
@@ -315,7 +315,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 
 | Dataset | Engine consumer | §2 role | EV-moving? → re-baseline | Banked at | Ref |
 |---|---|---|---|---|---|
-| ATM IV term + realized vol — `atm_iv_{30,60,90,180,365,730}d` + `rv_{10,20,30,60,90,120,180,260}d` (**1,963,364 rows, 510 nm, 2010→06-18**) | `forward_distribution.py` (HAR-RV, RV bootstrap) + `regime_detector` + `tail_risk` + `option_pricer` term structure + `skew_dynamics` | evaluate-input-correctness | **Yes → coupled** | `staging/per_name/vol_term_rv.csv.gz` | roadmap §3 ATM term + realized vol, §4 |
+| ATM IV term + realized vol — `atm_iv_{30,60,90,180,365,730}d` + `rv_{10,20,30,60,90,120,180,260}d` (**1,963,364 rows, 510 nm, 2010→06-18**) | `forward_distribution.py` (HAR-RV, RV bootstrap) + `regime_detector` *(removed 2026-09-17)* + `tail_risk` + `option_pricer` term structure + `skew_dynamics` | evaluate-input-correctness | **Yes → coupled** | `staging/per_name/vol_term_rv.csv.gz` | roadmap §3 ATM term + realized vol, §4 |
 | Total-return index (`tot_return`, div-adjusted) | `forward_distribution` (log-return sampling — removes artificial ex-div jumps) + `tail_risk` (POT-GPD) | evaluate-input-correctness | **Yes → coupled** | `staging/per_name/returns_micro.csv` | roadmap §4 total-return |
 
 > **Depends on #378** (Phase 1) landing first. Note the staleness it guards is **created at
@@ -342,7 +342,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > Touches risk gates → **CEREMONY**. Today only a beta snapshot exists; this is the history.
 > Adjusted-beta was not entitled (raw only) — note in the copula calibration.
 
-### 3F — Fundamentals & estimates → advisor committee (advisory-sizing)
+### 3F — Fundamentals & estimates → advisor committee (advisory-sizing) — *consumer removed 2026-09-17 (`advisors/` deleted, Track F); row kept as the campaign record*
 
 | Dataset | Engine consumer | §2 role | EV-moving? → re-baseline | Banked at | Ref |
 |---|---|---|---|---|---|
@@ -394,7 +394,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 | Slice of `per_name/options_sentiment.csv.gz` (1,998,083 rows, 511 nm, 2010→06-18, **32.0 MB gzipped** since 2026-07-02) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
 |---|---|---|---|---|---|
 | `pc_oi_ratio`/`pc_vol_ratio`/`oi_call`/`oi_put` → dealer/skew advisory | `dealer_positioning` / `skew_dynamics` | advisory-sizing | **Yes⁶ → coupled⁶** (only if wired into the dealer multiplier `[0.70,1.05]`) | **CEREMONY** (dealer mult) — PLAIN if not wired | roadmap §6 options flow |
-| `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |
+| `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict; **module removed 2026-09-16, D29**) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |
 
 > Theta per-strike OI is the superior GEX source (roadmap §9 **W-3**, Theta-sourced — **not**
 > in the broad-pull); these BBG P/C ratios are a coarser advisory cross-check. **Winsorize**

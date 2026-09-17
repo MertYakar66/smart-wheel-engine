@@ -82,16 +82,12 @@ Theta-native), so there is **no** Theta greeks/IV history time series.
 | `data/features/**/ticker=*/` (except AAPL) | `scripts/backfill_features.py` | ~1.2 GB |
 | `dashboard/node_modules/` | `npm install` | ~hundreds of MB |
 | `dashboard/.next/` | `npm run build` or `npm run dev` | tens of MB |
-| `tradingview/tradingview-mcp-jackson/` (nested repo + node_modules) | clone the repo + `npm install` | ~26 MB node_modules |
 
 **Generated output that accumulates:**
 
 | Path | Origin |
 |---|---|
-| `tradingview/research/*.docx` | Analyst workflow deliverables |
-| `tradingview/research/*.pdf` | Analyst workflow deliverables |
-| `tradingview/models/*.xlsx`, `tradingview/models/*.csv` | Analyst workflow deliverables |
-| `tradingview/screenshots/` | TradingView MCP screenshots |
+| `tradingview/screenshots/` | Chart screenshots for the filesystem / Playwright chart providers (`engine/tradingview_bridge.py`); the analyst workspace that produced other deliverables here was removed 2026-09-17 (D30) |
 | `__pycache__/`, `*.pyc` | Python bytecode |
 | `.pytest_cache/`, `.hypothesis/` | Test machinery |
 | `.DS_Store` | macOS Finder metadata |

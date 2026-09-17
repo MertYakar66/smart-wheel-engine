@@ -28,7 +28,7 @@ pytest tests/test_audit_invariants.py \
 ```
 
 Report the pass/fail result. If anything fails, surface the failing test
-and its output — do not summarize it away. Per `AGENTS.md` §2 and
+and its output — do not summarize it away. Per `OPERATING_MODEL.md` §9.2 and
 `DECISIONS.md` D1, a failure here means the ranker is unsafe to merge.
 
 For changes to `engine/ev_engine.py`, `engine/wheel_runner.py`, or

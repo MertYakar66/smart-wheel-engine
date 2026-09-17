@@ -3,16 +3,17 @@
 > **Read this first.** It routes every "where does X live / what tests cover Y /
 > what is authoritative for Z" question to the **one** owning doc, so you don't
 > open three and reconcile them. It is mostly *pointers* (to avoid becoming a new
-> drift source) plus two net-new tables (`src/` per-file truth, launch-blocker
-> subset). Rationale + the full audit: `docs/REPO_EFFICIENCY_AUDIT.md`.
+> drift source) plus two net-new tables (`engine/features/` origin note, launch-blocker
+> subset). Rationale + the full audit: `archive/2026-05/REPO_EFFICIENCY_AUDIT.md`.
 
 ## Question router — open ONE doc per question
 
 | You're asking… | Open | Not |
 |---|---|---|
+| How is this project **worked** — roles, handoffs, Run Summary format, concurrency, invariants? | `OPERATING_MODEL.md` (the single authoritative operating document) | — |
 | Where does **module X** live + its role? | `MODULE_INDEX.md` | — |
 | Where does an **exact file** live (grep target)? | `FILE_MANIFEST.md` (CI-guarded, exhaustive) | — |
-| What is **authoritative** for a trade decision? | the **Authority block** below → then `CLAUDE.md` §2 for the rule text | re-deriving from 4 docs |
+| What is **authoritative** for a trade decision? | the **Authority block** below → then `OPERATING_MODEL.md` §9.2 and §7 for the rule text | re-deriving from 4 docs |
 | What **tests** cover area Y / what must I run? | `TESTING.md` (taxonomy + per-module "what to run") | — |
 | What is the **current state / WIP**? | `PROJECT_STATE.md` (now) · `ROADMAP.md` (next) · `docs/worklog/INDEX.md` (per-task) | pinned counts (run `pytest --collect-only -q`) |
 | **Why** was a choice made? | `DECISIONS.md` (single-sourced — D1…) | — |
@@ -20,7 +21,7 @@
 ## Authority block — the §2 firewall (do not bypass)
 
 The four sanctioned routes from raw inputs to a tradeable verdict (full contract
-+ rationale: `CLAUDE.md` §2, `DECISIONS.md` D1):
++ rationale: `OPERATING_MODEL.md` §9.2 and §7, `DECISIONS.md` D1):
 
 | Route | File | Public entry | Role |
 |---|---|---|---|
@@ -33,9 +34,9 @@ The four sanctioned routes from raw inputs to a tradeable verdict (full contract
 **downgrade** (proceed→review→skip→blocked) but never upgrade; the dealer
 multiplier is clamped `[0.70, 1.05]` and scales `ev_dollars` only, never `ev_raw`.
 
-**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `CLAUDE.md`
-§2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
-missing/errored→review · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
+**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `OPERATING_MODEL.md`
+§9.2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
+missing/errored→note only, R3/R4 skipped (D30) · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
 (*dormant*) · R5 EV ≥ `min_proceed_ev` (10.0)→proceed else review · R6 short-gamma
 + strike ≥ put wall / near gamma flip→review · **R7–R10 = D17 portfolio
 soft-warns** (require an attached `PortfolioContext`): R7 VaR breach · R8
@@ -61,34 +62,23 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 |---|---|---|
 | `engine/` | quant + decision layer (the brain) | `MODULE_INDEX.md` |
 | `engine_api.py` | HTTP API on `:8787` | `MODULE_INDEX.md` |
-| `advisors/` | Buffett/Munger/Simons/Taleb committee (advisory only) | `MODULE_INDEX.md` |
 | `data/`, `data_processed/`, `data_raw/` | market-data layer (tiers, providers) | `docs/DATA_POLICY.md` |
 | `scripts/` | data pullers + diagnostics | `FILE_MANIFEST.md` |
-| `financial_news/`, `news_pipeline/` | two off-EV-path news subsystems (D3) | `MODULE_INDEX.md`, `DECISIONS.md` D3 |
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |
-| `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
-| `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
-| `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
-| `utils/`, `config/`, `local_agent/` | helpers / config / experimental agent | `FILE_MANIFEST.md` |
+| `tradingview/` | Pine indicator + alert schema, the engine bridge (D5; workspace removed 2026-09-17, D30) | `docs/TRADINGVIEW_INTEGRATION.md` |
+| `backtests/` | research backtest harness + the regression reproducers | `FILE_MANIFEST.md` |
+| `engine/features/` | feature-engineering library (moved from `src/features/` 2026-09-17): `technical.py` + `volatility.py` engine/data-live, seven research modules behind `data/feature_pipeline.py` | `MODULE_INDEX.md`, `DECISIONS.md` D2 |
+| `utils/`, `config/` | helpers / config | `FILE_MANIFEST.md` |
 | `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
 | `docs/` | reference + design-contract docs | `FILE_MANIFEST.md` |
 
-## `src/` per-file truth (kills the recurring "is src/ dead?" grep)
+## `src/` — gone (2026-09-17)
 
-`src/` is frozen-deprecated (D2) **but not uniformly dead.** The
-`wheel = "src.cli:app"` console-script is **gone** (no `[project.scripts]` in
-pyproject); `src` remains in `[tool.hatch] packages` / isort / coverage by the D2
-freeze. Per-file import reality (grounded by importer grep):
-
-| `src/` file | Importers | Status |
-|---|---|---|
-| `features/technical.py` | `engine/strangle_timing.py`, `engine/tv_signals.py`, `engine_api.py` + data ETL + scripts + tests | **LIVE (decision-adjacent)** — blocks deletion |
-| `data/schemas.py` | `data/quality.py` → `engine/wheel_runner.py` chain-quality gate | **transitively on the EV path — keep** |
-| `features/volatility.py` | research ETL + scripts + tests | not live engine |
-| `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | `data/feature_pipeline.py` + tests | research/test only |
-| `data/validators.py` | self only | dead (coverage-omitted) |
-| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` + `ml/wheel_model.py` (research) | research/test-only |
-| `risk/`, `models/`, `execution/` | none (empty `__init__` stubs) | zero importers |
+The legacy scaffold was collapsed under Track F: `src/features/` →
+`engine/features/`, `src/data/schemas.py` → `data/schemas.py` (the
+`data/quality.py` → `engine/wheel_runner.py` chain-quality gate keeps its
+import), `src/backtest/wheel_backtest.py` (heuristic, §2-non-compliant,
+test-only) deleted with its test. `DECISIONS.md` D2 carries the update.
 
 ## Tests — find them without globbing
 
@@ -103,9 +93,8 @@ for why subdirs are *not* recommended):
 | Quant / pricer | `test_option_pricer`, `test_binomial_tree`, `test_monte_carlo`, `test_tail_risk`, `test_realized_vol`, `test_quant_fixtures` (authoritative BSM), `test_greeks_unit_invariants`, `test_properties` |
 | Data / connectors | `test_data_*`, `test_bloomberg_loader`, `test_theta_connector{,_coverage,_v3}`, `test_external_data_*`, `test_features` |
 | Risk / portfolio | `test_risk_manager`, `test_portfolio_tracker`, `test_portfolio_copula_coverage`, `test_stress_testing`, `test_portfolio_risk_gates`, `test_dealer_positioning` |
-| Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops`, `test_wheel_backtest` |
-| News (off EV path) | `test_news_pipeline`, `test_news_processing`, `test_news_sentiment`, `test_news_severance` (D18), `test_adversarial_news`, `test_financial_news` |
-| Interface / infra | `test_tv_*`, `test_mcp_client`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure`, `test_recovery_*` |
+| Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops` |
+| Interface / infra | `test_tv_*`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure` |
 
 ### Launch-blocker subset (the §2 gate — single source)
 

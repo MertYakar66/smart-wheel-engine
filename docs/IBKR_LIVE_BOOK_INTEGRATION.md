@@ -24,7 +24,9 @@ frontier and is deliberately left un-adopted.
 
 ## 0. Motivation — the dormancy gap, and why IBKR closes it
 
-`PROJECT_STATE.md` §3 ("D17 cap adoption status — verified 2026-06-01") records
+`archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md`
+(the archived `PROJECT_STATE.md` §3, "D17 cap adoption status — verified
+2026-06-01") records
 the problem this integration exists to solve:
 
 > the R9/R10 concentration caps are correctly **implemented and unit-tested**
@@ -127,9 +129,8 @@ imports nothing from `ev_engine` / `wheel_runner` / `candidate_dossier`; it only
 modules already accept. Target seams (as of this writing):
 
 - `engine/portfolio_risk_gates.py:57` — `class PortfolioContext` (the D17 gate
-  inputs R7–R11 read). **This is the target type**, *not* `advisors/schema.py:120`
-  `PortfolioContext` (a different class for the advisor committee — the doc must
-  not conflate them).
+  inputs R7–R11 read). **This is the target type.** (The advisor committee's
+  same-named `PortfolioContext` was removed with `advisors/` on 2026-09-17.)
 - `engine/portfolio_risk_gates.py:343` `check_sector_cap(...)`, `:416`
   `check_single_name_cap(...)`, `:529` `check_var(...)`, `:630`
   `check_stress_scenario(...)` — all take `held_option_positions: list[dict]` +
@@ -370,7 +371,7 @@ charting-ready front end:
 | `engine/wheel_tracker.py` | position lifecycle (short put→assignment→covered call→exit); realized/unrealized P&L; roll suggestions; win rate | live, no UI |
 | `engine/performance_metrics.py` | Sharpe, Sortino, drawdown | live, no UI |
 | `engine_api.py` `GET /api/portfolio` | per-ticker portfolio report | live, **not wired to UI** |
-| `dashboard/` (Next.js 16, Recharts, Tailwind, shadcn/ui, SQLite+Drizzle) | the `(terminal)` route group (`/cockpit`, `/terminal`), a streaming chat panel, Ollama memos | live |
+| `dashboard/` (Next.js 16, Recharts, Tailwind, shadcn/ui, SQLite+Drizzle) | the `(terminal)` route group (`/cockpit`, `/terminal`) (the Ollama chat panel was removed 2026-09-17) | live |
 
 So the analytics brain, the chart library, the API server, and page routing all
 exist. **D26 is wiring + a live data source — the same D24 IBKR snapshot.**

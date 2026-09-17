@@ -410,3 +410,18 @@ two results are fully consistent: **different subsets of the same monotone curve
   the forward-distribution knobs was not run — labelled, not claimed.
 * **Regime overlay still adds no OOS value** on 100 names either (optimism gap
   +0.066; the re-fit collapses out-of-parameter exactly as in §5).
+
+### 7.4 Cross-campaign reconciliation (TRADER-500K, PR #520) — consistent
+
+The $500k mechanical-book campaign (`docs/TRADER_500K_RELIABILITY_2026-07.md`)
+headlines a pooled Spearman ≈ 0 with a quiet-bull inversion — measured on its
+FULL weekly menu (~212–261 candidates/rank-week), i.e. the far-right end of this
+section's monotone curve, where this campaign's own all-candidate ρ is likewise
+−0.077. Its *executed* top-of-book slice is positive in all 11 windows
+(+0.247..+0.707), matching the §7.2 top-tier edge. A 2026-07-28 read-only
+reconciliation judged the two campaigns **consistent — the same
+population-width curve measured at opposite ends** (matched pair: our fold-4
+all-candidate ρ −0.2315, 2023-06→2024-06, vs its W08 full-menu −0.2332,
+2023-07→2024-12 — heavily overlapping spans). Full
+reconciliation, tier table, and reproduction script: that report's §7 and
+`scripts/analyze_trader500k_pool.py`.

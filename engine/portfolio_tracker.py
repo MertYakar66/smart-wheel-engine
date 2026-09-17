@@ -36,6 +36,7 @@ Usage:
 """
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
@@ -1256,8 +1257,23 @@ class PortfolioTracker:
             "total_withdrawals": self.total_withdrawals,
         }
 
-        with open(filepath, "w") as f:
+        # Atomic write (CMD 4): serialize to a sibling ``.tmp``, flush +
+        # os.fsync() to durably land the bytes, then os.replace() — an atomic
+        # rename on the same filesystem — to swap it into place. The old
+        # truncate-on-open ``open(filepath, "w")`` meant an interrupt /
+        # disk-full mid-dump, or a reader opening the path concurrently, could
+        # corrupt/empty the last good portfolio.json; load_from_json would then
+        # JSONDecodeError and the cash / holdings / transactions / realized-P&L
+        # ledger (→ NAV → every %-of-NAV risk cap) would be lost. tmp+replace
+        # guarantees the destination is either the old file or the new one,
+        # never a partial write.
+        path = Path(filepath)
+        tmp = path.with_name(path.name + ".tmp")
+        with open(tmp, "w") as f:
             json.dump(data, f, indent=2, default=str)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
 
     def load_from_json(self, filepath: str | Path) -> None:
         """Load portfolio data from JSON."""

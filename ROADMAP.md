@@ -16,17 +16,29 @@ Each item carries a **status**:
 
 ---
 
-## Open work — refreshed 2026-06-09
+## Open work — refreshed 2026-09-16
 
-The live queue. Each row points at its owning doc; this table is a
-router, not the spec.
+The live queue after the restart rulings (`DECISIONS.md` D29). Each row points
+at its owning doc; the Execution Prompts are in `docs/RESTART_PLAN_2026-09-16.md`.
+Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
+(A and B share one re-baseline), then C; D once A is live.
 
-| Item | Status | Owning doc |
-|---|---|---|
-| **Re-baseline session** — the D19 (exit-cost netting) + D21 (calendar→trading-day horizon) deferred fixes + the open data queue + S-snapshot re-pin, executed as one coordinated session | `next` | `docs/NEXT_DATA_SESSION_RUNBOOK.md` (PR #381 — the single authoritative runbook) |
-| **Bloomberg data acquisition** — pull-broadly plan + the no-code pull checklist | `next` (needs operator Terminal access) | `docs/DATA_ACQUISITION_ROADMAP.md`, `docs/BLOOMBERG_PULL_LIST.md` |
-| **prob_profit top-bin over-confidence** — wire the POT-GPD tail machinery (`engine/tail_risk.py`) into the `prob_profit` computation path | `open question` (research) | `PROJECT_STATE.md` §3 "prob_profit calibration", `docs/PROB_PROFIT_CALIBRATION_2026-05-28.md` |
-| **R11 onset-aware trigger** — persistence-based VIX trigger (fire after N consecutive days >25: catch the 2022 grind, skip the 2020 spike) | `parked` (research card) | `DECISIONS.md` D23 post-ship validation; the r11-onset-aware card in `docs/worklog/` |
+| Track | Item | Status | Owning doc |
+|---|---|---|---|
+| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `done` 2026-09-17 on PR #524 for every row except the `wheel_runner` unification (excluded by ruling; open as its own campaign). Follow-up candidates in plan §7a. | `docs/RESTART_PLAN_2026-09-16.md` §7a |
+| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `parked` until a subscription is chosen (2026-09-17) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
+| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A | plan §4 |
+| **C** | **Exit evaluator + post-mortem loop** (D25 adopted; advisory, confirmed 2026-09-17; closes F1) | `next` after B | plan §5 |
+| **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures, prose by an API model) | `next` once A is live | plan §6 |
+| **E** | **Protocol v3 adoption** — merge this restart PR (#524, which carries #523 and the Track F cuts; `main` stays unprotected by ruling), docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
+| — | **News layer redesign** | `parked` until A–C land | D29 |
+| — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |
+
+Superseded 2026-09-16: the "Re-baseline session" and "Bloomberg data acquisition"
+rows of the 2026-06-09 queue (no Terminal exists; Track A replaces the pull
+plan, Track B carries the re-baseline); the "R11 onset-aware trigger" research
+card was refuted 2026-06-29 and stays parked; the prob_profit top-bin item is now
+inside Track B's calibration gate.
 
 ---
 
@@ -38,7 +50,8 @@ All three items shipped; per-PR detail in `CHANGELOG.md` 2026-05.
   `done`. Stages 1–3 (PR #95; opt-in via `SWE_USE_MCP_CHART`;
   `DECISIONS.md` D12/D13). Residual: the `TODO(live-verify)` markers
   in `engine/mcp_client.py` need a live TradingView Desktop +
-  tradingview-mcp server to confirm.
+  tradingview-mcp server to confirm. *(Removed 2026-09-17 with the MCP
+  workspace — `DECISIONS.md` D30.)*
 - ~~**A2. iv_surface missing-data contract**~~ — `done` (2026-05-30):
   chose **fail loudly** (`SurfaceDataUnavailable` + `require_surface`;
   `DECISIONS.md` D9; pinned by `tests/test_iv_surface_failloud.py`).
@@ -55,7 +68,8 @@ All six one-shot doc repairs landed; detail in `CHANGELOG.md` 2026-05.
   ~~B4 `dashboard/README.md` re-positioned~~ · ~~B5 `pyproject.toml`
   phantom entrypoint removed + package list fixed + phantom deps
   (`prefect`, `ib_insync`) dropped~~ · ~~B6 `tradingview/README.md`
-  dead link fixed~~ — all `done`.
+  dead link fixed~~ — all `done`. *(B2's `docs/CONTRIBUTING.md` was later
+  consolidated into `OPERATING_MODEL.md` §9.8, 2026-07-28.)*
 
 ## Track C — Hygiene + governance follow-ups
 

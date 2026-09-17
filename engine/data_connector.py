@@ -1575,7 +1575,7 @@ class MarketDataConnector:
         loaded lazily and cached on the instance. ``None`` when the broad-pull
         data is absent (e.g. a fresh clone) — callers fall back to the snapshot.
         Loaded via ``BroadPullLoader`` (the canonical broad-pull reader; the
-        same lazy ``engine -> data`` import pattern used in ``signal_context`` /
+        same lazy ``engine -> data`` import pattern used in
         ``wheel_runner``)."""
         if not hasattr(self, "_dividend_pit_panel"):
             try:

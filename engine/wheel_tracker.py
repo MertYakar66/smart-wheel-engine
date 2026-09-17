@@ -4,6 +4,7 @@ Manages the full lifecycle: Short Put → Stock Assignment → Covered Call → 
 """
 
 import json
+import math
 from dataclasses import dataclass, field, fields
 from datetime import date, timedelta
 from enum import Enum
@@ -445,6 +446,25 @@ class WheelTracker:
             "prob_profit": float(ev_row.get("prob_profit", 0) or 0),
             "distribution_source": str(ev_row.get("distribution_source", "")),
         }
+        # R1a-equivalent: a non-finite EV (NaN / ±inf) must be refused
+        # BEFORE the ``<= 0`` check, because ``nan <= 0`` and ``inf <= 0``
+        # are both False — a garbage EV would otherwise be issued a valid
+        # authority token and open a real position. Distinct reason mirrors
+        # the dossier reviewer's ev_non_finite vs negative_ev split.
+        if not math.isfinite(canonical["ev_dollars"]):
+            self._ev_authority_log.append(
+                {
+                    "action": "refuse_issue",
+                    "reason": "ev_non_finite",
+                    "row": canonical,
+                }
+            )
+            raise EVAuthorityRefused(
+                f"Refusing EV-authority token for {canonical['ticker']} "
+                f"strike={canonical['strike']} — ev_dollars="
+                f"{canonical['ev_dollars']} is non-finite (NaN/inf); "
+                f"R1a would block."
+            )
         if canonical["ev_dollars"] <= 0:
             self._ev_authority_log.append(
                 {
@@ -588,6 +608,21 @@ class WheelTracker:
                     "reason": "missing_current_ev_dollars",
                     "ticker": ticker,
                     "token": token,
+                }
+            )
+            return False
+        # R1a-equivalent at consume time: reject a non-finite fresh EV
+        # (NaN / ±inf) before the ``<= 0`` staleness check, which both
+        # NaN and +inf would slip through (``nan <= 0`` / ``inf <= 0`` are
+        # False), consuming the token and authorizing the position.
+        if not math.isfinite(current_ev_dollars):
+            self._ev_authority_log.append(
+                {
+                    "action": "reject",
+                    "reason": "ev_non_finite",
+                    "ticker": ticker,
+                    "token": token,
+                    "current_ev_dollars": str(current_ev_dollars),
                 }
             )
             return False

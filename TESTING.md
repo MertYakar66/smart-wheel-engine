@@ -56,13 +56,13 @@ launch-blocker invariants, others are smoke tests. Use this map.
 
 ### Decision-layer invariants (launch-blocker)
 
-These pin the EV invariant from `CLAUDE.md` §2. Break any of them and
+These pin the EV invariant from `OPERATING_MODEL.md` §7 / §9.2. Break any of them and
 the ranker is unsafe. **Run before every decision-layer change.**
 
 | File | Pins |
 |---|---|
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
-| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract |
 | `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
 | `tests/test_r6_dealer_wiring.py` | `EnginePhaseReviewer` rule R6 — dealer/regime downgrade wiring: short-gamma at/above put wall or dealer regime near gamma-flip → review; reads `market_structure` else `ev_row` dealer fields; downgrade-only; no-op on missing dealer data |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
@@ -99,7 +99,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_risk_manager.py` | Position sizing, sector exposure, HRP |
 | `test_stress_testing.py` | Scenario engine |
 | `test_payoff_engine.py` | Payoff diagrams |
-| `test_regime_detector.py` | Rule-based regime |
 | `test_dealer_positioning.py` | GEX / walls / gamma flip / regime |
 | `test_quant_fixtures.py` | Shared fixtures |
 | `test_tail_risk.py` | POT-GPD tail estimation — threshold selection, GPD fit, `gpd_var_cvar`, `pot_gpd_cvar`, tail-regime flag |
@@ -107,7 +106,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_portfolio_copula_coverage.py` | `portfolio_copula` edge paths — PSD repair, Cholesky→eigen fallback, empty arrays, verdict ladder |
 | `test_pricing_evaluate_invariants.py` | W63–W64 — BSM Greek units vs binomial cross-check; `EVEngine.evaluate` stays finite on degenerate DTE |
 | `test_f4_rv_widening.py` | F4 fix v2 (#260) — RV30/RV252 widening factor calibration pins (1.30 threshold, 1.5× cap), PIT safety, sign/mean preservation |
-| `test_premium_correction_pilot.py` | `studies/premium_correction` split-adjustment layer — AAPL 4:1 raw↔adjusted mapping, bogus-join prevention |
 
 ### W-series quant-invariant pins (2026-06 audit round 2; register: `docs/DATA_TEST_AUDIT_2026-06-09.md`)
 
@@ -128,7 +126,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_extreme_numerics.py` | Boundary-value behaviour |
 | `test_edge_cases.py` | Edge cases across modules |
 | `test_point_in_time.py` | No lookahead bias (PIT) |
-| `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated news/credit data |
+| `test_pit_leaks.py` | S10/S11 PIT-leak regressions — historical `as_of` never surfaces future-dated credit data |
 | `test_asof_none_staleness.py` | M3 — `as_of=None` resolves to the universe data frontier; index leavers dropped; fresh names byte-identical; drop-only; explicit path untouched; CC+strangle siblings covered |
 | `test_wallclock_staleness.py` | D1-2/D3-2 — wall-clock frontier staleness: connector warn-once at >7d, structured `attrs["staleness"]` on all three rankers, opt-in `refuse_stale_live`/`SWE_REFUSE_STALE_LIVE` universe-wide refusal; dated paths sentinel `{checked: False}`; default fail-open |
 | `test_coverage_floors_script.py` | Per-file coverage-floor ratchet script pins (pass/below-floor/missing-file-loud/exit codes) — the CI step lives in the Test Suite job |
@@ -159,7 +157,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_data_pipeline.py` | End-to-end pipeline |
 | `test_data_validation.py` | Schema + quality checks |
 | `test_data_integration.py` | Provider selection + integration |
-| `test_features.py` | Feature store |
+| `test_features.py` | `engine/features/` modules (dynamics, options, technical, volatility) |
 | `test_data_connector.py` | `MarketDataConnector` full query surface on synthetic tmp_path CSVs — present/absent/edge branches |
 | `test_data_connector_ticker_filter.py` | `_filter_ticker` cache equivalence vs naive mask — build/reuse verified |
 | `test_data_quality.py` | `data/quality.py` chain gate — IV substring-match false-positive regression + real invalid-IV detection |
@@ -174,6 +172,13 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_survivorship_r6_lehman.py` | R6 proof — Lehman delisting realizes the loss at delisting price in a 2008 backtest (deep-data gated) |
 | `test_parameter_oos.py` | Parameter-OOS gate (E5) — per-row no-leakage certificate + offline re-weighting identities (fixture-independent, fast); fixture↔snapshot recompute lock (fast); engine-regeneration lock (`backtest_regression` marker, slow) |
 | `test_parameter_oos_100t.py` | 100-name parameter-OOS replication — daily-sampling significance upgrades (per-date cross-sectional ρ, date-clustered bootstrap, E3 breadth) unit tests; fixture↔snapshot recompute lock (fast); engine spot-check regen (`backtest_regression`) |
+| `test_tail_exceedance.py` | V1 tail-exceedance harness (`backtests/tail_exceedance.py`) — Kupiec POF hand-computed values, date-clustered CI vs iid width, violation-clustering permutation test, heterogeneous-Bernoulli coverage z, VIX bands, calibrated-PASS / understated-tail-FAIL / conservative-never-FAIL synthetic end-to-end (engine-free, fast) |
+| `test_freeze_replay.py` | V2 freeze-replay harness (`backtests/freeze_replay.py`) — byte-preserving truncation, exact ranker-output differ, snapshot differ (rtol/NaN/labels), freeze context-manager substitute+restore on synthetic frames, frozen-HMM clamp/fallback, compare-report shape, §11 tier-2 truncation (tier composition, tier-2 cut vs tier-1-intact, future-effective-row-kept PIT semantic) (fast); C1 refit-reproducibility lock vs the committed fixture (`backtest_regression`, slow) |
+| `test_capacity_curve.py` | V4 capacity ladder (`backtests/capacity_curve.py`) — sqrt-impact isolation vs hand formula, decide_fill verdicts, PIT AdvLookup (stub connector), corrected proportionality A/A, knee-table argmax (engine-light, fast) |
+| `test_reverse_stress.py` | V5 reverse stress (`backtests/reverse_stress.py`) — adversary admissibility (R10/R9/budget/losers-only), search aggregation, saturated-book fill, assignment-wave replay + levered counterfactual on stub paths, §10.2 TV-marking locks (TV trough >= intrinsic + monotone in iv_mult, no-IV intrinsic fallback, unknown-marking rejection, book carries iv) (engine-light, fast) |
+| `test_v6r_fullmenu.py` | V6-r1 driver locks (plan §10.1, pinned before the counted re-read) — FM1 CAVEAT_RETIRED/CENSORING_LOAD_BEARING boundary at the 0.5 cut + INSUFFICIENT path, FM2 depth-profile appetite-line counts on synthetic frames (fast) |
+| `test_v6_lockbox.py` | V6 lockbox driver locks (pinned before the one deep-history spend) — H1/H2/H3 verdict math + INSUFFICIENT paths on synthetic frames, plus the post-processing regressions from the 2026-07-13 attempt-1/2 crash: `collect_entry_dates` vs every vehicle shape (incl. the legacy `{ticker: state}` map that killed the run), `_safe` ERROR-verdict capture, `build_report` against the vehicle's exact return shape end-to-end (fast) |
+| `test_param_plateau.py` | V3 plateau-sweep harness (`backtests/param_plateau.py`) — F4 patch lever (fires/binds/restores, loud on unknown kwargs), off-grid rejection, R11 sweep math (both lenses), §6.3 verdict ladder (PLATEAU/PEAK/CLIFF/DOMINATED + guard), activation gate boundaries, axis-report shape (engine-free/synthetic, fast) |
 | `test_mark_to_market_iv.py` | #118 P4 — MTM IV staleness fallback chain (explicit → connector as-of ATM → entry IV) |
 | `test_iv_surface_failloud.py` | D9/A2 — `SurfaceDataUnavailable` + `require_surface` fail-loud SVI contract; no silent flat IV |
 | `test_preflight_environment.py` | Environment-invariant guard — silent provider selection + stale-tree OHLCV frontier (`EXPECTED_FRONTIER`) (#364) |
@@ -204,7 +209,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | File | Purpose |
 |---|---|
 | `test_wheel_lifecycle.py` | State transitions + cycle accounting |
-| `test_wheel_backtest.py` | Backtest harness |
 | `test_common_realized_pnl.py` | Ground-truth dollar value-asserts for `backtests/regression/_common.py` realized-P&L + friction helpers (#456 C — hand-computed values, not shape; the W7-double-count bug class) |
 | `test_portfolio_tracker.py` | Portfolio bookkeeping |
 | `test_available_buying_power.py` | `available_buying_power` — CSP collateral reservation across the SHORT_PUT→STOCK_OWNED→COVERED_CALL lifecycle |
@@ -247,24 +251,13 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_engine_api_port.py` | `_resolve_port()` — `SWE_API_PORT` override, 8787 default, bounds + whitespace (D15/C7) |
 | `test_engine_api_hardening.py` | API hardening R3/R18–R21 — CORS, 400 on malformed params, no-exception-leak + correlation id, 404 semantics |
 | `test_engine_api_concentration.py` | `/api/concentration_preview` — armed R9/R10 caps on the live path, refuse-only contract, unmocked gate math (#351) |
-| `test_mcp_client.py` | `MCPCLIClient` tv-CLI transport — five-call capture, canonical `MCP_ERROR_MODES`, no-retry-except-quote (D12; all subprocess-mocked) |
 
-### News / advisors / ML
+### EV-engine upgrades / audit improvements
 
 | File | Purpose |
 |---|---|
-| `test_financial_news.py` | `financial_news/` platform |
-| `test_news_pipeline.py` | `news_pipeline/` browser pipeline |
-| `test_news_processing.py` | News processing primitives |
-| `test_adversarial_news.py` | Adversarial robustness |
-| `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
-| `test_news_sentiment.py` | `NewsSentimentReader` — store reads, staleness, neutral default; `sentiment_multiplier` constant-1.0 parity |
-| `test_news_severance.py` | D18 invariant — `sentiment_multiplier` is a constant-1.0 stub across the full (sentiment, n_articles) grid |
-| `test_recovery_checkpoints.py` | news-pipeline checkpoints — stage ordering, progress tracking, serialization round-trip |
-| `test_recovery_fallbacks.py` | news-pipeline degraded modes — NORMAL/PARTIAL/LOCAL_ONLY/OFFLINE evaluation |
-| `test_recovery_health.py` | news-pipeline provider health — availability, rate-limit expiry, success-rate tracking |
 
 ### Infrastructure
 
@@ -273,13 +266,11 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_infrastructure.py` | Repo-level infra |
 | `test_contracts.py` | Dataclass contracts |
 | `test_dashboard.py` | Legacy dashboard CLI surface |
-| `test_signals.py` | Signal aggregator framework |
 | `test_strangle_timing.py` | Strangle entry timing gate |
 | `test_check_lane_claim.py` | The decision-layer lane-claim CI gate (`scripts/check_lane_claim.py`) |
 | `test_check_manifest_coverage.py` | The FILE_MANIFEST coverage gate's conflict-marker detection |
 | `test_testing_md_taxonomy.py` | This file's taxonomy stays complete — every `tests/test_*.py` must be named in TESTING.md |
 | `test_policy_config.py` | `engine/policy_config` — load/save/validate, default sanity, section schema |
-| `test_trade_memo_ci.py` | Memo honesty — prob_profit rendered with Wilson CI + N + small-sample caveat |
 
 ### Heavy-verify 2026-06-27 (#436) — data-wiring + output-realism reliability (Mac terminal)
 
@@ -327,6 +318,16 @@ properties not covered by the W1/W2 pins above.
 |---|---|
 | `test_w1w2_reverify.py` | Corp-action split ground-truth (`get_corporate_actions` serves BKNG 25:1 eff 2026-04-06, CVNA 5:1 eff 2026-05-08, NFLX 10:1 eff 2025-11-17 — the root-cause data behind D-W1-1, durable after PR #455); split effective dates postdate the 2026-03-23 splice (pull-boundary diagnosis); IV-validity gate `(3.0, 10000]` is scoped to *implied* vol only — realized-vol columns correctly served below 3% (EA, HOLX), never floored or negative |
 
+### Held-findings repro (audit 2026-07-15, CMD 10) — `xfail(strict)` bug documentation
+
+Each pins the CORRECT behavior of a held audit finding (`docs/audits/HELD_FINDINGS_FIX_DESIGNS_2026-07-15.md`); currently `xfail(strict)` (green now, flips to a failure once the operator lands the fix — drop the marker then). No `engine/` code was modified.
+
+| File | Pins (held finding) |
+|---|---|
+| `test_held_finding_roll_ev_bypass.py` | F1 `[INV]`: `roll_put` on a `make_live_book_tracker` (enforce_single_name_cap) must enforce the 10% single-name cap on the rolled leg — currently the roll bypasses D17 + the EV-authority token (`engine/wheel_tracker.py` roll_put/roll_call) |
+| `test_held_finding_hmm_bull_quiet.py` | F3 `[INV]`: a fitted state with negative mean return must NOT be labeled `bull_quiet`/up-sized 1.25× purely by within-window rank — `engine/regime_hmm.py` `_label_states`/`position_multiplier` |
+| `test_held_finding_iv_fallback_lookahead.py` | F4 `[INV]`: at a historical `as_of` with no PIT IV, the puts ranker must NOT silently substitute today's snapshot IV — `engine/wheel_runner.py:1671-1701` (missing `as_of is not None` guard) |
+
 ## Running tests
 
 ```bash
@@ -347,8 +348,7 @@ pytest tests/test_audit_invariants.py \
 pytest tests/ -m "not integration and not slow" -v
 
 # Coverage (CI scope per .github/workflows/ci.yml; threshold 80%)
-pytest tests/ --cov=src --cov=engine --cov=advisors --cov=financial_news \
-       --cov=data --cov-fail-under=80
+pytest tests/ --cov=engine --cov=data --cov-fail-under=80
 
 # Hypothesis profiles (configured in conftest.py)
 pytest tests/ --hypothesis-profile=ci      # 200 examples (CI)
@@ -363,7 +363,7 @@ pytest tests/ -m quant -v
 
 | Marker | Use |
 |---|---|
-| `@pytest.mark.integration` | Requires external services (Theta Terminal, Ollama, browser sessions). Skip in CI. |
+| `@pytest.mark.integration` | Requires external services (Theta Terminal, browser sessions). Skip in CI. |
 | `@pytest.mark.slow` | Long-running. Deselect with `-m "not slow"`. |
 | `@pytest.mark.quant` | Quantitative validation tests. |
 | `@pytest.mark.backtest_regression` | Long-running ledger-backtest reproducers (S27/S32/S34/S35). Excluded from per-PR CI; run via `.claude/commands/backtest-regression.md` or the `Backtest Regression` workflow. |
@@ -378,11 +378,9 @@ pytest tests/ -m quant -v
 | `engine/option_pricer.py` | `pytest tests/test_option_pricer.py tests/test_greeks_unit_invariants.py tests/test_properties.py` |
 | `engine/data_connector.py` or `theta_connector.py` | `pytest tests/test_bloomberg_loader.py tests/test_theta_connector.py tests/test_data_pipeline.py` then `python scripts/theta_health_check.py` if Terminal is up |
 | `engine/dealer_positioning.py` | `pytest tests/test_dealer_positioning.py tests/test_audit_invariants.py` |
-| `engine/regime_detector.py` or `regime_hmm.py` | `pytest tests/test_regime_detector.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
+| `engine/regime_hmm.py` | `pytest tests/test_regime_hmm_invariants.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
 | `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
-| `advisors/*` | `pytest tests/test_advisors.py tests/test_authority_hardening.py` |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python scripts/audit_api_smoke.py` against a running `engine_api.py` |
-| `financial_news/` or `news_pipeline/` | `pytest tests/test_financial_news.py tests/test_news_pipeline.py tests/test_news_processing.py tests/test_adversarial_news.py` |
 | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/forward_distribution.py`, `engine/dealer_positioning.py`, `engine/tail_risk.py` | **Backtest regression** in addition to the launch blockers — run `.claude/commands/backtest-regression.md` (~4–5 h). The four S27/S32/S34/S35 backtests are downstream of all five files. |
 
 ## Backtest regression — re-baseline workflow
@@ -468,7 +466,7 @@ Sandbox-vs-laptop capability differences (pip-install chunking, the
 `pyarrow` failure mode, why full-universe `diagnose_candidates.py`
 needs an explicit 5-ticker list in Cowork) live in
 `docs/DATA_POLICY.md` §7 as the canonical reference. The
-5-ticker shim itself is the bring-up smoke test in `CLAUDE.md`.
+5-ticker shim itself is the bring-up smoke test in `OPERATING_MODEL.md` §9.4.
 
 ## CI
 

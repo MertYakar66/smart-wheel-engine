@@ -398,7 +398,7 @@ def test_module_not_consumed_by_production():
         # engine/data_connector.py — removed 2026-06-26 (#354 connector PIT, see docstring)
         Path("engine/skew_dynamics.py"),
         Path("engine/event_gate.py"),
-        Path("engine/regime_detector.py"),
+        # engine/regime_detector.py — removed 2026-09-17 (Track F dormant-module pass)
         Path("engine/option_pricer.py"),
         Path("engine/risk_manager.py"),
         Path("data/consolidated_loader.py"),

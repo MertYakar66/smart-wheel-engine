@@ -8,8 +8,8 @@ interface TradingViewLinkRowProps {
 }
 
 /**
- * Compact TradingView handoff strip. Charting lives in TradingView (via the
- * TradingView MCP); the terminal no longer renders its own charts. This used
+ * Compact TradingView handoff strip. Charting lives in TradingView Desktop;
+ * the terminal no longer renders its own charts. This used
  * to occupy the dominant grid cell as a full panel — now it's a slim row so
  * the freed space can show engine substance (analysis + dealer positioning).
  */

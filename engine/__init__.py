@@ -11,10 +11,8 @@ This module provides the core trading engine components:
 - Shared valuation for consistent labeling
 - Performance metrics calculation
 - Risk management and position sizing
-- Market regime detection
 - Event calendar for earnings/dividends/FOMC
 - Stress testing and scenario analysis
-- Signal generation framework
 - Monte Carlo simulation (bootstrap, jump diffusion, LSM)
 """
 
@@ -72,14 +70,6 @@ from .portfolio_tracker import (
     create_portfolio_from_holdings,
     quick_snapshot,
 )
-from .regime_detector import (
-    RegimeDetector,
-    RegimeState,
-    TrendRegime,
-    VolatilityRegime,
-    VolTermStructure,
-    calculate_regime_signals,
-)
 from .risk_manager import (
     DEFAULT_SECTOR_MAP,
     HierarchicalRiskParity,
@@ -96,26 +86,6 @@ from .risk_manager import (
     optimize_position_weights,
 )
 from .shared_valuation import TradeOutcome, simulate_option_trade, simulate_wheel_cycle
-from .signal_context import (
-    build_batch_entry_contexts,
-    build_entry_context,
-    build_exit_context,
-    evaluate_wheel_opportunities,
-)
-from .signals import (
-    CompositeSignal,
-    DTESignal,
-    EventFilterSignal,
-    IVRankSignal,
-    ProfitTargetSignal,
-    Signal,
-    SignalAggregator,
-    SignalStrength,
-    SignalType,
-    StopLossSignal,
-    TrendSignal,
-    create_default_aggregator,
-)
 from .stress_testing import (
     HISTORICAL_SCENARIOS,
     HYPOTHETICAL_SCENARIOS,
@@ -228,13 +198,6 @@ __all__ = [
     "create_constant_surface",
     "estimate_iv_for_delta",
     "surface_to_dataframe",
-    # Regime
-    "RegimeDetector",
-    "RegimeState",
-    "VolatilityRegime",
-    "TrendRegime",
-    "VolTermStructure",
-    "calculate_regime_signals",
     # Events
     "EventCalendar",
     "EventCalendarBuilder",
@@ -253,24 +216,6 @@ __all__ = [
     "calculate_max_loss",
     "HISTORICAL_SCENARIOS",
     "HYPOTHETICAL_SCENARIOS",
-    # Signals
-    "SignalAggregator",
-    "Signal",
-    "CompositeSignal",
-    "SignalType",
-    "SignalStrength",
-    "IVRankSignal",
-    "TrendSignal",
-    "ProfitTargetSignal",
-    "StopLossSignal",
-    "DTESignal",
-    "EventFilterSignal",
-    "create_default_aggregator",
-    # Signal Context (Bloomberg integration)
-    "build_entry_context",
-    "build_exit_context",
-    "build_batch_entry_contexts",
-    "evaluate_wheel_opportunities",
     # Monte Carlo
     "BlockBootstrap",
     "BootstrapResult",

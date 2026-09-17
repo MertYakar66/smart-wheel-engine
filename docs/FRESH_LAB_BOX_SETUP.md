@@ -37,7 +37,7 @@ cd C:\Users\mertmert\smart-wheel-engine
 git checkout data/bloomberg-refresh-2026-06-02   # the live data-refresh branch
 ```
 
-Only now read, in order: `CLAUDE.md` (auto-loaded), `AGENTS.md`, this file, and
+Only now read, in order: `CLAUDE.md` (auto-loaded), `OPERATING_MODEL.md`, this file, and
 the latest `docs/worklog/bloomberg-*` entry on the refresh branch for where the
 pull campaign stands.
 
@@ -205,7 +205,7 @@ our project files. Do NOT read project docs before cloning — they aren't here 
 1. Clone, then check out the data branch:
    git clone https://github.com/MertYakar66/smart-wheel-engine.git C:\Users\<me>\smart-wheel-engine
    cd into it; git checkout data/bloomberg-refresh-2026-06-02
-   Now read CLAUDE.md, AGENTS.md, docs/FRESH_LAB_BOX_SETUP.md, and the latest
+   Now read CLAUDE.md, OPERATING_MODEL.md, docs/FRESH_LAB_BOX_SETUP.md, and the latest
    docs/worklog/bloomberg-* entry to orient.
 
 2. Gate the Bloomberg Desktop API before building anything: confirm the Terminal

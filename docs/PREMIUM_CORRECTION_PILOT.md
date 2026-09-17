@@ -1,15 +1,21 @@
 # Premium-correction pilot (observe-only)
 
-**Status:** harness + split layer landed and validated end-to-end; full
+> **2026-09-17 — code removed (Track F).** `studies/premium_correction/` and
+> `tests/test_premium_correction_pilot.py` were deleted under the Operator's
+> structure ruling; this document is kept as the record of the method and
+> the findings. The last code lives in git history before commit
+> "refactor(studies)" of 2026-09-17.
+
+**Status (at removal):** harness + split layer landed and validated end-to-end; full
 3-name run pending larder band coverage. **Scope:** read-only. Touches no
 decision-layer file (`ev_engine.py` / `wheel_runner.py` /
 `candidate_dossier.py`); calls the authoritative EV path
 (`WheelRunner.explore_ticker` → `rank_candidates_by_ev` → `EVEngine.evaluate`)
 read-only and joins the real Theta larder mid afterwards.
 
-Code: `studies/premium_correction/` (`pilot.py`, `splits.py`).
-Tests: `tests/test_premium_correction_pilot.py`.
-Outputs: `studies/premium_correction/output/`.
+Code (removed): `studies/premium_correction/` (`pilot.py`, `splits.py`).
+Tests (removed): `tests/test_premium_correction_pilot.py`.
+Outputs: `studies/premium_correction/output/` (was gitignored; regenerable only from the removed code).
 
 ---
 
@@ -233,6 +239,8 @@ are the data-level ones caught before any number ran.)*
   pre-2024 band is not split-free.
 
 ## 7. Reproduce
+
+No longer reproducible from the tree (code removed 2026-09-17); the command was:
 
 ```
 python -m studies.premium_correction.pilot

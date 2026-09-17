@@ -7,8 +7,7 @@ Locks in the full authority chain that a real trade must traverse:
     → EV ranker → issue_ev_authority_token → WheelTracker.open_short_put
 
 and the per-layer rejection semantics (no-HMAC, replayed-HMAC,
-negative-EV enrichment, forged ticker, stale-data guard, committee
-authority label).
+negative-EV enrichment, forged ticker, stale-data guard).
 
 The tests use a fake connector backed by a synthetic OHLCV history so
 they are fast and deterministic, but they exercise the *same* code
@@ -331,29 +330,6 @@ class TestFullAuthorityChain:
             current_ev_dollars=current_ev,
         )
         assert replayed is False
-
-
-# ======================================================================
-# 4. Committee authority label
-# ======================================================================
-class TestCommitteeAuthorityLabel:
-    def test_committee_response_is_labelled_heuristic(self):
-        conn = _E2EConn("AAPL")
-        runner = WheelRunner()
-        h = _FakeHandler()
-        with (
-            patch.object(engine_api, "get_connector", return_value=conn),
-            patch.object(engine_api, "get_runner", return_value=runner),
-            patch.object(
-                WheelRunner, "connector", new_callable=lambda: property(lambda self: conn)
-            ),
-        ):
-            h._handle_committee("AAPL")
-        assert h.responses, "committee handler produced no response"
-        body = h.responses[-1][1]
-        assert body.get("authority") == "heuristic_diagnostic"
-        assert body.get("tradeable_endpoint") == "/api/candidates"
-        assert "ev_anchored" in body
 
 
 # ======================================================================

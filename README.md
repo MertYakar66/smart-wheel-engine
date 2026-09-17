@@ -128,6 +128,7 @@ smart-wheel-engine/
 ├── data_raw/        # universe list + raw fixtures
 ├── data_processed/  # regenerable Theta/yfinance pulls (gitignored)
 ├── backtests/       # research backtesting + pinned regression reproducers
+├── staging/         # Bloomberg-lab pull tooling + not-yet-integrated data fragments
 ├── config/          # configuration
 ├── utils/           # shared utilities
 ├── tradingview/     # Pine indicator + alert schema (engine bridge)
@@ -135,7 +136,8 @@ smart-wheel-engine/
 ├── archive/         # superseded / point-in-time artifacts
 ├── notebooks/       # exploratory notebooks
 ├── engine_api.py    # HTTP API entry point (:8787)
-└── *.md             # AGENTS / CLAUDE / README + the Tier-2 index docs
+├── conftest.py, pyproject.toml, requirements.txt
+└── *.md             # OPERATING_MODEL / CLAUDE (pointer) / README + the Tier-2 index docs
 ```
 
 The exhaustive per-file index is [`FILE_MANIFEST.md`](FILE_MANIFEST.md) —

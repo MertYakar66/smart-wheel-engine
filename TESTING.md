@@ -56,7 +56,7 @@ launch-blocker invariants, others are smoke tests. Use this map.
 
 ### Decision-layer invariants (launch-blocker)
 
-These pin the EV invariant from `CLAUDE.md` §2. Break any of them and
+These pin the EV invariant from `OPERATING_MODEL.md` §7 / §9.2. Break any of them and
 the ranker is unsafe. **Run before every decision-layer change.**
 
 | File | Pins |
@@ -252,7 +252,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_engine_api_hardening.py` | API hardening R3/R18–R21 — CORS, 400 on malformed params, no-exception-leak + correlation id, 404 semantics |
 | `test_engine_api_concentration.py` | `/api/concentration_preview` — armed R9/R10 caps on the live path, refuse-only contract, unmocked gate math (#351) |
 
-### Advisors / ML
+### EV-engine upgrades / audit improvements
 
 | File | Purpose |
 |---|---|
@@ -466,7 +466,7 @@ Sandbox-vs-laptop capability differences (pip-install chunking, the
 `pyarrow` failure mode, why full-universe `diagnose_candidates.py`
 needs an explicit 5-ticker list in Cowork) live in
 `docs/DATA_POLICY.md` §7 as the canonical reference. The
-5-ticker shim itself is the bring-up smoke test in `CLAUDE.md`.
+5-ticker shim itself is the bring-up smoke test in `OPERATING_MODEL.md` §9.4.
 
 ## CI
 

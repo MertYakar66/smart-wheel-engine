@@ -5,7 +5,7 @@
 
 Per-module purpose and decision-layer relationship. The "Role" column
 classifies each module against the EV decision contract from
-`CLAUDE.md` §2:
+`OPERATING_MODEL.md` §9.2 / §7:
 
 | Role | Meaning |
 |---|---|
@@ -33,7 +33,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `engine_api.py` | HTTP API on `:8787` serving the Next.js dashboard. The top-of-file docstring lists most endpoints but is not exhaustive — e.g. `/api/concentration_preview` and the D26 `/api/portfolio/*` read-only performance-viewer prefix are served by the handler but undocumented there. | live | runner / display |
 | `conftest.py` | pytest fixtures + hypothesis profiles + custom markers. | live | infra |
 | `requirements.txt` | runtime deps. | live | infra |
-| `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — there is no `[project.scripts]` table today); `[tool.hatch.build.targets.wheel] packages` still lists `src` while the `src/` tree stays frozen per `DECISIONS.md` D2. | partial | infra |
+| `pyproject.toml` | packaging + tooling. The broken `wheel = "src.cli:app"` console-script was **removed** (ROADMAP B5 — no `[project.scripts]` table); `[tool.hatch.build.targets.wheel] packages = ["engine", "data", "backtests"]` since the `src/` scaffold was collapsed on 2026-09-17 (`DECISIONS.md` D2 update). | live | infra |
 
 ## `engine/` — quant + decision layer
 
@@ -59,7 +59,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
 | `realized_vol.py` | RV estimators (close-to-close, Parkinson, Garman-Klass, Rogers-Satchell, Yang-Zhang). |
-| `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `CLAUDE.md`'s NEVER list). |
+| `strangle_timing.py` | Strangle entry timing gate (the one timing-gated strategy permitted by `OPERATING_MODEL.md` §9.3's out-of-scope list). |
 | `data/quality.py` | Chain-quality gate on the EV path; drops candidates with stale / mispriced / low-liquidity option chains before `EVEngine.evaluate`. (Lives outside `engine/`.) |
 
 ### Reviewers (downgrade-only)
@@ -95,7 +95,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `binomial_tree.py` | Binomial-tree pricer. |
 | `monte_carlo.py` | Block bootstrap, jump-diffusion, Longstaff-Schwartz American pricing. |
 | `volatility_surface.py` | SVI calibration, `VolatilitySurfaceBuilder`. **live** (A2, 2026-05-30) — wired in fail-loud via `SurfaceDataUnavailable` / `require_surface`; first caller `scripts/diagnose_iv_surface.py` (see `DECISIONS.md` D9). |
-| `model_validation.py` | Textbook + property tests for pricing models. |
+| `model_validation.py` | `CrossModelValidator` / `run_benchmark_grid` — cross-model pricing comparison with acceptance gates. **Test-only consumer** (`tests/test_binomial_tree.py`); kept in the 2026-09-17 dormant-module pass for that reason. |
 | `shared_valuation.py` | Unified labeling — `simulate_option_trade`, `simulate_wheel_cycle`, `TradeOutcome`. |
 
 ### Risk + sizing
@@ -165,7 +165,7 @@ Key scripts:
 |---|---|
 | `pull_all.py` | Orchestrates every `pull_*.py` step; respects `--skip` for tier-blocked endpoints. |
 | `backfill_features.py` | Rebuilds the `data/features/**` shards (1.2 GB total; AAPL is the in-git sample). |
-| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `CLAUDE.md`'s fresh-session bring-up. |
+| `diagnose_candidates.py` | Funnel report for zero-trade debugging. **Default `tickers=None` is full-universe and exceeds the 45 s Cowork bash timeout** — pass an explicit short list. See `docs/DATA_POLICY.md` §7 (sandbox-vs-laptop) and `OPERATING_MODEL.md` §9.4 (fresh-session bring-up). |
 | `feature_smoke_test.py` | 108 checks across 26 sections (~107 PASS / 0 FAIL / ~20 SKIP on the laptop). |
 | `theta_backfill.py` | Tier-aware bulk backfill with circuit breakers. |
 | `theta_health_check.py` | Connectivity + Bloomberg fallback probe. |

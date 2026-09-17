@@ -638,7 +638,6 @@ def print_report():
     ordered_domains = [
         "D1 OHLCV Integrity",
         "D2 Options Math",
-        "D3 Committee Quality",
         "D4 Strangle Timing",
         "D5 Robustness",
     ]

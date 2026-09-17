@@ -140,8 +140,8 @@ in `archive/2026-09/`. `main` is deliberately unprotected (D29 ruling 13). The
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a
-tradeable verdict. Reviewers (chart provider, advisor committee,
-dealer positioning, **R7-R10 portfolio-context gates**) can
+tradeable verdict. Reviewers (chart provider, dealer positioning, **R7-R10
+portfolio-context gates**, R11) can
 downgrade outputs — never upgrade. News sentiment was severed from the
 EV path on 2026-05-26 (D18) and the news stacks were removed on
 2026-09-16 (D29): there is no news input anywhere on the decision path.

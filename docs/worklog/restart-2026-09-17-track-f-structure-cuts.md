@@ -109,6 +109,18 @@ Operator-governed edits made under the ruling.
   news multiplier and the R2 note; the Operator can run the slow lane on the laptop
   before merging if the full proof is wanted.
 
+- Independent verification (workflow, 59 agents: five lenses — dangling references,
+  R2 decision integrity, the src/ move, registry truth, commit claims vs evidence —
+  each finding put to two skeptics): 26 findings confirmed, 1 refuted as stale. All 26
+  were leftovers, not behaviour: `.pre-commit-config.yaml` bandit/mypy hooks still
+  scanning `src/`, `.env.example` still offering `SWE_USE_MCP_CHART` / `SWE_MODELS_DIR`,
+  seven FILE_MANIFEST descriptions, a MODULE_INDEX pyproject row, DATA_POLICY workspace
+  rows, `CLAUDE.md §2` pointers in TESTING / MODULE_INDEX / REPO_MAP, the README tree,
+  an empty "D3 Committee Quality" domain in `scripts/audit_api_smoke.py`, and a gap
+  in the D30 pins (an errored chart carrying stale evidence must not fire R3/R4; a
+  chartless dossier must still reach R11) — two tests added. Fixed in the follow-up
+  commit; the R2 lens could not refute any of the six decision-integrity claims.
+
 ## Unresolved / handoff
 
 - Operator rulings still open, surfaced by the cuts: (a) the seven research

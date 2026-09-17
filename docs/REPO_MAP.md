@@ -21,7 +21,7 @@
 ## Authority block — the §2 firewall (do not bypass)
 
 The four sanctioned routes from raw inputs to a tradeable verdict (full contract
-+ rationale: `CLAUDE.md` §2, `DECISIONS.md` D1):
++ rationale: `OPERATING_MODEL.md` §9.2 and §7, `DECISIONS.md` D1):
 
 | Route | File | Public entry | Role |
 |---|---|---|---|
@@ -34,8 +34,8 @@ The four sanctioned routes from raw inputs to a tradeable verdict (full contract
 **downgrade** (proceed→review→skip→blocked) but never upgrade; the dealer
 multiplier is clamped `[0.70, 1.05]` and scales `ev_dollars` only, never `ev_raw`.
 
-**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `CLAUDE.md`
-§2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
+**Reviewer rules (the canonical count is R1–R11 — see D23 in `DECISIONS.md`; rule *text* lives in `OPERATING_MODEL.md`
+§9.2):** R1 negative/non-finite EV→blocked (R1a non-finite guard) · R2 chart
 missing/errored→note only, R3/R4 skipped (D30) · R3 spot mismatch >2%→skip · R4 phase contradiction→skip
 (*dormant*) · R5 EV ≥ `min_proceed_ev` (10.0)→proceed else review · R6 short-gamma
 + strike ≥ put wall / near gamma flip→review · **R7–R10 = D17 portfolio
@@ -94,7 +94,7 @@ for why subdirs are *not* recommended):
 | Data / connectors | `test_data_*`, `test_bloomberg_loader`, `test_theta_connector{,_coverage,_v3}`, `test_external_data_*`, `test_features` |
 | Risk / portfolio | `test_risk_manager`, `test_portfolio_tracker`, `test_portfolio_copula_coverage`, `test_stress_testing`, `test_portfolio_risk_gates`, `test_dealer_positioning` |
 | Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops` |
-| Interface / infra | `test_tv_*`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure`, `test_recovery_*` |
+| Interface / infra | `test_tv_*`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure` |
 
 ### Launch-blocker subset (the §2 gate — single source)
 

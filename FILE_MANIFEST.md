@@ -182,7 +182,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | File | Purpose |
 |---|---|
 | `config/__init__.py` | Re-exports `Config`, `ConfigManager`, the sub-config dataclasses and preset factories. |
-| `config/settings.py` | Centralized config dataclasses with YAML/JSON/env (`WHEEL_*`) loading. **Dormant** — zero importers; the live runtime config is `engine/policy_config.py`. (`ml/wheel_model.py` reads the `WHEEL_*` env vars directly, not through this module.) |
+| `config/settings.py` | Centralized config dataclasses with YAML/JSON/env (`WHEEL_*`) loading. **Dormant** — zero importers; the live runtime config is `engine/policy_config.py`. |
 
 ## `dashboard/` — Next.js dashboard + legacy Python CLI
 
@@ -247,7 +247,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/watchlist/macro panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
 | `dashboard/src/db/index.ts` | SQLite/Drizzle connection — lazy init, table creation, idempotent migrations. |
 | `dashboard/src/db/schema.ts` | Drizzle ORM schema for the terminal's SQLite store — `marketSnapshots` (quote cache), `watchlists`, `events`. The news/story tables were dropped 2026-09-16 and the chat tables 2026-09-17 (D29); old tables in an existing local DB file are never dropped. |
-| `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine data, ticker analysis, committee review. |
+| `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine status / candidates / regime, the live book, ticker analysis. |
 | `dashboard/src/lib/utils.ts` | `cn()` Tailwind class-merge helper. |
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |
 | `dashboard/src/services/market-data.ts` | Finnhub quote client and market-snapshot cache. |
@@ -262,7 +262,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `data/bloomberg_loader.py` | Per-ticker Bloomberg CSV parsers with column normalization. |
 | `data/consolidated_loader.py` | `ConsolidatedBloombergLoader` — loads the consolidated `sp500_*.csv` panels. |
 | `data/broad_pull_loaders.py` | `BroadPullLoader` — read-only Phase-0B loaders for the integrated broad-pull datasets under `data/bloomberg/broad_pull/` (gz handling, float32 downcast, logged winsorization of the manifest's outlier-flagged columns, lazy per-ticker access via normalized symbols). **Dormant — nothing consumes it (§2-safe)**; see `docs/WIRING_CAMPAIGN.md` Phase 0B. |
-| `data/feature_pipeline.py` | `FeaturePipeline` — wires the `src/features/` modules into a layered compute DAG. |
+| `data/feature_pipeline.py` | `FeaturePipeline` — wires the `engine/features/` modules into a layered compute DAG. |
 | `data/feature_store.py` | `FeatureStore` — Parquet-backed feature persistence with atomic writes, locking, TTL cache. |
 | `data/observability.py` | Structured logging, metrics collection, tracing and alerting for the data pipeline. |
 | `data/orchestrator.py` | `PipelineOrchestrator` — DAG executor with retry and checkpoint/resume. |
@@ -324,7 +324,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/PREMIUM_CORRECTION_PILOT.md` | Observe-only pilot measuring real-mid − BSM(iv) premium correction (skew-driven under-pricing, NOT VRP) and the market-vs-engine tail-probability calibration gap; labeling discipline + what the 3-name post-split pilot can/cannot settle. |
 | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` | Planning-only scope for the coordinated **D19** (exit-cost netting) + **D21** (forward-distribution horizon-units) + **probability-recalibration** re-baseline. Covers the entanglement (D21's over-long horizon deflates `prob_profit`, masking top-bin over-confidence; fixing it makes the measured gap worse), the dependency order, the full `prob_assignment`/`prob_profit` blast radius (backtests, calibration band, S-claims, premium-correction pilot risk axis, R1/R5/R11), the LOCO recalibration re-run on D21-corrected probabilities, and the decision-trio test + §2 plan. Draft for operator review; not yet executed. |
 | `docs/SUPERVISED_BLOCK_WORKLIST.md` | Consolidated routing checklist (2026-06-11) for everything operator-gated: Block A (Terminal/data session — data queue #339/#354/#355/#357, reserved (E)s #369/#372/#378, NFLX mis-scale, option-volume capture, post-refresh hygiene) strictly BEFORE Block B (coordinated EV re-baseline — D19+D21+recalibration per `REBASELINE_D19_D21_RECAL_SCOPE.md`, brain-audit M2 widening coverage + M4 size-impact wiring, #402 re-pin, fingerprint gap). Strike items as they merge; archive when both blocks land. |
-| `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `src/` per-file truth table, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
+| `docs/REPO_MAP.md` | The single "where / what / authoritative" router: question→owning-doc map, the §2 authority block, the `engine/features/` origin note, and the layer→test lookup. Read this first to avoid opening 3 nav docs for one question. |
 | `docs/LAPTOP_SETUP.md` | Machine bring-up — cloning, env, Theta Terminal, regenerating local data. |
 | `docs/FRESH_LAB_BOX_SETUP.md` | Fresh/transient lab-box bring-up runbook for pulling Bloomberg from a machine that has a Terminal — the Bloomberg-pull counterpart to `LAPTOP_SETUP.md` (clone-before-orient ordering, the worked 2026-06-02 lab-box example, no-recall steps). |
 | `docs/LAUNCH_READINESS.md` | The launch-blocker gate checklist consolidating the EV invariant, the four authoritative routes, and the dossier rules. |
@@ -440,7 +440,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/wheel_runner.py` | `WheelRunner` — the orchestrator and authoritative ranker (`rank_candidates_by_ev`, covered-call/strangle rankers, `select_book`, dossier builder); provider selection. |
 | `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R11 rules). |
 | `engine/chart_context.py` | `ChartContext` dataclass and the `ChartContextProvider` protocol. |
-| `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, MCP, chained) and the default-provider factory. |
+| `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, chained) and the default-provider factory; the MCP provider was removed 2026-09-17 (D30). |
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
@@ -584,8 +584,8 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `scripts/run_paper_book.py` | Driver for the forward paper-trading book (`engine/paper_book.py`). `seed` reuses `backtests.regression._common.run_backtest` (caps-off, PIT-correct) to seed a `backfill` curve; `forward` re-ranks `as_of` (clamped to the data frontier) through the real engine and opens up to N EV>0 positions on a **caps-armed** `make_live_book_tracker` (R9/R10), marks-to-market, settles due trades, and appends exactly one idempotent `forward` point; `report` recomputes calibration + MC. Imports `wheel_runner` (drives the engine); the trio-free half is `engine/paper_book.py`. Writes ONLY to the SIM namespace, never `data_processed/ibkr/`. |
 | `scripts/s47_trader_session_2026_03_20.py` | S47 reproducer — observe-only "use the engine" wheel session at as_of=2026-03-20: ranks puts, interrogates strike/premium/prob realism (independent BSM recompute + skew estimate), exercises the earnings gate, R11 elevated-vol path, R9/R10 concentration caps, and the roll → assignment → covered-call lifecycle. Mirrors `docs/worklog/s47-live-wheel-session-2026-03-20-trust-audit-on-an.md`. Never modifies `engine/`. |
 | `scripts/generate_tested_surface_map.py` | Reads `coverage.json` and writes `docs/TESTED_SURFACE_MAP.md` — per-module table + top-N gap ranking + module→test static-import map. Stdlib only; re-run after a meaningful coverage shift. |
-| `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `SWE_DATA_PROVIDER`. See `OPERATING_MODEL.md` §9.5 (worktrees + per-terminal env). |
-| `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same six env vars. |
+| `scripts/setup-terminal.sh` | Parallel-session env loader for bash / Git Bash / WSL — source with a terminal letter (`source scripts/setup-terminal.sh a`) to export per-terminal `SWE_API_PORT`, `COVERAGE_FILE`, `PYTEST_CACHE_DIR`, `SWE_DATA_PROCESSED_DIR`, `SWE_DATA_PROVIDER`. See `OPERATING_MODEL.md` §9.5 (worktrees + per-terminal env). |
+| `scripts/setup-terminal.ps1` | PowerShell companion to `setup-terminal.sh` — dot-source (`. .\scripts\setup-terminal.ps1 a`) for native Windows shells. Sets the same five env vars. |
 | `scripts/process_bloomberg_exports.py` | Cleans and validates Bloomberg-exported CSVs into the per-ticker layout. |
 | `scripts/download_sp500_constituents.py` | Scrapes the current S&P 500 constituent list from Wikipedia. |
 | `scripts/download_yf_ohlcv.py` | yfinance OHLCV downloader with multi-index header cleanup. |
@@ -770,7 +770,7 @@ Nothing under `staging/` is read by the engine or connector.
 | `tests/test_data_pipeline.py` | The data-engineering pipeline — feature store, quality, observability. |
 | `tests/test_data_quality.py` | `data.quality` — the options-consistency gate regression. |
 | `tests/test_data_validation.py` | `utils.data_validation` — IV normalisation, option/OHLCV validation. |
-| `tests/test_features.py` | `src.features` feature-calculation correctness. |
+| `tests/test_features.py` | `engine.features` feature-calculation correctness. |
 | `tests/test_external_data_cboe.py` | HTTP-mocked `CBOEAdapter`. |
 | `tests/test_external_data_edgar.py` | HTTP-mocked `EDGARAdapter`. |
 | `tests/test_external_data_fred.py` | HTTP-mocked `FREDAdapter`. |

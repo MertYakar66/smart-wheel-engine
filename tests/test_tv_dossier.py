@@ -238,6 +238,32 @@ class TestEnginePhaseReviewer:
         assert reason == "ev_above_threshold"
         assert any("chart context unavailable: no_chart_provider" in n for n in notes)
 
+    def test_errored_chart_with_stale_evidence_skips_r3_and_r4(self):
+        """D30: an errored chart's stale visible_price / phase must not fire R3 or R4."""
+        stale = ChartContext(
+            ticker="AAPL",
+            timeframe="1D",
+            captured_at=datetime.now(UTC).replace(tzinfo=None),
+            screenshot_path=None,
+            visible_price=150.0,  # would trip R3 (engine spot 100.0) if consulted
+            visible_indicators={"phase": "compression"},  # would trip R4 vs post_expansion
+            error="screenshot_timeout",
+        )
+        verdict, reason, notes = EnginePhaseReviewer().review(self._dossier(ev=50.0, chart=stale))
+        assert verdict == "proceed"
+        assert reason == "ev_above_threshold"
+        assert any("R3/R4 skipped" in n for n in notes)
+        assert not any("disagrees" in n for n in notes)
+
+    def test_missing_chart_still_reaches_r11(self):
+        """D30: without a chart the ladder continues past R5 — R11 still sizes down."""
+        row = {"ticker": "AAPL", "ev_dollars": 50.0, "spot": 100.0, "prob_profit": 0.95}
+        dossier = CandidateDossier(ticker="AAPL", ev_row=row, chart_context=None, vix_level=30.0)
+        verdict, reason, notes = EnginePhaseReviewer().review(dossier)
+        assert verdict == "review"
+        assert reason == "elevated_vol_top_bin"
+        assert any("chart context unavailable" in n for n in notes)
+
     def test_missing_chart_cannot_rescue_below_threshold_ev(self):
         """D30 adds no upgrade path: a sub-threshold EV still lands in review via R5."""
         reviewer = EnginePhaseReviewer()

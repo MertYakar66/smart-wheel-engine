@@ -1,3 +1,8 @@
+> **Archived 2026-09-17 (`DECISIONS.md` D30).** The MCP chart provider, its
+> `tv`-CLI client (`engine/mcp_client.py`) and the analyst workspace this
+> contract governed were removed under the Operator's Track F ruling. Kept as
+> the design record; nothing below describes live code.
+
 # TradingView MCP Integration — Design Contract
 
 This is a **design contract**, not an implementation plan. It pins the

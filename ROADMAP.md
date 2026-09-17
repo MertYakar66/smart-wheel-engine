@@ -50,7 +50,8 @@ All three items shipped; per-PR detail in `CHANGELOG.md` 2026-05.
   `done`. Stages 1–3 (PR #95; opt-in via `SWE_USE_MCP_CHART`;
   `DECISIONS.md` D12/D13). Residual: the `TODO(live-verify)` markers
   in `engine/mcp_client.py` need a live TradingView Desktop +
-  tradingview-mcp server to confirm.
+  tradingview-mcp server to confirm. *(Removed 2026-09-17 with the MCP
+  workspace — `DECISIONS.md` D30.)*
 - ~~**A2. iv_surface missing-data contract**~~ — `done` (2026-05-30):
   chose **fail loudly** (`SurfaceDataUnavailable` + `require_surface`;
   `DECISIONS.md` D9; pinned by `tests/test_iv_surface_failloud.py`).

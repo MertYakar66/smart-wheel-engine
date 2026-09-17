@@ -303,7 +303,7 @@ If you add a new input (a data source, an advisor, a chart feed), wire it as a p
 The `EnginePhaseReviewer` rules (they run when a dossier is built, not inside the ranker):
 
 - **R1:** negative OR non-finite EV → blocked (**R1a** guards `±inf` / `NaN` before the sign check, `verdict_reason="ev_non_finite"`). On the default dossier path R1 is pre-empted because the ranker already drops EV below zero.
-- **R2:** chart missing → review (the ladder stops here; on a headless run with no chart provider every candidate stops at R2).
+- **R2:** chart missing or errored → a **note**, not a stop (D30, 2026-09-17): R3/R4 are skipped and the ladder continues to R5–R11, so a headless run still reaches the EV threshold and the portfolio gates.
 - **R3:** spot mismatch > 2% → skip.
 - **R4:** phase contradiction → skip *(dormant — no chart provider populates a phase).*
 - **R5:** EV above threshold (`min_proceed_ev`, 10.0) → proceed, else review.

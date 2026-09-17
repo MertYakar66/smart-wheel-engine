@@ -684,7 +684,7 @@ natural-language access to the API surface.
 
 ## 11. MCP server (Theta's own — distinct from the engine MCP)
 
-> **Don't confuse this with `docs/TRADINGVIEW_MCP_INTEGRATION.md`.**
+> **Don't confuse this with the engine's former TradingView MCP chart provider** (removed 2026-09-17, D30; contract archived at `archive/2026-09/TRADINGVIEW_MCP_INTEGRATION.md`).
 > Theta's MCP is for ad-hoc data queries via natural language. **It
 > is not part of the EV decision path** — using it cannot bypass
 > `EVEngine.evaluate`. See `CLAUDE.md` §2.

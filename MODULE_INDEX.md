@@ -67,8 +67,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | Module | Purpose |
 |---|---|
 | `chart_context.py` | `ChartContext` dataclass + `ChartContextProvider` Protocol. |
-| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
-| `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
+| `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`; `build_default_provider` chains them (filesystem first, Playwright optional). The opt-in MCP provider was removed 2026-09-17 (D30). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
 
 ### Data layer

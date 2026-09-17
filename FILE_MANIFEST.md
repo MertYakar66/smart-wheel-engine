@@ -133,6 +133,8 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-07/DATA_SUFFICIENCY_REVIEW_2026-07-21.md` | Source-verified (file:line) answer to "do we need more data / history / datasets?": per-method history adequacy (5y hardcoded forward window, HMM 504-bar slice, EVT scenario-count bound + the overlapping-tier inversion), EV-critical vs dormant classification of every on-disk dataset, built-but-starved capabilities with their distinct unblockers (premium parquets = laptop production; skew = wiring off the 5×5 surface; GEX = rail+IV chain adapter), the ROI-ordered Terminal pull list (frontier bump via `_bbg_panel.py` env knobs + 18 truncated-name backfill incl. WMT), the tier-blocked ceiling (with the `DATA_POLICY.md` §2 VIX-futures correction), and the code-only ceiling (D19/D21, R7 unfireable, FRED credit-mult fragility). Corrects stale `BLOOMBERG_TERMINAL_NEXT_SESSION.md` §1 and refutes the posited Drive-manifest migration. *(Archived 2026-07-28, docs-structure run.)* |
 | `archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md` | Verbatim pre-restart `PROJECT_STATE.md` §3 narrative (2026-05-04 → 2026-07-08), archived 2026-09-17; historical, not maintained. |
 | `archive/2026-09/NEWS_REDESIGN_CAMPAIGN.md` | Campaign tracking doc for the 9-PR effort that severs verbal news from the EV decision path and replaces it with structured quantitative layers (earnings calendar, fundamentals, macro). Branch prefix `claude/lucid-davinci-pm15H`; coordination on board #113. Temporal doc — status table updated as each PR lands; structural decisions are in `DECISIONS.md` D18+. Superseded 2026-09-16 (D29: news stacks removed); archived 2026-09-17. |
+| `archive/2026-09/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract of the retired MCP chart provider (D12/D13); archived 2026-09-17 when the MCP path was removed (D30). |
+| `archive/2026-09/tradingview-research-2026-05-23-xom-1d-chart-read.md` | The one analyst-workspace research note (XOM 1D chart read, 2026-05-23); archived 2026-09-17 with the workspace. |
 
 ## `backtests/` — research backtesting
 
@@ -338,7 +340,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `docs/THETA_LARDER_SCOPE.md` | Scope + caveats for the `pull_theta_option_history.py` larder: top-150 by 2018→now turnover, 2018→now, all-strikes, 90-day lookback, SPY/QQQ reference-only. Documents the **survivor-bias caveat** (ranked on current 503 → backtests inherit survivor bias; delisted once-liquid names excluded until a PIT-membership source lands) and the deferred extensions (2016–17, >90d lookback, delisted backfill, IV/Greeks/tick phases). |
 | `docs/TRADINGVIEW_INTEGRATION.md` | Parent guide for the two TradingView roles — engine bridge and analyst workspace. |
 | `docs/IBKR_LIVE_BOOK_INTEGRATION.md` | Design doc for the read-only IBKR live-book feed (D24, gate-arming), the un-adopted exit-evaluator scope frontier (D25), and the read-only performance viewer (D26). Defines the point-in-time snapshot schema (§2.2), universe discipline (§2.3), and the viewer architecture (§6). |
-| `docs/TRADINGVIEW_MCP_INTEGRATION.md` | Design contract for the MCP-driven chart provider. |
 | `docs/GREEKS_UNIT_CONTRACT.md` | Canonical Greeks unit conventions. |
 | `docs/MODEL_CARDS.md` | Per-model documentation cards. |
 | `docs/USAGE_TEST_LEDGER.md` | **FROZEN** (2026-05-29, D14 extension) — its S1–S46 entries were split verbatim into per-task fragments under `docs/worklog/`; now a banner + scenario→fragment map. New usage records are worklog fragments (`scripts/new_worklog.py`), indexed by `docs/worklog/INDEX.md`. |
@@ -440,7 +441,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R11 rules). |
 | `engine/chart_context.py` | `ChartContext` dataclass and the `ChartContextProvider` protocol. |
 | `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, MCP, chained) and the default-provider factory. |
-| `engine/mcp_client.py` | `MCPCLIClient` — the `tv`-CLI subprocess client backing the MCP chart provider. |
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
@@ -790,7 +790,6 @@ Nothing under `staging/` is read by the engine or connector.
 | `tests/test_tv_signals.py` | `engine.tv_signals` — signal computation, IV overlay, Pine-constant parity. |
 | `tests/test_tv_dossier.py` | Launch-blocker invariant — the TV visual-context dossier layer and providers. |
 | `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |
-| `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
 | `tests/test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` invariants — monotone ordering, pre-multiplier invariance, `cvar_5 ≤ pnl_p25`, NaN guards on small distributions and event-lockout. |
 | `tests/test_dashboard.py` | The legacy `QuantDashboard` CLI surface. |
@@ -813,14 +812,8 @@ Nothing under `staging/` is read by the engine or connector.
 | File | Purpose |
 |---|---|
 | `tradingview/README.md` | Hands-on setup checklist for the engine bridge (install the Pine indicator, wire the webhook). |
-| `tradingview/CLAUDE.md` | Session-orientation contract for Claude acting as the TradingView analyst. |
-| `tradingview/OVERVIEW.md` | Operating overview of the analyst function. |
 | `tradingview/smart_wheel_signals.pine` | The Pine v5 indicator mirroring `engine/tv_signals.py`. |
 | `tradingview/alert_payload_schema.json` | JSON Schema for the webhook payload. |
-| `tradingview/launch-tradingview-cdp.sh` | Launches TradingView Desktop with CDP for the analyst workspace. |
-| `tradingview/launch-tradingview-cdp.ps1` | Windows PowerShell companion to `launch-tradingview-cdp.sh` — locates the TradingView MSIX install and relaunches it with `--remote-debugging-port=9222` so the TradingView MCP can attach. See `docs/TRADINGVIEW_INTEGRATION.md` "Windows gotchas". |
-| `tradingview/{models,pine,research}/.gitkeep` | Placeholders for analyst-workspace output directories. `models/` and `pine/` contents remain gitignored; tracked analyst research notes are covered separately below. |
-| `tradingview/research/*.md` | Analyst research notes saved per the `tradingview/CLAUDE.md` workspace convention (`YYYY-MM-DD-<title>.md` — fallback for environments without a `.docx` writer). |
 
 ## `utils/` — shared utilities
 

@@ -37,11 +37,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
 
 from .chart_context import ChartContext, ChartContextProvider, Timeframe
 
@@ -325,244 +322,6 @@ class PlaywrightChartProvider:
 
 
 # ---------------------------------------------------------------------
-# 3. MCP provider (live chart context via the tradingview-mcp server)
-# ---------------------------------------------------------------------
-# Canonical failure-mode taxonomy — docs/TRADINGVIEW_MCP_INTEGRATION.md
-# §7. The implementer does NOT invent new error strings: a new mode is
-# added to this set (and the doc's table) first.
-MCP_ERROR_MODES: frozenset[str] = frozenset(
-    {
-        "mcp_unavailable",
-        "symbol_not_found",
-        "screenshot_timeout",
-        "browser_disconnected",
-        "stale_state",
-        "pit_violation",
-        "unexpected_error",
-    }
-)
-
-
-class MCPClientError(Exception):
-    """A chart capture could not complete via the tradingview-mcp server.
-
-    ``error`` is one of the canonical :data:`MCP_ERROR_MODES` values;
-    construction raises ``ValueError`` for anything else so a typo fails
-    loudly rather than leaking a non-canonical string into a
-    :class:`ChartContext`. ``detail`` is free text for the audit trail.
-    """
-
-    def __init__(self, error: str, detail: str = "") -> None:
-        if error not in MCP_ERROR_MODES:
-            raise ValueError(
-                f"non-canonical MCP error {error!r} — add it to MCP_ERROR_MODES "
-                "and docs/TRADINGVIEW_MCP_INTEGRATION.md §7 before using it"
-            )
-        super().__init__(f"{error}: {detail}" if detail else error)
-        self.error = error
-        self.detail = detail
-
-
-@dataclass
-class MCPCaptureResult:
-    """A successful MCP chart capture.
-
-    Contract: a client returns this only when ``screenshot_path`` points
-    at a PNG it just captured. Every failure path raises
-    :class:`MCPClientError` instead — a client never returns a
-    half-populated result.
-    """
-
-    screenshot_path: Path
-    visible_price: float | None = None
-    visible_symbol: str | None = None
-    visible_timeframe: str | None = None
-
-
-class MCPChartClient(Protocol):
-    """Transport that drives the tradingview-mcp server for one capture.
-
-    The concrete CLI-subprocess implementation (transport "Option A":
-    ``engine/mcp_client.py``) lands in integration Stage 2. Until then
-    :class:`MCPChartProvider` defaults to :class:`_UnconfiguredMCPClient`
-    and tests inject a fake.
-    """
-
-    def capture(self, ticker: str, timeframe: Timeframe) -> MCPCaptureResult: ...
-
-
-class _UnconfiguredMCPClient:
-    """Default client until the Stage-2 CLI client is wired in.
-
-    Every live capture honestly fails with ``mcp_unavailable`` — the
-    correct state on any machine with no tradingview-mcp server. This
-    keeps ``MCPChartProvider()`` constructible (the contract test builds
-    one) without pretending a server exists.
-    """
-
-    def capture(self, ticker: str, timeframe: Timeframe) -> MCPCaptureResult:
-        raise MCPClientError(
-            "mcp_unavailable",
-            "MCP client not configured (Stage 2 wires engine/mcp_client.py)",
-        )
-
-
-class _ForcedErrorClient:
-    """Test seam: a client whose capture always fails the same way.
-
-    Backs :meth:`MCPChartProvider.with_forced_error`
-    (docs/TRADINGVIEW_MCP_INTEGRATION.md §7). The error value is
-    validated at construction by :class:`MCPClientError`.
-    """
-
-    def __init__(self, error: str) -> None:
-        self._exc = MCPClientError(error, "forced error (test seam)")
-
-    def capture(self, ticker: str, timeframe: Timeframe) -> MCPCaptureResult:
-        raise self._exc
-
-
-class MCPChartProvider:
-    """Chart provider backed by the tradingview-mcp server.
-
-    Live, on-demand chart context — fresher than the cron-cached
-    :class:`FilesystemChartProvider` and faster than the headless
-    :class:`PlaywrightChartProvider` when the MCP server is up. It
-    participates as one backend inside a :class:`ChainedChartProvider`;
-    it never replaces the chain.
-
-    Hard contract (docs/TRADINGVIEW_MCP_INTEGRATION.md; CLAUDE.md §2):
-
-    * **Downgrade-only.** This is a :class:`ChartContextProvider`. Its
-      only output is a :class:`ChartContext`, which can at most cause
-      :class:`~engine.candidate_dossier.EnginePhaseReviewer` to
-      *downgrade* a verdict. It cannot rescue a negative-EV trade or
-      bypass ``EVEngine.evaluate``.
-    * **No quiet substitution.** Every failure returns a
-      :class:`ChartContext` whose ``error`` is a canonical
-      :data:`MCP_ERROR_MODES` value — never a fabricated screenshot or
-      a stale value passed off as fresh.
-    * **No retries.** One client call per :meth:`fetch`; retry and
-      fallback are :class:`ChainedChartProvider`'s job.
-    * **PIT discipline.** When ``as_of`` is set the live MCP is not
-      consulted at all — a live screenshot in a backtest is a
-      look-ahead leak — and :meth:`fetch` returns
-      ``error="pit_violation"``.
-
-    Milestone 1 attaches a live spot price (``visible_price``) and a
-    fresh screenshot. ``visible_indicators`` stays empty in M1: a
-    chart-derived phase is deferred (contract §5/§6).
-    """
-
-    def __init__(
-        self,
-        *,
-        client: MCPChartClient | None = None,
-        exchange_map: dict[str, str] | None = None,
-    ) -> None:
-        # Stage 2 swaps the default for engine.mcp_client.MCPCLIClient.
-        self._client: MCPChartClient = client or _UnconfiguredMCPClient()
-        self.exchange_map = exchange_map
-
-    @classmethod
-    def with_forced_error(cls, error: str) -> MCPChartProvider:
-        """Build a provider whose every :meth:`fetch` errors with ``error``.
-
-        Deterministic test seam required by
-        docs/TRADINGVIEW_MCP_INTEGRATION.md §7. ``error`` must be a
-        canonical :data:`MCP_ERROR_MODES` value or this raises
-        ``ValueError``.
-        """
-        return cls(client=_ForcedErrorClient(error))
-
-    def fetch(
-        self,
-        ticker: str,
-        timeframe: Timeframe = "1D",
-        *,
-        as_of: datetime | None = None,
-    ) -> ChartContext:
-        ticker = ticker.upper()
-        url = build_tradingview_url(ticker, timeframe, self.exchange_map)
-
-        # PIT discipline (contract §8 q4): a live screenshot served into
-        # a historical / backtest review is a look-ahead leak even when
-        # annotated "current". Refuse before touching the MCP at all.
-        if as_of is not None:
-            return ChartContext(
-                ticker=ticker,
-                timeframe=timeframe,
-                captured_at=as_of,
-                screenshot_path=None,
-                source="mcp",
-                browser_url=url,
-                error="pit_violation",
-                notes=f"as_of={as_of.isoformat()} set — live MCP not consulted",
-            )
-
-        now = _utcnow()
-        try:
-            result = self._client.capture(ticker, timeframe)
-        except MCPClientError as exc:
-            return ChartContext(
-                ticker=ticker,
-                timeframe=timeframe,
-                captured_at=now,
-                screenshot_path=None,
-                source="mcp",
-                browser_url=url,
-                error=exc.error,
-                notes=exc.detail[:200],
-            )
-        except Exception as exc:  # noqa: BLE001 — any other client failure
-            # Catch-all → unexpected_error, paired with a logged stack
-            # trace as the contract (§7) requires.
-            logger.exception("MCPChartProvider unexpected failure for %s", ticker)
-            return ChartContext(
-                ticker=ticker,
-                timeframe=timeframe,
-                captured_at=now,
-                screenshot_path=None,
-                source="mcp",
-                browser_url=url,
-                error="unexpected_error",
-                notes=str(exc)[:200],
-            )
-
-        # A well-behaved client only returns a result with a real PNG.
-        # If the file is missing, surface unexpected_error rather than
-        # emit an is_ok()=False context with a blank error field.
-        path = result.screenshot_path
-        if path is None or not Path(path).exists():
-            logger.warning(
-                "MCPChartProvider: %s capture returned no screenshot on disk (%r)",
-                ticker,
-                path,
-            )
-            return ChartContext(
-                ticker=ticker,
-                timeframe=timeframe,
-                captured_at=now,
-                screenshot_path=None,
-                source="mcp",
-                browser_url=url,
-                error="unexpected_error",
-                notes=f"client reported screenshot at {path} but it is not on disk",
-            )
-
-        return ChartContext(
-            ticker=ticker,
-            timeframe=timeframe,
-            captured_at=now,
-            screenshot_path=Path(path),
-            source="mcp",
-            browser_url=url,
-            visible_price=result.visible_price,
-            notes="captured via tradingview-mcp",
-        )
-
-
-# ---------------------------------------------------------------------
 # 4. Composable provider with automatic fallback
 # ---------------------------------------------------------------------
 class ChainedChartProvider:
@@ -611,42 +370,18 @@ class ChainedChartProvider:
 def build_default_provider(
     screenshots_dir: Path | str = "screenshots",
     enable_playwright_fallback: bool = False,
-    enable_mcp: bool | None = None,
 ) -> ChartContextProvider:
     """Build the canonical provider for the Smart Wheel engine.
 
     The base is a :class:`FilesystemChartProvider` over ``screenshots/``.
-    Two optional backends chain around it:
+    ``enable_playwright_fallback`` appends a headless
+    :class:`PlaywrightChartProvider` as a last resort. A single-provider
+    chain collapses to that bare provider.
 
-    * ``enable_mcp`` — prepend a live :class:`MCPChartProvider` backed by
-      the tradingview-mcp ``tv`` CLI (:class:`engine.mcp_client.MCPCLIClient`).
-      Integration Stage 3 / contract §8 q3: MCP is **opt-in**, never
-      default-on — a live capture costs more than a cached read, so it
-      pays only when the operator asks for fresh chart state. When
-      ``enable_mcp is None`` the decision is read from the
-      ``SWE_USE_MCP_CHART`` environment variable.
-    * ``enable_playwright_fallback`` — append a headless
-      :class:`PlaywrightChartProvider` as a last resort.
-
-    With MCP on, the chain follows the contract §4 canonical ordering:
-    live MCP first, cached filesystem second, headless browser last.
-    A single-provider chain collapses to that bare provider.
+    The opt-in MCP provider that used to lead this chain (``enable_mcp`` /
+    ``SWE_USE_MCP_CHART``) was removed on 2026-09-17 (``DECISIONS.md`` D30).
     """
-    if enable_mcp is None:
-        enable_mcp = os.environ.get("SWE_USE_MCP_CHART", "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "on",
-        )
-
     providers: list[ChartContextProvider] = []
-    if enable_mcp:
-        # Lazy import: engine.mcp_client imports from this module, so a
-        # module-level import would be circular.
-        from engine.mcp_client import MCPCLIClient
-
-        providers.append(MCPChartProvider(client=MCPCLIClient()))
     providers.append(FilesystemChartProvider(base_dir=screenshots_dir))
     if enable_playwright_fallback:
         providers.append(PlaywrightChartProvider(output_dir=Path(screenshots_dir) / "_playwright"))

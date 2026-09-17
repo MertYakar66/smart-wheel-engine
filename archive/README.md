@@ -96,3 +96,5 @@ live-surface references were updated in the same commit as each move.
 |---|---|---|
 | `2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md` | `PROJECT_STATE.md` §3 | The dated May–July 2026 "Work in progress" narrative (≈500 lines, newest-first), moved verbatim so the live state doc carries only the items still open. |
 | `2026-09/NEWS_REDESIGN_CAMPAIGN.md` | `docs/` | Tracking doc of the 2026-05 news-architecture campaign (D18 severance + structured layers). Superseded 2026-09-16 when every news implementation was removed (D29); kept as the record of what was tried. |
+| `2026-09/TRADINGVIEW_MCP_INTEGRATION.md` | `docs/` | Design contract for the MCP-driven chart provider (D12/D13). The provider, its `tv`-CLI client and the analyst workspace were removed 2026-09-17 (D30); kept as the design record. |
+| `2026-09/tradingview-research-2026-05-23-xom-1d-chart-read.md` | `tradingview/research/` | The only research note the analyst workspace produced; archived with the workspace. |

@@ -181,7 +181,7 @@ launch-blocker subset, and the "what to run when you touch X" map.
 | [docs/DATA_POLICY.md](docs/DATA_POLICY.md) | Data tiers, provider matrix, refresh procedures, sandbox caveats |
 | [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md) | Launch-blocker invariants before merging |
 | [docs/LAPTOP_SETUP.md](docs/LAPTOP_SETUP.md) | Bring-up on a new machine (Theta Terminal, feature store) |
-| [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge + analyst workspace (MCP) |
+| [docs/TRADINGVIEW_INTEGRATION.md](docs/TRADINGVIEW_INTEGRATION.md) | Engine bridge: Pine indicator, webhook, chart providers |
 | [docs/GREEKS_UNIT_CONTRACT.md](docs/GREEKS_UNIT_CONTRACT.md) | Canonical Greeks unit conventions |
 | [OPERATING_MODEL.md §9.9](OPERATING_MODEL.md) | Model-governance standards |
 | [docs/MODEL_CARDS.md](docs/MODEL_CARDS.md) | Model documentation |

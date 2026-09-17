@@ -62,7 +62,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | File | Pins |
 |---|---|
 | `tests/test_audit_invariants.py` | EV is the only ranker; reviewers cannot upgrade |
-| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract; `MCPChartProvider` import-guarded contract test |
+| `tests/test_dossier_invariant.py` | `EnginePhaseReviewer` rules R1–R10; downgrade-only contract |
 | `tests/test_r11_elevated_vol.py` | `EnginePhaseReviewer` rule R11 — elevated-vol top-bin size-down (VIX level > 25 + `prob_profit` > 0.90); downgrade-only; `vix_level=None` no-op (`DECISIONS.md` D23) |
 | `tests/test_r6_dealer_wiring.py` | `EnginePhaseReviewer` rule R6 — dealer/regime downgrade wiring: short-gamma at/above put wall or dealer regime near gamma-flip → review; reads `market_structure` else `ev_row` dealer fields; downgrade-only; no-op on missing dealer data |
 | `tests/test_authority_hardening.py` | TV webhook / analyze / strangle / strikes / wheel_tracker route through EV (audit-vi) |
@@ -251,7 +251,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_engine_api_port.py` | `_resolve_port()` — `SWE_API_PORT` override, 8787 default, bounds + whitespace (D15/C7) |
 | `test_engine_api_hardening.py` | API hardening R3/R18–R21 — CORS, 400 on malformed params, no-exception-leak + correlation id, 404 semantics |
 | `test_engine_api_concentration.py` | `/api/concentration_preview` — armed R9/R10 caps on the live path, refuse-only contract, unmocked gate math (#351) |
-| `test_mcp_client.py` | `MCPCLIClient` tv-CLI transport — five-call capture, canonical `MCP_ERROR_MODES`, no-retry-except-quote (D12; all subprocess-mocked) |
 
 ### Advisors / ML
 

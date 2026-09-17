@@ -127,7 +127,7 @@ brief's prose comes from an API model.
 |---|---|---|
 | `engine/ev_engine.py` | `EVEngine.evaluate` | `tests/test_audit_invariants.py`, `tests/test_audit_viii_*`, `tests/test_evengine_event_lockout.py`, `tests/test_dealer_multiplier_evengine_integration.py` |
 | `engine/wheel_runner.py` | `WheelRunner.rank_candidates_by_ev` | `tests/test_authority_hardening.py`, `tests/test_audit_viii_real_data_smoke.py`, `tests/test_f4_tail_risk_gap.py`, `tests/test_consume_ranker_row_anchor.py` |
-| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R11** (R1 ev-non-finite / negative-EV; R2 chart-missing; R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**; **R11 elevated-vol top-bin**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py`, `tests/test_r11_elevated_vol.py` |
+| `engine/candidate_dossier.py` | `EnginePhaseReviewer`, rules **R1–R11** (R1 ev-non-finite / negative-EV; R2 chart-missing (a note since D30, no longer a stop); R3 spot-mismatch; R4 phase-contradiction; R5 ev-threshold; R6 short-gamma / dealer-flip; R7 portfolio VaR; R8 stress + dealer-regime; **R9 sector cap**; **R10 single-name cap**; **R11 elevated-vol top-bin**) | `tests/test_dossier_invariant.py`, `tests/test_portfolio_risk_gates.py`, `tests/test_dossier_r9_r10_audit.py`, `tests/test_r11_elevated_vol.py` |
 | `engine_api.py` | HTTP API on `SWE_API_PORT` (default `:8787`; per-terminal in worktrees per D15); endpoint header in the file | `tests/test_tv_api.py`, `tests/test_tv_dossier.py`, `tests/test_engine_api_port.py` |
 
 These four routes are the only sanctioned paths from raw inputs to a

@@ -466,6 +466,8 @@ covering `ConnectionError` / `ReadTimeout` / `RetryError`).
 
 ## D12. TradingView MCP transport is the `tv` CLI (Option A)
 
+**SUPERSEDED by D30 (2026-09-17):** the MCP path was removed.
+
 **Decision:** The engine reaches the tradingview-mcp server by shelling
 out to its `tv` command-line interface (JSON on stdout), not by
 speaking the MCP-over-stdio JSON-RPC protocol and not by driving Chrome
@@ -517,6 +519,8 @@ is populated from its `last` field. Only the per-mode error strings in
 ---
 
 ## D13. TradingView MCP is co-located and opt-in (Stage 3)
+
+**SUPERSEDED by D30 (2026-09-17):** the MCP path was removed.
 
 **Decision:** Integration Stage 3 wires `MCPChartProvider` into the
 canonical chart-provider factory `build_default_provider`
@@ -1721,6 +1725,52 @@ file's row removed); and the full audit evidence in the batch worklogs.
 - *Treating the DTE change as a parameter tweak.* Every locked result is a 35-day result and the event lockout is one of two crisis guards; the change is a re-validation, staged in `docs/RESTART_PLAN_2026-09-16.md` Track B.
 
 **Pinned by.** `OPERATING_MODEL.md` v3; `docs/PROMPTING_STANDARD.md`; the absence of any `news` module (a structural test may be added with the redesign); `ROADMAP.md` "Open work — refreshed 2026-09-16"; the launch-blocker suite for everything the tracks touch.
+
+## D30. R2 (chart context) is a note, not a stop; the TradingView MCP path is removed (2026-09-17)
+
+**Decision:** `EnginePhaseReviewer` no longer stops the ladder when a candidate
+has no chart context. A missing or errored chart is recorded in `review_notes`
+("chart context unavailable: <error> - R3/R4 skipped"), R3 (spot mismatch) and R4
+(phase contradiction) are skipped because they need a chart, and R5–R11 run as
+before. The `chart_context_missing` verdict reason is retired (the dashboard keeps
+its label for dossiers produced before the change). The MCP chart provider
+(`MCPChartProvider`, `engine/mcp_client.py`, the `SWE_USE_MCP_CHART` opt-in) and
+the analyst workspace under `tradingview/` (`CLAUDE.md`, `OVERVIEW.md`, the CDP
+launchers, the `models/pine/research` placeholders) are removed. The Pine
+indicator, the alert schema, the webhook bridge, and the filesystem and
+Playwright chart providers stay.
+
+**Why:** On a headless run — every sandbox run and every run without a
+screenshot — R2 turned every candidate into `review` / `chart_context_missing`,
+so R5–R11 never spoke and the verdict carried no information (restart brief
+2026-09-11, decision 11; `docs/RESTART_PLAN_2026-09-16.md` §7a, TradingView row).
+The Operator ruled on 2026-09-17: keep the Pine webhook, drop the MCP workspace,
+make R2 a note. The chart was always a sanity check, never a decider (D5); a
+sanity check that cannot run should say so, not veto.
+
+**Invariants kept:** every reviewer remains downgrade-only. The change removes a
+stop; it adds no upgrade path — a negative or non-finite EV is still blocked at
+R1/R1a before the chart is consulted, a sub-threshold EV still lands in `review`
+at R5, and `tests/test_dossier_downgrade_property.py` still proves that no
+branch of `review()` returns `proceed` except R5's threshold. When a chart is
+present, R3/R4 still downgrade.
+
+**Rejected alternatives:**
+
+- *Keep R2 as a stop and default the provider chain to Playwright.* Adds a
+  browser dependency to every run for a check that is not a decider.
+- *Delete the chart providers entirely.* The filesystem provider costs nothing,
+  the Operator may still drop screenshots, and R3 keeps its value when a chart
+  exists.
+- *Keep the MCP code dormant behind the flag.* Code with `TODO(live-verify)`
+  markers that no machine here can verify is maintenance without value — the
+  same reasoning as D29's news stubs.
+
+**Pinned by:** `tests/test_tv_dossier.py::TestEnginePhaseReviewer::test_missing_chart_is_a_note_not_a_stop`,
+`::test_errored_chart_is_a_note_not_a_stop`,
+`::test_missing_chart_cannot_rescue_below_threshold_ev`;
+`tests/test_dossier_downgrade_property.py` (`_NON_OVERLAY_REVIEW_REASONS` is
+empty); the absence of `engine/mcp_client.py`. Supersedes D12 and D13.
 
 ## How to add a decision
 

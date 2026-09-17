@@ -129,9 +129,8 @@ imports nothing from `ev_engine` / `wheel_runner` / `candidate_dossier`; it only
 modules already accept. Target seams (as of this writing):
 
 - `engine/portfolio_risk_gates.py:57` — `class PortfolioContext` (the D17 gate
-  inputs R7–R11 read). **This is the target type**, *not* `advisors/schema.py:120`
-  `PortfolioContext` (a different class for the advisor committee — the doc must
-  not conflate them).
+  inputs R7–R11 read). **This is the target type.** (The advisor committee's
+  same-named `PortfolioContext` was removed with `advisors/` on 2026-09-17.)
 - `engine/portfolio_risk_gates.py:343` `check_sector_cap(...)`, `:416`
   `check_single_name_cap(...)`, `:529` `check_var(...)`, `:630`
   `check_stress_scenario(...)` — all take `held_option_positions: list[dict]` +

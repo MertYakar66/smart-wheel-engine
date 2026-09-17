@@ -260,7 +260,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 
 | File | Purpose |
 |---|---|
-| `test_advisors.py` | Buffett/Munger/Simons/Taleb committee |
 | `test_audit_improvements.py` | Audit-line improvements |
 | `test_ev_engine_upgrades.py` | EV engine specific upgrades |
 
@@ -354,7 +353,7 @@ pytest tests/test_audit_invariants.py \
 pytest tests/ -m "not integration and not slow" -v
 
 # Coverage (CI scope per .github/workflows/ci.yml; threshold 80%)
-pytest tests/ --cov=src --cov=engine --cov=advisors --cov=data --cov-fail-under=80
+pytest tests/ --cov=src --cov=engine --cov=data --cov-fail-under=80
 
 # Hypothesis profiles (configured in conftest.py)
 pytest tests/ --hypothesis-profile=ci      # 200 examples (CI)
@@ -386,7 +385,6 @@ pytest tests/ -m quant -v
 | `engine/dealer_positioning.py` | `pytest tests/test_dealer_positioning.py tests/test_audit_invariants.py` |
 | `engine/regime_detector.py` or `regime_hmm.py` | `pytest tests/test_regime_detector.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
 | `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
-| `advisors/*` | `pytest tests/test_advisors.py tests/test_authority_hardening.py` |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python scripts/audit_api_smoke.py` against a running `engine_api.py` |
 | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/forward_distribution.py`, `engine/dealer_positioning.py`, `engine/tail_risk.py` | **Backtest regression** in addition to the launch blockers — run `.claude/commands/backtest-regression.md` (~4–5 h). The four S27/S32/S34/S35 backtests are downstream of all five files. |
 

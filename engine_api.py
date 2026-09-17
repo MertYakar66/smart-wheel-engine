@@ -12,7 +12,6 @@ Endpoints:
   GET /api/regime?ticker=SPY              - Current market regime
   GET /api/calendar?ticker=AAPL&days=30   - Upcoming events
   GET /api/screen?min_score=60&limit=20   - Screen universe with filters
-  GET /api/committee?ticker=NVDA          - Run investment committee
   GET /api/vix                            - VIX regime
   GET /api/fundamentals?ticker=AAPL       - Fundamental data
   GET /api/universe                       - Universe of tracked tickers
@@ -789,8 +788,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 self._handle_calendar(param("ticker"), param("days", "30"))
             elif path == "/api/screen":
                 self._handle_screen(params)
-            elif path == "/api/committee":
-                self._handle_committee(param("ticker"))
             elif path == "/api/vix":
                 self._handle_vix()
             elif path == "/api/fundamentals":
@@ -1678,290 +1675,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                     "/api/candidates (EV-authoritative)."
                 ),
                 "tradeable_endpoint": "/api/candidates",
-            }
-        )
-
-    def _handle_committee(self, ticker):
-        from advisors import CommitteeEngine, format_committee_report
-        from advisors.schema import (
-            AdvisorInput,
-            CandidateTrade,
-            MarketContext,
-            PortfolioContext,
-            RegimeType,
-            TradeType,
-        )
-
-        if not ticker or not ticker.strip():
-            self._send_error("ticker parameter is required", 400)
-            return
-        ticker = ticker.strip().upper()
-        conn = get_connector()
-        runner = get_runner()
-
-        # Get real data for this ticker
-        analysis = runner.analyze_ticker(ticker)
-        conn.get_fundamentals(ticker) or {}
-        vix_data = conn.get_vix_regime() or {}
-
-        spot = analysis.spot_price or 100
-        iv = analysis.iv_30d or 25
-        iv_decimal = iv / 100 if iv > 1 else iv
-
-        # AUDIT-VIII P1.4: anchor the committee's candidate trade on the
-        # EV ranker when available. Previously the handler constructed
-        # a synthetic short put with a hardcoded strike (spot * 0.92),
-        # hardcoded 0.04 risk-free rate, and an "expected_value" field
-        # computed as a return-over-capital ratio — none of which
-        # matched the EV engine's definitions. That produced a committee
-        # verdict completely disconnected from the authoritative path,
-        # which the UI could easily mistake for an EV-backed decision.
-        # Now: when the EV ranker returns a row for this ticker, we
-        # use its strike, premium, delta target, EV dollars, and
-        # assignment probability. The synthetic BSM fallback is kept
-        # only for tickers the EV ranker cannot price.
-        ev_row = None
-        ev_path_available = False
-        try:
-            ev_df = runner.rank_candidates_by_ev(
-                tickers=[ticker],
-                dte_target=45,
-                delta_target=0.30,
-                top_n=1,
-                min_ev_dollars=-1e9,
-                include_diagnostic_fields=True,
-                enforce_history_gate=False,
-            )
-            if ev_df is not None and len(ev_df) > 0:
-                ev_row = ev_df.iloc[0].to_dict()
-                ev_path_available = True
-        except Exception:
-            ev_row = None
-
-        dte = 45
-        if ev_row is not None:
-            strike = float(ev_row["strike"])
-            premium = float(ev_row["premium"])
-            dte = int(ev_row.get("dte", 45))
-            # p_otm = P(expire OTM) = 1 - P(assignment/ITM at expiry). The EV row
-            # carries prob_assignment (P ITM) and prob_profit (P net P&L > 0)
-            # SEPARATELY; the previous code put prob_profit into the p_otm slot
-            # and then synthesized p_profit = 0.95*p_otm, inverting the
-            # schema-documented ordering (p_profit > p_otm for short puts) and
-            # feeding every advisor contradictory probability inputs.
-            p_otm = 1.0 - float(ev_row.get("prob_assignment", 0.30))
-            p_profit = float(ev_row.get("prob_profit", p_otm))
-            # Put delta at the actual EV strike (signed negative).
-            from scipy.stats import norm as _norm
-
-            T = dte / 365
-            if iv_decimal > 0 and T > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                delta = float(-_norm.cdf(-d1))
-            else:
-                delta = -0.30
-            ev_dollars = float(ev_row.get("ev_dollars", premium * 100 * p_otm))
-        else:
-            # Fallback synthetic BSM trade — only fires when the EV
-            # ranker cannot price the ticker (e.g. missing OHLCV /
-            # fundamentals). The response is still labelled
-            # authority="heuristic_diagnostic" to prevent the UI from
-            # treating it as EV-backed.
-            from scipy.stats import norm as _norm
-
-            strike = round(spot * 0.92, 0)
-            T = dte / 365
-            if iv_decimal > 0 and T > 0:
-                d1 = (np.log(spot / strike) + (0.04 + 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                d2 = d1 - iv_decimal * np.sqrt(T)
-                premium = float(strike * np.exp(-0.04 * T) * _norm.cdf(-d2) - spot * _norm.cdf(-d1))
-                premium = max(0.01, premium)
-                delta = float(-_norm.cdf(-d1))
-                p_otm = float(_norm.cdf(d2))
-                # P(profit) for a short put = P(S_T > breakeven), breakeven =
-                # strike - premium < strike, so p_profit >= p_otm.
-                breakeven = max(strike - premium, 0.01)
-                d2_be = (np.log(spot / breakeven) + (0.04 - 0.5 * iv_decimal**2) * T) / (
-                    iv_decimal * np.sqrt(T)
-                )
-                p_profit = float(_norm.cdf(d2_be))
-            else:
-                premium = 1.0
-                delta = -0.30
-                p_otm = 0.70
-                p_profit = 0.74
-            ev_dollars = p_otm * premium * 100
-
-        # AUDIT: CandidateTrade.expected_value is schema-documented as a
-        # percentage and every advisor renders it with a "%" — feeding the
-        # raw dollar EV produced nonsense like "EV 6199%". Convert the
-        # dollar EV to return on capital-at-risk for the cash-secured put.
-        contracts = 1
-        capital_at_risk = strike * 100 * contracts
-        ev_pct = (ev_dollars / capital_at_risk * 100) if capital_at_risk > 0 else 0.0
-
-        # Build realistic AdvisorInput
-        trade = CandidateTrade(
-            ticker=ticker,
-            trade_type=TradeType.SHORT_PUT,
-            strike=strike,
-            expiration_date="",
-            dte=dte,
-            delta=delta,
-            premium=round(premium, 2),
-            contracts=contracts,
-            expected_value=round(ev_pct, 2),
-            p_otm=round(p_otm, 2),
-            p_profit=round(p_profit, 2),
-            iv_rank=analysis.iv_rank * 100 if analysis.iv_rank < 1 else analysis.iv_rank,
-            iv_percentile=analysis.iv_percentile * 100
-            if analysis.iv_percentile < 1
-            else analysis.iv_percentile,
-            theta=round(premium / dte, 4),
-            gamma=0.02,
-            vega=round(premium * 0.1, 4),
-            underlying_price=spot,
-            earnings_before_expiry=analysis.days_to_earnings is not None
-            and 0 < (analysis.days_to_earnings or 999) < dte,
-        )
-
-        # AUDIT: the API committee evaluates a single candidate trade in
-        # isolation — there is no connected brokerage account, so there is
-        # no real portfolio to measure concentration or correlation
-        # against. The previous hardcoded $150k book made every trade read
-        # as a fabricated XX% concentration (a $368k BKNG put showed as
-        # "245% of portfolio"). total_equity=0.0 is the standalone
-        # sentinel: advisors treat a non-positive total_equity as "no
-        # portfolio context" and report concentration / sizing as not
-        # assessed rather than dividing the notional by an invented book.
-        portfolio = PortfolioContext(
-            positions=[],
-            total_equity=0.0,
-            cash_available=0.0,
-            buying_power=0.0,
-            sector_allocation={},
-            top_5_concentration=0.0,
-            portfolio_beta=0.0,
-            portfolio_delta=0.0,
-            max_drawdown_30d=0.0,
-            var_95=0.0,
-            open_positions_count=0,
-            total_premium_at_risk=0.0,
-            total_margin_used=0.0,
-        )
-
-        vix_level = vix_data.get("vix", 20)
-        # AUDIT: the connector returns vix_percentile as a 0-1 fraction,
-        # but MarketContext.vix_percentile and every advisor expect 0-100
-        # (simons/taleb format it as "{:.0f}th percentile"). Without this,
-        # VIX 0.91 rendered as "1th percentile" and flipped Taleb's regime
-        # read from "stressed" to "complacency".
-        vix_pctile = vix_data.get("vix_percentile", 50.0)
-        if vix_pctile < 1:
-            vix_pctile *= 100
-        regime = RegimeType.HIGH_VOL if vix_level > 25 else RegimeType.NORMAL
-        market = MarketContext(
-            regime=regime,
-            vix=vix_level,
-            vix_percentile=vix_pctile,
-            spy_price=spot,
-            spy_50ma=spot * 0.98,
-            spy_200ma=spot * 0.95,
-            fed_funds_rate=0.045,
-            treasury_10y=0.042,
-        )
-
-        advisor_input = AdvisorInput(
-            candidate_trade=trade,
-            portfolio=portfolio,
-            market=market,
-            request_id=f"api_{ticker}",
-        )
-
-        committee = CommitteeEngine(parallel=False)
-        result = committee.evaluate(advisor_input)
-
-        # Deduplicate keyReasons across advisors so that boilerplate
-        # templates (e.g. "Probability profile: …") shared between advisors
-        # don't appear twice in the committee output. We keep the first
-        # advisor's copy and drop the duplicate from later advisors.
-        seen_reasons: set[str] = set()
-        advisor_summaries = []
-        for r in result.advisor_responses:
-            unique_reasons = []
-            for reason in r.key_reasons:
-                key = reason.strip().lower()
-                if key and key not in seen_reasons:
-                    seen_reasons.add(key)
-                    unique_reasons.append(reason)
-            # Guarantee each advisor keeps at least 2 reasons — if dedup
-            # stripped too many, fall back to a name-tagged fallback so the
-            # reason is still unique across the committee.
-            while len(unique_reasons) < 2:
-                fallback = (
-                    f"[{r.advisor_name}] {r.judgment.value.replace('_', ' ').title()} "
-                    f"based on {r.judgment_summary[:80]}"
-                )
-                if fallback.strip().lower() not in seen_reasons:
-                    seen_reasons.add(fallback.strip().lower())
-                    unique_reasons.append(fallback)
-                else:
-                    break
-            advisor_summaries.append(
-                {
-                    "name": r.advisor_name,
-                    "judgment": r.judgment.value,
-                    "summary": r.judgment_summary,
-                    "keyReasons": unique_reasons[:3],
-                    "criticalQuestions": r.critical_questions[:3],
-                    "hiddenRisks": r.hidden_risks[:3],
-                    "confidence": r.confidence.value,
-                }
-            )
-
-        self._send_json(
-            {
-                "ticker": ticker,
-                # AUDIT-VIII P1.4: explicit authority contract. The
-                # committee is a narrative / risk-overlay layer, not
-                # the tradeable authority. Callers that want a
-                # tradeable decision must route through the EV ranker
-                # at ``tradeable_endpoint``.
-                "authority": "heuristic_diagnostic",
-                "tradeable_endpoint": "/api/candidates",
-                "ev_anchored": bool(ev_path_available),
-                "judgment": result.committee_judgment.value,
-                "reasoning": result.committee_reasoning,
-                "confidence": result.committee_confidence.value,
-                "approvals": result.approval_count,
-                "rejections": result.rejection_count,
-                "neutrals": result.neutral_count,
-                "advisors": advisor_summaries,
-                "risksUnresolved": result.unresolved_risks[:4],
-                "requiredActions": result.required_before_trade[:4],
-                "report": format_committee_report(result),
-                "trade": {
-                    "ticker": trade.ticker,
-                    "strategy": "short_put",
-                    "strike": trade.strike,
-                    "spot": spot,
-                    "spotPrice": spot,
-                    "dte": trade.dte,
-                    "delta": trade.delta,
-                    "premium": trade.premium,
-                    "expectedValue": trade.expected_value,
-                    "pOtm": trade.p_otm,
-                    "ivRank": trade.iv_rank,
-                    "theta": trade.theta,
-                    "vega": trade.vega,
-                    "gamma": trade.gamma,
-                    "contracts": trade.contracts,
-                    "earningsBeforeExpiry": trade.earnings_before_expiry,
-                },
             }
         )
 
@@ -3426,8 +3139,8 @@ def _resolve_host(env: dict[str, str] | None = None) -> str:
 def main():
     port = _resolve_port()
     host = _resolve_host()
-    # ThreadingHTTPServer spawns one thread per request so a slow committee
-    # or memo call can't block the 5+ parallel fetches the dashboard fires
+    # ThreadingHTTPServer spawns one thread per request so one slow request
+    # can't block the 5+ parallel fetches the dashboard fires
     # when a trader switches tickers. The local ``_EngineHTTPServer``
     # subclass bumps ``request_queue_size`` from stdlib's 5 to
     # ``_LISTEN_QUEUE_DEPTH`` (= 128) so the kernel listen queue accepts
@@ -3448,7 +3161,6 @@ def main():
     print("  GET /api/regime")
     print("  GET /api/calendar?ticker=AAPL&days=30")
     print("  GET /api/screen?min_score=60&limit=20")
-    print("  GET /api/committee?ticker=NVDA")
     print("  GET /api/vix")
     print("  GET /api/fundamentals?ticker=AAPL")
     print("  GET /api/universe")

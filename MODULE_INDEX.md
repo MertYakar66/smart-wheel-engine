@@ -148,25 +148,6 @@ sanctioned.
 
 ---
 
-## `advisors/` — investment committee
-
-Status: live, advisory-only. Per CLAUDE.md §2 the committee cannot
-upgrade a negative-EV verdict; audit-VIII added a
-`tradeable_endpoint="/api/candidates"` and `ev_anchored: bool` to
-prevent shadow synthetic trades from leaking into the committee
-output.
-
-| Module | Role |
-|---|---|
-| `committee.py` | Runs members; aggregates verdicts. |
-| `buffett.py` / `munger.py` / `simons.py` / `taleb.py` | Per-investor heuristics. |
-| `base.py` | Abstract advisor base class. |
-| `schema.py` | Pydantic schemas for advisor I/O. |
-| `scorecard.py` | Scorecard structure. |
-| `integration.py` | Engine-side bridge. |
-
----
-
 ## `scripts/` — pulls + diagnostics
 
 Two flavours: data pullers (`pull_*.py`) and diagnostics

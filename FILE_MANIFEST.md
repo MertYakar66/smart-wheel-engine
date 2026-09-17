@@ -134,21 +134,6 @@ Point-in-time and superseded artifacts, retained for history, not maintained. Se
 | `archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md` | Verbatim pre-restart `PROJECT_STATE.md` §3 narrative (2026-05-04 → 2026-07-08), archived 2026-09-17; historical, not maintained. |
 | `archive/2026-09/NEWS_REDESIGN_CAMPAIGN.md` | Campaign tracking doc for the 9-PR effort that severs verbal news from the EV decision path and replaces it with structured quantitative layers (earnings calendar, fundamentals, macro). Branch prefix `claude/lucid-davinci-pm15H`; coordination on board #113. Temporal doc — status table updated as each PR lands; structural decisions are in `DECISIONS.md` D18+. Superseded 2026-09-16 (D29: news stacks removed); archived 2026-09-17. |
 
-## `advisors/` — investment committee (advisory-only)
-
-| File | Purpose |
-|---|---|
-| `advisors/__init__.py` | Committee package re-export hub; the `TalebAdvisor` import is guarded. |
-| `advisors/base.py` | `BaseAdvisor` ABC — response-schema enforcement and shared trade-assessment helpers. |
-| `advisors/committee.py` | `CommitteeEngine` — runs all advisors, aggregates votes; also portfolio-review and post-mortem modes; `format_committee_report`. |
-| `advisors/integration.py` | `EngineIntegration` — converts engine dicts into `AdvisorInput`; `quick_evaluate` helper. |
-| `advisors/schema.py` | Advisor dataclasses and enums (`AdvisorInput`, `CandidateTrade`, `CommitteeOutput`, portfolio-review/post-mortem schemas). |
-| `advisors/scorecard.py` | `AdvisorScorecard` — tracks advisor prediction accuracy, calibration and P&L. |
-| `advisors/buffett.py` | `BuffettAdvisor` — business-quality / margin-of-safety heuristic critic. |
-| `advisors/munger.py` | `MungerAdvisor` — inversion and cognitive-bias-detection critic. |
-| `advisors/simons.py` | `SimonsAdvisor` — statistical-significance / Kelly-sizing / regime-fit quant critic. |
-| `advisors/taleb.py` | `TalebAdvisor` — tail-risk / fragility-score critic. |
-
 ## `backtests/` — research backtesting
 
 | File | Purpose |
@@ -850,7 +835,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_tv_dossier_d17_wire.py` | D17 portfolio-context live wire on `/api/tv/dossier` — verifies opt-in `portfolio_context` query params parse into a `PortfolioContext` consumed by `EVEngine.evaluate` (closes B2). |
 | `tests/test_mcp_client.py` | Subprocess-mocked `MCPCLIClient` — the five-call capture sequence and failure modes. |
 | `tests/test_dossier_cp1252.py` | Regression — reviewer notes are cp1252-encodable. |
-| `tests/test_advisors.py` | The advisor committee — schemas, advisors, aggregation, engine integration. |
 | `tests/test_ev_engine_percentiles.py` | `EVResult.pnl_p25/p50/p75` invariants — monotone ordering, pre-multiplier invariance, `cvar_5 ≤ pnl_p25`, NaN guards on small distributions and event-lockout. |
 | `tests/test_dashboard.py` | The legacy `QuantDashboard` CLI surface. |
 | `tests/test_infrastructure.py` | Repo-level infrastructure components — env validation, benchmarks, health, SLO. |

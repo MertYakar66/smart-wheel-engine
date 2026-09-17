@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
  * API bridge to the smart-wheel-engine Python API server.
  *
  * The Python API runs on port 8787 (started via: python engine_api.py)
- * and serves all engine data: candidates, analysis, regime, committee, etc.
+ * and serves all engine data: candidates, analysis, regime, calendar, etc.
  *
- * GET /api/engine?action=STATUS|candidates|analyze|regime|committee|calendar
+ * GET /api/engine?action=STATUS|candidates|analyze|regime|calendar
  */
 
 const ENGINE_API = process.env.ENGINE_API_URL || "http://localhost:8787";
@@ -135,13 +135,6 @@ export async function GET(request: Request) {
         const ticker = searchParams.get("ticker") || "SPY";
         const qs = new URLSearchParams({ ticker });
         const data = await fetchEngine(`/api/regime?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "committee": {
-        const ticker = searchParams.get("ticker") || "AAPL";
-        const qs = new URLSearchParams({ ticker });
-        const data = await fetchEngine(`/api/committee?${qs.toString()}`);
         return NextResponse.json(data);
       }
 

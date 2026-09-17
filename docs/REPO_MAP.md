@@ -62,7 +62,6 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 |---|---|---|
 | `engine/` | quant + decision layer (the brain) | `MODULE_INDEX.md` |
 | `engine_api.py` | HTTP API on `:8787` | `MODULE_INDEX.md` |
-| `advisors/` | Buffett/Munger/Simons/Taleb committee (advisory only) | `MODULE_INDEX.md` |
 | `data/`, `data_processed/`, `data_raw/` | market-data layer (tiers, providers) | `docs/DATA_POLICY.md` |
 | `scripts/` | data pullers + diagnostics | `FILE_MANIFEST.md` |
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |

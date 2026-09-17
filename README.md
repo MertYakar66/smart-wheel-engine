@@ -29,7 +29,7 @@ rescue a negative-EV trade.
 | **Data** | `data/`, `data_processed/`, `scripts/pull_*.py` | OHLCV, IV history, option chains, fundamentals, macro. Two providers selected by `SWE_DATA_PROVIDER` (default `bloomberg`). |
 | **Quant** | `engine/` | Black-Scholes-Merton + Greeks to 3rd order, empirical forward distributions, POT-GPD tails, 4-state Gaussian HMM regime, Nelson-Siegel skew, Student-t copula CVaR, dealer GEX / walls / gamma flip. |
 | **Decision** | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py` | `EVEngine.evaluate` (the authoritative ranker), `WheelRunner.rank_candidates_by_ev` (the one ranker every tradeable path routes through), `EnginePhaseReviewer` (rules R1–R11, downgrade-only). |
-| **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py`, `advisors/` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider), Buffett/Munger/Simons/Taleb advisor committee (advisory only). |
+| **Interface** | `engine_api.py`, `dashboard/`, `engine/tradingview_bridge.py` | HTTP API on `:8787`, Next.js dashboard, TradingView chart bridge (sanity check, not a decider). |
 
 See [`OPERATING_MODEL.md`](OPERATING_MODEL.md) §9.1 and §9.2 for the full
 four-layer model and the hard EV invariant. See [`MODULE_INDEX.md`](MODULE_INDEX.md) for the per-module map.
@@ -121,7 +121,6 @@ unset and defaults to `bloomberg`.
 ```
 smart-wheel-engine/
 ├── engine/          # quant + decision layer (EVEngine, WheelRunner, dossier, dealer positioning, …)
-├── advisors/        # Buffett/Munger/Simons/Taleb committee (advisory only)
 ├── scripts/         # data pullers (pull_*.py) + diagnostics + Bloomberg-export assets
 ├── tests/           # test suite (taxonomy in TESTING.md)
 ├── dashboard/       # Next.js dashboard consuming engine_api.py (+ legacy Python CLI)

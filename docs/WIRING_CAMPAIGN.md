@@ -342,7 +342,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 > Touches risk gates → **CEREMONY**. Today only a beta snapshot exists; this is the history.
 > Adjusted-beta was not entitled (raw only) — note in the copula calibration.
 
-### 3F — Fundamentals & estimates → advisor committee (advisory-sizing)
+### 3F — Fundamentals & estimates → advisor committee (advisory-sizing) — *consumer removed 2026-09-17 (`advisors/` deleted, Track F); row kept as the campaign record*
 
 | Dataset | Engine consumer | §2 role | EV-moving? → re-baseline | Banked at | Ref |
 |---|---|---|---|---|---|

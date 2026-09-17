@@ -246,7 +246,7 @@ def generate(coverage_path: Path, out_path: Path, top_n: int) -> None:
     )
     out_lines.append("")
     out_lines.append("**CI scope** (per `pyproject.toml [tool.coverage.run]`):")
-    out_lines.append("`src` · `engine` · `advisors` · `data`.")
+    out_lines.append("`src` · `engine` · `data`.")
     out_lines.append(
         "Modules listed in `[tool.coverage.run] omit` (research-tier ETL, "
         "UI, etc.) are excluded by design "

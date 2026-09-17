@@ -394,7 +394,7 @@ a **committed, byte-present** surface to 2026-06-17 instead.
 | Slice of `per_name/options_sentiment.csv.gz` (1,998,083 rows, 511 nm, 2010→06-18, **32.0 MB gzipped** since 2026-07-02) | Engine consumer | §2 role | EV-moving? → re-baseline | Ceremony | Ref |
 |---|---|---|---|---|---|
 | `pc_oi_ratio`/`pc_vol_ratio`/`oi_call`/`oi_put` → dealer/skew advisory | `dealer_positioning` / `skew_dynamics` | advisory-sizing | **Yes⁶ → coupled⁶** (only if wired into the dealer multiplier `[0.70,1.05]`) | **CEREMONY** (dealer mult) — PLAIN if not wired | roadmap §6 options flow |
-| `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |
+| `news_sent` → **D18 transparency** | `news_sentiment.py` (dashboard + row dict; **module removed 2026-09-16, D29**) | downgrade-only *(display-only in practice)* | **No — display-only, "does NOT influence EV"** (roadmap §8) | PLAIN | roadmap §8 news sentiment |
 
 > Theta per-strike OI is the superior GEX source (roadmap §9 **W-3**, Theta-sourced — **not**
 > in the broad-pull); these BBG P/C ratios are a coarser advisory cross-check. **Winsorize**

@@ -216,8 +216,9 @@ list when shipping something genuinely user-facing:
 - [ ] `scripts/feature_smoke_test.py` reports a pass / fail / skip
       distribution consistent with the current data tier. The
       absolute count moves with each Theta refresh; the live
-      reference is `PROJECT_STATE.md` §3.4. Re-baseline that section
-      before treating any drift as a regression.
+      reference is `docs/DATA_INVENTORY.md` (the 2026-05-04 pull table is
+      archived in `archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md`).
+      Re-baseline that reference before treating any drift as a regression.
 - [ ] On a Theta-up laptop:
       `python scripts/diagnose_candidates.py` (full universe, not the
       Cowork 5-ticker shim) produces a candidate funnel without

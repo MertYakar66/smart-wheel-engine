@@ -85,3 +85,14 @@ in the same commit as each move.
 | `2026-06/VNV_CAMPAIGN_2026-06-01.md` | `docs/` | Read-only V&V sweep report (2026-06-01), complete; worklog-only citations. |
 | `2026-06/bloomberg_refresh_runbook.md` | `docs/` | Pre-salvage Bloomberg refresh runbook (2026-06-08 batch decision); salvage completed 2026-07-04 (#477), data current census in `docs/DATA_POLICY.md` §5. |
 | `2026-07/DATA_SUFFICIENCY_REVIEW_2026-07-21.md` | `docs/` | Dated pull-vs-wire-vs-blocked data-sufficiency review (2026-07-21), complete; worklog-only citations. |
+
+## 2026-09 — restart structure pass (Track F)
+
+Archived under the 2026-09-16/17 Operator rulings (`DECISIONS.md` D29;
+`docs/RESTART_PLAN_2026-09-16.md` §7a). Nothing deleted from the archive;
+live-surface references were updated in the same commit as each move.
+
+| Archived file | Original path | Reason |
+|---|---|---|
+| `2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md` | `PROJECT_STATE.md` §3 | The dated May–July 2026 "Work in progress" narrative (≈500 lines, newest-first), moved verbatim so the live state doc carries only the items still open. |
+| `2026-09/NEWS_REDESIGN_CAMPAIGN.md` | `docs/` | Tracking doc of the 2026-05 news-architecture campaign (D18 severance + structured layers). Superseded 2026-09-16 when every news implementation was removed (D29); kept as the record of what was tried. |

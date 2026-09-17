@@ -24,7 +24,9 @@ frontier and is deliberately left un-adopted.
 
 ## 0. Motivation — the dormancy gap, and why IBKR closes it
 
-`PROJECT_STATE.md` §3 ("D17 cap adoption status — verified 2026-06-01") records
+`archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md`
+(the archived `PROJECT_STATE.md` §3, "D17 cap adoption status — verified
+2026-06-01") records
 the problem this integration exists to solve:
 
 > the R9/R10 concentration caps are correctly **implemented and unit-tested**

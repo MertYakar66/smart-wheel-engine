@@ -65,7 +65,6 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `advisors/` | Buffett/Munger/Simons/Taleb committee (advisory only) | `MODULE_INDEX.md` |
 | `data/`, `data_processed/`, `data_raw/` | market-data layer (tiers, providers) | `docs/DATA_POLICY.md` |
 | `scripts/` | data pullers + diagnostics | `FILE_MANIFEST.md` |
-| `financial_news/`, `news_pipeline/` | two off-EV-path news subsystems (D3) | `MODULE_INDEX.md`, `DECISIONS.md` D3 |
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |
 | `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
@@ -105,7 +104,6 @@ for why subdirs are *not* recommended):
 | Data / connectors | `test_data_*`, `test_bloomberg_loader`, `test_theta_connector{,_coverage,_v3}`, `test_external_data_*`, `test_features` |
 | Risk / portfolio | `test_risk_manager`, `test_portfolio_tracker`, `test_portfolio_copula_coverage`, `test_stress_testing`, `test_portfolio_risk_gates`, `test_dealer_positioning` |
 | Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops`, `test_wheel_backtest` |
-| News (off EV path) | `test_news_pipeline`, `test_news_processing`, `test_news_sentiment`, `test_news_severance` (D18), `test_adversarial_news`, `test_financial_news` |
 | Interface / infra | `test_tv_*`, `test_mcp_client`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure`, `test_recovery_*` |
 
 ### Launch-blocker subset (the §2 gate — single source)

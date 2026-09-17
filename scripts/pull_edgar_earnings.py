@@ -26,7 +26,7 @@ looking calendar with a backward-looking record + a projection
 heuristic (see ``EDGARAdapter.project_next_earnings``).
 
 PR3/9 of the news-architecture redesign campaign — see
-``docs/NEWS_REDESIGN_CAMPAIGN.md``. This PR ships the puller + storage
+``archive/2026-09/NEWS_REDESIGN_CAMPAIGN.md`` (superseded 2026-09-16, D29). This PR ships the puller + storage
 contract. A follow-up PR will wire ``EDGARAdapter.project_next_earnings``
 into ``MarketDataConnector.get_next_earnings`` (or alongside it as a
 PIT-correct alternative source).

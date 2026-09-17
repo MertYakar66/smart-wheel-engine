@@ -55,7 +55,9 @@ REPO_MAP, READMEs, OPERATING_MODEL §9.1 one phrase) updated in the same commits
 
 ## Evidence
 
-- Targeted tests and the fast lane after the removal: pasted in the PR's Run Summary comment.
+- Fast lane after the removal (`python -m pytest tests/ -m "not backtest_regression" -q -p no:cacheprovider --ignore=tests/test_backtest_regression.py`):
+  `3385 passed, 28 skipped, 4 deselected, 20 xfailed, 30 warnings in 945.15s`, exit 0
+  (8 fewer passes than after the news removal, matching the 8 tests of the deleted `tests/test_trade_memo_ci.py`).
 - Guards: `check_manifest_coverage.py` OK; `gen_worklog_index.py --check` OK; `check_doc_currency.py` OK; ruff clean on touched files.
 - Dashboard: `npx next build` exit 0 and `npx eslint src` exit 0 after the removal (subagent report + orchestrator re-run).
 

@@ -2216,7 +2216,8 @@ Output: `data_processed/theta/iv_surface_history/ticker=<X>/year=<Y>/date=<YYYY-
 > **Coverage caveat.** `iv_surface/` (snapshot) now covers ~502/503
 > symbols across 3 dates (2026-04-23/05-24/06-01); `iv_surface_history/`
 > is a stalled 4-name back-solve pilot (A, AAPL, ABBV, ABNB). See
-> `docs/DATA_INVENTORY.md` for current counts and `PROJECT_STATE.md` §3
+> `docs/DATA_INVENTORY.md` for current counts and `DECISIONS.md` D9 (the
+> archived narrative: `archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md`)
 > for the missing-data contract decision.
 
 #### 18.2e Options flow
@@ -2320,7 +2321,7 @@ python scripts/feature_smoke_test.py --section theta --verbose
 | Treasury yields | yfinance | ✓ `pull_treasury_yields_yf.py` |
 | Fundamentals snapshot (P/E, beta, sector) | yfinance | ✓ `pull_fundamentals_yf.py` |
 | Earnings calendar | yfinance | ✓ `pull_earnings_yf.py` |
-| News sentiment | Polygon / Finnhub / Benzinga | ✓ `pull_news_sentiment.py` (needs API key) |
+| News sentiment | — | ✗ removed 2026-09-16 (D29); a news layer is redesigned later |
 | Short interest / borrow fee | Bloomberg only | ○ no free alternative |
 | Analyst revisions stream | Bloomberg only (yfinance has current snapshot) | ○ partial via yfinance |
 | Macro calendar (FOMC, CPI) | Bloomberg only (Finnhub has a free limited calendar) | ○ could add Finnhub adapter |

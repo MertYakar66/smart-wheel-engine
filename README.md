@@ -93,7 +93,7 @@ python engine_api.py
 cd dashboard && npm install && npm run dev
 ```
 
-`engine_api.py` serves 34 endpoints — see the file header for the catalog.
+`engine_api.py` serves the HTTP API — see the file header for the endpoint catalog.
 
 ---
 
@@ -128,7 +128,6 @@ smart-wheel-engine/
 ├── data/            # Bloomberg CSVs + feature store (AAPL committed as sample)
 ├── data_raw/        # universe list + raw fixtures
 ├── data_processed/  # regenerable Theta/yfinance pulls (gitignored)
-├── local_agent/     # experimental local agent + UI
 ├── ml/              # research ML models
 ├── backtests/       # research backtesting + pinned regression reproducers
 ├── studies/         # one-off research studies (premium-correction pilot)

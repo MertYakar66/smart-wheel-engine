@@ -6,7 +6,7 @@ This file answers _what is and isn't covered by the test suite_ at a module gran
 
 **CI scope** (per `pyproject.toml [tool.coverage.run]`):
 `src` · `engine` · `advisors` · `financial_news` · `data`.
-Modules listed in `[tool.coverage.run] omit` (research-tier ETL, Ollama-dependent memo generator, UI, etc.) are excluded by design — see `DECISIONS.md` D10 for the rationale on the 80% floor.
+Modules listed in `[tool.coverage.run] omit` (research-tier ETL, UI, etc.) are excluded by design — see `DECISIONS.md` D10 for the rationale on the 80% floor.
 
 ## Suite totals
 

@@ -14,6 +14,27 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-17 — local-AI integrations removed (ruling R12); Operator answers recorded
+
+**Deprecated / removed** — `local_agent/` (experimental browser agent: 29 files,
+8,273 lines; Streamlit UI, ChromaDB memory, MCP server, its own tests);
+`engine/trade_memo.py` (Ollama-driven memo generator) with `GET /api/memo`,
+`GET /api/summary`, `GET /api/ollama_status` and `tests/test_trade_memo_ci.py`;
+the dashboard's Ollama research chat (`/api/chat` route, chat panel, RESEARCH
+command, "AI ONLINE/OFFLINE" status indicator, `chatSessions` / `messages`
+tables) and the `ai`, `@ai-sdk/openai-compatible`, `ollama-ai-provider`
+packages. Coverage omit list, `.env.example` (root and dashboard), READMEs,
+MODULE_INDEX, TESTING, FILE_MANIFEST, REPO_MAP and OPERATING_MODEL §9.1
+updated.
+
+**Docs** — `DECISIONS.md` D29 addendum (answers 8–12: subscriptions deferred,
+delta deferred, exit evaluator advisory, API prose, local-AI removal);
+`docs/RESTART_PLAN_2026-09-16.md` re-ordered (Track F structure pass first,
+Track A parked) with a new §7a candidate table; `ROADMAP.md` and
+`PROJECT_STATE.md` §0 updated.
+
+---
+
 ## 2026-09-16 — Operating Model v3 (one protocol), news stacks removed, restart rulings recorded
 
 **Docs** — `OPERATING_MODEL.md` v3: the single working scheme (two equal

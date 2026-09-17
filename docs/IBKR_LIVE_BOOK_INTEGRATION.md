@@ -370,7 +370,7 @@ charting-ready front end:
 | `engine/wheel_tracker.py` | position lifecycle (short put→assignment→covered call→exit); realized/unrealized P&L; roll suggestions; win rate | live, no UI |
 | `engine/performance_metrics.py` | Sharpe, Sortino, drawdown | live, no UI |
 | `engine_api.py` `GET /api/portfolio` | per-ticker portfolio report | live, **not wired to UI** |
-| `dashboard/` (Next.js 16, Recharts, Tailwind, shadcn/ui, SQLite+Drizzle) | the `(terminal)` route group (`/cockpit`, `/terminal`), a streaming chat panel, Ollama memos | live |
+| `dashboard/` (Next.js 16, Recharts, Tailwind, shadcn/ui, SQLite+Drizzle) | the `(terminal)` route group (`/cockpit`, `/terminal`) (the Ollama chat panel was removed 2026-09-17) | live |
 
 So the analytics brain, the chart library, the API server, and page routing all
 exist. **D26 is wiring + a live data source — the same D24 IBKR snapshot.**

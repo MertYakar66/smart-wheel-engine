@@ -21,6 +21,9 @@ to an Executor with at most the Operator answers filled in.
 | R9 | All July loops and terminals are terminated | recorded; no zombie risk |
 | R10 | The Operator has never used the product for real trading and wants it to work | the ordering of the tracks below |
 | R11 | Bloomberg Terminal access is gone for good; data comes from online sources and subscriptions | Track A |
+| R12 (2026-09-17) | Remove the local AI agent and the local-LLM integrations (browser agent, Ollama memo and chat); a clean, direct engine | done 2026-09-17 |
+
+Answers of 2026-09-17: data subscriptions are not decided and the current focus is repository efficiency and structure (Track A parked; Track F added); the delta target for short expiries is deferred and noted in Track B; the exit evaluator is advisory (Track C confirmed); the strategist brief's prose is written by an API model (Track D).
 
 Answers recorded as "I don't know": the 2026-07-15 consent, the 2026-06-28 cascade
 authorisation, the reason for the no-model-name ruling, and whether the held
@@ -31,12 +34,13 @@ F4 rides the re-baseline.
 
 ## 1. Order of work
 
-The engine has never been used live. The shortest path to "it works" is: fresh
-data (A), then the short-dated menu (B), then the exit evaluator (C), with the
-commentary layer (D) alongside once A is in. E is housekeeping that makes the
-rest safe to run unattended. Do A first; everything downstream re-baselines
-against whatever A produces, and B changes every locked result, so B and A
-share one re-baseline.
+Revised 2026-09-17. The Operator's current focus is the efficiency and structure
+of the repository, and no data subscription has been chosen. So the order is:
+**F** (structure and efficiency pass, the Operator picks the candidates) and
+**E** (protocol adoption housekeeping) now; **A** (data) when a subscription
+decision exists; then **B** (short-dated menu; shares one re-baseline with A),
+then **C** (exit evaluator); **D** (commentary brief) can start once the data path
+is live, because a brief written over a 77-day-old frontier would be fiction.
 
 ## 2. Concerns raised before the work starts
 
@@ -82,9 +86,10 @@ be re-validated at the new horizons before the real-money verdict is revisited.
   Must not break: the connector's CSV panel schemas (the engine reads them); point-in-time
     discipline (every panel keeps a knowledge date); the split-adjusted-vs-raw rule (D20/D11).
   Scope of run: a provider census + design, then the pullers. No engine change.
-  Operator answers: WHICH SUBSCRIPTIONS EXIST OR ARE ACCEPTABLE — Theta Data (tier?),
-    Polygon / Massive, Tiingo, Alpaca, ORATS, IVolatility, none (free only)? This decides
-    the IV-history source, the one input with no free replacement.
+  Operator answers (2026-09-17): NOT YET DECIDED — subscriptions come later; this track
+    is PARKED until the Operator picks the sources. The open question stays: Theta Data
+    (tier?), Polygon / Massive, Tiingo, Alpaca, ORATS, IVolatility, or free only? It
+    decides the IV-history source, the one input with no free replacement.
 <objective> Produce docs/DATA_SOURCING_2026-09.md: for each of the 13 connector inputs
   (10 CSVs + 3 broad-pull panels) the replacement source, its cost, its PIT property, its
   refresh cadence and a sample pull; then implement the pullers that write the SAME CSV
@@ -129,7 +134,9 @@ be re-validated at the new horizons before the real-money verdict is revisited.
     semantics (fix it in the same pass, not before).
   Scope of run: as above; each run is its own PR with a lane claim.
   Operator answers: menu (7,14,21,28) confirmed; events priced, not blocked, once validated;
-    which delta target for short DTE (keep 0.25?) — ANSWER NEEDED.
+    delta target for short DTE — DEFERRED by the Operator on 2026-09-17 ("skip the delta for
+    now, but note it down"): keep 0.25 until ruled, and surface the question again before
+    run 3 (the policy flip), where it matters most.
 <objective> see Success. <context> engine/wheel_runner.py rank_candidates_by_ev;
   engine/forward_distribution.py (tiers); engine/event_gate.py; docs/PROB_PROFIT_CALIBRATION_2026-05-28.md;
   docs/REBASELINE_D19_D21_RECAL_SCOPE.md; the calibration accumulator in engine/paper_book.py.
@@ -164,8 +171,8 @@ be re-validated at the new horizons before the real-money verdict is revisited.
     EV-calibration loop and the paper-book calibration accumulator exist; D25 is the
     reserved decision; F1 is the roll bypass.
   Must not break: brokerage read-only; downgrade-only; no order routing.
-  Operator answers: hold-to-expiry remains the default; the evaluator is ADVISORY (no
-    auto-action) — CONFIRM.
+  Operator answers (2026-09-17): CONFIRMED — the evaluator is advisory, like every other
+    engine output; it recommends, it never acts. Hold-to-expiry remains the default.
 <objective> see Success. <context> engine/wheel_tracker.py (roll_put/roll_call, suggest_rolls),
   docs/IBKR_LIVE_BOOK_INTEGRATION.md §3, tests/test_held_finding_roll_ev_bypass.py,
   scripts/ibkr_ev_calibration.py, engine/paper_book.py calibration accumulator.
@@ -194,16 +201,18 @@ be re-validated at the new horizons before the real-money verdict is revisited.
   Success: `python scripts/market_brief.py` writes docs-free output to the SIM namespace
     and the dashboard terminal shows it; every number in the brief is traceable to a
     connector field or ranker column; the brief never changes a verdict (§7).
-  Tried before: engine/trade_memo.py (Ollama memos), the regime banner, VIX regime,
-    credit regime, dealer positioning (Theta only), the news panel (removed).
+  Tried before: engine/trade_memo.py (Ollama memos; removed 2026-09-17), the regime
+    banner, VIX regime, credit regime, dealer positioning (Theta only), the news panel
+    (removed).
   Must not break: reviewers downgrade only; the brief is operator-transparency, not an input.
-  Operator answers: model for prose (local Ollama vs API) — ANSWER NEEDED; cadence (daily
-    pre-market) — CONFIRM.
+  Operator answers (2026-09-17): the prose is written by an API model (the local Ollama
+    path is removed, R12); the model and its key handling are a gate in this run. Cadence
+    (daily pre-market) still to confirm.
 <objective> see Success. <scope> engine/market_brief.py (new), scripts/market_brief.py,
   engine_api /api/brief, dashboard terminal panel (follow-up), tests.
 <out-of-scope> news ingestion (later redesign); any EV multiplier.
 <invariants> Decision integrity (no upgrade path); Honesty (every figure sourced).
-<gates> before adding an LLM dependency; before the API endpoint.
+<gates> before adding the API-model dependency and its key handling (never a committed key); before the API endpoint.
 <verification> unit tests on the brief's data assembly; a rendered sample pasted in the summary.
 <push> claude/market-brief
 <constraints> No number in the brief may be generated by the language model; the model
@@ -213,12 +222,63 @@ be re-validated at the new horizons before the real-money verdict is revisited.
 ## 7. Track E — protocol v3 adoption (housekeeping)
 
 Done in this pass: OPERATING_MODEL v3, PROMPTING_STANDARD, hook and template
-updates, archived old-protocol docs deleted, coordination issues closed. Left
+updates, archived old-protocol docs deleted, coordination issues closed; on
+2026-09-17 the local-AI integrations were removed (R12). Left
 for the first Operator-run steps: turn on branch protection for `main`
 (required checks, no direct push, base must be main); merge this branch's PR,
 then PR #523; run the docs currency pass (60 stale worklog statuses, audit
 register and worklist marked shipped, `docs/PRODUCTION_READINESS.md`
 refreshed); open the campaign issue for Track A.
+
+## 7a. Track F — repository structure and efficiency pass (the Operator picks)
+
+Added 2026-09-17. The news stacks and the local-AI integrations are gone; what
+remains that is off the decision path is listed below with its size, so the
+Operator can decide what else goes. Nothing in this table is deleted without a
+ruling. Sizes measured 2026-09-17 after the removals.
+
+| Candidate | Size | What it is | On the EV path? | Suggested default |
+|---|---|---|---|---|
+| `advisors/` | 10 files, 4,238 lines | Buffett / Munger / Simons / Taleb persona heuristics, `/api/committee`, "diagnostic only" | no | remove; a persona layer is narrative, and the API brief (Track D) replaces its role |
+| `ml/` | 4 files, 1,696 lines | research ML models (`wheel_model.py`); output path `models/` | no | remove with `models/` |
+| `studies/` | 3 files, 855 lines | one-off research studies (premium-correction pilot) | no | archive the findings doc, remove the code |
+| `src/` | 15 files, 4,337 lines | legacy scaffold, frozen (D2); `features/technical.py` and `data/schemas.py` are LIVE imports of the engine | partly | move the two live modules into `engine/` or `data/`, delete the rest |
+| dormant engine modules: `regime_detector.py` 496, `signal_context.py` 448, `signals.py` 752, `portfolio_intelligence.py` 555, `dependency_check.py` 276, `model_validation.py` 446 | 2,973 lines | exported, zero production callers (MODULE_INDEX "dormant") | no | remove; re-add from history if a decision ever wires one |
+| TradingView bridge: `engine/tradingview_bridge.py` 656, `engine/mcp_client.py` 397, `engine/chart_context.py`, `tradingview/` (Pine + workspace docs) | ~1,200 lines + docs | chart providers behind reviewer R2; on a headless run every candidate stops at R2 | reviewer only | Operator decision: keep the Pine webhook, drop the MCP workspace, and make R2 a note instead of a stop (the brief's decision 11) |
+| `utils/` | 7 files, 1,730 lines | shared helpers | check | audit importers; keep what the engine uses |
+| `staging/` | 19 files, 1,400 lines | inert data carriers (CASY, blue chips, PIT fundamentals) awaiting integration | data | keep until Track A integrates them |
+| `backtests/` research drivers (outside `backtests/regression/`) | part of 24 files, 9,357 lines | campaign drivers whose results are locked in docs | evidence | keep the regression harness; archive drivers whose docs are archived |
+| `scripts/` | 100 files, 30,581 lines | pullers (Bloomberg-era), diagnostics, campaign analyzers | mixed | Track A rewrites the pullers; audit the rest then |
+| `engine/wheel_runner.py` | 4,597 lines | three rankers (put, covered call, strangle) with duplicated stages; three verdict ladders across API and dashboard | YES (trio) | the real "direct" win: one ranking pipeline parameterised by leg, one verdict ladder; a Track B prerequisite, done under lane claim with the regression harness |
+| `engine_api.py` | 3,482 lines | one file, one handler class, dozens of endpoints | interface | split by surface after the ladder unification |
+| documentation | 317 markdown files, 4.2 MB; 167 worklog fragments; `FILE_MANIFEST.md` 242 KB | | | the brief's P6: archive dated reports, split the mandatory read, cap manifest rows |
+
+```
+<run-mode> change, one PR per row the Operator approves
+<request-as-sharpened>
+  Goal: a clean and direct engine: only code that the decision path, its data, its
+    validation record, or the Operator's daily surfaces need.
+  Success: every approved row deleted or moved with its registry rows, tests and docs
+    updated in the same PR; the fast lane, the launch blockers and the dashboard build
+    stay green; `engine/` imports clean; nothing on the EV path changes behaviour
+    (regression snapshots byte-identical).
+  Tried before: D28 retired nine verified-dead files (2026-07-08); the news and
+    local-AI removals (2026-09-16/17) are the precedent for the procedure.
+  Must not break: the trio's behaviour; the frozen Bloomberg CSVs; the validation
+    artifacts under docs/verification_artifacts and backtests/regression/snapshots.
+  Scope of run: one row per PR; the wheel_runner unification is its own campaign.
+  Operator answers: WHICH ROWS — ANSWER NEEDED (the suggested defaults are the
+    Strategist's; the Operator rules row by row).
+<objective> see Success. <invariants> Engineering (import smoke; no gate lowered);
+  Decision integrity; Validation honesty (nothing that feeds a locked result is deleted).
+<gates> before each deletion PR; lane claim for anything touching the trio.
+<verification> launch blockers + fast lane per PR; `npx next build` when dashboard/ is
+  touched; check_manifest_coverage / gen_worklog_index / check_doc_currency OK.
+<push> claude/structure-<row>
+<summary> per OPERATING_MODEL.md §4.4 as a PR comment.
+<constraints> No deletion outside the approved rows; no behaviour change in the trio
+  except under the unification campaign's own lane claim.
+```
 
 ## 8. What was not executed: rewriting history
 

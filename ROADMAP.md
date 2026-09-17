@@ -20,15 +20,16 @@ Each item carries a **status**:
 
 The live queue after the restart rulings (`DECISIONS.md` D29). Each row points
 at its owning doc; the Execution Prompts are in `docs/RESTART_PLAN_2026-09-16.md`.
-Order matters: A first, then B (A and B share one re-baseline), then C; D
-alongside once A is in; E is housekeeping.
+Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
+(A and B share one re-baseline), then C; D once A is live.
 
 | Track | Item | Status | Owning doc |
 |---|---|---|---|
-| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `next` (design run first) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
-| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline | `next` after A | plan §4 |
-| **C** | **Exit evaluator + post-mortem loop** (D25 adopted; closes F1) | `next` after B | plan §5 |
-| **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures) | `next` alongside A | plan §6 |
+| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `next` (Operator picks the rows) | `docs/RESTART_PLAN_2026-09-16.md` §7a |
+| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `parked` until a subscription is chosen (2026-09-17) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
+| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A | plan §4 |
+| **C** | **Exit evaluator + post-mortem loop** (D25 adopted; advisory, confirmed 2026-09-17; closes F1) | `next` after B | plan §5 |
+| **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures, prose by an API model) | `next` once A is live | plan §6 |
 | **E** | **Protocol v3 adoption** — branch protection on `main`, merge this restart PR then #523, docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
 | — | **News layer redesign** | `parked` until A–C land | D29 |
 | — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |

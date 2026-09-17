@@ -1694,6 +1694,14 @@ file's row removed); and the full audit evidence in the batch worklogs.
 6. **Data.** Bloomberg Terminal access is gone for good. The committed `data/bloomberg/` CSVs are a frozen 2018-01-02 → 2026-07-02 history. The live path is rebuilt from online sources and subscriptions, writing the same connector schemas (Track A of the plan).
 7. **Held findings.** F1 (roll path bypasses caps and token) and F3 (HMM label by rank) are fixes to make now; F4 (IV-fallback look-ahead) rides the next re-baseline. The Operator does not recall whether carrying them as expected-failure tests was an acceptance; it is treated as a stopgap.
 
+**Addendum 2026-09-17 (Operator answers and one further ruling).**
+
+8. **Data subscriptions are deferred.** No subscription is chosen yet; the current focus is the efficiency and structure of the repository. Track A of the plan is parked until the Operator picks the sources.
+9. **Delta target for the short-dated menu: deferred, noted.** The 0.25 target stays until ruled; Track B carries the open question.
+10. **The exit evaluator is advisory**, like every other engine output: it recommends hold / roll / close / accept, it never acts.
+11. **The strategist brief's prose is written by an API model**, not a local model.
+12. **Local-AI integrations removed** (ruling R12): the experimental browser agent `local_agent/` (29 files, 8,273 lines; Streamlit UI, ChromaDB memory, MCP server), the Ollama memo module `engine/trade_memo.py` with its `GET /api/memo`, `GET /api/summary` and `GET /api/ollama_status` endpoints, and the dashboard's Ollama research chat, its "AI ONLINE/OFFLINE" indicator and its chat-persistence tables. Rationale as stated by the Operator: a clean and direct engine. The strategist brief (Track D) is the API-based replacement for the memo's role.
+
 **Why.** The Operator has never used the engine for live trading and wants it to work; the schema audit showed the written protocol was used for one day and replaced by three ad-hoc ones; the news stacks never reached the EV path and cost maintenance; 35-day contracts and a hard event lockout do not match how the Operator intends to trade; the data source the whole engine assumed is no longer available.
 
 **Rejected alternatives.**

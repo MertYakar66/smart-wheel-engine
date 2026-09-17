@@ -110,6 +110,14 @@ built. **Bloomberg Terminal access is gone for good**: `data/bloomberg/` is a
 frozen 2018-01-02 → 2026-07-02 history and the live data path is rebuilt from
 online sources (Track A). Model-name commit trailers are allowed again.
 
+**2026-09-17.** Local-AI integrations removed (D29 R12): `local_agent/`,
+`engine/trade_memo.py` + `/api/memo`, `/api/summary`, `/api/ollama_status`,
+and the dashboard's Ollama chat panel, AI status indicator and chat tables.
+Operator answers: data subscriptions deferred (Track A parked; the current
+focus is repository structure and efficiency — Track F, the Operator picks the
+rows); delta target deferred and noted; exit evaluator advisory; the strategist
+brief's prose comes from an API model.
+
 ---
 
 ## 1. Authoritative — do not bypass

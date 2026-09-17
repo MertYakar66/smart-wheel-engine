@@ -122,7 +122,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `contracts.py` | Dataclasses for trade I/O. |
 | `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
-| `trade_memo.py` | Ollama-driven memo / summary (72B / 32B local models). |
 
 ### `engine/__init__.py` re-exports
 
@@ -219,7 +218,6 @@ that the root README still references — it is not the primary UI.
 
 | Dir | Purpose | Status |
 |---|---|---|
-| `local_agent/` | Local AI agent + Streamlit UI; agents, browser, mcp_server, memory, ui. | experimental |
 | `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
 | `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |

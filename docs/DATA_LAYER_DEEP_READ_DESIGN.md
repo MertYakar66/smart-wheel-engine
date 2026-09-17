@@ -251,7 +251,7 @@ docs-only branch.
 **legacy heuristic** `_compute_wheel_score()` (`fund_score += 10` for A/B
 ratings, the sole computational read) — used by `screen_candidates()` (engine_api `/screen` + the module
 demo), **never** `rank_candidates_by_ev` / `EVEngine` — plus the memo
-(`trade_memo.py:482`) and API (`engine_api.py:976`) display. The four regression
+(`trade_memo.py`, removed 2026-09-17) and API (`engine_api.py`) display. The four regression
 snapshots are driven by the EV path, so they don't move. (It *does* change the
 legacy screener's ordering for A/B-rated names — covered by the
 `screen_candidates` unit tests, run on this branch.)

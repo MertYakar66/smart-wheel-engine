@@ -26,9 +26,6 @@ Endpoints:
   GET /api/payoff?ticker=AAPL&strategy=csp - Payoff diagram
   GET /api/expected_move?ticker=AAPL&dte=45 - Expected move bands
   GET /api/strikes?ticker=AAPL&strategy=csp - Strike recommendations
-  GET /api/memo?ticker=AAPL               - AI trade memo (72B model)
-  GET /api/summary?ticker=AAPL            - Quick AI summary (32B model)
-  GET /api/ollama_status                  - Check Ollama/model availability
 
 TradingView bridge:
   GET  /api/tv/signal?ticker=AAPL         - Canonical TV-parity signal for ticker
@@ -830,14 +827,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
                 ticker = param("ticker", "AAPL")
                 days = _parse_param("days", param("days"), int, 252)
                 self._handle_iv_history(ticker, days)
-            elif path == "/api/memo":
-                ticker = param("ticker", "AAPL")
-                self._handle_memo(ticker, param("as_of"))
-            elif path == "/api/summary":
-                ticker = param("ticker", "AAPL")
-                self._handle_summary(ticker)
-            elif path == "/api/ollama_status":
-                self._handle_ollama_status()
             elif path == "/api/tv/signal":
                 ticker = (param("ticker", "") or "").upper()
                 self._handle_tv_signal(ticker, param("as_of"))
@@ -3343,29 +3332,6 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------
 
-    def _handle_memo(self, ticker, as_of):
-        """Generate AI trade memo for a ticker."""
-        from engine.trade_memo import MemoGenerator
-
-        gen = MemoGenerator()
-        result = gen.generate_memo(ticker, as_of)
-        self._send_json(result)
-
-    def _handle_summary(self, ticker):
-        """Generate quick AI summary for a ticker."""
-        from engine.trade_memo import MemoGenerator
-
-        gen = MemoGenerator()
-        summary = gen.generate_quick_summary(ticker)
-        self._send_json({"ticker": ticker, "summary": summary})
-
-    def _handle_ollama_status(self):
-        """Check Ollama availability and models."""
-        from engine.trade_memo import _check_ollama
-
-        status = _check_ollama()
-        self._send_json(status)
-
     def log_message(self, format, *args):
         """Custom log format."""
         print(f"[Engine API] {args[0]}")
@@ -3496,9 +3462,6 @@ def main():
     print("  GET /api/payoff?ticker=AAPL&strategy=csp&dte=45")
     print("  GET /api/expected_move?ticker=AAPL&dte=45")
     print("  GET /api/strikes?ticker=AAPL&strategy=csp&dte=45")
-    print("  GET /api/memo?ticker=AAPL")
-    print("  GET /api/summary?ticker=AAPL")
-    print("  GET /api/ollama_status")
     print("  GET  /api/tv/signal?ticker=AAPL")
     print("  GET  /api/tv/scan?limit=25&zone=wheel_put")
     print("  GET  /api/tv/enrich?ticker=AAPL&signal=wheel_put_zone")

@@ -123,8 +123,6 @@ omit = [
     "engine/volatility_surface.py",
     # Shared valuation requires full option trade simulation with OHLCV data
     "engine/shared_valuation.py",
-    # Ollama-dependent AI memo generator
-    "engine/trade_memo.py",
     # SEC/13F data-dependent portfolio intelligence
     "engine/portfolio_intelligence.py",
     # Performance metrics has complex dashboard dependencies

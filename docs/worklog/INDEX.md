@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**182 records.**
+**183 records.**
 
 ## Features (18)
 
@@ -186,7 +186,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
 | [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
-## Refactors (6)
+## Refactors (7)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -196,6 +196,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d27-repo-restructure](d27-repo-restructure-for-agent-navigability.md) | shipped |  | Staged structural pass — Stage 1 reconciled the root (index-doc drift to 2026-06-09, truthful .env.example, audit.py → scripts/audit_api_smoke.py); Stage 2 deep-dives each folder. | `d27-repo-restructure-for-agent-navigability.md` |
 | [MP-D](mp-d-volatility-surface-internal-0-20-fallbacks-raise.md) | in-flight |  | get_iv/get_skew internal 0.20 fallbacks now raise SurfaceDataUnavailable; same D9 contract as the public require_surface guard, end-to-end | `mp-d-volatility-surface-internal-0-20-fallbacks-raise.md` |
 | [restart-2026-09-16](restart-2026-09-16-protocol-v3-news-removal.md) | completed |  | Recorded the Operator's restart rulings as D29; wrote OPERATING_MODEL v3 + docs/PROMPTING_STANDARD.md + docs/RESTART_PLAN_2026-09-16.md (tracks A–E as Execution Prompts); removed every news implementation (Python, API, tests, configs, registries; dashboard in the same PR series); retired the board/cards/July-channel machinery from hooks, template and archive; declined the history rewrite pending explicit confirmation. | `restart-2026-09-16-protocol-v3-news-removal.md` |
+| [restart-2026-09-17](restart-2026-09-17-local-ai-removal.md) | completed |  | Removed local_agent/ (29 files, 8,273 lines), engine/trade_memo.py + /api/memo, /api/summary, /api/ollama_status, and the dashboard's Ollama chat panel, AI status indicator and chat tables (build-verified); recorded the Operator's answers of 2026-09-17 (subscriptions deferred, delta deferred, exit evaluator advisory, API prose) in D29; re-ordered the plan (Track F structure pass first, Track A parked) with a candidate table for the next deletions. | `restart-2026-09-17-local-ai-removal.md` |
 
 ## Docs / process (18)
 

@@ -483,38 +483,11 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/contracts.py` | Protocol/contract definitions and validators for the pricer/risk/stress interfaces. |
 | `engine/policy_config.py` | `TradingPolicyConfig` — centralized runtime policy knobs with JSON load/save. |
 | `engine/dependency_check.py` | Environment-parity gate — checks installed packages with a require-dependencies decorator. |
-| `engine/trade_memo.py` | `MemoGenerator` — institutional trade memos combining engine analysis, the committee, and a local Ollama model. |
 | `engine/external_data/__init__.py` | Subpackage init re-exporting the four free-data adapters. |
 | `engine/external_data/fred_adapter.py` | `FREDAdapter` — FRED economic series and a derived credit-stress regime. |
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
-
-## `local_agent/` — experimental autonomous browser agent
-
-| File | Purpose |
-|---|---|
-| `local_agent/__init__.py` | Package root for the experimental browser agent. |
-| `local_agent/main.py` | `AgentOrchestrator` — plan → DOM-act → execute → verify loop; CLI entry point. |
-| `local_agent/mcp_server.py` | FastMCP server exposing browser-execution tools to Claude Desktop over stdio. |
-| `local_agent/agents/__init__.py` | Re-exports the agent classes. |
-| `local_agent/agents/base_agent.py` | `BaseAgent` — multi-provider LLM client (Claude API / Ollama). |
-| `local_agent/agents/dom_actor.py` | `DOMActorAgent` — reads a DOM snapshot and executes a Playwright action. |
-| `local_agent/agents/planner.py` | `PlannerAgent` — decomposes a goal into a JSON step plan. |
-| `local_agent/agents/verifier.py` | `VerifierAgent` — verifies action success via URL/DOM state changes. |
-| `local_agent/browser/__init__.py` | Re-exports the tab manager. |
-| `local_agent/browser/tab_manager.py` | `TabManager` — multi-tab Playwright management with SSRF-validated navigation. |
-| `local_agent/memory/__init__.py` | Re-exports the memory components. |
-| `local_agent/memory/chroma_manager.py` | `ChromaManager` — ChromaDB vector store for pages and task plans. |
-| `local_agent/memory/logger.py` | `StructuredLogger` — SQLite + JSON structured task logging. |
-| `local_agent/ui/__init__.py` | Re-exports the Streamlit render helpers. |
-| `local_agent/ui/components.py` | Reusable Streamlit UI components. |
-| `local_agent/ui/streamlit_app.py` | Streamlit dashboard for the browser agent. |
-| `local_agent/utils/__init__.py` | Re-exports config and retry/error helpers. |
-| `local_agent/utils/config.py` | `AgentConfig` — env-driven pydantic config. |
-| `local_agent/utils/error_handling.py` | Agent exception hierarchy and retry/recovery helpers. |
-| `local_agent/utils/security.py` | Security hardening — SSRF validation, sanitization, rate limiting, emergency stop. |
-| `local_agent/tests/*` | Pytest tests for the agent, memory, Ollama, Playwright, security, and end-to-end flows. |
 
 ## `ml/` — research ML models (off the EV path)
 
@@ -756,7 +729,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_ibkr_portfolio_adapter.py` | D24/D26 adapter tests — snapshot→`PortfolioContext` fidelity, universe filter (CNQ/ENB exposure-only, never rankable), CAD→USD FX normalization, R9/R10 firing on the adapter-built context, the viewer payloads matching the approved numbers, and the guard that the adapter imports nothing from the trio + emits no tradeable verdict / EV-authority token. |
 | `tests/test_portfolio_api_endpoints.py` | D26 endpoint tests — spins the stdlib server in-process and asserts each `GET /api/portfolio/{summary,positions,returns,income,risk,history}` returns the dashboard shape, plus the observational guard that no response carries a verdict / EV-authority field and an unknown sub-path 404s. |
 | `tests/test_prob_profit_ci.py` | Small-sample honesty for `prob_profit` (2026-06-01) — pins the `_wilson_score_interval` math (known cells, edge/clamp cases, narrower interval at larger N) and that `EVResult` + the ranker core frame surface `n_scenarios` + `prob_profit_ci_low/high` bracketing `prob_profit`; additive, `prob_profit` itself unchanged. |
-| `tests/test_trade_memo_ci.py` | Pins the Ollama trade memo's `_format_prob_profit_line` — renders `prob_profit` with its Wilson 95% interval + N and a small-sample caveat; omits the line when not evaluated; emits a clean point estimate (no false caveat) when CI/N absent; the prob block carries no EV/verdict/multiplier wording and the interval round-trips verbatim (display-only, additive). |
 | `tests/test_production_tracker_caps.py` | Invariant pins for the production-armed concentration caps (heavy-verify 2026-05-31 Cat-A / #154 follow-up). Pins that `engine.wheel_runner.make_live_book_tracker` ARMS R9 sector + R10 single-name (refuses >25% sector / >10% single-name, token-free, reject-audit shape unchanged), that the library-default `WheelTracker` is unchanged (caps off), and that strict mode still arms all four D17 gates. Guards the decoupled `enforce_*` flags so production-arming can't be silently dropped. |
 | `tests/test_data_connector_ticker_filter.py` | Output-equivalence pins for the connector ticker-filter speed-up: the cached-groupby `_filter_ticker` returns byte-identical frames to the prior `df[df["ticker"]==t]` mask (present / multi-occurrence / absent tickers; cache reuse; empty/tickerless passthrough), and `_load`'s unique-map normalization equals the prior `.apply(normalize_ticker)`. Guards that the perf change is §2-neutral (engine sees identical data). Synthetic data — no large-CSV dependency. |
 | `tests/test_dossier_invariant.py` | Launch-blocker invariant — the downgrade-only `EnginePhaseReviewer` contract. |

@@ -69,7 +69,7 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
 | `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
-| `utils/`, `config/`, `local_agent/` | helpers / config / experimental agent | `FILE_MANIFEST.md` |
+| `utils/`, `config/` | helpers / config | `FILE_MANIFEST.md` |
 | `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
 | `docs/` | reference + design-contract docs | `FILE_MANIFEST.md` |
 

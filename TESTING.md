@@ -277,7 +277,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_check_manifest_coverage.py` | The FILE_MANIFEST coverage gate's conflict-marker detection |
 | `test_testing_md_taxonomy.py` | This file's taxonomy stays complete — every `tests/test_*.py` must be named in TESTING.md |
 | `test_policy_config.py` | `engine/policy_config` — load/save/validate, default sanity, section schema |
-| `test_trade_memo_ci.py` | Memo honesty — prob_profit rendered with Wilson CI + N + small-sample caveat |
 
 ### Heavy-verify 2026-06-27 (#436) — data-wiring + output-realism reliability (Mac terminal)
 
@@ -370,7 +369,7 @@ pytest tests/ -m quant -v
 
 | Marker | Use |
 |---|---|
-| `@pytest.mark.integration` | Requires external services (Theta Terminal, Ollama, browser sessions). Skip in CI. |
+| `@pytest.mark.integration` | Requires external services (Theta Terminal, browser sessions). Skip in CI. |
 | `@pytest.mark.slow` | Long-running. Deselect with `-m "not slow"`. |
 | `@pytest.mark.quant` | Quantitative validation tests. |
 | `@pytest.mark.backtest_regression` | Long-running ledger-backtest reproducers (S27/S32/S34/S35). Excluded from per-PR CI; run via `.claude/commands/backtest-regression.md` or the `Backtest Regression` workflow. |

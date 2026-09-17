@@ -130,13 +130,16 @@ export function orDash(
 }
 
 // ── Provenance honesty (browser-QA §D) ───────────────────────────────────
-// A slice is "live" (real IBKR drop), "demo" (committed fixture), or "mock"
-// (engine offline → typed fallback). Surfaced as a per-card badge and an
-// honest header label so fixture data never reads as a live IBKR pull.
-export type SliceSource = "live" | "demo" | "mock";
+// A slice is "live" (real, fresh IBKR drop), "stale" (a real drop whose as_of
+// is older than one trading day — engine/ibkr_portfolio_adapter.provenance),
+// "demo" (committed fixture), or "mock" (engine offline → typed fallback).
+// Surfaced as a per-card badge and an honest header label so fixture data
+// never reads as a live IBKR pull and an old drop never reads as current.
+export type SliceSource = "live" | "stale" | "demo" | "mock";
 
 const SOURCE_META: Record<SliceSource, { label: string; text: string; dot: string }> = {
   live: { label: "Live", text: "text-pf-ok", dot: "bg-pf-ok" },
+  stale: { label: "Stale", text: "text-pf-caution", dot: "bg-pf-caution" },
   demo: { label: "Demo", text: "text-pf-caution", dot: "bg-pf-caution" },
   mock: { label: "Mock", text: "text-terminal-dim", dot: "bg-terminal-dim" },
 };
@@ -160,14 +163,19 @@ export function ProvenanceBadge({ source }: { source?: SliceSource }) {
 }
 
 /** Resolve the page-level header label/tone from the per-slice sources —
- * honest about all-live / all-demo / all-mock / mixed. */
+ * honest about all-live / stale / all-demo / all-mock / mixed. */
 export function provenanceSummary(
   sources: SliceSource[],
   loading: boolean
 ): { label: string; text: string; dot: string } {
   if (loading) return { label: "Loading…", text: "text-terminal-dim", dot: "bg-terminal-dim" };
   const has = (s: SliceSource) => sources.length > 0 && sources.every((x) => x === s);
+  const onlyReal = sources.length > 0 && sources.every((x) => x === "live" || x === "stale");
   if (has("live")) return { label: "Live IBKR", text: "text-pf-ok", dot: "bg-pf-ok" };
+  if (has("stale"))
+    return { label: "Stale IBKR — refresh the drop", text: "text-pf-caution", dot: "bg-pf-caution" };
+  if (onlyReal)
+    return { label: "Live IBKR — some slices stale", text: "text-pf-caution", dot: "bg-pf-caution" };
   if (has("mock"))
     return { label: "Mock data (engine offline)", text: "text-terminal-dim", dot: "bg-terminal-dim" };
   if (has("demo")) return { label: "Demo data", text: "text-pf-caution", dot: "bg-pf-caution" };

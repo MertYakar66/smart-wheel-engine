@@ -527,7 +527,8 @@ def run_backtest(
     Args:
         data_path: Path to processed features parquet
         config: Backtest configuration
-        model_path: Optional path to trained ML model
+        model_path: no longer supported (the research ML models were removed
+            2026-09-17, Track F); passing one raises ValueError
 
     Returns:
         BacktestResult
@@ -536,12 +537,12 @@ def run_backtest(
     df = pd.read_parquet(data_path)
     print(f"  {len(df):,} rows, {df['ticker'].nunique()} tickers")
 
-    model = None
     if model_path:
-        from ml.wheel_model import WheelEntryModel
-
-        model = WheelEntryModel.load(model_path)
-        print(f"  Loaded model from {model_path}")
+        raise ValueError(
+            "model_path is no longer supported: the research ML entry models "
+            "(ml/) were removed on 2026-09-17 (Track F)"
+        )
+    model = None
 
     config = config or BacktestConfig()
     backtest = WheelBacktest(config=config, model=model)

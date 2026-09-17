@@ -17,11 +17,9 @@
 #                                 scripts/audit_api_smoke.py's `BASE` (PR #158 / D15);
 #                                 default 8787 falls through when unset.
 #   SWE_DATA_PROCESSED_DIR      — shared `data_processed/` by default.
-#   SWE_MODELS_DIR              — shared `models/` by default.
-#                                 Switch both to per-terminal (`data_processed_<x>/`
-#                                 / `models_<x>/`) only if you hit write
-#                                 contention; the engine does not read these
-#                                 env vars yet, so these two remain a
+#                                 Switch to per-terminal (`data_processed_<x>/`)
+#                                 only if you hit write contention; the engine
+#                                 does not read this env var yet, so it remains a
 #                                 convention until a consumer is wired in.
 #   COVERAGE_FILE               — per-terminal `.coverage.<letter>`.
 #                                 Read by coverage.py automatically — this
@@ -59,7 +57,6 @@ port=$(( 8787 + letter_ord - a_ord ))
 
 export SWE_API_PORT="$port"
 export SWE_DATA_PROCESSED_DIR="data_processed/"
-export SWE_MODELS_DIR="models/"
 export COVERAGE_FILE=".coverage.$letter"
 export PYTEST_CACHE_DIR=".pytest_cache_$letter"
 export SWE_DATA_PROVIDER="bloomberg"
@@ -68,7 +65,6 @@ cat <<MSG
 Terminal $letter env loaded:
   SWE_API_PORT           = $SWE_API_PORT
   SWE_DATA_PROCESSED_DIR = $SWE_DATA_PROCESSED_DIR
-  SWE_MODELS_DIR         = $SWE_MODELS_DIR
   COVERAGE_FILE          = $COVERAGE_FILE
   PYTEST_CACHE_DIR       = $PYTEST_CACHE_DIR
   SWE_DATA_PROVIDER      = $SWE_DATA_PROVIDER

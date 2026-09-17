@@ -489,7 +489,8 @@ class DataPipeline:
 
     def get_earnings_features(self, ticker: str) -> dict | None:
         """
-        Get computed earnings features for ml/earnings_model.py.
+        Get computed earnings features (the research ml/earnings_model.py
+        consumer was removed 2026-09-17; the frame is still produced).
 
         Returns dict compatible with EarningsFeatures dataclass.
         """

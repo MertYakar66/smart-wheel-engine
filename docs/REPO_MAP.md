@@ -66,7 +66,7 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `scripts/` | data pullers + diagnostics | `FILE_MANIFEST.md` |
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |
 | `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
-| `ml/`, `backtests/` | research models + backtest harness | `FILE_MANIFEST.md` |
+| `backtests/` | research backtest harness + the regression reproducers | `FILE_MANIFEST.md` |
 | `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
 | `utils/`, `config/` | helpers / config | `FILE_MANIFEST.md` |
 | `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
@@ -86,7 +86,7 @@ freeze. Per-file import reality (grounded by importer grep):
 | `features/volatility.py` | research ETL + scripts + tests | not live engine |
 | `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | `data/feature_pipeline.py` + tests | research/test only |
 | `data/validators.py` | self only | dead (coverage-omitted) |
-| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` + `ml/wheel_model.py` (research) | research/test-only |
+| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` | research/test-only |
 | `risk/`, `models/`, `execution/` | none (empty `__init__` stubs) | zero importers |
 
 ## Tests — find them without globbing

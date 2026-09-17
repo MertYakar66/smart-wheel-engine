@@ -1,6 +1,6 @@
 """
 Tests for the audit improvements (forward distribution, empirical surface,
-early-assignment-on-dividend, survivorship-bias guard, calibration gate,
+early-assignment-on-dividend, survivorship-bias guard,
 sqrt market impact, bid>ask / stale-quote quality checks, and the
 EV-driven wheel ranker).
 
@@ -28,7 +28,6 @@ from engine.volatility_surface import (
     create_constant_surface,
     create_empirical_surface,
 )
-from ml.model_governance import DriftDetector
 
 
 # =========================================================================
@@ -295,41 +294,6 @@ class TestSurvivorshipBiasGuard:
         )
         assert audit["bias_score"] == 0.0
         assert "OK" in audit["verdict"]
-
-
-# =========================================================================
-# 5. Brier-score calibration gate
-# =========================================================================
-class TestCalibrationGate:
-    def test_perfectly_calibrated_passes(self):
-        rng = np.random.default_rng(42)
-        # For each probability level, draw the right fraction of successes
-        preds = rng.uniform(0, 1, size=2000).tolist()
-        obs = [int(rng.random() < p) for p in preds]
-        result = DriftDetector.check_calibration(preds, obs)
-        assert result["passed"] is True
-        assert result["brier_score"] < 0.25
-
-    def test_miscalibrated_model_fails(self):
-        # Model says 90% for everything but only 20% actually occur.
-        preds = [0.9] * 500
-        obs = [1 if i < 100 else 0 for i in range(500)]
-        result = DriftDetector.check_calibration(preds, obs, max_brier_score=0.20)
-        assert result["passed"] is False
-        assert result["brier_score"] > 0.20
-
-    def test_reliability_diagram_returned(self):
-        preds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] * 50
-        obs = [int(i % 3 == 0) for i in range(len(preds))]
-        result = DriftDetector.check_calibration(preds, obs)
-        assert len(result["reliability"]) > 0
-        for bin_row in result["reliability"]:
-            assert 0 <= bin_row["avg_predicted"] <= 1
-            assert 0 <= bin_row["empirical_frequency"] <= 1
-
-    def test_mismatched_lengths_raises(self):
-        with pytest.raises(ValueError):
-            DriftDetector.check_calibration([0.5, 0.5], [0])
 
 
 # =========================================================================

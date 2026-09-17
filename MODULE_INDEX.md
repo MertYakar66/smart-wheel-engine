@@ -199,7 +199,6 @@ that the root README still references — it is not the primary UI.
 
 | Dir | Purpose | Status |
 |---|---|---|
-| `ml/` | `wheel_model.py`, `earnings_model.py`, `model_governance.py`. | research |
 | `backtests/` | `simulator.py`, `walk_forward.py`, plus `regression/` (the S27/S32/S34/S35 pinned reproducers behind the `backtest_regression` marker). | research |
 | `studies/` | One-off research studies; currently `premium_correction/` (the premium-correction pilot — `docs/PREMIUM_CORRECTION_PILOT.md`). Regenerable outputs gitignored. | research |
 | `tradingview/` | Pine indicator + webhook schema (above). | live |
@@ -210,5 +209,4 @@ that the root README still references — it is not the primary UI.
 | `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
 | `src/` | **Phantom scaffold (shrinking).** The empty `execution/`/`models/`/`risk/` stubs were removed (D28 close-out, 2026-07-08); remaining: partial `data/` and `features/` (live members — `features/technical.py` + the feature-pipeline consumers) and `backtest/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
-| `models/` | `ml/wheel_model.py`'s default model-output directory; empty in git. | live |
 | `archive/` | Superseded / point-in-time artifacts; see `archive/README.md`. | reference |

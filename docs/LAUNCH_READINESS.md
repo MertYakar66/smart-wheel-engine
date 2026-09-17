@@ -299,15 +299,15 @@ Each executor terminal runs from its own worktree
 (`../swe-terminal-<x>`) with env loaded by
 `source scripts/setup-terminal.sh <letter>` (bash / Git Bash / WSL)
 or `. .\scripts\setup-terminal.ps1 <letter>` (PowerShell). The loader
-sets six env vars per terminal letter — `SWE_API_PORT`,
-`SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `COVERAGE_FILE`,
-`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `SWE_API_PORT` (PR #158,
+sets five env vars per terminal letter — `SWE_API_PORT`,
+`SWE_DATA_PROCESSED_DIR`, `COVERAGE_FILE`,
+`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER` (`SWE_MODELS_DIR` went with `ml/`
+on 2026-09-17). `SWE_API_PORT` (PR #158,
 honoured by `engine_api.py._resolve_port()` and `scripts/audit_api_smoke.py`'s `BASE`),
 `COVERAGE_FILE` (coverage.py), `PYTEST_CACHE_DIR` (pytest), and
 `SWE_DATA_PROVIDER` (`WheelRunner.connector`) are real today —
-each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` and
-`SWE_MODELS_DIR` remain **conventions** until each consumer is
-wired up. See `DECISIONS.md` D15.
+each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` remains a
+**convention** until a consumer is wired up. See `DECISIONS.md` D15.
 
 ### Launch-mode switching
 

@@ -250,13 +250,10 @@ reorg) is preserved verbatim in
   see `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`).
   Plan: either fully remove or fully repopulate. Until then, do not
   add new modules under `src/`.
-- `models/` — retained, not deleted as a placeholder: `ml/wheel_model.py`
-  names `models/wheel_entry_model.joblib` as its default model-output
-  path, so `models/` is a *referenced* path. (`ml/wheel_model.py` does
-  `mkdir(parents=True)` on save, so the directory is not strictly
-  required to pre-exist — it was kept on the referenced-path basis, not
-  a runtime need.) The genuinely zero-reference `validation/` placeholder
-  was removed in D14.
+- `ml/` and `models/` — **removed 2026-09-17** (Track F, D29 direction):
+  the research ML models (`wheel_model.py`, `earnings_model.py`,
+  `model_governance.py`) had no engine consumer; the orchestrator's
+  calibration stage and the `SWE_MODELS_DIR` convention went with them.
 - `dashboard/quant_dashboard.py` — legacy Python CLI dashboard. The
   primary dashboard is the Next.js app under `dashboard/src/`.
   README.md still describes the legacy CLI as the main entry point.

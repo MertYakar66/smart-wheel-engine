@@ -484,21 +484,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
 
-## `ml/` — research ML models (off the EV path)
-
-| File | Purpose |
-|---|---|
-| `ml/__init__.py` | Re-exports the earnings and wheel models. |
-| `ml/earnings_model.py` | `EarningsPredictor` — IV-crush / move-vs-implied prediction. |
-| `ml/model_governance.py` | Model lifecycle governance — model cards, drift detection, champion/challenger, registry. |
-| `ml/wheel_model.py` | `WheelEntryModel` — a research GBM entry classifier (default output dir: `models/`). |
-
-## `models/`
-
-| File | Purpose |
-|---|---|
-| `models/.gitkeep` | Placeholder keeping the otherwise-empty `models/` directory tracked; `models/` is the default model-output path named by `ml/wheel_model.py`. |
-
 ## `notebooks/`
 
 | File | Purpose |

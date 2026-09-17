@@ -24,7 +24,6 @@ Architecture:
     ├── refresh_daily_data()    → yfinance + FRED (free sources)
     ├── run_ev_ranking()        → WheelRunner.rank_candidates_by_ev
     ├── run_regime_check()      → regime_detector + regime_hmm
-    ├── run_calibration_check() → DriftDetector.check_calibration
     └── output_daily_brief()    → combined JSON summary
 """
 
@@ -254,44 +253,6 @@ def run_regime_check() -> dict:
 
 
 # ======================================================================
-# Stage 5: Calibration check (evening)
-# ======================================================================
-def run_calibration_check() -> dict:
-    """Run model calibration and drift checks."""
-    _log("Stage 5: Calibration check...")
-
-    try:
-        from ml.model_governance import DriftDetector
-
-        # Check if there's a recent predictions log to validate
-        pred_log = PROJECT_ROOT / "data" / "predictions_log.csv"
-        if not pred_log.exists():
-            _log("  No predictions log found — skip calibration")
-            return _result("calibration", "skip", error="No predictions_log.csv")
-
-        import pandas as pd
-
-        df = pd.read_csv(pred_log)
-        if len(df) < 30:
-            _log(f"  Only {len(df)} predictions logged — need 30+ for calibration")
-            return _result("calibration", "skip", error=f"Only {len(df)} rows")
-
-        preds = df["predicted_prob"].tolist()
-        actuals = df["actual_outcome"].astype(int).tolist()
-        result = DriftDetector.check_calibration(preds, actuals)
-
-        _log(
-            f"  Brier={result['brier_score']:.4f}  "
-            f"ECE={result['ece']:.4f}  "
-            f"{'PASS' if result['passed'] else 'FAIL'}"
-        )
-        return _result("calibration", "ok" if result["passed"] else "fail", result)
-
-    except Exception as e:
-        return _result("calibration", "error", error=str(e)[:200])
-
-
-# ======================================================================
 # Workflow runners
 # ======================================================================
 def run_morning(args: argparse.Namespace) -> list[dict]:
@@ -326,17 +287,16 @@ def run_intraday(args: argparse.Namespace) -> list[dict]:
 
 
 def run_evening(_args: argparse.Namespace) -> list[dict]:
-    """After-close: calibration + journal review."""
-    results = []
-    results.append(run_calibration_check())
-    return results
+    """After-close: no stage left since the calibration check was removed
+    with the research ML models (2026-09-17, Track F); kept as the hook for
+    the exit evaluator (ROADMAP Track C)."""
+    return []
 
 
 def run_full(args: argparse.Namespace) -> list[dict]:
     """Complete daily workflow — all stages."""
     results = []
     results.extend(run_morning(args))
-    results.append(run_calibration_check())
     return results
 
 

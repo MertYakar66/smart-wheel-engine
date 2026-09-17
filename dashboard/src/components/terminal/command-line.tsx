@@ -19,7 +19,6 @@ const COMMANDS = [
   { cmd: "QUOTE <SYM>", desc: "Open symbol workbench (EOD engine read)" },
   { cmd: "CHART <SYM>", desc: "Open symbol workbench + TradingView link" },
   { cmd: "ENGINE", desc: "Refresh options engine data" },
-  { cmd: "RESEARCH <Q>", desc: "Ask the research panel a question" },
   { cmd: "BACK", desc: "Close the symbol workbench" },
   { cmd: "CLEAR", desc: "Clear command history" },
   { cmd: "HELP", desc: "Show available commands" },

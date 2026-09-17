@@ -11,7 +11,6 @@ import Link from "next/link";
  * quote tape exists.
  */
 interface StatusBarProps {
-  ollamaStatus: "connected" | "disconnected" | "checking";
   vix?: number;
   vix3m?: number | null;
   contango?: boolean | null;
@@ -23,7 +22,6 @@ interface StatusBarProps {
 }
 
 export function StatusBar({
-  ollamaStatus,
   vix,
   vix3m,
   contango,
@@ -133,26 +131,8 @@ export function StatusBar({
         </div>
       </div>
 
-      {/* Right: Status indicators */}
+      {/* Right: wall clock */}
       <div className="flex shrink-0 items-center gap-4">
-        <span className="flex items-center gap-1">
-          <span className="text-terminal-dim">AI:</span>
-          <span
-            className={
-              ollamaStatus === "connected"
-                ? "text-terminal-green"
-                : ollamaStatus === "checking"
-                  ? "text-terminal-amber"
-                  : "text-terminal-red"
-            }
-          >
-            {ollamaStatus === "connected"
-              ? "ONLINE"
-              : ollamaStatus === "checking"
-                ? "…"
-                : "OFFLINE"}
-          </span>
-        </span>
         <span className="text-terminal-dim">{time}</span>
       </div>
     </div>

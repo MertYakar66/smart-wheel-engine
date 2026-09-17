@@ -8,7 +8,6 @@ import { LiveBookPanel } from "@/components/terminal/live-book-panel";
 import { WatchlistPanel } from "@/components/terminal/watchlist-panel";
 import { MacroPanel } from "@/components/terminal/macro-panel";
 import { CommandLine } from "@/components/terminal/command-line";
-import { ChatPanel } from "@/components/terminal/chat-panel";
 import type { CalendarEvent } from "@/types";
 import { TradingViewLinkRow } from "@/components/terminal/tradingview-link-panel";
 import { TickerAnalysisPanel } from "@/components/terminal/ticker-analysis-panel";
@@ -39,14 +38,8 @@ export default function TerminalPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
-  // Ollama status
-  const [ollamaStatus, setOllamaStatus] = useState<"connected" | "disconnected" | "checking">("checking");
-
   // Command history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
-
-  // Chat query from command line
-  const [chatQuery, setChatQuery] = useState<string | undefined>();
 
   // Selected ticker for the symbol workbench
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -146,38 +139,10 @@ export default function TerminalPage() {
     }
   }, [heldKey]);
 
-  const checkOllama = useCallback(async () => {
-    try {
-      // Proxy through the same-origin engine route. A direct browser fetch to
-      // Ollama (localhost:11434) is CORS-blocked and always reports
-      // "disconnected" even when Ollama is healthy; the engine checks Ollama
-      // server-side — and it is the engine that actually calls Ollama for memos.
-      const res = await fetch("/api/engine?action=ollama_status", {
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!res.ok) {
-        setOllamaStatus("disconnected");
-        return;
-      }
-      const data = await res.json();
-      const connected = Boolean(
-        data?.available ||
-          data?.connected ||
-          data?.ok ||
-          data?.status === "connected" ||
-          data?.status === "ok"
-      );
-      setOllamaStatus(connected ? "connected" : "disconnected");
-    } catch {
-      setOllamaStatus("disconnected");
-    }
-  }, []);
-
   // Initial data load (events re-fetch when the held-book names change)
   useEffect(() => {
     fetchWatchlist();
-    checkOllama();
-  }, [fetchWatchlist, checkOllama]);
+  }, [fetchWatchlist]);
 
   useEffect(() => {
     fetchEvents();
@@ -243,11 +208,6 @@ export default function TerminalPage() {
         // Read-only: open the symbol workbench (engine EOD read) — QUOTE no
         // longer mutates the watchlist DB as a side effect.
         if (arg) setSelectedTicker(arg.toUpperCase());
-        break;
-      case "RESEARCH":
-        if (arg) {
-          setChatQuery(arg);
-        }
         break;
       case "CLEAR":
         setCommandHistory([]);
@@ -324,7 +284,6 @@ export default function TerminalPage() {
       {/* Status Bar — real reads only (VIX complex, NAV, frontier) */}
       <PanelErrorBoundary label="Status Bar" resetKey={dataEpoch}>
         <StatusBar
-          ollamaStatus={ollamaStatus}
           vix={engineData.regime.vix}
           vix3m={engineData.regime.vix3m}
           contango={engineData.regime.contango}
@@ -358,7 +317,9 @@ export default function TerminalPage() {
               </PanelErrorBoundary>
             </div>
           </div>
-          <div className="grid grid-rows-2 gap-[1px]">
+          {/* Right column: the options engine takes the full height (the
+              research-chat cell that sat below it was removed 2026-09-17). */}
+          <div className="grid min-h-0 grid-rows-1">
             <PanelErrorBoundary label="Options Engine" resetKey={dataEpoch}>
               <OptionsPanel
                 trades={engineData.trades}
@@ -367,9 +328,6 @@ export default function TerminalPage() {
                 universeScanned={engineData.universeScanned}
                 universeTotal={engineData.universeTotal}
               />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary label="Research" resetKey={dataEpoch}>
-              <ChatPanel initialQuery={chatQuery} />
             </PanelErrorBoundary>
           </div>
         </div>
@@ -405,7 +363,12 @@ export default function TerminalPage() {
             />
           </PanelErrorBoundary>
 
-          {/* Row 2 — one panel per cell so the 3x2 grid stays balanced */}
+          {/* Row 2 — Watchlist | Events (spanning two columns). Five panels
+              remain since the research chat was removed (2026-09-17): the
+              watchlist's columns are fixed-width while the event rows truncate
+              their description, so the events calendar takes the freed cell.
+              The span sits on a wrapper so the 3x2 grid has no dead cell even
+              when the panel's error boundary trips. */}
           <PanelErrorBoundary label="Watchlist" resetKey={dataEpoch}>
             <WatchlistPanel
               items={watchlist}
@@ -413,17 +376,16 @@ export default function TerminalPage() {
               onRefresh={fetchWatchlist}
             />
           </PanelErrorBoundary>
-          <PanelErrorBoundary label="Events" resetKey={dataEpoch}>
-            <MacroPanel
-              events={events}
-              loading={eventsLoading}
-              heldTickers={book.heldTickers}
-              flash={flashPanel === "calendar"}
-            />
-          </PanelErrorBoundary>
-          <PanelErrorBoundary label="Research" resetKey={dataEpoch}>
-            <ChatPanel initialQuery={chatQuery} />
-          </PanelErrorBoundary>
+          <div className="col-span-2 grid min-h-0 grid-rows-1">
+            <PanelErrorBoundary label="Events" resetKey={dataEpoch}>
+              <MacroPanel
+                events={events}
+                loading={eventsLoading}
+                heldTickers={book.heldTickers}
+                flash={flashPanel === "calendar"}
+              />
+            </PanelErrorBoundary>
+          </div>
         </div>
       )}
 

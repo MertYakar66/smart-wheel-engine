@@ -239,23 +239,6 @@ export async function GET(request: Request) {
         return NextResponse.json(data);
       }
 
-      case "memo": {
-        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
-        const data = await fetchEngine(`/api/memo?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "summary": {
-        const qs = new URLSearchParams({ ticker: searchParams.get("ticker") || "AAPL" });
-        const data = await fetchEngine(`/api/summary?${qs.toString()}`);
-        return NextResponse.json(data);
-      }
-
-      case "ollama_status": {
-        const data = await fetchEngine("/api/ollama_status");
-        return NextResponse.json(data);
-      }
-
       case "universe": {
         const data = await fetchEngine("/api/universe");
         return NextResponse.json(data);

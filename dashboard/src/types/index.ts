@@ -20,22 +20,6 @@ export interface CalendarEvent {
   description: string | null;
 }
 
-// ─── Chat Types ────────────────────────────────────────────────────────
-
-export interface ChatMessage {
-  messageId: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: string;
-}
-
-export interface ChatSession {
-  sessionId: string;
-  title: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // ─── Options Engine Types (smart-wheel-engine) ────────────────────────
 
 /**

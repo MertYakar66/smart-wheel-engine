@@ -8,7 +8,7 @@ three pages, all in the `(terminal)` route group:
 |---|---|
 | `/cockpit` | Decision Cockpit — EV-ranked candidates, dossier and reviewer verdicts (R1–R11), regime banner, concentration meters, drop funnel. Read-only over `/api/engine`. |
 | `/portfolio` | Live IBKR book viewer (design D26) — KPIs, holdings, allocation, equity curve, income, margin, risk, trade history. Read-only over `/api/portfolio/*`; each slice is labelled with its source. |
-| `/terminal` | Options terminal — market/vol panel, options engine, live book, ticker watchlist, events calendar, Ollama research chat, command line, and a symbol workbench (engine read, dealer positioning, TradingView handoff). |
+| `/terminal` | Options terminal — market/vol panel, options engine, live book, ticker watchlist, events calendar, command line, and a symbol workbench (engine read, dealer positioning, TradingView handoff). |
 
 `/` redirects to `/cockpit`. The three pages share the Wheelhouse header and
 its cross-page tabs.
@@ -31,11 +31,10 @@ and is retained as a research-tier surface only (see
 - **UI**: Tailwind CSS v4 + shadcn/ui primitives
 - **Local store**: SQLite via better-sqlite3 + Drizzle ORM, holding only the
   terminal's operator state — ticker watchlist, manually curated events,
-  cached quote snapshots, research-chat sessions. Lives at
+  cached quote snapshots. Lives at
   `dashboard/data/finance-news.db` (gitignored; the legacy file name is kept
   so an existing local watchlist is still found).
 - **Charts**: Recharts
-- **AI**: local Ollama via the Vercel AI SDK (terminal research chat)
 - **Data**: the engine API (`:8787`) for ranking, analysis, regime, calendar
   and the live book; Finnhub (optional key) for realtime quotes, falling back
   to the engine's EOD close
@@ -50,7 +49,6 @@ and is retained as a research-tier surface only (see
 - The engine API up at `:8787` (`python engine_api.py` from the repo root —
   see the [root README](../README.md)); without it the pages render their
   explicit engine-offline states
-- Optional: [Ollama](https://ollama.ai) for the terminal research chat
 - Optional: Finnhub free-tier API key for realtime quotes
 
 ### Setup
@@ -62,7 +60,7 @@ cd dashboard
 # Install dependencies
 npm install
 
-# Environment template (engine URL, Finnhub, Ollama)
+# Environment template (engine URL, Finnhub)
 cp .env.example .env.local
 
 # Dev server at :3000
@@ -70,18 +68,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000); it lands on `/cockpit`.
-
-### Optional: Ollama
-
-```bash
-curl -fsSL https://ollama.ai/install.sh | sh   # macOS / Linux
-ollama pull qwen2.5:7b
-# Ollama serves on http://localhost:11434 by default
-```
-
-The engine's own memo path (`engine/trade_memo.py`) uses Ollama 72B / 32B
-locally; the dashboard's research chat uses the same Ollama instance via
-the Vercel AI SDK (`OLLAMA_URL` / `OLLAMA_MODEL`).
 
 ---
 
@@ -94,7 +80,6 @@ dashboard/src/
 │   ├── api/
 │   │   ├── engine/          # GET ?action=… proxy to engine_api.py :8787 (never cached)
 │   │   ├── portfolio/[sub]/ # GET proxy to the engine's read-only /api/portfolio/<sub>
-│   │   ├── chat/            # POST — streaming Ollama research chat
 │   │   ├── market/          # GET ?ticker= — quote: Finnhub → <24h snapshot → engine EOD
 │   │   ├── watchlist/       # GET / POST / DELETE — SQLite ticker watchlist with quotes
 │   │   └── events/          # GET / POST — SQLite events merged with the engine calendar
@@ -142,7 +127,6 @@ Drizzle Kit scripts are an optional migration workflow, not a startup step.
 |---|---|---|
 | Engine API (`:8787`) | EV ranking, dossier, regime / VIX, calendar, ticker analysis, dealer positioning, live IBKR book | Local |
 | Finnhub | Realtime stock quotes (optional key; engine EOD close otherwise) | Free tier |
-| Ollama | Local AI inference for the research chat | Free (local) |
 
 ---
 

@@ -40,8 +40,13 @@ Operator-ruled candidate list rather than an open-ended cleanup.
 
 ## What didn't
 
-- Nothing failed. One judgement call to ratify: the terminal grid loses its
-  chat cell; the subagent chose the rebalanced layout (see the PR body).
+- Nothing failed. One judgement call to ratify: the terminal grid lost its chat
+  cell; the subagent kept the 3×2 grid with row 1 unchanged (Market/Vol | Options
+  Engine | Live Book) and row 2 = Watchlist | Events spanning two columns (the
+  Events panel is the one that truncates, so it takes the freed width); the symbol
+  workbench's right column became a single full-height Options Engine cell. `zod`
+  left the top-level dependencies (no importer; it survives as a transitive of the
+  eslint config). Rendering was verified by build and lint only, not in a browser.
 
 ## How we fixed it
 

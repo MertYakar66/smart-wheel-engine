@@ -15,8 +15,9 @@ function initDb(): BetterSQLite3Database<typeof schema> {
   }
 
   // The file name predates the 2026-09-16 news removal and is kept so an
-  // existing local watchlist / chat history is still found. Tables the old
-  // news pipeline created in an existing file are left alone — never dropped.
+  // existing local watchlist is still found. Tables that earlier versions
+  // created in an existing file (the news pipeline, the research chat removed
+  // on 2026-09-17) are left alone — never dropped.
   const DB_PATH = path.join(DATA_DIR, "finance-news.db");
   const sqlite = new Database(DB_PATH);
 
@@ -48,23 +49,7 @@ function initDb(): BetterSQLite3Database<typeof schema> {
       description TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS chat_sessions (
-      session_id TEXT PRIMARY KEY,
-      title TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS messages (
-      message_id TEXT PRIMARY KEY,
-      session_id TEXT REFERENCES chat_sessions(session_id),
-      role TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    );
-
     CREATE INDEX IF NOT EXISTS idx_market_snapshots_ticker ON market_snapshots(ticker);
-    CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
   `);
 
   _db = drizzle(sqlite, { schema });

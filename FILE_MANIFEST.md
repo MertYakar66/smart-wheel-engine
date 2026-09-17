@@ -173,7 +173,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 
 | File | Purpose |
 |---|---|
-| `dashboard/package.json` | npm manifest — Next.js, React, Drizzle/SQLite (terminal watchlist / events / quote cache / chat persistence), Vercel AI SDK, recharts. News dependencies (rss-parser, node-cron) removed 2026-09-16. |
+| `dashboard/package.json` | npm manifest — Next.js, React, Drizzle/SQLite (terminal watchlist / events / quote cache), recharts. News dependencies (rss-parser, node-cron) removed 2026-09-16; the Ollama chat dependencies (ai, @ai-sdk/openai-compatible, ollama-ai-provider) removed 2026-09-17. |
 | `dashboard/package-lock.json` | npm lockfile (committed dependency tree). |
 | `dashboard/next.config.ts` | Next.js config; marks `better-sqlite3` server-external. |
 | `dashboard/tsconfig.json` | TypeScript config; `@/*` path alias. |
@@ -181,7 +181,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/postcss.config.mjs` | PostCSS config wiring the Tailwind plugin. |
 | `dashboard/components.json` | shadcn/ui generator config. |
 | `dashboard/drizzle.config.ts` | Drizzle-kit config — SQLite dialect, schema and db paths. |
-| `dashboard/.env.example` | Sample dashboard env vars (Finnhub, FRED, Ollama, Valyu, Daytona). |
+| `dashboard/.env.example` | Sample dashboard env vars (engine URL, Finnhub). |
 | `dashboard/.gitignore` | Dashboard-scoped ignore rules. |
 | `dashboard/README.md` | Dashboard project README. |
 | `dashboard/__init__.py` | Python package init — re-exports the legacy `QuantDashboard` and helpers. |
@@ -225,14 +225,13 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `dashboard/src/components/portfolio/ask-bar.tsx` | Conversational ask-bar affordance (suggestion chips) — visual only; the engine-backed query layer is a later phase (design D26 §6.2 Phase B). |
 | `dashboard/src/components/portfolio/income-panel.tsx` | Real Income section from `/api/portfolio/income` (previously served-but-never-fetched): realized/premium/win-rate chips, monthly realized P&L bars, ranked per-ticker league table; honest empty-ledger state. |
 | `dashboard/src/components/portfolio/margin-panel.tsx` | Margin & leverage panel — loan balance, maintenance margin, excess-liquidity cushion, leverage from served summary fields; prop-driven, null-honest. |
-| `dashboard/src/app/api/chat/route.ts` | Chat API — streams from Ollama via the AI SDK. |
 | `dashboard/src/app/api/market/route.ts` | Market quote API — Finnhub with cached fallback. |
 | `dashboard/src/app/api/watchlist/route.ts` | Watchlist CRUD API — GET enriches with prices. |
 | `dashboard/src/app/api/events/route.ts` | Calendar-events CRUD API. |
 | `dashboard/src/components/ui/*.tsx` | shadcn/ui base primitives (badge, button, card, input, scroll-area, skeleton). |
-| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/watchlist/macro/chat panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
+| `dashboard/src/components/terminal/*.tsx` | Terminal-app panels and controls (panel, status-bar, market/options/watchlist/macro panels, live-book + dealer-positioning + ticker-analysis panels, TradingView link row, command-line, error boundary). All engine/book reads labeled; no fabricated data. |
 | `dashboard/src/db/index.ts` | SQLite/Drizzle connection — lazy init, table creation, idempotent migrations. |
-| `dashboard/src/db/schema.ts` | Drizzle ORM schema for the terminal's SQLite store — `marketSnapshots` (quote cache), `watchlists`, `events`, `chatSessions`, `messages`. The news/story tables were dropped 2026-09-16 with the news removal (D29); old tables in an existing local DB file are never dropped. |
+| `dashboard/src/db/schema.ts` | Drizzle ORM schema for the terminal's SQLite store — `marketSnapshots` (quote cache), `watchlists`, `events`. The news/story tables were dropped 2026-09-16 and the chat tables 2026-09-17 (D29); old tables in an existing local DB file are never dropped. |
 | `dashboard/src/hooks/useEngineData.ts` | React hooks against `/api/engine` — engine data, ticker analysis, committee review. |
 | `dashboard/src/lib/utils.ts` | `cn()` Tailwind class-merge helper. |
 | `dashboard/src/types/index.ts` | Shared TypeScript types for the dashboard. |

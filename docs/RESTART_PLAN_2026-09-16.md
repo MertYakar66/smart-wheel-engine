@@ -27,8 +27,8 @@ Answers of 2026-09-17: data subscriptions are not decided and the current focus 
 
 Answers recorded as "I don't know": the 2026-07-15 consent, the 2026-06-28 cascade
 authorisation, the reason for the no-model-name ruling, and whether the held
-findings were an acceptance or a stopgap. Consequences: merge authority moves to
-branch protection (nothing depends on remembering who clicked); model
+findings were an acceptance or a stopgap. Consequences: merge authority stays with the Operator by convention (the
+Operator ruled on 2026-09-17 that `main` is not branch-protected); model
 attribution is allowed again (D29); F1 and F3 are re-triaged as fixes to make,
 F4 rides the re-baseline.
 
@@ -224,9 +224,9 @@ be re-validated at the new horizons before the real-money verdict is revisited.
 Done in this pass: OPERATING_MODEL v3, PROMPTING_STANDARD, hook and template
 updates, archived old-protocol docs deleted, coordination issues closed; on
 2026-09-17 the local-AI integrations were removed (R12). Left
-for the first Operator-run steps: turn on branch protection for `main`
-(required checks, no direct push, base must be main); merge this branch's PR,
-then PR #523; run the docs currency pass (60 stale worklog statuses, audit
+for the first Operator-run steps: merge this branch's PR (#524, which carries
+#523 and the Track F cuts; no branch protection on `main` by the Operator's
+ruling of 2026-09-17); run the docs currency pass (60 stale worklog statuses, audit
 register and worklist marked shipped, `docs/PRODUCTION_READINESS.md`
 refreshed); open the campaign issue for Track A.
 

@@ -63,7 +63,7 @@ The hands. Reads files, edits files, runs commands, runs tests, manages branches
 
 **The Executor may fix things opportunistically.** If it notices a genuine defect while working — a broken import, a stale docstring, a dead reference, a small bug adjacent to its task — it may fix it, provided the fix does not touch a §7 invariant, lies inside the run's `<owns>` set, and is reported as a separate, clearly-labelled item in the Run Summary. Opportunistic fixes are never silent.
 
-**The Executor never merges to `main`.** Merging is the Operator's action, enforced by branch protection (§5). History rewrites need the Operator's explicit, per-action approval and are done by the Operator or under their eyes.
+**The Executor never merges to `main`.** Merging is the Operator's action, by convention rather than by a GitHub setting (`main` is deliberately unprotected — Operator ruling of 2026-09-17; §5). History rewrites need the Operator's explicit, per-action approval and are done by the Operator or under their eyes.
 
 **The Executor does not:**
 
@@ -204,7 +204,7 @@ Rules on top of the tiers:
 - **The central validity question — whether high-EV candidates outperform a simpler benchmark out of sample — is permanently Tier 3.** A backtest is evidence, never proof.
 - **No CI run means not verified.** A pull request with no completed CI run is unverified regardless of local checks. A PR stacked on a non-`main` base triggers no CI — retarget it to `main` before it is treated as verified.
 - **Writer and checker are different contexts** (§2.4). The strongest verification pattern on record is a second executor independently re-running fail-before / pass-after checks in an isolated worktree; use it for anything touching the decision layer.
-- **`main` is branch-protected.** Required status checks, no direct pushes, base must be `main`. The Operator merges. Rules that depend on anyone remembering who clicked what are replaced by the protection setting.
+- **`main` is not branch-protected (Operator ruling, 2026-09-17).** The Operator alone merges, and only a PR whose head is green in CI; nobody pushes to `main` directly. This is a convention the Operator enforces personally, not a GitHub setting — the Operator chose not to turn protection on.
 
 ---
 
@@ -254,7 +254,7 @@ Both the Strategist and the Executor must honour these. The Strategist must not 
 
 **Validation honesty.** No claim that the engine "works" is made on the strength of internal consistency alone. Internal invariants prove the engine is self-consistent; they do not prove its outputs are realistic. The central out-of-sample question is treated as open until a valid, contamination-free result says otherwise, and even then the result is evidence, not proof. Every engine-versus-market number is stated with its benchmark and its horizon; a result at one expiry does not transfer to another.
 
-**Process.** Work happens on a branch. `main` is branch-protected; the Operator merges; nobody rewrites history without the Operator's explicit approval for that specific action. No unreviewed deletion. New decisions are appended to the decision log as the next free entry; existing decisions are updated, never silently reversed. Gitignored data and secrets are never committed. Nothing on the §3.1 hard-blocked list happens while the Operator is away.
+**Process.** Work happens on a branch. `main` is unprotected by the Operator's choice; the Operator alone merges; nobody rewrites history without the Operator's explicit approval for that specific action. No unreviewed deletion. New decisions are appended to the decision log as the next free entry; existing decisions are updated, never silently reversed. Gitignored data and secrets are never committed. Nothing on the §3.1 hard-blocked list happens while the Operator is away.
 
 **Honesty.** No fabricated numbers. A figure the Executor cannot produce with a command and paste as output is not stated as fact. Every repeated claim is labelled as proven, attested, or unverified.
 

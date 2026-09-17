@@ -30,7 +30,7 @@ Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
 | **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A | plan §4 |
 | **C** | **Exit evaluator + post-mortem loop** (D25 adopted; advisory, confirmed 2026-09-17; closes F1) | `next` after B | plan §5 |
 | **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures, prose by an API model) | `next` once A is live | plan §6 |
-| **E** | **Protocol v3 adoption** — branch protection on `main`, merge this restart PR then #523, docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
+| **E** | **Protocol v3 adoption** — merge this restart PR (#524, which carries #523 and the Track F cuts; `main` stays unprotected by ruling), docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
 | — | **News layer redesign** | `parked` until A–C land | D29 |
 | — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |
 

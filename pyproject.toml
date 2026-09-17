@@ -68,10 +68,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# `src/` is deprecated (DECISIONS.md D2) but kept here while six tests
-# and four production modules still import `src.features.*`. Drop only
-# after the D2 migration window closes.
-packages = ["engine", "data", "src", "backtests"]
+packages = ["engine", "data", "backtests"]
 
 [tool.ruff]
 target-version = "py311"
@@ -93,7 +90,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
+known-first-party = ["engine", "data", "backtests", "utils", "scripts"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -108,7 +105,7 @@ addopts = "-v"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["src", "engine", "data"]
+source = ["engine", "data"]
 branch = true
 omit = [
     # External API connectors require live API calls or complex mocking
@@ -116,8 +113,6 @@ omit = [
     # Pipeline and scheduler require external resources
     # Storage layer requires database setup
     # Processing modules with complex ML dependencies
-    # Data validators are simple type checks
-    "src/data/validators.py",
     # Complex engine modules requiring extensive setup
     "engine/signal_context.py",
     "engine/volatility_surface.py",

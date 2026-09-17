@@ -21,9 +21,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.features.labels import LabelGenerator
-from src.features.technical import TechnicalFeatures
-from src.features.volatility import VolatilityFeatures
+from engine.features.labels import LabelGenerator
+from engine.features.technical import TechnicalFeatures
+from engine.features.volatility import VolatilityFeatures
 
 
 class TestRollingFeaturesPIT:

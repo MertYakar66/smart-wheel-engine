@@ -272,6 +272,7 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `data/bloomberg/broad_pull/` | Integrated net-new broad-pull Bloomberg datasets (the ~25 logical / 27 files from `staging/` on branch `claude/bloomberg-broad-pull-2026-06-17`, mirroring its bucket structure): IV skew surface (`.gz`), macro calendar + releases, vol/rates/cross-asset wide series, per-name panels (returns+bid/ask, IV-term+RV `.gz`, beta/shares, fundamentals, estimates, valuation, options-sentiment), dividend-PIT, short interest, and the ratings/GICS snapshot. Read by `data/broad_pull_loaders.py`; **not yet consumed**. Census in `docs/DATA_INVENTORY.md` §6. |
 | `data/features/<group>/ticker=AAPL/{data.parquet,metadata.json,stats.json}` | Committed AAPL-only feature-store sample shards across the 8 feature groups; other tickers regenerate via `scripts/backfill_features.py`. |
 | `data/features/_lineage/`, `data/features/_registry/` | Feature-store lineage table and registry index. |
+| `data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
 
 ## `data_processed/`
 
@@ -483,6 +484,16 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
 | `engine/external_data/edgar_adapter.py` | `EDGARAdapter` — SEC EDGAR Form 4 / 13F / short-interest data. |
 | `engine/external_data/yfinance_adapter.py` | `YFinanceAdapter` — cross-asset (DXY, oil, gold, sector ETF) data. |
+| `engine/features/__init__.py` | Re-exports the nine feature classes (package moved from `src/features/` on 2026-09-17). |
+| `engine/features/technical.py` | `TechnicalFeatures` — SMA/EMA/RSI/MACD/Bollinger/ATR/Hurst indicators. |
+| `engine/features/volatility.py` | `VolatilityFeatures` — realised-vol estimators and IV rank/percentile. |
+| `engine/features/options.py` | `OptionsFeatures` — flow ratios, P(profit), expected move, premium yield. |
+| `engine/features/dynamics.py` | `OptionsDynamics` — change-based features (ΔOI, ΔIV, Δskew). |
+| `engine/features/events.py` | `EventVolatility` — earnings/macro IV ramp and crush, gap distribution. |
+| `engine/features/regime.py` | `RegimeDetector` — trend/vol/liquidity regime classification. |
+| `engine/features/vol_edge.py` | `VolatilityEdge` — IV-RV spread/ratio/zscore and composite edge score. |
+| `engine/features/labels.py` | `LabelGenerator` — ML training labels (CSP outcome, forward returns, touch). |
+| `engine/features/assignment.py` | `AssignmentFeatures` — probability-of-touch and roll-vs-assignment scoring. |
 
 ## `notebooks/`
 
@@ -624,28 +635,6 @@ Nothing under `staging/` is read by the engine or connector.
 | `staging/casy/` | Phase-1A CASY fragment set (ohlcv / vol_iv / liquidity / partial earnings + `pull_casy.py` + `PULL_NOTES.md`), pulled 2026-06-17 for the newest S&P entrant. Same carrier-only status as `staging/blue_chips/`. |
 | `staging/fundamentals_pit/` | #354 PIT fundamentals panel — monthly dated EV-field history (`sp500_fundamentals_pit.csv`, 4.7 MB) + `pull_fundamentals_pit.py` + `PULL_NOTES.md`. Dated point-in-time alternative to the snapshot-style `sp500_fundamentals.csv`; unwired, carrier-only. |
 | `staging/integrate_phase1b.py` | The Phase-1B integration recipe (from the retired `claude/phase1b-fragment-integration` branch): merges Phase-1A fragments into the monoliths with BK↔BNY ticker collapse + dividend clamp + UNIVERSE_100 wiring. Written against the pre-#472 monoliths — treat as the integration *recipe*, re-validate against the fresh monolith before running. |
-
-## `src/` — feature-engineering / schema / backtest modules
-
-See `DECISIONS.md` D2 for `src/`'s status.
-
-| File | Purpose |
-|---|---|
-| `src/__init__.py` | Package marker. |
-| `src/features/__init__.py` | Re-exports the nine feature classes. |
-| `src/features/technical.py` | `TechnicalFeatures` — SMA/EMA/RSI/MACD/Bollinger/ATR/Hurst indicators. |
-| `src/features/volatility.py` | `VolatilityFeatures` — realised-vol estimators and IV rank/percentile. |
-| `src/features/options.py` | `OptionsFeatures` — flow ratios, P(profit), expected move, premium yield. |
-| `src/features/dynamics.py` | `OptionsDynamics` — change-based features (ΔOI, ΔIV, Δskew). |
-| `src/features/events.py` | `EventVolatility` — earnings/macro IV ramp and crush, gap distribution. |
-| `src/features/regime.py` | `RegimeDetector` — trend/vol/liquidity regime classification. |
-| `src/features/vol_edge.py` | `VolatilityEdge` — IV-RV spread/ratio/zscore and composite edge score. |
-| `src/features/labels.py` | `LabelGenerator` — ML training labels (CSP outcome, forward returns, touch). |
-| `src/features/assignment.py` | `AssignmentFeatures` — probability-of-touch and roll-vs-assignment scoring. |
-| `src/data/__init__.py` | Re-exports the data schemas and validator. |
-| `src/data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
-| `src/backtest/__init__.py` | Re-exports the wheel backtester. |
-| `src/backtest/wheel_backtest.py` | Event-driven wheel backtester (research/simulation only). |
 
 ## `tests/` — test suite
 
@@ -794,7 +783,6 @@ See `DECISIONS.md` D2 for `src/`'s status.
 | `tests/test_external_data_fred.py` | HTTP-mocked `FREDAdapter`. |
 | `tests/test_external_data_yfinance.py` | HTTP-mocked `YFinanceAdapter`. |
 | `tests/test_wheel_lifecycle.py` | `WheelTracker` partial assignment and roll mechanics. |
-| `tests/test_wheel_backtest.py` | `src.backtest.wheel_backtest` run, scoring and metrics. |
 | `tests/test_wheel_tracker_persistence.py` | `WheelTracker` JSON persistence round-trips. |
 | `tests/test_wheel_tracker_suggest_rolls.py` | Launch-blocker invariant — `suggest_rolls` properties and roll-EV regression. |
 | `tests/test_wheel_tracker_suggest_call_rolls.py` | Launch-blocker invariant — `suggest_call_rolls` properties and roll-EV regression. |

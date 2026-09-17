@@ -48,13 +48,13 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run Ruff linter
-        run: ruff check src/ engine/ data/ tests/ scripts/ utils/ dashboard/ backtests/regression/
+        run: ruff check engine/ data/ tests/ scripts/ utils/ dashboard/ backtests/regression/
 
       - name: Run Ruff formatter check
-        run: ruff format --check src/ engine/ data/ tests/ scripts/ utils/ dashboard/ backtests/regression/
+        run: ruff format --check engine/ data/ tests/ scripts/ utils/ dashboard/ backtests/regression/
 
       - name: Run MyPy type checker
-        run: mypy src/ --ignore-missing-imports
+        run: mypy engine/features/ data/schemas.py --ignore-missing-imports
         continue-on-error: true  # Type errors are warnings for now
 
   manifest-coverage:
@@ -129,7 +129,6 @@ jobs:
         run: |
           pytest tests/ \
             -m "not backtest_regression" \
-            --cov=src \
             --cov=engine \
             --cov=data \
             --cov-report=xml \
@@ -233,7 +232,7 @@ jobs:
           pip install bandit safety
 
       - name: Run Bandit security linter
-        run: bandit -r src/ engine/ -ll
+        run: bandit -r engine/ -ll
         continue-on-error: true
 
       - name: Check for known vulnerabilities

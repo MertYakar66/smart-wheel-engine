@@ -1822,7 +1822,7 @@ class EngineAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_chart(self, chart_type, ticker, days):
         """Serve chart data: OHLCV + technical indicators as JSON arrays."""
-        from src.features.technical import TechnicalFeatures
+        from engine.features.technical import TechnicalFeatures
 
         conn = get_connector()
         ohlcv = conn.get_ohlcv(ticker)

@@ -83,6 +83,14 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `data_integration.py` | Provider-selection helpers; `get_current_risk_free_rate`. |
 | `external_data/` | External data connector subpackage. |
 
+### Feature-engineering library (`engine/features/`, moved from `src/features/` 2026-09-17)
+
+| Module | Role | Status |
+|---|---|---|
+| `features/technical.py` | `TechnicalFeatures` — SMA/EMA/RSI/MACD/Bollinger/ATR; consumed by `tv_signals.py`, `strangle_timing.py`, `engine_api.py`, `data/bloomberg_import.py`. | live |
+| `features/volatility.py` | `VolatilityFeatures` — realised-vol estimators, IV rank/percentile; consumed by `data/bloomberg_import.py`, `scripts/quant_benchmark_gate.py`, the quant-fixture tests. | live (off the EV path) |
+| `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | Feature-store inputs; consumed only by `data/feature_pipeline.py` (research ETL) and tests. Deletion candidate with that pipeline — Operator ruling pending. | research |
+
 ### Core math
 
 | Module | Purpose |
@@ -207,5 +215,4 @@ that the root README still references — it is not the primary UI.
 | `config/` | `settings.py` — dormant config dataclass layer (zero importers; the live runtime config is `engine/policy_config.py`). | dormant |
 | `utils/` | `data_validation.py` (live — `data/bloomberg_loader.py` consumer); `dates.py`, `health.py`, `logging_config.py`, `metadata.py`, `security.py` are dormant/test-only. | partial |
 | `notebooks/` | Exploration. | research |
-| `src/` | **Phantom scaffold (shrinking).** The empty `execution/`/`models/`/`risk/` stubs were removed (D28 close-out, 2026-07-08); remaining: partial `data/` and `features/` (live members — `features/technical.py` + the feature-pipeline consumers) and `backtest/`. Do not extend. See `PROJECT_STATE.md` §4. | deprecated |
 | `archive/` | Superseded / point-in-time artifacts; see `archive/README.md`. | reference |

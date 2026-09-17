@@ -127,17 +127,13 @@ smart-wheel-engine/
 ├── data/            # Bloomberg CSVs + feature store (AAPL committed as sample)
 ├── data_raw/        # universe list + raw fixtures
 ├── data_processed/  # regenerable Theta/yfinance pulls (gitignored)
-├── ml/              # research ML models
 ├── backtests/       # research backtesting + pinned regression reproducers
-├── studies/         # one-off research studies (premium-correction pilot)
-├── src/             # feature-engineering / schema modules (legacy scaffold — see DECISIONS.md D2)
 ├── config/          # configuration
 ├── utils/           # shared utilities
 ├── tradingview/     # Pine indicator + analyst-workspace assets
 ├── docs/            # documentation set (operational + reference)
 ├── archive/         # superseded / point-in-time artifacts
 ├── notebooks/       # exploratory notebooks
-├── models/          # ML model output directory
 ├── engine_api.py    # HTTP API entry point (:8787)
 └── *.md             # AGENTS / CLAUDE / README + the Tier-2 index docs
 ```

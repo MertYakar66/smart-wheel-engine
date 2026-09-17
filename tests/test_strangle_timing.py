@@ -390,7 +390,7 @@ class TestRegimeBranchCoverage:
         df = _generate_ohlcv()
         engine = StrangleTimingEngine()
 
-        from src.features.technical import TechnicalFeatures
+        from engine.features.technical import TechnicalFeatures
 
         original_rsi = TechnicalFeatures.rsi
 

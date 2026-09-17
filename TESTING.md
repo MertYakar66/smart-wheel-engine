@@ -158,7 +158,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_data_pipeline.py` | End-to-end pipeline |
 | `test_data_validation.py` | Schema + quality checks |
 | `test_data_integration.py` | Provider selection + integration |
-| `test_features.py` | Feature store |
+| `test_features.py` | `engine/features/` modules (dynamics, options, technical, volatility) |
 | `test_data_connector.py` | `MarketDataConnector` full query surface on synthetic tmp_path CSVs — present/absent/edge branches |
 | `test_data_connector_ticker_filter.py` | `_filter_ticker` cache equivalence vs naive mask — build/reuse verified |
 | `test_data_quality.py` | `data/quality.py` chain gate — IV substring-match false-positive regression + real invalid-IV detection |
@@ -210,7 +210,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | File | Purpose |
 |---|---|
 | `test_wheel_lifecycle.py` | State transitions + cycle accounting |
-| `test_wheel_backtest.py` | Backtest harness |
 | `test_common_realized_pnl.py` | Ground-truth dollar value-asserts for `backtests/regression/_common.py` realized-P&L + friction helpers (#456 C — hand-computed values, not shape; the W7-double-count bug class) |
 | `test_portfolio_tracker.py` | Portfolio bookkeeping |
 | `test_available_buying_power.py` | `available_buying_power` — CSP collateral reservation across the SHORT_PUT→STOCK_OWNED→COVERED_CALL lifecycle |
@@ -352,7 +351,7 @@ pytest tests/test_audit_invariants.py \
 pytest tests/ -m "not integration and not slow" -v
 
 # Coverage (CI scope per .github/workflows/ci.yml; threshold 80%)
-pytest tests/ --cov=src --cov=engine --cov=data --cov-fail-under=80
+pytest tests/ --cov=engine --cov=data --cov-fail-under=80
 
 # Hypothesis profiles (configured in conftest.py)
 pytest tests/ --hypothesis-profile=ci      # 200 examples (CI)

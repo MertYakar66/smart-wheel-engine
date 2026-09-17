@@ -4,7 +4,7 @@ Feature Pipeline - Unified computation engine for all feature modules.
 This is the CRITICAL piece that connects:
     Layer 0 (Raw Data) → Layer 1 (Derived) → Layer 2 (Edge) → Layer 3 (Labels)
 
-All the feature modules in src/features/ are wired together here.
+All the feature modules in engine/features/ are wired together here.
 
 Usage:
     from data.feature_pipeline import FeaturePipeline
@@ -29,17 +29,17 @@ import pandas as pd
 
 # Feature store
 from data.feature_store import FeatureCategory, FeatureStore, get_feature_store
-from src.features.assignment import AssignmentFeatures
-from src.features.dynamics import OptionsDynamics
-from src.features.events import EventVolatility
-from src.features.labels import LabelGenerator
-from src.features.options import OptionsFeatures
-from src.features.regime import RegimeDetector
-from src.features.technical import TechnicalFeatures
-from src.features.vol_edge import VolatilityEdge
+from engine.features.assignment import AssignmentFeatures
+from engine.features.dynamics import OptionsDynamics
+from engine.features.events import EventVolatility
+from engine.features.labels import LabelGenerator
+from engine.features.options import OptionsFeatures
+from engine.features.regime import RegimeDetector
+from engine.features.technical import TechnicalFeatures
+from engine.features.vol_edge import VolatilityEdge
 
 # Feature modules
-from src.features.volatility import VolatilityFeatures
+from engine.features.volatility import VolatilityFeatures
 
 if TYPE_CHECKING:
     # DataPipeline is imported lazily inside __init__ to avoid a circular

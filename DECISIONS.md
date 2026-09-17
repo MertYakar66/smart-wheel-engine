@@ -58,6 +58,16 @@ divergence.
 `PROJECT_STATE.md` §4. `pyproject.toml` still names `src` in
 `[tool.hatch.build.targets.wheel] packages` — known stale.
 
+**Update 2026-09-17 (Track F, Operator ruling of 2026-09-17):** the migration
+window closed. `src/features/` was promoted to `engine/features/` (the
+"rejected" alternative above, now cheap because every importer was repointed in
+one commit), `src/data/schemas.py` moved to `data/schemas.py`, and
+`src/backtest/wheel_backtest.py` was deleted with its test. `src` is gone from
+`pyproject.toml` and CI. The seven research feature modules under
+`engine/features/` exist only for `data/feature_pipeline.py`; whether that
+pipeline (and the committed `data/features/` sample shards) stays is a
+separate Operator ruling, not taken here.
+
 ---
 
 ## D3. Two news subsystems coexist intentionally

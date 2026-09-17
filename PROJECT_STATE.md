@@ -230,26 +230,10 @@ reorg) is preserved verbatim in
 
 ## 4. Deprecated / phantom — do not extend
 
-- `src/` — partial scaffold from an earlier layout. Real
-  decision-layer code is in `engine/`, not `src/`. The
-  `wheel = "src.cli:app"` pyproject entrypoint was removed under
-  ROADMAP B5 (no `[project.scripts]` section today); `src/` remains
-  a build target via `[tool.hatch.build.targets.wheel] packages = ["src"]`
-  and a coverage source via `[tool.coverage.run] source = ["src", …]`
-  (`pyproject.toml:68-72, 109`). The empty `src/execution/`,
-  `src/models/`, `src/risk/` stubs were removed 2026-07-08 (D28
-  close-out — zero references repo-wide). Partially populated:
-  `src/data/` (only `schemas.py`, `validators.py`),
-  `src/features/` (`technical.py` is **live** — imported by
-  `engine/strangle_timing.py:31`, `engine/tv_signals.py:48`, and
-  `engine_api.py:1952`; other modules dormant), and
-  `src/backtest/` (`wheel_backtest.py` is a **heuristic** wheel
-  backtester — explicitly §2-non-compliant per its top-of-file
-  banner — distinct from the EV-driven path under
-  `WheelRunner.rank_candidates_by_ev` + `WheelTracker.consume_ranker_row`;
-  see `docs/ENGINE_BACKTEST_2022_2024_IV_PIT_RERUN.md`).
-  Plan: either fully remove or fully repopulate. Until then, do not
-  add new modules under `src/`.
+- `src/` — **collapsed 2026-09-17** (Track F, `DECISIONS.md` D2 update):
+  `src/features/` → `engine/features/`, `src/data/schemas.py` → `data/schemas.py`,
+  `src/backtest/wheel_backtest.py` (heuristic, §2-non-compliant) deleted with
+  its test. Nothing imports `src` any more; `pyproject.toml` no longer names it.
 - `ml/` and `models/` — **removed 2026-09-17** (Track F, D29 direction):
   the research ML models (`wheel_model.py`, `earnings_model.py`,
   `model_governance.py`) had no engine consumer; the orchestrator's

@@ -45,7 +45,7 @@ from dataclasses import asdict, dataclass, field
 import numpy as np
 import pandas as pd
 
-from src.features.technical import TechnicalFeatures
+from engine.features.technical import TechnicalFeatures
 
 # ---------------------------------------------------------------------------
 # Tunable parameters (kept in sync with the Pine Script counterpart)

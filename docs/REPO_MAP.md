@@ -3,7 +3,7 @@
 > **Read this first.** It routes every "where does X live / what tests cover Y /
 > what is authoritative for Z" question to the **one** owning doc, so you don't
 > open three and reconcile them. It is mostly *pointers* (to avoid becoming a new
-> drift source) plus two net-new tables (`src/` per-file truth, launch-blocker
+> drift source) plus two net-new tables (`engine/features/` origin note, launch-blocker
 > subset). Rationale + the full audit: `archive/2026-05/REPO_EFFICIENCY_AUDIT.md`.
 
 ## Question router — open ONE doc per question
@@ -67,27 +67,18 @@ sign-off): `test_audit_invariants`, `test_audit_viii_{unit_invariants,e2e,real_d
 | `dashboard/` | Next.js cockpit + legacy CLI (D4) | `MODULE_INDEX.md` |
 | `tradingview/` | Pine indicator + analyst workspace (D5) | `docs/TRADINGVIEW_INTEGRATION.md` |
 | `backtests/` | research backtest harness + the regression reproducers | `FILE_MANIFEST.md` |
-| `src/` | **deprecated phantom (D2)** — but partly live; see the table below | this doc + `DECISIONS.md` D2 |
+| `engine/features/` | feature-engineering library (moved from `src/features/` 2026-09-17): `technical.py` + `volatility.py` engine/data-live, seven research modules behind `data/feature_pipeline.py` | `MODULE_INDEX.md`, `DECISIONS.md` D2 |
 | `utils/`, `config/` | helpers / config | `FILE_MANIFEST.md` |
 | `tests/` | flat `test_*.py` files (+ `tests/fixtures/`); root `conftest.py`; live count via `ls tests/test_*.py \| wc -l` | `TESTING.md` |
 | `docs/` | reference + design-contract docs | `FILE_MANIFEST.md` |
 
-## `src/` per-file truth (kills the recurring "is src/ dead?" grep)
+## `src/` — gone (2026-09-17)
 
-`src/` is frozen-deprecated (D2) **but not uniformly dead.** The
-`wheel = "src.cli:app"` console-script is **gone** (no `[project.scripts]` in
-pyproject); `src` remains in `[tool.hatch] packages` / isort / coverage by the D2
-freeze. Per-file import reality (grounded by importer grep):
-
-| `src/` file | Importers | Status |
-|---|---|---|
-| `features/technical.py` | `engine/strangle_timing.py`, `engine/tv_signals.py`, `engine_api.py` + data ETL + scripts + tests | **LIVE (decision-adjacent)** — blocks deletion |
-| `data/schemas.py` | `data/quality.py` → `engine/wheel_runner.py` chain-quality gate | **transitively on the EV path — keep** |
-| `features/volatility.py` | research ETL + scripts + tests | not live engine |
-| `features/{assignment,dynamics,events,labels,options,regime,vol_edge}.py` | `data/feature_pipeline.py` + tests | research/test only |
-| `data/validators.py` | self only | dead (coverage-omitted) |
-| `backtest/wheel_backtest.py` | `tests/test_wheel_backtest.py` | research/test-only |
-| `risk/`, `models/`, `execution/` | none (empty `__init__` stubs) | zero importers |
+The legacy scaffold was collapsed under Track F: `src/features/` →
+`engine/features/`, `src/data/schemas.py` → `data/schemas.py` (the
+`data/quality.py` → `engine/wheel_runner.py` chain-quality gate keeps its
+import), `src/backtest/wheel_backtest.py` (heuristic, §2-non-compliant,
+test-only) deleted with its test. `DECISIONS.md` D2 carries the update.
 
 ## Tests — find them without globbing
 
@@ -102,7 +93,7 @@ for why subdirs are *not* recommended):
 | Quant / pricer | `test_option_pricer`, `test_binomial_tree`, `test_monte_carlo`, `test_tail_risk`, `test_realized_vol`, `test_quant_fixtures` (authoritative BSM), `test_greeks_unit_invariants`, `test_properties` |
 | Data / connectors | `test_data_*`, `test_bloomberg_loader`, `test_theta_connector{,_coverage,_v3}`, `test_external_data_*`, `test_features` |
 | Risk / portfolio | `test_risk_manager`, `test_portfolio_tracker`, `test_portfolio_copula_coverage`, `test_stress_testing`, `test_portfolio_risk_gates`, `test_dealer_positioning` |
-| Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops`, `test_wheel_backtest` |
+| Wheel lifecycle | `test_wheel_lifecycle`, `test_wheel_tracker_*`, `test_suggest_rolls_drops` |
 | Interface / infra | `test_tv_*`, `test_mcp_client`, `test_dashboard`, `test_engine_api_port`, `test_infrastructure`, `test_recovery_*` |
 
 ### Launch-blocker subset (the §2 gate — single source)

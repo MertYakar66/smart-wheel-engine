@@ -5,7 +5,7 @@ This is the single routing document for everything that deliberately waits for
 the operator. Two distinct blocks, **A before B** — Block A moves the data the
 Block-B baselines re-pin against; doing B first pays the ~4h re-baseline tax
 twice (the same coupling argument as the 2026-06-08 batch decision that
-produced `docs/bloomberg_refresh_runbook.md`).
+produced `archive/2026-06/bloomberg_refresh_runbook.md`).
 
 Nothing here is actionable autonomously: every item is Terminal-gated,
 EV-moving (re-baseline event), reserved by prior operator decision, or needs
@@ -15,7 +15,7 @@ an explicit operator choice.
 
 ## Block A — Terminal / data session (~4–6 h; needs Theta Terminal + Bloomberg)
 
-Plan-of-record: `docs/bloomberg_refresh_runbook.md` (PR #365). Branch the work
+Plan-of-record: `archive/2026-06/bloomberg_refresh_runbook.md` (PR #365). Branch the work
 off **live `origin/main`** at session start (main moves between sessions).
 
 | # | Item | Source | Notes |

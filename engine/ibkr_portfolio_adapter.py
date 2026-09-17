@@ -178,14 +178,43 @@ def provenance(artifact: dict) -> str:
 
     The committed demo fixtures carry a top-level ``"source": "fixture"``
     marker; a real point-in-time IBKR drop does not. Returns ``"demo"`` for a
-    fixture (or an explicit ``demo`` / ``mock`` marker), else ``"live"``. The
-    engine_api attaches this per slice and the dashboard renders an honest
-    header + per-card badge from it, so committed demo data can never
-    masquerade as a live IBKR pull (browser-QA §D finding). The viewer-offline
+    fixture (or an explicit ``demo`` / ``mock`` marker). A marker-less (or
+    explicitly ``live``) drop is ``"live"`` **only if fresh**: if it carries an
+    ``as_of`` older than ~1 trading day it is downgraded to ``"stale"`` (Bug fix
+    CMD 2), so a stale / partially-regenerated drop can never masquerade as a
+    current live IBKR pull. A drop with no ``as_of`` at all stays ``"live"`` —
+    we only report stale on positive evidence, preserving the legacy default.
+    The engine_api attaches this per slice and the dashboard renders an honest
+    header + per-card badge from it (browser-QA §D finding). The viewer-offline
     case ("mock") is decided client-side when a slice fetch fails.
     """
     marker = str(artifact.get("source", "")).strip().lower()
-    return "demo" if marker in ("fixture", "demo", "mock") else "live"
+    if marker in ("fixture", "demo", "mock"):
+        return "demo"
+    return "stale" if _is_stale(artifact) else "live"
+
+
+def _is_stale(artifact: dict, *, max_trading_days: int = 1) -> bool:
+    """True iff ``artifact`` carries an ``as_of`` older than ``max_trading_days``
+    trading days before today.
+
+    A missing / empty / unparseable ``as_of`` returns ``False`` — no evidence of
+    staleness, so the legacy ``live`` default is preserved (``provenance({})``
+    and an explicit ``source: live`` with no timestamp both stay ``live``).
+    Weekend-tolerant via a business-day count: a Friday drop viewed the
+    following Monday is one trading day old and still fresh.
+    """
+    raw = artifact.get("as_of")
+    if not raw:
+        return False
+    as_of = _as_of_date(artifact)  # today() on unparseable → treated as fresh
+    today = date.today()
+    if as_of >= today:
+        return False
+    # Trading days strictly after as_of, up to and including today. A same- or
+    # next-trading-day drop is <= max_trading_days → fresh.
+    elapsed_trading_days = len(pd.bdate_range(as_of + timedelta(days=1), today))
+    return elapsed_trading_days > max_trading_days
 
 
 # ----------------------------------------------------------------------
@@ -835,7 +864,15 @@ def risk_view(snapshot: dict, *, default_iv: float = _DEFAULT_IV) -> dict:
     matrix (honest, per D11); R8 (stress) runs under the documented IV
     assumption."""
     acct = snapshot["account"]
-    nav = float(acct["net_liquidation"])
+    # Bug fix (CMD 2): use the module's null/non-finite-tolerant accessor, like
+    # every other net_liquidation read (build_holdings_view / account_summary /
+    # build_portfolio_context). A schema-valid snapshot may carry
+    # ``net_liquidation: null``; a raw ``float(None)`` raised TypeError, which
+    # ``_handle_portfolio_view`` does not catch (it only handles
+    # ``SnapshotSchemaError``) → an uncaught 500 that silently swaps the live
+    # gates for MOCK. ``_num`` yields 0.0, and every downstream nav divisor and
+    # the R9/R10 gates already guard ``nav == 0``.
+    nav = _num(acct.get("net_liquidation"))
     holdings = build_holdings_view(snapshot)
 
     # Single-name meter: the CSP (short-put) names — what R10 bounds.

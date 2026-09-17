@@ -211,13 +211,15 @@ export function usePortfolioData(): PortfolioState {
         next.ivAssumption = r.ivAssumption ?? null;
       }
 
-      // Per-slice provenance: a fetched slice reports source "live"/"demo"
-      // (engine), a failed one is "mock" (typed fallback). The page derives an
-      // honest header from these so a demo fixture never reads as "Live IBKR".
+      // Per-slice provenance: a fetched slice reports source "live" / "stale"
+      // (a real drop older than one trading day) / "demo" (engine), a failed
+      // one is "mock" (typed fallback). The page derives an honest header from
+      // these so a demo fixture never reads as "Live IBKR" and an old drop is
+      // never presented as demo data.
       const srcOf = (r: PromiseSettledResult<unknown>): SliceSource => {
         if (r.status !== "fulfilled") return "mock";
         const s = (r.value as { source?: string } | null)?.source;
-        return s === "live" ? "live" : "demo";
+        return s === "live" || s === "stale" ? s : "demo";
       };
       const sources: Record<SliceName, SliceSource> = {
         summary: srcOf(summary),

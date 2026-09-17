@@ -107,9 +107,10 @@ export function useTradesData(): TradesData {
           tickers: d.tickers ?? [],
           totals: d.totals ?? EMPTY_TOTALS,
           coverage: d.coverage ?? null,
-          // The endpoint reports "live" for a real Flex drop; a served fixture
-          // reports "demo". A failed fetch (engine offline) → "mock".
-          source: d.source === "live" ? "live" : "demo",
+          // The endpoint reports "live" for a fresh real Flex drop, "stale" for a
+          // real drop older than one trading day; a served fixture reports
+          // "demo". A failed fetch (engine offline) → "mock".
+          source: d.source === "live" || d.source === "stale" ? d.source : "demo",
           loading: false,
         });
       } catch {

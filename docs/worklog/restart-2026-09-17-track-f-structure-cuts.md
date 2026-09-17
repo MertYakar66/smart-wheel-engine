@@ -91,10 +91,16 @@ Operator-governed edits made under the ruling.
   strict-mode errors (CI step is continue-on-error, unchanged in kind).
 - Per-cut targeted suites (in the commit messages): 77 / 50 / 2 / 235 / 157 /
   200 passed.
-- Fast lane with coverage (`--cov=engine --cov=data --cov-fail-under=80`), the
-  regression lane (S27/S32/S34/S35 snapshots) and the regenerated
-  `docs/TESTED_SURFACE_MAP.md`: still running when this record was committed;
-  recorded in the follow-up `docs(worklog)` commit and in the PR's Run Summary.
+- Fast lane, CI form (`python -m pytest tests/ -m "not backtest_regression" --cov=engine
+  --cov=data --cov-fail-under=80`): `3155 passed, 28 skipped, 4 deselected, 20 xfailed,
+  30 warnings in 1326.29s (0:22:06)`; `Required test coverage of 80% reached. Total
+  coverage: 85.01%` (12,203 statements). 230 fewer passes than the 3385 of the
+  local-AI run: the deleted advisors / ml / studies / src-backtest / dormant-module /
+  MCP test files and the removed test classes.
+- `docs/TESTED_SURFACE_MAP.md` regenerated from that run's `coverage.json`
+  (`scripts/generate_tested_surface_map.py`).
+- Regression lane (S27/S32/S34/S35 snapshot byte-identity): running at commit time;
+  its result is recorded in the follow-up commit and in the PR's Run Summary.
 
 ## Unresolved / handoff
 

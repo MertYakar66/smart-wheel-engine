@@ -1,7 +1,7 @@
 # EDGAR earnings calendar — PIT-correct earnings dates
 
 PR3/9 of the news-architecture redesign campaign — see
-`docs/NEWS_REDESIGN_CAMPAIGN.md` for the campaign context.
+`archive/2026-09/NEWS_REDESIGN_CAMPAIGN.md` (superseded 2026-09-16, D29) for the campaign context.
 
 This doc covers the EDGAR earnings layer added in this PR:
 
@@ -206,4 +206,4 @@ Option 2 is the campaign default unless the user redirects.
   and Financial Condition")
 - SEC EDGAR fair-access policy: https://www.sec.gov/os/accessing-edgar-data
 - Existing `EDGARAdapter`: `engine/external_data/edgar_adapter.py`
-- Campaign context: `docs/NEWS_REDESIGN_CAMPAIGN.md`
+- Campaign context: `archive/2026-09/NEWS_REDESIGN_CAMPAIGN.md` (superseded 2026-09-16, D29)

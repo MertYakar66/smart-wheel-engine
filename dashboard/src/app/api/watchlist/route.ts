@@ -34,7 +34,6 @@ export async function GET() {
       return {
         ticker: item.ticker,
         addedAt: item.addedAt,
-        alertThresholdPct: item.alertThresholdPct,
         price: quote?.price ?? null,
         changePct: quote?.changePct ?? null,
       };
@@ -46,7 +45,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { ticker, alertThresholdPct } = body;
+  const { ticker } = body;
 
   if (!ticker || typeof ticker !== "string") {
     return NextResponse.json(
@@ -60,7 +59,6 @@ export async function POST(request: Request) {
     .values({
       ticker: ticker.toUpperCase(),
       addedAt: new Date().toISOString(),
-      alertThresholdPct: alertThresholdPct || 5,
     })
     .onConflictDoNothing();
 

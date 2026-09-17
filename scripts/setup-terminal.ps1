@@ -9,10 +9,10 @@
 # Companion: scripts/setup-terminal.sh (bash / Git Bash / WSL).
 # Doc:        OPERATING_MODEL.md §9.5 (worktrees + per-terminal env).
 #
-# Sets the same six vars as the bash companion; see that file's header for
+# Sets the same five vars as the bash companion; see that file's header for
 # what each one means and which are real-today (SWE_API_PORT,
 # COVERAGE_FILE, PYTEST_CACHE_DIR, SWE_DATA_PROVIDER) vs forward-looking
-# convention (SWE_DATA_PROCESSED_DIR, SWE_MODELS_DIR).
+# convention (SWE_DATA_PROCESSED_DIR).
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
@@ -30,7 +30,6 @@ $port = 8787 + ([int][char]$Letter - [int][char]'a')
 
 $env:SWE_API_PORT           = "$port"
 $env:SWE_DATA_PROCESSED_DIR = "data_processed/"
-$env:SWE_MODELS_DIR         = "models/"
 $env:COVERAGE_FILE          = ".coverage.$Letter"
 $env:PYTEST_CACHE_DIR       = ".pytest_cache_$Letter"
 $env:SWE_DATA_PROVIDER      = "bloomberg"
@@ -38,7 +37,6 @@ $env:SWE_DATA_PROVIDER      = "bloomberg"
 Write-Host "Terminal $Letter env loaded:"
 Write-Host "  SWE_API_PORT           = $env:SWE_API_PORT"
 Write-Host "  SWE_DATA_PROCESSED_DIR = $env:SWE_DATA_PROCESSED_DIR"
-Write-Host "  SWE_MODELS_DIR         = $env:SWE_MODELS_DIR"
 Write-Host "  COVERAGE_FILE          = $env:COVERAGE_FILE"
 Write-Host "  PYTEST_CACHE_DIR       = $env:PYTEST_CACHE_DIR"
 Write-Host "  SWE_DATA_PROVIDER      = $env:SWE_DATA_PROVIDER"

@@ -507,106 +507,6 @@ def run_domain_2():
         )
 
 
-def run_domain_3():
-    set_domain("D3 Committee Quality")
-    committee_tickers = ["NVDA", "KO", "AAPL"]
-
-    for ticker in committee_tickers:
-        print(f"\n  Committee: {ticker}")
-        response, committee = fetch_json("/api/committee", ticker=ticker)
-        check(
-            f"{ticker}: committee endpoint returns 200",
-            response.status_code == 200,
-            200,
-            response.status_code,
-            severity="BLOCKER",
-        )
-        advisors = committee.get("advisors", [])
-        names = [advisor.get("name") for advisor in advisors]
-
-        check(f"{ticker}: exactly 4 advisors", len(advisors) == 4, 4, len(advisors))
-        check(
-            f"{ticker}: all 4 present (Buffett/Munger/Simons/Taleb)",
-            set(names) == {"Warren Buffett", "Charlie Munger", "Jim Simons", "Nassim Taleb"},
-            "all 4",
-            names,
-        )
-
-        for advisor in advisors:
-            name = advisor.get("name")
-            check(
-                f"{ticker}/{name}: >=2 keyReasons",
-                len(advisor.get("keyReasons", [])) >= 2,
-                ">=2",
-                len(advisor.get("keyReasons", [])),
-            )
-            check(
-                f"{ticker}/{name}: >=1 criticalQuestions",
-                len(advisor.get("criticalQuestions", [])) >= 1,
-                ">=1",
-                len(advisor.get("criticalQuestions", [])),
-            )
-            check(
-                f"{ticker}/{name}: >=1 hiddenRisks",
-                len(advisor.get("hiddenRisks", [])) >= 1,
-                ">=1",
-                len(advisor.get("hiddenRisks", [])),
-            )
-
-            if "Taleb" in str(name):
-                check(
-                    f"{ticker}/Taleb: NOT strong_approve",
-                    advisor.get("judgment") != "strong_approve",
-                    "not strong_approve",
-                    advisor.get("judgment"),
-                )
-
-        _, analysis = fetch_json(f"/api/analyze/{ticker}")
-        spot_c = analysis.get("spotPrice")
-        trade = committee.get("trade", {})
-        check(
-            f"{ticker}: committee response includes trade block",
-            bool(trade),
-            "trade present",
-            trade,
-        )
-
-        trade_strike = trade.get("strike", 0) if isinstance(trade, dict) else 0
-        pct_below = (spot_c - trade_strike) / spot_c if spot_c else 0
-        check(
-            f"{ticker}: strike ~8% below spot (4-15% range)",
-            0.04 <= pct_below <= 0.15,
-            "4-15% below spot",
-            f"{pct_below:.1%}",
-        )
-
-        report_len = len(committee.get("report", ""))
-        check(f"{ticker}: report > 500 chars", report_len > 500, "> 500", report_len)
-
-    for ticker in committee_tickers:
-        _, committee = fetch_json("/api/committee", ticker=ticker)
-        all_reasons = []
-        for advisor in committee.get("advisors", []):
-            all_reasons.extend(advisor.get("keyReasons", []))
-        unique = len(set(all_reasons))
-        total = len(all_reasons)
-        check(
-            f"{ticker}: all keyReasons unique across advisors",
-            unique == total,
-            f"all {total} unique",
-            f"{unique}/{total} unique",
-        )
-
-    r400 = fetch("/api/committee", ticker="")
-    check(
-        "Empty ticker -> 400",
-        r400.status_code == 400,
-        "HTTP 400",
-        r400.status_code,
-        severity="BLOCKER",
-    )
-
-
 def run_domain_4():
     set_domain("D4 Strangle Timing")
     _, r = fetch_json("/api/strangle", ticker="AAPL")
@@ -738,7 +638,6 @@ def print_report():
     ordered_domains = [
         "D1 OHLCV Integrity",
         "D2 Options Math",
-        "D3 Committee Quality",
         "D4 Strangle Timing",
         "D5 Robustness",
     ]
@@ -779,16 +678,14 @@ def main():
 
     # Warm up compute-heavy endpoints so the first-call cold start doesn't
     # blow through the per-request timeout inside the domain runners.
-    print("\n  Warming up /api/candidates and /api/committee ...")
+    print("\n  Warming up /api/candidates ...")
     try:
         fetch("/api/candidates", limit=5, min_score=50)
-        fetch("/api/committee", ticker="AAPL")
     except Exception as exc:
         print(f"  warmup warning: {exc}")
 
     run_domain_1()
     run_domain_2()
-    run_domain_3()
     run_domain_4()
     run_domain_5()
     print_report()

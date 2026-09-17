@@ -1,8 +1,8 @@
 """
 Gaussian Hidden Markov Model regime detector.
 
-Replaces the heuristic Bollinger/ATR regime gate in
-``engine/regime_detector.py`` with a proper probabilistic HMM fit to
+Replaced the heuristic Bollinger/ATR regime gate (the former
+``engine/regime_detector.py``, removed 2026-09-17) with a proper probabilistic HMM fit to
 daily log-returns and realised-volatility features.
 
 Why an HMM?

@@ -16,7 +16,7 @@ Pins down the critical-issue fixes from the audit-VIII review:
   BSM, which blew up ``d1`` and made every synthetic put premium
   collapse below the ``0.05`` trade filter — again producing zero rows.
 
-* P0.3 — ``datetime`` import missing for ``POST /api/news/ingest``
+* P0.3 — ``datetime`` import missing for the (since removed, 2026-09-16) news-ingest endpoint; its test was retired with the endpoint
   would raise ``NameError`` the first time the endpoint was called.
 
 * P1.1 — ``WheelTracker`` roll/close accounting. Closing a rolled put
@@ -210,24 +210,6 @@ class TestPercentDecimalNormalisation:
             f"correct 0.87% dividend yield; expected ~ -0.25. A value near "
             f"-0.10 means the yield was used un-normalised as 87%."
         )
-
-
-# ======================================================================
-# P0.3 — datetime module available for news ingest
-# ======================================================================
-class TestNewsIngestDatetimeImport:
-    def test_engine_api_exports_datetime(self):
-        """The POST /api/news/ingest handler uses ``datetime.utcnow``
-        at import-time-of-call. If ``datetime`` is not imported at
-        the module level, the first call raises NameError and the
-        endpoint is effectively broken."""
-        import engine_api
-
-        assert hasattr(engine_api, "datetime"), (
-            "engine_api module must expose datetime (needed by _handle_news_ingest)"
-        )
-        # Smoke-check: timezone.utc is also needed for the fix.
-        assert hasattr(engine_api, "timezone")
 
 
 # ======================================================================

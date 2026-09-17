@@ -20,7 +20,7 @@ This file is the operational consolidation of:
 
 > **No tradeable candidate bypasses `EVEngine.evaluate`.**
 
-Reviewers (chart provider, news sentiment, advisor committee, dealer
+Reviewers (chart provider, dealer
 positioning, TradingView bridge) can downgrade a verdict
 (`proceed → review → skip → blocked`). None of them can rescue a
 negative-EV trade. The dealer multiplier is clamped to
@@ -72,7 +72,7 @@ on `EnginePhaseReviewer` in `engine/candidate_dossier.py`, pinned by
 | Rule | Trigger | Effect |
 |---|---|---|
 | **R1** | EV is negative | **blocked** (hard stop) |
-| **R2** | Chart missing | **review** |
+| **R2** | Chart missing or errored | **note only** (D30, 2026-09-17): R3/R4 skipped, the ladder continues |
 | **R3** | Spot mismatch > 2% between engine-side and chart-side | **skip** |
 | **R4** | *Conditional / reserved.* Phase contradiction (chart `visible_indicators['phase']` disagrees with engine phase) → **skip**. Implemented and unit-tested but **dormant in production**: no current chart provider populates the `phase` field and the ranker emits no `phase` on `ev_row`, so neither operand of the predicate is fed. R4 activates only when a phase-aware chart provider lands (see `docs/TRADINGVIEW_INTEGRATION.md`). Not a live downgrade today. |
 | **R5** | EV above threshold | **proceed** |
@@ -216,8 +216,9 @@ list when shipping something genuinely user-facing:
 - [ ] `scripts/feature_smoke_test.py` reports a pass / fail / skip
       distribution consistent with the current data tier. The
       absolute count moves with each Theta refresh; the live
-      reference is `PROJECT_STATE.md` §3.4. Re-baseline that section
-      before treating any drift as a regression.
+      reference is `docs/DATA_INVENTORY.md` (the 2026-05-04 pull table is
+      archived in `archive/2026-09/PROJECT_STATE_WIP_2026-05_to_2026-07.md`).
+      Re-baseline that reference before treating any drift as a regression.
 - [ ] On a Theta-up laptop:
       `python scripts/diagnose_candidates.py` (full universe, not the
       Cowork 5-ticker shim) produces a candidate funnel without
@@ -240,14 +241,6 @@ list when shipping something genuinely user-facing:
       serves them under the *concatenated* symbol (BRKB / BFB); the dotted
       form returns HTTP 472. Fixed in `_normalise_theta_symbol`
       (verified live 2026-06-15). Re-probe should now show them serving.
-- [ ] **MCP chart provider mode is explicit, not implicit (D13).**
-      The MCP path is opt-in via `SWE_USE_MCP_CHART=1`; default off.
-      If you intend to go live with MCP charts on, set the env var
-      explicitly in the launch environment and re-run the §4
-      launch-blocker subset (the import-guarded
-      `test_mcp_provider_*` contract test auto-activates). If MCP
-      is off, the chained provider falls through to filesystem
-      without silent substitution.
 - [ ] If broker / OMS surface is being introduced (which is
       out-of-scope per `CLAUDE.md`'s NEVER list — get explicit
       consent first): a separate launch-readiness review against
@@ -298,15 +291,15 @@ Each executor terminal runs from its own worktree
 (`../swe-terminal-<x>`) with env loaded by
 `source scripts/setup-terminal.sh <letter>` (bash / Git Bash / WSL)
 or `. .\scripts\setup-terminal.ps1 <letter>` (PowerShell). The loader
-sets six env vars per terminal letter — `SWE_API_PORT`,
-`SWE_DATA_PROCESSED_DIR`, `SWE_MODELS_DIR`, `COVERAGE_FILE`,
-`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER`. `SWE_API_PORT` (PR #158,
+sets five env vars per terminal letter — `SWE_API_PORT`,
+`SWE_DATA_PROCESSED_DIR`, `COVERAGE_FILE`,
+`PYTEST_CACHE_DIR`, `SWE_DATA_PROVIDER` (`SWE_MODELS_DIR` went with `ml/`
+on 2026-09-17). `SWE_API_PORT` (PR #158,
 honoured by `engine_api.py._resolve_port()` and `scripts/audit_api_smoke.py`'s `BASE`),
 `COVERAGE_FILE` (coverage.py), `PYTEST_CACHE_DIR` (pytest), and
 `SWE_DATA_PROVIDER` (`WheelRunner.connector`) are real today —
-each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` and
-`SWE_MODELS_DIR` remain **conventions** until each consumer is
-wired up. See `DECISIONS.md` D15.
+each one is read by a live consumer. `SWE_DATA_PROCESSED_DIR` remains a
+**convention** until a consumer is wired up. See `DECISIONS.md` D15.
 
 ### Launch-mode switching
 
@@ -316,7 +309,6 @@ not a code branch. The three switches:
 | Mode change | Env var | Sandbox | Laptop |
 |---|---|---|---|
 | Data provider | `SWE_DATA_PROVIDER` | `bloomberg` (default; `MarketDataConnector` reads tracked CSVs) | `theta` (live `ThetaConnector` against the Theta Terminal on `127.0.0.1:25503`) — see `DECISIONS.md` D6, D7 |
-| MCP chart provider | `SWE_USE_MCP_CHART` | unset / `0` (chained provider falls through to filesystem) | `1` (live `tv` CLI subprocess; requires TradingView Desktop + the `tv` shim — `DECISIONS.md` D12, D13) |
 | API port | `SWE_API_PORT` | `8787` (default; override via env for multi-instance) | `8787` (default; override via env for multi-instance) |
 
 After flipping any switch: re-run the §4 launch-blocker subset, then

@@ -28,7 +28,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
-from src.features.technical import TechnicalFeatures
+from engine.features.technical import TechnicalFeatures
 
 # =============================================================================
 # Volatility Lifecycle Regime

@@ -33,11 +33,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Fill in only the keys you actually use. For the current pipeline, the only
-optional keys are news providers:
-
-- `POLYGON_API_KEY` / `FINNHUB_API_KEY` / `BENZINGA_API_KEY` — any one
-  activates `pull_news_sentiment.py`. Skip if you're not running that step.
+Fill in only the keys you actually use. The Bloomberg-CSV pipeline needs
+none; the news-provider keys (`POLYGON_API_KEY` / `FINNHUB_API_KEY` /
+`BENZINGA_API_KEY`) went with the news stacks on 2026-09-16 (D29).
 
 No other key is required. Broker creds (IBKR / TDA / Alpaca) are only
 needed for live execution, not research / backfill.
@@ -129,13 +127,8 @@ That's it — same workflow as on the desktop, just fewer tiers available.
 
 ---
 
-## 6. Optional — TradingView analyst workspace
+## 6. TradingView
 
-If you also use Claude to drive TradingView Desktop interactively (read
-charts, run Pine, drive the analyst function), the bring-up is OS-specific.
-See `docs/TRADINGVIEW_INTEGRATION.md` → "Setup (laptop bring-up)" for the
-full checklist (install Desktop, clone & register the
-`tradingview-mcp-jackson` MCP, launch with CDP). The Windows path has a
-Microsoft Store / WindowsApps gotcha documented there — use
-`tradingview/launch-tradingview-cdp.ps1` rather than the MCP's `tv_launch`
-auto-detect.
+Only the engine bridge remains (Pine indicator + webhook + optional
+screenshots): see `docs/TRADINGVIEW_INTEGRATION.md`. The MCP-driven analyst
+workspace and its CDP launchers were removed on 2026-09-17 (`DECISIONS.md` D30).

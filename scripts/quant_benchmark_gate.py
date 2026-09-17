@@ -238,7 +238,7 @@ def run_risk_benchmarks() -> list[BenchmarkResult]:
 
 def run_volatility_benchmarks() -> list[BenchmarkResult]:
     """Run volatility estimator benchmarks."""
-    from src.features.volatility import VolatilityFeatures
+    from engine.features.volatility import VolatilityFeatures
 
     results = []
 

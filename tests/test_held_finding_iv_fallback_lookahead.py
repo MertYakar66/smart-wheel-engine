@@ -49,7 +49,6 @@ from engine.wheel_runner import WheelRunner, _resolve_pit_atm_iv
 # input that matters here is the IV path (mirrors test_ranker_iv_pit.py).
 _OFFLINE = {
     "use_dealer_positioning": False,
-    "use_news_sentiment": False,
     "use_credit_regime": False,
     "use_skew_dynamics": False,
 }

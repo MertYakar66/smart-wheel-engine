@@ -402,10 +402,11 @@ def test_overlay_never_reduces_severity_over_all_ev(ev: float) -> None:
 # a non-proceed verdict and may upgrade it, which breaks CLAUDE.md §2.
 EXPECTED_OVERLAY_GUARDS = 6
 
-# The one rule that returns "review" but is NOT a downgrade-only overlay: R2
-# (chart missing). Everything else returning "review" is an overlay and must be
-# covered by a firing scenario above.
-_NON_OVERLAY_REVIEW_REASONS = {"chart_context_missing"}
+# Every rule that returns "review" is a downgrade-only overlay and must be
+# covered by a firing scenario above. (Until D30, R2 "chart missing" was the one
+# non-overlay review return; since 2026-09-17 a missing chart is a note and the
+# ladder continues, so this set is empty.)
+_NON_OVERLAY_REVIEW_REASONS: set[str] = set()
 
 
 def _review_tree() -> ast.AST:

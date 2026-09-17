@@ -11,7 +11,7 @@ No API key required. Works for any Yahoo-listed symbol including:
 
 Primary consumers:
 - portfolio_copula (sector beta)
-- regime_detector (commodity + FX regime)
+- (regime_detector, the former commodity + FX regime consumer, was removed 2026-09-17)
 - tail_risk (crypto correlation as risk-proxy)
 """
 

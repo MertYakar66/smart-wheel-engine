@@ -172,10 +172,11 @@ class EnginePhaseReviewer:
        network surface excludes ``ev_dollars`` from user-controllable
        fields), but the defense-in-depth gap is closed.
 
-    2. If the chart context is missing or errored, the verdict is
-       **review** — the trade can still go on, but a human should
-       manually check before clicking. The ``verdict_reason`` says
-       "chart_context_missing" so the UI can display the warning.
+    2. If the chart context is missing or errored, that fact is recorded
+       as a note ("chart context unavailable: ..."), rules 3 and 4 are
+       skipped because they need a chart, and the ladder continues
+       (``DECISIONS.md`` D30, 2026-09-17). Before D30 this rule stopped
+       the ladder at ``review`` / ``chart_context_missing``.
 
     3. If the chart context reports a ``visible_price`` that disagrees
        with the engine's spot by more than ``spot_tolerance_pct``, the
@@ -316,16 +317,25 @@ class EnginePhaseReviewer:
             notes.append(f"engine ev_dollars={ev:.2f} < 0 - chart cannot upgrade negative EV")
             return "blocked", "negative_ev", notes
 
+        # Rule 2: chart context. Since D30 (2026-09-17) a missing or errored
+        # chart is a NOTE, not a stop: the chart is a sanity check, never a
+        # decider (D5), and on a headless run the old early return turned
+        # every candidate into review/chart_context_missing so R5-R11 never
+        # spoke. R3 and R4 need a chart and are skipped without one; the
+        # ladder continues. No upgrade path is added: R1/R1a already ran.
         chart = dossier.chart_context
         if chart is None or not chart.is_ok():
             err = chart.error if chart is not None else "no_chart_provider"
-            notes.append(f"chart context unavailable: {err}")
-            return "review", "chart_context_missing", notes
-        notes.append(f"chart captured from {chart.source} at {chart.captured_at}")
+            notes.append(
+                f"chart context unavailable: {err} - R3/R4 skipped (D30: note, not a stop)"
+            )
+            chart = None
+        else:
+            notes.append(f"chart captured from {chart.source} at {chart.captured_at}")
 
         # Rule 3: spot-vs-screenshot price disagreement.
         engine_spot = float(dossier.ev_row.get("spot", 0.0) or 0.0)
-        if chart.visible_price is not None and engine_spot > 0:
+        if chart is not None and chart.visible_price is not None and engine_spot > 0:
             tol = engine_spot * self.spot_tolerance_pct
             diff = abs(chart.visible_price - engine_spot)
             if diff > tol:
@@ -339,7 +349,11 @@ class EnginePhaseReviewer:
             )
 
         # Rule 4: phase disagreement between chart and engine.
-        chart_phase = chart.visible_indicators.get("phase") if chart.visible_indicators else None
+        chart_phase = (
+            chart.visible_indicators.get("phase")
+            if chart is not None and chart.visible_indicators
+            else None
+        )
         engine_phase = dossier.ev_row.get("phase")
         if chart_phase and engine_phase and str(chart_phase) != str(engine_phase):
             # Specifically disagreement between post_expansion (engine

@@ -1,5 +1,5 @@
 """
-Tests for src/features modules.
+Tests for the engine/features modules (moved from src/features on 2026-09-17).
 """
 
 import sys
@@ -11,10 +11,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.features.dynamics import OptionsDynamics
-from src.features.options import OptionsFeatures
-from src.features.technical import TechnicalFeatures
-from src.features.volatility import VolatilityFeatures
+from engine.features.dynamics import OptionsDynamics
+from engine.features.options import OptionsFeatures
+from engine.features.technical import TechnicalFeatures
+from engine.features.volatility import VolatilityFeatures
 
 # =============================================================================
 # FIXTURES

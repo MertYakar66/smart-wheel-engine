@@ -129,8 +129,8 @@ class ShortOptionTrade:
     open_interest: int | None = None
     # Optional regime multiplier — scalar in [0.0, 1.25], caller-supplied.
     # The live source is the 4-state Gaussian HMM threaded in by
-    # wheel_runner (engine/regime_hmm.py); engine/regime_detector.py is the
-    # dormant rule-based alternative (see MODULE_INDEX). Anything < 1
+    # wheel_runner (engine/regime_hmm.py); the dormant rule-based
+    # regime_detector was removed 2026-09-17. Anything < 1
     # de-emphasises trades in a hostile regime.
     regime_multiplier: float = 1.0
     # Optional assignment-cost parameters (for short calls near ex-div).
@@ -549,7 +549,7 @@ class EVEngine:
         # to [0.70, 1.05] — asymmetric by design.
         # Raw regime_multiplier is validated & clamped to the documented
         # [0.0, 1.25] envelope. NaN or out-of-range inputs are a signal
-        # that an upstream multiplier product (hmm × skew × news × credit)
+        # that an upstream multiplier product (hmm × skew × credit)
         # overflowed — silently clamping hides the bug, so we also log
         # an anomaly tag into metadata for audit replay.
         raw_regime = float(trade.regime_multiplier)

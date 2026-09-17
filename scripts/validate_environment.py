@@ -282,7 +282,6 @@ class EnvironmentValidator:
         project_root = Path(__file__).parent.parent
         required_dirs = [
             "engine",
-            "advisors",
             "tests",
             "data",
         ]

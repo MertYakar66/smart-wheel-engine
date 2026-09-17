@@ -14,6 +14,145 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-17 — local-AI integrations removed (R12); Track F structure cuts (PR #524); R2 becomes a note (D30)
+
+**Deprecated / removed (Track F, Operator ruling "all the cuts except wheel_runner")** —
+`advisors/` (10 files) with `GET /api/committee`, the dashboard `committee` action,
+`tests/test_advisors.py`, the scorecard tests in `test_infrastructure.py` and the
+committee section of `test_audit_viii_e2e.py`; `ml/` + `models/` with the
+orchestrator's calibration stage, the DriftDetector tests and the `SWE_MODELS_DIR`
+convention; `studies/premium_correction/` + its test (findings doc kept);
+`src/backtest/wheel_backtest.py` + its test; `engine/regime_detector.py`,
+`engine/signal_context.py`, `engine/signals.py`, `engine/portfolio_intelligence.py`,
+`engine/dependency_check.py` + their tests and `engine/__init__.py` re-exports;
+`engine/mcp_client.py`, the `MCPChartProvider` family in `engine/tradingview_bridge.py`,
+`SWE_USE_MCP_CHART`, `tests/test_mcp_client.py` and the MCP tests in
+`test_tv_dossier.py` / `test_dossier_invariant.py`; the `tradingview/` analyst
+workspace (`CLAUDE.md`, `OVERVIEW.md`, the CDP launchers, the placeholders).
+
+**Changed** — `src/features/` → `engine/features/` and `src/data/schemas.py` →
+`data/schemas.py` with every importer repointed (`src/` is gone from the tree,
+`pyproject.toml` and CI; D2 update). `engine/candidate_dossier.py` R2: a missing
+or errored chart is a note, R3/R4 are skipped and the ladder continues to R5–R11
+(D30; the `chart_context_missing` reason is retired). `build_default_provider` is
+filesystem-first with optional Playwright. `main` stays unprotected (D29 ruling 13).
+
+**Docs** — PR #523 merged (docs → `archive/` by vintage); `PROJECT_STATE.md` §3
+narrative and the superseded news campaign doc archived under `archive/2026-09/`;
+`FILE_MANIFEST.md` row-length policy; `docs/TRADINGVIEW_INTEGRATION.md` rewritten as
+the single-role bridge guide (MCP contract archived); registries, READMEs,
+`OPERATING_MODEL.md` §5/§7 (no protection) and §9.1/§9.2 updated; D30 added, D12/D13
+superseded; `docs/TESTED_SURFACE_MAP.md` regenerated.
+
+Earlier the same day:
+
+**Deprecated / removed** — `local_agent/` (experimental browser agent: 29 files,
+8,273 lines; Streamlit UI, ChromaDB memory, MCP server, its own tests);
+`engine/trade_memo.py` (Ollama-driven memo generator) with `GET /api/memo`,
+`GET /api/summary`, `GET /api/ollama_status` and `tests/test_trade_memo_ci.py`;
+the dashboard's Ollama research chat (`/api/chat` route, chat panel, RESEARCH
+command, "AI ONLINE/OFFLINE" status indicator, `chatSessions` / `messages`
+tables) and the `ai`, `@ai-sdk/openai-compatible`, `ollama-ai-provider`
+packages. Coverage omit list, `.env.example` (root and dashboard), READMEs,
+MODULE_INDEX, TESTING, FILE_MANIFEST, REPO_MAP and OPERATING_MODEL §9.1
+updated.
+
+**Docs** — `DECISIONS.md` D29 addendum (answers 8–12: subscriptions deferred,
+delta deferred, exit evaluator advisory, API prose, local-AI removal);
+`docs/RESTART_PLAN_2026-09-16.md` re-ordered (Track F structure pass first,
+Track A parked) with a new §7a candidate table; `ROADMAP.md` and
+`PROJECT_STATE.md` §0 updated.
+
+---
+
+## 2026-09-16 — Operating Model v3 (one protocol), news stacks removed, restart rulings recorded
+
+**Docs** — `OPERATING_MODEL.md` v3: the single working scheme (two equal
+Strategists, Claude Code + Codex; main Executor Claude Code in VS Code; §3.1
+Operator-away mode; writer/checker split; branch-protected `main`; §9.5
+concurrency by declaration; allocator/board/cards/`Sn` retired). New
+`docs/PROMPTING_STANDARD.md` (sharpening gate, Execution Prompt template,
+short-form Run Summary on the PR, Claude Code/Codex parity). New
+`docs/RESTART_PLAN_2026-09-16.md` (rulings → tracks A–E as Execution Prompts).
+`DECISIONS.md` D29 records the rulings; D3/D18 carry update notes; `ROADMAP.md`
+open-work table re-cut; `PROJECT_STATE.md` §0 addendum.
+
+**Deprecated / removed** (Operator ruling R6) — `financial_news/` (34 files),
+`news_pipeline/` (28), `morning_run.py`, `engine/news_sentiment.py`,
+`scripts/pull_news_sentiment.py`, the `GET /api/news` + `POST /api/news/ingest`
+endpoints and their in-memory buffer, the `use_news_sentiment` ranker parameter
+and the `news_multiplier` / `news_sentiment` / `news_n_articles` row fields
+(`combined_regime_mult` is now hmm × skew × credit), the news step of
+`scripts/pull_all.py`, the news stage of `scripts/orchestrate.py`, nine news
+test files (`test_financial_news`, `test_news_processing`, `test_news_pipeline`,
+`test_news_sentiment`, `test_news_severance`, `test_adversarial_news`,
+`test_recovery_{checkpoints,fallbacks,health}`) and the news-pipeline tests
+inside `test_infrastructure.py`; `pyproject.toml` / `ci.yml` scopes trimmed.
+Dashboard: the `(main)` news route group (10 files), nine news-only API routes, 14 news services, the news panel, the nav and the news cron boot hook are deleted (36 files); 18 files trimmed (terminal page/status bar/command line, shared types, the Drizzle schema down to `marketSnapshots` / `watchlists` / `events` / `chatSessions` / `messages`, `/api/watchlist` without the alert threshold, README, `.env.example`); `rss-parser`, `node-cron` and `@types/node-cron` uninstalled. Three pages remain: `/cockpit`, `/portfolio`, `/terminal`. `npx next build` and `npx eslint src` exit 0. Archived
+old-protocol docs (`archive/2026-06/Claude_Prompting_Master_Guide.md`,
+`archive/2026-06/SESSION_HANDOFF.md`) deleted.
+
+**Infra** — session-start hooks print the v3 protocol reminder instead of the
+board banner (no `gh issue view 113`); `.codex/hooks.json` uses a relative
+path; PR template lane-claim block gains a `campaign:` line and drops the board
+link.
+
+---
+
+## 2026-09-11 — restart brief after the summer break + reconciliation of 27 unrecorded merges
+
+**Docs** — `docs/RESTART_BRIEF_2026-09-11.md` (branch
+`claude/project-restart-ai-agents-kot5jr`): a two-part re-onboarding brief for
+the Operator — Part 1 the product (decision path, models, data state, operator
+surfaces, verified/refuted/open evidence, where work stopped, queue), Part 2 the
+working schema (OPERATING_MODEL.md as written vs. as practised on #113 / #493 /
+#494 / #517, drift table, remote-session assumptions, ranked proposals, Operator
+decisions). Evidence basis: 8 specialist readers + 8 adversarial verifiers +
+2 completeness critics over `origin/main` @ `ec1c5c5`, plus a sandbox runtime
+check (provider `MarketDataConnector`; 5-ticker EV smoke 4 rows + 1 event-gate
+drop; launch-blocker subset 118 passed; 3,720 tests collected). Worklog:
+`docs/worklog/restart-2026-09-11-*.md`. `PROJECT_STATE.md` header refreshed with a
+dated restart section; no code, data, or decision-layer change.
+
+**Reconciliation** — the following merges landed between the 2026-07-08 section
+above and the break, and had no CHANGELOG line (titles from `git log`; per-PR
+detail in the PR bodies and, where one exists, the worklog fragment):
+
+- 2026-07-12 `5e8fecf` docs(audit): record operator decisions closing the D28 parked list (#492)
+- 2026-07-15 — the codebase weakness-audit fix wave (issues #493 / #494; register `docs/CODEBASE_AUDIT_2026-07-15.md`, proposals `docs/CODEBASE_AUDIT_2026-07-15_PROPOSALS.md`):
+  `606af35` fix(api): exact-host CORS origin match (#495) ·
+  `baf7002` fix(risk): correct gamma-dollars convexity scaling, drop erroneous /100 (#496) ·
+  `98d1eeb` fix(rates): explicit fallback for get_current_risk_free_rate (#497) ·
+  `82074cb` fix(stress): Student-t variance scaling + per-day theta (#498) ·
+  `e8328ad` fix(rolls): remove phantom entry commission from roll-suggester hold_ev (#499) ·
+  `6d881e3` fix(runner): log resolved SWE_DATA_PROVIDER, warn on unknown value (#500) ·
+  `c981f63` fix(runner,dossier): emit + read real contract count so soft-warns size correctly (#501, trio) ·
+  `55904d0` fix(runner): thread point-in-time as_of into CC + strangle carry-q fundamentals (#502, trio) ·
+  `226933e` fix(dossier): activate R6 dealer/regime downgrade wiring in EnginePhaseReviewer (#503, trio)
+- 2026-07-17/18 — dashboard: `c39ff0c` feat(dashboard): Trades tab with full IBKR trade history (#504) ·
+  `51e80b6` fix(dashboard): Portfolio Value shows deposit-adjusted history, TWR (#505) ·
+  `d4431a4` docs(dashboard): correct Portfolio Value inception (#506)
+- 2026-07-21 — audit follow-ups (CMD-numbered on #494): `cf4b9fa` fix(data-pull): fail loudly on dropped chunk + advance stale end_date (#508) ·
+  `92c9902` fix(engine-api): surface tv_scan ranker errors + independent candidate param parse (#509) ·
+  `2a4d395` fix(portfolio-tracker): atomic export_to_json (#510) ·
+  `3caa823` test(survivorship): ungated CI coverage for terminal_spot + pit_universe (#511) ·
+  `444d672` docs(audit): survivorship-delta backtest — ~60% of pinned NAV edge is survivor bias (#512) ·
+  `2f2c3a2` fix(stress-testing): t-dist variance, per-name delta$, per-position rate (#513) ·
+  `90891cc` fix(safety): non-finite-EV authority guard + D17 dossier held-book schema (#514) ·
+  `ef7103b` docs(data): source-verified data-sufficiency review (#515) ·
+  `1b328a3` test(held-findings): F1/F3/F4 xfail(strict) repros + fix designs (#516) ·
+  `c75192e` feat(validation): V1–V6 validation-phase harnesses + findings (#518) ·
+  `93478ef` docs(audit): 2026-07-15 weakness-audit register + pre-registered proposals (#519)
+- 2026-07-28 — `3cdc0dc` docs(trader500k): $500k engine-reliability campaign, 11 windows + rail re-runs (#520) ·
+  `d7e7553` docs(trader500k): traceability closure (#521) ·
+  `ec1c5c5` docs(operating-model): consolidate governance into OPERATING_MODEL.md; CLAUDE.md becomes loader (#522)
+
+**Open at the break (not merged):** PR #523 docs(structure) — classify 108 docs,
+archive 20 (CI green 2026-07-29); draft PR #507 — migrate Bloomberg data off
+GitHub to Google Drive (CI red by design until the `GDRIVE_SA_JSON` secret exists).
+
+---
+
 ## 2026-07-08 — repository efficiency audit (D28): dead-code retirement + doc truth-pass
 
 Four review-gated PRs (each squash-merged after the full `-m "not
@@ -296,7 +435,7 @@ environment-invariant preflight guard (**#364**).
 A multi-agent read-only review of the whole repo, then a fix pass on `main` for
 the findings verified to be live on `main` (15 findings were already fixed on
 main and skipped). Full detail + the verified-findings ledger:
-`docs/CODE_REVIEW_2026-05-30.md`. Decisions: **D20** (treasury rate is percent →
+`archive/2026-05/CODE_REVIEW_2026-05-30.md`. Decisions: **D20** (treasury rate is percent →
 ÷100 unconditionally) shipped; **D19** (EV nets expected exit costs) and **D21**
 (forward-distribution horizon calendar/trading-day mismatch) are confirmed +
 fix-ready but **DEFERRED** — both change the EV-authority output and trip the

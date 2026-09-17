@@ -3,14 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { StatusBar } from "@/components/terminal/status-bar";
 import { MarketOverview } from "@/components/terminal/market-overview";
-import { NewsPanel } from "@/components/terminal/news-panel";
 import { OptionsPanel } from "@/components/terminal/options-panel";
 import { LiveBookPanel } from "@/components/terminal/live-book-panel";
 import { WatchlistPanel } from "@/components/terminal/watchlist-panel";
 import { MacroPanel } from "@/components/terminal/macro-panel";
 import { CommandLine } from "@/components/terminal/command-line";
-import { ChatPanel } from "@/components/terminal/chat-panel";
-import type { StoryCard, CalendarEvent } from "@/types";
+import type { CalendarEvent } from "@/types";
 import { TradingViewLinkRow } from "@/components/terminal/tradingview-link-panel";
 import { TickerAnalysisPanel } from "@/components/terminal/ticker-analysis-panel";
 import { DealerPositioningPanel } from "@/components/terminal/dealer-positioning-panel";
@@ -19,7 +17,7 @@ import { CrossPageNav, WheelhouseHeader } from "@/components/shell/wheelhouse-he
 import { useEngineData, useLiveBook } from "@/hooks/useEngineData";
 
 // Panels the command line can highlight (one-shot flash).
-type FlashTarget = "news" | "options" | "calendar" | "book" | "market";
+type FlashTarget = "options" | "calendar" | "book" | "market";
 
 // ─── Main Terminal Dashboard ───────────────────────────────────────────
 
@@ -29,11 +27,6 @@ export default function TerminalPage() {
 
   // Live IBKR book (read-only /api/portfolio proxy)
   const book = useLiveBook();
-
-  // Stories state (connected to real API)
-  const [stories, setStories] = useState<StoryCard[]>([]);
-  const [storiesLoading, setStoriesLoading] = useState(true);
-  const [ingesting, setIngesting] = useState(false);
 
   // Watchlist state (connected to real API)
   const [watchlist, setWatchlist] = useState<
@@ -45,20 +38,8 @@ export default function TerminalPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
-  // Alerts
-  const [alertCount, setAlertCount] = useState(0);
-
-  // Ollama status
-  const [ollamaStatus, setOllamaStatus] = useState<"connected" | "disconnected" | "checking">("checking");
-
   // Command history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
-
-  // Chat query from command line
-  const [chatQuery, setChatQuery] = useState<string | undefined>();
-
-  // Selected story for detail
-  const [selectedStory, setSelectedStory] = useState<StoryCard | null>(null);
 
   // Selected ticker for the symbol workbench
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -85,21 +66,6 @@ export default function TerminalPage() {
   }`;
 
   // ─── Data fetching ─────────────────────────────────────────────────
-
-  const fetchStories = useCallback(async () => {
-    setStoriesLoading(true);
-    try {
-      const res = await fetch("/api/stories?limit=30");
-      if (res.ok) {
-        const data = await res.json();
-        setStories(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch stories:", err);
-    } finally {
-      setStoriesLoading(false);
-    }
-  }, []);
 
   const fetchWatchlist = useCallback(async () => {
     setWatchlistLoading(true);
@@ -173,70 +139,16 @@ export default function TerminalPage() {
     }
   }, [heldKey]);
 
-  const fetchAlerts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/alerts");
-      if (res.ok) {
-        const data = await res.json();
-        setAlertCount(data.length);
-      }
-    } catch {
-      // silent
-    }
-  }, []);
-
-  const checkOllama = useCallback(async () => {
-    try {
-      // Proxy through the same-origin engine route. A direct browser fetch to
-      // Ollama (localhost:11434) is CORS-blocked and always reports
-      // "disconnected" even when Ollama is healthy; the engine checks Ollama
-      // server-side — and it is the engine that actually calls Ollama for memos.
-      const res = await fetch("/api/engine?action=ollama_status", {
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!res.ok) {
-        setOllamaStatus("disconnected");
-        return;
-      }
-      const data = await res.json();
-      const connected = Boolean(
-        data?.available ||
-          data?.connected ||
-          data?.ok ||
-          data?.status === "connected" ||
-          data?.status === "ok"
-      );
-      setOllamaStatus(connected ? "connected" : "disconnected");
-    } catch {
-      setOllamaStatus("disconnected");
-    }
-  }, []);
-
   // Initial data load (events re-fetch when the held-book names change)
   useEffect(() => {
-    fetchStories();
     fetchWatchlist();
-    fetchAlerts();
-    checkOllama();
-  }, [fetchStories, fetchWatchlist, fetchAlerts, checkOllama]);
+  }, [fetchWatchlist]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
   // ─── Handlers ──────────────────────────────────────────────────────
-
-  const handleIngest = async () => {
-    setIngesting(true);
-    try {
-      await fetch("/api/ingest", { method: "POST" });
-      await fetchStories();
-    } catch (err) {
-      console.error("Ingestion failed:", err);
-    } finally {
-      setIngesting(false);
-    }
-  };
 
   const handleAddTicker = async (ticker: string) => {
     try {
@@ -263,7 +175,8 @@ export default function TerminalPage() {
   // ─── Command handler ──────────────────────────────────────────────
   // Every command advertised in the command line's HELP has a case here —
   // no advertised command may silently no-op or fall through to the ticker
-  // matcher (NEWS/AGENT used to open TradingView for fake symbols).
+  // matcher (an unhandled command word used to open TradingView for a fake
+  // symbol).
 
   const handleCommand = (cmd: string) => {
     setCommandHistory((prev) => [...prev, cmd]);
@@ -273,13 +186,6 @@ export default function TerminalPage() {
     const arg = parts.slice(1).join(" ");
 
     switch (action) {
-      case "REFRESH":
-      case "INGEST":
-        handleIngest();
-        break;
-      case "NEWS":
-        triggerFlash("news");
-        break;
       case "OPTIONS":
         triggerFlash("options");
         break;
@@ -303,29 +209,8 @@ export default function TerminalPage() {
         // longer mutates the watchlist DB as a side effect.
         if (arg) setSelectedTicker(arg.toUpperCase());
         break;
-      case "RESEARCH":
-        if (arg) {
-          setChatQuery(arg);
-        }
-        break;
       case "CLEAR":
         setCommandHistory([]);
-        break;
-      case "STORY":
-        if (arg) {
-          // Open story by index (1-based)
-          const idx = parseInt(arg) - 1;
-          if (stories[idx]) {
-            window.open(`/story/${stories[idx].storyId}`, "_blank");
-          }
-        } else if (selectedStory) {
-          window.open(`/story/${selectedStory.storyId}`, "_blank");
-        }
-        break;
-      case "IMPACT":
-        if (selectedStory) {
-          setChatQuery(`Explain the market impact of: "${selectedStory.canonicalTitle}". Who is exposed? What mechanism drives the impact? Over what time horizon?`);
-        }
         break;
       case "ENGINE":
         // Refresh engine data
@@ -351,11 +236,6 @@ export default function TerminalPage() {
         }
         break;
     }
-  };
-
-  const handleSelectStory = (story: StoryCard) => {
-    setSelectedStory(story);
-    setChatQuery(`Analyze this financial news: "${story.canonicalTitle}"`);
   };
 
   // ─── Render ────────────────────────────────────────────────────────
@@ -401,12 +281,9 @@ export default function TerminalPage() {
         </WheelhouseHeader>
       </PanelErrorBoundary>
 
-      {/* Status Bar — real reads only (VIX complex, NAV, frontier, feed) */}
+      {/* Status Bar — real reads only (VIX complex, NAV, frontier) */}
       <PanelErrorBoundary label="Status Bar" resetKey={dataEpoch}>
         <StatusBar
-          alertCount={alertCount}
-          ollamaStatus={ollamaStatus}
-          storyCount={storiesLoading ? null : stories.length}
           vix={engineData.regime.vix}
           vix3m={engineData.regime.vix3m}
           contango={engineData.regime.contango}
@@ -440,7 +317,9 @@ export default function TerminalPage() {
               </PanelErrorBoundary>
             </div>
           </div>
-          <div className="grid grid-rows-2 gap-[1px]">
+          {/* Right column: the options engine takes the full height (the
+              research-chat cell that sat below it was removed 2026-09-17). */}
+          <div className="grid min-h-0 grid-rows-1">
             <PanelErrorBoundary label="Options Engine" resetKey={dataEpoch}>
               <OptionsPanel
                 trades={engineData.trades}
@@ -449,9 +328,6 @@ export default function TerminalPage() {
                 universeScanned={engineData.universeScanned}
                 universeTotal={engineData.universeTotal}
               />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary label="Research" resetKey={dataEpoch}>
-              <ChatPanel initialQuery={chatQuery} />
             </PanelErrorBoundary>
           </div>
         </div>
@@ -487,17 +363,12 @@ export default function TerminalPage() {
             />
           </PanelErrorBoundary>
 
-          {/* Row 2 */}
-          <PanelErrorBoundary label="News" resetKey={dataEpoch}>
-            <NewsPanel
-              stories={stories}
-              loading={storiesLoading}
-              onRefresh={handleIngest}
-              refreshing={ingesting}
-              onSelectStory={handleSelectStory}
-              flash={flashPanel === "news"}
-            />
-          </PanelErrorBoundary>
+          {/* Row 2 — Watchlist | Events (spanning two columns). Five panels
+              remain since the research chat was removed (2026-09-17): the
+              watchlist's columns are fixed-width while the event rows truncate
+              their description, so the events calendar takes the freed cell.
+              The span sits on a wrapper so the 3x2 grid has no dead cell even
+              when the panel's error boundary trips. */}
           <PanelErrorBoundary label="Watchlist" resetKey={dataEpoch}>
             <WatchlistPanel
               items={watchlist}
@@ -505,7 +376,7 @@ export default function TerminalPage() {
               onRefresh={fetchWatchlist}
             />
           </PanelErrorBoundary>
-          <div className="grid grid-rows-2 gap-[1px]">
+          <div className="col-span-2 grid min-h-0 grid-rows-1">
             <PanelErrorBoundary label="Events" resetKey={dataEpoch}>
               <MacroPanel
                 events={events}
@@ -513,9 +384,6 @@ export default function TerminalPage() {
                 heldTickers={book.heldTickers}
                 flash={flashPanel === "calendar"}
               />
-            </PanelErrorBoundary>
-            <PanelErrorBoundary label="Research" resetKey={dataEpoch}>
-              <ChatPanel initialQuery={chatQuery} />
             </PanelErrorBoundary>
           </div>
         </div>

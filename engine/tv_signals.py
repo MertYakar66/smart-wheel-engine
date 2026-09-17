@@ -9,7 +9,7 @@ Architecture principle
 TradingView's role in this project is the **visual cockpit**: charting,
 custom indicator overlays, alert delivery, and discretionary review.
 The engine's role is the **decision layer**: options math, scoring,
-historical labeling, portfolio intelligence, and committee reasoning.
+historical labeling.
 
 This module is the bridge between the two. It exposes a single function,
 :func:`compute_tv_signal`, that takes a ticker's OHLCV history and returns
@@ -45,7 +45,7 @@ from dataclasses import asdict, dataclass, field
 import numpy as np
 import pandas as pd
 
-from src.features.technical import TechnicalFeatures
+from engine.features.technical import TechnicalFeatures
 
 # ---------------------------------------------------------------------------
 # Tunable parameters (kept in sync with the Pine Script counterpart)

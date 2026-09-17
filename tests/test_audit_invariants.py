@@ -29,8 +29,8 @@ import pytest
 
 from engine import option_pricer as op
 from engine.ev_engine import EVEngine, ShortOptionTrade, rank_candidates
+from engine.features.assignment import AssignmentFeatures
 from engine.shared_valuation import simulate_option_trade
-from src.features.assignment import AssignmentFeatures
 
 
 # =========================================================================

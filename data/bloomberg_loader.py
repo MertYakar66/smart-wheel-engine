@@ -646,7 +646,8 @@ def compute_earnings_features(
     """
     Compute EarningsFeatures dict from raw Bloomberg data.
 
-    Bridges between Bloomberg CSV data and ml/earnings_model.py input.
+    Bridges between Bloomberg CSV data and earnings-feature consumers
+    (the research ml/earnings_model.py consumer was removed 2026-09-17).
 
     Args:
         ticker: Stock ticker.

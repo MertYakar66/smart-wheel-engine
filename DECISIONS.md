@@ -58,9 +58,23 @@ divergence.
 `PROJECT_STATE.md` §4. `pyproject.toml` still names `src` in
 `[tool.hatch.build.targets.wheel] packages` — known stale.
 
+**Update 2026-09-17 (Track F, Operator ruling of 2026-09-17):** the migration
+window closed. `src/features/` was promoted to `engine/features/` (the
+"rejected" alternative above, now cheap because every importer was repointed in
+one commit), `src/data/schemas.py` moved to `data/schemas.py`, and
+`src/backtest/wheel_backtest.py` was deleted with its test. `src` is gone from
+`pyproject.toml` and CI. The seven research feature modules under
+`engine/features/` exist only for `data/feature_pipeline.py`; whether that
+pipeline (and the committed `data/features/` sample shards) stays is a
+separate Operator ruling, not taken here.
+
 ---
 
 ## D3. Two news subsystems coexist intentionally
+
+> **Update 2026-09-16 (D29):** superseded — every news subsystem was removed
+> from the tree by Operator ruling; a news layer will be redesigned later.
+> The text below is retained as history.
 
 **Decision:** `engine/news_sentiment.py` is the only news module on
 the EV path (downgrade-only reviewer). `news_pipeline/` (browser-agent
@@ -452,6 +466,8 @@ covering `ConnectionError` / `ReadTimeout` / `RetryError`).
 
 ## D12. TradingView MCP transport is the `tv` CLI (Option A)
 
+**SUPERSEDED by D30 (2026-09-17):** the MCP path was removed.
+
 **Decision:** The engine reaches the tradingview-mcp server by shelling
 out to its `tv` command-line interface (JSON on stdout), not by
 speaking the MCP-over-stdio JSON-RPC protocol and not by driving Chrome
@@ -503,6 +519,8 @@ is populated from its `last` field. Only the per-mode error strings in
 ---
 
 ## D13. TradingView MCP is co-located and opt-in (Stage 3)
+
+**SUPERSEDED by D30 (2026-09-17):** the MCP path was removed.
 
 **Decision:** Integration Stage 3 wires `MCPChartProvider` into the
 canonical chart-provider factory `build_default_provider`
@@ -1065,6 +1083,10 @@ $1M pro-account NAV).
 ---
 
 ## D18. Verbal news is severed from the EV decision path
+
+> **Update 2026-09-16 (D29):** the stub module and its tests were removed with
+> the rest of the news code. The invariant that no news input reaches the EV
+> path is now structural (there is no news module) and is re-stated in D29.
 
 **Decision:** ``engine/news_sentiment.py::sentiment_multiplier`` is
 stubbed to always return ``1.0``. Verbal news (qualitative narrative
@@ -1671,6 +1693,85 @@ gate + `tests/test_testing_md_taxonomy.py` (which now pass with every retired
 file's row removed); and the full audit evidence in the batch worklogs.
 
 ---
+
+## D29. Restart rulings of 2026-09-16 — one protocol, no news code, short-dated menu, no Bloomberg
+
+**Status:** ADOPTED (Operator rulings given in the restart session of 2026-09-16, recorded by the Strategist at the Operator's direction). Analysis behind them: `docs/RESTART_BRIEF_2026-09-11.md`. Plan of record: `docs/RESTART_PLAN_2026-09-16.md`.
+
+**Decision.**
+
+1. **One protocol.** `OPERATING_MODEL.md` v3 is the single working scheme. The allocator / task-card / board machinery (v2 §9.5, issue #113), the July command-bus channels (#493, #494, #517) and the archived prompting guide are retired; their surviving rules are v3 §3.1 (Operator-away mode) and §5 (writer/checker split). The prompting standard is `docs/PROMPTING_STANDARD.md`. The archived old-protocol documents are deleted from the tree; the coordination issues are closed.
+2. **Roles.** The Strategist–Operator–Executor chain is kept. Two Strategist implementations are equally capable and equally authorised: Claude Code and ChatGPT Codex. The main Executor is Claude Code in the VS Code terminal on the Operator's machine; additional Executors are allowed. The Operator's normal away window is 8 to 10 hours overnight.
+3. **Merge authority and attribution.** `main` is to be branch-protected *(amended by ruling 13 on 2026-09-17: no branch protection)*; the Operator merges; nothing on the §3.1 hard-blocked list happens while the Operator is away. The 2026-07-28 "no model name in commits" ruling is reversed: harness co-authorship trailers and session links are allowed (the Operator does not recall the reason for the ban; the trailer is the only per-session audit trail). History is left untouched.
+4. **News code removed.** `financial_news/`, `news_pipeline/`, `morning_run.py`, `engine/news_sentiment.py`, `scripts/pull_news_sentiment.py`, the `/api/news*` endpoints, the dashboard news surfaces and all their tests are deleted. The ranker has no news multiplier. A news layer will be redesigned later and may enter, if at all, as a downgrade-only reviewer under a fresh decision. Supersedes D3 and makes D18 structural.
+5. **Product direction.** Tradeable expiries are 7, 14, 21 and at most 28 days (the 35-day default is replaced); trading close to scheduled events to capture elevated premium is a goal, gated behind an event-conditioned forward distribution and a validation pass; an exit evaluator that scores open positions through `EVEngine.evaluate` and learns from closed trades is to be built (adopts the D25 reservation); a strategist commentary layer (macro and micro, engine-sourced figures only) is to be built.
+6. **Data.** Bloomberg Terminal access is gone for good. The committed `data/bloomberg/` CSVs are a frozen 2018-01-02 → 2026-07-02 history. The live path is rebuilt from online sources and subscriptions, writing the same connector schemas (Track A of the plan).
+7. **Held findings.** F1 (roll path bypasses caps and token) and F3 (HMM label by rank) are fixes to make now; F4 (IV-fallback look-ahead) rides the next re-baseline. The Operator does not recall whether carrying them as expected-failure tests was an acceptance; it is treated as a stopgap.
+
+**Addendum 2026-09-17 (Operator answers and one further ruling).**
+
+8. **Data subscriptions are deferred.** No subscription is chosen yet; the current focus is the efficiency and structure of the repository. Track A of the plan is parked until the Operator picks the sources.
+9. **Delta target for the short-dated menu: deferred, noted.** The 0.25 target stays until ruled; Track B carries the open question.
+10. **The exit evaluator is advisory**, like every other engine output: it recommends hold / roll / close / accept, it never acts.
+11. **The strategist brief's prose is written by an API model**, not a local model.
+12. **Local-AI integrations removed** (ruling R12): the experimental browser agent `local_agent/` (29 files, 8,273 lines; Streamlit UI, ChromaDB memory, MCP server), the Ollama memo module `engine/trade_memo.py` with its `GET /api/memo`, `GET /api/summary` and `GET /api/ollama_status` endpoints, and the dashboard's Ollama research chat, its "AI ONLINE/OFFLINE" indicator and its chat-persistence tables. Rationale as stated by the Operator: a clean and direct engine. The strategist brief (Track D) is the API-based replacement for the memo's role.
+13. **No branch protection on `main`** (2026-09-17): the Operator keeps `main` unprotected; merging remains the Operator's action by convention, and only a PR whose head is green in CI is merged. Amends ruling 3; `OPERATING_MODEL.md` v3 §2, §5 and §7 updated accordingly.
+
+**Why.** The Operator has never used the engine for live trading and wants it to work; the schema audit showed the written protocol was used for one day and replaced by three ad-hoc ones; the news stacks never reached the EV path and cost maintenance; 35-day contracts and a hard event lockout do not match how the Operator intends to trade; the data source the whole engine assumed is no longer available.
+
+**Rejected alternatives.**
+
+- *Rewriting git history to erase the old protocols.* Asked for by the Operator; declined by the Strategist pending an explicit, separate confirmation: it invalidates every clone and open PR, does not touch the GitHub issues where the protocols mostly live, and erases the record of why the rules exist. Tree deletion plus issue closure was done instead. The Operator may still confirm the rewrite as its own action.
+- *Keeping the news stubs "for later".* A stub with no producer is maintenance without value; the redesign starts from zero.
+- *Treating the DTE change as a parameter tweak.* Every locked result is a 35-day result and the event lockout is one of two crisis guards; the change is a re-validation, staged in `docs/RESTART_PLAN_2026-09-16.md` Track B.
+
+**Pinned by.** `OPERATING_MODEL.md` v3; `docs/PROMPTING_STANDARD.md`; the absence of any `news` module (a structural test may be added with the redesign); `ROADMAP.md` "Open work — refreshed 2026-09-16"; the launch-blocker suite for everything the tracks touch.
+
+## D30. R2 (chart context) is a note, not a stop; the TradingView MCP path is removed (2026-09-17)
+
+**Decision:** `EnginePhaseReviewer` no longer stops the ladder when a candidate
+has no chart context. A missing or errored chart is recorded in `review_notes`
+("chart context unavailable: <error> - R3/R4 skipped"), R3 (spot mismatch) and R4
+(phase contradiction) are skipped because they need a chart, and R5–R11 run as
+before. The `chart_context_missing` verdict reason is retired (the dashboard keeps
+its label for dossiers produced before the change). The MCP chart provider
+(`MCPChartProvider`, `engine/mcp_client.py`, the `SWE_USE_MCP_CHART` opt-in) and
+the analyst workspace under `tradingview/` (`CLAUDE.md`, `OVERVIEW.md`, the CDP
+launchers, the `models/pine/research` placeholders) are removed. The Pine
+indicator, the alert schema, the webhook bridge, and the filesystem and
+Playwright chart providers stay.
+
+**Why:** On a headless run — every sandbox run and every run without a
+screenshot — R2 turned every candidate into `review` / `chart_context_missing`,
+so R5–R11 never spoke and the verdict carried no information (restart brief
+2026-09-11, decision 11; `docs/RESTART_PLAN_2026-09-16.md` §7a, TradingView row).
+The Operator ruled on 2026-09-17: keep the Pine webhook, drop the MCP workspace,
+make R2 a note. The chart was always a sanity check, never a decider (D5); a
+sanity check that cannot run should say so, not veto.
+
+**Invariants kept:** every reviewer remains downgrade-only. The change removes a
+stop; it adds no upgrade path — a negative or non-finite EV is still blocked at
+R1/R1a before the chart is consulted, a sub-threshold EV still lands in `review`
+at R5, and `tests/test_dossier_downgrade_property.py` still proves that no
+branch of `review()` returns `proceed` except R5's threshold. When a chart is
+present, R3/R4 still downgrade.
+
+**Rejected alternatives:**
+
+- *Keep R2 as a stop and default the provider chain to Playwright.* Adds a
+  browser dependency to every run for a check that is not a decider.
+- *Delete the chart providers entirely.* The filesystem provider costs nothing,
+  the Operator may still drop screenshots, and R3 keeps its value when a chart
+  exists.
+- *Keep the MCP code dormant behind the flag.* Code with `TODO(live-verify)`
+  markers that no machine here can verify is maintenance without value — the
+  same reasoning as D29's news stubs.
+
+**Pinned by:** `tests/test_tv_dossier.py::TestEnginePhaseReviewer::test_missing_chart_is_a_note_not_a_stop`,
+`::test_errored_chart_is_a_note_not_a_stop`,
+`::test_missing_chart_cannot_rescue_below_threshold_ev`;
+`tests/test_dossier_downgrade_property.py` (`_NON_OVERLAY_REVIEW_REASONS` is
+empty); the absence of `engine/mcp_client.py`. Supersedes D12 and D13.
 
 ## How to add a decision
 

@@ -525,7 +525,6 @@ def register_checks(h: Harness) -> None:
         block_bootstrap_log_returns,
         empirical_forward_log_returns,
     )
-    from engine.regime_detector import RegimeDetector
     from engine.regime_hmm import GaussianHMM
 
     def empirical_forward():
@@ -560,17 +559,10 @@ def register_checks(h: Harness) -> None:
         assert 0.0 <= mult <= 2.0
         return f"mult={mult:.3f}"
 
-    def regime_detector_probe():
-        rd = RegimeDetector()
-        state = rd.detect_regime(current_iv=0.25, prices=ohlcv["close"])
-        assert state is not None
-        return f"regime={getattr(state, 'volatility_regime', '?')}"
-
     h.run("empirical_forward_log_returns", empirical_forward)
     h.run("block_bootstrap_returns", block_bootstrap)
     h.run("best_available_forward_distribution", best_available_fwd)
     h.run("hmm_fit_and_position_multiplier", hmm_fit_predict)
-    h.run("regime_detector_classify", regime_detector_probe)
 
     # ------------------------------------------------------------------
     # 6. EV engine — the brain
@@ -849,42 +841,8 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     # 9. Signals & payoff
     # ------------------------------------------------------------------
-    h.section("09 signals_payoff")
+    h.section("09 payoff")
     from engine.payoff_engine import compute_expected_move, compute_payoff, recommend_strikes
-    from engine.signals import (
-        DTESignal,
-        EventFilterSignal,
-        IVRankSignal,
-        ProfitTargetSignal,
-        create_default_aggregator,
-    )
-
-    def iv_rank_signal():
-        s = IVRankSignal().generate({"iv_rank": 0.75})
-        assert s.is_actionable
-        return f"{s.strength.name} v={s.value:.2f}"
-
-    def dte_signal():
-        s = DTESignal().generate({"dte": 35})
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def profit_target_signal():
-        s = ProfitTargetSignal(target_pct=0.5).generate(
-            {"premium_received": 1.50, "current_premium": 0.70}
-        )
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def event_filter_signal():
-        s = EventFilterSignal(earnings_buffer_days=5).generate({"days_to_earnings": 3})
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def composite_aggregator():
-        agg = create_default_aggregator()
-        assert agg is not None
-        return "aggregator constructed"
 
     def payoff_short_put():
         res = compute_payoff(
@@ -914,11 +872,6 @@ def register_checks(h: Harness) -> None:
         assert isinstance(recs, list) and len(recs) > 0
         return f"{len(recs)} strikes recommended"
 
-    h.run("iv_rank_signal", iv_rank_signal)
-    h.run("dte_signal", dte_signal)
-    h.run("profit_target_signal", profit_target_signal)
-    h.run("event_filter_signal", event_filter_signal)
-    h.run("signal_aggregator", composite_aggregator)
     h.run("payoff_short_put", payoff_short_put)
     h.run("expected_move", expected_move_one_sigma)
     h.run("strike_recommendation", strike_recommendation)
@@ -1198,7 +1151,6 @@ def register_checks(h: Harness) -> None:
             top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=False,  # dealer path exercised in own test
-            use_news_sentiment=False,
             use_credit_regime=False,
         )
         assert not df.empty
@@ -1251,7 +1203,6 @@ def register_checks(h: Harness) -> None:
             top_n=5,
             min_ev_dollars=-1e9,
             use_dealer_positioning=True,
-            use_news_sentiment=False,
             use_credit_regime=False,
         )
         assert not df.empty
@@ -1365,32 +1316,6 @@ def register_checks(h: Harness) -> None:
 
     h.run("api_health_endpoint", engine_api_health)
     h.run("api_status_endpoint", engine_api_status)
-
-    # ------------------------------------------------------------------
-    # 17. News pipeline
-    # ------------------------------------------------------------------
-    h.section("17 news_pipeline")
-    from engine.news_sentiment import NewsSentimentReader
-
-    def news_reader_init():
-        try:
-            r = NewsSentimentReader()
-        except Exception as e:
-            raise Skip(f"news reader unavailable: {e}") from e
-        assert r is not None
-        return "reader constructed"
-
-    def news_sentiment_multiplier():
-        try:
-            r = NewsSentimentReader()
-            m = r.sentiment_multiplier("AAPL")
-        except Exception as e:
-            raise Skip(f"news unavailable: {e}") from e
-        assert np.isfinite(m)
-        return f"m={m:.3f}"
-
-    h.run("news_reader_init", news_reader_init)
-    h.run("news_sentiment_multiplier", news_sentiment_multiplier)
 
     # ------------------------------------------------------------------
     # 18. TradingView bridge
@@ -1539,35 +1464,6 @@ def register_checks(h: Harness) -> None:
 
     h.run("iv_surface_history_present", iv_surface_history_present)
     h.run("options_flow_present", options_flow_present)
-
-    # ------------------------------------------------------------------
-    # 23. News sentiment store (unblocks the EV news multiplier)
-    # ------------------------------------------------------------------
-    h.section("23 news_sentiment_store")
-
-    def news_parquet_present():
-        for rel in ("data_processed/news_sentiment.parquet", "data/news/sentiment.parquet"):
-            p = _P(rel)
-            if p.exists():
-                df = pd.read_parquet(p)
-                required = {"ticker", "as_of", "sentiment", "confidence", "n_articles"}
-                missing = required - set(df.columns)
-                assert not missing, f"schema missing {missing}"
-                return f"{len(df)} rows at {p}"
-        raise Skip("no news sentiment store found — run scripts/pull_news_sentiment.py")
-
-    def news_multiplier_non_trivial():
-        """Multiplier should vary across tickers once a real store is populated."""
-        from engine.news_sentiment import NewsSentimentReader
-
-        r = NewsSentimentReader()
-        mults = [r.sentiment_multiplier(t) for t in ("AAPL", "MSFT", "NVDA", "GOOGL", "AMZN")]
-        if all(m == 1.0 for m in mults):
-            raise Skip("news store empty or lookback stale — multiplier stuck at 1.0")
-        return f"sample multipliers={[f'{m:.2f}' for m in mults]}"
-
-    h.run("news_sentiment_parquet_present", news_parquet_present)
-    h.run("news_multiplier_non_trivial", news_multiplier_non_trivial)
 
     # ------------------------------------------------------------------
     # 24. Bloomberg data freshness (make sure new pulls land)

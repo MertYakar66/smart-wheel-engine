@@ -34,8 +34,7 @@ function localTodayStr(): string {
 /** Days until a date-only string, using a consistent local-day baseline. */
 function daysUntil(dateStr: string): number {
   // Parse as local noon to avoid UTC-midnight→local-day-shift in negative-UTC
-  // offsets (e.g. "2026-06-17" → Jun 16 20:00 EDT). Same pattern as
-  // calendar/page.tsx formatDate.
+  // offsets (e.g. "2026-06-17" → Jun 16 20:00 EDT).
   const target = new Date(dateStr + "T12:00:00");
   const today = new Date(localTodayStr() + "T12:00:00");
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));

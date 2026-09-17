@@ -50,7 +50,7 @@ except ImportError:
 
 # Lazy-import schemas (depend on pydantic)
 try:
-    from src.data.schemas import (
+    from data.schemas import (
         BorrowRateSchema,
         EarningsSchema,
         FundamentalsSchema,

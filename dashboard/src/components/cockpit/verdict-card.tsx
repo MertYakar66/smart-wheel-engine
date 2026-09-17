@@ -163,10 +163,11 @@ export function prettyReason(reason: string): string {
     // R1 / R1a
     negative_ev: "R1 — negative EV; blocked (hard stop).",
     ev_non_finite: "R1a — non-finite EV (NaN/Inf); blocked (hard stop).",
-    // R2 — the actual wire string is chart_context_missing
+    // R2 — since D30 (2026-09-17) a missing chart is a note, not a verdict; these
+    // keys stay for dossiers produced before the change.
     chart_context_missing:
-      "R2 — no chart context attached on this rig; engine downgrades to review.",
-    chart_missing: "R2 — no chart available to corroborate; review.",
+      "R2 — no chart context attached (legacy reason; since D30 this is a note, not a stop).",
+    chart_missing: "R2 — no chart available to corroborate (legacy reason; note only since D30).",
     // R3 — wire string spot_price_mismatch
     spot_price_mismatch: "R3 — chart spot disagrees with engine spot > 2%; skip.",
     spot_mismatch: "R3 — chart spot disagrees with engine spot > 2%; skip.",

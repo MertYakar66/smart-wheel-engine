@@ -6,10 +6,10 @@ repo and the one place where two terminals editing concurrently silently
 corrupt each other's work (the `select_book` double-build, PR #107 vs #109,
 is the canonical near-miss). ``OPERATING_MODEL.md`` §9.5 requires that
 decision-layer edits be **serialised** — one terminal at a time, claimed on
-the coordination board before branching.
+the campaign issue (or the Execution Prompt) before branching.
 
 Historically that rule was policed by prose: every claim comment carried a
-manual sentence like *"Checked the board — no open claim touches
+manual sentence like *"Checked the open PRs — no open claim touches
 wheel_runner.py."* A human reading 275 freeform comments and hoping they did
 not miss one is not an enforcement mechanism. This script turns the rule into
 a CI gate.
@@ -19,7 +19,7 @@ coordination redesign — see ``OPERATING_MODEL.md`` §9.5):
 
   * If a PR's diff touches NONE of the decision-layer files, it passes
     unconditionally. Non-decision-layer lane ownership stays advisory
-    (Major-Session allocation + the board), by design — this gate is
+    (disjoint `<owns>` sets declared in the Execution Prompts), by design — this gate is
     deliberately narrow so routine refactors never fight it.
   * If a PR's diff touches a decision-layer file, the PR description MUST
     carry a ``lane-claim`` block that names that file. A decision-layer edit
@@ -28,8 +28,8 @@ coordination redesign — see ``OPERATING_MODEL.md`` §9.5):
 The claim is the conscious, auditable act of saying "I hold the
 decision-layer lock for this file this cycle." It does NOT, by itself,
 prove no *other* open PR also holds it — that cross-PR mutual exclusion is
-guaranteed upstream by the single Major Session at allocation time (one
-allocator => no race). This gate closes the much more common failure: a
+guaranteed upstream by the disjoint `<owns>` sets of the open Execution Prompts
+(one Strategist sequences the campaigns => no race). This gate closes the much more common failure: a
 terminal editing a decision-layer file without coordinating at all.
 
 The claim block lives in the PR description (not a committed file) so it
@@ -37,12 +37,12 @@ needs no merge and cannot collide across branches::
 
     <!-- lane-claim
     files: engine/wheel_runner.py, engine/candidate_dossier.py
-    board: https://github.com/MertYakar66/smart-wheel-engine/issues/113#issuecomment-NNN
+    campaign: <link to the campaign issue or the Execution Prompt comment>
     -->
 
 Matching is intentionally forgiving: a decision-layer path counts as claimed
 if its exact repo-relative path appears anywhere inside the block. The fixed
-``files:`` / ``board:`` keys are a convention for humans; the parser only
+``files:`` / ``campaign:`` keys are a convention for humans; the parser only
 needs the path to be present.
 
 Sources of the claim text, in priority order:
@@ -169,12 +169,12 @@ def main(argv: list[str] | None = None) -> int:
     for f in unclaimed:
         print(f"  unclaimed decision-layer edit : {f}")
     print()
-    print("Fix: claim the file on the coordination board (#113), then add a")
-    print("lane-claim block to the PR description naming it, e.g.:")
+    print("Fix: add a lane-claim block to the PR description naming the file(s) and")
+    print("linking the campaign issue or Execution Prompt that authorised the edit, e.g.:")
     print()
     print("  <!-- lane-claim")
     print(f"  files: {', '.join(unclaimed)}")
-    print("  board: https://github.com/MertYakar66/smart-wheel-engine/issues/113#issuecomment-NNN")
+    print("  campaign: <link to the campaign issue or the Execution Prompt comment>")
     print("  -->")
     print()
     print("Decision-layer edits are serialised one terminal at a time —")

@@ -99,8 +99,15 @@ Operator-governed edits made under the ruling.
   MCP test files and the removed test classes.
 - `docs/TESTED_SURFACE_MAP.md` regenerated from that run's `coverage.json`
   (`scripts/generate_tested_surface_map.py`).
-- Regression lane (S27/S32/S34/S35 snapshot byte-identity): running at commit time;
-  its result is recorded in the follow-up commit and in the PR's Run Summary.
+- Regression lane: **not completed.** The slow `backtest_regression` lane (S27/S32/
+  S34/S35 reproducers, ~4–5 h per TESTING.md) was started and killed by its own
+  50-minute timeout in this sandbox. Run in CI form instead
+  (`python -m pytest tests/test_backtest_regression.py -m "not backtest_regression"`):
+  `9 passed, 4 deselected in 8.83s` — the connector-input fingerprints of all four
+  snapshots still match the current data. Ranker-output byte-identity rests on the
+  identical 5-ticker EV smoke and on the trio diff being limited to the constant-1.0
+  news multiplier and the R2 note; the Operator can run the slow lane on the laptop
+  before merging if the full proof is wanted.
 
 ## Unresolved / handoff
 

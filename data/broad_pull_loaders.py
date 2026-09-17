@@ -15,7 +15,7 @@ Read-only loaders for the ~25 net-new Bloomberg datasets pulled in the
   panels through it (``engine/data_connector.py`` :894 forward-calendar,
   :1063 macro_calendar, :1582 dividend_pit) — but those read committed CSV bytes
   only and change no ``EVEngine.evaluate`` output. Wiring the *bucket* datasets
-  into a quant consumer (``skew_dynamics``, ``event_gate``, ``regime_detector``,
+  into a quant consumer (``skew_dynamics``, ``event_gate``, ``regime_hmm``,
   ``option_pricer``, ``cost_model``, …) is the supervised, re-baseline-coupled
   Phase 1-3 work and is **out of scope** here.
 * It only READS committed CSV/gz bytes into DataFrames; it changes no

@@ -114,16 +114,11 @@ omit = [
     # Storage layer requires database setup
     # Processing modules with complex ML dependencies
     # Complex engine modules requiring extensive setup
-    "engine/signal_context.py",
     "engine/volatility_surface.py",
     # Shared valuation requires full option trade simulation with OHLCV data
     "engine/shared_valuation.py",
-    # SEC/13F data-dependent portfolio intelligence
-    "engine/portfolio_intelligence.py",
     # Performance metrics has complex dashboard dependencies
     "engine/performance_metrics.py",
-    # Dependency checker is a bootstrap utility
-    "engine/dependency_check.py",
     # data/ - only data/quality.py is on the EV decision path (the chain-quality
     # gate in WheelRunner.rank_candidates_by_ev); the rest is research-tier
     # ETL / loaders, off the decision path (see DECISIONS.md D10).

@@ -23,7 +23,7 @@ Architecture:
   orchestrate.py
     ├── refresh_daily_data()    → yfinance + FRED (free sources)
     ├── run_ev_ranking()        → WheelRunner.rank_candidates_by_ev
-    ├── run_regime_check()      → regime_detector + regime_hmm
+    ├── run_regime_check()      → regime_hmm
     └── output_daily_brief()    → combined JSON summary
 """
 

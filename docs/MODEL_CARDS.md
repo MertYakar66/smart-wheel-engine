@@ -276,8 +276,7 @@ IV_Rank = (IV_current - IV_min) / (IV_max - IV_min) * 100
 
 ## 6. Regime Detection
 
-> **Live models (EV path):** regime is produced by `engine/regime_detector.py`
-> (rule-based: realized-vol vs implied-vol, trend, term-structure) and
+> **Live model (EV path):** regime is produced by
 > `engine/regime_hmm.py` (4-state Gaussian HMM — crisis / bear / normal /
 > bull_quiet — mapped to a position multiplier in [0.2, 1.25]). The classifier
 > table below describes the **deprecated, off-path** `engine/features/regime.py` (moved from `src/` 2026-09-17)

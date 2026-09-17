@@ -2,11 +2,10 @@
 
 The 4-state Gaussian HMM (``engine/regime_hmm.py``) produces the regime multiplier
 that scales ``ev_dollars`` (``hmm_mult`` -> ``combined_regime_mult`` -> EVResult);
-``engine/regime_detector.py`` is the older heuristic sizing path. The fit guards
+(the older heuristic ``engine/regime_detector.py`` was removed 2026-09-17). The fit guards
 (``T<K*3``, near-constant) are already covered by test_quant_upgrades; this pins the
 GAPS: the multiplier envelope's true sup/inf, same-seed determinism (the cache + the
-backtest fingerprint depend on it), the unfit-guard RuntimeError, and the
-RegimeDetector degenerate fallback.
+backtest fingerprint depend on it) and the unfit-guard RuntimeError.
 
 Behaviour-pinning (the #366 lesson): real numeric invariants, never a shape proxy.
 §2-relevant: the multiplier only SCALES a >=0 EV envelope (it cannot flip sign), so
@@ -18,10 +17,8 @@ to guard non-finite input (returns a NaN multiplier) is an engine change tracked
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
 
-from engine.regime_detector import RegimeDetector
 from engine.regime_hmm import GaussianHMM
 
 # Per-label weights (regime_hmm.py:288-293) — the documented envelope.
@@ -113,22 +110,6 @@ class TestHmmUnfitGuards:
             hmm.viterbi(np.zeros(10))
         with pytest.raises(RuntimeError):
             hmm.position_multiplier(np.array([1.0, 0.0, 0.0, 0.0]))
-
-
-# ---------------------------------------------------------------------------
-# W54 — RegimeDetector degenerate realized-vol fallback. _calculate_realized_vol
-# returns a 0.20 default when there are <2 returns (regime_detector.py:251-252) —
-# the existing detector tests all use >=50-point clean series, so the guard that
-# stops a NaN realized_vol from poisoning iv_rv_spread / sizing is unpinned.
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")  # pct_change fill_method deprecation
-class TestRegimeDetectorDegenerate:
-    def test_realized_vol_defaults_on_too_few_points(self):
-        rd = RegimeDetector()
-        assert rd._calculate_realized_vol(pd.Series([100.0])) == 0.20
-        assert rd._calculate_realized_vol(pd.Series([], dtype=float)) == 0.20
 
 
 # ---------------------------------------------------------------------------

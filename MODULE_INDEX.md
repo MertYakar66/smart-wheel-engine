@@ -55,7 +55,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `transaction_costs.py` | Commissions, slippage, assignment fees, sqrt impact, Reg-T margin. |
 | `tail_risk.py` | POT-GPD tail estimation. |
 | `portfolio_copula.py` | Student-t copula portfolio CVaR. **Dormant** — no production consumer; the smoke harness (`scripts/feature_smoke_test.py`) and the copula/stress coverage tests are the only callers. |
-| `regime_detector.py` | Rule-based regime: realised-vol vs implied-vol, trend, term-structure. **Dormant** — superseded on the live path by `regime_hmm.py` (`wheel_runner.py:1975`); re-exported by `engine/__init__.py` and imported by the smoke harness only, with no live EV consumer (the `EVEngine` `regime_multiplier` field comment now names the HMM as the live caller-supplied source — fixed in the D28 close-out). |
 | `regime_hmm.py` | 4-state Gaussian HMM regime detector. Cached per-ticker by `WheelRunner._hmm_regime_cache` (audit-VIII P2). (**multiplier input**) |
 | `dealer_positioning.py` | GEX / walls / gamma flip → `MarketStructure`. Optional `market_structure` kwarg on `EVEngine.evaluate`; multiplier clamped `[0.70, 1.05]`. (**multiplier**) |
 | `skew_dynamics.py` | Nelson-Siegel skew dynamics. |
@@ -71,8 +70,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | `tradingview_bridge.py` | `FilesystemChartProvider`, `PlaywrightChartProvider`, `ChainedChartProvider`, `MCPChartProvider`. `build_default_provider` chains them; MCP is opt-in via `SWE_USE_MCP_CHART` (see `docs/TRADINGVIEW_MCP_INTEGRATION.md`, `DECISIONS.md` D13). |
 | `mcp_client.py` | `MCPCLIClient` — the tradingview-mcp `tv`-CLI transport backing `MCPChartProvider`. Subprocess client, no retries (see `DECISIONS.md` D12). |
 | `tv_signals.py` | TradingView Pine signal parity for `/api/tv/signal` etc. |
-| `signal_context.py` | Bloomberg-data wheel-opportunity scorer (`build_entry_context`, `build_exit_context`). **Dormant** — re-exported but no live consumer (`engine_api` / `wheel_runner` / `tv_signals` do not call it). |
-| `signals.py` | Composite signal aggregator (`IVRankSignal`, `TrendSignal`, `ProfitTargetSignal`, `StopLossSignal`, `DTESignal`, `EventFilterSignal`). **Dormant** — re-exported by `engine/__init__.py` but zero production callers (tests, the frozen `src/` scaffold, and the smoke harness only); wire-up requires an explicit decision. |
 
 ### Data layer
 
@@ -116,7 +113,6 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `wheel_tracker.py` | Position-lifecycle bookkeeping: `WheelPosition`, `PositionState`. Audit-VIII fixed P&L double-count and orthogonalised the three ledgers (realized_pnl, transaction_costs, stock_basis). |
 | `portfolio_tracker.py` | Portfolio-level holdings, transactions, returns; `PortfolioSnapshot`, `PerformanceMetrics`. |
-| `portfolio_intelligence.py` | SEC / 13F portfolio context (`CongressTracker`, `InstitutionalTracker`, `OverlapRadar`). **Dormant** — fully implemented, zero callers repo-wide; never wired into any path. |
 | `performance_metrics.py` | Sharpe / Sortino / drawdown reports. |
 | `sim_portfolio.py` | Distributional simulated-portfolio reporting overlay: a WheelTracker forward book's equity curve → block-bootstrap MC equity fan (p5–p95) + terminal/drawdown distributions + a correlation-to-1 Student-t copula tail, reconciled against the deterministic backtest NAV. Reuses `monte_carlo` / `portfolio_copula` / `performance_metrics`; driven by `scripts/run_forward_sim.py`. Outside the CI-gated trio; imports nothing from it; every output labelled `model` vs `engine-measured`, copula tail `feeds_ev=False`. (**display**) |
 | `paper_book.py` | Forward paper-trading book — trio-free reporting/state library for a simulated wheel book the real engine drives day-by-day (zero money at risk). SIM-namespace I/O + guard, phase-labelled equity history (`backfill` in-sample-ish vs `forward` true-OOS), a forecast ledger + held-to-expiry outcome, the rolling calibration accumulator (wilson/reliability mirroring `scripts/ibkr_ev_calibration`), and the MC bands (soft-reuses `sim_portfolio`). Driven by `scripts/run_paper_book.py`. Outside the CI-gated trio; **AST-guarded** to never import it; consumes ranker output, never ranks. (**display**) |
@@ -128,13 +124,12 @@ Status: `live` (production), `legacy` (still imported but superseded),
 |---|---|
 | `policy_config.py` | Runtime policy knobs. |
 | `contracts.py` | Dataclasses for trade I/O. |
-| `dependency_check.py` | Bootstrap dependency-validation utility. **Dormant** — zero invokers; the pytest-conftest integration its docstring describes was never wired (`scripts/bloomberg_smoke.py` carries its own local copy). |
 | `payoff_engine.py` | Payoff diagrams (display). |
 
 ### `engine/__init__.py` re-exports
 
 Exports the legacy quant layer (option_pricer, monte_carlo,
-risk_manager, regime_detector, signals, stress_testing,
+risk_manager, stress_testing,
 transaction_costs, volatility_surface, wheel_tracker,
 portfolio_tracker, etc.) **plus, since ROADMAP A3, the seven modern
 decision-layer symbols**: `EVEngine`, `EVResult`, `ShortOptionTrade`,

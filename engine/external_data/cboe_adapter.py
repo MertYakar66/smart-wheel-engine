@@ -3,7 +3,7 @@ CBOE volatility-index adapter.
 
 CBOE publishes delayed daily closes for all its indices as free public
 CSVs. When ThetaData's index snapshot is not reachable, this is the
-fallback. Primary consumers: regime_detector, risk_manager.
+fallback. Primary consumer: risk_manager (regime_detector removed 2026-09-17).
 
 Indices of interest
 -------------------

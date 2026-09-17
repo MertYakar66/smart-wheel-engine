@@ -4,8 +4,7 @@ Tests for the Short Strangle Entry Timing Framework.
 Validates:
 1. Regime classification across volatility lifecycle phases
 2. Entry score computation and weighting
-3. Signal integration
-4. Edge cases and data requirements
+3. Edge cases and data requirements
 5. Layer-2 IV overlay (StrangleTimingWithIV) — multiplier math, score
    adjustment, recommendation re-derivation, and downstream consumers
    (score_entry_with_iv, scan_universe_with_iv) via stub connectors.
@@ -15,7 +14,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from engine.signals import SignalStrength, StrangleTimingSignal
 from engine.strangle_timing import (
     StrangleEntryScore,
     StrangleRegime,
@@ -235,42 +233,6 @@ class TestEntryScoring:
         s = str(score)
         assert "Entry Score:" in s
         assert "BB=" in s
-
-
-class TestSignalIntegration:
-    """Test StrangleTimingSignal integration with signal framework."""
-
-    def test_signal_with_valid_data(self):
-        """Should produce a valid signal from OHLCV data."""
-        df = _generate_ohlcv()
-        signal_gen = StrangleTimingSignal()
-        signal = signal_gen.generate({"ohlcv_data": df})
-        assert signal.name == "Strangle_Timing"
-        assert isinstance(signal.strength, SignalStrength)
-        assert "entry_score" in signal.metadata
-        assert "phase" in signal.metadata
-
-    def test_signal_with_no_data(self):
-        """Should return neutral signal when no data provided."""
-        signal_gen = StrangleTimingSignal()
-        signal = signal_gen.generate({})
-        assert signal.strength == SignalStrength.NEUTRAL
-
-    def test_signal_with_short_data(self):
-        """Should return neutral signal when data too short."""
-        df = _generate_ohlcv(n=30)
-        signal_gen = StrangleTimingSignal()
-        signal = signal_gen.generate({"ohlcv_data": df})
-        assert signal.strength == SignalStrength.NEUTRAL
-
-    def test_compression_produces_sell_signal(self):
-        """Compression regime should produce sell/avoid signal."""
-        df = _generate_compression_ohlcv()
-        signal_gen = StrangleTimingSignal()
-        signal = signal_gen.generate({"ohlcv_data": df})
-        # If compression detected, should be negative
-        if signal.metadata.get("phase") == "compression":
-            assert signal.strength.value <= 0
 
 
 class TestUniverseScan:

@@ -525,7 +525,6 @@ def register_checks(h: Harness) -> None:
         block_bootstrap_log_returns,
         empirical_forward_log_returns,
     )
-    from engine.regime_detector import RegimeDetector
     from engine.regime_hmm import GaussianHMM
 
     def empirical_forward():
@@ -560,17 +559,10 @@ def register_checks(h: Harness) -> None:
         assert 0.0 <= mult <= 2.0
         return f"mult={mult:.3f}"
 
-    def regime_detector_probe():
-        rd = RegimeDetector()
-        state = rd.detect_regime(current_iv=0.25, prices=ohlcv["close"])
-        assert state is not None
-        return f"regime={getattr(state, 'volatility_regime', '?')}"
-
     h.run("empirical_forward_log_returns", empirical_forward)
     h.run("block_bootstrap_returns", block_bootstrap)
     h.run("best_available_forward_distribution", best_available_fwd)
     h.run("hmm_fit_and_position_multiplier", hmm_fit_predict)
-    h.run("regime_detector_classify", regime_detector_probe)
 
     # ------------------------------------------------------------------
     # 6. EV engine — the brain
@@ -849,42 +841,8 @@ def register_checks(h: Harness) -> None:
     # ------------------------------------------------------------------
     # 9. Signals & payoff
     # ------------------------------------------------------------------
-    h.section("09 signals_payoff")
+    h.section("09 payoff")
     from engine.payoff_engine import compute_expected_move, compute_payoff, recommend_strikes
-    from engine.signals import (
-        DTESignal,
-        EventFilterSignal,
-        IVRankSignal,
-        ProfitTargetSignal,
-        create_default_aggregator,
-    )
-
-    def iv_rank_signal():
-        s = IVRankSignal().generate({"iv_rank": 0.75})
-        assert s.is_actionable
-        return f"{s.strength.name} v={s.value:.2f}"
-
-    def dte_signal():
-        s = DTESignal().generate({"dte": 35})
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def profit_target_signal():
-        s = ProfitTargetSignal(target_pct=0.5).generate(
-            {"premium_received": 1.50, "current_premium": 0.70}
-        )
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def event_filter_signal():
-        s = EventFilterSignal(earnings_buffer_days=5).generate({"days_to_earnings": 3})
-        assert s is not None
-        return f"{s.strength.name}"
-
-    def composite_aggregator():
-        agg = create_default_aggregator()
-        assert agg is not None
-        return "aggregator constructed"
 
     def payoff_short_put():
         res = compute_payoff(
@@ -914,11 +872,6 @@ def register_checks(h: Harness) -> None:
         assert isinstance(recs, list) and len(recs) > 0
         return f"{len(recs)} strikes recommended"
 
-    h.run("iv_rank_signal", iv_rank_signal)
-    h.run("dte_signal", dte_signal)
-    h.run("profit_target_signal", profit_target_signal)
-    h.run("event_filter_signal", event_filter_signal)
-    h.run("signal_aggregator", composite_aggregator)
     h.run("payoff_short_put", payoff_short_put)
     h.run("expected_move", expected_move_one_sigma)
     h.run("strike_recommendation", strike_recommendation)

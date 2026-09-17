@@ -9,7 +9,7 @@ Architecture principle
 TradingView's role in this project is the **visual cockpit**: charting,
 custom indicator overlays, alert delivery, and discretionary review.
 The engine's role is the **decision layer**: options math, scoring,
-historical labeling and portfolio intelligence.
+historical labeling.
 
 This module is the bridge between the two. It exposes a single function,
 :func:`compute_tv_signal`, that takes a ticker's OHLCV history and returns

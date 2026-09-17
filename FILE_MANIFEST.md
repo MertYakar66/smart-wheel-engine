@@ -434,7 +434,7 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 
 | File | Purpose |
 |---|---|
-| `engine/__init__.py` | Package init re-exporting the legacy quant-layer symbols (pricing, risk, regime, signals, Monte Carlo, portfolio). |
+| `engine/__init__.py` | Package init re-exporting the quant-layer symbols (pricing, risk, Monte Carlo, portfolio) and the decision-layer symbols. |
 | `engine/ev_engine.py` | `EVEngine.evaluate` — the authoritative probabilistic expected-value computation for short-option trades. |
 | `engine/wheel_runner.py` | `WheelRunner` — the orchestrator and authoritative ranker (`rank_candidates_by_ev`, covered-call/strangle rankers, `select_book`, dossier builder); provider selection. |
 | `engine/candidate_dossier.py` | The EV-plus-chart `CandidateDossier` artifact and `EnginePhaseReviewer` (the downgrade-only R1–R11 rules). |
@@ -442,15 +442,12 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/tradingview_bridge.py` | Pluggable TradingView chart-capture providers (filesystem, Playwright, MCP, chained) and the default-provider factory. |
 | `engine/mcp_client.py` | `MCPCLIClient` — the `tv`-CLI subprocess client backing the MCP chart provider. |
 | `engine/tv_signals.py` | Deterministic TradingView Pine-parity signal computation and `TVAlert` webhook parsing. |
-| `engine/signal_context.py` | Builds the context dicts the signal framework consumes from the Bloomberg data loaders. |
-| `engine/signals.py` | Signal-generation framework — IV-rank / trend / profit-target / stop-loss / DTE / event signals and the aggregator. |
 | `engine/event_calendar.py` | Earnings / dividend / FOMC / CPI / NFP / GDP / expiry calendar and a JSON-backed ingestion manager. |
 | `engine/event_gate.py` | `EventGate` — the hard pre-EV lockout for candidates whose holding window touches a scheduled event. |
 | `engine/forward_distribution.py` | PIT-safe forward-return distribution builder (empirical → block bootstrap → HAR-RV cascade). |
 | `engine/transaction_costs.py` | Transaction-cost model — commissions, slippage, assignment fees, sqrt market impact, Reg-T margin. |
 | `engine/tail_risk.py` | Peaks-over-Threshold Generalised-Pareto extreme-value tail estimation. |
 | `engine/portfolio_copula.py` | Gaussian and Student-t copula joint-portfolio simulation for tail-aware CVaR. |
-| `engine/regime_detector.py` | Rule-based market regime classifier (volatility / trend / term structure). |
 | `engine/regime_hmm.py` | Pure-numpy 4-state Gaussian HMM regime detector and position-size multiplier. |
 | `engine/dealer_positioning.py` | `DealerPositioningAnalyzer` — GEX/DEX/walls/gamma-flip/regime; the clamped dealer EV multiplier. |
 | `engine/skew_dynamics.py` | Nelson-Siegel IV term-structure fitting and skew-slope/momentum signals. |
@@ -468,7 +465,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/portfolio_risk_gates.py` | D17 / #154 C4 — pure-function library of portfolio-risk gates (sector cap, portfolio delta, Kelly size, VaR, stress scenario, dealer regime) shared by the tracker hard-blocks (Phase 2) and the dossier soft-warns R7+R8 (Phase 3). Wires the existing `risk_manager.py` + `stress_testing.py` + `dealer_positioning.py` machinery that S15 found unimported by the decision-layer trio. |
 | `engine/portfolio_tracker.py` | `PortfolioTracker` — portfolio bookkeeping: tax lots, time-weighted returns, allocation, dividends. |
 | `engine/ibkr_portfolio_adapter.py` | D24/D26 read-only adapter (OUTSIDE the trio — imports nothing from `ev_engine`/`wheel_runner`/`candidate_dossier`). Turns the point-in-time IBKR artifacts on disk (`data_processed/ibkr/portfolio_snapshot.json` + `portfolio_history.json` + `wheel_ledger.json`; dir overridable via `SWE_IBKR_DATA_DIR`) into the engine types + every performance-viewer payload, reusing `portfolio_tracker`/`wheel_tracker`/`performance_metrics` for analytics and `portfolio_risk_gates` for the live R7–R11 overlay. Observational only — never ranks, never issues EV authority; out-of-universe names are exposure-only; CAD normalized to USD via the snapshot `fx_rates`. |
-| `engine/portfolio_intelligence.py` | Congressional and institutional (13F) trading trackers cross-referenced against a watchlist. |
 | `engine/performance_metrics.py` | Backtest performance reports — return, Sharpe/Sortino, drawdown, profit factor. |
 | `engine/sim_portfolio.py` | Distributional simulated-portfolio reporting overlay (OUTSIDE the trio — imports nothing from `ev_engine`/`wheel_runner`/`candidate_dossier`). Turns a WheelTracker forward book's equity curve into a Monte Carlo equity fan (p5–p95) + terminal-return/drawdown distributions + a correlation-to-1 copula tail, reconciled against the deterministic backtest NAV. Pure reporting: every output is labelled `model` (MC/copula) vs `engine-measured`; the copula tail is `feeds_ev=False` and never touches `ev_dollars`/verdicts/R7-R8 thresholds. Reuses `monte_carlo`/`portfolio_copula`/`performance_metrics`. Driven by `scripts/run_forward_sim.py`. |
 | `engine/paper_book.py` | Forward paper-trading book — trio-free reporting/state library (OUTSIDE the trio; AST-guarded to import nothing from `ev_engine`/`wheel_runner`/`candidate_dossier`). SIM-namespace I/O + path guard, phase-labelled equity history (`backfill` in-sample-ish vs `forward` true-OOS), forecast ledger + held-to-expiry outcome, rolling calibration accumulator (wilson/reliability mirroring `scripts/ibkr_ev_calibration`), MC-band assembly (soft-reuses `engine/sim_portfolio.py`), idempotent same-day append. Writes ONLY to the SIM namespace (`$SWE_SIM_DATA_DIR`/`data_processed/sim/`), never `data_processed/ibkr/`. Driven by `scripts/run_paper_book.py`. |
@@ -478,7 +474,6 @@ Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
 | `engine/data_integration.py` | Loads Bloomberg earnings/dividend/treasury CSVs into calendar objects; resolves the risk-free rate. |
 | `engine/contracts.py` | Protocol/contract definitions and validators for the pricer/risk/stress interfaces. |
 | `engine/policy_config.py` | `TradingPolicyConfig` — centralized runtime policy knobs with JSON load/save. |
-| `engine/dependency_check.py` | Environment-parity gate — checks installed packages with a require-dependencies decorator. |
 | `engine/external_data/__init__.py` | Subpackage init re-exporting the four free-data adapters. |
 | `engine/external_data/fred_adapter.py` | `FREDAdapter` — FRED economic series and a derived credit-stress regime. |
 | `engine/external_data/cboe_adapter.py` | `CBOEAdapter` — VIX-family / SKEW / MOVE index closes from free endpoints. |
@@ -737,7 +732,6 @@ Nothing under `staging/` is read by the engine or connector.
 | `tests/test_risk_manager.py` | `RiskManager` — sizing, portfolio Greeks, VaR, sector exposure, HRP. |
 | `tests/test_stress_testing.py` | `StressTester` — scenarios, sensitivity, Greeks stress ladder. |
 | `tests/test_payoff_engine.py` | `PayoffEngine` — payoff diagrams, expected-move bands, strike recommendations. |
-| `tests/test_regime_detector.py` | The rule-based regime classifier. |
 | `tests/test_regime_hmm_invariants.py` | Quant audit round 2 (W50-W55): behaviour-pins the HMM regime-multiplier envelope sup/inf (0.2 crisis … 1.25 bull_quiet — existing test only checks a diffuse band), same-seed fit determinism (the cache + fingerprint depend on it), the unfit-guard RuntimeError, and the RegimeDetector degenerate realized-vol fallback. §2: the multiplier only scales a >=0 envelope. `fit`'s missing non-finite guard (returns NaN multiplier) tracked as (E) #386 via xfail. |
 | `tests/test_dealer_positioning.py` | Dealer positioning — analyzer math, the clamped multiplier, reviewer rule R6. |
 | `tests/test_dealer_positioning_invariants.py` | Quant audit round 2 (W60-W62): behaviour-pins the §2-critical `dealer_regime_multiplier` [0.70,1.05] clamp under ANY confidence (negative/>1/inf/nan) + the asymmetry (boost ≤+0.05, cut to 0.70), the `_classify_regime` boundaries (gex==0→neutral, sign branches, near-flip override), and `analyze()` flip-distance consistency. Asserts the clamp, never weakens it (wall-ordering needs a wall-fixture → deferred). |
@@ -760,7 +754,6 @@ Nothing under `staging/` is read by the engine or connector.
 | `tests/test_earnings_calendar_overlay.py` | Pin the D3-1 + D6-1 earnings-lockout restoration — the PIT-gated `snapshot_bdp.next_earnings_dt` forward-calendar overlay in `get_next_earnings`/`get_recent_earnings` (serve/PIT-refuse/merge-precedence/back-buffer/hermeticity on tmp fixtures + dated real-data pins + ranker e2e with PIT control) and the de-silenced per-stage event-gate registration (raising forward lookup is logged, fail-open, and no longer kills the back-buffer lockout; malformed dates logged; method-less connectors quiet). Includes the opt-in `SWE_LIVE_PREFLIGHT=1` wall-clock snapshot-age check. |
 | `tests/test_corp_action_gate.py` | Pin #3A — the `engine.event_gate` `kind="corp_action"` lockout wired to `sp500_corporate_actions.csv` via `MarketDataConnector.get_corporate_actions` (excludes the 94% `Regular Cash` rows; PIT announcement filter) + the ranker helper `wheel_runner._register_corp_action_events` (registers disruptive splits/spinoffs/special-cash; no-op without the accessor / on error / gate=None; remove-only §2). Data-backed GE-spinoff / COST-special-cash end-to-end block. |
 | `tests/test_macro_event_gate_wiring.py` | Pin #3A (macro half) — the `engine.event_gate` macro lockout (`fomc`/`cpi`/`nfp`/`pce`) wired to `broad_pull/macro_calendar` via `MarketDataConnector.get_macro_events` + the ranker helper `wheel_runner._register_macro_events` (`_MACRO_EVENT_KIND` map: FOMC/CPI/NFP/PCE only, `core_cpi`→`cpi`; wildcard `ticker="*"`, once-per-run; lower-tier prints NOT gated; no-op without the accessor / on error / gate=None / fresh clone; remove-only §2). Gated behind `use_macro_event_gate` (**default OFF**): pins that the default path is non-empty AND that flag-on empties the book under whole-window semantics (monthly prints in every 21-63 DTE window) — the finding documented in `docs/WIRING_CAMPAIGN.md` §3A. |
-| `tests/test_signals.py` | The signal-generation framework and aggregator. |
 | `tests/test_skew_dynamics_invariants.py` | Quant audit round 2 (W56-W59): behaviour-pins the standalone skew-math in `skew_dynamics.py` — Nelson-Siegel fail-fast (iv_at/factor_loadings RuntimeError before fit) + degenerate-fit branches (n==1 level-only, n==0 → 0.20 sentinel), skew_momentum degenerate-history (empty→NaN, short→0 momentum), and the ivs_dislocation composite [-1,1] bound. (The live `skew_mult` clamp is dormant on Bloomberg + in the trio; not re-pinned.) |
 | `tests/test_strangle_timing.py` | The strangle-timing engine — regime classification, entry scoring, IV overlay. |
 | `tests/test_strangle_recommendation_gate.py` | The strangle phase/confidence downgrade-only recommendation gate. |

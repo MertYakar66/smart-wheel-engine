@@ -99,7 +99,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_risk_manager.py` | Position sizing, sector exposure, HRP |
 | `test_stress_testing.py` | Scenario engine |
 | `test_payoff_engine.py` | Payoff diagrams |
-| `test_regime_detector.py` | Rule-based regime |
 | `test_dealer_positioning.py` | GEX / walls / gamma flip / regime |
 | `test_quant_fixtures.py` | Shared fixtures |
 | `test_tail_risk.py` | POT-GPD tail estimation — threshold selection, GPD fit, `gpd_var_cvar`, `pot_gpd_cvar`, tail-regime flag |
@@ -268,7 +267,6 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_infrastructure.py` | Repo-level infra |
 | `test_contracts.py` | Dataclass contracts |
 | `test_dashboard.py` | Legacy dashboard CLI surface |
-| `test_signals.py` | Signal aggregator framework |
 | `test_strangle_timing.py` | Strangle entry timing gate |
 | `test_check_lane_claim.py` | The decision-layer lane-claim CI gate (`scripts/check_lane_claim.py`) |
 | `test_check_manifest_coverage.py` | The FILE_MANIFEST coverage gate's conflict-marker detection |
@@ -381,7 +379,7 @@ pytest tests/ -m quant -v
 | `engine/option_pricer.py` | `pytest tests/test_option_pricer.py tests/test_greeks_unit_invariants.py tests/test_properties.py` |
 | `engine/data_connector.py` or `theta_connector.py` | `pytest tests/test_bloomberg_loader.py tests/test_theta_connector.py tests/test_data_pipeline.py` then `python scripts/theta_health_check.py` if Terminal is up |
 | `engine/dealer_positioning.py` | `pytest tests/test_dealer_positioning.py tests/test_audit_invariants.py` |
-| `engine/regime_detector.py` or `regime_hmm.py` | `pytest tests/test_regime_detector.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
+| `engine/regime_hmm.py` | `pytest tests/test_regime_hmm_invariants.py tests/test_audit_viii_e2e.py::test_hmm_cache_reuse` |
 | `engine/wheel_tracker.py` | `pytest tests/test_wheel_lifecycle.py tests/test_audit_viii_unit_invariants.py` (the audit-VIII tests pin the rolled-P&L accumulator) |
 | `engine_api.py` | `pytest tests/test_tv_api.py tests/test_tv_dossier.py tests/test_audit_viii_e2e.py` then `python scripts/audit_api_smoke.py` against a running `engine_api.py` |
 | `engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/forward_distribution.py`, `engine/dealer_positioning.py`, `engine/tail_risk.py` | **Backtest regression** in addition to the launch blockers — run `.claude/commands/backtest-regression.md` (~4–5 h). The four S27/S32/S34/S35 backtests are downstream of all five files. |

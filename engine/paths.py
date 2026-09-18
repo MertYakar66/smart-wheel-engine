@@ -21,8 +21,11 @@ touched, which keeps every explicit ``tmp_path`` in the test-suite intact.
 
 The narrower overrides that already existed keep winning inside their scope:
 ``SWE_DATA_PROCESSED_DIR``, ``SWE_IBKR_DATA_DIR``, ``SWE_OPTION_PREMIUM_DIR``,
-``SWE_SIM_DATA_DIR``. They are themselves passed through :func:`resolve`, so a
-relative override such as ``data_processed_b/`` also lands under the root.
+``SWE_SIM_DATA_DIR``. An absolute override is used as given; a *relative*
+override — any relative value, not only the three prefixes — lands under the
+root when one is set (``data_processed_b/`` → ``<root>/data_processed_b``) and
+stays CWD-relative when none is, so a checkout never receives output meant
+for the desktop root.
 
 The decision-layer trio is untouched: ``WheelRunner`` keeps passing its
 ``"data/bloomberg"`` default to the connector, and the connector re-roots it.
@@ -83,9 +86,20 @@ def resolve(path: str | Path) -> Path:
     return root.joinpath(*p.parts)
 
 
-def _env_or(name: str, default: str) -> Path:
+def _override(name: str) -> Path | None:
+    """A narrow override's path, or ``None`` when the variable is unset/blank.
+
+    Absolute values are returned as given. Relative values land under the data
+    root when one is set (whatever their first component), else stay relative.
+    """
     raw = os.environ.get(name, "").strip()
-    return resolve(raw) if raw else resolve(default)
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    if p.is_absolute():
+        return p
+    root = data_root()
+    return root.joinpath(*p.parts) if root is not None else p
 
 
 def bloomberg_dir() -> Path:
@@ -116,9 +130,9 @@ def processed_dir() -> Path:
     Without a root the default stays the repository's own ``data_processed/``
     (absolute, from the module path) — the behaviour every existing caller had.
     """
-    raw = os.environ.get("SWE_DATA_PROCESSED_DIR", "").strip()
-    if raw:
-        return resolve(raw)
+    override = _override("SWE_DATA_PROCESSED_DIR")
+    if override is not None:
+        return override
     root = data_root()
     return root / "data_processed" if root is not None else repo_root() / "data_processed"
 
@@ -130,18 +144,18 @@ def theta_dir() -> Path:
 def option_premium_dir() -> Path:
     """``SWE_OPTION_PREMIUM_DIR`` wins (the test-suite pins it); else the rail's
     conventional home under the processed tree."""
-    raw = os.environ.get("SWE_OPTION_PREMIUM_DIR", "").strip()
-    return resolve(raw) if raw else processed_dir() / "option_premium"
+    override = _override("SWE_OPTION_PREMIUM_DIR")
+    return override if override is not None else processed_dir() / "option_premium"
 
 
 def ibkr_dir() -> Path:
     """``SWE_IBKR_DATA_DIR`` wins (deployments and the fixture demo point it);
     else ``data_processed/ibkr`` under the root."""
-    raw = os.environ.get("SWE_IBKR_DATA_DIR", "").strip()
-    return resolve(raw) if raw else processed_dir() / "ibkr"
+    override = _override("SWE_IBKR_DATA_DIR")
+    return override if override is not None else processed_dir() / "ibkr"
 
 
 def sim_dir() -> Path:
     """``SWE_SIM_DATA_DIR`` wins; else ``data_processed/sim`` under the root."""
-    raw = os.environ.get("SWE_SIM_DATA_DIR", "").strip()
-    return resolve(raw) if raw else processed_dir() / "sim"
+    override = _override("SWE_SIM_DATA_DIR")
+    return override if override is not None else processed_dir() / "sim"

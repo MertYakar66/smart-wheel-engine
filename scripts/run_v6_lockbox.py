@@ -233,7 +233,7 @@ def build_report(result: dict, delisted_participants: list, elapsed_seconds: flo
 def cmd_run(args: argparse.Namespace) -> int:
     from backtests.survivorship import run_survivorship_backtest
 
-    deep = _REPO_ROOT / "data" / "bloomberg" / "deep"
+    deep = paths.deep_dir()  # the same tree the connector reads (D31)
     if not deep.exists():
         print(
             f"[v6] PRECONDITION FAILED: {deep} absent — deep panels live on operator machines only",

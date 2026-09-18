@@ -34,12 +34,15 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import sys
 from pathlib import Path
-
-from engine import paths  # noqa: E402
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent
+if str(_REPO_ROOT) not in sys.path:  # direct invocation (Task Scheduler) puts scripts/ first
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from engine import paths  # noqa: E402
 
 # Load the shared transform by path (sibling script; no package install needed).
 _SPEC = importlib.util.spec_from_file_location(

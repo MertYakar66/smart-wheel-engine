@@ -68,11 +68,24 @@ def test_narrow_overrides_win_and_are_themselves_rerooted(clean_env, tmp_path):
     clean_env.setenv("SWE_IBKR_DATA_DIR", "/abs/ibkr")
     clean_env.setenv("SWE_OPTION_PREMIUM_DIR", str(tmp_path / "rail"))
     clean_env.setenv("SWE_SIM_DATA_DIR", "data_processed_b/sim")  # relative → under the root
-    clean_env.setenv("SWE_DATA_PROCESSED_DIR", "data_processed_b")
-    assert paths.ibkr_dir() == Path("/abs/ibkr")
+    clean_env.setenv(
+        "SWE_DATA_PROCESSED_DIR", "data_processed_b"
+    )  # any relative value, not only data*
+    root = tmp_path.resolve()
+    assert paths.ibkr_dir() == Path("/abs/ibkr")  # absolute: as given
     assert paths.option_premium_dir() == tmp_path / "rail"
-    assert paths.sim_dir() == Path("data_processed_b/sim")  # not a conventional prefix → unchanged
+    assert paths.sim_dir() == root / "data_processed_b" / "sim"
+    assert paths.processed_dir() == root / "data_processed_b"
+    assert paths.theta_dir() == root / "data_processed_b" / "theta"
+
+
+def test_relative_overrides_stay_relative_without_a_root(clean_env):
+    """No root: a relative override keeps the legacy CWD-relative meaning."""
+    clean_env.setenv("SWE_DATA_PROCESSED_DIR", "data_processed_b")
+    clean_env.setenv("SWE_SIM_DATA_DIR", "scratch/sim")
     assert paths.processed_dir() == Path("data_processed_b")
+    assert paths.sim_dir() == Path("scratch/sim")
+    assert paths.ibkr_dir() == Path("data_processed_b") / "ibkr"
 
 
 def test_connector_follows_the_root_through_the_trio_default(clean_env, tmp_path):

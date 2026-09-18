@@ -24,6 +24,7 @@ Pinned here:
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from engine.strangle_timing import (
     StrangleEntryScore,
@@ -221,6 +222,7 @@ class TestIVPathGate:
 # 5. §2 / no-regression — rank_strangles_by_ev still EV-ranks
 # ======================================================================
 class TestRankStranglesUnaffected:
+    @pytest.mark.requires_data
     def test_rank_strangles_by_ev_still_produces_candidates(self):
         """rank_strangles_by_ev consumes strangle_timing as a
         downgrade-only pre-filter; producing more avoids cannot change

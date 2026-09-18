@@ -49,6 +49,7 @@ _EXPECTED_SPLITS = {
 
 
 @pytest.mark.parametrize("ticker", sorted(_EXPECTED_SPLITS))
+@pytest.mark.requires_data
 def test_corp_action_split_ground_truth(conn: MarketDataConnector, ticker: str) -> None:
     """``get_corporate_actions`` serves the authoritative most-recent material
     Stock Split ratio + effective date the split-adjustment logic relies on."""
@@ -67,6 +68,7 @@ def test_corp_action_split_ground_truth(conn: MarketDataConnector, ticker: str) 
     )
 
 
+@pytest.mark.requires_data
 def test_split_effective_dates_postdate_the_2026_03_23_splice(conn: MarketDataConnector) -> None:
     """Diagnosis pin: BKNG/CVNA split *effective dates* are strictly AFTER the
     2026-03-23 OHLCV pull boundary — proving the discontinuity is a splice
@@ -91,6 +93,7 @@ def test_split_effective_dates_postdate_the_2026_03_23_splice(conn: MarketDataCo
 # IV stays in the gated band. Hand-verified mins (EA implied 3.127 / realized
 # 1.945; HOLX implied 3.218 / realized 2.316).
 @pytest.mark.parametrize("ticker", ["EA", "HOLX"])
+@pytest.mark.requires_data
 def test_iv_gate_scoped_to_implied_not_realized(conn: MarketDataConnector, ticker: str) -> None:
     iv = conn.get_iv_history(ticker)
     assert not iv.empty, f"{ticker}: no IV history served"

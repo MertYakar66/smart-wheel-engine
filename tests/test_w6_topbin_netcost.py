@@ -196,6 +196,7 @@ def test_verdict_inconclusive_mixed_signs(w6) -> None:
 # --------------------------------------------------------------------------- #
 # Live-integration pin — ranker -> forward-replay wiring is finite + consistent
 # --------------------------------------------------------------------------- #
+@pytest.mark.requires_data
 def test_live_rank_and_replay_smoke(w6) -> None:
     import pandas as pd
 

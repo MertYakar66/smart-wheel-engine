@@ -54,6 +54,7 @@ class TestExpectedDividendDiagnosticHonesty:
     must read 0.0.
     """
 
+    @pytest.mark.requires_data
     def test_ex_div_outside_window_emits_zero_expected_dividend(self):
         """MSFT at 2026-03-20 has ex-div 2026-05-21 ($0.91) — that's
         ~62 days out. A 35-DTE CC would have ``days_to_ex_div > dte``,
@@ -99,6 +100,7 @@ class TestExpectedDividendDiagnosticHonesty:
                 f"fire (days_to_ex_div={d2x}, dte={dte})"
             )
 
+    @pytest.mark.requires_data
     def test_ex_div_inside_window_emits_actual_dividend(self):
         """JPM at 2026-03-20 has ex-div 2026-04-06 ($1.50) — ~17 days
         out. A 35-DTE CC has ``days_to_ex_div <= dte`` and a positive
@@ -147,6 +149,7 @@ class TestExpectedDividendDiagnosticHonesty:
                     "should reflect the upstream amount the gate applies"
                 )
 
+    @pytest.mark.requires_data
     def test_diagnostic_zero_does_not_change_ev_dollars(self):
         """The fix is observability-only: zeroing the diagnostic
         column must NOT change ``ev_dollars``. EV is computed by
@@ -191,6 +194,7 @@ class TestSkewSourceProvenance:
     across five test tickers; the fix surfaces it in the row.
     """
 
+    @pytest.mark.requires_data
     def test_skew_source_column_present_in_diagnostic_output(self):
         """The new column must be in the diagnostic output. Pin
         schema presence so a future column reorder doesn't drop it.
@@ -208,6 +212,7 @@ class TestSkewSourceProvenance:
             "skew_source diagnostic column missing — S29 Fix #1 reverted?"
         )
 
+    @pytest.mark.requires_data
     def test_skew_source_uniformly_unavailable_on_bloomberg(self):
         """The Bloomberg connector (``engine/data_connector.py``)
         exposes no ``get_options`` / ``get_option_chain`` method, so
@@ -247,6 +252,7 @@ class TestSkewSourceProvenance:
             f"on Bloomberg every row's skew_source must be 'unavailable'; got {unique_sources}"
         )
 
+    @pytest.mark.requires_data
     def test_skew_source_unavailable_pairs_with_default_skew_multiplier(self):
         """When ``skew_source=="unavailable"``, the
         ``skew_multiplier`` column must be the unmeasured default
@@ -269,6 +275,7 @@ class TestSkewSourceProvenance:
                     f"(the unmeasured default); got {row['skew_multiplier']}"
                 )
 
+    @pytest.mark.requires_data
     def test_skew_source_unavailable_pairs_with_empty_slope_columns(self):
         """When ``skew_source=="unavailable"``, the related
         ``skew_slope`` / ``put_skew`` / ``risk_reversal`` columns

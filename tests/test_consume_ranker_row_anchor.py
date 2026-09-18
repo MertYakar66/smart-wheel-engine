@@ -83,6 +83,7 @@ class TestRankerRowKeysCoverConsumeExpectations:
     compatibility without a test that proves it).
     """
 
+    @pytest.mark.requires_data
     def test_real_ranker_row_carries_all_keys_consume_ranker_row_uses(self):
         row = _real_ranker_row(_AAPL)
         # The eight keys consume_ranker_row references when invoking
@@ -106,6 +107,7 @@ class TestRankerRowKeysCoverConsumeExpectations:
             f"needs: {missing}. Schema drift between ranker and tracker."
         )
 
+    @pytest.mark.requires_data
     def test_real_ranker_row_types_are_compatible_with_consume(self):
         """Beyond key presence: the type of each required field must match
         what consume_ranker_row expects (ticker str, numeric strike/premium/
@@ -130,6 +132,7 @@ class TestRealRankerHappyPath:
     cleanly through ``consume_ranker_row`` and lands as a tracker
     position."""
 
+    @pytest.mark.requires_data
     def test_real_ranker_top_row_consumes_successfully(self):
         row = _real_ranker_row(_AAPL)
         assert row["ev_dollars"] > 0, (
@@ -159,6 +162,7 @@ class TestRealRankerNegativeEvRefused:
     version proving the contract holds when the row actually came from
     the ranker."""
 
+    @pytest.mark.requires_data
     def test_real_negative_ev_row_raises_authority_refused(self):
         # min_ev_dollars=-1e9 keeps negatives; META negative at _AS_OF
         # per the smoke.
@@ -187,6 +191,7 @@ class TestRealRankerRoundTrips:
     downstream readers (``mark_to_market`` and
     ``portfolio_context_snapshot``) reflect it consistently."""
 
+    @pytest.mark.requires_data
     def test_consume_then_mark_to_market_with_real_spot(self):
         row = _real_ranker_row(_AAPL)
         tracker = WheelTracker(initial_capital=_NAV_LARGE)
@@ -209,6 +214,7 @@ class TestRealRankerRoundTrips:
             f"the entry spot"
         )
 
+    @pytest.mark.requires_data
     def test_consume_then_portfolio_context_snapshot_reflects_position(self):
         row = _real_ranker_row(_AAPL)
         tracker = WheelTracker(initial_capital=_NAV_LARGE)
@@ -262,6 +268,7 @@ class TestDuplicateConsume:
     duplicate ticker. Pins behavior with a real ranker row (the
     hand-built version lives in ``test_decision_layer_wiring.py``)."""
 
+    @pytest.mark.requires_data
     def test_duplicate_consume_of_real_row_returns_false_second_time(self):
         row = _real_ranker_row(_AAPL)
         tracker = WheelTracker(initial_capital=_NAV_LARGE)
@@ -286,6 +293,7 @@ class TestStrictModeFullChain:
     that satisfies that contract. With a real positive-EV row, the full
     chain works."""
 
+    @pytest.mark.requires_data
     def test_strict_mode_consume_real_row_logs_issue_and_consume(self):
         row = _real_ranker_row(_AAPL)
         tracker = WheelTracker(initial_capital=_NAV_LARGE, require_ev_authority=True)

@@ -92,7 +92,27 @@ Drive copy of the ticks, which today exist only on their branch.
 
 ## Evidence
 
-_(filled from the three-way proof — see the PR's Run Summary)_
+Sandbox, 4 CPUs, `SWE_DATA_PROVIDER=bloomberg`; the external root `R` is a
+scratchpad copy of the 99 manifest files (`check --root R` → `99 ok, 0 missing,
+0 mismatched`); "hidden" = `data/bloomberg`, `data/features`, `data_raw`,
+`data_processed` moved aside for the run and restored (0 deletions after).
+
+| Run | Posture | Fast lane (`-m "not backtest_regression"`) |
+|---|---|---|
+| [0] | in-repo data, no root (legacy) | `3174 passed, 28 skipped, 4 deselected, 20 xfailed` in 611 s |
+| [A] | data hidden, `SWE_DATA_ROOT=R` | `2 failed, 3175 passed, 29 skipped` — both failures were resolver bypasses / a shared-dir assumption, fixed in `a6ef421` and `305313d` |
+| [B] | data hidden, no root, CI coverage form | `58 failed, 2954 passed, 205 skipped, 3 errors` in 264 s; `Total coverage: 83.58%` (floor 80) — the 61 ids are the `requires_data` set |
+| marked | `SWE_DATA_ROOT=<empty dir>`, the 18 files of [B]'s list | `154 passed, 72 skipped (51 with the D31 reason), 2 xfailed, 0 failed` |
+
+EV smoke with the data hidden and `SWE_DATA_ROOT=R`: `MSFT 110.13 / XOM 80.14 /
+AAPL −12.61 / UNH −20.69`, `drops: {'total_dropped': 1, 'by_gate': {'event': 1}}`.
+`tests/test_deep_read_connector.py` with `SWE_DATA_ROOT=R`: `10 passed` — the six
+deep-history assembly tests ran for the first time anywhere.
+`materialize --dry-run` into an empty root: `would write 99, 0 unavailable`;
+`--group raw` written and re-checked: `11 ok`; second run `11 already present,
+wrote 0`; a tampered file: `MISMATCH … (kept, not overwritten)`.
+Final no-data proof in the exact CI form (coverage.json + per-file floors): see
+the PR #526 Run Summary.
 
 ## Unresolved / handoff
 

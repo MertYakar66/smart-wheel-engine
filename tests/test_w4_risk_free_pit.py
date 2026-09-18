@@ -24,6 +24,7 @@ def conn() -> MarketDataConnector:
     return MarketDataConnector()
 
 
+@pytest.mark.requires_data
 def test_rfr_returns_real_pit_rate_not_spurious_5pct(conn) -> None:
     """At ZIRP-era as_of the served rate is ~0, never the 0.05 fallback."""
     # 2021-05-01: 3m T-bill was ~ZIRP; must be well under 1%, not 5%.
@@ -35,6 +36,7 @@ def test_rfr_returns_real_pit_rate_not_spurious_5pct(conn) -> None:
     assert 0.03 < get_current_risk_free_rate("2024-01-02", data_dir="data/bloomberg") < 0.07
 
 
+@pytest.mark.requires_data
 def test_fallback_only_fires_before_coverage(conn) -> None:
     """The 0.05 fallback is reachable only before treasury coverage (pre-1994)."""
     raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
@@ -56,6 +58,7 @@ def test_pit_iv_has_no_lookahead(conn) -> None:
             assert h.index.max() <= pd.Timestamp(asof), f"{t} IV lookahead past {asof}"
 
 
+@pytest.mark.requires_data
 def test_pit_iv_moves_with_asof(conn) -> None:
     """Resolved ATM IV differs across as_of (not a fixed present-day snapshot)."""
     moved = 0

@@ -65,6 +65,7 @@ def test_reliability_perfect_calibration_low_ece():
     assert ece == pytest.approx(0.0, abs=1e-9)
 
 
+@pytest.mark.requires_data
 def test_load_universe_has_sp500_names():
     u = cal.load_universe()
     assert "AAPL" in u and "NVDA" in u

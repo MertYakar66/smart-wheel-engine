@@ -74,6 +74,7 @@ class TestPortfolioContextThreadedThroughBuildCandidateDossiers:
     underlying :func:`build_dossiers` and attached to every dossier.
     """
 
+    @pytest.mark.requires_data
     def test_portfolio_context_attached_to_every_dossier(self):
         """When the caller passes a context, every produced
         :class:`CandidateDossier` carries it on
@@ -96,6 +97,7 @@ class TestPortfolioContextThreadedThroughBuildCandidateDossiers:
                 f"dossier {d.ticker} did not receive portfolio_context — C3 threading broken"
             )
 
+    @pytest.mark.requires_data
     def test_no_context_means_no_dossier_context_attached(self):
         """When ``portfolio_context=None`` (the default), the
         dossiers carry ``portfolio_context=None`` — preserves
@@ -146,6 +148,7 @@ class TestConsumeIntoTrackerHappyPath:
     flow into the tracker as positions; outcomes mark ``opened=True``.
     """
 
+    @pytest.mark.requires_data
     def test_real_positive_ev_rows_open_positions(self):
         runner = WheelRunner()
         tracker = WheelTracker(initial_capital=_NAV_LARGE)
@@ -170,6 +173,7 @@ class TestConsumeIntoTrackerHappyPath:
                 f"outcome marked opened=True but {o['ticker']} not in tracker positions"
             )
 
+    @pytest.mark.requires_data
     def test_outcome_schema_is_stable(self):
         """Pin the per-outcome dict shape so a future refactor that
         renames or drops fields is caught."""
@@ -496,6 +500,7 @@ class TestConsumeIntoTrackerStrictMode:
     + consumes the token internally; no caller boilerplate required.
     """
 
+    @pytest.mark.requires_data
     def test_strict_mode_flow_opens_position_and_drains_token(self):
         runner = WheelRunner()
         tracker = WheelTracker(initial_capital=_NAV_LARGE, require_ev_authority=True)

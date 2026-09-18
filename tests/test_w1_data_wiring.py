@@ -30,6 +30,7 @@ def conn() -> MarketDataConnector:
 # ---------------------------------------------------------------------------
 # Verified properties (must stay green)
 # ---------------------------------------------------------------------------
+@pytest.mark.requires_data
 def test_served_iv_band_is_clean(conn: MarketDataConnector) -> None:
     """Every served IV cell is in the clean PERCENT band (3.0, 10000].
 
@@ -67,6 +68,7 @@ def test_no_deep_iv_sentinel_leaks(conn: MarketDataConnector) -> None:
             assert not v.between(134_000, 134_500).any(), f"{t}.{col} leaks the deep-IV sentinel"
 
 
+@pytest.mark.requires_data
 def test_ohlcv_invariant_holds(conn: MarketDataConnector) -> None:
     """Post-rename OHLC invariant ``high>=max(o,c,l)`` & ``low<=min(o,c,h)``."""
     for t in _SAMPLE:
@@ -76,6 +78,7 @@ def test_ohlcv_invariant_holds(conn: MarketDataConnector) -> None:
         assert (df["low"] <= df[["open", "close", "high"]].min(axis=1)).all(), f"{t} low>min"
 
 
+@pytest.mark.requires_data
 def test_ohlcv_dates_monotonic_and_positive(conn: MarketDataConnector) -> None:
     for t in _SAMPLE:
         df = conn.get_ohlcv(t)
@@ -84,6 +87,7 @@ def test_ohlcv_dates_monotonic_and_positive(conn: MarketDataConnector) -> None:
         assert (df["close"].dropna() > 0).all(), f"{t} has non-positive close"
 
 
+@pytest.mark.requires_data
 def test_treasury_covers_feasible_window(conn: MarketDataConnector) -> None:
     """rate_3m must cover the full feasible OHLCV window (starts 2018).
 
@@ -105,6 +109,7 @@ def test_treasury_covers_feasible_window(conn: MarketDataConnector) -> None:
 # Verified property — the 2026-03-23 split-scale splice is repaired (#439)
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("ticker", ["BKNG", "CVNA"])
+@pytest.mark.requires_data
 def test_ohlcv_has_no_split_scale_discontinuity(conn: MarketDataConnector, ticker: str) -> None:
     """No >2x single-day close move around the 2026-03-23 splice.
 

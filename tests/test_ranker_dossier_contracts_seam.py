@@ -6,6 +6,8 @@ The put ranker now emits ``contracts`` on its row, and the dossier soft-warns
 
 from __future__ import annotations
 
+import pytest
+
 from engine.candidate_dossier import CandidateDossier, EnginePhaseReviewer
 
 
@@ -29,6 +31,7 @@ class TestDossierReadsContracts:
 
 
 class TestRankerEmitsContracts:
+    @pytest.mark.requires_data
     def test_put_ranker_row_carries_contracts(self):
         from engine.wheel_runner import WheelRunner
 

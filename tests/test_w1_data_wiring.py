@@ -15,6 +15,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 
 # Liquid, full-history sample — keeps the test fast (no 2M-cell sweep).
@@ -90,7 +91,7 @@ def test_treasury_covers_feasible_window(conn: MarketDataConnector) -> None:
     historical ``get_current_risk_free_rate`` spurious-5% path (which only fires
     *before* coverage begins) is unreachable for any feasible ``as_of``.
     """
-    raw = pd.read_csv("data/bloomberg/treasury_yields.csv")
+    raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
     raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
     cov = raw.dropna(subset=["rate_3m"])
     assert cov["date"].min() <= pd.Timestamp("2018-01-01"), "treasury starts after OHLCV"

@@ -6,11 +6,11 @@ and wheel_runner.py (the main orchestrator).
 """
 
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_integration import (
     build_calendar_from_bloomberg,
     get_current_risk_free_rate,
@@ -19,7 +19,7 @@ from engine.data_integration import (
     load_earnings_from_bloomberg,
 )
 
-DATA_DIR = Path("data/bloomberg")
+DATA_DIR = paths.bloomberg_dir()
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_earnings.csv").exists()
 
 

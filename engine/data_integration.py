@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from engine import paths
 from engine.event_calendar import (
     EventCalendar,
     EventImpact,
@@ -29,7 +30,7 @@ def _normalize_ticker(bbg_ticker: str) -> str:
 
 
 def load_earnings_from_bloomberg(
-    filepath: str | Path = "data/bloomberg/sp500_earnings.csv",
+    filepath: str | Path = "data/bloomberg/sp500_earnings.csv",  # re-rooted by engine.paths
     tickers: list[str] | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -50,7 +51,7 @@ def load_earnings_from_bloomberg(
     Returns:
         List of MarketEvent for earnings
     """
-    filepath = Path(filepath)
+    filepath = paths.resolve(filepath)
     if not filepath.exists():
         return []
 
@@ -128,7 +129,7 @@ def load_dividends_from_bloomberg(
 
     Returns both ex-date and pay-date events.
     """
-    filepath = Path(filepath)
+    filepath = paths.resolve(filepath)
     if not filepath.exists():
         return []
 
@@ -212,7 +213,7 @@ def build_calendar_from_bloomberg(
     """
     from engine.event_calendar import EventCalendarBuilder
 
-    data_dir = Path(data_dir)
+    data_dir = paths.resolve(data_dir)
     calendar = EventCalendar()
 
     # Date range
@@ -264,7 +265,7 @@ def get_discrete_dividends_for_option(
     Returns:
         List of {"ex_date": date, "amount": float, "time_frac": float}
     """
-    filepath = Path(data_dir) / "sp500_dividends.csv"
+    filepath = paths.resolve(data_dir) / "sp500_dividends.csv"
     if not filepath.exists():
         return []
 
@@ -331,7 +332,7 @@ def get_current_risk_free_rate(
     that genuinely want a numeric default pass ``fallback=0.05`` at the call
     site, so the 5 % is never injected silently by the shared accessor.
     """
-    filepath = Path(data_dir) / "treasury_yields.csv"
+    filepath = paths.resolve(data_dir) / "treasury_yields.csv"
     if not filepath.exists():
         return fallback
 

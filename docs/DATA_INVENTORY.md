@@ -1,35 +1,92 @@
-# DATA INVENTORY — every dataset we hold (Bloomberg + Theta + derived + staged)
+# DATA INVENTORY — what data the engine uses, where it lives, how to verify it
 
-_Title (type) · date range · counts for every dataset. **Regenerated 2026-06-22.**_
+_The single source of truth for the data layer. **§A–§C are the current
+location map (updated 2026-09-18, DECISIONS D31).** §0–§7 that follow are the
+detailed dataset census (schemas, row/date counts) as-of 2026-06-22; the daily
+frontier has since advanced to **2026-07-02**. Trust the machine manifest for
+exact bytes, this census for structure and coverage._
 
-**How this was verified (2026-06-22).** The committed Bloomberg monoliths (§1) were
-read with `scripts/inventory_data.py`'s streaming reader against the **`origin/main`**
-bytes (CSV date columns, byte-true row/ticker counts). The gitignored deep archive (§2)
-and the Theta corpus (§3) were read from the **local desktop** parquet/gz (local-only,
-as-of 2026-06-22). The staged broad-pull data (§6) was byte-scanned on branch
-`claude/bloomberg-broad-pull-2026-06-17`. Numbers below are from the actual bytes, not
-from docs.
-
-> **⚠️ Trust note — the prior inventory was stale, and a naïve rescan reproduces the
-> staleness.** `scripts/inventory_data.py` has a hardcoded `ROOT` pointing at the local
-> desktop checkout. That checkout currently sits on branch
-> **`claude/weakness-review-fixes`**, whose `data/bloomberg/` is an **older snapshot**
-> (OHLCV → 2026-03-20, treasury 2021-05+, corporate-actions empty). Running the script
-> there **reproduces the old numbers** — the trap the previous version of this doc fell
-> into. The byte-true monolith census in §1 is therefore taken from **`origin/main`**
-> (blob-verified to differ from the local branch on `sp500_ohlcv`, `sp500_vol_iv_full`,
-> `treasury_yields`, `sp500_corporate_actions`, …); the broad-pull branch descends from
-> the same `origin/main`. **To rescan correctly, point `ROOT` at an `origin/main`
-> checkout, not the working branch.**
+> **Companion machine file:** [`data/DATA_MANIFEST.json`](../data/DATA_MANIFEST.json)
+> — every dataset the engine owns: path · size · sha256 · dataset group · the git
+> object it was first taken from (99 files, 1.43 GB, generated 2026-09-18 from the
+> git objects themselves). `python scripts/data_manifest.py check --root <root>`
+> proves a root complete (exit 1 on any missing or altered byte); `materialize`
+> fills a root from git; `census` shows presence by group; `build` regenerates the
+> manifest after a refresh.
 
 **Provider note.** Bloomberg prices are **split-adjusted**; Theta prices are **raw**. Never mix them.
 
-**Where each lives / what is on GitHub:**
-- `data/bloomberg/*.csv` — committed to the repo (`main`). §1.
-- `data/bloomberg/deep/` — **gitignored**, ~365 MB; restore from `origin/deep-history/bloomberg-raw`. §2.
-- `data_processed/` (all Theta + derived parquet) — **gitignored**, local-only (~several GB). §3–§4.
-- `staging/` — committed **on branch `claude/bloomberg-broad-pull-2026-06-17` only** (held, not on `main`). §6.
-- This inventory document **is** committed to GitHub.
+## §A. Status — the data lives on the operator's desktop, not in git
+
+Operator ruling 2026-09-18 (D31): every dataset, past and future, must be
+accessible on the main Windows desktop; git is not a data store; Google Drive
+stays the (delayed) backup, never a source of truth. `SWE_DATA_ROOT` names the
+data root (`engine/paths.py` re-roots `data/`, `data_raw/`, `data_processed/`
+under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY.md`
+§6). The campaign runs in verified steps:
+
+| Step | What | Status (2026-09-18) |
+|---|---|---|
+| 1 | Manifest of everything GitHub holds | **done** — `data/DATA_MANIFEST.json` (99 files / 1.43 GB, from the git objects) |
+| 2 | Bring the git-only datasets (13 deep slices, 15 tick files) onto the desktop | tool ready (`materialize`, proven byte-exact in the sandbox) — **operator runs it** (§B) |
+| 3 | Verify the desktop root by checksum | tool ready (`check`) — **operator runs it** (§B) and reports the result line |
+| 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
+| 5 | Untrack the data from git (no history rewrite) | **held** until step 3 passes on the desktop |
+| 6 | Delete `deep-history/bloomberg-raw` and `claude/daybot-bloomberg-pull`, close #507 | after 5, and after the ticks have a Drive copy |
+
+## §B. Fill and verify the desktop root (once)
+
+```powershell
+git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull
+python scripts/data_manifest.py materialize --root D:\swe-data   # creates only what is missing; verifies every byte; never overwrites
+python scripts/data_manifest.py check --root D:\swe-data         # expect: checked 99 manifest files: 99 ok, 0 missing, 0 mismatched
+python scripts/data_manifest.py census --root D:\swe-data        # presence by dataset group
+```
+
+Then move or copy the local-only stores (§C, Tier C) under the root and set
+`SWE_DATA_ROOT` for the account (`docs/DATA_POLICY.md` §6). Pull the untracking
+commit only after that.
+
+## §C. Where each dataset lives
+
+| Tier | What | Under the data root | Git (2026-09-18) | Backup |
+|---|---|---|---|---|
+| **A — served** | 10 `_FILES` monoliths + `broad_pull/` panels — 49 files, 562 MB | `data/bloomberg/` | tracked on `main` until step 5 | Drive `data/bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`): 48/48 sha256-verified 2026-07-21, sizes re-matched 2026-09-18 |
+| **B — deep** | 13 gz slices, 1994→2026 + delisted — 373 MB (§2) | `data/bloomberg/deep/` | branch `deep-history/bloomberg-raw` @ `68a48b2` only (gitignored on `main`) | Drive `deep` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`): 13/13 present, byte-exact sizes 2026-09-18 |
+| **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only — **the only copy anywhere** | **none yet** — upload to Drive before the branch is deleted |
+| **A′ — small tracked** | `data/features` AAPL sample (10 files), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | tracked on `main` until step 5 | Drive `swe-local-only/` (§C.1) |
+| **C — local-only** | Theta corpus (~11 GB), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded), sim | `data_processed/**`, `data/features/**` | never | Drive `swe-local-only/` (§C.1) — `theta` upload unverified |
+
+### §C.1 — `swe-local-only/` Tier-C backup record (root `1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`)
+
+_Salvaged verbatim on 2026-09-18 from branch `backup/drive-tier-c-2026-07-22` (its only unique
+content) so the branch can be deleted. The `theta` row was still uploading on 2026-07-22 and has
+**not** been re-verified since; every other row was `rclone check --checksum` clean that day._
+
+Copied with `rclone copy … gdrive: --drive-root-folder-id <child-id> --checksum` (explicit-ID
+addressing, empty remote path) and verified with `rclone check … --checksum --one-way`
+(Drive-vs-local **MD5** byte-identity — this is NOT the manifest's sha256; both proofs are
+independent). Backed up / verified **2026-07-22**.
+
+| Child (folder id) | Local source | `rclone check --checksum` |
+|---|---|---|
+| `theta` (`13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp`) | `data_processed/theta/` (~11 GB, ~132,862 files) | ⏳ **upload in progress** — file-by-file over a ~1 Mbps uplink; **verification PENDING** |
+| `option_premium` (`1s9ARxD8EDKUG_vRVdD4C-nGjGdkjNO9-`) | `data_processed/option_premium/` (1.8 GB) | ✅ 0 differences · 155 files |
+| `features` (`1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4`) | `data/features/` (~1.2 GB, 11,858 files; `_locks/`, `_backfill_log.csv`, `*.log` excluded) | ✅ 0 differences · 11,858 files |
+| `vol_indices` (`1qHskhi0NOuwUuGHgQGAh6CKpbdzoE7us`) | `data_processed/vol_indices.parquet` + `_wide.parquet` | ✅ 0 differences · 2 files |
+| `validation` (`1DImzxUuXxXODIG3uldKBsLx-f1-TZxCT`) | `data_processed/validation/` (22 MB) | ✅ 0 differences · 23 files |
+| `data_processed_root` (`1spBVAgdZLyrLXZ7SgInrR2i7tMwhG62a`) | loose `data_processed/*.json` (incl. `_inventory_scan.json`) | ✅ 0 differences · 5 files |
+| `data_raw` (`15ZGdTlLtMVr4ShIgpQq3bDw9tYrVme02`) | `data_raw/**` (git-tracked; incl. `sp500_constituents_current.csv`) | ✅ 0 differences · 11 files |
+| `trade_universe` (`10JMptvhJsau459DLCH0tnJgzhwjpxwt4`) | `data_processed/trade_universe/` (git-tracked) | ✅ 0 differences · 1 file |
+| `ibkr` (`1pr3fkf7zPWZxC8_sAtwdNOs8aGJujPDG`) | `data_processed/ibkr/` — **`flex_credentials.json` EXCLUDED (never uploaded)** | ✅ 0 differences · 19 files |
+
+**Skipped (stated):** `data_processed/sim/` (regenerable paper-book outputs), `data_processed/.gitkeep` (empty marker).
+**Absent on this laptop:** `financial_news/storage/sentiment.sqlite` (news-sentiment store — `financial_news/` holds only source code, no DB), `data_processed/{news_sentiment,corporate_actions,edgar}` (not present), `SWE_DEL_OUT`/`SWE_OUT_PATH` off-tree scratch (Windows defaults, absent on macOS).
+
+---
+
+_The sections below (§0–§7) are the detailed census as-of 2026-06-22 — retained for
+structure, coverage and schemas. Exact current size + sha256 per file: the manifest._
 
 ---
 
@@ -112,10 +169,10 @@ from (event tables key on ex/announce/as-of dates, not a daily `date`).
 
 ---
 
-## 2. Bloomberg — deep-history archive (`data/bloomberg/deep/`, gitignored, local-only)
+## 2. Bloomberg — deep-history archive (`data/bloomberg/deep/` under the data root; D31)
 
-Restored from git branch `deep-history/bloomberg-raw` — the set Google Drive
-`swe-deep-history/` partially mirrors. Gzipped CSV. **Dated slices** = current S&P names,
+Held on git branch `deep-history/bloomberg-raw` until step 6 (`materialize` copies it onto the
+desktop, §B); Drive `deep` folder `1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna` holds all 13 (byte-exact sizes 2026-09-18). Gzipped CSV. **Dated slices** = current S&P names,
 split-adj; **`__delisted`** slices = survivorship-complete (~1,000+ tickers incl. dead
 names, back to 1990). Byte-confirmed 2026-06-22 (unchanged from the prior pass).
 

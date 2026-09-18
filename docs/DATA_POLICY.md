@@ -1,8 +1,9 @@
 # Data Policy
 
 How market data, derived features, credentials, and analyst
-deliverables flow through this repo — what is tracked, what is
-ignored, what is regenerable, and what must never leave the laptop.
+deliverables flow through this project — where the data lives (the
+operator's desktop, never git — DECISIONS D31), what is regenerable,
+and what must never leave the desktop.
 
 This file is the operational counterpart to the data-layer entry
 in `CLAUDE.md`. For the verified per-file census of what is actually
@@ -13,18 +14,33 @@ provider capability matrix lives in §2 below.
 
 ---
 
-## 1. Three data tiers
+## 1. Three data tiers — all under one data root
 
-| Tier | Lives at | Tracked in git? | Regen path |
+| Tier | Lives at (relative to the data root) | In git? | Source / regen path |
 |---|---|---|---|
-| **Raw** | `data/bloomberg/*.csv`, `data_raw/` | mostly **yes** (committed CSVs) | yfinance pulls + Bloomberg Terminal exports |
-| **Processed** | `data_processed/theta/**`, `data_processed/vol_indices*.parquet` | **no** (gitignored) | `scripts/pull_all.py` on a Theta-up laptop |
-| **Derived** | `data/features/<group>/ticker=<X>/` | **AAPL only** as a sample | `scripts/backfill_features.py` |
+| **Raw** | `data/bloomberg/*.csv` (served monoliths), `data/bloomberg/broad_pull/`, `data/bloomberg/deep/`, `data_raw/` (yfinance pulls, constituents, day-bot ticks) | **no** (D31; the served files stay tracked on `main` only until the step-5 untracking PR lands) | Bloomberg Terminal exports (frozen — the Terminal is no longer available), yfinance pulls, the day-bot |
+| **Processed** | `data_processed/theta/**`, `data_processed/vol_indices*.parquet`, `data_processed/option_premium/`, `data_processed/ibkr/`, `data_processed/sim/` | **no** | `scripts/pull_all.py` on a Theta-up machine; each rail regenerates its own store |
+| **Derived** | `data/features/<group>/ticker=<X>/` | **no** | `scripts/backfill_features.py` |
 
-The committed Bloomberg CSVs are the **fallback** for any environment
-that can't reach Theta Terminal (Cowork sandbox, CI, a fresh laptop
-without the Terminal up). They are also point-in-time records of what
-the engine ran on, which has audit value.
+**The data root.** Every path above is relative to the data root: the
+folder `SWE_DATA_ROOT` names, or — when the variable is unset — the
+current working directory, which is the repository folder when you run
+from it. That unset case is exactly the behaviour every caller had
+before, so nothing changes for a machine that keeps its data inside the
+checkout. `engine/paths.py` is the single resolver (`paths.resolve`,
+`paths.bloomberg_dir()`, `paths.processed_dir()`, …); the narrower
+overrides that already existed — `SWE_DATA_PROCESSED_DIR`,
+`SWE_IBKR_DATA_DIR`, `SWE_OPTION_PREMIUM_DIR`, `SWE_SIM_DATA_DIR` —
+keep winning inside their scope. Section 6 describes the desktop set-up.
+
+**The manifest.** `data/DATA_MANIFEST.json` lists every dataset the
+engine owns — path, byte size, sha256, dataset group and the git object
+it was first taken from (99 files, 1.43 GB, generated 2026-09-18 from
+the git objects themselves). It is the point-in-time record of what the
+engine ran on — the audit value the data commits used to carry, without
+the bytes. `python scripts/data_manifest.py check --root <root>` proves
+a root complete; `materialize` fills one from git; `build` regenerates
+the manifest after a refresh (and carries the ledger forward).
 
 ---
 
@@ -43,7 +59,7 @@ prints a warning when the variable is unset and defaults to
 
 ### Capability matrix
 
-| Capability | `bloomberg` (CSVs in git) | `theta` (live Terminal) |
+| Capability | `bloomberg` (CSV panels under the data root) | `theta` (live Terminal) |
 |---|---|---|
 | Historical OHLCV | ✅ `data/bloomberg/sp500_ohlcv.csv` | ✅ stock EOD |
 | IV history | ✅ `sp500_vol_iv_full.csv` (ATM) | ⚠ snapshot only — v3 IV/greeks **history is 404/not-entitled**; the `theta/iv_history` series we hold is `source=bloomberg` |
@@ -64,6 +80,19 @@ Theta-native), so there is **no** Theta greeks/IV history time series.
 
 ## 3. What never enters git
 
+**Market data — none of it (D31, 2026-09-18).** Not the Bloomberg
+panels, not the deep slices, not the day-bot ticks, not the feature
+shards, not the Theta corpus, and not any future collection. The data
+lives under the data root on the operator's desktop; Google Drive is
+the backup (delayed, not a source of truth). The only data-shaped files
+git holds are `data/DATA_MANIFEST.json` (hashes, not bytes) and the small
+synthetic fixtures under `tests/fixtures/`. A refresh therefore ends
+with `python scripts/data_manifest.py build --root <root>` and a commit
+of the manifest, never of the data. (Status: the served monoliths and
+the small `data_raw/` / `data/features` samples are still tracked on
+`main` until the step-5 untracking PR lands — see `DATA_INVENTORY.md`
+§A for the live status of each step.)
+
 **Credentials and installed software:**
 
 | Path | Why |
@@ -74,12 +103,13 @@ Theta-native), so there is **no** Theta greeks/IV history time series.
 | `.env`, `.envrc` | Standard env-secret convention. |
 | `secrets/`, `credentials/`, `*.credentials`, `*_credentials.json`, `service_account*.json` | Standard credential file conventions. |
 
-**Large regenerable artefacts:**
+**Data stores and large regenerable artefacts (all under the data root):**
 
 | Path | Regen via | Size |
 |---|---|---|
+| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; `materialize` from git until step 5, then the desktop root + Drive | 536 MB + 365 MB deep + 491 MB ticks |
 | `data_processed/` | `scripts/pull_all.py` | many GB across theta sub-dirs |
-| `data/features/**/ticker=*/` (except AAPL) | `scripts/backfill_features.py` | ~1.2 GB |
+| `data/features/**/ticker=*/` | `scripts/backfill_features.py` | ~1.2 GB |
 | `dashboard/node_modules/` | `npm install` | ~hundreds of MB |
 | `dashboard/.next/` | `npm run build` or `npm run dev` | tens of MB |
 
@@ -124,17 +154,20 @@ panels keyed by `(ticker, period, announcement_date)`. The
 | Refresh | Command | Frequency | Notes |
 |---|---|---|---|
 | Theta full pull | `python scripts/pull_all.py` | daily on laptop | requires Terminal up; ~8 hours wall clock; see `THETA_USAGE.md` §20 |
-| yfinance fundamentals + earnings | `python scripts/pull_fundamentals_yf.py`, `pull_earnings_yf.py` | weekly | refreshes the committed CSVs |
+| yfinance fundamentals + earnings | `python scripts/pull_fundamentals_yf.py`, `pull_earnings_yf.py` | weekly | refreshes the CSVs under the data root; rebuild + commit the manifest afterwards |
 | Treasury yields | `python scripts/pull_treasury_yields_yf.py` | weekly | refreshes `treasury_yields.csv` |
 | Feature shards | `python scripts/backfill_features.py` | when feature def changes | regenerates `data/features/`; AAPL stays as sample |
 | Bloomberg Terminal exports | Excel macros in `scripts/bloomberg_*.bas` | monthly | manual; produces fresh wide-format panels |
 | Theta capability probe | `python scripts/probe_theta_capabilities.py` | when tier coverage changes | regenerates `data_processed/theta_capabilities.json` (the tier map). Run if the file is absent or after a Theta v3 plan change. |
 
-The yfinance refreshes mutate tracked CSVs in place. **Policy (ROADMAP C1,
-decided 2026-05-30): keep tracking — treat each refresh as a data commit.**
-The point-in-time "what data did we run on?" audit trail outweighs the
-commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
-`sp500_fundamentals_yf.csv`, and `treasury_yields.csv` stay tracked.
+The yfinance refreshes mutate the CSVs under the data root in place.
+**Policy (D31, 2026-09-18 — supersedes the ROADMAP C1 "keep tracking"
+policy of 2026-05-30):** a refresh is never a data commit. The
+point-in-time "what data did we run on?" audit trail is the manifest:
+after any refresh run `python scripts/data_manifest.py build --root
+<root>` and commit `data/DATA_MANIFEST.json` (hashes and sizes, a few
+hundred KB) — the ledger says exactly which bytes the engine ran on,
+and `check` proves any copy against it.
 
 > **The `*_yf.csv` files are currently UNCONSUMED parallel files.** The
 > connector (`engine/data_connector.py`) reads `sp500_fundamentals.csv`
@@ -214,25 +247,66 @@ commit-per-refresh history noise, so `sp500_earnings_yf.csv`,
 
 ---
 
-## 6. Drive-mount caveats
+## 6. The data root — desktop home, first fill, backup
 
-The repo lives on a Google Drive mount. Two operational rules apply:
+The operator's main Windows desktop is the home of every dataset (D31).
+The data root is one folder, preferably **outside** the repository
+folder (a checkout must be disposable; the data is not), holding the
+three conventional trees:
 
-1. **Drive is an eventually-consistent mirror, not a source of
-   truth.** A branch the laptop hasn't checked out won't appear on
-   Drive. Always resolve via `git fetch origin && git checkout`,
-   not `ls`. To read a newer revision without checking it out, use
-   `git show origin/<branch>:<path>`.
-2. **Drive denies `unlink` on existing tracked files.** `git pull`
-   may fetch refs but fail to update the worktree with
-   `error: unable to unlink old '<file>': Operation not permitted`.
-   Workaround: when this hits, fetch + read via
-   `git show origin/<branch>:<path>` and apply manually, or do the
-   pull on the laptop (where unlink works) and let Drive sync.
+```
+D:\swe-data\
+  data\bloomberg\            served monoliths, broad_pull\, deep\
+  data\features\             feature shards
+  data_raw\                  yfinance pulls, constituents, bloomberg\ticks\
+  data_processed\            theta\, option_premium\, ibkr\, sim\, vol_indices*.parquet, …
+```
 
-These rules are surfaced again in `docs/LAPTOP_SETUP.md`; the
-data-refresh use case hits them constantly so the canonical version
-lives here.
+`SWE_DATA_ROOT` names it. Unset, the engine reads the same trees relative
+to the current working directory — the repository folder when you run
+from it — so a desktop that keeps its data inside the checkout keeps
+working unchanged; the root is what lets the checkout become disposable.
+
+**First fill, in this order (each step verified before the next):**
+
+```powershell
+# 1. the two data-only branches hold the deep slices and the day-bot ticks
+git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull
+# 2. create every manifest file that is missing from the root, byte-verified;
+#    nothing that already exists is overwritten (a differing file is reported)
+python scripts/data_manifest.py materialize --root D:\swe-data
+# 3. prove the root: expect "99 ok, 0 missing, 0 mismatched"
+python scripts/data_manifest.py check --root D:\swe-data
+python scripts/data_manifest.py census --root D:\swe-data
+# 4. move (or copy) the local-only stores under the root — data_processed\theta,
+#    data_processed\option_premium, data\features shards, data_processed\ibkr —
+#    or leave them where they are and point SWE_DATA_PROCESSED_DIR /
+#    SWE_OPTION_PREMIUM_DIR / SWE_IBKR_DATA_DIR at them.
+# 5. make the root known to every new shell, then run the OPERATING_MODEL §9.4 smoke
+[Environment]::SetEnvironmentVariable("SWE_DATA_ROOT", "D:\swe-data", "User")
+```
+
+Only after step 5 pull the commit that untracks the data: `git pull` of an
+untracking commit removes the *tracked* copies from the working tree (git
+sees a deletion), which is harmless once the root outside the checkout is
+verified and in use. The step-5 PR is held until the operator reports the
+`check` line from step 3.
+
+**Backup.** Google Drive holds a verified copy of the served monoliths and
+the deep slices and a copy of the local-only stores (`DATA_INVENTORY.md`
+§C); the day-bot ticks have no Drive copy yet and must get one before their
+branch is deleted. Drive is a backup, never a source of truth: the engine
+reads the desktop root, and `check` — not a folder listing — is what
+"the copy is complete" means.
+
+**Cadence.** `check --size-only` takes seconds and belongs in any
+bring-up; a full `check` after every refresh; `build` + a manifest commit
+after every refresh (§5).
+
+**Environments without a data root** (CI, Cowork sandboxes, a fresh
+clone) run the unit lane only: tests that need the data carry the
+`requires_data` marker and skip visibly (`TESTING.md`); the §9.4 smoke
+cannot run there. Nothing fetches data from Drive automatically.
 
 ---
 
@@ -240,7 +314,8 @@ lives here.
 
 | Operation | Cowork sandbox | Laptop with Terminal |
 |---|---|---|
-| `WheelRunner.rank_candidates_by_ev` (5 explicit tickers) | ✓ ~2s | ✓ |
+| `WheelRunner.rank_candidates_by_ev` (5 explicit tickers) | ✓ ~2s when a data root is present; ✗ otherwise (D31: sandboxes hold no data) | ✓ |
+| Data-backed tests (`requires_data` marker) | ✗ skip visibly without a data root | ✓ |
 | `scripts/diagnose_candidates.py` (full universe) | ✗ exceeds 45s timeout | ✓ ~3 min |
 | Theta chains / Greeks / IV surfaces | ✗ no Terminal | ✓ |
 | `pip install -r requirements.txt` (full) | ✗ exceeds 45s timeout — batch in 3 chunks | ✓ |

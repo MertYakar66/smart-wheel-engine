@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import (
     OPTION_PREMIUM_COLUMNS,
     MarketDataConnector,
@@ -26,7 +27,7 @@ from engine.data_connector import (
 from engine.wheel_runner import WheelRunner, _resolve_real_premium
 
 REPO = Path(__file__).resolve().parent.parent
-_OHLCV = REPO / "data" / "bloomberg" / "sp500_ohlcv.csv"
+_OHLCV = paths.bloomberg_dir() / "sp500_ohlcv.csv"
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 from engine.data_integration import get_current_risk_free_rate
 from engine.wheel_runner import _resolve_pit_atm_iv
@@ -36,7 +37,7 @@ def test_rfr_returns_real_pit_rate_not_spurious_5pct(conn) -> None:
 
 def test_fallback_only_fires_before_coverage(conn) -> None:
     """The 0.05 fallback is reachable only before treasury coverage (pre-1994)."""
-    raw = pd.read_csv("data/bloomberg/treasury_yields.csv")
+    raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
     raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
     cov_start = raw.dropna(subset=["rate_3m"])["date"].min()
     assert cov_start <= pd.Timestamp("2018-01-01"), "coverage must precede OHLCV start"

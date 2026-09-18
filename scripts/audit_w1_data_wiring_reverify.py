@@ -33,7 +33,7 @@ import pandas as pd
 REPO = Path(__file__).resolve().parent.parent
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
-
+from engine import paths  # noqa: E402
 from engine.wheel_runner import WheelRunner  # noqa: E402
 
 OUTDIR = Path("docs/verification_artifacts/data_wiring_reverify_2026-06-29")
@@ -364,7 +364,7 @@ def audit_vol_iv(wr: WheelRunner) -> dict:
 # ---------------------------------------------------------------------------
 def audit_treasury(wr: WheelRunner) -> dict:
     conn = wr.connector
-    raw = pd.read_csv("data/bloomberg/treasury_yields.csv")
+    raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
     raw["date"] = pd.to_datetime(raw["date"])
     probes = {}
     for label, as_of in [

@@ -185,9 +185,9 @@ def check_existing_data():
     print("Checking Existing Bloomberg Data")
     print("=" * 50)
 
-    from pathlib import Path
+    from engine import paths
 
-    bloomberg_dir = Path("data/bloomberg")
+    bloomberg_dir = paths.bloomberg_dir()
 
     if not bloomberg_dir.exists():
         print("\nNo data/bloomberg directory found.")

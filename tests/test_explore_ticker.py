@@ -15,13 +15,12 @@ Bloomberg CSVs are absent.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
+from engine import paths
 from engine.wheel_runner import WheelRunner
 
-DATA_DIR = Path("data/bloomberg")
+DATA_DIR = paths.bloomberg_dir()
 
 pytestmark = pytest.mark.skipif(
     not (DATA_DIR / "sp500_ohlcv.csv").exists()

@@ -7,13 +7,13 @@ This file configures:
 3. Test markers
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 # Configure hypothesis profiles
 try:
-    from hypothesis import settings, Verbosity
+    from hypothesis import Verbosity, settings
 
     # CI profile: more examples, faster deadline
     settings.register_profile(
@@ -53,14 +53,46 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "quant: marks tests as quantitative validation tests"
-    )
+    config.addinivalue_line("markers", "quant: marks tests as quantitative validation tests")
     config.addinivalue_line(
         "markers",
         "backtest_regression: long-running backtest reproducers — excluded from per-PR CI; "
         "run via .claude/commands/backtest-regression.md",
     )
+    config.addinivalue_line(
+        "markers",
+        "requires_data: needs the desktop data root (DECISIONS.md D31) — skipped, visibly, "
+        "when data/bloomberg/sp500_ohlcv.csv is absent under SWE_DATA_ROOT (or the CWD)",
+    )
+
+
+def _data_root_present() -> bool:
+    """True when the served Bloomberg panel is readable — the D31 data root is here."""
+    try:
+        from engine import paths
+
+        return (paths.bloomberg_dir() / "sp500_ohlcv.csv").is_file()
+    except Exception:  # pragma: no cover - engine import failure surfaces elsewhere
+        return False
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip ``requires_data`` tests when no data root is present (CI, sandboxes).
+
+    The skip is visible in the summary (`-rs`) so a run without data can never
+    be mistaken for a run that exercised the data-backed suites (D31 step 4).
+    """
+    if _data_root_present():
+        return
+    from engine import paths
+
+    where = paths.data_root() or "the working directory (SWE_DATA_ROOT unset)"
+    skip = pytest.mark.skip(
+        reason=f"requires_data: no data root — data/bloomberg/sp500_ohlcv.csv absent under {where} (D31)"
+    )
+    for item in items:
+        if "requires_data" in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture
@@ -70,8 +102,8 @@ def sample_prices():
     n = 252  # One year of trading days
     returns = np.random.normal(0.0005, 0.02, n)  # ~12% annual return, 32% vol
     prices = 100 * np.cumprod(1 + returns)
-    dates = pd.date_range('2024-01-01', periods=n, freq='B')
-    return pd.Series(prices, index=dates, name='close')
+    dates = pd.date_range("2024-01-01", periods=n, freq="B")
+    return pd.Series(prices, index=dates, name="close")
 
 
 @pytest.fixture
@@ -79,7 +111,7 @@ def sample_ohlcv():
     """Generate sample OHLCV data for testing."""
     np.random.seed(42)
     n = 252
-    dates = pd.date_range('2024-01-01', periods=n, freq='B')
+    dates = pd.date_range("2024-01-01", periods=n, freq="B")
 
     # Generate realistic OHLCV data
     close = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.02, n))
@@ -95,26 +127,31 @@ def sample_ohlcv():
     # Volume
     volume = np.random.lognormal(15, 0.5, n)
 
-    return pd.DataFrame({
-        'open': open_prices,
-        'high': high,
-        'low': low,
-        'close': close,
-        'volume': volume,
-    }, index=dates)
+    return pd.DataFrame(
+        {
+            "open": open_prices,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        },
+        index=dates,
+    )
 
 
 @pytest.fixture
 def sample_portfolio():
     """Generate sample portfolio for risk testing."""
-    return pd.DataFrame({
-        'symbol': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META'],
-        'position': [100, 50, 30, 40, 60],
-        'price': [175.0, 380.0, 140.0, 180.0, 500.0],
-        'delta': [0.5, 0.45, 0.55, 0.48, 0.52],
-        'gamma': [0.02, 0.015, 0.025, 0.018, 0.022],
-        'vega': [0.12, 0.15, 0.10, 0.14, 0.11],
-    })
+    return pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "AMZN", "META"],
+            "position": [100, 50, 30, 40, 60],
+            "price": [175.0, 380.0, 140.0, 180.0, 500.0],
+            "delta": [0.5, 0.45, 0.55, 0.48, 0.52],
+            "gamma": [0.02, 0.015, 0.025, 0.018, 0.022],
+            "vega": [0.12, 0.15, 0.10, 0.14, 0.11],
+        }
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)

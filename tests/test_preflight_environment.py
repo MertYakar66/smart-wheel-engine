@@ -31,12 +31,13 @@ Deliberately NOT included (kept additive + non-flaky):
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
-DATA_DIR = Path("data/bloomberg")
+from engine import paths
+
+DATA_DIR = paths.bloomberg_dir()
 _OHLCV = DATA_DIR / "sp500_ohlcv.csv"
 HAS_BLOOMBERG_DATA = _OHLCV.exists()
 _SNAPSHOT_BDP = DATA_DIR / "broad_pull" / "per_name" / "sp500_snapshot_bdp.csv"

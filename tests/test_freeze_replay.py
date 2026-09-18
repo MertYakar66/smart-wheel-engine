@@ -18,9 +18,10 @@ import pandas as pd
 import pytest
 
 from backtests import freeze_replay as fz
+from engine import paths
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DATA_DIR = _REPO_ROOT / "data" / "bloomberg"
+_DATA_DIR = paths.bloomberg_dir()
 _FIXTURE = _REPO_ROOT / "tests" / "fixtures" / "freeze_replay" / "freeze_snapshot_24t.json"
 
 

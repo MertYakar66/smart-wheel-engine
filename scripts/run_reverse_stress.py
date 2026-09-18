@@ -27,17 +27,17 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
 import pandas as pd  # noqa: E402
 
 from backtests import reverse_stress as rs  # noqa: E402
+from engine import paths  # noqa: E402
 
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    paths.resolve(os.environ.get("SWE_VALIDATION_DIR") or str(paths.processed_dir() / "validation"))
     / "reverse_stress"
 )
 DEFAULT_TABLE = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    paths.resolve(os.environ.get("SWE_VALIDATION_DIR") or str(paths.processed_dir() / "validation"))
     / "tail_exceedance"
     / "tail_table_100t.csv"
 )

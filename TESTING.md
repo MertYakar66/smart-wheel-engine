@@ -17,6 +17,15 @@ for the live count — pinned numbers drift within a day).
 
 Markers and hypothesis profiles are wired in `conftest.py`.
 
+> **Data-backed tests and the data root (D31).** The suites that read the
+> Bloomberg panels (the loader, wiring and integrity suites, the launch-blocker
+> fingerprints) resolve their paths through `engine/paths.py`, so they run
+> against `SWE_DATA_ROOT` when it is set and against the working directory when
+> it is not. Without a data root they **skip, visibly** (their `skipif` guards
+> or the `requires_data` marker) — a green run with skips is a unit-lane run,
+> not a proof of the data path. The desktop runs the full lane; run
+> `python scripts/data_manifest.py check --root <root> --size-only` first.
+
 ## Two-axis verification
 
 The pytest suite is one of two complementary verification surfaces;
@@ -155,6 +164,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_bloomberg_loader.py` | Bloomberg CSV loader |
 | `test_theta_connector.py` | Theta v3 connector |
 | `test_data_pipeline.py` | End-to-end pipeline |
+| `test_data_manifest.py` | Data manifest tool (build / check / census / materialize — never overwrites, byte-verified from git objects) + committed-manifest shape (D31) |
+| `test_data_paths.py` | `SWE_DATA_ROOT` re-rooting of the data prefixes; override precedence; connector follows the trio default (D31) |
 | `test_data_validation.py` | Schema + quality checks |
 | `test_data_integration.py` | Provider selection + integration |
 | `test_features.py` | `engine/features/` modules (dynamics, options, technical, volatility) |
@@ -367,6 +378,7 @@ pytest tests/ -m quant -v
 | `@pytest.mark.slow` | Long-running. Deselect with `-m "not slow"`. |
 | `@pytest.mark.quant` | Quantitative validation tests. |
 | `@pytest.mark.backtest_regression` | Long-running ledger-backtest reproducers (S27/S32/S34/S35). Excluded from per-PR CI; run via `.claude/commands/backtest-regression.md` or the `Backtest Regression` workflow. |
+| `@pytest.mark.requires_data` | Needs the desktop data root (`DECISIONS.md` D31). `conftest.py` skips these — visibly, reason `requires_data: no data root …` — when `data/bloomberg/sp500_ohlcv.csv` is absent under `SWE_DATA_ROOT` (or the CWD). CI and Cowork sandboxes hold no data, so there they skip; the desktop runs them. Mark a test with it when a module-level `skipif(not DATA_DIR.exists())` guard is not already doing the same job; run `pytest -rs` to see what skipped. |
 
 ## What to run when you change ___
 

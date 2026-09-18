@@ -31,8 +31,9 @@ from data.broad_pull_loaders import (
     BroadPullLoader,
     get_broad_pull_loader,
 )
+from engine import paths
 
-BROAD_PULL_DIR = Path("data/bloomberg/broad_pull")
+BROAD_PULL_DIR = paths.broad_pull_dir()
 HAS_BROAD_PULL_DATA = (BROAD_PULL_DIR / "macro_vol" / "sp500_vol_indices.csv").exists()
 
 # Byte-verified facts (scan of the staged bytes == BROAD_PULL_MANIFEST.md ==

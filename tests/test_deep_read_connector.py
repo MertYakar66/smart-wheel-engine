@@ -22,10 +22,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 
 # Committed monoliths (2018+); no deep/ subdir in the repo.
-REPO_DATA = "data/bloomberg"
+REPO_DATA = str(paths.bloomberg_dir())
 
 # A materialized dir (refresh monoliths + deep/ + delisted gz) for the assembly
 # tier. Set e.g. SWE_DEEP_TEST_DATA=C:\tmp\deepdata\bloomberg locally.

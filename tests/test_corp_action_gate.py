@@ -20,6 +20,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.event_gate import EventGate, ScheduledEvent
 from engine.wheel_runner import _register_corp_action_events
 
@@ -150,9 +151,8 @@ class TestRegisterCorpActionEvents:
 # 3. Connector accessor on real data (the on-main corp-actions census)
 # --------------------------------------------------------------------------
 
-from pathlib import Path  # noqa: E402
 
-_HAS_CA = Path("data/bloomberg/sp500_corporate_actions.csv").exists()
+_HAS_CA = (paths.bloomberg_dir() / "sp500_corporate_actions.csv").exists()
 needs_ca = pytest.mark.skipif(
     not _HAS_CA, reason="needs data/bloomberg/sp500_corporate_actions.csv"
 )

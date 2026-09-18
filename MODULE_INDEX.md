@@ -122,6 +122,7 @@ Status: `live` (production), `legacy` (still imported but superseded),
 | Module | Purpose |
 |---|---|
 | `policy_config.py` | Runtime policy knobs. |
+| `paths.py` | The data root (D31): `SWE_DATA_ROOT` re-roots `data/`, `data_raw/`, `data_processed/`; unset → legacy CWD-relative paths; `SWE_DATA_PROCESSED_DIR` / `SWE_IBKR_DATA_DIR` / `SWE_OPTION_PREMIUM_DIR` / `SWE_SIM_DATA_DIR` keep winning in their scope. |
 | `contracts.py` | Dataclasses for trade I/O. |
 | `payoff_engine.py` | Payoff diagrams (display). |
 

@@ -1,0 +1,748 @@
+{
+ "schema": 2,
+ "generated": "2026-09-18",
+ "root_used": "git objects (main @ 69bf3b9; deep-history/bloomberg-raw @ 68a48b2; claude/daybot-bloomberg-pull @ 2abf850)",
+ "note": "Every dataset the engine owns: path relative to the data root, byte size, sha256. Generated 2026-09-18 straight from the git objects that held the data at the time (git_source per file), so it is the checklist a data root must satisfy before anything leaves git (DECISIONS.md D31). The data root is the operator's desktop (SWE_DATA_ROOT); Google Drive is the verified backup. Verify a root with: python scripts/data_manifest.py check --root <root>.",
+ "git_sources": {
+  "git:main": "69bf3b933a8adee8e8e8727ca280a9d2af99acb8",
+  "git:deep-history/bloomberg-raw": "68a48b245cea285d98f86ab7e6ba1b5cdca7002d",
+  "git:claude/daybot-bloomberg-pull": "2abf850d76b3de9a1e04301d333485e64061f3cd"
+ },
+ "drive": {
+  "data/bloomberg": "1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh",
+  "data/bloomberg/deep": "1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna",
+  "data/bloomberg/broad_pull/per_name": "1GF0HCnt9ch2Lj8-vjc1ftELnd-nbDDhG",
+  "data/bloomberg/broad_pull/iv_surface": "1JdolIi5nswEl5TdV-z2fkRtOCVFIUn3r",
+  "data/bloomberg/broad_pull/short_interest": "1aH6b-yq9wfRKKaoxr5KmNM6_7KDXPlXF",
+  "data/bloomberg/broad_pull/dividend_pit": "17144fuEZ3pgf5X5i6SyjBZqMWnGhsa2K",
+  "data/bloomberg/broad_pull/macro_vol": "1uAYXlAoIvQDzvQWnZY8LZirqSvJkaUdA",
+  "data/bloomberg/broad_pull/macro_rates": "1mq2wY26_DqzTn6HrBZX5F193iw5brlnE",
+  "data/bloomberg/broad_pull/macro_calendar": "1X0zhgUyujmo7Z1Swl4vpc-liZUaxyGuk",
+  "swe-local-only (Tier C: theta, option_premium, features, vol_indices, validation, data_processed_root, data_raw, trade_universe, ibkr)": "1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn"
+ },
+ "counts": {
+  "bloomberg": {
+   "files": 22,
+   "bytes": 264562346
+  },
+  "broad_pull": {
+   "files": 27,
+   "bytes": 297013736
+  },
+  "deep": {
+   "files": 13,
+   "bytes": 373354604
+  },
+  "features": {
+   "files": 10,
+   "bytes": 2664193
+  },
+  "processed": {
+   "files": 1,
+   "bytes": 166350
+  },
+  "raw": {
+   "files": 11,
+   "bytes": 2373074
+  },
+  "ticks": {
+   "files": 15,
+   "bytes": 490719019
+  }
+ },
+ "files": [
+  {
+   "path": "data/bloomberg/broad_pull/dividend_pit/sp500_dividend_yield_pit.csv",
+   "size": 2643753,
+   "sha256": "8e356c852cfc4441c351e63cb80bbc38c357d12df62128ca05b83cf885ce1040",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/iv_surface/sp500_iv_surface.csv.gz",
+   "size": 95259688,
+   "sha256": "6e0897dd09ff7a018636a1fbc693909606416e856b8b5415896951733227e887",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_calendar/sp500_macro_calendar.csv",
+   "size": 36124,
+   "sha256": "d2dd6d286e62a4988d2636f8f524de22494f1e4943400bcd89808d841daa1fec",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_calendar/sp500_macro_releases.csv",
+   "size": 211759,
+   "sha256": "e0fbd35a3bf9bab91c34bc96ce710dba502f946fe343d3b960daca88202009b8",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/commodities.csv",
+   "size": 238677,
+   "sha256": "092e3c678159acfc0f77c542324cf6bb759b3ce277b293705fbb07b34c537264",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/fed_funds.csv",
+   "size": 153339,
+   "sha256": "b31ac2da0a0d9102e22ef12df099e9e2274793459f8ce461dda648afd3b44c78",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/fx.csv",
+   "size": 264725,
+   "sha256": "aafd23ee5db35e3e6f117cdc88b43e8eeb84df7006c7d33fc3f7e653b7188767",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/global_vol.csv",
+   "size": 295539,
+   "sha256": "d93da026bfad9ade81c31433547d07d5aa18e24c81965da027b357264a5879f1",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/macro_surprise.csv",
+   "size": 129634,
+   "sha256": "83c05f09cf5dbf46a58c40a36f7922908f628fe211dfeb9e054c91f3e9c8011b",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/ois_sofr_curve.csv",
+   "size": 530840,
+   "sha256": "c69856cdedb82a407343bd8738a2060442528ccce798aea071de6536f2fde05e",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/real_yields.csv",
+   "size": 362789,
+   "sha256": "283eccae8e613ce40eb850a2af0a2e8988817a195da828de067b28460db84165",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_rates/sector_factor_etfs_ohlcv.csv",
+   "size": 4893157,
+   "sha256": "aed3f9554416d4d952b1308c9f538feed35cf12de9945eb075c37db684de688c",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_vol/credit_spreads.csv",
+   "size": 117641,
+   "sha256": "83dc5bebcae539b145d3fceb605c40f1eebcf44b937966ed91b73fc2202c38b6",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_vol/sp500_vol_indices.csv",
+   "size": 390979,
+   "sha256": "1b3817bbcd97385a3f0fd5e629106aac02bfb729737ccc0d177b3dca36626931",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_vol/spx_correlation.csv",
+   "size": 147464,
+   "sha256": "f624de7c9da61a34cad7104b638382d24ea6ef51e0c8d78b6bffbb989ac9623b",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/macro_vol/vix_futures_curve.csv",
+   "size": 287098,
+   "sha256": "5009c8213f683bf1be8649e003040364d35ba797f5a38dcbc15505d28cd890a3",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/beta_shares.csv",
+   "size": 3242376,
+   "sha256": "bf128de27b79a4bcae0845dea16505a166b48e0f1335721d7b6cb82ddabb04f2",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/estimates_fwd.csv",
+   "size": 6078964,
+   "sha256": "74415cc63ac488c734a290a6aabb8f254403daedd91ea5d520d532bec79d84d0",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/estimates_m.csv",
+   "size": 4157128,
+   "sha256": "cb67a619cf984bb15f982103fd50170c22e00ddcfba638d463f82f7efedee50d",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/fundamentals_ext_q.csv",
+   "size": 2593044,
+   "sha256": "19c5f8fe20a7c1f34e1a6f6ebdab7de4cb1159590583affeda2351c44af05218",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/fundamentals_q.csv",
+   "size": 3173739,
+   "sha256": "274da1e6a61f67f476e6c1d1987ee722910f26b4af1cc2049c53aaeee21756e6",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/options_sentiment.csv.gz",
+   "size": 32012405,
+   "sha256": "2cdd633975dd61ef92b82432892537ba2cf2d4f88d0b8f6af262deec7f509ab4",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/returns_micro.csv",
+   "size": 72363773,
+   "sha256": "64ff81f606d06605f7edeaafa365ead79e8c4c10da516939a49295cef2af1ef7",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/sp500_snapshot_bdp.csv",
+   "size": 162882,
+   "sha256": "f10dae3274a0a8c6a79cf7c040963942217001215f6ec24fcfb3ec91208b985f",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/valuation_m.csv",
+   "size": 4331760,
+   "sha256": "7b40bd88b4d25eb4e629bada6f4c29c2054a2f2f69625749ceba9878f7b9655c",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/per_name/vol_term_rv.csv.gz",
+   "size": 58295806,
+   "sha256": "d6c5f2910a35a045c7f8e331a755a7ba9980201a6c4d3d07486dd050d400aede",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/broad_pull/short_interest/sp500_short_interest.csv",
+   "size": 4638653,
+   "sha256": "93535f2aa24c1f6f9f7f3dba4bba850ff9f96463967774c644456d346ee5d641",
+   "group": "broad_pull",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/deep/delisted_status.csv",
+   "size": 71569,
+   "sha256": "5dee6adb9fd5ecab6ebaa8bf0dc1cfbe411599d573f756b21df1c003b58f25e0",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/ohlcv_dropped_ticks.csv",
+   "size": 8962,
+   "sha256": "1e0e2a332af5b13869f7ca19b72952c5a52658a5fe6cb175a1f7588d3bb2e5f6",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/ohlcv_dropped_ticks__delisted.csv",
+   "size": 4957,
+   "sha256": "0653c60e2deb3b4b20671b626b1ed9d9d2351e79a0d6c1ff5ac49aa9732afacc",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_iv_surface__2005_2011.csv.gz",
+   "size": 51586372,
+   "sha256": "d2ed4e9bba36f4a11d7c498e073fac28fe64f4982bb0c2666b77eb7555dfa89f",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_iv_surface__2012_2018.csv.gz",
+   "size": 59392342,
+   "sha256": "f40d684da6e674c8cd674eab3a8f0ac12419defa678d60b47883fa8e71cfc67c",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_iv_surface__2019_2026.csv.gz",
+   "size": 72500413,
+   "sha256": "c0b5c079e6d3ccb90f54b0e3faa64d4c72cd679e36b55e05058fb4c07d2dc194",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_liquidity__1994_2015.csv.gz",
+   "size": 20919884,
+   "sha256": "2fac69f124179d423654ae8c3e25806308bda70abe26c7c4d2ffdb86a10f024e",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_liquidity__delisted.csv.gz",
+   "size": 24169257,
+   "sha256": "2f4417084ceffc8de1e658c3690887a16f9bd6068d0d5d5be28c9d3aff06499b",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_ohlcv__1994_2018.csv.gz",
+   "size": 31705057,
+   "sha256": "615b0edc7b3f26fcfca00341841e448ed49b9d742fa50b6417cb0a820dfa074f",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_ohlcv__delisted.csv.gz",
+   "size": 34075979,
+   "sha256": "23fa477c0b89d1d86c1b87fc57df041a8800f0152ecd321b4e39fe466f3aae91",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_vol_iv__delisted.csv.gz",
+   "size": 40025527,
+   "sha256": "f89c77e551dd7687b27e63189f1b7ab09bc29c76a44dbe65bb80bb905bb80526",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_vol_iv_full__1994_2012.csv.gz",
+   "size": 28297508,
+   "sha256": "49e7a0ffe01a22fde43bf95b91767165bbf922ab9d7bb15b192c10dc37903480",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/deep/sp500_vol_iv_full__2012_2018.csv.gz",
+   "size": 10596777,
+   "sha256": "b35932097762811a3fdbb727a2f862a9601e69c9fa9fd61a1d8436a5d6b27664",
+   "group": "deep",
+   "git_source": "git:deep-history/bloomberg-raw"
+  },
+  {
+   "path": "data/bloomberg/sp500_analyst.csv",
+   "size": 34335,
+   "sha256": "1e16d859e047c7919b4b80ad87b1d3577b732eeb76f98bca8066efde146dd923",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_corporate_actions.csv",
+   "size": 2639221,
+   "sha256": "3bd214eb7f8df2537ce12747d4a6135ed66c41efa52a8a7a15611e27774995cd",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_credit_risk.csv",
+   "size": 21501,
+   "sha256": "6a3e31e0c94b6ba6c403748f76d0fe94f0d50b9b406b60c0124216668f6c813d",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_dividends.csv",
+   "size": 4145005,
+   "sha256": "b4ef56ef792e6e3675acde9dd7780d0a9622c5eb10fd3a26e75297e2049f1a24",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_earnings.csv",
+   "size": 2616993,
+   "sha256": "a3548da18a31c8488876ac6e603e707370767085e07eefadf7948d18c3896c47",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_earnings_yf.csv",
+   "size": 586570,
+   "sha256": "ddec08b6446429e3455ef74b2c9e8469484c0f44d5ddef2b765c7938118bbb56",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_fundamentals.csv",
+   "size": 109420,
+   "sha256": "2509f94da9b7da38d3531411820291982028d58c32f82d876c2f5956ae21c563",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_fundamentals_yf.csv",
+   "size": 72967,
+   "sha256": "098a4698f54d3e6515125507357bcd95f40dfb6683d5ce2564e36c1f7f27a24b",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_historical_fundamentals.csv",
+   "size": 3537272,
+   "sha256": "a844e649a219088846a6db87307c42fbe2ab73ecdcc1072dcf0db87ef8727302",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_index_membership.csv",
+   "size": 3188642,
+   "sha256": "9b254cf164d61471e0366e45de74f8a88d29bf9220689e14dfab68ac73e80c21",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_institutional.csv",
+   "size": 23836,
+   "sha256": "8099813389f74e5ffd49aa7b33d43b79ed53fbf095052eea8da7894d82801eeb",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_iv_snapshot_today.csv",
+   "size": 24881,
+   "sha256": "85335cd0acf2282757acb3090f20ed56fc212eec631ef2cd82e56258b53304d2",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_liquidity.csv",
+   "size": 71307147,
+   "sha256": "838552590b7a9d5e47e093a7330cc7ec55cdee78edc47d0955a33ff4bd315450",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_macro.csv",
+   "size": 2459933,
+   "sha256": "236a38dce359c930bf9fe2f1cbe9e7833d5c2d9498d60fc2b5107d4b1bc2d8e5",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_ohlcv.csv",
+   "size": 63446582,
+   "sha256": "23c1dd8beb40383caebfeb816b469d4ee4b14ce24a27f599239d4872dbf441e9",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_sector_etfs.csv",
+   "size": 3490072,
+   "sha256": "559f92c56e4b637fef94ac22da2c33690fb332af0699f707be1585ec29b794d4",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_short_interest.csv.xlsx",
+   "size": 61508,
+   "sha256": "b11afdcb37619af02ebd87183582a87c544c5d796b818c120c7d6523433d1a60",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_vix_full.csv",
+   "size": 402101,
+   "sha256": "60fac304e028b5dba2bc67567258f9c9be5187ded57f19d13a6d0a2ba7894c33",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_vol_dvd.csv",
+   "size": 42562306,
+   "sha256": "0185d15073ca2a6966327a0d154e4176740d401261db4f81e1b77bbd3ede8f88",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/sp500_vol_iv_full.csv",
+   "size": 63102578,
+   "sha256": "f94576dcf41be61ada88c4bad9382cd8121fa0e9891caf9a73741b22092cefb4",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/treasury_yields.csv",
+   "size": 493028,
+   "sha256": "5c6c8fa753901ea4b6b20b81ff970968ead9df8fb68cf4575177cb76c57ddc70",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/bloomberg/vix_term_structure.csv",
+   "size": 236448,
+   "sha256": "8ecdc4e0645ac84527ee555206ba2f54be57bd26dfc960db5ad931a6a86d5f46",
+   "group": "bloomberg",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/_lineage/lineage.parquet",
+   "size": 19657,
+   "sha256": "4a9a96b614ddfc19b7ac3baacc279496314475eeb18d3404d943efdda7bc416a",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/_registry/registry.json",
+   "size": 93332,
+   "sha256": "3fe93565fc1ee73e98078c9254b217607f845734dec17a61e4a1fd8811bda14f",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/dynamics/ticker=AAPL/data.parquet",
+   "size": 292476,
+   "sha256": "364f1c0f1888605c3ff6e19b5826aa2d3ae28d2a059b0ae157e64b778ccbe5c7",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/events/ticker=AAPL/data.parquet",
+   "size": 137650,
+   "sha256": "6f2506e3b829f501ae383cc1962250ba8aeddda7c1bcd006143853a124dba22d",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/labels/ticker=AAPL/data.parquet",
+   "size": 516215,
+   "sha256": "c25b53d67822cb285e5aa18aa16d1aeb08e80a9465efa68e91eec69148b6aad1",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/options_features/ticker=AAPL/data.parquet",
+   "size": 191429,
+   "sha256": "0472a265ed8fe568dec9caa07a5436b66dca8d34bbf6cf63b3d74eed1e45ab2c",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/regime/ticker=AAPL/data.parquet",
+   "size": 273870,
+   "sha256": "14be2deb0c9b668496e06ef40afc3635c96ccccb47e0b01533dd11ea5c3e4476",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/technical/ticker=AAPL/data.parquet",
+   "size": 518918,
+   "sha256": "47805be672dd6e0cbd25e880ff2be19e8e03d6d3b0a21d9fcd88c535b6760892",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/vol_edge/ticker=AAPL/data.parquet",
+   "size": 378247,
+   "sha256": "c32842be7e0c053fef5cd5044feaae7081a51bc48afe71aa087fa03d4f59095d",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data/features/volatility/ticker=AAPL/data.parquet",
+   "size": 242399,
+   "sha256": "eb69f02c21aaa0867c680bf78b2244e47630d506a55edbe4d55cd734e24be3b7",
+   "group": "features",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_processed/trade_universe/2025-11-22_trade_universe.csv",
+   "size": 166350,
+   "sha256": "ef84d1f083d2584f4e377235a3cad8026f978bfeb12fb0118fde91bfc45e4dd9",
+   "group": "processed",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-01-27.csv.gz",
+   "size": 28664001,
+   "sha256": "cb4c94f4a1c25e0647fa0daa474f196fa593cf5d3d887e71a5d8148636107004",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-10.csv.gz",
+   "size": 43600245,
+   "sha256": "39719763baf81c190fa7aec8e9128350746556e837ee5187fc7be2a3b7eb53e9",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-11.csv.gz",
+   "size": 44816860,
+   "sha256": "14edc5b3d4dc964c2bc7346632a0af28865d5a760eb7bb7ed6bcade33437db5b",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-12.csv.gz",
+   "size": 31283241,
+   "sha256": "99c4d61442cfdf2298343586fbb3c8a31892380ae2ce4d283f3889ec0997432a",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-15.csv.gz",
+   "size": 19246068,
+   "sha256": "5f2393ef7c13f3740ab299d8dcd384b2b5f844e998fcdfc69e856d7b9dfc7ea8",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-16.csv.gz",
+   "size": 23155232,
+   "sha256": "912838561bfab68a89be6d487bbf205ffc68c3a2f41fd9c39524e206ff4f8618",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/QQQ_ticks_2026-06-17.csv.gz",
+   "size": 34808335,
+   "sha256": "419392173f18094f1865dd2bb2337abf54210c631771eba4e1062476330bba39",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-01-27.csv.gz",
+   "size": 22509590,
+   "sha256": "1be02272175f4b25a60b8fedf848d8fe880605834c64ca4a3aa68f72cb0ce2b5",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-01-28.csv.gz",
+   "size": 35093007,
+   "sha256": "b216c35f4d4be265e4dc4c577d608503feeeea1d09b7ac7d6fed8825adad1cfd",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-10.csv.gz",
+   "size": 44090511,
+   "sha256": "0a198ddddff00fb26032f8cfd6592b48fbbc9e1b3caf10066ede070dc87705aa",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-11.csv.gz",
+   "size": 49630842,
+   "sha256": "affdadfe784d9d28cd3336a1b94bc0da7d0c7bd4ebf4b944f53c5aabc334bba1",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-12.csv.gz",
+   "size": 35173298,
+   "sha256": "3f310172445c00d5b684662b82c1b3fdd0fe4917d7033914f91fc083d26fc251",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-15.csv.gz",
+   "size": 18502841,
+   "sha256": "4ae1e0ff38f0a5ce38305b73e960acb66655b44c02044ba4cc5876a28d36de7b",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-16.csv.gz",
+   "size": 24601907,
+   "sha256": "d8fd0a53f148cf497e5ab5eaf7d727f7cd61d0d89625e36c5448e11fc7cb7fca",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/bloomberg/ticks/SPY_ticks_2026-06-17.csv.gz",
+   "size": 35543041,
+   "sha256": "338904bf481c63a59943582c93f4048a70d69bc4db2fd42524ac1c143122d3ee",
+   "group": "ticks",
+   "git_source": "git:claude/daybot-bloomberg-pull"
+  },
+  {
+   "path": "data_raw/ohlcv/ABBV.csv",
+   "size": 350937,
+   "sha256": "77866132629d4d0a6a27d26e0ac14a0d7074245ae297156025c42e24def58aa1",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/ohlcv/ABT.csv",
+   "size": 438734,
+   "sha256": "df0e606dca48a58d906e947d5bc913feb90cc82cad4d1895ffb2a59b4e6749c2",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/ohlcv/ACN.csv",
+   "size": 429759,
+   "sha256": "af1536e46bf363dbf263bcdd4150966bcef20122859f9907c72efd73cbae2865",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/ohlcv/AOS.csv",
+   "size": 432371,
+   "sha256": "a04f1230ff5fdce4f0da270ec9ee7228db0b916bac7d0436b17bf52d7d4bcff5",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/ohlcv/MMM.csv",
+   "size": 444580,
+   "sha256": "e44df776763bee096a80525660e7fe1891821c4d2156f9b0c31132415b813d09",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/sp500_constituents_current.csv",
+   "size": 54174,
+   "sha256": "c3007ff19acb57b49fdb6639be23081f567efb7b664a8fea483077cf2cda86e7",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/yfinance/options/2025-11-22_ABBV.csv",
+   "size": 67337,
+   "sha256": "4f43c0dbe250f17de2416910cb5e725001bbb276c9d74499b88b1eb047746add",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/yfinance/options/2025-11-22_ABT.csv",
+   "size": 42445,
+   "sha256": "17f3bc58f4b5449a19e5d64abb6f0a2fbd892809c0f9dc07589b5445ed7f6ad8",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/yfinance/options/2025-11-22_ACN.csv",
+   "size": 66942,
+   "sha256": "421e863cf842b1236e4497fcadeec84eb61cb059265a6c48016456b4bb1be965",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/yfinance/options/2025-11-22_AOS.csv",
+   "size": 3624,
+   "sha256": "2f85f093bf2f9b793f59f02b166e67915fafa8d0cbca526fcc81a0d82379b99a",
+   "group": "raw",
+   "git_source": "git:main"
+  },
+  {
+   "path": "data_raw/yfinance/options/2025-11-22_MMM.csv",
+   "size": 42171,
+   "sha256": "d92d3c50bfe8d6df2782c29967cbf0e8988c8a1ca2c9e526281efb28e79222d5",
+   "group": "raw",
+   "git_source": "git:main"
+  }
+ ]
+}

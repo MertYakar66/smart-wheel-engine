@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from engine import paths
 from utils.data_validation import (
     validate_and_normalize_iv,
     validate_ohlcv_data,
@@ -38,7 +39,7 @@ from utils.data_validation import (
 logger = logging.getLogger(__name__)
 
 # ─── Base directory ───────────────────────────────────────────────────
-BLOOMBERG_DIR = Path("data/bloomberg")
+BLOOMBERG_DIR = paths.bloomberg_dir()  # re-rooted under SWE_DATA_ROOT when set
 
 
 # ─────────────────────────────────────────────────────────────────────

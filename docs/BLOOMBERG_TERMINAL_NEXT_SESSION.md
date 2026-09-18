@@ -20,7 +20,7 @@ Authored 2026-06-27, after Phase 1 of the wiring campaign landed (#354 carry-q,
 2. Repo venv active: `.venv\Scripts\python.exe` (has `xbbg`, pandas).
 3. Confirm connectivity: `python -c "from xbbg import blp; print(blp.bdp('AAPL US Equity','PX_LAST'))"` returns a price.
 4. **FLDS-verify every mnemonic** in the Terminal (`FLDS <field>`) before a large pull — Bloomberg renames fields.
-5. Work on a branch; the pulled CSVs land in `data/bloomberg/` (gitignored large files stay local; committed CSVs are the served monoliths).
+5. Work on a branch; the pulled CSVs land in `data/bloomberg/` **under the data root** (`SWE_DATA_ROOT`, D31 — the desktop, never git). After the pull: `python scripts/data_manifest.py build --root <root>` and commit `data/DATA_MANIFEST.json`; the data itself is never committed (`docs/DATA_POLICY.md` §5).
 
 ---
 

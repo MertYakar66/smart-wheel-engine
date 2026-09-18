@@ -83,13 +83,13 @@ for _stream in (sys.stdout, sys.stderr):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.external_data.edgar_adapter import EDGARAdapter  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_PATH = _ROOT / "data_processed" / "edgar" / "earnings_history.parquet"
+OUT_PATH = paths.processed_dir() / "edgar" / "earnings_history.parquet"  # data root (D31)
 
 
 def load_universe(mode: str, pit_date: str | None = None) -> list[str]:

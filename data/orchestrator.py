@@ -36,6 +36,8 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
+from engine import paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -239,7 +241,9 @@ class PipelineOrchestrator:
     ):
         self.max_workers = max_workers
         self.retry_config = retry_config or RetryConfig()
-        self.checkpoint_dir = checkpoint_dir or Path("data/.checkpoints")
+        self.checkpoint_dir = checkpoint_dir or paths.resolve(
+            "data/.checkpoints"
+        )  # data root (D31)
         self.enable_metrics = enable_metrics
 
         # Lazy imports to avoid circular dependencies

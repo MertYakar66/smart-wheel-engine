@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector, normalize_ticker
 from engine.wheel_runner import WheelRunner
 
@@ -32,7 +33,7 @@ try:
 except Exception:  # pragma: no cover
     UNIVERSE_24 = ()
 
-DATA_DIR = Path("data/bloomberg")
+DATA_DIR = paths.bloomberg_dir()
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_ohlcv.csv").exists()
 
 # Pinned, data-supported frontier (most-recent bar common to OHLCV & IV on main).

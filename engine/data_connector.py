@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from engine import paths
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,9 @@ class MarketDataConnector:
     def __init__(
         self, data_dir: str = "data/bloomberg", *, deep_history: bool | None = None
     ) -> None:
-        self._data_dir = Path(data_dir)
+        # Re-rooted under ``SWE_DATA_ROOT`` when that is set (engine/paths.py);
+        # unchanged otherwise, so the trio's "data/bloomberg" default still works.
+        self._data_dir = paths.resolve(data_dir)
         # Deep-history assembly (R2). DEFAULT OFF — the recent-monolith fast path
         # is unchanged until an architect-reviewed re-baseline flips it on (it is
         # a re-baseline event: it changes what EVEngine sees). When ``None`` the
@@ -224,12 +227,7 @@ class MarketDataConnector:
         # ``connector_data_sha256`` (no re-baseline) and the accessor degrades to
         # an empty frame (→ synthetic-BSM fallback) wherever they are absent
         # (CI, fresh clones). Cached per ticker for the connector's lifetime.
-        _optprem_env = os.environ.get("SWE_OPTION_PREMIUM_DIR", "").strip()
-        self._option_premium_dir = (
-            Path(_optprem_env)
-            if _optprem_env
-            else Path(__file__).resolve().parent.parent / "data_processed" / "option_premium"
-        )
+        self._option_premium_dir = paths.option_premium_dir()
         self._option_premium_cache: dict[str, pd.DataFrame] = {}
 
     # ------------------------------------------------------------------

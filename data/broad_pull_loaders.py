@@ -49,6 +49,7 @@ from pathlib import Path
 import pandas as pd
 
 from data.consolidated_loader import normalize_ticker
+from engine import paths
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,7 @@ class BroadPullLoader:
     """
 
     def __init__(self, data_dir: str | Path = BROAD_PULL_DIR) -> None:
-        self.data_dir = Path(data_dir)
+        self.data_dir = paths.resolve(data_dir)
         self._panels: dict[str, pd.DataFrame] = {}
 
     # ------------------------------------------------------------------ #

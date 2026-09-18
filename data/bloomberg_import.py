@@ -146,4 +146,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    process_bloomberg_data(args.input, args.output)
+    from engine import paths
+
+    process_bloomberg_data(args.input, str(paths.resolve(args.output)))  # data root (D31)

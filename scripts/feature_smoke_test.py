@@ -1388,7 +1388,9 @@ def register_checks(h: Harness) -> None:
     # 21. Feature-store coverage (one check per feature group)
     # ------------------------------------------------------------------
     h.section("21 feature_store_coverage")
-    from pathlib import Path as _P
+    from engine import paths as _paths
+
+    _P = _paths.resolve  # data root (D31): literal data paths re-root under SWE_DATA_ROOT
 
     def _count_tickers(group: str) -> int:
         d = _P("data/features") / group

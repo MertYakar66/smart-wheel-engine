@@ -53,14 +53,14 @@ import pandas as pd
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
+from engine import paths  # noqa: E402
 from engine.sim_portfolio import build_sim_report  # noqa: E402
 
 
 def _sim_dir() -> Path:
     """Resolve the SIM output namespace (env override or the gitignored default)."""
     env = os.environ.get("SWE_SIM_DATA_DIR")
-    base = Path(env) if env else _REPO_ROOT / "data_processed" / "sim"
+    base = paths.resolve(env) if env else paths.sim_dir()  # data root (D31)
     return base
 
 

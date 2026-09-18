@@ -55,14 +55,14 @@ for _stream in (sys.stdout, sys.stderr):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_DIR = _ROOT / "data_processed" / "theta" / "options_flow"
+OUT_DIR = paths.theta_dir() / "options_flow"  # data root (D31)
 
 
 def _theta_up() -> bool:

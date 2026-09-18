@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 from engine.wheel_runner import WheelRunner
 
@@ -57,7 +58,7 @@ _OFFLINE = {
 
 _TICKERS = ["AAA", "BBB"]
 
-_REPO_DATA = Path("data/bloomberg")
+_REPO_DATA = paths.bloomberg_dir()
 HAS_BLOOMBERG_DATA = (_REPO_DATA / "sp500_earnings.csv").exists() and (
     _REPO_DATA / "broad_pull" / "per_name" / "sp500_snapshot_bdp.csv"
 ).exists()

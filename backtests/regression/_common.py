@@ -45,6 +45,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from engine import paths
+
 # ---------------------------------------------------------------------------
 # Friction overlay
 # ---------------------------------------------------------------------------
@@ -100,9 +102,9 @@ def friction_assignment_cost(strike: float, contracts: int, friction_level: str)
 # Data window assertion
 # ---------------------------------------------------------------------------
 
-_OHLCV_PATH = Path("data/bloomberg/sp500_ohlcv.csv")
-_VOL_IV_PATH = Path("data/bloomberg/sp500_vol_iv_full.csv")
-_TREASURY_PATH = Path("data/bloomberg/treasury_yields.csv")
+_OHLCV_PATH = paths.resolve("data/bloomberg/sp500_ohlcv.csv")
+_VOL_IV_PATH = paths.resolve("data/bloomberg/sp500_vol_iv_full.csv")
+_TREASURY_PATH = paths.resolve("data/bloomberg/treasury_yields.csv")
 _REFRESH_COMMAND = "python scripts/pull_ohlcv.py  # first edit hardcoded end_date"
 
 

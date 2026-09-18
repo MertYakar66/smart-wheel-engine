@@ -34,8 +34,9 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 from pathlib import Path
+
+from engine import paths  # noqa: E402
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent
@@ -179,9 +180,7 @@ def pull(host: str, port: int, client_id: int, *, default_cad: float) -> tuple[d
 
 
 def _default_out() -> Path:
-    base = os.environ.get("SWE_IBKR_DATA_DIR")
-    root = Path(base) if base else _REPO_ROOT / "data_processed" / "ibkr"
-    return root / "portfolio_snapshot.json"
+    return paths.ibkr_dir() / "portfolio_snapshot.json"
 
 
 def main(argv: list[str] | None = None) -> int:

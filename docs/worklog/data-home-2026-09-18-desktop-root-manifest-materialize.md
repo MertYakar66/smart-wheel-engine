@@ -2,7 +2,7 @@
 id: data-home-2026-09-18
 title: Data home — desktop data root (SWE_DATA_ROOT), checksum manifest, materialize-from-git (D31 steps 1–4)
 kind: feature
-status: in-flight
+status: completed
 terminal: remote-sandbox
 pr: 526
 decisions: [D31]
@@ -123,6 +123,10 @@ on an empty root and `9 passed, 4 deselected` with the data, as in PR #524.
 `engine/data_connector.py` 82.46% < floor 88, `engine/wheel_runner.py` 76.84% <
 floor 77 (the other five hold). This is the one CI consequence step 5 must
 settle before the data is untracked.
+Re-run of the same CI form on the committed marking (`ab5c610`): `2959 passed,
+271 skipped, 8 deselected, 6 xfailed, 0 failed` in 245 s, `Total coverage:
+83.56%`, the same two floors under, the data restored byte-for-byte afterwards
+(0 deletions; `check --group bloomberg --size-only` → 22 ok).
 
 ## Unresolved / handoff
 

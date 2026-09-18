@@ -34,6 +34,7 @@ import typer
 
 # Universe alphabetical first-100 (matches S34 / S38 conventions).
 from backtests.regression.universes import UNIVERSE_100
+from engine import paths
 
 app = typer.Typer(add_completion=False, help=__doc__)
 
@@ -42,6 +43,7 @@ def _load_sector_map(
     fundamentals_path: Path = Path("data/bloomberg/sp500_fundamentals.csv"),
     universe: tuple[str, ...] = UNIVERSE_100,
 ) -> dict[str, str]:
+    fundamentals_path = paths.resolve(fundamentals_path)
     """Build ticker→GICS sector map keyed by the tracker's ticker form
     (which matches ``UNIVERSE_100``).
 
@@ -444,6 +446,7 @@ def _r9_r10_audit(
 @app.command()
 def analyze(window_dir: Path, ohlcv_path: Path = Path("data/bloomberg/sp500_ohlcv.csv")) -> None:
     """Full analysis of one window — outputs JSON to stdout."""
+    ohlcv_path = paths.resolve(ohlcv_path)
     data = _load_window(window_dir)
     summary = data.get("summary", {})
     start = summary.get("start") or "2018-01-03"
@@ -493,6 +496,7 @@ def analyze_all(
     out_path: Path | None = None,
 ) -> None:
     """Analyse all windows under ``root``."""
+    ohlcv_path = paths.resolve(ohlcv_path)
     sector_map = _load_sector_map()
     reports = []
     for d in sorted(root.glob("w*_*")):

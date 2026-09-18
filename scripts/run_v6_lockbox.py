@@ -33,12 +33,13 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
+
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    paths.resolve(os.environ.get("SWE_VALIDATION_DIR") or str(paths.processed_dir() / "validation"))
     / "v6_lockbox"
 )
 
@@ -232,7 +233,7 @@ def build_report(result: dict, delisted_participants: list, elapsed_seconds: flo
 def cmd_run(args: argparse.Namespace) -> int:
     from backtests.survivorship import run_survivorship_backtest
 
-    deep = _REPO_ROOT / "data" / "bloomberg" / "deep"
+    deep = paths.deep_dir()  # the same tree the connector reads (D31)
     if not deep.exists():
         print(
             f"[v6] PRECONDITION FAILED: {deep} absent — deep panels live on operator machines only",

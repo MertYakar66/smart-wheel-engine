@@ -107,9 +107,15 @@ export SWE_DATA_PROVIDER=bloomberg
 export SWE_DATA_PROVIDER=theta
 ```
 
-`bloomberg` reads the committed CSVs under `data/bloomberg/`. `theta` reads
-live from the Theta Terminal at `127.0.0.1:25503`. Full capability matrix
-in [`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) §2.
+`bloomberg` reads the Bloomberg CSVs under `data/bloomberg/` of the **data
+root** — the folder `SWE_DATA_ROOT` names, or the repository folder when the
+variable is unset. The data lives on the operator's desktop, never in git
+(`DECISIONS.md` D31); git holds `data/DATA_MANIFEST.json`, the checksum
+ledger, and `python scripts/data_manifest.py check --root <root>` proves a
+copy complete. `theta` reads live from the Theta Terminal at
+`127.0.0.1:25503`. Full capability matrix in
+[`docs/DATA_POLICY.md`](docs/DATA_POLICY.md) §2; data root and first fill
+in §6.
 
 The `.claude/settings.json` SessionStart hook warns when the variable is
 unset and defaults to `bloomberg`.

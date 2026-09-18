@@ -21,10 +21,16 @@ import argparse
 import logging
 import re
 import sys
+import sys as _sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_REPO_ROOT))
+from engine import paths  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -358,7 +364,7 @@ def main():
     args = parser.parse_args()
 
     input_dir = Path(args.input)
-    output_dir = Path(args.output)
+    output_dir = paths.resolve(args.output)  # data root (D31)
 
     if not input_dir.exists():
         logger.error(f"Input directory does not exist: {input_dir}")

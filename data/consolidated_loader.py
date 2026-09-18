@@ -38,9 +38,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from engine import paths
+
 logger = logging.getLogger(__name__)
 
-# Default data directory
+# Default data directory (re-rooted under SWE_DATA_ROOT at construction time —
+# see engine/paths.py; the constant stays relative for importers).
 BLOOMBERG_DIR = Path("data/bloomberg")
 
 
@@ -102,7 +105,7 @@ class ConsolidatedBloombergLoader:
         data_dir: str | Path = BLOOMBERG_DIR,
         auto_load: bool = False,
     ):
-        self.data_dir = Path(data_dir)
+        self.data_dir = paths.resolve(data_dir)
 
         # Raw DataFrames (full files)
         self._ohlcv_df: pd.DataFrame | None = None

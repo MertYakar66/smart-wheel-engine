@@ -47,15 +47,14 @@ now would risk encoding the wrong contract.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
 from data.broad_pull_loaders import BroadPullLoader
+from engine import paths
 
-BROAD_PULL_DIR = Path("data/bloomberg/broad_pull")
-DATA_DIR = Path("data/bloomberg")
+BROAD_PULL_DIR = paths.broad_pull_dir()
+DATA_DIR = paths.bloomberg_dir()
 HAS_BROAD_PULL_DATA = (BROAD_PULL_DIR / "macro_vol" / "sp500_vol_indices.csv").exists()
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_ohlcv.csv").exists()
 

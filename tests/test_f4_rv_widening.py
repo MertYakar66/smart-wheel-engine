@@ -213,6 +213,7 @@ class TestF4CasesRanker:
         )
         return None if df.empty else df.iloc[0].to_dict()
 
+    @pytest.mark.requires_data
     def test_cost_2022_04_rv_widening_does_not_fire(self, runner):
         """COST 2022-04-04 had rv30/rv252 = 0.96 — below the 1.30
         threshold. Widening must not fire. This pins the "cannot
@@ -228,6 +229,7 @@ class TestF4CasesRanker:
         # the output is byte-identical to main).
         assert r["prob_profit"] == pytest.approx(0.8333, abs=0.001)
 
+    @pytest.mark.requires_data
     def test_unh_2024_11_rv_widening_fires_mildly(self, runner):
         """UNH 2024-11-11 had rv30/rv252 = 1.36 — barely above
         threshold. Widening fires with a small factor (~1.012),
@@ -244,6 +246,7 @@ class TestF4CasesRanker:
         assert r["ev_dollars"] < 114.53  # below pre-fix baseline
         assert r["ev_dollars"] > 0  # not flipped to negative
 
+    @pytest.mark.requires_data
     def test_aapl_control_rv_widening_does_not_fire(self, runner):
         """AAPL 2026-02-13 control: rv30/rv252 = 0.85, below
         threshold. Widening does not fire (factor 1.0) — no spurious
@@ -260,6 +263,7 @@ class TestF4CasesRanker:
         assert r["ev_dollars"] == pytest.approx(5.35, abs=0.01)
         assert r["prob_profit"] == pytest.approx(0.8571, abs=0.001)
 
+    @pytest.mark.requires_data
     def test_calm_regime_5_ticker_smoke_preserves_main_baseline(self, runner):
         """5-ticker bring-up smoke pinned to as_of=2026-03-20 (the frozen
         data end-date): every candidate the ranker returns must show

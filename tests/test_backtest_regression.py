@@ -131,6 +131,7 @@ def _compare_dict(expected: dict, actual: dict, path: str = "") -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_data
 def test_universes_match_connector():
     """``UNIVERSE_100`` is asserted to remain `get_universe()[:100]`.
 
@@ -172,6 +173,7 @@ def test_snapshot_fingerprints_have_required_keys(snapshot_id):
     "snapshot_id",
     ["s27_ivpit_24t_100k", "s32_friction_24t_1m", "s34_universe_100t_1m", "s35_oos_24t_100k"],
 )
+@pytest.mark.requires_data
 def test_snapshot_data_fingerprint_matches_current(snapshot_id):
     """Active data-drift guard (fast — NOT behind the ``backtest_regression``
     marker, so it runs in the normal per-PR lane).

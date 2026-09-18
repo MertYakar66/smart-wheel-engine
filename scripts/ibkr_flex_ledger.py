@@ -35,9 +35,15 @@ import argparse
 import csv
 import json
 import re
+import sys
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from engine import paths  # noqa: E402
 
 AS_OF = date.today().strftime("%Y%m%d")  # default: today; override with --as-of (re-runnable)
 _PDF_EXTRACT = Path(r"C:\Users\merty\AppData\Local\Temp\ibkr_inception_extract.txt")
@@ -281,7 +287,7 @@ def build(path_a, path_b, out_dir):
     closed.sort(key=lambda r: r["exit_date"])
 
     # ---- write artifacts ----
-    out = Path(out_dir)
+    out = paths.resolve(out_dir)  # data root (D31): a relative --out lands under SWE_DATA_ROOT
     out.mkdir(parents=True, exist_ok=True)
     (out / "wheel_ledger.json").write_text(
         json.dumps(

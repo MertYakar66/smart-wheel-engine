@@ -42,12 +42,13 @@ from __future__ import annotations
 
 import json
 import math
-import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from engine import paths
 
 # Non-trio analytics the observational viewer reuses. (ev_engine /
 # wheel_runner / candidate_dossier are deliberately NOT imported — see
@@ -84,8 +85,7 @@ def _default_dir() -> Path:
     gitignored runtime location ``data_processed/ibkr`` is used (same
     point-in-time, on-disk discipline as the Bloomberg CSVs).
     """
-    env = os.environ.get("SWE_IBKR_DATA_DIR")
-    return Path(env) if env else _DEFAULT_DATA_DIR
+    return paths.ibkr_dir()
 
 
 SNAPSHOT_FILE = "portfolio_snapshot.json"

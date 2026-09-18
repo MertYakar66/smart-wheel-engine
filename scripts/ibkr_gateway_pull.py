@@ -34,11 +34,15 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
+import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 _REPO_ROOT = _HERE.parent
+if str(_REPO_ROOT) not in sys.path:  # direct invocation (Task Scheduler) puts scripts/ first
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from engine import paths  # noqa: E402
 
 # Load the shared transform by path (sibling script; no package install needed).
 _SPEC = importlib.util.spec_from_file_location(
@@ -179,9 +183,7 @@ def pull(host: str, port: int, client_id: int, *, default_cad: float) -> tuple[d
 
 
 def _default_out() -> Path:
-    base = os.environ.get("SWE_IBKR_DATA_DIR")
-    root = Path(base) if base else _REPO_ROOT / "data_processed" / "ibkr"
-    return root / "portfolio_snapshot.json"
+    return paths.ibkr_dir() / "portfolio_snapshot.json"
 
 
 def main(argv: list[str] | None = None) -> int:

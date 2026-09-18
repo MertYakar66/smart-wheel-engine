@@ -44,6 +44,7 @@ def ranked(runner: WheelRunner, request) -> tuple[str, pd.DataFrame]:
     return as_of, df
 
 
+@pytest.mark.requires_data
 def test_outputs_are_finite(ranked) -> None:
     as_of, df = ranked
     assert len(df) > 0, f"no candidates at {as_of}"
@@ -52,6 +53,7 @@ def test_outputs_are_finite(ranked) -> None:
         assert np.isfinite(v).all(), f"{col} has non-finite values at {as_of}"
 
 
+@pytest.mark.requires_data
 def test_probabilities_in_unit_interval(ranked) -> None:
     as_of, df = ranked
     for col in ["prob_profit", "prob_assignment"]:
@@ -59,6 +61,7 @@ def test_probabilities_in_unit_interval(ranked) -> None:
         assert (v >= 0).all() and (v <= 1).all(), f"{col} outside [0,1] at {as_of}"
 
 
+@pytest.mark.requires_data
 def test_served_iv_in_decimal_band(ranked) -> None:
     """Ranker IV is decimal; the connector PERCENT floor (3.0) ⇒ decimal > 0.03."""
     as_of, df = ranked
@@ -67,6 +70,7 @@ def test_served_iv_in_decimal_band(ranked) -> None:
     assert (iv <= 5.0).all(), f"served IV > 500% at {as_of}: {iv[iv > 5.0].tolist()}"
 
 
+@pytest.mark.requires_data
 def test_premium_is_sane_fraction_of_spot(ranked) -> None:
     as_of, df = ranked
     ratio = pd.to_numeric(df["premium"], errors="coerce") / pd.to_numeric(
@@ -75,6 +79,7 @@ def test_premium_is_sane_fraction_of_spot(ranked) -> None:
     assert (ratio > 0).all() and (ratio < 0.5).all(), f"premium/spot out of band at {as_of}"
 
 
+@pytest.mark.requires_data
 def test_short_put_greeks_honour_contract(ranked) -> None:
     """25-delta short put: delta∈[-1,0], gamma>=0, vega>=0 (GREEKS_UNIT_CONTRACT)."""
     as_of, df = ranked

@@ -51,14 +51,14 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_LONG = _ROOT / "data_processed" / "vol_indices.parquet"
-OUT_WIDE = _ROOT / "data_processed" / "vol_indices_wide.parquet"
+OUT_LONG = paths.processed_dir() / "vol_indices.parquet"  # data root (D31)
+OUT_WIDE = paths.processed_dir() / "vol_indices_wide.parquet"
 
 # MOVE: ICE rates index, not in Theta v3 coverage. yfinance fallback only —
 # see pull_vol_indices.py.
@@ -366,7 +366,7 @@ def main() -> int:
         # manifest — half-run is exactly when this signal matters most.
         failures = conn.get_failures()
         if failures:
-            manifest_dir = Path("data_processed/theta")
+            manifest_dir = paths.theta_dir()
             manifest_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
             step_name = Path(__file__).stem

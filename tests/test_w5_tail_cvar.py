@@ -55,6 +55,7 @@ def test_breach_stats_empty(w5) -> None:
     assert w5._breach_stats([]) == {"n": 0}
 
 
+@pytest.mark.requires_data
 def test_cvar_5_respects_tail_ordering() -> None:
     """Engine contract: ``cvar_5`` (worst-5% mean P&L) ≤ the 25th-pct P&L.
 

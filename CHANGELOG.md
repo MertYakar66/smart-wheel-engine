@@ -14,6 +14,36 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-18 — data home: the desktop data root, the checksum manifest, materialize-from-git (D31, steps 1–4)
+
+**Added** — `engine/paths.py`: one resolver for the three data trees (`data/`,
+`data_raw/`, `data_processed/`); `SWE_DATA_ROOT` re-roots them, unset keeps the
+CWD-relative behaviour every caller had. `data/DATA_MANIFEST.json`: every dataset
+the engine owns — 99 files, 1.43 GB — with size, sha256, dataset group and the
+git object it was taken from (`main` @ `69bf3b9`, `deep-history/bloomberg-raw` @
+`68a48b2`, `claude/daybot-bloomberg-pull` @ `2abf850`) plus the Drive folder ids.
+`scripts/data_manifest.py`: `build` / `check` / `census` / `materialize` (fills a
+root from git — creates only what is missing, verifies every byte, never
+overwrites). `requires_data` marker + `conftest.py` skip hook for environments
+without a data root. Tests: `tests/test_data_paths.py`, `tests/test_data_manifest.py`.
+
+**Changed** — the connector, the consolidated / broad-pull loaders, the feature
+store, the pipeline, `engine/data_integration.py`, the IBKR adapter, the paper
+book, the regression harness, the Bloomberg loader / extraction module and
+16 test modules resolve their data paths through `engine.paths` (the
+decision-layer trio untouched; `WheelRunner`'s default is re-rooted by the
+connector). The session-start hooks read the root.
+
+**Docs** — `DECISIONS.md` D31 (the ruling, the six-step sequence, the accepted
+consequence that CI and sandboxes hold no data); `docs/DATA_POLICY.md` §1/§3/§5/§6
+rewritten around the data root (a refresh ends with a manifest commit, never a
+data commit — supersedes the ROADMAP C1 "keep tracking" policy); `docs/DATA_INVENTORY.md`
+§A–§C location map + the Tier-C Drive backup record salvaged from
+`backup/drive-tier-c-2026-07-22`; `OPERATING_MODEL.md` §9.4 step 0;
+`README.md`, `TESTING.md`, `PROJECT_STATE.md`. Untracking the data (step 5) and
+deleting the data branches (step 6) are separate, held until the desktop
+`check` passes.
+
 ## 2026-09-17 — local-AI integrations removed (R12); Track F structure cuts (PR #524); R2 becomes a note (D30)
 
 **Deprecated / removed (Track F, Operator ruling "all the cuts except wheel_runner")** —

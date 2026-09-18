@@ -37,6 +37,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from engine import paths
+
 try:
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -168,7 +170,7 @@ class FeatureStore:
         cache_ttl_hours: int = 24,
         enable_compression: bool = True,
     ):
-        self.base_path = Path(base_path)
+        self.base_path = paths.resolve(base_path)
         self.cache_ttl = timedelta(hours=cache_ttl_hours)
         self.enable_compression = enable_compression
 

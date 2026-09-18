@@ -52,13 +52,14 @@ from __future__ import annotations
 
 import json
 import math
-import os
 from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from engine import paths
 
 # NOTE: intentionally NO import of engine.ev_engine / engine.wheel_runner /
 # engine.candidate_dossier here — AST-guarded by tests/test_paper_book.py.
@@ -134,8 +135,7 @@ def sim_root() -> Path:
     ``<repo>/data_processed/sim`` (the whole ``data_processed/`` tree is
     gitignored, so SIM artifacts never commit).
     """
-    env = os.environ.get("SWE_SIM_DATA_DIR")
-    return Path(env) if env else _repo_root() / "data_processed" / "sim"
+    return paths.sim_dir()
 
 
 def resolve_book_dir(book_name: str, *, create: bool = False) -> Path:

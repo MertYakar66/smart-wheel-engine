@@ -42,6 +42,7 @@ import argparse
 import importlib.util
 import json
 import math
+import sys
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -50,6 +51,9 @@ import numpy as np
 import pandas as pd
 
 _REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+from engine import paths  # noqa: E402
 
 # Reuse the Phase-4 fill ingestion (load_fills / build_fx / iso8 / underlying / fnum).
 _SPEC = importlib.util.spec_from_file_location(
@@ -69,7 +73,7 @@ from engine.wheel_runner import _resolve_pit_atm_iv  # noqa: E402
 
 
 def load_universe() -> set[str]:
-    p = _REPO / "data_raw" / "sp500_constituents_current.csv"
+    p = paths.raw_dir() / "sp500_constituents_current.csv"  # data root (D31)
     out = set()
     if p.exists():
         for ln in p.read_text(encoding="utf-8").splitlines()[1:]:
@@ -324,7 +328,7 @@ def main(csv_a, csv_b, out_dir):
         )
 
     # ---- aggregate ----
-    out = Path(out_dir)
+    out = paths.resolve(out_dir)  # data root (D31): a relative --out lands under SWE_DATA_ROOT
     out.mkdir(parents=True, exist_ok=True)
     result = {"funnel": dict(funnel), "n": len(records)}
     if records:

@@ -21,7 +21,13 @@ else
 fi
 
 # 2. Bloomberg CSVs — required for the bloomberg provider path.
-for f in data/bloomberg/sp500_ohlcv.csv data/bloomberg/sp500_vol_iv_full.csv; do
+DATA_ROOT="${SWE_DATA_ROOT:-.}"
+if [ -n "$SWE_DATA_ROOT" ]; then
+  echo "│  ✓ SWE_DATA_ROOT=$SWE_DATA_ROOT (data root, DECISIONS D31)"
+else
+  echo "│  ○ SWE_DATA_ROOT unset — data read relative to the working directory (D31: set it on the desktop)"
+fi
+for f in "$DATA_ROOT/data/bloomberg/sp500_ohlcv.csv" "$DATA_ROOT/data/bloomberg/sp500_vol_iv_full.csv"; do
   if [ -f "$f" ]; then
     echo "│  ✓ $(basename "$f") ($(du -h "$f" 2>/dev/null | cut -f1))"
   else
@@ -36,7 +42,7 @@ done
 #     look "current" but reason about old market state. Pure bash + awk +
 #     GNU date so the warning fires the same on Cowork (Linux) and on a
 #     Windows Git Bash dev box (where `python3` is the MS Store stub).
-OHLCV="data/bloomberg/sp500_ohlcv.csv"
+OHLCV="$DATA_ROOT/data/bloomberg/sp500_ohlcv.csv"
 if [ -f "$OHLCV" ]; then
   # ISO YYYY-MM-DD in column 1 sorts lexically -> string-max == date-max.
   LAST_DATE=$(awk -F, 'NR>1 && $1>m {m=$1} END {print m}' "$OHLCV" 2>/dev/null)
@@ -54,7 +60,7 @@ if [ -f "$OHLCV" ]; then
 fi
 
 # 3. Theta manifest — warn-only. Cowork still functions on bloomberg fallback.
-MANIFEST="data_processed/theta/_manifest.json"
+MANIFEST="${SWE_DATA_PROCESSED_DIR:-$DATA_ROOT/data_processed}/theta/_manifest.json"
 if [ -f "$MANIFEST" ]; then
   LAST=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['runs'][-1]['ran_at'])" 2>/dev/null || echo "?")
   echo "│  ✓ theta manifest present — last run $LAST"

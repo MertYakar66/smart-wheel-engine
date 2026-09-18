@@ -47,9 +47,11 @@ for _p in (str(_ROOT), str(_SCRIPTS)):  # so sibling scripts + engine import on 
 import ibkr_flex_ledger as flex  # noqa: E402
 import ibkr_live_snapshot as live  # noqa: E402
 
+from engine import paths  # noqa: E402
+
 
 def data_dir() -> Path:
-    return Path(os.environ.get("SWE_IBKR_DATA_DIR") or (_ROOT / "data_processed" / "ibkr"))
+    return paths.ibkr_dir()  # $SWE_IBKR_DATA_DIR wins, else data_processed/ibkr under SWE_DATA_ROOT
 
 
 def _read(p: Path | str) -> dict:

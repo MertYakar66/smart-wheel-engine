@@ -1773,6 +1773,69 @@ present, R3/R4 still downgrade.
 `tests/test_dossier_downgrade_property.py` (`_NON_OVERLAY_REVIEW_REASONS` is
 empty); the absence of `engine/mcp_client.py`. Supersedes D12 and D13.
 
+## D31. The data lives on the operator's desktop; git holds no market data (2026-09-18)
+
+**Decision:** Every dataset the engine owns — the served Bloomberg panels,
+the broad-pull panels, the deep-history slices, the day-bot ticks, the
+feature shards, the Theta corpus, and every future collection — lives on the
+operator's main Windows desktop under one data root, and git stores none of
+it. `SWE_DATA_ROOT` names the root; `engine/paths.py` re-roots the three
+conventional prefixes (`data/`, `data_raw/`, `data_processed/`) under it and
+leaves every caller's behaviour unchanged when the variable is unset (the
+repository folder, as before). `data/DATA_MANIFEST.json` is the checklist:
+path, size, sha256 and the git object of every dataset (99 files, 1.43 GB at
+ruling time, generated from the git objects themselves).
+`scripts/data_manifest.py` proves a root (`check`, exit 1 on any missing or
+altered byte), fills one from git (`materialize` — creates only what is
+missing, verifies every byte it writes, never overwrites, names the branch to
+fetch when an object is absent) and regenerates the manifest after a refresh
+(`build`, carrying the ledger forward). Google Drive remains the backup and is
+never a source of truth; the Drive-migration draft (#507) is closed, its two
+scripts superseded by the manifest tool. The sequence, each step verified
+before the next: (1) the manifest; (2) the git-only datasets materialised on
+the desktop; (3) `check` on the desktop returns 0 missing / 0 mismatched;
+(4) CI and sandboxes run without data — tests that need it carry the
+`requires_data` marker and skip visibly; (5) the data is untracked from git
+in its own PR, without rewriting history, held until (3) is reported;
+(6) `deep-history/bloomberg-raw` and `claude/daybot-bloomberg-pull` are
+deleted only after (3) and after the ticks have a Drive copy. A history
+purge (the 3.01 GB of data blobs in the pack) is a separate, later Operator
+decision.
+
+**Why:** The Operator ruled on 2026-09-18: data gathering is irreversible, so
+no step may risk a byte; the desktop is the main and probably the only home of
+the engine; GitHub is not a store for the data already collected nor for what
+is collected next; Drive stays, delayed. The repository history already
+carries 3.01 GB of data blobs (pack 1.65 GiB), the largest 97.6 MiB against
+GitHub's 100 MiB cap — every refresh commit was one step from failing to push,
+and every clone paid for every past refresh. The manifest keeps the audit
+value the data commits used to carry (which bytes did this run use?) without
+the bytes.
+
+**Consequences accepted:** CI and Cowork sandboxes no longer hold the data,
+so the data-backed tests (the launch-blocker fingerprints, the loader and
+wiring suites) run on the desktop and skip elsewhere; the §9.4 smoke needs a
+data root. Every refresh ends with `build` and a manifest commit, never a data
+commit (supersedes the ROADMAP C1 "keep tracking" policy of 2026-05-30,
+`docs/DATA_POLICY.md` §5).
+
+**Rejected alternatives:**
+
+- *Google Drive as the store (#507).* A network dependency and credentials in
+  every environment; the Operator delayed Drive to a backup role.
+- *Git LFS.* Still GitHub-hosted, still quota, still a dependency on the
+  service the ruling removes.
+- *Keep the served CSVs tracked "for CI".* The exact dependency the ruling
+  removes; CI's job is the code, the desktop's job is the data.
+- *A committed fixture subset so sandboxes can run the smoke.* Market data in
+  git again, in miniature; left to the Operator as an explicit later choice.
+
+**Pinned by:** `tests/test_data_paths.py` (resolve semantics, overrides, unset
+= legacy), `tests/test_data_manifest.py` (build / check / census / materialize
+contracts, ledger carry-over, the committed manifest covers the git-held
+datasets), `engine/paths.py`, `.github/workflows/ci.yml` (the fast lane runs
+with no data root), `data/DATA_MANIFEST.json`.
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

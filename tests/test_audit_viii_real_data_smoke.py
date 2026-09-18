@@ -14,14 +14,13 @@ the CSVs are absent (e.g. on a shallow clone without the data dir).
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 from engine.wheel_runner import WheelRunner
 
-DATA_DIR = Path("data/bloomberg")
+DATA_DIR = paths.bloomberg_dir()
 
 
 pytestmark = pytest.mark.skipif(

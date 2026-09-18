@@ -23,11 +23,11 @@ in advance.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.event_gate import EventGate
 from engine.wheel_runner import _MACRO_EVENT_KIND, _register_macro_events
 
@@ -209,7 +209,7 @@ class TestEndToEndBlocking:
 # 4. Connector accessor on the real broad-pull macro calendar
 # --------------------------------------------------------------------------
 
-_MACRO_CSV = Path("data/bloomberg/broad_pull/macro_calendar/sp500_macro_calendar.csv")
+_MACRO_CSV = paths.broad_pull_dir() / "macro_calendar" / "sp500_macro_calendar.csv"
 needs_macro = pytest.mark.skipif(
     not _MACRO_CSV.exists(), reason="needs broad_pull/macro_calendar/sp500_macro_calendar.csv"
 )
@@ -243,7 +243,7 @@ def test_get_macro_events_respects_date_range():
 # 5. The ranker flag — default OFF (capability dormant), ON empties the book
 # --------------------------------------------------------------------------
 
-_OHLCV_CSV = Path("data/bloomberg/sp500_ohlcv.csv")
+_OHLCV_CSV = paths.bloomberg_dir() / "sp500_ohlcv.csv"
 needs_ranker_data = pytest.mark.skipif(
     not (_OHLCV_CSV.exists() and _MACRO_CSV.exists()),
     reason="needs bloomberg OHLCV + broad_pull macro calendar",

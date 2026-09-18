@@ -17,23 +17,28 @@ assembly assertions run locally against a materialized data dir and skip in CI.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector
 
-# Committed monoliths (2018+); no deep/ subdir in the repo.
-REPO_DATA = "data/bloomberg"
+# The served monoliths (2018+) under the data root (D31). On the desktop root
+# the deep/ slices sit next to them; in a sandbox or CI they usually do not.
+REPO_DATA = str(paths.bloomberg_dir())
+_MONOLITH = Path(REPO_DATA) / "sp500_ohlcv.csv"
 
-# A materialized dir (refresh monoliths + deep/ + delisted gz) for the assembly
-# tier. Set e.g. SWE_DEEP_TEST_DATA=C:\tmp\deepdata\bloomberg locally.
-_DEEP = os.environ.get("SWE_DEEP_TEST_DATA")
+# The assembly tier needs deep/ next to the monoliths: the data root itself
+# once the slices are materialized there, or an ad-hoc dir via
+# SWE_DEEP_TEST_DATA (e.g. C:\tmp\deepdata\bloomberg).
+_DEEP = os.environ.get("SWE_DEEP_TEST_DATA") or REPO_DATA
 
 deep_data = pytest.mark.skipif(
     not (_DEEP and (Path(_DEEP) / "deep" / "sp500_ohlcv__1994_2018.csv.gz").exists()),
-    reason="set SWE_DEEP_TEST_DATA to a dir containing deep/ slices to run assembly tests",
+    reason="deep/ slices absent under the data root (materialize them, D31) and SWE_DEEP_TEST_DATA unset",
 )
 
 
@@ -61,11 +66,18 @@ def test_env_var_falsey_stays_off(monkeypatch):
     assert MarketDataConnector()._deep_history is False
 
 
-def test_deep_on_without_slices_degrades_to_monolith():
-    """deep_history=True against the committed repo data (no deep/ present):
-    missing slices are logged + skipped, so the result equals the OFF result."""
-    on = MarketDataConnector(REPO_DATA, deep_history=True).get_ohlcv("AAPL")
-    off = MarketDataConnector(REPO_DATA, deep_history=False).get_ohlcv("AAPL")
+@pytest.mark.skipif(not _MONOLITH.exists(), reason="served OHLCV monolith absent (no data root)")
+def test_deep_on_without_slices_degrades_to_monolith(tmp_path):
+    """deep_history=True against a dir holding the monolith but no deep/:
+    missing slices are logged + skipped, so the result equals the OFF result.
+    Built in tmp_path (a copy of the OHLCV monolith only) so the guarantee is
+    tested even on a data root where the deep slices are present (D31)."""
+    lone = tmp_path / "bloomberg"
+    lone.mkdir()
+    shutil.copyfile(_MONOLITH, lone / "sp500_ohlcv.csv")
+    assert not (lone / "deep").exists()
+    on = MarketDataConnector(str(lone), deep_history=True).get_ohlcv("AAPL")
+    off = MarketDataConnector(str(lone), deep_history=False).get_ohlcv("AAPL")
     assert not off.empty
     pd.testing.assert_frame_equal(on, off)
 

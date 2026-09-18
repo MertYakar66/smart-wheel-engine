@@ -51,7 +51,11 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 _ROOT = Path(__file__).resolve().parents[1]
-OUT_JSON = _ROOT / "data_processed" / "theta_capabilities.json"
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+from engine import paths  # noqa: E402
+
+OUT_JSON = paths.processed_dir() / "theta_capabilities.json"  # data root (D31)
 
 try:
     import requests

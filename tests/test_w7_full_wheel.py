@@ -228,6 +228,7 @@ def test_value_assert_assigned_called_away_ground_truth(w7) -> None:
 # --------------------------------------------------------------------------- #
 # Live-integration pins — the cycle accountant on real engine output
 # --------------------------------------------------------------------------- #
+@pytest.mark.requires_data
 def test_live_cycle_accounting(w7) -> None:
     from engine.wheel_runner import WheelRunner
 

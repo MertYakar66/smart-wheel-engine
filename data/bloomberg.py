@@ -21,7 +21,6 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import date, datetime
-from pathlib import Path
 
 import pandas as pd
 
@@ -778,7 +777,9 @@ def download_ohlcv(
 # Integration with bloomberg_loader.py - Save live data to CSV files
 # ─────────────────────────────────────────────────────────────────────
 
-BLOOMBERG_DIR = Path("data/bloomberg")
+from engine import paths  # noqa: E402  (data root, DECISIONS D31)
+
+BLOOMBERG_DIR = paths.bloomberg_dir()  # re-rooted under SWE_DATA_ROOT when set
 
 
 def refresh_ohlcv(tickers: list[str], start_date: str = "2019-01-01") -> int:

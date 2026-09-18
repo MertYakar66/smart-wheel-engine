@@ -972,6 +972,7 @@ class TestScanUniverseWithIV:
 # ============================================================================
 
 
+@pytest.mark.requires_data
 def test_score_entry_with_iv_against_real_connector():
     """score_entry_with_iv runs end-to-end against the real
     MarketDataConnector. Regression for the previously-dead Layer-2 IV

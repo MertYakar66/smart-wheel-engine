@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-09-17 (§3 reduced to the open items; the dated
+**Last updated:** 2026-09-18 (data-home ruling D31 recorded in §1: the data lives
+under `SWE_DATA_ROOT` on the Operator's desktop, git holds the manifest; #507 closed by
+the ruling. 2026-09-17: §3 reduced to the open items; the dated
 May–July narrative moved verbatim to `archive/2026-09/`; §1 news sentence
 updated for D29. 2026-09-11: §0 added below with the verified state at restart
 and a pointer to the restart brief. Prior: 2026-07-02 deployment-truth doc pass —
@@ -78,8 +80,11 @@ blockquote below predates that bump). The earnings-calendar overlay snapshot is
 `SWE_REFUSE_STALE_LIVE=1` hard-refuses. Refresh needs a logged-in Bloomberg
 Terminal (`docs/BLOOMBERG_TERMINAL_NEXT_SESSION.md` §1, then bump
 `EXPECTED_FRONTIER` / `EXPECTED_EARNINGS_CALENDAR_ASOF` and re-baseline per
-`docs/DATA_POLICY.md` §5). Draft PR #507 (move Bloomberg CSVs to Google Drive)
-is undecided; until it is, the committed CSVs are the only sandbox/CI data path.
+`docs/DATA_POLICY.md` §5). **Data home ruled 2026-09-18 (D31):** the data lives
+under `SWE_DATA_ROOT` on the Operator's desktop, never in git; `data/DATA_MANIFEST.json`
+is the checksum ledger and `scripts/data_manifest.py` proves / fills a root. Draft
+PR #507 (Google Drive as the store) is closed by that ruling; the untracking of the
+served CSVs is held until the desktop `check` passes (`docs/DATA_INVENTORY.md` §A).
 
 **Memory decay found and partly repaired.** `check_doc_currency.py` was FAILing
 (this file 71 d, CHANGELOG 62 d; fail threshold 45 d), which blocked CI on any
@@ -150,7 +155,7 @@ blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
-> **Data currency (point-in-time).** The committed Bloomberg CSVs are
+> **Data currency (point-in-time).** The Bloomberg CSVs (under the data root — `SWE_DATA_ROOT`, D31; tracked on `main` only until step 5) are
 > point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
 > pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
 > the legacy `pull_ohlcv.py` / `pull_liquidity.py` hardcode

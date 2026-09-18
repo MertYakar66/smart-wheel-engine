@@ -61,13 +61,13 @@ for _stream in (sys.stdout, sys.stderr):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_DIR = _ROOT / "data_processed" / "corporate_actions"
+OUT_DIR = paths.processed_dir() / "corporate_actions"  # data root (D31)
 OUT_SPLITS = OUT_DIR / "splits.parquet"
 OUT_DIV = OUT_DIR / "dividends.parquet"
 COMPAT_DIV_CSV = _ROOT / "data" / "bloomberg" / "sp500_dividends_theta.csv"

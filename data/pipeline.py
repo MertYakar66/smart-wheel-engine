@@ -29,10 +29,11 @@ Usage:
 import logging
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from engine import paths
 
 from .bloomberg_loader import (
     BLOOMBERG_DIR,
@@ -133,7 +134,7 @@ class DataPipeline:
             use_consolidated: Force consolidated loader (True), per-ticker loader (False),
                             or auto-detect (None, default).
         """
-        self.data_dir = Path(data_dir) if data_dir else BLOOMBERG_DIR
+        self.data_dir = paths.resolve(data_dir) if data_dir else paths.resolve(BLOOMBERG_DIR)
         self.tickers = tickers
 
         # Auto-detect data format
@@ -273,7 +274,7 @@ class DataPipeline:
 
         # Also check legacy data_raw directory
         if not self._ohlcv:
-            legacy_dir = Path("data_raw/ohlcv")
+            legacy_dir = paths.resolve("data_raw/ohlcv")
             if legacy_dir.exists():
                 logger.info("Falling back to data_raw/ohlcv (legacy yfinance data)")
                 self._ohlcv = load_all_ohlcv(self.tickers, legacy_dir)

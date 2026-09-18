@@ -67,13 +67,14 @@ for _stream in (sys.stdout, sys.stderr):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
-
 import pandas as pd  # noqa: E402
+
+from engine import paths  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-OUT_LONG = _ROOT / "data_processed" / "vol_indices.parquet"
-OUT_WIDE = _ROOT / "data_processed" / "vol_indices_wide.parquet"
+OUT_LONG = paths.processed_dir() / "vol_indices.parquet"  # data root (D31)
+OUT_WIDE = paths.processed_dir() / "vol_indices_wide.parquet"
 
 # Canonical symbols we track.
 DEFAULT_SYMBOLS = (

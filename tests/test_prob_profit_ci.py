@@ -149,6 +149,7 @@ _CI_COLS = ["n_scenarios", "prob_profit_ci_low", "prob_profit_ci_high"]
 
 
 class TestRankerEmitsCI:
+    @pytest.mark.requires_data
     def test_columns_present_even_without_diagnostic_fields(self):
         """The CI travels with prob_profit in the CORE row, so it is
         present even on the lean (include_diagnostic_fields=False) path —

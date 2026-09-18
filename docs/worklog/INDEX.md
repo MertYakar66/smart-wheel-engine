@@ -9,9 +9,9 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**182 records.**
+**183 records.**
 
-## Features (18)
+## Features (19)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -21,6 +21,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [dashboard-pro-overhaul](dashboard-pro-overhaul-dashboard-professional-overhaul-8-lens-review-ho.md) | in-flight |  | Period returns were misstated ~10pp (YTD -12.19% shown vs -2.17% true); every fabricated display killed; engine's served-but-dropped risk verdicts now render | `dashboard-pro-overhaul-dashboard-professional-overhaul-8-lens-review-ho.md` |
 | [dashboard-prob-profit-ci](dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md) | in-flight |  | Decision-cockpit renders the prob_profit Wilson 95% sampling CI + N, gated to the IID non-overlapping forward tier so it never shows false precision. | `dashboard-prob-profit-ci-dashboard-prob-profit-wilson-ci-render-tier-gate.md` |
 | [dashboard-ux-boundaries](dashboard-ux-boundaries-add-app-router-loading-error-not-found.md) | complete |  | Added the missing Next.js App Router special files — graceful loading skeletons, error boundaries (retry, no blank screen), and a branded 404 — across the news-app and terminal route groups. Additive-only; zero engine/decision-layer surface. | `dashboard-ux-boundaries-add-app-router-loading-error-not-found.md` |
+| [data-home-2026-09-18](data-home-2026-09-18-desktop-root-manifest-materialize.md) | completed | #526 | The Operator ruled that every dataset lives on the main desktop and git stores none of it; this run built the verified path there — a 99-file sha256 manifest generated from the git objects, `engine/paths.py` + `SWE_DATA_ROOT` so the engine reads a root outside the checkout (EV smoke byte-identical with the in-repo data hidden), a `materialize` command that fills a root from git without ever overwriting, and the `requires_data` posture for CI and sandboxes. Untracking (step 5) is held until the desktop `check` passes. | `data-home-2026-09-18-desktop-root-manifest-materialize.md` |
 | [deep-read-activation](deep-read-activation-deep-read-connector-survivorship-harness-r2-r3-r.md) | complete |  | Implemented docs/DATA_LAYER_DEEP_READ_DESIGN.md — the connector assembles monolith ∪ deep ∪ delisted below the get_* accessors (R2, default-OFF), a backtests/ survivorship harness selects the PIT universe and values delisted names at their delisting price (R3), and a 2008 backtest proves Lehman's loss is realized not silently dropped (R6). Trio untouched; default-OFF byte-identical; deep path gated on SWE_DEEP_HISTORY / deep_history=True. | `deep-read-activation-deep-read-connector-survivorship-harness-r2-r3-r.md` |
 | [ibkr-portfolio-viewer-functionality](ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md) | in-flight |  | Wired /portfolio to real data via a point-in-time IBKR snapshot → ibkr_portfolio_adapter (outside the trio) → six read-only /api/portfolio/* endpoints → the existing Next.js viewer; observational only, mock kept as typed fallback. | `ibkr-portfolio-viewer-functionality-ibkr-read-only-performance-viewer-functionality.md` |
 | [mc-forward-sim](mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md) | complete |  | Wired the dormant Monte-Carlo + copula machinery into a live distributional forward simulated-portfolio track — equity fan, terminal/drawdown distributions, and a correlation-to-1 tail — reconciled against the deterministic backtest NAV. Reporting-only, off the §2 decision path. | `mc-forward-sim-distributional-mc-forward-simulated-portfolio-tr.md` |

@@ -120,6 +120,7 @@ class TestF4RealWorldGapOnProductionRanker:
     fix should flip the failing assertions in this class.
     """
 
+    @pytest.mark.requires_data
     def test_cost_2022_04_forward_distribution_does_not_widen_for_tail(
         self, cost_2022_04_row: dict
     ):
@@ -146,6 +147,7 @@ class TestF4RealWorldGapOnProductionRanker:
             f"cvar_5_pct_of_collateral < -0.15 instead. spot={spot:.2f}"
         )
 
+    @pytest.mark.requires_data
     def test_cost_2022_04_pot_gpd_does_not_flag_heavy_tail(self, cost_2022_04_row: dict):
         """POT-GPD shape parameter ``xi`` stays at-or-below the 0.3
         heavy-tail threshold (or is unpopulated, which is an even
@@ -169,6 +171,7 @@ class TestF4RealWorldGapOnProductionRanker:
             f"POT-GPD threshold may have been lowered — verify the fix."
         )
 
+    @pytest.mark.requires_data
     def test_unh_2024_11_same_gap_shape(self, unh_2024_11_row: dict):
         """UNH November 2024 (realized -19.31%): same combined shape as
         COST tests above. Cross-ticker replication of the F4 finding."""

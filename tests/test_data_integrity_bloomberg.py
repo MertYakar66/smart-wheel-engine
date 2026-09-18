@@ -17,14 +17,14 @@ flips red the day it is fixed. Findings map to the audit's W-numbers.
 from __future__ import annotations
 
 from functools import cache
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector, normalize_ticker
 
-DATA_DIR = Path("data/bloomberg")
+DATA_DIR = paths.bloomberg_dir()
 HAS_BLOOMBERG_DATA = (DATA_DIR / "sp500_ohlcv.csv").exists()
 
 pytestmark = pytest.mark.skipif(

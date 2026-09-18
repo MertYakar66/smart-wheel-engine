@@ -111,8 +111,18 @@ deep-history assembly tests ran for the first time anywhere.
 `materialize --dry-run` into an empty root: `would write 99, 0 unavailable`;
 `--group raw` written and re-checked: `11 ok`; second run `11 already present,
 wrote 0`; a tampered file: `MISMATCH … (kept, not overwritten)`.
-Final no-data proof in the exact CI form (coverage.json + per-file floors): see
-the PR #526 Run Summary.
+Final no-data proof in the exact CI form (`pytest tests/ -m "not
+backtest_regression" --cov=engine --cov=data --cov-fail-under=80`, the four data
+trees hidden, no root, `f72d16d`): `5 failed, 2958 passed, 266 skipped (51 via
+requires_data), 8 deselected, 6 xfailed` in 249 s; `Total coverage: 83.34%`
+(floor 80 holds). The five were the snapshot fingerprint guards in
+`tests/test_backtest_regression.py` (the three-way proof had ignored that file
+by path); marked in the last commit — the file reports `4 passed, 5 skipped`
+on an empty root and `9 passed, 4 deselected` with the data, as in PR #524.
+**Per-file floors without data** (`scripts/check_coverage_floors.py`):
+`engine/data_connector.py` 82.46% < floor 88, `engine/wheel_runner.py` 76.84% <
+floor 77 (the other five hold). This is the one CI consequence step 5 must
+settle before the data is untracked.
 
 ## Unresolved / handoff
 
@@ -127,4 +137,11 @@ the PR #526 Run Summary.
 - Whether sandboxes should hold a small committed fixture subset so the §9.4
   smoke can run there is an explicit Operator choice (D31, rejected
   alternatives) — today they hold no data.
+- **Step-5 blocker to settle first:** without data the per-file coverage floors
+  fail for `engine/data_connector.py` (82.5% vs 88) and `engine/wheel_runner.py`
+  (76.8% vs 77) while the aggregate holds (83.3% vs 80). Options: recalibrate
+  those two floors to the no-data measurement minus 2pp (the floors' own rule;
+  the desktop full lane keeps the real picture), or first add synthetic-fixture
+  unit tests for the connector paths the data-backed suites covered. Decide in
+  the step-5 Execution Prompt.
 - History purge (3.01 GB of data blobs in the pack): separate decision.

@@ -31,7 +31,7 @@ under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY
 | 2 | Bring the git-only datasets (13 deep slices, 15 tick files) onto the desktop | tool ready (`materialize`, proven byte-exact in the sandbox) — **operator runs it** (§B) |
 | 3 | Verify the desktop root by checksum | tool ready (`check`) — **operator runs it** (§B) and reports the result line |
 | 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
-| 5 | Untrack the data from git (no history rewrite) | **held** until step 3 passes on the desktop |
+| 5 | Untrack the data from git (no history rewrite) | **held** until step 3 passes on the desktop; its PR must also settle the CI per-file coverage floors, which fail without data for `engine/data_connector.py` (82.5% vs 88) and `engine/wheel_runner.py` (76.8% vs 77) while the aggregate holds (83.3% vs 80) |
 | 6 | Delete `deep-history/bloomberg-raw` and `claude/daybot-bloomberg-pull`, close #507 | after 5, and after the ticks have a Drive copy |
 
 ## §B. Fill and verify the desktop root (once)

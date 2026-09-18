@@ -4,7 +4,7 @@ title: Data home — desktop data root (SWE_DATA_ROOT), checksum manifest, mater
 kind: feature
 status: in-flight
 terminal: remote-sandbox
-pr:
+pr: 526
 decisions: [D31]
 date: 2026-09-18
 headline: The Operator ruled that every dataset lives on the main desktop and git stores none of it; this run built the verified path there — a 99-file sha256 manifest generated from the git objects, `engine/paths.py` + `SWE_DATA_ROOT` so the engine reads a root outside the checkout (EV smoke byte-identical with the in-repo data hidden), a `materialize` command that fills a root from git without ever overwriting, and the `requires_data` posture for CI and sandboxes. Untracking (step 5) is held until the desktop `check` passes.

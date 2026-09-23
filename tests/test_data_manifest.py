@@ -5,10 +5,15 @@ code; check exits 0 on a byte-identical root and 1 on a missing or altered
 file, naming it; --group narrows the check; census counts presence by group;
 materialize creates only the files missing from a root, byte-verified from the
 git objects the manifest names, never overwrites, and names the branch to
-fetch when an object is absent; build carries the ledger metadata (git_sources,
-drive, per-file git_source) over from the manifest it replaces; and the
-committed data/DATA_MANIFEST.json parses with the expected schema and covers
-the datasets git holds today (bloomberg, broad_pull, deep, ticks).
+fetch when an object is absent; an archive row (data_archive/, D31) is read
+from its git_path and written to its own path; build carries the ledger
+metadata (git_sources, drive, per-file git_source and git_path) over from the
+manifest it replaces; and the committed data/DATA_MANIFEST.json parses with the
+expected schema, covers the datasets git holds today (bloomberg, broad_pull,
+deep, ticks), and has a row for every data file tracked on this checkout.
+
+Fixture files are written as bytes so the git round trip is byte-stable on
+Windows, where ``write_text`` emits CRLF and ``core.autocrlf`` may rewrite it.
 """
 
 from __future__ import annotations
@@ -35,8 +40,8 @@ def _make_root(tmp_path: Path) -> Path:
     (root / "data" / "bloomberg" / "deep").mkdir(parents=True)
     (root / "data_raw" / "bloomberg" / "ticks").mkdir(parents=True)
     (root / "data_processed").mkdir()
-    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_text(
-        "date,ticker,close\n2026-01-02,AAPL,1\n"
+    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_bytes(
+        b"date,ticker,close\n2026-01-02,AAPL,1\n"
     )
     (root / "data" / "bloomberg" / "deep" / "slice.csv.gz").write_bytes(b"\x1f\x8b" + b"x" * 50)
     (root / "data_raw" / "bloomberg" / "ticks" / "SPY_ticks.csv.gz").write_bytes(
@@ -129,6 +134,33 @@ def test_committed_manifest_covers_the_git_held_datasets():
     assert all(len(f["sha256"]) == 64 and f["size"] > 0 for f in m["files"])
     assert m["counts"]["deep"]["files"] == 13
     assert m["counts"]["ticks"]["files"] == 15
+    # data_archive rows: bytes from a branch tip, read from git_path, never a duplicate
+    sources = m.get("git_sources", {})
+    archive = [f for f in m["files"] if f["group"] == "archive"]
+    assert archive, "the branch archive rows are part of the manifest (D31)"
+    for f in archive:
+        assert f["path"].startswith("data_archive/") and f.get("git_path")
+        assert f["path"].endswith("/" + f["git_path"])
+        assert f.get("git_source") in sources
+    shas = [f["sha256"] for f in m["files"]]
+    assert len(shas) == len(set(shas)), "each distinct file is carried by exactly one row"
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+def test_every_tracked_data_file_has_a_manifest_row():
+    """``check`` walks manifest rows only, so a tracked file without a row is
+    invisible to it — and untracking it would drop the only copy (D31 gap A,
+    2026-09-23: 16 feature sidecars). Whatever git still tracks under the data
+    trees must be in the manifest."""
+    m = dm.load_manifest(_REPO / "data" / "DATA_MANIFEST.json")
+    known = {f["path"] for f in m["files"]}
+    tracked = _git(_REPO, "ls-files", "--", *dm.WALK_DIRS).splitlines()
+    data_files = [
+        p
+        for p in tracked
+        if not p.endswith(dm.SKIP_SUFFIXES) and not set(p.split("/")) & set(dm.SKIP_NAMES)
+    ]
+    assert [p for p in data_files if p not in known] == []
 
 
 # --------------------------------------------------------------------------
@@ -152,6 +184,7 @@ def git_repo_with_data(tmp_path: Path) -> tuple[Path, Path, dict]:
     root = _make_root(tmp_path)
     shutil.copytree(root, repo)
     _git(repo, "init", "-q")
+    _git(repo, "config", "core.autocrlf", "false")  # store the fixture bytes as written
     _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "add", "-A")
     _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "data")
     commit = _git(repo, "rev-parse", "HEAD")
@@ -228,6 +261,42 @@ def test_materialize_dry_run_writes_nothing(tmp_path, git_repo_with_data, capsys
     text = capsys.readouterr().out
     assert rc == 0 and "would write 3" in text
     assert not target.exists() or not list(target.rglob("*"))
+
+
+def test_materialize_writes_archive_rows_from_their_git_path(tmp_path, git_repo_with_data, capsys):
+    """An archive row keeps a branch's bytes under data_archive/<branch>/<path>:
+    materialize reads them from git_path, check and census see them as 'archive',
+    and a rebuild carries git_path over."""
+    repo, manifest, m = git_repo_with_data
+    m2 = json.loads(manifest.read_text())
+    src = next(f for f in m2["files"] if f["path"] == "data/bloomberg/sp500_ohlcv.csv")
+    m2["files"].append(
+        {
+            "path": "data_archive/data-branch/data/bloomberg/sp500_ohlcv.csv",
+            "size": src["size"],
+            "sha256": src["sha256"],
+            "group": "archive",
+            "git_source": "git:data-branch",
+            "git_path": "data/bloomberg/sp500_ohlcv.csv",
+        }
+    )
+    manifest.write_text(json.dumps(m2))
+    target = tmp_path / "desktop"
+    rc = dm.main(
+        ["materialize", "--root", str(target), "--manifest", str(manifest), "--repo", str(repo)]
+    )
+    assert rc == 0, capsys.readouterr().out
+    archived = target / "data_archive" / "data-branch" / "data" / "bloomberg" / "sp500_ohlcv.csv"
+    assert archived.read_bytes() == (target / "data" / "bloomberg" / "sp500_ohlcv.csv").read_bytes()
+    capsys.readouterr()
+    assert dm.main(["check", "--root", str(target), "--manifest", str(manifest)]) == 0
+    assert "4 ok, 0 missing, 0 mismatched" in capsys.readouterr().out
+    assert dm.group_of("data_archive/data-branch/data/bloomberg/sp500_ohlcv.csv") == "archive"
+    assert dm.main(["build", "--root", str(target), "--out", str(manifest)]) == 0
+    rebuilt = {f["path"]: f for f in json.loads(manifest.read_text())["files"]}
+    row = rebuilt["data_archive/data-branch/data/bloomberg/sp500_ohlcv.csv"]
+    assert row["group"] == "archive" and row["git_path"] == "data/bloomberg/sp500_ohlcv.csv"
+    assert row["git_source"] == "git:data-branch"
 
 
 def test_build_carries_ledger_metadata_over(tmp_path, git_repo_with_data, capsys):

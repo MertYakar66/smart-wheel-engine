@@ -129,13 +129,19 @@ except Exception as e:
     print(f"✗ connector smoke failed: {type(e).__name__}: {e}")
 PY
 
-# 6. Protocol reminder — Operating Model v3 (one protocol). Operator-away mode is
-#    OPERATING_MODEL.md §3.1; prompts follow docs/PROMPTING_STANDARD.md.
-echo "│  ─ Protocol (OPERATING_MODEL.md v3) ─"
-echo "│    • Every run starts from a sharpened request (docs/PROMPTING_STANDARD.md)."
-echo "│    • One branch, one PR per run; edit only the files your prompt <owns>."
-echo "│    • Decision-layer trio is CI-gated (lane-claim block in the PR body)."
-echo "│    • Document your run in docs/worklog/ ('python scripts/new_worklog.py')."
+# 6. Protocol — Operating Model v4 (DECISIONS.md D32). The checklist is CLAUDE.md;
+#    every session's first line is its mark, printed by scripts/session_open.py.
+#    `python` first: in Windows Git Bash `python3` is the Microsoft Store stub.
+echo "│  ─ Protocol (OPERATING_MODEL.md v4 — the checklist is CLAUDE.md) ─"
+PY=$(command -v python || command -v python3)
+if [ -n "$PY" ]; then
+  MARK=$("$PY" scripts/session_open.py --no-fetch 2>/dev/null | head -1)
+  [ -n "$MARK" ] && echo "│    pen mark before fetch (re-run it): $MARK"
+fi
+echo "│    • First line = your mark: python scripts/session_open.py (pen) or --executor --run-mode <mode> (terminal)."
+echo "│    • Prompts open with the run mode (line 1) and the Operator's confirmed request, quoted (line 2)."
+echo "│    • One branch, one PR per run; edit only the files your prompt <owns>; the trio needs a lane claim."
+echo "│    • On \"close\": PROJECT_STATE (main hash, §0 B), CHANGELOG, docs/deadlines.md — CLAUDE.md §5."
 # 6b. Per-machine env — several executors on one machine need isolation
 #     (separate port + coverage file + pytest cache). Informational.
 if [ -z "${SWE_API_PORT:-}" ] || [ -z "${COVERAGE_FILE:-}" ] || [ -z "${PYTEST_CACHE_DIR:-}" ]; then

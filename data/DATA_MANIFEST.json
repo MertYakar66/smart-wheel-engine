@@ -22,6 +22,16 @@
   "data/bloomberg/broad_pull/macro_calendar": "1X0zhgUyujmo7Z1Swl4vpc-liZUaxyGuk",
   "swe-local-only (Tier C: theta, option_premium, features, vol_indices, validation, data_processed_root, data_raw, trade_universe, ibkr)": "1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn"
  },
+ "frontier": {
+  "prices": {
+   "path": "data/bloomberg/sp500_ohlcv.csv",
+   "last_date": "2026-07-02"
+  },
+  "iv": {
+   "path": "data/bloomberg/sp500_vol_iv_full.csv",
+   "last_date": "2026-07-02"
+  }
+ },
  "counts": {
   "archive": {
    "files": 29,

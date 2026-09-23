@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**186 records.**
+**187 records.**
 
 ## Features (19)
 
@@ -186,7 +186,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [S42](s42-r9-r10-reviewer-audit.md) | completed |  | R9 + R10 reviewer audit | `s42-r9-r10-reviewer-audit.md` |
 | [S47](s47-live-wheel-session-2026-03-20-trust-audit-on-an.md) | complete |  | Sat down and *used* the engine for a full wheel session at as_of=2026-03-20 (VIX 28.97, HMM bear). Verdict — TRUST IT FOR ENTRY (gating, strike/premium math, sizing-down, EV refusals all sound and realistic), DISTRUST IT FOR MANAGEMENT (suggest_rolls and the covered-call ranker go silent on challenged/assigned names by default — credit-only filter + basis-unaware strike grid). Probabilities are honest but coarse (35-DTE prob_profit = k/35 empirical counts, ±~6pp). Premiums are conservative (no put skew → ~12–20% under a real chain). | `s47-live-wheel-session-2026-03-20-trust-audit-on-an.md` |
 
-## Refactors (9)
+## Refactors (10)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -199,6 +199,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [restart-2026-09-16](restart-2026-09-16-protocol-v3-news-removal.md) | completed | #524 | Recorded the Operator's restart rulings as D29; wrote OPERATING_MODEL v3 + docs/PROMPTING_STANDARD.md + docs/RESTART_PLAN_2026-09-16.md (tracks A–E as Execution Prompts); removed every news implementation (Python, API, tests, configs, registries; dashboard in the same PR series); retired the board/cards/July-channel machinery from hooks, template and archive; declined the history rewrite pending explicit confirmation. | `restart-2026-09-16-protocol-v3-news-removal.md` |
 | [restart-2026-09-17](restart-2026-09-17-local-ai-removal.md) | completed | #524 | Removed local_agent/ (29 files, 8,273 lines), engine/trade_memo.py + /api/memo, /api/summary, /api/ollama_status, and the dashboard's Ollama chat panel, AI status indicator and chat tables (build-verified); recorded the Operator's answers of 2026-09-17 (subscriptions deferred, delta deferred, exit evaluator advisory, API prose) in D29; re-ordered the plan (Track F structure pass first, Track A parked) with a candidate table for the next deletions. | `restart-2026-09-17-local-ai-removal.md` |
 | [restart-2026-09-17-track-f](restart-2026-09-17-track-f-structure-cuts.md) | completed | #524 | Executed every Track F row except the wheel_runner unification under the ruling "all the cuts except wheel_runner; no protection for main" — eight commits on PR #524; src/ collapsed into engine/features + data/; R2 (chart context) is a note, not a stop (D30); main stays unprotected (D29 ruling 13); EV smoke byte-identical to the 2026-09-11 run. | `restart-2026-09-17-track-f-structure-cuts.md` |
+| [working-structure-v4-2026-09-23](working-structure-v4-2026-09-23-working-structure-v4-four-roles-marks-from-comma.md) | completed |  | ORCA's working structure adopted and fitted to this repository. Four roles, with Codex as a read-only second opinion. A first line filled from commands, whose pen version now carries the data age from a manifest frontier. A close, CLAUDE.md as the checklist, and AGENTS.md carrying it word for word for Codex. A CI check keeps them true. | `working-structure-v4-2026-09-23-working-structure-v4-four-roles-marks-from-comma.md` |
 
 ## Docs / process (19)
 

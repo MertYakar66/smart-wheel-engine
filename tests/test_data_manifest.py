@@ -8,9 +8,11 @@ git objects the manifest names, never overwrites, and names the branch to
 fetch when an object is absent; an archive row (data_archive/, D31) is read
 from its git_path and written to its own path; build carries the ledger
 metadata (git_sources, drive, per-file git_source and git_path) over from the
-manifest it replaces; the committed data/DATA_MANIFEST.json parses with the
-expected schema and covers the datasets git held (bloomberg, broad_pull, deep,
-ticks); and git tracks no market data under the data trees (D31).
+manifest it replaces; build records the data frontier (the last date of the
+dated datasets) and keeps the previous one when the file is absent (D32); the
+committed data/DATA_MANIFEST.json parses with the expected schema, covers the
+datasets git held (bloomberg, broad_pull, deep, ticks) and records a frontier;
+and git tracks no market data under the data trees (D31).
 
 Fixture files are written as bytes so the git round trip is byte-stable on
 Windows, where ``write_text`` emits CRLF and ``core.autocrlf`` may rewrite it.
@@ -144,6 +146,11 @@ def test_committed_manifest_covers_the_git_held_datasets():
         assert f.get("git_source") in sources
     shas = [f["sha256"] for f in m["files"]]
     assert len(shas) == len(set(shas)), "each distinct file is carried by exactly one row"
+    # the frontier the session-open mark reads (D32): one ISO date per dated dataset
+    frontier = m.get("frontier", {})
+    assert set(frontier) == {name for name, _ in dm.FRONTIER_FILES}
+    for f in frontier.values():
+        assert len(f["last_date"]) == 10 and f["last_date"][4] == "-"
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
@@ -315,3 +322,21 @@ def test_build_carries_ledger_metadata_over(tmp_path, git_repo_with_data, capsys
     by_path = {f["path"]: f for f in m3["files"]}
     assert "git_source" not in by_path["data/bloomberg/sp500_ohlcv.csv"]
     assert by_path["data/bloomberg/deep/slice.csv.gz"]["git_source"] == "git:data-branch"
+
+
+def test_build_records_the_data_frontier_and_keeps_it_when_the_file_is_gone(tmp_path, capsys):
+    root = _make_root(tmp_path)
+    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_bytes(
+        b"date,ticker,close\n2026-01-02,AAPL,1\n2026-03-05,AAPL,2\n2026-02-01,MSFT,3\n"
+    )
+    out = tmp_path / "m.json"
+    assert dm.main(["build", "--root", str(root), "--out", str(out)]) == 0
+    assert "frontier prices: 2026-03-05" in capsys.readouterr().out
+    frontier = json.loads(out.read_text())["frontier"]
+    assert frontier == {
+        "prices": {"path": "data/bloomberg/sp500_ohlcv.csv", "last_date": "2026-03-05"}
+    }
+    # a rebuild from a root without the dated file keeps the recorded frontier
+    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").unlink()
+    assert dm.main(["build", "--root", str(root), "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["frontier"] == frontier

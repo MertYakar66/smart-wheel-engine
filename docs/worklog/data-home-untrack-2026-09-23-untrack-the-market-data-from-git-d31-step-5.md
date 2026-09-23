@@ -4,7 +4,7 @@ title: Untrack the market data from git (D31 step 5)
 kind: refactor
 status: completed
 terminal: sandbox
-pr:
+pr: 530
 decisions: [D31]
 date: 2026-09-23
 headline: the 87 tracked data files left the index (no history rewrite); CI runs without data — floors recalibrated to the no-data measurement, three tests moved off checkout paths, a guard fails any data committed again

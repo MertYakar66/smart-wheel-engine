@@ -98,12 +98,22 @@ def other_branches(repo: Path = REPO) -> str:
     return str(sum(1 for h in heads if h != "refs/heads/main"))
 
 
+def as_date(text: str) -> dt.date | None:
+    """A real calendar date from YYYY-MM-DD text, or None (2026-02-30 is None)."""
+    if not ISO.fullmatch(text):
+        return None
+    try:
+        return dt.date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def frontier_dates(manifest: dict) -> list[tuple[str, str]]:
     """(dataset, last_date) pairs from the manifest's frontier, oldest first."""
     pairs = [
         (name, f.get("last_date", ""))
         for name, f in manifest.get("frontier", {}).items()
-        if isinstance(f, dict) and ISO.fullmatch(f.get("last_date", ""))
+        if isinstance(f, dict) and as_date(f.get("last_date", ""))
     ]
     return sorted(pairs, key=lambda p: p[1])
 
@@ -197,7 +207,10 @@ def nearest_deadline(rows: list[list[str]], today: dt.date) -> str:
         status = re.sub(r"[*`_]", "", cells[3]).strip().lower()
         if not m or status.startswith(("closed", "done")):
             continue
-        open_rows.append((dt.date.fromisoformat(m.group(0)), _short(cells[1])))
+        due = as_date(m.group(0))
+        if due is None:  # a typo must not crash session-open; the check names the row
+            return f"{UNKNOWN} (docs/deadlines.md has an invalid date: {m.group(0)})"
+        open_rows.append((due, _short(cells[1])))
     if not open_rows:
         return "none open"
     overdue = sorted(r for r in open_rows if r[0] < today)
@@ -240,9 +253,12 @@ def pen_mark(repo: Path, today: dt.date) -> tuple[str, list[str]]:
 def executor_mark(repo: Path, run_mode: str) -> str:
     branch = git("rev-parse", "--abbrev-ref", "HEAD", repo=repo) or UNKNOWN
     head = git("rev-parse", "--short", "HEAD", repo=repo) or UNKNOWN
-    pushed = git("rev-parse", "--short", "@{upstream}", repo=repo)
-    if pushed is None and branch not in (UNKNOWN, "HEAD"):
-        pushed = git("rev-parse", "--short", f"origin/{branch}", repo=repo)
+    # Only the remote branch of the same name proves a push. The configured
+    # upstream is not proof: `git worktree add -b claude/x origin/main` sets it to
+    # origin/main, which would report main's commit as this branch's push.
+    pushed = None
+    if branch not in (UNKNOWN, "HEAD"):
+        pushed = git("rev-parse", "--short", f"refs/remotes/origin/{branch}", repo=repo)
     counts = git("rev-list", "--left-right", "--count", "origin/main...HEAD", repo=repo)
     behind_ahead = "/".join(counts.split()) if counts else UNKNOWN
     pushed_slot = f"`{pushed}`" if pushed else "nothing yet"

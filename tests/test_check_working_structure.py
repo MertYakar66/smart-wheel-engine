@@ -68,6 +68,11 @@ def test_deadlines_rows_are_checked_and_other_tables_ignored(tmp_path):
     assert cws.check_deadlines(tmp_path) == []
     (tmp_path / "docs" / "deadlines.md").write_text(good.replace("| 2026-10-26 |", "| soon |"))
     assert any("malformed row" in f for f in cws.check_deadlines(tmp_path))
+    # the right shape but not a calendar date would crash session-open
+    (tmp_path / "docs" / "deadlines.md").write_text(
+        good.replace("| 2026-10-26 |", "| 2026-02-30 |")
+    )
+    assert any("malformed row" in f for f in cws.check_deadlines(tmp_path))
     (tmp_path / "docs" / "deadlines.md").unlink()
     assert "missing" in cws.check_deadlines(tmp_path)[0]
 

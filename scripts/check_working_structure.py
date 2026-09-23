@@ -172,9 +172,14 @@ def check_deadlines(root: Path) -> list[str]:
         if set(cells[0]) <= set("-: "):
             continue
         due = re.sub(r"[*`]", "", cells[0]).strip()
-        ok_due = re.match(r"\d{4}-\d{2}-\d{2}", due) or due.lower().startswith(
-            ("conditional", "undated")
-        )
+        ok_due = due.lower().startswith(("conditional", "undated"))
+        m = re.match(r"\d{4}-\d{2}-\d{2}", due)
+        if m:
+            try:  # a real calendar date: 2026-02-30 would crash session-open
+                dt.date.fromisoformat(m.group(0))
+                ok_due = True
+            except ValueError:
+                ok_due = False
         if len(cells) != 5 or not ok_due or not cells[3].strip():
             failures.append(f"docs/deadlines.md: malformed row: {line.strip()[:100]}")
     return failures

@@ -170,3 +170,39 @@ def test_a_root_past_the_recorded_frontier_is_flagged(tmp_path, monkeypatch):
     assert note and "the root runs to 2026-09-18" in note and "rebuild the manifest" in note
     monkeypatch.delenv("SWE_DATA_ROOT")
     assert so.live_frontier_note(manifest) is None
+
+
+def test_pushed_comes_only_from_the_same_named_remote_branch(tmp_path, monkeypatch):
+    """An upstream of origin/main (git worktree add -b ... origin/main) is not a push."""
+    remote = {}
+
+    def git(*args, repo=None):
+        if args == ("rev-parse", "--abbrev-ref", "HEAD"):
+            return "claude/x"
+        if args == ("rev-parse", "--short", "HEAD"):
+            return "abc1234"
+        if args == ("rev-parse", "--short", "@{upstream}"):
+            return "f1c0066"  # origin/main: must never be reported as this branch's push
+        if args == ("rev-parse", "--short", "refs/remotes/origin/claude/x"):
+            return remote.get("claude/x")
+        return None
+
+    monkeypatch.setattr(so, "git", git)
+    assert "pushed nothing yet" in so.executor_mark(tmp_path, "change")
+    remote["claude/x"] = "abc1234"
+    assert "pushed `abc1234`" in so.executor_mark(tmp_path, "change")
+
+
+def test_an_invalid_calendar_date_reads_unknown_instead_of_crashing(tmp_path):
+    rows = so.parse_deadlines(
+        "| Due | What | Owner | Status | Source |\n| --- | --- | --- | --- | --- |\n"
+        "| 2026-02-30 | typo | Operator | OPEN | a doc |\n"
+    )
+    assert so.nearest_deadline(rows, TODAY) == (
+        "unknown (docs/deadlines.md has an invalid date: 2026-02-30)"
+    )
+    manifest = tmp_path / "m.json"
+    manifest.write_text(
+        json.dumps({"frontier": {"prices": {"path": "p", "last_date": "2026-02-30"}}})
+    )
+    assert so.data_slot(manifest, TODAY)[0] == "unknown"

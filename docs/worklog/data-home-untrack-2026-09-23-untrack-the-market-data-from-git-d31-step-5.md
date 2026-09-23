@@ -97,7 +97,11 @@ FAIL engine/wheel_runner.py    76.84% (floor 77%)
 quant job files: 181 passed · integration: 26 passed, 3220 deselected
 
 # after the fixes, the same clone at the final commit
-(final re-run in progress — filled in before the PR opens)
+= 2961 passed, 271 skipped, 8 deselected, 6 xfailed, 28 warnings in 357.56s =
+Required test coverage of 80% reached. Total coverage: 83.56%
+ok engine/data_connector.py 82.46% (floor 80%) · ok engine/wheel_runner.py 76.84% (floor 74%)
+ok candidate_dossier 90.24 · ev_engine 95.55 · event_gate 97.33 · portfolio_risk_gates 98.16 · wheel_tracker 83.62
+requires_data skips: 54 (the 53 of 2026-09-18 plus the frontier test)
 
 # floors against the with-data coverage.json of this morning's lane (3190 passed)
 ok engine/data_connector.py 90.13% (floor 80%) · ok engine/wheel_runner.py 79.73% (floor 74%) · aggregate 85.09%

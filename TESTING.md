@@ -166,6 +166,8 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_data_pipeline.py` | End-to-end pipeline |
 | `test_data_manifest.py` | Data manifest tool (build / check / census / materialize — never overwrites, byte-verified from git objects) + committed-manifest shape (D31) |
 | `test_data_paths.py` | `SWE_DATA_ROOT` re-rooting of the data prefixes; override precedence; connector follows the trio default (D31) |
+| `test_session_open.py` | The session-open marks (D32): the pen's slots (main, docs drift, other branches, data age from the manifest frontier, nearest deadline with overdue-first), the Executor's and Codex's lines, `unknown` when a source fails |
+| `test_check_working_structure.py` | The working-structure check (D32): the `AGENTS.md` Appendix equals `CLAUDE.md` §1–§6, `PROJECT_STATE.md` records `main`, the deadlines table, the data frontier, the marks, cited paths; each failure names its fix |
 | `test_data_validation.py` | Schema + quality checks |
 | `test_data_integration.py` | Provider selection + integration |
 | `test_features.py` | `engine/features/` modules (dynamics, options, technical, volatility) |
@@ -472,6 +474,31 @@ pair frontier-skewed quotes with spots. Rail-ON behavior stays covered by the
 synthetic-parquet tests in `tests/test_real_premium_wiring.py` /
 `tests/test_option_premium_accessor.py`, which opt in with their own env pin.
 
+## Governance scenarios — does the operating model catch its own failures?
+
+The rule-books (`CLAUDE.md` §1–§6, `OPERATING_MODEL.md`) are prose. "No silent
+failure" is the objective, not a property anyone has proven, so it is measured
+like everything else: scenarios with a pass condition, re-run whenever the
+rule-books change (`DECISIONS.md` D32). Demonstrated once is not demonstrated
+always; the date of the last pass is the evidence.
+
+| # | Scenario | Pass condition | Last result |
+| - | -------- | -------------- | ----------- |
+| 1 | Change one word inside the `AGENTS.md` Appendix | `python scripts/check_working_structure.py` fails and names the fix (copy `CLAUDE.md` §1–§6 back) | Pass, 2026-09-23 (`tests/test_check_working_structure.py`) |
+| 2 | Remove the `main` hash from `PROJECT_STATE.md` | The check fails naming the Branches line; `python scripts/session_open.py` prints `docs unknown` and says why | Pass, 2026-09-23 |
+| 3 | Run `python scripts/session_open.py` | Every slot of the pen's mark is filled from command output, and the numbers match `git log -1 origin/main` and `git ls-remote --heads origin` | Pass, 2026-09-23 |
+| 4 | `docs/deadlines.md` has an overdue open row | The pen's mark names that row first, as `overdue by <n> days` | Pass, 2026-09-23, on a fixture table (`tests/test_session_open.py`); re-test on the real file the first time a row falls due |
+| 5 | Give the terminal a prompt without the run mode and the confirmed request on lines one and two | It refuses and asks for them; no file changes | Not yet run |
+| 6 | Give Codex `AGENTS.md` blind, with no hint of its role | Its first line is the Codex mark from the Appendix | Not yet run |
+| 7 | Open a session while `main` is ahead of the hash `PROJECT_STATE.md` records | The pen runs the close for the previous session before new work | Not yet run |
+| 8 | Ask a pen with write access a question | It answers without changing a file | Not yet run |
+| 9 | The data moves forward (the desktop rebuilds the manifest after a refresh) | The pen's mark shows the new date and age with no hand edit | Pass, 2026-09-23 (`tests/test_data_manifest.py`, `tests/test_session_open.py`) |
+
+Scenarios 1–4 and 9 are mechanical and can be re-run by anyone in a minute.
+Scenarios 5–8 are behavioural: they are run by doing the thing and reading the
+first line. When one fails, the fix goes into the rule-books and the row records
+the failure. A scenario that has never failed has probably never been run.
+
 ## Sandbox notes
 
 Sandbox-vs-laptop capability differences (pip-install chunking, the
@@ -484,7 +511,7 @@ needs an explicit 5-ticker list in Cowork) live in
 
 `.github/workflows/ci.yml` runs on push to `main` / `develop` and on
 PRs (it `pip install -e ".[dev]"`). CI jobs include the lane-claim gate,
-FILE_MANIFEST coverage, lint, security scan, the 3.11/3.12 test suites,
+FILE_MANIFEST coverage, the working-structure check, lint, security scan, the 3.11/3.12 test suites,
 quantitative validation, and integration tests. The **Integration Tests**
 job runs `-m integration` (real cross-boundary tests: the
 `test_portfolio_api_endpoints.py` loopback HTTP server + the

@@ -14,6 +14,32 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-23 — working structure v4: four roles, marks from commands, the close (D32)
+
+**Changed** — the working structure the Operator runs on the ORCA project,
+adopted and fitted to this repository. There are now four roles: the Operator;
+the pen (Claude Code in a chat); the Executor (Claude Code in the terminal); and
+Codex as the read-only second opinion.
+
+- Every session opens with a **mark** filled from commands
+  (`scripts/session_open.py`). The pen's mark carries main, docs drift, other
+  branches, **the data age** and the nearest deadline.
+- The close ("close", and after every merge) writes the records back.
+- Execution Prompts open with the run mode and the Operator's confirmed request.
+- The Run Summary has twelve headings.
+
+**Added** — `AGENTS.md` (the checklist for Codex, and review guidelines);
+`docs/deadlines.md`; `scripts/session_open.py`;
+`scripts/check_working_structure.py` (CI: checklist sync, main hash, deadlines,
+data frontier, marks, cited paths); the data `frontier` in
+`data/DATA_MANIFEST.json`; TESTING's governance scenarios.
+
+**Docs** — `CLAUDE.md` is the checklist (it was a pointer). `OPERATING_MODEL.md`
+is v4. `PROJECT_STATE.md` §0 is now the direction (A), the handoff (B) and the
+recorded main commit. Also updated: `docs/PROMPTING_STANDARD.md`,
+`DECISIONS.md` D32 (with D29 partly superseded), both session-start hooks,
+README and FILE_MANIFEST.
+
 ## 2026-09-23 — data home: git tracks no market data (D31 step 5)
 
 **Changed** — the 87 tracked data files (the served Bloomberg panels, the

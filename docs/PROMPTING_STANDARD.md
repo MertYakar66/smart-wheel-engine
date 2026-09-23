@@ -1,9 +1,10 @@
 # Prompting standard — how a request becomes an Execution Prompt
 
 **Status:** the project's prompting standard, referenced by `OPERATING_MODEL.md`
-§4.3. One page of rules, one template, one question bank, one short form for the
-Run Summary. Applies identically to every Strategist implementation (Claude Code,
-ChatGPT Codex) and every Executor.
+§4.3. One page of rules, one template, one question bank, one form for the Run
+Summary. The pen (Claude Code in a chat with the Operator) writes prompts; every
+Executor runs them; Codex, the second opinion, reviews them and writes none
+(`DECISIONS.md` D32).
 
 ---
 
@@ -25,6 +26,11 @@ Strategist should determine itself. Skip the questions when the task is small,
 obvious, or fully specified, and say so in the block below ("not warranted,
 because ..."). The answers are recorded; they travel with the work.
 
+Then **restate, and wait**. In one paragraph, say what we would do, why, and what
+counts as success. Draft nothing until the Operator confirms. For a fully
+specified request, the Operator's own words are both the restatement and the
+confirmation: quote them.
+
 Question bank (pick what fits, never all of them):
 
 - What is the underlying goal this request serves?
@@ -38,10 +44,14 @@ Question bank (pick what fits, never all of them):
 ## 3. The Execution Prompt template
 
 Copy this shape. Keep every section; brevity comes from short sections, never
-from missing ones. Tags in angle brackets are the fixed section names.
+from missing ones. Tags in angle brackets are the fixed section names. **The first
+two lines are fixed.** Line 1 is the run mode. Line 2 is the Operator's confirmed
+request, quoted, with the date of the confirmation. An Executor refuses any
+prompt that does not open this way (`CLAUDE.md` §4).
 
 ```
 <run-mode>       read-only | change
+<confirmed-request> "the Operator's words, quoted" — confirmed YYYY-MM-DD
 <request-as-sharpened>
   Goal:            one sentence, the Operator's intent in plain words
   Success:         what the Operator will accept as done
@@ -55,7 +65,7 @@ from missing ones. Tags in angle brackets are the fixed section names.
 <out-of-scope>   explicit list of what is NOT in scope (mandatory)
 <owns>           the files this run may edit (disjoint from any other open run)
 <reads>          files it may read but not edit
-<invariants>     the relevant OPERATING_MODEL.md §8 items, restated
+<invariants>     the relevant OPERATING_MODEL.md §7 items, restated
 <gates>          exact points where the Executor stops for the Operator
 <verification>   commands to run and the output that counts as a pass
 <push>           branch name; push before every gate and before the summary
@@ -76,35 +86,46 @@ commands plus expected output, never as intent.
 - **change**: modifies the repository under the scope and gates above. Work on a
   branch; push before every handoff; open one PR per run.
 
-## 5. The Run Summary, short form (Executor → Operator)
+## 5. The Run Summary (Executor → Operator)
 
-Posted as a comment on the PR (so it exists on GitHub), in this order:
+It is posted as a comment on the PR, so it exists on GitHub. It opens with the
+Executor's mark (`CLAUDE.md` §2), then the twelve headings of
+`OPERATING_MODEL.md` §4.4, in this order:
 
-1. **Header** — date, branch, base commit, HEAD, pushed commit id, "went badly?"
-2. **Objective as I understood it** — one paragraph; echo the sharpened request
-3. **What I did** — one entry per change: role, why, confidence with reason
-4. **Commands I ran and their actual output** — pasted, decisive portion
-5. **What I did NOT do** — every in-scope item not completed, with the reason
-6. **Gates hit and how I proceeded** — quote the approval for anything irreversible
-7. **Invariant check** — each relevant §8 item: checked / not applicable, with the proof
-8. **Risks, current state, next action, open questions** — one short paragraph each
+1. **Run header**: date, branch, base commit, HEAD, the pushed commit id, and whether it went badly.
+2. **Objective as I understood it**: one paragraph echoing the confirmed request and the sharpened one.
+3. **What I did**: one entry per change, with its role, why, and your confidence and the reason for it.
+4. **Opportunistic fixes**: listed and labelled, or "none".
+5. **Commands and their real output**: pasted; the decisive portion is enough.
+6. **What I did not do**: every in-scope item not completed, with the reason.
+7. **Gates hit**: the yes/no question, the answer, and how you proceeded; quote the approval for anything irreversible.
+8. **Invariant check**: each relevant §7 item, checked or not applicable, with the proof.
+9. **Risks**: possible regressions, ranked.
+10. **Current state**: branch, tree, pushed, PR, and CI with each check's result.
+11. **What must happen next**, and who takes it.
+12. **Open questions**, to the pen.
 
 Prohibited: claiming a check you did not run; describing expected instead of
 actual output; "should work" / "appears correct"; omitting a failure a later step
 worked around; burying an unrequested change; presenting a passing suite as
 proof of correctness; asserting a runtime result without its output.
 
-## 6. Parity across Strategist implementations
+## 6. Portability across Executors
 
-The same Execution Prompt must work for Claude Code and for ChatGPT Codex. Do not
-rely on tool names, slash commands, or harness features one of them lacks; state
-commands as shell commands and files as repository paths. A prompt that only one
-implementation can run is not to standard.
+The same Execution Prompt must run in a fresh Claude Code terminal on the
+Operator's Windows desktop (PowerShell or Git Bash, where `python` is the
+interpreter) and in a Linux sandbox. So:
+- do not rely on tool names, slash commands, or harness features;
+- state commands as shell commands, and files as repository paths;
+- where a command differs between the two machines, give both.
+
+Codex does not execute prompts (D32). It reviews them.
 
 ## 7. Worked example (abridged)
 
 ```
 <run-mode> change
+<confirmed-request> "offer 7, 14, 21 and 28 day puts instead of 35" — confirmed 2026-09-16
 <request-as-sharpened>
   Goal: the Operator wants the ranker to offer 7/14/21/28-day puts instead of 35.
   Success: rank_candidates_by_ev accepts a DTE menu and returns one row per (ticker, dte).

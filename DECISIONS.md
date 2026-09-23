@@ -1696,6 +1696,8 @@ file's row removed); and the full audit evidence in the batch worklogs.
 
 ## D29. Restart rulings of 2026-09-16 — one protocol, no news code, short-dated menu, no Bloomberg
 
+**PARTLY SUPERSEDED by D32 (2026-09-23):** ruling 2's "two equally authorised Strategist implementations" (Codex is now the read-only second opinion), and v3's `CLAUDE.md`-as-pointer (it is now the checklist). Everything else in D29 stands.
+
 **Status:** ADOPTED (Operator rulings given in the restart session of 2026-09-16, recorded by the Strategist at the Operator's direction). Analysis behind them: `docs/RESTART_BRIEF_2026-09-11.md`. Plan of record: `docs/RESTART_PLAN_2026-09-16.md`.
 
 **Decision.**
@@ -1858,10 +1860,100 @@ done: the 87 tracked data files left the index without a history rewrite,
 `.gitignore` keeps data out, `tests/test_data_manifest.py::test_git_tracks_no_market_data`
 fails if a data file is tracked again, and CI runs without data (the two per-file
 floors that only held with data were recalibrated to the no-data measurement).
-The data laptop is gone (Operator), so Drive `swe-local-only` is the only other
-copy of the Theta corpus and the feature shards; step 2b brings them down to the
-desktop. Step 6 still waits for the verified full-history bundle and the Drive
-copy of `data_archive/`.
+Step 2b comes from the data laptop, which is available. This was corrected the
+same day: the Operator wrote "the laptop is here not broken", and an earlier
+"not around" had been read as gone. The laptop is the origin of the Theta
+corpus and the feature shards. Drive's July `theta` upload never finished: it
+holds 17,188 of ~132,862 files, 1.245 GiB of ~11 GB. So the laptop's stores
+travel to the desktop on an exFAT drive and are checked against a sha256
+manifest built on the laptop. Step 6 still waits for the verified full-history
+bundle and the Drive copy of `data_archive/`.
+
+## D32. Working structure v4 — four roles, marks from commands, the close, the checklist files (2026-09-23)
+
+**Decision.** The project adopts the working structure the Operator runs on the
+ORCA project (`MertYakar66/Orca-Project`), fitted to this repository:
+
+1. **Four roles.**
+   - The Operator.
+   - The Strategist, the pen: Claude Code in a chat with the Operator. It is the
+     one writer of Execution Prompts, and it keeps the records.
+   - The Executor: Claude Code in a terminal.
+   - The second opinion: Codex. It reads, reviews and challenges, and writes
+     nothing.
+2. **Marks.** Every session opens with a first line filled from commands, never
+   from memory, and every Executor message opens the same way:
+   `python scripts/session_open.py` prints the pen's, the Executor's or Codex's
+   line. The pen's line carries:
+   - where `main` is;
+   - how many content commits `PROJECT_STATE.md` is behind;
+   - how many other branches exist;
+   - **how old the data is**, from the frontier that `data/DATA_MANIFEST.json`
+     now records (Operator: "add the data dates (how stale they are) to the
+     report sentence");
+   - the nearest open row of the new `docs/deadlines.md`.
+3. **Words and the close.** "yes", "authorize …" and "close" carry weight. The
+   close runs on "close" and after every merge to `main`. It updates:
+   - `PROJECT_STATE.md`: §0 A is the direction, §0 B the handoff, and the
+     Branches line records the `main` commit the drift is measured from;
+   - `CHANGELOG.md` and `docs/deadlines.md`.
+
+   Close commits are typed `docs(close): …` and are not counted as drift.
+4. **Prompts and summaries.** Line 1 of every Execution Prompt is the run mode,
+   and line 2 the Operator's confirmed request, quoted. An Executor refuses any
+   other opening, and at a gate asks one yes/no question. The Run Summary has
+   twelve fixed headings (`OPERATING_MODEL.md` §4.4).
+5. **Files.**
+   - `CLAUDE.md` becomes the checklist every Claude session loads by itself.
+   - `AGENTS.md` is recreated for Codex, carrying `CLAUDE.md` §1–§6 word for
+     word, and adds review guidelines.
+   - `OPERATING_MODEL.md` becomes version 4.
+   - `scripts/check_working_structure.py` runs in CI. It checks that the two
+     checklists match, that `PROJECT_STATE.md` records a `main` hash, the
+     deadlines table, the data frontier, the marks, and that cited paths exist.
+   - `TESTING.md` gains governance scenarios that test the structure itself.
+6. **Merging (Operator's answer).** The pen may still merge when necessary
+   ("no you can still merge if necessary"), with CI green and for work the
+   Operator authorized. Nobody pushes to `main` directly. The Executor merges
+   only with a yes for that pull request.
+7. **"Sir" stays in the marks** ("yes keep sir").
+8. **In force at once** ("change it right away and tell other agents about the
+   change"). The desktop and laptop sessions running when the change landed are
+   told by a note from the pen.
+
+**Why.** The agents here remember nothing between sessions, and this one lost
+its context mid-campaign. Version 3 had the roles, the sharpening, the prompt
+standard, the Run Summary and the evaluation. It had nothing that showed
+whether a session was calibrated, and no moment when the records were written
+back. At the restart, `PROJECT_STATE.md` was 71 days stale and 60 worklog
+fragments were wrong, and nothing had flagged it (`docs/RESTART_BRIEF_2026-09-11.md`).
+The mark makes calibration visible in one line. The close makes keeping the
+records someone's job. Checks own what is countable. The Operator's rulings of
+2026-09-23 on the five questions were: "1. yes 2. no you can still merge if
+necessary 3. yes keep sir 4. yes add the data dates (how stale they are) to the
+report sentence 5. change it right away and tell other agents about the change".
+
+**Rejected alternatives.**
+- **ORCA's Node check (`tests/check-docs.mjs`, `package.json`).** This
+  repository is Python and already runs Python guards in CI, so the useful
+  checks were ported to one Python script.
+- **ORCA's `audit/CHANGELOG.md`.** `CHANGELOG.md` and the worklog fragments
+  already record each change and how it was verified.
+- **ORCA's website rules.** ORCA's root is its public site; this repository's is
+  not.
+- **ORCA's folder counts.** `scripts/check_manifest_coverage.py` already accounts
+  for every tracked file.
+- **Keeping `CLAUDE.md` a pointer.** A pointer does not reload the checklist
+  after a compaction, and the 471-line rulebook is too long to re-read by habit.
+- **Codex as an equal Strategist (v3).** Two pens writing prompts is how scope
+  forks. One pen, checked by a reader who writes nothing, keeps a single line of
+  intent.
+
+**Pinned by.**
+- `scripts/check_working_structure.py` (CI, the manifest-coverage job);
+- `tests/test_session_open.py` and `tests/test_check_working_structure.py`;
+- the frontier assertions in `tests/test_data_manifest.py`;
+- the governance scenarios in `TESTING.md`.
 
 ## How to add a decision
 

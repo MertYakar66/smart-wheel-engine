@@ -277,28 +277,19 @@ dashboard/data/*.db-wal
 .claude/settings.local.json
 
 # =============================================================================
-# Derived / runtime data — regenerate via scripts/backfill_features.py
+# Market data — lives under the desktop data root (SWE_DATA_ROOT), never in git
+# (DECISIONS.md D31; untracked 2026-09-23). data/DATA_MANIFEST.json lists every
+# dataset with its sha256; `python scripts/data_manifest.py check --root <root>`
+# proves a root. Under the data trees only code (data/*.py), the manifest and
+# docs (*.md) stay tracked; tests/test_data_manifest.py fails if data returns.
 # =============================================================================
 
-# Feature-store ticker shards (1.2GB+ total). AAPL is kept as the sample.
-data/features/**/ticker=*/
-!data/features/**/ticker=AAPL/
-
-# Runtime locks & logs
-data/features/_locks/
-data/features/_backfill_log.csv
-
-# Theta / yfinance bulk pulls (regeneratable)
+data/bloomberg/**
+!data/bloomberg/**/
+!data/bloomberg/**/*.md
+data/features/
+data_raw/
 data_processed/
-
-# Bloomberg deep-history archive (~365MB of gz slices, 1994→2026). Buffer-only:
-# lives on git branch deep-history/bloomberg-raw + Google Drive swe-deep-history/,
-# NOT on main. Mirror locally via:
-#   git checkout origin/deep-history/bloomberg-raw -- data/bloomberg/deep
-data/bloomberg/deep/
-
-# D31 branch archive (data only the non-main branches held) — lives under the
-# desktop data root, never in git. See docs/DATA_INVENTORY.md §C.2.
 data_archive/
 
 # =============================================================================

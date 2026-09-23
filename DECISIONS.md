@@ -1851,6 +1851,18 @@ archive and the bundle (`rclone check` clean). Step 2b is new: the data
 laptop's local-only stores (the Theta corpus, the feature shards, `sim`,
 `corporate_actions`, `edgar`) are not on the desktop yet.
 
+**Status 2026-09-23, later.** The desktop reported
+`checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` and put the
+day-bot ticks on Drive (`swe-local-only/ticks`, `rclone check` clean). Step 5 is
+done: the 87 tracked data files left the index without a history rewrite,
+`.gitignore` keeps data out, `tests/test_data_manifest.py::test_git_tracks_no_market_data`
+fails if a data file is tracked again, and CI runs without data (the two per-file
+floors that only held with data were recalibrated to the no-data measurement).
+The data laptop is gone (Operator), so Drive `swe-local-only` is the only other
+copy of the Theta corpus and the feature shards; step 2b brings them down to the
+desktop. Step 6 still waits for the verified full-history bundle and the Drive
+copy of `data_archive/`.
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

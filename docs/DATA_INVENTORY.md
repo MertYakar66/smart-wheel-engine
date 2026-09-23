@@ -29,12 +29,12 @@ under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY
 | Step | What | Status (2026-09-23) |
 |---|---|---|
 | 1 | Manifest of everything GitHub holds | **done** — 99 files at ruling time; **144 files / 1.74 GB** since 2026-09-23, after the desktop audit (#527) found two gaps: the 16 tracked feature sidecars (`data/features/*/ticker=AAPL/{metadata,stats}.json`) and the data that exists only on non-`main` branches (the 29-file archive, §C.2). `tests/test_data_manifest.py` now fails if any tracked data file lacks a row |
-| 2 | Bring the git-held datasets onto the desktop | **done for the first 99** — `C:\Users\merty\Desktop\swe-data`, 2026-09-23 (#527); the 45 new rows are one `materialize` away (§B) |
-| 3 | Verify the desktop root by checksum | **done for 99** — `checked 99 manifest files: 99 ok, 0 missing, 0 mismatched`, confirmed by an independent three-way byte audit (#527); next: `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` |
+| 2 | Bring the git-held datasets onto the desktop | **done** — `C:\Users\merty\Desktop\swe-data`, 2026-09-23 (#527, then the 45 rows #528 added) |
+| 3 | Verify the desktop root by checksum | **done** — `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` (2026-09-23, after #528; the first pass read 99/99 and was confirmed by an independent three-way byte audit, #527) |
 | 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
-| 5 | Untrack the data from git (no history rewrite) | **held** until the desktop reports the 144-file line; its PR must also settle the CI per-file coverage floors, which fail without data for `engine/data_connector.py` (82.5% vs 88) and `engine/wheel_runner.py` (76.8% vs 77) while the aggregate holds (83.3% vs 80) |
-| 6 | Delete the four non-`main` branches, close #507 | **held** until (a) the desktop's 144-file line; (b) a full-history git bundle of every branch sits on the desktop, verified (`git bundle verify`; its heads equal `git ls-remote`) — the only copy of 36 superseded file versions (603 MB) on `deep-history/bloomberg-raw` and of the branches' scripts and docs; (c) Drive holds the ticks, `data_archive/` and the bundle, `rclone check` clean — blocked on the Operator's `rclone config reconnect gdrive:` (an interactive browser step) |
-| 2b | The data laptop's local-only stores onto the desktop | **open** — the desktop is not the data laptop (#527): the Theta corpus (~11 GB), the feature shards, `sim`, `corporate_actions`, `edgar` and the laptop's fuller `option_premium` / `ibkr` are not on it. D31 wants every dataset on the desktop; needs the Operator (§C, Tier C) |
+| 5 | Untrack the data from git (no history rewrite) | **done 2026-09-23** — the 87 tracked data files left the index (`git rm --cached`; every earlier commit still holds them, so `materialize` can still read them from history); `.gitignore` keeps data out, and `tests/test_data_manifest.py` fails if a data file is tracked again; CI runs without data, with the two per-file floors that only held with data recalibrated to the no-data measurement (`scripts/check_coverage_floors.py`). A `git pull` of this change removes the tracked copies from a checkout's working tree — expected; the root holds them |
+| 6 | Delete the four non-`main` branches, close #507 | **held** until (a) a full-history git bundle of every branch sits on the desktop, verified (`git bundle verify`; its heads equal `git ls-remote`) — the only copy of 36 superseded file versions (603 MB) on `deep-history/bloomberg-raw` and of the branches' scripts and docs; (b) Drive holds `data_archive/` and the bundle, `rclone check` clean. The ticks' Drive copy is done (2026-09-23: `swe-local-only/ticks`, 15 matching, 0 differences) |
+| 2b | The data laptop's local-only stores onto the desktop | **open — from Drive.** The desktop is not the data laptop (#527) and the laptop is gone (Operator, 2026-09-23), so Drive `swe-local-only` (§C.1) is the only copy of the Theta corpus (~11 GB; its July upload was never verified), the feature shards and the laptop's fuller `option_premium` / `ibkr`. They come down to the root with `rclone copy --ignore-existing` and `rclone check --one-way`; a file present on both sides with different bytes is kept side by side under `data_archive/drive-swe-local-only/`. `corporate_actions` and `edgar` never existed on the laptop either; `sim` is regenerable |
 
 ## §B. Fill and verify the desktop root (once)
 
@@ -50,17 +50,22 @@ and byte-identical are counted, only the new rows are written (on the desktop,
 2026-09-23: `144 manifest files: 99 already present, wrote 45`).
 
 Then move or copy the local-only stores (§C, Tier C) under the root and set
-`SWE_DATA_ROOT` for the account (`docs/DATA_POLICY.md` §6). Pull the untracking
-commit only after that.
+`SWE_DATA_ROOT` for the account (`docs/DATA_POLICY.md` §6).
+
+**Since 2026-09-23 git tracks no data** (step 5): a fresh clone has none, and a
+`git pull` of that change removed the tracked copies from existing checkouts.
+`materialize` still fills a root from the commits the manifest names, because
+untracking rewrote nothing — until a branch is deleted (step 6), after which the
+desktop root, Drive and the full-history bundle are where those bytes live.
 
 ## §C. Where each dataset lives
 
 | Tier | What | Under the data root | Git (2026-09-18) | Backup |
 |---|---|---|---|---|
-| **A — served** | 10 `_FILES` monoliths + `broad_pull/` panels — 49 files, 562 MB | `data/bloomberg/` | tracked on `main` until step 5 | Drive `data/bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`): 48/48 sha256-verified 2026-07-21, sizes re-matched 2026-09-18 |
+| **A — served** | 10 `_FILES` monoliths + `broad_pull/` panels — 49 files, 562 MB | `data/bloomberg/` | untracked 2026-09-23 (step 5); in `main`'s history | Drive `data/bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`): 48/48 sha256-verified 2026-07-21, sizes re-matched 2026-09-18 |
 | **B — deep** | 13 gz slices, 1994→2026 + delisted — 373 MB (§2) | `data/bloomberg/deep/` | branch `deep-history/bloomberg-raw` @ `68a48b2` only (gitignored on `main`) | Drive `deep` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`): 13/13 present, byte-exact sizes 2026-09-18 |
-| **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only | the desktop root (verified 2026-09-23, #527); **no Drive copy yet** — blocked on the rclone re-auth; the branch stays until Drive has one |
-| **A′ — small tracked** | `data/features` AAPL sample (26 files: 10 parquet + the 16 `metadata.json` / `stats.json` sidecars `FeatureStore` reads), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | tracked on `main` until step 5 | Drive `swe-local-only/` (§C.1) |
+| **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only | the desktop root (verified 2026-09-23, #527) and Drive `swe-local-only/ticks` (`1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`): 15/15, `rclone check --checksum --one-way` clean 2026-09-23 |
+| **A′ — small samples** | `data/features` AAPL sample (26 files: 10 parquet + the 16 `metadata.json` / `stats.json` sidecars `FeatureStore` reads), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | untracked 2026-09-23 (step 5); in `main`'s history | Drive `swe-local-only/` (§C.1) |
 | **R — branch archive** | every distinct data file at the tip of a non-`main` branch that no other row carries — 29 files, {tot/1e6:.1f} MB (§C.2); read by no code | `data_archive/<branch>/<path>` | the four non-`main` branches only | none yet — Drive after the rclone re-auth |
 | **C — local-only** | Theta corpus (~11 GB), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded), sim | `data_processed/**`, `data/features/**` | never | Drive `swe-local-only/` (§C.1) — `theta` upload unverified. **On the desktop root** (moved 2026-09-23, #527): `option_premium` (15 files), `validation` (23), `ibkr` (5), `vol_indices*.parquet`, loose `*.json` — 50 files, 219 MB. **Only on the data laptop:** the Theta corpus, the feature shards, `sim`, `corporate_actions`, `edgar`, and the laptop's fuller `option_premium` (155 files) and `ibkr` (19) |
 
@@ -86,6 +91,7 @@ independent). Backed up / verified **2026-07-22**.
 | `data_raw` (`15ZGdTlLtMVr4ShIgpQq3bDw9tYrVme02`) | `data_raw/**` (git-tracked; incl. `sp500_constituents_current.csv`) | ✅ 0 differences · 11 files |
 | `trade_universe` (`10JMptvhJsau459DLCH0tnJgzhwjpxwt4`) | `data_processed/trade_universe/` (git-tracked) | ✅ 0 differences · 1 file |
 | `ibkr` (`1pr3fkf7zPWZxC8_sAtwdNOs8aGJujPDG`) | `data_processed/ibkr/` — **`flex_credentials.json` EXCLUDED (never uploaded)** | ✅ 0 differences · 19 files |
+| `ticks` (`1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`) — added 2026-09-23 from the desktop | `data_raw/bloomberg/ticks/` (the 15 day-bot tick files, 490,719,019 B) | ✅ 0 differences · 15 files (2026-09-23) |
 
 **Skipped (stated):** `data_processed/sim/` (regenerable paper-book outputs), `data_processed/.gitkeep` (empty marker).
 **Absent on this laptop:** `financial_news/storage/sentiment.sqlite` (news-sentiment store — `financial_news/` holds only source code, no DB), `data_processed/{news_sentiment,corporate_actions,edgar}` (not present), `SWE_DEL_OUT`/`SWE_OUT_PATH` off-tree scratch (Windows defaults, absent on macOS).
@@ -177,7 +183,7 @@ Corrected deltas (all byte-verified 2026-06-22):
 
 ---
 
-## 1. Bloomberg — monolith CSVs (`data/bloomberg/`, tracked on `origin/main`)
+## 1. Bloomberg — monolith CSVs (`data/bloomberg/`; tracked on `origin/main` until 2026-09-23)
 
 Universe ≈ 503–511 current S&P 500 names. "Date field" names the column the range is read
 from (event tables key on ex/announce/as-of dates, not a daily `date`).

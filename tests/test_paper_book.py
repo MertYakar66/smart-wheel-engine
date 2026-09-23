@@ -27,6 +27,7 @@ import numpy as np
 import pytest
 
 from engine import paper_book as pb
+from engine import paths
 
 _REPO = Path(__file__).resolve().parents[1]
 _MODULE_PATH = _REPO / "engine" / "paper_book.py"
@@ -353,7 +354,7 @@ def test_write_json_refuses_outside_sim_root(tmp_path, monkeypatch):
 def test_sim_isolation_never_touches_real_ibkr_dir(tmp_path, monkeypatch):
     """A full persistence cycle writes ONLY under the SIM root; the real
     data_processed/ibkr/ dir (Dashboard terminal) is provably untouched."""
-    real_ibkr = _REPO / "data_processed" / "ibkr"
+    real_ibkr = paths.ibkr_dir()  # the live Dashboard store, under the data root (D31)
     before = _dir_fingerprint(real_ibkr)
 
     monkeypatch.setenv("SWE_SIM_DATA_DIR", str(tmp_path))

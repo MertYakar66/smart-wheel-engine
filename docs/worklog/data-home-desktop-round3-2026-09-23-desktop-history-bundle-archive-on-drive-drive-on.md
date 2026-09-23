@@ -7,7 +7,7 @@ terminal: desktop
 pr:
 decisions: [D31]
 date: 2026-09-23
-headline: bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 12,072 Drive files pulled home clean; theta on Drive is only 13% of what the laptop held
+headline: bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; theta on Drive is only 13% of what the lost laptop held
 surface: [data/DATA_MANIFEST.json, docs/DATA_INVENTORY.md, docs/worklog/INDEX.md]
 ---
 
@@ -330,8 +330,19 @@ Elapsed time:     50m58.2s
 ```
 
 `17188 files, 1,337,169,896 B` on disk — exactly the object count and byte count
-Drive reported — and zero `ERROR`/`Failed to` lines in the log. What Drive holds
-is now fully on this desktop; what the laptop held is not.
+Drive reported — and zero `ERROR`/`Failed to` lines in the log.
+
+The per-file checksum pass also completed inside the session (12:47:46 →
+13:08:50):
+
+```
+2026/09/23 13:08:50 NOTICE: Local file system at //?/C:/Users/merty/Desktop/swe-data/data_processed/theta: 0 differences found
+2026/09/23 13:08:50 NOTICE: Local file system at //?/C:/Users/merty/Desktop/swe-data/data_processed/theta: 17188 matching files
+theta check exit=0
+```
+
+`_logs\differ_theta.txt` is empty. **What Drive holds is now fully and provably
+on this desktop; what the laptop held is not.**
 
 ### Step 6a — untracked data under the checkout
 
@@ -402,10 +413,6 @@ executes `swe-ops\scripts\ibkr_gateway_pull.py`.
   Drive. It is an exact duplicate of `portfolio_history.json` created by a shell
   quoting bug in this run; this card's "never delete a file" constraint meant it
   could not be cleaned up here.
-- **`rclone check` for theta was still running when this was written.** The copy
-  itself is verified by count and total bytes matching Drive exactly, with no
-  errors logged, but the per-file checksum pass has not been read back. Result
-  goes to `_logs\differ_theta.txt`.
 - **The IBKR task's `0x800710E0` failures** predate this run and are unexplained.
 - **`SWE_DEEP_TEST_DATA` is still unset**; pointing it at `<root>\data\bloomberg`
   unlocks 8 tests that skip today.

@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-09-23 (working structure v4, D32: §0 now opens with the direction (A),
+**Last updated:** 2026-09-23 (close after #531: `main` at `8cf6389`, the v4 structure in force.
+Before it: working structure v4, D32: §0 now opens with the direction (A),
 the handoff (B) and the Branches line session-open measures drift from; the restart record is
 §0 C. Earlier the same day, D31 step 5: git tracks no market data; the desktop root
 holds all 144 manifest files, `check` 144/0/0. 2026-09-18: data-home ruling D31 recorded
@@ -64,7 +65,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `f1c0066` (2026-09-23). Others on `origin`:
+**Branches:** `main` is at `8cf6389` (2026-09-23). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -101,7 +102,9 @@ described here is no longer accurate.
     - `data_archive` plus the bundle on Drive: 0 differences, 30 matching;
     - every Drive child pulled home and checked, the whole of Drive's theta
       included (17,188 files).
-  - Working structure v4 adopted (D32).
+  - Working structure v4 adopted (D32) and merged (#531, `8cf6389`). Codex, as the
+    second opinion, found two defects in `scripts/session_open.py` and
+    `scripts/check_working_structure.py`; both were fixed before the merge.
 - **Remains.**
   1. **D31 step 6:** delete the four data branches and close #507. The bundle
      holds all four at their GitHub commits. The desktop's coverage check fired
@@ -117,8 +120,9 @@ described here is no longer accurate.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (about 7
      MB), outside the data trees the step-5 guard covers.
   5. **A complete Theta backup on Drive.** Drive holds 13% of the corpus.
-- **Next action.** The pen asks the Operator's yes for step 6. The desktop runs
-  the laptop transfer.
+- **Next action.** The Operator's yes for step 6 (asked 2026-09-23). The desktop
+  runs card A′ and the MacBook card B′, the revised prompts that carry the v4
+  marks.
 - **Authorized.**
   - Step 6, once the bundle and Drive gates hold ("run steps 5 and 6 myself").
   - The laptop transfer and the task deletion ("the laptop is here not broken.

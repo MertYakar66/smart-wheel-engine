@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-23 — working structure v4: four roles, marks from commands, the close (D32)
+## 2026-09-23 — working structure v4: four roles, marks from commands, the close (D32; #531, `8cf6389`)
 
 **Changed** — the working structure the Operator runs on the ORCA project,
 adopted and fitted to this repository. There are now four roles: the Operator;
@@ -40,7 +40,7 @@ recorded main commit. Also updated: `docs/PROMPTING_STANDARD.md`,
 `DECISIONS.md` D32 (with D29 partly superseded), both session-start hooks,
 README and FILE_MANIFEST.
 
-## 2026-09-23 — data home: git tracks no market data (D31 step 5)
+## 2026-09-23 — data home: git tracks no market data (D31 step 5; #530, `f1c0066`)
 
 **Changed** — the 87 tracked data files (the served Bloomberg panels, the
 broad-pull datasets, the AAPL feature sample and its sidecars, the `data_raw/`
@@ -77,6 +77,11 @@ preconditions; step 2b from Drive, the data laptop being gone), §B, §C, §C.1
 runbook's post-pull tail; `FILE_MANIFEST` (the nine data rows go); D31 status.
 
 ## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31)
+
+**Merged** — one bullet per merge that landed:
+- #527 `fc03b94`: the desktop's report. The root was filled and proved at 99 of 99.
+- #528 `ab89a16`: the manifest's two gaps were closed, making 144 rows.
+- #529 `67b7134`: the desktop's re-proof at 144, the ticks on Drive, and the Windows test fix.
 
 **Verified** — steps 2–3 ran on the Operator's desktop (#527): the root
 `C:\Users\merty\Desktop\swe-data` holds all 99 manifest files, `check` reads

@@ -4,7 +4,7 @@ title: "Working structure v4: four roles, marks from commands, the close (D32)"
 kind: refactor
 status: completed
 terminal: sandbox
-pr:
+pr: 531
 decisions: [D32, D29, D31]
 date: 2026-09-23
 headline: ORCA's working structure adopted and fitted to this repository. Four roles, with Codex as a read-only second opinion. A first line filled from commands, whose pen version now carries the data age from a manifest frontier. A close, CLAUDE.md as the checklist, and AGENTS.md carrying it word for word for Codex. A CI check keeps them true.

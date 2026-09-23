@@ -14,6 +14,36 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-23 — data home: git tracks no market data (D31 step 5)
+
+**Changed** — the 87 tracked data files (the served Bloomberg panels, the
+broad-pull datasets, the AAPL feature sample and its sidecars, the `data_raw/`
+fixtures, the trade-universe snapshot) left the index with `git rm --cached`:
+no history rewrite, so every earlier commit still holds them and
+`scripts/data_manifest.py materialize` can still read them from the commits the
+manifest names. Gate: the desktop's `checked 144 manifest files: 144 ok,
+0 missing, 0 mismatched`. After a `git pull` of this change a checkout has no
+data; the desktop root holds it. `.gitignore` carries one D31 block (only code,
+the manifest and `*.md` docs stay trackable under the data trees).
+
+**Infra** — CI now runs without data, so the `requires_data` tests skip there.
+Per-file floors re-measured in the CI form on a checkout without data:
+`engine/data_connector.py` 88 → 80 (measured 82.46), `engine/wheel_runner.py`
+77 → 74 (76.84); the desktop lane measures them at 90.13 / 79.73 with the data.
+New guard: `tests/test_data_manifest.py::test_git_tracks_no_market_data`.
+
+**Fixed** — three tests read the checkout instead of the data root:
+`TestDataFrontier.test_real_frontier_ge_expected` (its folder check passed on a
+checkout that keeps `data/bloomberg/` for its guide, then failed; now
+`requires_data` through `engine.paths`), the option-premium accessor's Theta
+larder, and the paper book's real-IBKR-dir isolation proof. The last Windows
+CRLF write in `tests/test_data_manifest.py` is bytes now.
+
+**Docs** — `DATA_INVENTORY` §A (steps 2, 3, 5 done; step 6's two remaining
+preconditions; step 2b from Drive, the data laptop being gone), §B, §C, §C.1
+(the ticks' Drive copy); `DATA_POLICY` §1/§3/§6; `PROJECT_STATE`; the Bloomberg
+runbook's post-pull tail; `FILE_MANIFEST` (the nine data rows go); D31 status.
+
 ## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31)
 
 **Verified** — steps 2–3 ran on the Operator's desktop (#527): the root

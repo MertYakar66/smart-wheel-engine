@@ -297,6 +297,10 @@ data_processed/
 #   git checkout origin/deep-history/bloomberg-raw -- data/bloomberg/deep
 data/bloomberg/deep/
 
+# D31 branch archive (data only the non-main branches held) — lives under the
+# desktop data root, never in git. See docs/DATA_INVENTORY.md §C.2.
+data_archive/
+
 # =============================================================================
 # Theta Terminal — installed software, NOT project code
 # =============================================================================

@@ -65,14 +65,15 @@ def test_absolute_and_unrelated_paths_are_untouched(clean_env, tmp_path):
 
 def test_narrow_overrides_win_and_are_themselves_rerooted(clean_env, tmp_path):
     clean_env.setenv("SWE_DATA_ROOT", str(tmp_path))
-    clean_env.setenv("SWE_IBKR_DATA_DIR", "/abs/ibkr")
+    elsewhere = tmp_path.parent / "abs-ibkr"  # absolute on every OS ("/abs" is not, on Windows)
+    clean_env.setenv("SWE_IBKR_DATA_DIR", str(elsewhere))
     clean_env.setenv("SWE_OPTION_PREMIUM_DIR", str(tmp_path / "rail"))
     clean_env.setenv("SWE_SIM_DATA_DIR", "data_processed_b/sim")  # relative → under the root
     clean_env.setenv(
         "SWE_DATA_PROCESSED_DIR", "data_processed_b"
     )  # any relative value, not only data*
     root = tmp_path.resolve()
-    assert paths.ibkr_dir() == Path("/abs/ibkr")  # absolute: as given
+    assert paths.ibkr_dir() == elsewhere  # absolute: as given
     assert paths.option_premium_dir() == tmp_path / "rail"
     assert paths.sim_dir() == root / "data_processed_b" / "sim"
     assert paths.processed_dir() == root / "data_processed_b"

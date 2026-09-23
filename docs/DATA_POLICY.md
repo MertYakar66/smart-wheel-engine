@@ -35,8 +35,9 @@ keep winning inside their scope. Section 6 describes the desktop set-up.
 
 **The manifest.** `data/DATA_MANIFEST.json` lists every dataset the
 engine owns — path, byte size, sha256, dataset group and the git object
-it was first taken from (99 files, 1.43 GB, generated 2026-09-18 from
-the git objects themselves). It is the point-in-time record of what the
+it was first taken from (144 files, 1.74 GB: generated 2026-09-18 from
+the git objects themselves, completed 2026-09-23 with the feature sidecars
+and the `data_archive/` branch archive — `docs/DATA_INVENTORY.md` §C.2). It is the point-in-time record of what the
 engine ran on — the audit value the data commits used to carry, without
 the bytes. `python scripts/data_manifest.py check --root <root>` proves
 a root complete; `materialize` fills one from git; `build` regenerates
@@ -260,6 +261,8 @@ D:\swe-data\
   data\features\             feature shards
   data_raw\                  yfinance pulls, constituents, bloomberg\ticks\
   data_processed\            theta\, option_premium\, ibkr\, sim\, vol_indices*.parquet, …
+  data_archive\              what only the non-main branches held (read by no code);
+                             git\ holds the full-history bundle of every branch
 ```
 
 `SWE_DATA_ROOT` names it. Unset, the engine reads the same trees relative
@@ -270,12 +273,12 @@ working unchanged; the root is what lets the checkout become disposable.
 **First fill, in this order (each step verified before the next):**
 
 ```powershell
-# 1. the two data-only branches hold the deep slices and the day-bot ticks
-git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull
+# 1. the non-main branches hold the deep slices, the day-bot ticks and the archive rows
+git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull backup/drive-tier-c-2026-07-22 data/drive-migration
 # 2. create every manifest file that is missing from the root, byte-verified;
 #    nothing that already exists is overwritten (a differing file is reported)
 python scripts/data_manifest.py materialize --root D:\swe-data
-# 3. prove the root: expect "99 ok, 0 missing, 0 mismatched"
+# 3. prove the root: expect "<N> ok, 0 missing, 0 mismatched" — N = the manifest's rows (144 on 2026-09-23)
 python scripts/data_manifest.py check --root D:\swe-data
 python scripts/data_manifest.py census --root D:\swe-data
 # 4. move (or copy) the local-only stores under the root — data_processed\theta,

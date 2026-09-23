@@ -22,6 +22,14 @@ missing from the root — an existing file is never overwritten, a mismatching o
 is reported — and it verifies every byte it writes against the manifest sha256.
 Run it BEFORE any data branch is deleted (``git fetch origin <branch>`` first).
 
+``data_archive/`` holds bytes kept for the record, not read by the engine: every
+distinct data file found at the tip of a branch other than ``main`` that no
+other manifest row already carries, under ``data_archive/<branch>/<path>``. Such
+a row names the path the bytes had in git as ``git_path`` (default: ``path``),
+which is where ``materialize`` reads them from. With these rows present, a root
+that passes ``check`` holds every data file any branch tip ever carried, so a
+branch can be deleted without losing a dataset (DECISIONS.md D31).
+
 ``--root`` defaults to ``SWE_DATA_ROOT`` when set, else the repository root.
 ``check`` exits 1 on any missing or mismatched file, 0 otherwise; ``--extra``
 also lists data files present under the root that the manifest does not know.
@@ -52,10 +60,11 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("ticks", "data_raw/bloomberg/ticks/"),
     ("raw", "data_raw/"),
     ("processed", "data_processed/"),
+    ("archive", "data_archive/"),
     ("data", "data/"),
 )
 # What ``build`` walks under a root (relative). Code files under data/ are skipped.
-WALK_DIRS: tuple[str, ...] = ("data", "data_raw", "data_processed")
+WALK_DIRS: tuple[str, ...] = ("data", "data_raw", "data_processed", "data_archive")
 SKIP_SUFFIXES: tuple[str, ...] = (".py", ".md", ".pyc", ".gitkeep", ".log", ".lock")
 SKIP_NAMES: tuple[str, ...] = (
     "DATA_MANIFEST.json",
@@ -123,6 +132,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         before = prev_files.get(rel)
         if before and before.get("sha256") == row["sha256"] and before.get("git_source"):
             row["git_source"] = before["git_source"]  # ledger: still the bytes git once held
+            if before.get("git_path"):
+                row["git_path"] = before["git_path"]
         files.append(row)
     files.sort(key=lambda r: r["path"])
     manifest = {
@@ -273,7 +284,7 @@ def cmd_materialize(args: argparse.Namespace) -> int:
         if not commit:
             unavailable.append(f"{f['path']}: no git source")
             continue
-        spec = f"{commit}:{f['path']}"
+        spec = f"{commit}:{f.get('git_path') or f['path']}"
         if not _git_has_object(repo, spec):
             branch = src.split(":", 1)[1] if src and ":" in src else src
             unavailable.append(
@@ -352,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
         if name in ("check", "materialize"):
             sp.add_argument(
                 "--group",
-                help="only this dataset group (deep, broad_pull, bloomberg, features, ticks, raw, processed, data)",
+                help="only this dataset group (deep, broad_pull, bloomberg, features, ticks, raw, processed, archive, data)",
             )
             sp.add_argument(
                 "--size-only",

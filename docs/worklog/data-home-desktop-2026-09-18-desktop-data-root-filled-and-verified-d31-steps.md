@@ -427,11 +427,27 @@ by design, per `DATA_INVENTORY` §0.
      `broad_pull` panel has (MOVE 1988, SKEW 1990, JPMVXYG7 1992). They must be
      manifested and materialized — or consciously written off — before that
      branch is deleted. **Deleting it today is irreversible data loss.**
-3. **Two Windows-only test failures** are open upstream, in files this card does
+4. **Two Windows-only test failures** are open upstream, in files this card does
    not own. They do not affect CI. Fixes proposed above.
-4. **This desktop is not the data laptop.** No Theta corpus, no `sim`,
+5. **The "SWE IBKR Morning Pull" scheduled task now writes to a path this run
+   emptied — Dashboard terminal, please re-point it.** The task (07:30 ET, backed
+   by the separate `C:\Users\merty\swe-ops` clone) runs
+   `scripts/ibkr_gateway_pull.py` with an **explicit absolute**
+   `--out C:\Users\merty\Desktop\smart-wheel-engine\data_processed\ibkr\portfolio_snapshot.json`.
+   Step 6 moved that directory to the root, and an explicit path is exactly what
+   `SWE_DATA_ROOT` does **not** re-root. The script does
+   `out.parent.mkdir(parents=True, exist_ok=True)`, so the next run will
+   silently **recreate** `data_processed/ibkr/` inside the checkout and write
+   there — a second, diverging copy rather than a visible failure. Either change
+   `--out` to the root path or drop `--out` and let `SWE_IBKR_DATA_DIR` /
+   `paths.ibkr_dir()` resolve it. Not fixed here: `swe-ops` is outside this
+   card's `owns`, and `data_processed/ibkr/` plus the portfolio pipeline belong
+   to the Dashboard terminal (OPERATING_MODEL.md §9.10). *(Unrelated
+   pre-existing condition: its log currently ends in
+   `ConnectionRefusedError: [WinError 1225]` — IB Gateway is not running.)*
+6. **This desktop is not the data laptop.** No Theta corpus, no `sim`,
    `corporate_actions` or `edgar` store, and only the tracked AAPL feature
    sample — so `data_processed/theta` resolves under the root but is empty, and
    any Theta-backed work still belongs on the other machine.
-5. **The data frontier is 2026-07-02**, 83 days stale as of this run. Any
+7. **The data frontier is 2026-07-02**, 83 days stale as of this run. Any
    "today" scan needs a refresh first (`docs/DATA_POLICY.md` §5).

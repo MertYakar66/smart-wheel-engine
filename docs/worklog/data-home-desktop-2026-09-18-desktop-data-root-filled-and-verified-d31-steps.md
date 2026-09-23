@@ -267,10 +267,31 @@ any 'requires_data' mention  -> count = 0
 Full log: `$ROOT\fastlane_desktop_2026-09-18.log` (local only — `.log` is in the
 manifest tool's `SKIP_SUFFIXES`, so it never appears as an EXTRA).
 
-The 22 skips are all environmental and named: 6 `SWE_DEEP_TEST_DATA`, 12
-`ThetaTerminal not running on 127.0.0.1:25503`, 1 `SWE_LIVE_PREFLIGHT`, 1 Theta
-option-history larder, 2 deep-IV sentinel. **None** is a `requires_data` /
-"no data root" skip.
+The 22 skips are all environmental and named: **8** gated on
+`SWE_DEEP_TEST_DATA` (5 survivorship-harness, 1 R6-Lehman, 2 deep-IV sentinel),
+12 `ThetaTerminal not running on 127.0.0.1:25503`, 1 `SWE_LIVE_PREFLIGHT`, 1
+Theta option-history larder. **None** is a `requires_data` / "no data root" skip.
+
+**Bonus — the 8 `SWE_DEEP_TEST_DATA` skips are now unnecessary, and running them
+proves the deep slices *functionally*.** That gate wants a directory containing
+`deep/sp500_vol_iv_full__1994_2012.csv.gz` — i.e. a Bloomberg dir — and the root
+now has one. Pointing it at `<root>\data\bloomberg` **for one process only**
+(User and Machine scope deliberately left unset):
+
+```
+SWE_DEEP_TEST_DATA=C:\Users\merty\Desktop\swe-data\data\bloomberg
+sentinel gate file present: True
+tests\test_deep_iv_sentinel.py ..                                        [ 16%]
+tests\test_survivorship_harness.py .........                             [ 91%]
+tests\test_survivorship_r6_lehman.py .                                   [100%]
+======================= 12 passed in 111.99s (0:01:51) ========================
+```
+
+This is the strongest functional evidence in the run for the **deep** group (13
+files, 373 MB): the checksum proof says the bytes are right, and these 12 tests
+say the engine can actually read and reason over them from the root — the
+sentinel-nulling invariant and the survivorship/R6-Lehman proofs all hold. It
+goes beyond the card, changes no persistent state, and is reported as an extra.
 
 Proof the 2 failures are pre-existing and Windows-only:
 
@@ -449,5 +470,11 @@ by design, per `DATA_INVENTORY` §0.
    `corporate_actions` or `edgar` store, and only the tracked AAPL feature
    sample — so `data_processed/theta` resolves under the root but is empty, and
    any Theta-backed work still belongs on the other machine.
-7. **The data frontier is 2026-07-02**, 83 days stale as of this run. Any
+7. **Consider setting `SWE_DEEP_TEST_DATA` at User scope**, now that the root
+   holds the deep slices: `C:\Users\merty\Desktop\swe-data\data\bloomberg`
+   unlocks 8 tests that skip today and that pass here (see Evidence). Left unset
+   deliberately — the card authorised setting `SWE_DATA_ROOT` and no other
+   persistent variable. Worth a one-line decision from the Strategist, since it
+   turns 8 environmental skips into a standing regression gate on the deep data.
+8. **The data frontier is 2026-07-02**, 83 days stale as of this run. Any
    "today" scan needs a refresh first (`docs/DATA_POLICY.md` §5).

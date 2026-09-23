@@ -1858,10 +1858,14 @@ done: the 87 tracked data files left the index without a history rewrite,
 `.gitignore` keeps data out, `tests/test_data_manifest.py::test_git_tracks_no_market_data`
 fails if a data file is tracked again, and CI runs without data (the two per-file
 floors that only held with data were recalibrated to the no-data measurement).
-The data laptop is gone (Operator), so Drive `swe-local-only` is the only other
-copy of the Theta corpus and the feature shards; step 2b brings them down to the
-desktop. Step 6 still waits for the verified full-history bundle and the Drive
-copy of `data_archive/`.
+Step 2b comes from the data laptop, which is available. This was corrected the
+same day: the Operator wrote "the laptop is here not broken", and an earlier
+"not around" had been read as gone. The laptop is the origin of the Theta
+corpus and the feature shards. Drive's July `theta` upload never finished: it
+holds 17,188 of ~132,862 files, 1.245 GiB of ~11 GB. So the laptop's stores
+travel to the desktop on an exFAT drive and are checked against a sha256
+manifest built on the laptop. Step 6 still waits for the verified full-history
+bundle and the Drive copy of `data_archive/`.
 
 ## How to add a decision
 

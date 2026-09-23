@@ -14,6 +14,33 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31)
+
+**Verified** — steps 2–3 ran on the Operator's desktop (#527): the root
+`C:\Users\merty\Desktop\swe-data` holds all 99 manifest files, `check` reads
+`99 ok, 0 missing, 0 mismatched` (confirmed by an independent three-way byte
+audit), the local-only stores moved under it, the engine and the fast lane run
+on it with zero `requires_data` skips.
+
+**Fixed** — the desktop's audit found that `check` vouches only for rows the
+manifest has, and two gaps behind that. `data/DATA_MANIFEST.json` now has 144
+rows (1.74 GB): the 16 tracked `data/features/*/ticker=AAPL/{metadata,stats}.json`
+sidecars (untracking them would have dropped the only copies), and
+`data_archive/` — every distinct data file at the tip of a non-`main` branch that
+no other row carries, 29 files / 313 MB, among them the only MOVE history before
+2004 (from 1988), SKEW (from 1990) and JPMVXYG7 (from 1992)
+(`docs/DATA_INVENTORY.md` §C.2). `scripts/data_manifest.py`: an archive row names
+`git_path`, where `materialize` reads its bytes; the `archive` group;
+`data_archive/` is walked by `build` / `--extra` and ignored by git. Two
+Windows-only test failures fixed (`write_text` CRLF in the manifest fixture; a
+POSIX-only absolute path in the resolver test). New guard: a tracked data file
+without a manifest row fails `tests/test_data_manifest.py`.
+
+**Docs** — `DECISIONS.md` D31 status note (step 5 waits for the desktop's
+144-file line; step 6 also for a verified full-history bundle of every branch and
+Drive copies; new step 2b: the data laptop's stores are not on the desktop);
+`docs/DATA_INVENTORY.md` §A/§B/§C/§C.2; `docs/DATA_POLICY.md` §3/§6.
+
 ## 2026-09-18 — data home: the desktop data root, the checksum manifest, materialize-from-git (D31, steps 1–4)
 
 **Added** — `engine/paths.py`: one resolver for the three data trees (`data/`,

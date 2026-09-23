@@ -1833,8 +1833,23 @@ commit (supersedes the ROADMAP C1 "keep tracking" policy of 2026-05-30,
 **Pinned by:** `tests/test_data_paths.py` (resolve semantics, overrides, unset
 = legacy), `tests/test_data_manifest.py` (build / check / census / materialize
 contracts, ledger carry-over, the committed manifest covers the git-held
-datasets), `engine/paths.py`, `.github/workflows/ci.yml` (the fast lane runs
-with no data root), `data/DATA_MANIFEST.json`.
+datasets and has a row for every tracked data file), `engine/paths.py`,
+`.github/workflows/ci.yml` (the fast lane runs with no data root),
+`data/DATA_MANIFEST.json`.
+
+**Status 2026-09-23.** Steps 2–3 ran on the desktop (#527): `C:\Users\merty\Desktop\swe-data`,
+`checked 99 manifest files: 99 ok, 0 missing, 0 mismatched`, the engine and the
+fast lane on the root. Its audit found that `check` vouches only for rows the
+manifest has, and two gaps behind that: 16 tracked feature sidecars without a
+row, and data that only the non-`main` branches held (pre-2004 MOVE / SKEW /
+JPMVXYG7 history among it). The manifest now has 144 rows: the sidecars, and
+`data_archive/` — every distinct data file at a non-`main` branch tip that no
+other row carries (`docs/DATA_INVENTORY.md` §C.2). Step 5 waits for the
+desktop's 144-file line. Step 6 additionally waits for a verified full-history
+bundle of every branch on the desktop and for Drive copies of the ticks, the
+archive and the bundle (`rclone check` clean). Step 2b is new: the data
+laptop's local-only stores (the Theta corpus, the feature shards, `sim`,
+`corporate_actions`, `edgar`) are not on the desktop yet.
 
 ## How to add a decision
 

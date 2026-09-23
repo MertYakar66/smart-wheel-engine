@@ -8,8 +8,9 @@ exact bytes, this census for structure and coverage._
 
 > **Companion machine file:** [`data/DATA_MANIFEST.json`](../data/DATA_MANIFEST.json)
 > — every dataset the engine owns: path · size · sha256 · dataset group · the git
-> object it was first taken from (99 files, 1.43 GB, generated 2026-09-18 from the
-> git objects themselves). `python scripts/data_manifest.py check --root <root>`
+> object it was first taken from (144 files, 1.74 GB: generated 2026-09-18 from the
+> git objects themselves, completed 2026-09-23 with the 16 feature sidecars and the
+> `data_archive/` branch archive, §C.2). `python scripts/data_manifest.py check --root <root>`
 > proves a root complete (exit 1 on any missing or altered byte); `materialize`
 > fills a root from git; `census` shows presence by group; `build` regenerates the
 > manifest after a refresh.
@@ -25,23 +26,28 @@ data root (`engine/paths.py` re-roots `data/`, `data_raw/`, `data_processed/`
 under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY.md`
 §6). The campaign runs in verified steps:
 
-| Step | What | Status (2026-09-18) |
+| Step | What | Status (2026-09-23) |
 |---|---|---|
-| 1 | Manifest of everything GitHub holds | **done** — `data/DATA_MANIFEST.json` (99 files / 1.43 GB, from the git objects) |
-| 2 | Bring the git-only datasets (13 deep slices, 15 tick files) onto the desktop | tool ready (`materialize`, proven byte-exact in the sandbox) — **operator runs it** (§B) |
-| 3 | Verify the desktop root by checksum | tool ready (`check`) — **operator runs it** (§B) and reports the result line |
+| 1 | Manifest of everything GitHub holds | **done** — 99 files at ruling time; **144 files / 1.74 GB** since 2026-09-23, after the desktop audit (#527) found two gaps: the 16 tracked feature sidecars (`data/features/*/ticker=AAPL/{metadata,stats}.json`) and the data that exists only on non-`main` branches (the 29-file archive, §C.2). `tests/test_data_manifest.py` now fails if any tracked data file lacks a row |
+| 2 | Bring the git-held datasets onto the desktop | **done for the first 99** — `C:\Users\merty\Desktop\swe-data`, 2026-09-23 (#527); the 45 new rows are one `materialize` away (§B) |
+| 3 | Verify the desktop root by checksum | **done for 99** — `checked 99 manifest files: 99 ok, 0 missing, 0 mismatched`, confirmed by an independent three-way byte audit (#527); next: `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` |
 | 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
-| 5 | Untrack the data from git (no history rewrite) | **held** until step 3 passes on the desktop; its PR must also settle the CI per-file coverage floors, which fail without data for `engine/data_connector.py` (82.5% vs 88) and `engine/wheel_runner.py` (76.8% vs 77) while the aggregate holds (83.3% vs 80) |
-| 6 | Delete `deep-history/bloomberg-raw` and `claude/daybot-bloomberg-pull`, close #507 | after 5, and after the ticks have a Drive copy |
+| 5 | Untrack the data from git (no history rewrite) | **held** until the desktop reports the 144-file line; its PR must also settle the CI per-file coverage floors, which fail without data for `engine/data_connector.py` (82.5% vs 88) and `engine/wheel_runner.py` (76.8% vs 77) while the aggregate holds (83.3% vs 80) |
+| 6 | Delete the four non-`main` branches, close #507 | **held** until (a) the desktop's 144-file line; (b) a full-history git bundle of every branch sits on the desktop, verified (`git bundle verify`; its heads equal `git ls-remote`) — the only copy of 36 superseded file versions (603 MB) on `deep-history/bloomberg-raw` and of the branches' scripts and docs; (c) Drive holds the ticks, `data_archive/` and the bundle, `rclone check` clean — blocked on the Operator's `rclone config reconnect gdrive:` (an interactive browser step) |
+| 2b | The data laptop's local-only stores onto the desktop | **open** — the desktop is not the data laptop (#527): the Theta corpus (~11 GB), the feature shards, `sim`, `corporate_actions`, `edgar` and the laptop's fuller `option_premium` / `ibkr` are not on it. D31 wants every dataset on the desktop; needs the Operator (§C, Tier C) |
 
 ## §B. Fill and verify the desktop root (once)
 
 ```powershell
-git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull
+git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull backup/drive-tier-c-2026-07-22 data/drive-migration
 python scripts/data_manifest.py materialize --root D:\swe-data   # creates only what is missing; verifies every byte; never overwrites
-python scripts/data_manifest.py check --root D:\swe-data         # expect: checked 99 manifest files: 99 ok, 0 missing, 0 mismatched
+python scripts/data_manifest.py check --root D:\swe-data         # expect: checked 144 manifest files: 144 ok, 0 missing, 0 mismatched
 python scripts/data_manifest.py census --root D:\swe-data        # presence by dataset group
 ```
+
+`materialize` is safe to re-run after the manifest grows: files already present
+and byte-identical are counted, only the new rows are written (on the desktop,
+2026-09-23: `144 manifest files: 99 already present, wrote 45`).
 
 Then move or copy the local-only stores (§C, Tier C) under the root and set
 `SWE_DATA_ROOT` for the account (`docs/DATA_POLICY.md` §6). Pull the untracking
@@ -53,9 +59,10 @@ commit only after that.
 |---|---|---|---|---|
 | **A — served** | 10 `_FILES` monoliths + `broad_pull/` panels — 49 files, 562 MB | `data/bloomberg/` | tracked on `main` until step 5 | Drive `data/bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`): 48/48 sha256-verified 2026-07-21, sizes re-matched 2026-09-18 |
 | **B — deep** | 13 gz slices, 1994→2026 + delisted — 373 MB (§2) | `data/bloomberg/deep/` | branch `deep-history/bloomberg-raw` @ `68a48b2` only (gitignored on `main`) | Drive `deep` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`): 13/13 present, byte-exact sizes 2026-09-18 |
-| **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only — **the only copy anywhere** | **none yet** — upload to Drive before the branch is deleted |
-| **A′ — small tracked** | `data/features` AAPL sample (10 files), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | tracked on `main` until step 5 | Drive `swe-local-only/` (§C.1) |
-| **C — local-only** | Theta corpus (~11 GB), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded), sim | `data_processed/**`, `data/features/**` | never | Drive `swe-local-only/` (§C.1) — `theta` upload unverified |
+| **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only | the desktop root (verified 2026-09-23, #527); **no Drive copy yet** — blocked on the rclone re-auth; the branch stays until Drive has one |
+| **A′ — small tracked** | `data/features` AAPL sample (26 files: 10 parquet + the 16 `metadata.json` / `stats.json` sidecars `FeatureStore` reads), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | tracked on `main` until step 5 | Drive `swe-local-only/` (§C.1) |
+| **R — branch archive** | every distinct data file at the tip of a non-`main` branch that no other row carries — 29 files, {tot/1e6:.1f} MB (§C.2); read by no code | `data_archive/<branch>/<path>` | the four non-`main` branches only | none yet — Drive after the rclone re-auth |
+| **C — local-only** | Theta corpus (~11 GB), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded), sim | `data_processed/**`, `data/features/**` | never | Drive `swe-local-only/` (§C.1) — `theta` upload unverified. **On the desktop root** (moved 2026-09-23, #527): `option_premium` (15 files), `validation` (23), `ibkr` (5), `vol_indices*.parquet`, loose `*.json` — 50 files, 219 MB. **Only on the data laptop:** the Theta corpus, the feature shards, `sim`, `corporate_actions`, `edgar`, and the laptop's fuller `option_premium` (155 files) and `ibkr` (19) |
 
 ### §C.1 — `swe-local-only/` Tier-C backup record (root `1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`)
 
@@ -82,6 +89,59 @@ independent). Backed up / verified **2026-07-22**.
 
 **Skipped (stated):** `data_processed/sim/` (regenerable paper-book outputs), `data_processed/.gitkeep` (empty marker).
 **Absent on this laptop:** `financial_news/storage/sentiment.sqlite` (news-sentiment store — `financial_news/` holds only source code, no DB), `data_processed/{news_sentiment,corporate_actions,edgar}` (not present), `SWE_DEL_OUT`/`SWE_OUT_PATH` off-tree scratch (Windows defaults, absent on macOS).
+
+### §C.2 — `data_archive/`: what only the other branches held (2026-09-23)
+
+The desktop's audit (#527) showed that `check` can only vouch for rows the manifest
+has, and that `deep-history/bloomberg-raw` carried data `main` never had. The rule
+that closes it needs no judgement: **every distinct data file (by sha256) at the
+tip of a non-`main` branch that no other manifest row carries gets a row**, at
+`data_archive/<branch>/<the path it had in git>` with `git_path` naming that git
+path. `materialize` writes them like any other row; nothing reads them. With them,
+a root that passes `check` holds every data file any branch tip carried, so deleting
+a branch cannot lose a dataset. 29 files, 312,846,180 bytes:
+
+| Archive path (under `data_archive/`) | Bytes | Note |
+|---|---:|---|
+| `backup-drive-tier-c-2026-07-22/data/data_manifest.json` | 26,468 | the #507 draft's own manifest |
+| `claude-daybot-bloomberg-pull/data/bloomberg/sp500_corporate_actions.csv` | 2,622,980 | an earlier or later version than `main`'s |
+| `claude-daybot-bloomberg-pull/data/bloomberg/sp500_vol_iv_full.csv` | 62,135,640 | an older, longer monolith; its pre-2018 tail also lives in the `deep` slices |
+| `claude-daybot-bloomberg-pull/data/bloomberg/treasury_yields.csv` | 491,813 | an earlier or later version than `main`'s |
+| `data-drive-migration/data/data_manifest.json` | 24,890 | the #507 draft's own manifest |
+| `deep-history-bloomberg-raw/data/bloomberg/rates_fx_vol.csv` | 583,872 | **MOVE from 1988-04-04, JPMVXYG7 from 1992-06-01** (no `broad_pull` column), CVIX from 2001 |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_analyst.csv` | 34,223 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_corporate_actions.csv` | 873,011 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_credit_risk.csv` | 21,401 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_dividends.csv` | 3,969,517 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_fundamentals.csv` | 108,585 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_historical_fundamentals.csv` | 1,361,430 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_index_membership.csv` | 981,797 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_institutional.csv` | 23,534 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_iv_history.csv` | 20 | the 20-byte stub D28 retired |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_iv_snapshot_today.csv` | 24,904 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_liquidity.csv` | 70,365,248 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_macro.csv` | 798,230 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_macro_calendar.csv` | 16,448 | older schema, likely superseded by `broad_pull/macro_calendar` |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_ohlcv.csv` | 62,443,071 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_sector_etfs.csv` | 1,569,197 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_short_interest.csv` | 2,427,311 | carries `short_interest_pct_float` / `float_pct` / `shares_out`, entitlement-blocked in the broad pull (§6E) |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_vix_full.csv` | 394,626 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/sp500_vol_iv_full.csv` | 99,119,562 | an older, longer monolith; its pre-2018 tail also lives in the `deep` slices |
+| `deep-history-bloomberg-raw/data/bloomberg/spx_correlation.csv` | 352,416 | superseded (same start as `broad_pull`) |
+| `deep-history-bloomberg-raw/data/bloomberg/treasury_yields.csv` | 105,769 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/vix_futures_curve.csv` | 790,646 | UX1–UX7 from **2004-03-26** (`broad_pull` 2006) |
+| `deep-history-bloomberg-raw/data/bloomberg/vix_term_structure.csv` | 235,865 | an earlier or later version than `main`'s |
+| `deep-history-bloomberg-raw/data/bloomberg/vol_indices.csv` | 943,706 | **SKEW from 1990-01-02**, VXN from 2001 (`broad_pull` starts 2004) |
+
+**What the archive does not hold, and what does.** Older *versions* inside a
+branch's history — 36 superseded file versions (603 MB) on
+`deep-history/bloomberg-raw`, mostly the deep slices at earlier stages of the
+June pull — plus the branches' scripts and docs (the day-bot's `pull_ticks.py`,
+`pull_bars.py`, `pull_events.py`, `DAYBOT_PULL_MANIFEST.md`; the June session
+transcripts). Those live only in git history, so before any branch is deleted the
+desktop writes a full-history bundle of every branch
+(`data_archive/git/<name>.bundle`, `git bundle verify` clean, its heads equal to
+`git ls-remote`) and Drive gets a copy (§A step 6).
 
 ---
 

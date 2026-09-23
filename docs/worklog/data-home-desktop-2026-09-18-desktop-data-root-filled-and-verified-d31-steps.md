@@ -7,8 +7,8 @@ terminal: desktop
 pr:
 decisions: [D31]
 date: 2026-09-23
-headline: desktop root filled and proved 144 ok / 0 missing / 0 mismatched (99 pre-#528); engine reads it; fast lane 3192 passed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files)
-surface: [data/DATA_MANIFEST.json, scripts/data_manifest.py, engine/paths.py, docs/DATA_INVENTORY.md, docs/DATA_POLICY.md]
+headline: desktop root filled and proved 144 ok / 0 missing / 0 mismatched; fast lane 3196 passed / 0 failed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files); both manifest gaps closed
+surface: [data/DATA_MANIFEST.json, scripts/data_manifest.py, engine/paths.py, tests/test_data_manifest.py, docs/DATA_INVENTORY.md, docs/DATA_POLICY.md]
 ---
 
 ## Goal
@@ -549,7 +549,33 @@ Fix is one line — make the second write match the first:
 )
 ```
 
-Not applied here: `tests/` is outside this card's `owns`.
+**Applied**, on the Operator's explicit instruction (the original card's `owns`
+was docs-only; this was authorised separately after #527 merged). It restores
+the test's own intent rather than papering over the platform difference — the
+assertion two lines below it, `# same-size content change is caught by the hash,
+not the size`, only holds if both writes produce the same byte count on every
+platform. After the fix:
+
+```
+tests\test_data_manifest.py tests\test_data_paths.py
+============================= 18 passed in 2.25s ==============================
+ruff check  -> All checks passed!
+ruff format -> 1 file already formatted
+```
+
+All three Windows-only failures this card surfaced are now closed, and the full
+fast lane is clean on this desktop for the first time:
+
+```
+python -m pytest tests/ -m "not backtest_regression" -q -p no:cacheprovider -rs
+= 3196 passed, 22 skipped, 8 deselected, 20 xfailed, 171 warnings in 467.67s (0:07:47) =
+PYTEST_EXIT=0
+```
+
+`0` lines matching `^FAILED`, and `0` matching `requires_data` — so the
+data-backed tests ran against the root rather than skipping, as before. 3196 vs
+the earlier 3192 is the tests #528 added. Log:
+`<root>astlane_desktop_2026-09-23_post528.log`.
 
 ## Unresolved / handoff
 
@@ -592,12 +618,14 @@ Not applied here: `tests/` is outside this card's `owns`.
      `ticks` child is `1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`, 15 files,
      490,719,019 B, `rclone check --checksum --one-way` clean 2026-09-23.
      Outside this card's `owns`, so flagged rather than fixed.
-4. **The two Windows-only test failures are FIXED by #528; a third appeared
-   from the same cause.** `test_check_flags_missing_and_altered` still writes
-   the altered file with `write_text` (38 B on Windows) while `_make_root` now
-   uses `write_bytes` (36 B), so `check` reports a size mismatch before reaching
-   the hash — defeating that test's own stated intent. One-line fix in the
-   Addendum. Linux CI stays green, so CI cannot catch it.
+4. **All three Windows-only test failures are now CLOSED.** #528 fixed the two
+   this card first reported; it missed one site, leaving
+   `test_check_flags_missing_and_altered` red on Windows (the altered-file write
+   was still `write_text`, 38 B, against a 36 B manifest, so `check` reported a
+   size mismatch before reaching the hash). That one-line fix is included here
+   on the Operator's instruction. Standing risk: Linux CI is green either way,
+   so this whole class of defect is invisible to CI and only shows on a Windows
+   run — worth a periodic local full-lane run, not just a CI check.
 5. **The "SWE IBKR Morning Pull" scheduled task now writes to a path this run
    emptied — Dashboard terminal, please re-point it.** The task (07:30 ET, backed
    by the separate `C:\Users\merty\swe-ops` clone) runs

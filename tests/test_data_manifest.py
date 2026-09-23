@@ -77,8 +77,8 @@ def test_check_flags_missing_and_altered(tmp_path, capsys):
     out = tmp_path / "m.json"
     dm.main(["build", "--root", str(root), "--out", str(out)])
     (root / "data_raw" / "bloomberg" / "ticks" / "SPY_ticks.csv.gz").unlink()
-    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_text(
-        "date,ticker,close\n2026-01-02,AAPL,2\n"
+    (root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_bytes(
+        b"date,ticker,close\n2026-01-02,AAPL,2\n"
     )
     rc = dm.main(["check", "--root", str(root), "--manifest", str(out)])
     text = capsys.readouterr().out

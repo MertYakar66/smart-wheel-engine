@@ -7,7 +7,7 @@ terminal: desktop
 pr:
 decisions: [D31]
 date: 2026-09-23
-headline: desktop root filled from git and proved 99 ok / 0 missing / 0 mismatched; engine reads it; fast lane 3192 passed with 0 requires_data skips
+headline: desktop root filled from git and proved 99 ok / 0 missing / 0 mismatched; engine reads it; fast lane 3192 passed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files)
 surface: [data/DATA_MANIFEST.json, scripts/data_manifest.py, engine/paths.py, docs/DATA_INVENTORY.md, docs/DATA_POLICY.md]
 ---
 
@@ -50,6 +50,11 @@ step 9 (Drive backup); both are written up below.
 5. **The §9.4 smoke and the fast lane ran against the root**, with **zero**
    `requires_data` skips — the data-backed tests executed rather than skipping,
    which is the point of the root.
+6. **Step 9, on the second attempt.** After the Operator approved the OAuth
+   consent, the 15 day-bot tick files were copied to `swe-local-only/ticks` and
+   verified `0 differences found · 15 matching files`. This is the first backup
+   those 491 MB have ever had, and it retires the "only copy anywhere" status
+   that `DATA_INVENTORY.md` §C row B′ records for them.
 
 ## What didn't
 
@@ -87,11 +92,16 @@ of `data/bloomberg/sp500_ohlcv.csv` hashes **identically** to the manifest
 objects, and `materialize` streams raw blob bytes, so the two agree by
 construction.
 
-**Step 9 (Drive backup of the ticks) is BLOCKED, not skipped.** `rclone` is
-installed (v1.74.4) and a `gdrive:` remote exists, but its OAuth token has
-expired; the fix is an interactive browser re-auth, which this run cannot do.
-The day-bot ticks (491 MB, `data_raw/bloomberg/ticks/`) therefore still have
-**no copy anywhere but the branch and this desktop** — D31 step 6 stays blocked.
+**Step 9 (Drive backup of the ticks) was BLOCKED, then unblocked by the Operator
+and COMPLETED.** First attempt failed: `rclone` v1.74.4 is installed and a
+`gdrive:` remote exists, but its OAuth token returned `invalid_grant` and the
+remedy — `rclone config reconnect gdrive:` — is an interactive browser consent
+an agent cannot give. The Operator authorised the re-auth and approved the
+consent screen in the browser; the flow then ran from this session and the copy
+and its verification completed. **The day-bot ticks now have a second,
+checksum-verified copy** (evidence below), which removes the *ticks* half of the
+D31 step-6 precondition. Gap B (the deep branch's unique files) still blocks
+step 6.
 
 **Not moved in step 6, with reasons** — the card lists these; they are absent,
 or moving them would have broken an invariant:
@@ -315,7 +325,9 @@ parts: ('\\', 'abs', 'ibkr')
 root.joinpath(*parts) -> C:\abs\ibkr
 ```
 
-**Step 9 — Drive backup of the ticks: BLOCKED**
+**Step 9 — Drive backup of the ticks: first BLOCKED, then DONE**
+
+First attempt, before the re-auth:
 
 ```
 rclone v1.74.4
@@ -328,8 +340,53 @@ ERROR : error listing: couldn't list directory: ... couldn't fetch token:
 invalid_grant: maybe token expired? - try refreshing with "rclone config reconnect gdrive{...}:"
 ```
 
-Not retried — the failure is a deterministic credential expiry, and the remedy
-(`rclone config reconnect gdrive:`) is an interactive browser OAuth.
+Not retried at the time — a deterministic credential expiry whose remedy is an
+interactive browser OAuth. The Operator then authorised the reconnect and
+approved the consent screen. `rclone.conf` was backed up first
+(`rclone.conf.bak-2026-09-23-preauth`, 684 B) so the step was reversible.
+
+```
+2026/09/23 10:13:05 NOTICE: Waiting for code...
+2026/09/23 10:35:31 NOTICE: Got code
+```
+
+Token replaced — `rclone.conf` sha256 `9518CEE6…` → `5AF7596D…` (the file is the
+same 684 bytes, so size alone would have been a false negative; the hash is the
+proof). The remote then worked, listing the nine `swe-local-only` children whose
+IDs match the §C.1 record exactly. A tenth was created:
+
+```
+rclone mkdir gdrive:ticks --drive-root-folder-id 1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn
+ticks   1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop
+```
+
+Copy (explicit-ID addressing, empty remote path — the §C.1 pattern):
+
+```
+2026/09/23 10:41:20 INFO  : SPY_ticks_2026-06-17.csv.gz: Copied (new)
+2026/09/23 10:41:20 INFO  :   467.986 MiB / 467.986 MiB, 100%, 1.509 MiB/s, ETA 0s
+copy EXIT=0
+
+rclone size gdrive: --drive-root-folder-id 1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop
+Total objects: 15
+Total size: 467.986 MiB (490719019 Byte)
+```
+
+490,719,019 B is byte-exact against the manifest's `ticks` group total. Proof:
+
+```
+rclone check <root>\data_raw\bloomberg\ticks gdrive: \
+  --drive-root-folder-id 1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop --checksum --one-way
+2026/09/23 10:41:37 NOTICE: Google drive root '': 0 differences found
+2026/09/23 10:41:37 NOTICE: Google drive root '': 15 matching files
+EXIT=0
+```
+
+This is Drive-vs-local **MD5** identity — independent of the manifest's sha256,
+exactly as §C.1 notes of the other Tier-C rows. Uplink measured ~1.5 MiB/s, far
+better than the ~1 Mbps the 2026-07-22 record assumed. **Row B′ of
+`DATA_INVENTORY.md` §C ("Backup: none yet") and the §C.1 table are now stale and
+need a `ticks` row — flagged, not edited: both are outside this card's `owns`.**
 
 **Independent verification (the circle broken).** `materialize` wrote the files
 and `check` verified them against the *same* manifest, so the proof is circular
@@ -438,16 +495,22 @@ by design, per `DATA_INVENTORY` §0.
    metadata/stats silently become `None` on the root. A `build` against a root
    that contains them regenerates the rows; the underlying cause is that the
    manifest was generated from a tree that did not carry them.
-3. **D31 step 6 now has two blockers.**
-   - *Ticks:* the 491 MB of day-bot ticks still have no backup outside
-     `claude/daybot-bloomberg-pull` and this desktop. The Operator must run
-     `rclone config reconnect gdrive:` (interactive) before they can be copied
-     to `swe-local-only` (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`).
-   - *Deep branch (Gap B):* `origin/deep-history/bloomberg-raw` holds six data
-     files that exist nowhere else, three of them carrying history no
-     `broad_pull` panel has (MOVE 1988, SKEW 1990, JPMVXYG7 1992). They must be
-     manifested and materialized — or consciously written off — before that
-     branch is deleted. **Deleting it today is irreversible data loss.**
+3. **D31 step 6 had two blockers; one is now cleared.**
+   - *Ticks — CLEARED.* The 15 day-bot tick files (490,719,019 B) are copied to
+     `swe-local-only/ticks` (`1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`) and verified
+     `0 differences found · 15 matching files`. `claude/daybot-bloomberg-pull`
+     is no longer the only copy: the files now exist on the branch, on this
+     desktop's root, and on Drive.
+   - *Deep branch (Gap B) — STILL BLOCKING.* `origin/deep-history/bloomberg-raw`
+     holds six data files that exist nowhere else, three of them carrying
+     history no `broad_pull` panel has (MOVE 1988, SKEW 1990, JPMVXYG7 1992).
+     They must be manifested and materialized — or consciously written off —
+     before that branch is deleted. **Deleting it today is irreversible data
+     loss.** Note this applies to the *deep* branch only; on the evidence above,
+     `claude/daybot-bloomberg-pull` is now safe to delete.
+   - *Doc follow-up:* `DATA_INVENTORY.md` §C row B′ still says the ticks have no
+     backup, and §C.1's table has no `ticks` row. Both are now wrong. Outside
+     this card's `owns`, so flagged rather than fixed.
 4. **Two Windows-only test failures** are open upstream, in files this card does
    not own. They do not affect CI. Fixes proposed above.
 5. **The "SWE IBKR Morning Pull" scheduled task now writes to a path this run
